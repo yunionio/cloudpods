@@ -521,8 +521,11 @@ func (manager *SWireManager) totalCountQ(
 	providers []string, brands []string, cloudEnv string,
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
+	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
-	guestsQ := filterByScopeOwnerId(GuestManager.Query(), scope, ownerId, false)
+	guestsQ := GuestManager.Query()
+	guestsQ = filterByScopeOwnerId(guestsQ, scope, ownerId, false)
+	guestsQ = db.ObjectIdQueryWithPolicyResult(guestsQ, GuestManager, policyResult)
 	guests := guestsQ.SubQuery()
 
 	// hosts no filter, for guest networks
@@ -540,6 +543,7 @@ func (manager *SWireManager) totalCountQ(
 
 	// hosts filter by owner, for host networks
 	hostsQ2 := HostManager.Query()
+	hostsQ2 = db.ObjectIdQueryWithPolicyResult(hostsQ2, HostManager, policyResult)
 	hostsQ2 = filterByScopeOwnerId(hostsQ2, scope, ownerId, true)
 	if len(hostTypes) > 0 {
 		hostsQ2 = hostsQ2.In("host_type", hostTypes)
@@ -552,9 +556,14 @@ func (manager *SWireManager) totalCountQ(
 	}
 	hosts2 := hostsQ2.SubQuery()
 
-	groups := filterByScopeOwnerId(GroupManager.Query(), scope, ownerId, false).SubQuery()
+	groupsQ := GroupManager.Query()
+	groupsQ = db.ObjectIdQueryWithPolicyResult(groupsQ, GroupManager, policyResult)
+	groupsQ = filterByScopeOwnerId(groupsQ, scope, ownerId, false)
+	groups := groupsQ.SubQuery()
 
-	lbsQ := filterByScopeOwnerId(LoadbalancerManager.Query(), scope, ownerId, false)
+	lbsQ := LoadbalancerManager.Query()
+	lbsQ = db.ObjectIdQueryWithPolicyResult(lbsQ, LoadbalancerManager, policyResult)
+	lbsQ = filterByScopeOwnerId(lbsQ, scope, ownerId, false)
 	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		lbsQ = CloudProviderFilter(lbsQ, lbsQ.Field("manager_id"), providers, brands, cloudEnv)
 	}
@@ -563,7 +572,9 @@ func (manager *SWireManager) totalCountQ(
 	}
 	lbs := lbsQ.SubQuery()
 
-	dbsQ := filterByScopeOwnerId(DBInstanceManager.Query(), scope, ownerId, false)
+	dbsQ := DBInstanceManager.Query()
+	dbsQ = db.ObjectIdQueryWithPolicyResult(dbsQ, DBInstanceManager, policyResult)
+	dbsQ = filterByScopeOwnerId(dbsQ, scope, ownerId, false)
 	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		dbsQ = CloudProviderFilter(dbsQ, dbsQ.Field("manager_id"), providers, brands, cloudEnv)
 	}
@@ -606,6 +617,7 @@ func (manager *SWireManager) totalCountQ(
 	lbNicQ = lbNicQ.Filter(sqlchemy.IsFalse(lbs.Field("pending_deleted")))
 
 	eipNicsQ := ElasticipManager.Query().IsNotEmpty("network_id")
+	eipNicsQ = db.ObjectIdQueryWithPolicyResult(eipNicsQ, ElasticipManager, policyResult)
 	eipNics := filterByScopeOwnerId(eipNicsQ, scope, ownerId, false).SubQuery()
 	eipNicQ := eipNics.Query(
 		eipNics.Field("network_id"),
@@ -619,6 +631,7 @@ func (manager *SWireManager) totalCountQ(
 	}
 
 	netifsQ := NetworkInterfaceManager.Query()
+	netifsQ = db.ObjectIdQueryWithPolicyResult(netifsQ, NetworkInterfaceManager, policyResult)
 	netifsQ = filterByScopeOwnerId(netifsQ, scope, ownerId, true)
 	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		netifsQ = CloudProviderFilter(netifsQ, netifsQ.Field("manager_id"), providers, brands, cloudEnv)
@@ -678,6 +691,7 @@ func (manager *SWireManager) totalCountQ2(
 	providers []string, brands []string, cloudEnv string,
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
+	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
 	revIps := filterExpiredReservedIps(ReservedipManager.Query()).SubQuery()
 	revQ := revIps.Query(
@@ -687,7 +701,9 @@ func (manager *SWireManager) totalCountQ2(
 
 	revSQ := revQ.GroupBy(revIps.Field("network_id")).SubQuery()
 
-	ownerNetworks := filterByScopeOwnerId(NetworkManager.Query(), scope, ownerId, false).SubQuery()
+	ownerNetQ1 := NetworkManager.Query()
+	ownerNetQ1 = db.ObjectIdQueryWithPolicyResult(ownerNetQ1, NetworkManager, policyResult)
+	ownerNetworks := filterByScopeOwnerId(ownerNetQ1, scope, ownerId, false).SubQuery()
 	ownerNetQ := ownerNetworks.Query(
 		ownerNetworks.Field("wire_id"),
 		sqlchemy.COUNT("id").Label("net_count"),
@@ -712,7 +728,10 @@ func (manager *SWireManager) totalCountQ3(
 	providers []string, brands []string, cloudEnv string,
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
+	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
+	wiresQ := WireManager.Query()
+	wiresQ = db.ObjectIdQueryWithPolicyResult(wiresQ, WireManager, policyResult)
 	wires := filterByScopeOwnerId(WireManager.Query(), scope, ownerId, true).SubQuery()
 	q := wires.Query(
 		sqlchemy.COUNT("id").Label("wires_count"),
@@ -770,6 +789,7 @@ func (manager *SWireManager) TotalCount(
 	providers []string, brands []string, cloudEnv string,
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
+	policyResult rbacutils.SPolicyResult,
 ) WiresCountStat {
 	vmwareP, hostProviders := fixVmwareProvider(providers)
 	vmwareB, hostBrands := fixVmwareProvider(brands)
@@ -804,6 +824,7 @@ func (manager *SWireManager) TotalCount(
 		hostTypes, hostProviders, hostBrands,
 		providers, brands, cloudEnv,
 		scope, ownerId,
+		policyResult,
 	).First(&stat)
 	if err != nil {
 		log.Errorf("Wire total count: %v", err)
@@ -813,6 +834,7 @@ func (manager *SWireManager) TotalCount(
 		hostTypes,
 		providers, brands, cloudEnv,
 		scope, ownerId,
+		policyResult,
 	).First(&stat)
 	if err != nil {
 		log.Errorf("Wire total count 2: %v", err)
@@ -822,6 +844,7 @@ func (manager *SWireManager) TotalCount(
 		hostTypes,
 		providers, brands, cloudEnv,
 		scope, ownerId,
+		policyResult,
 	).First(&stat)
 	if err != nil {
 		log.Errorf("Wire total count 2: %v", err)
