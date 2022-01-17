@@ -19,6 +19,7 @@ import "yunion.io/x/jsonutils"
 type InterVpcNetworkRouteListOptions struct {
 	BaseListOptions
 	InterVpcNetworkId string
+	Cidr              string
 }
 
 func (opts *InterVpcNetworkRouteListOptions) Params() (jsonutils.JSONObject, error) {

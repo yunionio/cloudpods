@@ -73,4 +73,5 @@ type RouteTableRouteSetListInput struct {
 	Type        string `json:"type"`
 	NextHopType string `json:"next_hop_type"`
 	NextHopId   string `json:"next_hop_id"`
+	Cidr        string `json:"cidr"`
 }
