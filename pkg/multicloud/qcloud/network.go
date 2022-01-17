@@ -111,6 +111,10 @@ func (self *SNetwork) GetAllocTimeoutSeconds() int {
 	return 120 // 2 minutes
 }
 
+func (self *SNetwork) SetTags(tags map[string]string, replace bool) error {
+	return self.wire.vpc.region.SetResourceTags("vpc", "subnet", []string{self.SubnetId}, tags, replace)
+}
+
 func (self *SNetwork) GetGateway() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255

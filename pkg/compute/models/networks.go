@@ -731,7 +731,7 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 		})
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, self, extNet)
+	//syncVirtualResourceMetadata(ctx, userCred, self, extNet)
 	SyncCloudProject(userCred, self, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {

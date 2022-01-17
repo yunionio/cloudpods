@@ -552,7 +552,7 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 
-	syncMetadata(ctx, userCred, self, extVPC)
+	//syncMetadata(ctx, userCred, self, extVPC)
 
 	if provider != nil {
 		SyncCloudDomain(userCred, self, provider.GetOwnerId())
