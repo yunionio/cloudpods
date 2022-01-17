@@ -1324,8 +1324,10 @@ func (man *SLoadbalancerManager) TotalCount(
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	providers []string, brands []string, cloudEnv string,
+	policyResult rbacutils.SPolicyResult,
 ) (int, error) {
 	q := man.Query()
+	q = db.ObjectIdQueryWithPolicyResult(q, man, policyResult)
 	q = scopeOwnerIdFilter(q, scope, ownerId)
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 	q = RangeObjectsFilter(q, rangeObjs, nil, q.Field("zone_id"), q.Field("manager_id"), nil, nil)

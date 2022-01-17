@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/models"
@@ -36,8 +37,14 @@ func AddUsageHandler(prefix string, app *appsrv.Application) {
 }
 
 func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	// _, query, _ := appsrv.FetchEnv(ctx, w, r)
+	_, query, _ := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+
+	_, _, err, result := db.FetchUsageOwnerScope(ctx, userCred, query)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
 
 	isAdmin := false
 	if policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(),
@@ -48,25 +55,20 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	var adminUsage map[string]int
 	// var projectUsage map[string]int64
 	if isAdmin {
-		adminUsage = models.Usage()
+		adminUsage = models.Usage(result)
 	}
 
-	/* isProject := false
-	if consts.IsRbacEnabled() {
-		if policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
-			"usages", policy.PolicyActionGet) == rbacutils.Deny {
-			isProject = false
-		} else {
-			isProject = true
-		}
+	/*isProject := false
+	if policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
+		"usages", policy.PolicyActionGet) == rbacutils.Deny {
+		isProject = false
 	} else {
 		isProject = true
 	}
 
 	if isProject {
 		projectUsage = models.Usage(userCred.GetProjectId(), "")
-	}
-	*/
+	}*/
 
 	// if !isAdmin && !isProject {
 	if !isAdmin {
@@ -76,7 +78,7 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 	usages := jsonutils.NewDict()
 	// if isProject {
-	// 	usages.Update(jsonutils.Marshal(projectUsage))
+	//	usages.Update(jsonutils.Marshal(projectUsage))
 	// }
 
 	if isAdmin {

@@ -1688,8 +1688,10 @@ func (man *SElasticcacheManager) TotalCount(
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	providers []string, brands []string, cloudEnv string,
+	policyResult rbacutils.SPolicyResult,
 ) (int, error) {
 	q := man.Query()
+	q = db.ObjectIdQueryWithPolicyResult(q, man, policyResult)
 	vpcs := VpcManager.Query().SubQuery()
 	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
 	q = scopeOwnerIdFilter(q, scope, ownerId)

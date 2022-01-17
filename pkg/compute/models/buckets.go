@@ -1705,9 +1705,12 @@ type SBucketUsages struct {
 	Bytes   int64
 }
 
-func (manager *SBucketManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) SBucketUsages {
+func (manager *SBucketManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) SBucketUsages {
 	usage := SBucketUsages{}
-	buckets := manager.Query().SubQuery()
+	bq := manager.Query()
+	bq = db.ObjectIdQueryWithPolicyResult(bq, manager, policyResult)
+	bq = scopeOwnerIdFilter(bq, scope, ownerId)
+	buckets := bq.SubQuery()
 	bucketsQ := buckets.Query(
 		sqlchemy.NewFunction(
 			sqlchemy.NewCase().When(
@@ -1725,7 +1728,6 @@ func (manager *SBucketManager) TotalCount(scope rbacutils.TRbacScope, ownerId mc
 		),
 	)
 	bucketsQ = manager.usageQ(bucketsQ, rangeObjs, providers, brands, cloudEnv)
-	bucketsQ = scopeOwnerIdFilter(bucketsQ, scope, ownerId)
 	buckets = bucketsQ.SubQuery()
 	q := buckets.Query(
 		sqlchemy.COUNT("buckets"),

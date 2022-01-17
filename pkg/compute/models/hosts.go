@@ -2535,6 +2535,7 @@ func (manager *SHostManager) totalCountQ(
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
 	enabled, isBaremetal tristate.TriState,
+	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
 	hosts := manager.Query().SubQuery()
 	q := hosts.Query(
@@ -2575,6 +2576,9 @@ func (manager *SHostManager) totalCountQ(
 			))
 		}
 	}
+
+	q = db.ObjectIdQueryWithPolicyResult(q, HostManager, policyResult)
+
 	isolatedDevices := IsolatedDeviceManager.Query().SubQuery()
 	iq := isolatedDevices.Query(
 		isolatedDevices.Field("host_id"),
@@ -2703,6 +2707,7 @@ func (manager *SHostManager) TotalCount(
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
 	enabled, isBaremetal tristate.TriState,
+	policyResult rbacutils.SPolicyResult,
 ) HostsCountStat {
 	return manager.calculateCount(
 		manager.totalCountQ(
@@ -2718,6 +2723,7 @@ func (manager *SHostManager) TotalCount(
 			cloudEnv,
 			enabled,
 			isBaremetal,
+			policyResult,
 		),
 	)
 }

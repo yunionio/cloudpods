@@ -16,27 +16,41 @@ package models
 
 import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-func Usage() map[string]int {
+func Usage(result rbacutils.SPolicyResult) map[string]int {
 	results := make(map[string]int)
 
-	domCnt, _ := DomainManager.Query().IsTrue("is_domain").NotEquals("id", api.KeystoneDomainRoot).CountWithError()
+	dq := DomainManager.Query()
+	dq = db.ObjectIdQueryWithPolicyResult(dq, DomainManager, result)
+	domCnt, _ := dq.IsTrue("is_domain").NotEquals("id", api.KeystoneDomainRoot).CountWithError()
 	results["domains"] = domCnt
 
-	projCnt, _ := ProjectManager.Query().IsFalse("is_domain").CountWithError()
+	pq := ProjectManager.Query()
+	pq = db.ObjectIdQueryWithPolicyResult(pq, ProjectManager, result)
+	projCnt, _ := pq.IsFalse("is_domain").CountWithError()
 	results["projects"] = projCnt
 
-	roleCnt, _ := RoleManager.Query().CountWithError()
+	rq := RoleManager.Query()
+	rq = db.ObjectIdQueryWithPolicyResult(rq, RoleManager, result)
+	roleCnt, _ := rq.CountWithError()
 	results["roles"] = roleCnt
 
-	usrCnt, _ := UserManager.Query().CountWithError()
+	uq := UserManager.Query()
+	uq = db.ObjectIdQueryWithPolicyResult(uq, UserManager, result)
+	usrCnt, _ := uq.CountWithError()
 	results["users"] = usrCnt
 
-	grpCnt, _ := GroupManager.Query().CountWithError()
+	gq := GroupManager.Query()
+	gq = db.ObjectIdQueryWithPolicyResult(gq, GroupManager, result)
+	grpCnt, _ := gq.CountWithError()
 	results["groups"] = grpCnt
 
-	policy, _ := PolicyManager.Query().CountWithError()
+	pcq := PolicyManager.Query()
+	pcq = db.ObjectIdQueryWithPolicyResult(pcq, PolicyManager, result)
+	policy, _ := pcq.CountWithError()
 	results["policies"] = policy
 
 	return results

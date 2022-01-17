@@ -883,6 +883,7 @@ func (manager *SNetworkManager) totalPortCountQ(
 	brands []string,
 	cloudEnv string,
 	rangeObjs []db.IStandaloneModel,
+	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
 	q := manager.allNetworksQ(providers, brands, cloudEnv, rangeObjs)
 	switch scope {
@@ -892,6 +893,7 @@ func (manager *SNetworkManager) totalPortCountQ(
 	case rbacutils.ScopeProject:
 		q = q.Equals("tenant_id", userCred.GetProjectId())
 	}
+	q = db.ObjectIdQueryWithPolicyResult(q, manager, policyResult)
 	return manager.Query().In("id", q.Distinct().SubQuery())
 }
 
@@ -905,6 +907,7 @@ func (manager *SNetworkManager) TotalPortCount(
 	userCred mcclient.IIdentityProvider,
 	providers []string, brands []string, cloudEnv string,
 	rangeObjs []db.IStandaloneModel,
+	policyResult rbacutils.SPolicyResult,
 ) map[string]NetworkPortStat {
 	nets := make([]SNetwork, 0)
 	err := manager.totalPortCountQ(
@@ -912,6 +915,7 @@ func (manager *SNetworkManager) TotalPortCount(
 		userCred,
 		providers, brands, cloudEnv,
 		rangeObjs,
+		policyResult,
 	).All(&nets)
 	if err != nil {
 		log.Errorf("TotalPortCount: %v", err)

@@ -24,11 +24,36 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SMetadataResourceBaseModelManager struct{}
+
+func ObjectIdQueryWithPolicyResult(q *sqlchemy.SQuery, manager IModelManager, result rbacutils.SPolicyResult) *sqlchemy.SQuery {
+	scope := manager.ResourceScope()
+	if scope == rbacutils.ScopeDomain || scope == rbacutils.ScopeProject {
+		if !result.DomainTags.IsEmpty() {
+			tagFilters := tagutils.STagFilters{}
+			tagFilters.AddFilters(result.DomainTags)
+			q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", tagFilters)
+		}
+	}
+	if scope == rbacutils.ScopeProject {
+		if !result.ProjectTags.IsEmpty() {
+			tagFilters := tagutils.STagFilters{}
+			tagFilters.AddFilters(result.ProjectTags)
+			q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", tagFilters)
+		}
+	}
+	if !result.ProjectTags.IsEmpty() {
+		tagFilters := tagutils.STagFilters{}
+		tagFilters.AddFilters(result.ObjectTags)
+		q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), tagFilters)
+	}
+	return q
+}
 
 func ObjectIdQueryWithTagFilters(q *sqlchemy.SQuery, idField string, modelName string, filters tagutils.STagFilters) *sqlchemy.SQuery {
 	if len(filters.Filters) > 0 {

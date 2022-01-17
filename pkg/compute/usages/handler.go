@@ -64,7 +64,7 @@ func (u Usage) Include(nus ...Usage) Usage {
 	return u
 }
 
-type objUsageFunc func(rbacutils.TRbacScope, mcclient.IIdentityProvider, bool, []db.IStandaloneModel, []string, []string, []string, string, bool) (Usage, error)
+type objUsageFunc func(rbacutils.TRbacScope, mcclient.IIdentityProvider, bool, []db.IStandaloneModel, []string, []string, []string, string, bool, rbacutils.SPolicyResult) (Usage, error)
 
 func getRangeObjId(ctx context.Context) (string, error) {
 	params := appctx.AppContextParams(ctx)
@@ -101,7 +101,7 @@ func rangeObjHandler(
 			httperrors.NotFoundError(ctx, w, "%v", err)
 			return
 		}
-		ownerId, scope, err, _ := db.FetchUsageOwnerScope(ctx, userCred, getQuery(r))
+		ownerId, scope, err, result := db.FetchUsageOwnerScope(ctx, userCred, getQuery(r))
 		if err != nil {
 			httperrors.GeneralServerError(ctx, w, err)
 			return
@@ -110,7 +110,7 @@ func rangeObjHandler(
 		if scope == rbacutils.ScopeDomain && obj != nil && db.IsObjectRbacAllowed(ctx, obj, userCred, policy.PolicyActionGet, "usage") == nil {
 			isOwner = true
 		}
-		log.Debugf("%s %v %s", ownerId, isOwner, scope)
+		log.Debugf("ownerId: %s isOwner: %v scope: %s result: %s", ownerId, isOwner, scope, result.String())
 		query := getQuery(r)
 		hostTypes := json.GetQueryStringArray(query, "host_type")
 		// resourceTypes := json.GetQueryStringArray(query, "resource_type")
@@ -131,7 +131,7 @@ func rangeObjHandler(
 				return
 			}
 		}
-		usage, err := reporter(scope, ownerId, isOwner, rangeObjs, hostTypes, providers, brands, cloudEnv, includeSystem)
+		usage, err := reporter(scope, ownerId, isOwner, rangeObjs, hostTypes, providers, brands, cloudEnv, includeSystem, result)
 		if err != nil {
 			httperrors.GeneralServerError(ctx, w, err)
 			return
@@ -182,36 +182,39 @@ func getQuery(r *http.Request) json.JSONObject {
 	return query
 }
 
-func ReportHostUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, hosts []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, isOwner, hosts, hostTypes, providers, brands, cloudEnv, includeSystem)
+func ReportHostUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, hosts []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool, policyResult rbacutils.SPolicyResult) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, hosts, hostTypes, providers, brands, cloudEnv, includeSystem, policyResult)
 }
 
-func ReportWireUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, wires []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, isOwner, wires, hostTypes, providers, brands, cloudEnv, includeSystem)
+func ReportWireUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, wires []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool, policyResult rbacutils.SPolicyResult) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, wires, hostTypes, providers, brands, cloudEnv, includeSystem, policyResult)
 }
 
-func ReportCloudAccountUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, accounts []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, isOwner, accounts, hostTypes, providers, brands, cloudEnv, includeSystem)
+func ReportCloudAccountUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, accounts []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool, policyResult rbacutils.SPolicyResult) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, accounts, hostTypes, providers, brands, cloudEnv, includeSystem, policyResult)
 }
 
-func ReportCloudProviderUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, managers []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, isOwner, managers, hostTypes, providers, brands, cloudEnv, includeSystem)
+func ReportCloudProviderUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, managers []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool, policyResult rbacutils.SPolicyResult) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, managers, hostTypes, providers, brands, cloudEnv, includeSystem, policyResult)
 }
 
-func ReportSchedtagUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, schedtags []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, isOwner, schedtags, hostTypes, providers, brands, cloudEnv, includeSystem)
+func ReportSchedtagUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, schedtags []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool, policyResult rbacutils.SPolicyResult) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, schedtags, hostTypes, providers, brands, cloudEnv, includeSystem, policyResult)
 }
 
-func ReportZoneUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, zones []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, isOwner, zones, hostTypes, providers, brands, cloudEnv, includeSystem)
+func ReportZoneUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, zones []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool, policyResult rbacutils.SPolicyResult) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, zones, hostTypes, providers, brands, cloudEnv, includeSystem, policyResult)
 }
 
-func ReportCloudRegionUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, cloudRegions []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, isOwner, cloudRegions, hostTypes, providers, brands, cloudEnv, includeSystem)
+func ReportCloudRegionUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, cloudRegions []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, includeSystem bool, policyResult rbacutils.SPolicyResult) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, cloudRegions, hostTypes, providers, brands, cloudEnv, includeSystem, policyResult)
 }
 
-func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string,
-	providers []string, brands []string, cloudEnv string, includeSystem bool) (Usage, error) {
+func getSystemGeneralUsage(
+	userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string,
+	providers []string, brands []string, cloudEnv string, includeSystem bool,
+	policyResult rbacutils.SPolicyResult,
+) (Usage, error) {
 	count := RegionUsage(rangeObjs, providers, brands, cloudEnv)
 	zone := ZoneUsage(rangeObjs, providers, brands, cloudEnv)
 	count.Include(zone)
@@ -219,7 +222,7 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 	var pmemTotal float64
 	var pcpuTotal float64
 
-	hostEnabledUsage := HostEnabledUsage("", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv)
+	hostEnabledUsage := HostEnabledUsage("", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult)
 	pmemTotal = float64(hostEnabledUsage.Get("enabled_hosts.memory").(int64))
 	pcpuTotal = float64(hostEnabledUsage.Get("enabled_hosts.cpu").(int64))
 	if len(rangeObjs) > 0 && rangeObjs[0].Keyword() == "host" {
@@ -232,7 +235,7 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 		count.Add("cpu.virtual", host.GetVirtualCPUCount())
 	}
 
-	guestRunningUsage := GuestRunningUsage("all.running_servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem)
+	guestRunningUsage := GuestRunningUsage("all.running_servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult)
 	runningMem := guestRunningUsage.Get("all.running_servers.memory").(int)
 	runningCpu := guestRunningUsage.Get("all.running_servers.cpu").(int)
 
@@ -253,12 +256,13 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 	count.Add("all.cpu_commit_rate.running", runningCpuCmtRate)
 
 	lastWeek := time.Now().Add(-7 * 24 * time.Hour)
+	lastMonth := time.Now().Add(-30 * 24 * time.Hour)
 	count.Include(
-		VpcUsage("all", providers, brands, cloudEnv, nil, rbacutils.ScopeSystem, rangeObjs),
+		VpcUsage("all", providers, brands, cloudEnv, nil, rbacutils.ScopeSystem, rangeObjs, policyResult),
 
-		DnsZoneUsage("", nil, rbacutils.ScopeSystem),
+		DnsZoneUsage("", nil, rbacutils.ScopeSystem, policyResult),
 
-		HostAllUsage("", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
+		HostAllUsage("", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult),
 		// HostAllUsage("prepaid_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		// HostAllUsage("any_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
@@ -266,23 +270,25 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 		// HostEnabledUsage("prepaid_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		// HostEnabledUsage("any_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
-		BaremetalUsage(userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, providers, brands, cloudEnv),
+		BaremetalUsage(userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 
-		StorageUsage("", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, includeSystem, rbacutils.ScopeSystem, nil),
-		StorageUsage("system", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, true, rbacutils.ScopeSystem, nil),
+		StorageUsage("", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, includeSystem, rbacutils.ScopeSystem, nil, policyResult),
+		StorageUsage("system", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, true, rbacutils.ScopeSystem, nil, policyResult),
 		// StorageUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false, includeSystem, rbacutils.ScopeSystem, nil),
 		// StorageUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false, includeSystem, rbacutils.ScopeSystem, nil),
 		// StorageUsage("any_pool.system", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false, true, rbacutils.ScopeSystem, nil),
 		// StorageUsage("any_pool.pending_delete", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true, includeSystem, rbacutils.ScopeSystem, nil),
 		// StorageUsage("any_pool.pending_delete.system", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true, true, rbacutils.ScopeSystem, nil),
 
-		GuestNormalUsage("all.servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil),
-		GuestNormalUsage("all.servers.last_week", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek),
+		GuestNormalUsage("all.servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil, policyResult),
+		GuestNormalUsage("all.servers.last_week", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
+		GuestNormalUsage("all.servers.last_month", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
 		// GuestNormalUsage("all.servers.prepaid_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
 		// GuestNormalUsage("all.servers.any_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, includeSystem),
 
-		GuestPendingDeleteUsage("all.pending_delete_servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil),
-		GuestPendingDeleteUsage("all.pending_delete_servers.last_week", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek),
+		GuestPendingDeleteUsage("all.pending_delete_servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil, policyResult),
+		GuestPendingDeleteUsage("all.pending_delete_servers.last_week", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
+		GuestPendingDeleteUsage("all.pending_delete_servers.last_month", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
 		// GuestPendingDeleteUsage("all.pending_delete_servers.prepaid_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
 		// GuestNormalUsage("all.servers.prepaid_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
 		// GuestNormalUsage("all.servers.any_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, includeSystem),
@@ -291,7 +297,7 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 		// GuestPendingDeleteUsage("all.pending_delete_servers.prepaid_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
 		// GuestPendingDeleteUsage("all.pending_delete_servers.any_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, includeSystem),
 
-		GuestReadyUsage("all.ready_servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem),
+		GuestReadyUsage("all.ready_servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult),
 		// GuestReadyUsage("all.ready_servers.prepaid_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
 		// GuestReadyUsage("all.ready_servers.any_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, includeSystem),
 		// GuestRunningUsage("all.running_servers.prepaid_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
@@ -300,49 +306,50 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 		guestRunningUsage,
 		// containerRunningUsage,
 
-		IsolatedDeviceUsage("", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
+		IsolatedDeviceUsage("", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult),
 		// IsolatedDeviceUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		// IsolatedDeviceUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
-		WireUsage(rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, providers, brands, cloudEnv),
-		NetworkUsage("all", rbacutils.ScopeSystem, nil, providers, brands, cloudEnv, rangeObjs),
+		WireUsage(rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
+		NetworkUsage("all", rbacutils.ScopeSystem, nil, providers, brands, cloudEnv, rangeObjs, policyResult),
 
-		EipUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+		EipUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		BucketUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+		BucketUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		SnapshotUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+		SnapshotUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		InstanceSnapshotUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+		InstanceSnapshotUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		LoadbalancerUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+		LoadbalancerUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		DBInstanceUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+		DBInstanceUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		MongoDBUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+		MongoDBUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		ElasticSearchUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+		ElasticSearchUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		KafkaUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+		KafkaUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		ElasticCacheUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+		ElasticCacheUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv, policyResult),
 	)
 
 	return count, nil
 }
 
-func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
+func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) (Usage, error) {
 	lastWeek := time.Now().Add(-7 * 24 * time.Hour)
-	count := GuestNormalUsage(getKey(scope, "servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil)
+	lastMonth := time.Now().Add(-30 * 24 * time.Hour)
+	count := GuestNormalUsage(getKey(scope, "servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult)
 
 	var pmemTotal float64
 	var pcpuTotal float64
 
-	hostEnabledUsage := HostEnabledUsage("", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv)
+	hostEnabledUsage := HostEnabledUsage("", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult)
 	pmemTotal = float64(hostEnabledUsage.Get("domain.enabled_hosts.memory").(int64))
 	pcpuTotal = float64(hostEnabledUsage.Get("domain.enabled_hosts.cpu").(int64))
 
-	guestRunningUsage := GuestRunningUsage("domain.running_servers", rbacutils.ScopeDomain, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false)
+	guestRunningUsage := GuestRunningUsage("domain.running_servers", rbacutils.ScopeDomain, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult)
 	runningMem := guestRunningUsage.Get("domain.running_servers.memory").(int)
 	runningCpu := guestRunningUsage.Get("domain.running_servers.cpu").(int)
 
@@ -358,11 +365,11 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 	count.Add("domain.cpu_commit_rate.running", runningCpuCmtRate)
 
 	count.Include(
-		VpcUsage("domain", providers, brands, cloudEnv, cred, rbacutils.ScopeDomain, rangeObjs),
+		VpcUsage("domain", providers, brands, cloudEnv, cred, rbacutils.ScopeDomain, rangeObjs, policyResult),
 
-		DnsZoneUsage("domain", cred, rbacutils.ScopeDomain),
+		DnsZoneUsage("domain", cred, rbacutils.ScopeDomain, policyResult),
 
-		HostAllUsage("", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
+		HostAllUsage("", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult),
 		// HostAllUsage("prepaid_pool", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		// HostAllUsage("any_pool", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
@@ -370,17 +377,18 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 		// HostEnabledUsage("prepaid_pool", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		// HostEnabledUsage("any_pool", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
-		BaremetalUsage(cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, providers, brands, cloudEnv),
+		BaremetalUsage(cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 
-		StorageUsage("", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, false, rbacutils.ScopeDomain, cred),
-		StorageUsage("system", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, true, rbacutils.ScopeDomain, cred),
+		StorageUsage("", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, false, rbacutils.ScopeDomain, cred, policyResult),
+		StorageUsage("system", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, true, rbacutils.ScopeDomain, cred, policyResult),
 		// StorageUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false, false, rbacutils.ScopeDomain, cred),
 		// StorageUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false, false, rbacutils.ScopeDomain, cred),
 		// StorageUsage("any_pool.system", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false, true, rbacutils.ScopeDomain, cred),
 		// StorageUsage("any_pool.pending_delete", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true, false, rbacutils.ScopeDomain, cred),
 		// StorageUsage("any_pool.pending_delete.system", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true, true, rbacutils.ScopeDomain, cred),
 
-		GuestNormalUsage(getKey(scope, "servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek),
+		GuestNormalUsage(getKey(scope, "servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		GuestNormalUsage(getKey(scope, "servers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 		// GuestNormalUsage(getKey(scope, "servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
 		// GuestNormalUsage(getKey(scope, "servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
 
@@ -389,95 +397,99 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 		// GuestRunningUsage(getKey(scope, "running_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
 		// GuestRunningUsage(getKey(scope, "running_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
 
-		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil),
-		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek),
+		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
+		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 		// GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
 		// GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
 
-		GuestReadyUsage(getKey(scope, "ready_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false),
+		GuestReadyUsage(getKey(scope, "ready_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 		// GuestReadyUsage(getKey(scope, "ready_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
 		// GuestReadyUsage(getKey(scope, "ready_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
 
-		WireUsage(scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv),
-		NetworkUsage(getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs),
+		WireUsage(scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
+		NetworkUsage(getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs, policyResult),
 
-		IsolatedDeviceUsage("", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
+		IsolatedDeviceUsage("", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult),
 
-		EipUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		EipUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		BucketUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		BucketUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
 		// nicsUsage("domain", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
 
-		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		InstanceSnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		InstanceSnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		LoadbalancerUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		LoadbalancerUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		DBInstanceUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		DBInstanceUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		MongoDBUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		MongoDBUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		ElasticSearchUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		ElasticSearchUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		KafkaUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		KafkaUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 	)
 	return count, nil
 }
 
-func getProjectGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
+func getProjectGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) (Usage, error) {
 	lastWeek := time.Now().Add(-7 * 24 * time.Hour)
-	count := GuestNormalUsage(getKey(scope, "servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil)
+	lastMonth := time.Now().Add(-30 * 24 * time.Hour)
+	count := GuestNormalUsage(getKey(scope, "servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult)
 
 	count.Include(
-		GuestNormalUsage(getKey(scope, "servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek),
+		GuestNormalUsage(getKey(scope, "servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		GuestNormalUsage(getKey(scope, "servers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 		// GuestNormalUsage(getKey(scope, "servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
 		// GuestNormalUsage(getKey(scope, "servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
-		GuestRunningUsage(getKey(scope, "running_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false),
+		GuestRunningUsage(getKey(scope, "running_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 		// GuestRunningUsage(getKey(scope, "running_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
 		// GuestRunningUsage(getKey(scope, "running_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
 
-		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil),
-		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek),
+		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
+		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 		// GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
 		// GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
 
-		GuestReadyUsage(getKey(scope, "ready_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false),
+		GuestReadyUsage(getKey(scope, "ready_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 		// GuestReadyUsage(getKey(scope, "ready_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
 		// GuestReadyUsage(getKey(scope, "ready_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
 
-		WireUsage(scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv),
-		NetworkUsage(getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs),
+		WireUsage(scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
+		NetworkUsage(getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs, policyResult),
 
-		EipUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		EipUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		BucketUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		BucketUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		DisksUsage(getKey(scope, "disks"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, false, false),
-		DisksUsage(getKey(scope, "disks.system"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, false, true),
-		DisksUsage(getKey(scope, "pending_delete_disks"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, false),
-		DisksUsage(getKey(scope, "pending_delete_disks.system"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, true),
+		DisksUsage(getKey(scope, "disks"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, false, false, policyResult),
+		DisksUsage(getKey(scope, "disks.system"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, false, true, policyResult),
+		DisksUsage(getKey(scope, "pending_delete_disks"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, false, policyResult),
+		DisksUsage(getKey(scope, "pending_delete_disks.system"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, true, policyResult),
 
 		// nicsUsage("", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
 
-		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		InstanceSnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		InstanceSnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		LoadbalancerUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		LoadbalancerUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		DBInstanceUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		DBInstanceUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		MongoDBUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		MongoDBUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		ElasticSearchUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		ElasticSearchUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		KafkaUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		KafkaUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
-		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 	)
 
 	return count, nil
@@ -493,12 +505,13 @@ func ReportGeneralUsage(
 	brands []string,
 	cloudEnv string,
 	includeSystem bool,
+	policyResult rbacutils.SPolicyResult,
 ) (count Usage, err error) {
 	count = make(map[string]interface{})
 
 	// if scope == rbacutils.ScopeSystem || isOwner {
 	if scope == rbacutils.ScopeSystem {
-		count, err = getSystemGeneralUsage(userCred, rangeObjs, hostTypes, providers, brands, cloudEnv, includeSystem)
+		count, err = getSystemGeneralUsage(userCred, rangeObjs, hostTypes, providers, brands, cloudEnv, includeSystem, policyResult)
 		if err != nil {
 			return
 		}
@@ -506,7 +519,7 @@ func ReportGeneralUsage(
 
 	// if scope.HigherEqual(rbacutils.ScopeDomain) && len(userCred.GetProjectDomainId()) > 0 {
 	if scope == rbacutils.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
-		commonUsage, err := getDomainGeneralUsage(rbacutils.ScopeDomain, userCred, rangeObjs, hostTypes, providers, brands, cloudEnv)
+		commonUsage, err := getDomainGeneralUsage(rbacutils.ScopeDomain, userCred, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult)
 		if err == nil {
 			count.Include(commonUsage)
 		}
@@ -514,7 +527,7 @@ func ReportGeneralUsage(
 
 	// if scope.HigherEqual(rbacutils.ScopeProject) && len(userCred.GetProjectId()) > 0 {
 	if scope == rbacutils.ScopeProject && len(userCred.GetProjectId()) > 0 {
-		commonUsage, err := getProjectGeneralUsage(rbacutils.ScopeProject, userCred, rangeObjs, hostTypes, providers, brands, cloudEnv)
+		commonUsage, err := getProjectGeneralUsage(rbacutils.ScopeProject, userCred, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult)
 		if err == nil {
 			count.Include(commonUsage)
 		}
@@ -552,7 +565,7 @@ func ZoneUsage(rangeObjs []db.IStandaloneModel, providers []string, brands []str
 	return count
 }
 
-func VpcUsage(prefix string, providers []string, brands []string, cloudEnv string, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, rangeObjs []db.IStandaloneModel) Usage {
+func VpcUsage(prefix string, providers []string, brands []string, cloudEnv string, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, rangeObjs []db.IStandaloneModel, policyResult rbacutils.SPolicyResult) Usage {
 	q := models.VpcManager.Query().IsFalse("is_emulated")
 	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		q = models.CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
@@ -561,6 +574,8 @@ func VpcUsage(prefix string, providers []string, brands []string, cloudEnv strin
 	if scope == rbacutils.ScopeDomain {
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 	}
+
+	q = db.ObjectIdQueryWithPolicyResult(q, models.VpcManager, policyResult)
 
 	count := make(map[string]interface{})
 	key := "vpcs"
@@ -571,11 +586,13 @@ func VpcUsage(prefix string, providers []string, brands []string, cloudEnv strin
 	return count
 }
 
-func DnsZoneUsage(prefix string, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) Usage {
+func DnsZoneUsage(prefix string, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, policyResult rbacutils.SPolicyResult) Usage {
 	q := models.DnsZoneManager.Query()
 	if scope == rbacutils.ScopeDomain {
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 	}
+
+	q = db.ObjectIdQueryWithPolicyResult(q, models.DnsZoneManager, policyResult)
 
 	count := make(map[string]interface{})
 	key := "dns_zones"
@@ -593,6 +610,7 @@ func StorageUsage(
 	providers []string, brands []string, cloudEnv string,
 	pendingDeleted bool, includeSystem bool,
 	scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider,
+	policyResult rbacutils.SPolicyResult,
 ) Usage {
 	sPrefix := getSysKey(scope, "storages")
 	dPrefix := getKey(scope, "disks")
@@ -608,6 +626,7 @@ func StorageUsage(
 		scope, ownerId,
 		pendingDeleted, includeSystem,
 		true,
+		policyResult,
 	)
 	count[sPrefix] = result.Capacity
 	for s, capa := range result.StorageTypeCapacity {
@@ -655,6 +674,7 @@ func StorageUsage(
 		scope, ownerId,
 		pendingDeleted, includeSystem,
 		false,
+		policyResult,
 	)
 
 	count[fmt.Sprintf("%s", dPrefix)] = result.CapacityUsed
@@ -701,9 +721,10 @@ func DisksUsage(
 	cloudEnv string,
 	scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider,
 	pendingDeleted bool, includeSystem bool,
+	policyResult rbacutils.SPolicyResult,
 ) Usage {
 	count := make(map[string]interface{})
-	result := models.StorageManager.TotalCapacity(rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId, pendingDeleted, includeSystem, false)
+	result := models.StorageManager.TotalCapacity(rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId, pendingDeleted, includeSystem, false, policyResult)
 	count[dPrefix] = result.CapacityUsed
 	count[fmt.Sprintf("%s.storage", dPrefix)] = result.Capacity
 	count[fmt.Sprintf("%s.storage.virtual", dPrefix)] = result.CapacityVirtual
@@ -721,9 +742,9 @@ func DisksUsage(
 	return count
 }
 
-func WireUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) Usage {
+func WireUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
 	count := make(map[string]interface{})
-	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, userCred)
+	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, userCred, policyResult)
 	count[getKey(scope, "wires")] = result.WiresCount - result.EmulatedWiresCount
 	count[getKey(scope, "networks")] = result.NetCount
 	// include nics for pending_deleted guests
@@ -765,9 +786,9 @@ func prefixKey(prefix string, key string) string {
 	}
 }
 
-func NetworkUsage(prefix string, scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, providers []string, brands []string, cloudEnv string, rangeObjs []db.IStandaloneModel) Usage {
+func NetworkUsage(prefix string, scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, providers []string, brands []string, cloudEnv string, rangeObjs []db.IStandaloneModel, policyResult rbacutils.SPolicyResult) Usage {
 	count := make(map[string]interface{})
-	ret := models.NetworkManager.TotalPortCount(scope, userCred, providers, brands, cloudEnv, rangeObjs)
+	ret := models.NetworkManager.TotalPortCount(scope, userCred, providers, brands, cloudEnv, rangeObjs, policyResult)
 	for k, v := range ret {
 		if len(k) > 0 {
 			count[prefixKey(prefix, fmt.Sprintf("ports.%s", k))] = v.Count
@@ -781,27 +802,27 @@ func NetworkUsage(prefix string, scope rbacutils.TRbacScope, userCred mcclient.I
 }
 
 func HostAllUsage(pref string, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope, rangeObjs []db.IStandaloneModel,
-	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) Usage {
+	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
 	prefix := getSysKey(scope, "hosts")
 	if len(pref) > 0 {
 		prefix = fmt.Sprintf("%s.%s", prefix, pref)
 	}
-	return hostUsage(userCred, scope, prefix, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, tristate.None, tristate.False)
+	return hostUsage(userCred, scope, prefix, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, tristate.None, tristate.False, policyResult)
 }
 
 func HostEnabledUsage(pref string, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope, rangeObjs []db.IStandaloneModel,
-	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) Usage {
+	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
 	prefix := getSysKey(scope, "enabled_hosts")
 	if len(pref) > 0 {
 		prefix = fmt.Sprintf("%s.%s", prefix, pref)
 	}
-	return hostUsage(userCred, scope, prefix, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, tristate.True, tristate.False)
+	return hostUsage(userCred, scope, prefix, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, tristate.True, tristate.False, policyResult)
 }
 
 func BaremetalUsage(userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope, rangeObjs []db.IStandaloneModel,
-	hostTypes []string, providers []string, brands []string, cloudEnv string) Usage {
+	hostTypes []string, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
 	prefix := getSysKey(scope, "baremetals")
-	count := hostUsage(userCred, scope, prefix, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, tristate.None, tristate.True)
+	count := hostUsage(userCred, scope, prefix, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, tristate.None, tristate.True, policyResult)
 	delete(count, fmt.Sprintf("%s.memory.virtual", prefix))
 	delete(count, fmt.Sprintf("%s.cpu.virtual", prefix))
 	return count
@@ -812,10 +833,11 @@ func hostUsage(
 	rangeObjs []db.IStandaloneModel, hostTypes []string,
 	resourceTypes []string, providers []string, brands []string, cloudEnv string,
 	enabled, isBaremetal tristate.TriState,
+	policyResult rbacutils.SPolicyResult,
 ) Usage {
 	count := make(map[string]interface{})
 
-	result := models.HostManager.TotalCount(userCred, scope, rangeObjs, "", "", hostTypes, resourceTypes, providers, brands, cloudEnv, enabled, isBaremetal)
+	result := models.HostManager.TotalCount(userCred, scope, rangeObjs, "", "", hostTypes, resourceTypes, providers, brands, cloudEnv, enabled, isBaremetal, policyResult)
 	count[prefix] = result.Count
 	count[fmt.Sprintf("%s.any_pool", prefix)] = result.Count
 	count[fmt.Sprintf("%s.memory", prefix)] = result.Memory
@@ -834,26 +856,28 @@ func hostUsage(
 
 func GuestNormalUsage(prefix string, scope rbacutils.TRbacScope, cred mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
-	brands []string, cloudEnv string, includeSystem bool, since *time.Time) Usage {
-	return guestUsage(prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, false, includeSystem, since)
+	brands []string, cloudEnv string, includeSystem bool, since *time.Time, policyResult rbacutils.SPolicyResult) Usage {
+	return guestUsage(prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, false, includeSystem, since, policyResult)
 }
 
 func GuestPendingDeleteUsage(prefix string, scope rbacutils.TRbacScope, cred mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
-	brands []string, cloudEnv string, includeSystem bool, since *time.Time) Usage {
-	return guestUsage(prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, true, includeSystem, since)
+	brands []string, cloudEnv string, includeSystem bool, since *time.Time, policyResult rbacutils.SPolicyResult) Usage {
+	return guestUsage(prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, true, includeSystem, since, policyResult)
 }
 
 func GuestRunningUsage(prefix string, scope rbacutils.TRbacScope, cred mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
-	brands []string, cloudEnv string, includeSystem bool) Usage {
-	return guestUsage(prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_RUNNING}, false, includeSystem, nil)
+	brands []string, cloudEnv string, includeSystem bool,
+	policyResult rbacutils.SPolicyResult,
+) Usage {
+	return guestUsage(prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_RUNNING}, false, includeSystem, nil, policyResult)
 }
 
 func GuestReadyUsage(prefix string, scope rbacutils.TRbacScope, cred mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
-	brands []string, cloudEnv string, includeSystem bool) Usage {
-	return guestUsage(prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_READY}, false, includeSystem, nil)
+	brands []string, cloudEnv string, includeSystem bool, policyResult rbacutils.SPolicyResult) Usage {
+	return guestUsage(prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_READY}, false, includeSystem, nil, policyResult)
 }
 
 func guestHypervisorsUsage(
@@ -865,11 +889,14 @@ func guestHypervisorsUsage(
 	status, hypervisors []string,
 	pendingDelete, includeSystem bool,
 	since *time.Time,
+	policyResult rbacutils.SPolicyResult,
 ) Usage {
 	// temporarily hide system resources
 	// XXX needs more work later
 	guest := models.GuestManager.TotalCount(scope, ownerId, rangeObjs, status, hypervisors,
-		includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since)
+		includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since,
+		policyResult,
+	)
 	count := make(map[string]interface{})
 	count[prefix] = guest.TotalGuestCount
 	count[fmt.Sprintf("%s.any_pool", prefix)] = guest.TotalGuestCount
@@ -893,10 +920,12 @@ func guestHypervisorsUsage(
 
 func guestUsage(prefix string, scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel,
 	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string,
-	status []string, pendingDelete, includeSystem bool, since *time.Time) Usage {
+	status []string, pendingDelete, includeSystem bool, since *time.Time,
+	policyResult rbacutils.SPolicyResult,
+) Usage {
 	hypervisors := sets.NewString(api.HYPERVISORS...)
 	hypervisors.Delete(api.HYPERVISOR_CONTAINER)
-	return guestHypervisorsUsage(prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, status, hypervisors.List(), pendingDelete, includeSystem, since)
+	return guestHypervisorsUsage(prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, status, hypervisors.List(), pendingDelete, includeSystem, since, policyResult)
 }
 
 /*func containerUsage(prefix string, scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel,
@@ -905,12 +934,12 @@ func guestUsage(prefix string, scope rbacutils.TRbacScope, userCred mcclient.IId
 	return guestHypervisorsUsage(prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, hypervisors, false)
 }*/
 
-func IsolatedDeviceUsage(pref string, scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostType []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) Usage {
+func IsolatedDeviceUsage(pref string, scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostType []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
 	prefix := "isolated_devices"
 	if len(pref) > 0 {
 		prefix = fmt.Sprintf("%s.%s", prefix, pref)
 	}
-	ret, _ := models.IsolatedDeviceManager.TotalCount(scope, userCred, hostType, resourceTypes, providers, brands, cloudEnv, rangeObjs)
+	ret, _ := models.IsolatedDeviceManager.TotalCount(scope, userCred, hostType, resourceTypes, providers, brands, cloudEnv, rangeObjs, policyResult)
 	count := make(map[string]interface{})
 	count[prefix] = ret.Devices
 	return count
@@ -955,8 +984,8 @@ func _getKey(scope rbacutils.TRbacScope, key string, includeSystem bool) string 
 	}
 }
 
-func EipUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	eipUsage := models.ElasticipManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+func EipUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
+	eipUsage := models.ElasticipManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv, policyResult)
 	count := make(map[string]interface{})
 	count[getKey(scope, "eip")] = eipUsage.Total()
 	count[getKey(scope, "eip.public_ip")] = eipUsage.PublicIPCount
@@ -969,8 +998,8 @@ func EipUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, ra
 	return count
 }
 
-func BucketUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	bucketUsage := models.BucketManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+func BucketUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
+	bucketUsage := models.BucketManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv, policyResult)
 	count := make(map[string]interface{})
 	count[getKey(scope, "buckets")] = bucketUsage.Buckets
 	count[getKey(scope, "bucket_objects")] = bucketUsage.Objects
@@ -978,29 +1007,29 @@ func BucketUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider,
 	return count
 }
 
-func SnapshotUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	cnt, _ := models.TotalSnapshotCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+func SnapshotUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
+	cnt, _ := models.TotalSnapshotCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv, policyResult)
 	count := make(map[string]interface{})
 	count[getKey(scope, "snapshot")] = cnt
 	return count
 }
 
-func InstanceSnapshotUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	cnt, _ := models.TotalInstanceSnapshotCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+func InstanceSnapshotUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
+	cnt, _ := models.TotalInstanceSnapshotCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv, policyResult)
 	count := make(map[string]interface{})
 	count[getKey(scope, "instance_snapshot")] = cnt
 	return count
 }
 
-func LoadbalancerUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	cnt, _ := models.LoadbalancerManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+func LoadbalancerUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
+	cnt, _ := models.LoadbalancerManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv, policyResult)
 	count := make(map[string]interface{})
 	count[getKey(scope, "loadbalancer")] = cnt
 	return count
 }
 
-func DBInstanceUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	cnt, _ := models.DBInstanceManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+func DBInstanceUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
+	cnt, _ := models.DBInstanceManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv, policyResult)
 	count := make(map[string]interface{})
 	count[getKey(scope, "rds")] = cnt.TotalRdsCount
 	count[getKey(scope, "rds.cpu")] = cnt.TotalCpuCount
@@ -1008,8 +1037,8 @@ func DBInstanceUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvi
 	return count
 }
 
-func MongoDBUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	cnt, _ := models.MongoDBManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+func MongoDBUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
+	cnt, _ := models.MongoDBManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv, policyResult)
 	count := make(map[string]interface{})
 	count[getKey(scope, "mongodb")] = cnt.TotalMongodbCount
 	count[getKey(scope, "mongodb.cpu")] = cnt.TotalCpuCount
@@ -1017,8 +1046,8 @@ func MongoDBUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider
 	return count
 }
 
-func ElasticSearchUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	cnt, _ := models.ElasticSearchManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+func ElasticSearchUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
+	cnt, _ := models.ElasticSearchManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv, policyResult)
 	count := make(map[string]interface{})
 	count[getKey(scope, "es")] = cnt.TotalEsCount
 	count[getKey(scope, "es.cpu")] = cnt.TotalCpuCount
@@ -1026,16 +1055,16 @@ func ElasticSearchUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityPr
 	return count
 }
 
-func KafkaUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	cnt, _ := models.KafkaManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+func KafkaUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
+	cnt, _ := models.KafkaManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv, policyResult)
 	count := make(map[string]interface{})
 	count[getKey(scope, "kafka")] = cnt.TotalKafkaCount
 	count[getKey(scope, "kafka.disk")] = cnt.TotalDiskSizeGb
 	return count
 }
 
-func ElasticCacheUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	cnt, _ := models.ElasticcacheManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+func ElasticCacheUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
+	cnt, _ := models.ElasticcacheManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv, policyResult)
 	count := make(map[string]interface{})
 	count[getKey(scope, "cache")] = cnt
 	return count

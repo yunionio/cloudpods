@@ -323,15 +323,18 @@ func (man *SElasticSearchManager) TotalCount(
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	providers []string, brands []string, cloudEnv string,
+	policyResult rbacutils.SPolicyResult,
 ) (SEsCountStat, error) {
-	sq := man.Query().SubQuery()
+	esq := man.Query()
+	esq = scopeOwnerIdFilter(esq, scope, ownerId)
+	esq = CloudProviderFilter(esq, esq.Field("manager_id"), providers, brands, cloudEnv)
+	esq = RangeObjectsFilter(esq, rangeObjs, esq.Field("cloudregion_id"), nil, esq.Field("manager_id"), nil, nil)
+	esq = db.ObjectIdQueryWithPolicyResult(esq, man, policyResult)
+
+	sq := esq.SubQuery()
 	q := sq.Query(sqlchemy.COUNT("total_es_count"),
 		sqlchemy.SUM("total_cpu_count", sq.Field("vcpu_count")),
 		sqlchemy.SUM("total_mem_size_gb", sq.Field("vmem_size_gb")))
-
-	q = scopeOwnerIdFilter(q, scope, ownerId)
-	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
-	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
 
 	stat := SEsCountStat{}
 	row := q.Row()

@@ -469,7 +469,7 @@ func (self *SInstanceSnapshot) GetUsages() []db.IUsage {
 	}
 }
 
-func TotalInstanceSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) (int, error) {
+func TotalInstanceSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) (int, error) {
 	q := InstanceSnapshotManager.Query()
 
 	switch scope {
@@ -479,6 +479,8 @@ func TotalInstanceSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IId
 	case rbacutils.ScopeProject:
 		q = q.Equals("tenant_id", ownerId.GetProjectId())
 	}
+
+	q = db.ObjectIdQueryWithPolicyResult(q, InstanceSnapshotManager, policyResult)
 
 	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)

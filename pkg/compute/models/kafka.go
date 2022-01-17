@@ -321,14 +321,17 @@ func (man *SKafkaManager) TotalCount(
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	providers []string, brands []string, cloudEnv string,
+	policyResult rbacutils.SPolicyResult,
 ) (SKafkaCountStat, error) {
-	sq := man.Query().SubQuery()
+	kq := man.Query()
+	kq = scopeOwnerIdFilter(kq, scope, ownerId)
+	kq = CloudProviderFilter(kq, kq.Field("manager_id"), providers, brands, cloudEnv)
+	kq = RangeObjectsFilter(kq, rangeObjs, kq.Field("cloudregion_id"), nil, kq.Field("manager_id"), nil, nil)
+	kq = db.ObjectIdQueryWithPolicyResult(kq, man, policyResult)
+
+	sq := kq.SubQuery()
 	q := sq.Query(sqlchemy.COUNT("total_kafka_count"),
 		sqlchemy.SUM("total_disk_size_gb", sq.Field("disk_size_gb")))
-
-	q = scopeOwnerIdFilter(q, scope, ownerId)
-	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
-	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
 
 	stat := SKafkaCountStat{}
 	row := q.Row()

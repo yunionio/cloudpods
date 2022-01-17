@@ -2690,8 +2690,9 @@ func (manager *SGuestManager) TotalCount(
 	includeSystem bool, pendingDelete bool,
 	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string,
 	since *time.Time,
+	policyResult rbacutils.SPolicyResult,
 ) SGuestCountStat {
-	return usageTotalGuestResouceCount(scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since)
+	return usageTotalGuestResouceCount(scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since, policyResult)
 }
 
 func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool, deploy bool) error {
@@ -3254,9 +3255,12 @@ func usageTotalGuestResouceCount(
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
 	since *time.Time,
+	policyResult rbacutils.SPolicyResult,
 ) SGuestCountStat {
 	q, guests := _guestResourceCountQuery(scope, ownerId, rangeObjs, status, hypervisors,
-		pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since)
+		pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since,
+		policyResult,
+	)
 	if !includeSystem {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))))
@@ -3285,6 +3289,7 @@ func _guestResourceCountQuery(
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
 	since *time.Time,
+	policyResult rbacutils.SPolicyResult,
 ) (*sqlchemy.SQuery, *sqlchemy.SSubQuery) {
 
 	guestdisks := GuestdiskManager.Query().SubQuery()
@@ -3311,12 +3316,46 @@ func _guestResourceCountQuery(
 
 	isoDevSubQuery := isoDevQuery.SubQuery()
 
-	var guests *sqlchemy.SSubQuery
+	var gq *sqlchemy.SQuery
 	if since != nil && !since.IsZero() {
-		guests = GuestManager.RawQuery().SubQuery()
+		gq = GuestManager.RawQuery()
 	} else {
-		guests = GuestManager.Query().SubQuery()
+		gq = GuestManager.Query()
 	}
+
+	if len(rangeObjs) > 0 || len(hostTypes) > 0 || len(resourceTypes) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+		gq = filterGuestByRange(gq, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	}
+
+	switch scope {
+	case rbacutils.ScopeSystem:
+	case rbacutils.ScopeDomain:
+		gq = gq.Filter(sqlchemy.Equals(gq.Field("domain_id"), ownerId.GetProjectDomainId()))
+	case rbacutils.ScopeProject:
+		gq = gq.Filter(sqlchemy.Equals(gq.Field("tenant_id"), ownerId.GetProjectId()))
+	}
+
+	if len(status) > 0 {
+		gq = gq.Filter(sqlchemy.In(gq.Field("status"), status))
+	}
+	if len(hypervisors) > 0 {
+		gq = gq.Filter(sqlchemy.In(gq.Field("hypervisor"), hypervisors))
+	}
+
+	if pendingDelete {
+		gq = gq.Filter(sqlchemy.IsTrue(gq.Field("pending_deleted")))
+	} else {
+		gq = gq.Filter(sqlchemy.OR(sqlchemy.IsNull(gq.Field("pending_deleted")), sqlchemy.IsFalse(gq.Field("pending_deleted"))))
+	}
+
+	if since != nil && !since.IsZero() {
+		gq = gq.Filter(sqlchemy.GT(gq.Field("created_at"), *since))
+	}
+
+	gq = db.ObjectIdQueryWithPolicyResult(gq, GuestManager, policyResult)
+
+	guests := gq.SubQuery()
+
 	guestBackupSubQuery := GuestManager.Query(
 		"id",
 		"vcpu_count",
@@ -3340,35 +3379,6 @@ func _guestResourceCountQuery(
 	q = q.LeftJoin(diskBackupSubQuery, sqlchemy.Equals(diskBackupSubQuery.Field("guest_id"), guests.Field("id")))
 
 	q = q.LeftJoin(isoDevSubQuery, sqlchemy.Equals(isoDevSubQuery.Field("guest_id"), guests.Field("id")))
-
-	if len(rangeObjs) > 0 || len(hostTypes) > 0 || len(resourceTypes) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
-		q = filterGuestByRange(q, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv)
-	}
-
-	switch scope {
-	case rbacutils.ScopeSystem:
-	case rbacutils.ScopeDomain:
-		q = q.Filter(sqlchemy.Equals(guests.Field("domain_id"), ownerId.GetProjectDomainId()))
-	case rbacutils.ScopeProject:
-		q = q.Filter(sqlchemy.Equals(guests.Field("tenant_id"), ownerId.GetProjectId()))
-	}
-
-	if len(status) > 0 {
-		q = q.Filter(sqlchemy.In(guests.Field("status"), status))
-	}
-	if len(hypervisors) > 0 {
-		q = q.Filter(sqlchemy.In(guests.Field("hypervisor"), hypervisors))
-	}
-
-	if pendingDelete {
-		q = q.Filter(sqlchemy.IsTrue(guests.Field("pending_deleted")))
-	} else {
-		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(guests.Field("pending_deleted")), sqlchemy.IsFalse(guests.Field("pending_deleted"))))
-	}
-
-	if since != nil && !since.IsZero() {
-		q = q.Filter(sqlchemy.GT(guests.Field("created_at"), *since))
-	}
 
 	return q, guests
 }
