@@ -31,7 +31,6 @@ import (
 type SMetadataResourceBaseModelManager struct{}
 
 func ObjectIdQueryWithTagFilters(q *sqlchemy.SQuery, idField string, modelName string, filters tagutils.STagFilters) *sqlchemy.SQuery {
-	log.Debugf("Filters: %s", jsonutils.Marshal(filters))
 	if len(filters.Filters) > 0 {
 		sq := objIdQueryWithTags(modelName, filters.Filters)
 		if sq != nil {
