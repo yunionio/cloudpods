@@ -82,6 +82,10 @@ func (self *SVpc) Delete() error {
 	return self.region.DeleteVpc(self.VpcId)
 }
 
+func (self *SVpc) SetTags(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags("vpc", "vpc", []string{self.VpcId}, tags, replace)
+}
+
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
 	secgroups := make([]SSecurityGroup, 0)
 	for {
