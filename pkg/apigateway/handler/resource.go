@@ -304,6 +304,7 @@ func (f *ResourceHandlers) getSpecHandler(ctx context.Context, w http.ResponseWr
 			return
 		}
 		appsrv.SendJSON(w, obj)
+		return
 	}
 	// list in 1 context
 	query, export, err := f.fetchExportQuery(query)
