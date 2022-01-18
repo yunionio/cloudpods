@@ -1,0 +1,5 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/torrent:20210815.0
+
+MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
+
+RUN apk add --no-cache s3fs-fuse --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing
