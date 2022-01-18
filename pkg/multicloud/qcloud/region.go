@@ -159,7 +159,7 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 				}
 				params["BandwidthPackageId"] = pkgId
 				params["InternetAccessible.InternetChargeType"] = "BANDWIDTH_PACKAGE"
-				params["InternetAccessible.InternetMaxBandwidthOut"] = "2048"
+				params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bps)
 			} else {
 				params["InternetAccessible.InternetChargeType"] = "BANDWIDTH_POSTPAID_BY_HOUR"
 				params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bps)
