@@ -33,6 +33,14 @@ baremetal-base:
 	$(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base .
 	#docker push $(REGISTRY)/baremetal-base:$(BAREMETAL_BASE_VERSION)
 
+TORRENT_VERSION = 20210815.0
+torrent:
+	$(DOCKER_BUILDX)/torrent:$(TORRENT_VERSION) -f ./Dockerfile.torrent .
+
+GLANCE_BASE_VERSION = v0.0.1
+glance-base:
+	$(DOCKER_BUILDX)/glance-base:$(GLANCE_BASE_VERSION) -f ./Dockerfile.glance-base .
+
 FILE_REPO_VERSION = v0.3.3
 
 file-repo:
