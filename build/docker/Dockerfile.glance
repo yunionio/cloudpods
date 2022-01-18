@@ -1,8 +1,5 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/torrent:20210815.0
+FROM registry.cn-beijing.aliyuncs.com/yunionio/glance-base:v0.0.1
 
-MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
-
-RUN apk add --no-cache s3fs-fuse --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing
 ENV TZ UTC
 RUN mkdir -p /opt/yunion/bin
 ADD ./_output/alpine-build/bin/glance /opt/yunion/bin/glance
