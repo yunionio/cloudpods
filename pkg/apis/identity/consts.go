@@ -110,6 +110,7 @@ var (
 			"global_http_proxy",
 			"global_https_proxy",
 			"ignore_nonrunning_guests",
+			"is_forget_login_user",
 		},
 	}
 
