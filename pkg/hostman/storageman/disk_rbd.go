@@ -221,6 +221,19 @@ func (d *SRBDDisk) PostCreateFromImageFuse() {
 	log.Errorf("Not support PostCreateFromImageFuse")
 }
 
+func (d *SRBDDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	diskBackup := params.(*SDiskBakcup)
+	storage := d.Storage.(*SRbdStorage)
+	pool, _ := storage.StorageConf.GetString("pool")
+	sizeMb, err := storage.createBackup(pool, d.Id, diskBackup.SnapshotId, diskBackup.BackupId, diskBackup.BackupStorageId, diskBackup.BackupStorageAccessInfo)
+	if err != nil {
+		return nil, err
+	}
+	data := jsonutils.NewDict()
+	data.Set("size_mb", jsonutils.NewInt(int64(sizeMb)))
+	return data, nil
+}
+
 func (d *SRBDDisk) CreateSnapshot(snapshotId string) error {
 	storage := d.Storage.(*SRbdStorage)
 	pool, _ := storage.StorageConf.GetString("pool")

@@ -23,9 +23,11 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -57,6 +59,12 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("GET",
 			fmt.Sprintf("%s/%s/is-mount-point", prefix, keyWords),
 			auth.Authenticate(storageVerifyMountPoint))
+		app.AddHandler("POST",
+			fmt.Sprintf("%s/%s/delete-backup", prefix, keyWords),
+			auth.Authenticate(storageDeleteBackup))
+		app.AddHandler("POST",
+			fmt.Sprintf("%s/%s/sync-backup", prefix, keyWords),
+			auth.Authenticate(storageSyncBackup))
 	}
 }
 
@@ -180,6 +188,87 @@ func storageUpdate(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	}
 	mountPoint, _ := ret.GetString("mount_point")
 	storage.SetPath(mountPoint)
+	return nil, nil
+}
+
+func storageSyncBackup(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	backupId, err := body.GetString("backup_id")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_id"))
+		return
+	}
+	backupStorageId, err := body.GetString("backup_storage_id")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_storage_id"))
+		return
+	}
+	backupStorageAccessInfo, err := body.Get("backup_storage_access_info")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_storage_access_info"))
+		return
+	}
+	backupStorage, err := backupstorage.NewBackupStorage(backupStorageId, backupStorageAccessInfo.(*jsonutils.JSONDict))
+	if err != nil {
+		hostutils.Response(ctx, w, err)
+		return
+	}
+	exist, err := backupStorage.IsExists(backupId)
+	if err != nil {
+		hostutils.Response(ctx, w, err)
+		return
+	}
+	var (
+		ret    = jsonutils.NewDict()
+		status string
+	)
+	if exist {
+		status = compute.BACKUP_EXIST
+	} else if !exist && err == nil {
+		status = compute.BACKUP_NOT_EXIST
+	} else {
+		log.Errorf("fetch snapshot exist failed %s", err)
+		status = compute.BACKUP_STATUS_UNKNOWN
+	}
+	ret.Set("status", jsonutils.NewString(status))
+	hostutils.Response(ctx, w, ret)
+}
+
+func storageDeleteBackup(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	backupId, err := body.GetString("backup_id")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_id"))
+		return
+	}
+	backupStorageId, err := body.GetString("backup_storage_id")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_storage_id"))
+		return
+	}
+	backupStorageAccessInfo, err := body.Get("backup_storage_access_info")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_storage_access_info"))
+		return
+	}
+	hostutils.DelayTask(ctx, deleteBackup, &storageman.SStorageBackup{
+		BackupId:                backupId,
+		BackupStorageId:         backupStorageId,
+		BackupStorageAccessInfo: backupStorageAccessInfo.(*jsonutils.JSONDict),
+	})
+	hostutils.ResponseOk(ctx, w)
+}
+
+func deleteBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	sbParams := params.(*storageman.SStorageBackup)
+	backupStorage, err := backupstorage.NewBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
+	if err != nil {
+		return nil, err
+	}
+	err = backupStorage.RemoveBackup(sbParams.BackupId)
+	if err != nil {
+		return nil, err
+	}
 	return nil, nil
 }
 

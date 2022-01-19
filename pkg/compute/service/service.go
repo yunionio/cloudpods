@@ -26,10 +26,12 @@ import (
 	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/elect"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
@@ -43,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/tasks"
 	"yunion.io/x/onecloud/pkg/controller/autoscaling"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
@@ -64,7 +67,14 @@ func StartService() {
 	})
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
-	err := esxi.InitEsxiConfig(opts.EsxiOptions)
+	serviceUrl, err := auth.GetServiceURL(api.SERVER_TYPE_V2, opts.Region, "", identity.EndpointInterfaceInternal)
+	if err != nil {
+		log.Fatalf("unable to get service url: %v", err)
+	}
+	log.Infof("serviceUrl: %s", serviceUrl)
+	taskman.SetServiceUrl(serviceUrl)
+
+	err = esxi.InitEsxiConfig(opts.EsxiOptions)
 	if err != nil {
 		log.Fatalf("unable to init esxi configs: %v", err)
 	}
