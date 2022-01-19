@@ -63,6 +63,9 @@ type IDisk interface {
 	DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error
 	DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
 		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)
+
+	GetBackupDir() string
+	DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 }
 
 type SBaseDisk struct {
@@ -169,6 +172,10 @@ func (d *SBaseDisk) DiskSnapshot(ctx context.Context, params interface{}) (jsonu
 	return nil, fmt.Errorf("Not implement disk.DiskSnapshot")
 }
 
+func (d *SBaseDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, fmt.Errorf("Not implement disk.DiskDeleteSnapshot")
+}
+
 func (d *SBaseDisk) DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	return nil, fmt.Errorf("Not implement disk.DiskDeleteSnapshot")
 }
@@ -179,4 +186,8 @@ func (d *SBaseDisk) CreateFromRbdSnapshot(ctx context.Context, napshotUrl, srcDi
 
 func (d *SBaseDisk) DoDeleteSnapshot(snapshotId string) error {
 	return fmt.Errorf("Not implement disk.DoDeleteSnapshot")
+}
+
+func (d *SBaseDisk) GetBackupDir() string {
+	return ""
 }

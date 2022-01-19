@@ -214,4 +214,6 @@ const (
 	ACT_MERGE_NETWORK = "merge_network"
 
 	ACT_RESTART_NETWORK = "restart_network"
+
+	ACT_RECOVERY = "recovery"
 )

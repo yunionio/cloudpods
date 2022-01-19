@@ -48,6 +48,7 @@ var (
 		"snapshot":          diskSnapshot,
 		"delete-snapshot":   diskDeleteSnapshot,
 		"cleanup-snapshots": diskCleanupSnapshots,
+		"backup":            diskBackup,
 	}
 )
 
@@ -322,6 +323,74 @@ func diskSnapshot(ctx context.Context, storage storageman.IStorage, diskId strin
 		return nil, httperrors.NewMissingParameterError("snapshot_id")
 	}
 	hostutils.DelayTask(ctx, disk.DiskSnapshot, snapshotId)
+	return nil, nil
+}
+
+func diskStorageBackup(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
+	backupId, err := body.GetString("backup_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("backup_id")
+	}
+	backupStorageId, err := body.GetString("backup_storage_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("backup_storage_id")
+	}
+	backupStorageAccessInfo, err := body.Get("backup_storage_access_info")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("backup_storage_access_info")
+	}
+	hostutils.DelayTask(ctx, storage.StorageBackup, &storageman.SStorageBackup{
+		BackupId:                backupId,
+		BackupStorageId:         backupStorageId,
+		BackupStorageAccessInfo: backupStorageAccessInfo.(*jsonutils.JSONDict),
+	})
+	return nil, nil
+}
+
+func diskStorageBackupRecovery(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
+	backupId, err := body.GetString("backup_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("backup_id")
+	}
+	backupStorageId, err := body.GetString("backup_storage_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("backup_storage_id")
+	}
+	backupStorageAccessInfo, err := body.Get("backup_storage_access_info")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("backup_storage_access_info")
+	}
+	hostutils.DelayTask(ctx, storage.StorageBackupRecovery, storageman.SStorageBackup{
+		BackupId:                backupId,
+		BackupStorageId:         backupStorageId,
+		BackupStorageAccessInfo: backupStorageAccessInfo.(*jsonutils.JSONDict),
+	})
+	return nil, nil
+}
+
+func diskBackup(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
+	snapshotId, err := body.GetString("snapshot_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("snapshot_id")
+	}
+	backupId, err := body.GetString("backup_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("backup_id")
+	}
+	backupStorageId, err := body.GetString("backup_storage_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("backup_storage_id")
+	}
+	backupStorageAccessInfo, err := body.Get("backup_storage_access_info")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("backup_storage_access_info")
+	}
+	hostutils.DelayTask(ctx, disk.DiskBackup, &storageman.SDiskBakcup{
+		BackupId:                backupId,
+		SnapshotId:              snapshotId,
+		BackupStorageId:         backupStorageId,
+		BackupStorageAccessInfo: backupStorageAccessInfo.(*jsonutils.JSONDict),
+	})
 	return nil, nil
 }
 

@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/cephutils"
@@ -290,6 +291,45 @@ func (s *SRbdStorage) resetDisk(pool string, diskId string, snapshotId string) e
 	return snap.Rollback()
 }
 
+func (s *SRbdStorage) createBackup(pool string, diskId string, snapshotId string, backupId string, backupStorageId string, backupStorageAccessInfo *jsonutils.JSONDict) (int, error) {
+	client, err := s.GetClient()
+	if err != nil {
+		return 0, errors.Wrapf(err, "GetClient")
+	}
+	client.SetPool(pool)
+	defer client.Close()
+	img, err := client.GetImage(diskId)
+	if err != nil {
+		return 0, errors.Wrapf(err, "GetImage")
+	}
+	snap, err := img.GetSnapshot(snapshotId)
+	if err != nil {
+		return 0, errors.Wrapf(err, "unable to GetSnapshot %s of Image %s", snapshotId, diskId)
+	}
+	backupName := fmt.Sprintf("backup_%s", backupId)
+	err = snap.Clone(pool, backupName)
+	if err != nil {
+		return 0, errors.Wrapf(err, "unable to Clone snap %s", fmt.Sprintf("%s@%s", diskId, snapshotId))
+	}
+	backupImg, err := client.GetImage(backupName)
+	if err != nil {
+		return 0, errors.Wrapf(err, "GetImage")
+	}
+	defer backupImg.Delete()
+	// convert backupStorage
+	backupStorage, err := backupstorage.NewBackupStorage(backupStorageId, backupStorageAccessInfo)
+	if err != nil {
+		return 0, errors.Wrap(err, "unable to NewNFSBackupStorage")
+	}
+	srcPath := fmt.Sprintf("rbd:%s/%s%s", pool, backupName, s.getStorageConfString())
+	// convert
+	sizeMb, err := backupStorage.ConvertFrom(srcPath, qemuimg.RAW, backupId)
+	if err != nil {
+		return 0, errors.Wrapf(err, "unable to ConvertFrom with srcPath %s and format %s", srcPath, qemuimg.RAW.String())
+	}
+	return sizeMb, nil
+}
+
 func (s *SRbdStorage) createSnapshot(pool string, diskId string, snapshotId string) error {
 	client, err := s.GetClient()
 	if err != nil {
@@ -520,6 +560,25 @@ func (s *SRbdStorage) DeleteSnapshots(ctx context.Context, params interface{}) (
 func (s *SRbdStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
 	info := input.DiskInfo
 	return disk.CreateFromRbdSnapshot(ctx, info.SnapshotUrl, info.SrcDiskId, info.SrcPool)
+}
+
+func (s *SRbdStorage) GetBackupDir() string {
+	return ""
+}
+
+func (s *SRbdStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
+	backup := input.DiskInfo.Backup
+	pool, _ := s.StorageConf.GetString("pool")
+	destPath := fmt.Sprintf("rbd:%s/%s%s", pool, disk.GetId(), s.getStorageConfString())
+	backupStorage, err := backupstorage.NewBackupStorage(backup.BackupStorageId, backup.BackupStorageAccessInfo)
+	if err != nil {
+		return errors.Wrap(err, "unable to NewNFSBackupStorage")
+	}
+	err = backupStorage.ConvertTo(destPath, qemuimg.RAW, backup.BackupId)
+	if err != nil {
+		return errors.Wrapf(err, "unable to Convert to with destPath %s and format %s", destPath, qemuimg.RAW.String())
+	}
+	return nil
 }
 
 func (s *SRbdStorage) getDiskPath(diskId string) string {
