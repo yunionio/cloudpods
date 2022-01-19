@@ -224,6 +224,7 @@ func (manager *SInstanceBackupManager) FetchCustomizeColumns(
 }
 
 func (self *SInstanceBackup) StartCreateInstanceBackupTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	self.SetStatus(userCred, api.INSTANCE_BACKUP_STATUS_CREATING, "")
 	if task, err := taskman.TaskManager.NewTask(ctx, "InstanceBackupCreateTask", self, userCred, nil, parentTaskId, "", nil); err != nil {
 		return err
 	} else {
