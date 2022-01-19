@@ -338,6 +338,10 @@ func (self *SGuest) GetQemuVersion(userCred mcclient.TokenCredential) string {
 	return self.GetMetadata("__qemu_version", userCred)
 }
 
+func (self *SGuest) GetQemuCmdline(userCred mcclient.TokenCredential) string {
+	return self.GetMetadata("__qemu_cmdline", userCred)
+}
+
 // if qemuVer >= compareVer return true
 func (self *SGuest) CheckQemuVersion(qemuVer, compareVer string) bool {
 	if len(qemuVer) == 0 {

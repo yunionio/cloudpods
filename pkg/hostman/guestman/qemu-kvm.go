@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -46,6 +47,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/regutils2"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
@@ -299,6 +301,24 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 	if err != nil {
 		return err
 	}
+	// diff qemu command options when migrating
+	if jsonutils.QueryBoolean(data, "need_migrate", false) {
+		srcCmdline, err := data.GetString("source_qemu_cmdline")
+		if err != nil {
+			return errors.Wrap(err, "Get source_qemu_cmdline")
+		}
+		currentCmd, err := s.getQemuCmdlineFromContent(startScript)
+		if err != nil {
+			return errors.Wrapf(err, "Get qemu cmdline from %q", startScript)
+		}
+		unifyCmd, err := s.unifyMigrateQemuCmdline(currentCmd, srcCmdline)
+		if err != nil {
+			return errors.Wrap(err, "Unify migrate qemu cmdline")
+		}
+		// reinject cmd
+		startScript = strings.ReplaceAll(startScript, currentCmd, unifyCmd)
+	}
+
 	if err = fileutils2.FilePutContents(s.GetStartScriptPath(), startScript, false); err != nil {
 		return err
 	}
@@ -1528,6 +1548,12 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	} else {
 		meta.Set("__cpu_mode", jsonutils.NewString(api.CPU_MODE_HOST))
 	}
+	cmdline, err := s.getQemuCmdline()
+	if err != nil {
+		log.Errorf("Get qemu process cmdline error: %v", err)
+	} else {
+		meta.Set("__qemu_cmdline", jsonutils.NewString(cmdline))
+	}
 	if s.syncMeta != nil {
 		meta.Update(s.syncMeta)
 	}
@@ -1784,4 +1810,21 @@ func (s *SKVMGuestInstance) generateDiskParams(disks []api.GuestdiskJsonDesc, is
 		cmd += s.getVdiskDesc(disk, isArm)
 	}
 	return cmd
+}
+
+func (s *SKVMGuestInstance) getQemuCmdline() (string, error) {
+	content, err := fileutils2.FileGetContents(s.GetStartScriptPath())
+	if err != nil {
+		return "", errors.Wrap(err, "get startvm content")
+	}
+	return s.getQemuCmdlineFromContent(content)
+}
+
+func (s *SKVMGuestInstance) getQemuCmdlineFromContent(content string) (string, error) {
+	cmdReg := regexp.MustCompile(`CMD="(?P<cmd>.*)"`)
+	cmdStr := regutils2.GetParams(cmdReg, content)["cmd"]
+	if cmdStr == "" {
+		return "", errors.Errorf("Not found CMD content")
+	}
+	return cmdStr, nil
 }
