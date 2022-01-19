@@ -61,7 +61,7 @@ func (mysql *SMySQLBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, changes
 	/* IGNORE DROP STATEMENT */
 	for _, col := range changes.RemoveColumns {
 		sql := fmt.Sprintf("DROP COLUMN `%s`", col.Name())
-		log.Infof("ALTER TABLE %s %s;", ts.Name(), sql)
+		log.Debugf("skip ALTER TABLE %s %s;", ts.Name(), sql)
 		// alters = append(alters, sql)
 		// ignore drop statement
 		// if the column is auto_increment integer column,

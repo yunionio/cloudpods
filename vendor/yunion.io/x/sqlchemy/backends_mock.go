@@ -51,6 +51,10 @@ func (c *sMockColumn) IsNumeric() bool {
 	return false
 }
 
+func (c *sMockColumn) IsText() bool {
+	return c.sqlType == "string"
+}
+
 func (c *sMockColumn) IsZero(val interface{}) bool {
 	return reflect.ValueOf(val).IsZero()
 }
