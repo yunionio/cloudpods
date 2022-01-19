@@ -17,6 +17,8 @@ package models
 import (
 	"fmt"
 
+	"yunion.io/x/log"
+
 	compute_models "yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -236,9 +238,21 @@ func (el *Groupnetwork) Copy() *Groupnetwork {
 
 func (el *Groupnetwork) GetGuestNetworks() []*Guestnetwork {
 	ret := make([]*Guestnetwork, 0)
-	for _, gg := range el.Group.Groupguests {
-		for _, gn := range gg.Guest.Guestnetworks {
-			ret = append(ret, gn)
+	if el.Group == nil {
+		log.Errorf("Nil group for groupnetwork %s %s", el.GroupId, el.NetworkId)
+	} else if el.Group.Groupguests == nil {
+		log.Errorf("Nil groupguests for group %s", el.GroupId)
+	} else {
+		for _, gg := range el.Group.Groupguests {
+			if gg.Guest == nil {
+				log.Errorf("Nil guest for groupguest %s %s", gg.GroupId, gg.GuestId)
+			} else if gg.Guest.Guestnetworks == nil {
+				log.Errorf("Nil guestnetworks for guest %s", gg.GuestId)
+			} else {
+				for _, gn := range gg.Guest.Guestnetworks {
+					ret = append(ret, gn)
+				}
+			}
 		}
 	}
 	return ret
