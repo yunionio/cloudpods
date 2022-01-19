@@ -572,6 +572,7 @@ type DiskConfiguration struct {
 	RaidConfig string
 	Block      int64
 	Size       int64
+	DiskType   string
 }
 
 func GetDiskConfigurations(layouts []Layout) []DiskConfiguration {
@@ -589,6 +590,7 @@ func GetDiskConfigurations(layouts []Layout) []DiskConfiguration {
 					RaidConfig: raidConf,
 					Block:      block,
 					Size:       d.Size,
+					DiskType:   rr.Conf.Type,
 				})
 			}
 		} else {
@@ -600,6 +602,7 @@ func GetDiskConfigurations(layouts []Layout) []DiskConfiguration {
 						RaidConfig: raidConf,
 						Block:      block,
 						Size:       sz,
+						DiskType:   rr.Conf.Type,
 					})
 				}
 			} else {
@@ -609,6 +612,7 @@ func GetDiskConfigurations(layouts []Layout) []DiskConfiguration {
 					RaidConfig: raidConf,
 					Block:      block,
 					Size:       rr.Size,
+					DiskType:   rr.Conf.Type,
 				})
 			}
 		}
