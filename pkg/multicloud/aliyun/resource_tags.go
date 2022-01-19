@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -97,28 +98,45 @@ func (self *SRegion) UntagResource(serviceType string, resourceType string, resI
 }
 
 func (self *SRegion) SetResourceTags(serviceType string, resourceType string, resId string, tags map[string]string, replace bool) error {
-	err := self.TagResource(serviceType, resourceType, resId, tags)
-	if err != nil {
-		return errors.Wrapf(err, "TagResource")
-	}
-	if !replace || len(tags) == 0 {
-		return nil
-	}
 	_, _tags, err := self.ListSysAndUserTags(serviceType, resourceType, resId)
 	if err != nil {
 		return errors.Wrapf(err, "ListTags")
 	}
-	tagMaps := map[string]string{}
-	for k, v := range tags {
-		tagMaps[strings.ToLower(k)] = v
+	keys, upperKeys := []string{}, []string{}
+	for k := range tags {
+		keys = append(keys, k)
+		upperKeys = append(upperKeys, strings.ToUpper(k))
 	}
-	keys := []string{}
-	for k := range _tags {
-		if _, ok := tagMaps[strings.ToLower(k)]; !ok {
-			keys = append(keys, k)
+	if replace {
+		if len(tags) > 0 {
+			removeKeys := []string{}
+			for k := range _tags {
+				if !utils.IsInStringArray(k, keys) {
+					removeKeys = append(removeKeys, k)
+				}
+			}
+			if len(removeKeys) > 0 {
+				err := self.UntagResource(serviceType, resourceType, resId, removeKeys)
+				if err != nil {
+					return errors.Wrapf(err, "UntagResource")
+				}
+			}
+		}
+	} else {
+		removeKeys := []string{}
+		for k := range _tags {
+			if !utils.IsInStringArray(k, keys) && utils.IsInStringArray(strings.ToUpper(k), upperKeys) {
+				removeKeys = append(removeKeys, k)
+			}
+		}
+		if len(removeKeys) > 0 {
+			err := self.UntagResource(serviceType, resourceType, resId, removeKeys)
+			if err != nil {
+				return errors.Wrapf(err, "UntagResource")
+			}
 		}
 	}
-	return self.UntagResource(serviceType, resourceType, resId, keys)
+	return self.TagResource(serviceType, resourceType, resId, tags)
 }
 
 func (self *SRegion) TagResource(serviceType string, resourceType string, resourceId string, tags map[string]string) error {

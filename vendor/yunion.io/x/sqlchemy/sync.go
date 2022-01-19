@@ -352,7 +352,7 @@ func (ts *STableSpec) SyncSQL() []string {
 	/* IGNORE DROP STATEMENT */
 	for _, col := range remove {
 		sql := fmt.Sprintf("DROP COLUMN `%s`", col.Name())
-		log.Infof("ALTER TABLE %s %s;", ts.name, sql)
+		log.Debugf("skip ALTER TABLE %s %s;", ts.name, sql)
 		// alters = append(alters, sql)
 		// ignore drop statement
 		// if the column is auto_increment integer column,
@@ -417,6 +417,7 @@ func (ts *STableSpec) Sync() error {
 	sqls := ts.SyncSQL()
 	if sqls != nil {
 		for _, sql := range sqls {
+			log.Infof(sql)
 			_, err := _db.Exec(sql)
 			if err != nil {
 				log.Errorf("exec sql error %s: %s", sql, err)
