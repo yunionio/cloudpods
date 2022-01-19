@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
@@ -214,7 +215,8 @@ type DiskPartitions struct {
 	driver     string
 	adapter    int
 	raidConfig string
-	sizeMB     int64 // MB
+	sizeMB     int64  // MB
+	diskType   string // ssd, rotate, hybird
 	tool       *PartitionTool
 	dev        string
 	devName    string
@@ -226,7 +228,7 @@ type DiskPartitions struct {
 	partitions []*Partition
 }
 
-func newDiskPartitions(driver string, adapter int, raidConfig string, sizeMB int64, blockSize int64, tool *PartitionTool) *DiskPartitions {
+func newDiskPartitions(driver string, adapter int, raidConfig string, sizeMB int64, blockSize int64, diskType string, tool *PartitionTool) *DiskPartitions {
 	ps := new(DiskPartitions)
 	ps.driver = driver
 	ps.adapter = adapter
@@ -234,6 +236,7 @@ func newDiskPartitions(driver string, adapter int, raidConfig string, sizeMB int
 	ps.sizeMB = sizeMB
 	ps.tool = tool
 	ps.blockSize = blockSize
+	ps.diskType = diskType
 	ps.partitions = make([]*Partition, 0)
 	return ps
 }
@@ -615,6 +618,7 @@ func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
 		return
 	}
 	minCnt := int(math.Min(float64(len(disks)), float64(len(tool.diskTable[driver]))))
+	raidSsdDiskCnt := 0
 	for i := 0; i < minCnt; i++ {
 		driverDisk := tool.diskTable[driver][i]
 		if utils.IsInStringArray(driver, []string{NONRAID_DRIVER, PCIE_DRIVER}) {
@@ -632,14 +636,28 @@ func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
 			driverDisk.SetInfo(remoteDisk)
 		} else {
 			// raid disk set by order
-			driverDisk.SetInfo(disks[i])
+			if driverDisk.diskType == api.DISK_TYPE_SSD {
+				// find ssd matched remoteDisk
+				var remoteDisk *types.SDiskInfo
+				for ri := range disks {
+					if !disks[ri].Rotate {
+						remoteDisk = disks[ri]
+						disks = append(disks[:ri], disks[ri+1:]...)
+						raidSsdDiskCnt++
+						break
+					}
+				}
+				driverDisk.SetInfo(remoteDisk)
+			} else {
+				driverDisk.SetInfo(disks[i-raidSsdDiskCnt])
+			}
 		}
 	}
 }
 
 func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguration) *PartitionTool {
 	for _, d := range diskConfs {
-		disk := newDiskPartitions(d.Driver, d.Adapter, d.RaidConfig, d.Size, d.Block, tool)
+		disk := newDiskPartitions(d.Driver, d.Adapter, d.RaidConfig, d.Size, d.Block, d.DiskType, tool)
 		tool.disks = append(tool.disks, disk)
 		var key string
 		if d.Driver == baremetal.DISK_DRIVER_LINUX {
