@@ -84,6 +84,13 @@ type SDiskSnapshot struct {
 	Disk       storageman.IDisk
 }
 
+type SDiskBackup struct {
+	Sid        string
+	SnapshotId string
+	BackupId   string
+	Disk       storageman.IDisk
+}
+
 type SDeleteDiskSnapshot struct {
 	Sid             string
 	DeleteSnapshot  string

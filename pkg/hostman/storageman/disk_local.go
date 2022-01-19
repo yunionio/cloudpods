@@ -78,6 +78,10 @@ func (d *SLocalDisk) GetSnapshotDir() string {
 	return path.Join(d.Storage.GetSnapshotDir(), d.Id+options.HostOptions.SnapshotDirSuffix)
 }
 
+func (d *SLocalDisk) GetBackupDir() string {
+	return d.Storage.GetBackupDir()
+}
+
 func (d *SLocalDisk) GetSnapshotLocation() string {
 	return d.GetSnapshotDir()
 }
@@ -341,8 +345,45 @@ func (d *SLocalDisk) PostCreateFromImageFuse() {
 	}
 }
 
+func (d *SLocalDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	diskBakcup := params.(*SDiskBakcup)
+	snapshotDir := d.GetSnapshotDir()
+	snapshotPath := path.Join(snapshotDir, diskBakcup.SnapshotId)
+	backupDir := d.GetBackupDir()
+	if !fileutils2.Exists(backupDir) {
+		output, err := procutils.NewCommand("mkdir", "-p", backupDir).Output()
+		if err != nil {
+			log.Errorf("mkdir %s failed: %s", backupDir, output)
+			return nil, errors.Wrapf(err, "mkdir %s failed: %s", backupDir, output)
+		}
+	}
+	backupPath := path.Join(backupDir, diskBakcup.BackupId)
+	img, err := qemuimg.NewQemuImage(snapshotPath)
+	if err != nil {
+		log.Errorln(err)
+		procutils.NewCommand("mv", "-f", backupPath, d.getPath()).Run()
+		return nil, err
+	}
+	newImage, err := img.Clone(backupPath, qemuimg.QCOW2, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to backup snapshot")
+	}
+	_, err = d.Storage.StorageBackup(ctx, &SStorageBackup{
+		BackupId:                diskBakcup.BackupId,
+		BackupStorageId:         diskBakcup.BackupStorageId,
+		BackupStorageAccessInfo: diskBakcup.BackupStorageAccessInfo,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to SStorageBackup")
+	}
+	data := jsonutils.NewDict()
+	data.Set("size_mb", jsonutils.NewInt(int64(newImage.GetActualSizeMB())))
+	return data, nil
+}
+
 func (d *SLocalDisk) CreateSnapshot(snapshotId string) error {
 	snapshotDir := d.GetSnapshotDir()
+	log.Infof("snapshotDir of LocalDisk %s: %s", d.Id, snapshotDir)
 	if !fileutils2.Exists(snapshotDir) {
 		output, err := procutils.NewCommand("mkdir", "-p", snapshotDir).Output()
 		if err != nil {
