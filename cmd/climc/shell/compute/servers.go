@@ -742,6 +742,20 @@ func init() {
 		printObject(result)
 		return nil
 	})
+	type ServerCreateBackup struct {
+		ID              string `help:"ID or name of VM" json:"-"`
+		BACKUP          string `help:"Instance backup name" json:"name"`
+		BACKUPSTORAGEID string `help:"backup storage id" json:"backup_storage_id"`
+	}
+	R(&ServerCreateBackup{}, "instance-backup-create", "create instance backup", func(s *mcclient.ClientSession, opts *ServerCreateBackup) error {
+		params := jsonutils.Marshal(opts)
+		result, err := modules.Servers.PerformAction(s, opts.ID, "instance-backup", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 
 	type ServerSnapshotAndClone struct {
 		ID          string `help:"ID or name of VM" json:"-"`
