@@ -413,6 +413,11 @@ func init() {
 			"负载均衡监听",
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP,
+			"loadbalancer backendgroup",
+			"负载均衡服务器组",
+		},
+		sI18nElme{
 			api.TOPIC_RESOURCE_BUCKET,
 			"object storage bucket",
 			"对象存储桶",
