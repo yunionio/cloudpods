@@ -476,7 +476,6 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 			syncResult.UpdateError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 		localVPCs = append(localVPCs, commondb[i])
 		remoteVPCs = append(remoteVPCs, commonext[i])
 		syncResult.Update()
@@ -487,7 +486,6 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 			syncResult.AddError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, newVpc, added[i])
 		localVPCs = append(localVPCs, *newVpc)
 		remoteVPCs = append(remoteVPCs, added[i])
 		syncResult.Add()
