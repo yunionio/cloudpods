@@ -11,4 +11,4 @@
 {{- if $d.public_dns -}}
 ，外网地址为{{ $d.public_dns }}:{{ $d.public_connect_port }}的
 {{- end -}}
-{{ .resource_type_display }}{{ $d.name }}还有{{ .advance_days }}天就要到期释放，如需续期使用，请尽快前往控制台处理
+{{ .resource_type_display }}{{ $d.name }}还有{{ .advance_days }}天就要到期释放，{{ if $d.auto_renew }}到期已开启自动续费，{{ end }}如有其它变更，请尽快前往控制台处理
