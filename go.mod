@@ -107,6 +107,7 @@ require (
 	github.com/pquerna/otp v1.2.0
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
+	github.com/sergi/go-diff v1.2.0
 	github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
 	github.com/sevlyar/go-daemon v0.1.5
 	github.com/shirou/gopsutil v2.18.10+incompatible

@@ -23,6 +23,7 @@ import (
 
 	"github.com/mdlayher/arp"
 	"github.com/mdlayher/ethernet"
+	"github.com/sergi/go-diff/diffmatchpatch"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -724,6 +725,74 @@ function nic_mtu() {
 	// cmd += "fi\n"
 
 	return cmd, nil
+}
+
+func (s *SKVMGuestInstance) parseCmdline(input string) (*qemutils.Cmdline, []qemutils.Option, error) {
+	cl, err := qemutils.NewCmdline(input)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "NewCmdline %q", input)
+	}
+	filterOpts := make([]qemutils.Option, 0)
+	// filter migrate and other option include dynamic port
+	cl.FilterOption(func(o qemutils.Option) bool {
+		switch o.Key {
+		case "incoming":
+			if strings.HasPrefix(o.Value, "tcp:") {
+				filterOpts = append(filterOpts, o)
+				return true
+			}
+		case "vnc":
+			filterOpts = append(filterOpts, o)
+			return true
+		case "chardev":
+			valsMatch := []string{
+				"socket,id=hmqmondev",
+				"socket,id=hmpmondev",
+				"socket,id=qmqmondev",
+				"socket,id=qmpmondev",
+			}
+			for _, valM := range valsMatch {
+				if strings.HasPrefix(o.Value, valM) {
+					filterOpts = append(filterOpts, o)
+					return true
+				}
+			}
+		}
+		return false
+	})
+	return cl, filterOpts, nil
+}
+
+func (s *SKVMGuestInstance) _unifyMigrateQemuCmdline(cur string, src string) string {
+	dmp := diffmatchpatch.New()
+	diffs := dmp.DiffMain(cur, src, false)
+
+	log.Debugf("unify migrate qemu cmdline diffs: %s", jsonutils.Marshal(diffs).PrettyString())
+
+	// make patch
+	patch := dmp.PatchMake(cur, diffs)
+
+	// apply patch
+	newStr, _ := dmp.PatchApply(patch, cur)
+	return newStr
+}
+
+func (s *SKVMGuestInstance) unifyMigrateQemuCmdline(cur string, src string) (string, error) {
+	curCl, curFilterOpts, err := s.parseCmdline(cur)
+	if err != nil {
+		return "", errors.Wrapf(err, "parseCmdline current %q", cur)
+	}
+	srcCl, _, err := s.parseCmdline(src)
+	if err != nil {
+		return "", errors.Wrapf(err, "parseCmdline source %q", src)
+	}
+	unifyStr := s._unifyMigrateQemuCmdline(curCl.ToString(), srcCl.ToString())
+	unifyCl, _, err := s.parseCmdline(unifyStr)
+	if err != nil {
+		return "", errors.Wrapf(err, "parseCmdline unitfy %q", unifyStr)
+	}
+	unifyCl.AddOption(curFilterOpts...)
+	return unifyCl.ToString(), nil
 }
 
 func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string {

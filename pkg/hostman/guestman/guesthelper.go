@@ -38,11 +38,12 @@ type SSrcPrepareMigrate struct {
 }
 
 type SDestPrepareMigrate struct {
-	Sid          string
-	ServerUrl    string
-	QemuVersion  string
-	SnapshotsUri string
-	DisksUri     string
+	Sid               string
+	ServerUrl         string
+	QemuVersion       string
+	SourceQemuCmdline string
+	SnapshotsUri      string
+	DisksUri          string
 	// TargetStorageId string
 	TargetStorageIds []string
 	LiveMigrate      bool
