@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apigateway/constants"
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	policytool "yunion.io/x/onecloud/pkg/apigateway/policy"
+	agapi "yunion.io/x/onecloud/pkg/apis/apigateway"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -115,7 +116,7 @@ func (h *AuthHandlers) Bind(app *appsrv.Application) {
 	h.SHandlers.Bind(app)
 }
 
-func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWriter, req *http.Request) (*jsonutils.JSONDict, error) {
+func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWriter, req *http.Request) (*agapi.SRegionsReponse, error) {
 	var currentDomain string
 	var createUser bool
 	qs, _ := jsonutils.ParseQueryString(req.URL.RawQuery)
@@ -133,12 +134,17 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 		return nil, errors.Error("region is empty")
 	}
 
-	resp := jsonutils.NewDict()
-	regionsJson := jsonutils.NewStringArray(regions)
-	resp.Add(regionsJson, "regions")
+	ret := &agapi.SRegionsReponse{
+		Regions:           regions,
+		Domains:           []string{},
+		ReturnFullDomains: false,
+		Idps:              []agapi.SIdp{},
+		SCommonConfig: agapi.SCommonConfig{
+			ApiServer: options.Options.ApiServer,
+		},
+	}
 
 	s := auth.GetAdminSession(ctx, regions[0], "")
-
 	if options.Options.ReturnFullDomainList {
 		filters := jsonutils.NewDict()
 		if len(currentDomain) > 0 {
@@ -149,19 +155,17 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 		if e != nil {
 			return nil, errors.Wrap(e, "list domain")
 		}
-		domains := jsonutils.NewArray()
-		for _, d := range result.Data {
-			dn, e := d.Get("name")
-			if e == nil {
-				if status, err := d.Bool("enabled"); err == nil && status {
-					domains.Add(dn)
-				}
+		domains := []struct {
+			Name    string
+			Enabled bool
+		}{}
+		jsonutils.Update(&domains, result.Data)
+		for _, d := range domains {
+			if len(d.Name) > 0 && d.Enabled {
+				ret.Domains = append(ret.Domains, d.Name)
 			}
 		}
-		resp.Add(domains, "domains")
-		resp.Add(jsonutils.JSONTrue, "return_full_domains")
-	} else {
-		resp.Add(jsonutils.JSONFalse, "return_full_domains")
+		ret.ReturnFullDomains = true
 	}
 
 	filters := jsonutils.NewDict()
@@ -176,34 +180,22 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 		filters.Add(jsonutils.JSONFalse, "auto_create_user")
 	}
 	idps, err := modules.IdentityProviders.List(s, filters)
-	retIdps := make([]jsonutils.JSONObject, 0)
 	if err == nil {
-		for i := range idps.Data {
-			retIdp := idps.Data[i].(*jsonutils.JSONDict).CopyIncludes("id", "name", "driver", "template", "icon_uri", "is_default")
-			retIdps = append(retIdps, retIdp)
-		}
+		jsonutils.Update(&ret.Idps, idps.Data)
 	}
-
-	resp.Add(jsonutils.NewArray(retIdps...), "idps")
 
 	// in case api_server changed but not synchronized from Keystone
 	// fetch this option directly from Keystone
-	var apiSrv string
 	commonCfg, err := modules.ServicesV3.GetSpecific(s, "common", "config", nil)
-	if err != nil {
-		log.Errorf("fetch common config error: %s", err)
-	} else {
-		apiSrv, err = commonCfg.GetString("config", "default", "api_server")
-		if err != nil {
-			log.Errorf("fetch api_server fail: %s (cfg: %s)", err, commonCfg)
+	if err == nil && commonCfg != nil {
+		config := agapi.SCommonConfig{}
+		commonCfg.Unmarshal(&config, "config", "default")
+		if len(config.ApiServer) > 0 {
+			ret.ApiServer = config.ApiServer
 		}
+		ret.IsForgetLoginUser = config.IsForgetLoginUser
 	}
-	if len(apiSrv) == 0 {
-		apiSrv = options.Options.ApiServer
-	}
-	resp.Add(jsonutils.NewString(apiSrv), "api_server")
-
-	return resp, nil
+	return ret, nil
 }
 
 func (h *AuthHandlers) getRegions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
@@ -212,7 +204,7 @@ func (h *AuthHandlers) getRegions(ctx context.Context, w http.ResponseWriter, re
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	appsrv.SendJSON(w, resp)
+	appsrv.SendJSON(w, jsonutils.Marshal(resp))
 }
 
 func (h *AuthHandlers) getUser(ctx context.Context, w http.ResponseWriter, req *http.Request) {
