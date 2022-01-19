@@ -300,6 +300,7 @@ func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, gues
 	body := jsonutils.NewDict()
 	body.Set("is_local_storage", jsonutils.JSONFalse)
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
+	body.Set("qemu_cmdline", jsonutils.NewString(guest.GetQemuCmdline(self.UserCred)))
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
 	body.Set("desc", jsonutils.Marshal(targetDesc))
 	return body, nil
@@ -332,6 +333,7 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	body.Set("disks_uri", jsonutils.NewString(disksUri))
 	body.Set("server_url", jsonutils.NewString(serverUrl))
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
+	body.Set("qemu_cmdline", jsonutils.NewString(guest.GetQemuCmdline(self.UserCred)))
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
 	if len(targetDesc.Disks) == 0 {
 		return nil, errors.Errorf("Get disksDesc error")

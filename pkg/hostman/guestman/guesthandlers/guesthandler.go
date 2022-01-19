@@ -298,11 +298,16 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("is_local_storage")
 	}
+	qemuCmdline, err := body.GetString("qemu_cmdline")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("qemu_cmdline")
+	}
 	var params = &guestman.SDestPrepareMigrate{}
 	params.Sid = sid
 	params.Desc = desc
 	params.QemuVersion = qemuVersion
 	params.LiveMigrate = liveMigrate
+	params.SourceQemuCmdline = qemuCmdline
 	if isLocal {
 		serverUrl, err := body.GetString("server_url")
 		if err != nil {
