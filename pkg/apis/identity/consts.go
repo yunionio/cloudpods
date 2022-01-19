@@ -112,6 +112,7 @@ var (
 			"ignore_nonrunning_guests",
 			"platform_name",
 			"platform_names",
+			"is_forget_login_user",
 		},
 	}
 
