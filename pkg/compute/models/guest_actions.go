@@ -4573,6 +4573,45 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 	return pendingUsage, nil
 }
 
+func (self *SGuest) validateCreateInstanceBackup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
+	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM}) {
+		return httperrors.NewBadRequestError("guest hypervisor %s can't create instance snapshot", self.Hypervisor)
+	}
+
+	if len(self.BackupHostId) > 0 {
+		return httperrors.NewBadRequestError("Can't do instance snapshot with backup guest")
+	}
+
+	if !utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+		return httperrors.NewInvalidStatusError("guest can't do snapshot in status %s", self.Status)
+	}
+
+	var name string
+	ownerId := self.GetOwnerId()
+	dataDict := data.(*jsonutils.JSONDict)
+	nameHint, err := dataDict.GetString("generate_name")
+	if err == nil {
+		name, err = db.GenerateName(ctx, InstanceBackupManager, ownerId, nameHint)
+		if err != nil {
+			return err
+		}
+		dataDict.Set("name", jsonutils.NewString(name))
+	} else if name, err = dataDict.GetString("name"); err != nil {
+		return httperrors.NewMissingParameterError("name")
+	}
+
+	err = db.NewNameValidator(InstanceBackupManager, ownerId, name, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // 1. validate guest status, guest hypervisor
 // 2. validate every disk manual snapshot count
 // 3. validate snapshot quota with disk count
@@ -4601,6 +4640,33 @@ func (self *SGuest) PerformInstanceSnapshot(
 	return nil, nil
 }
 
+func (self *SGuest) PerformInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	lockman.LockClass(ctx, InstanceSnapshotManager, userCred.GetProjectId())
+	defer lockman.ReleaseClass(ctx, InstanceSnapshotManager, userCred.GetProjectId())
+	err := self.validateCreateInstanceBackup(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	name, _ := data.GetString("name")
+	backupStorageId, _ := data.GetString("backup_storage_id")
+	if backupStorageId == "" {
+		return nil, httperrors.NewMissingParameterError("backup_storage_id")
+	}
+	_, err = BackupStorageManager.FetchById(backupStorageId)
+	if err == sql.ErrNoRows {
+		return nil, httperrors.NewInputParameterError("unkown backup_storage_id %s", backupStorageId)
+	}
+	instanceBackup, err := InstanceBackupManager.CreateInstanceBackup(ctx, userCred, self, name, backupStorageId)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("create instance backup failed: %s", err)
+	}
+	err = self.InstanceCreateBackup(ctx, userCred, instanceBackup)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("start create backup task failed: %s", err)
+	}
+	return nil, nil
+}
+
 func (self *SGuest) InstaceCreateSnapshot(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -4609,6 +4675,11 @@ func (self *SGuest) InstaceCreateSnapshot(
 ) error {
 	self.SetStatus(userCred, api.VM_START_INSTANCE_SNAPSHOT, "instance snapshot")
 	return instanceSnapshot.StartCreateInstanceSnapshotTask(ctx, userCred, pendingUsage, "")
+}
+
+func (self *SGuest) InstanceCreateBackup(ctx context.Context, userCred mcclient.TokenCredential, instanceBackup *SInstanceBackup) error {
+	self.SetStatus(userCred, api.VM_START_INSTANCE_BACKUP, "instance backup")
+	return instanceBackup.StartCreateInstanceBackupTask(ctx, userCred, "")
 }
 
 func (self *SGuest) PerformInstanceSnapshotReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerResetInput) (jsonutils.JSONObject, error) {
