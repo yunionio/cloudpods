@@ -174,21 +174,29 @@ func (img *SQemuImage) IsChained() bool {
 	return len(img.BackFilePath) > 0
 }
 
-func (img *SQemuImage) doConvert(name string, format TImageFormat, options []string, compact bool, password string) error {
-	if !img.IsValid() {
-		return fmt.Errorf("self is not valid")
-	}
-	cmdline := []string{"-c", strconv.Itoa(int(img.IoLevel)),
+type SConvertInfo struct {
+	Path     string
+	Format   TImageFormat
+	IoLevel  TIONiceLevel
+	Password string
+}
+
+func Convert(srcInfo, destInfo SConvertInfo, options []string, compact bool, workerOpions []string) error {
+	cmdline := []string{"-c", strconv.Itoa(int(srcInfo.IoLevel)),
 		qemutils.GetQemuImg(), "convert"}
 	if compact {
 		cmdline = append(cmdline, "-c")
 	}
-	// https://bugzilla.redhat.com/show_bug.cgi?id=1969848
-	// https://bugs.launchpad.net/qemu/+bug/1805256
-	// qemu-img convert may hang on aarch64, fix: add -m 1
-	cmdline = append(cmdline, "-m", "1")
-	cmdline = append(cmdline, "-f", img.Format.String(), "-O", format.String())
-	if len(password) > 0 {
+	if workerOpions == nil {
+		// https://bugzilla.redhat.com/show_bug.cgi?id=1969848
+		// https://bugs.launchpad.net/qemu/+bug/1805256
+		// qemu-img convert may hang on aarch64, fix: add -m 1
+		cmdline = append(cmdline, "-m", "1")
+	} else {
+		cmdline = append(cmdline, workerOpions...)
+	}
+	cmdline = append(cmdline, "-f", srcInfo.Format.String(), "-O", destInfo.Format.String())
+	if len(destInfo.Password) > 0 {
 		if options == nil {
 			options = make([]string, 0)
 		}
@@ -197,12 +205,12 @@ func (img *SQemuImage) doConvert(name string, format TImageFormat, options []str
 	if len(options) > 0 {
 		cmdline = append(cmdline, "-o", strings.Join(options, ","))
 	}
-	cmdline = append(cmdline, img.Path, name)
+	cmdline = append(cmdline, srcInfo.Path, destInfo.Path)
 	log.Infof("XXXX qemu-img command: %s", cmdline)
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", cmdline...)
 	var stdin io.WriteCloser
 	var err error
-	if len(img.Password) > 0 || len(password) > 0 {
+	if len(srcInfo.Password) > 0 || len(destInfo.Password) > 0 {
 		stdin, err = cmd.StdinPipe()
 		if err != nil {
 			return errors.Wrap(err, "convert stdin")
@@ -212,23 +220,39 @@ func (img *SQemuImage) doConvert(name string, format TImageFormat, options []str
 	if err != nil {
 		return errors.Wrap(err, "do convert")
 	}
-	if len(img.Password) > 0 || len(password) > 0 {
+	if len(srcInfo.Password) > 0 || len(destInfo.Password) > 0 {
 		input := ""
-		if len(img.Password) > 0 {
-			input = fmt.Sprintf("%s%s\r", input, img.Password)
+		if len(srcInfo.Password) > 0 {
+			input = fmt.Sprintf("%s%s\r", input, srcInfo.Password)
 		}
-		if len(password) > 0 {
-			input = fmt.Sprintf("%s%s\r", input, password)
+		if len(destInfo.Password) > 0 {
+			input = fmt.Sprintf("%s%s\r", input, destInfo.Password)
 		}
 		io.WriteString(stdin, input+"\n")
 	}
 	err = cmd.Wait()
 	if err != nil {
 		log.Errorf("clone fail %s", err)
-		os.Remove(name)
+		os.Remove(destInfo.Path)
 		return err
 	}
 	return nil
+}
+
+func (img *SQemuImage) doConvert(name string, format TImageFormat, options []string, compact bool, password string) error {
+	if !img.IsValid() {
+		return fmt.Errorf("self is not valid")
+	}
+	return Convert(SConvertInfo{
+		Path:     img.Path,
+		Format:   img.Format,
+		IoLevel:  img.IoLevel,
+		Password: img.Password,
+	}, SConvertInfo{
+		Path:     name,
+		Format:   format,
+		Password: password,
+	}, options, compact, nil)
 }
 
 func (img *SQemuImage) Clone(name string, format TImageFormat, compact bool) (*SQemuImage, error) {

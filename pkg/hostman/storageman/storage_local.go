@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -98,6 +99,61 @@ func (s *SLocalStorage) SyncStorageSize() error {
 		hostutils.GetComputeSession(context.Background()),
 		s.StorageId, content)
 	return err
+}
+func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
+	info := input.DiskInfo
+	backupPath := path.Join(s.GetBackupDir(), info.Backup.BackupId)
+	if !fileutils2.Exists(backupPath) {
+		_, err := s.storageBackupRecovery(ctx, &SStorageBackup{
+			BackupId:                input.DiskInfo.Backup.BackupId,
+			BackupStorageId:         input.DiskInfo.Backup.BackupStorageId,
+			BackupStorageAccessInfo: input.DiskInfo.Backup.BackupStorageAccessInfo.Copy(),
+		})
+		if err != nil {
+			return errors.Wrap(err, "unable to storageBackupRecovery")
+		}
+	}
+	img, err := qemuimg.NewQemuImage(backupPath)
+	if err != nil {
+		log.Errorln("unable to new qemu image for %s: %s", backupPath, err.Error())
+		return err
+	}
+	_, err = img.Clone(disk.GetPath(), qemuimg.QCOW2, false)
+	return err
+}
+
+func (s *SLocalStorage) StorageBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	sbParams := params.(*SStorageBackup)
+	backupStorage, err := backupstorage.NewBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
+	if err != nil {
+		return nil, err
+	}
+	backupPath := path.Join(s.GetBackupDir(), sbParams.BackupId)
+	err = backupStorage.CopyBackupFrom(backupPath, sbParams.BackupId)
+	if err != nil {
+		return nil, err
+	}
+	// remove local backup
+	output, err := procutils.NewCommand("rm", backupPath).Output()
+	if err != nil {
+		log.Errorf("rm %s failed %s", backupPath, output)
+		return nil, errors.Wrapf(err, "rm %s failed %s", backupPath, output)
+	}
+	return nil, nil
+}
+
+func (s *SLocalStorage) storageBackupRecovery(ctx context.Context, sbParams *SStorageBackup) (jsonutils.JSONObject, error) {
+	backupStorage, err := backupstorage.NewBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
+	if err != nil {
+		return nil, err
+	}
+	backupPath := path.Join(s.GetBackupDir(), sbParams.BackupId)
+	return nil, backupStorage.CopyBackupTo(backupPath, sbParams.BackupId)
+}
+
+func (s *SLocalStorage) StorageBackupRecovery(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	sbParams := params.(*SStorageBackup)
+	return s.storageBackupRecovery(ctx, sbParams)
 }
 
 func (s *SLocalStorage) GetAvailSizeMb() int {

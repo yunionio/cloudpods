@@ -68,3 +68,7 @@ func qcow2SparseOptions() []string {
 		return []string{}
 	}
 }
+
+func Qcow2SparseOptions() []string {
+	return qcow2SparseOptions()
+}

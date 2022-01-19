@@ -473,6 +473,22 @@ func (self *SBaseRegionDriver) RequestCreateNetwork(ctx context.Context, userCre
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateNetwork")
 }
 
+func (self *SBaseRegionDriver) RequestCreateBackup(ctx context.Context, backup *models.SDiskBackup, snapshotId string, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateBackup")
+}
+
+func (self *SBaseRegionDriver) RequestDeleteBackup(ctx context.Context, backup *models.SDiskBackup, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestDeleteBackup")
+}
+
+func (self *SBaseRegionDriver) RequestCreateInstanceBackup(ctx context.Context, guest *models.SGuest, ib *models.SInstanceBackup, task taskman.ITask, params *jsonutils.JSONDict) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateInstanceBackup")
+}
+
+func (self *SBaseRegionDriver) RequestDeleteInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestDeleteInstanceBackup")
+}
+
 func (self *SBaseRegionDriver) ValidateCreateCdnData(ctx context.Context, userCred mcclient.TokenCredential, input api.CDNDomainCreateInput) (api.CDNDomainCreateInput, error) {
 	return input, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateCdnData")
 }

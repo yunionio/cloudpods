@@ -233,6 +233,10 @@ func InitHandlers(app *appsrv.Application) {
 		models.KubeClusterManager,
 		models.KubeNodeManager,
 		models.KubeNodePoolManager,
+
+		models.BackupStorageManager,
+		models.DiskBackupManager,
+		models.InstanceBackupManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
@@ -265,6 +269,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.DBInstanceSecgroupManager,
 		models.ElasticcachesecgroupManager,
 		models.InterVpcNetworkVpcManager,
+		models.InstanceBackupJointManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
