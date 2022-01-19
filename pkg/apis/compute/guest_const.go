@@ -95,6 +95,9 @@ const (
 	VM_SNAPSHOT_RESET_FAILED     = "snapshot_reset_failed"
 	VM_SNAPSHOT_AND_CLONE_FAILED = "clone_from_snapshot_failed"
 
+	VM_START_INSTANCE_BACKUP  = "start_instance_backup"
+	VM_INSTANCE_BACKUP_FAILED = "instance_backup_failed"
+
 	VM_SYNC_CONFIG = "sync_config"
 	VM_SYNC_FAIL   = "sync_fail"
 
