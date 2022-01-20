@@ -202,6 +202,7 @@ func (ts *STableSpec) Sync() error {
 	sqls := ts.SyncSQL()
 	if sqls != nil {
 		for _, sql := range sqls {
+			log.Infof(sql)
 			_, err := ts.Database().Exec(sql)
 			if err != nil {
 				log.Errorf("exec sql error %s: %s", sql, err)

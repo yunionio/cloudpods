@@ -1186,7 +1186,7 @@ sigs.k8s.io/yaml
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v0.0.0-20211213041607-f6733e38783e
+# yunion.io/x/jsonutils v0.0.0-20220106020632-953b71a4c3a8
 yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 yunion.io/x/log
@@ -1229,7 +1229,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20211226083340-1ba177bc58be
+# yunion.io/x/sqlchemy v0.0.0-20220119131341-fadec84c0638
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
 yunion.io/x/sqlchemy/backends/clickhouse
