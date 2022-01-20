@@ -69,8 +69,10 @@ func (self *CloudReportBase) GetResourceByOperator() ([]jsonutils.JSONObject, er
 		query.Add(jsonutils.NewString(self.SProvider.Provider), "provider")
 		query.Add(jsonutils.NewString(self.SProvider.Id), "manager")
 		servers, err = self.GetAllserverOfThisProvider(k8s_modules.KubeClusters, query)
-	default:
+	case SERVER:
 		servers, err = self.GetAllserverOfThisProvider(&modules.Servers, nil)
+	default:
+		return []jsonutils.JSONObject{}, nil
 	}
 	return servers, err
 }
