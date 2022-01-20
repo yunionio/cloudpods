@@ -16,14 +16,41 @@ package options
 
 import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/logger/extern"
 )
 
 type SLoggerOptions struct {
 	common_options.CommonOptions
 
 	common_options.DBOptions
+
+	SyslogUrl string `help:"external syslog url, e.g. tcp://localhost:1234@cloud"`
 }
 
 var (
 	Options SLoggerOptions
 )
+
+func OnOptionsChange(oldOptions, newOptions interface{}) bool {
+	oldOpts := oldOptions.(*SLoggerOptions)
+	newOpts := newOptions.(*SLoggerOptions)
+
+	changed := false
+	if common_options.OnBaseOptionsChange(&oldOpts.BaseOptions, &newOpts.BaseOptions) {
+		changed = true
+	}
+
+	if common_options.OnDBOptionsChange(&oldOpts.DBOptions, &newOpts.DBOptions) {
+		changed = true
+	}
+
+	if oldOpts.SyslogUrl != newOpts.SyslogUrl {
+		err := extern.InitSyslog(newOpts.SyslogUrl)
+		if err != nil {
+			// reset syslog writer error, restart the service to take effect
+			changed = true
+		}
+	}
+
+	return changed
+}

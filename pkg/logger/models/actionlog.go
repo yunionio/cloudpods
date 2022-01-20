@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/logger/extern"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -106,6 +108,15 @@ func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient
 }
 
 func (self *SActionlog) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SOpsLog.PostCreate(ctx, userCred, ownerId, query, data)
+	msg := fmt.Sprintf("#%d ", self.Id)
+	msg += fmt.Sprintf("%s %s %s %s %s ", self.Service, self.ObjType, self.ObjName, self.ObjId, self.Action)
+	msg += fmt.Sprintf("%s %s %s %s %s %s", self.Domain, self.Project, self.User, self.OwnerDomainId, self.OwnerProjectId, self.Notes)
+	if self.Success {
+		extern.Info(msg)
+	} else {
+		extern.Error(msg)
+	}
 	for k, v := range map[string]string{
 		"service":  self.Service,
 		"action":   self.Action,
