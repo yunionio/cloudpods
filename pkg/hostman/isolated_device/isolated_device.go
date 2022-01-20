@@ -24,9 +24,9 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -199,7 +199,7 @@ func (man *isolatedDeviceManager) StartDetachTask() {
 					jsonutils.Marshal(map[string]interface{}{
 						"purge": true,
 					})); err != nil {
-					if errors.Cause(err) == httperrors.ErrResourceNotFound {
+					if jce, ok := errors.Cause(err).(*httputils.JSONClientError); ok && jce.Code == 404 {
 						break
 					}
 					log.Errorf("Detach device %s failed: %v, try again later", dev.Id, err)
