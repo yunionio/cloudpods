@@ -117,6 +117,13 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 		nf, _ := fields.GetInterface(k)
 		if c.IsPrimary() {
 			if !gotypes.IsNil(of) && !c.IsZero(of) {
+				if c.IsText() {
+					ov, _ := of.(string)
+					nv, _ := nf.(string)
+					if ov != nv && strings.EqualFold(ov, nv) {
+						setters[k] = SUpdateDiff{old: of, new: nf, col: c}
+					}
+				}
 				primaries[k] = c.ConvertFromValue(of)
 			} else if c.IsText() {
 				primaries[k] = ""

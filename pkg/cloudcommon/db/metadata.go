@@ -528,6 +528,7 @@ func (manager *SMetadataManager) setValues(ctx context.Context, obj IModel, stor
 			rV, rD := record.Value, record.Deleted
 			_, err = Update(&record, func() error {
 				record.Value = newRecord.Value
+				record.Key = key
 				record.Deleted = newRecord.Deleted
 				return nil
 			})
@@ -613,7 +614,7 @@ func (manager *SMetadataManager) GetAll(obj IModel, keys []string, keyPrefix str
 	ret := make(map[string]string)
 	for _, rec := range records {
 		if len(rec.Value) > 0 || strings.HasPrefix(rec.Key, USER_TAG_PREFIX) || strings.HasPrefix(rec.Key, CLOUD_TAG_PREFIX) {
-			ret[strings.ToLower(rec.Key)] = rec.Value
+			ret[rec.Key] = rec.Value
 		}
 	}
 	return ret, nil

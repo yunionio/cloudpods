@@ -112,7 +112,7 @@ func (this *JSONDict) Add(o JSONObject, keys ...string) error {
 			obj.Set(keys[i], o)
 		} else {
 			o, ok := obj.data.Get(keys[i])
-			if !ok {
+			if !ok || o == JSONNull {
 				obj.Set(keys[i], NewDict())
 				o, ok = obj.data.Get(keys[i])
 			}
