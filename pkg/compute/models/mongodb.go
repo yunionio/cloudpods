@@ -651,15 +651,19 @@ func (man *SMongoDBManager) TotalCount(
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	providers []string, brands []string, cloudEnv string,
+	policyResult rbacutils.SPolicyResult,
 ) (SMongoDBCountStat, error) {
-	sq := man.Query().SubQuery()
+	mgq := man.Query()
+
+	mgq = scopeOwnerIdFilter(mgq, scope, ownerId)
+	mgq = CloudProviderFilter(mgq, mgq.Field("manager_id"), providers, brands, cloudEnv)
+	mgq = RangeObjectsFilter(mgq, rangeObjs, mgq.Field("cloudregion_id"), nil, mgq.Field("manager_id"), nil, nil)
+	mgq = db.ObjectIdQueryWithPolicyResult(mgq, man, policyResult)
+
+	sq := mgq.SubQuery()
 	q := sq.Query(sqlchemy.COUNT("total_mongodb_count"),
 		sqlchemy.SUM("total_cpu_count", sq.Field("vcpu_count")),
 		sqlchemy.SUM("total_mem_size_mb", sq.Field("vmem_size_mb")))
-
-	q = scopeOwnerIdFilter(q, scope, ownerId)
-	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
-	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
 
 	stat := SMongoDBCountStat{}
 	row := q.Row()

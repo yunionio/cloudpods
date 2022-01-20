@@ -1643,43 +1643,41 @@ func (manager *SElasticipManager) usageQByRanges(q *sqlchemy.SQuery, rangeObjs [
 	return RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
 }
 
-func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
+func (manager *SElasticipManager) usageQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) *sqlchemy.SQuery {
 	q = manager.usageQByRanges(q, rangeObjs)
 	q = manager.usageQByCloudEnv(q, providers, brands, cloudEnv)
+	switch scope {
+	case rbacutils.ScopeSystem:
+		// do nothing
+	case rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		q = q.Equals("tenant_id", ownerId.GetProjectId())
+	}
+	q = db.ObjectIdQueryWithPolicyResult(q, manager, policyResult)
 	return q
 }
 
-func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) EipUsage {
+func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) EipUsage {
 	usage := EipUsage{}
 	q1sq := manager.Query().SubQuery()
 	q1 := q1sq.Query(
 		sqlchemy.COUNT("public_ip_count", q1sq.Field("id")),
 		sqlchemy.SUM("public_ip_bandwidth", q1sq.Field("bandwidth")),
 	).Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP)
-	q1 = manager.usageQ(q1, rangeObjs, providers, brands, cloudEnv)
+	q1 = manager.usageQ(scope, ownerId, q1, rangeObjs, providers, brands, cloudEnv, policyResult)
 	q2sq := manager.Query().SubQuery()
 	q2 := q2sq.Query(
 		sqlchemy.COUNT("eip_count", q2sq.Field("id")),
 		sqlchemy.SUM("eip_bandwidth", q2sq.Field("bandwidth")),
 	).Equals("mode", api.EIP_MODE_STANDALONE_EIP)
-	q2 = manager.usageQ(q2, rangeObjs, providers, brands, cloudEnv)
+	q2 = manager.usageQ(scope, ownerId, q2, rangeObjs, providers, brands, cloudEnv, policyResult)
 	q3sq := manager.Query().SubQuery()
 	q3 := q3sq.Query(
 		sqlchemy.COUNT("eip_used_count", q3sq.Field("id")),
 	).Equals("mode", api.EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
-	q3 = manager.usageQ(q3, rangeObjs, providers, brands, cloudEnv)
-	switch scope {
-	case rbacutils.ScopeSystem:
-		// do nothing
-	case rbacutils.ScopeDomain:
-		q1 = q1.Equals("domain_id", ownerId.GetProjectDomainId())
-		q2 = q2.Equals("domain_id", ownerId.GetProjectDomainId())
-		q3 = q3.Equals("domain_id", ownerId.GetProjectDomainId())
-	case rbacutils.ScopeProject:
-		q1 = q1.Equals("tenant_id", ownerId.GetProjectId())
-		q2 = q2.Equals("tenant_id", ownerId.GetProjectId())
-		q3 = q3.Equals("tenant_id", ownerId.GetProjectId())
-	}
+	q3 = manager.usageQ(scope, ownerId, q3, rangeObjs, providers, brands, cloudEnv, policyResult)
+
 	err := q1.First(&usage)
 	if err != nil {
 		log.Errorf("q.First error: %v", err)

@@ -142,7 +142,7 @@ func (self *SInfrasQuota) FetchUsage(ctx context.Context) error {
 		brands = []string{regionKeys.Brand}
 	}
 
-	hostStat := HostManager.TotalCount(ownerId, scope, rangeObjs, "", "", nil, nil, providers, brands, regionKeys.CloudEnv, tristate.None, tristate.None)
+	hostStat := HostManager.TotalCount(ownerId, scope, rangeObjs, "", "", nil, nil, providers, brands, regionKeys.CloudEnv, tristate.None, tristate.None, rbacutils.SPolicyResult{})
 	self.Host = int(hostStat.Count)
 	self.Vpc = VpcManager.totalCount(ownerId, scope, rangeObjs, providers, brands, regionKeys.CloudEnv)
 
