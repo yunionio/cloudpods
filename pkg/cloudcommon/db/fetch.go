@@ -309,7 +309,14 @@ type IScopedResourceManager interface {
 	FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error)
 }
 
-func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, manager IScopedResourceManager, action string, doCheckRbac bool) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error, rbacutils.SPolicyResult) {
+func FetchCheckQueryOwnerScope(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	data jsonutils.JSONObject,
+	manager IScopedResourceManager,
+	action string,
+	doCheckRbac bool,
+) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error, rbacutils.SPolicyResult) {
 	var scope rbacutils.TRbacScope
 
 	var allowScope rbacutils.TRbacScope

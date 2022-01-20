@@ -1017,12 +1017,43 @@ func (manager *SStorageManager) totalCapacityQ(
 	scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider,
 	pendingDeleted bool, includeSystem bool,
 	storageOwnership bool,
+	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
 	stmt := manager.disksReadyQ(scope, ownerId, pendingDeleted, includeSystem)
 	stmt2 := manager.disksFailedQ(scope, ownerId, pendingDeleted, includeSystem)
 	attachedDisks := manager.diskAttachedQ(scope, ownerId, pendingDeleted, includeSystem)
 	detachedDisks := manager.diskDetachedQ(scope, ownerId, pendingDeleted, includeSystem)
-	storages := manager.Query().SubQuery()
+
+	sq := manager.Query()
+
+	if len(hostTypes) > 0 || len(resourceTypes) > 0 || len(rangeObjs) > 0 {
+		hosts := HostManager.Query().SubQuery()
+		subq := HoststorageManager.Query("storage_id")
+		subq = subq.Join(hosts, sqlchemy.Equals(hosts.Field("id"), subq.Field("host_id")))
+		subq = subq.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+		subq = subq.Filter(sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE))
+		subq = AttachUsageQuery(subq, hosts, hostTypes, resourceTypes, nil, nil, "", rangeObjs)
+
+		sq = sq.Filter(sqlchemy.In(sq.Field("id"), subq.SubQuery()))
+	}
+
+	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || cloudEnv != "" {
+		sq = CloudProviderFilter(sq, sq.Field("manager_id"), providers, brands, cloudEnv)
+		sq = RangeObjectsFilter(sq, rangeObjs, nil, sq.Field("zone_id"), sq.Field("manager_id"), nil, sq.Field("id"))
+	}
+
+	if storageOwnership {
+		switch scope {
+		case rbacutils.ScopeSystem:
+		case rbacutils.ScopeDomain, rbacutils.ScopeProject:
+			sq = sq.Equals("domain_id", ownerId.GetProjectDomainId())
+		}
+	}
+
+	sq = db.ObjectIdQueryWithPolicyResult(sq, manager, policyResult)
+
+	storages := sq.SubQuery()
+
 	q := storages.Query(
 		storages.Field("capacity"),
 		storages.Field("reserved"),
@@ -1042,30 +1073,6 @@ func (manager *SStorageManager) totalCapacityQ(
 	q = q.LeftJoin(stmt2, sqlchemy.Equals(stmt2.Field("storage_id"), storages.Field("id")))
 	q = q.LeftJoin(attachedDisks, sqlchemy.Equals(attachedDisks.Field("storage_id"), storages.Field("id")))
 	q = q.LeftJoin(detachedDisks, sqlchemy.Equals(detachedDisks.Field("storage_id"), storages.Field("id")))
-
-	if len(hostTypes) > 0 || len(resourceTypes) > 0 || len(rangeObjs) > 0 {
-		hosts := HostManager.Query().SubQuery()
-		subq := HoststorageManager.Query("storage_id")
-		subq = subq.Join(hosts, sqlchemy.Equals(hosts.Field("id"), subq.Field("host_id")))
-		subq = subq.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-		subq = subq.Filter(sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE))
-		subq = AttachUsageQuery(subq, hosts, hostTypes, resourceTypes, nil, nil, "", rangeObjs)
-
-		q = q.Filter(sqlchemy.In(storages.Field("id"), subq.SubQuery()))
-	}
-
-	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || cloudEnv != "" {
-		q = CloudProviderFilter(q, storages.Field("manager_id"), providers, brands, cloudEnv)
-		q = RangeObjectsFilter(q, rangeObjs, nil, storages.Field("zone_id"), storages.Field("manager_id"), nil, storages.Field("id"))
-	}
-
-	if storageOwnership {
-		switch scope {
-		case rbacutils.ScopeSystem:
-		case rbacutils.ScopeDomain, rbacutils.ScopeProject:
-			q = q.Equals("domain_id", ownerId.GetProjectDomainId())
-		}
-	}
 
 	return q
 }
@@ -1196,6 +1203,7 @@ func (manager *SStorageManager) TotalCapacity(
 	ownerId mcclient.IIdentityProvider,
 	pendingDeleted bool, includeSystem bool,
 	storageOwnership bool,
+	policyResult rbacutils.SPolicyResult,
 ) StoragesCapacityStat {
 	res1 := manager.calculateCapacity(
 		manager.totalCapacityQ(
@@ -1206,6 +1214,7 @@ func (manager *SStorageManager) TotalCapacity(
 			scope, ownerId,
 			pendingDeleted, includeSystem,
 			storageOwnership,
+			policyResult,
 		),
 	)
 	return res1
