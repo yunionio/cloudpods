@@ -576,6 +576,7 @@ func (manager *SMetadataManager) rawSetValues(ctx context.Context, objType strin
 			rV, rD := record.Value, record.Deleted
 			_, err = Update(&record, func() error {
 				record.Value = newRecord.Value
+				record.Key = key
 				record.Deleted = newRecord.Deleted
 				return nil
 			})
@@ -675,7 +676,7 @@ func (manager *SMetadataManager) rawGetAll(objType, objId string, keys []string,
 	ret := make(map[string]string)
 	for _, rec := range records {
 		if len(rec.Value) > 0 || strings.HasPrefix(rec.Key, USER_TAG_PREFIX) || strings.HasPrefix(rec.Key, CLOUD_TAG_PREFIX) {
-			ret[strings.ToLower(rec.Key)] = rec.Value
+			ret[rec.Key] = rec.Value
 		}
 	}
 	return ret, nil
