@@ -4448,7 +4448,8 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 		guests[i] = *guest
 	}
 
-	var hostGuests = map[string][]*api.GuestBatchMigrateParams{}
+	var hostGuests = map[string][]*SGuest{}
+	var hostGuestParams = map[string][]*api.GuestBatchMigrateParams{}
 	for i := 0; i < len(guests); i++ {
 		bmp := &api.GuestBatchMigrateParams{
 			Id:           guests[i].Id,
@@ -4459,28 +4460,34 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 		}
 		guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "batch migrate")
 		if _, ok := hostGuests[guests[i].HostId]; ok {
-			hostGuests[guests[i].HostId] = append(hostGuests[guests[i].HostId], bmp)
+			hostGuests[guests[i].HostId] = append(hostGuests[guests[i].HostId], &guests[i])
+			hostGuestParams[guests[i].HostId] = append(hostGuestParams[guests[i].HostId], bmp)
 		} else {
-			hostGuests[guests[i].HostId] = []*api.GuestBatchMigrateParams{bmp}
+			hostGuests[guests[i].HostId] = []*SGuest{&guests[i]}
+			hostGuestParams[guests[i].HostId] = []*api.GuestBatchMigrateParams{bmp}
 		}
 	}
-	for hostId, params := range hostGuests {
+	for hostId, guests := range hostGuests {
+		params := hostGuestParams[hostId]
 		kwargs := jsonutils.NewDict()
 		kwargs.Set("guests", jsonutils.Marshal(params))
 		if len(preferHostId) > 0 {
 			kwargs.Set("prefer_host_id", jsonutils.NewString(preferHostId))
 		}
-		host := HostManager.FetchHostById(hostId)
-		manager.StartHostGuestsMigrateTask(ctx, userCred, host, kwargs, "")
+		manager.StartHostGuestsMigrateTask(ctx, userCred, guests, kwargs, "")
 	}
 	return nil, nil
 }
 
 func (manager *SGuestManager) StartHostGuestsMigrateTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
-	host *SHost, kwargs *jsonutils.JSONDict, parentTaskId string,
+	guests []*SGuest, kwargs *jsonutils.JSONDict, parentTaskId string,
 ) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "HostGuestsMigrateTask", host, userCred, kwargs, parentTaskId, "", nil)
+	taskItems := make([]db.IStandaloneModel, len(guests))
+	for i := range guests {
+		taskItems[i] = guests[i]
+	}
+	task, err := taskman.TaskManager.NewParallelTask(ctx, "HostGuestsMigrateTask", taskItems, userCred, kwargs, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorln(err)
 		return err

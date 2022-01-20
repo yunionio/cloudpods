@@ -245,8 +245,24 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 
 func (self *GuestMigrateTask) OnMigrateConfAndDiskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	targetHostId, _ := self.Params.GetString("target_host_id")
-	guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
+	err := jsonutils.NewDict()
+	err.Set("MigrateConfAndDiskFailedReason", data)
+	self.SetStage("OnUndeployTargetGuestSucc", err)
+	guest.StartUndeployGuestTask(ctx, self.UserCred, self.GetTaskId(), targetHostId)
 	self.TaskFailed(ctx, guest, data)
+}
+
+func (self *GuestMigrateTask) OnUndeployTargetGuestSucc(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	err, _ := self.Params.Get("MigrateConfAndDiskFailedReason")
+	self.TaskFailed(ctx, guest, err)
+}
+
+func (self *GuestMigrateTask) OnUndeployTargetGuestSuccFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	prevErr, _ := self.Params.Get("MigrateConfAndDiskFailedReason")
+	err := jsonutils.NewDict()
+	err.Set("MigrateConfAndDiskFailedReason", prevErr)
+	err.Set("UndeployTargetGuestFailedReason", data)
+	self.TaskFailed(ctx, guest, err)
 }
 
 func (self *GuestMigrateTask) OnMigrateConfAndDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

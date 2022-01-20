@@ -5316,6 +5316,7 @@ func (host *SHost) MigrateSharedStorageServers(ctx context.Context, userCred mcc
 	if err != nil {
 		return errors.Wrapf(err, "host %s(%s) get guests", host.Name, host.Id)
 	}
+	migGuests := []*SGuest{}
 	hostGuests := []*api.GuestBatchMigrateParams{}
 
 	for i := 0; i < len(guests); i++ {
@@ -5333,11 +5334,12 @@ func (host *SHost) MigrateSharedStorageServers(ctx context.Context, userCred mcc
 			}
 			guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "host down")
 			hostGuests = append(hostGuests, bmp)
+			migGuests = append(migGuests, &guests[i])
 		}
 	}
 	kwargs := jsonutils.NewDict()
 	kwargs.Set("guests", jsonutils.Marshal(hostGuests))
-	return GuestManager.StartHostGuestsMigrateTask(ctx, userCred, host, kwargs, "")
+	return GuestManager.StartHostGuestsMigrateTask(ctx, userCred, migGuests, kwargs, "")
 }
 
 func (host *SHost) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {

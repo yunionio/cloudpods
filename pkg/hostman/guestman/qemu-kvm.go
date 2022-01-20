@@ -292,7 +292,11 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 	if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
 		hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
 	}
-	s.SyncStatus("")
+	needMigrate := jsonutils.QueryBoolean(data, "need_migrate", false)
+	// do not syncstatus if need_migrate
+	if !needMigrate {
+		s.SyncStatus("")
+	}
 	return nil, err
 }
 
