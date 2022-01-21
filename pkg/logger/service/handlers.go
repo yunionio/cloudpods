@@ -36,6 +36,8 @@ func initHandlers(app *appsrv.Application) {
 	}
 
 	for _, manager := range []db.IModelManager{
+		db.Metadata,
+
 		models.ActionLog,
 		models.BaremetalEventManager,
 	} {

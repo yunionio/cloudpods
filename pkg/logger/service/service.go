@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/logger/extern"
 	"yunion.io/x/onecloud/pkg/logger/models"
 	"yunion.io/x/onecloud/pkg/logger/options"
 	_ "yunion.io/x/onecloud/pkg/logger/policy"
@@ -44,6 +45,7 @@ func StartService() {
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, "", options.OnOptionsChange)
 
 	app := app_common.InitApp(baseOpts, true)
 
@@ -55,6 +57,10 @@ func StartService() {
 	defer cloudcommon.CloseDB()
 
 	// models.StartNotifyToWebsocketWorker()
+
+	if len(opts.SyslogUrl) > 0 {
+		extern.InitSyslog(opts.SyslogUrl)
+	}
 
 	app_common.ServeForever(app, baseOpts)
 }
