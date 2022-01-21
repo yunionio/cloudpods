@@ -824,6 +824,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		startParams := jsonutils.NewDict()
 		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
 		startParams.Set("need_migrate", jsonutils.JSONTrue)
+		startParams.Set("source_qemu_cmdline", jsonutils.NewString(migParams.SourceQemuCmdline))
 		hostutils.DelayTaskWithoutReqctx(ctx, guest.asyncScriptStart, startParams)
 	} else {
 		hostutils.UpdateServerProgress(context.Background(), migParams.Sid, 100.0, 0)
