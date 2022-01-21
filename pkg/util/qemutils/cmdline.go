@@ -66,12 +66,14 @@ func (o Option) ToString() string {
 type OptionFilter func(Option) bool
 
 func (cl *Cmdline) FilterOption(filter OptionFilter) {
-	for i, op := range cl.options {
+	opts := make([]Option, 0)
+	for _, op := range cl.options {
 		if filter(op) {
-			// remove this option
-			cl.options = append(cl.options[:i], cl.options[i+1:]...)
+			continue
 		}
+		opts = append(opts, op)
 	}
+	cl.options = opts
 }
 
 func (cl *Cmdline) AddOption(opts ...Option) *Cmdline {
