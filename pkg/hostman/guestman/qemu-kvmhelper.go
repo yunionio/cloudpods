@@ -376,7 +376,7 @@ function nic_mtu() {
 	}
 	if options.HostOptions.EnableQmpMonitor {
 		input.QMPMonitor = &qemu.Monitor{
-			Id:   "qmpmon",
+			Id:   "qmqmon",
 			Port: uint(s.GetQmpMonitorPort(int(input.VNCPort))),
 			Mode: MODE_CONTROL,
 		}
