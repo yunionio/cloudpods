@@ -58,6 +58,8 @@ type GenerateStartOptionsInput struct {
 	VNCPort               uint
 	VNCPassword           bool
 	IsolatedDevicesParams *isolated_device.QemuParams
+	EnableLog             bool
+	LogPath               string
 	HMPMonitor            *Monitor
 	QMPMonitor            *Monitor
 	IsVdiSpice            bool
@@ -97,6 +99,10 @@ func GenerateStartOptions(
 	}
 
 	opts = append(opts, cpuOpt)
+
+	if input.EnableLog {
+		opts = append(opts, drvOpt.Log(input.EnableLog, input.LogPath))
+	}
 
 	// TODO hmp - -
 	opts = append(opts, getMonitorOptions(drvOpt, input.HMPMonitor)...)
