@@ -368,6 +368,11 @@ function nic_mtu() {
 		input.EnableNested = guestManager.GetHost().IsNestedVirtualization()
 	}
 
+	if options.HostOptions.LogLevel == "debug" {
+		input.EnableLog = true
+		input.LogPath = s.getQemuLogPath()
+	}
+
 	// inject monitor
 	input.HMPMonitor = &qemu.Monitor{
 		Id:   "hmqmon",
