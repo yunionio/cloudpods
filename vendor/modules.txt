@@ -612,6 +612,8 @@ github.com/rivo/uniseg
 github.com/ryszard/goskiplist/skiplist
 # github.com/satori/go.uuid v1.2.0
 github.com/satori/go.uuid
+# github.com/sergi/go-diff v1.2.0
+github.com/sergi/go-diff/diffmatchpatch
 # github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
 github.com/serialx/hashring
 # github.com/sevlyar/go-daemon v0.1.5
