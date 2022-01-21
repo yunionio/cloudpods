@@ -37,14 +37,36 @@ func init() {
 
 func (self *HostMaintainTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	host := obj.(*models.SHost)
-	guests, _ := self.Params.Get("guests")
 	preferHostId, _ := self.Params.Get("prefer_host_id")
 
+	var hostGuests = []*api.GuestBatchMigrateParams{}
+	err := self.Params.Unmarshal(&hostGuests, "guests")
+	if err != nil {
+		self.TaskFailed(ctx, host, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	guests := make([]*models.SGuest, 0)
+	hostGuestParams := make([]*api.GuestBatchMigrateParams, 0)
+	for i := range hostGuests {
+		guest := models.GuestManager.FetchGuestById(hostGuests[i].Id)
+		if guest != nil {
+			guests = append(guests, guest)
+			hostGuestParams = append(hostGuestParams, hostGuests[i])
+		}
+	}
+
+	if len(guests) == 0 {
+		// no guest to migrate
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+
 	kwargs := jsonutils.NewDict()
-	kwargs.Set("guests", guests)
+	kwargs.Set("guests", jsonutils.Marshal(hostGuestParams))
 	kwargs.Set("prefer_host_id", preferHostId)
 	self.SetStage("OnGuestsMigrate", nil)
-	err := models.GuestManager.StartHostGuestsMigrateTask(ctx, self.UserCred, host, self.Params, self.Id)
+	err = models.GuestManager.StartHostGuestsMigrateTask(ctx, self.UserCred, guests, kwargs, self.Id)
 	if err != nil {
 		self.TaskFailed(ctx, host, jsonutils.NewString(err.Error()))
 		return
