@@ -133,7 +133,7 @@ func ListResult2JSONWithKey(result *ListResult, key string) jsonutils.JSONObject
 	if result.Offset > 0 {
 		obj.Add(jsonutils.NewInt(int64(result.Offset)), "offset")
 	}
-	if len(result.NextMarker) > 0 {
+	if len(result.NextMarker) > 0 || len(result.MarkerField) > 0 {
 		obj.Add(jsonutils.NewString(result.NextMarker), "next_marker")
 	}
 	if len(result.MarkerField) > 0 {
