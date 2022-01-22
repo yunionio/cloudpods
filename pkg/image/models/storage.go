@@ -26,7 +26,9 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/image/drivers/s3"
 	"yunion.io/x/onecloud/pkg/image/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 var local Storage = &LocalStorage{}
@@ -89,6 +91,7 @@ type Storage interface {
 	RemoveImage(context.Context, string) error
 
 	IsCheckStatusEnabled() bool
+	ConvertImage(ctx context.Context, image *SImage, targetFormat string) (*SConverImageInfo, error)
 }
 
 type LocalStorage struct{}
@@ -115,6 +118,22 @@ func (s *LocalStorage) GetImage(ctx context.Context, imagePath string) (int64, i
 		return -1, nil, errors.Wrapf(err, "open file %s", imagePath)
 	}
 	return fstat.Size(), f, nil
+}
+
+func (s *LocalStorage) ConvertImage(ctx context.Context, image *SImage, targetFormat string) (*SConverImageInfo, error) {
+	location := image.GetPath(targetFormat)
+	img, err := image.getQemuImage()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to image.getQemuImage")
+	}
+	nimg, err := img.Clone(location, qemuimg.String2ImageFormat(targetFormat), true)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to img.Clone")
+	}
+	return &SConverImageInfo{
+		Location:  fmt.Sprintf("%s%s", LocalFilePrefix, location),
+		SizeBytes: nimg.ActualSizeBytes,
+	}, nil
 }
 
 func (s *LocalStorage) IsCheckStatusEnabled() bool {
@@ -146,6 +165,52 @@ func (s *S3Storage) CleanTempfile(filePath string) error {
 		return errors.Wrapf(err, "rm %s failed %s", filePath, out)
 	}
 	return nil
+}
+
+func (s *S3Storage) getTempDir() (string, error) {
+	var dir string
+	if options.Options.FilesystemStoreDatadir != "" {
+		dir = options.Options.FilesystemStoreDatadir + "/image-tmp"
+	} else {
+		dir = "/tmp/image-tmp"
+	}
+	if !fileutils2.Exists(dir) {
+		err := procutils.NewCommand("mkdir", "-p", dir).Run()
+		if err != nil {
+			return "", errors.Wrapf(err, "unable to create dir %s", dir)
+		}
+	}
+	return dir, nil
+}
+
+type SConverImageInfo struct {
+	Location  string
+	SizeBytes int64
+}
+
+func (s *S3Storage) ConvertImage(ctx context.Context, image *SImage, targetFormat string) (*SConverImageInfo, error) {
+	tempDir, err := s.getTempDir()
+	if err != nil {
+		return nil, err
+	}
+	location := fmt.Sprintf("%s/%s.%s", tempDir, image.GetId(), targetFormat)
+	img, err := image.getQemuImage()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to image.getQemuImage")
+	}
+	nimg, err := img.Clone(location, qemuimg.String2ImageFormat(targetFormat), true)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to img.Clone")
+	}
+	defer s.CleanTempfile(location)
+	s3Location, err := s.SaveImage(ctx, location)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to SaveImage")
+	}
+	return &SConverImageInfo{
+		Location:  s3Location,
+		SizeBytes: nimg.ActualSizeBytes,
+	}, nil
 }
 
 func (s *S3Storage) GetImage(ctx context.Context, imagePath string) (int64, io.ReadCloser, error) {
