@@ -81,6 +81,10 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	if len(nics) > 0 {
 		net := nics[0].GetNetwork()
 		config.ExternalNetworkId = net.ExternalId
+		vpc, err := net.GetVpc()
+		if err == nil {
+			config.ExternalVpcId = vpc.ExternalId
+		}
 		config.IpAddr = nics[0].IpAddr
 	}
 
@@ -553,9 +557,11 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		return nil, errors.Wrapf(err, "GetIVMById(%s)", iVM.GetGlobalId())
 	}
 
-	err = iVM.SetSecurityGroups(desc.ExternalSecgroupIds)
-	if err != nil {
-		return nil, errors.Wrapf(err, "SetSecurityGroups")
+	if guest.GetDriver().GetMaxSecurityGroupCount() > 0 {
+		err = iVM.SetSecurityGroups(desc.ExternalSecgroupIds)
+		if err != nil {
+			return nil, errors.Wrapf(err, "SetSecurityGroups")
+		}
 	}
 
 	ret, expect := 0, len(desc.DataDisks)+1
@@ -801,15 +807,17 @@ func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Contex
 		if err != nil {
 			return nil, errors.Wrapf(err, "guest.GetIVM")
 		}
-		opts := &cloudprovider.ServerStopOptions{}
-		task.GetParams().Unmarshal(opts)
-		err = ivm.StopVM(ctx, opts)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ivm.StopVM")
-		}
-		err = cloudprovider.WaitStatus(ivm, api.VM_READY, time.Second*3, time.Minute*5)
-		if err != nil {
-			return nil, errors.Wrapf(err, "wait server stop after 5 miniutes")
+		if ivm.GetStatus() != api.VM_READY {
+			opts := &cloudprovider.ServerStopOptions{}
+			task.GetParams().Unmarshal(opts)
+			err = ivm.StopVM(ctx, opts)
+			if err != nil {
+				return nil, errors.Wrapf(err, "ivm.StopVM")
+			}
+			err = cloudprovider.WaitStatus(ivm, api.VM_READY, time.Second*3, time.Minute*5)
+			if err != nil {
+				return nil, errors.Wrapf(err, "wait server stop after 5 miniutes")
+			}
 		}
 		// 公有云关机，公网ip会释放
 		guest.SyncAllWithCloudVM(ctx, task.GetUserCred(), host, ivm, syncStatus)

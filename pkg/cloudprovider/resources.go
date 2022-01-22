@@ -371,7 +371,7 @@ type ICloudVM interface {
 	AttachDisk(ctx context.Context, diskId string) error
 	DetachDisk(ctx context.Context, diskId string) error
 
-	CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error
+	CreateDisk(ctx context.Context, opts *GuestDiskCreateOptions) (string, error)
 
 	MigrateVM(hostid string) error
 	LiveMigrateVM(hostid string) error

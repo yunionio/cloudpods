@@ -935,16 +935,16 @@ func (self *SVirtualMachine) getLayoutEx() *types.VirtualMachineFileLayoutEx {
 	return vm.LayoutEx
 }
 
-func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
-	if driver == "pvscsi" {
-		driver = "scsi"
+func (self *SVirtualMachine) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
+	if opts.Driver == "pvscsi" {
+		opts.Driver = "scsi"
 	}
-	devs, err := self.FindController(ctx, driver)
+	devs, err := self.FindController(ctx, opts.Driver)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if len(devs) == 0 {
-		return self.createDriverAndDisk(ctx, sizeMb, uuid, driver)
+		return "", self.createDriverAndDisk(ctx, opts.SizeMb, opts.UUID, opts.Driver)
 	}
 	numDevBelowCtrl := make([]int, len(devs))
 	for i := range numDevBelowCtrl {
@@ -965,13 +965,13 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 
 	// By default, the virtual SCSI controller is assigned to virtual device node (z:7),
 	// so that device node is unavailable for hard disks or other devices.
-	if unitNumber >= 7 && driver == "scsi" {
+	if unitNumber >= 7 && opts.Driver == "scsi" {
 		unitNumber++
 	}
 
-	return self.createDiskInternal(ctx, SDiskConfig{
-		SizeMb:        int64(sizeMb),
-		Uuid:          uuid,
+	return "", self.createDiskInternal(ctx, SDiskConfig{
+		SizeMb:        int64(opts.SizeMb),
+		Uuid:          opts.UUID,
 		UnitNumber:    int32(unitNumber),
 		ControllerKey: ctrlKey,
 		Key:           diskKey,

@@ -706,15 +706,6 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	return nil
 }
 
-func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
-	_, err := self.host.zone.region.CreateDisk(self.host.zone.GetId(), uuid, driver, strconv.Itoa(sizeMb))
-	if err != nil {
-		return errors.Wrap(err, "Instance.CreateDisk")
-	}
-
-	return err
-}
-
 func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 	_, err := self.host.zone.region.RenewVM(self.GetId(), &bc)
 	if err != nil {
