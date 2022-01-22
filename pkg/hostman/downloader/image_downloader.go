@@ -33,9 +33,9 @@ type SImageDownloadProvider struct {
 	compressFormat string
 }
 
-func NewImageDownloadProvider(w http.ResponseWriter, compress bool, rateLimit int, disk storageman.IDisk, compressFormat string) *SImageDownloadProvider {
+func NewImageDownloadProvider(w http.ResponseWriter, compress, sparse bool, rateLimit int, disk storageman.IDisk, compressFormat string) *SImageDownloadProvider {
 	return &SImageDownloadProvider{
-		SDownloadProvider: NewDownloadProvider(w, compress, rateLimit),
+		SDownloadProvider: NewDownloadProvider(w, compress, sparse, rateLimit),
 		disk:              disk,
 		compressFormat:    compressFormat,
 	}

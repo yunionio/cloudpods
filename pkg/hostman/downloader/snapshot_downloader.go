@@ -26,10 +26,10 @@ type SSnapshotDownloadProvider struct {
 }
 
 func NewSnapshotDownloadProvider(
-	w http.ResponseWriter, compress bool, rateLimit int, snapshotPath string,
+	w http.ResponseWriter, compress, sparse bool, rateLimit int, snapshotPath string,
 ) *SSnapshotDownloadProvider {
 	return &SSnapshotDownloadProvider{
-		SDownloadProvider: NewDownloadProvider(w, compress, rateLimit),
+		SDownloadProvider: NewDownloadProvider(w, compress, sparse, rateLimit),
 		snapshotPath:      snapshotPath,
 	}
 }
