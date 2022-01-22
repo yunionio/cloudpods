@@ -30,10 +30,10 @@ type SImageCacheDownloadProvider struct {
 }
 
 func NewImageCacheDownloadProvider(
-	w http.ResponseWriter, compress bool, rateLimit int, imageId string,
+	w http.ResponseWriter, compress, sparse bool, rateLimit int, imageId string,
 ) *SImageCacheDownloadProvider {
 	return &SImageCacheDownloadProvider{
-		SDownloadProvider: NewDownloadProvider(w, compress, rateLimit),
+		SDownloadProvider: NewDownloadProvider(w, compress, sparse, rateLimit),
 		imageId:           imageId,
 	}
 }

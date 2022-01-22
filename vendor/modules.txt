@@ -66,6 +66,8 @@ github.com/RoaringBitmap/roaring
 github.com/Shopify/sarama
 # github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6
 github.com/StackExchange/wmi
+# github.com/VividCortex/ewma v1.1.1
+github.com/VividCortex/ewma
 # github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
 github.com/aliyun/alibaba-cloud-sdk-go/sdk
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth
@@ -206,6 +208,9 @@ github.com/boombuler/barcode/utils
 github.com/bradfitz/iter
 # github.com/c-bata/go-prompt v0.2.1
 github.com/c-bata/go-prompt
+# github.com/cheggaaa/pb/v3 v3.0.8
+github.com/cheggaaa/pb/v3
+github.com/cheggaaa/pb/v3/termutil
 # github.com/coredns/coredns v1.3.0
 github.com/coredns/coredns/core/dnsserver
 github.com/coredns/coredns/coremain

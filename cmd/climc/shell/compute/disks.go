@@ -15,11 +15,26 @@
 package compute
 
 import (
+	"compress/zlib"
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/cheggaaa/pb/v3"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/sparsefile"
 )
 
 func init() {
@@ -306,6 +321,112 @@ func init() {
 			return err
 		}
 		printObject(result)
+		return nil
+	})
+
+	type DiskDownloadOptions struct {
+		ID       string `help:"ID or name of disk" json:"-"`
+		Compress bool
+		Sparse   bool
+
+		Timeout int `help:"Timeout hours for download" default:"5"`
+		Debug   bool
+
+		FILE string
+	}
+	R(&DiskDownloadOptions{}, "disk-download", "Download disk from host", func(s *mcclient.ClientSession, args *DiskDownloadOptions) error {
+		disk, err := modules.Disks.GetById(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		storageId, _ := disk.GetString("storage_id")
+		storage, err := modules.Storages.GetById(s, storageId, nil)
+		if err != nil {
+			return err
+		}
+
+		hostsInfo := []struct {
+			Id string
+		}{}
+		storage.Unmarshal(&hostsInfo, "hosts")
+		header := http.Header{}
+		header.Set("X-Auth-Token", s.GetToken().GetTokenString())
+		if args.Compress {
+			header.Set("X-Compress-Content", "zlib")
+		}
+		if args.Sparse {
+			header.Set("X-Sparse-Content", "true")
+		}
+
+		client := httputils.GetTimeoutClient(time.Hour * time.Duration(args.Timeout))
+
+		for _, host := range hostsInfo {
+			host, err := modules.Hosts.GetById(s, host.Id, nil)
+			if err != nil {
+				return err
+			}
+			managerUri, _ := host.GetString("manager_uri")
+			if len(managerUri) == 0 {
+				continue
+			}
+			url := fmt.Sprintf("%s/download/disks/%s/%s", managerUri, storageId, args.ID)
+			resp, err := httputils.Request(client, context.Background(), httputils.GET, url, header, nil, args.Debug)
+			if err != nil {
+				log.Errorf("request %s error: %v", err)
+				continue
+			}
+			defer resp.Body.Close()
+
+			totalSize, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+			sparseHeader, _ := strconv.ParseInt(resp.Header.Get("X-Sparse-Header"), 10, 64)
+
+			fi, err := os.Create(args.FILE)
+			if err != nil {
+				return errors.Wrapf(err, "os.Create(%s)", args.FILE)
+			}
+			defer fi.Close()
+
+			var reader = resp.Body
+
+			if args.Compress {
+				zlibRC, err := zlib.NewReader(resp.Body)
+				if err != nil {
+					return errors.Wrapf(err, "zlib.NewReader")
+				}
+				defer zlibRC.Close()
+				reader = zlibRC
+			}
+
+			var writer io.Writer = fi
+
+			if sparseHeader > 0 {
+				writer = sparsefile.NewSparseFileWriter(fi, sparseHeader, totalSize)
+			}
+
+			bar := pb.Full.Start64(totalSize)
+			barReader := bar.NewProxyReader(reader)
+
+			_, err = io.Copy(writer, barReader)
+			return err
+		}
+		return fmt.Errorf("no available download url")
+	})
+
+	type SparseHoleOptions struct {
+		FILE string
+	}
+	R(&SparseHoleOptions{}, "sparse-file-hole", "Show sparse file holes", func(s *mcclient.ClientSession, args *SparseHoleOptions) error {
+		fi, err := os.Open(args.FILE)
+		if err != nil {
+			return err
+		}
+		defer fi.Close()
+		sp, err := sparsefile.NewSparseFileReader(fi)
+		if err != nil {
+			return err
+		}
+		holes := sp.GetHoles()
+		printObject(jsonutils.Marshal(holes))
 		return nil
 	})
 
