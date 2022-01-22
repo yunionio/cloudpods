@@ -58,6 +58,7 @@ type ImageOptionalOptions struct {
 	DiskDriver         string   `help:"Perfer disk driver" choices:"virtio|scsi|pvscsi|ide|sata"`
 	NetDriver          string   `help:"Preferred network driver" choices:"virtio|e1000|vmxnet3"`
 	DisableUsbKbd      bool     `help:"Disable usb keyboard on this image(for hypervisor kvm)"`
+	BootMode           string   `help:"UEFI support" choices:"UEFI|BIOS"`
 }
 
 func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDict, args ImageOptionalOptions) error {
@@ -137,6 +138,11 @@ func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDi
 	}
 	if args.DisableUsbKbd {
 		params.Add(jsonutils.NewString("true"), "properties", "disable_usb_kbd")
+	}
+	if args.BootMode == "UEFI" {
+		params.Add(jsonutils.JSONTrue, "properties", "uefi_support")
+	} else if args.BootMode == "BIOS" {
+		params.Add(jsonutils.JSONFalse, "properties", "uefi_support")
 	}
 	return nil
 }
