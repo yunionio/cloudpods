@@ -16,11 +16,13 @@ package models
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -56,13 +58,16 @@ type SDiskBackup struct {
 	DiskSizeMb int    `nullable:"false" list:"user" create:"optional"`
 	DiskType   string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	// 操作系统类型
-	OsType     string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	DiskConfig jsonutils.JSONObject
+	OsType     string             `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	DiskConfig *SBackupDiskConfig `ignore:"true"`
 }
 
 var DiskBackupManager *SDiskBackupManager
 
 func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&SBackupDiskConfig{}), func() gotypes.ISerializable {
+		return &SBackupDiskConfig{}
+	})
 	DiskBackupManager = &SDiskBackupManager{
 		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SDiskBackup{},
@@ -72,6 +77,19 @@ func init() {
 		),
 	}
 	DiskBackupManager.SetVirtualObject(DiskBackupManager)
+}
+
+type SBackupDiskConfig struct {
+	api.DiskConfig
+	Name string
+}
+
+func (dc *SBackupDiskConfig) String() string {
+	return jsonutils.Marshal(dc).String()
+}
+
+func (dc *SBackupDiskConfig) IsZero() bool {
+	return dc == nil
 }
 
 func (dm *SDiskBackupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.DiskBackupListInput) (*sqlchemy.SQuery, error) {
@@ -179,12 +197,12 @@ func (db *SDiskBackup) GetBackupStorage() (*SBackupStorage, error) {
 	return ibs.(*SBackupStorage), nil
 }
 
-func (db *SDiskBackup) GetRegionDriver() IRegionDriver {
-	cloudRegion, _ := db.GetRegion()
-	if cloudRegion != nil {
-		return cloudRegion.GetDriver()
+func (db *SDiskBackup) GetRegionDriver() (IRegionDriver, error) {
+	cloudRegion, err := db.GetRegion()
+	if err != nil {
+		return nil, errors.Wrap(err, "db.GetRegion")
 	}
-	return nil
+	return cloudRegion.GetDriver(), nil
 }
 
 func (dm *SDiskBackupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DiskBackupCreateInput) (api.DiskBackupCreateInput, error) {
@@ -231,9 +249,10 @@ func (db *SDiskBackup) CustomizeCreate(ctx context.Context, userCred mcclient.To
 		return errors.Wrap(err, "DiskManager.FetchById")
 	}
 	disk := diskObj.(*SDisk)
-	diskConfig := jsonutils.Marshal(disk.ToDiskConfig()).(*jsonutils.JSONDict)
-	diskConfig.Set("name", jsonutils.NewString(disk.GetName()))
-	db.DiskConfig = diskConfig
+	db.DiskConfig = &SBackupDiskConfig{
+		DiskConfig: *disk.ToDiskConfig(),
+		Name:       disk.GetName(),
+	}
 	db.DiskType = disk.DiskType
 	db.DiskSizeMb = disk.DiskSize
 	db.OsArch = disk.OsArch
@@ -376,9 +395,10 @@ func (manager *SDiskBackupManager) CreateBackup(ctx context.Context, owner mccli
 	backup.ProjectId = owner.GetProjectId()
 	backup.DomainId = owner.GetProjectDomainId()
 	backup.DiskId = disk.Id
-	diskConfig := jsonutils.Marshal(disk.ToDiskConfig()).(*jsonutils.JSONDict)
-	diskConfig.Set("name", jsonutils.NewString(disk.GetName()))
-	backup.DiskConfig = diskConfig
+	backup.DiskConfig = &SBackupDiskConfig{
+		DiskConfig: *disk.ToDiskConfig(),
+		Name:       disk.GetName(),
+	}
 	backup.DiskType = disk.DiskType
 	backup.DiskSizeMb = disk.DiskSize
 	backup.OsArch = disk.OsArch

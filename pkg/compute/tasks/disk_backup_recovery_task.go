@@ -42,14 +42,9 @@ func (self *DiskBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 	backup := obj.(*models.SDiskBackup)
 	diskName, _ := self.Params.GetString("disk_name")
 	if diskName == "" {
-		diskName, _ = backup.DiskConfig.GetString("name")
+		diskName = backup.DiskConfig.Name
 	}
-	diskConfig := &api.DiskConfig{}
-	err := backup.DiskConfig.Unmarshal(diskConfig)
-	if err != nil {
-		self.taskFaild(ctx, backup, jsonutils.NewString(err.Error()))
-		return
-	}
+	diskConfig := &backup.DiskConfig.DiskConfig
 	diskConfig.ImageId = ""
 	diskConfig.SnapshotId = ""
 	diskConfig.BackupId = backup.GetId()
@@ -82,8 +77,8 @@ func (self *DiskBackupRecoveryTask) OnCreateDisk(ctx context.Context, backup *mo
 		self.taskFaild(ctx, backup, jsonutils.NewString(fmt.Sprintf("disk %s disappeared", diskId)))
 		return
 	}
-	imageId, _ := backup.DiskConfig.GetString("image_id")
-	snapshotId, _ := backup.DiskConfig.GetString("snapshot_id")
+	imageId := backup.DiskConfig.ImageId
+	snapshotId := backup.DiskConfig.SnapshotId
 	db.Update(disk, func() error {
 		disk.TemplateId = imageId
 		disk.SnapshotId = snapshotId
