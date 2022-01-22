@@ -191,3 +191,23 @@ func TestRoleName(t *testing.T) {
 		}
 	}
 }
+
+func TestFilterEmpty(t *testing.T) {
+	cases := []struct {
+		input []string
+		want  []string
+	}{
+		{
+			input: []string{
+				"",
+			},
+			want: []string{},
+		},
+	}
+	for _, c := range cases {
+		got := FilterEmpty(c.input)
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("want: %#v got: %#v", c.want, got)
+		}
+	}
+}
