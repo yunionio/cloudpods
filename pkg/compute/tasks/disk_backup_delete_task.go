@@ -49,7 +49,12 @@ func (self *DiskBackupDeleteTask) taskSuccess(ctx context.Context, backup *model
 func (self *DiskBackupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	backup := obj.(*models.SDiskBackup)
 	self.SetStage("OnDelete", nil)
-	if err := backup.GetRegionDriver().RequestDeleteBackup(ctx, backup, self); err != nil {
+	rd, err := backup.GetRegionDriver()
+	if err != nil {
+		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()))
+		return
+	}
+	if err := rd.RequestDeleteBackup(ctx, backup, self); err != nil {
 		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()))
 	}
 }

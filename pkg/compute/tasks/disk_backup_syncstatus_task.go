@@ -42,7 +42,12 @@ func (self *DiskBackupSyncstatusTask) OnInit(ctx context.Context, obj db.IStanda
 	backup := obj.(*models.SDiskBackup)
 
 	self.SetStage("OnDiskBackupSyncStatus", nil)
-	err := backup.GetRegionDriver().RequestSyncDiskBackupStatus(ctx, self.GetUserCred(), backup, self)
+	rd, err := backup.GetRegionDriver()
+	if err != nil {
+		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()))
+		return
+	}
+	err = rd.RequestSyncDiskBackupStatus(ctx, self.GetUserCred(), backup, self)
 	if err != nil {
 		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()))
 		return
