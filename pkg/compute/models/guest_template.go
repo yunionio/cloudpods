@@ -113,8 +113,8 @@ func (gtm *SGuestTemplateManager) ValidateCreateData(
 		return input, httperrors.NewMissingParameterError("content")
 	}
 
-	if !input.Content.Contains("name") {
-		input.Content.Set("name", jsonutils.NewString(input.Name))
+	if !input.Content.Contains("name") && !input.Content.Contains("generate_name") {
+		input.Content.Set("generate_name", jsonutils.NewString(input.Name))
 	}
 
 	input.GuestTemplateInput, err = gtm.validateData(ctx, userCred, ownerId, query, input.GuestTemplateInput)
