@@ -23,13 +23,13 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/image/torrent"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/torrentutils"
 )
 
@@ -124,26 +124,19 @@ func (self *SImageSubformat) Save(image *SImage) error {
 	if self.Status != api.IMAGE_STATUS_QUEUED {
 		return nil // httperrors.NewInvalidStatusError("cannot save in status %s", self.Status)
 	}
-	location := image.GetPath(self.Format)
 	_, err := db.Update(self, func() error {
 		self.Status = api.IMAGE_STATUS_SAVING
-		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, location)
 		return nil
 	})
 	if err != nil {
 		log.Errorf("updateStatus fail %s", err)
 		return err
 	}
-	img, err := image.getQemuImage()
+	info, err := storage.ConvertImage(context.Background(), image, self.Format)
 	if err != nil {
-		log.Errorf("image.getQemuImage fail %s", err)
-		return err
+		return errors.Wrap(err, "unable to ConvertImage")
 	}
-	nimg, err := img.Clone(location, qemuimg.String2ImageFormat(self.Format), true)
-	if err != nil {
-		log.Errorf("img.Clone fail %s", err)
-		return err
-	}
+	location := image.GetPath(self.Format)
 	checksum, err := fileutils2.MD5(location)
 	if err != nil {
 		log.Errorf("fileutils2.Md5 fail %s", err)
@@ -155,10 +148,11 @@ func (self *SImageSubformat) Save(image *SImage) error {
 		return err
 	}
 	_, err = db.Update(self, func() error {
-		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, location)
+		self.Location = info.Location
 		self.Checksum = checksum
 		self.FastHash = fastHash
-		self.Size = nimg.ActualSizeBytes
+		self.Size = info.SizeBytes
+		self.Status = api.IMAGE_STATUS_ACTIVE
 		return nil
 	})
 	if err != nil {
