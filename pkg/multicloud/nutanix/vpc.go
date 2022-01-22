@@ -17,6 +17,10 @@ package nutanix
 import (
 	"fmt"
 	"net/url"
+	"strconv"
+	"strings"
+
+	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -26,15 +30,17 @@ import (
 type DhcpOptions struct {
 }
 
+type SPool struct {
+	Range string `json:"range"`
+}
+
 type IPConfig struct {
-	NetworkAddress string      `json:"network_address"`
-	PrefixLength   int         `json:"prefix_length"`
-	DefaultGateway string      `json:"default_gateway"`
-	DhcpOptions    DhcpOptions `json:"dhcp_options"`
-	Pool           []struct {
-		Range string `json:"range"`
-	} `json:"pool"`
-	DhcpServerAddress string `json:"dhcp_server_address"`
+	NetworkAddress    string      `json:"network_address"`
+	PrefixLength      int         `json:"prefix_length"`
+	DefaultGateway    string      `json:"default_gateway"`
+	DhcpOptions       DhcpOptions `json:"dhcp_options"`
+	Pool              []SPool     `json:"pool"`
+	DhcpServerAddress string      `json:"dhcp_server_address"`
 }
 
 type SVpc struct {
@@ -63,7 +69,7 @@ func (self *SVpc) GetGlobalId() string {
 }
 
 func (self *SVpc) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.region.DeleteVpc(self.UUID)
 }
 
 func (self *SVpc) GetCidrBlock() string {
@@ -91,8 +97,12 @@ func (self *SRegion) GetVpcs() ([]SVpc, error) {
 	return vpcs, err
 }
 
+func (self *SVpc) getWire() *SWire {
+	return &SWire{vpc: self}
+}
+
 func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	wire := &SWire{vpc: self}
+	wire := self.getWire()
 	return []cloudprovider.ICloudWire{wire}, nil
 }
 
@@ -124,4 +134,33 @@ func (self *SVpc) GetStatus() string {
 func (self *SRegion) GetVpc(id string) (*SVpc, error) {
 	vpc := &SVpc{region: self}
 	return vpc, self.get("networks", id, url.Values{}, vpc)
+}
+
+func (self *SRegion) CreateVpc(opts *cloudprovider.VpcCreateOptions) (*SVpc, error) {
+	ipConfig := map[string]interface{}{}
+	if len(opts.CIDR) > 0 {
+		if addrs := strings.Split(opts.CIDR, "/"); len(addrs) == 2 {
+			ipConfig["network_address"] = addrs[0]
+			ipConfig["prefix_length"], _ = strconv.Atoi(addrs[1])
+		}
+
+	}
+	params := map[string]interface{}{
+		"name":       opts.NAME,
+		"annotation": opts.Desc,
+		"ip_config":  ipConfig,
+		"vlan_id":    0,
+	}
+	ret := struct {
+		NetworkUUID string
+	}{}
+	err := self.post("networks", jsonutils.Marshal(params), &ret)
+	if err != nil {
+		return nil, err
+	}
+	return self.GetVpc(ret.NetworkUUID)
+}
+
+func (self *SRegion) DeleteVpc(id string) error {
+	return self.delete("networks", id)
 }

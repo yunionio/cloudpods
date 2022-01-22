@@ -26,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -284,7 +285,12 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 			osProf := guest.GetOSProfile()
 			d.Driver = osProf.DiskDriver
 		}
-		err = ivm.CreateDisk(ctx, disk.DiskSize, disk.Id, d.Driver)
+		opts := cloudprovider.GuestDiskCreateOptions{
+			SizeMb: disk.DiskSize,
+			UUID:   disk.Id,
+			Driver: d.Driver,
+		}
+		_, err = ivm.CreateDisk(ctx, &opts)
 		if err != nil {
 			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("ivm.CreateDisk fail %s, error: %v", guest.GetName(), err)))
 			return
@@ -355,10 +361,84 @@ func (self *GuestCreateBackupDisksTask) CreateBackups(ctx context.Context, guest
 	}
 }
 
+type NutanixGuestCreateDiskTask struct {
+	SGuestCreateDiskBaseTask
+}
+
+func (self *NutanixGuestCreateDiskTask) taskFailed(ctx context.Context, err error) {
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+}
+
+func (self *NutanixGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+
+	ivm, err := guest.GetIVM()
+	if err != nil {
+		self.taskFailed(ctx, errors.Wrapf(err, "guest.GetIVM"))
+		return
+	}
+
+	disks, err := self.GetInputDisks()
+	if err != nil {
+		self.taskFailed(ctx, errors.Wrapf(err, "self.GetInputDisks"))
+		return
+	}
+	for _, d := range disks {
+		diskId := d.DiskId
+		_disk, err := models.DiskManager.FetchById(diskId)
+		if err != nil {
+			errors.Wrapf(err, "DiskManager.FetchById(%s)", diskId)
+			return
+		}
+		disk := _disk.(*models.SDisk)
+		if disk.Status != api.DISK_INIT {
+			self.taskFailed(ctx, errors.Errorf("Disk %s already created??(status=%s)", diskId, disk.Status))
+			return
+		}
+		if len(d.Driver) == 0 {
+			osProf := guest.GetOSProfile()
+			d.Driver = osProf.DiskDriver
+		}
+		storage, err := disk.GetStorage()
+		if err != nil {
+			self.taskFailed(ctx, errors.Wrapf(err, "disk.GetStorage"))
+			return
+		}
+		opts := cloudprovider.GuestDiskCreateOptions{
+			SizeMb:    disk.DiskSize,
+			Driver:    d.Driver,
+			StorageId: storage.ExternalId,
+		}
+		externalId, err := ivm.CreateDisk(ctx, &opts)
+		if err != nil {
+			self.taskFailed(ctx, errors.Wrapf(err, "CreateDisk"))
+			return
+		}
+		db.Update(disk, func() error {
+			disk.ExternalId = externalId
+			disk.Status = api.DISK_READY
+			return nil
+		})
+
+		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
+		if err != nil {
+			self.taskFailed(ctx, errors.Wrapf(err, "attachDisk"))
+			return
+		}
+
+		storage.ClearSchedDescCache()
+		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
+		db.OpsLog.LogAttachEvent(ctx, guest, disk, self.UserCred, disk.GetShortDesc(ctx))
+	}
+
+	self.SetStageComplete(ctx, nil)
+}
+
 func init() {
 	taskman.RegisterTask(GuestCreateBackupDisksTask{})
 	taskman.RegisterTask(GuestCreateDiskTask{})
 	taskman.RegisterTask(KVMGuestCreateDiskTask{})
 	taskman.RegisterTask(ManagedGuestCreateDiskTask{})
 	taskman.RegisterTask(ESXiGuestCreateDiskTask{})
+	taskman.RegisterTask(NutanixGuestCreateDiskTask{})
 }

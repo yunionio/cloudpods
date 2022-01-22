@@ -312,10 +312,6 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	return err
 }
 
-func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (self *SInstance) MigrateVM(hostId string) error {
 	input := api.GuestMigrateInput{}
 	input.PreferHost = hostId
