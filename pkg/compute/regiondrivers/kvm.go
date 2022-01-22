@@ -1303,9 +1303,9 @@ func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, u
 			host = storage.GetMasterHost()
 		}
 		if host == nil {
-			host, err = models.HostManager.GetEnabledHost()
+			host, err = models.HostManager.GetEnabledKvmHost()
 			if err != nil {
-				return nil, errors.Wrap(err, "unable to GetEnabledHost")
+				return nil, errors.Wrap(err, "unable to GetEnabledKvmHost")
 			}
 		}
 		log.Infof("host: %s, ManagerUri: %s", host.GetId(), host.ManagerUri)
@@ -1527,9 +1527,9 @@ func (self *SKVMRegionDriver) RequestDeleteBackup(ctx context.Context, backup *m
 		host = storage.GetMasterHost()
 	}
 	if host == nil {
-		host, err = models.HostManager.GetEnabledHost()
+		host, err = models.HostManager.GetEnabledKvmHost()
 		if err != nil {
-			return errors.Wrap(err, "unable to GetEnabledHost")
+			return errors.Wrap(err, "unable to GetEnabledKvmHost")
 		}
 	}
 	url := fmt.Sprintf("%s/storages/delete-backup", host.ManagerUri)

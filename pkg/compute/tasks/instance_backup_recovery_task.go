@@ -101,8 +101,8 @@ func (self *InstanceBackupRecoveryTask) OnCreateGuest(ctx context.Context, ib *m
 		return
 	}
 	db.Update(sysDisk, func() error {
-		sysDisk.TemplateId, _ = backups[0].DiskConfig.GetString("image_id")
-		sysDisk.SnapshotId, _ = backups[0].DiskConfig.GetString("snapshot_id")
+		sysDisk.TemplateId = backups[0].DiskConfig.ImageId
+		sysDisk.SnapshotId = backups[0].DiskConfig.SnapshotId
 		return nil
 	})
 	self.taskSuccess(ctx, ib)

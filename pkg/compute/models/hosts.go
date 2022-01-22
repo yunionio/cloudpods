@@ -1365,8 +1365,8 @@ func (self *SHost) GetMasterHostwire() *SHostwire {
 	return &hw
 }
 
-func (self *SHostManager) GetEnabledHost() (*SHost, error) {
-	hostq := HostManager.Query().IsTrue("enabled").Equals("host_status", api.HOST_ONLINE)
+func (self *SHostManager) GetEnabledKvmHost() (*SHost, error) {
+	hostq := HostManager.Query().IsTrue("enabled").Equals("host_status", api.HOST_ONLINE).In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_KVM})
 	host := SHost{}
 	err := hostq.First(&host)
 	if err != nil {

@@ -100,7 +100,12 @@ func (self *DiskBackupCreateTask) OnSnapshot(ctx context.Context, backup *models
 	}
 	backup.SetStatus(self.UserCred, api.BACKUP_STATUS_SAVING, "")
 	self.SetStage("OnSave", nil)
-	if err := backup.GetRegionDriver().RequestCreateBackup(ctx, backup, snapshotId, self); err != nil {
+	rd, err := backup.GetRegionDriver()
+	if err != nil {
+		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()), api.BACKUP_STATUS_SAVE_FAILED)
+		return
+	}
+	if err := rd.RequestCreateBackup(ctx, backup, snapshotId, self); err != nil {
 		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()), api.BACKUP_STATUS_SAVE_FAILED)
 	}
 }

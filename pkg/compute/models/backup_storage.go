@@ -19,9 +19,7 @@ import (
 	"reflect"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
-	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -109,7 +107,7 @@ func (bs *SBackupStorage) CustomizeCreate(ctx context.Context, userCred mcclient
 }
 
 func (bs *SBackupStorage) BackupCount() (int, error) {
-	return 0, nil
+	return DiskBackupManager.Query().Equals("backup_storage_id", bs.GetId()).CountWithError()
 }
 
 func (bs *SBackupStorage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -125,34 +123,6 @@ func (bs *SBackupStorage) ValidateDeleteCondition(ctx context.Context, info json
 
 func (bs *SBackupStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	bs.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-}
-
-func (bs *SBackupStorage) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if bs.Enabled.IsFalse() {
-		_, err := db.Update(bs, func() error {
-			bs.Enabled = tristate.True
-			return nil
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to enable")
-		}
-		db.OpsLog.LogEvent(bs, db.ACT_ENABLE, "", userCred)
-	}
-	return nil, nil
-}
-
-func (bs *SBackupStorage) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if bs.Enabled.IsTrue() {
-		_, err := db.Update(bs, func() error {
-			bs.Enabled = tristate.False
-			return nil
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to disable")
-		}
-		db.OpsLog.LogEvent(bs, db.ACT_DISABLE, "", userCred)
-	}
-	return nil, nil
 }
 
 func (bs *SBackupStorage) getMoreDetails(ctx context.Context, out api.BackupStorageDetails) api.BackupStorageDetails {
