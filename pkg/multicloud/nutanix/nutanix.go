@@ -17,10 +17,13 @@ package nutanix
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -29,8 +32,9 @@ import (
 )
 
 const (
-	NUTANIX_VERSION_V2 = "PrismGateway/services/rest/v2.0"
-	NUTANIX_VERSION_V3 = "api/nutanix/v3"
+	NUTANIX_VERSION_V2   = "v2.0"
+	NUTANIX_VERSION_V0_8 = "v0.8"
+	NUTANIX_VERSION_V3   = "v3"
 
 	CLOUD_PROVIDER_NUTANIX = api.CLOUD_PROVIDER_NUTANIX
 )
@@ -89,8 +93,8 @@ func (self *SNutanixClient) GetAccountId() string {
 
 func (self *SNutanixClient) GetCapabilities() []string {
 	return []string{
-		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
-		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK,
 	}
 }
 
@@ -99,8 +103,19 @@ func (self *SNutanixClient) auth() error {
 	return err
 }
 
+func (self *SNutanixClient) _getBaseDomain(version string) string {
+	if len(version) == 0 {
+		version = NUTANIX_VERSION_V2
+	}
+	return fmt.Sprintf("https://%s:%d/api/nutanix/%s", self.host, self.port, version)
+}
+
 func (self *SNutanixClient) getBaseDomain() string {
-	return fmt.Sprintf("https://%s:%d/%s", self.host, self.port, NUTANIX_VERSION_V2)
+	return self._getBaseDomain("")
+}
+
+func (self *SNutanixClient) getBaseDomainV0_8() string {
+	return self._getBaseDomain(NUTANIX_VERSION_V0_8)
 }
 
 func (cli *SNutanixClient) getDefaultClient() *http.Client {
@@ -124,6 +139,36 @@ func (self *SNutanixClient) _list(res string, params url.Values) (jsonutils.JSON
 	return self.jsonRequest(httputils.GET, url, nil)
 }
 
+func (self *SNutanixClient) _post(res string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("%s/%s", self.getBaseDomain(), res)
+	if body == nil {
+		body = jsonutils.NewDict()
+	}
+	return self.jsonRequest(httputils.POST, url, body)
+}
+
+func (self *SNutanixClient) _update(res, id string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("%s/%s/%s", self.getBaseDomain(), res, id)
+	if body == nil {
+		body = jsonutils.NewDict()
+	}
+	return self.jsonRequest(httputils.PUT, url, body)
+}
+
+func (self *SNutanixClient) _upload(res, id string, header http.Header, body io.Reader) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("%s/%s/%s", self.getBaseDomainV0_8(), res, id)
+	return self.rawRequest(httputils.PUT, url, header, body)
+}
+
+func (self *SNutanixClient) upload(res, id string, header http.Header, body io.Reader) (jsonutils.JSONObject, error) {
+	return self._upload(res, id, header, body)
+}
+
+func (self *SNutanixClient) _delete(res, id string) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("%s/%s/%s", self.getBaseDomain(), res, id)
+	return self.jsonRequest(httputils.DELETE, url, nil)
+}
+
 func (self *SNutanixClient) list(res string, params url.Values, retVal interface{}) (int, error) {
 	resp, err := self._list(res, params)
 	if err != nil {
@@ -140,6 +185,87 @@ func (self *SNutanixClient) list(res string, params url.Values, retVal interface
 		return 0, errors.Wrapf(err, "get metadata total_entities")
 	}
 	return int(total), nil
+}
+
+func (self *SNutanixClient) delete(res, id string) error {
+	resp, err := self._delete(res, id)
+	if err != nil {
+		return errors.Wrapf(err, "delete %s", res)
+	}
+	if resp != nil && resp.Contains("task_uuid") {
+		task := struct {
+			TaskUUID string
+		}{}
+		resp.Unmarshal(&task)
+		if len(task.TaskUUID) > 0 {
+			_, err = self.wait(task.TaskUUID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (self *SNutanixClient) wait(taskId string) (string, error) {
+	resId := ""
+	err := cloudprovider.Wait(time.Second*5, time.Minute*10, func() (bool, error) {
+		task, err := self.getTask(taskId)
+		if err != nil {
+			return false, err
+		}
+		for _, entity := range task.EntityList {
+			if len(entity.EntityID) > 0 {
+				resId = entity.EntityID
+			}
+		}
+		log.Debugf("task %s %s status: %s", task.OperationType, task.UUID, task.ProgressStatus)
+		if task.ProgressStatus == "Succeeded" {
+			return true, nil
+		}
+		if task.ProgressStatus == "Failed" {
+			return false, errors.Errorf(jsonutils.Marshal(task.MetaResponse).String())
+		}
+		return false, nil
+	})
+	return resId, errors.Wrapf(err, "wait task %s", taskId)
+}
+
+func (self *SNutanixClient) update(res, id string, body jsonutils.JSONObject, retVal interface{}) error {
+	resp, err := self._update(res, id, body)
+	if err != nil {
+		return errors.Wrapf(err, "update %s/%s", res, id)
+	}
+	task := struct {
+		TaskUUID string
+	}{}
+	resp.Unmarshal(&task)
+	if len(task.TaskUUID) > 0 {
+		_, err = self.wait(task.TaskUUID)
+		if err != nil {
+			return err
+		}
+	}
+	if retVal != nil {
+		return resp.Unmarshal(retVal)
+	}
+	return nil
+}
+
+func (self *SNutanixClient) post(res string, body jsonutils.JSONObject, retVal interface{}) error {
+	resp, err := self._post(res, body)
+	if err != nil {
+		return errors.Wrapf(err, "post %s", res)
+	}
+	if retVal != nil {
+		if resp.Contains("entities") {
+			err = resp.Unmarshal(retVal, "entities")
+		} else {
+			err = resp.Unmarshal(retVal)
+		}
+		return err
+	}
+	return nil
 }
 
 func (self *SNutanixClient) listAll(res string, params url.Values, retVal interface{}) error {
@@ -206,7 +332,23 @@ func _jsonRequest(cli *http.Client, method httputils.THttpMethod, url string, he
 	return resp, err
 }
 
+func (self *SNutanixClient) rawRequest(method httputils.THttpMethod, url string, header http.Header, body io.Reader) (jsonutils.JSONObject, error) {
+	client := self.getDefaultClient()
+	_resp, err := _rawRequest(client, method, url, header, body, false)
+	_, resp, err := httputils.ParseJSONResponse("", _resp, err, self.debug)
+	return resp, err
+}
+
+func _rawRequest(cli *http.Client, method httputils.THttpMethod, url string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
+	return httputils.Request(cli, context.Background(), method, url, header, body, debug)
+}
+
 func (self *SNutanixClient) GetIRegions() []cloudprovider.ICloudRegion {
 	region := &SRegion{cli: self}
 	return []cloudprovider.ICloudRegion{region}
+}
+
+func (self *SNutanixClient) getTask(id string) (*STask, error) {
+	task := &STask{}
+	return task, self.get("tasks", id, nil, task)
 }
