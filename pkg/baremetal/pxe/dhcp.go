@@ -349,7 +349,7 @@ func (req *dhcpRequest) createOrUpdateBaremetal(session *mcclient.ClientSession)
 			return nil, err
 		}
 	}
-	if len(ret.Data) == 0 {
+	if len(ret.Data) == 0 && len(req.ClientGuid) > 0 {
 		// try UUID
 		ret, err = req.findBaremetalsByUuid(session)
 		if err != nil {

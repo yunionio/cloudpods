@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -250,16 +251,18 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 	wire := self.GetWire()
 	if host != nil && wire != nil {
 		hw, err := HostwireManager.FetchByHostIdAndMac(host.Id, self.Mac)
-		if err != nil {
+		if err != nil && errors.Cause(err) != sql.ErrNoRows {
 			log.Errorf("NetInterface remove HostwireManager.FetchByIds error %s", err)
-			return err
+			return errors.Wrap(err, "HostwireManager.FetchByHostIdAndMac")
 		}
-		if hw.WireId != wire.Id {
-			return fmt.Errorf("NetInterface not attached to this wire???")
-		}
-		err = hw.Delete(ctx, userCred)
-		if err != nil {
-			return err
+		if hw != nil {
+			if hw.WireId != wire.Id {
+				return fmt.Errorf("NetInterface not attached to this wire???")
+			}
+			err = hw.Delete(ctx, userCred)
+			if err != nil {
+				return errors.Wrap(err, "hw.Delete")
+			}
 		}
 	}
 	_, err := db.Update(self, func() error {
@@ -275,7 +278,7 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		log.Errorf("Save Updates: %s", err)
 	}
-	return err
+	return errors.Wrap(err, "db.Update")
 }
 
 func (self *SNetInterface) GetCandidateNetworkForIp(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, ipAddr string) (*SNetwork, error) {
