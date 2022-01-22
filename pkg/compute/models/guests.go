@@ -1193,11 +1193,19 @@ func (manager *SGuestManager) validateCreateData(
 			}
 		}
 
+		if arch := imgProperties["os_arch"]; strings.Contains(arch, "aarch") || strings.Contains(arch, "arm") {
+			input.OsArch = apis.OS_ARCH_AARCH64
+		}
+
 		imgSupportUEFI := imgProperties[imageapi.IMAGE_UEFI_SUPPORT] == "true"
 		// imgIsWindows := imgProperties[imageapi.IMAGE_OS_TYPE] == "Windows"
 		// if imgSupportUEFI && imgIsWindows && len(input.IsolatedDevices) > 0 {
 		// 	input.Bios = "UEFI" // windows gpu passthrough
 		// }
+		if input.OsArch == apis.OS_ARCH_AARCH64 {
+			// arm image supports UEFI by default
+			imgSupportUEFI = true
+		}
 
 		if imgSupportUEFI {
 			if len(input.Bios) == 0 {
@@ -1210,10 +1218,6 @@ func (manager *SGuestManager) validateCreateData(
 			if input.Bios == "UEFI" {
 				return nil, httperrors.NewInputParameterError("UEFI boot mode requires UEFI image")
 			}
-		}
-
-		if arch := imgProperties["os_arch"]; strings.Contains(arch, "aarch") {
-			input.OsArch = apis.OS_ARCH_AARCH64
 		}
 
 		if len(imgProperties) == 0 {
