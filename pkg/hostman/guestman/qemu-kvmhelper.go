@@ -33,7 +33,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	"yunion.io/x/onecloud/pkg/hostman/options"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -481,7 +480,7 @@ function nic_mtu() {
 		qemu-system-x86_64: Unknown savevm section or instance '0000:00:05.0/virtio-rng' 0
 		qemu-system-x86_64: load of migration failed: Invalid argument
 	*/
-	if options.HostOptions.EnableVirtioRngDevice && fileutils2.Exists("/dev/random") {
+	if options.HostOptions.EnableVirtioRngDevice {
 		input.EnableRNGRandom = true
 	}
 
