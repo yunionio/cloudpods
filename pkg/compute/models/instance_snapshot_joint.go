@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 func init() {
@@ -76,4 +77,8 @@ func (manager *SInstanceSnapshotJointManager) IsSubSnapshot(snapshotId string) (
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (self *SInstanceSnapshotJoint) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.DetachJoint(ctx, userCred, self)
 }
