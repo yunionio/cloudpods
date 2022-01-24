@@ -376,44 +376,35 @@ func (manager *SHostManager) ListItemFilter(
 		}
 	}
 
-	if len(query.Rack) > 0 {
-		q = q.In("rack", query.Rack)
+	fieldQueryMap := map[string][]string{
+		"rack":             query.Rack,
+		"slots":            query.Slots,
+		"access_mac":       query.AccessMac,
+		"access_ip":        query.AccessIp,
+		"sn":               query.SN,
+		"storage_type":     query.StorageType,
+		"ipmi_ip":          query.IpmiIp,
+		"host_status":      query.HostStatus,
+		"host_type":        query.HostType,
+		"version":          query.Version,
+		"ovn_version":      query.OvnVersion,
+		"uuid":             query.Uuid,
+		"boot_mode":        query.BootMode,
+		"cpu_architecture": query.CpuArchitecture,
 	}
-	if len(query.Slots) > 0 {
-		q = q.In("slots", query.Slots)
+
+	for f, vars := range fieldQueryMap {
+		vars = stringutils2.FilterEmpty(vars)
+		if len(vars) > 0 {
+			q = q.In(f, vars)
+		}
 	}
-	if len(query.AccessMac) > 0 {
-		q = q.In("access_mac", query.AccessMac)
-	}
-	if len(query.AccessIp) > 0 {
-		q = q.In("access_ip", query.AccessIp)
-	}
-	if len(query.SN) > 0 {
-		q = q.In("sn", query.SN)
-	}
+
 	if len(query.CpuCount) > 0 {
 		q = q.In("cpu_count", query.CpuCount)
 	}
 	if len(query.MemSize) > 0 {
 		q = q.In("mem_size", query.MemSize)
-	}
-	if len(query.StorageType) > 0 {
-		q = q.In("storage_type", query.StorageType)
-	}
-	if len(query.IpmiIp) > 0 {
-		q = q.In("ipmi_ip", query.IpmiIp)
-	}
-	if len(query.HostStatus) > 0 {
-		q = q.In("host_status", query.HostStatus)
-	}
-	if len(query.HostType) > 0 {
-		q = q.In("host_type", query.HostType)
-	}
-	if len(query.Version) > 0 {
-		q = q.In("version", query.Version)
-	}
-	if len(query.OvnVersion) > 0 {
-		q = q.In("ovn_version", query.OvnVersion)
 	}
 	if query.IsMaintenance != nil {
 		if *query.IsMaintenance {
@@ -435,15 +426,6 @@ func (manager *SHostManager) ListItemFilter(
 		} else {
 			q = q.IsFalse("enable_pxe_boot")
 		}
-	}
-	if len(query.Uuid) > 0 {
-		q = q.In("uuid", query.Uuid)
-	}
-	if len(query.BootMode) > 0 {
-		q = q.In("boot_mode", query.BootMode)
-	}
-	if len(query.CpuArchitecture) > 0 {
-		q = q.Equals("cpu_architecture", query.CpuArchitecture)
 	}
 	if len(query.OsArch) > 0 {
 		q = db.ListQueryByArchitecture(q, "cpu_architecture", query.OsArch)
