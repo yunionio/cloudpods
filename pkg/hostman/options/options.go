@@ -159,7 +159,7 @@ type SHostOptions struct {
 
 	EnableVmUuid bool `help:"enable vm UUID" default:"true" json:"enable_vm_uuid"`
 
-	EnableVirtioRngDevice bool `help:"enable qemu virtio-rng device" default:"false"`
+	EnableVirtioRngDevice bool `help:"enable qemu virtio-rng device" default:"true"`
 
 	RestrictQemuImgConvertWorker bool `help:"restrict qemu-img convert worker" default:"false"`
 }

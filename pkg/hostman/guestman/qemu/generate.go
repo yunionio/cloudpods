@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type Monitor struct {
@@ -470,9 +471,17 @@ func GetNicDeviceModel(name string) string {
 }
 
 func getRNGRandomOptions(drvOpt QemuOptions) []string {
+	var randev string
+	if fileutils2.Exists("/dev/urandom") {
+		randev = "/dev/urandom"
+	} else if fileutils2.Exists("/dev/random") {
+		randev = "/dev/random"
+	} else {
+		return []string{}
+	}
 	return []string{
 		drvOpt.Object("rng-random", map[string]string{
-			"filename": "/dev/random",
+			"filename": randev,
 			"id":       "rng0",
 		}),
 		drvOpt.Device("virtio-rng-pci,rng=rng0,max-bytes=1024,period=1000"),
