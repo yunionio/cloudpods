@@ -61,17 +61,17 @@ func (self *SInstanceNic) GetSubAddress() ([]string, error) {
 	return ret, nil
 }
 
-func (self *SInstanceNic) GetINetworkId() string {
+func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
 	if len(self.IPAddress) == 0 {
-		return self.NetworkUUID
+		return nil
 	}
 	vpc, err := self.ins.host.zone.region.GetVpc(self.NetworkUUID)
 	if err != nil {
-		return self.NetworkUUID
+		return nil
 	}
 	wires, err := vpc.GetIWires()
 	if err != nil {
-		return self.NetworkUUID
+		return nil
 	}
 	for i := range wires {
 		networks, err := wires[i].GetINetworks()
@@ -81,11 +81,11 @@ func (self *SInstanceNic) GetINetworkId() string {
 		for j := range networks {
 			network := networks[j].(*SNetwork)
 			if network.Contains(self.IPAddress) {
-				return network.GetGlobalId()
+				return network
 			}
 		}
 	}
-	return self.NetworkUUID
+	return nil
 }
 
 func (self *SInstanceNic) AssignAddress(ipAddrs []string) error {
