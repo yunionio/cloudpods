@@ -242,3 +242,13 @@ func GenerateRoleName(roleName string) string {
 	}
 	return ret
 }
+
+func FilterEmpty(input []string) []string {
+	ret := make([]string, 0)
+	for i := range input {
+		if len(input[i]) > 0 {
+			ret = append(ret, input[i])
+		}
+	}
+	return ret
+}
