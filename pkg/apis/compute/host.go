@@ -431,3 +431,8 @@ type HostUpdateInput struct {
 	// 主机启动模式, 可能值位PXE和ISO
 	BootMode string `json:"boot_mode"`
 }
+
+type HostOfflineInput struct {
+	UpdateHealthStatus *bool `json:"update_health_status"`
+	Reason             string
+}
