@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -145,16 +146,26 @@ func (self *SRegion) CreateVpc(opts *cloudprovider.VpcCreateOptions) (*SVpc, err
 		}
 
 	}
+	vpcs, err := self.GetVpcs()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpcs")
+	}
+	vlanId := -1
+	for i := range vpcs {
+		if vpcs[i].VlanID == vlanId+1 {
+			vlanId = vpcs[i].VlanID
+		}
+	}
 	params := map[string]interface{}{
 		"name":       opts.NAME,
 		"annotation": opts.Desc,
 		"ip_config":  ipConfig,
-		"vlan_id":    0,
+		"vlan_id":    vlanId + 1,
 	}
 	ret := struct {
 		NetworkUUID string
 	}{}
-	err := self.post("networks", jsonutils.Marshal(params), &ret)
+	err = self.post("networks", jsonutils.Marshal(params), &ret)
 	if err != nil {
 		return nil, err
 	}
