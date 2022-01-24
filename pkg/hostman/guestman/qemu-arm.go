@@ -239,8 +239,8 @@ function nic_mtu() {
 	cmd += s.extraOptions()
 
 	// cmd += s.getQgaDesc()
-	if options.HostOptions.EnableVirtioRngDevice && fileutils2.Exists("/dev/random") {
-		cmd += " -object rng-random,filename=/dev/random,id=rng0"
+	if options.HostOptions.EnableVirtioRngDevice && fileutils2.Exists("/dev/urandom") {
+		cmd += " -object rng-random,filename=/dev/urandom,id=rng0"
 		cmd += " -device virtio-rng-pci,rng=rng0,max-bytes=1024,period=1000"
 	}
 
