@@ -297,6 +297,11 @@ func (m *SGuestManager) LoadServer(sid string) {
 		return
 	}
 
+	if err := guest.GenerateCerts(); err != nil {
+		log.Errorf("On load server generate certs: %v", err)
+		return
+	}
+
 	if jsonutils.QueryBoolean(guest.Desc, "need_sync_stream_disks", false) {
 		go guest.sendStreamDisksComplete(context.Background())
 	}

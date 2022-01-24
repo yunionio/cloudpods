@@ -32,7 +32,9 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
+	qemucerts "yunion.io/x/onecloud/pkg/hostman/guestman/qemu/certs"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -684,4 +686,30 @@ func (s *SKVMGuestInstance) StartPresendArp() {
 			time.Sleep(1 * time.Second)
 		}
 	}()
+}
+
+func (s *SKVMGuestInstance) getPKIDirPath() string {
+	return path.Join(s.HomeDir(), "pki")
+}
+
+func (s *SKVMGuestInstance) makePKIDir() error {
+	output, err := procutils.NewCommand("mkdir", "-p", s.getPKIDirPath()).Output()
+	if err != nil {
+		return errors.Wrapf(err, "mkdir %s failed: %s", s.getPKIDirPath(), output)
+	}
+	return nil
+}
+
+func (s *SKVMGuestInstance) GenerateCerts() error {
+	if err := s.makePKIDir(); err != nil {
+		return errors.Wrap(err, "make pki dir")
+	}
+	tree, err := qemucerts.GetDefaultCertList().AsMap().CertTree()
+	if err != nil {
+		return errors.Wrap(err, "construct cert tree")
+	}
+	if err := tree.CreateTree(s.getPKIDirPath()); err != nil {
+		return errors.Wrap(err, "create certs")
+	}
+	return nil
 }
