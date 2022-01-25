@@ -102,6 +102,13 @@ func (s *SLocalStorage) SyncStorageSize() error {
 }
 func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
 	info := input.DiskInfo
+	backupDir := s.GetBackupDir()
+	if !fileutils2.Exists(backupDir) {
+		output, err := procutils.NewCommand("mkdir", "-p", backupDir).Output()
+		if err != nil {
+			return errors.Wrapf(err, "mkdir %s failed: %s", backupDir, output)
+		}
+	}
 	backupPath := path.Join(s.GetBackupDir(), info.Backup.BackupId)
 	if !fileutils2.Exists(backupPath) {
 		_, err := s.storageBackupRecovery(ctx, &SStorageBackup{
