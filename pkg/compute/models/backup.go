@@ -58,8 +58,8 @@ type SDiskBackup struct {
 	DiskSizeMb int    `nullable:"false" list:"user" create:"optional"`
 	DiskType   string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	// 操作系统类型
-	OsType     string             `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	DiskConfig *SBackupDiskConfig `ignore:"true"`
+	OsType     string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	DiskConfig *SBackupDiskConfig
 }
 
 var DiskBackupManager *SDiskBackupManager
