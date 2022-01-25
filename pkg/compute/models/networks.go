@@ -1705,7 +1705,7 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 
 	if input.GuestIpMask != nil {
 		maskLen64 := int64(*input.GuestIpMask)
-		if !isValidMaskLen(maskLen64) {
+		if !self.isManaged() && !isValidMaskLen(maskLen64) {
 			return input, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
 		}
 		masklen = int8(maskLen64)
