@@ -237,7 +237,7 @@ func (self *SNutanixClient) wait(taskId string) (string, error) {
 func (self *SNutanixClient) update(res, id string, body jsonutils.JSONObject, retVal interface{}) error {
 	resp, err := self._update(res, id, body)
 	if err != nil {
-		return errors.Wrapf(err, "update %s/%s", res, id)
+		return errors.Wrapf(err, "update %s/%s %v", res, id, body)
 	}
 	task := struct {
 		TaskUUID string
@@ -258,7 +258,7 @@ func (self *SNutanixClient) update(res, id string, body jsonutils.JSONObject, re
 func (self *SNutanixClient) post(res string, body jsonutils.JSONObject, retVal interface{}) error {
 	resp, err := self._post(res, body)
 	if err != nil {
-		return errors.Wrapf(err, "post %s", res)
+		return errors.Wrapf(err, "post %s %v", res, body)
 	}
 	if retVal != nil {
 		if resp.Contains("entities") {
@@ -355,7 +355,7 @@ func (self *sNutanixError) ParseErrorFromJsonResponse(statusCode int, body jsonu
 
 func _jsonRequest(cli *http.Client, method httputils.THttpMethod, url string, header http.Header, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
 	client := httputils.NewJsonClient(cli)
-	req := httputils.NewJsonRequest(method, url, nil)
+	req := httputils.NewJsonRequest(method, url, body)
 	ne := &sNutanixError{}
 	_, resp, err := client.Send(context.Background(), req, ne, debug)
 	return resp, err
