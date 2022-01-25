@@ -118,8 +118,11 @@ func (self *SNutanixClient) getBaseDomainV0_8() string {
 	return self._getBaseDomain(NUTANIX_VERSION_V0_8)
 }
 
-func (cli *SNutanixClient) getDefaultClient() *http.Client {
+func (cli *SNutanixClient) getDefaultClient(timeout time.Duration) *http.Client {
 	client := httputils.GetDefaultClient()
+	if timeout > 0 {
+		client = httputils.GetTimeoutClient(timeout)
+	}
 	proxy := func(req *http.Request) (*url.URL, error) {
 		req.SetBasicAuth(cli.username, cli.password)
 		if cli.cpcfg.ProxyFunc != nil {
@@ -323,17 +326,43 @@ func (self *SNutanixClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error
 }
 
 func (self *SNutanixClient) jsonRequest(method httputils.THttpMethod, url string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	client := self.getDefaultClient()
+	client := self.getDefaultClient(time.Duration(0))
 	return _jsonRequest(client, method, url, nil, body, self.debug)
 }
 
+type sNutanixError struct {
+	DetailedMessage string
+	Message         string
+	ErrorCode       struct {
+		Code    int
+		HelpUrl string
+	}
+}
+
+func (self *sNutanixError) Error() string {
+	return jsonutils.Marshal(self).String()
+}
+
+func (self *sNutanixError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+	if body != nil {
+		body.Unmarshal(self)
+	}
+	if self.ErrorCode.Code == 1202 {
+		return errors.Wrapf(cloudprovider.ErrNotFound, self.Error())
+	}
+	return self
+}
+
 func _jsonRequest(cli *http.Client, method httputils.THttpMethod, url string, header http.Header, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
-	_, resp, err := httputils.JSONRequest(cli, context.Background(), method, url, header, body, debug)
+	client := httputils.NewJsonClient(cli)
+	req := httputils.NewJsonRequest(method, url, nil)
+	ne := &sNutanixError{}
+	_, resp, err := client.Send(context.Background(), req, ne, debug)
 	return resp, err
 }
 
 func (self *SNutanixClient) rawRequest(method httputils.THttpMethod, url string, header http.Header, body io.Reader) (jsonutils.JSONObject, error) {
-	client := self.getDefaultClient()
+	client := self.getDefaultClient(time.Hour * 5)
 	_resp, err := _rawRequest(client, method, url, header, body, false)
 	_, resp, err := httputils.ParseJSONResponse("", _resp, err, self.debug)
 	return resp, err
