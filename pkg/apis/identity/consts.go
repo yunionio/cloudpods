@@ -113,6 +113,7 @@ var (
 			"platform_name",
 			"platform_names",
 			"is_forget_login_user",
+			"enable_organization",
 		},
 	}
 
