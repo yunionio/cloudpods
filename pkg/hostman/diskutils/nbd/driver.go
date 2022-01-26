@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
+	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 const MAX_TRIES = 3
@@ -271,7 +272,25 @@ func (d *NBDDriver) IsLVMPartition() bool {
 	return len(d.lvms) > 0
 }
 
+func getQemuNbdVersion() (string, error) {
+	output, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuNbd(), "--version").Output()
+	if err != nil {
+		log.Errorf("qemu-nbd version failed %s %s", output, err.Error())
+		return "", errors.Wrapf(err, "qemu-nbd version failed %s", output)
+	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) > 0 {
+		parts := strings.Split(lines[0], " ")
+		return parts[1], nil
+	}
+	return "", errors.Error("empty version output")
+}
+
 func QemuNbdConnect(imagePath, nbddev string) error {
+	nbdVer, err := getQemuNbdVersion()
+	if err != nil {
+		return errors.Wrap(err, "getQemuNbdVersion")
+	}
 	var cmd []string
 	if strings.HasPrefix(imagePath, "rbd:") || getImageFormat(imagePath) == "raw" {
 		//qemu-nbd 连接ceph时 /etc/ceph/ceph.conf 必须存在
@@ -293,6 +312,9 @@ func QemuNbdConnect(imagePath, nbddev string) error {
 		cmd = []string{qemutils.GetQemuNbd(), "-c", nbddev, "-f", "raw", imagePath}
 	} else {
 		cmd = []string{qemutils.GetQemuNbd(), "-c", nbddev, imagePath}
+	}
+	if version.GE(nbdVer, "4.0.0") {
+		cmd = append(cmd, "--fork")
 	}
 	output, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
 	if err != nil {
