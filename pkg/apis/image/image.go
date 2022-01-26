@@ -111,5 +111,12 @@ type ImageSetSecretLevelInput struct {
 	SecretLevel string `json:"secret_level"`
 }
 
+type ImageGetClassMetadataInput struct {
+}
+
+type ImageGetClassMetadataOutput struct {
+	ClassMetadata map[string]string `json:"class_metadata"`
+}
+
 type PerformProbeInput struct {
 }
