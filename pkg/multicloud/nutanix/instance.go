@@ -238,6 +238,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 			cdroms = append(cdroms, disk.DiskAddress.VmdiskUUID)
 		}
 	}
+	isSys := true
 	ret := []cloudprovider.ICloudDisk{}
 	for i := range disks {
 		if utils.IsInStringArray(disks[i].UUID, cdroms) { // skip cdrom disk
@@ -248,7 +249,9 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 			log.Errorf("can not found disk %s storage %s", disks[i].DiskAddress, disks[i].StorageContainerUUID)
 			continue
 		}
+		disks[i].isSys = isSys
 		disks[i].storage = storage.(*SStorage)
+		isSys = false
 		ret = append(ret, &disks[i])
 	}
 	return ret, nil

@@ -193,6 +193,8 @@ type SDisk struct {
 	FlashModeEnabled      string    `json:"flash_mode_enabled"`
 	DataSourceURL         string    `json:"data_source_url"`
 	Stats                 DiskStats `json:"stats"`
+
+	isSys bool
 }
 
 func (self *SDisk) GetName() string {
@@ -239,8 +241,22 @@ func (self *SDisk) GetDriver() string {
 }
 
 func (self *SDisk) GetDiskType() string {
-	if strings.HasSuffix(self.DiskAddress, ".0") {
+	if self.isSys {
 		return api.DISK_TYPE_SYS
+	}
+	ins, err := self.storage.zone.region.GetInstance(self.AttachedVMUUID)
+	if err != nil {
+		return api.DISK_TYPE_DATA
+	}
+	for _, disk := range ins.VMDiskInfo {
+		if disk.IsCdrom {
+			continue
+		}
+		if disk.DiskAddress.VmdiskUUID == self.UUID {
+			return api.DISK_TYPE_SYS
+		} else {
+			return api.DISK_TYPE_DATA
+		}
 	}
 	return api.DISK_TYPE_DATA
 }
