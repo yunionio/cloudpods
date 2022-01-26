@@ -172,13 +172,13 @@ func init() {
 	timerDescTable.Set("timerLang", i18n.NewTableEntry().EN("en").CN("cn"))
 }
 
-func (st *STimer) Description(ctx context.Context) string {
+func (st *STimer) Description(ctx context.Context, zone *time.Location) string {
 	lang := timerDescTable.Lookup(ctx, TIMERLANG)
 	switch lang {
 	case "en":
-		return st.descEnglish()
+		return st.descEnglish(zone)
 	case "cn":
-		return st.descChinese()
+		return st.descChinese(zone)
 	}
 	return ""
 }
@@ -186,11 +186,9 @@ func (st *STimer) Description(ctx context.Context) string {
 var (
 	wdsCN = []string{"", "一", "二", "三", "四", "五", "六", "日"}
 	wdsEN = []string{"", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
-	zone  = time.Now().Local().Location()
-	//zone  = time.FixedZone("GMT", 8*3600)
 )
 
-func (st *STimer) descChinese() string {
+func (st *STimer) descChinese(zone *time.Location) string {
 	format := "2006-01-02 15:04:05"
 	var prefix string
 	switch st.Type {
@@ -216,7 +214,7 @@ func (st *STimer) descChinese() string {
 	return fmt.Sprintf("%s %02d:%02d触发 有效时间为%s至%s", prefix, st.Hour, st.Minute, st.StartTime.In(zone).Format(format), st.EndTime.In(zone).Format(format))
 }
 
-func (st *STimer) descEnglish() string {
+func (st *STimer) descEnglish(zone *time.Location) string {
 	var detail string
 	format := "2006-01-02 15:04:05"
 	switch st.Type {
