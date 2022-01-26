@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package certs
 
 import (
@@ -6,9 +20,11 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	certutil "yunion.io/x/onecloud/pkg/util/tls/cert"
 	pkiutil "yunion.io/x/onecloud/pkg/util/tls/pki"
-	"yunion.io/x/pkg/errors"
 )
 
 type configMutatorsFunc func(*certutil.Config) error
@@ -210,7 +226,15 @@ var (
 		CAName:   "ca",
 		config: certutil.Config{
 			CommonName: QemuServerCertCommonName,
-			Usages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			Usages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+			AltNames:   certutil.AltNames{
+				/*
+				 * IPs: []net.IP{
+				 * 	net.ParseIP("192.168.121.21"),
+				 * 	net.ParseIP("192.168.121.61"),
+				 * },
+				 */
+			},
 		},
 	}
 
@@ -222,10 +246,25 @@ var (
 		config: certutil.Config{
 			CommonName:   QemuClientCertCommonName,
 			Organization: []string{"system:host"},
-			Usages:       []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+			Usages:       []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+			AltNames:     certutil.AltNames{
+				/*
+				 * IPs: []net.IP{
+				 * 	net.ParseIP("192.168.121.21"),
+				 * 	net.ParseIP("192.168.121.61"),
+				 * },
+				 */
+			},
 		},
 	}
 )
+
+func setCommonNameToNodeName(commonName string) configMutatorsFunc {
+	return func(cc *certutil.Config) error {
+		cc.CommonName = commonName
+		return nil
+	}
+}
 
 func init() {
 	pkiutil.SetPathForCert(func(pkiPath, name string) string {
@@ -246,9 +285,44 @@ func GetDefaultCertList() Certificates {
 	}
 }
 
-func setCommonNameToNodeName(commonName string) configMutatorsFunc {
-	return func(cc *certutil.Config) error {
-		cc.CommonName = commonName
-		return nil
+const (
+	CA_CERT_NAME     = "ca-cert.pem"
+	CA_KEY_NAME      = "ca-key.pem"
+	SERVER_CERT_NAME = "server-cert.pem"
+	SERVER_KEY_NAME  = "server-key.pem"
+	CLIENT_CERT_NAME = "client-cert.pem"
+	CLIENT_KEY_NAME  = "client-key.pem"
+)
+
+func FetchDefaultCerts(dir string) (map[string]string, error) {
+	ret := make(map[string]string)
+
+	for _, key := range []string{
+		CA_CERT_NAME,
+		CA_KEY_NAME,
+		SERVER_CERT_NAME,
+		SERVER_KEY_NAME,
+		CLIENT_CERT_NAME,
+		CLIENT_KEY_NAME,
+	} {
+		fp := filepath.Join(dir, key)
+		content, err := fileutils2.FileGetContents(fp)
+		if err != nil {
+			return nil, errors.Wrapf(err, "get %q content", fp)
+		}
+		ret[key] = content
 	}
+
+	return ret, nil
+}
+
+func CreateByMap(dir string, input map[string]string) error {
+	for key := range input {
+		fp := filepath.Join(dir, key)
+		content := input[key]
+		if err := fileutils2.FilePutContents(fp, content, false); err != nil {
+			return errors.Wrapf(err, "put %q to %q", content, fp)
+		}
+	}
+	return nil
 }

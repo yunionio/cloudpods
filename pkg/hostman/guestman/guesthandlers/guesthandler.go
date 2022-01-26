@@ -274,10 +274,12 @@ func guestSrcPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSON
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 	liveMigrate := jsonutils.QueryBoolean(body, "live_migrate", false)
+	liveMigrateEnableTls := jsonutils.QueryBoolean(body, "enable_tls", false)
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().SrcPrepareMigrate,
 		&guestman.SSrcPrepareMigrate{
-			Sid:         sid,
-			LiveMigrate: liveMigrate,
+			Sid:               sid,
+			LiveMigrate:       liveMigrate,
+			LiveMigrateUseTLS: liveMigrateEnableTls,
 		})
 	return nil, nil
 }
@@ -309,6 +311,16 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 	params.QemuVersion = qemuVersion
 	params.LiveMigrate = liveMigrate
 	params.SourceQemuCmdline = qemuCmdline
+	certsObj, err := body.Get("migrate_certs")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("migrate_certs")
+	}
+	certs := map[string]string{}
+	if err := certsObj.Unmarshal(&certs); err != nil {
+		return nil, httperrors.NewInputParameterError("unmarshal migrate_certs to map: %s", err)
+	}
+	params.MigrateCerts = certs
+	params.EnableTLS = jsonutils.QueryBoolean(body, "enable_tls", false)
 	if isLocal {
 		serverUrl, err := body.GetString("server_url")
 		if err != nil {
@@ -378,8 +390,13 @@ func guestLiveMigrate(ctx context.Context, sid string, body jsonutils.JSONObject
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("is_local_storage")
 	}
+	enableTLS := jsonutils.QueryBoolean(body, "enable_tls", false)
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().LiveMigrate, &guestman.SLiveMigrate{
-		Sid: sid, DestPort: int(destPort), DestIp: destIp, IsLocal: isLocal,
+		Sid:       sid,
+		DestPort:  int(destPort),
+		DestIp:    destIp,
+		IsLocal:   isLocal,
+		EnableTLS: enableTLS,
 	})
 	return nil, nil
 }
@@ -389,7 +406,8 @@ func guestResume(ctx context.Context, sid string, body jsonutils.JSONObject) (in
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 	isLiveMigrate := jsonutils.QueryBoolean(body, "live_migrate", false)
-	guestman.GetGuestManager().Resume(ctx, sid, isLiveMigrate)
+	cleanTLS := jsonutils.QueryBoolean(body, "clean_tls", false)
+	guestman.GetGuestManager().Resume(ctx, sid, isLiveMigrate, cleanTLS)
 	return nil, nil
 }
 
