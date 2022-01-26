@@ -28,6 +28,7 @@ import (
 type Version string
 
 const (
+	Version_4_2_0  Version = "4.2.0"
 	Version_4_0_1  Version = "4.0.1"
 	Version_2_12_1 Version = "2.12.1"
 )
