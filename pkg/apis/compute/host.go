@@ -392,6 +392,16 @@ type HostCreateInput struct {
 	BootMode string `json:"boot_mode"`
 }
 
+type HostSetSecretLevelInput struct {
+	// description: 秘密级别
+	SecretLevel string `json:"secret_level"`
+	Force       bool   `json:"force"`
+}
+
+type HostRemoveSecretLevelInput struct {
+	Force bool `json:"force"`
+}
+
 type HostUpdateInput struct {
 	apis.EnabledStatusInfrasResourceBaseUpdateInput
 

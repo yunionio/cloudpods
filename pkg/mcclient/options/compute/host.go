@@ -85,3 +85,22 @@ type HostStatusStatisticsOptions struct {
 	HostListOptions
 	options.StatusStatisticsOptions
 }
+
+type HostSetSecretLevelOptions struct {
+	options.BaseIdOptions
+	SecretLevel string `json:"secret_level"`
+	Force       bool   `json:"force"`
+}
+
+func (opt *HostSetSecretLevelOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opt), nil
+}
+
+type HostRemoveSecretLevelOptions struct {
+	options.BaseIdOptions
+	Force bool `json:"force"`
+}
+
+func (opt *HostRemoveSecretLevelOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opt), nil
+}

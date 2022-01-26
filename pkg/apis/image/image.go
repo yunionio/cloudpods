@@ -106,5 +106,10 @@ type ImageUpdateStatusInput struct {
 	Reason string `json:"reason"`
 }
 
+type ImageSetSecretLevelInput struct {
+	// description: 秘密级别
+	SecretLevel string `json:"secret_level"`
+}
+
 type PerformProbeInput struct {
 }
