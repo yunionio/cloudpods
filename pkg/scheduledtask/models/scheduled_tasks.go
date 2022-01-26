@@ -118,11 +118,13 @@ func (stm *SScheduledTaskManager) FetchCustomizeColumns(
 	fields stringutils2.SSortedStrings,
 	isList bool,
 ) []api.ScheduledTaskDetails {
+	utcOffset, _ := query.Int("utc_offset")
+	zone := time.FixedZone("UTC", int(utcOffset)*3600)
 	rows := make([]api.ScheduledTaskDetails, len(objs))
 	virRows := stm.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	var err error
 	for i := range rows {
-		rows[i], err = objs[i].(*SScheduledTask).getMoreDetails(ctx, userCred, query, isList)
+		rows[i], err = objs[i].(*SScheduledTask).getMoreDetails(ctx, userCred, query, isList, zone)
 		if err != nil {
 			log.Errorf("SScheduledTask.getMoreDetails error: %s", err)
 		}
@@ -131,7 +133,7 @@ func (stm *SScheduledTaskManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (st *SScheduledTask) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ScheduledTaskDetails, error) {
+func (st *SScheduledTask) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool, zone *time.Location) (api.ScheduledTaskDetails, error) {
 	var out api.ScheduledTaskDetails
 	switch st.ScheduledType {
 	case api.ST_TYPE_TIMING:
@@ -139,7 +141,7 @@ func (st *SScheduledTask) getMoreDetails(ctx context.Context, userCred mcclient.
 	case api.ST_TYPE_CYCLE:
 		out.CycleTimer = st.STimer.CycleTimerDetails()
 	}
-	out.TimerDesc = st.Description(ctx)
+	out.TimerDesc = st.Description(ctx, zone)
 	// fill label
 	stLabels, err := st.STLabels()
 	if err != nil {
