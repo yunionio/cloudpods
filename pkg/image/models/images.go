@@ -1536,6 +1536,13 @@ func (img *SImage) PerformUpdateStatus(ctx context.Context, userCred mcclient.To
 	return nil, nil
 }
 
+func (img *SImage) PerformSetSecretLevel(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ImageSetSecretLevelInput) (jsonutils.JSONObject, error) {
+	if input.SecretLevel == "" {
+		return nil, httperrors.NewMissingParameterError("secret_level")
+	}
+	return nil, ImageManager.SSecretResourceBaseModelManager.SetSecretLevel(ctx, userCred, &img.SStandaloneAnonResourceBase, input.SecretLevel)
+}
+
 func (img *SImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) (jsonutils.JSONObject, error) {
 	if img.IsGuestImage.IsTrue() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform public for guest image")
