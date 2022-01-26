@@ -203,7 +203,7 @@ func (st *SScalingTimer) TriggerId() string {
 var cstSh, _ = time.LoadLocation("Asia/Shanghai")
 
 func (st *SScalingTimer) TriggerDescription() string {
-	detail := st.descEnglish()
+	detail := st.descEnglish(time.Local)
 	name := st.ScalingPolicyId
 	sp, _ := st.ScalingPolicy()
 	if sp != nil {
