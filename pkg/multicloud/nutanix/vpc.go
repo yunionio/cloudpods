@@ -17,6 +17,7 @@ package nutanix
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -150,10 +151,14 @@ func (self *SRegion) CreateVpc(opts *cloudprovider.VpcCreateOptions) (*SVpc, err
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetVpcs")
 	}
-	vlanId := -1
+	vlanId, vlanIds := -1, []int{}
 	for i := range vpcs {
-		if vpcs[i].VlanID == vlanId+1 {
-			vlanId = vpcs[i].VlanID
+		vlanIds = append(vlanIds, vpcs[i].VlanID)
+	}
+	sort.Ints(vlanIds)
+	for _, vlan := range vlanIds {
+		if vlan == vlanId+1 {
+			vlanId = vlan
 		}
 	}
 	params := map[string]interface{}{
