@@ -129,7 +129,7 @@ func (self *SRouteTable) GetId() string {
 }
 
 func (self *SRouteTable) GetName() string {
-	return ""
+	return fmt.Sprintf("rtb-%s", self.vpc.Name)
 }
 
 func (self *SRouteTable) GetGlobalId() string {
