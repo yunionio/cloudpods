@@ -204,6 +204,25 @@ func (self *SCachedimage) GetImage() (*cloudprovider.SImage, error) {
 	}
 }
 
+func (self *SCachedimage) syncClassMetadata(ctx context.Context, userCred mcclient.TokenCredential) error {
+	session := auth.GetSessionWithInternal(ctx, userCred, "", "")
+	ret, err := image.Images.GetSpecific(session, self.Id, "class-metadata", nil)
+	if err != nil {
+		return errors.Wrap(err, "unable to get class_metadata")
+	}
+	classMetadata := make(map[string]string, 0)
+	err = ret.Unmarshal(&classMetadata)
+	if err != nil {
+		return err
+	}
+
+	cm := make(map[string]interface{}, len(classMetadata))
+	for k, v := range classMetadata {
+		cm[k] = v
+	}
+	return self.SetClassMetadataAll(ctx, cm, userCred)
+}
+
 func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SCachedimage, error) {
 	lockman.LockRawObject(ctx, manager.Keyword(), "name")
 	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
@@ -254,6 +273,7 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			}
 			db.OpsLog.LogEvent(&imageCache, db.ACT_CREATE, info, userCred)
 
+			imageCache.syncClassMetadata(ctx, userCred)
 			return &imageCache, nil
 		} else {
 			log.Errorf("fetching image cache (%s) failed: %s", img.Id, err)
@@ -406,6 +426,22 @@ func (self *SCachedimage) PerformUncacheImage(ctx context.Context, userCred mccl
 	}
 	storagecache := _storagecache.(*SStoragecache)
 	return storagecache.PerformUncacheImage(ctx, userCred, query, jsonutils.Marshal(map[string]interface{}{"image": self.Id, "is_force": input.IsForce}))
+}
+
+func (self *SCachedimageManager) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CachedImageManagerCacheImageInput) (jsonutils.JSONObject, error) {
+	if len(input.ImageId) == 0 {
+		return nil, httperrors.NewMissingParameterError("image_id")
+	}
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	obj, err := image.Images.Get(s, input.ImageId, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "modules.Images.Get")
+	}
+	_, err = self.cacheGlanceImageInfo(ctx, userCred, obj)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.cacheGlanceImageInfo")
+	}
+	return nil, nil
 }
 
 func (self *SCachedimage) addRefCount() {
