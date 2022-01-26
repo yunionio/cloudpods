@@ -41,6 +41,7 @@ func init() {
 		ScheduledType string `help:"scheduled type" choices:"timing|cycle"`
 		ResourceType  string `help:"resource type"`
 		Operation     string `help:"operation"`
+		UtcOffset     int    `help:"utc offset"`
 	}
 	R(&ScheduledTaskListOptions{}, "scheduledtask-list", "list Scheduled Task", func(s *mcclient.ClientSession, args *ScheduledTaskListOptions) error {
 		params, err := options.ListStructToParams(args)
