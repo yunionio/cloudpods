@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package certs
 
 import (
@@ -5,9 +19,10 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	"yunion.io/x/pkg/errors"
+
 	certutil "yunion.io/x/onecloud/pkg/util/tls/cert"
 	pkiutil "yunion.io/x/onecloud/pkg/util/tls/pki"
-	"yunion.io/x/pkg/errors"
 )
 
 type certKeyLocation struct {
@@ -55,8 +70,8 @@ func validatePrivatePublicKey(l certKeyLocation) error {
 }
 
 // writeCertificateAuthorithyFilesIfNotExist write a new certificate Authority to the given path.
-// If there already is a certificate file at the given path; kubeadm tries to load it and check if the values in the
-// existing and the expected certificate equals. If they do; kubeadm will just skip writing the file as it's up-to-date,
+// If there already is a certificate file at the given path; tries to load it and check if the values in the
+// existing and the expected certificate equals. If they do; will just skip writing the file as it's up-to-date,
 // otherwise this function returns an error.
 func writeCertificateAuthorithyFilesIfNotExist(pkiDir string, baseName string, caCert *x509.Certificate, caKey crypto.Signer) error {
 

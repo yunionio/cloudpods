@@ -914,6 +914,7 @@ type ServerLiveMigrateOptions struct {
 	ID           string `help:"ID of server" json:"-"`
 	PreferHost   string `help:"Server migration prefer host id or name" json:"prefer_host"`
 	SkipCpuCheck *bool  `help:"Skip check CPU mode of the target host" json:"skip_cpu_check"`
+	EnableTLS    *bool  `help:"Enable tls migration" json:"enable_tls"`
 }
 
 func (o *ServerLiveMigrateOptions) GetId() string {

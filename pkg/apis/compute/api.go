@@ -563,6 +563,7 @@ type GuestBatchMigrateParams struct {
 	Id           string
 	LiveMigrate  bool
 	SkipCpuCheck bool
+	EnableTLS    bool
 	RescueMode   bool
 	OldStatus    string
 }
