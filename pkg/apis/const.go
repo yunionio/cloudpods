@@ -51,6 +51,8 @@ const (
 	CLOUD_TAG_PREFIX     = "ext:"
 	USER_TAG_PREFIX      = "user:"
 	SYS_CLOUD_TAG_PREFIX = "sys:"
+	// Such tags have inherited and isolated properties
+	CLASS_TAT_PREFIX = "cls:"
 )
 
 var (

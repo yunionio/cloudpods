@@ -45,6 +45,7 @@ const (
 	CLOUD_TAG_PREFIX     = dbapi.CLOUD_TAG_PREFIX
 	USER_TAG_PREFIX      = dbapi.USER_TAG_PREFIX
 	SYS_CLOUD_TAG_PREFIX = dbapi.SYS_CLOUD_TAG_PREFIX
+	CLASS_TAG_PREFIX     = dbapi.CLASS_TAT_PREFIX
 
 	// TAG_DELETE_RANGE_USER  = "user"
 	// TAG_DELETE_RANGE_CLOUD = CLOUD_TAG_PREFIX // "cloud"
@@ -602,14 +603,15 @@ func (manager *SMetadataManager) rawSetValues(ctx context.Context, objType strin
 	if replace {
 		records := []SMetadata{}
 		q := manager.Query().Equals("id", idStr).NotLike("key", `\_\_%`) //避免删除系统内置的metadata, _ 在mysql里面有特殊含义,需要转义
-		switch replaceRange {
-		case USER_TAG_PREFIX:
-			q = q.Startswith("key", USER_TAG_PREFIX)
-		case CLOUD_TAG_PREFIX:
-			q = q.Startswith("key", CLOUD_TAG_PREFIX)
-		case SYS_CLOUD_TAG_PREFIX:
-			q = q.Startswith("key", SYS_CLOUD_TAG_PREFIX)
-		}
+		// switch replaceRange {
+		// case USER_TAG_PREFIX:
+		// 	q = q.Startswith("key", USER_TAG_PREFIX)
+		// case CLOUD_TAG_PREFIX:
+		// 	q = q.Startswith("key", CLOUD_TAG_PREFIX)
+		// case SYS_CLOUD_TAG_PREFIX:
+		// 	q = q.Startswith("key", SYS_CLOUD_TAG_PREFIX)
+		// }
+		q = q.Startswith("key", replaceRange)
 		q = q.Filter(sqlchemy.NOT(sqlchemy.In(q.Field("key"), keys)))
 		if err := FetchModelObjects(manager, q, &records); err != nil {
 			log.Errorf("failed to fetch metadata error: %v", err)
