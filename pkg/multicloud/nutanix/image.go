@@ -207,7 +207,7 @@ func (self *SRegion) CreateImage(storageId string, opts *cloudprovider.SImageCre
 		return nil, errors.Wrapf(err, "upload")
 	}
 	resp.Unmarshal(&ret)
-	err = cloudprovider.Wait(time.Second*5, time.Minute*10, func() (bool, error) {
+	err = cloudprovider.Wait(time.Second*10, time.Hour*2, func() (bool, error) {
 		task, err := self.GetTask(ret.TaskUUID)
 		if err != nil {
 			return false, err

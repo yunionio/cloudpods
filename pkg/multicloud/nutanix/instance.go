@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -147,10 +148,16 @@ func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.Guest
 	if !utils.IsInStringArray(driver, []string{"ide", "scsi", "pci", "sata"}) {
 		driver = "scsi"
 	}
-	idx := -1
+	idx, ids := -1, []int{}
 	for _, disk := range self.VMDiskInfo {
-		if disk.DiskAddress.DeviceBus == driver && disk.DiskAddress.DeviceIndex > idx && disk.DiskAddress.DeviceIndex == idx+1 {
-			idx = disk.DiskAddress.DeviceIndex
+		if disk.DiskAddress.DeviceBus == driver {
+			ids = append(ids, disk.DiskAddress.DeviceIndex)
+		}
+	}
+	sort.Ints(ids)
+	for _, id := range ids {
+		if id == idx+1 {
+			idx = id
 		}
 	}
 	params := map[string]interface{}{
@@ -365,7 +372,11 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 }
 
 func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
-	return self.host.zone.region.SetInstancePowerState(self.UUID, "acpi_shutdown")
+	act := "acpi_shutdown"
+	if opts.IsForce {
+		act = "off"
+	}
+	return self.host.zone.region.SetInstancePowerState(self.UUID, act)
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
