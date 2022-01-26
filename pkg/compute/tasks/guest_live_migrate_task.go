@@ -184,6 +184,7 @@ func (self *GuestMigrateTask) OnCachedCdromComplete(ctx context.Context, guest *
 	guestStatus, _ := self.Params.GetString("guest_status")
 	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		body.Set("live_migrate", jsonutils.JSONTrue)
+		body.Set("enable_tls", jsonutils.NewBool(jsonutils.QueryBoolean(self.GetParams(), "enable_tls", false)))
 	}
 
 	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) {
@@ -222,6 +223,15 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 		body, err = self.localStorageMigrateConf(ctx, guest, targetHost, data)
 	} else {
 		body, err = self.sharedStorageMigrateConf(ctx, guest, targetHost)
+	}
+	if jsonutils.QueryBoolean(self.GetParams(), "enable_tls", false) {
+		body.Set("enable_tls", jsonutils.JSONTrue)
+		certsObj, err := data.Get("migrate_certs")
+		if err != nil {
+			self.TaskFailed(ctx, guest, jsonutils.NewString(errors.Wrap(err, "get migrate_certs from data").Error()))
+			return
+		}
+		body.Set("migrate_certs", certsObj)
 	}
 	if err != nil {
 		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
@@ -384,6 +394,7 @@ func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 	body.Set("is_local_storage", isLocalStorage)
 	body.Set("live_migrate_dest_port", liveMigrateDestPort)
 	body.Set("dest_ip", jsonutils.NewString(targetHost.AccessIp))
+	body.Set("enable_tls", jsonutils.NewBool(jsonutils.QueryBoolean(self.GetParams(), "enable_tls", false)))
 
 	headers := self.GetTaskRequestHeader()
 
@@ -443,6 +454,7 @@ func (self *GuestLiveMigrateTask) OnLiveMigrateComplete(ctx context.Context, gue
 	headers := self.GetTaskRequestHeader()
 	body := jsonutils.NewDict()
 	body.Set("live_migrate", jsonutils.JSONTrue)
+	body.Set("clean_tls", jsonutils.NewBool(jsonutils.QueryBoolean(self.GetParams(), "enable_tls", false)))
 	targetHostId, _ := self.Params.GetString("target_host_id")
 
 	self.SetStage("OnResumeDestGuestComplete", nil)

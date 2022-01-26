@@ -496,6 +496,10 @@ function nic_mtu() {
 		migratePort := s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE)
 		s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(migratePort)))
 		input.LiveMigratePort = uint(migratePort)
+		if jsonutils.QueryBoolean(data, "live_migrate_use_tls", false) {
+			input.LiveMigrateUseTLS = true
+			s.Desc.Set("live_migrate_use_tls", jsonutils.JSONTrue)
+		}
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		input.IsSlave = true
 		input.LiveMigratePort = uint(s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE))
@@ -535,7 +539,7 @@ func (s *SKVMGuestInstance) parseCmdline(input string) (*qemutils.Cmdline, []qem
 	cl.FilterOption(func(o qemutils.Option) bool {
 		switch o.Key {
 		case "incoming":
-			if strings.HasPrefix(o.Value, "tcp:") {
+			if strings.HasPrefix(o.Value, "tcp:") || strings.HasPrefix(o.Value, "defer") {
 				filterOpts = append(filterOpts, o)
 				return true
 			}
@@ -700,16 +704,28 @@ func (s *SKVMGuestInstance) makePKIDir() error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) GenerateCerts() error {
+func (s *SKVMGuestInstance) PrepareMigrateCerts() (map[string]string, error) {
+	pkiDir := s.getPKIDirPath()
 	if err := s.makePKIDir(); err != nil {
-		return errors.Wrap(err, "make pki dir")
+		return nil, errors.Wrap(err, "make pki dir")
 	}
 	tree, err := qemucerts.GetDefaultCertList().AsMap().CertTree()
 	if err != nil {
-		return errors.Wrap(err, "construct cert tree")
+		return nil, errors.Wrap(err, "construct cert tree")
 	}
-	if err := tree.CreateTree(s.getPKIDirPath()); err != nil {
-		return errors.Wrap(err, "create certs")
+	if err := tree.CreateTree(pkiDir); err != nil {
+		return nil, errors.Wrap(err, "create certs")
+	}
+	return qemucerts.FetchDefaultCerts(pkiDir)
+}
+
+func (s *SKVMGuestInstance) WriteMigrateCerts(certs map[string]string) error {
+	pkiDir := s.getPKIDirPath()
+	if err := s.makePKIDir(); err != nil {
+		return errors.Wrap(err, "make pki dir")
+	}
+	if err := qemucerts.CreateByMap(pkiDir, certs); err != nil {
+		return errors.Wrapf(err, "create by map %#v", certs)
 	}
 	return nil
 }
