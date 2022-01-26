@@ -175,6 +175,8 @@ type Monitor interface {
 	DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool)
 
 	MigrateSetCapability(capability, state string, callback StringCallback)
+	MigrateSetParameter(key, val string, callback StringCallback)
+	MigrateIncoming(address string, callback StringCallback)
 	Migrate(destStr string, copyIncremental, copyFull bool, callback StringCallback)
 	GetMigrateStatus(callback StringCallback)
 	MigrateStartPostcopy(callback StringCallback)

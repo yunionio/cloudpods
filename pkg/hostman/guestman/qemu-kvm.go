@@ -590,6 +590,35 @@ func (s *SKVMGuestInstance) onMonitorConnected(ctx context.Context) {
 	})
 }
 
+func (s *SKVMGuestInstance) setDestMigrateTLS(ctx context.Context, data *jsonutils.JSONDict) {
+	port, _ := data.Int("live_migrate_dest_port")
+	s.Monitor.ObjectAdd("tls-creds-x509", map[string]string{
+		"dir":         s.getPKIDirPath(),
+		"endpoint":    "server",
+		"id":          "tls0",
+		"verify-peer": "no",
+	}, func(res string) {
+		if strings.Contains(strings.ToLower(res), "error") {
+			hostutils.TaskFailed(ctx, fmt.Sprintf("Migrate add tls-creds-x509 object server tls0 error: %s", res))
+			return
+		}
+		s.Monitor.MigrateSetParameter("tls-creds", "tls0", func(res string) {
+			if strings.Contains(strings.ToLower(res), "error") {
+				hostutils.TaskFailed(ctx, fmt.Sprintf("Migrate set tls-creds tls0 error: %s", res))
+				return
+			}
+			address := fmt.Sprintf("tcp:0:%d", port)
+			s.Monitor.MigrateIncoming(address, func(res string) {
+				if strings.Contains(strings.ToLower(res), "error") {
+					hostutils.TaskFailed(ctx, fmt.Sprintf("Migrate set incoming %q error: %s", address, res))
+					return
+				}
+				hostutils.TaskComplete(ctx, data)
+			})
+		})
+	})
+}
+
 func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string) {
 	s.QemuVersion = version
 	log.Infof("Guest(%s) qemu version %s", s.Id, s.QemuVersion)
@@ -597,7 +626,11 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		migratePort, _ := s.Desc.Get("live_migrate_dest_port")
 		body := jsonutils.NewDict()
 		body.Set("live_migrate_dest_port", migratePort)
-		hostutils.TaskComplete(ctx, body)
+		if jsonutils.QueryBoolean(s.Desc, "live_migrate_use_tls", false) {
+			s.setDestMigrateTLS(ctx, body)
+		} else {
+			hostutils.TaskComplete(ctx, body)
+		}
 	} else if s.IsSlave() {
 		s.startQemuBuiltInNbdServer(ctx)
 	} else if s.IsMaster() {
@@ -813,7 +846,7 @@ func (s *SKVMGuestInstance) saveVncPort(port int) error {
 }
 
 func (s *SKVMGuestInstance) DoResumeTask(ctx context.Context, isTimeout bool) {
-	s.startupTask = NewGuestResumeTask(ctx, s, isTimeout)
+	s.startupTask = NewGuestResumeTask(ctx, s, isTimeout, false)
 	s.startupTask.Start()
 }
 
@@ -1515,12 +1548,14 @@ func (s *SKVMGuestInstance) optimizeOom() error {
 	return fmt.Errorf("Guest %s not running?", s.GetId())
 }
 
-func (s *SKVMGuestInstance) SyncMetadata(meta *jsonutils.JSONDict) {
+func (s *SKVMGuestInstance) SyncMetadata(meta *jsonutils.JSONDict) error {
 	_, err := modules.Servers.SetMetadata(hostutils.GetComputeSession(context.Background()),
 		s.Id, meta)
 	if err != nil {
-		log.Errorln(err)
+		log.Errorln("sync metadata error: %v", err)
+		return errors.Wrap(err, "set metadata")
 	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) SetVncPassword() {
@@ -1719,7 +1754,7 @@ func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
 	return res, nil
 }
 
-func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (*jsonutils.JSONDict, error) {
+func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrage bool) (*jsonutils.JSONDict, error) {
 	disksBackFile := jsonutils.NewDict()
 	disks, _ := s.Desc.GetArray("disks")
 	for _, disk := range disks {

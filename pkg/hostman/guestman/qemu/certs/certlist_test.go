@@ -159,7 +159,7 @@ func TestCreateCertificateChain(t *testing.T) {
 }
 
 func parseCertAndKey(basePath string, t *testing.T) (*x509.Certificate, crypto.PrivateKey) {
-	certPair, err := tls.LoadX509KeyPair(basePath+".crt", basePath+".key")
+	certPair, err := tls.LoadX509KeyPair(basePath+"-cert.pem", basePath+"-key.pem")
 	if err != nil {
 		t.Fatalf("couldn't parse certificate and key: %v", err)
 	}

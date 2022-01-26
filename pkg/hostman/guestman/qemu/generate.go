@@ -74,6 +74,7 @@ type GenerateStartOptionsInput struct {
 	EnableSerialDevice    bool
 	NeedMigrate           bool
 	LiveMigratePort       uint
+	LiveMigrateUseTLS     bool
 	IsSlave               bool
 	IsMaster              bool
 	EnablePvpanic         bool
@@ -491,7 +492,11 @@ func getRNGRandomOptions(drvOpt QemuOptions) []string {
 func getMigrateOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) []string {
 	opts := []string{}
 	if input.NeedMigrate {
-		opts = append(opts, fmt.Sprintf("-incoming tcp:0:%d", input.LiveMigratePort))
+		if input.LiveMigrateUseTLS {
+			opts = append(opts, fmt.Sprintf("-incoming defer"))
+		} else {
+			opts = append(opts, fmt.Sprintf("-incoming tcp:0:%d", input.LiveMigratePort))
+		}
 	} else if input.IsSlave {
 		opts = append(opts, fmt.Sprintf("-incoming tcp:0:%d", input.LiveMigratePort))
 	} else if input.IsMaster {

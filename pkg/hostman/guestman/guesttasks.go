@@ -659,7 +659,34 @@ func (s *SGuestLiveMigrateTask) startMigrate(res string) {
 		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
 		return
 	}
+	if s.params.EnableTLS {
+		// https://wiki.qemu.org/Features/MigrationTLS
+		s.Monitor.ObjectAdd("tls-creds-x509", map[string]string{
+			"dir":         s.getPKIDirPath(),
+			"endpoint":    "client",
+			"id":          "tls0",
+			"verify-peer": "no",
+		}, func(res string) {
+			if strings.Contains(strings.ToLower(res), "error") {
+				s.migrateTask = nil
+				hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate add tls-creds-x509 object client tls0 error: %s", res))
+				return
+			}
+			s.Monitor.MigrateSetParameter("tls-creds", "tls0", func(res string) {
+				if strings.Contains(strings.ToLower(res), "error") {
+					s.migrateTask = nil
+					hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set tls-creds tls0 error: %s", res))
+					return
+				}
+				s.doMigrate()
+			})
+		})
+	} else {
+		s.doMigrate()
+	}
+}
 
+func (s *SGuestLiveMigrateTask) doMigrate() {
 	var copyIncremental = false
 	if s.params.IsLocal {
 		// copy disk data
@@ -747,19 +774,32 @@ type SGuestResumeTask struct {
 	startTime time.Time
 
 	isTimeout bool
+	cleanTLS  bool
 }
 
-func NewGuestResumeTask(ctx context.Context, s *SKVMGuestInstance, isTimeout bool) *SGuestResumeTask {
+func NewGuestResumeTask(ctx context.Context, s *SKVMGuestInstance, isTimeout bool, cleanTLS bool) *SGuestResumeTask {
 	return &SGuestResumeTask{
 		SKVMGuestInstance: s,
 		ctx:               ctx,
 		isTimeout:         isTimeout,
+		cleanTLS:          cleanTLS,
 	}
 }
 
 func (s *SGuestResumeTask) Start() {
 	log.Debugf("[%s] GuestResumeTask start", s.GetId())
 	s.startTime = time.Now()
+	if s.cleanTLS {
+		s.Monitor.ObjectDel("tls0", func(res string) {
+			log.Infof("Clean %s tls0 object: %s", s.GetName(), res)
+			pkiPath := s.getPKIDirPath()
+			if err := os.RemoveAll(pkiPath); err != nil {
+				log.Warningf("Remove tls pki dir %s error: %v", pkiPath, err)
+			}
+			s.confirmRunning()
+		})
+		return
+	}
 	s.confirmRunning()
 }
 

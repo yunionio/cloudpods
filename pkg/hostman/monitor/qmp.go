@@ -608,6 +608,42 @@ func (m *QmpMonitor) MigrateSetCapability(capability, state string, callback Str
 	m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) MigrateSetParameter(key string, val string, callback StringCallback) {
+	var (
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+		cmd = &Command{
+			Execute: "migrate-set-parameters",
+			Args: map[string]interface{}{
+				key: val,
+			},
+		}
+	)
+
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) MigrateIncoming(address string, callback StringCallback) {
+	/*
+			 * var (
+			 * 	cb = func(res *Response) {
+			 * 		callback(m.actionResult(res))
+			 * 	}
+			 * 	cmd = &Command{
+			 * 		Execute: "migrate-incoming",
+			 * 		Args: map[string]interface{}{
+			 * 			"uri": address,
+			 * 		},
+			 * 	}
+			 * )
+		     *
+			 * m.Query(cmd, cb)
+	*/
+	cmd := fmt.Sprintf("migrate_incoming %s", address)
+	m.HumanMonitorCommand(cmd, callback)
+}
+
 func (m *QmpMonitor) Migrate(
 	destStr string, copyIncremental, copyFull bool, callback StringCallback,
 ) {

@@ -491,10 +491,10 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 	if err := self.validateMigrate(ctx, userCred, nil, input); err != nil {
 		return nil, err
 	}
-	return nil, self.StartGuestLiveMigrateTask(ctx, userCred, self.Status, input.PreferHost, input.SkipCpuCheck, "")
+	return nil, self.StartGuestLiveMigrateTask(ctx, userCred, self.Status, input.PreferHost, input.SkipCpuCheck, input.EnableTLS, "")
 }
 
-func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, guestStatus, preferHostId string, skipCpuCheck *bool, parentTaskId string) error {
+func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, guestStatus, preferHostId string, skipCpuCheck *bool, enableTLS *bool, parentTaskId string) error {
 	self.SetStatus(userCred, api.VM_START_MIGRATE, "")
 	data := jsonutils.NewDict()
 	if len(preferHostId) > 0 {
@@ -502,6 +502,9 @@ func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mccl
 	}
 	if skipCpuCheck != nil {
 		data.Set("skip_cpu_check", jsonutils.NewBool(*skipCpuCheck))
+	}
+	if enableTLS != nil {
+		data.Set("enable_tls", jsonutils.NewBool(*enableTLS))
 	}
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
 	dedicateMigrateTask := "GuestLiveMigrateTask"

@@ -382,6 +382,8 @@ type GuestLiveMigrateInput struct {
 	PreferHost string `json:"prefer_host"`
 	// 是否跳过CPU检查，默认要做CPU检查
 	SkipCpuCheck *bool `json:"skip_cpu_check"`
+	// 是否启用 tls
+	EnableTLS *bool `json:"enable_tls"`
 }
 
 type GuestSetSecgroupInput struct {

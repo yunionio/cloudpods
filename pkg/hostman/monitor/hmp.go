@@ -308,6 +308,16 @@ func (m *HmpMonitor) MigrateSetCapability(capability, state string, callback Str
 	m.Query(fmt.Sprintf("migrate_set_capability %s %s", capability, state), callback)
 }
 
+func (m *HmpMonitor) MigrateSetParameter(key string, val string, callback StringCallback) {
+	cmd := fmt.Sprintf("migrate_set_parameter %s %s", key, val)
+	m.Query(cmd, callback)
+}
+
+func (m *HmpMonitor) MigrateIncoming(address string, callback StringCallback) {
+	cmd := fmt.Sprintf("migrate_incoming %s", address)
+	m.Query(cmd, callback)
+}
+
 func (m *HmpMonitor) Migrate(
 	destStr string, copyIncremental, copyFull bool, callback StringCallback,
 ) {

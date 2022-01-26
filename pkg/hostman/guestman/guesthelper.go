@@ -33,8 +33,9 @@ type SGuestDeploy struct {
 }
 
 type SSrcPrepareMigrate struct {
-	Sid         string
-	LiveMigrate bool
+	Sid               string
+	LiveMigrate       bool
+	LiveMigrateUseTLS bool
 }
 
 type SDestPrepareMigrate struct {
@@ -42,6 +43,8 @@ type SDestPrepareMigrate struct {
 	ServerUrl         string
 	QemuVersion       string
 	SourceQemuCmdline string
+	MigrateCerts      map[string]string
+	EnableTLS         bool
 	SnapshotsUri      string
 	DisksUri          string
 	// TargetStorageId string
@@ -55,10 +58,11 @@ type SDestPrepareMigrate struct {
 }
 
 type SLiveMigrate struct {
-	Sid      string
-	DestPort int
-	DestIp   string
-	IsLocal  bool
+	Sid       string
+	DestPort  int
+	DestIp    string
+	IsLocal   bool
+	EnableTLS bool
 }
 
 type SDriverMirror struct {
