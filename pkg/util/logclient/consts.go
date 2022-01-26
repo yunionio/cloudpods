@@ -216,4 +216,6 @@ const (
 	ACT_RESTART_NETWORK = "restart_network"
 
 	ACT_RECOVERY = "recovery"
+
+	ACT_SYNC_CLASS_METADATA = "sync_class_metadata"
 )
