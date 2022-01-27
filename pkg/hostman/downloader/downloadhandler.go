@@ -84,6 +84,10 @@ func isCompress(r *http.Request) bool {
 	return r.Header.Get("X-Compress-Content") == "zlib"
 }
 
+func isSparse(r *http.Request) bool {
+	return r.Header.Get("X-Sparse-Content") == "true"
+}
+
 func download(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var (
 		params, _, _ = appsrv.FetchEnv(ctx, w, r)
@@ -91,11 +95,12 @@ func download(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		action       = params["<action>"]
 		rateLimit    = options.HostOptions.BandwidthLimit
 		compress     = isCompress(r)
+		sparse       = isSparse(r)
 	)
 
 	switch action {
 	case "images":
-		hand := NewImageCacheDownloadProvider(w, compress, rateLimit, id)
+		hand := NewImageCacheDownloadProvider(w, compress, sparse, rateLimit, id)
 		if !fileutils2.Exists(hand.downloadFilePath()) {
 			httperrors.NotFoundError(ctx, w, "Image cache %s not found", id)
 		} else {
@@ -104,7 +109,7 @@ func download(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	case "servers":
-		hand := NewGuestDownloadProvider(w, compress, rateLimit, id)
+		hand := NewGuestDownloadProvider(w, compress, sparse, rateLimit, id)
 		if !fileutils2.Exists(hand.fullPath()) {
 			httperrors.NotFoundError(ctx, w, "Guest %s not found", id)
 		} else {
@@ -142,8 +147,9 @@ func diskDownload(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		hostutils.Response(ctx, w, err)
 	} else {
 		var compress = isCompress(r)
+		var sparse = isSparse(r)
 		hand := NewImageDownloadProvider(w,
-			compress, options.HostOptions.BandwidthLimit, disk, "")
+			compress, sparse, options.HostOptions.BandwidthLimit, disk, "")
 		if err := hand.Start(); err != nil {
 			hostutils.Response(ctx, w, err)
 		}
@@ -156,8 +162,9 @@ func diskHead(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		hostutils.Response(ctx, w, err)
 	} else {
 		var compress = isCompress(r)
+		var sparse = isSparse(r)
 		hand := NewImageDownloadProvider(w,
-			compress, options.HostOptions.BandwidthLimit, disk, "")
+			compress, sparse, options.HostOptions.BandwidthLimit, disk, "")
 		if err := hand.HandlerHead(); err != nil {
 			hostutils.Response(ctx, w, err)
 		}
@@ -187,8 +194,9 @@ func snapshotDownload(ctx context.Context, w http.ResponseWriter, r *http.Reques
 		hostutils.Response(ctx, w, err)
 	} else {
 		var compress = isCompress(r)
+		var sparse = isSparse(r)
 		hand := NewSnapshotDownloadProvider(w,
-			compress, options.HostOptions.BandwidthLimit, snapshotPath)
+			compress, sparse, options.HostOptions.BandwidthLimit, snapshotPath)
 		if err := hand.Start(); err != nil {
 			hostutils.Response(ctx, w, err)
 		}
@@ -201,8 +209,9 @@ func snapshotHead(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		hostutils.Response(ctx, w, err)
 	} else {
 		var compress = isCompress(r)
+		var sparse = isSparse(r)
 		hand := NewSnapshotDownloadProvider(w,
-			compress, options.HostOptions.BandwidthLimit, snapshotPath)
+			compress, sparse, options.HostOptions.BandwidthLimit, snapshotPath)
 		if err := hand.HandlerHead(); err != nil {
 			hostutils.Response(ctx, w, err)
 		}
@@ -215,7 +224,7 @@ func imageCacheHead(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	rateLimit := options.HostOptions.BandwidthLimit
 	compress := isCompress(r)
 
-	hand := NewImageCacheDownloadProvider(w, compress, rateLimit, imageId)
+	hand := NewImageCacheDownloadProvider(w, compress, false, rateLimit, imageId)
 
 	if err := hand.HandlerHead(); err != nil {
 		hostutils.Response(ctx, w, err)
