@@ -1878,14 +1878,22 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 	if len(userData) > 0 {
 		guest.setUserData(ctx, userCred, userData)
 	}
-	secgroups, _ := jsonutils.GetStringArray(data, "secgroups")
-	for _, secgroupId := range secgroups {
-		if secgroupId != guest.SecgrpId {
-			gs := SGuestsecgroup{}
-			gs.SecgroupId = secgroupId
-			gs.GuestId = guest.Id
-			GuestsecgroupManager.TableSpec().Insert(ctx, &gs)
+
+	if guest.GetDriver().GetMaxSecurityGroupCount() > 0 {
+		secgroups, _ := jsonutils.GetStringArray(data, "secgroups")
+		for _, secgroupId := range secgroups {
+			if secgroupId != guest.SecgrpId {
+				gs := SGuestsecgroup{}
+				gs.SecgroupId = secgroupId
+				gs.GuestId = guest.Id
+				GuestsecgroupManager.TableSpec().Insert(ctx, &gs)
+			}
 		}
+	} else {
+		db.Update(guest, func() error {
+			guest.SecgrpId = ""
+			return nil
+		})
 	}
 }
 
@@ -2715,6 +2723,13 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		Obj:    &guest,
 		Action: notifyclient.ActionSyncCreate,
 	})
+
+	if guest.GetDriver().GetMaxSecurityGroupCount() == 0 {
+		db.Update(&guest, func() error {
+			guest.SecgrpId = ""
+			return nil
+		})
+	}
 
 	if guest.Status == api.VM_RUNNING {
 		db.OpsLog.LogEvent(&guest, db.ACT_START, guest.GetShortDesc(ctx), userCred)
@@ -4956,7 +4971,7 @@ func getSecgroupsBySecgroupExternalIds(managerId string, externalIds []string) (
 
 func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, externalIds []string) error {
 	// clear secgroup if vm not support security group
-	if self.GetDriver().GetMaxSecurityGroupCount() == 0 && (len(self.SecgrpId) > 0 || len(self.AdminSecgrpId) > 0) {
+	if self.GetDriver().GetMaxSecurityGroupCount() == 0 {
 		_, err := db.Update(self, func() error {
 			self.SecgrpId = ""
 			self.AdminSecgrpId = ""
