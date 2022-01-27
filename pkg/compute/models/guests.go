@@ -143,7 +143,7 @@ type SGuest struct {
 	// example: default
 	SecgrpId string `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user" create:"optional"`
 	// 管理员可见安全组Id
-	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"domain"`
+	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" list:"domain" get:"domain"`
 
 	SrcIpCheck  tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 	SrcMacCheck tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
@@ -654,12 +654,13 @@ func (manager *SGuestManager) initHostname() error {
 	return nil
 }
 
-func (manager *SGuestManager) InitializeData() error {
+func (manager *SGuestManager) clearSecgroups() error {
 	guests := make([]SGuest, 0, 10)
 	q := manager.Query()
 	q = q.In("hypervisor", []string{api.HYPERVISOR_ESXI, api.HYPERVISOR_NUTANIX}).Filter(
-		sqlchemy.NOT(
-			sqlchemy.IsNullOrEmpty(q.Field("secgrp_id")),
+		sqlchemy.OR(
+			sqlchemy.IsNotEmpty(q.Field("secgrp_id")),
+			sqlchemy.IsNotEmpty(q.Field("admin_secgrp_id")),
 		),
 	)
 	err := db.FetchModelObjects(manager, q, &guests)
@@ -670,10 +671,50 @@ func (manager *SGuestManager) InitializeData() error {
 	for i := range guests {
 		db.Update(&guests[i], func() error {
 			guests[i].SecgrpId = ""
+			guests[i].AdminSecgrpId = ""
 			return nil
 		})
 	}
-	return manager.initHostname()
+	return nil
+}
+
+func (manager *SGuestManager) initAdminSecgroupId() error {
+	if len(options.Options.DefaultAdminSecurityGroupId) == 0 {
+		return nil
+	}
+	adminSec, _ := SecurityGroupManager.FetchSecgroupById(options.Options.DefaultAdminSecurityGroupId)
+	if adminSec == nil {
+		return nil
+	}
+	adminSecId := adminSec.Id
+	guests := make([]SGuest, 0, 10)
+	q := manager.Query()
+	q = q.In("hypervisor", []string{api.HYPERVISOR_KVM}).IsNullOrEmpty("admin_secgrp_id")
+	err := db.FetchModelObjects(manager, q, &guests)
+	if err != nil {
+		return errors.Wrap(err, "db.FetchModelObjects")
+	}
+	// remove secgroup for esxi nutanix guest
+	for i := range guests {
+		db.Update(&guests[i], func() error {
+			guests[i].AdminSecgrpId = adminSecId
+			return nil
+		})
+	}
+	return nil
+}
+
+func (manager *SGuestManager) InitializeData() error {
+	if err := manager.initHostname(); err != nil {
+		return errors.Wrap(err, "initHostname")
+	}
+	if err := manager.clearSecgroups(); err != nil {
+		return errors.Wrap(err, "cleanSecgroups")
+	}
+	if err := manager.initAdminSecgroupId(); err != nil {
+		return errors.Wrap(err, "initAdminSecgroupId")
+	}
+	return nil
 }
 
 func (guest *SGuest) GetHypervisor() string {
@@ -907,6 +948,12 @@ func (guest *SGuest) IsNetworkAllocated() bool {
 }
 
 func (guest *SGuest) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if len(guest.SecgrpId) > 0 && len(options.Options.DefaultAdminSecurityGroupId) > 0 {
+		adminSec, _ := SecurityGroupManager.FetchSecgroupById(options.Options.DefaultAdminSecurityGroupId)
+		if adminSec != nil {
+			guest.AdminSecgrpId = adminSec.Id
+		}
+	}
 	guest.HostId = ""
 	return guest.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
@@ -1497,7 +1544,7 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		input.SecgroupId = secGrpObj.GetId()
 	} else {
-		input.SecgroupId = "default"
+		input.SecgroupId = options.Options.DefaultSecurityGroupId
 	}
 
 	maxSecgrpCount := GetDriver(hypervisor).GetMaxSecurityGroupCount()
@@ -2383,8 +2430,8 @@ func (self *SGuest) getSecurityGroupsRules() string {
 	q.Filter(sqlchemy.In(q.Field("secgroup_id"), secgroupids)).Desc(q.Field("priority"), q.Field("action"))
 	secrules := []SSecurityGroupRule{}
 	if err := db.FetchModelObjects(SecurityGroupRuleManager, q, &secrules); err != nil {
-		log.Errorf("Get rules error: %v", err)
-		return options.Options.DefaultSecurityRules
+		log.Errorf("Get security group rules error: %v", err)
+		return ""
 	}
 	rules := []string{}
 	for _, rule := range secrules {
@@ -2398,9 +2445,8 @@ func (self *SGuest) getAdminSecurityRules() string {
 	if secgrp != nil {
 		ret, _ := secgrp.getSecurityRuleString()
 		return ret
-	} else {
-		return options.Options.DefaultAdminSecurityRules
 	}
+	return ""
 }
 
 func (self *SGuest) isGpu() bool {
