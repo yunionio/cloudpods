@@ -114,8 +114,7 @@ type ComputeOptions struct {
 	ConvertKubeletDockerVolumeSize   string `default:"256g" help:"Docker volume size"`
 
 	// cloud image sync
-	SyncCloudImagesDay  int `default:"1" help:"Days auto sync public cloud images data, default 1 day"`
-	SyncCloudImagesHour int `default:"3" help:"What hour start sync public cloud images, default 03:00"`
+	CloudImagesSyncIntervalHours int `default:"3" help:"Interval to sync public cloud image, defualt is 3 hour"`
 
 	EnablePreAllocateIpAddr bool `help:"Enable private and public cloud private ip pre allocate, default false" default:"false"`
 
