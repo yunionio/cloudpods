@@ -57,6 +57,7 @@ type SSkuResourcesMeta struct {
 }
 
 var skuIndex = map[string]string{}
+var imageIndex = map[string]string{}
 
 func (self *SSkuResourcesMeta) getZoneIdBySuffix(zoneMaps map[string]string, suffix string) string {
 	for externalId, id := range zoneMaps {
@@ -400,6 +401,19 @@ func (self *SSkuResourcesMeta) getServerSkuIndex() (map[string]string, error) {
 	return ret, nil
 }
 
+func (self *SSkuResourcesMeta) getCloudimageIndex() (map[string]string, error) {
+	resp, err := self.request(fmt.Sprintf("%s/index.json", self.ImageBase))
+	if err != nil {
+		return map[string]string{}, errors.Wrapf(err, "request")
+	}
+	ret := map[string]string{}
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return map[string]string{}, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return ret, nil
+}
+
 func (self *SSkuResourcesMeta) getWafIndex() (map[string]string, error) {
 	resp, err := self.request(fmt.Sprintf("%s/index.json", self.WafBase))
 	if err != nil {
@@ -516,6 +530,7 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 	index, err := meta.getServerSkuIndex()
 	if err != nil {
 		log.Errorf("getServerSkuIndex error: %v", err)
+		return
 	}
 
 	cloudregions := fetchSkuSyncCloudregions()
