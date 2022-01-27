@@ -52,13 +52,53 @@ type SCloudimage struct {
 }
 
 func SyncPublicCloudImages(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if isStart {
+		cnt, err := CloudimageManager.Query().CountWithError()
+		if err != nil {
+			return
+		}
+		if cnt > 0 {
+			log.Infof("Public cloud image has already synced, skip syncing")
+			return
+		}
+	}
 	regions := []SCloudregion{}
 	q := CloudregionManager.Query().In("provider", CloudproviderManager.GetPublicProviderProvidersQuery())
 	err := db.FetchModelObjects(CloudregionManager, q, &regions)
 	if err != nil {
 		return
 	}
+
+	meta, err := FetchSkuResourcesMeta()
+	if err != nil {
+		log.Errorf("SyncServerSkus.FetchSkuResourcesMeta %s", err)
+		return
+	}
+
+	index, err := meta.getServerSkuIndex()
+	if err != nil {
+		log.Errorf("getServerSkuIndex error: %v", err)
+		return
+	}
+
 	for i := range regions {
+		region := &regions[i]
+		oldMd5, _ := imageIndex[region.ExternalId]
+		newMd5, ok := index[region.ExternalId]
+		if ok {
+			imageIndex[region.ExternalId] = newMd5
+		}
+
+		if newMd5 == EMPTY_MD5 {
+			log.Infof("%s images is empty skip syncing", region.Name)
+			continue
+		}
+
+		if len(oldMd5) > 0 && newMd5 == oldMd5 {
+			log.Infof("%s cloud images not changed skip syncing", region.Name)
+			continue
+		}
+
 		err = regions[i].SyncCloudImages(ctx, userCred, !isStart)
 		if err != nil {
 			log.Errorf("SyncCloudImages for region %s(%s) error: %v", regions[i].Name, regions[i].Id, err)
@@ -75,6 +115,7 @@ func SyncPublicCloudImages(ctx context.Context, userCred mcclient.TokenCredentia
 			}
 		}
 	}
+	return
 }
 
 func (self *SCloudimage) syncRemove(ctx context.Context, userCred mcclient.TokenCredential) error {
