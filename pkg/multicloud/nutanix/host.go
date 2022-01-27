@@ -299,7 +299,7 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 				"disk_address": map[string]string{
 					"vmdisk_uuid": image.VMDiskID,
 				},
-				"minimum_size": image.VMDiskSize,
+				"minimum_size": opts.SysDisk.SizeGB * 1024 * 1024 * 1024,
 			},
 		},
 	}

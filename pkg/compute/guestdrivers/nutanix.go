@@ -16,7 +16,10 @@ package guestdrivers
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -142,6 +145,16 @@ func (self *SNutanixGuestDriver) GetRebuildRootStatus() ([]string, error) {
 
 func (self *SNutanixGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
+}
+
+func (self *SNutanixGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	if disk.DiskSize/1024%1 > 0 {
+		return fmt.Errorf("Resize disk size must be an integer multiple of 1G")
+	}
+	return nil
 }
 
 func (self *SNutanixGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
