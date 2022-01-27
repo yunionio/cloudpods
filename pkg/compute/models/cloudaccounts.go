@@ -422,12 +422,6 @@ func (manager *SCloudaccountManager) validateCreateData(
 		if proj.DomainId != ownerId.GetProjectDomainId() {
 			return input, httperrors.NewInputParameterError("Project %s(%s) not belong to domain %s(%s)", proj.Name, proj.Id, ownerId.GetProjectDomain(), ownerId.GetProjectDomainId())
 		}
-		if input.AutoCreateProject != nil && *input.AutoCreateProject {
-			log.Warningf("project_id and auto_create_project should not be turned on at the same time")
-		}
-		if !forceAutoCreateProject {
-			input.AutoCreateProject = nil
-		}
 	} else if input.AutoCreateProject == nil || !*input.AutoCreateProject {
 		log.Warningf("auto_create_project is off while no project_id specified")
 		createProject := true
