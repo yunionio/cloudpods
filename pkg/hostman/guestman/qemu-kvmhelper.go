@@ -31,8 +31,10 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	qemucerts "yunion.io/x/onecloud/pkg/hostman/guestman/qemu/certs"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -703,7 +705,12 @@ function nic_mtu() {
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		migratePort := s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE)
 		s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(migratePort)))
-		cmd += fmt.Sprintf(" -incoming tcp:0:%d", migratePort)
+		if jsonutils.QueryBoolean(data, "live_migrate_use_tls", false) {
+			s.Desc.Set("live_migrate_use_tls", jsonutils.JSONTrue)
+			cmd += fmt.Sprintf(" -incoming defer")
+		} else {
+			cmd += fmt.Sprintf(" -incoming tcp:0:%d", migratePort)
+		}
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		cmd += fmt.Sprintf(" -incoming tcp:0:%d",
 			s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE))
@@ -737,7 +744,7 @@ func (s *SKVMGuestInstance) parseCmdline(input string) (*qemutils.Cmdline, []qem
 	cl.FilterOption(func(o qemutils.Option) bool {
 		switch o.Key {
 		case "incoming":
-			if strings.HasPrefix(o.Value, "tcp:") {
+			if strings.HasPrefix(o.Value, "tcp:") || strings.HasPrefix(o.Value, "defer") {
 				filterOpts = append(filterOpts, o)
 				return true
 			}
@@ -888,4 +895,42 @@ func (s *SKVMGuestInstance) StartPresendArp() {
 			time.Sleep(1 * time.Second)
 		}
 	}()
+}
+
+func (s *SKVMGuestInstance) getPKIDirPath() string {
+	return path.Join(s.HomeDir(), "pki")
+}
+
+func (s *SKVMGuestInstance) makePKIDir() error {
+	output, err := procutils.NewCommand("mkdir", "-p", s.getPKIDirPath()).Output()
+	if err != nil {
+		return errors.Wrapf(err, "mkdir %s failed: %s", s.getPKIDirPath(), output)
+	}
+	return nil
+}
+
+func (s *SKVMGuestInstance) PrepareMigrateCerts() (map[string]string, error) {
+	pkiDir := s.getPKIDirPath()
+	if err := s.makePKIDir(); err != nil {
+		return nil, errors.Wrap(err, "make pki dir")
+	}
+	tree, err := qemucerts.GetDefaultCertList().AsMap().CertTree()
+	if err != nil {
+		return nil, errors.Wrap(err, "construct cert tree")
+	}
+	if err := tree.CreateTree(pkiDir); err != nil {
+		return nil, errors.Wrap(err, "create certs")
+	}
+	return qemucerts.FetchDefaultCerts(pkiDir)
+}
+
+func (s *SKVMGuestInstance) WriteMigrateCerts(certs map[string]string) error {
+	pkiDir := s.getPKIDirPath()
+	if err := s.makePKIDir(); err != nil {
+		return errors.Wrap(err, "make pki dir")
+	}
+	if err := qemucerts.CreateByMap(pkiDir, certs); err != nil {
+		return errors.Wrapf(err, "create by map %#v", certs)
+	}
+	return nil
 }

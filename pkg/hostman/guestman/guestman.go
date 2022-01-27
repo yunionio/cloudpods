@@ -774,16 +774,23 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 		return nil, hostutils.ParamsError
 	}
 	guest, _ := m.GetServer(migParams.Sid)
-	disksPrepare, err := guest.PrepareMigrate(migParams.LiveMigrate)
+	disksPrepare, err := guest.PrepareDisksMigrate(migParams.LiveMigrate)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "PrepareDisksMigrate")
 	}
+	ret := jsonutils.NewDict()
 	if disksPrepare.Length() > 0 {
-		ret := jsonutils.NewDict()
 		ret.Set("disks_back", disksPrepare)
-		return ret, nil
 	}
-	return nil, nil
+
+	if migParams.LiveMigrate && migParams.LiveMigrateUseTLS {
+		certs, err := guest.PrepareMigrateCerts()
+		if err != nil {
+			return nil, errors.Wrap(err, "PrepareMigrateCerts")
+		}
+		ret.Set("migrate_certs", jsonutils.Marshal(certs))
+	}
+	return ret, nil
 }
 
 func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -825,6 +832,12 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
 		startParams.Set("need_migrate", jsonutils.JSONTrue)
 		startParams.Set("source_qemu_cmdline", jsonutils.NewString(migParams.SourceQemuCmdline))
+		startParams.Set("live_migrate_use_tls", jsonutils.NewBool(migParams.EnableTLS))
+		if len(migParams.MigrateCerts) > 0 {
+			if err := guest.WriteMigrateCerts(migParams.MigrateCerts); err != nil {
+				return nil, errors.Wrap(err, "write migrate certs")
+			}
+		}
 		hostutils.DelayTaskWithoutReqctx(ctx, guest.asyncScriptStart, startParams)
 	} else {
 		hostutils.UpdateServerProgress(context.Background(), migParams.Sid, 100.0, 0)
@@ -934,13 +947,13 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 	}
 }
 
-func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bool) (jsonutils.JSONObject, error) {
+func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bool, cleanTLS bool) (jsonutils.JSONObject, error) {
 	guest, _ := m.GetServer(sid)
 	if guest.IsStopping() || guest.IsStopped() {
 		return nil, httperrors.NewInvalidStatusError("resume stopped server???")
 	}
 	var cb = func() {
-		resumeTask := NewGuestResumeTask(ctx, guest, !isLiveMigrate)
+		resumeTask := NewGuestResumeTask(ctx, guest, !isLiveMigrate, cleanTLS)
 		if isLiveMigrate {
 			guest.StartPresendArp()
 		}
