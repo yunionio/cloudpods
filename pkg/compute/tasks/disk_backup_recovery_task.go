@@ -13,7 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -59,7 +59,7 @@ func (self *DiskBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 	log.Infof("task_notify_url: %s\ntask_id: %s\n", taskHeader.Get(mcclient.TASK_NOTIFY_URL), taskHeader.Get(mcclient.TASK_ID))
 	session.Header.Set(mcclient.TASK_NOTIFY_URL, taskHeader.Get(mcclient.TASK_NOTIFY_URL))
 	session.Header.Set(mcclient.TASK_ID, taskHeader.Get(mcclient.TASK_ID))
-	diskData, err := compute_modules.Disks.Create(session, jsonutils.Marshal(input))
+	diskData, err := modules.Disks.Create(session, jsonutils.Marshal(input))
 	if err != nil {
 		self.taskFaild(ctx, backup, jsonutils.NewString(err.Error()))
 		return

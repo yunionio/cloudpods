@@ -26,7 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -67,7 +67,7 @@ func (self *InstanceBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStan
 	session := auth.GetSession(ctx, self.UserCred, "", "")
 	session.Header.Set(mcclient.TASK_NOTIFY_URL, taskHeader.Get(mcclient.TASK_NOTIFY_URL))
 	session.Header.Set(mcclient.TASK_ID, taskHeader.Get(mcclient.TASK_ID))
-	serverData, err := compute_modules.Servers.Create(session, jsonutils.Marshal(sourceInput))
+	serverData, err := modules.Servers.Create(session, jsonutils.Marshal(sourceInput))
 	if err != nil {
 		self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
 		return

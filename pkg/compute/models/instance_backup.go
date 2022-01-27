@@ -258,8 +258,8 @@ func (manager *SInstanceBackupManager) fillInstanceBackup(ctx context.Context, u
 		instanceBackup.KeypairId = guest.KeypairId
 	}
 	serverMetadata := jsonutils.NewDict()
-	if loginAccount := guest.GetMetadata(ctx, "login_account", nil); len(loginAccount) > 0 {
-		loginKey := guest.GetMetadata(ctx, "login_key", nil)
+	if loginAccount := guest.GetMetadata("login_account", nil); len(loginAccount) > 0 {
+		loginKey := guest.GetMetadata("login_key", nil)
 		if len(guest.KeypairId) == 0 && len(loginKey) > 0 {
 			passwd, e := utils.DescryptAESBase64(guest.Id, loginKey)
 			if e == nil {
@@ -271,16 +271,16 @@ func (manager *SInstanceBackupManager) fillInstanceBackup(ctx context.Context, u
 			serverMetadata.Set("login_account", jsonutils.NewString(loginAccount))
 		}
 	}
-	if osArch := guest.GetMetadata(ctx, "os_arch", nil); len(osArch) > 0 {
+	if osArch := guest.GetMetadata("os_arch", nil); len(osArch) > 0 {
 		serverMetadata.Set("os_arch", jsonutils.NewString(osArch))
 	}
-	if osDist := guest.GetMetadata(ctx, "os_distribution", nil); len(osDist) > 0 {
+	if osDist := guest.GetMetadata("os_distribution", nil); len(osDist) > 0 {
 		serverMetadata.Set("os_distribution", jsonutils.NewString(osDist))
 	}
-	if osName := guest.GetMetadata(ctx, "os_name", nil); len(osName) > 0 {
+	if osName := guest.GetMetadata("os_name", nil); len(osName) > 0 {
 		serverMetadata.Set("os_name", jsonutils.NewString(osName))
 	}
-	if osVersion := guest.GetMetadata(ctx, "os_version", nil); len(osVersion) > 0 {
+	if osVersion := guest.GetMetadata("os_version", nil); len(osVersion) > 0 {
 		serverMetadata.Set("os_version", jsonutils.NewString(osVersion))
 	}
 	secs, _ := guest.GetSecgroups()

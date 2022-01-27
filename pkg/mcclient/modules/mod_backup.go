@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package modules
 
 import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type DiskBackupManager struct {
@@ -38,27 +37,27 @@ var (
 )
 
 func init() {
-	DiskBackups = DiskBackupManager{modules.NewComputeManager(
+	DiskBackups = DiskBackupManager{NewComputeManager(
 		"diskbackup",
 		"diskbackups",
 		[]string{},
 		[]string{},
 	)}
-	modules.RegisterCompute(&DiskBackups)
+	registerCompute(&DiskBackups)
 
-	BackupStorages = BackupStorageManager{modules.NewComputeManager(
+	BackupStorages = BackupStorageManager{NewComputeManager(
 		"backupstorage",
 		"backupstorages",
 		[]string{},
 		[]string{},
 	)}
-	modules.RegisterCompute(&BackupStorages)
+	registerCompute(&BackupStorages)
 
-	InstanceBackups = InstanceBackupManager{modules.NewComputeManager(
+	InstanceBackups = InstanceBackupManager{NewComputeManager(
 		"instancebackup",
 		"instancebackups",
 		[]string{},
 		[]string{},
 	)}
-	modules.RegisterCompute(&InstanceBackups)
+	registerCompute(&InstanceBackups)
 }
