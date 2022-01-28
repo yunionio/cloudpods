@@ -239,7 +239,7 @@ func (set Guests) joinHosts(subEntries Hosts) bool {
 
 func (set Guests) joinSecurityGroups(subEntries SecurityGroups) bool {
 	correct := true
-	j := func(guest *Guest, fname, secgroupId string) (*SecurityGroup, bool) {
+	j := func(guest *Guest, fname, secgroupId string, isAdmin bool) (*SecurityGroup, bool) {
 		if secgroupId == "" {
 			return nil, true
 		}
@@ -249,12 +249,15 @@ func (set Guests) joinSecurityGroups(subEntries SecurityGroups) bool {
 				fname, secgroupId, guest.Name, guest.Id)
 			return nil, false
 		}
-		guest.SecurityGroups[secgroupId] = secgroup
+		if !isAdmin {
+			// do not save admin security group, store it in AdminSecurityGroup instead
+			guest.SecurityGroups[secgroupId] = secgroup
+		}
 		return secgroup, true
 	}
 	for _, g := range set {
-		adminSecgroup, c0 := j(g, "admin_secgrp_id", g.AdminSecgrpId)
-		_, c1 := j(g, "secgrp_id", g.SecgrpId)
+		adminSecgroup, c0 := j(g, "admin_secgrp_id", g.AdminSecgrpId, true)
+		_, c1 := j(g, "secgrp_id", g.SecgrpId, false)
 		g.AdminSecurityGroup = adminSecgroup
 		if !(c0 && c1) {
 			correct = false

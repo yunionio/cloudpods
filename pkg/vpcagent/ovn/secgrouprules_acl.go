@@ -168,5 +168,6 @@ func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule) (*ovn_nb.ACL, 
 		Match:     match,
 		Action:    action,
 	}
+
 	return acl, nil
 }
