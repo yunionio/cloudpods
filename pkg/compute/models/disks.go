@@ -190,18 +190,16 @@ func (manager *SDiskManager) ListItemFilter(
 
 	guestId := query.ServerId
 	if len(guestId) > 0 {
-		iGuest, err := GuestManager.FetchByIdOrName(userCred, guestId)
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("guest %q not found", guestId)
-		} else if err != nil {
+		server, err := validators.ValidateModel(userCred, GuestManager, &guestId)
+		if err != nil {
 			return nil, err
 		}
-		guest := iGuest.(*SGuest)
+		guest := server.(*SGuest)
 		guestDisks := GuestdiskManager.Query().SubQuery()
 		q = q.Join(guestDisks, sqlchemy.AND(
 			sqlchemy.Equals(guestDisks.Field("disk_id"), q.Field("id")),
 			sqlchemy.Equals(guestDisks.Field("guest_id"), guest.Id),
-		))
+		)).Asc(guestDisks.Field("index"))
 	}
 
 	if diskType := query.DiskType; diskType != "" {

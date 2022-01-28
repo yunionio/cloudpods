@@ -3274,7 +3274,47 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		result.Add()
 	}
 
+	err = self.fixSysDiskIndex()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "fixSysDiskIndex"))
+	}
+
 	return result
+}
+
+func (self *SGuest) fixSysDiskIndex() error {
+	disks := DiskManager.Query().SubQuery()
+	sysQ := GuestdiskManager.Query().Equals("guest_id", self.Id)
+	sysQ = sysQ.Join(disks, sqlchemy.Equals(disks.Field("id"), sysQ.Field("disk_id"))).Filter(sqlchemy.Equals(disks.Field("disk_type"), api.DISK_TYPE_SYS))
+	sysDisk := &SGuestdisk{}
+	sysDisk.SetModelManager(GuestdiskManager, sysDisk)
+	err := sysQ.First(sysDisk)
+	if err != nil {
+		return err
+	}
+	if sysDisk.Index == 0 {
+		return nil
+	}
+	q := GuestdiskManager.Query().Equals("guest_id", self.Id).Equals("index", 0)
+
+	firstDisk := &SGuestdisk{}
+	firstDisk.SetModelManager(GuestdiskManager, firstDisk)
+	err = q.First(firstDisk)
+	if err != nil {
+		return err
+	}
+	_, err = db.Update(firstDisk, func() error {
+		firstDisk.Index = sysDisk.Index
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	_, err = db.Update(sysDisk, func() error {
+		sysDisk.Index = 0
+		return nil
+	})
+	return err
 }
 
 func filterGuestByRange(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
