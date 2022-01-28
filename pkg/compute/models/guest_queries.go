@@ -248,7 +248,7 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 	)
 	q = q.Join(guestdisks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id")))
 	q = q.Join(storages, sqlchemy.Equals(disks.Field("storage_id"), storages.Field("id")))
-	q = q.Filter(sqlchemy.In(guestdisks.Field("guest_id"), guestIds))
+	q = q.Filter(sqlchemy.In(guestdisks.Field("guest_id"), guestIds)).Asc(guestdisks.Field("index"))
 	gds := []sGuestDiskInfo{}
 	err := q.All(&gds)
 	if err != nil {
