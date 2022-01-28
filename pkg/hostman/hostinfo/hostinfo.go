@@ -1186,7 +1186,7 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	if memReserved, _ := hostbody.Int("mem_reserved"); memReserved == 0 {
 		h.updateHostReservedMem()
 	} else {
-		h.PutHostOffline()
+		h.PutHostOffline("")
 	}
 }
 
@@ -1214,10 +1214,13 @@ func (h *SHostInfo) getReservedMem() int {
 	return reserved
 }
 
-func (h *SHostInfo) PutHostOffline() {
+func (h *SHostInfo) PutHostOffline(reason string) {
 	data := jsonutils.NewDict()
 	if options.HostOptions.EnableHealthChecker {
 		data.Set("update_health_status", jsonutils.JSONTrue)
+	}
+	if len(reason) > 0 {
+		data.Set("reason", jsonutils.NewString(reason))
 	}
 	_, err := modules.Hosts.PerformAction(
 		h.GetSession(), h.HostId, "offline", data)
