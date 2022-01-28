@@ -731,6 +731,13 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 	if !utils.IsInStringArray(self.Status, guestStatus) {
 		return httperrors.NewInputParameterError("Guest %s not support attach disk in status %s", self.Name, self.Status)
 	}
+	ok, err := self.IsInSameClass(ctx, &disk.SStandaloneAnonResourceBase)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return httperrors.NewForbiddenError("the class metadata of guest and disk is different")
+	}
 	return nil
 }
 
