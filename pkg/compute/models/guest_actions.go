@@ -2399,6 +2399,11 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	var cpuChanged, memChanged bool
 
 	confs := jsonutils.NewDict()
+	confs.Add(jsonutils.Marshal(map[string]interface{}{
+		"instance_type": self.InstanceType,
+		"vcpu_count":    self.VcpuCount,
+		"vmem_size":     self.VmemSize,
+	}), "old")
 	if len(input.InstanceType) > 0 {
 		sku, err := ServerSkuManager.FetchSkuByNameAndProvider(input.InstanceType, self.GetDriver().GetProvider(), true)
 		if err != nil {
@@ -2563,6 +2568,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if len(newDisks) > 0 {
 		confs.Add(jsonutils.Marshal(newDisks), "create")
 	}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CHANGE_CONFIG, confs, userCred, true)
 	self.StartChangeConfigTask(ctx, userCred, confs, "", pendingUsage)
 	return nil, nil
 }

@@ -3750,11 +3750,11 @@ func (self *SHost) StartSyncstatus(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
-func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.HostOfflineInput) (jsonutils.JSONObject, error) {
 	if self.HostStatus != api.HOST_OFFLINE {
 		_, err := self.SaveUpdates(func() error {
 			self.HostStatus = api.HOST_OFFLINE
-			if jsonutils.QueryBoolean(data, "update_health_status", false) {
+			if input.UpdateHealthStatus != nil && *input.UpdateHealthStatus {
 				self.EnableHealthCheck = false
 			}
 			// Note: update host status to unknown on host offline
@@ -3768,8 +3768,8 @@ func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCr
 		if hostHealthChecker != nil {
 			hostHealthChecker.UnwatchHost(context.Background(), self.Id)
 		}
-		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, "", userCred)
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_OFFLINE, nil, userCred, true)
+		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, input.Reason, userCred)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_OFFLINE, map[string]string{"reason": input.Reason}, userCred, false)
 		self.SyncAttachedStorageStatus()
 	}
 	return nil, nil
@@ -5122,24 +5122,19 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("last_ping_at")),
 		sqlchemy.LT(q.Field("last_ping_at"), deadline)))
 
-	rows, err := q.Rows()
+	hosts := []SHost{}
+	err := db.FetchModelObjects(manager, q, &hosts)
 	if err != nil {
-		log.Errorln(err)
 		return
 	}
-	defer rows.Close()
 
-	data := jsonutils.NewDict()
-	data.Set("update_health_status", jsonutils.JSONFalse)
-	for rows.Next() {
-		var host = new(SHost)
-		q.Row2Struct(rows, host)
-		host.SetModelManager(manager, host)
+	updateHealthStatus := false
+	for i := range hosts {
 		func() {
-			lockman.LockObject(ctx, host)
-			defer lockman.ReleaseObject(ctx, host)
-			host.PerformOffline(ctx, userCred, nil, data)
-			host.MarkGuestUnknown(userCred)
+			lockman.LockObject(ctx, &hosts[i])
+			defer lockman.ReleaseObject(ctx, &hosts[i])
+			hosts[i].PerformOffline(ctx, userCred, nil, &api.HostOfflineInput{UpdateHealthStatus: &updateHealthStatus, Reason: fmt.Sprintf("last ping detection at %s", deadline)})
+			hosts[i].MarkGuestUnknown(userCred)
 		}()
 	}
 }
@@ -5246,6 +5241,8 @@ func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCreden
 	}); err != nil {
 		log.Errorf("update host %s failed %s", host.Id, err)
 	}
+
+	logclient.AddActionLogWithContext(ctx, host, logclient.ACT_OFFLINE, map[string]string{"reason": "host down"}, userCred, false)
 	host.SyncCleanSchedDescCache()
 	host.switchWithBackup(ctx, userCred)
 	host.migrateOnHostDown(ctx, userCred)
