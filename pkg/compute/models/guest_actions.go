@@ -1215,10 +1215,14 @@ func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.To
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
-func (self *SGuest) saveDefaultSecgroupId(userCred mcclient.TokenCredential, secGrpId string) error {
-	if secGrpId != self.SecgrpId {
+func (self *SGuest) saveDefaultSecgroupId(userCred mcclient.TokenCredential, secGrpId string, isAdmin bool) error {
+	if (!isAdmin && secGrpId != self.SecgrpId) || (isAdmin && secGrpId != self.AdminSecgrpId) {
 		diff, err := db.Update(self, func() error {
-			self.SecgrpId = secGrpId
+			if isAdmin {
+				self.AdminSecgrpId = secGrpId
+			} else {
+				self.SecgrpId = secGrpId
+			}
 			return nil
 		})
 		if err != nil {
@@ -1279,8 +1283,51 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
+func (self *SGuest) PerformRevokeAdminSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestRevokeSecgroupInput) (jsonutils.JSONObject, error) {
+	if !db.IsAdminAllowPerform(ctx, userCred, self, "revoke-admin-secgroup") {
+		return nil, httperrors.NewForbiddenError("not allow to revoke admin secgroup")
+	}
+
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_SUSPEND}) {
+		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
+	}
+
+	var notes string
+	adminSecgrpId := ""
+	if len(options.Options.DefaultAdminSecurityGroupId) > 0 {
+		adminSecgrp, _ := SecurityGroupManager.FetchSecgroupById(options.Options.DefaultAdminSecurityGroupId)
+		if adminSecgrp != nil {
+			adminSecgrpId = adminSecgrp.Id
+			notes = fmt.Sprintf("reset admin secgroup to %s(%s)", adminSecgrp.Name, adminSecgrp.Id)
+		}
+	}
+	if adminSecgrpId == "" {
+		notes = "clean admin secgroup"
+	}
+
+	err := self.saveDefaultSecgroupId(userCred, adminSecgrpId, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "saveDefaultSecgroupId")
+	}
+
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_REVOKESECGROUP, notes, userCred, true)
+	return nil, self.StartSyncTask(ctx, userCred, true, "")
+}
+
 // +onecloud:swagger-gen-ignore
 func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestAssignSecgroupInput) (jsonutils.JSONObject, error) {
+	return self.performAssignSecgroup(ctx, userCred, query, input, false)
+}
+
+func (self *SGuest) PerformAssignAdminSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestAssignSecgroupInput) (jsonutils.JSONObject, error) {
+	if !db.IsAdminAllowPerform(ctx, userCred, self, "assign-admin-secgroup") {
+		return nil, httperrors.NewForbiddenError("not allow to assign admin secgroup")
+	}
+
+	return self.performAssignSecgroup(ctx, userCred, query, input, true)
+}
+
+func (self *SGuest) performAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestAssignSecgroupInput, isAdmin bool) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_SUSPEND}) {
 		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
 	}
@@ -1299,12 +1346,12 @@ func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secObj.GetName())
 	}
 
-	err = self.saveDefaultSecgroupId(userCred, input.SecgroupId)
+	err = self.saveDefaultSecgroupId(userCred, input.SecgroupId, isAdmin)
 	if err != nil {
 		return nil, err
 	}
 
-	notes := map[string]string{"name": secObj.GetName(), "id": secObj.GetId()}
+	notes := map[string]string{"name": secObj.GetName(), "id": secObj.GetId(), "is_admin": fmt.Sprintf("%v", isAdmin)}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_ASSIGNSECGROUP, notes, userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
@@ -1404,7 +1451,7 @@ func (self *SGuest) saveSecgroups(ctx context.Context, userCred mcclient.TokenCr
 			return errors.Wrapf(err, "New guest secgroup for guest %s with secgroup %s", self.Name, id)
 		}
 	}
-	return self.saveDefaultSecgroupId(userCred, secgroupIds[0])
+	return self.saveDefaultSecgroupId(userCred, secgroupIds[0], false)
 }
 
 func (self *SGuest) newGuestSecgroup(ctx context.Context, secgroupId string) error {
@@ -2616,7 +2663,7 @@ func (self *SGuest) RevokeAllSecgroups(ctx context.Context, userCred mcclient.To
 			return errors.Wrap(err, "Delete")
 		}
 	}
-	return self.saveDefaultSecgroupId(userCred, api.SECGROUP_DEFAULT_ID)
+	return self.saveDefaultSecgroupId(userCred, options.Options.DefaultSecurityGroupId, false)
 }
 
 func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {

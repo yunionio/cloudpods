@@ -1317,8 +1317,11 @@ func (sm *SSecurityGroupManager) TotalCnt(secIds []string) (map[string]api.SSecu
 }
 
 func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	if self.Id == api.SECGROUP_DEFAULT_ID {
+	if self.Id == options.Options.DefaultSecurityGroupId {
 		return httperrors.NewProtectedResourceError("not allow to delete default security group")
+	}
+	if self.Id == options.Options.DefaultAdminSecurityGroupId {
+		return httperrors.NewProtectedResourceError("not allow to delete default admin security group")
 	}
 	cnts, err := SecurityGroupManager.TotalCnt([]string{self.Id})
 	if err != nil {
