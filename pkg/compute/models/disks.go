@@ -1044,6 +1044,17 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return "", err
 	}
+	// check class metadata
+	cm, err := self.GetAllClassMetadata()
+	if err != nil {
+		return "", errors.Wrap(err, "unable to GetAllClassMetadata")
+	}
+	if len(cm) > 0 {
+		_, err = image.Images.PerformAction(us, imageId, "set-class-metadata", jsonutils.Marshal(cm))
+		if err != nil {
+			return "", errors.Wrapf(err, "unable to SetClassMetadata for image %s", imageId)
+		}
+	}
 	return imageId, nil
 }
 

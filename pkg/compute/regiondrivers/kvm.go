@@ -1127,6 +1127,11 @@ func (self *SKVMRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context,
 		return err
 	}
 
+	err = isp.Inherit(ctx, &snapshot.SStandaloneAnonResourceBase)
+	if err != nil {
+		return errors.Wrapf(err, "unable to inherit from instance snapshot %s to snapshot %s", isp.GetId(), snapshot.GetId())
+	}
+
 	err = models.InstanceSnapshotJointManager.CreateJoint(ctx, isp.Id, snapshot.Id, int8(diskIndex))
 	if err != nil {
 		return err
@@ -1273,6 +1278,10 @@ func (self *SKVMRegionDriver) RequestCreateInstanceBackup(ctx context.Context, g
 		}()
 		if err != nil {
 			return err
+		}
+		err = ib.Inherit(ctx, &backup.SStandaloneAnonResourceBase)
+		if err != nil {
+			return errors.Wrapf(err, "unable to inherit from instance backup %s to backup %s", ib.GetId(), backup.GetId())
 		}
 		err = models.InstanceBackupJointManager.CreateJoint(ctx, ib.Id, backup.Id, int8(i))
 		if err != nil {

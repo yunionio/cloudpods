@@ -3790,6 +3790,10 @@ func (self *SGuest) createDiskOnHost(
 	if autoAttach {
 		err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint)
 	}
+	err = self.Inherit(ctx, &disk.SStandaloneAnonResourceBase)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to inherit from guest %s to disk %s", self.GetId(), disk.GetId())
+	}
 	return disk, err
 }
 
@@ -5267,6 +5271,10 @@ func (self *SGuest) OnScheduleToHost(ctx context.Context, userCred mcclient.Toke
 	db.OpsLog.LogEvent(self, db.ACT_SCHEDULE, notes, userCred)
 
 	host, _ := self.GetHost()
+	err = host.Inherit(ctx, &self.SStandaloneAnonResourceBase)
+	if err != nil {
+		return errors.Wrapf(err, "unable to inherit from host %s to guest %s", host.GetId(), self.GetId())
+	}
 	return host.ClearSchedDescCache()
 }
 
