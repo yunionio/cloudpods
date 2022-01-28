@@ -652,3 +652,21 @@ func (gi *SGuestImage) GetUsages() []db.IUsage {
 	}
 	return usages
 }
+
+func (img *SGuestImage) PerformSetClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetClassMetadataInput) (jsonutils.JSONObject, error) {
+	ret, err := img.SStandaloneAnonResourceBase.PerformSetClassMetadata(ctx, userCred, query, input)
+	if err != nil {
+		return ret, err
+	}
+	images, err := GuestImageJointManager.GetImagesByGuestImageId(img.Id)
+	if err != nil {
+		return nil, err
+	}
+	for i := range images {
+		_, err := images[i].PerformSetClassMetadata(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to PerformSetClassMetadata for image %s", images[i].GetId())
+		}
+	}
+	return nil, nil
+}
