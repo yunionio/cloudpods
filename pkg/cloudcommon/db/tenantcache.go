@@ -128,7 +128,7 @@ func (manager *STenantCacheManager) InitializeData() error {
 func (manager *STenantCacheManager) updateTenantCache(ctx context.Context, userCred mcclient.TokenCredential) {
 	item := SCachedTenant{
 		Id:            userCred.GetProjectId(),
-		Name:          userCred.GetProjectDomainId(),
+		Name:          userCred.GetProjectName(),
 		DomainId:      userCred.GetProjectDomainId(),
 		ProjectDomain: userCred.GetProjectDomain(),
 	}
