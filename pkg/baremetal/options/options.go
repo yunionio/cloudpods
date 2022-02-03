@@ -51,6 +51,8 @@ type BaremetalOptions struct {
 	StatusProbeIntervalSeconds int `help:"interval to probe baremetal status, default is 60 seconds" default:"60"`
 	LogFetchIntervalSeconds    int `help:"interval to fetch baremetal log, default is 900 seconds" default:"900"`
 	SendMetricsIntervalSeconds int `help:"interval to send baremetal metrics, default is 300 seconds" default:"300"`
+
+	TftpFileMap map[string]string `help:"map of filename to real file path for tftp"`
 }
 
 var (
