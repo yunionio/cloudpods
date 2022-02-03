@@ -123,6 +123,9 @@ func (h *TFTPHandler) sendFile(filename string, _ net.Addr) (io.ReadCloser, int6
 }
 
 func (h *TFTPHandler) getFilePath(fileName string) string {
+	if path, ok := options.Options.TftpFileMap[fileName]; ok {
+		return path
+	}
 	return filepath.Join(h.RootDir, fileName)
 }
 
