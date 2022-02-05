@@ -127,12 +127,13 @@ func GenerateStartOptions(
 		drvOpt.Memory(input.Mem),
 	)
 
+	var memDev string
 	if input.HugepagesEnabled {
-		opts = append(opts,
-			drvOpt.MemPrealloc(),
-			drvOpt.MemPath(fmt.Sprintf("/dev/hugepages/%s", input.UUID)),
-		)
+		memDev = drvOpt.MemPath(input.Mem, fmt.Sprintf("/dev/hugepages/%s", input.UUID))
+	} else {
+		memDev = drvOpt.MemDev(input.Mem)
 	}
+	opts = append(opts, memDev)
 
 	// bootOrder
 	enableMenu := false

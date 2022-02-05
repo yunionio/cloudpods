@@ -42,6 +42,8 @@ type SHostOptions struct {
 	RecycleDiskfile         bool `help:"Recycle instead of remove deleted disk file" default:"true"`
 	RecycleDiskfileKeepDays int  `help:"How long recycled files kept, default 28 days" default:"28"`
 
+	ZeroCleanDiskData bool `help:"Clean disk data by writing zeros" default:"false"`
+
 	EnableTemplateBacking    bool `help:"Use template as backing file"`
 	AutoMergeBackingTemplate bool `help:"Automatically stream merging backing file"`
 	AutoMergeDelaySeconds    int  `help:"Seconds to delay mergeing backing file after VM start, default 15 minutes" default:"900"`

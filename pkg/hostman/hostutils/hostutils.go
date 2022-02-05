@@ -43,7 +43,9 @@ type IHost interface {
 	GetMasterIp() string
 	GetCpuArchitecture() string
 	IsAarch64() bool
+
 	IsHugepagesEnabled() bool
+	HugepageSizeKb() int
 
 	IsKvmSupport() bool
 	IsNestedVirtualization() bool

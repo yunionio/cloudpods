@@ -1529,11 +1529,43 @@ func (task *SGuestHotplugCpuMemTask) startAddMem() {
 func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 	var newIndex = index
 	task.memSlotNewIndex = &newIndex
-	params := map[string]string{
-		"id":   fmt.Sprintf("mem%d", *task.memSlotNewIndex),
-		"size": fmt.Sprintf("%dM", task.addMemSize),
+	if task.manager.host.IsHugepagesEnabled() {
+		memPath := fmt.Sprintf("/dev/hugepages/%s-%d", task.GetId(), index)
+
+		err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", memPath).Run()
+		if err != nil {
+			reason := fmt.Sprintf("mkdir %s fail: %s", memPath, err)
+			log.Errorf("%s", reason)
+			task.onFail(reason)
+			return
+		}
+		err = procutils.NewRemoteCommandAsFarAsPossible("mount", "-t", "hugetlbfs", "-o",
+			fmt.Sprintf("pagesize=%dK,size=%dM", task.manager.host.HugepageSizeKb(), task.addMemSize),
+			fmt.Sprintf("hugetlbfs-%s-%d", task.GetId(), index),
+			memPath,
+		).Run()
+		if err != nil {
+			reason := fmt.Sprintf("mount %s fail: %s", memPath, err)
+			log.Errorf("%s", reason)
+			task.onFail(reason)
+			return
+		}
+
+		params := map[string]string{
+			"id":       fmt.Sprintf("mem%d", *task.memSlotNewIndex),
+			"size":     fmt.Sprintf("%dM", task.addMemSize),
+			"mem-path": memPath,
+			"share":    "on",
+			"prealloc": "on",
+		}
+		task.Monitor.ObjectAdd("memory-backend-file", params, task.onAddMemObject)
+	} else {
+		params := map[string]string{
+			"id":   fmt.Sprintf("mem%d", *task.memSlotNewIndex),
+			"size": fmt.Sprintf("%dM", task.addMemSize),
+		}
+		task.Monitor.ObjectAdd("memory-backend-ram", params, task.onAddMemObject)
 	}
-	task.Monitor.ObjectAdd("memory-backend-ram", params, task.onAddMemObject)
 }
 
 func (task *SGuestHotplugCpuMemTask) onAddMemFailed(reason string) {
