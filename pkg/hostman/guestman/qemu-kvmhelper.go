@@ -292,8 +292,8 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 
 	if input.HugepagesEnabled {
 		cmd += fmt.Sprintf("mkdir -p /dev/hugepages/%s\n", input.UUID)
-		cmd += fmt.Sprintf("mount -t hugetlbfs -o size=%dM hugetlbfs-%s /dev/hugepages/%s\n",
-			input.Mem, input.UUID, input.UUID)
+		cmd += fmt.Sprintf("mount -t hugetlbfs -o pagesize=%dK,size=%dM hugetlbfs-%s /dev/hugepages/%s\n",
+			s.manager.host.HugepageSizeKb(), input.Mem, input.UUID, input.UUID)
 	}
 
 	cmd += "sleep 1\n"
@@ -627,12 +627,14 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += "  rm -f $PID_FILE\n"
 	cmd += "fi\n"
 
-	if s.manager.host.IsHugepagesEnabled() {
-		cmd += fmt.Sprintf("if [ -d /dev/hugepages/%s ]; then\n", uuid)
-		cmd += fmt.Sprintf("  umount /dev/hugepages/%s\n", uuid)
-		cmd += fmt.Sprintf("  rm -rf /dev/hugepages/%s\n", uuid)
-		cmd += "fi\n"
-	}
+	cmd += fmt.Sprintf("for d in $(ls -d /dev/hugepages/%s*)\n", uuid)
+	cmd += fmt.Sprintf("do\n")
+	cmd += fmt.Sprintf("  if [ -d $d ]; then\n")
+	cmd += fmt.Sprintf("    umount $d\n")
+	cmd += fmt.Sprintf("    rm -rf $d\n")
+	cmd += fmt.Sprintf("  fi\n")
+	cmd += fmt.Sprintf("done\n")
+
 	for _, nic := range nics {
 		ifname, _ := nic.GetString("ifname")
 		downscript := s.getNicDownScriptPath(nic)

@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/zeroclean"
 )
 
 const MINIMAL_FREE_SPACE = 128
@@ -354,6 +355,10 @@ func cleanDailyFiles(storagePath, subDir string, keepDay int) {
 		if date.Before(markTime) {
 			log.Infof("Cron Job Clean Recycle Bin: start delete %s", file.Name())
 			subDirPath := path.Join(recycleDir, file.Name())
+			if options.HostOptions.ZeroCleanDiskData {
+				// try to zero clean files in subdir
+				zeroclean.ZeroDir(subDirPath)
+			}
 			if output, err := procutils.NewCommand("rm", "-rf", subDirPath).Output(); err != nil {
 				log.Errorf("clean recycle dir %s error: %s, %s", subDirPath, err, output)
 			}
