@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -166,67 +165,8 @@ func DetectMemoryInfo() (*SMemory, error) {
 	return smem, nil
 }
 
-func (m *SMemory) GetHugepageTotal() (int, error) {
-	file, err := os.Open("/proc/meminfo")
-	if err != nil {
-		return 0, errors.Wrap(err, "open meminfo")
-	}
-	defer file.Close()
-	var (
-		nrHugePage   int
-		sizeHugePage int
-	)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "Hugepagesize:") {
-			re := regexp.MustCompile(`\s+`)
-			segs := re.Split(line, -1)
-			v, err := strconv.Atoi(segs[1])
-			if err != nil {
-				return 0, errors.Wrap(err, "get hugepage size")
-			}
-			sizeHugePage = v / 1024 // MB
-			log.Debugf("Huge page size %v", sizeHugePage)
-		} else if strings.HasPrefix(line, "HugePages_Total:") {
-			re := regexp.MustCompile(`\s+`)
-			segs := re.Split(line, -1)
-			v, err := strconv.Atoi(segs[1])
-			if err != nil {
-				return 0, errors.Wrap(err, "get hugepages total")
-			}
-			nrHugePage = v
-			log.Debugf("Huge page number %v", nrHugePage)
-		}
-	}
-	return nrHugePage * sizeHugePage, nil
-}
-
-func (m *SMemory) GetHugepagesizeMb() int {
-	file, err := os.Open("/proc/meminfo")
-	if err != nil {
-		log.Errorln(err)
-		return 0
-	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "Hugepagesize:") {
-			re := regexp.MustCompile(`\s+`)
-			segs := re.Split(line, -1)
-			v, err := strconv.Atoi(segs[1])
-			if err != nil {
-				log.Errorln(err)
-				return 0
-			}
-			return int(v) / 1024
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		log.Errorln(err)
-	}
-	return 0
+func (m *SMemory) GetHugepages() (sysutils.THugepages, error) {
+	return sysutils.GetHugepages()
 }
 
 type SNIC struct {
@@ -381,6 +321,9 @@ type SSysInfo struct {
 	CpuMicrocode   string `json:"cpu_microcode"`
 
 	StorageType string `json:"storage_type"`
+
+	HugepagesOption string `json:"hugepages_option"`
+	HugepageSizeKb  int    `json:"hugepage_size_kb"`
 }
 
 func StartDetachStorages(hs []jsonutils.JSONObject) {

@@ -442,8 +442,8 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 
 	if s.manager.host.IsHugepagesEnabled() {
 		cmd += fmt.Sprintf("mkdir -p /dev/hugepages/%s\n", uuid)
-		cmd += fmt.Sprintf("mount -t hugetlbfs -o size=%dM hugetlbfs-%s /dev/hugepages/%s\n",
-			mem, uuid, uuid)
+		cmd += fmt.Sprintf("mount -t hugetlbfs -o pagesize=%dK,size=%dM hugetlbfs-%s /dev/hugepages/%s\n",
+			s.manager.host.HugepageSizeKb(), mem, uuid, uuid)
 	}
 
 	cmd += "sleep 1\n"
@@ -571,8 +571,10 @@ function nic_mtu() {
 	}
 	cmd += fmt.Sprintf(" -m %dM,slots=4,maxmem=524288M", mem)
 
-	if s.manager.host.IsHugepagesEnabled() {
-		cmd += fmt.Sprintf(" -mem-prealloc -mem-path %s", fmt.Sprintf("/dev/hugepages/%s", uuid))
+	if options.HostOptions.HugepagesOption == "native" {
+		cmd += fmt.Sprintf("-object memory-backend-file,id=mem,size=%dM,mem-path=/dev/hugepages/%s,share=on,prealloc=on -numa node,memdev=mem", mem, uuid)
+	} else {
+		cmd += fmt.Sprintf("-object memory-backend-ram,id=mem,size=%dM -numa node,memdev=mem", mem)
 	}
 
 	bootOrder, _ := s.Desc.GetString("boot_order")
@@ -832,12 +834,14 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += "  rm -f $PID_FILE\n"
 	cmd += "fi\n"
 
-	if s.manager.host.IsHugepagesEnabled() {
-		cmd += fmt.Sprintf("if [ -d /dev/hugepages/%s ]; then\n", uuid)
-		cmd += fmt.Sprintf("  umount /dev/hugepages/%s\n", uuid)
-		cmd += fmt.Sprintf("  rm -rf /dev/hugepages/%s\n", uuid)
-		cmd += "fi\n"
-	}
+	cmd += fmt.Sprintf("for d in $(ls -d /dev/hugepages/%s*)\n", uuid)
+	cmd += fmt.Sprintf("do\n")
+	cmd += fmt.Sprintf("  if [ -d $d ]; then\n")
+	cmd += fmt.Sprintf("    umount $d\n")
+	cmd += fmt.Sprintf("    rm -rf $d\n")
+	cmd += fmt.Sprintf("  fi\n")
+	cmd += fmt.Sprintf("done\n")
+
 	for _, nic := range nics {
 		ifname, _ := nic.GetString("ifname")
 		downscript := s.getNicDownScriptPath(nic)
