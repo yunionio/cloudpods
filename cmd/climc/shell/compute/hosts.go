@@ -49,6 +49,8 @@ func init() {
 	cmd.BatchDelete(&options.BaseIdsOptions{})
 	cmd.Perform("remove-all-netifs", &options.BaseIdOptions{})
 	cmd.Perform("probe-isolated-devices", &options.BaseIdOptions{})
+	cmd.Perform("class-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 
 	cmd.BatchPerform("enable", &options.BaseIdsOptions{})
 	cmd.BatchPerform("disable", &options.BaseIdsOptions{})
