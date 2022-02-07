@@ -391,9 +391,9 @@ func (self *SKVMGuestDriver) RequestAssociateEip(ctx context.Context, userCred m
 }
 
 func (self *SKVMGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, cpuChanged, memChanged bool) bool {
-	return guest.GetMetadata(ctx, "hotplug_cpu_mem", nil) != "enable" ||
-		(memChanged && guest.GetMetadata(ctx, "__hugepage", nil) == "native") ||
-		apis.IsARM(guest.OsArch)
+	return guest.GetMetadata(ctx, "hotplug_cpu_mem", nil) != "enable" || apis.IsARM(guest.OsArch)
+	// (memChanged && guest.GetMetadata(ctx, "__hugepage", nil) == "native") ||
+	// apis.IsARM(guest.OsArch)
 }
 
 func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {

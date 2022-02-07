@@ -17,6 +17,7 @@ package hostinfo
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"path"
@@ -75,9 +76,8 @@ type SHostInfo struct {
 
 	kubeletConfig kubelet.KubeletConfig
 
-	isInit          bool
-	enableHugePages bool
-	onHostDown      string
+	isInit     bool
+	onHostDown string
 
 	IsolatedDeviceMan isolated_device.IsolatedDeviceManager
 
@@ -151,7 +151,11 @@ func (h *SHostInfo) IsNestedVirtualization() bool {
 }
 
 func (h *SHostInfo) IsHugepagesEnabled() bool {
-	return h.enableHugePages || options.HostOptions.HugepagesOption == "native"
+	return options.HostOptions.HugepagesOption == "native"
+}
+
+func (h *SHostInfo) HugepageSizeKb() int {
+	return h.sysinfo.HugepageSizeKb
 }
 
 /* In this order init host service:
@@ -269,9 +273,8 @@ func (h *SHostInfo) generateLocalNetworkConfig() (string, error) {
 }
 
 func (h *SHostInfo) parseConfig() error {
-	if mem, err := h.GetMemory(); err != nil {
-		return err
-	} else if mem < 64 { // MB
+	mem := h.GetMemory()
+	if mem < 64 { // MB
 		return fmt.Errorf("Not enough memory!")
 	}
 	if len(options.HostOptions.Networks) == 0 {
@@ -393,7 +396,7 @@ func (h *SHostInfo) prepareEnv() error {
 	//  return err
 	// }
 
-	if options.HostOptions.EnableKsm {
+	if options.HostOptions.EnableKsm && options.HostOptions.HugepagesOption == "disable" {
 		h.EnableKsm(900)
 	} else {
 		h.DisableKsm()
@@ -403,18 +406,29 @@ func (h *SHostInfo) prepareEnv() error {
 	case "disable":
 		h.DisableHugepages()
 	case "native":
-		size, err := h.Mem.GetHugepageTotal()
+		err := h.EnableNativeHugepages(0)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "EnableNativeHugepages")
 		}
-		if size <= 0 {
+		hp, err := h.Mem.GetHugepages()
+		if err != nil {
+			return errors.Wrap(err, "Mem.GetHugepages")
+		}
+		szlist := hp.PageSizes()
+		if len(szlist) == 0 {
 			return errors.New("invalid hugepages total size")
 		}
+		if len(szlist) > 1 {
+			return errors.New("cannot support more than 1 type of hugepage size")
+		}
+		h.sysinfo.HugepageSizeKb = szlist[0]
 	case "transparent":
 		h.EnableTransparentHugepages()
 	default:
 		return fmt.Errorf("Invalid hugepages option")
 	}
+
+	h.sysinfo.HugepagesOption = options.HostOptions.HugepagesOption
 
 	h.PreventArpFlux()
 	h.tuneSystem()
@@ -521,23 +535,11 @@ func (h *SHostInfo) EnableTransparentHugepages() {
 	}
 }
 
-func (h *SHostInfo) GetMemory() (int, error) {
-	if options.HostOptions.HugepagesOption == "native" {
-		return h.Mem.GetHugepageTotal()
-	}
-	total := h.Mem.Total
-	if h.kubeletConfig != nil {
-		memThreshold := h.kubeletConfig.GetEvictionConfig().GetHard().GetMemoryAvailable()
-		memBytes, _ := memThreshold.Value.Quantity.AsInt64()
-		memMb := int(memBytes / 1024 / 1024)
-		subMem := total - memMb
-		log.Infof("Get total memory %d, kubelet memory threshold subtracted: (%d - %d)", subMem, total, memMb)
-		total = subMem
-	}
-	return total, nil // - options.reserved_memory
+func (h *SHostInfo) GetMemory() int {
+	return h.Mem.Total
 }
 
-func (h *SHostInfo) getCurrentHugepageNr() (int64, error) {
+/* func (h *SHostInfo) getCurrentHugepageNr() (int64, error) {
 	nrStr, err := fileutils2.FileGetContents("/proc/sys/vm/nr_hugepages")
 	if err != nil {
 		return 0, errors.Wrap(err, "file get content nr hugepages")
@@ -547,9 +549,9 @@ func (h *SHostInfo) getCurrentHugepageNr() (int64, error) {
 		return 0, errors.Wrap(err, "nr str atoi")
 	}
 	return int64(nr), nil
-}
+} */
 
-func (h *SHostInfo) EnableNativeHugepages() error {
+func (h *SHostInfo) EnableNativeHugepages(reservedMb int) error {
 	kv := map[string]string{
 		"/sys/kernel/mm/transparent_hugepage/enabled": "never",
 		"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
@@ -557,31 +559,41 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 	for k, v := range kv {
 		sysutils.SetSysConfig(k, v)
 	}
-	nr, err := h.getCurrentHugepageNr()
+	// check reserved memory
+	hp, err := h.Mem.GetHugepages()
 	if err != nil {
 		return err
 	}
-	mem, err := h.GetMemory()
-	if err != nil {
-		return err
-	}
-	mem -= h.getReservedMem()
-	desiredNr := int64(mem/h.Mem.GetHugepagesizeMb() + 1)
-	if nr < desiredNr {
-		err = timeutils2.CommandWithTimeout(1, "sh", "-c",
-			fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", desiredNr)).Run()
-		if err != nil {
-			return err
+	pgList := hp.PageSizes()
+	if len(pgList) == 0 {
+		// not initialized yet, manually setup, usage page_size 2MB
+	} else if len(pgList) == 1 {
+		// already setup, depends on the PageSize
+		if pgList[0] == 2048 {
+		} else {
+			// readonly, cannot adjust any more
+			return nil
 		}
+	} else {
+		return errors.New("cannot support more than 1 type of hugepage sizes")
 	}
-	currentNr, err := h.getCurrentHugepageNr()
+	mem := h.GetMemory()
+	if reservedMb > 0 {
+		mem -= reservedMb
+	} else {
+		mem -= h.getReservedMemMb()
+	}
+	desiredSz := 2 // ONLY 2MB Hugepage Supported
+	desiredNr := mem / desiredSz
+	if desiredNr*desiredSz < mem {
+		desiredNr += 1
+	}
+	log.Infof("Hugepage %dGB(%dMB) available Mem %dMB, to reserve %d hugepages with size %d", hp.BytesMb()/1024, hp.BytesMb(), mem, desiredNr, desiredSz)
+	// not setup hugepage yet, or reserved too many hugepages
+	err = timeutils2.CommandWithTimeout(1, "sh", "-c",
+		fmt.Sprintf("echo %d > /sys/kernel/mm/hugepages/hugepages-%dkB/nr_hugepages", desiredNr, desiredSz*1024)).Run()
 	if err != nil {
 		return err
-	}
-	if currentNr < desiredNr {
-		err = timeutils2.CommandWithTimeout(1, "sh", "-c",
-			fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", nr)).Run()
-		return fmt.Errorf("no enough memory to resize hugepage, current nr %d, desired nr %d", currentNr, desiredNr)
 	}
 	return nil
 }
@@ -1083,14 +1095,11 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 		content.Set("cpu_mhz", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Freq)))
 	}
 	content.Set("cpu_cache", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Cache)))
-	memTotal, err := h.GetMemory()
-	if err != nil {
-		h.onFail(err)
-		return
-	}
+	memTotal := h.GetMemory()
 	content.Set("mem_size", jsonutils.NewInt(int64(memTotal)))
 	if len(hostId) == 0 {
-		content.Set("mem_reserved", jsonutils.NewInt(int64(h.getReservedMem())))
+		// first time create
+		content.Set("mem_reserved", jsonutils.NewInt(int64(h.getReservedMemMb())))
 	}
 	content.Set("storage_driver", jsonutils.NewString(api.DISK_DRIVER_LINUX))
 	content.Set("storage_type", jsonutils.NewString(h.sysinfo.StorageType))
@@ -1112,6 +1121,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 
 	var (
 		res jsonutils.JSONObject
+		err error
 	)
 	if !h.isInit {
 		res, err = modules.Hosts.Update(h.GetSession(), hostId, content)
@@ -1159,42 +1169,29 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 		h.onFail(err)
 		return
 	}
-
-	if options.HostOptions.HugepagesOption == "native" {
-		if h.isInit && len(h.IsolatedDeviceMan.GetDevices()) > 0 {
-			meta := jsonutils.NewDict()
-			meta.Set("__enable_hugepages", jsonutils.NewString("true"))
-			_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, meta)
-			if err != nil {
-				h.onFail(fmt.Sprintf("failed "))
-				return
-			}
-			h.enableHugePages = true
-		} else if hugepage, _ := hostbody.GetString("metadata", "__enable_hugepages"); hugepage == "true" {
-			h.enableHugePages = true
-		}
-		if h.enableHugePages {
-			err := h.EnableNativeHugepages()
-			if err != nil {
-				h.onFail(err)
-				return
-			}
-		}
-	}
 	h.onHostDown, _ = hostbody.GetString("metadata", "__on_host_down")
 
-	if memReserved, _ := hostbody.Int("mem_reserved"); memReserved == 0 {
-		h.updateHostReservedMem()
+	memReservedMb, _ := hostbody.Int("mem_reserved")
+	if options.HostOptions.HugepagesOption == "native" && memReservedMb > int64(h.getReservedMemMb()) {
+		err := h.EnableNativeHugepages(int(memReservedMb))
+		if err != nil {
+			h.onFail(err)
+			return
+		}
+	}
+
+	reserved := h.getReportedReservedMemMb()
+	if reserved != int(memReservedMb) {
+		h.updateHostReservedMem(reserved)
 	} else {
 		h.PutHostOffline("")
 	}
 }
 
-func (h *SHostInfo) updateHostReservedMem() {
+func (h *SHostInfo) updateHostReservedMem(reserved int) {
 	content := jsonutils.NewDict()
-	content.Set("mem_reserved", jsonutils.NewInt(int64(h.getReservedMem())))
-	res, err := modules.Hosts.Update(h.GetSession(),
-		h.HostId, content)
+	content.Set("mem_reserved", jsonutils.NewInt(int64(reserved)))
+	res, err := modules.Hosts.Update(h.GetSession(), h.HostId, content)
 	if err != nil {
 		h.onFail(err)
 		return
@@ -1203,7 +1200,20 @@ func (h *SHostInfo) updateHostReservedMem() {
 	}
 }
 
-func (h *SHostInfo) getReservedMem() int {
+func (h *SHostInfo) getKubeReservedMemMb() int {
+	// reserved for Kubelet
+	if h.kubeletConfig != nil {
+		memThreshold := h.kubeletConfig.GetEvictionConfig().GetHard().GetMemoryAvailable()
+		memBytes, _ := memThreshold.Value.Quantity.AsInt64()
+		memMb := int(math.Ceil(float64(memBytes) / 1024 / 1024))
+		log.Infof("Kubelet memory threshold subtracted: %dMB", memMb)
+		return memMb
+	}
+	return 0
+}
+
+func (h *SHostInfo) getOSReservedMemMb() int {
+	// reserved memory for OS
 	reserved := h.Mem.MemInfo.Total / 10
 	if reserved > options.HostOptions.MaxReservedMemory {
 		return options.HostOptions.MaxReservedMemory
@@ -1212,6 +1222,19 @@ func (h *SHostInfo) getReservedMem() int {
 		panic("memory reserve value is 0, need help")
 	}
 	return reserved
+}
+
+func (h *SHostInfo) getReservedMemMb() int {
+	return h.getOSReservedMemMb() + h.getKubeReservedMemMb()
+}
+
+func (h *SHostInfo) getReportedReservedMemMb() int {
+	if options.HostOptions.HugepagesOption == "native" {
+		// return total minus mem in huagepage pool
+		hp, _ := h.Mem.GetHugepages()
+		return h.GetMemory() - int(hp.BytesMb())
+	}
+	return h.getReservedMemMb()
 }
 
 func (h *SHostInfo) PutHostOffline(reason string) {
