@@ -111,6 +111,7 @@ var (
 			"global_https_proxy",
 			"ignore_nonrunning_guests",
 			"is_forget_login_user",
+			"enable_tls_migration",
 		},
 	}
 
