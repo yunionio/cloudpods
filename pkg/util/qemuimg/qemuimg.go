@@ -111,7 +111,7 @@ func (img *SQemuImage) parse() error {
 		}
 	}
 	resp, err := func() (jsonutils.JSONObject, error) {
-		output, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", img.Path, "--output", "json").Output()
+		output, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", "-U", img.Path, "--output", "json").Output()
 		if err != nil {
 			return nil, errors.Wrapf(err, "qemu-img info")
 		}
