@@ -70,8 +70,8 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 
 	if options.HostOptions.HugepagesOption == "native" {
 		cmd += fmt.Sprintf("mkdir -p /dev/hugepages/%s\n", uuid)
-		cmd += fmt.Sprintf("mount -t hugetlbfs -o size=%dM hugetlbfs-%s /dev/hugepages/%s\n",
-			mem, uuid, uuid)
+		cmd += fmt.Sprintf("mount -t hugetlbfs -o pagesize=%dK,size=%dM hugetlbfs-%s /dev/hugepages/%s\n",
+			s.manager.host.HugepageSizeKb(), mem, uuid, uuid)
 	}
 
 	cmd += "sleep 1\n"
@@ -178,7 +178,9 @@ function nic_mtu() {
 	cmd += fmt.Sprintf(" -m %dM,slots=4,maxmem=262144M", mem)
 
 	if options.HostOptions.HugepagesOption == "native" {
-		cmd += fmt.Sprintf(" -mem-prealloc -mem-path %s", fmt.Sprintf("/dev/hugepages/%s", uuid))
+		cmd += fmt.Sprintf("-object memory-backend-file,id=mem,size=%dM,mem-path=/dev/hugepages/%s,share=on,prealloc=on -numa node,memdev=mem", mem, uuid)
+	} else {
+		cmd += fmt.Sprintf("-object memory-backend-ram,id=mem,size=%dM -numa node,memdev=mem", mem)
 	}
 
 	bootOrder, _ := s.Desc.GetString("boot_order")
