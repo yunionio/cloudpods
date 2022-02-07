@@ -133,10 +133,6 @@ type MetadataResourceInfo struct {
 	Metadata map[string]string `json:"metadata"`
 }
 
-type SecretResourceInfo struct {
-	SecretLevel string `json:"secret_level"`
-}
-
 type StatusDomainLevelUserResourceDetails struct {
 	StatusDomainLevelResourceDetails
 
@@ -155,7 +151,6 @@ type StandaloneAnonResourceDetails struct {
 	ResourceBaseDetails
 
 	MetadataResourceInfo
-	SecretResourceInfo
 }
 
 type StandaloneResourceDetails struct {

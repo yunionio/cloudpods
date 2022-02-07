@@ -5801,31 +5801,6 @@ func (manager *SHostManager) initHostname() error {
 	return nil
 }
 
-func (host *SHost) PerformSetSecretLevel(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.HostSetSecretLevelInput) (jsonutils.JSONObject, error) {
-	if input.SecretLevel == "" {
-		return nil, httperrors.NewMissingParameterError("secret_level")
-	}
-	count, err := host.GetGuestCount()
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to GetGuestCount")
-	}
-	if !input.Force && count > 0 {
-		return nil, httperrors.NewForbiddenError("It is forbidden to modify the security level of the host with virtual machines")
-	}
-	return nil, HostManager.SSecretResourceBaseModelManager.SetSecretLevel(ctx, userCred, &host.SStandaloneAnonResourceBase, input.SecretLevel)
-}
-
-func (host *SHost) PerformRemoveSecretLevel(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.HostRemoveSecretLevelInput) (jsonutils.JSONObject, error) {
-	count, err := host.GetGuestCount()
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to GetGuestCount")
-	}
-	if !input.Force && count > 0 {
-		return nil, httperrors.NewForbiddenError("It is forbidden to modify the security level of the host with virtual machines")
-	}
-	return nil, HostManager.SSecretResourceBaseModelManager.RemoveSecretLevel(ctx, userCred, &host.SStandaloneAnonResourceBase)
-}
-
 func (manager *SHostManager) InitializeData() error {
 	return manager.initHostname()
 }
