@@ -114,6 +114,7 @@ var (
 			"platform_names",
 			"is_forget_login_user",
 			"enable_organization",
+			"enable_tls_migration",
 		},
 	}
 

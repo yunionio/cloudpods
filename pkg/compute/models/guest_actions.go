@@ -491,6 +491,9 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 	if err := self.validateMigrate(ctx, userCred, nil, input); err != nil {
 		return nil, err
 	}
+	if input.EnableTLS == nil {
+		input.EnableTLS = &options.Options.EnableTlsMigration
+	}
 	return nil, self.StartGuestLiveMigrateTask(ctx, userCred, self.Status, input.PreferHost, input.SkipCpuCheck, input.EnableTLS, "")
 }
 
