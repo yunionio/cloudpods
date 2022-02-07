@@ -278,6 +278,14 @@ func (model *SStandaloneAnonResourceBase) SetCloudMetadataAll(ctx context.Contex
 	return Metadata.SetAll(ctx, model, userTags, userCred, USER_TAG_PREFIX)
 }
 
+func (model *SStandaloneAnonResourceBase) SetClassMetadataValues(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+	err := Metadata.SetValuesWithLog(ctx, model, dictstore, userCred)
+	if err != nil {
+		return errors.Wrap(err, "SetValuesWithLog")
+	}
+	return nil
+}
+
 func (model *SStandaloneAnonResourceBase) SetClassMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
 	afterCheck := make(map[string]interface{}, len(dictstore))
 	for k, v := range dictstore {
@@ -461,6 +469,20 @@ func (model *SStandaloneAnonResourceBase) PerformSetUserMetadata(ctx context.Con
 	return nil, nil
 }
 
+// 更新资源的 class 标签
+func (model *SStandaloneAnonResourceBase) PerformClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformClassMetadataInput) (jsonutils.JSONObject, error) {
+	dictStore := make(map[string]interface{})
+	for k, v := range input {
+		dictStore[CLASS_TAG_PREFIX+k] = v
+	}
+	err := model.SetUserMetadataValues(ctx, dictStore, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SetUserMetadataValues")
+	}
+	return nil, nil
+}
+
+// 全量替换资源的所有 class 标签
 func (model *SStandaloneAnonResourceBase) PerformSetClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetClassMetadataInput) (jsonutils.JSONObject, error) {
 	dictStore := make(map[string]interface{})
 	for k, v := range input {
