@@ -104,6 +104,8 @@ type BaseOptions struct {
 	GlobalHTTPSProxy string `help:"Global https proxy"`
 
 	IgnoreNonrunningGuests bool `default:"true" help:"Count memory for running guests only when do scheduling. Ignore memory allocation for non-running guests"`
+
+	EnableTlsMigration bool `help:"Enable TLS migration" default:"false"`
 }
 
 const (
