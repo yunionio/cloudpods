@@ -64,7 +64,6 @@ func (model *SStandaloneAnonResourceBase) BeforeInsert() {
 type SStandaloneAnonResourceBaseManager struct {
 	SResourceBaseManager
 	SMetadataResourceBaseModelManager
-	SSecretResourceBaseModelManager
 }
 
 func NewStandaloneAnonResourceBaseManager(
@@ -140,8 +139,6 @@ func (manager *SStandaloneAnonResourceBaseManager) ListItemFilter(
 	}
 
 	q = manager.SMetadataResourceBaseModelManager.ListItemFilter(manager.GetIModelManager(), q, input.MetadataResourceListInput)
-
-	q = manager.SSecretResourceBaseModelManager.ListItemFilter(manager.GetIModelManager(), q, input.SecretResourceListInput)
 
 	return q, nil
 }
@@ -599,12 +596,10 @@ func (manager *SStandaloneAnonResourceBaseManager) FetchCustomizeColumns(
 	ret := make([]apis.StandaloneAnonResourceDetails, len(objs))
 	upperRet := manager.SResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	metaRet := manager.SMetadataResourceBaseModelManager.FetchCustomizeColumns(manager.GetIModelManager(), userCred, objs, fields)
-	secretRet := manager.SSecretResourceBaseModelManager.FetchCustomizeColumns(manager.GetIModelManager(), userCred, objs, fields)
 	for i := range objs {
 		ret[i] = apis.StandaloneAnonResourceDetails{
 			ResourceBaseDetails:  upperRet[i],
 			MetadataResourceInfo: metaRet[i],
-			SecretResourceInfo:   secretRet[i],
 		}
 	}
 	return ret

@@ -208,9 +208,6 @@ type DiskConfig struct {
 
 	//swagger:ignore
 	DiskId string `json:"disk_id"`
-
-	//swagger: ignore
-	SecretLevel string `json:"secret_level"`
 }
 
 type IsolatedDeviceConfig struct {

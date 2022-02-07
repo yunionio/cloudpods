@@ -362,30 +362,6 @@ func init() {
 		return nil
 	})
 
-	type ImageSetSecretLevelOptions struct {
-		ID          string `json:"-"`
-		SecretLevel string `json:"secret_level"`
-	}
-	R(&ImageSetSecretLevelOptions{}, "image-set-secret-level", "Set secret level", func(s *mcclient.ClientSession, args *ImageSetSecretLevelOptions) error {
-		result, err := modules.Images.PerformAction(s, args.ID, "set-secret-level", jsonutils.Marshal(args))
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-	type ImageRemoveSecretLevelOptions struct {
-		ID string `json:"-"`
-	}
-	R(&ImageRemoveSecretLevelOptions{}, "image-remove-secret-level", "remove secret level", func(s *mcclient.ClientSession, args *ImageRemoveSecretLevelOptions) error {
-		result, err := modules.Images.PerformAction(s, args.ID, "remove-secret-level", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
 	type ImagePublicOptions struct {
 		ID             []string `help:"ID or name of image" json:"-"`
 		Scope          string   `help:"sharing scope" choices:"system|domain|project"`
