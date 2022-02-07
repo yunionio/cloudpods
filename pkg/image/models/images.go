@@ -1536,37 +1536,6 @@ func (img *SImage) PerformUpdateStatus(ctx context.Context, userCred mcclient.To
 	return nil, nil
 }
 
-func (img *SImage) PerformSetSecretLevel(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ImageSetSecretLevelInput) (jsonutils.JSONObject, error) {
-	if input.SecretLevel == "" {
-		return nil, httperrors.NewMissingParameterError("secret_level")
-	}
-	err := ImageManager.SSecretResourceBaseModelManager.SetSecretLevel(ctx, userCred, &img.SStandaloneAnonResourceBase, input.SecretLevel)
-	if err != nil {
-		return nil, err
-	}
-	task, err := taskman.TaskManager.NewTask(ctx, "ImageSyncClassMetadataTask", img, userCred, nil, "", "", nil)
-	if err != nil {
-		return nil, err
-	} else {
-		task.ScheduleRun(nil)
-	}
-	return nil, nil
-}
-
-func (img *SImage) PerformRemoveSecretLevel(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := ImageManager.SSecretResourceBaseModelManager.RemoveSecretLevel(ctx, userCred, &img.SStandaloneAnonResourceBase)
-	if err != nil {
-		return nil, err
-	}
-	task, err := taskman.TaskManager.NewTask(ctx, "ImageSyncClassMetadataTask", img, userCred, nil, "", "", nil)
-	if err != nil {
-		return nil, err
-	} else {
-		task.ScheduleRun(nil)
-	}
-	return nil, nil
-}
-
 func (img *SImage) PerformSetClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetClassMetadataInput) (jsonutils.JSONObject, error) {
 	ret, err := img.SStandaloneAnonResourceBase.PerformSetClassMetadata(ctx, userCred, query, input)
 	if err != nil {

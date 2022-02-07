@@ -246,16 +246,10 @@ type MetadataResourceListInput struct {
 	WithMeta *bool `json:"with_meta"`
 }
 
-type SecretResourceListInput struct {
-	SecretLevel string
-}
-
 type StandaloneAnonResourceListInput struct {
 	ResourceBaseListInput
 
 	MetadataResourceListInput
-
-	SecretResourceListInput
 
 	// 显示所有的资源，包括模拟的资源
 	ShowEmulated *bool `json:"show_emulated" help:"show emulated resources" negative:"do not show emulated resources"`
