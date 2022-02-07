@@ -497,6 +497,32 @@ func init() {
 		return nil
 	})
 
+	R(&options.ResourceMetadataOptions{}, "image-set-class-metadata", "set class metadata for image", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		img, err := modules.Images.PerformAction(s, opts.ID, "set-class-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(img)
+		return nil
+	})
+
+	R(&options.ResourceMetadataOptions{}, "image-class-metadata", "set class metadata for image", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		img, err := modules.Images.PerformAction(s, opts.ID, "class-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(img)
+		return nil
+	})
+
 	type ImageProbeOptions struct {
 		ID string `help:"ID or name of image to probe"`
 	}
