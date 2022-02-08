@@ -110,7 +110,7 @@ func (img *SQemuImage) parse() error {
 			img.ActualSizeBytes = fileInfo.Size()
 		}
 	}
-	cmd := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", img.Path)
+	cmd := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", "-U", img.Path)
 
 	var stdin io.WriteCloser
 	var err error
