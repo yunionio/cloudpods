@@ -681,7 +681,14 @@ func (s *SGuestLiveMigrateTask) startMigrate(res string) {
 			})
 		})
 	} else {
-		s.doMigrate()
+		s.Monitor.MigrateSetParameter("tls-creds", "", func(res string) {
+			if strings.Contains(strings.ToLower(res), "error") {
+				s.migrateTask = nil
+				hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set tls-creds to empty error: %s", res))
+				return
+			}
+			s.doMigrate()
+		})
 	}
 }
 
