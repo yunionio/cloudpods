@@ -557,13 +557,14 @@ type GuestBatchMigrateRequest struct {
 	// swagger:ignore
 	PreferHost   string `json:"prefer_host" yunion-deprecated-by:"prefer_host_id"`
 	SkipCpuCheck bool   `json:"skip_cpu_check"`
+	EnableTLS    *bool  `json:"enable_tls"`
 }
 
 type GuestBatchMigrateParams struct {
 	Id           string
 	LiveMigrate  bool
 	SkipCpuCheck bool
-	EnableTLS    bool
+	EnableTLS    *bool
 	RescueMode   bool
 	OldStatus    string
 }
