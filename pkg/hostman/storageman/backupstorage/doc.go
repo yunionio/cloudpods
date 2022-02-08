@@ -12,12 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
-
-import "yunion.io/x/onecloud/pkg/apis"
-
-const (
-	SERVICE_TYPE    = apis.SERVICE_TYPE_REGION
-	SERVICE_VERSION = "v2"
-	SERVER_TYPE_V2  = apis.SERVICE_TYPE_REGION + "_" + SERVICE_VERSION
-)
+package backupstorage // import "yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage"

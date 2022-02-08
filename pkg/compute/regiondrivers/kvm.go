@@ -1024,6 +1024,28 @@ func (self *SKVMRegionDriver) RequestDeleteInstanceSnapshot(ctx context.Context,
 	return nil
 }
 
+func (self *SKVMRegionDriver) RequestDeleteInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask) error {
+	backups, err := ib.GetBackups()
+	if err != nil {
+		return err
+	}
+	if len(backups) == 0 {
+		task.SetStage("OnInstanceBackupDelete", nil)
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			return nil, nil
+		})
+		return nil
+	}
+	params := jsonutils.NewDict()
+	params.Set("del_backup_id", jsonutils.NewString(backups[0].Id))
+	task.SetStage("OnKvmDiskBackupDelete", params)
+	err = backups[0].StartBackupDeleteTask(ctx, task.GetUserCred(), task.GetTaskId())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (self *SKVMRegionDriver) RequestResetToInstanceSnapshot(ctx context.Context, guest *models.SGuest, isp *models.SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error {
 	disks, _ := guest.GetGuestDisks()
 	diskIndexI64, err := params.Int("disk_index")
@@ -1232,6 +1254,83 @@ func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCre
 	return nil
 }
 
+func (self *SKVMRegionDriver) RequestCreateInstanceBackup(ctx context.Context, guest *models.SGuest, ib *models.SInstanceBackup, task taskman.ITask, params *jsonutils.JSONDict) error {
+	disks, _ := guest.GetGuestDisks()
+	task.SetStage("OnKvmDisksSnapshot", params)
+	for i := range disks {
+		disk := disks[i]
+		backup, err := func() (*models.SDiskBackup, error) {
+			lockman.LockClass(ctx, models.DiskBackupManager, "name")
+			defer lockman.ReleaseClass(ctx, models.DiskBackupManager, "name")
+
+			diskBackupName, err := db.GenerateName(ctx, models.DiskBackupManager, task.GetUserCred(),
+				fmt.Sprintf("%s-%s", ib.Name, rand.String(8)))
+			if err != nil {
+				return nil, errors.Wrap(err, "Generate diskbackup name")
+			}
+
+			return models.DiskBackupManager.CreateBackup(ctx, task.GetUserCred(), disk.DiskId, ib.BackupStorageId, diskBackupName)
+		}()
+		if err != nil {
+			return err
+		}
+		err = models.InstanceBackupJointManager.CreateJoint(ctx, ib.Id, backup.Id, int8(i))
+		if err != nil {
+			return err
+		}
+		taskParams := jsonutils.NewDict()
+		taskParams.Set("only_snapshot", jsonutils.JSONTrue)
+		if err := backup.StartBackupCreateTask(ctx, task.GetUserCred(), taskParams, task.GetTaskId()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, backup *models.SDiskBackup, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		originStatus, _ := task.GetParams().GetString("origin_status")
+		if utils.IsInStringArray(originStatus, []string{api.BACKUP_STATUS_CREATING, api.BACKUP_STATUS_SNAPSHOT, api.BACKUP_STATUS_SAVING, api.BACKUP_STATUS_CLEANUP_SNAPSHOT, api.BACKUP_STATUS_DELETING}) {
+			return nil, backup.SetStatus(userCred, originStatus, "sync status")
+		}
+		backupStroage, err := backup.GetBackupStorage()
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to get backupStorage")
+		}
+		storage, _ := backup.GetStorage()
+		var host *models.SHost
+		if storage != nil {
+			host = storage.GetMasterHost()
+		}
+		if host == nil {
+			host, err = models.HostManager.GetEnabledKvmHost()
+			if err != nil {
+				return nil, errors.Wrap(err, "unable to GetEnabledKvmHost")
+			}
+		}
+		log.Infof("host: %s, ManagerUri: %s", host.GetId(), host.ManagerUri)
+		url := fmt.Sprintf("%s/storages/sync-backup", host.ManagerUri)
+		body := jsonutils.NewDict()
+		body.Set("backup_id", jsonutils.NewString(backup.GetId()))
+		body.Set("backup_storage_id", jsonutils.NewString(backupStroage.GetId()))
+		body.Set("backup_storage_access_info", jsonutils.Marshal(backupStroage.AccessInfo))
+		header := task.GetTaskRequestHeader()
+		_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+		if err != nil {
+			return nil, err
+		}
+		var backupStatus string
+		status, _ := res.GetString("status")
+		if status == api.BACKUP_EXIST {
+			backupStatus = api.BACKUP_STATUS_READY
+		} else {
+			backupStatus = api.SNAPSHOT_UNKNOWN
+		}
+		return nil, backup.SetStatus(userCred, backupStatus, "sync status")
+	})
+	return nil
+}
+
 func (self *SKVMRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, userCred mcclient.TokenCredential, snapshot *models.SSnapshot, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		storage := snapshot.GetStorage()
@@ -1415,6 +1514,67 @@ func (self *SKVMRegionDriver) IsSupportedElasticcacheSecgroup() bool {
 
 func (self *SKVMRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
 	return 0
+}
+
+func (self *SKVMRegionDriver) RequestDeleteBackup(ctx context.Context, backup *models.SDiskBackup, task taskman.ITask) error {
+	backupStroage, err := backup.GetBackupStorage()
+	if err != nil {
+		return errors.Wrap(err, "unable to get backupStorage")
+	}
+	storage, _ := backup.GetStorage()
+	var host *models.SHost
+	if storage != nil {
+		host = storage.GetMasterHost()
+	}
+	if host == nil {
+		host, err = models.HostManager.GetEnabledKvmHost()
+		if err != nil {
+			return errors.Wrap(err, "unable to GetEnabledKvmHost")
+		}
+	}
+	url := fmt.Sprintf("%s/storages/delete-backup", host.ManagerUri)
+	body := jsonutils.NewDict()
+	body.Set("backup_id", jsonutils.NewString(backup.GetId()))
+	body.Set("backup_storage_id", jsonutils.NewString(backupStroage.GetId()))
+	body.Set("backup_storage_access_info", jsonutils.Marshal(backupStroage.AccessInfo))
+	header := task.GetTaskRequestHeader()
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	if err != nil {
+		return errors.Wrap(err, "unable to backup")
+	}
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestCreateBackup(ctx context.Context, backup *models.SDiskBackup, snapshotId string, task taskman.ITask) error {
+	backupStroage, err := backup.GetBackupStorage()
+	if err != nil {
+		return errors.Wrap(err, "unable to get backupStorage")
+	}
+	disk, err := backup.GetDisk()
+	if err != nil {
+		return errors.Wrap(err, "unable to get disk")
+	}
+	guest := disk.GetGuest()
+	if guest == nil {
+		return errors.Wrap(err, "unable to get guest")
+	}
+	storage, err := disk.GetStorage()
+	if err != nil {
+		return errors.Wrap(err, "unable to get storage")
+	}
+	host, _ := guest.GetHost()
+	url := fmt.Sprintf("%s/disks/%s/backup/%s", host.ManagerUri, storage.Id, disk.Id)
+	body := jsonutils.NewDict()
+	body.Set("snapshot_id", jsonutils.NewString(snapshotId))
+	body.Set("backup_id", jsonutils.NewString(backup.GetId()))
+	body.Set("backup_storage_id", jsonutils.NewString(backupStroage.GetId()))
+	body.Set("backup_storage_access_info", jsonutils.Marshal(backupStroage.AccessInfo))
+	header := task.GetTaskRequestHeader()
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	if err != nil {
+		return errors.Wrap(err, "unable to backup")
+	}
+	return nil
 }
 
 func (self *SKVMRegionDriver) RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {

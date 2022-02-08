@@ -46,6 +46,7 @@ const (
 	_RECYCLE_BIN_     = "recycle_bin"
 	_IMGSAVE_BACKUPS_ = "imgsave_backups"
 	_SNAPSHOT_PATH_   = "snapshots"
+	_BACKUP_PATH_     = "backups"
 
 	ErrStorageTimeout = constError("storage accessible check timeout")
 	TempBindMountPath = "/opt/cloud/workspace/temp-bind"
@@ -102,6 +103,10 @@ type IStorage interface {
 	DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	IsSnapshotExist(diskId, snapshotId string) (bool, error)
 
+	GetBackupDir() string
+	StorageBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	StorageBackupRecovery(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+
 	GetFreeSizeMb() int
 	GetCapacity() int
 
@@ -116,6 +121,8 @@ type IStorage interface {
 	CreateDiskByDiskinfo(context.Context, interface{}) (jsonutils.JSONObject, error)
 	SaveToGlance(context.Context, interface{}) (jsonutils.JSONObject, error)
 	CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) error
+
+	CreateDiskFromBackup(context.Context, IDisk, *SDiskCreateByDiskinfo) error
 
 	// GetCloneTargetDiskPath generate target disk path by target disk id
 	GetCloneTargetDiskPath(ctx context.Context, targetDiskId string) string
@@ -172,6 +179,14 @@ func (s *SBaseStorage) GetStoragecacheId() string {
 
 func (s *SBaseStorage) SetStoragecacheId(storagecacheId string) {
 	s.StoragecacheId = storagecacheId
+}
+
+func (s *SBaseStorage) StorageBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (s *SBaseStorage) StorageBackupRecovery(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, nil
 }
 
 func (s *SBaseStorage) GetName(generateName func() string) string {
@@ -329,6 +344,9 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 	case len(createParams.DiskInfo.ImageId) > 0:
 		log.Infof("CreateDiskFromTemplate %s", createParams)
 		return s.CreateDiskFromTemplate(ctx, disk, createParams)
+	case createParams.DiskInfo.Backup != nil:
+		log.Infof("CreateDiskFromBackup %s", createParams)
+		return s.createDiskFromBackup(ctx, disk, createParams)
 	case createParams.DiskInfo.DiskSizeMb > 0:
 		log.Infof("CreateRawDisk %s", createParams)
 		return s.CreateRawDisk(ctx, disk, createParams)
@@ -363,6 +381,20 @@ func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, i
 	return disk.GetDiskDesc(), nil
 }
 
+func (s *SBaseStorage) createDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
+	var storage = input.Storage
+	if input.DiskInfo.Backup == nil {
+		return nil, httperrors.NewMissingParameterError("Backup")
+	}
+
+	err := storage.CreateDiskFromBackup(ctx, disk, input)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateDiskFromBackup")
+	}
+
+	return disk.GetDiskDesc(), nil
+}
+
 func (s *SBaseStorage) DestinationPrepareMigrate(
 	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
 	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo jsonutils.JSONObject, serverId string, idx, totalDiskCount int,
@@ -376,6 +408,22 @@ func (s *SBaseStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId 
 
 func (s *SBaseStorage) CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string) (*host.ServerCloneDiskFromStorageResponse, error) {
 	return nil, httperrors.ErrNotImplemented
+}
+
+func (s *SBaseStorage) GetBackupDir() string {
+	return path.Join(s.Path, _BACKUP_PATH_)
+}
+
+func (s *SBaseStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
+	info := input.DiskInfo
+	backupPath := path.Join(s.GetBackupDir(), info.Backup.BackupId)
+	img, err := qemuimg.NewQemuImage(backupPath)
+	if err != nil {
+		log.Errorln("unable to new qemu image for %s: %s", backupPath, err.Error())
+		return err
+	}
+	_, err = img.Clone(disk.GetPath(), qemuimg.QCOW2, false)
+	return err
 }
 
 /*************************Background delete snapshot job****************************/

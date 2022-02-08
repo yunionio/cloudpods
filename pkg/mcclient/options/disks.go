@@ -34,6 +34,8 @@ type DiskCreateOptions struct {
 	Backend    string   `help:"Backend of this disk"`
 	Schedtag   []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
 	TaskNotify bool     `help:"Setup task notify"`
+	SnapshotId string   `help:"snapshot id"`
+	BackupId   string   `help:"backupid"`
 }
 
 func (o DiskCreateOptions) Params() (*api.DiskCreateInput, error) {
@@ -65,5 +67,6 @@ func (o DiskCreateOptions) Params() (*api.DiskCreateInput, error) {
 	if o.Storage != "" {
 		params.Storage = o.Storage
 	}
+	params.BackupId = o.BackupId
 	return params, nil
 }

@@ -1127,6 +1127,25 @@ func parseInstanceSnapshot(input *api.ServerCreateInput) (*api.ServerCreateInput
 	return input, nil
 }
 
+func parseInstanceBackup(input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	ispi, err := InstanceBackupManager.FetchByIdOrName(nil, input.InstanceBackupId)
+	if err == sql.ErrNoRows {
+		return nil, httperrors.NewBadRequestError("can't find instance backup %s", input.InstanceBackupId)
+	}
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fetch instance backup error %s", err)
+	}
+	isp := ispi.(*SInstanceBackup)
+	if isp.Status != api.INSTANCE_BACKUP_STATUS_READY && isp.Status != api.INSTANCE_BACKUP_STATUS_RECOVERY {
+		return nil, httperrors.NewBadRequestError("Instance backup not ready")
+	}
+	input, err = isp.ToInstanceCreateInput(input)
+	if len(input.Disks) == 0 {
+		return nil, httperrors.NewInputParameterError("there are no disks in this instance backup, try another one")
+	}
+	return input, nil
+}
+
 func (manager *SGuestManager) validateCreateData(
 	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject, data *jsonutils.JSONDict) (*api.ServerCreateInput, error) {
@@ -1145,6 +1164,24 @@ func (manager *SGuestManager) validateCreateData(
 		inputCpu := input.VcpuCount
 		inputInstaceType := input.InstanceType
 		input, err = parseInstanceSnapshot(input)
+		if err != nil {
+			return nil, err
+		}
+		// keep input cpu mem flavor
+		if inputMem > 0 {
+			input.VmemSize = inputMem
+		}
+		if inputMem > 0 {
+			input.VcpuCount = inputCpu
+		}
+		input.InstanceType = inputInstaceType
+	}
+
+	if len(input.InstanceBackupId) > 0 {
+		inputMem := input.VmemSize
+		inputCpu := input.VcpuCount
+		inputInstaceType := input.InstanceType
+		input, err = parseInstanceBackup(input)
 		if err != nil {
 			return nil, err
 		}

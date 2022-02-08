@@ -104,6 +104,8 @@ type SDisk struct {
 	TemplateId string `width:"256" charset:"ascii" nullable:"true" list:"user" json:"template_id"`
 	// 快照Id
 	SnapshotId string `width:"256" charset:"ascii" nullable:"true" list:"user" json:"snapshot_id"`
+	// 备份Id
+	BackupId string `width:"256" charset:"ascii" nullable:"true" list:"user" json:"backup_id"`
 
 	// 文件系统
 	FsFormat string `width:"32" charset:"ascii" nullable:"true" list:"user" json:"fs_format"`
@@ -685,6 +687,23 @@ func (self *SDisk) GetManualSnapshotCount() (int, error) {
 		Equals("created_by", api.SNAPSHOT_MANUAL).CountWithError()
 }
 
+func (self *SDisk) getDiskAllocateFromBackupInput(ctx context.Context, backupId string) (*api.DiskAllocateFromBackupInput, error) {
+	ibackup, err := DiskBackupManager.FetchById(backupId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get backup %s", backupId)
+	}
+	backup := ibackup.(*SDiskBackup)
+	bs, err := backup.GetBackupStorage()
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get backupstorage of backup %s", backupId)
+	}
+	return &api.DiskAllocateFromBackupInput{
+		BackupId:                backupId,
+		BackupStorageId:         bs.GetId(),
+		BackupStorageAccessInfo: jsonutils.Marshal(bs.AccessInfo).(*jsonutils.JSONDict),
+	}, nil
+}
+
 func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SStorage, taskId string, userCred mcclient.TokenCredential, rebuild bool, snapshot string, task taskman.ITask) error {
 	log.Infof("Allocating disk on host %s ...", host.GetName())
 
@@ -695,6 +714,13 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 		Format:     self.DiskFormat,
 		DiskSizeMb: self.DiskSize,
 		SnapshotId: snapshot,
+	}
+	if self.BackupId != "" {
+		allocateInput, err := self.getDiskAllocateFromBackupInput(ctx, self.BackupId)
+		if err != nil {
+			return errors.Wrap(err, "unable to getDiskAllocateFromBackupInput")
+		}
+		input.Backup = allocateInput
 	}
 	if len(snapshot) > 0 {
 		if utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
@@ -1733,6 +1759,11 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			return nil, errors.Wrap(err, "fillDiskConfigByImage")
 		}
 	}
+	if info.BackupId != "" {
+		if err := fillDiskConfigByBackup(ctx, userCred, info, info.BackupId); err != nil {
+			return nil, errors.Wrap(err, "fillDiskConfigByBackup")
+		}
+	}
 	// XXX: do not set default disk size here, set it by each hypervisor driver
 	// if len(diskConfig.ImageId) > 0 && diskConfig.SizeMb == 0 {
 	// 	diskConfig.SizeMb = options.Options.DefaultDiskSize // MB
@@ -1770,6 +1801,22 @@ func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *api
 		diskConfig.Mountpoint = ""
 		diskConfig.OsArch = snapshot.OsArch
 	}
+	return nil
+}
+
+func fillDiskConfigByBackup(ctx context.Context, userCred mcclient.TokenCredential, diskConfig *api.DiskConfig, backupId string) error {
+	iBakcup, err := DiskBackupManager.FetchByIdOrName(userCred, backupId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return httperrors.NewNotFoundError("Backup %s not found", backupId)
+		}
+		return err
+	}
+	backup := iBakcup.(*SDiskBackup)
+	if diskConfig.DiskType == "" {
+		diskConfig.DiskType = backup.DiskType
+	}
+	diskConfig.BackupId = backup.GetId()
 	return nil
 }
 
@@ -1894,6 +1941,9 @@ func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
 		}
 	} else if len(diskConfig.SnapshotId) > 0 {
 		self.SnapshotId = diskConfig.SnapshotId
+		self.DiskType = diskConfig.DiskType
+	} else if len(diskConfig.BackupId) > 0 {
+		self.BackupId = diskConfig.BackupId
 		self.DiskType = diskConfig.DiskType
 	}
 	if len(diskConfig.Fs) > 0 {

@@ -107,6 +107,8 @@ type DiskConfig struct {
 	// requried: false
 	SnapshotId string `json:"snapshot_id"`
 
+	BackupId string `json:"backup_id"`
+
 	// 磁盘类型
 	// enum: sys, data, swap
 	DiskType string `json:"disk_type"`
@@ -493,6 +495,11 @@ type ServerCreateInput struct {
 	// 使用主机快照创建的虚拟机将沿用之前的密码秘钥及安全组信息
 	// required: false
 	InstanceSnapshotId string `json:"instance_snapshot_id,omitempty"`
+
+	// 使用主机备份创建虚拟机, 主机快照不会重置密码及秘钥信息
+	// 使用主机备份创建的虚拟机将沿用之前的密码秘钥及安全组信息
+	// required: false
+	InstanceBackupId string `json:"instance_backup_id,omitempty"`
 
 	// 安全组Id, 此参数会和secgroups参数合并
 	SecgroupId string `json:"secgrp_id"`

@@ -2861,6 +2861,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncDiskStatus(ctx contex
 	return nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, backup *models.SDiskBackup, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncDiskBackupStatus")
+}
+
 func (self *SManagedVirtualizationRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, userCred mcclient.TokenCredential, snapshot *models.SSnapshot, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := snapshot.GetISnapshotRegion()

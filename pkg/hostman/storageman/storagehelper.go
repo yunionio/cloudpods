@@ -43,3 +43,16 @@ type SDiskCleanupSnapshots struct {
 	ConvertSnapshots []jsonutils.JSONObject
 	DeleteSnapshots  []jsonutils.JSONObject
 }
+
+type SDiskBakcup struct {
+	SnapshotId              string
+	BackupId                string
+	BackupStorageId         string
+	BackupStorageAccessInfo *jsonutils.JSONDict
+}
+
+type SStorageBackup struct {
+	BackupId                string
+	BackupStorageId         string
+	BackupStorageAccessInfo *jsonutils.JSONDict
+}

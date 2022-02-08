@@ -17,6 +17,7 @@ package compute
 import (
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/fileutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -277,6 +278,9 @@ type DiskAllocateInput struct {
 	BackingDiskId string
 	SnapshotId    string
 
+	BackupId string
+	Backup   *DiskAllocateFromBackupInput
+
 	SnapshotUrl        string
 	SnapshotOutOfChain bool
 	Protocol           string
@@ -286,4 +290,10 @@ type DiskAllocateInput struct {
 	// vmware
 	HostIp    string
 	Datastore vcenter.SVCenterAccessInfo
+}
+
+type DiskAllocateFromBackupInput struct {
+	BackupId                string
+	BackupStorageId         string
+	BackupStorageAccessInfo *jsonutils.JSONDict
 }
