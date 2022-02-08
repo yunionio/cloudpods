@@ -4488,6 +4488,10 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 		}
 	}
 
+	if params.EnableTLS == nil {
+		params.EnableTLS = &options.Options.EnableTlsMigration
+	}
+
 	guests := make([]SGuest, 0)
 	q := GuestManager.Query().In("id", params.GuestIds)
 	err = db.FetchModelObjects(GuestManager, q, &guests)
@@ -4516,6 +4520,7 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 			RescueMode:   guests[i].Status == api.VM_UNKNOWN,
 			OldStatus:    guests[i].Status,
 			SkipCpuCheck: params.SkipCpuCheck,
+			EnableTLS:    params.EnableTLS,
 		}
 		guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "batch migrate")
 		if _, ok := hostGuests[guests[i].HostId]; ok {
