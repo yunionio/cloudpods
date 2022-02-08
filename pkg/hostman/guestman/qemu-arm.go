@@ -178,9 +178,9 @@ function nic_mtu() {
 	cmd += fmt.Sprintf(" -m %dM,slots=4,maxmem=262144M", mem)
 
 	if options.HostOptions.HugepagesOption == "native" {
-		cmd += fmt.Sprintf("-object memory-backend-file,id=mem,size=%dM,mem-path=/dev/hugepages/%s,share=on,prealloc=on -numa node,memdev=mem", mem, uuid)
+		cmd += fmt.Sprintf(" -object memory-backend-file,id=mem,size=%dM,mem-path=/dev/hugepages/%s,share=on,prealloc=on -numa node,memdev=mem", mem, uuid)
 	} else {
-		cmd += fmt.Sprintf("-object memory-backend-ram,id=mem,size=%dM -numa node,memdev=mem", mem)
+		cmd += fmt.Sprintf(" -object memory-backend-ram,id=mem,size=%dM -numa node,memdev=mem", mem)
 	}
 
 	bootOrder, _ := s.Desc.GetString("boot_order")
