@@ -311,16 +311,18 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 	params.QemuVersion = qemuVersion
 	params.LiveMigrate = liveMigrate
 	params.SourceQemuCmdline = qemuCmdline
-	certsObj, err := body.Get("migrate_certs")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("migrate_certs")
-	}
-	certs := map[string]string{}
-	if err := certsObj.Unmarshal(&certs); err != nil {
-		return nil, httperrors.NewInputParameterError("unmarshal migrate_certs to map: %s", err)
-	}
-	params.MigrateCerts = certs
 	params.EnableTLS = jsonutils.QueryBoolean(body, "enable_tls", false)
+	if params.EnableTLS {
+		certsObj, err := body.Get("migrate_certs")
+		if err != nil {
+			return nil, httperrors.NewMissingParameterError("migrate_certs")
+		}
+		certs := map[string]string{}
+		if err := certsObj.Unmarshal(&certs); err != nil {
+			return nil, httperrors.NewInputParameterError("unmarshal migrate_certs to map: %s", err)
+		}
+		params.MigrateCerts = certs
+	}
 	if isLocal {
 		serverUrl, err := body.GetString("server_url")
 		if err != nil {
