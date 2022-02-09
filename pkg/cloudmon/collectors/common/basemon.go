@@ -61,7 +61,12 @@ func (self *CloudReportBase) GetResourceByOperator() ([]jsonutils.JSONObject, er
 	case OSS:
 		servers, err = self.GetAllserverOfThisProvider(&modules.Buckets, nil)
 	case ELB:
-		servers, err = self.GetAllserverOfThisProvider(&modules.Loadbalancers, nil)
+		query := jsonutils.NewDict()
+		query.Add(jsonutils.NewString("0"), KEY_LIMIT)
+		query.Add(jsonutils.NewString("true"), KEY_ADMIN)
+		query.Add(jsonutils.NewString(self.SProvider.Provider), "provider")
+		query.Add(jsonutils.NewString(self.SProvider.Id), "manager")
+		servers, err = self.GetAllserverOfThisProvider(&modules.Loadbalancers, query)
 	case K8S:
 		query := jsonutils.NewDict()
 		query.Add(jsonutils.NewString("0"), KEY_LIMIT)
