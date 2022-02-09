@@ -91,19 +91,19 @@ func (self *SRoute) GetNextHopType() string {
 
 	switch segs[0] {
 	case "i":
-		return api.Next_HOP_TYPE_INSTANCE
+		return api.NEXT_HOP_TYPE_INSTANCE
 	case "vgw":
-		return api.Next_HOP_TYPE_VPN
+		return api.NEXT_HOP_TYPE_VPN
 	case "pcx":
-		return api.Next_HOP_TYPE_VPCPEERING
+		return api.NEXT_HOP_TYPE_VPCPEERING
 	case "eni":
-		return api.Next_HOP_TYPE_NETWORK
+		return api.NEXT_HOP_TYPE_NETWORK
 	case "nat":
-		return api.Next_HOP_TYPE_NAT
+		return api.NEXT_HOP_TYPE_NAT
 	case "igw":
-		return api.Next_HOP_TYPE_INTERNET
+		return api.NEXT_HOP_TYPE_INTERNET
 	case "eigw":
-		return api.Next_HOP_TYPE_EGRESS_INTERNET
+		return api.NEXT_HOP_TYPE_EGRESS_INTERNET
 	default:
 		return ""
 	}

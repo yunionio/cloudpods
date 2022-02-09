@@ -218,23 +218,23 @@ func (self *SRouteSet) GetCidr() string {
 func (self *SRouteSet) GetNextHopType() string {
 	switch self.GatewayType {
 	case "CVM":
-		return api.Next_HOP_TYPE_INSTANCE
+		return api.NEXT_HOP_TYPE_INSTANCE
 	case "VPN":
-		return api.Next_HOP_TYPE_VPN
+		return api.NEXT_HOP_TYPE_VPN
 	case "DIRECTCONNECT":
-		return api.Next_HOP_TYPE_DIRECTCONNECTION
+		return api.NEXT_HOP_TYPE_DIRECTCONNECTION
 	case "PEERCONNECTION":
-		return api.Next_HOP_TYPE_VPCPEERING
+		return api.NEXT_HOP_TYPE_VPCPEERING
 	case "SSLVPN":
-		return api.Next_HOP_TYPE_VPN
+		return api.NEXT_HOP_TYPE_VPN
 	case "NAT":
-		return api.Next_HOP_TYPE_NAT
+		return api.NEXT_HOP_TYPE_NAT
 	case "NORMAL_CVM":
-		return api.Next_HOP_TYPE_INSTANCE
+		return api.NEXT_HOP_TYPE_INSTANCE
 	case "EIP":
-		return api.Next_HOP_TYPE_EIP
+		return api.NEXT_HOP_TYPE_EIP
 	case "CCN":
-		return api.Next_HOP_TYPE_INTERVPCNETWORK
+		return api.NEXT_HOP_TYPE_INTERVPCNETWORK
 	default:
 		return ""
 	}
