@@ -97,7 +97,7 @@ func (self *SNetwork) GetSysTags() map[string]string {
 	if len(routes) >= 1 {
 		for i := range routes[0].Routes {
 			route := routes[0].Routes[i]
-			if route.GetNextHopType() == api.Next_HOP_TYPE_INTERNET {
+			if route.GetNextHopType() == api.NEXT_HOP_TYPE_INTERNET {
 				support_eip = true
 			}
 		}
