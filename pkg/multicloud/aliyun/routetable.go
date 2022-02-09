@@ -83,23 +83,23 @@ func (route *SRouteEntry) GetCidr() string {
 func (route *SRouteEntry) GetNextHopType() string {
 	switch route.NextHopType {
 	case "Instance":
-		return api.Next_HOP_TYPE_INSTANCE
+		return api.NEXT_HOP_TYPE_INSTANCE
 	case "HaVip":
-		return api.Next_HOP_TYPE_HAVIP
+		return api.NEXT_HOP_TYPE_HAVIP
 	case "VpnGateway":
-		return api.Next_HOP_TYPE_VPN
+		return api.NEXT_HOP_TYPE_VPN
 	case "NatGateway":
-		return api.Next_HOP_TYPE_NAT
+		return api.NEXT_HOP_TYPE_NAT
 	case "NetworkInterface":
-		return api.Next_HOP_TYPE_NETWORK
+		return api.NEXT_HOP_TYPE_NETWORK
 	case "RouterInterface":
-		return api.Next_HOP_TYPE_ROUTER
+		return api.NEXT_HOP_TYPE_ROUTER
 	case "IPv6Gateway":
-		return api.Next_HOP_TYPE_IPV6
+		return api.NEXT_HOP_TYPE_IPV6
 	case "InternetGateway":
-		return api.Next_HOP_TYPE_INTERNET
+		return api.NEXT_HOP_TYPE_INTERNET
 	case "Next_HOP_TYPE_EGRESS_INTERNET":
-		return api.Next_HOP_TYPE_EGRESS_INTERNET
+		return api.NEXT_HOP_TYPE_EGRESS_INTERNET
 	default:
 		return ""
 	}

@@ -31,4 +31,17 @@ func init() {
 		printList(routetables, 0, 0, 0, nil)
 		return nil
 	})
+
+	type RouteTableIdOptions struct {
+		ID string `help:"RouteTable ID"`
+	}
+	shellutils.R(&RouteTableIdOptions{}, "routetable-show", "Show vpc route table", func(cli *huawei.SRegion, args *RouteTableIdOptions) error {
+		routetable, err := cli.GetRouteTable(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(routetable)
+		return nil
+	})
+
 }
