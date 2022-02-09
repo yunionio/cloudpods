@@ -1028,16 +1028,15 @@ func (b *SBaremetalInstance) getDHCPConfig(
 	if err != nil {
 		return nil, err
 	}
-	// if isPxe && IsUEFIPxeArch(arch) && !b.NeedPXEBoot() {
-	/*
-	 * if isPxe && !b.NeedPXEBoot() {
-	 * 	// TODO: use chainloader boot UEFI firmware,
-	 * 	// currently not response PXE request,
-	 * 	// and let BIOS detect bootable device
-	 * 	b.ClearSSHConfig()
-	 * 	return nil, errors.Errorf("Baremetal %s not need UEFI PXE boot", b.GetName())
-	 * }
-	 */
+	if o.Options.BootLoader == o.BOOT_LOADER_SYSLINUX && arch != dhcp.CLIENT_ARCH_EFI_ARM64 {
+		if isPxe && dhcp.IsUEFIPxeArch(arch) && !b.NeedPXEBoot() {
+			// TODO: use chainloader boot UEFI firmware,
+			// currently not response PXE request,
+			// and let BIOS detect bootable device
+			b.ClearSSHConfig()
+			return nil, errors.Errorf("Baremetal %s not need UEFI PXE boot", b.GetName())
+		}
+	}
 	return GetNicDHCPConfig(nic, serverIP.String(), hostName, isPxe, arch)
 }
 
@@ -1075,7 +1074,13 @@ func (b *SBaremetalInstance) getBootIsoUrl() string {
 }
 
 func (b *SBaremetalInstance) GetTFTPResponse() string {
-	// return b.getSyslinuxConf(true)
+	arch, err := b.GetArch()
+	if err != nil {
+		log.Errorf("get arch error: %v", err)
+	}
+	if o.Options.BootLoader == o.BOOT_LOADER_SYSLINUX && arch != apis.OS_ARCH_AARCH64 {
+		return b.getSyslinuxConf(true)
+	}
 	return b.getGrubPXEConf(true)
 }
 

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/baremetal"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -58,6 +59,10 @@ func (s *BaremetalService) StartService() {
 		if err != nil {
 			log.Fatalf("fail to create BootIsoPath %s", o.Options.BootIsoPath)
 		}
+	}
+
+	if !utils.IsInStringArray(o.Options.BootLoader, []string{o.BOOT_LOADER_GRUB, o.BOOT_LOADER_SYSLINUX}) {
+		log.Fatalf("invalid boot_loader option: %q", o.Options.BootLoader)
 	}
 
 	app_common.InitAuth(&o.Options.CommonOptions, func() {
