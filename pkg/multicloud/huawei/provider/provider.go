@@ -152,7 +152,7 @@ func (self *SHuaweiProviderFactory) GetClientRC(info cloudprovider.SProviderInfo
 	region := huawei.HUAWEI_DEFAULT_REGION
 	data := strings.Split(info.Name, "-")
 	if len(data) >= 3 {
-		region = strings.Join(data[2:], "-")
+		region = strings.Join(data[len(data)-3:], "-")
 	}
 	return map[string]string{
 		"HUAWEI_CLOUD_ENV":  info.Url,
