@@ -279,6 +279,7 @@ func (self *SApsaraCloudReport) collectRegionMetricOfElb(region cloudprovider.IC
 				}
 			}
 		}
+		log.Infof("SendMetrics %s length: %d", metricName, len(dataList))
 	}
 	return common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
 }
