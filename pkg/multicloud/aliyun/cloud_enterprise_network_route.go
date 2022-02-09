@@ -182,9 +182,9 @@ func (self *SCenRouteEntry) GetCidr() string {
 func (self *SCenRouteEntry) GetNextHopType() string {
 	switch self.NextHopType {
 	case "VPC":
-		return api.Next_HOP_TYPE_VPC
+		return api.NEXT_HOP_TYPE_VPC
 	case "VBR":
-		return api.Next_HOP_TYPE_VBR
+		return api.NEXT_HOP_TYPE_VBR
 	default:
 		return ""
 	}
