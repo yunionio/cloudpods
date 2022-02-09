@@ -90,7 +90,7 @@ func (route *SRouteEntry) GetNextHopType() string {
 	// In Huawei Cloud, NextHopType is same with itself
 	switch route.Type {
 	case ROUTE_TYPE_PEER:
-		return api.Next_HOP_TYPE_VPCPEERING
+		return api.NEXT_HOP_TYPE_VPCPEERING
 	default:
 		return ""
 	}
@@ -254,7 +254,7 @@ func (self *SRouteTable) GetAssociations() []cloudprovider.RouteTableAssociation
 }
 
 func (self *SRouteTable) CreateRoute(route cloudprovider.RouteSet) error {
-	if route.NextHopType != api.Next_HOP_TYPE_VPCPEERING {
+	if route.NextHopType != api.NEXT_HOP_TYPE_VPCPEERING {
 		return cloudprovider.ErrNotSupported
 	}
 	err := self.region.CreatePeeringRoute(self.vpc.GetId(), route.Destination, route.NextHop)

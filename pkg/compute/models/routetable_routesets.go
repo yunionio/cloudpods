@@ -128,10 +128,10 @@ func (manager *SRouteTableRouteSetManager) ValidateCreateData(
 		return input, httperrors.NewForbiddenError("not enough privilege")
 	}
 
-	if input.NextHopType != api.Next_HOP_TYPE_VPCPEERING {
+	if input.NextHopType != api.NEXT_HOP_TYPE_VPCPEERING {
 		return input, httperrors.NewNotSupportedError("not supported next hop type %s", input.NextHopType)
 	}
-	if input.NextHopType == api.Next_HOP_TYPE_VPCPEERING {
+	if input.NextHopType == api.NEXT_HOP_TYPE_VPCPEERING {
 		_vpcPeer, err := VpcPeeringConnectionManager.FetchByIdOrName(userCred, input.NextHopId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
@@ -218,10 +218,10 @@ func (self *SRouteTableRouteSet) ValidateUpdateData(
 		return input, httperrors.NewInputParameterError("invalid cidr %s", input.Cidr)
 	}
 
-	if input.NextHopType != api.Next_HOP_TYPE_VPCPEERING {
+	if input.NextHopType != api.NEXT_HOP_TYPE_VPCPEERING {
 		return input, httperrors.NewNotSupportedError("not supported next hop type %s", input.NextHopType)
 	}
-	if input.NextHopType == api.Next_HOP_TYPE_VPCPEERING {
+	if input.NextHopType == api.NEXT_HOP_TYPE_VPCPEERING {
 		_vpcPeer, err := VpcPeeringConnectionManager.FetchByIdOrName(userCred, input.NextHopId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
@@ -341,7 +341,7 @@ func (self *SRouteTableRouteSet) syncRemoveRouteSet(ctx context.Context, userCre
 
 func (self *SRouteTableRouteSet) syncWithCloudRouteSet(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, cloudRouteSet cloudprovider.ICloudRoute) error {
 	newNextHopId := ""
-	if cloudRouteSet.GetNextHopType() == api.Next_HOP_TYPE_VPCPEERING {
+	if cloudRouteSet.GetNextHopType() == api.NEXT_HOP_TYPE_VPCPEERING {
 		vpc, err := self.GetVpc()
 		if err != nil {
 			return errors.Wrap(err, "self.GetVpc()")
@@ -389,7 +389,7 @@ func (manager *SRouteTableRouteSetManager) newRouteSetFromCloud(ctx context.Cont
 	routeSet.RouteTableId = routeTable.GetId()
 	routeSet.ExternalId = cloudRouteSet.GetGlobalId()
 	routeSet.SetModelManager(manager, routeSet)
-	if cloudRouteSet.GetNextHopType() == api.Next_HOP_TYPE_VPCPEERING {
+	if cloudRouteSet.GetNextHopType() == api.NEXT_HOP_TYPE_VPCPEERING {
 		vpc, _ := routeTable.GetVpc()
 		vpcPeer, err := vpc.GetVpcPeeringConnectionByExtId(cloudRouteSet.GetNextHop())
 		if err == nil {
