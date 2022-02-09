@@ -143,9 +143,9 @@ func (self *SCcnRouteSet) GetInstanceId() string {
 func (self *SCcnRouteSet) GetInstanceType() string {
 	switch self.InstanceType {
 	case "VPC":
-		return api.Next_HOP_TYPE_VPC
+		return api.NEXT_HOP_TYPE_VPC
 	case "DIRECTCONNECT":
-		return api.Next_HOP_TYPE_VBR
+		return api.NEXT_HOP_TYPE_VBR
 	default:
 		return ""
 	}

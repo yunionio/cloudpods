@@ -84,6 +84,7 @@ type Client struct {
 	SAMLProviders        *modules.SAMLProviderManager
 	SAMLProviderMappings *modules.SAMLProviderMappingManager
 	SfsTurbos            *modules.SfsTurboManager
+	RouteTables          *modules.SRouteTableManager
 }
 
 type SClientConfig struct {
@@ -176,6 +177,7 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.SAMLProviders.SetHttpClient(httpClient)
 	self.SAMLProviderMappings.SetHttpClient(httpClient)
 	self.SfsTurbos.SetHttpClient(httpClient)
+	self.RouteTables.SetHttpClient(httpClient)
 }
 
 func (self *Client) InitWithAccessKey(endpoint, regionId, domainId, projectId, accessKey, secretKey string, debug bool) error {
@@ -263,6 +265,7 @@ func (self *Client) initManagers() {
 		self.SAMLProviders = modules.NewSAMLProviderManager(self.cfg)
 		self.SAMLProviderMappings = modules.NewSAMLProviderMappingManager(self.cfg)
 		self.SfsTurbos = modules.NewSfsTurboManager(self.cfg)
+		self.RouteTables = modules.NewRouteTableManager(self.cfg)
 	}
 
 	self.init = true

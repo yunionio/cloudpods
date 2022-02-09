@@ -32,9 +32,8 @@ type SVpc struct {
 
 	region *SRegion
 
-	iwires      []cloudprovider.ICloudWire
-	secgroups   []cloudprovider.ICloudSecurityGroup
-	routeTables []cloudprovider.ICloudRouteTable
+	iwires    []cloudprovider.ICloudWire
+	secgroups []cloudprovider.ICloudSecurityGroup
 
 	ID                  string `json:"id"`
 	Name                string `json:"name"`
@@ -165,31 +164,25 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 }
 
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
-	if self.routeTables == nil {
-		routeTables, err := self.getRouteTables()
-		if err != nil {
-			return nil, errors.Wrap(err, "get route table error")
-		}
-		defaultRouteTable := NewSRouteTable(self, string(cloudprovider.RouteTableTypeSystem))
-		for i := range routeTables {
-			defaultRouteTable.Routes = append(defaultRouteTable.Routes, routeTables[i].Routes...)
-		}
-		self.routeTables = []cloudprovider.ICloudRouteTable{&defaultRouteTable}
+	rtbs, err := self.region.GetRouteTables(self.ID)
+	if err != nil {
+		return nil, err
 	}
-	return self.routeTables, nil
+	ret := []cloudprovider.ICloudRouteTable{}
+	for i := range rtbs {
+		rtbs[i].vpc = self
+		ret = append(ret, &rtbs[i])
+	}
+	return ret, nil
 }
 
-// 华为云 路由表资源方法 api 暂未支持，只能直接对vpc对象增加，删除 路由
 func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
-	routeTables, err := self.getRouteTables()
+	rtb, err := self.region.GetRouteTable(routeTableId)
 	if err != nil {
-		return nil, errors.Wrap(err, "get route table error")
+		return nil, err
 	}
-	defaultRouteTable := NewSRouteTable(self, string(cloudprovider.RouteTableTypeSystem))
-	for i := range routeTables {
-		defaultRouteTable.Routes = append(defaultRouteTable.Routes, routeTables[i].Routes...)
-	}
-	return &defaultRouteTable, nil
+	rtb.vpc = self
+	return rtb, nil
 }
 
 func (self *SVpc) Delete() error {

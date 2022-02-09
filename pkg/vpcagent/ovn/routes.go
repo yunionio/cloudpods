@@ -37,12 +37,12 @@ func resolveRoutes(vpc *agentmodels.Vpc, mss *agentmodels.ModelSets) resolvedRou
 	routesModel := *vpc.RouteTable.Routes
 	for _, routeModel := range routesModel {
 		switch routeModel.NextHopType {
-		case computeapis.Next_HOP_TYPE_IP:
+		case computeapis.NEXT_HOP_TYPE_IP:
 			r = append(r, resolvedRoute{
 				Cidr:    routeModel.Cidr,
 				NextHop: routeModel.NextHopId,
 			})
-		case computeapis.Next_HOP_TYPE_INSTANCE:
+		case computeapis.NEXT_HOP_TYPE_INSTANCE:
 			guestId := routeModel.NextHopId
 			guest, ok := mss.Guests[guestId]
 			if !ok {
