@@ -53,7 +53,13 @@ type BaremetalOptions struct {
 	SendMetricsIntervalSeconds int `help:"interval to send baremetal metrics, default is 300 seconds" default:"300"`
 
 	TftpFileMap map[string]string `help:"map of filename to real file path for tftp"`
+	BootLoader  string            `help:"PXE boot loader" default:"syslinux"`
 }
+
+const (
+	BOOT_LOADER_SYSLINUX = "syslinux"
+	BOOT_LOADER_GRUB     = "grub"
+)
 
 var (
 	Options BaremetalOptions

@@ -95,8 +95,11 @@ func GetNicDHCPConfig(
 		conf.BootServer = serverIP
 		switch arch {
 		case dhcp.CLIENT_ARCH_EFI_BC, dhcp.CLIENT_ARCH_EFI_X86_64:
-			// conf.BootFile = "bootx64.efi"
-			conf.BootFile = "grub_bootx64.efi"
+			if o.Options.BootLoader == o.BOOT_LOADER_SYSLINUX {
+				conf.BootFile = "bootx64.efi"
+			} else {
+				conf.BootFile = "grub_bootx64.efi"
+			}
 		case dhcp.CLIENT_ARCH_EFI_IA32:
 			conf.BootFile = "bootia32.efi"
 		case dhcp.CLIENT_ARCH_EFI_ARM64:
@@ -107,8 +110,11 @@ func GetNicDHCPConfig(
 			//}else {
 			// bootFile := "pxelinux.0"
 			//}
-			// conf.BootFile = "lpxelinux.0"
-			conf.BootFile = "grub_booti386"
+			if o.Options.BootLoader == o.BOOT_LOADER_SYSLINUX {
+				conf.BootFile = "lpxelinux.0"
+			} else {
+				conf.BootFile = "grub_booti386"
+			}
 		}
 		pxePath := filepath.Join(o.Options.TftpRoot, conf.BootFile)
 		if f, err := os.Open(pxePath); err != nil {
