@@ -60,7 +60,7 @@ type SWafRule struct {
 	// 规则优先级
 	Priority int `nullable:"false" list:"domain" create:"required"`
 	// 规则默认行为
-	Action *cloudprovider.DefaultAction `charset:"utf8" nullable:"false" list:"user" update:"domain" create:"required"`
+	Action *cloudprovider.DefaultAction `charset:"utf8" nullable:"true" list:"user" update:"domain" create:"required"`
 	// 条件
 	StatementConditon cloudprovider.TWafStatementCondition `width:"20" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
 	// 规则组的id
