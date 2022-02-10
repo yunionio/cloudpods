@@ -207,7 +207,7 @@ func (self *SSkuResourcesMeta) newFromCloudWafGroup(ctx context.Context, userCre
 	return nil
 }
 
-func (self *SSkuResourcesMeta) SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, cloudEnv string) compare.SyncResult {
+func (self *SSkuResourcesMeta) SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, cloudEnv string, isStart bool) compare.SyncResult {
 	lockman.LockRawObject(ctx, cloudEnv, "waf-rule-group")
 	defer lockman.ReleaseRawObject(ctx, cloudEnv, "waf-rule-group")
 
@@ -220,6 +220,11 @@ func (self *SSkuResourcesMeta) SyncWafGroups(ctx context.Context, userCred mccli
 	dbGroup, err := self.GetWafGroups(cloudEnv)
 	if err != nil {
 		result.Error(errors.Wrapf(err, "GetWafGroups"))
+		return result
+	}
+
+	if isStart && len(dbGroup) > 0 {
+		log.Infof("%s waf group already synced, skip...", cloudEnv)
 		return result
 	}
 
@@ -293,7 +298,7 @@ func SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, isSta
 				log.Infof("%s Waf group not Changed skip syncing", cloudEnv)
 				continue
 			}
-			result := meta.SyncWafGroups(ctx, userCred, cloudEnv)
+			result := meta.SyncWafGroups(ctx, userCred, cloudEnv, isStart)
 			log.Infof("sync %s waf group result: %s", cloudEnv, result.Result())
 			wafIndex[cloudEnv] = newMd5
 		}
