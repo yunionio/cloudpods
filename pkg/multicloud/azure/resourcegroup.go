@@ -39,6 +39,7 @@ type SResourceGroup struct {
 	Location   string
 	Properties GroupProperties
 	ManagedBy  string
+	subId      string
 }
 
 func (self *SRegion) GetResourceGroupDetail(groupName string) (*SResourceGroup, error) {
@@ -72,6 +73,10 @@ func (r *SResourceGroup) GetName() string {
 
 func (r *SResourceGroup) GetId() string {
 	return r.ID
+}
+
+func (self *SResourceGroup) GetAccountId() string {
+	return fmt.Sprintf("%s/%s", self.client.tenantId, self.subId)
 }
 
 func (r *SResourceGroup) GetGlobalId() string {

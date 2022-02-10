@@ -847,6 +847,8 @@ type ICloudProject interface {
 
 	GetDomainId() string
 	GetDomainName() string
+
+	GetAccountId() string
 }
 
 type ICloudNatGateway interface {
