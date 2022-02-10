@@ -26,3 +26,7 @@ func (self *SProjectBase) GetDomainName() string {
 func (self *SProjectBase) GetDomainId() string {
 	return ""
 }
+
+func (self *SProjectBase) GetAccountId() string {
+	return ""
+}

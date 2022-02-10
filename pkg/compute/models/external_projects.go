@@ -82,10 +82,12 @@ func (manager *SExternalProjectManager) FetchCustomizeColumns(
 ) []api.ExternalProjectDetails {
 	rows := make([]api.ExternalProjectDetails, len(objs))
 	virRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	accountIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.ExternalProjectDetails{
 			VirtualResourceDetails: virRows[i],
+			ManagedResourceInfo:    managerRows[i],
 		}
 		proj := objs[i].(*SExternalProject)
 		accountIds[i] = proj.CloudaccountId
@@ -186,10 +188,18 @@ func (self *SExternalProject) syncRemoveCloudProject(ctx context.Context, userCr
 
 func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, ext cloudprovider.ICloudProject) error {
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	providers := account.GetCloudproviders()
+	providerMaps := map[string]string{}
+	for _, provider := range providers {
+		providerMaps[provider.Account] = provider.Id
+	}
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = ext.GetName()
 		self.IsEmulated = ext.IsEmulated()
 		self.Status = ext.GetStatus()
+		if accountId := ext.GetAccountId(); len(accountId) > 0 {
+			self.ManagerId, _ = providerMaps[accountId]
+		}
 		share := account.GetSharedInfo()
 		if self.DomainId != account.DomainId && !(share.PublicScope == rbacutils.ScopeSystem ||
 			(share.PublicScope == rbacutils.ScopeDomain && utils.IsInStringArray(self.DomainId, share.SharedDomains))) {
@@ -312,6 +322,16 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project.DomainId = account.DomainId
 	project.ProjectId = account.ProjectId
 	project.ExternalDomainId = extProject.GetDomainId()
+
+	providers := account.GetCloudproviders()
+	providerMaps := map[string]string{}
+	for _, provider := range providers {
+		providerMaps[provider.Account] = provider.Id
+	}
+	if accountId := extProject.GetAccountId(); len(accountId) > 0 {
+		project.ManagerId, _ = providerMaps[accountId]
+	}
+
 	domainName := extProject.GetDomainName()
 	if len(project.ExternalDomainId) > 0 && len(domainName) > 0 {
 		domainId, err := account.getOrCreateDomain(ctx, userCred, project.ExternalDomainId, domainName)
