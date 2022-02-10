@@ -37,9 +37,17 @@ import (
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
-func createPolicy(s *mcclient.ClientSession, name string, policy string, domain string, enabled bool, disabled bool, desc string, scope string, isSystem *bool) error {
+func createPolicy(s *mcclient.ClientSession, name string, genName string, policy string, domain string, enabled bool, disabled bool, desc string, scope string, isSystem *bool) error {
 	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(name), "type")
+	if len(genName) > 0 {
+		params.Add(jsonutils.NewString(genName), "generate_name")
+		params.Add(jsonutils.NewString(genName), "type")
+	} else if len(name) > 0 {
+		params.Add(jsonutils.NewString(name), "name")
+		params.Add(jsonutils.NewString(name), "type")
+	} else {
+		return fmt.Errorf("mising name")
+	}
 	params.Add(jsonutils.NewString(policy), "policy")
 	if len(domain) > 0 {
 		params.Add(jsonutils.NewString(domain), "project_domain_id")
@@ -71,7 +79,18 @@ func createPolicy(s *mcclient.ClientSession, name string, policy string, domain 
 	printObject(result)
 
 	return nil
+}
 
+func createPolicyFromJson(s *mcclient.ClientSession, old jsonutils.JSONObject, argsName, genName, argsDomain, argsScope string) error {
+	policy, _ := old.GetString("policy")
+	enabled, _ := old.Bool("enabled")
+	desc, _ := old.GetString("description")
+	scope, _ := old.GetString("scope")
+	if len(argsScope) > 0 {
+		scope = argsScope
+	}
+	isSystem, _ := old.Bool("is_system")
+	return createPolicy(s, argsName, genName, policy, argsDomain, enabled, !enabled, desc, scope, &isSystem)
 }
 
 func init() {
@@ -94,10 +113,40 @@ func init() {
 			return err
 		}
 
-		return createPolicy(s, args.NAME, string(policyBytes), args.Domain, args.Enabled, args.Disabled, args.Desc, args.Scope, args.IsSystem)
+		return createPolicy(s, args.NAME, "", string(policyBytes), args.Domain, args.Enabled, args.Disabled, args.Desc, args.Scope, args.IsSystem)
+	})
+
+	type PolicyExportOptions struct {
+		ID string `json:"id"`
+	}
+	R(&PolicyExportOptions{}, "policy-export", "Export a policy", func(s *mcclient.ClientSession, args *PolicyExportOptions) error {
+		ret, err := modules.Policies.Get(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		fmt.Println(ret.PrettyString())
+		return nil
+	})
+
+	type PolicyImportOptions struct {
+		FILE   string `json:"id"`
+		Domain string `help:"domain of the policy"`
+	}
+	R(&PolicyImportOptions{}, "policy-import", "Import a policy", func(s *mcclient.ClientSession, args *PolicyImportOptions) error {
+		cont, err := ioutil.ReadFile(args.FILE)
+		if err != nil {
+			return err
+		}
+		jsonCont, err := jsonutils.Parse(cont)
+		if err != nil {
+			return err
+		}
+		name, _ := jsonCont.GetString("name")
+		return createPolicyFromJson(s, jsonCont, "", name, args.Domain, "")
 	})
 
 	type PolicyCloneOptions struct {
+		Scope  string `help:"scope of policy"`
 		Domain string `help:"domain of the policy"`
 		OLD    string `help:"name or id of the old policy"`
 		NAME   string `help:"name of the policy"`
@@ -107,12 +156,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		policy, _ := old.GetString("policy")
-		enabled, _ := old.Bool("enabled")
-		desc, _ := old.GetString("description")
-		scope, _ := old.GetString("scope")
-		isSystem, _ := old.Bool("is_system")
-		return createPolicy(s, args.NAME, policy, args.Domain, enabled, !enabled, desc, scope, &isSystem)
+		return createPolicyFromJson(s, old, args.NAME, "", args.Domain, args.Scope)
 	})
 
 	type PolicyPatchOptions struct {
