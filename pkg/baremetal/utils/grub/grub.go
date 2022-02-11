@@ -16,9 +16,12 @@ package grub
 
 import "fmt"
 
-func GetYunionOSConfig(sleepTime int, kernel string, kernelArgs string, initrd string) string {
+func GetYunionOSConfig(sleepTime int, httpSite, kernel string, kernelArgs string, initrd string) string {
+	kernel = fmt.Sprintf("(http,${http_site})/tftp/%s", kernel)
+	initrd = fmt.Sprintf("(http,${http_site})/tftp/%s", initrd)
 	return fmt.Sprintf(`
 set timeout=%d
+set http_site=%s
 menuentry 'YunionOS for PXE' --class os {
 	echo "Loading linux %s ..."
 	linux %s %s
@@ -26,7 +29,7 @@ menuentry 'YunionOS for PXE' --class os {
 	echo "Loading initrd %s ..."
 	initrd %s
 }
-`, sleepTime, kernel, kernel, kernelArgs, initrd, initrd)
+`, sleepTime, httpSite, kernel, kernel, kernelArgs, initrd, initrd)
 }
 
 // REF: https://github.com/bluebanquise/infrastructure/blob/master/packages/ipxe-bluebanquise/grub2-efi-autofind.cfg

@@ -1044,13 +1044,21 @@ func (b *SBaremetalInstance) GetNotifyUrl() string {
 	return fmt.Sprintf("%s/baremetals/%s/notify", b.manager.Agent.GetListenUri(), b.GetId())
 }
 
-func (b *SBaremetalInstance) getTftpFileUrl(filename string) string {
+func (b *SBaremetalInstance) getTftpEndpoint() (string, error) {
 	serverIP, err := b.manager.Agent.GetDHCPServerIP()
 	if err != nil {
-		log.Errorf("Get http file server: %v", err)
+		return "", errors.Wrap(err, "GetDHCPServerIP")
+	}
+	return fmt.Sprintf("%s:%d", serverIP, o.Options.Port+1000), nil
+}
+
+func (b *SBaremetalInstance) getTftpFileUrl(filename string) string {
+	endpoint, err := b.getTftpEndpoint()
+	if err != nil {
+		log.Errorf("Get http file server endpoint: %v", err)
 		return filename
 	}
-	return fmt.Sprintf("http://%s:%d/tftp/%s", serverIP, o.Options.Port+1000, filename)
+	return fmt.Sprintf("http://%s/tftp/%s", endpoint, filename)
 }
 
 func (b *SBaremetalInstance) GetImageCacheUrl() string {
@@ -1167,8 +1175,12 @@ func (b *SBaremetalInstance) getGrubPXEConf(isTftp bool) string {
 	// TODO: support not tftp situation
 	kernelArgs := b.getKernelArgs(isTftp, initrd)
 	var resp string
+	endpoint, err := b.getTftpEndpoint()
+	if err != nil {
+		log.Fatalf("getTftpEndpoint %s", err)
+	}
 	if b.NeedPXEBoot() {
-		resp = grub.GetYunionOSConfig(3, kernel, kernelArgs, initrd)
+		resp = grub.GetYunionOSConfig(3, endpoint, kernel, kernelArgs, initrd)
 	} else {
 		resp = grub.GetAutoFindConfig()
 		b.ClearSSHConfig()
