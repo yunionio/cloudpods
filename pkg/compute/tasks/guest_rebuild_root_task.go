@@ -194,7 +194,14 @@ func (self *GuestRebuildRootTask) OnSyncStatusComplete(ctx context.Context, gues
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_REBUILD, "", self.UserCred, true)
+
+	oldImageId, _ := self.GetParams().GetString("origin_image_id")
+	imgId, _ := self.Params.GetString("image_id")
+	notes := map[string]interface{}{}
+	if oldImageId != imgId && len(oldImageId) > 0 {
+		notes["old image id"] = oldImageId
+	}
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_REBUILD, notes, self.UserCred, true)
 }
 
 func (self *GuestRebuildRootTask) OnGuestStartComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
