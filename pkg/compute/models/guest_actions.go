@@ -4790,29 +4790,23 @@ func (self *SGuest) StartSnapshotResetTask(ctx context.Context, userCred mcclien
 }
 
 func (self *SGuest) PerformSnapshotAndClone(
-	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerSnapshotAndCloneInput,
 ) (jsonutils.JSONObject, error) {
-	newlyGuestName, err := data.GetString("name")
+	err := input.Validate()
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("name")
-	}
-	count, err := data.Int("count")
-	if err != nil {
-		count = 1
-	} else if count <= 0 {
-		return nil, httperrors.NewInputParameterError("count must > 0")
+		return nil, err
 	}
 
 	lockman.LockRawObject(ctx, InstanceSnapshotManager.Keyword(), "name")
 	defer lockman.ReleaseRawObject(ctx, InstanceSnapshotManager.Keyword(), "name")
 
 	// validate create instance snapshot and set snapshot pending usage
-	snapshotUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, data)
+	snapshotUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, jsonutils.Marshal(input))
 	if err != nil {
 		return nil, err
 	}
 	// set guest pending usage
-	pendingUsage, pendingRegionUsage, err := self.getGuestUsage(int(count))
+	pendingUsage, pendingRegionUsage, err := self.getGuestUsage(input.Count)
 	keys, err := self.GetQuotaKeys()
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, snapshotUsage, snapshotUsage, false)
@@ -4841,7 +4835,7 @@ func (self *SGuest) PerformSnapshotAndClone(
 	pendingRegionUsage.Snapshot = snapshotUsage.Snapshot
 
 	instanceSnapshotName, err := db.GenerateName(ctx, InstanceSnapshotManager, self.GetOwnerId(),
-		fmt.Sprintf("%s-%s", newlyGuestName, rand.String(8)))
+		fmt.Sprintf("%s-%s", input.Name, rand.String(8)))
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
 		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage, false)
@@ -4849,7 +4843,7 @@ func (self *SGuest) PerformSnapshotAndClone(
 	}
 	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(
 		ctx, userCred, self, instanceSnapshotName,
-		jsonutils.QueryBoolean(data, "auto_delete_instance_snapshot", false))
+		input.AutoDeleteInstanceSnapshot)
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
 		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage, false)
@@ -4860,7 +4854,7 @@ func (self *SGuest) PerformSnapshotAndClone(
 	}
 
 	err = self.StartInstanceSnapshotAndCloneTask(
-		ctx, userCred, newlyGuestName, &pendingUsage, &pendingRegionUsage, instanceSnapshot, data.(*jsonutils.JSONDict))
+		ctx, userCred, input.Name, &pendingUsage, &pendingRegionUsage, instanceSnapshot, jsonutils.Marshal(input).(*jsonutils.JSONDict))
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
 		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage, false)
@@ -4906,6 +4900,12 @@ func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
 		return nil, nil, err
 	}
 	guest := iGuest.(*SGuest)
+	notes := map[string]string{
+		"instance_snapshot_id": isp.Id,
+		"guest_id":             isp.GuestId,
+	}
+
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_SNAPSHOT_AND_CLONE, notes, userCred, true)
 	func() {
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
