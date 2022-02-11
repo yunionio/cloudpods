@@ -763,3 +763,21 @@ func (o ServerDelExtraOptionInput) Validate() error {
 	}
 	return nil
 }
+
+type ServerSnapshotAndCloneInput struct {
+	Name                       string
+	GenerateName               string
+	Count                      int
+	AutoStart                  bool
+	AutoDeleteInstanceSnapshot bool
+}
+
+func (o *ServerSnapshotAndCloneInput) Validate() error {
+	if len(o.Name) == 0 {
+		return httperrors.NewMissingParameterError("name")
+	}
+	if o.Count <= 1 {
+		o.Count = 1
+	}
+	return nil
+}
