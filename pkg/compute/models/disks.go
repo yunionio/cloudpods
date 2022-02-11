@@ -1737,14 +1737,18 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			return nil, errors.Wrap(err, "fillDiskConfigBySnapshot")
 		}
 	}
-	if info.ImageId != "" {
-		if err := fillDiskConfigByImage(ctx, userCred, info, info.ImageId); err != nil {
-			return nil, errors.Wrap(err, "fillDiskConfigByImage")
-		}
-	}
 	if info.BackupId != "" {
 		if err := fillDiskConfigByBackup(ctx, userCred, info, info.BackupId); err != nil {
 			return nil, errors.Wrap(err, "fillDiskConfigByBackup")
+		}
+	}
+	if info.ImageId != "" {
+		if err := fillDiskConfigByImage(ctx, userCred, info, info.ImageId); err != nil {
+			if len(info.SnapshotId) == 0 && len(info.BackupId) == 0 {
+				// return error only if no valid snapshotId and backId
+				// otherwise, the disk was crated by snapshot or backup, not depends on vald image info
+				return nil, errors.Wrap(err, "fillDiskConfigByImage")
+			}
 		}
 	}
 	// XXX: do not set default disk size here, set it by each hypervisor driver
@@ -1914,6 +1918,14 @@ func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageI
 }
 
 func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
+	if len(diskConfig.SnapshotId) > 0 {
+		self.SnapshotId = diskConfig.SnapshotId
+		self.DiskType = diskConfig.DiskType
+	}
+	if len(diskConfig.BackupId) > 0 {
+		self.BackupId = diskConfig.BackupId
+		self.DiskType = diskConfig.DiskType
+	}
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
 		// support for create vm from guest image
@@ -1922,12 +1934,6 @@ func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
 		} else {
 			self.DiskType = diskConfig.DiskType
 		}
-	} else if len(diskConfig.SnapshotId) > 0 {
-		self.SnapshotId = diskConfig.SnapshotId
-		self.DiskType = diskConfig.DiskType
-	} else if len(diskConfig.BackupId) > 0 {
-		self.BackupId = diskConfig.BackupId
-		self.DiskType = diskConfig.DiskType
 	}
 	if len(diskConfig.Fs) > 0 {
 		self.FsFormat = diskConfig.Fs
