@@ -1070,3 +1070,28 @@ func (opts *SNutanixCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSO
 type SNutanixCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 }
+
+type SBingoCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	Endpoint string
+	SAccessKeyCredential
+}
+
+func (opts *SBingoCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("BingoCloud"), "provider")
+	return params, nil
+}
+
+type SBingoCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+type SBingoCloudAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	SAccessKeyCredential
+}
+
+func (opts *SBingoCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.SAccessKeyCredential), nil
+}
