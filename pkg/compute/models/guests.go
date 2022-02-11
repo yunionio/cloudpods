@@ -1174,10 +1174,10 @@ func (manager *SGuestManager) validateCreateData(
 		if inputMem > 0 {
 			input.VcpuCount = inputCpu
 		}
-		input.InstanceType = inputInstaceType
-	}
-
-	if len(input.InstanceBackupId) > 0 {
+		if len(inputInstaceType) > 0 {
+			input.InstanceType = inputInstaceType
+		}
+	} else if len(input.InstanceBackupId) > 0 {
 		inputMem := input.VmemSize
 		inputCpu := input.VcpuCount
 		inputInstaceType := input.InstanceType
@@ -1192,7 +1192,9 @@ func (manager *SGuestManager) validateCreateData(
 		if inputMem > 0 {
 			input.VcpuCount = inputCpu
 		}
-		input.InstanceType = inputInstaceType
+		if len(inputInstaceType) > 0 {
+			input.InstanceType = inputInstaceType
+		}
 	}
 
 	resetPassword := true

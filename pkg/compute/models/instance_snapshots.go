@@ -77,6 +77,8 @@ type SInstanceSnapshot struct {
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 	// 主机快照磁盘容量和
 	SizeMb int `nullable:"false"`
+	// 镜像ID
+	ImageId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
 type SInstanceSnapshotManager struct {
@@ -301,6 +303,9 @@ func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.
 	instanceSnapshot.ProjectId = guest.ProjectId
 	instanceSnapshot.DomainId = guest.DomainId
 	instanceSnapshot.GuestId = guest.Id
+	instanceSnapshot.InstanceType = guest.InstanceType
+	instanceSnapshot.ImageId = guest.GetTemplateId()
+
 	guestSchedInput := guest.ToSchedDesc()
 
 	host, _ := guest.GetHost()
@@ -322,7 +327,10 @@ func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.
 	}
 	instanceSnapshot.ServerConfig = jsonutils.Marshal(guestSchedInput.ServerConfig)
 	if len(guest.KeypairId) > 0 {
-		instanceSnapshot.KeypairId = guest.KeypairId
+		keypair, _ := KeypairManager.FetchById(guest.KeypairId)
+		if keypair != nil {
+			instanceSnapshot.KeypairId = guest.KeypairId
+		}
 	}
 	serverMetadata := jsonutils.NewDict()
 	if loginAccount := guest.GetMetadata("login_account", nil); len(loginAccount) > 0 {
@@ -361,7 +369,6 @@ func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.
 	instanceSnapshot.OsType = guest.OsType
 	instanceSnapshot.OsArch = guest.OsArch
 	instanceSnapshot.ServerMetadata = serverMetadata
-	instanceSnapshot.InstanceType = guest.InstanceType
 }
 
 func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, name string, autoDelete bool) (*SInstanceSnapshot, error) {
@@ -407,6 +414,10 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 			index := serverConfig.Disks[i].Index
 			if index < len(isjs) {
 				serverConfig.Disks[i].SnapshotId = isjs[index].SnapshotId
+				if i == 0 && len(self.ImageId) > 0 {
+					// system disk, save ImageId
+					serverConfig.Disks[i].ImageId = self.ImageId
+				}
 			}
 		}
 	}

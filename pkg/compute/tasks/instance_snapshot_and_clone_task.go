@@ -93,16 +93,20 @@ func (self *InstanceSnapshotAndCloneTask) OnInit(
 func (self *InstanceSnapshotAndCloneTask) OnCreateInstanceSnapshot(
 	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 	// start create server
-	params, err := self.Params.Get("guest_params")
+	var input compute.ServerSnapshotAndCloneInput
+	err := self.Params.Unmarshal(&input, "guest_params")
 	if err != nil {
 		self.taskFailed(ctx, isp, jsonutils.NewString("Failed get new guest params"))
 		return
 	}
-	count, _ := params.Int("count")
+	count := 0
+	if input.Count != nil {
+		count = *input.Count
+	}
 	if count == 0 {
 		count = 1
 	}
-	err = self.doGuestCreate(ctx, isp, params, int(count))
+	err = self.doGuestCreate(ctx, isp, input, count)
 	if err != nil {
 		self.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
 		return
@@ -111,22 +115,21 @@ func (self *InstanceSnapshotAndCloneTask) OnCreateInstanceSnapshot(
 }
 
 func (self *InstanceSnapshotAndCloneTask) doGuestCreate(
-	ctx context.Context, isp *models.SInstanceSnapshot, params jsonutils.JSONObject, count int) error {
+	ctx context.Context, isp *models.SInstanceSnapshot, cloneInput compute.ServerSnapshotAndCloneInput, count int) error {
 
 	var (
-		dictParmas = params.(*jsonutils.JSONDict)
-		errStr     string
+		errStr string
 	)
 	for i := 0; i < count; i++ {
-		newGuest, input, err := models.GuestManager.CreateGuestFromInstanceSnapshot(
-			ctx, self.UserCred, dictParmas.DeepCopy().(*jsonutils.JSONDict), isp)
+		newGuest, params, err := models.GuestManager.CreateGuestFromInstanceSnapshot(
+			ctx, self.UserCred, cloneInput, isp)
 		if err != nil {
 			log.Errorln(err)
 			errStr += err.Error() + "\n"
 			continue
 		}
 		isp.AddRefCount(ctx)
-		models.GuestManager.OnCreateComplete(ctx, []db.IModel{newGuest}, self.UserCred, self.UserCred, nil, input)
+		models.GuestManager.OnCreateComplete(ctx, []db.IModel{newGuest}, self.UserCred, self.UserCred, nil, params)
 	}
 	if len(errStr) > 0 {
 		return fmt.Errorf(errStr)

@@ -763,19 +763,29 @@ func (o ServerDelExtraOptionInput) Validate() error {
 }
 
 type ServerSnapshotAndCloneInput struct {
-	Name                       string
-	GenerateName               string
-	Count                      int
-	AutoStart                  bool
-	AutoDeleteInstanceSnapshot bool
+	ServerCreateSnapshotParams
+
+	// number of cloned servers
+	// 数量
+	Count *int `json:"count"`
+
+	// Whether auto start the cloned server
+	// 是否自动启动
+	AutoStart *bool `json:"auto_start"`
+
+	// Whether delete instance snapshot automatically
+	// 是否自动删除主机快照
+	AutoDeleteInstanceSnapshot *bool `json:"auto_delete_instance_snapshot"`
+
+	// ignore
+	InstanceSnapshotId string `json:"instance_snapshot_id"`
 }
 
-func (o *ServerSnapshotAndCloneInput) Validate() error {
-	if len(o.Name) == 0 {
-		return httperrors.NewMissingParameterError("name")
-	}
-	if o.Count <= 1 {
-		o.Count = 1
-	}
-	return nil
+type ServerInstanceSnapshot struct {
+	ServerCreateSnapshotParams
+}
+
+type ServerCreateSnapshotParams struct {
+	Name         string `json:"name"`
+	GenerateName string `json:"generate_name"`
 }
