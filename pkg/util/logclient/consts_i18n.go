@@ -104,6 +104,10 @@ func init() {
 		EN("Guest Detach Isolated Device").
 		CN("卸载透传设备"),
 	)
+	t.Set(ACT_VM_SYNC_ISOLATED_DEVICE, i18n.NewTableEntry().
+		EN("Guest Sync Isolated Device").
+		CN("同步透传设备"),
+	)
 	t.Set(ACT_MERGE, i18n.NewTableEntry().
 		EN("Merge").
 		CN("合并"),
@@ -646,6 +650,7 @@ func init() {
 		EN("Freeze").
 		CN("解冻资源"),
 	)
+
 	t.Set(ACT_DETACH_ALERTRESOURCE, i18n.NewTableEntry().
 		EN("Detach AlertResource").
 		CN("取消关联报警资源"),
