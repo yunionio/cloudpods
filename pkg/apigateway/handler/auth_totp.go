@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apigateway/options"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -42,10 +43,10 @@ import (
 func toQrcode(secret string, token mcclient.TokenCredential) (string, error) {
 	_secret := base32.StdEncoding.EncodeToString([]byte(secret))
 	// https://github.com/google/google-authenticator/wiki/Key-Uri-Format
-	// issuer Onecloud.Domain
-	issuer := "Onecloud"
+	// issuer Cloudpods.Domain
+	issuer := options.Options.TotpIssuer
 	if len(token.GetDomainName()) > 0 {
-		issuer = fmt.Sprintf("Onecloud.%s", token.GetDomainName())
+		issuer = fmt.Sprintf("%s.%s", options.Options.TotpIssuer, token.GetDomainName())
 		issuer = url.PathEscape(issuer)
 	}
 
