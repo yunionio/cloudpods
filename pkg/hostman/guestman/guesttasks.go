@@ -894,7 +894,10 @@ func (s *SGuestResumeTask) onStartRunning() {
 
 	disksIdx := s.GetNeedMergeBackingFileDiskIndexs()
 	if len(disksIdx) > 0 {
-		s.startStreamDisks(disksIdx)
+		s.SyncStatus("")
+		timeutils2.AddTimeout(
+			time.Second*time.Duration(options.HostOptions.AutoMergeDelaySeconds),
+			func() { s.startStreamDisks(disksIdx) })
 	} else if options.HostOptions.AutoMergeBackingTemplate {
 		s.SyncStatus("")
 		timeutils2.AddTimeout(
