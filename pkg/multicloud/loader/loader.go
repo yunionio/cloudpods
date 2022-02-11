@@ -21,7 +21,8 @@ import (
 	_ "yunion.io/x/onecloud/pkg/multicloud/apsara/provider" // aliyun apsara stack
 	_ "yunion.io/x/onecloud/pkg/multicloud/aws/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/azure/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/cloudpods/provider" // private clouds
+	_ "yunion.io/x/onecloud/pkg/multicloud/bingocloud/provider" // private clouds
+	_ "yunion.io/x/onecloud/pkg/multicloud/cloudpods/provider"  // private clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/ctyun/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/ecloud/provider" // public clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/esxi/provider"   // private clouds

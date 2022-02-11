@@ -23,22 +23,23 @@ const (
 	HOST_TYPE_HYPERV     = "hyperv"  // # Microsoft Hyper-V
 	HOST_TYPE_XEN        = "xen"     // # XenServer
 
-	HOST_TYPE_ALIYUN    = "aliyun"
-	HOST_TYPE_APSARA    = "apsara"
-	HOST_TYPE_AWS       = "aws"
-	HOST_TYPE_QCLOUD    = "qcloud"
-	HOST_TYPE_AZURE     = "azure"
-	HOST_TYPE_HUAWEI    = "huawei"
-	HOST_TYPE_HCSO      = "hcso"
-	HOST_TYPE_OPENSTACK = "openstack"
-	HOST_TYPE_UCLOUD    = "ucloud"
-	HOST_TYPE_ZSTACK    = "zstack"
-	HOST_TYPE_GOOGLE    = "google"
-	HOST_TYPE_CTYUN     = "ctyun"
-	HOST_TYPE_ECLOUD    = "ecloud"
-	HOST_TYPE_JDCLOUD   = "jdcloud"
-	HOST_TYPE_CLOUDPODS = "cloudpods"
-	HOST_TYPE_NUTANIX   = "nutanix"
+	HOST_TYPE_ALIYUN      = "aliyun"
+	HOST_TYPE_APSARA      = "apsara"
+	HOST_TYPE_AWS         = "aws"
+	HOST_TYPE_QCLOUD      = "qcloud"
+	HOST_TYPE_AZURE       = "azure"
+	HOST_TYPE_HUAWEI      = "huawei"
+	HOST_TYPE_HCSO        = "hcso"
+	HOST_TYPE_OPENSTACK   = "openstack"
+	HOST_TYPE_UCLOUD      = "ucloud"
+	HOST_TYPE_ZSTACK      = "zstack"
+	HOST_TYPE_GOOGLE      = "google"
+	HOST_TYPE_CTYUN       = "ctyun"
+	HOST_TYPE_ECLOUD      = "ecloud"
+	HOST_TYPE_JDCLOUD     = "jdcloud"
+	HOST_TYPE_CLOUDPODS   = "cloudpods"
+	HOST_TYPE_NUTANIX     = "nutanix"
+	HOST_TYPE_BINGO_CLOUD = "bingocloud"
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 
@@ -122,6 +123,7 @@ var HOST_TYPES = []string{
 	HOST_TYPE_JDCLOUD,
 	HOST_TYPE_CLOUDPODS,
 	HOST_TYPE_NUTANIX,
+	HOST_TYPE_BINGO_CLOUD,
 }
 
 var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
