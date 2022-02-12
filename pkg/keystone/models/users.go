@@ -192,7 +192,7 @@ func (manager *SUserManager) initSysUser(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrap(err, "ResetAdminUserPassword Query user")
 			}
-			err = usr.initLocalData(o.Options.BootstrapAdminUserPassword)
+			err = usr.initLocalData(o.Options.BootstrapAdminUserPassword, false)
 			if err != nil {
 				return errors.Wrap(err, "initLocalData")
 			}
@@ -218,7 +218,7 @@ func (manager *SUserManager) initSysUser(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "insert")
 	}
-	err = usr.initLocalData(o.Options.BootstrapAdminUserPassword)
+	err = usr.initLocalData(o.Options.BootstrapAdminUserPassword, false)
 	if err != nil {
 		return errors.Wrap(err, "initLocalData")
 	}
@@ -638,6 +638,9 @@ func userExtra(user *SUser, out api.UserDetails) api.UserDetails {
 			out.FailedAuthCount = localUser.FailedAuthCount
 			out.FailedAuthAt = localUser.FailedAuthAt
 		}
+		if localUser.NeedResetPassword.IsTrue() {
+			out.NeedResetPassword = true
+		}
 		localPass, _ := PasswordManager.FetchLastPassword(localUser.Id)
 		if localPass != nil && !localPass.ExpiresAt.IsZero() {
 			out.PasswordExpiresAt = localPass.ExpiresAt
@@ -661,7 +664,7 @@ func userExtra(user *SUser, out api.UserDetails) api.UserDetails {
 	return out
 }
 
-func (user *SUser) initLocalData(passwd string) error {
+func (user *SUser) initLocalData(passwd string, skipPassCheck bool) error {
 	localUsr, err := LocalUserManager.register(user.Id, user.DomainId, user.Name)
 	if err != nil {
 		return errors.Wrap(err, "register localuser")
@@ -670,6 +673,11 @@ func (user *SUser) initLocalData(passwd string) error {
 		err = PasswordManager.savePassword(localUsr.Id, passwd, user.IsSystemAccount.Bool())
 		if err != nil {
 			return errors.Wrap(err, "save password")
+		}
+		if skipPassCheck {
+			localUsr.markNeedResetPassword(true)
+		} else {
+			localUsr.markNeedResetPassword(false)
 		}
 	}
 	return nil
@@ -680,7 +688,8 @@ func (user *SUser) PostCreate(ctx context.Context, userCred mcclient.TokenCreden
 
 	// set password
 	passwd, _ := data.GetString("password")
-	err := user.initLocalData(passwd)
+	skipPassCheck := jsonutils.QueryBoolean(data, "skip_password_complexity_check", false)
+	err := user.initLocalData(passwd, skipPassCheck)
 	if err != nil {
 		log.Errorf("fail to register localUser %s", err)
 		return
@@ -720,6 +729,17 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		if err != nil {
 			log.Errorf("fail to set password %s", err)
 			return
+		}
+		localUsr, err := LocalUserManager.fetchLocalUser("", "", usrExt.LocalId)
+		if err != nil {
+			log.Errorf("Fail to fetch localUser %d: %s", usrExt.LocalId, err)
+		} else {
+			skipPassCheck := jsonutils.QueryBoolean(data, "skip_password_complexity_check", false)
+			if skipPassCheck {
+				localUsr.markNeedResetPassword(true)
+			} else {
+				localUsr.markNeedResetPassword(false)
+			}
 		}
 		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_UPDATE_PASSWORD, nil, userCred, true)
 	}
