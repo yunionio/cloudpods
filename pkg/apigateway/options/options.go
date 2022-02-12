@@ -26,7 +26,8 @@ type GatewayOptions struct {
 
 	DisableModuleApiVersion bool `help:"Disable each modules default api version" default:"false"`
 
-	EnableTotp bool `help:"Enable two-factor authentication" default:"false"`
+	EnableTotp bool   `help:"Enable two-factor authentication" default:"false"`
+	TotpIssuer string `help:"TOTP issuer" default:"Cloudpods"`
 
 	SsoRedirectUrl     string `help:"SSO idp redirect URL"`
 	SsoAuthCallbackUrl string `help:"SSO idp auth callback URL"`
