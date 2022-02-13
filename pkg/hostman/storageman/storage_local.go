@@ -291,9 +291,9 @@ func (s *SLocalStorage) Detach() error {
 	return nil
 }
 
-func (s *SLocalStorage) DeleteDiskfile(diskpath string) error {
+func (s *SLocalStorage) DeleteDiskfile(diskpath string, skipRecycle bool) error {
 	log.Infof("Start Delete %s", diskpath)
-	if options.HostOptions.RecycleDiskfile {
+	if options.HostOptions.RecycleDiskfile && !skipRecycle {
 		var (
 			destDir  = s.getRecyclePath()
 			destFile = fmt.Sprintf("%s.%d", path.Base(diskpath), time.Now().Unix())

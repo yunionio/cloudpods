@@ -297,3 +297,7 @@ type DiskAllocateFromBackupInput struct {
 	BackupStorageId         string
 	BackupStorageAccessInfo *jsonutils.JSONDict
 }
+
+type DiskDeleteInput struct {
+	SkipRecycle *bool
+}
