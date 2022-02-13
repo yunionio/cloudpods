@@ -81,6 +81,26 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			}
 		}
 	}
+	if len(fields) == 0 || fields.Contains("vip") {
+		gvips := fetchGuestVips(guestIds)
+		if gvips != nil {
+			for i := range rows {
+				if vips, ok := gvips[guestIds[i]]; ok {
+					rows[i].Vip = strings.Join(vips, ",")
+				}
+			}
+		}
+	}
+	if len(fields) == 0 || fields.Contains("vip_eip") {
+		gvips := fetchGuestVipEips(guestIds)
+		if gvips != nil {
+			for i := range rows {
+				if vips, ok := gvips[guestIds[i]]; ok {
+					rows[i].VipEip = strings.Join(vips, ",")
+				}
+			}
+		}
+	}
 	if len(fields) == 0 || fields.Contains("macs") {
 		gMacs := fetchGuestMacs(guestIds, tristate.False)
 		if gMacs != nil {
@@ -317,7 +337,7 @@ func fetchGuestIPs(guestIds []string, virtual tristate.TriState) map[string][]st
 	}
 	gias := make([]sGuestIdIpAddr, 0)
 	err := q.All(&gias)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return nil
 	}
 	ret := make(map[string][]string)
@@ -326,6 +346,57 @@ func fetchGuestIPs(guestIds []string, virtual tristate.TriState) map[string][]st
 			ret[gias[i].GuestId] = make([]string, 0)
 		}
 		ret[gias[i].GuestId] = append(ret[gias[i].GuestId], gias[i].IpAddr)
+	}
+	return ret
+}
+
+func fetchGuestVips(guestIds []string) map[string][]string {
+	groupguests := GroupguestManager.Query().SubQuery()
+	groupnetworks := GroupnetworkManager.Query().SubQuery()
+	q := groupnetworks.Query(groupnetworks.Field("ip_addr"), groupguests.Field("guest_id"))
+	q = q.Join(groupguests, sqlchemy.Equals(q.Field("group_id"), groupguests.Field("group_id")))
+	q = q.In("guest_id", guestIds)
+	type sGuestVip struct {
+		IpAddr  string
+		GuestId string
+	}
+	gvips := make([]sGuestVip, 0)
+	err := q.All(&gvips)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil
+	}
+	ret := make(map[string][]string)
+	for i := range gvips {
+		if _, ok := ret[gvips[i].GuestId]; !ok {
+			ret[gvips[i].GuestId] = make([]string, 0)
+		}
+		ret[gvips[i].GuestId] = append(ret[gvips[i].GuestId], gvips[i].IpAddr)
+	}
+	return ret
+}
+
+func fetchGuestVipEips(guestIds []string) map[string][]string {
+	groupguests := GroupguestManager.Query().SubQuery()
+	eips := ElasticipManager.Query().Equals("associate_type", api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP).SubQuery()
+
+	q := eips.Query(eips.Field("ip_addr"), groupguests.Field("guest_id"))
+	q = q.Join(groupguests, sqlchemy.Equals(eips.Field("associate_id"), groupguests.Field("group_id")))
+	q = q.In("guest_id", guestIds)
+	type sGuestVip struct {
+		IpAddr  string
+		GuestId string
+	}
+	gvips := make([]sGuestVip, 0)
+	err := q.All(&gvips)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil
+	}
+	ret := make(map[string][]string)
+	for i := range gvips {
+		if _, ok := ret[gvips[i].GuestId]; !ok {
+			ret[gvips[i].GuestId] = make([]string, 0)
+		}
+		ret[gvips[i].GuestId] = append(ret[gvips[i].GuestId], gvips[i].IpAddr)
 	}
 	return ret
 }
@@ -347,7 +418,7 @@ func fetchGuestMacs(guestIds []string, virtual tristate.TriState) map[string][]s
 	}
 	gims := make([]sGuestIdMacAddr, 0)
 	err := q.All(&gims)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return nil
 	}
 	ret := make(map[string][]string)
@@ -524,7 +595,7 @@ func fetchGuestEips(guestIds []string) map[string]sEipInfo {
 	eips := ElasticipManager.Query().SubQuery()
 
 	q := eips.Query(eips.Field("ip_addr"), eips.Field("mode"), eips.Field("associate_id").Label("guest_id"))
-	q = q.Equals("associate_type", "server")
+	q = q.Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER)
 	q = q.In("associate_id", guestIds)
 
 	geips := make([]sEipInfo, 0)

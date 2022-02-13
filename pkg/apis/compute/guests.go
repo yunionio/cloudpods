@@ -196,6 +196,10 @@ type ServerDetails struct {
 	// IP地址列表字符串
 	// example: 10.165.2.1,172.16.8.1
 	IPs string `json:"ips"`
+	// VIP
+	Vip string `json:"vip"`
+	// VIP's eip
+	VipEip string `json:"vip_eip"`
 	// mac地址信息
 	Macs string `json:"macs"`
 	// 网卡信息
