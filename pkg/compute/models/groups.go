@@ -199,7 +199,7 @@ func (sm *SGroupManager) FetchCustomizeColumns(
 		}
 		eip, _ := objs[i].(*SGroup).getElasticIp()
 		if eip != nil {
-			rows[i].Eip = eip.IpAddr
+			rows[i].VipEip = eip.IpAddr
 		}
 	}
 
