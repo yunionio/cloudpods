@@ -197,7 +197,7 @@ func (s *SRbdStorage) resizeImage(pool string, name string, sizeMb uint64) error
 	return img.Resize(int64(sizeMb))
 }
 
-func (s *SRbdStorage) deleteImage(pool string, name string) error {
+func (s *SRbdStorage) deleteImage(pool string, name string, skipRecycle bool) error {
 	client, err := s.GetClient()
 	if err != nil {
 		return errors.Wrapf(err, "GetClient")

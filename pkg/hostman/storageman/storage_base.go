@@ -131,7 +131,7 @@ type IStorage interface {
 
 	CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error
 
-	DeleteDiskfile(diskPath string) error
+	DeleteDiskfile(diskPath string, skipRecycle bool) error
 	GetFuseTmpPath() string
 	GetFuseMountPath() string
 	GetImgsaveBackupPath() string
@@ -313,7 +313,7 @@ func (s *SBaseStorage) RemoveDisk(d IDisk) {
 	}
 }
 
-func (s *SBaseStorage) DeleteDiskfile(diskpath string) error {
+func (s *SBaseStorage) DeleteDiskfile(diskpath string, skipRecycle bool) error {
 	return fmt.Errorf("Not Implement")
 }
 
@@ -566,7 +566,7 @@ func requestDeleteSnapshot(
 		return
 	}
 	if !pendingDelete {
-		if err := storage.DeleteDiskfile(deleteSnapshotPath); err != nil {
+		if err := storage.DeleteDiskfile(deleteSnapshotPath, false); err != nil {
 			log.Errorln(err)
 			return
 		}
