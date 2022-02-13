@@ -86,20 +86,21 @@ func (d *SRBDDisk) GetDiskSetupScripts(idx int) string {
 	return fmt.Sprintf("DISK_%d=%s\n", idx, d.GetPath())
 }
 
-func (d *SRBDDisk) DeleteAllSnapshot() error {
+func (d *SRBDDisk) DeleteAllSnapshot(skipRecycle bool) error {
 	return fmt.Errorf("Not Impl")
 }
 
 func (d *SRBDDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	p := params.(api.DiskDeleteInput)
 	storage := d.Storage.(*SRbdStorage)
 	storageConf := d.Storage.GetStorageConf()
 	pool, _ := storageConf.GetString("pool")
-	return nil, storage.deleteImage(pool, d.Id)
+	return nil, storage.deleteImage(pool, d.Id, p.SkipRecycle != nil && *p.SkipRecycle)
 }
 
 func (d *SRBDDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error {
 	if len(params.BackingDiskId) == 0 {
-		_, err := d.Delete(ctx, params)
+		_, err := d.Delete(ctx, api.DiskDeleteInput{})
 		return err
 	}
 	storage := d.Storage.(*SRbdStorage)
@@ -191,7 +192,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 
 	storage := d.Storage.(*SRbdStorage)
 	destPool, _ := storage.StorageConf.GetString("pool")
-	storage.deleteImage(destPool, d.Id) //重装系统时，需要删除以前的系统盘
+	storage.deleteImage(destPool, d.Id, false) //重装系统时，需要删除以前的系统盘
 	err = storage.cloneImage(ctx, imageCacheManager.GetPath(), imageCache.GetName(), destPool, d.Id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cloneImage(%s)", imageCache.GetName())

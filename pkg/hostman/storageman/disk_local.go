@@ -114,9 +114,10 @@ func (d *SLocalDisk) UmountFuseImage() {
 }
 
 func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	p := params.(api.DiskDeleteInput)
 	dpath := d.GetPath()
 	log.Infof("Delete guest disk %s", dpath)
-	if err := d.Storage.DeleteDiskfile(dpath); err != nil {
+	if err := d.Storage.DeleteDiskfile(dpath, p.SkipRecycle != nil && *p.SkipRecycle); err != nil {
 		return nil, err
 	}
 	d.UmountFuseImage()
@@ -136,7 +137,7 @@ func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.
 }
 
 func (d *SLocalDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error {
-	_, err := d.Delete(ctx, params)
+	_, err := d.Delete(ctx, api.DiskDeleteInput{})
 	return err
 }
 
@@ -572,13 +573,13 @@ func (d *SLocalDisk) CleanupSnapshots(ctx context.Context, params interface{}) (
 	return nil, nil
 }
 
-func (d *SLocalDisk) DeleteAllSnapshot() error {
+func (d *SLocalDisk) DeleteAllSnapshot(skipRecycle bool) error {
 	snapshotDir := d.GetSnapshotDir()
 	if !fileutils2.Exists(snapshotDir) {
 		return nil
 	}
 	if options.HostOptions.RecycleDiskfile {
-		return d.Storage.DeleteDiskfile(snapshotDir)
+		return d.Storage.DeleteDiskfile(snapshotDir, skipRecycle)
 	} else {
 		log.Infof("Delete disk(%s) snapshot dir %s", d.Id, snapshotDir)
 		return procutils.NewCommand("rm", "-rf", snapshotDir).Run()
@@ -607,5 +608,5 @@ func (d *SLocalDisk) PrepareMigrate(liveMigrate bool) (string, error) {
 
 func (d *SLocalDisk) DoDeleteSnapshot(snapshotId string) error {
 	snapshotPath := path.Join(d.GetSnapshotDir(), snapshotId)
-	return d.Storage.DeleteDiskfile(snapshotPath)
+	return d.Storage.DeleteDiskfile(snapshotPath, false)
 }
