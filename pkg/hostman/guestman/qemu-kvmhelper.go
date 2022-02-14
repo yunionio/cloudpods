@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	qemucerts "yunion.io/x/onecloud/pkg/hostman/guestman/qemu/certs"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -482,8 +483,12 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	cmd += "QEMU_CMD=$DEFAULT_QEMU_CMD\n"
 	if s.IsKvmSupport() && !options.HostOptions.DisableKVM {
 		cmd += "QEMU_CMD_KVM_ARG=-enable-kvm\n"
-	} else {
+	} else if utils.IsInStringArray(s.manager.host.GetCpuArchitecture(), apis.ARCH_X86) {
+		// -no-kvm仅x86适用，且将在qemu 5.2之后移除
+		// https://gitlab.com/qemu-project/qemu/-/blob/master/docs/about/removed-features.rst
 		cmd += "QEMU_CMD_KVM_ARG=-no-kvm\n"
+	} else {
+		cmd += "QEMU_CMD_KVM_ARG=\n"
 	}
 	// cmd += "fi\n"
 	cmd += `
@@ -730,7 +735,7 @@ function nic_mtu() {
 	// cmd += "elif [ ! -z \"$STATE_FILE\" ] && [ -f $STATE_FILE ]; then\n"
 	// cmd += "    $CMD --incoming \"exec: cat $STATE_FILE\"\n"
 	// cmd += "else\n"
-	cmd += "$CMD\n"
+	cmd += "eval $CMD\n"
 	// cmd += "fi\n"
 
 	return cmd, nil
