@@ -308,7 +308,7 @@ func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest 
 	header := self.getTaskRequestHeader(task)
 
 	url := fmt.Sprintf("%s/servers/%s/status", host.ManagerUri, guest.Id)
-	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, true)
+	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
 	if err != nil {
 		return err
 	}
