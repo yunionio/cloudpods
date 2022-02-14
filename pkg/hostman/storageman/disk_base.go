@@ -41,7 +41,7 @@ type IDisk interface {
 	OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error
 	DoDeleteSnapshot(snapshotId string) error
 
-	DeleteAllSnapshot() error
+	DeleteAllSnapshot(skipRecycle bool) error
 	DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
