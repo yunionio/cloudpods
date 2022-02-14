@@ -133,7 +133,7 @@ func (self *SOrganizationTree) ListProjects() []SResourceGroupList {
 }
 
 type SProject struct {
-	multicloud.SResourceBase
+	multicloud.SProjectBase
 
 	client *SApsaraClient
 	Id     string
@@ -143,14 +143,6 @@ type SProject struct {
 
 func (self *SProject) GetId() string {
 	return self.Id
-}
-
-func (self *SProject) GetDomainId() string {
-	return ""
-}
-
-func (self *SProject) GetDomainName() string {
-	return ""
 }
 
 func (self *SProject) GetGlobalId() string {

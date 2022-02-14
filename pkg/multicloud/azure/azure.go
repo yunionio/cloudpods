@@ -578,6 +578,10 @@ func (self *SAzureClient) ListResourceGroups() ([]SResourceGroup, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "list")
 	}
+	for i := range resourceGroups {
+		resourceGroups[i].client = self
+		resourceGroups[i].subId = self.subscriptionId
+	}
 	return resourceGroups, nil
 }
 

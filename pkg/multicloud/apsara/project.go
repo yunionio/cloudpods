@@ -37,7 +37,7 @@ func (self DepartmentInfo) GetProjectId() string {
 }
 
 type SResourceGroup struct {
-	multicloud.SResourceBase
+	multicloud.SProjectBase
 	multicloud.ApsaraTags
 	client *SApsaraClient
 
