@@ -274,7 +274,7 @@ func diskCreate(ctx context.Context, storage storageman.IStorage, diskId string,
 
 func diskDelete(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	if disk != nil {
-		hostutils.DelayTask(ctx, disk.Delete, nil)
+		hostutils.DelayTask(ctx, disk.Delete, compute.DiskDeleteInput{})
 	} else {
 		hostutils.DelayTask(ctx, nil, nil)
 	}
