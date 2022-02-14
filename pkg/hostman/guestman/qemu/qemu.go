@@ -226,7 +226,7 @@ func (o baseOptions) KeyboardLayoutLanguage(lang string) string {
 }
 
 func (o baseOptions) Name(name string) string {
-	return "-name " + name
+	return fmt.Sprintf(`-name '%s'`, name)
 }
 
 func (o baseOptions) UUID(enable bool, uuid string) string {
