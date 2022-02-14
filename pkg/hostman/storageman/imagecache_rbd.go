@@ -103,7 +103,7 @@ func (r *SRbdImageCache) Release() {
 func (r *SRbdImageCache) Remove(ctx context.Context) error {
 	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
 	storage := imageCacheManger.storage.(*SRbdStorage)
-	if err := storage.deleteImage(r.Manager.GetPath(), r.GetName()); err != nil {
+	if err := storage.deleteImage(r.Manager.GetPath(), r.GetName(), false); err != nil {
 		return err
 	}
 

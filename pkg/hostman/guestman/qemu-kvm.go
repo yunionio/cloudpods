@@ -1028,11 +1028,12 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 			diskPath, _ := disk.GetString("path")
 			d, _ := storageman.GetManager().GetDiskByPath(diskPath)
 			if d != nil && d.GetType() == api.STORAGE_LOCAL && migrated {
-				if err := d.DeleteAllSnapshot(); err != nil {
+				skipRecycle := true
+				if err := d.DeleteAllSnapshot(skipRecycle); err != nil {
 					log.Errorln(err)
 					return err
 				}
-				if _, err := d.Delete(ctx, nil); err != nil {
+				if _, err := d.Delete(ctx, api.DiskDeleteInput{SkipRecycle: &skipRecycle}); err != nil {
 					log.Errorln(err)
 					return err
 				}
