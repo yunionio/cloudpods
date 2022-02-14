@@ -60,7 +60,7 @@ func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
 func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 	err := o.bucket.client.SetObjectAcl(o.bucket.Name, o.Key, aclStr)
 	if err != nil {
-		if strings.Contains(err.Error(), "not implemented") {
+		if strings.Contains(err.Error(), "not implemented") || strings.Contains(err.Error(), "Please use AWS4-HMAC-SHA256") {
 			// ignore not implemented error
 			return nil // cloudprovider.ErrNotImplemented
 		} else {
