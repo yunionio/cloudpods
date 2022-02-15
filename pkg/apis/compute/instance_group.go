@@ -46,8 +46,8 @@ type InstanceGroupDetail struct {
 	// VIP
 	Vips []string `json:"vips"`
 
-	// EIP
-	Eip string `json:"eip"`
+	// EIP of VIP
+	VipEip string `json:"vip_eip"`
 
 	// Attached NetworkId
 	NetworkId string `json:"network_id"`
