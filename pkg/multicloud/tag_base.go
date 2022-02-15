@@ -49,6 +49,8 @@ type QcloudTags struct {
 	Tags []STag
 	// Cdn
 	Tag []STag
+	// TDSQL
+	ResourceTags []STag
 }
 
 func (self *QcloudTags) GetTags() (map[string]string, error) {
@@ -83,7 +85,12 @@ func (self *QcloudTags) GetTags() (map[string]string, error) {
 		}
 		ret[tag.TagKey] = tag.TagValue
 	}
-
+	for _, tag := range self.ResourceTags {
+		if tag.TagValue == "null" {
+			tag.TagValue = ""
+		}
+		ret[tag.TagKey] = tag.TagValue
+	}
 	return ret, nil
 }
 
