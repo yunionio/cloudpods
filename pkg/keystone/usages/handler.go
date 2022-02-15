@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 func AddUsageHandler(prefix string, app *appsrv.Application) {
@@ -45,6 +46,13 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+
+	projectTags := &tagutils.TTagSetList{}
+	query.Unmarshal(projectTags, "project_tags")
+	for i := range result.ProjectTags {
+		projectTags.Append(result.ProjectTags[i])
+	}
+	result.ProjectTags = *projectTags
 
 	isAdmin := false
 	if policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(),

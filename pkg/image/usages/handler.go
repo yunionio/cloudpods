@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 func AddUsageHandler(prefix string, app *appsrv.Application) {
@@ -44,6 +45,12 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	projectTags := &tagutils.TTagSetList{}
+	query.Unmarshal(projectTags, "project_tags")
+	for i := range result.ProjectTags {
+		projectTags.Append(result.ProjectTags[i])
+	}
+	result.ProjectTags = *projectTags
 
 	usages := jsonutils.NewDict()
 	if scope == rbacutils.ScopeSystem {
