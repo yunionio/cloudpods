@@ -43,12 +43,12 @@ insmod ext2
 insmod xfs
 echo
 echo "Scanning, first pass..."
-for cfg in (*,gpt*)/efi/*/grub.cfg (*,gpt*)/efi/*/*/grub.cfg (*,gpt*)/grub.cfg (*,gpt*)/*/grub.cfg (*,gpt*)/*/*/grub.cfg; do
+for cfg in (*,gpt*)/efi/*/grub.cfg (*,gpt*)/efi/*/*/grub.cfg (*,gpt*)/grub.cfg (*,gpt*)/*/grub.cfg (*,gpt*)/*/*/grub.cfg (*,msdos*)/grub.cfg (*,msdos*)/*/grub.cfg (*,mosdos*)/*/*/grub.cfg; do
 	regexp --set=1:cfg_device '^\((.*)\)/' "${cfg}"
 done
 
 echo "Scanning, second pass..."
-for cfg in (*,gpt*)/efi/*/grub.cfg (*,gpt*)/efi/*/*/grub.cfg (*,gpt*)/grub.cfg (*,gpt*)/*/grub.cfg (*,gpt*)/*/*/grub.cfg; do
+for cfg in (*,gpt*)/efi/*/grub.cfg (*,gpt*)/efi/*/*/grub.cfg (*,gpt*)/grub.cfg (*,gpt*)/*/grub.cfg (*,gpt*)/*/*/grub.cfg (*,msdos*)/grub.cfg (*,msdos*)/*/grub.cfg (*,mosdos*)/*/*/grub.cfg; do
 	regexp --set=1:cfg_device '^\((.*)\)/' "${cfg}"
 	echo "Try configfile ${cfg}"
 	if [ -e "${cfg}" ]; then
