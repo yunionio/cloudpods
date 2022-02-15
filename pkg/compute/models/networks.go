@@ -165,11 +165,13 @@ func (self *SNetwork) getMtu() int {
 
 	wire, _ := self.GetWire()
 	if wire != nil {
-		baseMtu = options.Options.OvnUnderlayMtu
 		if IsOneCloudVpcResource(wire) {
-			baseMtu -= api.VPC_OVN_ENCAP_COST
+			return options.Options.OvnUnderlayMtu - api.VPC_OVN_ENCAP_COST
+		} else if wire.Mtu != 0 {
+			return wire.Mtu
+		} else {
+			return baseMtu
 		}
-		return baseMtu
 	}
 
 	return baseMtu
