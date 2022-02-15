@@ -5271,10 +5271,6 @@ func (self *SGuest) OnScheduleToHost(ctx context.Context, userCred mcclient.Toke
 	db.OpsLog.LogEvent(self, db.ACT_SCHEDULE, notes, userCred)
 
 	host, _ := self.GetHost()
-	err = host.Inherit(ctx, &self.SStandaloneAnonResourceBase)
-	if err != nil {
-		return errors.Wrapf(err, "unable to inherit from host %s to guest %s", host.GetId(), self.GetId())
-	}
 	return host.ClearSchedDescCache()
 }
 

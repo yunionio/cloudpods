@@ -216,11 +216,7 @@ func (self *SCachedimage) syncClassMetadata(ctx context.Context, userCred mcclie
 		return err
 	}
 
-	cm := make(map[string]interface{}, len(classMetadata))
-	for k, v := range classMetadata {
-		cm[k] = v
-	}
-	return self.SetClassMetadataAll(ctx, cm, userCred)
+	return self.SetClassMetadataAll(ctx, classMetadata, userCred)
 }
 
 func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SCachedimage, error) {
@@ -315,6 +311,28 @@ func (image *SCachedimage) GetStorages() ([]SStorage, error) {
 		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
 	return storages, nil
+}
+
+func (manager *SCachedimageManager) GetCachedimageById(ctx context.Context, imageId string) (*SCachedimage, error) {
+	img, err := manager.FetchById(imageId)
+	if err == nil {
+		return img.(*SCachedimage), nil
+	}
+	if errors.Cause(err) != sql.ErrNoRows {
+		return nil, err
+	}
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	obj, err := image.Images.Get(s, imageId, nil)
+	if err != nil {
+		log.Errorf("GetImageById %s error %s", imageId, err)
+		return nil, errors.Wrap(err, "modules.Images.Get")
+	}
+	userCred := s.GetToken()
+	cachedImage, err := manager.cacheGlanceImageInfo(ctx, userCred, obj)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.cacheGlanceImageInfo")
+	}
+	return cachedImage, nil
 }
 
 func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*cloudprovider.SImage, error) {

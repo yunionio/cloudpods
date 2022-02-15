@@ -283,7 +283,7 @@ func (model *SStandaloneAnonResourceBase) SetClassMetadataValues(ctx context.Con
 	return nil
 }
 
-func (model *SStandaloneAnonResourceBase) SetClassMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+func (model *SStandaloneAnonResourceBase) SetClassMetadataAll(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential) error {
 	afterCheck := make(map[string]interface{}, len(dictstore))
 	for k, v := range dictstore {
 		if !strings.HasPrefix(k, CLASS_TAG_PREFIX) {
@@ -308,19 +308,19 @@ func (model *SStandaloneAnonResourceBase) Inherit(ctx context.Context, sonModel 
 		return nil
 	}
 	userCred := auth.AdminCredential()
-	dictstore := make(map[string]interface{}, 0)
-	for k, v := range metadata {
-		dictstore[k] = v
-	}
-	return sonModel.SetClassMetadataAll(ctx, dictstore, userCred)
+	return sonModel.SetClassMetadataAll(ctx, metadata, userCred)
 }
 
-func (model *SStandaloneAnonResourceBase) IsInSameClass(ctx context.Context, pModel *SStandaloneAnonResourceBase) (bool, error) {
-	pureTags, err := model.GetAllClassMetadata()
+type IClassMetadataOwner interface {
+	GetAllClassMetadata() (map[string]string, error)
+}
+
+func IsInSameClass(ctx context.Context, cmo1, cmo2 IClassMetadataOwner) (bool, error) {
+	pureTags, err := cmo1.GetAllClassMetadata()
 	if err != nil {
 		return false, errors.Wrap(err, "GetAllPureMetadata")
 	}
-	pureTagsP, err := pModel.GetAllClassMetadata()
+	pureTagsP, err := cmo2.GetAllClassMetadata()
 	if err != nil {
 		return false, errors.Wrap(err, "GetAllPureMetadata")
 	}
@@ -333,6 +333,10 @@ func (model *SStandaloneAnonResourceBase) IsInSameClass(ctx context.Context, pMo
 		}
 	}
 	return true, nil
+}
+
+func (model *SStandaloneAnonResourceBase) IsInSameClass(ctx context.Context, pModel *SStandaloneAnonResourceBase) (bool, error) {
+	return IsInSameClass(ctx, model, pModel)
 }
 
 func (model *SStandaloneAnonResourceBase) SetSysCloudMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
@@ -481,7 +485,7 @@ func (model *SStandaloneAnonResourceBase) PerformClassMetadata(ctx context.Conte
 
 // 全量替换资源的所有 class 标签
 func (model *SStandaloneAnonResourceBase) PerformSetClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetClassMetadataInput) (jsonutils.JSONObject, error) {
-	dictStore := make(map[string]interface{})
+	dictStore := make(map[string]string)
 	for k, v := range input {
 		if len(k) > 64-len(CLASS_TAG_PREFIX) {
 			return nil, httperrors.NewInputParameterError("input key too long > %d", 64-len(CLASS_TAG_PREFIX))
