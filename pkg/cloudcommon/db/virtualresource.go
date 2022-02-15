@@ -282,6 +282,18 @@ func (model *SVirtualResourceBase) CustomizeCreate(ctx context.Context, userCred
 	return model.SStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
+func (model *SVirtualResourceBase) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	project, err := model.GetTenantCache(ctx)
+	if err != nil {
+		log.Errorf("unable to GetTenantCache: %s", err.Error())
+		return
+	}
+	err = project.Inherit(ctx, &model.SStandaloneAnonResourceBase)
+	if err != nil {
+		log.Errorf("unable to inherit class metadata from poject %s: %s", project.GetId(), err.Error())
+	}
+}
+
 func (manager *SVirtualResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -416,6 +428,27 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		log.Warningf("tenant_id %s not found", model.ProjectId)
 		formerObj := NewTenant(model.ProjectId, "unknown", model.DomainId, "unknown")
 		former = &formerObj
+	} else {
+		// check fromer's class metadata
+		cm, err := former.GetAllClassMetadata()
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to GetAllClassMetadata")
+		}
+		if len(cm) > 0 {
+			return nil, httperrors.NewForbiddenError("can't change owner for resource in project with class metadata")
+		}
+	}
+
+	toer, err := TenantCacheManager.FetchTenantById(ctx, ownerId.GetProjectId())
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get project %s", ownerId.GetProjectId())
+	}
+	toCm, err := toer.GetAllClassMetadata()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to GetAllClassMetadata")
+	}
+	if model.Keyword() != "image" && len(toCm) > 0 {
+		return nil, httperrors.NewForbiddenError("can't change resource's owner as that in project with class metadata")
 	}
 
 	// clean shared projects before update project id
@@ -460,6 +493,13 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		OldDomain:    former.Domain,
 		NewDomainId:  ownerId.GetProjectDomainId(),
 		NewDomain:    ownerId.GetProjectDomain(),
+	}
+
+	// set class metadata
+
+	err = model.SetClassMetadataAll(ctx, toCm, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to SetClassMetadataAll")
 	}
 	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, notes, userCred, true)
 	return nil, nil
