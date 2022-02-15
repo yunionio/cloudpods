@@ -433,9 +433,9 @@ function nic_mtu() {
 	// inject devices
 	if input.QemuArch == qemu.Arch_aarch64 {
 		input.Devices = append(input.Devices,
-			"qemu-xhci,p2=8,p3=8,id=usb",
-			"usb-tablet,id=input0,bus=usb.0,port=1",
-			"usb-kbd,id=input1,bus=usb.0,port=2",
+			"qemu-xhci,p2=8,p3=8,id=usb1",
+			"usb-tablet,id=input0,bus=usb1.0,port=1",
+			"usb-kbd,id=input1,bus=usb1.0,port=2",
 			"virtio-gpu-pci,id=video0,max_outputs=1",
 		)
 	} else {
