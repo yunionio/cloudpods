@@ -99,9 +99,9 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(
 
 func (manager *SStandaloneResourceBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err = manager.SStandaloneAnonResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemExportKeys")
+		return nil, errors.Wrap(err, "SStandaloneAnonResourceBaseManager.ListItemExportKeys")
 	}
 
 	if keys.Contains("user_tags") {
