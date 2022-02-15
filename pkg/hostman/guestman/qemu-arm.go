@@ -189,9 +189,9 @@ function nic_mtu() {
 	// arm unsupport bios
 	cmd += fmt.Sprintf(" -bios %s", options.HostOptions.OvmfPath)
 
-	cmd += " -device qemu-xhci,p2=8,p3=8,id=usb"
-	cmd += " -device usb-tablet,id=input0,bus=usb.0,port=1"
-	cmd += " -device usb-kbd,id=input1,bus=usb.0,port=2"
+	cmd += " -device qemu-xhci,p2=8,p3=8,id=usb1"
+	cmd += " -device usb-tablet,id=input0,bus=usb1.0,port=1"
+	cmd += " -device usb-kbd,id=input1,bus=usb1.0,port=2"
 	cmd += " -device virtio-gpu-pci,id=video0,max_outputs=1"
 
 	if s.IsVdiSpice() {
