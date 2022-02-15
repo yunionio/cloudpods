@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 var (
@@ -73,7 +74,7 @@ func (t *syncTask) Run() {
 
 	err = driver.Sync(t.ctx)
 	if err != nil {
-		log.Errorf("Sync for idp %s fail %s", t.idp.Name, err)
+		logclient.AddActionLogWithContext(t.ctx, t.idp, logclient.ACT_SYNC_CONF, err, t.userCred, false)
 		return
 	}
 }
