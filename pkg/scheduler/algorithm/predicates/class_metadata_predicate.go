@@ -16,7 +16,6 @@ package predicates
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/pkg/errors"
@@ -28,12 +27,23 @@ import (
 
 type ClassMetadataPredicate struct {
 	BasePredicate
-	cacheImage *models.SCachedimage
-	//TODO GuestImage
-	snapshot         *models.SSnapshot
-	instanceSnapshot *models.SInstanceSnapshot
-	backup           *models.SDiskBackup
-	instanceBackup   *models.SInstanceBackup
+
+	guestSource *ResourceWithClassMetadata
+	tenant      *ResourceWithClassMetadata
+}
+
+type ResourceWithClassMetadata struct {
+	keyword     string
+	name        string
+	classMedata map[string]string
+}
+
+func (rcm *ResourceWithClassMetadata) GetAllClassMetadata() (map[string]string, error) {
+	return rcm.classMedata, nil
+}
+
+func (rcm *ResourceWithClassMetadata) GetDescription() string {
+	return fmt.Sprintf("%s %s", rcm.keyword, rcm.name)
 }
 
 func (p *ClassMetadataPredicate) Name() string {
@@ -42,95 +52,94 @@ func (p *ClassMetadataPredicate) Name() string {
 
 func (p *ClassMetadataPredicate) Clone() core.FitPredicate {
 	return &ClassMetadataPredicate{
-		cacheImage:       p.cacheImage,
-		snapshot:         p.snapshot,
-		instanceSnapshot: p.instanceSnapshot,
-		backup:           p.backup,
-		instanceBackup:   p.instanceBackup,
+		guestSource: p.guestSource,
+		tenant:      p.tenant,
 	}
 }
 
 func (p *ClassMetadataPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
 	info := u.SchedData()
-	if len(info.InstanceSnapshotId) > 0 {
+	tenant, err := db.TenantCacheManager.FetchTenantById(context.Background(), info.Project)
+	if err != nil {
+		return false, errors.Wrapf(err, "unable to fetch tenant %s", info.Project)
+	}
+	tcm, err := tenant.GetAllClassMetadata()
+	if err != nil {
+		return false, errors.Wrapf(err, "unable to GetAllClassMetadata of project %s", info.Project)
+	}
+	p.tenant = &ResourceWithClassMetadata{
+		classMedata: tcm,
+		keyword:     tenant.Keyword(),
+		name:        tenant.GetName(),
+	}
+
+	// guest source
+	guestSource := &ResourceWithClassMetadata{}
+	disks := info.Disks
+	var stand *db.SStandaloneAnonResourceBase
+	// TODO GuestImage
+	switch {
+	case len(info.InstanceBackupId) > 0:
+		obj, err := models.InstanceBackupManager.FetchById(info.InstanceBackupId)
+		if err != nil {
+			return false, errors.Wrapf(err, "unable to fetch instanceBackup %s", info.InstanceSnapshotId)
+		}
+		stand = &obj.(*models.SInstanceBackup).SStandaloneAnonResourceBase
+	case len(info.InstanceSnapshotId) > 0:
 		obj, err := models.InstanceSnapshotManager.FetchById(info.InstanceSnapshotId)
 		if err != nil {
 			return false, errors.Wrapf(err, "unable to fetch instanceSnapshot %s", info.InstanceSnapshotId)
 		}
-		p.instanceSnapshot = obj.(*models.SInstanceSnapshot)
-		return true, nil
-	}
-	if len(info.InstanceBackupId) > 0 {
-		obj, err := models.InstanceBackupManager.FetchById(info.InstanceBackupId)
-		if err != nil {
-			return false, errors.Wrapf(err, "unable to fetch instanceBackup %s", info.InstanceBackupId)
-		}
-		p.instanceBackup = obj.(*models.SInstanceBackup)
-		return true, nil
-	}
-	disks := info.Disks
-	if len(disks) == 0 {
-		return false, nil
-	}
-	switch {
+		stand = &obj.(*models.SInstanceSnapshot).SStandaloneAnonResourceBase
+	case len(disks) == 0:
 	case disks[0].ImageId != "":
-		obj, err := models.CachedimageManager.FetchById(disks[0].ImageId)
+		obj, err := models.CachedimageManager.GetCachedimageById(context.Background(), disks[0].ImageId)
 		if err != nil {
-			// 忽略第一次上传到glance镜像后未缓存的记录
-			if err == sql.ErrNoRows {
-				return false, nil
-			}
 			return false, errors.Wrapf(err, "unable to fetch cachedimage %s", disks[0].ImageId)
 		}
-		p.cacheImage = obj.(*models.SCachedimage)
-		return true, nil
+		stand = &obj.SStandaloneAnonResourceBase
+		guestSource.keyword = "image"
 	case disks[0].SnapshotId != "":
 		obj, err := models.SnapshotManager.FetchById(disks[0].SnapshotId)
 		if err != nil {
 			return false, errors.Wrapf(err, "unable to fetch snapshot %s", disks[0].SnapshotId)
 		}
-		p.snapshot = obj.(*models.SSnapshot)
-		return true, nil
+		stand = &obj.(*models.SSnapshot).SStandaloneAnonResourceBase
 	case disks[0].BackupId != "":
 		obj, err := models.DiskBackupManager.FetchById(disks[0].BackupId)
 		if err != nil {
 			return false, errors.Wrapf(err, "unable to fetch diskbackup %s", disks[0].BackupId)
 		}
-		p.backup = obj.(*models.SDiskBackup)
+		stand = &obj.(*models.SDiskBackup).SStandaloneAnonResourceBase
+	}
+	if stand == nil {
 		return true, nil
 	}
-	return false, nil
+	cm, err := stand.GetAllClassMetadata()
+	if err != nil {
+		return false, errors.Wrapf(err, "unable to GetAllClassMetadata %s", stand.GetId())
+	}
+	guestSource.classMedata = cm
+	if guestSource.keyword == "" {
+		guestSource.keyword = stand.Keyword()
+	}
+	guestSource.name = stand.GetName()
+	p.guestSource = guestSource
+	return true, nil
 }
 
 func (p *ClassMetadataPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
-	host := c.Getter().Host()
 	ctx := context.Background()
-	resourceDesc := ""
-	var sara *db.SStandaloneAnonResourceBase
-	switch {
-	case p.cacheImage != nil:
-		sara = &p.cacheImage.SStandaloneAnonResourceBase
-		resourceDesc = fmt.Sprintf("image %s", p.cacheImage.GetName())
-	case p.snapshot != nil:
-		sara = &p.snapshot.SStandaloneAnonResourceBase
-		resourceDesc = fmt.Sprintf("snapshot %s", p.snapshot.GetName())
-	case p.backup != nil:
-		sara = &p.backup.SStandaloneAnonResourceBase
-		resourceDesc = fmt.Sprintf("backup %s", p.backup.GetName())
-	case p.instanceBackup != nil:
-		sara = &p.instanceBackup.SStandaloneAnonResourceBase
-		resourceDesc = fmt.Sprintf("instance backup %s", p.instanceBackup.GetName())
-	case p.instanceSnapshot != nil:
-		sara = &p.instanceSnapshot.SStandaloneAnonResourceBase
-		resourceDesc = fmt.Sprintf("instance snapshot %s", p.instanceSnapshot.GetName())
-	}
-	ic, err := host.IsInSameClass(ctx, sara)
-	if err != nil {
-		return false, nil, errors.Wrap(err, "unable to determine whether they are in a class")
-	}
-	if !ic {
-		h.Exclude(fmt.Sprintf("The host doesn't have the same class metadata as the choosen %s.", resourceDesc))
+	for _, resource := range []*ResourceWithClassMetadata{p.tenant, p.guestSource} {
+		ic, err := db.IsInSameClass(ctx, c.Getter(), resource)
+		if err != nil {
+			return false, nil, errors.Wrap(err, "unable to determine whether they are in a class")
+		}
+		if !ic {
+			h.Exclude(fmt.Sprintf("The host doesn't have the same class metadata as the choosen %s.", resource.GetDescription()))
+			break
+		}
 	}
 	return h.GetResult()
 }
