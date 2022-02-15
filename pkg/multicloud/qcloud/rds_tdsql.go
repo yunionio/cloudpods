@@ -227,7 +227,7 @@ func (self *STDSQL) GetMaintainTime() string {
 }
 
 func (self *STDSQL) GetStorageType() string {
-	return ""
+	return api.QCLOUD_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD
 }
 
 func (self *STDSQL) GetIVpcId() string {
