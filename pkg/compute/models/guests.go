@@ -362,11 +362,25 @@ func (manager *SGuestManager) ListItemFilter(
 	}
 
 	if len(query.IpAddr) > 0 {
-		gn := GuestnetworkManager.Query("guest_id").Contains("ip_addr", query.IpAddr).SubQuery()
-		guestEip := ElasticipManager.Query("associate_id").Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER).Contains("ip_addr", query.IpAddr).SubQuery()
+		grpnets := GroupnetworkManager.Query().SubQuery()
+		vipq := GroupguestManager.Query("guest_id")
+		vipq = vipq.Join(grpnets, sqlchemy.Equals(grpnets.Field("group_id"), vipq.Field("group_id")))
+		vipq = vipq.Contains("ip_addr", query.IpAddr)
+
+		grpeips := ElasticipManager.Query().Equals("associate_type", api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP).SubQuery()
+		vipeipq := GroupguestManager.Query("guest_id")
+		vipeipq = vipeipq.Join(grpeips, sqlchemy.Equals(grpeips.Field("associate_id"), vipeipq.Field("group_id")))
+		vipeipq = vipeipq.Contains("ip_addr", query.IpAddr)
+
+		gn := GuestnetworkManager.Query("guest_id").Contains("ip_addr", query.IpAddr)
+
+		guestEip := ElasticipManager.Query("associate_id").Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER).Contains("ip_addr", query.IpAddr)
+
 		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(q.Field("id"), gn),
-			sqlchemy.In(q.Field("id"), guestEip),
+			sqlchemy.In(q.Field("id"), gn.SubQuery()),
+			sqlchemy.In(q.Field("id"), guestEip.SubQuery()),
+			sqlchemy.In(q.Field("id"), vipq.SubQuery()),
+			sqlchemy.In(q.Field("id"), vipeipq.SubQuery()),
 		))
 	}
 
