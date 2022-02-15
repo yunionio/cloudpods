@@ -96,7 +96,7 @@ func (this *ImageManager) Get(session *mcclient.ClientSession, id string, params
 	// hack: some GetPropertiesMethod must use HTTP GET action like:
 	// - GET /images/distinct-field
 	// hard code this id currently, should found a better solution
-	if ok, _ := utils.InStringArray(id, []string{"distinct-field"}); ok {
+	if ok, _ := utils.InStringArray(id, []string{"distinct-field", "statistics"}); ok {
 		return this.ResourceManager.Get(session, id, params)
 	}
 	r, e := this.GetById(session, id, params)
