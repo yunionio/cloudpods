@@ -369,6 +369,21 @@ func (mr *MockCandidatePropertyGetterMockRecorder) InstanceGroups() *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceGroups", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).InstanceGroups))
 }
 
+// GetAllClassMetadata mocks base method
+func (m *MockCandidatePropertyGetter) GetAllClassMetadata() (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InstanceGroups")
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllClassMetadata indicates an expected call of InstanceGroups
+func (mr *MockCandidatePropertyGetterMockRecorder) GetAllClassMetadata() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceGroups", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).GetAllClassMetadata))
+}
+
 // IsEmpty mocks base method
 func (m *MockCandidatePropertyGetter) IsEmpty() bool {
 	m.ctrl.T.Helper()
