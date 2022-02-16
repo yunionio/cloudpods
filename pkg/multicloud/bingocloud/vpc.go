@@ -1,11 +1,3 @@
-/*
- * @Author: your name
- * @Date: 2022-02-16 18:23:22
- * @LastEditTime: 2022-02-16 21:16:12
- * @LastEditors: Please set LastEditors
- * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
- * @FilePath: \cloudpods\pkg\multicloud\bingocloud\vpc.go
- */
 // Copyright 2019 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
