@@ -15,13 +15,13 @@
 package cmdline
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	ErrorEmptyDesc = errors.New("Empty description")
+	ErrorEmptyDesc = errors.Errorf("Empty description")
 )
 
 // ParseSchedtagConfig desc format: <schedtagName>:<strategy>:<resource_type>
@@ -89,12 +89,22 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 	// default backend and medium type
 	diskConfig.Backend = "" // STORAGE_LOCAL
 	diskConfig.Medium = ""
+	diskConfig.SizeMb = -1
 
-	parts := strings.Split(diskStr, ":")
-	for _, p := range parts {
-		if len(p) == 0 {
-			continue
+	oldPart, newPart := []string{}, []string{}
+	for _, d0 := range strings.Split(diskStr, ",") {
+		for _, d1 := range strings.Split(d0, ":") {
+			if len(d1) == 0 {
+				continue
+			}
+			if strings.Contains(d1, "=") {
+				newPart = append(newPart, d1)
+				continue
+			}
+			oldPart = append(oldPart, d1)
 		}
+	}
+	for _, p := range oldPart {
 		if regutils.MatchSize(p) {
 			diskConfig.SizeMb, _ = fileutils.GetSizeMb(p, 'M', 1024)
 		} else if utils.IsInStringArray(p, osprofile.FS_TYPES) {
@@ -115,19 +125,73 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 			diskConfig.SizeMb = -1
 		} else if utils.IsInStringArray(p, compute.STORAGE_ALL_TYPES) {
 			diskConfig.Backend = p
-		} else if strings.HasPrefix(p, "snapshot=") {
-			// HACK: use snapshot creat disk format snapshot-id
-			// example: snapshot-3140cecb-ccc4-4865-abae-3a5ba8c69d9b
-			diskConfig.SnapshotId = p[len("snapshot="):]
-		} else if strings.HasPrefix(p, "disk=") {
-			diskConfig.DiskId = p[len("disk="):]
-		} else if strings.HasPrefix(p, "storage=") {
-			diskConfig.Storage = p[len("storage="):]
 		} else if len(p) > 0 {
 			diskConfig.ImageId = p
 		}
 	}
-
+	for _, p := range newPart {
+		info := strings.Split(p, "=")
+		if len(info) != 2 {
+			return nil, errors.Errorf("invalid disk description %s", p)
+		}
+		var err error
+		desc, str := info[0], info[1]
+		switch desc {
+		case "size":
+			diskConfig.SizeMb, err = fileutils.GetSizeMb(str, 'M', 1024)
+			if err != nil {
+				return nil, errors.Errorf("invalid disk size %s", str)
+			}
+		case "fs":
+			if !utils.IsInStringArray(str, osprofile.FS_TYPES) {
+				return nil, errors.Errorf("invalid disk fs %s, allow choices: %s", str, osprofile.FS_TYPES)
+			}
+			diskConfig.Fs = str
+		case "format":
+			if !utils.IsInStringArray(str, osprofile.IMAGE_FORMAT_TYPES) {
+				return nil, errors.Errorf("invalid disk format %s, allow choices: %s", str, osprofile.IMAGE_FORMAT_TYPES)
+			}
+			diskConfig.Format = str
+		case "driver":
+			if !utils.IsInStringArray(str, osprofile.DISK_DRIVERS) {
+				return nil, errors.Errorf("invalid disk driver %s, allow choices: %s", str, osprofile.DISK_DRIVERS)
+			}
+			diskConfig.Driver = str
+		case "cache", "cache_mode":
+			if !utils.IsInStringArray(str, osprofile.DISK_CACHE_MODES) {
+				return nil, errors.Errorf("invalid disk cache mode %s, allow choices: %s", str, osprofile.DISK_CACHE_MODES)
+			}
+			diskConfig.Cache = str
+		case "medium":
+			if !utils.IsInStringArray(str, compute.DISK_TYPES) {
+				return nil, errors.Errorf("invalid disk medium type %s, allow choices: %s", str, compute.DISK_TYPES)
+			}
+			diskConfig.Medium = str
+		case "type", "disk_type":
+			diskTypes := []string{compute.DISK_TYPE_SYS, compute.DISK_TYPE_DATA}
+			if !utils.IsInStringArray(str, diskTypes) {
+				return nil, errors.Errorf("invalid disk type %s, allow choices: %s", str, diskTypes)
+			}
+			diskConfig.DiskType = str
+		case "mountpoint":
+			diskConfig.Mountpoint = str
+		case "storage_type", "backend":
+			if !utils.IsInStringArray(str, compute.STORAGE_ALL_TYPES) {
+				return nil, errors.Errorf("invalid disk storage type %s, allow choices: %s", str, compute.STORAGE_ALL_TYPES)
+			}
+			diskConfig.Backend = str
+		case "snapshot", "snapshot_id":
+			diskConfig.SnapshotId = str
+		case "disk", "disk_id":
+			diskConfig.DiskId = str
+		case "storage", "storage_id":
+			diskConfig.Storage = str
+		case "image", "image_id":
+			diskConfig.ImageId = str
+		default:
+			return nil, errors.Errorf("invalid disk description %s", p)
+		}
+	}
 	return diskConfig, nil
 }
 
