@@ -32,10 +32,10 @@ type SGuestDownloadProvider struct {
 }
 
 func NewGuestDownloadProvider(
-	w http.ResponseWriter, compress bool, rateLimit int, sid string,
+	w http.ResponseWriter, compress, sparse bool, rateLimit int, sid string,
 ) *SGuestDownloadProvider {
 	return &SGuestDownloadProvider{
-		SDownloadProvider: NewDownloadProvider(w, compress, rateLimit),
+		SDownloadProvider: NewDownloadProvider(w, compress, sparse, rateLimit),
 		serverId:          sid,
 	}
 }

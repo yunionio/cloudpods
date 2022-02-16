@@ -25,6 +25,9 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/util/pb"
+	"yunion.io/x/onecloud/pkg/util/sparsefile"
 )
 
 const (
@@ -37,13 +40,14 @@ type SDownloadProvider struct {
 	w         http.ResponseWriter
 	rateLimit int
 	compress  bool
+	sparse    bool
 }
 
-func NewDownloadProvider(w http.ResponseWriter, compress bool, rateLimit int) *SDownloadProvider {
+func NewDownloadProvider(w http.ResponseWriter, compress, sparse bool, rateLimit int) *SDownloadProvider {
 	if rateLimit <= 0 {
 		rateLimit = DEFAULT_RATE_LIMIT
 	}
-	return &SDownloadProvider{w, rateLimit, compress}
+	return &SDownloadProvider{w: w, rateLimit: rateLimit, compress: compress, sparse: sparse}
 }
 
 func (d *SDownloadProvider) Start(
@@ -63,7 +67,7 @@ func (d *SDownloadProvider) Start(
 		d.w.Header().Add(k, headers.Get(k))
 	}
 
-	log.Infof("Downloader Start Transfer %s, compress %t", downloadFilePath, d.compress)
+	log.Infof("Downloader Start Transfer %s, compress %t sparse %t rateLimit: %dMiB/s", downloadFilePath, d.compress, d.sparse, d.rateLimit)
 	spath, err := filepath.EvalSymlinks(downloadFilePath)
 	if err == nil {
 		downloadFilePath = spath
@@ -78,16 +82,24 @@ func (d *SDownloadProvider) Start(
 	if err != nil {
 		return errors.Wrapf(err, "fi.Stat")
 	}
-	d.w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
 
-	var (
-		end                  = false
-		chunk                = make([]byte, CHUNK_SIZE)
-		writer     io.Writer = d.w
-		startTime            = time.Now()
-		sendBytes            = 0
-		writeChunk []byte
-	)
+	var reader io.Reader
+	reader = fi
+
+	size := stat.Size()
+	if d.sparse {
+		sparse, err := sparsefile.NewSparseFileReader(fi)
+		if err != nil {
+			return errors.Wrapf(err, "NewSparseFileReader")
+		}
+		size = sparse.Size()
+		d.w.Header().Set("X-Sparse-Header", fmt.Sprintf("%d", sparse.HeaderSize()))
+		reader = sparse
+	}
+
+	d.w.Header().Set("Content-Length", fmt.Sprintf("%d", size))
+
+	var writer io.Writer = d.w
 
 	if d.compress {
 		zw, err := zlib.NewWriterLevel(d.w, COMPRESS_LEVEL)
@@ -100,39 +112,17 @@ func (d *SDownloadProvider) Start(
 		defer zw.Flush() // it's cool
 	}
 
-	for !end {
-		size, err := fi.Read(chunk)
-		if err != nil {
-			if err != io.EOF {
-				log.Errorln(err)
-				return err
-			} else {
-				end = true
-			}
-		}
+	pb := pb.NewProxyReader(reader, size)
+	pb.SetRateLimit(d.rateLimit)
+	pb.SetRefreshRate(time.Second * 10)
+	pb.SetCallback(func() {
+		log.Infof("transfer %s rate: %.2f MiB p/s percent: %.2f%%", downloadFilePath, pb.Rate(), pb.Percent())
+	})
 
-		writeChunk = chunk[:size]
-		if size, err = writer.Write(writeChunk); err != nil {
-			log.Errorln(err)
-			return err
-		} else {
-			sendBytes += size
-			timeDur := time.Now().Sub(startTime)
-			exceptDur := float64(sendBytes) / 1000.0 / 1000.0 / float64(d.rateLimit)
-			if exceptDur > timeDur.Seconds() {
-				time.Sleep(time.Duration(exceptDur-timeDur.Seconds()) * time.Second)
-			}
-		}
+	_, err = io.Copy(writer, pb)
+	if err != nil {
+		return errors.Wrapf(err, "io.Copy")
 	}
-
-	// if d.compress {
-	// 	zw := writer.(*zlib.Writer)
-	// 	zw.Flush()
-	// }
-
-	sendMb := float64(sendBytes) / 1000.0 / 1000.0
-	timeDur := time.Now().Sub(startTime)
-	log.Infof("Send data: %fMB rate: %fMB/sec", sendMb, sendMb/timeDur.Seconds())
 
 	if onDownloadComplete != nil {
 		onDownloadComplete()

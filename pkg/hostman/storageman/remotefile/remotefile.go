@@ -31,6 +31,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/pb"
+	"yunion.io/x/onecloud/pkg/util/sparsefile"
 )
 
 type SImageDesc struct {
@@ -194,6 +196,7 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback 
 	if r.compress {
 		header.Set("X-Compress-Content", "zlib")
 	}
+	header.Set("X-Sparse-Content", "true")
 	if len(r.extraHeaders) > 0 {
 		for k, v := range r.extraHeaders {
 			header.Set(k, v)
@@ -214,6 +217,7 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback 
 		return errors.Wrapf(err, "request %s %s", method, url)
 	}
 	totalSize, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+	sparseHeader, _ := strconv.ParseInt(resp.Header.Get("X-Sparse-Header"), 10, 64)
 	defer resp.Body.Close()
 	if resp.StatusCode < 300 {
 		if getData {
@@ -234,38 +238,24 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback 
 				defer zlibRC.Close()
 				reader = zlibRC
 			}
-			var finishChan = make(chan struct{})
-			go func() {
-				defer recover()
-				preSizeMb := int64(0)
-				for {
-					select {
-					case <-time.After(10 * time.Second):
-						info, err := fi.Stat()
-						if err != nil {
-							log.Errorf("failed stat file %s", r.tmpPath)
-							return
-						}
-						percentInfo, percent := "", 0.0
-						if totalSize > 0 {
-							percent = float64(info.Size()) / float64(totalSize) * 100
-							percentInfo = fmt.Sprintf("(%.2f%%)", percent)
-						}
-						log.Infof("written file %s size %dM%s", r.tmpPath, info.Size()/1024/1024, percentInfo)
-						if callback != nil && percent > 0 {
-							callback(percent, float64(info.Size()-preSizeMb)/1024/1024, totalSize/1024/1024)
-						}
-						preSizeMb = info.Size()
-					case <-finishChan:
-						if callback != nil {
-							callback(100, 0, totalSize/1024/1024)
-						}
-						return
-					}
+
+			var writer io.Writer = fi
+
+			if sparseHeader > 0 {
+				writer = sparsefile.NewSparseFileWriter(fi, sparseHeader, totalSize)
+			}
+
+			pb := pb.NewProxyReader(reader, totalSize)
+			pb.SetCallback(func() {
+				if callback != nil {
+					go func() {
+						callback(pb.Percent(), pb.Rate(), totalSize/1024/1024)
+					}()
 				}
-			}()
-			_, err = io.Copy(fi, reader)
-			close(finishChan)
+				log.Infof("written file %s rate: %.2f MiB p/s percent: %.2f%%", r.tmpPath, pb.Rate(), pb.Percent())
+			})
+
+			_, err = io.Copy(writer, pb)
 			if err != nil {
 				return errors.Wrapf(err, "io.Copy to tmpPath %s from reader", r.tmpPath)
 			}
