@@ -22,10 +22,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/glance"
 )
 
 type ImageOptionalOptions struct {
@@ -145,69 +147,10 @@ func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDi
 }
 
 func init() {
-	type ImageListOptions struct {
-		options.BaseListOptions
 
-		IsPublic     string   `help:"filter images public or not(True, False or None)" choices:"true|false"`
-		IsStandard   string   `help:"filter images standard or non-standard" choices:"true|false"`
-		Protected    string   `help:"filter images by protected" choices:"true|false"`
-		IsUefi       bool     `help:"list uefi image"`
-		Format       []string `help:"Disk formats"`
-		SubFormats   []string `help:"Sub formats"`
-		Name         string   `help:"Name filter"`
-		OsType       []string `help:"Type of OS filter e.g. 'Windows, Linux, Freebsd, Android, macOS, VMWare'"`
-		Distribution []string `help:"Distribution filter, e.g. 'CentOS, Ubuntu, Debian, Windows'"`
-	}
-	R(&ImageListOptions{}, "image-list", "List images", func(s *mcclient.ClientSession, args *ImageListOptions) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-		if len(args.IsPublic) > 0 {
-			params.Add(jsonutils.NewString(args.IsPublic), "is_public")
-		}
-		if len(args.IsStandard) > 0 {
-			params.Add(jsonutils.NewString(args.IsStandard), "is_standard")
-		}
-		if len(args.Protected) > 0 {
-			params.Add(jsonutils.NewString(args.Protected), "protected")
-		}
-		if args.IsUefi {
-			params.Add(jsonutils.JSONTrue, "uefi")
-		}
-		if len(args.Tenant) > 0 {
-			tid, e := modules.Projects.GetId(s, args.Tenant, nil)
-			if e != nil {
-				return e
-			}
-			params.Add(jsonutils.NewString(tid), "owner")
-		}
-		if len(args.Name) > 0 {
-			params.Add(jsonutils.NewString(args.Name), "name")
-		}
-		if len(args.Format) > 0 {
-			fs := jsonutils.NewArray()
-			for _, f := range args.Format {
-				fs.Add(jsonutils.NewString(f))
-			}
-			params.Add(fs, "disk_formats")
-		}
-		if len(args.SubFormats) > 0 {
-			params.Add(jsonutils.Marshal(args.SubFormats), "sub_formats")
-		}
-		if len(args.OsType) > 0 {
-			params.Add(jsonutils.NewStringArray(args.OsType), "os_types")
-		}
-		if len(args.Distribution) > 0 {
-			params.Add(jsonutils.NewStringArray(args.Distribution), "distributions")
-		}
-		result, err := modules.Images.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.Images.GetColumns(s))
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.Images)
+	cmd.List(&glance.ImageListOptions{})
+	cmd.GetProperty(&glance.ImageStatusStatisticsOptions{})
 
 	type ImageOperationOptions struct {
 		ID []string `help:"Image id or name" metavar:"IMAGE"`
