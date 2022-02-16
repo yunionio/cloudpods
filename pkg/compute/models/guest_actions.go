@@ -260,6 +260,18 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 	if err != nil {
 		return nil, err
 	}
+	guestImageId, _ := ret.GetString("id")
+	// set class metadata
+	cm, err := self.GetAllClassMetadata()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to GetAllClassMetadata")
+	}
+	if len(cm) > 0 {
+		_, err = image.Images.PerformAction(s, guestImageId, "set-class-metadata", jsonutils.Marshal(cm))
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to SetClassMetadata for guest image %s", guestImageId)
+		}
+	}
 	guestImageInfo := struct {
 		RootImage  imageapi.SubImageInfo
 		DataImages []imageapi.SubImageInfo
@@ -718,6 +730,13 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 	}
 	if !utils.IsInStringArray(self.Status, guestStatus) {
 		return httperrors.NewInputParameterError("Guest %s not support attach disk in status %s", self.Name, self.Status)
+	}
+	ok, err := self.IsInSameClass(ctx, &disk.SStandaloneAnonResourceBase)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return httperrors.NewForbiddenError("the class metadata of guest and disk is different")
 	}
 	return nil
 }
@@ -4694,6 +4713,10 @@ func (self *SGuest) PerformInstanceSnapshot(
 			ctx, userCred, pendingUsage, pendingUsage, false)
 		return nil, httperrors.NewInternalServerError("create instance snapshot failed: %s", err)
 	}
+	err = self.Inherit(ctx, &instanceSnapshot.SStandaloneAnonResourceBase)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to inherit from guest %s to instance snapshot %s", self.GetId(), instanceSnapshot.GetId())
+	}
 	err = self.InstaceCreateSnapshot(ctx, userCred, instanceSnapshot, pendingUsage)
 	if err != nil {
 		quotas.CancelPendingUsage(
@@ -4722,6 +4745,10 @@ func (self *SGuest) PerformInstanceBackup(ctx context.Context, userCred mcclient
 	instanceBackup, err := InstanceBackupManager.CreateInstanceBackup(ctx, userCred, self, name, backupStorageId)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("create instance backup failed: %s", err)
+	}
+	err = self.Inherit(ctx, &instanceBackup.SStandaloneAnonResourceBase)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to inherit from guest %s to instance backup %s", self.GetId(), instanceBackup.GetId())
 	}
 	err = self.InstanceCreateBackup(ctx, userCred, instanceBackup)
 	if err != nil {

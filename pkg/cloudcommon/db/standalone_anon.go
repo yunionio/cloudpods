@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
@@ -274,6 +275,70 @@ func (model *SStandaloneAnonResourceBase) SetCloudMetadataAll(ctx context.Contex
 	return Metadata.SetAll(ctx, model, userTags, userCred, USER_TAG_PREFIX)
 }
 
+func (model *SStandaloneAnonResourceBase) SetClassMetadataValues(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+	err := Metadata.SetValuesWithLog(ctx, model, dictstore, userCred)
+	if err != nil {
+		return errors.Wrap(err, "SetValuesWithLog")
+	}
+	return nil
+}
+
+func (model *SStandaloneAnonResourceBase) SetClassMetadataAll(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential) error {
+	afterCheck := make(map[string]interface{}, len(dictstore))
+	for k, v := range dictstore {
+		if !strings.HasPrefix(k, CLASS_TAG_PREFIX) {
+			afterCheck[CLASS_TAG_PREFIX+k] = v
+		} else {
+			afterCheck[k] = v
+		}
+	}
+	err := Metadata.SetAll(ctx, model, afterCheck, userCred, CLASS_TAG_PREFIX)
+	if err != nil {
+		return errors.Wrap(err, "SetAll")
+	}
+	return nil
+}
+
+func (model *SStandaloneAnonResourceBase) Inherit(ctx context.Context, sonModel *SStandaloneAnonResourceBase) error {
+	metadata, err := model.GetAllClassMetadata()
+	if err != nil {
+		return errors.Wrap(err, "GetAllPureMetadata")
+	}
+	if len(metadata) == 0 {
+		return nil
+	}
+	userCred := auth.AdminCredential()
+	return sonModel.SetClassMetadataAll(ctx, metadata, userCred)
+}
+
+type IClassMetadataOwner interface {
+	GetAllClassMetadata() (map[string]string, error)
+}
+
+func IsInSameClass(ctx context.Context, cmo1, cmo2 IClassMetadataOwner) (bool, error) {
+	pureTags, err := cmo1.GetAllClassMetadata()
+	if err != nil {
+		return false, errors.Wrap(err, "GetAllPureMetadata")
+	}
+	pureTagsP, err := cmo2.GetAllClassMetadata()
+	if err != nil {
+		return false, errors.Wrap(err, "GetAllPureMetadata")
+	}
+	if len(pureTags) != len(pureTagsP) {
+		return false, nil
+	}
+	for k, v := range pureTags {
+		if vp, ok := pureTagsP[k]; !ok || vp != v {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (model *SStandaloneAnonResourceBase) IsInSameClass(ctx context.Context, pModel *SStandaloneAnonResourceBase) (bool, error) {
+	return IsInSameClass(ctx, model, pModel)
+}
+
 func (model *SStandaloneAnonResourceBase) SetSysCloudMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
 	err := Metadata.SetAll(ctx, model, dictstore, userCred, SYS_CLOUD_TAG_PREFIX)
 	if err != nil {
@@ -322,6 +387,18 @@ func (model *SStandaloneAnonResourceBase) GetAllCloudMetadata() (map[string]stri
 	ret := make(map[string]string)
 	for k, v := range meta {
 		ret[k[len(CLOUD_TAG_PREFIX):]] = v
+	}
+	return ret, nil
+}
+
+func (model *SStandaloneAnonResourceBase) GetAllClassMetadata() (map[string]string, error) {
+	meta, err := Metadata.GetAll(nil, model, nil, CLASS_TAG_PREFIX, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Metadata.GetAll")
+	}
+	ret := make(map[string]string)
+	for k, v := range meta {
+		ret[k[len(CLASS_TAG_PREFIX):]] = v
 	}
 	return ret, nil
 }
@@ -391,6 +468,42 @@ func (model *SStandaloneAnonResourceBase) PerformSetUserMetadata(ctx context.Con
 		return nil, errors.Wrap(err, "SetUserMetadataAll")
 	}
 	return nil, nil
+}
+
+// 更新资源的 class 标签
+func (model *SStandaloneAnonResourceBase) PerformClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformClassMetadataInput) (jsonutils.JSONObject, error) {
+	dictStore := make(map[string]interface{})
+	for k, v := range input {
+		dictStore[CLASS_TAG_PREFIX+k] = v
+	}
+	err := model.SetUserMetadataValues(ctx, dictStore, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SetUserMetadataValues")
+	}
+	return nil, nil
+}
+
+// 全量替换资源的所有 class 标签
+func (model *SStandaloneAnonResourceBase) PerformSetClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetClassMetadataInput) (jsonutils.JSONObject, error) {
+	dictStore := make(map[string]string)
+	for k, v := range input {
+		if len(k) > 64-len(CLASS_TAG_PREFIX) {
+			return nil, httperrors.NewInputParameterError("input key too long > %d", 64-len(CLASS_TAG_PREFIX))
+		}
+		if len(v) > 65535 {
+			return nil, httperrors.NewInputParameterError("input value too long > %d", 65535)
+		}
+		dictStore[k] = v
+	}
+	err := model.SetClassMetadataAll(ctx, dictStore, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SetUserMetadataAll")
+	}
+	return nil, nil
+}
+
+func (model *SStandaloneAnonResourceBase) GetDetailsClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, input apis.GetClassMetadataOutput) (apis.GetClassMetadataOutput, error) {
+	return model.GetAllClassMetadata()
 }
 
 type sPolicyTags struct {

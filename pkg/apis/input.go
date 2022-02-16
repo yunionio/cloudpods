@@ -344,6 +344,12 @@ type PerformUserMetadataInput map[string]string
 // 全量替换资源的用户标签（元数据）输入
 type PerformSetUserMetadataInput map[string]string
 
+type PerformClassMetadataInput map[string]string
+
+type PerformSetClassMetadataInput map[string]string
+
+type GetClassMetadataOutput map[string]string
+
 // 获取资源的元数据输入
 type GetMetadataInput struct {
 	// 指定需要获取的所有标签的KEY列表，如果列表为空，则获取全部标签
