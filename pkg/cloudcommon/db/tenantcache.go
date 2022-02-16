@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -519,4 +520,27 @@ func (tenant *STenant) IsDomain() bool {
 	} else {
 		return false
 	}
+}
+
+func (tenant *STenant) objType() string {
+	if tenant.IsDomain() {
+		return "domain"
+	} else {
+		return "project"
+	}
+}
+
+func (tenant *STenant) GetAllClassMetadata() (map[string]string, error) {
+	meta, err := Metadata.rawGetAll(tenant.objType(), tenant.GetId(), nil, CLASS_TAG_PREFIX)
+	if err != nil {
+		return nil, errors.Wrap(err, "rawGetAll")
+	}
+	ret := make(map[string]string)
+	for k, v := range meta {
+		if strings.HasPrefix(k, SYSTEM_ADMIN_PREFIX) {
+			continue
+		}
+		ret[k[len(CLASS_TAG_PREFIX):]] = v
+	}
+	return ret, nil
 }
