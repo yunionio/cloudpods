@@ -31,6 +31,8 @@ func init() {
 	cmd.List(&identity_options.ProjectListOptions{})
 	cmd.Perform("user-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("class-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 	cmd.GetProperty(&identity_options.ProjectGetPropertyTagValuePairOptions{})
 	cmd.GetProperty(&identity_options.ProjectGetPropertyTagValueTreeOptions{})
 	cmd.GetProperty(&identity_options.ProjectGetPropertyDomainTagValuePairOptions{})

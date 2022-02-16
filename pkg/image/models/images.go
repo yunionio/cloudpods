@@ -1536,6 +1536,20 @@ func (img *SImage) PerformUpdateStatus(ctx context.Context, userCred mcclient.To
 	return nil, nil
 }
 
+func (img *SImage) PerformSetClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetClassMetadataInput) (jsonutils.JSONObject, error) {
+	ret, err := img.SStandaloneAnonResourceBase.PerformSetClassMetadata(ctx, userCred, query, input)
+	if err != nil {
+		return ret, err
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "ImageSyncClassMetadataTask", img, userCred, nil, "", "", nil)
+	if err != nil {
+		return nil, err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil, nil
+}
+
 func (img *SImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) (jsonutils.JSONObject, error) {
 	if img.IsGuestImage.IsTrue() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform public for guest image")

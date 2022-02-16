@@ -35,6 +35,8 @@ const (
 	IMAGE_STATUS_DELETED        = "deleted"
 	IMAGE_STATUS_PENDING_DELETE = "pending_delete"
 
+	IMAGE_STATUS_SYNC_CLASS_METADATA_FAILEd = "sync_class_metadata_failed"
+
 	ImageTypeTemplate = TImageType("image")
 	ImageTypeISO      = TImageType("iso")
 

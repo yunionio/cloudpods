@@ -3806,6 +3806,10 @@ func (self *SGuest) createDiskOnHost(
 	if autoAttach {
 		err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint)
 	}
+	err = self.Inherit(ctx, &disk.SStandaloneAnonResourceBase)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to inherit from guest %s to disk %s", self.GetId(), disk.GetId())
+	}
 	return disk, err
 }
 

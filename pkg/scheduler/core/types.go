@@ -106,6 +106,8 @@ type CandidatePropertyGetter interface {
 	InstanceGroups() map[string]*api.CandidateGroup
 	GetFreeGroupCount(groupId string) (int, error)
 
+	GetAllClassMetadata() (map[string]string, error)
+
 	GetIpmiInfo() types.SIPMIInfo
 
 	GetNics() []*types.SNic

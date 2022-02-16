@@ -56,6 +56,8 @@ type BaseHostDesc struct {
 
 	SharedDomains []string               `json:"shared_domains"`
 	PendingUsage  map[string]interface{} `json:"pending_usage"`
+
+	ClassMetadata map[string]string `json:"class_metadata"`
 }
 
 type baseHostGetter struct {
@@ -146,6 +148,10 @@ func (b baseHostGetter) Storages() []*api.CandidateStorage {
 
 func (b baseHostGetter) InstanceGroups() map[string]*api.CandidateGroup {
 	return b.h.InstanceGroups
+}
+
+func (b baseHostGetter) GetAllClassMetadata() (map[string]string, error) {
+	return b.h.ClassMetadata, nil
 }
 
 func (b baseHostGetter) GetFreeGroupCount(groupId string) (int, error) {
@@ -331,6 +337,10 @@ func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost) (*BaseHostDesc, 
 
 	if err := desc.fillInstanceGroups(host); err != nil {
 		return nil, fmt.Errorf("Fill instance group error: %v", err)
+	}
+
+	if err := desc.fillClassMetadata(host); err != nil {
+		return nil, fmt.Errorf("Fill class metadata error: %v", err)
 	}
 
 	if err := desc.fillIpmiInfo(host); err != nil {
@@ -671,6 +681,15 @@ func (b *BaseHostDesc) fillInstanceGroups(host *computemodels.SHost) error {
 		}
 	}
 	b.InstanceGroups = candidateSet
+	return nil
+}
+
+func (b *BaseHostDesc) fillClassMetadata(host *computemodels.SHost) error {
+	cm, err := host.GetAllClassMetadata()
+	if err != nil {
+		return err
+	}
+	b.ClassMetadata = cm
 	return nil
 }
 

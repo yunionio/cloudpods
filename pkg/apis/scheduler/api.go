@@ -64,6 +64,9 @@ type ServerConfig struct {
 	GroupRelations []*GroupRelation  `json:"group_releations"`
 	Groups         interface{}       `json:"groups"`
 	Id             string            `json:"id"`
+
+	InstanceSnapshotId string `json:"instance_snapshot_id"`
+	InstanceBackupId   string `json:"instance_backup_id"`
 }
 
 // ScheduleInput used by scheduler sync-schedule/test/forecast api

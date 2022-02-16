@@ -407,6 +407,14 @@ func (snapshot *SSnapshot) PostCreate(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		log.Errorf("quotas.CancelPendingUsage fail %s", err)
 	}
+	disk, err := snapshot.GetDisk()
+	if err != nil {
+		log.Errorf("unable to GetDisk: %s", err.Error())
+	}
+	err = disk.Inherit(ctx, &snapshot.SStandaloneAnonResourceBase)
+	if err != nil {
+		log.Errorf("unable to inherit from disk %s to snapshot %s: %s", disk.GetId(), snapshot.GetId(), err.Error())
+	}
 }
 
 func (manager *SSnapshotManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

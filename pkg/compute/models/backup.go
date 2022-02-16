@@ -262,6 +262,14 @@ func (db *SDiskBackup) CustomizeCreate(ctx context.Context, userCred mcclient.To
 
 func (db *SDiskBackup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	db.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	disk, err := db.GetDisk()
+	if err != nil {
+		log.Errorf("unable to GetDisk: %s", err.Error())
+	}
+	err = disk.Inherit(ctx, &db.SStandaloneAnonResourceBase)
+	if err != nil {
+		log.Errorf("unable to inherit from disk %s to backup %s: %s", disk.GetId(), db.GetId(), err.Error())
+	}
 	db.StartBackupCreateTask(ctx, userCred, nil, "")
 }
 
