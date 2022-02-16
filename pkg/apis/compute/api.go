@@ -299,6 +299,7 @@ type ServerConfigs struct {
 	// required: false
 	Backup bool `json:"backup"`
 
+	// swagger:ignore
 	// 创建虚拟机数量
 	// default: 1
 	Count int `json:"count"`
