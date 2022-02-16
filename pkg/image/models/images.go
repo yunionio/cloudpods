@@ -1588,3 +1588,17 @@ func (img *SImage) PerformProbe(ctx context.Context, userCred mcclient.TokenCred
 	}
 	return nil, nil
 }
+
+func (img *SImage) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
+	ret, err := img.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+	if err != nil {
+		return nil, err
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "ImageSyncClassMetadataTask", img, userCred, nil, "", "", nil)
+	if err != nil {
+		return nil, err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return ret, nil
+}

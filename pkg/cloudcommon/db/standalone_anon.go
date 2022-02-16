@@ -300,15 +300,23 @@ func (model *SStandaloneAnonResourceBase) SetClassMetadataAll(ctx context.Contex
 }
 
 func (model *SStandaloneAnonResourceBase) Inherit(ctx context.Context, sonModel *SStandaloneAnonResourceBase) error {
-	metadata, err := model.GetAllClassMetadata()
+	return Inherit(ctx, model, sonModel)
+}
+
+type IClassMetadataSetter interface {
+	SetClassMetadataAll(context.Context, map[string]string, mcclient.TokenCredential) error
+}
+
+func Inherit(ctx context.Context, parent IClassMetadataOwner, son IClassMetadataSetter) error {
+	metadata, err := parent.GetAllClassMetadata()
 	if err != nil {
-		return errors.Wrap(err, "GetAllPureMetadata")
+		return errors.Wrap(err, "GetAllClassMetadata")
 	}
 	if len(metadata) == 0 {
 		return nil
 	}
 	userCred := auth.AdminCredential()
-	return sonModel.SetClassMetadataAll(ctx, metadata, userCred)
+	return son.SetClassMetadataAll(ctx, metadata, userCred)
 }
 
 type IClassMetadataOwner interface {
