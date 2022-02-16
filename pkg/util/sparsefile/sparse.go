@@ -87,7 +87,7 @@ func (self *SparseFileReader) Read(p []byte) (int, error) {
 			if err != nil {
 				return int(n), err
 			}
-			self.realReadLen += int64(n)
+			self.realReadLen = int64(n)
 		}
 	}
 	return self.file.Read(p)
@@ -207,7 +207,7 @@ func (self *SparseFileWrite) Write(p []byte) (int, error) {
 			if err != nil {
 				return int(n), err
 			}
-			self.bodyWriteLen += int64(n)
+			self.bodyWriteLen = int64(n)
 		}
 	}
 	return self.f.Write(p)
