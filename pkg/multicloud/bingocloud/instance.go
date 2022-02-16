@@ -16,6 +16,7 @@ package bingocloud
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -134,7 +135,9 @@ func (self *SRegion) DescribeInstances(id string, maxResult int, nextToken strin
 	if len(nextToken) > 0 {
 		params["nextToken"] = nextToken
 	}
-	resp, err := self.invoke("DescribeInstances", params)
+	// resp, err := self.invoke("DescribeInstances", params)
+	resp, err := self.invoke("DescribeInstanceHosts", params)
+
 	if err != nil {
 		return nil, "", err
 	}
@@ -149,4 +152,13 @@ func (self *SRegion) DescribeInstances(id string, maxResult int, nextToken strin
 		return nil, "", err
 	}
 	return result.ReservationSet.Item, result.NextToken, nil
+}
+
+////////
+func (self *SRegion) GetInstance(id string) (*SInstance, error) {
+	vm := &SInstance{}
+	params := url.Values{}
+	params.Set("include_vm_disk_config", "true")
+	params.Set("include_vm_nic_config", "true")
+	return vm, self.get("vms", id, params, vm)
 }
