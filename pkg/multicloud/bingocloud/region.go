@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /*
  * @Author: your name
  * @Date: 2022-02-16 18:07:12
@@ -6,6 +7,8 @@
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: \cloudpods\pkg\multicloud\bingocloud\region.go
  */
+=======
+>>>>>>> 5088248482e8abcbcf2bacdb485f2f70d97f4a4c
 // Copyright 2019 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +25,7 @@
 
 package bingocloud
 
+<<<<<<< HEAD
 import (
 	"time"
 
@@ -29,16 +33,22 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
+=======
+import "yunion.io/x/jsonutils"
+>>>>>>> 5088248482e8abcbcf2bacdb485f2f70d97f4a4c
 
 type SRegion struct {
 	client *SBingoCloudClient
 
+<<<<<<< HEAD
 	multicloud.SRegionOssBase
 	multicloud.SRegionLbBase
 	multicloud.SRegionEipBase
 	multicloud.SRegionZoneBase
 	multicloud.SRegionVpcBase
 
+=======
+>>>>>>> 5088248482e8abcbcf2bacdb485f2f70d97f4a4c
 	RegionId       string
 	RegionName     string
 	Hypervisor     string
@@ -70,6 +80,7 @@ func (self *SBingoCloudClient) GetRegions() ([]SRegion, error) {
 	}
 	return result.RegionInfo.Item, nil
 }
+<<<<<<< HEAD
 
 func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
 	return cloudprovider.ErrNotImplemented
@@ -181,3 +192,5 @@ func (self *SRegion) GetICloudFileSystems() ([]cloudprovider.ICloudFileSystem, e
 func (self *SRegion) GetICloudKafkaById(id string) (cloudprovider.ICloudKafka, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+=======
+>>>>>>> 5088248482e8abcbcf2bacdb485f2f70d97f4a4c
