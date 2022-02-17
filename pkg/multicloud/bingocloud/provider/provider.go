@@ -127,7 +127,8 @@ func (self *SBingoCloudProvider) GetAccountId() string {
 
 func (self *SBingoCloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	// TODO
-	return nil
+	// return nil
+	return self.client.GetIRegions()
 }
 
 func (self *SBingoCloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
