@@ -237,6 +237,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 			HomeDir:              s.HomeDir(),
 			HugepagesEnabled:     s.manager.host.IsHugepagesEnabled(),
 			PidFilePath:          s.GetPidFilePath(),
+			BIOS:                 s.getBios(),
 		}
 	)
 
