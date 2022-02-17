@@ -17,6 +17,7 @@ package compute
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
@@ -26,6 +27,8 @@ func init() {
 	bsCmd.Show(&compute.BackupStorageIdOptions{})
 	bsCmd.Create(&compute.BackupStorageCreateOptions{})
 	bsCmd.Delete(&compute.BackupStorageIdOptions{})
+	bsCmd.Perform("public", &options.BasePublicOptions{})
+	bsCmd.Perform("private", &options.BaseIdOptions{})
 
 	dbCmd := shell.NewResourceCmd(&modules.DiskBackups)
 	dbCmd.List(&compute.DiskBackupListOptions{})
