@@ -72,7 +72,8 @@ func (cfg *BingoCloudConfig) Debug(debug bool) *BingoCloudConfig {
 type SBingoCloudClient struct {
 	*BingoCloudConfig
 
-	regions []SRegion
+	regions  []SRegion
+	iregions []cloudprovider.ICloudRegion
 }
 
 func NewBingoCloudClient(cfg *BingoCloudConfig) (*SBingoCloudClient, error) {
@@ -202,7 +203,6 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 	return obj, nil
 }
 
-/////////////
 func (self *SBingoCloudClient) GetCapabilities() []string {
 	return []string{
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
@@ -210,11 +210,28 @@ func (self *SBingoCloudClient) GetCapabilities() []string {
 	}
 }
 
-///////////
 func (self *SBingoCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range self.regions {
 		ret = append(ret, &self.regions[i])
 	}
 	return ret
+}
+
+func (self *SBingoCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+	subAccount := cloudprovider.SSubAccount{
+		Account:      self.cpcfg.Account,
+		Name:         self.cpcfg.Name,
+		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}
+	return []cloudprovider.SSubAccount{subAccount}, nil
+}
+
+func (self *SBingoCloudClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
+	for i := 0; i < len(self.iregions); i += 1 {
+		if self.iregions[i].GetGlobalId() == id {
+			return self.iregions[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }

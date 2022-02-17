@@ -1,14 +1,11 @@
-<<<<<<< HEAD
 /*
  * @Author: your name
  * @Date: 2022-02-16 18:07:12
- * @LastEditTime: 2022-02-17 16:08:05
+ * @LastEditTime: 2022-02-17 18:06:08
  * @LastEditors: Please set LastEditors
  * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  * @FilePath: \cloudpods\pkg\multicloud\bingocloud\region.go
  */
-=======
->>>>>>> 5088248482e8abcbcf2bacdb485f2f70d97f4a4c
 // Copyright 2019 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +22,6 @@
 
 package bingocloud
 
-<<<<<<< HEAD
 import (
 	"time"
 
@@ -33,22 +29,16 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
-=======
-import "yunion.io/x/jsonutils"
->>>>>>> 5088248482e8abcbcf2bacdb485f2f70d97f4a4c
 
 type SRegion struct {
 	client *SBingoCloudClient
 
-<<<<<<< HEAD
 	multicloud.SRegionOssBase
 	multicloud.SRegionLbBase
 	multicloud.SRegionEipBase
 	multicloud.SRegionZoneBase
 	multicloud.SRegionVpcBase
 
-=======
->>>>>>> 5088248482e8abcbcf2bacdb485f2f70d97f4a4c
 	RegionId       string
 	RegionName     string
 	Hypervisor     string
@@ -80,7 +70,6 @@ func (self *SBingoCloudClient) GetRegions() ([]SRegion, error) {
 	}
 	return result.RegionInfo.Item, nil
 }
-<<<<<<< HEAD
 
 func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
 	return cloudprovider.ErrNotImplemented
@@ -192,5 +181,188 @@ func (self *SRegion) GetICloudFileSystems() ([]cloudprovider.ICloudFileSystem, e
 func (self *SRegion) GetICloudKafkaById(id string) (cloudprovider.ICloudKafka, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
-=======
->>>>>>> 5088248482e8abcbcf2bacdb485f2f70d97f4a4c
+
+func (self *SRegion) GetICloudKafkas() ([]cloudprovider.ICloudKafka, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudKubeClusterById(id string) (cloudprovider.ICloudKubeCluster, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudKubeClusters() ([]cloudprovider.ICloudKubeCluster, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudMongoDBById(id string) (cloudprovider.ICloudMongoDB, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudNatSkus() ([]cloudprovider.ICloudNatSku, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudQuotas() ([]cloudprovider.ICloudQuota, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudWafIPSets() ([]cloudprovider.ICloudWafIPSet, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudWafInstanceById(id string) (cloudprovider.ICloudWafInstance, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudWafInstances() ([]cloudprovider.ICloudWafInstance, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudWafRegexSets() ([]cloudprovider.ICloudWafRegexSet, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetICloudWafRuleGroups() ([]cloudprovider.ICloudWafRuleGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIDBInstanceBackupById(backupId string) (cloudprovider.ICloudDBInstanceBackup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIDBInstanceById(instanceId string) (cloudprovider.ICloudDBInstance, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIDBInstanceSkus() ([]cloudprovider.ICloudDBInstanceSku, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIElasticSearchById(id string) (cloudprovider.ICloudElasticSearch, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIElasticSearchs() ([]cloudprovider.ICloudElasticSearch, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasticcache, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetISkus() ([]cloudprovider.ICloudSku, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetISnapshotPolicies() ([]cloudprovider.ICloudSnapshotPolicy, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetISnapshotPolicyById(snapshotPolicyId string) (cloudprovider.ICloudSnapshotPolicy, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetId() string {
+	return ""
+}
+
+func (self *SRegion) GetProvider() string {
+	return ""
+}
+
+// os status
+func (self *SRegion) GetStatus() string {
+	return ""
+}
+
+func (self *SRegion) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *SRegion) GetTags() (map[string]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) IsEmulated() bool {
+	return false
+}
+
+func (self *SRegion) Refresh() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) SetTags(tags map[string]string, replace bool) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) UpdateSnapshotPolicy(*cloudprovider.SnapshotPolicyInput, string) error {
+	return cloudprovider.ErrNotImplemented
+}
