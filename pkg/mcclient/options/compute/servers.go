@@ -223,8 +223,27 @@ type ServerConfigs struct {
 	Backup                       bool   `help:"Create server with backup server"`
 	AutoSwitchToBackupOnHostDown bool   `help:"Auto switch to backup server on host down"`
 
-	Schedtag       []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
-	Disk           []string `help:"Disk descriptions" nargs:"+"`
+	Schedtag []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
+	Disk     []string `help:"
+	Disk descriptions
+	size: 500M, 10G
+	fs: swap, ext2, ext3, ext4, xfs, ntfs, fat, hfsplus
+	format: qcow2, raw, docker, iso, vmdk, vmdkflatver1, vmdkflatver2, vmdkflat, vmdksparse, vmdksparsever1, vmdksparsever2, vmdksesparse, vhd
+	driver: virtio, ide, scsi, sata, pvscsi
+	cache_mod: writeback, none, writethrough
+	medium: rotate, ssd, hybrid
+	disk_type: sys, data
+	mountpoint: /, /opt
+	storage_type: local, rbd, nas, nfs
+	snapshot_id: use snapshot-list get snapshot id
+	disk_id: use disk-list get disk id
+	storage_id: use storage-list get storage id
+	image_id: use image-list get image id
+	for example:
+		--disk 'image_id=c2be02a4-7ff2-43e6-8a00-a489e04d2d6f,size=10G,driver=ide,storage_type=rbd'
+		--disk 'size=500M'
+		--disk 'snpahost_id=1ceb8c6d-6571-451d-8957-4bd3a871af85'
+	" nargs:"+"`
 	DiskSchedtag   []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
 	Net            []string `help:"Network descriptions" metavar:"NETWORK"`
 	NetSchedtag    []string `help:"Network schedtag description, e.g. '0:<tag>:<strategy>'"`

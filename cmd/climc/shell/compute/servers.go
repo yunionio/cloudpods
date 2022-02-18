@@ -235,19 +235,6 @@ func init() {
 		},
 	)
 
-	R(&options.ServerCreateOptions{}, "server-check-create-data", "Check create server data", func(s *mcclient.ClientSession, opts *options.ServerCreateOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		server, err := modules.Servers.PerformClassAction(s, "check-create-data", params.JSON(params))
-		if err != nil {
-			return err
-		}
-		printObject(server)
-		return nil
-	})
-
 	R(&options.ServerCreateOptions{}, "server-create", "Create a server", func(s *mcclient.ClientSession, opts *options.ServerCreateOptions) error {
 		params, err := opts.Params()
 		if err != nil {
@@ -265,24 +252,24 @@ func init() {
 				return err
 			}
 			printList(modulebase.JSON2ListResult(result), listFields)
+			return nil
+		}
+		taskNotify := baseoptions.BoolV(opts.TaskNotify)
+		if taskNotify {
+			s.PrepareTask()
+		}
+		if count > 1 {
+			results := modules.Servers.BatchCreate(s, params.JSON(params), count)
+			printBatchResults(results, modules.Servers.GetColumns(s))
 		} else {
-			taskNotify := baseoptions.BoolV(opts.TaskNotify)
-			if taskNotify {
-				s.PrepareTask()
+			server, err := modules.Servers.Create(s, params.JSON(params))
+			if err != nil {
+				return err
 			}
-			if count > 1 {
-				results := modules.Servers.BatchCreate(s, params.JSON(params), count)
-				printBatchResults(results, modules.Servers.GetColumns(s))
-			} else {
-				server, err := modules.Servers.Create(s, params.JSON(params))
-				if err != nil {
-					return err
-				}
-				printObject(server)
-			}
-			if taskNotify {
-				s.WaitTaskNotify()
-			}
+			printObject(server)
+		}
+		if taskNotify {
+			s.WaitTaskNotify()
 		}
 		return nil
 	})
