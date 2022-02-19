@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -235,7 +236,7 @@ func (manager *SRoleManager) FetchCustomizeColumns(
 		rows[i].UserCount, _ = role.GetUserCount()
 		rows[i].GroupCount, _ = role.GetGroupCount()
 		rows[i].ProjectCount, _ = role.GetProjectCount()
-		names, _, _ := RolePolicyManager.GetMatchPolicyGroup2(false, []string{role.Id}, "", "", true)
+		names, _, _ := RolePolicyManager.GetMatchPolicyGroup2(false, []string{role.Id}, "", "", time.Time{}, true)
 		rows[i].Policies = names
 		mp := make([]string, 0)
 		for _, v := range names {
@@ -600,7 +601,7 @@ func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.Tok
 
 	for _, idstr := range updatedIds {
 		toUpdate := normalInputs[idstr]
-		err := RolePolicyManager.newRecord(ctx, toUpdate.roleId, toUpdate.projectId, toUpdate.policyId, tristate.True, toUpdate.prefixes)
+		err := RolePolicyManager.newRecord(ctx, toUpdate.roleId, toUpdate.projectId, toUpdate.policyId, tristate.True, toUpdate.prefixes, toUpdate.validSince, toUpdate.validUntil)
 		if err != nil {
 			return nil, errors.Wrap(err, "RolePolicyManager.updateRecord")
 		}
@@ -608,7 +609,7 @@ func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.Tok
 
 	for _, idstr := range addedIds {
 		toAdd := normalInputs[idstr]
-		err := RolePolicyManager.newRecord(ctx, toAdd.roleId, toAdd.projectId, toAdd.policyId, tristate.True, toAdd.prefixes)
+		err := RolePolicyManager.newRecord(ctx, toAdd.roleId, toAdd.projectId, toAdd.policyId, tristate.True, toAdd.prefixes, toAdd.validSince, toAdd.validUntil)
 		if err != nil {
 			return nil, errors.Wrap(err, "RolePolicyManager.newRecord")
 		}
@@ -626,6 +627,9 @@ type sRolePerformAddPolicyInput struct {
 	roleId    string
 	projectId string
 	policyId  string
+
+	validSince time.Time
+	validUntil time.Time
 }
 
 func (s sRolePerformAddPolicyInput) getId() string {
@@ -667,6 +671,8 @@ func (role *SRole) normalizeRoleAddPolicyInput(userCred mcclient.TokenCredential
 	output.roleId = role.Id
 	output.prefixes = prefList
 	output.policyId = policy.GetId()
+	output.validSince = input.ValidSince
+	output.validUntil = input.ValidUntil
 	return output, nil
 }
 
@@ -675,7 +681,7 @@ func (role *SRole) PerformAddPolicy(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return nil, errors.Wrap(err, "normalizeRoleAddPolicyInput")
 	}
-	err = RolePolicyManager.newRecord(ctx, normalInput.roleId, normalInput.projectId, normalInput.policyId, tristate.True, normalInput.prefixes)
+	err = RolePolicyManager.newRecord(ctx, normalInput.roleId, normalInput.projectId, normalInput.policyId, tristate.True, normalInput.prefixes, normalInput.validSince, normalInput.validUntil)
 	if err != nil {
 		return nil, errors.Wrap(err, "newRecord")
 	}
