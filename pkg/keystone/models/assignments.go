@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -595,7 +596,7 @@ func (manager *SAssignmentManager) queryAll(
 }
 
 func fetchRoleAssignmentPolicies(ra *api.SRoleAssignment) {
-	policyNames, _, _ := RolePolicyManager.GetMatchPolicyGroup(ra, true)
+	policyNames, _, _ := RolePolicyManager.GetMatchPolicyGroup(ra, time.Time{}, true)
 	ra.Policies.Project, _ = policyNames[rbacutils.ScopeProject]
 	ra.Policies.Domain, _ = policyNames[rbacutils.ScopeDomain]
 	ra.Policies.System, _ = policyNames[rbacutils.ScopeSystem]

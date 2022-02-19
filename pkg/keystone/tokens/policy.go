@@ -17,6 +17,7 @@ package tokens
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -27,7 +28,7 @@ import (
 
 func fetchTokenPolicies(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	token := policy.FetchUserCredential(ctx)
-	names, group, err := models.RolePolicyManager.GetMatchPolicyGroup(token, false)
+	names, group, err := models.RolePolicyManager.GetMatchPolicyGroup(token, time.Now(), false)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return

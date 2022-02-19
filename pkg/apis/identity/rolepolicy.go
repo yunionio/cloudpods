@@ -15,6 +15,8 @@
 package identity
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -68,6 +70,9 @@ type RolePerformAddPolicyInput struct {
 	PolicyId  string   `json:"policy_id"`
 	ProjectId string   `json:"project_id"`
 	Ips       []string `json:"ips"`
+
+	ValidSince time.Time `json:"valid_since"`
+	ValidUntil time.Time `json:"valid_until"`
 }
 
 type RolePerformRemovePolicyInput struct {
