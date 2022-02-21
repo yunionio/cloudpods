@@ -563,18 +563,20 @@ type GuestBatchMigrateRequest struct {
 	PreferHostId string `json:"prefer_host_id"`
 	// Deprecated
 	// swagger:ignore
-	PreferHost   string `json:"prefer_host" yunion-deprecated-by:"prefer_host_id"`
-	SkipCpuCheck bool   `json:"skip_cpu_check"`
-	EnableTLS    *bool  `json:"enable_tls"`
+	PreferHost      string `json:"prefer_host" yunion-deprecated-by:"prefer_host_id"`
+	SkipCpuCheck    bool   `json:"skip_cpu_check"`
+	SkipKernelCheck bool   `json:"skip_kernel_check"`
+	EnableTLS       *bool  `json:"enable_tls"`
 }
 
 type GuestBatchMigrateParams struct {
-	Id           string
-	LiveMigrate  bool
-	SkipCpuCheck bool
-	EnableTLS    *bool
-	RescueMode   bool
-	OldStatus    string
+	Id              string
+	LiveMigrate     bool
+	SkipCpuCheck    bool
+	SkipKernelCheck bool
+	EnableTLS       *bool
+	RescueMode      bool
+	OldStatus       string
 }
 
 type HostLoginInfo struct {
