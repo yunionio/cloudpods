@@ -20,6 +20,7 @@ import (
 )
 
 var (
-	R         = shell.R
-	printList = printutils.PrintJSONList
+	R           = shell.R
+	printList   = printutils.PrintJSONList
+	printObject = printutils.PrintJSONObject
 )

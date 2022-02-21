@@ -19,9 +19,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 )
 
 type BaseEventListOptions struct {
@@ -61,11 +60,11 @@ func doComputeEventList(s *mcclient.ClientSession, args *EventListOptions) error
 }
 
 func doImageEventList(s *mcclient.ClientSession, args *EventListOptions) error {
-	return DoEventList(image.ImageLogs, s, args)
+	return DoEventList(modules.ImageLogs, s, args)
 }
 
 func doIdentityEventList(s *mcclient.ClientSession, args *EventListOptions) error {
-	return DoEventList(identity.IdentityLogs, s, args)
+	return DoEventList(modules.IdentityLogs, s, args)
 }
 
 func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
