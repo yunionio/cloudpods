@@ -20,8 +20,7 @@ import (
 )
 
 var (
-	Cloudevents    modulebase.ResourceManager
-	CloudeventLogs modulebase.ResourceManager
+	Cloudevents modulebase.ResourceManager
 )
 
 func init() {
@@ -31,9 +30,4 @@ func init() {
 		[]string{})
 
 	modules.Register(&Cloudevents)
-
-	CloudeventLogs = modules.NewCloudeventManager("event", "events",
-		[]string{"id", "ops_time", "obj_id", "obj_type", "obj_name", "user", "user_id", "tenant", "tenant_id", "owner_tenant_id", "action", "notes"},
-		[]string{})
-
 }

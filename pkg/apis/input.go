@@ -391,3 +391,7 @@ type RenewInput struct {
 
 type SyncstatusInput struct {
 }
+
+type PurgeSplitTableInput struct {
+	Tables []string `json:"tables"`
+}

@@ -20,35 +20,40 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 )
 
-func (t *SSplitTableSpec) Purge() error {
+func (t *SSplitTableSpec) Purge(tables []string) ([]string, error) {
 	if t.maxSegments <= 0 {
-		return nil
+		return nil, nil
 	}
 	metas, err := t.GetTableMetas()
 	if err != nil {
-		return errors.Wrap(err, "GetTableMetas")
+		return nil, errors.Wrap(err, "GetTableMetas")
 	}
-	if t.maxSegments >= len(metas) {
-		return nil
+	if t.maxSegments >= len(metas) && len(tables) == 0 {
+		return nil, nil
 	}
-	for i := 0; i < len(metas)-t.maxSegments; i += 1 {
-		dropSQL := fmt.Sprintf("DROP TABLE `%s`", metas[i].Table)
-		log.Infof("Ready to drop table: %s", dropSQL)
-		_, err := sqlchemy.Exec(dropSQL)
-		if err != nil {
-			return errors.Wrap(err, "sqlchemy.Exec")
+	ret := []string{}
+	for i := 0; i < len(metas); i += 1 {
+		if len(tables) == 0 || utils.IsInStringArray(metas[i].Table, tables) {
+			dropSQL := fmt.Sprintf("DROP TABLE `%s`", metas[i].Table)
+			log.Infof("Ready to drop table: %s", dropSQL)
+			_, err := sqlchemy.Exec(dropSQL)
+			if err != nil {
+				return ret, errors.Wrap(err, "sqlchemy.Exec")
+			}
+			_, err = t.metaSpec.Update(&metas[i], func() error {
+				metas[i].DeleteAt = time.Now()
+				metas[i].Deleted = true
+				return nil
+			})
+			if err != nil {
+				return ret, errors.Wrap(err, "metaSpec.Update")
+			}
+			ret = append(ret, metas[i].Table)
 		}
-		_, err = t.metaSpec.Update(&metas[i], func() error {
-			metas[i].DeleteAt = time.Now()
-			metas[i].Deleted = true
-			return nil
-		})
-		if err != nil {
-			return errors.Wrap(err, "metaSpec.Update")
-		}
 	}
-	return nil
+	return ret, nil
 }
