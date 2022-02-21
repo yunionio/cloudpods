@@ -506,10 +506,10 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 	if input.EnableTLS == nil {
 		input.EnableTLS = &options.Options.EnableTlsMigration
 	}
-	return nil, self.StartGuestLiveMigrateTask(ctx, userCred, self.Status, input.PreferHost, input.SkipCpuCheck, input.EnableTLS, "")
+	return nil, self.StartGuestLiveMigrateTask(ctx, userCred, self.Status, input.PreferHost, input.SkipCpuCheck, input.SkipKernelCheck, input.EnableTLS, "")
 }
 
-func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, guestStatus, preferHostId string, skipCpuCheck *bool, enableTLS *bool, parentTaskId string) error {
+func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, guestStatus, preferHostId string, skipCpuCheck *bool, skipKernelCheck *bool, enableTLS *bool, parentTaskId string) error {
 	self.SetStatus(userCred, api.VM_START_MIGRATE, "")
 	data := jsonutils.NewDict()
 	if len(preferHostId) > 0 {
@@ -517,6 +517,9 @@ func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mccl
 	}
 	if skipCpuCheck != nil {
 		data.Set("skip_cpu_check", jsonutils.NewBool(*skipCpuCheck))
+	}
+	if skipKernelCheck != nil {
+		data.Set("skip_kernel_check", jsonutils.NewBool(*skipKernelCheck))
 	}
 	if enableTLS != nil {
 		data.Set("enable_tls", jsonutils.NewBool(*enableTLS))
@@ -4534,12 +4537,13 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 	var hostGuestParams = map[string][]*api.GuestBatchMigrateParams{}
 	for i := 0; i < len(guests); i++ {
 		bmp := &api.GuestBatchMigrateParams{
-			Id:           guests[i].Id,
-			LiveMigrate:  guests[i].Status == api.VM_RUNNING,
-			RescueMode:   guests[i].Status == api.VM_UNKNOWN,
-			OldStatus:    guests[i].Status,
-			SkipCpuCheck: params.SkipCpuCheck,
-			EnableTLS:    params.EnableTLS,
+			Id:              guests[i].Id,
+			LiveMigrate:     guests[i].Status == api.VM_RUNNING,
+			RescueMode:      guests[i].Status == api.VM_UNKNOWN,
+			OldStatus:       guests[i].Status,
+			SkipCpuCheck:    params.SkipCpuCheck,
+			SkipKernelCheck: params.SkipKernelCheck,
+			EnableTLS:       params.EnableTLS,
 		}
 		guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "batch migrate")
 		if _, ok := hostGuests[guests[i].HostId]; ok {

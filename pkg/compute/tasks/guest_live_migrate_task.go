@@ -70,7 +70,9 @@ func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		input.LiveMigrate = true
 		skipCpuCheck := jsonutils.QueryBoolean(self.Params, "skip_cpu_check", false)
+		skipKernelCheck := jsonutils.QueryBoolean(self.Params, "skip_kernel_check", false)
 		input.SkipCpuCheck = skipCpuCheck
+		input.SkipKernelCheck = skipKernelCheck
 	}
 	return guest.GetSchedMigrateParams(self.GetUserCred(), input), nil
 }
