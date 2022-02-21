@@ -3842,7 +3842,7 @@ func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCr
 			hostHealthChecker.UnwatchHost(context.Background(), self.Id)
 		}
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, input.Reason, userCred)
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_OFFLINE, map[string]string{"reason": input.Reason}, userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_OFFLINE, input, userCred, true)
 		self.SyncAttachedStorageStatus()
 	}
 	return nil, nil
@@ -3873,7 +3873,7 @@ func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCre
 			hostHealthChecker.WatchHost(context.Background(), self.Id)
 		}
 		db.OpsLog.LogEvent(self, db.ACT_ONLINE, "", userCred)
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_ONLINE, nil, userCred, true)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_ONLINE, data, userCred, true)
 		self.SyncAttachedStorageStatus()
 		self.StartSyncAllGuestsStatusTask(ctx, userCred)
 	}
