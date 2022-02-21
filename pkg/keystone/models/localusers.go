@@ -111,6 +111,7 @@ func (manager *SLocalUserManager) register(userId string, domainId string, name 
 	}
 
 	localUser = &SLocalUser{}
+	localUser.SetModelManager(manager, localUser)
 	localUser.UserId = userId
 	localUser.DomainId = domainId
 	localUser.Name = name
