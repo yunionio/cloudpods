@@ -54,6 +54,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/k8s/tokens"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -66,6 +67,7 @@ type SHostInfo struct {
 	IsRegistered     chan struct{}
 	registerCallback func()
 	stopped          bool
+	isLoged          bool
 
 	saved  bool
 	pinger *SHostPingTask
@@ -852,6 +854,10 @@ func (h *SHostInfo) register() {
 }
 
 func (h *SHostInfo) onFail(reason interface{}) {
+	if len(h.HostId) > 0 && !h.isLoged {
+		logclient.AddSimpleActionLog(h, logclient.ACT_ONLINE, reason, hostutils.GetComputeSession(context.Background()).GetToken(), false)
+		h.isLoged = true
+	}
 	log.Errorf("register failed: %s", reason)
 	h.StartRegister(30, nil)
 	panic("register failed, try 30 seconds later...")
@@ -944,20 +950,29 @@ func (h *SHostInfo) getZoneInfo(zoneId string, standalone bool) {
 	log.Debugf("Start GetZoneInfo %s %v", zoneId, standalone)
 	var params = jsonutils.NewDict()
 	params.Set("standalone", jsonutils.NewBool(standalone))
-	res, err := modules.Zones.Get(h.GetSession(),
-		zoneId, params)
+	params.Set("provider", jsonutils.NewString(api.CLOUD_PROVIDER_ONECLOUD))
+	res, err := modules.Zones.List(h.GetSession(), params)
 	if err != nil {
 		h.onFail(err)
 		return
 	}
-
-	h.Zone, _ = res.GetString("name")
-	h.ZoneId, _ = res.GetString("id")
-	h.Cloudregion, _ = res.GetString("cloudregion")
-	h.CloudregionId, _ = res.GetString("cloudregion_id")
-	if res.Contains("manager_uri") {
-		h.ZoneManagerUri, _ = res.GetString("manager_uri")
+	zones := []api.ZoneDetails{}
+	jsonutils.Update(&zones, res.Data)
+	for _, zone := range zones {
+		if zone.Name == zoneId || zone.Id == zoneId {
+			h.Zone = zone.Name
+			h.ZoneId = zone.Id
+			h.Cloudregion = zone.Cloudregion
+			h.CloudregionId = zone.CloudregionId
+			h.ZoneManagerUri = zone.ManagerUri
+			break
+		}
 	}
+	if len(h.Zone) == 0 {
+		h.onFail(fmt.Errorf("failed to found zone with id %s", zoneId))
+		return
+	}
+
 	if !standalone {
 		h.getHostInfo(h.ZoneId)
 	}
@@ -971,33 +986,36 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 	}
 	params := jsonutils.NewDict()
 	params.Set("any_mac", jsonutils.NewString(masterMac))
+	params.Set("provider", jsonutils.NewString(api.CLOUD_PROVIDER_ONECLOUD))
+	params.Set("details", jsonutils.JSONTrue)
 	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.Hosts.List(h.GetSession(), params)
 	if err != nil {
 		h.onFail(err)
 		return
 	}
-	if len(res.Data) == 0 {
+	hosts := []api.HostDetails{}
+	jsonutils.Update(&hosts, res.Data)
+	if len(hosts) == 0 {
 		h.updateHostRecord("")
-	} else {
-		host := res.Data[0]
-		id, _ := host.GetString("id")
-		h.getDomainInfo(id)
-
-		h.updateHostRecord(id)
-	}
-}
-
-func (h *SHostInfo) getDomainInfo(hostId string) {
-	host, err := modules.Hosts.GetById(h.GetSession(), hostId, jsonutils.NewDict())
-	if err != nil {
-		h.onFail(err)
 		return
 	}
-	domain_id, _ := host.GetString("domain_id")
-	project_domain, _ := host.GetString("project_domain")
-	h.Domain_id = domain_id
-	h.Project_domain = strings.ReplaceAll(project_domain, " ", "+")
+	if len(hosts) > 1 {
+		for i := range hosts {
+			h.HostId = hosts[i].Id
+			logclient.AddSimpleActionLog(h, logclient.ACT_ONLINE, fmt.Errorf("duplicate host with %s", params), hostutils.GetComputeSession(context.Background()).GetToken(), false)
+		}
+		return
+	}
+	h.Domain_id = hosts[0].DomainId
+	h.HostId = hosts[0].Id
+	h.Project_domain = strings.ReplaceAll(hosts[0].ProjectDomain, " ", "+")
+	// 上次未能正常offline, 补充一次健康日志
+	if hosts[0].HostStatus == api.HOST_ONLINE {
+		reason := fmt.Sprintf("The host status is online when it staring. Maybe the control center was down earlier")
+		logclient.AddSimpleActionLog(h, logclient.ACT_HEALTH_CHECK, map[string]string{"reason": reason}, hostutils.GetComputeSession(context.Background()).GetToken(), false)
+	}
+	h.updateHostRecord(hosts[0].Id)
 }
 
 func (h *SHostInfo) UpdateSyncInfo(hostId string, body jsonutils.JSONObject) (interface{}, error) {
@@ -1184,7 +1202,7 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	if reserved != int(memReservedMb) {
 		h.updateHostReservedMem(reserved)
 	} else {
-		h.PutHostOffline("")
+		h.PutHostOnline()
 	}
 }
 
@@ -1262,11 +1280,11 @@ func (h *SHostInfo) PutHostOnline() error {
 		log.Errorf("Host sys error: %v", h.SysError)
 	}
 
+	data := jsonutils.NewDict()
 	if len(h.SysWarning) > 0 {
-		log.Warningf("Host have some hidden problem %v", h.SysWarning)
+		data.Set("warning", jsonutils.Marshal(h.SysWarning))
 	}
 
-	data := jsonutils.NewDict()
 	if options.HostOptions.EnableHealthChecker && len(options.HostOptions.EtcdEndpoints) > 0 {
 		_, err := host_health.InitHostHealthManager(h.HostId, h.onHostDown)
 		if err != nil {
@@ -1277,6 +1295,9 @@ func (h *SHostInfo) PutHostOnline() error {
 
 	_, err := modules.Hosts.PerformAction(
 		h.GetSession(), h.HostId, "online", data)
+	if err != nil {
+		logclient.AddSimpleActionLog(h, logclient.ACT_ONLINE, data, hostutils.GetComputeSession(context.Background()).GetToken(), false)
+	}
 	return err
 }
 
@@ -1750,6 +1771,18 @@ func (h *SHostInfo) registerHostlocalServer() error {
 	return nil
 }
 
+func (h *SHostInfo) GetId() string {
+	return h.HostId
+}
+
+func (h *SHostInfo) GetName() string {
+	return h.getHostname()
+}
+
+func (h *SHostInfo) Keyword() string {
+	return "host"
+}
+
 func (h *SHostInfo) stop() {
 	log.Infof("Host Info stop ...")
 	h.unregister()
@@ -1762,15 +1795,19 @@ func (h *SHostInfo) stop() {
 }
 
 func (h *SHostInfo) unregister() {
+	isLog := false
 	for {
 		_, err := modules.Hosts.PerformAction(
-			h.GetSession(), h.HostId, "offline", nil)
+			h.GetSession(), h.HostId, "offline", jsonutils.Marshal(map[string]string{"reason": "host stop"}))
 		if err != nil {
-			log.Errorf("put host offline failed: %s", err)
+			if !isLog {
+				logclient.AddSimpleActionLog(h, logclient.ACT_OFFLINE, err, hostutils.GetComputeSession(context.Background()).GetToken(), false)
+				isLog = true
+			}
 			time.Sleep(time.Second * 1)
-		} else {
-			break
+			continue
 		}
+		break
 	}
 	h.stopped = true
 }
