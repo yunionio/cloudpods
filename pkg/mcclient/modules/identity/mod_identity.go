@@ -41,7 +41,6 @@ func (this *SIdentityUsageManager) GetUsage(session *mcclient.ClientSession, par
 
 var (
 	IdentityUsages SIdentityUsageManager
-	IdentityLogs   modulebase.ResourceManager
 )
 
 func init() {
@@ -49,7 +48,4 @@ func init() {
 		[]string{},
 		[]string{})}
 
-	IdentityLogs = modules.NewIdentityV3Manager("event", "events",
-		[]string{"id", "ops_time", "obj_id", "obj_type", "obj_name", "user", "user_id", "tenant", "tenant_id", "owner_tenant_id", "action", "notes"},
-		[]string{})
 }

@@ -15,68 +15,13 @@
 package events
 
 import (
-	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/cloudevent"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/logger"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
-	type EventSplitableOptions struct {
-		Service string `help:"service" choices:"compute|identity|image|log|cloudevent" default:"compute"`
-	}
-	R(&EventSplitableOptions{}, "logs-splitable", "Show splitable info of event table", func(s *mcclient.ClientSession, args *EventSplitableOptions) error {
-		var results jsonutils.JSONObject
-		var err error
-		switch args.Service {
-		case "identity":
-			results, err = identity.IdentityLogs.Get(s, "splitable", nil)
-		case "image":
-			results, err = image.ImageLogs.Get(s, "splitable", nil)
-		case "log":
-			results, err = logger.Actions.Get(s, "splitable", nil)
-		case "cloudevent":
-			results, err = cloudevent.Cloudevents.Get(s, "splitable", nil)
-		default:
-			results, err = compute.Logs.Get(s, "splitable", nil)
-		}
-		if err != nil {
-			return err
-		}
-		tables, err := results.GetArray()
-		if err != nil {
-			return err
-		}
-		listResult := &modulebase.ListResult{
-			Data: tables,
-		}
-		printList(listResult, nil)
-		return nil
-	})
-	R(&EventSplitableOptions{}, "logs-purge", "Purge obsolete splitable of event table", func(s *mcclient.ClientSession, args *EventSplitableOptions) error {
-		var results jsonutils.JSONObject
-		var err error
-		switch args.Service {
-		case "identity":
-			results, err = identity.IdentityLogs.PerformClassAction(s, "purge-splitable", nil)
-		case "image":
-			results, err = image.ImageLogs.PerformClassAction(s, "purge-splitable", nil)
-		case "log":
-			results, err = logger.Actions.PerformClassAction(s, "purge-splitable", nil)
-		case "cloudevent":
-			results, err = cloudevent.Cloudevents.PerformClassAction(s, "purge-splitable", nil)
-		default:
-			results, err = compute.Logs.PerformClassAction(s, "purge-splitable", nil)
-		}
-		if err != nil {
-			return err
-		}
-		printObject(results)
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.Logs).WithKeyword("logs")
+	cmd.Show(&options.EventSplitableOptions{})
+	cmd.PerformClass("purge-splitable", &options.EventPurgeSplitableOptions{})
 }

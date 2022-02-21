@@ -20,8 +20,7 @@ import (
 )
 
 var (
-	Actions    modulebase.ResourceManager
-	ActionLogs modulebase.ResourceManager
+	Actions modulebase.ResourceManager
 )
 
 func init() {
@@ -29,8 +28,4 @@ func init() {
 		[]string{"id", "start_time", "service", "ops_time", "obj_id", "obj_type", "obj_name", "user", "user_id", "tenant", "tenant_id", "owner_tenant_id", "action", "success", "notes"},
 		[]string{})
 	modules.Register(&Actions)
-
-	ActionLogs = modules.NewActionManager("event", "events",
-		[]string{"id", "ops_time", "obj_id", "obj_type", "obj_name", "user", "user_id", "tenant", "tenant_id", "owner_tenant_id", "action", "notes"},
-		[]string{})
 }
