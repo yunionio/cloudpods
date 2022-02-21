@@ -69,6 +69,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.getIdpSsoRedirectUri, "sso", "redirect", "<idp_id>"),
 		NewHP(h.listTotpRecoveryQuestions, "recovery"),
 		NewHP(h.handleSsoLogin, "ssologin"),
+		NewHP(h.handleIdpInitSsoLogin, "ssologin", "<idp_id>"),
 		NewHP(h.postLogoutHandler, "logout"),
 		// oidc auth
 		NewHP(handleOIDCAuth, "oidc", "auth"),
@@ -84,6 +85,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.postLoginHandler, "login"),
 		NewHP(h.postLogoutHandler, "logout"),
 		NewHP(h.handleSsoLogin, "ssologin"),
+		NewHP(h.handleIdpInitSsoLogin, "ssologin", "<idp_id>"),
 		NewHP(handleOIDCToken, "oidc", "token"),
 	)
 
@@ -347,7 +349,9 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 		domain, _ := body.GetString("domain")
 		token, err = auth.Client().AuthenticateWeb(uname, passwd, domain, "", "", cliIp)
 	} else if body.Contains("idp_driver") { // sso login
-		token, err = processSsoLoginData(body, cliIp)
+		idpId, _ := body.GetString("idp_id")
+		redirectUri := getSsoCallbackUrl(ctx, req, idpId)
+		token, err = processSsoLoginData(body, cliIp, redirectUri)
 		if err != nil {
 			return nil, errors.Wrap(err, "processSsoLoginData")
 		}
@@ -1052,7 +1056,7 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 		data.Add(jsonutils.JSONFalse, "enable_quota_check")
 	}
 
-	data.Add(jsonutils.NewString(getSsoCallbackUrl()), "sso_callback_url")
+	// data.Add(jsonutils.NewString(getSsoCallbackUrl(ctx, req, idpId)), "sso_callback_url")
 
 	return data, nil
 }

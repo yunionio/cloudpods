@@ -126,3 +126,15 @@ type GetIdpSsoRedirectUriOutput struct {
 type PerformDefaultSsoInput struct {
 	Enable *bool `json:"enable" help:"enable default sso" negative:"disable"`
 }
+
+type GetIdpSsoCallbackUriInput struct {
+	// SSO回调地址
+	RedirectUri string `json:"redirect_uri"`
+}
+
+type GetIdpSsoCallbackUriOutput struct {
+	// SSO回调地址
+	RedirectUri string `json:"redirect_uri"`
+	// Driver
+	Driver string `json:"driver"`
+}

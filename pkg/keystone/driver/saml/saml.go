@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/sp"
 )
@@ -77,6 +78,13 @@ func (self *SSAMLDriver) prepareConfig() error {
 		self.samlConfig = &conf
 	}
 	return nil
+}
+
+func (self *SSAMLDriver) GetSsoCallbackUri(callbackUrl string) string {
+	if self.samlConfig.AllowIdpInit != nil && *self.samlConfig.AllowIdpInit {
+		callbackUrl = httputils.JoinPath(callbackUrl, self.IdpId)
+	}
+	return callbackUrl
 }
 
 func (self *SSAMLDriver) GetSsoRedirectUri(ctx context.Context, callbackUrl, state string) (string, error) {
