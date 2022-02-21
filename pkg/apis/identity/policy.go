@@ -14,7 +14,11 @@
 
 package identity
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type PolicyDetails struct {
 	EnabledIdentityBaseResourceDetails
@@ -30,4 +34,8 @@ type PolicyBindRoleInput struct {
 	ProjectId string `json:"project_id"`
 	//	IP白名单
 	Ips []string `json:"ips"`
+	// 权限有效开始时间
+	ValidSince time.Time `json:"valid_since"`
+	// 权限有效结束时间
+	ValidUntil time.Time `json:"valid_until"`
 }

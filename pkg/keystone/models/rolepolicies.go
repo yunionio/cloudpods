@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -67,9 +68,13 @@ type SRolePolicy struct {
 	Auth tristate.TriState `nullable:"false" default:"true" list:"domain" create:"domain_optional"`
 	// 匹配的IP白名单
 	Ips string `list:"domain" create:"domain_optional" update:"domain"`
+	// 匹配开始时间
+	ValidSince time.Time `list:"domain" create:"domain_optional" update:"domain"`
+	// 匹配结束时间
+	ValidUntil time.Time `list:"domain" create:"domain_optional" update:"domain"`
 }
 
-func (manager *SRolePolicyManager) newRecord(ctx context.Context, roleId, projectId, policyId string, auth tristate.TriState, ips []netutils.IPV4Prefix) error {
+func (manager *SRolePolicyManager) newRecord(ctx context.Context, roleId, projectId, policyId string, auth tristate.TriState, ips []netutils.IPV4Prefix, validSince, validUntil time.Time) error {
 	if len(roleId) == 0 {
 		return errors.Wrap(httperrors.ErrNotEmpty, "roleId")
 	}
@@ -86,6 +91,8 @@ func (manager *SRolePolicyManager) newRecord(ctx context.Context, roleId, projec
 		ipStrs[i] = ipprefix.String()
 	}
 	rpg.Ips = strings.Join(ipStrs, rbacutils.IP_PREFIX_SEP)
+	rpg.ValidSince = validSince
+	rpg.ValidUntil = validUntil
 	rpg.SetModelManager(manager, &rpg)
 	err := RolePolicyManager.TableSpec().InsertOrUpdate(ctx, &rpg)
 	if err != nil {
@@ -341,15 +348,15 @@ func (manager *SRolePolicyManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (manager *SRolePolicyManager) getMatchPolicyIds(userCred rbacutils.IRbacIdentity) ([]string, error) {
+func (manager *SRolePolicyManager) getMatchPolicyIds(userCred rbacutils.IRbacIdentity, tm time.Time) ([]string, error) {
 	isGuest := true
 	if userCred != nil && !auth.IsGuestToken(userCred) {
 		isGuest = false
 	}
-	return manager.getMatchPolicyIds2(isGuest, userCred.GetRoleIds(), userCred.GetProjectId(), userCred.GetLoginIp())
+	return manager.getMatchPolicyIds2(isGuest, userCred.GetRoleIds(), userCred.GetProjectId(), userCred.GetLoginIp(), tm)
 }
 
-func (manager *SRolePolicyManager) getMatchPolicyIds2(isGuest bool, roleIds []string, pid string, loginIp string) ([]string, error) {
+func (manager *SRolePolicyManager) getMatchPolicyIds2(isGuest bool, roleIds []string, pid string, loginIp string, tm time.Time) ([]string, error) {
 	q := manager.Query()
 	if !isGuest {
 		if len(roleIds) > 0 {
@@ -378,21 +385,24 @@ func (manager *SRolePolicyManager) getMatchPolicyIds2(isGuest bool, roleIds []st
 		if len(loginIp) > 0 && !rp.MatchIP(loginIp) {
 			continue
 		}
+		if !tm.IsZero() && !rp.MatchTime(tm) {
+			continue
+		}
 		policyIds = stringutils2.Append(policyIds, rp.PolicyId)
 	}
 	return policyIds, nil
 }
 
-func (manager *SRolePolicyManager) GetMatchPolicyGroup(userCred rbacutils.IRbacIdentity, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
-	policyIds, err := manager.getMatchPolicyIds(userCred)
+func (manager *SRolePolicyManager) GetMatchPolicyGroup(userCred rbacutils.IRbacIdentity, tm time.Time, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+	policyIds, err := manager.getMatchPolicyIds(userCred, tm)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "getMatchPolicyIds")
 	}
 	return manager.GetPolicyGroupByIds(policyIds, nameOnly)
 }
 
-func (manager *SRolePolicyManager) GetMatchPolicyGroup2(isGuest bool, roleIds []string, pid string, loginIp string, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
-	policyIds, err := manager.getMatchPolicyIds2(isGuest, roleIds, pid, loginIp)
+func (manager *SRolePolicyManager) GetMatchPolicyGroup2(isGuest bool, roleIds []string, pid string, loginIp string, tm time.Time, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+	policyIds, err := manager.getMatchPolicyIds2(isGuest, roleIds, pid, loginIp, tm)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "getMatchPolicyIds")
 	}
@@ -436,6 +446,16 @@ func (manager *SRolePolicyManager) GetPolicyGroupByIds(policyIds []string, nameO
 
 func (rp *SRolePolicy) MatchIP(ipstr string) bool {
 	return rbacutils.MatchIPStrings(rp.Ips, ipstr)
+}
+
+func (rp *SRolePolicy) MatchTime(tm time.Time) bool {
+	if !rp.ValidSince.IsZero() && tm.Before(rp.ValidSince) {
+		return false
+	}
+	if !rp.ValidUntil.IsZero() && tm.After(rp.ValidUntil) {
+		return false
+	}
+	return true
 }
 
 func (manager *SRolePolicyManager) fetchByRoleId(roleId string) ([]SRolePolicy, error) {

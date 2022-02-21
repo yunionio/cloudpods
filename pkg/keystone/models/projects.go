@@ -478,8 +478,8 @@ func (self *SProject) PostCreate(
 }
 
 func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleIds []string) error {
-	_, opsPolicies, _ := RolePolicyManager.GetMatchPolicyGroup(userCred, false)
-	_, assignPolicies, _ := RolePolicyManager.GetMatchPolicyGroup2(false, roleIds, project.Id, "", false)
+	_, opsPolicies, _ := RolePolicyManager.GetMatchPolicyGroup(userCred, time.Time{}, false)
+	_, assignPolicies, _ := RolePolicyManager.GetMatchPolicyGroup2(false, roleIds, project.Id, "", time.Time{}, false)
 	opsScope := opsPolicies.HighestScope()
 	assignScope := assignPolicies.HighestScope()
 	if assignScope.HigherThan(opsScope) {

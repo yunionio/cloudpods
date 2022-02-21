@@ -339,7 +339,7 @@ func (t *SAuthToken) getTokenV3(
 			token.Token.Roles[i].Name = roles[i].Name
 		}
 
-		policyNames, _, _ := models.RolePolicyManager.GetMatchPolicyGroup(&token, true)
+		policyNames, _, _ := models.RolePolicyManager.GetMatchPolicyGroup(&token, time.Time{}, true)
 		token.Token.Policies.Project, _ = policyNames[rbacutils.ScopeProject]
 		token.Token.Policies.Domain, _ = policyNames[rbacutils.ScopeDomain]
 		token.Token.Policies.System, _ = policyNames[rbacutils.ScopeSystem]
