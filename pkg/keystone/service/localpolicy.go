@@ -16,6 +16,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/pkg/errors"
 
@@ -24,7 +25,7 @@ import (
 )
 
 func localPolicyFetcher(ctx context.Context, token mcclient.TokenCredential) (*mcclient.SFetchMatchPoliciesOutput, error) {
-	names, groups, err := models.RolePolicyManager.GetMatchPolicyGroup(token, false)
+	names, groups, err := models.RolePolicyManager.GetMatchPolicyGroup(token, time.Now(), false)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetMatchPolicyGroup")
 	}
