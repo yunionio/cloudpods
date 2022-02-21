@@ -1382,6 +1382,29 @@ func (idp *SIdentityProvider) GetDetailsSsoRedirectUri(ctx context.Context, user
 	return output, nil
 }
 
+func (idp *SIdentityProvider) GetDetailsSsoCallbackUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoCallbackUriInput) (api.GetIdpSsoCallbackUriOutput, error) {
+	output := api.GetIdpSsoCallbackUriOutput{}
+	conf, err := GetConfigs(idp, true, nil, nil)
+	if err != nil {
+		return output, errors.Wrap(err, "idp.GetConfig")
+	}
+
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
+	if err != nil {
+		return output, errors.Wrap(err, "driver.GetDriver")
+	}
+
+	uri := backend.GetSsoCallbackUri(query.RedirectUri)
+	if err != nil {
+		return output, errors.Wrap(err, "backend.GetSsoCallbackUri")
+	}
+
+	output.RedirectUri = uri
+	output.Driver = idp.Driver
+
+	return output, nil
+}
+
 func (idp *SIdentityProvider) SyncOrCreateDomainAndUser(ctx context.Context, extDomainId, extDomainName string, extUsrId, extUsrName string) (*SDomain, *SUser, error) {
 	var (
 		domain *SDomain

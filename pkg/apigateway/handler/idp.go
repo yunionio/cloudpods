@@ -40,11 +40,28 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
-func getSsoCallbackUrl() string {
+func getSsoBaseCallbackUrl() string {
 	if options.Options.SsoRedirectUrl == "" {
 		return httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/ssologin")
 	}
 	return options.Options.SsoRedirectUrl
+}
+
+func getSsoCallbackUrl(ctx context.Context, req *http.Request, idpId string) string {
+	baseUrl := getSsoBaseCallbackUrl()
+	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	input := api.GetIdpSsoCallbackUriInput{
+		RedirectUri: baseUrl,
+	}
+	resp, err := modules.IdentityProviders.GetSpecific(s, idpId, "sso-callback-uri", jsonutils.Marshal(input))
+	if err != nil {
+		return baseUrl
+	}
+	ret, err := resp.GetString("redirect_uri")
+	if err != nil {
+		return baseUrl
+	}
+	return ret
 }
 
 func getSsoAuthCallbackUrl() string {
@@ -92,7 +109,7 @@ func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.Response
 	}
 	query.(*jsonutils.JSONDict).Set("idp_nonce", jsonutils.NewString(utils.GenRequestId(4)))
 	state := base64.URLEncoding.EncodeToString([]byte(query.String()))
-	redirectUri := getSsoCallbackUrl()
+	redirectUri := getSsoCallbackUrl(ctx, req, idpId)
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	input := api.GetIdpSsoRedirectUriInput{
 		RedirectUri: redirectUri,
@@ -125,12 +142,37 @@ func findExtUserId(input string) string {
 	return ""
 }
 
+func (h *AuthHandlers) handleIdpInitSsoLogin(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	params := appctx.AppContextParams(ctx)
+	idpId := params["<idp_id>"]
+	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	resp, err := modules.IdentityProviders.Get(s, idpId, nil)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	idpDriver, _ := resp.GetString("driver")
+	h.internalSsoLogin(ctx, w, req, idpId, idpDriver)
+}
+
 func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	idpId := getCookie(req, "idp_id")
-	idpDriver := getCookie(req, "idp_driver")
+
+	h.internalSsoLogin(ctx, w, req, "", "")
+}
+
+func (h *AuthHandlers) internalSsoLogin(ctx context.Context, w http.ResponseWriter, req *http.Request, idpId, idpDriver string) {
+	idpIdC := getCookie(req, "idp_id")
+	idpDriverC := getCookie(req, "idp_driver")
 	idpState := getCookie(req, "idp_state")
 	idpReferer := getCookie(req, "idp_referer")
 	idpLinkUser := getCookie(req, "idp_link_user")
+
+	if len(idpIdC) > 0 {
+		idpId = idpIdC
+	}
+	if len(idpDriverC) > 0 {
+		idpDriver = idpDriverC
+	}
 
 	for _, k := range []string{"idp_id", "idp_driver", "idp_state", "idp_referer", "idp_link_user"} {
 		clearCookie(w, k, "")
@@ -143,20 +185,23 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 	if len(idpDriver) == 0 {
 		missing = append(missing, "idp_driver")
 	}
-	if len(idpState) == 0 {
+	/*if len(idpState) == 0 {
 		missing = append(missing, "idp_state")
 	}
 	if len(idpReferer) == 0 {
 		missing = append(missing, "idp_referer")
-	}
+	}*/
 	if len(missing) > 0 {
 		httperrors.TimeoutError(ctx, w, "session expires, missing %s", strings.Join(missing, ","))
 		return
 	}
 
-	idpStateQsBytes, _ := base64.URLEncoding.DecodeString(idpState)
-	idpStateQs, _ := jsonutils.Parse(idpStateQsBytes)
-	log.Debugf("state query sting: %s", idpStateQs)
+	var idpStateQs jsonutils.JSONObject
+	if len(idpState) > 0 {
+		idpStateQsBytes, _ := base64.URLEncoding.DecodeString(idpState)
+		idpStateQs, _ = jsonutils.Parse(idpStateQsBytes)
+		log.Debugf("state query sting: %s", idpStateQs)
+	}
 
 	var body jsonutils.JSONObject
 	var err error
@@ -212,11 +257,12 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 		}
 	}
 	refererUrl, _ := url.Parse(referer)
-	if refererUrl == nil {
+	if refererUrl == nil && len(idpReferer) > 0 {
 		refererUrl, _ = url.Parse(idpReferer)
 	}
-	if err != nil {
-		log.Debugf("error: %s refererUrl: %s", err, refererUrl)
+	if refererUrl == nil {
+		httperrors.InvalidInputError(ctx, w, "empty referer link")
+		return
 	}
 	redirUrl := generateRedirectUrl(refererUrl, idpStateQs, err, idpId, idpUserId)
 	appsrv.SendRedirect(w, redirUrl)
@@ -258,7 +304,7 @@ func generateRedirectUrl(originUrl *url.URL, stateQs jsonutils.JSONObject, err e
 	return originUrl.String()
 }
 
-func processSsoLoginData(body jsonutils.JSONObject, cliIp string) (mcclient.TokenCredential, error) {
+func processSsoLoginData(body jsonutils.JSONObject, cliIp string, redirectUri string) (mcclient.TokenCredential, error) {
 	var token mcclient.TokenCredential
 	var err error
 	idpDriver, _ := body.GetString("idp_driver")
@@ -266,7 +312,6 @@ func processSsoLoginData(body jsonutils.JSONObject, cliIp string) (mcclient.Toke
 	idpState, _ := body.GetString("idp_state")
 	switch idpDriver {
 	case api.IdentityDriverCAS:
-		redirectUri := getSsoCallbackUrl()
 		ticket, _ := body.GetString("ticket")
 		if len(ticket) == 0 {
 			return nil, httperrors.NewMissingParameterError("ticket")
@@ -283,7 +328,6 @@ func processSsoLoginData(body jsonutils.JSONObject, cliIp string) (mcclient.Toke
 		}
 		token, err = auth.Client().AuthenticateSAML(idpId, samlResp, "", "", "", cliIp)
 	case api.IdentityDriverOIDC:
-		redirectUri := getSsoCallbackUrl()
 		code, _ := body.GetString("code")
 		state, _ := body.GetString("state")
 		if state != idpState {
@@ -321,7 +365,8 @@ func linkWithExistingUser(ctx context.Context, req *http.Request, idpId, idpLink
 		return errors.Wrap(httperrors.ErrConflict, "link user id inconsistent with credential")
 	}
 	cliIp := netutils2.GetHttpRequestIp(req)
-	ntoken, err := processSsoLoginData(body, cliIp)
+	redirectUri := getSsoCallbackUrl(ctx, req, idpId)
+	ntoken, err := processSsoLoginData(body, cliIp, redirectUri)
 	if err != nil {
 		if errors.Cause(err) != httperrors.ErrUserNotFound {
 			return errors.Wrap(err, "invalid ssologin result")
@@ -382,10 +427,9 @@ func handleUnlinkIdp(ctx context.Context, w http.ResponseWriter, req *http.Reque
 }
 
 func fetchIdpBasicConfig(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	params := appctx.AppContextParams(ctx)
 	idpId := params["<idp_id>"]
-	info, err := getIdpBasicConfig(s, idpId)
+	info, err := getIdpBasicConfig(ctx, req, idpId)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
@@ -393,25 +437,31 @@ func fetchIdpBasicConfig(ctx context.Context, w http.ResponseWriter, req *http.R
 	appsrv.SendJSON(w, info)
 }
 
-func getIdpBasicConfig(s *mcclient.ClientSession, idpId string) (jsonutils.JSONObject, error) {
-	idp, err := modules.IdentityProviders.Get(s, idpId, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "Fetch")
+func getIdpBasicConfig(ctx context.Context, req *http.Request, idpId string) (jsonutils.JSONObject, error) {
+	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	baseUrl := getSsoBaseCallbackUrl()
+	input := api.GetIdpSsoCallbackUriInput{
+		RedirectUri: baseUrl,
 	}
+	resp, err := modules.IdentityProviders.GetSpecific(s, idpId, "sso-callback-uri", jsonutils.Marshal(input))
+	if err != nil {
+		return nil, errors.Wrap(err, "GetSpecific sso-callback-uri")
+	}
+	redir, _ := resp.GetString("redirect_uri")
+	idpDriver, _ := resp.GetString("driver")
 	info := jsonutils.NewDict()
-	idpDriver, _ := idp.GetString("driver")
 	switch idpDriver {
 	case api.IdentityDriverSQL:
 	case api.IdentityDriverLDAP:
 	case api.IdentityDriverCAS:
-		info.Add(jsonutils.NewString(getSsoCallbackUrl()), "redirect_uri")
+		info.Add(jsonutils.NewString(redir), "redirect_uri")
 	case api.IdentityDriverSAML:
 		info.Add(jsonutils.NewString(options.Options.ApiServer), "entity_id")
-		info.Add(jsonutils.NewString(getSsoCallbackUrl()), "redirect_uri")
+		info.Add(jsonutils.NewString(redir), "redirect_uri")
 	case api.IdentityDriverOIDC:
-		info.Add(jsonutils.NewString(getSsoCallbackUrl()), "redirect_uri")
+		info.Add(jsonutils.NewString(redir), "redirect_uri")
 	case api.IdentityDriverOAuth2:
-		info.Add(jsonutils.NewString(getSsoCallbackUrl()), "redirect_uri")
+		info.Add(jsonutils.NewString(redir), "redirect_uri")
 	default:
 	}
 	return info, nil
@@ -422,7 +472,7 @@ func fetchIdpSAMLMetadata(ctx context.Context, w http.ResponseWriter, req *http.
 	params := appctx.AppContextParams(ctx)
 	idpId := params["<idp_id>"]
 	query := jsonutils.NewDict()
-	query.Set("redirect_uri", jsonutils.NewString(getSsoCallbackUrl()))
+	query.Set("redirect_uri", jsonutils.NewString(getSsoCallbackUrl(ctx, req, idpId)))
 	md, err := modules.IdentityProviders.GetSpecific(s, idpId, "saml-metadata", query)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)

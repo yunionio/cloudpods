@@ -32,19 +32,28 @@ type SIdpAttributeOptions struct {
 	DefaultRoleId    string `json:"default_role_id"`
 }
 
+type SSAMLIdpBaseConfigOptions struct {
+	AllowIdpInit *bool `json:"allow_idp_init"`
+}
+
 type SSAMLIdpConfigOptions struct {
 	EntityId       string `json:"entity_id"`
 	RedirectSSOUrl string `json:"redirect_sso_url"`
+
+	SSAMLIdpBaseConfigOptions
 
 	SIdpAttributeOptions
 }
 
 type SSAMLTestIdpConfigOptions struct {
 	// empty
+	SSAMLIdpBaseConfigOptions
 }
 
 type SSAMLAzureADConfigOptions struct {
 	TenantId string `json:"tenant_id"`
+
+	SSAMLIdpBaseConfigOptions
 
 	SIdpAttributeOptions
 }
