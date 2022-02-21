@@ -455,16 +455,16 @@ func (manager *SModelBaseManager) AllowPerformPurgeSplitable(ctx context.Context
 	return true
 }
 
-func (manager *SModelBaseManager) PerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (manager *SModelBaseManager) PerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PurgeSplitTableInput) (jsonutils.JSONObject, error) {
 	splitable := manager.GetSplitTable()
 	if splitable == nil {
 		return nil, errors.Wrap(httperrors.ErrNotSupported, "not splitable")
 	}
-	err := splitable.Purge()
+	ret, err := splitable.Purge(input.Tables)
 	if err != nil {
-		return nil, errors.Wrap(err, "Purge")
+		return nil, errors.Wrapf(err, "Purge")
 	}
-	return nil, nil
+	return jsonutils.Marshal(map[string][]string{"tables": ret}), nil
 }
 
 func (model *SModelBase) GetId() string {
