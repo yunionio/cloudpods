@@ -453,3 +453,7 @@ func (self *SBaseGuestDriver) RequestSyncIsolatedDevice(ctx context.Context, gue
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (self *SBaseGuestDriver) RequestCPUSet(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, guest *models.SGuest, input *api.ServerCPUSetInput) (*api.ServerCPUSetResp, error) {
+	return nil, httperrors.ErrNotImplemented
+}

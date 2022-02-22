@@ -17,6 +17,7 @@ package compute
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -114,6 +115,33 @@ func init() {
 			return err
 		}
 		printObject(result)
+		return nil
+	})
+
+	type HostSysInfoOpt struct {
+		options.BaseIdOptions
+		Key    string `help:"The key for extract, e.g. 'cpu_info.processors'"`
+		Format string `help:"Output format" choices:"yaml|json" default:"yaml"`
+	}
+
+	R(&HostSysInfoOpt{}, "host-sysinfo", "Get host system info", func(s *mcclient.ClientSession, args *HostSysInfoOpt) error {
+		obj, err := modules.Hosts.Get(s, args.GetId(), nil)
+		if err != nil {
+			return err
+		}
+		keys := []string{"sys_info"}
+		if args.Key != "" {
+			keys = append(keys, strings.Split(args.Key, ".")...)
+		}
+		sysInfo, err := obj.Get(keys...)
+		if err != nil {
+			return errors.Wrap(err, "Get sys_info")
+		}
+		if args.Format == "yaml" {
+			fmt.Print(sysInfo.YAMLString())
+		} else {
+			fmt.Print(sysInfo.PrettyString())
+		}
 		return nil
 	})
 

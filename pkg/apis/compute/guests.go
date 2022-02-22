@@ -797,3 +797,10 @@ type ServerCreateSnapshotParams struct {
 	Name         string `json:"name"`
 	GenerateName string `json:"generate_name"`
 }
+
+type ServerCPUSetInput struct {
+	// Specifies the CPUs that tasks in this cgroup are permitted to access.
+	CPUS []int `json:"cpus"`
+}
+
+type ServerCPUSetResp struct{}

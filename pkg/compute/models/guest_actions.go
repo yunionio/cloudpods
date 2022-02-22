@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	noapi "yunion.io/x/onecloud/pkg/apis/notify"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -5345,4 +5346,46 @@ func (self *SGuest) PerformProbeIsolatedDevices(ctx context.Context, userCred mc
 		}
 	}
 	return jsonutils.Marshal(devs), nil
+}
+
+func (self *SGuest) PerformCpuset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *api.ServerCPUSetInput) (jsonutils.JSONObject, error) {
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, errors.Wrap(err, "get host model")
+	}
+	topoObj, err := host.SysInfo.Get("topology")
+	if err != nil {
+		return nil, errors.Wrap(err, "get topology from host sys_info")
+	}
+
+	hostTopo := new(hostapi.HostTopology)
+	if err := topoObj.Unmarshal(hostTopo); err != nil {
+		return nil, errors.Wrap(err, "Unmarshal host topology struct")
+	}
+
+	// get host logical cores
+	allCores := []int{}
+	for _, node := range hostTopo.Nodes {
+		for _, cores := range node.Cores {
+			allCores = append(allCores, cores.LogicalProcessors...)
+		}
+	}
+
+	if !sets.NewInt(allCores...).HasAll(data.CPUS...) {
+		return nil, httperrors.NewInputParameterError("Host cores %v not contains input %v", allCores, data.CPUS)
+	}
+
+	if err := self.SetMetadata(ctx, api.VM_METADATA_CGROUP_CPUSET, data, userCred); err != nil {
+		return nil, errors.Wrap(err, "set metadata")
+	}
+
+	return nil, self.StartGuestCPUSetTask(ctx, userCred, data)
+}
+
+func (self *SGuest) StartGuestCPUSetTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCPUSetInput) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestCPUSetTask", self, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), "", "")
+	if err != nil {
+		return errors.Wrap(err, "New GuestCPUSetTask")
+	}
+	return task.ScheduleRun(nil)
 }

@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostdhcp"
@@ -324,6 +325,8 @@ type SSysInfo struct {
 
 	HugepagesOption string `json:"hugepages_option"`
 	HugepageSizeKb  int    `json:"hugepage_size_kb"`
+
+	Topology *hostapi.HostTopology `json:"topology"`
 }
 
 func StartDetachStorages(hs []jsonutils.JSONObject) {

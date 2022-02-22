@@ -925,3 +925,22 @@ func (self *SKVMGuestDriver) ValidateUpdateData(ctx context.Context, guest *mode
 func (self *SKVMGuestDriver) RequestSyncIsolatedDevice(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
+
+func (self *SKVMGuestDriver) RequestCPUSet(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, guest *models.SGuest, input *api.ServerCPUSetInput) (*api.ServerCPUSetResp, error) {
+	url := fmt.Sprintf("%s/servers/%s/cpuset", host.ManagerUri, guest.Id)
+	httpClient := httputils.GetDefaultClient()
+	header := mcclient.GetTokenHeaders(userCred)
+	body := jsonutils.Marshal(input)
+	_, respBody, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "host request")
+	}
+	resp := new(api.ServerCPUSetResp)
+	if respBody == nil {
+		return resp, nil
+	}
+	if err := respBody.Unmarshal(resp); err != nil {
+		return nil, errors.Wrap(err, "unmarshal response")
+	}
+	return resp, nil
+}

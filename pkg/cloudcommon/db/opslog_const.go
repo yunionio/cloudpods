@@ -227,6 +227,9 @@ const (
 
 	ACT_GUEST_SRC_CHECK = "guest_src_check"
 
+	ACT_GUEST_CPUSET      = "guest_cpuset"
+	ACT_GUEST_CPUSET_FAIL = "guest_cpuset_fail"
+
 	ACT_CHANGE_BANDWIDTH = "eip_change_bandwidth"
 	ACT_EIP_CONVERT_FAIL = "eip_convert_fail"
 

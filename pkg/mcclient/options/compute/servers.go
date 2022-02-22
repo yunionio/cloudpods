@@ -29,6 +29,7 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 )
 
 var ErrEmtptyUpdate = errors.New("No valid update data")
@@ -1175,4 +1176,28 @@ type ServerChangeDiskStorageOptions struct {
 
 func (o *ServerChangeDiskStorageOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
+}
+
+type ServerCPUSetOptions struct {
+	options.BaseIdOptions
+	SETS string `help:"Cgroup cpusets CPUs spec string, e.g. '0-2,16'"`
+}
+
+func (o *ServerCPUSetOptions) Params() (jsonutils.JSONObject, error) {
+	sets := cgrouputils.ParseCpusetStr(o.SETS)
+	parts := strings.Split(sets, ",")
+	if len(parts) == 0 {
+		return nil, errors.New(fmt.Sprintf("Invalid cpu sets %q", o.SETS))
+	}
+	input := &computeapi.ServerCPUSetInput{
+		CPUS: make([]int, 0),
+	}
+	for _, s := range parts {
+		sd, err := strconv.Atoi(s)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Not digit part %q", s))
+		}
+		input.CPUS = append(input.CPUS, sd)
+	}
+	return jsonutils.Marshal(input), nil
 }
