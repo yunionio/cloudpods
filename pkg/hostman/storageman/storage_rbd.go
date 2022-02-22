@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build linux && cgo
 // +build linux,cgo
 
 package storageman
@@ -591,7 +592,7 @@ func (s *SRbdStorage) getCapacity() (*sCephCapacity, error) {
 		}
 		df := &sCephDfResult{}
 		result.Unmarshal(df)
-		ret.CapacitySizeByte = df.Stats.TotalAvailBytes
+		ret.CapacitySizeByte = df.Stats.TotalBytes
 		ret.UsedCapacitySizeByte = df.Stats.TotalUsedBytes
 		for _, pool := range df.Pools {
 			if pool.Name == poolName {
