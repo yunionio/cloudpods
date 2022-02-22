@@ -20,7 +20,6 @@ require (
 	github.com/RoaringBitmap/roaring v0.4.16 // indirect
 	github.com/Shopify/sarama v1.20.0 // indirect
 	github.com/Shopify/toxiproxy v2.1.4+incompatible // indirect
-	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
 	github.com/aliyun/aliyun-oss-go-sdk v2.0.4+incompatible
 	github.com/anacrolix/dht v0.0.0-20181129074040-b09db78595aa // indirect
@@ -58,7 +57,6 @@ require (
 	github.com/gin-gonic/gin v1.7.0
 	github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
-	github.com/go-ole/go-ole v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/gofrs/uuid v4.1.0+incompatible // indirect
@@ -77,6 +75,7 @@ require (
 	github.com/hako/durafmt v0.0.0-20180520121703-7b7ae1e72ead
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
+	github.com/jaypipes/ghw v0.8.0
 	github.com/jdcloud-api/jdcloud-sdk-go v1.55.0
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c

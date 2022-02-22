@@ -217,6 +217,8 @@ type IGuestDriver interface {
 	RequestChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error
 
 	RequestSyncIsolatedDevice(ctx context.Context, guest *SGuest, task taskman.ITask) error
+
+	RequestCPUSet(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, guest *SGuest, input *api.ServerCPUSetInput) (*api.ServerCPUSetResp, error)
 }
 
 var guestDrivers map[string]IGuestDriver

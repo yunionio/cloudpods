@@ -84,6 +84,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"list-forward":         guestListForward,
 			"close-forward":        guestCloseForward,
 			"storage-clone-disk":   guestStorageCloneDisk,
+			"cpuset":               guestCPUSet,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -624,4 +625,13 @@ func guestStorageCloneDisk(ctx context.Context, sid string, body jsonutils.JSONO
 	}
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StorageCloneDisk, params)
 	return nil, nil
+}
+
+func guestCPUSet(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	input := new(computeapi.ServerCPUSetInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, err
+	}
+	gm := guestman.GetGuestManager()
+	return gm.CPUSet(ctx, sid, input)
 }
