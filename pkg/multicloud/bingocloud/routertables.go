@@ -11,25 +11,42 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package shell
+package bingocloud
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/bingocloud"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/log"
 )
 
-func init() {
-	type RouteTablesListOptions struct {
-		RouterTableId string
+type SRouteTable struct {
+	RouteTableId   string `json:"routeTableId"`
+	RouteTableName string `json:"routeTableName"`
+	VpcId          string `json:"vpcId"`
+	RouteSet       string `json:"routeSet"`
+	AssociationSet struct {
+		Item struct {
+			RouteTableAssociationId string `json:"routeTableAssociationId"`
+			RouteTableId            string `json:"routeTableId"`
+			SubnetId                string `json:"subnetId"`
+			Main                    string `json:"main"`
+		} `json:"item"`
+	} `json:"associationSet"`
+}
+
+func (self *SRegion) GetRouterTables() ([]SRouteTable, error) {
+	resp, err := self.invoke("DescribeRouteTables", nil)
+	if err != nil {
+		return nil, err
 	}
-	shellutils.R(&RouteTablesListOptions{}, "routetables-list", "list routetables", func(cli *bingocloud.SRegion, args *RouteTablesListOptions) error {
-		routetables, err := cli.GetRouterTables()
-		if err != nil {
-			return err
+	log.Errorf("resp=:%s", resp)
+	result := struct {
+		RouteTableSet struct {
+			Item []SRouteTable
 		}
-		printList(routetables, 0, 0, 0, []string{})
-		return nil
-	})
+	}{}
+	err = resp.Unmarshal(&result)
+	if err != nil {
+		return nil, err
+	}
+	return result.RouteTableSet.Item, nil
 
 }

@@ -11,38 +11,49 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package shell
+package bingocloud
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/bingocloud"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/log"
 )
 
-func init() {
-	type ClusterListOptions struct {
-		ClusterId string
-	}
-	shellutils.R(&ClusterListOptions{}, "cluster-list", "list clusters", func(cli *bingocloud.SRegion, args *ClusterListOptions) error {
-		clusters, err := cli.GetClusters()
-		if err != nil {
-			return err
+type SCluster struct {
+	Hypervisor           string `json:"hypervisor"`
+	MaxVolumeStorage     string `json:"maxVolumeStorage"`
+	ExtendDiskMode       string `json:"extendDiskMode"`
+	CreateVolumeMode     string `json:"createVolumeMode"`
+	ClusterControllerSet struct {
+		Item struct {
+			Role    string `json:"role"`
+			Address string `json:"address"`
 		}
-		printList(clusters, 0, 0, 0, []string{})
-		return nil
-	})
-
-	type ClusterIdOptions struct {
-		ID string
 	}
-
-	// shellutils.R(&ClusterIdOptions{}, "cluster-show", "show clusters", func(cli *bingocloud.SRegion, args *ClusterIdOptions) error {
-	// 	cluster, err := cli.GetCluster(args.ID)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	printObject(cluster)
-	// 	return nil
-	// })
-
+	ClusterId   string `json:"clusterId"`
+	ClusterName string `json:"clusterName"`
+	Status      string `json:"status"`
+	SchedPolicy string `json:"schedPolicy"`
 }
+
+func (self *SRegion) GetClusters() ([]SCluster, error) {
+	resp, err := self.invoke("DescribeClusters", nil)
+	if err != nil {
+		return nil, err
+	}
+	log.Errorf("resp=:%s", resp)
+	result := struct {
+		ClusterSet struct {
+			Item []SCluster
+		}
+	}{}
+	err = resp.Unmarshal(&result)
+	if err != nil {
+		return nil, err
+	}
+	return result.ClusterSet.Item, nil
+}
+
+// func (self *SRegion) GetCluster(id string) (*SCluster, error) {
+// 	clusters := &SCluster{}
+// 	// return storage, self.get("storage_containers", id, nil, storage)
+// 	return clusters, cloudprovider.ErrNotImplemented
+// }

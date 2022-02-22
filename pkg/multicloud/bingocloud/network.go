@@ -11,38 +11,43 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package shell
+package bingocloud
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/bingocloud"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/log"
 )
 
-func init() {
-	type NetworkListOptions struct {
-		NetworkID string
-	}
-	shellutils.R(&NetworkListOptions{}, "network-list", "list network", func(cli *bingocloud.SRegion, args *NetworkListOptions) error {
-		networks, err := cli.GetNetWorks()
-		if err != nil {
-			return err
+type SNetwork struct {
+	PhysicalNetworkId   string `json:"physicalNetworkId"`
+	PhysicalNetworkName string `json:"physicalNetworkName"`
+	Bridge              string `json:"bridge"`
+	IsolationMode       string `json:"isolationMode"`
+	IsDefault           string `json:"isDefault"`
+	Disabled            string `json:"disabled"`
+	Hosts               struct {
+		Member struct {
+			NetworkInterface      string `json:"networkInterface"`
+			HostPhysicalNetworkId string `json:"hostPhysicalNetworkId"`
+			HostId                string `json:"hostId"`
 		}
-		printList(networks, 0, 0, 0, []string{})
-		return nil
-	})
+	} `json:"hosts"`
+}
 
-	type NetworkIdOptions struct {
-		ID string
+func (self *SRegion) GetNetWorks() ([]SNetwork, error) {
+	resp, err := self.invoke("DescribePhysicalNetworks", nil)
+	if err != nil {
+		return nil, err
+	}
+	log.Errorf("resp=:%s", resp)
+	result := struct {
+		PhysicalNetworkSet struct {
+			Item []SNetwork
+		}
+	}{}
+	err = resp.Unmarshal(&result)
+	if err != nil {
+		return nil, err
 	}
 
-	// shellutils.R(&NetworkIdOptions{}, "network-show", "show network", func(cli *bingocloud.SRegion, args *NetworkIdOptions) error {
-	// 	network, err := cli.GetNetWork(args.ID)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	printObject(network)
-	// 	return nil
-	// })
-
+	return result.PhysicalNetworkSet.Item, nil
 }

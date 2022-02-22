@@ -11,25 +11,32 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package shell
+package bingocloud
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/bingocloud"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/log"
 )
 
-func init() {
-	type HostListOptions struct {
-		InstanceID string
-	}
-	shellutils.R(&HostListOptions{}, "host-list", "list host", func(cli *bingocloud.SRegion, args *HostListOptions) error {
-		hosts, err := cli.GetHosts()
-		if err != nil {
-			return err
-		}
-		printList(hosts, 0, 0, 0, []string{})
-		return nil
-	})
+type SHost struct {
+	InstanceId  string `json:"instanceId"`
+	HostAddress string `json:"hostAddress"`
+}
 
+func (self *SRegion) GetHosts() ([]SHost, error) {
+	resp, err := self.invoke("DescribeInstanceHosts", nil)
+	if err != nil {
+		return nil, err
+	}
+	log.Errorf("resp=:%s", resp)
+	result := struct {
+		HostInfo struct {
+			Item []SHost
+		}
+	}{}
+	err = resp.Unmarshal(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result.HostInfo.Item, nil
 }

@@ -11,49 +11,56 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package shell
+package bingocloud
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/bingocloud"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-func init() {
-	type StorageListOptions struct {
-		MaxRecords int
-		NextToken  string
+type SStorage struct {
+	Disabled     bool   `json:"disabled"`
+	DrCloudId    string `json:"drCloudId"`
+	ParameterSet struct {
+		Item struct {
+			Name  string `json:"name"`
+			Value string `json:"value"`
+		} `json:"item"`
+	} `json:"parameterSet"`
+	StorageId    string `json:"storageId"`
+	ClusterId    string `json:"clusterId"`
+	UsedBy       string `json:"usedBy"`
+	SpaceMax     string `json:"spaceMax"`
+	IsDRStorage  string `json:"isDRStorage"`
+	ScheduleTags string `json:"scheduleTags"`
+	StorageName  string `json:"storageName"`
+	Location     string `json:"location"`
+	SpaceUsed    string `json:"spaceUsed"`
+	StorageType  string `json:"storageType"`
+	FileFormat   string `json:"fileFormat"`
+	ResUsage     string `json:"resUsage"`
+}
+
+func (self *SRegion) GetStorages() ([]SStorage, error) {
+	resp, err := self.invoke("DescribeStorages", nil)
+	if err != nil {
+		return nil, err
 	}
-	shellutils.R(&StorageListOptions{}, "storage-list", "list storage", func(cli *bingocloud.SRegion, args *StorageListOptions) error {
-		storages, err := cli.GetStorages()
-		if err != nil {
-			return err
+	log.Errorf("resp=:%s", resp)
+	result := struct {
+		StorageSet struct {
+			Item []SStorage
 		}
-		printList(storages, 0, 0, 0, []string{})
-		return nil
-	})
-
-	type StorageCacheListOptions struct{}
-
-	shellutils.R(&StorageCacheListOptions{}, "storagecache-list", "list storagecache", func(cli *bingocloud.SRegion, args *StorageCacheListOptions) error {
-		storagecaches, err := cli.GetStorages()
-		if err != nil {
-			return err
-		}
-		printList(storagecaches, 0, 0, 0, []string{})
-		return nil
-	})
-
-	type StorageIdOptions struct {
-		ID string
+	}{}
+	err = resp.Unmarshal(&result)
+	if err != nil {
+		return nil, err
 	}
+	return result.StorageSet.Item, nil
+}
 
-	shellutils.R(&StorageIdOptions{}, "storage-show", "show storage", func(cli *bingocloud.SRegion, args *StorageIdOptions) error {
-		storage, err := cli.GetStorage(args.ID)
-		if err != nil {
-			return err
-		}
-		printObject(storage)
-		return nil
-	})
-
+func (self *SRegion) GetStorage(id string) (*SStorage, error) {
+	storage := &SStorage{}
+	// return storage, self.get("storage_containers", id, nil, storage)
+	return storage, cloudprovider.ErrNotImplemented
 }

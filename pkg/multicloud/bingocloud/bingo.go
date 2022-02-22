@@ -15,11 +15,13 @@
 package bingocloud
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
@@ -162,7 +164,12 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 	}
 	defer resp.Body.Close()
 
-	result, err := xj.Convert(resp.Body)
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := xj.Convert(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +195,12 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 	if strings.HasPrefix(action, "Describe") && strings.HasSuffix(action, "s") {
 		objDict := obj.(*jsonutils.JSONDict)
 		for k, v := range objDict.Value() {
-			if (strings.HasSuffix(k, "Set") || k == "regionInfo") && v.Contains("item") {
+			if (strings.HasSuffix(k, "Set") ||
+				k == "regionInfo") ||
+				k == "availabilityZoneInfo" ||
+				k == "hostInfo" ||
+				k == "storageInfo" ||
+				k == "diskFileInfo" && v.Contains("item") {
 				value := v.(*jsonutils.JSONDict)
 				item, _ := v.Get("item")
 				_, ok := item.(*jsonutils.JSONArray)

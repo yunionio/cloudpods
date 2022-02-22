@@ -32,8 +32,6 @@ func (self *SRegion) GetZones() ([]SZone, error) {
 		return nil, err
 	}
 	log.Errorf("resp=:%s", resp)
-	//resp=:{"-xmlns":"http://ec2.amazonaws.com/doc/2009-08-15/",
-	// "availabilityZoneInfo":{"item":{"displayName":"cc1","zoneName":"cc1","zoneState":"available"}}}
 	result := struct {
 		AvailabilityZoneInfo struct {
 			Item []SZone
