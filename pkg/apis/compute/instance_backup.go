@@ -10,6 +10,11 @@ const (
 	INSTANCE_BACKUP_STATUS_RECOVERY        = "recovery"
 	INSTANCE_BACKUP_STATUS_RECOVERY_FAILED = "recovery_failed"
 	INSTANCE_BACKUP_STATUS_READY           = "ready"
+	INSTANCE_BACKUP_STATUS_PACK            = "pack"
+	INSTANCE_BACKUP_STATUS_PACK_FAILED     = "pack_failed"
+
+	INSTANCE_BACKUP_STATUS_CREATING_FROM_PACKAGE      = "creating_from_package"
+	INSTANCE_BACKUP_STATUS_CREATE_FROM_PACKAGE_FAILED = "create_from_package_failed"
 )
 
 type InstanceBackupListInput struct {
@@ -43,4 +48,14 @@ type InstanceBackupDetails struct {
 type InstanceBackupRecoveryInput struct {
 	// description: name of guest
 	Name string
+}
+
+type InstanceBackupPackInput struct {
+	PackageName string
+}
+
+type InstanceBackupManagerCreateFromPackageInput struct {
+	BackupStorageId string
+	PackageName     string
+	Name            string
 }

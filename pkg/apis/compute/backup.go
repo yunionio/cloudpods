@@ -14,7 +14,11 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
 	BACKUPSTORAGE_TYPE_NFS      = "nfs"
@@ -118,4 +122,26 @@ type DiskBackupRecoveryInput struct {
 }
 
 type DiskBackupSyncstatusInput struct {
+}
+
+type DiskBackupPackMetadata struct {
+	OsArch     string
+	SizeMb     int
+	DiskSizeMb int
+	DiskType   string
+	// 操作系统类型
+	OsType     string
+	DiskConfig *SBackupDiskConfig
+}
+
+type InstanceBackupPackMetadata struct {
+	OsArch         string
+	ServerConfig   jsonutils.JSONObject
+	ServerMetadata jsonutils.JSONObject
+	SecGroups      jsonutils.JSONObject
+	KeypairId      string
+	OsType         string
+	InstanceType   string
+	SizeMb         int
+	DiskMetadatas  []DiskBackupPackMetadata
 }

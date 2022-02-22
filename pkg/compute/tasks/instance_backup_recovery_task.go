@@ -42,12 +42,14 @@ func (self *InstanceBackupRecoveryTask) taskFailed(ctx context.Context, ib *mode
 	reasonStr, _ := reason.GetString()
 	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_CREATE_FAILED, reasonStr)
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_RECOVERY, reason, self.UserCred, false)
+	db.OpsLog.LogEvent(ib, db.ACT_RECOVERY_FAIL, ib.GetShortDesc(ctx), self.GetUserCred())
 	self.SetStageFailed(ctx, reason)
 }
 
 func (self *InstanceBackupRecoveryTask) taskSuccess(ctx context.Context, ib *models.SInstanceBackup) {
 	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_READY, "")
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_RECOVERY, nil, self.UserCred, true)
+	db.OpsLog.LogEvent(ib, db.ACT_RECOVERY, ib.GetShortDesc(ctx), self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
