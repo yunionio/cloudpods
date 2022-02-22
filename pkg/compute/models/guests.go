@@ -3133,13 +3133,28 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			result.UpdateError(err)
 			continue
 		}
-		db.Update(&commondb[i], func() error {
-			if len(commonext[i].GetIP()) > 0 {
-				commondb[i].IpAddr = commonext[i].GetIP()
+		_, err = db.Update(&commondb[i], func() error {
+			network := commondb[i].GetNetwork()
+			ip := commonext[i].GetIP()
+			if len(ip) > 0 {
+				if !network.Contains(ip) {
+					localNet, err := getCloudNicNetwork(ctx, commonext[i], host, ipList, i)
+					if err != nil {
+						return errors.Wrapf(err, "getCloudNicNetwork")
+					}
+					commondb[i].NetworkId = localNet.Id
+					commondb[i].IpAddr = ip
+				} else {
+					commondb[i].IpAddr = ip
+				}
 			}
 			commondb[i].Driver = commonext[i].GetDriver()
 			return nil
 		})
+		if err != nil {
+			result.UpdateError(errors.Wrapf(err, "db.Update"))
+			continue
+		}
 		result.Update()
 	}
 
