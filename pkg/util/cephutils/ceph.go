@@ -159,7 +159,7 @@ func (self *CephClient) GetCapacity() (*SCapacity, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "ret.Unmarshal")
 	}
-	result.CapacitySizeKb = stats.Stats.TotalAvailBytes / 1024
+	result.CapacitySizeKb = stats.Stats.TotalBytes / 1024
 	result.UsedCapacitySizeKb = stats.Stats.TotalUsedBytes / 1024
 	for _, pool := range stats.Pools {
 		if pool.Name == self.pool {
