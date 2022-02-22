@@ -2239,7 +2239,7 @@ func (manager *SDiskManager) CleanPendingDeleteDisks(ctx context.Context, userCr
 		return
 	}
 	for i := 0; i < len(disks); i += 1 {
-		disks[i].StartDiskDeleteTask(ctx, userCred, "", false, false, false)
+		disks[i].StartDiskDeleteTask(ctx, userCred, "", false, true, false)
 	}
 }
 
