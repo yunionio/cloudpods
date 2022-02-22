@@ -20,32 +20,15 @@ import (
 )
 
 func init() {
-	type InstanceListOptions struct {
-		Id        string
-		MaxResult int
-		NextToken string
+	type HostListOptions struct {
+		InstanceID string
 	}
-	shellutils.R(&InstanceListOptions{}, "instance-list", "list instances", func(cli *bingocloud.SRegion, args *InstanceListOptions) error {
-		vms, _, err := cli.DescribeInstances(args.Id, args.MaxResult, args.NextToken)
+	shellutils.R(&HostListOptions{}, "host-list", "list host", func(cli *bingocloud.SRegion, args *HostListOptions) error {
+		hosts, err := cli.GetHosts()
 		if err != nil {
 			return err
 		}
-		printList(vms, 0, 0, 0, []string{})
-		return nil
-	})
-
-	type InstanceIdOptions struct {
-		ID string
-	}
-
-	shellutils.R(&InstanceIdOptions{}, "instance-show", "show instance", func(cli *bingocloud.SRegion, args *InstanceIdOptions) error {
-		/*
-			vm, err := cli.GetInstance(args.ID)
-			if err != nil {
-				return err
-			}
-			printObject(vm)
-		*/
+		printList(hosts, 0, 0, 0, []string{})
 		return nil
 	})
 

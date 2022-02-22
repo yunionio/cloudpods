@@ -1,11 +1,3 @@
-/*
- * @Author: your name
- * @Date: 2022-02-17 21:54:45
- * @LastEditTime: 2022-02-18 15:48:13
- * @LastEditors: Please set LastEditors
- * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
- * @FilePath: \cloudpods\pkg\multicloud\bingocloud\vpc.go
- */
 // Copyright 2019 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,42 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package bingocloud
+
+package shell
 
 import (
-	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/multicloud/bingocloud"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
-type SRouteTable struct {
-	RouteTableId   string `json:"routeTableId"`
-	RouteTableName string `json:""`
-	VpcId          string `json:"vpcId"`
-	RouteSet       string `json:"routeSet"`
-	AssociationSet struct {
-		Item struct {
-			RouteTableAssociationId string `json:"routeTableAssociationId"`
-			RouteTableId            string `json:"routeTableId"`
-			SubnetId                string `json:"subnetId"`
-			Main                    string `json:"main"`
-		} `json:"item"`
-	} `json:"associationSet"`
-}
-
-func (self *SRegion) GetRouterTables() ([]SRouteTable, error) {
-	resp, err := self.invoke("DescribeRouteTables", nil)
-	if err != nil {
-		return nil, err
+func init() {
+	type RouteTablesListOptions struct {
+		RouterTableId string
 	}
-	log.Errorf("resp=:%s", resp)
-	result := struct {
-		RouteTableSet struct {
-			Item []SRouteTable
+	shellutils.R(&RouteTablesListOptions{}, "routetables-list", "list routetables", func(cli *bingocloud.SRegion, args *RouteTablesListOptions) error {
+		routetables, err := cli.GetRouterTables()
+		if err != nil {
+			return err
 		}
-	}{}
-	err = resp.Unmarshal(&result)
-	if err != nil {
-		return nil, err
-	}
-	return result.RouteTableSet.Item, nil
+		printList(routetables, 0, 0, 0, []string{})
+		return nil
+	})
 
 }
