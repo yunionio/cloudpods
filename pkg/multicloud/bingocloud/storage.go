@@ -22,10 +22,8 @@ type SStorage struct {
 	Disabled     bool   `json:"disabled"`
 	DrCloudId    string `json:"drCloudId"`
 	ParameterSet struct {
-		Item struct {
-			Name  string `json:"name"`
-			Value string `json:"value"`
-		} `json:"item"`
+		Name  string `json:"name"`
+		Value string `json:"value"`
 	} `json:"parameterSet"`
 	StorageId    string `json:"storageId"`
 	ClusterId    string `json:"clusterId"`
@@ -61,6 +59,5 @@ func (self *SRegion) GetStorages() ([]SStorage, error) {
 
 func (self *SRegion) GetStorage(id string) (*SStorage, error) {
 	storage := &SStorage{}
-	// return storage, self.get("storage_containers", id, nil, storage)
 	return storage, cloudprovider.ErrNotImplemented
 }

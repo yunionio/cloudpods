@@ -29,7 +29,7 @@ type SNetwork struct {
 			NetworkInterface      string `json:"networkInterface"`
 			HostPhysicalNetworkId string `json:"hostPhysicalNetworkId"`
 			HostId                string `json:"hostId"`
-		}
+		} `json:"member"`
 	} `json:"hosts"`
 }
 
@@ -48,6 +48,8 @@ func (self *SRegion) GetNetWorks() ([]SNetwork, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	log.Errorf("result=:%s", result)
 
 	return result.PhysicalNetworkSet.Item, nil
 }

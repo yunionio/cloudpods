@@ -91,7 +91,7 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetDisk")
 	}
 
-	return nil, nil
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {

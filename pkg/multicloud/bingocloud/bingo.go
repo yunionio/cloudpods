@@ -191,16 +191,21 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 		}
 	}
 
+	log.Errorf("obj=:%s", obj)
+
 	// 处理请求单个资源情况
 	if strings.HasPrefix(action, "Describe") && strings.HasSuffix(action, "s") {
 		objDict := obj.(*jsonutils.JSONDict)
+		log.Errorf("objDict=:%s", objDict)
+
 		for k, v := range objDict.Value() {
+
 			if (strings.HasSuffix(k, "Set") ||
-				k == "regionInfo") ||
+				k == "regionInfo" ||
 				k == "availabilityZoneInfo" ||
 				k == "hostInfo" ||
 				k == "storageInfo" ||
-				k == "diskFileInfo" && v.Contains("item") {
+				k == "diskFileInfo") && v.Contains("item") {
 				value := v.(*jsonutils.JSONDict)
 				item, _ := v.Get("item")
 				_, ok := item.(*jsonutils.JSONArray)
@@ -209,8 +214,26 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 					objDict.Set(k, value)
 				}
 			}
+
+			//	需要递归？但是没有把他封装成一个函数
+			if k == "DescribePhysicalNetworksResult" {
+				vv := v.(*jsonutils.JSONDict)
+				for idx, val := range vv.Value() {
+					if (strings.HasSuffix(idx, "Set")) && val.Contains("item") {
+						res := val.(*jsonutils.JSONDict)
+						ite, _ := val.Get("item")
+						_, yes := ite.(*jsonutils.JSONArray)
+						if !yes {
+							res.Set("item", jsonutils.NewArray(ite))
+							objDict.Set(idx, res)
+						}
+					}
+				}
+			}
 		}
 	}
+
+	log.Errorf("obj217=:%s", obj)
 
 	return obj, nil
 }
