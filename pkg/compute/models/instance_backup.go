@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -435,4 +436,116 @@ func (self *SInstanceBackup) StartRecoveryTask(ctx context.Context, userCred mcc
 		task.ScheduleRun(nil)
 	}
 	return nil
+}
+
+func (self *SInstanceBackup) PerformPack(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InstanceBackupPackInput) (jsonutils.JSONObject, error) {
+	if input.PackageName == "" {
+		return nil, httperrors.NewMissingParameterError("miss package_name")
+	}
+	self.SetStatus(userCred, api.INSTANCE_BACKUP_STATUS_PACK, "")
+	params := jsonutils.NewDict()
+	params.Set("package_name", jsonutils.NewString(input.PackageName))
+	task, err := taskman.TaskManager.NewTask(ctx, "InstanceBackupPackTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return nil, err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil, nil
+}
+
+func (self *SInstanceBackupManager) PerformCreateFromPackage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InstanceBackupManagerCreateFromPackageInput) (jsonutils.JSONObject, error) {
+	if input.Name == "" {
+		return nil, httperrors.NewMissingParameterError("miss name")
+	}
+	if input.PackageName == "" {
+		return nil, httperrors.NewMissingParameterError("miss package_name")
+	}
+	_, err := BackupStorageManager.FetchById(input.BackupStorageId)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("unable to fetch backupStorage %s", input.BackupStorageId)
+	}
+	name, err := db.GenerateName(ctx, self, userCred, input.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to generate name")
+	}
+	ib, err := self.CreateInstanceBackupFromPackage(ctx, userCred, input.BackupStorageId, name)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create instanceBackup")
+	}
+	params := jsonutils.NewDict()
+	params.Set("package_name", jsonutils.NewString(input.PackageName))
+	task, err := taskman.TaskManager.NewTask(ctx, "InstanceBackupUnpackTask", ib, userCred, params, "", "", nil)
+	if err != nil {
+		return nil, err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil, nil
+}
+
+func (self *SInstanceBackup) PackMetadata() (*api.InstanceBackupPackMetadata, error) {
+	metadata := &api.InstanceBackupPackMetadata{
+		OsArch:         self.OsArch,
+		ServerConfig:   self.ServerConfig,
+		ServerMetadata: self.ServerMetadata,
+		SecGroups:      self.SecGroups,
+		KeypairId:      self.KeypairId,
+		OsType:         self.OsType,
+		InstanceType:   self.InstanceType,
+		SizeMb:         self.SizeMb,
+	}
+	dbs, err := self.GetBackups()
+	if err != nil {
+		return nil, err
+	}
+	for i := range dbs {
+		mt := dbs[i].PackMetadata()
+		metadata.DiskMetadatas = append(metadata.DiskMetadatas, *mt)
+	}
+	return metadata, nil
+}
+
+func (manager *SInstanceBackupManager) CreateInstanceBackupFromPackage(ctx context.Context, owner mcclient.TokenCredential, backupStorageId, name string) (*SInstanceBackup, error) {
+	ib := &SInstanceBackup{}
+	ib.SetModelManager(manager, ib)
+	ib.ProjectId = owner.GetProjectId()
+	ib.DomainId = owner.GetProjectDomainId()
+	ib.Name = name
+	ib.BackupStorageId = backupStorageId
+	ib.CloudregionId = "default"
+	ib.Status = api.INSTANCE_BACKUP_STATUS_CREATING_FROM_PACKAGE
+	err := manager.TableSpec().Insert(ctx, ib)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to insert instance backup")
+	}
+	return ib, nil
+}
+
+func (ib *SInstanceBackup) FillFromPackMetadata(ctx context.Context, userCred mcclient.TokenCredential, diskBackupIds []string, metadata *api.InstanceBackupPackMetadata) (*SInstanceBackup, error) {
+	for i, backupId := range diskBackupIds {
+		_, err := DiskBackupManager.CreateFromPackMetadata(ctx, userCred, ib.BackupStorageId, backupId, fmt.Sprintf("%s_disk_%d", ib.Name, i), &metadata.DiskMetadatas[i])
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to create diskbackup %s", backupId)
+		}
+		err = InstanceBackupJointManager.CreateJoint(ctx, ib.GetId(), backupId, int8(i))
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to CreateJoint for instanceBackup %s and diskBackup %s", ib.GetId(), backupId)
+		}
+	}
+	_, err := db.Update(ib, func() error {
+		ib.OsArch = metadata.OsArch
+		ib.ServerConfig = metadata.ServerConfig
+		ib.ServerMetadata = metadata.ServerMetadata
+		ib.SecGroups = metadata.SecGroups
+		ib.KeypairId = metadata.KeypairId
+		ib.OsType = metadata.OsType
+		ib.InstanceType = metadata.InstanceType
+		ib.SizeMb = metadata.SizeMb
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ib, nil
 }

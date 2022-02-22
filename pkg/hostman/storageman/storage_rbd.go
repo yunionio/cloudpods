@@ -317,9 +317,9 @@ func (s *SRbdStorage) createBackup(pool string, diskId string, snapshotId string
 	}
 	defer backupImg.Delete()
 	// convert backupStorage
-	backupStorage, err := backupstorage.NewBackupStorage(backupStorageId, backupStorageAccessInfo)
+	backupStorage, err := backupstorage.GetBackupStorage(backupStorageId, backupStorageAccessInfo)
 	if err != nil {
-		return 0, errors.Wrap(err, "unable to NewNFSBackupStorage")
+		return 0, errors.Wrap(err, "unable to GetBackupStorage")
 	}
 	srcPath := fmt.Sprintf("rbd:%s/%s%s", pool, backupName, s.getStorageConfString())
 	// convert
@@ -570,9 +570,9 @@ func (s *SRbdStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, inpu
 	backup := input.DiskInfo.Backup
 	pool, _ := s.StorageConf.GetString("pool")
 	destPath := fmt.Sprintf("rbd:%s/%s%s", pool, disk.GetId(), s.getStorageConfString())
-	backupStorage, err := backupstorage.NewBackupStorage(backup.BackupStorageId, backup.BackupStorageAccessInfo)
+	backupStorage, err := backupstorage.GetBackupStorage(backup.BackupStorageId, backup.BackupStorageAccessInfo)
 	if err != nil {
-		return errors.Wrap(err, "unable to NewNFSBackupStorage")
+		return errors.Wrap(err, "unable to GetBackupStorage")
 	}
 	err = backupStorage.ConvertTo(destPath, qemuimg.RAW, backup.BackupId)
 	if err != nil {

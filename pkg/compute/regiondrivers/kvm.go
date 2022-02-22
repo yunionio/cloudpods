@@ -1296,6 +1296,73 @@ func (self *SKVMRegionDriver) RequestCreateInstanceBackup(ctx context.Context, g
 	return nil
 }
 
+func (self *SKVMRegionDriver) RequestPackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string) error {
+	backupStorage, err := ib.GetBackupStorage()
+	if err != nil {
+		return errors.Wrap(err, "unable to get backupStorage")
+	}
+	backups, err := ib.GetBackups()
+	if err != nil {
+		return errors.Wrap(err, "unable to get backups")
+	}
+	storage, _ := backups[0].GetStorage()
+	var host *models.SHost
+	if storage != nil {
+		host = storage.GetMasterHost()
+	}
+	if host == nil {
+		host, err = models.HostManager.GetEnabledKvmHost()
+		if err != nil {
+			return errors.Wrap(err, "unable to GetEnabledKvmHost")
+		}
+	}
+	backupIds := make([]string, len(backups))
+	for i := range backupIds {
+		backupIds[i] = backups[i].GetId()
+	}
+	metadata, err := ib.PackMetadata()
+	if err != nil {
+		return errors.Wrap(err, "unable to PackMetadata")
+	}
+	url := fmt.Sprintf("%s/storages/pack-instance-backup", host.ManagerUri)
+	body := jsonutils.NewDict()
+	body.Set("package_name", jsonutils.NewString(packageName))
+	body.Set("backup_storage_id", jsonutils.NewString(backupStorage.GetId()))
+	body.Set("backup_storage_access_info", jsonutils.Marshal(backupStorage.AccessInfo))
+	body.Set("backup_ids", jsonutils.Marshal(backupIds))
+	body.Set("metadata", jsonutils.Marshal(metadata))
+	header := task.GetTaskRequestHeader()
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	if err != nil {
+		return errors.Wrap(err, "unable to pack instancebackup")
+	}
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string) error {
+	log.Infof("RequestUnpackInstanceBackup")
+	backupStorage, err := ib.GetBackupStorage()
+	if err != nil {
+		return errors.Wrap(err, "unable to get backupStorage")
+	}
+	host, err := models.HostManager.GetEnabledKvmHost()
+	if err != nil {
+		return errors.Wrap(err, "unable to GetEnabledKvmHost")
+	}
+	url := fmt.Sprintf("%s/storages/unpack-instance-backup", host.ManagerUri)
+	log.Infof("url: %s", url)
+	body := jsonutils.NewDict()
+	body.Set("package_name", jsonutils.NewString(packageName))
+	body.Set("backup_storage_id", jsonutils.NewString(backupStorage.GetId()))
+	body.Set("backup_storage_access_info", jsonutils.Marshal(backupStorage.AccessInfo))
+	header := task.GetTaskRequestHeader()
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	if err != nil {
+		return errors.Wrap(err, "unable to pack instancebackup")
+	}
+	return nil
+}
+
 func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, backup *models.SDiskBackup, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		originStatus, _ := task.GetParams().GetString("origin_status")
