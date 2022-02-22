@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package shell
 
 import (
@@ -19,40 +20,28 @@ import (
 )
 
 func init() {
-	type StorageListOptions struct {
-		MaxRecords int
-		NextToken  string
+	type DiskListOptions struct {
 	}
-	shellutils.R(&StorageListOptions{}, "storage-list", "list storage", func(cli *bingocloud.SRegion, args *StorageListOptions) error {
-		storages, err := cli.GetStorages()
+	shellutils.R(&DiskListOptions{}, "disk-list", "list disk", func(cli *bingocloud.SRegion, args *DiskListOptions) error {
+		// instanceId string, zoneId string, category string, diskIds []string, offset int, limit int
+		disks, err := cli.GetDisks()
 		if err != nil {
 			return err
 		}
-		printList(storages, 0, 0, 0, []string{})
+		printList(disks, 0, 0, 0, []string{})
 		return nil
 	})
 
-	type StorageCacheListOptions struct{}
-
-	shellutils.R(&StorageCacheListOptions{}, "storagecache-list", "list storagecache", func(cli *bingocloud.SRegion, args *StorageCacheListOptions) error {
-		storagecaches, err := cli.GetStorages()
-		if err != nil {
-			return err
-		}
-		printList(storagecaches, 0, 0, 0, []string{})
-		return nil
-	})
-
-	type StorageIdOptions struct {
+	type DiskIdOptions struct {
 		ID string
 	}
 
-	shellutils.R(&StorageIdOptions{}, "storage-show", "show storage", func(cli *bingocloud.SRegion, args *StorageIdOptions) error {
-		storage, err := cli.GetStorage(args.ID)
+	shellutils.R(&DiskIdOptions{}, "disk-show", "show disk", func(cli *bingocloud.SRegion, args *DiskIdOptions) error {
+		disk, err := cli.GetDisk(args.ID)
 		if err != nil {
 			return err
 		}
-		printObject(storage)
+		printObject(disk)
 		return nil
 	})
 

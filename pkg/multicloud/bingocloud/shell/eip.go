@@ -20,15 +20,30 @@ import (
 )
 
 func init() {
-	type RouteTablesListOptions struct {
-		RouterTableId string
+	type EipListOptions struct {
 	}
-	shellutils.R(&RouteTablesListOptions{}, "routetables-list", "list routetables", func(cli *bingocloud.SRegion, args *RouteTablesListOptions) error {
-		routetables, err := cli.GetRouterTables()
+
+	shellutils.R(&EipListOptions{}, "eip-list", "list eips", func(cli *bingocloud.SRegion, args *EipListOptions) error {
+		eips, total, err := cli.GetEips()
 		if err != nil {
 			return err
 		}
-		printList(routetables, 0, 0, 0, []string{})
+		printList(eips, total, 0, 0, []string{})
+		return nil
+	})
+
+	type EipIdOptions struct {
+		ID string
+	}
+
+	shellutils.R(&EipIdOptions{}, "eip-show", "eip instance", func(cli *bingocloud.SRegion, args *EipIdOptions) error {
+		/*
+			vm, err := cli.GetInstance(args.ID)
+			if err != nil {
+				return err
+			}
+			printObject(vm)
+		*/
 		return nil
 	})
 

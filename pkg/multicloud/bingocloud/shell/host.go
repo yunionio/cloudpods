@@ -20,15 +20,15 @@ import (
 )
 
 func init() {
-	type RouteTablesListOptions struct {
-		RouterTableId string
+	type HostListOptions struct {
+		InstanceID string
 	}
-	shellutils.R(&RouteTablesListOptions{}, "routetables-list", "list routetables", func(cli *bingocloud.SRegion, args *RouteTablesListOptions) error {
-		routetables, err := cli.GetRouterTables()
+	shellutils.R(&HostListOptions{}, "host-list", "list host", func(cli *bingocloud.SRegion, args *HostListOptions) error {
+		hosts, err := cli.GetHosts()
 		if err != nil {
 			return err
 		}
-		printList(routetables, 0, 0, 0, []string{})
+		printList(hosts, 0, 0, 0, []string{})
 		return nil
 	})
 

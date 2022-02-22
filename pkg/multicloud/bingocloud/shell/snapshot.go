@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package shell
 
 import (
@@ -19,40 +20,27 @@ import (
 )
 
 func init() {
-	type StorageListOptions struct {
-		MaxRecords int
-		NextToken  string
+	type SnapshotListOptions struct {
 	}
-	shellutils.R(&StorageListOptions{}, "storage-list", "list storage", func(cli *bingocloud.SRegion, args *StorageListOptions) error {
-		storages, err := cli.GetStorages()
+	shellutils.R(&SnapshotListOptions{}, "snapshot-list", "list snapshot", func(cli *bingocloud.SRegion, args *SnapshotListOptions) error {
+		snapshots, total, err := cli.GetSnapshots()
 		if err != nil {
 			return err
 		}
-		printList(storages, 0, 0, 0, []string{})
+		printList(snapshots, total, 0, 0, []string{})
 		return nil
 	})
 
-	type StorageCacheListOptions struct{}
-
-	shellutils.R(&StorageCacheListOptions{}, "storagecache-list", "list storagecache", func(cli *bingocloud.SRegion, args *StorageCacheListOptions) error {
-		storagecaches, err := cli.GetStorages()
-		if err != nil {
-			return err
-		}
-		printList(storagecaches, 0, 0, 0, []string{})
-		return nil
-	})
-
-	type StorageIdOptions struct {
+	type SnapshotIdOptions struct {
 		ID string
 	}
 
-	shellutils.R(&StorageIdOptions{}, "storage-show", "show storage", func(cli *bingocloud.SRegion, args *StorageIdOptions) error {
-		storage, err := cli.GetStorage(args.ID)
+	shellutils.R(&SnapshotIdOptions{}, "snapshot-show", "show snapshot", func(cli *bingocloud.SRegion, args *SnapshotIdOptions) error {
+		snapshot, err := cli.GetSnapshot(args.ID)
 		if err != nil {
 			return err
 		}
-		printObject(storage)
+		printObject(snapshot)
 		return nil
 	})
 

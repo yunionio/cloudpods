@@ -20,16 +20,29 @@ import (
 )
 
 func init() {
-	type RouteTablesListOptions struct {
-		RouterTableId string
+	type NetworkListOptions struct {
+		NetworkID string
 	}
-	shellutils.R(&RouteTablesListOptions{}, "routetables-list", "list routetables", func(cli *bingocloud.SRegion, args *RouteTablesListOptions) error {
-		routetables, err := cli.GetRouterTables()
+	shellutils.R(&NetworkListOptions{}, "network-list", "list network", func(cli *bingocloud.SRegion, args *NetworkListOptions) error {
+		networks, err := cli.GetNetWorks()
 		if err != nil {
 			return err
 		}
-		printList(routetables, 0, 0, 0, []string{})
+		printList(networks, 0, 0, 0, []string{})
 		return nil
 	})
+
+	type NetworkIdOptions struct {
+		ID string
+	}
+
+	// shellutils.R(&NetworkIdOptions{}, "network-show", "show network", func(cli *bingocloud.SRegion, args *NetworkIdOptions) error {
+	// 	network, err := cli.GetNetWork(args.ID)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	printObject(network)
+	// 	return nil
+	// })
 
 }
