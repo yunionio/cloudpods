@@ -2860,6 +2860,13 @@ func (network *SNetwork) getUsedAddressQuery(owner mcclient.IIdentityProvider, s
 	return sqlchemy.Union(queries...).Query()
 }
 
+func (self *SNetwork) Contains(ip string) bool {
+	start, _ := netutils.NewIPV4Addr(self.GuestIpStart)
+	end, _ := netutils.NewIPV4Addr(self.GuestIpEnd)
+	addr, _ := netutils.NewIPV4Addr(ip)
+	return netutils.NewIPV4AddrRange(start, end).Contains(addr)
+}
+
 type SNetworkUsedAddressList []api.SNetworkUsedAddress
 
 func (a SNetworkUsedAddressList) Len() int      { return len(a) }
