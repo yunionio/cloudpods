@@ -906,6 +906,7 @@ func (h *SHostInfo) fetchAccessNetworkInfo() {
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
 	params.Set("is_classic", jsonutils.JSONTrue)
+	params.Set("provider", jsonutils.NewString(api.CLOUD_PROVIDER_ONECLOUD))
 	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("limit", jsonutils.NewInt(0))
 	// use default vpc
@@ -937,45 +938,36 @@ func (h *SHostInfo) onGetWireId(wireId string) {
 	if err != nil {
 		h.onFail(err)
 		return
-	} else {
-		h.getZoneInfo(h.ZoneId, false)
 	}
+	h.getZoneInfo(h.ZoneId)
 }
 
 func (h *SHostInfo) GetSession() *mcclient.ClientSession {
 	return hostutils.GetComputeSession(context.Background())
 }
 
-func (h *SHostInfo) getZoneInfo(zoneId string, standalone bool) {
-	log.Debugf("Start GetZoneInfo %s %v", zoneId, standalone)
+func (h *SHostInfo) getZoneInfo(zoneId string) {
+	log.Debugf("Start GetZoneInfo %s", zoneId)
 	var params = jsonutils.NewDict()
-	params.Set("standalone", jsonutils.NewBool(standalone))
 	params.Set("provider", jsonutils.NewString(api.CLOUD_PROVIDER_ONECLOUD))
-	res, err := modules.Zones.List(h.GetSession(), params)
+	res, err := modules.Zones.Get(h.GetSession(), zoneId, params)
 	if err != nil {
 		h.onFail(err)
 		return
 	}
-	zones := []api.ZoneDetails{}
-	jsonutils.Update(&zones, res.Data)
-	for _, zone := range zones {
-		if zone.Name == zoneId || zone.Id == zoneId {
-			h.Zone = zone.Name
-			h.ZoneId = zone.Id
-			h.Cloudregion = zone.Cloudregion
-			h.CloudregionId = zone.CloudregionId
-			h.ZoneManagerUri = zone.ManagerUri
-			break
-		}
-	}
+	zone := api.ZoneDetails{}
+	jsonutils.Update(&zone, res)
+	h.Zone = zone.Name
+	h.ZoneId = zone.Id
+	h.Cloudregion = zone.Cloudregion
+	h.CloudregionId = zone.CloudregionId
+	h.ZoneManagerUri = zone.ManagerUri
 	if len(h.Zone) == 0 {
 		h.onFail(fmt.Errorf("failed to found zone with id %s", zoneId))
 		return
 	}
 
-	if !standalone {
-		h.getHostInfo(h.ZoneId)
-	}
+	h.getHostInfo(h.ZoneId)
 }
 
 func (h *SHostInfo) getHostInfo(zoneId string) {
@@ -1082,76 +1074,79 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	if len(hostId) == 0 {
 		h.isInit = true
 	}
-	content := jsonutils.NewDict()
 	masterIp := h.GetMasterIp()
 	if len(masterIp) == 0 {
 		h.onFail("master ip is none")
 		return
 	}
 
+	input := api.HostCreateInput{}
 	if len(hostId) == 0 {
-		content.Set("generate_name", jsonutils.NewString(h.fetchHostname()))
+		input.GenerateName = h.fetchHostname()
 	}
-	content.Set("access_ip", jsonutils.NewString(masterIp))
-	content.Set("access_mac", jsonutils.NewString(h.GetMasterMac()))
+	input.AccessIp = masterIp
+	input.AccessMac = h.GetMasterMac()
 	var schema = "http"
 	if options.HostOptions.EnableSsl {
 		schema = "https"
 	}
-	content.Set("manager_uri", jsonutils.NewString(fmt.Sprintf("%s://%s:%d",
-		schema, masterIp, options.HostOptions.Port)))
-	content.Set("cpu_count", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Count)))
+	input.ManagerUri = fmt.Sprintf("%s://%s:%d", schema, masterIp, options.HostOptions.Port)
+	input.CpuCount = &h.Cpu.cpuInfoProc.Count
+	nodeCount := int8(h.Cpu.cpuInfoDmi.Nodes)
 	if sysutils.IsHypervisor() {
-		content.Set("node_count", jsonutils.NewInt(1))
-	} else {
-		content.Set("node_count", jsonutils.NewInt(int64(h.Cpu.cpuInfoDmi.Nodes)))
+		nodeCount = 1
 	}
-	content.Set("cpu_desc", jsonutils.NewString(h.Cpu.cpuInfoProc.Model))
-	content.Set("cpu_microcode", jsonutils.NewString(h.Cpu.cpuInfoProc.Microcode))
-	content.Set("cpu_architecture", jsonutils.NewString(h.Cpu.CpuArchitecture))
+	input.NodeCount = &nodeCount
+	input.CpuDesc = h.Cpu.cpuInfoProc.Model
+	input.CpuMicrocode = h.Cpu.cpuInfoProc.Microcode
+	input.CpuArchitecture = h.Cpu.CpuArchitecture
+
 	if h.Cpu.cpuInfoProc.Freq > 0 {
-		content.Set("cpu_mhz", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Freq)))
+		input.CpuMhz = &h.Cpu.cpuInfoProc.Freq
 	}
-	content.Set("cpu_cache", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Cache)))
-	memTotal := h.GetMemory()
-	content.Set("mem_size", jsonutils.NewInt(int64(memTotal)))
+	input.CpuCache = fmt.Sprintf("%d", h.Cpu.cpuInfoProc.Cache)
+	input.MemSize = fmt.Sprintf("%d", h.GetMemory())
 	if len(hostId) == 0 {
 		// first time create
-		content.Set("mem_reserved", jsonutils.NewInt(int64(h.getReservedMemMb())))
+		input.MemReserved = fmt.Sprintf("%d", h.getReservedMemMb())
 	}
-	content.Set("storage_driver", jsonutils.NewString(api.DISK_DRIVER_LINUX))
-	content.Set("storage_type", jsonutils.NewString(h.sysinfo.StorageType))
-	content.Set("storage_size", jsonutils.NewInt(int64(storageman.GetManager().GetTotalCapacity())))
+	input.StorageDriver = api.DISK_DRIVER_LINUX
+	input.StorageType = h.sysinfo.StorageType
+	storageSize := storageman.GetManager().GetTotalCapacity()
+	input.StorageSize = &storageSize
 
 	// TODO optimize content data struct
-	content.Set("sys_info", jsonutils.Marshal(h.getSysInfo()))
-	content.Set("sn", jsonutils.NewString(h.sysinfo.SN))
-	content.Set("host_type", jsonutils.NewString(options.HostOptions.HostType))
+	input.SysInfo = jsonutils.Marshal(h.getSysInfo())
+	input.SN = h.sysinfo.SN
+	input.HostType = options.HostOptions.HostType
 	if len(options.HostOptions.Rack) > 0 {
-		content.Set("rack", jsonutils.NewString(options.HostOptions.Rack))
+		input.Rack = options.HostOptions.Rack
 	}
 	if len(options.HostOptions.Slots) > 0 {
-		content.Set("slots", jsonutils.NewString(options.HostOptions.Slots))
+		input.Slots = options.HostOptions.Slots
 	}
-	content.Set("__meta__", jsonutils.Marshal(h.getSysInfo()))
-	content.Set("version", jsonutils.NewString(version.GetShortString()))
-	content.Set("ovn_version", jsonutils.NewString(MustGetOvnVersion()))
+	meta, _ := jsonutils.Marshal(h.getSysInfo()).GetMap()
+	input.Metadata = map[string]string{}
+	for k, v := range meta {
+		input.Metadata[k] = v.String()
+	}
+	input.Version = version.GetShortString()
+	input.OvnVersion = MustGetOvnVersion()
 
 	var (
 		res jsonutils.JSONObject
 		err error
 	)
 	if !h.isInit {
-		res, err = modules.Hosts.Update(h.GetSession(), hostId, content)
+		res, err = modules.Hosts.Update(h.GetSession(), hostId, jsonutils.Marshal(input))
 	} else {
-		res, err = modules.Hosts.CreateInContext(h.GetSession(), content, &modules.Zones, h.ZoneId)
+		res, err = modules.Hosts.CreateInContext(h.GetSession(), jsonutils.Marshal(input), &modules.Zones, h.ZoneId)
 	}
 	if err != nil {
-		h.onFail(err)
+		h.onFail(errors.Wrapf(err, "host create or update with %s", jsonutils.Marshal(input)))
 		return
-	} else {
-		h.onUpdateHostInfoSucc(res)
 	}
+	h.onUpdateHostInfoSucc(res)
 }
 
 func (h *SHostInfo) updateHostMetadata(hostname string) error {
@@ -1201,9 +1196,9 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	reserved := h.getReportedReservedMemMb()
 	if reserved != int(memReservedMb) {
 		h.updateHostReservedMem(reserved)
-	} else {
-		h.PutHostOnline()
+		return
 	}
+	h.getNetworkInfo()
 }
 
 func (h *SHostInfo) updateHostReservedMem(reserved int) {
@@ -1255,24 +1250,6 @@ func (h *SHostInfo) getReportedReservedMemMb() int {
 	return h.getReservedMemMb()
 }
 
-func (h *SHostInfo) PutHostOffline(reason string) {
-	data := jsonutils.NewDict()
-	if options.HostOptions.EnableHealthChecker {
-		data.Set("update_health_status", jsonutils.JSONTrue)
-	}
-	if len(reason) > 0 {
-		data.Set("reason", jsonutils.NewString(reason))
-	}
-	_, err := modules.Hosts.PerformAction(
-		h.GetSession(), h.HostId, "offline", data)
-	if err != nil {
-		h.onFail(err)
-		return
-	} else {
-		h.getNetworkInfo()
-	}
-}
-
 func (h *SHostInfo) PutHostOnline() error {
 	if len(h.SysError) > 0 && !options.HostOptions.StartHostIgnoreSysError {
 		log.Fatalf("Can't put host online, unless resolve these problem %v", h.SysError)
@@ -1310,28 +1287,23 @@ func (h *SHostInfo) getNetworkInfo() {
 		h.GetSession(),
 		h.HostId, params)
 	if err != nil {
-		h.onFail(err)
+		h.onFail(errors.Wrapf(err, "Hostwires.ListDescendent: %s", params))
 		return
-	} else {
-		for _, hostwire := range res.Data {
-			bridge, _ := hostwire.GetString("bridge")
-			iface, _ := hostwire.GetString("interface")
-			macAddr, _ := hostwire.GetString("mac_addr")
-			nic := h.GetMatchNic(bridge, iface, macAddr)
-			if nic != nil {
-				wire, _ := hostwire.GetString("wire")
-				wireId, _ := hostwire.GetString("wire_id")
-				bandwidth, err := hostwire.Int("bandwidth")
-				if err != nil {
-					bandwidth = 1000
-				}
-				nic.SetWireId(wire, wireId, bandwidth)
-			} else {
-				log.Warningf("NIC not present %s", hostwire.String())
-			}
-		}
-		h.uploadNetworkInfo()
 	}
+	hostwires := []api.HostwireDetails{}
+	jsonutils.Update(&hostwires, res.Data)
+	for _, hw := range hostwires {
+		nic := h.GetMatchNic(hw.Bridge, hw.Interface, hw.MacAddr)
+		if nic != nil {
+			if hw.Bandwidth < 1 {
+				hw.Bandwidth = 1000
+			}
+			nic.SetWireId(hw.Wire, hw.WireId, int64(hw.Bandwidth))
+		} else {
+			log.Warningf("NIC not present %s", jsonutils.Marshal(hw).String())
+		}
+	}
+	h.uploadNetworkInfo()
 }
 
 func (h *SHostInfo) uploadNetworkInfo() {
