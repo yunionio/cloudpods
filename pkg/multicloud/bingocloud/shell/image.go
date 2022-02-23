@@ -20,27 +20,28 @@ import (
 )
 
 func init() {
-	type SnapshotListOptions struct {
+	type ImageListOptions struct {
 	}
-	shellutils.R(&SnapshotListOptions{}, "snapshot-list", "list snapshot", func(cli *bingocloud.SRegion, args *SnapshotListOptions) error {
-		snapshots, err := cli.GetSnapshots()
+	shellutils.R(&ImageListOptions{}, "image-list", "list image", func(cli *bingocloud.SRegion, args *ImageListOptions) error {
+		secgroups, err := cli.GetImages()
 		if err != nil {
 			return err
 		}
-		printList(snapshots, 0, 0, 0, []string{})
+		printList(secgroups, 0, 0, 0, []string{})
 		return nil
 	})
 
-	type SnapshotIdOptions struct {
+	type ImageIdOptions struct {
 		ID string
 	}
 
-	shellutils.R(&SnapshotIdOptions{}, "snapshot-show", "show snapshot", func(cli *bingocloud.SRegion, args *SnapshotIdOptions) error {
-		snapshot, err := cli.GetSnapshot(args.ID)
+	shellutils.R(&ImageIdOptions{}, "image-show", "show image", func(cli *bingocloud.SRegion, args *ImageIdOptions) error {
+
+		secgroup, err := cli.GetImage(args.ID)
 		if err != nil {
 			return err
 		}
-		printObject(snapshot)
+		printObject(secgroup)
 		return nil
 	})
 
