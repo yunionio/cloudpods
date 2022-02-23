@@ -1880,3 +1880,23 @@ func (s *SKVMGuestInstance) CPUSet(ctx context.Context, input *api.ServerCPUSetI
 	}
 	return new(api.ServerCPUSetResp), nil
 }
+
+func (s *SKVMGuestInstance) CPUSetRemove(ctx context.Context) error {
+	metadata, err := s.Desc.Get("metadata")
+	if err != nil {
+		return errors.Wrap(err, "get metadata from desc")
+	}
+	metadata.(*jsonutils.JSONDict).Remove(api.VM_METADATA_CGROUP_CPUSET)
+	s.Desc.Set("metadata", metadata)
+	if err := s.SaveDesc(s.Desc); err != nil {
+		return errors.Wrap(err, "save desc after update metadata")
+	}
+	if !s.IsRunning() {
+		return nil
+	}
+	task := cgrouputils.NewCGroupCPUSetTask(strconv.Itoa(s.GetPid()), 0, "")
+	if !task.RemoveTask() {
+		return errors.Errorf("Remove task error happened, please lookup host log")
+	}
+	return nil
+}

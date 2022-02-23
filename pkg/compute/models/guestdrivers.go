@@ -219,6 +219,7 @@ type IGuestDriver interface {
 	RequestSyncIsolatedDevice(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
 	RequestCPUSet(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, guest *SGuest, input *api.ServerCPUSetInput) (*api.ServerCPUSetResp, error)
+	RequestCPUSetRemove(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, guest *SGuest, input *api.ServerCPUSetRemoveInput) error
 }
 
 var guestDrivers map[string]IGuestDriver

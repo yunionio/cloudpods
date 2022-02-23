@@ -804,3 +804,10 @@ type ServerCPUSetInput struct {
 }
 
 type ServerCPUSetResp struct{}
+
+type ServerCPUSetRemoveInput struct{}
+
+type ServerCPUSetRemoveResp struct {
+	Done  bool   `json:"done"`
+	Error string `json:"error"`
+}
