@@ -19,29 +19,29 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-// type SStragecache struct {
-// 	ClusterId    string `json:"clusterId"`
-// 	ResUsage     string `json:"resUsage"`
-// 	ParameterSet struct {
-// 		Item struct {
-// 			Name  string `json:name`
-// 			Value string `json:value`
-// 		}
-// 	}
-// 	StorageId    string `json:"storageId"`
-// 	StorageName  string `json:"storageName"`
-// 	UsedBy       string `json:"usedBy"`
-// 	SpaceUsed    string `json:"spaceUsed"`
-// 	SpaceMax     string `json:"spaceMax"`
-// 	Location     string `json:"location"`
-// 	FileFormat   string `json:"fileFormat"`
-// 	Disabled     string `json:"disabled"`
-// 	IsDRStorage  string `json:"isDRStorage"`
-// 	DrCloudId    string `json:"drCloudId"`
-// 	ScheduleTags string `json:"scheduleTags"`
-// }
+type SStragecache struct {
+	ClusterId    string `json:"clusterId"`
+	ResUsage     string `json:"resUsage"`
+	ParameterSet struct {
+		Item struct {
+			Name  string `json:name`
+			Value string `json:value`
+		}
+	}
+	StorageId    string `json:"storageId"`
+	StorageName  string `json:"storageName"`
+	UsedBy       string `json:"usedBy"`
+	SpaceUsed    string `json:"spaceUsed"`
+	SpaceMax     string `json:"spaceMax"`
+	Location     string `json:"location"`
+	FileFormat   string `json:"fileFormat"`
+	Disabled     string `json:"disabled"`
+	IsDRStorage  string `json:"isDRStorage"`
+	DrCloudId    string `json:"drCloudId"`
+	ScheduleTags string `json:"scheduleTags"`
+}
 
-func (self *SRegion) GetStoragecaches() ([]SStorage, error) {
+func (self *SRegion) GetStoragecaches() ([]SStragecache, error) {
 	resp, err := self.invoke("DescribeStorageInfo", nil)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (self *SRegion) GetStoragecaches() ([]SStorage, error) {
 	log.Errorf("resp=:%s", resp)
 	result := struct {
 		StorageSet struct {
-			Item []SStorage
+			Item []SStragecache
 		}
 	}{}
 	err = resp.Unmarshal(&result)
@@ -59,7 +59,7 @@ func (self *SRegion) GetStoragecaches() ([]SStorage, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SRegion) GetStoragecache(id string) (*SStorage, error) {
-	snapshot := &SStorage{}
+func (self *SRegion) GetStoragecache(id string) (*SStragecache, error) {
+	snapshot := &SStragecache{}
 	return snapshot, cloudprovider.ErrNotImplemented
 }

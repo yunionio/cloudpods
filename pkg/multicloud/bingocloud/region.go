@@ -80,9 +80,9 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	return kong
 }
 
-// GetGlobalId() string //返回IP即可
+// GetGlobalId() string //	私有云
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("/%s", self.RegionId)
+	return fmt.Sprintf("/%s/%s/%s", CLOUD_PROVIDER_BINGO_CLOUD, self.RegionId, self.RegionName)
 }
 
 func (self *SRegion) GetName() string {
@@ -278,7 +278,7 @@ func (self *SRegion) GetISnapshotPolicyById(snapshotPolicyId string) (cloudprovi
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots, _, err := self.GetSnapshots()
+	snapshots, err := self.GetSnapshots()
 	if err != nil {
 		return nil, err
 	}

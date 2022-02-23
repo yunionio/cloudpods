@@ -18,20 +18,44 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-type SSnapshot struct{}
+type SSnapshot struct {
+	BackupId     string `json:"backupId"`
+	Description  string `json:"description"`
+	DrMirrorId   string `json:"drMirrorId"`
+	FileSize     string `json:"fileSize"`
+	FileType     string `json:"fileType"`
+	IsBackup     string `json:"isBackup"`
+	IsHead       string `json:"isHead"`
+	IsRoot       string `json:"isRoot"`
+	OwnerId      string `json:"ownerId"`
+	Progress     string `json:"progress"`
+	SnapshotId   string `json:"snapshotId"`
+	SnapshotName string `json:"snapshotName"`
+	StartTime    string `json:"startTime"`
+	Status       string `json:"status"`
+	StorageId    string `json:"storageId"`
+	VolumeId     string `json:"volumeId"`
+	VolumeSize   string `json:"volumeSize"`
+}
 
-func (self *SRegion) GetSnapshots() ([]SSnapshot, int, error) {
+func (self *SRegion) GetSnapshots() ([]SSnapshot, error) {
 	resp, err := self.invoke("DescribeSnapshots", nil)
+	//	[ERROR] resp=:{"-xmlns":"http://ec2.amazonaws.com/doc/2009-08-15/","snapshotSet":{"NextToken":""}}
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	log.Errorf("resp=:%s", resp)
-	result := struct{}{}
+	result := struct {
+		SnapshotSet struct {
+			Item []SSnapshot
+		}
+	}{}
 	err = resp.Unmarshal(&result)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	return nil, 0, cloudprovider.ErrNotImplemented
+	log.Errorf("result:", result)
+	return result.SnapshotSet.Item, nil
 }
 
 func (self *SRegion) GetSnapshot(id string) (*SSnapshot, error) {

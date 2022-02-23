@@ -15,6 +15,7 @@ package bingocloud
 
 import (
 	"yunion.io/x/log"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -60,4 +61,28 @@ func (self *SRegion) GetVpc(id string) (*SVpc, error) {
 	vpcs := &SVpc{}
 	// return storage, self.get("storage_containers", id, nil, storage)
 	return vpcs, cloudprovider.ErrNotImplemented
+}
+
+func (self *SVpc) GetName() string {
+	return self.VpcName
+}
+
+func (self *SVpc) GetId() string {
+	return self.VpcId
+}
+
+func (self *SVpc) GetGlobalId() string {
+	return self.OwnerId
+}
+
+func (self *SVpc) IsEmulated() bool {
+	return true
+}
+
+func (self *SVpc) GetBandwidth() int {
+	return 10000
+}
+
+func (self *SVpc) GetStatus() string {
+	return api.WIRE_STATUS_AVAILABLE
 }
