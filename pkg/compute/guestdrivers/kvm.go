@@ -944,3 +944,15 @@ func (self *SKVMGuestDriver) RequestCPUSet(ctx context.Context, userCred mcclien
 	}
 	return resp, nil
 }
+
+func (self *SKVMGuestDriver) RequestCPUSetRemove(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, guest *models.SGuest, input *api.ServerCPUSetRemoveInput) error {
+	url := fmt.Sprintf("%s/servers/%s/cpuset-remove", host.ManagerUri, guest.Id)
+	httpClient := httputils.GetDefaultClient()
+	header := mcclient.GetTokenHeaders(userCred)
+	body := jsonutils.Marshal(input)
+	_, _, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return errors.Wrap(err, "host request")
+	}
+	return nil
+}

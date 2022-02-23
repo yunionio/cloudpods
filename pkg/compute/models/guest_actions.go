@@ -5389,3 +5389,27 @@ func (self *SGuest) StartGuestCPUSetTask(ctx context.Context, userCred mcclient.
 	}
 	return task.ScheduleRun(nil)
 }
+
+func (self *SGuest) PerformCpusetRemove(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *api.ServerCPUSetRemoveInput) (*api.ServerCPUSetRemoveResp, error) {
+	if err := self.RemoveMetadata(ctx, api.VM_METADATA_CGROUP_CPUSET, userCred); err != nil {
+		return nil, errors.Wrapf(err, "remove metadata %q", api.VM_METADATA_CGROUP_CPUSET)
+	}
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, errors.Wrap(err, "get host model")
+	}
+
+	// TODO: maybe change to async task
+	db.OpsLog.LogEvent(self, db.ACT_GUEST_CPUSET_REMOVE, nil, userCred)
+	resp := new(api.ServerCPUSetRemoveResp)
+	if err := self.GetDriver().RequestCPUSetRemove(ctx, userCred, host, self, data); err != nil {
+		db.OpsLog.LogEvent(self, db.ACT_GUEST_CPUSET_REMOVE_FAIL, err, userCred)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CPUSET_REMOVE, data, userCred, false)
+		resp.Error = err.Error()
+	} else {
+		db.OpsLog.LogEvent(self, db.ACT_GUEST_CPUSET_REMOVE, nil, userCred)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CPUSET_REMOVE, data, userCred, true)
+		resp.Done = true
+	}
+	return resp, nil
+}

@@ -85,6 +85,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"close-forward":        guestCloseForward,
 			"storage-clone-disk":   guestStorageCloneDisk,
 			"cpuset":               guestCPUSet,
+			"cpuset-remove":        guestCPUSetRemove,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -634,4 +635,12 @@ func guestCPUSet(ctx context.Context, sid string, body jsonutils.JSONObject) (in
 	}
 	gm := guestman.GetGuestManager()
 	return gm.CPUSet(ctx, sid, input)
+}
+
+func guestCPUSetRemove(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	if err := gm.CPUSetRemove(ctx, sid); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
