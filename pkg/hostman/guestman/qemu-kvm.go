@@ -1446,6 +1446,7 @@ func (s *SKVMGuestInstance) SetCgroup() {
 	s.cgroupPid = s.GetPid()
 	s.setCgroupIo()
 	s.setCgroupCpu()
+	s.setCgroupCPUSet()
 }
 
 func (s *SKVMGuestInstance) setCgroupIo() {
@@ -1473,6 +1474,31 @@ func (s *SKVMGuestInstance) setCgroupCpu() {
 	)
 
 	cgrouputils.CgroupSet(strconv.Itoa(s.cgroupPid), int(cpu)*cpuWeight)
+}
+
+func (s *SKVMGuestInstance) setCgroupCPUSet() {
+	meta, _ := s.Desc.Get("metadata")
+	if meta == nil {
+		return
+	}
+	cpusetStr, _ := meta.GetString(api.VM_METADATA_CGROUP_CPUSET)
+	if len(cpusetStr) == 0 {
+		return
+	}
+	obj, err := jsonutils.ParseString(cpusetStr)
+	if err != nil {
+		log.Errorf("Parse cpusetStr %q error: %v", cpusetStr, err)
+		return
+	}
+	input := new(api.ServerCPUSetInput)
+	if err := obj.Unmarshal(input); err != nil {
+		log.Errorf("Unmarshal %q to ServerCPUSetInput: %v", obj, err)
+		return
+	}
+	if _, err := s.CPUSet(context.Background(), input); err != nil {
+		log.Errorf("Do CPUSet error: %v", err)
+		return
+	}
 }
 
 func (s *SKVMGuestInstance) CreateFromDesc(desc jsonutils.JSONObject) error {
@@ -1838,4 +1864,39 @@ func (s *SKVMGuestInstance) getQemuCmdlineFromContent(content string) (string, e
 		return "", errors.Errorf("Not found CMD content")
 	}
 	return cmdStr, nil
+}
+
+func (s *SKVMGuestInstance) CPUSet(ctx context.Context, input *api.ServerCPUSetInput) (*api.ServerCPUSetResp, error) {
+	if !s.IsRunning() {
+		return nil, nil
+	}
+	cpus := []string{}
+	for _, id := range input.CPUS {
+		cpus = append(cpus, fmt.Sprintf("%d", id))
+	}
+	task := cgrouputils.NewCGroupCPUSetTask(strconv.Itoa(s.GetPid()), 0, strings.Join(cpus, ","))
+	if !task.SetTask() {
+		return nil, errors.Errorf("Cgroup cpuset task failed")
+	}
+	return new(api.ServerCPUSetResp), nil
+}
+
+func (s *SKVMGuestInstance) CPUSetRemove(ctx context.Context) error {
+	metadata, err := s.Desc.Get("metadata")
+	if err != nil {
+		return errors.Wrap(err, "get metadata from desc")
+	}
+	metadata.(*jsonutils.JSONDict).Remove(api.VM_METADATA_CGROUP_CPUSET)
+	s.Desc.Set("metadata", metadata)
+	if err := s.SaveDesc(s.Desc); err != nil {
+		return errors.Wrap(err, "save desc after update metadata")
+	}
+	if !s.IsRunning() {
+		return nil
+	}
+	task := cgrouputils.NewCGroupCPUSetTask(strconv.Itoa(s.GetPid()), 0, "")
+	if !task.RemoveTask() {
+		return errors.Errorf("Remove task error happened, please lookup host log")
+	}
+	return nil
 }

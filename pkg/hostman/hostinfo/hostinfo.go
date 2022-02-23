@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils/hardware"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -457,6 +458,12 @@ func (h *SHostInfo) detectHostInfo() error {
 	}
 
 	h.detectStorageSystem()
+
+	topoInfo, err := hardware.GetTopology()
+	if err != nil {
+		return errors.Wrap(err, "Get hardware topology")
+	}
+	h.sysinfo.Topology = topoInfo
 
 	system_service.Init()
 	if options.HostOptions.CheckSystemServices {
