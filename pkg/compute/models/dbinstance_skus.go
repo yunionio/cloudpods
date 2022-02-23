@@ -79,12 +79,13 @@ type SDBInstanceSku struct {
 
 	Category      string `width:"32" index:"true" nullable:"false" list:"user" create:"optional"`
 	Engine        string `width:"16" index:"true" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	EngineVersion string `width:"16" index:"true" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	EngineVersion string `width:"64" index:"true" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
-	Zone1  string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	Zone2  string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	Zone3  string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	ZoneId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	Zone1   string            `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	Zone2   string            `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	Zone3   string            `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	ZoneId  string            `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	MultiAZ tristate.TriState `default:"false" list:"user" create:"optional"`
 }
 
 func (manager *SDBInstanceSkuManager) fetchDBInstanceSkus(provider string, region *SCloudregion) ([]SDBInstanceSku, error) {
@@ -543,6 +544,7 @@ func (sku *SDBInstanceSku) syncWithCloudSku(ctx context.Context, userCred mcclie
 		sku.Status = isku.Status
 		sku.TPS = isku.TPS
 		sku.QPS = isku.QPS
+		sku.MultiAZ = isku.MultiAZ
 		sku.MaxConnections = isku.MaxConnections
 		return nil
 	})
@@ -569,7 +571,7 @@ func SyncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 			return
 		}
 		if cnt > 0 {
-			log.Debugf("SyncDBInstanceSkus synced skus, skip...")
+			log.Debugf("sync rds sku for %s synced skus, skip...", regionId)
 			return
 		}
 	}
@@ -599,7 +601,7 @@ func SyncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 		}
 		result := DBInstanceSkuManager.SyncDBInstanceSkus(ctx, userCred, &region, meta)
 		msg := result.Result()
-		notes := fmt.Sprintf("SyncDBInstanceSkus for region %s result: %s", region.Name, msg)
+		notes := fmt.Sprintf("sync rds sku for region %s result: %s", region.Name, msg)
 		log.Infof(notes)
 	}
 

@@ -43,6 +43,7 @@ type DBInstanceCreateOptions struct {
 	AllowDelete        *bool    `help:"not lock dbinstance" `
 	Tags               []string `help:"Tags info,prefix with 'user:', eg: user:project=default" json:"-"`
 	DBInstancebackupId string   `help:"create dbinstance from backup" json:"dbinstancebackup_id"`
+	MultiAz            bool     `help:"deploy rds with multi az"`
 }
 
 func (opts *DBInstanceCreateOptions) Params() (jsonutils.JSONObject, error) {

@@ -233,8 +233,15 @@ type SAwsTag struct {
 	Value string `xml:"value"`
 }
 
+type SAwsRdsTag struct {
+	Key   string `xml:"Key"`
+	Value string `xml:"Value"`
+}
+
 type AwsTags struct {
 	TagSet []SAwsTag `xml:"tagSet>item"`
+	// rds
+	TagList []SAwsRdsTag `xml:"TagList>Tag"`
 }
 
 func (self AwsTags) GetName() string {
@@ -250,6 +257,12 @@ func (self *AwsTags) GetTags() (map[string]string, error) {
 	ret := map[string]string{}
 	for _, tag := range self.TagSet {
 		if tag.Key == "Name" || tag.Key == "Description" {
+			continue
+		}
+		ret[tag.Key] = tag.Value
+	}
+	for _, tag := range self.TagList {
+		if strings.ToLower(tag.Key) == "name" || strings.ToLower(tag.Key) == "description" {
 			continue
 		}
 		ret[tag.Key] = tag.Value

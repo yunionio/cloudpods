@@ -59,7 +59,7 @@ func (self *DBInstanceSetAutoRenewTask) OnInit(ctx context.Context, obj db.IStan
 		return
 	}
 	self.SetStage("OnDBInstanceSyncComplete", nil)
-	rds.StartDBInstanceSyncTask(ctx, self.GetUserCred(), nil, "")
+	rds.StartDBInstanceSyncTask(ctx, self.GetUserCred(), self.GetTaskId())
 }
 
 func (self *DBInstanceSetAutoRenewTask) OnDBInstanceSyncComplete(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {

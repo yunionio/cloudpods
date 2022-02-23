@@ -80,7 +80,7 @@ func (self *DBInstanceChangeConfigTask) OnDBInstanceChangeConfigComplete(ctx con
 		Action: notifyclient.ActionChangeConfig,
 	})
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
-	models.StartResourceSyncStatusTask(ctx, self.UserCred, rds, "DBInstanceSyncStatusTask", self.GetTaskId())
+	rds.StartDBInstanceSyncTask(ctx, self.UserCred, self.GetTaskId())
 }
 
 func (self *DBInstanceChangeConfigTask) OnDBInstanceChangeConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

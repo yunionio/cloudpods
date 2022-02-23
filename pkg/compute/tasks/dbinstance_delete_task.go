@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -70,6 +71,10 @@ func (self *DBInstanceDeleteTask) DeleteDBInstance(ctx context.Context, rds *mod
 		if err != nil {
 			self.taskFailed(ctx, rds, err)
 			return
+		}
+		err = cloudprovider.WaitDeleted(irds, time.Second*10, time.Minute*50)
+		if err != nil {
+			self.taskFailed(ctx, rds, errors.Wrapf(err, "WaitDeleted"))
 		}
 	}
 

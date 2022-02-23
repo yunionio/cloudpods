@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SAwsRegionDriver struct {
@@ -96,6 +97,67 @@ func networkCheck(network *models.SNetwork) error {
 	}
 
 	return nil
+}
+
+func (self *SAwsRegionDriver) IsSupportedDBInstance() bool {
+	return true
+}
+
+func (self *SAwsRegionDriver) GetRdsSupportSecgroupCount() int {
+	return 1
+}
+
+func (self *SAwsRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
+	if len(input.Password) > 0 {
+		for _, s := range input.Password {
+			if s == '/' || s == '"' || s == '@' || s == '\'' {
+				return input, httperrors.NewInputParameterError("aws rds not support password character %s", string(s))
+			}
+		}
+	}
+	if len(input.Password) == 0 {
+		for _, s := range seclib2.RandomPassword2(100) {
+			if s == '/' || s == '"' || s == '@' || s == '\'' {
+				continue
+			}
+			input.Password += string(s)
+			if len(input.Password) >= 20 {
+				break
+			}
+		}
+	}
+	return input, nil
+}
+
+func (self *SAwsRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceBackupCreateInput) (api.DBInstanceBackupCreateInput, error) {
+	return input, nil
+}
+
+func (self *SAwsRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceDatabaseCreateInput) (api.DBInstanceDatabaseCreateInput, error) {
+	return input, httperrors.NewNotSupportedError("aws not support create rds database")
+}
+
+func (self *SAwsRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceAccountCreateInput) (api.DBInstanceAccountCreateInput, error) {
+	return input, httperrors.NewNotSupportedError("aws not support create rds account")
+}
+
+func (self *SAwsRegionDriver) InitDBInstanceUser(ctx context.Context, instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
+	user := "admin"
+	if desc.Engine == api.DBINSTANCE_TYPE_POSTGRESQL || desc.Category == api.DBINSTANCE_TYPE_POSTGRESQL {
+		user = "postgres"
+	}
+
+	account := models.SDBInstanceAccount{}
+	account.DBInstanceId = instance.Id
+	account.Name = user
+	account.Status = api.DBINSTANCE_USER_AVAILABLE
+	account.SetModelManager(models.DBInstanceAccountManager, &account)
+	err := models.DBInstanceAccountManager.TableSpec().Insert(ctx, &account)
+	if err != nil {
+		return err
+	}
+
+	return account.SetPassword(desc.Password)
 }
 
 func validateAwsLbNetwork(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, requiredMin int) (*jsonutils.JSONDict, error) {

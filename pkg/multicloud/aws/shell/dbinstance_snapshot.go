@@ -22,10 +22,11 @@ import (
 func init() {
 	type DBInstanceSnapshotListOptions struct {
 		DBInstanceId string
+		Id           string
 	}
 
 	shellutils.R(&DBInstanceSnapshotListOptions{}, "dbinstance-snapshot-list", "List rds intance snapshots", func(cli *aws.SRegion, args *DBInstanceSnapshotListOptions) error {
-		snapshots, err := cli.GetDBInstanceSnapshots(args.DBInstanceId)
+		snapshots, err := cli.GetDBInstanceSnapshots(args.DBInstanceId, args.Id)
 		if err != nil {
 			return err
 		}

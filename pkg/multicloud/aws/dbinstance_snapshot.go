@@ -17,6 +17,7 @@ package aws
 import (
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -55,6 +56,7 @@ type SDBInstanceSnapshot struct {
 
 type SDBInstanceSnapshots struct {
 	Snapshots []SDBInstanceSnapshot `xml:"DBSnapshots>DBSnapshot"`
+	Marker    string                `xml:"Marker"`
 }
 
 func (snapshot *SDBInstanceSnapshot) GetId() string {
@@ -104,6 +106,14 @@ func (snapshot *SDBInstanceSnapshot) GetStatus() string {
 	}
 }
 
+func (self *SDBInstanceSnapshot) Refresh() error {
+	snap, err := self.region.GetRdsSnapshot(self.DBSnapshotIdentifier)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, snap)
+}
+
 func (snapshot *SDBInstanceSnapshot) GetBackupSizeMb() int {
 	return snapshot.AllocatedStorage * 1024
 }
@@ -116,23 +126,62 @@ func (snapshot *SDBInstanceSnapshot) GetDBInstanceId() string {
 	return snapshot.DbiResourceId
 }
 
-func (region *SRegion) GetDBInstanceSnapshots(instanceId string) ([]SDBInstanceSnapshot, error) {
+func (self *SDBInstanceSnapshot) Delete() error {
+	return self.region.DeleteRdsSnapshot(self.DBSnapshotIdentifier)
+}
+
+func (self *SRegion) DeleteRdsSnapshot(id string) error {
+	params := map[string]string{
+		"DBSnapshotIdentifier": id,
+	}
+	return self.rdsRequest("DeleteDBSnapshot", params, nil)
+}
+
+func (region *SRegion) GetDBInstanceSnapshots(instanceId, backupId string) ([]SDBInstanceSnapshot, error) {
 	params := map[string]string{}
 	if len(instanceId) > 0 {
-		params["DbiResourceId"] = instanceId
+		params["DBInstanceIdentifier"] = instanceId
 	}
+	if len(backupId) > 0 {
+		params["DBSnapshotIdentifier"] = backupId
+	}
+	ret, marker := []SDBInstanceSnapshot{}, ""
+	for {
+		snapshots := SDBInstanceSnapshots{}
+		params["Marker"] = marker
+		err := region.rdsRequest("DescribeDBSnapshots", params, &snapshots)
+		if err != nil {
+			return nil, errors.Wrap(err, "DescribeDBSnapshots")
+		}
+		ret = append(ret, snapshots.Snapshots...)
+		if len(snapshots.Marker) == 0 {
+			break
+		}
+		marker = snapshots.Marker
+	}
+	return ret, nil
+}
 
-	snapshots := SDBInstanceSnapshots{}
-
-	err := region.rdsRequest("DescribeDBSnapshots", params, &snapshots)
+func (self *SRegion) GetRdsSnapshot(id string) (*SDBInstanceSnapshot, error) {
+	if len(id) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	backups, err := self.GetDBInstanceSnapshots("", id)
 	if err != nil {
-		return nil, errors.Wrap(err, "DescribeDBSnapshots")
+		return nil, err
 	}
-	return snapshots.Snapshots, nil
+	if len(backups) == 1 {
+		backups[0].region = self
+		return &backups[0], nil
+	}
+	if len(backups) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return nil, cloudprovider.ErrDuplicateId
 }
 
 func (region *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
-	snapshots, err := region.GetDBInstanceSnapshots("")
+	snapshots, err := region.GetDBInstanceSnapshots("", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDBInstanceSnapshots")
 	}

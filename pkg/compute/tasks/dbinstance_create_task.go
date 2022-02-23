@@ -76,7 +76,7 @@ func (self *DBInstanceCreateTask) OnCreateDBInstanceComplete(ctx context.Context
 	rds := obj.(*models.SDBInstance)
 	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
-	models.StartResourceSyncStatusTask(ctx, self.UserCred, rds, "DBInstanceSyncStatusTask", self.GetTaskId())
+	rds.StartDBInstanceSyncTask(ctx, self.UserCred, self.GetTaskId())
 }
 
 func (self *DBInstanceCreateTask) OnCreateDBInstanceCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
