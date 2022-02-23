@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/nopanic"
 )
 
 type SASController struct {
@@ -87,9 +88,6 @@ var ASController = new(SASController)
 
 func (asc *SASController) Init(options options.SASControllerOptions, cronm *cronman.SCronJobManager) {
 	asc.options = options
-	cronm.AddJobAtIntervalsWithStartRun("CheckTimer", time.Duration(options.TimerInterval)*time.Second, asc.Timer, true)
-	cronm.AddJobAtIntervalsWithStartRun("CheckScale", time.Duration(options.CheckScaleInterval)*time.Second, asc.CheckScale, true)
-	cronm.AddJobAtIntervalsWithStartRun("CheckInstanceHealth", time.Duration(options.CheckHealthInterval)*time.Minute, asc.CheckInstanceHealth, true)
 	asc.timerQueue = make(chan struct{}, 20)
 	asc.scalingQueue = make(chan struct{}, options.ConcurrentUpper)
 	asc.scalingGroupSet = &SLockedSet{set: sets.NewString()}
@@ -105,19 +103,25 @@ func (asc *SASController) Init(options options.SASControllerOptions, cronm *cron
 	sgQ.AppendField(sggSubQ.Field("total"))
 	asc.scalingSql = sgQ
 
+	cronm.AddJobAtIntervalsWithStartRun("CheckTimer", time.Duration(options.TimerInterval)*time.Second, asc.Timer, true)
+	cronm.AddJobAtIntervalsWithStartRun("CheckScale", time.Duration(options.CheckScaleInterval)*time.Second, asc.CheckScale, true)
+	cronm.AddJobAtIntervalsWithStartRun("CheckInstanceHealth", time.Duration(options.CheckHealthInterval)*time.Minute, asc.CheckInstanceHealth, true)
+
 	// check all scaling activity
-	log.Infof("check and update scaling activities...")
-	sas := make([]models.SScalingActivity, 0, 10)
-	q := models.ScalingActivityManager.Query().Equals("status", compute.SA_STATUS_EXEC)
-	err := db.FetchModelObjects(models.ScalingActivityManager, q, &sas)
-	if err != nil {
-		log.Errorf("unable to check and update scaling activities")
-		return
-	}
-	for i := range sas {
-		sas[i].SetFailed("", "As the service restarts, the status becomes unknown")
-	}
-	log.Infof("check and update scalngactivities complete")
+	nopanic.Run(func() {
+		log.Infof("check and update scaling activities...")
+		sas := make([]models.SScalingActivity, 0, 10)
+		q := models.ScalingActivityManager.Query().Equals("status", compute.SA_STATUS_EXEC)
+		err := db.FetchModelObjects(models.ScalingActivityManager, q, &sas)
+		if err != nil {
+			log.Errorf("unable to check and update scaling activities")
+			return
+		}
+		for i := range sas {
+			sas[i].SetFailed("", "As the service restarts, the status becomes unknown")
+		}
+		log.Infof("check and update scalngactivities complete")
+	})
 }
 
 func (asc *SASController) PreScale(group *models.SScalingGroup, userCred mcclient.TokenCredential) bool {
