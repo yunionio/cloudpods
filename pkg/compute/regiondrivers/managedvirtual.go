@@ -1580,10 +1580,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			return nil, errors.Wrap(err, "dbinstance.GetVpc()")
 		}
 
-		params := task.GetParams()
-		passwd, _ := params.GetString("password")
-		if len(passwd) == 0 && jsonutils.QueryBoolean(params, "reset_password", true) {
-			passwd = seclib2.RandomPassword2(12)
+		input := api.DBInstanceCreateInput{}
+		task.GetParams().Unmarshal(&input)
+		if len(input.Password) == 0 && jsonutils.QueryBoolean(task.GetParams(), "reset_password", true) {
+			input.Password = seclib2.RandomPassword2(12)
 		}
 		desc := cloudprovider.SManagedDBInstanceCreateConfig{
 			Name:          dbinstance.Name,
@@ -1597,7 +1597,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			EngineVersion: dbinstance.EngineVersion,
 			Category:      dbinstance.Category,
 			Port:          dbinstance.Port,
-			Password:      passwd,
+			Password:      input.Password,
+			MultiAz:       input.MultiAZ,
 		}
 		desc.Tags, _ = dbinstance.GetAllUserMetadata()
 

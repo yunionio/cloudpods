@@ -58,7 +58,7 @@ func (self *DBInstanceRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStan
 
 func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {
 	self.SetStage("OnSyncStatusComplete", nil)
-	models.StartResourceSyncStatusTask(ctx, self.UserCred, rds, "DBInstanceSyncStatusTask", self.GetTaskId())
+	rds.StartDBInstanceSyncTask(ctx, self.UserCred, self.GetTaskId())
 }
 
 func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {

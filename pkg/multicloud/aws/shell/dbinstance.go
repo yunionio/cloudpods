@@ -22,15 +22,14 @@ import (
 func init() {
 	type DBInstanceListOptions struct {
 		Id     string
-		Offset int
-		Limit  int
+		Marker string
 	}
 	shellutils.R(&DBInstanceListOptions{}, "dbinstance-list", "List rds intances", func(cli *aws.SRegion, args *DBInstanceListOptions) error {
-		instances, err := cli.GetDBInstances(args.Id)
+		instances, _, err := cli.GetDBInstances(args.Id, args.Marker)
 		if err != nil {
 			return err
 		}
-		printList(instances, 0, args.Offset, args.Limit, []string{})
+		printList(instances, 0, 0, 0, []string{})
 		return nil
 	})
 
@@ -40,6 +39,15 @@ func init() {
 
 	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-show", "Show rds intance", func(cli *aws.SRegion, args *DBInstanceIdOptions) error {
 		instance, err := cli.GetDBInstance(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(instance)
+		return nil
+	})
+
+	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-tags-list", "Show rds intance tags", func(cli *aws.SRegion, args *DBInstanceIdOptions) error {
+		instance, err := cli.ListRdsResourceTags(args.ID)
 		if err != nil {
 			return err
 		}

@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -35,27 +36,32 @@ func init() {
 	taskman.RegisterTask(DBInstanceSyncTask{})
 }
 
-func (self *DBInstanceSyncTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
-	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_UNKNOWN, err.Error())
-	db.OpsLog.LogEvent(dbinstance, db.ACT_SYNC_CONF, err, self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
+func (self *DBInstanceSyncTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
+	rds.SetStatus(self.UserCred, api.DBINSTANCE_UNKNOWN, err.Error())
+	db.OpsLog.LogEvent(rds, db.ACT_SYNC_STATUS, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    rds,
+		Action: notifyclient.ActionSyncStatus,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceSyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dbinstance := obj.(*models.SDBInstance)
-	self.SyncDBInstance(ctx, dbinstance)
+	rds := obj.(*models.SDBInstance)
+	self.SyncDBInstance(ctx, rds)
 }
 
-func (self *DBInstanceSyncTask) SyncDBInstance(ctx context.Context, dbinstance *models.SDBInstance) {
-	idbinstance, err := dbinstance.GetIDBInstance()
+func (self *DBInstanceSyncTask) SyncDBInstance(ctx context.Context, rds *models.SDBInstance) {
+	irds, err := rds.GetIDBInstance()
 	if err != nil {
-		self.taskFailed(ctx, dbinstance, errors.Wrapf(err, "dbinstance.GetIDBInstance"))
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "rds.GetIDBInstance"))
 		return
 	}
-	err = dbinstance.SyncAllWithCloudDBInstance(ctx, self.UserCred, dbinstance.GetCloudprovider(), idbinstance)
+	err = rds.SyncAllWithCloudDBInstance(ctx, self.UserCred, rds.GetCloudprovider(), irds)
 	if err != nil {
-		self.taskFailed(ctx, dbinstance, errors.Wrapf(err, "dbinstance.GetIDBInstance"))
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "rds.GetIDBInstance"))
 		return
 	}
 	self.SetStageComplete(ctx, nil)

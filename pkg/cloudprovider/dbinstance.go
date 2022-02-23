@@ -67,6 +67,8 @@ type SManagedDBInstanceCreateConfig struct {
 	Username         string
 	ProjectId        string
 
+	MultiAz bool
+
 	BillingCycle *billing.SBillingCycle
 	Tags         map[string]string
 
