@@ -492,3 +492,10 @@ func (self *SBaseRegionDriver) RequestDeleteInstanceBackup(ctx context.Context, 
 func (self *SBaseRegionDriver) ValidateCreateCdnData(ctx context.Context, userCred mcclient.TokenCredential, input api.CDNDomainCreateInput) (api.CDNDomainCreateInput, error) {
 	return input, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateCdnData")
 }
+
+func (self *SBaseRegionDriver) RequestPackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestPackInstanceBackup")
+}
+func (self *SBaseRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestUnpackInstanceBackup")
+}

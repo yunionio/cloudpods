@@ -437,3 +437,44 @@ func (self *SDiskBackup) PerformSyncstatus(ctx context.Context, userCred mcclien
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DiskBackupSyncstatusTask", "")
 }
+
+func (self *SDiskBackup) PackMetadata() *api.DiskBackupPackMetadata {
+	return &api.DiskBackupPackMetadata{
+		OsArch:     self.OsArch,
+		SizeMb:     self.SizeMb,
+		DiskSizeMb: self.DiskSizeMb,
+		DiskType:   self.DiskType,
+		// 操作系统类型
+		OsType: self.OsType,
+		DiskConfig: &api.SBackupDiskConfig{
+			DiskConfig: self.DiskConfig.DiskConfig,
+			Name:       self.DiskConfig.Name,
+		},
+	}
+}
+
+func (manager *SDiskBackupManager) CreateFromPackMetadata(ctx context.Context, owner mcclient.TokenCredential, backupStorageId, id, name string, metadata *api.DiskBackupPackMetadata) (*SDiskBackup, error) {
+	backup := &SDiskBackup{}
+	backup.SetModelManager(manager, backup)
+	backup.ProjectId = owner.GetProjectId()
+	backup.DomainId = owner.GetProjectDomainId()
+	backup.DiskConfig = &SBackupDiskConfig{
+		DiskConfig: metadata.DiskConfig.DiskConfig,
+		Name:       metadata.DiskConfig.Name,
+	}
+	backup.DiskType = metadata.DiskType
+	backup.DiskSizeMb = metadata.DiskSizeMb
+	backup.OsArch = metadata.OsArch
+	backup.DiskType = metadata.DiskType
+	backup.OsType = metadata.OsType
+	backup.CloudregionId = "default"
+	backup.BackupStorageId = backupStorageId
+	backup.Name = name
+	backup.Id = id
+	backup.Status = api.BACKUP_STATUS_READY
+	err := DiskBackupManager.TableSpec().Insert(ctx, backup)
+	if err != nil {
+		return nil, err
+	}
+	return backup, nil
+}

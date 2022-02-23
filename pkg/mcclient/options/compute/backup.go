@@ -144,3 +144,22 @@ func (opts *InstanceBackupRecoveryOptions) GetId() string {
 func (opts *InstanceBackupRecoveryOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type InstanceBackupPackOptions struct {
+	DiskBackupIdOptions
+	PackageName string `help:"package name" json:"package_name"`
+}
+
+func (opts *InstanceBackupPackOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type InstanceBackupManagerCreateFromPackageOptions struct {
+	PackageName     string `help:"package name" json:"package_name"`
+	Name            string `help:"instance backup name" json:"name"`
+	BackupStorageId string `help:"backup storage id" json:"backup_storage_id"`
+}
+
+func (opts *InstanceBackupManagerCreateFromPackageOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
