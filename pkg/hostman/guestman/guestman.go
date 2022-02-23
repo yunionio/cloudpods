@@ -254,6 +254,22 @@ func (m *SGuestManager) cpusetBalance() {
 	}
 }
 
+func (m *SGuestManager) CPUSet(ctx context.Context, sid string, req *compute.ServerCPUSetInput) (*compute.ServerCPUSetResp, error) {
+	guest, ok := m.GetServer(sid)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("Not found")
+	}
+	return guest.CPUSet(ctx, req)
+}
+
+func (m *SGuestManager) CPUSetRemove(ctx context.Context, sid string) error {
+	guest, ok := m.GetServer(sid)
+	if !ok {
+		return httperrors.NewNotFoundError("Not found")
+	}
+	return guest.CPUSetRemove(ctx)
+}
+
 func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
 	if !regutils.MatchUUID(f.Name()) {
 		return false

@@ -67,6 +67,8 @@ const (
 	ACT_VM_ASSIGNSECGROUP            = "vm_assignsecgroup"
 	ACT_VM_REVOKESECGROUP            = "vm_revokesecgroup"
 	ACT_VM_SETSECGROUP               = "vm_setsecgroup"
+	ACT_VM_CPUSET                    = "vm_cpuset"
+	ACT_VM_CPUSET_REMOVE             = "vm_cpuset_remove"
 	ACT_RESET_DISK                   = "reset_disk"
 	ACT_SYNC_STATUS                  = "sync_status"
 	ACT_SYNC_CONF                    = "sync_conf"

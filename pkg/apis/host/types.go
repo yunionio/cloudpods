@@ -14,7 +14,20 @@
 
 package host
 
+import (
+	"github.com/jaypipes/ghw/pkg/cpu"
+	"github.com/jaypipes/ghw/pkg/topology"
+)
+
 type ServerCloneDiskFromStorageResponse struct {
 	TargetAccessPath string `json:"target_access_path"`
 	TargetFormat     string `json:"target_format"`
+}
+
+type HostTopology struct {
+	*topology.Info
+}
+
+type HostCPUInfo struct {
+	*cpu.Info
 }
