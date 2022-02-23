@@ -161,8 +161,8 @@ type SCloudaccount struct {
 	// 公有云子账号登录地址
 	IamLoginUrl string `width:"512" charset:"ascii" nullable:"false" list:"domain" update:"domain"`
 
-	SAMLAuth            tristate.TriState `nullable:"false" get:"user" update:"domain" create:"optional" list:"user" default:"false"`
-	vmwareHostWireCache map[string][]SVs2Wire
+	SAMLAuth            tristate.TriState     `nullable:"false" get:"user" update:"domain" create:"optional" list:"user" default:"false"`
+	vmwareHostWireCache map[string][]SVs2Wire `ignore:"true"`
 
 	SProjectMappingResourceBase
 
