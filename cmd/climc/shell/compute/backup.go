@@ -43,4 +43,6 @@ func init() {
 	ibCmd.Show(&compute.InstanceBackupIdOptions{})
 	ibCmd.Delete(&compute.InstanceBackupIdOptions{})
 	ibCmd.Perform("recovery", &compute.InstanceBackupRecoveryOptions{})
+	ibCmd.Perform("pack", &compute.InstanceBackupPackOptions{})
+	ibCmd.PerformClass("create-from-package", &compute.InstanceBackupManagerCreateFromPackageOptions{})
 }

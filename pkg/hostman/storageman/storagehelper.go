@@ -56,3 +56,25 @@ type SStorageBackup struct {
 	BackupStorageId         string
 	BackupStorageAccessInfo *jsonutils.JSONDict
 }
+
+type SStoragePackBackup struct {
+	PackageName             string
+	BackupId                string
+	BackupStorageId         string
+	BackupStorageAccessInfo *jsonutils.JSONDict
+	Metadata                api.DiskBackupPackMetadata
+}
+
+type SStoragePackInstanceBackup struct {
+	PackageName             string
+	BackupStorageId         string
+	BackupStorageAccessInfo *jsonutils.JSONDict
+	BackupIds               []string
+	Metadata                api.InstanceBackupPackMetadata
+}
+
+type SStorageUnpackInstanceBackup struct {
+	PackageName             string
+	BackupStorageId         string
+	BackupStorageAccessInfo *jsonutils.JSONDict
+}

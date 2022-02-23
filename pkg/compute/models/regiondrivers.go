@@ -126,6 +126,8 @@ type IRegionDriver interface {
 	RequestCreateInstanceSnapshot(ctx context.Context, guest *SGuest, isp *SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error
 	RequestDeleteInstanceSnapshot(ctx context.Context, isp *SInstanceSnapshot, task taskman.ITask) error
 	RequestResetToInstanceSnapshot(ctx context.Context, guest *SGuest, isp *SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error
+	RequestPackInstanceBackup(ctx context.Context, ib *SInstanceBackup, task taskman.ITask, packageName string) error
+	RequestUnpackInstanceBackup(ctx context.Context, ib *SInstanceBackup, task taskman.ITask, packageName string) error
 
 	RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, vpc *SVpc, secgroup *SSecurityGroup, classic bool, removeProjectId string, task taskman.ITask) error
 	RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *SVpc, secgroup *SSecurityGroup, removeProjectId, service string) (string, error)

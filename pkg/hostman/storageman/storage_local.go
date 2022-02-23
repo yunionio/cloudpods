@@ -131,7 +131,7 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 
 func (s *SLocalStorage) StorageBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sbParams := params.(*SStorageBackup)
-	backupStorage, err := backupstorage.NewBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
+	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func (s *SLocalStorage) StorageBackup(ctx context.Context, params interface{}) (
 }
 
 func (s *SLocalStorage) storageBackupRecovery(ctx context.Context, sbParams *SStorageBackup) (jsonutils.JSONObject, error) {
-	backupStorage, err := backupstorage.NewBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
+	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
 	if err != nil {
 		return nil, err
 	}

@@ -287,4 +287,11 @@ const (
 
 	ACT_MERGE_NETWORK        = "merge_network"
 	ACT_MERGE_NETWORK_FAILED = "merge_network_failed"
+
+	ACT_RECOVERY      = "recovery"
+	ACT_RECOVERY_FAIL = "recovery_fail"
+	ACT_PACK          = "pack"
+	ACT_PACK_FAIL     = "pack_fail"
+	ACT_UNPACK        = "unpack"
+	ACT_UNPACK_FAIL   = "unpack_fail"
 )
