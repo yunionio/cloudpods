@@ -748,6 +748,20 @@ func init() {
 		return nil
 	})
 
+	type IdpGetCallbackUriOptions struct {
+		ID string `help:"id or name of idp to query" json:"-"`
+
+		api.GetIdpSsoCallbackUriInput
+	}
+	R(&IdpGetCallbackUriOptions{}, "idp-sso-callback-url", "Get sso callback url of a SSO idp", func(s *mcclient.ClientSession, args *IdpGetCallbackUriOptions) error {
+		result, err := modules.IdentityProviders.GetSpecific(s, args.ID, "sso-callback-uri", jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type IdpSetDefaultSsoOptions struct {
 		ID string `help:"id or name of idp to set default Sso" json:"-"`
 

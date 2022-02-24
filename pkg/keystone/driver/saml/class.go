@@ -130,6 +130,7 @@ func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 	if err != nil {
 		return tconf, errors.Wrap(err, "Unmarshal new config")
 	}
+	nconf["allow_idp_init"] = jsonutils.JSONTrue
 	tconf[api.IdentityDriverSAML] = nconf
 	return tconf, nil
 }
