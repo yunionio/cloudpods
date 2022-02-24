@@ -27,7 +27,6 @@ import (
 )
 
 type BaseOptions struct {
-	Help       bool   `help:"Show help" short-token:"h"`
 	MODE       string `help:"Execute command mode" choices:"ssh|rmcp"`
 	HOST       string `help:"IP address of remote host"`
 	PASSWD     string `help:"Password"`
@@ -43,11 +42,11 @@ func showErrorAndExit(e error) {
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
-	parser, err := structarg.NewArgumentParser(
+	parser, err := structarg.NewArgumentParserWithHelp(
 		&BaseOptions{},
 		"ipmicli",
 		"Command-line interface to ipmitool",
-		`See "ipmicli help COMMAND" for help on a specific command.`,
+		`See "ipmicli COMMAND --help" for help on a specific command.`,
 	)
 	if err != nil {
 		return nil, err
@@ -56,20 +55,8 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	if subcmd == nil {
 		return nil, fmt.Errorf("No subcommand argument.")
 	}
-	type HelpOptions struct {
-		SUBCOMMAND string `help:"sub-command name"`
-	}
-	shellutils.R(&HelpOptions{}, "help", "Show help of a subcommand", func(args *HelpOptions) error {
-		helpstr, e := subcmd.SubHelpString(args.SUBCOMMAND)
-		if e != nil {
-			return e
-		} else {
-			fmt.Print(helpstr)
-			return nil
-		}
-	})
 	for _, v := range shellutils.CommandTable {
-		_, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
+		_, e := subcmd.AddSubParserWithHelp(v.Options, v.Command, v.Desc, v.Callback)
 		if e != nil {
 			return nil, e
 		}
@@ -108,14 +95,14 @@ func main() {
 	err = parser.ParseArgs(os.Args[1:], false)
 	options := parser.Options().(*BaseOptions)
 
-	if options.Help {
+	if parser.IsHelpSet() {
 		fmt.Print(parser.HelpString())
 		return
 	}
 
 	subcmd := parser.GetSubcommand()
 	subparser := subcmd.GetSubParser()
-	if err != nil {
+	if err != nil || subparser == nil {
 		if subparser != nil {
 			fmt.Print(subparser.Usage())
 		} else {
@@ -127,15 +114,15 @@ func main() {
 
 	suboptions := subparser.Options()
 	var args []interface{}
-	if options.SUBCOMMAND == "help" {
-		args = append(args, suboptions)
-	} else {
-		executor, err := newExecutor(options)
-		if err != nil {
-			showErrorAndExit(err)
-		}
-		args = append(args, executor, suboptions)
+	if subparser.IsHelpSet() {
+		fmt.Print(subparser.HelpString())
+		return
 	}
+	executor, err := newExecutor(options)
+	if err != nil {
+		showErrorAndExit(err)
+	}
+	args = append(args, executor, suboptions)
 	err = subcmd.Invoke(args...)
 	if err != nil {
 		showErrorAndExit(err)

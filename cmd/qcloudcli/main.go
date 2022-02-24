@@ -32,7 +32,6 @@ import (
 
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
-	Help       bool   `help:"Show help"`
 	AppID      string `help:"AppID" default:"$QCLOUD_APPID" metavar:"QCLOUD_APPID"`
 	SecretID   string `help:"Secret" default:"$QCLOUD_SECRET_ID" metavar:"QCLOUD_SECRET_ID"`
 	SecretKey  string `help:"Access key" default:"$QCLOUD_SECRET_KEY" metavar:"QCLOUD_SECRET_KEY"`
@@ -41,10 +40,10 @@ type BaseOptions struct {
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
-	parse, e := structarg.NewArgumentParser(&BaseOptions{},
+	parse, e := structarg.NewArgumentParserWithHelp(&BaseOptions{},
 		"qcloudcli",
 		"Command-line interface to tencentcloud API.",
-		`See "tencentcli help COMMAND" for help on a specific command.`)
+		`See "qcloudcli COMMAND --help" for help on a specific command.`)
 
 	if e != nil {
 		return nil, e
@@ -54,20 +53,8 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	if subcmd == nil {
 		return nil, fmt.Errorf("No subcommand argument.")
 	}
-	type HelpOptions struct {
-		SUBCOMMAND string `help:"sub-command name"`
-	}
-	shellutils.R(&HelpOptions{}, "help", "Show help of a subcommand", func(args *HelpOptions) error {
-		helpstr, e := subcmd.SubHelpString(args.SUBCOMMAND)
-		if e != nil {
-			return e
-		} else {
-			fmt.Print(helpstr)
-			return nil
-		}
-	})
 	for _, v := range shellutils.CommandTable {
-		_, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
+		_, e := subcmd.AddSubParserWithHelp(v.Options, v.Command, v.Desc, v.Callback)
 		if e != nil {
 			return nil, e
 		}
@@ -128,36 +115,35 @@ func main() {
 	e = parser.ParseArgs(os.Args[1:], false)
 	options := parser.Options().(*BaseOptions)
 
-	if options.Help {
+	if parser.IsHelpSet() {
 		fmt.Print(parser.HelpString())
-	} else {
-		subcmd := parser.GetSubcommand()
-		subparser := subcmd.GetSubParser()
-		if e != nil {
-			if subparser != nil {
-				fmt.Print(subparser.Usage())
-			} else {
-				fmt.Print(parser.Usage())
-			}
-			showErrorAndExit(e)
+		return
+	}
+	subcmd := parser.GetSubcommand()
+	subparser := subcmd.GetSubParser()
+	if e != nil || subparser == nil {
+		if subparser != nil {
+			fmt.Print(subparser.Usage())
 		} else {
-			suboptions := subparser.Options()
-			if options.SUBCOMMAND == "help" {
-				e = subcmd.Invoke(suboptions)
-			} else {
-				var region *qcloud.SRegion
-				if len(options.RegionId) == 0 {
-					options.RegionId = qcloud.QCLOUD_DEFAULT_REGION
-				}
-				region, e = newClient(options)
-				if e != nil {
-					showErrorAndExit(e)
-				}
-				e = subcmd.Invoke(region, suboptions)
-			}
-			if e != nil {
-				showErrorAndExit(e)
-			}
+			fmt.Print(parser.Usage())
 		}
+		showErrorAndExit(e)
+	}
+	suboptions := subparser.Options()
+	if subparser.IsHelpSet() {
+		fmt.Print(subparser.HelpString())
+		return
+	}
+	var region *qcloud.SRegion
+	if len(options.RegionId) == 0 {
+		options.RegionId = qcloud.QCLOUD_DEFAULT_REGION
+	}
+	region, e = newClient(options)
+	if e != nil {
+		showErrorAndExit(e)
+	}
+	e = subcmd.Invoke(region, suboptions)
+	if e != nil {
+		showErrorAndExit(e)
 	}
 }

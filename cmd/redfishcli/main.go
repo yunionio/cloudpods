@@ -33,7 +33,6 @@ import (
 
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
-	Help       bool   `help:"Show help"`
 	Endpoint   string `help:"Endpoint, usually https://<host_ipmi_ip>" default:"$REDFISH_ENDPOINT" metavar:"REDFISH_ENDPOINT"`
 	Username   string `help:"Username, usually root" default:"$REDFISH_USERNAME" metavar:"REDFISH_USERNAME"`
 	Password   string `help:"Password" default:"$REDFISH_PASSWORD" metavar:"REDFISH_PASSWORD"`
@@ -45,10 +44,10 @@ var (
 )
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
-	parse, e := structarg.NewArgumentParser(options,
+	parse, e := structarg.NewArgumentParserWithHelp(options,
 		"redfishcli",
 		"Command-line interface to redfish API.",
-		`See "redfishcli help COMMAND" for help on a specific command.`)
+		`See "redfishcli COMMAND --help" for help on a specific command.`)
 
 	if e != nil {
 		return nil, e
@@ -58,21 +57,9 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	if subcmd == nil {
 		return nil, fmt.Errorf("No subcommand argument.")
 	}
-	type HelpOptions struct {
-		SUBCOMMAND string `help:"sub-command name"`
-	}
-	shellutils.R(&HelpOptions{}, "help", "Show help of a subcommand", func(args *HelpOptions) error {
-		helpstr, e := subcmd.SubHelpString(args.SUBCOMMAND)
-		if e != nil {
-			return e
-		} else {
-			fmt.Print(helpstr)
-			return nil
-		}
-	})
 	bmcJnlp()
 	for _, v := range shellutils.CommandTable {
-		_, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
+		_, e := subcmd.AddSubParserWithHelp(v.Options, v.Command, v.Desc, v.Callback)
 		if e != nil {
 			return nil, e
 		}
@@ -159,35 +146,35 @@ func main() {
 	e = parser.ParseArgs(os.Args[1:], false)
 	// options := parser.Options().(*BaseOptions)
 
-	if options.Help {
+	if parser.IsHelpSet() {
 		fmt.Print(parser.HelpString())
-	} else {
-		subcmd := parser.GetSubcommand()
-		subparser := subcmd.GetSubParser()
-		if e != nil {
-			if subparser != nil {
-				fmt.Print(subparser.Usage())
-			} else {
-				fmt.Print(parser.Usage())
-			}
-			showErrorAndExit(e)
+		return
+	}
+	subcmd := parser.GetSubcommand()
+	subparser := subcmd.GetSubParser()
+	if e != nil || subparser == nil {
+		if subparser != nil {
+			fmt.Print(subparser.Usage())
 		} else {
-			suboptions := subparser.Options()
-			if options.SUBCOMMAND == "help" {
-				e = subcmd.Invoke(suboptions)
-			} else if options.SUBCOMMAND == "bmc-jnlp" {
-				e = subcmd.Invoke(suboptions)
-			} else {
-				var client redfish.IRedfishDriver
-				client, e = newClient()
-				if e != nil {
-					showErrorAndExit(e)
-				}
-				e = subcmd.Invoke(client, suboptions)
-			}
-			if e != nil {
-				showErrorAndExit(e)
-			}
+			fmt.Print(parser.Usage())
 		}
+		showErrorAndExit(e)
+	}
+	suboptions := subparser.Options()
+	if subparser.IsHelpSet() {
+		fmt.Print(subparser.HelpString())
+		return
+	} else if options.SUBCOMMAND == "bmc-jnlp" {
+		e = subcmd.Invoke(suboptions)
+	} else {
+		var client redfish.IRedfishDriver
+		client, e = newClient()
+		if e != nil {
+			showErrorAndExit(e)
+		}
+		e = subcmd.Invoke(client, suboptions)
+	}
+	if e != nil {
+		showErrorAndExit(e)
 	}
 }
