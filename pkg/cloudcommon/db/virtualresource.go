@@ -292,6 +292,7 @@ func (model *SVirtualResourceBase) PostCreate(ctx context.Context, userCred mccl
 	if err != nil {
 		log.Errorf("unable to inherit class metadata from poject %s: %s", project.GetId(), err.Error())
 	}
+	model.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (manager *SVirtualResourceBaseManager) FetchCustomizeColumns(
