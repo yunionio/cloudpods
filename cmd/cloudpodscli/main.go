@@ -32,7 +32,6 @@ import (
 
 type BaseOptions struct {
 	Debug        bool   `help:"debug mode"`
-	Help         bool   `help:"Show help"`
 	AuthURL      string `help:"Auth URL" default:"$CLOUDPODS_AUTH_URL" metavar:"CLOUDPODS_AUTH_URL"`
 	AccessKey    string `help:"AccessKey" default:"$CLOUDPODS_ACCESS_KEY" metavar:"CLOUDPODS_ACCESS_KEY"`
 	AccessSecret string `help:"AccessSecret" default:"$CLOUDPODS_ACCESS_SECRET" metavar:"CLOUDPODS_ACCESS_SECRET"`
@@ -41,10 +40,10 @@ type BaseOptions struct {
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
-	parse, err := structarg.NewArgumentParser(&BaseOptions{},
+	parse, err := structarg.NewArgumentParserWithHelp(&BaseOptions{},
 		"cloudpodscli",
 		"Command-line interface to cloudpods API.",
-		`See "cloudpodscli help COMMAND" for help on a specific command.`)
+		`See "cloudpodscli COMMAND --help" for help on a specific command.`)
 
 	if err != nil {
 		return nil, err
@@ -54,19 +53,8 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	if subcmd == nil {
 		return nil, fmt.Errorf("No subcommand argument.")
 	}
-	type HelpOptions struct {
-		SUBCOMMAND string `help:"sub-command name"`
-	}
-	shellutils.R(&HelpOptions{}, "help", "Show help of a subcommand", func(args *HelpOptions) error {
-		helpstr, err := subcmd.SubHelpString(args.SUBCOMMAND)
-		if err != nil {
-			return err
-		}
-		fmt.Print(helpstr)
-		return nil
-	})
 	for _, v := range shellutils.CommandTable {
-		_, err = subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
+		_, err = subcmd.AddSubParserWithHelp(v.Options, v.Command, v.Desc, v.Callback)
 		if err != nil {
 			return nil, err
 		}
@@ -133,13 +121,13 @@ func main() {
 	err = parser.ParseArgs(os.Args[1:], false)
 	options := parser.Options().(*BaseOptions)
 
-	if options.Help {
+	if parser.IsHelpSet() {
 		fmt.Print(parser.HelpString())
 		return
 	}
 	subcmd := parser.GetSubcommand()
 	subparser := subcmd.GetSubParser()
-	if err != nil {
+	if err != nil || subparser == nil {
 		if subparser != nil {
 			fmt.Print(subparser.Usage())
 		} else {
@@ -149,16 +137,16 @@ func main() {
 		return
 	}
 	suboptions := subparser.Options()
-	if options.SUBCOMMAND == "help" {
-		err = subcmd.Invoke(suboptions)
-	} else {
-		var region *cloudpods.SRegion
-		region, err = newClient(options)
-		if err != nil {
-			showErrorAndExit(err)
-		}
-		err = subcmd.Invoke(region, suboptions)
+	if subparser.IsHelpSet() {
+		fmt.Print(subparser.HelpString())
+		return
 	}
+	var region *cloudpods.SRegion
+	region, err = newClient(options)
+	if err != nil {
+		showErrorAndExit(err)
+	}
+	err = subcmd.Invoke(region, suboptions)
 	if err != nil {
 		showErrorAndExit(err)
 	}
