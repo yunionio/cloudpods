@@ -74,8 +74,7 @@ func (cfg *BingoCloudConfig) Debug(debug bool) *BingoCloudConfig {
 type SBingoCloudClient struct {
 	*BingoCloudConfig
 
-	regions  []SRegion
-	iregions []cloudprovider.ICloudRegion
+	regions []SRegion
 }
 
 func NewBingoCloudClient(cfg *BingoCloudConfig) (*SBingoCloudClient, error) {
@@ -150,7 +149,7 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 		query += "&" + encode(k, v)
 	}
 	// 2022-02-11T03:57:37.000Z
-	timeStamp := time.Now().Format("2006-01-02T15:04:05.000Z")
+	timeStamp := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	query += "&" + encode("Timestamp", timeStamp)
 	query += "&" + encode("AWSAccessKeyId", self.accessKey)
 	query += "&" + encode("Version", "2009-08-15")
@@ -252,6 +251,10 @@ func (self *SBingoCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
 	return ret
 }
 
+func (cli *SBingoCloudClient) GetCloudRegionExternalIdPrefix() string {
+	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_BINGO_CLOUD, cli.cpcfg.Id)
+}
+
 func (self *SBingoCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
 		Account:      self.cpcfg.Account,
@@ -262,9 +265,9 @@ func (self *SBingoCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, er
 }
 
 func (self *SBingoCloudClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
-	for i := 0; i < len(self.iregions); i += 1 {
-		if self.iregions[i].GetGlobalId() == id {
-			return self.iregions[i], nil
+	for i := 0; i < len(self.regions); i += 1 {
+		if self.regions[i].GetGlobalId() == id {
+			return &self.regions[i], nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound

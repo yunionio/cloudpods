@@ -82,7 +82,7 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 
 // GetGlobalId() string //	私有云
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("/%s/%s/%s", CLOUD_PROVIDER_BINGO_CLOUD, self.RegionId, self.RegionName)
+	return fmt.Sprintf("%s/%s/%s", CLOUD_PROVIDER_BINGO_CLOUD, self.client.cpcfg.Id, self.RegionId)
 }
 
 func (self *SRegion) GetName() string {
