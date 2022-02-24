@@ -140,6 +140,10 @@ func (self *SBingoCloudProvider) GetIRegionById(id string) (cloudprovider.ICloud
 
 }
 
+func (self *SBingoCloudProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetCloudRegionExternalIdPrefix()
+}
+
 func (self *SBingoCloudProvider) GetBalance() (float64, string, error) {
 	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
 }
