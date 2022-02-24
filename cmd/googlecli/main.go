@@ -36,7 +36,6 @@ import (
 
 type BaseOptions struct {
 	Debug        bool   `help:"debug mode"`
-	Help         bool   `help:"Show help"`
 	AuthFile     string `help:"google cloud auth json file path" default:"$GOOGLE_AUTH_FILE" metavar:"GOOGLE_AUTH_FILE"`
 	ClientEmail  string `help:"Client email" default:"$GOOGLE_CLIENT_EMAIL" metavar:"GOOGLE_CLIENT_EMAIL"`
 	ProjectID    string `help:"Project ID" default:"$GOOGLE_PROJECT_ID" metavar:"GOOGLE_PROJECT_ID"`
@@ -47,10 +46,10 @@ type BaseOptions struct {
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
-	parse, e := structarg.NewArgumentParser(&BaseOptions{},
+	parse, e := structarg.NewArgumentParserWithHelp(&BaseOptions{},
 		"googlecli",
 		"Command-line interface to google API.",
-		`See "googlecli help COMMAND" for help on a specific command.`)
+		`See "googlecli COMMAND --help" for help on a specific command.`)
 
 	if e != nil {
 		return nil, e
@@ -60,20 +59,8 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	if subcmd == nil {
 		return nil, fmt.Errorf("No subcommand argument.")
 	}
-	type HelpOptions struct {
-		SUBCOMMAND string `help:"sub-command name"`
-	}
-	shellutils.R(&HelpOptions{}, "help", "Show help of a subcommand", func(args *HelpOptions) error {
-		helpstr, e := subcmd.SubHelpString(args.SUBCOMMAND)
-		if e != nil {
-			return e
-		} else {
-			fmt.Print(helpstr)
-			return nil
-		}
-	})
 	for _, v := range shellutils.CommandTable {
-		_, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
+		_, e := subcmd.AddSubParserWithHelp(v.Options, v.Command, v.Desc, v.Callback)
 		if e != nil {
 			return nil, e
 		}
@@ -160,13 +147,13 @@ func main() {
 	e = parser.ParseArgs(os.Args[1:], false)
 	options := parser.Options().(*BaseOptions)
 
-	if options.Help {
+	if parser.IsHelpSet() {
 		fmt.Print(parser.HelpString())
 		return
 	}
 	subcmd := parser.GetSubcommand()
 	subparser := subcmd.GetSubParser()
-	if e != nil {
+	if e != nil || subparser == nil {
 		if subparser != nil {
 			fmt.Print(subparser.Usage())
 		} else {
@@ -176,16 +163,16 @@ func main() {
 		return
 	}
 	suboptions := subparser.Options()
-	if options.SUBCOMMAND == "help" {
-		e = subcmd.Invoke(suboptions)
-	} else {
-		var region *google.SRegion
-		region, e = newClient(options)
-		if e != nil {
-			showErrorAndExit(e)
-		}
-		e = subcmd.Invoke(region, suboptions)
+	if subparser.IsHelpSet() {
+		fmt.Print(subparser.HelpString())
+		return
 	}
+	var region *google.SRegion
+	region, e = newClient(options)
+	if e != nil {
+		showErrorAndExit(e)
+	}
+	e = subcmd.Invoke(region, suboptions)
 	if e != nil {
 		showErrorAndExit(e)
 	}

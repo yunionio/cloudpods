@@ -32,7 +32,6 @@ import (
 )
 
 type BaseOptions struct {
-	Help           bool   `help:"Show help"`
 	Debug          bool   `help:"debug mode"`
 	DirectoryID    string `help:"Azure account Directory ID/Tenant ID" default:"$AZURE_DIRECTORY_ID" metavar:"AZURE_DIRECTORY_ID"`
 	SubscriptionID string `help:"Azure account subscription ID" default:"$AZURE_SUBSCRIPTION_ID" metavar:"AZURE_SUBSCRIPTION_ID"`
@@ -44,10 +43,10 @@ type BaseOptions struct {
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
-	parse, e := structarg.NewArgumentParser(&BaseOptions{},
+	parse, e := structarg.NewArgumentParserWithHelp(&BaseOptions{},
 		"azurecli",
 		"Command-line interface to azure API.",
-		`See "azurecli help COMMAND" for help on a specific command.`)
+		`See "azurecli COMMAND --help" for help on a specific command.`)
 
 	if e != nil {
 		return nil, e
@@ -57,20 +56,8 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	if subcmd == nil {
 		return nil, fmt.Errorf("No subcommand argument.")
 	}
-	type HelpOptions struct {
-		SUBCOMMAND string `help:"sub-command name"`
-	}
-	shellutils.R(&HelpOptions{}, "help", "Show help of a subcommand", func(args *HelpOptions) error {
-		helpstr, e := subcmd.SubHelpString(args.SUBCOMMAND)
-		if e != nil {
-			return e
-		} else {
-			fmt.Print(helpstr)
-			return nil
-		}
-	})
 	for _, v := range shellutils.CommandTable {
-		_, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
+		_, e := subcmd.AddSubParserWithHelp(v.Options, v.Command, v.Desc, v.Callback)
 		if e != nil {
 			return nil, e
 		}
@@ -153,33 +140,32 @@ func main() {
 	e = parser.ParseArgs(os.Args[1:], false)
 	options := parser.Options().(*BaseOptions)
 
-	if options.Help {
+	if parser.IsHelpSet() {
 		fmt.Print(parser.HelpString())
-	} else {
-		subcmd := parser.GetSubcommand()
-		subparser := subcmd.GetSubParser()
-		if e != nil {
-			if subparser != nil {
-				fmt.Print(subparser.Usage())
-			} else {
-				fmt.Print(parser.Usage())
-			}
-			showErrorAndExit(e)
+		return
+	}
+	subcmd := parser.GetSubcommand()
+	subparser := subcmd.GetSubParser()
+	if e != nil || subparser == nil {
+		if subparser != nil {
+			fmt.Print(subparser.Usage())
 		} else {
-			suboptions := subparser.Options()
-			if options.SUBCOMMAND == "help" {
-				e = subcmd.Invoke(suboptions)
-			} else {
-				var region *azure.SRegion
-				region, e = newClient(options)
-				if e != nil {
-					showErrorAndExit(e)
-				}
-				e = subcmd.Invoke(region, suboptions)
-			}
-			if e != nil {
-				showErrorAndExit(e)
-			}
+			fmt.Print(parser.Usage())
 		}
+		showErrorAndExit(e)
+	}
+	suboptions := subparser.Options()
+	if subparser.IsHelpSet() {
+		fmt.Print(subparser.HelpString())
+		return
+	}
+	var region *azure.SRegion
+	region, e = newClient(options)
+	if e != nil {
+		showErrorAndExit(e)
+	}
+	e = subcmd.Invoke(region, suboptions)
+	if e != nil {
+		showErrorAndExit(e)
 	}
 }
