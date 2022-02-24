@@ -35,6 +35,7 @@ type IIdentityBackendClass interface {
 type IIdentityBackend interface {
 	Authenticate(ctx context.Context, identity mcclient.SAuthenticationIdentity) (*api.SUserExtended, error)
 	GetSsoRedirectUri(ctx context.Context, callbackUrl, state string) (string, error)
+	GetSsoCallbackUri(callbackUrl string) string
 	Sync(ctx context.Context) error
 	Probe(ctx context.Context) error
 }

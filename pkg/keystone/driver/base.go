@@ -58,6 +58,10 @@ func (base *SBaseIdentityDriver) IIdentityBackend() IIdentityBackend {
 	return base.GetVirtualObject().(IIdentityBackend)
 }
 
+func (base *SBaseIdentityDriver) GetSsoCallbackUri(callbackUrl string) string {
+	return callbackUrl
+}
+
 func NewBaseIdentityDriver(idpId, idpName, template, targetDomainId string, conf api.TConfigs) (SBaseIdentityDriver, error) {
 	drv := SBaseIdentityDriver{}
 	drv.IdpId = idpId
