@@ -36,7 +36,7 @@ require (
 	github.com/benbjohnson/clock v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
-	github.com/c-bata/go-prompt v0.2.1
+	github.com/c-bata/go-prompt v0.2.4
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/coredns/coredns v1.3.0
 	github.com/coreos/go-systemd v0.0.0-20190620071333-e64a0ec8b42a // indirect
@@ -103,7 +103,6 @@ require (
 	github.com/openzipkin/zipkin-go-opentracing v0.3.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.12
 	github.com/pkg/errors v0.9.1
-	github.com/pkg/term v0.0.0-20181116001808-27bbf2edb814 // indirect
 	github.com/pquerna/otp v1.2.0
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
@@ -160,5 +159,5 @@ require (
 	yunion.io/x/pkg v0.0.0-20211116020154-6a76ba2f7e97
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20220119131341-fadec84c0638
-	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
+	yunion.io/x/structarg v0.0.0-20220224030024-02b7582b2546
 )

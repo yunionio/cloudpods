@@ -36,7 +36,6 @@ import (
 )
 
 type BaseOptions struct {
-	Help     bool `help:"Show help" short-token:"h"`
 	Debug    bool `help:"Show debug information"`
 	Version  bool `help:"Show version"`
 	Timeout  int  `default:"600" help:"Number of seconds to wait for a response"`
@@ -75,7 +74,7 @@ func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 		prog = "climc"
 		desc = `Command-line interface to the API server.`
 	)
-	parse, e := structarg.NewArgumentParser(&BaseOptions{},
+	parse, e := structarg.NewArgumentParserWithHelp(&BaseOptions{},
 		prog,
 		desc,
 		`See "climc help COMMAND" for help on a specific command.`)
@@ -86,22 +85,10 @@ func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 	if subcmd == nil {
 		return nil, fmt.Errorf("No subcommand argument")
 	}
-	type HelpOptions struct {
-		SUBCOMMAND string `help:"Sub-command name"`
-	}
-	shell.R(&HelpOptions{}, "help", "Show help information of any subcommand", func(suboptions *HelpOptions) error {
-		helpstr, e := subcmd.SubHelpString(suboptions.SUBCOMMAND)
-		if e != nil {
-			return e
-		} else {
-			fmt.Print(helpstr)
-			return nil
-		}
-	})
 
 	promptRootCmd := promputils.InitRootCmd(prog, desc, parse.GetOptArgs(), parse.GetPosArgs())
 	for _, v := range shell.CommandTable {
-		_par, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
+		_par, e := subcmd.AddSubParserWithHelp(v.Options, v.Command, v.Desc, v.Callback)
 
 		if e != nil {
 			return nil, e
@@ -254,15 +241,18 @@ func executeSubcommand(
 	options *BaseOptions,
 	sessionFactory func() *mcclient.ClientSession,
 ) {
-	var e error
 	suboptions := subparser.Options()
-	if options.SUBCOMMAND == "help" {
-		e = subcmd.Invoke(suboptions)
-	} else {
-		e = subcmd.Invoke(sessionFactory(), suboptions)
+	if subparser.IsHelpSet() {
+		helpStr, err := subcmd.SubHelpString(options.SUBCOMMAND)
+		if err != nil {
+			showErrorAndExit(err)
+		}
+		fmt.Println(helpStr)
+		return
 	}
-	if e != nil {
-		showErrorAndExit(e)
+	err := subcmd.Invoke(sessionFactory(), suboptions)
+	if err != nil {
+		showErrorAndExit(err)
 	}
 }
 
@@ -282,7 +272,7 @@ func ClimcMain() {
 		return
 	}
 
-	if options.Help {
+	if parser.IsHelpSet() {
 		fmt.Print(parser.HelpString())
 		return
 	}

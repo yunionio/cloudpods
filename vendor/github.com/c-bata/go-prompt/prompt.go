@@ -1,32 +1,40 @@
 package prompt
 
 import (
-	"io/ioutil"
-	"log"
+	"bytes"
 	"os"
 	"time"
-)
 
-const (
-	envDebugLogPath = "GO_PROMPT_LOG_PATH"
+	"github.com/c-bata/go-prompt/internal/debug"
 )
 
 // Executor is called when user input something text.
 type Executor func(string)
+
+// ExitChecker is called after user input to check if prompt must stop and exit go-prompt Run loop.
+// User input means: selecting/typing an entry, then, if said entry content matches the ExitChecker function criteria:
+// - immediate exit (if breakline is false) without executor called
+// - exit after typing <return> (meaning breakline is true), and the executor is called first, before exit.
+// Exit means exit go-prompt (not the overall Go program)
+type ExitChecker func(in string, breakline bool) bool
 
 // Completer should return the suggest item from Document.
 type Completer func(Document) []Suggest
 
 // Prompt is core struct of go-prompt.
 type Prompt struct {
-	in          ConsoleParser
-	buf         *Buffer
-	renderer    *Render
-	executor    Executor
-	history     *History
-	completion  *CompletionManager
-	keyBindings []KeyBind
-	keyBindMode KeyBindMode
+	in                ConsoleParser
+	buf               *Buffer
+	renderer          *Render
+	executor          Executor
+	history           *History
+	completion        *CompletionManager
+	keyBindings       []KeyBind
+	ASCIICodeBindings []ASCIICodeBind
+	keyBindMode       KeyBindMode
+	completionOnDown  bool
+	exitChecker       ExitChecker
+	skipTearDown      bool
 }
 
 // Exec is the struct contains user input context.
@@ -36,18 +44,15 @@ type Exec struct {
 
 // Run starts prompt.
 func (p *Prompt) Run() {
-	if l := os.Getenv(envDebugLogPath); l == "" {
-		log.SetOutput(ioutil.Discard)
-	} else if f, err := os.OpenFile(l, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-		log.SetOutput(ioutil.Discard)
-	} else {
-		defer f.Close()
-		log.SetOutput(f)
-		log.Println("[INFO] Logging is enabled.")
-	}
-
+	p.skipTearDown = false
+	defer debug.Teardown()
+	debug.Log("start prompt")
 	p.setUp()
 	defer p.tearDown()
+
+	if p.completion.showAtStart {
+		p.completion.Update(*p.buf.Document())
+	}
 
 	p.renderer.Render(p.buf, p.completion)
 
@@ -65,6 +70,8 @@ func (p *Prompt) Run() {
 		case b := <-bufCh:
 			if shouldExit, e := p.feed(b); shouldExit {
 				p.renderer.BreakLine(p.buf)
+				stopReadBufCh <- struct{}{}
+				stopHandleSignalCh <- struct{}{}
 				return
 			} else if e != nil {
 				// Stop goroutine to run readBuffer function
@@ -73,14 +80,19 @@ func (p *Prompt) Run() {
 
 				// Unset raw mode
 				// Reset to Blocking mode because returned EAGAIN when still set non-blocking mode.
-				p.in.TearDown()
+				debug.AssertNoError(p.in.TearDown())
 				p.executor(e.input)
 
 				p.completion.Update(*p.buf.Document())
+
 				p.renderer.Render(p.buf, p.completion)
 
+				if p.exitChecker != nil && p.exitChecker(e.input, true) {
+					p.skipTearDown = true
+					return
+				}
 				// Set raw mode
-				p.in.Setup()
+				debug.AssertNoError(p.in.Setup())
 				go p.readBuffer(bufCh, stopReadBufCh)
 				go p.handleSignals(exitCh, winSizeCh, stopHandleSignalCh)
 			} else {
@@ -101,42 +113,17 @@ func (p *Prompt) Run() {
 }
 
 func (p *Prompt) feed(b []byte) (shouldExit bool, exec *Exec) {
-	key := p.in.GetKey(b)
-
+	key := GetKey(b)
+	p.buf.lastKeyStroke = key
 	// completion
 	completing := p.completion.Completing()
-	switch key {
-	case Down:
-		if completing {
-			p.completion.Next()
-		}
-	case Tab, ControlI:
-		p.completion.Next()
-	case Up:
-		if completing {
-			p.completion.Previous()
-		}
-	case BackTab:
-		p.completion.Previous()
-	case ControlSpace:
-		return
-	default:
-		if s, ok := p.completion.GetSelectedSuggestion(); ok {
-			w := p.buf.Document().GetWordBeforeCursor()
-			if w != "" {
-				p.buf.DeleteBeforeCursor(len([]rune(w)))
-			}
-			p.buf.InsertText(s.Text, false, true)
-		}
-		p.completion.Reset()
-	}
+	p.handleCompletionKeyBinding(key, completing)
 
 	switch key {
 	case Enter, ControlJ, ControlM:
 		p.renderer.BreakLine(p.buf)
 
 		exec = &Exec{input: p.buf.Text()}
-		log.Printf("[History] %s", p.buf.Text())
 		p.buf = NewBuffer()
 		if exec.input != "" {
 			p.history.Add(exec.input)
@@ -164,10 +151,44 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, exec *Exec) {
 			return
 		}
 	case NotDefined:
+		if p.handleASCIICodeBinding(b) {
+			return
+		}
 		p.buf.InsertText(string(b), false, true)
 	}
 
-	// Key bindings
+	shouldExit = p.handleKeyBinding(key)
+	return
+}
+
+func (p *Prompt) handleCompletionKeyBinding(key Key, completing bool) {
+	switch key {
+	case Down:
+		if completing || p.completionOnDown {
+			p.completion.Next()
+		}
+	case Tab, ControlI:
+		p.completion.Next()
+	case Up:
+		if completing {
+			p.completion.Previous()
+		}
+	case BackTab:
+		p.completion.Previous()
+	default:
+		if s, ok := p.completion.GetSelectedSuggestion(); ok {
+			w := p.buf.Document().GetWordBeforeCursorUntilSeparator(p.completion.wordSeparator)
+			if w != "" {
+				p.buf.DeleteBeforeCursor(len([]rune(w)))
+			}
+			p.buf.InsertText(s.Text, false, true)
+		}
+		p.completion.Reset()
+	}
+}
+
+func (p *Prompt) handleKeyBinding(key Key) bool {
+	shouldExit := false
 	for i := range commonKeyBindings {
 		kb := commonKeyBindings[i]
 		if kb.Key == key {
@@ -191,23 +212,33 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, exec *Exec) {
 			kb.Fn(p.buf)
 		}
 	}
-	return
+	if p.exitChecker != nil && p.exitChecker(p.buf.Text(), false) {
+		shouldExit = true
+	}
+	return shouldExit
+}
+
+func (p *Prompt) handleASCIICodeBinding(b []byte) bool {
+	checked := false
+	for _, kb := range p.ASCIICodeBindings {
+		if bytes.Equal(kb.ASCIICode, b) {
+			kb.Fn(p.buf)
+			checked = true
+		}
+	}
+	return checked
 }
 
 // Input just returns user input text.
 func (p *Prompt) Input() string {
-	if l := os.Getenv(envDebugLogPath); l == "" {
-		log.SetOutput(ioutil.Discard)
-	} else if f, err := os.OpenFile(l, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-		log.SetOutput(ioutil.Discard)
-	} else {
-		defer f.Close()
-		log.SetOutput(f)
-		log.Println("[INFO] Logging is enabled.")
-	}
-
+	defer debug.Teardown()
+	debug.Log("start prompt")
 	p.setUp()
 	defer p.tearDown()
+
+	if p.completion.showAtStart {
+		p.completion.Update(*p.buf.Document())
+	}
 
 	p.renderer.Render(p.buf, p.completion)
 	bufCh := make(chan []byte, 128)
@@ -219,6 +250,7 @@ func (p *Prompt) Input() string {
 		case b := <-bufCh:
 			if shouldExit, e := p.feed(b); shouldExit {
 				p.renderer.BreakLine(p.buf)
+				stopReadBufCh <- struct{}{}
 				return ""
 			} else if e != nil {
 				// Stop goroutine to run readBuffer function
@@ -235,28 +267,30 @@ func (p *Prompt) Input() string {
 }
 
 func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan struct{}) {
-	log.Printf("[INFO] readBuffer start")
+	debug.Log("start reading buffer")
 	for {
-		time.Sleep(10 * time.Millisecond)
 		select {
 		case <-stopCh:
-			log.Print("[INFO] stop readBuffer")
+			debug.Log("stop reading buffer")
 			return
 		default:
-			if b, err := p.in.Read(); err == nil {
+			if b, err := p.in.Read(); err == nil && !(len(b) == 1 && b[0] == 0) {
 				bufCh <- b
 			}
 		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
 func (p *Prompt) setUp() {
-	p.in.Setup()
+	debug.AssertNoError(p.in.Setup())
 	p.renderer.Setup()
 	p.renderer.UpdateWinSize(p.in.GetWinSize())
 }
 
 func (p *Prompt) tearDown() {
-	p.in.TearDown()
+	if !p.skipTearDown {
+		debug.AssertNoError(p.in.TearDown())
+	}
 	p.renderer.TearDown()
 }
