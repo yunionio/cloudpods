@@ -75,6 +75,10 @@ func Executor(s string) {
 	} else {
 		session.GetClient().SetDebug(false)
 	}
+	if subparser.IsHelpSet() {
+		fmt.Print(subparser.HelpString())
+		return
+	}
 	if e != nil {
 		if subparser != nil {
 			fmt.Print(subparser.Usage())
@@ -84,11 +88,7 @@ func Executor(s string) {
 		fmt.Println(e)
 	} else {
 		suboptions := subparser.Options()
-		if args[0] == "help" {
-			e = subcmd.Invoke(suboptions)
-		} else {
-			e = subcmd.Invoke(session, suboptions)
-		}
+		e = subcmd.Invoke(session, suboptions)
 		if e != nil {
 			fmt.Println(e)
 		}

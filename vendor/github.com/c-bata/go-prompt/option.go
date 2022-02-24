@@ -12,9 +12,10 @@ func OptionParser(x ConsoleParser) Option {
 	}
 }
 
-// OptionWriter to set a custom ConsoleWriter object. An argument should implement ConsoleWriter interace.
+// OptionWriter to set a custom ConsoleWriter object. An argument should implement ConsoleWriter interface.
 func OptionWriter(x ConsoleWriter) Option {
 	return func(p *Prompt) error {
+		registerConsoleWriter(x)
 		p.renderer.out = x
 		return nil
 	}
@@ -36,6 +37,22 @@ func OptionPrefix(x string) Option {
 	}
 }
 
+// OptionInitialBufferText to set the initial buffer text
+func OptionInitialBufferText(x string) Option {
+	return func(p *Prompt) error {
+		p.buf.InsertText(x, false, true)
+		return nil
+	}
+}
+
+// OptionCompletionWordSeparator to set word separators. Enable only ' ' if empty.
+func OptionCompletionWordSeparator(x string) Option {
+	return func(p *Prompt) error {
+		p.completion.wordSeparator = x
+		return nil
+	}
+}
+
 // OptionLivePrefix to change the prefix dynamically by callback function
 func OptionLivePrefix(f func() (prefix string, useLivePrefix bool)) Option {
 	return func(p *Prompt) error {
@@ -44,6 +61,7 @@ func OptionLivePrefix(f func() (prefix string, useLivePrefix bool)) Option {
 	}
 }
 
+// OptionPrefixTextColor change a text color of prefix string
 func OptionPrefixTextColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.prefixTextColor = x
@@ -51,6 +69,7 @@ func OptionPrefixTextColor(x Color) Option {
 	}
 }
 
+// OptionPrefixBackgroundColor to change a background color of prefix string
 func OptionPrefixBackgroundColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.prefixBGColor = x
@@ -58,6 +77,7 @@ func OptionPrefixBackgroundColor(x Color) Option {
 	}
 }
 
+// OptionInputTextColor to change a color of text which is input by user
 func OptionInputTextColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.inputTextColor = x
@@ -65,6 +85,7 @@ func OptionInputTextColor(x Color) Option {
 	}
 }
 
+// OptionInputBGColor to change a color of background which is input by user
 func OptionInputBGColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.inputBGColor = x
@@ -72,6 +93,7 @@ func OptionInputBGColor(x Color) Option {
 	}
 }
 
+// OptionPreviewSuggestionTextColor to change a text color which is completed
 func OptionPreviewSuggestionTextColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.previewSuggestionTextColor = x
@@ -79,6 +101,7 @@ func OptionPreviewSuggestionTextColor(x Color) Option {
 	}
 }
 
+// OptionPreviewSuggestionBGColor to change a background color which is completed
 func OptionPreviewSuggestionBGColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.previewSuggestionBGColor = x
@@ -86,6 +109,7 @@ func OptionPreviewSuggestionBGColor(x Color) Option {
 	}
 }
 
+// OptionSuggestionTextColor to change a text color in drop down suggestions.
 func OptionSuggestionTextColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.suggestionTextColor = x
@@ -93,6 +117,7 @@ func OptionSuggestionTextColor(x Color) Option {
 	}
 }
 
+// OptionSuggestionBGColor change a background color in drop down suggestions.
 func OptionSuggestionBGColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.suggestionBGColor = x
@@ -100,6 +125,7 @@ func OptionSuggestionBGColor(x Color) Option {
 	}
 }
 
+// OptionSelectedSuggestionTextColor to change a text color for completed text which is selected inside suggestions drop down box.
 func OptionSelectedSuggestionTextColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.selectedSuggestionTextColor = x
@@ -107,6 +133,7 @@ func OptionSelectedSuggestionTextColor(x Color) Option {
 	}
 }
 
+// OptionSelectedSuggestionBGColor to change a background color for completed text which is selected inside suggestions drop down box.
 func OptionSelectedSuggestionBGColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.selectedSuggestionBGColor = x
@@ -114,6 +141,7 @@ func OptionSelectedSuggestionBGColor(x Color) Option {
 	}
 }
 
+// OptionDescriptionTextColor to change a background color of description text in drop down suggestions.
 func OptionDescriptionTextColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.descriptionTextColor = x
@@ -121,6 +149,7 @@ func OptionDescriptionTextColor(x Color) Option {
 	}
 }
 
+// OptionDescriptionBGColor to change a background color of description text in drop down suggestions.
 func OptionDescriptionBGColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.descriptionBGColor = x
@@ -128,6 +157,7 @@ func OptionDescriptionBGColor(x Color) Option {
 	}
 }
 
+// OptionSelectedDescriptionTextColor to change a text color of description which is selected inside suggestions drop down box.
 func OptionSelectedDescriptionTextColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.selectedDescriptionTextColor = x
@@ -135,6 +165,7 @@ func OptionSelectedDescriptionTextColor(x Color) Option {
 	}
 }
 
+// OptionSelectedDescriptionBGColor to change a background color of description which is selected inside suggestions drop down box.
 func OptionSelectedDescriptionBGColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.selectedDescriptionBGColor = x
@@ -142,6 +173,7 @@ func OptionSelectedDescriptionBGColor(x Color) Option {
 	}
 }
 
+// OptionScrollbarThumbColor to change a thumb color on scrollbar.
 func OptionScrollbarThumbColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.scrollbarThumbColor = x
@@ -149,6 +181,7 @@ func OptionScrollbarThumbColor(x Color) Option {
 	}
 }
 
+// OptionScrollbarBGColor to change a background color of scrollbar.
 func OptionScrollbarBGColor(x Color) Option {
 	return func(p *Prompt) error {
 		p.renderer.scrollbarBGColor = x
@@ -181,6 +214,14 @@ func OptionSwitchKeyBindMode(m KeyBindMode) Option {
 	}
 }
 
+// OptionCompletionOnDown allows for Down arrow key to trigger completion.
+func OptionCompletionOnDown() Option {
+	return func(p *Prompt) error {
+		p.completionOnDown = true
+		return nil
+	}
+}
+
 // SwitchKeyBindMode to set a key bind mode.
 // Deprecated: Please use OptionSwitchKeyBindMode.
 var SwitchKeyBindMode = OptionSwitchKeyBindMode
@@ -193,13 +234,48 @@ func OptionAddKeyBind(b ...KeyBind) Option {
 	}
 }
 
+// OptionAddASCIICodeBind to set a custom key bind.
+func OptionAddASCIICodeBind(b ...ASCIICodeBind) Option {
+	return func(p *Prompt) error {
+		p.ASCIICodeBindings = append(p.ASCIICodeBindings, b...)
+		return nil
+	}
+}
+
+// OptionShowCompletionAtStart to set completion window is open at start.
+func OptionShowCompletionAtStart() Option {
+	return func(p *Prompt) error {
+		p.completion.showAtStart = true
+		return nil
+	}
+}
+
+// OptionBreakLineCallback to run a callback at every break line
+func OptionBreakLineCallback(fn func(*Document)) Option {
+	return func(p *Prompt) error {
+		p.renderer.breakLineCallback = fn
+		return nil
+	}
+}
+
+// OptionSetExitCheckerOnInput set an exit function which checks if go-prompt exits its Run loop
+func OptionSetExitCheckerOnInput(fn ExitChecker) Option {
+	return func(p *Prompt) error {
+		p.exitChecker = fn
+		return nil
+	}
+}
+
 // New returns a Prompt with powerful auto-completion.
 func New(executor Executor, completer Completer, opts ...Option) *Prompt {
+	defaultWriter := NewStdoutWriter()
+	registerConsoleWriter(defaultWriter)
+
 	pt := &Prompt{
 		in: NewStandardInputParser(),
 		renderer: &Render{
 			prefix:                       "> ",
-			out:                          NewStandardOutputWriter(),
+			out:                          defaultWriter,
 			livePrefixCallback:           func() (string, bool) { return "", false },
 			prefixTextColor:              Blue,
 			prefixBGColor:                DefaultColor,

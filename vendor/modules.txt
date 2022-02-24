@@ -217,8 +217,12 @@ github.com/boombuler/barcode/qr
 github.com/boombuler/barcode/utils
 # github.com/bradfitz/iter v0.0.0-20140124041915-454541ec3da2
 github.com/bradfitz/iter
-# github.com/c-bata/go-prompt v0.2.1
+# github.com/c-bata/go-prompt v0.2.4
 github.com/c-bata/go-prompt
+github.com/c-bata/go-prompt/internal/bisect
+github.com/c-bata/go-prompt/internal/debug
+github.com/c-bata/go-prompt/internal/strings
+github.com/c-bata/go-prompt/internal/term
 # github.com/cheggaaa/pb/v3 v3.0.8
 github.com/cheggaaa/pb/v3
 github.com/cheggaaa/pb/v3/termutil
@@ -597,7 +601,7 @@ github.com/pierrec/lz4/v4/internal/lz4stream
 github.com/pierrec/lz4/v4/internal/xxh32
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
-# github.com/pkg/term v0.0.0-20181116001808-27bbf2edb814
+# github.com/pkg/term v1.0.0
 github.com/pkg/term/termios
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
@@ -1266,5 +1270,5 @@ yunion.io/x/sqlchemy/backends
 yunion.io/x/sqlchemy/backends/clickhouse
 yunion.io/x/sqlchemy/backends/mysql
 yunion.io/x/sqlchemy/backends/sqlite
-# yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
+# yunion.io/x/structarg v0.0.0-20220224030024-02b7582b2546
 yunion.io/x/structarg

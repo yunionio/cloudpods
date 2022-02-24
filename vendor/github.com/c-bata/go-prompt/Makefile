@@ -1,29 +1,44 @@
 .DEFAULT_GOAL := help
 
+SOURCES := $(shell find . -prune -o -name "*.go" -not -name '*_test.go' -print)
+
+GOIMPORTS ?= goimports
+GOCILINT ?= golangci-lint
+
 .PHONY: setup
 setup:  ## Setup for required tools.
-	go get github.com/golang/lint/golint
-	go get golang.org/x/tools/cmd/goimports
-	go get golang.org/x/tools/cmd/stringer
-	go get -u github.com/golang/dep/cmd/dep
-	dep ensure
+	go get -u golang.org/x/tools/cmd/goimports
+	go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+	go get -u golang.org/x/tools/cmd/stringer
 
 .PHONY: fmt
-fmt: ## Formatting source codes.
-	@goimports -w .
+fmt: $(SOURCES) ## Formatting source codes.
+	@$(GOIMPORTS) -w $^
 
 .PHONY: lint
-lint: ## Run golint and go vet.
-	@golint .
-	@go vet .
+lint: ## Run golangci-lint.
+	@$(GOCILINT) run --no-config --disable-all --enable=goimports --enable=misspell ./...
 
 .PHONY: test
-test:  ## Run the tests.
-	@go test .
+test:  ## Run tests with race condition checking.
+	@go test -race ./...
 
-.PHONY: race-test
-race-test:  ## Checking the race condition.
-	@go test -race .
+.PHONY: bench
+bench:  ## Run benchmarks.
+	@go test -bench=. -run=- -benchmem ./...
+
+.PHONY: coverage
+cover:  ## Run the tests.
+	@go test -coverprofile=coverage.o
+	@go tool cover -func=coverage.o
+
+.PHONY: generate
+generate: ## Run go generate
+	@go generate ./...
+
+.PHONY: build
+build: ## Build example command lines.
+	./_example/build.sh
 
 .PHONY: help
 help: ## Show help text
