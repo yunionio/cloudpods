@@ -33,7 +33,6 @@ import (
 )
 
 type Options struct {
-	Help         bool   `help:"Show help" default:"false"`
 	Debug        bool   `help:"Show debug" default:"false"`
 	AccessKey    string `help:"Access key" default:"$JDCLOUD_ACCESS_KEY"`
 	AccessSecret string `help:"Secret" default:"$JDCLOUD_ACCESS_SECRET"`
@@ -42,10 +41,10 @@ type Options struct {
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
-	parse, err := structarg.NewArgumentParser(&Options{},
+	parse, err := structarg.NewArgumentParserWithHelp(&Options{},
 		"jdcloudcli",
 		"Command-line interface to ecloud API.",
-		`See "ecloud help COMMAND" for help on a specific command.`,
+		`See "jdcloudcli COMMAND --help" for help on a specific command.`,
 	)
 	if err != nil {
 		return nil, err
@@ -55,20 +54,8 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	if subcmd == nil {
 		return nil, fmt.Errorf("No subcommand argument")
 	}
-	type HelpOptions struct {
-		SUBCOMMAND string `help:"sub-command name"`
-	}
-	shellutils.R(&HelpOptions{}, "help", "Show help of a subcommand", func(args *HelpOptions) error {
-		helpstr, err := subcmd.SubHelpString(args.SUBCOMMAND)
-		if err != nil {
-			return err
-		} else {
-			fmt.Print(helpstr)
-			return nil
-		}
-	})
 	for _, v := range shellutils.CommandTable {
-		_, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
+		_, e := subcmd.AddSubParserWithHelp(v.Options, v.Command, v.Desc, v.Callback)
 		if e != nil {
 			return nil, e
 		}
@@ -123,38 +110,37 @@ func main() {
 	err = parser.ParseArgs(os.Args[1:], false)
 	options := parser.Options().(*Options)
 
-	if options.Help {
+	if parser.IsHelpSet() {
 		fmt.Print(parser.HelpString())
+		return
+	}
+	if options.Debug {
+		log.SetLogLevel(log.Logger(), logrus.DebugLevel)
 	} else {
-		if options.Debug {
-			log.SetLogLevel(log.Logger(), logrus.DebugLevel)
+		log.SetLogLevel(log.Logger(), logrus.InfoLevel)
+	}
+	subcmd := parser.GetSubcommand()
+	subparser := subcmd.GetSubParser()
+	if err != nil || subparser == nil {
+		if subparser != nil {
+			fmt.Print(subparser.Usage())
 		} else {
-			log.SetLogLevel(log.Logger(), logrus.InfoLevel)
+			fmt.Print(parser.Usage())
 		}
-		subcmd := parser.GetSubcommand()
-		subparser := subcmd.GetSubParser()
-		if err != nil {
-			if subparser != nil {
-				fmt.Print(subparser.Usage())
-			} else {
-				fmt.Print(parser.Usage())
-			}
-			showErrorAndExit(err)
-		} else {
-			suboptions := subparser.Options()
-			if options.SUBCOMMAND == "help" {
-				err = subcmd.Invoke(suboptions)
-			} else {
-				var region *jdcloud.SRegion
-				region, err = newClient(options)
-				if err != nil {
-					showErrorAndExit(err)
-				}
-				err = subcmd.Invoke(region, suboptions)
-			}
-			if err != nil {
-				showErrorAndExit(err)
-			}
-		}
+		showErrorAndExit(err)
+	}
+	suboptions := subparser.Options()
+	if subparser.IsHelpSet() {
+		fmt.Print(subparser.HelpString())
+		return
+	}
+	var region *jdcloud.SRegion
+	region, err = newClient(options)
+	if err != nil {
+		showErrorAndExit(err)
+	}
+	err = subcmd.Invoke(region, suboptions)
+	if err != nil {
+		showErrorAndExit(err)
 	}
 }
