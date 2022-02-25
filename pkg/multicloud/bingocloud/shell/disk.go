@@ -21,10 +21,11 @@ import (
 
 func init() {
 	type DiskListOptions struct {
+		storageId string
 	}
 	shellutils.R(&DiskListOptions{}, "disk-list", "list disk", func(cli *bingocloud.SRegion, args *DiskListOptions) error {
 		// instanceId string, zoneId string, category string, diskIds []string, offset int, limit int
-		disks, err := cli.GetDisks()
+		disks, err := cli.GetDisks(args.storageId, "")
 		if err != nil {
 			return err
 		}
