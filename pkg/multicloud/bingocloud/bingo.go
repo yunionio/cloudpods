@@ -149,7 +149,8 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 		query += "&" + encode(k, v)
 	}
 	// 2022-02-11T03:57:37.000Z
-	timeStamp := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	timeStamp := time.Now().Format("2006-01-02T15:04:05.000Z")
+	// timeStamp := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	query += "&" + encode("Timestamp", timeStamp)
 	query += "&" + encode("AWSAccessKeyId", self.accessKey)
 	query += "&" + encode("Version", "2009-08-15")
@@ -271,4 +272,101 @@ func (self *SBingoCloudClient) GetIRegionById(id string) (cloudprovider.ICloudRe
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SBingoCloudClient) getBaseDomain() string {
+	return self._getBaseDomain("")
+}
+
+func (self *SBingoCloudClient) _getBaseDomain(version string) string {
+	return fmt.Sprintf("https://%s", self.endpoint)
+}
+
+func (self *SBingoCloudClient) jsonRequest(method httputils.THttpMethod, url string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	client := self.getDefaultClient(time.Duration(0))
+	return _jsonRequest(client, method, url, nil, body, self.debug)
+}
+
+type sBingoError struct {
+	DetailedMessage string
+	Message         string
+	ErrorCode       struct {
+		Code    int
+		HelpUrl string
+	}
+}
+
+func (self *sBingoError) Error() string {
+	return jsonutils.Marshal(self).String()
+}
+
+func (self *sBingoError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
+	if body != nil {
+		body.Unmarshal(self)
+	}
+	if self.ErrorCode.Code == 1202 {
+		return errors.Wrapf(cloudprovider.ErrNotFound, self.Error())
+	}
+	return self
+}
+
+func _jsonRequest(cli *http.Client, method httputils.THttpMethod, url string, header http.Header, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
+	client := httputils.NewJsonClient(cli)
+	req := httputils.NewJsonRequest(method, url, body)
+	ne := &sBingoError{}
+	_, resp, err := client.Send(context.Background(), req, ne, debug)
+	return resp, err
+}
+
+func (self *SBingoCloudClient) get(res string, id string, params url.Values, retVal interface{}) error {
+	url := fmt.Sprintf("%s/%s/%s", self.getBaseDomain(), res, id)
+	if len(params) > 0 {
+		url = fmt.Sprintf("%s?%s", url, params.Encode())
+	}
+	resp, err := self.jsonRequest(httputils.GET, url, nil)
+	if err != nil {
+		return errors.Wrapf(err, "get %s/%s", res, id)
+	}
+	if retVal != nil {
+		return resp.Unmarshal(retVal)
+	}
+	return nil
+}
+
+func (self *SBingoCloudClient) _list(res string, params url.Values) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("%s/%s", self.getBaseDomain(), res)
+	if len(params) > 0 {
+		url = fmt.Sprintf("%s?%s", url, params.Encode())
+	}
+	return self.jsonRequest(httputils.GET, url, nil)
+}
+
+func (self *SBingoCloudClient) listAll(res string, params url.Values, retVal interface{}) error {
+	if len(params) == 0 {
+		params = url.Values{}
+	}
+	entities := []jsonutils.JSONObject{}
+	page, count := 1, 1024
+	for {
+		params.Set("count", fmt.Sprintf("%d", count))
+		params.Set("page", fmt.Sprintf("%d", page))
+		resp, err := self._list(res, params)
+		if err != nil {
+			return errors.Wrapf(err, "list %s", res)
+		}
+		_entities, err := resp.GetArray("entities")
+		if err != nil {
+			return errors.Wrapf(err, "resp get entities")
+		}
+		entities = append(entities, _entities...)
+		totalEntities, err := resp.Int("metadata", "total_entities")
+		if err != nil {
+			return errors.Wrapf(err, "get resp total_entities")
+		}
+		if int64(page*count) >= totalEntities {
+			break
+		}
+		page++
+	}
+	return jsonutils.Update(retVal, entities)
 }

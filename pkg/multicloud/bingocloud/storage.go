@@ -14,11 +14,19 @@
 package bingocloud
 
 import (
+	"github.com/pkg/errors"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SStorage struct {
+	zone          *SZone
+	host          *SHost
+	SStoragecache *SStoragecache
+	region        *SRegion
+
 	Disabled     bool   `json:"disabled"`
 	DrCloudId    string `json:"drCloudId"`
 	ParameterSet struct {
@@ -60,4 +68,118 @@ func (self *SRegion) GetStorages() ([]SStorage, error) {
 func (self *SRegion) GetStorage(id string) (*SStorage, error) {
 	storage := &SStorage{}
 	return storage, cloudprovider.ErrNotImplemented
+}
+
+func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
+	return self.zone
+}
+
+func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
+	return nil
+}
+
+func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+	disks, err := self.zone.region.GetDisks(self.GetGlobalId(), "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDisks")
+	}
+	ret := []cloudprovider.ICloudDisk{}
+	for i := range disks {
+		disks[i].storage = self
+		ret = append(ret, &disks[i])
+	}
+	return ret, nil
+}
+
+func (self *SStorage) GetStorageType() string {
+	return api.STORAGE_LOCAL
+}
+
+func (self *SStorage) GetMediumType() string {
+	return api.DISK_TYPE_SSD
+}
+
+func (self *SStorage) GetCapacityMB() int64 {
+	return 0
+}
+
+func (self *SStorage) GetCapacityUsedMB() int64 {
+	return 0
+}
+
+func (self *SStorage) GetStorageConf() jsonutils.JSONObject {
+	return jsonutils.NewDict()
+}
+
+func (self *SStorage) GetEnabled() bool {
+	return true
+}
+
+func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	disk, err := self.zone.region.GetDisk(id)
+	if err != nil {
+		return nil, err
+	}
+	if disk.storage.StorageId != self.GetGlobalId() {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	}
+	disk.storage = self
+	return disk, nil
+}
+
+func (self *SStorage) GetMountPoint() string {
+	return ""
+}
+
+func (self *SStorage) IsSysDiskStore() bool {
+	return true
+}
+
+func (self *SStorage) DisableSync() bool {
+	return false
+}
+
+//
+func (self *SStorage) GetId() string {
+	return self.StorageId
+}
+
+func (self *SStorage) GetName() string {
+	return self.StorageName
+}
+
+func (self *SStorage) GetGlobalId() string {
+	return self.StorageId
+}
+
+func (self *SStorage) GetStatus() string {
+	return api.STORAGE_ONLINE
+}
+
+func (self *SStorage) Refresh() error {
+	storage, err := self.zone.region.GetStorage(self.GetGlobalId())
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, storage)
+}
+
+func (self *SStorage) IsEmulated() bool {
+	return false
+}
+
+func (self *SStorage) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *SStorage) GetTags() (map[string]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SStorage) SetTags(tags map[string]string, replace bool) error {
+	return cloudprovider.ErrNotImplemented
 }

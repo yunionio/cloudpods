@@ -16,6 +16,7 @@ package bingocloud
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/pkg/errors"
@@ -40,6 +41,8 @@ type SRegion struct {
 	Hypervisor     string
 	NetworkMode    string
 	RegionEndpoint string
+
+	storageCache *SStoragecache
 }
 
 func (self *SRegion) GetClient() *SBingoCloudClient {
@@ -305,8 +308,19 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (self *SRegion) getStoragecache() *SStoragecache {
+	if self.storageCache == nil {
+		return self.storageCache
+	}
+	return self.storageCache
+}
+
 func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	storageCache := self.getStoragecache()
+	if storageCache.GetGlobalId() == id {
+		return self.storageCache, nil
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
@@ -422,4 +436,8 @@ func (self *SRegion) SetTags(tags map[string]string, replace bool) error {
 
 func (self *SRegion) UpdateSnapshotPolicy(*cloudprovider.SnapshotPolicyInput, string) error {
 	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) listAll(res string, params url.Values, retVal interface{}) error {
+	return self.client.listAll(res, params, retVal)
 }

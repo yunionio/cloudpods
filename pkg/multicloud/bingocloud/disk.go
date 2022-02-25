@@ -15,6 +15,8 @@ package bingocloud
 
 import (
 	"context"
+	"net/url"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -24,13 +26,28 @@ import (
 )
 
 type SDisk struct {
+	storage *SStorage
+
 	Device   string `json:"device"`
 	Path     string `json:"path"`
 	SizeInGB string `json:"sizeInGB"`
 	VolumeId string `json:"volumeId"`
 }
 
-func (self *SRegion) GetDisks() ([]SDisk, error) {
+func (self *SRegion) GetDisks(storageId, vmId string) ([]SDisk, error) {
+	params := url.Values{}
+	filter := []string{}
+	if len(storageId) > 0 {
+		filter = append(filter, "container_uuid=="+storageId)
+	}
+	if len(vmId) > 0 {
+		filter = append(filter, "vm_uuid=="+vmId)
+		filter = append(filter, "attach_vm_id=="+vmId)
+	}
+	if len(filter) > 0 {
+		params.Set("filter_criteria", strings.Join(filter, ","))
+	}
+
 	resp, err := self.invoke("", nil)
 	if err != nil {
 		return nil, err
@@ -45,53 +62,18 @@ func (self *SRegion) GetDisks() ([]SDisk, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.DiskFileInfo.Item, nil
+
+	disks := result.DiskFileInfo.Item
+
+	return disks, self.listAll("virtual_disks", params, &disks)
 }
-
-// func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {
-// 	if limit > 50 || limit <= 0 {
-// 		limit = 50
-// 	}
-// 	params := make(map[string]string)
-// 	params["RegionId"] = self.RegionId
-// 	params["PageSize"] = fmt.Sprintf("%d", limit)
-// 	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
-
-// 	if len(instanceId) > 0 {
-// 		params["InstanceId"] = instanceId
-// 	}
-// 	if len(zoneId) > 0 {
-// 		params["ZoneId"] = zoneId
-// 	}
-// 	if len(category) > 0 {
-// 		params["Category"] = category
-// 	}
-// 	if diskIds != nil && len(diskIds) > 0 {
-// 		params["DiskIds"] = jsonutils.Marshal(diskIds).String()
-// 	}
-
-// 	body, err := self.invoke("DescribeInstanceDiskFile", params)
-// 	if err != nil {
-// 		log.Errorf("GetDisks fail %s", err)
-// 		return nil, 0, err
-// 	}
-
-// 	disks := make([]SDisk, 0)
-// 	err = body.Unmarshal(&disks, "Disks", "Disk")
-// 	if err != nil {
-// 		log.Errorf("Unmarshal disk details fail %s", err)
-// 		return nil, 0, err
-// 	}
-// 	total, _ := body.Int("TotalCount")
-// 	return disks, int(total), nil
-// }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	if len(diskId) == 0 {
 		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetDisk")
 	}
-
-	return nil, cloudprovider.ErrNotImplemented
+	disk := &SDisk{}
+	return disk, cloudprovider.ErrNotImplemented
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
