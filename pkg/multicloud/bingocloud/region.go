@@ -1,11 +1,3 @@
-/*
- * @Author: your name
- * @Date: 2022-02-16 18:07:12
- * @LastEditTime: 2022-02-17 18:06:08
- * @LastEditors: Please set LastEditors
- * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
- * @FilePath: \cloudpods\pkg\multicloud\bingocloud\region.go
- */
 // Copyright 2019 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,9 +15,14 @@
 package bingocloud
 
 import (
+	"fmt"
+	"net/url"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -44,6 +41,8 @@ type SRegion struct {
 	Hypervisor     string
 	NetworkMode    string
 	RegionEndpoint string
+
+	storageCache *SStoragecache
 }
 
 func (self *SRegion) GetClient() *SBingoCloudClient {
@@ -71,55 +70,6 @@ func (self *SBingoCloudClient) GetRegions() ([]SRegion, error) {
 	return result.RegionInfo.Item, nil
 }
 
-func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateICloudAccessGroup(opts *cloudprovider.SAccessGroup) (cloudprovider.ICloudAccessGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateICloudFileSystem(opts *cloudprovider.FileSystemCraeteOptions) (cloudprovider.ICloudFileSystem, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-/////////////////startMyself
-func (self *SRegion) CreateICloudWafInstance(opts *cloudprovider.WafCreateOptions) (cloudprovider.ICloudWafInstance, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput) (cloudprovider.ICloudElasticcache, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateISku(opts *cloudprovider.SServerSkuCreateOption) (cloudprovider.ICloudSku, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateInternetGateway() (cloudprovider.ICloudInternetGateway, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateSnapshotPolicy(*cloudprovider.SnapshotPolicyInput) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) DeleteSnapshotPolicy(string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (self *SRegion) GetCapabilities() []string {
 	return nil
 }
@@ -133,10 +83,9 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	return kong
 }
 
-// GetGlobalId() string //返回IP即可
+// GetGlobalId() string //	私有云
 func (self *SRegion) GetGlobalId() string {
-	bingoURL := "http://10.1.33.25:8663/main.yaws"
-	return bingoURL
+	return fmt.Sprintf("%s/%s/%s", CLOUD_PROVIDER_BINGO_CLOUD, self.client.cpcfg.Id, self.RegionId)
 }
 
 func (self *SRegion) GetName() string {
@@ -251,7 +200,7 @@ func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error)
 }
 
 func (self *SRegion) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return self.GetDisk(idStr)
 }
 
 func (self *SRegion) GetIElasticSearchById(id string) (cloudprovider.ICloudElasticSearch, error) {
@@ -271,11 +220,36 @@ func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, er
 }
 
 func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		ihost, err := izones[i].GetIHostById(id)
+		if err == nil {
+			return ihost, nil
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
 	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	iHosts := make([]cloudprovider.ICloudHost, 0)
+
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		iZoneHost, err := izones[i].GetIHosts()
+		if err != nil {
+			return nil, err
+		}
+		iHosts = append(iHosts, iZoneHost...)
+	}
+	return iHosts, nil
 }
 
 func (self *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
@@ -307,15 +281,46 @@ func (self *SRegion) GetISnapshotPolicyById(snapshotPolicyId string) (cloudprovi
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	snapshots, err := self.GetSnapshots()
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]cloudprovider.ICloudSnapshot, len(snapshots))
+	for i := 0; i < len(snapshots); i += 1 {
+		ret[i] = &snapshots[i]
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		istore, err := izones[i].GetIStorageById(id)
+		if err == nil {
+			return istore, nil
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SRegion) getStoragecache() *SStoragecache {
+	if self.storageCache == nil {
+		return self.storageCache
+	}
+	return self.storageCache
 }
 
 func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	storageCache := self.getStoragecache()
+	if storageCache.GetGlobalId() == id {
+		return self.storageCache, nil
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
@@ -323,24 +328,41 @@ func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, er
 }
 
 func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	iStores := make([]cloudprovider.ICloudStorage, 0)
+
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		iZoneStores, err := izones[i].GetIStorages()
+		if err != nil {
+			return nil, err
+		}
+		iStores = append(iStores, iZoneStores...)
+	}
+	return iStores, nil
 }
 
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vm, err := self.GetInstance(id)
+	if err != nil {
+		return nil, err
+	}
+	return vm, nil
 }
 
 func (self *SRegion) GetId() string {
-	return ""
+	return self.RegionId
 }
 
 func (self *SRegion) GetProvider() string {
-	return ""
+	return api.CLOUD_PROVIDER_BINGO_CLOUD
 }
 
 // os status
 func (self *SRegion) GetStatus() string {
-	return ""
+	return api.CLOUD_REGION_STATUS_INSERVER
 }
 
 func (self *SRegion) GetSysTags() map[string]string {
@@ -349,6 +371,55 @@ func (self *SRegion) GetSysTags() map[string]string {
 
 func (self *SRegion) GetTags() (map[string]string, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) CreateICloudAccessGroup(opts *cloudprovider.SAccessGroup) (cloudprovider.ICloudAccessGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) CreateICloudFileSystem(opts *cloudprovider.FileSystemCraeteOptions) (cloudprovider.ICloudFileSystem, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+/////////////////startMyself
+func (self *SRegion) CreateICloudWafInstance(opts *cloudprovider.WafCreateOptions) (cloudprovider.ICloudWafInstance, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput) (cloudprovider.ICloudElasticcache, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) CreateISku(opts *cloudprovider.SServerSkuCreateOption) (cloudprovider.ICloudSku, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) CreateInternetGateway() (cloudprovider.ICloudInternetGateway, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) CreateSnapshotPolicy(*cloudprovider.SnapshotPolicyInput) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) DeleteSnapshotPolicy(string) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) IsEmulated() bool {
@@ -365,4 +436,8 @@ func (self *SRegion) SetTags(tags map[string]string, replace bool) error {
 
 func (self *SRegion) UpdateSnapshotPolicy(*cloudprovider.SnapshotPolicyInput, string) error {
 	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) listAll(res string, params url.Values, retVal interface{}) error {
+	return self.client.listAll(res, params, retVal)
 }

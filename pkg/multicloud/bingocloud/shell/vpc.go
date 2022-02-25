@@ -20,29 +20,29 @@ import (
 )
 
 func init() {
-	type ClusterListOptions struct {
-		ClusterId string
+	type VpcListOptions struct {
+		VpcID string
 	}
-	shellutils.R(&ClusterListOptions{}, "cluster-list", "list clusters", func(cli *bingocloud.SRegion, args *ClusterListOptions) error {
-		clusters, err := cli.GetClusters()
+	shellutils.R(&VpcListOptions{}, "vpc-list", "list vpc", func(cli *bingocloud.SRegion, args *VpcListOptions) error {
+		vpcs, err := cli.GetVpcs()
 		if err != nil {
 			return err
 		}
-		printList(clusters, 0, 0, 0, []string{})
+		printList(vpcs, 0, 0, 0, []string{})
 		return nil
 	})
 
-	type ClusterIdOptions struct {
+	type VpcIdOptions struct {
 		ID string
 	}
 
-	// shellutils.R(&ClusterIdOptions{}, "cluster-show", "show clusters", func(cli *bingocloud.SRegion, args *ClusterIdOptions) error {
-	// 	cluster, err := cli.GetCluster(args.ID)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	printObject(cluster)
-	// 	return nil
-	// })
+	shellutils.R(&VpcIdOptions{}, "vpc-show", "show vpc", func(cli *bingocloud.SRegion, args *VpcIdOptions) error {
+		vpc, err := cli.GetVpc(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(vpc)
+		return nil
+	})
 
 }

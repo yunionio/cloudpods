@@ -20,29 +20,31 @@ import (
 )
 
 func init() {
-	type ClusterListOptions struct {
-		ClusterId string
+	type EipListOptions struct {
 	}
-	shellutils.R(&ClusterListOptions{}, "cluster-list", "list clusters", func(cli *bingocloud.SRegion, args *ClusterListOptions) error {
-		clusters, err := cli.GetClusters()
+
+	shellutils.R(&EipListOptions{}, "eip-list", "list eips", func(cli *bingocloud.SRegion, args *EipListOptions) error {
+		eips, total, err := cli.GetEips()
 		if err != nil {
 			return err
 		}
-		printList(clusters, 0, 0, 0, []string{})
+		printList(eips, total, 0, 0, []string{})
 		return nil
 	})
 
-	type ClusterIdOptions struct {
+	type EipIdOptions struct {
 		ID string
 	}
 
-	// shellutils.R(&ClusterIdOptions{}, "cluster-show", "show clusters", func(cli *bingocloud.SRegion, args *ClusterIdOptions) error {
-	// 	cluster, err := cli.GetCluster(args.ID)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	printObject(cluster)
-	// 	return nil
-	// })
+	shellutils.R(&EipIdOptions{}, "eip-show", "eip instance", func(cli *bingocloud.SRegion, args *EipIdOptions) error {
+		/*
+			vm, err := cli.GetInstance(args.ID)
+			if err != nil {
+				return err
+			}
+			printObject(vm)
+		*/
+		return nil
+	})
 
 }

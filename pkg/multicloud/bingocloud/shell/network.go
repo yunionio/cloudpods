@@ -20,28 +20,28 @@ import (
 )
 
 func init() {
-	type ClusterListOptions struct {
-		ClusterId string
+	type NetworkListOptions struct {
+		NetworkID string
 	}
-	shellutils.R(&ClusterListOptions{}, "cluster-list", "list clusters", func(cli *bingocloud.SRegion, args *ClusterListOptions) error {
-		clusters, err := cli.GetClusters()
+	shellutils.R(&NetworkListOptions{}, "network-list", "list network", func(cli *bingocloud.SRegion, args *NetworkListOptions) error {
+		networks, err := cli.GetNetWorks()
 		if err != nil {
 			return err
 		}
-		printList(clusters, 0, 0, 0, []string{})
+		printList(networks, 0, 0, 0, []string{})
 		return nil
 	})
 
-	type ClusterIdOptions struct {
+	type NetworkIdOptions struct {
 		ID string
 	}
 
-	// shellutils.R(&ClusterIdOptions{}, "cluster-show", "show clusters", func(cli *bingocloud.SRegion, args *ClusterIdOptions) error {
-	// 	cluster, err := cli.GetCluster(args.ID)
+	// shellutils.R(&NetworkIdOptions{}, "network-show", "show network", func(cli *bingocloud.SRegion, args *NetworkIdOptions) error {
+	// 	network, err := cli.GetNetWork(args.ID)
 	// 	if err != nil {
 	// 		return err
 	// 	}
-	// 	printObject(cluster)
+	// 	printObject(network)
 	// 	return nil
 	// })
 

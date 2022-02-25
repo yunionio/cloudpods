@@ -1294,6 +1294,7 @@ func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userC
 	return provider.ClearSchedDescCache()
 }
 
+//
 func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudproviderregion, error) {
 	driver, err := provider.GetProvider()
 	if err != nil {

@@ -1,11 +1,3 @@
-/*
- * @Author: your name
- * @Date: 2022-02-16 18:23:22
- * @LastEditTime: 2022-02-16 21:16:12
- * @LastEditors: Please set LastEditors
- * @Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
- * @FilePath: \cloudpods\pkg\multicloud\bingocloud\vpc.go
- */
 // Copyright 2019 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,137 +11,78 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package bingocloud
 
 import (
-	"fmt"
-	"net/url"
-	"sort"
-	"strconv"
-	"strings"
-
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
-
+	"yunion.io/x/log"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-type DhcpOptions struct {
-}
-
-type SPool struct {
-	Range string `json:"range"`
-}
-
-type IPConfig struct {
-	NetworkAddress    string      `json:"network_address"`
-	PrefixLength      int         `json:"prefix_length"`
-	DefaultGateway    string      `json:"default_gateway"`
-	DhcpOptions       DhcpOptions `json:"dhcp_options"`
-	Pool              []SPool     `json:"pool"`
-	DhcpServerAddress string      `json:"dhcp_server_address"`
-}
-
 type SVpc struct {
-	multicloud.SVpc
-	multicloud.STagBase
-
-	region *SRegion
-
-	LogicalTimestamp int      `json:"logical_timestamp"`
-	VlanID           int      `json:"vlan_id"`
-	UUID             string   `json:"uuid"`
-	Name             string   `json:"name"`
-	IPConfig         IPConfig `json:"ip_config,omitempty"`
-}
-
-func (self *SVpc) GetName() string {
-	return self.Name
-}
-
-func (self *SVpc) GetId() string {
-	return self.UUID
-}
-
-func (self *SVpc) GetGlobalId() string {
-	return self.UUID
-}
-
-// func (self *SVpc) Delete() error {
-// 	return self.region.DeleteVpc(self.UUID)
-// }
-
-func (self *SVpc) GetCidrBlock() string {
-	if len(self.IPConfig.NetworkAddress) > 0 {
-		return fmt.Sprintf("%s/%d", self.IPConfig.NetworkAddress, self.IPConfig.PrefixLength)
-	}
-	return ""
-}
-
-func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
-	return []cloudprovider.ICloudRouteTable{}, nil
-}
-
-func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
-	return nil, cloudprovider.ErrNotFound
-}
-
-func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	return []cloudprovider.ICloudSecurityGroup{}, nil
+	CidrBlock       string `json:"cidrBlock"`
+	IsPublicNetwork string `json:"isPublicNetwork"`
+	VpcId           string `json:"vpcId"`
+	State           string `json:"state"`
+	VpcName         string `json:"vpcName"`
+	WanCode         string `json:"wanCode"`
+	SubnetPolicy    string `json:"subnetPolicy"`
+	InstanceTenancy string `json:"instanceTenancy"`
+	IsDefault       string `json:"isDefault"`
+	Shared          string `json:"shared"`
+	VlanNum         string `json:"vlanNum"`
+	GatewayId       string `json:"gatewayId"`
+	AsGateway       string `json:"asGateway"`
+	DhcpOptionsId   string `json:"dhcpOptionsId"`
+	OwnerId         string `json:"ownerId"`
+	Provider        string `json:"provider"`
+	Description     string `json:"description"`
 }
 
 func (self *SRegion) GetVpcs() ([]SVpc, error) {
-	vpcs := []SVpc{}
-	_, err := self.list("networks", url.Values{}, &vpcs)
-	return vpcs, err
-}
-
-func (self *SRegion) GetVpc(id string) (*SVpc, error) {
-	vpc := &SVpc{region: self}
-	return vpc, self.get("networks", id, url.Values{}, vpc)
-}
-
-func (self *SRegion) CreateVpc(opts *cloudprovider.VpcCreateOptions) (*SVpc, error) {
-	ipConfig := map[string]interface{}{}
-	if len(opts.CIDR) > 0 {
-		if addrs := strings.Split(opts.CIDR, "/"); len(addrs) == 2 {
-			ipConfig["network_address"] = addrs[0]
-			ipConfig["prefix_length"], _ = strconv.Atoi(addrs[1])
-		}
-
-	}
-	vpcs, err := self.GetVpcs()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetVpcs")
-	}
-	vlanId, vlanIds := -1, []int{}
-	for i := range vpcs {
-		vlanIds = append(vlanIds, vpcs[i].VlanID)
-	}
-	sort.Ints(vlanIds)
-	for _, vlan := range vlanIds {
-		if vlan == vlanId+1 {
-			vlanId = vlan
-		}
-	}
-	params := map[string]interface{}{
-		"name":       opts.NAME,
-		"annotation": opts.Desc,
-		"ip_config":  ipConfig,
-		"vlan_id":    vlanId + 1,
-	}
-	ret := struct {
-		NetworkUUID string
-	}{}
-	err = self.post("networks", jsonutils.Marshal(params), &ret)
+	resp, err := self.invoke("DescribeVpcs", nil)
 	if err != nil {
 		return nil, err
 	}
-	return self.GetVpc(ret.NetworkUUID)
+	log.Errorf("resp=:%s", resp)
+	result := struct {
+		VpcSet struct {
+			Item []SVpc
+		}
+	}{}
+	err = resp.Unmarshal(&result)
+	if err != nil {
+		return nil, err
+	}
+	return result.VpcSet.Item, nil
 }
 
-func (self *SRegion) DeleteVpc(id string) error {
-	return self.delete("networks", id)
+func (self *SRegion) GetVpc(id string) (*SVpc, error) {
+	vpcs := &SVpc{}
+	// return storage, self.get("storage_containers", id, nil, storage)
+	return vpcs, cloudprovider.ErrNotImplemented
+}
+
+func (self *SVpc) GetName() string {
+	return self.VpcName
+}
+
+func (self *SVpc) GetId() string {
+	return self.VpcId
+}
+
+func (self *SVpc) GetGlobalId() string {
+	return self.OwnerId
+}
+
+func (self *SVpc) IsEmulated() bool {
+	return true
+}
+
+func (self *SVpc) GetBandwidth() int {
+	return 10000
+}
+
+func (self *SVpc) GetStatus() string {
+	return api.WIRE_STATUS_AVAILABLE
 }

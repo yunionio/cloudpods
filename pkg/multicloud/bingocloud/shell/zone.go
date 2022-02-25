@@ -20,29 +20,39 @@ import (
 )
 
 func init() {
-	type ClusterListOptions struct {
-		ClusterId string
+	type ZoneListOptions struct {
+		// Id        string
+		// MaxResult int
+		// NextToken string
+		Details bool `help:"show Details"`
 	}
-	shellutils.R(&ClusterListOptions{}, "cluster-list", "list clusters", func(cli *bingocloud.SRegion, args *ClusterListOptions) error {
-		clusters, err := cli.GetClusters()
+
+	shellutils.R(&ZoneListOptions{}, "zone-list", "list zones", func(cli *bingocloud.SRegion, args *ZoneListOptions) error {
+		zones, err := cli.GetZones()
 		if err != nil {
 			return err
 		}
-		printList(clusters, 0, 0, 0, []string{})
+		cols := []string{"zone_id", "local_name", "available_resource_creation", "available_disk_categories"}
+		if args.Details {
+			cols = []string{}
+		}
+		printList(zones, 0, 0, 0, cols)
 		return nil
 	})
 
-	type ClusterIdOptions struct {
+	type InstanceIdOptions struct {
 		ID string
 	}
 
-	// shellutils.R(&ClusterIdOptions{}, "cluster-show", "show clusters", func(cli *bingocloud.SRegion, args *ClusterIdOptions) error {
-	// 	cluster, err := cli.GetCluster(args.ID)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	printObject(cluster)
-	// 	return nil
-	// })
+	shellutils.R(&InstanceIdOptions{}, "zone-show", "zone instance", func(cli *bingocloud.SRegion, args *InstanceIdOptions) error {
+		/*
+			vm, err := cli.GetInstance(args.ID)
+			if err != nil {
+				return err
+			}
+			printObject(vm)
+		*/
+		return nil
+	})
 
 }

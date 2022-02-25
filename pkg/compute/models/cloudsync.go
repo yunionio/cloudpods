@@ -1702,6 +1702,7 @@ func syncInterfaceAddresses(ctx context.Context, userCred mcclient.TokenCredenti
 	}
 }
 
+//	看下谁调用的这个,往上推
 func syncPublicCloudProviderInfo(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -20,29 +20,30 @@ import (
 )
 
 func init() {
-	type ClusterListOptions struct {
-		ClusterId string
+	type DiskListOptions struct {
+		storageId string
 	}
-	shellutils.R(&ClusterListOptions{}, "cluster-list", "list clusters", func(cli *bingocloud.SRegion, args *ClusterListOptions) error {
-		clusters, err := cli.GetClusters()
+	shellutils.R(&DiskListOptions{}, "disk-list", "list disk", func(cli *bingocloud.SRegion, args *DiskListOptions) error {
+		// instanceId string, zoneId string, category string, diskIds []string, offset int, limit int
+		disks, err := cli.GetDisks(args.storageId, "")
 		if err != nil {
 			return err
 		}
-		printList(clusters, 0, 0, 0, []string{})
+		printList(disks, 0, 0, 0, []string{})
 		return nil
 	})
 
-	type ClusterIdOptions struct {
+	type DiskIdOptions struct {
 		ID string
 	}
 
-	// shellutils.R(&ClusterIdOptions{}, "cluster-show", "show clusters", func(cli *bingocloud.SRegion, args *ClusterIdOptions) error {
-	// 	cluster, err := cli.GetCluster(args.ID)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	printObject(cluster)
-	// 	return nil
-	// })
+	shellutils.R(&DiskIdOptions{}, "disk-show", "show disk", func(cli *bingocloud.SRegion, args *DiskIdOptions) error {
+		disk, err := cli.GetDisk(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(disk)
+		return nil
+	})
 
 }

@@ -119,7 +119,6 @@ func (self *SBingoCloudProvider) GetVersion() string {
 
 //	GetSubAccounts
 func (self *SBingoCloudProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	// return nil, cloudprovider.ErrNotImplemented
 	return self.client.GetSubAccounts()
 }
 
@@ -128,16 +127,17 @@ func (self *SBingoCloudProvider) GetAccountId() string {
 }
 
 func (self *SBingoCloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
-	// TODO
-	// return nil
 	return self.client.GetIRegions()
 }
 
 //	GetIRegionById
 func (self *SBingoCloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
-	// return nil, cloudprovider.ErrNotImplemented
 	return self.client.GetIRegionById(id)
 
+}
+
+func (self *SBingoCloudProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetCloudRegionExternalIdPrefix()
 }
 
 func (self *SBingoCloudProvider) GetBalance() (float64, string, error) {
@@ -146,7 +146,6 @@ func (self *SBingoCloudProvider) GetBalance() (float64, string, error) {
 
 func (self *SBingoCloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return []cloudprovider.ICloudProject{}, nil
-	//return self.client.GetIProjects()
 }
 
 func (self *SBingoCloudProvider) GetStorageClasses(regionId string) []string {

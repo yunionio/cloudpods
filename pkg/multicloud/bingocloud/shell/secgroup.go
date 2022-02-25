@@ -20,29 +20,29 @@ import (
 )
 
 func init() {
-	type ClusterListOptions struct {
-		ClusterId string
+	type SecGroupListOptions struct {
 	}
-	shellutils.R(&ClusterListOptions{}, "cluster-list", "list clusters", func(cli *bingocloud.SRegion, args *ClusterListOptions) error {
-		clusters, err := cli.GetClusters()
+	shellutils.R(&SecGroupListOptions{}, "secgroup-list", "secgroup instances", func(cli *bingocloud.SRegion, args *SecGroupListOptions) error {
+		secgroups, err := cli.DescribeSecurityGroups()
 		if err != nil {
 			return err
 		}
-		printList(clusters, 0, 0, 0, []string{})
+		printList(secgroups, 0, 0, 0, []string{})
 		return nil
 	})
 
-	type ClusterIdOptions struct {
+	type SecGroupIdOptions struct {
 		ID string
 	}
 
-	// shellutils.R(&ClusterIdOptions{}, "cluster-show", "show clusters", func(cli *bingocloud.SRegion, args *ClusterIdOptions) error {
-	// 	cluster, err := cli.GetCluster(args.ID)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	printObject(cluster)
-	// 	return nil
-	// })
+	shellutils.R(&SecGroupIdOptions{}, "secgroup-show", "show secgroup", func(cli *bingocloud.SRegion, args *SecGroupIdOptions) error {
+
+		secgroup, err := cli.DescribeSecurityGroup(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(secgroup)
+		return nil
+	})
 
 }
