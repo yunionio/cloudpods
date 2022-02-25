@@ -811,3 +811,10 @@ type ServerCPUSetRemoveResp struct {
 	Done  bool   `json:"done"`
 	Error string `json:"error"`
 }
+
+type ServerGetCPUSetCoresInput struct{}
+
+type ServerGetCPUSetCoresResp struct {
+	PinnedCores []int `json:"pinned_cores"`
+	HostCores   []int `json:"host_cores"`
+}
