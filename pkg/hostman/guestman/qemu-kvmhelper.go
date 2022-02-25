@@ -437,7 +437,7 @@ function nic_mtu() {
 			"qemu-xhci,p2=8,p3=8,id=usb1",
 			"usb-tablet,id=input0,bus=usb1.0,port=1",
 			"usb-kbd,id=input1,bus=usb1.0,port=2",
-			"virtio-gpu-pci,id=video0,max_outputs=1",
+			"virtio-gpu-pci,id=video1,max_outputs=1",
 		)
 	} else {
 		if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) &&
