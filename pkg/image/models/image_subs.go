@@ -118,13 +118,19 @@ func (self *SImageSubformat) DoConvert(image *SImage) error {
 }
 
 func (self *SImageSubformat) Save(image *SImage) error {
+	var err error
+	defer func() {
+		if err != nil {
+			db.Update(self, func() error {
+				self.Status = api.IMAGE_STATUS_SAVE_FAIL
+				return nil
+			})
+		}
+	}()
 	if self.Status == api.IMAGE_STATUS_ACTIVE {
 		return nil
 	}
-	if self.Status != api.IMAGE_STATUS_QUEUED {
-		return nil // httperrors.NewInvalidStatusError("cannot save in status %s", self.Status)
-	}
-	_, err := db.Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.Status = api.IMAGE_STATUS_SAVING
 		return nil
 	})
@@ -166,9 +172,9 @@ func (self *SImageSubformat) SaveTorrent() error {
 	if self.TorrentStatus == api.IMAGE_STATUS_ACTIVE {
 		return nil
 	}
-	if self.TorrentStatus != api.IMAGE_STATUS_QUEUED {
-		return nil // httperrors.NewInvalidStatusError("cannot save torrent in status %s", self.Status)
-	}
+	// if self.TorrentStatus != api.IMAGE_STATUS_QUEUED {
+	// 	return nil // httperrors.NewInvalidStatusError("cannot save torrent in status %s", self.Status)
+	// }
 	imgPath := self.GetLocalLocation()
 	torrentPath := filepath.Join(options.Options.TorrentStoreDir, fmt.Sprintf("%s.torrent", filepath.Base(imgPath)))
 	_, err := db.Update(self, func() error {
