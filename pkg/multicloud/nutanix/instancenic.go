@@ -51,6 +51,10 @@ func (self *SInstanceNic) GetDriver() string {
 	return "virtio"
 }
 
+func (self *SInstanceNic) InClassicNetwork() bool {
+	return false
+}
+
 func (self *SInstanceNic) GetSubAddress() ([]string, error) {
 	ret := []string{}
 	for _, addr := range self.IPAddresses {
