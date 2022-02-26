@@ -5348,7 +5348,7 @@ func (self *SGuest) PerformProbeIsolatedDevices(ctx context.Context, userCred mc
 	return jsonutils.Marshal(devs), nil
 }
 
-func (self *SGuest) PerformCpuset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *api.ServerCPUSetInput) (jsonutils.JSONObject, error) {
+func (self *SGuest) getHostLogicalCores() ([]int, error) {
 	host, err := self.GetHost()
 	if err != nil {
 		return nil, errors.Wrap(err, "get host model")
@@ -5369,6 +5369,14 @@ func (self *SGuest) PerformCpuset(ctx context.Context, userCred mcclient.TokenCr
 		for _, cores := range node.Cores {
 			allCores = append(allCores, cores.LogicalProcessors...)
 		}
+	}
+	return allCores, nil
+}
+
+func (self *SGuest) PerformCpuset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *api.ServerCPUSetInput) (jsonutils.JSONObject, error) {
+	allCores, err := self.getHostLogicalCores()
+	if err != nil {
+		return nil, err
 	}
 
 	if !sets.NewInt(allCores...).HasAll(data.CPUS...) {
@@ -5411,5 +5419,29 @@ func (self *SGuest) PerformCpusetRemove(ctx context.Context, userCred mcclient.T
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CPUSET_REMOVE, data, userCred, true)
 		resp.Done = true
 	}
+	return resp, nil
+}
+
+func (self *SGuest) GetDetailsCpusetCores(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerGetCPUSetCoresInput) (*api.ServerGetCPUSetCoresResp, error) {
+	allCores, err := self.getHostLogicalCores()
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &api.ServerGetCPUSetCoresResp{
+		HostCores: allCores,
+	}
+
+	// fetch cpuset pinned
+	obj := self.GetMetadataJson(ctx, api.VM_METADATA_CGROUP_CPUSET, userCred)
+	if obj != nil {
+		pinnedInput := new(api.ServerCPUSetInput)
+		if err := obj.Unmarshal(pinnedInput); err != nil {
+			log.Errorf("Unmarshal %q to ServerCPUSetInput: %v", obj, err)
+		} else {
+			resp.PinnedCores = pinnedInput.CPUS
+		}
+	}
+
 	return resp, nil
 }
