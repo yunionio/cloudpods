@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type Usage map[string]interface{}
@@ -106,6 +107,12 @@ func rangeObjHandler(
 			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
+		projectTags := &tagutils.TTagSetList{}
+		getQuery(r).Unmarshal(projectTags, "project_tags")
+		for i := range result.ProjectTags {
+			projectTags.Append(result.ProjectTags[i])
+		}
+		result.ProjectTags = *projectTags
 		isOwner := false
 		if scope == rbacutils.ScopeDomain && obj != nil && db.IsObjectRbacAllowed(ctx, obj, userCred, policy.PolicyActionGet, "usage") == nil {
 			isOwner = true
@@ -123,7 +130,7 @@ func rangeObjHandler(
 			rangeObjs = []db.IStandaloneModel{obj}
 		}
 		refresh := json.QueryBoolean(query, "refresh", false)
-		key := getCacheKey(scope, ownerId, isOwner, rangeObjs, hostTypes, providers, brands, cloudEnv, includeSystem)
+		key := getCacheKey(scope, ownerId, isOwner, rangeObjs, hostTypes, providers, brands, cloudEnv, includeSystem, *projectTags)
 		if !refresh {
 			cached := usageCache.Get(key)
 			if cached != nil {
