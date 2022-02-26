@@ -48,7 +48,9 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
 * Private Clouds:
   * OpenStack
   * ZStack
-  * AlibabaCloud Aspara
+  * Alibaba Cloud Aspara
+  * Huawei HCSO
+  * Nutanix
 * On-premise resources:
   * KVM
   * VMWare vSphere vCenter/ESXi
@@ -78,8 +80,8 @@ You may install Cloudpods in a Linux box (currently CentOS 7 and Debian 10 are f
 
 ```bash
 # Generate a local ssh keypair
-# (SKIP this step if you already have ~/.ssh/id_rsa.pub locally)
-$ ssh-keygen
+# (SKIP this step if you already have ~/.ssh/id_rsa.pub locally. Make sure generating key WIHOUT passphrase)
+$ ssh-keygen -t rsa -N ''
 
 # Copy the generated ~/.ssh/id_rsa.pub public key to the machine to be deployed
 $ ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.168.26.216
@@ -130,8 +132,6 @@ Please check this [issue](https://github.com/yunionio/cloudpods/issues/11427) fo
 ## Contact
 
 You may contact us by:
-
-* Reddit: [r/Cloudpods](https://www.reddit.com/r/Cloudpods/)
 
 * Bilibili: [Cloudpods](https://space.bilibili.com/623431553/)
 
