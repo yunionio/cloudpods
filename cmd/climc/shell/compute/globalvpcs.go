@@ -17,12 +17,14 @@ package compute
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	opts "yunion.io/x/onecloud/pkg/mcclient/options"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 	cmd := shell.NewResourceCmd(&compute.GlobalVpcs).WithKeyword("global-vpc")
 	cmd.List(&options.GlobalVpcListOptions{})
+	cmd.Delete(&opts.BaseIdOptions{})
 	cmd.Show(&options.GlobalVpcIdOption{})
 	cmd.Create(&options.GlobalVpcCreateOptions{})
 	cmd.Perform("syncstatus", &options.GlobalVpcIdOption{})
