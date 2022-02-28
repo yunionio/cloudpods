@@ -1194,14 +1194,25 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 		return
 	}
 
-	oldPwd, _ := body.GetString("password_old")
-	newPwd, _ := body.GetString("password_new")
-	confirmPwd, _ := body.GetString("password_confirm")
-	passcode, _ := body.GetString("passcode")
+	input := struct {
+		PasswordOld     string
+		PasswordNew     string
+		PasswordConfirm string
+		Passcode        string
+	}{}
+	body.Unmarshal(&input)
 
-	if newPwd != confirmPwd {
+	if input.PasswordNew != input.PasswordConfirm {
 		httperrors.InputParameterError(ctx, w, "new password mismatch")
 		return
+	}
+
+	if decPasswd, err := base64.StdEncoding.DecodeString(input.PasswordOld); err == nil && stringutils2.IsPrintableAsciiString(string(decPasswd)) {
+		input.PasswordOld = string(decPasswd)
+	}
+
+	if decPasswd, err := base64.StdEncoding.DecodeString(input.PasswordNew); err == nil && stringutils2.IsPrintableAsciiString(string(decPasswd)) {
+		input.PasswordNew = string(decPasswd)
 	}
 
 	// 1.验证原密码正确，且idp_driver为空
@@ -1211,7 +1222,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 	}
 
 	cliIp := netutils2.GetHttpRequestIp(req)
-	_, err = auth.Client().AuthenticateWeb(t.GetUserName(), oldPwd, t.GetDomainName(), "", "", cliIp)
+	_, err = auth.Client().AuthenticateWeb(t.GetUserName(), input.PasswordOld, t.GetDomainName(), "", "", cliIp)
 	if err != nil {
 		switch httperr := err.(type) {
 		case *httputils.JSONClientError:
@@ -1227,7 +1238,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	// 2.如果已开启MFA，验证 随机密码正确
 	if isMfaEnabled(user) {
-		err = authToken.VerifyTotpPasscode(s, t.GetUserId(), passcode)
+		err = authToken.VerifyTotpPasscode(s, t.GetUserId(), input.Passcode)
 		if err != nil {
 			httperrors.InputParameterError(ctx, w, "invalid passcode")
 			return
@@ -1236,7 +1247,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 
 	// 3.重置密码，
 	params := jsonutils.NewDict()
-	params.Set("password", jsonutils.NewString(newPwd))
+	params.Set("password", jsonutils.NewString(input.PasswordNew))
 	_, err = modules.UsersV3.Patch(s, t.GetUserId(), params)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
