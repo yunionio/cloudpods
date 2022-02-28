@@ -1071,7 +1071,7 @@ func syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, 
 	syncResults.Add(DBInstanceSkuManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncDBInstanceSkus for region %s result: %s", localRegion.Name, msg)
+	log.Infof("sync rds sku for region %s result: %s", localRegion.Name, msg)
 	if result.IsError() {
 		return
 	}

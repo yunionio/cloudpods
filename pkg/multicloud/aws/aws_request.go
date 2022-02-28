@@ -29,7 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	"github.com/aws/aws-sdk-go/private/protocol/query"
-	"github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil"
+	xj "github.com/basgys/goxml2json"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -142,37 +142,48 @@ func Build(r *request.Request) {
 
 var UnmarshalErrorHandler = request.NamedHandler{Name: "awssdk.ec2query.UnmarshalError", Fn: UnmarshalError}
 
+type sAwsError struct {
+	Errors struct {
+		Type    string
+		Code    string
+		Message string
+	} `json:"Error"`
+	RequestID string
+}
+
+func (self sAwsError) Error() string {
+	return jsonutils.Marshal(self).String()
+}
+
 func UnmarshalError(r *request.Request) {
 	defer r.HTTPResponse.Body.Close()
 
-	respErr := &struct {
-		XMLName   xml.Name `xml:"Response"`
-		Code      string   `xml:"Errors>Error>Code"`
-		Message   string   `xml:"Errors>Error>Message"`
-		RequestID string   `xml:"RequestID"`
-	}{}
-
-	err := xmlutil.UnmarshalXMLError(&respErr, r.HTTPResponse.Body)
+	result, err := xj.Convert(r.HTTPResponse.Body)
 	if err != nil {
-		r.Error = awserr.NewRequestFailure(
-			awserr.New(request.ErrCodeSerialization,
-				"failed to unmarshal error message", err),
-			r.HTTPResponse.StatusCode,
-			r.RequestID,
-		)
+		r.Error = errors.Wrapf(err, "xj.Convert")
 		return
 	}
 
-	if strings.Contains(respErr.Code, "NotFound") {
+	obj, err := jsonutils.Parse([]byte(result.String()))
+	if err != nil {
+		r.Error = errors.Wrapf(err, "jsonutils.Parse")
+		return
+	}
+
+	respErr := &sAwsError{}
+	err = obj.Unmarshal(respErr, "ErrorResponse")
+	if err != nil {
+		r.Error = errors.Wrapf(err, "obj.Unmarshal")
+		return
+	}
+
+	if strings.Contains(respErr.Errors.Code, "NotFound") {
 		r.Error = errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(respErr).String())
 		return
 	}
 
-	r.Error = awserr.NewRequestFailure(
-		awserr.New(respErr.Code, respErr.Message, nil),
-		r.HTTPResponse.StatusCode,
-		respErr.RequestID,
-	)
+	r.Error = respErr
+	return
 }
 
 func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion string, apiName string, params map[string]string, retval interface{}, assumeRole bool) error {

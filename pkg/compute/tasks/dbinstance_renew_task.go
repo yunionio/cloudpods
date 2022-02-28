@@ -88,7 +88,7 @@ func (self *DBInstanceRenewTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_RENEW, map[string]string{"duration": duration}, self.UserCred, true)
 
 	self.SetStage("OnSyncstatusComplete", nil)
-	models.StartResourceSyncStatusTask(ctx, self.UserCred, rds, "DBInstanceSyncStatusTask", self.GetTaskId())
+	rds.StartDBInstanceSyncTask(ctx, self.UserCred, self.GetTaskId())
 }
 
 func (self *DBInstanceRenewTask) OnSyncstatusComplete(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {

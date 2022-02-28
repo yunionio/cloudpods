@@ -20,6 +20,11 @@ type SDBInstanceSpec struct {
 }
 
 var DBInstanceSpecs = map[string]SDBInstanceSpec{
+	"db.m1.small":  {VcpuCount: 1, VmemSizeMb: 1.75 * 1024.0},
+	"db.m1.medium": {VcpuCount: 1, VmemSizeMb: 3.75 * 1024.0},
+	"db.m1.large":  {VcpuCount: 2, VmemSizeMb: 7.5 * 1024},
+	"db.m1.xlarge": {VcpuCount: 4, VmemSizeMb: 15 * 1024},
+
 	"db.t3.micro":   {VcpuCount: 2, VmemSizeMb: 1 * 1024},
 	"db.t3.small":   {VcpuCount: 2, VmemSizeMb: 2 * 1024},
 	"db.t3.medium":  {VcpuCount: 2, VmemSizeMb: 4 * 1024},
@@ -34,6 +39,13 @@ var DBInstanceSpecs = map[string]SDBInstanceSpec{
 	"db.t2.xlarge":  {VcpuCount: 4, VmemSizeMb: 4 * 1024},
 	"db.t2.2xlarge": {VcpuCount: 8, VmemSizeMb: 8 * 1024},
 
+	"db.t4g.micro":   {VcpuCount: 2, VmemSizeMb: 1 * 1024},
+	"db.t4g.small":   {VcpuCount: 2, VmemSizeMb: 2 * 1024},
+	"db.t4g.medium":  {VcpuCount: 2, VmemSizeMb: 4 * 1024},
+	"db.t4g.large":   {VcpuCount: 2, VmemSizeMb: 8 * 1024},
+	"db.t4g.xlarge":  {VcpuCount: 4, VmemSizeMb: 16 * 1024},
+	"db.t4g.2xlarge": {VcpuCount: 8, VmemSizeMb: 32 * 1024},
+
 	"db.m6g.large":    {VcpuCount: 2, VmemSizeMb: 8 * 1024},
 	"db.m6g.xlarge":   {VcpuCount: 4, VmemSizeMb: 16 * 1024},
 	"db.m6g.2xlarge":  {VcpuCount: 8, VmemSizeMb: 32 * 1024},
@@ -42,14 +54,14 @@ var DBInstanceSpecs = map[string]SDBInstanceSpec{
 	"db.m6g.12xlarge": {VcpuCount: 48, VmemSizeMb: 192 * 1024},
 	"db.m6g.16xlarge": {VcpuCount: 64, VmemSizeMb: 256 * 1024},
 
-	"db.m5.large":     {VcpuCount: 2, VmemSizeMb: 8 * 1024},
-	"db.m5.xlarge":    {VcpuCount: 4, VmemSizeMb: 16 * 1024},
-	"db.m5.2xlarge":   {VcpuCount: 8, VmemSizeMb: 32 * 1024},
-	"db.m5.4xlarge":   {VcpuCount: 16, VmemSizeMb: 64 * 1024},
-	"db.m5.8xlarge":   {VcpuCount: 32, VmemSizeMb: 128 * 1024},
-	"db.m5.12xlarge4": {VcpuCount: 48, VmemSizeMb: 192 * 1024},
-	"db.m5.16xlarge2": {VcpuCount: 64, VmemSizeMb: 256 * 1024},
-	"db.m5.24xlarge8": {VcpuCount: 96, VmemSizeMb: 384 * 1024},
+	"db.m5.large":    {VcpuCount: 2, VmemSizeMb: 8 * 1024},
+	"db.m5.xlarge":   {VcpuCount: 4, VmemSizeMb: 16 * 1024},
+	"db.m5.2xlarge":  {VcpuCount: 8, VmemSizeMb: 32 * 1024},
+	"db.m5.4xlarge":  {VcpuCount: 16, VmemSizeMb: 64 * 1024},
+	"db.m5.8xlarge":  {VcpuCount: 32, VmemSizeMb: 128 * 1024},
+	"db.m5.12xlarge": {VcpuCount: 48, VmemSizeMb: 192 * 1024},
+	"db.m5.16xlarge": {VcpuCount: 64, VmemSizeMb: 256 * 1024},
+	"db.m5.24xlarge": {VcpuCount: 96, VmemSizeMb: 384 * 1024},
 
 	"db.m5d.large":    {VcpuCount: 2, VmemSizeMb: 8 * 1024},
 	"db.m5d.xlarge":   {VcpuCount: 4, VmemSizeMb: 16 * 1024},
@@ -67,6 +79,16 @@ var DBInstanceSpecs = map[string]SDBInstanceSpec{
 	"db.r6g.8xlarge":  {VcpuCount: 32, VmemSizeMb: 256 * 1024},
 	"db.r6g.12xlarge": {VcpuCount: 48, VmemSizeMb: 384 * 1024},
 	"db.r6g.16xlarge": {VcpuCount: 64, VmemSizeMb: 512 * 1024},
+
+	"db.r6gd.medium":   {VcpuCount: 1, VmemSizeMb: 8 * 1024},
+	"db.r6gd.large":    {VcpuCount: 2, VmemSizeMb: 16 * 1024},
+	"db.r6gd.xlarge":   {VcpuCount: 4, VmemSizeMb: 32 * 1024},
+	"db.r6gd.2xlarge":  {VcpuCount: 8, VmemSizeMb: 64 * 1024},
+	"db.r6gd.4xlarge":  {VcpuCount: 16, VmemSizeMb: 128 * 1024},
+	"db.r6gd.8xlarge":  {VcpuCount: 32, VmemSizeMb: 256 * 1024},
+	"db.r6gd.12xlarge": {VcpuCount: 48, VmemSizeMb: 383 * 1024},
+	"db.r6gd.16xlarge": {VcpuCount: 64, VmemSizeMb: 512 * 1024},
+	"db.r6gd.metal":    {VcpuCount: 64, VmemSizeMb: 512 * 1024},
 
 	"db.r5.large":    {VcpuCount: 2, VmemSizeMb: 16 * 1024},
 	"db.r5.xlarge":   {VcpuCount: 4, VmemSizeMb: 32 * 1024},
@@ -149,4 +171,13 @@ var DBInstanceSpecs = map[string]SDBInstanceSpec{
 	"db.r4.4xlarge":  {VcpuCount: 16, VmemSizeMb: 122 * 1024},
 	"db.r4.8xlarge":  {VcpuCount: 32, VmemSizeMb: 244 * 1024},
 	"db.r4.16xlarge": {VcpuCount: 64, VmemSizeMb: 488 * 1024},
+
+	"db.x2g.medium":   {VcpuCount: 1, VmemSizeMb: 16 * 1024},
+	"db.x2g.large":    {VcpuCount: 2, VmemSizeMb: 32 * 1024},
+	"db.x2g.xlarge":   {VcpuCount: 4, VmemSizeMb: 64 * 1024},
+	"db.x2g.2xlarge":  {VcpuCount: 8, VmemSizeMb: 128 * 1024},
+	"db.x2g.4xlarge":  {VcpuCount: 16, VmemSizeMb: 256 * 1024},
+	"db.x2g.8xlarge":  {VcpuCount: 32, VmemSizeMb: 512 * 1024},
+	"db.x2g.12xlarge": {VcpuCount: 48, VmemSizeMb: 768 * 1024},
+	"db.x2g.16xlarge": {VcpuCount: 64, VmemSizeMb: 1024 * 1024},
 }
