@@ -48,7 +48,9 @@ Cloudpods提供了如下的功能：
 * 私有云:
   * OpenStack
   * ZStack
-  * AlibabaCloud Aspara (阿里飞天)
+  * Alibaba Cloud Aspara (阿里飞天)
+  * Huawei HCSO (华为HCSO)
+  * Nutanix
 * 本地基础设施资源:
   * KVM
   * VMWare vSphere vCenter/ESXi
@@ -76,14 +78,14 @@ Cloudpods提供了如下的功能：
 ### 1. 准备SSH免密登录
 
 ```bash
-# Generate the local ssh keypair
-# (SKIP this stekp if you already have ~/.ssh/id_rsa.pub locally)
-$ ssh-keygen
-# Copy the generated ~/.ssh/id_rsa.pub public key to the machine to be deployed
+# 生成ssh密钥对
+# (如果已经有~/.ssh/id_rsa和~/.ssh/id_rsa.pub,请跳过此步。请确保ssh密钥私钥未设置密码)
+$ ssh-keygen -t rsa -N ''
+# 将生成的ssh公钥~/.ssh/id_rsa.pub拷贝到待部署的目标主机
 $ ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.168.26.216
-# Try to login to the machine to be deployed without password,
-# should be able to get the hostname of the deployed machine
-# without entering the login password
+# 测试SSH免密登录是否生效。免密登录到待部署主机执行hostname命令
+# 如果设置成功，执行下面命令能够回显待部署主机的主机名
+# 不需要输入待部署主机的密码
 $ ssh root@10.168.26.216 "hostname"
 ```
 
@@ -125,8 +127,6 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168
 ## 联系我们
 
 您可以通过如下方式联系我们：
-
-* Reddit: [r/Cloudpods](https://www.reddit.com/r/Cloudpods/)
 
 * 哔哩哔哩: [Cloudpods](https://space.bilibili.com/623431553/)
 
