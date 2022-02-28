@@ -80,7 +80,7 @@ func (ea *SEsxiAgent) GetEnableSsl() bool {
 	return options.Options.EnableSsl
 }
 
-func (ea *SEsxiAgent) GetZoneName() string {
+func (ea *SEsxiAgent) GetZoneId() string {
 	return options.Options.Zone
 }
 

@@ -181,7 +181,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	}
 	input := api.CacheImageInput{
 		ImageId: imageId,
-		Zone:    d.GetZoneName(),
+		Zone:    d.GetZoneId(),
 	}
 	imageCache, err := imageCacheManager.AcquireImage(ctx, input, nil)
 	if err != nil {

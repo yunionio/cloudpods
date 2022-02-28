@@ -26,7 +26,7 @@ type IAgent interface {
 	GetListenIP() (net.IP, error)
 	GetPort() int
 	GetEnableSsl() bool
-	GetZoneName() string
+	GetZoneId() string
 	GetAdminSession() *mcclient.ClientSession
 	TuneSystem() error
 	StartService() error

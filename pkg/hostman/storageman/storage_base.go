@@ -85,7 +85,7 @@ func NewStorage(manager *SStorageManager, mountPoint, storageType string) IStora
 type IStorage interface {
 	GetId() string
 	GetStorageName() string
-	GetZoneName() string
+	GetZoneId() string
 
 	SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error
 	SyncStorageInfo() (jsonutils.JSONObject, error)
@@ -205,8 +205,8 @@ func (s *SBaseStorage) SetPath(p string) {
 	s.Path = p
 }
 
-func (s *SBaseStorage) GetZoneName() string {
-	return s.Manager.GetZoneName()
+func (s *SBaseStorage) GetZoneId() string {
+	return s.Manager.GetZoneId()
 }
 
 func (s *SBaseStorage) GetCapacity() int {
