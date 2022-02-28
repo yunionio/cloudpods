@@ -160,6 +160,9 @@ type DBInstanceCreateInput struct {
 
 	// 从备份中创建新实例
 	DBInstancebackupId string `json:"dbinstancebackup_id"`
+
+	// 多可用区部署
+	MultiAZ bool `json:"multi_az"`
 }
 
 type SDBInstanceChangeConfigInput struct {

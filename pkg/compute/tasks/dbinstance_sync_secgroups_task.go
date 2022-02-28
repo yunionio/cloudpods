@@ -65,7 +65,7 @@ func (self *DBInstanceSyncSecgroupsTask) OnSyncSecurityGroupsCompleteFailed(ctx 
 
 func (self *DBInstanceSyncSecgroupsTask) OnSyncSecurityGroupsComplete(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {
 	self.SetStage("OnSyncComplete", nil)
-	rds.StartDBInstanceSyncTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
+	rds.StartDBInstanceSyncTask(ctx, self.GetUserCred(), self.GetTaskId())
 }
 
 func (self *DBInstanceSyncSecgroupsTask) OnSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

@@ -19,13 +19,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-const (
-	SYNC_STATUS = "sync_status"
 )
 
 type IStatusBase interface {
@@ -45,7 +42,7 @@ func StartResourceSyncStatusTask(ctx context.Context, userCred mcclient.TokenCre
 	if err != nil {
 		return err
 	}
-	obj.SetStatus(userCred, SYNC_STATUS, "perform_syncstatus")
+	obj.SetStatus(userCred, apis.STATUS_SYNC_STATUS, "perform_syncstatus")
 	task.ScheduleRun(nil)
 	return nil
 }
