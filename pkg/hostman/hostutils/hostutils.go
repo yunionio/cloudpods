@@ -37,7 +37,7 @@ import (
 )
 
 type IHost interface {
-	GetZoneName() string
+	GetZoneId() string
 	GetHostId() string
 	GetMediumType() string
 	GetMasterIp() string
@@ -70,7 +70,7 @@ func GetK8sSession(ctx context.Context) *mcclient.ClientSession {
 }
 
 func GetImageSession(ctx context.Context, zone string) *mcclient.ClientSession {
-	return auth.AdminSessionWithInternal(ctx, options.HostOptions.Region, zone, "v1")
+	return auth.AdminSessionWithInternal(ctx, options.HostOptions.Region, "", "v1")
 }
 
 func TaskFailed(ctx context.Context, reason string) {

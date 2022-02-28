@@ -76,7 +76,7 @@ func (agent *SBaremetalAgent) GetEnableSsl() bool {
 	return o.Options.EnableSsl
 }
 
-func (agent *SBaremetalAgent) GetZoneName() string {
+func (agent *SBaremetalAgent) GetZoneId() string {
 	return o.Options.Zone
 }
 

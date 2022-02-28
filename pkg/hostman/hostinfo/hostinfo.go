@@ -134,8 +134,8 @@ func (h *SHostInfo) GetHostId() string {
 	return h.HostId
 }
 
-func (h *SHostInfo) GetZoneName() string {
-	return h.Zone
+func (h *SHostInfo) GetZoneId() string {
+	return h.ZoneId
 }
 
 func (h *SHostInfo) GetMediumType() string {
