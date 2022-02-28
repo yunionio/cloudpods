@@ -15,8 +15,12 @@
 package bingocloud
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SInstance struct {
@@ -135,6 +139,8 @@ func (self *SRegion) DescribeInstances(id string, maxResult int, nextToken strin
 		params["nextToken"] = nextToken
 	}
 	resp, err := self.invoke("DescribeInstances", params)
+	// resp, err := self.invoke("DescribeInstanceHosts", params)
+
 	if err != nil {
 		return nil, "", err
 	}
@@ -149,4 +155,249 @@ func (self *SRegion) DescribeInstances(id string, maxResult int, nextToken strin
 		return nil, "", err
 	}
 	return result.ReservationSet.Item, result.NextToken, nil
+}
+
+func (self *SRegion) GetInstance(id string) (*SInstance, error) {
+	vm := &SInstance{}
+	return vm, cloudprovider.ErrNotImplemented
+}
+
+//	IBillingResource
+func (self *SInstance) GetBillingType() string {
+	return ""
+}
+
+func (self *SInstance) GetCreatedAt() time.Time {
+	return time.Now()
+}
+
+func (self *SInstance) GetExpiredAt() time.Time {
+	return time.Now()
+}
+
+func (self *SInstance) SetAutoRenew(bc billing.SBillingCycle) error {
+	return cloudprovider.ErrNotFound
+}
+func (self *SInstance) Renew(bc billing.SBillingCycle) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) IsAutoRenew() bool {
+	return false
+}
+
+//	IVirtualResource
+func (self *SInstance) GetProjectId() string {
+	return ""
+}
+
+func (self *SInstance) GetId() string {
+	return ""
+}
+
+func (self *SInstance) GetName() string {
+	return ""
+}
+
+func (self *SInstance) GetGlobalId() string {
+	return ""
+}
+
+func (self *SInstance) GetStatus() string {
+	return ""
+}
+
+func (self *SInstance) Refresh() error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) IsEmulated() bool {
+	return false
+}
+
+func (self *SInstance) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *SInstance) GetTags() (map[string]string, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
+	return cloudprovider.ErrNotFound
+}
+
+//	ICloudVM
+func (self *SInstance) ConvertPublicIpToEip() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) GetHostname() string {
+	return ""
+}
+
+func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
+	return nil
+}
+
+func (self *SInstance) GetIHostId() string {
+	return ""
+}
+
+func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
+// 目前仅谷歌云windows机器会使用到此接口
+func (self *SInstance) GetSerialOutput(port int) (string, error) {
+	return "", cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) GetVcpuCount() int {
+	return 0
+}
+
+//MB
+func (self *SInstance) GetVmemSizeMB() int {
+	return 0
+}
+
+func (self *SInstance) GetBootOrder() string {
+	return ""
+}
+
+func (self *SInstance) GetVga() string {
+	return ""
+}
+
+func (self *SInstance) GetVdi() string {
+	return ""
+}
+
+func (self *SInstance) GetOSArch() string {
+	return ""
+}
+
+func (self *SInstance) GetOsType() cloudprovider.TOsType {
+	return ""
+}
+
+func (self *SInstance) GetOSName() string {
+	return ""
+}
+
+func (self *SInstance) GetBios() string {
+	return ""
+}
+
+func (self *SInstance) GetMachine() string {
+	return ""
+}
+
+func (self *SInstance) GetInstanceType() string {
+	return ""
+}
+
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) GetHypervisor() string {
+	return ""
+}
+
+func (self *SInstance) StartVM(ctx context.Context) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) DeleteVM(ctx context.Context) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) UpdateUserData(userData string) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) RebuildRoot(ctx context.Context, config *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
+	return "", cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
+	return "", cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) MigrateVM(hostid string) error {
+	return cloudprovider.ErrNotFound
+}
+func (self *SInstance) LiveMigrateVM(hostid string) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) GetError() error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) CreateInstanceSnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudInstanceSnapshot, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+func (self *SInstance) GetInstanceSnapshot(idStr string) (cloudprovider.ICloudInstanceSnapshot, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+func (self *SInstance) GetInstanceSnapshots() ([]cloudprovider.ICloudInstanceSnapshot, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+func (self *SInstance) ResetToInstanceSnapshot(ctx context.Context, idStr string) error {
+	return cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) AllocatePublicIpAddress() (string, error) {
+	return "", cloudprovider.ErrNotFound
 }
