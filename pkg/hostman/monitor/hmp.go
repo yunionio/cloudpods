@@ -501,3 +501,8 @@ func (m *HmpMonitor) NetdevDel(id string, callback StringCallback) {
 	cmd := fmt.Sprintf("netdev_del %s", id)
 	m.Query(cmd, callback)
 }
+
+func (m *HmpMonitor) SaveState(stateFilePath string, callback StringCallback) {
+	cmd := fmt.Sprintf(`migrate -d "%s"`, getSaveStatefileUri(stateFilePath))
+	m.Query(cmd, callback)
+}

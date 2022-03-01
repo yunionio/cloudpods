@@ -17,6 +17,7 @@ package guestman
 import (
 	"yunion.io/x/jsonutils"
 
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 )
@@ -55,6 +56,9 @@ type SDestPrepareMigrate struct {
 	Desc             jsonutils.JSONObject
 	DisksBackingFile jsonutils.JSONObject
 	SrcSnapshots     jsonutils.JSONObject
+
+	MemorySnapshotsUri string
+	SrcMemorySnapshots []string
 }
 
 type SLiveMigrate struct {
@@ -86,6 +90,20 @@ type SDiskSnapshot struct {
 	Sid        string
 	SnapshotId string
 	Disk       storageman.IDisk
+}
+
+type SMemorySnapshot struct {
+	*hostapi.GuestMemorySnapshotRequest
+	Sid string
+}
+
+type SMemorySnapshotReset struct {
+	*hostapi.GuestMemorySnapshotResetRequest
+	Sid string
+}
+
+type SMemorySnapshotDelete struct {
+	*hostapi.GuestMemorySnapshotDeleteRequest
 }
 
 type SDiskBackup struct {

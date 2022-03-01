@@ -190,11 +190,11 @@ func (self *SBaseGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, dis
 	return fmt.Errorf("Not Implement")
 }
 
-func (self *SBaseGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SBaseGuestDriver) RequestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }
 
-func (self *SBaseGuestDriver) RqeuestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SBaseGuestDriver) RequestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }
 

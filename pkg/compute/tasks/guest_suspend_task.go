@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestSuspendTask struct {
@@ -37,8 +38,8 @@ func (self *GuestSuspendTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_STOPPING, "", self.UserCred)
 	guest.SetStatus(self.UserCred, api.VM_SUSPENDING, "GuestSusPendTask")
-	self.SetStage("on_suspend_complete", nil)
-	err := guest.GetDriver().RqeuestSuspendOnHost(ctx, guest, self)
+	self.SetStage("OnSuspendComplete", nil)
+	err := guest.GetDriver().RequestSuspendOnHost(ctx, guest, self)
 	if err != nil {
 		self.OnSuspendGuestFail(guest, err.Error())
 	}
@@ -48,6 +49,7 @@ func (self *GuestSuspendTask) OnSuspendComplete(ctx context.Context, obj db.ISta
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, api.VM_SUSPEND, "")
 	db.OpsLog.LogEvent(guest, db.ACT_STOP, "", self.UserCred)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_SUSPEND, "success", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -55,6 +57,7 @@ func (self *GuestSuspendTask) OnSuspendCompleteFailed(ctx context.Context, obj d
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, api.VM_RUNNING, "")
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, err.String(), self.UserCred)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_SUSPEND, err.String(), self.UserCred, false)
 	self.SetStageFailed(ctx, err)
 }
 

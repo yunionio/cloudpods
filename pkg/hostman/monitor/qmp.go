@@ -972,3 +972,18 @@ func (m *QmpMonitor) NetdevDel(id string, callback StringCallback) {
 	cmd := fmt.Sprintf("netdev_del %s", id)
 	m.HumanMonitorCommand(cmd, callback)
 }
+
+func (m *QmpMonitor) SaveState(stateFilePath string, callback StringCallback) {
+	var (
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+		cmd = &Command{
+			Execute: "migrate",
+			Args: map[string]interface{}{
+				"uri": getSaveStatefileUri(stateFilePath),
+			},
+		}
+	)
+	m.Query(cmd, cb)
+}

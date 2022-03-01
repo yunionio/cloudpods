@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -55,6 +56,12 @@ func AddDownloadHandler(prefix string, app *appsrv.Application) {
 			nil, "snapshot_download", nil)
 		customizeHandlerInfo(hi)
 
+		hi = app.AddHandler2("GET", fmt.Sprintf(
+			"%s/%s/memory_snapshots/<serverId>/<instanceSnapshotId>",
+			prefix, kerword), auth.Authenticate(memorySnapshotDownload),
+			nil, "memory_snapshot_download", nil)
+		customizeHandlerInfo(hi)
+
 		hi = app.AddHandler2("HEAD", fmt.Sprintf("%s/%s/disks/<storageId>/<diskId>",
 			prefix, kerword), auth.Authenticate(diskHead),
 			nil, "head_disk_download", nil)
@@ -69,6 +76,11 @@ func AddDownloadHandler(prefix string, app *appsrv.Application) {
 		hi = app.AddHandler2("HEAD",
 			fmt.Sprintf("%s/%s/images/<id>", prefix, kerword), auth.Authenticate(imageCacheHead),
 			nil, "head_image", nil)
+		customizeHandlerInfo(hi)
+
+		hi = app.AddHandler2("HEAD",
+			fmt.Sprintf("%s/%s/memory_snapshots/<instance_snapshot_id>", prefix, kerword), auth.Authenticate(memorySnapshotHead),
+			nil, "head_memory_snapshot", nil)
 		customizeHandlerInfo(hi)
 	}
 }
@@ -226,6 +238,38 @@ func imageCacheHead(ctx context.Context, w http.ResponseWriter, r *http.Request)
 
 	hand := NewImageCacheDownloadProvider(w, compress, false, rateLimit, imageId)
 
+	if err := hand.HandlerHead(); err != nil {
+		hostutils.Response(ctx, w, err)
+	}
+}
+
+func getInstanceSnapShotPath(ctx context.Context, w http.ResponseWriter, r *http.Request) string {
+	var (
+		params, _, _       = appsrv.FetchEnv(ctx, w, r)
+		serverId           = params["<serverId>"]
+		instanceSnapshotId = params["<instanceSnapshotId>"]
+	)
+	msPath := guestman.GetMemorySnapshotPath(serverId, instanceSnapshotId)
+	return msPath
+}
+
+func memorySnapshotDownload(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	msPath := getInstanceSnapShotPath(ctx, w, r)
+	var compress = isCompress(r)
+	var sparse = isSparse(r)
+	hand := NewSnapshotDownloadProvider(w,
+		compress, sparse, options.HostOptions.BandwidthLimit, msPath)
+	if err := hand.Start(); err != nil {
+		hostutils.Response(ctx, w, err)
+	}
+}
+
+func memorySnapshotHead(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	msPath := getInstanceSnapShotPath(ctx, w, r)
+	var compress = isCompress(r)
+	var sparse = isSparse(r)
+	hand := NewSnapshotDownloadProvider(w,
+		compress, sparse, options.HostOptions.BandwidthLimit, msPath)
 	if err := hand.HandlerHead(); err != nil {
 		hostutils.Response(ctx, w, err)
 	}

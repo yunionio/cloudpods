@@ -4712,7 +4712,12 @@ func (self *SGuest) PerformInstanceSnapshot(
 		return nil, errors.Wrap(err, "validateCreateInstanceSnapshot")
 	}
 	input.ServerCreateSnapshotParams = params
-	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, userCred, self, input.Name, false)
+	if input.WithMemory {
+		if self.Status != api.VM_RUNNING {
+			return nil, httperrors.NewUnsupportOperationError("Can't save memory state when guest status is %q", self.Status)
+		}
+	}
+	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, userCred, self, input.Name, false, input.WithMemory)
 	if err != nil {
 		quotas.CancelPendingUsage(
 			ctx, userCred, pendingUsage, pendingUsage, false)
@@ -4791,10 +4796,14 @@ func (self *SGuest) PerformInstanceSnapshotReset(ctx context.Context, userCred m
 	instanceSnapshot := obj.(*SInstanceSnapshot)
 
 	if instanceSnapshot.Status != api.INSTANCE_SNAPSHOT_READY {
-		return nil, httperrors.NewBadRequestError("Instance sanpshot not ready")
+		return nil, httperrors.NewBadRequestError("Instance snapshot not ready")
 	}
 
-	err = self.StartSnapshotResetTask(ctx, userCred, instanceSnapshot, input.AutoStart)
+	if input.WithMemory && !instanceSnapshot.WithMemory {
+		return nil, httperrors.NewBadRequestError("Instance snapshot not with memory statefile")
+	}
+
+	err = self.StartSnapshotResetTask(ctx, userCred, instanceSnapshot, input.AutoStart, input.WithMemory)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("start snapshot reset failed %s", err)
 	}
@@ -4802,14 +4811,15 @@ func (self *SGuest) PerformInstanceSnapshotReset(ctx context.Context, userCred m
 	return nil, nil
 }
 
-func (self *SGuest) StartSnapshotResetTask(ctx context.Context, userCred mcclient.TokenCredential, instanceSnapshot *SInstanceSnapshot, autoStart *bool) error {
-
+func (self *SGuest) StartSnapshotResetTask(ctx context.Context, userCred mcclient.TokenCredential, instanceSnapshot *SInstanceSnapshot, autoStart *bool, withMemory bool) error {
 	data := jsonutils.NewDict()
 	if autoStart != nil && *autoStart {
 		data.Set("auto_start", jsonutils.JSONTrue)
 	}
+	data.Add(jsonutils.NewBool(withMemory), "with_memory")
 	self.SetStatus(userCred, api.VM_START_SNAPSHOT_RESET, "start snapshot reset task")
 	instanceSnapshot.SetStatus(userCred, api.INSTANCE_SNAPSHOT_RESET, "start snapshot reset task")
+	log.Errorf("====data: %s", data)
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "InstanceSnapshotResetTask", instanceSnapshot, userCred, data, "", "", nil,
 	); err != nil {
@@ -4882,7 +4892,7 @@ func (self *SGuest) PerformSnapshotAndClone(
 	}
 	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(
 		ctx, userCred, self, instanceSnapshotName,
-		input.AutoDeleteInstanceSnapshot != nil && *input.AutoDeleteInstanceSnapshot)
+		input.AutoDeleteInstanceSnapshot != nil && *input.AutoDeleteInstanceSnapshot, false)
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
 		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage, false)

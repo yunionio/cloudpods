@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -59,39 +60,45 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			auth.Authenticate(deleteGuest))
 
 		for action, f := range map[string]actionFunc{
-			"create":               guestCreate,
-			"deploy":               guestDeploy,
-			"rebuild":              guestRebuild,
-			"start":                guestStart,
-			"stop":                 guestStop,
-			"monitor":              guestMonitor,
-			"sync":                 guestSync,
-			"suspend":              guestSuspend,
-			"io-throttle":          guestIoThrottle,
-			"snapshot":             guestSnapshot,
-			"delete-snapshot":      guestDeleteSnapshot,
-			"reload-disk-snapshot": guestReloadDiskSnapshot,
-			"src-prepare-migrate":  guestSrcPrepareMigrate,
-			"dest-prepare-migrate": guestDestPrepareMigrate,
-			"live-migrate":         guestLiveMigrate,
-			"resume":               guestResume,
-			"drive-mirror":         guestDriveMirror,
-			"hotplug-cpu-mem":      guestHotplugCpuMem,
-			"cancel-block-jobs":    guestCancelBlockJobs,
-			"create-from-libvirt":  guestCreateFromLibvirt,
-			"create-form-esxi":     guestCreateFromEsxi,
-			"open-forward":         guestOpenForward,
-			"list-forward":         guestListForward,
-			"close-forward":        guestCloseForward,
-			"storage-clone-disk":   guestStorageCloneDisk,
-			"cpuset":               guestCPUSet,
-			"cpuset-remove":        guestCPUSetRemove,
+			"create":                guestCreate,
+			"deploy":                guestDeploy,
+			"rebuild":               guestRebuild,
+			"start":                 guestStart,
+			"stop":                  guestStop,
+			"monitor":               guestMonitor,
+			"sync":                  guestSync,
+			"suspend":               guestSuspend,
+			"io-throttle":           guestIoThrottle,
+			"snapshot":              guestSnapshot,
+			"delete-snapshot":       guestDeleteSnapshot,
+			"reload-disk-snapshot":  guestReloadDiskSnapshot,
+			"src-prepare-migrate":   guestSrcPrepareMigrate,
+			"dest-prepare-migrate":  guestDestPrepareMigrate,
+			"live-migrate":          guestLiveMigrate,
+			"resume":                guestResume,
+			"drive-mirror":          guestDriveMirror,
+			"hotplug-cpu-mem":       guestHotplugCpuMem,
+			"cancel-block-jobs":     guestCancelBlockJobs,
+			"create-from-libvirt":   guestCreateFromLibvirt,
+			"create-form-esxi":      guestCreateFromEsxi,
+			"open-forward":          guestOpenForward,
+			"list-forward":          guestListForward,
+			"close-forward":         guestCloseForward,
+			"storage-clone-disk":    guestStorageCloneDisk,
+			"cpuset":                guestCPUSet,
+			"cpuset-remove":         guestCPUSetRemove,
+			"memory-snapshot":       guestMemorySnapshot,
+			"memory-snapshot-reset": guestMemorySnapshotReset,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
 				auth.Authenticate(guestActions(f)),
 			)
 		}
+
+		app.AddHandler("DELETE",
+			fmt.Sprintf("%s/%s/memory-snapshot", prefix, keyWord),
+			auth.Authenticate(guestMemorySnapshotDelete))
 	}
 }
 
@@ -374,6 +381,15 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 		}
 		params.RebaseDisks = jsonutils.QueryBoolean(body, "rebase_disks", false)
 	}
+
+	msUri, err := body.GetString("memory_snapshots_uri")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("memory_snapshots_uri")
+	}
+	params.MemorySnapshotsUri = msUri
+	msIds, _ := jsonutils.GetStringArray(body, "src_memory_snapshots")
+	params.SrcMemorySnapshots = msIds
+
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().DestPrepareMigrate, params)
 	return nil, nil
 }
@@ -643,4 +659,57 @@ func guestCPUSetRemove(ctx context.Context, sid string, body jsonutils.JSONObjec
 		return nil, err
 	}
 	return nil, nil
+}
+
+func guestMemorySnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	input := new(hostapi.GuestMemorySnapshotRequest)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, err
+	}
+	gm := guestman.GetGuestManager()
+	hostutils.DelayTaskWithoutReqctx(ctx, gm.DoMemorySnapshot, &guestman.SMemorySnapshot{
+		GuestMemorySnapshotRequest: input,
+		Sid:                        sid,
+	})
+	return nil, nil
+}
+
+func guestMemorySnapshotReset(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	input := new(hostapi.GuestMemorySnapshotResetRequest)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, err
+	}
+	if input.InstanceSnapshotId == "" {
+		return nil, httperrors.NewMissingParameterError("instance_snapshot_id")
+	}
+	if input.Path == "" {
+		return nil, httperrors.NewMissingParameterError("path")
+	}
+	gm := guestman.GetGuestManager()
+	hostutils.DelayTaskWithoutReqctx(ctx, gm.DoResetMemorySnapshot, &guestman.SMemorySnapshotReset{
+		GuestMemorySnapshotResetRequest: input,
+		Sid:                             sid,
+	})
+	return nil, nil
+}
+
+func guestMemorySnapshotDelete(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	input := new(hostapi.GuestMemorySnapshotDeleteRequest)
+	if err := body.Unmarshal(input); err != nil {
+		hostutils.Response(ctx, w, err)
+		return
+	}
+	if input.InstanceSnapshotId == "" {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("instance_snapshot_id"))
+		return
+	}
+	if input.Path == "" {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("path"))
+		return
+	}
+	gm := guestman.GetGuestManager()
+	hostutils.DelayTask(ctx, gm.DoDeleteMemorySnapshot, &guestman.SMemorySnapshotDelete{
+		GuestMemorySnapshotDeleteRequest: input,
+	})
 }
