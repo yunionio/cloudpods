@@ -17,14 +17,17 @@ package models
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/serialx/hashring"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/util/panicutils"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 )
 
 var (
@@ -76,7 +79,12 @@ func RunSyncCloudproviderRegionTask(ctx context.Context, key string, syncFunc fu
 	}
 	log.Debugf("run sync task at %d len %d", nodeIdx, len(syncWorkers))
 	syncWorkers[nodeIdx].Run(&task, nil, func(err error) {
-		panicutils.SendPanicMessage(ctx, err)
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewString("SyncCloudproviderRegion"), "task_name")
+		data.Add(jsonutils.NewString(key), "task_id")
+		data.Add(jsonutils.NewString(string(debug.Stack())), "stack")
+		data.Add(jsonutils.NewString(err.Error()), "error")
+		notifyclient.SystemExceptionNotify(context.TODO(), api.ActionSystemPanic, api.TOPIC_RESOURCE_TASK, data)
 	})
 }
 
@@ -86,6 +94,11 @@ func RunSyncCloudAccountTask(ctx context.Context, probeFunc func()) {
 		key:      "AccountProb",
 	}
 	syncAccountWorker.Run(&task, nil, func(err error) {
-		panicutils.SendPanicMessage(ctx, err)
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewString("SyncCloudAccountTask"), "task_name")
+		data.Add(jsonutils.NewString(task.key), "task_id")
+		data.Add(jsonutils.NewString(string(debug.Stack())), "stack")
+		data.Add(jsonutils.NewString(err.Error()), "error")
+		notifyclient.SystemExceptionNotify(context.TODO(), api.ActionSystemPanic, api.TOPIC_RESOURCE_TASK, data)
 	})
 }
