@@ -1,0 +1,4 @@
+{{- $d := .resource_details -}}
+{{ .resource_type }} {{ $d.task_name }} PANIC {{- if $d.error -}} 错误: {{ $d.error }} {{- end -}}
+堆栈信息: 
+{{ $d.stack }}
