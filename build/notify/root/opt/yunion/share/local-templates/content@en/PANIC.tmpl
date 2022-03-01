@@ -1,0 +1,4 @@
+{{- $d := .resource_details -}}
+{{ .resource_type }} {{ $d.task_name }} PANIC {{- if $d.error -}} Error: {{ $d.error }} {{- end -}}
+Stack Info: 
+{{ $d.stack }}

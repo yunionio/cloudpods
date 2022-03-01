@@ -119,6 +119,8 @@ const (
 	TOPIC_RESOURCE_DNSRECORDSET             = "dns_recordset"
 	TOPIC_RESOURCE_LOADBALANCERLISTENER     = "loadbalancerlistener"
 	TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP = "loadbalancerbackendgroup"
+	TOPIC_RESOURCE_HOST                     = "host"
+	TOPIC_RESOURCE_TASK                     = "task"
 
 	SUBSCRIBER_TYPE_ROLE     = "role"
 	SUBSCRIBER_TYPE_ROBOT    = "robot"

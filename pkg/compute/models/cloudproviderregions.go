@@ -33,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/nopanic"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -450,13 +449,11 @@ func (self *SCloudproviderregion) getSyncTaskKey() string {
 func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) {
 	self.markStartSync(userCred)
 	RunSyncCloudproviderRegionTask(ctx, self.getSyncTaskKey(), func() {
-		nopanic.Run(func() {
-			ctx = context.WithValue(ctx, "provider-region", fmt.Sprintf("%d", self.RowId))
-			err := self.DoSync(ctx, userCred, syncRange)
-			if err != nil {
-				log.Errorf("DoSync faild %v", err)
-			}
-		})
+		ctx = context.WithValue(ctx, "provider-region", fmt.Sprintf("%d", self.RowId))
+		err := self.DoSync(ctx, userCred, syncRange)
+		if err != nil {
+			log.Errorf("DoSync faild %v", err)
+		}
 	})
 }
 
