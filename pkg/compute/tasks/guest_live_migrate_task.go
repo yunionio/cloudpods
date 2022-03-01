@@ -278,6 +278,10 @@ func (self *GuestMigrateTask) OnUndeployTargetGuestSuccFailed(ctx context.Contex
 }
 
 func (self *GuestMigrateTask) OnMigrateConfAndDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if data.Contains("dest_prepared_memory_snapshots") {
+		msData, _ := data.Get("dest_prepared_memory_snapshots")
+		self.Params.Set("dest_prepared_memory_snapshots", msData)
+	}
 	guestStatus, _ := self.Params.GetString("guest_status")
 	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		// Live migrate
@@ -324,6 +328,43 @@ func (self *GuestMigrateTask) OnGuestStartSuccFailed(ctx context.Context, guest 
 	self.TaskFailed(ctx, guest, data)
 }
 
+func (self *GuestMigrateTask) getInstanceSnapShotsWithMemory(guest *models.SGuest) ([]*models.SInstanceSnapshot, error) {
+	isps, err := guest.GetInstanceSnapshots()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetInstanceSnapshots")
+	}
+	ret := make([]*models.SInstanceSnapshot, 0)
+	for idx := range isps {
+		if isps[idx].WithMemory {
+			ret = append(ret, &isps[idx])
+		}
+	}
+	return ret, nil
+}
+
+func (self *GuestMigrateTask) getInstanceSnapShotIdsWithMemory(guest *models.SGuest) (*jsonutils.JSONArray, error) {
+	isps, err := self.getInstanceSnapShotsWithMemory(guest)
+	if err != nil {
+		return nil, errors.Wrap(err, "getInstanceSnapshotsWithMemory")
+	}
+	ret := []string{}
+	for _, isp := range isps {
+		ret = append(ret, isp.GetId())
+	}
+	return jsonutils.Marshal(ret).(*jsonutils.JSONArray), nil
+}
+
+func (self *GuestMigrateTask) setBodyMemorySnapshotParams(guest *models.SGuest, srcHost *models.SHost, body *jsonutils.JSONDict) error {
+	isps, err := self.getInstanceSnapShotIdsWithMemory(guest)
+	if err != nil {
+		return errors.Wrap(err, "getInstanceSnapShotsWithMemory")
+	}
+	memSnapshotUri := fmt.Sprintf("%s/download/memory_snapshots", srcHost.ManagerUri)
+	body.Set("memory_snapshots_uri", jsonutils.NewString(memSnapshotUri))
+	body.Set("src_memory_snapshots", isps)
+	return nil
+}
+
 func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, guest *models.SGuest, targetHost *models.SHost) (*jsonutils.JSONDict, error) {
 	body := jsonutils.NewDict()
 	body.Set("is_local_storage", jsonutils.JSONFalse)
@@ -331,6 +372,11 @@ func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, gues
 	body.Set("qemu_cmdline", jsonutils.NewString(guest.GetQemuCmdline(self.UserCred)))
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
 	body.Set("desc", jsonutils.Marshal(targetDesc))
+
+	sourceHost, _ := guest.GetHost()
+	if err := self.setBodyMemorySnapshotParams(guest, sourceHost, body); err != nil {
+		return nil, errors.Wrap(err, "setBodyMemorySnapshotParams")
+	}
 	return body, nil
 }
 
@@ -362,6 +408,11 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	body.Set("server_url", jsonutils.NewString(serverUrl))
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
 	body.Set("qemu_cmdline", jsonutils.NewString(guest.GetQemuCmdline(self.UserCred)))
+
+	if err := self.setBodyMemorySnapshotParams(guest, sourceHost, body); err != nil {
+		return nil, errors.Wrap(err, "setBodyMemorySnapshotParams")
+	}
+
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
 	if len(targetDesc.Disks) == 0 {
 		return nil, errors.Errorf("Get disksDesc error")
@@ -530,7 +581,39 @@ func (self *GuestLiveMigrateTask) OnGuestSyncStatus(ctx context.Context, guest *
 	self.TaskComplete(ctx, guest)
 }
 
+func (self *GuestMigrateTask) updateInstanceSnapshotMemory(ctx context.Context, guest *models.SGuest) error {
+	if !self.Params.Contains("dest_prepared_memory_snapshots") {
+		return nil
+	}
+	ms, err := self.Params.Get("dest_prepared_memory_snapshots")
+	if err != nil {
+		return errors.Wrap(err, "get dest_prepared_memory_snapshots from params")
+	}
+	isps, err := self.getInstanceSnapShotsWithMemory(guest)
+	if err != nil {
+		return errors.Wrap(err, "getInstanceSnapShotsWithMemory")
+	}
+	for _, isp := range isps {
+		msPath, err := ms.GetString(isp.GetId())
+		if err != nil {
+			return errors.Wrapf(err, "get instance snapshot %s memory path from dest prepared", isp.GetId())
+		}
+		if _, err := db.Update(isp, func() error {
+			isp.MemoryFilePath = msPath
+			isp.MemoryFileHostId = guest.HostId
+			return nil
+		}); err != nil {
+			return errors.Wrapf(err, "update instance snapshot %q memory_filie_path", isp.GetId())
+		}
+	}
+	return nil
+}
+
 func (self *GuestMigrateTask) TaskComplete(ctx context.Context, guest *models.SGuest) {
+	if err := self.updateInstanceSnapshotMemory(ctx, guest); err != nil {
+		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
 	self.SetStageComplete(ctx, nil)
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE, "Migrate success", self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, self.Params, self.UserCred, true)

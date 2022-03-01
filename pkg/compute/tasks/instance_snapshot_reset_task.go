@@ -73,6 +73,8 @@ func (self *InstanceSnapshotResetTask) OnInit(
 	self.SetStage("OnInstanceSnapshotReset", nil)
 	params := jsonutils.NewDict()
 	params.Set("disk_index", jsonutils.NewInt(0))
+	withMem := jsonutils.QueryBoolean(self.Params, "with_memory", false)
+	params.Set("with_memory", jsonutils.NewBool(withMem))
 	if err := isp.GetRegionDriver().RequestResetToInstanceSnapshot(ctx, guest, isp, self, params); err != nil {
 		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return
@@ -91,6 +93,8 @@ func (self *InstanceSnapshotResetTask) OnKvmDiskReset(
 	}
 	params := jsonutils.NewDict()
 	params.Set("disk_index", jsonutils.NewInt(diskIndex+1))
+	withMem := jsonutils.QueryBoolean(self.Params, "with_memory", false)
+	params.Set("with_memory", jsonutils.NewBool(withMem))
 	if err := isp.GetRegionDriver().RequestResetToInstanceSnapshot(ctx, guest, isp, self, params); err != nil {
 		self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
 		return

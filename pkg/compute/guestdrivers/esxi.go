@@ -427,7 +427,7 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 	return err
 }
 
-func (self *SESXiGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SESXiGuestDriver) RequestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		host, _ := guest.GetHost()
 		if host == nil {
@@ -451,7 +451,7 @@ func (self *SESXiGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *m
 	return nil
 }
 
-func (self *SESXiGuestDriver) RqeuestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SESXiGuestDriver) RequestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		host, _ := guest.GetHost()
 		if host == nil {

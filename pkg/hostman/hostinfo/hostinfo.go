@@ -331,12 +331,17 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Option report_interval must no longer than 5 min")
 	}
 
-	output, err := procutils.NewCommand("mkdir", "-p", options.HostOptions.ServersPath).Output()
-	if err != nil {
-		return errors.Wrapf(err, "failed to create path %s: %s", options.HostOptions.ServersPath, output)
+	for _, dirPath := range []string{
+		options.HostOptions.ServersPath,
+		options.HostOptions.MemorySnapshotsPath,
+	} {
+		output, err := procutils.NewCommand("mkdir", "-p", dirPath).Output()
+		if err != nil {
+			return errors.Wrapf(err, "failed to create path %s: %s", dirPath, output)
+		}
 	}
 
-	_, err = procutils.NewCommand("ethtool", "-h").Output()
+	_, err := procutils.NewCommand("ethtool", "-h").Output()
 	if err != nil {
 		return errors.Wrap(err, "Execute 'ethtool -h'")
 	}
@@ -384,7 +389,7 @@ func (h *SHostInfo) prepareEnv() error {
 	if err != nil {
 		return errors.Wrap(err, "Failed to activate tun/tap device")
 	}
-	output, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "vhost_net").Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", "vhost_net").Output()
 	if err != nil {
 		log.Warningf("modprobe vhost_net error: %s", output)
 	}

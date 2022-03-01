@@ -96,6 +96,74 @@ func (s *SGuestStopTask) CheckGuestRunningLater() {
 	s.checkGuestRunning()
 }
 
+type SGuestSuspendTask struct {
+	*SKVMGuestInstance
+	ctx              context.Context
+	onFinishCallback func(*SGuestSuspendTask, string)
+}
+
+func NewGuestSuspendTask(
+	guest *SKVMGuestInstance,
+	ctx context.Context,
+	onFinishCallback func(*SGuestSuspendTask, string),
+) *SGuestSuspendTask {
+	t := &SGuestSuspendTask{
+		SKVMGuestInstance: guest,
+		ctx:               ctx,
+	}
+	if onFinishCallback == nil {
+		onFinishCallback = t.onSaveMemStateComplete
+	}
+	t.onFinishCallback = onFinishCallback
+	return t
+}
+
+func (s *SGuestSuspendTask) Start() {
+	s.Monitor.SimpleCommand("stop", s.onSuspendGuest)
+}
+
+func (s *SGuestSuspendTask) GetStateFilePath() string {
+	return s.SKVMGuestInstance.GetStateFilePath("")
+}
+
+func (s *SGuestSuspendTask) onSuspendGuest(results string) {
+	if strings.Contains(strings.ToLower(results), "error") {
+		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Suspend error: %s", results))
+		return
+	}
+	statFile := s.GetStateFilePath()
+	s.Monitor.SaveState(statFile, s.onSaveMemStateWait)
+}
+
+func (s *SGuestSuspendTask) onSaveMemStateWait(results string) {
+	if strings.Contains(strings.ToLower(results), "error") {
+		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Save memory state error: %s", results))
+		// TODO: send cont command
+		return
+	}
+	s.Monitor.GetMigrateStatus(s.onSaveMemStateCheck)
+}
+
+func (s *SGuestSuspendTask) onSaveMemStateCheck(status string) {
+	if status == "failed" {
+		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Save memory state failed"))
+		// TODO: send cont command
+		return
+	} else if status != "completed" {
+		time.Sleep(time.Second * 3)
+		log.Infof("Server %s saving memory state status %q", s.GetName(), status)
+		s.onSaveMemStateWait("")
+	} else {
+		log.Infof("Server %s save memory completed", s.GetName())
+		s.onFinishCallback(s, s.GetStateFilePath())
+	}
+}
+
+func (s *SGuestSuspendTask) onSaveMemStateComplete(_ *SGuestSuspendTask, _ string) {
+	log.Infof("Server %s memory state saved, stopping server", s.GetName())
+	s.ExecStopTask(s.ctx, int64(3))
+}
+
 /**
  *  GuestSyncConfigTaskExecutor
 **/
@@ -782,6 +850,8 @@ type SGuestResumeTask struct {
 
 	isTimeout bool
 	cleanTLS  bool
+
+	getTaskData func() (jsonutils.JSONObject, error)
 }
 
 func NewGuestResumeTask(ctx context.Context, s *SKVMGuestInstance, isTimeout bool, cleanTLS bool) *SGuestResumeTask {
@@ -790,6 +860,7 @@ func NewGuestResumeTask(ctx context.Context, s *SKVMGuestInstance, isTimeout boo
 		ctx:               ctx,
 		isTimeout:         isTimeout,
 		cleanTLS:          cleanTLS,
+		getTaskData:       nil,
 	}
 }
 
@@ -808,6 +879,10 @@ func (s *SGuestResumeTask) Start() {
 		return
 	}
 	s.confirmRunning()
+}
+
+func (s *SGuestResumeTask) GetStateFilePath() string {
+	return s.SKVMGuestInstance.GetStateFilePath("")
 }
 
 func (s *SGuestResumeTask) Stop() {
@@ -879,9 +954,25 @@ func (s *SGuestResumeTask) onResumeSucc(res string) {
 	s.confirmRunning()
 }
 
+func (s *SGuestResumeTask) SetGetTaskData(f func() (jsonutils.JSONObject, error)) {
+	s.getTaskData = f
+}
+
 func (s *SGuestResumeTask) onStartRunning() {
+	s.removeStatefile()
 	if s.ctx != nil && len(appctx.AppContextTaskId(s.ctx)) > 0 {
-		hostutils.TaskComplete(s.ctx, nil)
+		var (
+			data jsonutils.JSONObject
+			err  error
+		)
+		if s.getTaskData != nil {
+			data, err = s.getTaskData()
+			if err != nil {
+				s.taskFailed(err.Error())
+				return
+			}
+		}
+		hostutils.TaskComplete(s.ctx, data)
 	}
 	if options.HostOptions.SetVncPassword {
 		s.SetVncPassword()

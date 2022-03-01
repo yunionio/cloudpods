@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -41,11 +42,13 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
@@ -843,6 +846,16 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 
 	}
 
+	body := jsonutils.NewDict()
+
+	if len(migParams.SrcMemorySnapshots) > 0 {
+		preparedMs, err := m.destinationPrepareMigrateMemorySnapshots(ctx, migParams.Sid, migParams.MemorySnapshotsUri, migParams.SrcMemorySnapshots)
+		if err != nil {
+			return nil, errors.Wrap(err, "destination prepare migrate memory snapshots")
+		}
+		body.Add(jsonutils.Marshal(preparedMs), "dest_prepared_memory_snapshots")
+	}
+
 	if migParams.LiveMigrate {
 		startParams := jsonutils.NewDict()
 		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
@@ -859,7 +872,26 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		hostutils.UpdateServerProgress(context.Background(), migParams.Sid, 100.0, 0)
 	}
 
-	return nil, nil
+	return body, nil
+}
+
+func (m *SGuestManager) destinationPrepareMigrateMemorySnapshots(ctx context.Context, serverId string, uri string, ids []string) (map[string]string, error) {
+	ret := make(map[string]string, 0)
+	for _, id := range ids {
+		url := fmt.Sprintf("%s/%s/%s", uri, serverId, id)
+		msPath := GetMemorySnapshotPath(serverId, id)
+		dir := filepath.Dir(msPath)
+		if err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dir).Run(); err != nil {
+			return nil, errors.Wrapf(err, "mkdir -p %q", dir)
+		}
+		remotefile := remotefile.NewRemoteFile(ctx, url, msPath, false, "", -1, nil, "", "")
+		if err := remotefile.Fetch(nil); err != nil {
+			return nil, errors.Wrapf(err, "fetch memory snapshot file %s", url)
+		} else {
+			ret[id] = msPath
+		}
+	}
+	return ret, nil
 }
 
 func (m *SGuestManager) LiveMigrate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -961,6 +993,41 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 		res.Set("deleted", jsonutils.JSONTrue)
 		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false)
 	}
+}
+
+func (m *SGuestManager) DoMemorySnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	input, ok := params.(*SMemorySnapshot)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	guest, _ := m.GetServer(input.Sid)
+	return guest.ExecMemorySnapshotTask(ctx, input.GuestMemorySnapshotRequest)
+}
+
+func (m *SGuestManager) DoResetMemorySnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	input, ok := params.(*SMemorySnapshotReset)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	guest, _ := m.GetServer(input.Sid)
+	return guest.ExecMemorySnapshotResetTask(ctx, input.GuestMemorySnapshotResetRequest)
+}
+
+func (m *SGuestManager) DoDeleteMemorySnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	input, ok := params.(*SMemorySnapshotDelete)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	if err := procutils.NewRemoteCommandAsFarAsPossible("rm", input.Path).Run(); err != nil {
+		if !strings.Contains(strings.ToLower(err.Error()), "No such file or directory") {
+			return nil, err
+		}
+	}
+	log.Infof("Memory snapshot file %q removed", input.Path)
+	return nil, nil
 }
 
 func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bool, cleanTLS bool) (jsonutils.JSONObject, error) {
