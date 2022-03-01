@@ -40,11 +40,13 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	napi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
@@ -3843,6 +3845,11 @@ func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCr
 		}
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, input.Reason, userCred)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_OFFLINE, input, userCred, true)
+		ndata := jsonutils.Marshal(self).(*jsonutils.JSONDict)
+		if len(input.Reason) > 0 {
+			ndata.Add(jsonutils.NewString(input.Reason), "reason")
+		}
+		notifyclient.SystemExceptionNotify(ctx, napi.ActionOffline, HostManager.Keyword(), ndata)
 		self.SyncAttachedStorageStatus()
 	}
 	return nil, nil

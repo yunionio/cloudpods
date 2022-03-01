@@ -299,6 +299,20 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 	notifyClientWorkerMan.Run(&t, nil, nil)
 }
 
+func SystemExceptionNotify(ctx context.Context, action api.SAction, resType string, obj jsonutils.JSONObject) {
+	event := api.Event.WithAction(action).WithResourceType(resType)
+	params := api.NotificationManagerEventNotifyInput{
+		ReceiverIds:     []string{},
+		ResourceDetails: obj.(*jsonutils.JSONDict),
+		Event:           event.String(),
+		Priority:        string(npk.NotifyPriorityCritical),
+	}
+	t := eventTask{
+		params: params,
+	}
+	notifyClientWorkerMan.Run(&t, nil, nil)
+}
+
 func RawNotifyWithCtx(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
 	rawNotify(ctx, sNotifyParams{
 		recipientId: recipientId,

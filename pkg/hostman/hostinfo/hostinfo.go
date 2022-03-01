@@ -38,6 +38,8 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
+	napi "yunion.io/x/onecloud/pkg/apis/notify"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -855,6 +857,10 @@ func (h *SHostInfo) register() {
 func (h *SHostInfo) onFail(reason interface{}) {
 	if len(h.HostId) > 0 && !h.isLoged {
 		logclient.AddSimpleActionLog(h, logclient.ACT_ONLINE, reason, hostutils.GetComputeSession(context.Background()).GetToken(), false)
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewString(h.GetName()), "name")
+		data.Add(jsonutils.NewString(fmt.Sprintf("register failed: %v", reason)), "message")
+		notifyclient.SystemExceptionNotify(context.TODO(), napi.ActionSystemException, napi.TOPIC_RESOURCE_HOST, data)
 		h.isLoged = true
 	}
 	log.Errorf("register failed: %s", reason)
@@ -1005,6 +1011,10 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 	if hosts[0].HostStatus == api.HOST_ONLINE {
 		reason := fmt.Sprintf("The host status is online when it staring. Maybe the control center was down earlier")
 		logclient.AddSimpleActionLog(h, logclient.ACT_HEALTH_CHECK, map[string]string{"reason": reason}, hostutils.GetComputeSession(context.Background()).GetToken(), false)
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewString(h.GetName()), "name")
+		data.Add(jsonutils.NewString(reason), "message")
+		notifyclient.SystemExceptionNotify(context.TODO(), napi.ActionSystemException, napi.TOPIC_RESOURCE_HOST, data)
 	}
 	h.updateHostRecord(hosts[0].Id)
 }

@@ -44,6 +44,10 @@ var (
 	ActionSyncUpdate SAction = "sync_update"
 	ActionSyncDelete SAction = "sync_delete"
 
+	ActionOffline         SAction = "offline"
+	ActionSystemPanic     SAction = "panic"
+	ActionSystemException SAction = "exception"
+
 	ResultFailed  SResult = "failed"
 	ResultSucceed SResult = "succeed"
 )
