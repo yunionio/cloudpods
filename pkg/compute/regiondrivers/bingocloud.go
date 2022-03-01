@@ -17,10 +17,13 @@ package regiondrivers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -37,6 +40,29 @@ func init() {
 
 func (self *SBingoCloudRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_BINGO_CLOUD
+}
+
+func (self *SBingoCloudRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return false
+}
+
+func (self *SBingoCloudRegionDriver) GenerateSecurityGroupName(name string) string {
+	if strings.ToLower(name) == "default" {
+		return "DefaultGroup"
+	}
+	return name
+}
+
+func (self *SBingoCloudRegionDriver) IsSecurityGroupBelongVpc() bool {
+	return false
+}
+
+func (self *SBingoCloudRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SBingoCloudRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:deny any")}
 }
 
 func (self *SBingoCloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

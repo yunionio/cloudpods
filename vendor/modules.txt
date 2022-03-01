@@ -199,7 +199,7 @@ github.com/aws/aws-sdk-go/service/sso/ssoiface
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
 github.com/aws/aws-sdk-go/service/wafv2
-# github.com/basgys/goxml2json v1.1.0
+# github.com/basgys/goxml2json v1.1.1-0.20181031222924-996d9fc8d313
 github.com/basgys/goxml2json
 # github.com/beevik/etree v1.1.0
 github.com/beevik/etree
@@ -1234,7 +1234,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v0.0.0-20211116020154-6a76ba2f7e97
+# yunion.io/x/pkg v0.0.0-20220227083757-28690b33ce38
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable

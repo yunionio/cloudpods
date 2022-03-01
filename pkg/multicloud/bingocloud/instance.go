@@ -15,115 +15,315 @@
 package bingocloud
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"time"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SInstance struct {
+	multicloud.BingoTags
+	multicloud.SInstanceBase
+	host *SHost
+
 	ReservationId string `json:"reservationId"`
 	OwnerId       string
-	GroupSet      struct {
-		Item struct {
-			GroupId   string
-			GroupName string
-		}
+	GroupSet      []struct {
+		GroupId   string
+		GroupName string
 	}
 	InstancesSet struct {
-		Item struct {
-			InstanceId    string `json:"instanceId"`
-			InstanceName  string `json:"instanceName"`
-			HostName      string `json:"hostName"`
-			ImageId       string `json:"imageId"`
-			InstanceState struct {
-				Code            int    `json:"code"`
-				Name            string `json:"name"`
-				PendingProgress string `json:"pendingProgress"`
-			} `json:"instanceState"`
-			PrivateDNSName     string `json:"privateDnsName"`
-			DNSName            string `json:"dnsName"`
-			PrivateIPAddress   string `json:"privateIpAddress"`
-			PrivateIPAddresses string `json:"privateIpAddresses"`
-			IPAddress          string `json:"ipAddress"`
-			NifInfo            string `json:"nifInfo"`
-			KeyName            string `json:"keyName"`
-			AmiLaunchIndex     int    `json:"amiLaunchIndex"`
-			ProductCodesSet    struct {
-				Item struct {
-					ProductCode string `json:"productCode"`
-				} `json:"item"`
-			} `json:"productCodesSet"`
-			InstanceType   string    `json:"instanceType"`
-			VmtypeCPU      int       `json:"vmtype_cpu"`
-			VmtypeMem      int       `json:"vmtype_mem"`
-			VmtypeDisk     int       `json:"vmtype_disk"`
-			VmtypeGpu      int       `json:"vmtype_gpu"`
-			VmtypeSsd      int       `json:"vmtype_ssd"`
-			VmtypeHdd      int       `json:"vmtype_hdd"`
-			VmtypeHba      int       `json:"vmtype_hba"`
-			VmtypeSriov    int       `json:"vmtype_sriov"`
-			LaunchTime     time.Time `json:"launchTime"`
-			RootDeviceType string    `json:"rootDeviceType"`
-			HostAddress    string    `json:"hostAddress"`
-			Platform       string    `json:"platform"`
-			UseCompactMode bool      `json:"useCompactMode"`
-			ExtendDisk     bool      `json:"extendDisk"`
-			Placement      struct {
-				AvailabilityZone string `json:"availabilityZone"`
-			} `json:"placement"`
-			Namespace    string `json:"namespace"`
-			KernelId     string `json:"kernelId"`
-			RamdiskId    string `json:"ramdiskId"`
-			OperName     string `json:"operName"`
-			OperProgress int    `json:"operProgress"`
-			Features     string `json:"features"`
-			Monitoring   struct {
-				State string `json:"state"`
-			} `json:"monitoring"`
-			SubnetId              string    `json:"subnetId"`
-			VpcId                 string    `json:"vpcId"`
-			StorageId             string    `json:"storageId"`
-			DisableAPITermination bool      `json:"disableApiTermination"`
-			Vncdisabled           bool      `json:"vncdisabled"`
-			StartTime             time.Time `json:"startTime"`
-			CustomStatus          string    `json:"customStatus"`
-			SystemStatus          int       `json:"systemStatus"`
-			NetworkStatus         int       `json:"networkStatus"`
-			ScheduleTags          string    `json:"scheduleTags"`
-			StorageScheduleTags   string    `json:"storageScheduleTags"`
-			IsEncrypt             bool      `json:"isEncrypt"`
-			IsImported            bool      `json:"isImported"`
-			Ec2Version            string    `json:"ec2Version"`
-			Passphrase            string    `json:"passphrase"`
-			DrsEnabled            bool      `json:"drs_enabled"`
-			LaunchPriority        int       `json:"launchPriority"`
-			CPUPriority           int       `json:"cpuPriority"`
-			MemPriority           int       `json:"memPriority"`
-			CPUQuota              int       `json:"cpuQuota"`
-			AutoMigrate           bool      `json:"autoMigrate"`
-			DrMirrorId            string    `json:"drMirrorId"`
-			BlockDeviceMapping    struct {
-				Item struct {
-					DeviceName string `json:"deviceName"`
-					Ebs        struct {
-						AttachTime          time.Time `json:"attachTime"`
-						DeleteOnTermination bool      `json:"deleteOnTermination"`
-						Status              string    `json:"status"`
-						VolumeId            string    `json:"volumeId"`
-						Size                int       `json:"size"`
-					} `json:"ebs"`
-				} `json:"item"`
-			} `json:"blockDeviceMapping"`
-			EnableLiveScaleup bool   `json:"enableLiveScaleup"`
-			ImageBytes        int64  `json:"imageBytes"`
-			StatusReason      string `json:"statusReason"`
-			Hypervisor        string `json:"hypervisor"`
-			Bootloader        string `json:"bootloader"`
-			BmMachineId       string `json:"bmMachineId"`
-		}
+		InstanceId    string `json:"instanceId"`
+		InstanceName  string `json:"instanceName"`
+		HostName      string `json:"hostName"`
+		ImageId       string `json:"imageId"`
+		InstanceState struct {
+			Code            int    `json:"code"`
+			Name            string `json:"name"`
+			PendingProgress string `json:"pendingProgress"`
+		} `json:"instanceState"`
+		PrivateDNSName     string `json:"privateDnsName"`
+		DNSName            string `json:"dnsName"`
+		PrivateIPAddress   string `json:"privateIpAddress"`
+		PrivateIPAddresses string `json:"privateIpAddresses"`
+		IPAddress          string `json:"ipAddress"`
+		NifInfo            string `json:"nifInfo"`
+		KeyName            string `json:"keyName"`
+		AmiLaunchIndex     int    `json:"amiLaunchIndex"`
+		ProductCodesSet    []struct {
+			ProductCode string `json:"productCode"`
+		} `json:"productCodesSet"`
+		InstanceType   string    `json:"instanceType"`
+		VmtypeCPU      int       `json:"vmtype_cpu"`
+		VmtypeMem      int       `json:"vmtype_mem"`
+		VmtypeDisk     int       `json:"vmtype_disk"`
+		VmtypeGpu      int       `json:"vmtype_gpu"`
+		VmtypeSsd      int       `json:"vmtype_ssd"`
+		VmtypeHdd      int       `json:"vmtype_hdd"`
+		VmtypeHba      int       `json:"vmtype_hba"`
+		VmtypeSriov    int       `json:"vmtype_sriov"`
+		LaunchTime     time.Time `json:"launchTime"`
+		RootDeviceType string    `json:"rootDeviceType"`
+		HostAddress    string    `json:"hostAddress"`
+		Platform       string    `json:"platform"`
+		UseCompactMode bool      `json:"useCompactMode"`
+		ExtendDisk     bool      `json:"extendDisk"`
+		Placement      struct {
+			AvailabilityZone string `json:"availabilityZone"`
+		} `json:"placement"`
+		Namespace    string `json:"namespace"`
+		KernelId     string `json:"kernelId"`
+		RamdiskId    string `json:"ramdiskId"`
+		OperName     string `json:"operName"`
+		OperProgress int    `json:"operProgress"`
+		Features     string `json:"features"`
+		Monitoring   struct {
+			State string `json:"state"`
+		} `json:"monitoring"`
+		SubnetId              string    `json:"subnetId"`
+		VpcId                 string    `json:"vpcId"`
+		StorageId             string    `json:"storageId"`
+		DisableAPITermination bool      `json:"disableApiTermination"`
+		Vncdisabled           bool      `json:"vncdisabled"`
+		StartTime             time.Time `json:"startTime"`
+		CustomStatus          string    `json:"customStatus"`
+		SystemStatus          int       `json:"systemStatus"`
+		NetworkStatus         int       `json:"networkStatus"`
+		ScheduleTags          string    `json:"scheduleTags"`
+		StorageScheduleTags   string    `json:"storageScheduleTags"`
+		IsEncrypt             bool      `json:"isEncrypt"`
+		IsImported            bool      `json:"isImported"`
+		Ec2Version            string    `json:"ec2Version"`
+		Passphrase            string    `json:"passphrase"`
+		DrsEnabled            bool      `json:"drs_enabled"`
+		LaunchPriority        int       `json:"launchPriority"`
+		CPUPriority           int       `json:"cpuPriority"`
+		MemPriority           int       `json:"memPriority"`
+		CPUQuota              int       `json:"cpuQuota"`
+		AutoMigrate           bool      `json:"autoMigrate"`
+		DrMirrorId            string    `json:"drMirrorId"`
+		BlockDeviceMapping    []struct {
+			DeviceName string `json:"deviceName"`
+			Ebs        struct {
+				AttachTime          time.Time `json:"attachTime"`
+				DeleteOnTermination bool      `json:"deleteOnTermination"`
+				Status              string    `json:"status"`
+				VolumeId            string    `json:"volumeId"`
+				Size                int       `json:"size"`
+			} `json:"ebs"`
+		} `json:"blockDeviceMapping"`
+		EnableLiveScaleup bool   `json:"enableLiveScaleup"`
+		ImageBytes        int64  `json:"imageBytes"`
+		StatusReason      string `json:"statusReason"`
+		Hypervisor        string `json:"hypervisor"`
+		Bootloader        string `json:"bootloader"`
+		BmMachineId       string `json:"bmMachineId"`
 	}
 }
 
-func (self *SRegion) DescribeInstances(id string, maxResult int, nextToken string) ([]SInstance, string, error) {
+func (self *SInstance) GetId() string {
+	return self.InstancesSet.InstanceId
+}
+
+func (self *SInstance) GetGlobalId() string {
+	return self.GetId()
+}
+
+func (self *SInstance) GetName() string {
+	if len(self.InstancesSet.InstanceName) > 0 {
+		return self.InstancesSet.InstanceName
+	}
+	return self.GetId()
+}
+
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
+	ret := []string{}
+	for _, sec := range self.GroupSet {
+		ret = append(ret, sec.GroupId)
+	}
+	return ret, nil
+}
+
+func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) DeleteVM(ctx context.Context) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) GetVcpuCount() int {
+	return self.InstancesSet.VmtypeCPU
+}
+
+func (self *SInstance) GetVmemSizeMB() int {
+	return self.InstancesSet.VmtypeMem
+}
+
+func (self *SInstance) GetBootOrder() string {
+	return "cdn"
+}
+
+func (self *SInstance) GetVga() string {
+	return ""
+}
+
+func (self *SInstance) GetVdi() string {
+	return ""
+}
+
+func (self *SInstance) GetOSArch() string {
+	return "x86"
+}
+
+func (self *SInstance) GetOsType() cloudprovider.TOsType {
+	if self.InstancesSet.Platform == "linux" {
+		return cloudprovider.OsTypeLinux
+	}
+	return cloudprovider.OsTypeWindows
+}
+
+func (self *SInstance) GetOSName() string {
+	return ""
+}
+
+func (self *SInstance) GetBios() string {
+	return strings.ToUpper(self.InstancesSet.Bootloader)
+}
+
+func (self *SInstance) GetMachine() string {
+	return ""
+}
+
+func (self *SInstance) GetInstanceType() string {
+	return self.InstancesSet.InstanceType
+}
+
+func (self *SInstance) GetError() error {
+	return nil
+}
+
+func (self *SInstance) GetHostname() string {
+	return self.InstancesSet.HostName
+}
+
+func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
+	return self.host
+}
+
+func (self *SInstance) GetIHostId() string {
+	info := strings.Split(self.InstancesSet.HostAddress, "@")
+	if len(info) == 2 {
+		return info[1]
+	}
+	return ""
+}
+
+func (self *SInstance) GetHypervisor() string {
+	return api.HYPERVISOR_BINGO_CLOUD
+}
+
+func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+	storages, err := self.host.zone.region.getStorages()
+	if err != nil {
+		return nil, err
+	}
+	storageMaps := map[string]SStorage{}
+	for i := range storages {
+		storageMaps[storages[i].StorageId] = storages[i]
+	}
+	ret := []cloudprovider.ICloudDisk{}
+	for _, _disk := range self.InstancesSet.BlockDeviceMapping {
+		disk, err := self.host.zone.region.GetDisk(_disk.Ebs.VolumeId)
+		if err != nil {
+			return nil, err
+		}
+		storage, ok := storageMaps[disk.StorageId]
+		if ok {
+			storage.zone = self.host.zone
+			disk.storage = &storage
+			ret = append(ret, disk)
+		}
+	}
+	return ret, nil
+}
+
+func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
+	nics, err := self.host.zone.region.GetInstanceNics(self.InstancesSet.InstanceId)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudNic{}
+	for i := range nics {
+		ret = append(ret, &nics[i])
+	}
+	return ret, nil
+}
+
+func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) GetProjectId() string {
+	return ""
+}
+
+func (self *SInstance) GetStatus() string {
+	switch self.InstancesSet.InstanceState.Name {
+	default:
+		return self.InstancesSet.InstanceState.Name
+	}
+}
+
+func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) RebuildRoot(ctx context.Context, config *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) StartVM(ctx context.Context) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) UpdateUserData(userData string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetInstances(id, zoneId string, maxResult int, nextToken string) ([]SInstance, string, error) {
 	params := map[string]string{}
 	if len(id) > 0 {
 		params["instanceId"] = id
@@ -134,19 +334,25 @@ func (self *SRegion) DescribeInstances(id string, maxResult int, nextToken strin
 	if len(nextToken) > 0 {
 		params["nextToken"] = nextToken
 	}
+
+	idx := 1
+	if len(zoneId) > 0 {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "availability-zone"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = zoneId
+		idx++
+	}
+
 	resp, err := self.invoke("DescribeInstances", params)
 	if err != nil {
 		return nil, "", err
 	}
 	result := struct {
 		NextToken      string
-		ReservationSet struct {
-			Item []SInstance
-		}
+		ReservationSet []SInstance
 	}{}
 	err = resp.Unmarshal(&result)
 	if err != nil {
 		return nil, "", err
 	}
-	return result.ReservationSet.Item, result.NextToken, nil
+	return result.ReservationSet, result.NextToken, nil
 }

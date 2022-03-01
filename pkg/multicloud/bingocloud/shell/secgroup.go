@@ -20,32 +20,17 @@ import (
 )
 
 func init() {
-	type InstanceListOptions struct {
+	type SecurityGroupListOptions struct {
 		Id        string
-		ZoneId    string
-		MaxResult int
+		Name      string
 		NextToken string
 	}
-	shellutils.R(&InstanceListOptions{}, "instance-list", "list instances", func(cli *bingocloud.SRegion, args *InstanceListOptions) error {
-		vms, _, err := cli.GetInstances(args.Id, args.ZoneId, args.MaxResult, args.NextToken)
+	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List security-groups", func(cli *bingocloud.SRegion, args *SecurityGroupListOptions) error {
+		groups, _, err := cli.GetSecurityGroups(args.Id, args.Name, args.NextToken)
 		if err != nil {
 			return err
 		}
-		printList(vms, 0, 0, 0, []string{})
+		printList(groups, 0, 0, 0, nil)
 		return nil
 	})
-
-	type InstanceNicListOptions struct {
-		InstanceId string
-	}
-
-	shellutils.R(&InstanceNicListOptions{}, "instance-nic-list", "list instance nics", func(cli *bingocloud.SRegion, args *InstanceNicListOptions) error {
-		nics, err := cli.GetInstanceNics(args.InstanceId)
-		if err != nil {
-			return err
-		}
-		printList(nics, 0, 0, 0, []string{})
-		return nil
-	})
-
 }
