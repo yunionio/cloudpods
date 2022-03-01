@@ -2400,3 +2400,11 @@ func (self *SElasticcache) startRenewTask(ctx context.Context, userCred mcclient
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (manager *SElasticcacheManager) GetExpiredModels(advanceDay int) ([]IBillingModel, error) {
+	return fetchExpiredModels(manager, advanceDay)
+}
+
+func (self *SElasticcache) GetExpiredAt() time.Time {
+	return self.ExpiredAt
+}
