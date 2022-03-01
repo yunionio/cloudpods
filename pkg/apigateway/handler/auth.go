@@ -871,6 +871,7 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 	data.Add(jsonutils.NewString(usrDomainId), "domain", "id")
 	data.Add(jsonutils.NewString(usrDomainName), "domain", "name")
 	data.Add(jsonutils.NewStringArray(auth.AdminCredential().GetRegions()), "regions")
+	data.Add(jsonutils.NewBool(options.Options.EnableTotp), "system_totp_on")
 
 	var projName string
 	var projDomainId string
