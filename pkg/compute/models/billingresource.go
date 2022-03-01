@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -211,6 +212,7 @@ type SBillingResourceCheck struct {
 	ResourceType string `width:"36" charset:"ascii" index:"true"`
 	AdvanceDays  int
 	LastCheck    time.Time
+	NotifyNumber int
 }
 
 var BillingResourceCheckManager *SBillingResourceCheckManager
@@ -227,54 +229,119 @@ func init() {
 	BillingResourceCheckManager.SetVirtualObject(BillingResourceCheckManager)
 }
 
+type IBillingModelManager interface {
+	db.IModelManager
+	GetExpiredModels(advanceDay int) ([]IBillingModel, error)
+}
+
+type IBillingModel interface {
+	db.IModel
+	GetExpiredAt() time.Time
+}
+
+func fetchExpiredModels(manager db.IModelManager, advanceDay int) ([]IBillingModel, error) {
+	upLimit := time.Now().AddDate(0, 0, advanceDay)
+	downLimit := time.Now().AddDate(0, 0, advanceDay-1)
+	v := reflect.MakeSlice(reflect.SliceOf(manager.TableSpec().DataType()), 0, 0)
+	q := manager.Query().LE("expired_at", upLimit).GE("expired_at", downLimit)
+
+	vp := reflect.New(v.Type())
+	vp.Elem().Set(v)
+	err := db.FetchModelObjects(manager, q, vp.Interface())
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to list %s", manager.KeywordPlural())
+	}
+
+	v = vp.Elem()
+	log.Debugf("%s length of v: %d", manager.Alias(), v.Len())
+
+	ms := make([]IBillingModel, v.Len())
+	for i := range ms {
+		ms[i] = v.Index(i).Addr().Interface().(IBillingModel)
+	}
+	return ms, nil
+}
+
 func (bm *SBillingResourceCheckManager) Create(ctx context.Context, resourceId, resourceType string, advanceDays int) error {
 	bc := SBillingResourceCheck{
 		ResourceId:   resourceId,
 		ResourceType: resourceType,
 		AdvanceDays:  advanceDays,
 		LastCheck:    time.Now(),
+		NotifyNumber: 1,
 	}
 	return bm.TableSpec().Insert(ctx, &bc)
+}
+
+func (bm *SBillingResourceCheckManager) Fetch(resourceIds []string, advanceDays int, length int) (map[string]*SBillingResourceCheck, error) {
+	billingResourceChecks := make([]SBillingResourceCheck, 0, length)
+	bq := bm.Query().Equals("advance_days", advanceDays).In("resource_id", resourceIds)
+	err := db.FetchModelObjects(bm, bq, &billingResourceChecks)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]*SBillingResourceCheck, len(billingResourceChecks))
+	for i := range billingResourceChecks {
+		ret[billingResourceChecks[i].ResourceId] = &billingResourceChecks[i]
+	}
+	return ret, nil
 }
 
 var advanceDays []int = []int{1, 3, 30}
 
 func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	billingResourceManagers := []db.IModelManager{
+	billingResourceManagers := []IBillingModelManager{
 		GuestManager,
 		DBInstanceManager,
 		ElasticcacheManager,
 	}
 	for _, advanceDay := range advanceDays {
 		for _, manager := range billingResourceManagers {
-			upLimit := time.Now().AddDate(0, 0, advanceDay)
-			downLimit := time.Now().AddDate(0, 0, advanceDay-1)
-			v := reflect.MakeSlice(reflect.SliceOf(manager.TableSpec().DataType()), 0, 0)
-			q := manager.Query().LE("expired_at", upLimit).GE("expired_at", downLimit)
-
-			bq := BillingResourceCheckManager.Query("resource_id").Equals("resource_type", manager.Keyword()).Equals("advance_days", advanceDay).SubQuery()
-			q = q.LeftJoin(bq, sqlchemy.Equals(q.Field("id"), bq.Field("resource_id")))
-			q = q.Filter(sqlchemy.IsNull(bq.Field("resource_id")))
-
-			vp := reflect.New(v.Type())
-			vp.Elem().Set(v)
-			err := db.FetchModelObjects(manager, q, vp.Interface())
+			expiredModels, err := manager.GetExpiredModels(advanceDay)
 			if err != nil {
-				log.Errorf("unable to list %s: %v", manager.KeywordPlural(), err)
+				log.Errorf("unable to fetchExpiredModels: %s", err.Error())
+				continue
+			}
+			mIds := make([]string, len(expiredModels))
+			for i := range expiredModels {
+				mIds[i] = expiredModels[i].GetId()
+			}
+			checks, err := BillingResourceCheckManager.Fetch(mIds, advanceDay, len(expiredModels))
+			if err != nil {
+				log.Errorf("unbale to fetch billingResourceChecks: %s", err.Error())
+				continue
 			}
 
-			v = vp.Elem()
-			log.Debugf("%s length of v: %d", manager.Alias(), v.Len())
-			for i := 0; i < v.Len(); i++ {
-				m := v.Index(i).Addr().Interface().(db.IModel)
+			for i := range expiredModels {
+				em := expiredModels[i]
+				check, ok := checks[em.GetId()]
+				if !ok {
+					notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+						Obj:         em,
+						Action:      notifyclient.ActionExpiredRelease,
+						AdvanceDays: advanceDay,
+					})
+					err := BillingResourceCheckManager.Create(ctx, em.GetId(), manager.Keyword(), advanceDay)
+					if err != nil {
+						log.Errorf("unable to create billingresourcecheck for resource %s %s", manager.Keyword(), em.GetId())
+					}
+					continue
+				}
+				if check.LastCheck.AddDate(0, 0, advanceDay).After(em.GetExpiredAt()) {
+					continue
+				}
 				notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-					Obj:         m,
+					Obj:         em,
 					Action:      notifyclient.ActionExpiredRelease,
 					AdvanceDays: advanceDay,
 				})
-				err := BillingResourceCheckManager.Create(ctx, m.GetId(), manager.Keyword(), advanceDay)
+				_, err := db.Update(check, func() error {
+					check.LastCheck = time.Now()
+					check.NotifyNumber += 1
+					return nil
+				})
 				if err != nil {
-					log.Errorf("unable to create billingresourcecheck for resource %s %s", manager.Keyword(), m.GetId())
+					log.Errorf("unable to update billingresourcecheck for resource %s %s", manager.Keyword(), em.GetId())
 				}
 			}
 		}
