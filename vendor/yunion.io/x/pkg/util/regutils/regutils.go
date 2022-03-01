@@ -35,6 +35,7 @@ var SIZE_REG *regexp.Regexp
 var MONTH_REG *regexp.Regexp
 var DATE_REG *regexp.Regexp
 var DATE_COMPACT_REG *regexp.Regexp
+var DATE_EXCEL_REG *regexp.Regexp
 var ISO_TIME_REG *regexp.Regexp
 var ISO_NO_SECOND_TIME_REG *regexp.Regexp
 var FULLISO_TIME_REG *regexp.Regexp
@@ -68,6 +69,7 @@ func init() {
 	MONTH_REG = regexp.MustCompile(`^\d{4}-\d{2}$`)
 	DATE_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	DATE_COMPACT_REG = regexp.MustCompile(`^\d{8}$`)
+	DATE_EXCEL_REG = regexp.MustCompile(`^\d{2}-\d{2}-\d{2}$`)
 	ISO_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$`)
 	ISO_NO_SECOND_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$`)
 	FULLISO_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3,9}(Z|[+-]\d{2}:\d{2})$`)
@@ -190,6 +192,10 @@ func MatchDate(str string) bool {
 
 func MatchDateCompact(str string) bool {
 	return DATE_COMPACT_REG.MatchString(str)
+}
+
+func MatchDateExcel(str string) bool {
+	return DATE_EXCEL_REG.MatchString(str)
 }
 
 func MatchZStackTime(str string) bool {

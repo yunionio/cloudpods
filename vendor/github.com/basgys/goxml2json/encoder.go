@@ -12,25 +12,16 @@ type Encoder struct {
 	err             error
 	contentPrefix   string
 	attributePrefix string
+	tc              encoderTypeConverter
 }
 
 // NewEncoder returns a new encoder that writes to w.
-func NewEncoder(w io.Writer) *Encoder {
-	return &Encoder{w: w}
-}
-
-func (enc *Encoder) SetAttributePrefix(prefix string) {
-	enc.attributePrefix = prefix
-}
-
-func (enc *Encoder) SetContentPrefix(prefix string) {
-	enc.contentPrefix = prefix
-}
-
-func (enc *Encoder) EncodeWithCustomPrefixes(root *Node, contentPrefix string, attributePrefix string) error {
-	enc.contentPrefix = contentPrefix
-	enc.attributePrefix = attributePrefix
-	return enc.Encode(root)
+func NewEncoder(w io.Writer, plugins ...plugin) *Encoder {
+	e := &Encoder{w: w, contentPrefix: contentPrefix, attributePrefix: attrPrefix}
+	for _, p := range plugins {
+		e = p.AddToEncoder(e)
+	}
+	return e
 }
 
 // Encode writes the JSON encoding of v to the stream
@@ -40,12 +31,6 @@ func (enc *Encoder) Encode(root *Node) error {
 	}
 	if root == nil {
 		return nil
-	}
-	if enc.contentPrefix == "" {
-		enc.contentPrefix = contentPrefix
-	}
-	if enc.attributePrefix == "" {
-		enc.attributePrefix = attrPrefix
 	}
 
 	enc.err = enc.format(root, 0)
@@ -82,7 +67,7 @@ func (enc *Encoder) format(n *Node, lvl int) error {
 			enc.write(label)
 			enc.write("\": ")
 
-			if len(children) > 1 {
+			if n.ChildrenAlwaysAsArray || len(children) > 1 {
 				// Array
 				enc.write("[")
 				for j, c := range children {
@@ -106,8 +91,14 @@ func (enc *Encoder) format(n *Node, lvl int) error {
 
 		enc.write("}")
 	} else {
-		// TODO : Extract data type
-		enc.write(sanitiseString(n.Data))
+		s := sanitiseString(n.Data)
+		if enc.tc == nil {
+			// do nothing
+		} else {
+			s = enc.tc.Convert(s)
+		}
+		enc.write(s)
+
 	}
 
 	return nil
@@ -124,6 +115,7 @@ func sanitiseString(s string) string {
 	var buf bytes.Buffer
 
 	buf.WriteByte('"')
+
 	start := 0
 	for i := 0; i < len(s); {
 		if b := s[i]; b < utf8.RuneSelf {
@@ -192,6 +184,8 @@ func sanitiseString(s string) string {
 	if start < len(s) {
 		buf.WriteString(s[start:])
 	}
+
 	buf.WriteByte('"')
+
 	return buf.String()
 }
