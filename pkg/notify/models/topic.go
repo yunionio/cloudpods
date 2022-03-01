@@ -91,6 +91,7 @@ const (
 	DefaultSnapshotPolicyExecute   = "snapshot policy execute"
 	DefaultResourceOperationFailed = "resource operation failed"
 	DefaultResourceSync            = "resource sync"
+	DefaultSystemExceptionEvent    = "system exception event"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -106,6 +107,7 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultSnapshotPolicyExecute,
 		DefaultResourceOperationFailed,
 		DefaultResourceSync,
+		DefaultSystemExceptionEvent,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -281,6 +283,17 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.WebconsoleDisable = tristate.True
+		case DefaultSystemExceptionEvent:
+			t.addResources(
+				notify.TOPIC_RESOURCE_HOST,
+				notify.TOPIC_RESOURCE_TASK,
+			)
+			t.addAction(
+				notify.ActionSystemPanic,
+				notify.ActionSystemException,
+				notify.ActionOffline,
+			)
+			t.Type = notify.TOPIC_TYPE_RESOURCE
 		}
 		if topic == nil {
 			err := sm.TableSpec().Insert(ctx, t)
@@ -490,6 +503,8 @@ func init() {
 			notify.TOPIC_RESOURCE_DNSRECORDSET:             29,
 			notify.TOPIC_RESOURCE_LOADBALANCERLISTENER:     30,
 			notify.TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP: 31,
+			notify.TOPIC_RESOURCE_HOST:                     32,
+			notify.TOPIC_RESOURCE_TASK:                     33,
 		},
 	)
 	converter.registerAction(
@@ -512,6 +527,9 @@ func init() {
 			notify.ActionSyncCreate:         15,
 			notify.ActionSyncUpdate:         16,
 			notify.ActionSyncDelete:         17,
+			notify.ActionOffline:            18,
+			notify.ActionSystemPanic:        19,
+			notify.ActionSystemException:    20,
 		},
 	)
 }

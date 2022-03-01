@@ -17,11 +17,13 @@ package taskman
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/util/panicutils"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 )
 
 var taskWorkMan *appsrv.SWorkerManager
@@ -61,7 +63,12 @@ func runTask(taskId string, data jsonutils.JSONObject) error {
 	}
 
 	isOk := worker.Run(task, nil, func(err error) {
-		panicutils.SendPanicMessage(context.TODO(), err)
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewString(taskName), "task_name")
+		data.Add(jsonutils.NewString(taskId), "task_id")
+		data.Add(jsonutils.NewString(string(debug.Stack())), "stack")
+		data.Add(jsonutils.NewString(err.Error()), "error")
+		notifyclient.SystemExceptionNotify(context.TODO(), api.ActionSystemPanic, api.TOPIC_RESOURCE_TASK, data)
 	})
 	if !isOk {
 		return fmt.Errorf("worker %s(%s) not running may be droped", taskName, taskId)
