@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -355,12 +356,18 @@ func (self *SCloudregion) GetServerSkus() ([]SServerSku, error) {
 	return skus, nil
 }
 
-func (manager *SCloudregionManager) GetRegionByExternalIdPrefix(prefix string) ([]SCloudregion, error) {
-	regions := make([]SCloudregion, 0)
-	q := manager.Query().Startswith("external_id", prefix)
-	err := db.FetchModelObjects(manager, q, &regions)
+func (self *SCloudprovider) GetRegionByExternalIdPrefix(prefix string) ([]SCloudregion, error) {
+	factory, err := self.GetProviderFactory()
 	if err != nil {
-		log.Errorf("%s", err)
+		return nil, err
+	}
+	regions := make([]SCloudregion, 0)
+	q := CloudregionManager.Query().Startswith("external_id", prefix)
+	if !factory.IsPublicCloud() && !strings.Contains(prefix, "/") {
+		q = CloudregionManager.Query().Equals("manager_id", self.Id)
+	}
+	err = db.FetchModelObjects(CloudregionManager, q, &regions)
+	if err != nil {
 		return nil, err
 	}
 	return regions, nil
@@ -406,7 +413,7 @@ func (manager *SCloudregionManager) SyncRegions(
 	remoteRegions := make([]cloudprovider.ICloudRegion, 0)
 	cloudProviderRegions := make([]SCloudproviderregion, 0)
 
-	dbRegions, err := manager.GetRegionByExternalIdPrefix(externalIdPrefix)
+	dbRegions, err := cloudProvider.GetRegionByExternalIdPrefix(externalIdPrefix)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, nil, syncResult

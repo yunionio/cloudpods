@@ -31,17 +31,4 @@ func init() {
 		return nil
 	})
 
-	type InstanceIdOptions struct {
-		ID string
-	}
-
-	shellutils.R(&InstanceIdOptions{}, "instance-show", "show instance", func(cli *nutanix.SRegion, args *InstanceIdOptions) error {
-		vm, err := cli.GetInstance(args.ID)
-		if err != nil {
-			return err
-		}
-		printObject(vm)
-		return nil
-	})
-
 }

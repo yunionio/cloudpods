@@ -121,7 +121,7 @@ func (self *SGoogleRegionDriver) RequestCreateVpc(ctx context.Context, userCred 
 		}
 		db.SetExternalId(vpc, userCred, ivpc.GetGlobalId())
 
-		regions, err := models.CloudregionManager.GetRegionByExternalIdPrefix(self.GetProvider())
+		regions, err := provider.GetRegionByExternalIdPrefix(self.GetProvider())
 		if err != nil {
 			return nil, errors.Wrap(err, "GetRegionByExternalIdPrefix")
 		}
