@@ -2044,3 +2044,11 @@ func (self *SDBInstance) StartSyncSecgroupsTask(ctx context.Context, userCred mc
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (manager *SDBInstanceManager) GetExpiredModels(advanceDay int) ([]IBillingModel, error) {
+	return fetchExpiredModels(manager, advanceDay)
+}
+
+func (self *SDBInstance) GetExpiredAt() time.Time {
+	return self.ExpiredAt
+}
