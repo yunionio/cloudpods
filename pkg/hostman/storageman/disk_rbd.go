@@ -83,7 +83,7 @@ func (d *SRBDDisk) GetDiskDesc() jsonutils.JSONObject {
 }
 
 func (d *SRBDDisk) GetDiskSetupScripts(idx int) string {
-	return fmt.Sprintf("DISK_%d=%s\n", idx, d.GetPath())
+	return fmt.Sprintf("DISK_%d='%s'\n", idx, d.GetPath())
 }
 
 func (d *SRBDDisk) DeleteAllSnapshot(skipRecycle bool) error {
