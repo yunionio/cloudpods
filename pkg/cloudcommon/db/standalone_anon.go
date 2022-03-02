@@ -323,6 +323,12 @@ type IClassMetadataOwner interface {
 	GetAllClassMetadata() (map[string]string, error)
 }
 
+type ClassMetadataOwner map[string]string
+
+func (w ClassMetadataOwner) GetAllClassMetadata() (map[string]string, error) {
+	return w, nil
+}
+
 func IsInSameClass(ctx context.Context, cmo1, cmo2 IClassMetadataOwner) (bool, error) {
 	pureTags, err := cmo1.GetAllClassMetadata()
 	if err != nil {
