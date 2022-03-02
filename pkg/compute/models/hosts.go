@@ -4197,6 +4197,13 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 		if err != nil {
 			return httperrors.NewBadRequestError("%v", err)
 		}
+		// inherit wire's class metadata
+		if sw != nil {
+			err := db.Inherit(ctx, sw, self)
+			if err != nil {
+				return errors.Wrapf(err, "unable to inherit class metadata from sw %s", sw.GetName())
+			}
+		}
 	}
 	if len(ipAddr) > 0 {
 		err = self.EnableNetif(ctx, userCred, netif, "", ipAddr, "", "", reserve, requireDesignatedIp)
