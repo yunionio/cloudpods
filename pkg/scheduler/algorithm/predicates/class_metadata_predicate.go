@@ -132,6 +132,9 @@ func (p *ClassMetadataPredicate) Execute(u *core.Unit, c core.Candidater) (bool,
 	h := NewPredicateHelper(p, u, c)
 	ctx := context.Background()
 	for _, resource := range []*ResourceWithClassMetadata{p.tenant, p.guestSource} {
+		if resource == nil {
+			continue
+		}
 		ic, err := db.IsInSameClass(ctx, c.Getter(), resource)
 		if err != nil {
 			return false, nil, errors.Wrap(err, "unable to determine whether they are in a class")
