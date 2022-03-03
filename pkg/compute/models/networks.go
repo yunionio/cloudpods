@@ -1638,6 +1638,26 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	if input.ServerType != api.NETWORK_TYPE_EIP {
 		input.BgpType = ""
 	}
+	// check class metadata
+	if wire != nil {
+		var projectId string
+		if len(input.ProjectId) > 0 {
+			projectId = input.ProjectId
+		} else {
+			projectId = ownerId.GetProjectId()
+		}
+		project, err := db.TenantCacheManager.FetchTenantById(ctx, projectId)
+		if err != nil {
+			return input, errors.Wrapf(err, "unable to fetch tenant by id %s", projectId)
+		}
+		ok, err := db.IsInSameClass(ctx, wire, project)
+		if err != nil {
+			return input, errors.Wrapf(err, "unable to check if wire and project is in same class")
+		}
+		if !ok {
+			return input, httperrors.NewForbiddenError("the wire %s and project %s has different class metadata", wire.GetName(), project.GetName())
+		}
+	}
 
 	var (
 		ipStart = ipRange.StartIp()
@@ -2767,6 +2787,15 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 			return nil, err
 		}
 		newNetwork.PostCreate(ctx, userCred, userCred, query, input.JSON(input))
+		// inherit wire's class metadata
+		wire, err := newNetwork.GetWire()
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to get wire")
+		}
+		err = db.Inherit(ctx, wire, newNetwork)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to inherit wire")
+		}
 	}
 	return ret, nil
 }
@@ -2804,6 +2833,21 @@ func (network *SNetwork) ClearSchedDescCache() error {
 }
 
 func (network *SNetwork) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
+	wire, err := network.GetWire()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get wire")
+	}
+	project, err := db.TenantCacheManager.FetchTenantById(ctx, input.ProjectId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get project %s", input.ProjectId)
+	}
+	ok, err := db.IsInSameClass(ctx, wire, project)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to check if the wire and project is in same class")
+	}
+	if !ok {
+		return nil, httperrors.NewForbiddenError("the wire %s and the project %s has different class metadata", wire.GetName(), project.GetName())
+	}
 	ret, err := network.SSharableVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
