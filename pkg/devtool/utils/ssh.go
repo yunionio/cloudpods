@@ -116,19 +116,24 @@ func CheckSshableForYunionCloud(session *mcclient.ClientSession, serverInfo SSer
 }
 
 func checkSshableForYunionCloud(session *mcclient.ClientSession, serverInfo SServerInfo) (sshable SSHable, clean bool, err error) {
+	port, err := getServerSshport(session, serverInfo.Id)
+	if err != nil {
+		err = errors.Wrapf(err, "unable to get ssh port of server %s", serverInfo.Id)
+		return
+	}
 	ip := serverInfo.Ip
 	if serverInfo.Hypervisor == comapi.HYPERVISOR_BAREMETAL || serverInfo.VpcId == "" || serverInfo.VpcId == comapi.DEFAULT_VPC_ID {
 		sshable = SSHable{
 			Ok:   true,
 			User: "cloudroot",
 			Host: ip,
-			Port: 22,
+			Port: port,
 		}
 		return
 	}
 	lfParams := jsonutils.NewDict()
 	lfParams.Set("proto", jsonutils.NewString("tcp"))
-	lfParams.Set("port", jsonutils.NewInt(22))
+	lfParams.Set("port", jsonutils.NewInt(int64(port)))
 	lfParams.Set("addr", jsonutils.NewString(ip))
 	data, err := modules.Servers.PerformAction(session, serverInfo.Id, "list-forward", lfParams)
 	if err != nil {
@@ -252,10 +257,15 @@ func CheckSSHable(session *mcclient.ClientSession, serverId string) (sshable SSH
 	if len(sshable.ProxyEndpointId) == 0 {
 		return
 	} else {
+		var sshport int
+		sshport, err = getServerSshport(session, serverDetail.Id)
+		if err != nil {
+			err = errors.Wrapf(err, "unable to get sshport of server %s", serverDetail.Id)
+		}
 		// create local forward
 		createP := jsonutils.NewDict()
 		createP.Set("type", jsonutils.NewString(cloudproxy_api.FORWARD_TYPE_LOCAL))
-		createP.Set("remote_port", jsonutils.NewInt(22))
+		createP.Set("remote_port", jsonutils.NewInt(int64(sshport)))
 		createP.Set("server_id", jsonutils.NewString(serverDetail.Id))
 
 		var forward jsonutils.JSONObject
@@ -311,6 +321,18 @@ func GetCleanFunc(session *mcclient.ClientSession, hypervisor, serverId, host, f
 	return func() error {
 		return clearLocalForward(session, forward)
 	}
+}
+
+func getServerSshport(session *mcclient.ClientSession, serverId string) (int, error) {
+	data, err := modules.Servers.GetSpecific(session, serverId, "sshport", nil)
+	if err != nil {
+		return 0, err
+	}
+	port, _ := data.Int("port")
+	if port == 0 {
+		port = 22
+	}
+	return int(port), nil
 }
 
 func clearLocalForward(s *mcclient.ClientSession, forwardId string) error {

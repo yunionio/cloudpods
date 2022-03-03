@@ -567,9 +567,17 @@ func (guest *SGuest) SetSshPort(ctx context.Context, userCred mcclient.TokenCred
 	return guest.SetMetadata(ctx, compute_api.SSH_PORT, port, userCred)
 }
 
-func (guest *SGuest) PerformSetSshPort(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input compute_api.GuestSetSshPortInput) (jsonutils.JSONObject, error) {
+func (guest *SGuest) PerformSetSshport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input compute_api.GuestSetSshportInput) (jsonutils.JSONObject, error) {
 	if input.Port < 0 {
 		return nil, httperrors.NewInputParameterError("invalid port")
 	}
 	return nil, guest.SetSshPort(ctx, userCred, input.Port)
+}
+func (guest *SGuest) GetDetailsSshport(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (compute_api.GuestSshportOutput, error) {
+	port := guest.GetSshPort(ctx, userCred)
+	return compute_api.GuestSshportOutput{Port: port}, nil
 }
