@@ -100,7 +100,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		if err != nil {
 			return q, httperrors.NewGeneralError(errors.Wrapf(err, "GetAllowList"))
 		}
-		sq := manager.Query().NotEquals("id", secgroup.Id)
+		sq := manager.Query().NotEquals("id", secgroup.Id).NotEquals("id", api.SECGROUP_DEFAULT_ID)
 		secgroups := []SSecurityGroup{}
 		err = db.FetchModelObjects(manager, sq, &secgroups)
 		if err != nil {
@@ -888,6 +888,9 @@ func (self *SSecurityGroup) PerformMerge(ctx context.Context, userCred mcclient.
 				return nil, httperrors.NewResourceNotFoundError2("secgroup", secgroupId)
 			}
 			return nil, httperrors.NewGeneralError(err)
+		}
+		if _secgroup.GetId() == api.SECGROUP_DEFAULT_ID {
+			return nil, httperrors.NewInputParameterError("not allow merge default security group")
 		}
 		secgroup := _secgroup.(*SSecurityGroup)
 		secgroup.SetModelManager(SecurityGroupManager, secgroup)
