@@ -4790,6 +4790,10 @@ func (self *SGuest) PerformInstanceSnapshotReset(ctx context.Context, userCred m
 
 	instanceSnapshot := obj.(*SInstanceSnapshot)
 
+	if instanceSnapshot.GuestId != self.GetId() {
+		return nil, httperrors.NewBadRequestError("instance snapshot %q not belong server %q", instanceSnapshot.GetName(), self.GetId())
+	}
+
 	if instanceSnapshot.Status != api.INSTANCE_SNAPSHOT_READY {
 		return nil, httperrors.NewBadRequestError("Instance sanpshot not ready")
 	}
