@@ -85,7 +85,7 @@ type SecgroupMergeOptions struct {
 }
 
 func (opts *SecgroupMergeOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(map[string][]string{"secgruops": opts.SECGROUPS}), nil
+	return jsonutils.Marshal(map[string][]string{"secgroup_ids": opts.SECGROUPS}), nil
 }
 
 type SecgroupsAddRuleOptions struct {
