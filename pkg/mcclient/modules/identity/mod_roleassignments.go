@@ -116,9 +116,10 @@ type sGroupRole struct {
 }
 
 type sProjectGroupRole struct {
-	Id     string `json:"id"`
-	Name   string `json:"name"`
-	Domain struct {
+	Id       string            `json:"id"`
+	Name     string            `json:"name"`
+	Metadata map[string]string `json:"metadata"`
+	Domain   struct {
 		Id   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"domain"`
@@ -345,9 +346,11 @@ func (this *RoleAssignmentManagerV3) GetProjectRole(s *mcclient.ClientSession, i
 
 		var groupById, groupByName, groupByDomainId, groupByDomainName string
 
+		metadatas := map[string]string{}
 		if groupBy == "project" {
 			groupById, _ = roleAssign.GetString("scope", "project", "id")
 			groupByName, _ = roleAssign.GetString("scope", "project", "name")
+			roleAssign.Unmarshal(&metadatas, "scope", "project", "metadata")
 			groupByDomainId, _ = roleAssign.GetString("scope", "project", "domain", "id")
 			groupByDomainName, _ = roleAssign.GetString("scope", "project", "domain", "name")
 		} else if groupBy == "user" {
@@ -376,8 +379,9 @@ func (this *RoleAssignmentManagerV3) GetProjectRole(s *mcclient.ClientSession, i
 		if lineIdx < 0 {
 			lineIdx = len(lines)
 			pgr := sProjectGroupRole{
-				Id:   groupById,
-				Name: groupByName,
+				Id:       groupById,
+				Name:     groupByName,
+				Metadata: metadatas,
 			}
 			pgr.Domain.Id = groupByDomainId
 			pgr.Domain.Name = groupByDomainName
