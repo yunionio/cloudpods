@@ -611,7 +611,7 @@ type sAssignmentInternal struct {
 	RoleId    string `json:"role_id"`
 }
 
-func (assign *sAssignmentInternal) getRoleAssignment(domains, projects, groups, users, roles map[string]api.SFetchDomainObject, fetchPolicies bool) api.SRoleAssignment {
+func (assign *sAssignmentInternal) getRoleAssignment(domains, projects, groups, users, roles map[string]api.SFetchDomainObject, fetchPolicies bool, projectMetadata map[string]map[string]string) api.SRoleAssignment {
 	ra := api.SRoleAssignment{}
 	ra.Role.Id = assign.RoleId
 	ra.Role.Name = roles[assign.RoleId].Name
@@ -632,6 +632,7 @@ func (assign *sAssignmentInternal) getRoleAssignment(domains, projects, groups, 
 	if len(assign.ProjectId) > 0 {
 		ra.Scope.Project.Id = assign.ProjectId
 		ra.Scope.Project.Name = projects[assign.ProjectId].Name
+		ra.Scope.Project.Metadata, _ = projectMetadata[assign.ProjectId]
 		ra.Scope.Project.Domain.Id = projects[assign.ProjectId].DomainId
 		ra.Scope.Project.Domain.Name = projects[assign.ProjectId].Domain
 		if fetchPolicies {
@@ -739,6 +740,7 @@ func (manager *SAssignmentManager) FetchAll(
 	if err != nil {
 		return nil, -1, errors.Wrap(err, "fetchObjects ProjectManager")
 	}
+	projectMetadatas := fetchProjectMetadatas(projectIds)
 	groups, err := fetchObjects(GroupManager, groupIds)
 	if err != nil {
 		return nil, -1, errors.Wrap(err, "fetchObjects GroupManager")
@@ -754,9 +756,30 @@ func (manager *SAssignmentManager) FetchAll(
 
 	results := make([]api.SRoleAssignment, len(assigns))
 	for i := range assigns {
-		results[i] = assigns[i].getRoleAssignment(domains, projects, groups, users, roles, includePolicies)
+		results[i] = assigns[i].getRoleAssignment(domains, projects, groups, users, roles, includePolicies, projectMetadatas)
 	}
 	return results, int64(total), nil
+}
+
+func fetchProjectMetadatas(idList []string) map[string]map[string]string {
+	ret := map[string]map[string]string{}
+	if len(idList) == 0 {
+		return ret
+	}
+	q := db.Metadata.Query().Equals("obj_type", "project").In("obj_id", idList)
+	result := []db.SMetadata{}
+	err := q.All(&result)
+	if err != nil {
+		return ret
+	}
+	for i := range result {
+		_, ok := ret[result[i].ObjId]
+		if !ok {
+			ret[result[i].ObjId] = map[string]string{}
+		}
+		ret[result[i].ObjId][result[i].Key] = result[i].Value
+	}
+	return ret
 }
 
 func fetchObjects(manager db.IModelManager, idList []string) (map[string]api.SFetchDomainObject, error) {
