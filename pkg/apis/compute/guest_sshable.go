@@ -66,6 +66,10 @@ type GuestMakeSshableCmdOutput struct {
 	ShellCmd string
 }
 
-type GuestSetSshPortInput struct {
+type GuestSetSshportInput struct {
+	Port int
+}
+
+type GuestSshportOutput struct {
 	Port int
 }
