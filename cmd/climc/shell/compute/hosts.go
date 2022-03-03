@@ -161,6 +161,8 @@ func init() {
 		IpmiUsername string `help:"IPMI user"`
 		IpmiPassword string `help:"IPMI password"`
 		IpmiIpAddr   string `help:"IPMI ip_addr"`
+
+		Sn string `help:"serial number"`
 	}
 	R(&HostUpdateOptions{}, "host-update", "Update information of a host", func(s *mcclient.ClientSession, args *HostUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -199,6 +201,9 @@ func init() {
 		}
 		if len(args.IpmiIpAddr) > 0 {
 			params.Add(jsonutils.NewString(args.IpmiIpAddr), "ipmi_ip_addr")
+		}
+		if len(args.Sn) > 0 {
+			params.Add(jsonutils.NewString(args.Sn), "sn")
 		}
 		if params.Size() == 0 {
 			return fmt.Errorf("Not data to update")
