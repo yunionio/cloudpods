@@ -103,6 +103,8 @@ func init() {
 	cmd.Get("make-sshable-cmd", new(options.ServerIdOptions))
 	cmd.Get("change-owner-candidate-domains", new(options.ServerChangeOwnerCandidateDomainsOptions))
 	cmd.Get("change-owner-candidate-domains", new(options.ServerChangeOwnerCandidateDomainsOptions))
+	cmd.Get("sshport", new(options.ServerIdOptions))
+
 	cmd.GetProperty(&options.ServerStatusStatisticsOptions{})
 	cmd.GetProperty(&options.ServerProjectStatisticsOptions{})
 	cmd.GetProperty(&options.ServerDomainStatisticsOptions{})
