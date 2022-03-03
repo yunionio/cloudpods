@@ -385,10 +385,13 @@ func GetDiskDeviceModel(driver string) string {
 func generateNicOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) ([]string, error) {
 	opts := []string{}
 	nics := input.Nics
-	withAddr := true
-	if drvOpt.IsArm() {
-		withAddr = false
-	}
+	/*
+	 * withAddr := true
+	 * if drvOpt.IsArm() {
+	 * 	withAddr = false
+	 * }
+	 */
+	withAddr := false
 	for idx := range nics {
 		netDevOpt, err := getNicNetdevOption(drvOpt, nics[idx], input.IsKVMSupport)
 		if err != nil {
