@@ -43,7 +43,7 @@ type SAnsiblePlaybookV2 struct {
 
 	Playbook     string    `length:"text" nullable:"false" create:"required" get:"user"`
 	Inventory    string    `length:"text" nullable:"false" create:"required" get:"user"`
-	Requirements string    `length:"test" nullable:"false" create:"optional" get:"user"`
+	Requirements string    `length:"text" nullable:"false" create:"optional" get:"user"`
 	Files        string    `length:"text" nullable:"false" create:"optional" get:"user"`
 	Output       string    `length:"medium" get:"user"`
 	StartTime    time.Time `list:"user"`
