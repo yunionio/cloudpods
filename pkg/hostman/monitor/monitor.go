@@ -17,6 +17,7 @@ package monitor
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -191,6 +192,8 @@ type Monitor interface {
 
 	NetdevAdd(id, netType string, params map[string]string, callback StringCallback)
 	NetdevDel(id string, callback StringCallback)
+
+	SaveState(statFilePath string, callback StringCallback)
 }
 
 type MonitorErrorFunc func(error)
@@ -282,4 +285,11 @@ func (m *SBaseMonitor) checkWriting() bool {
 		m.writing = true
 	}
 	return true
+}
+
+func getSaveStatefileUri(stateFilePath string) string {
+	if strings.HasSuffix(stateFilePath, ".gz") {
+		return fmt.Sprintf("exec:gzip -c > %s", stateFilePath)
+	}
+	return fmt.Sprintf("exec:cat > %s", stateFilePath)
 }

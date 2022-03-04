@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -1008,9 +1009,25 @@ func (self *SKVMRegionDriver) RequestDeleteInstanceSnapshot(ctx context.Context,
 	}
 	if len(snapshots) == 0 {
 		task.SetStage("OnInstanceSnapshotDelete", nil)
-		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			return nil, nil
-		})
+		if isp.WithMemory && isp.MemoryFileHostId != "" && isp.MemoryFilePath != "" {
+			// request delete memory snapshot
+			host := models.HostManager.FetchHostById(isp.MemoryFileHostId)
+			if host == nil {
+				return errors.Errorf("Not found host by %q", isp.MemoryFileHostId)
+			}
+			header := task.GetTaskRequestHeader()
+			url := fmt.Sprintf("%s/servers/memory-snapshot", host.ManagerUri)
+			if _, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "DELETE", url, header, jsonutils.Marshal(&hostapi.GuestMemorySnapshotDeleteRequest{
+				InstanceSnapshotId: isp.GetId(),
+				Path:               isp.MemoryFilePath,
+			}), false); err != nil {
+				return err
+			}
+		} else {
+			taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+				return nil, nil
+			})
+		}
 		return nil
 	}
 
@@ -1055,9 +1072,26 @@ func (self *SKVMRegionDriver) RequestResetToInstanceSnapshot(ctx context.Context
 	diskIndex := int(diskIndexI64)
 	if diskIndex >= len(disks) {
 		task.SetStage("OnInstanceSnapshotReset", nil)
-		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			return nil, nil
-		})
+		withMem := jsonutils.QueryBoolean(params, "with_memory", false)
+		if isp.WithMemory && withMem {
+			// reset do memory snapshot
+			host, err := guest.GetHost()
+			if err != nil {
+				return err
+			}
+			header := task.GetTaskRequestHeader()
+			url := fmt.Sprintf("%s/servers/%s/memory-snapshot-reset", host.ManagerUri, guest.GetId())
+			if _, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, jsonutils.Marshal(&hostapi.GuestMemorySnapshotResetRequest{
+				InstanceSnapshotId: isp.GetId(),
+				Path:               isp.MemoryFilePath,
+			}), false); err != nil {
+				return err
+			}
+		} else {
+			taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+				return nil, nil
+			})
+		}
 		return nil
 	}
 
@@ -1103,9 +1137,24 @@ func (self *SKVMRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context,
 	diskIndex := int(diskIndexI64)
 	if diskIndex >= len(disks) {
 		task.SetStage("OnInstanceSnapshot", nil)
-		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			return nil, nil
-		})
+		if isp.WithMemory {
+			// request do memory snapshot
+			host, err := guest.GetHost()
+			if err != nil {
+				return err
+			}
+			header := task.GetTaskRequestHeader()
+			url := fmt.Sprintf("%s/servers/%s/memory-snapshot", host.ManagerUri, guest.GetId())
+			if _, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, jsonutils.Marshal(&hostapi.GuestMemorySnapshotRequest{
+				InstanceSnapshotId: isp.GetId(),
+			}), false); err != nil {
+				return err
+			}
+		} else {
+			taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+				return nil, nil
+			})
+		}
 		return nil
 	}
 

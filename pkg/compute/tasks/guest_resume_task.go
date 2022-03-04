@@ -37,7 +37,7 @@ func (self *GuestResumeTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_RESUMING, "", self.UserCred)
 	self.SetStage("OnResumeComplete", nil)
-	err := guest.GetDriver().RqeuestResumeOnHost(ctx, guest, self)
+	err := guest.GetDriver().RequestResumeOnHost(ctx, guest, self)
 	if err != nil {
 		self.OnResumeGuestFail(guest, err.Error())
 	}

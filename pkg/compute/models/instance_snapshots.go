@@ -79,6 +79,14 @@ type SInstanceSnapshot struct {
 	SizeMb int `nullable:"false"`
 	// 镜像ID
 	ImageId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	// 是否保存内存
+	WithMemory bool `default:"false" list:"user"`
+	// 内存文件大小
+	MemorySizeMB int `nullable:"true" list:"user"`
+	// 内存文件所在宿主机
+	MemoryFileHostId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	// 内存文件路径
+	MemoryFilePath string `width:"512" charset:"utf8" nullable:"true" list:"user"`
 }
 
 type SInstanceSnapshotManager struct {
@@ -361,7 +369,7 @@ func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(ctx context.Contex
 	instanceSnapshot.ServerMetadata = serverMetadata
 }
 
-func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, name string, autoDelete bool) (*SInstanceSnapshot, error) {
+func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, name string, autoDelete bool, withMemory bool) (*SInstanceSnapshot, error) {
 	instanceSnapshot := &SInstanceSnapshot{}
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
 	instanceSnapshot.Name = name
@@ -369,6 +377,8 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 	manager.fillInstanceSnapshot(ctx, userCred, guest, instanceSnapshot)
 	// compute size of instanceSnapshot
 	instanceSnapshot.SizeMb = guest.getDiskSize()
+	instanceSnapshot.WithMemory = withMemory
+	instanceSnapshot.MemoryFileHostId = guest.HostId
 	err := manager.TableSpec().Insert(ctx, instanceSnapshot)
 	if err != nil {
 		return nil, err
