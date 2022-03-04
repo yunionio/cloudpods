@@ -460,6 +460,7 @@ func (manager *SExternalProjectManager) ListItemFilter(
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
+		q = q.Equals("manager_id", p.GetId())
 		provider := p.(*SCloudprovider)
 		query.CloudaccountId = []string{provider.CloudaccountId}
 	}
