@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appctx"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -100,6 +102,14 @@ func (s *SKVMGuestInstance) GetName() string {
 
 func (s *SKVMGuestInstance) getStateFilePathRootPrefix() string {
 	return path.Join(s.HomeDir(), STATE_FILE_PREFIX)
+}
+
+func (s *SKVMGuestInstance) GetStateFilePath(version string) string {
+	p := s.getStateFilePathRootPrefix()
+	if version != "" {
+		p = fmt.Sprintf("%s_%s", p, version)
+	}
+	return p
 }
 
 func (s *SKVMGuestInstance) getQemuLogPath() string {
@@ -1038,6 +1048,13 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 					return err
 				}
 			}
+			if migrated {
+				// remove memory snapshot files
+				dir := GetMemorySnapshotPath(s.GetId(), "")
+				if err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-rf", dir).Run(); err != nil {
+					return errors.Wrapf(err, "remove dir %q", dir)
+				}
+			}
 		}
 	}
 	return nil
@@ -1115,7 +1132,7 @@ func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, params interface{}
 }
 
 func (s *SKVMGuestInstance) ExecSuspendTask(ctx context.Context) {
-	// TODO
+	NewGuestSuspendTask(s, ctx, nil).Start()
 }
 
 func (s *SKVMGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) jsonutils.JSONObject {
@@ -1667,9 +1684,9 @@ func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 	return ret
 }
 
-// 好像不用了
 func (s *SKVMGuestInstance) CleanStatefiles() {
 	for _, stateFile := range s.ListStateFilePaths() {
+		log.Infof("Server %s remove statefile %q", s.GetName(), stateFile)
 		if _, err := procutils.NewCommand("mountpoint", stateFile).Output(); err == nil {
 			if output, err := procutils.NewCommand("umount", stateFile).Output(); err != nil {
 				log.Errorf("umount %s failed: %s, %s", stateFile, err, output)
@@ -1779,6 +1796,58 @@ func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
 	res := jsonutils.NewDict()
 	res.Set("deleted", jsonutils.JSONTrue)
 	return res, nil
+}
+
+func GetMemorySnapshotPath(serverId, instanceSnapshotId string) string {
+	dir := options.HostOptions.MemorySnapshotsPath
+	memSnapPath := filepath.Join(dir, serverId, instanceSnapshotId)
+	return memSnapPath
+}
+
+func (s *SKVMGuestInstance) ExecMemorySnapshotTask(ctx context.Context, input *hostapi.GuestMemorySnapshotRequest) (jsonutils.JSONObject, error) {
+	if !s.IsRunning() {
+		return nil, errors.Errorf("Server is not running status")
+	}
+	if s.IsSuspend() {
+		return nil, errors.Errorf("Server is suspend status")
+	}
+	memSnapPath := GetMemorySnapshotPath(s.GetId(), input.InstanceSnapshotId)
+	dir := filepath.Dir(memSnapPath)
+	if err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dir).Run(); err != nil {
+		return nil, errors.Wrapf(err, "mkdir -p %q", dir)
+	}
+	NewGuestSuspendTask(s, ctx, func(_ *SGuestSuspendTask, memStatPath string) {
+		log.Infof("Memory state file %q saved, move it to %q", memStatPath, memSnapPath)
+		sizeBytes := fileutils2.FileSize(memStatPath)
+		sizeMB := sizeBytes / 1024
+		if err := procutils.NewRemoteCommandAsFarAsPossible("mv", memStatPath, memSnapPath).Run(); err != nil {
+			hostutils.TaskFailed(ctx, fmt.Sprintf("move statefile %q to memory snapshot %q: %v", memStatPath, memSnapPath, err))
+			return
+		}
+		resumeTask := NewGuestResumeTask(ctx, s, false, false)
+		resumeTask.SetGetTaskData(func() (jsonutils.JSONObject, error) {
+			resp := &hostapi.GuestMemorySnapshotResponse{
+				MemorySnapshotPath: memSnapPath,
+				SizeMB:             sizeMB,
+			}
+			return jsonutils.Marshal(resp), nil
+		})
+		resumeTask.Start()
+	}).Start()
+	return nil, nil
+}
+
+func (s *SKVMGuestInstance) ExecMemorySnapshotResetTask(ctx context.Context, input *hostapi.GuestMemorySnapshotResetRequest) (jsonutils.JSONObject, error) {
+	if !s.IsStopped() {
+		return nil, errors.Errorf("Server is not stopped status")
+	}
+	memStatPath := s.GetStateFilePath("")
+	if err := procutils.NewRemoteCommandAsFarAsPossible("ln", "-s", input.Path, memStatPath).Run(); err != nil {
+		hostutils.TaskFailed(ctx, fmt.Sprintf("move %q to %q: %v", input.Path, memStatPath, err))
+		return nil, err
+	}
+	hostutils.TaskComplete(ctx, nil)
+	return nil, nil
 }
 
 func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrage bool) (*jsonutils.JSONDict, error) {

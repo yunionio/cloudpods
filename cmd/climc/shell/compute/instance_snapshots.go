@@ -51,7 +51,7 @@ func init() {
 	type InstanceSnapshotShowOptions struct {
 		ID string `help:"ID or Name of snapshot"`
 	}
-	R(&InstanceSnapshotShowOptions{}, "snapshot-show", "Show snapshot details", func(s *mcclient.ClientSession, args *InstanceSnapshotShowOptions) error {
+	R(&InstanceSnapshotShowOptions{}, "instance-snapshot-show", "Show snapshot details", func(s *mcclient.ClientSession, args *InstanceSnapshotShowOptions) error {
 		result, err := modules.InstanceSnapshots.Get(s, args.ID, nil)
 		if err != nil {
 			return err

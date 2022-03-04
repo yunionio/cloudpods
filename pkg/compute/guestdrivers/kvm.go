@@ -601,9 +601,17 @@ func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest 
 	return err
 }
 
-func (self *SKVMGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SKVMGuestDriver) RequestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/suspend", host.ManagerUri, guest.Id)
+	header := self.getTaskRequestHeader(task)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, nil, false)
+	return err
+}
+
+func (self *SKVMGuestDriver) RequestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	host, _ := guest.GetHost()
+	url := fmt.Sprintf("%s/servers/%s/resume", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, nil, false)
 	return err

@@ -484,6 +484,8 @@ type ServerResetInput struct {
 	InstanceSnapshot string `json:"instance_snapshot"`
 	// 自动启动
 	AutoStart *bool `json:"auto_start"`
+	// 恢复内存
+	WithMemory bool `json:"with_memory"`
 }
 
 type ServerStopInput struct {
@@ -791,6 +793,7 @@ type ServerSnapshotAndCloneInput struct {
 
 type ServerInstanceSnapshot struct {
 	ServerCreateSnapshotParams
+	WithMemory bool `json:"with_memory"`
 }
 
 type ServerCreateSnapshotParams struct {

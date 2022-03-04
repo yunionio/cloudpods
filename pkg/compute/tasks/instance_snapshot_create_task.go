@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -123,6 +124,21 @@ func (self *InstanceSnapshotCreateTask) OnKvmDiskSnapshotFailed(
 
 func (self *InstanceSnapshotCreateTask) OnInstanceSnapshot(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
 	guest, _ := isp.GetGuest()
+	if isp.WithMemory {
+		resp := new(hostapi.GuestMemorySnapshotResponse)
+		if err := data.Unmarshal(resp); err != nil {
+			self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+		if _, err := db.Update(isp, func() error {
+			isp.MemorySizeMB = int(resp.SizeMB)
+			isp.MemoryFilePath = resp.MemorySnapshotPath
+			return nil
+		}); err != nil {
+			self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+	}
 	self.taskComplete(ctx, isp, guest, data)
 }
 

@@ -722,8 +722,9 @@ func init() {
 		return nil
 	})
 	type ServerCreateSnapshot struct {
-		ID       string `help:"ID or name of VM" json:"-"`
-		SNAPSHOT string `help:"Instance snapshot name" json:"name"`
+		ID         string `help:"ID or name of VM" json:"-"`
+		SNAPSHOT   string `help:"Instance snapshot name" json:"name"`
+		WithMemory bool   `help:"Save memory state" json:"with_memory"`
 	}
 	R(&ServerCreateSnapshot{}, "instance-snapshot-create", "create instance snapshot", func(s *mcclient.ClientSession, opts *ServerCreateSnapshot) error {
 		params := jsonutils.Marshal(opts)
@@ -773,6 +774,7 @@ func init() {
 	type ServerRollBackSnapshot struct {
 		ID               string `help:"ID or name of VM" json:"-"`
 		InstanceSnapshot string `help:"Instance snapshot id or name" json:"instance_snapshot"`
+		WithMemory       bool   `help:"Memory restore" json:"with_memory"`
 		AutoStart        bool   `help:"Auto start VM"`
 	}
 	R(&ServerRollBackSnapshot{}, "instance-snapshot-reset", "reset instance snapshot", func(s *mcclient.ClientSession, opts *ServerRollBackSnapshot) error {
