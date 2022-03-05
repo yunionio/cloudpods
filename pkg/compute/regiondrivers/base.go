@@ -453,8 +453,8 @@ func (self *SBaseRegionDriver) IsSupportedNatAutoRenew() bool {
 	return true
 }
 
-func (self *SBaseRegionDriver) RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
-	return httperrors.NewNotImplementedError("RequestAssociatEip")
+func (self *SBaseRegionDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
+	return httperrors.NewNotImplementedError("RequestAssociateEip")
 }
 
 func (self *SBaseRegionDriver) RequestSyncAccessGroup(ctx context.Context, userCred mcclient.TokenCredential, fs *models.SFileSystem, mt *models.SMountTarget, ag *models.SAccessGroup, task taskman.ITask) error {

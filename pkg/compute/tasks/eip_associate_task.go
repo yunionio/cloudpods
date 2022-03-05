@@ -109,9 +109,9 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 	db.StatusBaseSetStatus(ins, self.GetUserCred(), api.INSTANCE_ASSOCIATE_EIP, "associate eip")
 
 	self.SetStage("OnAssociateEipComplete", nil)
-	err = region.GetDriver().RequestAssociatEip(ctx, self.UserCred, eip, input, ins, self)
+	err = region.GetDriver().RequestAssociateEip(ctx, self.UserCred, eip, input, ins, self)
 	if err != nil {
-		self.taskFail(ctx, eip, ins, errors.Wrapf(err, "RequestAssociatEip"))
+		self.taskFail(ctx, eip, ins, errors.Wrapf(err, "RequestAssociateEip"))
 		return
 	}
 }

@@ -1828,7 +1828,7 @@ func (self *SKVMRegionDriver) RequestCreateBackup(ctx context.Context, backup *m
 	return nil
 }
 
-func (self *SKVMRegionDriver) RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
+func (self *SKVMRegionDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		if input.InstanceType == api.EIP_ASSOCIATE_TYPE_SERVER {
 			guest := obj.(*models.SGuest)
