@@ -493,6 +493,10 @@ func (self *SBaseRegionDriver) ValidateCreateCdnData(ctx context.Context, userCr
 	return input, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateCdnData")
 }
 
+func (self *SBaseRegionDriver) RequestSyncInstanceBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, ib *models.SInstanceBackup, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SyncInstanceBackupStatus")
+}
+
 func (self *SBaseRegionDriver) RequestPackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestPackInstanceBackup")
 }

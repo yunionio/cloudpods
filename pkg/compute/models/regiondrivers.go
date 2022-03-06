@@ -122,6 +122,7 @@ type IRegionDriver interface {
 	RequestDeleteBackup(ctx context.Context, backup *SDiskBackup, task taskman.ITask) error
 	RequestCreateInstanceBackup(ctx context.Context, guest *SGuest, ib *SInstanceBackup, task taskman.ITask, params *jsonutils.JSONDict) error
 	RequestDeleteInstanceBackup(ctx context.Context, ib *SInstanceBackup, task taskman.ITask) error
+	RequestSyncInstanceBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, ib *SInstanceBackup, task taskman.ITask) error
 
 	RequestCreateInstanceSnapshot(ctx context.Context, guest *SGuest, isp *SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error
 	RequestDeleteInstanceSnapshot(ctx context.Context, isp *SInstanceSnapshot, task taskman.ITask) error

@@ -145,3 +145,6 @@ type InstanceBackupPackMetadata struct {
 	SizeMb         int
 	DiskMetadatas  []DiskBackupPackMetadata
 }
+
+type InstanceBackupManagerSyncstatusInput struct {
+}
