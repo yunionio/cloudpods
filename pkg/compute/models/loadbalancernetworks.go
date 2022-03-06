@@ -389,3 +389,15 @@ func (manager *SLoadbalancernetworkManager) ListItemExportKeys(ctx context.Conte
 
 	return q, nil
 }
+
+func (manager *SLoadbalancernetworkManager) FetchFirstByLbId(
+	ctx context.Context,
+	lbId string,
+) (*SLoadbalancerNetwork, error) {
+	ln := &SLoadbalancerNetwork{}
+	q := manager.Query().Equals("loadbalancer_id", lbId)
+	if err := q.First(ln); err != nil {
+		return nil, errors.Wrapf(err, "fetch loadbalancer network for loadbalancer %q", lbId)
+	}
+	return ln, nil
+}
