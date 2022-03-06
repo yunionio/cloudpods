@@ -1841,6 +1841,11 @@ func (self *SKVMRegionDriver) RequestAssociateEip(ctx context.Context, userCred 
 			if err != nil {
 				return nil, err
 			}
+		case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+			err := self.requestAssociateEipWithLoadbalancer(ctx, userCred, eip, input, obj, task)
+			if err != nil {
+				return nil, err
+			}
 		default:
 			return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "instance type %s", input.InstanceType)
 		}
@@ -1932,6 +1937,33 @@ func (self *SKVMRegionDriver) requestAssociateEipWithInstanceGroup(ctx context.C
 	}); err != nil {
 		return errors.Wrapf(err, "set associated eip for groupnic %s (guest:%s, network:%s)",
 			groupnic.IpAddr, groupnic.GroupId, groupnic.NetworkId)
+	}
+	return nil
+}
+
+func (self *SKVMRegionDriver) requestAssociateEipWithLoadbalancer(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	eip *models.SElasticip,
+	input api.ElasticipAssociateInput,
+	obj db.IStatusStandaloneModel,
+	task taskman.ITask,
+) error {
+	lb := obj.(*models.SLoadbalancer)
+
+	if _, err := db.Update(lb, func() error {
+		lb.Address = eip.IpAddr
+		lb.AddressType = api.LB_ADDR_TYPE_INTERNET
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "set loadbalancer address")
+	}
+
+	if err := eip.AssociateLoadbalancer(ctx, userCred, lb); err != nil {
+		return errors.Wrapf(err, "associate eip %s(%s) to loadbalancer %s(%s)", eip.Name, eip.Id, lb.Name, lb.Id)
+	}
+	if err := eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE); err != nil {
+		return errors.Wrapf(err, "set eip status to %s", api.EIP_STATUS_ALLOCATE)
 	}
 	return nil
 }
