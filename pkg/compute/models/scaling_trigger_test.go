@@ -23,7 +23,7 @@ import (
 )
 
 func TestSTimer_Update(t *testing.T) {
-	loc, _ := time.LoadLocation("Asia/Shanghai")
+	loc := time.UTC
 	ins := []struct {
 		Timer       *STimer
 		UpdateTimes int
