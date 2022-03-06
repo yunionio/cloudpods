@@ -66,7 +66,7 @@ func (st *STimer) Update(now time.Time) {
 		return
 	}
 
-	newNextTime := time.Date(now.Year(), now.Month(), now.Day(), st.Hour, st.Minute, 0, 0, now.Location())
+	newNextTime := time.Date(now.Year(), now.Month(), now.Day(), st.Hour, st.Minute, 0, 0, time.UTC).In(now.Location())
 	if now.After(newNextTime) {
 		newNextTime = newNextTime.AddDate(0, 0, 1)
 	}
