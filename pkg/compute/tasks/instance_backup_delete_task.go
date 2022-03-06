@@ -79,14 +79,13 @@ func (self *InstanceBackupDeleteTask) OnKvmDiskBackupDelete(
 	}
 }
 
-func (self *InstanceBackupDeleteTask) OnKvmBackupDeleteFailed(
+func (self *InstanceBackupDeleteTask) OnKvmDiskBackupDeleteFailed(
 	ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
 	self.taskFailed(ctx, ib, data)
 }
 
 func (self *InstanceBackupDeleteTask) OnInstanceBackupDelete(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
 	self.taskSuccess(ctx, ib, data)
-
 }
 
 func (self *InstanceBackupDeleteTask) OnInstanceBackupDeleteFailed(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
