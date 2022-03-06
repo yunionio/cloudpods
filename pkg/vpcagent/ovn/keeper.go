@@ -709,6 +709,113 @@ func (keeper *OVNNorthboundKeeper) ClaimRoutes(ctx context.Context, vpc *agentmo
 	return nil
 }
 
+func (keeper *OVNNorthboundKeeper) ClaimLoadbalancerNetwork(ctx context.Context, loadbalancerNetwork *agentmodels.LoadbalancerNetwork) error {
+	var (
+		// Callers assure that loadbalancerNetwork.Network is not nil
+		network      = loadbalancerNetwork.Network
+		vpc          = network.Vpc
+		lbIntIp      = loadbalancerNetwork.IpAddr
+		lbIntIpMask  = network.GuestIpMask
+		lbIntMacAddr = loadbalancerNetwork.MacAddr
+		lbId         = loadbalancerNetwork.LoadbalancerId
+		lbUpdVer     = loadbalancerNetwork.UpdateVersion
+		lbUpdAt      = loadbalancerNetwork.UpdatedAt
+		networkId    = network.Id
+		vpcId        = vpc.Id
+		vpcHasEipgw  = vpcHasEipgw(vpc)
+		eip          = loadbalancerNetwork.Elasticip
+
+		lportName       = lbpName(lbId)
+		ocVersion       = fmt.Sprintf("%s.%d", lbUpdAt, lbUpdVer)
+		ocLnrDefaultRef = fmt.Sprintf("lnrDefault/%s/%s", vpcId, lbId)
+		ocQosEipRef     = fmt.Sprintf("qos-eip/%s/%s/v2", vpcId, lbId)
+	)
+
+	lbp := &ovn_nb.LogicalSwitchPort{
+		Name:         lportName,
+		Addresses:    []string{fmt.Sprintf("%s %s", lbIntMacAddr, lbIntIp)},
+		PortSecurity: []string{fmt.Sprintf("%s %s/%d", lbIntMacAddr, lbIntIp, lbIntIpMask)},
+	}
+
+	var (
+		lnrDefault *ovn_nb.LogicalRouterStaticRoute
+		qosEipIn   *ovn_nb.QoS
+		qosEipOut  *ovn_nb.QoS
+		hasQoSEip  bool
+	)
+	if eip != nil && vpcHasEipgw {
+		lnrDefault = &ovn_nb.LogicalRouterStaticRoute{
+			Policy:     ptr("src-ip"),
+			IpPrefix:   lbIntIp + "/32",
+			Nexthop:    apis.VpcEipGatewayIP3().String(),
+			OutputPort: ptr(vpcRepName(vpcId)),
+			ExternalIds: map[string]string{
+				externalKeyOcRef: ocLnrDefaultRef,
+			},
+		}
+		if bwMbps := eip.Bandwidth; bwMbps > 0 {
+			var (
+				kbps     = int64(bwMbps * 1000)
+				kbur     = int64(kbps * 2)
+				eipgwVip = apis.VpcEipGatewayIP3().String()
+			)
+			hasQoSEip = true
+			qosEipIn = &ovn_nb.QoS{
+				Priority:  2000,
+				Direction: "from-lport",
+				Match:     fmt.Sprintf("inport == %q && ip4 && ip4.dst == %s", vpcEipLspName(vpcId, eipgwVip), lbIntIp),
+				Bandwidth: map[string]int64{
+					"rate":  kbps,
+					"burst": kbur,
+				},
+				ExternalIds: map[string]string{
+					externalKeyOcRef: ocQosEipRef,
+				},
+			}
+			qosEipOut = &ovn_nb.QoS{
+				Priority:  3000,
+				Direction: "from-lport",
+				Match:     fmt.Sprintf("inport == %q", lportName),
+				Bandwidth: map[string]int64{
+					"rate":  kbps,
+					"burst": kbur,
+				},
+				ExternalIds: map[string]string{
+					externalKeyOcRef: ocQosEipRef,
+				},
+			}
+		}
+	}
+
+	irows := []types.IRow{
+		lbp,
+	}
+	if lnrDefault != nil {
+		irows = append(irows, lnrDefault)
+	}
+	if hasQoSEip {
+		irows = append(irows, qosEipIn, qosEipOut)
+	}
+	allFound, args := cmp(&keeper.DB, ocVersion, irows...)
+	if allFound {
+		return nil
+	}
+
+	args = append(args, ovnCreateArgs(lbp, lbp.Name)...)
+	args = append(args, "--", "add", "Logical_Switch", netLsName(networkId), "ports", "@"+lbp.Name)
+	if lnrDefault != nil {
+		args = append(args, ovnCreateArgs(lnrDefault, "lnrDefault")...)
+		args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpcId), "static_routes", "@lnrDefault")
+	}
+	if hasQoSEip {
+		args = append(args, ovnCreateArgs(qosEipIn, "qosEipIn")...)
+		args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpcId), "qos_rules", "@qosEipIn")
+		args = append(args, ovnCreateArgs(qosEipOut, "qosEipOut")...)
+		args = append(args, "--", "add", "Logical_Switch", netLsName(networkId), "qos_rules", "@qosEipOut")
+	}
+	return keeper.cli.Must(ctx, "ClaimLoadbalancerNetwork", args)
+}
+
 func (keeper *OVNNorthboundKeeper) ClaimVpcGuestDnsRecords(ctx context.Context, vpc *agentmodels.Vpc) error {
 	var (
 		grs = map[string][]string{}
