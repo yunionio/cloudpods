@@ -127,7 +127,7 @@ type SLoadbalancer struct {
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" json:"backend_group_id"`
 
 	// LB的其他配置信息
-	LBInfo jsonutils.JSONObject `charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional" json:"lb_info"`
+	LBInfo jsonutils.JSONObject `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"admin" create:"admin_optional" json:"lb_info"`
 }
 
 // 负载均衡实例列表
