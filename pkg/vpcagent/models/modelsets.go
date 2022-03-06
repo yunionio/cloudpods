@@ -40,7 +40,9 @@ type ModelSetsMaxUpdatedAt struct {
 	Groupguests   time.Time
 	Groupnetworks time.Time
 
-	LoadbalancerNetworks time.Time
+	LoadbalancerNetworks  time.Time
+	LoadbalancerListeners time.Time
+	LoadbalancerAcls      time.Time
 }
 
 func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
@@ -64,7 +66,9 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 		Groupguests:   apihelper.PseudoZeroTime,
 		Groupnetworks: apihelper.PseudoZeroTime,
 
-		LoadbalancerNetworks: apihelper.PseudoZeroTime,
+		LoadbalancerNetworks:  apihelper.PseudoZeroTime,
+		LoadbalancerListeners: apihelper.PseudoZeroTime,
+		LoadbalancerAcls:      apihelper.PseudoZeroTime,
 	}
 }
 
@@ -89,7 +93,9 @@ type ModelSets struct {
 	Groupnetworks Groupnetworks
 	Groups        Groups
 
-	LoadbalancerNetworks LoadbalancerNetworks
+	LoadbalancerNetworks  LoadbalancerNetworks
+	LoadbalancerListeners LoadbalancerListeners
+	LoadbalancerAcls      LoadbalancerAcls
 }
 
 func NewModelSets() *ModelSets {
@@ -114,7 +120,9 @@ func NewModelSets() *ModelSets {
 		Groupnetworks: Groupnetworks{},
 		Groups:        Groups{},
 
-		LoadbalancerNetworks: LoadbalancerNetworks{},
+		LoadbalancerNetworks:  LoadbalancerNetworks{},
+		LoadbalancerListeners: LoadbalancerListeners{},
+		LoadbalancerAcls:      LoadbalancerAcls{},
 	}
 }
 
@@ -141,6 +149,8 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 		mss.Groupnetworks,
 
 		mss.LoadbalancerNetworks,
+		mss.LoadbalancerListeners,
+		mss.LoadbalancerAcls,
 	}
 }
 
@@ -169,7 +179,9 @@ func (mss *ModelSets) copy_() *ModelSets {
 		Groupguests:   mss.Groupguests.Copy().(Groupguests),
 		Groupnetworks: mss.Groupnetworks.Copy().(Groupnetworks),
 
-		LoadbalancerNetworks: mss.LoadbalancerNetworks.Copy().(LoadbalancerNetworks),
+		LoadbalancerNetworks:  mss.LoadbalancerNetworks.Copy().(LoadbalancerNetworks),
+		LoadbalancerListeners: mss.LoadbalancerListeners.Copy().(LoadbalancerListeners),
+		LoadbalancerAcls:      mss.LoadbalancerAcls.Copy().(LoadbalancerAcls),
 	}
 	return mssCopy
 }
@@ -227,6 +239,8 @@ func (mss *ModelSets) join() bool {
 	p = append(p, mss.Groups.joinGroupnetworks(mss.Groupnetworks, mss.Networks))
 	p = append(p, mss.Groupnetworks.joinElasticips(mss.Elasticips))
 	p = append(p, mss.LoadbalancerNetworks.joinElasticips(mss.Elasticips))
+	p = append(p, mss.LoadbalancerNetworks.joinLoadbalancerListeners(mss.LoadbalancerListeners))
+	p = append(p, mss.LoadbalancerListeners.joinLoadbalancerAcls(mss.LoadbalancerAcls))
 	for _, b := range p {
 		if !b {
 			return false

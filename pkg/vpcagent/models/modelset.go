@@ -48,7 +48,9 @@ type (
 	Groupnetworks map[string]*Groupnetwork
 	Groups        map[string]*Group
 
-	LoadbalancerNetworks map[string]*LoadbalancerNetwork // key: networkId/loadbalancerId
+	LoadbalancerNetworks  map[string]*LoadbalancerNetwork // key: networkId/loadbalancerId
+	LoadbalancerListeners map[string]*LoadbalancerListener
+	LoadbalancerAcls      map[string]*LoadbalancerAcl
 )
 
 func (set Vpcs) ModelManager() mcclient_modulebase.IBaseManager {
@@ -902,4 +904,80 @@ func (set LoadbalancerNetworks) joinElasticips(subEntries Elasticips) bool {
 		m.Elasticip = subEntry
 	}
 	return correct
+}
+
+func (set LoadbalancerNetworks) joinLoadbalancerListeners(subEntries LoadbalancerListeners) bool {
+	lbListeners := map[string]LoadbalancerListeners{}
+	for subId, subEntry := range subEntries {
+		lbId := subEntry.LoadbalancerId
+		v, ok := lbListeners[lbId]
+		if !ok {
+			v = LoadbalancerListeners{}
+			lbListeners[lbId] = v
+		}
+		v[subId] = subEntry
+	}
+
+	for _, m := range set {
+		lbId := m.LoadbalancerId
+		m.LoadbalancerListeners = lbListeners[lbId]
+	}
+	return true
+}
+
+func (set LoadbalancerListeners) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.LoadbalancerListeners
+}
+
+func (set LoadbalancerListeners) NewModel() db.IModel {
+	return &LoadbalancerListener{}
+}
+
+func (set LoadbalancerListeners) AddModel(i db.IModel) {
+	m := i.(*LoadbalancerListener)
+	set[m.Id] = m
+}
+
+func (set LoadbalancerListeners) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerListeners{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set LoadbalancerListeners) joinLoadbalancerAcls(subEntries LoadbalancerAcls) bool {
+	for _, m := range set {
+		if m.AclStatus != computeapis.LB_BOOL_ON {
+			continue
+		}
+		switch m.AclType {
+		case computeapis.LB_ACL_TYPE_WHITE,
+			computeapis.LB_ACL_TYPE_BLACK:
+			lbacl := subEntries[m.AclId]
+			m.LoadbalancerAcl = lbacl
+		}
+	}
+	return true
+}
+
+func (set LoadbalancerAcls) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.LoadbalancerAcls
+}
+
+func (set LoadbalancerAcls) NewModel() db.IModel {
+	return &LoadbalancerAcl{}
+}
+
+func (set LoadbalancerAcls) AddModel(i db.IModel) {
+	m := i.(*LoadbalancerAcl)
+	set[m.Id] = m
+}
+
+func (set LoadbalancerAcls) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerAcls{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }

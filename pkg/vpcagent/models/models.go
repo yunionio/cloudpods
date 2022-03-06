@@ -276,12 +276,35 @@ func (el *Group) Copy() *Group {
 type LoadbalancerNetwork struct {
 	compute_models.SLoadbalancerNetwork
 
-	Network   *Network   `json:"-"`
-	Elasticip *Elasticip `json:"-"`
+	Network               *Network              `json:"-"`
+	Elasticip             *Elasticip            `json:"-"`
+	LoadbalancerListeners LoadbalancerListeners `json:"-"`
 }
 
 func (el *LoadbalancerNetwork) Copy() *LoadbalancerNetwork {
 	return &LoadbalancerNetwork{
 		SLoadbalancerNetwork: el.SLoadbalancerNetwork,
+	}
+}
+
+type LoadbalancerListener struct {
+	compute_models.SLoadbalancerListener
+
+	LoadbalancerAcl *LoadbalancerAcl `json:"-"`
+}
+
+func (el *LoadbalancerListener) Copy() *LoadbalancerListener {
+	return &LoadbalancerListener{
+		SLoadbalancerListener: el.SLoadbalancerListener,
+	}
+}
+
+type LoadbalancerAcl struct {
+	compute_models.SLoadbalancerAcl
+}
+
+func (el *LoadbalancerAcl) Copy() *LoadbalancerAcl {
+	return &LoadbalancerAcl{
+		SLoadbalancerAcl: el.SLoadbalancerAcl,
 	}
 }
