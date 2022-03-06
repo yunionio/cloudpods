@@ -1403,7 +1403,6 @@ func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred
 			syncResult.UpdateError(err)
 			continue
 		}
-		syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
 		localDBInstances = append(localDBInstances, commondb[i])
 		remoteDBInstances = append(remoteDBInstances, commonext[i])
 		syncResult.Update()
@@ -1415,7 +1414,6 @@ func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred
 			syncResult.AddError(err)
 			continue
 		}
-		syncVirtualResourceMetadata(ctx, userCred, instance, added[i])
 		localDBInstances = append(localDBInstances, *instance)
 		remoteDBInstances = append(remoteDBInstances, added[i])
 		syncResult.Add()
@@ -1643,6 +1641,7 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		return err
 	}
 	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	SyncCloudProject(userCred, self, userCred, ext, provider.Id)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	if len(diff) > 0 {
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
@@ -1735,6 +1734,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 		return nil, errors.Wrapf(err, "newFromCloudDBInstance.Insert")
 	}
 
+	syncVirtualResourceMetadata(ctx, userCred, &instance, extInstance)
 	SyncCloudProject(userCred, &instance, ownerId, extInstance, provider.Id)
 
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
