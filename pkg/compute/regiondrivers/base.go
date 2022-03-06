@@ -497,6 +497,10 @@ func (self *SBaseRegionDriver) RequestSyncInstanceBackupStatus(ctx context.Conte
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SyncInstanceBackupStatus")
 }
 
+func (self *SBaseRegionDriver) RequestSyncBackupStorageStatus(ctx context.Context, userCred mcclient.TokenCredential, bs *models.SBackupStorage, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SyncBackupStorageStatus")
+}
+
 func (self *SBaseRegionDriver) RequestPackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestPackInstanceBackup")
 }

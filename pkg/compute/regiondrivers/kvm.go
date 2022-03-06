@@ -1412,6 +1412,27 @@ func (self *SKVMRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, i
 	return nil
 }
 
+func (self *SKVMRegionDriver) RequestSyncBackupStorageStatus(ctx context.Context, userCred mcclient.TokenCredential, bs *models.SBackupStorage, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		host, err := models.HostManager.GetEnabledKvmHost()
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to GetEnabledKvmHost")
+		}
+		url := fmt.Sprintf("%s/storages/sync-backup-storage", host.ManagerUri)
+		body := jsonutils.NewDict()
+		body.Set("backup_storage_id", jsonutils.NewString(bs.GetId()))
+		body.Set("backup_storage_access_info", jsonutils.Marshal(bs.AccessInfo))
+		header := task.GetTaskRequestHeader()
+		_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+		if err != nil {
+			return nil, err
+		}
+		status, _ := res.GetString("status")
+		return nil, bs.SetStatus(userCred, status, "sync status")
+	})
+	return nil
+}
+
 func (self *SKVMRegionDriver) RequestSyncInstanceBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, ib *models.SInstanceBackup, task taskman.ITask) error {
 	originStatus, _ := task.GetParams().GetString("origin_status")
 	if utils.IsInStringArray(originStatus, []string{api.INSTANCE_BACKUP_STATUS_CREATING, api.INSTANCE_BACKUP_STATUS_DELETING, api.INSTANCE_BACKUP_STATUS_RECOVERY, api.INSTANCE_BACKUP_STATUS_PACK, api.INSTANCE_BACKUP_STATUS_CREATING_FROM_PACKAGE, api.INSTANCE_BACKUP_STATUS_SAVING, api.INSTANCE_BACKUP_STATUS_SNAPSHOT}) {

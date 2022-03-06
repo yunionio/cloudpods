@@ -33,6 +33,7 @@ type IBackupStorage interface {
 	ConvertFrom(srcPath string, format qemuimg.TImageFormat, backupId string) (int, error)
 	InstancePack(packageName string, backupIds []string, metadata *api.InstanceBackupPackMetadata) error
 	InstanceUnpack(packageName string) ([]string, *api.InstanceBackupPackMetadata, error)
+	IsOnline() (bool, error)
 }
 
 var backupStoragePool *sync.Map = &sync.Map{}

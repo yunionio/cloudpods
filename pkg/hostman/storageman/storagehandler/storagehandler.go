@@ -71,6 +71,9 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/unpack-instance-backup", prefix, keyWords),
 			auth.Authenticate(storageUnpackInstanceBackup))
+		app.AddHandler("POST",
+			fmt.Sprintf("%s/%s/sync-backup-storage", prefix, keyWords),
+			auth.Authenticate(storageSyncBackupStorage))
 	}
 }
 
@@ -235,6 +238,41 @@ func storageSyncBackup(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	} else {
 		log.Errorf("fetch snapshot exist failed %s", err)
 		status = compute.BACKUP_STATUS_UNKNOWN
+	}
+	ret.Set("status", jsonutils.NewString(status))
+	hostutils.Response(ctx, w, ret)
+}
+
+func storageSyncBackupStorage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	backupStorageId, err := body.GetString("backup_storage_id")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_storage_id"))
+		return
+	}
+	backupStorageAccessInfo, err := body.Get("backup_storage_access_info")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_storage_access_info"))
+		return
+	}
+	backupStorage, err := backupstorage.GetBackupStorage(backupStorageId, backupStorageAccessInfo.(*jsonutils.JSONDict))
+	if err != nil {
+		hostutils.Response(ctx, w, err)
+		return
+	}
+	exist, err := backupStorage.IsOnline()
+	if err != nil {
+		hostutils.Response(ctx, w, err)
+		return
+	}
+	var (
+		ret    = jsonutils.NewDict()
+		status string
+	)
+	if exist {
+		status = compute.BACKUPSTORAGE_STATUS_ONLINE
+	} else {
+		status = compute.BACKUPSTORAGE_STATUS_OFFLINE
 	}
 	ret.Set("status", jsonutils.NewString(status))
 	hostutils.Response(ctx, w, ret)
