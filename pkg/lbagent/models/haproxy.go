@@ -27,8 +27,8 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	compute_models "yunion.io/x/onecloud/pkg/compute/models"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
-	"yunion.io/x/onecloud/pkg/mcclient/models"
 )
 
 var haproxyConfigErrNop = errors.Error("nop haproxy config snippet")
@@ -406,7 +406,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttpRate(data map[string]interface{
 	return nil
 }
 
-func (b *LoadbalancerCorpus) haproxyRedirectLine(r *models.LoadbalancerHTTPRedirect, listenerType string) string {
+func (b *LoadbalancerCorpus) haproxyRedirectLine(r *compute_models.SLoadbalancerHTTPRedirect, listenerType string) string {
 	var (
 		code   = r.RedirectCode
 		scheme = r.RedirectScheme
@@ -472,7 +472,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 				continue
 			} else if rule.Redirect == computeapi.LB_REDIRECT_RAW {
 				// http-request redirect ... if xx
-				ruleLine := b.haproxyRedirectLine(&rule.LoadbalancerHTTPRedirect, listener.ListenerType)
+				ruleLine := b.haproxyRedirectLine(&rule.SLoadbalancerHTTPRedirect, listener.ListenerType)
 				ruleLines = append(ruleLines, ruleLine+sufCond)
 			} else {
 				return haproxyConfigErrNop
@@ -481,7 +481,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		// default is a raw redirect
 		if listener.Redirect == computeapi.LB_REDIRECT_RAW {
 			ruleLines = append(ruleLines,
-				b.haproxyRedirectLine(&listener.LoadbalancerHTTPRedirect, listener.ListenerType),
+				b.haproxyRedirectLine(&listener.SLoadbalancerHTTPRedirect, listener.ListenerType),
 			)
 		}
 		data["rules"] = ruleLines

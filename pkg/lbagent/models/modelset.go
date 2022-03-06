@@ -19,21 +19,15 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/mcclient/models"
+	"yunion.io/x/onecloud/pkg/apihelper"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
-type IModelSet interface {
-	//InitializeFromJSON([]jsonutils.JSONObject) error
-	ModelManager() modulebase.IBaseManager
-	NewModel() models.IVirtualResource
-	//GetModel(id string) models.IVirtualResource
-	addModelCallback(models.IVirtualResource) error
-}
-
 type Networks map[string]*Network
-type LoadbalancerNetworks map[string]*LoadbalancerNetwork
+type LoadbalancerNetworks map[string]*LoadbalancerNetwork // key: networkId/loadbalancerId
 type Loadbalancers map[string]*Loadbalancer
 type LoadbalancerListeners map[string]*LoadbalancerListener
 type LoadbalancerListenerRules map[string]*LoadbalancerListenerRule
@@ -46,85 +40,114 @@ func (set Networks) ModelManager() modulebase.IBaseManager {
 	return &modules.Networks
 }
 
-func (set Networks) NewModel() models.IVirtualResource {
-	return &models.Network{}
+func (set Networks) NewModel() db.IModel {
+	return &models.SNetwork{}
 }
 
-func (set Networks) addModelCallback(i models.IVirtualResource) error {
-	m, _ := i.(*models.Network)
+func (set Networks) AddModel(i db.IModel) {
+	m, _ := i.(*models.SNetwork)
 	set[m.Id] = &Network{
-		Network: m,
+		SNetwork: m,
 	}
-	return nil
+}
+
+func (set Networks) Copy() apihelper.IModelSet {
+	setCopy := Networks{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
 
 func (set LoadbalancerNetworks) ModelManager() modulebase.IBaseManager {
 	return &modules.Loadbalancernetworks
 }
 
-func (set LoadbalancerNetworks) NewModel() models.IVirtualResource {
-	return &models.LoadbalancerNetwork{}
+func (set LoadbalancerNetworks) NewModel() db.IModel {
+	return &models.SLoadbalancerNetwork{}
 }
 
-func (set LoadbalancerNetworks) addModelCallback(i models.IVirtualResource) error {
-	m, _ := i.(*models.LoadbalancerNetwork)
-	set[m.Id] = &LoadbalancerNetwork{
-		LoadbalancerNetwork: m,
+func (set LoadbalancerNetworks) AddModel(i db.IModel) {
+	m, _ := i.(*models.SLoadbalancerNetwork)
+	set[m.NetworkId+"/"+m.LoadbalancerId] = &LoadbalancerNetwork{
+		SLoadbalancerNetwork: m,
 	}
-	return nil
+}
+
+func (set LoadbalancerNetworks) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerNetworks{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
 
 func (set LoadbalancerNetworks) JoinLoadbalancers(entries Loadbalancers) bool {
-	correct := true
-	for _, m := range set {
+	for mKey, m := range set {
 		lbId := m.LoadbalancerId
 		netId := m.NetworkId
 		entry, ok := entries[lbId]
 		if !ok {
-			log.Warningf("lb for loadbalancer network %s/%s not found", lbId, netId)
-			correct = false
+			// this can happen for external loadbalancers
+			log.Warningf("lb for loadbalancer network %s %s not found", lbId, netId)
+			delete(set, mKey)
+			continue
 		}
 		m.Loadbalancer = entry
 		entry.LoadbalancerNetwork = m
 	}
-	return correct
+	for _, entry := range entries {
+		if entry.LoadbalancerNetwork == nil {
+			log.Warningf("loadbalancer network for loadbalancer %s(%s) not found ", entry.Name, entry.Id)
+			return false
+		}
+	}
+	return true
 }
 
 func (set LoadbalancerNetworks) JoinNetworks(entries Networks) bool {
-	correct := true
-	for _, m := range set {
+	for mKey, m := range set {
 		lbId := m.LoadbalancerId
 		netId := m.NetworkId
 		entry, ok := entries[netId]
 		if !ok {
+			// this can happen for external loadbalancers
 			log.Warningf("network for loadbalancer network %s/%s not found", lbId, netId)
-			correct = false
+			delete(set, mKey)
+			continue
 		}
 		m.Network = entry
 	}
-	return correct
+	return true
 }
 
 func (set Loadbalancers) ModelManager() modulebase.IBaseManager {
 	return &modules.Loadbalancers
 }
 
-func (set Loadbalancers) NewModel() models.IVirtualResource {
-	return &models.Loadbalancer{}
+func (set Loadbalancers) NewModel() db.IModel {
+	return &models.SLoadbalancer{}
 }
 
-func (set Loadbalancers) addModelCallback(i models.IVirtualResource) error {
-	m, _ := i.(*models.Loadbalancer)
+func (set Loadbalancers) AddModel(i db.IModel) {
+	m, _ := i.(*models.SLoadbalancer)
 	if m.ManagerId != "" || m.ExternalId != "" {
 		log.Errorf("unexpected lb: %#v", m)
-		return nil
+		return
 	}
 	set[m.Id] = &Loadbalancer{
-		Loadbalancer:  m,
+		SLoadbalancer: m,
 		Listeners:     LoadbalancerListeners{},
 		BackendGroups: LoadbalancerBackendGroups{},
 	}
-	return nil
+}
+
+func (set Loadbalancers) Copy() apihelper.IModelSet {
+	setCopy := Loadbalancers{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
 
 func (ms Loadbalancers) JoinListeners(subEntries LoadbalancerListeners) bool {
@@ -159,8 +182,9 @@ func (ms Loadbalancers) JoinBackendGroups(subEntries LoadbalancerBackendGroups) 
 		id := subEntry.LoadbalancerId
 		m, ok := ms[id]
 		if !ok {
-			log.Warningf("loadbalancer id %s not found", id)
-			correct = false
+			// external_id of AWS backendgroup can be empty
+			log.Warningf("backendgroup %s(%s): loadbalancer id %s not found",
+				subEntry.Name, subEntry.Id, id)
 			continue
 		}
 		if _, ok := m.BackendGroups[subId]; ok {
@@ -177,21 +201,28 @@ func (set LoadbalancerListeners) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerListeners
 }
 
-func (set LoadbalancerListeners) NewModel() models.IVirtualResource {
-	return &models.LoadbalancerListener{}
+func (set LoadbalancerListeners) NewModel() db.IModel {
+	return &models.SLoadbalancerListener{}
 }
 
-func (set LoadbalancerListeners) addModelCallback(i models.IVirtualResource) error {
-	m, _ := i.(*models.LoadbalancerListener)
-	if m.ManagerId != "" || m.ExternalId != "" || m.LoadbalancerId == "" {
+func (set LoadbalancerListeners) AddModel(i db.IModel) {
+	m, _ := i.(*models.SLoadbalancerListener)
+	if m.ExternalId != "" || m.LoadbalancerId == "" {
 		log.Errorf("unexpected lblistener: %#v", m)
-		return nil
+		return
 	}
 	set[m.Id] = &LoadbalancerListener{
-		LoadbalancerListener: m,
-		rules:                LoadbalancerListenerRules{},
+		SLoadbalancerListener: m,
+		rules:                 LoadbalancerListenerRules{},
 	}
-	return nil
+}
+
+func (set LoadbalancerListeners) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerListeners{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
 
 func (ms LoadbalancerListeners) JoinListenerRules(subEntries LoadbalancerListenerRules) bool {
@@ -239,20 +270,27 @@ func (set LoadbalancerListenerRules) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerListenerRules
 }
 
-func (set LoadbalancerListenerRules) NewModel() models.IVirtualResource {
-	return &models.LoadbalancerListenerRule{}
+func (set LoadbalancerListenerRules) NewModel() db.IModel {
+	return &models.SLoadbalancerListenerRule{}
 }
 
-func (set LoadbalancerListenerRules) addModelCallback(i models.IVirtualResource) error {
-	m, _ := i.(*models.LoadbalancerListenerRule)
-	if m.ManagerId != "" || m.ExternalId != "" || m.ListenerId == "" {
+func (set LoadbalancerListenerRules) AddModel(i db.IModel) {
+	m, _ := i.(*models.SLoadbalancerListenerRule)
+	if m.ExternalId != "" || m.ListenerId == "" {
 		log.Errorf("unexpected lblistenerrule: %#v", m)
-		return nil
+		return
 	}
 	set[m.Id] = &LoadbalancerListenerRule{
-		LoadbalancerListenerRule: m,
+		SLoadbalancerListenerRule: m,
 	}
-	return nil
+}
+
+func (set LoadbalancerListenerRules) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerListenerRules{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
 
 type OrderedLoadbalancerListenerRuleList []*LoadbalancerListenerRule
@@ -296,21 +334,27 @@ func (set LoadbalancerBackendGroups) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerBackendGroups
 }
 
-func (set LoadbalancerBackendGroups) NewModel() models.IVirtualResource {
-	return &models.LoadbalancerBackendGroup{}
+func (set LoadbalancerBackendGroups) NewModel() db.IModel {
+	return &models.SLoadbalancerBackendGroup{}
 }
 
-func (set LoadbalancerBackendGroups) addModelCallback(i models.IVirtualResource) error {
-	m, _ := i.(*models.LoadbalancerBackendGroup)
-	if m.ManagerId != "" || m.ExternalId != "" || m.LoadbalancerId == "" {
+func (set LoadbalancerBackendGroups) AddModel(i db.IModel) {
+	m, _ := i.(*models.SLoadbalancerBackendGroup)
+	if m.ExternalId != "" || m.LoadbalancerId == "" {
 		log.Errorf("unexpected lbbg: %#v", m)
-		return nil
 	}
 	set[m.Id] = &LoadbalancerBackendGroup{
-		LoadbalancerBackendGroup: m,
-		Backends:                 LoadbalancerBackends{},
+		SLoadbalancerBackendGroup: m,
+		Backends:                  LoadbalancerBackends{},
 	}
-	return nil
+}
+
+func (set LoadbalancerBackendGroups) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerBackendGroups{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
 
 func (ms LoadbalancerBackendGroups) JoinBackends(subEntries LoadbalancerBackends) bool {
@@ -331,6 +375,7 @@ func (ms LoadbalancerBackendGroups) JoinBackends(subEntries LoadbalancerBackends
 			continue
 		}
 		m.Backends[subId] = subEntry
+		subEntry.backendGroup = m
 	}
 	return correct
 }
@@ -339,56 +384,77 @@ func (set LoadbalancerBackends) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerBackends
 }
 
-func (set LoadbalancerBackends) NewModel() models.IVirtualResource {
-	return &models.LoadbalancerBackend{}
+func (set LoadbalancerBackends) NewModel() db.IModel {
+	return &models.SLoadbalancerBackend{}
 }
 
-func (set LoadbalancerBackends) addModelCallback(i models.IVirtualResource) error {
-	m, _ := i.(*models.LoadbalancerBackend)
-	if m.ManagerId != "" || m.ExternalId != "" || m.BackendGroupId == "" {
+func (set LoadbalancerBackends) AddModel(i db.IModel) {
+	m, _ := i.(*models.SLoadbalancerBackend)
+	if m.ExternalId != "" || m.BackendGroupId == "" {
 		log.Errorf("unexpected lbb: %#v", m)
-		return nil
+		return
 	}
 	set[m.Id] = &LoadbalancerBackend{
-		LoadbalancerBackend: m,
+		SLoadbalancerBackend: m,
 	}
-	return nil
+}
+
+func (set LoadbalancerBackends) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerBackends{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
 
 func (set LoadbalancerAcls) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerAcls
 }
 
-func (set LoadbalancerAcls) NewModel() models.IVirtualResource {
-	return &models.LoadbalancerAcl{}
+func (set LoadbalancerAcls) NewModel() db.IModel {
+	return &models.SLoadbalancerAcl{}
 }
 
-func (set LoadbalancerAcls) addModelCallback(i models.IVirtualResource) error {
-	m, _ := i.(*models.LoadbalancerAcl)
+func (set LoadbalancerAcls) AddModel(i db.IModel) {
+	m, _ := i.(*models.SLoadbalancerAcl)
 	if m.ManagerId != "" || m.ExternalId != "" {
-		return nil
+		return
 	}
 	set[m.Id] = &LoadbalancerAcl{
-		LoadbalancerAcl: m,
+		SLoadbalancerAcl: m,
 	}
-	return nil
+}
+
+func (set LoadbalancerAcls) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerAcls{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
 
 func (set LoadbalancerCertificates) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerCertificates
 }
 
-func (set LoadbalancerCertificates) NewModel() models.IVirtualResource {
-	return &models.LoadbalancerCertificate{}
+func (set LoadbalancerCertificates) NewModel() db.IModel {
+	return &models.SLoadbalancerCertificate{}
 }
 
-func (set LoadbalancerCertificates) addModelCallback(i models.IVirtualResource) error {
-	m, _ := i.(*models.LoadbalancerCertificate)
-	if m.ManagerId != "" || m.ExternalId != "" {
-		return nil
+func (set LoadbalancerCertificates) AddModel(i db.IModel) {
+	m, _ := i.(*models.SLoadbalancerCertificate)
+	if m.ExternalId != "" {
+		return
 	}
 	set[m.Id] = &LoadbalancerCertificate{
-		LoadbalancerCertificate: m,
+		SLoadbalancerCertificate: m,
 	}
-	return nil
+}
+
+func (set LoadbalancerCertificates) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerCertificates{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
