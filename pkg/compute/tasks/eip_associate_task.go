@@ -86,6 +86,14 @@ func (self *EipAssociateTask) GetAssociateObj() (db.IStatusStandaloneModel, api.
 		}
 		grp := grpObj.(*models.SGroup)
 		return grp, input, nil
+	case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+		obj, err := models.LoadbalancerManager.FetchById(input.InstanceId)
+		if err != nil {
+			return nil, input, errors.Wrapf(err, "LoadbalancerManager.FetchById(%s)", input.InstanceId)
+		}
+		m := obj.(*models.SLoadbalancer)
+		input.InstanceExternalId = m.ExternalId
+		return m, input, nil
 	default:
 		return nil, input, fmt.Errorf("invalid instance type %s", input.InstanceType)
 	}
@@ -134,6 +142,10 @@ func (self *EipAssociateTask) OnAssociateEipComplete(ctx context.Context, obj db
 			grp := ins.(*models.SGroup)
 			grp.SetStatus(self.UserCred, "init", "success")
 			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_NATGATEWAY_ASSOCIATE, ins, self.UserCred, true)
+		case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+			lb := ins.(*models.SLoadbalancer)
+			lb.StartSyncstatus(ctx, self.UserCred, "")
+			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_LOADBALANCER_ASSOCIATE, ins, self.UserCred, true)
 		}
 		logclient.AddActionLogWithStartable(self, ins, logclient.ACT_EIP_ASSOCIATE, nil, self.UserCred, true)
 	}
