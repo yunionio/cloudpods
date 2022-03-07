@@ -143,6 +143,14 @@ func (manager *SInstanceSnapshotManager) ListItemFilter(
 		q = q.In("os_type", query.OsType)
 	}
 
+	if query.WithMemory != nil {
+		if *query.WithMemory {
+			q = q.IsTrue("with_memory")
+		} else {
+			q = q.IsFalse("with_memory")
+		}
+	}
+
 	return q, nil
 }
 
