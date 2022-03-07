@@ -2326,6 +2326,19 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 		return nil, syncResult
 	}
 
+	skipFunc := func(ext cloudprovider.ICloudVM) (bool, string) {
+		if len(options.Options.SkipServerBySysTagKeys) == 0 {
+			return false, ""
+		}
+		keys := strings.Split(options.Options.SkipServerBySysTagKeys, ",")
+		for key := range ext.GetSysTags() {
+			if utils.IsInStringArray(key, keys) {
+				return true, key
+			}
+		}
+		return false, ""
+	}
+
 	for i := 0; i < len(removed); i += 1 {
 		err := removed[i].syncRemoveCloudVM(ctx, userCred)
 		if err != nil {
@@ -2336,21 +2349,37 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
+		skip, key := skipFunc(commonext[i])
+		if skip {
+			log.Infof("skip server %s(%s) sync for delete with system tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
+			err := commondb[i].syncRemoveCloudVM(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+				continue
+			}
+			syncResult.Delete()
+			continue
+		}
 		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId, true)
 		if err != nil {
 			syncResult.UpdateError(err)
-		} else {
-			syncVMPair := SGuestSyncResult{
-				Local:  &commondb[i],
-				Remote: commonext[i],
-				IsNew:  false,
-			}
-			syncVMPairs = append(syncVMPairs, syncVMPair)
-			syncResult.Update()
+			continue
 		}
+		syncVMPair := SGuestSyncResult{
+			Local:  &commondb[i],
+			Remote: commonext[i],
+			IsNew:  false,
+		}
+		syncVMPairs = append(syncVMPairs, syncVMPair)
+		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i += 1 {
+		skip, key := skipFunc(added[i])
+		if skip {
+			log.Infof("skip server %s(%s) sync with system tag key: %s", added[i].GetName(), added[i].GetGlobalId(), key)
+			continue
+		}
 		vm, err := db.FetchByExternalIdAndManagerId(GuestManager, added[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			sq := HostManager.Query().SubQuery()
 			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), self.ManagerId))
