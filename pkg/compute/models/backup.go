@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"reflect"
 	"time"
 
@@ -221,9 +222,22 @@ func (dm *SDiskBackupManager) ValidateCreateData(ctx context.Context, userCred m
 	if disk.Status != api.DISK_READY {
 		return input, httperrors.NewInvalidStatusError("disk %s status is not %s", disk.Name, api.DISK_READY)
 	}
-	_, err = validators.ValidateModel(userCred, BackupStorageManager, &input.BackupStorageId)
+	ibs, err := BackupStorageManager.FetchByIdOrName(userCred, input.BackupStorageId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return input, httperrors.NewResourceNotFoundError2(BackupStorageManager.Keyword(), input.BackupStorageId)
+		}
+		if errors.Cause(err) == sqlchemy.ErrDuplicateEntry {
+			return input, httperrors.NewDuplicateResourceError(BackupStorageManager.Keyword(), input.BackupStorageId)
+		}
+		return input, httperrors.NewGeneralError(err)
+	}
 	if err != nil {
 		return input, err
+	}
+	bs := ibs.(*SBackupStorage)
+	if bs.Status != api.BACKUPSTORAGE_STATUS_ONLINE {
+		return input, httperrors.NewForbiddenError("can't backup guest to backup storage with status %s", bs.Status)
 	}
 	storage, err := disk.GetStorage()
 	if err != nil {
