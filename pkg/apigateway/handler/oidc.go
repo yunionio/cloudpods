@@ -100,6 +100,7 @@ func handleOIDCAuth(ctx context.Context, w http.ResponseWriter, req *http.Reques
 	qs.Set("code", jsonutils.NewString(code))
 	qs.Set("state", jsonutils.NewString(auth.State))
 	redirUrl := addQuery(auth.RedirectUri, qs)
+	appsrv.DisableClientCache(w)
 	appsrv.SendRedirect(w, redirUrl)
 }
 
