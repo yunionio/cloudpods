@@ -17,14 +17,17 @@ package models
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -123,6 +126,11 @@ func (bs *SBackupStorage) ValidateDeleteCondition(ctx context.Context, info json
 
 func (bs *SBackupStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	bs.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	err := StartResourceSyncStatusTask(ctx, userCred, bs, "BackupStorageSyncstatusTask", "")
+	if err != nil {
+		log.Errorf("unable to sync backup storage status")
+	}
+	bs.SetStatus(userCred, api.BACKUPSTORAGE_STATUS_OFFLINE, "")
 }
 
 func (bs *SBackupStorage) getMoreDetails(ctx context.Context, out api.BackupStorageDetails) api.BackupStorageDetails {
@@ -142,6 +150,10 @@ func (bm *SBackupStorageManager) FetchCustomizeColumns(ctx context.Context, user
 	return rows
 }
 
+func (self *SBackupStorage) GetRegionDriver() IRegionDriver {
+	return GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD)
+}
+
 func (bm *SBackupStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.BackupStorageListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = bm.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledStatusInfrasResourceBaseListInput)
@@ -149,4 +161,17 @@ func (bm *SBackupStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		return nil, err
 	}
 	return q, nil
+}
+
+func (self *SBackupStorage) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskBackupSyncstatusInput) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("Backup has %d task active, can't sync status", count)
+	}
+
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "BackupStorageSyncstatusTask", "")
 }

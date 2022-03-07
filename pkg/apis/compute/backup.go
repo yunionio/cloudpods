@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	BACKUPSTORAGE_TYPE_NFS      = "nfs"
-	BACKUPSTORAGE_STATUS_ONLINE = "online"
+	BACKUPSTORAGE_TYPE_NFS       = "nfs"
+	BACKUPSTORAGE_STATUS_ONLINE  = "online"
+	BACKUPSTORAGE_STATUS_OFFLINE = "offline"
 
 	BACKUP_STATUS_CREATING                = "creating"
 	BACKUP_STATUS_CREATE_FAILED           = "create_failed"
@@ -144,4 +145,7 @@ type InstanceBackupPackMetadata struct {
 	InstanceType   string
 	SizeMb         int
 	DiskMetadatas  []DiskBackupPackMetadata
+}
+
+type InstanceBackupManagerSyncstatusInput struct {
 }

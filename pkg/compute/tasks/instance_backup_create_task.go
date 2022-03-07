@@ -36,12 +36,12 @@ func init() {
 	taskman.RegisterTask(InstanceBackupCreateTask{})
 }
 
-func (self *InstanceBackupCreateTask) taskFailed(ctx context.Context, ib *models.SInstanceBackup, guest *models.SGuest, reason jsonutils.JSONObject) {
+func (self *InstanceBackupCreateTask) taskFailed(ctx context.Context, ib *models.SInstanceBackup, guest *models.SGuest, reason jsonutils.JSONObject, status string) {
 	if guest != nil {
 		guest.SetStatus(self.UserCred, compute.VM_INSTANCE_BACKUP_FAILED, reason.String())
 	}
 	reasonStr, _ := reason.GetString()
-	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_CREATE_FAILED, reasonStr)
+	ib.SetStatus(self.UserCred, status, reasonStr)
 	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_CREATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
@@ -57,8 +57,9 @@ func (self *InstanceBackupCreateTask) OnInit(ctx context.Context, obj db.IStanda
 	self.SetStage("OnInstanceBackup", nil)
 	guest := models.GuestManager.FetchGuestById(ib.GuestId)
 	params := jsonutils.NewDict()
+	ib.SetStatus(self.GetUserCred(), compute.INSTANCE_BACKUP_STATUS_SNAPSHOT, "")
 	if err := ib.GetRegionDriver().RequestCreateInstanceBackup(ctx, guest, ib, self, params); err != nil {
-		self.taskFailed(ctx, ib, guest, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, ib, guest, jsonutils.NewString(err.Error()), compute.INSTANCE_BACKUP_STATUS_SNAPSHOT_FAILED)
 	}
 }
 
@@ -70,33 +71,34 @@ func (self *InstanceBackupCreateTask) OnKvmDisksSnapshot(ctx context.Context, ib
 		log.Infof("subsTask %s result: %s", subTasks[i].SubtaskId, subTasks[i].Result)
 		result, err := jsonutils.ParseString(subTasks[i].Result)
 		if err != nil {
-			self.taskFailed(ctx, ib, guest, jsonutils.NewString(fmt.Sprintf("unable to parse %s", subTasks[i].Result)))
+			self.taskFailed(ctx, ib, guest, jsonutils.NewString(fmt.Sprintf("unable to parse %s", subTasks[i].Result)), compute.INSTANCE_BACKUP_STATUS_SNAPSHOT_FAILED)
 			return
 		}
 		if subTasks[i].Status == taskman.SUBTASK_FAIL {
-			self.taskFailed(ctx, ib, guest, result)
+			self.taskFailed(ctx, ib, guest, result, compute.INSTANCE_BACKUP_STATUS_SNAPSHOT_FAILED)
 			return
 		}
 		snapshotId, _ := result.GetString("snapshot_id")
 		diskBakcupId, _ := result.GetString("disk_backup_id")
 		ibackup, err := models.DiskBackupManager.FetchById(diskBakcupId)
 		if err != nil {
-			self.taskFailed(ctx, ib, guest, jsonutils.NewString(err.Error()))
+			self.taskFailed(ctx, ib, guest, jsonutils.NewString(err.Error()), compute.INSTANCE_BACKUP_STATUS_SNAPSHOT_FAILED)
 			return
 		}
 		backup := ibackup.(*models.SDiskBackup)
 		params := jsonutils.NewDict()
 		params.Set("snapshot_id", jsonutils.NewString(snapshotId))
 		if err := backup.StartBackupCreateTask(ctx, self.UserCred, params, self.Id); err != nil {
-			self.taskFailed(ctx, ib, guest, jsonutils.NewString(err.Error()))
+			self.taskFailed(ctx, ib, guest, jsonutils.NewString(err.Error()), compute.INSTANCE_BACKUP_STATUS_SAVE_FAILED)
 			return
 		}
 	}
+	ib.SetStatus(self.GetUserCred(), compute.INSTANCE_BACKUP_STATUS_SAVING, "")
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 }
 
 func (self *InstanceBackupCreateTask) OnKvmDisksSnapshotFailed(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, ib, nil, data)
+	self.taskFailed(ctx, ib, nil, data, compute.INSTANCE_BACKUP_STATUS_SNAPSHOT_FAILED)
 }
 
 func (self *InstanceBackupCreateTask) OnInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
@@ -107,15 +109,15 @@ func (self *InstanceBackupCreateTask) OnInstanceBackup(ctx context.Context, ib *
 		}
 		result, err := jsonutils.ParseString(subTasks[i].Result)
 		if err != nil {
-			self.taskFailed(ctx, ib, nil, jsonutils.NewString(fmt.Sprintf("unable to parse %s", subTasks[i].Result)))
+			self.taskFailed(ctx, ib, nil, jsonutils.NewString(fmt.Sprintf("unable to parse %s", subTasks[i].Result)), compute.INSTANCE_BACKUP_STATUS_SAVE_FAILED)
 			return
 		}
-		self.taskFailed(ctx, ib, nil, result)
+		self.taskFailed(ctx, ib, nil, result, compute.INSTANCE_BACKUP_STATUS_SAVE_FAILED)
 	}
 	// update size_mb
 	backups, err := ib.GetBackups()
 	if err != nil {
-		self.taskFailed(ctx, ib, nil, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, ib, nil, jsonutils.NewString(err.Error()), compute.INSTANCE_BACKUP_STATUS_SAVE_FAILED)
 		return
 	}
 	var sizeMb int
@@ -130,5 +132,5 @@ func (self *InstanceBackupCreateTask) OnInstanceBackup(ctx context.Context, ib *
 }
 
 func (self *InstanceBackupCreateTask) OnInstanceBackupFailed(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, ib, nil, data)
+	self.taskFailed(ctx, ib, nil, data, compute.INSTANCE_BACKUP_STATUS_SAVE_FAILED)
 }
