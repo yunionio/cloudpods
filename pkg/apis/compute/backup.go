@@ -44,6 +44,10 @@ const (
 	BACKUP_NOT_EXIST = "not_exist"
 )
 
+const (
+	BackupStorageOffline = "backup storage offline"
+)
+
 type BackupStorageCreateInput struct {
 	apis.EnabledStatusInfrasResourceBaseCreateInput
 
