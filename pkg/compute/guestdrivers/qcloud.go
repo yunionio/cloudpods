@@ -129,12 +129,12 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	}
 
 	sysDisk := input.Disks[0]
+	if sysDisk.SizeMb < 50*1024 {
+		return nil, fmt.Errorf("The system disk size must be more than 50GB")
+	}
+
 	switch sysDisk.Backend {
-	case api.STORAGE_CLOUD_BASIC, api.STORAGE_CLOUD_SSD:
-		if sysDisk.SizeMb > 500*1024 {
-			return nil, fmt.Errorf("The %s system disk size must be less than 500GB", sysDisk.Backend)
-		}
-	case api.STORAGE_CLOUD_PREMIUM:
+	case api.STORAGE_CLOUD_BASIC, api.STORAGE_CLOUD_SSD, api.STORAGE_CLOUD_PREMIUM:
 		if sysDisk.SizeMb > 1024*1024 {
 			return nil, fmt.Errorf("The %s system disk size must be less than 1024GB", sysDisk.Backend)
 		}
@@ -150,14 +150,10 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 16000GB", disk.Backend)
 			}
 		case api.STORAGE_CLOUD_PREMIUM:
-			if disk.SizeMb < 50*1024 || disk.SizeMb > 16000*1024 {
-				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 50GB ~ 16000GB", disk.Backend)
+			if disk.SizeMb < 10*1024 || disk.SizeMb > 32000*1024 {
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 32000GB", disk.Backend)
 			}
-		case api.STORAGE_CLOUD_SSD:
-			if disk.SizeMb < 100*1024 || disk.SizeMb > 16000*1024 {
-				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", disk.Backend)
-			}
-		case api.STORAGE_CLOUD_HSSD:
+		case api.STORAGE_CLOUD_SSD, api.STORAGE_CLOUD_HSSD:
 			if disk.SizeMb < 20*1024 || disk.SizeMb > 32000*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32000GB", disk.Backend)
 			}
@@ -194,14 +190,10 @@ func (self *SQcloudGuestDriver) ValidateChangeConfig(ctx context.Context, userCr
 				return httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 16000GB", newDisk.Backend)
 			}
 		case api.STORAGE_CLOUD_PREMIUM:
-			if newDisk.SizeMb < 50*1024 || newDisk.SizeMb > 16000*1024 {
-				return httperrors.NewInputParameterError("The %s disk size must be in the range of 50GB ~ 16000GB", newDisk.Backend)
+			if newDisk.SizeMb < 10*1024 || newDisk.SizeMb > 32000*1024 {
+				return httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 32000GB", newDisk.Backend)
 			}
-		case api.STORAGE_CLOUD_SSD:
-			if newDisk.SizeMb < 100*1024 || newDisk.SizeMb > 16000*1024 {
-				return httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", newDisk.Backend)
-			}
-		case api.STORAGE_CLOUD_HSSD:
+		case api.STORAGE_CLOUD_SSD, api.STORAGE_CLOUD_HSSD:
 			if newDisk.SizeMb < 20*1024 || newDisk.SizeMb > 32000*1024 {
 				return httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32000GB", newDisk.Backend)
 			}
