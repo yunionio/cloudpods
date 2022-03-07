@@ -1056,7 +1056,8 @@ func (self *SKVMRegionDriver) RequestDeleteInstanceBackup(ctx context.Context, i
 	params := jsonutils.NewDict()
 	params.Set("del_backup_id", jsonutils.NewString(backups[0].Id))
 	task.SetStage("OnKvmDiskBackupDelete", params)
-	err = backups[0].StartBackupDeleteTask(ctx, task.GetUserCred(), task.GetTaskId())
+	forceDelete := jsonutils.QueryBoolean(task.GetParams(), "force_delete", false)
+	err = backups[0].StartBackupDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), forceDelete)
 	if err != nil {
 		return err
 	}

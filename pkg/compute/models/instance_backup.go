@@ -376,14 +376,17 @@ func (self *SInstanceBackup) ValidateDeleteCondition(ctx context.Context, info j
 func (self *SInstanceBackup) CustomizeDelete(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-
-	return self.StartInstanceBackupDeleteTask(ctx, userCred, "")
+	forceDelete := jsonutils.QueryBoolean(query, "force", false)
+	return self.StartInstanceBackupDeleteTask(ctx, userCred, "", forceDelete)
 }
 
 func (self *SInstanceBackup) StartInstanceBackupDeleteTask(
-	ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-
-	task, err := taskman.TaskManager.NewTask(ctx, "InstanceBackupDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+	ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, forceDelete bool) error {
+	params := jsonutils.NewDict()
+	if forceDelete {
+		params.Set("force_delete", jsonutils.JSONTrue)
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "InstanceBackupDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorf("%s", err)
 		return err

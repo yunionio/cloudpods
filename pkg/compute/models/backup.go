@@ -370,13 +370,18 @@ func (self *SDiskBackup) RealDelete(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SDiskBackup) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return self.StartBackupDeleteTask(ctx, userCred, "")
+	forceDelete := jsonutils.QueryBoolean(query, "force", false)
+	return self.StartBackupDeleteTask(ctx, userCred, "", forceDelete)
 }
 
-func (self *SDiskBackup) StartBackupDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+func (self *SDiskBackup) StartBackupDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, forceDelete bool) error {
 	self.SetStatus(userCred, api.BACKUP_STATUS_DELETING, "")
 	log.Infof("start to delete diskbackup %s and set deleting", self.GetId())
-	task, err := taskman.TaskManager.NewTask(ctx, "DiskBackupDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+	params := jsonutils.NewDict()
+	if forceDelete {
+		params.Set("force_delete", jsonutils.JSONTrue)
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskBackupDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	} else {
