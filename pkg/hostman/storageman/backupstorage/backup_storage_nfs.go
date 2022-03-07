@@ -37,6 +37,8 @@ import (
 
 const BackupStoragePath = "/opt/cloud/workspace/backupstorage"
 
+var ErrorBackupStorageOffline error = errors.Error("backup storage offline")
+
 type SNFSBackupStorage struct {
 	BackupStorageId string
 	Path            string
@@ -83,7 +85,7 @@ func (s *SNFSBackupStorage) checkAndMount() error {
 	err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx,
 		"mount", "-t", "nfs", fmt.Sprintf("%s:%s", s.NfsHost, s.NfsSharedDir), s.Path).Run()
 	if err != nil {
-		return err
+		return ErrorBackupStorageOffline
 	}
 	backupDir := s.getBackupDir()
 	if !fileutils2.Exists(backupDir) {
@@ -462,4 +464,16 @@ func (s *SNFSBackupStorage) IsExists(backupId string) (bool, error) {
 	backupDir := s.getBackupDir()
 	filename := path.Join(backupDir, backupId)
 	return fileutils2.Exists(filename), nil
+}
+
+func (s *SNFSBackupStorage) IsOnline() (bool, error) {
+	err := s.checkAndMount()
+	if errors.Cause(err) == ErrorBackupStorageOffline {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	s.unMount()
+	return true, nil
 }

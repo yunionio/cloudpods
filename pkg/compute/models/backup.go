@@ -432,7 +432,7 @@ func (self *SDiskBackup) PerformSyncstatus(ctx context.Context, userCred mcclien
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Snapshot has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Backup has %d task active, can't sync status", count)
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DiskBackupSyncstatusTask", "")

@@ -37,7 +37,7 @@ func init() {
 func (self *InstanceBackupDeleteTask) taskFailed(ctx context.Context, ib *models.SInstanceBackup, reason jsonutils.JSONObject) {
 	reasonStr, _ := reason.GetString()
 	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_DELETE_FAILED, reasonStr)
-	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_CREATE, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, ib, logclient.ACT_DELETE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -79,14 +79,13 @@ func (self *InstanceBackupDeleteTask) OnKvmDiskBackupDelete(
 	}
 }
 
-func (self *InstanceBackupDeleteTask) OnKvmBackupDeleteFailed(
+func (self *InstanceBackupDeleteTask) OnKvmDiskBackupDeleteFailed(
 	ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
 	self.taskFailed(ctx, ib, data)
 }
 
 func (self *InstanceBackupDeleteTask) OnInstanceBackupDelete(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
 	self.taskSuccess(ctx, ib, data)
-
 }
 
 func (self *InstanceBackupDeleteTask) OnInstanceBackupDeleteFailed(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {

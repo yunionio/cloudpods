@@ -1297,23 +1297,30 @@ func (manager *SGuestManager) validateCreateData(
 			input.OsArch = apis.OS_ARCH_AARCH64
 		}
 
-		imgSupportUEFI := imgProperties[imageapi.IMAGE_UEFI_SUPPORT] == "true"
+		var imgSupportUEFI *bool
+		if desc, ok := imgProperties[imageapi.IMAGE_UEFI_SUPPORT]; ok {
+			support := desc == "true"
+			imgSupportUEFI = &support
+		}
 		// imgIsWindows := imgProperties[imageapi.IMAGE_OS_TYPE] == "Windows"
 		// if imgSupportUEFI && imgIsWindows && len(input.IsolatedDevices) > 0 {
 		// 	input.Bios = "UEFI" // windows gpu passthrough
 		// }
 		if input.OsArch == apis.OS_ARCH_AARCH64 {
 			// arm image supports UEFI by default
-			imgSupportUEFI = true
+			support := true
+			imgSupportUEFI = &support
 		}
 
-		if imgSupportUEFI {
+		switch {
+		case imgSupportUEFI == nil:
+		case *imgSupportUEFI:
 			if len(input.Bios) == 0 {
 				input.Bios = "UEFI"
 			} else if input.Bios != "UEFI" {
 				return nil, httperrors.NewInputParameterError("UEFI image requires UEFI boot mode")
 			}
-		} else {
+		default:
 			// not UEFI or not detectable
 			if input.Bios == "UEFI" {
 				return nil, httperrors.NewInputParameterError("UEFI boot mode requires UEFI image")

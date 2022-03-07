@@ -29,6 +29,7 @@ func init() {
 	bsCmd.Delete(&compute.BackupStorageIdOptions{})
 	bsCmd.Perform("public", &options.BasePublicOptions{})
 	bsCmd.Perform("private", &options.BaseIdOptions{})
+	bsCmd.Perform("syncstatus", &compute.DiskBackupSyncstatusOptions{})
 
 	dbCmd := shell.NewResourceCmd(&modules.DiskBackups)
 	dbCmd.List(&compute.DiskBackupListOptions{})
@@ -45,4 +46,5 @@ func init() {
 	ibCmd.Perform("recovery", &compute.InstanceBackupRecoveryOptions{})
 	ibCmd.Perform("pack", &compute.InstanceBackupPackOptions{})
 	ibCmd.PerformClass("create-from-package", &compute.InstanceBackupManagerCreateFromPackageOptions{})
+	ibCmd.Perform("syncstatus", &compute.DiskBackupSyncstatusOptions{})
 }

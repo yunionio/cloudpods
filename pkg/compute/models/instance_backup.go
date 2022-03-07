@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -520,6 +521,19 @@ func (manager *SInstanceBackupManager) CreateInstanceBackupFromPackage(ctx conte
 		return nil, errors.Wrap(err, "unable to insert instance backup")
 	}
 	return ib, nil
+}
+
+func (ib *SInstanceBackup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InstanceBackupManagerSyncstatusInput) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(ib, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("InstanceBackup has %d task active, can't sync status", count)
+	}
+
+	return nil, StartResourceSyncStatusTask(ctx, userCred, ib, "InstanceBackupSyncstatusTask", "")
 }
 
 func (ib *SInstanceBackup) FillFromPackMetadata(ctx context.Context, userCred mcclient.TokenCredential, diskBackupIds []string, metadata *api.InstanceBackupPackMetadata) (*SInstanceBackup, error) {
