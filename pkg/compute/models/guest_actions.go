@@ -4748,9 +4748,19 @@ func (self *SGuest) PerformInstanceBackup(ctx context.Context, userCred mcclient
 	if backupStorageId == "" {
 		return nil, httperrors.NewMissingParameterError("backup_storage_id")
 	}
-	_, err = BackupStorageManager.FetchById(backupStorageId)
-	if err == sql.ErrNoRows {
-		return nil, httperrors.NewInputParameterError("unkown backup_storage_id %s", backupStorageId)
+	ibs, err := BackupStorageManager.FetchByIdOrName(userCred, backupStorageId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2(BackupStorageManager.Keyword(), backupStorageId)
+		}
+		if errors.Cause(err) == sqlchemy.ErrDuplicateEntry {
+			return nil, httperrors.NewDuplicateResourceError(BackupStorageManager.Keyword(), backupStorageId)
+		}
+		return nil, httperrors.NewGeneralError(err)
+	}
+	bs := ibs.(*SBackupStorage)
+	if bs.Status != api.BACKUPSTORAGE_STATUS_ONLINE {
+		return nil, httperrors.NewForbiddenError("can't backup guest to backup storage with status %s", bs.Status)
 	}
 	instanceBackup, err := InstanceBackupManager.CreateInstanceBackup(ctx, userCred, self, name, backupStorageId)
 	if err != nil {
