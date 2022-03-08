@@ -54,6 +54,7 @@ const (
 	CompactTimeFormat     = "20060102150405"
 	DateFormat            = "2006-01-02"
 	ShortDateFormat       = "20060102"
+	DateExcelFormat       = "01-02-06"
 	MonthFormat           = "2006-01"
 	ShortMonthFormat      = "200601"
 	ZStackTimeFormat      = "Jan 2, 2006 15:04:05 PM"
@@ -99,6 +100,10 @@ func DateStr(now time.Time) string {
 
 func ShortDate(now time.Time) string {
 	return Utcify(now).Format(ShortDateFormat)
+}
+
+func DateExcelStr(now time.Time) string {
+	return Utcify(now).Format(DateExcelFormat)
 }
 
 func MonthStr(now time.Time) string {
@@ -187,6 +192,10 @@ func ParseShortDate(str string) (time.Time, error) {
 	return time.Parse(ShortDateFormat, str)
 }
 
+func ParseDateExcel(str string) (time.Time, error) {
+	return time.Parse(DateExcelFormat, str)
+}
+
 func ParseZStackDate(str string) (time.Time, error) {
 	return time.ParseInLocation(ZStackTimeFormat, str, time.Local)
 }
@@ -219,6 +228,8 @@ func ParseTimeStr(str string) (time.Time, error) {
 		return ParseDate(str)
 	} else if regutils.MatchDateCompact(str) {
 		return ParseShortDate(str)
+	} else if regutils.MatchDateExcel(str) {
+		return ParseDateExcel(str)
 	} else if regutils.MatchZStackTime(str) {
 		return ParseZStackDate(str)
 	} else {

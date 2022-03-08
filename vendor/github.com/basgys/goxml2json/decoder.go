@@ -19,6 +19,8 @@ type Decoder struct {
 	err             error
 	attributePrefix string
 	contentPrefix   string
+	excludeAttrs    map[string]bool
+	formatters      []nodeFormatter
 }
 
 type element struct {
@@ -35,6 +37,16 @@ func (dec *Decoder) SetContentPrefix(prefix string) {
 	dec.contentPrefix = prefix
 }
 
+func (dec *Decoder) AddFormatters(formatters []nodeFormatter) {
+	dec.formatters = formatters
+}
+
+func (dec *Decoder) ExcludeAttributes(attrs []string) {
+	for _, attr := range attrs {
+		dec.excludeAttrs[attr] = true
+	}
+}
+
 func (dec *Decoder) DecodeWithCustomPrefixes(root *Node, contentPrefix string, attributePrefix string) error {
 	dec.contentPrefix = contentPrefix
 	dec.attributePrefix = attributePrefix
@@ -42,21 +54,17 @@ func (dec *Decoder) DecodeWithCustomPrefixes(root *Node, contentPrefix string, a
 }
 
 // NewDecoder returns a new decoder that reads from r.
-func NewDecoder(r io.Reader) *Decoder {
-	return &Decoder{r: r}
+func NewDecoder(r io.Reader, plugins ...plugin) *Decoder {
+	d := &Decoder{r: r, contentPrefix: contentPrefix, attributePrefix: attrPrefix, excludeAttrs: map[string]bool{}}
+	for _, p := range plugins {
+		d = p.AddToDecoder(d)
+	}
+	return d
 }
 
 // Decode reads the next JSON-encoded value from its
 // input and stores it in the value pointed to by v.
 func (dec *Decoder) Decode(root *Node) error {
-
-	if dec.contentPrefix == "" {
-		dec.contentPrefix = contentPrefix
-	}
-	if dec.attributePrefix == "" {
-		dec.attributePrefix = attrPrefix
-	}
-
 	xmlDec := xml.NewDecoder(dec.r)
 
 	// That will convert the charset if the provided XML is non-UTF-8
@@ -85,6 +93,9 @@ func (dec *Decoder) Decode(root *Node) error {
 
 			// Extract attributes as children
 			for _, a := range se.Attr {
+				if _, ok := dec.excludeAttrs[a.Name.Local]; ok {
+					continue
+				}
 				elem.n.AddChild(dec.attributePrefix+a.Name.Local, &Node{Data: a.Value})
 			}
 		case xml.CharData:
@@ -99,6 +110,10 @@ func (dec *Decoder) Decode(root *Node) error {
 			// Then change the current element to its parent
 			elem = elem.parent
 		}
+	}
+
+	for _, formatter := range dec.formatters {
+		formatter.Format(root)
 	}
 
 	return nil

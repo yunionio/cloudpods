@@ -15,11 +15,13 @@
 package bingocloud
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
@@ -136,6 +138,64 @@ func (self *SBingoCloudClient) sign(query string) string {
 	return base64.StdEncoding.EncodeToString(hmac.Sum(nil))
 }
 
+func setItemToArray(obj jsonutils.JSONObject) jsonutils.JSONObject {
+	objDict, ok := obj.(*jsonutils.JSONDict)
+	if ok {
+		for k, v := range objDict.Value() {
+			if v.String() == `""` {
+				objDict.Remove(k)
+				continue
+			}
+			vDict, ok := v.(*jsonutils.JSONDict)
+			if ok {
+				if vDict.Contains("item") {
+					item, _ := vDict.Get("item")
+					_, ok := item.(*jsonutils.JSONArray)
+					if !ok {
+						if k != "instancesSet" {
+							item = setItemToArray(item)
+							objDict.Set(k, jsonutils.NewArray(item))
+						} else {
+							objDict.Set(k, setItemToArray(item))
+						}
+					} else {
+						items, _ := item.GetArray()
+						for i := range items {
+							items[i] = setItemToArray(items[i])
+						}
+						objDict.Set(k, jsonutils.NewArray(items...))
+					}
+					for _, nk := range []string{"nextToken", "NextToken"} {
+						nextToken, _ := vDict.GetString(nk)
+						if len(nextToken) > 0 {
+							objDict.Set(nk, jsonutils.NewString(nextToken))
+						}
+					}
+				} else {
+					objDict.Set(k, setItemToArray(v))
+				}
+			} else if _, ok = v.(*jsonutils.JSONArray); ok {
+				if ok {
+					arr, _ := v.GetArray()
+					for i := range arr {
+						arr[i] = setItemToArray(arr[i])
+					}
+					objDict.Set(k, jsonutils.NewArray(arr...))
+				}
+			}
+		}
+	}
+	_, ok = obj.(*jsonutils.JSONArray)
+	if ok {
+		arr, _ := obj.GetArray()
+		for i := range arr {
+			arr[i] = setItemToArray(arr[i])
+		}
+		return jsonutils.NewArray(arr...)
+	}
+	return objDict
+}
+
 func (self *SBingoCloudClient) invoke(action string, params map[string]string) (jsonutils.JSONObject, error) {
 	var encode = func(k, v string) string {
 		d := url.Values{}
@@ -161,18 +221,25 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 	}
 	defer resp.Body.Close()
 
-	result, err := xj.Convert(resp.Body)
+	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	if self.debug {
-		log.Debugf("response: %s", result.String())
+	result, err := xj.Convert(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
 	}
 
 	obj, err := jsonutils.Parse([]byte(result.String()))
 	if err != nil {
 		return nil, errors.Wrapf(err, "jsonutils.Parse")
+	}
+
+	obj = setItemToArray(obj)
+
+	if self.debug {
+		log.Debugf("response: %s", obj.PrettyString())
 	}
 
 	respKey := action + "Response"
@@ -183,21 +250,42 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 		}
 	}
 
-	// 处理请求单个资源情况
-	if strings.HasPrefix(action, "Describe") && strings.HasSuffix(action, "s") {
-		objDict := obj.(*jsonutils.JSONDict)
-		for k, v := range objDict.Value() {
-			if (strings.HasSuffix(k, "Set") || k == "regionInfo") && v.Contains("item") {
-				value := v.(*jsonutils.JSONDict)
-				item, _ := v.Get("item")
-				_, ok := item.(*jsonutils.JSONArray)
-				if !ok {
-					value.Set("item", jsonutils.NewArray(item))
-					objDict.Set(k, value)
-				}
-			}
+	return obj, nil
+}
+
+func (self *SBingoCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+	subAccount := cloudprovider.SSubAccount{
+		Account: self.accessKey,
+		Name:    self.cpcfg.Name,
+
+		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}
+	return []cloudprovider.SSubAccount{subAccount}, nil
+
+}
+
+func (self *SBingoCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
+	ret := []cloudprovider.ICloudRegion{}
+	for i := range self.regions {
+		self.regions[i].client = self
+		ret = append(ret, &self.regions[i])
+	}
+	return ret
+}
+
+func (self *SBingoCloudClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
+	iregions := self.GetIRegions()
+	for i := range iregions {
+		if iregions[i].GetGlobalId() == id {
+			return iregions[i], nil
 		}
 	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}
 
-	return obj, nil
+func (self *SBingoCloudClient) GetCapabilities() []string {
+	return []string{
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
+	}
 }
