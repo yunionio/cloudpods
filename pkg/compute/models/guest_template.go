@@ -197,6 +197,10 @@ func Brand2Hypervisor(brand string) string {
 }
 
 func (gtm *SGuestTemplateManager) validateContent(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, content *jsonutils.JSONDict) (*computeapis.ServerCreateInput, error) {
+	// hack
+	if !content.Contains("name") && !content.Contains("generate_name") {
+		content.Set("generate_name", jsonutils.NewString("fake_name"))
+	}
 	input, err := GuestManager.validateCreateData(ctx, userCred, ownerId, query, content)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("%v", err)
