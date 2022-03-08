@@ -31,7 +31,7 @@ require (
 	github.com/apache/thrift v0.12.0 // indirect
 	github.com/aws/aws-sdk-go v1.39.0
 	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
-	github.com/basgys/goxml2json v1.1.0
+	github.com/basgys/goxml2json v1.1.1-0.20181031222924-996d9fc8d313
 	github.com/beevik/etree v1.1.0 // indirect
 	github.com/benbjohnson/clock v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
@@ -152,7 +152,7 @@ require (
 	yunion.io/x/jsonutils v0.0.0-20220106020632-953b71a4c3a8
 	yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
-	yunion.io/x/pkg v0.0.0-20211116020154-6a76ba2f7e97
+	yunion.io/x/pkg v0.0.0-20220227083757-28690b33ce38
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20220119131341-fadec84c0638
 	yunion.io/x/structarg v0.0.0-20220224030024-02b7582b2546

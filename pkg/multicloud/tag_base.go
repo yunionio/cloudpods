@@ -429,3 +429,26 @@ func (self *CloudpodsTags) GetSysTags() map[string]string {
 func (self *CloudpodsTags) SetTags(tags map[string]string, replace bool) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
 }
+
+type BingoTags struct {
+	TagSet []struct {
+		Key   string
+		Value string
+	}
+}
+
+func (self *BingoTags) GetTags() (map[string]string, error) {
+	tags := map[string]string{}
+	for _, tag := range self.TagSet {
+		tags[tag.Key] = tag.Value
+	}
+	return tags, nil
+}
+
+func (self *BingoTags) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *BingoTags) SetTags(tags map[string]string, replace bool) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
+}
