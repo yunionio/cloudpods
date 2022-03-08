@@ -37,7 +37,7 @@ import (
 
 const BackupStoragePath = "/opt/cloud/workspace/backupstorage"
 
-var ErrorBackupStorageOffline error = errors.Error("backup storage offline")
+var ErrorBackupStorageOffline error = errors.Error(api.BackupStorageOffline)
 
 type SNFSBackupStorage struct {
 	BackupStorageId string

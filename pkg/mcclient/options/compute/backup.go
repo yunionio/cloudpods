@@ -43,6 +43,15 @@ func (opts *DiskBackupIdOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
 
+type DiskBackupDeleteOptions struct {
+	DiskBackupIdOptions
+	Force bool `help:"force delete"`
+}
+
+func (opts *DiskBackupDeleteOptions) QueryParams() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type DiskBackupCreateOptions struct {
 	options.BaseCreateOptions
 	DISKID          string `help:"disk id" json:"disk_id"`
@@ -121,7 +130,7 @@ func (opts *InstanceBackupListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type InstanceBackupIdOptions struct {
-	ID string `help:"instance backup id"`
+	ID string `help:"instance backup id" json:"-"`
 }
 
 func (opts *InstanceBackupIdOptions) GetId() string {
@@ -130,6 +139,15 @@ func (opts *InstanceBackupIdOptions) GetId() string {
 
 func (opts *InstanceBackupIdOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
+}
+
+type InstanceBackupDeleteOptions struct {
+	InstanceBackupIdOptions
+	Force bool `help:"force delete"`
+}
+
+func (opts *InstanceBackupDeleteOptions) QueryParams() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type InstanceBackupRecoveryOptions struct {

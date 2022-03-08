@@ -16,8 +16,10 @@ package tasks
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -64,5 +66,15 @@ func (self *DiskBackupDeleteTask) OnDelete(ctx context.Context, backup *models.S
 }
 
 func (self *DiskBackupDeleteTask) OnDeleteFailed(ctx context.Context, backup *models.SDiskBackup, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, backup, data)
+	log.Infof("params: %s", self.Params)
+	log.Infof("OnDeleteFailed data: %s", data)
+	if forceDelete := jsonutils.QueryBoolean(self.Params, "force_delete", false); !forceDelete {
+		self.taskFailed(ctx, backup, data)
+	}
+	reason, _ := data.GetString("__reason__")
+	if !strings.Contains(reason, api.BackupStorageOffline) {
+		self.taskFailed(ctx, backup, data)
+	}
+	log.Infof("delete backup %s failed, force delete", backup.GetId())
+	self.taskSuccess(ctx, backup, nil)
 }
