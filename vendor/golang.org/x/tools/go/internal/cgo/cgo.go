@@ -60,10 +60,11 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	exec "golang.org/x/sys/execabs"
 )
 
 // ProcessFiles invokes the cgo preprocessor on bp.CgoFiles, parses
@@ -159,14 +160,13 @@ func Run(bp *build.Package, pkgdir, tmpdir string, useabs bool) (files, displayF
 	}
 
 	args := stringList(
-		"go", "tool", "cgo", "-objdir", tmpdir, cgoflags, "--",
+		"go", "tool", "cgo", "-srcdir", pkgdir, "-objdir", tmpdir, cgoflags, "--",
 		cgoCPPFLAGS, cgoexeCFLAGS, cgoFiles,
 	)
 	if false {
-		log.Printf("Running cgo for package %q: %s (dir=%s)", bp.ImportPath, args, pkgdir)
+		log.Printf("Running cgo for package %q: %s", bp.ImportPath, args)
 	}
 	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Dir = pkgdir
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
