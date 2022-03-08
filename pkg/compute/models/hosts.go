@@ -2752,32 +2752,6 @@ func (manager *SHostManager) TotalCount(
 	)
 }
 
-/*
-func (self *SHost) GetIZone() (cloudprovider.ICloudZone, error) {
-	provider, err := self.GetCloudProvider()
-	if err != nil {
-		return nil, fmt.Errorf("No cloudprovider for host: %s", err)
-	}
-	zone, _ := self.GetZone()
-	if zone == nil {
-		return nil, fmt.Errorf("no zone for host???")
-	}
-	region, _ := zone.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("No region for zone???")
-	}
-	iregion, err := provider.GetIRegionById(region.ExternalId)
-	if err != nil {
-		return nil, fmt.Errorf("fail to find iregion by id %s", err)
-	}
-	izone, err := iregion.GetIZoneById(zone.ExternalId)
-	if err != nil {
-		return nil, fmt.Errorf("fail to find izone by id %s", err)
-	}
-	return izone, nil
-}
-*/
-
 func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
 	host, _, err := self.GetIHostAndProvider()
 	return host, err
@@ -2911,14 +2885,6 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, show
 		out.CpuCommit = usage.GuestVcpuCount
 		out.MemCommit = usage.GuestVmemSize
 	}
-	containerCount, _ := self.GetContainerCount(nil)
-	runningContainerCount, _ := self.GetContainerCount(api.VM_RUNNING_STATUS)
-	guestCount, _ := self.GetGuestCount()
-	nonesysGuestCnt, _ := self.GetNonsystemGuestCount()
-	runningGuestCnt, _ := self.GetRunningGuestCount()
-	out.Guests = guestCount - containerCount
-	out.NonsystemGuests = nonesysGuestCnt - containerCount
-	out.RunningGuests = runningGuestCnt - runningContainerCount
 	totalCpu := self.GetCpuCount()
 	cpuCommitRate := 0.0
 	if totalCpu > 0 && usage.GuestVcpuCount > 0 {
@@ -2977,6 +2943,51 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, show
 	return out
 }
 
+type sGuestCnt struct {
+	GuestCnt               int
+	RunningGuestCnt        int
+	ReadyGuestCnt          int
+	OtherGuestCnt          int
+	PendingDeletedGuestCnt int
+	NonsystemGuestCnt      int
+}
+
+func (manager *SHostManager) FetchGuestCnt(hostIds []string) map[string]*sGuestCnt {
+	ret := map[string]*sGuestCnt{}
+	if len(hostIds) == 0 {
+		return ret
+	}
+	guests := []SGuest{}
+	err := GuestManager.RawQuery().In("host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_CONTAINER).All(&guests)
+	if err != nil {
+		log.Errorf("query host %s guests error: %v", hostIds, err)
+	}
+	for _, guest := range guests {
+		_, ok := ret[guest.HostId]
+		if !ok {
+			ret[guest.HostId] = &sGuestCnt{}
+		}
+		if guest.PendingDeleted {
+			ret[guest.HostId].PendingDeletedGuestCnt += 1
+			continue
+		}
+		ret[guest.HostId].GuestCnt += 1
+		switch guest.Status {
+		case api.VM_RUNNING:
+			ret[guest.HostId].RunningGuestCnt += 1
+		case api.VM_READY:
+			ret[guest.HostId].ReadyGuestCnt += 1
+		default:
+			ret[guest.HostId].OtherGuestCnt += 1
+		}
+		if !guest.IsSystem {
+			ret[guest.HostId].NonsystemGuestCnt += 1
+		}
+	}
+
+	return ret
+}
+
 func (self *SHost) GetReservedResourceForIsolatedDevice() (int, *api.IsolatedDeviceReservedResourceInput) {
 	if devs := IsolatedDeviceManager.FindByHost(self.Id); len(devs) == 0 {
 		return -1, nil
@@ -3020,13 +3031,28 @@ func (manager *SHostManager) FetchCustomizeColumns(
 	if query.Contains("show_fail_reason") {
 		showReason = true
 	}
+	hostIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.HostDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ManagedResourceInfo:                    managerRows[i],
 			ZoneResourceInfo:                       zoneRows[i],
 		}
-		rows[i] = objs[i].(*SHost).getMoreDetails(ctx, rows[i], showReason)
+		host := objs[i].(*SHost)
+		hostIds[i] = host.Id
+		rows[i] = host.getMoreDetails(ctx, rows[i], showReason)
+	}
+	guestCnts := manager.FetchGuestCnt(hostIds)
+	for i := range rows {
+		cnt, ok := guestCnts[hostIds[i]]
+		if ok {
+			rows[i].Guests = cnt.GuestCnt
+			rows[i].RunningGuests = cnt.RunningGuestCnt
+			rows[i].ReadyGuests = cnt.ReadyGuestCnt
+			rows[i].OtherGuests = cnt.OtherGuestCnt
+			rows[i].NonsystemGuests = cnt.NonsystemGuestCnt
+			rows[i].PendingDeletedGuests = cnt.PendingDeletedGuestCnt
+		}
 	}
 	return rows
 }

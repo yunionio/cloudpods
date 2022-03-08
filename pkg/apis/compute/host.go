@@ -154,13 +154,22 @@ type HostDetails struct {
 	MemCommit int `json:"mem_commit"`
 	// 云主机数量
 	// example: 10
-	Guests int `json:"guests"`
+	Guests int `json:"guests,allowempty"`
 	// 非系统云主机数量
 	// example: 0
-	NonsystemGuests int `json:"nonsystem_guests"`
-	// 运行中云主机数量
+	NonsystemGuests int `json:"nonsystem_guests,allowempty"`
+	// 运行状态云主机数量
 	// example: 2
-	RunningGuests int `json:"running_guests"`
+	RunningGuests int `json:"running_guests,allowempty"`
+	// 关机状态云主机数量
+	// example: 2
+	ReadyGuests int `json:"ready_guests,allowempty"`
+	// 其他状态云主机数量
+	// example: 2
+	OtherGuests int `json:"other_guests,allowempty"`
+	// 回收站中云主机数量
+	// example: 2
+	PendingDeletedGuests int `json:"pending_deleted_guests,allowempty"`
 	// CPU超分率
 	CpuCommitRate float64 `json:"cpu_commit_rate"`
 	// 内存超分率
