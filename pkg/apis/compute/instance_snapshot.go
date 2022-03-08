@@ -67,4 +67,7 @@ type InstanceSnapshotListInput struct {
 
 	// 操作系统类型
 	OsType []string `json:"os_type"`
+
+	// 包含内存快照
+	WithMemory *bool `json:"with_memory"`
 }
