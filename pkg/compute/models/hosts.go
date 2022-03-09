@@ -2958,7 +2958,7 @@ func (manager *SHostManager) FetchGuestCnt(hostIds []string) map[string]*sGuestC
 		return ret
 	}
 	guests := []SGuest{}
-	err := GuestManager.RawQuery().In("host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_CONTAINER).All(&guests)
+	err := GuestManager.RawQuery().IsFalse("deleted").In("host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_CONTAINER).All(&guests)
 	if err != nil {
 		log.Errorf("query host %s guests error: %v", hostIds, err)
 	}
