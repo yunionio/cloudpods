@@ -72,11 +72,11 @@ type SClouduser struct {
 
 	Secret string `length:"0" charset:"ascii" nullable:"true" list:"user" create:"domain_optional"`
 	// 是否可以控制台登录
-	IsConsoleLogin tristate.TriState `nullable:"false" default:"false" list:"user" create:"optional"`
+	IsConsoleLogin tristate.TriState `default:"false" list:"user" create:"optional"`
 	// 手机号码
 	MobilePhone string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"domain_optional"`
 	// 邮箱地址
-	Email string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"domain_optional"`
+	Email string `width:"36" charset:"ascii" list:"user" create:"domain_optional"`
 }
 
 func (manager *SClouduserManager) EnableGenerateName() bool {

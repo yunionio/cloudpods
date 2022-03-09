@@ -87,7 +87,7 @@ type SPolicy struct {
 	Scope rbacutils.TRbacScope `nullable:"true" list:"user" create:"domain_required" update:"domain"`
 
 	// 是否为系统权限
-	IsSystem tristate.TriState `nullable:"false" default:"false" list:"domain" update:"admin" create:"admin_optional"`
+	IsSystem tristate.TriState `default:"false" list:"domain" update:"admin" create:"admin_optional"`
 
 	// 匹配的项目标签
 	ProjectTags tagutils.TTagSet `nullable:"true" list:"user" update:"domain" create:"domain_optional"`

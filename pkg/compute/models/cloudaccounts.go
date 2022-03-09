@@ -101,7 +101,7 @@ type SCloudaccount struct {
 
 	// 是否是公有云账号
 	// example: true
-	IsPublicCloud tristate.TriState `nullable:"false" get:"user" create:"optional" list:"user" default:"true"`
+	IsPublicCloud tristate.TriState `get:"user" create:"optional" list:"user" default:"true"`
 
 	// 是否是本地IDC账号
 	// example: false
@@ -161,7 +161,7 @@ type SCloudaccount struct {
 	// 公有云子账号登录地址
 	IamLoginUrl string `width:"512" charset:"ascii" nullable:"false" list:"domain" update:"domain"`
 
-	SAMLAuth            tristate.TriState     `nullable:"false" get:"user" update:"domain" create:"optional" list:"user" default:"false"`
+	SAMLAuth            tristate.TriState     `get:"user" update:"domain" create:"optional" list:"user" default:"false"`
 	vmwareHostWireCache map[string][]SVs2Wire `ignore:"true"`
 
 	SProjectMappingResourceBase

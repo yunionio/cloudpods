@@ -61,7 +61,7 @@ type SSchedpolicy struct {
 	Condition string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 	Strategy  string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 
-	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
+	Enabled tristate.TriState `default:"true" create:"optional" list:"user" update:"user"`
 }
 
 func validateSchedpolicyInputData(data *jsonutils.JSONDict, create bool) error {

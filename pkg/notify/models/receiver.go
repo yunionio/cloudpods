@@ -101,14 +101,14 @@ type SReceiver struct {
 	Lang   string `width:"8" charset:"ascii" nullable:"false" list:"user" update:"user"`
 
 	// swagger:ignore
-	EnabledEmail tristate.TriState `nullable:"false" default:"false" update:"user"`
+	EnabledEmail tristate.TriState `default:"false" update:"user"`
 	// swagger:ignore
-	VerifiedEmail tristate.TriState `nullable:"false" default:"false" update:"user"`
+	VerifiedEmail tristate.TriState `default:"false" update:"user"`
 
 	// swagger:ignore
-	EnabledMobile tristate.TriState `nullable:"false" default:"false" update:"user"`
+	EnabledMobile tristate.TriState `default:"false" update:"user"`
 	// swagger:ignore
-	VerifiedMobile tristate.TriState `nullable:"false" default:"false" update:"user"`
+	VerifiedMobile tristate.TriState `default:"false" update:"user"`
 
 	// swagger:ignore
 	subContactCache map[string]*SSubContact `json:"-"`

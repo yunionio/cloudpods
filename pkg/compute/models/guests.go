@@ -145,8 +145,8 @@ type SGuest struct {
 	// 管理员可见安全组Id
 	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" list:"domain" get:"domain"`
 
-	SrcIpCheck  tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
-	SrcMacCheck tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
+	SrcIpCheck  tristate.TriState `default:"true" create:"optional" list:"user" update:"user"`
+	SrcMacCheck tristate.TriState `default:"true" create:"optional" list:"user" update:"user"`
 
 	// 虚拟化技术
 	// example: kvm
@@ -155,7 +155,7 @@ type SGuest struct {
 	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 
-	SshableLastState tristate.TriState `nullable:"false" default:"false" list:"user"`
+	SshableLastState tristate.TriState `default:"false" list:"user"`
 }
 
 // 云主机实例列表

@@ -153,7 +153,7 @@ type SDataSource struct {
 	User      string            `width:"64" charset:"utf8" nullable:"true"`
 	Password  string            `width:"64" charset:"utf8" nullable:"true"`
 	Database  string            `width:"64" charset:"utf8" nullable:"true"`
-	IsDefault tristate.TriState `nullable:"false" default:"false" create:"optional"`
+	IsDefault tristate.TriState `default:"false" create:"optional"`
 	/*
 		TimeInterval string
 		BasicAuth bool

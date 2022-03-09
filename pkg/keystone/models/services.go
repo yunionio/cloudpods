@@ -68,7 +68,7 @@ type SService struct {
 	db.SStandaloneResourceBase
 
 	Type    string              `width:"255" charset:"utf8" list:"admin" create:"admin_required"`
-	Enabled tristate.TriState   `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
+	Enabled tristate.TriState   `default:"true" list:"admin" update:"admin" create:"admin_optional"`
 	Extra   *jsonutils.JSONDict `nullable:"true" list:"admin"`
 
 	ConfigVersion int `list:"admin" nullable:"false" default:"0"`
