@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -38,6 +39,39 @@ var measureMent string = "usage"
 
 func init() {
 	shellutils.R(&options.ReportOptions{}, "report-usage", "Report Usage", reportUsage)
+	factory := UsageColectorFactory{}
+	common.RegisterFactory(&factory)
+}
+
+type UsageColectorFactory struct {
+	common.CommonReportFactory
+}
+
+func (p UsageColectorFactory) NewCloudReport(provider *common.SProvider, session *mcclient.ClientSession, args *options.ReportOptions, operatorType string) common.ICloudReport {
+	return &SUsageColectorReport{
+		common.CloudReportBase{
+			SProvider: nil,
+			Session:   session,
+			Args:      args,
+			Operator:  string(common.USAGE),
+		},
+	}
+}
+
+func (p UsageColectorFactory) GetId() string {
+	return string(common.USAGE)
+}
+
+type SUsageColectorReport struct {
+	common.CloudReportBase
+}
+
+func (self *SUsageColectorReport) Report() error {
+	err := reportUsage(self.Session, self.Args)
+	if err != nil {
+		return errors.Wrap(err, "usageCollector err")
+	}
+	return nil
 }
 
 func reportUsage(session *mcclient.ClientSession, args *options.ReportOptions) error {
