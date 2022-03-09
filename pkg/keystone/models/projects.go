@@ -79,7 +79,7 @@ type SProject struct {
 
 	ParentId string `width:"64" charset:"ascii" list:"domain" create:"domain_optional"`
 
-	IsDomain tristate.TriState `default:"false" nullable:"false"`
+	IsDomain tristate.TriState `default:"false"`
 }
 
 func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {

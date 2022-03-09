@@ -88,13 +88,13 @@ type SUser struct {
 	LastLoginIp     string `nullable:"true" list:"domain"`
 	LastLoginSource string `nullable:"true" list:"domain"`
 
-	IsSystemAccount tristate.TriState `nullable:"false" default:"false" list:"domain" update:"admin" create:"admin_optional"`
+	IsSystemAccount tristate.TriState `default:"false" list:"domain" update:"admin" create:"admin_optional"`
 
 	// deprecated
 	DefaultProjectId string `width:"64" charset:"ascii" nullable:"true"`
 
-	AllowWebConsole tristate.TriState `nullable:"false" default:"true" list:"domain" update:"domain" create:"domain_optional"`
-	EnableMfa       tristate.TriState `nullable:"false" default:"false" list:"domain" update:"domain" create:"domain_optional"`
+	AllowWebConsole tristate.TriState `default:"true" list:"domain" update:"domain" create:"domain_optional"`
+	EnableMfa       tristate.TriState `default:"false" list:"domain" update:"domain" create:"domain_optional"`
 
 	Lang string `width:"8" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_optional"`
 }

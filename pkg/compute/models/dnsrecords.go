@@ -63,8 +63,6 @@ type SDnsRecord struct {
 	// DNS记录的过期时间，单位为秒
 	// example: 60
 	Ttl int `nullable:"true" default:"1" create:"optional" list:"user" update:"user" json:"ttl"`
-
-	//Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user"`
 }
 
 // GetRecordsSeparator implements IAdminSharableVirtualModelManager

@@ -92,15 +92,10 @@ type SStorage struct {
 	// 存储缓存Id
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"domain" get:"domain" update:"domain" create:"domain_optional"`
 
-	// 是否启用
-	// Enabled tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional"`
-	// 状态
-	// Status string `width:"36" charset:"ascii" nullable:"false" default:"offline" update:"domain" list:"user" create:"optional"`
-
 	// indicating whether system disk can be allocated in this storage
 	// 是否可以用作系统盘存储
 	// example: true
-	IsSysDiskStore tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional" update:"domain"`
+	IsSysDiskStore tristate.TriState `default:"true" list:"user" create:"optional" update:"domain"`
 }
 
 func (manager *SStorageManager) GetContextManagers() [][]db.IModelManager {

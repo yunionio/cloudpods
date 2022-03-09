@@ -69,7 +69,7 @@ type SLocalUser struct {
 	FailedAuthCount int       `nullable:"true"`
 	FailedAuthAt    time.Time `nullable:"true"`
 
-	NeedResetPassword tristate.TriState `nullable:"false" default:"false" list:"domain"`
+	NeedResetPassword tristate.TriState `default:"false" list:"domain"`
 }
 
 func (user *SLocalUser) GetId() string {

@@ -80,7 +80,7 @@ type SCloudpolicy struct {
 	Document *jsonutils.JSONDict `length:"long" charset:"ascii" list:"domain" update:"domain" create:"domain_required"`
 
 	// 是否锁定, 若锁定后, 此策略不允许被绑定到用户或权限组, 仅管理员可以设置是否锁定
-	Locked tristate.TriState `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
+	Locked tristate.TriState `get:"user" create:"optional" list:"user" default:"false"`
 
 	CloudEnv string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
 }

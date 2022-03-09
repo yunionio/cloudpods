@@ -52,7 +52,7 @@ type SScalingGroupGuest struct {
 
 	ScalingGroupId string            `width:"36" charset:"ascii" nullable:"false"`
 	GuestStatus    string            `width:"36" charset:"ascii" nullable:"false" index:"true"`
-	Manual         tristate.TriState `nullable:"false" default:"false"`
+	Manual         tristate.TriState `default:"false"`
 }
 
 func (sggm *SScalingGroupGuestManager) GetSlaveFieldName() string {

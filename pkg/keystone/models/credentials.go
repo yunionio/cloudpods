@@ -81,7 +81,7 @@ type SCredential struct {
 
 	EncryptedBlob string `nullable:"false" create:"required"`
 
-	Enabled tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional"`
+	Enabled tristate.TriState `default:"true" list:"user" update:"user" create:"optional"`
 }
 
 func (manager *SCredentialManager) InitializeData() error {
