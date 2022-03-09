@@ -16,9 +16,11 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -59,12 +61,23 @@ func (self *InstanceBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStan
 	if serverName == "" {
 		serverName, _ = ib.ServerConfig.GetString("name")
 	}
+	project, _ := ib.ServerConfig.GetString("project")
 	sourceInput := &compute.ServerCreateInput{}
 	sourceInput.ServerConfigs = &compute.ServerConfigs{}
 	sourceInput.GenerateName = serverName
 	sourceInput.Description = fmt.Sprintf("recovery from instance backup %s", ib.GetName())
 	sourceInput.InstanceBackupId = ib.GetId()
 	sourceInput.Hypervisor = compute.HYPERVISOR_KVM
+	if project != "" {
+		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
+		if err != nil && errors.Cause(err) != sql.ErrNoRows {
+			self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
+			return
+		}
+		if tenant != nil {
+			sourceInput.Project = project
+		}
+	}
 	taskHeader := self.GetTaskRequestHeader()
 	session := auth.GetSession(ctx, self.UserCred, "", "")
 	session.Header.Set(mcclient.TASK_NOTIFY_URL, taskHeader.Get(mcclient.TASK_NOTIFY_URL))

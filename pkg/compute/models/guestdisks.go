@@ -249,6 +249,7 @@ func (self *SGuestdisk) ToDiskConfig() *api.DiskConfig {
 	}
 	conf := disk.ToDiskConfig()
 	conf.Index = int(self.Index)
+	conf.Mountpoint = self.Mountpoint
 	return conf
 }
 
