@@ -64,7 +64,13 @@ func (self *SHuaweiGuestDriver) GetMinimalSysDiskSizeGb() int {
 }
 
 func (self *SHuaweiGuestDriver) GetStorageTypes() []string {
-	return []string{api.STORAGE_HUAWEI_SATA, api.STORAGE_HUAWEI_SAS, api.STORAGE_HUAWEI_SSD}
+	return []string{
+		api.STORAGE_HUAWEI_SATA,
+		api.STORAGE_HUAWEI_SAS,
+		api.STORAGE_HUAWEI_SSD,
+		api.STORAGE_HUAWEI_GPSSD,
+		api.STORAGE_HUAWEI_ESSD,
+	}
 }
 
 func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {

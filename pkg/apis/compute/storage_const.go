@@ -68,6 +68,7 @@ const (
 	STORAGE_HUAWEI_SAS   = "SAS"   // 高IO云硬盘
 	STORAGE_HUAWEI_SATA  = "SATA"  // 普通IO云硬盘
 	STORAGE_HUAWEI_GPSSD = "GPSSD" // 通用型SSD
+	STORAGE_HUAWEI_ESSD  = "ESSD"  // 急速型SSD
 
 	// openstack
 	STORAGE_OPENSTACK_ISCSI = "iscsi"
