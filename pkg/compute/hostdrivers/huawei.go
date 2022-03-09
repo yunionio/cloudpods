@@ -46,7 +46,7 @@ func (self *SHuaweiHostDriver) GetHypervisor() string {
 // 系统盘必须至少40G
 func (self *SHuaweiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	switch storage.StorageType {
-	case api.STORAGE_HUAWEI_SSD, api.STORAGE_HUAWEI_SATA, api.STORAGE_HUAWEI_SAS:
+	case api.STORAGE_HUAWEI_SSD, api.STORAGE_HUAWEI_SATA, api.STORAGE_HUAWEI_SAS, api.STORAGE_HUAWEI_ESSD, api.STORAGE_HUAWEI_GPSSD:
 		if sizeGb < 10 || sizeGb > 32768 {
 			return fmt.Errorf("The %s disk size must be in the range of 10G ~ 32768GB", storage.StorageType)
 		}
