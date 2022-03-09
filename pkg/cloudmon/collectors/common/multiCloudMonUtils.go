@@ -51,6 +51,7 @@ const (
 	ALERT_RECORD MonType = "alertRecord"
 
 	PING_PROBE MonType = "ping_probe"
+	USAGE      MonType = "usage"
 
 	K8S        MonType = "k8s"
 	K8S_DEPLOY         = MonType(K8S_MODULE_DEPLOY)
@@ -81,7 +82,8 @@ var (
 
 	ResMonTypeList = []string{string(SERVER), string(HOST), string(REDIS), string(RDS), string(OSS),
 		string(ELB), string(K8S)}
-	CustomizeMonTypeList = []string{string(CLOUDACCOUNT), string(STORAGE), string(ALERT_RECORD), string(PING_PROBE)}
+	CustomizeMonTypeList = []string{string(CLOUDACCOUNT), string(STORAGE), string(ALERT_RECORD), string(PING_PROBE),
+		string(USAGE)}
 )
 
 var OtherVmTags = map[string]string{
