@@ -80,15 +80,15 @@ func StartService() error {
 		count++
 	}
 
-	if err := computemodels.InitDB(); err != nil {
-		log.Fatalf("InitDB fail: %s", err)
-	}
-
 	commonOpts := &opts.CommonOptions
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 		startSched()
 	})
+
+	if err := computemodels.InitDB(); err != nil {
+		log.Fatalf("InitDB fail: %s", err)
+	}
 
 	common_options.StartOptionManager(&opts, opts.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, o.OnOptionsChange)
 
