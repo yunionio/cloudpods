@@ -677,7 +677,7 @@ function nic_mtu() {
 		} else {
 			cmd += nicCmd
 		}
-		cmd += s.getVnicDesc(nics[i], true)
+		cmd += s.getVnicDesc(nics[i], false)
 	}
 
 	// USB 3.0
