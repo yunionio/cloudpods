@@ -188,6 +188,13 @@ func (l *SLocalImageCache) prepare(ctx context.Context, input api.CacheImageInpu
 }
 
 func (l *SLocalImageCache) fetch(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
+	// Whether successful or not, fetch should reset the condition variable and wakes up other waiters
+	defer func() {
+		l.cond.L.Lock()
+		l.remoteFile = nil
+		l.cond.Broadcast()
+		l.cond.L.Unlock()
+	}()
 	var _fetch = func() error {
 		if len(l.Manager.GetId()) > 0 {
 			_, err := hostutils.RemoteStoragecacheCacheImage(ctx,
@@ -207,10 +214,8 @@ func (l *SLocalImageCache) fetch(ctx context.Context, input api.CacheImageInput,
 
 		l.Size = l.GetSize() / 1024 / 1024
 		l.Desc.Id = l.imageId
-		l.remoteFile = nil
 		l.lastCheckTime = time.Now()
 		l.consumerCount++
-		l.cond.Broadcast()
 
 		bDesc, err := json.Marshal(l.Desc)
 		if err != nil {
