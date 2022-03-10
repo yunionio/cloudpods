@@ -65,7 +65,7 @@ type SRolePolicy struct {
 	// 权限ID, 主键
 	PolicyId string `width:"128" charset:"ascii" primary:"true" list:"domain" create:"domain_required"`
 	// 是否需要认证
-	Auth tristate.TriState `nullable:"false" default:"true" list:"domain" create:"domain_optional"`
+	Auth tristate.TriState `default:"true" list:"domain" create:"domain_optional"`
 	// 匹配的IP白名单
 	Ips string `list:"domain" create:"domain_optional" update:"domain"`
 	// 匹配开始时间

@@ -33,8 +33,8 @@ type SSubContact struct {
 	Type              string            `width:"16" nullable:"false" index:"true"`
 	Contact           string            `width:"128" nullable:"false"`
 	ParentContactType string            `width:"16" nullable:"false"`
-	Enabled           tristate.TriState `nullable:"false" default:"false"`
-	Verified          tristate.TriState `nullable:"false" default:"false"`
+	Enabled           tristate.TriState `default:"false"`
+	Verified          tristate.TriState `default:"false"`
 	VerifiedNote      string            `width:"1024"`
 }
 

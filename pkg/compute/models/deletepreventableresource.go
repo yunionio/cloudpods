@@ -28,7 +28,7 @@ import (
 type SDeletePreventableResourceBase struct {
 	// 是否开启删除保护
 	// example: true
-	DisableDelete tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional" json:"disable_delete"`
+	DisableDelete tristate.TriState `default:"true" list:"user" update:"user" create:"optional" json:"disable_delete"`
 }
 
 type SDeletePreventableResourceBaseManager struct{}

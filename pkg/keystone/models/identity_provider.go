@@ -89,9 +89,9 @@ type SIdentityProvider struct {
 	TargetDomainId string `width:"64" charset:"ascii" nullable:"true" list:"domain" create:"admin_optional"`
 
 	// 是否自动创建项目
-	AutoCreateProject tristate.TriState `default:"true" nullable:"true" list:"domain" create:"domain_optional" update:"domain"`
+	AutoCreateProject tristate.TriState `default:"true" list:"domain" create:"domain_optional" update:"domain"`
 	// 是否自动创建用户
-	AutoCreateUser tristate.TriState `nullable:"true" list:"domain" create:"domain_optional" update:"domain"`
+	AutoCreateUser tristate.TriState `list:"domain" create:"domain_optional" update:"domain"`
 
 	ErrorCount int `list:"domain"`
 
@@ -104,9 +104,9 @@ type SIdentityProvider struct {
 	// 认证源图标
 	IconUri string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"domain_optional" update:"domain"`
 	// 是否是SSO登录方式
-	IsSso tristate.TriState `nullable:"true" list:"domain"`
+	IsSso tristate.TriState `list:"domain"`
 	// 是否是缺省SSO登录方式
-	IsDefault tristate.TriState `nullable:"true" list:"domain"`
+	IsDefault tristate.TriState `list:"domain"`
 }
 
 func (manager *SIdentityProviderManager) initializeAutoCreateUser() error {

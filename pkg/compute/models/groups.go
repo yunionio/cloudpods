@@ -89,7 +89,7 @@ type SGroup struct {
 	Granularity     int               `nullable:"false" list:"user" get:"user" create:"optional" update:"user" default:"1"`
 	ForceDispersion tristate.TriState `list:"user" get:"user" create:"optional" update:"user" default:"true"`
 	// 是否启用
-	// Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
+	// Enabled tristate.TriState `default:"true" create:"optional" list:"user" update:"user"`
 }
 
 // 主机组列表

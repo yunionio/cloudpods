@@ -81,7 +81,7 @@ func NewEnabledIdentityBaseResourceManager(dt interface{}, tableName string, key
 type SEnabledIdentityBaseResource struct {
 	SIdentityBaseResource
 
-	Enabled tristate.TriState `nullable:"false" default:"true" list:"user" update:"domain" create:"domain_optional"`
+	Enabled tristate.TriState `default:"true" list:"user" update:"domain" create:"domain_optional"`
 }
 
 func (model *SIdentityBaseResource) GetIIdentityModelManager() IIdentityModelManager {

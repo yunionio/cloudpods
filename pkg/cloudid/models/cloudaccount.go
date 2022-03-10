@@ -76,7 +76,7 @@ type SCloudaccount struct {
 	Provider    string            `width:"64" charset:"ascii" list:"domain"`
 	Brand       string            `width:"64" charset:"utf8" nullable:"true" list:"domain"`
 	IamLoginUrl string            `width:"512" charset:"ascii"`
-	SAMLAuth    tristate.TriState `nullable:"false" list:"domain" default:"false"`
+	SAMLAuth    tristate.TriState `list:"domain" default:"false"`
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
