@@ -43,10 +43,22 @@ func init() {
 		return nil
 	})
 
+	type CloudeventSplitTableOptions struct {
+	}
+
+	R(&CloudeventSplitTableOptions{}, "cloud-event-splitable", "Show obsolete cloud event logs", func(s *mcclient.ClientSession, opts *CloudeventSplitTableOptions) error {
+		resp, err := cloudevent.Cloudevents.Get(s, "splitable", nil)
+		if err != nil {
+			return err
+		}
+		printObject(resp)
+		return nil
+	})
+
 	type CloudeventLogsPurgeOptions struct {
 		Tables []string
 	}
-	R(&CloudeventLogsPurgeOptions{}, "cloud-event-purge", "Purge obsolete cloud event logs", func(s *mcclient.ClientSession, opts *CloudeventLogsPurgeOptions) error {
+	R(&CloudeventLogsPurgeOptions{}, "cloud-event-purge-splitable", "Purge obsolete cloud event logs", func(s *mcclient.ClientSession, opts *CloudeventLogsPurgeOptions) error {
 		resp, err := cloudevent.Cloudevents.PerformClassAction(s, "purge-splitable", jsonutils.Marshal(opts))
 		if err != nil {
 			return err
