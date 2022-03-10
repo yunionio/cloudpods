@@ -120,6 +120,31 @@ func doActionList(s *mcclient.ClientSession, args *ActionListOptions) error {
 func init() {
 	R(&ActionListOptions{}, "action-show", "Show operation action logs", doActionList)
 
+	type ActionSplitTableOptions struct {
+	}
+
+	R(&ActionSplitTableOptions{}, "action-splitable", "Show splitables", func(s *mcclient.ClientSession, args *ActionSplitTableOptions) error {
+		resp, err := modules.Actions.Get(s, "splitable", nil)
+		if err != nil {
+			return err
+		}
+		printObject(resp)
+		return nil
+	})
+
+	type ActionPurgeOptions struct {
+		Tables []string
+	}
+
+	R(&ActionPurgeOptions{}, "action-purge-splitable", "Purge action splitables", func(s *mcclient.ClientSession, args *ActionPurgeOptions) error {
+		resp, err := modules.Actions.PerformClassAction(s, "purge-splitable", jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		printObject(resp)
+		return nil
+	})
+
 	R(&TypeActionListOptions{}, "server-action", "Show operation action logs of server", func(s *mcclient.ClientSession, args *TypeActionListOptions) error {
 		nargs := ActionListOptions{BaseActionListOptions: args.BaseActionListOptions, Id: args.ID, Type: []string{"server"}}
 		return doActionList(s, &nargs)
