@@ -90,7 +90,7 @@ type SEndpoint struct {
 	ServiceId            string              `width:"64" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 	Url                  string              `charset:"utf8" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 	Extra                *jsonutils.JSONDict `nullable:"true"`
-	Enabled              tristate.TriState   `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
+	Enabled              tristate.TriState   `default:"true" list:"admin" update:"admin" create:"admin_optional"`
 	RegionId             string              `width:"255" charset:"utf8" nullable:"true" list:"admin" create:"admin_required"`
 	ServiceCertificateId string              `nullable:"true" create:"admin_optional" update:"admin"`
 }

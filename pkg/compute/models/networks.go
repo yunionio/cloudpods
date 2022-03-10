@@ -144,7 +144,7 @@ type SNetwork struct {
 
 	// 该网段是否用于自动分配IP地址，如果为false，则用户需要明确选择该网段，才会使用该网段分配IP，
 	// 如果为true，则用户不指定网段时，则自动从该值为true的网络中选择一个分配地址
-	IsAutoAlloc tristate.TriState `nullable:"true" list:"user" get:"user" update:"user" create:"optional"`
+	IsAutoAlloc tristate.TriState `list:"user" get:"user" update:"user" create:"optional"`
 
 	// 线路类型
 	BgpType string `width:"64" charset:"utf8" nullable:"false" list:"user" get:"user" update:"user" create:"optional"`

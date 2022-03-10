@@ -130,13 +130,13 @@ type SImage struct {
 	MinRamMB int32 `name:"min_ram" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
 
 	// 是否有删除保护
-	Protected tristate.TriState `nullable:"false" default:"true" list:"user" get:"user" create:"optional" update:"user"`
+	Protected tristate.TriState `default:"true" list:"user" get:"user" create:"optional" update:"user"`
 	// 是否是标准镜像
-	IsStandard tristate.TriState `nullable:"false" default:"false" list:"user" get:"user" create:"admin_optional" update:"user"`
+	IsStandard tristate.TriState `default:"false" list:"user" get:"user" create:"admin_optional" update:"user"`
 	// 是否是主机镜像
-	IsGuestImage tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
+	IsGuestImage tristate.TriState `default:"false" create:"optional" list:"user"`
 	// 是否是数据盘镜像
-	IsData tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
+	IsData tristate.TriState `default:"false" create:"optional" list:"user"`
 
 	// image copy from url, save origin checksum before probe
 	// 从镜像时长导入的镜像校验和

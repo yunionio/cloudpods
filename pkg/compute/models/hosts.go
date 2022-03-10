@@ -182,7 +182,7 @@ type SHost struct {
 	IsImport bool `nullable:"true" default:"false" list:"domain" create:"domain_optional"`
 
 	// 是否允许PXE启动
-	EnablePxeBoot tristate.TriState `nullable:"false" default:"true" list:"domain" create:"domain_optional" update:"domain"`
+	EnablePxeBoot tristate.TriState `default:"true" list:"domain" create:"domain_optional" update:"domain"`
 
 	// 主机UUID
 	Uuid string `width:"64" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`

@@ -30,7 +30,7 @@ type SEnabledResourceBaseManager struct{}
 
 type SEnabledResourceBase struct {
 	// 资源是否启用
-	Enabled tristate.TriState `nullable:"false" default:"false" list:"user" create:"optional"`
+	Enabled tristate.TriState `default:"false" list:"user" create:"optional"`
 }
 
 type IEnabledBase interface {

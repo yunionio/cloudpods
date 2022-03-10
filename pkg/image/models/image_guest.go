@@ -68,7 +68,7 @@ type SGuestImage struct {
 	db.SSharableVirtualResourceBase
 	db.SMultiArchResourceBase
 
-	Protected tristate.TriState `nullable:"false" default:"true" list:"user" get:"user" create:"optional" update:"user"`
+	Protected tristate.TriState `default:"true" list:"user" get:"user" create:"optional" update:"user"`
 }
 
 func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,

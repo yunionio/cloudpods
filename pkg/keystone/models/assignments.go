@@ -75,7 +75,7 @@ type SAssignment struct {
 	TargetId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"admin"`
 	RoleId   string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"admin"`
 
-	Inherited tristate.TriState `nullable:"false" primary:"true" list:"admin"`
+	Inherited tristate.TriState `primary:"true" list:"admin"`
 }
 
 func (manager *SAssignmentManager) InitializeData() error {

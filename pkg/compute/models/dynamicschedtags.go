@@ -110,7 +110,7 @@ type SDynamicschedtag struct {
 	// 动态调度标签对应的调度标签
 	// SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
 
-	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
+	Enabled tristate.TriState `default:"true" create:"optional" list:"user" update:"user"`
 }
 
 func validateDynamicSchedtagInputData(data *jsonutils.JSONDict, create bool) error {
