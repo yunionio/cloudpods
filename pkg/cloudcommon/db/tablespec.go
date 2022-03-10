@@ -49,6 +49,8 @@ type ITableSpec interface {
 	Decrement(ctx context.Context, diff interface{}, target interface{}) error
 
 	GetSplitTable() *splitable.SSplitTableSpec
+
+	GetTableSpec() *sqlchemy.STableSpec
 }
 
 type sTableSpec struct {
@@ -126,25 +128,76 @@ func (ts *sTableSpec) isMarkDeleted(dt interface{}) (bool, error) {
 	return obj.GetDeleted(), nil
 }
 
+func (ts *sTableSpec) rejectRecordChecksumAfterInsert(obj IModel) error {
+	if !obj.GetModelManager().IsEnableRecordChecksum() {
+		return nil
+	}
+	_, err := ts.ITableSpec.Update(obj, func() error {
+		checkSum, err := CalculateModelChecksum(obj)
+		if err != nil {
+			return errors.Wrap(err, "CalculateModelChecksum for InsertOrUpdate")
+		}
+		obj.SetRecordChecksum(checkSum)
+		return nil
+	})
+	return err
+}
+
 func (ts *sTableSpec) Insert(ctx context.Context, dt interface{}) error {
 	if err := ts.ITableSpec.Insert(dt); err != nil {
 		return err
 	}
+	ts.rejectRecordChecksumAfterInsert(dt.(IModel))
 	ts.inform(ctx, dt, informer.Create)
 	return nil
+}
+
+func (ts *sTableSpec) GetTableSpec() *sqlchemy.STableSpec {
+	return ts.ITableSpec.(*sqlchemy.STableSpec)
+}
+
+func (ts *sTableSpec) calculateRecordChecksum(dt interface{}) (string, error) {
+	return "", errors.ErrNotImplemented
 }
 
 func (ts *sTableSpec) InsertOrUpdate(ctx context.Context, dt interface{}) error {
 	if err := ts.ITableSpec.InsertOrUpdate(dt); err != nil {
 		return err
 	}
+	ts.rejectRecordChecksumAfterInsert(dt.(IModel))
 	ts.inform(ctx, dt, informer.Create)
 	return nil
 }
 
+func (ts *sTableSpec) CheckRecordChanged(dbObj IModel) error {
+	return dbObj.CheckConsistent()
+}
+
 func (ts *sTableSpec) Update(ctx context.Context, dt interface{}, doUpdate func() error) (sqlchemy.UpdateDiffs, error) {
+	dbObj := dt.(IModel)
+	isEnableRecordChecksum := dbObj.GetModelManager().IsEnableRecordChecksum()
+	if isEnableRecordChecksum {
+		if err := ts.CheckRecordChanged(dbObj); err != nil {
+			log.Errorf("checkRecordChanged when update error: %s", err)
+			return nil, errors.Wrap(err, "checkRecordChanged when update")
+		}
+	}
+
 	oldObj := jsonutils.Marshal(dt)
-	diffs, err := ts.ITableSpec.Update(dt, doUpdate)
+	diffs, err := ts.ITableSpec.Update(dt, func() error {
+		if err := doUpdate(); err != nil {
+			return err
+		}
+		if isEnableRecordChecksum {
+			dbObj = dt.(IModel)
+			updateChecksum, err := CalculateModelChecksum(dbObj)
+			if err != nil {
+				return errors.Wrap(err, "CalculateModelChecksum for update")
+			}
+			dbObj.SetRecordChecksum(updateChecksum)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}

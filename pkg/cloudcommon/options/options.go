@@ -147,7 +147,9 @@ type DBOptions struct {
 
 	Clickhouse string `help:"Connection string for click house"`
 
-	OpsLogWithClickhouse bool `help:"store operation logs with clickhouse" default:"false"`
+	OpsLogWithClickhouse bool     `help:"store operation logs with clickhouse" default:"false"`
+	DBChecksumTables     []string `help:"DB tables with record checksum for consistency"`
+	DBChecksumSkipInit   bool     `help:"Skip DB tables with record checksum calculation when init" default:"false"`
 
 	AutoSyncTable   bool `help:"Automatically synchronize table changes if differences are detected"`
 	ExitAfterDBInit bool `help:"Exit program after db initialization" default:"false"`
