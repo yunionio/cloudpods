@@ -195,7 +195,10 @@ func (self *SRegion) GetS3Client() (*s3.S3, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "getAwsSession")
 		}
-		self.s3Client = s3.New(s)
+		self.s3Client = s3.New(s,
+			&aws.Config{
+				DisableRestProtocolURICleaning: aws.Bool(true),
+			})
 	}
 	return self.s3Client, nil
 }
