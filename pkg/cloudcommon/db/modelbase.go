@@ -272,6 +272,10 @@ func (manager *SModelBaseManager) GetExportExtraKeys(ctx context.Context, keys s
 }
 
 func (manager *SModelBaseManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
+	switch info.GetName(nil) {
+	case "get_splitable_export":
+		info.SetProcessTimeout(time.Minute * 120)
+	}
 	info.SetProcessTimeoutCallback(manager.GetIModelManager().SetHandlerProcessTimeout)
 }
 
@@ -449,6 +453,32 @@ func (manager *SModelBaseManager) GetPropertySplitable(ctx context.Context, user
 		return nil, errors.Wrap(err, "GetTableMetas")
 	}
 	return jsonutils.Marshal(metas), nil
+}
+
+func (manager *SModelBaseManager) GetPropertySplitableExport(ctx context.Context, userCred mcclient.TokenCredential, input apis.SplitTableExportInput) (jsonutils.JSONObject, error) {
+	splitable := manager.GetSplitTable()
+	if splitable == nil {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "not splitable")
+	}
+	if len(input.Table) == 0 {
+		return nil, httperrors.NewMissingParameterError("table")
+	}
+
+	metas, err := splitable.GetTableMetas()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetTableMetas")
+	}
+	for i := 0; i < len(metas); i += 1 {
+		if metas[i].Table == input.Table {
+			q := splitable.GetTableSpec(metas[i]).Query()
+			resp, err := q.AllStringMap()
+			if err != nil {
+				return nil, errors.Wrapf(err, "q.AllStringMap")
+			}
+			return jsonutils.Marshal(resp), nil
+		}
+	}
+	return nil, httperrors.NewResourceNotFoundError("table %s not found", input.Table)
 }
 
 func (manager *SModelBaseManager) AllowPerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

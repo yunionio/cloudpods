@@ -959,7 +959,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "fetchItem")
 	}
 
 	err = isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionGet)
