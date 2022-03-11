@@ -394,6 +394,14 @@ func (self *SImage) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
+func (self *SImage) GetLocalPath(format string) string {
+	path := filepath.Join(options.Options.FilesystemStoreDatadir, self.Id)
+	if len(format) > 0 {
+		path = fmt.Sprintf("%s.%s", path, format)
+	}
+	return path
+}
+
 func (self *SImage) GetPath(format string) string {
 	path := filepath.Join(options.Options.FilesystemStoreDatadir, self.Id)
 	if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_S3 {
@@ -483,51 +491,61 @@ func (self *SImage) saveSize(newSize, totalSize int64) error {
 
 //Image always do probe and customize after save from stream
 func (self *SImage) SaveImageFromStream(reader io.Reader, totalSize int64, calChecksum bool) error {
-	localPath := self.GetPath("")
+	localPath := self.GetLocalPath("")
 
-	sp, err := self.saveImageFromStream(localPath, reader, totalSize, calChecksum)
-	if err != nil {
-		log.Errorf("saveImageFromStream fail %s", err)
-		return err
-	}
+	err := func() error {
+		sp, err := self.saveImageFromStream(localPath, reader, totalSize, calChecksum)
+		if err != nil {
+			return errors.Wrapf(err, "saveImageFromStream")
+		}
 
-	virtualSizeBytes := int64(0)
-	format := ""
-	img, err := qemuimg.NewQemuImage(localPath)
-	if err != nil {
-		return err
-	}
-	format = string(img.Format)
-	virtualSizeBytes = img.SizeBytes
-
-	var fastChksum string
-	if calChecksum {
-		fastChksum, err = fileutils2.FastCheckSum(localPath)
+		virtualSizeBytes := int64(0)
+		format := ""
+		img, err := qemuimg.NewQemuImage(localPath)
 		if err != nil {
 			return err
 		}
-	}
+		format = string(img.Format)
+		virtualSizeBytes = img.SizeBytes
 
-	_, err = db.Update(self, func() error {
-		self.Size = sp.Size
+		var fastChksum string
 		if calChecksum {
-			self.Checksum = sp.CheckSum
-			self.FastHash = fastChksum
+			fastChksum, err = fileutils2.FastCheckSum(localPath)
+			if err != nil {
+				return errors.Wrapf(err, "FastCheckSum %s", localPath)
+			}
 		}
-		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, localPath)
-		if len(format) > 0 {
-			self.DiskFormat = format
+
+		_, err = db.Update(self, func() error {
+			self.Size = sp.Size
+			if calChecksum {
+				self.Checksum = sp.CheckSum
+				self.FastHash = fastChksum
+			}
+			self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, localPath)
+			if len(format) > 0 {
+				self.DiskFormat = format
+			}
+			if virtualSizeBytes > 0 {
+				self.MinDiskMB = int32(math.Ceil(float64(virtualSizeBytes) / 1024 / 1024))
+			}
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "db.Update")
 		}
-		if virtualSizeBytes > 0 {
-			self.MinDiskMB = int32(math.Ceil(float64(virtualSizeBytes) / 1024 / 1024))
-		}
+
 		return nil
-	})
+	}()
 	if err != nil {
-		return err
+		if fileutils2.IsFile(localPath) {
+			if e := os.Remove(localPath); e != nil {
+				log.Errorf("remove failed file %s error: %v", err)
+			}
+		}
 	}
 
-	return nil
+	return err
 }
 
 func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
