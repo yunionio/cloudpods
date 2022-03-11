@@ -111,13 +111,9 @@ func (cli *SBingoCloudClient) getDefaultClient(timeout time.Duration) *http.Clie
 	if timeout > 0 {
 		client = httputils.GetTimeoutClient(timeout)
 	}
-	proxy := func(req *http.Request) (*url.URL, error) {
-		if cli.cpcfg.ProxyFunc != nil {
-			cli.cpcfg.ProxyFunc(req)
-		}
-		return nil, nil
+	if cli.cpcfg.ProxyFunc != nil {
+		httputils.SetClientProxyFunc(client, cli.cpcfg.ProxyFunc)
 	}
-	httputils.SetClientProxyFunc(client, proxy)
 	return client
 }
 
@@ -196,6 +192,22 @@ func setItemToArray(obj jsonutils.JSONObject) jsonutils.JSONObject {
 	return objDict
 }
 
+type sBingoError struct {
+	Response struct {
+		Errors struct {
+			Error struct {
+				Code    string
+				ErrorNo string
+				Message string
+			}
+		}
+	}
+}
+
+func (e sBingoError) Error() string {
+	return jsonutils.Marshal(e.Response.Errors.Error).String()
+}
+
 func (self *SBingoCloudClient) invoke(action string, params map[string]string) (jsonutils.JSONObject, error) {
 	var encode = func(k, v string) string {
 		d := url.Values{}
@@ -207,7 +219,8 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 		query += "&" + encode(k, v)
 	}
 	// 2022-02-11T03:57:37.000Z
-	timeStamp := time.Now().Format("2006-01-02T15:04:05.000Z")
+	sh, _ := time.LoadLocation("Asia/Shanghai")
+	timeStamp := time.Now().In(sh).Format("2006-01-02T15:04:05.000Z")
 	query += "&" + encode("Timestamp", timeStamp)
 	query += "&" + encode("AWSAccessKeyId", self.accessKey)
 	query += "&" + encode("Version", "2009-08-15")
@@ -240,6 +253,12 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 
 	if self.debug {
 		log.Debugf("response: %s", obj.PrettyString())
+	}
+
+	be := &sBingoError{}
+	obj.Unmarshal(be)
+	if len(be.Response.Errors.Error.Code) > 0 {
+		return nil, be
 	}
 
 	respKey := action + "Response"
