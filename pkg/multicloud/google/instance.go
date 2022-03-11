@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 )
 
 const (
@@ -635,10 +636,15 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 	if len(desc.SysDisk.Name) == 0 {
 		desc.SysDisk.Name = fmt.Sprintf("vdisk-%s-%d", desc.Name, time.Now().UnixNano())
 	}
+	nameConv := func(name string) string {
+		name = strings.Replace(name, "_", "-", -1)
+		name = pinyinutils.Text2Pinyin(name)
+		return strings.ToLower(name)
+	}
 	disks = append(disks, map[string]interface{}{
 		"boot": true,
 		"initializeParams": map[string]interface{}{
-			"diskName":    strings.Replace(desc.SysDisk.Name, "_", "-", -1),
+			"diskName":    nameConv(desc.SysDisk.Name),
 			"sourceImage": desc.ExternalImageId,
 			"diskSizeGb":  desc.SysDisk.SizeGB,
 			"diskType":    fmt.Sprintf("zones/%s/diskTypes/%s", zone, desc.SysDisk.StorageType),
@@ -652,7 +658,7 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		disks = append(disks, map[string]interface{}{
 			"boot": false,
 			"initializeParams": map[string]interface{}{
-				"diskName":   strings.Replace(disk.Name, "_", "-", -1),
+				"diskName":   nameConv(disk.Name),
 				"diskSizeGb": disk.SizeGB,
 				"diskType":   fmt.Sprintf("zones/%s/diskTypes/%s", zone, disk.StorageType),
 			},
