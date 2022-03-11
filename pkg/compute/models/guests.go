@@ -1332,6 +1332,9 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		input.DisableUsbKbd = imgProperties[imageapi.IMAGE_DISABLE_USB_KBD] == "true"
 
+		if vdi, ok := imgProperties[imageapi.IMAGE_VDI_PROTOCOL]; ok && len(vdi) > 0 {
+			input.Vdi = vdi
+		}
 		osType := input.OsType
 		osProf, err = osprofile.GetOSProfileFromImageProperties(imgProperties, hypervisor)
 		if err != nil {
