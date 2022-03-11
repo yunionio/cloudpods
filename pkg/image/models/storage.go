@@ -156,6 +156,9 @@ func (s *S3Storage) Type() string {
 }
 
 func (s *S3Storage) SaveImage(ctx context.Context, imagePath string) (string, error) {
+	if !fileutils2.IsFile(imagePath) {
+		return "", fmt.Errorf("%s not valid file", imagePath)
+	}
 	return s3.Put(ctx, imagePath, imagePathToName(imagePath))
 }
 

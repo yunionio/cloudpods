@@ -82,10 +82,11 @@ func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.S
 }
 
 func imageGetPath(image *models.SImage) string {
-	diskPath := image.GetPath("")
+	diskPath := image.GetLocalPath("")
 	if !fileutils2.Exists(diskPath) {
-		diskPath = image.GetPath(image.DiskFormat)
+		diskPath = image.GetLocalPath(image.DiskFormat)
 		if !fileutils2.Exists(diskPath) {
+			log.Errorf("file %s not exist", image.Location)
 			return ""
 		}
 	}
@@ -113,7 +114,7 @@ func (self *ImageProbeTask) updateImageMetadata(
 ) error {
 	imagePath := imageGetPath(image)
 	if len(imagePath) == 0 {
-		return errors.Wrap(httperrors.ErrNotFound, "image file not found")
+		return errors.Wrapf(httperrors.ErrNotFound, "image file %s not found", image.Location)
 	}
 	fp, err := os.Open(imagePath)
 	if err != nil {
@@ -123,12 +124,12 @@ func (self *ImageProbeTask) updateImageMetadata(
 
 	stat, err := fp.Stat()
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "stat %s", imagePath)
 	}
 
 	chksum, err := fileutils2.MD5(imagePath)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "md5 %s", imagePath)
 	}
 
 	fastchksum, err := fileutils2.FastCheckSum(imagePath)
