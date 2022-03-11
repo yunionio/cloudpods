@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -80,7 +81,7 @@ func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.S
 }
 
 func (self *ImageProbeTask) doProbe(ctx context.Context, image *models.SImage) error {
-	diskPath := image.GetPath("")
+	diskPath := image.GetLocalPath("")
 	if deployclient.GetDeployClient() == nil {
 		return fmt.Errorf("deploy client not init")
 	}
@@ -95,7 +96,7 @@ func (self *ImageProbeTask) doProbe(ctx context.Context, image *models.SImage) e
 func (self *ImageProbeTask) updateImageMetadata(
 	ctx context.Context, image *models.SImage,
 ) error {
-	imagePath := image.GetPath("")
+	imagePath := image.GetLocalPath("")
 	fp, err := os.Open(imagePath)
 	if err != nil {
 		return err
@@ -104,12 +105,12 @@ func (self *ImageProbeTask) updateImageMetadata(
 
 	stat, err := fp.Stat()
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "stat %s", imagePath)
 	}
 
 	chksum, err := fileutils2.MD5(imagePath)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "md5 %s", imagePath)
 	}
 
 	fastchksum, err := fileutils2.FastCheckSum(imagePath)
