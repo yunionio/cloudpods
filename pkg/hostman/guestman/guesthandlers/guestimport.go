@@ -16,7 +16,6 @@ package guesthandlers
 
 import (
 	"context"
-	"io/ioutil"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
@@ -27,7 +26,10 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
+
+const libvirtMountPath = "/opt/cloud/libvirt"
 
 func guestPrepareImportFormLibvirt(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
@@ -41,9 +43,10 @@ func guestPrepareImportFormLibvirt(ctx context.Context, w http.ResponseWriter, r
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("xml_file_path"))
 		return
 	}
-	if !fileutils2.Exists(config.XmlFilePath) {
+	err = procutils.NewRemoteCommandAsFarAsPossible("test", "-d", config.XmlFilePath).Run()
+	if err != nil {
 		hostutils.Response(ctx, w,
-			httperrors.NewBadRequestError("xml_file_path %s not found", config.XmlFilePath))
+			httperrors.NewBadRequestError("check xml_file_path %s failed: %s", config.XmlFilePath, err))
 		return
 	}
 
@@ -53,11 +56,35 @@ func guestPrepareImportFormLibvirt(ctx context.Context, w http.ResponseWriter, r
 	}
 
 	if len(config.MonitorPath) > 0 {
-		if _, err := ioutil.ReadDir(config.MonitorPath); err != nil {
-			hostutils.Response(ctx, w,
-				httperrors.NewBadRequestError("Monitor path %s can't open as dir: %s", config.MonitorPath, err))
+		err = procutils.NewRemoteCommandAsFarAsPossible("test", "-d", config.MonitorPath).Run()
+		if err != nil {
+			hostutils.Response(ctx, w, httperrors.NewBadRequestError(
+				"check monitor_path %s failed: %s", config.MonitorPath, err,
+			))
 			return
 		}
+
+		// monitor path may not exist in container
+		err = procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", libvirtMountPath).Run()
+		if err != nil {
+			hostutils.Response(ctx, w, httperrors.NewBadRequestError(
+				"mkdir libvirt cloud path %s failed: %s", libvirtMountPath, err,
+			))
+			return
+		}
+
+		if err = procutils.NewRemoteCommandAsFarAsPossible("mountpoint", libvirtMountPath).Run(); err != nil {
+			out, err := procutils.NewRemoteCommandAsFarAsPossible(
+				"mount", "--bind", config.MonitorPath, libvirtMountPath,
+			).Output()
+			if err != nil {
+				hostutils.Response(ctx, w, httperrors.NewBadRequestError(
+					"monitor path create symbolic link failed: %s", out,
+				))
+				return
+			}
+		}
+		config.MonitorPath = libvirtMountPath
 	}
 
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().PrepareImportFromLibvirt, config)
