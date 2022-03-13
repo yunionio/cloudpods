@@ -4123,11 +4123,11 @@ func (man *SGuestManager) DoImport(
 	}
 	// 2. import networks
 	if err := gst.importNics(ctx, userCred, desc.Nics); err != nil {
-		return nil, err
+		return gst, err
 	}
 	// 3. import disks
 	if err := gst.importDisks(ctx, userCred, desc.Disks); err != nil {
-		return nil, err
+		return gst, err
 	}
 	// 4. set metadata
 	for k, v := range desc.Metadata {
