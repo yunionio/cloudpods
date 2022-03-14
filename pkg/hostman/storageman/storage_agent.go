@@ -566,7 +566,7 @@ func (as *SAgentStorage) saveToGlance(ctx context.Context, imageId, imagePath st
 	}
 	params.Set("image_id", jsonutils.NewString(imageId))
 
-	_, err = modules.Images.Upload(hostutils.GetImageSession(ctx, as.agent.GetZoneName()),
+	_, err = modules.Images.Upload(hostutils.GetImageSession(ctx, as.agent.GetZoneId()),
 		params, f, size)
 	if err != nil {
 		return errors.Wrap(err, "Images.Upload")
@@ -577,7 +577,7 @@ func (as *SAgentStorage) saveToGlance(ctx context.Context, imageId, imagePath st
 func (as *SAgentStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) {
 	params := jsonutils.NewDict()
 	params.Set("status", jsonutils.NewString("killed"))
-	_, err := modules.Images.Update(hostutils.GetImageSession(ctx, as.agent.GetZoneName()),
+	_, err := modules.Images.Update(hostutils.GetImageSession(ctx, as.agent.GetZoneId()),
 		imageId, params)
 	if err != nil {
 		log.Errorln(err)

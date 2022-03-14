@@ -133,7 +133,7 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 
 	input := api.CacheImageInput{}
 	body.Unmarshal(&input)
-	input.Zone = c.GetStorageManager().GetZoneName()
+	input.Zone = c.GetStorageManager().GetZoneId()
 
 	if len(input.ImageId) == 0 {
 		return nil, httperrors.NewMissingParameterError("image_id")

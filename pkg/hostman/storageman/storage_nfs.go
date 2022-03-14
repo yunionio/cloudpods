@@ -76,7 +76,7 @@ func (s *SNFSStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
 	content.Set("status", jsonutils.NewString(api.STORAGE_ONLINE))
-	content.Set("zone", jsonutils.NewString(s.GetZoneName()))
+	content.Set("zone", jsonutils.NewString(s.GetZoneId()))
 	log.Infof("Sync storage info %s", s.StorageId)
 	res, err := modules.Storages.Put(
 		hostutils.GetComputeSession(context.Background()),
