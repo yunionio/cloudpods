@@ -45,7 +45,7 @@ func StartService() {
 	cloudcommon.InitDB(&opts.DBOptions)
 	defer cloudcommon.CloseDB()
 
-	if !db.CheckSync(opts.AutoSyncTable) {
+	if !db.CheckSync(opts.AutoSyncTable, opts.DBChecksumTables, opts.DBChecksumSkipInit) {
 		log.Fatalf("database schema not in sync!")
 	}
 
