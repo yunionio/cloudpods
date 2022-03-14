@@ -209,7 +209,7 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content.Set("actual_capacity_used", jsonutils.NewInt(int64(s.GetUsedSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
 	content.Set("medium_type", jsonutils.NewString(s.GetMediumType()))
-	content.Set("zone", jsonutils.NewString(s.GetZoneName()))
+	content.Set("zone", jsonutils.NewString(s.GetZoneId()))
 	if len(s.Manager.LocalStorageImagecacheManager.GetId()) > 0 {
 		content.Set("storagecache_id",
 			jsonutils.NewString(s.Manager.LocalStorageImagecacheManager.GetId()))
@@ -420,7 +420,7 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 	}
 	params.Set("image_id", jsonutils.NewString(imageId))
 
-	_, err = image.Images.Upload(hostutils.GetImageSession(ctx, s.GetZoneName()),
+	_, err = image.Images.Upload(hostutils.GetImageSession(ctx, s.GetZoneId()),
 		params, f, size)
 	return err
 }
@@ -430,7 +430,7 @@ func (s *SLocalStorage) onSaveToGlanceFailed(ctx context.Context, imageId string
 	params.Set("status", jsonutils.NewString("killed"))
 	params.Set("reason", jsonutils.NewString(reason))
 	_, err := image.Images.PerformAction(
-		hostutils.GetImageSession(ctx, s.GetZoneName()),
+		hostutils.GetImageSession(ctx, ""),
 		imageId, "update-status", params,
 	)
 	if err != nil {

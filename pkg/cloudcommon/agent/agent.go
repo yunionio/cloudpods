@@ -174,7 +174,7 @@ func (agent *SBaseAgent) register(session *mcclient.ClientSession) error {
 }
 
 func (agent *SBaseAgent) fetchZone(session *mcclient.ClientSession) error {
-	zoneName := agent.IAgent().GetZoneName()
+	zoneName := agent.IAgent().GetZoneId()
 	var zoneInfoObj jsonutils.JSONObject
 	var err error
 	if zoneName != "" {
@@ -239,7 +239,7 @@ func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSe
 	if agent.IAgent().GetAgentType() != string(api.AgentTypeEsxi) {
 		params.Add(jsonutils.NewString(naccessIP.String()), "access_ip")
 	}
-	params.Add(jsonutils.NewString(agent.IAgent().GetZoneName()), "zone_id")
+	params.Add(jsonutils.NewString(agent.IAgent().GetZoneId()), "zone_id")
 	params.Add(jsonutils.NewString(agent.IAgent().GetAgentType()), "agent_type")
 	ret, err := modules.Baremetalagents.List(session, params)
 	if err != nil {

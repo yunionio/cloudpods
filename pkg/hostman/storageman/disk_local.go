@@ -225,7 +225,7 @@ func (d *SLocalDisk) createFromTemplate(
 ) (jsonutils.JSONObject, error) {
 	input := api.CacheImageInput{
 		ImageId: imageId,
-		Zone:    d.GetZoneName(),
+		Zone:    d.GetZoneId(),
 	}
 	imageCache, err := imageCacheManager.AcquireImage(ctx, input, nil)
 	if err != nil {
