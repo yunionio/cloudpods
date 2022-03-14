@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
@@ -76,7 +77,7 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 	}
 
 	if len(createConfig.MonitorPath) > 0 {
-		if pid := findGuestProcessPid(guest.getOriginId(), "monitor.sock"); len(pid) > 0 {
+		if pid := findGuestProcessPid(guest.getOriginId(), "[q]emu-kvm"); len(pid) > 0 {
 			fileutils2.FilePutContents(guest.GetPidFilePath(), pid, false)
 			guest.StartMonitorWithImportGuestSocketFile(ctx, createConfig.MonitorPath, nil)
 			stopScript := guest.generateStopScript(nil)
@@ -99,7 +100,7 @@ func findGuestProcessPid(originId, sufix string) string {
 		return ""
 	}
 	var spid string
-	s1 := strings.Split(string(output), "\n")
+	s1 := strings.Split(strings.TrimSpace(string(output)), "\n")
 	for i := 0; i < len(s1); i++ {
 		if len(s1[i]) > 0 {
 			if len(spid) > 0 {
@@ -168,6 +169,7 @@ func setAttributeFromLibvirtConfig(
 			for idx, nic := range guestConfig.Nics {
 				guestConfig.Nics[idx].Ip = macMap[netutils.FormatMacAddr(nic.Mac)]
 			}
+			log.Infof("config monitor path is %s, guest config id %s", libvirtConfig.MonitorPath, guestConfig.Id)
 			if len(libvirtConfig.MonitorPath) > 0 {
 				files, _ := ioutil.ReadDir(libvirtConfig.MonitorPath)
 				for i := 0; i < len(files); i++ {
@@ -175,7 +177,7 @@ func setAttributeFromLibvirtConfig(
 						strings.HasPrefix(files[i].Name(), "domain") &&
 						strings.HasSuffix(files[i].Name(), guestConfig.Name) {
 						monitorPath := path.Join(libvirtConfig.MonitorPath, files[i].Name(), "monitor.sock")
-						if fileutils2.Exists(monitorPath) && isServerRunning("monitor.sock", guestConfig.Id) {
+						if fileutils2.Exists(monitorPath) && isServerRunning("[q]emu-kvm", guestConfig.Id) {
 							guestConfig.MonitorPath = monitorPath
 						}
 						break
@@ -195,26 +197,33 @@ func isServerRunning(sufix, uuid string) bool {
 }
 
 func (m *SGuestManager) GenerateDescFromXml(libvirtConfig *compute.SLibvirtHostConfig) (jsonutils.JSONObject, error) {
-	xmlFiles, err := ioutil.ReadDir(libvirtConfig.XmlFilePath)
+	out, err := procutils.NewRemoteCommandAsFarAsPossible(
+		"find", libvirtConfig.XmlFilePath,
+		"-type", "f", "-maxdepth", "1",
+	).Output()
 	if err != nil {
-		log.Errorf("Read dir %s error: %s", libvirtConfig.XmlFilePath, err)
-		return nil, err
+		log.Errorf("failed read dir %s", libvirtConfig.XmlFilePath)
+		return nil, errors.Wrapf(err, "failed read dir %s", libvirtConfig.XmlFilePath)
 	}
 
 	libvirtServers := []*compute.SImportGuestDesc{}
-	for _, f := range xmlFiles {
-		if !f.Mode().IsRegular() {
+	xmlsPath := strings.Split(string(out), "\n")
+	for _, xmlPath := range xmlsPath {
+		if len(xmlPath) == 0 {
 			continue
 		}
-		xmlContent, err := ioutil.ReadFile(path.Join(libvirtConfig.XmlFilePath, f.Name()))
+
+		xmlContent, err := procutils.NewRemoteCommandAsFarAsPossible("cat", xmlPath).Output()
 		if err != nil {
-			log.Errorf("Read file %s error: %s", f.Name(), err)
+			log.Errorf("Read file %s failed: %s %s", xmlPath, xmlContent, err)
 			continue
 		}
+
+		// parse libvirt xml file
 		domain := &libvirtxml.Domain{}
-		err = domain.Unmarshal(string(xmlContent))
+		err = domain.Unmarshal(strings.TrimSpace(string(xmlContent)))
 		if err != nil {
-			log.Errorf("Unmarshal xml file %s error %s", f.Name(), err)
+			log.Errorf("Unmarshal xml file %s error %s", xmlPath, err)
 			continue
 		}
 		guestConfig, err := m.LibvirtDomainToGuestDesc(domain)
