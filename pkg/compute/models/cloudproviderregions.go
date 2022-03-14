@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -417,7 +416,7 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 	if !syncRange.DeepSync {
 		log.Debugf("no need to do deep sync, check...")
 		intval := self.getSyncIntervalSeconds(nil)
-		if self.LastDeepSyncAt.IsZero() || time.Now().Sub(self.LastDeepSyncAt) > time.Hour*24 || (time.Now().Sub(self.LastDeepSyncAt) > time.Duration(intval)*time.Second*8 && rand.Float32() < 0.5) {
+		if self.LastDeepSyncAt.IsZero() || time.Now().Sub(self.LastDeepSyncAt) > time.Hour*24 || (time.Now().Sub(self.LastDeepSyncAt) > time.Duration(intval)*time.Second*8) {
 			syncRange.DeepSync = true
 		}
 	}
@@ -487,48 +486,10 @@ func (cpr *SCloudproviderregion) needAutoSyncInternal() bool {
 	}
 	account := cpr.GetAccount()
 	intval := cpr.getSyncIntervalSeconds(account)
-	isEmpty := false
-	if account.IsOnPremise {
-		isEmpty = cpr.isEmptyOnPremise()
-	} else {
-		isEmpty = cpr.isEmptyPublicCloud()
-	}
-	if isEmpty {
-		intval = intval * 16  // no need to check empty region
-		if intval > 24*3600 { // at least once everyday
-			intval = 24 * 3600
-		}
-		region, _ := cpr.GetRegion()
-		log.Debugf("empty region %s! no need to check so frequently", region.GetName())
-	}
 	if time.Now().Sub(cpr.LastSync) > time.Duration(intval)*time.Second {
 		return true
 	}
 	return false
-}
-
-func (cpr *SCloudproviderregion) isEmptyOnPremise() bool {
-	return cpr.isEmpty(HostManager.KeywordPlural())
-}
-
-func (cpr *SCloudproviderregion) isEmptyPublicCloud() bool {
-	return cpr.isEmpty(NetworkManager.KeywordPlural())
-}
-
-func (cpr *SCloudproviderregion) isEmpty(resKey string) bool {
-	if cpr.SyncResults == nil {
-		return false
-	}
-	syncResults := SSyncResultSet{}
-	err := cpr.SyncResults.Unmarshal(&syncResults)
-	if err != nil {
-		return false
-	}
-	result := syncResults[resKey]
-	if result != nil && (result.UpdateCnt > 0 || result.AddCnt > 0) {
-		return false
-	}
-	return true
 }
 
 func (cprm *SCloudproviderregionManager) fetchRecordsByCloudproviderId(providerId string) ([]SCloudproviderregion, error) {
