@@ -94,7 +94,7 @@ func mustCheckModelManager(modelMan IModelManager) {
 	}
 }
 
-func CheckSync(autoSync bool) bool {
+func CheckSync(autoSync bool, checksumTables []string, skipInitChecksum bool) bool {
 	log.Infof("Start check database schema ...")
 	inSync := true
 	var err error
@@ -143,6 +143,16 @@ func CheckSync(autoSync bool) bool {
 				inSync = false
 			}
 		}
+
+		if utils.IsInStringArray(tableSpec.Name(), checksumTables) {
+			modelMan.EnableRecordChecksum()
+			if len(sqls) > 0 || !skipInitChecksum {
+				if err := InjectModelsChecksum(modelMan); err != nil {
+					log.Errorf("InjectModelsChecksum for %q error: %v", modelMan.TableSpec().Name(), err)
+					return false
+				}
+			}
+		}
 	}
 	return inSync
 }
@@ -150,7 +160,7 @@ func CheckSync(autoSync bool) bool {
 func EnsureAppSyncDB(app *appsrv.Application, opt *common_options.DBOptions, modelInitDBFunc func() error) {
 	// cloudcommon.InitDB(opt)
 
-	if !CheckSync(opt.AutoSyncTable) {
+	if !CheckSync(opt.AutoSyncTable, opt.DBChecksumTables, opt.DBChecksumSkipInit) {
 		log.Fatalf("database schema not in sync!")
 	}
 

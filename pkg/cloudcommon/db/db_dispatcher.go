@@ -1105,6 +1105,29 @@ func FetchModelObjects(modelManager IModelManager, query *sqlchemy.SQuery, targe
 	return nil
 }
 
+func FetchIModelObjects(modelManager IModelManager, query *sqlchemy.SQuery) ([]IModel, error) {
+	// TODO: refactor below duplicated code from FetchModelObjects
+	rows, err := query.Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	objs := make([]IModel, 0)
+	for rows.Next() {
+		m, err := NewModelObject(modelManager)
+		if err != nil {
+			return nil, err
+		}
+		err = query.Row2Struct(rows, m)
+		if err != nil {
+			return nil, err
+		}
+		objs = append(objs, m)
+	}
+	return objs, nil
+}
+
 func DoCreate(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject, ownerId mcclient.IIdentityProvider) (IModel, error) {
 	lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
 	defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))

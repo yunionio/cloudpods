@@ -102,6 +102,7 @@ func init() {
 	cmd.Perform("probe-isolated-devices", &options.ServerIdOptions{})
 	cmd.Perform("cpuset", &options.ServerCPUSetOptions{})
 	cmd.Perform("cpuset-remove", &options.ServerIdOptions{})
+	cmd.Perform("calculate-record-checksum", &options.ServerIdOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))

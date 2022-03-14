@@ -217,7 +217,13 @@ func fetchItem(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		item, err = fetchItemByName(manager, ctx, userCred, idStr, query)
 	}
-	return item, err
+	if err != nil {
+		return nil, err
+	}
+	if err := item.CheckConsistent(); err != nil {
+		return nil, err
+	}
+	return item, nil
 }
 
 func FetchUserInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {

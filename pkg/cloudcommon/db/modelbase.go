@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -36,10 +37,18 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+const (
+	COLUMN_RECORD_CHECKSUM = "record_checksum"
+	COLUMN_UPDATE_VERSION  = "update_version"
+	COLUMN_UPDATED_AT      = "updated_at"
+)
+
 type SModelBase struct {
 	object.SObject
 
 	manager IModelManager `ignore:"true"` // pointer to modelmanager
+
+	RecordChecksum string `width:"256" charset:"ascii" nullable:"true" list:"user" json:"record_checksum"`
 }
 
 type SModelBaseManager struct {
@@ -50,6 +59,8 @@ type SModelBaseManager struct {
 	keywordPlural string
 	alias         string
 	aliasPlural   string
+
+	enableRecordChecksum bool
 }
 
 func NewModelBaseManager(model interface{}, tableName string, keyword string, keywordPlural string) SModelBaseManager {
@@ -72,6 +83,16 @@ func NewModelBaseManagerWithSplitableDBName(model interface{}, tableName string,
 
 func (manager *SModelBaseManager) IsStandaloneManager() bool {
 	return false
+}
+
+func (manager *SModelBaseManager) EnableRecordChecksum() IModelManager {
+	manager.enableRecordChecksum = true
+	log.Debugf("manager %s enableRecordChecksum", manager.KeywordPlural())
+	return manager.GetIModelManager()
+}
+
+func (manager *SModelBaseManager) IsEnableRecordChecksum() bool {
+	return manager.enableRecordChecksum
 }
 
 func (manager *SModelBaseManager) GetIModelManager() IModelManager {
@@ -649,4 +670,41 @@ func (model *SModelBase) GetUsages() []IUsage {
 
 func (model *SModelBase) GetI18N(ctx context.Context) *jsonutils.JSONDict {
 	return nil
+}
+
+func (model *SModelBase) SetRecordChecksum(checksum string) {
+	model.RecordChecksum = checksum
+}
+
+func (model *SModelBase) GetRecordChecksum() string {
+	return model.RecordChecksum
+}
+
+func (model *SModelBase) CheckConsistent() error {
+	obj := model.GetIModel()
+	man := obj.GetModelManager()
+	if !man.IsEnableRecordChecksum() {
+		return nil
+	}
+
+	calChecksum, err := CalculateModelChecksum(obj)
+	if err != nil {
+		return errors.Wrap(err, "CalculateModelChecksum")
+	}
+	savedChecksum := obj.GetRecordChecksum()
+	if calChecksum != savedChecksum {
+		log.Errorf("Record %s(%s) checksum changed, expected(%s) != calculated(%s)", obj.Keyword(), obj.GetId(), savedChecksum, calChecksum)
+		return errors.Errorf("Record %s(%s) checksum changed, expected(%s) != calculated(%s)", obj.Keyword(), obj.GetId(), savedChecksum, calChecksum)
+	}
+	return nil
+}
+
+func (model *SModelBase) PerformCalculateRecordChecksum(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	checksum, err := CalculateModelChecksum(model.GetIModel())
+	if err != nil {
+		return nil, errors.Wrap(err, "CalculateModelChecksum")
+	}
+	return jsonutils.Marshal(map[string]string{
+		"checksum": checksum,
+	}), nil
 }
