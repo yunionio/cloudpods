@@ -148,6 +148,10 @@ func (s *SKVMGuestInstance) getOriginId() string {
 	return originId
 }
 
+func (s *SKVMGuestInstance) isImportFromLibvirt() bool {
+	return len(s.getOriginId()) > 0
+}
+
 func (s *SKVMGuestInstance) GetPid() int {
 	return s.getPid(s.GetPidFilePath(), s.getOriginId())
 }
@@ -1360,7 +1364,7 @@ func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONO
 	var changedNetworks [][]jsonutils.JSONObject
 	var cdrom *string
 
-	if !fwOnly {
+	if !fwOnly && !s.isImportFromLibvirt() {
 		delDisks, addDisks = s.compareDescDisks(desc)
 		cdrom = s.compareDescCdrom(desc)
 		delNetworks, addNetworks, changedNetworks = s.compareDescNetworks(desc)
