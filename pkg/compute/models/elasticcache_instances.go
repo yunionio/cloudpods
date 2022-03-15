@@ -540,7 +540,6 @@ func (manager *SElasticcacheManager) SyncElasticcaches(ctx context.Context, user
 			syncResult.UpdateError(err)
 			continue
 		}
-		syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
 		localElasticcaches = append(localElasticcaches, commondb[i])
 		remoteElasticcaches = append(remoteElasticcaches, commonext[i])
 		syncResult.Update()
@@ -552,7 +551,6 @@ func (manager *SElasticcacheManager) SyncElasticcaches(ctx context.Context, user
 			syncResult.AddError(err)
 			continue
 		}
-		syncVirtualResourceMetadata(ctx, userCred, instance, added[i])
 		localElasticcaches = append(localElasticcaches, *instance)
 		remoteElasticcaches = append(remoteElasticcaches, added[i])
 		syncResult.Add()
@@ -623,6 +621,7 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrapf(err, "syncWithCloudElasticcache.Update")
 	}
+	SyncCloudProject(userCred, self, userCred, extInstance, provider.Id)
 	syncVirtualResourceMetadata(ctx, userCred, self, extInstance)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	if len(diff) > 0 {
@@ -748,6 +747,7 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 	}
 
 	SyncCloudProject(userCred, &instance, ownerId, extInstance, provider.Id)
+	syncVirtualResourceMetadata(ctx, userCred, &instance, extInstance)
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
 
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
