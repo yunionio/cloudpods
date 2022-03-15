@@ -159,6 +159,7 @@ var (
 			"sql_connection",
 			"clickhouse",
 			"ops_log_with_clickhouse",
+			"db_checksum_skip_init",
 			"db_checksum_tables",
 			"auto_sync_table",
 			"exit_after_db_init",
