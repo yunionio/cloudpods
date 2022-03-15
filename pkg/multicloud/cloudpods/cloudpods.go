@@ -16,6 +16,7 @@ package cloudpods
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -124,8 +125,15 @@ func (self *SCloudpodsClient) get(manager ModelManager, id string, params map[st
 	if len(id) == 0 {
 		return errors.Wrap(cloudprovider.ErrNotFound, "empty id")
 	}
-	resp, err := manager.Get(self.s, id, jsonutils.Marshal(params))
+	body := jsonutils.NewDict()
+	for k, v := range params {
+		body.Set(k, jsonutils.NewString(v))
+	}
+	resp, err := manager.Get(self.s, id, body)
 	if err != nil {
+		if strings.Contains(err.Error(), "NotFoundError") {
+			return errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+		}
 		return errors.Wrapf(err, "Get(%s)", id)
 	}
 	return resp.Unmarshal(retVal)
