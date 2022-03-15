@@ -90,6 +90,10 @@ func (self *SRedisCache) GetName() string {
 	return self.Name
 }
 
+func (self *SRedisCache) GetProjectId() string {
+	return getResourceGroup(self.ID)
+}
+
 func (self *SRedisCache) GetStatus() string {
 	switch self.Properties.Provisioningstate {
 	case "Creating":
