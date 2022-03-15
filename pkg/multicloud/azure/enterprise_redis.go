@@ -69,6 +69,10 @@ func (self *SEnterpriseRedisCache) GetName() string {
 	return self.Name
 }
 
+func (self *SEnterpriseRedisCache) GetProjectId() string {
+	return getResourceGroup(self.ID)
+}
+
 func (self *SEnterpriseRedisCache) GetStatus() string {
 	switch self.Properties.Provisioningstate {
 	case "Creating":
