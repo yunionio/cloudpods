@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -47,6 +48,19 @@ func (self *CloudregionSyncImagesTask) OnInit(ctx context.Context, obj db.IStand
 	if err != nil {
 		self.taskFailed(ctx, region, errors.Wrapf(err, "SyncCloudImages"))
 		return
+	}
+
+	storagecaches, err := region.GetStoragecaches()
+	if err != nil {
+		self.taskFailed(ctx, region, errors.Wrapf(err, "GetStoragecaches"))
+		return
+	}
+
+	for i := range storagecaches {
+		err = storagecaches[i].CheckCloudimages(ctx, self.GetUserCred(), region.Name, region.Id)
+		if err != nil {
+			log.Errorf("SyncSystemImages for region %s(%s) storagecache %s error: %v", region.Name, region.Id, storagecaches[i].Name, err)
+		}
 	}
 
 	self.SetStageComplete(ctx, nil)
