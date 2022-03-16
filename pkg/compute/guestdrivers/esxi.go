@@ -287,6 +287,18 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 	if len(desc.Disks) == 0 {
 		return jsonutils.Marshal(desc), nil
 	}
+	for i := range desc.Disks {
+		diskId := desc.Disks[i].DiskId
+		disk := models.DiskManager.FetchDiskById(diskId)
+		if disk == nil {
+			return nil, fmt.Errorf("unable to fetch disk %s", diskId)
+		}
+		storage, err := disk.GetStorage()
+		if storage == nil {
+			return nil, errors.Wrapf(err, "unable to fetch storage of disk %s", diskId)
+		}
+		desc.Disks[i].StorageId = storage.GetExternalId()
+	}
 	templateId := desc.Disks[0].TemplateId
 	if len(templateId) == 0 {
 		// try to check instance_snapshot_id
