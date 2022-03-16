@@ -285,10 +285,16 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 			osProf := guest.GetOSProfile()
 			d.Driver = osProf.DiskDriver
 		}
+		storage, err := disk.GetStorage()
+		if err != nil {
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+			return
+		}
 		opts := cloudprovider.GuestDiskCreateOptions{
-			SizeMb: disk.DiskSize,
-			UUID:   disk.Id,
-			Driver: d.Driver,
+			SizeMb:    disk.DiskSize,
+			UUID:      disk.Id,
+			Driver:    d.Driver,
+			StorageId: storage.GetExternalId(),
 		}
 		_, err = ivm.CreateDisk(ctx, &opts)
 		if err != nil {
@@ -323,7 +329,6 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 		}
 
 		disk.SetStatus(self.UserCred, api.DISK_READY, "create disk success")
-		storage, _ := disk.GetStorage()
 		storage.ClearSchedDescCache()
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 		db.OpsLog.LogAttachEvent(ctx, guest, disk, self.UserCred, disk.GetShortDesc(ctx))
