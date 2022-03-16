@@ -828,6 +828,25 @@ func (self *SStoragecache) unlinkCloudimages(ctx context.Context, userCred mccli
 	return len(scis), nil
 }
 
+func (self *SStoragecache) updateSystemImageStatus() (int, error) {
+	sq := CachedimageManager.Query("id").Equals("image_type", cloudprovider.ImageTypeSystem)
+	q := StoragecachedimageManager.Query().
+		Equals("storagecache_id", self.Id).In("cachedimage_id", sq.SubQuery()).
+		NotEquals("status", api.CACHED_IMAGE_STATUS_ACTIVE)
+	scis := []SStoragecachedimage{}
+	err := db.FetchModelObjects(StoragecachedimageManager, q, &scis)
+	if err != nil {
+		return 0, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range scis {
+		db.Update(&scis[i], func() error {
+			scis[i].Status = api.CACHED_IMAGE_STATUS_ACTIVE
+			return nil
+		})
+	}
+	return len(scis), nil
+}
+
 func (self *SStoragecache) getSystemImageCount() (int, error) {
 	sq := StoragecachedimageManager.Query("cachedimage_id").Equals("storagecache_id", self.Id)
 	q := CachedimageManager.Query().Equals("image_type", cloudprovider.ImageTypeSystem).In("id", sq.SubQuery())
@@ -845,6 +864,7 @@ func (self *SStoragecache) CheckCloudimages(ctx context.Context, userCred mcclie
 	if err != nil {
 		return errors.Wrapf(err, "unlinkCloudimages")
 	}
+	self.updateSystemImageStatus()
 	result.UpdateCnt, err = self.getSystemImageCount()
 	if err != nil {
 		log.Errorf("getSystemImageCount error: %v", err)
