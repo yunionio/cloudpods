@@ -625,7 +625,7 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrapf(err, "syncWithCloudElasticcache.Update")
 	}
-	SyncCloudProject(userCred, self, userCred, extInstance, provider.Id)
+	SyncCloudProject(userCred, self, provider.GetOwnerId(), extInstance, provider.Id)
 	syncVirtualResourceMetadata(ctx, userCred, self, extInstance)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	if len(diff) > 0 {
@@ -750,7 +750,7 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 		return nil, errors.Wrapf(err, "newFromCloudElasticcache.Insert")
 	}
 
-	SyncCloudProject(userCred, &instance, ownerId, extInstance, provider.Id)
+	SyncCloudProject(userCred, &instance, provider.GetOwnerId(), extInstance, provider.Id)
 	syncVirtualResourceMetadata(ctx, userCred, &instance, extInstance)
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
 

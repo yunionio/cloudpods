@@ -912,10 +912,16 @@ func (self *SAzureClient) GetIStorageById(id string) (cloudprovider.ICloudStorag
 }
 
 func getResourceGroup(id string) string {
-	if info := strings.Split(id, "/resourceGroups/"); len(info) == 2 {
-		if resourcegroupInfo := strings.Split(info[1], "/"); len(resourcegroupInfo) > 0 {
-			return strings.ToLower(resourcegroupInfo[0])
+	info := strings.Split(strings.ToLower(id), "/")
+	idx := -1
+	for i := range info {
+		if info[i] == "resourcegroups" {
+			idx = i + 1
+			break
 		}
+	}
+	if idx > 0 && idx < len(info)-1 {
+		return info[idx]
 	}
 	return ""
 }
