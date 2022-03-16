@@ -100,6 +100,10 @@ func (self *SSQLServer) GetGlobalId() string {
 	return strings.ToLower(self.ID)
 }
 
+func (self *SSQLServer) GetProjectId() string {
+	return getResourceGroup(self.ID)
+}
+
 func (self *SSQLServer) GetCategory() string {
 	return api.AZURE_DBINSTANCE_CATEGORY_BASIC
 }

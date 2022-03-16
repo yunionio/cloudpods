@@ -92,6 +92,10 @@ func (self *SManagedSQLServer) GetCategory() string {
 	return self.Sku.Family
 }
 
+func (self *SManagedSQLServer) GetProjectId() string {
+	return getResourceGroup(self.ID)
+}
+
 func (self *SManagedSQLServer) GetIVpcId() string {
 	if len(self.Properties.Subnetid) > 0 {
 		info := strings.Split(self.Properties.Subnetid, "/")
