@@ -939,12 +939,24 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, opts *cloudprovider
 	if opts.Driver == "pvscsi" {
 		opts.Driver = "scsi"
 	}
+	var ds *SDatastore
+	var err error
+	if opts.StorageId != "" {
+		ihost := self.getIHost()
+		if ihost == nil {
+			return "", fmt.Errorf("unable to get host of virtualmachine %s", self.GetName())
+		}
+		ds, err = ihost.(*SHost).FindDataStoreById(opts.StorageId)
+		if err != nil {
+			return "", errors.Wrapf(err, "unable to find datastore %s", opts.StorageId)
+		}
+	}
 	devs, err := self.FindController(ctx, opts.Driver)
 	if err != nil {
 		return "", err
 	}
 	if len(devs) == 0 {
-		return "", self.createDriverAndDisk(ctx, opts.SizeMb, opts.UUID, opts.Driver)
+		return "", self.createDriverAndDisk(ctx, ds, opts.SizeMb, opts.UUID, opts.Driver)
 	}
 	numDevBelowCtrl := make([]int, len(devs))
 	for i := range numDevBelowCtrl {
@@ -975,11 +987,12 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, opts *cloudprovider
 		UnitNumber:    int32(unitNumber),
 		ControllerKey: ctrlKey,
 		Key:           diskKey,
+		Datastore:     ds,
 	}, true)
 }
 
 // createDriverAndDisk will create a driver and disk associated with the driver
-func (self *SVirtualMachine) createDriverAndDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+func (self *SVirtualMachine) createDriverAndDisk(ctx context.Context, ds *SDatastore, sizeMb int, uuid string, driver string) error {
 	if driver != "scsi" && driver != "pvscsi" {
 		return fmt.Errorf("Driver %s is not supported", driver)
 	}
@@ -1007,6 +1020,7 @@ func (self *SVirtualMachine) createDriverAndDisk(ctx context.Context, sizeMb int
 			Key:           scsiKey,
 			ImagePath:     "",
 			IsRoot:        false,
+			Datastore:     ds,
 		}, true)
 }
 
