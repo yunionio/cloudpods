@@ -32,6 +32,7 @@ type SDiskConfig struct {
 	Key           int32
 	ImagePath     string
 	IsRoot        bool
+	Datastore     *SDatastore
 }
 
 // In fact, it is the default lable of first one disk
@@ -46,6 +47,10 @@ func NewDiskDev(sizeMb int64, config SDiskConfig) *types.VirtualDisk {
 	diskFile.Uuid = config.Uuid
 	if len(config.ImagePath) > 0 {
 		diskFile.FileName = config.ImagePath
+	}
+	if config.Datastore != nil {
+		ref := config.Datastore.getDatastoreObj().Reference()
+		diskFile.Datastore = &ref
 	}
 	device.Backing = &diskFile
 

@@ -726,6 +726,7 @@ type SDiskInfo struct {
 	DiskId    string
 	Driver    string
 	ImageInfo SEsxiImageInfo
+	StorageId string
 }
 
 type SEsxiImageInfo struct {
@@ -858,7 +859,17 @@ func (self *SHost) addDisks(ctx context.Context, dc *SDatacenter, ds *SDatastore
 			ctrlKey = 200 + ideno
 			ideIdx += 1
 		}
-		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s, key: %d.", size, imagePath, uuid, unitNumber, ctrlKey, disk.Driver, 2000+i)
+		var tds *SDatastore
+		var err error
+		if disk.StorageId != "" {
+			tds, err = self.FindDataStoreById(disk.StorageId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "unable to find ds %s from host %s", disk.StorageId, self.masterIp)
+			}
+		} else {
+			tds = ds
+		}
+		log.Debugf("ds: %s, size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s, key: %d.", tds.getDatastoreObj().String(), size, imagePath, uuid, unitNumber, ctrlKey, disk.Driver, 2000+i)
 		spec := addDevSpec(NewDiskDev(size, SDiskConfig{
 			SizeMb:        size,
 			Uuid:          uuid,
@@ -867,6 +878,7 @@ func (self *SHost) addDisks(ctx context.Context, dc *SDatacenter, ds *SDatastore
 			Key:           int32(2000 + i),
 			ImagePath:     imagePath,
 			IsRoot:        i == 0,
+			Datastore:     tds,
 		}))
 		if len(imagePath) == 0 {
 			spec.FileOperation = "create"
@@ -1283,7 +1295,12 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		}
 		uuid := params.Disks[i].DiskId
 		driver := params.Disks[i].Driver
-		opts := &cloudprovider.GuestDiskCreateOptions{SizeMb: int(size), UUID: uuid, Driver: driver}
+		opts := &cloudprovider.GuestDiskCreateOptions{
+			SizeMb:    int(size),
+			UUID:      uuid,
+			Driver:    driver,
+			StorageId: params.Disks[i].StorageId,
+		}
 		_, err := vm.CreateDisk(ctx, opts)
 		if err != nil {
 			log.Errorf("unable to add No.%d disk for vm %s", i, vm.GetId())
