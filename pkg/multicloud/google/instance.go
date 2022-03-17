@@ -682,8 +682,13 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		"disks": disks,
 	}
 
-	if len(desc.Tags) > 0 {
-		params["labels"] = desc.Tags
+	labels := map[string]string{}
+	for k, v := range desc.Tags {
+		labels[strings.ToLower(k)] = v
+	}
+
+	if len(labels) > 0 {
+		params["labels"] = labels
 	}
 
 	if tags, ok := secgroups[SECGROUP_TYPE_TAG]; ok && len(tags) > 0 {
@@ -943,7 +948,11 @@ func (region *SRegion) SetLabels(id string, labels map[string]string, labelFinge
 	return nil
 }
 
-func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
+func (self *SInstance) SetTags(_tags map[string]string, replace bool) error {
+	tags := map[string]string{}
+	for k, v := range _tags {
+		tags[strings.ToLower(k)] = v
+	}
 	if !replace {
 		for k, v := range self.Labels {
 			if _, ok := tags[k]; !ok {
