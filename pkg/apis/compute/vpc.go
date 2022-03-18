@@ -144,6 +144,7 @@ type HostTopologyOutput struct {
 	HostStatus string                      `json:"host_status"`
 	HostType   string                      `json:"host_type"`
 	Networks   []HostnetworkTopologyOutput `json:"networks"`
+	Schedtags  []SchedtagShortDescDetails  `json:"schedtags"`
 }
 
 type WireTopologyOutput struct {
