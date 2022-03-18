@@ -78,6 +78,8 @@ type GenerateStartOptionsInput struct {
 	IsSlave               bool
 	IsMaster              bool
 	EnablePvpanic         bool
+
+	EncryptKeyPath string
 }
 
 func GenerateStartOptions(
@@ -178,8 +180,14 @@ func GenerateStartOptions(
 	// iothread object
 	opts = append(opts, drvOpt.Object("iothread", map[string]string{"id": "iothread0"}))
 
+	isEncrypt := false
+	if len(input.EncryptKeyPath) > 0 {
+		opts = append(opts, drvOpt.Object("secret", map[string]string{"id": "sec0", "file": input.EncryptKeyPath, "format": "base64"}))
+		isEncrypt = true
+	}
+
 	// genereate disk options
-	opts = append(opts, generateDisksOptions(drvOpt, input.Disks, input.PCIBus, input.IsVdiSpice)...)
+	opts = append(opts, generateDisksOptions(drvOpt, input.Disks, input.PCIBus, input.IsVdiSpice, isEncrypt)...)
 
 	// cdrom
 	opts = append(opts, drvOpt.Cdrom(input.CdromPath, input.OsName, input.IsQ35, len(input.Disks))...)
@@ -242,7 +250,7 @@ func getMonitorOptions(drvOpt QemuOptions, input *Monitor) []string {
 	return opts
 }
 
-func generateDisksOptions(drvOpt QemuOptions, disks []api.GuestdiskJsonDesc, pciBus string, isVdiSpice bool) []string {
+func generateDisksOptions(drvOpt QemuOptions, disks []api.GuestdiskJsonDesc, pciBus string, isVdiSpice bool, isEncrypt bool) []string {
 	opts := []string{}
 	isArm := drvOpt.IsArm()
 	firstDriver := make(map[string]bool)
@@ -267,14 +275,14 @@ func generateDisksOptions(drvOpt QemuOptions, disks []api.GuestdiskJsonDesc, pci
 			}
 		}
 		opts = append(opts,
-			getDiskDriveOption(drvOpt, disk, isArm),
+			getDiskDriveOption(drvOpt, disk, isArm, isEncrypt),
 			getDiskDeviceOption(drvOpt, disk, isArm, pciBus, isVdiSpice),
 		)
 	}
 	return opts
 }
 
-func getDiskDriveOption(drvOpt QemuOptions, disk api.GuestdiskJsonDesc, isArm bool) string {
+func getDiskDriveOption(drvOpt QemuOptions, disk api.GuestdiskJsonDesc, isArm bool, isEncrypt bool) string {
 	format := disk.Format
 	diskIndex := disk.Index
 	cacheMode := disk.CacheMode
@@ -297,6 +305,9 @@ func getDiskDriveOption(drvOpt QemuOptions, disk api.GuestdiskJsonDesc, isArm bo
 	}
 	if isLocalStorage(disk) {
 		opt += ",file.locking=off"
+	}
+	if isEncrypt {
+		opt += ",encrypt.format=luks,encrypt.key-secret=sec0"
 	}
 	// #opt += ",media=disk"
 	return drvOpt.Drive(opt)

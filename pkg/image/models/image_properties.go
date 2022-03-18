@@ -119,6 +119,7 @@ func (manager *SImagePropertyManager) GetProperty(imageId string, key string) (*
 
 func (manager *SImagePropertyManager) NewProperty(ctx context.Context, userCred mcclient.TokenCredential, imageId string, key string, value string) (*SImageProperty, error) {
 	prop := SImageProperty{}
+	prop.SetModelManager(manager, &prop)
 	prop.ImageId = imageId
 	prop.Name = key
 	prop.Value = value

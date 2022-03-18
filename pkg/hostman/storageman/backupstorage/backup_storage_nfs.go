@@ -378,7 +378,7 @@ func (s *SNFSBackupStorage) ConvertFrom(srcPath string, format qemuimg.TImageFor
 	destPath := path.Join(backupDir, backupId)
 	srcInfo := qemuimg.SConvertInfo{
 		Path:     srcPath,
-		Format:   qemuimg.RAW,
+		Format:   format,
 		IoLevel:  qemuimg.IONiceNone,
 		Password: "",
 	}
@@ -388,7 +388,7 @@ func (s *SNFSBackupStorage) ConvertFrom(srcPath string, format qemuimg.TImageFor
 		IoLevel:  qemuimg.IONiceNone,
 		Password: "",
 	}
-	err = qemuimg.Convert(srcInfo, destInfo, nil, true, nil)
+	err = qemuimg.Convert(srcInfo, destInfo, true, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -419,17 +419,13 @@ func (s *SNFSBackupStorage) ConvertTo(destPath string, format qemuimg.TImageForm
 		IoLevel:  qemuimg.IONiceNone,
 		Password: "",
 	}
-	var opts []string
-	if format == qemuimg.QCOW2 {
-		opts = qemuimg.Qcow2SparseOptions()
-	}
 	var workerOpts []string
 	if options.HostOptions.RestrictQemuImgConvertWorker {
 		workerOpts = nil
 	} else {
 		workerOpts = []string{"-W", "-m", "16"}
 	}
-	return qemuimg.Convert(srcInfo, destInfo, opts, false, workerOpts)
+	return qemuimg.Convert(srcInfo, destInfo, false, workerOpts)
 }
 
 func (s *SNFSBackupStorage) GetBackupPath(backupId string) string {

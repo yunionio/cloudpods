@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -710,7 +711,7 @@ func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
 	}
 }
 
-func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (m *SGuestManager) GuestStart(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if guest, ok := m.GetServer(sid); ok {
 		if desc, err := body.Get("desc"); err == nil {
 			guest.SaveDesc(desc)
@@ -722,7 +723,7 @@ func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonuti
 				Params: jsonutils.NewDict(),
 			}
 			body.Unmarshal(&data)
-			guest.StartGuest(ctx, data.Params)
+			guest.StartGuest(ctx, userCred, data.Params)
 			res := jsonutils.NewDict()
 			res.Set("vnc_port", jsonutils.NewInt(0))
 			return res, nil

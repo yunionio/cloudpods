@@ -60,6 +60,7 @@ type SDiskManager struct {
 	SBillingResourceBaseManager
 	db.SMultiArchResourceBaseManager
 	db.SAutoDeleteResourceBaseManager
+	db.SEncryptedResourceManager
 }
 
 var DiskManager *SDiskManager
@@ -84,6 +85,8 @@ type SDisk struct {
 	SStorageResourceBase `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
 	db.SMultiArchResourceBase
 	db.SAutoDeleteResourceBase
+
+	db.SEncryptedResource
 
 	// 磁盘存储类型
 	// example: qcow2
@@ -732,14 +735,13 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 	}
 	if len(fsFormat) > 0 {
 		input.FsFormat = fsFormat
-		if fsFormat == "ext4" {
-			name := strings.ToLower(self.GetName())
-			for _, key := range []string{"encrypt", "secret", "cipher", "private"} {
-				if strings.Index(key, name) > 0 {
-					input.Encryption = true
-					break
-				}
-			}
+	}
+	if self.IsEncrypted() {
+		var err error
+		input.Encryption = true
+		input.EncryptInfo, err = self.GetEncryptInfo(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "GetEncryptInfo")
 		}
 	}
 	if rebuild {
@@ -1016,6 +1018,8 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		VirtualSize  int
 		DiskFormat   string
 		Properties   map[string]string
+
+		EncryptKeyId string
 	}{
 		Name:         input.Name,
 		GenerateName: input.GenerateName,
@@ -1026,6 +1030,14 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 			"os_type": input.OsType,
 			"os_arch": input.OsArch,
 		},
+	}
+
+	if self.IsEncrypted() {
+		encKey, err := self.GetEncryptInfo(ctx, userCred)
+		if err != nil {
+			return "", errors.Wrap(err, "GetEncryptInfo")
+		}
+		opts.EncryptKeyId = encKey.Id
 	}
 
 	/*
@@ -1832,6 +1844,7 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 			return httperrors.NewInvalidStatusError("Image status is not active")
 		}
 		diskConfig.ImageId = image.Id
+		diskConfig.ImageEncryptKeyId = image.EncryptKeyId
 		diskConfig.ImageProperties = image.Properties
 		diskConfig.ImageProperties[imageapi.IMAGE_DISK_FORMAT] = image.DiskFormat
 		// if len(diskConfig.Format) == 0 {
@@ -2169,10 +2182,13 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 	rows := make([]api.DiskDetails, len(objs))
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	storeRows := manager.SStorageResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	encRows := manager.SEncryptedResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.DiskDetails{
 			VirtualResourceDetails: virtRows[i],
 			StorageResourceInfo:    storeRows[i],
+
+			EncryptedResourceDetails: encRows[i],
 		}
 		rows[i] = objs[i].(*SDisk).getMoreDetails(ctx, userCred, rows[i])
 	}

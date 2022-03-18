@@ -22,14 +22,14 @@ import (
 	"path"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -39,11 +39,14 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 var (
@@ -325,19 +328,37 @@ func (s *SLocalStorage) GetImgsaveBackupPath() string {
 }
 
 func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	data, ok := params.(*jsonutils.JSONDict)
+	info, ok := params.(SStorageSaveToGlanceInfo)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
+	data := info.DiskInfo
 
 	var (
 		imageId, _   = data.GetString("image_id")
 		imagePath, _ = data.GetString("image_path")
 		compress     = jsonutils.QueryBoolean(data, "compress", true)
 		format, _    = data.GetString("format")
+		encKeyId, _  = data.GetString("encrypt_key_id")
 	)
 
-	if err := s.saveToGlance(ctx, imageId, imagePath, compress, format); err != nil {
+	var (
+		encKey    string
+		encFormat qemuimg.TEncryptFormat
+		encAlg    seclib2.TSymEncAlg
+	)
+	if len(encKeyId) > 0 {
+		session := auth.GetSession(ctx, info.UserCred, consts.GetRegion(), "")
+		key, err := identity_modules.Credentials.GetEncryptKey(session, encKeyId)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetEncryptKey")
+		}
+		encKey = key.Key
+		encFormat = qemuimg.EncryptFormatLuks
+		encAlg = key.Alg
+	}
+
+	if err := s.saveToGlance(ctx, imageId, imagePath, compress, format, encKey, encFormat, encAlg); err != nil {
 		log.Errorf("Save to glance failed: %s", err)
 		s.onSaveToGlanceFailed(ctx, imageId, err.Error())
 	}
@@ -361,7 +382,7 @@ func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (j
 }
 
 func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath string,
-	compress bool, format string) error {
+	compress bool, format string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
 	ret, err := deployclient.GetDeployClient().SaveToGlance(context.Background(),
 		&deployapi.SaveToGlanceParams{DiskPath: imagePath, Compress: compress})
 	if err != nil {
@@ -374,11 +395,14 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 			log.Errorln(err)
 			return err
 		}
+		if len(encryptKey) > 0 {
+			origin.SetPassword(encryptKey)
+		}
 		if len(format) == 0 {
 			format = options.HostOptions.DefaultImageSaveFormat
 		}
 		if format == "qcow2" {
-			if err := origin.Convert2Qcow2(true); err != nil {
+			if err := origin.Convert2Qcow2(true, encryptKey, encFormat, encAlg); err != nil {
 				log.Errorln(err)
 				return err
 			}
@@ -514,7 +538,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 		// create local disk
 		backingFile, _ := disksBackingFile.GetString(diskId)
 		size, _ := diskinfo.Int("size")
-		_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", false, "", backingFile)
+		_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", nil, "", backingFile)
 		if err != nil {
 			log.Errorln(err)
 			return err

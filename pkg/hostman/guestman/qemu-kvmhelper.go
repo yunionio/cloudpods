@@ -241,6 +241,12 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		}
 	)
 
+	if data.Contains("encrypt_key") {
+		key, _ := data.GetString("encrypt_key")
+		s.saveEncryptKeyFile(key)
+		input.EncryptKeyPath = s.getEncryptKeyPath()
+	}
+
 	cmd := ""
 
 	// inject disks

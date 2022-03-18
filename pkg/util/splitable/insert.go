@@ -19,8 +19,10 @@ import (
 	"reflect"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -49,10 +51,13 @@ func (t *SSplitTableSpec) Insert(dt interface{}) error {
 			ti := lastTable.Instance()
 			q := ti.Query(sqlchemy.MAX("last_index", ti.Field(t.indexField)), sqlchemy.MAX("last_date", ti.Field(t.dateField)))
 			r := q.Row()
-			err := r.Scan(&lastRecIndex, &lastRecDate)
+			var lastRecDateStr string
+			err := r.Scan(&lastRecIndex, &lastRecDateStr)
 			if err != nil {
 				return errors.Wrap(err, "scan lastRecIndex and lastRecDate")
 			}
+			log.Debugf("lastRecDateStr: %s", lastRecDateStr)
+			lastRecDate, _ = timeutils.ParseTimeStr(lastRecDateStr)
 			// seal last meta
 			_, err = t.metaSpec.Update(&lastMeta, func() error {
 				lastMeta.End = lastRecIndex

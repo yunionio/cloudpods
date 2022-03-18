@@ -593,7 +593,7 @@ func init() {
 		[]string{"ID", "Name", "Tags", "Disk_format",
 			"Size", "Is_public", "Protected", "Is_Standard",
 			"OS_Type", "OS_Distribution", "OS_version",
-			"Min_disk", "Min_ram", "Status",
+			"Min_disk", "Min_ram", "Status", "Encrypt_Status",
 			"Notes", "OS_arch", "Preference",
 			"OS_Codename", "Description",
 			"Checksum", "Tenant_Id", "Tenant",
