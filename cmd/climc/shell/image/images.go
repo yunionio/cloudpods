@@ -248,11 +248,17 @@ func init() {
 	type ImageUploadOptions struct {
 		NAME string `help:"Image Name"`
 		FILE string `help:"The local image filename to Upload"`
+
+		EncryptKey string `help:"encrypt key id"`
+
 		ImageOptionalOptions
 	}
 	R(&ImageUploadOptions{}, "image-upload", "Upload a local image", func(s *mcclient.ClientSession, args *ImageUploadOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
+		if len(args.EncryptKey) > 0 {
+			params.Add(jsonutils.NewString(args.EncryptKey), "encrypt_key_id")
+		}
 		err := addImageOptionalOptions(s, params, args.ImageOptionalOptions)
 		if err != nil {
 			return err
@@ -279,14 +285,18 @@ func init() {
 
 	type ImageImportOptions struct {
 		ImageOptionalOptions
-		NAME     string `help:"Image Name"`
-		COPYFROM string `help:"Image external location url"`
+		NAME       string `help:"Image Name"`
+		COPYFROM   string `help:"Image external location url"`
+		EncryptKey string `help:"encrypt key id"`
 	}
 	R(&ImageImportOptions{}, "image-import", "Import a external image", func(s *mcclient.ClientSession, args *ImageImportOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		if len(args.Format) == 0 {
 			return fmt.Errorf("Please specify image format")
+		}
+		if len(args.EncryptKey) > 0 {
+			params.Add(jsonutils.NewString(args.EncryptKey), "encrypt_key_id")
 		}
 		err := addImageOptionalOptions(s, params, args.ImageOptionalOptions)
 		if err != nil {

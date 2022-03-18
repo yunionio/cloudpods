@@ -47,11 +47,14 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	hostRows := manager.SHostResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	encRows := manager.SEncryptedResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	guestIds := make([]string, len(objs))
 	for i := range objs {
 		rows[i] = api.ServerDetails{
 			VirtualResourceDetails: virtRows[i],
 			HostResourceInfo:       hostRows[i],
+
+			EncryptedResourceDetails: encRows[i],
 		}
 		guestIds[i] = objs[i].(*SGuest).GetId()
 	}

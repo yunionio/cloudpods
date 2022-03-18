@@ -1360,7 +1360,7 @@ func (s *SGuestSnapshotDeleteTask) doDiskConvert() error {
 		return err
 	}
 	convertedDisk := snapshotPath + ".tmp"
-	if err = img.Convert2Qcow2To(convertedDisk, true); err != nil {
+	if err = img.Convert2Qcow2To(convertedDisk, true, "", "", ""); err != nil {
 		log.Errorln(err)
 		if fileutils2.Exists(convertedDisk) {
 			os.Remove(convertedDisk)

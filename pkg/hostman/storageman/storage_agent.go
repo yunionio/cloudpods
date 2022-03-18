@@ -523,8 +523,9 @@ func (as *SAgentStorage) saveToGlance(ctx context.Context, imageId, imagePath st
 		if len(format) == 0 {
 			format = options.HostOptions.DefaultImageSaveFormat
 		}
-		if format == "qcow2" {
-			if err := origin.Convert2Qcow2(true); err != nil {
+		if format == string(qemuimg.QCOW2) {
+			// may be encrypted
+			if err := origin.Convert2Qcow2(true, "", "", ""); err != nil {
 				log.Errorln(err)
 				return err
 			}

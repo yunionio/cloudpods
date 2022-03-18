@@ -32,3 +32,21 @@ type CredentialUpdateInput struct {
 	// enabled
 	Enabled *bool `json:"enabled"`
 }
+
+type CredentialCreateInput struct {
+	apis.StandaloneResourceCreateInput
+
+	Type string `json:"type"`
+
+	ProjectId string `json:"project_id"`
+
+	UserId string `json:"user_id"`
+
+	Blob string `json:"blob"`
+
+	// Ignore
+	EncryptedBlob string `json:"encrypted_blob"`
+
+	// Ignore
+	KeyHash string `json:"key_hash"`
+}

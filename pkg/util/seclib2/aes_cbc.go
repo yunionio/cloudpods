@@ -20,6 +20,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 
 	"github.com/tjfoc/gmsm/sm4"
 
@@ -69,13 +70,18 @@ func Alg(alg TSymEncAlg) SSymEncAlg {
 
 // AES-256-CBC
 // key: 32bytes=256bites
-func (alg SSymEncAlg) CbcEncode(content []byte, encryptionKey []byte) ([]byte, error) {
-	bPlaintext := PKCS5Padding(content, alg.blockSize)
-	block, err := alg.newCipher(encryptionKey)
+func (alg SSymEncAlg) CbcEncodeIV(content []byte, encryptionKey []byte, IV []byte) ([]byte, error) {
+	bPlaintext, err := pkcs7pad(content, alg.blockSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "pkcs7pad")
+	}
+	block, err := alg.newCipher(alg.normalizeKey(encryptionKey))
 	if err != nil {
 		return nil, errors.Wrap(err, "newCipher")
 	}
-	IV, _ := GenerateRandomBytes(block.BlockSize())
+	if len(IV) == 0 {
+		IV, _ = GenerateRandomBytes(block.BlockSize())
+	}
 	ciphertext := make([]byte, block.BlockSize()+len(bPlaintext))
 	copy(ciphertext, IV)
 	mode := cipher.NewCBCEncrypter(block, IV)
@@ -83,15 +89,29 @@ func (alg SSymEncAlg) CbcEncode(content []byte, encryptionKey []byte) ([]byte, e
 	return ciphertext, nil
 }
 
+func (alg SSymEncAlg) CbcEncode(content []byte, encryptionKey []byte) ([]byte, error) {
+	return alg.CbcEncodeIV(content, encryptionKey, nil)
+}
+
+func (alg SSymEncAlg) normalizeKey(encKey []byte) []byte {
+	for len(encKey) < alg.keySize {
+		encKey = append(encKey, '0')
+	}
+	if len(encKey) > alg.keySize {
+		encKey = encKey[:alg.keySize]
+	}
+	return encKey
+}
+
 func (alg SSymEncAlg) CbcDecode(cipherText []byte, encryptionKey []byte) ([]byte, error) {
-	block, err := alg.newCipher(encryptionKey)
+	block, err := alg.newCipher(alg.normalizeKey(encryptionKey))
 	if err != nil {
 		return nil, errors.Wrap(err, "newCipher")
 	}
 	mode := cipher.NewCBCDecrypter(block, cipherText[:block.BlockSize()])
 	cipherText = cipherText[block.BlockSize():]
 	mode.CryptBlocks(cipherText, cipherText)
-	return PKCS5UnPadding(cipherText), nil
+	return pkcs7strip(cipherText, alg.blockSize)
 }
 
 func (alg SSymEncAlg) CbcEncodeBase64(content []byte, encryptionKey []byte) (string, error) {
@@ -119,16 +139,32 @@ func (alg SSymEncAlg) Name() TSymEncAlg {
 	return alg.name
 }
 
-func PKCS5Padding(cipherText []byte, blockSize int) []byte {
-	padding := blockSize - len(cipherText)%blockSize
-	padText := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(cipherText, padText...)
+// pkcs7strip remove pkcs7 padding
+func pkcs7strip(data []byte, blockSize int) ([]byte, error) {
+	length := len(data)
+	if length == 0 {
+		return nil, errors.Error("pkcs7: Data is empty")
+	}
+	if length%blockSize != 0 {
+		return nil, errors.Error("pkcs7: Data is not block-aligned")
+	}
+	padLen := int(data[length-1])
+	ref := bytes.Repeat([]byte{byte(padLen)}, padLen)
+	if padLen > blockSize || padLen == 0 || !bytes.HasSuffix(data, ref) {
+		return nil, errors.Error("pkcs7: Invalid padding")
+	}
+	return data[:length-padLen], nil
 }
 
-func PKCS5UnPadding(src []byte) []byte {
-	length := len(src)
-	unpadding := int(src[length-1])
-	return src[:(length - unpadding)]
+// pkcs7pad add pkcs7 padding
+func pkcs7pad(data []byte, blockSize int) ([]byte, error) {
+	if blockSize < 0 || blockSize > 256 {
+		return nil, errors.Error(fmt.Sprintf("pkcs7: Invalid block size %d", blockSize))
+	} else {
+		padLen := blockSize - len(data)%blockSize
+		padding := bytes.Repeat([]byte{byte(padLen)}, padLen)
+		return append(data, padding...), nil
+	}
 }
 
 func GenerateRandomBytes(n int) ([]byte, error) {

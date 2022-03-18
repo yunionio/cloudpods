@@ -45,6 +45,7 @@ import (
 	noapi "yunion.io/x/onecloud/pkg/apis/notify"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -205,12 +206,12 @@ func (self *SGuest) StartGuestSaveImage(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	query jsonutils.JSONObject, input api.ServerSaveGuestImageInput) (jsonutils.JSONObject, error) {
 
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY}) {
 		return nil, httperrors.NewBadRequestError("Cannot save image in status %s", self.Status)
 	}
-	if !data.Contains("name") && !data.Contains("generate_name") {
+	if len(input.Name) == 0 && len(input.GenerateName) == 0 {
 		return nil, httperrors.NewMissingParameterError("Image name is required")
 	}
 	if self.Hypervisor != api.HYPERVISOR_KVM {
@@ -222,43 +223,48 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewInternalServerError("No root image")
 	}
 
-	// build images
-	images := jsonutils.NewArray()
+	if len(self.EncryptKeyId) > 0 && (input.EncryptKeyId == nil || len(*input.EncryptKeyId) == 0) {
+		// server encrypted, so image must be encrypted
+		input.EncryptKeyId = &self.EncryptKeyId
+	} else if len(self.EncryptKeyId) > 0 && input.EncryptKeyId != nil && len(*input.EncryptKeyId) > 0 && self.EncryptKeyId != *input.EncryptKeyId {
+		return nil, errors.Wrap(httperrors.ErrConflict, "input encrypt key not match with server encrypt key")
+	}
+
 	diskList := append(disks.Data, disks.Root)
+
+	kwargs := imageapi.GuestImageCreateInput{}
+	kwargs.GuestImageCreateInputBase = input.GuestImageCreateInputBase
+	kwargs.Properties = make(map[string]string)
+
 	for _, disk := range diskList {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(disk.DiskFormat), "disk_format")
-		params.Add(jsonutils.NewInt(int64(disk.DiskSize)), "virtual_size")
-		images.Add(params)
+		kwargs.Images = append(kwargs.Images, imageapi.GuestImageCreateInputSubimage{
+			DiskFormat:  disk.DiskFormat,
+			VirtualSize: disk.DiskSize,
+		})
 	}
 
-	// build parameters
-	kwargs := data.(*jsonutils.JSONDict)
-
-	kwargs.Add(jsonutils.NewInt(int64(len(disks.Data)+1)), "image_number")
-	properties := jsonutils.NewDict()
-	if notes, err := kwargs.GetString("notes"); err != nil && len(notes) > 0 {
-		properties.Add(jsonutils.NewString(notes), "notes")
+	if len(input.Notes) > 0 {
+		kwargs.Properties["notes"] = input.Notes
 	}
+
 	osType := self.OsType
 	if len(osType) == 0 {
 		osType = "Linux"
 	}
-	properties.Add(jsonutils.NewString(osType), "os_type")
+	kwargs.Properties["os_type"] = osType
+
 	if apis.IsARM(self.OsArch) {
 		var osArch string
 		if osArch = self.GetMetadata(ctx, "os_arch", nil); len(osArch) == 0 {
 			host, _ := self.GetHost()
 			osArch = host.CpuArchitecture
 		}
-		properties.Add(jsonutils.NewString(osArch), "os_arch")
-		kwargs.Set("os_arch", jsonutils.NewString(self.OsArch))
+		kwargs.Properties["os_arch"] = osArch
+		kwargs.OsArch = self.OsArch
 	}
-	kwargs.Add(properties, "properties")
-	kwargs.Add(images, "images")
 
-	s := auth.GetSession(ctx, userCred, options.Options.Region, "")
-	ret, err := image.GuestImages.Create(s, kwargs)
+	s := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
+	ret, err := image.GuestImages.Create(s, jsonutils.Marshal(kwargs))
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +295,7 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 	}
 	imageIds = append(imageIds, guestImageInfo.RootImage.ID)
 	taskParams := jsonutils.NewDict()
-	if restart, _ := kwargs.Bool("auto_start"); restart {
+	if input.AutoStart != nil && *input.AutoStart {
 		taskParams.Add(jsonutils.JSONTrue, "auto_start")
 	}
 	taskParams.Add(jsonutils.Marshal(imageIds), "image_ids")
@@ -541,6 +547,9 @@ func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mccl
 }
 
 func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.IsEncrypted() {
+		return nil, httperrors.NewForbiddenError("cannot clone encrypted server")
+	}
 	if len(self.BackupHostId) > 0 {
 		return nil, httperrors.NewBadRequestError("Can't clone guest with backup guest")
 	}
@@ -4848,6 +4857,9 @@ func (self *SGuest) StartSnapshotResetTask(ctx context.Context, userCred mcclien
 func (self *SGuest) PerformSnapshotAndClone(
 	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSnapshotAndCloneInput,
 ) (jsonutils.JSONObject, error) {
+	if self.IsEncrypted() {
+		return nil, httperrors.NewForbiddenError("cannot snapshot and clone encrypted server")
+	}
 	newlyGuestName := input.Name
 	if len(input.Name) == 0 {
 		return nil, httperrors.NewMissingParameterError("name")

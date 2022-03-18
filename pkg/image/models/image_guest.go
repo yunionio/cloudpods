@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -48,6 +49,7 @@ import (
 type SGuestImageManager struct {
 	db.SSharableVirtualResourceBaseManager
 	db.SMultiArchResourceBaseManager
+	db.SEncryptedResourceManager
 }
 
 var GuestImageManager *SGuestImageManager
@@ -67,27 +69,38 @@ func init() {
 type SGuestImage struct {
 	db.SSharableVirtualResourceBase
 	db.SMultiArchResourceBase
+	db.SEncryptedResource
 
 	Protected tristate.TriState `default:"true" list:"user" get:"user" create:"optional" update:"user"`
 }
 
 func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-
-	if !data.Contains("image_number") {
-		return nil, httperrors.NewMissingParameterError("image_number")
+	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.GuestImageCreateInput) (api.GuestImageCreateInput, error) {
+	var err error
+	input.SharableVirtualResourceCreateInput, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ValidateCreateData")
 	}
-	imageNum, _ := data.Int("image_number")
+	input.EncryptedResourceCreateInput, err = manager.SEncryptedResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EncryptedResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SEncryptedResourceManager.ValidateCreateData")
+	}
+
+	imageNum := len(input.Images)
+	if imageNum == 0 {
+		return input, httperrors.NewMissingParameterError("images")
+	}
+
+	input.DiskFormat = string(qemuimg.QCOW2)
 
 	pendingUsage := SQuota{Image: int(imageNum)}
-	data.Set("disk_format", jsonutils.NewString("qcow2"))
 	keys := imageCreateInput2QuotaKeys("qcow2", ownerId)
 	pendingUsage.SetKeys(keys)
 	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 
-		return nil, httperrors.NewOutOfQuotaError("%s", err)
+		return input, httperrors.NewOutOfQuotaError("%s", err)
 	}
-	return data, nil
+	return input, nil
 }
 
 func (gi *SGuestImage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential,
@@ -106,11 +119,12 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 
 	kwargs := data.(*jsonutils.JSONDict)
 	// get image number
-	imageNumber, _ := kwargs.Int("image_number")
+	// imageNumber, _ := kwargs.Int("image_number")
 	// deal public params
 	kwargs.Remove("size")
 	kwargs.Remove("image_number")
 	kwargs.Remove("name")
+	kwargs.Remove("generate_name")
 	if !kwargs.Contains("images") {
 		return
 	}
@@ -156,7 +170,7 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 
-	pendingUsage := SQuota{Image: int(imageNumber)}
+	pendingUsage := SQuota{Image: len(images)}
 	keys := imageCreateInput2QuotaKeys("qcow2", ownerId)
 	pendingUsage.SetKeys(keys)
 	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)

@@ -14,7 +14,28 @@
 
 package seclib2
 
-import "testing"
+import (
+	"encoding/base64"
+	"testing"
+)
+
+func TestAes256CbcIV(t *testing.T) {
+	key := make([]byte, 32)
+	for i := 0; i < 32; i++ {
+		key[i] = 'a'
+	}
+	iv := make([]byte, 16)
+	for i := 0; i < 16; i++ {
+		iv[i] = 'a'
+	}
+	cipher, err := AES_256.CbcEncodeIV(iv, key, iv)
+	if err != nil {
+		t.Errorf("CbcEncodeIV fail %s", err)
+	} else {
+		t.Logf("%v", cipher)
+		t.Logf("%s", base64.StdEncoding.EncodeToString(cipher))
+	}
+}
 
 func TestAes256Cbc(t *testing.T) {
 	key, err := GenerateRandomBytes(32)

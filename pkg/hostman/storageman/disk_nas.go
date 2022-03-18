@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -38,9 +39,9 @@ func NewNasDisk(storage IStorage, id string) *SNasDisk {
 	return &SNasDisk{*NewLocalDisk(storage, id)}
 }
 
-func (d *SNasDisk) CreateFromTemplate(ctx context.Context, imageId, format string, size int64) (jsonutils.JSONObject, error) {
+func (d *SNasDisk) CreateFromTemplate(ctx context.Context, imageId, format string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
 	imageCacheManager := storageManager.GetStoragecacheById(d.Storage.GetStoragecacheId())
-	ret, err := d.SLocalDisk.createFromTemplate(ctx, imageId, format, imageCacheManager)
+	ret, err := d.SLocalDisk.createFromTemplate(ctx, imageId, format, imageCacheManager, encryptInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +71,7 @@ func (d *SNasDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocat
 			return err
 		}
 	}
-	err = newImg.CreateQcow2(0, false, snapshotPath)
+	err = newImg.CreateQcow2(0, false, snapshotPath, "", "", "")
 	if err != nil {
 		return errors.Wrap(err, "create image from snapshot")
 	}

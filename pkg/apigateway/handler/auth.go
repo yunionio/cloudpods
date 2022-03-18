@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -336,10 +337,8 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("get password in body")
 		}
-		// try base64 decryption
-		if decPasswd, err := base64.StdEncoding.DecodeString(passwd); err == nil && stringutils2.IsPrintableAsciiString(string(decPasswd)) {
-			passwd = string(decPasswd)
-		}
+		passwd = decodePassword(passwd)
+
 		if len(uname) == 0 || len(passwd) == 0 {
 			return nil, httperrors.NewInputParameterError("username or password is empty")
 		}
@@ -1203,17 +1202,13 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 	}{}
 	body.Unmarshal(&input)
 
+	input.PasswordOld = decodePassword(input.PasswordOld)
+	input.PasswordNew = decodePassword(input.PasswordNew)
+	input.PasswordConfirm = decodePassword(input.PasswordConfirm)
+
 	if input.PasswordNew != input.PasswordConfirm {
 		httperrors.InputParameterError(ctx, w, "new password mismatch")
 		return
-	}
-
-	if decPasswd, err := base64.StdEncoding.DecodeString(input.PasswordOld); err == nil && stringutils2.IsPrintableAsciiString(string(decPasswd)) {
-		input.PasswordOld = string(decPasswd)
-	}
-
-	if decPasswd, err := base64.StdEncoding.DecodeString(input.PasswordNew); err == nil && stringutils2.IsPrintableAsciiString(string(decPasswd)) {
-		input.PasswordNew = string(decPasswd)
 	}
 
 	// 1.验证原密码正确，且idp_driver为空
@@ -1278,4 +1273,15 @@ func isMfaEnabled(user jsonutils.JSONObject) bool {
 	}
 
 	return false
+}
+
+func decodePassword(passwd string) string {
+	if decPasswd, err := seclib2.AES_256.CbcDecodeBase64(passwd, []byte(agapi.DefaultEncryptKey)); err == nil && stringutils2.IsPrintableAsciiString(string(decPasswd)) {
+		// First try AES decryption
+		passwd = string(decPasswd)
+	} else if decPasswd, err := base64.StdEncoding.DecodeString(passwd); err == nil && stringutils2.IsPrintableAsciiString(string(decPasswd)) {
+		// try base64 decryption
+		passwd = string(decPasswd)
+	}
+	return passwd
 }

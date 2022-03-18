@@ -104,14 +104,23 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 	}
 
 	if err != nil {
+		log.Errorf("no such user %s locally, query external IDP: %s", ident.Password.User.Name, err)
 		// no such user locally, query domain idp
 		domain, err := models.DomainManager.FetchDomain(ident.Password.User.Domain.Id, ident.Password.User.Domain.Name)
 		if err != nil {
-			return nil, errors.Wrap(err, "DomainManager.FetchDomain")
+			if errors.Cause(err) != sql.ErrNoRows {
+				return nil, errors.Wrap(err, "DomainManager.FetchDomain")
+			} else {
+				return nil, errors.Wrapf(httperrors.ErrUserNotFound, "domain %s", ident.Password.User.Domain.Name)
+			}
 		}
 		mapping, err := models.IdmappingManager.FetchFirstEntity(domain.Id, api.IdMappingEntityDomain)
 		if err != nil {
-			return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")
+			if errors.Cause(err) != sql.ErrNoRows {
+				return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")
+			} else {
+				return nil, errors.Wrapf(httperrors.ErrUserNotFound, "idp")
+			}
 		}
 		idpId = mapping.IdpId
 	} else {

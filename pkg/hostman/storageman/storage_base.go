@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -356,7 +357,11 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 }
 
 func (s *SBaseStorage) CreateRawDisk(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
-	return disk.CreateRaw(ctx, input.DiskInfo.DiskSizeMb, input.DiskInfo.Format, input.DiskInfo.FsFormat, input.DiskInfo.Encryption, input.DiskId, "")
+	var encryptInfo *apis.SEncryptInfo
+	if input.DiskInfo.Encryption {
+		encryptInfo = &input.DiskInfo.EncryptInfo
+	}
+	return disk.CreateRaw(ctx, input.DiskInfo.DiskSizeMb, input.DiskInfo.Format, input.DiskInfo.FsFormat, encryptInfo, input.DiskId, "")
 }
 
 func (s *SBaseStorage) CreateDiskFromTemplate(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
@@ -364,7 +369,12 @@ func (s *SBaseStorage) CreateDiskFromTemplate(ctx context.Context, disk IDisk, i
 		format = "qcow2" // force qcow2
 	)
 
-	return disk.CreateFromTemplate(ctx, input.DiskInfo.ImageId, format, int64(input.DiskInfo.DiskSizeMb))
+	var encryptInfo *apis.SEncryptInfo
+	if input.DiskInfo.Encryption {
+		encryptInfo = &input.DiskInfo.EncryptInfo
+	}
+
+	return disk.CreateFromTemplate(ctx, input.DiskInfo.ImageId, format, int64(input.DiskInfo.DiskSizeMb), encryptInfo)
 }
 
 func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
@@ -533,7 +543,7 @@ func requestConvertSnapshot(storage IStorage, snapshotPath, diskId string) {
 		return
 	}
 	log.Infof("convertSnapshot path %s", convertSnapshotPath)
-	err = img.Convert2Qcow2To(outfile, true)
+	err = img.Convert2Qcow2To(outfile, true, "", "", "")
 	if err != nil {
 		log.Errorln(err)
 		return

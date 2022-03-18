@@ -197,6 +197,7 @@ type SimpleSnapshotPolicy struct {
 type DiskDetails struct {
 	apis.VirtualResourceDetails
 	StorageResourceInfo
+	apis.EncryptedResourceDetails
 
 	SDisk
 
@@ -273,7 +274,6 @@ type DiskAllocateInput struct {
 	DiskSizeMb    int
 	ImageId       string
 	FsFormat      string
-	Encryption    bool
 	Rebuild       bool
 	BackingDiskId string
 	SnapshotId    string
@@ -290,6 +290,10 @@ type DiskAllocateInput struct {
 	// vmware
 	HostIp    string
 	Datastore vcenter.SVCenterAccessInfo
+
+	// encryption
+	Encryption  bool
+	EncryptInfo apis.SEncryptInfo
 }
 
 type DiskAllocateFromBackupInput struct {
