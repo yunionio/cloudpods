@@ -1360,7 +1360,7 @@ func (manager *SServerSkuManager) InitializeData() error {
 	}
 
 	privateSkus := make([]SServerSku, 0)
-	err = manager.Query().IsNullOrEmpty("local_category").IsNullOrEmpty("zone_id").All(&privateSkus)
+	err = manager.Query().IsNullOrEmpty("local_category").IsNotNull("instance_type_category").IsNullOrEmpty("zone_id").All(&privateSkus)
 	if err != nil {
 		return err
 	}
