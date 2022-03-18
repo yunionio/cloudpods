@@ -61,21 +61,21 @@ func (self *InstanceBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStan
 	if serverName == "" {
 		serverName, _ = ib.ServerConfig.GetString("name")
 	}
-	project, _ := ib.ServerConfig.GetString("project")
+	projectId, _ := ib.ServerConfig.GetString("project_id")
 	sourceInput := &compute.ServerCreateInput{}
 	sourceInput.ServerConfigs = &compute.ServerConfigs{}
 	sourceInput.GenerateName = serverName
 	sourceInput.Description = fmt.Sprintf("recovery from instance backup %s", ib.GetName())
 	sourceInput.InstanceBackupId = ib.GetId()
 	sourceInput.Hypervisor = compute.HYPERVISOR_KVM
-	if project != "" {
-		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
+	if projectId != "" {
+		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectId)
 		if err != nil && errors.Cause(err) != sql.ErrNoRows {
 			self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
 			return
 		}
 		if tenant != nil {
-			sourceInput.Project = project
+			sourceInput.ProjectId = projectId
 		}
 	}
 	taskHeader := self.GetTaskRequestHeader()
