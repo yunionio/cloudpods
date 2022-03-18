@@ -1561,6 +1561,7 @@ func (self *SWire) GetDetailsTopology(ctx context.Context, userCred mcclient.Tok
 			HostStatus: hosts[i].HostStatus,
 			HostType:   hosts[i].HostType,
 			Networks:   []api.HostnetworkTopologyOutput{},
+			Schedtags:  GetSchedtagsDetailsToResourceV2(&hosts[i], ctx),
 		}
 		for j := range hns {
 			host.Networks = append(host.Networks, api.HostnetworkTopologyOutput{
