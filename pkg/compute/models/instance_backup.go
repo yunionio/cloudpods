@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -57,7 +56,7 @@ type SInstanceBackup struct {
 	BackupStorageId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
 
 	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
-	// 云主机配置
+	// 云主机配置 corresponds to api.ServerCreateInput
 	ServerConfig jsonutils.JSONObject `nullable:"true" list:"user"`
 	// 云主机标签
 	ServerMetadata jsonutils.JSONObject `nullable:"true" list:"user"`
@@ -240,20 +239,19 @@ func (manager *SInstanceBackupManager) fillInstanceBackup(ctx context.Context, u
 	instanceBackup.ProjectId = guest.ProjectId
 	instanceBackup.DomainId = guest.DomainId
 	instanceBackup.GuestId = guest.Id
-	guestSchedInput := guest.ToSchedDesc()
 
 	host, _ := guest.GetHost()
 	instanceBackup.ManagerId = host.ManagerId
 	zone, _ := host.GetZone()
 	instanceBackup.CloudregionId = zone.CloudregionId
 
-	guestSchedInput.HostId = ""
-	for i := 0; i < len(guestSchedInput.Networks); i++ {
-		guestSchedInput.Networks[i].Mac = ""
-		guestSchedInput.Networks[i].Address = ""
-		guestSchedInput.Networks[i].Address6 = ""
+	createInput := guest.ToCreateInput(ctx, userCred)
+	for i := 0; i < len(createInput.Networks); i++ {
+		createInput.Networks[i].Mac = ""
+		createInput.Networks[i].Address = ""
+		createInput.Networks[i].Address6 = ""
 	}
-	instanceBackup.ServerConfig = jsonutils.Marshal(guestSchedInput.ServerConfig)
+	instanceBackup.ServerConfig = jsonutils.Marshal(createInput)
 	if len(guest.KeypairId) > 0 {
 		instanceBackup.KeypairId = guest.KeypairId
 	}
@@ -314,8 +312,9 @@ func (manager *SInstanceBackupManager) CreateInstanceBackup(ctx context.Context,
 
 func (self *SInstanceBackup) ToInstanceCreateInput(sourceInput *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 
-	serverConfig := new(schedapi.ServerConfig)
-	if err := self.ServerConfig.Unmarshal(serverConfig); err != nil {
+	createInput := new(api.ServerCreateInput)
+	createInput.ServerConfigs = new(api.ServerConfigs)
+	if err := self.ServerConfig.Unmarshal(createInput); err != nil {
 		return nil, errors.Wrap(err, "unmarshal sched input")
 	}
 
@@ -325,21 +324,21 @@ func (self *SInstanceBackup) ToInstanceCreateInput(sourceInput *api.ServerCreate
 		return nil, errors.Wrap(err, "fetch instance backups")
 	}
 
-	for i := 0; i < len(serverConfig.Disks); i++ {
-		index := serverConfig.Disks[i].Index
+	for i := 0; i < len(createInput.Disks); i++ {
+		index := createInput.Disks[i].Index
 		if index < len(isjs) {
-			serverConfig.Disks[i].BackupId = isjs[index].DiskBackupId
-			serverConfig.Disks[i].ImageId = ""
-			serverConfig.Disks[i].SnapshotId = ""
+			createInput.Disks[i].BackupId = isjs[index].DiskBackupId
+			createInput.Disks[i].ImageId = ""
+			createInput.Disks[i].SnapshotId = ""
 		}
 	}
 
-	sourceInput.Disks = serverConfig.Disks
+	sourceInput.Disks = createInput.Disks
 	if sourceInput.VmemSize == 0 {
-		sourceInput.VmemSize = serverConfig.Memory
+		sourceInput.VmemSize = createInput.VmemSize
 	}
 	if sourceInput.VcpuCount == 0 {
-		sourceInput.VcpuCount = serverConfig.Ncpu
+		sourceInput.VcpuCount = createInput.VcpuCount
 	}
 	if len(self.KeypairId) > 0 {
 		sourceInput.KeypairId = self.KeypairId
@@ -359,7 +358,28 @@ func (self *SInstanceBackup) ToInstanceCreateInput(sourceInput *api.ServerCreate
 	sourceInput.OsType = self.OsType
 	sourceInput.InstanceType = self.InstanceType
 	if len(sourceInput.Networks) == 0 {
-		sourceInput.Networks = serverConfig.Networks
+		sourceInput.Networks = createInput.Networks
+	}
+	if sourceInput.Vga == "" {
+		sourceInput.Vga = createInput.Vga
+	}
+	if sourceInput.Vdi == "" {
+		sourceInput.Vdi = createInput.Vdi
+	}
+	if sourceInput.Vdi == "" {
+		sourceInput.Vdi = createInput.Vdi
+	}
+	if sourceInput.Bios == "" {
+		sourceInput.Bios = createInput.Bios
+	}
+	if sourceInput.BootOrder == "" {
+		sourceInput.BootOrder = createInput.BootOrder
+	}
+	if sourceInput.ShutdownBehavior == "" {
+		sourceInput.ShutdownBehavior = createInput.ShutdownBehavior
+	}
+	if sourceInput.IsolatedDevices == nil {
+		sourceInput.IsolatedDevices = createInput.IsolatedDevices
 	}
 	return sourceInput, nil
 }
