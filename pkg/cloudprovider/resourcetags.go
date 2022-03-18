@@ -17,6 +17,7 @@ package cloudprovider
 import (
 	"context"
 	"reflect"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -58,7 +59,8 @@ func SetTags(ctx context.Context, res ICloudResource, managerId string, tags map
 		}
 		for k, v := range tags {
 			_, ok := newTags[k]
-			if !ok {
+			_, ok2 := newTags[strings.ToLower(k)]
+			if !ok && !ok2 {
 				log.Warningf("tag %s:%s not found waitting....", k, v)
 				return false, nil
 			}

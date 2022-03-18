@@ -349,10 +349,10 @@ func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroup
 func (self *SGoogleClient) CreateSecurityGroupRule(rule cloudprovider.SecurityRule, vpcId string, tag string, serviceAccount string) error {
 	name := fmt.Sprintf("%s-%d", rule.String(), rule.Priority)
 	if len(tag) > 0 {
-		name = fmt.Sprintf("for-tag-%s-%s", tag, name)
+		name = fmt.Sprintf("%s-%s", tag, name)
 	}
 	if len(serviceAccount) > 0 {
-		name = fmt.Sprintf("for-service-account-%s-%s", serviceAccount, name)
+		name = fmt.Sprintf("%s-%s", serviceAccount, name)
 	}
 
 	body := map[string]interface{}{
