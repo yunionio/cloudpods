@@ -21,6 +21,7 @@ type GuestMemorySnapshotRequest struct {
 type GuestMemorySnapshotResponse struct {
 	MemorySnapshotPath string `json:"memory_snapshot_path"`
 	SizeMB             int64  `json:"size_mb"`
+	Checksum           string `json:"checksum"`
 }
 
 type GuestMemorySnapshotDeleteRequest struct {
@@ -31,4 +32,5 @@ type GuestMemorySnapshotDeleteRequest struct {
 type GuestMemorySnapshotResetRequest struct {
 	InstanceSnapshotId string `json:"instance_snapshot_id"`
 	Path               string `json:"path"`
+	Checksum           string `json:"checksum"`
 }

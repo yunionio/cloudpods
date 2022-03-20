@@ -1824,6 +1824,11 @@ func (s *SKVMGuestInstance) ExecMemorySnapshotTask(ctx context.Context, input *h
 		log.Infof("Memory state file %q saved, move it to %q", memStatPath, memSnapPath)
 		sizeBytes := fileutils2.FileSize(memStatPath)
 		sizeMB := sizeBytes / 1024
+		checksum, err := fileutils2.FastCheckSum(memStatPath)
+		if err != nil {
+			hostutils.TaskFailed(ctx, fmt.Sprintf("calculate statefile %q checksum: %v", memStatPath, err))
+			return
+		}
 		if err := procutils.NewRemoteCommandAsFarAsPossible("mv", memStatPath, memSnapPath).Run(); err != nil {
 			hostutils.TaskFailed(ctx, fmt.Sprintf("move statefile %q to memory snapshot %q: %v", memStatPath, memSnapPath, err))
 			return
@@ -1833,6 +1838,7 @@ func (s *SKVMGuestInstance) ExecMemorySnapshotTask(ctx context.Context, input *h
 			resp := &hostapi.GuestMemorySnapshotResponse{
 				MemorySnapshotPath: memSnapPath,
 				SizeMB:             sizeMB,
+				Checksum:           checksum,
 			}
 			return jsonutils.Marshal(resp), nil
 		})
@@ -1849,6 +1855,23 @@ func (s *SKVMGuestInstance) ExecMemorySnapshotResetTask(ctx context.Context, inp
 	if err := procutils.NewRemoteCommandAsFarAsPossible("ln", "-s", input.Path, memStatPath).Run(); err != nil {
 		hostutils.TaskFailed(ctx, fmt.Sprintf("move %q to %q: %v", input.Path, memStatPath, err))
 		return nil, err
+	}
+	if input.Checksum != "" {
+		handleErr := func(msg string) error {
+			// remove linked snapshot path
+			if err := procutils.NewRemoteCommandAsFarAsPossible("unlink", memStatPath).Run(); err != nil {
+				msg = errors.Wrapf(err, "unlink statfile cause %s", msg).Error()
+			}
+			hostutils.TaskFailed(ctx, msg)
+			return errors.Error(msg)
+		}
+		checksum, err := fileutils2.FastCheckSum(memStatPath)
+		if err != nil {
+			return nil, handleErr(fmt.Sprintf("calculate statefile %s checksum: %v", memStatPath, err))
+		}
+		if checksum != input.Checksum {
+			return nil, handleErr(fmt.Sprintf("calculate checksum %s != %s", checksum, input.Checksum))
+		}
 	}
 	hostutils.TaskComplete(ctx, nil)
 	return nil, nil
