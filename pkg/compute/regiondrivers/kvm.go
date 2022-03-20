@@ -1085,6 +1085,7 @@ func (self *SKVMRegionDriver) RequestResetToInstanceSnapshot(ctx context.Context
 			if _, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, jsonutils.Marshal(&hostapi.GuestMemorySnapshotResetRequest{
 				InstanceSnapshotId: isp.GetId(),
 				Path:               isp.MemoryFilePath,
+				Checksum:           isp.MemoryFileChecksum,
 			}), false); err != nil {
 				return err
 			}
