@@ -133,6 +133,7 @@ func (self *InstanceSnapshotCreateTask) OnInstanceSnapshot(ctx context.Context, 
 		if _, err := db.Update(isp, func() error {
 			isp.MemorySizeMB = int(resp.SizeMB)
 			isp.MemoryFilePath = resp.MemorySnapshotPath
+			isp.MemoryFileChecksum = resp.Checksum
 			return nil
 		}); err != nil {
 			self.taskFail(ctx, isp, guest, jsonutils.NewString(err.Error()))

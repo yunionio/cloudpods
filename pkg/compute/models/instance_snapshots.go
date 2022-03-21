@@ -80,13 +80,15 @@ type SInstanceSnapshot struct {
 	// 镜像ID
 	ImageId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 是否保存内存
-	WithMemory bool `default:"false" list:"user"`
+	WithMemory bool `default:"false" get:"user" list:"user"`
 	// 内存文件大小
-	MemorySizeMB int `nullable:"true" list:"user"`
+	MemorySizeMB int `nullable:"true" get:"user" list:"user"`
 	// 内存文件所在宿主机
-	MemoryFileHostId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	MemoryFileHostId string `width:"36" charset:"ascii" nullable:"true" get:"user" list:"user"`
 	// 内存文件路径
-	MemoryFilePath string `width:"512" charset:"utf8" nullable:"true" list:"user"`
+	MemoryFilePath string `width:"512" charset:"utf8" nullable:"true" get:"user" list:"user"`
+	// 内存文件校验和
+	MemoryFileChecksum string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
 }
 
 type SInstanceSnapshotManager struct {
