@@ -2139,61 +2139,65 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheSetMaintainTi
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAllocatePublicConnection(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
-	port, _ := task.GetParams().Int("port")
-	iregion, err := ec.GetIRegion()
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.GetIRegion")
-	}
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		port, _ := task.GetParams().Int("port")
+		iregion, err := ec.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "GerIRegion")
+		}
 
-	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.GetIElasticcacheById")
-	}
+		iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIElasticcacheById(%s)", ec.ExternalId)
+		}
 
-	_, err = iec.AllocatePublicConnection(int(port))
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.AllocatePublicConnection")
-	}
+		_, err = iec.AllocatePublicConnection(int(port))
+		if err != nil {
+			return nil, errors.Wrapf(err, "AllocatePublicConnection(%d)", port)
+		}
 
-	err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.WaitStatusWithDelay")
-	}
+		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "WaitStatusWithDelay")
+		}
 
-	err = ec.SyncWithCloudElasticcache(ctx, task.GetUserCred(), nil, iec)
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.SyncWithCloudElasticcache")
-	}
-
+		err = ec.SyncWithCloudElasticcache(ctx, task.GetUserCred(), ec.GetCloudprovider(), iec)
+		if err != nil {
+			return nil, errors.Wrap(err, "SyncWithCloudElasticcache")
+		}
+		return nil, nil
+	})
 	return nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheReleasePublicConnection(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
-	iregion, err := ec.GetIRegion()
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheReleasePublicConnection.GetIRegion")
-	}
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iregion, err := ec.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetIRegion")
+		}
 
-	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheReleasePublicConnection.GetIElasticcacheById")
-	}
+		iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIElasticcacheById(%s)", ec.ExternalId)
+		}
 
-	err = iec.ReleasePublicConnection()
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheReleasePublicConnection.AllocatePublicConnection")
-	}
+		err = iec.ReleasePublicConnection()
+		if err != nil {
+			return nil, errors.Wrap(err, "ReleasePublicConnection")
+		}
 
-	err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
-	if err != nil {
-		return errors.Wrap(errors.ErrTimeout, "managedVirtualizationRegionDriver.RequestElasticcacheReleasePublicConnection.WaitStatusWithDelay")
-	}
+		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(errors.ErrTimeout, "WaitStatusWithDelay")
+		}
 
-	err = ec.SyncWithCloudElasticcache(ctx, task.GetUserCred(), nil, iec)
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.SyncWithCloudElasticcache")
-	}
-
+		err = ec.SyncWithCloudElasticcache(ctx, task.GetUserCred(), ec.GetCloudprovider(), iec)
+		if err != nil {
+			return nil, errors.Wrap(err, "SyncWithCloudElasticcache")
+		}
+		return nil, nil
+	})
 	return nil
 }
 
