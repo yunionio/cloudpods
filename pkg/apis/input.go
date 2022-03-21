@@ -395,3 +395,7 @@ type SyncstatusInput struct {
 type PurgeSplitTableInput struct {
 	Tables []string `json:"tables"`
 }
+
+type SplitTableExportInput struct {
+	Table string `json:"table"`
+}

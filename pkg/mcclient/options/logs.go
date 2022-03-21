@@ -17,8 +17,9 @@ package options
 import "yunion.io/x/jsonutils"
 
 type EventSplitableOptions struct {
-	ID      string `choices:"splitable"`
+	ID      string `choices:"splitable|splitable-export"`
 	Service string `help:"service" choices:"compute|identity|image|log|cloudevent" default:"compute"`
+	Table   string `help:"when id is splitable-export table must be input"`
 }
 
 func (self *EventSplitableOptions) GetId() string {
