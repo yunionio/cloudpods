@@ -42,6 +42,7 @@ import (
 
 type SUserManager struct {
 	SEnabledIdentityBaseResourceManager
+	db.SRecordChecksumResourceBaseManager
 }
 
 var UserManager *SUserManager
@@ -54,6 +55,7 @@ func init() {
 			"user",
 			"users",
 		),
+		SRecordChecksumResourceBaseManager: *db.NewRecordChecksumResourceBaseManager(),
 	}
 	UserManager.SetVirtualObject(UserManager)
 	db.InitManager(func() {
@@ -76,6 +78,7 @@ func init() {
 */
 
 type SUser struct {
+	db.SRecordChecksumResourceBase
 	SEnabledIdentityBaseResource
 
 	Email  string `width:"64" charset:"utf8" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`

@@ -71,7 +71,7 @@ func StartService() error {
 		if count == checkDBSyncRetries {
 			log.Fatalf("database schema not in sync!!!")
 		}
-		if !db.CheckSync(false, nil, true) {
+		if !db.CheckSync(false, false, true) {
 			log.Errorf("database schema not in sync, wait region sync database")
 			time.Sleep(2 * time.Second)
 		} else {

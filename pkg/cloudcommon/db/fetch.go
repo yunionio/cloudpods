@@ -220,7 +220,7 @@ func fetchItem(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, err
 	}
-	if err := item.CheckConsistent(); err != nil {
+	if err := CheckRecordChecksumConsistent(item); err != nil {
 		return nil, err
 	}
 	return item, nil

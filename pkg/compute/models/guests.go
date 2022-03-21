@@ -78,6 +78,7 @@ type SGuestManager struct {
 	SDiskResourceBaseManager
 	SScalingGroupResourceBaseManager
 	db.SMultiArchResourceBaseManager
+	db.SRecordChecksumResourceBaseManager
 	SHostnameResourceBaseManager
 }
 
@@ -91,6 +92,7 @@ func init() {
 			"server",
 			"servers",
 		),
+		SRecordChecksumResourceBaseManager: *db.NewRecordChecksumResourceBaseManager(),
 	}
 	GuestManager.SetVirtualObject(GuestManager)
 	GuestManager.SetAlias("guest", "guests")
@@ -105,6 +107,7 @@ type SGuest struct {
 	SBillingResourceBase
 	SDeletePreventableResourceBase
 	db.SMultiArchResourceBase
+	db.SRecordChecksumResourceBase
 
 	SHostnameResourceBase
 	SHostResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user" index:"true"`
