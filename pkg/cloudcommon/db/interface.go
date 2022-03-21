@@ -43,10 +43,6 @@ type IModelManager interface {
 	// Table() *sqlchemy.STable
 	TableSpec() ITableSpec
 
-	// db record checksum
-	EnableRecordChecksum() IModelManager
-	IsEnableRecordChecksum() bool
-
 	// Keyword() string
 	KeywordPlural() string
 	Alias() string
@@ -205,10 +201,6 @@ type IModel interface {
 
 	GetUsages() []IUsage
 	GetI18N(ctx context.Context) *jsonutils.JSONDict
-
-	GetRecordChecksum() string
-	SetRecordChecksum(checksum string)
-	CheckConsistent() error
 }
 
 type IResourceModelManager interface {

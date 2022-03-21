@@ -128,8 +128,9 @@ func (ts *sTableSpec) isMarkDeleted(dt interface{}) (bool, error) {
 	return obj.GetDeleted(), nil
 }
 
-func (ts *sTableSpec) rejectRecordChecksumAfterInsert(obj IModel) error {
-	if !obj.GetModelManager().IsEnableRecordChecksum() {
+func (ts *sTableSpec) rejectRecordChecksumAfterInsert(model IModel) error {
+	obj, ok := IsModelEnableRecordChecksum(model)
+	if !ok {
 		return nil
 	}
 	_, err := ts.ITableSpec.Update(obj, func() error {
@@ -170,12 +171,12 @@ func (ts *sTableSpec) InsertOrUpdate(ctx context.Context, dt interface{}) error 
 }
 
 func (ts *sTableSpec) CheckRecordChanged(dbObj IModel) error {
-	return dbObj.CheckConsistent()
+	return CheckRecordChecksumConsistent(dbObj)
 }
 
 func (ts *sTableSpec) Update(ctx context.Context, dt interface{}, doUpdate func() error) (sqlchemy.UpdateDiffs, error) {
-	dbObj := dt.(IModel)
-	isEnableRecordChecksum := dbObj.GetModelManager().IsEnableRecordChecksum()
+	model := dt.(IModel)
+	dbObj, isEnableRecordChecksum := IsModelEnableRecordChecksum(model)
 	if isEnableRecordChecksum {
 		if err := ts.CheckRecordChanged(dbObj); err != nil {
 			log.Errorf("checkRecordChanged when update error: %s", err)
@@ -189,7 +190,7 @@ func (ts *sTableSpec) Update(ctx context.Context, dt interface{}, doUpdate func(
 			return err
 		}
 		if isEnableRecordChecksum {
-			dbObj = dt.(IModel)
+			dbObj = dt.(IRecordChecksumModel)
 			updateChecksum, err := CalculateModelChecksum(dbObj)
 			if err != nil {
 				return errors.Wrap(err, "CalculateModelChecksum for update")
