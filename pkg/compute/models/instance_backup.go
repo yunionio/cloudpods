@@ -246,6 +246,8 @@ func (manager *SInstanceBackupManager) fillInstanceBackup(ctx context.Context, u
 	instanceBackup.CloudregionId = zone.CloudregionId
 
 	createInput := guest.ToCreateInput(ctx, userCred)
+	createInput.ProjectId = guest.ProjectId
+	createInput.ProjectDomainId = guest.DomainId
 	for i := 0; i < len(createInput.Networks); i++ {
 		createInput.Networks[i].Mac = ""
 		createInput.Networks[i].Address = ""
