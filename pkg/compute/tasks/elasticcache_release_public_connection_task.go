@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,38 +37,35 @@ func init() {
 	taskman.RegisterTask(ElasticcacheReleasePublicConnectionTask{})
 }
 
-func (self *ElasticcacheReleasePublicConnectionTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGING, reason.String())
-	db.OpsLog.LogEvent(elasticcache, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *ElasticcacheReleasePublicConnectionTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, err error) {
+	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGING, err.Error())
+	db.OpsLog.LogEvent(elasticcache, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_DELOCATE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *ElasticcacheReleasePublicConnectionTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	elasticcache := obj.(*models.SElasticcache)
-	region, _ := elasticcache.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, elasticcache, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName())))
+	region, err := elasticcache.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, elasticcache, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 
 	self.SetStage("OnElasticcacheReleasePublicConnectionComplete", nil)
-	if err := region.GetDriver().RequestElasticcacheReleasePublicConnection(ctx, self.GetUserCred(), elasticcache, self); err != nil {
+	err = region.GetDriver().RequestElasticcacheReleasePublicConnection(ctx, self.GetUserCred(), elasticcache, self)
+	if err != nil {
 		self.OnElasticcacheReleasePublicConnectionCompleteFailed(ctx, elasticcache, jsonutils.NewString(err.Error()))
 		return
 	}
-
-	self.OnElasticcacheReleasePublicConnectionComplete(ctx, elasticcache, data)
-	return
 }
 
 func (self *ElasticcacheReleasePublicConnectionTask) OnElasticcacheReleasePublicConnectionComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
-	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_DELOCATE, "release public connection", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *ElasticcacheReleasePublicConnectionTask) OnElasticcacheReleasePublicConnectionCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, elasticcache, reason)
+	self.taskFail(ctx, elasticcache, fmt.Errorf(reason.String()))
 }
