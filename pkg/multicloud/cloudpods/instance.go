@@ -167,6 +167,9 @@ func (self *SInstance) AssignSecurityGroup(id string) error {
 }
 
 func (self *SInstance) SetSecurityGroups(ids []string) error {
+	if self.Hypervisor == api.HYPERVISOR_ESXI {
+		return nil
+	}
 	input := api.GuestSetSecgroupInput{}
 	input.SecgroupIds = ids
 	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "set-secgroup", input)
