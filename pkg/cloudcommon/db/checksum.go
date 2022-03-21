@@ -26,6 +26,78 @@ import (
 	"yunion.io/x/pkg/utils"
 )
 
+type IRecordChecksumResourceBase interface {
+	GetRecordChecksum() string
+	SetRecordChecksum(checksum string)
+}
+
+type IRecordChecksumModelManager interface {
+	IModelManager
+	EnableRecordChecksum() bool
+	SetEnableRecordChecksum(bool)
+}
+
+type IRecordChecksumModel interface {
+	IModel
+	IRecordChecksumResourceBase
+}
+
+type SRecordChecksumResourceBaseManager struct {
+	enableRecordChecksum bool
+}
+
+func NewRecordChecksumResourceBaseManager() *SRecordChecksumResourceBaseManager {
+	return &SRecordChecksumResourceBaseManager{
+		enableRecordChecksum: true,
+	}
+}
+
+func (man *SRecordChecksumResourceBaseManager) EnableRecordChecksum() bool {
+	return man.enableRecordChecksum
+}
+
+func (man *SRecordChecksumResourceBaseManager) SetEnableRecordChecksum(enable bool) {
+	man.enableRecordChecksum = enable
+}
+
+type SRecordChecksumResourceBase struct {
+	RecordChecksum string `width:"256" charset:"ascii" nullable:"true" list:"user" get:"user" json:"record_checksum"`
+}
+
+func (model *SRecordChecksumResourceBase) SetRecordChecksum(checksum string) {
+	model.RecordChecksum = checksum
+}
+
+func (model *SRecordChecksumResourceBase) GetRecordChecksum() string {
+	return model.RecordChecksum
+}
+
+func IsModelEnableRecordChecksum(model IModel) (IRecordChecksumModel, bool) {
+	obj, ok := model.(IRecordChecksumModel)
+	if !ok {
+		return nil, false
+	}
+	man := obj.GetModelManager().(IRecordChecksumModelManager)
+	return obj, man.EnableRecordChecksum()
+}
+
+func CheckRecordChecksumConsistent(model IModel) error {
+	obj, ok := IsModelEnableRecordChecksum(model)
+	if !ok {
+		return nil
+	}
+	calChecksum, err := CalculateModelChecksum(obj)
+	if err != nil {
+		return errors.Wrap(err, "CalculateModelChecksum")
+	}
+	savedChecksum := obj.GetRecordChecksum()
+	if calChecksum != savedChecksum {
+		log.Errorf("Record %s(%s) checksum changed, expected(%s) != calculated(%s)", obj.Keyword(), obj.GetId(), savedChecksum, calChecksum)
+		return errors.Errorf("Record %s(%s) checksum changed, expected(%s) != calculated(%s)", obj.Keyword(), obj.GetId(), savedChecksum, calChecksum)
+	}
+	return nil
+}
+
 func calculateRecordChecksumByValues(vals []interface{}) string {
 	ss := ""
 	for _, val := range vals {
@@ -37,11 +109,7 @@ func calculateRecordChecksumByValues(vals []interface{}) string {
 	return sum
 }
 
-func CalculateModelChecksum(dbObj IModel) (string, error) {
-	if !dbObj.GetModelManager().IsEnableRecordChecksum() {
-		return "", nil
-	}
-
+func CalculateModelChecksum(dbObj IRecordChecksumModel) (string, error) {
 	objMan := dbObj.GetModelManager()
 	if objMan == nil {
 		return "", errors.Errorf("Object %#v not set model manager", dbObj)
@@ -72,7 +140,7 @@ func CalculateModelChecksum(dbObj IModel) (string, error) {
 	return calculateRecordChecksumByValues(vals), nil
 }
 
-func UpdateModelChecksum(dbObj IModel) error {
+func UpdateModelChecksum(dbObj IRecordChecksumModel) error {
 	ts := dbObj.GetModelManager().TableSpec().GetTableSpec()
 	updateChecksum, err := CalculateModelChecksum(dbObj)
 	if err != nil {
@@ -88,7 +156,7 @@ func UpdateModelChecksum(dbObj IModel) error {
 	return nil
 }
 
-func InjectModelsChecksum(man IModelManager) error {
+func InjectModelsChecksum(man IRecordChecksumModelManager) error {
 	limit := 2048
 	q := man.Query()
 	totalCnt, err := q.CountWithError()
@@ -106,7 +174,7 @@ func InjectModelsChecksum(man IModelManager) error {
 			return errors.Wrap(err, "FetchModelObjects")
 		}
 		for i := range objs {
-			obj := objs[i]
+			obj := objs[i].(IRecordChecksumModel)
 			err := UpdateModelChecksum(obj)
 			if err != nil {
 				return errors.Wrapf(err, "UpdateModelChecksum for %s %s", man.Keyword(), obj.GetId())

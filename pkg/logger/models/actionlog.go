@@ -48,10 +48,12 @@ func IsInActionWhiteList(key string) bool {
 
 type SActionlogManager struct {
 	db.SOpsLogManager
+	db.SRecordChecksumResourceBaseManager
 }
 
 type SActionlog struct {
 	db.SOpsLog
+	db.SRecordChecksumResourceBase
 
 	StartTime time.Time `nullable:"true" list:"user" create:"optional"`
 	Success   bool      `list:"user" create:"required"`
@@ -93,6 +95,7 @@ func InitActionLog() {
 					consts.SplitableMaxKeepMonths(),
 				),
 			},
+			SRecordChecksumResourceBaseManager: *db.NewRecordChecksumResourceBaseManager(),
 		}
 	}
 	ActionLog.SetVirtualObject(ActionLog)

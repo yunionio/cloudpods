@@ -94,7 +94,7 @@ func mustCheckModelManager(modelMan IModelManager) {
 	}
 }
 
-func CheckSync(autoSync bool, checksumTables []string, skipInitChecksum bool) bool {
+func CheckSync(autoSync bool, enableChecksumTables bool, skipInitChecksum bool) bool {
 	log.Infof("Start check database schema ...")
 	inSync := true
 	var err error
@@ -144,12 +144,15 @@ func CheckSync(autoSync bool, checksumTables []string, skipInitChecksum bool) bo
 			}
 		}
 
-		if utils.IsInStringArray(tableSpec.Name(), checksumTables) {
-			modelMan.EnableRecordChecksum()
-			if len(sqls) > 0 || !skipInitChecksum {
-				if err := InjectModelsChecksum(modelMan); err != nil {
-					log.Errorf("InjectModelsChecksum for %q error: %v", modelMan.TableSpec().Name(), err)
-					return false
+		recordMan, ok := modelMan.(IRecordChecksumModelManager)
+		if ok {
+			recordMan.SetEnableRecordChecksum(enableChecksumTables)
+			if recordMan.EnableRecordChecksum() {
+				if len(sqls) > 0 || !skipInitChecksum {
+					if err := InjectModelsChecksum(recordMan); err != nil {
+						log.Errorf("InjectModelsChecksum for %q error: %v", modelMan.TableSpec().Name(), err)
+						return false
+					}
 				}
 			}
 		}
@@ -160,7 +163,7 @@ func CheckSync(autoSync bool, checksumTables []string, skipInitChecksum bool) bo
 func EnsureAppSyncDB(app *appsrv.Application, opt *common_options.DBOptions, modelInitDBFunc func() error) {
 	// cloudcommon.InitDB(opt)
 
-	if !CheckSync(opt.AutoSyncTable, opt.DBChecksumTables, opt.DBChecksumSkipInit) {
+	if !CheckSync(opt.AutoSyncTable, opt.EnableDBChecksumTables, opt.DBChecksumSkipInit) {
 		log.Fatalf("database schema not in sync!")
 	}
 
