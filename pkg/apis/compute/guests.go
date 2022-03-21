@@ -818,6 +818,7 @@ type ServerCPUSetRemoveResp struct {
 type ServerGetCPUSetCoresInput struct{}
 
 type ServerGetCPUSetCoresResp struct {
-	PinnedCores []int `json:"pinned_cores"`
-	HostCores   []int `json:"host_cores"`
+	PinnedCores   []int `json:"pinned_cores"`
+	HostCores     []int `json:"host_cores"`
+	HostUsedCores []int `json:"host_used_cores"`
 }
