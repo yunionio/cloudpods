@@ -5407,6 +5407,25 @@ func (self *SGuest) PerformCpuset(ctx context.Context, userCred mcclient.TokenCr
 		return nil, httperrors.NewInputParameterError("Host cores %v not contains input %v", allCores, data.CPUS)
 	}
 
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, err
+	}
+
+	pinnedMap, err := host.GetPinnedCpusetCores(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "Get host pinned cpu cores")
+	}
+
+	pinnedSets := sets.NewInt()
+	for _, pinned := range pinnedMap {
+		pinnedSets.Insert(pinned...)
+	}
+
+	if pinnedSets.HasAny(data.CPUS...) {
+		return nil, httperrors.NewInputParameterError("More than one of input cores %v already setted in host %v", data.CPUS, pinnedSets.List())
+	}
+
 	if err := self.SetMetadata(ctx, api.VM_METADATA_CGROUP_CPUSET, data, userCred); err != nil {
 		return nil, errors.Wrap(err, "set metadata")
 	}
@@ -5446,6 +5465,18 @@ func (self *SGuest) PerformCpusetRemove(ctx context.Context, userCred mcclient.T
 	return resp, nil
 }
 
+func (self *SGuest) getPinnedCpusetCores(ctx context.Context, userCred mcclient.TokenCredential) ([]int, error) {
+	obj := self.GetMetadataJson(ctx, api.VM_METADATA_CGROUP_CPUSET, userCred)
+	if obj == nil {
+		return nil, nil
+	}
+	pinnedInput := new(api.ServerCPUSetInput)
+	if err := obj.Unmarshal(pinnedInput); err != nil {
+		return nil, errors.Wrap(err, "Unmarshal to ServerCPUSetInput")
+	}
+	return pinnedInput.CPUS, nil
+}
+
 func (self *SGuest) GetDetailsCpusetCores(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerGetCPUSetCoresInput) (*api.ServerGetCPUSetCoresResp, error) {
 	allCores, err := self.getHostLogicalCores()
 	if err != nil {
@@ -5457,14 +5488,11 @@ func (self *SGuest) GetDetailsCpusetCores(ctx context.Context, userCred mcclient
 	}
 
 	// fetch cpuset pinned
-	obj := self.GetMetadataJson(ctx, api.VM_METADATA_CGROUP_CPUSET, userCred)
-	if obj != nil {
-		pinnedInput := new(api.ServerCPUSetInput)
-		if err := obj.Unmarshal(pinnedInput); err != nil {
-			log.Errorf("Unmarshal %q to ServerCPUSetInput: %v", obj, err)
-		} else {
-			resp.PinnedCores = pinnedInput.CPUS
-		}
+	pinned, err := self.getPinnedCpusetCores(ctx, userCred)
+	if err != nil {
+		log.Errorf("getPinnedCpusetCores error: %v", err)
+	} else {
+		resp.PinnedCores = pinned
 	}
 
 	return resp, nil

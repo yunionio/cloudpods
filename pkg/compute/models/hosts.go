@@ -5877,3 +5877,19 @@ func (manager *SHostManager) InitializeData() error {
 func (self *SHost) PerformProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.GetHostDriver().RequestProbeIsolatedDevices(ctx, userCred, self, data)
 }
+
+func (self *SHost) GetPinnedCpusetCores(ctx context.Context, userCred mcclient.TokenCredential) (map[string][]int, error) {
+	gsts, err := self.GetGuests()
+	if err != nil {
+		return nil, errors.Wrap(err, "Get all guests")
+	}
+	ret := make(map[string][]int, 0)
+	for _, gst := range gsts {
+		pinned, err := gst.getPinnedCpusetCores(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrapf(err, "get guest %s pinned cpuset cores", gst.GetName())
+		}
+		ret[gst.GetId()] = pinned
+	}
+	return ret, nil
+}
