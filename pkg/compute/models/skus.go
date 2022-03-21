@@ -1360,14 +1360,19 @@ func (manager *SServerSkuManager) InitializeData() error {
 	}
 
 	privateSkus := make([]SServerSku, 0)
-	err = manager.Query().IsNullOrEmpty("local_category").IsNotNull("instance_type_category").IsNullOrEmpty("zone_id").All(&privateSkus)
+	q := manager.Query().IsNullOrEmpty("local_category").IsNotNull("instance_type_category").IsNullOrEmpty("zone_id")
 	if err != nil {
 		return err
 	}
 
-	for _, sku := range privateSkus {
-		_, err = manager.TableSpec().Update(context.TODO(), &sku, func() error {
-			sku.LocalCategory = sku.InstanceTypeCategory
+	err = db.FetchModelObjects(manager, q, &privateSkus)
+	if err != nil {
+		return err
+	}
+
+	for i := range privateSkus {
+		_, err = db.Update(&privateSkus[i], func() error {
+			privateSkus[i].LocalCategory = privateSkus[i].InstanceTypeCategory
 			return nil
 		})
 		if err != nil {
