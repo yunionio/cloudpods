@@ -62,6 +62,9 @@ func (self *InstanceBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStan
 		serverName, _ = ib.ServerConfig.GetString("name")
 	}
 	projectId, _ := ib.ServerConfig.GetString("project_id")
+	if projectId == "" {
+		projectId, _ = ib.ServerConfig.GetString("tenant_id")
+	}
 	sourceInput := &compute.ServerCreateInput{}
 	sourceInput.ServerConfigs = &compute.ServerConfigs{}
 	sourceInput.GenerateName = serverName
