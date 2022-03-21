@@ -5418,12 +5418,15 @@ func (self *SGuest) PerformCpuset(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	pinnedSets := sets.NewInt()
-	for _, pinned := range pinnedMap {
+	for key, pinned := range pinnedMap {
+		if key == self.GetId() {
+			continue
+		}
 		pinnedSets.Insert(pinned...)
 	}
 
 	if pinnedSets.HasAny(data.CPUS...) {
-		return nil, httperrors.NewInputParameterError("More than one of input cores %v already setted in host %v", data.CPUS, pinnedSets.List())
+		return nil, httperrors.NewInputParameterError("More than one of input cores %v already set in host %v", data.CPUS, pinnedSets.List())
 	}
 
 	if err := self.SetMetadata(ctx, api.VM_METADATA_CGROUP_CPUSET, data, userCred); err != nil {
@@ -5483,8 +5486,19 @@ func (self *SGuest) GetDetailsCpusetCores(ctx context.Context, userCred mcclient
 		return nil, err
 	}
 
+	host, _ := self.GetHost()
+	usedMap, err := host.GetPinnedCpusetCores(ctx, userCred)
+	if err != nil {
+		return nil, err
+	}
+	usedSets := sets.NewInt()
+	for _, used := range usedMap {
+		usedSets.Insert(used...)
+	}
+
 	resp := &api.ServerGetCPUSetCoresResp{
-		HostCores: allCores,
+		HostCores:     allCores,
+		HostUsedCores: usedSets.List(),
 	}
 
 	// fetch cpuset pinned
