@@ -1103,20 +1103,11 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 	sku.constructSku(extSku)
 
 	sku.CloudregionId = region.Id
+	sku.Name = extSku.GetName()
 
 	sku.SetModelManager(manager, sku)
-	var err = func() error {
-		lockman.LockRawObject(ctx, manager.Keyword(), "name")
-		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
-		var err error
-		sku.Name, err = db.GenerateName(ctx, manager, userCred, extSku.GetName())
-		if err != nil {
-			return errors.Wrap(err, "db.GenerateName")
-		}
-
-		return manager.TableSpec().Insert(ctx, sku)
-	}()
+	err := manager.TableSpec().Insert(ctx, sku)
 	if err != nil {
 		return errors.Wrapf(err, "Insert")
 	}
@@ -1137,6 +1128,7 @@ func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.
 		self.InstanceTypeCategory = extSku.InstanceTypeCategory
 		self.PrepaidStatus = extSku.PrepaidStatus
 		self.PostpaidStatus = extSku.PostpaidStatus
+		self.Name = extSku.GetName()
 		self.CpuArch = extSku.CpuArch
 		self.SysDiskType = extSku.SysDiskType
 		self.DataDiskTypes = extSku.DataDiskTypes
