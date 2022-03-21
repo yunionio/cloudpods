@@ -5469,3 +5469,13 @@ func (self *SGuest) GetDetailsCpusetCores(ctx context.Context, userCred mcclient
 
 	return resp, nil
 }
+
+func (self *SGuest) PerformCalculateRecordChecksum(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	checksum, err := db.CalculateModelChecksum(self)
+	if err != nil {
+		return nil, errors.Wrap(err, "CalculateModelChecksum")
+	}
+	return jsonutils.Marshal(map[string]string{
+		"checksum": checksum,
+	}), nil
+}
