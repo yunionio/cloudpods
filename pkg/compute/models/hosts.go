@@ -1919,17 +1919,18 @@ func (s *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCreden
 			st.DomainId = s.DomainId
 			st.Name = stStr
 			st.Description = "Sync from cloud"
+			st.SetModelManager(SchedtagManager, st)
 			err := SchedtagManager.TableSpec().Insert(ctx, st)
 			if err != nil {
 				return errors.Wrapf(err, "unable to create schedtag %q", stStr)
 			}
-			st.SetModelManager(SchedtagManager, st)
 			st.SetMetadata(ctx, METADATA_EXT_SCHEDTAG_KEY, stStr, userCred)
 		}
 		// attach
 		hostschedtag := &SHostschedtag{
 			HostId: s.GetId(),
 		}
+		hostschedtag.SetModelManager(HostschedtagManager, hostschedtag)
 		hostschedtag.SchedtagId = st.GetId()
 		err = HostschedtagManager.TableSpec().Insert(ctx, hostschedtag)
 		if err != nil {
