@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -38,6 +39,9 @@ import (
 )
 
 func init() {
+	cmd := shell.NewResourceCmd(&modules.Disks)
+	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
+
 	type DiskListOptions struct {
 		options.BaseListOptions
 		Unused    *bool  `help:"Show unused disks"`
