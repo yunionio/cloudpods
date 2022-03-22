@@ -103,6 +103,7 @@ func init() {
 	cmd.Perform("cpuset", &options.ServerCPUSetOptions{})
 	cmd.Perform("cpuset-remove", &options.ServerIdOptions{})
 	cmd.Perform("calculate-record-checksum", &options.ServerIdOptions{})
+	cmd.Perform("set-class-metadata", &baseoptions.ResourceMetadataOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
