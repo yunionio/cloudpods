@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -231,11 +232,6 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 	imageCache := SCachedimage{}
 	imageCache.SetModelManager(manager, &imageCache)
 
-	img.Name, err = db.GenerateName(ctx, manager, nil, img.Name)
-	if err != nil {
-		return nil, errors.Wrapf(err, "db.GenerateName(%s)", img.Name)
-	}
-
 	err = manager.RawQuery().Equals("id", img.Id).First(&imageCache)
 	if err != nil {
 		if err == sql.ErrNoRows { // insert
@@ -313,7 +309,6 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	obj, err := modules.Images.Get(s, imageId, nil)
 	if err != nil {
-		log.Errorf("GetImageById %s error %s", imageId, err)
 		return nil, errors.Wrap(err, "modules.Images.Get")
 	}
 	cachedImage, err := manager.cacheGlanceImageInfo(ctx, userCred, obj)
@@ -815,6 +810,40 @@ func (manager *SCachedimageManager) ListItemExportKeys(ctx context.Context, q *s
 		return nil, errors.Wrapf(err, "SSharableVirtualResourceBaseManager.L.ListItemExportKeys")
 	}
 	return q, nil
+}
+
+// 清理已经删除的镜像缓存
+func (manager *SCachedimageManager) AutoCleanImageCaches(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	lastSync := time.Now().Add(time.Duration(-1*api.CACHED_IMAGE_REFERENCE_SESSION_EXPIRE_SECONDS) * time.Second)
+	q := manager.Query()
+	q = q.LT("last_sync", lastSync).Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE).IsNullOrEmpty("external_id").Limit(50)
+	caches := []SCachedimage{}
+	err := db.FetchModelObjects(manager, q, &caches)
+	if err != nil {
+		return
+	}
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	for i := range caches {
+		_, err := modules.Images.Get(s, caches[i].Id, nil)
+		if err != nil {
+			if e, ok := err.(*httputils.JSONClientError); ok && e.Code == 404 {
+				e := caches[i].ValidateDeleteCondition(ctx, nil)
+				if e == nil {
+					caches[i].Delete(ctx, userCred)
+					continue
+				}
+				db.Update(&caches[i], func() error {
+					caches[i].Name = fmt.Sprintf("%s-deleted@%s", caches[i].Name, timeutils.ShortDate(time.Now()))
+					return nil
+				})
+			}
+			continue
+		}
+		db.Update(&caches[i], func() error {
+			caches[i].LastSync = time.Now()
+			return nil
+		})
+	}
 }
 
 func (manager *SCachedimageManager) InitializeData() error {
