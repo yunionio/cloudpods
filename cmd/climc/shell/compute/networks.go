@@ -40,6 +40,7 @@ func init() {
 	cmd.Perform("sync", &options.NetworkIdOptions{})
 	cmd.Perform("purge", &options.NetworkIdOptions{})
 	cmd.Get("change-owner-candidate-domains", &options.NetworkIdOptions{})
+	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 
 	type NetworkShareOptions struct {
 		ID             string   `help:"ID or Name of the zone to show"`
