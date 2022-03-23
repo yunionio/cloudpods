@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -50,11 +51,16 @@ func (d *sGuestRootFsDriver) DeployFiles(deploys []*deployapi.DeployContent) err
 		}
 		dirname := filepath.Dir(deploy.Path)
 		if !d.GetPartition().Exists(dirname, caseInsensitive) {
-			modeRWXOwner := syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR | syscall.S_IRGRP | syscall.S_IXGRP | syscall.S_IROTH | syscall.S_IXOTH
+			modeRWXOwner := syscall.S_IRWXU | syscall.S_IRGRP | syscall.S_IXGRP | syscall.S_IROTH | syscall.S_IXOTH
 			err := d.GetPartition().Mkdir(dirname, modeRWXOwner, caseInsensitive)
 			if err != nil {
-				log.Errorln(err)
-				return err
+				log.Errorf("Mkdir %s fail %s", dirname, err)
+				return errors.Wrap(err, "Mkdir")
+			}
+			err = d.GetPartition().Chmod(dirname, uint32(modeRWXOwner), caseInsensitive)
+			if err != nil {
+				log.Errorf("Chmod %s fail %s", dirname, err)
+				return errors.Wrap(err, "Chmod")
 			}
 		}
 		if len(deploy.Content) > 0 {
