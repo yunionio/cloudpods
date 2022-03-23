@@ -29,10 +29,10 @@ import (
 	"time"
 
 	xj "github.com/basgys/goxml2json"
-	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -41,6 +41,8 @@ import (
 
 const (
 	CLOUD_PROVIDER_BINGO_CLOUD = api.CLOUD_PROVIDER_BINGO_CLOUD
+
+	MAX_RESULT = 20
 )
 
 type BingoCloudConfig struct {
