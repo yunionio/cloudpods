@@ -28,7 +28,7 @@ import (
 type SInstance struct {
 	multicloud.BingoTags
 	multicloud.SInstanceBase
-	host *SHost
+	node *SNode
 
 	ReservationId string `json:"reservationId"`
 	OwnerId       string
@@ -232,7 +232,7 @@ func (self *SInstance) GetHostname() string {
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
-	return self.host
+	return self.node
 }
 
 func (self *SInstance) GetIHostId() string {
@@ -248,7 +248,7 @@ func (self *SInstance) GetHypervisor() string {
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	storages, err := self.host.zone.region.getStorages()
+	storages, err := self.node.cluster.region.getStorages()
 	if err != nil {
 		return nil, err
 	}
@@ -258,13 +258,13 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	}
 	ret := []cloudprovider.ICloudDisk{}
 	for _, _disk := range self.InstancesSet.BlockDeviceMapping {
-		disk, err := self.host.zone.region.GetDisk(_disk.Ebs.VolumeId)
+		disk, err := self.node.cluster.region.GetDisk(_disk.Ebs.VolumeId)
 		if err != nil {
 			return nil, err
 		}
 		storage, ok := storageMaps[disk.StorageId]
 		if ok {
-			storage.zone = self.host.zone
+			storage.cluster = self.node.cluster
 			disk.storage = &storage
 			ret = append(ret, disk)
 		}
@@ -273,7 +273,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
-	nics, err := self.host.zone.region.GetInstanceNics(self.InstancesSet.InstanceId)
+	nics, err := self.node.cluster.region.GetInstanceNics(self.InstancesSet.InstanceId)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +285,15 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	eips, _, err := self.node.cluster.region.GetEips("", self.InstancesSet.InstanceId, "")
+	if err != nil {
+		return nil, err
+	}
+	for i := range eips {
+		eips[i].region = self.node.cluster.region
+		return &eips[i], nil
+	}
+	return nil, nil
 }
 
 func (self *SInstance) GetProjectId() string {
@@ -294,6 +302,8 @@ func (self *SInstance) GetProjectId() string {
 
 func (self *SInstance) GetStatus() string {
 	switch self.InstancesSet.InstanceState.Name {
+	case "stopped":
+		return api.VM_READY
 	default:
 		return self.InstancesSet.InstanceState.Name
 	}
@@ -323,11 +333,8 @@ func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SRegion) GetInstances(id, zoneId string, maxResult int, nextToken string) ([]SInstance, string, error) {
+func (self *SRegion) GetInstances(id, nodeId string, maxResult int, nextToken string) ([]SInstance, string, error) {
 	params := map[string]string{}
-	if len(id) > 0 {
-		params["instanceId"] = id
-	}
 	if maxResult > 0 {
 		params["maxRecords"] = fmt.Sprintf("%d", maxResult)
 	}
@@ -336,9 +343,15 @@ func (self *SRegion) GetInstances(id, zoneId string, maxResult int, nextToken st
 	}
 
 	idx := 1
-	if len(zoneId) > 0 {
-		params[fmt.Sprintf("Filter.%d.Name", idx)] = "availability-zone"
-		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = zoneId
+	if len(nodeId) > 0 {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "node-id"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = nodeId
+		idx++
+	}
+
+	if len(id) > 0 {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "instance-id"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = id
 		idx++
 	}
 

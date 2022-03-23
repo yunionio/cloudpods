@@ -22,10 +22,11 @@ import (
 func init() {
 	type DiskListOptions struct {
 		Id        string
+		MaxResult int
 		NextToken string
 	}
 	shellutils.R(&DiskListOptions{}, "disk-list", "list disks", func(cli *bingocloud.SRegion, args *DiskListOptions) error {
-		vms, _, err := cli.GetDisks(args.Id, args.NextToken)
+		vms, _, err := cli.GetDisks(args.Id, args.MaxResult, args.NextToken)
 		if err != nil {
 			return err
 		}
