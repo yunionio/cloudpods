@@ -16,6 +16,7 @@ package bingocloud
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/pkg/errors"
 
@@ -177,13 +178,20 @@ func (self *SDisk) GetStatus() string {
 	}
 }
 
-func (self *SRegion) GetDisks(id, nextToken string) ([]SDisk, string, error) {
+func (self *SRegion) GetDisks(id string, maxResult int, nextToken string) ([]SDisk, string, error) {
 	params := map[string]string{}
+	idx := 1
 	if len(id) > 0 {
-		params["volumeId"] = id
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "volume-id"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = id
+		idx++
 	}
+
 	if len(nextToken) > 0 {
 		params["nextToken"] = nextToken
+	}
+	if maxResult > 0 {
+		params["maxRecords"] = fmt.Sprintf("%d", maxResult)
 	}
 	resp, err := self.invoke("DescribeVolumes", params)
 	if err != nil {
@@ -198,14 +206,14 @@ func (self *SRegion) GetDisks(id, nextToken string) ([]SDisk, string, error) {
 }
 
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	part, nextToken, err := self.zone.region.GetDisks("", "")
+	part, nextToken, err := self.cluster.region.GetDisks("", MAX_RESULT, "")
 	if err != nil {
 		return nil, err
 	}
 	disks := []SDisk{}
 	disks = append(disks, part...)
 	for len(nextToken) > 0 {
-		part, nextToken, err = self.zone.region.GetDisks("", nextToken)
+		part, nextToken, err = self.cluster.region.GetDisks("", MAX_RESULT, nextToken)
 		if err != nil {
 			return nil, err
 		}
@@ -222,7 +230,7 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	disk, err := self.zone.region.GetDisk(id)
+	disk, err := self.cluster.region.GetDisk(id)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +242,7 @@ func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) 
 }
 
 func (self *SRegion) GetDisk(id string) (*SDisk, error) {
-	disks, _, err := self.GetDisks(id, "")
+	disks, _, err := self.GetDisks(id, 1, "")
 	if err != nil {
 		return nil, err
 	}

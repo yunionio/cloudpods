@@ -15,23 +15,10 @@
 package bingocloud
 
 import (
-	"strings"
 	"time"
-
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
-
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SHost struct {
-	multicloud.SHostBase
-	multicloud.STagBase
-
-	zone *SZone
-
 	CPUHz           string    `json:"CpuHz"`
 	ModelId         string    `json:"ModelId"`
 	MonitorType     string    `json:"MonitorType"`
@@ -65,150 +52,6 @@ type SHost struct {
 	HostName        string    `json:"HostName"`
 }
 
-func (self *SHost) GetId() string {
-	return self.HostId
-}
-
-func (self *SHost) GetGlobalId() string {
-	return self.HostId
-}
-
-func (self *SHost) GetName() string {
-	return self.HostName
-}
-
-func (self *SHost) GetAccessIp() string {
-	return self.HostIP
-}
-
-func (self *SHost) GetAccessMac() string {
-	return ""
-}
-
-func (self *SHost) GetSysInfo() jsonutils.JSONObject {
-	return jsonutils.NewDict()
-}
-
-func (self *SHost) GetSN() string {
-	return self.BaseBoardSerial
-}
-
-func (self *SHost) GetCpuCount() int {
-	return self.CPUCores
-}
-
-func (self *SHost) GetNodeCount() int8 {
-	return 1
-}
-
-func (self *SHost) GetCpuDesc() string {
-	return self.CPUKind
-}
-
-func (self *SHost) GetCpuMhz() int {
-	return 0
-}
-
-func (self *SHost) GetCpuCmtbound() float32 {
-	return 1
-}
-
-func (self *SHost) GetMemSizeMB() int {
-	return self.Memory
-}
-
-func (self *SHost) GetMemCmtbound() float32 {
-	return 1
-}
-
-func (self *SHost) GetReservedMemoryMb() int {
-	return 0
-}
-
-func (self *SHost) GetStorageSizeMB() int {
-	return 0
-}
-
-func (self *SHost) GetStorageType() string {
-	return api.STORAGE_LOCAL_SSD
-}
-
-func (self *SHost) GetHostType() string {
-	return api.HOST_TYPE_BINGO_CLOUD
-}
-
-func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	return self.zone.GetIStorages()
-}
-
-func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return self.zone.GetIStorageById(id)
-}
-
-func (self *SHost) GetEnabled() bool {
-	return true
-}
-
-func (self *SHost) GetHostStatus() string {
-	if self.Status == "available" {
-		return api.HOST_ONLINE
-	}
-	return api.HOST_OFFLINE
-}
-
-func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	vms := []SInstance{}
-	part, nextToken, err := self.zone.region.GetInstances("", self.zone.ZoneName, 100, "")
-	vms = append(vms, part...)
-	for len(nextToken) > 0 {
-		part, nextToken, err = self.zone.region.GetInstances("", self.zone.ZoneName, 100, nextToken)
-		if err != nil {
-			return nil, err
-		}
-		vms = append(vms, part...)
-	}
-	ret := []cloudprovider.ICloudVM{}
-	for i := range vms {
-		if strings.HasSuffix(vms[i].InstancesSet.HostAddress, self.HostIP) {
-			vms[i].host = self
-			ret = append(ret, &vms[i])
-		}
-	}
-	return ret, nil
-}
-
-func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SHost) GetSchedtags() ([]string, error) {
-	return []string{}, nil
-}
-
-func (self *SHost) GetIsMaintenance() bool {
-	return false
-}
-
-func (self *SHost) GetVersion() string {
-	return ""
-}
-
-func (self *SHost) GetStatus() string {
-	return api.HOST_STATUS_RUNNING
-}
-
 func (self *SRegion) GetHosts(nextToken string) ([]SHost, string, error) {
 	params := map[string]string{}
 	if len(nextToken) > 0 {
@@ -226,39 +69,4 @@ func (self *SRegion) GetHosts(nextToken string) ([]SHost, string, error) {
 	}{}
 	resp.Unmarshal(&ret)
 	return ret.DescribePhysicalHostsResult.PhysicalHostSet, ret.NextToken, nil
-}
-
-func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	hosts, err := self.region.GetIHosts()
-	if err != nil {
-		return nil, err
-	}
-	for i := range hosts {
-		if hosts[i].GetGlobalId() == id {
-			return hosts[i], nil
-		}
-	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
-}
-
-func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	hosts := []SHost{}
-	part, nextToken, err := self.region.GetHosts("")
-	if err != nil {
-		return nil, err
-	}
-	hosts = append(hosts, part...)
-	for len(nextToken) > 0 {
-		part, nextToken, err = self.region.GetHosts(nextToken)
-		if err != nil {
-			return nil, err
-		}
-		hosts = append(hosts, part...)
-	}
-	ret := []cloudprovider.ICloudHost{}
-	for i := range hosts {
-		hosts[i].zone = self
-		ret = append(ret, &hosts[i])
-	}
-	return ret, nil
 }

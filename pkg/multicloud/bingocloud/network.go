@@ -149,7 +149,7 @@ func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cl
 }
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	networks, err := self.vpc.region.GetNetworks("", self.zone.ZoneName, self.vpc.VpcId)
+	networks, err := self.vpc.region.GetNetworks("", self.cluster.ClusterId, self.vpc.VpcId)
 	if err != nil {
 		return nil, err
 	}
@@ -174,15 +174,15 @@ func (self *SWire) GetINetworkById(id string) (cloudprovider.ICloudNetwork, erro
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SRegion) GetNetworks(id, zoneId, vpcId string) ([]SNetwork, error) {
+func (self *SRegion) GetNetworks(id, clusterId, vpcId string) ([]SNetwork, error) {
 	params := map[string]string{}
 	if len(id) > 0 {
 		params["subnetId"] = id
 	}
 	idx := 1
-	if len(zoneId) > 0 {
+	if len(clusterId) > 0 {
 		params[fmt.Sprintf("Filter.%d.Name", idx)] = "availability-zone"
-		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = zoneId
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = clusterId
 		idx++
 	}
 	if len(vpcId) > 0 {

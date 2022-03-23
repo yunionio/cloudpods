@@ -21,11 +21,12 @@ import (
 
 func init() {
 	type EipListOptions struct {
-		Ip        string
-		NextToken string
+		Ip         string
+		InstanceId string
+		NextToken  string
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "list eips", func(cli *bingocloud.SRegion, args *EipListOptions) error {
-		eips, _, err := cli.GetEips(args.Ip, args.NextToken)
+		eips, _, err := cli.GetEips(args.Ip, args.InstanceId, args.NextToken)
 		if err != nil {
 			return err
 		}
