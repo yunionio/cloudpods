@@ -28,12 +28,12 @@ type SWire struct {
 	multicloud.STagBase
 	multicloud.SResourceBase
 
-	zone *SZone
-	vpc  *SVpc
+	cluster *SCluster
+	vpc     *SVpc
 }
 
 func (self *SWire) GetId() string {
-	return fmt.Sprintf("%s/%s", self.vpc.GetGlobalId(), self.zone.GetGlobalId())
+	return fmt.Sprintf("%s/%s", self.vpc.GetGlobalId(), self.cluster.GetGlobalId())
 }
 
 func (self *SWire) GetGlobalId() string {
@@ -41,7 +41,7 @@ func (self *SWire) GetGlobalId() string {
 }
 
 func (self *SWire) GetName() string {
-	return fmt.Sprintf("%s-%s", self.vpc.GetName(), self.zone.GetName())
+	return fmt.Sprintf("%s-%s", self.vpc.GetName(), self.cluster.GetName())
 }
 
 func (self *SWire) GetBandwidth() int {
@@ -61,7 +61,7 @@ func (self *SWire) IsEmulated() bool {
 }
 
 func (self *SWire) GetIZone() cloudprovider.ICloudZone {
-	return self.zone
+	return self.cluster
 }
 
 func (self *SVpc) GetIWireById(id string) (cloudprovider.ICloudWire, error) {
@@ -78,15 +78,15 @@ func (self *SVpc) GetIWireById(id string) (cloudprovider.ICloudWire, error) {
 }
 
 func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	zones, err := self.region.GetZones()
+	clusters, err := self.region.GetClusters()
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudWire{}
-	for i := range zones {
+	for i := range clusters {
 		wire := &SWire{
-			vpc:  self,
-			zone: &zones[i],
+			vpc:     self,
+			cluster: &clusters[i],
 		}
 		ret = append(ret, wire)
 	}

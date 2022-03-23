@@ -26,7 +26,7 @@ import (
 type SStorage struct {
 	multicloud.STagBase
 	multicloud.SStorageBase
-	zone *SZone
+	cluster *SCluster
 
 	StorageId    string `json:"storageId"`
 	Location     string `json:"location"`
@@ -69,11 +69,11 @@ func (self *SStorage) DisableSync() bool {
 }
 
 func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	return &SStoragecache{storageId: self.StorageId, storageName: self.StorageName, region: self.zone.region}
+	return &SStoragecache{storageId: self.StorageId, storageName: self.StorageName, region: self.cluster.region}
 }
 
 func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
-	return self.zone
+	return self.cluster
 }
 
 func (self *SStorage) GetStorageType() string {
@@ -129,7 +129,7 @@ func (self *SRegion) GetStorages(nextToken string) ([]SStorage, string, error) {
 	return ret.StorageSet, ret.NextToken, nil
 }
 
-func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+func (self *SCluster) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	storages, err := self.GetIStorages()
 	if err != nil {
 		return nil, err
@@ -142,14 +142,14 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+func (self *SCluster) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	storages, err := self.region.getStorages()
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudStorage{}
 	for i := range storages {
-		storages[i].zone = self
+		storages[i].cluster = self
 		ret = append(ret, &storages[i])
 	}
 	return ret, nil
