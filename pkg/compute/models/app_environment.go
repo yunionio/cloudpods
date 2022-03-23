@@ -104,7 +104,7 @@ func (aem *SAppEnvironmentManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 
 func (a *SApp) SyncAppEnvironments(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudAppEnvironment) compare.SyncResult {
 	lockman.LockRawObject(ctx, AppEnvironmentManager.KeywordPlural(), a.Id)
-	defer lockman.LockRawObject(ctx, AppEnvironmentManager.KeywordPlural(), a.Id)
+	defer lockman.ReleaseRawObject(ctx, AppEnvironmentManager.KeywordPlural(), a.Id)
 	result := compare.SyncResult{}
 	aes, err := a.GetAppEnvironments()
 	if err != nil {
