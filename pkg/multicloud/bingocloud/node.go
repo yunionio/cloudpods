@@ -115,14 +115,20 @@ func (self *SNode) GetCpuMhz() int {
 }
 
 func (self *SNode) GetCpuCmtbound() float32 {
+	if self.CpuMax > self.CpuNode {
+		return float32(self.CpuMax) / float32(self.CpuNode)
+	}
 	return 1
 }
 
 func (self *SNode) GetMemSizeMB() int {
-	return self.MemoryMax
+	return self.MemNode
 }
 
 func (self *SNode) GetMemCmtbound() float32 {
+	if self.MemoryMax > self.MemNode {
+		return float32(self.MemoryMax) / float32(self.MemNode)
+	}
 	return 1
 }
 
@@ -131,7 +137,10 @@ func (self *SNode) GetReservedMemoryMb() int {
 }
 
 func (self *SNode) GetStorageSizeMB() int {
-	return self.DiskMax * 1024
+	if self.DiskMax > 0 {
+		return self.DiskMax * 1024
+	}
+	return self.DiskNode * 1024
 }
 
 func (self *SNode) GetStorageType() string {
