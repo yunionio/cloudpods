@@ -165,7 +165,12 @@ func (self *SRegion) GetImages() ([]SImage, error) {
 
 func (self *SRegion) GetImage(id string) (*SImage, error) {
 	image := &SImage{}
-	return image, self.cli.get(&modules.Images, id, nil, image)
+	resp, err := modules.Images.GetById(self.cli.s, id, nil)
+	if err != nil {
+		return nil, err
+	}
+	log.Errorf("resp: %s", resp.PrettyString())
+	return image, resp.Unmarshal(image)
 }
 
 func (self *SRegion) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
