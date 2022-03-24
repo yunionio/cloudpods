@@ -196,6 +196,7 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 		input.Name = input.GenerateName
 	}
 
+	logclient.AddSimpleActionLog(self, logclient.ACT_SAVE_IMAGE, input, userCred, true)
 	return input, self.StartGuestSaveImage(ctx, userCred, input, "")
 }
 

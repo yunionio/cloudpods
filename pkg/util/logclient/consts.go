@@ -76,6 +76,7 @@ const (
 	ACT_CREATE_BACKUP                = "create_backup"
 	ACT_SWITCH_TO_BACKUP             = "switch_to_backup"
 	ACT_RENEW                        = "renew"
+	ACT_SAVE_IMAGE                   = "save_image"
 	ACT_SET_AUTO_RENEW               = "set_auto_renew"
 	ACT_MIGRATE                      = "migrate"
 	ACT_EIP_ASSOCIATE                = "eip_associate"
