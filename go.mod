@@ -116,6 +116,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go v3.0.135+incompatible
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 	github.com/tinylib/msgp v1.1.0 // indirect
+	github.com/tjfoc/gmsm v1.4.1
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
 	github.com/vishvananda/netlink v1.0.0
@@ -154,8 +155,8 @@ require (
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v0.0.0-20220227083757-28690b33ce38
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20220119131341-fadec84c0638
-	yunion.io/x/structarg v0.0.0-20220224030024-02b7582b2546
+	yunion.io/x/sqlchemy v0.0.0-20220312043902-049823163880
+	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
 )
 
 replace google.golang.org/grpc => google.golang.org/grpc v1.29.0

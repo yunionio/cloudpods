@@ -173,7 +173,7 @@ func NewTristateColumn(name string, tagmap map[string]string, isPointer bool) ST
 		// simply warning, for backward compatiblity reason
 		// tristate always nullable
 		// delete(tagmap, sqlchemy.TAG_NULLABLE)
-		log.Warningf("TristateColumn should have no nullable tag")
+		log.Warningf("TristateColumn %s should have no nullable tag", name)
 	}
 	bc := STristateColumn{SBaseWidthColumn: sqlchemy.NewBaseWidthColumn(name, "TINYINT", tagmap, isPointer)}
 	return bc

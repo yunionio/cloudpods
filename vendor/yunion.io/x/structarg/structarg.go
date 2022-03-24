@@ -125,7 +125,7 @@ func (self *sHelpArg) NeedData() bool {
 }
 
 func (self *sHelpArg) Token() string {
-	return ""
+	return "help"
 }
 
 func (self *sHelpArg) ShortToken() string {
@@ -180,7 +180,7 @@ func (self *sHelpArg) IsSet() bool {
 	return false
 }
 
-func newArgumentParser(target interface{}, prog, desc, epilog string, withHelp bool) (*ArgumentParser, error) {
+func newArgumentParser(target interface{}, prog, desc, epilog string) (*ArgumentParser, error) {
 	parser := ArgumentParser{prog: prog, description: desc,
 		epilog: epilog, target: target}
 	targetValue := reflect.ValueOf(target)
@@ -192,19 +192,18 @@ func newArgumentParser(target interface{}, prog, desc, epilog string, withHelp b
 	if e != nil {
 		return nil, e
 	}
-	if withHelp {
-		help := &sHelpArg{}
-		parser.AddArgument(help)
-	}
+	// always add a help argument --help
+	helpArg := &sHelpArg{}
+	parser.AddArgument(helpArg)
 	return &parser, nil
 }
 
 func NewArgumentParser(target interface{}, prog, desc, epilog string) (*ArgumentParser, error) {
-	return newArgumentParser(target, prog, desc, epilog, false)
+	return newArgumentParser(target, prog, desc, epilog)
 }
 
 func NewArgumentParserWithHelp(target interface{}, prog, desc, epilog string) (*ArgumentParser, error) {
-	return newArgumentParser(target, prog, desc, epilog, true)
+	return newArgumentParser(target, prog, desc, epilog)
 }
 
 const (
@@ -485,6 +484,10 @@ func (this *ArgumentParser) AddArgument(arg Argument) error {
 	} else {
 		for _, argOld := range this.optArgs {
 			if argOld.Token() == arg.Token() {
+				if arg.Token() == "help" {
+					// silently ignore help arguments
+					return nil
+				}
 				rt := reflect.TypeOf(this.target)
 				if rt.Kind() == reflect.Ptr || rt.Kind() == reflect.Interface {
 					rt = rt.Elem()
@@ -798,16 +801,16 @@ func (this *SubcommandArgument) String() string {
 }
 
 func (this *SubcommandArgument) AddSubParser(target interface{}, command string, desc string, callback interface{}) (*ArgumentParser, error) {
-	return this.addSubParser(target, command, desc, callback, false)
+	return this.addSubParser(target, command, desc, callback)
 }
 
 func (this *SubcommandArgument) AddSubParserWithHelp(target interface{}, command string, desc string, callback interface{}) (*ArgumentParser, error) {
-	return this.addSubParser(target, command, desc, callback, true)
+	return this.addSubParser(target, command, desc, callback)
 }
 
-func (this *SubcommandArgument) addSubParser(target interface{}, command string, desc string, callback interface{}, withHelp bool) (*ArgumentParser, error) {
+func (this *SubcommandArgument) addSubParser(target interface{}, command string, desc string, callback interface{}) (*ArgumentParser, error) {
 	prog := fmt.Sprintf("%s %s", this.parser.prog, command)
-	parser, e := newArgumentParser(target, prog, desc, "", withHelp)
+	parser, e := newArgumentParser(target, prog, desc, "")
 	if e != nil {
 		return nil, e
 	}
@@ -1018,12 +1021,12 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 
 	this.reset()
 
-	isAllowInputHelp := this.allowInputHelp()
-
 	for i := 0; i < len(args) && err == nil; i++ {
 		argStr = args[i]
-		if isAllowInputHelp && argStr == "--help" {
-			this.help = true
+		if argStr == "--help" {
+			// shortcut to show help
+			fmt.Println(this.HelpString())
+			os.Exit(1)
 			continue
 		}
 		if strings.HasPrefix(argStr, "-") {
@@ -1079,9 +1082,6 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 				}
 			}
 		}
-	}
-	if this.help {
-		return nil
 	}
 	if err == nil && pos_idx < len(this.posArgs) {
 		err = &NotEnoughArgumentsError{argument: this.posArgs[pos_idx]}
@@ -1309,16 +1309,6 @@ func (this *ArgumentParser) GetOptArgs() []Argument {
 
 func (this *ArgumentParser) GetPosArgs() []Argument {
 	return this.posArgs
-}
-
-func (this *ArgumentParser) allowInputHelp() bool {
-	help := &sHelpArg{}
-	for _, arg := range this.optArgs {
-		if arg.String() == help.String() {
-			return true
-		}
-	}
-	return false
 }
 
 func (this *ArgumentParser) IsHelpSet() bool {
