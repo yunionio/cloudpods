@@ -40,6 +40,8 @@ const (
 	IMAGE_META          = "X-Image-Meta-"
 	IMAGE_META_PROPERTY = "X-Image-Meta-Property-"
 
+	IMAGE_METADATA = "X-Image-Meta-Metadata"
+
 	IMAGE_META_COPY_FROM = "x-glance-api-copy-from"
 )
 
@@ -56,7 +58,12 @@ func FetchImageMeta(h http.Header) jsonutils.JSONObject {
 	meta := jsonutils.NewDict()
 	meta.Add(jsonutils.NewDict(), "properties")
 	for k, v := range h {
-		if strings.HasPrefix(k, IMAGE_META_PROPERTY) {
+		if k == IMAGE_METADATA && len(v) == 1 {
+			metadata, _ := jsonutils.Parse([]byte(v[0]))
+			if metadata != nil {
+				meta.Add(metadata, "metadata")
+			}
+		} else if strings.HasPrefix(k, IMAGE_META_PROPERTY) {
 			k := strings.ToLower(k[len(IMAGE_META_PROPERTY):])
 			meta.Add(jsonutils.NewString(decodeMeta(v[0])), "properties", k)
 			if strings.IndexByte(k, '-') > 0 {
