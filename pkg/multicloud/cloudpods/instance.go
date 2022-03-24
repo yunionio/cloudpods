@@ -364,18 +364,22 @@ func (self *SInstance) ResetToInstanceSnapshot(ctx context.Context, idStr string
 }
 
 func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	return self.host.zone.region.SaveImage(self.Id, opts.Name, opts.Notes)
+}
+
+func (self *SRegion) SaveImage(id, imageName, notes string) (*SImage, error) {
 	input := api.ServerSaveImageInput{}
-	input.GenerateName = opts.Name
-	input.Notes = opts.Notes
-	resp, err := self.host.zone.region.perform(&modules.Servers, self.Id, "save-image", input)
+	input.GenerateName = imageName
+	input.Notes = notes
+	resp, err := self.perform(&modules.Servers, id, "save-image", input)
 	if err != nil {
 		return nil, err
 	}
-	err = resp.Unmarshal(&input)
+	imageId, err := resp.GetString("image_id")
 	if err != nil {
 		return nil, err
 	}
-	return self.host.zone.region.GetImage(input.ImageId)
+	return self.GetImage(imageId)
 }
 
 func (self *SInstance) AllocatePublicIpAddress() (string, error) {
