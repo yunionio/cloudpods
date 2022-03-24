@@ -163,7 +163,10 @@ func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapId string) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(snapId), "snapshot")
+	_, err := self.region.perform(&modules.Disks, self.Id, "reset", params)
+	return self.Id, err
 }
 
 func (self *SDisk) Rebuild(ctx context.Context) error {

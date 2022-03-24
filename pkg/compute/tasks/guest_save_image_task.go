@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestSaveImageTask struct {
@@ -72,7 +73,7 @@ func (self *GuestSaveImageTask) OnSaveRootImageComplete(ctx context.Context, gue
 }
 
 func (self *GuestSaveImageTask) OnSaveRootImageCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	log.Errorf("Guest save root image failed: %s", data.PrettyString())
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_SAVE_IMAGE, data, self.UserCred, false)
 	guest.SetStatus(self.GetUserCred(), api.VM_SAVE_DISK_FAILED, data.String())
 	self.SetStageFailed(ctx, data)
 }
