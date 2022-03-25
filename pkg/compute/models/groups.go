@@ -677,6 +677,9 @@ func (grp *SGroup) isEipAssociable() (*SNetwork, error) {
 	if net == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "group no attached network")
 	}
+	if !IsOneCloudVpcResource(net) {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "group network is not a VPC network")
+	}
 
 	gns, err := grp.getGroupnetworks()
 	if err != nil {
