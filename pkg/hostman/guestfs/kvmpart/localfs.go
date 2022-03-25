@@ -225,6 +225,15 @@ func (f *SLocalGuestFS) Chmod(sPath string, mode uint32, caseInsensitive bool) e
 func (f *SLocalGuestFS) CheckOrAddUser(user, homeDir string, isSys bool) (realHomeDir string, err error) {
 	var exist bool
 	if exist, realHomeDir, err = f.checkUser(user); err != nil || exist {
+		if exist {
+			cmd := []string{"chroot", f.mountPath, "chage", "-E", "-1", "-M", "-1", "-I", "-1", user}
+			command := procutils.NewCommand(cmd[0], cmd[1:]...)
+			_, err = command.Output()
+			if err != nil {
+				err = errors.Wrap(err, "chage")
+				return
+			}
+		}
 		return
 	}
 	return path.Join(homeDir, user), f.userAdd(user, homeDir, isSys)
