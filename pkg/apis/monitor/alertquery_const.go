@@ -57,6 +57,8 @@ var (
 		"scaling_group_id": "vm_scaling_group_id",
 		"domain_id":        "domain_id",
 		"project_domain":   "project_domain",
+		"account":          "account",
+		"account_id":       "account_id",
 	}
 
 	HostTags = map[string]string{
@@ -77,6 +79,8 @@ var (
 		"domain_id":      "domain_id",
 		"project_domain": "project_domain",
 		"access_ip":      "access_ip",
+		"account":        "account",
+		"account_id":     "account_id",
 	}
 
 	RdsTags = map[string]string{

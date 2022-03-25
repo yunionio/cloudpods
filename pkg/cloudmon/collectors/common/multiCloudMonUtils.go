@@ -126,6 +126,8 @@ var ServerTags = map[string]string{
 	"scaling_group_id": "vm_scaling_group_id",
 	"domain_id":        "domain_id",
 	"project_domain":   "project_domain",
+	"account":          "account",
+	"account_id":       "account_id",
 }
 var HostTags = map[string]string{
 	"id":             "host_id",
@@ -144,6 +146,8 @@ var HostTags = map[string]string{
 	"brand":          "brand",
 	"domain_id":      "domain_id",
 	"project_domain": "project_domain",
+	"account":        "account",
+	"account_id":     "account_id",
 }
 var RdsTags = map[string]string{
 	"host":           "host",
