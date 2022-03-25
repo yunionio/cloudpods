@@ -228,8 +228,8 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 		pcpuTotal = float64(host.CpuCount)
 		count.Add("memory", host.MemSize)
 		count.Add("cpu", host.CpuCount)
-		count.Add("memory.virtual", host.GetVirtualMemorySize())
-		count.Add("cpu.virtual", host.GetVirtualCPUCount())
+		count.Add("memory.virtual", int64(host.GetVirtualMemorySize()))
+		count.Add("cpu.virtual", int64(host.GetVirtualCPUCount()))
 	}
 
 	guestRunningUsage := GuestRunningUsage("all.running_servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem)
@@ -822,8 +822,8 @@ func hostUsage(
 	count[fmt.Sprintf("%s.memory.total", prefix)] = result.MemoryTotal
 	count[fmt.Sprintf("%s.cpu", prefix)] = result.CPU
 	count[fmt.Sprintf("%s.cpu.total", prefix)] = result.CPUTotal
-	count[fmt.Sprintf("%s.memory.virtual", prefix)] = result.MemoryVirtual
-	count[fmt.Sprintf("%s.cpu.virtual", prefix)] = result.CPUVirtual
+	count[fmt.Sprintf("%s.memory.virtual", prefix)] = int64(result.MemoryVirtual)
+	count[fmt.Sprintf("%s.cpu.virtual", prefix)] = int64(result.CPUVirtual)
 	count[fmt.Sprintf("%s.memory.reserved", prefix)] = result.MemoryReserved
 	count[fmt.Sprintf("%s.memory.reserved.isolated", prefix)] = result.IsolatedReservedMemory
 	count[fmt.Sprintf("%s.cpu.reserved.isolated", prefix)] = result.IsolatedReservedCpu
