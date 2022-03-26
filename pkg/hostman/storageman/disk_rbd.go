@@ -275,9 +275,13 @@ func (d *SRBDDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (j
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
+	diskId := resetParams.BackingDiskId
+	if len(diskId) == 0 {
+		diskId = d.GetId()
+	}
 	storage := d.Storage.(*SRbdStorage)
 	pool, _ := storage.StorageConf.GetString("pool")
-	return nil, storage.resetDisk(pool, d.GetId(), resetParams.SnapshotId)
+	return nil, storage.resetDisk(pool, diskId, resetParams.SnapshotId)
 }
 
 func (d *SRBDDisk) CreateFromRbdSnapshot(ctx context.Context, snapshot, srcDiskId, srcPool string) error {
