@@ -17,6 +17,7 @@ package aws
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -42,6 +43,10 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+)
+
+var (
+	lock sync.RWMutex
 )
 
 var RegionLocations = map[string]string{
@@ -242,10 +247,13 @@ func (self *SRegion) ec2Request(apiName string, params map[string]string, retval
 
 func (self *SRegion) cloudWatchRequest(apiName string, params *cloudwatch.GetMetricStatisticsInput,
 	retval interface{}) error {
+	lock.Lock()
 	session, err := self.getAwsSession()
 	if err != nil {
+		lock.Unlock()
 		return err
 	}
+	lock.Unlock()
 	c := session.ClientConfig(CLOUDWATCH_SERVICE_NAME)
 	metadata := metadata.ClientInfo{
 		ServiceName:   CLOUDWATCH_SERVICE_NAME,
