@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
@@ -146,6 +147,7 @@ type ServerResumeInput struct {
 
 type ServerDetails struct {
 	apis.VirtualResourceDetails
+	apis.EncryptedResourceDetails
 
 	SGuest
 
@@ -502,7 +504,7 @@ type ServerSaveImageInput struct {
 	Name         string
 	GenerateName string
 	Notes        string
-	IsPublic     bool
+	IsPublic     *bool
 	// 镜像格式
 	Format string
 
@@ -520,6 +522,13 @@ type ServerSaveImageInput struct {
 
 	// swagger: ignore
 	ImageId string
+}
+
+type ServerSaveGuestImageInput struct {
+	imageapi.GuestImageCreateInputBase
+
+	// 保存镜像后是否自动启动
+	AutoStart *bool `json:"auto_start"`
 }
 
 type ServerDeleteInput struct {
@@ -731,6 +740,8 @@ type GuestJsonDesc struct {
 		InstanceSnapshotId string `json:"instance_snapshot_id"`
 		InstanceId         string `json:"instance_id"`
 	} `json:"instance_snapshot_info"`
+
+	EncryptKeyId string `json:"encrypt_key_id,omitempty"`
 }
 
 type ServerChangeDiskStorageInput struct {

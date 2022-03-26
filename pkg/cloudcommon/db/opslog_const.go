@@ -299,4 +299,8 @@ const (
 	ACT_PACK_FAIL     = "pack_fail"
 	ACT_UNPACK        = "unpack"
 	ACT_UNPACK_FAIL   = "unpack_fail"
+
+	ACT_ENCRYPT_START = "encrypt_start"
+	ACT_ENCRYPT_FAIL  = "encrypt_fail"
+	ACT_ENCRYPT_DONE  = "encrypted"
 )

@@ -17,4 +17,6 @@ package apigateway
 const (
 	SERVICE_TYPE    = "yunionapi"
 	SERVICE_VERSION = ""
+
+	DefaultEncryptKey = "cloudpods"
 )

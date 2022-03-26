@@ -12,35 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
+package apis
 
 import (
-	"time"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
-const (
-	DEFAULT_PROJECT = "default"
+type SEncryptInfo struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Key  string `json:"key"`
 
-	ACCESS_SECRET_TYPE    = "aksk"
-	TOTP_TYPE             = "totp"
-	RECOVERY_SECRETS_TYPE = "recovery_secret"
-	OIDC_CREDENTIAL_TYPE  = "oidc"
-	ENCRYPT_KEY_TYPE      = "enc_key"
-)
-
-type SAccessKeySecretBlob struct {
-	Secret string `json:"secret"`
-	Expire int64  `json:"expire"`
+	Alg seclib2.TSymEncAlg `json:"alg"`
 }
 
-func (info SAccessKeySecretBlob) IsValid() bool {
-	if info.Expire <= 0 || info.Expire > time.Now().Unix() {
-		return true
-	}
-	return false
+type EncryptedResourceCreateInput struct {
+	// 加密秘钥的ID
+	EncryptKeyId *string `json:"encrypt_key_id"`
 }
 
-type SAccessKeySecretInfo struct {
-	AccessKey string
-	SAccessKeySecretBlob
+type EncryptedResourceDetails struct {
+	// 秘钥名称
+	EncryptKey string `json:"encrypt_key"`
+
+	// 加密算法，aes-256 or sm4
+	EncryptAlg string `json:"encrypt_alg"`
 }

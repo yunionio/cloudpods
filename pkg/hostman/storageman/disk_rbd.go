@@ -23,10 +23,12 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SRBDDisk struct {
@@ -157,7 +159,7 @@ func (d *SRBDDisk) PrepareMigrate(liveMigrate bool) (string, error) {
 	return "", fmt.Errorf("Not support")
 }
 
-func (d *SRBDDisk) CreateFromTemplate(ctx context.Context, imageId string, format string, size int64) (jsonutils.JSONObject, error) {
+func (d *SRBDDisk) CreateFromTemplate(ctx context.Context, imageId string, format string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
 	ret, err := d.createFromTemplate(ctx, imageId, format)
 	if err != nil {
 		return nil, err
@@ -204,7 +206,10 @@ func (d *SRBDDisk) CreateFromImageFuse(ctx context.Context, url string, size int
 	return fmt.Errorf("Not support")
 }
 
-func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string, encryption bool, diskId string, back string) (jsonutils.JSONObject, error) {
+func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string, encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error) {
+	if encryptInfo != nil {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "rbd not support encryptInfo")
+	}
 	storage := d.Storage.(*SRbdStorage)
 	pool, _ := storage.StorageConf.GetString("pool")
 	if err := storage.createImage(pool, diskId, uint64(sizeMb)); err != nil {

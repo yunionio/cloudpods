@@ -1218,6 +1218,7 @@ func (manager *SStorageManager) TotalCapacity(
 func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *api.DiskConfig, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, autoDelete bool, isSystem bool,
 	billingType string, billingCycle string,
+	encryptKeyId string,
 ) (*SDisk, error) {
 	disk := SDisk{}
 	disk.SetModelManager(DiskManager, &disk)
@@ -1234,6 +1235,8 @@ func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *a
 
 	disk.BillingType = billingType
 	disk.BillingCycle = billingCycle
+
+	disk.EncryptKeyId = encryptKeyId
 
 	err := disk.GetModelManager().TableSpec().Insert(ctx, &disk)
 	if err != nil {

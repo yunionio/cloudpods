@@ -56,6 +56,9 @@ type SImage struct {
 	// SubImages record the subImages of the guest image.
 	// For normal image, it's nil.
 	SubImages []SSubImage
+
+	// EncryptKeyId
+	EncryptKeyId string
 }
 
 type SSubImage struct {

@@ -80,6 +80,8 @@ type SGuestManager struct {
 	db.SMultiArchResourceBaseManager
 	db.SRecordChecksumResourceBaseManager
 	SHostnameResourceBaseManager
+
+	db.SEncryptedResourceManager
 }
 
 var GuestManager *SGuestManager
@@ -111,6 +113,8 @@ type SGuest struct {
 
 	SHostnameResourceBase
 	SHostResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user" index:"true"`
+
+	db.SEncryptedResource
 
 	// CPU大小
 	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
@@ -1271,6 +1275,7 @@ func (manager *SGuestManager) validateCreateData(
 			return nil, httperrors.NewInputParameterError("No bootable disk information provided")
 		}
 		var imgProperties map[string]string
+		var imgEncryptKeyId string
 
 		if len(input.Disks) > 0 {
 			diskConfig := input.Disks[0]
@@ -1279,6 +1284,7 @@ func (manager *SGuestManager) validateCreateData(
 				return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 			}
 			input.Disks[0] = diskConfig
+			imgEncryptKeyId = diskConfig.ImageEncryptKeyId
 			imgProperties = diskConfig.ImageProperties
 			if imgProperties[imageapi.IMAGE_DISK_FORMAT] == "iso" {
 				return nil, httperrors.NewInputParameterError("System disk does not support iso image, please consider using cdrom parameter")
@@ -1338,6 +1344,22 @@ func (manager *SGuestManager) validateCreateData(
 		if vdi, ok := imgProperties[imageapi.IMAGE_VDI_PROTOCOL]; ok && len(vdi) > 0 {
 			input.Vdi = vdi
 		}
+
+		if input.EncryptKeyId == nil && len(imgEncryptKeyId) > 0 {
+			input.EncryptKeyId = &imgEncryptKeyId
+		}
+		if input.EncryptKeyId != nil {
+			input.EncryptedResourceCreateInput, err = manager.SEncryptedResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EncryptedResourceCreateInput)
+			if err != nil {
+				return nil, errors.Wrap(err, "SEncryptedResourceManager.ValidateCreateData")
+			}
+			if len(imgEncryptKeyId) > 0 {
+				if imgEncryptKeyId != *input.EncryptKeyId {
+					return nil, errors.Wrap(httperrors.ErrConflict, "encryption key inconsist with image")
+				}
+			}
+		}
+
 		osType := input.OsType
 		osProf, err = osprofile.GetOSProfileFromImageProperties(imgProperties, hypervisor)
 		if err != nil {
@@ -3746,7 +3768,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 		autoDelete = true
 	}
 	disk, err := storage.createDisk(ctx, diskName, diskConfig, userCred, self.GetOwnerId(), autoDelete, self.IsSystem,
-		billingType, billingCycle)
+		billingType, billingCycle, self.EncryptKeyId)
 
 	if err != nil {
 		return nil, err
@@ -4200,6 +4222,8 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		SrcIpCheck:  self.SrcIpCheck.Bool(),
 		SrcMacCheck: self.SrcMacCheck.Bool(),
 		HostId:      host.Id,
+
+		EncryptKeyId: self.EncryptKeyId,
 	}
 
 	if len(self.BackupHostId) > 0 {

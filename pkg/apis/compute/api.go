@@ -102,6 +102,9 @@ type DiskConfig struct {
 	// required: false
 	ImageId string `json:"image_id"`
 
+	// 镜像加密key ID
+	ImageEncryptKeyId string `json:"image_encrypt_key_id"`
+
 	// 快照ID,通过快照创建磁盘,此参数必须加上 'snapshot-' 前缀
 	// example: snapshot-3140cecb-ccc4-4865-abae-3a5ba8c69d9b
 	// requried: false
@@ -354,6 +357,8 @@ type ServerCreateInput struct {
 	HostnameInput
 
 	*ServerConfigs
+
+	apis.EncryptedResourceCreateInput
 
 	// 虚拟机内存大小,单位Mb,若未指定instance_type,此参数为必传项
 	VmemSize int `json:"vmem_size"`

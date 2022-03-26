@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -91,7 +92,7 @@ func guestPrepareImportFormLibvirt(ctx context.Context, w http.ResponseWriter, r
 	hostutils.ResponseOk(ctx, w)
 }
 
-func guestCreateFromLibvirt(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestCreateFromLibvirt(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	err := guestman.GetGuestManager().PrepareCreate(sid)
 	if err != nil {
 		return nil, err
@@ -130,7 +131,7 @@ func guestCreateFromLibvirt(ctx context.Context, sid string, body jsonutils.JSON
 	return nil, nil
 }
 
-func guestCreateFromEsxi(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestCreateFromEsxi(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	err := guestman.GetGuestManager().PrepareCreate(sid)
 	if err != nil {
 		return nil, err
