@@ -1156,7 +1156,47 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 			return input, httperrors.NewInputParameterError("server and eip are not managed by the same provider")
 		}
 		input.InstanceExternalId = server.ExternalId
+	case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+		grpObj, err := GroupManager.FetchByIdOrName(userCred, input.InstanceId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return input, httperrors.NewResourceNotFoundError("instance group %s not found", input.InstanceId)
+			}
+			return input, httperrors.NewGeneralError(err)
+		}
+		group := grpObj.(*SGroup)
+
+		lockman.LockObject(ctx, group)
+		defer lockman.ReleaseObject(ctx, group)
+
+		net, err := group.isEipAssociable()
+		if err != nil {
+			return input, errors.Wrap(err, "grp.isEipAssociable")
+		}
+		if net.Id == self.NetworkId {
+			return input, httperrors.NewInputParameterError("cannot associate eip with same network")
+		}
+
+		eipZone, _ := self.GetZone()
+		if eipZone != nil {
+			insZone, _ := net.GetZone()
+			if eipZone.Id != insZone.Id {
+				return input, httperrors.NewInputParameterError("cannot associate eip and instance in different zone")
+			}
+		}
+
 	case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
+		natgwObj, err := NatGatewayManager.FetchByIdOrName(userCred, input.InstanceId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return input, httperrors.NewResourceNotFoundError("nat gateway %s not found", input.InstanceId)
+			}
+			return input, httperrors.NewGeneralError(err)
+		}
+		natgw := natgwObj.(*SNatGateway)
+
+		lockman.LockObject(ctx, natgw)
+		defer lockman.ReleaseObject(ctx, natgw)
 	}
 
 	return input, self.StartEipAssociateInstanceTask(ctx, userCred, input, "")
