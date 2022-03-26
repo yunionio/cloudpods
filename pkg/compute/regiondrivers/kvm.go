@@ -1818,7 +1818,7 @@ func (self *SKVMRegionDriver) RequestAssociatEip(ctx context.Context, userCred m
 					return nil, errors.Wrapf(err, "db.FetchModelObjects")
 				}
 				if len(groupnics) == 0 {
-					return nil, errors.Errorf("guest has no nics to associate eip")
+					return nil, errors.Errorf("instance group has no nics to associate eip")
 				}
 			}
 
