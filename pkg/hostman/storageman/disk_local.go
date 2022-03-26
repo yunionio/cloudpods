@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -153,6 +154,16 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 		log.Errorf("qemuimg.NewQemuImage %s fail: %s", d.GetPath(), err)
 		return nil, err
 	}
+	if diskInfo.Contains("encrypt_info") {
+		var encryptInfo apis.SEncryptInfo
+		err := diskInfo.Unmarshal(&encryptInfo, "encrypt_info")
+		if err != nil {
+			log.Errorf("fail to fetch encryptInfo %s", err)
+			return nil, errors.Wrap(err, "Unmarshal encrpt_info")
+		} else {
+			disk.SetPassword(encryptInfo.Key)
+		}
+	}
 	if err := disk.Resize(int(sizeMb)); err != nil {
 		return nil, err
 	}
@@ -162,7 +173,8 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 	}
 
 	if err := d.ResizeFs(d.GetPath()); err != nil {
-		return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
+		log.Errorf("Resize fs %s fail %s", d.GetPath(), err)
+		// return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
 	}
 
 	return d.GetDiskDesc(), nil
@@ -195,7 +207,7 @@ func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string, size i
 		}
 	}
 	if !newImg.IsValid() {
-		if err := newImg.CreateQcow2(0, false, contentPath); err != nil {
+		if err := newImg.CreateQcow2(0, false, contentPath, "", "", ""); err != nil {
 			log.Errorln(err)
 			return err
 		}
@@ -204,9 +216,9 @@ func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string, size i
 	return nil
 }
 
-func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format string, size int64) (jsonutils.JSONObject, error) {
+func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
 	var imageCacheManager = storageManager.LocalStorageImagecacheManager
-	ret, err := d.createFromTemplate(ctx, imageId, format, imageCacheManager)
+	ret, err := d.createFromTemplate(ctx, imageId, format, imageCacheManager, encryptInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -215,13 +227,16 @@ func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format str
 	if size > retSize {
 		params := jsonutils.NewDict()
 		params.Set("size", jsonutils.NewInt(size))
+		if encryptInfo != nil {
+			params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
+		}
 		return d.Resize(ctx, params)
 	}
 	return ret, nil
 }
 
 func (d *SLocalDisk) createFromTemplate(
-	ctx context.Context, imageId, format string, imageCacheManager IImageCacheManger,
+	ctx context.Context, imageId, format string, imageCacheManager IImageCacheManger, encryptInfo *apis.SEncryptInfo,
 ) (jsonutils.JSONObject, error) {
 	input := api.CacheImageInput{
 		ImageId: imageId,
@@ -246,7 +261,11 @@ func (d *SLocalDisk) createFromTemplate(
 	if err != nil {
 		return nil, errors.Wrapf(err, "NewQemuImage(%s)", d.GetPath())
 	}
-	err = newImg.CreateQcow2(0, false, cacheImagePath)
+	if encryptInfo != nil {
+		err = newImg.CreateQcow2(0, false, cacheImagePath, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
+	} else {
+		err = newImg.CreateQcow2(0, false, cacheImagePath, "", "", "")
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateQcow2(%s)", cacheImagePath)
 	}
@@ -267,7 +286,7 @@ func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64, 
 }
 
 func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFormat string,
-	encryption bool, uuid string, back string) (jsonutils.JSONObject, error) {
+	encryptInfo *apis.SEncryptInfo, uuid string, back string) (jsonutils.JSONObject, error) {
 	if fileutils2.Exists(d.GetPath()) {
 		os.Remove(d.GetPath())
 	}
@@ -280,7 +299,11 @@ func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFo
 
 	switch diskFormat {
 	case "qcow2":
-		err = img.CreateQcow2(sizeMB, false, back)
+		if encryptInfo != nil {
+			err = img.CreateQcow2(sizeMB, false, back, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
+		} else {
+			err = img.CreateQcow2(sizeMB, false, back, "", "", "")
+		}
 	case "vmdk":
 		err = img.CreateVmdk(sizeMB, false)
 	default:
@@ -404,7 +427,7 @@ func (d *SLocalDisk) CreateSnapshot(snapshotId string) error {
 		procutils.NewCommand("mv", "-f", snapshotPath, d.getPath()).Run()
 		return err
 	}
-	if err := img.CreateQcow2(0, false, snapshotPath); err != nil {
+	if err := img.CreateQcow2(0, false, snapshotPath, "", "", ""); err != nil {
 		log.Errorf("Snapshot create image error %s", err)
 		procutils.NewCommand("mv", "-f", snapshotPath, d.getPath()).Run()
 		return err
@@ -432,7 +455,7 @@ func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingD
 			log.Errorln(err)
 			return err
 		}
-		if err = img.Convert2Qcow2To(output, true); err != nil {
+		if err = img.Convert2Qcow2To(output, true, "", "", ""); err != nil {
 			log.Errorln(err)
 			procutils.NewCommand("rm", "-f", output).Run()
 			return err
@@ -516,7 +539,7 @@ func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool) (js
 			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
 			return nil, err
 		}
-		if err := img.CreateQcow2(0, false, snapshotPath); err != nil {
+		if err := img.CreateQcow2(0, false, snapshotPath, "", "", ""); err != nil {
 			err = errors.Wrap(err, "qemu-img create disk by snapshot")
 			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
 			return nil, err
@@ -552,7 +575,7 @@ func (d *SLocalDisk) CleanupSnapshots(ctx context.Context, params interface{}) (
 			log.Errorln(err)
 			return nil, err
 		}
-		if err = img.Convert2Qcow2To(output, true); err != nil {
+		if err = img.Convert2Qcow2To(output, true, "", "", ""); err != nil {
 			log.Errorln(err)
 			return nil, err
 		}

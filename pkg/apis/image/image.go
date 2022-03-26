@@ -61,6 +61,7 @@ type GuestImageListInput struct {
 
 type ImageDetails struct {
 	apis.SharableVirtualResourceDetails
+	apis.EncryptedResourceDetails
 
 	SImage
 
@@ -92,6 +93,8 @@ type ImageCreateInput struct {
 	IsGuestImage *bool `json:"is_guest_image"`
 	// 是否是数据盘镜像
 	IsData *bool `json:"is_data"`
+
+	apis.EncryptedResourceCreateInput
 
 	// 镜像属性
 	Properties map[string]string `json:"properties"`

@@ -78,7 +78,7 @@ func (self *GuestImageDeleteTask) startDelete(ctx context.Context, guestImage *m
 		self.taskFailed(ctx, guestImage, jsonutils.NewString(err.Error()))
 	}
 	for i := range images {
-		err := images[i].Remove(ctx)
+		err := images[i].Remove(ctx, self.UserCred)
 		if err != nil {
 			self.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to remove %s: %s", images[i].GetPath(""), err)))
 			return

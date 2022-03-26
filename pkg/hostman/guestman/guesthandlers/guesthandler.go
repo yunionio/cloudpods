@@ -31,11 +31,12 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 type strDict map[string]string
-type actionFunc func(context.Context, string, jsonutils.JSONObject) (interface{}, error)
+type actionFunc func(context.Context, mcclient.TokenCredential, string, jsonutils.JSONObject) (interface{}, error)
 
 var (
 	keyWords = []string{"servers"}
@@ -105,11 +106,12 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 func guestActions(f actionFunc) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		params, _, body := appsrv.FetchEnv(ctx, w, r)
+		userCred := auth.FetchUserCredential(ctx, nil)
 		if body == nil {
 			body = jsonutils.NewDict()
 		}
 		var sid = params["<sid>"]
-		res, err := f(ctx, sid, body)
+		res, err := f(ctx, userCred, sid, body)
 		if err != nil {
 			hostutils.Response(ctx, w, err)
 		} else if res != nil {
@@ -148,7 +150,7 @@ func deleteGuest(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func guestCreate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestCreate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewBadRequestError("Guest %s is exist", sid)
 	}
@@ -164,7 +166,7 @@ func guestCreate(ctx context.Context, sid string, body jsonutils.JSONObject) (in
 	return nil, nil
 }
 
-func guestDeploy(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestDeploy(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	err := guestman.GetGuestManager().PrepareDeploy(sid)
 	if err != nil {
 		return nil, err
@@ -181,7 +183,7 @@ func guestDeploy(ctx context.Context, sid string, body jsonutils.JSONObject) (in
 	return nil, nil
 }
 
-func guestRebuild(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestRebuild(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	err := guestman.GetGuestManager().PrepareDeploy(sid)
 	if err != nil {
 		return nil, err
@@ -198,11 +200,11 @@ func guestRebuild(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 	return nil, nil
 }
 
-func guestStart(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	return guestman.GetGuestManager().GuestStart(ctx, sid, body)
+func guestStart(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	return guestman.GetGuestManager().GuestStart(ctx, userCred, sid, body)
 }
 
-func guestStop(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestStop(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	timeout, err := body.Int("timeout")
 	if err != nil {
 		timeout = 30
@@ -210,7 +212,7 @@ func guestStop(ctx context.Context, sid string, body jsonutils.JSONObject) (inte
 	return nil, guestman.GetGuestManager().GuestStop(ctx, sid, timeout)
 }
 
-func guestMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestMonitor(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -235,7 +237,7 @@ func guestMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 	}
 }
 
-func guestSync(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestSync(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -246,7 +248,7 @@ func guestSync(ctx context.Context, sid string, body jsonutils.JSONObject) (inte
 	return nil, nil
 }
 
-func guestSuspend(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestSuspend(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -254,7 +256,7 @@ func guestSuspend(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 	return nil, nil
 }
 
-func guestIoThrottle(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestIoThrottle(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	guest, ok := guestman.GetGuestManager().GetServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
@@ -278,7 +280,7 @@ func guestIoThrottle(ctx context.Context, sid string, body jsonutils.JSONObject)
 	return nil, nil
 }
 
-func guestSrcPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestSrcPrepareMigrate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -293,7 +295,7 @@ func guestSrcPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSON
 	return nil, nil
 }
 
-func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestDestPrepareMigrate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().CanMigrate(sid) {
 		return nil, httperrors.NewBadRequestError("Guest exist")
 	}
@@ -394,7 +396,7 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 	return nil, nil
 }
 
-func guestLiveMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -421,7 +423,7 @@ func guestLiveMigrate(ctx context.Context, sid string, body jsonutils.JSONObject
 	return nil, nil
 }
 
-func guestResume(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestResume(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -439,7 +441,7 @@ func guestResume(ctx context.Context, sid string, body jsonutils.JSONObject) (in
 // 	return nil, nil
 // }
 
-func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestDriveMirror(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -460,7 +462,7 @@ func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject
 	return nil, nil
 }
 
-func guestCancelBlockJobs(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestCancelBlockJobs(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -468,7 +470,7 @@ func guestCancelBlockJobs(ctx context.Context, sid string, body jsonutils.JSONOb
 	return nil, nil
 }
 
-func guestHotplugCpuMem(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestHotplugCpuMem(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -488,7 +490,7 @@ func guestHotplugCpuMem(ctx context.Context, sid string, body jsonutils.JSONObje
 	return nil, nil
 }
 
-func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestReloadDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	diskId, err := body.GetString("disk_id")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk_id")
@@ -519,7 +521,7 @@ func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSO
 	return nil, nil
 }
 
-func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	snapshotId, err := body.GetString("snapshot_id")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("snapshot_id")
@@ -559,7 +561,7 @@ func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (
 	return nil, nil
 }
 
-func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	deleteSnapshot, err := body.GetString("delete_snapshot")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("delete_snapshot")
@@ -612,7 +614,7 @@ func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 	return nil, nil
 }
 
-func guestStorageCloneDisk(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestStorageCloneDisk(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	input := new(computeapi.ServerChangeDiskStorageInternalInput)
 	if err := body.Unmarshal(input); err != nil {
 		return nil, err
@@ -644,7 +646,7 @@ func guestStorageCloneDisk(ctx context.Context, sid string, body jsonutils.JSONO
 	return nil, nil
 }
 
-func guestCPUSet(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestCPUSet(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	input := new(computeapi.ServerCPUSetInput)
 	if err := body.Unmarshal(input); err != nil {
 		return nil, err
@@ -653,7 +655,7 @@ func guestCPUSet(ctx context.Context, sid string, body jsonutils.JSONObject) (in
 	return gm.CPUSet(ctx, sid, input)
 }
 
-func guestCPUSetRemove(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestCPUSetRemove(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	gm := guestman.GetGuestManager()
 	if err := gm.CPUSetRemove(ctx, sid); err != nil {
 		return nil, err
@@ -661,7 +663,7 @@ func guestCPUSetRemove(ctx context.Context, sid string, body jsonutils.JSONObjec
 	return nil, nil
 }
 
-func guestMemorySnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestMemorySnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	input := new(hostapi.GuestMemorySnapshotRequest)
 	if err := body.Unmarshal(input); err != nil {
 		return nil, err
@@ -674,7 +676,7 @@ func guestMemorySnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 	return nil, nil
 }
 
-func guestMemorySnapshotReset(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestMemorySnapshotReset(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	input := new(hostapi.GuestMemorySnapshotResetRequest)
 	if err := body.Unmarshal(input); err != nil {
 		return nil, err

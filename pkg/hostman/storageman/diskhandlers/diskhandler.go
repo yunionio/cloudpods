@@ -189,6 +189,7 @@ func getSnapshotStatus(ctx context.Context, w http.ResponseWriter, r *http.Reque
 
 func saveToGlance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
+	userCred := auth.FetchUserCredential(ctx, nil)
 	var (
 		storageId   = params["<storageId>"]
 		diskInfo, _ = body.Get("disk")
@@ -202,8 +203,12 @@ func saveToGlance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("disk"))
 		return
 	}
+	info := storageman.SStorageSaveToGlanceInfo{
+		UserCred: userCred,
+		DiskInfo: diskInfo.(*jsonutils.JSONDict),
+	}
 
-	hostutils.DelayTaskWithoutReqctx(ctx, storage.SaveToGlance, diskInfo)
+	hostutils.DelayTaskWithoutReqctx(ctx, storage.SaveToGlance, info)
 	hostutils.ResponseOk(ctx, w)
 }
 

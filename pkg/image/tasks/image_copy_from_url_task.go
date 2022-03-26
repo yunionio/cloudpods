@@ -73,11 +73,7 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 func (self *ImageCopyFromUrlTask) OnImageImportComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	image := obj.(*models.SImage)
 	image.OnSaveTaskSuccess(self, self.UserCred, "create upload success")
-	if image.IsGuestImage.IsTrue() {
-		image.ImageProbeAndCustomization(ctx, self.UserCred, false)
-	} else {
-		image.ImageProbeAndCustomization(ctx, self.UserCred, true)
-	}
+	image.StartImagePipeline(ctx, self.UserCred, false)
 	self.SetStageComplete(ctx, nil)
 }
 

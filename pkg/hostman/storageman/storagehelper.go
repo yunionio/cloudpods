@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SDiskCreateByDiskinfo struct {
@@ -77,4 +78,9 @@ type SStorageUnpackInstanceBackup struct {
 	PackageName             string
 	BackupStorageId         string
 	BackupStorageAccessInfo *jsonutils.JSONDict
+}
+
+type SStorageSaveToGlanceInfo struct {
+	UserCred mcclient.TokenCredential
+	DiskInfo *jsonutils.JSONDict
 }

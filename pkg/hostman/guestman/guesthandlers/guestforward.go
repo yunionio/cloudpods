@@ -22,9 +22,10 @@ import (
 	hostapis "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func guestOpenForward(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestOpenForward(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	req := &hostapis.GuestOpenForwardRequest{}
 	if err := body.Unmarshal(req); err != nil {
 		return nil, httperrors.NewInputParameterError("unmarshal: %v", err)
@@ -37,7 +38,7 @@ func guestOpenForward(ctx context.Context, sid string, body jsonutils.JSONObject
 	return jsonutils.Marshal(resp), nil
 }
 
-func guestListForward(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestListForward(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	req := &hostapis.GuestListForwardRequest{}
 	if err := body.Unmarshal(req); err != nil {
 		return nil, httperrors.NewInputParameterError("unmarshal: %v", err)
@@ -50,7 +51,7 @@ func guestListForward(ctx context.Context, sid string, body jsonutils.JSONObject
 	return jsonutils.Marshal(resp), nil
 }
 
-func guestCloseForward(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestCloseForward(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	req := &hostapis.GuestCloseForwardRequest{}
 	if err := body.Unmarshal(req); err != nil {
 		return nil, httperrors.NewInputParameterError("unmarshal: %v", err)

@@ -333,7 +333,14 @@ func (self *SKVMHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, ho
 	body := jsonutils.NewDict()
 	backup, _ := data.GetString("backup")
 	storage, _ := disk.GetStorage()
-	content := map[string]string{"image_path": backup, "image_id": imageId, "storagecached_id": storage.StoragecacheId}
+	content := map[string]string{
+		"image_path":       backup,
+		"image_id":         imageId,
+		"storagecached_id": storage.StoragecacheId,
+	}
+	if disk.IsEncrypted() {
+		content["encrypt_key_id"] = disk.EncryptKeyId
+	}
 	if data.Contains("format") {
 		content["format"], _ = data.GetString("format")
 	}

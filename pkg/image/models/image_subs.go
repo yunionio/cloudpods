@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/image/torrent"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/torrentutils"
 )
@@ -100,7 +101,11 @@ func (manager *SImageSubformatManager) GetAllSubImages(id string) []SImageSubfor
 	return subImgs
 }
 
-func (self *SImageSubformat) DoConvert(image *SImage) error {
+func (self *SImageSubformat) isLocal() bool {
+	return strings.HasPrefix(self.Location, LocalFilePrefix)
+}
+
+func (self *SImageSubformat) doConvert(image *SImage) error {
 	err := self.Save(image)
 	if err != nil {
 		log.Errorf("fail to convert image %s", err)
@@ -241,7 +246,19 @@ func (self *SImageSubformat) StopTorrent() {
 	}
 }
 
-func (self *SImageSubformat) RemoveFiles(ctx context.Context) error {
+func (self *SImageSubformat) cleanup(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := self.removeFiles(ctx)
+	if err != nil {
+		return errors.Wrap(err, "removeFiles")
+	}
+	err = self.Delete(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "delete")
+	}
+	return nil
+}
+
+func (self *SImageSubformat) removeFiles(ctx context.Context) error {
 	self.StopTorrent()
 	location := self.getLocalTorrentLocation()
 	if len(location) > 0 && fileutils2.IsFile(location) {

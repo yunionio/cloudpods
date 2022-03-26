@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -52,12 +53,12 @@ type IDisk interface {
 
 	PrepareMigrate(liveMigrate bool) (string, error)
 	CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float64, totalSizeMb int64)) error
-	CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error)
+	CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error)
 	CreateFromSnapshotLocation(ctx context.Context, location string, size int64) error
 	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
 	CreateFromImageFuse(ctx context.Context, url string, size int64) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
-		encryption bool, diskId string, back string) (jsonutils.JSONObject, error)
+		encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
 	PostCreateFromImageFuse()
 	CreateSnapshot(snapshotId string) error
 	DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error
@@ -104,7 +105,7 @@ func (d *SBaseDisk) CreateFromUrl(ctx context.Context, url string, size int64, c
 	return fmt.Errorf("Not implemented")
 }
 
-func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error) {
+func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
 

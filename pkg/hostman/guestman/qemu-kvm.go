@@ -36,6 +36,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
@@ -44,7 +45,11 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -138,6 +143,39 @@ func (s *SKVMGuestInstance) GetPidFilePath() string {
 
 func (s *SKVMGuestInstance) GetVncFilePath() string {
 	return path.Join(s.HomeDir(), "vnc")
+}
+
+func (s *SKVMGuestInstance) getEncryptKeyPath() string {
+	return path.Join(s.HomeDir(), "key")
+}
+
+func (s *SKVMGuestInstance) getEncryptKeyId() string {
+	encKeyId, _ := s.Desc.GetString("encrypt_key_id")
+	return encKeyId
+}
+
+func (s *SKVMGuestInstance) isEncrypted() bool {
+	return len(s.getEncryptKeyId()) > 0
+}
+
+func (s *SKVMGuestInstance) getEncryptKey(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
+	encKeyId, _ := s.Desc.GetString("encrypt_key_id")
+	if len(encKeyId) > 0 {
+		if userCred == nil {
+			return "", errors.Wrap(httperrors.ErrUnauthorized, "no credential to fetch encrypt key")
+		}
+		session := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
+		key, err := identity_modules.Credentials.GetEncryptKey(session, encKeyId)
+		if err != nil {
+			return "", errors.Wrap(err, "GetEncryptKey")
+		}
+		return key.Key, nil
+	}
+	return "", nil
+}
+
+func (s *SKVMGuestInstance) saveEncryptKeyFile(key string) error {
+	return fileutils2.FilePutContents(s.getEncryptKeyPath(), key, false)
 }
 
 func (s *SKVMGuestInstance) getOriginId() string {
@@ -370,7 +408,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 			jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 			go s.DirtyServerRequestStart()
 		} else {
-			s.StartGuest(context.Background(), jsonutils.NewDict())
+			s.StartGuest(context.Background(), nil, jsonutils.NewDict())
 		}
 		return
 	}
@@ -813,7 +851,7 @@ func (s *SKVMGuestInstance) onMonitorTimeout(ctx context.Context, err error) {
 	log.Errorf("Monitor connect timeout, VM %s frozen: %s force restart!!!!", s.Id, err)
 	s.ForceStop()
 	timeutils2.AddTimeout(
-		time.Second*3, func() { s.StartGuest(ctx, jsonutils.NewDict()) })
+		time.Second*3, func() { s.StartGuest(ctx, nil, jsonutils.NewDict()) })
 }
 
 func (s *SKVMGuestInstance) GetHmpMonitorPort(vncPort int) int {
@@ -948,13 +986,25 @@ func (t *guestStartTask) Dump() string {
 	return fmt.Sprintf("guest %s params: %v", t.s.Id, t.params)
 }
 
-func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params *jsonutils.JSONDict) {
+func (s *SKVMGuestInstance) StartGuest(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
+	if s.isEncrypted() {
+		ekey, err := s.getEncryptKey(ctx, userCred)
+		if err != nil {
+			log.Errorf("fail to fetch encrypt key: %s", err)
+			return errors.Wrap(err, "getEncryptKey")
+		}
+		if params == nil {
+			params = jsonutils.NewDict()
+		}
+		params.Add(jsonutils.NewString(ekey), "encrypt_key")
+	}
 	task := &guestStartTask{
 		s:      s,
 		ctx:    ctx,
 		params: params,
 	}
 	s.manager.GuestStartWorker.Run(task, nil, nil)
+	return nil
 }
 
 func (s *SKVMGuestInstance) DeployFs(deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
@@ -1032,7 +1082,7 @@ func (s *SKVMGuestInstance) CleanupCpuset() {
 }
 
 func (s *SKVMGuestInstance) GetCleanFiles() []string {
-	return []string{s.GetPidFilePath(), s.GetVncFilePath()}
+	return []string{s.GetPidFilePath(), s.GetVncFilePath(), s.getEncryptKeyPath()}
 }
 
 func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) error {

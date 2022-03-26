@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -110,57 +109,56 @@ func (manager *SCredentialManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SCredentialManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if !data.Contains("type") {
-		return nil, httperrors.NewInputParameterError("missing input field type")
+func (manager *SCredentialManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.CredentialCreateInput,
+) (api.CredentialCreateInput, error) {
+	if len(input.Type) == 0 {
+		return input, httperrors.NewInputParameterError("missing input field type")
 	}
-	projectId, _ := data.GetString("project_id")
+	projectId := input.ProjectId
 	userId := ownerId.GetUserId()
 	if len(userId) == 0 {
 		userId = userCred.GetUserId()
 	}
-	data.Set("user_id", jsonutils.NewString(userId))
+	input.UserId = userId
 	if len(projectId) == 0 {
 		projectId = userCred.GetProjectId()
-		data.Set("project_id", jsonutils.NewString(projectId))
+		input.ProjectId = projectId
 	} else if projectId == api.DEFAULT_PROJECT {
 		// do nothing
 	} else {
 		_, err := ProjectManager.FetchById(projectId)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), projectId)
+				return input, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), projectId)
 			} else {
-				return nil, httperrors.NewGeneralError(err)
+				return input, httperrors.NewGeneralError(err)
 			}
 		}
 	}
-	if !data.Contains("name") {
-		typeStr, _ := data.GetString("type")
-		data.Add(jsonutils.NewString(fmt.Sprintf("%s-%s-%s", typeStr, projectId, userId)), "name")
+	if len(input.Name) == 0 {
+		input.Name = fmt.Sprintf("%s-%s-%s", input.Type, projectId, userId)
 	}
-	blob, _ := data.GetString("blob")
+	blob := input.Blob
 	if len(blob) == 0 {
-		return nil, httperrors.NewInputParameterError("missing input field blob")
+		return input, httperrors.NewInputParameterError("missing input field blob")
 	}
 	blobEnc, err := keys.CredentialKeyManager.Encrypt([]byte(blob))
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("encrypt error %s", err)
+		return input, httperrors.NewInternalServerError("encrypt error %s", err)
 	}
-	data.Add(jsonutils.NewString(string(blobEnc)), "encrypted_blob")
-	data.Add(jsonutils.NewString(keys.CredentialKeyManager.PrimaryKeyHash()), "key_hash")
+	input.EncryptedBlob = string(blobEnc)
+	input.KeyHash = keys.CredentialKeyManager.PrimaryKeyHash()
 
-	input := apis.StandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "manager.SStandaloneResourceBaseManager.ValidateCreateData")
 	}
-	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input, nil
 }
 
 func (self *SCredential) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
