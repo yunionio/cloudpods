@@ -1208,6 +1208,9 @@ func (self *SKVMRegionDriver) GetDiskResetParams(snapshot *models.SSnapshot) *js
 	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
 	params.Set("out_of_chain", jsonutils.NewBool(snapshot.OutOfChain))
 	params.Set("location", jsonutils.NewString(snapshot.Location))
+	if len(snapshot.BackingDiskId) > 0 {
+		params.Set("backing_disk_id", jsonutils.NewString(snapshot.BackingDiskId))
+	}
 	return params
 }
 
