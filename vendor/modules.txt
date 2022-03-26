@@ -73,7 +73,7 @@ github.com/Microsoft/azure-vhd-utils/vhdcore/writer
 github.com/RoaringBitmap/roaring
 # github.com/Shopify/sarama v1.20.0
 github.com/Shopify/sarama
-# github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d
+# github.com/StackExchange/wmi v1.2.1
 github.com/StackExchange/wmi
 # github.com/VividCortex/ewma v1.1.1
 github.com/VividCortex/ewma
@@ -423,7 +423,7 @@ github.com/hako/durafmt
 github.com/huandu/xstrings
 # github.com/imdario/mergo v0.3.6
 github.com/imdario/mergo
-# github.com/jaypipes/ghw v0.8.0
+# github.com/jaypipes/ghw v0.9.0
 github.com/jaypipes/ghw/pkg/context
 github.com/jaypipes/ghw/pkg/cpu
 github.com/jaypipes/ghw/pkg/linuxpath
@@ -828,7 +828,7 @@ golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.0.0-20210910150752-751e447fb3d0
+# golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
@@ -1029,7 +1029,7 @@ gopkg.in/inf.v0
 gopkg.in/ini.v1
 # gopkg.in/ldap.v3 v3.0.3
 gopkg.in/ldap.v3
-# gopkg.in/yaml.v2 v2.3.0
+# gopkg.in/yaml.v2 v2.4.0
 gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 gopkg.in/yaml.v3
