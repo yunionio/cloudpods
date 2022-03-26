@@ -108,6 +108,9 @@ func (alg SSymEncAlg) CbcDecode(cipherText []byte, encryptionKey []byte) ([]byte
 	if err != nil {
 		return nil, errors.Wrap(err, "newCipher")
 	}
+	if len(cipherText) < block.BlockSize() {
+		return nil, errors.Wrap(errors.ErrInvalidStatus, "not a encrypted text")
+	}
 	mode := cipher.NewCBCDecrypter(block, cipherText[:block.BlockSize()])
 	cipherText = cipherText[block.BlockSize():]
 	mode.CryptBlocks(cipherText, cipherText)
