@@ -7,8 +7,10 @@
 package topology
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/jaypipes/ghw/pkg/context"
@@ -34,6 +36,16 @@ var (
 		ARCHITECTURE_SMP:  "SMP",
 		ARCHITECTURE_NUMA: "NUMA",
 	}
+
+	// NOTE(fromani): the keys are all lowercase and do not match
+	// the keys in the opposite table `architectureString`.
+	// This is done because of the choice we made in
+	// Architecture:MarshalJSON.
+	// We use this table only in UnmarshalJSON, so it should be OK.
+	stringArchitecture = map[string]Architecture{
+		"smp":  ARCHITECTURE_SMP,
+		"numa": ARCHITECTURE_NUMA,
+	}
 )
 
 func (a Architecture) String() string {
@@ -44,7 +56,21 @@ func (a Architecture) String() string {
 // get, let's lowercase the string output when serializing, in order to
 // "normalize" the expected serialized output
 func (a Architecture) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strings.ToLower(a.String()) + "\""), nil
+	return []byte(strconv.Quote(strings.ToLower(a.String()))), nil
+}
+
+func (a *Architecture) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	key := strings.ToLower(s)
+	val, ok := stringArchitecture[key]
+	if !ok {
+		return fmt.Errorf("unknown architecture: %q", key)
+	}
+	*a = val
+	return nil
 }
 
 // Node is an abstract construct representing a collection of processors and
@@ -59,6 +85,7 @@ type Node struct {
 	Cores     []*cpu.ProcessorCore `json:"cores"`
 	Caches    []*memory.Cache      `json:"caches"`
 	Distances []int                `json:"distances"`
+	Memory    *memory.Area         `json:"memory"`
 }
 
 func (n *Node) String() string {
@@ -79,15 +106,16 @@ type Info struct {
 // New returns a pointer to an Info struct that contains information about the
 // NUMA topology on the host system
 func New(opts ...*option.Option) (*Info, error) {
-	return NewWithContext(context.New(opts...))
-}
-
-// NewWithContext returns a pointer to an Info struct that contains information about
-// the NUMA topology on the host system. Use this function when you want to consume
-// the topology package from another package (e.g. pci, gpu)
-func NewWithContext(ctx *context.Context) (*Info, error) {
+	merged := option.Merge(opts...)
+	ctx := context.New(merged)
 	info := &Info{ctx: ctx}
-	if err := ctx.Do(info.load); err != nil {
+	var err error
+	if context.Exists(merged) {
+		err = info.load()
+	} else {
+		err = ctx.Do(info.load)
+	}
+	if err != nil {
 		return nil, err
 	}
 	for _, node := range info.Nodes {
