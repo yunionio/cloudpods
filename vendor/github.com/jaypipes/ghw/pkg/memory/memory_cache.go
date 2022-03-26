@@ -7,6 +7,7 @@
 package memory
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -28,6 +29,17 @@ var (
 		CACHE_TYPE_INSTRUCTION: "Instruction",
 		CACHE_TYPE_DATA:        "Data",
 	}
+
+	// NOTE(fromani): the keys are all lowercase and do not match
+	// the keys in the opposite table `memoryCacheTypeString`.
+	// This is done because of the choice we made in
+	// CacheType:MarshalJSON.
+	// We use this table only in UnmarshalJSON, so it should be OK.
+	stringMemoryCacheType = map[string]CacheType{
+		"unified":     CACHE_TYPE_UNIFIED,
+		"instruction": CACHE_TYPE_INSTRUCTION,
+		"data":        CACHE_TYPE_DATA,
+	}
 )
 
 func (a CacheType) String() string {
@@ -38,7 +50,21 @@ func (a CacheType) String() string {
 // get, let's lowercase the string output when serializing, in order to
 // "normalize" the expected serialized output
 func (a CacheType) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strings.ToLower(a.String()) + "\""), nil
+	return []byte(strconv.Quote(strings.ToLower(a.String()))), nil
+}
+
+func (a *CacheType) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	key := strings.ToLower(s)
+	val, ok := stringMemoryCacheType[key]
+	if !ok {
+		return fmt.Errorf("unknown memory cache type: %q", key)
+	}
+	*a = val
+	return nil
 }
 
 type SortByCacheLevelTypeFirstProcessor []*Cache

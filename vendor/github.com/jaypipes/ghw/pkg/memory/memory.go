@@ -25,13 +25,35 @@ type Module struct {
 	Vendor       string `json:"vendor"`
 }
 
-type Info struct {
-	ctx                *context.Context
+type Area struct {
 	TotalPhysicalBytes int64 `json:"total_physical_bytes"`
 	TotalUsableBytes   int64 `json:"total_usable_bytes"`
-	// An array of sizes, in bytes, of memory pages supported by the host
+	// An array of sizes, in bytes, of memory pages supported in this area
 	SupportedPageSizes []uint64  `json:"supported_page_sizes"`
 	Modules            []*Module `json:"modules"`
+}
+
+func (a *Area) String() string {
+	tpbs := util.UNKNOWN
+	if a.TotalPhysicalBytes > 0 {
+		tpb := a.TotalPhysicalBytes
+		unit, unitStr := unitutil.AmountString(tpb)
+		tpb = int64(math.Ceil(float64(a.TotalPhysicalBytes) / float64(unit)))
+		tpbs = fmt.Sprintf("%d%s", tpb, unitStr)
+	}
+	tubs := util.UNKNOWN
+	if a.TotalUsableBytes > 0 {
+		tub := a.TotalUsableBytes
+		unit, unitStr := unitutil.AmountString(tub)
+		tub = int64(math.Ceil(float64(a.TotalUsableBytes) / float64(unit)))
+		tubs = fmt.Sprintf("%d%s", tub, unitStr)
+	}
+	return fmt.Sprintf("memory (%s physical, %s usable)", tpbs, tubs)
+}
+
+type Info struct {
+	ctx *context.Context
+	Area
 }
 
 func New(opts ...*option.Option) (*Info, error) {
@@ -44,21 +66,7 @@ func New(opts ...*option.Option) (*Info, error) {
 }
 
 func (i *Info) String() string {
-	tpbs := util.UNKNOWN
-	if i.TotalPhysicalBytes > 0 {
-		tpb := i.TotalPhysicalBytes
-		unit, unitStr := unitutil.AmountString(tpb)
-		tpb = int64(math.Ceil(float64(i.TotalPhysicalBytes) / float64(unit)))
-		tpbs = fmt.Sprintf("%d%s", tpb, unitStr)
-	}
-	tubs := util.UNKNOWN
-	if i.TotalUsableBytes > 0 {
-		tub := i.TotalUsableBytes
-		unit, unitStr := unitutil.AmountString(tub)
-		tub = int64(math.Ceil(float64(i.TotalUsableBytes) / float64(unit)))
-		tubs = fmt.Sprintf("%d%s", tub, unitStr)
-	}
-	return fmt.Sprintf("memory (%s physical, %s usable)", tpbs, tubs)
+	return i.Area.String()
 }
 
 // simple private struct used to encapsulate memory information in a top-level

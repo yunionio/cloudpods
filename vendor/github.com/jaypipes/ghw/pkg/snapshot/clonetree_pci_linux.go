@@ -26,7 +26,9 @@ const (
 // ghw cares about, pertaining to PCI devices only.
 // Beware: the content is host-specific, because the PCI topology is host-dependent and unpredictable.
 func ExpectedClonePCIContent() []string {
-	var fileSpecs []string
+	fileSpecs := []string{
+		"/sys/bus/pci/drivers/*",
+	}
 	pciRoots := []string{
 		sysBusPCIDir,
 	}
@@ -60,6 +62,7 @@ func scanPCIDeviceRoot(root string) (fileSpecs []string, pciRoots []string) {
 	perDevEntries := []string{
 		"class",
 		"device",
+		"driver",
 		"irq",
 		"local_cpulist",
 		"modalias",
