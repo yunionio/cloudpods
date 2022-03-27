@@ -72,11 +72,12 @@ func PackWithWriter(fw io.Writer, sourceRoot string) error {
 }
 
 func createSnapshot(tw *tar.Writer, buildDir string) error {
-	return filepath.Walk(buildDir, func(path string, fi os.FileInfo, err error) error {
+	return filepath.Walk(buildDir, func(path string, fi os.FileInfo, _ error) error {
 		if path == buildDir {
 			return nil
 		}
 		var link string
+		var err error
 
 		if fi.Mode()&os.ModeSymlink != 0 {
 			trace("processing symlink %s\n", path)
