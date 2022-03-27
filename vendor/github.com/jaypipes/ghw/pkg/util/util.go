@@ -17,8 +17,7 @@ import (
 )
 
 const (
-	UNKNOWN            = "unknown"
-	disableWarningsEnv = "GHW_DISABLE_WARNINGS"
+	UNKNOWN = "unknown"
 )
 
 type closer interface {
@@ -50,4 +49,11 @@ func SafeIntFromFile(ctx *context.Context, path string) int {
 		return -1
 	}
 	return res
+}
+
+// ConcatStrings concatenate strings in a larger one. This function
+// addresses a very specific ghw use case. For a more general approach,
+// just use strings.Join()
+func ConcatStrings(items ...string) string {
+	return strings.Join(items, "")
 }

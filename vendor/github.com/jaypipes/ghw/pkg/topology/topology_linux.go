@@ -69,6 +69,13 @@ func topologyNodes(ctx *context.Context) []*Node {
 		}
 		node.Distances = distances
 
+		area, err := memory.AreaForNode(ctx, nodeID)
+		if err != nil {
+			ctx.Warn("failed to determine memory area for node: %s\n", err)
+			return nodes
+		}
+		node.Memory = area
+
 		nodes = append(nodes, node)
 	}
 	return nodes
@@ -88,7 +95,7 @@ func distancesForNode(ctx *context.Context, nodeID int) ([]int, error) {
 	}
 
 	items := strings.Fields(strings.TrimSpace(string(data)))
-	dists := make([]int, len(items), len(items)) // TODO: can a NUMA cell be offlined?
+	dists := make([]int, len(items)) // TODO: can a NUMA cell be offlined?
 	for idx, item := range items {
 		dist, err := strconv.Atoi(item)
 		if err != nil {
