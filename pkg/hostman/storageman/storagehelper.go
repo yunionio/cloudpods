@@ -35,8 +35,9 @@ func (i *SDiskCreateByDiskinfo) String() string {
 }
 
 type SDiskReset struct {
-	SnapshotId string
-	Input      jsonutils.JSONObject
+	SnapshotId    string
+	BackingDiskId string
+	Input         jsonutils.JSONObject
 }
 
 type SDiskCleanupSnapshots struct {

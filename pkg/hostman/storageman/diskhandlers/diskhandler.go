@@ -310,9 +310,11 @@ func diskReset(ctx context.Context, storage storageman.IStorage, diskId string, 
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("snapshot_id")
 	}
+	backingDiskId, _ := body.GetString("backing_disk_id")
 	hostutils.DelayTask(ctx, disk.ResetFromSnapshot, &storageman.SDiskReset{
-		SnapshotId: snapshotId,
-		Input:      body,
+		SnapshotId:    snapshotId,
+		BackingDiskId: backingDiskId,
+		Input:         body,
 	})
 	return nil, nil
 }
