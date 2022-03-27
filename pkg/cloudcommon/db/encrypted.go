@@ -82,13 +82,6 @@ func (manager *SEncryptedResourceManager) ValidateCreateData(
 		if err != nil {
 			return input, errors.Wrap(err, "GetString key Id")
 		}
-		userId, err := keyObj.GetString("user_id")
-		if err != nil {
-			return input, errors.Wrap(err, "GetString user id")
-		}
-		if userId != ownerId.GetUserId() {
-			return input, errors.Wrap(httperrors.ErrForbidden, "non-owner not allow to access key")
-		}
 		input.EncryptKeyId = &keyId
 	}
 	return input, nil
