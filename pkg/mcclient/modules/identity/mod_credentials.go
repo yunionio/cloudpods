@@ -321,6 +321,19 @@ func DecodeEncryptKey(secret jsonutils.JSONObject) (SEncryptKeySecret, error) {
 	return curr, nil
 }
 
+func (manager *SCredentialManager) GetEncryptKeysRpc(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.
+	JSONObject, error) {
+	keys, err := manager.GetEncryptKeys(s, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetEncryptKeys")
+	}
+	ret := jsonutils.NewArray()
+	for _, key := range keys {
+		ret.Add(key.Marshal())
+	}
+	return ret, nil
+}
+
 func (manager *SCredentialManager) GetEncryptKeys(s *mcclient.ClientSession, uid string) ([]SEncryptKeySecret, error) {
 	secrets, err := manager.FetchEncryptionKeys(s, uid)
 	if err != nil {
