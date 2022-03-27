@@ -187,6 +187,10 @@ func (action *SActionlog) GetI18N(ctx context.Context) *jsonutils.JSONDict {
 	return r
 }
 
+func (action *SActionlog) GetModelManager() db.IModelManager {
+	return action.SModelBase.GetModelManager()
+}
+
 func (man *SActionlogManager) GetI18N(ctx context.Context, idstr string, resObj jsonutils.JSONObject) *jsonutils.JSONDict {
 	if idstr != "distinct-field" {
 		return nil
