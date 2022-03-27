@@ -421,6 +421,8 @@ type ServerCreateOptionalOptions struct {
 	PublicIpChargeType string `help:"newly allocated public ip charge type" choices:"traffic|bandwidth" json:"public_ip_charge_type,omitempty"`
 
 	GuestImageID string `help:"create from guest image, need to specify the guest image id"`
+
+	EncryptKey string `help:"encryption key"`
 }
 
 func (o *ServerCreateOptions) ToScheduleInput() (*schedapi.ScheduleInput, error) {
@@ -506,6 +508,10 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		OsType:             opts.OsType,
 		GuestImageID:       opts.GuestImageID,
 		Secgroups:          opts.Secgroups,
+	}
+
+	if len(opts.EncryptKey) > 0 {
+		params.EncryptKeyId = &opts.EncryptKey
 	}
 
 	if regutils.MatchSize(opts.MemSpec) {

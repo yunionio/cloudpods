@@ -157,6 +157,7 @@ func GenerateAllPolicies() []SPolicyData {
 			}
 		}
 	}
+	ret = append(ret, predefinedPolicyData...)
 	return ret
 }
 

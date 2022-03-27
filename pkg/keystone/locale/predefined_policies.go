@@ -122,6 +122,9 @@ var (
 						"list",
 						"get",
 					},
+					"projects": {
+						"list",
+					},
 				},
 				"meter": {
 					"bill_conditions": {
@@ -142,10 +145,25 @@ var (
 						"list",
 						"get",
 					},
+					"nodealerts": {
+						"list",
+					},
 				},
 				"log": {
 					"actions": {
 						"list",
+					},
+				},
+				"devtool": {
+					"scriptapplyrecords": {
+						"list",
+						"get",
+					},
+				},
+				"yunionconf": {
+					"scopedpolicybindings": {
+						"list",
+						"get",
 					},
 				},
 			},
@@ -607,6 +625,69 @@ var (
 			Policies: []string{
 				"project-viewer",
 				"project-dashboard",
+			},
+			IsPublic: true,
+		},
+		{
+			Name:          "sys_opsadmin",
+			DescriptionCN: "全局系统管理员",
+			Description:   "System-wide operation manager",
+			Policies: []string{
+				"sys-opsadmin",
+			},
+			IsPublic: true,
+		},
+		{
+			Name:          "sys_secadmin",
+			DescriptionCN: "全局安全管理员",
+			Description:   "System-wide security manager",
+			Policies: []string{
+				"sys-secadmin",
+			},
+			IsPublic: true,
+		},
+		{
+			Name:          "sys_adtadmin",
+			DescriptionCN: "全局审计管理员",
+			Description:   "System-wide audit manager",
+			Policies: []string{
+				"sys-adtadmin",
+			},
+			IsPublic: true,
+		},
+		{
+			Name:          "domain_opsadmin",
+			DescriptionCN: "组织系统管理员",
+			Description:   "Domain-wide operation manager",
+			Policies: []string{
+				"domain-opsadmin",
+			},
+			IsPublic: true,
+		},
+		{
+			Name:          "domain_secadmin",
+			DescriptionCN: "组织安全管理员",
+			Description:   "Domain-wide security manager",
+			Policies: []string{
+				"domain-secadmin",
+			},
+			IsPublic: true,
+		},
+		{
+			Name:          "domain_adtadmin",
+			DescriptionCN: "组织审计管理员",
+			Description:   "Domain-wide audit manager",
+			Policies: []string{
+				"domain-adtadmin",
+			},
+			IsPublic: true,
+		},
+		{
+			Name:          "normal_user",
+			DescriptionCN: "缺省普通用户角色",
+			Description:   "Default normal user role",
+			Policies: []string{
+				"normal-user",
 			},
 			IsPublic: true,
 		},
