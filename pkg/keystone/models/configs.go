@@ -35,6 +35,7 @@ import (
 // +onecloud:swagger-gen-ignore
 type SConfigOptionManager struct {
 	db.SResourceBaseManager
+	db.SRecordChecksumResourceBaseManager
 	IsSensitive bool
 }
 
@@ -51,9 +52,11 @@ func init() {
 			"sensitive_config",
 			"sensitive_configs",
 		),
-		IsSensitive: true,
+		SRecordChecksumResourceBaseManager: *db.NewRecordChecksumResourceBaseManager(),
+		IsSensitive:                        true,
 	}
 	SensitiveConfigManager.SetVirtualObject(SensitiveConfigManager)
+
 	WhitelistedConfigManager = &SConfigOptionManager{
 		SResourceBaseManager: db.NewResourceBaseManager(
 			SConfigOption{},
@@ -61,7 +64,8 @@ func init() {
 			"whitelisted_config",
 			"whitelisted_configs",
 		),
-		IsSensitive: false,
+		SRecordChecksumResourceBaseManager: *db.NewRecordChecksumResourceBaseManager(),
+		IsSensitive:                        false,
 	}
 	WhitelistedConfigManager.SetVirtualObject(WhitelistedConfigManager)
 }
@@ -79,6 +83,7 @@ func init() {
 
 type SConfigOption struct {
 	db.SResourceBase
+	db.SRecordChecksumResourceBase
 
 	ResType string `width:"32" charset:"ascii" nullable:"false" default:"identity_provider" primary:"true"`
 	ResId   string `name:"domain_id" width:"64" charset:"ascii" primary:"true"`
