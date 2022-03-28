@@ -129,6 +129,9 @@ type HostListInput struct {
 	// 按虚拟机数量排序
 	// enum: asc,desc
 	OrderByServerCount string `json:"order_by_server_count"`
+	// 按存储大小排序
+	// enmu: asc,desc
+	OrderByStorage string `json:"order_by_storage"`
 }
 
 type HostDetails struct {
