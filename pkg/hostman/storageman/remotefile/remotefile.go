@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -150,11 +151,11 @@ func (r *SRemoteFile) fetch(preChksum string, callback func(progress, progressMb
 					log.Errorf("remote checksume %s != local checksum %s", r.chksum, localChksum)
 					return fmt.Errorf("remote checksum %s != local checksum %s", r.chksum, localChksum)
 				}
-				log.Debugf("localPath %s tmpPath %s", r.localPath, r.tmpPath)
-				if r.localPath != r.tmpPath {
-					syscall.Unlink(r.localPath)
-					return syscall.Rename(r.tmpPath, r.localPath)
-				}
+			}
+			log.Debugf("localPath %s tmpPath %s", r.localPath, r.tmpPath)
+			if r.localPath != r.tmpPath {
+				syscall.Unlink(r.localPath)
+				return syscall.Rename(r.tmpPath, r.localPath)
 			}
 			return nil
 		}
@@ -274,6 +275,7 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback 
 }
 
 func (r *SRemoteFile) setProperties(header http.Header) {
+	log.Debugf("remoteFile headers: %s", jsonutils.Marshal(header))
 	if chksum := header.Get("X-Image-Meta-Checksum"); len(chksum) > 0 {
 		r.chksum = chksum
 	}
