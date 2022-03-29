@@ -15,17 +15,21 @@
 package service
 
 import (
+	"math/rand"
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apigateway/app"
 	"yunion.io/x/onecloud/pkg/apigateway/clientman"
 	"yunion.io/x/onecloud/pkg/apigateway/options"
+	"yunion.io/x/onecloud/pkg/apigateway/report"
 	api "yunion.io/x/onecloud/pkg/apis/apigateway"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -56,6 +60,13 @@ func StartService() {
 	// mods, jmods := modulebase.GetRegisterdModules()
 	// log.Infof("Modules: %s", jsonutils.Marshal(mods).PrettyString())
 	// log.Infof("Modules: %s", jsonutils.Marshal(jmods).PrettyString())
+
+	if !options.Options.DisableReporting {
+		cron := cronman.InitCronJobManager(true, 1)
+		rand.Seed(time.Now().Unix())
+		cron.AddJobEveryFewDays("AutoReport", 1, rand.Intn(23), rand.Intn(59), 0, report.Report, true)
+		go cron.Start()
+	}
 
 	listenAddr := net.JoinHostPort(options.Options.Address, strconv.Itoa(options.Options.Port))
 	if opts.EnableSsl {

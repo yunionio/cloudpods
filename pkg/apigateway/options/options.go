@@ -40,6 +40,9 @@ type GatewayOptions struct {
 
 	SessionLevelAuthCookie bool `default:"false" help:"YunionAuth cookie is valid during a browser session"`
 
+	// 上报非敏感基础信息，帮助软件更加完善
+	DisableReporting bool `default:"false" help:"Reporting data every 24 hours, report data incloud version, os, platform and usages"`
+
 	common_options.CommonOptions `"request_worker_count->default":"32"`
 }
 
