@@ -1312,6 +1312,11 @@ func (manager *SCloudproviderManager) QueryDistinctExtraField(q *sqlchemy.SQuery
 		return q, nil
 	}
 
+	q, err = manager.SProjectizedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
 	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
