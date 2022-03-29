@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 const (
@@ -142,6 +143,7 @@ func (c *RaidInfoCollector) CollectReportData() string {
 }
 
 func (c *RaidInfoCollector) Start() {
+	go procutils.WaitZombieLoop(context.TODO())
 	for {
 		c.runMain()
 		time.Sleep(time.Second * 1)
