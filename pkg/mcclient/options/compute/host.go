@@ -53,6 +53,7 @@ type HostListOptions struct {
 	Sn string `help:"find host by sn"`
 
 	OrderByServerCount string `help:"Order by server count" choices:"desc|asc"`
+	OrderByStorage     string `help:"Order by host storage" choices:"desc|asc"`
 
 	options.BaseListOptions
 }

@@ -489,6 +489,20 @@ func (manager *SHostManager) OrderByExtraFields(
 		db.OrderByFields(q, []string{query.OrderByServerCount}, []sqlchemy.IQueryField{guestCounts.Field("guest_count")})
 	}
 
+	if db.NeedOrderQuery([]string{query.OrderByStorage}) {
+		hoststorages := HoststorageManager.Query().SubQuery()
+		storages := StorageManager.Query().IsTrue("enabled").In("storage_type", api.HOST_STORAGE_LOCAL_TYPES).SubQuery()
+		hoststoragesQ := hoststorages.Query(
+			hoststorages.Field("host_id"),
+			sqlchemy.SUM("storage_capacity", storages.Field("capacity")),
+		)
+		hoststoragesQ = hoststoragesQ.LeftJoin(storages, sqlchemy.Equals(hoststoragesQ.Field("storage_id"), storages.Field("id")))
+		hoststoragesSQ := hoststoragesQ.GroupBy(hoststoragesQ.Field("host_id")).SubQuery()
+
+		q = q.LeftJoin(hoststoragesSQ, sqlchemy.Equals(q.Field("id"), hoststoragesSQ.Field("host_id")))
+		db.OrderByFields(q, []string{query.OrderByStorage}, []sqlchemy.IQueryField{hoststoragesSQ.Field("storage_capacity")})
+	}
+
 	return q, nil
 }
 
