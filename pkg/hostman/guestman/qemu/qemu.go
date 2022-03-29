@@ -481,7 +481,7 @@ func (o *baseOptions_aarch64) CPU(input CPUOption, osName string) (string, strin
 func (o baseOptions_aarch64) Machine(mType string, accel string) string {
 	// TODO: fix machine type on region controller side
 	if mType == "" || mType == compute.VM_MACHINE_TYPE_PC || mType == compute.VM_MACHINE_TYPE_Q35 {
-		mType = "virt-2.12"
+		mType = "virt"
 	}
 	return fmt.Sprintf("-machine %s,accel=%s,gic-version=3", mType, accel)
 }
