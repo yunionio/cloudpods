@@ -23,8 +23,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/moul/http2curl"
 	"golang.org/x/net/context/ctxhttp"
+	"moul.io/http2curl/v2"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
