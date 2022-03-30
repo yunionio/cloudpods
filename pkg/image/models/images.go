@@ -1349,6 +1349,9 @@ func isActive(localPath string, size int64, chksum string, fastHash string, useF
 		log.Errorf("size mistmatch: %s", localPath)
 		return false
 	}
+	if len(chksum) == 0 || len(fastHash) == 0 {
+		return true
+	}
 	if useFastHash && len(fastHash) > 0 {
 		fhash, err := fileutils2.FastCheckSum(localPath)
 		if err != nil {
@@ -1654,6 +1657,12 @@ func (image *SImage) updateImageInfo(
 	userCred mcclient.TokenCredential,
 	imageInfo *deployapi.ImageInfo,
 ) error {
+	if image.OsArch != imageInfo.OsInfo.Arch {
+		db.Update(image, func() error {
+			image.OsArch = imageInfo.OsInfo.Arch
+			return nil
+		})
+	}
 	imageProperties := jsonutils.Marshal(imageInfo.OsInfo).(*jsonutils.JSONDict)
 	imageProperties.Set(api.IMAGE_OS_ARCH, jsonutils.NewString(imageInfo.OsInfo.Arch))
 	imageProperties.Set(api.IMAGE_OS_TYPE, jsonutils.NewString(imageInfo.OsType))
@@ -1950,7 +1959,7 @@ func (img *SImage) Pipeline(ctx context.Context, userCred mcclient.TokenCredenti
 			needChecksum = true
 		}
 	}
-	if needChecksum {
+	if needChecksum || len(img.Checksum) == 0 || len(img.FastHash) == 0 {
 		err := img.updateChecksum()
 		if err != nil {
 			return errors.Wrap(err, "updateChecksum")
