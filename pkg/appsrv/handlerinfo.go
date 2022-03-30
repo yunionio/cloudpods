@@ -83,6 +83,10 @@ func (this *SHandlerInfo) GetTags() map[string]string {
 	return this.tags
 }
 
+func NewHandlerInfo(method string, path []string, handler func(context.Context, http.ResponseWriter, *http.Request), metadata map[string]interface{}, name string, tags map[string]string) *SHandlerInfo {
+	return newHandlerInfo(method, path, handler, metadata, name, tags)
+}
+
 func newHandlerInfo(method string, path []string, handler func(context.Context, http.ResponseWriter, *http.Request), metadata map[string]interface{}, name string, tags map[string]string) *SHandlerInfo {
 	hand := SHandlerInfo{method: method, path: path,
 		handler:  handler,
