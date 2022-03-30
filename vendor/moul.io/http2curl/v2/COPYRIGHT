@@ -1,0 +1,22 @@
+Copyright 2015-2021 Manfred Touron and other http2curl Developers.
+
+Intellectual Property Notice
+----------------------------
+
+http2curl is licensed under the Apache License, Version 2.0
+(see LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0) or
+the MIT license (see LICENSE-MIT or http://opensource.org/licenses/MIT),
+at your option.
+
+Copyrights and patents in the http2curls project are retained
+by contributors.
+No copyright assignment is required to contribute to http2curl.
+
+    SPDX-License-Identifier: (Apache-2.0 OR MIT)
+
+SPDX usage
+----------
+
+Individual files may contain SPDX tags instead of the full license text.
+This enables machine processing of license information based on the SPDX
+License Identifiers that are available here: https://spdx.org/licenses/
