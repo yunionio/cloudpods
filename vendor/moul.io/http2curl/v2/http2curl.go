@@ -3,7 +3,6 @@ package http2curl
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -11,47 +10,60 @@ import (
 )
 
 // CurlCommand contains exec.Command compatible slice + helpers
-type CurlCommand struct {
-	slice []string
-}
+type CurlCommand []string
 
 // append appends a string to the CurlCommand
 func (c *CurlCommand) append(newSlice ...string) {
-	c.slice = append(c.slice, newSlice...)
+	*c = append(*c, newSlice...)
 }
 
 // String returns a ready to copy/paste command
 func (c *CurlCommand) String() string {
-	return strings.Join(c.slice, " ")
-}
-
-// nopCloser is used to create a new io.ReadCloser for req.Body
-type nopCloser struct {
-	io.Reader
+	return strings.Join(*c, " ")
 }
 
 func bashEscape(str string) string {
 	return `'` + strings.Replace(str, `'`, `'\''`, -1) + `'`
 }
 
-func (nopCloser) Close() error { return nil }
-
 // GetCurlCommand returns a CurlCommand corresponding to an http.Request
 func GetCurlCommand(req *http.Request) (*CurlCommand, error) {
+	if req.URL == nil {
+		return nil, fmt.Errorf("getCurlCommand: invalid request, req.URL is nil")
+	}
+
 	command := CurlCommand{}
 
 	command.append("curl")
 
+	schema := req.URL.Scheme
+	requestURL := req.URL.String()
+	if schema == "" {
+		schema = "http"
+		if req.TLS != nil {
+			schema = "https"
+		}
+		requestURL = schema + "://" + req.Host + req.URL.Path
+	}
+
+	if schema == "https" {
+		command.append("-k")
+	}
+
 	command.append("-X", bashEscape(req.Method))
 
 	if req.Body != nil {
-		body, err := ioutil.ReadAll(req.Body)
+		var buff bytes.Buffer
+		_, err := buff.ReadFrom(req.Body)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("getCurlCommand: buffer read from body error: %w", err)
 		}
-		req.Body = nopCloser{bytes.NewBuffer(body)}
-		bodyEscaped := bashEscape(string(body))
-		command.append("-d", bodyEscaped)
+		// reset body for potential re-reads
+		req.Body = ioutil.NopCloser(bytes.NewBuffer(buff.Bytes()))
+		if len(buff.String()) > 0 {
+			bodyEscaped := bashEscape(buff.String())
+			command.append("-d", bodyEscaped)
+		}
 	}
 
 	var keys []string
@@ -65,7 +77,8 @@ func GetCurlCommand(req *http.Request) (*CurlCommand, error) {
 		command.append("-H", bashEscape(fmt.Sprintf("%s: %s", k, strings.Join(req.Header[k], " "))))
 	}
 
-	command.append(bashEscape(req.URL.String()))
+	command.append(bashEscape(requestURL))
 
 	return &command, nil
 }
+
