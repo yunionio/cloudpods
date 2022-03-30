@@ -100,7 +100,6 @@ func StartService() {
 
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
-	go models.CheckImages()
 	models.Init(options.Options.StorageDriver)
 	if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_S3 {
 		initS3()
@@ -110,6 +109,9 @@ func StartService() {
 		log.Infof("deploy server socket path: %s", options.Options.DeployServerSocketPath)
 		deployclient.Init(options.Options.DeployServerSocketPath)
 	}
+
+	// Check the images after everything is ready
+	go models.CheckImages()
 
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
