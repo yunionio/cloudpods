@@ -28,7 +28,7 @@ import (
 
 func fetchTokenPolicies(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	token := policy.FetchUserCredential(ctx)
-	names, group, err := models.RolePolicyManager.GetMatchPolicyGroup(token, time.Now(), false)
+	names, group, err := models.RolePolicyManager.GetMatchPolicyGroupByCred(token, time.Now(), false)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
