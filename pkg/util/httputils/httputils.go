@@ -34,7 +34,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/moul/http2curl"
+	"moul.io/http2curl/v2"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"

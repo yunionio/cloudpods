@@ -93,7 +93,6 @@ require (
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
-	github.com/moul/http2curl v1.0.0
 	github.com/mozillazg/go-pinyin v0.15.0
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
 	github.com/opentracing/opentracing-go v1.0.2 // indirect
@@ -149,6 +148,7 @@ require (
 	k8s.io/apimachinery v0.19.3
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
+	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
 	yunion.io/x/jsonutils v0.0.0-20220106020632-953b71a4c3a8
 	yunion.io/x/log v0.0.0-20201210064738-43181789dc74
