@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
+	"time"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 )
@@ -51,7 +52,17 @@ func (h SHandler) Bind(app *appsrv.Application) {
 	if h.MiddlewareFunc != nil {
 		f = h.MiddlewareFunc(f)
 	}
-	app.AddHandler(h.Method, h.Prefix, f)
+	segs := appsrv.SplitPath(h.Prefix)
+	hi := appsrv.NewHandlerInfo(h.Method, segs, f, nil, "", nil)
+	if h.Method == "GET" {
+		hi.SetProcessTimeoutCallback(func(hdr *appsrv.SHandlerInfo, r *http.Request) time.Duration {
+			if len(r.URL.Query().Get("export_keys")) > 0 {
+				return time.Hour * 2
+			}
+			return -time.Second
+		})
+	}
+	app.AddHandler3(hi)
 }
 
 func NewMethodHandlerFactory(method string, mf appsrv.MiddlewareFunc, prefix string) func(handleFunc, ...string) SHandler {
