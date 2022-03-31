@@ -2145,11 +2145,17 @@ func SyncCloudaccountResources(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	if cloudprovider.IsSupportProject(provider) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_PROJECT) {
-		syncProjects(ctx, userCred, SSyncResultSet{}, account, provider)
+		err = syncProjects(ctx, userCred, SSyncResultSet{}, account, provider)
+		if err != nil {
+			log.Errorf("Sync project for account %s error: %v", account.Name, err)
+		}
 	}
 
 	if cloudprovider.IsSupportDnsZone(provider) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_DNSZONE) {
-		syncDns(ctx, userCred, SSyncResultSet{}, account, provider)
+		err = syncDns(ctx, userCred, SSyncResultSet{}, account, provider)
+		if err != nil {
+			log.Errorf("Sync dns zone for account %s error: %v", account.Name, err)
+		}
 	}
 
 	return nil

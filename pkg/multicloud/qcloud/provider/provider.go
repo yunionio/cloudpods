@@ -379,7 +379,11 @@ func (self *SQcloudProvider) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone,
 }
 
 func (self *SQcloudProvider) GetICloudDnsZoneById(id string) (cloudprovider.ICloudDnsZone, error) {
-	return self.client.GetDomainById(id)
+	domain, err := self.client.GetDomain(id)
+	if err != nil {
+		return nil, err
+	}
+	return domain, nil
 }
 
 func (self *SQcloudProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {

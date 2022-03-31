@@ -69,6 +69,7 @@ const (
 	QCLOUD_DCDB_API_VERSION      = "2018-04-11"
 	QCLOUD_KAFKA_API_VERSION     = "2019-08-19"
 	QCLOUD_TKE_API_VERSION       = "2018-05-25"
+	QCLOUD_DNS_API_VERSION       = "2021-03-23"
 )
 
 type QcloudClientConfig struct {
@@ -267,9 +268,9 @@ func sslRequest(client *common.Client, apiName string, params map[string]string,
 }
 
 // dnspod 解析服务
-func cnsRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
-	domain := "cns.api.qcloud.com"
-	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, updateFunc, debug)
+func dnsRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
+	domain := "dnspod.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_DNS_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // 2017版API
@@ -789,12 +790,12 @@ func (client *SQcloudClient) sslRequest(apiName string, params map[string]string
 	return sslRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
-func (client *SQcloudClient) cnsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (client *SQcloudClient) dnsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
 		return nil, err
 	}
-	return cnsRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
+	return dnsRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) vpc2017Request(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
