@@ -2959,9 +2959,13 @@ func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.T
 			result.AddError(err)
 			continue
 		}
-		if isNew {
-			result.Add()
+		if !isNew {
+			_, err = dnsZone.newCache(ctx, userCred, self.Id, added[i])
+			if err != nil {
+				result.AddError(errors.Wrapf(err, "newCache"))
+			}
 		}
+		result.Add()
 		localZones = append(localZones, *dnsZone)
 		remoteZones = append(remoteZones, added[i])
 	}

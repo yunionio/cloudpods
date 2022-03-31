@@ -15,6 +15,7 @@
 package qcloud
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -26,151 +27,121 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-type sDomianCountInfo struct {
-	DomainTotal int `json:"domain_total"`
-}
-
 type SDomian struct {
 	multicloud.SResourceBase
 	multicloud.QcloudTags
 	client *SQcloudClient
 
-	ID               int    `json:"id"`
-	Status           string `json:"status"`
-	GroupID          string `json:"group_id"`
-	SearchenginePush string `json:"searchengine_push"`
-	IsMark           string `json:"is_mark"`
-	TTL              string `json:"ttl"`
-	CnameSpeedup     string `json:"cname_speedup"`
-	Remark           string `json:"remark"`
-	CreatedOn        string `json:"created_on"`
-	UpdatedOn        string `json:"updated_on"`
-	QProjectID       int    `json:"q_project_id"`
-	Punycode         string `json:"punycode"`
-	ExtStatus        string `json:"ext_status"`
-	SrcFlag          string `json:"src_flag"`
-	Name             string `json:"name"`
-	Grade            string `json:"grade"`
-	GradeTitle       string `json:"grade_title"`
-	IsVip            string `json:"is_vip"`
-	Owner            string `json:"owner"`
-	Records          string `json:"records"`
-	MinTTL           int    `json:"min_ttl"`
+	CNAMESpeedup     string   `json:"CNAMESpeedup"`
+	CreatedOn        string   `json:"CreatedOn"`
+	DNSStatus        string   `json:"DNSStatus"`
+	DomainId         int      `json:"DomainId"`
+	EffectiveDNS     []string `json:"EffectiveDNS"`
+	Grade            string   `json:"Grade"`
+	GradeLevel       int64    `json:"GradeLevel"`
+	GradeTitle       string   `json:"GradeTitle"`
+	GroupId          int64    `json:"GroupId"`
+	IsVip            string   `json:"IsVip"`
+	Name             string   `json:"Name"`
+	Owner            string   `json:"Owner"`
+	Punycode         string   `json:"Punycode"`
+	RecordCount      int64    `json:"RecordCount"`
+	Remark           string   `json:"Remark"`
+	SearchEnginePush string   `json:"SearchEnginePush"`
+	Status           string   `json:"Status"`
+	TTL              int64    `json:"TTL"`
+	UpdatedOn        string   `json:"UpdatedOn"`
+	VipAutoRenew     string   `json:"VipAutoRenew"`
+	VipEndAt         string   `json:"VipEndAt"`
+	VipStartAt       string   `json:"VipStartAt"`
 }
 
-// https://cloud.tencent.com/document/product/302/8505
-func (client *SQcloudClient) GetDomains(projectId string, offset int, limit int) ([]SDomian, int, error) {
+func (self *SQcloudClient) GetDomains(key string, offset int, limit int) ([]SDomian, int, error) {
 	params := map[string]string{}
-	params["offset"] = strconv.Itoa(offset)
-	params["length"] = strconv.Itoa(limit)
-	if len(projectId) > 0 {
-		params["qProjectId"] = projectId
+	params["Offset"] = strconv.Itoa(offset)
+	if limit > 0 {
+		params["Limit"] = strconv.Itoa(limit)
 	}
-
-	resp, err := client.cnsRequest("DomainList", params)
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "client.cnsRequest(DomainList, %s)", jsonutils.Marshal(params).String())
+	if len(key) > 0 {
+		params["Keyword"] = key
 	}
-	count := sDomianCountInfo{}
-	err = resp.Unmarshal(&count, "info")
+	resp, err := self.dnsRequest("DescribeDomainList", params)
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(info)", resp.String())
+		return nil, 0, errors.Wrapf(err, "DescribeDomainList")
 	}
 	domains := []SDomian{}
-	err = resp.Unmarshal(&domains, "domains")
+	err = resp.Unmarshal(&domains, "DomainList")
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(domains)", resp.String())
+		return nil, 0, errors.Wrapf(err, "resp.Unmarshal DomainList")
 	}
-
-	for i := 0; i < len(domains); i++ {
-		domains[i].client = client
-	}
-	return domains, count.DomainTotal, nil
+	total, err := resp.Float("DomainCountInfo", "DomainTotal")
+	return domains, int(total), err
 }
 
-func (client *SQcloudClient) GetAllDomains() ([]SDomian, error) {
-	count := 0
-	result := []SDomian{}
-	for {
-		// -1 所有项目; 0,default默认项目
-		domains, total, err := client.GetDomains("-1", count, 100)
-		if err != nil {
-			return nil, errors.Wrap(err, " client.GetDomains(count, 100)")
+func (self *SQcloudClient) GetDomain(domain string) (*SDomian, error) {
+	domains, _, err := self.GetDomains(domain, 0, 2)
+	if err != nil {
+		return nil, err
+	}
+	for i := range domains {
+		if domains[i].Name == domain {
+			domains[i].client = self
+			return &domains[i], nil
 		}
-		result = append(result, domains...)
-		count += len(domains)
-		if total <= count {
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, domain)
+}
+
+func (self *SQcloudClient) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
+	result := []cloudprovider.ICloudDnsZone{}
+	domains := []SDomian{}
+	for {
+		part, total, err := self.GetDomains("", len(domains), 1000)
+		if err != nil {
+			return nil, err
+		}
+		domains = append(domains, part...)
+		if len(domains) >= total {
 			break
 		}
 	}
-	for i := 0; i < len(result); i++ {
-		result[i].client = client
-	}
-	return result, nil
-}
-
-func (client *SQcloudClient) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
-	result := []cloudprovider.ICloudDnsZone{}
-	domains, err := client.GetAllDomains()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.GetDomains()")
-	}
 	for i := 0; i < len(domains); i++ {
+		domains[i].client = self
 		result = append(result, &domains[i])
 	}
 	return result, nil
 }
 
-func (client *SQcloudClient) GetDomainById(domainId string) (*SDomian, error) {
-	domains, err := client.GetAllDomains()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.GetDomains()")
-	}
-	for i := 0; i < len(domains); i++ {
-		if strconv.Itoa(domains[i].ID) == domainId {
-			return &domains[i], nil
-		}
-	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "can't find %s", domainId)
-}
-
-// https://cloud.tencent.com/document/product/302/8504
-func (client *SQcloudClient) CreateDomian(domianName string) (*SDomian, error) {
+func (self *SQcloudClient) CreateDomian(domianName string) (*SDomian, error) {
 	params := map[string]string{}
-	params["domain"] = domianName
-	_, err := client.cnsRequest("DomainCreate", params)
+	params["Domain"] = domianName
+	_, err := self.dnsRequest("CreateDomain", params)
 	if err != nil {
-		return nil, errors.Wrapf(err, "client.cnsRequest(DomainCreate, %s)", jsonutils.Marshal(params).String())
+		return nil, errors.Wrapf(err, "CreateDomain")
 	}
-	domains, err := client.GetAllDomains()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.GetDomains()")
-	}
-	for i := 0; i < len(domains); i++ {
-		if domains[i].Name == domianName {
-			return &domains[i], nil
-		}
-	}
-	return nil, errors.Wrap(cloudprovider.ErrNotFound, "domain not found after create")
+	return self.GetDomain(domianName)
 }
 
-func (client *SQcloudClient) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
-	return client.CreateDomian(opts.Name)
+func (self *SQcloudClient) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
+	domain, err := self.CreateDomian(opts.Name)
+	if err != nil {
+		return nil, err
+	}
+	return domain, nil
 }
 
-// https://cloud.tencent.com/document/product/302/3873
 func (client *SQcloudClient) DeleteDomian(domianName string) error {
 	params := map[string]string{}
-	params["domain"] = domianName
-	_, err := client.cnsRequest("DomainDelete", params)
+	params["Domain"] = domianName
+	_, err := client.dnsRequest("DeleteDomain", params)
 	if err != nil {
-		return errors.Wrapf(err, "client.cnsRequest(DomainDelete, %s)", jsonutils.Marshal(params).String())
+		return errors.Wrapf(err, "DeleteDomain")
 	}
 	return nil
 }
 
 func (self *SDomian) GetId() string {
-	return strconv.Itoa(self.ID)
+	return fmt.Sprintf("%d", self.DomainId)
 }
 
 func (self *SDomian) GetName() string {
@@ -181,14 +152,14 @@ func (self *SDomian) GetName() string {
 }
 
 func (self *SDomian) GetGlobalId() string {
-	return strconv.Itoa(self.ID)
+	return self.Name
 }
 
 func (self *SDomian) GetStatus() string {
 	switch self.Status {
-	case "enable":
+	case "ENABLE":
 		return api.DNS_ZONE_STATUS_AVAILABLE
-	case "pause":
+	case "PAUSE":
 		return api.DNS_ZONE_STATUS_AVAILABLE
 	default:
 		return api.DNS_ZONE_STATUS_UNKNOWN
@@ -196,23 +167,18 @@ func (self *SDomian) GetStatus() string {
 }
 
 func (self *SDomian) GetEnabled() bool {
-	if self.Status == "enable" {
+	if self.Status == "ENABLE" {
 		return true
 	}
 	return false
 }
 
 func (self *SDomian) Refresh() error {
-	domains, err := self.client.GetAllDomains()
+	domain, err := self.client.GetDomain(self.Name)
 	if err != nil {
-		return errors.Wrap(err, "self.client.GetDomains()")
+		return err
 	}
-	for i := 0; i < len(domains); i++ {
-		if self.ID == domains[i].ID {
-			return jsonutils.Update(self, &domains[i])
-		}
-	}
-	return cloudprovider.ErrNotFound
+	return jsonutils.Update(self, domain)
 }
 
 func (self *SDomian) Delete() error {
@@ -240,9 +206,16 @@ func (self *SDomian) RemoveVpc(vpc *cloudprovider.SPrivateZoneVpc) error {
 }
 
 func (self *SDomian) GetIDnsRecordSets() ([]cloudprovider.ICloudDnsRecordSet, error) {
-	records, err := self.client.GetAllDnsRecords(self.Name)
-	if err != nil {
-		return nil, errors.Wrapf(err, "self.client.GetDnsRecords(%s)", self.Name)
+	records := []SDnsRecord{}
+	for {
+		part, total, err := self.client.GetDnsRecords(self.Name, len(records), 1000)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, part...)
+		if len(records) >= total {
+			break
+		}
 	}
 	result := []cloudprovider.ICloudDnsRecordSet{}
 	for i := 0; i < len(records); i++ {
@@ -258,17 +231,9 @@ func (self *SDomian) AddDnsRecordSet(opts *cloudprovider.DnsRecordSet) error {
 		opts.DnsValue = values[i]
 		recordId, err := self.client.CreateDnsRecord(opts, self.Name)
 		if err != nil {
-			return errors.Wrapf(err, "self.client.CreateDnsRecord(%s, %s)", jsonutils.Marshal(opts).String(), self.Name)
+			return errors.Wrapf(err, "CreateDnsRecord")
 		}
 		opts.ExternalId = recordId
-		if !opts.Enabled {
-			status := "disable"
-			err = self.client.ModifyRecordStatus(status, opts.ExternalId, self.Name)
-			if err != nil {
-				return errors.Wrapf(err, "self.client.ModifyRecordStatus(%s,%s,%s)", status, opts.ExternalId, self.Name)
-			}
-		}
-
 	}
 	return nil
 }
@@ -279,51 +244,35 @@ func (self *SDomian) UpdateDnsRecordSet(opts *cloudprovider.DnsRecordSet) error 
 		opts.DnsValue = values[i]
 		err := self.client.ModifyDnsRecord(opts, self.Name)
 		if err != nil {
-			return errors.Wrapf(err, "self.client.CreateDnsRecord(%s, %s)", jsonutils.Marshal(opts).String(), self.Name)
-		}
-		status := "enable"
-		if !opts.Enabled {
-			status = "disable"
-		}
-		err = self.client.ModifyRecordStatus(status, opts.ExternalId, self.Name)
-		if err != nil {
-			return errors.Wrapf(err, "self.client.ModifyRecordStatus(%s,%s,%s)", status, opts.ExternalId, self.Name)
+			return errors.Wrapf(err, "ModifyDnsRecord")
 		}
 	}
 	return nil
 }
 
 func (self *SDomian) RemoveDnsRecordSet(opts *cloudprovider.DnsRecordSet) error {
-	recordId, err := strconv.Atoi(opts.ExternalId)
-	if err != nil {
-		return errors.Wrapf(err, "strconv.Atoi(%s)", opts.ExternalId)
-	}
-	err = self.client.DeleteDnsRecord(recordId, self.GetName())
-	if err != nil {
-		return errors.Wrapf(err, "self.client.RemoveDnsRecord(%d,%s)", recordId, self.GetName())
-	}
-	return nil
+	return self.client.DeleteDnsRecord(opts.ExternalId, self.GetName())
 }
 
 func (self *SDomian) SyncDnsRecordSets(common, add, del, update []cloudprovider.DnsRecordSet) error {
 	for i := 0; i < len(del); i++ {
 		err := self.RemoveDnsRecordSet(&del[i])
 		if err != nil {
-			return errors.Wrapf(err, "self.RemoveDnsRecordSet(%s)", jsonutils.Marshal(del[i]).String())
+			return errors.Wrapf(err, "RemoveDnsRecordSet(%s)", del[i].ExternalId)
 		}
 	}
 
 	for i := 0; i < len(add); i++ {
 		err := self.AddDnsRecordSet(&add[i])
 		if err != nil {
-			return errors.Wrapf(err, "self.AddDnsRecordSet(%s)", jsonutils.Marshal(add[i]).String())
+			return errors.Wrapf(err, "AddDnsRecordSet(%s)", add[i].Id)
 		}
 	}
 
 	for i := 0; i < len(update); i++ {
 		err := self.UpdateDnsRecordSet(&update[i])
 		if err != nil {
-			return errors.Wrapf(err, "self.UpdateDnsRecordSet(%s)", jsonutils.Marshal(update[i]).String())
+			return errors.Wrapf(err, "UpdateDnsRecordSet(%s)", update[i].ExternalId)
 		}
 	}
 	return nil
