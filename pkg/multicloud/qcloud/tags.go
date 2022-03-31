@@ -29,9 +29,9 @@ const (
 	QCLOUD_API_VERSION_TAGS = "2018-08-13"
 )
 
-func tagRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func tagRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "tag.tencentcloudapi.com"
-	return _jsonRequest(client, domain, QCLOUD_API_VERSION_TAGS, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_API_VERSION_TAGS, apiName, params, updateFunc, debug, true)
 }
 
 func (client *SQcloudClient) tagRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -39,7 +39,7 @@ func (client *SQcloudClient) tagRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return tagRequest(cli, apiName, params, client.debug)
+	return tagRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 type SFetchTagRow struct {

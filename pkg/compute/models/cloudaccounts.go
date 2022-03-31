@@ -165,6 +165,9 @@ type SCloudaccount struct {
 	vmwareHostWireCache map[string][]SVs2Wire
 
 	SProjectMappingResourceBase
+
+	// 缺失的权限，云账号操作资源时自动更新
+	LakeOfPermissions api.SAccountPermissions `length:"medium" get:"user" list:"user"`
 }
 
 func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
@@ -350,6 +353,12 @@ func (self *SCloudaccount) PostUpdate(ctx context.Context, userCred mcclient.Tok
 	data.Unmarshal(&input)
 	if input.Options != nil {
 		logclient.AddSimpleActionLog(self, logclient.ACT_UPDATE_BILLING_OPTIONS, input.Options, userCred, true)
+	}
+	if input.CleanLakeOfPermissions {
+		db.Update(self, func() error {
+			self.LakeOfPermissions = nil
+			return nil
+		})
 	}
 }
 
@@ -926,11 +935,39 @@ func (self *SCloudaccount) proxyFunc() httputils.TransportProxyFunc {
 	return nil
 }
 
+func (self *SCloudaccount) UpdatePermission() func(string, string) {
+	return func(service, permission string) {
+		ctx, key := context.Background(), "update permission"
+
+		lockman.LockRawObject(ctx, self.Id, key)
+		defer lockman.ReleaseRawObject(ctx, self.Id, key)
+
+		db.Update(self, func() error {
+			if self.LakeOfPermissions == nil {
+				self.LakeOfPermissions = api.SAccountPermissions{}
+			}
+			_, ok := self.LakeOfPermissions[service]
+			if !ok {
+				self.LakeOfPermissions[service] = api.SAccountPermission{}
+			}
+			permissions := self.LakeOfPermissions[service].Permissions
+			if !utils.IsInStringArray(permission, permissions) {
+				permissions = append(permissions, permission)
+				self.LakeOfPermissions[service] = api.SAccountPermission{
+					Permissions: permissions,
+				}
+			}
+			return nil
+		})
+	}
+}
+
 func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, error) {
 	secret, err := self.getPassword()
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
 	}
+
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:      self.Id,
 		Name:    self.Name,
@@ -941,6 +978,8 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 
 		Options:   self.Options,
 		ProxyFunc: self.proxyFunc(),
+
+		UpdatePermission: self.UpdatePermission(),
 	})
 }
 

@@ -557,6 +557,8 @@ type SCloudAccountUpdateBaseOptions struct {
 	ProxySetting        string `help:"proxy setting name or id" json:"proxy_setting"`
 	SamlAuth            string `help:"Enable or disable saml auth" choices:"true|false"`
 
+	CleanLakeOfPermissions bool `help:"clean lake of permissions"`
+
 	Desc string `help:"Description" json:"description" token:"desc"`
 }
 
