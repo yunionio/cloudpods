@@ -26,11 +26,13 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -393,12 +395,65 @@ func (manager *SRolePolicyManager) getMatchPolicyIds2(isGuest bool, roleIds []st
 	return policyIds, nil
 }
 
+func appendPolicy(names map[rbacutils.TRbacScope][]string, policies rbacutils.TPolicyGroup, scope rbacutils.TRbacScope, policyName string, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+	if utils.IsInStringArray(policyName, names[scope]) {
+		return names, policies, nil
+	}
+	policyObj, err := PolicyManager.FetchByName(nil, policyName)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, nil, errors.Wrapf(err, "FetchPolicy %s", policyName)
+	}
+	if policyObj == nil {
+		// empty policy
+		return names, policies, nil
+	}
+	names[scope] = append(names[scope], policyName)
+	if !nameOnly {
+		data, err := policyObj.(*SPolicy).getPolicy()
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "getPolicy")
+		}
+		policies[scope] = append(policies[scope], *data)
+	}
+	return names, policies, nil
+}
+
 func (manager *SRolePolicyManager) GetMatchPolicyGroup(userCred rbacutils.IRbacIdentity, tm time.Time, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
 	policyIds, err := manager.getMatchPolicyIds(userCred, tm)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "getMatchPolicyIds")
 	}
 	return manager.GetPolicyGroupByIds(policyIds, nameOnly)
+}
+
+func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred mcclient.TokenCredential, tm time.Time, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+	names, policies, err := manager.GetMatchPolicyGroup(userCred, tm, nameOnly)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "GetMatchPolicyGroup")
+	}
+	usr, err := UserManager.fetchUserById(userCred.GetUserId())
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "user id %s of userCred not found", userCred.GetUserId())
+	}
+	if usr.AllowWebConsole.IsTrue() {
+		// add web console policy
+		for scope := range names {
+			consolePolicyName := ""
+			switch scope {
+			case rbacutils.ScopeSystem:
+				consolePolicyName = options.Options.SystemDashboardPolicy
+			case rbacutils.ScopeDomain:
+				consolePolicyName = options.Options.DomainDashboardPolicy
+			case rbacutils.ScopeProject:
+				consolePolicyName = options.Options.ProjectDashboardPolicy
+			}
+			names, policies, err = appendPolicy(names, policies, scope, consolePolicyName, nameOnly)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "appendConsolePolicy %s %s", scope, consolePolicyName)
+			}
+		}
+	}
+	return names, policies, nil
 }
 
 func (manager *SRolePolicyManager) GetMatchPolicyGroup2(isGuest bool, roleIds []string, pid string, loginIp string, tm time.Time, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
