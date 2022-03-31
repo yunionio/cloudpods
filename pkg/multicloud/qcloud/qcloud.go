@@ -152,152 +152,152 @@ func apiDomainByRegion(product, regionId string) string {
 	}
 }
 
-func jsonRequest(client *common.Client, apiName string, params map[string]string, debug bool, retry bool) (jsonutils.JSONObject, error) {
+func jsonRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool, retry bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("cvm", params)
-	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug, retry)
+	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, updateFunc, debug, retry)
 }
 
-func tkeRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func tkeRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "tke.tencentcloudapi.com"
-	return _jsonRequest(client, domain, QCLOUD_TKE_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_TKE_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
-func vpcRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func vpcRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("vpc", params)
-	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
-func auditRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func auditRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("cloudaudit", params)
-	return _jsonRequest(client, domain, QCLOUD_AUDIT_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_AUDIT_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
-func cbsRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func cbsRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("cbs", params)
-	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
-func accountRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func accountRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "account.api.qcloud.com"
-	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, updateFunc, debug)
 }
 
 // es
-func esRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func esRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("es", params)
-	return _jsonRequest(client, domain, QCLOUD_ES_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_ES_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // kafka
-func kafkaRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func kafkaRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("ckafka", params)
-	return _jsonRequest(client, domain, QCLOUD_KAFKA_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_KAFKA_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // redis
-func redisRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func redisRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("redis", params)
-	return _jsonRequest(client, domain, QCLOUD_REDIS_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_REDIS_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // tdsql
-func dcdbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func dcdbRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("dcdb", params)
-	return _jsonRequest(client, domain, QCLOUD_DCDB_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_DCDB_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // mongodb
-func mongodbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func mongodbRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("mongodb", params)
-	return _jsonRequest(client, domain, QCLOUD_MONGODB_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_MONGODB_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // memcached
-func memcachedRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func memcachedRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("memcached", params)
-	return _jsonRequest(client, domain, QCLOUD_MEMCACHED_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_MEMCACHED_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // loadbalancer服务 api 3.0
-func clbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func clbRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("clb", params)
-	return _jsonRequest(client, domain, QCLOUD_CLB_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_CLB_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // loadbalancer服务 api 2017
-func lbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func lbRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "lb.api.qcloud.com"
-	return _phpJsonRequest(client, &lbJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+	return _phpJsonRequest(client, &lbJsonResponse{}, domain, "/v2/index.php", "", apiName, params, updateFunc, debug)
 }
 
 // cdb
-func cdbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func cdbRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("cdb", params)
-	return _jsonRequest(client, domain, QCLOUD_CDB_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_CDB_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // mariadb
-func mariadbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func mariadbRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("mariadb", params)
-	return _jsonRequest(client, domain, QCLOUD_MARIADB_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_MARIADB_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // postgres
-func postgresRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func postgresRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("postgres", params)
-	return _jsonRequest(client, domain, QCLOUD_POSTGRES_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_POSTGRES_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // sqlserver
-func sqlserverRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func sqlserverRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("sqlserver", params)
-	return _jsonRequest(client, domain, QCLOUD_SQLSERVER_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_SQLSERVER_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // deprecated: ssl 证书服务
-func wssRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func wssRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "wss.api.qcloud.com"
-	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, updateFunc, debug)
 }
 
 // ssl 证书服务
-func sslRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func sslRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "ssl.tencentcloudapi.com"
-	return _jsonRequest(client, domain, QCLOUD_SSL_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_SSL_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // dnspod 解析服务
-func cnsRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func cnsRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "cns.api.qcloud.com"
-	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, updateFunc, debug)
 }
 
 // 2017版API
-func vpc2017Request(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func vpc2017Request(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "vpc.api.qcloud.com"
-	return _phpJsonRequest(client, &vpc2017JsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+	return _phpJsonRequest(client, &vpc2017JsonResponse{}, domain, "/v2/index.php", "", apiName, params, updateFunc, debug)
 }
 
-func billingRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func billingRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "billing.tencentcloudapi.com"
-	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
-func camRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func camRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "cam.tencentcloudapi.com"
-	return _jsonRequest(client, domain, QCLOUD_CAM_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_CAM_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
-func monitorRequest(client *common.Client, apiName string, params map[string]string,
+func monitorRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string),
 	debug bool) (jsonutils.JSONObject, error) {
 	domain := "monitor.tencentcloudapi.com"
-	return _jsonRequest(client, domain, QCLOUD_API_VERSION_METRICS, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_API_VERSION_METRICS, apiName, params, updateFunc, debug, true)
 }
 
-func cdnRequest(client *common.Client, apiName string, params map[string]string,
+func cdnRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string),
 	debug bool) (jsonutils.JSONObject, error) {
 	domain := "cdn.tencentcloudapi.com"
-	return _jsonRequest(client, domain, QCLOUD_CDN_API_VERSION, apiName, params, debug, true)
+	return _jsonRequest(client, domain, QCLOUD_CDN_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // ============phpJsonRequest============
@@ -441,7 +441,7 @@ func (r *QcloudResponse) GetResponse() *interface{} {
 	return r.Response
 }
 
-func _jsonRequest(client *common.Client, domain string, version string, apiName string, params map[string]string, debug bool, retry bool) (jsonutils.JSONObject, error) {
+func _jsonRequest(client *common.Client, domain string, version string, apiName string, params map[string]string, updateFun func(string, string), debug bool, retry bool) (jsonutils.JSONObject, error) {
 	req := &tchttp.BaseRequest{}
 	if region, ok := params["Region"]; ok {
 		client = client.Init(region)
@@ -463,12 +463,19 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	resp := &QcloudResponse{
 		BaseResponse: &tchttp.BaseResponse{},
 	}
-	return _baseJsonRequest(client, req, resp, debug, retry)
+	ret, err := _baseJsonRequest(client, req, resp, debug, retry)
+	if err != nil {
+		if errors.Cause(err) == httperrors.ErrNoPermission && updateFun != nil {
+			updateFun(service, apiName)
+		}
+		return nil, err
+	}
+	return ret, nil
 }
 
 // 老版本腾讯云api。 适用于类似 https://cvm.api.qcloud.com/v2/index.php 这样的带/v2/index.php路径的接口
 // todo: 添加自定义response参数
-func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, path string, version string, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, path string, version string, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	req := &phpJsonRequest{Path: path}
 	if region, ok := params["Region"]; ok {
 		client = client.Init(region)
@@ -487,7 +494,14 @@ func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, 
 		req.GetParams()[k] = v
 	}
 
-	return _baseJsonRequest(client, req, resp, debug, true)
+	ret, err := _baseJsonRequest(client, req, resp, debug, true)
+	if err != nil {
+		if errors.Cause(err) == httperrors.ErrNoPermission && updateFunc != nil {
+			updateFunc(service, apiName)
+		}
+		return nil, err
+	}
+	return ret, nil
 }
 
 func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResponse, debug bool, retry bool) (jsonutils.JSONObject, error) {
@@ -504,6 +518,16 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 		needRetry := false
 		e, ok := err.(*sdkerrors.TencentCloudSDKError)
 		if ok {
+			if strings.HasPrefix(e.Code, "UnauthorizedOperation.") ||
+				strings.HasPrefix(e.Code, "AuthFailure.") ||
+				utils.IsInStringArray(e.Code, []string{
+					"SecretidNotAuthAccessResource",
+					"UnauthorizedOperation",
+					"InvalidParameter.PermissionDenied",
+					"AuthFailure",
+				}) {
+				return nil, errors.Wrapf(httperrors.ErrNoPermission, err.Error())
+			}
 			if utils.IsInStringArray(e.Code, []string{
 				"AuthFailure.SecretIdNotFound",
 				"AuthFailure.SignatureFailure",
@@ -611,7 +635,7 @@ func (client *SQcloudClient) tkeRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return tkeRequest(cli, apiName, params, client.debug)
+	return tkeRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -619,7 +643,7 @@ func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return vpcRequest(cli, apiName, params, client.debug)
+	return vpcRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) auditRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -627,7 +651,7 @@ func (client *SQcloudClient) auditRequest(apiName string, params map[string]stri
 	if err != nil {
 		return nil, err
 	}
-	return auditRequest(cli, apiName, params, client.debug)
+	return auditRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -635,7 +659,7 @@ func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return cbsRequest(cli, apiName, params, client.debug)
+	return cbsRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) accountRequestRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -643,7 +667,7 @@ func (client *SQcloudClient) accountRequestRequest(apiName string, params map[st
 	if err != nil {
 		return nil, err
 	}
-	return accountRequest(cli, apiName, params, client.debug)
+	return accountRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) clbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -651,7 +675,7 @@ func (client *SQcloudClient) clbRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return clbRequest(cli, apiName, params, client.debug)
+	return clbRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -659,7 +683,7 @@ func (client *SQcloudClient) lbRequest(apiName string, params map[string]string)
 	if err != nil {
 		return nil, err
 	}
-	return lbRequest(cli, apiName, params, client.debug)
+	return lbRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) cdbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -667,7 +691,7 @@ func (client *SQcloudClient) cdbRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return cdbRequest(cli, apiName, params, client.debug)
+	return cdbRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) esRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -676,7 +700,7 @@ func (client *SQcloudClient) esRequest(apiName string, params map[string]string)
 		return nil, err
 	}
 
-	return esRequest(cli, apiName, params, client.debug)
+	return esRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) kafkaRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -685,7 +709,7 @@ func (client *SQcloudClient) kafkaRequest(apiName string, params map[string]stri
 		return nil, err
 	}
 
-	return kafkaRequest(cli, apiName, params, client.debug)
+	return kafkaRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) redisRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -694,7 +718,7 @@ func (client *SQcloudClient) redisRequest(apiName string, params map[string]stri
 		return nil, err
 	}
 
-	return redisRequest(cli, apiName, params, client.debug)
+	return redisRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) dcdbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -703,7 +727,7 @@ func (client *SQcloudClient) dcdbRequest(apiName string, params map[string]strin
 		return nil, err
 	}
 
-	return dcdbRequest(cli, apiName, params, client.debug)
+	return dcdbRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) mongodbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -712,7 +736,7 @@ func (client *SQcloudClient) mongodbRequest(apiName string, params map[string]st
 		return nil, err
 	}
 
-	return mongodbRequest(cli, apiName, params, client.debug)
+	return mongodbRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) memcachedRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -721,7 +745,7 @@ func (client *SQcloudClient) memcachedRequest(apiName string, params map[string]
 		return nil, err
 	}
 
-	return memcachedRequest(cli, apiName, params, client.debug)
+	return memcachedRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) mariadbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -729,7 +753,7 @@ func (client *SQcloudClient) mariadbRequest(apiName string, params map[string]st
 	if err != nil {
 		return nil, err
 	}
-	return mariadbRequest(cli, apiName, params, client.debug)
+	return mariadbRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) postgresRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -737,7 +761,7 @@ func (client *SQcloudClient) postgresRequest(apiName string, params map[string]s
 	if err != nil {
 		return nil, err
 	}
-	return postgresRequest(cli, apiName, params, client.debug)
+	return postgresRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) sqlserverRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -745,7 +769,7 @@ func (client *SQcloudClient) sqlserverRequest(apiName string, params map[string]
 	if err != nil {
 		return nil, err
 	}
-	return sqlserverRequest(cli, apiName, params, client.debug)
+	return sqlserverRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 // deprecated
@@ -754,7 +778,7 @@ func (client *SQcloudClient) wssRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return wssRequest(cli, apiName, params, client.debug)
+	return wssRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) sslRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -762,7 +786,7 @@ func (client *SQcloudClient) sslRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return sslRequest(cli, apiName, params, client.debug)
+	return sslRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) cnsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -770,7 +794,7 @@ func (client *SQcloudClient) cnsRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return cnsRequest(cli, apiName, params, client.debug)
+	return cnsRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) vpc2017Request(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -778,7 +802,7 @@ func (client *SQcloudClient) vpc2017Request(apiName string, params map[string]st
 	if err != nil {
 		return nil, err
 	}
-	return vpc2017Request(cli, apiName, params, client.debug)
+	return vpc2017Request(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) billingRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -786,7 +810,7 @@ func (client *SQcloudClient) billingRequest(apiName string, params map[string]st
 	if err != nil {
 		return nil, err
 	}
-	return billingRequest(cli, apiName, params, client.debug)
+	return billingRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) camRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -794,7 +818,7 @@ func (client *SQcloudClient) camRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return camRequest(cli, apiName, params, client.debug)
+	return camRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) cdnRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -802,7 +826,7 @@ func (client *SQcloudClient) cdnRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return cdnRequest(cli, apiName, params, client.debug)
+	return cdnRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) jsonRequest(apiName string, params map[string]string, retry bool) (jsonutils.JSONObject, error) {
@@ -810,7 +834,7 @@ func (client *SQcloudClient) jsonRequest(apiName string, params map[string]strin
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, apiName, params, client.debug, retry)
+	return jsonRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug, retry)
 }
 
 func (client *SQcloudClient) fetchRegions() error {

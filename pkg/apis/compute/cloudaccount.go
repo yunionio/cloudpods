@@ -15,7 +15,10 @@
 package compute
 
 import (
+	"reflect"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -333,6 +336,9 @@ type CloudaccountUpdateInput struct {
 	SAMLAuth *bool `json:"saml_auth"`
 
 	proxyapi.ProxySettingResourceInput
+
+	// 临时清除缺失的权限提示，云账号权限缺失依然会自动刷新
+	CleanLakeOfPermissions bool `json:"clean_lake_of_permissions"`
 }
 
 type CloudaccountPerformPublicInput struct {
@@ -502,4 +508,24 @@ type SyncRangeInput struct {
 	// 按资源类型同步，可输入多个
 	// enmu: compute, network, loadbalancer, objectstore, rds, cache, nat, nas, waf, mongodb, es, kafka, app, container
 	Resources []string `json:"resources" choices:"compute|network|loadbalancer|objectstore|rds|cache|nat|nas|waf|mongodb|es|kafka|app|container"`
+}
+
+type SAccountPermission struct {
+	Permissions []string
+}
+
+type SAccountPermissions map[string]SAccountPermission
+
+func (s SAccountPermissions) String() string {
+	return jsonutils.Marshal(s).String()
+}
+
+func (s SAccountPermissions) IsZero() bool {
+	return len(s) == 0
+}
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&SAccountPermissions{}), func() gotypes.ISerializable {
+		return &SAccountPermissions{}
+	})
 }

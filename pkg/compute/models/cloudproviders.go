@@ -872,6 +872,8 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 
 		DefaultRegion: defaultRegion,
 		Options:       account.Options,
+
+		UpdatePermission: account.UpdatePermission(),
 	})
 }
 

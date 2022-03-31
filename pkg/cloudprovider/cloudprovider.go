@@ -172,6 +172,8 @@ type ProviderConfig struct {
 
 	DefaultRegion string
 	ProxyFunc     httputils.TransportProxyFunc
+
+	UpdatePermission func(service, permission string)
 }
 
 func (cp *ProviderConfig) AdaptiveTimeoutHttpClient() *http.Client {
