@@ -418,9 +418,11 @@ function nic_mtu() {
 	}
 
 	// UEFI ovmf file path
-	if s.getBios() == qemu.BIOS_UEFI || input.QemuArch == qemu.Arch_aarch64 {
+	if input.QemuArch == qemu.Arch_aarch64 && !strings.HasPrefix(input.BIOS, qemu.BIOS_UEFI) {
 		input.BIOS = qemu.BIOS_UEFI
-		input.OVMFPath = options.HostOptions.OvmfPath
+		if len(input.OVMFPath) == 0 {
+			input.OVMFPath = options.HostOptions.OvmfPath
+		}
 	}
 
 	// inject nic and disks
