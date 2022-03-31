@@ -120,6 +120,7 @@ func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDi
 	}
 	if len(args.OsArch) > 0 {
 		params.Add(jsonutils.NewString(args.OsArch), "properties", "os_arch")
+		params.Add(jsonutils.NewString(args.OsArch), "os_arch")
 	}
 	if len(args.OsLang) > 0 {
 		params.Add(jsonutils.NewString(args.OsLang), "properties", "os_language")
