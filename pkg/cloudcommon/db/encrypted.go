@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/esxi/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -69,7 +68,7 @@ func (manager *SEncryptedResourceManager) ValidateCreateData(
 	input apis.EncryptedResourceCreateInput,
 ) (apis.EncryptedResourceCreateInput, error) {
 	if input.EncryptKeyId != nil && len(*input.EncryptKeyId) > 0 {
-		session := auth.GetSession(ctx, userCred, options.Options.Region, "v1")
+		session := auth.GetSession(ctx, userCred, consts.GetRegion(), "v1")
 		keyObj, err := identity_modules.Credentials.Get(session, *input.EncryptKeyId, nil)
 		if err != nil {
 			return input, errors.Wrap(err, "Credentials get key")
