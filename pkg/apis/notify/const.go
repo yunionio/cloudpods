@@ -86,6 +86,7 @@ const (
 
 	TOPIC_TYPE_RESOURCE          = "resource"
 	TOPIC_TYPE_AUTOMATED_PROCESS = "automated_process"
+	TOPIC_TYPE_SECURITY          = "security"
 
 	TOPIC_RESOURCE_SERVER                   = "server"
 	TOPIC_RESOURCE_SCALINGGROUP             = "scalinggroup"
@@ -121,6 +122,9 @@ const (
 	TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP = "loadbalancerbackendgroup"
 	TOPIC_RESOURCE_HOST                     = "host"
 	TOPIC_RESOURCE_TASK                     = "task"
+	TOPIC_RESOURCE_DB_TABLE_RECORD          = "db_table_record"
+	TOPIC_RESOURCE_CLOUDPODS_COMPONENT      = "cloudpods_component"
+	TOPIC_RESOURCE_USER                     = "user"
 
 	SUBSCRIBER_TYPE_ROLE     = "role"
 	SUBSCRIBER_TYPE_ROBOT    = "robot"

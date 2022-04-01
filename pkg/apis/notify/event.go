@@ -48,6 +48,10 @@ var (
 	ActionSystemPanic     SAction = "panic"
 	ActionSystemException SAction = "exception"
 
+	ActionChecksumTest SAction = "checksum_test"
+
+	ActionLock SAction = "lock"
+
 	ResultFailed  SResult = "failed"
 	ResultSucceed SResult = "succeed"
 )
