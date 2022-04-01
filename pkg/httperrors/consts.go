@@ -93,6 +93,8 @@ const (
 	ErrWrongPassword               = errors.Error("WrongPassword")
 	ErrIncorrectUsernameOrPassword = errors.Error("IncorrectUsernameOrPassword")
 
+	ErrServiceAbnormal = errors.Error("ServiceAbnormal")
+
 	ErrInvalidAccessKey = errors.Error("InvalidAccessKey")
 )
 
@@ -176,6 +178,8 @@ var (
 		ErrPolicyDefinition: 409,
 
 		ErrInvalidAccessKey: 400,
+
+		ErrServiceAbnormal: 499,
 	}
 )
 
