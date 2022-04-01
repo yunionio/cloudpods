@@ -42,7 +42,9 @@ func (self *SGoogleCloudReport) collectRegionMetricOfHost(region cloudprovider.I
 			continue
 		}
 		serverName, _ := server.GetString("name")
-		external_id = strings.Split(external_id, "/")[1]
+		if strings.Contains(external_id, "/") {
+			external_id = strings.Split(external_id, "/")[1]
+		}
 		for metricName, influxDbSpecs := range gcpMetricSpecs {
 			rtn, err := googleReg.GetMonitorData(external_id, serverName, metricName, since, until)
 			if err != nil {
