@@ -137,7 +137,7 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	if len(endpoint) == 0 {
 		endpoint = "ecs.aliyuncs.com"
 	}
-	return jsonRequest(client, endpoint, ALIYUN_API_VERSION, apiName, params, self.client.debug)
+	return jsonRequest(client, endpoint, ALIYUN_API_VERSION, apiName, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }
 
 func (self *SRegion) wafRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -149,7 +149,7 @@ func (self *SRegion) wafRequest(apiName string, params map[string]string) (jsonu
 		return nil, cloudprovider.ErrNotSupported
 	}
 	endpoint := fmt.Sprintf("wafopenapi.%s.aliyuncs.com", self.RegionId)
-	return jsonRequest(client, endpoint, ALIYUN_WAF_API_VERSION, apiName, params, self.client.debug)
+	return jsonRequest(client, endpoint, ALIYUN_WAF_API_VERSION, apiName, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }
 
 func (self *SRegion) esRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -158,7 +158,7 @@ func (self *SRegion) esRequest(apiName string, params map[string]string) (jsonut
 		return nil, err
 	}
 	domain := fmt.Sprintf("elasticsearch.%s.aliyuncs.com", self.RegionId)
-	return jsonRequest(client, domain, ALIYUN_ES_API_VERSION, apiName, params, self.client.debug)
+	return jsonRequest(client, domain, ALIYUN_ES_API_VERSION, apiName, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }
 
 func (self *SRegion) kafkaRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -167,7 +167,7 @@ func (self *SRegion) kafkaRequest(apiName string, params map[string]string) (jso
 		return nil, err
 	}
 	domain := fmt.Sprintf("alikafka.%s.aliyuncs.com", self.RegionId)
-	return jsonRequest(client, domain, ALIYUN_KAFKA_API_VERSION, apiName, params, self.client.debug)
+	return jsonRequest(client, domain, ALIYUN_KAFKA_API_VERSION, apiName, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }
 
 func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -175,7 +175,7 @@ func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "rds.aliyuncs.com", ALIYUN_RDS_API_VERSION, apiName, params, self.client.debug)
+	return jsonRequest(client, "rds.aliyuncs.com", ALIYUN_RDS_API_VERSION, apiName, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }
 
 func (self *SRegion) mongodbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -183,7 +183,7 @@ func (self *SRegion) mongodbRequest(apiName string, params map[string]string) (j
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "mongodb.aliyuncs.com", ALIYUN_MONGO_DB_API_VERSION, apiName, params, self.client.debug)
+	return jsonRequest(client, "mongodb.aliyuncs.com", ALIYUN_MONGO_DB_API_VERSION, apiName, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }
 
 func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -192,7 +192,7 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 		return nil, err
 	}
 	endpoint := self.GetClient().getVpcEndpoint(self.RegionId)
-	return jsonRequest(client, endpoint, ALIYUN_API_VERSION_VPC, action, params, self.client.debug)
+	return jsonRequest(client, endpoint, ALIYUN_API_VERSION_VPC, action, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }
 
 func (self *SRegion) nasRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -215,7 +215,7 @@ func (self *SRegion) nasRequest(action string, params map[string]string) (jsonut
 	}
 
 	endpint := self.GetClient().getNasEndpoint(self.RegionId)
-	return jsonRequest(client, endpint, ALIYUN_NAS_API_VERSION, action, params, self.client.debug)
+	return jsonRequest(client, endpint, ALIYUN_NAS_API_VERSION, action, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }
 
 func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -228,7 +228,7 @@ func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonut
 		params["RegionId"] = transRegionIdFromEcsRegionId(self, "redis")
 	}
 
-	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.debug)
+	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }
 
 type LBRegion struct {
@@ -278,7 +278,7 @@ func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonut
 }
 
 func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain string, params map[string]string) (jsonutils.JSONObject, error) {
-	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params, self.client.debug)
+	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1232,5 +1232,5 @@ func (self *SRegion) trialRequest(apiName string, params map[string]string) (jso
 		return nil, err
 	}
 	domain := fmt.Sprintf("actiontrail.%s.aliyuncs.com", self.RegionId)
-	return jsonRequest(client, domain, ALIYUN_API_VERSION_TRIAL, apiName, params, self.client.debug)
+	return jsonRequest(client, domain, ALIYUN_API_VERSION_TRIAL, apiName, params, self.client.cpcfg.UpdatePermission, self.client.debug)
 }

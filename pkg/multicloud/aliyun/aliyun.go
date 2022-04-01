@@ -158,10 +158,11 @@ func NewAliyunClient(cfg *AliyunClientConfig) (*SAliyunClient, error) {
 	return &client, nil
 }
 
-func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	if debug {
 		log.Debugf("request %s %s %s %s", domain, apiVersion, apiName, params)
 	}
+	service := strings.Split(domain, ".")[0]
 	var resp jsonutils.JSONObject
 	var err error
 	for i := 1; i < 4; i++ {
@@ -171,6 +172,19 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 			if e, ok := errors.Cause(err).(*alierr.ServerError); ok {
 				code := e.ErrorCode()
 				switch code {
+				case "NoPermission", "Forbidden.RAM", "SubAccountNoPermission", "Forbidden":
+					if updateFunc != nil {
+						updateFunc(service, apiName)
+					}
+					return nil, errors.Wrapf(httperrors.ErrNoPermission, err.Error())
+				case "InternalError":
+					if apiName == "QueryAccountBalance" {
+						if updateFunc != nil {
+							updateFunc(service, apiName)
+						}
+						return nil, errors.Wrapf(httperrors.ErrNoPermission, err.Error())
+					}
+					return nil, err
 				case "InvalidAccessKeyId.NotFound",
 					"InvalidAccessKeyId",
 					"NoEnabledAccessKey",
@@ -313,7 +327,7 @@ func (self *SAliyunClient) fetchNasEndpoints() error {
 	if err != nil {
 		return errors.Wrapf(err, "getDefaultClient")
 	}
-	resp, err := jsonRequest(client, "nas.aliyuncs.com", ALIYUN_NAS_API_VERSION, "DescribeRegions", nil, self.debug)
+	resp, err := jsonRequest(client, "nas.aliyuncs.com", ALIYUN_NAS_API_VERSION, "DescribeRegions", nil, self.cpcfg.UpdatePermission, self.debug)
 	if err != nil {
 		return errors.Wrapf(err, "DescribeRegions")
 	}
@@ -353,7 +367,7 @@ func (self *SAliyunClient) fetchVpcEndpoints() error {
 	if err != nil {
 		return errors.Wrapf(err, "getDefaultClient")
 	}
-	resp, err := jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, "DescribeRegions", nil, self.debug)
+	resp, err := jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, "DescribeRegions", nil, self.cpcfg.UpdatePermission, self.debug)
 	if err != nil {
 		return errors.Wrapf(err, "DescribeRegions")
 	}
@@ -389,7 +403,7 @@ func (self *SAliyunClient) imsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "ims.aliyuncs.com", ALIYUN_IMS_API_VERSION, apiName, params, self.debug)
+	return jsonRequest(cli, "ims.aliyuncs.com", ALIYUN_IMS_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
 }
 
 func (self *SAliyunClient) rmRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -397,7 +411,7 @@ func (self *SAliyunClient) rmRequest(apiName string, params map[string]string) (
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "resourcemanager.aliyuncs.com", ALIYUN_RM_API_VERSION, apiName, params, self.debug)
+	return jsonRequest(cli, "resourcemanager.aliyuncs.com", ALIYUN_RM_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
 }
 
 func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -405,7 +419,7 @@ func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.debug)
+	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
 }
 
 func (self *SAliyunClient) pvtzRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -413,7 +427,7 @@ func (self *SAliyunClient) pvtzRequest(apiName string, params map[string]string)
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "pvtz.aliyuncs.com", ALIYUN_PVTZ_API_VERSION, apiName, params, self.debug)
+	return jsonRequest(cli, "pvtz.aliyuncs.com", ALIYUN_PVTZ_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
 }
 
 func (self *SAliyunClient) alidnsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -421,7 +435,7 @@ func (self *SAliyunClient) alidnsRequest(apiName string, params map[string]strin
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "alidns.aliyuncs.com", ALIYUN_ALIDNS_API_VERSION, apiName, params, self.debug)
+	return jsonRequest(cli, "alidns.aliyuncs.com", ALIYUN_ALIDNS_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
 }
 
 func (self *SAliyunClient) cbnRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -429,7 +443,7 @@ func (self *SAliyunClient) cbnRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "cbn.aliyuncs.com", ALIYUN_CBN_API_VERSION, apiName, params, self.debug)
+	return jsonRequest(cli, "cbn.aliyuncs.com", ALIYUN_CBN_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
 }
 
 func (self *SAliyunClient) cdnRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -437,21 +451,19 @@ func (self *SAliyunClient) cdnRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "cdn.aliyuncs.com", ALIYUN_CDN_API_VERSION, apiName, params, self.debug)
+	return jsonRequest(cli, "cdn.aliyuncs.com", ALIYUN_CDN_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
 }
 
 func (self *SAliyunClient) fetchRegions() error {
 	body, err := self.ecsRequest("DescribeRegions", map[string]string{"AcceptLanguage": "zh-CN"})
 	if err != nil {
-		log.Errorf("fetchRegions fail %s", err)
-		return err
+		return errors.Wrapf(err, "DescribeRegions")
 	}
 
 	regions := make([]SRegion, 0)
 	err = body.Unmarshal(&regions, "Regions", "Region")
 	if err != nil {
-		log.Errorf("unmarshal json error %s", err)
-		return err
+		return errors.Wrapf(err, "resp.Unmarshal")
 	}
 	self.iregions = make([]cloudprovider.ICloudRegion, len(regions))
 	for i := 0; i < len(regions); i += 1 {

@@ -887,6 +887,8 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 		ProxyFunc: account.proxyFunc(),
 
 		Options: account.Options,
+
+		UpdatePermission: account.UpdatePermission(),
 	})
 }
 
