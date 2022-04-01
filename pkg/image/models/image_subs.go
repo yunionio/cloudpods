@@ -22,11 +22,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
+	noapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/image/torrent"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -312,11 +315,19 @@ func (self *SImageSubformat) GetDetails() SImageSubformatDetails {
 }
 
 func (self *SImageSubformat) isActive(useFast bool) bool {
-	return isActive(self.GetLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
+	active, reason := isActive(self.GetLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
+	if active || reason != FileChecksumMismatch {
+		return active
+	}
+	data := jsonutils.NewDict()
+	data.Set("name", jsonutils.NewString(self.ImageId))
+	notifyclient.SystemExceptionNotifyWithResult(context.TODO(), noapi.ActionChecksumTest, noapi.TOPIC_RESOURCE_IMAGE, noapi.ResultFailed, data)
+	return false
 }
 
 func (self *SImageSubformat) isTorrentActive() bool {
-	return isActive(self.getLocalTorrentLocation(), self.TorrentSize, self.TorrentChecksum, "", false)
+	active, _ := isActive(self.getLocalTorrentLocation(), self.TorrentSize, self.TorrentChecksum, "", false)
+	return active
 }
 
 func (self *SImageSubformat) SetStatus(status string) error {

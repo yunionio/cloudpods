@@ -37,6 +37,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/image"
+	noapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -1340,40 +1341,49 @@ func (manager *SImageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field 
 	return q, httperrors.ErrNotFound
 }
 
-func isActive(localPath string, size int64, chksum string, fastHash string, useFastHash bool) bool {
+type sUnactiveReason int
+
+const (
+	FileNoExists sUnactiveReason = iota
+	FileSizeMismatch
+	FileChecksumMismatch
+	Others
+)
+
+func isActive(localPath string, size int64, chksum string, fastHash string, useFastHash bool) (bool, sUnactiveReason) {
 	if len(localPath) == 0 || !fileutils2.Exists(localPath) {
 		log.Errorf("invalid file: %s", localPath)
-		return false
+		return false, FileNoExists
 	}
 	if size != fileutils2.FileSize(localPath) {
 		log.Errorf("size mistmatch: %s", localPath)
-		return false
+		return false, FileSizeMismatch
 	}
 	if len(chksum) == 0 || len(fastHash) == 0 {
-		return true
+		return true, Others
 	}
 	if useFastHash && len(fastHash) > 0 {
 		fhash, err := fileutils2.FastCheckSum(localPath)
 		if err != nil {
 			log.Errorf("IsActive fastChecksum fail %s for %s", err, localPath)
-			return false
+			return false, Others
 		}
 		if fastHash != fhash {
 			log.Errorf("IsActive fastChecksum mismatch for %s", localPath)
-			return false
+			return false, FileChecksumMismatch
 		}
 	} else {
 		md5sum, err := fileutils2.MD5(localPath)
 		if err != nil {
 			log.Errorf("IsActive md5 fail %s for %s", err, localPath)
-			return false
+			return false, Others
 		}
 		if chksum != md5sum {
 			log.Errorf("IsActive checksum mismatch: %s", localPath)
-			return false
+			return false, FileChecksumMismatch
 		}
 	}
-	return true
+	return true, Others
 }
 
 func (self *SImage) IsIso() bool {
@@ -1381,7 +1391,14 @@ func (self *SImage) IsIso() bool {
 }
 
 func (self *SImage) isActive(useFast bool) bool {
-	return isActive(self.GetLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
+	active, reason := isActive(self.GetLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
+	if active || reason != FileChecksumMismatch {
+		return active
+	}
+	data := jsonutils.NewDict()
+	data.Set("name", jsonutils.NewString(self.Name))
+	notifyclient.SystemExceptionNotifyWithResult(context.TODO(), noapi.ActionChecksumTest, noapi.TOPIC_RESOURCE_IMAGE, noapi.ResultFailed, data)
+	return false
 }
 
 func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCredential, useFast bool) {
