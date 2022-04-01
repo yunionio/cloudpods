@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
 
@@ -178,7 +177,7 @@ func EnsureAppSyncDB(app *appsrv.Application, opt *common_options.DBOptions, mod
 		os.Exit(0)
 	}
 
-	cloudcommon.AppDBInit(app)
+	AppDBInit(app)
 }
 
 func GetModelManager(keyword string) IModelManager {

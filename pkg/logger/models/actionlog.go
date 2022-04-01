@@ -26,7 +26,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/logger"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/logger/extern"
@@ -73,7 +72,7 @@ func InitActionLog() {
 					"action_tbl",
 					"action",
 					"actions",
-					cloudcommon.ClickhouseDB,
+					db.ClickhouseDB,
 				),
 			},
 		}
