@@ -391,7 +391,11 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 	instanceSnapshot.MemoryFileHostId = guest.HostId
 	err := manager.TableSpec().Insert(ctx, instanceSnapshot)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Insert")
+	}
+	err = db.Inherit(ctx, guest, instanceSnapshot)
+	if err != nil {
+		return nil, errors.Wrap(err, "Inherit ClassMetadata")
 	}
 	return instanceSnapshot, nil
 }
