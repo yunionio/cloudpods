@@ -15,6 +15,8 @@
 package notifyv2
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
@@ -98,6 +100,32 @@ func init() {
 			return err
 		}
 		printList(ret, modules.Notification.GetColumns(s))
+		return nil
+	})
+	type NotificationEventInput struct {
+		Event    string
+		Priority string
+		MsgBody  string
+	}
+	R(&NotificationEventInput{}, "notify-event-send", "Send notify event message", func(s *mcclient.ClientSession, args *NotificationEventInput) error {
+		body, err := jsonutils.ParseString(args.MsgBody)
+		if err != nil {
+			return err
+		}
+		dict, ok := body.(*jsonutils.JSONDict)
+		if !ok {
+			return fmt.Errorf("msg_body should be a json string, like '{'name': 'hello'}'")
+		}
+		params := api.NotificationManagerEventNotifyInput{
+			ReceiverIds:     []string{},
+			ResourceDetails: dict,
+			Event:           args.Event,
+			Priority:        args.Priority,
+		}
+		_, err = modules.Notification.PerformClassAction(s, "event-notify", jsonutils.Marshal(params))
+		if err != nil {
+			return fmt.Errorf("unable to EventNotify: %s", err)
+		}
 		return nil
 	})
 }
