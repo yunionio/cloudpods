@@ -29,7 +29,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -67,6 +66,10 @@ type IModule interface {
 	Create(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 }
 
+type IStartable interface {
+	GetStartTime() time.Time
+}
+
 // save log to db.
 func AddSimpleActionLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
 	addLog(model, action, iNotes, userCred, success, time.Time{}, &logger.Actions)
@@ -76,7 +79,7 @@ func AddActionLogWithContext(ctx context.Context, model IObject, action string, 
 	addLog(model, action, iNotes, userCred, success, appctx.AppContextStartTime(ctx), &logger.Actions)
 }
 
-func AddActionLogWithStartable(task cloudcommon.IStartable, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+func AddActionLogWithStartable(task IStartable, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
 	addLog(model, action, iNotes, userCred, success, task.GetStartTime(), &logger.Actions)
 }
 

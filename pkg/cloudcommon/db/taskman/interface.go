@@ -17,16 +17,16 @@ package taskman
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type ITask interface {
-	cloudcommon.IStartable
+	GetStartTime() time.Time
 
 	ScheduleRun(data jsonutils.JSONObject) error
 	GetParams() *jsonutils.JSONDict
