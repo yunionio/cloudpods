@@ -23,7 +23,7 @@ func (self *SAliyunClient) stsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "sts.aliyuncs.com", ALIYUN_STS_API_VERSION, apiName, params, self.debug)
+	return jsonRequest(cli, "sts.aliyuncs.com", ALIYUN_STS_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
 }
 
 type SCallerIdentity struct {

@@ -94,6 +94,7 @@ const (
 	ErrIncorrectUsernameOrPassword = errors.Error("IncorrectUsernameOrPassword")
 
 	ErrInvalidAccessKey = errors.Error("InvalidAccessKey")
+	ErrNoPermission     = errors.Error("NoPermission")
 )
 
 var (
