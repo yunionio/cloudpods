@@ -92,6 +92,8 @@ const (
 	DefaultResourceOperationFailed = "resource operation failed"
 	DefaultResourceSync            = "resource sync"
 	DefaultSystemExceptionEvent    = "system exception event"
+	DefaultChecksumTestFailed      = "checksum test failed"
+	DefaultUserLock                = "user lock"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -108,6 +110,8 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultResourceOperationFailed,
 		DefaultResourceSync,
 		DefaultSystemExceptionEvent,
+		DefaultChecksumTestFailed,
+		DefaultUserLock,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -294,6 +298,25 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionOffline,
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+		case DefaultChecksumTestFailed:
+			t.addResources(
+				notify.TOPIC_RESOURCE_DB_TABLE_RECORD,
+				notify.TOPIC_RESOURCE_CLOUDPODS_COMPONENT,
+				notify.TOPIC_RESOURCE_SNAPSHOT,
+				notify.TOPIC_RESOURCE_IMAGE,
+			)
+			t.addAction(
+				notify.ActionChecksumTest,
+			)
+			t.Type = notify.TOPIC_TYPE_SECURITY
+		case DefaultUserLock:
+			t.addResources(
+				notify.TOPIC_RESOURCE_USER,
+			)
+			t.addAction(
+				notify.ActionLock,
+			)
+			t.Type = notify.TOPIC_TYPE_SECURITY
 		}
 		if topic == nil {
 			err := sm.TableSpec().Insert(ctx, t)
@@ -418,6 +441,7 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to parse event %q", event)
 	}
+	log.Infof("event: %s", event.String())
 	resourceV := converter.resourceValue(event.ResourceType())
 	if resourceV < 0 {
 		log.Warningf("unknown resource type: %s", event.ResourceType())
@@ -505,6 +529,9 @@ func init() {
 			notify.TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP: 31,
 			notify.TOPIC_RESOURCE_HOST:                     32,
 			notify.TOPIC_RESOURCE_TASK:                     33,
+			notify.TOPIC_RESOURCE_CLOUDPODS_COMPONENT:      34,
+			notify.TOPIC_RESOURCE_DB_TABLE_RECORD:          35,
+			notify.TOPIC_RESOURCE_USER:                     36,
 		},
 	)
 	converter.registerAction(
@@ -530,6 +557,8 @@ func init() {
 			notify.ActionOffline:            18,
 			notify.ActionSystemPanic:        19,
 			notify.ActionSystemException:    20,
+			notify.ActionChecksumTest:       21,
+			notify.ActionLock:               22,
 		},
 	)
 }
