@@ -50,12 +50,13 @@ type ReportOptions struct {
 	CloudproviderSyncInterval  int64 `help:"CloudproviderSyncInterval unit:minute" default:"30"`
 	AlertRecordHistoryInterval int64 `help:"AlertRecordHistoryInterval unit:day"  default:"1"`
 	// 定时执行间隔，同时也会影响metric拉取间隔
-	Interval       string   `help:"interval" default:"6" unit:"minute"`
-	Timeout        int64    `help:"command timeout unit:second" default:"10"`
-	SinceTime      string   `help:"sinceTime"`
-	EndTime        string   `help:"endTime"`
-	Provider       []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|ZStack|Google|Apsara|JDcloud|Ecloud|HCSO" json:"provider,omitempty"`
-	MetricInterval string   `help:"metric interval eg:PT1M"`
+	Interval  string   `help:"interval" default:"6" unit:"minute"`
+	Timeout   int64    `help:"command timeout unit:second" default:"10"`
+	SinceTime string   `help:"sinceTime"`
+	EndTime   string   `help:"endTime"`
+	Provider  []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei
+|ZStack|Google|Apsara|JDcloud|Ecloud|HCSO|BingoCloud" json:"provider,omitempty"`
+	MetricInterval string `help:"metric interval eg:PT1M"`
 	PingProbeOptions
 }
 
