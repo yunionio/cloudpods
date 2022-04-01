@@ -299,18 +299,30 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 	notifyClientWorkerMan.Run(&t, nil, nil)
 }
 
-func SystemExceptionNotify(ctx context.Context, action api.SAction, resType string, obj jsonutils.JSONObject) {
-	event := api.Event.WithAction(action).WithResourceType(resType)
+func systemEventNotify(ctx context.Context, action api.SAction, resType string, result api.SResult, priority string, obj *jsonutils.JSONDict) {
+	event := api.Event.WithAction(action).WithResourceType(resType).WithResult(result)
 	params := api.NotificationManagerEventNotifyInput{
 		ReceiverIds:     []string{},
-		ResourceDetails: obj.(*jsonutils.JSONDict),
+		ResourceDetails: obj,
 		Event:           event.String(),
-		Priority:        string(npk.NotifyPriorityCritical),
+		Priority:        priority,
 	}
 	t := eventTask{
 		params: params,
 	}
 	notifyClientWorkerMan.Run(&t, nil, nil)
+}
+
+func SystemEventNotify(ctx context.Context, action api.SAction, resType string, obj *jsonutils.JSONDict) {
+	systemEventNotify(ctx, action, resType, api.ResultSucceed, string(npk.NotifyPriorityNormal), obj)
+}
+
+func SystemExceptionNotify(ctx context.Context, action api.SAction, resType string, obj *jsonutils.JSONDict) {
+	systemEventNotify(ctx, action, resType, api.ResultSucceed, string(npk.NotifyPriorityCritical), obj)
+}
+
+func SystemExceptionNotifyWithResult(ctx context.Context, action api.SAction, resType string, result api.SResult, obj *jsonutils.JSONDict) {
+	systemEventNotify(ctx, action, resType, result, string(npk.NotifyPriorityCritical), obj)
 }
 
 func RawNotifyWithCtx(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
