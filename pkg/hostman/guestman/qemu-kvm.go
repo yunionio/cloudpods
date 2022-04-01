@@ -35,8 +35,10 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	noapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
@@ -1920,6 +1922,9 @@ func (s *SKVMGuestInstance) ExecMemorySnapshotResetTask(ctx context.Context, inp
 			return nil, handleErr(fmt.Sprintf("calculate statefile %s checksum: %v", memStatPath, err))
 		}
 		if checksum != input.Checksum {
+			data := jsonutils.NewDict()
+			data.Set("name", jsonutils.NewString(input.InstanceSnapshotId))
+			notifyclient.SystemExceptionNotifyWithResult(context.Background(), noapi.ActionChecksumTest, noapi.TOPIC_RESOURCE_SNAPSHOT, noapi.ResultFailed, data)
 			return nil, handleErr(fmt.Sprintf("calculate checksum %s != %s", checksum, input.Checksum))
 		}
 	}
