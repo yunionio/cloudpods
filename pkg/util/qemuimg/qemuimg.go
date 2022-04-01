@@ -157,7 +157,10 @@ func (img *SQemuImage) parse() error {
 	img.ClusterSize = info.ClusterSize
 	img.Compat = info.FormatSpecific.Data.Compat
 	img.Encrypted = info.Encrypted
-	img.BackFilePath = info.FullBackingFilename
+	img.BackFilePath, err = parseBackingFilepath(info.FullBackingFilename)
+	if err != nil {
+		return errors.Wrap(err, "parseBackingFilepath")
+	}
 	img.Subformat = info.CreateType
 
 	if img.Encrypted {
@@ -525,7 +528,11 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string, pa
 		if backQemu.Encrypted {
 			info.EncrptKeySecret = "sec0"
 		}
-		extraArgs = append(extraArgs, "-b", fmt.Sprintf("json:%s", jsonutils.Marshal(info)))
+		if backQemu.Encrypted {
+			extraArgs = append(extraArgs, "-b", fmt.Sprintf("json:%s", jsonutils.Marshal(info)))
+		} else {
+			extraArgs = append(extraArgs, "-b", backPath)
+		}
 		if !compact {
 			options = append(options, "cluster_size=2M")
 		}
@@ -682,4 +689,21 @@ func (img *SQemuImage) Check() error {
 		return errors.Wrap(err, "check")
 	}
 	return nil
+}
+
+// "json:{\"driver\":\"qcow2\",\"file\":{\"driver\":\"file\",\"filename\":\"/opt/cloud/workspace/disks/snapshots/72a2383d-e980-486f-816c-6c562e1757f3_snap/f39f225a-921f-492e-8fb6-0a4167d6ed91\"}}"
+func parseBackingFilepath(pathInfo string) (string, error) {
+	if strings.HasPrefix(pathInfo, "json:{") {
+		pathJson, err := jsonutils.ParseString(pathInfo[len("json:"):])
+		if err != nil {
+			return "", errors.Wrap(err, "jsonutils.ParseString")
+		}
+		path, err := pathJson.GetString("file", "filename")
+		if err != nil {
+			return "", errors.Wrap(err, "GetString file.filename")
+		}
+		return path, nil
+	} else {
+		return pathInfo, nil
+	}
 }
