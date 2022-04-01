@@ -109,12 +109,17 @@ func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.J
 	req.Namespace = "onecloud"
 	req.Container = "climc"
 	req.Command = "/bin/bash"
+	endpointType := "internal"
+	authUrl, _ := s.GetServiceURL("identity", endpointType)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("auth_url not found")
+	}
 	req.Env = map[string]string{
 		"OS_AUTH_TOKEN":           s.GetToken().GetTokenString(),
 		"OS_PROJECT_NAME":         s.GetProjectName(),
 		"OS_PROJECT_DOMAIN":       s.GetProjectDomain(),
-		"OS_AUTH_URL":             "https://default-keystone:30500/v3",
-		"OS_ENDPOINT_TYPE":        "internal",
+		"OS_AUTH_URL":             authUrl,
+		"OS_ENDPOINT_TYPE":        endpointType,
 		"YUNION_USE_CACHED_TOKEN": "false",
 		"YUNION_INSECURE":         "true",
 		"OS_USERNAME":             "",
