@@ -418,8 +418,12 @@ function nic_mtu() {
 	}
 
 	// UEFI ovmf file path
-	if input.QemuArch == qemu.Arch_aarch64 && !strings.HasPrefix(input.BIOS, qemu.BIOS_UEFI) {
-		input.BIOS = qemu.BIOS_UEFI
+	if input.QemuArch == qemu.Arch_aarch64 {
+		if !strings.HasPrefix(input.BIOS, qemu.BIOS_UEFI) {
+			input.BIOS = qemu.BIOS_UEFI
+		}
+	}
+	if input.BIOS == qemu.BIOS_UEFI {
 		if len(input.OVMFPath) == 0 {
 			input.OVMFPath = options.HostOptions.OvmfPath
 		}
