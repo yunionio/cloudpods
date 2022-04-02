@@ -2112,66 +2112,6 @@ func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenC
 		jsonutils.QueryBoolean(query, "delete_snapshots", false))
 }
 
-func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, out api.DiskDetails) api.DiskDetails {
-	out.Guests = []api.SimpleGuest{}
-	guests, guestStatus := []string{}, []string{}
-	for _, guest := range self.GetGuests() {
-		guests = append(guests, guest.Name)
-		guestStatus = append(guestStatus, guest.Status)
-		out.Guests = append(out.Guests, api.SimpleGuest{
-			Name:   guest.Name,
-			Id:     guest.Id,
-			Status: guest.Status,
-		})
-	}
-	out.Guest = strings.Join(guests, ",")
-	out.GuestCount = len(guests)
-	out.GuestStatus = strings.Join(guestStatus, ",")
-
-	if self.PendingDeleted {
-		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
-		out.AutoDeleteAt = pendingDeletedAt
-	}
-	// the binded snapshot policy list
-	sds, err := SnapshotPolicyDiskManager.FetchAllByDiskID(ctx, userCred, self.Id)
-	if err != nil {
-		return out
-	}
-	spIds := make([]string, len(sds))
-	for i := range sds {
-		spIds[i] = sds[i].SnapshotpolicyId
-	}
-	sps, err := SnapshotPolicyManager.FetchAllByIds(spIds)
-	if err != nil {
-		return out
-	}
-	if len(sps) > 0 {
-		out.SnapshotpolicyStatus = sds[0].Status
-	}
-
-	// check status
-	// construction for snapshotpolicies attached to disk
-	out.Snapshotpolicies = []api.SimpleSnapshotPolicy{}
-	for i := range sps {
-		policy := api.SimpleSnapshotPolicy{}
-		policy.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysToIntArray(sps[i].RepeatWeekdays)
-		policy.TimePoints = SnapshotPolicyManager.TimePointsToIntArray(sps[i].TimePoints)
-		policy.Id = sps[i].Id
-		policy.Name = sps[i].Name
-		out.Snapshotpolicies = append(out.Snapshotpolicies, policy)
-	}
-	storage, _ := self.GetStorage()
-	if storage != nil {
-		manualSnapshotCount, _ := self.GetManualSnapshotCount()
-		if utils.IsInStringArray(storage.StorageType, append(api.SHARED_FILE_STORAGE, api.STORAGE_LOCAL)) {
-			out.ManualSnapshotCount = manualSnapshotCount
-			out.MaxManualSnapshotCount = options.Options.DefaultMaxManualSnapshotCount
-		}
-	}
-
-	return out
-}
-
 func (manager *SDiskManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -2183,13 +2123,172 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 	rows := make([]api.DiskDetails, len(objs))
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	storeRows := manager.SStorageResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	diskIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.DiskDetails{
 			VirtualResourceDetails: virtRows[i],
 			StorageResourceInfo:    storeRows[i],
 		}
-		rows[i] = objs[i].(*SDisk).getMoreDetails(ctx, userCred, rows[i])
+
+		disk := objs[i].(*SDisk)
+		if disk.PendingDeleted {
+			pendingDeletedAt := disk.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
+			rows[i].AutoDeleteAt = pendingDeletedAt
+		}
+		diskIds[i] = disk.Id
 	}
+
+	guestSQ := GuestManager.Query().SubQuery()
+	gds := GuestdiskManager.Query().SubQuery()
+	q := guestSQ.Query(
+		guestSQ.Field("id"),
+		guestSQ.Field("name"),
+		guestSQ.Field("status"),
+		gds.Field("disk_id"),
+	).
+		Join(gds, sqlchemy.Equals(gds.Field("guest_id"), guestSQ.Field("id"))).
+		Filter(sqlchemy.In(gds.Field("disk_id"), diskIds))
+
+	guestInfo := []struct {
+		Id     string
+		Name   string
+		Status string
+		DiskId string
+	}{}
+	err := q.All(&guestInfo)
+	if err != nil {
+		log.Errorf("query disk guest info error: %v", err)
+		return rows
+	}
+
+	guests := map[string][]api.SimpleGuest{}
+	for _, guest := range guestInfo {
+		_, ok := guests[guest.DiskId]
+		if !ok {
+			guests[guest.DiskId] = []api.SimpleGuest{}
+		}
+		guests[guest.DiskId] = append(guests[guest.DiskId], api.SimpleGuest{
+			Id:     guest.Id,
+			Name:   guest.Name,
+			Status: guest.Status,
+		})
+	}
+
+	policySQ := SnapshotPolicyManager.Query().SubQuery()
+	dps := SnapshotPolicyDiskManager.Query().SubQuery()
+
+	q = policySQ.Query(
+		policySQ.Field("id"),
+		policySQ.Field("name"),
+		policySQ.Field("time_points"),
+		policySQ.Field("repeat_weekdays"),
+		dps.Field("disk_id"),
+	).Join(dps, sqlchemy.Equals(dps.Field("snapshotpolicy_id"), policySQ.Field("id"))).
+		Filter(sqlchemy.In(dps.Field("disk_id"), diskIds))
+
+	policyInfo := []struct {
+		Id             string
+		Name           string
+		Status         string
+		TimePoints     uint32
+		RepeatWeekdays uint8
+		DiskId         string
+	}{}
+	err = q.All(&policyInfo)
+	if err != nil {
+		log.Errorf("query disk snapshot policy info error: %v", err)
+		return rows
+	}
+
+	policies := map[string][]api.SimpleSnapshotPolicy{}
+	for _, policy := range policyInfo {
+		_, ok := policies[policy.DiskId]
+		if !ok {
+			policies[policy.DiskId] = []api.SimpleSnapshotPolicy{}
+		}
+		policies[policy.DiskId] = append(policies[policy.DiskId], api.SimpleSnapshotPolicy{
+			Id:             policy.Id,
+			Name:           policy.Name,
+			RepeatWeekdays: SnapshotPolicyManager.RepeatWeekdaysToIntArray(policy.RepeatWeekdays),
+			TimePoints:     SnapshotPolicyManager.TimePointsToIntArray(policy.TimePoints),
+		})
+	}
+
+	storageSQ := StorageManager.Query().SubQuery()
+	diskSQ := DiskManager.Query().SubQuery()
+	q = storageSQ.Query(
+		storageSQ.Field("storage_type"),
+		diskSQ.Field("id").Label("disk_id"),
+	).Join(diskSQ, sqlchemy.Equals(diskSQ.Field("storage_id"), storageSQ.Field("id"))).
+		Filter(sqlchemy.In(diskSQ.Field("id"), diskIds))
+
+	storageInfo := []struct {
+		StorageType string
+		DiskId      string
+	}{}
+	err = q.All(&storageInfo)
+	if err != nil {
+		log.Errorf("query disk storage info error: %v", err)
+		return rows
+	}
+
+	storages := map[string]string{}
+	for _, storage := range storageInfo {
+		storages[storage.DiskId] = storage.StorageType
+	}
+
+	snapshotSQ := SnapshotManager.Query().SubQuery()
+	q = snapshotSQ.Query(
+		snapshotSQ.Field("id"),
+		diskSQ.Field("id").Label("disk_id"),
+	).Join(diskSQ, sqlchemy.Equals(diskSQ.Field("id"), snapshotSQ.Field("disk_id"))).
+		Filter(
+			sqlchemy.AND(
+				sqlchemy.In(diskSQ.Field("id"), diskIds),
+				sqlchemy.Equals(snapshotSQ.Field("created_by"), api.SNAPSHOT_MANUAL),
+				sqlchemy.Equals(snapshotSQ.Field("fake_deleted"), false),
+			),
+		)
+
+	snapshotInfo := []struct {
+		Id     string
+		DiskId string
+	}{}
+	err = q.All(&snapshotInfo)
+	if err != nil {
+		log.Errorf("query disk snapshot info error: %v", err)
+		return rows
+	}
+	snapshots := map[string][]string{}
+	for _, snapshot := range snapshotInfo {
+		_, ok := snapshots[snapshot.DiskId]
+		if !ok {
+			snapshots[snapshot.DiskId] = []string{}
+		}
+		snapshots[snapshot.DiskId] = append(snapshots[snapshot.DiskId], snapshot.Id)
+	}
+
+	for i := range rows {
+		rows[i].Guests, _ = guests[diskIds[i]]
+		names, status := []string{}, []string{}
+		for _, guest := range rows[i].Guests {
+			names = append(names, guest.Name)
+			status = append(status, guest.Status)
+		}
+		rows[i].GuestCount = len(rows[i].Guests)
+		rows[i].Guest = strings.Join(names, ",")
+		rows[i].GuestStatus = strings.Join(status, ",")
+
+		rows[i].Snapshotpolicies, _ = policies[diskIds[i]]
+
+		storageType, ok := storages[diskIds[i]]
+		if ok && utils.IsInStringArray(storageType, append(api.SHARED_FILE_STORAGE, api.STORAGE_LOCAL)) {
+			rows[i].MaxManualSnapshotCount = options.Options.DefaultMaxManualSnapshotCount
+			snps, _ := snapshots[diskIds[i]]
+			rows[i].ManualSnapshotCount = len(snps)
+		}
+	}
+
 	return rows
 }
 
