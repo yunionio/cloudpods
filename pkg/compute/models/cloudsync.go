@@ -2034,9 +2034,15 @@ func SyncCloudaccountResources(ctx context.Context, userCred mcclient.TokenCrede
 		return errors.Wrapf(err, "GetProvider")
 	}
 
-	syncProjects(ctx, userCred, SSyncResultSet{}, account, provider)
+	err = syncProjects(ctx, userCred, SSyncResultSet{}, account, provider)
+	if err != nil {
+		log.Errorf("Sync project for account %s error: %v", account.Name, err)
+	}
 
-	syncDns(ctx, userCred, SSyncResultSet{}, account, provider)
+	err = syncDns(ctx, userCred, SSyncResultSet{}, account, provider)
+	if err != nil {
+		log.Errorf("Sync dns zone for account %s error: %v", account.Name, err)
+	}
 
 	return nil
 }
