@@ -260,7 +260,7 @@ func storageSyncBackupStorage(ctx context.Context, w http.ResponseWriter, r *htt
 		hostutils.Response(ctx, w, err)
 		return
 	}
-	exist, err := backupStorage.IsOnline()
+	exist, reason, err := backupStorage.IsOnline()
 	if err != nil {
 		hostutils.Response(ctx, w, err)
 		return
@@ -275,6 +275,7 @@ func storageSyncBackupStorage(ctx context.Context, w http.ResponseWriter, r *htt
 		status = compute.BACKUPSTORAGE_STATUS_OFFLINE
 	}
 	ret.Set("status", jsonutils.NewString(status))
+	ret.Set("reason", jsonutils.NewString(reason))
 	hostutils.Response(ctx, w, ret)
 }
 
