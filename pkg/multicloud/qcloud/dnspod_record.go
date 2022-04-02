@@ -15,6 +15,7 @@
 package qcloud
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -39,71 +40,40 @@ type SRecordCountInfo struct {
 }
 
 type SDnsRecord struct {
-	domain     *SDomian
-	ID         int    `json:"id"`
-	TTL        int    `json:"ttl"`
-	Value      string `json:"value"`
-	Enabled    int    `json:"enabled"`
-	Status     string `json:"status"`
-	UpdatedOn  string `json:"updated_on"`
-	QProjectID int    `json:"q_project_id"`
-	Name       string `json:"name"`
-	Line       string `json:"line"`
-	LineID     string `json:"line_id"`
-	Type       string `json:"type"`
-	Remark     string `json:"remark"`
-	Mx         int64  `json:"mx"`
-	Hold       string `json:"hold"`
+	domain *SDomian
+
+	Line          string `json:"Line"`
+	LineId        string `json:"LineId"`
+	MX            int64  `json:"MX"`
+	MonitorStatus string `json:"MonitorStatus"`
+	Name          string `json:"Name"`
+	RecordId      int    `json:"RecordId"`
+	Remark        string `json:"Remark"`
+	Status        string `json:"Status"`
+	TTL           int64  `json:"TTL"`
+	Type          string `json:"Type"`
+	UpdatedOn     string `json:"UpdatedOn"`
+	Value         string `json:"Value"`
 }
 
-// https://cloud.tencent.com/document/product/302/8517
-func (client *SQcloudClient) GetDnsRecords(projectId string, sDomainName string, offset int, limit int) ([]SDnsRecord, int, error) {
-
+func (self *SQcloudClient) GetDnsRecords(domain string, offset int, limit int) ([]SDnsRecord, int, error) {
 	params := map[string]string{}
-	params["offset"] = strconv.Itoa(offset)
-	params["length"] = strconv.Itoa(limit)
-	params["domain"] = sDomainName
-	if len(projectId) > 0 {
-		params["qProjectId"] = projectId
+	params["Domain"] = domain
+	params["Offset"] = strconv.Itoa(offset)
+	if limit > 0 {
+		params["Limit"] = strconv.Itoa(limit)
 	}
-	resp, err := client.cnsRequest("RecordList", params)
+	resp, err := self.dnsRequest("DescribeRecordList", params)
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "client.cnsRequest(RecordList, %s)", jsonutils.Marshal(params).String())
+		return nil, 0, errors.Wrapf(err, "DescribeRecordList")
 	}
-	count := SRecordCountInfo{}
-	err = resp.Unmarshal(&count, "info")
+	ret := []SDnsRecord{}
+	err = resp.Unmarshal(&ret, "RecordList")
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(info)", jsonutils.Marshal(resp).String())
+		return nil, 0, errors.Wrapf(err, "resp.Unmarshal RecordList")
 	}
-	records := []SDnsRecord{}
-	err = resp.Unmarshal(&records, "records")
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "%s.Unmarshal(records)", jsonutils.Marshal(resp).String())
-	}
-	RecordTotal, err := strconv.Atoi(count.RecordTotal)
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "strconv.Atoi(%s)", count.RecordTotal)
-	}
-	return records, RecordTotal, nil
-}
-
-func (client *SQcloudClient) GetAllDnsRecords(sDomainName string) ([]SDnsRecord, error) {
-	count := 0
-	result := []SDnsRecord{}
-	for true {
-		// -1 所有项目; 0,default默认项目
-		records, total, err := client.GetDnsRecords("-1", sDomainName, count, 100)
-		if err != nil {
-			return nil, errors.Wrapf(err, "client.GetDnsRecords(%s,%d,%d)", sDomainName, count, 100)
-		}
-
-		result = append(result, records...)
-		count += len(records)
-		if total <= count {
-			break
-		}
-	}
-	return result, nil
+	total, err := resp.Float("RecordCountInfo", "TotalCount")
+	return ret, int(total), err
 }
 
 func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyValue) string {
@@ -140,8 +110,8 @@ func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyValue) string {
 	}
 }
 
-// https://cloud.tencent.com/document/api/302/8516
-func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) (string, error) {
+// https://cloud.tencent.com/document/api/1427/56180
+func (self *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) (string, error) {
 	params := map[string]string{}
 	recordline := GetRecordLineLineType(opts.PolicyValue)
 	if opts.Ttl < 600 {
@@ -153,29 +123,27 @@ func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, d
 	if len(opts.DnsName) < 1 {
 		opts.DnsName = "@"
 	}
-	params["domain"] = domainName
-	params["subDomain"] = opts.DnsName
-	params["recordType"] = string(opts.DnsType)
-	params["ttl"] = strconv.FormatInt(opts.Ttl, 10)
-	params["value"] = opts.DnsValue
-	params["recordLine"] = recordline
+	params["Domain"] = domainName
+	params["SubDomain"] = opts.DnsName
+	params["RecordType"] = string(opts.DnsType)
+	params["TTL"] = strconv.FormatInt(opts.Ttl, 10)
+	params["Value"] = opts.DnsValue
+	params["RecordLine"] = recordline
 	if opts.DnsType == cloudprovider.DnsTypeMX {
-		params["mx"] = strconv.FormatInt(opts.MxPriority, 10)
+		params["MX"] = strconv.FormatInt(opts.MxPriority, 10)
 	}
-	resp, err := client.cnsRequest("RecordCreate", params)
+	if !opts.Enabled {
+		params["Status"] = "DISABLE"
+	}
+	resp, err := self.dnsRequest("CreateRecord", params)
 	if err != nil {
-		return "", errors.Wrapf(err, "client.cnsRequest(RecordCreate, %s)", jsonutils.Marshal(params).String())
+		return "", errors.Wrapf(err, "CreateRecord")
 	}
-	SRecordCreateRet := SRecordCreateRet{}
-	err = resp.Unmarshal(&SRecordCreateRet, "record")
-	if err != nil {
-		return "", errors.Wrapf(err, "%s.Unmarshal(records)", jsonutils.Marshal(resp).String())
-	}
-	return SRecordCreateRet.ID, nil
+	return resp.GetString("RecordId")
 }
 
-// https://cloud.tencent.com/document/product/302/8511
-func (client *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) error {
+// https://cloud.tencent.com/document/api/1427/56157
+func (self *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) error {
 	params := map[string]string{}
 	recordline := GetRecordLineLineType(opts.PolicyValue)
 	if opts.Ttl < 600 {
@@ -188,19 +156,22 @@ func (client *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, d
 	if len(subDomain) < 1 {
 		subDomain = "@"
 	}
-	params["domain"] = domainName
-	params["recordId"] = opts.ExternalId
-	params["subDomain"] = subDomain
-	params["recordType"] = string(opts.DnsType)
-	params["ttl"] = strconv.FormatInt(opts.Ttl, 10)
-	params["value"] = opts.DnsValue
-	params["recordLine"] = recordline
+	params["Domain"] = domainName
+	params["RecordId"] = opts.ExternalId
+	params["SubDomain"] = subDomain
+	params["RecordType"] = string(opts.DnsType)
+	params["TTL"] = strconv.FormatInt(opts.Ttl, 10)
+	params["Value"] = opts.DnsValue
+	params["RecordLine"] = recordline
 	if opts.DnsType == cloudprovider.DnsTypeMX {
-		params["mx"] = strconv.FormatInt(opts.MxPriority, 10)
+		params["MX"] = strconv.FormatInt(opts.MxPriority, 10)
 	}
-	_, err := client.cnsRequest("RecordModify", params)
+	if !opts.Enabled {
+		params["Status"] = "DISABLE"
+	}
+	_, err := self.dnsRequest("ModifyRecord", params)
 	if err != nil {
-		return errors.Wrapf(err, "client.cnsRequest(RecordModify, %s)", jsonutils.Marshal(params).String())
+		return errors.Wrapf(err, "ModifyRecord")
 	}
 	return nil
 }
@@ -208,30 +179,30 @@ func (client *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, d
 // https://cloud.tencent.com/document/product/302/8519
 func (client *SQcloudClient) ModifyRecordStatus(status, recordId, domain string) error {
 	params := map[string]string{}
-	params["domain"] = domain
-	params["recordId"] = recordId
-	params["status"] = status // “disable” 和 “enable”
-	_, err := client.cnsRequest("RecordStatus", params)
+	params["Domain"] = domain
+	params["RecordId"] = recordId
+	params["Status"] = status // “disable” 和 “enable”
+	_, err := client.dnsRequest("ModifyRecordStatus", params)
 	if err != nil {
-		return errors.Wrapf(err, "client.cnsRequest(RecordModify, %s)", jsonutils.Marshal(params).String())
+		return errors.Wrapf(err, "ModifyRecordStatus")
 	}
 	return nil
 }
 
-// https://cloud.tencent.com/document/api/302/8514
-func (client *SQcloudClient) DeleteDnsRecord(recordId int, domainName string) error {
+// https://cloud.tencent.com/document/api/1427/56176
+func (client *SQcloudClient) DeleteDnsRecord(recordId string, domainName string) error {
 	params := map[string]string{}
-	params["domain"] = domainName
-	params["recordId"] = strconv.Itoa(recordId)
-	_, err := client.cnsRequest("RecordDelete", params)
+	params["Domain"] = domainName
+	params["RecordId"] = recordId
+	_, err := client.dnsRequest("DeleteRecord", params)
 	if err != nil {
-		return errors.Wrapf(err, "client.cnsRequest(RecordDelete, %s)", jsonutils.Marshal(params).String())
+		return errors.Wrapf(err, "DeleteRecord")
 	}
 	return nil
 }
 
 func (self *SDnsRecord) GetGlobalId() string {
-	return strconv.Itoa(self.ID)
+	return fmt.Sprintf("%d", self.RecordId)
 }
 
 func (self *SDnsRecord) GetDnsName() string {
@@ -239,14 +210,14 @@ func (self *SDnsRecord) GetDnsName() string {
 }
 
 func (self *SDnsRecord) GetStatus() string {
-	if self.Status != "spam" {
+	if self.Status != "SPAM" {
 		return api.DNS_RECORDSET_STATUS_AVAILABLE
 	}
 	return api.DNS_ZONE_STATUS_UNKNOWN
 }
 
 func (self *SDnsRecord) GetEnabled() bool {
-	return self.Enabled == 1
+	return self.Status == "ENABLE"
 }
 
 func (self *SDnsRecord) GetDnsType() cloudprovider.TDnsType {
@@ -266,7 +237,7 @@ func (self *SDnsRecord) GetTTL() int64 {
 
 func (self *SDnsRecord) GetMxPriority() int64 {
 	if self.GetDnsType() == cloudprovider.DnsTypeMX {
-		return self.Mx
+		return self.MX
 	}
 	return 0
 }
