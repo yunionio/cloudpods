@@ -34,7 +34,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -89,7 +88,7 @@ func InitOpsLog() {
 			"opslog_tbl",
 			"event",
 			"events",
-			cloudcommon.ClickhouseDB,
+			ClickhouseDB,
 		)}
 		col := OpsLog.TableSpec().ColumnSpec("ops_time")
 		if clickCol, ok := col.(clickhouse.IClickhouseColumnSpec); ok {

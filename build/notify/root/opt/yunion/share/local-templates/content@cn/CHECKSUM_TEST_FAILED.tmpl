@@ -1,0 +1,14 @@
+{{- $d := .resource_details -}}
+{{- if eq .resource_type "db_table_field" }}
+数据库{{ $d.db_name }}表{{ $d.table_name }}记录{{ $d.name }}被修改，
+{{- end -}}
+{{- if eq .resource_type "cloudpods_component" }}
+组件{{ $d.name }}
+{{- end -}}
+{{- if eq .resource_type "snapshot" }}
+快照{{ $d.name }}的内存快照
+{{- end -}}
+{{- if eq .resource_type "image" }}
+镜像{{ $d.name }}
+{{- end -}}
+完整性校验失败

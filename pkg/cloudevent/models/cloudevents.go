@@ -26,7 +26,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/cloudevent"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -50,7 +49,7 @@ func InitCloudevent() {
 				"cloudevents_tbl",
 				"cloudevent",
 				"cloudevents",
-				cloudcommon.ClickhouseDB,
+				db.ClickhouseDB,
 			),
 		}
 		col := CloudeventManager.TableSpec().ColumnSpec("created_at")

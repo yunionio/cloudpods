@@ -503,6 +503,16 @@ func init() {
 			"MongoDB",
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_DB_TABLE_RECORD,
+			"database table record",
+			"数据库记录",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_CLOUDPODS_COMPONENT,
+			"cloudpods component",
+			"cloudpods服务组件",
+		},
+		sI18nElme{
 			string(api.ActionCreate),
 			"created",
 			"创建",

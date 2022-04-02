@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/informer"
 	"yunion.io/x/onecloud/pkg/util/nopanic"
 	"yunion.io/x/onecloud/pkg/util/splitable"
@@ -51,6 +52,8 @@ type ITableSpec interface {
 	GetSplitTable() *splitable.SSplitTableSpec
 
 	GetTableSpec() *sqlchemy.STableSpec
+
+	GetDBName() sqlchemy.DBName
 }
 
 type sTableSpec struct {
@@ -171,7 +174,28 @@ func (ts *sTableSpec) InsertOrUpdate(ctx context.Context, dt interface{}) error 
 }
 
 func (ts *sTableSpec) CheckRecordChanged(dbObj IModel) error {
-	return CheckRecordChecksumConsistent(dbObj)
+	return ts.CheckRecordChecksumConsistent(dbObj)
+}
+
+func (ts *sTableSpec) CheckRecordChecksumConsistent(model IModel) error {
+	obj, ok := IsModelEnableRecordChecksum(model)
+	if !ok {
+		return nil
+	}
+	calChecksum, err := CalculateModelChecksum(obj)
+	if err != nil {
+		return errors.Wrap(err, "CalculateModelChecksum")
+	}
+	savedChecksum := obj.GetRecordChecksum()
+	if calChecksum != savedChecksum {
+		log.Errorf("Record %s(%s) checksum changed, expected(%s) != calculated(%s)", obj.Keyword(), obj.GetId(), savedChecksum, calChecksum)
+		return errors.Errorf("Record %s(%s) checksum changed, expected(%s) != calculated(%s)", obj.Keyword(), obj.GetId(), savedChecksum, calChecksum)
+	}
+	return nil
+}
+
+func checksumTestNotify(ctx context.Context, action api.SAction, resType string, obj jsonutils.JSONObject) {
+
 }
 
 func (ts *sTableSpec) Update(ctx context.Context, dt interface{}, doUpdate func() error) (sqlchemy.UpdateDiffs, error) {

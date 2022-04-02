@@ -45,7 +45,7 @@ func StartService() {
 
 	app := app_common.InitApp(baseOpts, true)
 	InitHandlers(app)
-	cloudcommon.AppDBInit(app)
+	db.AppDBInit(app)
 
 	if db.CheckSync(opts.AutoSyncTable, opts.EnableDBChecksumTables, opts.DBChecksumSkipInit) {
 		err := models.InitDB()

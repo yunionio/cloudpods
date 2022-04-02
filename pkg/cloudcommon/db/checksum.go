@@ -20,11 +20,18 @@ import (
 	"reflect"
 	"sort"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
 )
+
+var checksumTestFailedNotifier func(obj *jsonutils.JSONDict)
+
+func SetChecksumTestFailedNotifier(notifier func(obj *jsonutils.JSONDict)) {
+	checksumTestFailedNotifier = notifier
+}
 
 type IRecordChecksumResourceBase interface {
 	GetRecordChecksum() string
@@ -93,6 +100,15 @@ func CheckRecordChecksumConsistent(model IModel) error {
 	savedChecksum := obj.GetRecordChecksum()
 	if calChecksum != savedChecksum {
 		log.Errorf("Record %s(%s) checksum changed, expected(%s) != calculated(%s)", obj.Keyword(), obj.GetId(), savedChecksum, calChecksum)
+		ts := model.GetModelManager().TableSpec()
+		// notify
+		data := jsonutils.NewDict()
+		data.Set("db_name", jsonutils.NewString(string(ts.GetDBName())))
+		data.Set("table_name", jsonutils.NewString(ts.Name()))
+		data.Set("name", jsonutils.NewString(fmt.Sprintf("%s(%s)", obj.Keyword(), obj.GetId())))
+		if checksumTestFailedNotifier != nil {
+			checksumTestFailedNotifier(data)
+		}
 		return errors.Errorf("Record %s(%s) checksum changed, expected(%s) != calculated(%s)", obj.Keyword(), obj.GetId(), savedChecksum, calChecksum)
 	}
 	return nil
