@@ -555,8 +555,22 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		}
 	}
 
-	ret, expect := 0, len(desc.DataDisks)+1
+	ret, expect, eipSync := 0, len(desc.DataDisks)+1, false
 	err = cloudprovider.RetryUntil(func() (bool, error) {
+		if desc.PublicIpBw > 0 {
+			eip, _ := iVM.GetIEIP()
+			if eip == nil {
+				iVM.Refresh()
+				return false, nil
+			}
+			// 同步静态公网ip
+			if !eipSync {
+				provider := host.GetCloudprovider()
+				guest.SyncVMEip(ctx, userCred, provider, eip, provider.GetOwnerId())
+				eipSync = true
+			}
+		}
+
 		idisks, err := iVM.GetIDisks()
 		if err != nil {
 			return false, errors.Wrap(err, "iVM.GetIDisks")
