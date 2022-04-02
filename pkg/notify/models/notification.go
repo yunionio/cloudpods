@@ -348,7 +348,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 
 func (nm *SNotificationManager) needWebconsole(topics []STopic) bool {
 	for i := range topics {
-		if topics[i].WebconsoleDisable.IsFalse() {
+		if topics[i].WebconsoleDisable.IsFalse() || topics[i].WebconsoleDisable.IsNone() {
 			return true
 		}
 	}
