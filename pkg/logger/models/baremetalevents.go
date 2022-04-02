@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/sqlchemy/backends/clickhouse"
 
 	api "yunion.io/x/onecloud/pkg/apis/logger"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -60,7 +59,7 @@ func InitBaremetalEvent() {
 				"baremetal_event_tbl",
 				"baremetalevent",
 				"baremetalevents",
-				cloudcommon.ClickhouseDB,
+				db.ClickhouseDB,
 			),
 		}
 		col := BaremetalEventManager.TableSpec().ColumnSpec("ops_time")

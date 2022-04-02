@@ -17,8 +17,6 @@ package cloudcommon
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/mattn/go-sqlite3"
@@ -28,11 +26,13 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/appsrv"
+	noapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	"yunion.io/x/onecloud/pkg/cloudcommon/informer"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
 
@@ -90,7 +90,7 @@ func InitDB(options *common_options.DBOptions) {
 		if err != nil {
 			panic(err)
 		}
-		sqlchemy.SetDBWithNameBackend(click, ClickhouseDB, sqlchemy.ClickhouseBackend)
+		sqlchemy.SetDBWithNameBackend(click, db.ClickhouseDB, sqlchemy.ClickhouseBackend)
 
 		if options.OpsLogWithClickhouse {
 			consts.OpsLogWithClickhouse = true
@@ -123,7 +123,14 @@ func InitDB(options *common_options.DBOptions) {
 	}
 	// lm := lockman.NewNoopLockManager()
 
+	initDBNotifier()
 	startInitInformer(options)
+}
+
+func initDBNotifier() {
+	db.SetChecksumTestFailedNotifier(func(obj *jsonutils.JSONDict) {
+		notifyclient.SystemExceptionNotifyWithResult(context.TODO(), noapi.ActionChecksumTest, noapi.TOPIC_RESOURCE_DB_TABLE_RECORD, noapi.ResultFailed, obj)
+	})
 }
 
 // startInitInformer starts goroutine init informer backend
@@ -166,29 +173,4 @@ func initInformer(options *common_options.DBOptions) error {
 
 func CloseDB() {
 	sqlchemy.CloseDB()
-}
-
-func AppDBInit(app *appsrv.Application) {
-	dbConn := sqlchemy.GetDB()
-	if dbConn != nil {
-		connMax := appsrv.GetDBConnectionCount()
-		if connMax < MIN_DB_CONN_MAX {
-			connMax = MIN_DB_CONN_MAX
-		}
-		log.Infof("Total %d db workers, set db connection max", connMax)
-		dbConn.SetMaxIdleConns(connMax)
-		dbConn.SetMaxOpenConns(connMax*2 + 1)
-	}
-
-	app.AddDefaultHandler("GET", "/db_stats", DBStatsHandler, "db_stats")
-}
-
-func DBStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	result := jsonutils.NewDict()
-	dbConn := sqlchemy.GetDB()
-	if dbConn != nil {
-		stats := dbConn.Stats()
-		result.Add(jsonutils.Marshal(&stats), "db_stats")
-	}
-	fmt.Fprintf(w, result.String())
 }

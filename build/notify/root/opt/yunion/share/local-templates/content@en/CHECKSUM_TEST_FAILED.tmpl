@@ -1,0 +1,14 @@
+{{- $d := .resource_details -}}
+{{- if eq .resource_type "db_table_field" }}
+The record {{ $d.name }} in table {{ $d.table_name }} of the database {{ $d.db_name }} has been modified because the checksum test failed.
+{{- end -}}
+{{- if eq .resource_type "cloudpods_component" }}
+The checksum of cloudpods component {{ $d.name }} test failed.
+{{- end -}}
+{{- if eq .resource_type "snapshot" }}
+The checksum of the memory snapshot of the snapshot {{ $d.name }} test failed.
+{{- end -}}
+{{- if eq .resource_type "image" }}
+The checksum of the image {{ $d.name }} test failed.
+{{- end -}}
+

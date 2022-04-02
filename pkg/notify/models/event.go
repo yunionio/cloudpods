@@ -42,7 +42,7 @@ type SEvent struct {
 	db.SStandaloneAnonResourceBase
 
 	Message     string
-	Event       string `width:"32" nullable:"true"`
+	Event       string `width:"64" nullable:"true"`
 	AdvanceDays int
 }
 

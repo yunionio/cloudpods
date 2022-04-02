@@ -93,7 +93,7 @@ func StartService() error {
 	common_options.StartOptionManager(&opts, opts.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, o.OnOptionsChange)
 
 	app := app_common.InitApp(&opts.BaseOptions, true)
-	cloudcommon.AppDBInit(app)
+	db.AppDBInit(app)
 
 	//InitHandlers(app)
 	return startHTTP(opts)

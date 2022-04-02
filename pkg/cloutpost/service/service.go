@@ -19,8 +19,8 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd/models"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
@@ -48,7 +48,7 @@ func StartService() {
 	defer etcd.CloseDefaultEtcdClient()
 
 	app := app_common.InitApp(baseOpts, false)
-	cloudcommon.AppDBInit(app)
+	db.AppDBInit(app)
 	initHandlers(app)
 
 	err = models.ServiceRegistryManager.Register(
