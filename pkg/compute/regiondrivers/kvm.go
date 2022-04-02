@@ -1433,7 +1433,8 @@ func (self *SKVMRegionDriver) RequestSyncBackupStorageStatus(ctx context.Context
 			return nil, err
 		}
 		status, _ := res.GetString("status")
-		return nil, bs.SetStatus(userCred, status, "sync status")
+		reason, _ := res.GetString("reason")
+		return nil, bs.SetStatus(userCred, status, reason)
 	})
 	return nil
 }

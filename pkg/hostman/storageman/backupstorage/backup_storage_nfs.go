@@ -85,7 +85,7 @@ func (s *SNFSBackupStorage) checkAndMount() error {
 	err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx,
 		"mount", "-t", "nfs", fmt.Sprintf("%s:%s", s.NfsHost, s.NfsSharedDir), s.Path).Run()
 	if err != nil {
-		return ErrorBackupStorageOffline
+		return errors.Wrap(ErrorBackupStorageOffline, err.Error())
 	}
 	backupDir := s.getBackupDir()
 	if !fileutils2.Exists(backupDir) {
@@ -462,14 +462,14 @@ func (s *SNFSBackupStorage) IsExists(backupId string) (bool, error) {
 	return fileutils2.Exists(filename), nil
 }
 
-func (s *SNFSBackupStorage) IsOnline() (bool, error) {
+func (s *SNFSBackupStorage) IsOnline() (bool, string, error) {
 	err := s.checkAndMount()
 	if errors.Cause(err) == ErrorBackupStorageOffline {
-		return false, nil
+		return false, err.Error(), nil
 	}
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	s.unMount()
-	return true, nil
+	return true, "", nil
 }
