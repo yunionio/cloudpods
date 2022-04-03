@@ -22,7 +22,9 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -84,9 +86,25 @@ func (this *BaseManager) versionedURL(path string) string {
 func (this *BaseManager) jsonRequest(session *mcclient.ClientSession,
 	method httputils.THttpMethod, path string,
 	header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return session.JSONVersionRequest(this.serviceType, this.endpointType,
+	hdr, resp, err := session.JSONVersionRequest(this.serviceType, this.endpointType,
 		method, this.versionedURL(path),
 		header, body, this.GetApiVersion())
+	if err != nil {
+		if e, ok := err.(*httputils.JSONClientError); ok {
+			switch e.Class {
+			case errors.ErrConnectRefused.Error():
+				return nil, nil, httperrors.NewServiceAbnormalError("%s service is abnormal, please check service status", this.serviceType)
+			case errors.ErrNetwork.Error():
+				return nil, nil, httperrors.NewServiceAbnormalError("%s service is abnormal or network error, please try again", this.serviceType)
+			case errors.ErrDNS.Error():
+				return nil, nil, httperrors.NewServiceAbnormalError("%s service dns resolve error, please check dns setting", this.serviceType)
+			case errors.ErrTimeout.Error():
+				return nil, nil, httperrors.NewServiceAbnormalError("%s service request timeout, please try again later", this.serviceType)
+			}
+		}
+		return nil, nil, err
+	}
+	return hdr, resp, nil
 }
 
 func (this *BaseManager) rawRequest(session *mcclient.ClientSession,
@@ -173,7 +191,6 @@ func JSON2ListResult(result jsonutils.JSONObject) *ListResult {
 
 func (this *BaseManager) _list(session *mcclient.ClientSession, path, responseKey string) (*ListResult, error) {
 	_, body, err := this.jsonRequest(session, "GET", path, nil, nil)
-	// log.Debugf("%#v %#v %#v", body, err, responseKey)
 	if err != nil {
 		return nil, err
 	}
