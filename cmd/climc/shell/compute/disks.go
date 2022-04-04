@@ -376,7 +376,7 @@ func init() {
 			url := fmt.Sprintf("%s/download/disks/%s/%s", managerUri, storageId, args.ID)
 			resp, err := httputils.Request(client, context.Background(), httputils.GET, url, header, nil, args.Debug)
 			if err != nil {
-				log.Errorf("request %s error: %v", err)
+				log.Errorf("request %s error: %v", url, err)
 				continue
 			}
 			defer resp.Body.Close()
