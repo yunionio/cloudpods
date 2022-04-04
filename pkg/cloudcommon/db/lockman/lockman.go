@@ -17,6 +17,7 @@ package lockman
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 )
 
 type ILockedClass interface {
@@ -72,34 +73,52 @@ func Init(man ILockManager) {
 	_lockman = man
 }
 
+func checkContext(ctx context.Context) {
+	if ctx == context.Background() {
+		panic("lock context of Background!")
+		debug.PrintStack()
+	} else if ctx == context.TODO() {
+		panic("lock context of TODO!")
+		debug.PrintStack()
+	}
+}
+
 func LockClass(ctx context.Context, manager ILockedClass, projectId string) {
+	checkContext(ctx)
 	_lockman.LockClass(ctx, manager, projectId)
 }
 
 func ReleaseClass(ctx context.Context, manager ILockedClass, projectId string) {
+	checkContext(ctx)
 	_lockman.ReleaseClass(ctx, manager, projectId)
 }
 
 func LockObject(ctx context.Context, model ILockedObject) {
+	checkContext(ctx)
 	_lockman.LockObject(ctx, model)
 }
 
 func ReleaseObject(ctx context.Context, model ILockedObject) {
+	checkContext(ctx)
 	_lockman.ReleaseObject(ctx, model)
 }
 
 func LockRawObject(ctx context.Context, resName string, resId string) {
+	checkContext(ctx)
 	_lockman.LockRawObject(ctx, resName, resId)
 }
 
 func ReleaseRawObject(ctx context.Context, resName string, resId string) {
+	checkContext(ctx)
 	_lockman.ReleaseRawObject(ctx, resName, resId)
 }
 
 func LockJointObject(ctx context.Context, model ILockedObject, model2 ILockedObject) {
+	checkContext(ctx)
 	_lockman.LockJointObject(ctx, model, model2)
 }
 
 func ReleaseJointObject(ctx context.Context, model ILockedObject, model2 ILockedObject) {
+	checkContext(ctx)
 	_lockman.ReleaseJointObject(ctx, model, model2)
 }
