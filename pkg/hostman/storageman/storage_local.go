@@ -125,8 +125,8 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 	}
 	img, err := qemuimg.NewQemuImage(backupPath)
 	if err != nil {
-		log.Errorln("unable to new qemu image for %s: %s", backupPath, err.Error())
-		return err
+		log.Errorf("unable to new qemu image for %s: %s", backupPath, err.Error())
+		return errors.Wrapf(err, "unable to new qemu image for %s", backupPath)
 	}
 	_, err = img.Clone(disk.GetPath(), qemuimg.QCOW2, false)
 	return err
