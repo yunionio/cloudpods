@@ -288,7 +288,7 @@ func (model *SVirtualResourceBase) PostCreate(ctx context.Context, userCred mccl
 		log.Errorf("unable to GetTenantCache: %s", err.Error())
 		return
 	}
-	err = Inherit(ctx, project, model)
+	err = InheritFromTo(ctx, project, model)
 	if err != nil {
 		log.Errorf("unable to inherit class metadata from poject %s: %s", project.GetId(), err.Error())
 	}

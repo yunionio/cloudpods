@@ -411,7 +411,7 @@ func (snapshot *SSnapshot) PostCreate(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		log.Errorf("unable to GetDisk: %s", err.Error())
 	}
-	err = disk.Inherit(ctx, &snapshot.SStandaloneAnonResourceBase)
+	err = disk.InheritTo(ctx, snapshot)
 	if err != nil {
 		log.Errorf("unable to inherit from disk %s to snapshot %s: %s", disk.GetId(), snapshot.GetId(), err.Error())
 	}

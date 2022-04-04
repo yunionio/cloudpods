@@ -4276,7 +4276,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 		// inherit wire's class metadata
 		if sw != nil {
-			err := db.Inherit(ctx, sw, self)
+			err := db.InheritFromTo(ctx, sw, self)
 			if err != nil {
 				return errors.Wrapf(err, "unable to inherit class metadata from sw %s", sw.GetName())
 			}
