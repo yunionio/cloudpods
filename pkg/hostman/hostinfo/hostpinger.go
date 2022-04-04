@@ -19,8 +19,10 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
@@ -84,7 +86,12 @@ func (p *SHostPingTask) ping(div int, hostId string) error {
 	res, err := modules.Hosts.PerformAction(hostutils.GetComputeSession(context.Background()),
 		hostId, "ping", nil)
 	if err != nil {
-		return err
+		if errors.Cause(err) == httperrors.ErrResourceNotFound {
+			log.Errorf("host seemd removed from region ...")
+			return nil
+		} else {
+			return errors.Wrap(err, "ping")
+		}
 	} else {
 		name, err := res.GetString("name")
 		if err != nil {

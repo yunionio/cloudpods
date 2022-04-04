@@ -141,7 +141,11 @@ func (opts *ResourceMetadataOptions) GetId() string {
 func (opts *ResourceMetadataOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	for _, tag := range opts.TAGS {
-		info := strings.Split(tag, "=")
+		sep := "="
+		if strings.Index(tag, sep) < 0 {
+			sep = ":"
+		}
+		info := strings.Split(tag, sep)
 		if len(info) == 2 {
 			if len(info[0]) == 0 {
 				return nil, fmt.Errorf("invalidate tag info %s", tag)

@@ -33,4 +33,5 @@ func init() {
 	cmd.PerformWithKeyword("merge", "merge-from", new(options.WireMergeOptions))
 	cmd.Perform("merge-network", new(options.WireOptions))
 	cmd.Get("topology", &options.WireOptions{})
+	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 }
