@@ -541,7 +541,7 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, calChecksum bool) erro
 	if err != nil {
 		if fileutils2.IsFile(localPath) {
 			if e := os.Remove(localPath); e != nil {
-				log.Errorf("remove failed file %s error: %v", err)
+				log.Errorf("remove failed file %s error: %v", localPath, err)
 			}
 		}
 	}
