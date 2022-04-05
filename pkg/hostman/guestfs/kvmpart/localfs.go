@@ -22,9 +22,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -226,7 +225,7 @@ func (f *SLocalGuestFS) CheckOrAddUser(user, homeDir string, isSys bool) (realHo
 	var exist bool
 	if exist, realHomeDir, err = f.checkUser(user); err != nil || exist {
 		if exist {
-			cmd := []string{"chroot", f.mountPath, "chage", "-E", "-1", "-M", "-1", "-I", "-1", user}
+			cmd := []string{"chage", "-R", f.mountPath, "-E", "-1", "-m", "0", "-M", "99999", "-I", "-1", user}
 			command := procutils.NewCommand(cmd[0], cmd[1:]...)
 			_, err = command.Output()
 			if err != nil {
