@@ -108,7 +108,7 @@ func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	storage, err := self.region.GetStorage(id)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetStorage", id)
+		return nil, errors.Wrapf(err, "GetStorage %s", id)
 	}
 	if storage.ClusterUUID != self.UUID {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
