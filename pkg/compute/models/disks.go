@@ -1027,12 +1027,14 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		GenerateName string
 		VirtualSize  int
 		DiskFormat   string
+		OsArch       string
 		Properties   map[string]string
 	}{
 		Name:         input.Name,
 		GenerateName: input.GenerateName,
 		VirtualSize:  self.DiskSize,
 		DiskFormat:   self.DiskFormat,
+		OsArch:       input.OsArch,
 		Properties: map[string]string{
 			"notes":   input.Notes,
 			"os_type": input.OsType,
