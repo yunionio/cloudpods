@@ -398,6 +398,11 @@ func init() {
 		CN("认证登录"),
 	)
 
+	t.Set(ACT_LOGOUT, i18n.NewTableEntry().
+		EN("Logout").
+		CN("退出登录"),
+	)
+
 	t.Set(ACT_HEALTH_CHECK, i18n.NewTableEntry().
 		EN("Health Check").
 		CN("健康检查"),
