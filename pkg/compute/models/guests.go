@@ -3527,7 +3527,11 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 	driver := self.GetDriver()
 	net, nicConfs, allocDir, reuseAddr, err := driver.GetNamedNetworkConfiguration(self, ctx, userCred, host, netConfig)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetNamedNetworkConfiguration on host %q", host.GetName())
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(httperrors.ErrResourceNotReady, "Network not avaiable on host %q", host.GetName())
+		} else {
+			return nil, errors.Wrapf(err, "GetNamedNetworkConfiguration on host %q", host.GetName())
+		}
 	}
 	if net != nil {
 		if len(nicConfs) == 0 {
