@@ -302,6 +302,14 @@ func (self *SDomain) GetIDnsRecordSets() ([]cloudprovider.ICloudDnsRecordSet, er
 }
 
 func (self *SDomain) SyncDnsRecordSets(common, add, del, update []cloudprovider.DnsRecordSet) error {
+	for i := 0; i < len(common); i++ {
+		if len(common[i].Desc) > 0 {
+			err := self.client.UpdateDomainRecordRemark(common[i].ExternalId, common[i].Desc)
+			if err != nil {
+				return errors.Wrapf(err, "UpdateDomainRecordRemark")
+			}
+		}
+	}
 	for i := 0; i < len(del); i++ {
 		err := self.client.DeleteDomainRecord(del[i].ExternalId)
 		if err != nil {
@@ -319,6 +327,12 @@ func (self *SDomain) SyncDnsRecordSets(common, add, del, update []cloudprovider.
 			err = self.client.SetDomainRecordStatus(recordId, "Disable")
 			if err != nil {
 				return errors.Wrapf(err, "self.client.SetDomainRecordStatus(%s,%t)", recordId, add[i].Enabled)
+			}
+		}
+		if len(add[i].Desc) > 0 {
+			err = self.client.UpdateDomainRecordRemark(recordId, add[i].Desc)
+			if err != nil {
+				return errors.Wrapf(err, "UpdateDomainRecordRemark")
 			}
 		}
 	}
@@ -341,6 +355,12 @@ func (self *SDomain) SyncDnsRecordSets(common, add, del, update []cloudprovider.
 			err = self.client.UpdateDomainRecord(update[i])
 			if err != nil {
 				return errors.Wrapf(err, "self.client.UpdateDomainRecord(%s)", jsonutils.Marshal(update[i]).String())
+			}
+		}
+		if len(update[i].Desc) > 0 {
+			err = self.client.UpdateDomainRecordRemark(update[i].ExternalId, update[i].Desc)
+			if err != nil {
+				return errors.Wrapf(err, "UpdateDomainRecordRemark")
 			}
 		}
 	}
