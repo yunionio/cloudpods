@@ -19,12 +19,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"yunion.io/x/pkg/util/timeutils"
-
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/pkg/util/timeutils"
 )
 
 // UpdateFields update a record with the values provided by fields stringmap
@@ -49,7 +48,7 @@ func (ts *STableSpec) updateFieldSql(dt interface{}, fields map[string]interface
 	fullFields := reflectutils.FetchStructFieldValueSet(dataValue)
 	versionFields := make([]string, 0)
 	updatedFields := make([]string, 0)
-	primaryCols := make(map[string]interface{}, 0)
+	primaryCols := make([]sPrimaryKeyValue, 0)
 	for _, col := range ts.Columns() {
 		name := col.Name()
 		colValue, ok := fullFields.GetInterface(name)
@@ -58,9 +57,15 @@ func (ts *STableSpec) updateFieldSql(dt interface{}, fields map[string]interface
 		}
 		if col.IsPrimary() {
 			if !gotypes.IsNil(colValue) && !col.IsZero(colValue) {
-				primaryCols[name] = colValue
+				primaryCols = append(primaryCols, sPrimaryKeyValue{
+					key:   name,
+					value: colValue,
+				})
 			} else if col.IsText() {
-				primaryCols[name] = ""
+				primaryCols = append(primaryCols, sPrimaryKeyValue{
+					key:   name,
+					value: "",
+				})
 			} else {
 				return nil, ErrEmptyPrimaryKey
 			}
@@ -103,15 +108,12 @@ func (ts *STableSpec) updateFieldSql(dt interface{}, fields map[string]interface
 		vars = append(vars, now)
 	}
 	buf.WriteString(" WHERE ")
-	first := true
-	for k, v := range primaryCols {
-		if first {
-			first = false
-		} else {
+	for i, pkv := range primaryCols {
+		if i > 0 {
 			buf.WriteString(" AND ")
 		}
-		buf.WriteString(fmt.Sprintf("`%s` = ?", k))
-		vars = append(vars, v)
+		buf.WriteString(fmt.Sprintf("`%s` = ?", pkv.key))
+		vars = append(vars, pkv.value)
 	}
 
 	if DEBUG_SQLCHEMY || debug {
