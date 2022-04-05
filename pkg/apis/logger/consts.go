@@ -19,3 +19,25 @@ import "yunion.io/x/onecloud/pkg/apis"
 const (
 	SERVICE_TYPE = apis.SERVICE_TYPE_LOG
 )
+
+type TEventSeverity string
+
+// 风险级别 0 紧急(Emergency) 1 警报(Alert) 2 关键(Critical) 3 错误(Error) 4 警告(Warning) 5 通知(Notice) 6 信息(informational) 7 调试(debug)
+const (
+	SeverityEmergency = TEventSeverity("EMERGENCY")
+	SeverityAlert     = TEventSeverity("ALERT")
+	SeverityCritical  = TEventSeverity("CRITICAL")
+	SeverityError     = TEventSeverity("ERROR")
+	SeverityWarning   = TEventSeverity("WARNING")
+	SeverityNotice    = TEventSeverity("NOTICE")
+	SeverityInfo      = TEventSeverity("INFO")
+	SeverityDebug     = TEventSeverity("DEBUG")
+)
+
+type TEventKind string
+
+const (
+	KindNormal   = TEventKind("NORMAL")
+	KindAbnormal = TEventKind("ABNORMAL")
+	KindIllegal  = TEventKind("ILLEGAL")
+)
