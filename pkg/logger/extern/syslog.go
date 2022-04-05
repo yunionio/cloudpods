@@ -54,14 +54,50 @@ func InitSyslog(url string) error {
 	return nil
 }
 
+func Emergency(msg string) {
+	if sysLog != nil {
+		sysLog.Emerg(msg)
+	}
+}
+
+func Alert(msg string) {
+	if sysLog != nil {
+		sysLog.Alert(msg)
+	}
+}
+
+func Critical(msg string) {
+	if sysLog != nil {
+		sysLog.Crit(msg)
+	}
+}
+
 func Error(msg string) {
 	if sysLog != nil {
 		sysLog.Err(msg)
 	}
 }
 
+func Warning(msg string) {
+	if sysLog != nil {
+		sysLog.Warning(msg)
+	}
+}
+
+func Notice(msg string) {
+	if sysLog != nil {
+		sysLog.Notice(msg)
+	}
+}
+
 func Info(msg string) {
 	if sysLog != nil {
 		sysLog.Info(msg)
+	}
+}
+
+func Debug(msg string) {
+	if sysLog != nil {
+		sysLog.Debug(msg)
 	}
 }
