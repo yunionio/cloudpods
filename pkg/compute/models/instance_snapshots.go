@@ -384,6 +384,10 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
 	instanceSnapshot.Name = name
 	instanceSnapshot.AutoDelete = autoDelete
+	if autoDelete {
+		// hide auto-delete instance snapshots
+		instanceSnapshot.IsSystem = true
+	}
 	manager.fillInstanceSnapshot(ctx, userCred, guest, instanceSnapshot)
 	// compute size of instanceSnapshot
 	instanceSnapshot.SizeMb = guest.getDiskSize()
