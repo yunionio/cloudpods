@@ -582,6 +582,21 @@ func (m *QmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callba
 	// m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) MigrateSetDowntime(dtSec float32, callback StringCallback) {
+	var (
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+	)
+	cmd := &Command{
+		Execute: "migrate-set-downtime",
+		Args: map[string]interface{}{
+			"value": dtSec,
+		},
+	}
+	m.Query(cmd, cb)
+}
+
 func (m *QmpMonitor) MigrateSetCapability(capability, state string, callback StringCallback) {
 	var (
 		cb = func(res *Response) {

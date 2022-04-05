@@ -768,7 +768,11 @@ func (s *SGuestLiveMigrateTask) doMigrate() {
 		copyIncremental = true
 	}
 	s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
-		copyIncremental, false, s.startMigrateStatusCheck)
+		copyIncremental, false, s.onSetMigrateDowntime)
+}
+
+func (s *SGuestLiveMigrateTask) onSetMigrateDowntime(res string) {
+	s.Monitor.MigrateSetDowntime(options.HostOptions.DefaultLiveMigrateDowntime, s.startMigrateStatusCheck)
 }
 
 func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
