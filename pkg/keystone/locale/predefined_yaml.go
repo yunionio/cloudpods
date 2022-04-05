@@ -48,13 +48,13 @@ policy:
       '*': allow
   identity:
     '*':
-	  '*': deny
-	  list: allow
-	  get: allow
+      '*': deny
+      list: allow
+      get: allow
   log:
     actions:
       list: deny
-	  get: deny
+      get: deny
 `
 
 var secAdminPolicy = `
@@ -110,7 +110,7 @@ policy:
   log:
     actions:
       list: deny
-	  get: deny
+      get: deny
   yunionconf:
     '*':
       '*': allow
@@ -127,10 +127,10 @@ policy:
       get: allow
       list: allow
   identity:
-	'*':
-	  '*': deny
-	  list: allow
-	  get: allow
+    '*':
+    '*': deny
+    list: allow
+    get: allow
 `
 
 var normalUserPolicy = `
