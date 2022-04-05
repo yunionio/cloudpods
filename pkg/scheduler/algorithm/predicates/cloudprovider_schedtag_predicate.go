@@ -15,6 +15,8 @@
 package predicates
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -41,11 +43,11 @@ func (p *CloudproviderSchedtagPredicate) Clone() core.FitPredicate {
 	return NewCloudproviderSchedtagPredicate()
 }
 
-func (p *CloudproviderSchedtagPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (p *CloudproviderSchedtagPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	if !u.GetHypervisorDriver().DoScheduleCloudproviderTagFilter() {
 		return false, nil
 	}
-	return p.ServerBaseSchedtagPredicate.PreExecute(u, cs)
+	return p.ServerBaseSchedtagPredicate.PreExecute(ctx, u, cs)
 }
 
 type cloudproviderSchedtagW struct {

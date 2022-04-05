@@ -15,6 +15,8 @@
 package predicates
 
 import (
+	"context"
+
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -33,7 +35,7 @@ func (p *DomainPredicate) Clone() core.FitPredicate {
 	return &DomainPredicate{}
 }
 
-func (p *DomainPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *DomainPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
 	getter := c.Getter()
 	if getter.DomainId() == u.SchedInfo.Domain {

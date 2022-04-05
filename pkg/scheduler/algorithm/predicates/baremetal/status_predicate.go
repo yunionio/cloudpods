@@ -15,6 +15,8 @@
 package baremetal
 
 import (
+	"context"
+
 	"yunion.io/x/pkg/util/sets"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -38,7 +40,7 @@ func (p *StatusPredicate) Clone() core.FitPredicate {
 	return &StatusPredicate{}
 }
 
-func (p *StatusPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *StatusPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 
 	getter := c.Getter()

@@ -15,6 +15,7 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -67,9 +68,9 @@ func NewTaskExecutor(scheduler Scheduler, taskExecuteCallback TaskExecuteCallbac
 	}
 }
 
-func (te *TaskExecutor) Execute() {
+func (te *TaskExecutor) Execute(ctx context.Context) {
 	te.Status = TaskExecutorStatusRunning
-	te.resultItems, te.resultError = te.execute()
+	te.resultItems, te.resultError = te.execute(ctx)
 	te.completed = true
 
 	if te.resultError != nil {
@@ -83,7 +84,7 @@ func (te *TaskExecutor) Execute() {
 	}
 }
 
-func (te *TaskExecutor) execute() (*core.ScheduleResult, error) {
+func (te *TaskExecutor) execute(ctx context.Context) (*core.ScheduleResult, error) {
 	scheduler := te.scheduler
 	genericScheduler, err := core.NewGenericScheduler(scheduler.(core.Scheduler))
 	if err != nil {
@@ -99,7 +100,7 @@ func (te *TaskExecutor) execute() (*core.ScheduleResult, error) {
 	te.unit = scheduler.Unit()
 	schedInfo := te.unit.SchedInfo
 	helper := GenerateResultHelper(schedInfo)
-	result, err := genericScheduler.Schedule(te.unit, candidates, helper)
+	result, err := genericScheduler.Schedule(ctx, te.unit, candidates, helper)
 	if err != nil {
 		return nil, errors.Wrap(err, "genericScheduler.Schedule")
 	}
@@ -190,13 +191,15 @@ func (teq *TaskExecutorQueue) Start(stopCh <-chan struct{}) {
 	teq.running = true
 	teq.queue = make(chan *TaskExecutor, 5000)
 
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	go func() {
 		defer close(teq.queue)
 
 		var taskExecutor *TaskExecutor
 		for taskExecutor = <-teq.queue; teq.running; taskExecutor = <-teq.queue {
 			if taskExecutor.Status == TaskExecutorStatusWaiting {
-				taskExecutor.Execute()
+				taskExecutor.Execute(ctx)
 			}
 		}
 	}()
@@ -205,6 +208,7 @@ func (teq *TaskExecutorQueue) Start(stopCh <-chan struct{}) {
 		<-stopCh
 		teq.running = false
 		teq.queue <- nil
+		ctxCancel()
 	}()
 }
 

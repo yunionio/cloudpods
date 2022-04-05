@@ -15,6 +15,7 @@
 package predicates
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -33,14 +34,14 @@ func (p *InstanceTypePredicate) Clone() core.FitPredicate {
 	return &InstanceTypePredicate{}
 }
 
-func (p *InstanceTypePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (p *InstanceTypePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	if u.SchedData().InstanceType == "" || !u.GetHypervisorDriver().DoScheduleSKUFilter() {
 		return false, nil
 	}
 	return true, nil
 }
 
-func (p *InstanceTypePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *InstanceTypePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
 
 	d := u.SchedData()

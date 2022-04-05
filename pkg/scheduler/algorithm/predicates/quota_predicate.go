@@ -36,7 +36,7 @@ func (p *SQuotaPredicate) Clone() core.FitPredicate {
 	return &SQuotaPredicate{}
 }
 
-func (p *SQuotaPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (p *SQuotaPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	if !options.GetOptions().EnableQuotaCheck {
 		return false, nil
 	}
@@ -87,7 +87,7 @@ func fetchGuestUsageFromSchedInfo(s *api.SchedInfo) (computemodels.SQuota, compu
 	return req, regionReq
 }
 
-func (p *SQuotaPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *SQuotaPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
 
 	d := u.SchedData()
@@ -112,7 +112,6 @@ func (p *SQuotaPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 	computeQuota.SetKeys(computeKeys)
 	regionQuota.SetKeys(computeKeys.SRegionalCloudResourceKeys)
 
-	ctx := context.Background()
 	minCnt := -1
 	computeCnt, _ := quotas.GetQuotaCount(ctx, &computeQuota, computePending.GetKeys())
 	if computeCnt >= 0 && (minCnt < 0 || minCnt > computeCnt) {
