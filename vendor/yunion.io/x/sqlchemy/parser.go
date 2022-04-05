@@ -48,6 +48,7 @@ func (table *STableSpec) structField2ColumnSpec(field *reflectutils.SStructField
 func (table *STableSpec) struct2TableSpec(sv reflect.Value) {
 	fields := reflectutils.FetchStructFieldValueSet(sv)
 	autoIncCnt := 0
+	tmpCols := make([]IColumnSpec, 0)
 	for i := 0; i < len(fields); i++ {
 		column := table.structField2ColumnSpec(&fields[i])
 		if column != nil {
@@ -60,7 +61,9 @@ func (table *STableSpec) struct2TableSpec(sv reflect.Value) {
 			if column.IsIndex() {
 				table.AddIndex(column.IsUnique(), column.Name())
 			}
-			table._columns = append(table._columns, column)
+			tmpCols = append(tmpCols, column)
 		}
 	}
+	// make column assignment atomic
+	table._columns = tmpCols
 }
