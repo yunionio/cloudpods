@@ -27,11 +27,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
@@ -52,6 +52,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
@@ -426,10 +427,10 @@ func (h *SHostInfo) prepareEnv() error {
 		}
 		szlist := hp.PageSizes()
 		if len(szlist) == 0 {
-			return errors.New("invalid hugepages total size")
+			return errors.Error("invalid hugepages total size")
 		}
 		if len(szlist) > 1 {
-			return errors.New("cannot support more than 1 type of hugepage size")
+			return errors.Error("cannot support more than 1 type of hugepage size")
 		}
 		h.sysinfo.HugepageSizeKb = szlist[0]
 	case "transparent":
@@ -591,7 +592,7 @@ func (h *SHostInfo) EnableNativeHugepages(reservedMb int) error {
 			return nil
 		}
 	} else {
-		return errors.New("cannot support more than 1 type of hugepage sizes")
+		return errors.Error("cannot support more than 1 type of hugepage sizes")
 	}
 	mem := h.GetMemory()
 	if reservedMb > 0 {
@@ -1794,6 +1795,10 @@ func (h *SHostInfo) unregister() {
 		_, err := modules.Hosts.PerformAction(
 			h.GetSession(), h.HostId, "offline", jsonutils.Marshal(map[string]string{"reason": "host stop"}))
 		if err != nil {
+			if errors.Cause(err) == httperrors.ErrResourceNotFound {
+				log.Errorf("host not found on region, may be removed, exit cleanly")
+				break
+			}
 			if !isLog {
 				logclient.AddSimpleActionLog(h, logclient.ACT_OFFLINE, err, hostutils.GetComputeSession(context.Background()).GetToken(), false)
 				isLog = true

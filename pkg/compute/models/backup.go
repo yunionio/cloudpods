@@ -280,7 +280,7 @@ func (db *SDiskBackup) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		log.Errorf("unable to GetDisk: %s", err.Error())
 	}
-	err = disk.Inherit(ctx, &db.SStandaloneAnonResourceBase)
+	err = disk.InheritTo(ctx, db)
 	if err != nil {
 		log.Errorf("unable to inherit from disk %s to backup %s: %s", disk.GetId(), db.GetId(), err.Error())
 	}

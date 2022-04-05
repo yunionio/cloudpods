@@ -1471,7 +1471,7 @@ func (model *SWire) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	if err != nil {
 		log.Errorf("unable to getvpc of wire %s: %s", model.GetId(), vpc.GetId())
 	}
-	err = db.Inherit(ctx, vpc, model)
+	err = db.InheritFromTo(ctx, vpc, model)
 	if err != nil {
 		log.Errorf("unable to inhert vpc to model %s: %s", model.GetId(), err.Error())
 	}
