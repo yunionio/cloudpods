@@ -290,3 +290,19 @@ func (manager *SHostwireManager) ListItemExportKeys(ctx context.Context,
 
 	return q, nil
 }
+
+func (hw *SHostwire) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	hw.SHostJointsBase.PostCreate(ctx, userCred, ownerId, query, data)
+	host := hw.GetHost()
+	wire := hw.GetWire()
+	err := db.InheritFromTo(ctx, wire, host)
+	if err != nil {
+		log.Errorf("Inherit class metadata from host to wire fail: %s", err)
+	}
+}

@@ -299,24 +299,45 @@ func (model *SStandaloneAnonResourceBase) SetClassMetadataAll(ctx context.Contex
 	return nil
 }
 
-func (model *SStandaloneAnonResourceBase) Inherit(ctx context.Context, sonModel *SStandaloneAnonResourceBase) error {
-	return Inherit(ctx, model, sonModel)
+func (model *SStandaloneAnonResourceBase) InheritTo(ctx context.Context, dest IClassMetadataSetter) error {
+	return InheritFromTo(ctx, model, dest)
 }
 
 type IClassMetadataSetter interface {
+	// a setter should first be a owner
+	IClassMetadataOwner
+
 	SetClassMetadataAll(context.Context, map[string]string, mcclient.TokenCredential) error
 }
 
-func Inherit(ctx context.Context, parent IClassMetadataOwner, son IClassMetadataSetter) error {
-	metadata, err := parent.GetAllClassMetadata()
+func InheritFromTo(ctx context.Context, src IClassMetadataOwner, dest IClassMetadataSetter) error {
+	metadata, err := src.GetAllClassMetadata()
 	if err != nil {
 		return errors.Wrap(err, "GetAllClassMetadata")
 	}
 	if len(metadata) == 0 {
 		return nil
 	}
+	curMeta, err := dest.GetAllClassMetadata()
+	if err != nil {
+		return errors.Wrap(err, "GetAllClassMetadata dest")
+	}
+	if len(curMeta) > 0 {
+		// check conflict
+		for k, v := range curMeta {
+			if sv, ok := metadata[k]; ok {
+				if sv != v {
+					// duplicate value for identical key
+					return errors.Wrapf(httperrors.ErrConflict, "destination has another value for class key %s", k)
+				}
+			} else {
+				// no such class key
+				return errors.Wrapf(httperrors.ErrConflict, "destination has extra class key %s", k)
+			}
+		}
+	}
 	userCred := auth.AdminCredential()
-	return son.SetClassMetadataAll(ctx, metadata, userCred)
+	return dest.SetClassMetadataAll(ctx, metadata, userCred)
 }
 
 type IClassMetadataOwner interface {

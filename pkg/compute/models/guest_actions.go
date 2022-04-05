@@ -4733,7 +4733,7 @@ func (self *SGuest) PerformInstanceSnapshot(
 			ctx, userCred, pendingUsage, pendingUsage, false)
 		return nil, httperrors.NewInternalServerError("create instance snapshot failed: %s", err)
 	}
-	err = self.Inherit(ctx, &instanceSnapshot.SStandaloneAnonResourceBase)
+	err = self.InheritTo(ctx, instanceSnapshot)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to inherit from guest %s to instance snapshot %s", self.GetId(), instanceSnapshot.GetId())
 	}
@@ -4776,7 +4776,7 @@ func (self *SGuest) PerformInstanceBackup(ctx context.Context, userCred mcclient
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("create instance backup failed: %s", err)
 	}
-	err = self.Inherit(ctx, &instanceBackup.SStandaloneAnonResourceBase)
+	err = self.InheritTo(ctx, instanceBackup)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to inherit from guest %s to instance backup %s", self.GetId(), instanceBackup.GetId())
 	}

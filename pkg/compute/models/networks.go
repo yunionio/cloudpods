@@ -2792,7 +2792,7 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to get wire")
 		}
-		err = db.Inherit(ctx, wire, newNetwork)
+		err = db.InheritFromTo(ctx, wire, newNetwork)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to inherit wire")
 		}
