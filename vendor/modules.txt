@@ -1265,7 +1265,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20220312043902-049823163880
+# yunion.io/x/sqlchemy v0.0.0-20220405074102-7b815a97eb67
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
 yunion.io/x/sqlchemy/backends/clickhouse

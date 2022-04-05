@@ -46,12 +46,6 @@ func (t *STableSpec) Decrement(diff interface{}, target interface{}) error {
 	return t.incrementInternal(diff, "-", target)
 }
 
-type incrementSqlResult struct {
-	sql       string
-	vars      []interface{}
-	primaries map[string]interface{}
-}
-
 func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, target interface{}) (*sUpdateSQLResult, error) {
 	dataValue := reflect.Indirect(reflect.ValueOf(diff))
 	fields := reflectutils.FetchStructFieldValueSet(dataValue)
@@ -63,7 +57,7 @@ func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, targe
 
 	now := timeutils.UtcNow()
 
-	primaries := make(map[string]interface{})
+	primaries := make([]sPrimaryKeyValue, 0)
 	vars := make([]interface{}, 0)
 	versionFields := make([]string, 0)
 	updatedFields := make([]string, 0)
@@ -77,9 +71,15 @@ func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, targe
 				v, _ = targetFields.GetInterface(k)
 			}
 			if !gotypes.IsNil(v) && !c.IsZero(v) {
-				primaries[k] = v
+				primaries = append(primaries, sPrimaryKeyValue{
+					key:   k,
+					value: v,
+				})
 			} else if c.IsText() {
-				primaries[k] = ""
+				primaries = append(primaries, sPrimaryKeyValue{
+					key:   k,
+					value: "",
+				})
 			} else {
 				return nil, ErrEmptyPrimaryKey
 			}
@@ -127,15 +127,12 @@ func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, targe
 	}
 
 	buf.WriteString(" WHERE ")
-	first = true
-	for k, v := range primaries {
-		if first {
-			first = false
-		} else {
+	for i, pkv := range primaries {
+		if i > 0 {
 			buf.WriteString(" AND ")
 		}
-		buf.WriteString(fmt.Sprintf("`%s` = ?", k))
-		vars = append(vars, v)
+		buf.WriteString(fmt.Sprintf("`%s` = ?", pkv.key))
+		vars = append(vars, pkv.value)
 	}
 
 	if DEBUG_SQLCHEMY {
