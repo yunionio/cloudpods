@@ -1652,7 +1652,7 @@ func (s *SKVMGuestInstance) SyncMetadata(meta *jsonutils.JSONDict) error {
 	_, err := modules.Servers.SetMetadata(hostutils.GetComputeSession(context.Background()),
 		s.Id, meta)
 	if err != nil {
-		log.Errorln("sync metadata error: %v", err)
+		log.Errorf("sync metadata error: %v", err)
 		return errors.Wrap(err, "set metadata")
 	}
 	return nil
