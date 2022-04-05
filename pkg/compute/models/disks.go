@@ -2504,7 +2504,7 @@ func (self *SDisk) CreateSnapshotAuto(
 	snapshotName string, snapshotPolicy *SSnapshotPolicy,
 ) error {
 	snap, err := SnapshotManager.CreateSnapshot(ctx, self.GetOwnerId(), api.SNAPSHOT_AUTO,
-		self.Id, "", "", snapshotName, snapshotPolicy.RetentionDays)
+		self.Id, "", "", snapshotName, snapshotPolicy.RetentionDays, false)
 	if err != nil {
 		return errors.Wrap(err, "disk create snapshot auto")
 	}

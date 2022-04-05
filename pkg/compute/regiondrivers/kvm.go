@@ -1121,7 +1121,7 @@ func (self *SKVMRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context,
 
 		return models.SnapshotManager.CreateSnapshot(
 			ctx, task.GetUserCred(), api.SNAPSHOT_MANUAL, disks[diskIndex].DiskId,
-			guest.Id, "", snapshotName, -1)
+			guest.Id, "", snapshotName, -1, false)
 	}()
 	if err != nil {
 		return err
