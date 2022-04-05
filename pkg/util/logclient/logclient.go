@@ -57,6 +57,32 @@ type IObject interface {
 	Keyword() string
 }
 
+type sSimpleObject struct {
+	id      string
+	name    string
+	keyword string
+}
+
+func (s sSimpleObject) GetId() string {
+	return s.id
+}
+
+func (s sSimpleObject) GetName() string {
+	return s.name
+}
+
+func (s sSimpleObject) Keyword() string {
+	return s.keyword
+}
+
+func NewSimpleObject(id, name, keyword string) IObject {
+	return sSimpleObject{
+		id:      id,
+		name:    name,
+		keyword: keyword,
+	}
+}
+
 type IVirtualObject interface {
 	IObject
 	GetOwnerId() mcclient.IIdentityProvider

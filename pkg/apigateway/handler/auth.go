@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -617,6 +618,12 @@ func (h *AuthHandlers) doLogin(ctx context.Context, w http.ResponseWriter, req *
 }
 
 func (h *AuthHandlers) postLogoutHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	token, _, _ := fetchAuthInfo(ctx, req)
+	if token != nil {
+		// valid login, log the event
+		user := logclient.NewSimpleObject(token.GetUserId(), token.GetUserName(), "user")
+		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_LOGOUT, "", token, true)
+	}
 	clearAuthCookie(w)
 	appsrv.DisableClientCache(w)
 	appsrv.Send(w, "")

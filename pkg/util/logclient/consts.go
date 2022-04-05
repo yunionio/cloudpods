@@ -117,6 +117,7 @@ const (
 	ACT_IMAGE_PROBE = "image_probe"
 
 	ACT_AUTHENTICATE = "authenticate"
+	ACT_LOGOUT       = "logout"
 
 	ACT_HEALTH_CHECK = "health_check"
 
