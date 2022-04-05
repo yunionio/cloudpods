@@ -469,6 +469,8 @@ func (self *SDnsZoneCache) GetRecordSets() ([]cloudprovider.DnsRecordSet, error)
 			Status:     records[i].Status,
 			Ttl:        ttlrange.GetSuppportedTTL(records[i].TTL),
 			MxPriority: records[i].MxPriority,
+
+			Desc: records[i].Description,
 		}
 
 		record.PolicyType, record.PolicyValue, record.PolicyOptions, err = records[i].GetDefaultDnsTrafficPolicy(account.Provider)
@@ -522,6 +524,7 @@ func (self *SDnsZoneCache) SyncRecordSets(ctx context.Context, userCred mcclient
 		record := _record.(*SDnsRecordSet)
 		update[i].MxPriority = record.MxPriority
 		update[i].Enabled = record.GetEnabled()
+		update[i].Desc = record.Description
 	}
 
 	log.Infof("sync %s records for %s(%s) common: %d add: %d del: %d update: %d", self.Name, account.Name, account.Provider, len(common), len(add), len(del), len(update))

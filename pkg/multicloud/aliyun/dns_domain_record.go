@@ -49,6 +49,7 @@ type SDomainRecord struct {
 	Line       string `json:"Line"`
 	TTL        int64  `json:"TTL"`
 	Priority   int64  `json:"Priority"`
+	Remark     string
 }
 
 type sDomainRecords struct {
@@ -175,6 +176,18 @@ func (client *SAliyunClient) UpdateDomainRecord(opts cloudprovider.DnsRecordSet)
 	_, err := client.alidnsRequest("UpdateDomainRecord", params)
 	if err != nil {
 		return errors.Wrap(err, "UpdateDomainRecord")
+	}
+	return nil
+}
+
+func (client *SAliyunClient) UpdateDomainRecordRemark(recordId string, remark string) error {
+	params := map[string]string{}
+	params["RecordId"] = recordId
+	params["Remark"] = remark
+
+	_, err := client.alidnsRequest("UpdateDomainRecordRemark", params)
+	if err != nil {
+		return errors.Wrap(err, "UpdateDomainRecordRemark")
 	}
 	return nil
 }

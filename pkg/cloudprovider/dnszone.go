@@ -541,6 +541,8 @@ type DnsRecordSet struct {
 	Id         string
 	ExternalId string
 
+	Desc string
+
 	Enabled       bool
 	DnsName       string
 	DnsType       TDnsType
