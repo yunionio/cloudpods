@@ -1203,7 +1203,7 @@ func (self *SCloudaccount) GetEnvironment() string {
 	return self.AccessUrl
 }
 
-func (self *SCloudaccount) getMoreDetails(out api.CloudaccountDetail) api.CloudaccountDetail {
+func (self *SCloudaccount) getMoreDetails(ctx context.Context, out api.CloudaccountDetail) api.CloudaccountDetail {
 	out.EipCount, _ = self.GetEipCount()
 	out.VpcCount, _ = self.GetVpcCount()
 	out.DiskCount, _ = self.GetDiskCount()
@@ -1216,7 +1216,7 @@ func (self *SCloudaccount) getMoreDetails(out api.CloudaccountDetail) api.Clouda
 
 	out.Projects = []api.ProviderProject{}
 	for _, projectId := range self.getProjectIds() {
-		if proj, _ := db.TenantCacheManager.FetchTenantById(context.Background(), projectId); proj != nil {
+		if proj, _ := db.TenantCacheManager.FetchTenantById(ctx, projectId); proj != nil {
 			project := api.ProviderProject{
 				Tenant:   proj.Name,
 				TenantId: proj.Id,
@@ -1283,7 +1283,7 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 			detail.ProxySetting.HTTPSProxy = proxySetting.HTTPSProxy
 			detail.ProxySetting.NoProxy = proxySetting.NoProxy
 		}
-		rows[i] = account.getMoreDetails(detail)
+		rows[i] = account.getMoreDetails(ctx, detail)
 	}
 
 	return rows
