@@ -54,9 +54,19 @@ type SActionlog struct {
 	db.SOpsLog
 	db.SRecordChecksumResourceBase
 
+	// 开始时间
 	StartTime time.Time `nullable:"true" list:"user" create:"optional"`
-	Success   bool      `list:"user" create:"required"`
-	Service   string    `width:"32" charset:"utf8" nullable:"true" list:"user" create:"optional"`
+	// 结果
+	Success bool `list:"user" create:"required"`
+	// 服务类别
+	Service string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"optional"`
+
+	// 用户IP
+	Ip string `width:"17" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 风险级别 0 紧急(Emergency) 1 警报(Alert) 2 关键(Critical) 3 错误(Error) 4 警告(Warning) 5 通知(Notice) 6 信息(informational) 7 调试(debug)
+	Severity api.TEventSeverity `width:"32" charset:"ascii" nullable:"false" default:"INFO" list:"user" create:"optional"`
+	// 行为类别，0 一般行为(normal) 1 异常行为(abnormal) 2 违规行为(illegal)
+	Kind api.TEventKind `width:"16" charset:"ascii" nullable:"false" default:"NORMAL" list:"user" create:"optional"`
 }
 
 var ActionLog *SActionlogManager
@@ -106,18 +116,48 @@ func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient
 	if action.StartTime.IsZero() {
 		action.StartTime = now
 	}
+	if len(action.Severity) == 0 {
+		if action.Success {
+			action.Severity = api.SeverityInfo
+		} else {
+			action.Severity = api.SeverityError
+		}
+	}
 	return action.SOpsLog.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SActionlog) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SOpsLog.PostCreate(ctx, userCred, ownerId, query, data)
 	msg := fmt.Sprintf("#%d ", self.Id)
-	msg += fmt.Sprintf("%s %s %s %s %s ", self.Service, self.ObjType, self.ObjName, self.ObjId, self.Action)
+	msg += fmt.Sprintf("%s %s %s %s %s %s", self.Service, self.ObjType, self.ObjName, self.ObjId, self.Action, self.Kind)
 	msg += fmt.Sprintf("%s %s %s %s %s %s", self.Domain, self.Project, self.User, self.OwnerDomainId, self.OwnerProjectId, self.Notes)
-	if self.Success {
-		extern.Info(msg)
+	if len(self.Severity) == 0 {
+		if self.Success {
+			extern.Info(msg)
+		} else {
+			extern.Error(msg)
+		}
 	} else {
-		extern.Error(msg)
+		switch self.Severity {
+		case api.SeverityEmergency:
+			extern.Emergency(msg)
+		case api.SeverityAlert:
+			extern.Alert(msg)
+		case api.SeverityCritical:
+			extern.Critical(msg)
+		case api.SeverityError:
+			extern.Error(msg)
+		case api.SeverityWarning:
+			extern.Warning(msg)
+		case api.SeverityNotice:
+			extern.Notice(msg)
+		case api.SeverityInfo:
+			extern.Info(msg)
+		case api.SeverityDebug:
+			extern.Debug(msg)
+		default:
+			extern.Info(msg)
+		}
 	}
 	for k, v := range map[string]string{
 		"service":  self.Service,
@@ -152,6 +192,31 @@ func (manager *SActionlogManager) ListItemFilter(
 	if input.Success != nil {
 		q = q.Equals("success", *input.Success)
 	}
+
+	if len(input.Ip) > 0 {
+		if len(input.Ip) == 1 {
+			q = q.Equals("ip", input.Ip[0])
+		} else {
+			q = q.In("ip", input.Ip)
+		}
+	}
+
+	if len(input.Severity) > 0 {
+		if len(input.Severity) == 1 {
+			q = q.Equals("severity", input.Severity[0])
+		} else {
+			q = q.In("severity", input.Severity)
+		}
+	}
+
+	if len(input.Kind) > 0 {
+		if len(input.Kind) == 1 {
+			q = q.Equals("kind", input.Kind[0])
+		} else {
+			q = q.In("kind", input.Kind)
+		}
+	}
+
 	return q, nil
 }
 

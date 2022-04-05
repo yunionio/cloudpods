@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/logger"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -98,15 +99,27 @@ type IStartable interface {
 
 // save log to db.
 func AddSimpleActionLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, time.Time{}, &logger.Actions)
+	addLog(model, action, iNotes, userCred, success, time.Time{}, &logger.Actions, "", "")
+}
+
+func AddSimpleActionLog2(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, severity api.TEventSeverity, kind api.TEventKind) {
+	addLog(model, action, iNotes, userCred, success, time.Time{}, &logger.Actions, severity, kind)
 }
 
 func AddActionLogWithContext(ctx context.Context, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, appctx.AppContextStartTime(ctx), &logger.Actions)
+	addLog(model, action, iNotes, userCred, success, appctx.AppContextStartTime(ctx), &logger.Actions, "", "")
+}
+
+func AddActionLogWithContext2(ctx context.Context, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, severity api.TEventSeverity, kind api.TEventKind) {
+	addLog(model, action, iNotes, userCred, success, appctx.AppContextStartTime(ctx), &logger.Actions, severity, kind)
 }
 
 func AddActionLogWithStartable(task IStartable, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, task.GetStartTime(), &logger.Actions)
+	addLog(model, action, iNotes, userCred, success, task.GetStartTime(), &logger.Actions, "", "")
+}
+
+func AddActionLogWithStartable2(task IStartable, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, severity api.TEventSeverity, kind api.TEventKind) {
+	addLog(model, action, iNotes, userCred, success, task.GetStartTime(), &logger.Actions, severity, kind)
 }
 
 // add websocket log to notify active browser users
@@ -114,7 +127,7 @@ func AddActionLogWithStartable(task IStartable, model IObject, action string, iN
 // 	addLog(model, action, iNotes, userCred, success, time.Time{}, &websocket.Websockets)
 // }
 
-func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, startTime time.Time, api IModule) {
+func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, startTime time.Time, module IModule, severity api.TEventSeverity, kind api.TEventKind) {
 	if !consts.OpsLogEnabled() {
 		return
 	}
@@ -157,6 +170,7 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	logentry.Add(jsonutils.NewString(userCred.GetProjectDomainId()), "project_domain_id")
 	logentry.Add(jsonutils.NewString(userCred.GetProjectDomain()), "project_domain")
 	logentry.Add(jsonutils.NewString(strings.Join(userCred.GetRoles(), ",")), "roles")
+	logentry.Add(jsonutils.NewString(userCred.GetLoginIp()), "ip")
 
 	service := consts.GetServiceType()
 	if len(service) > 0 {
@@ -184,16 +198,29 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	if !success {
 		// 失败日志
 		logentry.Add(jsonutils.JSONFalse, "success")
+		if len(severity) == 0 {
+			logentry.Add(jsonutils.NewString(string(api.SeverityError)), "severity")
+		}
 	} else {
 		// 成功日志
 		logentry.Add(jsonutils.JSONTrue, "success")
+		if len(severity) == 0 {
+			logentry.Add(jsonutils.NewString(string(api.SeverityInfo)), "severity")
+		}
+	}
+
+	if len(severity) > 0 {
+		logentry.Add(jsonutils.NewString(string(severity)), "severity")
+	}
+	if len(kind) > 0 {
+		logentry.Add(jsonutils.NewString(string(kind)), "kind")
 	}
 
 	logentry.Add(jsonutils.NewString(notes), "notes")
 
 	task := &logTask{
 		userCred: userCred,
-		api:      api,
+		api:      module,
 		logentry: logentry,
 	}
 	// keystone no need to auth
