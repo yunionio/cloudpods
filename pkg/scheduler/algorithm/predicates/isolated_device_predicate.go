@@ -15,6 +15,7 @@
 package predicates
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -34,7 +35,7 @@ func (f *IsolatedDevicePredicate) Clone() core.FitPredicate {
 	return &IsolatedDevicePredicate{}
 }
 
-func (f *IsolatedDevicePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (f *IsolatedDevicePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	data := u.SchedData()
 	if len(data.IsolatedDevices) == 0 {
 		return false, nil
@@ -42,7 +43,7 @@ func (f *IsolatedDevicePredicate) PreExecute(u *core.Unit, cs []core.Candidater)
 	return true, nil
 }
 
-func (f *IsolatedDevicePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (f *IsolatedDevicePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(f, u, c)
 	reqIsoDevs := u.SchedData().IsolatedDevices
 	getter := c.Getter()

@@ -15,6 +15,7 @@
 package baremetal
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
@@ -33,7 +34,7 @@ func (p *NetBondingPredicate) Clone() core.FitPredicate {
 	return &NetBondingPredicate{}
 }
 
-func (p *NetBondingPredicate) PreExecute(u *core.Unit, _ []core.Candidater) (bool, error) {
+func (p *NetBondingPredicate) PreExecute(ctx context.Context, u *core.Unit, _ []core.Candidater) (bool, error) {
 	netConfs := u.SchedData().Networks
 	requireTeaming := false
 	for _, conf := range netConfs {
@@ -48,7 +49,7 @@ func (p *NetBondingPredicate) PreExecute(u *core.Unit, _ []core.Candidater) (boo
 	return false, nil
 }
 
-func (p *NetBondingPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *NetBondingPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 	wireNetIfs := c.Getter().NetInterfaces()
 	netConfs := u.SchedData().Networks

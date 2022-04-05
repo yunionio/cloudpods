@@ -15,6 +15,7 @@
 package predicates
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -43,8 +44,8 @@ func (p *DiskSchedtagPredicate) Clone() core.FitPredicate {
 	}
 }
 
-func (p *DiskSchedtagPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
-	return p.BaseSchedtagPredicate.PreExecute(p, u, cs)
+func (p *DiskSchedtagPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
+	return p.BaseSchedtagPredicate.PreExecute(ctx, p, u, cs)
 }
 
 type diskW struct {
@@ -87,11 +88,11 @@ func (p *DiskSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCandi
 	return ret
 }
 
-func (p *DiskSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer, res ISchedtagCandidateResource) bool {
+func (p *DiskSchedtagPredicate) IsResourceMatchInput(ctx context.Context, input ISchedtagCustomer, res ISchedtagCandidateResource) bool {
 	return true
 }
 
-func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
+func (p *DiskSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
 	storage := res.(*api.CandidateStorage)
 	if storage.Status != computeapi.STORAGE_ONLINE || storage.Enabled.IsFalse() {
 		return &FailReason{
@@ -150,8 +151,8 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidat
 	return nil
 }
 
-func (p *DiskSchedtagPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
-	return p.BaseSchedtagPredicate.Execute(p, u, c)
+func (p *DiskSchedtagPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+	return p.BaseSchedtagPredicate.Execute(ctx, p, u, c)
 }
 
 func (p *DiskSchedtagPredicate) OnPriorityEnd(u *core.Unit, c core.Candidater) {

@@ -27,6 +27,7 @@
 package predicates
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -53,7 +54,7 @@ func (b *BasePredicate) Name() string {
 	return "base_predicate_should_not_be_called"
 }
 
-func (b *BasePredicate) PreExecute(unit *core.Unit, candis []core.Candidater) (bool, error) {
+func (b *BasePredicate) PreExecute(ctx context.Context, unit *core.Unit, candis []core.Candidater) (bool, error) {
 	return true, nil
 }
 
@@ -258,8 +259,8 @@ type ISchedtagPredicateInstance interface {
 
 	GetInputs(u *core.Unit) []ISchedtagCustomer
 	GetResources(c core.Candidater) []ISchedtagCandidateResource
-	IsResourceMatchInput(input ISchedtagCustomer, res ISchedtagCandidateResource) bool
-	IsResourceFitInput(unit *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason
+	IsResourceMatchInput(ctx context.Context, input ISchedtagCustomer, res ISchedtagCandidateResource) bool
+	IsResourceFitInput(ctx context.Context, unit *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason
 
 	DoSelect(c core.Candidater, input ISchedtagCustomer, res []ISchedtagCandidateResource) []ISchedtagCandidateResource
 	AddSelectResult(index int, input ISchedtagCustomer, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource)
@@ -392,7 +393,7 @@ func (p *BaseSchedtagPredicate) GetInputResourcesMap(candidateId string) Schedta
 	return ret.(map[int][]*PredicatedSchedtagResource)
 }
 
-func (p *BaseSchedtagPredicate) PreExecute(sp ISchedtagPredicateInstance, u *core.Unit, cs []core.Candidater) (bool, error) {
+func (p *BaseSchedtagPredicate) PreExecute(ctx context.Context, sp ISchedtagPredicateInstance, u *core.Unit, cs []core.Candidater) (bool, error) {
 	input := sp.GetInputs(u)
 	if len(input) == 0 {
 		return false, nil
@@ -406,6 +407,7 @@ func (p *BaseSchedtagPredicate) PreExecute(sp ISchedtagPredicateInstance, u *cor
 }
 
 func (p *BaseSchedtagPredicate) Execute(
+	ctx context.Context,
 	sp ISchedtagPredicateInstance,
 	u *core.Unit,
 	c core.Candidater,
@@ -422,7 +424,7 @@ func (p *BaseSchedtagPredicate) Execute(
 		errs := make([]core.PredicateFailureReason, 0)
 		matchedRes := make([]ISchedtagCandidateResource, 0)
 		for _, r := range resources {
-			if sp.IsResourceMatchInput(input, r) {
+			if sp.IsResourceMatchInput(ctx, input, r) {
 				matchedRes = append(matchedRes, r)
 			}
 		}
@@ -433,7 +435,7 @@ func (p *BaseSchedtagPredicate) Execute(
 			})
 		}
 		for _, res := range matchedRes {
-			if err := sp.IsResourceFitInput(u, c, res, input); err == nil {
+			if err := sp.IsResourceFitInput(ctx, u, c, res, input); err == nil {
 				fitResources = append(fitResources, res)
 			} else {
 				errs = append(errs, err)
@@ -598,12 +600,12 @@ func NewServerBaseSchedtagPredicate(filter iServerBaseSchedtagPredicate) *Server
 	}
 }
 
-func (p *ServerBaseSchedtagPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
-	return p.BaseSchedtagPredicate.PreExecute(p.filter, u, cs)
+func (p *ServerBaseSchedtagPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
+	return p.BaseSchedtagPredicate.PreExecute(ctx, p.filter, u, cs)
 }
 
-func (p *ServerBaseSchedtagPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
-	return p.BaseSchedtagPredicate.Execute(p.filter, u, c)
+func (p *ServerBaseSchedtagPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+	return p.BaseSchedtagPredicate.Execute(ctx, p.filter, u, c)
 }
 
 func (p *ServerBaseSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCandidateResource {
@@ -616,11 +618,11 @@ func (p *ServerBaseSchedtagPredicate) GetResources(c core.Candidater) []ISchedta
 	}
 }
 
-func (p *ServerBaseSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer, res ISchedtagCandidateResource) bool {
+func (p *ServerBaseSchedtagPredicate) IsResourceMatchInput(ctx context.Context, input ISchedtagCustomer, res ISchedtagCandidateResource) bool {
 	return true
 }
 
-func (p *ServerBaseSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
+func (p *ServerBaseSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
 	return nil
 }
 

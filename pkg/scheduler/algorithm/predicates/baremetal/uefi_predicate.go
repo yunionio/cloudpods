@@ -15,6 +15,7 @@
 package baremetal
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -38,7 +39,7 @@ func (f *UEFIImagePredicate) Clone() core.FitPredicate {
 	return new(UEFIImagePredicate)
 }
 
-func (f *UEFIImagePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (f *UEFIImagePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	disks := u.SchedData().Disks
 	if len(disks) == 0 {
 		return false, nil
@@ -60,7 +61,7 @@ func (f *UEFIImagePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (boo
 	return true, nil
 }
 
-func (f *UEFIImagePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (f *UEFIImagePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(f, u, c)
 	imgName := f.cacheImage.GetName()
 	hostName := c.Getter().Name()
