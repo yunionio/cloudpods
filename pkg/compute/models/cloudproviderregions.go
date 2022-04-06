@@ -407,7 +407,7 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 		}
 	}()
 
-	driver, err := provider.GetProvider()
+	driver, err := provider.GetProvider(ctx)
 	if err != nil {
 		log.Errorf("Failed to get driver, connection problem?")
 		return err

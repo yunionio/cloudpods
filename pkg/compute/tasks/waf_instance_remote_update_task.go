@@ -45,7 +45,7 @@ func (self *WafInstanceRemoteUpdateTask) OnInit(ctx context.Context, obj db.ISta
 	waf := obj.(*models.SWafInstance)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 
-	iWaf, err := waf.GetICloudWafInstance()
+	iWaf, err := waf.GetICloudWafInstance(ctx)
 	if err != nil {
 		self.taskFail(ctx, waf, errors.Wrapf(err, "GetICloudWafInstance"))
 		return

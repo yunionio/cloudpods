@@ -394,23 +394,23 @@ func (self *SWafInstance) syncRemove(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
-func (self *SWafInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SWafInstance) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRegion")
 	}
-	provider, err := self.GetDriver()
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetDriver")
 	}
 	return provider.GetIRegionById(region.ExternalId)
 }
 
-func (self *SWafInstance) GetICloudWafInstance() (cloudprovider.ICloudWafInstance, error) {
+func (self *SWafInstance) GetICloudWafInstance(ctx context.Context) (cloudprovider.ICloudWafInstance, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
 	}
-	iRegion, err := self.GetIRegion()
+	iRegion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIRegion")
 	}
@@ -471,7 +471,7 @@ func (self *SCloudregion) newFromCloudWafInstance(ctx context.Context, userCred 
 // 获取WAF绑定的资源列表
 func (self *SWafInstance) GetDetailsCloudResources(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (cloudprovider.SCloudResources, error) {
 	ret := cloudprovider.SCloudResources{}
-	iWaf, err := self.GetICloudWafInstance()
+	iWaf, err := self.GetICloudWafInstance(ctx)
 	if err != nil {
 		return ret, httperrors.NewGeneralError(errors.Wrapf(err, "GetICloudWafInstance"))
 	}

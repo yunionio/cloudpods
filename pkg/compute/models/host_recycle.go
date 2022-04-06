@@ -549,22 +549,19 @@ func (self *SHost) BorrowIpAddrsFromGuest(ctx context.Context, userCred mcclient
 }
 
 func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
-	ihost, err := host.GetIHost()
+	ihost, err := host.GetIHost(ctx)
 	if err != nil {
-		log.Errorf("host.GetIHost fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetIHost")
 	}
 
 	ivm, err := ihost.GetIVMById(host.RealExternalId)
 	if err != nil {
-		log.Errorf("ihost.GetIVMById(host.RealExternalId) fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetIVMById(%s)", host.RealExternalId)
 	}
 
 	idisks, err := ivm.GetIDisks()
 	if err != nil {
-		log.Errorf("ivm.GetIDisks fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "ivm.GetIDisks")
 	}
 
 	netifs := host.GetNetInterfaces()
@@ -649,13 +646,13 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	extVM, err := guest.GetIVM()
+	extVM, err := guest.GetIVM(ctx)
 	if err != nil {
 		log.Errorf("guest.GetIVM fail %s", err)
 		return err
 	}
 
-	iprovider, err := oHost.GetDriver()
+	iprovider, err := oHost.GetDriver(ctx)
 	if err != nil {
 		log.Errorf("oHost.GetDriver fail %s", err)
 		return err

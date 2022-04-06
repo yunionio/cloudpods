@@ -50,7 +50,7 @@ func (self *WafRegexSetDeleteTask) OnInit(ctx context.Context, obj db.IStandalon
 		return
 	}
 	for i := range caches {
-		iCache, err := caches[i].GetICloudWafRegexSet()
+		iCache, err := caches[i].GetICloudWafRegexSet(ctx)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				caches[i].RealDelete(ctx, self.GetUserCred())

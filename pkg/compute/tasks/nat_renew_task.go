@@ -56,7 +56,7 @@ func (self *NatGatewayRenewTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 
-	iNat, err := nat.GetINatGateway()
+	iNat, err := nat.GetINatGateway(ctx)
 	if err != nil {
 		self.taskFailed(ctx, nat, errors.Wrapf(err, "GetINatGateway"))
 		return

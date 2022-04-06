@@ -70,12 +70,12 @@ func (self *SVpcResourceBase) GetRegionId() string {
 	return region.Id
 }
 
-func (self *SVpcResourceBase) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SVpcResourceBase) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	vpc, err := self.GetVpc()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetVpc")
 	}
-	return vpc.GetIRegion()
+	return vpc.GetIRegion(ctx)
 }
 
 func (self *SVpcResourceBase) GetCloudprovider() *SCloudprovider {

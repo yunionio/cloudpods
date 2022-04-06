@@ -228,12 +228,12 @@ func (self *SManagedVirtualizationRegionDriver) GetBackendStatusForAdd() []strin
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lb.GetIRegion()
+		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		params, err := lb.GetCreateLoadbalancerParams(iRegion)
+		params, err := lb.GetCreateLoadbalancerParams(ctx, iRegion)
 		if err != nil {
 			return nil, err
 		}
@@ -282,7 +282,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx co
 
 func (self *SManagedVirtualizationRegionDriver) RequestStartLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lb.GetIRegion()
+		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -297,7 +297,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestStartLoadbalancer(ctx con
 
 func (self *SManagedVirtualizationRegionDriver) RequestStopLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lb.GetIRegion()
+		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -312,7 +312,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestStopLoadbalancer(ctx cont
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iLb, err := lb.GetILoadbalancer()
+		iLb, err := lb.GetILoadbalancer(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetILoadbalancer")
 		}
@@ -328,7 +328,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancer(ct
 
 func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, replaceTags bool, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iLb, err := lb.GetILoadbalancer()
+		iLb, err := lb.GetILoadbalancer(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetILoadbalancer")
 		}
@@ -368,7 +368,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancer(ctx co
 			return nil, nil
 		}
 
-		iRegion, err := lb.GetIRegion()
+		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -385,7 +385,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancer(ctx co
 }
 
 func (self *SManagedVirtualizationRegionDriver) createLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl) (jsonutils.JSONObject, error) {
-	iRegion, err := lbacl.GetIRegion()
+	iRegion, err := lbacl.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -426,7 +426,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerAcl(ctx
 }
 
 func (self *SManagedVirtualizationRegionDriver) syncLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl) (jsonutils.JSONObject, error) {
-	iRegion, err := lbacl.GetIRegion()
+	iRegion, err := lbacl.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +469,7 @@ func (self *SManagedVirtualizationRegionDriver) deleteLoadbalancerAcl(ctx contex
 	if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 		return nil, nil
 	}
-	iRegion, err := lbacl.GetIRegion()
+	iRegion, err := lbacl.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -496,7 +496,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerAcl(ctx
 }
 
 func (self *SManagedVirtualizationRegionDriver) createLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SCachedLoadbalancerCertificate) (jsonutils.JSONObject, error) {
-	iRegion, err := lbcert.GetIRegion()
+	iRegion, err := lbcert.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "lbcert.GetIRegion")
 	}
@@ -547,7 +547,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerCertifi
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		iRegion, err := lbcert.GetIRegion()
+		iRegion, err := lbcert.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -565,7 +565,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerCertifi
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lbbg.GetIRegion()
+		iRegion, err := lbbg.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -610,7 +610,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		iRegion, err := lbbg.GetIRegion()
+		iRegion, err := lbbg.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -672,7 +672,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := lb.GetIRegion()
+		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -713,7 +713,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := lb.GetIRegion()
+		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -730,7 +730,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 			log.Warningf("failed to find guest for lbb %s", lbb.Name)
 			return nil, nil
 		}
-		_, err = guest.GetIVM()
+		_, err = guest.GetIVM(ctx)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
@@ -752,7 +752,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := lb.GetIRegion()
+		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetIRegion")
 		}
@@ -865,7 +865,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "loadbalancer.GetIRegion")
 		}
@@ -894,7 +894,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "RegionDriver.RequestDeleteLoadbalancerListener.GetIRegion")
 		}
@@ -930,7 +930,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestStartLoadbalancerListener
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1036,7 +1036,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 		if loadbalancer == nil {
 			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetIRegion")
 		}
@@ -1065,7 +1065,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestStopLoadbalancerListener(
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1088,7 +1088,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancerLis
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1119,7 +1119,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1169,7 +1169,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1211,7 +1211,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateEipData(ctx contex
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iregion, err := vpc.GetIRegion()
+		iregion, err := vpc.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.GetIRegion")
 		}
@@ -1261,7 +1261,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateVpc(ctx context.Con
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		ivpc, err := vpc.GetIVpc()
+		ivpc, err := vpc.GetIVpc(ctx)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				// already deleted, do nothing
@@ -1317,7 +1317,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestApplySnapshotPolicy(ctx c
 			return nil, errors.Wrap(err, "registersnapshotpolicy cache failed")
 		}
 
-		iRegion, err := disk.GetIRegion()
+		iRegion, err := disk.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1348,7 +1348,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx 
 			return nil, errors.Wrap(err, "registersnapshotpolicy cache failed")
 		}
 
-		iRegion, err := spcache.GetIRegion()
+		iRegion, err := spcache.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1372,7 +1372,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateSnapshotDelete(ctx conte
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudRegion, err := snapshot.GetISnapshotRegion()
+		cloudRegion, err := snapshot.GetISnapshotRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1403,7 +1403,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateSnapshot(ctx contex
 	if err != nil {
 		return err
 	}
-	iDisk, err := disk.GetIDisk()
+	iDisk, err := disk.GetIDisk(ctx)
 	if err != nil {
 		return err
 	}
@@ -1462,7 +1462,7 @@ func (self *SManagedVirtualizationRegionDriver) OnDiskReset(ctx context.Context,
 			return err
 		}
 	}
-	iDisk, err := disk.GetIDisk()
+	iDisk, err := disk.GetIDisk(ctx)
 	if err != nil {
 		return err
 	}
@@ -1553,7 +1553,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 		return "", errors.Wrap(err, "SSecurityGroupCache.Register")
 	}
 
-	return cache.ExternalId, cache.SyncRules()
+	return cache.ExternalId, cache.SyncRules(ctx)
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, classic bool, removeProjectId string, task taskman.ITask) error {
@@ -1570,7 +1570,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCacheSecurityGroup(ctx co
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *models.SDBInstance, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iregion, err := dbinstance.GetIRegion()
+		iregion, err := dbinstance.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetIRegionAndProvider")
 		}
@@ -1727,7 +1727,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 			return nil, errors.Wrapf(err, "DBInstanceBackupManager.FetchById(%s)", rds.DBInstancebackupId)
 		}
 		backup := _backup.(*models.SDBInstanceBackup)
-		iBackup, err := backup.GetIDBInstanceBackup()
+		iBackup, err := backup.GetIDBInstanceBackup(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "backup.GetIDBInstanceBackup")
 		}
@@ -1882,7 +1882,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheData(c
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestRestartElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestRestartElasticcache.GetIRegion")
 	}
@@ -1906,7 +1906,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestRestartElasticcache(ctx c
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetIRegion")
 	}
@@ -1978,7 +1978,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx cont
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcache.GetIRegion")
 	}
@@ -2009,7 +2009,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSetElasticcacheMaintainTi
 		return errors.Wrap(fmt.Errorf("missing parameter maintain_end_time"), "managedVirtualizationRegionDriver.RequestSetElasticcacheMaintainTime")
 	}
 
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSetElasticcacheMaintainTime.GetIRegion")
 	}
@@ -2038,7 +2038,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheChangeSpec(ct
 		return errors.Wrap(fmt.Errorf("provider is nil"), "managedVirtualizationRegionDriver.RequestElasticcacheChangeSpec.GetCloudprovider")
 	}
 
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheChangeSpec.GetIRegion")
 	}
@@ -2072,7 +2072,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestUpdateElasticcacheAuthMod
 		return errors.Wrap(fmt.Errorf("missing parameter auth_mode"), "managedVirtualizationRegionDriver.RequestUpdateElasticcacheAuthMode")
 	}
 
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestUpdateElasticcacheAuthMode.GetIRegion")
 	}
@@ -2119,7 +2119,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheSetMaintainTi
 		return errors.Wrap(fmt.Errorf("missing parameter maintain_end_time"), "managedVirtualizationRegionDriver.RequestElasticcacheSetMaintainTime")
 	}
 
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheSetMaintainTime.GetIRegion")
 	}
@@ -2141,7 +2141,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheSetMaintainTi
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAllocatePublicConnection(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		port, _ := task.GetParams().Int("port")
-		iregion, err := ec.GetIRegion()
+		iregion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "GerIRegion")
 		}
@@ -2172,7 +2172,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAllocatePubli
 
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheReleasePublicConnection(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iregion, err := ec.GetIRegion()
+		iregion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetIRegion")
 		}
@@ -2202,7 +2202,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheReleasePublic
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheFlushInstance(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheFlushInstance.GetIRegion")
 	}
@@ -2238,7 +2238,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheUpdateInstanc
 		return errors.Wrap(fmt.Errorf("missing parameter parameters"), "managedVirtualizationRegionDriver.RequestElasticcacheUpdateInstanceParameters")
 	}
 
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheUpdateInstanceParameters.GetIRegion")
 	}
@@ -2270,7 +2270,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheUpdateBackupP
 		PreferredBackupTime:   preferredBackupTime,
 	}
 
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheUpdateBackupPolicy.GetIRegion")
 	}
@@ -2397,7 +2397,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcacheAcl(ctx
 		}
 
 		ec := _ec.(*models.SElasticcache)
-		iregion, err := ec.GetIRegion()
+		iregion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.GetIRegion")
 		}
@@ -2440,7 +2440,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestChangeDBInstanceConfig(ct
 			conf.InstanceType = input.InstanceType
 		}
 
-		iRds, err := rds.GetIDBInstance()
+		iRds, err := rds.GetIDBInstance(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "rds.GetIDBInstance")
 		}
@@ -2480,7 +2480,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestChangeDBInstanceConfig(ct
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRds, err := instance.GetIDBInstance()
+		iRds, err := instance.GetIDBInstance(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "instance.GetIDBInstance")
 		}
@@ -2504,7 +2504,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceBackup(ct
 		}
 
 		err = cloudprovider.Wait(time.Second*5, time.Minute*15, func() (bool, error) {
-			iBackup, err := backup.GetIDBInstanceBackup()
+			iBackup, err := backup.GetIDBInstanceBackup(ctx)
 			if err != nil {
 				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					log.Warningf("GetIDBInstanceBackup: %v", err)
@@ -2536,7 +2536,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateResetDBInstancePassword(
 
 func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, replaceTags bool, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRds, err := instance.GetIDBInstance()
+		iRds, err := instance.GetIDBInstance(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "instance.GetIDBInstance")
 		}
@@ -2574,7 +2574,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcacheBackup(
 		}
 
 		ec := _ec.(*models.SElasticcache)
-		iregion, err := ec.GetIRegion()
+		iregion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.GetIRegion")
 		}
@@ -2610,7 +2610,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcacheBackup(
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
-	iregion, err := ea.GetIRegion()
+	iregion, err := ea.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAccount.GetIRegion")
 	}
@@ -2649,7 +2649,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcacheAccount
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcacheAcl(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAcl, task taskman.ITask) error {
-	iregion, err := ea.GetIRegion()
+	iregion, err := ea.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAcl.GetIRegion")
 	}
@@ -2686,7 +2686,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcacheAcl(ctx
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, eb *models.SElasticcacheBackup, task taskman.ITask) error {
-	iregion, err := eb.GetIRegion()
+	iregion, err := eb.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheBackup.GetIRegion")
 	}
@@ -2718,7 +2718,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcacheBackup(
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAccountResetPassword(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
-	iregion, err := ea.GetIRegion()
+	iregion, err := ea.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAccountResetPassword.GetIRegion")
 	}
@@ -2766,7 +2766,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAclUpdate(ctx
 		}
 
 		ec := _ec.(*models.SElasticcache)
-		iregion, err := ec.GetIRegion()
+		iregion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.GetIRegion")
 		}
@@ -2798,7 +2798,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAclUpdate(ctx
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheBackupRestoreInstance(ctx context.Context, userCred mcclient.TokenCredential, eb *models.SElasticcacheBackup, task taskman.ITask) error {
-	iregion, err := eb.GetIRegion()
+	iregion, err := eb.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.GetIRegion")
 	}
@@ -2856,7 +2856,7 @@ func (self *SManagedVirtualizationRegionDriver) AllowUpdateElasticcacheAuthMode(
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iDisk, err := disk.GetIDisk()
+		iDisk, err := disk.GetIDisk(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "disk.GetIDisk")
 		}
@@ -2872,7 +2872,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncDiskBackupStatus(ctx 
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, userCred mcclient.TokenCredential, snapshot *models.SSnapshot, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := snapshot.GetISnapshotRegion()
+		iRegion, err := snapshot.GetISnapshotRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "snapshot.GetISnapshotRegion")
 		}
@@ -2890,7 +2890,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSnapshotStatus(ctx co
 func (self *SManagedVirtualizationRegionDriver) RequestSyncNatGatewayStatus(ctx context.Context, userCred mcclient.TokenCredential, nat *models.SNatGateway, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
-		iNat, err := nat.GetINatGateway()
+		iNat, err := nat.GetINatGateway(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "nat.GetINatGateway")
 		}
@@ -2902,7 +2902,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncNatGatewayStatus(ctx 
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncBucketStatus(ctx context.Context, userCred mcclient.TokenCredential, bucket *models.SBucket, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iBucket, err := bucket.GetIBucket()
+		iBucket, err := bucket.GetIBucket(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "bucket.GetIBucket")
 		}
@@ -2914,7 +2914,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncBucketStatus(ctx cont
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncDBInstanceBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, backup *models.SDBInstanceBackup, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iDBInstanceBackup, err := backup.GetIDBInstanceBackup()
+		iDBInstanceBackup, err := backup.GetIDBInstanceBackup(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "backup.GetIDBInstanceBackup")
 		}
@@ -2926,7 +2926,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncDBInstanceBackupStatu
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcacheStatus(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := elasticcache.GetIRegion()
+		iRegion, err := elasticcache.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "elasticcache.GetIRegion")
 		}
@@ -2943,7 +2943,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcacheStatus(ct
 
 func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, replaceTags bool, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := elasticcache.GetIRegion()
+		iRegion, err := elasticcache.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "elasticcache.GetIRegion")
 		}
@@ -2989,7 +2989,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecgroupsForElasticca
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestRenewElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, bc billing.SBillingCycle) (time.Time, error) {
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return time.Time{}, errors.Wrap(err, "GetIRegion")
 	}
@@ -3028,7 +3028,7 @@ func (self *SManagedVirtualizationRegionDriver) IsSupportedElasticcacheAutoRenew
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, autoRenew bool, task taskman.ITask) error {
-	iregion, err := ec.GetIRegion()
+	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "GetIRegion")
 	}
@@ -3079,7 +3079,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncRdsSecurityGroups(ctx
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetSecgroups")
 		}
-		iRds, err := rds.GetIDBInstance()
+		iRds, err := rds.GetIDBInstance(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetIDBInstance")
 		}
@@ -3102,7 +3102,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncRdsSecurityGroups(ctx
 
 func (self *SManagedVirtualizationRegionDriver) RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iEip, err := eip.GetIEip()
+		iEip, err := eip.GetIEip(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "eip.GetIEip")
 		}
@@ -3145,7 +3145,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateNetwork(ctx context
 		return errors.Wrapf(err, "GetWire")
 	}
 
-	iwire, err := wire.GetIWire()
+	iwire, err := wire.GetIWire(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetIWire")
 	}

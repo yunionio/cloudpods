@@ -71,7 +71,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 			return nil, errors.Wrap(httperrors.ErrImageNotFound, "cached image not found???")
 		}
 
-		iStorageCache, err := storageCache.GetIStorageCache()
+		iStorageCache, err := storageCache.GetIStorageCache(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "storageCache.GetIStorageCache")
 		}
@@ -161,10 +161,9 @@ func (self *SManagedVirtualizationHostDriver) RequestUncacheImage(ctx context.Co
 		lockman.LockRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, imageId))
 		defer lockman.ReleaseRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, imageId))
 
-		iStorageCache, err := storageCache.GetIStorageCache()
+		iStorageCache, err := storageCache.GetIStorageCache(ctx)
 		if err != nil {
-			log.Errorf("GetIStorageCache fail %s", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "GetIStorageCache")
 		}
 
 		iImage, err := iStorageCache.GetIImageById(scimg.ExternalId)
@@ -172,13 +171,11 @@ func (self *SManagedVirtualizationHostDriver) RequestUncacheImage(ctx context.Co
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
-			log.Errorf("GetIImageById fail %s", err)
 			return nil, errors.Wrap(err, "iStorageCache.GetIImageById")
 		}
 
 		err = iImage.Delete(ctx)
 		if err != nil {
-			log.Errorf("iImage Delete fail %s", err)
 			return nil, errors.Wrap(err, "iImage.Delete")
 		}
 
@@ -193,11 +190,11 @@ func (self *SManagedVirtualizationHostDriver) RequestPrepareSaveDiskOnHost(ctx c
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask, data jsonutils.JSONObject) error {
-	iDisk, err := disk.GetIDisk()
+	iDisk, err := disk.GetIDisk(ctx)
 	if err != nil {
 		return err
 	}
-	iStorage, err := disk.GetIStorage()
+	iStorage, err := disk.GetIStorage(ctx)
 	if err != nil {
 		return err
 	}
@@ -247,7 +244,7 @@ func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx c
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
-	iDisk, err := disk.GetIDisk()
+	iDisk, err := disk.GetIDisk(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetIDisk")
 	}
@@ -270,7 +267,7 @@ func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx contex
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, input api.DiskAllocateInput) error {
-	iCloudStorage, err := storage.GetIStorage()
+	iCloudStorage, err := storage.GetIStorage(ctx)
 	if err != nil {
 		return err
 	}
@@ -316,7 +313,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 func (self *SManagedVirtualizationHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
 	data := jsonutils.NewDict()
 
-	iCloudStorage, err := storage.GetIStorage()
+	iCloudStorage, err := storage.GetIStorage(ctx)
 	if err != nil {
 		return err
 	}
@@ -343,7 +340,7 @@ func (self *SManagedVirtualizationHostDriver) ValidateResetDisk(ctx context.Cont
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
-	iDisk, err := disk.GetIDisk()
+	iDisk, err := disk.GetIDisk(ctx)
 	if err != nil {
 		return err
 	}
@@ -361,7 +358,7 @@ func (self *SManagedVirtualizationHostDriver) RequestResetDisk(ctx context.Conte
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, input api.DiskAllocateInput) error {
-	iDisk, err := disk.GetIDisk()
+	iDisk, err := disk.GetIDisk(ctx)
 	if err != nil {
 		return err
 	}

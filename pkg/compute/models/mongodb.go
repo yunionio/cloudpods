@@ -292,11 +292,11 @@ func (manager *SMongoDBManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SMongoDB) GetIMongoDB() (cloudprovider.ICloudMongoDB, error) {
+func (self *SMongoDB) GetIMongoDB(ctx context.Context) (cloudprovider.ICloudMongoDB, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
 	}
-	iregion, err := self.GetIRegion()
+	iregion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIRegion")
 	}
@@ -693,12 +693,12 @@ func (self *SMongoDB) GetUsages() []db.IUsage {
 	}
 }
 
-func (self *SMongoDB) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SMongoDB) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {
 		return nil, err
 	}
-	provider, err := self.GetDriver()
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetDriver")
 	}
@@ -816,7 +816,7 @@ func (self *SMongoDB) GetDetailsBackups(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInvalidStatusError("invalid mongodb status %s for query backups", self.Status)
 	}
 	ret := &cloudprovider.SMongoDBBackups{}
-	iMongoDB, err := self.GetIMongoDB()
+	iMongoDB, err := self.GetIMongoDB(ctx)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetIMongoDB"))
 	}

@@ -55,7 +55,7 @@ func (self *SnapshotPolicyCacheDeleteTask) OnInit(ctx context.Context, obj db.IS
 		return
 	}
 
-	err := cache.DeleteCloudSnapshotPolicy()
+	err := cache.DeleteCloudSnapshotPolicy(ctx)
 	if err != nil {
 		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
 		return

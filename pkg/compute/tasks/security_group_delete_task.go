@@ -55,7 +55,7 @@ func (self *SecurityGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandal
 
 	for i := range caches {
 		if !isPurge {
-			iSecgroup, err := caches[i].GetISecurityGroup()
+			iSecgroup, err := caches[i].GetISecurityGroup(ctx)
 			if err != nil {
 				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					caches[i].RealDelete(ctx, self.GetUserCred())

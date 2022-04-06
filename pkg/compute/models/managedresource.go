@@ -109,7 +109,7 @@ func (self *SManagedResourceBase) GetProviderFactory() (cloudprovider.ICloudProv
 	return provider.GetProviderFactory()
 }
 
-func (self *SManagedResourceBase) GetDriver() (cloudprovider.ICloudProvider, error) {
+func (self *SManagedResourceBase) GetDriver(ctx context.Context) (cloudprovider.ICloudProvider, error) {
 	provider := self.GetCloudprovider()
 	if provider == nil {
 		if len(self.ManagerId) > 0 {
@@ -117,7 +117,7 @@ func (self *SManagedResourceBase) GetDriver() (cloudprovider.ICloudProvider, err
 		}
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "Resource is self managed")
 	}
-	return provider.GetProvider()
+	return provider.GetProvider(ctx)
 }
 
 func (self *SManagedResourceBase) GetProviderName() string {

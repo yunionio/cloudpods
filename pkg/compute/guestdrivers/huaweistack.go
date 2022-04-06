@@ -181,7 +181,7 @@ func (self *SHCSOGuestDriver) RemoteDeployGuestSyncHost(ctx context.Context, use
 		guest.OnScheduleToHost(ctx, userCred, host.GetId())
 	}
 
-	return host.GetIHost()
+	return host.GetIHost(ctx)
 }
 
 func (self *SHCSOGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {

@@ -61,7 +61,7 @@ func (self *MongoDBDeleteTask) taskFailed(ctx context.Context, mongodb *models.S
 func (self *MongoDBDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	mongodb := obj.(*models.SMongoDB)
 
-	iMongoDB, err := mongodb.GetIMongoDB()
+	iMongoDB, err := mongodb.GetIMongoDB(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, mongodb)

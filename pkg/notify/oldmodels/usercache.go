@@ -55,11 +55,11 @@ func RegistUserCredCacheUpdater() {
 }
 
 func onAuthCompleteUpdateCache(ctx context.Context, userCred mcclient.TokenCredential) {
-	UserCacheManager.updateUserCache(userCred)
+	UserCacheManager.updateUserCache(ctx, userCred)
 }
 
-func (ucm *SUserCacheManager) updateUserCache(userCred mcclient.TokenCredential) {
-	ucm.Save(context.Background(), userCred.GetUserId(), userCred.GetUserName(),
+func (ucm *SUserCacheManager) updateUserCache(ctx context.Context, userCred mcclient.TokenCredential) {
+	ucm.Save(ctx, userCred.GetUserId(), userCred.GetUserName(),
 		userCred.GetDomainId(), userCred.GetDomainName())
 }
 

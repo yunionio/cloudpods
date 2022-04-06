@@ -48,7 +48,7 @@ func (self *SecurityGroupCacheDeleteTask) taskComplete(ctx context.Context, cach
 func (self *SecurityGroupCacheDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	cache := obj.(*models.SSecurityGroupCache)
 
-	iSecgroup, err := cache.GetISecurityGroup()
+	iSecgroup, err := cache.GetISecurityGroup(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, cache)

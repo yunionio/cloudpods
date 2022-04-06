@@ -297,7 +297,7 @@ func (self *SDnsZoneCache) SyncWithCloudDnsZone(ctx context.Context, userCred mc
 }
 
 func (self *SDnsZoneCache) SyncVpcForCloud(ctx context.Context, userCred mcclient.TokenCredential) error {
-	iDnsZone, err := self.GetICloudDnsZone()
+	iDnsZone, err := self.GetICloudDnsZone(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetICloudDnsZone")
 	}
@@ -335,7 +335,7 @@ func (self *SDnsZoneCache) SyncVpcForCloud(ctx context.Context, userCred mcclien
 			return errors.Wrapf(err, "VpcManager.FetchById(%s)", del.(string))
 		}
 		vpc := _vpc.(*SVpc)
-		iVpc, err := vpc.GetIVpc()
+		iVpc, err := vpc.GetIVpc(ctx)
 		if err != nil {
 			return errors.Wrapf(err, "GetIVpc")
 		}
@@ -354,7 +354,7 @@ func (self *SDnsZoneCache) SyncVpcForCloud(ctx context.Context, userCred mcclien
 			return errors.Wrapf(err, "VpcManager.FetchById(%s)", add.(string))
 		}
 		vpc := _vpc.(*SVpc)
-		iVpc, err := vpc.GetIVpc()
+		iVpc, err := vpc.GetIVpc(ctx)
 		if err != nil {
 			return errors.Wrapf(err, "GetIVpc")
 		}
@@ -378,16 +378,16 @@ func (self *SDnsZoneCache) GetCloudaccount() (*SCloudaccount, error) {
 	return account.(*SCloudaccount), nil
 }
 
-func (self *SDnsZoneCache) GetProvider() (cloudprovider.ICloudProvider, error) {
+func (self *SDnsZoneCache) GetProvider(ctx context.Context) (cloudprovider.ICloudProvider, error) {
 	account, err := self.GetCloudaccount()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetCloudaccount")
 	}
-	return account.GetProvider()
+	return account.GetProvider(ctx)
 }
 
-func (self *SDnsZoneCache) GetICloudDnsZone() (cloudprovider.ICloudDnsZone, error) {
-	provider, err := self.GetProvider()
+func (self *SDnsZoneCache) GetICloudDnsZone(ctx context.Context) (cloudprovider.ICloudDnsZone, error) {
+	provider, err := self.GetProvider(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetProvider")
 	}
@@ -489,7 +489,7 @@ func (self *SDnsZoneCache) SyncRecordSets(ctx context.Context, userCred mcclient
 		return errors.Wrapf(err, "GetCloudaccount")
 	}
 
-	iDnsZone, err := self.GetICloudDnsZone()
+	iDnsZone, err := self.GetICloudDnsZone(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetICloudDnsZone")
 	}

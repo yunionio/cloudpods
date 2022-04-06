@@ -1099,12 +1099,12 @@ func (wire *SWire) clearHostSchedDescCache() error {
 	return nil
 }
 
-func (self *SWire) GetIWire() (cloudprovider.ICloudWire, error) {
+func (self *SWire) GetIWire(ctx context.Context) (cloudprovider.ICloudWire, error) {
 	vpc, err := self.GetVpc()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetVpc")
 	}
-	ivpc, err := vpc.GetIVpc()
+	ivpc, err := vpc.GetIVpc(ctx)
 	if err != nil {
 		return nil, err
 	}

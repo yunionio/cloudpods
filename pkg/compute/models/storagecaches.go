@@ -415,17 +415,16 @@ func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SStoragecache) GetIStorageCache() (cloudprovider.ICloudStoragecache, error) {
+func (self *SStoragecache) GetIStorageCache(ctx context.Context) (cloudprovider.ICloudStoragecache, error) {
 	storages := self.getValidStorages()
 	if len(storages) == 0 {
 		msg := fmt.Sprintf("no storages for this storagecache %s(%s)???", self.Name, self.Id)
 		log.Errorf(msg)
 		return nil, fmt.Errorf(msg)
 	}
-	istorage, err := storages[0].GetIStorage()
+	istorage, err := storages[0].GetIStorage(ctx)
 	if err != nil {
-		log.Errorf("fail to find istorage for storage %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetIStorages")
 	}
 	return istorage.GetIStoragecache(), nil
 }

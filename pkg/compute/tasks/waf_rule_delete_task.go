@@ -44,7 +44,7 @@ func (self *WafRuleDeleteTask) taskFailed(ctx context.Context, rule *models.SWaf
 
 func (self *WafRuleDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	rule := obj.(*models.SWafRule)
-	iRule, err := rule.GetICloudWafRule()
+	iRule, err := rule.GetICloudWafRule(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, rule)

@@ -545,8 +545,8 @@ func (self *SFileSystem) StartSyncstatus(ctx context.Context, userCred mcclient.
 	return StartResourceSyncStatusTask(ctx, userCred, self, "FileSystemSyncstatusTask", parentTaskId)
 }
 
-func (self *SFileSystem) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := self.GetDriver()
+func (self *SFileSystem) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "self.GetDriver")
 	}
@@ -561,11 +561,11 @@ func (self *SFileSystem) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	return iRegion, nil
 }
 
-func (self *SFileSystem) GetICloudFileSystem() (cloudprovider.ICloudFileSystem, error) {
+func (self *SFileSystem) GetICloudFileSystem(ctx context.Context) (cloudprovider.ICloudFileSystem, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
 	}
-	iRegion, err := self.GetIRegion()
+	iRegion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIRegion")
 	}
@@ -584,7 +584,7 @@ func (manager *SFileSystemManager) getExpiredPostpaids() ([]SFileSystem, error) 
 }
 
 func (self *SFileSystem) doExternalSync(ctx context.Context, userCred mcclient.TokenCredential) error {
-	iFs, err := self.GetICloudFileSystem()
+	iFs, err := self.GetICloudFileSystem(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetICloudFileSystem")
 	}

@@ -51,7 +51,7 @@ func (self *VpcPeeringConnectionSyncstatusTask) OnInit(ctx context.Context, obj 
 		return
 	}
 
-	extVpc, err := svpc.GetIVpc()
+	extVpc, err := svpc.GetIVpc(ctx)
 	if err != nil {
 		self.taskFail(ctx, peer, errors.Wrap(err, "svpc.GetIVpc()"))
 		return

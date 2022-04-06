@@ -46,7 +46,7 @@ func (self *NatGatewaySetAutoRenewTask) taskFailed(ctx context.Context, nat *mod
 func (self *NatGatewaySetAutoRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	nat := obj.(*models.SNatGateway)
 	autoRenew := jsonutils.QueryBoolean(self.GetParams(), "auto_renew", false)
-	iNat, err := nat.GetINatGateway()
+	iNat, err := nat.GetINatGateway(ctx)
 	if err != nil {
 		self.taskFailed(ctx, nat, errors.Wrapf(err, "GetINatGateway"))
 		return

@@ -95,7 +95,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		// defer lockman.ReleaseObject(ctx, model)
 
 		if eip.IsManaged() {
-			extEip, err := eip.GetIEip()
+			extEip, err := eip.GetIEip(ctx)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
 				msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
 				self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)

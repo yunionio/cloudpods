@@ -1466,7 +1466,7 @@ func (manager *SNetworkManager) validateEnsureZoneVpc(ctx context.Context, userC
 	}
 	externalId := ""
 	if cr.Provider == api.CLOUD_PROVIDER_CLOUDPODS {
-		iVpc, err := v.GetIVpc()
+		iVpc, err := v.GetIVpc(ctx)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -2018,12 +2018,12 @@ func (self *SNetwork) StartDeleteNetworkTask(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (self *SNetwork) GetINetwork() (cloudprovider.ICloudNetwork, error) {
+func (self *SNetwork) GetINetwork(ctx context.Context) (cloudprovider.ICloudNetwork, error) {
 	wire, err := self.GetWire()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetWire")
 	}
-	iwire, err := wire.GetIWire()
+	iwire, err := wire.GetIWire(ctx)
 	if err != nil {
 		return nil, err
 	}

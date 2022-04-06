@@ -71,7 +71,7 @@ func (self *SNatSEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 
-	iNat, err := nat.GetINatGateway()
+	iNat, err := nat.GetINatGateway(ctx)
 	if err != nil {
 		self.taskFailed(ctx, snat, errors.Wrapf(err, "nat.GetINatGateway"))
 		return

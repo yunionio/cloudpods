@@ -63,7 +63,7 @@ func (self *FileSystemCreateTask) taskFailed(ctx context.Context, fs *models.SFi
 func (self *FileSystemCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	fs := obj.(*models.SFileSystem)
 
-	iRegion, err := fs.GetIRegion()
+	iRegion, err := fs.GetIRegion(ctx)
 	if err != nil {
 		self.taskFailed(ctx, fs, errors.Wrapf(err, "fs.GetIRegion"))
 		return

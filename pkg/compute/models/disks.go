@@ -967,20 +967,23 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	}
 }
 
-func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	storage, _ := self.GetStorage()
-	if storage == nil {
-		return nil, httperrors.NewResourceNotFoundError("fail to find storage for disk %s", self.GetName())
+func (self *SDisk) GetIStorage(ctx context.Context) (cloudprovider.ICloudStorage, error) {
+	storage, err := self.GetStorage()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetStorage")
 	}
-	istorage, err := storage.GetIStorage()
+	istorage, err := storage.GetIStorage(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return istorage, nil
 }
 
-func (self *SDisk) GetIDisk() (cloudprovider.ICloudDisk, error) {
-	iStorage, err := self.GetIStorage()
+func (self *SDisk) GetIDisk(ctx context.Context) (cloudprovider.ICloudDisk, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
+	iStorage, err := self.GetIStorage(ctx)
 	if err != nil {
 		log.Errorf("fail to find iStorage: %v", err)
 		return nil, err
@@ -1436,13 +1439,13 @@ func (self *SDisk) syncDiskStorage(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
-func (self *SDisk) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SDisk) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	storage, _ := self.GetStorage()
 	if storage == nil {
 		return nil, fmt.Errorf("failed to get storage for disk %s(%s)", self.Name, self.Id)
 	}
 
-	provider, err := storage.GetDriver()
+	provider, err := storage.GetDriver(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("No cloudprovider for storage %s(%s) error: %v", storage.Name, storage.Id, err)
 	}
@@ -1461,7 +1464,7 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	iregion, err := self.GetIRegion()
+	iregion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return err
 	}
@@ -2837,7 +2840,7 @@ func isInInts(a int, array []int) bool {
 func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCredential) (syncResult compare.SyncResult, hasCreating bool) {
 	syncResult = compare.SyncResult{}
 
-	extDisk, err := self.GetIDisk()
+	extDisk, err := self.GetIDisk(ctx)
 	if err != nil {
 		syncResult.Error(err)
 		return

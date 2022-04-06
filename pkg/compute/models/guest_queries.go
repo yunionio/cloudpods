@@ -697,7 +697,7 @@ func fetchScalingGroupGuest(guestIds ...string) map[string]SScalingGroupGuest {
 func (self *SGuest) SyncInstanceSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
-	extGuest, err := self.GetIVM()
+	extGuest, err := self.GetIVM(ctx)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult

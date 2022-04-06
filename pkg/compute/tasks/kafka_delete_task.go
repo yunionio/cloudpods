@@ -48,7 +48,7 @@ func (self *KafkaDeleteTask) taskFail(ctx context.Context, kafka *models.SKafka,
 func (self *KafkaDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	kafka := obj.(*models.SKafka)
 
-	iKafka, err := kafka.GetIKafka()
+	iKafka, err := kafka.GetIKafka(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, kafka)

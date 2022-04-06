@@ -37,7 +37,7 @@ func (account *SCloudaccount) GetDetailsSaml(ctx context.Context, userCred mccli
 		return output, httperrors.NewNotSupportedError("account %s not enable saml auth", account.Name)
 	}
 
-	provider, err := account.GetProvider()
+	provider, err := account.GetProvider(ctx)
 	if err != nil {
 		return output, errors.Wrap(err, "GetProviderFactory")
 	}

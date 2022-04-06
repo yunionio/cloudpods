@@ -181,8 +181,8 @@ func (spcm *SSnapshotPolicyCacheManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	return q, httperrors.ErrNotFound
 }
 
-func (spc *SSnapshotPolicyCache) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := spc.GetDriver()
+func (spc *SSnapshotPolicyCache) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	provider, err := spc.GetDriver(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,7 @@ func (spcm *SSnapshotPolicyCacheManager) NewCache(ctx context.Context, userCred 
 	snapshotPolicyCache := NewSSnapshotPolicyCache(snapshotPolicyId, regionId, "")
 	snapshotPolicyCache.ManagerId = providerId
 
-	err := snapshotPolicyCache.CreateCloudSnapshotPolicy()
+	err := snapshotPolicyCache.CreateCloudSnapshotPolicy(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +400,7 @@ type snapshotPolicyTask struct {
 }
 
 func (t *snapshotPolicyTask) Run() {
-	err := t.spc.DeleteCloudSnapshotPolicy()
+	err := t.spc.DeleteCloudSnapshotPolicy(t.ctx)
 	if err != nil {
 		t.retChan <- sOperaResult{err, t.spc.GetId()}
 		return
@@ -460,9 +460,9 @@ func (spcm *SSnapshotPolicyCacheManager) DeleteCloudSnapshotPolices(ctx context.
 	return nil
 }
 
-func (spc *SSnapshotPolicyCache) CreateCloudSnapshotPolicy() error {
+func (spc *SSnapshotPolicyCache) CreateCloudSnapshotPolicy(ctx context.Context) error {
 	// create correspondingsnapshotpolicy in cloud
-	iregion, err := spc.GetIRegion()
+	iregion, err := spc.GetIRegion(ctx)
 	if err != nil {
 		return err
 	}
@@ -489,9 +489,9 @@ func (spc *SSnapshotPolicyCache) CreateCloudSnapshotPolicy() error {
 	return nil
 }
 
-func (spc *SSnapshotPolicyCache) DeleteCloudSnapshotPolicy() error {
+func (spc *SSnapshotPolicyCache) DeleteCloudSnapshotPolicy(ctx context.Context) error {
 	if len(spc.ExternalId) > 0 {
-		iregion, err := spc.GetIRegion()
+		iregion, err := spc.GetIRegion(ctx)
 		if err != nil {
 			return err
 		}
@@ -510,8 +510,8 @@ func (spc *SSnapshotPolicyCache) DeleteCloudSnapshotPolicy() error {
 	return nil
 }
 
-func (spc *SSnapshotPolicyCache) UpdateCloudSnapshotPolicy(input *cloudprovider.SnapshotPolicyInput) error {
-	iregion, err := spc.GetIRegion()
+func (spc *SSnapshotPolicyCache) UpdateCloudSnapshotPolicy(ctx context.Context, input *cloudprovider.SnapshotPolicyInput) error {
+	iregion, err := spc.GetIRegion(ctx)
 	if err != nil {
 		return err
 	}

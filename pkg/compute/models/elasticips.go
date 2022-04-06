@@ -1259,8 +1259,8 @@ func (self *SElasticip) StartEipDissociateTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SElasticip) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := self.GetDriver()
+func (self *SElasticip) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDriver")
 	}
@@ -1273,8 +1273,11 @@ func (self *SElasticip) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	return provider.GetIRegionById(region.GetExternalId())
 }
 
-func (self *SElasticip) GetIEip() (cloudprovider.ICloudEIP, error) {
-	iregion, err := self.GetIRegion()
+func (self *SElasticip) GetIEip(ctx context.Context) (cloudprovider.ICloudEIP, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
+	iregion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -51,7 +51,7 @@ func (self *MountTargetSyncstatusTask) OnInit(ctx context.Context, obj db.IStand
 		self.taskFail(ctx, mt, errors.Wrapf(err, "GetFileSystem"))
 		return
 	}
-	iFs, err := fs.GetICloudFileSystem()
+	iFs, err := fs.GetICloudFileSystem(ctx)
 	if err != nil {
 		self.taskFail(ctx, mt, errors.Wrapf(err, "fs.GetICloudFileSystem"))
 		return

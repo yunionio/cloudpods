@@ -64,7 +64,7 @@ func (self *RouteTableUpdateTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	routeSet := _routeSet.(*models.SRouteTableRouteSet)
 
-	iRouteTable, err := routeTable.GetICloudRouteTable()
+	iRouteTable, err := routeTable.GetICloudRouteTable(ctx)
 	if err != nil {
 		self.taskFailed(ctx, routeTable, errors.Wrapf(err, "routeTable.GetICloudRouteTable()"))
 		return

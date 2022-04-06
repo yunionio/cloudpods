@@ -455,8 +455,8 @@ func (lb *SLoadbalancer) GetNetworks() ([]SNetwork, error) {
 	return networks, nil
 }
 
-func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := lb.GetDriver()
+func (lb *SLoadbalancer) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	provider, err := lb.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "lb.GetDriver")
 	}
@@ -467,15 +467,15 @@ func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	return provider.GetIRegionById(region.ExternalId)
 }
 
-func (lb *SLoadbalancer) GetILoadbalancer() (cloudprovider.ICloudLoadbalancer, error) {
-	iRegion, err := lb.GetIRegion()
+func (lb *SLoadbalancer) GetILoadbalancer(ctx context.Context) (cloudprovider.ICloudLoadbalancer, error) {
+	iRegion, err := lb.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIRegion")
 	}
 	return iRegion.GetILoadBalancerById(lb.ExternalId)
 }
 
-func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.ICloudRegion) (*cloudprovider.SLoadbalancer, error) {
+func (lb *SLoadbalancer) GetCreateLoadbalancerParams(ctx context.Context, iRegion cloudprovider.ICloudRegion) (*cloudprovider.SLoadbalancer, error) {
 	params := &cloudprovider.SLoadbalancer{
 		Name:             lb.Name,
 		Address:          lb.Address,
@@ -532,7 +532,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		}
 
 		for i := range networks {
-			iNetwork, err := networks[i].GetINetwork()
+			iNetwork, err := networks[i].GetINetwork(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "GetINetwork")
 			}

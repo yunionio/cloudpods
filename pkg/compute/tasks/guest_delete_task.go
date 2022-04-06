@@ -97,7 +97,7 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, guest *mod
 
 func (self *GuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
 	if len(guest.ExternalId) > 0 {
-		_, e := guest.GetIVM()
+		_, e := guest.GetIVM(ctx)
 		if errors.Cause(e) == cloudprovider.ErrNotFound {
 			self.Params.Set("override_pending_delete", jsonutils.JSONTrue)
 		}

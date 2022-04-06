@@ -2513,19 +2513,19 @@ var (
 	lostNamePattern = regexp.MustCompile(`-lost@\d{8}$`)
 )
 
-func (self *SGuest) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	host, _ := self.GetHost()
-	if host == nil {
-		return nil, fmt.Errorf("failed to get host by guest %s(%s)", self.Name, self.Id)
-	}
-	provider, err := host.GetDriver()
+func (self *SGuest) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	host, err := self.GetHost()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovider for host: %s", err)
+		return nil, errors.Wrapf(err, "GetHost")
+	}
+	provider, err := host.GetDriver(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "host.GetDriver")
 	}
 	if provider.GetFactory().IsOnPremise() {
 		return provider.GetOnPremiseIRegion()
 	}
-	return host.GetIRegion()
+	return host.GetIRegion(ctx)
 }
 
 func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -2548,7 +2548,7 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 		return nil
 	}
 
-	iregion, err := self.GetIRegion()
+	iregion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return err
 	}
@@ -2610,7 +2610,7 @@ func (guest *SGuest) SyncAllWithCloudVM(ctx context.Context, userCred mcclient.T
 		return errors.Error("host has no provider")
 	}
 
-	driver, err := provider.GetProvider()
+	driver, err := provider.GetProvider(ctx)
 	if err != nil {
 		return errors.Wrap(err, "provider.GetProvider")
 	}
@@ -4823,7 +4823,7 @@ func (self *SGuest) doExternalSync(ctx context.Context, userCred mcclient.TokenC
 	if host == nil {
 		return fmt.Errorf("no host???")
 	}
-	ihost, iprovider, err := host.GetIHostAndProvider()
+	ihost, iprovider, err := host.GetIHostAndProvider(ctx)
 	if err != nil {
 		return err
 	}
@@ -5154,7 +5154,7 @@ func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.Token
 	return self.saveSecgroups(ctx, userCred, secgroupIds)
 }
 
-func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {
+func (self *SGuest) GetIVM(ctx context.Context) (cloudprovider.ICloudVM, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
 	}
@@ -5162,7 +5162,7 @@ func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetHost")
 	}
-	ihost, err := host.GetIHost()
+	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIHost")
 	}
@@ -5593,7 +5593,7 @@ func (self *SGuest) IsImport(ctx context.Context, userCred mcclient.TokenCredent
 }
 
 func (guest *SGuest) GetDetailsRemoteNics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	iVM, err := guest.GetIVM()
+	iVM, err := guest.GetIVM(ctx)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

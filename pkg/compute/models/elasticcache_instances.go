@@ -917,9 +917,9 @@ func (self *SElasticcache) GetSlaveZones() ([]SZone, error) {
 	return provider.GetIRegionById(region.ExternalId)
 }*/
 
-func (self *SElasticcache) GetCreateAliyunElasticcacheParams(data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
+func (self *SElasticcache) GetCreateAliyunElasticcacheParams(ctx context.Context, data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
 	input := &cloudprovider.SCloudElasticCacheInput{}
-	iregion, err := self.GetIRegion()
+	iregion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("elastic cache %s(%s) region not found", self.Name, self.Id)
 	} else {
@@ -1000,9 +1000,9 @@ func (self *SElasticcache) GetCreateAliyunElasticcacheParams(data *jsonutils.JSO
 	return input, nil
 }
 
-func (self *SElasticcache) GetCreateHuaweiElasticcacheParams(data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
+func (self *SElasticcache) GetCreateHuaweiElasticcacheParams(ctx context.Context, data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
 	input := &cloudprovider.SCloudElasticCacheInput{}
-	iregion, err := self.GetIRegion()
+	iregion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("elastic cache %s(%s) region not found", self.Name, self.Id)
 	} else {
@@ -1102,9 +1102,9 @@ func (self *SElasticcache) GetCreateHuaweiElasticcacheParams(data *jsonutils.JSO
 	return input, nil
 }
 
-func (self *SElasticcache) GetCreateQCloudElasticcacheParams(data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
+func (self *SElasticcache) GetCreateQCloudElasticcacheParams(ctx context.Context, data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
 	input := &cloudprovider.SCloudElasticCacheInput{}
-	iregion, err := self.GetIRegion()
+	iregion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("elastic cache %s(%s) region not found", self.Name, self.Id)
 	} else {
@@ -1818,7 +1818,7 @@ func (self *SElasticcache) doExternalSync(ctx context.Context, userCred mcclient
 		return fmt.Errorf("no cloud provider???")
 	}
 
-	iregion, err := self.GetIRegion()
+	iregion, err := self.GetIRegion(ctx)
 	if err != nil || iregion == nil {
 		return fmt.Errorf("no cloud region??? %s", err)
 	}

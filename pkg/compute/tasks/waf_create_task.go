@@ -47,7 +47,7 @@ func (self *WafCreateTask) taskFailed(ctx context.Context, waf *models.SWafInsta
 func (self *WafCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	waf := obj.(*models.SWafInstance)
 
-	iRegion, err := waf.GetIRegion()
+	iRegion, err := waf.GetIRegion(ctx)
 	if err != nil {
 		self.taskFailed(ctx, waf, errors.Wrapf(err, "GetIRegion"))
 		return
