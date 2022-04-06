@@ -1148,7 +1148,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 
 func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := ec.GetIRegion()
+		iRegion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetIRegion")
 		}
@@ -1158,7 +1158,7 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetProvider")
 		}
 
-		params, err := ec.GetCreateAliyunElasticcacheParams(task.GetParams())
+		params, err := ec.GetCreateAliyunElasticcacheParams(ctx, task.GetParams())
 		if err != nil {
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetCreateAliyunElasticcacheParams")
 		}
@@ -1279,7 +1279,7 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcacheAccount(ctx context.Co
 		}
 
 		ec := _ec.(*models.SElasticcache)
-		iregion, err := ec.GetIRegion()
+		iregion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(nil, "aliyunRegionDriver.CreateElasticcacheAccount.GetIRegion")
 		}
@@ -1327,7 +1327,7 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcacheBackup(ctx context.Con
 		}
 
 		ec := _ec.(*models.SElasticcache)
-		iregion, err := ec.GetIRegion()
+		iregion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.GetIRegion")
 		}
@@ -1384,7 +1384,7 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcacheBackup(ctx context.Con
 }
 
 func (self *SAliyunRegionDriver) RequestElasticcacheAccountResetPassword(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
-	iregion, err := ea.GetIRegion()
+	iregion, err := ea.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "aliyunRegionDriver.RequestElasticcacheAccountResetPassword.GetIRegion")
 	}
@@ -1509,13 +1509,13 @@ func (self *SAliyunRegionDriver) RequestSyncAccessGroup(ctx context.Context, use
 				caches[i].FileSystemType == fs.FileSystemType &&
 				caches[i].NetworkType == mt.NetworkType {
 				if len(caches[i].ExternalId) > 0 {
-					err := caches[i].SyncRules()
+					err := caches[i].SyncRules(ctx)
 					if err != nil {
 						return nil, errors.Wrapf(err, "cache.SyncRules")
 					}
 					return jsonutils.Marshal(map[string]string{"access_group_id": caches[i].ExternalId}), nil
 				}
-				err := caches[i].CreateIAccessGroup()
+				err := caches[i].CreateIAccessGroup(ctx)
 				if err != nil {
 					return nil, errors.Wrapf(err, "CreateIAccessGroup")
 				}

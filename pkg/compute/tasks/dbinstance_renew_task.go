@@ -56,7 +56,7 @@ func (self *DBInstanceRenewTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 
-	iRds, err := rds.GetIDBInstance()
+	iRds, err := rds.GetIDBInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, rds, errors.Wrapf(err, "GetIDBInstance"))
 		return

@@ -67,7 +67,7 @@ func (self *DnsZoneCacheDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		return
 	}
 
-	iDnsZone, err := cache.GetICloudDnsZone()
+	iDnsZone, err := cache.GetICloudDnsZone(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, cache)

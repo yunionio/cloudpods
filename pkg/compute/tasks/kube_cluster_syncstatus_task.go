@@ -45,7 +45,7 @@ func (self *KubeClusterSyncstatusTask) taskFailed(ctx context.Context, cluster *
 func (self *KubeClusterSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	cluster := obj.(*models.SKubeCluster)
 
-	iCluster, err := cluster.GetIKubeCluster()
+	iCluster, err := cluster.GetIKubeCluster(ctx)
 	if err != nil {
 		self.taskFailed(ctx, cluster, errors.Wrapf(err, "GetIKubeCluster"))
 		return

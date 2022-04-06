@@ -70,7 +70,7 @@ func (self *SNatDEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.taskFailed(ctx, dnat, errors.Wrapf(err, "dnat.GetNatgateway"))
 		return
 	}
-	iNat, err := nat.GetINatGateway()
+	iNat, err := nat.GetINatGateway(ctx)
 	if err != nil {
 		self.taskFailed(ctx, dnat, errors.Wrapf(err, "nat.GetINatGateway"))
 		return

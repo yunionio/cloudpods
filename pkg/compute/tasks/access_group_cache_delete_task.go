@@ -59,7 +59,7 @@ func (self *AccessGroupCacheDeleteTask) taskFailed(ctx context.Context, cache *m
 func (self *AccessGroupCacheDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	cache := obj.(*models.SAccessGroupCache)
 
-	iAccessGroup, err := cache.GetICloudAccessGroup()
+	iAccessGroup, err := cache.GetICloudAccessGroup(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, cache)

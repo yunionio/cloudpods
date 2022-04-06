@@ -45,7 +45,7 @@ func (self *InterVpcNetworkSyncstatusTask) taskFail(ctx context.Context, peer *m
 
 func (self *InterVpcNetworkSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	snetwork := obj.(*models.SInterVpcNetwork)
-	inetwork, err := snetwork.GetICloudInterVpcNetwork()
+	inetwork, err := snetwork.GetICloudInterVpcNetwork(ctx)
 	if err != nil {
 		self.taskFail(ctx, snetwork, errors.Wrap(err, "GetICloudInterVpcNetwork()"))
 		return

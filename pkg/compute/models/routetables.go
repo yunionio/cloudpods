@@ -696,12 +696,12 @@ func (self *SRouteTable) PerformSyncstatus(ctx context.Context, userCred mcclien
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "RouteTableSyncStatusTask", "")
 }
 
-func (self *SRouteTable) GetICloudRouteTable() (cloudprovider.ICloudRouteTable, error) {
+func (self *SRouteTable) GetICloudRouteTable(ctx context.Context) (cloudprovider.ICloudRouteTable, error) {
 	vpc, err := self.getVpc()
 	if err != nil {
 		return nil, errors.Wrap(err, "self.getVpc()")
 	}
-	ivpc, err := vpc.GetIVpc()
+	ivpc, err := vpc.GetIVpc(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIVpc()")
 	}

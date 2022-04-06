@@ -217,7 +217,7 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			return
 		}
 
-		iVM, e := guest.GetIVM()
+		iVM, e := guest.GetIVM(ctx)
 		if e != nil {
 			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("iVM not found: %s", e)))
 			return
@@ -276,7 +276,7 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Disk %s already created??(status=%s)", diskId, disk.Status)))
 			return
 		}
-		ivm, err := guest.GetIVM()
+		ivm, err := guest.GetIVM(ctx)
 		if err != nil {
 			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("fail to find iVM for %s, error: %v", guest.GetName(), err)))
 			return
@@ -377,7 +377,7 @@ func (self *NutanixGuestCreateDiskTask) taskFailed(ctx context.Context, err erro
 func (self *NutanixGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	ivm, err := guest.GetIVM()
+	ivm, err := guest.GetIVM(ctx)
 	if err != nil {
 		self.taskFailed(ctx, errors.Wrapf(err, "guest.GetIVM"))
 		return

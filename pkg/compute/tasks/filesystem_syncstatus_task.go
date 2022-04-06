@@ -45,7 +45,7 @@ func (self *FileSystemSyncstatusTask) taskFail(ctx context.Context, nas *models.
 func (self *FileSystemSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	nas := obj.(*models.SFileSystem)
 
-	iNas, err := nas.GetICloudFileSystem()
+	iNas, err := nas.GetICloudFileSystem(ctx)
 	if err != nil {
 		self.taskFail(ctx, nas, errors.Wrapf(err, "nas.GetICloudFileSystem"))
 		return

@@ -45,7 +45,7 @@ func (self *KafkaSyncstatusTask) taskFailed(ctx context.Context, kafka *models.S
 func (self *KafkaSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	kafka := obj.(*models.SKafka)
 
-	iKafka, err := kafka.GetIKafka()
+	iKafka, err := kafka.GetIKafka(ctx)
 	if err != nil {
 		self.taskFailed(ctx, kafka, errors.Wrapf(err, "kafka.GetIKafka"))
 		return

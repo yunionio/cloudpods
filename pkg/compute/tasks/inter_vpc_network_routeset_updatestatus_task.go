@@ -63,7 +63,7 @@ func (self *InterVpcNetworkUpdateRoutesetTask) OnInit(ctx context.Context, obj d
 	}
 	routeSet := _routeSet.(*models.SInterVpcNetworkRouteSet)
 
-	iNetwork, err := network.GetICloudInterVpcNetwork()
+	iNetwork, err := network.GetICloudInterVpcNetwork(ctx)
 	if err != nil {
 		self.taskFailed(ctx, network, errors.Wrap(err, "GetICloudInterVpcNetwork()"))
 		return

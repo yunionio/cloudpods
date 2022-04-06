@@ -45,7 +45,7 @@ func (self *ElasticSearchSyncstatusTask) taskFailed(ctx context.Context, es *mod
 func (self *ElasticSearchSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	es := obj.(*models.SElasticSearch)
 
-	iEs, err := es.GetIElasticSearch()
+	iEs, err := es.GetIElasticSearch(ctx)
 	if err != nil {
 		self.taskFailed(ctx, es, errors.Wrapf(err, "es.GetIElasticSearch"))
 		return

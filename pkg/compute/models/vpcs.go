@@ -625,7 +625,7 @@ func (self *SVpc) markAllNetworksUnknown(userCred mcclient.TokenCredential) erro
 }
 
 func (self *SVpc) SyncRouteTables(ctx context.Context, userCred mcclient.TokenCredential) error {
-	ivpc, err := self.GetIVpc()
+	ivpc, err := self.GetIVpc(ctx)
 	if err != nil {
 		return errors.Wrap(err, "self.GetIVpc()")
 	}
@@ -839,23 +839,23 @@ func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 	task.ScheduleRun(nil)
 }
 
-func (self *SVpc) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SVpc) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRegion")
 	}
-	provider, err := self.GetDriver()
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return provider.GetIRegionById(region.GetExternalId())
 }
 
-func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
+func (self *SVpc) GetIVpc(ctx context.Context) (cloudprovider.ICloudVpc, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
 	}
-	provider, err := self.GetDriver()
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "vpc.GetDriver")
 	}
@@ -1244,7 +1244,7 @@ func (manager *SVpcManager) OrderByExtraFields(
 }
 
 func (self *SVpc) SyncRemoteWires(ctx context.Context, userCred mcclient.TokenCredential) error {
-	ivpc, err := self.GetIVpc()
+	ivpc, err := self.GetIVpc(ctx)
 	if err != nil {
 		return err
 	}
@@ -1254,7 +1254,7 @@ func (self *SVpc) SyncRemoteWires(ctx context.Context, userCred mcclient.TokenCr
 
 	hosts := HostManager.GetHostsByManagerAndRegion(provider.Id, self.CloudregionId)
 	for i := 0; i < len(hosts); i += 1 {
-		ihost, err := hosts[i].GetIHost()
+		ihost, err := hosts[i].GetIHost(ctx)
 		if err != nil {
 			return err
 		}

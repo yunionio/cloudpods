@@ -57,7 +57,7 @@ func (self *ServerSkuCreateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 
-	driver, err := provider.GetProvider()
+	driver, err := provider.GetProvider(ctx)
 	if err != nil {
 		self.taskFail(ctx, sku, errors.Wrapf(err, "GetDriver"))
 		return

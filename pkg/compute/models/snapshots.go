@@ -982,8 +982,8 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 	return syncResult
 }
 
-func (self *SSnapshot) GetISnapshotRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := self.GetDriver()
+func (self *SSnapshot) GetISnapshotRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, err
 	}

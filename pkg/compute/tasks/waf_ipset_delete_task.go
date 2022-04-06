@@ -50,7 +50,7 @@ func (self *WafIPSetDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		return
 	}
 	for i := range caches {
-		iCache, err := caches[i].GetICloudWafIPSet()
+		iCache, err := caches[i].GetICloudWafIPSet(ctx)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				caches[i].RealDelete(ctx, self.GetUserCred())

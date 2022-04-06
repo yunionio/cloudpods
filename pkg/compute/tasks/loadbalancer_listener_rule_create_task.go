@@ -70,7 +70,7 @@ func onHuaiweiPrepareLoadbalancerBackendgroup(ctx context.Context, region *model
 	params.Set("ruleId", jsonutils.NewString(lbr.GetId()))
 	group, _ := models.HuaweiCachedLbbgManager.GetCachedBackendGroupByAssociateId(lbr.GetId())
 	if group != nil {
-		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup(ctx)
 		if err != nil {
 			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 			return
@@ -127,7 +127,7 @@ func onAwsPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SC
 
 	group, _ := models.AwsCachedLbbgManager.GetUsableCachedBackendGroup(lblis.LoadbalancerId, lbr.BackendGroupId, lblis.ListenerType, lblis.HealthCheckType, lblis.HealthCheckInterval)
 	if group != nil {
-		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup(ctx)
 		if err != nil {
 			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 			return
@@ -165,7 +165,7 @@ func onOpenstackPrepareLoadbalancerBackendgroup(ctx context.Context, region *mod
 	params.Set("ruleId", jsonutils.NewString(lbr.GetId()))
 	group, _ := models.OpenstackCachedLbbgManager.GetCachedBackendGroupByAssociateId(lbr.GetId())
 	if group != nil {
-		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup(ctx)
 		if err != nil {
 			self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 			return

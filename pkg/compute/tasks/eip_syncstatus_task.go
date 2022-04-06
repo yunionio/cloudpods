@@ -45,7 +45,7 @@ func (self *EipSyncstatusTask) taskFail(ctx context.Context, eip *models.SElasti
 func (self *EipSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 
-	extEip, err := eip.GetIEip()
+	extEip, err := eip.GetIEip(ctx)
 	if err != nil {
 		msg := fmt.Sprintf("fail to find ieip for eip %s", err)
 		self.taskFail(ctx, eip, jsonutils.NewString(msg))

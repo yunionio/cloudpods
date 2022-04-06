@@ -58,13 +58,13 @@ func (self *VpcPeeringConnectionCreateTask) OnInit(ctx context.Context, obj db.I
 		return
 	}
 
-	iVpc, err := vpc.GetIVpc()
+	iVpc, err := vpc.GetIVpc(ctx)
 	if err != nil {
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "GetIVpc"))
 		return
 	}
 
-	iPeerVpc, err := peerVpc.GetIVpc()
+	iPeerVpc, err := peerVpc.GetIVpc(ctx)
 	if err != nil {
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "GetIVpc"))
 		return

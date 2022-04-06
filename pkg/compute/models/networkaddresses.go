@@ -391,7 +391,7 @@ func (na *SNetworkAddress) getIVM(ctx context.Context, userCred mcclient.TokenCr
 	if guest.ExternalId == "" {
 		return nil, errors.Errorf("getIVM: guest %s(%s) has empty external_id", guest.Name, guest.Id)
 	}
-	ivm, err := guest.GetIVM()
+	ivm, err := guest.GetIVM(ctx)
 	if err != nil {
 		return nil, err
 	}

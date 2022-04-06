@@ -919,11 +919,11 @@ func (self *SCloudaccount) GetProviderFactory() (cloudprovider.ICloudProviderFac
 	return cloudprovider.GetProviderFactory(self.Provider)
 }
 
-func (self *SCloudaccount) GetProvider() (cloudprovider.ICloudProvider, error) {
+func (self *SCloudaccount) GetProvider(ctx context.Context) (cloudprovider.ICloudProvider, error) {
 	if !self.GetEnabled() {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
-	return self.getProviderInternal()
+	return self.getProviderInternal(ctx)
 }
 
 func (self *SCloudaccount) proxySetting() *proxy.SProxySetting {
@@ -945,9 +945,9 @@ func (self *SCloudaccount) proxyFunc() httputils.TransportProxyFunc {
 	return nil
 }
 
-func (self *SCloudaccount) UpdatePermission() func(string, string) {
+func (self *SCloudaccount) UpdatePermission(ctx context.Context) func(string, string) {
 	return func(service, permission string) {
-		ctx, key := context.Background(), "update permission"
+		key := "update permission"
 
 		lockman.LockRawObject(ctx, self.Id, key)
 		defer lockman.ReleaseRawObject(ctx, self.Id, key)
@@ -972,7 +972,7 @@ func (self *SCloudaccount) UpdatePermission() func(string, string) {
 	}
 }
 
-func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, error) {
+func (self *SCloudaccount) getProviderInternal(ctx context.Context) (cloudprovider.ICloudProvider, error) {
 	secret, err := self.getPassword()
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
@@ -991,12 +991,12 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 		DefaultRegion: defaultRegion,
 		ProxyFunc:     self.proxyFunc(),
 
-		UpdatePermission: self.UpdatePermission(),
+		UpdatePermission: self.UpdatePermission(ctx),
 	})
 }
 
-func (self *SCloudaccount) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	provider, err := self.getProviderInternal()
+func (self *SCloudaccount) GetSubAccounts(ctx context.Context) ([]cloudprovider.SSubAccount, error) {
+	provider, err := self.getProviderInternal(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -2026,7 +2026,7 @@ func (account *SCloudaccount) getSyncIntervalSeconds() int {
 }
 
 func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred mcclient.TokenCredential) ([]cloudprovider.SSubAccount, error) {
-	manager, err := account.getProviderInternal()
+	manager, err := account.getProviderInternal(ctx)
 	if err != nil {
 		log.Errorf("account.GetProvider failed: %s", err)
 		return nil, errors.Wrap(err, "account.getProviderInternal")
@@ -2783,7 +2783,7 @@ func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.To
 	lockman.LockRawObject(ctx, "projects", self.Id)
 	defer lockman.ReleaseRawObject(ctx, "projects", self.Id)
 
-	provider, err := self.GetProvider()
+	provider, err := self.GetProvider(ctx)
 	if err != nil {
 		return "", errors.Wrap(err, "GetProvider")
 	}
@@ -2841,7 +2841,7 @@ func (self *SCloudaccount) GetDetailsEnrollmentAccounts(ctx context.Context, use
 	if self.Provider != api.CLOUD_PROVIDER_AZURE {
 		return nil, httperrors.NewNotSupportedError("%s not support", self.Provider)
 	}
-	provider, err := self.GetProvider()
+	provider, err := self.GetProvider(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetProvider")
 	}
@@ -2869,7 +2869,7 @@ func (self *SCloudaccount) PerformCreateSubscription(ctx context.Context, userCr
 		return nil, httperrors.NewMissingParameterError("offer_type")
 	}
 
-	provider, err := self.GetProvider()
+	provider, err := self.GetProvider(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetProvider")
 	}

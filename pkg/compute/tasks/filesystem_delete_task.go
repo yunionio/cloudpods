@@ -66,7 +66,7 @@ func (self *FileSystemDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 
-	iFs, err := fs.GetICloudFileSystem()
+	iFs, err := fs.GetICloudFileSystem(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, fs)

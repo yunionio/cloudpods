@@ -628,7 +628,7 @@ func (image *SCachedimage) requestRefreshExternalImage(ctx context.Context, user
 	if cache == nil {
 		return nil, fmt.Errorf("no cached image found")
 	}
-	iCache, err := cache.GetIStorageCache()
+	iCache, err := cache.GetIStorageCache(ctx)
 	if err != nil {
 		log.Errorf("GetIStorageCache fail %s", err)
 		return nil, err

@@ -44,7 +44,7 @@ func (self *WafIPSetCacheDeleteTask) taskFailed(ctx context.Context, cache *mode
 
 func (self *WafIPSetCacheDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	cache := obj.(*models.SWafIPSetCache)
-	iCache, err := cache.GetICloudWafIPSet()
+	iCache, err := cache.GetICloudWafIPSet(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, cache)

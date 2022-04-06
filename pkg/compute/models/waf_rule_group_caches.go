@@ -213,23 +213,23 @@ func (self *SWafRuleGroupCache) StartDeleteTask(ctx context.Context, userCred mc
 	return task.ScheduleRun(nil)
 }
 
-func (self *SWafRuleGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SWafRuleGroupCache) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRegion")
 	}
-	provider, err := self.GetDriver()
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetDriver")
 	}
 	return provider.GetIRegionById(region.ExternalId)
 }
 
-func (self *SWafRuleGroupCache) GetICloudWafRuleGroup() (cloudprovider.ICloudWafRuleGroup, error) {
+func (self *SWafRuleGroupCache) GetICloudWafRuleGroup(ctx context.Context) (cloudprovider.ICloudWafRuleGroup, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
 	}
-	iRegion, err := self.GetIRegion()
+	iRegion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIRegion")
 	}

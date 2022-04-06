@@ -54,7 +54,7 @@ func (self *MountTargetDeleteTask) OnInit(ctx context.Context, obj db.IStandalon
 		self.taskFailed(ctx, mt, errors.Wrapf(err, "GetFileSystem"))
 		return
 	}
-	iFileSystem, err := fs.GetICloudFileSystem()
+	iFileSystem, err := fs.GetICloudFileSystem(ctx)
 	if err != nil {
 		self.taskFailed(ctx, mt, errors.Wrapf(err, "GetICloudFileSystem"))
 		return

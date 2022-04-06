@@ -53,7 +53,7 @@ func (self *CDNDomainDeleteTask) taskComplete(ctx context.Context, domain *model
 func (self *CDNDomainDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	domain := obj.(*models.SCDNDomain)
 
-	iDomain, err := domain.GetICloudCDNDomain()
+	iDomain, err := domain.GetICloudCDNDomain(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound || errors.Cause(err) == sql.ErrNoRows {
 			self.taskComplete(ctx, domain)

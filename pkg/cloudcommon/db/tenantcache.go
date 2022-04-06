@@ -103,7 +103,7 @@ func RegistUserCredCacheUpdater() {
 
 func onAuthCompleteUpdateCache(ctx context.Context, userCred mcclient.TokenCredential) {
 	TenantCacheManager.updateTenantCache(ctx, userCred)
-	UserCacheManager.updateUserCache(userCred)
+	UserCacheManager.updateUserCache(ctx, userCred)
 }
 
 func (manager *STenantCacheManager) InitializeData() error {

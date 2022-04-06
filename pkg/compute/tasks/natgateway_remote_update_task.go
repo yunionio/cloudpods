@@ -51,7 +51,7 @@ func (self *NatGatewayRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStan
 		return
 	}
 
-	iNatGateway, err := nat.GetINatGateway()
+	iNatGateway, err := nat.GetINatGateway(ctx)
 	if err != nil {
 		self.taskFail(ctx, nat, errors.Wrapf(err, "GetINatGateway"))
 		return

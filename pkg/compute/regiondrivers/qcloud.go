@@ -258,7 +258,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lbbg.GetIRegion()
+		iRegion, err := lbbg.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackendGroup.GetIRegion")
 		}
@@ -327,7 +327,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 
 		var ibackend cloudprovider.ICloudLoadbalancerBackend
 		for _, cachedLbbg := range cachedlbbgs {
-			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup()
+			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup(ctx)
 			if err != nil {
 				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					continue
@@ -383,7 +383,7 @@ func (self *SQcloudRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 			if lb == nil {
 				return nil, fmt.Errorf("failed to find lb for backendgroup %s", cachedlbbg.Name)
 			}
-			iRegion, err := lb.GetIRegion()
+			iRegion, err := lb.GetIRegion(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestDeleteLoadbalancerBackend.GetIRegion")
 			}
@@ -482,7 +482,7 @@ func (self *SQcloudRegionDriver) syncCachedLbbs(ctx context.Context, userCred mc
 }
 
 func (self *SQcloudRegionDriver) createLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend) (jsonutils.JSONObject, error) {
-	iRegion, err := lbbg.GetIRegion()
+	iRegion, err := lbbg.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "SQcloudRegionDriver.createLoadbalancerBackendGroup.GetIRegion")
 	}
@@ -600,7 +600,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.GetIRegion")
 		}
@@ -692,7 +692,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListenerRule.GetIRegion")
 		}
@@ -1127,7 +1127,7 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 			if lb == nil {
 				return nil, fmt.Errorf("failed to find lb for backendgroup %s", cachedlbbg.Name)
 			}
-			iRegion, err := lb.GetIRegion()
+			iRegion, err := lb.GetIRegion(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.GetIRegion")
 			}
@@ -1229,7 +1229,7 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerbackendGroup.GetLoadbalancerBackendGroup")
 		}
 
-		iRegion, err := lbbg.GetIRegion()
+		iRegion, err := lbbg.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerbackendGroup.GetIRegion")
 		}
@@ -1309,7 +1309,7 @@ func (self *SQcloudRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Conte
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := spcache.GetIRegion()
+		iRegion, err := spcache.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1367,7 +1367,7 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetIRegion")
 		}
@@ -1596,7 +1596,7 @@ func (self *SQcloudRegionDriver) IsSupportedElasticcache() bool {
 
 func (self *SQcloudRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := ec.GetIRegion()
+		iRegion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.GetIRegion")
 		}
@@ -1612,7 +1612,7 @@ func (self *SQcloudRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 			return nil, errors.Wrap(err, "Unmarshal.ext_secgroup_ids")
 		}
 
-		params, err := ec.GetCreateQCloudElasticcacheParams(task.GetParams())
+		params, err := ec.GetCreateQCloudElasticcacheParams(ctx, task.GetParams())
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.GetCreateHuaweiElasticcacheParams")
 		}
@@ -1767,7 +1767,7 @@ func (self *SQcloudRegionDriver) RequestCreateElasticcacheAccount(ctx context.Co
 		}
 
 		ec := _ec.(*models.SElasticcache)
-		iregion, err := ec.GetIRegion()
+		iregion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(nil, "qcloudRegionDriver.CreateElasticcacheAccount.GetIRegion")
 		}
@@ -1808,7 +1808,7 @@ func (self *SQcloudRegionDriver) RequestCreateElasticcacheAccount(ctx context.Co
 }
 
 func (self *SQcloudRegionDriver) RequestElasticcacheAccountResetPassword(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
-	iregion, err := ea.GetIRegion()
+	iregion, err := ea.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "qcloudRegionDriver.RequestElasticcacheAccountResetPassword.GetIRegion")
 	}

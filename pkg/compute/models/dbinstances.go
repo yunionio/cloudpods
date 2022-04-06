@@ -774,11 +774,11 @@ func (self *SDBInstance) GetMasterInstance() (*SDBInstance, error) {
 	return instance.(*SDBInstance), nil
 }
 
-func (self *SDBInstance) GetIDBInstance() (cloudprovider.ICloudDBInstance, error) {
+func (self *SDBInstance) GetIDBInstance(ctx context.Context) (cloudprovider.ICloudDBInstance, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
 	}
-	iregion, err := self.GetIRegion()
+	iregion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetIRegion")
 	}
@@ -1800,12 +1800,12 @@ func (dbinstance *SDBInstance) GetUsages() []db.IUsage {
 	}
 }
 
-func (self *SDBInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SDBInstance) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {
 		return nil, err
 	}
-	provider, err := self.GetDriver()
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetDriver")
 	}
@@ -1885,7 +1885,7 @@ func (self *SDBInstance) doExternalSync(ctx context.Context, userCred mcclient.T
 		return fmt.Errorf("no cloud provider???")
 	}
 
-	iregion, err := self.GetIRegion()
+	iregion, err := self.GetIRegion(ctx)
 	if err != nil || iregion == nil {
 		return fmt.Errorf("no cloud region??? %s", err)
 	}

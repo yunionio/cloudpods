@@ -75,7 +75,7 @@ func onHuaweiLoadbalancerListenerCreateComplete(ctx context.Context, lblis *mode
 
 	if group != nil {
 		// 服务器组存在
-		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup(ctx)
 		if err != nil {
 			self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 			return
@@ -126,7 +126,7 @@ func onOpenstackLoadbalancerListenerCreateComplete(ctx context.Context, lblis *m
 
 	if group != nil {
 		// 服务器组存在
-		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup(ctx)
 		if err != nil {
 			self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 			return

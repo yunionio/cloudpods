@@ -342,19 +342,19 @@ func (self *SDBInstanceBackup) PerformSyncstatus(ctx context.Context, userCred m
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceBackupSyncstatusTask", "")
 }
 
-func (backup *SDBInstanceBackup) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (backup *SDBInstanceBackup) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	region, err := backup.GetRegion()
 	if err != nil {
 		return nil, err
 	}
-	provider, err := backup.GetDriver()
+	provider, err := backup.GetDriver(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return provider.GetIRegionById(region.GetExternalId())
 }
 
-func (backup *SDBInstanceBackup) GetIDBInstanceBackup() (cloudprovider.ICloudDBInstanceBackup, error) {
+func (backup *SDBInstanceBackup) GetIDBInstanceBackup(ctx context.Context) (cloudprovider.ICloudDBInstanceBackup, error) {
 	if len(backup.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
 	}
@@ -363,7 +363,7 @@ func (backup *SDBInstanceBackup) GetIDBInstanceBackup() (cloudprovider.ICloudDBI
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetDBInstance")
 		}
-		iRds, err := rds.GetIDBInstance()
+		iRds, err := rds.GetIDBInstance(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetIDBInstance")
 		}
@@ -379,7 +379,7 @@ func (backup *SDBInstanceBackup) GetIDBInstanceBackup() (cloudprovider.ICloudDBI
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "search backup %s", backup.ExternalId)
 	}
 
-	iRegion, err := backup.GetIRegion()
+	iRegion, err := backup.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "backup.GetIRegion")
 	}

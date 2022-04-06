@@ -200,7 +200,7 @@ func (self *SGoogleGuestDriver) GetUserDataType() string {
 }
 
 func (self *SGoogleGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
-	ivm, err := guest.GetIVM()
+	ivm, err := guest.GetIVM(ctx)
 	if err != nil {
 		return errors.Wrap(err, "GetIVM")
 	}
