@@ -29,6 +29,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -89,6 +90,16 @@ type SCtyunClient struct {
 
 func NewSCtyunClient(cfg *CtyunClientConfig) (*SCtyunClient, error) {
 	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
+	ts, _ := httpClient.Transport.(*http.Transport)
+	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+		if cfg.cpcfg.ReadOnly {
+			if req.Method == "GET" {
+				return nil
+			}
+			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+		}
+		return nil
+	})
 	client := &SCtyunClient{
 		CtyunClientConfig: cfg,
 		httpClient:        httpClient,

@@ -139,6 +139,17 @@ func NewGoogleClient(cfg *GoogleClientConfig) (*SGoogleClient, error) {
 	}
 
 	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
+	ts, _ := httpClient.Transport.(*http.Transport)
+	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+		if cfg.cpcfg.ReadOnly {
+			if req.Method == "GET" {
+				return nil
+			}
+			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+		}
+		return nil
+	})
+
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
 

@@ -79,6 +79,8 @@ type SCloudaccount struct {
 	SAMLAuth    tristate.TriState `list:"domain" default:"false"`
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+
+	ReadOnly bool `default:"false" create:"domain_optional" list:"domain" update:"domain"`
 }
 
 func (manager *SCloudaccountManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
@@ -395,6 +397,7 @@ func (self *SCloudaccount) syncWithICloudaccount(ctx context.Context, userCred m
 		self.SAMLAuth = account.SAMLAuth
 		self.AccountId = account.AccountId
 		self.AccessUrl = account.AccessUrl
+		self.ReadOnly = account.ReadOnly
 		return nil
 	})
 	if err != nil {
@@ -480,6 +483,8 @@ type SCloudDelegate struct {
 
 	Provider string
 	Brand    string
+
+	ReadOnly bool
 
 	Options struct {
 		cloudprovider.SHCSOEndpoints
@@ -569,6 +574,8 @@ func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, erro
 		Account:   account.Account,
 		Secret:    passwd,
 		ProxyFunc: proxyFunc,
+
+		ReadOnly: account.ReadOnly,
 
 		DefaultRegion: defaultRegion,
 		Options:       options.(*jsonutils.JSONDict),

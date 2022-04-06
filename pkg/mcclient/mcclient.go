@@ -98,6 +98,14 @@ func (this *Client) SetHttpTransportProxyFunc(proxyFunc httputils.TransportProxy
 	httputils.SetClientProxyFunc(this.httpconn, proxyFunc)
 }
 
+func (this *Client) GetClient() *http.Client {
+	return this.httpconn
+}
+
+func (this *Client) SetTransport(ts http.RoundTripper) {
+	this.httpconn.Transport = ts
+}
+
 func (this *Client) SetDebug(debug bool) {
 	this.debug = debug
 }
