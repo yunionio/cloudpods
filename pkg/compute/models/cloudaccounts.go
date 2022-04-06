@@ -166,6 +166,8 @@ type SCloudaccount struct {
 
 	SProjectMappingResourceBase
 
+	ReadOnly bool `default:"false" create:"domain_optional" list:"domain" update:"domain"`
+
 	// 设置允许同步的账号及订阅
 	SubAccounts *cloudprovider.SubAccounts `nullable:"true" get:"user" create:"optional"`
 
@@ -990,6 +992,8 @@ func (self *SCloudaccount) getProviderInternal(ctx context.Context) (cloudprovid
 		Options:       self.Options,
 		DefaultRegion: defaultRegion,
 		ProxyFunc:     self.proxyFunc(),
+
+		ReadOnly: self.ReadOnly,
 
 		UpdatePermission: self.UpdatePermission(ctx),
 	})

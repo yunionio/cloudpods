@@ -106,6 +106,21 @@ func getSignUrl(uri string) (string, error) {
 
 func NewZStackClient(cfg *ZstackClientConfig) (*SZStackClient, error) {
 	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
+	ts, _ := httpClient.Transport.(*http.Transport)
+	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+		if cfg.cpcfg.ReadOnly {
+			if req.Method == "GET" || req.Method == "HEAD" {
+				return nil
+			}
+			// 认证
+			if req.Method == "PUT" && req.URL.Path == "/zstack/v1/accounts/login" {
+				return nil
+			}
+			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+		}
+		return nil
+	})
+
 	cli := &SZStackClient{
 		ZstackClientConfig: cfg,
 		httpClient:         httpClient,

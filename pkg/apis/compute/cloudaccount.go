@@ -207,6 +207,8 @@ type CloudaccountCreateInput struct {
 
 	// swagger:ignore
 	SubAccounts *cloudprovider.SubAccounts
+
+	ReadOnly bool `json:"read_only"`
 }
 
 type CloudaccountShareModeInput struct {
@@ -339,6 +341,8 @@ type CloudaccountUpdateInput struct {
 
 	// 临时清除缺失的权限提示，云账号权限缺失依然会自动刷新
 	CleanLakeOfPermissions bool `json:"clean_lake_of_permissions"`
+
+	ReadOnly bool `json:"read_only"`
 }
 
 type CloudaccountPerformPublicInput struct {

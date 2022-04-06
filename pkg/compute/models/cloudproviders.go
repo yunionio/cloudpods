@@ -870,6 +870,8 @@ func (self *SCloudprovider) GetProvider(ctx context.Context) (cloudprovider.IClo
 		Secret:    passwd,
 		ProxyFunc: account.proxyFunc(),
 
+		ReadOnly: account.ReadOnly,
+
 		DefaultRegion: defaultRegion,
 		Options:       account.Options,
 
@@ -1015,6 +1017,7 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 	for i := range rows {
 		if account, ok := accounts[accountIds[i]]; ok {
 			rows[i].Cloudaccount = account.Name
+			rows[i].ReadOnly = account.ReadOnly
 			rows[i].Brand = account.Brand
 
 			ps := &rows[i].ProxySetting
