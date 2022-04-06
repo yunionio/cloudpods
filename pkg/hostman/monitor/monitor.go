@@ -175,6 +175,7 @@ type Monitor interface {
 	BlockStream(drive string, idx, blkCnt int, callback StringCallback)
 	DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool)
 
+	MigrateSetDowntime(dtSec float32, callback StringCallback)
 	MigrateSetCapability(capability, state string, callback StringCallback)
 	MigrateSetParameter(key, val string, callback StringCallback)
 	MigrateIncoming(address string, callback StringCallback)
