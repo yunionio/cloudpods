@@ -169,7 +169,6 @@ func (self *SRegion) GetImage(id string) (*SImage, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Errorf("resp: %s", resp.PrettyString())
 	return image, resp.Unmarshal(image)
 }
 

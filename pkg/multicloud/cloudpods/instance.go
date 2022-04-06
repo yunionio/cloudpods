@@ -379,7 +379,20 @@ func (self *SRegion) SaveImage(id, imageName, notes string) (*SImage, error) {
 	if err != nil {
 		return nil, err
 	}
-	return self.GetImage(imageId)
+	caches, err := self.GetStoragecaches()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetStoragecaches")
+	}
+	if len(caches) == 0 {
+		return nil, fmt.Errorf("no storage cache found")
+	}
+	caches[0].region = self
+	image, err := self.GetImage(imageId)
+	if err != nil {
+		return nil, err
+	}
+	image.cache = &caches[0]
+	return image, nil
 }
 
 func (self *SInstance) AllocatePublicIpAddress() (string, error) {
