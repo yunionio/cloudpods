@@ -104,7 +104,7 @@ type SHostOptions struct {
 	// 更改默认带宽限速为400GBps, qiujian
 	BandwidthLimit int `default:"400000" help:"Bandwidth upper bound when migrating disk image in MB/sec, default 400GBps"`
 	// 热迁移带宽，预期不低于8MBps, 1G Memory takes 128 seconds
-	MigrateExpectRate        int `default:"8" help:"Expected memory migration rate in MB/sec, default 8MBps"`
+	MigrateExpectRate        int `default:"32" help:"Expected memory migration rate in MB/sec, default 32MBps"`
 	MinMigrateTimeoutSeconds int `default:"30" help:"minimal timeout for a migration process, default 30 seconds"`
 
 	SnapshotDirSuffix  string `help:"Snapshot dir name equal diskId concat snapshot dir suffix" default:"_snap"`
@@ -165,6 +165,8 @@ type SHostOptions struct {
 	EnableVirtioRngDevice bool `help:"enable qemu virtio-rng device" default:"true"`
 
 	RestrictQemuImgConvertWorker bool `help:"restrict qemu-img convert worker" default:"false"`
+
+	DefaultLiveMigrateDowntime float32 `help:"allow downtime in seconds for live migrate" default:"5.0"`
 }
 
 var (
