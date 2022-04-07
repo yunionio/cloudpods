@@ -15,6 +15,7 @@
 package test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/mock/gomock"
@@ -294,7 +295,7 @@ func buildInstanceGroup(id string, granularity int, force bool) *models.SGroup {
 	return nil
 }
 
-func preSchedule(info *api.SchedInfo, candidates []core.Candidater, isForcast bool) (*core.Unit, []core.Candidater, core.IResultHelper) {
+func preSchedule(info *api.SchedInfo, candidates []core.Candidater, isForcast bool) (context.Context, *core.Unit, []core.Candidater, core.IResultHelper) {
 	resultHelper := core.SResultHelperFunc(core.ResultHelp)
 	if isForcast {
 		resultHelper = core.SResultHelperFunc(core.ResultHelpForForcast)
@@ -304,7 +305,7 @@ func preSchedule(info *api.SchedInfo, candidates []core.Candidater, isForcast bo
 		info.ShowSuggestionDetails = true
 		info.SuggestionLimit = 100
 	}
-	return core.NewScheduleUnit(info, nil), candidates, resultHelper
+	return context.Background(), core.NewScheduleUnit(info, nil), candidates, resultHelper
 }
 
 func deepCopy(info *api.SchedInfo) *api.SchedInfo {

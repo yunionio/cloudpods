@@ -15,6 +15,7 @@
 package guest
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -41,7 +42,7 @@ func (f *ImagePredicate) Clone() core.FitPredicate {
 	return &ImagePredicate{}
 }
 
-func (f *ImagePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (f *ImagePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	disks := u.SchedData().Disks
 	if len(disks) == 0 {
 		return false, nil
@@ -74,7 +75,7 @@ func (f *ImagePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, e
 	return true, nil
 }
 
-func (f *ImagePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (f *ImagePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(f, u, c)
 	inZone := false
 	hostZoneId := c.Getter().Zone().GetId()

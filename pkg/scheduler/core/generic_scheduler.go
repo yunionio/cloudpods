@@ -15,6 +15,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -100,7 +101,7 @@ func NewGenericScheduler(s Scheduler) (*GenericScheduler, error) {
 	return g, nil
 }
 
-func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater, helper IResultHelper) (*ScheduleResult, error) {
+func (g *GenericScheduler) Schedule(ctx context.Context, unit *Unit, candidates []Candidater, helper IResultHelper) (*ScheduleResult, error) {
 	startTime := time.Now()
 	defer func() {
 		log.V(4).Infof("Schedule cost time: %v", time.Since(startTime))
@@ -130,7 +131,7 @@ func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater, helper 
 	trace.Step("Computing predicates")
 
 	// load all predicates and find the candidate can statisfy schedule condition
-	filteredCandidates, err := findCandidatesThatFit(unit, candidates, g.predicates)
+	filteredCandidates, err := findCandidatesThatFit(ctx, unit, candidates, g.predicates)
 	if err != nil {
 		return nil, err
 	}
@@ -383,10 +384,10 @@ completed:
 	return selectedCandidates, nil
 }
 
-func findCandidatesThatFit(unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) ([]Candidater, error) {
+func findCandidatesThatFit(ctx context.Context, unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) ([]Candidater, error) {
 	var filtered []Candidater
 
-	newPredicates, err := preExecPredicate(unit, candidates, predicates)
+	newPredicates, err := preExecPredicate(ctx, unit, candidates, predicates)
 	if err != nil {
 		return nil, err
 	}
@@ -412,8 +413,7 @@ func findCandidatesThatFit(unit *Unit, candidates []Candidater, predicates map[s
 		errsChannel := make(chan error, len(candidates))
 		var filteredLen int32
 		checkUnit := func(i int) {
-			fits, fcs, err := unitFitsOnCandidate(
-				unit, candidates[i], predicateArray)
+			fits, fcs, err := unitFitsOnCandidate(ctx, unit, candidates[i], predicateArray)
 			if err != nil {
 				errsChannel <- err
 				return
@@ -442,12 +442,12 @@ func findCandidatesThatFit(unit *Unit, candidates []Candidater, predicates map[s
 	return filtered, nil
 }
 
-func preExecPredicate(unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) (map[string]FitPredicate, error) {
+func preExecPredicate(ctx context.Context, unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) (map[string]FitPredicate, error) {
 	newPredicateFuncs := map[string]FitPredicate{}
 	for name, predicate := range predicates {
 		// generate new FitPredicates because of race condition?
 		newPredicate := predicate.Clone()
-		ok, err := newPredicate.PreExecute(unit, candidates)
+		ok, err := newPredicate.PreExecute(ctx, unit, candidates)
 		if err != nil {
 			return nil, err
 		}
@@ -471,6 +471,7 @@ func (w *WaitGroupWrapper) Wrap(cb func()) {
 }
 
 func unitFitsOnCandidate(
+	ctx context.Context,
 	unit *Unit,
 	candidate Candidater,
 	predicates []FitPredicate,
@@ -517,7 +518,7 @@ func unitFitsOnCandidate(
 	}
 
 	for _, predicate := range predicates {
-		fit, reasons, err = predicate.Execute(unit, candidate)
+		fit, reasons, err = predicate.Execute(ctx, unit, candidate)
 		logs = append(logs, toLog(fit, reasons, err, predicate.Name()))
 		if err != nil {
 			return false, nil, err

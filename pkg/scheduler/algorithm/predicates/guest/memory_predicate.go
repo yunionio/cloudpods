@@ -15,6 +15,8 @@
 package guest
 
 import (
+	"context"
+
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -34,7 +36,7 @@ func (p *MemoryPredicate) Clone() core.FitPredicate {
 	return &MemoryPredicate{}
 }
 
-func (p *MemoryPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (p *MemoryPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	if !u.GetHypervisorDriver().DoScheduleMemoryFilter() {
 		return false, nil
 	}
@@ -48,7 +50,7 @@ func (p *MemoryPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, 
 	return true, nil
 }
 
-func (p *MemoryPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *MemoryPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 	d := u.SchedData()
 
