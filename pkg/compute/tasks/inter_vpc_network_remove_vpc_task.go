@@ -63,13 +63,13 @@ func (self *InterVpcNetworkRemoveVpcTask) OnInit(ctx context.Context, obj db.ISt
 		return
 	}
 	vpc := _vpc.(*models.SVpc)
-	iVpc, err := vpc.GetIVpc()
+	iVpc, err := vpc.GetIVpc(ctx)
 	if err != nil {
 		self.taskFailed(ctx, interVpcNetwork, errors.Wrap(err, ` vpc.GetIVpc()`))
 		return
 	}
 
-	iVpcNetwork, err := interVpcNetwork.GetICloudInterVpcNetwork()
+	iVpcNetwork, err := interVpcNetwork.GetICloudInterVpcNetwork(ctx)
 	if err != nil {
 		self.taskFailed(ctx, interVpcNetwork, errors.Wrap(err, "GetICloudInterVpcNetwork()"))
 		return

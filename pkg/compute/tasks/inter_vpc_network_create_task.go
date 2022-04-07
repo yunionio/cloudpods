@@ -51,7 +51,7 @@ func (self *InterVpcNetworkCreateTask) taskComplete(ctx context.Context, network
 
 func (self *InterVpcNetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	interVpcNetwork := obj.(*models.SInterVpcNetwork)
-	provider, err := interVpcNetwork.GetProvider()
+	provider, err := interVpcNetwork.GetProvider(ctx)
 	if err != nil {
 		self.taskFailed(ctx, interVpcNetwork, errors.Wrapf(err, "GetProvider"))
 		return

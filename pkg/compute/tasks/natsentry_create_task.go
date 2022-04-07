@@ -87,7 +87,7 @@ func (self *SNatSEntryCreateTask) OnAssociateEipComplete(ctx context.Context, sn
 		self.taskFailed(ctx, snat, errors.Wrapf(err, "snat.GetNatgateway"))
 		return
 	}
-	iNat, err := nat.GetINatGateway()
+	iNat, err := nat.GetINatGateway(ctx)
 	if err != nil {
 		self.taskFailed(ctx, snat, errors.Wrapf(err, "nat.GetINatGateway"))
 		return

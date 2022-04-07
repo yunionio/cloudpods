@@ -52,7 +52,7 @@ func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandalo
 	}
 
 	if eip.IsManaged() {
-		extEip, err := eip.GetIEip()
+		extEip, err := eip.GetIEip(ctx)
 		if err != nil {
 			msg := fmt.Sprintf("fail to find iEip %s", err)
 			self.TaskFail(ctx, eip, jsonutils.NewString(msg))

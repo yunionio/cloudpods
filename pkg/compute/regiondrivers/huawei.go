@@ -670,7 +670,7 @@ func (self *SHuaWeiRegionDriver) createLoadbalancerBackendGroup(ctx context.Cont
 		return nil, fmt.Errorf("loadbalancer backendgroup missing protocol type")
 	}
 
-	iRegion, err := lbbg.GetIRegion()
+	iRegion, err := lbbg.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +752,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 }
 
 func (self *SHuaWeiRegionDriver) createLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl) (jsonutils.JSONObject, error) {
-	iRegion, err := lbacl.GetIRegion()
+	iRegion, err := lbacl.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -904,7 +904,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 			return nil, errors.Wrap(err, "HuaWeiRegionDriver.RequestSyncLoadbalancerbackendGroup.GetLoadbalancerBackendGroup")
 		}
 
-		iRegion, err := lbbg.GetIRegion()
+		iRegion, err := lbbg.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1245,7 +1245,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.GetIRegion")
 		}
@@ -1304,7 +1304,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 }
 
 func (self *SHuaWeiRegionDriver) syncLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl) (jsonutils.JSONObject, error) {
-	iRegion, err := lbacl.GetIRegion()
+	iRegion, err := lbacl.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1390,7 +1390,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1632,7 +1632,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.C
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1752,7 +1752,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx conte
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		iRegion, err := lbbg.GetIRegion()
+		iRegion, err := lbbg.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.")
 		}
@@ -1852,7 +1852,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 			if lb == nil {
 				return nil, fmt.Errorf("failed to find lb for backendgroup %s", cachedlbbg.Name)
 			}
-			iRegion, err := lb.GetIRegion()
+			iRegion, err := lb.GetIRegion(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -1883,11 +1883,11 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 
 func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lb.GetIRegion()
+		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetIRegion")
 		}
-		params, err := lb.GetCreateLoadbalancerParams(iRegion)
+		params, err := lb.GetCreateLoadbalancerParams(ctx, iRegion)
 		if err != nil {
 			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetCreateLoadbalancerParams")
 		}
@@ -1991,7 +1991,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 			if lb == nil {
 				return nil, fmt.Errorf("failed to find lb for backendgroup %s", cachedlbbg.Name)
 			}
-			iRegion, err := lb.GetIRegion()
+			iRegion, err := lb.GetIRegion(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetIRegion")
 			}
@@ -2053,7 +2053,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 
 		var ibackend cloudprovider.ICloudLoadbalancerBackend
 		for _, cachedLbbg := range cachedlbbgs {
-			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup()
+			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup(ctx)
 			if err != nil {
 				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					if err := deleteHuaweiCachedLbbg(ctx, userCred, cachedLbbg.AssociatedId); err != nil {
@@ -2097,7 +2097,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListenerRule.GetIRegion")
 		}
@@ -2475,7 +2475,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 
 func (self *SHuaWeiRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := ec.GetIRegion()
+		iRegion, err := ec.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetIRegion")
 		}
@@ -2485,7 +2485,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 			return nil, errors.Wrap(httperrors.ErrInvalidStatus, "huaweiRegionDriver.CreateElasticcache.GetProvider")
 		}
 
-		params, err := ec.GetCreateHuaweiElasticcacheParams(task.GetParams())
+		params, err := ec.GetCreateHuaweiElasticcacheParams(ctx, task.GetParams())
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetCreateHuaweiElasticcacheParams")
 		}
@@ -2566,7 +2566,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheAccountData(ctx conte
 }
 
 func (self *SHuaWeiRegionDriver) RequestElasticcacheAccountResetPassword(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
-	iregion, err := ea.GetIRegion()
+	iregion, err := ea.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "huaweiRegionDriver.RequestElasticcacheAccountResetPassword.GetIRegion")
 	}

@@ -712,12 +712,12 @@ func (self *SNatGateway) GetVpc() (*SVpc, error) {
 	return vpc.(*SVpc), nil
 }
 
-func (self *SNatGateway) GetINatGateway() (cloudprovider.ICloudNatGateway, error) {
+func (self *SNatGateway) GetINatGateway(ctx context.Context) (cloudprovider.ICloudNatGateway, error) {
 	vpc, err := self.GetVpc()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetVpc")
 	}
-	iVpc, err := vpc.GetIVpc()
+	iVpc, err := vpc.GetIVpc(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "vpc.GetIVpc")
 	}
@@ -1018,13 +1018,13 @@ func (self *SNatGateway) StartSetAutoRenewTask(ctx context.Context, userCred mcc
 	return task.ScheduleRun(nil)
 }
 
-func (self *SNatEntry) GetINatGateway() (cloudprovider.ICloudNatGateway, error) {
+func (self *SNatEntry) GetINatGateway(ctx context.Context) (cloudprovider.ICloudNatGateway, error) {
 	model, err := NatGatewayManager.FetchById(self.NatgatewayId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Fetch NatGateway whose id is %s failed", self.NatgatewayId)
 	}
 	natgateway := model.(*SNatGateway)
-	return natgateway.GetINatGateway()
+	return natgateway.GetINatGateway(ctx)
 }
 
 func (self *SNatEntry) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -1054,7 +1054,7 @@ func (manager *SNatGatewayManager) getExpiredPostpaids() ([]SNatGateway, error) 
 }
 
 func (self *SNatGateway) doExternalSync(ctx context.Context, userCred mcclient.TokenCredential) error {
-	iNat, err := self.GetINatGateway()
+	iNat, err := self.GetINatGateway(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetINatGateway")
 	}

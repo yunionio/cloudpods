@@ -848,7 +848,7 @@ func (self *SCloudprovider) GetProviderFactory() (cloudprovider.ICloudProviderFa
 	return cloudprovider.GetProviderFactory(self.Provider)
 }
 
-func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) {
+func (self *SCloudprovider) GetProvider(ctx context.Context) (cloudprovider.ICloudProvider, error) {
 	if !self.GetEnabled() {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "Cloud provider is not enabled")
 	}
@@ -873,7 +873,7 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 		DefaultRegion: defaultRegion,
 		Options:       account.Options,
 
-		UpdatePermission: account.UpdatePermission(),
+		UpdatePermission: account.UpdatePermission(ctx),
 	})
 }
 
@@ -1302,7 +1302,7 @@ func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userC
 }
 
 func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudproviderregion, error) {
-	driver, err := provider.GetProvider()
+	driver, err := provider.GetProvider(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "provider.GetProvider")
 	}
@@ -1644,7 +1644,7 @@ func (provider *SCloudprovider) GetDetailsStorageClasses(
 	input api.CloudproviderGetStorageClassInput,
 ) (api.CloudproviderGetStorageClassOutput, error) {
 	output := api.CloudproviderGetStorageClassOutput{}
-	driver, err := provider.GetProvider()
+	driver, err := provider.GetProvider(ctx)
 	if err != nil {
 		return output, httperrors.NewInternalServerError("fail to get provider driver %s", err)
 	}
@@ -1669,7 +1669,7 @@ func (provider *SCloudprovider) GetDetailsCannedAcls(
 	input api.CloudproviderGetCannedAclInput,
 ) (api.CloudproviderGetCannedAclOutput, error) {
 	output := api.CloudproviderGetCannedAclOutput{}
-	driver, err := provider.GetProvider()
+	driver, err := provider.GetProvider(ctx)
 	if err != nil {
 		return output, httperrors.NewInternalServerError("fail to get provider driver %s", err)
 	}

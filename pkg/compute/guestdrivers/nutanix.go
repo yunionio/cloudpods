@@ -165,7 +165,7 @@ func (self *SNutanixGuestDriver) AllowReconfigGuest() bool {
 	return true
 }
 
-func (self *SNutanixGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
+func (self *SNutanixGuestDriver) RequestRenewInstance(ctx context.Context, guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
 	return time.Time{}, nil
 }
 

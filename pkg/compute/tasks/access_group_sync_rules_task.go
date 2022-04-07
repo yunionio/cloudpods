@@ -51,7 +51,7 @@ func (self *AccessGroupSyncRulesTask) OnInit(ctx context.Context, obj db.IStanda
 	}
 
 	for i := range caches {
-		err := caches[i].SyncRules()
+		err := caches[i].SyncRules(ctx)
 		if err != nil {
 			caches[i].SetStatus(self.GetUserCred(), api.ACCESS_GROUP_STATUS_SYNC_RULES_FAILED, err.Error())
 		}

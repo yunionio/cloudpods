@@ -45,7 +45,7 @@ func (self *CDNDomainRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStand
 	cdn := obj.(*models.SCDNDomain)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 
-	iCDNDomain, err := cdn.GetICloudCDNDomain()
+	iCDNDomain, err := cdn.GetICloudCDNDomain(ctx)
 	if err != nil {
 		self.taskFail(ctx, cdn, errors.Wrapf(err, "GetICloudCDNDomain"))
 		return

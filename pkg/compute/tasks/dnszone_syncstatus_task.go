@@ -52,7 +52,7 @@ func (self *DnsZoneSyncstatusTask) OnInit(ctx context.Context, obj db.IStandalon
 	for i := range caches {
 		if len(caches[i].ExternalId) > 0 {
 			status := api.DNS_ZONE_CACHE_STATUS_UNKNOWN
-			iZone, err := caches[i].GetICloudDnsZone()
+			iZone, err := caches[i].GetICloudDnsZone(ctx)
 			if err != nil {
 				logclient.AddActionLogWithContext(ctx, &caches[i], logclient.ACT_SYNC_STATUS, errors.Wrapf(err, "GetICloudDnsZone"), self.UserCred, false)
 			} else {

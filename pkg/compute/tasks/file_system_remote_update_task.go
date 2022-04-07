@@ -46,7 +46,7 @@ func (self *FileSystemRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStan
 	self.SetStage("OnRemoteUpdateComplete", nil)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 
-	iFs, err := fs.GetICloudFileSystem()
+	iFs, err := fs.GetICloudFileSystem(ctx)
 	if err != nil {
 		self.taskFail(ctx, fs, errors.Wrapf(err, "GetICloudFileSystem"))
 		return

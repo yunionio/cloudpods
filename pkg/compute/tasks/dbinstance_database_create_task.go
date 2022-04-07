@@ -56,7 +56,7 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 		return
 	}
 
-	iRds, err := instance.GetIDBInstance()
+	iRds, err := instance.GetIDBInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, database, errors.Wrap(err, "instance.GetIDBInstance"))
 		return

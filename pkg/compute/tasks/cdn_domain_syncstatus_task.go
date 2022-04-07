@@ -45,7 +45,7 @@ func (self *CDNDomainSyncstatusTask) taskFailed(ctx context.Context, domain *mod
 func (self *CDNDomainSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	domain := obj.(*models.SCDNDomain)
 
-	iDomain, err := domain.GetICloudCDNDomain()
+	iDomain, err := domain.GetICloudCDNDomain(ctx)
 	if err != nil {
 		self.taskFailed(ctx, domain, errors.Wrapf(err, "GetICloudCDNDomain"))
 		return

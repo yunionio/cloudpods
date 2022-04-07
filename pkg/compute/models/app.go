@@ -394,23 +394,23 @@ func (a *SApp) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCre
 	return nil, StartResourceSyncStatusTask(ctx, userCred, a, "AppSyncstatusTask", "")
 }
 
-func (a *SApp) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (a *SApp) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	region, err := a.GetRegion()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRegion")
 	}
-	provider, err := a.GetDriver()
+	provider, err := a.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDriver")
 	}
 	return provider.GetIRegionById(region.GetExternalId())
 }
 
-func (a *SApp) GetIApp() (cloudprovider.ICloudApp, error) {
+func (a *SApp) GetIApp(ctx context.Context) (cloudprovider.ICloudApp, error) {
 	if len(a.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
 	}
-	iRegion, err := a.GetIRegion()
+	iRegion, err := a.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetIRegion")
 	}

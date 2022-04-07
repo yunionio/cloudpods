@@ -90,7 +90,7 @@ func (self *MountTargetCreateTask) OnSyncAccessGroupComplete(ctx context.Context
 		return
 	}
 
-	iFs, err := fs.GetICloudFileSystem()
+	iFs, err := fs.GetICloudFileSystem(ctx)
 	if err != nil {
 		self.taskFailed(ctx, mt, errors.Wrapf(err, "fs.GetICloudFileSystem"))
 		return

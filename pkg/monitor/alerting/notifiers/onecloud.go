@@ -73,7 +73,9 @@ func init() {
 			}
 			ids := make([]string, 0)
 			for _, uid := range settings.UserIds {
-				obj, err := db.UserCacheManager.FetchUserByIdOrName(context.TODO(), uid)
+				ctx := context.Background()
+				ctx = context.WithValue(ctx, "alerting", uid)
+				obj, err := db.UserCacheManager.FetchUserByIdOrName(ctx, uid)
 				if err != nil {
 					return input, errors.Wrapf(err, "fetch setting uid %s", uid)
 				}

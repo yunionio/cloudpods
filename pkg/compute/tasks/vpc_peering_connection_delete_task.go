@@ -58,7 +58,7 @@ func (self *VpcPeeringConnectionDeleteTask) OnInit(ctx context.Context, obj db.I
 		return
 	}
 
-	iVpc, err := vpc.GetIVpc()
+	iVpc, err := vpc.GetIVpc(ctx)
 	if err != nil {
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "GetIVpc"))
 		return

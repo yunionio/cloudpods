@@ -214,8 +214,8 @@ func (man *SCachedLoadbalancerCertificateManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (lbcert *SCachedLoadbalancerCertificate) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := lbcert.GetDriver()
+func (lbcert *SCachedLoadbalancerCertificate) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	provider, err := lbcert.GetDriver(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("No cloudprovider for lbcert %s: %s", lbcert.Name, err)
 	}

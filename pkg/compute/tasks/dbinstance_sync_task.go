@@ -54,7 +54,7 @@ func (self *DBInstanceSyncTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 }
 
 func (self *DBInstanceSyncTask) SyncDBInstance(ctx context.Context, rds *models.SDBInstance) {
-	irds, err := rds.GetIDBInstance()
+	irds, err := rds.GetIDBInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, rds, errors.Wrapf(err, "rds.GetIDBInstance"))
 		return

@@ -47,7 +47,7 @@ func (self *KubeClusterDeleteTask) taskFailed(ctx context.Context, cluster *mode
 func (self *KubeClusterDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	cluster := obj.(*models.SKubeCluster)
 
-	iCluster, err := cluster.GetIKubeCluster()
+	iCluster, err := cluster.GetIKubeCluster(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, cluster)

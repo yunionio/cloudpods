@@ -69,7 +69,7 @@ func (self *ElasticcacheSyncsecgroupsTask) OnElasticcacheSyncSecgroupsComplete(c
 		return
 	}
 
-	iregion, err := cache.GetIRegion()
+	iregion, err := cache.GetIRegion(ctx)
 	if err != nil {
 		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
 		return

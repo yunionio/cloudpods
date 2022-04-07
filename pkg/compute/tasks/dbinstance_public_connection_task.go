@@ -57,7 +57,7 @@ func (self *DBInstancePublicConnectionTask) OnInit(ctx context.Context, obj db.I
 }
 
 func (self *DBInstancePublicConnectionTask) DBInstancePublicConnectionOperation(ctx context.Context, instance *models.SDBInstance) {
-	idbinstance, err := instance.GetIDBInstance()
+	idbinstance, err := instance.GetIDBInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, instance, errors.Wrap(err, "instance.GetIDBInstance"))
 		return
@@ -78,7 +78,7 @@ func (self *DBInstancePublicConnectionTask) DBInstancePublicConnectionOperation(
 	connectionStr := ""
 
 	err = cloudprovider.Wait(time.Second*10, time.Minute*5, func() (bool, error) {
-		iRds, err := instance.GetIDBInstance()
+		iRds, err := instance.GetIDBInstance(ctx)
 		if err != nil {
 			return false, errors.Wrapf(err, "GetIDBInstance")
 		}

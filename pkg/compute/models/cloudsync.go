@@ -2139,7 +2139,7 @@ func SyncCloudDomain(userCred mcclient.TokenCredential, model db.IDomainLevelMod
 }
 
 func SyncCloudaccountResources(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, syncRange *SSyncRange) error {
-	provider, err := account.GetProvider()
+	provider, err := account.GetProvider(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetProvider")
 	}
@@ -2215,7 +2215,7 @@ func syncDns(ctx context.Context, userCred mcclient.TokenCredential, syncResults
 }
 
 func SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, syncRange *SSyncRange) error {
-	driver, err := provider.GetProvider()
+	driver, err := provider.GetProvider(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetProvider")
 	}

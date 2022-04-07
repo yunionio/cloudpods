@@ -60,7 +60,7 @@ func (self *GlobalVpcDeleteTask) taskFailed(ctx context.Context, gvpc *models.SG
 
 func (self *GlobalVpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	gvpc := obj.(*models.SGlobalVpc)
-	iVpc, err := gvpc.GetICloudGlobalVpc()
+	iVpc, err := gvpc.GetICloudGlobalVpc(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, gvpc)

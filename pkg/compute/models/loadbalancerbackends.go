@@ -299,12 +299,12 @@ func (lbb *SLoadbalancerBackend) GetRegion() (*SCloudregion, error) {
 	return backendgroup.GetRegion()
 }
 
-func (lbb *SLoadbalancerBackend) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (lbb *SLoadbalancerBackend) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	backendgroup, err := lbb.GetLoadbalancerBackendGroup()
 	if err != nil {
 		return nil, err
 	}
-	return backendgroup.GetIRegion()
+	return backendgroup.GetIRegion(ctx)
 }
 
 func (man *SLoadbalancerBackendManager) GetGuestAddress(guest *SGuest) (string, error) {

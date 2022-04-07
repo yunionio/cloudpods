@@ -45,7 +45,7 @@ func (self *AppRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	app := obj.(*models.SApp)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 
-	iApp, err := app.GetIApp()
+	iApp, err := app.GetIApp(ctx)
 	if err != nil {
 		self.taskFail(ctx, app, errors.Wrapf(err, "GetIApp"))
 		return

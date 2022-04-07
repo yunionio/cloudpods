@@ -54,7 +54,7 @@ func (self *DnsZoneCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	}
 
 	for i := range caches {
-		provider, err := caches[i].GetProvider()
+		provider, err := caches[i].GetProvider(ctx)
 		if err != nil {
 			self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetProvider"))
 			return
@@ -73,7 +73,7 @@ func (self *DnsZoneCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 				return
 			}
 			for _, vpc := range vpcs {
-				iVpc, err := vpc.GetIVpc()
+				iVpc, err := vpc.GetIVpc(ctx)
 				if err != nil {
 					self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetIVpc for vpc %s", vpc.Name))
 					return

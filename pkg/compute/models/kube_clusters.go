@@ -327,33 +327,25 @@ func (manager *SKubeClusterManager) ValidateCreateData(
 	return input, httperrors.NewNotImplementedError("Not Implemented")
 }
 
-func (self *SKubeCluster) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SKubeCluster) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRegion")
 	}
-	provider, err := self.GetDriver()
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return provider.GetIRegionById(region.GetExternalId())
 }
 
-func (self *SKubeCluster) GetIKubeCluster() (cloudprovider.ICloudKubeCluster, error) {
+func (self *SKubeCluster) GetIKubeCluster(ctx context.Context) (cloudprovider.ICloudKubeCluster, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
 	}
-	provider, err := self.GetDriver()
+	iRegion, err := self.GetIRegion(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cluster.GetDriver")
-	}
-	region, err := self.GetRegion()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetRegion")
-	}
-	iRegion, err := provider.GetIRegionById(region.ExternalId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetIRegionById")
+		return nil, errors.Wrapf(err, "GetIRegion")
 	}
 	return iRegion.GetICloudKubeClusterById(self.ExternalId)
 }
@@ -563,7 +555,7 @@ func (manager *SKubeClusterManager) ListItemExportKeys(ctx context.Context,
 }
 
 func (self *SKubeCluster) GetDetailsKubeconfig(ctx context.Context, userCred mcclient.TokenCredential, input api.GetKubeConfigInput) (*cloudprovider.SKubeconfig, error) {
-	iCluster, err := self.GetIKubeCluster()
+	iCluster, err := self.GetIKubeCluster(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIKubeCluster")
 	}

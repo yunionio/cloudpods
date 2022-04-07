@@ -85,7 +85,7 @@ func (self *NatGatewayCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	self.SetStage("OnCreateNatGatewayCreateComplete", nil)
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
-		iVpc, err := vpc.GetIVpc()
+		iVpc, err := vpc.GetIVpc(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "vpc.GetIVpc")
 		}

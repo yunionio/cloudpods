@@ -103,7 +103,7 @@ func (lbbg *SAwsCachedLbbg) GetCachedBackends() ([]SAwsCachedLb, error) {
 	return ret, nil
 }
 
-func (lbbg *SAwsCachedLbbg) GetICloudLoadbalancerBackendGroup() (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+func (lbbg *SAwsCachedLbbg) GetICloudLoadbalancerBackendGroup(ctx context.Context) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	if len(lbbg.ExternalId) == 0 {
 		return nil, fmt.Errorf("backendgroup %s has no external id", lbbg.GetId())
 	}
@@ -113,7 +113,7 @@ func (lbbg *SAwsCachedLbbg) GetICloudLoadbalancerBackendGroup() (cloudprovider.I
 		return nil, fmt.Errorf("backendgroup %s releated loadbalancer not found", lbbg.GetId())
 	}
 
-	iregion, err := lb.GetIRegion()
+	iregion, err := lb.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -50,7 +50,7 @@ func (self *DBInstanceAccountResetPasswordTask) OnInit(ctx context.Context, obj 
 		self.taskFailed(ctx, account, errors.Wrap(err, "account.GetDBInstance"))
 		return
 	}
-	iRds, err := instance.GetIDBInstance()
+	iRds, err := instance.GetIDBInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, account, errors.Wrap(err, "instance.GetIDBInstance"))
 		return

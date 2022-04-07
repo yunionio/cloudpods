@@ -45,7 +45,7 @@ func (self *NetworkSyncstatusTask) taskFail(ctx context.Context, net *models.SNe
 func (self *NetworkSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	net := obj.(*models.SNetwork)
 
-	extNet, err := net.GetINetwork()
+	extNet, err := net.GetINetwork(ctx)
 	if err != nil {
 		self.taskFail(ctx, net, errors.Wrapf(err, "net.GetINetwork"))
 		return

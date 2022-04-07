@@ -362,7 +362,7 @@ func (bucket *SBucket) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 
 func (bucket *SBucket) RemoteDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if len(bucket.ExternalId) > 0 {
-		iregion, err := bucket.GetIRegion()
+		iregion, err := bucket.GetIRegion(ctx)
 		if err != nil {
 			return errors.Wrap(err, "bucket.GetIRegion")
 		}
@@ -394,8 +394,8 @@ func (bucket *SBucket) StartBucketDeleteTask(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (bucket *SBucket) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := bucket.GetDriver()
+func (bucket *SBucket) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	provider, err := bucket.GetDriver(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -410,8 +410,8 @@ func (bucket *SBucket) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	}
 }
 
-func (bucket *SBucket) GetIBucket() (cloudprovider.ICloudBucket, error) {
-	iregion, err := bucket.GetIRegion()
+func (bucket *SBucket) GetIBucket(ctx context.Context) (cloudprovider.ICloudBucket, error) {
+	iregion, err := bucket.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "bucket.GetIRegion")
 	}
@@ -450,7 +450,7 @@ func (manager *SBucketManager) ValidateCreateData(
 	}
 
 	if len(input.StorageClass) > 0 {
-		driver, err := managerV.GetProvider()
+		driver, err := managerV.GetProvider(ctx)
 		if err != nil {
 			return input, errors.Wrap(err, "GetProvider")
 		}
@@ -536,7 +536,7 @@ func (bucket *SBucket) ValidateUpdateData(
 }
 
 func (bucket *SBucket) RemoteCreate(ctx context.Context, userCred mcclient.TokenCredential) error {
-	iregion, err := bucket.GetIRegion()
+	iregion, err := bucket.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrap(err, "bucket.GetIRegion")
 	}
@@ -734,7 +734,7 @@ func (bucket *SBucket) GetDetailsObjects(
 	if len(bucket.ExternalId) == 0 {
 		return output, httperrors.NewInvalidStatusError("no external bucket")
 	}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return output, errors.Wrap(err, "GetIBucket")
 	}
@@ -808,7 +808,7 @@ func (bucket *SBucket) PerformTempUrl(
 		expire = 60 // default 60 seconds
 	}
 
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return output, errors.Wrap(err, "GetIBucket")
 	}
@@ -852,7 +852,7 @@ func (bucket *SBucket) PerformMakedir(
 		return nil, httperrors.NewInputParameterError("invalid key %s: %s", key, err)
 	}
 
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -919,7 +919,7 @@ func (bucket *SBucket) PerformDelete(
 		return nil, httperrors.NewInputParameterError("empty keys")
 	}
 
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -979,7 +979,7 @@ func (bucket *SBucket) PerformUpload(
 		return nil, httperrors.NewInputParameterError("invalid object key: %s", err)
 	}
 
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -998,7 +998,7 @@ func (bucket *SBucket) PerformUpload(
 		return nil, httperrors.NewInputParameterError("Content-Length negative %d", sizeBytes)
 	}
 	storageClass := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_STORAGECLASS_HEADER)
-	driver, err := bucket.GetDriver()
+	driver, err := bucket.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDriver")
 	}
@@ -1089,12 +1089,12 @@ func (bucket *SBucket) PerformAcl(
 		return nil, errors.Wrap(err, "ValidateInput")
 	}
 
-	provider, err := bucket.GetDriver()
+	provider, err := bucket.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDriver")
 	}
 
-	iBucket, objects, err := bucket.processObjectsActionInput(input.BucketObjectsActionInput)
+	iBucket, objects, err := bucket.processObjectsActionInput(ctx, input.BucketObjectsActionInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "processObjectsActionInput")
 	}
@@ -1183,7 +1183,7 @@ func (bucket *SBucket) PerformSync(
 
 	statsOnly := jsonutils.QueryBoolean(data, "stats_only", false)
 
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -1230,7 +1230,7 @@ func (bucket *SBucket) GetDetailsAcl(
 	if len(bucket.ExternalId) == 0 {
 		return output, httperrors.NewInvalidStatusError("no external bucket")
 	}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return output, errors.Wrap(err, "GetIBucket")
 	}
@@ -1271,7 +1271,7 @@ func (bucket *SBucket) PerformSetWebsite(
 	if err != nil {
 		return nil, err
 	}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -1313,7 +1313,7 @@ func (bucket *SBucket) PerformDeleteWebsite(
 	query jsonutils.JSONObject,
 	input jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -1340,7 +1340,7 @@ func (bucket *SBucket) GetDetailsWebsite(
 	input jsonutils.JSONObject,
 ) (api.BucketWebsiteConf, error) {
 	websiteConf := api.BucketWebsiteConf{}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return websiteConf, errors.Wrap(err, "GetIBucket")
 	}
@@ -1385,7 +1385,7 @@ func (bucket *SBucket) PerformSetCors(
 	if err != nil {
 		return nil, err
 	}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -1423,7 +1423,7 @@ func (bucket *SBucket) PerformDeleteCors(
 	query jsonutils.JSONObject,
 	input api.BucketCORSRuleDeleteInput,
 ) (jsonutils.JSONObject, error) {
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -1450,7 +1450,7 @@ func (bucket *SBucket) GetDetailsCors(
 	input jsonutils.JSONObject,
 ) (api.BucketCORSRules, error) {
 	rules := api.BucketCORSRules{}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return rules, errors.Wrap(err, "GetIBucket")
 	}
@@ -1487,7 +1487,7 @@ func (bucket *SBucket) GetDetailsCdnDomain(
 	input jsonutils.JSONObject,
 ) (api.CdnDomains, error) {
 	domains := api.CdnDomains{}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return domains, errors.Wrap(err, "GetIBucket")
 	}
@@ -1526,7 +1526,7 @@ func (bucket *SBucket) PerformSetReferer(
 	if err != nil {
 		return nil, err
 	}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -1561,7 +1561,7 @@ func (bucket *SBucket) GetDetailsReferer(
 	input jsonutils.JSONObject,
 ) (api.BucketRefererConf, error) {
 	conf := api.BucketRefererConf{}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return conf, errors.Wrap(err, "GetIBucket")
 	}
@@ -1593,7 +1593,7 @@ func (bucket *SBucket) GetDetailsPolicy(
 	input jsonutils.JSONObject,
 ) (api.BucketPolicy, error) {
 	policy := api.BucketPolicy{}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return policy, errors.Wrap(err, "GetIBucket")
 	}
@@ -1636,7 +1636,7 @@ func (bucket *SBucket) PerformSetPolicy(
 	if err != nil {
 		return nil, err
 	}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -1672,7 +1672,7 @@ func (bucket *SBucket) PerformDeletePolicy(
 	query jsonutils.JSONObject,
 	input api.BucketPolicyDeleteInput,
 ) (jsonutils.JSONObject, error) {
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -1765,7 +1765,7 @@ func (bucket *SBucket) PerformLimit(
 		return nil, httperrors.NewInputParameterError("unmarshal limit error %s", err)
 	}
 
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -1856,7 +1856,7 @@ func (bucket *SBucket) PerformMetadata(
 	if err != nil {
 		return nil, err
 	}
-	_, objects, err := bucket.processObjectsActionInput(input.BucketObjectsActionInput)
+	_, objects, err := bucket.processObjectsActionInput(ctx, input.BucketObjectsActionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1874,11 +1874,11 @@ func (bucket *SBucket) PerformMetadata(
 	}
 }
 
-func (bucket *SBucket) processObjectsActionInput(input api.BucketObjectsActionInput) (cloudprovider.ICloudBucket, []cloudprovider.ICloudObject, error) {
+func (bucket *SBucket) processObjectsActionInput(ctx context.Context, input api.BucketObjectsActionInput) (cloudprovider.ICloudBucket, []cloudprovider.ICloudObject, error) {
 	if len(bucket.ExternalId) == 0 {
 		return nil, nil, httperrors.NewInvalidStatusError("no external bucket")
 	}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "GetIBucket")
 	}
@@ -1909,7 +1909,7 @@ func (bucket *SBucket) OnMetadataUpdated(ctx context.Context, userCred mcclient.
 	if len(bucket.ExternalId) == 0 {
 		return
 	}
-	iBucket, err := bucket.GetIBucket()
+	iBucket, err := bucket.GetIBucket(ctx)
 	if err != nil {
 		return
 	}

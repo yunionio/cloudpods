@@ -62,8 +62,8 @@ func init() {
 	DefaultUserFetcher = UserCacheManager.FetchUserByIdOrName
 }
 
-func (manager *SUserCacheManager) updateUserCache(userCred mcclient.TokenCredential) {
-	manager.Save(context.Background(), userCred.GetUserId(), userCred.GetUserName(),
+func (manager *SUserCacheManager) updateUserCache(ctx context.Context, userCred mcclient.TokenCredential) {
+	manager.Save(ctx, userCred.GetUserId(), userCred.GetUserName(),
 		userCred.GetDomainId(), userCred.GetDomainName())
 }
 

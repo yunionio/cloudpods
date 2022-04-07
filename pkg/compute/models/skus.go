@@ -1410,7 +1410,7 @@ func (manager *SServerSkuManager) GetPropertySyncTasks(ctx context.Context, user
 	return GetPropertySkusSyncTasks(ctx, userCred, query)
 }
 
-func (self *SServerSku) GetICloudSku() (cloudprovider.ICloudSku, error) {
+func (self *SServerSku) GetICloudSku(ctx context.Context) (cloudprovider.ICloudSku, error) {
 	region, err := self.GetRegion()
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
@@ -1425,7 +1425,7 @@ func (self *SServerSku) GetICloudSku() (cloudprovider.ICloudSku, error) {
 		}
 		return nil, errors.Wrapf(err, "GetCloudprovider")
 	}
-	driver, err := provider.GetProvider()
+	driver, err := provider.GetProvider(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetDriver()")
 	}

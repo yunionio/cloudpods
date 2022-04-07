@@ -47,7 +47,7 @@ func (self *NatGatewayDeleteTask) taskFailed(ctx context.Context, nat *models.SN
 func (self *NatGatewayDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	nat := obj.(*models.SNatGateway)
 
-	iNat, err := nat.GetINatGateway()
+	iNat, err := nat.GetINatGateway(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.OnEipDissociateComplete(ctx, nat, nil)
@@ -106,7 +106,7 @@ func (self *NatGatewayDeleteTask) OnEipDissociateCompleteFailed(ctx context.Cont
 }
 
 func (self *NatGatewayDeleteTask) doDeleteNatGateway(ctx context.Context, nat *models.SNatGateway) {
-	iNat, err := nat.GetINatGateway()
+	iNat, err := nat.GetINatGateway(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, nat)
