@@ -171,10 +171,18 @@ func UnmarshalError(r *request.Request) {
 	}
 
 	respErr := &sAwsError{}
-	err = obj.Unmarshal(respErr, "ErrorResponse")
-	if err != nil {
-		r.Error = errors.Wrapf(err, "obj.Unmarshal")
-		return
+	if obj.Contains("ErrorResponse") {
+		err = obj.Unmarshal(respErr, "ErrorResponse")
+		if err != nil {
+			r.Error = errors.Wrapf(err, "obj.Unmarshal")
+			return
+		}
+	} else if obj.Contains("Response", "Errors") {
+		err = obj.Unmarshal(respErr, "Response", "Errors")
+		if err != nil {
+			r.Error = errors.Wrapf(err, "obj.Unmarshal")
+			return
+		}
 	}
 
 	if strings.Contains(respErr.Errors.Code, "NotFound") {
