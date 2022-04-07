@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -28,7 +27,9 @@ import (
 
 var StorageTypes = []string{
 	api.STORAGE_GP2_SSD,
+	api.STORAGE_GP3_SSD,
 	api.STORAGE_IO1_SSD,
+	api.STORAGE_IO2_SSD,
 	api.STORAGE_ST1_HDD,
 	api.STORAGE_SC1_HDD,
 	api.STORAGE_STANDARD_HDD,
@@ -40,15 +41,11 @@ type SZone struct {
 	region *SRegion
 	host   *SHost
 
-	iwires    []cloudprovider.ICloudWire
-	istorages []cloudprovider.ICloudStorage
+	iwires []cloudprovider.ICloudWire
 
 	ZoneId    string // 沿用阿里云ZoneId,对应Aws ZoneName
 	LocalName string
 	State     string
-
-	/* 支持的磁盘种类集合 */
-	storageTypes []string
 }
 
 func (self *SZone) addWire(wire *SWire) {
@@ -63,30 +60,6 @@ func (self *SZone) getHost() *SHost {
 		self.host = &SHost{zone: self}
 	}
 	return self.host
-}
-
-func (self *SZone) getStorageType() {
-	if len(self.storageTypes) == 0 {
-		self.storageTypes = StorageTypes
-		if utils.IsInStringArray(self.region.GetId(), []string{"cn-north-1", "cn-northwest-1"}) {
-			self.storageTypes = append(self.storageTypes, api.STORAGE_GP3_SSD)
-		}
-
-		if !utils.IsInStringArray(self.region.GetId(), []string{"af-south-1", "eu-south-1", "eu-west-3", "sa-east-1", "cn-north-1", "cn-northwest-1"}) {
-			self.storageTypes = append(self.storageTypes, api.STORAGE_IO2_SSD)
-		}
-	}
-}
-
-func (self *SZone) fetchStorages() error {
-	self.getStorageType()
-	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))
-
-	for i, sc := range self.storageTypes {
-		storage := SStorage{zone: self, storageType: sc}
-		self.istorages[i] = &storage
-	}
-	return nil
 }
 
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
@@ -158,25 +131,22 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	if self.istorages == nil {
-		err := self.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetchStorages")
-		}
+	ret := []cloudprovider.ICloudStorage{}
+	for i := range StorageTypes {
+		storage := &SStorage{zone: self, storageType: StorageTypes[i]}
+		ret = append(ret, storage)
 	}
-	return self.istorages, nil
+	return ret, nil
 }
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	if self.istorages == nil {
-		err := self.fetchStorages()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetchStorages")
-		}
+	storages, err := self.GetIStorages()
+	if err != nil {
+		return nil, err
 	}
-	for i := 0; i < len(self.istorages); i += 1 {
-		if self.istorages[i].GetGlobalId() == id {
-			return self.istorages[i], nil
+	for i := 0; i < len(storages); i += 1 {
+		if storages[i].GetGlobalId() == id {
+			return storages[i], nil
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "not found %s", id)
