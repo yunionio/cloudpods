@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/multicloud/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -46,4 +48,19 @@ func init() {
 		}
 		return nil
 	})
+
+	type TestVolumeTypeAvailableOptions struct {
+		VOLUME_TYPE string `choices:"gp2|gp3|io1|io2|st1|sc1|standard"`
+		ZONE_ID     string
+	}
+
+	shellutils.R(&TestVolumeTypeAvailableOptions{}, "test-volume-type", "Test volume type is available", func(cli *aws.SRegion, args *TestVolumeTypeAvailableOptions) error {
+		ok, e := cli.TestStorageAvailable(args.ZONE_ID, args.VOLUME_TYPE)
+		if e != nil {
+			return e
+		}
+		fmt.Println(ok)
+		return nil
+	})
+
 }
