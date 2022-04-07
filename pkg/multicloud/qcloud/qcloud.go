@@ -70,6 +70,7 @@ const (
 	QCLOUD_KAFKA_API_VERSION     = "2019-08-19"
 	QCLOUD_TKE_API_VERSION       = "2018-05-25"
 	QCLOUD_DNS_API_VERSION       = "2021-03-23"
+	QCLOUD_STS_API_VERSION       = "2018-08-13"
 )
 
 type QcloudClientConfig struct {
@@ -107,7 +108,6 @@ func (cfg *QcloudClientConfig) Debug(debug bool) *QcloudClientConfig {
 
 type SQcloudClient struct {
 	*QcloudClientConfig
-	uin       string
 	ownerId   string
 	ownerName string
 
@@ -122,17 +122,6 @@ func NewQcloudClient(cfg *QcloudClientConfig) (*SQcloudClient, error) {
 	err := client.fetchRegions()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
-	}
-	// err = client.verifyAppId()
-	// if err != nil {
-	//	return nil, errors.Wrap(err, "verifyAppId")
-	// }
-	err = client.fetchBuckets()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchBuckets")
-	}
-	if client.debug {
-		log.Debugf("ownerID: %s ownerName: %s", client.ownerId, client.ownerName)
 	}
 	return &client, nil
 }
@@ -299,6 +288,12 @@ func cdnRequest(client *common.Client, apiName string, params map[string]string,
 	debug bool) (jsonutils.JSONObject, error) {
 	domain := "cdn.tencentcloudapi.com"
 	return _jsonRequest(client, domain, QCLOUD_CDN_API_VERSION, apiName, params, updateFunc, debug, true)
+}
+
+func stsRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string),
+	debug bool) (jsonutils.JSONObject, error) {
+	domain := "sts.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_STS_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 // ============phpJsonRequest============
@@ -830,6 +825,14 @@ func (client *SQcloudClient) cdnRequest(apiName string, params map[string]string
 	return cdnRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
+func (client *SQcloudClient) stsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return stsRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
+}
+
 func (client *SQcloudClient) jsonRequest(apiName string, params map[string]string, retry bool) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
@@ -1000,12 +1003,18 @@ func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 
-func (client *SQcloudClient) GetAccountId() string {
-	return client.ownerName
+func (self *SQcloudClient) GetAccountId() string {
+	if len(self.ownerId) == 0 {
+		caller, err := self.GetCallerIdentity()
+		if err == nil {
+			self.ownerId = caller.AccountId
+		}
+	}
+	return self.ownerId
 }
 
 func (client *SQcloudClient) GetIamLoginUrl() string {
-	return fmt.Sprintf("https://cloud.tencent.com/login/subAccount?account=%s", client.ownerName)
+	return fmt.Sprintf("https://cloud.tencent.com/login/subAccount")
 }
 
 func (client *SQcloudClient) GetIRegions() []cloudprovider.ICloudRegion {
