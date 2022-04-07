@@ -189,7 +189,7 @@ func (s *SKVMGuestInstance) getOriginId() string {
 }
 
 func (s *SKVMGuestInstance) isImportFromLibvirt() bool {
-	return len(s.getOriginId()) > 0
+	return s.Desc.Contains("metadata", "__origin_id")
 }
 
 func (s *SKVMGuestInstance) GetPid() int {
