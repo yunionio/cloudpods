@@ -1,0 +1,13 @@
+FROM alpine:3.15.4
+
+MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
+
+ENV TZ UTC
+
+RUN mkdir -p /opt/yunion/bin
+
+RUN sed -i 's!https://dl-cdn.alpinelinux.org/!https://mirrors.ustc.edu.cn/!g' /etc/apk/repositories
+
+RUN apk update && \
+    apk add --no-cache tzdata curl busybox-extras tcpdump strace ca-certificates && \
+    rm -rf /var/cache/apk/*
