@@ -15,6 +15,7 @@
 package guest
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -40,14 +41,14 @@ func (p *StoragePredicate) Clone() core.FitPredicate {
 	return &StoragePredicate{}
 }
 
-func (p *StoragePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (p *StoragePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	if !u.GetHypervisorDriver().DoScheduleStorageFilter() {
 		return false, nil
 	}
 	return true, nil
 }
 
-func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *StoragePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 
 	d := u.SchedData()

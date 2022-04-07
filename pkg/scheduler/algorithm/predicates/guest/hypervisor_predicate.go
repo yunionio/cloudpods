@@ -15,6 +15,8 @@
 package guest
 
 import (
+	"context"
+
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
@@ -63,7 +65,7 @@ func hostAllowRunContainer(c core.Candidater) bool {
 	return false
 }
 
-func (f *HypervisorPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (f *HypervisorPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(f, u, c)
 
 	hostType := c.Getter().HostType()

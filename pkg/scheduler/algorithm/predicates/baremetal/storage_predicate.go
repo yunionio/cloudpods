@@ -15,6 +15,7 @@
 package baremetal
 
 import (
+	"context"
 	"fmt" // computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
@@ -52,7 +53,7 @@ func (p *StoragePredicate) Clone() core.FitPredicate {
 	return ret
 }*/
 
-func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *StoragePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 	schedData := u.SchedData()
 

@@ -15,6 +15,8 @@
 package guest
 
 import (
+	"context"
+
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -33,11 +35,11 @@ func (p *MigratePredicate) Clone() core.FitPredicate {
 	return &MigratePredicate{}
 }
 
-func (p *MigratePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (p *MigratePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	return len(u.SchedData().HostId) > 0, nil
 }
 
-func (p *MigratePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *MigratePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 	schedData := u.SchedData()
 

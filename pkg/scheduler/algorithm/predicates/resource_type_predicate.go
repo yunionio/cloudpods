@@ -15,6 +15,8 @@
 package predicates
 
 import (
+	"context"
+
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -31,14 +33,14 @@ func (p *ResourceTypePredicate) Clone() core.FitPredicate {
 	return &ResourceTypePredicate{}
 }
 
-func (p *ResourceTypePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (p *ResourceTypePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	if u.SchedData().ResourceType == "" {
 		return false, nil
 	}
 	return true, nil
 }
 
-func (p *ResourceTypePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *ResourceTypePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
 
 	d := u.SchedData()

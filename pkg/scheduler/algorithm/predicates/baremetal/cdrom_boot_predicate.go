@@ -15,6 +15,7 @@
 package baremetal
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
@@ -33,7 +34,7 @@ func (p *CdromBootPredicate) Clone() core.FitPredicate {
 	return &CdromBootPredicate{}
 }
 
-func (p *CdromBootPredicate) PreExecute(u *core.Unit, _ []core.Candidater) (bool, error) {
+func (p *CdromBootPredicate) PreExecute(ctx context.Context, u *core.Unit, _ []core.Candidater) (bool, error) {
 	cdrom := u.SchedData().Cdrom
 	if len(cdrom) == 0 {
 		return false, nil
@@ -41,7 +42,7 @@ func (p *CdromBootPredicate) PreExecute(u *core.Unit, _ []core.Candidater) (bool
 	return true, nil
 }
 
-func (p *CdromBootPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *CdromBootPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 	info := c.Getter().GetIpmiInfo()
 	if !info.CdromBoot {

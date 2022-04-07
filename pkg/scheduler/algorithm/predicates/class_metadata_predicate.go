@@ -59,9 +59,9 @@ func (p *ClassMetadataPredicate) Clone() core.FitPredicate {
 	}
 }
 
-func (p *ClassMetadataPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (p *ClassMetadataPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	info := u.SchedData()
-	tenant, err := db.TenantCacheManager.FetchTenantById(context.Background(), info.Project)
+	tenant, err := db.TenantCacheManager.FetchTenantById(ctx, info.Project)
 	if err != nil {
 		return false, errors.Wrapf(err, "unable to fetch tenant %s", info.Project)
 	}
@@ -95,7 +95,7 @@ func (p *ClassMetadataPredicate) PreExecute(u *core.Unit, cs []core.Candidater) 
 		stand = &obj.(*models.SInstanceSnapshot).SStandaloneAnonResourceBase
 	case len(disks) == 0:
 	case disks[0].ImageId != "":
-		obj, err := models.CachedimageManager.GetCachedimageById(context.Background(), disks[0].ImageId)
+		obj, err := models.CachedimageManager.GetCachedimageById(ctx, disks[0].ImageId)
 		if err != nil {
 			return false, errors.Wrapf(err, "unable to fetch cachedimage %s", disks[0].ImageId)
 		}
@@ -135,9 +135,8 @@ func (p *ClassMetadataPredicate) PreExecute(u *core.Unit, cs []core.Candidater) 
 	return true, nil
 }
 
-func (p *ClassMetadataPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *ClassMetadataPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
-	ctx := context.Background()
 	for _, resource := range []*ResourceWithClassMetadata{p.tenant, p.guestSource} {
 		if resource == nil {
 			continue

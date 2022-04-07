@@ -15,6 +15,7 @@
 package predicates
 
 import (
+	"context"
 	"sort"
 
 	"yunion.io/x/jsonutils"
@@ -40,8 +41,8 @@ func (p *NetworkSchedtagPredicate) Clone() core.FitPredicate {
 	}
 }
 
-func (p *NetworkSchedtagPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
-	return p.BaseSchedtagPredicate.PreExecute(p, u, cs)
+func (p *NetworkSchedtagPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
+	return p.BaseSchedtagPredicate.PreExecute(ctx, p, u, cs)
 }
 
 type netW struct {
@@ -84,7 +85,7 @@ func (p *NetworkSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCa
 	return ret
 }
 
-func (p *NetworkSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer, res ISchedtagCandidateResource) bool {
+func (p *NetworkSchedtagPredicate) IsResourceMatchInput(ctx context.Context, input ISchedtagCustomer, res ISchedtagCandidateResource) bool {
 	net := input.(*netW)
 	network := res.(*api.CandidateNetwork)
 	if net.Network != "" {
@@ -95,10 +96,10 @@ func (p *NetworkSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer,
 	return true
 }
 
-func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
+func (p *NetworkSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
 	network := res.(*api.CandidateNetwork)
 	net := input.(*netW)
-	return IsNetworkAvailable(c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType), nil)
+	return IsNetworkAvailable(ctx, c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType), nil)
 }
 
 func (p *NetworkSchedtagPredicate) GetNetworkTypes(specifyType string) []string {
@@ -109,8 +110,8 @@ func (p *NetworkSchedtagPredicate) GetNetworkTypes(specifyType string) []string 
 	return netTypes
 }
 
-func (p *NetworkSchedtagPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
-	return p.BaseSchedtagPredicate.Execute(p, u, c)
+func (p *NetworkSchedtagPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+	return p.BaseSchedtagPredicate.Execute(ctx, p, u, c)
 }
 
 func (p *NetworkSchedtagPredicate) OnPriorityEnd(u *core.Unit, c core.Candidater) {

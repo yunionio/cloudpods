@@ -73,7 +73,7 @@ type INetworkNicCountGetter interface {
 	GetTotalNicCount([]string) (map[string]int, error)
 }
 
-func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+func (p *NetworkPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
 	data := u.SchedData()
 	if len(data.Networks) == 0 {
 		return false, nil
@@ -100,7 +100,7 @@ func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool,
 	return true, nil
 }
 
-func IsNetworksAvailable(c core.Candidater, data *api.SchedInfo, req *computeapi.NetworkConfig, networks []*api.CandidateNetwork, netTypes []string, getFreePort func(string) int) (int, []core.PredicateFailureReason) {
+func IsNetworksAvailable(ctx context.Context, c core.Candidater, data *api.SchedInfo, req *computeapi.NetworkConfig, networks []*api.CandidateNetwork, netTypes []string, getFreePort func(string) int) (int, []core.PredicateFailureReason) {
 	var fullErrMsgs []core.PredicateFailureReason
 	var freeCnt int
 
@@ -120,7 +120,7 @@ func IsNetworksAvailable(c core.Candidater, data *api.SchedInfo, req *computeapi
 
 	checkNets := func(tmpNets []*api.CandidateNetwork) {
 		for _, n := range tmpNets {
-			if errMsg := IsNetworkAvailable(c, data, req, n, netTypes, getFreePort); errMsg != nil {
+			if errMsg := IsNetworkAvailable(ctx, c, data, req, n, netTypes, getFreePort); errMsg != nil {
 				fullErrMsgs = append(fullErrMsgs, errMsg)
 			} else {
 				freeCnt = freeCnt + getFreePort(n.GetId())
@@ -152,6 +152,7 @@ func IsNetworksAvailable(c core.Candidater, data *api.SchedInfo, req *computeapi
 }
 
 func IsNetworkAvailable(
+	ctx context.Context,
 	c core.Candidater, data *api.SchedInfo,
 	req *computeapi.NetworkConfig, n *api.CandidateNetwork,
 	netTypes []string, getFreePort func(string) int,
@@ -204,9 +205,9 @@ func IsNetworkAvailable(
 		// project-wide share
 	} else if n.ProjectId == data.Project {
 		// owner
-	} else if db.IsAdminAllowGet(context.Background(), data.UserCred, n) {
+	} else if db.IsAdminAllowGet(ctx, data.UserCred, n) {
 		// system admin, can do anything
-	} else if db.IsDomainAllowGet(context.Background(), data.UserCred, n) && data.UserCred.GetProjectDomainId() == n.DomainId {
+	} else if db.IsDomainAllowGet(ctx, data.UserCred, n) && data.UserCred.GetProjectDomainId() == n.DomainId {
 		// domain admin, can do anything with domain network
 	} else {
 		return FailReason{
@@ -272,7 +273,7 @@ func (p *NetworkPredicate) GetNetworkTypes(u *core.Unit, specifyType string) []s
 	return netTypes
 }
 
-func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+func (p *NetworkPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
 
 	getter := c.Getter()
@@ -288,7 +289,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	for _, reqNet := range d.Networks {
 		netTypes := p.GetNetworkTypes(u, reqNet.NetType)
-		freePortCnt, errs := IsNetworksAvailable(c, d, reqNet, networks, netTypes, getFreePort)
+		freePortCnt, errs := IsNetworksAvailable(ctx, c, d, reqNet, networks, netTypes, getFreePort)
 		if len(errs) > 0 {
 			h.ExcludeByErrors(errs)
 			return h.GetResult()
