@@ -55,7 +55,7 @@ func (self *DnsZoneDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	}
 	for i := range caches {
 		if !isPurge {
-			iDnsZone, err := caches[i].GetICloudDnsZone()
+			iDnsZone, err := caches[i].GetICloudDnsZone(ctx)
 			if err != nil {
 				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					caches[i].Delete(ctx, self.GetUserCred())

@@ -97,7 +97,7 @@ func (self *SGoogleRegionDriver) RequestCreateVpc(ctx context.Context, userCred 
 		if provider == nil {
 			return nil, fmt.Errorf("failed to found vpc %s(%s) cloudprovider", vpc.Name, vpc.Id)
 		}
-		providerDriver, err := provider.GetProvider()
+		providerDriver, err := provider.GetProvider(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "provider.GetProvider")
 		}
@@ -209,7 +209,7 @@ func (self *SGoogleRegionDriver) ValidateCreateDBInstanceAccountData(ctx context
 
 func (self *SGoogleRegionDriver) RequestCreateDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRds, err := instance.GetIDBInstance()
+		iRds, err := instance.GetIDBInstance(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "instance.GetIDBInstance")
 		}

@@ -367,11 +367,11 @@ func (self *SGlobalVpc) StartDeleteTask(ctx context.Context, userCred mcclient.T
 	return task.ScheduleRun(nil)
 }
 
-func (self *SGlobalVpc) GetICloudGlobalVpc() (cloudprovider.ICloudGlobalVpc, error) {
+func (self *SGlobalVpc) GetICloudGlobalVpc(ctx context.Context) (cloudprovider.ICloudGlobalVpc, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
 	}
-	provider, err := self.GetDriver()
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetDriver")
 	}

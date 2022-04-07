@@ -50,7 +50,7 @@ func (self *DBInstanceRebootTask) OnInit(ctx context.Context, obj db.IStandalone
 }
 
 func (self *DBInstanceRebootTask) RebootDBInstance(ctx context.Context, dbinstance *models.SDBInstance) {
-	idbinstance, err := dbinstance.GetIDBInstance()
+	idbinstance, err := dbinstance.GetIDBInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, dbinstance, errors.Wrap(err, "dbinstance.GetIDBInstance"))
 		return

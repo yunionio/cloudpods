@@ -369,23 +369,23 @@ func (self *SKafka) StartDeleteTask(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (self *SKafka) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SKafka) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRegion")
 	}
-	provider, err := self.GetDriver()
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetDriver")
 	}
 	return provider.GetIRegionById(region.GetExternalId())
 }
 
-func (self *SKafka) GetIKafka() (cloudprovider.ICloudKafka, error) {
+func (self *SKafka) GetIKafka(ctx context.Context) (cloudprovider.ICloudKafka, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
 	}
-	iRegion, err := self.GetIRegion()
+	iRegion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetIRegion")
 	}
@@ -646,7 +646,7 @@ func (self *SKafka) PerformSyncstatus(ctx context.Context, userCred mcclient.Tok
 
 // 获取Kafka Topic列表
 func (self *SKafka) GetDetailsTopics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]cloudprovider.SKafkaTopic, error) {
-	iKafka, err := self.GetIKafka()
+	iKafka, err := self.GetIKafka(ctx)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetIKafka"))
 	}

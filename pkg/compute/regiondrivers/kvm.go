@@ -1680,7 +1680,7 @@ func (self *SKVMRegionDriver) AllowUpdateElasticcacheAuthMode(ctx context.Contex
 
 func (self *SKVMRegionDriver) RequestSyncBucketStatus(ctx context.Context, userCred mcclient.TokenCredential, bucket *models.SBucket, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iBucket, err := bucket.GetIBucket()
+		iBucket, err := bucket.GetIBucket(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "bucket.GetIBucket")
 		}

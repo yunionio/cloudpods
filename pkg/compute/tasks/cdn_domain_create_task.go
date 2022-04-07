@@ -53,7 +53,7 @@ func (self *CDNDomainCreateTask) taskComplete(ctx context.Context, domain *model
 func (self *CDNDomainCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	domain := obj.(*models.SCDNDomain)
 
-	driver, err := domain.GetDriver()
+	driver, err := domain.GetDriver(ctx)
 	if err != nil {
 		self.taskFailed(ctx, domain, errors.Wrapf(err, "GetDriver"))
 		return

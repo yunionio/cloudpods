@@ -130,7 +130,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 			log.Errorf("failed to sync project %s for create %s eip %s error: %v", eip.ProjectId, _cloudprovider.Provider, eip.Name, err)
 		}
 
-		iregion, err := eip.GetIRegion()
+		iregion, err := eip.GetIRegion(ctx)
 		if err != nil {
 			msg := fmt.Sprintf("fail to find iregion for eip %s", err)
 			eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, msg)

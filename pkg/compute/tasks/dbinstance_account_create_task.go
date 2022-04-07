@@ -56,7 +56,7 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 		return
 	}
 
-	iRds, err := instance.GetIDBInstance()
+	iRds, err := instance.GetIDBInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, account, errors.Wrap(err, "instance.GetIDBInstance"))
 		return

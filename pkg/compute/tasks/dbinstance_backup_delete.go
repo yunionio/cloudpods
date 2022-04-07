@@ -49,7 +49,7 @@ func (self *DBInstanceBackupDeleteTask) OnInit(ctx context.Context, obj db.IStan
 }
 
 func (self *DBInstanceBackupDeleteTask) DeleteDBInstanceBackup(ctx context.Context, backup *models.SDBInstanceBackup) {
-	iBackup, err := backup.GetIDBInstanceBackup()
+	iBackup, err := backup.GetIDBInstanceBackup(ctx)
 	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
 		self.taskFailed(ctx, backup, errors.Wrap(err, "backup.GetIDBInstanceBackup"))
 		return

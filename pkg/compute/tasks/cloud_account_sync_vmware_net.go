@@ -70,7 +70,7 @@ func (self *CloudAccountSyncVMwareNetworkTask) OnInit(ctx context.Context, obj d
 		return
 	}
 	self.Params.Set("zoneId", jsonutils.NewString(zoneId))
-	cProvider, err := cloudaccount.GetProvider()
+	cProvider, err := cloudaccount.GetProvider(ctx)
 	if err != nil {
 		self.taskFailed(ctx, cloudaccount, "unable to GetProvider", err)
 		return

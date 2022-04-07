@@ -864,7 +864,7 @@ func (self *SAwsRegionDriver) createLoadbalancerBackendGroup(ctx context.Context
 		return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.GetAwsBackendGroupParams")
 	}
 
-	iRegion, err := lbbg.GetIRegion()
+	iRegion, err := lbbg.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.GetIRegion")
 	}
@@ -989,7 +989,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Conte
 
 		var ibackend cloudprovider.ICloudLoadbalancerBackend
 		for _, cachedLbbg := range cachedlbbgs {
-			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup()
+			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestCreateLoadbalancerBackend.GetICloudLoadbalancerBackendGroup")
 			}
@@ -1035,7 +1035,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Conte
 			if lb == nil {
 				return nil, fmt.Errorf("failed to find lb for backendgroup %s", cachedlbbg.Name)
 			}
-			iRegion, err := lb.GetIRegion()
+			iRegion, err := lb.GetIRegion(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackend.GetIRegion")
 			}
@@ -1128,7 +1128,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 			group, _ := models.AwsCachedLbbgManager.GetUsableCachedBackendGroup(lblis.LoadbalancerId, lblis.BackendGroupId, lblis.ListenerType, lblis.HealthCheckType, lblis.HealthCheckInterval)
 			if group != nil {
 				// 服务器组存在
-				ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+				ilbbg, err := group.GetICloudLoadbalancerBackendGroup(ctx)
 				if err != nil {
 					return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.GetICloudLoadbalancerBackendGroup")
 				}
@@ -1154,7 +1154,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.GetAwsLoadbalancerListenerParams")
 		}
 
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.GetIRegion")
 		}
@@ -1187,7 +1187,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1230,7 +1230,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.
 			return nil, nil
 		}
 
-		iRegion, err := lbbg.GetIRegion()
+		iRegion, err := lbbg.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetIRegion")
 		}
@@ -1291,7 +1291,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, use
 			return nil, nil
 		}
 
-		iRegion, err := lb.GetIRegion()
+		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.GetIRegion")
 		}
@@ -1429,7 +1429,7 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestSyncLoadbalancerListener.GetIRegion")
 		}
@@ -1523,7 +1523,7 @@ func (self *SAwsRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 			return nil, fmt.Errorf("vpc %s(%s) related provider not  found", vpc.GetName(), vpc.GetName())
 		}
 
-		region, err := vpc.GetIRegion()
+		region, err := vpc.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.GetIRegion")
 		}
@@ -1576,7 +1576,7 @@ func (self *SAwsRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 
 func (self *SAwsRegionDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iEip, err := eip.GetIEip()
+		iEip, err := eip.GetIEip(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "eip.GetIEip")
 		}

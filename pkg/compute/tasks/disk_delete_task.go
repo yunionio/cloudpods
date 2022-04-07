@@ -69,7 +69,7 @@ func (self *DiskDeleteTask) OnDeleteSnapshots(ctx context.Context, disk *models.
 	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
 	overridePendingDelete := jsonutils.QueryBoolean(self.Params, "override_pending_delete", false)
 	if len(disk.ExternalId) > 0 {
-		_, err := disk.GetIDisk()
+		_, err := disk.GetIDisk(ctx)
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			overridePendingDelete = true
 		}

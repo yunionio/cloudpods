@@ -4275,7 +4275,7 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input api.GuestSyncFixNicsInput) (jsonutils.JSONObject, error) {
-	iVM, err := self.GetIVM()
+	iVM, err := self.GetIVM(ctx)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

@@ -67,7 +67,7 @@ func (self *DnsZoneSyncVpcsTask) OnInit(ctx context.Context, obj db.IStandaloneM
 			self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "dnsZone.RegisterCache"))
 			return
 		}
-		provider, err := cache.GetProvider()
+		provider, err := cache.GetProvider(ctx)
 		if err != nil {
 			self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetProvider"))
 			return
@@ -86,7 +86,7 @@ func (self *DnsZoneSyncVpcsTask) OnInit(ctx context.Context, obj db.IStandaloneM
 				return
 			}
 			for _, vpc := range vpcs {
-				iVpc, err := vpc.GetIVpc()
+				iVpc, err := vpc.GetIVpc(ctx)
 				if err != nil {
 					self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetIVpc for vpc %s", vpc.Name))
 					return
@@ -128,7 +128,7 @@ func (self *DnsZoneSyncVpcsTask) OnInit(ctx context.Context, obj db.IStandaloneM
 
 		if !utils.IsInStringArray(caches[i].CloudaccountId, accountIds) {
 			if len(caches[i].ExternalId) > 0 {
-				iDnsZone, err := caches[i].GetICloudDnsZone()
+				iDnsZone, err := caches[i].GetICloudDnsZone(ctx)
 				if err != nil {
 					if errors.Cause(err) != cloudprovider.ErrNotFound {
 						self.taskFailed(ctx, dnsZone, errors.Wrapf(err, "GetICloudDnsZone"))

@@ -147,7 +147,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 
 func (self *SManagedVirtualizedGuestDriver) RequestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iVm, err := guest.GetIVM()
+		iVm, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "guest.GetIVM")
 		}
@@ -166,7 +166,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSaveImage(ctx context.Context
 			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "find guest %s host", guest.Name)
 		}
 		region, _ := host.GetRegion()
-		iRegion, err := host.GetIRegion()
+		iRegion, err := host.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "host.GetIRegion")
 		}
@@ -229,7 +229,7 @@ func (self *SManagedVirtualizedGuestDriver) ValidateCreateEip(ctx context.Contex
 
 func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iVM, err := guest.GetIVM()
+		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
 			//若guest被删除,忽略错误，否则会无限删除guest失败(有挂载的云盘)
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
@@ -241,7 +241,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 			return nil, nil
 		}
 
-		_, err = disk.GetIDisk()
+		_, err = disk.GetIDisk(ctx)
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			//忽略云上磁盘已经被删除错误
 			return nil, nil
@@ -286,7 +286,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 
 func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iVM, err := guest.GetIVM()
+		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "guest.GetIVM")
 		}
@@ -333,7 +333,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Contex
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
-	ivm, err := guest.GetIVM()
+	ivm, err := guest.GetIVM(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetIVM")
 	}
@@ -443,7 +443,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 		return err
 	}
 
-	ihost, err := host.GetIHost()
+	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		return err
 	}
@@ -491,7 +491,7 @@ func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterRebuild() s
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
-	ihost, err := host.GetIHost()
+	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "RemoteDeployGuestForCreate.GetIHost")
 	}
@@ -627,7 +627,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestSyncHost(ctx contex
 		}
 	}
 
-	return host.GetIHost()
+	return host.GetIHost(ctx)
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
@@ -760,7 +760,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx 
 
 func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		ihost, err := host.GetIHost()
+		ihost, err := host.GetIHost(ctx)
 		if err != nil {
 			//私有云宿主机有可能下线,会导致虚拟机无限删除失败
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
@@ -794,7 +794,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 		for _, disk := range disks {
 			storage, _ := disk.GetStorage()
 			if disk.AutoDelete && !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) {
-				idisk, err := disk.GetIDisk()
+				idisk, err := disk.GetIDisk(ctx)
 				if err != nil {
 					if errors.Cause(err) == cloudprovider.ErrNotFound {
 						continue
@@ -817,7 +817,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 
 func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask, syncStatus bool) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		ivm, err := guest.GetIVM()
+		ivm, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "guest.GetIVM")
 		}
@@ -842,7 +842,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Contex
 
 func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		ihost, err := host.GetIHost()
+		ihost, err := host.GetIHost(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "host.GetIHost")
 		}
@@ -866,7 +866,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	ihost, err := host.GetIHost()
+	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -900,7 +900,7 @@ func (self *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.C
 
 func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	host, _ := guest.GetHost()
-	ihost, err := host.GetIHost()
+	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		return err
 	}
@@ -1093,7 +1093,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	iVM, err := guest.GetIVM()
+	iVM, err := guest.GetIVM(ctx)
 	if err != nil {
 		return err
 	}
@@ -1149,8 +1149,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
-	iVM, err := guest.GetIVM()
+func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(ctx context.Context, guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
+	iVM, err := guest.GetIVM(ctx)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -1233,7 +1233,7 @@ func GetCloudVMStatus(vm cloudprovider.ICloudVM) string {
 
 func (self *SManagedVirtualizedGuestDriver) RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iVM, err := guest.GetIVM()
+		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "guest.GetIVM")
 		}
@@ -1284,7 +1284,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestConvertPublicipToEip(ctx cont
 
 func (self *SManagedVirtualizedGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input api.GuestAutoRenewInput, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iVM, err := guest.GetIVM()
+		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "guest.GetIVM")
 		}
@@ -1305,7 +1305,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSetAutoRenewInstance(ctx cont
 
 func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {
 	// nil ops
-	iVM, err := guest.GetIVM()
+	iVM, err := guest.GetIVM(ctx)
 	if err != nil {
 		return errors.Wrap(err, "guest.GetIVM")
 	}

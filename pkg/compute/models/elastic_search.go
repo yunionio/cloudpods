@@ -372,23 +372,23 @@ func (self *SElasticSearch) StartDeleteTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (self *SElasticSearch) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SElasticSearch) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRegion")
 	}
-	provider, err := self.GetDriver()
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetDriver")
 	}
 	return provider.GetIRegionById(region.GetExternalId())
 }
 
-func (self *SElasticSearch) GetIElasticSearch() (cloudprovider.ICloudElasticSearch, error) {
+func (self *SElasticSearch) GetIElasticSearch(ctx context.Context) (cloudprovider.ICloudElasticSearch, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
 	}
-	iRegion, err := self.GetIRegion()
+	iRegion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetIRegion")
 	}
@@ -646,7 +646,7 @@ func (self *SElasticSearch) PerformSyncstatus(ctx context.Context, userCred mccl
 }
 
 func (self *SElasticSearch) GetDetailsAccessInfo(ctx context.Context, userCred mcclient.TokenCredential, input api.ElasticSearchAccessInfoInput) (*cloudprovider.ElasticSearchAccessInfo, error) {
-	iEs, err := self.GetIElasticSearch()
+	iEs, err := self.GetIElasticSearch(ctx)
 	if err != nil {
 		return nil, err
 	}

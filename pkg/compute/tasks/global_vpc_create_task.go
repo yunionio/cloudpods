@@ -70,7 +70,7 @@ func (self *GlobalVpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 
 	log.Infof("global vpc create params: %s", jsonutils.Marshal(opts).String())
 
-	provider, err := gvpc.GetDriver()
+	provider, err := gvpc.GetDriver(ctx)
 	if err != nil {
 		self.taskFailed(ctx, gvpc, errors.Wrapf(err, "GetDriver"))
 		return

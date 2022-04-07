@@ -46,7 +46,7 @@ func (self *WafDeleteTask) taskFailed(ctx context.Context, waf *models.SWafInsta
 
 func (self *WafDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	waf := obj.(*models.SWafInstance)
-	iWaf, err := waf.GetICloudWafInstance()
+	iWaf, err := waf.GetICloudWafInstance(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, waf)

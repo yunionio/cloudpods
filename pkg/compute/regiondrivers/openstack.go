@@ -154,12 +154,12 @@ func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerData(ctx context.C
 
 func (self *SOpenStackRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lb.GetIRegion()
+		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		params, err := lb.GetCreateLoadbalancerParams(iRegion)
+		params, err := lb.GetCreateLoadbalancerParams(ctx, iRegion)
 		if err != nil {
 			return nil, err
 		}
@@ -442,7 +442,7 @@ func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerListener(ctx contex
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "loadbalancer.GetIRegion")
 		}
@@ -507,7 +507,7 @@ func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerListener(ctx contex
 }
 
 func (self *SOpenStackRegionDriver) createLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl) (jsonutils.JSONObject, error) {
-	iRegion, err := lbacl.GetIRegion()
+	iRegion, err := lbacl.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -660,7 +660,7 @@ func (self *SOpenStackRegionDriver) RequestSyncLoadbalancerListener(ctx context.
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -739,7 +739,7 @@ func (self *SOpenStackRegionDriver) RequestDeleteLoadbalancerListener(ctx contex
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -842,7 +842,7 @@ func (self *SOpenStackRegionDriver) RequestDeleteLoadbalancerListener(ctx contex
 }
 
 func (self *SOpenStackRegionDriver) syncLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl) (jsonutils.JSONObject, error) {
-	iRegion, err := lbacl.GetIRegion()
+	iRegion, err := lbacl.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1057,7 +1057,7 @@ func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerListenerRule(ctx co
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1122,7 +1122,7 @@ func (self *SOpenStackRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx co
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion()
+		iRegion, err := loadbalancer.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1326,7 +1326,7 @@ func (self *SOpenStackRegionDriver) createLoadbalancerBackendGroup(ctx context.C
 		return nil, fmt.Errorf("loadbalancer backendgroup missing protocol type")
 	}
 
-	iRegion, err := lbbg.GetIRegion()
+	iRegion, err := lbbg.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1614,7 +1614,7 @@ func (self *SOpenStackRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx cont
 			return nil, errors.Wrap(err, "OpenstackRegionDriver.RequestSyncLoadbalancerbackendGroup.GetLoadbalancerBackendGroup")
 		}
 
-		iRegion, err := lbbg.GetIRegion()
+		iRegion, err := lbbg.GetIRegion(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1765,7 +1765,7 @@ func (self *SOpenStackRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx co
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		iRegion, err := lbbg.GetIRegion()
+		iRegion, err := lbbg.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "openstackRegionDriver.RequestDeleteLoadbalancerBackendGroup.")
 		}
@@ -1969,7 +1969,7 @@ func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerBackend(ctx context
 
 		var ibackend cloudprovider.ICloudLoadbalancerBackend
 		for _, cachedLbbg := range cachedlbbgs {
-			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup()
+			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup(ctx)
 			if err != nil {
 				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					if err := deleteOpenstackCachedLbbg(ctx, userCred, cachedLbbg.AssociatedId); err != nil {
@@ -2019,7 +2019,7 @@ func (self *SOpenStackRegionDriver) RequestSyncLoadbalancerBackend(ctx context.C
 			if err != nil {
 				return nil, errors.Wrap(err, "cachedlbbg.GetLoadbalancer()")
 			}
-			iRegion, err := lb.GetIRegion()
+			iRegion, err := lb.GetIRegion(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "openstackRegionDriver.RequestSyncLoadbalancerBackend.GetIRegion")
 			}
@@ -2079,7 +2079,7 @@ func (self *SOpenStackRegionDriver) RequestDeleteLoadbalancerBackend(ctx context
 			if err != nil {
 				return nil, errors.Wrap(err, "cachedlbbg.GetLoadbalancer()")
 			}
-			iRegion, err := lb.GetIRegion()
+			iRegion, err := lb.GetIRegion(ctx)
 			if err != nil {
 				return nil, err
 			}

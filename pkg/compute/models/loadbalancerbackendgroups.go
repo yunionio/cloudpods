@@ -327,12 +327,12 @@ func (llbg *SLoadbalancerBackendGroup) GetRegion() (*SCloudregion, error) {
 	return loadbalancer.GetRegion()
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (lbbg *SLoadbalancerBackendGroup) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	loadbalancer, err := lbbg.GetLoadbalancer()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetLoadbalancer")
 	}
-	return loadbalancer.GetIRegion()
+	return loadbalancer.GetIRegion(ctx)
 }
 
 func (lbbg *SLoadbalancerBackendGroup) GetBackends() ([]SLoadbalancerBackend, error) {
@@ -864,7 +864,7 @@ func (lbbg *SLoadbalancerBackendGroup) GetBackendsParams() ([]cloudprovider.SLoa
 	return ret, nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetICloudLoadbalancerBackendGroup() (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+func (lbbg *SLoadbalancerBackendGroup) GetICloudLoadbalancerBackendGroup(ctx context.Context) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	if len(lbbg.ExternalId) == 0 {
 		return nil, fmt.Errorf("backendgroup %s has no external id", lbbg.GetId())
 	}
@@ -874,7 +874,7 @@ func (lbbg *SLoadbalancerBackendGroup) GetICloudLoadbalancerBackendGroup() (clou
 		return nil, errors.Wrapf(err, "GetLoadbalacer")
 	}
 
-	iregion, err := lb.GetIRegion()
+	iregion, err := lb.GetIRegion(ctx)
 	if err != nil {
 		return nil, err
 	}

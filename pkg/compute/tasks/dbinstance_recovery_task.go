@@ -48,7 +48,7 @@ func (self *DBInstanceRecoveryTask) taskFailed(ctx context.Context, instance *mo
 func (self *DBInstanceRecoveryTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	instance := obj.(*models.SDBInstance)
 
-	iRds, err := instance.GetIDBInstance()
+	iRds, err := instance.GetIDBInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, instance, errors.Wrap(err, "instance.GetIDBInstance"))
 		return

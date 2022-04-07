@@ -546,16 +546,16 @@ func (self *SInterVpcNetwork) SyncInterVpcNetworkRouteSets(ctx context.Context, 
 	return syncResult
 }
 
-func (self *SInterVpcNetwork) GetProvider() (cloudprovider.ICloudProvider, error) {
-	provider, err := self.GetCloudprovider().GetProvider()
+func (self *SInterVpcNetwork) GetProvider(ctx context.Context) (cloudprovider.ICloudProvider, error) {
+	provider, err := self.GetCloudprovider().GetProvider(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "self.GetCloudprovider().GetProvider()")
 	}
 	return provider, nil
 }
 
-func (self *SInterVpcNetwork) GetICloudInterVpcNetwork() (cloudprovider.ICloudInterVpcNetwork, error) {
-	provider, err := self.GetProvider()
+func (self *SInterVpcNetwork) GetICloudInterVpcNetwork(ctx context.Context) (cloudprovider.ICloudInterVpcNetwork, error) {
+	provider, err := self.GetProvider(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "snetwork.GetProvider()")
 	}

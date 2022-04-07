@@ -2767,13 +2767,13 @@ func (manager *SHostManager) TotalCount(
 	)
 }
 
-func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
-	host, _, err := self.GetIHostAndProvider()
+func (self *SHost) GetIHost(ctx context.Context) (cloudprovider.ICloudHost, error) {
+	host, _, err := self.GetIHostAndProvider(ctx)
 	return host, err
 }
 
-func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovider.ICloudProvider, error) {
-	provider, err := self.GetDriver()
+func (self *SHost) GetIHostAndProvider(ctx context.Context) (cloudprovider.ICloudHost, cloudprovider.ICloudProvider, error) {
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("No cloudprovider for host: %s", err)
 	}
@@ -2798,19 +2798,18 @@ func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovide
 	return ihost, provider, nil
 }
 
-func (self *SHost) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := self.GetDriver()
+func (self *SHost) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovider for host %s: %s", self.Name, err)
+		return nil, errors.Wrapf(err, "GetDriver")
 	}
-	region, _ := self.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to find host %s region info", self.Name)
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
 	}
 	iregion, err := provider.GetIRegionById(region.ExternalId)
 	if err != nil {
-		msg := fmt.Sprintf("fail to find iregion by id %s: %v", region.ExternalId, err)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.Wrapf(err, "GetIRegionById(%s)", region.ExternalId)
 	}
 	return iregion, nil
 }

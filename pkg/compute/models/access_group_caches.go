@@ -467,8 +467,8 @@ func (self *SAccessGroupCache) syncWithAccessGroup(ctx context.Context, userCred
 	return group.SyncRules(ctx, userCred, src)
 }
 
-func (self *SAccessGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := self.GetDriver()
+func (self *SAccessGroupCache) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "self.GetDriver")
 	}
@@ -479,11 +479,11 @@ func (self *SAccessGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error) 
 	return provider.GetIRegionById(region.ExternalId)
 }
 
-func (self *SAccessGroupCache) GetICloudAccessGroup() (cloudprovider.ICloudAccessGroup, error) {
+func (self *SAccessGroupCache) GetICloudAccessGroup(ctx context.Context) (cloudprovider.ICloudAccessGroup, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
 	}
-	iRegion, err := self.GetIRegion()
+	iRegion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "self.GetIRegion")
 	}
@@ -494,7 +494,7 @@ func (self *SAccessGroupCache) GetICloudAccessGroup() (cloudprovider.ICloudAcces
 	return iAccessGroup, nil
 }
 
-func (self *SAccessGroupCache) SyncRules() error {
+func (self *SAccessGroupCache) SyncRules(ctx context.Context) error {
 	group, err := self.GetAccessGroup()
 	if err != nil {
 		return errors.Wrapf(err, "GetAccessGroup")
@@ -504,7 +504,7 @@ func (self *SAccessGroupCache) SyncRules() error {
 		return errors.Wrapf(err, "GetAccessGroupRuleInfo")
 	}
 
-	iAccessGroup, err := self.GetICloudAccessGroup()
+	iAccessGroup, err := self.GetICloudAccessGroup(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "GetICloudAccessGroup")
 	}
@@ -518,8 +518,8 @@ func (self *SAccessGroupCache) SyncRules() error {
 	return iAccessGroup.SyncRules(common, added, removed)
 }
 
-func (self *SAccessGroupCache) CreateIAccessGroup() error {
-	iRegion, err := self.GetIRegion()
+func (self *SAccessGroupCache) CreateIAccessGroup(ctx context.Context) error {
+	iRegion, err := self.GetIRegion(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "self.GetIRegion")
 	}
@@ -541,7 +541,7 @@ func (self *SAccessGroupCache) CreateIAccessGroup() error {
 	if err != nil {
 		return errors.Wrapf(err, "db.Update")
 	}
-	return self.SyncRules()
+	return self.SyncRules(ctx)
 }
 
 type SAccessGroupCacheRegisterInput struct {
@@ -575,7 +575,7 @@ func (manager *SAccessGroupCacheManager) Register(ctx context.Context, opts *SAc
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")
 	}
-	return cache, cache.CreateIAccessGroup()
+	return cache, cache.CreateIAccessGroup(ctx)
 }
 
 func (self *SAccessGroupCache) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -610,7 +610,7 @@ func (self *SAccessGroupCache) StartDeleteTask(ctx context.Context, userCred mcc
 }
 
 func (self *SAccessGroupCache) SyncStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
-	iAccessGroup, err := self.GetICloudAccessGroup()
+	iAccessGroup, err := self.GetICloudAccessGroup(ctx)
 	if err != nil {
 		self.SetStatus(userCred, api.ACCESS_GROUP_STATUS_CREATING, err.Error())
 		return err

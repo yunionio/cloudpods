@@ -42,7 +42,7 @@ func (self *SecurityGroupCacheSyncstatusTask) taskFailed(ctx context.Context, ca
 func (self *SecurityGroupCacheSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	cache := obj.(*models.SSecurityGroupCache)
 
-	iSecgroup, err := cache.GetISecurityGroup()
+	iSecgroup, err := cache.GetISecurityGroup(ctx)
 	if err != nil {
 		self.taskFailed(ctx, cache, errors.Wrapf(err, "GetISecurityGroup"))
 		return

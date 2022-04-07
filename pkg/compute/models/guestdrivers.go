@@ -56,7 +56,7 @@ type IGuestDriver interface {
 	IsSupportedBillingCycle(bc billing.SBillingCycle) bool
 	IsSupportPostpaidExpire() bool
 
-	RequestRenewInstance(guest *SGuest, bc billing.SBillingCycle) (time.Time, error)
+	RequestRenewInstance(ctx context.Context, guest *SGuest, bc billing.SBillingCycle) (time.Time, error)
 
 	GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error)
 

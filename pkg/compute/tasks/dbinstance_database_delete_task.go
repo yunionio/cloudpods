@@ -53,7 +53,7 @@ func (self *DBInstanceDatabaseDeleteTask) DeleteDBInstanceDatabase(ctx context.C
 		self.taskFailed(ctx, database, errors.Wrap(err, "database.GetDBInstance"))
 		return
 	}
-	iRds, err := instance.GetIDBInstance()
+	iRds, err := instance.GetIDBInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, database, errors.Wrap(err, "instance.GetIDBInstance"))
 		return

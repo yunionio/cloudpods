@@ -45,7 +45,7 @@ func (self *GlobalVpcSyncstatusTask) taskFail(ctx context.Context, gvpc *models.
 func (self *GlobalVpcSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	gvpc := obj.(*models.SGlobalVpc)
 
-	iVpc, err := gvpc.GetICloudGlobalVpc()
+	iVpc, err := gvpc.GetICloudGlobalVpc(ctx)
 	if err != nil {
 		self.taskFail(ctx, gvpc, errors.Wrapf(err, "gvpc.GetICloudGlobalVpc"))
 		return

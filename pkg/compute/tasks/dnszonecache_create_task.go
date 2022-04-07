@@ -67,7 +67,7 @@ func (self *DnsZoneCacheCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 		return
 	}
 
-	provider, err := cache.GetProvider()
+	provider, err := cache.GetProvider(ctx)
 	if err != nil {
 		self.taskFailed(ctx, cache, errors.Wrapf(err, "GetProvider"))
 		return

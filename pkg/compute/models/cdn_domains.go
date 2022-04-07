@@ -192,12 +192,12 @@ func (self *SCDNDomain) ValidateDeleteCondition(ctx context.Context, info jsonut
 	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (self *SCDNDomain) GetICloudCDNDomain() (cloudprovider.ICloudCDNDomain, error) {
+func (self *SCDNDomain) GetICloudCDNDomain(ctx context.Context) (cloudprovider.ICloudCDNDomain, error) {
 	manager := self.GetCloudprovider()
 	if manager == nil {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetCloudprovider")
 	}
-	provider, err := manager.GetProvider()
+	provider, err := manager.GetProvider(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetProvider")
 	}
@@ -282,7 +282,7 @@ func (manager *SCDNDomainManager) ValidateCreateData(
 	}
 	input.ManagerId = input.CloudproviderId
 	provider := _provider.(*SCloudprovider)
-	pp, err := provider.GetProvider()
+	pp, err := provider.GetProvider(ctx)
 	if err != nil {
 		return input, errors.Wrapf(err, "GetProvider")
 	}

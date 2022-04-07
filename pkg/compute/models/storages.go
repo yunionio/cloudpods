@@ -752,7 +752,7 @@ func (sm *SStorageManager) SyncCapacityUsedForEsxiStorage(ctx context.Context, u
 	}
 	for i := range cloudproviders {
 		cp := cloudproviders[i]
-		icp, err := cp.GetProvider()
+		icp, err := cp.GetProvider(ctx)
 		if err != nil {
 			log.Errorf("unable to GetProvider: %v", err)
 			continue
@@ -823,7 +823,7 @@ func (s *SStorage) SyncCapacityUsed(ctx context.Context) error {
 	if !utils.IsInStringArray(cp.Provider, CapacityUsedCloudStorageProvider) {
 		return nil
 	}
-	icp, err := cp.GetProvider()
+	icp, err := cp.GetProvider(ctx)
 	if err != nil {
 		return errors.Wrap(err, "GetProvider")
 	}
@@ -1307,8 +1307,8 @@ func (self *SStorage) PerformUncacheImage(ctx context.Context, userCred mcclient
 	return cache.PerformUncacheImage(ctx, userCred, query, data)
 }
 
-func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	provider, err := self.GetDriver()
+func (self *SStorage) GetIStorage(ctx context.Context) (cloudprovider.ICloudStorage, error) {
+	provider, err := self.GetDriver(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetDriver")
 	}

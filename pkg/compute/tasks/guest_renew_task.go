@@ -44,7 +44,7 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	durationStr, _ := self.GetParams().GetString("duration")
 	bc, _ := billing.ParseBillingCycle(durationStr)
 
-	exp, err := guest.GetDriver().RequestRenewInstance(guest, bc)
+	exp, err := guest.GetDriver().RequestRenewInstance(ctx, guest, bc)
 	if err != nil {
 		msg := fmt.Sprintf("RequestRenewInstance failed %s", err)
 		log.Errorf(msg)
@@ -79,7 +79,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	durationStr, _ := self.GetParams().GetString("duration")
 	bc, _ := billing.ParseBillingCycle(durationStr)
 
-	ihost, err := host.GetIHost()
+	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		msg := fmt.Sprintf("host.GetIHost fail %s", err)
 		log.Errorf(msg)

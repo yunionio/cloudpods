@@ -49,7 +49,7 @@ func (self *ElasticSearchDeleteTask) taskFail(ctx context.Context, es *models.SE
 func (self *ElasticSearchDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	es := obj.(*models.SElasticSearch)
 
-	iEs, err := es.GetIElasticSearch()
+	iEs, err := es.GetIElasticSearch(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, es)

@@ -44,7 +44,7 @@ func (self *WafRuleCreateTask) taskFailed(ctx context.Context, rule *models.SWaf
 
 func (self *WafRuleCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	rule := obj.(*models.SWafRule)
-	iWaf, err := rule.GetICloudWafInstance()
+	iWaf, err := rule.GetICloudWafInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, rule, errors.Wrapf(err, "GetICloudWafInstance"))
 		return

@@ -262,7 +262,7 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 
 		var ieip cloudprovider.ICloudEIP
 		if eip, err := guest.GetElasticIp(); eip != nil {
-			ieip, err = eip.GetIEip()
+			ieip, err = eip.GetIEip(ctx)
 			if err != nil {
 				return "", errors.Wrap(err, "eip.GetIEip")
 			}
@@ -398,7 +398,7 @@ func (self *SOpenStackGuestDriver) CheckLiveMigrate(ctx context.Context, guest *
 
 func (self *SOpenStackGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iVM, err := guest.GetIVM()
+		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "guest.GetIVM")
 		}
@@ -443,7 +443,7 @@ func (self *SOpenStackGuestDriver) RequestMigrate(ctx context.Context, guest *mo
 
 func (self *SOpenStackGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iVM, err := guest.GetIVM()
+		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "guest.GetIVM")
 		}

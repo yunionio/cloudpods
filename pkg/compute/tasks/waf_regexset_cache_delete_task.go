@@ -44,7 +44,7 @@ func (self *WafRegexSetCacheDeleteTask) taskFailed(ctx context.Context, cache *m
 
 func (self *WafRegexSetCacheDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	cache := obj.(*models.SWafRegexSetCache)
-	iCache, err := cache.GetICloudWafRegexSet()
+	iCache, err := cache.GetICloudWafRegexSet(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, cache)

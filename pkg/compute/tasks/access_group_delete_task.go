@@ -55,7 +55,7 @@ func (self *AccessGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalon
 	}
 	for i := range caches {
 		caches[i].SetStatus(self.GetUserCred(), api.ACCESS_GROUP_STATUS_DELETING, "")
-		iAccessGroup, err := caches[i].GetICloudAccessGroup()
+		iAccessGroup, err := caches[i].GetICloudAccessGroup(ctx)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				caches[i].RealDelete(ctx, self.GetUserCred())

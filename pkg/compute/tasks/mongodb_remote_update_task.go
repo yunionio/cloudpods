@@ -45,7 +45,7 @@ func (self *MongoDBRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStandal
 	mongodb := obj.(*models.SMongoDB)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 
-	iMongoDB, err := mongodb.GetIMongoDB()
+	iMongoDB, err := mongodb.GetIMongoDB(ctx)
 	if err != nil {
 		self.taskFail(ctx, mongodb, errors.Wrapf(err, "GetIMongoDB"))
 		return

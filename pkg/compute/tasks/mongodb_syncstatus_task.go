@@ -45,7 +45,7 @@ func (self *MongoDBSyncstatusTask) taskFail(ctx context.Context, mongodb *models
 func (self *MongoDBSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	mongodb := obj.(*models.SMongoDB)
 
-	ext, err := mongodb.GetIMongoDB()
+	ext, err := mongodb.GetIMongoDB(ctx)
 	if err != nil {
 		self.taskFail(ctx, mongodb, errors.Wrapf(err, "GetIMongoDB"))
 		return

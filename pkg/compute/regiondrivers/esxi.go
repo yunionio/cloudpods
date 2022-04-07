@@ -60,7 +60,7 @@ func (self *SEsxiRegionDriver) ValidateCreateSnapshotData(ctx context.Context, u
 
 func (self *SEsxiRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context, guest *models.SGuest, isp *models.SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		ivm, err := guest.GetIVM()
+		ivm, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to GetIVM")
 		}
@@ -83,7 +83,7 @@ func (self *SEsxiRegionDriver) RequestDeleteInstanceSnapshot(ctx context.Context
 		if err != nil {
 			return nil, errors.Wrap(err, "GetGuest")
 		}
-		ivm, err := guest.GetIVM()
+		ivm, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to GetIVM")
 		}
@@ -106,7 +106,7 @@ func (self *SEsxiRegionDriver) RequestDeleteInstanceSnapshot(ctx context.Context
 
 func (self *SEsxiRegionDriver) RequestResetToInstanceSnapshot(ctx context.Context, guest *models.SGuest, isp *models.SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		ivm, err := guest.GetIVM()
+		ivm, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to GetIVM")
 		}

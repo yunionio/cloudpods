@@ -59,7 +59,7 @@ func (self *ServerSkuDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	sku := obj.(*models.SServerSku)
 	purge := jsonutils.QueryBoolean(self.GetParams(), "purge", false)
 	if !purge && utils.IsInStringArray(sku.Provider, api.PRIVATE_CLOUD_PROVIDERS) {
-		iSku, err := sku.GetICloudSku()
+		iSku, err := sku.GetICloudSku(ctx)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				self.taskComplete(ctx, sku)

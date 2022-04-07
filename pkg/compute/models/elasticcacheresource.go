@@ -73,12 +73,12 @@ func (self *SElasticcacheResourceBase) GetVpc() *SVpc {
 	return vpc
 }
 
-func (self *SElasticcacheResourceBase) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (self *SElasticcacheResourceBase) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	vpc := self.GetVpc()
 	if vpc == nil {
 		return nil, errors.Wrap(httperrors.ErrNotFound, "no vpc found")
 	}
-	return vpc.GetIRegion()
+	return vpc.GetIRegion(ctx)
 }
 
 func (manager *SElasticcacheResourceBaseManager) FetchCustomizeColumns(

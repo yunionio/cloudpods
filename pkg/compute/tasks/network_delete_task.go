@@ -51,7 +51,7 @@ func (self *NetworkDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	network.SetStatus(self.UserCred, api.NETWORK_STATUS_DELETING, "")
 	db.OpsLog.LogEvent(network, db.ACT_DELOCATING, network.GetShortDesc(ctx), self.UserCred)
 
-	inet, err := network.GetINetwork()
+	inet, err := network.GetINetwork(ctx)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound || errors.Cause(err) == sql.ErrNoRows {
 			self.taskComplete(ctx, network)

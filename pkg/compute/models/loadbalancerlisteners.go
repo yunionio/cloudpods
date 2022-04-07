@@ -875,12 +875,12 @@ func (lblis *SLoadbalancerListener) GetRegion() (*SCloudregion, error) {
 	return loadbalancer.GetRegion()
 }
 
-func (lblis *SLoadbalancerListener) GetIRegion() (cloudprovider.ICloudRegion, error) {
+func (lblis *SLoadbalancerListener) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	loadbalancer, err := lblis.GetLoadbalancer()
 	if err != nil {
 		return nil, err
 	}
-	return loadbalancer.GetIRegion()
+	return loadbalancer.GetIRegion(ctx)
 }
 
 func (man *SLoadbalancerListenerManager) getLoadbalancerListenersByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerListener, error) {

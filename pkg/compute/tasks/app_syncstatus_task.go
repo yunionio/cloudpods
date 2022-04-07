@@ -45,7 +45,7 @@ func (at *AppSyncstatusTask) taskFailed(ctx context.Context, app *models.SApp, e
 func (at *AppSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	app := obj.(*models.SApp)
 
-	iApp, err := app.GetIApp()
+	iApp, err := app.GetIApp(ctx)
 	if err != nil {
 		at.taskFailed(ctx, app, errors.Wrapf(err, "app.GetIApp"))
 		return

@@ -46,7 +46,7 @@ func (self *DBInstanceSetAutoRenewTask) taskFailed(ctx context.Context, rds *mod
 func (self *DBInstanceSetAutoRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	rds := obj.(*models.SDBInstance)
 	autoRenew, _ := self.GetParams().Bool("auto_renew")
-	iRds, err := rds.GetIDBInstance()
+	iRds, err := rds.GetIDBInstance(ctx)
 	if err != nil {
 		self.taskFailed(ctx, rds, errors.Wrapf(err, "GetIDBInstance"))
 		return
