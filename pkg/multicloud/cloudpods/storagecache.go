@@ -119,7 +119,7 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 
 func (self *SRegion) GetStoragecaches() ([]SStoragecache, error) {
 	caches := []SStoragecache{}
-	return caches, self.list(&compute.Storagecaches, nil, caches)
+	return caches, self.list(&compute.Storagecaches, nil, &caches)
 }
 
 func (self *SRegion) GetStoragecache(id string) (*SStoragecache, error) {
