@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -46,6 +47,22 @@ func (self *SStorage) GetGlobalId() string {
 }
 
 func (self *SStorage) GetStatus() string {
+	if self.storageType == api.STORAGE_IO2_SSD {
+		regionId := self.zone.region.RegionId
+		// hard code
+		if utils.IsInStringArray(regionId, []string{
+			"sa-east-1",
+			"eu-west-3",
+			"ap-northeast-3",
+			"ap-southeast-3",
+			"af-south-1",
+
+			"cn-northwest-1",
+			"cn-north-1",
+		}) {
+			return api.STORAGE_OFFLINE
+		}
+	}
 	return api.STORAGE_ONLINE
 }
 
