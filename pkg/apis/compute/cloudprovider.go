@@ -138,6 +138,8 @@ type CloudproviderDetails struct {
 	// 子订阅品牌信息
 	Brand string `json:"brand"`
 
+	ReadOnly bool `json:"read_only"`
+
 	ProjectMappingResourceInfo
 }
 

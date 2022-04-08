@@ -29,12 +29,13 @@ const (
 	CloudVMStatusDeploying    = "deploying"
 	CloudVMStatusOther        = "other"
 
-	ErrNotFound       = errors.ErrNotFound
-	ErrDuplicateId    = errors.ErrDuplicateId
-	ErrInvalidStatus  = errors.ErrInvalidStatus
-	ErrTimeout        = errors.ErrTimeout
-	ErrNotImplemented = errors.ErrNotImplemented
-	ErrNotSupported   = errors.ErrNotSupported
+	ErrNotFound        = errors.ErrNotFound
+	ErrDuplicateId     = errors.ErrDuplicateId
+	ErrInvalidStatus   = errors.ErrInvalidStatus
+	ErrTimeout         = errors.ErrTimeout
+	ErrNotImplemented  = errors.ErrNotImplemented
+	ErrNotSupported    = errors.ErrNotSupported
+	ErrAccountReadOnly = errors.ErrAccountReadOnly
 
 	ErrInvalidProvider     = httperrors.ErrInvalidProvider
 	ErrNoBalancePermission = httperrors.ErrNoBalancePermission

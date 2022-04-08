@@ -16,6 +16,8 @@ package aliyun
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -406,6 +408,22 @@ func (self *SAliyunClient) getSdkClient(regionId string) (*sdk.Client, error) {
 		regionId,
 		&sdk.Config{
 			HttpTransport: transport,
+			Transport: cloudprovider.GetReadOnlyCheckTransport(transport, func(req *http.Request) error {
+				if self.cpcfg.ReadOnly {
+					params, err := url.ParseQuery(req.URL.RawQuery)
+					if err != nil {
+						return errors.Wrapf(err, "ParseQuery(%s)", req.URL.RawQuery)
+					}
+					action := params.Get("Action")
+					for _, prefix := range []string{"Get", "List", "Describe"} {
+						if strings.HasPrefix(action, prefix) {
+							return nil
+						}
+					}
+					return errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+				}
+				return nil
+			}),
 		},
 		&credentials.BaseCredential{
 			AccessKeyId:     self.accessKey,
@@ -512,6 +530,16 @@ func (client *SAliyunClient) getOssClientByEndpoint(endpoint string) (*oss.Clien
 	// https_proxy setting
 	// oss use no timeout client so as to send/download large files
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
+	transport, _ := httpClient.Transport.(*http.Transport)
+	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(transport, func(req *http.Request) error {
+		if client.cpcfg.ReadOnly {
+			if req.Method == "GET" {
+				return nil
+			}
+			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.RawPath)
+		}
+		return nil
+	})
 	cliOpts := []oss.ClientOption{
 		oss.HTTPClient(httpClient),
 	}

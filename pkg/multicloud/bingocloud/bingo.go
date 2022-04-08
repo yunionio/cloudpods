@@ -211,6 +211,13 @@ func (e sBingoError) Error() string {
 }
 
 func (self *SBingoCloudClient) invoke(action string, params map[string]string) (jsonutils.JSONObject, error) {
+	if self.cpcfg.ReadOnly {
+		for _, prefix := range []string{"Get", "List", "Describe"} {
+			if strings.HasPrefix(action, prefix) {
+				return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+			}
+		}
+	}
 	var encode = func(k, v string) string {
 		d := url.Values{}
 		d.Set(k, v)
