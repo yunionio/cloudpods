@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -169,9 +170,10 @@ func jsonRequest(client *SUcloudClient, params SParams) (jsonutils.JSONObject, e
 	ctx := context.Background()
 	MAX_RETRY := 3
 	retry := 0
-
+	var err error
+	var resp jsonutils.JSONObject
 	for retry < MAX_RETRY {
-		_, resp, err := httputils.JSONRequest(
+		_, resp, err = httputils.JSONRequest(
 			client.httpClient,
 			ctx,
 			httputils.POST,
@@ -186,7 +188,7 @@ func jsonRequest(client *SUcloudClient, params SParams) (jsonutils.JSONObject, e
 
 		switch e := err.(type) {
 		case *httputils.JSONClientError:
-			if e.Code >= 499 {
+			if e.Code >= 499 && !strings.Contains(err.Error(), cloudprovider.ErrAccountReadOnly.Error()) {
 				time.Sleep(3 * time.Second)
 				retry += 1
 				continue
@@ -198,5 +200,5 @@ func jsonRequest(client *SUcloudClient, params SParams) (jsonutils.JSONObject, e
 		}
 	}
 
-	return nil, fmt.Errorf("timeout for request: %s", params)
+	return resp, err
 }
