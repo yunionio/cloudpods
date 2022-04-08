@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
+	"yunion.io/x/onecloud/pkg/util/encode"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 )
@@ -684,7 +685,7 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 
 	labels := map[string]string{}
 	for k, v := range desc.Tags {
-		labels[strings.ToLower(k)] = v
+		labels[encode.EncodeGoogleLabel(k)] = encode.EncodeGoogleLabel(v)
 	}
 
 	if len(labels) > 0 {
@@ -936,7 +937,11 @@ func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudpro
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "no valid system disk found")
 }
 
-func (region *SRegion) SetLabels(id string, labels map[string]string, labelFingerprint string) error {
+func (region *SRegion) SetLabels(id string, _labels map[string]string, labelFingerprint string) error {
+	labels := map[string]string{}
+	for k, v := range _labels {
+		labels[encode.EncodeGoogleLabel(k)] = encode.EncodeGoogleLabel(v)
+	}
 	params := map[string]interface{}{
 		"labels":           labels,
 		"labelFingerprint": labelFingerprint,
@@ -948,13 +953,10 @@ func (region *SRegion) SetLabels(id string, labels map[string]string, labelFinge
 	return nil
 }
 
-func (self *SInstance) SetTags(_tags map[string]string, replace bool) error {
-	tags := map[string]string{}
-	for k, v := range _tags {
-		tags[strings.ToLower(k)] = v
-	}
+func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 	if !replace {
-		for k, v := range self.Labels {
+		oldTags, _ := self.GetTags()
+		for k, v := range oldTags {
 			if _, ok := tags[k]; !ok {
 				tags[k] = v
 			}
