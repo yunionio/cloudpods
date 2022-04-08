@@ -78,7 +78,8 @@ func (rm *SRobotManager) fetchSystemProjectId(ctx context.Context) (string, erro
 func (rm *SRobotManager) InitializeData() error {
 	log.Infof("start to init data for notify robot")
 	// init empty projectId robot
-	systemId, err := rm.fetchSystemProjectId(context.Background())
+	ctx := context.WithValue(context.Background(), "from", "init")
+	systemId, err := rm.fetchSystemProjectId(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to fetch system project id")
 	}
@@ -149,7 +150,6 @@ func (rm *SRobotManager) InitializeData() error {
 		}
 		robots = append(robots, robot)
 	}
-	ctx := context.Background()
 	var webhookRobotId string
 	// insert new robot
 	for i := range robots {
