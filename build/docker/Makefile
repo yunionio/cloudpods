@@ -8,9 +8,12 @@ debian10-base:
 		-t registry.cn-beijing.aliyuncs.com/yunionio/debian10-base:1.0 -f ./Dockerfile.debian-base .
 
 ONECLOUD_BASE_VERSION = v0.3-3.13.5
+ONECLOUD_BASE_VERSION_3-15-4 = v3.15.4-0
 
 onecloud-base:
 	$(DOCKER_BUILDX)/onecloud-base:$(ONECLOUD_BASE_VERSION) -f ./Dockerfile.onecloud-base .
+onecloud-base-3-15-4:
+	$(DOCKER_BUILDX)/onecloud-base:$(ONECLOUD_BASE_VERSION_3-15-4) -f ./Dockerfile.onecloud-base-3-15-4 .
 
 ANSIBLESERVER_BASE = v1.0.5-2
 
