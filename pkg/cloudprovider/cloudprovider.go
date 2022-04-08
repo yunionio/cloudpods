@@ -166,6 +166,8 @@ type ProviderConfig struct {
 	Account string
 	Secret  string
 
+	ReadOnly bool
+
 	AccountId string
 
 	Options *jsonutils.JSONDict

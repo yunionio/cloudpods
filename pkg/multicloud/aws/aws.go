@@ -15,7 +15,11 @@
 package aws
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -239,6 +243,35 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 		return sess, nil
 	}
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
+	transport, _ := httpClient.Transport.(*http.Transport)
+	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(transport, func(req *http.Request) error {
+		if client.cpcfg.ReadOnly {
+			if req.ContentLength > 0 {
+				body, err := ioutil.ReadAll(req.Body)
+				if err != nil {
+					return errors.Wrapf(err, "ioutil.ReadAll")
+				}
+				req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+				params, err := url.ParseQuery(string(body))
+				if err != nil {
+					return errors.Wrapf(err, "ParseQuery(%s)", string(body))
+				}
+				action := params.Get("Action")
+				for _, prefix := range []string{"Get", "List", "Describe"} {
+					if strings.HasPrefix(action, prefix) {
+						return nil
+					}
+				}
+				return errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+			}
+			// s3
+			if req.Method == "GET" || req.Method == "HEAD" {
+				return nil
+			}
+			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+		}
+		return nil
+	})
 	s, err := session.NewSession(&sdk.Config{
 		Region: sdk.String(regionId),
 		Credentials: credentials.NewStaticCredentials(

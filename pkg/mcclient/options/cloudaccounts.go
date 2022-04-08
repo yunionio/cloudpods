@@ -121,6 +121,7 @@ type SCloudAccountCreateBaseOptions struct {
 	ProxySetting    string `help:"proxy setting id or name" json:"proxy_setting"`
 	DryRun          bool   `help:"test create cloudaccount params"`
 	ShowSubAccounts bool   `help:"test and show subaccount info"`
+	ReadOnly        bool   `help:"Read only account"`
 }
 
 type SVMwareCloudAccountCreateOptions struct {
@@ -559,6 +560,8 @@ type SCloudAccountUpdateBaseOptions struct {
 	AutoCreateProject   *bool  `help:"automatically create local project for new remote project" negative:"no_auto_create_project"`
 	ProxySetting        string `help:"proxy setting name or id" json:"proxy_setting"`
 	SamlAuth            string `help:"Enable or disable saml auth" choices:"true|false"`
+
+	ReadOnly *bool `help:"is account read only" negative:"no_read_only"`
 
 	CleanLakeOfPermissions bool `help:"clean lake of permissions"`
 

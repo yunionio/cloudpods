@@ -423,6 +423,22 @@ func (cli *SOpenStackClient) getDefaultSession(regionName string) *mcclient.Clie
 func (cli *SOpenStackClient) getDefaultClient() *mcclient.Client {
 	client := mcclient.NewClient(cli.authURL, 5, cli.debug, false, "", "")
 	client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
+	_client := client.GetClient()
+	ts, _ := _client.Transport.(*http.Transport)
+	_client.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+		if cli.cpcfg.ReadOnly {
+			if req.Method == "GET" || req.Method == "HEAD" {
+				return nil
+			}
+			// 认证
+			if req.Method == "POST" && strings.HasSuffix(req.URL.Path, "auth/tokens") {
+				return nil
+			}
+			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+		}
+		return nil
+	})
+
 	return client
 }
 

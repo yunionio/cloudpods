@@ -15,9 +15,11 @@
 package qcloud
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -608,7 +610,28 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 		return nil, err
 	}
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
-	cli.WithHttpTransport(httpClient.Transport)
+	ts, _ := httpClient.Transport.(*http.Transport)
+	cli.WithHttpTransport(cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+		if client.cpcfg.ReadOnly {
+			body, err := ioutil.ReadAll(req.Body)
+			if err != nil {
+				return errors.Wrapf(err, "ioutil.ReadAll")
+			}
+			req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+			params, err := url.ParseQuery(string(body))
+			if err != nil {
+				return errors.Wrapf(err, "ParseQuery(%s)", string(body))
+			}
+			action := params.Get("Action")
+			for _, prefix := range []string{"Get", "List", "Describe"} {
+				if strings.HasPrefix(action, prefix) {
+					return nil
+				}
+			}
+			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+		}
+		return nil
+	}))
 	return cli, nil
 }
 
@@ -870,6 +893,9 @@ func (client *SQcloudClient) getCosClient(bucket *SBucket) (*cos.Client, error) 
 			BucketURL: u,
 		}
 	}
+	ts := &http.Transport{
+		Proxy: client.cpcfg.ProxyFunc,
+	}
 	cosClient := cos.NewClient(
 		baseUrl,
 		&http.Client{
@@ -881,9 +907,15 @@ func (client *SQcloudClient) getCosClient(bucket *SBucket) (*cos.Client, error) 
 					RequestBody:    client.debug,
 					ResponseHeader: client.debug,
 					ResponseBody:   client.debug,
-					Transport: &http.Transport{
-						Proxy: client.cpcfg.ProxyFunc,
-					},
+					Transport: cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+						if client.cpcfg.ReadOnly {
+							if req.Method == "GET" || req.Method == "HEAD" {
+								return nil
+							}
+							return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", req.Method, req.URL.Path)
+						}
+						return nil
+					}),
 				},
 			},
 		},
