@@ -159,14 +159,14 @@ func (self *SAzureClient) getClient(resource TAzureResource) (*autorest.Client, 
 
 	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	transport, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(transport, func(req *http.Request) error {
+	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" {
-				return nil
+				return nil, nil
 			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 		}
-		return nil
+		return nil, nil
 	})
 	client.Sender = httpClient
 

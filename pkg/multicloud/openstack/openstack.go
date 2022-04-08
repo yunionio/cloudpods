@@ -425,18 +425,18 @@ func (cli *SOpenStackClient) getDefaultClient() *mcclient.Client {
 	client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
 	_client := client.GetClient()
 	ts, _ := _client.Transport.(*http.Transport)
-	_client.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+	_client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
 		if cli.cpcfg.ReadOnly {
 			if req.Method == "GET" || req.Method == "HEAD" {
-				return nil
+				return nil, nil
 			}
 			// 认证
 			if req.Method == "POST" && strings.HasSuffix(req.URL.Path, "auth/tokens") {
-				return nil
+				return nil, nil
 			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 		}
-		return nil
+		return nil, nil
 	})
 
 	return client

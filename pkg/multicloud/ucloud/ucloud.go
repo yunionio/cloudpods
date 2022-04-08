@@ -106,31 +106,31 @@ type SUcloudClient struct {
 func NewUcloudClient(cfg *UcloudClientConfig) (*SUcloudClient, error) {
 	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
 		if cfg.cpcfg.ReadOnly {
 			if req.ContentLength > 0 {
 				body, err := ioutil.ReadAll(req.Body)
 				if err != nil {
-					return errors.Wrapf(err, "ioutil.ReadAll")
+					return nil, errors.Wrapf(err, "ioutil.ReadAll")
 				}
 				req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 				obj, err := jsonutils.Parse(body)
 				if err != nil {
-					return errors.Wrapf(err, "Parse request body")
+					return nil, errors.Wrapf(err, "Parse request body")
 				}
 				action, err := obj.GetString("Action")
 				if err != nil {
-					return errors.Wrapf(err, "Get request action")
+					return nil, errors.Wrapf(err, "Get request action")
 				}
 				for _, prefix := range []string{"Get", "Describe", "List"} {
 					if strings.HasPrefix(action, prefix) {
-						return nil
+						return nil, nil
 					}
 				}
-				return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+				return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 			}
 		}
-		return nil
+		return nil, nil
 	})
 	client := SUcloudClient{
 		UcloudClientConfig: cfg,

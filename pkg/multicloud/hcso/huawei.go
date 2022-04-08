@@ -156,14 +156,14 @@ func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, 
 
 	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" {
-				return nil
+				return nil, nil
 			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 		}
-		return nil
+		return nil, nil
 	})
 	cli.SetHttpClient(httpClient)
 
@@ -178,14 +178,14 @@ func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
 
 	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" {
-				return nil
+				return nil, nil
 			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 		}
-		return nil
+		return nil, nil
 	})
 	cli.SetHttpClient(httpClient)
 

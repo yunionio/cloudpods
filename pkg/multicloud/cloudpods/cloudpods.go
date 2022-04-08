@@ -95,18 +95,18 @@ func (self *SCloudpodsClient) auth() error {
 	client := mcclient.NewClient(self.authURL, 0, self.debug, true, "", "")
 	client.SetHttpTransportProxyFunc(self.cpcfg.ProxyFunc)
 	ts, _ := client.GetClient().Transport.(*http.Transport)
-	client.SetTransport(cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+	client.SetTransport(cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" || req.Method == "HEAD" {
-				return nil
+				return nil, nil
 			}
 			// 认证
 			if req.Method == "POST" && req.URL.Path == "/v3/auth/tokens" {
-				return nil
+				return nil, nil
 			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 		}
-		return nil
+		return nil, nil
 	}))
 	token, err := client.AuthenticateByAccessKey(self.accessKey, self.accessSecret, "cli")
 	if err != nil {

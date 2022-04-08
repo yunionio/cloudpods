@@ -16,7 +16,6 @@ package huawei
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -99,18 +98,6 @@ func (self *SRegion) getOBSClient() (*obs.ObsClient, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		client := obsClient.GetClient()
-		ts, _ := client.Transport.(*http.Transport)
-		client.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
-			if self.client.cpcfg.ReadOnly {
-				if req.Method == "GET" || req.Method == "HEAD" {
-					return nil
-				}
-				return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
-			}
-			return nil
-		})
 
 		self.obsClient = obsClient
 	}

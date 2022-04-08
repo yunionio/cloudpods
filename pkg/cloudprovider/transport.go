@@ -17,19 +17,30 @@ package cloudprovider
 import "net/http"
 
 type transport struct {
-	readOnlyCheck func(req *http.Request) error
-	ts            *http.Transport
+	check func(*http.Request) (func(resp *http.Response), error)
+	ts    *http.Transport
 }
 
 func (self *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	err := self.readOnlyCheck(req)
+	var respCheck func(resp *http.Response) = nil
+	var err error
+	if self.check != nil {
+		respCheck, err = self.check(req)
+		if err != nil {
+			return nil, err
+		}
+	}
+	resp, err := self.ts.RoundTrip(req)
 	if err != nil {
 		return nil, err
 	}
-	return self.ts.RoundTrip(req)
+	if respCheck != nil {
+		respCheck(resp)
+	}
+	return resp, nil
 }
 
-func GetReadOnlyCheckTransport(ts *http.Transport, check func(req *http.Request) error) http.RoundTripper {
-	ret := &transport{ts: ts, readOnlyCheck: check}
+func GetCheckTransport(ts *http.Transport, check func(*http.Request) (func(resp *http.Response), error)) http.RoundTripper {
+	ret := &transport{ts: ts, check: check}
 	return ret
 }
