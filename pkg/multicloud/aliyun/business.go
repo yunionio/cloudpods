@@ -29,7 +29,7 @@ func (self *SAliyunClient) businessRequest(apiName string, params map[string]str
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "business.aliyuncs.com", ALIYUN_BSS_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
+	return jsonRequest(cli, "business.aliyuncs.com", ALIYUN_BSS_API_VERSION, apiName, params, self.debug)
 }
 
 type SAccountBalance struct {

@@ -15,7 +15,9 @@
 package aliyun
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -161,11 +163,10 @@ func NewAliyunClient(cfg *AliyunClientConfig) (*SAliyunClient, error) {
 	return &client, nil
 }
 
-func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
+func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	if debug {
 		log.Debugf("request %s %s %s %s", domain, apiVersion, apiName, params)
 	}
-	service := strings.Split(domain, ".")[0]
 	var resp jsonutils.JSONObject
 	var err error
 	for i := 1; i < 4; i++ {
@@ -182,16 +183,8 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 			if e, ok := errors.Cause(err).(*alierr.ServerError); ok {
 				code := e.ErrorCode()
 				switch code {
-				case "NoPermission", "Forbidden.RAM", "SubAccountNoPermission", "Forbidden":
-					if updateFunc != nil {
-						updateFunc(service, apiName)
-					}
-					return nil, errors.Wrapf(httperrors.ErrNoPermission, err.Error())
 				case "InternalError":
 					if apiName == "QueryAccountBalance" {
-						if updateFunc != nil {
-							updateFunc(service, apiName)
-						}
 						return nil, errors.Wrapf(httperrors.ErrNoPermission, err.Error())
 					}
 					return nil, err
@@ -346,7 +339,7 @@ func (self *SAliyunClient) fetchNasEndpoints() error {
 	if err != nil {
 		return errors.Wrapf(err, "getDefaultClient")
 	}
-	resp, err := jsonRequest(client, "nas.aliyuncs.com", ALIYUN_NAS_API_VERSION, "DescribeRegions", nil, self.cpcfg.UpdatePermission, self.debug)
+	resp, err := jsonRequest(client, "nas.aliyuncs.com", ALIYUN_NAS_API_VERSION, "DescribeRegions", nil, self.debug)
 	if err != nil {
 		return errors.Wrapf(err, "DescribeRegions")
 	}
@@ -386,7 +379,7 @@ func (self *SAliyunClient) fetchVpcEndpoints() error {
 	if err != nil {
 		return errors.Wrapf(err, "getDefaultClient")
 	}
-	resp, err := jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, "DescribeRegions", nil, self.cpcfg.UpdatePermission, self.debug)
+	resp, err := jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, "DescribeRegions", nil, self.debug)
 	if err != nil {
 		return errors.Wrapf(err, "DescribeRegions")
 	}
@@ -408,21 +401,44 @@ func (self *SAliyunClient) getSdkClient(regionId string) (*sdk.Client, error) {
 		regionId,
 		&sdk.Config{
 			HttpTransport: transport,
-			Transport: cloudprovider.GetReadOnlyCheckTransport(transport, func(req *http.Request) error {
-				if self.cpcfg.ReadOnly {
-					params, err := url.ParseQuery(req.URL.RawQuery)
-					if err != nil {
-						return errors.Wrapf(err, "ParseQuery(%s)", req.URL.RawQuery)
-					}
-					action := params.Get("Action")
-					for _, prefix := range []string{"Get", "List", "Describe"} {
-						if strings.HasPrefix(action, prefix) {
-							return nil
+			Transport: cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
+				params, err := url.ParseQuery(req.URL.RawQuery)
+				if err != nil {
+					return nil, errors.Wrapf(err, "ParseQuery(%s)", req.URL.RawQuery)
+				}
+				service := strings.Split(req.URL.Host, ".")[0]
+				action := params.Get("Action")
+				respCheck := func(resp *http.Response) {
+					if self.cpcfg.UpdatePermission != nil && resp.StatusCode >= 400 && resp.ContentLength > 0 {
+						body, err := ioutil.ReadAll(resp.Body)
+						if err != nil {
+							return
+						}
+						resp.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+						obj, err := jsonutils.Parse(body)
+						if err != nil {
+							return
+						}
+						ret := struct{ Code string }{}
+						obj.Unmarshal(&ret)
+						if utils.IsInStringArray(ret.Code, []string{
+							"NoPermission",
+							"SubAccountNoPermission",
+						}) || utils.HasPrefix(ret.Code, "Forbidden") ||
+							action == "QueryAccountBalance" && ret.Code == "InternalError" {
+							self.cpcfg.UpdatePermission(service, action)
 						}
 					}
-					return errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
 				}
-				return nil
+				for _, prefix := range []string{"Get", "List", "Describe"} {
+					if strings.HasPrefix(action, prefix) {
+						return respCheck, nil
+					}
+				}
+				if self.cpcfg.ReadOnly {
+					return respCheck, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+				}
+				return respCheck, nil
 			}),
 		},
 		&credentials.BaseCredential{
@@ -438,7 +454,7 @@ func (self *SAliyunClient) imsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "ims.aliyuncs.com", ALIYUN_IMS_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
+	return jsonRequest(cli, "ims.aliyuncs.com", ALIYUN_IMS_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) rmRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -446,7 +462,7 @@ func (self *SAliyunClient) rmRequest(apiName string, params map[string]string) (
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "resourcemanager.aliyuncs.com", ALIYUN_RM_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
+	return jsonRequest(cli, "resourcemanager.aliyuncs.com", ALIYUN_RM_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -454,7 +470,7 @@ func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
+	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) pvtzRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -462,7 +478,7 @@ func (self *SAliyunClient) pvtzRequest(apiName string, params map[string]string)
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "pvtz.aliyuncs.com", ALIYUN_PVTZ_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
+	return jsonRequest(cli, "pvtz.aliyuncs.com", ALIYUN_PVTZ_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) alidnsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -470,7 +486,7 @@ func (self *SAliyunClient) alidnsRequest(apiName string, params map[string]strin
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "alidns.aliyuncs.com", ALIYUN_ALIDNS_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
+	return jsonRequest(cli, "alidns.aliyuncs.com", ALIYUN_ALIDNS_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) cbnRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -478,7 +494,7 @@ func (self *SAliyunClient) cbnRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "cbn.aliyuncs.com", ALIYUN_CBN_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
+	return jsonRequest(cli, "cbn.aliyuncs.com", ALIYUN_CBN_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) cdnRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -486,7 +502,7 @@ func (self *SAliyunClient) cdnRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "cdn.aliyuncs.com", ALIYUN_CDN_API_VERSION, apiName, params, self.cpcfg.UpdatePermission, self.debug)
+	return jsonRequest(cli, "cdn.aliyuncs.com", ALIYUN_CDN_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) fetchRegions() error {
@@ -531,14 +547,20 @@ func (client *SAliyunClient) getOssClientByEndpoint(endpoint string) (*oss.Clien
 	// oss use no timeout client so as to send/download large files
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	transport, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(transport, func(req *http.Request) error {
-		if client.cpcfg.ReadOnly {
-			if req.Method == "GET" {
-				return nil
+	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
+		path, method := req.URL.Path, req.Method
+		respCheck := func(resp *http.Response) {
+			if client.cpcfg.UpdatePermission != nil && resp.StatusCode == 403 {
+				client.cpcfg.UpdatePermission("oss", fmt.Sprintf("%s %s", method, path))
 			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.RawPath)
 		}
-		return nil
+		if client.cpcfg.ReadOnly {
+			if req.Method == "GET" || req.Method == "HEAD" {
+				return respCheck, nil
+			}
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.RawPath)
+		}
+		return respCheck, nil
 	})
 	cliOpts := []oss.ClientOption{
 		oss.HTTPClient(httpClient),
