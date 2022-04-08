@@ -19,9 +19,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 func unmarshalResult(resp jsonutils.JSONObject, respErr error, resultKey string, result interface{}) error {
@@ -79,9 +76,6 @@ func doListPart(client *SUcloudClient, action string, params SParams, resultKey 
 
 // 执行操作
 func DoAction(client *SUcloudClient, action string, params SParams, resultKey string, result interface{}) error {
-	if client.cpcfg.ReadOnly {
-		return errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
-	}
 	params.SetAction(action)
 	resp, err := jsonRequest(client, params)
 	return unmarshalResult(resp, err, resultKey, result)

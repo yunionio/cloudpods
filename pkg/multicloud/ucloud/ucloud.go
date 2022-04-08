@@ -15,10 +15,13 @@
 package ucloud
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -102,6 +105,33 @@ type SUcloudClient struct {
 // 初次导入Subaccount时，参数account对应cloudaccounts表中的account字段，即accesskey。此时projectID为空，只能进行同步子账号（项目）、查询region列表等projectId无关的操作。
 func NewUcloudClient(cfg *UcloudClientConfig) (*SUcloudClient, error) {
 	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
+	ts, _ := httpClient.Transport.(*http.Transport)
+	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+		if cfg.cpcfg.ReadOnly {
+			if req.ContentLength > 0 {
+				body, err := ioutil.ReadAll(req.Body)
+				if err != nil {
+					return errors.Wrapf(err, "ioutil.ReadAll")
+				}
+				req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+				obj, err := jsonutils.Parse(body)
+				if err != nil {
+					return errors.Wrapf(err, "Parse request body")
+				}
+				action, err := obj.GetString("Action")
+				if err != nil {
+					return errors.Wrapf(err, "Get request action")
+				}
+				for _, prefix := range []string{"Get", "Describe", "List"} {
+					if strings.HasPrefix(action, prefix) {
+						return nil
+					}
+				}
+				return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+			}
+		}
+		return nil
+	})
 	client := SUcloudClient{
 		UcloudClientConfig: cfg,
 		httpClient:         httpClient,
