@@ -173,7 +173,14 @@ func (cli *SESXiClient) HostVmIPsPro(ctx context.Context) (SNetworkInfoPro, erro
 	if err != nil {
 		return SNetworkInfoPro{}, errors.Wrap(err, "scanAllMObjects")
 	}
-	return cli.hostVMIPsPro(ctx, hosts)
+	filtedHosts := make([]mo.HostSystem, 0, len(hosts))
+	for i := range hosts {
+		if hosts[i].Config == nil || hosts[i].Config.Network == nil {
+			continue
+		}
+		filtedHosts = append(filtedHosts, hosts[i])
+	}
+	return cli.hostVMIPsPro(ctx, filtedHosts)
 }
 
 func vpgMapKey(prefix, key string) string {
