@@ -71,6 +71,9 @@ var (
 			Scope:  rbacutils.ScopeProject,
 			Extra: map[string]map[string][]string{
 				"compute": {
+					"dashboard": {
+						"get",
+					},
 					"capabilities": {
 						"list",
 					},

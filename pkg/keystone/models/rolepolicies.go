@@ -431,11 +431,17 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred mcclient.T
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "GetMatchPolicyGroup")
 	}
-	usr, err := UserManager.fetchUserById(userCred.GetUserId())
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "user id %s of userCred not found", userCred.GetUserId())
+	userId := userCred.GetUserId()
+	if len(userId) == 0 {
+		// anonymous access
+		return names, policies, nil
 	}
-	if usr.AllowWebConsole.IsTrue() {
+	usr, err := UserManager.fetchUserById(userId)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "user id %s of userCred not found", userId)
+	}
+	// append dashboard policy only when there are matched policies
+	if len(names) > 0 && usr.AllowWebConsole.IsTrue() {
 		// add web console policy
 		for scope := range names {
 			consolePolicyName := ""
@@ -500,7 +506,8 @@ func (manager *SRolePolicyManager) GetPolicyGroupByIds(policyIds []string, nameO
 }
 
 func (rp *SRolePolicy) MatchIP(ipstr string) bool {
-	return rbacutils.MatchIPStrings(rp.Ips, ipstr)
+	result := rbacutils.MatchIPStrings(rp.Ips, ipstr)
+	return result
 }
 
 func (rp *SRolePolicy) MatchTime(tm time.Time) bool {
