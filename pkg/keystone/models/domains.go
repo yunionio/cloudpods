@@ -373,9 +373,9 @@ func (manager *SDomainManager) FetchCustomizeColumns(
 		}
 		domain := objs[i].(*SDomain)
 		idList[i] = domain.Id
-		rows[i].UserCout, _ = domain.GetUserCount()
+		rows[i].UserCount, _ = domain.GetUserCount()
 		rows[i].GroupCount, _ = domain.GetGroupCount()
-		rows[i].ProjectCout, _ = domain.GetProjectCount()
+		rows[i].ProjectCount, _ = domain.GetProjectCount()
 		rows[i].RoleCount, _ = domain.GetRoleCount()
 		rows[i].PolicyCount, _ = domain.GetPolicyCount()
 		rows[i].IdpCount, _ = domain.GetIdpCount()

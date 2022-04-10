@@ -69,7 +69,7 @@ type quotaTask struct {
 }
 
 func (t *quotaTask) Run() {
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), "task", t)
 
 	usage := t.manager.newQuota()
 

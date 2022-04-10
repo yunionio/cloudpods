@@ -22,12 +22,12 @@ type DomainDetails struct {
 
 	SDomain
 
-	UserCout    int `json:"user_count"`
-	GroupCount  int `json:"group_count"`
-	ProjectCout int `json:"project_count"`
-	RoleCount   int `json:"role_count"`
-	PolicyCount int `json:"policy_count"`
-	IdpCount    int `json:"idp_count"`
+	UserCount    int `json:"user_count"`
+	GroupCount   int `json:"group_count"`
+	ProjectCount int `json:"project_count"`
+	RoleCount    int `json:"role_count"`
+	PolicyCount  int `json:"policy_count"`
+	IdpCount     int `json:"idp_count"`
 
 	ExternalResourceInfo
 }
