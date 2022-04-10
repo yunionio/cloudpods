@@ -38,4 +38,6 @@ type UserDetails struct {
 	IsLocal bool `json:"is_local"`
 
 	ExternalResourceInfo
+
+	Projects []SFetchDomainObject `json:"projects"`
 }

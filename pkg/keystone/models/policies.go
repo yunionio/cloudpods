@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/locale"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -240,6 +241,9 @@ func (manager *SPolicyManager) FetchEnabledPolicies() ([]SPolicy, error) {
 }
 
 func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policyScope rbacutils.TRbacScope, policy *rbacutils.SPolicy) error {
+	if options.Options.NoPolicyViolationCheck {
+		return nil
+	}
 	if userCred.GetUserName() == api.SystemAdminUser && userCred.GetDomainId() == api.DEFAULT_DOMAIN_ID {
 		return nil
 	}

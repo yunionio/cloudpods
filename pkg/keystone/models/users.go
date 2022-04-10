@@ -664,6 +664,15 @@ func userExtra(user *SUser, out api.UserDetails) api.UserDetails {
 		out.ExtResourcesNextUpdate = nextUpdate
 	}
 
+	projects, _ := ProjectManager.FetchUserProjects(user.Id)
+	out.Projects = make([]api.SFetchDomainObject, len(projects))
+	for i, proj := range projects {
+		out.Projects[i].Id = proj.Id
+		out.Projects[i].Name = proj.Name
+		out.Projects[i].Domain = proj.DomainName
+		out.Projects[i].DomainId = proj.DomainId
+	}
+
 	return out
 }
 
