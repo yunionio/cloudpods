@@ -976,6 +976,10 @@ func (guest *SGuest) CustomizeCreate(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	guest.HostId = ""
+	err := guest.SEncryptedResource.CustomizeCreate(ctx, userCred, ownerId, data, "server-"+pinyinutils.Text2Pinyin(guest.Name))
+	if err != nil {
+		return errors.Wrap(err, "EncryptResourceBase.CustomizeCreate")
+	}
 	return guest.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -1348,7 +1352,7 @@ func (manager *SGuestManager) validateCreateData(
 		if input.EncryptKeyId == nil && len(imgEncryptKeyId) > 0 {
 			input.EncryptKeyId = &imgEncryptKeyId
 		}
-		if input.EncryptKeyId != nil {
+		if input.EncryptKeyId != nil || input.EncryptKeyNew != nil {
 			input.EncryptedResourceCreateInput, err = manager.SEncryptedResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EncryptedResourceCreateInput)
 			if err != nil {
 				return nil, errors.Wrap(err, "SEncryptedResourceManager.ValidateCreateData")

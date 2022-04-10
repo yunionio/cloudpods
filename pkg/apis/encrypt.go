@@ -27,6 +27,12 @@ type SEncryptInfo struct {
 }
 
 type EncryptedResourceCreateInput struct {
+	// 是否新建密钥
+	EncryptKeyNew *bool `json:"encrypt_key_new"`
+
+	// 新建密钥算法
+	EncryptKeyAlg *string `json:"encrypt_key_alg"`
+
 	// 加密秘钥的ID
 	EncryptKeyId *string `json:"encrypt_key_id"`
 }

@@ -28,6 +28,7 @@ import (
 
 type DiskCreateInput struct {
 	apis.VirtualResourceCreateInput
+	apis.EncryptedResourceCreateInput
 
 	*DiskConfig
 
