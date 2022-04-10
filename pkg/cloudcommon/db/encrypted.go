@@ -16,10 +16,12 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
@@ -84,6 +86,22 @@ func (manager *SEncryptedResourceManager) ValidateCreateData(
 		input.EncryptKeyId = &keyId
 	}
 	return input, nil
+}
+
+func (res *SEncryptedResource) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data jsonutils.JSONObject, nameHint string) error {
+	if len(res.EncryptKeyId) == 0 && jsonutils.QueryBoolean(data, "encrypt_key_new", false) && !jsonutils.QueryBoolean(data, "dry_run", false) {
+		// create new encrypt key
+		session := auth.GetSession(ctx, userCred, consts.GetRegion(), "v1")
+		now := time.Now()
+		keyName := "key-" + nameHint + "-" + timeutils.ShortDate(now)
+		algName, _ := data.GetString("encrypt_key_alg")
+		secret, err := identity_modules.Credentials.CreateEncryptKey(session, ownerId.GetUserId(), keyName, algName)
+		if err != nil {
+			return errors.Wrap(err, "Credentials.CreateEncryptKey")
+		}
+		res.EncryptKeyId = secret.KeyId
+	}
+	return nil
 }
 
 func (manager *SEncryptedResourceManager) FetchCustomizeColumns(
