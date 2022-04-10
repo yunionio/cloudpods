@@ -121,7 +121,7 @@ func (mock *sMockBackend) DropIndexSQLTemplate() string {
 }
 
 func (mock *sMockBackend) InsertOrUpdateSQLTemplate() string {
-	return ""
+	return "INSERT INTO `{{ .Table }}` ({{ .Columns }}) VALUES ({{ .Values }}) ON DUPLICATE KEY UPDATE {{ .SetValues }}"
 }
 
 func (mock *sMockBackend) GetTableSQL() string {

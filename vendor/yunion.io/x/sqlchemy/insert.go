@@ -183,7 +183,12 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 			} else {
 				return nil, errors.Wrapf(ErrEmptyPrimaryKey, "cannot insert for null primary key %q", k)
 			}
+			continue
+		}
 
+		// empty without default
+		if update {
+			updates = append(updates, fmt.Sprintf("`%s` = NULL", k))
 			continue
 		}
 	}
