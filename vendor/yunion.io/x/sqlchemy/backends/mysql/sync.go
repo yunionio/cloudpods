@@ -110,10 +110,14 @@ func (mysql *SMySQLBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, changes
 	}
 
 	for _, idx := range changes.AddIndexes {
-		sql := fmt.Sprintf("CREATE INDEX `%s` ON `%s` (%s)", idx.Name(), ts.Name(), strings.Join(idx.QuotedColumns(), ","))
+		sql := createIndexSQL(ts, idx)
 		ret = append(ret, sql)
 		log.Infof("%s;", sql)
 	}
 
 	return ret
+}
+
+func createIndexSQL(ts sqlchemy.ITableSpec, idx sqlchemy.STableIndex) string {
+	return fmt.Sprintf("CREATE INDEX `%s` ON `%s` (%s)", idx.Name(), ts.Name(), strings.Join(idx.QuotedColumns(), ","))
 }
