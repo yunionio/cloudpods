@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/encode"
 )
 
 type STagBase struct {
@@ -201,7 +202,11 @@ type GoogleTags struct {
 }
 
 func (self *GoogleTags) GetTags() (map[string]string, error) {
-	return self.Labels, nil
+	ret := map[string]string{}
+	for k, v := range self.Labels {
+		ret[encode.DecodeGoogleLable(k)] = encode.DecodeGoogleLable(v)
+	}
+	return ret, nil
 }
 
 func (self *GoogleTags) GetSysTags() map[string]string {
