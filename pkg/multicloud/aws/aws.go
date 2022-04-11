@@ -202,7 +202,9 @@ func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
 		}
 		svc := ec2.New(s)
 		// https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeRegions
-		result, err := svc.DescribeRegions(&ec2.DescribeRegionsInput{})
+		input := &ec2.DescribeRegionsInput{}
+		input.SetAllRegions(true)
+		result, err := svc.DescribeRegions(input)
 		if err != nil {
 			if e, ok := err.(awserr.Error); ok && e.Code() == "AuthFailure" {
 				return nil, errors.Wrap(httperrors.ErrInvalidAccessKey, err.Error())
