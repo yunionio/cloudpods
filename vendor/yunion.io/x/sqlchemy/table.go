@@ -54,6 +54,9 @@ type ITableSpec interface {
 	// PrimaryColumns returns the array of columns of primary keys
 	PrimaryColumns() []IColumnSpec
 
+	// Indexes
+	Indexes() []STableIndex
+
 	// Expression returns expression of the table
 	Expression() string
 
@@ -178,6 +181,11 @@ func (ts *STableSpec) PrimaryColumns() []IColumnSpec {
 		}
 	}
 	return ret
+}
+
+// Indexes implementation of STableSpec for ITableSpec
+func (ts *STableSpec) Indexes() []STableIndex {
+	return ts._indexes
 }
 
 // DataType implementation of STableSpec for ITableSpec
