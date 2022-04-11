@@ -15,8 +15,10 @@
 package apsara
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -279,21 +281,43 @@ func (self *SApsaraClient) getDefaultClient(regionId string) (*sdk.Client, error
 		regionId,
 		&sdk.Config{
 			HttpTransport: transport,
-			Transport: cloudprovider.GetReadOnlyCheckTransport(transport, func(req *http.Request) error {
-				if self.cpcfg.ReadOnly {
-					params, err := url.ParseQuery(req.URL.RawQuery)
-					if err != nil {
-						return errors.Wrapf(err, "ParseQuery(%s)", req.URL.RawQuery)
-					}
-					action := params.Get("Action")
-					for _, prefix := range []string{"Get", "List", "Describe"} {
-						if strings.HasPrefix(action, prefix) {
-							return nil
+			Transport: cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
+				params, err := url.ParseQuery(req.URL.RawQuery)
+				if err != nil {
+					return nil, errors.Wrapf(err, "ParseQuery(%s)", req.URL.RawQuery)
+				}
+				action := params.Get("Action")
+				service := strings.ToLower(params.Get("Product"))
+				respCheck := func(resp *http.Response) {
+					if self.cpcfg.UpdatePermission != nil {
+						body, err := ioutil.ReadAll(resp.Body)
+						if err != nil {
+							return
+						}
+						resp.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+						obj, err := jsonutils.Parse(body)
+						if err != nil {
+							return
+						}
+						ret := struct {
+							AsapiErrorCode string `json:"asapiErrorCode"`
+							Code           int
+						}{}
+						obj.Unmarshal(&ret)
+						if ret.Code == 403 || strings.Contains(ret.AsapiErrorCode, "NoPermission") {
+							self.cpcfg.UpdatePermission(service, action)
 						}
 					}
-					return errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
 				}
-				return nil
+				if self.cpcfg.ReadOnly {
+					for _, prefix := range []string{"Get", "List", "Describe"} {
+						if strings.HasPrefix(action, prefix) {
+							return respCheck, nil
+						}
+					}
+					return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+				}
+				return respCheck, nil
 			}),
 		},
 		&credentials.BaseCredential{
@@ -366,14 +390,14 @@ func (client *SApsaraClient) getOssClient(regionId string) (*oss.Client, error) 
 	// oss use no timeout client so as to send/download large files
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	transport, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(transport, func(req *http.Request) error {
+	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
 		if client.cpcfg.ReadOnly {
 			if req.Method == "GET" {
-				return nil
+				return nil, nil
 			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 		}
-		return nil
+		return nil, nil
 	})
 	cliOpts := []oss.ClientOption{
 		oss.HTTPClient(httpClient),

@@ -140,14 +140,26 @@ func NewGoogleClient(cfg *GoogleClientConfig) (*SGoogleClient, error) {
 
 	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+		service := strings.Split(req.URL.Host, ".")[0]
+		if service == "www" {
+			service = strings.Split(req.URL.Path, "/")[0]
+		}
+		method, path := req.Method, req.URL.Path
+		respCheck := func(resp *http.Response) {
+			if resp.StatusCode == 403 {
+				if cfg.cpcfg.UpdatePermission != nil {
+					cfg.cpcfg.UpdatePermission(service, fmt.Sprintf("%s %s", method, path))
+				}
+			}
+		}
 		if cfg.cpcfg.ReadOnly {
 			if req.Method == "GET" {
-				return nil
+				return respCheck, nil
 			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 		}
-		return nil
+		return respCheck, nil
 	})
 
 	ctx := context.Background()

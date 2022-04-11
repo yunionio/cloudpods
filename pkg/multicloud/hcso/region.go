@@ -105,14 +105,14 @@ func (self *SRegion) getOBSClient() (*obs.ObsClient, error) {
 
 		client := obsClient.GetClient()
 		ts, _ := client.Transport.(*http.Transport)
-		client.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+		client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
 			if self.client.cpcfg.ReadOnly {
 				if req.Method == "GET" || req.Method == "HEAD" {
-					return nil
+					return nil, nil
 				}
-				return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+				return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 			}
-			return nil
+			return nil, nil
 		})
 
 		self.obsClient = obsClient
