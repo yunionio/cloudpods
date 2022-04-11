@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -78,7 +79,7 @@ func (p *ClassMetadataPredicate) PreExecute(ctx context.Context, u *core.Unit, c
 	// guest source
 	guestSource := &ResourceWithClassMetadata{}
 	disks := info.Disks
-	var stand *db.SStandaloneAnonResourceBase
+	var stand db.IStandaloneModel
 	// TODO GuestImage
 	switch {
 	case len(info.InstanceBackupId) > 0:
@@ -86,16 +87,16 @@ func (p *ClassMetadataPredicate) PreExecute(ctx context.Context, u *core.Unit, c
 		if err != nil {
 			return false, errors.Wrapf(err, "unable to fetch instanceBackup %s", info.InstanceSnapshotId)
 		}
-		stand = &obj.(*models.SInstanceBackup).SStandaloneAnonResourceBase
+		stand = obj.(db.IStandaloneModel)
 	case len(info.InstanceSnapshotId) > 0:
 		obj, err := models.InstanceSnapshotManager.FetchById(info.InstanceSnapshotId)
 		if err != nil {
 			return false, errors.Wrapf(err, "unable to fetch instanceSnapshot %s", info.InstanceSnapshotId)
 		}
-		stand = &obj.(*models.SInstanceSnapshot).SStandaloneAnonResourceBase
+		stand = obj.(db.IStandaloneModel)
 	case len(disks) == 0:
 	case disks[0].ImageId != "":
-		obj, err := models.CachedimageManager.GetCachedimageById(ctx, disks[0].ImageId)
+		obj, err := models.CachedimageManager.GetCachedimageById(ctx, auth.AdminCredential(), disks[0].ImageId, false)
 		if err != nil {
 			return false, errors.Wrapf(err, "unable to fetch cachedimage %s", disks[0].ImageId)
 		}
@@ -103,7 +104,7 @@ func (p *ClassMetadataPredicate) PreExecute(ctx context.Context, u *core.Unit, c
 		public := jsonutils.QueryBoolean(obj.Info, "is_public", false)
 		publicScope, _ := obj.Info.GetString("public_scope")
 		if !public || publicScope != string(rbacutils.ScopeSystem) {
-			stand = &obj.SStandaloneAnonResourceBase
+			stand = obj
 			guestSource.keyword = "image"
 		}
 	case disks[0].SnapshotId != "":
@@ -111,13 +112,13 @@ func (p *ClassMetadataPredicate) PreExecute(ctx context.Context, u *core.Unit, c
 		if err != nil {
 			return false, errors.Wrapf(err, "unable to fetch snapshot %s", disks[0].SnapshotId)
 		}
-		stand = &obj.(*models.SSnapshot).SStandaloneAnonResourceBase
+		stand = obj.(db.IStandaloneModel)
 	case disks[0].BackupId != "":
 		obj, err := models.DiskBackupManager.FetchById(disks[0].BackupId)
 		if err != nil {
 			return false, errors.Wrapf(err, "unable to fetch diskbackup %s", disks[0].BackupId)
 		}
-		stand = &obj.(*models.SDiskBackup).SStandaloneAnonResourceBase
+		stand = obj.(db.IStandaloneModel)
 	}
 	if stand == nil {
 		return true, nil
