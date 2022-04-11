@@ -48,6 +48,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -377,9 +378,13 @@ func (self *SDisk) DetachAllSnapshotpolicies(ctx context.Context, userCred mccli
 func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	input := new(api.DiskCreateInput)
 	if err := data.Unmarshal(input); err != nil {
-		return err
+		return errors.Wrap(err, "Unmarshal json")
 	}
 	self.fetchDiskInfo(input.DiskConfig)
+	err := self.SEncryptedResource.CustomizeCreate(ctx, userCred, ownerId, data, "disk-"+pinyinutils.Text2Pinyin(self.Name))
+	if err != nil {
+		return errors.Wrap(err, "SEncryptedResource.CustomizeCreate")
+	}
 	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -493,6 +498,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 			provider,
 			input.Hypervisor,
 		)
+
 	} else {
 		if len(diskConfig.Backend) == 0 {
 			diskConfig.Backend = api.STORAGE_LOCAL
@@ -521,7 +527,11 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 
 	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
-		return input, err
+		return input, errors.Wrap(err, "SVirtualResourceBaseManager.ValidateCreateData")
+	}
+	input.EncryptedResourceCreateInput, err = manager.SEncryptedResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EncryptedResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SEncryptedResourceManager.ValidateCreateData")
 	}
 
 	pendingUsage := SQuota{Storage: diskConfig.SizeMb}
