@@ -521,7 +521,10 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		if err != nil {
 			return input, err
 		}
+		// preserve encrypt info
+		encInput := input.EncryptedResourceCreateInput
 		input = *serverInput.ToDiskCreateInput()
+		input.EncryptedResourceCreateInput = encInput
 		quotaKey = diskCreateInput2ComputeQuotaKeys(input, ownerId)
 	}
 
