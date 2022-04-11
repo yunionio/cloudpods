@@ -833,3 +833,8 @@ type ServerGetCPUSetCoresResp struct {
 	HostCores     []int `json:"host_cores"`
 	HostUsedCores []int `json:"host_used_cores"`
 }
+
+type ServerQemuInfo struct {
+	Version string `json:"version"`
+	Cmdline string `json:"cmdline"`
+}
