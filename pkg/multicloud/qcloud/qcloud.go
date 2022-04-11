@@ -611,26 +611,32 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 	}
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	cli.WithHttpTransport(cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+	cli.WithHttpTransport(cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+		body, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ioutil.ReadAll")
+		}
+		req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		params, err := url.ParseQuery(string(body))
+		if err != nil {
+			return nil, errors.Wrapf(err, "ParseQuery(%s)", string(body))
+		}
+		service := strings.Split(req.URL.Host, ".")[0]
+		action := params.Get("Action")
+		respCheck := func(resp *http.Response) {
+			if client.cpcfg.UpdatePermission != nil {
+				client.cpcfg.UpdatePermission(service, action)
+			}
+		}
 		if client.cpcfg.ReadOnly {
-			body, err := ioutil.ReadAll(req.Body)
-			if err != nil {
-				return errors.Wrapf(err, "ioutil.ReadAll")
-			}
-			req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-			params, err := url.ParseQuery(string(body))
-			if err != nil {
-				return errors.Wrapf(err, "ParseQuery(%s)", string(body))
-			}
-			action := params.Get("Action")
 			for _, prefix := range []string{"Get", "List", "Describe"} {
 				if strings.HasPrefix(action, prefix) {
-					return nil
+					return respCheck, nil
 				}
 			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
 		}
-		return nil
+		return respCheck, nil
 	}))
 	return cli, nil
 }
@@ -907,14 +913,22 @@ func (client *SQcloudClient) getCosClient(bucket *SBucket) (*cos.Client, error) 
 					RequestBody:    client.debug,
 					ResponseHeader: client.debug,
 					ResponseBody:   client.debug,
-					Transport: cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+					Transport: cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+						method, path := req.Method, req.URL.Path
+						respCheck := func(resp *http.Response) {
+							if resp.StatusCode == 403 {
+								if client.cpcfg.UpdatePermission != nil {
+									client.cpcfg.UpdatePermission("cos", fmt.Sprintf("%s %s", method, path))
+								}
+							}
+						}
 						if client.cpcfg.ReadOnly {
 							if req.Method == "GET" || req.Method == "HEAD" {
-								return nil
+								return respCheck, nil
 							}
-							return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", req.Method, req.URL.Path)
+							return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", req.Method, req.URL.Path)
 						}
-						return nil
+						return respCheck, nil
 					}),
 				},
 			},

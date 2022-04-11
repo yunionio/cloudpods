@@ -31,7 +31,7 @@ func (r *SRegion) metricsRequest(action string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, errors.Wrap(err, "r.getSdkClient")
 	}
-	return jsonRequest(client, "metrics.aliyuncs.com", ALIYUN_API_VERSION_METRICS, action, params, r.client.cpcfg.UpdatePermission, r.client.debug)
+	return jsonRequest(client, "metrics.aliyuncs.com", ALIYUN_API_VERSION_METRICS, action, params, r.client.debug)
 }
 
 type SResourceLabel struct {

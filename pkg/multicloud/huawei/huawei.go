@@ -154,21 +154,33 @@ func (self *SHuaweiClient) initSigner() error {
 }
 
 func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, error) {
-	cli, err := client.NewPublicCloudClientWithAccessKey(regionId, self.ownerId, self.projectId, self.accessKey, self.accessSecret, self.debug)
+	projectId := self.projectId
+	if len(regionId) == 0 {
+		projectId = ""
+	}
+	cli, err := client.NewPublicCloudClientWithAccessKey(regionId, self.ownerId, projectId, self.accessKey, self.accessSecret, self.debug)
 	if err != nil {
 		return nil, err
 	}
 
 	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
+	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+		service, method, path := strings.Split(req.URL.Host, ".")[0], req.Method, req.URL.Path
+		respCheck := func(resp *http.Response) {
+			if resp.StatusCode == 403 {
+				if self.cpcfg.UpdatePermission != nil {
+					self.cpcfg.UpdatePermission(service, fmt.Sprintf("%s %s", method, path))
+				}
+			}
+		}
 		if self.cpcfg.ReadOnly {
 			if req.Method == "GET" {
-				return nil
+				return respCheck, nil
 			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 		}
-		return nil
+		return respCheck, nil
 	})
 	cli.SetHttpClient(httpClient)
 
@@ -176,25 +188,7 @@ func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, 
 }
 
 func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
-	cli, err := client.NewPublicCloudClientWithAccessKey("", self.ownerId, "", self.accessKey, self.accessSecret, self.debug)
-	if err != nil {
-		return nil, err
-	}
-
-	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
-	ts, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetReadOnlyCheckTransport(ts, func(req *http.Request) error {
-		if self.cpcfg.ReadOnly {
-			if req.Method == "GET" {
-				return nil
-			}
-			return errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
-		}
-		return nil
-	})
-	cli.SetHttpClient(httpClient)
-
-	return cli, nil
+	return self.newRegionAPIClient("")
 }
 
 func (self *SHuaweiClient) fetchRegions() error {
@@ -271,9 +265,33 @@ func getOBSEndpoint(regionId string) string {
 	return fmt.Sprintf("obs.%s.myhuaweicloud.com", regionId)
 }
 
-func (client *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
+func (self *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
 	endpoint := getOBSEndpoint(regionId)
-	return obs.New(client.accessKey, client.accessSecret, endpoint)
+	cli, err := obs.New(self.accessKey, self.accessSecret, endpoint)
+	if err != nil {
+		return nil, err
+	}
+	client := cli.GetClient()
+	ts, _ := client.Transport.(*http.Transport)
+	client.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
+		method, path := req.Method, req.URL.Path
+		respCheck := func(resp *http.Response) {
+			if resp.StatusCode == 403 {
+				if self.cpcfg.UpdatePermission != nil {
+					self.cpcfg.UpdatePermission("obs", fmt.Sprintf("%s %s", method, path))
+				}
+			}
+		}
+		if self.cpcfg.ReadOnly {
+			if req.Method == "GET" || req.Method == "HEAD" {
+				return respCheck, nil
+			}
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
+		}
+		return respCheck, nil
+	})
+
+	return cli, nil
 }
 
 func (self *SHuaweiClient) fetchBuckets() error {
