@@ -961,7 +961,7 @@ type SUKylinRootfs struct {
 	*SUbuntuRootFs
 }
 
-func NewUKylinRootfs(part IDiskPartition) *SUKylinRootfs {
+func NewUKylinRootfs(part IDiskPartition) IRootFsDriver {
 	return &SUKylinRootfs{SUbuntuRootFs: NewUbuntuRootFs(part).(*SUbuntuRootFs)}
 }
 
@@ -976,6 +976,12 @@ func (d *SUKylinRootfs) String() string {
 func (d *SUKylinRootfs) RootSignatures() []string {
 	sig := d.sDebianLikeRootFs.RootSignatures()
 	return append([]string{"/etc/lsb-release", "/etc/kylin-build"}, sig...)
+}
+
+func (d *SUKylinRootfs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
+	info := d.SUbuntuRootFs.GetReleaseInfo(rootFs)
+	info.Distro = d.GetName()
+	return info
 }
 
 type sRedhatLikeRootFs struct {
