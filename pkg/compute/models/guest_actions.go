@@ -325,6 +325,15 @@ func (self *SGuest) GetQemuCmdline(userCred mcclient.TokenCredential) string {
 	return self.GetMetadata(context.Background(), "__qemu_cmdline", userCred)
 }
 
+func (self *SGuest) GetDetailsQemuInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.ServerQemuInfo, error) {
+	version := self.GetQemuVersion(userCred)
+	cmdline := self.GetQemuCmdline(userCred)
+	return &api.ServerQemuInfo{
+		Version: version,
+		Cmdline: cmdline,
+	}, nil
+}
+
 // if qemuVer >= compareVer return true
 func (self *SGuest) CheckQemuVersion(qemuVer, compareVer string) bool {
 	if len(qemuVer) == 0 {
