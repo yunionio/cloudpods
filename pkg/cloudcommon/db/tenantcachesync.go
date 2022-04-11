@@ -35,6 +35,7 @@ var (
 )
 
 func StartTenantCacheSync(ctx context.Context, intvalSeconds int) {
+
 	go runTenantCacheSync(ctx, intvalSeconds)
 }
 
