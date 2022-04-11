@@ -59,6 +59,10 @@ func (t *SSplitTableSpec) PrimaryColumns() []sqlchemy.IColumnSpec {
 	return t.tableSpec.PrimaryColumns()
 }
 
+func (t *SSplitTableSpec) Indexes() []sqlchemy.STableIndex {
+	return t.tableSpec.Indexes()
+}
+
 func (t *SSplitTableSpec) Expression() string {
 	metas, err := t.GetTableMetas()
 	if err != nil {

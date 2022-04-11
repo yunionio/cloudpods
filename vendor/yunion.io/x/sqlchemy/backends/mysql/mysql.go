@@ -63,7 +63,6 @@ func (mysql *SMySQLBackend) InsertOrUpdateSQLTemplate() string {
 func (mysql *SMySQLBackend) GetCreateSQLs(ts sqlchemy.ITableSpec) []string {
 	cols := make([]string, 0)
 	primaries := make([]string, 0)
-	indexes := make([]string, 0)
 	autoInc := ""
 	for _, c := range ts.Columns() {
 		cols = append(cols, c.DefinitionString())
@@ -73,19 +72,17 @@ func (mysql *SMySQLBackend) GetCreateSQLs(ts sqlchemy.ITableSpec) []string {
 				autoInc = fmt.Sprintf(" AUTO_INCREMENT=%d", intC.autoIncrementOffset)
 			}
 		}
-		if c.IsIndex() {
-			indexes = append(indexes, fmt.Sprintf("KEY `ix_%s_%s` (`%s`)", ts.Name(), c.Name(), c.Name()))
-		}
 	}
 	if len(primaries) > 0 {
 		cols = append(cols, fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(primaries, ", ")))
 	}
-	if len(indexes) > 0 {
-		cols = append(cols, indexes...)
-	}
-	return []string{
+	sqls := []string{
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci%s", ts.Name(), strings.Join(cols, ",\n"), autoInc),
 	}
+	for _, idx := range ts.Indexes() {
+		sqls = append(sqls, createIndexSQL(ts, idx))
+	}
+	return sqls
 }
 
 func (msyql *SMySQLBackend) IsSupportIndexAndContraints() bool {

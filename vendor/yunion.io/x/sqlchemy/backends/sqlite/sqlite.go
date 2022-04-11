@@ -74,14 +74,10 @@ func (sqlite *SSqliteBackend) IsSupportIndexAndContraints() bool {
 func (sqlite *SSqliteBackend) GetCreateSQLs(ts sqlchemy.ITableSpec) []string {
 	cols := make([]string, 0)
 	primaries := make([]string, 0)
-	indexes := make([]string, 0)
 	for _, c := range ts.Columns() {
 		cols = append(cols, c.DefinitionString())
 		if c.IsPrimary() && !c.IsAutoIncrement() {
 			primaries = append(primaries, fmt.Sprintf("`%s`", c.Name()))
-		}
-		if c.IsIndex() {
-			indexes = append(indexes, fmt.Sprintf("CREATE INDEX `ix_%s_%s` ON `%s`(`%s`)", ts.Name(), c.Name(), ts.Name(), c.Name()))
 		}
 	}
 	if len(primaries) > 0 {
@@ -91,8 +87,8 @@ func (sqlite *SSqliteBackend) GetCreateSQLs(ts sqlchemy.ITableSpec) []string {
 		"PRAGMA encoding=\"UTF-8\"",
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (\n%s\n)", ts.Name(), strings.Join(cols, ",\n")),
 	}
-	if len(indexes) > 0 {
-		ret = append(ret, indexes...)
+	for _, idx := range ts.Indexes() {
+		ret = append(ret, createIndexSQL(ts, idx))
 	}
 	return ret
 }
