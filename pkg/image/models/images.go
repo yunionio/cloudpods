@@ -55,6 +55,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -414,6 +415,10 @@ func (self *SImage) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	}
 	self.Status = api.IMAGE_STATUS_QUEUED
 	self.Owner = self.ProjectId
+	err = self.SEncryptedResource.CustomizeCreate(ctx, userCred, ownerId, data, "image-"+pinyinutils.Text2Pinyin(self.Name))
+	if err != nil {
+		return errors.Wrap(err, "SEncryptedResource.CustomizeCreate")
+	}
 	return nil
 }
 
@@ -1220,10 +1225,11 @@ func (manager *SImageManager) getAllAliveImages() []SImage {
 }
 
 func CheckImages() {
+	ctx := context.WithValue(context.TODO(), "checkimage", 1)
 	images := ImageManager.getAllAliveImages()
 	for i := 0; i < len(images); i += 1 {
 		log.Debugf("convert image subformats %s", images[i].Name)
-		images[i].StartImageCheckTask(context.TODO(), auth.AdminCredential(), "")
+		images[i].StartImageCheckTask(ctx, auth.AdminCredential(), "")
 	}
 }
 

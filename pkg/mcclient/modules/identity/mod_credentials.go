@@ -512,7 +512,7 @@ func (manager *SCredentialManager) CreateEncryptKey(s *mcclient.ClientSession, u
 	}
 	params.Add(jsonutils.NewString(api.DEFAULT_PROJECT), "project_id")
 	params.Add(jsonutils.NewString(blobJson.String()), "blob")
-	params.Add(jsonutils.NewString(name), "name")
+	params.Add(jsonutils.NewString(name), "generate_name")
 	result, err := manager.Create(s, params)
 	if err != nil {
 		return aesKey, errors.Wrap(err, "Create")
