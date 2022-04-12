@@ -387,8 +387,9 @@ func FetchCheckQueryOwnerScope(
 		requireScope = queryScope
 	}
 	if doCheckRbac && (requireScope.HigherThan(allowScope) || policyTagFilters.Result.IsDeny()) {
-		return nil, scope, httperrors.NewForbiddenError("not enough privilege to dp %s (require:%s,allow:%s,query:%s)",
-			action, requireScope, allowScope, queryScope), policyTagFilters
+		return nil, scope, httperrors.NewForbiddenError("not enough privilege to do %s:%s:%s (require:%s,allow:%s,query:%s)",
+			consts.GetServiceType(), manager.KeywordPlural(), action,
+			requireScope, allowScope, queryScope), policyTagFilters
 	}
 	return ownerId, queryScope, nil, policyTagFilters
 }
