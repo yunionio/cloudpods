@@ -68,6 +68,7 @@ type Image struct {
 type VMMetadata struct {
 	MeteringImageID           string `json:"metering.image_id"`
 	MeteringImagetype         string `json:"metering.imagetype"`
+	MeteringOrderId           string `json:"metering.order_id"`
 	MeteringResourcespeccode  string `json:"metering.resourcespeccode"`
 	ImageName                 string `json:"image_name"`
 	OSBit                     string `json:"os_bit"`
@@ -332,6 +333,12 @@ func (self *SInstance) GetCreatedAt() time.Time {
 
 // charging_mode “0”：按需计费  “1”：按包年包月计费
 func (self *SInstance) GetExpiredAt() time.Time {
+	if len(self.Metadata.MeteringOrderId) > 0 {
+		res, _ := self.host.zone.region.GetOrderResources(self.Metadata.MeteringOrderId, []string{self.ID}, true)
+		for i := range res {
+			return res[i].ExpireTime
+		}
+	}
 	var expiredTime time.Time
 	if self.Metadata.ChargingMode == "1" {
 		res, err := self.host.zone.region.GetOrderResourceDetail(self.GetId())
@@ -944,47 +951,18 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		return "", err
 	}
 
-	var ids []string
-	if params.Extendparam.ChargingMode == POST_PAID {
-		// 按需计费
-		ids, err = self.GetAllSubTaskEntityIDs(self.ecsClient.Servers.ServiceType(), _id, "server_id")
-	} else {
-		// 包年包月
-		err = cloudprovider.WaitCreated(10*time.Second, 300*time.Second, func() bool {
-			log.Debugf("WaitCreated %s", _id)
-			order, e := self.GetOrder(_id)
-			if e != nil {
-				log.Debugf(e.Error())
-				return false
-			}
-
-			if order.TotalSize == 0 {
-				return false
-			}
-
-			ids, err = self.getAllResIdsByType(_id, RESOURCE_TYPE_VM)
-			if err != nil {
-				log.Debugln(err)
-				return false
-			}
-
-			if len(ids) > 0 {
-				return true
-			}
-
-			return false
-		})
-	}
-
+	ids, err := self.GetAllSubTaskEntityIDs(self.ecsClient.Servers.ServiceType(), _id, "server_id")
 	if err != nil {
-		return "", err
-	} else if len(ids) == 0 {
-		return "", fmt.Errorf("CreateInstance job %s result is emtpy", _id)
-	} else if len(ids) == 1 {
-		return ids[0], nil
-	} else {
-		return "", fmt.Errorf("CreateInstance job %s mutliple instance id returned. %s", _id, ids)
+		return "", errors.Wrapf(err, "GetAllSubTaskEntityIDs(%s)", _id)
 	}
+
+	if len(ids) == 0 {
+		return "", fmt.Errorf("CreateInstance job %s result is emtpy", _id)
+	}
+	if len(ids) == 1 {
+		return ids[0], nil
+	}
+	return "", fmt.Errorf("CreateInstance job %s mutliple instance id returned. %s", _id, ids)
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067161469.html
