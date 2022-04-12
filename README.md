@@ -110,7 +110,7 @@ Run the following commands to start installing Cloudpods.
 
 ```bash
 # Git clone the ocboot installation tool locally
-$ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168.26.216
+$ git clone -b release/3.8 https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168.26.216
 ```
 
 It takes 10-30 minutes to finish the installation. You may visit the webconsole of Cloudpods at https://10.168.26.216. The initial login account is *admin* and password is *admin@123*.
