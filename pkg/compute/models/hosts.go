@@ -5089,6 +5089,7 @@ func (host *SHost) SyncEsxiHostWires(ctx context.Context, userCred mcclient.Toke
 				HostId:  host.GetId(),
 				WireId:  vsWire.WireId,
 			}
+			hostwire.SetModelManager(HostwireManager, hostwire)
 			hostwire.MacAddr = vsWire.Mac
 			err := HostwireManager.TableSpec().Insert(ctx, hostwire)
 			if err != nil {
