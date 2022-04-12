@@ -436,6 +436,19 @@ func (s *STopic) getActions() []notify.SAction {
 	return actions
 }
 
+func (sm *STopicManager) TopicByEvent(eventStr string, advanceDays int) (*STopic, error) {
+	topics, err := sm.TopicsByEvent(eventStr, advanceDays)
+	if err != nil {
+		return nil, err
+	}
+	if len(topics) == 0 {
+		return nil, nil
+	}
+	// free memory in time
+	topic := topics[0]
+	return &topic, nil
+}
+
 func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STopic, error) {
 	event, err := parseEvent(eventStr)
 	if err != nil {

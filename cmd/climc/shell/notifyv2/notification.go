@@ -89,6 +89,7 @@ func init() {
 
 		ContactType string `help:"contact_type"`
 		ReceiverId  string `help:"receiver_id"`
+		TopicType   string `help:"topic type"`
 	}
 	R(&NotificationListInput{}, "notify-list", "List notify message", func(s *mcclient.ClientSession, args *NotificationListInput) error {
 		params, err := options.ListStructToParams(args)

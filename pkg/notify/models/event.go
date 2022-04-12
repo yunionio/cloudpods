@@ -44,13 +44,15 @@ type SEvent struct {
 	Message     string
 	Event       string `width:"64" nullable:"true"`
 	AdvanceDays int
+	TopicId     string `width:"128" nullable:"true" index:"true"`
 }
 
-func (e *SEventManager) CreateEvent(ctx context.Context, event, message string, advanceDays int) (*SEvent, error) {
+func (e *SEventManager) CreateEvent(ctx context.Context, event, topicId, message string, advanceDays int) (*SEvent, error) {
 	eve := &SEvent{
 		Message:     message,
 		Event:       event,
 		AdvanceDays: advanceDays,
+		TopicId:     topicId,
 	}
 	err := e.TableSpec().Insert(ctx, eve)
 	if err != nil {
