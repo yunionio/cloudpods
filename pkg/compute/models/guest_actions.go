@@ -3945,7 +3945,7 @@ func (self *SGuest) doSaveRenewInfo(
 		}
 		if expireAt != nil && !expireAt.IsZero() {
 			self.ExpiredAt = *expireAt
-		} else {
+		} else if bc != nil {
 			self.BillingCycle = bc.String()
 			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
 		}
