@@ -271,6 +271,8 @@ func (db *SDiskBackup) CustomizeCreate(ctx context.Context, userCred mcclient.To
 	db.DiskSizeMb = disk.DiskSize
 	db.OsArch = disk.OsArch
 	db.StorageId = disk.StorageId
+	db.DomainId = disk.DomainId
+	db.ProjectId = disk.ProjectId
 	return nil
 }
 
@@ -391,6 +393,9 @@ func (self *SDiskBackup) StartBackupDeleteTask(ctx context.Context, userCred mcc
 }
 
 func (self *SDiskBackup) PerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskBackupRecoveryInput) (jsonutils.JSONObject, error) {
+	if self.Status != api.BACKUP_STATUS_READY {
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "cannot recover backup in status %s", self.Status)
+	}
 	return nil, self.StartRecoveryTask(ctx, userCred, "", input.Name)
 }
 

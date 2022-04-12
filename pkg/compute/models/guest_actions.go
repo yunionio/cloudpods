@@ -275,7 +275,7 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 		return nil, errors.Wrap(err, "unable to GetAllClassMetadata")
 	}
 	if len(cm) > 0 {
-		_, err = image.Images.PerformAction(s, guestImageId, "set-class-metadata", jsonutils.Marshal(cm))
+		_, err = image.GuestImages.PerformAction(s, guestImageId, "set-class-metadata", jsonutils.Marshal(cm))
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to SetClassMetadata for guest image %s", guestImageId)
 		}
