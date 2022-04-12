@@ -758,6 +758,9 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 	if err != nil {
 		return err
 	}
+	if self.EncryptKeyId != disk.EncryptKeyId {
+		return errors.Wrapf(httperrors.ErrConflict, "conflict encryption key between server and disk")
+	}
 	if !ok {
 		return httperrors.NewForbiddenError("the class metadata of guest and disk is different")
 	}
