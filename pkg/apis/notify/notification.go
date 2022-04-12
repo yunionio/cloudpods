@@ -85,6 +85,7 @@ type NotificationListInput struct {
 	ContactType string
 	ReceiverId  string
 	Tag         string
+	TopicType   string
 }
 
 type SContact struct {
