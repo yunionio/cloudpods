@@ -772,7 +772,7 @@ func (s *SGuestLiveMigrateTask) doMigrate() {
 }
 
 func (s *SGuestLiveMigrateTask) onSetMigrateDowntime(res string) {
-	s.Monitor.MigrateSetDowntime(options.HostOptions.DefaultLiveMigrateDowntime, s.startMigrateStatusCheck)
+	s.Monitor.MigrateSetParameter("downtime-limit", int(options.HostOptions.DefaultLiveMigrateDowntime*1000), s.startMigrateStatusCheck)
 }
 
 func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
