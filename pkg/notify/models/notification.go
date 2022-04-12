@@ -231,34 +231,31 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	}
 
 	// receiver
-	topics, err := TopicManager.TopicsByEvent(input.Event, input.AdvanceDays)
+	topic, err := TopicManager.TopicByEvent(input.Event, input.AdvanceDays)
 	if err != nil {
 		return output, errors.Wrapf(err, "unable fetch subscriptions by event %q", input.Event)
 	}
-	if len(topics) == 0 {
+	if topic == nil {
 		return output, nil
 	}
 	var receiverIds []string
-	for i := range topics {
-		receiverIds1, err := SubscriberManager.getReceiversSent(ctx, topics[i].Id, input.ProjectDomainId, input.ProjectId)
-		if err != nil {
-			return output, errors.Wrap(err, "unable to get receive")
-		}
-		receiverIds = append(receiverIds, receiverIds1...)
+	receiverIds1, err := SubscriberManager.getReceiversSent(ctx, topic.Id, input.ProjectDomainId, input.ProjectId)
+	if err != nil {
+		return output, errors.Wrap(err, "unable to get receive")
 	}
+	receiverIds = append(receiverIds, receiverIds1...)
 
 	// robot
 	var robots []string
-	for i := range topics {
-		_robots, err := SubscriberManager.robot(topics[i].Id, input.ProjectDomainId, input.ProjectId)
-		if err != nil {
-			if errors.Cause(err) != errors.ErrNotFound {
-				return output, errors.Wrapf(err, "unable fetch robot of subscription %q", topics[i].Id)
-			}
-		} else {
-			robots = append(robots, _robots...)
+	_robots, err := SubscriberManager.robot(topic.Id, input.ProjectDomainId, input.ProjectId)
+	if err != nil {
+		if errors.Cause(err) != errors.ErrNotFound {
+			return output, errors.Wrapf(err, "unable fetch robot of subscription %q", topic.Id)
 		}
+	} else {
+		robots = append(robots, _robots...)
 	}
+
 	var webhookRobots []string
 	if len(robots) > 0 {
 		robots = sets.NewString(robots...).UnsortedList()
@@ -299,13 +296,12 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	receiverIds = idSet.UnsortedList()
 
 	// create event
-	event, err := EventManager.CreateEvent(ctx, input.Event, message, input.AdvanceDays)
+	event, err := EventManager.CreateEvent(ctx, input.Event, topic.Id, message, input.AdvanceDays)
 	if err != nil {
 		return output, errors.Wrap(err, "unable to create Event")
 	}
 
-	if nm.needWebconsole(topics) {
-
+	if nm.needWebconsole([]STopic{*topic}) {
 		// webconsole
 		err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts.UnsortedList(), input.Priority, event.Id)
 		if err != nil {
@@ -776,6 +772,11 @@ func (nm *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 	if len(input.Tag) > 0 {
 		q = q.Equals("tag", input.Tag)
+	}
+	if len(input.TopicType) > 0 {
+		topicq := TopicManager.Query("id").Equals("type", input.TopicType).SubQuery()
+		eventq := EventManager.Query("id").In("topic_id", topicq).SubQuery()
+		q = q.In("event_id", eventq)
 	}
 	return q, nil
 }
