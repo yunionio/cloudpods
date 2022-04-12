@@ -288,6 +288,7 @@ type IStandaloneModel interface {
 	RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error
 	RemoveAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) error
 	GetAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) (map[string]string, error)
+	GetAllClassMetadata() (map[string]string, error)
 
 	IsShared() bool
 
