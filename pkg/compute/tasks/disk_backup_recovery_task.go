@@ -5,15 +5,12 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -53,21 +50,35 @@ func (self *DiskBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 	input.Description = fmt.Sprintf("recovery from backup %s", backup.GetName())
 	input.Hypervisor = api.HYPERVISOR_KVM
 	input.DiskConfig = diskConfig
+	ownerId := backup.GetOwnerId()
+	input.ProjectDomainId = ownerId.GetProjectDomainId()
+	input.ProjectId = ownerId.GetProjectId()
 
-	taskHeader := self.GetTaskRequestHeader()
-	session := auth.GetSession(ctx, self.UserCred, "", "")
-	log.Infof("task_notify_url: %s\ntask_id: %s\n", taskHeader.Get(mcclient.TASK_NOTIFY_URL), taskHeader.Get(mcclient.TASK_ID))
-	session.Header.Set(mcclient.TASK_NOTIFY_URL, taskHeader.Get(mcclient.TASK_NOTIFY_URL))
-	session.Header.Set(mcclient.TASK_ID, taskHeader.Get(mcclient.TASK_ID))
-	diskData, err := compute_modules.Disks.Create(session, jsonutils.Marshal(input))
+	params := input.JSON(input)
+	diskObj, err := db.DoCreate(models.DiskManager, ctx, self.UserCred, nil, params, ownerId)
 	if err != nil {
 		self.taskFaild(ctx, backup, jsonutils.NewString(err.Error()))
 		return
 	}
-	diskId, _ := diskData.GetString("id")
-	params := jsonutils.NewDict()
-	params.Set("disk_id", jsonutils.NewString(diskId))
+	disk := diskObj.(*models.SDisk)
+	err = backup.InheritTo(ctx, disk)
+	if err != nil {
+		self.taskFaild(ctx, backup, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	func() {
+		lockman.LockObject(ctx, disk)
+		defer lockman.ReleaseObject(ctx, disk)
+
+		disk.PostCreate(ctx, self.UserCred, backup.GetOwnerId(), nil, params)
+	}()
+
+	params.Set("disk_id", jsonutils.NewString(disk.Id))
 	self.SetStage("OnCreateDisk", params)
+
+	params.Set("parent_task_id", jsonutils.NewString(self.GetTaskId()))
+	models.DiskManager.OnCreateComplete(ctx, []db.IModel{disk}, self.UserCred, ownerId, nil, params)
 }
 
 func (self *DiskBackupRecoveryTask) OnCreateDisk(ctx context.Context, backup *models.SDiskBackup, data jsonutils.JSONObject) {
