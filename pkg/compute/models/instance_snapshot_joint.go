@@ -17,6 +17,8 @@ package models
 import (
 	"context"
 
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
@@ -76,4 +78,12 @@ func (manager *SInstanceSnapshotJointManager) IsSubSnapshot(snapshotId string) (
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (self *SInstanceSnapshotJoint) GetSnapshotDisk() (*SDisk, error) {
+	sp, err := SnapshotManager.FetchById(self.SnapshotId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get snapshot by %q", self.SnapshotId)
+	}
+	return sp.(*SSnapshot).GetDisk()
 }
