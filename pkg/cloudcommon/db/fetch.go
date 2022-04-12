@@ -387,7 +387,8 @@ func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCrede
 		requireScope = queryScope
 	}
 	if doCheckRbac && requireScope.HigherThan(allowScope) {
-		return nil, scope, httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s,query:%s)",
+		return nil, scope, httperrors.NewForbiddenError("not enough privilege to do %s:%s:%s (require:%s,allow:%s,query:%s)",
+			consts.GetServiceType(), manager.KeywordPlural(), action,
 			requireScope, allowScope, queryScope)
 	}
 	return ownerId, queryScope, nil
