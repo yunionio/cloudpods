@@ -62,6 +62,7 @@ func NewHostPingTask(interval int) *SHostPingTask {
 }
 
 func (p *SHostPingTask) Start() {
+	log.Infof("Start host pinger ...")
 	var (
 		div    = 1
 		hostId = Instance().GetHostId()
@@ -83,6 +84,7 @@ func (p *SHostPingTask) Start() {
 }
 
 func (p *SHostPingTask) ping(div int, hostId string) error {
+	log.Debugf("ping region at %d...", div)
 	res, err := modules.Hosts.PerformAction(hostutils.GetComputeSession(context.Background()),
 		hostId, "ping", nil)
 	if err != nil {

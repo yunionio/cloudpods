@@ -623,7 +623,7 @@ func (m *QmpMonitor) MigrateSetCapability(capability, state string, callback Str
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) MigrateSetParameter(key string, val string, callback StringCallback) {
+func (m *QmpMonitor) MigrateSetParameter(key string, val interface{}, callback StringCallback) {
 	var (
 		cb = func(res *Response) {
 			callback(m.actionResult(res))
