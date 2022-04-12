@@ -649,3 +649,37 @@ func (ism *SInstanceSnapshotManager) InitializeData() error {
 	}
 	return nil
 }
+
+func (isp *SInstanceSnapshot) GetInstanceSnapshotJointsByOrder(guest *SGuest) ([]*SInstanceSnapshotJoint, error) {
+	disks := guest.GetDisks()
+	ss, err := isp.GetSnapshots()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get %s subsnapshots", isp.GetName())
+	}
+	jIsps := make([]*SInstanceSnapshotJoint, 0)
+	for idx, gd := range disks {
+		d := gd.GetDisk()
+		if d == nil {
+			return nil, errors.Wrapf(err, "Not get guestdisk %d related disk", idx)
+		}
+		if idx >= len(ss) {
+			break
+		}
+		jIsp, err := isp.GetInstanceSnapshotJointAt(idx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetInstanceSnapshotJointAt %d", idx)
+		}
+		sd, err := ss[idx].GetDisk()
+		if err != nil {
+			return nil, errors.Wrapf(err, "Get snapshot %d disk", idx)
+		}
+		if ss[idx].GetId() != jIsp.SnapshotId {
+			return nil, errors.Wrapf(err, "InstanceSnapshotJoint %d snapshot_id %q != %q", idx, jIsp.SnapshotId, ss[idx].GetId())
+		}
+		if sd.GetId() != d.GetId() {
+			return nil, errors.Wrapf(err, "Disk Snapshot %d's disk id %q != current disk %q", idx, sd.GetId(), d.GetId())
+		}
+		jIsps = append(jIsps, jIsp)
+	}
+	return jIsps, nil
+}
