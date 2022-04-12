@@ -1065,13 +1065,16 @@ func (self *SKVMRegionDriver) RequestDeleteInstanceBackup(ctx context.Context, i
 }
 
 func (self *SKVMRegionDriver) RequestResetToInstanceSnapshot(ctx context.Context, guest *models.SGuest, isp *models.SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error {
-	disks, _ := guest.GetGuestDisks()
+	jIsps, err := isp.GetInstanceSnapshotJointsByOrder(guest)
+	if err != nil {
+		return errors.Wrap(err, "GetInstanceSnapshotJointsByOrder")
+	}
 	diskIndexI64, err := params.Int("disk_index")
 	if err != nil {
 		return errors.Wrap(err, "get 'disk_index' from params")
 	}
 	diskIndex := int(diskIndexI64)
-	if diskIndex >= len(disks) {
+	if diskIndex >= len(jIsps) {
 		task.SetStage("OnInstanceSnapshotReset", nil)
 		withMem := jsonutils.QueryBoolean(params, "with_memory", false)
 		if isp.WithMemory && withMem {
@@ -1097,19 +1100,19 @@ func (self *SKVMRegionDriver) RequestResetToInstanceSnapshot(ctx context.Context
 		return nil
 	}
 
-	isj, err := isp.GetInstanceSnapshotJointAt(diskIndex)
-	if err != nil {
-		return err
-	}
+	isj := jIsps[diskIndex]
 
 	params = jsonutils.NewDict()
 	params.Set("disk_index", jsonutils.NewInt(int64(diskIndex)))
 	task.SetStage("OnKvmDiskReset", params)
 
-	disk := disks[diskIndex].GetDisk()
+	disk, err := isj.GetSnapshotDisk()
+	if err != nil {
+		return errors.Wrapf(err, "Get %d snapshot disk", diskIndex)
+	}
 	err = disk.StartResetDisk(ctx, task.GetUserCred(), isj.SnapshotId, false, guest, task.GetTaskId())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "StartResetDisk")
 	}
 	return nil
 }
