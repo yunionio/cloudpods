@@ -23,9 +23,14 @@ import (
 
 var opsAdminPolicy = `
 policy:
+  '*':
+    events:
+      '*': deny
   compute:
     '*':
       '*': allow
+    events:
+      '*': deny
     dynamicschedtags:
       '*': deny
     recyclebins:
@@ -46,11 +51,15 @@ policy:
   image:
     '*':
       '*': allow
+    events:
+      '*': deny
   identity:
     '*':
       '*': deny
       list: allow
       get: allow
+    events:
+      '*': deny
   log:
     actions:
       list: deny
@@ -59,7 +68,12 @@ policy:
 
 var secAdminPolicy = `
 policy:
+  '*':
+    events:
+      '*': deny
   compute:
+    events:
+      '*': deny
     '*':
       '*': deny
       get: allow
@@ -94,10 +108,19 @@ policy:
         '*': deny
         change-owner: allow
         purge: allow
+  monitor:
+    events:
+      '*': deny
+    '*':
+      '*': allow
   identity:
+    events:
+      '*': deny
     '*':
       '*': allow
   image:
+    events:
+      '*': deny
     '*':
       '*': deny
       delete: allow
@@ -121,6 +144,8 @@ policy:
   '*':
     '*':
       '*': deny
+    events:
+      '*': allow
   log:
     '*':
       '*': deny
@@ -128,9 +153,9 @@ policy:
       list: allow
   identity:
     '*':
-    '*': deny
-    list: allow
-    get: allow
+      '*': deny
+      get: allow
+      list: allow
 `
 
 var normalUserPolicy = `
@@ -142,7 +167,6 @@ policy:
       get: allow
     servers:
       '*': allow
-      create: deny
       delete: deny
       perform:
         clone: deny
