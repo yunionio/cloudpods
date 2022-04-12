@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -265,7 +266,6 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			}
 			db.OpsLog.LogEvent(&imageCache, db.ACT_CREATE, info, userCred)
 
-			imageCache.syncClassMetadata(ctx, userCred)
 			return &imageCache, nil
 		} else {
 			log.Errorf("fetching image cache (%s) failed: %s", img.Id, err)
@@ -309,10 +309,14 @@ func (image *SCachedimage) GetStorages() ([]SStorage, error) {
 	return storages, nil
 }
 
-func (manager *SCachedimageManager) GetCachedimageById(ctx context.Context, imageId string) (*SCachedimage, error) {
+func (manager *SCachedimageManager) GetCachedimageById(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*SCachedimage, error) {
 	img, err := manager.FetchById(imageId)
 	if err == nil {
-		return img.(*SCachedimage), nil
+		cachedImage := img.(*SCachedimage)
+		oSTypeOk := options.Options.NoCheckOsTypeForCachedImage || len(cachedImage.GetOSType()) > 0
+		if (!refresh && cachedImage.GetStatus() == cloudprovider.IMAGE_STATUS_ACTIVE && oSTypeOk && !cachedImage.isRefreshSessionExpire()) || options.Options.ProhibitRefreshingCloudImage || len(cachedImage.ExternalId) > 0 {
+			return cachedImage, nil
+		}
 	}
 	if errors.Cause(err) != sql.ErrNoRows {
 		return nil, err
@@ -323,7 +327,6 @@ func (manager *SCachedimageManager) GetCachedimageById(ctx context.Context, imag
 		log.Errorf("GetImageById %s error %s", imageId, err)
 		return nil, errors.Wrap(err, "modules.Images.Get")
 	}
-	userCred := s.GetToken()
 	cachedImage, err := manager.cacheGlanceImageInfo(ctx, userCred, obj)
 	if err != nil {
 		return nil, errors.Wrap(err, "manager.cacheGlanceImageInfo")
@@ -916,4 +919,19 @@ func (manager *SCachedimageManager) InitializeData() error {
 		}
 	}
 	return nil
+}
+
+func (image *SCachedimage) GetAllClassMetadata() (map[string]string, error) {
+	meta, err := image.SSharableVirtualResourceBase.GetAllClassMetadata()
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBase.GetAllClassMetadata")
+	}
+	metaDict, _ := image.Info.GetMap("metadata")
+	for k, v := range metaDict {
+		if !strings.HasPrefix(k, db.CLASS_TAG_PREFIX) {
+			continue
+		}
+		meta[k[len(db.CLASS_TAG_PREFIX):]], _ = v.GetString()
+	}
+	return meta, nil
 }
