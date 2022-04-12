@@ -61,13 +61,13 @@ func (self *InstanceBackupDeleteTask) OnKvmDiskBackupDelete(
 	backupId, _ := self.Params.GetString("del_backup_id")
 	// detach backup and instance
 	isjp := new(models.SInstanceBackupJoint)
+	isjp.SetModelManager(models.InstanceBackupJointManager, isjp)
 	err := models.InstanceBackupJointManager.Query().
 		Equals("instance_backup_id", isp.Id).Equals("disk_backup_id", backupId).First(isjp)
 	if err != nil {
 		self.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
-	isjp.SetModelManager(models.InstanceBackupJointManager, isjp)
 	err = isjp.Delete(ctx, self.UserCred)
 	if err != nil {
 		self.taskFailed(ctx, isp, jsonutils.NewString(err.Error()))
