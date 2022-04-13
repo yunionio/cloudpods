@@ -73,7 +73,6 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 		if o.Options.PasswordErrorLockCount > 0 && localUser.FailedAuthCount > o.Options.PasswordErrorLockCount && !usrExt.IsSystemAccount {
 			// do not lock system account!!!
 			models.UserManager.LockUser(usrExt.Id, "too many failed auth attempts")
-			sql.alertNotify(ctx, usrExt, time.Now())
 			data := jsonutils.NewDict()
 			data.Set("name", jsonutils.NewString(usrExt.Name))
 			notifyclient.SystemEventNotify(ctx, noapi.ActionLock, noapi.TOPIC_RESOURCE_USER, data)
