@@ -204,12 +204,16 @@ func (meta *SMetadataResourceBaseModelManager) GetExportExtraKeys(keys stringuti
 }
 
 func (meta *SMetadataResourceBaseModelManager) ListItemExportKeys(manager IModelManager, q *sqlchemy.SQuery, keys stringutils2.SSortedStrings) *sqlchemy.SQuery {
+	keyMaps := map[string]bool{}
 	for _, key := range keys {
 		if strings.HasPrefix(key, TAG_EXPORT_KEY_PREFIX) {
 			tagKey := key[len(TAG_EXPORT_KEY_PREFIX):]
-			metaQ := Metadata.Query("obj_id", "value").Equals("obj_type", manager.Keyword()).Equals("key", tagKey).SubQuery()
-			q = q.LeftJoin(metaQ, sqlchemy.Equals(q.Field("id"), metaQ.Field("obj_id")))
-			q = q.AppendField(metaQ.Field("value", key))
+			if _, ok := keyMaps[strings.ToLower(tagKey)]; !ok {
+				metaQ := Metadata.Query("obj_id", "value").Equals("obj_type", manager.Keyword()).Equals("key", tagKey).SubQuery()
+				q = q.LeftJoin(metaQ, sqlchemy.Equals(q.Field("id"), metaQ.Field("obj_id")))
+				q = q.AppendField(metaQ.Field("value", key))
+				keyMaps[strings.ToLower(tagKey)] = true
+			}
 		}
 	}
 	return q
