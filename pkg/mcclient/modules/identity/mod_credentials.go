@@ -82,6 +82,10 @@ type SEncryptKeySecret struct {
 	Alg       seclib2.TSymEncAlg `json:"alg"`
 	Key       string             `json:"key"`
 	TimeStamp time.Time          `json:"-"`
+	UserId    string             `json:"user_id"`
+	User      string             `json:"user"`
+	Domain    string             `json:"domain"`
+	DomainId  string             `json:"domain_id"`
 }
 
 func (key SEncryptKeySecret) Marshal() jsonutils.JSONObject {
@@ -90,6 +94,10 @@ func (key SEncryptKeySecret) Marshal() jsonutils.JSONObject {
 	json.Add(jsonutils.NewString(key.KeyId), "key_id")
 	json.Add(jsonutils.NewString(key.KeyName), "key_name")
 	json.Add(jsonutils.NewTimeString(key.TimeStamp), "timestamp")
+	json.Add(jsonutils.NewString(key.UserId), "user_id")
+	json.Add(jsonutils.NewString(key.User), "user")
+	json.Add(jsonutils.NewString(key.DomainId), "domain_id")
+	json.Add(jsonutils.NewString(key.Domain), "domain")
 	return json
 }
 
@@ -128,11 +136,13 @@ func (key SEncryptKeySecret) DecryptBase64(secret string) ([]byte, error) {
 func (manager *SCredentialManager) fetchCredentials(s *mcclient.ClientSession, secType string, uid string, pid string) ([]jsonutils.JSONObject, error) {
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString(secType), "type")
-	query.Add(jsonutils.NewString("system"), "scope")
-	query.Add(jsonutils.NewString(uid), "user_id")
+	if len(uid) > 0 {
+		query.Add(jsonutils.NewString(uid), "user_id")
+	}
 	if len(pid) > 0 {
 		query.Add(jsonutils.NewString(pid), "project_id")
 	}
+	query.Add(jsonutils.JSONTrue, "details")
 	results, err := manager.List(s, query)
 	if err != nil {
 		return nil, err
@@ -318,6 +328,22 @@ func DecodeEncryptKey(secret jsonutils.JSONObject) (SEncryptKeySecret, error) {
 	if err != nil {
 		return curr, errors.Wrap(err, "secret.GetTime('created_at')")
 	}
+	curr.User, err = secret.GetString("user")
+	if err != nil {
+		return curr, errors.Wrap(err, "secret.GetString('user')")
+	}
+	curr.UserId, err = secret.GetString("user_id")
+	if err != nil {
+		return curr, errors.Wrap(err, "secret.GetString('user_id')")
+	}
+	curr.Domain, err = secret.GetString("domain")
+	if err != nil {
+		return curr, errors.Wrap(err, "secret.GetString('domain')")
+	}
+	curr.DomainId, err = secret.GetString("domain_id")
+	if err != nil {
+		return curr, errors.Wrap(err, "secret.GetString('domain_id')")
+	}
 	return curr, nil
 }
 
@@ -489,7 +515,8 @@ func (manager *SCredentialManager) SaveRecoverySecrets(s *mcclient.ClientSession
 func (manager *SCredentialManager) DoCreateEncryptKey(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	name, _ := params.GetString("name")
 	alg, _ := params.GetString("alg")
-	key, err := manager.CreateEncryptKey(s, "", name, alg)
+	uid, _ := params.GetString("uid")
+	key, err := manager.CreateEncryptKey(s, uid, name, alg)
 	if err != nil {
 		return nil, err
 	}
