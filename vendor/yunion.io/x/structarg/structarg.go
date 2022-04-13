@@ -100,11 +100,87 @@ type ArgumentParser struct {
 	prog        string
 	description string
 	epilog      string
+	help        bool
 	optArgs     []Argument
 	posArgs     []Argument
 }
 
-func NewArgumentParser(target interface{}, prog, desc, epilog string) (*ArgumentParser, error) {
+type sHelpArg struct {
+}
+
+func (self *sHelpArg) AliasToken() string {
+	return ""
+}
+
+func (self *sHelpArg) DoAction(nega bool) error {
+	return nil
+}
+
+func (self *sHelpArg) HelpString(indent string) string {
+	return indent + "Print usage and this help message and exit."
+}
+
+func (self *sHelpArg) NeedData() bool {
+	return false
+}
+
+func (self *sHelpArg) Token() string {
+	return "help"
+}
+
+func (self *sHelpArg) ShortToken() string {
+	return ""
+}
+
+func (self *sHelpArg) NegativeToken() string {
+	return ""
+}
+
+func (self *sHelpArg) MetaVar() string {
+	return ""
+}
+
+func (self *sHelpArg) IsPositional() bool {
+	return false
+}
+
+func (self *sHelpArg) IsRequired() bool {
+	return false
+}
+
+func (self *sHelpArg) IsMulti() bool {
+	return false
+}
+
+func (self *sHelpArg) IsSubcommand() bool {
+	return false
+}
+
+func (self *sHelpArg) String() string {
+	return "[--help]"
+}
+
+func (self *sHelpArg) SetValue(val string) error {
+	return nil
+}
+
+func (self *sHelpArg) Reset() {
+	return
+}
+
+func (self *sHelpArg) Validate() error {
+	return nil
+}
+
+func (self *sHelpArg) SetDefault() {
+
+}
+
+func (self *sHelpArg) IsSet() bool {
+	return false
+}
+
+func newArgumentParser(target interface{}, prog, desc, epilog string) (*ArgumentParser, error) {
 	parser := ArgumentParser{prog: prog, description: desc,
 		epilog: epilog, target: target}
 	targetValue := reflect.ValueOf(target)
@@ -116,7 +192,18 @@ func NewArgumentParser(target interface{}, prog, desc, epilog string) (*Argument
 	if e != nil {
 		return nil, e
 	}
+	// always add a help argument --help
+	helpArg := &sHelpArg{}
+	parser.AddArgument(helpArg)
 	return &parser, nil
+}
+
+func NewArgumentParser(target interface{}, prog, desc, epilog string) (*ArgumentParser, error) {
+	return newArgumentParser(target, prog, desc, epilog)
+}
+
+func NewArgumentParserWithHelp(target interface{}, prog, desc, epilog string) (*ArgumentParser, error) {
+	return newArgumentParser(target, prog, desc, epilog)
 }
 
 const (
@@ -397,6 +484,10 @@ func (this *ArgumentParser) AddArgument(arg Argument) error {
 	} else {
 		for _, argOld := range this.optArgs {
 			if argOld.Token() == arg.Token() {
+				if arg.Token() == "help" {
+					// silently ignore help arguments
+					return nil
+				}
 				rt := reflect.TypeOf(this.target)
 				if rt.Kind() == reflect.Ptr || rt.Kind() == reflect.Interface {
 					rt = rt.Elem()
@@ -710,8 +801,16 @@ func (this *SubcommandArgument) String() string {
 }
 
 func (this *SubcommandArgument) AddSubParser(target interface{}, command string, desc string, callback interface{}) (*ArgumentParser, error) {
+	return this.addSubParser(target, command, desc, callback)
+}
+
+func (this *SubcommandArgument) AddSubParserWithHelp(target interface{}, command string, desc string, callback interface{}) (*ArgumentParser, error) {
+	return this.addSubParser(target, command, desc, callback)
+}
+
+func (this *SubcommandArgument) addSubParser(target interface{}, command string, desc string, callback interface{}) (*ArgumentParser, error) {
 	prog := fmt.Sprintf("%s %s", this.parser.prog, command)
-	parser, e := NewArgumentParser(target, prog, desc, "")
+	parser, e := newArgumentParser(target, prog, desc, "")
 	if e != nil {
 		return nil, e
 	}
@@ -924,6 +1023,12 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 
 	for i := 0; i < len(args) && err == nil; i++ {
 		argStr = args[i]
+		if argStr == "--help" {
+			// shortcut to show help
+			fmt.Println(this.HelpString())
+			os.Exit(1)
+			continue
+		}
 		if strings.HasPrefix(argStr, "-") {
 			arg, nega := this.findOptionalArgument(strings.TrimLeft(argStr, "-"), false)
 			if arg != nil {
@@ -1204,4 +1309,8 @@ func (this *ArgumentParser) GetOptArgs() []Argument {
 
 func (this *ArgumentParser) GetPosArgs() []Argument {
 	return this.posArgs
+}
+
+func (this *ArgumentParser) IsHelpSet() bool {
+	return this.help
 }
