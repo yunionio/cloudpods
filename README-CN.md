@@ -32,7 +32,7 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
     </li>
     <li>
       <p>云帐号列表</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/multiplecloud/account1.png">
+      <img src="https://i.imgur.com/Q0LipfI.png" alt="cloud account list">
     </li>
     <li>
       <p>公有云虚拟机列表</p>
@@ -48,7 +48,7 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   <ul>
     <li>
       <p>虚拟机列表</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/vm.png">
+      <img src="https://i.imgur.com/DbkRUoo.png">
     </li>
     <li>
       <p>虚拟机创建页面</p>
@@ -56,12 +56,16 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
       <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createkvmvm2.png">
     </li>
     <li>
+      <p>虚拟机可通过 VNC 或者 SSH 登录</p>
+      <img src="https://i.imgur.com/m0rkeQ3.png">
+    </li>
+    <li>
       <p>宿主机列表</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/host1.png">
+      <img src="https://imgur.com/i509t5a.png">
     </li>
     <li>
       <p>镜像模板列表</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/sysimage.png">
+      <img src="https://imgur.com/UVFLGi2.png">
     </li>
     <li>SDN 网络功能支持，包括 VPC, EIP, LB 等</li>
   </ul>
@@ -74,7 +78,7 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   <ul>
     <li>
       <p>物理机列表</p>
-      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/physicalmachinelist.png">
+      <img src="https://i.imgur.com/Jz8b5nC.png">
     </li>
     <li>
       <p>物理机纳管</p>
@@ -93,16 +97,16 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   <ul>
     <li>
       <p>LDAP, SAML, OIDC, OAuth2 等认证源支持</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/idp.png">
+      <img src="https://imgur.com/YZHegPT.png">
     </li>
     <li>
       <p>多租户系统，包括域，项目，组，用户，角色和权限等</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/domain.png">
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/project.png">
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/group.png">
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/user.png">
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/role.png">
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/policy.png">
+      <img src="https://imgur.com/2myNFbh.png">
+      <img src="https://imgur.com/1b2dtlG.png">
+      <img src="https://imgur.com/sgcqAld.png">
+      <img src="https://imgur.com/0Y40Tl6.png">
+      <img src="https://imgur.com/5kNooOt.png">
+      <img src="https://imgur.com/qlKxPzb.png">
     </li>
   </ul>
 </details>
@@ -123,6 +127,12 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
 <details>
   <summary>
   一套功能丰富、统一一致的RESTAPI和模型访问以上的云资源和功能
+  </summary>
+</details>
+
+<details>
+  <summary>
+  自动将镜像转换为不同云平台需要的格式的多云镜像服务
   </summary>
 </details>
 
