@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/timeutils"
@@ -91,11 +92,12 @@ func (manager *SEncryptedResourceManager) ValidateCreateData(
 func (res *SEncryptedResource) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data jsonutils.JSONObject, nameHint string) error {
 	if len(res.EncryptKeyId) == 0 && jsonutils.QueryBoolean(data, "encrypt_key_new", false) && !jsonutils.QueryBoolean(data, "dry_run", false) {
 		// create new encrypt key
-		session := auth.GetSession(ctx, userCred, consts.GetRegion(), "v1")
+		session := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
 		now := time.Now()
 		keyName := "key-" + nameHint + "-" + timeutils.ShortDate(now)
 		algName, _ := data.GetString("encrypt_key_alg")
-		secret, err := identity_modules.Credentials.CreateEncryptKey(session, ownerId.GetUserId(), keyName, algName)
+		userId, _ := data.GetString("encrypt_key_user_id")
+		secret, err := identity_modules.Credentials.CreateEncryptKey(session, userId, keyName, algName)
 		if err != nil {
 			return errors.Wrap(err, "Credentials.CreateEncryptKey")
 		}
@@ -114,27 +116,28 @@ func (manager *SEncryptedResourceManager) FetchCustomizeColumns(
 ) []apis.EncryptedResourceDetails {
 	rets := make([]apis.EncryptedResourceDetails, len(objs))
 
-	session := auth.GetAdminSession(ctx, consts.GetRegion(), "")
-	encKeys, err := identity_modules.Credentials.GetEncryptKeys(session, userCred.GetUserId())
-	if err != nil {
-		return rets
-	}
+	session := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
 	encKeyMap := make(map[string]identity_modules.SEncryptKeySecret)
-	for i := range encKeys {
-		encKeyMap[encKeys[i].KeyId] = encKeys[i]
-	}
 	for i := range objs {
 		var base *SEncryptedResource
 		reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if base != nil && len(base.EncryptKeyId) > 0 {
-			if encKey, ok := encKeyMap[base.EncryptKeyId]; ok {
-				rets[i].EncryptKey = encKey.KeyName
-				rets[i].EncryptAlg = string(encKey.Alg)
-				rets[i].EncryptKeyUser = string(encKey.User)
-				rets[i].EncryptKeyUserId = string(encKey.UserId)
-				rets[i].EncryptKeyUserDomain = string(encKey.Domain)
-				rets[i].EncryptKeyUserDomainId = string(encKey.DomainId)
+			encKey, ok := encKeyMap[base.EncryptKeyId]
+			if !ok {
+				secKey, err := identity_modules.Credentials.GetEncryptKey(session, base.EncryptKeyId)
+				if err != nil {
+					log.Errorf("fail to fetch enc key %s: %s", base.EncryptKeyId, err)
+					continue
+				}
+				encKey = secKey
+				encKeyMap[base.EncryptKeyId] = secKey
 			}
+			rets[i].EncryptKey = encKey.KeyName
+			rets[i].EncryptAlg = string(encKey.Alg)
+			rets[i].EncryptKeyUser = string(encKey.User)
+			rets[i].EncryptKeyUserId = string(encKey.UserId)
+			rets[i].EncryptKeyUserDomain = string(encKey.Domain)
+			rets[i].EncryptKeyUserDomainId = string(encKey.DomainId)
 		}
 	}
 	return rets
