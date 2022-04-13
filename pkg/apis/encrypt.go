@@ -33,10 +33,10 @@ type EncryptedResourceCreateInput struct {
 	// 新建密钥算法
 	EncryptKeyAlg *string `json:"encrypt_key_alg"`
 
-	// 加密秘钥的ID
+	// 加密密钥的ID
 	EncryptKeyId *string `json:"encrypt_key_id"`
 
-	// 加密蜜月的用户ID
+	// 加密密钥的用户ID
 	EncryptKeyUserId *string `json:"encrypt_key_user_id"`
 }
 
