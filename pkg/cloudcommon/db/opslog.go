@@ -65,7 +65,7 @@ type SOpsLog struct {
 	User     string `width:"128" charset:"utf8" list:"user" create:"required"`
 	DomainId string `width:"128" charset:"ascii" list:"user" create:"optional"`
 	Domain   string `width:"128" charset:"utf8" list:"user" create:"optional"`
-	Roles    string `width:"64" charset:"ascii" list:"user" create:"optional"`
+	Roles    string `width:"64" charset:"utf8" list:"user" create:"optional"`
 
 	OpsTime time.Time `nullable:"false" list:"user" clickhouse_ttl:"6m"`
 
