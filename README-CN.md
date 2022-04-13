@@ -21,16 +21,116 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
 
 ## 功能
 
-Cloudpods提供了如下的功能：
+### 概览 & UI 展示
 
-* 管理多云资源的功能，可以管理大多数的主流云，包括私有云，例如OpenStack，以及公有云，例如AWS，Azure，GCP，阿里云，华为云和腾讯云等
-* 允许以统一的联邦身份访问各个云平台的原生控制台的SSO
-* 一个可以管理海量KVM虚拟机的轻量级私有云
-* 一个能进行物理机全生命周期管理的裸机云
-* 实现了VMware vSphere虚拟化集群的自助服务和自动化
-* 一套功能丰富、统一一致的RESTAPI和模型访问以上的云资源和功能
-* 一套完整的多租户认证和访问控制体系
-* 自动将镜像转换为不同云平台需要的格式的多云镜像服务
+<details>
+  <summary>管理多云资源的功能，可以管理大多数的主流云，包括私有云，例如OpenStack，以及公有云，例如AWS，Azure，GCP，阿里云，华为云和腾讯云等</summary>
+  <ul>
+    <li>
+      <p>云帐号纳管</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudselect.png" alt="multi cloud management">
+    </li>
+    <li>
+      <p>云帐号列表</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/multiplecloud/account1.png">
+    </li>
+    <li>
+      <p>公有云虚拟机列表</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/publicvmlist.png">
+    </li>
+  </ul>
+</details>
+
+<details>
+  <summary>
+  一个可以管理海量KVM虚拟机的轻量级私有云
+  </summary>
+  <ul>
+    <li>
+      <p>虚拟机列表</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/vm.png">
+    </li>
+    <li>
+      <p>虚拟机创建页面</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createkvmvm1.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createkvmvm2.png">
+    </li>
+    <li>
+      <p>宿主机列表</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/host1.png">
+    </li>
+    <li>
+      <p>镜像模板列表</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/sysimage.png">
+    </li>
+    <li>SDN 网络功能支持，包括 VPC, EIP, LB 等</li>
+  </ul>
+</details>
+
+<details>
+  <summary>
+  一个能进行物理机全生命周期管理的裸机云
+  </summary>
+  <ul>
+    <li>
+      <p>物理机列表</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/physicalmachinelist.png">
+    </li>
+    <li>
+      <p>物理机纳管</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/addphysicalmachine.png">
+    </li>
+    <li>
+      <p>安装操作系统</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createbaremetal.png">
+    </li>
+    <li>支持 ARM64 的物理机服务器</li>
+  </ul>
+</details>
+
+<details>
+  <summary>一套完整的多租户认证和访问控制体系</summary>
+  <ul>
+    <li>
+      <p>LDAP, SAML, OIDC, OAuth2 等认证源支持</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/idp.png">
+    </li>
+    <li>
+      <p>多租户系统，包括域，项目，组，用户，角色和权限等</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/domain.png">
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/project.png">
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/group.png">
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/user.png">
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/role.png">
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/policy.png">
+    </li>
+  </ul>
+</details>
+
+<details>
+  <summary>
+  实现了VMware vSphere虚拟化集群的自助服务和自动化
+  </summary>
+</details>
+
+
+<details>
+  <summary>
+  允许以统一的联邦身份访问各个云平台的原生控制台的SSO
+  </summary>
+</details>
+
+<details>
+  <summary>
+  一套功能丰富、统一一致的RESTAPI和模型访问以上的云资源和功能
+  </summary>
+</details>
+
+<details>
+  <summary>
+  自动将镜像转换为不同云平台需要的格式的多云镜像服务
+  </summary>
+</details>
 
 ### 支持的云平台
 
