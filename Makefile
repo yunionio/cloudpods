@@ -269,7 +269,7 @@ dep:
 
 mod:
 	go get -d $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -e 's|.*\(yunion.io/x/[a-z].*\) v.*|\1|p' | grep -v sqlchemy))
-	go get -d yunion.io/x/sqlchemy@v1.0.0
+	go get -d yunion.io/x/sqlchemy@v1.0.2
 	go mod tidy
 	go mod vendor -v
 

@@ -489,6 +489,38 @@ func (manager *SHostManager) OrderByExtraFields(
 		db.OrderByFields(q, []string{query.OrderByServerCount}, []sqlchemy.IQueryField{guestCounts.Field("guest_count")})
 	}
 
+	if db.NeedOrderQuery([]string{query.OrderByCpuCommitRate}) {
+		guestsQ := GuestManager.Query()
+		if options.Options.IgnoreNonrunningGuests {
+			guestsQ = guestsQ.Equals("status", api.VM_RUNNING)
+		}
+		guests := guestsQ.SubQuery()
+		hosts := HostManager.Query().SubQuery()
+		hostQ := hosts.Query(
+			hosts.Field("id"),
+			hosts.Field("cpu_count"),
+			hosts.Field("cpu_reserved"),
+			sqlchemy.SUM("guest_vcpu_count", guests.Field("vcpu_count")),
+		).LeftJoin(guests, sqlchemy.Equals(hosts.Field("id"), guests.Field("host_id")))
+
+		hostSQ := hostQ.GroupBy(hostQ.Field("host_id")).SubQuery()
+
+		divSQ := hostSQ.Query(
+			hostSQ.Field("id"),
+			sqlchemy.SUB("vcpu_count", hostSQ.Field("cpu_count"), hostSQ.Field("cpu_reserved")),
+			hostSQ.Field("guest_vcpu_count"),
+		).SubQuery()
+
+		sq := divSQ.Query(
+			divSQ.Field("id").Label("host_id"),
+			sqlchemy.DIV("cpu_commit_rate", divSQ.Field("guest_vcpu_count"), divSQ.Field("vcpu_count")),
+		).SubQuery()
+
+		q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("id"), sq.Field("host_id")))
+
+		db.OrderByFields(q, []string{query.OrderByCpuCommitRate}, []sqlchemy.IQueryField{sq.Field("cpu_commit_rate")})
+	}
+
 	if db.NeedOrderQuery([]string{query.OrderByStorage}) {
 		hoststorages := HoststorageManager.Query().SubQuery()
 		storages := StorageManager.Query().IsTrue("enabled").In("storage_type", api.HOST_STORAGE_LOCAL_TYPES).SubQuery()
@@ -496,11 +528,84 @@ func (manager *SHostManager) OrderByExtraFields(
 			hoststorages.Field("host_id"),
 			sqlchemy.SUM("storage_capacity", storages.Field("capacity")),
 		)
+
 		hoststoragesQ = hoststoragesQ.LeftJoin(storages, sqlchemy.Equals(hoststoragesQ.Field("storage_id"), storages.Field("id")))
 		hoststoragesSQ := hoststoragesQ.GroupBy(hoststoragesQ.Field("host_id")).SubQuery()
 
 		q = q.LeftJoin(hoststoragesSQ, sqlchemy.Equals(q.Field("id"), hoststoragesSQ.Field("host_id")))
 		db.OrderByFields(q, []string{query.OrderByStorage}, []sqlchemy.IQueryField{hoststoragesSQ.Field("storage_capacity")})
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByStorageCommitRate}) {
+		hoststorages := HoststorageManager.Query().SubQuery()
+		disks := DiskManager.Query().Equals("status", api.DISK_READY).SubQuery()
+		storages := StorageManager.Query().IsTrue("enabled").In("storage_type", api.HOST_STORAGE_LOCAL_TYPES).SubQuery()
+
+		disksQ := disks.Query(
+			disks.Field("storage_id"),
+			sqlchemy.SUM("disk_size", disks.Field("disk_size")),
+			storages.Field("capacity"),
+			storages.Field("reserved"),
+		).LeftJoin(storages, sqlchemy.Equals(disks.Field("storage_id"), storages.Field("id")))
+
+		disksSQ := disksQ.GroupBy(disksQ.Field("storage_id")).SubQuery()
+
+		divSQ := disksSQ.Query(
+			disksSQ.Field("storage_id"),
+			disksSQ.Field("disk_size"),
+			sqlchemy.SUB("storage_capacity", disksSQ.Field("capacity"), disksSQ.Field("reserved")),
+		).SubQuery()
+
+		hoststoragesQ := hoststorages.Query(
+			hoststorages.Field("host_id"),
+			sqlchemy.SUM("storage_used", divSQ.Field("disk_size")),
+			sqlchemy.SUM("storage_capacity", divSQ.Field("storage_capacity")),
+		)
+		hoststoragesQ = hoststoragesQ.LeftJoin(divSQ, sqlchemy.Equals(hoststoragesQ.Field("storage_id"), divSQ.Field("storage_id")))
+		hoststoragesSQ1 := hoststoragesQ.GroupBy(hoststoragesQ.Field("host_id")).SubQuery()
+
+		hoststoragesSQ := hoststoragesSQ1.Query(
+			hoststoragesSQ1.Field("host_id"),
+			sqlchemy.DIV("storage_commit_rate",
+				hoststoragesSQ1.Field("storage_used"),
+				hoststoragesSQ1.Field("storage_capacity"),
+			),
+		).SubQuery()
+
+		q = q.LeftJoin(hoststoragesSQ, sqlchemy.Equals(q.Field("id"), hoststoragesSQ.Field("host_id")))
+		db.OrderByFields(q, []string{query.OrderByStorageCommitRate}, []sqlchemy.IQueryField{hoststoragesSQ.Field("storage_commit_rate")})
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByMemCommitRate}) {
+		guestsQ := GuestManager.Query()
+		if options.Options.IgnoreNonrunningGuests {
+			guestsQ = guestsQ.Equals("status", api.VM_RUNNING)
+		}
+		guests := guestsQ.SubQuery()
+		hosts := HostManager.Query().SubQuery()
+		hostQ := hosts.Query(
+			hosts.Field("id"),
+			hosts.Field("mem_size"),
+			hosts.Field("mem_reserved"),
+			sqlchemy.SUM("guest_vmem_size", guests.Field("vmem_size")),
+		).LeftJoin(guests, sqlchemy.Equals(hosts.Field("id"), guests.Field("host_id")))
+
+		hostSQ := hostQ.GroupBy(hostQ.Field("host_id")).SubQuery()
+
+		divSQ := hostSQ.Query(
+			hostSQ.Field("id"),
+			sqlchemy.SUB("vmem_size", hostSQ.Field("mem_size"), hostSQ.Field("mem_reserved")),
+			hostSQ.Field("guest_vmem_size"),
+		).SubQuery()
+
+		sq := divSQ.Query(
+			divSQ.Field("id").Label("host_id"),
+			sqlchemy.DIV("mem_commit_rate", divSQ.Field("guest_vmem_size"), divSQ.Field("vmem_size")),
+		).SubQuery()
+
+		q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("id"), sq.Field("host_id")))
+
+		db.OrderByFields(q, []string{query.OrderByMemCommitRate}, []sqlchemy.IQueryField{sq.Field("mem_commit_rate")})
 	}
 
 	return q, nil

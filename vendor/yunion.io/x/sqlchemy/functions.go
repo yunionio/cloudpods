@@ -268,3 +268,27 @@ func INET_ATON(field IQueryField) IQueryField {
 func TimestampAdd(name string, field IQueryField, offsetSeconds int) IQueryField {
 	return NewFunctionField(name, `TIMESTAMPADD(SECOND, `+fmt.Sprintf("%d", offsetSeconds)+`, %s)`, field)
 }
+
+func bc(name, op string, fields ...IQueryField) IQueryField {
+	exps := []string{}
+	for i := 0; i < len(fields); i++ {
+		exps = append(exps, "%s")
+	}
+	return NewFunctionField(name, strings.Join(exps, fmt.Sprintf(" %s ", op)), fields...)
+}
+
+func ADD(name string, fields ...IQueryField) IQueryField {
+	return bc(name, "+", fields...)
+}
+
+func SUB(name string, fields ...IQueryField) IQueryField {
+	return bc(name, "-", fields...)
+}
+
+func MUL(name string, fields ...IQueryField) IQueryField {
+	return bc(name, "*", fields...)
+}
+
+func DIV(name string, fields ...IQueryField) IQueryField {
+	return bc(name, "/", fields...)
+}

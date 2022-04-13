@@ -52,8 +52,11 @@ type HostListOptions struct {
 
 	Sn string `help:"find host by sn"`
 
-	OrderByServerCount string `help:"Order by server count" choices:"desc|asc"`
-	OrderByStorage     string `help:"Order by host storage" choices:"desc|asc"`
+	OrderByServerCount       string `help:"Order by server count" choices:"desc|asc"`
+	OrderByStorage           string `help:"Order by host storage" choices:"desc|asc"`
+	OrderByStorageCommitRate string `help:"Order by host storage commite rate" choices:"desc|asc"`
+	OrderByCpuCommitRate     string `help:"Order by host cpu commit rate" choices:"desc|asc"`
+	OrderByMemCommitRate     string `help:"Order by host meme commit rate" choices:"desc|asc"`
 
 	options.BaseListOptions
 }
