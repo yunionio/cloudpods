@@ -77,6 +77,7 @@ type NotificationDetails struct {
 	Title          string          `json:"title"`
 	Content        string          `json:"content"`
 	ReceiveDetails []ReceiveDetail `json:"receive_details"`
+	TopicType      string          `json:"topic_type"`
 }
 
 type NotificationListInput struct {
