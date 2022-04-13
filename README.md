@@ -23,14 +23,120 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
 
 ## Features
 
-* Multi-cloud management that is able to manage a wide range of cloud providers, including private cloud, such as OpenStack, and public clouds, such as AWS, Azure, Google Cloud, Alibaba Cloud, Tencent Cloud, Huawei Cloud, etc.
-* Cloud SSO that allows accessing native webconsole of cloud providers with unified federated identities
-* A light-weight private cloud that manages KVM hypervisor in scale
-* A BareMetal cloud that automates the full life-cycle management of baremetal physical machines
-* VMware vSphere management that enables self-service and automation
-* One set of feature-rich APIs to access a wide range of resources from cloud providers above with consistent models and APIs
-* A complete multi-tenancy RBAC-enabled IAM (identity and access management) system
-* Multi-cloud image management system that automates image conversion between different cloud providers
+### Summary & UI
+
+<details>
+  <summary>
+  Multi-cloud management that is able to manage a wide range of cloud providers, including private cloud, such as OpenStack, and public clouds, such as AWS, Azure, Google Cloud, Alibaba Cloud, Tencent Cloud, Huawei Cloud, etc.
+  </summary>
+  <ul>
+    <li>
+      <p>Cloud account create form</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudselect.png" alt="multi cloud management">
+    </li>
+    <li>
+      <p>Cloud accounts list</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/multiplecloud/account1.png">
+    </li>
+    <li>
+      <p>Multi public cloud VM list</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/publicvmlist.png">
+    </li>
+  </ul>
+</details>
+
+<details>
+  <summary>
+  A light-weight private cloud that manages KVM hypervisor in scale
+  </summary>
+  <ul>
+    <li>
+      <p>VM instances list</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/vm.png">
+    </li>
+    <li>
+      <p>Create VM instance form</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createkvmvm1.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createkvmvm2.png">
+    </li>
+    <li>
+      <p>Host list</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/host1.png">
+    </li>
+    <li>
+      <p>Image template list</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/sysimage.png">
+    </li>
+    <li>SDN supported: VPC, EIP, LB etc.</li>
+  </ul>
+</details>
+
+<details>
+  <summary>
+  A BareMetal cloud that automates the full life-cycle management of baremetal physical machines
+  </summary>
+  <ul>
+    <li>
+      <p>BareMetal list</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/physicalmachinelist.png">
+    </li>
+    <li>
+      <p>Baremetal Management</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/addphysicalmachine.png">
+    </li>
+    <li>
+      <p>Create OS on BareMetal</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createbaremetal.png">
+    </li>
+    <li>ARM64 baremetal supported</li>
+  </ul>
+</details>
+
+<details>
+  <summary>
+  A complete multi-tenancy RBAC-enabled IAM (identity and access management) system
+  </summary>
+  <ul>
+    <li>
+      <p>LDAP, SAML, OIDC, OAuth2 and others supported</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/idp.png">
+    </li>
+    <li>
+      <p>Multi-tenancy system</p>
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/domain.png">
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/project.png">
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/group.png">
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/user.png">
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/role.png">
+      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/policy.png">
+    </li>
+  </ul>
+</details>
+
+<details>
+  <summary>
+  VMware vSphere management that enables self-service and automation
+  </summary>
+</details>
+
+
+<details>
+  <summary>
+  Cloud SSO that allows accessing native webconsole of cloud providers with unified federated identities
+  </summary>
+</details>
+
+<details>
+  <summary>
+  One set of feature-rich APIs to access a wide range of resources from cloud providers above with consistent models and APIs
+  </summary>
+</details>
+
+<details>
+  <summary>
+  Multi-cloud image management system that automates image conversion between different cloud providers
+  </summary>
+</details>
 
 ### Supported cloud providers
 
