@@ -36,7 +36,7 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
     </li>
     <li>
       <p>Cloud accounts list</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/multiplecloud/account1.png">
+      <img src="https://i.imgur.com/Q0LipfI.png" alt="cloud account list">
     </li>
     <li>
       <p>Multi public cloud VM list</p>
@@ -52,7 +52,7 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   <ul>
     <li>
       <p>VM instances list</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/vm.png">
+      <img src="https://i.imgur.com/DbkRUoo.png">
     </li>
     <li>
       <p>Create VM instance form</p>
@@ -60,12 +60,16 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
       <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createkvmvm2.png">
     </li>
     <li>
+      <p>VNC and SSH login page</p>
+      <img src="https://i.imgur.com/m0rkeQ3.png">
+    </li>
+    <li>
       <p>Host list</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/host1.png">
+      <img src="https://imgur.com/i509t5a.png">
     </li>
     <li>
       <p>Image template list</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/computing/sysimage.png">
+      <img src="https://imgur.com/UVFLGi2.png">
     </li>
     <li>SDN supported: VPC, EIP, LB etc.</li>
   </ul>
@@ -99,16 +103,16 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   <ul>
     <li>
       <p>LDAP, SAML, OIDC, OAuth2 and others supported</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/idp.png">
+      <img src="https://imgur.com/YZHegPT.png">
     </li>
     <li>
       <p>Multi-tenancy system</p>
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/domain.png">
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/project.png">
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/group.png">
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/user.png">
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/role.png">
-      <img src="https://docs.yunion.cn/zh/docs/user/images/iam/policy.png">
+      <img src="https://imgur.com/2myNFbh.png">
+      <img src="https://imgur.com/1b2dtlG.png">
+      <img src="https://imgur.com/sgcqAld.png">
+      <img src="https://imgur.com/0Y40Tl6.png">
+      <img src="https://imgur.com/5kNooOt.png">
+      <img src="https://imgur.com/qlKxPzb.png">
     </li>
   </ul>
 </details>
