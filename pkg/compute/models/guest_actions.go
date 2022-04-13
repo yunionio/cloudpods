@@ -873,6 +873,12 @@ func (self *SGuest) StartResumeTask(ctx context.Context, userCred mcclient.Token
 func (self *SGuest) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_START_FAILED, api.VM_SAVE_DISK_FAILED, api.VM_SUSPEND}) {
+		if self.IsEncrypted() {
+			_, err := self.GetEncryptInfo(ctx, userCred)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetEncryptInfo")
+			}
+		}
 		if !self.guestDisksStorageTypeIsShared() {
 			host, _ := self.GetHost()
 			guestsMem, err := host.GetNotReadyGuestsMemorySize()
