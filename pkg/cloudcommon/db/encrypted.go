@@ -114,7 +114,7 @@ func (manager *SEncryptedResourceManager) FetchCustomizeColumns(
 ) []apis.EncryptedResourceDetails {
 	rets := make([]apis.EncryptedResourceDetails, len(objs))
 
-	session := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
+	session := auth.GetAdminSession(ctx, consts.GetRegion(), "")
 	encKeys, err := identity_modules.Credentials.GetEncryptKeys(session, userCred.GetUserId())
 	if err != nil {
 		return rets
@@ -130,6 +130,10 @@ func (manager *SEncryptedResourceManager) FetchCustomizeColumns(
 			if encKey, ok := encKeyMap[base.EncryptKeyId]; ok {
 				rets[i].EncryptKey = encKey.KeyName
 				rets[i].EncryptAlg = string(encKey.Alg)
+				rets[i].EncryptKeyUser = string(encKey.User)
+				rets[i].EncryptKeyUserId = string(encKey.UserId)
+				rets[i].EncryptKeyUserDomain = string(encKey.Domain)
+				rets[i].EncryptKeyUserDomainId = string(encKey.DomainId)
 			}
 		}
 	}
