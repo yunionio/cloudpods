@@ -278,15 +278,12 @@ func (manager *SModelBaseManager) GetExportExtraKeys(ctx context.Context, keys s
 }
 
 func (manager *SModelBaseManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
-	switch info.GetName(nil) {
-	case "get_splitable_export":
-		info.SetProcessTimeout(time.Minute * 120)
-	}
 	info.SetProcessTimeoutCallback(manager.GetIModelManager().SetHandlerProcessTimeout)
 }
 
 func (manager *SModelBaseManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
-	if r.Method == http.MethodGet && len(r.URL.Query().Get("export_keys")) > 0 {
+	splitableExportPath := fmt.Sprintf("/%s/splitable-export", manager.KeywordPlural())
+	if r.Method == http.MethodGet && (len(r.URL.Query().Get("export_keys")) > 0 || r.URL.Path == splitableExportPath) {
 		return time.Hour * 2
 	}
 	return -time.Second
