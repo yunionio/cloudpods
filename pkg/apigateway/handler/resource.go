@@ -276,9 +276,22 @@ func (f *ResourceHandlers) getHandler(ctx context.Context, w http.ResponseWriter
 	obj, e := req.Mod1().Get(req.Session(), req.ResID(), req.Query())
 	if e != nil {
 		httperrors.GeneralServerError(ctx, w, e)
-	} else {
-		appsrv.SendJSON(w, obj)
+		return
 	}
+	if req.ResID() == "splitable-export" {
+		if exports, ok := obj.(*jsonutils.JSONArray); ok && exports.Length() > 0 {
+			data, _ := exports.GetArray()
+			keys := data[0].(*jsonutils.JSONDict).SortedKeys()
+			w.Header().Set("Content-Description", "File Transfer")
+			w.Header().Set("Content-Transfer-Encoding", "binary")
+			w.Header().Set("Content-Type", "application/octet-stream")
+			fileName := fmt.Sprintf("export-%s", req.Mod1().KeyString())
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.xlsx\"", fileName))
+			excelutils.Export(data, keys, keys, w)
+			return
+		}
+	}
+	appsrv.SendJSON(w, obj)
 }
 
 // * get spec
