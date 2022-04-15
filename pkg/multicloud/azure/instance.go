@@ -155,6 +155,7 @@ type VirtualMachineProperties struct {
 	DebugProfile      *DebugProfile               `json:"debugProfile,omitempty"`
 	OsProfile         OsProfile                   `json:"osProfile,omitempty"`
 	VmId              string                      `json:"vmId,omitempty"`
+	TimeCreated       time.Time                   `json:"timeCreated,omitempty"`
 }
 
 type SExtensionResourceProperties struct {
@@ -1020,7 +1021,7 @@ func (self *SInstance) GetBillingType() string {
 }
 
 func (self *SInstance) GetCreatedAt() time.Time {
-	return time.Time{}
+	return self.Properties.TimeCreated
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {

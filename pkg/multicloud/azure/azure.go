@@ -433,7 +433,7 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 			return "2020-06-01"
 		}
 		if utils.IsInStringArray("virtualmachines", info) {
-			return "2018-04-01"
+			return "2021-11-01"
 		}
 		if utils.IsInStringArray("skus", info) {
 			return "2019-04-01"
