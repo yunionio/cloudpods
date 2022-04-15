@@ -50,6 +50,26 @@ type SOrganization struct {
 	UUID              string
 }
 
+type ResourceGroupList []SResourceGroupList
+
+func (rgs ResourceGroupList) ToProjects(tags []string) []SProject {
+	ret := []SProject{}
+	for _, rg := range rgs {
+		name := rg.ResourceGroupName
+		if strings.HasPrefix(name, "ResourceSet(") {
+			name = strings.TrimPrefix(name, "ResourceSet(")
+			name = strings.TrimSuffix(name, ")")
+		}
+		proj := SProject{
+			Id:   rg.Id,
+			Name: name,
+			Tags: tags,
+		}
+		ret = append(ret, proj)
+	}
+	return ret
+}
+
 type SOrganizationTree struct {
 	Active            bool
 	Alias             string
@@ -58,7 +78,7 @@ type SOrganizationTree struct {
 	ParentId          string
 	MultiCCloudStatus string
 	Children          []SOrganizationTree
-	ResourceGroupList []SResourceGroupList
+	ResourceGroupList ResourceGroupList
 	SupportRegions    string
 	UUID              string
 }
@@ -68,18 +88,9 @@ func (self *SOrganizationTree) GetProject(tags []string) []SProject {
 	if self.Name != "root" {
 		tags = append(tags, self.Name)
 	}
+	ret = append(ret, self.ResourceGroupList.ToProjects(tags)...)
 	if len(self.Children) == 0 {
-		for _, resGrp := range self.ResourceGroupList {
-			if strings.HasPrefix(resGrp.ResourceGroupName, "ResourceSet(") {
-				continue
-			}
-			proj := SProject{
-				Id:   resGrp.Id,
-				Name: resGrp.ResourceGroupName,
-				Tags: tags,
-			}
-			ret = append(ret, proj)
-		}
+		return ret
 	}
 	for _, child := range self.Children {
 		ret = append(ret, child.GetProject(tags)...)

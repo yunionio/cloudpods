@@ -301,10 +301,13 @@ func (self *SApsaraClient) getDefaultClient(regionId string) (*sdk.Client, error
 						}
 						ret := struct {
 							AsapiErrorCode string `json:"asapiErrorCode"`
-							Code           int
+							Code           string
 						}{}
 						obj.Unmarshal(&ret)
-						if ret.Code == 403 || strings.Contains(ret.AsapiErrorCode, "NoPermission") {
+						if ret.Code == "403" ||
+							strings.Contains(ret.AsapiErrorCode, "NoPermission") ||
+							utils.HasPrefix(ret.Code, "Forbidden") ||
+							utils.HasPrefix(ret.Code, "NoPermission") {
 							self.cpcfg.UpdatePermission(service, action)
 						}
 					}
