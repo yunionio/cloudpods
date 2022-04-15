@@ -141,7 +141,7 @@ func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInt
 	}
 	ret := []cloudprovider.ICloudNetworkInterface{}
 	for i := 0; i < len(interfaces); i++ {
-		if strings.HasPrefix(interfaces[i].Attachment.InstanceId, "ins-") { //弹性网卡有可能已绑定资源，若绑定资源则由资源进行同步
+		if !strings.HasPrefix(interfaces[i].Attachment.InstanceId, "ins-") { //弹性网卡有可能已绑定资源，若绑定资源则由资源进行同步
 			interfaces[i].region = region
 			ret = append(ret, &interfaces[i])
 		}
