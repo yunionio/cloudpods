@@ -17,10 +17,12 @@ package huawei
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -275,6 +277,7 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 	for i := range ret {
 		bg := ret[i]
 		bg.lb = self
+		bg.region = self.region
 		iret = append(iret, &bg)
 	}
 
@@ -296,15 +299,12 @@ func (self *SLoadbalancer) CreateHealthCheck(backendGroupId string, healthcheck 
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561548.html
 func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	ret := &SElbBackendGroup{}
-	err := DoGet(self.region.ecsClient.ElbBackendGroup.Get, groupId, nil, ret)
+	ret := &SElbBackendGroup{lb: self, region: self.region}
+	resp, err := self.region.lbGet("elb/pools/" + groupId)
 	if err != nil {
 		return nil, err
 	}
-
-	ret.lb = self
-	ret.region = self.region
-	return ret, nil
+	return ret, resp.Unmarshal(ret, "pool")
 }
 
 func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
@@ -318,100 +318,83 @@ func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, list
 }
 
 func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {
-	ret := &SElbListener{}
-	err := DoGet(self.region.ecsClient.ElbListeners.Get, listenerId, nil, ret)
+	ret := &SElbListener{lb: self}
+	resp, err := self.region.lbGet("elb/listeners/" + listenerId)
 	if err != nil {
 		return nil, err
 	}
-
-	ret.lb = self
-	return ret, nil
+	return ret, resp.Unmarshal(ret, "listener")
 }
 
-func (self *SRegion) GetLoadbalancer(lgId string) (SLoadbalancer, error) {
-	elb := SLoadbalancer{}
-	err := DoGet(self.ecsClient.Elb.Get, lgId, nil, &elb)
+func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
+	resp, err := self.lbGet("elb/loadbalancers/" + id)
 	if err != nil {
-		return elb, err
+		return nil, err
 	}
-
-	return elb, nil
+	ret := &SLoadbalancer{region: self}
+	return ret, resp.Unmarshal(ret, "loadbalancer")
 }
 
 func (self *SRegion) DeleteLoadBalancer(elbId string) error {
-	return DoDelete(self.ecsClient.Elb.Delete, elbId, nil, nil)
+	resource := fmt.Sprintf("elb/loadbalancers/%s", elbId)
+	_, err := self.lbDelete(resource)
+	return err
 }
 
 func (self *SRegion) GetLoadBalancerListeners(lbId string) ([]SElbListener, error) {
-	params := map[string]string{}
+	ret := []SElbListener{}
+	params := url.Values{}
 	if len(lbId) > 0 {
-		params["loadbalancer_id"] = lbId
+		params.Set("loadbalancer_id", lbId)
 	}
-
-	ret := make([]SElbListener, 0)
-	err := doListAll(self.ecsClient.ElbListeners.List, params, &ret)
-	if err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	return ret, self.lbListAll("elb/listeners", params, "listeners", &ret)
 }
 
 func (self *SRegion) CreateLoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (SElbListener, error) {
-	params := jsonutils.NewDict()
-	listenerObj := jsonutils.NewDict()
-	listenerObj.Set("name", jsonutils.NewString(listener.Name))
-	listenerObj.Set("description", jsonutils.NewString(listener.Description))
-	listenerObj.Set("protocol", jsonutils.NewString(LB_PROTOCOL_MAP[listener.ListenerType]))
-	listenerObj.Set("protocol_port", jsonutils.NewInt(int64(listener.ListenerPort)))
-	listenerObj.Set("loadbalancer_id", jsonutils.NewString(listener.LoadbalancerID))
-	listenerObj.Set("http2_enable", jsonutils.NewBool(listener.EnableHTTP2))
+	params := map[string]interface{}{
+		"name":            listener.Name,
+		"description":     listener.Description,
+		"protocol":        LB_PROTOCOL_MAP[listener.ListenerType],
+		"protocol_port":   listener.ListenerPort,
+		"loadbalancer_id": listener.LoadbalancerID,
+		"http2_enable":    listener.EnableHTTP2,
+	}
 	if len(listener.BackendGroupID) > 0 {
-		listenerObj.Set("default_pool_id", jsonutils.NewString(listener.BackendGroupID))
+		params["default_pool_id"] = listener.BackendGroupID
 	}
 
 	if listener.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
-		listenerObj.Set("default_tls_container_ref", jsonutils.NewString(listener.CertificateID))
+		params["default_tls_container_ref"] = listener.CertificateID
 	}
 
 	if listener.XForwardedFor {
-		insertObj := jsonutils.NewDict()
-		insertObj.Set("X-Forwarded-ELB-IP", jsonutils.NewBool(listener.XForwardedFor))
-		listenerObj.Set("insert_headers", insertObj)
+		params["insert_headers"] = map[string]interface{}{
+			"X-Forwarded-ELB-IP": listener.XForwardedFor,
+		}
 	}
-	params.Set("listener", listenerObj)
+
 	ret := SElbListener{}
-	err := DoCreate(self.ecsClient.ElbListeners.Create, params, &ret)
+	resp, err := self.lbCreate("lb/listeners", map[string]interface{}{"listener": params})
 	if err != nil {
 		return ret, err
 	}
-
-	return ret, nil
+	return ret, resp.Unmarshal(&ret, "listener")
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561547.html
 func (self *SRegion) GetLoadBalancerBackendGroups(elbId string) ([]SElbBackendGroup, error) {
-	params := map[string]string{}
+	query := url.Values{}
 	if len(elbId) > 0 {
-		params["loadbalancer_id"] = elbId
+		query.Set("loadbalancer_id", elbId)
 	}
 
-	ret := make([]SElbBackendGroup, 0)
-	err := doListAll(self.ecsClient.ElbBackendGroup.List, params, &ret)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range ret {
-		ret[i].region = self
-	}
-
-	return ret, nil
+	ret := []SElbBackendGroup{}
+	return ret, self.lbListAll("elb/pools", query, "pools", &ret)
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561547.html
 func (self *SRegion) CreateLoadBalancerBackendGroup(group *cloudprovider.SLoadbalancerBackendGroup) (SElbBackendGroup, error) {
-	ret := SElbBackendGroup{}
+	ret := SElbBackendGroup{region: self}
 	var protocol, scheduler string
 	if s, ok := LB_ALGORITHM_MAP[group.Scheduler]; !ok {
 		return ret, fmt.Errorf("CreateILoadBalancerBackendGroup unsupported scheduler %s", group.Scheduler)
@@ -425,44 +408,46 @@ func (self *SRegion) CreateLoadBalancerBackendGroup(group *cloudprovider.SLoadba
 		protocol = t
 	}
 
-	params := jsonutils.NewDict()
-	poolObj := jsonutils.NewDict()
-	poolObj.Set("project_id", jsonutils.NewString(self.client.projectId))
-	poolObj.Set("name", jsonutils.NewString(group.Name))
-	poolObj.Set("protocol", jsonutils.NewString(protocol))
-	poolObj.Set("lb_algorithm", jsonutils.NewString(scheduler))
+	params := map[string]interface{}{
+		"project_id":   self.client.projectId,
+		"name":         group.Name,
+		"protocol":     protocol,
+		"lb_algorithm": scheduler,
+	}
 
 	if len(group.ListenerID) > 0 {
-		poolObj.Set("listener_id", jsonutils.NewString(group.ListenerID))
+		params["listener_id"] = group.ListenerID
 	} else if len(group.LoadbalancerID) > 0 {
-		poolObj.Set("loadbalancer_id", jsonutils.NewString(group.LoadbalancerID))
+		params["loadbalancer_id"] = group.LoadbalancerID
 	} else {
 		return ret, fmt.Errorf("CreateLoadBalancerBackendGroup one of listener id / loadbalancer id must be specified")
 	}
 
 	if group.StickySession != nil {
-		s := jsonutils.NewDict()
+		s := map[string]interface{}{}
 		timeout := int64(group.StickySession.StickySessionCookieTimeout / 60)
 		if group.ListenType == api.LB_LISTENER_TYPE_UDP || group.ListenType == api.LB_LISTENER_TYPE_TCP {
-			s.Set("type", jsonutils.NewString("SOURCE_IP"))
+			s["type"] = "SOURCE_IP"
 			if timeout > 0 {
-				s.Set("persistence_timeout", jsonutils.NewInt(timeout))
+				s["persistence_timeout"] = timeout
 			}
 		} else {
-			s.Set("type", jsonutils.NewString(LB_STICKY_SESSION_MAP[group.StickySession.StickySessionType]))
+			s["type"] = LB_STICKY_SESSION_MAP[group.StickySession.StickySessionType]
 			if len(group.StickySession.StickySessionCookie) > 0 {
-				s.Set("cookie_name", jsonutils.NewString(group.StickySession.StickySessionCookie))
+				s["cookie_name"] = group.StickySession.StickySessionCookie
 			} else {
 				if timeout > 0 {
-					s.Set("persistence_timeout", jsonutils.NewInt(timeout))
+					s["persistence_timeout"] = timeout
 				}
 			}
 		}
-
-		poolObj.Set("session_persistence", s)
+		params["session_persistence"] = s
 	}
-	params.Set("pool", poolObj)
-	err := DoCreate(self.ecsClient.ElbBackendGroup.Create, params, &ret)
+	resp, err := self.lbCreate("elb/pools", map[string]interface{}{"pool": params})
+	if err != nil {
+		return ret, err
+	}
+	err = resp.Unmarshal(&ret, "pool")
 	if err != nil {
 		return ret, err
 	}
@@ -474,80 +459,151 @@ func (self *SRegion) CreateLoadBalancerBackendGroup(group *cloudprovider.SLoadba
 		}
 	}
 
-	ret.region = self
 	return ret, nil
 }
 
 func (self *SRegion) CreateLoadBalancerHealthCheck(backendGroupID string, healthCheck *cloudprovider.SLoadbalancerHealthCheck) (SElbHealthCheck, error) {
-	params := jsonutils.NewDict()
-	healthObj := jsonutils.NewDict()
-	healthObj.Set("delay", jsonutils.NewInt(int64(healthCheck.HealthCheckInterval)))
-	healthObj.Set("max_retries", jsonutils.NewInt(int64(healthCheck.HealthCheckRise)))
-	healthObj.Set("pool_id", jsonutils.NewString(backendGroupID))
-	healthObj.Set("timeout", jsonutils.NewInt(int64(healthCheck.HealthCheckTimeout)))
-	healthObj.Set("type", jsonutils.NewString(LB_HEALTHCHECK_TYPE_MAP[healthCheck.HealthCheckType]))
+	params := map[string]interface{}{
+		"delay":       healthCheck.HealthCheckInterval,
+		"max_retries": healthCheck.HealthCheckRise,
+		"pool_id":     backendGroupID,
+		"timeout":     healthCheck.HealthCheckTimeout,
+		"type":        LB_HEALTHCHECK_TYPE_MAP[healthCheck.HealthCheckType],
+	}
 	if healthCheck.HealthCheckType == api.LB_HEALTH_CHECK_HTTP {
 		if len(healthCheck.HealthCheckDomain) > 0 {
-			healthObj.Set("domain_name", jsonutils.NewString(healthCheck.HealthCheckDomain))
+			params["domain_name"] = healthCheck.HealthCheckDomain
 		}
 
 		if len(healthCheck.HealthCheckURI) > 0 {
-			healthObj.Set("url_path", jsonutils.NewString(healthCheck.HealthCheckURI))
+			params["url_path"] = healthCheck.HealthCheckURI
 		}
 
 		if len(healthCheck.HealthCheckHttpCode) > 0 {
-			healthObj.Set("expected_codes", jsonutils.NewString(ToHuaweiHealthCheckHttpCode(healthCheck.HealthCheckHttpCode)))
+			params["expected_codes"] = ToHuaweiHealthCheckHttpCode(healthCheck.HealthCheckHttpCode)
 		}
 	}
-	params.Set("healthmonitor", healthObj)
 
-	ret := SElbHealthCheck{}
-	err := DoCreate(self.ecsClient.ElbHealthCheck.Create, params, &ret)
+	ret := SElbHealthCheck{region: self}
+	resp, err := self.lbCreate("elb/healthmonitors", map[string]interface{}{"healthmonitor": params})
 	if err != nil {
 		return ret, err
 	}
 
-	ret.region = self
-	return ret, nil
+	return ret, resp.Unmarshal(&ret, "healthmonitor")
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561564.html
 func (self *SRegion) UpdateLoadBalancerHealthCheck(healthCheckID string, healthCheck *cloudprovider.SLoadbalancerHealthCheck) (SElbHealthCheck, error) {
-	params := jsonutils.NewDict()
-	healthObj := jsonutils.NewDict()
-	healthObj.Set("delay", jsonutils.NewInt(int64(healthCheck.HealthCheckInterval)))
-	healthObj.Set("max_retries", jsonutils.NewInt(int64(healthCheck.HealthCheckRise)))
-	healthObj.Set("timeout", jsonutils.NewInt(int64(healthCheck.HealthCheckTimeout)))
+	params := map[string]interface{}{
+		"delay":       healthCheck.HealthCheckInterval,
+		"max_retries": healthCheck.HealthCheckRise,
+		"timeout":     healthCheck.HealthCheckTimeout,
+	}
 	if healthCheck.HealthCheckType == api.LB_HEALTH_CHECK_HTTP {
 		if len(healthCheck.HealthCheckDomain) > 0 {
-			healthObj.Set("domain_name", jsonutils.NewString(healthCheck.HealthCheckDomain))
+			params["domain_name"] = healthCheck.HealthCheckDomain
 		}
 
 		if len(healthCheck.HealthCheckURI) > 0 {
-			healthObj.Set("url_path", jsonutils.NewString(healthCheck.HealthCheckURI))
+			params["url_path"] = healthCheck.HealthCheckURI
 		}
 
 		if len(healthCheck.HealthCheckHttpCode) > 0 {
-			healthObj.Set("expected_codes", jsonutils.NewString(ToHuaweiHealthCheckHttpCode(healthCheck.HealthCheckHttpCode)))
+			params["expected_codes"] = ToHuaweiHealthCheckHttpCode(healthCheck.HealthCheckHttpCode)
 		}
 	}
-	params.Set("healthmonitor", healthObj)
 
-	ret := SElbHealthCheck{}
-	err := DoUpdate(self.ecsClient.ElbHealthCheck.Update, healthCheckID, params, &ret)
+	ret := SElbHealthCheck{region: self}
+	resp, err := self.lbUpdate("elb/healthmonitors/"+healthCheckID, map[string]interface{}{"healthmonitor": params})
 	if err != nil {
 		return ret, err
 	}
-
-	ret.region = self
-	return ret, nil
+	return ret, resp.Unmarshal(&ret, "healthmonitor")
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561565.html
 func (self *SRegion) DeleteLoadbalancerHealthCheck(healthCheckID string) error {
-	return DoDelete(self.ecsClient.ElbHealthCheck.Delete, healthCheckID, nil, nil)
+	_, err := self.lbDelete("elb/healthmonitors/" + healthCheckID)
+	return err
 }
 
 func (self *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (self *SRegion) lbList(resource string, query url.Values) (jsonutils.JSONObject, error) {
+	return self.client.lbList(self.ID, resource, query)
+}
+
+func (self *SRegion) lbListAll(resource string, query url.Values, respKey string, retVal interface{}) error {
+	ret := jsonutils.NewArray()
+	for {
+		resp, err := self.lbList(resource, query)
+		if err != nil {
+			return err
+		}
+		arr, err := resp.GetArray(respKey)
+		if err != nil {
+			return errors.Wrapf(err, "get %s", respKey)
+		}
+		ret.Add(arr...)
+		marker, _ := resp.GetString("page_info", "next_marker")
+		if len(marker) == 0 {
+			break
+		}
+		query.Set("marker", marker)
+	}
+	return ret.Unmarshal(retVal)
+}
+
+func (self *SRegion) lbGet(resource string) (jsonutils.JSONObject, error) {
+	return self.client.lbGet(self.ID, resource)
+}
+
+func (self *SRegion) lbDelete(resource string) (jsonutils.JSONObject, error) {
+	return self.client.lbGet(self.ID, resource)
+}
+
+func (self *SRegion) lbCreate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	return self.client.lbGet(self.ID, resource)
+}
+
+func (self *SRegion) lbUpdate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	return self.client.lbUpdate(self.ID, resource)
+}
+
+// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561535.html
+func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (*SLoadbalancer, error) {
+	subnet, err := self.getNetwork(loadbalancer.NetworkIDs[0])
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.CreateLoadBalancer.getNetwork")
+	}
+
+	params := map[string]interface{}{
+		"name":          loadbalancer.Name,
+		"vip_subnet_id": subnet.NeutronSubnetID,
+		"tenant_id":     self.client.projectId,
+	}
+	if len(loadbalancer.Address) > 0 {
+		params["vip_address"] = loadbalancer.Address
+	}
+	resp, err := self.lbCreate("elb/loadbalancers", map[string]interface{}{"loadbalancer": params})
+	if err != nil {
+		return nil, err
+	}
+	ret := &SLoadbalancer{region: self}
+	err = resp.Unmarshal(ret, "loadbalancer")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+
+	// 创建公网类型ELB
+	if len(loadbalancer.EipID) > 0 {
+		err := self.AssociateEipWithPortId(loadbalancer.EipID, ret.VipPortID)
+		if err != nil {
+			return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.AssociateEipWithPortId")
+		}
+	}
+	return ret, nil
 }

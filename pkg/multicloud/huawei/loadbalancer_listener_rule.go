@@ -17,7 +17,6 @@ package huawei
 import (
 	"context"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -86,18 +85,11 @@ func (self *SElbListenerPolicy) GetStatus() string {
 }
 
 func (self *SElbListenerPolicy) Refresh() error {
-	ret := &SElbListenerPolicy{}
-	err := DoGet(self.lb.region.ecsClient.ElbL7policies.Get, self.GetId(), nil, ret)
+	resp, err := self.lb.region.lbGet("")
 	if err != nil {
 		return err
 	}
-
-	err = jsonutils.Update(self, ret)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return resp.Unmarshal(self, "l7policy")
 }
 
 func (self *SElbListenerPolicy) IsDefault() bool {
@@ -168,5 +160,6 @@ func (self *SElbListenerPolicy) Delete(ctx context.Context) error {
 }
 
 func (self *SRegion) DeleteLoadBalancerPolicy(policyId string) error {
-	return DoDelete(self.ecsClient.ElbL7policies.Delete, policyId, nil, nil)
+	_, err := self.lbDelete("elb/l7policies/" + policyId)
+	return err
 }

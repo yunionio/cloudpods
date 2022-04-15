@@ -28,7 +28,6 @@ func init() {
 		if err != nil {
 			return err
 		}
-
 		printList(elbs, len(elbs), 0, 0, []string{})
 		return nil
 	})
@@ -56,15 +55,24 @@ func init() {
 		return nil
 	})
 
-	type ElbDeleteOptions struct {
+	type ElbIdOptions struct {
 		ID string `help:"loadblancer id"`
 	}
-	shellutils.R(&ElbDeleteOptions{}, "elb-delete", "delete loadbalancer", func(cli *huawei.SRegion, args *ElbDeleteOptions) error {
+	shellutils.R(&ElbIdOptions{}, "elb-delete", "delete loadbalancer", func(cli *huawei.SRegion, args *ElbIdOptions) error {
 		err := cli.DeleteLoadBalancer(args.ID)
 		if err != nil {
 			return err
 		}
 
+		return nil
+	})
+
+	shellutils.R(&ElbIdOptions{}, "elb-show", "show loadbalancer", func(cli *huawei.SRegion, args *ElbIdOptions) error {
+		lb, err := cli.GetLoadbalancer(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(lb)
 		return nil
 	})
 
