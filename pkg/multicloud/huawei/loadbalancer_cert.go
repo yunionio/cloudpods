@@ -17,12 +17,14 @@ package huawei
 import (
 	"crypto/sha1"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -70,18 +72,11 @@ func (self *SElbCert) GetStatus() string {
 }
 
 func (self *SElbCert) Refresh() error {
-	cert, err := self.region.GetLoadBalancerCertificateById(self.GetId())
+	cert, err := self.region.GetLoadBalancerCertificate(self.GetId())
 	if err != nil {
 		return err
 	}
-
-	cert.region = self.region
-	err = jsonutils.Update(self, cert)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return jsonutils.Update(self, cert)
 }
 
 func (self *SElbCert) IsEmulated() bool {
@@ -93,15 +88,18 @@ func (self *SElbCert) GetProjectId() string {
 }
 
 func (self *SElbCert) Sync(name, privateKey, publickKey string) error {
-	params := jsonutils.NewDict()
-	params.Set("name", jsonutils.NewString(name))
-	params.Set("private_key", jsonutils.NewString(privateKey))
-	params.Set("certificate", jsonutils.NewString(publickKey))
-	return DoUpdate(self.region.ecsClient.ElbCertificates.Update, self.GetId(), params, nil)
+	params := map[string]interface{}{
+		"name":        name,
+		"private_key": privateKey,
+		"certificate": publickKey,
+	}
+	_, err := self.region.lbUpdate("elb/certificates/"+self.GetId(), params)
+	return err
 }
 
 func (self *SElbCert) Delete() error {
-	return DoDelete(self.region.ecsClient.ElbCertificates.Delete, self.GetId(), nil, nil)
+	_, err := self.region.lbDelete("elb/certificates/" + self.GetId())
+	return err
 }
 
 func (self *SElbCert) GetCommonName() string {
@@ -120,4 +118,37 @@ func (self *SElbCert) GetFingerprint() string {
 
 func (self *SElbCert) GetExpireTime() time.Time {
 	return self.ExpireTime
+}
+
+func (self *SRegion) GetLoadBalancerCertificate(id string) (*SElbCert, error) {
+	resp, err := self.lbGet("elb/certificates/" + id)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SElbCert{region: self}
+	return ret, resp.Unmarshal(ret)
+}
+
+// https://support.huaweicloud.com/api-elb/elb_qy_zs_0001.html
+func (self *SRegion) CreateLoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (*SElbCert, error) {
+	params := map[string]interface{}{
+		"name":        cert.Name,
+		"private_key": cert.PrivateKey,
+		"certificate": cert.Certificate,
+	}
+	resp, err := self.lbCreate("elb/certificates", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SElbCert{region: self}
+	return ret, resp.Unmarshal(ret)
+}
+
+func (self *SRegion) GetLoadBalancerCertificates() ([]SElbCert, error) {
+	resp, err := self.lbList("elb/certificates", url.Values{})
+	if err != nil {
+		return nil, err
+	}
+	ret := []SElbCert{}
+	return ret, resp.Unmarshal(&ret, "certificates")
 }
