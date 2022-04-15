@@ -33,6 +33,6 @@ func init() {
 	cmd.Perform("dissociate", &compute.EipDissociateOptions{})
 	cmd.Perform("sync", &options.BaseIdOptions{})
 	cmd.Perform("syncstatus", &options.BaseIdOptions{})
-	cmd.Perform("change-bandwidth", &options.BaseIdOptions{})
+	cmd.Perform("change-bandwidth", &compute.EipChangeBandwidthOptions{})
 	cmd.Perform("change-owner", &compute.EipChangeOwnerOptions{})
 }
