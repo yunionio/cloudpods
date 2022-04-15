@@ -152,9 +152,18 @@ var (
 						"list",
 					},
 				},
-				"log": {
-					"actions": {
+				"notify": {
+					"notifications": {
 						"list",
+						"get",
+					},
+					"robots": {
+						"list",
+						"get",
+					},
+					"receivers": {
+						"list",
+						"get",
 					},
 				},
 				"devtool": {
