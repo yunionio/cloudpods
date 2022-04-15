@@ -1003,42 +1003,49 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 				}
 			}
 		}
-		return domain, nil
-	}
+	} else {
+		// otherwise, create the domain
+		domain = &SDomain{}
+		domain.SetModelManager(DomainManager, domain)
+		domain.Id = domainId
+		domain.Enabled = tristate.True
+		domain.IsDomain = tristate.True
+		domain.DomainId = api.KeystoneDomainRoot
+		domain.Description = fmt.Sprintf("domain for %s", extDesc)
 
-	// otherwise, create the domain
-	domain = &SDomain{}
-	domain.SetModelManager(DomainManager, domain)
-	domain.Id = domainId
-	domain.Enabled = tristate.True
-	domain.IsDomain = tristate.True
-	domain.DomainId = api.KeystoneDomainRoot
-	domain.Description = fmt.Sprintf("domain for %s", extDesc)
+		err = func() error {
+			lockman.LockClass(ctx, DomainManager, "name")
+			defer lockman.ReleaseClass(ctx, DomainManager, "name")
 
-	err = func() error {
-		lockman.LockClass(ctx, DomainManager, "name")
-		defer lockman.ReleaseClass(ctx, DomainManager, "name")
+			newName, err := db.GenerateName(ctx, DomainManager, nil, extName)
+			if err != nil {
+				return errors.Wrap(err, "GenerateName")
+			}
+			domain.Name = newName
 
-		newName, err := db.GenerateName(ctx, DomainManager, nil, extName)
+			return DomainManager.TableSpec().Insert(ctx, domain)
+		}()
 		if err != nil {
-			return errors.Wrap(err, "GenerateName")
+			return nil, errors.Wrap(err, "insert")
 		}
-		domain.Name = newName
-
-		return DomainManager.TableSpec().Insert(ctx, domain)
-	}()
-	if err != nil {
-		return nil, errors.Wrap(err, "insert")
 	}
 
 	if self.AutoCreateProject.IsTrue() && consts.GetNonDefaultDomainProjects() && createDefaultProject {
-		_, err := ProjectManager.NewProject(ctx,
-			fmt.Sprintf("%s_default_project", extName),
-			fmt.Sprintf("Default project for domain %s", extName),
-			domain.Id,
-		)
+		// check existence
+		projCnt, err := domain.GetProjectCount()
 		if err != nil {
-			log.Errorf("ProjectManager.NewProject fail %s", err)
+			return nil, errors.Wrap(err, "get domain project count")
+		}
+		if projCnt == 0 {
+			// not exist, to create
+			_, err := ProjectManager.NewProject(ctx,
+				fmt.Sprintf("%s_default_project", extName),
+				fmt.Sprintf("Default project for domain %s", extName),
+				domain.Id,
+			)
+			if err != nil {
+				log.Errorf("ProjectManager.NewProject fail %s", err)
+			}
 		}
 	}
 
