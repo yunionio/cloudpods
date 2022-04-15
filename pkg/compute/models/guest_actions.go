@@ -235,6 +235,9 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 	kwargs := imageapi.GuestImageCreateInput{}
 	kwargs.GuestImageCreateInputBase = input.GuestImageCreateInputBase
 	kwargs.Properties = make(map[string]string)
+	if len(kwargs.ProjectId) == 0 {
+		kwargs.ProjectId = self.ProjectId
+	}
 
 	for _, disk := range diskList {
 		kwargs.Images = append(kwargs.Images, imageapi.GuestImageCreateInputSubimage{
