@@ -24,6 +24,12 @@ const (
 	EXTERNAL_PROJECT_STATUS_UNKNOWN     = "unknown"     // 未知
 )
 
+var (
+	MANGER_EXTERNAL_PROJECT_PROVIDERS = []string{
+		CLOUD_PROVIDER_AZURE,
+	}
+)
+
 type ExternalProjectDetails struct {
 	apis.VirtualResourceDetails
 	ManagedResourceInfo
@@ -33,4 +39,14 @@ type ExternalProjectDetails struct {
 
 type ExternalProjectChangeProjectInput struct {
 	apis.ProjectizedResourceInput
+}
+
+type ExternalProjectCreateInput struct {
+	apis.VirtualResourceCreateInput
+
+	CloudaccountId string `json:"cloudaccount_id"`
+	ManagerId      string `json:"manager_id"`
+
+	// swagger:ignore
+	ExternalId string `json:"external_id"`
 }
