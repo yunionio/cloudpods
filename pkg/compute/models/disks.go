@@ -1036,6 +1036,8 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		OsArch       string
 		Properties   map[string]string
 
+		ProjectId string
+
 		EncryptKeyId string
 	}{
 		Name:         input.Name,
@@ -1048,6 +1050,9 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 			"os_type": input.OsType,
 			"os_arch": input.OsArch,
 		},
+
+		// inherit the ownership of disk
+		ProjectId: self.ProjectId,
 	}
 
 	if self.IsEncrypted() {
