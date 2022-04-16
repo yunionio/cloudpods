@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -29,9 +30,9 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
-	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/s3auth"
 )
 
@@ -58,14 +59,29 @@ func authUserByPasswordV2(ctx context.Context, input mcclient.SAuthenticationInp
 	ident.Password.User.Name = input.Auth.PasswordCredentials.Username
 	ident.Password.User.Password = input.Auth.PasswordCredentials.Password
 	ident.Password.User.Domain.Id = api.DEFAULT_DOMAIN_ID
-	return authUserByIdentity(ctx, ident)
+	return authUserByIdentity(ctx, ident, input.Auth.Context)
 }
 
 func authUserByIdentityV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
-	return authUserByIdentity(ctx, input.Auth.Identity)
+	return authUserByIdentity(ctx, input.Auth.Identity, input.Auth.Context)
 }
 
-func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
+func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdentity, authCtx mcclient.SAuthContext) (*api.SUserExtended, error) {
+	usr, err := authUserByIdentityInternal(ctx, &ident)
+	if err != nil {
+		// log event
+		ident.Password.User.Password = "***"
+		log.Errorf("authenticate fail for %s reason: %s", jsonutils.Marshal(ident), err)
+		user := logclient.NewSimpleObject(ident.Password.User.Id, ident.Password.User.Name, "user")
+		token := models.GetDefaultAdminSSimpleToken()
+		token.Token, _ = GetDefaultToken()
+		token.Context = authCtx
+		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_AUTHENTICATE, err, token, false)
+	}
+	return usr, err
+}
+
+func authUserByIdentityInternal(ctx context.Context, ident *mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
 	var idpId string
 
 	if len(ident.Password.User.Name) == 0 && len(ident.Password.User.Id) == 0 && len(ident.Password.User.Domain.Id) == 0 && len(ident.Password.User.Domain.Name) == 0 {
@@ -126,7 +142,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 	} else {
 		// check enable
 		if !usrExt.Enabled {
-			if usrExt.IsLocal && usrExt.LocalFailedAuthCount > o.Options.PasswordErrorLockCount {
+			if usrExt.IsLocal && usrExt.LocalFailedAuthCount > options.Options.PasswordErrorLockCount {
 				// user locked
 				return nil, httperrors.ErrUserLocked
 			}
@@ -175,7 +191,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		return nil, errors.Wrap(err, "driver.GetDriver")
 	}
 
-	usr, err := backend.Authenticate(ctx, ident)
+	usr, err := backend.Authenticate(ctx, *ident)
 	if err != nil {
 		return nil, errors.Wrap(err, "Authenticate")
 	}
