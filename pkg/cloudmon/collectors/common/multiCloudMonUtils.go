@@ -78,7 +78,7 @@ var (
 	SupportMetricBrands = []string{compute.CLOUD_PROVIDER_ALIYUN, compute.CLOUD_PROVIDER_VMWARE, compute.CLOUD_PROVIDER_APSARA,
 		compute.CLOUD_PROVIDER_QCLOUD, compute.CLOUD_PROVIDER_AZURE, compute.CLOUD_PROVIDER_AWS,
 		compute.CLOUD_PROVIDER_HUAWEI, compute.CLOUD_PROVIDER_HCSO, compute.CLOUD_PROVIDER_ZSTACK,
-		compute.CLOUD_PROVIDER_GOOGLE, compute.CLOUD_PROVIDER_ECLOUD, compute.CLOUD_PROVIDER_JDCLOUD}
+		compute.CLOUD_PROVIDER_GOOGLE, compute.CLOUD_PROVIDER_ECLOUD, compute.CLOUD_PROVIDER_JDCLOUD, compute.CLOUD_PROVIDER_BINGO_CLOUD}
 
 	ResMonTypeList = []string{string(SERVER), string(HOST), string(REDIS), string(RDS), string(OSS),
 		string(ELB), string(K8S)}
