@@ -59,7 +59,7 @@ func (ai TAzureInt32) Int32() int32 {
 }
 
 type DiskProperties struct {
-	//TimeCreated       time.Time //??? 序列化出错？
+	TimeCreated       time.Time    `json:"timeCreated,omitempty"`
 	OsType            string       `json:"osType,omitempty"`
 	CreationData      CreationData `json:"creationData,omitempty"`
 	DiskSizeGB        TAzureInt32  `json:"diskSizeGB,omitempty"`
@@ -297,7 +297,7 @@ func (self *SDisk) GetBillingType() string {
 }
 
 func (self *SDisk) GetCreatedAt() time.Time {
-	return time.Time{}
+	return self.Properties.TimeCreated
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
