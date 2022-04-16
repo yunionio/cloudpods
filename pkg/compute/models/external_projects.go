@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -69,7 +70,56 @@ type SExternalProject struct {
 
 	ExternalDomainId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 归属云账号ID
-	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
+	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+}
+
+func (manager *SExternalProjectManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.ExternalProjectCreateInput,
+) (api.ExternalProjectCreateInput, error) {
+	var err error
+	if len(input.CloudaccountId) == 0 {
+		return input, httperrors.NewMissingParameterError("cloudaccount_id")
+	}
+	_account, err := validators.ValidateModel(userCred, CloudaccountManager, &input.CloudaccountId)
+	if err != nil {
+		return input, err
+	}
+	account := _account.(*SCloudaccount)
+	driver, err := account.GetProvider(ctx)
+	if err != nil {
+		return input, err
+	}
+	if utils.IsInStringArray(account.Provider, api.MANGER_EXTERNAL_PROJECT_PROVIDERS) {
+		if len(input.ManagerId) == 0 {
+			return input, httperrors.NewMissingParameterError("manager_id")
+		}
+		_provider, err := validators.ValidateModel(userCred, CloudproviderManager, &input.ManagerId)
+		if err != nil {
+			return input, err
+		}
+		provider := _provider.(*SCloudprovider)
+		driver, err = provider.GetProvider(ctx)
+		if err != nil {
+			return input, err
+		}
+	}
+
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualResourceBaseManager.ValidateCreateData")
+	}
+
+	iProj, err := driver.CreateIProject(input.Name)
+	if err != nil {
+		return input, errors.Wrapf(err, "CreateIProject")
+	}
+	input.ExternalId = iProj.GetGlobalId()
+	input.Status = api.EXTERNAL_PROJECT_STATUS_AVAILABLE
+	return input, nil
 }
 
 func (manager *SExternalProjectManager) FetchCustomizeColumns(
