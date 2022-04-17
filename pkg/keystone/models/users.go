@@ -606,7 +606,7 @@ func (manager *SUserManager) FetchCustomizeColumns(
 			EnabledIdentityBaseResourceDetails: identRows[i],
 		}
 		userIds[i] = objs[i].(*SUser).Id
-		rows[i] = userExtra(objs[i].(*SUser), rows[i])
+		rows[i] = userExtra(ctx, userCred, objs[i].(*SUser), rows[i])
 	}
 
 	idpsMaps, err := fetchIdmappings(userIds, api.IdMappingEntityUser)
@@ -630,7 +630,7 @@ func (manager *SUserManager) FetchCustomizeColumns(
 	return rows
 }
 
-func userExtra(user *SUser, out api.UserDetails) api.UserDetails {
+func userExtra(ctx context.Context, userCred mcclient.TokenCredential, user *SUser, out api.UserDetails) api.UserDetails {
 	out.GroupCount, _ = user.GetGroupCount()
 	out.ProjectCount, _ = user.GetProjectCount()
 	out.CredentialCount, _ = user.GetCredentialCount()
@@ -665,12 +665,13 @@ func userExtra(user *SUser, out api.UserDetails) api.UserDetails {
 	}
 
 	projects, _ := ProjectManager.FetchUserProjects(user.Id)
-	out.Projects = make([]api.SFetchDomainObject, len(projects))
+	out.Projects = make([]api.SFetchDomainObjectWithMetadata, len(projects))
 	for i, proj := range projects {
 		out.Projects[i].Id = proj.Id
 		out.Projects[i].Name = proj.Name
 		out.Projects[i].Domain = proj.DomainName
 		out.Projects[i].DomainId = proj.DomainId
+		out.Projects[i].Metadata, _ = proj.GetAllMetadata(ctx, userCred)
 	}
 
 	return out
