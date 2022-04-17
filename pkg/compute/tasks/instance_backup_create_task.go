@@ -113,6 +113,7 @@ func (self *InstanceBackupCreateTask) OnInstanceBackup(ctx context.Context, ib *
 			return
 		}
 		self.taskFailed(ctx, ib, nil, result, compute.INSTANCE_BACKUP_STATUS_SAVE_FAILED)
+		return
 	}
 	// update size_mb
 	backups, err := ib.GetBackups()

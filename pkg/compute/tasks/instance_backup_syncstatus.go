@@ -48,6 +48,7 @@ func (self *InstanceBackupSyncstatusTask) OnInit(ctx context.Context, obj db.ISt
 	err := rd.RequestSyncInstanceBackupStatus(ctx, self.GetUserCred(), ib, self)
 	if err != nil {
 		self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
+		return
 	}
 	return
 }

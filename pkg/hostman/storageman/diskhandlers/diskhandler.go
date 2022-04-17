@@ -376,28 +376,21 @@ func diskStorageBackupRecovery(ctx context.Context, storage storageman.IStorage,
 }
 
 func diskBackup(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
-	snapshotId, err := body.GetString("snapshot_id")
+	backupInfo := &storageman.SDiskBakcup{}
+	err := body.Unmarshal(backupInfo)
 	if err != nil {
+		return nil, errors.Wrap(err, "JsonUnmarshal")
+	}
+	if len(backupInfo.SnapshotId) == 0 {
 		return nil, httperrors.NewMissingParameterError("snapshot_id")
 	}
-	backupId, err := body.GetString("backup_id")
-	if err != nil {
+	if len(backupInfo.BackupId) == 0 {
 		return nil, httperrors.NewMissingParameterError("backup_id")
 	}
-	backupStorageId, err := body.GetString("backup_storage_id")
-	if err != nil {
+	if len(backupInfo.BackupStorageId) == 0 {
 		return nil, httperrors.NewMissingParameterError("backup_storage_id")
 	}
-	backupStorageAccessInfo, err := body.Get("backup_storage_access_info")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("backup_storage_access_info")
-	}
-	hostutils.DelayTask(ctx, disk.DiskBackup, &storageman.SDiskBakcup{
-		BackupId:                backupId,
-		SnapshotId:              snapshotId,
-		BackupStorageId:         backupStorageId,
-		BackupStorageAccessInfo: backupStorageAccessInfo.(*jsonutils.JSONDict),
-	})
+	hostutils.DelayTask(ctx, disk.DiskBackup, backupInfo)
 	return nil, nil
 }
 
