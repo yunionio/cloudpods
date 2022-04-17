@@ -2572,6 +2572,9 @@ func (manager *SCloudaccountManager) getBrandsOfProvider(provider string) ([]str
 }
 
 func guessBrandForHypervisor(hypervisor string) string {
+	if hypervisor == "" {
+		return api.HYPERVISOR_KVM
+	}
 	driver := GetDriver(hypervisor)
 	if driver == nil {
 		log.Errorf("guestBrandFromHypervisor: fail to find driver for hypervisor %s", hypervisor)

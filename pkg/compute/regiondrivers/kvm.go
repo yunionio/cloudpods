@@ -1444,7 +1444,15 @@ func (self *SKVMRegionDriver) RequestSyncBackupStorageStatus(ctx context.Context
 
 func (self *SKVMRegionDriver) RequestSyncInstanceBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, ib *models.SInstanceBackup, task taskman.ITask) error {
 	originStatus, _ := task.GetParams().GetString("origin_status")
-	if utils.IsInStringArray(originStatus, []string{api.INSTANCE_BACKUP_STATUS_CREATING, api.INSTANCE_BACKUP_STATUS_DELETING, api.INSTANCE_BACKUP_STATUS_RECOVERY, api.INSTANCE_BACKUP_STATUS_PACK, api.INSTANCE_BACKUP_STATUS_CREATING_FROM_PACKAGE, api.INSTANCE_BACKUP_STATUS_SAVING, api.INSTANCE_BACKUP_STATUS_SNAPSHOT}) {
+	if utils.IsInStringArray(originStatus, []string{
+		api.INSTANCE_BACKUP_STATUS_CREATING,
+		api.INSTANCE_BACKUP_STATUS_DELETING,
+		// api.INSTANCE_BACKUP_STATUS_RECOVERY,
+		api.INSTANCE_BACKUP_STATUS_PACK,
+		api.INSTANCE_BACKUP_STATUS_CREATING_FROM_PACKAGE,
+		api.INSTANCE_BACKUP_STATUS_SAVING,
+		api.INSTANCE_BACKUP_STATUS_SNAPSHOT,
+	}) {
 		err := ib.SetStatus(userCred, originStatus, "sync status")
 		if err != nil {
 			return err
