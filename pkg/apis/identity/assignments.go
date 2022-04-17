@@ -37,6 +37,12 @@ type SFetchDomainObject struct {
 	DomainId string `json:"domain_id"`
 }
 
+type SFetchDomainObjectWithMetadata struct {
+	SFetchDomainObject
+
+	Metadata map[string]string `json:"metadata"`
+}
+
 type SRoleAssignment struct {
 	Scope struct {
 		Domain  SIdentityObject           `json:"domain"`

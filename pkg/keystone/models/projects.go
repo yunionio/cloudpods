@@ -439,6 +439,9 @@ func (manager *SProjectManager) FetchUserProjects(userId string) ([]SProjectExte
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "query.All")
 	}
+	for i := range ret {
+		ret[i].SetModelManager(manager, &ret[i])
+	}
 	return ret, nil
 }
 
