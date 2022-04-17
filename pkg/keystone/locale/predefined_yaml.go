@@ -62,8 +62,9 @@ policy:
       '*': deny
   log:
     actions:
-      list: deny
-      get: deny
+      list:
+        '*': allow
+        splitable: deny
 `
 
 var secAdminPolicy = `
