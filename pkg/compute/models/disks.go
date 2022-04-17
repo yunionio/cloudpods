@@ -667,7 +667,8 @@ func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IM
 		log.Errorf("!!!data.Unmarshal api.DiskCreateInput fail %s", err)
 	}
 	pendingUsage := getDiskResourceRequirements(ctx, userCred, ownerId, input, len(items))
-	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, SRegionQuota{}, "DiskBatchCreateTask", "")
+	parentTaskId, _ := data.GetString("parent_task_id")
+	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, SRegionQuota{}, "DiskBatchCreateTask", parentTaskId)
 }
 
 func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.TokenCredential, rebuild bool, snapshot string, parentTaskId string) error {

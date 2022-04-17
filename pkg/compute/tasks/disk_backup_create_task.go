@@ -79,6 +79,7 @@ func (self *DiskBackupCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 	snapshot, err := self.CreateSnapshot(ctx, backup)
 	if err != nil {
 		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()), api.BACKUP_STATUS_SNAPSHOT_FAILED)
+		return
 	}
 	params := jsonutils.NewDict()
 	params.Set("snapshot_id", jsonutils.NewString(snapshot.GetId()))
@@ -86,6 +87,7 @@ func (self *DiskBackupCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 	err = snapshot.StartSnapshotCreateTask(ctx, self.UserCred, nil, self.GetId())
 	if err != nil {
 		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()), api.BACKUP_STATUS_SNAPSHOT_FAILED)
+		return
 	}
 }
 
@@ -107,6 +109,7 @@ func (self *DiskBackupCreateTask) OnSnapshot(ctx context.Context, backup *models
 	}
 	if err := rd.RequestCreateBackup(ctx, backup, snapshotId, self); err != nil {
 		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()), api.BACKUP_STATUS_SAVE_FAILED)
+		return
 	}
 }
 

@@ -342,6 +342,9 @@ func (self *SInstanceBackup) ToInstanceCreateInput(sourceInput *api.ServerCreate
 	if sourceInput.VcpuCount == 0 {
 		sourceInput.VcpuCount = createInput.VcpuCount
 	}
+	if len(sourceInput.OsArch) == 0 {
+		sourceInput.OsArch = createInput.OsArch
+	}
 	if len(self.KeypairId) > 0 {
 		sourceInput.KeypairId = self.KeypairId
 	}
@@ -448,9 +451,8 @@ func (self *SInstanceBackup) PerformRecovery(ctx context.Context, userCred mccli
 
 func (self *SInstanceBackup) StartRecoveryTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, serverName string) error {
 	self.SetStatus(userCred, api.INSTANCE_BACKUP_STATUS_RECOVERY, "")
-	var params *jsonutils.JSONDict
+	params := jsonutils.NewDict()
 	if serverName != "" {
-		params = jsonutils.NewDict()
 		params.Set("server_name", jsonutils.NewString(serverName))
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "InstanceBackupRecoveryTask", self, userCred, params, parentTaskId, "", nil)
