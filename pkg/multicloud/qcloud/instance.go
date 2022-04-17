@@ -577,7 +577,10 @@ func (self *SRegion) CreateInstance(name, hostname string, imageId string, insta
 		return "", errors.Wrapf(err, "GetBandwidthPackages")
 	}
 	if len(pkgs) > 0 {
-		bandwidth = 65535 // unlimited bandwidth
+		bandwidth = 65535   // unlimited bandwidth
+		if publicIpBw > 0 { // 若用户指定带宽则限制带宽大小
+			bandwidth = publicIpBw
+		}
 		internetChargeType = "BANDWIDTH_PACKAGE"
 		pkgId := pkgs[0].BandwidthPackageId
 		for _, pkg := range pkgs {
