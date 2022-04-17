@@ -24,11 +24,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -57,20 +55,26 @@ func (self *InstanceBackupRecoveryTask) taskSuccess(ctx context.Context, ib *mod
 
 func (self *InstanceBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	ib := obj.(*models.SInstanceBackup)
+
+	sourceInput := compute.ServerCreateInput{}
+
 	serverName, _ := self.Params.GetString("server_name")
 	if serverName == "" {
 		serverName, _ = ib.ServerConfig.GetString("name")
 	}
-	projectId, _ := ib.ServerConfig.GetString("project_id")
+	sourceInput.GenerateName = serverName
+	sourceInput.Description = fmt.Sprintf("recovered from instance backup %s", ib.GetName())
+	sourceInput.InstanceBackupId = ib.GetId()
+
+	// PANIC ?????
+	// sourceInput.Hypervisor = compute.HYPERVISOR_KVM
+
+	ownerId := ib.GetOwnerId()
+
+	projectId, _ := self.Params.GetString("project_id")
 	if projectId == "" {
 		projectId, _ = ib.ServerConfig.GetString("tenant_id")
 	}
-	sourceInput := &compute.ServerCreateInput{}
-	sourceInput.ServerConfigs = &compute.ServerConfigs{}
-	sourceInput.GenerateName = serverName
-	sourceInput.Description = fmt.Sprintf("recovery from instance backup %s", ib.GetName())
-	sourceInput.InstanceBackupId = ib.GetId()
-	sourceInput.Hypervisor = compute.HYPERVISOR_KVM
 	if projectId != "" {
 		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectId)
 		if err != nil && errors.Cause(err) != sql.ErrNoRows {
@@ -78,22 +82,31 @@ func (self *InstanceBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStan
 			return
 		}
 		if tenant != nil {
-			sourceInput.ProjectId = projectId
+			sourceInput.ProjectId = tenant.Id
+			sourceInput.ProjectDomainId = tenant.DomainId
+			ownerId = &db.SOwnerId{DomainId: tenant.DomainId, ProjectId: tenant.Id}
 		}
 	}
-	taskHeader := self.GetTaskRequestHeader()
-	session := auth.GetSession(ctx, self.UserCred, "", "")
-	session.Header.Set(mcclient.TASK_NOTIFY_URL, taskHeader.Get(mcclient.TASK_NOTIFY_URL))
-	session.Header.Set(mcclient.TASK_ID, taskHeader.Get(mcclient.TASK_ID))
-	serverData, err := compute_modules.Servers.Create(session, jsonutils.Marshal(sourceInput))
+
+	params := sourceInput.JSON(sourceInput)
+	guestObj, err := db.DoCreate(models.GuestManager, ctx, self.UserCred, nil, params, ownerId)
 	if err != nil {
 		self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
 		return
 	}
-	guestId, _ := serverData.GetString("id")
-	params := jsonutils.NewDict()
-	params.Set("guest_id", jsonutils.NewString(guestId))
+	guest := guestObj.(*models.SGuest)
+
+	func() {
+		lockman.LockObject(ctx, guest)
+		defer lockman.ReleaseObject(ctx, guest)
+
+		guest.PostCreate(ctx, self.UserCred, ownerId, nil, params)
+	}()
+
+	params.Set("guest_id", jsonutils.NewString(guest.Id))
 	self.SetStage("OnCreateGuest", params)
+	params.Set("parent_task_id", jsonutils.NewString(self.GetTaskId()))
+	models.GuestManager.OnCreateComplete(ctx, []db.IModel{guest}, self.UserCred, ownerId, nil, params)
 }
 
 func (self *InstanceBackupRecoveryTask) OnCreateGuest(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
