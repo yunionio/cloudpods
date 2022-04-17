@@ -39,5 +39,5 @@ type UserDetails struct {
 
 	ExternalResourceInfo
 
-	Projects []SFetchDomainObject `json:"projects"`
+	Projects []SFetchDomainObjectWithMetadata `json:"projects"`
 }
