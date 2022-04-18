@@ -1,1 +1,6 @@
+{{- $d := .resource_details -}}
+{{- if eq .resource_type "cloudpods_component" }}
+{{ $d.title }}
+{{- else -}}
 The checksum of {{ .resource_type_display }} test failed
+{{- end -}}

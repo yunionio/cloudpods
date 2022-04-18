@@ -3,7 +3,7 @@
 The record {{ $d.name }} in table {{ $d.table_name }} of the database {{ $d.db_name }} has been modified because the checksum test failed.
 {{- end -}}
 {{- if eq .resource_type "cloudpods_component" }}
-The checksum of cloudpods component {{ $d.name }} test failed.
+{{ $d.details }}
 {{- end -}}
 {{- if eq .resource_type "snapshot" }}
 The checksum of the memory snapshot of the snapshot {{ $d.name }} test failed.
