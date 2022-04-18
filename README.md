@@ -71,7 +71,26 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
       <p>Image template list</p>
       <img src="https://imgur.com/UVFLGi2.png">
     </li>
-    <li>SDN supported: VPC, EIP, LB etc.</li>
+    <li>
+      <p>VPC list</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vpclist.png">
+    </li>
+    <li>
+      <p>Wire list (Classic Network)</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/wirelist.png">
+    </li>
+    <li>
+      <p>IPsubnet list</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/ipsubnetlist.png">
+    </li> 
+    <li>
+      <p>Eip list (VPC Network)</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vpclist.png">
+    </li>
+    <li>
+      <p>LB list</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/lblist.png">
+    </li>   
   </ul>
 </details>
 
@@ -102,18 +121,17 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   </summary>
   <ul>
     <li>
-      <p>LDAP, SAML, OIDC, OAuth2 and others supported</p>
-      <img src="https://imgur.com/YZHegPT.png">
+      <p>sql, LDAP supported</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/idplist.png">
     </li>
     <li>
-      <p>Multi-tenancy system</p>
-      <img src="https://imgur.com/2myNFbh.png">
-      <img src="https://imgur.com/1b2dtlG.png">
-      <img src="https://imgur.com/sgcqAld.png">
-      <img src="https://imgur.com/0Y40Tl6.png">
-      <img src="https://imgur.com/5kNooOt.png">
-      <img src="https://imgur.com/qlKxPzb.png">
-    </li>
+      <p>Multi-tenancy system, include domain, project, group, user, role, policy</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/domainlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/projectlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/grouplist.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/userlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/rolelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/policylist.png">
   </ul>
 </details>
 
@@ -121,6 +139,29 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   <summary>
   VMware vSphere management that enables self-service and automation
   </summary>
+  <ul>
+    <li>
+      <p>Add VMware account</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmware.png">
+    </li>
+    <li>
+      <p>VMware account list</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwarelist.png">
+    </li>
+    <li>
+      <p>Automatic creation of wire</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwarewirelist.png">
+    </li>
+    <li>
+      <p>Automatic creation of ipsubnet</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwareipsubnetlist.png">
+    </li>
+    <li>
+      <p>Create a VMware VM instance</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmwarevm1.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmwarevm2.png">
+    </li>
+  </ul>
 </details>
 
 
@@ -128,6 +169,27 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   <summary>
   Cloud SSO that allows accessing native webconsole of cloud providers with unified federated identities
   </summary>
+  <ul>
+    <li>
+      <p>Enable the SSO login function of the cloud account (aliyun as an example)</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/enablecloudsso.png">
+    </li>
+    <li>
+      <p>create saml users</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/addsamluser.png">
+    </li>
+    <li>
+      <p>Cloud SSO entry</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudssoentry.png">
+    </li>
+    <li>
+      <p>Cloud SSO - SSO login user</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudsamluser.png">
+    </li>
+    <li>
+      <p>Sign in to the public cloud platform with SSO</p>
+    </li>
+  </ul>
 </details>
 
 <details>

@@ -67,7 +67,26 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
       <p>镜像模板列表</p>
       <img src="https://imgur.com/UVFLGi2.png">
     </li>
-    <li>SDN 网络功能支持，包括 VPC, EIP, LB 等</li>
+    <li>
+      <p>VPC列表</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vpclist.png">
+    </li>
+    <li>
+      <p>二层网络列表（经典网络）</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/wirelist.png">
+    </li>
+    <li>
+      <p>IP子网列表</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/ipsubnetlist.png">
+    </li> 
+    <li>
+      <p>弹性公网IP列表（VPC网络）</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vpclist.png">
+    </li>
+    <li>
+      <p>LB列表</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/lblist.png">
+    </li>
   </ul>
 </details>
 
@@ -96,17 +115,17 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   <summary>一套完整的多租户认证和访问控制体系</summary>
   <ul>
     <li>
-      <p>LDAP, SAML, OIDC, OAuth2 等认证源支持</p>
-      <img src="https://imgur.com/YZHegPT.png">
+      <p>支持本地sql、LDAP 等认证源</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/idplist.png">
     </li>
     <li>
       <p>多租户系统，包括域，项目，组，用户，角色和权限等</p>
-      <img src="https://imgur.com/2myNFbh.png">
-      <img src="https://imgur.com/1b2dtlG.png">
-      <img src="https://imgur.com/sgcqAld.png">
-      <img src="https://imgur.com/0Y40Tl6.png">
-      <img src="https://imgur.com/5kNooOt.png">
-      <img src="https://imgur.com/qlKxPzb.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/domainlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/projectlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/grouplist.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/userlist.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/rolelist.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/policylist.png">
     </li>
   </ul>
 </details>
@@ -115,6 +134,29 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   <summary>
   实现了VMware vSphere虚拟化集群的自助服务和自动化
   </summary>
+  <ul>
+    <li>
+      <p>添加VMware云账号</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmware.png">
+    </li>
+    <li>
+      <p>VMware云账号列表</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwarelist.png">
+    </li>
+    <li>
+      <p>自动创建二层网络</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwarewirelist.png">
+    </li>
+    <li>
+      <p>自动创建IP子网</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/vmwareipsubnetlist.png">
+    </li>
+    <li>
+      <p>新建VMware虚拟机</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmwarevm1.png">
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/createvmwarevm2.png">
+    </li>
+  </ul>
 </details>
 
 
@@ -122,6 +164,27 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   <summary>
   允许以统一的联邦身份访问各个云平台的原生控制台的SSO
   </summary>
+  <ul>
+    <li>
+      <p>为云账号开启免密登录（以阿里云为例）</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/enablecloudsso.png">
+    </li>
+    <li>
+      <p>将Cloudpods平台用户添加为免密登录用户</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/addsamluser.png">
+    </li>
+    <li>
+      <p>多云统一登录入口</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudssoentry.png">
+    </li>
+    <li>
+      <p>多云统一登录-免密登录用户列表</p>
+      <img src="https://www.cloudpods.org/zh/docs/introduce/ui/images/cloudsamluser.png">
+    </li>
+    <li>
+      <p>Cloudpods平台用户免密登录阿里云</p>
+    </li>
+  </ul>
 </details>
 
 <details>
@@ -136,11 +199,6 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   </summary>
 </details>
 
-<details>
-  <summary>
-  自动将镜像转换为不同云平台需要的格式的多云镜像服务
-  </summary>
-</details>
 
 ### 支持的云平台
 
@@ -152,8 +210,8 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   * 华为云
   * 腾讯云
   * UCloud
-  * 中国电信云
-  * 中国移动云
+  * 天翼云
+  * 移动云
   * 京东云
 * 私有云:
   * OpenStack
