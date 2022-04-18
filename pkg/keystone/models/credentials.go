@@ -339,3 +339,27 @@ func (manager *SCredentialManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 
 	return q, httperrors.ErrNotFound
 }
+
+func (manager *SCredentialManager) FetchCredentials(uid string, credType string) ([]SCredential, error) {
+	q := manager.Query().Equals("user_id", uid).Equals("type", credType)
+	ret := make([]SCredential, 0)
+	err := db.FetchModelObjects(manager, q, &ret)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return ret, nil
+}
+
+func (manager *SCredentialManager) DeleteAll(ctx context.Context, userCred mcclient.TokenCredential, uid string, credType string) error {
+	creds, err := manager.FetchCredentials(uid, credType)
+	if err != nil {
+		return errors.Wrap(err, "FetchCredentials")
+	}
+	for i := range creds {
+		err := creds[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "Delete")
+		}
+	}
+	return nil
+}
