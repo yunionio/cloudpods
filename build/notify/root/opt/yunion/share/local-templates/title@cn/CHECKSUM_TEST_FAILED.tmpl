@@ -1,1 +1,6 @@
+{{- $d := .resource_details -}}
+{{- if eq .resource_type "cloudpods_component" }}
+{{ $d.title }}
+{{- else -}}
 {{ .resource_type_display }}完整性校验失败
+{{- end -}}
