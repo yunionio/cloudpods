@@ -24,10 +24,12 @@ import (
 	"yunion.io/x/log"
 
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
 type K8sEnv struct {
+	Session    *mcclient.ClientSession
 	Cluster    string
 	Namespace  string
 	Pod        string
@@ -41,12 +43,12 @@ type Kubectl struct {
 	kubeconfig string
 }
 
-func NewKubectlCommand(kubeconfig, namespace string) *Kubectl {
+func NewKubectlCommand(s *mcclient.ClientSession, kubeconfig, namespace string) *Kubectl {
 	name := o.Options.KubectlPath
 	if len(namespace) == 0 {
 		namespace = "default"
 	}
-	cmd := NewBaseCommand(name, "--namespace", namespace)
+	cmd := NewBaseCommand(s, name, "--namespace", namespace)
 	return &Kubectl{
 		BaseCommand: cmd,
 		kubeconfig:  kubeconfig,
@@ -132,7 +134,7 @@ func NewPodBashCommand(env *K8sEnv) ICommand {
 		shellRequest.Command = "env"
 	}
 
-	return NewKubectlCommand(env.Kubeconfig, env.Namespace).Exec().
+	return NewKubectlCommand(env.Session, env.Kubeconfig, env.Namespace).Exec().
 		Stdin().
 		TTY().
 		Pod(env.Pod).
@@ -189,7 +191,7 @@ func (c *KubectlLog) Since(data jsonutils.JSONObject) *KubectlLog {
 }
 
 func NewPodLogCommand(env *K8sEnv) ICommand {
-	return NewKubectlCommand(env.Kubeconfig, env.Namespace).Logs().
+	return NewKubectlCommand(env.Session, env.Kubeconfig, env.Namespace).Logs().
 		Follow().
 		Pod(env.Pod).
 		Since(env.Data).
