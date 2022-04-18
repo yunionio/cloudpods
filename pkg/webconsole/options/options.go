@@ -23,6 +23,8 @@ var (
 type WebConsoleOptions struct {
 	common_options.CommonOptions
 
+	common_options.DBOptions
+
 	//ApiServer       string `help:"API server url to handle websocket connection, usually with public access" default:"http://webconsole.yunion.io"`
 
 	KubectlPath       string `help:"kubectl binary path used to connect k8s cluster" default:"/usr/bin/kubectl"`
@@ -40,6 +42,10 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 
 	changed := false
 	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+
+	if common_options.OnDBOptionsChange(&oldOpts.DBOptions, &newOpts.DBOptions) {
 		changed = true
 	}
 

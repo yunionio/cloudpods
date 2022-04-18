@@ -31,6 +31,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/webconsole/command"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
+	"yunion.io/x/onecloud/pkg/webconsole/recorder"
 )
 
 var (
@@ -124,6 +125,7 @@ type SSession struct {
 	AccessToken   string
 	AccessedAt    time.Time
 	duplicateHook func()
+	recorder      recorder.Recoder
 }
 
 func (s SSession) GetConnectParams(params url.Values) (string, error) {
@@ -164,4 +166,12 @@ func (s *SSession) Close() error {
 
 func (s *SSession) RegisterDuplicateHook(f func()) {
 	s.duplicateHook = f
+}
+
+func (s *SSession) GetRecorder() recorder.Recoder {
+	if s.recorder == nil {
+		s.recorder = recorder.NewCmdRecorder(s.GetClientSession(), s.GetRecordObject(), s.GetId(), s.AccessedAt)
+		go s.recorder.Start()
+	}
+	return s.recorder
 }
