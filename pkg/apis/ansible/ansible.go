@@ -31,10 +31,12 @@ type AnsiblePlaybookCreateInput struct {
 type AnsiblePlaybookUpdateInput AnsiblePlaybookCreateInput
 
 type AnsibleHost struct {
-	User string `json:"user"`
-	IP   string `json:"ip"`
-	Port int    `json:"port"`
-	Name string `json:"name"`
+	User     string `json:"user"`
+	IP       string `json:"ip"`
+	Port     int    `json:"port"`
+	Name     string `json:"name"`
+	Password string `json:"password"`
+	OsType   string `json:"os_type"`
 }
 
 type AnsiblePlaybookReferenceCreateInput struct {

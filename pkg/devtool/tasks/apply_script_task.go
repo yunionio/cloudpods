@@ -123,10 +123,12 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	}
 
 	host := ansible_api.AnsibleHost{
-		User: sshable.User,
-		IP:   sshable.Host,
-		Port: sshable.Port,
-		Name: sshable.ServerName,
+		User:     sshable.User,
+		IP:       sshable.Host,
+		Port:     sshable.Port,
+		Name:     sshable.ServerName,
+		Password: sshable.Password,
+		OsType:   sshable.OsType,
 	}
 
 	// genrate args
