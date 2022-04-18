@@ -17,6 +17,7 @@ package huawei
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -242,21 +243,13 @@ func (self *SElbBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloud
 }
 
 func (self *SElbBackendGroup) GetILoadbalancerBackendById(serverId string) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	m := self.lb.region.ecsClient.ElbBackend
-	err := m.SetBackendGroupId(self.GetId())
+	backend, err := self.region.GetElbBackend(self.GetId(), serverId)
 	if err != nil {
 		return nil, err
 	}
-
-	backend := SElbBackend{}
-	err = DoGet(m.Get, serverId, nil, &backend)
-	if err != nil {
-		return nil, err
-	}
-
 	backend.lb = self.lb
 	backend.backendGroup = self
-	return &backend, nil
+	return backend, nil
 }
 
 func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
@@ -291,7 +284,7 @@ func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port
 
 	backend.lb = self.lb
 	backend.backendGroup = self
-	return &backend, nil
+	return backend, nil
 }
 
 func (self *SElbBackendGroup) RemoveBackendServer(backendId string, weight int, port int) error {
@@ -353,59 +346,60 @@ func (self *SElbBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLo
 	return err
 }
 
-func (self *SRegion) GetLoadBalancerBackendGroupId(backendGroupId string) (SElbBackendGroup, error) {
-	ret := SElbBackendGroup{}
-	err := DoGet(self.ecsClient.ElbBackendGroup.Get, backendGroupId, nil, &ret)
+func (self *SRegion) GetLoadBalancerBackendGroupId(backendGroupId string) (*SElbBackendGroup, error) {
+	ret := &SElbBackendGroup{region: self}
+	res := fmt.Sprintf("elb/pools/" + backendGroupId)
+	resp, err := self.lbGet(res)
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
-
-	ret.region = self
-	return ret, nil
+	return ret, resp.Unmarshal(ret, "pool")
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561550.html
-func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupID string, group *cloudprovider.SLoadbalancerBackendGroup) (SElbBackendGroup, error) {
-	params := jsonutils.NewDict()
-	poolObj := jsonutils.NewDict()
-	poolObj.Set("name", jsonutils.NewString(group.Name))
+func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupID string, group *cloudprovider.SLoadbalancerBackendGroup) (*SElbBackendGroup, error) {
+	params := map[string]interface{}{
+		"name": group.Name,
+	}
 	var scheduler string
 	if s, ok := LB_ALGORITHM_MAP[group.Scheduler]; !ok {
-		return SElbBackendGroup{}, fmt.Errorf("UpdateLoadBalancerBackendGroup unsupported scheduler %s", group.Scheduler)
+		return nil, fmt.Errorf("UpdateLoadBalancerBackendGroup unsupported scheduler %s", group.Scheduler)
 	} else {
 		scheduler = s
 	}
-	poolObj.Set("lb_algorithm", jsonutils.NewString(scheduler))
+	params["lb_algorithm"] = scheduler
 
 	if group.StickySession == nil || group.StickySession.StickySession == api.LB_BOOL_OFF {
-		poolObj.Set("session_persistence", jsonutils.JSONNull)
+		params["session_persistence"] = jsonutils.JSONNull
 	} else {
-		s := jsonutils.NewDict()
+		s := map[string]interface{}{}
 		timeout := int64(group.StickySession.StickySessionCookieTimeout / 60)
 		if group.ListenType == api.LB_LISTENER_TYPE_UDP || group.ListenType == api.LB_LISTENER_TYPE_TCP {
-			s.Set("type", jsonutils.NewString("SOURCE_IP"))
+			s["type"] = "SOURCE_IP"
 			if timeout > 0 {
-				s.Set("persistence_timeout", jsonutils.NewInt(timeout))
+				s["persistence_timeout"] = timeout
 			}
 		} else {
-			s.Set("type", jsonutils.NewString(LB_STICKY_SESSION_MAP[group.StickySession.StickySessionType]))
+			s["type"] = LB_STICKY_SESSION_MAP[group.StickySession.StickySessionType]
 			if len(group.StickySession.StickySessionCookie) > 0 {
-				s.Set("cookie_name", jsonutils.NewString(group.StickySession.StickySessionCookie))
+				s["cookie_name"] = group.StickySession.StickySessionCookie
 			} else {
 				if timeout > 0 {
-					s.Set("persistence_timeout", jsonutils.NewInt(timeout))
+					s["persistence_timeout"] = timeout
 				}
 			}
 		}
-
-		poolObj.Set("session_persistence", s)
+		params["session_persistence"] = s
 	}
-	params.Set("pool", poolObj)
-
-	ret := SElbBackendGroup{}
-	err := DoUpdate(self.ecsClient.ElbBackendGroup.Update, backendGroupID, params, &ret)
+	resp, err := self.lbUpdate("elb/pools/"+backendGroupID, map[string]interface{}{"pool": params})
 	if err != nil {
-		return ret, errors.Wrap(err, "ElbBackendGroup.Update")
+		return nil, err
+	}
+
+	ret := &SElbBackendGroup{}
+	err = resp.Unmarshal(ret, "pool")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
 
 	if group.HealthCheck == nil && len(ret.HealthMonitorID) > 0 {
@@ -434,64 +428,40 @@ func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupID string, group
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561551.html
-func (self *SRegion) DeleteLoadBalancerBackendGroup(backendGroupID string) error {
-	return DoDelete(self.ecsClient.ElbBackendGroup.Delete, backendGroupID, nil, nil)
+func (self *SRegion) DeleteLoadBalancerBackendGroup(id string) error {
+	_, err := self.lbDelete("elb/pools/" + id)
+	return err
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561556.html
-func (self *SRegion) AddLoadBalancerBackend(backendGroupId, subnetId, ipaddr string, port, weight int) (SElbBackend, error) {
-	backend := SElbBackend{}
-	params := jsonutils.NewDict()
-	memberObj := jsonutils.NewDict()
-	memberObj.Set("address", jsonutils.NewString(ipaddr))
-	memberObj.Set("protocol_port", jsonutils.NewInt(int64(port)))
-	memberObj.Set("subnet_id", jsonutils.NewString(subnetId))
-	memberObj.Set("weight", jsonutils.NewInt(int64(weight)))
-	params.Set("member", memberObj)
-
-	m := self.ecsClient.ElbBackend
-	err := m.SetBackendGroupId(backendGroupId)
-	if err != nil {
-		return backend, err
+func (self *SRegion) AddLoadBalancerBackend(backendGroupId, subnetId, ipaddr string, port, weight int) (*SElbBackend, error) {
+	params := map[string]interface{}{
+		"address":       ipaddr,
+		"protocol_port": port,
+		"subnet_id":     subnetId,
+		"weight":        weight,
 	}
-
-	err = DoCreate(m.Create, params, &backend)
+	ret := &SElbBackend{}
+	resp, err := self.lbCreate(fmt.Sprintf("elb/pools/%s/members", backendGroupId), map[string]interface{}{"member": params})
 	if err != nil {
-		return backend, err
+		return nil, err
 	}
-
-	return backend, nil
+	return ret, resp.Unmarshal(ret, "member")
 }
 
 func (self *SRegion) RemoveLoadBalancerBackend(lbbgId string, backendId string) error {
-	m := self.ecsClient.ElbBackend
-	err := m.SetBackendGroupId(lbbgId)
-	if err != nil {
-		return err
-	}
-
-	return DoDelete(m.Delete, backendId, nil, nil)
+	_, err := self.lbDelete(fmt.Sprintf("elb/pools/%s/members/%s", lbbgId, backendId))
+	return err
 }
 
 func (self *SRegion) getLoadBalancerBackends(backendGroupId string) ([]SElbBackend, error) {
-	m := self.ecsClient.ElbBackend
-	err := m.SetBackendGroupId(backendGroupId)
+	res := fmt.Sprintf("elb/pools/%s/members", backendGroupId)
+	resp, err := self.lbList(res, url.Values{})
 	if err != nil {
 		return nil, err
 	}
-
 	ret := []SElbBackend{}
-	err = doListAll(m.List, nil, &ret)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range ret {
-		backend := ret[i]
-		backend.region = self
-	}
-
-	return ret, nil
+	return ret, resp.Unmarshal(&ret, "members")
 }
 
 func (self *SRegion) GetLoadBalancerBackends(backendGroupId string) ([]SElbBackend, error) {
@@ -529,13 +499,11 @@ func (self *SRegion) getLoadBalancerAdminStateDownBackends(backendGroupId string
 	return filtedRet, nil
 }
 
-func (self *SRegion) GetLoadBalancerHealthCheck(healthCheckId string) (SElbHealthCheck, error) {
-	ret := SElbHealthCheck{}
-	err := DoGet(self.ecsClient.ElbHealthCheck.Get, healthCheckId, nil, &ret)
+func (self *SRegion) GetLoadBalancerHealthCheck(healthCheckId string) (*SElbHealthCheck, error) {
+	resp, err := self.lbGet("elb/healthmonitors/" + healthCheckId)
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
-
-	ret.region = self
-	return ret, nil
+	ret := &SElbHealthCheck{region: self}
+	return ret, resp.Unmarshal(ret, "healthmonitor")
 }

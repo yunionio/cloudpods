@@ -16,6 +16,8 @@ package huawei
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -392,20 +394,16 @@ func (self *SElbListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SL
 	l7policy.region = self.lb.region
 	l7policy.lb = self.lb
 	l7policy.listener = self
-	return &l7policy, nil
+	return l7policy, nil
 }
 
 func (self *SElbListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
-	ret := &SElbListenerPolicy{}
-	err := DoGet(self.lb.region.ecsClient.ElbL7policies.Get, ruleId, nil, ret)
+	ret := &SElbListenerPolicy{region: self.lb.region, lb: self.lb, listener: self}
+	resp, err := self.lb.region.lbGet("elb/l7policies/" + ruleId)
 	if err != nil {
 		return nil, err
 	}
-
-	ret.region = self.lb.region
-	ret.lb = self.lb
-	ret.listener = self
-	return ret, nil
+	return ret, resp.Unmarshal(ret, "l7policy")
 }
 
 func (self *SElbListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
@@ -556,133 +554,103 @@ func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoa
 }
 
 func (self *SElbListener) Delete(ctx context.Context) error {
-	err := DoDelete(self.lb.region.ecsClient.ElbListeners.Delete, self.GetId(), nil, nil)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	_, err := self.lb.region.lbDelete("elb/listeners/" + self.GetId())
+	return err
 }
 
 func (self *SRegion) UpdateLoadBalancerListener(listenerId string, listener *cloudprovider.SLoadbalancerListener) error {
-	params := jsonutils.NewDict()
-	listenerObj := jsonutils.NewDict()
-	listenerObj.Set("name", jsonutils.NewString(listener.Name))
-	listenerObj.Set("description", jsonutils.NewString(listener.Description))
-	listenerObj.Set("http2_enable", jsonutils.NewBool(listener.EnableHTTP2))
+	params := map[string]interface{}{
+		"name":            listener.Name,
+		"description":     listener.Description,
+		"http2_enable":    listener.EnableHTTP2,
+		"default_pool_id": jsonutils.JSONNull,
+	}
 	if len(listener.BackendGroupID) > 0 {
-		listenerObj.Set("default_pool_id", jsonutils.NewString(listener.BackendGroupID))
-	} else {
-		listenerObj.Set("default_pool_id", jsonutils.JSONNull)
+		params["default_pool_id"] = listener.BackendGroupID
 	}
 
 	if listener.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
-		listenerObj.Set("default_tls_container_ref", jsonutils.NewString(listener.CertificateID))
+		params["default_tls_container_ref"] = listener.CertificateID
 	}
 
 	if listener.XForwardedFor {
-		insertObj := jsonutils.NewDict()
-		insertObj.Set("X-Forwarded-ELB-IP", jsonutils.NewBool(listener.XForwardedFor))
-		listenerObj.Set("insert_headers", insertObj)
+		params["insert_headers"] = map[string]interface{}{
+			"X-Forwarded-ELB-IP": listener.XForwardedFor,
+		}
 	}
-
-	params.Set("listener", listenerObj)
-	err := DoUpdate(self.ecsClient.ElbListeners.Update, listenerId, params, nil)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err := self.lbUpdate("elb/listeners/"+listenerId, map[string]interface{}{"listener": params})
+	return err
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0136295315.html
 func (self *SRegion) GetLoadBalancerPolicies(listenerId string) ([]SElbListenerPolicy, error) {
-	params := map[string]string{}
+	query := url.Values{}
 	if len(listenerId) > 0 {
-		params["listener_id"] = listenerId
+		query.Set("listener_id", listenerId)
 	}
 
-	ret := []SElbListenerPolicy{}
-	err := doListAll(self.ecsClient.ElbL7policies.List, params, &ret)
+	resp, err := self.lbList("elb/l7policies", query)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range ret {
-		ret[i].region = self
-	}
-
-	return ret, nil
+	ret := []SElbListenerPolicy{}
+	return ret, resp.Unmarshal(&ret, "l7policies")
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0116649234.html
 func (self *SRegion) GetLoadBalancerPolicyRules(policyId string) ([]SElbListenerPolicyRule, error) {
-	m := self.ecsClient.ElbPolicies
-	err := m.SetL7policyId(policyId)
+	resp, err := self.lbList(fmt.Sprintf("elb/l7policies/%s/rules", policyId), url.Values{})
 	if err != nil {
 		return nil, err
 	}
 
 	ret := []SElbListenerPolicyRule{}
-	err = doListAll(m.List, nil, &ret)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range ret {
-		ret[i].region = self
-	}
-
-	return ret, nil
+	return ret, resp.Unmarshal(&ret, "rules")
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0136295317.html
-func (self *SRegion) CreateLoadBalancerPolicy(listenerID string, rule *cloudprovider.SLoadbalancerListenerRule) (
-	SElbListenerPolicy, error) {
-	l7policy := SElbListenerPolicy{}
-	params := jsonutils.NewDict()
-	policyObj := jsonutils.NewDict()
-	policyObj.Set("name", jsonutils.NewString(rule.Name))
-	policyObj.Set("listener_id", jsonutils.NewString(listenerID))
-	// todo: REDIRECT_TO_LISTENER?
-	policyObj.Set("action", jsonutils.NewString("REDIRECT_TO_POOL"))
-	policyObj.Set("redirect_pool_id", jsonutils.NewString(rule.BackendGroupID))
-	params.Set("l7policy", policyObj)
-
-	err := DoCreate(self.ecsClient.ElbL7policies.Create, params, &l7policy)
-	if err != nil {
-		return l7policy, err
+func (self *SRegion) CreateLoadBalancerPolicy(listenerID string, rule *cloudprovider.SLoadbalancerListenerRule) (*SElbListenerPolicy, error) {
+	ret := &SElbListenerPolicy{}
+	params := map[string]interface{}{
+		"name":             rule.Name,
+		"listener_id":      listenerID,
+		"action":           "REDIRECT_TO_POOL",
+		"redirect_pool_id": rule.BackendGroupID,
 	}
-
-	m := self.ecsClient.ElbPolicies
-	m.SetL7policyId(l7policy.GetId())
+	resp, err := self.lbCreate("elb/l7policies", map[string]interface{}{"l7policy": params})
+	if err != nil {
+		return nil, err
+	}
+	err = resp.Unmarshal(ret, "l7policy")
+	if err != nil {
+		return nil, err
+	}
 	if len(rule.Domain) > 0 {
-		p := jsonutils.NewDict()
-		p.Set("type", jsonutils.NewString("HOST_NAME"))
-		p.Set("value", jsonutils.NewString(rule.Domain))
-		// todo: support more compare_type
-		p.Set("compare_type", jsonutils.NewString("EQUAL_TO"))
-		rule := jsonutils.NewDict()
-		rule.Set("rule", p)
-		err := DoCreate(m.Create, rule, nil)
+		params := map[string]interface{}{
+			"type":         "HOST_NAME",
+			"value":        rule.Domain,
+			"compare_type": "EQUAL_TO",
+		}
+		_, err := self.lbCreate(fmt.Sprintf("elb/l7policies/%s/rules", ret.GetId()), map[string]interface{}{"rule": params})
 		if err != nil {
-			return l7policy, err
+			return ret, err
 		}
 	}
 
 	if len(rule.Path) > 0 {
-		p := jsonutils.NewDict()
-		p.Set("type", jsonutils.NewString("PATH"))
-		p.Set("value", jsonutils.NewString(rule.Path))
-		p.Set("compare_type", jsonutils.NewString("EQUAL_TO"))
-		rule := jsonutils.NewDict()
-		rule.Set("rule", p)
-		err := DoCreate(m.Create, rule, nil)
+		params := map[string]interface{}{
+			"type":         "PATH",
+			"value":        rule.Path,
+			"compare_type": "EQUAL_TO",
+		}
+		_, err := self.lbCreate(fmt.Sprintf("elb/l7policies/%s/rules", ret.GetId()), map[string]interface{}{"rule": params})
 		if err != nil {
-			return l7policy, err
+			return ret, err
 		}
 	}
 
-	return l7policy, nil
+	return ret, nil
 }
 
 func (self *SElbListener) GetClientIdleTimeout() int {

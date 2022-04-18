@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -61,17 +62,11 @@ func (self *SElbACL) GetStatus() string {
 }
 
 func (self *SElbACL) Refresh() error {
-	acl, err := self.region.GetLoadBalancerAclById(self.GetId())
+	acl, err := self.region.GetLoadBalancerAcl(self.GetId())
 	if err != nil {
 		return err
 	}
-
-	err = jsonutils.Update(self, acl)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return jsonutils.Update(self, acl)
 }
 
 func (self *SElbACL) IsEmulated() bool {
@@ -97,17 +92,61 @@ func (self *SElbACL) Sync(acl *cloudprovider.SLoadbalancerAccessControlList) err
 	for _, entry := range acl.Entrys {
 		cidrs = append(cidrs, entry.CIDR)
 	}
-
 	whiteList = strings.Join(cidrs, ",")
-
-	params := jsonutils.NewDict()
-	whiteListObj := jsonutils.NewDict()
-	whiteListObj.Set("whitelist", jsonutils.NewString(whiteList))
-	whiteListObj.Set("enable_whitelist", jsonutils.NewBool(acl.AccessControlEnable))
-	params.Set("whitelist", whiteListObj)
-	return DoUpdate(self.region.ecsClient.ElbWhitelist.Update, self.GetId(), params, nil)
+	params := map[string]interface{}{
+		"whitelist":        whiteList,
+		"enable_whitelist": acl.AccessControlEnable,
+	}
+	_, err := self.region.lbUpdate("elb/whitelists/"+self.GetId(), map[string]interface{}{"whitelist": params})
+	return err
 }
 
 func (self *SElbACL) Delete() error {
-	return DoDelete(self.region.ecsClient.ElbWhitelist.Delete, self.GetId(), nil, nil)
+	_, err := self.region.lbDelete("elb/whitelists/" + self.GetId())
+	return err
+}
+
+func (self *SRegion) GetLoadBalancerAcl(aclId string) (*SElbACL, error) {
+	resp, err := self.lbGet("elb/whitelists/" + aclId)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SElbACL{region: self}
+	return ret, resp.Unmarshal(ret, "whitelist")
+}
+
+// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561582.html
+func (self *SRegion) GetLoadBalancerAcls(listenerId string) ([]SElbACL, error) {
+	query := url.Values{}
+	if len(listenerId) > 0 {
+		query.Set("listener_id", listenerId)
+	}
+	resp, err := self.lbList("elb/whitelists", query)
+	if err != nil {
+		return nil, err
+	}
+	ret := []SElbACL{}
+	return ret, resp.Unmarshal(&ret, "whitelists")
+}
+
+func (self *SRegion) CreateLoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (*SElbACL, error) {
+	params := map[string]interface{}{
+		"listener_id": acl.ListenerId,
+	}
+	if len(acl.Entrys) > 0 {
+		whitelist := []string{}
+		for i := range acl.Entrys {
+			whitelist = append(whitelist, acl.Entrys[i].CIDR)
+		}
+		params["enable_whitelist"] = acl.AccessControlEnable
+		params["whitelist"] = strings.Join(whitelist, ",")
+	} else {
+		params["enable_whitelist"] = false
+	}
+	resp, err := self.lbCreate("elb/whitelists", map[string]interface{}{"whitelist": params})
+	if err != nil {
+		return nil, err
+	}
+	ret := &SElbACL{region: self}
+	return ret, resp.Unmarshal(ret, "whitelist")
 }

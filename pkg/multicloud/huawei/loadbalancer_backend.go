@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -61,26 +62,11 @@ func (self *SElbBackend) GetStatus() string {
 }
 
 func (self *SElbBackend) Refresh() error {
-	m := self.lb.region.ecsClient.ElbBackend
-	err := m.SetBackendGroupId(self.backendGroup.GetId())
+	backend, err := self.region.GetElbBackend(self.backendGroup.GetId(), self.ID)
 	if err != nil {
 		return err
 	}
-
-	backend := SElbBackend{}
-	err = DoGet(m.Get, self.GetId(), nil, &backend)
-	if err != nil {
-		return err
-	}
-
-	backend.lb = self.lb
-	backend.backendGroup = self.backendGroup
-	err = jsonutils.Update(self, backend)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return jsonutils.Update(self, backend)
 }
 
 func (self *SElbBackend) IsEmulated() bool {
@@ -129,15 +115,12 @@ func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
 		log.Warningf("Elb backend SyncConf unsupport modify port")
 	}
 
-	params := jsonutils.NewDict()
-	memberObj := jsonutils.NewDict()
-	memberObj.Set("weight", jsonutils.NewInt(int64(weight)))
-	params.Set("member", memberObj)
-	err := self.lb.region.ecsClient.ElbBackend.SetBackendGroupId(self.backendGroup.GetId())
-	if err != nil {
-		return err
+	params := map[string]interface{}{
+		"weight": weight,
 	}
-	return DoUpdate(self.lb.region.ecsClient.ElbBackend.Update, self.GetId(), params, nil)
+	res := fmt.Sprintf("elb/pools/%s/members/%s", self.backendGroup.GetId(), self.ID)
+	_, err := self.region.lbUpdate(res, map[string]interface{}{"member": params})
+	return err
 }
 
 func (self *SRegion) getInstanceByIP(privateIP string) (*SInstance, error) {
@@ -165,4 +148,14 @@ func (self *SRegion) getInstanceByIP(privateIP string) (*SInstance, error) {
 	}
 
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SRegion) GetElbBackend(pool, id string) (*SElbBackend, error) {
+	res := fmt.Sprintf("elb/pools/%s/members/%s", pool, id)
+	resp, err := self.lbGet(res)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SElbBackend{region: self}
+	return ret, resp.Unmarshal(ret, "member")
 }
