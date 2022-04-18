@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -172,90 +173,41 @@ func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, er
 
 	ielbs := make([]cloudprovider.ICloudLoadbalancer, len(elbs))
 	for i := range elbs {
+		elbs[i].region = self
 		ielbs[i] = &elbs[i]
 	}
 
 	return ielbs, nil
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561531.html
 func (self *SRegion) GetLoadBalancers() ([]SLoadbalancer, error) {
-	params := map[string]string{}
-	if len(self.client.projectId) > 0 {
-		params["project_id"] = self.client.projectId
-	}
+	lbs := []SLoadbalancer{}
+	params := url.Values{}
+	return lbs, self.lbListAll("elb/loadbalancers", params, "loadbalancers", &lbs)
+}
 
-	ret := []SLoadbalancer{}
-	err := doListAll(self.ecsClient.Elb.List, params, &ret)
+func (self *SRegion) GetILoadBalancerById(id string) (cloudprovider.ICloudLoadbalancer, error) {
+	elb, err := self.GetLoadbalancer(id)
 	if err != nil {
 		return nil, err
 	}
-
-	for i := range ret {
-		ret[i].region = self
-	}
-
-	return ret, nil
-}
-
-func (self *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
-	elb, err := self.GetLoadBalancerById(loadbalancerId)
-	if err != nil {
-		return nil, err
-	}
-
-	return &elb, nil
-}
-
-func (self *SRegion) GetLoadBalancerById(loadbalancerId string) (SLoadbalancer, error) {
-	elb := SLoadbalancer{}
-	err := DoGet(self.ecsClient.Elb.Get, loadbalancerId, nil, &elb)
-	if err != nil {
-		return elb, err
-	}
-
-	elb.region = self
 	return elb, nil
 }
 
 func (self *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	acl, err := self.GetLoadBalancerAclById(aclId)
+	acl, err := self.GetLoadBalancerAcl(aclId)
 	if err != nil {
 		return nil, err
 	}
-
-	return &acl, nil
-}
-
-func (self *SRegion) GetLoadBalancerAclById(aclId string) (SElbACL, error) {
-	acl := SElbACL{}
-	err := DoGet(self.ecsClient.ElbWhitelist.Get, aclId, nil, &acl)
-	if err != nil {
-		return acl, err
-	}
-
-	acl.region = self
 	return acl, nil
 }
 
 func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	cert, err := self.GetLoadBalancerCertificateById(certId)
+	cert, err := self.GetLoadBalancerCertificate(certId)
 	if err != nil {
 		return nil, err
 	}
-
-	return &cert, nil
-}
-
-func (self *SRegion) GetLoadBalancerCertificateById(certId string) (SElbCert, error) {
-	ret := SElbCert{}
-	err := DoGet(self.ecsClient.ElbCertificates.Get, certId, nil, &ret)
-	if err != nil {
-		return ret, err
-	}
-
-	ret.region = self
-	return ret, nil
+	return cert, nil
 }
 
 func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
@@ -263,24 +215,6 @@ func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbal
 	if err != nil {
 		return nil, err
 	}
-
-	return &ret, nil
-}
-
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561584.html
-func (self *SRegion) CreateLoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (SElbCert, error) {
-	params := jsonutils.NewDict()
-	params.Set("name", jsonutils.NewString(cert.Name))
-	params.Set("private_key", jsonutils.NewString(cert.PrivateKey))
-	params.Set("certificate", jsonutils.NewString(cert.Certificate))
-
-	ret := SElbCert{}
-	err := DoCreate(self.ecsClient.ElbCertificates.Create, params, &ret)
-	if err != nil {
-		return ret, err
-	}
-
-	ret.region = self
 	return ret, nil
 }
 
@@ -292,29 +226,10 @@ func (self *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerA
 
 	iret := make([]cloudprovider.ICloudLoadbalancerAcl, len(ret))
 	for i := range ret {
+		ret[i].region = self
 		iret[i] = &ret[i]
 	}
 	return iret, nil
-}
-
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561582.html
-func (self *SRegion) GetLoadBalancerAcls(listenerId string) ([]SElbACL, error) {
-	params := map[string]string{}
-	if len(listenerId) > 0 {
-		params["listener_id"] = listenerId
-	}
-
-	ret := []SElbACL{}
-	err := doListAll(self.ecsClient.ElbWhitelist.List, params, &ret)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range ret {
-		ret[i].region = self
-	}
-
-	return ret, nil
 }
 
 func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
@@ -325,23 +240,10 @@ func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadb
 
 	iret := make([]cloudprovider.ICloudLoadbalancerCertificate, len(ret))
 	for i := range ret {
+		ret[i].region = self
 		iret[i] = &ret[i]
 	}
 	return iret, nil
-}
-
-func (self *SRegion) GetLoadBalancerCertificates() ([]SElbCert, error) {
-	ret := []SElbCert{}
-	err := doListAll(self.ecsClient.ElbCertificates.List, nil, &ret)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range ret {
-		ret[i].region = self
-	}
-
-	return ret, nil
 }
 
 // https://support.huaweicloud.com/api-iam/zh-cn_topic_0057845622.html
@@ -799,41 +701,6 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 		return nil, err
 	}
 
-	return &ret, nil
-}
-
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561535.html
-func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (SLoadbalancer, error) {
-	ret := SLoadbalancer{}
-	subnet, err := self.getNetwork(loadbalancer.NetworkIDs[0])
-	if err != nil {
-		return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.getNetwork")
-	}
-
-	params := jsonutils.NewDict()
-	elbObj := jsonutils.NewDict()
-	elbObj.Set("name", jsonutils.NewString(loadbalancer.Name))
-	elbObj.Set("vip_subnet_id", jsonutils.NewString(subnet.NeutronSubnetID))
-	if len(loadbalancer.Address) > 0 {
-		elbObj.Set("vip_address", jsonutils.NewString(loadbalancer.Address))
-	}
-	elbObj.Set("tenant_id", jsonutils.NewString(self.client.projectId))
-	params.Set("loadbalancer", elbObj)
-
-	err = DoCreate(self.ecsClient.Elb.Create, params, &ret)
-	if err != nil {
-		return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.DoCreate")
-	}
-
-	ret.region = self
-
-	// 创建公网类型ELB
-	if len(loadbalancer.EipID) > 0 {
-		err := self.AssociateEipWithPortId(loadbalancer.EipID, ret.VipPortID)
-		if err != nil {
-			return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.AssociateEipWithPortId")
-		}
-	}
 	return ret, nil
 }
 
@@ -843,33 +710,6 @@ func (self *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAcce
 		return nil, err
 	}
 
-	return &ret, nil
-}
-
-func (self *SRegion) CreateLoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (SElbACL, error) {
-	params := jsonutils.NewDict()
-	aclObj := jsonutils.NewDict()
-	aclObj.Set("listener_id", jsonutils.NewString(acl.ListenerId))
-	if len(acl.Entrys) > 0 {
-		whitelist := []string{}
-		for i := range acl.Entrys {
-			whitelist = append(whitelist, acl.Entrys[i].CIDR)
-		}
-
-		aclObj.Set("enable_whitelist", jsonutils.NewBool(acl.AccessControlEnable))
-		aclObj.Set("whitelist", jsonutils.NewString(strings.Join(whitelist, ",")))
-	} else {
-		aclObj.Set("enable_whitelist", jsonutils.NewBool(false))
-	}
-	params.Set("whitelist", aclObj)
-
-	ret := SElbACL{}
-	err := DoCreate(self.ecsClient.ElbWhitelist.Create, params, &ret)
-	if err != nil {
-		return ret, err
-	}
-
-	ret.region = self
 	return ret, nil
 }
 

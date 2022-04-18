@@ -574,7 +574,7 @@ func requestInternal(client sClient, ctx context.Context, method THttpMethod, ur
 	return req, resp, nil
 }
 
-func JSONRequest(client *http.Client, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {
+func JSONRequest(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {
 	var bodystr string
 	if !gotypes.IsNil(body) {
 		bodystr = body.String()

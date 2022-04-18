@@ -1,5 +1,53 @@
 # Gin ChangeLog
 
+## Gin v1.7.7
+
+### BUGFIXES
+
+* Fixed X-Forwarded-For unsafe handling of CVE-2020-28483 [#2844](https://github.com/gin-gonic/gin/pull/2844), closed issue [#2862](https://github.com/gin-gonic/gin/issues/2862).
+* Tree: updated the code logic for `latestNode` [#2897](https://github.com/gin-gonic/gin/pull/2897), closed issue [#2894](https://github.com/gin-gonic/gin/issues/2894) [#2878](https://github.com/gin-gonic/gin/issues/2878).
+* Tree: fixed the misplacement of adding slashes [#2847](https://github.com/gin-gonic/gin/pull/2847), closed issue [#2843](https://github.com/gin-gonic/gin/issues/2843).
+* Tree: fixed tsr with mixed static and wildcard paths [#2924](https://github.com/gin-gonic/gin/pull/2924), closed issue [#2918](https://github.com/gin-gonic/gin/issues/2918).
+
+### ENHANCEMENTS
+
+* TrustedProxies: make it backward-compatible [#2887](https://github.com/gin-gonic/gin/pull/2887), closed issue [#2819](https://github.com/gin-gonic/gin/issues/2819).
+* TrustedPlatform: provide custom options for another CDN services [#2906](https://github.com/gin-gonic/gin/pull/2906).
+
+### DOCS
+
+* NoMethod: added usage annotation ([#2832](https://github.com/gin-gonic/gin/pull/2832#issuecomment-929954463)).
+
+## Gin v1.7.6
+
+### BUGFIXES
+
+* bump new release to fix v1.7.5 release error by using v1.7.4 codes.
+
+## Gin v1.7.4
+
+### BUGFIXES
+
+* bump new release to fix checksum mismatch
+
+## Gin v1.7.3
+
+### BUGFIXES
+
+* fix level 1 router match [#2767](https://github.com/gin-gonic/gin/issues/2767), [#2796](https://github.com/gin-gonic/gin/issues/2796)
+
+## Gin v1.7.2
+
+### BUGFIXES
+
+* Fix conflict between param and exact path [#2706](https://github.com/gin-gonic/gin/issues/2706). Close issue [#2682](https://github.com/gin-gonic/gin/issues/2682) [#2696](https://github.com/gin-gonic/gin/issues/2696).
+
+## Gin v1.7.1
+
+### BUGFIXES
+
+* fix: data race with trustedCIDRs from [#2674](https://github.com/gin-gonic/gin/issues/2674)([#2675](https://github.com/gin-gonic/gin/pull/2675))
+
 ## Gin v1.7.0
 
 ### BUGFIXES
