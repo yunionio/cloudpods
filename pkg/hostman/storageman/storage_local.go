@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/zeroclean"
 )
 
 var (
@@ -292,7 +293,7 @@ func (s *SLocalStorage) Detach() error {
 
 func (s *SLocalStorage) DeleteDiskfile(diskpath string, skipRecycle bool) error {
 	log.Infof("Start Delete %s", diskpath)
-	if options.HostOptions.RecycleDiskfile && !skipRecycle {
+	if options.HostOptions.RecycleDiskfile && (!skipRecycle || options.HostOptions.AlwaysRecycleDiskfile) {
 		var (
 			destDir  = s.getRecyclePath()
 			destFile = fmt.Sprintf("%s.%d", path.Base(diskpath), time.Now().Unix())
@@ -305,6 +306,10 @@ func (s *SLocalStorage) DeleteDiskfile(diskpath string, skipRecycle bool) error 
 		return procutils.NewCommand("mv", "-f", diskpath, path.Join(destDir, destFile)).Run()
 	} else {
 		log.Infof("Delete disk file %s immediately", diskpath)
+		if options.HostOptions.ZeroCleanDiskData {
+			// try to zero clean files in subdir
+			zeroclean.ZeroDir(diskpath)
+		}
 		return procutils.NewCommand("rm", "-rf", diskpath).Run()
 	}
 }
