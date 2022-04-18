@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
+	"strings"
 	"time"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -56,7 +57,7 @@ func (h SHandler) Bind(app *appsrv.Application) {
 	hi := appsrv.NewHandlerInfo(h.Method, segs, f, nil, "", nil)
 	if h.Method == "GET" {
 		hi.SetProcessTimeoutCallback(func(hdr *appsrv.SHandlerInfo, r *http.Request) time.Duration {
-			if len(r.URL.Query().Get("export_keys")) > 0 {
+			if len(r.URL.Query().Get("export_keys")) > 0 || strings.HasSuffix(r.URL.Path, "/splitable-export") {
 				return time.Hour * 2
 			}
 			return -time.Second
