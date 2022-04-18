@@ -456,4 +456,17 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type UserResetCredentialOptions struct {
+		USER string `json:"-" help:"ID or name of user to operate"`
+		TYPE string `json:"type" help:"Crednetial type of reset" choices:"totp|recovery|aksk|enc_key"`
+	}
+	R(&UserResetCredentialOptions{}, "user-reset-credentials", "Reset user credential", func(s *mcclient.ClientSession, args *UserResetCredentialOptions) error {
+		result, err := modules.UsersV3.PerformAction(s, args.USER, "reset-credentials", jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

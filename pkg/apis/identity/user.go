@@ -41,3 +41,7 @@ type UserDetails struct {
 
 	Projects []SFetchDomainObjectWithMetadata `json:"projects"`
 }
+
+type ResetCredentialInput struct {
+	Type string `json:"type"`
+}

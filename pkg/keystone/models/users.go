@@ -980,14 +980,6 @@ func (user *SUser) UnlinkIdp(idpId string) error {
 	return IdmappingManager.deleteAny(idpId, api.IdMappingEntityUser, user.Id)
 }
 
-func (user *SUser) AllowPerformJoin(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.SJoinProjectsInput,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, user, "join")
-}
-
 // 用户加入项目
 func (user *SUser) PerformJoin(
 	ctx context.Context,
@@ -1057,14 +1049,6 @@ func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mc
 	}
 
 	return nil
-}
-
-func (user *SUser) AllowPerformLeave(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.SLeaveProjectsInput,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, user, "leave")
 }
 
 // 用户退出项目
@@ -1150,15 +1134,6 @@ func (user *SUser) GetUsages() []db.IUsage {
 	}
 }
 
-func (user *SUser) AllowPerformLinkIdp(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.UserLinkIdpInput,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, user, "link-idp")
-}
-
 // 用户和IDP的指定entityId关联
 func (user *SUser) PerformLinkIdp(
 	ctx context.Context,
@@ -1185,15 +1160,6 @@ func (user *SUser) PerformLinkIdp(
 		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMapWithId")
 	}
 	return nil, nil
-}
-
-func (user *SUser) AllowPerformUnlinkIdp(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.UserUnlinkIdpInput,
-) bool {
-	return db.IsAdminAllowPerform(ctx, userCred, user, "unlink-idp")
 }
 
 // 用户和IDP的指定entityId解除关联
@@ -1232,4 +1198,18 @@ func GetUserLangForKeyStone(uids []string) (map[string]string, error) {
 		ret[simpleUsers[i].Id] = simpleUsers[i].Lang
 	}
 	return ret, nil
+}
+
+// 用户加入项目
+func (user *SUser) PerformResetCredentials(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.ResetCredentialInput,
+) (jsonutils.JSONObject, error) {
+	err := CredentialManager.DeleteAll(ctx, userCred, user.Id, input.Type)
+	if err != nil {
+		return nil, errors.Wrap(err, "DeleteAll")
+	}
+	return nil, nil
 }
