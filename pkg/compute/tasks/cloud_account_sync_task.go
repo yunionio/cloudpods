@@ -47,12 +47,12 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
 		// do sync
 		err := cloudaccount.SyncCallSyncAccountTask(ctx, self.UserCred)
-
 		if err != nil {
-			if errors.Cause(err) != httperrors.ErrConflict {
-				log.Debugf("no other sync task, mark end sync for all cloudproviders")
-				cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
+			if errors.Cause(err) == httperrors.ErrConflict {
+				log.Errorf("account %s(%s) alread in syncing", cloudaccount.Name, cloudaccount.Provider)
 			}
+			// 进入同步任务前已经mark sync, 这里需要清理下状态
+			cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
 			return nil, errors.Wrap(err, "SyncCallSyncAccountTask")
 		}
 		return nil, nil
