@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -157,6 +158,26 @@ func (manager *SCloudproviderregionManager) FetchCustomizeColumns(
 	}
 
 	return rows
+}
+
+func (self *SCloudproviderregion) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SJointResourceBase.PostUpdate(ctx, userCred, query, data)
+	if data.Contains("enabled") {
+		enabled, _ := data.Bool("enabled")
+		provider := self.GetProvider()
+		action := logclient.ACT_DISABLE
+		if enabled {
+			action = logclient.ACT_ENABLE
+		}
+		region, err := self.GetRegion()
+		if err == nil {
+			notes := map[string]string{
+				"region_name": region.Name,
+				"region_id":   region.Id,
+			}
+			logclient.AddSimpleActionLog(provider, action, notes, userCred, true)
+		}
+	}
 }
 
 func (self *SCloudproviderregion) getSyncIntervalSeconds(account *SCloudaccount) int {
