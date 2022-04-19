@@ -643,9 +643,9 @@ func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 		syncRange.DeepSync = true
 	}
 	if self.CanSync() || syncRange.Force {
-		err = self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
+		return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
 	}
-	return nil, err
+	return nil, httperrors.NewInvalidStatusError("Unable to synchronize frequently")
 }
 
 func (self *SCloudaccount) AllowPerformTestConnectivity(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -824,14 +824,21 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 		params.Add(jsonutils.Marshal(syncRange), "sync_range")
 	}
 
+	cloudaccountPendingSyncsMutex.Lock()
+	defer cloudaccountPendingSyncsMutex.Unlock()
+
+	// 提前判断是否云账号已经在后台进行同步
+	if _, ok := cloudaccountPendingSyncs[self.Id]; ok {
+		return errors.Wrap(httperrors.ErrConflict, "account alread in syncing")
+	}
+
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncInfoTask", self, userCred, params, "", "", nil)
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
 	self.markStartSync(userCred, syncRange)
 	db.OpsLog.LogEvent(self, db.ACT_SYNC_HOST_START, "", userCred)
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential, syncRange *SSyncRange) error {
@@ -2105,9 +2112,7 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 	if _, ok := cloudaccountPendingSyncs[account.Id]; ok {
 		if waitChan != nil {
 			go func() {
-				// an active cloudaccount sync task is running, return with conflict error
-				log.Errorf("an active cloudaccount sync task is running, early return with conflict error")
-				waitChan <- errors.Wrap(httperrors.ErrConflict, "cloudaccountPendingSyncs")
+				waitChan <- errors.Wrap(httperrors.ErrConflict, "an active cloudaccount sync task is running, early return with conflict error")
 			}()
 		}
 		return
@@ -2286,7 +2291,6 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 
 	syncRange := &SSyncRange{FullSync: true}
 	account.StartSyncCloudProviderInfoTask(ctx, userCred, syncRange, "")
-
 	return nil, nil
 }
 
