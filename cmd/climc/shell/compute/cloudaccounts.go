@@ -79,6 +79,7 @@ func init() {
 	cmd.PerformWithKeyword("update-credential-aws", "update-credential", &options.SAWSCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-openstack", "update-credential", &options.SOpenStackCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-huawei", "update-credential", &options.SHuaweiCloudAccountUpdateCredentialOptions{})
+	cmd.PerformWithKeyword("update-credential-apsara", "update-credential", &options.SApsaraCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-hcso", "update-credential", &options.SHCSOAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-ucloud", "update-credential", &options.SUcloudCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-zstack", "update-credential", &options.SZStackCloudAccountUpdateCredentialOptions{})

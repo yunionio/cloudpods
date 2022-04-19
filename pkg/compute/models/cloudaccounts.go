@@ -680,11 +680,16 @@ func (self *SCloudaccount) PerformTestConnectivity(ctx context.Context, userCred
 		return nil, err
 	}
 
+	defaultRegion, _ := jsonutils.Marshal(self.Options).GetString("default_region")
 	_, _, err = cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
 		URL:     self.AccessUrl,
 		Vendor:  self.Provider,
 		Account: account.Account,
 		Secret:  account.Secret,
+
+		DefaultRegion: defaultRegion,
+
+		ReadOnly: self.ReadOnly,
 
 		ProxyFunc: self.proxyFunc(),
 	})
@@ -755,12 +760,18 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		}
 	}
 
+	defaultRegion, _ := jsonutils.Marshal(self.Options).GetString("default_region")
 	_, accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
-		Vendor:    self.Provider,
-		URL:       self.AccessUrl,
-		Account:   account.Account,
-		Secret:    account.Secret,
-		Options:   self.Options,
+		Name:          self.Name,
+		Vendor:        self.Provider,
+		URL:           self.AccessUrl,
+		Account:       account.Account,
+		Secret:        account.Secret,
+		Options:       self.Options,
+		DefaultRegion: defaultRegion,
+
+		ReadOnly: self.ReadOnly,
+
 		ProxyFunc: self.proxyFunc(),
 	})
 	if err != nil {

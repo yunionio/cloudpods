@@ -432,6 +432,15 @@ func (opts *SAliyunCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSON
 	return jsonutils.Marshal(opts), nil
 }
 
+type SApsaraCloudAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	SAccessKeyCredential
+}
+
+func (opts *SApsaraCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type SAzureCloudAccountUpdateCredentialOptions struct {
 	SCloudAccountIdOptions
 	SAzureCredential
