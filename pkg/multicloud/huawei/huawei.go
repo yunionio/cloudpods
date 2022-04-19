@@ -223,17 +223,42 @@ func (self *SHuaweiClient) lbGet(regionId, resource string) (jsonutils.JSONObjec
 
 func (self *SHuaweiClient) lbCreate(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
-	return self.request(httputils.DELETE, uri, url.Values{}, params)
+	return self.request(httputils.POST, uri, url.Values{}, params)
 }
 
-func (self *SHuaweiClient) lbUpdate(regionId, resource string) (jsonutils.JSONObject, error) {
+func (self *SHuaweiClient) lbUpdate(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
-	return self.request(httputils.PUT, uri, url.Values{}, nil)
+	return self.request(httputils.PUT, uri, url.Values{}, params)
 }
 
 func (self *SHuaweiClient) lbDelete(regionId, resource string) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
 	return self.request(httputils.DELETE, uri, url.Values{}, nil)
+}
+
+func (self *SHuaweiClient) vpcList(regionId, resource string, query url.Values) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	return self.request(httputils.GET, url, query, nil)
+}
+
+func (self *SHuaweiClient) vpcCreate(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	return self.request(httputils.POST, uri, url.Values{}, params)
+}
+
+func (self *SHuaweiClient) vpcGet(regionId, resource string) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	return self.request(httputils.GET, uri, url.Values{}, nil)
+}
+
+func (self *SHuaweiClient) vpcDelete(regionId, resource string) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	return self.request(httputils.DELETE, uri, url.Values{}, nil)
+}
+
+func (self *SHuaweiClient) vpcUpdate(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://vpc.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	return self.request(httputils.PUT, uri, url.Values{}, params)
 }
 
 type akClient struct {
@@ -243,7 +268,7 @@ type akClient struct {
 
 func (self *akClient) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Del("Accept")
-	if req.Method == string(httputils.GET) {
+	if req.Method == string(httputils.GET) || req.Method == string(httputils.DELETE) {
 		req.Header.Del("Content-Length")
 	}
 	aksk.Sign(req, self.aksk)

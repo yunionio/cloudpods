@@ -21,9 +21,11 @@ import (
 
 func init() {
 	type EipListOptions struct {
+		PortId string
+		Addrs  []string
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *huawei.SRegion, args *EipListOptions) error {
-		eips, e := cli.GetEips()
+		eips, e := cli.GetEips(args.PortId, args.Addrs)
 		if e != nil {
 			return e
 		}
@@ -32,13 +34,14 @@ func init() {
 	})
 
 	type EipAllocateOptions struct {
-		NAME      string `help:"eip name"`
-		BW        int    `help:"Bandwidth limit in Mbps"`
-		BGP       string `help:"bgp type" choices:"5_telcom|5_union|5_bgp|5_sbgp"`
-		ProjectId string
+		NAME       string `help:"eip name"`
+		BW         int    `help:"Bandwidth limit in Mbps"`
+		BGP        string `help:"bgp type" choices:"5_telcom|5_union|5_bgp|5_sbgp"`
+		ChargeType string `help:"eip charge type" default:"traffic" choices:"traffic|bandwidth"`
+		ProjectId  string
 	}
 	shellutils.R(&EipAllocateOptions{}, "eip-create", "Allocate an EIP", func(cli *huawei.SRegion, args *EipAllocateOptions) error {
-		eip, err := cli.AllocateEIP(args.NAME, args.BW, huawei.InternetChargeByTraffic, args.BGP, args.ProjectId)
+		eip, err := cli.AllocateEIP(args.NAME, args.BW, huawei.TInternetChargeType(args.ChargeType), args.BGP, args.ProjectId)
 		if err != nil {
 			return err
 		}
@@ -59,11 +62,14 @@ func init() {
 		INSTANCE string `help:"Instance ID"`
 	}
 	shellutils.R(&EipAssociateOptions{}, "eip-associate", "Associate an EIP", func(cli *huawei.SRegion, args *EipAssociateOptions) error {
-		err := cli.AssociateEip(args.ID, args.INSTANCE)
-		return err
+		return cli.AssociateEip(args.ID, args.INSTANCE)
 	})
-	shellutils.R(&EipAssociateOptions{}, "eip-dissociate", "Dissociate an EIP", func(cli *huawei.SRegion, args *EipAssociateOptions) error {
-		err := cli.DissociateEip(args.ID, args.INSTANCE)
-		return err
+
+	type EipDissociateOptions struct {
+		ID string `help:"EIP allocation ID"`
+	}
+
+	shellutils.R(&EipDissociateOptions{}, "eip-dissociate", "Dissociate an EIP", func(cli *huawei.SRegion, args *EipDissociateOptions) error {
+		return cli.DissociateEip(args.ID)
 	})
 }
