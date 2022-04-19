@@ -74,7 +74,7 @@ type STemplate struct {
 	TemplateType string `width:"10" nullable:"false" create:"required" update:"user" list:"user"`
 	Content      string `length:"text" nullable:"false" create:"required" get:"user" list:"user" update:"user"`
 	Lang         string `width:"8" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"`
-	Example      string `nullable:"false" create:"optional" get:"user" list:"user" update:"user"`
+	Example      string `nullable:"true" create:"optional" get:"user" list:"user" update:"user"`
 }
 
 const (
