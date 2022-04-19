@@ -14,8 +14,25 @@
 
 package shell
 
-import "yunion.io/x/onecloud/pkg/multicloud/objectstore"
+import (
+	"yunion.io/x/onecloud/pkg/multicloud/apsara"
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
+)
 
 func init() {
 	objectstore.S3Shell()
+
+	type BucketOptions struct {
+		BUCKET string
+	}
+	shellutils.R(&BucketOptions{}, "bucket-show", "Show bucket", func(cli *apsara.SRegion, args *BucketOptions) error {
+		bucket, e := cli.GetBucket(args.BUCKET)
+		if e != nil {
+			return e
+		}
+		printObject(bucket)
+		return nil
+	})
+
 }

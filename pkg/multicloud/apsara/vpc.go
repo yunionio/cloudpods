@@ -62,6 +62,8 @@ type SVpc struct {
 	VSwitchIds   SVSwitchIds
 	VpcId        string
 	VpcName      string
+
+	DepartmentInfo
 }
 
 func (self *SVpc) GetId() string {
@@ -105,6 +107,28 @@ func (self *SVpc) Refresh() error {
 
 func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
 	return self.region
+}
+
+func (self *SVpc) GetSysTags() map[string]string {
+	tags := self.ApsaraTags.GetSysTags()
+	if len(self.ResourceGroup) > 0 {
+		tags["ResourceGroup"] = self.ResourceGroup
+	}
+	if len(self.ResourceGroupId) > 0 {
+		tags["ResourceGroupId"] = self.ResourceGroupId
+	}
+	if len(self.Department) > 0 {
+		tags["Department"] = self.Department
+	}
+	if len(self.DepartmentName) > 0 {
+		tags["DepartmentName"] = self.DepartmentName
+	}
+	if len(self.ResourceGroupName) > 0 {
+		groupName := strings.TrimPrefix(self.ResourceGroupName, "ResourceSet(")
+		groupName = strings.TrimSuffix(groupName, ")")
+		tags["ResourceGroupName"] = groupName
+	}
+	return tags
 }
 
 func (self *SVpc) addWire(wire *SWire) {
