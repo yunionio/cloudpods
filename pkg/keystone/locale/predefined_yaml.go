@@ -26,11 +26,17 @@ policy:
   '*':
     events:
       '*': deny
+      list:
+        '*': allow
+        splitable: deny
   compute:
     '*':
       '*': allow
     events:
       '*': deny
+      list:
+        '*': allow
+        splitable: deny
     dynamicschedtags:
       '*': deny
     recyclebins:
@@ -41,6 +47,7 @@ policy:
       '*': deny
     secgroups:
       '*': deny
+      list: allow
     servers:
       '*': allow
       perform:
