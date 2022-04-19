@@ -430,17 +430,13 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		return nil, nil
 	}
 
-	eips, err := self.host.zone.region.GetEips()
+	eips, err := self.host.zone.region.GetEips("", ips)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, eip := range eips {
-		if eip.PublicIPAddress == ips[0] {
-			return &eip, nil
-		}
+	if len(eips) > 0 {
+		return &eips[0], nil
 	}
-
 	return nil, nil
 }
 

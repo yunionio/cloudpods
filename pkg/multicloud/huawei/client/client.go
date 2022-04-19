@@ -28,11 +28,9 @@ type Client struct {
 	init bool
 
 	Balances             *modules.SBalanceManager
-	Bandwidths           *modules.SBandwidthManager
 	Credentials          *modules.SCredentialManager
 	Disks                *modules.SDiskManager
 	Domains              *modules.SDomainManager
-	Eips                 *modules.SEipManager
 	Elasticcache         *modules.SElasticcacheManager
 	DcsAvailableZone     *modules.SDcsAvailableZoneManager
 	Flavors              *modules.SFlavorManager
@@ -125,7 +123,6 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.Regions.SetHttpClient(httpClient)
 	self.Zones.SetHttpClient(httpClient)
 	self.Vpcs.SetHttpClient(httpClient)
-	self.Eips.SetHttpClient(httpClient)
 	self.Elasticcache.SetHttpClient(httpClient)
 	self.DcsAvailableZone.SetHttpClient(httpClient)
 	self.Disks.SetHttpClient(httpClient)
@@ -140,7 +137,6 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.Interface.SetHttpClient(httpClient)
 	self.Jobs.SetHttpClient(httpClient)
 	self.Balances.SetHttpClient(httpClient)
-	self.Bandwidths.SetHttpClient(httpClient)
 	self.Port.SetHttpClient(httpClient)
 	self.Flavors.SetHttpClient(httpClient)
 	self.VpcRoutes.SetHttpClient(httpClient)
@@ -201,7 +197,6 @@ func (self *Client) initManagers() {
 		self.Regions = modules.NewRegionManager(self.cfg)
 		self.Zones = modules.NewZoneManager(self.cfg)
 		self.Vpcs = modules.NewVpcManager(self.cfg)
-		self.Eips = modules.NewEipManager(self.cfg)
 		self.Elasticcache = modules.NewElasticcacheManager(self.cfg)
 		self.DcsAvailableZone = modules.NewDcsAvailableZoneManager(self.cfg)
 		self.Disks = modules.NewDiskManager(self.cfg)
@@ -216,7 +211,6 @@ func (self *Client) initManagers() {
 		self.Interface = modules.NewInterfaceManager(self.cfg)
 		self.Jobs = modules.NewJobManager(self.cfg)
 		self.Balances = modules.NewBalanceManager(self.cfg)
-		self.Bandwidths = modules.NewBandwidthManager(self.cfg)
 		self.Credentials = modules.NewCredentialManager(self.cfg)
 		self.Port = modules.NewPortManager(self.cfg)
 		self.Flavors = modules.NewFlavorManager(self.cfg)
