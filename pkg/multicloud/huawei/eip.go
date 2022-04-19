@@ -69,6 +69,7 @@ type SEipAddress struct {
 	multicloud.SEipBase
 	multicloud.HuaweiTags
 
+	Alias               string
 	ID                  string    `json:"id"`
 	Status              string    `json:"status"`
 	Profile             *SProfile `json:"profile,omitempty"`
@@ -92,10 +93,9 @@ func (self *SEipAddress) GetId() string {
 }
 
 func (self *SEipAddress) GetName() string {
-	if len(self.BandwidthName) == 0 {
-		return self.BandwidthName
+	if len(self.Alias) > 0 {
+		return self.Alias
 	}
-
 	return self.PublicIPAddress
 }
 
