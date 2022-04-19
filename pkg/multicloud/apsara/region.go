@@ -38,7 +38,6 @@ type SRegion struct {
 
 	client    *SApsaraClient
 	sdkClient *sdk.Client
-	ossClient *oss.Client
 
 	RegionId  string
 	LocalName string
@@ -58,6 +57,8 @@ type SRegion struct {
 	latitude      float64
 	longitude     float64
 	fetchLocation bool
+
+	ossEndpoint string
 }
 
 func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
@@ -79,20 +80,27 @@ func (self *SRegion) getSdkClient() (*sdk.Client, error) {
 	return self.sdkClient, nil
 }
 
+func (self *SRegion) GetOssClient() (*oss.Client, error) {
+	if len(self.ossEndpoint) == 0 {
+		_, err := self.GetBuckets()
+		if err != nil {
+			return nil, err
+		}
+		if len(self.ossEndpoint) == 0 {
+			return nil, fmt.Errorf("no available buckets")
+		}
+	}
+	return self.client.getOssClient(self.ossEndpoint)
+}
+
 func (self *SRegion) productRequest(client *sdk.Client, product, domain, apiVersion, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	params["Product"] = product
 	return jsonRequest(client, domain, apiVersion, apiName, params, debug)
 }
 
-func (self *SRegion) GetOssClient() (*oss.Client, error) {
-	if self.ossClient == nil {
-		cli, err := self.client.getOssClient(self.RegionId)
-		if err != nil {
-			return nil, errors.Wrap(err, "self.client.getOssClient")
-		}
-		self.ossClient = cli
-	}
-	return self.ossClient, nil
+func (self *SRegion) ossRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["RegionId"] = self.RegionId
+	return self.client.ossRequest(apiName, params)
 }
 
 func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -933,22 +941,37 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 	return iAcl, region.AddAccessControlListEntry(aclId, acl.Entrys)
 }
 
-func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	iBuckets, err := region.client.getIBuckets()
+func (self *SRegion) GetBuckets() ([]SBucket, error) {
+	resp, err := self.ossRequest("GetService", map[string]string{})
 	if err != nil {
-		return nil, errors.Wrap(err, "getIBuckets")
+		return nil, err
 	}
-	ret := make([]cloudprovider.ICloudBucket, 0)
-	for i := range iBuckets {
-		loc := iBuckets[i].GetLocation()
-		// remove oss- prefix
-		if strings.HasPrefix(loc, "oss-") {
-			loc = loc[4:]
+	if !resp.Contains("Data") {
+		if self.client.cpcfg.UpdatePermission != nil {
+			self.client.cpcfg.UpdatePermission("oss", "ListBuckets")
 		}
-		if loc != region.GetId() {
-			continue
-		}
-		ret = append(ret, iBuckets[i])
+		return []SBucket{}, nil
+	}
+	ret := []SBucket{}
+	err = resp.Unmarshal(&ret, "Data", "ListAllMyBucketsResult", "Buckets", "Bucket")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	if len(ret) > 0 {
+		self.ossEndpoint = ret[0].IntranetEndpoint
+	}
+	return ret, nil
+}
+
+func (self *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	buckets, err := self.GetBuckets()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudBucket{}
+	for i := range buckets {
+		buckets[i].region = self
+		ret = append(ret, &buckets[i])
 	}
 	return ret, nil
 }
@@ -981,8 +1004,8 @@ func str2Acl(aclStr string) (oss.ACLType, error) {
 	return acl, nil
 }
 
-func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
-	osscli, err := region.GetOssClient()
+func (self *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
+	osscli, err := self.GetOssClient()
 	if err != nil {
 		return errors.Wrap(err, "region.GetOssClient")
 	}
@@ -1001,12 +1024,7 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr
 		}
 		opts = append(opts, oss.ACL(acl))
 	}
-	err = osscli.CreateBucket(name, opts...)
-	if err != nil {
-		return errors.Wrap(err, "oss.CreateBucket")
-	}
-	region.client.invalidateIBuckets()
-	return nil
+	return osscli.CreateBucket(name, opts...)
 }
 
 func ossErrorCode(err error) int {
@@ -1019,52 +1037,48 @@ func ossErrorCode(err error) int {
 	return -1
 }
 
-func (region *SRegion) DeleteIBucket(name string) error {
-	osscli, err := region.GetOssClient()
+func (self *SRegion) DeleteIBucket(name string) error {
+	cli, err := self.GetOssClient()
 	if err != nil {
-		return errors.Wrap(err, "region.GetOssClient")
+		return err
 	}
-	err = osscli.DeleteBucket(name)
-	if err != nil {
-		if ossErrorCode(err) == 404 {
-			return nil
-		}
-		return errors.Wrap(err, "DeleteBucket")
-	}
-	region.client.invalidateIBuckets()
-	return nil
+	return cli.DeleteBucket(name)
 }
 
-func (region *SRegion) IBucketExist(name string) (bool, error) {
-	osscli, err := region.GetOssClient()
+func (self *SRegion) GetBucket(name string) (*SBucket, error) {
+	cli, err := self.GetOssClient()
 	if err != nil {
-		return false, errors.Wrap(err, "region.GetOssClient")
+		return nil, err
 	}
-	exist, err := osscli.IsBucketExist(name)
+	bucket, err := cli.GetBucketInfo(name)
 	if err != nil {
-		return false, errors.Wrap(err, "IsBucketExist")
+		return nil, err
 	}
-	return exist, nil
-}
 
-func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
-	osscli, err := region.GetOssClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "region.GetOssClient")
-	}
-	bi, err := osscli.GetBucketInfo(name)
-	if err != nil {
-		return nil, errors.Wrap(err, "Bucket")
-	}
-	bInfo := bi.BucketInfo
-	b := SBucket{
-		region:       region,
+	bInfo := bucket.BucketInfo
+	return &SBucket{
+		region:       self,
 		Name:         bInfo.Name,
 		Location:     bInfo.Location,
 		CreationDate: bInfo.CreationDate,
 		StorageClass: bInfo.StorageClass,
+	}, nil
+}
+
+func (self *SRegion) IBucketExist(name string) (bool, error) {
+	_, err := self.GetBucket(name)
+	if err != nil {
+		return false, err
 	}
-	return &b, nil
+	return true, nil
+}
+
+func (self *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+	bucket, err := self.GetBucket(name)
+	if err != nil {
+		return nil, err
+	}
+	return bucket, nil
 }
 
 func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {

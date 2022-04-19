@@ -31,14 +31,13 @@ import (
 )
 
 type BaseOptions struct {
-	Debug                          bool   `help:"debug mode"`
-	AccessKey                      string `help:"Access key" default:"$APSARA_ACCESS_KEY" metavar:"APSARA_ACCESS_KEY"`
-	Secret                         string `help:"Secret" default:"$APSARA_SECRET" metavar:"APSARA_SECRET"`
-	cloudprovider.SApsaraEndpoints `help:"Endpoints for Apsara"`
-	Endpoint                       string `help:"Apsara endpoint" default:"$APSARA_ENDPOINT" metavar:"APSARA_ENDPOINT"`
-	RegionId                       string `help:"RegionId" default:"$APSARA_REGION" metavar:"APSARA_REGION"`
-	DEFAULT_REGION                 string `help:"Default region" default:"$APSARA_DEFAULT_REGION"`
-	SUBCOMMAND                     string `help:"apsaracli subcommand" subcommand:"true"`
+	Debug          bool   `help:"debug mode"`
+	AccessKey      string `help:"Access key" default:"$APSARA_ACCESS_KEY" metavar:"APSARA_ACCESS_KEY"`
+	Secret         string `help:"Secret" default:"$APSARA_SECRET" metavar:"APSARA_SECRET"`
+	Endpoint       string `help:"Apsara endpoint" default:"$APSARA_ENDPOINT" metavar:"APSARA_ENDPOINT"`
+	RegionId       string `help:"RegionId" default:"$APSARA_REGION" metavar:"APSARA_REGION"`
+	DEFAULT_REGION string `help:"Default region" default:"$APSARA_DEFAULT_REGION"`
+	SUBCOMMAND     string `help:"apsaracli subcommand" subcommand:"true"`
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
@@ -94,7 +93,6 @@ func newClient(options *BaseOptions) (*apsara.SRegion, error) {
 			options.AccessKey,
 			options.Secret,
 			options.Endpoint,
-			options.SApsaraEndpoints,
 		).Debug(options.Debug).
 			CloudproviderConfig(
 				cloudprovider.ProviderConfig{

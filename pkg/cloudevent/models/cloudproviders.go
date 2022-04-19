@@ -319,7 +319,6 @@ type SCloudproviderDelegate struct {
 	Brand    string
 
 	Options struct {
-		cloudprovider.SApsaraEndpoints
 		cloudprovider.SHCSOEndpoints
 	}
 

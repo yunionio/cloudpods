@@ -26,10 +26,11 @@ import (
 )
 
 type DepartmentInfo struct {
-	Department      string
-	DepartmentName  string
-	ResourceGroup   string
-	ResourceGroupId string
+	Department        string
+	DepartmentName    string
+	ResourceGroup     string
+	ResourceGroupName string
+	ResourceGroupId   string
 }
 
 func (self DepartmentInfo) GetProjectId() string {
