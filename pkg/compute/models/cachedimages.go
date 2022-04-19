@@ -318,7 +318,7 @@ func (manager *SCachedimageManager) GetCachedimageById(ctx context.Context, user
 			return cachedImage, nil
 		}
 	}
-	if errors.Cause(err) != sql.ErrNoRows {
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return nil, err
 	}
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
