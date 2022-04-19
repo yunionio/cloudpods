@@ -340,41 +340,16 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	return self.ivpcs, nil
 }
 
-func (self *SRegion) GetEipById(eipId string) (SEipAddress, error) {
-	var eip SEipAddress
-	err := DoGet(self.ecsClient.Eips.Get, eipId, nil, &eip)
-	eip.region = self
-	return eip, err
-}
-
-// 返回参数分别为eip 列表、列表长度、error。
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090598.html
-func (self *SRegion) GetEips() ([]SEipAddress, error) {
-	querys := make(map[string]string)
-
-	eips := make([]SEipAddress, 0)
-	err := doListAllWithMarker(self.ecsClient.Eips.List, querys, &eips)
-	for i := range eips {
-		eips[i].region = self
-	}
-	return eips, err
-}
-
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	_, err := self.getECSClient()
+	eips, err := self.GetEips("", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	eips, err := self.GetEips()
-	if err != nil {
-		return nil, err
-	}
-
-	ret := make([]cloudprovider.ICloudEIP, len(eips))
+	ret := []cloudprovider.ICloudEIP{}
 	for i := 0; i < len(eips); i += 1 {
 		eips[i].region = self
-		ret[i] = &eips[i]
+		ret = append(ret, &eips[i])
 	}
 	return ret, nil
 }
@@ -406,8 +381,11 @@ func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 }
 
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
-	eip, err := self.GetEipById(eipId)
-	return &eip, err
+	eip, err := self.GetEip(eipId)
+	if err != nil {
+		return nil, err
+	}
+	return eip, nil
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0060595555.html
