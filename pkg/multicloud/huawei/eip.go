@@ -16,11 +16,11 @@ package huawei
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -69,6 +69,7 @@ type SEipAddress struct {
 	multicloud.SEipBase
 	multicloud.HuaweiTags
 
+	Alias               string
 	ID                  string    `json:"id"`
 	Status              string    `json:"status"`
 	Profile             *SProfile `json:"profile,omitempty"`
@@ -92,10 +93,9 @@ func (self *SEipAddress) GetId() string {
 }
 
 func (self *SEipAddress) GetName() string {
-	if len(self.BandwidthName) == 0 {
-		return self.BandwidthName
+	if len(self.Alias) > 0 {
+		return self.Alias
 	}
-
 	return self.PublicIPAddress
 }
 
@@ -208,20 +208,17 @@ func (self *SEipAddress) GetInternetChargeType() string {
 	if err != nil {
 		return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	}
-
-	if bandwidth.ChargeMode != "traffic" {
-		return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
-	} else {
+	if bandwidth.ChargeMode == "traffic" {
 		return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	}
+	return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
 }
 
 func (self *SEipAddress) GetBillingType() string {
 	if self.Profile == nil {
 		return billing_api.BILLING_TYPE_POSTPAID
-	} else {
-		return billing_api.BILLING_TYPE_PREPAID
 	}
+	return billing_api.BILLING_TYPE_PREPAID
 }
 
 func (self *SEipAddress) GetCreatedAt() time.Time {
@@ -260,20 +257,11 @@ func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
 }
 
 func (self *SEipAddress) Dissociate() error {
-	if len(self.PortId) == 0 {
-		return nil
-	}
-	port, err := self.region.GetPort(self.PortId)
+	err := self.region.DissociateEip(self.ID)
 	if err != nil {
-		return errors.Wrapf(err, "GetPort(%s)", self.PortId)
+		return err
 	}
-
-	err = self.region.DissociateEip(self.ID, port.DeviceID)
-	if err != nil {
-		return errors.Wrapf(err, "DissociateEip")
-	}
-	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
-	return err
+	return cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
 }
 
 func (self *SEipAddress) ChangeBandwidth(bw int) error {
@@ -297,43 +285,41 @@ func (self *SRegion) GetInstancePortId(instanceId string) (string, error) {
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
 func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, bgpType string, projectId string) (*SEipAddress, error) {
-	paramsStr := `
-{
-    "publicip": {
-        "type": "%s",
-   "ip_version": 4
-    },
-    "bandwidth": {
-        "name": "%s",
-        "size": %d,
-        "share_type": "PER",
-        "charge_mode": "%s"
-    }
-}
-`
-	if len(bgpType) == 0 {
-		return nil, fmt.Errorf("AllocateEIP bgp type should not be empty")
+	params := map[string]interface{}{
+		"bandwidth": map[string]interface{}{
+			"name":        name,
+			"size":        bwMbps,
+			"share_type":  "PER",
+			"charge_mode": chargeType,
+		},
+		"publicip": map[string]interface{}{
+			"type":       bgpType,
+			"ip_version": 4,
+			"alias":      name,
+		},
 	}
-	paramsStr = fmt.Sprintf(paramsStr, bgpType, name, bwMbps, chargeType)
-	_params, _ := jsonutils.ParseString(paramsStr)
-	params := _params.(*jsonutils.JSONDict)
 	if len(projectId) > 0 {
-		params.Set("enterprise_project_id", jsonutils.NewString(projectId))
+		params["enterprise_project_id"] = projectId
 	}
-	eip := SEipAddress{}
-	err := DoCreate(self.ecsClient.Eips.Create, params, &eip)
-	return &eip, err
+	resp, err := self.vpcCreate("publicips", params)
+	if err != nil {
+		return nil, err
+	}
+	eip := &SEipAddress{region: self}
+	return eip, resp.Unmarshal(eip, "publicip")
 }
 
 func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	var eip SEipAddress
-	err := DoGet(self.ecsClient.Eips.Get, eipId, nil, &eip)
-	eip.region = self
-	return &eip, err
+	resp, err := self.vpcGet("publicips/" + eipId)
+	if err != nil {
+		return nil, err
+	}
+	eip := &SEipAddress{region: self}
+	return eip, resp.Unmarshal(eip, "publicip")
 }
 
 func (self *SRegion) DeallocateEIP(eipId string) error {
-	_, err := self.ecsClient.Eips.Delete(eipId, nil)
+	_, err := self.vpcDelete("publicips/" + eipId)
 	return err
 }
 
@@ -346,57 +332,61 @@ func (self *SRegion) AssociateEip(eipId string, instanceId string) error {
 }
 
 func (self *SRegion) AssociateEipWithPortId(eipId string, portId string) error {
-	params := jsonutils.NewDict()
-	publicIPObj := jsonutils.NewDict()
-	publicIPObj.Add(jsonutils.NewString(portId), "port_id")
-	params.Add(publicIPObj, "publicip")
-
-	_, err := self.ecsClient.Eips.Update(eipId, params)
+	params := map[string]interface{}{
+		"publicip": map[string]interface{}{
+			"port_id": portId,
+		},
+	}
+	_, err := self.vpcUpdate("publicips/"+eipId, params)
 	return err
 }
 
-func (self *SRegion) DissociateEip(eipId string, instanceId string) error {
-	eip, err := self.GetEip(eipId)
-	if err != nil {
-		return err
-	}
-
-	// 已经是解绑状态
-	if eip.Status == "DOWN" {
-		return nil
-	}
-
-	remoteInstanceId := eip.GetAssociationExternalId()
-	if remoteInstanceId != instanceId {
-		return fmt.Errorf("eip %s associate with another instance %s", eipId, remoteInstanceId)
-	}
-
-	paramsStr := `{"publicip":{"port_id":null}}`
-	params, _ := jsonutils.ParseString(paramsStr)
-	_, err = self.ecsClient.Eips.Update(eipId, params)
-	return err
+func (self *SRegion) DissociateEip(eipId string) error {
+	return self.AssociateEipWithPortId(eipId, "")
 }
 
 func (self *SRegion) UpdateEipBandwidth(bandwidthId string, bw int) error {
-	paramStr := `{
-		"bandwidth":
-		{
-           "size": %d
-		}
-	}`
-
-	paramStr = fmt.Sprintf(paramStr, bw)
-	params, _ := jsonutils.ParseString(paramStr)
-	_, err := self.ecsClient.Bandwidths.Update(bandwidthId, params)
+	params := map[string]interface{}{
+		"bandwidth": map[string]interface{}{
+			"size": bw,
+		},
+	}
+	_, err := self.vpcUpdate("bandwidths/"+bandwidthId, params)
 	return err
 }
 
-func (self *SRegion) GetEipBandwidth(bandwidthId string) (Bandwidth, error) {
-	bandwidth := Bandwidth{}
-	err := DoGet(self.ecsClient.Bandwidths.Get, bandwidthId, nil, &bandwidth)
-	return bandwidth, err
+func (self *SRegion) GetEipBandwidth(id string) (*Bandwidth, error) {
+	resp, err := self.vpcGet("bandwidths/" + id)
+	if err != nil {
+		return nil, err
+	}
+	ret := &Bandwidth{}
+	return ret, resp.Unmarshal(ret, "bandwidth")
 }
 
 func (self *SEipAddress) GetProjectId() string {
 	return self.EnterpriseProjectId
+}
+
+func (self *SRegion) GetEips(portId string, addrs []string) ([]SEipAddress, error) {
+	query := url.Values{}
+	for _, addr := range addrs {
+		query.Add("public_ip_address", addr)
+	}
+	if len(portId) > 0 {
+		query.Set("port_id", portId)
+	}
+	resp, err := self.vpcList("publicips", query)
+	if err != nil {
+		return nil, err
+	}
+	eips := []SEipAddress{}
+	err = resp.Unmarshal(&eips, "publicips")
+	if err != nil {
+		return nil, err
+	}
+	for i := range eips {
+		eips[i].region = self
+	}
+	return eips, nil
 }

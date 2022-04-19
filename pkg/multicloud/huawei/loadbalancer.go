@@ -176,15 +176,11 @@ func (self *SLoadbalancer) GetNetwork() *SNetwork {
 
 func (self *SLoadbalancer) GetEip() *SEipAddress {
 	if self.eip == nil {
-		eips, _ := self.region.GetEips()
+		eips, _ := self.region.GetEips(self.VipPortID, nil)
 		for i := range eips {
-			eip := &eips[i]
-			if eip.PortId == self.VipPortID {
-				self.eip = eip
-			}
+			self.eip = &eips[i]
 		}
 	}
-
 	return self.eip
 }
 
@@ -536,6 +532,26 @@ func (self *SRegion) lbList(resource string, query url.Values) (jsonutils.JSONOb
 	return self.client.lbList(self.ID, resource, query)
 }
 
+func (self *SRegion) vpcList(resource string, query url.Values) (jsonutils.JSONObject, error) {
+	return self.client.vpcList(self.ID, resource, query)
+}
+
+func (self *SRegion) vpcCreate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	return self.client.vpcCreate(self.ID, resource, params)
+}
+
+func (self *SRegion) vpcGet(resource string) (jsonutils.JSONObject, error) {
+	return self.client.vpcGet(self.ID, resource)
+}
+
+func (self *SRegion) vpcDelete(resource string) (jsonutils.JSONObject, error) {
+	return self.client.vpcDelete(self.ID, resource)
+}
+
+func (self *SRegion) vpcUpdate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	return self.client.vpcUpdate(self.ID, resource, params)
+}
+
 func (self *SRegion) lbListAll(resource string, query url.Values, respKey string, retVal interface{}) error {
 	ret := jsonutils.NewArray()
 	for {
@@ -562,15 +578,15 @@ func (self *SRegion) lbGet(resource string) (jsonutils.JSONObject, error) {
 }
 
 func (self *SRegion) lbDelete(resource string) (jsonutils.JSONObject, error) {
-	return self.client.lbGet(self.ID, resource)
+	return self.client.lbDelete(self.ID, resource)
 }
 
 func (self *SRegion) lbCreate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.lbGet(self.ID, resource)
+	return self.client.lbCreate(self.ID, resource, params)
 }
 
 func (self *SRegion) lbUpdate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.client.lbUpdate(self.ID, resource)
+	return self.client.lbUpdate(self.ID, resource, params)
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561535.html
