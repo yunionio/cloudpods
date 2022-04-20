@@ -42,6 +42,7 @@ type SHostOptions struct {
 
 	RecycleDiskfile         bool `help:"Recycle instead of remove deleted disk file" default:"true"`
 	RecycleDiskfileKeepDays int  `help:"How long recycled files kept, default 28 days" default:"28"`
+	AlwaysRecycleDiskfile   bool `help:"Always recycle disk files, no matter what" default:"true"`
 
 	ZeroCleanDiskData bool `help:"Clean disk data by writing zeros" default:"false"`
 
