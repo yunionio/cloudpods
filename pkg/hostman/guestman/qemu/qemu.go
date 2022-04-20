@@ -311,7 +311,6 @@ func (o baseOptions) USB() string {
 
 func (o baseOptions) VdiSpice(spicePort uint, pciBus string) []string {
 	return []string{
-		o.Device("qxl-vga,id=video0,ram_size=141557760,vram_size=141557760"),
 		o.Device("intel-hda,id=sound0"),
 		o.Device("hda-duplex,id=sound0-codec0,bus=sound0.0,cad=0"),
 		fmt.Sprintf("-spice port=%d,password=87654312,seamless-migration=on", spicePort),
@@ -450,6 +449,12 @@ func (o baseOptions_x86_64) PvpanicDevice() string {
 	return o.Device("pvpanic")
 }
 
+func (o baseOptions_x86_64) VdiSpice(spicePort uint, pciBus string) []string {
+	baseOpts := o.baseOptions.VdiSpice(spicePort, pciBus)
+	vga := o.Device("qxl-vga,id=video0,ram_size=141557760,vram_size=141557760")
+	return append([]string{vga}, baseOpts...)
+}
+
 type baseOptions_aarch64 struct {
 	*baseOptions
 }
@@ -525,4 +530,8 @@ func (o baseOptions_aarch64) QGA(_ string) []string {
 func (o baseOptions_aarch64) PvpanicDevice() string {
 	// -device pvpanic: 'pvpanic' is not a valid device model name
 	return ""
+}
+
+func (o baseOptions_aarch64) VdiSpice(spicePort uint, pciBus string) []string {
+	return o.baseOptions.VdiSpice(spicePort, "pcie.0")
 }
