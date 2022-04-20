@@ -78,22 +78,7 @@ func init() {
 	}
 
 	shellutils.R(&ImageExportOptions{}, "image-export", "Export image", func(cli *apsara.SRegion, args *ImageExportOptions) error {
-		oss, err := cli.GetOssClient()
-		if err != nil {
-			return err
-		}
-		exist, err := oss.IsBucketExist(args.BUCKET)
-		if err != nil {
-			return err
-		}
-		if !exist {
-			return fmt.Errorf("not exist bucket %s", args.BUCKET)
-		}
-		bucket, err := oss.Bucket(args.BUCKET)
-		if err != nil {
-			return err
-		}
-		task, err := cli.ExportImage(args.ID, bucket)
+		task, err := cli.ExportImage(args.ID, args.BUCKET)
 		if err != nil {
 			return err
 		}
