@@ -132,6 +132,10 @@ func (s *SKVMGuestInstance) isQ35() bool {
 	return s.getMachine() == api.VM_MACHINE_TYPE_Q35
 }
 
+func (s *SKVMGuestInstance) isVirt() bool {
+	return s.getMachine() == api.VM_MACHINE_TYPE_ARM_VIRT
+}
+
 func (s *SKVMGuestInstance) GetVdiProtocol() string {
 	vdi, err := s.Desc.GetString("vdi")
 	if err != nil {
@@ -141,7 +145,7 @@ func (s *SKVMGuestInstance) GetVdiProtocol() string {
 }
 
 func (s *SKVMGuestInstance) GetPciBus() string {
-	if s.isQ35() {
+	if s.isQ35() || s.isVirt() {
 		return "pcie.0"
 	} else {
 		return "pci.0"
