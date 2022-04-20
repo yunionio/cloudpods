@@ -17,7 +17,6 @@ package apsara
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -273,7 +272,6 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 }
 
 func (self *SRegion) getDisk(diskId string) (*SDisk, error) {
-	debug.PrintStack()
 	disks, total, err := self.GetDisks("", "", "", []string{diskId}, 0, 1)
 	if err != nil {
 		return nil, err

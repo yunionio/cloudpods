@@ -17,8 +17,6 @@ package apsara
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 	"time"
 
@@ -260,35 +258,6 @@ func (self *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDes
 	}
 }
 
-func (self *SRegion) CheckBucket(bucketName string) (*oss.Bucket, error) {
-	return self.checkBucket(bucketName)
-}
-
-func (self *SRegion) checkBucket(bucketName string) (*oss.Bucket, error) {
-	oss, err := self.GetOssClient()
-	if err != nil {
-		log.Errorf("GetOssClient err %s", err)
-		return nil, err
-	}
-	if exist, err := oss.IsBucketExist(bucketName); err != nil {
-		log.Errorf("IsBucketExist err %s", err)
-		return nil, err
-	} else if !exist {
-		log.Debugf("Bucket %s not exists, to create ...", bucketName)
-		if err := oss.CreateBucket(bucketName); err != nil {
-			log.Errorf("Create bucket error %s", err)
-			return nil, err
-		}
-	}
-	log.Debugf("Bucket %s exists", bucketName)
-	if bucket, err := oss.Bucket(bucketName); err != nil {
-		log.Errorf("Bucket error %s %s", bucketName, err)
-		return nil, err
-	} else {
-		return bucket, nil
-	}
-}
-
 func (self *SRegion) CreateImage(snapshoutId, imageName, imageDesc string) (string, error) {
 	return self.createIImage(snapshoutId, imageName, imageDesc)
 }
@@ -300,10 +269,6 @@ func (self *SRegion) createIImage(snapshoutId, imageName, imageDesc string) (str
 	params["SnapshotId"] = snapshoutId
 	params["ImageName"] = imageName
 	params["Description"] = imageDesc
-
-	if _, err := self.checkBucket(params["OssBucket"]); err != nil {
-		return "", err
-	}
 
 	if body, err := self.ecsRequest("CreateImage", params); err != nil {
 		log.Errorf("CreateImage fail %s", err)
@@ -342,42 +307,7 @@ func (listener *OssProgressListener) ProgressChanged(event *oss.ProgressEvent) {
 }
 
 func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	err := self.region.GetClient().EnableImageExport()
-	if err != nil {
-		log.Errorf("fail to enable export privileges: %s", err)
-		return nil, err
-	}
-
-	tmpImageFile, err := ioutil.TempFile(path, extId)
-	if err != nil {
-		return nil, err
-	}
-	defer tmpImageFile.Close()
-	defer os.Remove(tmpImageFile.Name())
-	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
-	if bucket, err := self.region.checkBucket(bucketName); err != nil {
-		return nil, err
-	} else if _, err := self.region.GetImage(extId); err != nil {
-		return nil, err
-	} else if task, err := self.region.ExportImage(extId, bucket); err != nil {
-		return nil, err
-	} else if err := self.region.waitTaskStatus(ExportImageTask, task.TaskId, TaskStatusFinished, 15*time.Second, 3600*time.Second); err != nil {
-		return nil, err
-	} else if imageList, err := bucket.ListObjects(oss.Prefix(fmt.Sprintf("%sexport", strings.Replace(extId, "-", "", -1)))); err != nil {
-		return nil, err
-	} else if len(imageList.Objects) != 1 {
-		return nil, fmt.Errorf("exported image not find")
-	} else if err := bucket.DownloadFile(imageList.Objects[0].Key, tmpImageFile.Name(), 12*1024*1024, oss.Routines(3), oss.Progress(&OssProgressListener{})); err != nil {
-		return nil, err
-	} else {
-		s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-		if result, err := modules.Images.Upload(s, params, tmpImageFile, imageList.Objects[0].Size); err != nil {
-			return nil, err
-		} else {
-			return result, nil
-		}
-	}
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {

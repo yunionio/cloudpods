@@ -488,7 +488,6 @@ type SCloudDelegate struct {
 
 	Options struct {
 		cloudprovider.SHCSOEndpoints
-		cloudprovider.SApsaraEndpoints
 	}
 	ProxySetting proxyapi.SProxySetting
 }

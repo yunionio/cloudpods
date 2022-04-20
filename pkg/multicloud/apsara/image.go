@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aliyun/aliyun-oss-go-sdk/oss"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -213,11 +211,11 @@ type ImageExportTask struct {
 	TaskId string
 }
 
-func (self *SRegion) ExportImage(imageId string, bucket *oss.Bucket) (*ImageExportTask, error) {
+func (self *SRegion) ExportImage(imageId string, bucketName string) (*ImageExportTask, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
-	params["OssBucket"] = bucket.BucketName
+	params["OssBucket"] = bucketName
 	params["OssPrefix"] = fmt.Sprintf("%sexport", strings.Replace(imageId, "-", "", -1))
 
 	if body, err := self.ecsRequest("ExportImage", params); err != nil {

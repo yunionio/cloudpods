@@ -448,9 +448,6 @@ func (manager *SCloudaccountManager) validateCreateData(
 	}
 
 	var endpointOptions jsonutils.JSONObject
-	if input.SCloudaccountCredential.SApsaraEndpoints != nil {
-		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SApsaraEndpoints)
-	}
 
 	if input.SCloudaccountCredential.SHCSOEndpoints != nil {
 		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SHCSOEndpoints)
