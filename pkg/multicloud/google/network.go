@@ -15,6 +15,8 @@
 package google
 
 import (
+	"time"
+
 	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -54,6 +56,10 @@ func (network *SNetwork) IsEmulated() bool {
 
 func (network *SNetwork) GetStatus() string {
 	return api.NETWORK_INTERFACE_STATUS_AVAILABLE
+}
+
+func (network *SNetwork) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (network *SNetwork) Delete() error {

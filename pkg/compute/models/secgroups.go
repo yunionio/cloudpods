@@ -1101,6 +1101,10 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	secgroup.ProjectId = provider.ProjectId
 	secgroup.DomainId = provider.DomainId
 
+	if createdAt := extSec.GetCreatedAt(); !createdAt.IsZero() {
+		secgroup.CreatedAt = createdAt
+	}
+
 	err = func() error {
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")

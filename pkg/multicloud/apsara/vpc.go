@@ -97,6 +97,10 @@ func (self *SVpc) GetStatus() string {
 	return strings.ToLower(self.Status)
 }
 
+func (self *SVpc) GetCreatedAt() time.Time {
+	return self.CreationTime
+}
+
 func (self *SVpc) Refresh() error {
 	new, err := self.region.getVpc(self.VpcId)
 	if err != nil {

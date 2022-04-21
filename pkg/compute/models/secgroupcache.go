@@ -513,6 +513,11 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 			cache.ExternalId = added[i].GetGlobalId()
 			references, _ := added[i].GetReferences()
 			cache.ReferenceCount = len(references)
+
+			if createdAt := added[i].GetCreatedAt(); !createdAt.IsZero() {
+				cache.CreatedAt = createdAt
+			}
+
 			return nil
 		})
 		if err != nil {

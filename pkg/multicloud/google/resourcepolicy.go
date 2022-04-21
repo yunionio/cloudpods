@@ -106,6 +106,10 @@ func (policy *SResourcePolicy) GetStatus() string {
 	}
 }
 
+func (policy *SResourcePolicy) GetCreatedAt() time.Time {
+	return policy.CreationTimestamp
+}
+
 func (policy *SResourcePolicy) Refresh() error {
 	_policy, err := policy.region.GetResourcePolicy(policy.Id)
 	if err != nil {
