@@ -453,12 +453,14 @@ func fetchCloudQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityP
 	keys := quotas.SCloudResourceKeys{}
 	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	if manager != nil {
-		account := manager.GetCloudaccount()
-		keys.Provider = account.Provider
-		keys.Brand = account.Brand
-		keys.CloudEnv = account.GetCloudEnv()
-		keys.AccountId = account.Id
 		keys.ManagerId = manager.Id
+		account, _ := manager.GetCloudaccount()
+		if account != nil {
+			keys.Provider = account.Provider
+			keys.Brand = account.Brand
+			keys.CloudEnv = account.GetCloudEnv()
+			keys.AccountId = account.Id
+		}
 	} else {
 		keys.Provider = api.CLOUD_PROVIDER_ONECLOUD
 		keys.Brand = api.ONECLOUD_BRAND_ONECLOUD

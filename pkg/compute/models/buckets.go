@@ -1815,7 +1815,10 @@ func (bucket *SBucket) GetDetailsAccessInfo(
 	if err != nil {
 		return nil, err
 	}
-	account := manager.GetCloudaccount()
+	account, err := manager.GetCloudaccount()
+	if err != nil {
+		return nil, err
+	}
 	info.(*jsonutils.JSONDict).Add(jsonutils.NewString(account.Brand), "PROVIDER")
 	return info, err
 }
