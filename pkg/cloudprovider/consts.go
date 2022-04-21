@@ -56,17 +56,18 @@ const (
 	CLOUD_CAPABILITY_DNSZONE         = "dnszone"
 	CLOUD_CAPABILITY_PUBLIC_IP       = "public_ip"
 	CLOUD_CAPABILITY_INTERVPCNETWORK = "intervpcnetwork"
-	CLOUD_CAPABILITY_SAML_AUTH       = "saml_auth" // 是否支持SAML 2.0
-	CLOUD_CAPABILITY_QUOTA           = "quota"     // 配额
-	CLOUD_CAPABILITY_NAT             = "nat"       // NAT网关
-	CLOUD_CAPABILITY_NAS             = "nas"       // NAS
-	CLOUD_CAPABILITY_WAF             = "waf"       // WAF
-	CLOUD_CAPABILITY_MONGO_DB        = "mongodb"   // MongoDB
-	CLOUD_CAPABILITY_ES              = "es"        // ElasticSearch
-	CLOUD_CAPABILITY_KAFKA           = "kafka"     // Kafka
-	CLOUD_CAPABILITY_APP             = "app"       // App
-	CLOUD_CAPABILITY_CDN             = "cdn"       // CDN
-	CLOUD_CAPABILITY_CONTAINER       = "container" // 容器
+	CLOUD_CAPABILITY_SAML_AUTH       = "saml_auth"    // 是否支持SAML 2.0
+	CLOUD_CAPABILITY_QUOTA           = "quota"        // 配额
+	CLOUD_CAPABILITY_NAT             = "nat"          // NAT网关
+	CLOUD_CAPABILITY_NAS             = "nas"          // NAS
+	CLOUD_CAPABILITY_WAF             = "waf"          // WAF
+	CLOUD_CAPABILITY_MONGO_DB        = "mongodb"      // MongoDB
+	CLOUD_CAPABILITY_ES              = "es"           // ElasticSearch
+	CLOUD_CAPABILITY_KAFKA           = "kafka"        // Kafka
+	CLOUD_CAPABILITY_APP             = "app"          // App
+	CLOUD_CAPABILITY_CDN             = "cdn"          // CDN
+	CLOUD_CAPABILITY_CONTAINER       = "container"    // 容器
+	CLOUD_CAPABILITY_IPV6_GATEWAY    = "ipv6_gateway" // IPv6网关
 )
 
 const (
