@@ -483,7 +483,11 @@ func (h *BaseHostDesc) fillIsolatedDevices(b *baseBuilder, host *computemodels.S
 func (b *BaseHostDesc) fillCloudProvider(host *computemodels.SHost) error {
 	b.Cloudprovider = host.GetCloudprovider()
 	if b.Cloudprovider != nil {
-		b.Cloudaccount = b.Cloudprovider.GetCloudaccount()
+		var err error
+		b.Cloudaccount, err = b.Cloudprovider.GetCloudaccount()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

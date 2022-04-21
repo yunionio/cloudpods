@@ -167,7 +167,7 @@ type SCloudaccount struct {
 	SProjectMappingResourceBase
 
 	// 缺失的权限，云账号操作资源时自动更新
-	LakeOfPermissions api.SAccountPermissions `length:"medium" get:"user" list:"user"`
+	LakeOfPermissions *api.SAccountPermissions `length:"medium" get:"user" list:"user"`
 }
 
 func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
@@ -950,20 +950,22 @@ func (self *SCloudaccount) UpdatePermission() func(string, string) {
 		defer lockman.ReleaseRawObject(ctx, self.Id, key)
 
 		db.Update(self, func() error {
-			if self.LakeOfPermissions == nil {
-				self.LakeOfPermissions = api.SAccountPermissions{}
+			data := api.SAccountPermissions{}
+			if self.LakeOfPermissions != nil {
+				data = *self.LakeOfPermissions
 			}
-			_, ok := self.LakeOfPermissions[service]
+			_, ok := data[service]
 			if !ok {
-				self.LakeOfPermissions[service] = api.SAccountPermission{}
+				data[service] = api.SAccountPermission{}
 			}
-			permissions := self.LakeOfPermissions[service].Permissions
+			permissions := data[service].Permissions
 			if !utils.IsInStringArray(permission, permissions) {
 				permissions = append(permissions, permission)
-				self.LakeOfPermissions[service] = api.SAccountPermission{
+				data[service] = api.SAccountPermission{
 					Permissions: permissions,
 				}
 			}
+			self.LakeOfPermissions = &data
 			return nil
 		})
 	}

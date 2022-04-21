@@ -1969,9 +1969,9 @@ func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel,
 			}
 			return nil, errors.Wrapf(err, "GetProjectMapping")
 		}
-		account := manager.GetCloudaccount()
-		if account == nil {
-			return nil, fmt.Errorf("can not find manager %s account", manager.Name)
+		account, err := manager.GetCloudaccount()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetCloudaccount")
 		}
 		if rm != nil && rm.Enabled.Bool() {
 			extTags, err := extModel.GetTags()
