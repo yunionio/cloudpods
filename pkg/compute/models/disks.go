@@ -1138,7 +1138,7 @@ func (self *SDisk) ValidateDeleteCondition(ctx context.Context, info jsonutils.J
 			return httperrors.NewNotSufficientPrivilegeError("cloud provider %s is not available", provider.GetName())
 		}
 
-		account := provider.GetCloudaccount()
+		account, _ := provider.GetCloudaccount()
 		if account != nil && !account.IsAvailable() {
 			return httperrors.NewNotSufficientPrivilegeError("cloud account %s is not available", account.GetName())
 		}
@@ -1183,7 +1183,7 @@ func (self *SDisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 			return false
 		}
 
-		account := provider.GetCloudaccount()
+		account, _ := provider.GetCloudaccount()
 		if account != nil && !account.IsAvailable() {
 			return false
 		}
