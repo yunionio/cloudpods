@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -44,6 +45,10 @@ func (self *SLoadbalancerListenerRule) Refresh() error {
 
 func (self *SLoadbalancerListenerRule) IsEmulated() bool {
 	return true
+}
+
+func (self *SLoadbalancerListenerRule) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (self *SLoadbalancerListenerRule) GetSysTags() map[string]string {

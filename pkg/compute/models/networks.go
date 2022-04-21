@@ -706,6 +706,10 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 
 		self.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
+		if createdAt := extNet.GetCreatedAt(); !createdAt.IsZero() {
+			self.CreatedAt = createdAt
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -757,6 +761,10 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	// net.PublicScope = string(extScope)
 
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
+
+	if createdAt := extNet.GetCreatedAt(); !createdAt.IsZero() {
+		net.CreatedAt = createdAt
+	}
 
 	var err = func() error {
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")

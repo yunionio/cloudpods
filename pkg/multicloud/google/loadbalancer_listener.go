@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -50,6 +51,10 @@ func (self *SLoadbalancerListener) Refresh() error {
 
 func (self *SLoadbalancerListener) IsEmulated() bool {
 	return true
+}
+
+func (self *SLoadbalancerListener) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (self *SLoadbalancerListener) GetSysTags() map[string]string {

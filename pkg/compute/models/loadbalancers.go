@@ -960,6 +960,10 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lbNetworkIds := getExtLbNetworkIds(extLb, lb.ManagerId)
 	lb.NetworkId = strings.Join(lbNetworkIds, ",")
 
+	if createdAt := extLb.GetCreatedAt(); !createdAt.IsZero() {
+		lb.CreatedAt = createdAt
+	}
+
 	// classic vpc
 	if extLb.GetNetworkType() == api.LB_NETWORK_TYPE_CLASSIC {
 		if vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region); err == nil && vpc != nil {
@@ -1181,6 +1185,10 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 
 		if lb.CloudregionId == "" {
 			lb.CloudregionId = region.GetId()
+		}
+
+		if createdAt := extLb.GetCreatedAt(); !createdAt.IsZero() {
+			lb.CreatedAt = createdAt
 		}
 
 		// classic vpc

@@ -78,6 +78,10 @@ func (snapshot *SSnapshot) IsEmulated() bool {
 	return false
 }
 
+func (self *SSnapshot) GetCreatedAt() time.Time {
+	return self.CreationTimestamp
+}
+
 func (snapshot *SSnapshot) Refresh() error {
 	_snapshot, err := snapshot.region.GetSnapshot(snapshot.Id)
 	if err != nil {

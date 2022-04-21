@@ -19,10 +19,12 @@ import (
 	"strings"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212656.html
 type SInstanceType struct {
+	multicloud.SResourceBase
 	ID                     string       `json:"id"`
 	Name                   string       `json:"name"`
 	Vcpus                  string       `json:"vcpus"`

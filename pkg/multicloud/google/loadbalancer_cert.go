@@ -46,6 +46,10 @@ func (self *SLoadbalancerCertificate) IsEmulated() bool {
 	return false
 }
 
+func (self *SLoadbalancerCertificate) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (self *SLoadbalancerCertificate) GetSysTags() map[string]string {
 	return nil
 }
