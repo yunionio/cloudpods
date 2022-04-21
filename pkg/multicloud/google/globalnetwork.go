@@ -51,6 +51,10 @@ func (self *SGlobalNetwork) Delete() error {
 	return self.client.ecsDelete(self.SelfLink, nil)
 }
 
+func (self *SGlobalNetwork) GetCreatedAt() time.Time {
+	return self.CreationTimestamp
+}
+
 func (self *SGlobalNetwork) Refresh() error {
 	gvpc, err := self.client.GetGlobalNetwork(self.Id)
 	if err != nil {

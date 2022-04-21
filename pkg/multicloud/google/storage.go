@@ -65,6 +65,10 @@ func (storage *SStorage) IsEmulated() bool {
 	return true
 }
 
+func (self *SStorage) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (storage *SStorage) Refresh() error {
 	_storage, err := storage.zone.region.GetStorage(storage.SelfLink)
 	if err != nil {

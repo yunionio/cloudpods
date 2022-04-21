@@ -14,6 +14,8 @@
 
 package multicloud
 
+import "time"
+
 type SResourceBase struct {
 }
 
@@ -23,4 +25,8 @@ func (self *SResourceBase) IsEmulated() bool {
 
 func (self *SResourceBase) Refresh() error {
 	return nil
+}
+
+func (self *SResourceBase) GetCreatedAt() time.Time {
+	return time.Time{}
 }

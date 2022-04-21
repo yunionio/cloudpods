@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/pkg/errors"
 
@@ -73,6 +74,10 @@ func (self *SLoadbalancerBackend) GetWeight() int {
 
 func (self *SLoadbalancerBackend) GetPort() int {
 	return self.Port
+}
+
+func (self *SLoadbalancerBackend) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (self *SLoadbalancerBackend) GetBackendType() string {
