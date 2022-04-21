@@ -237,6 +237,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.BackupStorageManager,
 		models.DiskBackupManager,
 		models.InstanceBackupManager,
+
+		models.IPv6GatewayManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

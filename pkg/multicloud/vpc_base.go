@@ -88,3 +88,7 @@ func (self *SVpc) CreateIWire(opts *cloudprovider.SWireCreateOptions) (cloudprov
 func (self *SVpc) GetGlobalVpcId() string {
 	return ""
 }
+
+func (self *SVpc) GetICloudIPv6Gateways() ([]cloudprovider.ICloudIPv6Gateway, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudIPv6Gateways")
+}

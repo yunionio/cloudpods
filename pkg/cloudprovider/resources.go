@@ -553,6 +553,13 @@ type ICloudGlobalVpc interface {
 	Delete() error
 }
 
+type ICloudIPv6Gateway interface {
+	IVirtualResource
+
+	GetCreatedAt() time.Time
+	GetInstanceType() string
+}
+
 type ICloudVpc interface {
 	ICloudResource
 
@@ -585,6 +592,8 @@ type ICloudVpc interface {
 	GetAuthorityOwnerId() string
 
 	ProposeJoinICloudInterVpcNetwork(opts *SVpcJointInterVpcNetworkOption) error
+
+	GetICloudIPv6Gateways() ([]ICloudIPv6Gateway, error)
 }
 
 type ICloudInternetGateway interface {
