@@ -82,7 +82,8 @@ func (self *SManagedResourceBase) GetCloudaccount() *SCloudaccount {
 	if cp == nil {
 		return nil
 	}
-	return cp.GetCloudaccount()
+	account, _ := cp.GetCloudaccount()
+	return account
 }
 
 func (self *SManagedResourceBase) GetRegionDriver() (IRegionDriver, error) {
@@ -145,7 +146,7 @@ func (self *SManagedResourceBase) CanShareToDomain(domainId string) bool {
 	if provider == nil {
 		return true
 	}
-	account := provider.GetCloudaccount()
+	account, _ := provider.GetCloudaccount()
 	if account == nil {
 		// no cloud account, can share to any domain
 		return true
@@ -765,7 +766,7 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 			}
 		}
 
-		account := provider.GetCloudaccount()
+		account, _ := provider.GetCloudaccount()
 		if account != nil {
 			info.Account = account.GetName()
 			info.AccountId = account.GetId()
