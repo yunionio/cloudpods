@@ -34,6 +34,7 @@ import (
 // 应用型LB：  HTTP 设置 + 后端池 = onecloud 后端服务器组
 // 4层LB: loadBalancingRules(backendPort)+ 后端池 = onecloud 后端服务器组
 type SLoadbalancerBackendGroup struct {
+	multicloud.SResourceBase
 	lb   *SLoadbalancer
 	lbbs []cloudprovider.ICloudLoadbalancerBackend
 

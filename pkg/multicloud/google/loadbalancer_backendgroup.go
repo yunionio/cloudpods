@@ -2,6 +2,7 @@ package google
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/pkg/errors"
 
@@ -61,6 +62,10 @@ func (self *SLoadBalancerBackendGroup) GetProjectId() string {
 
 func (self *SLoadBalancerBackendGroup) IsDefault() bool {
 	return false
+}
+
+func (self *SLoadBalancerBackendGroup) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (self *SLoadBalancerBackendGroup) GetType() string {

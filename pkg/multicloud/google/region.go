@@ -79,6 +79,10 @@ func (region *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	return cloudprovider.SGeographicInfo{}
 }
 
+func (self *SRegion) GetCreatedAt() time.Time {
+	return self.CreationTimestamp
+}
+
 func (region *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_GOOGLE
 }

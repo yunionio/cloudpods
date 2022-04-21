@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -89,6 +90,10 @@ func (self *SLoadbalancer) GetTags() (map[string]string, error) {
 
 func (self *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (self *SLoadbalancer) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (self *SLoadbalancer) GetProjectId() string {

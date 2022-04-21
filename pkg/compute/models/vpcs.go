@@ -533,6 +533,10 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 		self.IsEmulated = extVPC.IsEmulated()
 		self.ExternalAccessMode = extVPC.GetExternalAccessMode()
 
+		if createdAt := extVPC.GetCreatedAt(); !createdAt.IsZero() {
+			self.CreatedAt = createdAt
+		}
+
 		if gId := extVPC.GetGlobalVpcId(); len(gId) > 0 {
 			gVpc, err := db.FetchByExternalIdAndManagerId(GlobalVpcManager, gId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 				return q.Equals("manager_id", self.ManagerId)
@@ -572,6 +576,9 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	vpc.ExternalAccessMode = extVPC.GetExternalAccessMode()
 	vpc.CloudregionId = region.Id
 	vpc.ManagerId = provider.Id
+	if createdAt := extVPC.GetCreatedAt(); !createdAt.IsZero() {
+		vpc.CreatedAt = createdAt
+	}
 	if gId := extVPC.GetGlobalVpcId(); len(gId) > 0 {
 		gVpc, err := db.FetchByExternalIdAndManagerId(GlobalVpcManager, gId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			return q.Equals("manager_id", provider.Id)

@@ -79,8 +79,8 @@ func (self *SVSwitch) GetGlobalId() string {
 	return self.VSwitchId
 }
 
-func (self *SVSwitch) IsEmulated() bool {
-	return false
+func (self *SVSwitch) GetCreatedAt() time.Time {
+	return self.CreationTime
 }
 
 func (self *SVSwitch) GetStatus() string {

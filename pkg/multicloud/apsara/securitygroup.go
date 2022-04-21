@@ -113,6 +113,10 @@ func (self *SSecurityGroup) GetDescription() string {
 	return self.Description
 }
 
+func (self *SSecurityGroup) GetCreatedAt() time.Time {
+	return self.CreationTime
+}
+
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	rules := make([]cloudprovider.SecurityRule, 0)
 	secgrp, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId)

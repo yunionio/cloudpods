@@ -16,6 +16,7 @@ package google
 
 import (
 	"fmt"
+	"time"
 
 	"yunion.io/x/pkg/errors"
 
@@ -40,6 +41,10 @@ func (wire *SWire) GetGlobalId() string {
 
 func (wire *SWire) GetName() string {
 	return wire.vpc.GetName()
+}
+
+func (wire *SWire) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (wire *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
