@@ -28,14 +28,14 @@ import (
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
-func DetectRootFs(part fsdriver.IDiskPartition) fsdriver.IRootFsDriver {
+func DetectRootFs(part fsdriver.IDiskPartition) (fsdriver.IRootFsDriver, error) {
 	for _, newDriverFunc := range fsdriver.GetRootfsDrivers() {
 		d := newDriverFunc(part)
 		if testRootfs(d) {
-			return d
+			return d, nil
 		}
 	}
-	return nil
+	return nil, fmt.Errorf("DetectRootFs with partition %s no root fs found", part.GetPartDev())
 }
 
 func testRootfs(d fsdriver.IRootFsDriver) bool {
