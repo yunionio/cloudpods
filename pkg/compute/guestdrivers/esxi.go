@@ -490,10 +490,10 @@ func (self *SESXiGuestDriver) RequestResumeOnHost(ctx context.Context, guest *mo
 func (self *SESXiGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
 
 	if data.Contains("host_ip") {
+		oldHost, _ := guest.GetHost()
 		hostIp, _ := data.GetString("host_ip")
-		host, err := models.HostManager.GetHostByIp(hostIp)
+		host, err := models.HostManager.GetHostByIp(oldHost.ManagerId, api.HOST_TYPE_ESXI, hostIp)
 		if err != nil {
-			log.Errorf("fail to find host with IP %s: %s", hostIp, err)
 			return err
 		}
 		if host.Id != guest.HostId {
