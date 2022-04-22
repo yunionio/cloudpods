@@ -1516,19 +1516,6 @@ func (self *SHost) getAttachedWires() []SWire {
 	return ret
 }
 
-func (self *SHost) GetMasterHostwire() *SHostwire {
-	hw := SHostwire{}
-	hw.SetModelManager(HostwireManager, &hw)
-
-	q := self.GetWiresQuery().IsTrue("is_master")
-	err := q.First(&hw)
-	if err != nil {
-		log.Errorf("GetMasterHostwire %s", err)
-		return nil
-	}
-	return &hw
-}
-
 func (self *SHostManager) GetEnabledKvmHost() (*SHost, error) {
 	hostq := HostManager.Query().IsTrue("enabled").Equals("host_status", api.HOST_ONLINE).In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_KVM})
 	host := SHost{}

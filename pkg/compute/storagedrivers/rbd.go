@@ -184,7 +184,10 @@ func (self *SRbdStorageDriver) RequestCreateSnapshot(ctx context.Context, snapsh
 		return errors.Wrap(err, "snapshot get disk")
 	}
 	storage := snapshot.GetStorage()
-	host := storage.GetMasterHost()
+	host, err := storage.GetMasterHost()
+	if err != nil {
+		return errors.Wrapf(err, "storage.GetMasterHost")
+	}
 	url := fmt.Sprintf("%s/disks/%s/snapshot/%s", host.ManagerUri, storage.Id, disk.Id)
 	header := task.GetTaskRequestHeader()
 	params := jsonutils.NewDict()
@@ -198,15 +201,15 @@ func (self *SRbdStorageDriver) RequestCreateSnapshot(ctx context.Context, snapsh
 
 func (self *SRbdStorageDriver) RequestDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
 	storage := snapshot.GetStorage()
-	host := storage.GetMasterHost()
-	if host == nil {
-		return errors.Errorf("storage %s can't get master host", storage.Id)
+	host, err := storage.GetMasterHost()
+	if err != nil {
+		return errors.Wrapf(err, "storage.GetMasterHost")
 	}
 	url := fmt.Sprintf("%s/disks/%s/delete-snapshot/%s", host.ManagerUri, storage.Id, snapshot.DiskId)
 	header := task.GetTaskRequestHeader()
 	params := jsonutils.NewDict()
 	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
-	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
 	if err != nil {
 		return errors.Wrap(err, "request delete snapshot")
 	}

@@ -460,11 +460,10 @@ func (self *SSnapshot) GetDisk() (*SDisk, error) {
 	return disk, nil
 }
 
-func (self *SSnapshot) GetHost() *SHost {
+func (self *SSnapshot) GetHost() (*SHost, error) {
 	iStorage, err := StorageManager.FetchById(self.StorageId)
 	if err != nil {
-		log.Errorln(err)
-		return nil
+		return nil, errors.Wrapf(err, "StorageManager.FetchById(%s)", self.StorageId)
 	}
 	storage := iStorage.(*SStorage)
 	return storage.GetMasterHost()
