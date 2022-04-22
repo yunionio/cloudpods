@@ -1082,9 +1082,9 @@ func (self *SKVMRegionDriver) RequestResetToInstanceSnapshot(ctx context.Context
 }
 
 func (self *SKVMRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
-	host := storage.GetMasterHost()
-	if host == nil {
-		return fmt.Errorf("failed to get master host, maybe the host is offline")
+	_, err := storage.GetMasterHost()
+	if err != nil {
+		return errors.Wrapf(err, "storage.GetMasterHost")
 	}
 	return models.GetStorageDriver(storage.StorageType).ValidateCreateSnapshotData(ctx, userCred, disk, input)
 }
@@ -1235,8 +1235,14 @@ func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *mo
 
 func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		storage, _ := disk.GetStorage()
-		host := storage.GetMasterHost()
+		storage, err := disk.GetStorage()
+		if err != nil {
+			return nil, errors.Wrapf(err, "disk.GetStorage")
+		}
+		host, err := storage.GetMasterHost()
+		if err != nil {
+			return nil, errors.Wrapf(err, "storage.GetMasterHost")
+		}
 		header := task.GetTaskRequestHeader()
 		url := fmt.Sprintf("%s/disks/%s/%s/status", host.ManagerUri, storage.Id, disk.Id)
 		_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
@@ -1306,7 +1312,7 @@ func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, u
 		storage, _ := backup.GetStorage()
 		var host *models.SHost
 		if storage != nil {
-			host = storage.GetMasterHost()
+			host, _ = storage.GetMasterHost()
 		}
 		if host == nil {
 			host, err = models.HostManager.GetEnabledKvmHost()
@@ -1340,7 +1346,10 @@ func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, u
 func (self *SKVMRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, userCred mcclient.TokenCredential, snapshot *models.SSnapshot, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		storage := snapshot.GetStorage()
-		host := storage.GetMasterHost()
+		host, err := storage.GetMasterHost()
+		if err != nil {
+			return nil, errors.Wrapf(err, "storage.GetMasterHost")
+		}
 		header := task.GetTaskRequestHeader()
 		url := fmt.Sprintf("%s/snapshots/%s/%s/%s/status", host.ManagerUri, storage.Id, snapshot.DiskId, snapshot.Id)
 		_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
@@ -1530,7 +1539,7 @@ func (self *SKVMRegionDriver) RequestDeleteBackup(ctx context.Context, backup *m
 	storage, _ := backup.GetStorage()
 	var host *models.SHost
 	if storage != nil {
-		host = storage.GetMasterHost()
+		host, _ = storage.GetMasterHost()
 	}
 	if host == nil {
 		host, err = models.HostManager.GetEnabledKvmHost()

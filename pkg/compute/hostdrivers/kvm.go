@@ -269,7 +269,10 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, us
 		snapshot := snapObj.(*models.SSnapshot)
 		snapshotStorage := models.StorageManager.FetchStorageById(snapshot.StorageId)
 		if snapshotStorage.StorageType == api.STORAGE_LOCAL {
-			snapshotHost := snapshotStorage.GetMasterHost()
+			snapshotHost, err := snapshotStorage.GetMasterHost()
+			if err != nil {
+				return errors.Wrapf(err, "GetMasterHost")
+			}
 			if options.Options.SnapshotCreateDiskProtocol == "url" {
 				input.SnapshotUrl = fmt.Sprintf("%s/download/snapshots/%s/%s/%s", snapshotHost.ManagerUri, snapshotStorage.Id, snapshot.DiskId, snapshot.Id)
 				input.SnapshotOutOfChain = snapshot.OutOfChain

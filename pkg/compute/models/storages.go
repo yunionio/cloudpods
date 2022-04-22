@@ -529,7 +529,7 @@ func (self *SStorage) GetOvercommitBound() float32 {
 	}
 }
 
-func (self *SStorage) GetMasterHost() *SHost {
+func (self *SStorage) GetMasterHost() (*SHost, error) {
 	hosts := HostManager.Query().SubQuery()
 	hoststorages := HoststorageManager.Query().SubQuery()
 
@@ -541,19 +541,16 @@ func (self *SStorage) GetMasterHost() *SHost {
 	host.SetModelManager(HostManager, &host)
 	err := q.First(&host)
 	if err != nil {
-		if errors.Cause(err) != sql.ErrNoRows {
-			log.Errorf("GetMasterHost fail %s", err)
-		}
-		return nil
+		return nil, errors.Wrapf(err, "q.First")
 	}
-	return &host
+	return &host, nil
 }
 
 func (self *SStorage) GetZoneId() string {
 	if len(self.ZoneId) > 0 {
 		return self.ZoneId
 	}
-	host := self.GetMasterHost()
+	host, _ := self.GetMasterHost()
 	if host != nil {
 		_, err := db.Update(self, func() error {
 			self.ZoneId = host.ZoneId
@@ -1657,20 +1654,24 @@ func (self *SStorage) GetSchedtagJointManager() ISchedtagJointManager {
 }
 
 func (manager *SStorageManager) StorageSnapshotsRecycle(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	storages := make([]SStorage, 0)
-	err := manager.Query().Equals("enabled", true).
+	storages := []SStorage{}
+	q := manager.Query().Equals("enabled", true).
 		In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).
-		In("storage_type", api.SHARED_FILE_STORAGE).All(&storages)
+		In("storage_type", api.SHARED_FILE_STORAGE)
+	err := db.FetchModelObjects(manager, q, &storages)
 	if err != nil {
 		log.Errorf("Get shared file storage failed %s", err)
 		return
 	}
 	for i := 0; i < len(storages); i++ {
-		storages[i].SetModelManager(manager, &storages[i])
-		host := storages[i].GetMasterHost()
+		host, err := storages[i].GetMasterHost()
+		if err != nil {
+			log.Errorf("get master host for storage %s(%s) failed: %v", storages[i].Name, storages[i].Id, err)
+			continue
+		}
 		url := fmt.Sprintf("%s/storages/%s/snapshots-recycle", host.ManagerUri, storages[i].Id)
 		headers := mcclient.GetTokenHeaders(userCred)
-		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, headers, nil, false)
+		_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, headers, nil, false)
 		if err != nil {
 			log.Errorf("Storage request snapshots recycle failed %s", err)
 		}
