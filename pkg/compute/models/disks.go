@@ -402,7 +402,7 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		return input, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
 	}
 
-	host := storage.GetMasterHost()
+	host, _ := storage.GetMasterHost()
 	if host == nil {
 		return input, httperrors.NewNotFoundError("failed to find host for storage %s with disk %s", storage.Name, self.Name)
 	}
@@ -476,7 +476,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 			return input, httperrors.NewResourceNotReadyError("cloudprovider %s not available", provider.Name)
 		}
 
-		host := storage.GetMasterHost()
+		host, _ := storage.GetMasterHost()
 		if host == nil {
 			return input, httperrors.NewResourceNotFoundError("storage %s(%s) need online and attach host for create disk", storage.Name, storage.Id)
 		}
@@ -555,7 +555,7 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, s
 	if storage.StorageType != diskConfig.Backend {
 		return httperrors.NewInputParameterError("Storage type[%s] not match backend %s", storage.StorageType, diskConfig.Backend)
 	}
-	if host := storage.GetMasterHost(); host != nil {
+	if host, _ := storage.GetMasterHost(); host != nil {
 		//公有云磁盘大小检查。
 		if err := host.GetHostDriver().ValidateDiskSize(storage, diskConfig.SizeMb>>10); err != nil {
 			return httperrors.NewInputParameterError("%v", err)
@@ -835,7 +835,7 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 		return nil, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
 	}
 
-	host := storage.GetMasterHost()
+	host, _ := storage.GetMasterHost()
 	if host == nil {
 		return nil, httperrors.NewNotFoundError("failed to find host for storage %s with disk %s", storage.Name, self.Name)
 	}
@@ -904,7 +904,7 @@ func (disk *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 func (disk *SDisk) getHypervisor() string {
 	storage, _ := disk.GetStorage()
 	if storage != nil {
-		host := storage.GetMasterHost()
+		host, _ := storage.GetMasterHost()
 		if host != nil {
 			return host.GetHostDriver().GetHypervisor()
 		}
@@ -950,7 +950,7 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	if storage == nil {
 		return httperrors.NewInternalServerError("disk has no valid storage")
 	}
-	if host := storage.GetMasterHost(); host != nil {
+	if host, _ := storage.GetMasterHost(); host != nil {
 		if err := host.GetHostDriver().ValidateDiskSize(storage, sizeMb>>10); err != nil {
 			return httperrors.NewInputParameterError("%v", err)
 		}
@@ -1158,7 +1158,7 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 			// storage is empty, a dirty data, allow delete
 			return nil
 		}
-		host := storage.GetMasterHost()
+		host, _ := storage.GetMasterHost()
 		if host == nil {
 			return httperrors.NewBadRequestError("storage of disk %s no valid host", self.Id)
 		}
@@ -1302,13 +1302,16 @@ func (self *SDisk) GetMasterHost() (*SHost, error) {
 	return &host, nil
 }
 
-func (self *SDisk) GetFetchUrl() string {
-	storage, _ := self.GetStorage()
-	if storage == nil {
-		return ""
+func (self *SDisk) GetFetchUrl() (string, error) {
+	storage, err := self.GetStorage()
+	if err != nil {
+		return "", errors.Wrapf(err, "self.GetStorage")
 	}
-	host := storage.GetMasterHost()
-	return fmt.Sprintf("%s/disks/%s", host.GetFetchUrl(true), self.Id)
+	host, err := storage.GetMasterHost()
+	if err != nil {
+		return "", errors.Wrapf(err, "storage.GetMasterHost")
+	}
+	return fmt.Sprintf("%s/disks/%s", host.GetFetchUrl(true), self.Id), nil
 }
 
 func (self *SDisk) GetFsFormat() string {
