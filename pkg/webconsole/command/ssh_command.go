@@ -50,6 +50,7 @@ type SSHtoolSol struct {
 	needShowInfo bool
 	objectType   string
 	object       jsonutils.JSONObject
+	userSession  *mcclient.ClientSession
 }
 
 func getObjectFromRemote(us *mcclient.ClientSession, id string, objType string) (jsonutils.JSONObject, error) {
@@ -164,6 +165,7 @@ func NewSSHtoolSolCommand(ctx context.Context, us *mcclient.ClientSession, ip st
 		needShowInfo: true,
 		objectType:   objType,
 		object:       obj,
+		userSession:  us,
 	}, nil
 }
 
@@ -189,6 +191,10 @@ func (c *SSHtoolSol) GetCommand() *exec.Cmd {
 		return cmd
 	}
 	return nil
+}
+
+func (c *SSHtoolSol) GetClientSession() *mcclient.ClientSession {
+	return c.userSession
 }
 
 func (c *SSHtoolSol) Cleanup() error {
@@ -269,9 +275,12 @@ func (c *SSHtoolSol) GetRecordObject() *recorder.Object {
 	id, _ := c.object.GetString("id")
 	name, _ := c.object.GetString("name")
 	notes := map[string]interface{}{
-		"user": c.username,
 		"ip":   c.IP,
 		"port": c.Port,
 	}
-	return recorder.NewObject(id, name, c.objectType, jsonutils.Marshal(notes))
+	user := c.username
+	if user == "" {
+		user = ansible.PUBLIC_CLOUD_ANSIBLE_USER
+	}
+	return recorder.NewObject(id, name, c.objectType, user, jsonutils.Marshal(notes))
 }
