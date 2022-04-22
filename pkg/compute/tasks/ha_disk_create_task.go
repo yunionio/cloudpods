@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -62,7 +63,11 @@ func (self *HADiskCreateTask) OnDiskReady(
 	rebuild, _ := self.GetParams().Bool("rebuild")
 	snapshot, _ := self.GetParams().GetString("snapshot")
 	storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
-	host := storage.GetMasterHost()
+	host, err := storage.GetMasterHost()
+	if err != nil {
+		self.OnBackupAllocateFailed(ctx, disk, jsonutils.NewString(errors.Wrapf(err, "storage.GetMasterHost").Error()))
+		return
+	}
 	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATING, disk.GetShortDesc(ctx), self.GetUserCred())
 	disk.SetStatus(self.UserCred, api.DISK_BACKUP_STARTALLOC,
 		fmt.Sprintf("Backup disk start alloc use host %s(%s)", host.Name, host.Id),

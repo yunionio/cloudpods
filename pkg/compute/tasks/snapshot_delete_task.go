@@ -182,13 +182,13 @@ func (self *BatchSnapshotsDeleteTask) OnInit(ctx context.Context, obj db.IStanda
 }
 
 func (self *BatchSnapshotsDeleteTask) StartStorageDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot) {
-	host := snapshot.GetHost()
-	if host == nil {
-		self.SetStageFailed(ctx, jsonutils.NewString("Cannot found snapshot host"))
+	host, err := snapshot.GetHost()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "snapshot.GetHost").Error()))
 		return
 	}
 	self.SetStage("OnStorageDeleteSnapshot", nil)
-	err := host.GetHostDriver().RequestDeleteSnapshotsWithStorage(ctx, host, snapshot, self)
+	err = host.GetHostDriver().RequestDeleteSnapshotsWithStorage(ctx, host, snapshot, self)
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
