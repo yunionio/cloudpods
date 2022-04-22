@@ -4028,7 +4028,7 @@ func (manager *SGuestManager) PerformImportFromLibvirt(ctx context.Context, user
 	if len(host.HostIp) == 0 {
 		return nil, httperrors.NewInputParameterError("Some host config missing host ip")
 	}
-	sHost, err := HostManager.GetHostByIp(host.HostIp)
+	sHost, err := HostManager.GetHostByIp("", api.HOST_TYPE_HYPERVISOR, host.HostIp)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("Invalid host ip %s", host.HostIp)
 	}

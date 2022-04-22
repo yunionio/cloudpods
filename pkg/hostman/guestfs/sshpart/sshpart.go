@@ -597,12 +597,12 @@ func MountSSHRootfs(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition
 		if !dev.Mount() {
 			continue
 		}
-		if rootFs := guestfs.DetectRootFs(dev); rootFs != nil {
+		rootFs, err := guestfs.DetectRootFs(dev)
+		if err == nil {
 			log.Infof("Use class %#v", rootFs)
 			return dev, rootFs, nil
-		} else {
-			dev.Umount()
 		}
+		dev.Umount()
 	}
 	return nil, nil, fmt.Errorf("Fail to find rootfs")
 }
