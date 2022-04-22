@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/mcclient"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
@@ -33,9 +34,10 @@ type IpmiInfo struct {
 type IpmitoolSol struct {
 	*BaseCommand
 	Info *IpmiInfo
+	s    *mcclient.ClientSession
 }
 
-func NewIpmitoolSolCommand(info *IpmiInfo) (*IpmitoolSol, error) {
+func NewIpmitoolSolCommand(info *IpmiInfo, s *mcclient.ClientSession) (*IpmitoolSol, error) {
 	if info.IpAddr == "" {
 		return nil, fmt.Errorf("Empty host ip address")
 	}
@@ -53,7 +55,7 @@ func NewIpmitoolSolCommand(info *IpmiInfo) (*IpmitoolSol, error) {
 		"-P", info.Password,
 		"sol",
 	}
-	cmd := NewBaseCommand(name, solArgs...)
+	cmd := NewBaseCommand(s, name, solArgs...)
 	cmd.AppendArgs("activate")
 	tool := &IpmitoolSol{
 		BaseCommand: cmd,

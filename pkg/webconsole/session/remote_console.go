@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/webconsole/options"
+	"yunion.io/x/onecloud/pkg/webconsole/recorder"
 )
 
 const (
@@ -44,7 +45,11 @@ const (
 	CLOUDPODS = api.CLOUDPODS
 )
 
-type RemoteConsoleInfo cloudprovider.ServerVncOutput
+type RemoteConsoleInfo struct {
+	cloudprovider.ServerVncOutput
+
+	s *mcclient.ClientSession
+}
 
 func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string, query jsonutils.JSONObject) (*RemoteConsoleInfo, error) {
 	ret, err := modules.Servers.GetSpecific(s, serverId, "vnc", query)
@@ -56,6 +61,7 @@ func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string, que
 	if err != nil {
 		return nil, err
 	}
+	vncInfo.s = s
 
 	if len(vncInfo.OsName) == 0 || len(vncInfo.VncPassword) == 0 {
 		metadata, err := modules.Servers.GetSpecific(s, serverId, "metadata", nil)
@@ -109,6 +115,10 @@ func (info *RemoteConsoleInfo) Scan(byte, func(string)) {
 // ShowInfo implements ISessionData interface
 func (info *RemoteConsoleInfo) ShowInfo() string {
 	return ""
+}
+
+func (info *RemoteConsoleInfo) GetClientSession() *mcclient.ClientSession {
+	return info.s
 }
 
 func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
@@ -190,4 +200,8 @@ func (info *RemoteConsoleInfo) getApsaraURL() (string, error) {
 		"password":   {info.Password},
 	}
 	return info.getConnParamsURL(options.Options.ApsaraConsoleAddr, params), nil
+}
+
+func (info *RemoteConsoleInfo) GetRecordObject() *recorder.Object {
+	return nil
 }
