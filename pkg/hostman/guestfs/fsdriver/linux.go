@@ -133,6 +133,11 @@ func (l *sLinuxRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, pub
 		} else {
 			secret, err = utils.EncryptAESBase64(gid, password)
 		}
+		// put /.autorelabel if selinux enabled
+		err = rootFs.FilePutContents("/.autorelabel", "", false, false)
+		if err != nil {
+			return "", errors.Wrap(err, "fail to put .autorelabel")
+		}
 	} else {
 		return "", fmt.Errorf("ChangeUserPasswd error: %v", err)
 	}
