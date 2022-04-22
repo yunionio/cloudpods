@@ -22,6 +22,7 @@ const (
 	//ESC监控指标
 	INFLUXDB_FIELD_CPU_USAGE           = "vm_cpu.usage_active"
 	INFLUXDB_FIELD_MEM_USAGE           = "vm_mem.used_percent"
+	INFLUXDB_FIELD_DISK_USAGE          = "vm_disk.used_percent"
 	INFLUXDB_FIELD_DISK_READ_BPS       = "vm_diskio.read_bps"
 	INFLUXDB_FIELD_DISK_WRITE_BPS      = "vm_diskio.write_bps"
 	INFLUXDB_FIELD_DISK_READ_IOPS      = "vm_diskio.read_iops"
