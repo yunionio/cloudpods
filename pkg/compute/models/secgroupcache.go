@@ -374,6 +374,9 @@ func (self *SSecurityGroupCache) SyncBaseInfo(ctx context.Context, userCred mccl
 		if err == nil {
 			self.ReferenceCount = len(references)
 		}
+		if createdAt := ext.GetCreatedAt(); !createdAt.IsZero() {
+			self.CreatedAt = createdAt
+		}
 		return nil
 	})
 	if err != nil {
