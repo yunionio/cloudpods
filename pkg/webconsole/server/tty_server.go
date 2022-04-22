@@ -120,6 +120,7 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 			}
 		} else {
 			p.Pty.Write([]byte(data))
+			go p.Session.GetRecorder().Write(data)
 		}
 	})
 

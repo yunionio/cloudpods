@@ -27,12 +27,16 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/signalutils"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/webconsole"
+	"yunion.io/x/onecloud/pkg/webconsole/models"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 	"yunion.io/x/onecloud/pkg/webconsole/server"
 )
@@ -78,9 +82,16 @@ func registerSigTraps() {
 
 func start() {
 	baseOpts := &o.Options.BaseOptions
+
 	// commonOpts := &o.Options.CommonOptions
-	app := app_common.InitApp(baseOpts, false)
+	app := app_common.InitApp(baseOpts, true)
+	dbOpts := &o.Options.DBOptions
+
+	cloudcommon.InitDB(dbOpts)
+
 	webconsole.InitHandlers(app)
+
+	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 
 	root := mux.NewRouter()
 	root.UseEncodedPath()

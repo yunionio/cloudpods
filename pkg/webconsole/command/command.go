@@ -18,6 +18,9 @@ import (
 	"os/exec"
 
 	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/webconsole/recorder"
 )
 
 const (
@@ -33,18 +36,26 @@ type ICommand interface {
 	IsNeedShowInfo() bool
 	ShowInfo() string
 	Scan(d byte, send func(msg string))
+	GetClientSession() *mcclient.ClientSession
+	GetRecordObject() *recorder.Object
 }
 
 type BaseCommand struct {
+	s    *mcclient.ClientSession
 	name string
 	args []string
 }
 
-func NewBaseCommand(name string, args ...string) *BaseCommand {
+func NewBaseCommand(s *mcclient.ClientSession, name string, args ...string) *BaseCommand {
 	return &BaseCommand{
+		s:    s,
 		name: name,
 		args: args,
 	}
+}
+
+func (c *BaseCommand) GetClientSession() *mcclient.ClientSession {
+	return c.s
 }
 
 func (c *BaseCommand) AppendArgs(args ...string) *BaseCommand {
@@ -59,7 +70,6 @@ func (c BaseCommand) GetCommand() *exec.Cmd {
 }
 
 func (c BaseCommand) Scan(byte, func(msg string)) {
-	return
 }
 
 func (c BaseCommand) IsNeedShowInfo() bool {
@@ -71,10 +81,13 @@ func (c BaseCommand) ShowInfo() string {
 }
 
 func (c BaseCommand) Reconnect() {
-	return
 }
 
 func (c BaseCommand) Cleanup() error {
 	log.Infof("BaseCommand Cleanup do nothing")
+	return nil
+}
+
+func (c BaseCommand) GetRecordObject() *recorder.Object {
 	return nil
 }

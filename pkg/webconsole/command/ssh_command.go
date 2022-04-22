@@ -25,13 +25,16 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
+	"yunion.io/x/onecloud/pkg/webconsole/recorder"
 )
 
 type SSHtoolSol struct {
@@ -45,14 +48,28 @@ type SSHtoolSol struct {
 	keyFile      string
 	buffer       []byte
 	needShowInfo bool
+	objectType   string
+	object       jsonutils.JSONObject
 }
 
-func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string, port int) (string, *BaseCommand, error) {
+func getObjectFromRemote(us *mcclient.ClientSession, id string, objType string) (jsonutils.JSONObject, error) {
+	gFunc := func(_ *mcclient.ClientSession, _ string, _ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+		return nil, errors.Errorf("Can't get object %q by type %q", id, objType)
+	}
+	if objType == "server" {
+		gFunc = compute.Servers.GetById
+	} else if objType == "host" {
+		gFunc = compute.Hosts.GetById
+	}
+	return gFunc(us, id, jsonutils.NewDict())
+}
+
+func getCommand(ctx context.Context, us *mcclient.ClientSession, ip string, port int) (string, *BaseCommand, error) {
 	if !o.Options.EnableAutoLogin {
 		return "", nil, nil
 	}
 	s := auth.GetAdminSession(ctx, o.Options.Region, "v2")
-	key, err := compute.Sshkeypairs.GetById(s, userCred.GetProjectId(), jsonutils.Marshal(map[string]bool{"admin": true}))
+	key, err := compute.Sshkeypairs.GetById(s, us.GetProjectId(), jsonutils.Marshal(map[string]bool{"admin": true}))
 	if err != nil {
 		return "", nil, err
 	}
@@ -84,7 +101,7 @@ func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip strin
 		log.Warningf("try use %s without password login error: %v", user, err)
 		return "", nil, nil
 	} else {
-		cmd = NewBaseCommand(o.Options.SshToolPath)
+		cmd = NewBaseCommand(us, o.Options.SshToolPath)
 		cmd.AppendArgs("-i", filename)
 		cmd.AppendArgs("-q")
 		cmd.AppendArgs("-o", "StrictHostKeyChecking=no")
@@ -99,11 +116,28 @@ func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip strin
 	return filename, cmd, nil
 }
 
-func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string, query jsonutils.JSONObject) (*SSHtoolSol, error) {
-	port := 22
-	if query != nil {
-		if _port, _ := query.Int("webconsole", "port"); _port != 0 {
+func NewSSHtoolSolCommand(ctx context.Context, us *mcclient.ClientSession, ip string, body jsonutils.JSONObject) (*SSHtoolSol, error) {
+	var (
+		port                         = 22
+		objId                        = ""
+		objType                      = ""
+		obj     jsonutils.JSONObject = nil
+	)
+	if body != nil {
+		if _port, _ := body.Int("webconsole", "port"); _port != 0 {
 			port = int(_port)
+		}
+		objId, _ = body.GetString("webconsole", "id")
+		if objId != "" {
+			objType, _ = body.GetString("webconsole", "type")
+			if objType == "" {
+				return nil, httperrors.NewInputParameterError("type must provided")
+			}
+			var err error
+			obj, err = getObjectFromRemote(us, objId, objType)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -113,7 +147,7 @@ func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential
 	}
 	defer conn.Close()
 
-	keyFile, cmd, err := getCommand(ctx, userCred, ip, port)
+	keyFile, cmd, err := getCommand(ctx, us, ip, port)
 	if err != nil {
 		log.Errorf("getCommand error: %v", err)
 	}
@@ -128,6 +162,8 @@ func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential
 		keyFile:      keyFile,
 		buffer:       []byte{},
 		needShowInfo: true,
+		objectType:   objType,
+		object:       obj,
 	}, nil
 }
 
@@ -224,4 +260,18 @@ func (c *SSHtoolSol) ShowInfo() string {
 		return "Password:"
 	}
 	return ""
+}
+
+func (c *SSHtoolSol) GetRecordObject() *recorder.Object {
+	if c.object == nil {
+		return nil
+	}
+	id, _ := c.object.GetString("id")
+	name, _ := c.object.GetString("name")
+	notes := map[string]interface{}{
+		"user": c.username,
+		"ip":   c.IP,
+		"port": c.Port,
+	}
+	return recorder.NewObject(id, name, c.objectType, jsonutils.Marshal(notes))
 }

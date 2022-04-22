@@ -27,6 +27,8 @@ import (
 
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -34,6 +36,7 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	"yunion.io/x/onecloud/pkg/webconsole/command"
+	"yunion.io/x/onecloud/pkg/webconsole/models"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 	"yunion.io/x/onecloud/pkg/webconsole/session"
 )
@@ -51,6 +54,14 @@ func InitHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
 	app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
 	app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
+
+	for _, man := range []db.IModelManager{
+		models.GetCommandLogManager(),
+	} {
+		db.RegisterModelManager(man)
+		handler := db.NewModelHandler(man)
+		dispatcher.AddModelDispatcher(ApiPathPrefix, app, handler)
+	}
 }
 
 func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*command.K8sEnv, error) {
@@ -99,6 +110,7 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	f.WriteString(conf)
 
 	return &command.K8sEnv{
+		Session:    adminSession,
 		Cluster:    k8sReq.Cluster,
 		Namespace:  k8sReq.Namespace,
 		Pod:        podName,
@@ -157,13 +169,12 @@ func handleK8sLog(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	cmd, err := command.NewSSHtoolSolCommand(ctx, userCred, env.Params["<ip>"], env.Body)
+	cmd, err := command.NewSSHtoolSolCommand(ctx, env.ClientSessin, env.Params["<ip>"], env.Body)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
@@ -189,7 +200,7 @@ func handleBaremetalShell(ctx context.Context, w http.ResponseWriter, r *http.Re
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	cmd, err := command.NewIpmitoolSolCommand(&info)
+	cmd, err := command.NewIpmitoolSolCommand(&info, env.ClientSessin)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
