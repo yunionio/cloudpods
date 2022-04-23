@@ -16,7 +16,10 @@ package recorder
 
 import (
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/LeeEirc/terminalparser"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -28,7 +31,7 @@ import (
 
 type Recoder interface {
 	Start()
-	Write(data string)
+	Write(userInput string, ptyOutput string)
 }
 
 type Object struct {
@@ -50,44 +53,90 @@ func NewObject(id, name, oType, loginUser string, notes jsonutils.JSONObject) *O
 }
 
 type cmdRecoder struct {
-	cs         *mcclient.ClientSession
-	sessionId  string
-	accessedAt time.Time
-	buffer     []string
-	curCmd     string
-	cmdCh      chan string
-	object     *Object
+	cs               *mcclient.ClientSession
+	sessionId        string
+	accessedAt       time.Time
+	userInputStart   bool
+	userInputBuff    string
+	ptyInitialOutput string
+	ptyOutputBuff    string
+	ps1Parsed        bool
+	ps1              string
+	cmdCh            chan string
+	object           *Object
+	wLock            *sync.Mutex
 }
 
 func NewCmdRecorder(s *mcclient.ClientSession, obj *Object, sessionId string, accessedAt time.Time) Recoder {
 	return &cmdRecoder{
-		cs:         s,
-		sessionId:  sessionId,
-		accessedAt: accessedAt,
-		buffer:     make([]string, 0),
-		curCmd:     "",
-		cmdCh:      make(chan string),
-		object:     obj,
+		cs:             s,
+		sessionId:      sessionId,
+		accessedAt:     accessedAt,
+		userInputStart: false,
+		userInputBuff:  "",
+		ptyOutputBuff:  "",
+		cmdCh:          make(chan string),
+		object:         obj,
+		wLock:          new(sync.Mutex),
 	}
 }
 
-func (r *cmdRecoder) Write(data string) {
-	if data == "\n" || data == "\r" {
-		r.sendMessage(r.curCmd)
+func (r *cmdRecoder) Write(userInput string, ptyOutput string) {
+	r.wLock.Lock()
+	defer r.wLock.Unlock()
+
+	if len(userInput) != 0 {
+		r.userInputStart = true
+	}
+
+	if !r.userInputStart && userInput == "" && len(ptyOutput) > 0 {
+		r.ptyInitialOutput += ptyOutput
+	}
+	// try parse PS1
+	if !r.ps1Parsed && r.userInputBuff != "" && userInput == "\r" && r.ptyInitialOutput != "" {
+		outs := r.parsePtyOutputs(r.ptyInitialOutput)
+		if len(outs) != 0 && len(outs) > 1 {
+			r.ps1 = outs[len(outs)-1]
+		}
+		r.ps1Parsed = true
+	}
+
+	// user enter command
+	if userInput == "\r" && r.userInputBuff != "" {
+		r.sendMessage(r.ptyOutputBuff)
 		return
 	}
-	r.curCmd += data
+
+	r.userInputBuff += userInput
+	r.ptyOutputBuff += ptyOutput
 }
 
 func (r *cmdRecoder) cleanCmd() *cmdRecoder {
-	r.curCmd = ""
+	r.userInputBuff = ""
+	r.ptyOutputBuff = ""
 	return r
 }
 
-func (r *cmdRecoder) sendMessage(msg string) {
-	r.cmdCh <- msg
+func (r *cmdRecoder) parsePtyOutputs(data string) []string {
+	s := terminalparser.Screen{
+		Rows:   make([]*terminalparser.Row, 0, 1024),
+		Cursor: &terminalparser.Cursor{},
+	}
+	return s.Parse([]byte(data))
+}
+
+func (r *cmdRecoder) sendMessage(ptyOutputBuff string) {
+	ptyOuts := r.parsePtyOutputs(ptyOutputBuff)
+	if len(ptyOuts) == 0 {
+		return
+	}
+	cmd := ptyOuts[len(ptyOuts)-1]
+	if r.ps1 != "" {
+		cmd = strings.TrimPrefix(cmd, r.ps1)
+	}
 	r.cleanCmd()
-	log.Infof("Message %q sended", msg)
+	r.cmdCh <- cmd
+	log.Debugf("sendMessage ps1: %q, ptyOuts: %#v, cmd: %q", r.ps1, ptyOuts, cmd)
 }
 
 func (r *cmdRecoder) Start() {
@@ -103,6 +152,9 @@ func (r *cmdRecoder) Start() {
 
 func (r *cmdRecoder) save(command string) error {
 	if r.object == nil {
+		return nil
+	}
+	if command == "" {
 		return nil
 	}
 	userCred := r.cs.GetToken()
@@ -135,6 +187,7 @@ func (r *cmdRecoder) newModelInput(userCred mcclient.TokenCredential, command st
 		LoginUser:       r.object.LoginUser,
 		Type:            models.CommandTypeSSH,
 		StartTime:       time.Now(),
+		Ps1:             r.ps1,
 		Command:         command,
 	}
 }

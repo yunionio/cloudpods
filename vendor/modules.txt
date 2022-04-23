@@ -47,6 +47,8 @@ github.com/DataDog/dd-trace-go/tracer
 github.com/DataDog/dd-trace-go/tracer/ext
 # github.com/DataDog/zstd v1.3.4
 github.com/DataDog/zstd
+# github.com/LeeEirc/terminalparser v0.0.0-20220328021224-de16b7643ea4
+github.com/LeeEirc/terminalparser
 # github.com/Masterminds/goutils v1.1.0
 github.com/Masterminds/goutils
 # github.com/Masterminds/semver v1.5.0
