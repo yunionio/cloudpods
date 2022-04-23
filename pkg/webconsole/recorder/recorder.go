@@ -32,18 +32,20 @@ type Recoder interface {
 }
 
 type Object struct {
-	Id    string
-	Name  string
-	Type  string
-	Notes jsonutils.JSONObject
+	Id        string
+	Name      string
+	Type      string
+	LoginUser string
+	Notes     jsonutils.JSONObject
 }
 
-func NewObject(id, name, oType string, notes jsonutils.JSONObject) *Object {
+func NewObject(id, name, oType, loginUser string, notes jsonutils.JSONObject) *Object {
 	return &Object{
-		Id:    id,
-		Name:  name,
-		Type:  oType,
-		Notes: notes,
+		Id:        id,
+		Name:      name,
+		Type:      oType,
+		LoginUser: loginUser,
+		Notes:     notes,
 	}
 }
 
@@ -130,6 +132,7 @@ func (r *cmdRecoder) newModelInput(userCred mcclient.TokenCredential, command st
 		Roles:           strings.Join(userCred.GetRoles(), ","),
 		SessionId:       r.sessionId,
 		AccessedAt:      r.accessedAt,
+		LoginUser:       r.object.LoginUser,
 		Type:            models.CommandTypeSSH,
 		StartTime:       time.Now(),
 		Command:         command,
