@@ -23,7 +23,7 @@ import (
 type IDisk interface {
 	Connect() error
 	Disconnect() error
-	MountRootfs() fsdriver.IRootFsDriver
+	MountRootfs() (fsdriver.IRootFsDriver, error)
 	UmountRootfs(driver fsdriver.IRootFsDriver) error
 	ResizePartition() error
 }

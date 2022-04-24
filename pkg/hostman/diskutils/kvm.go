@@ -15,7 +15,10 @@
 package diskutils
 
 import (
+	"fmt"
+
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/libguestfs"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
@@ -78,15 +81,16 @@ func (d *SKVMGuestDisk) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool 
 	return false
 }
 
-func (d *SKVMGuestDisk) MountRootfs() fsdriver.IRootFsDriver {
+func (d *SKVMGuestDisk) MountRootfs() (fsdriver.IRootFsDriver, error) {
 	return d.MountKvmRootfs()
 }
 
-func (d *SKVMGuestDisk) MountKvmRootfs() fsdriver.IRootFsDriver {
+func (d *SKVMGuestDisk) MountKvmRootfs() (fsdriver.IRootFsDriver, error) {
 	return d.mountKvmRootfs(false)
 }
-func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) fsdriver.IRootFsDriver {
+func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) (fsdriver.IRootFsDriver, error) {
 	partitions := d.deployer.GetPartitions()
+	errs := []error{}
 	for i := 0; i < len(partitions); i++ {
 		log.Infof("detect partition %s", partitions[i].GetPartDev())
 		mountFunc := partitions[i].Mount
@@ -94,19 +98,22 @@ func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) fsdriver.IRootFsDriver {
 			mountFunc = partitions[i].MountPartReadOnly
 		}
 		if mountFunc() {
-			if fs := guestfs.DetectRootFs(partitions[i]); fs != nil {
-				log.Infof("Use rootfs %s, partition %s",
-					fs, partitions[i].GetPartDev())
-				return fs
-			} else {
-				partitions[i].Umount()
+			fs, err := guestfs.DetectRootFs(partitions[i])
+			if err == nil {
+				log.Infof("Use rootfs %s, partition %s", fs, partitions[i].GetPartDev())
+				return fs, nil
 			}
+			errs = append(errs, err)
+			partitions[i].Umount()
 		}
 	}
-	return nil
+	if len(partitions) == 0 {
+		return nil, fmt.Errorf("not found any partitions")
+	}
+	return nil, errors.NewAggregate(errs)
 }
 
-func (d *SKVMGuestDisk) MountKvmRootfsReadOnly() fsdriver.IRootFsDriver {
+func (d *SKVMGuestDisk) MountKvmRootfsReadOnly() (fsdriver.IRootFsDriver, error) {
 	return d.mountKvmRootfs(true)
 }
 
