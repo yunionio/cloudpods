@@ -191,6 +191,7 @@ github.com/aws/aws-sdk-go/service/elasticache
 github.com/aws/aws-sdk-go/service/elbv2
 github.com/aws/aws-sdk-go/service/iam
 github.com/aws/aws-sdk-go/service/organizations
+github.com/aws/aws-sdk-go/service/pricing
 github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi
 github.com/aws/aws-sdk-go/service/route53
 github.com/aws/aws-sdk-go/service/s3
