@@ -155,9 +155,9 @@ func (vd *VDDKDisk) Disconnect() error {
 	return vd.DisconnectBlockDevice()
 }
 
-func (vd *VDDKDisk) MountRootfs() fsdriver.IRootFsDriver {
+func (vd *VDDKDisk) MountRootfs() (fsdriver.IRootFsDriver, error) {
 	if vd.kvmDisk == nil {
-		return nil
+		return nil, fmt.Errorf("kvmDisk is nil")
 	}
 	return vd.kvmDisk.MountRootfs()
 }

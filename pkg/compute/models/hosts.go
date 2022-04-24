@@ -2935,16 +2935,18 @@ func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovide
 	var iregion cloudprovider.ICloudRegion
 	if provider.GetFactory().IsOnPremise() {
 		iregion, err = provider.GetOnPremiseIRegion()
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "provider.GetOnPremiseIRegio")
+		}
 	} else {
 		region, err := self.GetRegion()
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "GetRegion")
 		}
 		iregion, err = provider.GetIRegionById(region.ExternalId)
-	}
-	if err != nil {
-		log.Errorf("fail to find iregion: %s", err)
-		return nil, nil, err
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "provider.GetIRegionById(%s)", region.ExternalId)
+		}
 	}
 	ihost, err := iregion.GetIHostById(self.ExternalId)
 	if err != nil {
@@ -5421,20 +5423,25 @@ func (self *SHost) doAgentRequest(agentType api.TAgentType, ctx context.Context,
 	return data, err
 }
 
-func (manager *SHostManager) GetHostByIp(hostIp string) (*SHost, error) {
+func (manager *SHostManager) GetHostByIp(managerId, hostType, hostIp string) (*SHost, error) {
 	q := manager.Query()
-	q = q.Equals("access_ip", hostIp)
+	q = q.Equals("access_ip", hostIp).Equals("host_type", hostType)
+	if len(managerId) > 0 {
+		q = q.Equals("manager_id", managerId)
+	}
 
-	host, err := db.NewModelObject(manager)
+	ret := []SHost{}
+	err := db.FetchModelObjects(manager, q, &ret)
 	if err != nil {
 		return nil, err
 	}
-	err = q.First(host)
-	if err != nil {
-		return nil, err
+	if len(ret) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s %s", hostType, hostIp)
 	}
-
-	return host.(*SHost), nil
+	if len(ret) > 1 {
+		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "%s %s", hostType, hostIp)
+	}
+	return &ret[0], nil
 }
 
 func (self *SHost) getCloudProviderInfo() SCloudProviderInfo {

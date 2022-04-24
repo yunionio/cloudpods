@@ -76,13 +76,11 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 		log.Infof("Failed to connect %s disk: %s", req.GuestDesc.Hypervisor, err)
 		return new(deployapi.DeployGuestFsResponse), nil
 	}
-	root := disk.MountRootfs()
-	defer disk.UmountRootfs(root)
-	if root == nil {
-		log.Infof("Failed mounting rootfs for %s disk", req.GuestDesc.Hypervisor)
-		return new(deployapi.DeployGuestFsResponse), nil
+	root, err := disk.MountRootfs()
+	if err != nil {
+		return new(deployapi.DeployGuestFsResponse), err
 	}
-
+	defer disk.UmountRootfs(root)
 	ret, err := guestfs.DoDeployGuestFs(root, req.GuestDesc, req.DeployInfo)
 	if err != nil {
 		return new(deployapi.DeployGuestFsResponse), err
@@ -112,30 +110,38 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 		VddkInfo:   req.VddkInfo,
 	}, DeployOption.ImageDeployDriver)
 	defer disk.Disconnect()
-	if err := disk.Connect(); err != nil {
+	err = disk.Connect()
+	if err != nil {
 		return new(deployapi.Empty), errors.Wrap(err, "disk connect failed")
 	}
 
 	unmount := func(root fsdriver.IRootFsDriver) error {
-		if err := disk.UmountRootfs(root); err != nil {
+		err := disk.UmountRootfs(root)
+		if err != nil {
 			return errors.Wrap(err, "unmount rootfs")
 		}
 		return nil
 	}
 
-	root := disk.MountRootfs()
-	if root != nil && !root.IsResizeFsPartitionSupport() {
-		if err := unmount(root); err != nil {
+	root, err := disk.MountRootfs()
+	if err != nil {
+		return new(deployapi.Empty), errors.Wrapf(err, "disk.MountRootfs")
+	}
+	if !root.IsResizeFsPartitionSupport() {
+		err := unmount(root)
+		if err != nil {
 			return new(deployapi.Empty), err
 		}
 		return new(deployapi.Empty), errors.ErrNotSupported
 	}
 
 	// must umount rootfs before resize partition
-	if err := unmount(root); err != nil {
+	err = unmount(root)
+	if err != nil {
 		return new(deployapi.Empty), err
 	}
-	if err := disk.ResizePartition(); err != nil {
+	err = disk.ResizePartition()
+	if err != nil {
 		return new(deployapi.Empty), errors.Wrap(err, "resize disk partition")
 	}
 	return new(deployapi.Empty), nil
@@ -167,42 +173,42 @@ func (*DeployerServer) SaveToGlance(ctx context.Context, req *deployapi.SaveToGl
 		osInfo  string
 		relInfo *deployapi.ReleaseInfo
 	)
-	defer kvmDisk.Disconnect()
-	if err := kvmDisk.Connect(); err != nil {
-		log.Errorf("failed connect kvm disk %s: %s", req.DiskPath, err)
-	} else {
-		var err error
-		func() {
-			if root := kvmDisk.MountKvmRootfs(); root != nil {
-				defer kvmDisk.UmountKvmRootfs(root)
-
-				osInfo = root.GetOs()
-				relInfo = root.GetReleaseInfo(root.GetPartition())
-				if req.Compress {
-					err = root.PrepareFsForTemplate(root.GetPartition())
-				}
-			}
-		}()
+	err := func() error {
+		err := kvmDisk.Connect()
 		if err != nil {
-			log.Errorln(err)
-			return new(deployapi.SaveToGlanceResponse), err
+			return errors.Wrapf(err, "kvmDisk.Connect")
+		}
+		defer kvmDisk.Disconnect()
+
+		root, err := kvmDisk.MountKvmRootfs()
+		if err != nil {
+			return errors.Wrapf(err, "kvmDisk.MountKvmRootfs")
+		}
+		defer kvmDisk.UmountKvmRootfs(root)
+
+		osInfo = root.GetOs()
+		relInfo = root.GetReleaseInfo(root.GetPartition())
+		if req.Compress {
+			err = root.PrepareFsForTemplate(root.GetPartition())
 		}
 
 		if req.Compress {
 			kvmDisk.Zerofree()
 		}
-	}
+		return err
+	}()
+
 	return &deployapi.SaveToGlanceResponse{
 		OsInfo:      osInfo,
 		ReleaseInfo: relInfo,
-	}, nil
+	}, err
 }
 
 func (*DeployerServer) getImageInfo(kvmDisk *diskutils.SKVMGuestDisk) (*deployapi.ImageInfo, error) {
 	// Fsck is executed during mount
-	rootfs := kvmDisk.MountKvmRootfs()
-	if rootfs == nil {
-		return new(deployapi.ImageInfo), fmt.Errorf("Failed mounting rootfs for kvm disk")
+	rootfs, err := kvmDisk.MountKvmRootfs()
+	if err != nil {
+		return new(deployapi.ImageInfo), errors.Wrapf(err, "kvmDisk.MountKvmRootfs")
 	}
 	partition := rootfs.GetPartition()
 	imageInfo := &deployapi.ImageInfo{
