@@ -74,6 +74,7 @@ type SCommandLog struct {
 	Type       string      `width:"32" charset:"utf8" nullable:"true" list:"user" create:"required"`
 	LoginUser  string      `charset:"utf8" list:"user" create:"required"`
 	StartTime  time.Time   `list:"user" create:"required"`
+	Ps1        string      `charset:"utf8" list:"user" create:"optional" json:"ps1"`
 	Command    CommandType `charset:"utf8" list:"user" create:"required"`
 }
 
@@ -96,6 +97,7 @@ type CommandLogCreateInput struct {
 	Type            CommandType
 	LoginUser       string
 	StartTime       time.Time
+	Ps1             string `json:"ps1"`
 	Command         string
 	Notes           jsonutils.JSONObject
 }

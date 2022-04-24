@@ -67,7 +67,7 @@ func (server *TTYServer) initEventHandler(s *session.SSession) {
 }
 
 func initSocketHandler(so socketio.Socket, p *session.Pty) {
-	// handle read
+	// handle command output
 	go func() {
 		for !p.Exit {
 			if p.IsInShellMode() {
@@ -82,7 +82,9 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 					*/
 					cleanUp(so, p)
 				} else {
+					// log.Errorf("--p.Pty.output data: %q", data)
 					so.Emit(OUTPUT_EVENT, string(data))
+					go p.Session.GetRecorder().Write("", string(data))
 				}
 				continue
 			}
@@ -95,7 +97,7 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 		}
 	}()
 
-	// handle write
+	// handle user input write
 	so.On(INPUT_EVENT, func(data string) {
 		if !p.IsInShellMode() {
 			for _, d := range []byte(data) {
@@ -120,7 +122,7 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 			}
 		} else {
 			p.Pty.Write([]byte(data))
-			go p.Session.GetRecorder().Write(data)
+			go p.Session.GetRecorder().Write(data, "")
 		}
 	})
 
