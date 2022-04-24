@@ -834,7 +834,7 @@ func (self *SKVMGuestDriver) RequestChangeDiskStorage(ctx context.Context, userC
 
 func (self *SKVMGuestDriver) validateVdiProtocol(vdi string) error {
 	if !utils.IsInStringArray(vdi, []string{api.VM_VDI_PROTOCOL_VNC, api.VM_VDI_PROTOCOL_SPICE}) {
-		return httperrors.NewInputParameterError("unsupported vdi protocol")
+		return httperrors.NewInputParameterError("unsupported vdi protocol %s", vdi)
 	}
 	return nil
 }
