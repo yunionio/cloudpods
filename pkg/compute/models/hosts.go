@@ -101,7 +101,7 @@ type SHost struct {
 	AccessMac string `width:"32" charset:"ascii" nullable:"false" index:"true" list:"domain" update:"domain"`
 
 	// 管理口Ip地址
-	AccessIp string `width:"16" charset:"ascii" nullable:"true" list:"domain"`
+	AccessIp string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain"`
 
 	// 管理地址
 	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
