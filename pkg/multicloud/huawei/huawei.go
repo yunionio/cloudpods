@@ -294,7 +294,11 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, que
 	if len(params) > 0 {
 		body = jsonutils.Marshal(params)
 	}
-	_, resp, err := httputils.JSONRequest(client, context.Background(), method, url, http.Header{}, body, self.debug)
+	header := http.Header{}
+	if len(self.projectId) > 0 {
+		header.Set("X-Project-Id", self.projectId)
+	}
+	_, resp, err := httputils.JSONRequest(client, context.Background(), method, url, header, body, self.debug)
 	if err != nil {
 		if e, ok := err.(*httputils.JSONClientError); ok && e.Code == 404 {
 			return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
