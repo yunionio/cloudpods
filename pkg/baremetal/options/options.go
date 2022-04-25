@@ -52,8 +52,9 @@ type BaremetalOptions struct {
 	LogFetchIntervalSeconds    int `help:"interval to fetch baremetal log, default is 900 seconds" default:"900"`
 	SendMetricsIntervalSeconds int `help:"interval to send baremetal metrics, default is 300 seconds" default:"300"`
 
-	TftpFileMap map[string]string `help:"map of filename to real file path for tftp"`
-	BootLoader  string            `help:"PXE boot loader" default:"grub"`
+	TftpFileMap        map[string]string `help:"map of filename to real file path for tftp"`
+	BootLoader         string            `help:"PXE boot loader" default:"grub"`
+	UseMegaRaidPerccli bool              `help:"Use MegaRAID perccli" default:"false"`
 }
 
 const (
