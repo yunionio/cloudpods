@@ -58,9 +58,12 @@ func (self *SBaseStorageDriver) ValidateSnapshotDelete(ctx context.Context, snap
 	}
 
 	if !snapshot.OutOfChain && snapshot.FakeDeleted {
-		_, err := models.SnapshotManager.GetConvertSnapshot(snapshot)
-		if err != nil {
-			return httperrors.NewBadRequestError("disk need at least one of snapshot as backing file")
+		disk, _ := snapshot.GetDisk()
+		if disk != nil {
+			_, err := models.SnapshotManager.GetConvertSnapshot(snapshot)
+			if err != nil {
+				return httperrors.NewBadRequestError("disk need at least one of snapshot as backing file")
+			}
 		}
 	}
 	return nil
