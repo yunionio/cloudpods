@@ -149,7 +149,28 @@ func (self *SStorage) StartStorageUpdateTask(ctx context.Context, userCred mccli
 	return nil
 }
 
+func (self *SStorage) getFakeDeletedSnapshots() ([]SSnapshot, error) {
+	q := SnapshotManager.Query().Equals("storage_id", self.Id).IsTrue("fake_deleted")
+	snapshots := make([]SSnapshot, 0)
+	err := db.FetchModelObjects(SnapshotManager, q, &snapshots)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return snapshots, nil
+}
+
 func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// delete all hidden snapshots
+	fakeDeletedSnapshots, err := self.getFakeDeletedSnapshots()
+	if err != nil {
+		return errors.Wrap(err, "getFakeDeletedSnapshots")
+	}
+	for i := range fakeDeletedSnapshots {
+		err := fakeDeletedSnapshots[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "fakeDeletedSnapshots.Delete")
+		}
+	}
 	DeleteResourceJointSchedtags(self, ctx, userCred)
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
@@ -240,9 +261,9 @@ func (self *SStorage) ValidateDeleteCondition(ctx context.Context, info jsonutil
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("storage has disks")
 	}
-	cnt, err = self.GetSnapshotCount()
+	cnt, err = self.GetVisibleSnapshotCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)
+		return httperrors.NewInternalServerError("GetVisibleSnapshotCount fail %s", err)
 	}
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("storage has snapshots")
@@ -359,8 +380,8 @@ func (self *SStorage) GetDisks() []SDisk {
 	return disks
 }
 
-func (self *SStorage) GetSnapshotCount() (int, error) {
-	return SnapshotManager.Query().Equals("storage_id", self.Id).CountWithError()
+func (self *SStorage) GetVisibleSnapshotCount() (int, error) {
+	return SnapshotManager.Query().Equals("storage_id", self.Id).IsFalse("fake_deleted").CountWithError()
 }
 
 func (self *SStorage) IsLocal() bool {
