@@ -1146,14 +1146,15 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 			cmds.WriteString(nicDesc.Mac)
 			cmds.WriteString("\n")
 		}
+		if len(nicDesc.TeamingSlaves) != 0 {
+			cmds.WriteString(`BONDING_OPTS="mode=4 miimon=100"\n`)
+		}
 		if nicDesc.TeamingMaster != nil {
 			cmds.WriteString("BOOTPROTO=none\n")
 			cmds.WriteString("MASTER=")
 			cmds.WriteString(nicDesc.TeamingMaster.Name)
 			cmds.WriteString("\n")
 			cmds.WriteString("SLAVE=yes\n")
-		} else if len(nicDesc.TeamingSlaves) != 0 {
-			cmds.WriteString(`BONDING_OPTS="mode=4 miimon=100"\n`)
 		} else if nicDesc.Virtual {
 			cmds.WriteString("BOOTPROTO=none\n")
 			cmds.WriteString("NETMASK=255.255.255.255\n")
