@@ -401,8 +401,12 @@ func (p *SSHPartition) CheckOrAddUser(user, homeDir string, isSys bool) (realHom
 			cmd := []string{"chage", "-R", p.mountPath, "-E", "-1", "-m", "0", "-M", "99999", "-I", "-1", user}
 			_, err = p.term.Run(strings.Join(cmd, " "))
 			if err != nil {
-				err = errors.Wrap(err, "chage")
-				return
+				if !strings.Contains(err.Error(), "not found") {
+					err = errors.Wrap(err, "chage")
+					return
+				} else {
+					err = nil
+				}
 			}
 		}
 		return
