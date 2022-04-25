@@ -30,7 +30,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -142,17 +141,12 @@ func (manager *SCloudproviderregionManager) FetchCustomizeColumns(
 	for i := range rows {
 		if manager, ok := managers[managerIds[i]]; ok {
 			rows[i].Cloudprovider = manager.Name
-			rows[i].EnableAutoSync = false
 			rows[i].CloudproviderSyncStatus = manager.SyncStatus
 			account, _ := manager.GetCloudaccount()
 			if account != nil {
 				rows[i].CloudaccountId = account.Id
 				rows[i].Cloudaccount = account.Name
 				rows[i].CloudaccountDomainId = account.DomainId
-				if account.GetEnabled() && account.EnableAutoSync {
-					rows[i].EnableAutoSync = true
-				}
-				rows[i].SyncIntervalSeconds = account.getSyncIntervalSeconds()
 			}
 		}
 	}
@@ -180,17 +174,6 @@ func (self *SCloudproviderregion) PostUpdate(ctx context.Context, userCred mccli
 			}
 		}
 	}
-}
-
-func (self *SCloudproviderregion) getSyncIntervalSeconds(account *SCloudaccount) int {
-	if account != nil {
-		return account.getSyncIntervalSeconds()
-	}
-	account, err := self.GetAccount()
-	if err != nil {
-		return options.Options.MinimalSyncIntervalSeconds
-	}
-	return account.getSyncIntervalSeconds()
 }
 
 func (manager *SCloudproviderregion) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -449,8 +432,7 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 
 	if !syncRange.DeepSync {
 		log.Debugf("no need to do deep sync, check...")
-		intval := self.getSyncIntervalSeconds(nil)
-		if self.LastDeepSyncAt.IsZero() || time.Now().Sub(self.LastDeepSyncAt) > time.Hour*24 || (time.Now().Sub(self.LastDeepSyncAt) > time.Duration(intval)*time.Second*8) {
+		if self.LastDeepSyncAt.IsZero() || time.Now().Sub(self.LastDeepSyncAt) > time.Hour*24 {
 			syncRange.DeepSync = true
 		}
 	}
@@ -498,32 +480,6 @@ func (cpr *SCloudproviderregion) resetAutoSync() {
 	if err != nil {
 		log.Errorf("reset LastAutoSyncAt fail %s", err)
 	}
-}
-
-func (cpr *SCloudproviderregion) needAutoSync() bool {
-	if cpr.needAutoSyncInternal() {
-		_, err := db.Update(cpr, func() error {
-			cpr.LastAutoSyncAt = time.Now()
-			return nil
-		})
-		if err != nil {
-			log.Errorf("set LastAutoSyncAt fail %s", err)
-		}
-		return true
-	}
-	return false
-}
-
-func (cpr *SCloudproviderregion) needAutoSyncInternal() bool {
-	if cpr.LastAutoSyncAt.IsZero() {
-		return true
-	}
-	account, _ := cpr.GetAccount()
-	intval := cpr.getSyncIntervalSeconds(account)
-	if time.Now().Sub(cpr.LastSync) > time.Duration(intval)*time.Second {
-		return true
-	}
-	return false
 }
 
 func (cprm *SCloudproviderregionManager) fetchRecordsByCloudproviderId(providerId string) ([]SCloudproviderregion, error) {

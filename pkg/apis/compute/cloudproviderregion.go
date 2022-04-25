@@ -32,12 +32,6 @@ type CloudproviderregionDetails struct {
 	// 云账号所在域Id
 	// example: 0df40413-eb69-49c7-895e-618ddeb80f55
 	CloudaccountDomainId string `json:"cloudaccount_domain_id"`
-	// 是否开启自动同步
-	// example: false
-	EnableAutoSync bool `json:"enable_auto_sync"`
-	// 自动同步周期
-	// example: 300
-	SyncIntervalSeconds int `json:"sync_interval_seconds"`
 
 	// 云订阅同步状态
 	CloudproviderSyncStatus string `json:"cloudprovider_sync_status"`
