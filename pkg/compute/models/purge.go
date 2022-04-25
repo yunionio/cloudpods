@@ -1125,6 +1125,20 @@ func (vpc *SVpc) purgeWires(ctx context.Context, userCred mcclient.TokenCredenti
 	return nil
 }
 
+func (self *SVpc) purgeIPv6Gateways(ctx context.Context, userCred mcclient.TokenCredential) error {
+	gws, err := self.GetIPv6Gateways()
+	if err != nil {
+		return errors.Wrapf(err, "GetIPv6Gateways for vpc %s", self.Id)
+	}
+	for i := range gws {
+		err := gws[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (vpc *SVpc) purgeVpcPeeringConnections(ctx context.Context, userCred mcclient.TokenCredential) error {
 	vpcPCs, err := vpc.GetVpcPeeringConnections()
 	if err != nil {
@@ -1146,6 +1160,11 @@ func (vpc *SVpc) Purge(ctx context.Context, userCred mcclient.TokenCredential) e
 	err := vpc.purgeVpcPeeringConnections(ctx, userCred)
 	if err != nil {
 		return err
+	}
+
+	err = vpc.purgeIPv6Gateways(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "purgeIPv6Gateways")
 	}
 
 	err = vpc.purgeWires(ctx, userCred)
