@@ -88,7 +88,11 @@ func (nic *SInstancePort) InClassicNetwork() bool {
 func (nic *SInstancePort) GetINetworkId() string {
 	for i := range nic.FixedIps {
 		if regutils.MatchIPAddr(nic.FixedIps[i].IpAddress) {
-			return nic.FixedIps[i].SubnetId
+			network, err := nic.region.GetNetwork(nic.FixedIps[i].SubnetId)
+			if err != nil {
+				return nic.FixedIps[i].SubnetId
+			}
+			return network.GetGlobalId()
 		}
 	}
 	return ""
