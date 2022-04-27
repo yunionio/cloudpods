@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
@@ -45,14 +44,12 @@ type SSyncableBaseResourceManager struct{}
 
 func (self *SSyncableBaseResource) CanSync() bool {
 	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED || self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
-		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > time.Duration(options.Options.MinimalSyncIntervalSeconds)*time.Second {
+		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > time.Minute*30 {
 			return true
-		} else {
-			return false
 		}
-	} else {
-		return true
+		return false
 	}
+	return true
 }
 
 func (manager *SSyncableBaseResourceManager) ListItemFilter(

@@ -174,21 +174,12 @@ func (self *SCloudprovider) GetProjectMapping() (*SProjectMapping, error) {
 }
 
 func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	// allow delete cloudprovider if it is disabled
-	// account := self.GetCloudaccount()
-	// if account != nil && account.EnableAutoSync {
-	// 	return httperrors.NewInvalidStatusError("auto syncing is enabled on account")
-	// }
 	if self.GetEnabled() {
 		return httperrors.NewInvalidStatusError("provider is enabled")
 	}
 	if self.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
 		return httperrors.NewInvalidStatusError("provider is not idle")
 	}
-	// usage := self.getUsage()
-	// if !usage.isEmpty() {
-	// 	return httperrors.NewNotEmptyError("Not an empty cloud provider")
-	// }
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
@@ -641,9 +632,6 @@ func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.T
 	if !account.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Cloudaccount disabled")
 	}
-	if account.EnableAutoSync && self.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
-		return nil, httperrors.NewInvalidStatusError("Cloudprovider is not idle")
-	}
 	syncRange := SSyncRange{input}
 	if syncRange.FullSync || len(syncRange.Region) > 0 || len(syncRange.Zone) > 0 || len(syncRange.Host) > 0 || len(syncRange.Resources) > 0 {
 		syncRange.DeepSync = true
@@ -651,7 +639,7 @@ func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.T
 	if self.CanSync() || syncRange.Force {
 		return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
 	}
-	return nil, nil
+	return nil, httperrors.NewInvalidStatusError("Unable to synchronize frequently")
 }
 
 func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
@@ -661,17 +649,14 @@ func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, 
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudProviderSyncInfoTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		log.Errorf("startSyncCloudProviderInfoTask newTask error %s", err)
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
 	if cloudaccount, _ := self.GetCloudaccount(); cloudaccount != nil {
-		cloudaccount.markAutoSync(userCred)
-		cloudaccount.MarkSyncing(userCred)
+		cloudaccount.MarkSyncing(userCred, false)
 	}
 	self.markStartSync(userCred, syncRange)
 	db.OpsLog.LogEvent(self, db.ACT_SYNC_HOST_START, "", userCred)
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
@@ -731,10 +716,6 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 
 	logclient.AddSimpleActionLog(self, logclient.ACT_CHANGE_OWNER, notes, userCred, true)
 
-	if account.EnableAutoSync { // no need to sync rightnow, will do it in auto sync
-		return nil, nil
-	}
-
 	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{SyncRangeInput: api.SyncRangeInput{
 		FullSync: true, DeepSync: true,
 	}}, "")
@@ -746,8 +727,7 @@ func (self *SCloudprovider) markStartingSync(userCred mcclient.TokenCredential, 
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Failed to markStartSync error: %v", err)
-		return errors.Wrap(err, "Update")
+		return errors.Wrap(err, "db.Update")
 	}
 	cprs := self.GetCloudproviderRegions()
 	for i := range cprs {
@@ -767,8 +747,7 @@ func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential, syn
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Failed to markStartSync error: %v", err)
-		return err
+		return errors.Wrapf(err, "db.Update")
 	}
 	cprs := self.GetCloudproviderRegions()
 	for i := range cprs {
@@ -1365,13 +1344,13 @@ func (provider *SCloudprovider) resetAutoSync() {
 	}
 }
 
-func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange, wg *sync.WaitGroup, autoSync bool) {
+func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange, wg *sync.WaitGroup) {
 	provider.markSyncing(userCred)
 	cprs := provider.GetCloudproviderRegions()
 	regionIds, _ := syncRange.GetRegionIds()
 	syncCnt := 0
 	for i := range cprs {
-		if cprs[i].Enabled && cprs[i].CanSync() && (!autoSync || cprs[i].needAutoSync()) && (len(regionIds) == 0 || utils.IsInStringArray(cprs[i].CloudregionId, regionIds)) {
+		if cprs[i].Enabled && cprs[i].CanSync() && (len(regionIds) == 0 || utils.IsInStringArray(cprs[i].CloudregionId, regionIds)) {
 			syncCnt += 1
 			if wg != nil {
 				wg.Add(1)
@@ -1392,7 +1371,7 @@ func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, us
 
 func (provider *SCloudprovider) SyncCallSyncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) {
 	var wg sync.WaitGroup
-	provider.syncCloudproviderRegions(ctx, userCred, syncRange, &wg, false)
+	provider.syncCloudproviderRegions(ctx, userCred, syncRange, &wg)
 	wg.Wait()
 }
 
