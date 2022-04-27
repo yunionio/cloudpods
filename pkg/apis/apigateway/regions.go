@@ -37,5 +37,7 @@ type SRegionsReponse struct {
 	Idps              []SIdp `json:"idps,allowempty"`
 	ReturnFullDomains bool   `json:"return_full_domains"`
 
+	EncryptPasswd bool `json:"encrypt_passwd"`
+
 	SCommonConfig
 }
