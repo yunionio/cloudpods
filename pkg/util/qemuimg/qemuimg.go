@@ -240,6 +240,44 @@ func (info SConvertInfo) encrypted() bool {
 }
 
 func Convert(srcInfo, destInfo SConvertInfo, compact bool, workerOpions []string) error {
+	if srcInfo.Format == QCOW2 && destInfo.Format == QCOW2 {
+		return convertQcow2(srcInfo, destInfo, compact, workerOpions)
+	} else {
+		return convertOther(srcInfo, destInfo, compact, workerOpions)
+	}
+}
+
+func convertOther(srcInfo, destInfo SConvertInfo, compact bool, workerOpions []string) error {
+	cmdline := []string{"-c", strconv.Itoa(int(srcInfo.IoLevel)),
+		qemutils.GetQemuImg(), "convert"}
+	if compact {
+		cmdline = append(cmdline, "-c")
+	}
+	if workerOpions == nil {
+		// https://bugzilla.redhat.com/show_bug.cgi?id=1969848
+		// https://bugs.launchpad.net/qemu/+bug/1805256
+		// qemu-img convert may hang on aarch64, fix: add -m 1
+		cmdline = append(cmdline, "-m", "1")
+	} else {
+		cmdline = append(cmdline, workerOpions...)
+	}
+	if compact {
+		cmdline = append(cmdline, "-c")
+	}
+	cmdline = append(cmdline, "-f", srcInfo.Format.String(), "-O", destInfo.Format.String())
+	cmdline = append(cmdline, srcInfo.Path, destInfo.Path)
+	log.Infof("XXXX qemu-img command: %s", cmdline)
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", cmdline...)
+	output, err := cmd.Output()
+	if err != nil {
+		log.Errorf("qemu convert fail %s, output: %s", err, string(output))
+		os.Remove(destInfo.Path)
+		return err
+	}
+	return nil
+}
+
+func convertQcow2(srcInfo, destInfo SConvertInfo, compact bool, workerOpions []string) error {
 	source, err := NewQemuImageWithIOLevel(srcInfo.Path, srcInfo.IoLevel)
 	if err != nil {
 		return errors.Wrapf(err, "NewQemuImage source %s", srcInfo.Path)
