@@ -133,6 +133,8 @@ Please check this [issue](https://github.com/yunionio/cloudpods/issues/11427) fo
 
 You may contact us by:
 
+* [Subscription](https://www.yunion.cn/subscription/index.html)
+
 * Bilibili: [Cloudpods](https://space.bilibili.com/623431553/)
 
 * WeChat: please scan the following QRCode to contact us
