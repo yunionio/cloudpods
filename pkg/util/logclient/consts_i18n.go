@@ -1317,4 +1317,19 @@ func init() {
 		EN("Update Monitor Resource joint").
 		CN("解绑监控资源关联报警策略"),
 	)
+
+	o.Set(ACT_RECOVERY, i18n.NewTableEntry().
+		EN("Recover backup").
+		CN("备份恢复"),
+	)
+
+	o.Set(ACT_PACK, i18n.NewTableEntry().
+		EN("Package VM").
+		CN("导出主机"),
+	)
+
+	o.Set(ACT_UNPACK, i18n.NewTableEntry().
+		EN("Unpackage VM").
+		CN("导入主机"),
+	)
 }
