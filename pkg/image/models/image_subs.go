@@ -114,12 +114,12 @@ func (self *SImageSubformat) doConvert(image *SImage) error {
 		log.Errorf("fail to convert image %s", err)
 		return err
 	}
-	err = self.SaveTorrent()
-	if err != nil {
-		log.Errorf("fail to convert image torrent %s", err)
-		return err
-	}
 	if options.Options.EnableTorrentService {
+		err = self.SaveTorrent()
+		if err != nil {
+			log.Errorf("fail to convert image torrent %s", err)
+			return err
+		}
 		err = self.seedTorrent(image.Id)
 		if err != nil {
 			log.Errorf("fail to seed torrent %s", err)
