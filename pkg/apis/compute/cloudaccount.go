@@ -176,13 +176,6 @@ type CloudaccountCreateInput struct {
 
 	apis.ProjectizedResourceInput
 
-	// 启用自动同步
-	// default: false
-	EnableAutoSync bool `json:"enable_auto_sync"`
-
-	// 自动同步间隔时间
-	SyncIntervalSeconds int `json:"sync_interval_seconds"`
-
 	// 自动根据云上项目或订阅创建本地项目, OpenStack此参数为true
 	// default: false
 	AutoCreateProject *bool `json:"auto_create_project"`
@@ -326,9 +319,6 @@ type CloudaccountDetail struct {
 
 type CloudaccountUpdateInput struct {
 	apis.EnabledStatusInfrasResourceBaseUpdateInput
-
-	// 同步周期，单位为秒
-	SyncIntervalSeconds *int64 `json:"sync_interval_seconds"`
 
 	// 待更新的options key/value
 	Options *jsonutils.JSONDict `json:"options"`
@@ -486,12 +476,6 @@ type CloudaccountSyncSkusInput struct {
 
 	CloudregionResourceInput
 	CloudproviderResourceInput
-}
-
-type CloudaccountEnableAutoSyncInput struct {
-	// 云账号状态必须是connected
-	// 最小值为region服务的minimal_sync_interval_seconds
-	SyncIntervalSeconds int `json:"sync_interval_seconds"`
 }
 
 type CloudaccountProjectMappingInput struct {
