@@ -1345,7 +1345,7 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		input.DisableUsbKbd = imgProperties[imageapi.IMAGE_DISABLE_USB_KBD] == "true"
 
-		if vdi, ok := imgProperties[imageapi.IMAGE_VDI_PROTOCOL]; ok && len(vdi) > 0 {
+		if vdi, ok := imgProperties[imageapi.IMAGE_VDI_PROTOCOL]; ok && len(vdi) > 0 && len(input.Vdi) == 0 {
 			input.Vdi = vdi
 		}
 
