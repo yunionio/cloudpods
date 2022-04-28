@@ -806,14 +806,6 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 		params.Add(jsonutils.Marshal(syncRange), "sync_range")
 	}
 
-	cloudaccountPendingSyncsMutex.Lock()
-	defer cloudaccountPendingSyncsMutex.Unlock()
-
-	// 提前判断是否云账号已经在后台进行同步
-	if _, ok := cloudaccountPendingSyncs[self.Id]; ok {
-		return errors.Wrap(httperrors.ErrConflict, "account alread in syncing")
-	}
-
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncInfoTask", self, userCred, params, "", "", nil)
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
