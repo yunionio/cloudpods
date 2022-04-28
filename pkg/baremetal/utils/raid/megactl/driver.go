@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 )
@@ -59,18 +60,22 @@ type sRaid struct {
 }
 
 func newRaid(term raid.IExecTerm) raid.IRaidDriver {
-	perccliDrv := &sRaid{
-		driver:   newPerccliDriver(),
-		term:     term,
-		adaptors: make([]*sRaidAdaptor, 0),
+	if options.Options.UseMegaRaidPerccli {
+		perccliDrv := &sRaid{
+			driver:   newPerccliDriver(),
+			term:     term,
+			adaptors: make([]*sRaidAdaptor, 0),
+		}
+		if err := perccliDrv.ParsePhyDevs(); err == nil && perccliDrv.phyDevsCnt > 0 {
+			log.Infof("Use perccli driver, found %d pds", perccliDrv.phyDevsCnt)
+			return perccliDrv
+		} else {
+			log.Warningf("perccli driver parse physical devices error: %v, %d pds, fallback to old megactl and storcli driver", err, perccliDrv.phyDevsCnt)
+			return NewMegaRaid(term)
+		}
 	}
-	if err := perccliDrv.ParsePhyDevs(); err == nil && perccliDrv.phyDevsCnt > 0 {
-		log.Infof("Use perccli driver, found %d pds", perccliDrv.phyDevsCnt)
-		return perccliDrv
-	} else {
-		log.Warningf("perccli driver parse physical devices error: %v, %d pds, fallback to old megactl and storcli driver", err, perccliDrv.phyDevsCnt)
-		return NewMegaRaid(term)
-	}
+	log.Infof("Not use perccli, use legacy megaraid driver")
+	return NewMegaRaid(term)
 }
 
 func (r *sRaid) GetName() string {
