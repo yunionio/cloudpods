@@ -1356,7 +1356,7 @@ const (
 	Others
 )
 
-func isActive(localPath string, size int64, chksum string, fastHash string, useFastHash bool) (bool, sUnactiveReason) {
+func isActive(localPath string, size int64, chksum string, fastHash string, useFastHash bool, noChecksum bool) (bool, sUnactiveReason) {
 	if len(localPath) == 0 || !fileutils2.Exists(localPath) {
 		log.Errorf("invalid file: %s", localPath)
 		return false, FileNoExists
@@ -1365,7 +1365,7 @@ func isActive(localPath string, size int64, chksum string, fastHash string, useF
 		log.Errorf("size mistmatch: %s", localPath)
 		return false, FileSizeMismatch
 	}
-	if len(chksum) == 0 || len(fastHash) == 0 {
+	if len(chksum) == 0 || len(fastHash) == 0 || noChecksum {
 		return true, Others
 	}
 	if useFastHash && len(fastHash) > 0 {
@@ -1396,8 +1396,8 @@ func (self *SImage) IsIso() bool {
 	return self.DiskFormat == string(api.ImageTypeISO)
 }
 
-func (self *SImage) isActive(useFast bool) bool {
-	active, reason := isActive(self.GetLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
+func (self *SImage) isActive(useFast bool, noChecksum bool) bool {
+	active, reason := isActive(self.GetLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast, noChecksum)
 	if active || reason != FileChecksumMismatch {
 		return active
 	}
@@ -1412,7 +1412,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 		return
 	}
 	if IsCheckStatusEnabled(self) {
-		if self.isActive(useFast) {
+		if self.isActive(useFast, true) {
 			if self.Status != api.IMAGE_STATUS_ACTIVE {
 				self.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "check active")
 			}
@@ -1613,10 +1613,11 @@ func (img *SImage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (img *SImage) PerformProbe(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformProbeInput) (jsonutils.JSONObject, error) {
-	if img.Status != api.IMAGE_STATUS_ACTIVE {
+	if img.Status != api.IMAGE_STATUS_ACTIVE && img.Status != api.IMAGE_STATUS_SAVED {
 		return nil, httperrors.NewInvalidStatusError("cannot probe in status %s", img.Status)
 	}
-	err := img.StartImagePipeline(ctx, userCred, true)
+	img.SetStatus(userCred, api.IMAGE_STATUS_PROBING, "perform probe")
+	err := img.StartImagePipeline(ctx, userCred, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "ImageProbeAndCustomization")
 	}
@@ -1668,6 +1669,7 @@ func (image *SImage) doProbeImageInfo(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return false, errors.Wrap(err, "ProbeImageInfo")
 	}
+	log.Infof("image probe info: %s", jsonutils.Marshal(imageInfo))
 	err = image.updateImageInfo(ctx, userCred, imageInfo)
 	if err != nil {
 		return false, errors.Wrap(err, "updateImageInfo")
@@ -1680,14 +1682,18 @@ func (image *SImage) updateImageInfo(
 	userCred mcclient.TokenCredential,
 	imageInfo *deployapi.ImageInfo,
 ) error {
-	if image.OsArch != imageInfo.OsInfo.Arch {
-		db.Update(image, func() error {
-			image.OsArch = imageInfo.OsInfo.Arch
-			return nil
-		})
-	}
+	db.Update(image, func() error {
+		image.OsArch = imageInfo.OsInfo.Arch
+		return nil
+	})
+
 	imageProperties := jsonutils.Marshal(imageInfo.OsInfo).(*jsonutils.JSONDict)
+
 	imageProperties.Set(api.IMAGE_OS_ARCH, jsonutils.NewString(imageInfo.OsInfo.Arch))
+	imageProperties.Set("os_version", jsonutils.NewString(imageInfo.OsInfo.Version))
+	imageProperties.Set("os_distribution", jsonutils.NewString(imageInfo.OsInfo.Distro))
+	imageProperties.Set("os_language", jsonutils.NewString(imageInfo.OsInfo.Language))
+
 	imageProperties.Set(api.IMAGE_OS_TYPE, jsonutils.NewString(imageInfo.OsType))
 	imageProperties.Set(api.IMAGE_PARTITION_TYPE, jsonutils.NewString(imageInfo.PhysicalPartitionType))
 	if imageInfo.IsUefiSupport {
@@ -1770,8 +1776,8 @@ func (image *SImage) isLocal() bool {
 	return strings.HasPrefix(image.Location, LocalFilePrefix)
 }
 
-func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mcclient.TokenCredential) error {
-	oldStatus := image.Status
+func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mcclient.TokenCredential) (bool, error) {
+	uploaded := false
 	if image.isLocal() {
 		imagePath := image.GetLocalLocation()
 		image.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "save image to specific storage")
@@ -1781,9 +1787,10 @@ func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mccl
 			log.Errorf("Failed save image to specific storage %s", err)
 			errStr := fmt.Sprintf("save image to storage %s: %v", storage.Type(), err)
 			image.SetStatus(userCred, api.IMAGE_STATUS_SAVE_FAIL, errStr)
-			return errors.Wrapf(err, "save image to storage %s", storage.Type())
+			return false, errors.Wrapf(err, "save image to storage %s", storage.Type())
 		}
 		if location != image.Location {
+			uploaded = true
 			// save success! to update the location
 			_, err = db.Update(image, func() error {
 				image.Location = location
@@ -1791,7 +1798,7 @@ func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mccl
 			})
 			if err != nil {
 				log.Errorf("failed update image location %s", err)
-				return errors.Wrap(err, "update image location")
+				return false, errors.Wrap(err, "update image location")
 			}
 			// update location success, remove local copy
 			if err = procutils.NewCommand("rm", "-f", imagePath).Run(); err != nil {
@@ -1799,16 +1806,6 @@ func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mccl
 			}
 		}
 		image.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "save image to specific storage complete")
-	}
-	if oldStatus != api.IMAGE_STATUS_ACTIVE {
-		kwargs := jsonutils.NewDict()
-		kwargs.Set("name", jsonutils.NewString(image.GetName()))
-		osType, err := ImagePropertyManager.GetProperty(image.Id, api.IMAGE_OS_TYPE)
-		if err == nil {
-			kwargs.Set("os_type", jsonutils.NewString(osType.Value))
-		}
-		notifyclient.SystemNotifyWithCtx(ctx, notify.NotifyPriorityNormal, notifyclient.IMAGE_ACTIVED, kwargs)
-		notifyclient.NotifyImportantWithCtx(ctx, []string{userCred.GetUserId()}, false, notifyclient.IMAGE_ACTIVED, kwargs)
 	}
 
 	subimgs := ImageSubformatManager.GetAllSubImages(image.Id)
@@ -1832,8 +1829,9 @@ func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mccl
 			if err != nil {
 				log.Errorf("Failed save image to sepcific storage %s", err)
 				subimgs[i].SetStatus(api.IMAGE_STATUS_SAVE_FAIL)
-				return errors.Wrapf(err, "save sub image %s to storage %s", subimgs[i].Format, storage.Type())
+				return false, errors.Wrapf(err, "save sub image %s to storage %s", subimgs[i].Format, storage.Type())
 			} else if subimgs[i].Location != location {
+				uploaded = true
 				_, err := db.Update(&subimgs[i], func() error {
 					subimgs[i].Location = location
 					return nil
@@ -1851,13 +1849,13 @@ func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mccl
 			})
 		}
 	}
-	return nil
+	return uploaded, nil
 }
 
-func (img *SImage) doConvert(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (img *SImage) doConvert(ctx context.Context, userCred mcclient.TokenCredential) (bool, error) {
 	if img.IsGuestImage.IsTrue() {
 		// for image the part of a guest image, convert is not necessary.
-		return nil
+		return false, nil
 	}
 	needConvert := false
 	subimgs := ImageSubformatManager.GetAllSubImages(img.Id)
@@ -1869,10 +1867,10 @@ func (img *SImage) doConvert(ctx context.Context, userCred mcclient.TokenCredent
 				// no need to have this subformat
 				err := subimgs[i].cleanup(ctx, userCred)
 				if err != nil {
-					return errors.Wrap(err, "cleanup sub image")
+					return false, errors.Wrap(err, "cleanup sub image")
 				}
 			}
-			subimgs[i].checkStatus(true)
+			subimgs[i].checkStatus(true, false)
 			if subimgs[i].Status != api.IMAGE_STATUS_ACTIVE {
 				needConvert = true
 			}
@@ -1882,18 +1880,18 @@ func (img *SImage) doConvert(ctx context.Context, userCred mcclient.TokenCredent
 	if (img.Status == api.IMAGE_STATUS_SAVED || img.Status == api.IMAGE_STATUS_ACTIVE) && needConvert {
 		err := img.migrateSubImage(ctx)
 		if err != nil {
-			return errors.Wrap(err, "migrateSubImage")
+			return false, errors.Wrap(err, "migrateSubImage")
 		}
 		err = img.makeSubImages(ctx)
 		if err != nil {
-			return errors.Wrap(err, "makeSubImages")
+			return false, errors.Wrap(err, "makeSubImages")
 		}
 		err = img.doConvertAllSubformats()
 		if err != nil {
-			return errors.Wrap(err, "doConvertAllSubformats")
+			return false, errors.Wrap(err, "doConvertAllSubformats")
 		}
 	}
-	return nil
+	return needConvert, nil
 }
 
 func (img *SImage) doEncrypt(ctx context.Context, userCred mcclient.TokenCredential) (bool, error) {
@@ -1961,6 +1959,7 @@ func (img *SImage) setEncryptStatus(userCred mcclient.TokenCredential, status st
 }
 
 func (img *SImage) Pipeline(ctx context.Context, userCred mcclient.TokenCredential, skipProbe bool) error {
+	updated := false
 	needChecksum := false
 	// do probe
 	if !skipProbe {
@@ -1971,6 +1970,8 @@ func (img *SImage) Pipeline(ctx context.Context, userCred mcclient.TokenCredenti
 		if alterd {
 			needChecksum = true
 		}
+	} else {
+		log.Debugf("skipProbe image...")
 	}
 	// do encrypt
 	{
@@ -1990,17 +1991,36 @@ func (img *SImage) Pipeline(ctx context.Context, userCred mcclient.TokenCredenti
 	}
 	{
 		// do conert
-		err := img.doConvert(ctx, userCred)
+		converted, err := img.doConvert(ctx, userCred)
 		if err != nil {
 			return errors.Wrap(err, "doConvert")
+		}
+		if converted {
+			updated = true
 		}
 	}
 	{
 		// do doUploadPermanent
-		err := img.doUploadPermanentStorage(ctx, userCred)
+		uploaded, err := img.doUploadPermanentStorage(ctx, userCred)
 		if err != nil {
 			return errors.Wrap(err, "doUploadPermanentStorage")
 		}
+		if uploaded {
+			updated = true
+		}
+	}
+	if img.Status != api.IMAGE_STATUS_ACTIVE {
+		img.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "image pipeline complete")
+	}
+	if updated {
+		kwargs := jsonutils.NewDict()
+		kwargs.Set("name", jsonutils.NewString(img.GetName()))
+		osType, err := ImagePropertyManager.GetProperty(img.Id, api.IMAGE_OS_TYPE)
+		if err == nil {
+			kwargs.Set("os_type", jsonutils.NewString(osType.Value))
+		}
+		notifyclient.SystemNotifyWithCtx(ctx, notify.NotifyPriorityNormal, notifyclient.IMAGE_ACTIVED, kwargs)
+		notifyclient.NotifyImportantWithCtx(ctx, []string{userCred.GetUserId()}, false, notifyclient.IMAGE_ACTIVED, kwargs)
 	}
 	return nil
 }

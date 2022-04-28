@@ -201,7 +201,7 @@ func (self *SImageSubformat) SaveTorrent() error {
 	}
 	_, err = torrentutils.GenerateTorrent(imgPath, torrent.GetTrackers(), torrentPath)
 	if err != nil {
-		log.Errorf("torrentutils.GenerateTorrent fail %s", err)
+		log.Errorf("torrentutils.GenerateTorrent %s fail %s", imgPath, err)
 		return err
 	}
 	checksum, err := fileutils2.MD5(torrentPath)
@@ -314,8 +314,8 @@ func (self *SImageSubformat) GetDetails() SImageSubformatDetails {
 	return details
 }
 
-func (self *SImageSubformat) isActive(useFast bool) bool {
-	active, reason := isActive(self.GetLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
+func (self *SImageSubformat) isActive(useFast bool, noCheckum bool) bool {
+	active, reason := isActive(self.GetLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast, noCheckum)
 	if active || reason != FileChecksumMismatch {
 		return active
 	}
@@ -326,7 +326,7 @@ func (self *SImageSubformat) isActive(useFast bool) bool {
 }
 
 func (self *SImageSubformat) isTorrentActive() bool {
-	active, _ := isActive(self.getLocalTorrentLocation(), self.TorrentSize, self.TorrentChecksum, "", false)
+	active, _ := isActive(self.getLocalTorrentLocation(), self.TorrentSize, self.TorrentChecksum, "", false, false)
 	return active
 }
 
@@ -346,9 +346,9 @@ func (self *SImageSubformat) setTorrentStatus(status string) error {
 	return err
 }
 
-func (self *SImageSubformat) checkStatus(useFast bool) {
+func (self *SImageSubformat) checkStatus(useFast bool, noChecksum bool) {
 	if strings.HasPrefix(self.Location, LocalFilePrefix) {
-		if self.isActive(useFast) {
+		if self.isActive(useFast, noChecksum) {
 			if self.Status != api.IMAGE_STATUS_ACTIVE {
 				self.SetStatus(api.IMAGE_STATUS_ACTIVE)
 			}

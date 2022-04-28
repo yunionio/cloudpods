@@ -94,7 +94,8 @@ func (img *SQemuImage) parse() error {
 	} else if strings.HasPrefix(img.Path, api.STORAGE_RBD) {
 		img.ActualSizeBytes = 0
 	} else {
-		fileInfo, err := os.Stat(img.Path)
+		// check file existence
+		fileInfo, err := procutils.RemoteStat(img.Path)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				return err
