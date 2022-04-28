@@ -335,8 +335,18 @@ func checkUrl(ctx context.Context, completeUrl string, expectedCode int, host *a
 		"ansible_port": fmt.Sprintf("%d", host.Port),
 		"ansible_user": host.User,
 	}
+	if host.OsType == "Windows" {
+		ahost.Vars["ansible_password"] = host.Password
+		ahost.Vars["ansible_connection"] = "winrm"
+		ahost.Vars["ansible_winrm_server_cert_validation"] = "ignore"
+		ahost.Vars["ansible_winrm_transport"] = "ntlm"
+	}
+	modulename := "uri"
+	if host.OsType == "Windows" {
+		modulename = "ansible.windows.win_uri"
+	}
 	mod := ansible.Module{
-		Name: "uri",
+		Name: modulename,
 		Args: []string{
 			fmt.Sprintf("url=%s", completeUrl),
 			"method=GET",

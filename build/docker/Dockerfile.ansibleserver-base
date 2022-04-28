@@ -11,5 +11,8 @@ RUN set -x \
 	&& apk add openssh-client \
 	&& apk add sshpass \
 	&& apk add ansible \
+    && apk add py3-pip \
 	&& apk add tzdata git ca-certificates \
 	&& rm -rf /var/cache/apk/*
+
+RUN pip3 install pywinrm
