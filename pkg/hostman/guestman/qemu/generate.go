@@ -372,7 +372,8 @@ func GetNicAddr(index int, disksLen int, isoDevsLen int, isVdiSpice bool) int {
 }
 
 func GetDiskAddr(idx int, isVdiSpice bool) int {
-	var base = 5
+	// host-bridge / isa-bridge / vga / serial / network / block / usb / rng
+	var base = 7
 	if isVdiSpice {
 		base += 10
 	}
