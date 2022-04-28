@@ -130,7 +130,7 @@ func (nic *SNetworkInterface) GetICloudInterfaceAddresses() ([]cloudprovider.ICl
 func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
 	interfaces := []SNetworkInterface{}
 	for {
-		parts, total, err := region.GetNetworkInterfaces([]string{}, "", len(interfaces), 50)
+		parts, total, err := region.GetNetworkInterfaces([]string{}, "", "", len(interfaces), 50)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +149,7 @@ func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInt
 	return ret, nil
 }
 
-func (region *SRegion) GetNetworkInterfaces(interfaceIds []string, subnetId string, offset int, limit int) ([]SNetworkInterface, int, error) {
+func (region *SRegion) GetNetworkInterfaces(nicIds []string, instanceId, subnetId string, offset int, limit int) ([]SNetworkInterface, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
@@ -157,13 +157,20 @@ func (region *SRegion) GetNetworkInterfaces(interfaceIds []string, subnetId stri
 	params["Limit"] = fmt.Sprintf("%d", limit)
 	params["Offset"] = fmt.Sprintf("%d", offset)
 
-	for idx, interfaceId := range interfaceIds {
+	for idx, interfaceId := range nicIds {
 		params[fmt.Sprintf("NetworkInterfaceIds.%d", idx)] = interfaceId
 	}
 
+	idx := 0
 	if len(subnetId) > 0 {
-		params["Filters.0.Name"] = "subnet-id"
-		params["Filters.0.Values.0"] = subnetId
+		params[fmt.Sprintf("Filters.%d.Name", idx)] = "subnet-id"
+		params[fmt.Sprintf("Filters.%d.Values.0", idx)] = subnetId
+		idx++
+	}
+	if len(instanceId) > 0 {
+		params[fmt.Sprintf("Filters.%d.Name", idx)] = "attachment.instance-id"
+		params[fmt.Sprintf("Filters.%d.Values.0", idx)] = instanceId
+		idx++
 	}
 	body, err := region.vpcRequest("DescribeNetworkInterfaces", params)
 	if err != nil {
