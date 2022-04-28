@@ -140,6 +140,8 @@ type HostCommonOptions struct {
 
 	ExecutorSocketPath     string `help:"Executor socket path" default:"/var/run/onecloud/exec.sock"`
 	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
+
+	EnableRemoteExecutor bool `help:"Enable remote executor" default:"false"`
 }
 
 type DBOptions struct {
