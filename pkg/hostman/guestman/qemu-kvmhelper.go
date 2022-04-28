@@ -205,7 +205,8 @@ func (s *SKVMGuestInstance) getDriveDesc(disk api.GuestdiskJsonDesc, isArm bool)
 }
 
 func (s *SKVMGuestInstance) GetDiskAddr(idx int) int {
-	var base = 5
+	// host-bridge / isa-bridge / vga / serial / network / block / usb / rng
+	var base = 7
 	if s.IsVdiSpice() {
 		base += 10
 	}
