@@ -84,6 +84,13 @@ func (aim *SAnsiblePlaybookInstanceManager) createInstance(ctx context.Context, 
 		"ansible_host": host.IP,
 		"ansible_port": host.Port,
 	}
+	if host.OsType == "Windows" {
+		vars["ansible_password"] = host.Password
+		vars["ansible_connection"] = "winrm"
+		vars["ansible_winrm_server_cert_validation"] = "ignore"
+		vars["ansible_winrm_transport"] = "ntlm"
+		vars["ansible_become"] = false
+	}
 	h := ansiblev2.NewHost()
 	h.Vars = vars
 	inv.SetHost(host.Name, h)
