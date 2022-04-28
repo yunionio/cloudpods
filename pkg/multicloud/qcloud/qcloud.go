@@ -30,7 +30,6 @@ import (
 	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
-	qvpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"github.com/tencentyun/cos-go-sdk-v5/debug"
 
@@ -441,9 +440,6 @@ func (r *QcloudResponse) GetResponse() *interface{} {
 
 func _jsonRequest(client *common.Client, domain string, version string, apiName string, params map[string]string, updateFun func(string, string), debug bool, retry bool) (jsonutils.JSONObject, error) {
 	req := &tchttp.BaseRequest{}
-	if region, ok := params["Region"]; ok {
-		client = client.Init(region)
-	}
 	_profile := profile.NewClientProfile()
 	_profile.SignMethod = common.SHA256
 	client.WithProfile(_profile)
@@ -475,9 +471,6 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 // todo: 添加自定义response参数
 func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, path string, version string, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	req := &phpJsonRequest{Path: path}
-	if region, ok := params["Region"]; ok {
-		client = client.Init(region)
-	}
 	_profile := profile.NewClientProfile()
 	_profile.SignMethod = common.SHA256
 	client.WithProfile(_profile)
@@ -600,8 +593,14 @@ func (client *SQcloudClient) GetRegions() []SRegion {
 	return regions
 }
 
-func (client *SQcloudClient) getDefaultClient() (*common.Client, error) {
-	return client.getSdkClient(QCLOUD_DEFAULT_REGION)
+func (client *SQcloudClient) getDefaultClient(params map[string]string) (*common.Client, error) {
+	regionId := QCLOUD_DEFAULT_REGION
+	if len(params) > 0 {
+		if region, ok := params["Region"]; ok {
+			regionId = region
+		}
+	}
+	return client.getSdkClient(regionId)
 }
 
 func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, error) {
@@ -641,22 +640,8 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 	return cli, nil
 }
 
-func (client *SQcloudClient) getVpcClient(regionId string) (*qvpc.Client, error) {
-	cli, err := client.getSdkClient(regionId)
-	if err != nil {
-		return nil, err
-	}
-	vpcClient := &qvpc.Client{
-		Client: *cli,
-	}
-	cpf := profile.NewClientProfile()
-	cpf.HttpProfile.Endpoint = apiDomainByRegion("vpc", regionId)
-	vpcClient.WithProfile(cpf)
-	return vpcClient, nil
-}
-
 func (client *SQcloudClient) tkeRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -664,7 +649,7 @@ func (client *SQcloudClient) tkeRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -672,7 +657,7 @@ func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) auditRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -680,7 +665,7 @@ func (client *SQcloudClient) auditRequest(apiName string, params map[string]stri
 }
 
 func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -688,7 +673,7 @@ func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) accountRequestRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -696,7 +681,7 @@ func (client *SQcloudClient) accountRequestRequest(apiName string, params map[st
 }
 
 func (client *SQcloudClient) clbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -704,7 +689,7 @@ func (client *SQcloudClient) clbRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -712,7 +697,7 @@ func (client *SQcloudClient) lbRequest(apiName string, params map[string]string)
 }
 
 func (client *SQcloudClient) cdbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +705,7 @@ func (client *SQcloudClient) cdbRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) esRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -729,7 +714,7 @@ func (client *SQcloudClient) esRequest(apiName string, params map[string]string)
 }
 
 func (client *SQcloudClient) kafkaRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -738,7 +723,7 @@ func (client *SQcloudClient) kafkaRequest(apiName string, params map[string]stri
 }
 
 func (client *SQcloudClient) redisRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -747,7 +732,7 @@ func (client *SQcloudClient) redisRequest(apiName string, params map[string]stri
 }
 
 func (client *SQcloudClient) dcdbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -756,7 +741,7 @@ func (client *SQcloudClient) dcdbRequest(apiName string, params map[string]strin
 }
 
 func (client *SQcloudClient) mongodbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -765,7 +750,7 @@ func (client *SQcloudClient) mongodbRequest(apiName string, params map[string]st
 }
 
 func (client *SQcloudClient) memcachedRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -774,7 +759,7 @@ func (client *SQcloudClient) memcachedRequest(apiName string, params map[string]
 }
 
 func (client *SQcloudClient) mariadbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -782,7 +767,7 @@ func (client *SQcloudClient) mariadbRequest(apiName string, params map[string]st
 }
 
 func (client *SQcloudClient) postgresRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -790,7 +775,7 @@ func (client *SQcloudClient) postgresRequest(apiName string, params map[string]s
 }
 
 func (client *SQcloudClient) sqlserverRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -799,7 +784,7 @@ func (client *SQcloudClient) sqlserverRequest(apiName string, params map[string]
 
 // deprecated
 func (client *SQcloudClient) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -807,7 +792,7 @@ func (client *SQcloudClient) wssRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) sslRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -815,7 +800,7 @@ func (client *SQcloudClient) sslRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) dnsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -823,7 +808,7 @@ func (client *SQcloudClient) dnsRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) vpc2017Request(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -831,7 +816,7 @@ func (client *SQcloudClient) vpc2017Request(apiName string, params map[string]st
 }
 
 func (client *SQcloudClient) billingRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -839,7 +824,7 @@ func (client *SQcloudClient) billingRequest(apiName string, params map[string]st
 }
 
 func (client *SQcloudClient) camRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -847,7 +832,7 @@ func (client *SQcloudClient) camRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) cdnRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -855,7 +840,7 @@ func (client *SQcloudClient) cdnRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) stsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -863,7 +848,7 @@ func (client *SQcloudClient) stsRequest(apiName string, params map[string]string
 }
 
 func (client *SQcloudClient) jsonRequest(apiName string, params map[string]string, retry bool) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
