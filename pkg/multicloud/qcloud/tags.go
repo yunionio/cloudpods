@@ -35,7 +35,7 @@ func tagRequest(client *common.Client, apiName string, params map[string]string,
 }
 
 func (client *SQcloudClient) tagRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}

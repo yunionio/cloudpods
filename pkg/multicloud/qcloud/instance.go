@@ -21,9 +21,7 @@ import (
 	"strings"
 	"time"
 
-	qcommon "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
-	qvpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -271,12 +269,9 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
-	var (
-		classic = self.VirtualPrivateCloud.VpcId == ""
-		region  = self.host.zone.region
-
-		nics []cloudprovider.ICloudNic
-	)
+	classic := self.VirtualPrivateCloud.VpcId == ""
+	region := self.host.zone.region
+	ret := []cloudprovider.ICloudNic{}
 	if classic {
 		for _, ipAddr := range self.PrivateIpAddresses {
 			nic := SInstanceNic{
@@ -284,39 +279,28 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 				ipAddr:   ipAddr,
 				classic:  true,
 			}
-			nics = append(nics, &nic)
+			ret = append(ret, &nic)
 		}
 	}
-	client, err := region.client.getVpcClient(region.GetId())
+	nics, _, err := region.GetNetworkInterfaces(nil, self.InstanceId, "", 0, 10)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetNetworkInterfaces")
 	}
-	req := qvpc.NewDescribeNetworkInterfacesRequest()
-	req.Filters = []*qvpc.Filter{
-		{
-			Values: qcommon.StringPtrs([]string{self.InstanceId}),
-			Name:   qcommon.StringPtr("attachment.instance-id"),
-		},
-	}
-	resp, err := client.DescribeNetworkInterfaces(req)
-	if err != nil {
-		return nil, err
-	}
-	for _, networkInterface := range resp.Response.NetworkInterfaceSet {
+	for _, networkInterface := range nics {
 		nic := &SInstanceNic{
 			instance: self,
-			id:       String(networkInterface.NetworkInterfaceId),
-			macAddr:  strings.ToLower(String(networkInterface.MacAddress)),
+			id:       String(&networkInterface.NetworkInterfaceId),
+			macAddr:  strings.ToLower(networkInterface.MacAddress),
 			classic:  classic,
 		}
 		for _, addr := range networkInterface.PrivateIpAddressSet {
-			if Bool(addr.Primary) {
-				nic.ipAddr = String(addr.PrivateIpAddress)
+			if addr.Primary {
+				nic.ipAddr = addr.PrivateIpAddress
 			}
 		}
-		nics = append(nics, nic)
+		ret = append(ret, nic)
 	}
-	return nics, nil
+	return ret, nil
 }
 
 func (self *SInstance) GetVcpuCount() int {

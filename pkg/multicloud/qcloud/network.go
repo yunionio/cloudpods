@@ -79,7 +79,7 @@ func (self *SRegion) DeleteNetwork(networkId string) error {
 
 	interfaces := []SNetworkInterface{}
 	for {
-		_interfaces, total, err := self.GetNetworkInterfaces([]string{}, networkId, len(interfaces), 50)
+		_interfaces, total, err := self.GetNetworkInterfaces([]string{}, "", networkId, len(interfaces), 50)
 		if err != nil {
 			return errors.Wrapf(err, "DeleteNetwork.GetNetworkInterfaces")
 		}
