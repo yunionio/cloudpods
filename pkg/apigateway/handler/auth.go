@@ -146,6 +146,7 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 		SCommonConfig: agapi.SCommonConfig{
 			ApiServer: options.Options.ApiServer,
 		},
+		EncryptPasswd: true,
 	}
 
 	s := auth.GetAdminSession(ctx, regions[0], "")
