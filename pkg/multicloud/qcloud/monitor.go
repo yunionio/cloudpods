@@ -74,7 +74,7 @@ type SBatchQueryMetricDataInput struct {
 
 func (r *SRegion) metricsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
 	client := r.GetClient()
-	cli, err := client.getDefaultClient()
+	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}

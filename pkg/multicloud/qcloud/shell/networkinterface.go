@@ -21,13 +21,14 @@ import (
 
 func init() {
 	type NetworkInterfaceListOptions struct {
-		Subnet string
-		Ids    []string
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		Subnet     string
+		Ids        []string
+		InstanceId string
+		Limit      int `help:"page size"`
+		Offset     int `help:"page offset"`
 	}
 	shellutils.R(&NetworkInterfaceListOptions{}, "network-interface-list", "List network interfaces", func(cli *qcloud.SRegion, args *NetworkInterfaceListOptions) error {
-		interfaces, total, err := cli.GetNetworkInterfaces(args.Ids, args.Subnet, args.Offset, args.Limit)
+		interfaces, total, err := cli.GetNetworkInterfaces(args.Ids, args.InstanceId, args.Subnet, args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}
