@@ -96,6 +96,13 @@ func (s *SKVMGuestInstance) IsStopping() bool {
 	return s.stopping
 }
 
+func (s *SKVMGuestInstance) IsValid() bool {
+	if s.Desc != nil && s.Desc.Contains("uuid") {
+		return true
+	}
+	return false
+}
+
 func (s *SKVMGuestInstance) GetId() string {
 	id, _ := s.Desc.GetString("uuid")
 	return id
