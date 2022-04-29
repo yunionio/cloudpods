@@ -168,6 +168,9 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 	guestmanager := guestman.GetGuestManager()
 	guestmanager.Servers.Range(func(k, v interface{}) bool {
 		guest := v.(*guestman.SKVMGuestInstance)
+		if !guest.IsValid() {
+			return false
+		}
 		pid := guest.GetPid()
 		if pid > 0 {
 			guestName, _ := guest.Desc.GetString("name")
