@@ -296,25 +296,34 @@ func guestSrcPrepareMigrate(ctx context.Context, userCred mcclient.TokenCredenti
 }
 
 func guestDestPrepareMigrate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	err := guestDestPrepareMigrateInternal(ctx, userCred, sid, body)
+	if err != nil {
+		guestman.GetGuestManager().CleanServer(sid)
+		return nil, errors.Wrapf(err, "guestDestPrepareMigrateInternal %s", sid)
+	}
+	return nil, nil
+}
+
+func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) error {
 	if !guestman.GetGuestManager().CanMigrate(sid) {
-		return nil, httperrors.NewBadRequestError("Guest exist")
+		return httperrors.NewBadRequestError("Guest exist")
 	}
 	desc, err := body.Get("desc")
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("desc")
+		return httperrors.NewMissingParameterError("desc")
 	}
 	qemuVersion, err := body.GetString("qemu_version")
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("qemu_version")
+		return httperrors.NewMissingParameterError("qemu_version")
 	}
 	liveMigrate := jsonutils.QueryBoolean(body, "live_migrate", false)
 	isLocal, err := body.Bool("is_local_storage")
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("is_local_storage")
+		return httperrors.NewMissingParameterError("is_local_storage")
 	}
 	qemuCmdline, err := body.GetString("qemu_cmdline")
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("qemu_cmdline")
+		return httperrors.NewMissingParameterError("qemu_cmdline")
 	}
 	var params = &guestman.SDestPrepareMigrate{}
 	params.Sid = sid
@@ -326,36 +335,36 @@ func guestDestPrepareMigrate(ctx context.Context, userCred mcclient.TokenCredent
 	if params.EnableTLS {
 		certsObj, err := body.Get("migrate_certs")
 		if err != nil {
-			return nil, httperrors.NewMissingParameterError("migrate_certs")
+			return httperrors.NewMissingParameterError("migrate_certs")
 		}
 		certs := map[string]string{}
 		if err := certsObj.Unmarshal(&certs); err != nil {
-			return nil, httperrors.NewInputParameterError("unmarshal migrate_certs to map: %s", err)
+			return httperrors.NewInputParameterError("unmarshal migrate_certs to map: %s", err)
 		}
 		params.MigrateCerts = certs
 	}
 	if isLocal {
 		serverUrl, err := body.GetString("server_url")
 		if err != nil {
-			return nil, httperrors.NewMissingParameterError("server_url")
+			return httperrors.NewMissingParameterError("server_url")
 		} else {
 			params.ServerUrl = serverUrl
 		}
 		snapshotsUri, err := body.GetString("snapshots_uri")
 		if err != nil {
-			return nil, httperrors.NewMissingParameterError("snapshots_uri")
+			return httperrors.NewMissingParameterError("snapshots_uri")
 		} else {
 			params.SnapshotsUri = snapshotsUri
 		}
 		disksUri, err := body.GetString("disks_uri")
 		if err != nil {
-			return nil, httperrors.NewMissingParameterError("disks_uri")
+			return httperrors.NewMissingParameterError("disks_uri")
 		} else {
 			params.DisksUri = disksUri
 		}
 		srcSnapshots, err := body.Get("src_snapshots")
 		if err != nil {
-			return nil, httperrors.NewMissingParameterError("src_snapshots")
+			return httperrors.NewMissingParameterError("src_snapshots")
 		} else {
 			params.SrcSnapshots = srcSnapshots
 		}
@@ -367,13 +376,13 @@ func guestDestPrepareMigrate(ctx context.Context, userCred mcclient.TokenCredent
 		}
 		disks, err := desc.GetArray("disks")
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("Get desc disks error")
+			return httperrors.NewInputParameterError("Get desc disks error")
 		} else {
 			targetStorageIds := []string{}
 			for i := 0; i < len(disks); i++ {
 				targetStorageId, _ := disks[i].GetString("target_storage_id")
 				if len(targetStorageId) == 0 {
-					return nil, httperrors.NewMissingParameterError("target_storage_id")
+					return httperrors.NewMissingParameterError("target_storage_id")
 				}
 				targetStorageIds = append(targetStorageIds, targetStorageId)
 				// params.TargetStorageId = targetStorageId
@@ -386,14 +395,14 @@ func guestDestPrepareMigrate(ctx context.Context, userCred mcclient.TokenCredent
 
 	msUri, err := body.GetString("memory_snapshots_uri")
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("memory_snapshots_uri")
+		return httperrors.NewMissingParameterError("memory_snapshots_uri")
 	}
 	params.MemorySnapshotsUri = msUri
 	msIds, _ := jsonutils.GetStringArray(body, "src_memory_snapshots")
 	params.SrcMemorySnapshots = msIds
 
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().DestPrepareMigrate, params)
-	return nil, nil
+	return nil
 }
 
 func guestLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {

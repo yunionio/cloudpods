@@ -124,6 +124,10 @@ func (m *SGuestManager) SaveServer(sid string, s *SKVMGuestInstance) {
 	m.Servers.Store(sid, s)
 }
 
+func (m *SGuestManager) CleanServer(sid string) {
+	m.Servers.Delete(sid)
+}
+
 func (m *SGuestManager) Bootstrap() chan struct{} {
 	if m.isLoaded || len(m.ServersPath) == 0 {
 		log.Errorln("Guestman bootstrap has been called!!!!!")
@@ -699,7 +703,7 @@ func (m *SGuestManager) getStatus(sid string) string {
 
 func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
 	if guest, ok := m.GetServer(sid); ok {
-		m.Servers.Delete(sid)
+		m.CleanServer(sid)
 		// 这里应该不需要append到deleted servers
 		// 据观察 deleted servers 目的是为了给ofp_delegate使用，ofp已经不用了
 		return guest, nil
@@ -917,7 +921,7 @@ func (m *SGuestManager) CanMigrate(sid string) bool {
 	}
 
 	guest := NewKVMGuestInstance(sid, m)
-	m.Servers.Store(sid, guest)
+	m.SaveServer(sid, guest)
 	return true
 }
 
