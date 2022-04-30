@@ -873,6 +873,10 @@ func (adapter *MegaRaidAdaptor) megacliBuildJBOD(devs []*baremetal.BaremetalStor
 	if !adapter.megacliIsJBODEnabled() {
 		return fmt.Errorf("JBOD not supported")
 	}
+	// try clear jbod disk of devices
+	if err := adapter.megacliClearJBODDisks(devs); err != nil {
+		log.Warningf("try clear megaraid jbod disks before make jbod: %s", err)
+	}
 	devIds := []string{}
 	for _, d := range devs {
 		devIds = append(devIds, GetSpecString(d))
@@ -914,10 +918,10 @@ func (adapter *MegaRaidAdaptor) storcliClearJBODDisks() error {
 	return errors.NewAggregate(errs)
 }
 
-func (adapter *MegaRaidAdaptor) megacliClearJBODDisks() error {
+func (adapter *MegaRaidAdaptor) megacliClearJBODDisks(devs []*baremetal.BaremetalStorage) error {
 	devIds := []string{}
-	for idx, dev := range adapter.devs {
-		devIds = append(devIds, GetSpecString(dev.ToBaremetalStorage(idx)))
+	for _, dev := range devs {
+		devIds = append(devIds, GetSpecString(dev))
 	}
 	errs := make([]error, 0)
 	for _, devId := range devIds {
@@ -930,9 +934,17 @@ func (adapter *MegaRaidAdaptor) megacliClearJBODDisks() error {
 	return errors.NewAggregate(errs)
 }
 
+func (adapter *MegaRaidAdaptor) megacliClearAllJBODDisks() error {
+	allDevs := make([]*baremetal.BaremetalStorage, 0)
+	for idx, dev := range adapter.devs {
+		allDevs = append(allDevs, dev.ToBaremetalStorage(idx))
+	}
+	return adapter.megacliClearJBODDisks(allDevs)
+}
+
 func (adapter *MegaRaidAdaptor) clearJBODDisks() {
-	if err := adapter.megacliClearJBODDisks(); err != nil {
-		log.Errorf("megacliClearJBODDisks error: %v", err)
+	if err := adapter.megacliClearAllJBODDisks(); err != nil {
+		log.Errorf("megacliClearAllJBODDisks error: %v", err)
 		log.Infof("try storcliClearJBODDisks")
 		if err := adapter.storcliClearJBODDisks(); err != nil {
 			log.Errorf("storcliClearJBODDisks error: %v", err)
