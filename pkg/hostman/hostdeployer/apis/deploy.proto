@@ -5,6 +5,8 @@ syntax = "proto3";
 // protoc --go_out=plugins=grpc:.  pkg/hostman/hostdeployer/apis/deploy.proto
 package apis;
 
+option go_package = "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis";
+
 message GuestDesc {
   string name = 1;
   string uuid = 2;
@@ -113,21 +115,28 @@ message DeployGuestFsResponse {
   string key = 7;
 }
 
+message DiskInfo {
+  string path = 1;
+  string encrypt_password = 2;
+  string encrypt_format = 3;
+  string encrypt_alg = 4;
+}
+
 message DeployParams {
-  string disk_path = 1;
+  DiskInfo disk_info = 1;
   GuestDesc guest_desc = 2;
   DeployInfo deploy_info = 3;
   VDDKConInfo vddk_info = 4;
 }
 
 message ResizeFsParams {
-  string disk_path = 1;
+  DiskInfo disk_info = 1;
   string hypervisor = 2;
   VDDKConInfo vddk_info = 3;
 }
 
 message FormatFsParams {
-  string disk_path = 1;
+  DiskInfo disk_info = 1;
   string fs_format = 2;
   string uuid = 3;
 }
@@ -140,7 +149,7 @@ message ReleaseInfo {
 }
 
 message SaveToGlanceParams {
-  string disk_path = 1;
+  DiskInfo disk_info = 1;
   bool compress = 2;
 }
 
@@ -150,7 +159,7 @@ message SaveToGlanceResponse {
 }
 
 message ProbeImageInfoPramas {
-  string disk_path = 1;
+  DiskInfo disk_info = 1;
 }
 
 message ImageInfo {

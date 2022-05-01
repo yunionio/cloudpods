@@ -41,14 +41,14 @@ type NBDDriver struct {
 	partitions            []fsdriver.IDiskPartition
 	lvms                  []*SKVMGuestLVMPartition
 	imageRootBackFilePath string
-	imagePath             string
+	imageInfo             qemuimg.SImageInfo
 	acquiredLvm           bool
 	nbdDev                string
 }
 
-func NewNBDDriver(imagePath string) *NBDDriver {
+func NewNBDDriver(imageInfo qemuimg.SImageInfo) *NBDDriver {
 	return &NBDDriver{
-		imagePath:  imagePath,
+		imageInfo:  imageInfo,
 		partitions: make([]fsdriver.IDiskPartition, 0),
 	}
 }
@@ -70,7 +70,7 @@ func (d *NBDDriver) Connect() error {
 	if len(d.nbdDev) == 0 {
 		return errors.Errorf("Cannot get nbd device")
 	}
-	if err := QemuNbdConnect(d.imagePath, d.nbdDev); err != nil {
+	if err := QemuNbdConnect(d.imageInfo, d.nbdDev); err != nil {
 		return err
 	}
 
@@ -128,8 +128,8 @@ func (d *NBDDriver) rootImagePath() string {
 		return d.imageRootBackFilePath
 	}
 
-	d.imageRootBackFilePath = d.imagePath
-	img, err := qemuimg.NewQemuImage(d.imagePath)
+	d.imageRootBackFilePath = d.imageInfo.Path
+	img, err := qemuimg.NewQemuImage(d.imageInfo.Path)
 	if err != nil {
 		return d.imageRootBackFilePath
 	}
@@ -286,15 +286,15 @@ func getQemuNbdVersion() (string, error) {
 	return "", errors.Error("empty version output")
 }
 
-func QemuNbdConnect(imagePath, nbddev string) error {
+func QemuNbdConnect(imageInfo qemuimg.SImageInfo, nbddev string) error {
 	nbdVer, err := getQemuNbdVersion()
 	if err != nil {
 		return errors.Wrap(err, "getQemuNbdVersion")
 	}
 	var cmd []string
-	if strings.HasPrefix(imagePath, "rbd:") || getImageFormat(imagePath) == "raw" {
+	if strings.HasPrefix(imageInfo.Path, "rbd:") || getImageFormat(imageInfo) == "raw" {
 		//qemu-nbd 连接ceph时 /etc/ceph/ceph.conf 必须存在
-		if strings.HasPrefix(imagePath, "rbd:") {
+		if strings.HasPrefix(imageInfo.Path, "rbd:") {
 			err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", "/etc/ceph").Run()
 			if err != nil {
 				log.Errorf("Failed to mkdir /etc/ceph: %s", err)
@@ -309,9 +309,15 @@ func QemuNbdConnect(imagePath, nbddev string) error {
 				}
 			}
 		}
-		cmd = []string{qemutils.GetQemuNbd(), "-c", nbddev, "-f", "raw", imagePath}
+		cmd = []string{qemutils.GetQemuNbd(), "-c", nbddev, "-f", "raw", imageInfo.Path}
+	} else if imageInfo.Encrypted() {
+		cmd = []string{
+			qemutils.GetQemuNbd(), "-c", nbddev,
+			"--object", imageInfo.SecretOptions(),
+			"--image-opts", imageInfo.ImageOptions(),
+		}
 	} else {
-		cmd = []string{qemutils.GetQemuNbd(), "-c", nbddev, imagePath}
+		cmd = []string{qemutils.GetQemuNbd(), "-c", nbddev, imageInfo.Path}
 	}
 	if version.GE(nbdVer, "4.0.0") {
 		cmd = append(cmd, "--fork")
@@ -324,17 +330,12 @@ func QemuNbdConnect(imagePath, nbddev string) error {
 	return nil
 }
 
-func getImageFormat(imagePath string) string {
-	lines, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", imagePath).Output()
-	if err != nil {
-		return ""
+func getImageFormat(imageInfo qemuimg.SImageInfo) string {
+	img, err := qemuimg.NewQemuImage(imageInfo.Path)
+	if err == nil {
+		return string(img.Format)
 	}
-	imgStr := strings.Split(string(lines), "\n")
-	for i := 0; i < len(imgStr); i++ {
-		if strings.HasPrefix(imgStr[i], "file format: ") {
-			return imgStr[i][len("file format: "):]
-		}
-	}
+	log.Errorf("NBD getImageFormat fail: %s", err)
 	return ""
 }
 

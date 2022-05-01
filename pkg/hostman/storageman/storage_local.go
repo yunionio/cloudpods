@@ -388,8 +388,16 @@ func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (j
 
 func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath string,
 	compress bool, format string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
+	diskInfo := &deployapi.DiskInfo{
+		Path: imagePath,
+	}
+	if len(encryptKey) > 0 {
+		diskInfo.EncryptPassword = encryptKey
+		diskInfo.EncryptFormat = string(encFormat)
+		diskInfo.EncryptAlg = string(encAlg)
+	}
 	ret, err := deployclient.GetDeployClient().SaveToGlance(context.Background(),
-		&deployapi.SaveToGlanceParams{DiskPath: imagePath, Compress: compress})
+		&deployapi.SaveToGlanceParams{DiskInfo: diskInfo, Compress: compress})
 	if err != nil {
 		return err
 	}

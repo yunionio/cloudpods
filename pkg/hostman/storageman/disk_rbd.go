@@ -27,6 +27,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -124,7 +125,10 @@ func (d *SRBDDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 		return nil, err
 	}
 
-	if err := d.ResizeFs(d.GetPath()); err != nil {
+	resizeFsInfo := &deployapi.DiskInfo{
+		Path: d.GetPath(),
+	}
+	if err := d.ResizeFs(resizeFsInfo); err != nil {
 		return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
 	}
 
@@ -216,8 +220,11 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string,
 		return nil, err
 	}
 
+	diskInfo := &deployapi.DiskInfo{
+		Path: d.GetPath(),
+	}
 	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
-		d.FormatFs(fsFormat, diskId, d.GetPath())
+		d.FormatFs(fsFormat, diskId, diskInfo)
 	}
 
 	return d.GetDiskDesc(), nil
@@ -293,4 +300,8 @@ func (d *SRBDDisk) CreateFromRbdSnapshot(ctx context.Context, snapshot, srcDiskI
 	storage := d.Storage.(*SRbdStorage)
 	pool, _ := storage.StorageConf.GetString("pool")
 	return storage.cloneFromSnapshot(srcDiskId, srcPool, snapshot, d.GetId(), pool)
+}
+
+func (d *SRBDDisk) IsFile() bool {
+	return false
 }
