@@ -66,7 +66,7 @@ func (d *SGalaxyKylinRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Re
 
 func (d *SGalaxyKylinRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := d.GetReleaseInfo(rootFs)
-	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo, true); err != nil {
+	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
 	}
 	return nil
