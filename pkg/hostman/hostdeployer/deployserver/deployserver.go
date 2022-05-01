@@ -40,6 +40,8 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/consts"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 	"yunion.io/x/onecloud/pkg/util/winutils"
 )
@@ -47,6 +49,22 @@ import (
 type DeployerServer struct{}
 
 var _ deployapi.DeployAgentServer = &DeployerServer{}
+
+func apiDiskInfo(req *deployapi.DiskInfo) qemuimg.SImageInfo {
+	if req == nil {
+		return qemuimg.SImageInfo{}
+	}
+	info := qemuimg.SImageInfo{
+		Path: req.GetPath(),
+	}
+	passwd := req.GetEncryptPassword()
+	if len(passwd) > 0 {
+		info.Password = passwd
+		info.EncryptFormat = qemuimg.TEncryptFormat(req.GetEncryptFormat())
+		info.EncryptAlg = seclib2.TSymEncAlg(req.GetEncryptAlg())
+	}
+	return info
+}
 
 func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployParams,
 ) (res *deployapi.DeployGuestFsResponse, err error) {
@@ -62,10 +80,10 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 			res, err = nil, errors.Error(msg)
 		}
 	}()
-	log.Infof("********* Deploy guest fs on %s", req.DiskPath)
+	log.Infof("********* Deploy guest fs on %s", apiDiskInfo(req.DiskInfo))
 	disk, err := diskutils.GetIDisk(diskutils.DiskParams{
 		Hypervisor: req.GuestDesc.Hypervisor,
-		DiskPath:   req.DiskPath,
+		DiskInfo:   apiDiskInfo(req.GetDiskInfo()),
 		VddkInfo:   req.VddkInfo,
 	}, DeployOption.ImageDeployDriver, false)
 	if err != nil {
@@ -109,10 +127,10 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 			res, err = nil, errors.Error(msg)
 		}
 	}()
-	log.Infof("********* Resize fs on %s", req.DiskPath)
+	log.Infof("********* Resize fs on %s", apiDiskInfo(req.DiskInfo))
 	disk, err := diskutils.GetIDisk(diskutils.DiskParams{
 		Hypervisor: req.Hypervisor,
-		DiskPath:   req.DiskPath,
+		DiskInfo:   apiDiskInfo(req.GetDiskInfo()),
 		VddkInfo:   req.VddkInfo,
 	}, DeployOption.ImageDeployDriver, false)
 	if err != nil {
@@ -157,8 +175,8 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 }
 
 func (*DeployerServer) FormatFs(ctx context.Context, req *deployapi.FormatFsParams) (*deployapi.Empty, error) {
-	log.Infof("********* Format fs on %s", req.DiskPath)
-	gd, err := diskutils.NewKVMGuestDisk(req.DiskPath, DeployOption.ImageDeployDriver, false)
+	log.Infof("********* Format fs on %s", apiDiskInfo(req.DiskInfo))
+	gd, err := diskutils.NewKVMGuestDisk(apiDiskInfo(req.GetDiskInfo()), DeployOption.ImageDeployDriver, false)
 	if err != nil {
 		return new(deployapi.Empty), errors.Wrap(err, "NewKVMGuestDisk")
 	}
@@ -175,18 +193,18 @@ func (*DeployerServer) FormatFs(ctx context.Context, req *deployapi.FormatFsPara
 			return new(deployapi.Empty), errors.Wrap(err, "MakePartition")
 		}
 	} else {
-		log.Errorf("failed connect kvm disk %s: %s", req.DiskPath, err)
+		log.Errorf("failed connect kvm disk %s: %s", apiDiskInfo(req.DiskInfo), err)
 	}
 	return new(deployapi.Empty), nil
 }
 
 func (*DeployerServer) SaveToGlance(ctx context.Context, req *deployapi.SaveToGlanceParams) (*deployapi.SaveToGlanceResponse, error) {
-	log.Infof("********* %s save to glance", req.DiskPath)
+	log.Infof("********* %s save to glance", apiDiskInfo(req.DiskInfo))
 	var (
 		osInfo  string
 		relInfo *deployapi.ReleaseInfo
 	)
-	kvmDisk, err := diskutils.NewKVMGuestDisk(req.DiskPath, DeployOption.ImageDeployDriver, false)
+	kvmDisk, err := diskutils.NewKVMGuestDisk(apiDiskInfo(req.GetDiskInfo()), DeployOption.ImageDeployDriver, false)
 	if err != nil {
 		return new(deployapi.SaveToGlanceResponse), errors.Wrap(err, "NewKVMGuestDisk")
 	}
@@ -194,7 +212,7 @@ func (*DeployerServer) SaveToGlance(ctx context.Context, req *deployapi.SaveToGl
 
 	err = kvmDisk.Connect()
 	if err != nil {
-		log.Errorf("failed connect kvm disk %s: %s", req.DiskPath, err)
+		log.Errorf("failed connect kvm disk %s: %s", apiDiskInfo(req.DiskInfo), err)
 	} else {
 		defer kvmDisk.Disconnect()
 
@@ -253,15 +271,15 @@ func (*DeployerServer) getImageInfo(kvmDisk *diskutils.SKVMGuestDisk) (*deployap
 }
 
 func (s *DeployerServer) ProbeImageInfo(ctx context.Context, req *deployapi.ProbeImageInfoPramas) (*deployapi.ImageInfo, error) {
-	log.Infof("********* %s probe image info", req.DiskPath)
-	kvmDisk, err := diskutils.NewKVMGuestDisk(req.DiskPath, DeployOption.ImageDeployDriver, true)
+	log.Infof("********* %s probe image info", apiDiskInfo(req.DiskInfo))
+	kvmDisk, err := diskutils.NewKVMGuestDisk(apiDiskInfo(req.GetDiskInfo()), DeployOption.ImageDeployDriver, true)
 	if err != nil {
 		return new(deployapi.ImageInfo), errors.Wrap(err, "NewKVMGuestDisk")
 	}
 	defer kvmDisk.Cleanup()
 
 	if err := kvmDisk.Connect(); err != nil {
-		log.Errorf("Failed to connect kvm disk %s: %s", req.DiskPath, err)
+		log.Errorf("Failed to connect kvm disk %s: %s", apiDiskInfo(req.DiskInfo), err)
 		return new(deployapi.ImageInfo), errors.Wrap(err, "Disk connector failed to connect image")
 	}
 	defer kvmDisk.Disconnect()

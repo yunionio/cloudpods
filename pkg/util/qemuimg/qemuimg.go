@@ -198,7 +198,7 @@ const (
 	EncryptFormatLuks = "luks"
 )
 
-type SConvertInfo struct {
+type SImageInfo struct {
 	Path     string
 	Format   TImageFormat
 	IoLevel  TIONiceLevel
@@ -206,18 +206,30 @@ type SConvertInfo struct {
 
 	// only luks supported
 	EncryptFormat TEncryptFormat
-	// aes-256, sm4-256
+	// aes-256, sm4
 	EncryptAlg seclib2.TSymEncAlg
 	secId      string
 }
 
-func (info SConvertInfo) imageOptions() string {
+func (info SImageInfo) ImageOptions() string {
 	opts := make([]string, 0)
-	opts = append(opts, fmt.Sprintf("driver=%s", info.Format))
+	format := info.Format
+	if len(format) == 0 {
+		format = QCOW2
+	}
+	opts = append(opts, fmt.Sprintf("driver=%s", format))
 	opts = append(opts, fmt.Sprintf("file.filename=%s", info.Path))
-	if info.encrypted() {
-		opts = append(opts, fmt.Sprintf("encrypt.format=%s", info.EncryptFormat))
-		opts = append(opts, fmt.Sprintf("encrypt.key-secret=%s", info.secId))
+	if info.Encrypted() {
+		encFormat := info.EncryptFormat
+		if len(encFormat) == 0 {
+			encFormat = EncryptFormatLuks
+		}
+		opts = append(opts, fmt.Sprintf("encrypt.format=%s", encFormat))
+		secId := info.secId
+		if len(secId) == 0 {
+			secId = "sec0"
+		}
+		opts = append(opts, fmt.Sprintf("encrypt.key-secret=%s", secId))
 		// if info.EncryptFormat == EncryptFormatLuks {
 		//	opts = append(opts, fmt.Sprintf("encrypt.cipher-alg=%s", info.EncryptAlg))
 		// }
@@ -225,22 +237,26 @@ func (info SConvertInfo) imageOptions() string {
 	return strings.Join(opts, ",")
 }
 
-func (info SConvertInfo) secretOptions() string {
+func (info SImageInfo) SecretOptions() string {
 	opts := make([]string, 0)
-	if info.encrypted() {
+	if info.Encrypted() {
+		secId := info.secId
+		if len(secId) == 0 {
+			secId = "sec0"
+		}
 		opts = append(opts, "secret")
-		opts = append(opts, fmt.Sprintf("id=%s", info.secId))
+		opts = append(opts, fmt.Sprintf("id=%s", secId))
 		opts = append(opts, fmt.Sprintf("data=%s", info.Password))
 		opts = append(opts, "format=base64")
 	}
 	return strings.Join(opts, ",")
 }
 
-func (info SConvertInfo) encrypted() bool {
+func (info SImageInfo) Encrypted() bool {
 	return len(info.Password) > 0
 }
 
-func Convert(srcInfo, destInfo SConvertInfo, compact bool, workerOpions []string) error {
+func Convert(srcInfo, destInfo SImageInfo, compact bool, workerOpions []string) error {
 	if srcInfo.Format == QCOW2 && destInfo.Format == QCOW2 {
 		return convertQcow2(srcInfo, destInfo, compact, workerOpions)
 	} else {
@@ -248,7 +264,7 @@ func Convert(srcInfo, destInfo SConvertInfo, compact bool, workerOpions []string
 	}
 }
 
-func convertOther(srcInfo, destInfo SConvertInfo, compact bool, workerOpions []string) error {
+func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []string) error {
 	cmdline := []string{"-c", strconv.Itoa(int(srcInfo.IoLevel)),
 		qemutils.GetQemuImg(), "convert"}
 	if compact {
@@ -258,7 +274,8 @@ func convertOther(srcInfo, destInfo SConvertInfo, compact bool, workerOpions []s
 		// https://bugzilla.redhat.com/show_bug.cgi?id=1969848
 		// https://bugs.launchpad.net/qemu/+bug/1805256
 		// qemu-img convert may hang on aarch64, fix: add -m 1
-		cmdline = append(cmdline, "-m", "1")
+		// no need to limit 1 any more, the bug has been fixed! - QIUJIAN
+		// cmdline = append(cmdline, "-m", "1")
 	} else {
 		cmdline = append(cmdline, workerOpions...)
 	}
@@ -278,7 +295,7 @@ func convertOther(srcInfo, destInfo SConvertInfo, compact bool, workerOpions []s
 	return nil
 }
 
-func convertQcow2(srcInfo, destInfo SConvertInfo, compact bool, workerOpions []string) error {
+func convertQcow2(srcInfo, destInfo SImageInfo, compact bool, workerOpions []string) error {
 	source, err := NewQemuImageWithIOLevel(srcInfo.Path, srcInfo.IoLevel)
 	if err != nil {
 		return errors.Wrapf(err, "NewQemuImage source %s", srcInfo.Path)
@@ -299,26 +316,27 @@ func convertQcow2(srcInfo, destInfo SConvertInfo, compact bool, workerOpions []s
 		// https://bugzilla.redhat.com/show_bug.cgi?id=1969848
 		// https://bugs.launchpad.net/qemu/+bug/1805256
 		// qemu-img convert may hang on aarch64, fix: add -m 1
-		cmdline = append(cmdline, "-m", "1")
+		// no need to limit 1 any more, the bug has been fixed! - QIUJIAN
+		// cmdline = append(cmdline, "-m", "1")
 	} else {
 		cmdline = append(cmdline, workerOpions...)
 	}
-	if srcInfo.encrypted() {
+	if srcInfo.Encrypted() {
 		if srcInfo.Format != QCOW2 {
 			return errors.Wrap(errors.ErrNotSupported, "source image not support encryption")
 		}
 		srcInfo.secId = "sec0"
-		cmdline = append(cmdline, "--object", srcInfo.secretOptions())
+		cmdline = append(cmdline, "--object", srcInfo.SecretOptions())
 	}
-	if destInfo.encrypted() {
+	if destInfo.Encrypted() {
 		if destInfo.Format != QCOW2 {
 			return errors.Wrap(errors.ErrNotSupported, "target image not support encryption")
 		}
 		destInfo.secId = "sec1"
-		cmdline = append(cmdline, "--object", destInfo.secretOptions())
+		cmdline = append(cmdline, "--object", destInfo.SecretOptions())
 	}
-	cmdline = append(cmdline, "--image-opts", srcInfo.imageOptions())
-	cmdline = append(cmdline, "--target-image-opts", destInfo.imageOptions())
+	cmdline = append(cmdline, "--image-opts", srcInfo.ImageOptions())
+	cmdline = append(cmdline, "--target-image-opts", destInfo.ImageOptions())
 	cmdline = append(cmdline, "-n")
 	log.Infof("XXXX qemu-img command: %s", cmdline)
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", cmdline...)
@@ -335,7 +353,7 @@ func (img *SQemuImage) doConvert(targetPath string, format TImageFormat, compact
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
-	return Convert(SConvertInfo{
+	return Convert(SImageInfo{
 		Path:     img.Path,
 		Format:   img.Format,
 		IoLevel:  img.IoLevel,
@@ -343,7 +361,7 @@ func (img *SQemuImage) doConvert(targetPath string, format TImageFormat, compact
 
 		EncryptFormat: img.EncryptFormat,
 		EncryptAlg:    img.EncryptAlg,
-	}, SConvertInfo{
+	}, SImageInfo{
 		Path:     targetPath,
 		Format:   format,
 		Password: password,
@@ -583,6 +601,9 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string, pa
 		options = append(options, sparseOpts...)
 	}
 	if len(password) > 0 {
+		if len(encFormat) == 0 {
+			encFormat = EncryptFormatLuks
+		}
 		options = append(options, fmt.Sprintf("encrypt.format=%s", encFormat))
 		options = append(options, fmt.Sprintf("encrypt.key-secret=sec0"))
 		if encFormat == EncryptFormatLuks {
@@ -616,7 +637,7 @@ func (img *SQemuImage) Resize(sizeMB int) error {
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
-	encInfo := SConvertInfo{
+	encInfo := SImageInfo{
 		Path:    img.Path,
 		Format:  QCOW2,
 		IoLevel: img.IoLevel,
@@ -628,9 +649,9 @@ func (img *SQemuImage) Resize(sizeMB int) error {
 		encInfo.EncryptFormat = img.EncryptFormat
 		encInfo.EncryptAlg = img.EncryptAlg
 		encInfo.secId = "sec0"
-		args = append(args, "--object", encInfo.secretOptions())
+		args = append(args, "--object", encInfo.SecretOptions())
 	}
-	args = append(args, "--image-opts", encInfo.imageOptions())
+	args = append(args, "--image-opts", encInfo.ImageOptions())
 	args = append(args, fmt.Sprintf("%dM", sizeMB))
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	output, err := cmd.Output()
@@ -708,7 +729,7 @@ func (img *SQemuImage) WholeChainFormatIs(format string) (bool, error) {
 
 func (img *SQemuImage) Check() error {
 	args := []string{"-c", strconv.Itoa(int(img.IoLevel)), qemutils.GetQemuImg(), "check"}
-	info := SConvertInfo{
+	info := SImageInfo{
 		Path:          img.Path,
 		Format:        img.Format,
 		IoLevel:       img.IoLevel,
@@ -717,10 +738,10 @@ func (img *SQemuImage) Check() error {
 		EncryptAlg:    img.EncryptAlg,
 		secId:         "sec0",
 	}
-	if info.encrypted() {
-		args = append(args, "--object", info.secretOptions())
+	if info.Encrypted() {
+		args = append(args, "--object", info.SecretOptions())
 	}
-	args = append(args, "--image-opts", info.imageOptions())
+	args = append(args, "--image-opts", info.ImageOptions())
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	output, err := cmd.Output()
 	if err != nil {

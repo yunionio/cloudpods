@@ -361,6 +361,14 @@ func (d *SGuestDiskSyncTask) startAddDisk(disk jsonutils.JSONObject) {
 		"aio":   aio,
 	}
 
+	if iDisk.IsFile() {
+		params["file.locking"] = "off"
+	}
+	if d.guest.isEncrypted() {
+		params["encrypt.format"] = "luks"
+		params["encrypt.key-secret"] = "sec0"
+	}
+
 	var bus string
 	switch diskDirver {
 	case DISK_DRIVER_SCSI:

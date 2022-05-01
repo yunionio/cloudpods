@@ -291,7 +291,9 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		desc, _ := dataDict.Get("desc")
 		guestDesc.Hypervisor = api.HYPERVISOR_ESXI
 		deploy, err = deployclient.GetDeployClient().DeployGuestFs(ctx, &deployapi.DeployParams{
-			DiskPath:  rootPath,
+			DiskInfo: &deployapi.DiskInfo{
+				Path: rootPath,
+			},
 			GuestDesc: &guestDesc,
 			DeployInfo: &deployapi.DeployInfo{
 				PublicKey:               &key,
@@ -508,8 +510,11 @@ func (as *SAgentStorage) SaveToGlance(ctx context.Context, params interface{}) (
 
 func (as *SAgentStorage) saveToGlance(ctx context.Context, imageId, imagePath string,
 	compress bool, format string) error {
+	diskInfo := &deployapi.DiskInfo{
+		Path: imagePath,
+	}
 	ret, err := deployclient.GetDeployClient().SaveToGlance(context.Background(),
-		&deployapi.SaveToGlanceParams{DiskPath: imagePath, Compress: compress})
+		&deployapi.SaveToGlanceParams{DiskInfo: diskInfo, Compress: compress})
 	if err != nil {
 		return errors.Wrap(err, "DeployClient.SaveToGlance")
 	}

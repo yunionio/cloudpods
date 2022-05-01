@@ -312,6 +312,13 @@ func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *m
 	body := jsonutils.NewDict()
 	content := jsonutils.NewDict()
 	content.Add(jsonutils.NewInt(sizeMb), "size")
+	if disk.IsEncrypted() {
+		info, err := disk.GetEncryptInfo(ctx, task.GetUserCred())
+		if err != nil {
+			return errors.Wrap(err, "disk.GetEncryptInfo")
+		}
+		content.Add(jsonutils.Marshal(info), "encrypt_info")
+	}
 	guest := disk.GetGuest()
 	if guest != nil {
 		content.Add(jsonutils.NewString(guest.Id), "server_id")

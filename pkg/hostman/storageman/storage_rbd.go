@@ -495,8 +495,11 @@ func (s *SRbdStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) 
 }
 
 func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath string, compress bool, format string) error {
+	diskInfo := &deployapi.DiskInfo{
+		Path: imagePath,
+	}
 	ret, err := deployclient.GetDeployClient().SaveToGlance(context.Background(),
-		&deployapi.SaveToGlanceParams{DiskPath: imagePath, Compress: compress})
+		&deployapi.SaveToGlanceParams{DiskInfo: diskInfo, Compress: compress})
 	if err != nil {
 		return err
 	}

@@ -376,13 +376,13 @@ func (s *SNFSBackupStorage) ConvertFrom(srcPath string, format qemuimg.TImageFor
 	defer s.unMount()
 	backupDir := s.getBackupDir()
 	destPath := path.Join(backupDir, backupId)
-	srcInfo := qemuimg.SConvertInfo{
+	srcInfo := qemuimg.SImageInfo{
 		Path:     srcPath,
 		Format:   format,
 		IoLevel:  qemuimg.IONiceNone,
 		Password: "",
 	}
-	destInfo := qemuimg.SConvertInfo{
+	destInfo := qemuimg.SImageInfo{
 		Path:     destPath,
 		Format:   qemuimg.QCOW2,
 		IoLevel:  qemuimg.IONiceNone,
@@ -407,13 +407,13 @@ func (s *SNFSBackupStorage) ConvertTo(destPath string, format qemuimg.TImageForm
 	defer s.unMount()
 	backupDir := s.getBackupDir()
 	srcPath := path.Join(backupDir, backupId)
-	srcInfo := qemuimg.SConvertInfo{
+	srcInfo := qemuimg.SImageInfo{
 		Path:     srcPath,
 		Format:   qemuimg.QCOW2,
 		IoLevel:  qemuimg.IONiceNone,
 		Password: "",
 	}
-	destInfo := qemuimg.SConvertInfo{
+	destInfo := qemuimg.SImageInfo{
 		Path:     destPath,
 		Format:   format,
 		IoLevel:  qemuimg.IONiceNone,

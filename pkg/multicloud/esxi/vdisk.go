@@ -478,6 +478,9 @@ func (disk *SVirtualDisk) Resize(ctx context.Context, newSizeMb int64) error {
 func (disk *SVirtualDisk) ResizePartition(ctx context.Context, accessInfo vcenter.SVCenterAccessInfo) error {
 	diskPath := disk.GetFilename()
 	vmref := disk.vm.GetMoid()
+	diskInfo := deployapi.DiskInfo{
+		Path: diskPath,
+	}
 	vddkInfo := deployapi.VDDKConInfo{
 		Host:   accessInfo.Host,
 		Port:   int32(accessInfo.Port),
@@ -486,7 +489,7 @@ func (disk *SVirtualDisk) ResizePartition(ctx context.Context, accessInfo vcente
 		Vmref:  vmref,
 	}
 	_, err := deployclient.GetDeployClient().ResizeFs(ctx, &deployapi.ResizeFsParams{
-		DiskPath:   diskPath,
+		DiskInfo:   &diskInfo,
 		Hypervisor: compute.HYPERVISOR_ESXI,
 		VddkInfo:   &vddkInfo,
 	})

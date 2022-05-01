@@ -19,10 +19,9 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -62,11 +61,13 @@ type IDisk interface {
 	PostCreateFromImageFuse()
 	CreateSnapshot(snapshotId string) error
 	DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error
-	DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
+	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *jsonutils.JSONDict,
 		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)
 
 	GetBackupDir() string
 	DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+
+	IsFile() bool
 }
 
 type SBaseDisk struct {
@@ -121,7 +122,7 @@ func (d *SBaseDisk) GetZoneId() string {
 	return d.Storage.GetZoneId()
 }
 
-func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
+func (d *SBaseDisk) DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *jsonutils.JSONDict,
 	deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
 	deployGuestDesc, err := deployapi.GuestDescToDeployDesc(guestDesc)
 	if err != nil {
@@ -129,7 +130,7 @@ func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict
 	}
 	ret, err := deployclient.GetDeployClient().DeployGuestFs(
 		context.Background(), &deployapi.DeployParams{
-			DiskPath:   diskPath,
+			DiskInfo:   diskInfo,
 			GuestDesc:  deployGuestDesc,
 			DeployInfo: deployInfo,
 		},
@@ -140,9 +141,9 @@ func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict
 	return jsonutils.Marshal(ret), nil
 }
 
-func (d *SBaseDisk) ResizeFs(diskPath string) error {
+func (d *SBaseDisk) ResizeFs(diskInfo *deployapi.DiskInfo) error {
 	_, err := deployclient.GetDeployClient().ResizeFs(
-		context.Background(), &deployapi.ResizeFsParams{DiskPath: diskPath})
+		context.Background(), &deployapi.ResizeFsParams{DiskInfo: diskInfo})
 	return err
 }
 
@@ -154,12 +155,12 @@ func (d *SBaseDisk) GetSnapshotLocation() string {
 	return ""
 }
 
-func (d *SBaseDisk) FormatFs(fsFormat, uuid, diskPath string) {
+func (d *SBaseDisk) FormatFs(fsFormat, uuid string, diskInfo *deployapi.DiskInfo) {
 	log.Infof("Make disk %s fs %s", uuid, fsFormat)
 	_, err := deployclient.GetDeployClient().FormatFs(
 		context.Background(),
 		&deployapi.FormatFsParams{
-			DiskPath: diskPath,
+			DiskInfo: diskInfo,
 			FsFormat: fsFormat,
 			Uuid:     uuid,
 		},
