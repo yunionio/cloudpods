@@ -182,7 +182,7 @@ func (s *Client) run(parseOutput bool, cmds []string, input io.Reader, withPty b
 			}
 		}
 
-		log.Debugf("Run command: %s", cmd)
+		log.Debugf("Run command(%s@%s): %s", s.config.Username, s.config.Host, cmd)
 		var stdOut bytes.Buffer
 		var stdErr bytes.Buffer
 		session.Stdout = &stdOut
