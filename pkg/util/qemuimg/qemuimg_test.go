@@ -177,7 +177,7 @@ func TestVmdk(t *testing.T) {
 func TestParseBackingFile(t *testing.T) {
 	in := `json:{"driver":"qcow2","file":{"driver":"file","filename":"/opt/cloud/workspace/disks/snapshots/72a2383d-e980-486f-816c-6c562e1757f3_snap/f39f225a-921f-492e-8fb6-0a4167d6ed91"}}`
 	want := "/opt/cloud/workspace/disks/snapshots/72a2383d-e980-486f-816c-6c562e1757f3_snap/f39f225a-921f-492e-8fb6-0a4167d6ed91"
-	path, err := parseBackingFilepath(in)
+	path, err := ParseQemuFilepath(in)
 	if err != nil {
 		t.Errorf("parseBackingFilepath: %s", err)
 	} else if path != want {

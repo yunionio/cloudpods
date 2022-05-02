@@ -55,7 +55,7 @@ func (d *SNasDisk) CreateFromTemplate(ctx context.Context, imageId, format strin
 	return ret, nil
 }
 
-func (d *SNasDisk) CreateFromImageFuse(ctx context.Context, url string, size int64) error {
+func (d *SNasDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
 	return fmt.Errorf("Not implemented")
 }
 

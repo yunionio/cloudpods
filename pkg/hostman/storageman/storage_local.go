@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -128,6 +129,9 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 	if err != nil {
 		log.Errorf("unable to new qemu image for %s: %s", backupPath, err.Error())
 		return errors.Wrapf(err, "unable to new qemu image for %s", backupPath)
+	}
+	if info.Encryption {
+		img.SetPassword(info.EncryptInfo.Key)
 	}
 	_, err = img.Clone(disk.GetPath(), qemuimg.QCOW2, false)
 	return err
@@ -605,7 +609,11 @@ func (s *SLocalStorage) CreateDiskFromSnapshot(
 ) error {
 	info := input.DiskInfo
 	if info.Protocol == "fuse" {
-		err := disk.CreateFromImageFuse(ctx, info.SnapshotUrl, int64(info.DiskSizeMb))
+		var encryptInfo *apis.SEncryptInfo
+		if info.Encryption {
+			encryptInfo = &info.EncryptInfo
+		}
+		err := disk.CreateFromImageFuse(ctx, info.SnapshotUrl, int64(info.DiskSizeMb), encryptInfo)
 		if err != nil {
 			return errors.Wrapf(err, "CreateFromImageFuse")
 		}

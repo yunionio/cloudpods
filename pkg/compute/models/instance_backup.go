@@ -246,6 +246,9 @@ func (manager *SInstanceBackupManager) fillInstanceBackup(ctx context.Context, u
 	instanceBackup.DomainId = guest.DomainId
 	instanceBackup.GuestId = guest.Id
 
+	// inherit encrypt_key_id from guest
+	instanceBackup.EncryptKeyId = guest.EncryptKeyId
+
 	host, _ := guest.GetHost()
 	instanceBackup.ManagerId = host.ManagerId
 	zone, _ := host.GetZone()
