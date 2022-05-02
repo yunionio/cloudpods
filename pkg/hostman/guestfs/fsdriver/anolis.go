@@ -58,7 +58,7 @@ func (d *SAnolisRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Release
 
 func (d *SAnolisRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := d.GetReleaseInfo(rootFs)
-	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo, false); err != nil {
+	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
 	}
 	return nil

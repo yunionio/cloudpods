@@ -22,11 +22,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 
@@ -1088,7 +1088,12 @@ func (r *sRedhatLikeRootFs) enableBondingModule(rootFs IDiskPartition, bondNics 
 	return rootFs.FilePutContents("/etc/modprobe.d/bonding.conf", content.String(), false, false)
 }
 
-func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic, relInfo *deployapi.ReleaseInfo, forceEnableNM bool) error {
+// check if NetworkManager is enabled
+func (r *sRedhatLikeRootFs) isNetworkManagerEnabled(rootFs IDiskPartition) bool {
+	return rootFs.Exists("/etc/systemd/system/multi-user.target.wants/NetworkManager.service", false)
+}
+
+func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic, relInfo *deployapi.ReleaseInfo) error {
 	if err := r.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
@@ -1129,7 +1134,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 		cmds.WriteString(nicDesc.Name)
 		cmds.WriteString("\n")
 		cmds.WriteString("ONBOOT=yes\n")
-		if iv >= 8 || forceEnableNM {
+		if r.isNetworkManagerEnabled(rootFs) {
 			cmds.WriteString("NM_CONTROLLED=yes\n")
 		} else {
 			cmds.WriteString("NM_CONTROLLED=no\n")
@@ -1312,7 +1317,7 @@ func (c *SCentosRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Release
 
 func (c *SCentosRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
-	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo, false); err != nil {
+	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
 	}
 	var udevPath = "/etc/udev/rules.d/"
@@ -1375,7 +1380,7 @@ func (c *SFedoraRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Release
 
 func (c *SFedoraRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
-	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo, false); err != nil {
+	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
 	}
 	return nil
@@ -1419,7 +1424,7 @@ func (d *SRhelRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseIn
 
 func (d *SRhelRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := d.GetReleaseInfo(rootFs)
-	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo, false); err != nil {
+	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
 	}
 	return nil
@@ -1475,7 +1480,7 @@ func (c *SOpenEulerRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Rele
 
 func (c *SOpenEulerRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
-	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo, false); err != nil {
+	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
 	}
 	return nil
