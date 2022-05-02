@@ -51,6 +51,7 @@ type InstanceBackupListInput struct {
 type InstanceBackupDetails struct {
 	apis.VirtualResourceDetails
 	ManagedResourceInfo
+	apis.EncryptedResourceDetails
 
 	// 云主机状态
 	GuestStatus string `json:"guest_status"`

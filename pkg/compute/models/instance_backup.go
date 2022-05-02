@@ -53,6 +53,8 @@ type SInstanceBackup struct {
 	SCloudregionResourceBase
 	db.SMultiArchResourceBase
 
+	db.SEncryptedResource
+
 	BackupStorageId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
 
 	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
@@ -77,6 +79,7 @@ type SInstanceBackupManager struct {
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 	db.SMultiArchResourceBaseManager
+	db.SEncryptedResourceManager
 }
 
 var InstanceBackupManager *SInstanceBackupManager
@@ -212,11 +215,14 @@ func (manager *SInstanceBackupManager) FetchCustomizeColumns(
 
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	encRows := manager.SEncryptedResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.InstanceBackupDetails{
 			VirtualResourceDetails: virtRows[i],
 			ManagedResourceInfo:    manRows[i],
+
+			EncryptedResourceDetails: encRows[i],
 		}
 		rows[i] = objs[i].(*SInstanceBackup).getMoreDetails(userCred, rows[i])
 	}
@@ -587,4 +593,20 @@ func (ib *SInstanceBackup) FillFromPackMetadata(ctx context.Context, userCred mc
 		return nil, err
 	}
 	return ib, nil
+}
+
+func (self *SInstanceBackup) CustomizeCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
+	// use disk's ownerId instead of default ownerId
+	guestObj, err := GuestManager.FetchById(self.GuestId)
+	if err != nil {
+		return errors.Wrap(err, "GuestManager.FetchById")
+	}
+	ownerId = guestObj.(*SGuest).GetOwnerId()
+	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }

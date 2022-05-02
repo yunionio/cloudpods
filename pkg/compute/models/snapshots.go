@@ -50,6 +50,7 @@ type SSnapshotManager struct {
 	SDiskResourceBaseManager
 	SStorageResourceBaseManager
 	db.SMultiArchResourceBaseManager
+	db.SEncryptedResourceManager
 }
 
 type SSnapshot struct {
@@ -59,6 +60,8 @@ type SSnapshot struct {
 	SManagedResourceBase
 	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	db.SMultiArchResourceBase
+
+	db.SEncryptedResource
 
 	// 磁盘Id
 	DiskId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
@@ -279,12 +282,15 @@ func (manager *SSnapshotManager) FetchCustomizeColumns(
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	encRows := manager.SEncryptedResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.SnapshotDetails{
 			VirtualResourceDetails:  virtRows[i],
 			ManagedResourceInfo:     manRows[i],
 			CloudregionResourceInfo: regionRows[i],
+
+			EncryptedResourceDetails: encRows[i],
 		}
 		rows[i] = objs[i].(*SSnapshot).getMoreDetails(rows[i])
 	}
@@ -330,6 +336,10 @@ func (manager *SSnapshotManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.SnapshotCreateInput,
 ) (api.SnapshotCreateInput, error) {
+	if input.NeedEncrypt() {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "encryption should not be set")
+	}
+
 	if len(input.DiskId) == 0 {
 		return input, httperrors.NewMissingParameterError("disk_id")
 	}
@@ -342,6 +352,15 @@ func (manager *SSnapshotManager) ValidateCreateData(
 	if disk.Status != api.DISK_READY {
 		return input, httperrors.NewInvalidStatusError("disk %s status is not %s", disk.Name, api.DISK_READY)
 	}
+
+	if len(disk.EncryptKeyId) > 0 {
+		input.EncryptKeyId = &disk.EncryptKeyId
+		input.EncryptedResourceCreateInput, err = manager.SEncryptedResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EncryptedResourceCreateInput)
+		if err != nil {
+			return input, errors.Wrap(err, "SEncryptedResourceManager.ValidateCreateData")
+		}
+	}
+
 	input.DiskType = disk.DiskType
 	input.Size = disk.DiskSize
 	input.OsArch = disk.OsArch
@@ -387,7 +406,13 @@ func (manager *SSnapshotManager) ValidateCreateData(
 	return input, nil
 }
 
-func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (self *SSnapshot) CustomizeCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
 	// use disk's ownerId instead of default ownerId
 	diskObj, err := DiskManager.FetchById(self.DiskId)
 	if err != nil {
