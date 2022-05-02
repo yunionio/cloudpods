@@ -579,6 +579,10 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient
 	if len(disk.ExternalId) == 0 {
 		snapshot.StorageId = disk.StorageId
 	}
+
+	// inherit encrypt_key_id
+	snapshot.EncryptKeyId = disk.EncryptKeyId
+
 	driver, err := storage.GetRegionDriver()
 	if err != nil {
 		return nil, err

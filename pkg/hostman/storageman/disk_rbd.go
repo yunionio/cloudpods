@@ -30,6 +30,8 @@ import (
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SRBDDisk struct {
@@ -247,7 +249,7 @@ func (d *SRBDDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutil
 	return data, nil
 }
 
-func (d *SRBDDisk) CreateSnapshot(snapshotId string) error {
+func (d *SRBDDisk) CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
 	storage := d.Storage.(*SRbdStorage)
 	pool, _ := storage.StorageConf.GetString("pool")
 	return storage.createSnapshot(pool, d.Id, snapshotId)
@@ -264,7 +266,7 @@ func (d *SRBDDisk) DiskSnapshot(ctx context.Context, params interface{}) (jsonut
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	return nil, d.CreateSnapshot(snapshotId)
+	return nil, d.CreateSnapshot(snapshotId, "", "", "")
 }
 
 func (d *SRBDDisk) DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

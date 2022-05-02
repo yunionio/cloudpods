@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fuseutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 var _ALTER_SUFFIX_ = ".alter"
@@ -418,7 +419,7 @@ func (d *SLocalDisk) DiskBackup(ctx context.Context, params interface{}) (jsonut
 	return data, nil
 }
 
-func (d *SLocalDisk) CreateSnapshot(snapshotId string) error {
+func (d *SLocalDisk) CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
 	snapshotDir := d.GetSnapshotDir()
 	log.Infof("snapshotDir of LocalDisk %s: %s", d.Id, snapshotDir)
 	if !fileutils2.Exists(snapshotDir) {
@@ -440,7 +441,7 @@ func (d *SLocalDisk) CreateSnapshot(snapshotId string) error {
 		procutils.NewCommand("mv", "-f", snapshotPath, d.getPath()).Run()
 		return err
 	}
-	if err := img.CreateQcow2(0, false, snapshotPath, "", "", ""); err != nil {
+	if err := img.CreateQcow2(0, false, snapshotPath, encryptKey, encFormat, encAlg); err != nil {
 		log.Errorf("Snapshot create image error %s", err)
 		procutils.NewCommand("mv", "-f", snapshotPath, d.getPath()).Run()
 		return err
