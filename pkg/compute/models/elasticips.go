@@ -1197,6 +1197,26 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 
 		lockman.LockObject(ctx, natgw)
 		defer lockman.ReleaseObject(ctx, natgw)
+	case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+		obj, err := LoadbalancerManager.FetchByIdOrName(userCred, input.InstanceId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return input, httperrors.NewResourceNotFoundError("loadbalancer %s not found", input.InstanceId)
+			}
+			return input, httperrors.NewGeneralError(err)
+		}
+		lb := obj.(*SLoadbalancer)
+
+		lockman.LockObject(ctx, lb)
+		defer lockman.ReleaseObject(ctx, lb)
+
+		if lb.PendingDeleted {
+			return input, httperrors.NewInvalidStatusError("cannot associate with pending deleted loadbalancer")
+		}
+		seip, _ := lb.GetEip()
+		if seip != nil {
+			return input, httperrors.NewInvalidStatusError("loadbalancer is already associated with eip")
+		}
 	}
 
 	return input, self.StartEipAssociateInstanceTask(ctx, userCred, input, "")
