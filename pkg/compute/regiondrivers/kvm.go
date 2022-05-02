@@ -1830,85 +1830,20 @@ func (self *SKVMRegionDriver) RequestCreateBackup(ctx context.Context, backup *m
 
 func (self *SKVMRegionDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if input.InstanceType == api.EIP_ASSOCIATE_TYPE_SERVER {
-			guest := obj.(*models.SGuest)
-
-			if guest.GetHypervisor() != api.HYPERVISOR_KVM {
-				return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "not support associate eip for hypervisor %s", guest.GetHypervisor())
+		switch input.InstanceType {
+		case api.EIP_ASSOCIATE_TYPE_SERVER:
+			err := self.requestAssociateEipWithServer(ctx, userCred, eip, input, obj, task)
+			if err != nil {
+				return nil, err
 			}
-
-			lockman.LockObject(ctx, guest)
-			defer lockman.ReleaseObject(ctx, guest)
-
-			var guestnics []models.SGuestnetwork
-			{
-				netq := models.NetworkManager.Query().SubQuery()
-				wirq := models.WireManager.Query().SubQuery()
-				vpcq := models.VpcManager.Query().SubQuery()
-				gneq := models.GuestnetworkManager.Query()
-				q := gneq.Equals("guest_id", guest.Id).
-					IsNullOrEmpty("eip_id")
-				if len(input.IpAddr) > 0 {
-					q = q.Equals("ip_addr", input.IpAddr)
-				}
-				q = q.Join(netq, sqlchemy.Equals(netq.Field("id"), gneq.Field("network_id")))
-				q = q.Join(wirq, sqlchemy.Equals(wirq.Field("id"), netq.Field("wire_id")))
-				q = q.Join(vpcq, sqlchemy.Equals(vpcq.Field("id"), wirq.Field("vpc_id")))
-				q = q.Filter(sqlchemy.NotEquals(vpcq.Field("id"), api.DEFAULT_VPC_ID))
-				if err := db.FetchModelObjects(models.GuestnetworkManager, q, &guestnics); err != nil {
-					return nil, errors.Wrapf(err, "db.FetchModelObjects")
-				}
-				if len(guestnics) == 0 {
-					return nil, errors.Errorf("guest has no nics to associate eip")
-				}
+		case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+			err := self.requestAssociateEipWithInstanceGroup(ctx, userCred, eip, input, obj, task)
+			if err != nil {
+				return nil, err
 			}
-
-			guestnic := &guestnics[0]
-			lockman.LockObject(ctx, guestnic)
-			defer lockman.ReleaseObject(ctx, guestnic)
-			if _, err := db.Update(guestnic, func() error {
-				guestnic.EipId = eip.Id
-				return nil
-			}); err != nil {
-				return nil, errors.Wrapf(err, "set associated eip for guestnic %s (guest:%s, network:%s)",
-					guestnic.Ifname, guestnic.GuestId, guestnic.NetworkId)
-			}
-		} else if input.InstanceType == api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP {
-			group := obj.(*models.SGroup)
-
-			lockman.LockObject(ctx, group)
-			defer lockman.ReleaseObject(ctx, group)
-
-			var groupnics []models.SGroupnetwork
-			{
-				gneq := models.GroupnetworkManager.Query()
-				q := gneq.Equals("group_id", group.Id).
-					IsNullOrEmpty("eip_id")
-				if len(input.IpAddr) > 0 {
-					q = q.Equals("ip_addr", input.IpAddr)
-				}
-				if err := db.FetchModelObjects(models.GroupnetworkManager, q, &groupnics); err != nil {
-					return nil, errors.Wrapf(err, "db.FetchModelObjects")
-				}
-				if len(groupnics) == 0 {
-					return nil, errors.Errorf("instance group has no nics to associate eip")
-				}
-			}
-
-			groupnic := &groupnics[0]
-			lockman.LockObject(ctx, groupnic)
-			defer lockman.ReleaseObject(ctx, groupnic)
-			if _, err := db.Update(groupnic, func() error {
-				groupnic.EipId = eip.Id
-				return nil
-			}); err != nil {
-				return nil, errors.Wrapf(err, "set associated eip for groupnic %s (guest:%s, network:%s)",
-					groupnic.IpAddr, groupnic.GroupId, groupnic.NetworkId)
-			}
-		} else {
+		default:
 			return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "instance type %s", input.InstanceType)
 		}
-
 		if err := eip.AssociateInstance(ctx, userCred, input.InstanceType, obj); err != nil {
 			return nil, errors.Wrapf(err, "associate eip %s(%s) to %s %s(%s)", eip.Name, eip.Id, obj.Keyword(), obj.GetName(), obj.GetId())
 		}
@@ -1917,5 +1852,86 @@ func (self *SKVMRegionDriver) RequestAssociateEip(ctx context.Context, userCred 
 		}
 		return nil, nil
 	})
+	return nil
+}
+
+func (self *SKVMRegionDriver) requestAssociateEipWithServer(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
+	guest := obj.(*models.SGuest)
+
+	if guest.GetHypervisor() != api.HYPERVISOR_KVM {
+		return errors.Wrapf(cloudprovider.ErrNotSupported, "not support associate eip for hypervisor %s", guest.GetHypervisor())
+	}
+
+	lockman.LockObject(ctx, guest)
+	defer lockman.ReleaseObject(ctx, guest)
+
+	var guestnics []models.SGuestnetwork
+	{
+		netq := models.NetworkManager.Query().SubQuery()
+		wirq := models.WireManager.Query().SubQuery()
+		vpcq := models.VpcManager.Query().SubQuery()
+		gneq := models.GuestnetworkManager.Query()
+		q := gneq.Equals("guest_id", guest.Id).
+			IsNullOrEmpty("eip_id")
+		if len(input.IpAddr) > 0 {
+			q = q.Equals("ip_addr", input.IpAddr)
+		}
+		q = q.Join(netq, sqlchemy.Equals(netq.Field("id"), gneq.Field("network_id")))
+		q = q.Join(wirq, sqlchemy.Equals(wirq.Field("id"), netq.Field("wire_id")))
+		q = q.Join(vpcq, sqlchemy.Equals(vpcq.Field("id"), wirq.Field("vpc_id")))
+		q = q.Filter(sqlchemy.NotEquals(vpcq.Field("id"), api.DEFAULT_VPC_ID))
+		if err := db.FetchModelObjects(models.GuestnetworkManager, q, &guestnics); err != nil {
+			return errors.Wrapf(err, "db.FetchModelObjects")
+		}
+		if len(guestnics) == 0 {
+			return errors.Errorf("guest has no nics to associate eip")
+		}
+	}
+
+	guestnic := &guestnics[0]
+	lockman.LockObject(ctx, guestnic)
+	defer lockman.ReleaseObject(ctx, guestnic)
+	if _, err := db.Update(guestnic, func() error {
+		guestnic.EipId = eip.Id
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "set associated eip for guestnic %s (guest:%s, network:%s)",
+			guestnic.Ifname, guestnic.GuestId, guestnic.NetworkId)
+	}
+	return nil
+}
+
+func (self *SKVMRegionDriver) requestAssociateEipWithInstanceGroup(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
+	group := obj.(*models.SGroup)
+
+	lockman.LockObject(ctx, group)
+	defer lockman.ReleaseObject(ctx, group)
+
+	var groupnics []models.SGroupnetwork
+	{
+		gneq := models.GroupnetworkManager.Query()
+		q := gneq.Equals("group_id", group.Id).
+			IsNullOrEmpty("eip_id")
+		if len(input.IpAddr) > 0 {
+			q = q.Equals("ip_addr", input.IpAddr)
+		}
+		if err := db.FetchModelObjects(models.GroupnetworkManager, q, &groupnics); err != nil {
+			return errors.Wrapf(err, "db.FetchModelObjects")
+		}
+		if len(groupnics) == 0 {
+			return errors.Errorf("instance group has no nics to associate eip")
+		}
+	}
+
+	groupnic := &groupnics[0]
+	lockman.LockObject(ctx, groupnic)
+	defer lockman.ReleaseObject(ctx, groupnic)
+	if _, err := db.Update(groupnic, func() error {
+		groupnic.EipId = eip.Id
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "set associated eip for groupnic %s (guest:%s, network:%s)",
+			groupnic.IpAddr, groupnic.GroupId, groupnic.NetworkId)
+	}
 	return nil
 }
