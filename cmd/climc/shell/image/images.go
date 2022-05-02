@@ -159,6 +159,10 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.Images)
 	cmd.List(&glance.ImageListOptions{})
 	cmd.GetProperty(&glance.ImageStatusStatisticsOptions{})
+	cmd.Perform("user-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("class-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 
 	type ImageOperationOptions struct {
 		ID []string `help:"Image id or name" metavar:"IMAGE"`
