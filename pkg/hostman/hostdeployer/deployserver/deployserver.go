@@ -233,8 +233,11 @@ func (*DeployerServer) SaveToGlance(ctx context.Context, req *deployapi.SaveToGl
 				if req.Compress {
 					kvmDisk.Zerofree()
 				}
+			} else if errors.Cause(err) == errors.ErrNotFound {
+				// ignore no partition error
+				err = nil
 			} else {
-				log.Errorf("")
+				log.Errorf("SaveToGlance: MountKvmRootfs fail: %s", err)
 			}
 			return err
 		}()

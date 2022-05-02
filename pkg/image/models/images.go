@@ -2023,7 +2023,7 @@ func (img *SImage) Pipeline(ctx context.Context, userCred mcclient.TokenCredenti
 	if img.Status != api.IMAGE_STATUS_ACTIVE {
 		img.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "image pipeline complete")
 	}
-	if updated {
+	if updated && img.IsGuestImage.IsFalse() {
 		kwargs := jsonutils.NewDict()
 		kwargs.Set("name", jsonutils.NewString(img.GetName()))
 		osType, err := ImagePropertyManager.GetProperty(img.Id, api.IMAGE_OS_TYPE)
