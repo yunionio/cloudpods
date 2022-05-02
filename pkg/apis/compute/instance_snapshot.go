@@ -39,6 +39,7 @@ type InstanceSnapshotDetails struct {
 	apis.VirtualResourceDetails
 	ManagedResourceInfo
 	SInstanceSnapshot
+	apis.EncryptedResourceDetails
 
 	// 云主机状态
 	GuestStatus string `json:"guest_status"`

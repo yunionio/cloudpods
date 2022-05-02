@@ -18,6 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type SnapshotCreateInput struct {
 	apis.VirtualResourceCreateInput
+	apis.EncryptedResourceCreateInput
 
 	// 磁盘Id
 	// 目前仅VMware平台不支持创建快照,其余平台磁盘均支持创建快照
@@ -100,6 +101,7 @@ type SnapshotDetails struct {
 	apis.VirtualResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
+	apis.EncryptedResourceDetails
 
 	SSnapshot
 

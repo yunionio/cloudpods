@@ -876,11 +876,8 @@ func (self *SGuest) StartResumeTask(ctx context.Context, userCred mcclient.Token
 func (self *SGuest) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_START_FAILED, api.VM_SAVE_DISK_FAILED, api.VM_SUSPEND}) {
-		if self.IsEncrypted() {
-			_, err := self.GetEncryptInfo(ctx, userCred)
-			if err != nil {
-				return nil, errors.Wrap(err, "GetEncryptInfo")
-			}
+		if err := self.ValidateEncryption(ctx, userCred); err != nil {
+			return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
 		}
 		if !self.guestDisksStorageTypeIsShared() {
 			host, _ := self.GetHost()
@@ -2867,6 +2864,9 @@ func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCred
 	input api.ServerStopInput) (jsonutils.JSONObject, error) {
 	// XXX if is force, force stop guest
 	if input.IsForce || utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED}) {
+		if err := self.ValidateEncryption(ctx, userCred); err != nil {
+			return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
+		}
 		return nil, self.StartGuestStopTask(ctx, userCred, input.IsForce, input.StopCharging, "")
 	}
 	return nil, httperrors.NewInvalidStatusError("Cannot stop server in status %s", self.Status)
@@ -4737,6 +4737,10 @@ func (self *SGuest) validateCreateInstanceBackup(
 func (self *SGuest) PerformInstanceSnapshot(
 	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerInstanceSnapshot,
 ) (jsonutils.JSONObject, error) {
+	if err := self.ValidateEncryption(ctx, userCred); err != nil {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
+	}
+
 	lockman.LockClass(ctx, InstanceSnapshotManager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, InstanceSnapshotManager, userCred.GetProjectId())
 	pendingUsage, params, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, input.ServerCreateSnapshotParams)
@@ -4768,7 +4772,15 @@ func (self *SGuest) PerformInstanceSnapshot(
 	return nil, nil
 }
 
-func (self *SGuest) PerformInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformInstanceBackup(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	if err := self.ValidateEncryption(ctx, userCred); err != nil {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
+	}
 	lockman.LockClass(ctx, InstanceSnapshotManager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, InstanceSnapshotManager, userCred.GetProjectId())
 	err := self.validateCreateInstanceBackup(ctx, userCred, query, data)
@@ -4825,6 +4837,9 @@ func (self *SGuest) InstanceCreateBackup(ctx context.Context, userCred mcclient.
 }
 
 func (self *SGuest) PerformInstanceSnapshotReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerResetInput) (jsonutils.JSONObject, error) {
+	if err := self.ValidateEncryption(ctx, userCred); err != nil {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
+	}
 
 	if self.Status != api.VM_READY {
 		return nil, httperrors.NewInvalidStatusError("guest can't do snapshot in status %s", self.Status)
@@ -4877,11 +4892,15 @@ func (self *SGuest) StartSnapshotResetTask(ctx context.Context, userCred mcclien
 }
 
 func (self *SGuest) PerformSnapshotAndClone(
-	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSnapshotAndCloneInput,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.ServerSnapshotAndCloneInput,
 ) (jsonutils.JSONObject, error) {
-	if self.IsEncrypted() {
-		return nil, httperrors.NewForbiddenError("cannot snapshot and clone encrypted server")
+	if err := self.ValidateEncryption(ctx, userCred); err != nil {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
 	}
+
 	newlyGuestName := input.Name
 	if len(input.Name) == 0 {
 		return nil, httperrors.NewMissingParameterError("name")

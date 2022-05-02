@@ -41,6 +41,7 @@ type SDiskBackupManager struct {
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 	db.SMultiArchResourceBaseManager
+	db.SEncryptedResourceManager
 }
 
 type SDiskBackup struct {
@@ -49,6 +50,8 @@ type SDiskBackup struct {
 	SManagedResourceBase
 	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	db.SMultiArchResourceBase
+
+	db.SEncryptedResource
 
 	DiskId          string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
 	BackupStorageId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
@@ -143,16 +146,25 @@ func (self *SDiskBackup) ValidateDeleteCondition(ctx context.Context, info jsonu
 	return nil
 }
 
-func (dm *SDiskBackupManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.DiskBackupDetails {
+func (dm *SDiskBackupManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DiskBackupDetails {
 	rows := make([]api.DiskBackupDetails, len(objs))
 	virtRows := dm.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := dm.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := dm.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	encRows := dm.SEncryptedResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i].VirtualResourceDetails = virtRows[i]
 		rows[i].ManagedResourceInfo = manRows[i]
 		rows[i].CloudregionResourceInfo = regionRows[i]
+		rows[i].EncryptedResourceDetails = encRows[i]
 		rows[i] = objs[i].(*SDiskBackup).getMoreDetails(rows[i])
 	}
 	return rows
@@ -206,7 +218,16 @@ func (db *SDiskBackup) GetRegionDriver() (IRegionDriver, error) {
 	return cloudRegion.GetDriver(), nil
 }
 
-func (dm *SDiskBackupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DiskBackupCreateInput) (api.DiskBackupCreateInput, error) {
+func (dm *SDiskBackupManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.DiskBackupCreateInput,
+) (api.DiskBackupCreateInput, error) {
+	if input.NeedEncrypt() {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "encryption should not be specified")
+	}
 	if len(input.DiskId) == 0 {
 		return input, httperrors.NewMissingParameterError("disk_id")
 	}
@@ -222,6 +243,14 @@ func (dm *SDiskBackupManager) ValidateCreateData(ctx context.Context, userCred m
 	if disk.Status != api.DISK_READY {
 		return input, httperrors.NewInvalidStatusError("disk %s status is not %s", disk.Name, api.DISK_READY)
 	}
+	if len(disk.EncryptKeyId) > 0 {
+		input.EncryptKeyId = &disk.EncryptKeyId
+		input.EncryptedResourceCreateInput, err = dm.SEncryptedResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EncryptedResourceCreateInput)
+		if err != nil {
+			return input, errors.Wrap(err, "SEncryptedResourceManager.ValidateCreateData")
+		}
+	}
+
 	ibs, err := BackupStorageManager.FetchByIdOrName(userCred, input.BackupStorageId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {

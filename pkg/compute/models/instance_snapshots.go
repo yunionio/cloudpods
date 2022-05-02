@@ -57,6 +57,8 @@ type SInstanceSnapshot struct {
 	SCloudregionResourceBase
 	db.SMultiArchResourceBase
 
+	db.SEncryptedResource
+
 	// 云主机Id
 	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 	// 云主机配置
@@ -97,6 +99,7 @@ type SInstanceSnapshotManager struct {
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 	db.SMultiArchResourceBaseManager
+	db.SEncryptedResourceManager
 }
 
 var InstanceSnapshotManager *SInstanceSnapshotManager
@@ -279,11 +282,14 @@ func (manager *SInstanceSnapshotManager) FetchCustomizeColumns(
 
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	encRows := manager.SEncryptedResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.InstanceSnapshotDetails{
 			VirtualResourceDetails: virtRows[i],
 			ManagedResourceInfo:    manRows[i],
+
+			EncryptedResourceDetails: encRows[i],
 		}
 		rows[i] = objs[i].(*SInstanceSnapshot).getMoreDetails(userCred, rows[i])
 	}
@@ -718,4 +724,20 @@ func (isp *SInstanceSnapshot) GetInstanceSnapshotJointsByOrder(guest *SGuest) ([
 		jIsps = append(jIsps, jIsp)
 	}
 	return jIsps, nil
+}
+
+func (self *SInstanceSnapshot) CustomizeCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
+	// use disk's ownerId instead of default ownerId
+	guestObj, err := GuestManager.FetchById(self.GuestId)
+	if err != nil {
+		return errors.Wrap(err, "GuestManager.FetchById")
+	}
+	ownerId = guestObj.(*SGuest).GetOwnerId()
+	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
