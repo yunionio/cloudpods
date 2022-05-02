@@ -362,10 +362,12 @@ func (manager *SGuestImageManager) FetchCustomizeColumns(
 	rows := make([]api.GuestImageDetails, len(objs))
 
 	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	encRows := manager.SEncryptedResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.GuestImageDetails{
 			SharableVirtualResourceDetails: virtRows[i],
+			EncryptedResourceDetails:       encRows[i],
 		}
 		guestImage := objs[i].(*SGuestImage)
 		rows[i] = guestImage.getMoreDetails(ctx, userCred, query, rows[i])
