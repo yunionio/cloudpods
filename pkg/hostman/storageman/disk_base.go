@@ -57,7 +57,7 @@ type IDisk interface {
 	CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error)
 	CreateFromSnapshotLocation(ctx context.Context, location string, size int64) error
 	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
-	CreateFromImageFuse(ctx context.Context, url string, size int64) error
+	CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
 		encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
 	PostCreateFromImageFuse()

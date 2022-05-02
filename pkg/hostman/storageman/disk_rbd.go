@@ -208,7 +208,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SRBDDisk) CreateFromImageFuse(ctx context.Context, url string, size int64) error {
+func (d *SRBDDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
 	return fmt.Errorf("Not support")
 }
 

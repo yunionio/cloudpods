@@ -456,6 +456,10 @@ func (manager *SDiskBackupManager) CreateBackup(ctx context.Context, owner mccli
 	backup.ProjectId = owner.GetProjectId()
 	backup.DomainId = owner.GetProjectDomainId()
 	backup.DiskId = disk.Id
+
+	// inherit encrypt_key_id
+	backup.EncryptKeyId = disk.EncryptKeyId
+
 	backup.DiskConfig = &SBackupDiskConfig{
 		DiskConfig: *disk.ToDiskConfig(),
 		Name:       disk.GetName(),
