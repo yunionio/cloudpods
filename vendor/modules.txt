@@ -282,6 +282,8 @@ github.com/coredns/coredns/plugin/reload
 github.com/coredns/coredns/plugin/test
 github.com/coredns/coredns/plugin/trace
 github.com/coredns/coredns/request
+# github.com/coreos/go-iptables v0.6.0
+github.com/coreos/go-iptables/iptables
 # github.com/coreos/go-semver v0.3.0
 github.com/coreos/go-semver/semver
 # github.com/coreos/go-systemd/v22 v22.3.2
@@ -671,7 +673,6 @@ github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile
-github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312
 # github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 github.com/tencentyun/cos-go-sdk-v5
 github.com/tencentyun/cos-go-sdk-v5/debug
@@ -694,7 +695,7 @@ github.com/ugorji/go/codec
 # github.com/vishvananda/netlink v1.0.0
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
-# github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
+# github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74
 github.com/vishvananda/netns
 # github.com/vmihailenco/msgpack v4.0.4+incompatible
 github.com/vmihailenco/msgpack
