@@ -612,9 +612,10 @@ func (m *SGuestManager) startDeploy(
 	enableCloudInit := jsonutils.QueryBoolean(deployParams.Body, "enable_cloud_init", false)
 	loginAccount, _ := deployParams.Body.GetString("login_account")
 
-	guestInfo, err := guest.DeployFs(deployapi.NewDeployInfo(
-		publicKey, deployapi.JsonDeploysToStructs(deploys), password, deployParams.IsInit, false,
-		options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser, enableCloudInit, loginAccount))
+	guestInfo, err := guest.DeployFs(ctx, deployParams.UserCred,
+		deployapi.NewDeployInfo(
+			publicKey, deployapi.JsonDeploysToStructs(deploys), password, deployParams.IsInit, false,
+			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser, enableCloudInit, loginAccount))
 	if err != nil {
 		return nil, errors.Wrap(err, "Deploy guest fs")
 	} else {

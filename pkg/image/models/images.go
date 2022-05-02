@@ -1665,7 +1665,18 @@ func (image *SImage) doProbeImageInfo(ctx context.Context, userCred mcclient.Tok
 	if deployclient.GetDeployClient() == nil {
 		return false, fmt.Errorf("deploy client not init")
 	}
-	imageInfo, err := deployclient.GetDeployClient().ProbeImageInfo(ctx, &deployapi.ProbeImageInfoPramas{DiskPath: diskPath})
+	diskInfo := &deployapi.DiskInfo{
+		Path: diskPath,
+	}
+	if image.IsEncrypted() {
+		key, err := image.GetEncryptInfo(ctx, userCred)
+		if err != nil {
+			return false, errors.Wrap(err, "GetEncryptInfo")
+		}
+		diskInfo.EncryptPassword = key.Key
+		diskInfo.EncryptAlg = string(key.Alg)
+	}
+	imageInfo, err := deployclient.GetDeployClient().ProbeImageInfo(ctx, &deployapi.ProbeImageInfoPramas{DiskInfo: diskInfo})
 	if err != nil {
 		return false, errors.Wrap(err, "ProbeImageInfo")
 	}

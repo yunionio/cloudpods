@@ -31,6 +31,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -154,6 +155,9 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 		log.Errorf("qemuimg.NewQemuImage %s fail: %s", d.GetPath(), err)
 		return nil, err
 	}
+	resizeFsInfo := &deployapi.DiskInfo{
+		Path: d.GetPath(),
+	}
 	if diskInfo.Contains("encrypt_info") {
 		var encryptInfo apis.SEncryptInfo
 		err := diskInfo.Unmarshal(&encryptInfo, "encrypt_info")
@@ -162,6 +166,8 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 			return nil, errors.Wrap(err, "Unmarshal encrpt_info")
 		} else {
 			disk.SetPassword(encryptInfo.Key)
+			resizeFsInfo.EncryptPassword = encryptInfo.Key
+			resizeFsInfo.EncryptAlg = string(encryptInfo.Alg)
 		}
 	}
 	if err := disk.Resize(int(sizeMb)); err != nil {
@@ -172,7 +178,7 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 		// d.Fallocate()
 	}
 
-	if err := d.ResizeFs(d.GetPath()); err != nil {
+	if err := d.ResizeFs(resizeFsInfo); err != nil {
 		log.Errorf("Resize fs %s fail %s", d.GetPath(), err)
 		// return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
 	}
@@ -319,8 +325,15 @@ func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFo
 		// d.Fallocate
 	}
 
+	diskInfo := &deployapi.DiskInfo{
+		Path: d.GetPath(),
+	}
+	if encryptInfo != nil {
+		diskInfo.EncryptPassword = encryptInfo.Key
+		diskInfo.EncryptAlg = string(encryptInfo.Alg)
+	}
 	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
-		d.FormatFs(fsFormat, uuid, d.GetPath())
+		d.FormatFs(fsFormat, uuid, diskInfo)
 	}
 
 	return d.GetDiskDesc(), nil
@@ -632,4 +645,8 @@ func (d *SLocalDisk) PrepareMigrate(liveMigrate bool) (string, error) {
 func (d *SLocalDisk) DoDeleteSnapshot(snapshotId string) error {
 	snapshotPath := path.Join(d.GetSnapshotDir(), snapshotId)
 	return d.Storage.DeleteDiskfile(snapshotPath, false)
+}
+
+func (d *SLocalDisk) IsFile() bool {
+	return true
 }

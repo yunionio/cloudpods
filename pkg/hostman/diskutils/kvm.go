@@ -39,8 +39,9 @@ type SKVMGuestDisk struct {
 	deployer     IDeployer
 }
 
-func NewKVMGuestDisk(imagePath, driver string, readOnly bool) (*SKVMGuestDisk, error) {
-	originImage := imagePath
+func NewKVMGuestDisk(imageInfo qemuimg.SImageInfo, driver string, readOnly bool) (*SKVMGuestDisk, error) {
+	originImage := imageInfo.Path
+	imagePath := imageInfo.Path
 	if readOnly {
 		// if readonly, create a top image over the original image, open device as RW
 		tmpFileDir, err := ioutil.TempDir(cloudconsts.DeployTempDir(), "kvm_disks")
@@ -54,19 +55,20 @@ func NewKVMGuestDisk(imagePath, driver string, readOnly bool) (*SKVMGuestDisk, e
 			log.Errorf("fail to init qemu image %s", tmpFileName)
 			return nil, errors.Wrap(err, "NewQemuImage")
 		}
-		err = img.CreateQcow2(0, false, imagePath, "", "", "")
+		err = img.CreateQcow2(0, false, imageInfo.Path, imageInfo.Password, imageInfo.EncryptFormat, imageInfo.EncryptAlg)
 		if err != nil {
 			log.Errorf("fail to create overlay qcow2 for kvm disk readonly access")
 			return nil, errors.Wrap(err, "CreateQcow2")
 		}
 		originImage = imagePath
 		imagePath = tmpFileName
+		imageInfo.Path = tmpFileName
 	}
 	return &SKVMGuestDisk{
 		readOnly:     readOnly,
 		kvmImagePath: originImage,
 		topImagePath: imagePath,
-		deployer:     newDeployer(imagePath, driver),
+		deployer:     newDeployer(imageInfo, driver),
 	}, nil
 }
 
@@ -77,16 +79,15 @@ func (d *SKVMGuestDisk) Cleanup() {
 	}
 }
 
-func newDeployer(imagePath, driver string) IDeployer {
+func newDeployer(imageInfo qemuimg.SImageInfo, driver string) IDeployer {
 	switch driver {
 	case consts.DEPLOY_DRIVER_NBD:
-		return nbd.NewNBDDriver(imagePath)
+		return nbd.NewNBDDriver(imageInfo)
 	case consts.DEPLOY_DRIVER_LIBGUESTFS:
-		return libguestfs.NewLibguestfsDriver(imagePath)
+		return libguestfs.NewLibguestfsDriver(imageInfo)
 	default:
-		return nbd.NewNBDDriver(imagePath)
+		return nbd.NewNBDDriver(imageInfo)
 	}
-
 }
 
 func (d *SKVMGuestDisk) IsLVMPartition() bool {
