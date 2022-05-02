@@ -981,7 +981,7 @@ func (m *SGuestManager) DoSnapshot(ctx context.Context, params interface{}) (jso
 		return nil, hostutils.ParamsError
 	}
 	guest, _ := m.GetServer(snapshotParams.Sid)
-	return guest.ExecDiskSnapshotTask(ctx, snapshotParams.Disk, snapshotParams.SnapshotId)
+	return guest.ExecDiskSnapshotTask(ctx, snapshotParams.UserCred, snapshotParams.Disk, snapshotParams.SnapshotId)
 }
 
 func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

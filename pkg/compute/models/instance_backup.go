@@ -392,6 +392,12 @@ func (self *SInstanceBackup) ToInstanceCreateInput(sourceInput *api.ServerCreate
 	if sourceInput.IsolatedDevices == nil {
 		sourceInput.IsolatedDevices = createInput.IsolatedDevices
 	}
+	if self.IsEncrypted() {
+		if sourceInput.EncryptKeyId != nil && *sourceInput.EncryptKeyId != self.EncryptKeyId {
+			return nil, errors.Wrap(httperrors.ErrConflict, "encrypt_key_id conflict with instance_backup's encrypt_key_id")
+		}
+		sourceInput.EncryptKeyId = &self.EncryptKeyId
+	}
 	return sourceInput, nil
 }
 

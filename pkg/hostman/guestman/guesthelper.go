@@ -90,6 +90,7 @@ type SReloadDisk struct {
 }
 
 type SDiskSnapshot struct {
+	UserCred   mcclient.TokenCredential
 	Sid        string
 	SnapshotId string
 	Disk       storageman.IDisk

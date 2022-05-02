@@ -1242,7 +1242,12 @@ func (s *SGuestReloadDiskTask) getDiskOfDrive(block monitor.QemuBlock) string {
 	if len(block.Inserted.File) == 0 {
 		return ""
 	}
-	if block.Inserted.File == s.disk.GetPath() {
+	filePath, err := qemuimg.ParseQemuFilepath(block.Inserted.File)
+	if err != nil {
+		log.Errorf("qemuimg.ParseQemuFilepath %s fail %s", block.Inserted.File, err)
+		return ""
+	}
+	if filePath == s.disk.GetPath() {
 		return block.Device
 	}
 	return ""
@@ -1254,7 +1259,11 @@ func (s *SGuestReloadDiskTask) startReloadDisk(device string) {
 
 func (s *SGuestReloadDiskTask) doReloadDisk(device string, callback func(string)) {
 	s.Monitor.SimpleCommand("stop", func(string) {
-		s.Monitor.ReloadDiskBlkdev(device, s.disk.GetPath(), callback)
+		path := s.disk.GetPath()
+		if s.isEncrypted() {
+			path = qemuimg.GetQemuFilepath(path, "sec0", qemuimg.EncryptFormatLuks)
+		}
+		s.Monitor.ReloadDiskBlkdev(device, path, callback)
 	})
 }
 

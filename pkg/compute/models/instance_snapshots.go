@@ -320,6 +320,9 @@ func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(ctx context.Contex
 	instanceSnapshot.InstanceType = guest.InstanceType
 	instanceSnapshot.ImageId = guest.GetTemplateId()
 
+	// inherit encrypt_key_id from guest
+	instanceSnapshot.EncryptKeyId = guest.EncryptKeyId
+
 	guestSchedInput := guest.ToSchedDesc()
 
 	host, _ := guest.GetHost()
@@ -473,6 +476,14 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 	if len(sourceInput.Networks) == 0 {
 		sourceInput.Networks = serverConfig.Networks
 	}
+
+	if self.IsEncrypted() {
+		if sourceInput.EncryptKeyId != nil && *sourceInput.EncryptKeyId != self.EncryptKeyId {
+			return nil, errors.Wrap(httperrors.ErrConflict, "encrypt_key_id conflict with instance_snapshot's encrypt_key_id")
+		}
+		sourceInput.EncryptKeyId = &self.EncryptKeyId
+	}
+
 	return sourceInput, nil
 }
 
