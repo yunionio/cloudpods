@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/guestfishpart"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 const (
@@ -54,7 +55,8 @@ func init() {
 }
 
 type SLibguestfsDriver struct {
-	imagePath string
+	imageInfo qemuimg.SImageInfo
+
 	nbddev    string
 	diskLabel string
 	lvmParts  []string
@@ -65,9 +67,9 @@ type SLibguestfsDriver struct {
 	parts []fsdriver.IDiskPartition
 }
 
-func NewLibguestfsDriver(imagePath string) *SLibguestfsDriver {
+func NewLibguestfsDriver(imageInfo qemuimg.SImageInfo) *SLibguestfsDriver {
 	return &SLibguestfsDriver{
-		imagePath: imagePath,
+		imageInfo: imageInfo,
 	}
 }
 
@@ -84,7 +86,7 @@ func (d *SLibguestfsDriver) Connect() error {
 	}
 	log.Debugf("acquired device %s", d.nbddev)
 
-	err = nbd.QemuNbdConnect(d.imagePath, d.nbddev)
+	err = nbd.QemuNbdConnect(d.imageInfo, d.nbddev)
 	if err != nil {
 		return err
 	}

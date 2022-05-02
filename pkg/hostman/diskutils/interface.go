@@ -18,6 +18,7 @@ import (
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type IDisk interface {
@@ -31,7 +32,7 @@ type IDisk interface {
 
 type DiskParams struct {
 	Hypervisor string
-	DiskPath   string
+	DiskInfo   qemuimg.SImageInfo
 	VddkInfo   *apis.VDDKConInfo
 }
 
@@ -39,11 +40,12 @@ func GetIDisk(params DiskParams, driver string, readOnly bool) (IDisk, error) {
 	hypervisor := params.Hypervisor
 	switch hypervisor {
 	case comapi.HYPERVISOR_KVM:
-		return NewKVMGuestDisk(params.DiskPath, driver, readOnly)
+		return NewKVMGuestDisk(params.DiskInfo, driver, readOnly)
 	case comapi.HYPERVISOR_ESXI:
-		return NewVDDKDisk(params.VddkInfo, params.DiskPath, driver, readOnly)
+		// ESXI does not support encrypted disk
+		return NewVDDKDisk(params.VddkInfo, params.DiskInfo.Path, driver, readOnly)
 	default:
-		return NewKVMGuestDisk(params.DiskPath, driver, readOnly)
+		return NewKVMGuestDisk(params.DiskInfo, driver, readOnly)
 	}
 }
 

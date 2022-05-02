@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 const (
@@ -151,7 +152,7 @@ func (vd *VDDKDisk) Connect() error {
 	if err != nil {
 		return errors.Wrap(err, "ConnectBlockDevice")
 	}
-	vd.kvmDisk, err = NewKVMGuestDisk(flatFile, vd.deployDriver, vd.readOnly)
+	vd.kvmDisk, err = NewKVMGuestDisk(qemuimg.SImageInfo{Path: flatFile}, vd.deployDriver, vd.readOnly)
 	if err != nil {
 		return errors.Wrap(err, "NewKVMGuestDisk")
 	}

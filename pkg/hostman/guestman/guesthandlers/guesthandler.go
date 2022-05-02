@@ -157,6 +157,8 @@ func guestCreate(ctx context.Context, userCred mcclient.TokenCredential, sid str
 	hostutils.DelayTaskWithWorker(ctx,
 		guestman.GetGuestManager().GuestCreate,
 		&guestman.SGuestDeploy{
+			UserCred: userCred,
+
 			Sid:    sid,
 			Body:   body,
 			IsInit: true,
@@ -174,6 +176,8 @@ func guestDeploy(ctx context.Context, userCred mcclient.TokenCredential, sid str
 	hostutils.DelayTaskWithWorker(ctx,
 		guestman.GetGuestManager().GuestDeploy,
 		&guestman.SGuestDeploy{
+			UserCred: userCred,
+
 			Sid:    sid,
 			Body:   body,
 			IsInit: false,
@@ -191,6 +195,8 @@ func guestRebuild(ctx context.Context, userCred mcclient.TokenCredential, sid st
 	hostutils.DelayTaskWithWorker(ctx,
 		guestman.GetGuestManager().GuestDeploy,
 		&guestman.SGuestDeploy{
+			UserCred: userCred,
+
 			Sid:    sid,
 			Body:   body,
 			IsInit: true,

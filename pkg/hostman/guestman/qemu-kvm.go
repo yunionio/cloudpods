@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	noapi "yunion.io/x/onecloud/pkg/apis/notify"
@@ -167,20 +168,25 @@ func (s *SKVMGuestInstance) isEncrypted() bool {
 	return len(s.getEncryptKeyId()) > 0
 }
 
-func (s *SKVMGuestInstance) getEncryptKey(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
+func (s *SKVMGuestInstance) getEncryptKey(ctx context.Context, userCred mcclient.TokenCredential) (apis.SEncryptInfo, error) {
+	ret := apis.SEncryptInfo{}
 	encKeyId, _ := s.Desc.GetString("encrypt_key_id")
 	if len(encKeyId) > 0 {
 		if userCred == nil {
-			return "", errors.Wrap(httperrors.ErrUnauthorized, "no credential to fetch encrypt key")
+			return ret, errors.Wrap(httperrors.ErrUnauthorized, "no credential to fetch encrypt key")
 		}
 		session := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
-		key, err := identity_modules.Credentials.GetEncryptKey(session, encKeyId)
+		secKey, err := identity_modules.Credentials.GetEncryptKey(session, encKeyId)
 		if err != nil {
-			return "", errors.Wrap(err, "GetEncryptKey")
+			return ret, errors.Wrap(err, "GetEncryptKey")
 		}
-		return key.Key, nil
+		ret.Id = secKey.KeyId
+		ret.Name = secKey.KeyName
+		ret.Key = secKey.Key
+		ret.Alg = secKey.Alg
+		return ret, nil
 	}
-	return "", nil
+	return ret, nil
 }
 
 func (s *SKVMGuestInstance) saveEncryptKeyFile(key string) error {
@@ -1005,7 +1011,7 @@ func (s *SKVMGuestInstance) StartGuest(ctx context.Context, userCred mcclient.To
 		if params == nil {
 			params = jsonutils.NewDict()
 		}
-		params.Add(jsonutils.NewString(ekey), "encrypt_key")
+		params.Add(jsonutils.NewString(ekey.Key), "encrypt_key")
 	}
 	task := &guestStartTask{
 		s:      s,
@@ -1016,7 +1022,17 @@ func (s *SKVMGuestInstance) StartGuest(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
-func (s *SKVMGuestInstance) DeployFs(deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
+func (s *SKVMGuestInstance) DeployFs(ctx context.Context, userCred mcclient.TokenCredential, deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
+	diskInfo := deployapi.DiskInfo{}
+	if s.isEncrypted() {
+		ekey, err := s.getEncryptKey(ctx, userCred)
+		if err != nil {
+			log.Errorf("fail to fetch encrypt key: %s", err)
+			return nil, errors.Wrap(err, "getEncryptKey")
+		}
+		diskInfo.EncryptPassword = ekey.Key
+		diskInfo.EncryptAlg = string(ekey.Alg)
+	}
 	disks, _ := s.Desc.GetArray("disks")
 	if len(disks) > 0 {
 		diskPath, _ := disks[0].GetString("path")
@@ -1024,7 +1040,8 @@ func (s *SKVMGuestInstance) DeployFs(deployInfo *deployapi.DeployInfo) (jsonutil
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
-		return disk.DeployGuestFs(disk.GetPath(), s.Desc, deployInfo)
+		diskInfo.Path = diskPath
+		return disk.DeployGuestFs(&diskInfo, s.Desc, deployInfo)
 	} else {
 		return nil, fmt.Errorf("Guest dosen't have disk ??")
 	}

@@ -19,6 +19,7 @@ import (
 
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 )
 
@@ -28,6 +29,8 @@ type SBaseParms struct {
 }
 
 type SGuestDeploy struct {
+	UserCred mcclient.TokenCredential
+
 	Sid    string
 	Body   jsonutils.JSONObject
 	IsInit bool
