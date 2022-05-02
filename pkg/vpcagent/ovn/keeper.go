@@ -786,6 +786,20 @@ func (keeper *OVNNorthboundKeeper) ClaimLoadbalancerNetwork(ctx context.Context,
 			}
 		}
 	}
+	var acls []*ovn_nb.ACL
+	{
+		lblisteners := loadbalancerNetwork.OrderedLoadbalancerListeners()
+		for _, lblistener := range lblisteners {
+			acls0, err := lblistenerToAcls(lportName, lblistener)
+			if err != nil {
+				log.Errorf("converting acl for listener %s(%s): %v",
+					lblistener.Name, lblistener.Id, err,
+				)
+				continue
+			}
+			acls = append(acls, acls0...)
+		}
+	}
 
 	irows := []types.IRow{
 		lbp,
@@ -795,6 +809,9 @@ func (keeper *OVNNorthboundKeeper) ClaimLoadbalancerNetwork(ctx context.Context,
 	}
 	if hasQoSEip {
 		irows = append(irows, qosEipIn, qosEipOut)
+	}
+	for _, acl := range acls {
+		irows = append(irows, acl)
 	}
 	allFound, args := cmp(&keeper.DB, ocVersion, irows...)
 	if allFound {
@@ -812,6 +829,11 @@ func (keeper *OVNNorthboundKeeper) ClaimLoadbalancerNetwork(ctx context.Context,
 		args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpcId), "qos_rules", "@qosEipIn")
 		args = append(args, ovnCreateArgs(qosEipOut, "qosEipOut")...)
 		args = append(args, "--", "add", "Logical_Switch", netLsName(networkId), "qos_rules", "@qosEipOut")
+	}
+	for i, acl := range acls {
+		ref := fmt.Sprintf("acl%d", i)
+		args = append(args, ovnCreateArgs(acl, ref)...)
+		args = append(args, "--", "add", "Logical_Switch", netLsName(networkId), "acls", "@"+ref)
 	}
 	return keeper.cli.Must(ctx, "ClaimLoadbalancerNetwork", args)
 }

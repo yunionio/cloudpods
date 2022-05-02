@@ -16,6 +16,7 @@ package models
 
 import (
 	"fmt"
+	"sort"
 
 	"yunion.io/x/log"
 
@@ -285,6 +286,17 @@ func (el *LoadbalancerNetwork) Copy() *LoadbalancerNetwork {
 	return &LoadbalancerNetwork{
 		SLoadbalancerNetwork: el.SLoadbalancerNetwork,
 	}
+}
+
+func (el *LoadbalancerNetwork) OrderedLoadbalancerListeners() []*LoadbalancerListener {
+	lblisteners := make([]*LoadbalancerListener, 0, len(el.LoadbalancerListeners))
+	for _, lblistener := range el.LoadbalancerListeners {
+		lblisteners = append(lblisteners, lblistener)
+	}
+	sort.Slice(lblisteners, func(i, j int) bool {
+		return lblisteners[i].Id < lblisteners[j].Id
+	})
+	return lblisteners
 }
 
 type LoadbalancerListener struct {
