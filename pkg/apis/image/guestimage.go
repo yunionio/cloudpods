@@ -24,6 +24,8 @@ import (
 
 type GuestImageDetails struct {
 	apis.SharableVirtualResourceDetails
+	apis.EncryptedResourceDetails
+
 	SGuestImage
 
 	//Status     string               `json:"status"`
