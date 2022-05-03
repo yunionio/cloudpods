@@ -1771,6 +1771,9 @@ func (self *SKVMRegionDriver) RequestCreateBackup(ctx context.Context, backup *m
 	body.Set("backup_id", jsonutils.NewString(backup.GetId()))
 	body.Set("backup_storage_id", jsonutils.NewString(backupStroage.GetId()))
 	body.Set("backup_storage_access_info", jsonutils.Marshal(backupStroage.AccessInfo))
+	if len(backup.EncryptKeyId) > 0 {
+		body.Set("encrypt_key_id", jsonutils.NewString(backup.EncryptKeyId))
+	}
 	header := task.GetTaskRequestHeader()
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	if err != nil {

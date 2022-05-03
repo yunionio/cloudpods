@@ -158,9 +158,9 @@ func (img *SQemuImage) parse() error {
 	img.ClusterSize = info.ClusterSize
 	img.Compat = info.FormatSpecific.Data.Compat
 	img.Encrypted = info.Encrypted
-	img.BackFilePath, err = parseBackingFilepath(info.FullBackingFilename)
+	img.BackFilePath, err = ParseQemuFilepath(info.FullBackingFilename)
 	if err != nil {
-		return errors.Wrap(err, "parseBackingFilepath")
+		return errors.Wrap(err, "ParseQemuFilepath")
 	}
 	img.Subformat = info.CreateType
 
@@ -551,12 +551,14 @@ func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string,
 type SFileInfo struct {
 	Driver   string `json:"driver"`
 	Filename string `json:"filename"`
+	Locking  string `json:"locking"`
 }
 
 type SQcow2FileInfo struct {
-	Driver          string    `json:"driver"`
-	EncrptKeySecret string    `json:"encrypt.key-secret"`
-	File            SFileInfo `json:"file"`
+	Driver           string    `json:"driver"`
+	EncryptKeySecret string    `json:"encrypt.key-secret"`
+	EncryptFormat    string    `json:"encrypt.format"`
+	File             SFileInfo `json:"file"`
 }
 
 func newQcow2FileInfo(filePath string) SQcow2FileInfo {
@@ -565,8 +567,19 @@ func newQcow2FileInfo(filePath string) SQcow2FileInfo {
 		File: SFileInfo{
 			Driver:   "file",
 			Filename: filePath,
+			Locking:  "off",
 		},
 	}
+}
+
+func GetQemuFilepath(path string, encKey string, encFormat TEncryptFormat) string {
+	if len(encKey) == 0 {
+		return path
+	}
+	info := newQcow2FileInfo(path)
+	info.EncryptKeySecret = encKey
+	info.EncryptFormat = string(encFormat)
+	return fmt.Sprintf("json:%s", jsonutils.Marshal(info))
 }
 
 func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string, password string, encFormat TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
@@ -577,16 +590,12 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string, pa
 	}
 	if len(backPath) > 0 {
 		// options = append(options, fmt.Sprintf("backing_file=%s", backPath))
-		info := newQcow2FileInfo(backPath)
 		backQemu, err := NewQemuImage(backPath)
 		if err != nil {
 			return errors.Wrap(err, "parse backing file")
 		}
 		if backQemu.Encrypted {
-			info.EncrptKeySecret = "sec0"
-		}
-		if backQemu.Encrypted {
-			extraArgs = append(extraArgs, "-b", fmt.Sprintf("json:%s", jsonutils.Marshal(info)))
+			extraArgs = append(extraArgs, "-b", GetQemuFilepath(backPath, "sec0", EncryptFormatLuks))
 		} else {
 			extraArgs = append(extraArgs, "-b", backPath)
 		}
@@ -752,7 +761,7 @@ func (img *SQemuImage) Check() error {
 }
 
 // "json:{\"driver\":\"qcow2\",\"file\":{\"driver\":\"file\",\"filename\":\"/opt/cloud/workspace/disks/snapshots/72a2383d-e980-486f-816c-6c562e1757f3_snap/f39f225a-921f-492e-8fb6-0a4167d6ed91\"}}"
-func parseBackingFilepath(pathInfo string) (string, error) {
+func ParseQemuFilepath(pathInfo string) (string, error) {
 	if strings.HasPrefix(pathInfo, "json:{") {
 		pathJson, err := jsonutils.ParseString(pathInfo[len("json:"):])
 		if err != nil {

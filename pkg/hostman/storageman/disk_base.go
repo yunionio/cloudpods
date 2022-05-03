@@ -27,6 +27,8 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type IDisk interface {
@@ -55,11 +57,11 @@ type IDisk interface {
 	CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error)
 	CreateFromSnapshotLocation(ctx context.Context, location string, size int64) error
 	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
-	CreateFromImageFuse(ctx context.Context, url string, size int64) error
+	CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
 		encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
 	PostCreateFromImageFuse()
-	CreateSnapshot(snapshotId string) error
+	CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error
 	DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error
 	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *jsonutils.JSONDict,
 		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)

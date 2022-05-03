@@ -63,6 +63,16 @@ func (res *SEncryptedResource) GetEncryptInfo(
 	return ret, nil
 }
 
+func (res *SEncryptedResource) ValidateEncryption(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if res.IsEncrypted() {
+		_, err := res.GetEncryptInfo(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "GetEncryptInfo")
+		}
+	}
+	return nil
+}
+
 func (manager *SEncryptedResourceManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

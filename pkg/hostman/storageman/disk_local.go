@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -37,10 +38,12 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fuseutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 var _ALTER_SUFFIX_ = ".alter"
@@ -186,7 +189,7 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string, size int64) error {
+func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
 	log.Infof("Create from image fuse %s", url)
 
 	localPath := d.Storage.GetFuseTmpPath()
@@ -383,9 +386,20 @@ func (d *SLocalDisk) PostCreateFromImageFuse() {
 }
 
 func (d *SLocalDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	diskBakcup := params.(*SDiskBakcup)
+	diskBackup := params.(*SDiskBakcup)
+
+	encKey := ""
+	if len(diskBackup.EncryptKeyId) > 0 {
+		session := auth.GetSession(ctx, diskBackup.UserCred, consts.GetRegion(), "")
+		secKey, err := identity_modules.Credentials.GetEncryptKey(session, diskBackup.EncryptKeyId)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetEncryptKey")
+		}
+		encKey = secKey.Key
+	}
+
 	snapshotDir := d.GetSnapshotDir()
-	snapshotPath := path.Join(snapshotDir, diskBakcup.SnapshotId)
+	snapshotPath := path.Join(snapshotDir, diskBackup.SnapshotId)
 	backupDir := d.GetBackupDir()
 	if !fileutils2.Exists(backupDir) {
 		output, err := procutils.NewCommand("mkdir", "-p", backupDir).Output()
@@ -394,21 +408,24 @@ func (d *SLocalDisk) DiskBackup(ctx context.Context, params interface{}) (jsonut
 			return nil, errors.Wrapf(err, "mkdir %s failed: %s", backupDir, output)
 		}
 	}
-	backupPath := path.Join(backupDir, diskBakcup.BackupId)
+	backupPath := path.Join(backupDir, diskBackup.BackupId)
 	img, err := qemuimg.NewQemuImage(snapshotPath)
 	if err != nil {
 		log.Errorln(err)
 		procutils.NewCommand("mv", "-f", backupPath, d.getPath()).Run()
 		return nil, err
 	}
+	if len(encKey) > 0 {
+		img.SetPassword(encKey)
+	}
 	newImage, err := img.Clone(backupPath, qemuimg.QCOW2, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to backup snapshot")
 	}
 	_, err = d.Storage.StorageBackup(ctx, &SStorageBackup{
-		BackupId:                diskBakcup.BackupId,
-		BackupStorageId:         diskBakcup.BackupStorageId,
-		BackupStorageAccessInfo: diskBakcup.BackupStorageAccessInfo,
+		BackupId:                diskBackup.BackupId,
+		BackupStorageId:         diskBackup.BackupStorageId,
+		BackupStorageAccessInfo: diskBackup.BackupStorageAccessInfo,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to SStorageBackup")
@@ -418,7 +435,7 @@ func (d *SLocalDisk) DiskBackup(ctx context.Context, params interface{}) (jsonut
 	return data, nil
 }
 
-func (d *SLocalDisk) CreateSnapshot(snapshotId string) error {
+func (d *SLocalDisk) CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
 	snapshotDir := d.GetSnapshotDir()
 	log.Infof("snapshotDir of LocalDisk %s: %s", d.Id, snapshotDir)
 	if !fileutils2.Exists(snapshotDir) {
@@ -440,7 +457,7 @@ func (d *SLocalDisk) CreateSnapshot(snapshotId string) error {
 		procutils.NewCommand("mv", "-f", snapshotPath, d.getPath()).Run()
 		return err
 	}
-	if err := img.CreateQcow2(0, false, snapshotPath, "", "", ""); err != nil {
+	if err := img.CreateQcow2(0, false, snapshotPath, encryptKey, encFormat, encAlg); err != nil {
 		log.Errorf("Snapshot create image error %s", err)
 		procutils.NewCommand("mv", "-f", snapshotPath, d.getPath()).Run()
 		return err
