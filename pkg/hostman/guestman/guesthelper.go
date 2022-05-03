@@ -62,6 +62,8 @@ type SDestPrepareMigrate struct {
 
 	MemorySnapshotsUri string
 	SrcMemorySnapshots []string
+
+	UserCred mcclient.TokenCredential
 }
 
 type SLiveMigrate struct {
