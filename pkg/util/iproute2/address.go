@@ -55,6 +55,16 @@ func NewAddress(ifname string, addresses ...string) *Address {
 	return r
 }
 
+func NewAddressEx(ifname string, addrs ...*netlink.Addr) *Address {
+	l := NewLink(ifname)
+	r := &Address{
+		Link:   l,
+		testcb: nop,
+		addrs:  addrs,
+	}
+	return r
+}
+
 func (address *Address) link() (link netlink.Link, ok bool) {
 	if address.addrBad {
 		return
