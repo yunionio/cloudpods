@@ -911,7 +911,7 @@ func (client *SQcloudClient) getCosClient(bucket *SBucket) (*cos.Client, error) 
 							if req.Method == "GET" || req.Method == "HEAD" {
 								return respCheck, nil
 							}
-							return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", req.Method, req.URL.Path)
+							return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 						}
 						return respCheck, nil
 					}),

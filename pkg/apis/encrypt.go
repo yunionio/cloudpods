@@ -40,6 +40,10 @@ type EncryptedResourceCreateInput struct {
 	EncryptKeyUserId *string `json:"encrypt_key_user_id"`
 }
 
+func (input EncryptedResourceCreateInput) NeedEncrypt() bool {
+	return (input.EncryptKeyId != nil && len(*input.EncryptKeyId) > 0) || (input.EncryptKeyNew != nil && *input.EncryptKeyNew)
+}
+
 type EncryptedResourceDetails struct {
 	// 秘钥名称
 	EncryptKey string `json:"encrypt_key"`

@@ -569,6 +569,7 @@ func guestSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid s
 	}
 
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().DoSnapshot, &guestman.SDiskSnapshot{
+		UserCred:   userCred,
 		Sid:        sid,
 		SnapshotId: snapshotId,
 		Disk:       disk,

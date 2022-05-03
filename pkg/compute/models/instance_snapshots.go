@@ -57,6 +57,8 @@ type SInstanceSnapshot struct {
 	SCloudregionResourceBase
 	db.SMultiArchResourceBase
 
+	db.SEncryptedResource
+
 	// 云主机Id
 	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 	// 云主机配置
@@ -97,6 +99,7 @@ type SInstanceSnapshotManager struct {
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 	db.SMultiArchResourceBaseManager
+	db.SEncryptedResourceManager
 }
 
 var InstanceSnapshotManager *SInstanceSnapshotManager
@@ -279,11 +282,14 @@ func (manager *SInstanceSnapshotManager) FetchCustomizeColumns(
 
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	encRows := manager.SEncryptedResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.InstanceSnapshotDetails{
 			VirtualResourceDetails: virtRows[i],
 			ManagedResourceInfo:    manRows[i],
+
+			EncryptedResourceDetails: encRows[i],
 		}
 		rows[i] = objs[i].(*SInstanceSnapshot).getMoreDetails(userCred, rows[i])
 	}
@@ -313,6 +319,9 @@ func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(ctx context.Contex
 	instanceSnapshot.GuestId = guest.Id
 	instanceSnapshot.InstanceType = guest.InstanceType
 	instanceSnapshot.ImageId = guest.GetTemplateId()
+
+	// inherit encrypt_key_id from guest
+	instanceSnapshot.EncryptKeyId = guest.EncryptKeyId
 
 	guestSchedInput := guest.ToSchedDesc()
 
@@ -467,6 +476,14 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 	if len(sourceInput.Networks) == 0 {
 		sourceInput.Networks = serverConfig.Networks
 	}
+
+	if self.IsEncrypted() {
+		if sourceInput.EncryptKeyId != nil && *sourceInput.EncryptKeyId != self.EncryptKeyId {
+			return nil, errors.Wrap(httperrors.ErrConflict, "encrypt_key_id conflict with instance_snapshot's encrypt_key_id")
+		}
+		sourceInput.EncryptKeyId = &self.EncryptKeyId
+	}
+
 	return sourceInput, nil
 }
 
@@ -718,4 +735,20 @@ func (isp *SInstanceSnapshot) GetInstanceSnapshotJointsByOrder(guest *SGuest) ([
 		jIsps = append(jIsps, jIsp)
 	}
 	return jIsps, nil
+}
+
+func (self *SInstanceSnapshot) CustomizeCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
+	// use disk's ownerId instead of default ownerId
+	guestObj, err := GuestManager.FetchById(self.GuestId)
+	if err != nil {
+		return errors.Wrap(err, "GuestManager.FetchById")
+	}
+	ownerId = guestObj.(*SGuest).GetOwnerId()
+	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }

@@ -416,12 +416,15 @@ func (m *QmpMonitor) parseVersion(callback StringCallback) qmpMonitorCallBack {
 func (m *QmpMonitor) GetBlocks(callback func([]QemuBlock)) {
 	var cb = func(res *Response) {
 		if res.ErrorVal != nil {
+			log.Errorf("GetBlocks error %s", res.ErrorVal)
 			callback(nil)
+			return
 		}
 		jr, err := jsonutils.Parse(res.Return)
 		if err != nil {
 			log.Errorf("Get %s block error %s", m.server, err)
 			callback(nil)
+			return
 		}
 		blocks := []QemuBlock{}
 		jr.Unmarshal(&blocks)

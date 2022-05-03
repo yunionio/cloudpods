@@ -57,7 +57,9 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
@@ -1815,30 +1817,45 @@ func (s *SKVMGuestInstance) ExecReloadDiskTask(ctx context.Context, disk storage
 }
 
 func (s *SKVMGuestInstance) ExecDiskSnapshotTask(
-	ctx context.Context, disk storageman.IDisk, snapshotId string,
+	ctx context.Context, userCred mcclient.TokenCredential, disk storageman.IDisk, snapshotId string,
 ) (jsonutils.JSONObject, error) {
+	var (
+		encryptKey = ""
+		encFormat  qemuimg.TEncryptFormat
+		encAlg     seclib2.TSymEncAlg
+	)
+	if s.isEncrypted() {
+		key, err := s.getEncryptKey(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrap(err, "getEncryptKey")
+		}
+		encryptKey = key.Key
+		encFormat = qemuimg.EncryptFormatLuks
+		encAlg = key.Alg
+	}
 	if s.IsRunning() {
 		if !s.isLiveSnapshotEnabled() {
 			return nil, fmt.Errorf("Guest dosen't support live snapshot")
 		}
-		err := disk.CreateSnapshot(snapshotId)
+		err := disk.CreateSnapshot(snapshotId, encryptKey, encFormat, encAlg)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "disk.CreateSnapshot")
 		}
 		task := NewGuestDiskSnapshotTask(ctx, s, disk, snapshotId)
 		task.Start()
 		return nil, nil
 	} else {
-		return s.StaticSaveSnapshot(ctx, disk, snapshotId)
+		return s.StaticSaveSnapshot(ctx, disk, snapshotId, encryptKey, encFormat, encAlg)
 	}
 }
 
 func (s *SKVMGuestInstance) StaticSaveSnapshot(
 	ctx context.Context, disk storageman.IDisk, snapshotId string,
+	encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg,
 ) (jsonutils.JSONObject, error) {
-	err := disk.CreateSnapshot(snapshotId)
+	err := disk.CreateSnapshot(snapshotId, encryptKey, encFormat, encAlg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "disk.CreateSnapshot")
 	}
 	location := path.Join(disk.GetSnapshotLocation(), snapshotId)
 	res := jsonutils.NewDict()

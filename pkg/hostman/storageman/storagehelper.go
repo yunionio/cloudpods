@@ -47,10 +47,14 @@ type SDiskCleanupSnapshots struct {
 }
 
 type SDiskBakcup struct {
-	SnapshotId              string
-	BackupId                string
-	BackupStorageId         string
-	BackupStorageAccessInfo *jsonutils.JSONDict
+	SnapshotId              string              `json:"snapshot_id"`
+	BackupId                string              `json:"backup_id"`
+	BackupStorageId         string              `json:"backup_storage_id"`
+	BackupStorageAccessInfo *jsonutils.JSONDict `json:"backup_storage_access_info"`
+
+	EncryptKeyId string `json:"encrypt_key_id"`
+
+	UserCred mcclient.TokenCredential
 }
 
 type SStorageBackup struct {

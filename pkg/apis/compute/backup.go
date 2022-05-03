@@ -99,6 +99,7 @@ type DiskBackupDetails struct {
 	apis.VirtualResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
+	apis.EncryptedResourceDetails
 
 	// description: disk name
 	DiskName string `json:"disk_name"`
@@ -110,6 +111,7 @@ type DiskBackupDetails struct {
 
 type DiskBackupCreateInput struct {
 	apis.VirtualResourceCreateInput
+	apis.EncryptedResourceCreateInput
 
 	// description: disk id
 	DiskId string `json:"disk_id"`
