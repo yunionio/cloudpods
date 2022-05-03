@@ -873,6 +873,11 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 				return nil, errors.Wrap(err, "write migrate certs")
 			}
 		}
+		var err error
+		startParams, err = guest.prepareEncryptKeyForStart(ctx, migParams.UserCred, startParams)
+		if err != nil {
+			return nil, errors.Wrap(err, "prepareEncryptKeyForStart")
+		}
 		hostutils.DelayTaskWithoutReqctx(ctx, guest.asyncScriptStart, startParams)
 	} else {
 		hostutils.UpdateServerProgress(context.Background(), migParams.Sid, 100.0, 0)

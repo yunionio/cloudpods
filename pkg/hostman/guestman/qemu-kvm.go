@@ -1003,17 +1003,26 @@ func (t *guestStartTask) Dump() string {
 	return fmt.Sprintf("guest %s params: %v", t.s.Id, t.params)
 }
 
-func (s *SKVMGuestInstance) StartGuest(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
+func (s *SKVMGuestInstance) prepareEncryptKeyForStart(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if s.isEncrypted() {
 		ekey, err := s.getEncryptKey(ctx, userCred)
 		if err != nil {
 			log.Errorf("fail to fetch encrypt key: %s", err)
-			return errors.Wrap(err, "getEncryptKey")
+			return nil, errors.Wrap(err, "getEncryptKey")
 		}
 		if params == nil {
 			params = jsonutils.NewDict()
 		}
 		params.Add(jsonutils.NewString(ekey.Key), "encrypt_key")
+	}
+	return params, nil
+}
+
+func (s *SKVMGuestInstance) StartGuest(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
+	var err error
+	params, err = s.prepareEncryptKeyForStart(ctx, userCred, params)
+	if err != nil {
+		return errors.Wrap(err, "prepareEncryptKeyForStart")
 	}
 	task := &guestStartTask{
 		s:      s,

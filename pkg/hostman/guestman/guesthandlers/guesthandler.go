@@ -407,6 +407,8 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 	msIds, _ := jsonutils.GetStringArray(body, "src_memory_snapshots")
 	params.SrcMemorySnapshots = msIds
 
+	params.UserCred = userCred
+
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().DestPrepareMigrate, params)
 	return nil
 }
