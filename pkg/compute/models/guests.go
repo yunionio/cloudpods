@@ -1484,7 +1484,8 @@ func (manager *SGuestManager) validateCreateData(
 				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
 			}
 			if diskConfig.DiskType == api.DISK_TYPE_SYS {
-				return nil, httperrors.NewBadRequestError("Snapshot error: disk index %d > 0 but disk type is %s", i+1, api.DISK_TYPE_SYS)
+				log.Warningf("Snapshot error: disk index %d > 0 but disk type is %s", i+1, api.DISK_TYPE_SYS)
+				diskConfig.DiskType = api.DISK_TYPE_DATA
 			}
 			if len(diskConfig.Backend) == 0 {
 				diskConfig.Backend = rootDiskConfig.Backend
