@@ -257,8 +257,8 @@ func (info SImageInfo) Encrypted() bool {
 }
 
 func Convert(srcInfo, destInfo SImageInfo, compact bool, workerOpions []string) error {
-	if srcInfo.Format == QCOW2 && destInfo.Format == QCOW2 {
-		return convertQcow2(srcInfo, destInfo, compact, workerOpions)
+	if srcInfo.Encrypted() || destInfo.Encrypted() {
+		return convertEncrypt(srcInfo, destInfo, compact, workerOpions)
 	} else {
 		return convertOther(srcInfo, destInfo, compact, workerOpions)
 	}
@@ -295,7 +295,7 @@ func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 	return nil
 }
 
-func convertQcow2(srcInfo, destInfo SImageInfo, compact bool, workerOpions []string) error {
+func convertEncrypt(srcInfo, destInfo SImageInfo, compact bool, workerOpions []string) error {
 	source, err := NewQemuImageWithIOLevel(srcInfo.Path, srcInfo.IoLevel)
 	if err != nil {
 		return errors.Wrapf(err, "NewQemuImage source %s", srcInfo.Path)
@@ -325,22 +325,38 @@ func convertQcow2(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 		if srcInfo.Format != QCOW2 {
 			return errors.Wrap(errors.ErrNotSupported, "source image not support encryption")
 		}
-		srcInfo.secId = "sec0"
-		cmdline = append(cmdline, "--object", srcInfo.SecretOptions())
 	}
 	if destInfo.Encrypted() {
 		if destInfo.Format != QCOW2 {
 			return errors.Wrap(errors.ErrNotSupported, "target image not support encryption")
 		}
-		destInfo.secId = "sec1"
+	}
+	if srcInfo.Encrypted() && destInfo.Encrypted() {
+		if srcInfo.Password == destInfo.Password {
+			srcInfo.secId = "sec0"
+			destInfo.secId = "sec0"
+			cmdline = append(cmdline, "--object", srcInfo.SecretOptions())
+		} else {
+			srcInfo.secId = "sec0"
+			cmdline = append(cmdline, "--object", srcInfo.SecretOptions())
+			destInfo.secId = "sec1"
+			cmdline = append(cmdline, "--object", destInfo.SecretOptions())
+		}
+	} else if srcInfo.Encrypted() {
+		srcInfo.secId = "sec0"
+		cmdline = append(cmdline, "--object", srcInfo.SecretOptions())
+	} else if destInfo.Encrypted() {
+		destInfo.secId = "sec0"
 		cmdline = append(cmdline, "--object", destInfo.SecretOptions())
+	} else {
+		// dead branch
 	}
 	cmdline = append(cmdline, "--image-opts", srcInfo.ImageOptions())
 	cmdline = append(cmdline, "--target-image-opts", destInfo.ImageOptions())
 	cmdline = append(cmdline, "-n")
-	log.Infof("XXXX qemu-img command: %s", cmdline)
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", cmdline...)
 	output, err := cmd.Output()
+	log.Infof("XXXX qemu-img convert command: %s output: %s", cmdline, output)
 	if err != nil {
 		log.Errorf("qemu convert fail %s, output: %s", err, string(output))
 		os.Remove(destInfo.Path)
@@ -601,6 +617,9 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string, pa
 		}
 		if !compact {
 			options = append(options, "cluster_size=2M")
+		}
+		if sizeMB == 0 {
+			sizeMB = backQemu.GetSizeMB()
 		}
 	} else if !compact {
 		sparseOpts := qcow2SparseOptions()
