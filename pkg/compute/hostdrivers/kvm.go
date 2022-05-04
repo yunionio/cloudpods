@@ -393,6 +393,14 @@ func (self *SKVMHostDriver) RequestResetDisk(ctx context.Context, host *models.S
 
 	header := task.GetTaskRequestHeader()
 
+	if disk.IsEncrypted() {
+		info, err := disk.GetEncryptInfo(ctx, task.GetUserCred())
+		if err != nil {
+			return errors.Wrap(err, "disk.GetEncryptInfo")
+		}
+		params.Add(jsonutils.Marshal(info), "encrypt_info")
+	}
+
 	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, params)
 	return err
 }
