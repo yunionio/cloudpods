@@ -14,7 +14,11 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
 	INSTANCE_BACKUP_STATUS_CREATING        = "creating"
@@ -63,6 +67,30 @@ type InstanceBackupDetails struct {
 
 	// 主机快照大小
 	Size int `json:"size"`
+
+	// 硬盘备份详情
+	DiskBackups []SSimpleBackup `json:"disk_backups"`
+}
+
+type SSimpleBackup struct {
+	// 备份Id
+	Id string `json:"id"`
+	// 备份名称
+	Name string `json:"name"`
+	// 备份大小
+	SizeMb int `json:"size_mb"`
+	// 磁盘大小
+	DiskSizeMb int `json:"disk_size_mb"`
+	// 磁盘类型
+	DiskType string `json:"disk_type"`
+	// 备份存储Id
+	BackupStorageId string `json:"backup_storage_id"`
+	// 快照状态
+	Status string `json:"status"`
+	// 密钥
+	EncryptKeyId string `json:"encrypt_key_id"`
+	// 创建时间
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type InstanceBackupRecoveryInput struct {

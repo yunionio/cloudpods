@@ -48,6 +48,9 @@ type SubImageInfo struct {
 	Size       int64     `json:"size"`
 	Status     string    `json:"status"`
 	CreatedAt  time.Time `json:"created_at"`
+
+	EncryptKeyId  string `json:"encrypt_key_id"`
+	DisableDelete bool   `json:"disable_delete"`
 }
 
 type GuestImageCreateInputBase struct {
