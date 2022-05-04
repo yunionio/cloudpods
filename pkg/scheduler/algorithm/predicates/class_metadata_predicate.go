@@ -85,7 +85,7 @@ func (p *ClassMetadataPredicate) PreExecute(ctx context.Context, u *core.Unit, c
 	case len(info.InstanceBackupId) > 0:
 		obj, err := models.InstanceBackupManager.FetchById(info.InstanceBackupId)
 		if err != nil {
-			return false, errors.Wrapf(err, "unable to fetch instanceBackup %s", info.InstanceSnapshotId)
+			return false, errors.Wrapf(err, "unable to fetch instanceBackup %s", info.InstanceBackupId)
 		}
 		stand = obj.(db.IStandaloneModel)
 	case len(info.InstanceSnapshotId) > 0:
