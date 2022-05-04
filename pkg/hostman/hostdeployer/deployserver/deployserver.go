@@ -95,13 +95,13 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 		req.GuestDesc.Hypervisor = comapi.HYPERVISOR_KVM
 	}
 	if err := disk.Connect(); err != nil {
-		log.Infof("Failed to connect %s disk: %s", req.GuestDesc.Hypervisor, err)
+		log.Errorf("Failed to connect %s disk: %s", req.GuestDesc.Hypervisor, err)
 		return new(deployapi.DeployGuestFsResponse), errors.Wrap(err, "Connect")
 	}
 	defer disk.Disconnect()
 	root, err := disk.MountRootfs()
 	if err != nil {
-		log.Infof("Failed mounting rootfs for %s disk", req.GuestDesc.Hypervisor)
+		log.Errorf("Failed mounting rootfs for %s disk: %s", req.GuestDesc.Hypervisor, err)
 		return new(deployapi.DeployGuestFsResponse), err
 	}
 	defer disk.UmountRootfs(root)
