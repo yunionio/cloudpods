@@ -245,6 +245,8 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 				Size:          snapshots[i].Size,
 				Status:        snapshots[i].Status,
 				StorageType:   snapshots[i].GetStorageType(),
+				EncryptKeyId:  snapshots[i].EncryptKeyId,
+				CreatedAt:     snapshots[i].CreatedAt,
 			})
 			out.Size += snapshots[i].Size
 

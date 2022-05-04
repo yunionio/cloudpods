@@ -54,6 +54,10 @@ func (self *DiskBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 	input.ProjectDomainId = ownerId.GetProjectDomainId()
 	input.ProjectId = ownerId.GetProjectId()
 
+	if backup.IsEncrypted() {
+		input.EncryptKeyId = &backup.EncryptKeyId
+	}
+
 	params := input.JSON(input)
 	diskObj, err := db.DoCreate(models.DiskManager, ctx, self.UserCred, nil, params, ownerId)
 	if err != nil {

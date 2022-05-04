@@ -315,6 +315,9 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 				Size:       image.Size,
 				Status:     image.Status,
 				CreatedAt:  image.CreatedAt,
+
+				EncryptKeyId:  image.EncryptKeyId,
+				DisableDelete: image.Protected.Bool(),
 			}
 			out.MinRamMb = image.MinRamMB
 			out.DiskFormat = image.DiskFormat
@@ -328,6 +331,9 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 			Size:       image.Size,
 			Status:     image.Status,
 			CreatedAt:  image.CreatedAt,
+
+			EncryptKeyId:  image.EncryptKeyId,
+			DisableDelete: image.Protected.Bool(),
 		})
 	}
 	// make sure that the sort of dataimage is fixed
