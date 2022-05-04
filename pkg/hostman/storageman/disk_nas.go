@@ -103,7 +103,17 @@ func (d *SNasDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (j
 	}
 	snapshotPath := path.Join(d.Storage.GetPath(), location)
 	log.Infof("Snapshot path is %s", snapshotPath)
-	return d.resetFromSnapshot(snapshotPath, outOfChain)
+	var encryptInfo *apis.SEncryptInfo
+	if resetParams.Input.Contains("encrypt_info") {
+		encInfo := apis.SEncryptInfo{}
+		err := resetParams.Input.Unmarshal(&encInfo, "encrypt_info")
+		if err != nil {
+			log.Errorf("unmarshal encrypt_info fail %s", err)
+		} else {
+			encryptInfo = &encInfo
+		}
+	}
+	return d.resetFromSnapshot(snapshotPath, outOfChain, encryptInfo)
 }
 
 func (d *SNasDisk) GetSnapshotLocation() string {

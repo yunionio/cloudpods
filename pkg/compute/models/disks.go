@@ -827,6 +827,10 @@ func (self *SDisk) CleanUpDiskSnapshots(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := self.ValidateEncryption(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "ValidateEncryption")
+	}
 	if !utils.IsInStringArray(self.Status, []string{api.DISK_READY}) {
 		return nil, httperrors.NewInputParameterError("Cannot reset disk in status %s", self.Status)
 	}
@@ -841,9 +845,9 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 	}
 
 	snapshotV := validators.NewModelIdOrNameValidator("snapshot", "snapshot", userCred)
-	err := snapshotV.Validate(data.(*jsonutils.JSONDict))
+	err = snapshotV.Validate(data.(*jsonutils.JSONDict))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "snapshotV.Validate")
 	}
 	snapshot := snapshotV.Model.(*SSnapshot)
 	if snapshot.Status != api.SNAPSHOT_READY {
