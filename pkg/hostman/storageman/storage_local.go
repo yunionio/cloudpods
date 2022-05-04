@@ -125,7 +125,7 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 			return errors.Wrap(err, "unable to storageBackupRecovery")
 		}
 	}
-	img, err := qemuimg.NewQemuImage(backupPath)
+	/*img, err := qemuimg.NewQemuImage(backupPath)
 	if err != nil {
 		log.Errorf("unable to new qemu image for %s: %s", backupPath, err.Error())
 		return errors.Wrapf(err, "unable to new qemu image for %s", backupPath)
@@ -133,8 +133,28 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 	if info.Encryption {
 		img.SetPassword(info.EncryptInfo.Key)
 	}
-	_, err = img.Clone(disk.GetPath(), qemuimg.QCOW2, false)
-	return err
+	_, err = img.Clone(disk.GetPath(), qemuimg.QCOW2, false)*/
+	img, err := qemuimg.NewQemuImage(disk.GetPath())
+	if err != nil {
+		log.Errorf("NewQemuImage fail %s %s", disk.GetPath(), err)
+		return errors.Wrapf(err, "unable to new qemu image for %s", disk.GetPath())
+	}
+	var (
+		encKey string
+		encFmt qemuimg.TEncryptFormat
+		encAlg seclib2.TSymEncAlg
+	)
+	if info.Encryption {
+		encKey = info.EncryptInfo.Key
+		encFmt = qemuimg.EncryptFormatLuks
+		encAlg = info.EncryptInfo.Alg
+	}
+	err = img.CreateQcow2(0, false, backupPath, encKey, encFmt, encAlg)
+	if err != nil {
+		log.Errorf("CreateQcow2 fail %s", err)
+		return errors.Wrapf(err, "CreateQcow2 %s fail", backupPath)
+	}
+	return nil
 }
 
 func (s *SLocalStorage) StorageBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
