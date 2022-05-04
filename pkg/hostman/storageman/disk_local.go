@@ -553,10 +553,22 @@ func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) 
 
 	snapshotDir := d.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, resetParams.SnapshotId)
-	return d.resetFromSnapshot(snapshotPath, outOfChain)
+
+	var encryptInfo *apis.SEncryptInfo
+	if resetParams.Input.Contains("encrypt_info") {
+		encInfo := apis.SEncryptInfo{}
+		err := resetParams.Input.Unmarshal(&encInfo, "encrypt_info")
+		if err != nil {
+			log.Errorf("unmarshal encrypt_info fail %s", err)
+		} else {
+			encryptInfo = &encInfo
+		}
+	}
+
+	return d.resetFromSnapshot(snapshotPath, outOfChain, encryptInfo)
 }
 
-func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool) (jsonutils.JSONObject, error) {
+func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
 	diskTmpPath := d.GetPath() + "_reset.tmp"
 	if output, err := procutils.NewCommand("mv", "-f", d.GetPath(), diskTmpPath).Output(); err != nil {
 		err = errors.Wrapf(err, "mv disk to tmp failed: %s", output)
@@ -569,7 +581,17 @@ func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool) (js
 			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
 			return nil, err
 		}
-		if err := img.CreateQcow2(0, false, snapshotPath, "", "", ""); err != nil {
+		var (
+			encKey string
+			encAlg seclib2.TSymEncAlg
+			encFmt qemuimg.TEncryptFormat
+		)
+		if encryptInfo != nil {
+			encKey = encryptInfo.Key
+			encFmt = qemuimg.EncryptFormatLuks
+			encAlg = encryptInfo.Alg
+		}
+		if err := img.CreateQcow2(0, false, snapshotPath, encKey, encFmt, encAlg); err != nil {
 			err = errors.Wrap(err, "qemu-img create disk by snapshot")
 			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
 			return nil, err
