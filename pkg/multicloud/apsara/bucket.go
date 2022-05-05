@@ -19,10 +19,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -100,12 +102,82 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 	}
 }
 
-func (b *SBucket) GetStats() cloudprovider.SBucketStats {
-	stats, err := cloudprovider.GetIBucketStats(b)
-	if err != nil {
-		log.Errorf("GetStats fail %s", err)
+func (self *SRegion) GetBucketSize(bucket string, department int) (int64, error) {
+	params := map[string]string{
+		"Namespace":  "acs_oss_dashboard",
+		"MetricName": "MeteringStorageUtilization",
+		"Period":     "3600",
+		"Dimensions": jsonutils.Marshal([]map[string]string{
+			{"BucketName": bucket},
+		}).String(),
+		"Department": fmt.Sprintf("%d", department),
+		"StartTime":  strconv.FormatInt(time.Now().Add(time.Hour*-24*2).Unix()*1000, 10),
+		"EndTime":    strconv.FormatInt(time.Now().Unix()*1000, 10),
 	}
-	return stats
+	resp, err := self.metricsRequest("DescribeMetricList", params)
+	if err != nil {
+		return 0, nil
+	}
+	datapoints, err := resp.GetString("Datapoints")
+	if err != nil {
+		return 0, errors.Wrapf(err, "get datapoints")
+	}
+	obj, err := jsonutils.ParseString(datapoints)
+	if err != nil {
+		return 0, errors.Wrapf(err, "ParseString")
+	}
+	data := []struct {
+		Timestamp int64
+		Value     int64
+	}{}
+	obj.Unmarshal(&data)
+	for i := range data {
+		return data[i].Value, nil
+	}
+	return 0, fmt.Errorf("no storage metric found")
+}
+
+func (b *SBucket) GetStats() cloudprovider.SBucketStats {
+	ret := cloudprovider.SBucketStats{
+		SizeBytes:   -1,
+		ObjectCount: -1,
+	}
+	dep, _ := strconv.Atoi(b.Department)
+	size, _ := b.region.GetBucketSize(b.Name, dep)
+	if size > 0 {
+		ret.SizeBytes = size
+	}
+	return ret
+}
+
+func (self *SRegion) GetBucketCapacity(bucket string, department int) (int64, error) {
+	params := map[string]string{
+		"Params": jsonutils.Marshal(map[string]string{
+			"BucketName": bucket,
+			"region":     self.RegionId,
+		}).String(),
+		// 此参数必传，可以设任意值
+		"AccountInfo": "aaa",
+		"Department":  fmt.Sprintf("%d", department),
+	}
+	resp, err := self.ossRequest("GetBucketStorageCapacity", params)
+	if err != nil {
+		return 0, errors.Wrapf(err, "GetBucketStorageCapacity")
+	}
+	return resp.Int("Data", "BucketUserQos", "StorageCapacity")
+}
+
+func (b *SBucket) GetLimit() cloudprovider.SBucketStats {
+	ret := cloudprovider.SBucketStats{
+		SizeBytes:   -1,
+		ObjectCount: -1,
+	}
+	dep, _ := strconv.Atoi(b.Department)
+	capa, _ := b.region.GetBucketCapacity(b.Name, dep)
+	if capa > 0 {
+		ret.SizeBytes = capa * 1024 * 1024 * 1024 * 1024
+	}
+	return ret
 }
 
 func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
