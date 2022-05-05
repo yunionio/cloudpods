@@ -15,6 +15,10 @@
 package shell
 
 import (
+	"strconv"
+
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/multicloud/apsara"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -32,6 +36,22 @@ func init() {
 			return e
 		}
 		printObject(bucket)
+		return nil
+	})
+
+	type BucketSizeOptions struct {
+	}
+	shellutils.R(&BucketSizeOptions{}, "bucket-size", "Show bucket size", func(cli *apsara.SRegion, args *BucketSizeOptions) error {
+		buckets, err := cli.GetBuckets()
+		if err != nil {
+			return err
+		}
+		for i := range buckets {
+			department, _ := strconv.Atoi(buckets[i].Department)
+			size, _ := cli.GetBucketSize(buckets[i].Name, department)
+			capa, _ := cli.GetBucketCapacity(buckets[i].Name, department)
+			log.Infof("bucket %s size: %dMb capa: %dG", buckets[i].Name, size/1024/1024/1024, capa)
+		}
 		return nil
 	})
 
