@@ -301,9 +301,12 @@ type DBInstanceDetails struct {
 	// iops
 	// example: 0
 	Iops int `json:"iops"`
-	// IP子网名称
+	// IP子网名称, 若有多个以 ',' 分隔
 	// example: test-network
 	Network string `json:"network"`
+
+	// 内网IP地址, 若有多个以 ',' 分隔
+	IpAddrs string `json:"ip_addrs"`
 
 	// Zone1名称
 	Zone1Name string `json:"zone1_name"`

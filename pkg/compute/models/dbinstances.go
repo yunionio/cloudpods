@@ -610,6 +610,7 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 	nQ := rdsnetworks.Query(
 		rdsnetworks.Field("dbinstance_id"),
 		rdsnetworks.Field("network_id"),
+		rdsnetworks.Field("ip_addr"),
 		networks.Field("name").Label("network_name"),
 	).Join(networks, sqlchemy.Equals(rdsnetworks.Field("network_id"), networks.Field("id"))).
 		Filter(sqlchemy.In(rdsnetworks.Field("dbinstance_id"), rdsIds))
@@ -618,6 +619,7 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 		DBInstanceId string `json:"dbinstance_id"`
 		NetworkName  string
 		NetworkId    string
+		IpAddr       string
 	}
 	rns := []sRdsNetworkInfo{}
 	err = nQ.All(&rns)
@@ -625,12 +627,19 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 		return rows
 	}
 	rdsNetworks := map[string][]string{}
+	rdsIpAddrs := map[string][]string{}
 	for i := range rns {
 		_, ok := rdsNetworks[rns[i].DBInstanceId]
 		if !ok {
 			rdsNetworks[rns[i].DBInstanceId] = []string{}
 		}
 		rdsNetworks[rns[i].DBInstanceId] = append(rdsNetworks[rns[i].DBInstanceId], rns[i].NetworkName)
+
+		_, ok = rdsIpAddrs[rns[i].DBInstanceId]
+		if !ok {
+			rdsIpAddrs[rns[i].DBInstanceId] = []string{}
+		}
+		rdsIpAddrs[rns[i].DBInstanceId] = append(rdsIpAddrs[rns[i].DBInstanceId], rns[i].IpAddr)
 	}
 
 	for i := range rows {
@@ -641,6 +650,10 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 		networks, ok := rdsNetworks[rdsIds[i]]
 		if ok {
 			rows[i].Network = strings.Join(networks, ",")
+		}
+		ipAddrs, ok := rdsIpAddrs[rdsIds[i]]
+		if ok {
+			rows[i].IpAddrs = strings.Join(ipAddrs, ",")
 		}
 	}
 
