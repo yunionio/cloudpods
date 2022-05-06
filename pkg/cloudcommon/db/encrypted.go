@@ -37,6 +37,7 @@ import (
 type SEncryptedResourceManager struct {
 }
 
+// +onecloud:model-api-gen
 type SEncryptedResource struct {
 	// 加密密钥ID
 	EncryptKeyId string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user" create:"optional"`
