@@ -41,10 +41,6 @@ policy:
       '*': deny
     recyclebins:
       '*': deny
-    schedpolicies:
-      '*': deny
-    schedtags:
-      '*': deny
     secgroups:
       '*': deny
       list: allow
@@ -102,9 +98,9 @@ policy:
       get: allow
       list: allow
     schedpolicies:
-      '*': allow
+      '*': deny
     schedtags:
-      '*': allow
+      '*': deny
     secgroups:
       '*': allow
     servers:
