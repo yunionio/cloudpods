@@ -67,6 +67,7 @@ func (man *SRecordChecksumResourceBaseManager) SetEnableRecordChecksum(enable bo
 	man.enableRecordChecksum = enable
 }
 
+// +onecloud:model-api-gen
 type SRecordChecksumResourceBase struct {
 	RecordChecksum string `width:"256" charset:"ascii" nullable:"true" list:"user" get:"user" json:"record_checksum"`
 }
