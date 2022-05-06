@@ -39,6 +39,7 @@ require (
 	github.com/c-bata/go-prompt v0.2.4
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/coredns/coredns v1.3.0
+	github.com/coreos/go-iptables v0.6.0
 	github.com/creack/pty v1.1.11
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/dnstap/golang-dnstap v0.0.0-20170829151710-2cf77a2b5e11 // indirect
@@ -118,7 +119,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
 	github.com/vishvananda/netlink v1.0.0
-	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
+	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/vmware/govmomi v0.20.1
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect

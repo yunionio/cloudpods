@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apihelper"
 )
 
 // pluralMap maps from KeyPlurals to underscore-separated field names
@@ -26,6 +28,8 @@ var pluralMap = map[string]string{}
 
 func init() {
 	ss := []string{
+		"networks",
+		"loadbalancer_networks",
 		"loadbalancers",
 		"loadbalancer_listeners",
 		"loadbalancer_listener_rules",
@@ -41,6 +45,8 @@ func init() {
 }
 
 type ModelSetsMaxUpdatedAt struct {
+	Networks                  time.Time
+	LoadbalancerNetworks      time.Time
 	Loadbalancers             time.Time
 	LoadbalancerListeners     time.Time
 	LoadbalancerListenerRules time.Time
@@ -52,17 +58,21 @@ type ModelSetsMaxUpdatedAt struct {
 
 func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 	return &ModelSetsMaxUpdatedAt{
-		Loadbalancers:             PseudoZeroTime,
-		LoadbalancerListeners:     PseudoZeroTime,
-		LoadbalancerListenerRules: PseudoZeroTime,
-		LoadbalancerBackendGroups: PseudoZeroTime,
-		LoadbalancerBackends:      PseudoZeroTime,
-		LoadbalancerAcls:          PseudoZeroTime,
-		LoadbalancerCertificates:  PseudoZeroTime,
+		Networks:                  apihelper.PseudoZeroTime,
+		LoadbalancerNetworks:      apihelper.PseudoZeroTime,
+		Loadbalancers:             apihelper.PseudoZeroTime,
+		LoadbalancerListeners:     apihelper.PseudoZeroTime,
+		LoadbalancerListenerRules: apihelper.PseudoZeroTime,
+		LoadbalancerBackendGroups: apihelper.PseudoZeroTime,
+		LoadbalancerBackends:      apihelper.PseudoZeroTime,
+		LoadbalancerAcls:          apihelper.PseudoZeroTime,
+		LoadbalancerCertificates:  apihelper.PseudoZeroTime,
 	}
 }
 
 type ModelSets struct {
+	Networks                  Networks
+	LoadbalancerNetworks      LoadbalancerNetworks
 	Loadbalancers             Loadbalancers
 	LoadbalancerListeners     LoadbalancerListeners
 	LoadbalancerListenerRules LoadbalancerListenerRules
@@ -74,6 +84,8 @@ type ModelSets struct {
 
 func NewModelSets() *ModelSets {
 	return &ModelSets{
+		Networks:                  Networks{},
+		LoadbalancerNetworks:      LoadbalancerNetworks{},
 		Loadbalancers:             Loadbalancers{},
 		LoadbalancerListeners:     LoadbalancerListeners{},
 		LoadbalancerListenerRules: LoadbalancerListenerRules{},
@@ -84,9 +96,13 @@ func NewModelSets() *ModelSets {
 	}
 }
 
-func (mss *ModelSets) ModelSetList() []IModelSet {
+func (mss *ModelSets) NewEmpty() apihelper.IModelSets {
+	return NewModelSets()
+}
+
+func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 	// it's ordered this way to favour creation, not deletion
-	return []IModelSet{
+	return []apihelper.IModelSet{
 		mss.LoadbalancerListenerRules,
 		mss.LoadbalancerListeners,
 		mss.LoadbalancerBackends,
@@ -94,7 +110,34 @@ func (mss *ModelSets) ModelSetList() []IModelSet {
 		mss.Loadbalancers,
 		mss.LoadbalancerAcls,
 		mss.LoadbalancerCertificates,
+		mss.LoadbalancerNetworks,
+		mss.Networks,
 	}
+}
+
+func (mss *ModelSets) copy_() *ModelSets {
+	mssCopy := &ModelSets{
+		Networks:                  mss.Networks.Copy().(Networks),
+		LoadbalancerNetworks:      mss.LoadbalancerNetworks.Copy().(LoadbalancerNetworks),
+		Loadbalancers:             mss.Loadbalancers.Copy().(Loadbalancers),
+		LoadbalancerListeners:     mss.LoadbalancerListeners.Copy().(LoadbalancerListeners),
+		LoadbalancerListenerRules: mss.LoadbalancerListenerRules.Copy().(LoadbalancerListenerRules),
+		LoadbalancerBackendGroups: mss.LoadbalancerBackendGroups.Copy().(LoadbalancerBackendGroups),
+		LoadbalancerBackends:      mss.LoadbalancerBackends.Copy().(LoadbalancerBackends),
+		LoadbalancerAcls:          mss.LoadbalancerAcls.Copy().(LoadbalancerAcls),
+		LoadbalancerCertificates:  mss.LoadbalancerCertificates.Copy().(LoadbalancerCertificates),
+	}
+	return mssCopy
+}
+
+func (mss *ModelSets) Copy() apihelper.IModelSets {
+	return mss.copy_()
+}
+
+func (mss *ModelSets) CopyJoined() apihelper.IModelSets {
+	mssCopy := mss.copy_()
+	mssCopy.join()
+	return mssCopy
 }
 
 func (mss *ModelSets) MaxSeenUpdatedAtParams() *jsonutils.JSONDict {
@@ -102,51 +145,49 @@ func (mss *ModelSets) MaxSeenUpdatedAtParams() *jsonutils.JSONDict {
 	for _, ms := range mss.ModelSetList() {
 		k := ms.ModelManager().KeyString()
 		k = pluralMap[k]
-		t := ModelSetMaxUpdatedAt(ms)
-		if !t.Equal(PseudoZeroTime) {
+		t := apihelper.ModelSetMaxUpdatedAt(ms)
+		if !t.Equal(apihelper.PseudoZeroTime) {
 			d.Set(k, jsonutils.NewTimeString(t))
 		}
 	}
 	return d
 }
 
-type ModelSetsUpdateResult struct {
-	Correct               bool // all elements referenced are present
-	Changed               bool // any thing changed in the corpus
-	ModelSetsMaxUpdatedAt *ModelSetsMaxUpdatedAt
-}
-
-func (mss *ModelSets) ApplyUpdates(mssNews *ModelSets) *ModelSetsUpdateResult {
-	r := &ModelSetsUpdateResult{
+func (mss *ModelSets) ApplyUpdates(mssNews apihelper.IModelSets) apihelper.ModelSetsUpdateResult {
+	r := apihelper.ModelSetsUpdateResult{
 		Changed: false,
 		Correct: true,
 	}
-	mssmua := NewModelSetsMaxUpdatedAt()
 	mssList := mss.ModelSetList()
 	mssNewsList := mssNews.ModelSetList()
 	for i, mss := range mssList {
 		mssNews := mssNewsList[i]
-		msR := ModelSetApplyUpdates(mss, mssNews)
+		msR := apihelper.ModelSetApplyUpdates(mss, mssNews)
 		if !r.Changed && msR.Changed {
 			r.Changed = true
-		}
-		{
-			keyPlural := mss.ModelManager().KeyString()
-			ModelSetsMaxUpdatedAtSetField(mssmua, keyPlural, msR.MaxUpdatedAt)
 		}
 	}
 	if r.Changed {
 		r.Correct = mss.join()
 	}
-	r.ModelSetsMaxUpdatedAt = mssmua
 	return r
 }
 
 func (mss *ModelSets) join() bool {
-	correct0 := mss.LoadbalancerBackendGroups.JoinBackends(mss.LoadbalancerBackends)
-	correct1 := mss.LoadbalancerListeners.JoinListenerRules(mss.LoadbalancerListenerRules)
-	correct2 := mss.LoadbalancerListeners.JoinCertificates(mss.LoadbalancerCertificates)
-	correct3 := mss.Loadbalancers.JoinListeners(mss.LoadbalancerListeners)
-	correct4 := mss.Loadbalancers.JoinBackendGroups(mss.LoadbalancerBackendGroups)
-	return correct0 && correct1 && correct2 && correct3 && correct4
+	var p []bool
+	p = append(p, mss.LoadbalancerBackendGroups.JoinBackends(mss.LoadbalancerBackends))
+	p = append(p, mss.LoadbalancerListeners.JoinListenerRules(mss.LoadbalancerListenerRules))
+	p = append(p, mss.LoadbalancerListeners.JoinCertificates(mss.LoadbalancerCertificates))
+	p = append(p, mss.Loadbalancers.JoinListeners(mss.LoadbalancerListeners))
+	p = append(p, mss.Loadbalancers.JoinBackendGroups(mss.LoadbalancerBackendGroups))
+
+	p = append(p, mss.LoadbalancerNetworks.JoinLoadbalancers(mss.Loadbalancers))
+	p = append(p, mss.LoadbalancerNetworks.JoinNetworks(mss.Networks))
+
+	for _, b := range p {
+		if !b {
+			return false
+		}
+	}
+	return true
 }

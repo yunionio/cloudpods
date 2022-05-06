@@ -23,14 +23,16 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/version"
 
+	"yunion.io/x/onecloud/pkg/apihelper"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/models"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -40,6 +42,7 @@ type ApiHelper struct {
 	opts *Options
 
 	dataDirMan  *agentutils.ConfigDirManager
+	apih        *apihelper.APIHelper
 	corpus      *agentmodels.LoadbalancerCorpus
 	agentParams *agentmodels.AgentParams
 
@@ -47,28 +50,51 @@ type ApiHelper struct {
 	haStateProvider HaStateProvider
 
 	mcclientSession *mcclient.ClientSession
+
+	ovn *OvnWorker
 }
 
 func NewApiHelper(opts *Options) (*ApiHelper, error) {
+	corpus := agentmodels.NewEmptyLoadbalancerCorpus()
+	apiOpts := &apihelper.Options{
+		CommonOptions: opts.CommonOptions,
+		SyncInterval:  opts.ApiSyncInterval,
+		ListBatchSize: opts.ApiListBatchSize,
+	}
+	apih, err := apihelper.NewAPIHelper(apiOpts, corpus.ModelSets)
+	if err != nil {
+		return nil, errors.Wrap(err, "new apihelper")
+	}
 	helper := &ApiHelper{
-		opts:       opts,
+		opts: opts,
+
 		dataDirMan: agentutils.NewConfigDirManager(opts.apiDataStoreDir),
-		haState:    api.LB_HA_STATE_UNKNOWN,
+		apih:       apih,
+		corpus:     corpus,
+
+		haState: api.LB_HA_STATE_UNKNOWN,
 	}
 	return helper, nil
 }
 
 func (h *ApiHelper) Run(ctx context.Context) {
+	wg := ctx.Value("wg").(*sync.WaitGroup)
 	defer func() {
-		log.Infof("api helper bye")
-		wg := ctx.Value("wg").(*sync.WaitGroup)
 		wg.Done()
+		log.Infof("api helper bye")
 	}()
-	h.runInit(ctx)
-	apiSyncTicker := time.NewTicker(time.Duration(h.opts.ApiSyncInterval) * time.Second)
+	h.startOvnWorker(ctx)
+	defer h.stopOvnWorker()
+
+	wg.Add(1)
+	go h.apih.Start(ctx)
+
 	hbTicker := time.NewTicker(time.Duration(h.opts.ApiLbagentHbInterval) * time.Second)
+	agentParamsSyncTicker := time.NewTicker(time.Duration(h.opts.ApiSyncInterval) * time.Second)
 	defer hbTicker.Stop()
-	defer apiSyncTicker.Stop()
+	defer agentParamsSyncTicker.Stop()
+
+	h.haState = <-h.haStateProvider.StateChannel()
 	for {
 		select {
 		case <-hbTicker.C:
@@ -76,20 +102,36 @@ func (h *ApiHelper) Run(ctx context.Context) {
 			if err != nil {
 				log.Errorf("heartbeat: %s", err)
 			}
-		case <-apiSyncTicker.C:
-			apiDataChanged := h.doSyncApiData(ctx)
-			agentParamsChanged := h.doSyncAgentParams(ctx)
-			if apiDataChanged || agentParamsChanged {
-				log.Infof("things changed: params: %v, data %v", agentParamsChanged, apiDataChanged)
+		case imss := <-h.apih.ModelSets():
+			log.Infof("got new data from api helper")
+			mss := imss.(*agentmodels.ModelSets)
+			h.corpus.ModelSets = mss
+			h.doUseCorpus(ctx)
+			h.agentUpdateSeen(ctx)
+
+			err := h.saveCorpus(ctx)
+			if err != nil {
+				log.Errorf("save corpus failed: %s", err)
+			} else {
+				if err := h.dataDirMan.Prune(h.opts.DataPreserveN); err != nil {
+					log.Errorf("prune corpus data dir failed: %s", err)
+				}
+			}
+		case <-agentParamsSyncTicker.C:
+			changed := h.doSyncAgentParams(ctx)
+			if changed {
+				log.Infof("agent params changed")
 				h.doUseCorpus(ctx)
 			}
 		case state := <-h.haStateProvider.StateChannel():
 			switch state {
 			case api.LB_HA_STATE_BACKUP:
+				h.stopOvnWorker()
 				h.doStopDaemons(ctx)
 			default:
 				if state != h.haState {
 					// try your best to make things up
+					h.startOvnWorker(ctx)
 					h.doUseCorpus(ctx)
 				}
 			}
@@ -102,6 +144,20 @@ func (h *ApiHelper) Run(ctx context.Context) {
 
 func (h *ApiHelper) SetHaStateProvider(hsp HaStateProvider) {
 	h.haStateProvider = hsp
+}
+
+func (h *ApiHelper) startOvnWorker(ctx context.Context) {
+	if h.ovn == nil {
+		h.ovn = NewOvnWorker()
+		go h.ovn.Start(ctx)
+	}
+}
+
+func (h *ApiHelper) stopOvnWorker() {
+	if h.ovn != nil {
+		h.ovn.Stop()
+		h.ovn = nil
+	}
 }
 
 func (h *ApiHelper) adminClientSession(ctx context.Context) *mcclient.ClientSession {
@@ -120,7 +176,7 @@ func (h *ApiHelper) adminClientSession(ctx context.Context) *mcclient.ClientSess
 	return h.mcclientSession
 }
 
-func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*models.LoadbalancerAgent, error) {
+func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*computemodels.SLoadbalancerAgent, error) {
 	s := h.adminClientSession(ctx)
 	params := jsonutils.NewDict()
 	params.Set(api.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(api.LBAGENT_QUERY_ORIG_VAL))
@@ -129,7 +185,7 @@ func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*models.LoadbalancerAgen
 		err := fmt.Errorf("agent get error: %s", err)
 		return nil, err
 	}
-	agent := &models.LoadbalancerAgent{}
+	agent := &computemodels.SLoadbalancerAgent{}
 	err = data.Unmarshal(agent)
 	if err != nil {
 		err := fmt.Errorf("agent data unmarshal error: %s", err)
@@ -138,7 +194,7 @@ func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*models.LoadbalancerAgen
 	return agent, nil
 }
 
-func (h *ApiHelper) agentPeekPeers(ctx context.Context, agent *models.LoadbalancerAgent) ([]*models.LoadbalancerAgent, error) {
+func (h *ApiHelper) agentPeekPeers(ctx context.Context, agent *computemodels.SLoadbalancerAgent) ([]*computemodels.SLoadbalancerAgent, error) {
 	vri := agent.Params.Vrrp.VirtualRouterId
 	clusterId := agent.ClusterId
 	s := h.adminClientSession(ctx)
@@ -150,9 +206,9 @@ func (h *ApiHelper) agentPeekPeers(ctx context.Context, agent *models.Loadbalanc
 		err := fmt.Errorf("agent listing error: %s", err)
 		return nil, err
 	}
-	peers := []*models.LoadbalancerAgent{}
+	peers := []*computemodels.SLoadbalancerAgent{}
 	for _, data := range listResult.Data {
-		peerAgent := &models.LoadbalancerAgent{}
+		peerAgent := &computemodels.SLoadbalancerAgent{}
 		err := data.Unmarshal(peerAgent)
 		if err != nil {
 			err := fmt.Errorf("agent data unmarshal error: %s", err)
@@ -170,7 +226,7 @@ func (h *ApiHelper) agentPeekPeers(ctx context.Context, agent *models.Loadbalanc
 	return peers, nil
 }
 
-type agentPeekResult models.LoadbalancerAgent
+type agentPeekResult computemodels.SLoadbalancerAgent
 
 func (r *agentPeekResult) staleInFuture(s int) bool {
 	if r.HbLastSeen.IsZero() {
@@ -184,7 +240,7 @@ func (r *agentPeekResult) staleInFuture(s int) bool {
 }
 
 func (h *ApiHelper) agentPeek(ctx context.Context) *agentPeekResult {
-	doPeekWithLog := func() *models.LoadbalancerAgent {
+	doPeekWithLog := func() *computemodels.SLoadbalancerAgent {
 		agent, err := h.agentPeekOnce(ctx)
 		if err != nil {
 			log.Errorf("agent peek failed: %s", err)
@@ -211,43 +267,7 @@ func (h *ApiHelper) agentPeek(ctx context.Context) *agentPeekResult {
 	return (*agentPeekResult)(agent)
 }
 
-func (h *ApiHelper) runInit(ctx context.Context) {
-	h.haState = <-h.haStateProvider.StateChannel()
-	if false {
-		r := h.agentPeek(ctx)
-		if r == nil {
-			return
-		}
-		if !r.staleInFuture(h.opts.ApiLbagentHbTimeoutRelaxation) {
-			log.Warningf("agent will stale in %d seconds, ignore old corpus",
-				h.opts.ApiLbagentHbTimeoutRelaxation)
-		} else {
-			h.doHb(ctx)
-			corpus, err := h.loadLocalData(ctx)
-			if err == nil {
-				h.corpus = corpus
-			} else {
-				log.Errorf("load local api data failed: %s", err)
-			}
-		}
-	}
-	// better reload now because agent data is not in corpus yet
-	h.doSyncApiData(ctx)
-	h.doSyncAgentParams(ctx)
-	h.doUseCorpus(ctx)
-}
-
-func (h *ApiHelper) loadLocalData(ctx context.Context) (*agentmodels.LoadbalancerCorpus, error) {
-	corpus := agentmodels.NewEmptyLoadbalancerCorpus()
-	dataDir := h.dataDirMan.MostRecentSubdir()
-	err := corpus.LoadDir(dataDir)
-	if err != nil {
-		return nil, err
-	}
-	return corpus, nil
-}
-
-func (h *ApiHelper) agentUpdateSeen(ctx context.Context) *models.LoadbalancerAgent {
+func (h *ApiHelper) agentUpdateSeen(ctx context.Context) *computemodels.SLoadbalancerAgent {
 	s := h.adminClientSession(ctx)
 	params := h.corpus.MaxSeenUpdatedAtParams()
 	data, err := modules.LoadbalancerAgents.Update(s, h.opts.ApiLbagentId, params)
@@ -255,7 +275,7 @@ func (h *ApiHelper) agentUpdateSeen(ctx context.Context) *models.LoadbalancerAge
 		log.Errorf("agent get error: %s", err)
 		return nil
 	}
-	agent := &models.LoadbalancerAgent{}
+	agent := &computemodels.SLoadbalancerAgent{}
 	err = data.Unmarshal(agent)
 	if err != nil {
 		log.Errorf("agent data unmarshal error: %s", err)
@@ -283,7 +303,7 @@ func (h *ApiHelper) newAgentHbParams(ctx context.Context) (*jsonutils.JSONDict, 
 	return params, nil
 }
 
-func (h *ApiHelper) doHb(ctx context.Context) (*models.LoadbalancerAgent, error) {
+func (h *ApiHelper) doHb(ctx context.Context) (*computemodels.SLoadbalancerAgent, error) {
 	// TODO check if things changed recently
 	s := h.adminClientSession(ctx)
 	params, err := h.newAgentHbParams(ctx)
@@ -295,54 +315,13 @@ func (h *ApiHelper) doHb(ctx context.Context) (*models.LoadbalancerAgent, error)
 		err := fmt.Errorf("heartbeat api error: %s", err)
 		return nil, err
 	}
-	agent := &models.LoadbalancerAgent{}
+	agent := &computemodels.SLoadbalancerAgent{}
 	err = data.Unmarshal(agent)
 	if err != nil {
 		err := fmt.Errorf("heartbeat data unmarshal error: %s", err)
 		return nil, err
 	}
 	return agent, nil
-}
-
-func (h *ApiHelper) doSyncApiData(ctx context.Context) bool {
-	{
-		stime := time.Now()
-		defer func() {
-			elapsed := time.Since(stime)
-			log.Infof("sync api data done, elapsed: %s", elapsed.String())
-		}()
-	}
-
-	s := h.adminClientSession(ctx)
-	if h.corpus == nil {
-		h.corpus = agentmodels.NewEmptyLoadbalancerCorpus()
-	}
-	r, err := h.corpus.SyncModelSets(s, h.opts.ApiListBatchSize)
-	if err != nil {
-		log.Errorf("sync models: %s", err)
-		return false
-	}
-	if r.Changed {
-		h.agentUpdateSeen(ctx)
-	}
-	if !r.Correct {
-		log.Warningf("sync models: not correct")
-		return false
-	}
-	if r.Changed {
-		err := h.saveCorpus(ctx)
-		if err != nil {
-			log.Errorf("save corpus failed: %s", err)
-			return false
-		}
-		if err := h.dataDirMan.Prune(h.opts.DataPreserveN); err != nil {
-			log.Errorf("prune corpus data dir failed: %s", err)
-			// continue
-		}
-		log.Infof("corpus changed")
-		return true
-	}
-	return false
 }
 
 func (h *ApiHelper) saveCorpus(ctx context.Context) error {
@@ -400,13 +379,16 @@ func (h *ApiHelper) doSyncAgentParams(ctx context.Context) bool {
 }
 
 func (h *ApiHelper) doUseCorpus(ctx context.Context) {
-	if h.corpus == nil {
+	if h.corpus == nil || h.corpus.ModelSets == nil {
 		log.Warningf("agent corpus nil")
 		return
 	}
 	if h.agentParams == nil {
 		log.Warningf("agent params nil")
 		return
+	}
+	if err := h.ovn.Refresh(ctx, h.corpus.ModelSets.Loadbalancers); err != nil {
+		log.Errorf("ovn refresh: %v", err)
 	}
 	log.Infof("make effect new corpus and params")
 	cmdData := &LbagentCmdUseCorpusData{

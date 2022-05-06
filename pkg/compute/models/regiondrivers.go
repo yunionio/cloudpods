@@ -272,7 +272,7 @@ type IElasticcacheBackup interface {
 }
 
 type IElasticIpDriver interface {
-	RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error
+	RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, eip *SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error
 }
 
 var regionDrivers map[string]IRegionDriver

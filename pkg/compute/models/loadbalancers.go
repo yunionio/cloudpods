@@ -397,6 +397,10 @@ func (lb *SLoadbalancer) PerformSyncstatus(ctx context.Context, userCred mcclien
 	return nil, StartResourceSyncStatusTask(ctx, userCred, lb, "LoadbalancerSyncstatusTask", "")
 }
 
+func (lb *SLoadbalancer) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	return StartResourceSyncStatusTask(ctx, userCred, lb, "LoadbalancerSyncstatusTask", parentTaskId)
+}
+
 func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lb.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	// NOTE lb.Id will only be available after BeforeInsert happens

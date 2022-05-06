@@ -22,7 +22,7 @@ import (
 
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/mcclient/models"
+	compute_models "yunion.io/x/onecloud/pkg/compute/models"
 )
 
 func dataFromParams(p interface{}) map[string]interface{} {
@@ -49,14 +49,14 @@ func dataFromParams(p interface{}) map[string]interface{} {
 }
 
 type AgentParams struct {
-	AgentModel           *models.LoadbalancerAgent
+	AgentModel           *compute_models.SLoadbalancerAgent
 	KeepalivedConfigTmpl *template.Template
 	HaproxyConfigTmpl    *template.Template
 	TelegrafConfigTmpl   *template.Template
 	Data                 map[string]map[string]interface{}
 }
 
-func NewAgentParams(agent *models.LoadbalancerAgent) (*AgentParams, error) {
+func NewAgentParams(agent *compute_models.SLoadbalancerAgent) (*AgentParams, error) {
 	b64s := map[string]string{
 		"keepalived_conf_tmpl": agent.Params.KeepalivedConfTmpl,
 		"haproxy_conf_tmpl":    agent.Params.HaproxyConfTmpl,
@@ -104,7 +104,7 @@ func (p *AgentParams) Equals(p2 *AgentParams) bool {
 	}
 	agentP := p.AgentModel
 	agentP2 := p2.AgentModel
-	if agentP.Params != agentP2.Params {
+	if !reflect.DeepEqual(agentP.Params, agentP2.Params) {
 		return false
 	}
 	keys := []string{"notify_script", "unicast_peer"}

@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/jsonutils"
 
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
-	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
@@ -44,30 +43,8 @@ func NewEmptyLoadbalancerCorpus() *LoadbalancerCorpus {
 	}
 }
 
-func (b *LoadbalancerCorpus) SyncModelSets(s *mcclient.ClientSession, batchSize int) (*ModelSetsUpdateResult, error) {
-	mss := b.ModelSetList()
-	mssNews := NewModelSets()
-	for i, msNew := range mssNews.ModelSetList() {
-		minUpdatedAt := ModelSetMaxUpdatedAt(mss[i])
-		err := GetModels(&GetModelsOptions{
-			ClientSession: s,
-			ModelManager:  msNew.ModelManager(),
-			MinUpdatedAt:  minUpdatedAt,
-			ModelSet:      msNew,
-			BatchListSize: batchSize,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	r := b.ModelSets.ApplyUpdates(mssNews)
-	b.ModelSetsMaxUpdatedAt = r.ModelSetsMaxUpdatedAt
-	return r, nil
-}
-
 func (b *LoadbalancerCorpus) MaxSeenUpdatedAtParams() *jsonutils.JSONDict {
-	mssmua := b.ModelSetsMaxUpdatedAt
-	return jsonutils.Marshal(mssmua).(*jsonutils.JSONDict)
+	return b.ModelSets.MaxSeenUpdatedAtParams()
 }
 
 func (b *LoadbalancerCorpus) SaveDir(dir string) error {

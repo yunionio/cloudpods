@@ -62,7 +62,7 @@ func (opts *EipUpdateOptions) Params() (jsonutils.JSONObject, error) {
 type EipAssociateOptions struct {
 	options.BaseIdOptions
 	INSTANCE_ID  string `help:"ID of instance the eip associated with"`
-	InstanceType string `default:"server" help:"Instance type that the eip associated with, default is server" choices:"server|natgateway"`
+	InstanceType string `default:"server" help:"Instance type that the eip associated with, default is server" choices:"server|natgateway|loadbalancer"`
 }
 
 func (opts *EipAssociateOptions) Params() (jsonutils.JSONObject, error) {

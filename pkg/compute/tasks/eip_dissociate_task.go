@@ -150,6 +150,22 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 						errs = append(errs, errors.Wrapf(err, "nic %s", groupnic.IpAddr))
 					}
 				}
+			case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+				lb := model.(*models.SLoadbalancer)
+				lbnet, err := models.LoadbalancernetworkManager.FetchFirstByLbId(ctx, lb.Id)
+				if err != nil {
+					self.TaskFail(ctx, eip, jsonutils.NewString(err.Error()), model)
+					return
+				}
+				if _, err := db.Update(lb, func() error {
+					lb.Address = lbnet.IpAddr
+					lb.AddressType = api.LB_ADDR_TYPE_INTRANET
+					return nil
+				}); err != nil {
+					msg := errors.Wrap(err, "set loadbalancer address").Error()
+					self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)
+					return
+				}
 			default:
 				errs = append(errs, errors.Wrapf(httperrors.ErrNotSupported, "not supported type %s", eip.AssociateType))
 			}

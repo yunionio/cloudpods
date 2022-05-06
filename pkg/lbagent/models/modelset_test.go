@@ -17,61 +17,61 @@ package models
 import (
 	"testing"
 
-	"yunion.io/x/onecloud/pkg/mcclient/models"
+	compute_models "yunion.io/x/onecloud/pkg/compute/models"
 )
 
 func TestLoadbalancerListenerRules_OrderedEnabledList(t *testing.T) {
 	set := LoadbalancerListenerRules(map[string]*LoadbalancerListenerRule{
 		"empty": {
-			LoadbalancerListenerRule: &models.LoadbalancerListenerRule{
+			SLoadbalancerListenerRule: &compute_models.SLoadbalancerListenerRule{
 				Domain: "",
 				Path:   "",
 			},
 		},
 		"/": {
-			LoadbalancerListenerRule: &models.LoadbalancerListenerRule{
+			SLoadbalancerListenerRule: &compute_models.SLoadbalancerListenerRule{
 				Domain: "",
 				Path:   "/",
 			},
 		},
 		"/img": {
-			LoadbalancerListenerRule: &models.LoadbalancerListenerRule{
+			SLoadbalancerListenerRule: &compute_models.SLoadbalancerListenerRule{
 				Domain: "",
 				Path:   "/img",
 			},
 		},
 		"a.com": {
-			LoadbalancerListenerRule: &models.LoadbalancerListenerRule{
+			SLoadbalancerListenerRule: &compute_models.SLoadbalancerListenerRule{
 				Domain: "a.com",
 				Path:   "",
 			},
 		},
 		"a.com/": {
-			LoadbalancerListenerRule: &models.LoadbalancerListenerRule{
+			SLoadbalancerListenerRule: &compute_models.SLoadbalancerListenerRule{
 				Domain: "a.com",
 				Path:   "/",
 			},
 		},
 		"a.com/img": {
-			LoadbalancerListenerRule: &models.LoadbalancerListenerRule{
+			SLoadbalancerListenerRule: &compute_models.SLoadbalancerListenerRule{
 				Domain: "a.com",
 				Path:   "/img",
 			},
 		},
 		"m.a.com": {
-			LoadbalancerListenerRule: &models.LoadbalancerListenerRule{
+			SLoadbalancerListenerRule: &compute_models.SLoadbalancerListenerRule{
 				Domain: "m.a.com",
 				Path:   "",
 			},
 		},
 		"m.a.com/": {
-			LoadbalancerListenerRule: &models.LoadbalancerListenerRule{
+			SLoadbalancerListenerRule: &compute_models.SLoadbalancerListenerRule{
 				Domain: "m.a.com",
 				Path:   "/",
 			},
 		},
 		"m.a.com/img": {
-			LoadbalancerListenerRule: &models.LoadbalancerListenerRule{
+			SLoadbalancerListenerRule: &compute_models.SLoadbalancerListenerRule{
 				Domain: "m.a.com",
 				Path:   "/img",
 			},

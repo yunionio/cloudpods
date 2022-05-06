@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"text/template"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 )
 
@@ -36,6 +37,9 @@ func (b *LoadbalancerCorpus) GenKeepalivedConfigs(dir string, opts *GenKeepalive
 		addresses := []string{}
 		for _, lb := range opts.LoadbalancersEnabled {
 			if lb.Status != "enabled" {
+				continue
+			}
+			if lb.NetworkType == computeapi.LB_NETWORK_TYPE_VPC {
 				continue
 			}
 			if lb.Address == "" {

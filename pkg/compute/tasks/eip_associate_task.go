@@ -64,17 +64,17 @@ func (self *EipAssociateTask) GetAssociateObj() (db.IStatusStandaloneModel, api.
 
 	switch input.InstanceType {
 	case api.EIP_ASSOCIATE_TYPE_SERVER:
-		vmObj, err := models.GuestManager.FetchById(input.InstanceId)
+		vmObj, err := db.FetchByIdOrName(models.GuestManager, self.UserCred, input.InstanceId)
 		if err != nil {
-			return nil, input, errors.Wrapf(err, "GuestManager.FetchById(%s)", input.InstanceId)
+			return nil, input, errors.Wrapf(err, "GuestManager.FetchByIdOrName(%q)", input.InstanceId)
 		}
 		vm := vmObj.(*models.SGuest)
 		input.InstanceExternalId = vm.ExternalId
 		return vm, input, nil
 	case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
-		natObj, err := models.NatGatewayManager.FetchById(input.InstanceId)
+		natObj, err := db.FetchByIdOrName(models.NatGatewayManager, self.UserCred, input.InstanceId)
 		if err != nil {
-			return nil, input, errors.Wrapf(err, "NatGatewayManager.FetchById(%s)", input.InstanceId)
+			return nil, input, errors.Wrapf(err, "NatGatewayManager.FetchByIdOrName(%q)", input.InstanceId)
 		}
 		nat := natObj.(*models.SNatGateway)
 		input.InstanceExternalId = nat.ExternalId
@@ -86,6 +86,14 @@ func (self *EipAssociateTask) GetAssociateObj() (db.IStatusStandaloneModel, api.
 		}
 		grp := grpObj.(*models.SGroup)
 		return grp, input, nil
+	case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+		obj, err := db.FetchByIdOrName(models.LoadbalancerManager, self.UserCred, input.InstanceId)
+		if err != nil {
+			return nil, input, errors.Wrapf(err, "LoadbalancerManager.FetchByIdOrName(%q)", input.InstanceId)
+		}
+		m := obj.(*models.SLoadbalancer)
+		input.InstanceExternalId = m.ExternalId
+		return m, input, nil
 	default:
 		return nil, input, fmt.Errorf("invalid instance type %s", input.InstanceType)
 	}
@@ -109,9 +117,9 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 	db.StatusBaseSetStatus(ins, self.GetUserCred(), api.INSTANCE_ASSOCIATE_EIP, "associate eip")
 
 	self.SetStage("OnAssociateEipComplete", nil)
-	err = region.GetDriver().RequestAssociatEip(ctx, self.UserCred, eip, input, ins, self)
+	err = region.GetDriver().RequestAssociateEip(ctx, self.UserCred, eip, input, ins, self)
 	if err != nil {
-		self.taskFail(ctx, eip, ins, errors.Wrapf(err, "RequestAssociatEip"))
+		self.taskFail(ctx, eip, ins, errors.Wrapf(err, "RequestAssociateEip"))
 		return
 	}
 }
@@ -134,6 +142,10 @@ func (self *EipAssociateTask) OnAssociateEipComplete(ctx context.Context, obj db
 			grp := ins.(*models.SGroup)
 			grp.SetStatus(self.UserCred, "init", "success")
 			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_NATGATEWAY_ASSOCIATE, ins, self.UserCred, true)
+		case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+			lb := ins.(*models.SLoadbalancer)
+			lb.StartSyncstatus(ctx, self.UserCred, "")
+			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_LOADBALANCER_ASSOCIATE, ins, self.UserCred, true)
 		}
 		logclient.AddActionLogWithStartable(self, ins, logclient.ACT_EIP_ASSOCIATE, nil, self.UserCred, true)
 	}

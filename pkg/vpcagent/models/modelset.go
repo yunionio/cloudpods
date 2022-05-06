@@ -47,6 +47,10 @@ type (
 	Groupguests   map[string]*Groupguest
 	Groupnetworks map[string]*Groupnetwork
 	Groups        map[string]*Group
+
+	LoadbalancerNetworks  map[string]*LoadbalancerNetwork // key: networkId/loadbalancerId
+	LoadbalancerListeners map[string]*LoadbalancerListener
+	LoadbalancerAcls      map[string]*LoadbalancerAcl
 )
 
 func (set Vpcs) ModelManager() mcclient_modulebase.IBaseManager {
@@ -353,6 +357,32 @@ func (ms Networks) joinGuestnetworks(subEntries Guestnetworks) bool {
 		}
 		subEntry.Network = m
 		m.Guestnetworks[subId] = subEntry
+	}
+	return true
+}
+
+func (ms Networks) joinLoadbalancerNetworks(subEntries LoadbalancerNetworks) bool {
+	for _, m := range ms {
+		m.LoadbalancerNetworks = LoadbalancerNetworks{}
+	}
+	for subEntryId, subEntry := range subEntries {
+		netId := subEntry.NetworkId
+		m, ok := ms[netId]
+		if !ok {
+			// this can happen for external loadbalancers
+			log.Warningf("cannot find network %s for loadblancer %s",
+				subEntry.NetworkId, subEntry.LoadbalancerId)
+			// so that we can ignore these for later stages
+			delete(subEntries, subEntryId)
+			continue
+		}
+		subId := subEntry.NetworkId + "/" + subEntry.LoadbalancerId
+		if _, ok := m.LoadbalancerNetworks[subId]; ok {
+			log.Warningf("loadbalancernetwork net/lb %s already joined", subId)
+			continue
+		}
+		subEntry.Network = m
+		m.LoadbalancerNetworks[subId] = subEntry
 	}
 	return true
 }
@@ -735,6 +765,28 @@ func (set Groupguests) Copy() apihelper.IModelSet {
 	return setCopy
 }
 
+func (set LoadbalancerNetworks) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.Loadbalancernetworks
+}
+
+func (set LoadbalancerNetworks) NewModel() db.IModel {
+	return &LoadbalancerNetwork{}
+}
+
+func (set LoadbalancerNetworks) AddModel(i db.IModel) {
+	m := i.(*LoadbalancerNetwork)
+	k := fmt.Sprintf("%s/%s", m.NetworkId, m.LoadbalancerId)
+	set[k] = m
+}
+
+func (set LoadbalancerNetworks) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerNetworks{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
 func (set Groupnetworks) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.InstancegroupNetworks
 }
@@ -821,4 +873,111 @@ func (set Groups) joinGroupnetworks(subEntries Groupnetworks, networks Networks)
 		}
 	}
 	return true
+}
+
+func (set LoadbalancerNetworks) joinElasticips(subEntries Elasticips) bool {
+	correct := true
+
+	lnMap := map[string]*LoadbalancerNetwork{}
+	for _, m := range set {
+		lbId := m.LoadbalancerId
+		if old, ok := lnMap[lbId]; ok {
+			log.Errorf("loadbalancer %s is associated with more than 1 networks: %s, %s",
+				lbId, old.NetworkId, m.NetworkId)
+			correct = false
+			continue
+		}
+		lnMap[lbId] = m
+	}
+	for _, subEntry := range subEntries {
+		if subEntry.AssociateType != computeapis.EIP_ASSOCIATE_TYPE_LOADBALANCER {
+			continue
+		}
+		m, ok := lnMap[subEntry.AssociateId]
+		if !ok {
+			log.Errorf("elasticip %s(%s) associated with non-existent loadbalancer %s",
+				subEntry.Name, subEntry.Id, subEntry.AssociateId)
+			correct = false
+			continue
+		}
+		subEntry.LoadbalancerNetwork = m
+		m.Elasticip = subEntry
+	}
+	return correct
+}
+
+func (set LoadbalancerNetworks) joinLoadbalancerListeners(subEntries LoadbalancerListeners) bool {
+	lbListeners := map[string]LoadbalancerListeners{}
+	for subId, subEntry := range subEntries {
+		lbId := subEntry.LoadbalancerId
+		v, ok := lbListeners[lbId]
+		if !ok {
+			v = LoadbalancerListeners{}
+			lbListeners[lbId] = v
+		}
+		v[subId] = subEntry
+	}
+
+	for _, m := range set {
+		lbId := m.LoadbalancerId
+		m.LoadbalancerListeners = lbListeners[lbId]
+	}
+	return true
+}
+
+func (set LoadbalancerListeners) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.LoadbalancerListeners
+}
+
+func (set LoadbalancerListeners) NewModel() db.IModel {
+	return &LoadbalancerListener{}
+}
+
+func (set LoadbalancerListeners) AddModel(i db.IModel) {
+	m := i.(*LoadbalancerListener)
+	set[m.Id] = m
+}
+
+func (set LoadbalancerListeners) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerListeners{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set LoadbalancerListeners) joinLoadbalancerAcls(subEntries LoadbalancerAcls) bool {
+	for _, m := range set {
+		if m.AclStatus != computeapis.LB_BOOL_ON {
+			continue
+		}
+		switch m.AclType {
+		case computeapis.LB_ACL_TYPE_WHITE,
+			computeapis.LB_ACL_TYPE_BLACK:
+			lbacl := subEntries[m.AclId]
+			m.LoadbalancerAcl = lbacl
+		}
+	}
+	return true
+}
+
+func (set LoadbalancerAcls) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.LoadbalancerAcls
+}
+
+func (set LoadbalancerAcls) NewModel() db.IModel {
+	return &LoadbalancerAcl{}
+}
+
+func (set LoadbalancerAcls) AddModel(i db.IModel) {
+	m := i.(*LoadbalancerAcl)
+	set[m.Id] = m
+}
+
+func (set LoadbalancerAcls) Copy() apihelper.IModelSet {
+	setCopy := LoadbalancerAcls{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }

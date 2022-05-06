@@ -16,7 +16,6 @@ package models
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,13 +24,14 @@ import (
 	"text/template"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	compute_models "yunion.io/x/onecloud/pkg/compute/models"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
-	"yunion.io/x/onecloud/pkg/mcclient/models"
 )
 
-var haproxyConfigErrNop = errors.New("nop haproxy config snippet")
+var haproxyConfigErrNop = errors.Error("nop haproxy config snippet")
 
 type GenHaproxyConfigsResult struct {
 	LoadbalancersEnabled []*Loadbalancer
@@ -120,12 +120,12 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 		if lb.Address == "" {
 			continue
 		}
-		if len(lb.listeners) == 0 {
+		if len(lb.Listeners) == 0 {
 			continue
 		}
 		buf := bytes.NewBufferString(fmt.Sprintf("## loadbalancer %s(%s)\n\n", lb.Name, lb.Id))
 		hasActiveListener := false
-		for _, listener := range lb.listeners {
+		for _, listener := range lb.Listeners {
 			if listener.Status != "enabled" {
 				continue
 			}
@@ -170,14 +170,15 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 	return r, nil
 }
 
-func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *LoadbalancerListener, opts *AgentParams) map[string]interface{} {
+func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *LoadbalancerListener, opts *AgentParams) (map[string]interface{}, error) {
 	data := map[string]interface{}{
 		"comment":       fmt.Sprintf("%s(%s)", listener.Name, listener.Id),
 		"id":            listener.Id,
 		"listener_type": listener.ListenerType,
 	}
 	{
-		bind := fmt.Sprintf("%s:%d", lb.Address, listener.ListenerPort)
+		address := lb.GetAddress()
+		bind := fmt.Sprintf("%s:%d", address, listener.ListenerPort)
 		if listener.ListenerType == "https" && listener.certificate != nil {
 			bind += fmt.Sprintf(" ssl crt %s.pem", listener.certificate.Id)
 			if listener.TLSCipherPolicy != "" {
@@ -242,7 +243,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *
 			}
 		}
 	}
-	return data
+	return data, nil
 }
 
 func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}, lb *Loadbalancer, listener *LoadbalancerListener, backendGroup *LoadbalancerBackendGroup) error {
@@ -310,8 +311,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 			return fmt.Errorf("listener %s(%s): %v", listener.Name, listener.Id, err)
 		}
 		serverLines := []string{}
-		for _, backend := range backendGroup.backends {
-			serverLine := fmt.Sprintf("server %s %s:%d", backend.Id, backend.Address, backend.Port)
+		for _, backend := range backendGroup.Backends {
+
+			address, port := backend.GetAddressPort()
+			serverLine := fmt.Sprintf("server %s %s:%d", backend.Id, address, port)
 			if listener.Scheduler == "rr" {
 				serverLine += " weight 1"
 			} else {
@@ -403,7 +406,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttpRate(data map[string]interface{
 	return nil
 }
 
-func (b *LoadbalancerCorpus) haproxyRedirectLine(r *models.LoadbalancerHTTPRedirect, listenerType string) string {
+func (b *LoadbalancerCorpus) haproxyRedirectLine(r *compute_models.SLoadbalancerHTTPRedirect, listenerType string) string {
 	var (
 		code   = r.RedirectCode
 		scheme = r.RedirectScheme
@@ -428,7 +431,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		lb = listener.loadbalancer
 	)
 
-	data := b.genHaproxyConfigCommon(lb, listener, opts)
+	data, err := b.genHaproxyConfigCommon(lb, listener, opts)
+	if err != nil {
+		return errors.Wrap(err, "genHaproxyConfigCommon for http listener")
+	}
 	{
 		// NOTE add X-Real-IP if needed
 		//
@@ -466,7 +472,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 				continue
 			} else if rule.Redirect == computeapi.LB_REDIRECT_RAW {
 				// http-request redirect ... if xx
-				ruleLine := b.haproxyRedirectLine(&rule.LoadbalancerHTTPRedirect, listener.ListenerType)
+				ruleLine := b.haproxyRedirectLine(&rule.SLoadbalancerHTTPRedirect, listener.ListenerType)
 				ruleLines = append(ruleLines, ruleLine+sufCond)
 			} else {
 				return haproxyConfigErrNop
@@ -475,7 +481,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		// default is a raw redirect
 		if listener.Redirect == computeapi.LB_REDIRECT_RAW {
 			ruleLines = append(ruleLines,
-				b.haproxyRedirectLine(&listener.LoadbalancerHTTPRedirect, listener.ListenerType),
+				b.haproxyRedirectLine(&listener.SLoadbalancerHTTPRedirect, listener.ListenerType),
 			)
 		}
 		data["rules"] = ruleLines
@@ -491,7 +497,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 			if rule.Redirect != computeapi.LB_REDIRECT_OFF {
 				continue
 			}
-			backendGroup := lb.backendGroups[rule.BackendGroupId]
+			backendGroup := lb.BackendGroups[rule.BackendGroupId]
 			backendData := map[string]interface{}{
 				"comment": fmt.Sprintf("rule %s(%s) backendGroup %s(%s)",
 					rule.Name, rule.Id,
@@ -508,7 +514,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		}
 		// default backend group
 		if listener.Redirect == computeapi.LB_REDIRECT_OFF && listener.BackendGroupId != "" {
-			backendGroup := lb.backendGroups[listener.BackendGroupId]
+			backendGroup := lb.BackendGroups[listener.BackendGroupId]
 			backendData := map[string]interface{}{
 				"comment": fmt.Sprintf("listener %s(%s) default backendGroup %s(%s)",
 					listener.Name, listener.Id,
@@ -530,15 +536,18 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		// nothing to serve
 		return haproxyConfigErrNop
 	}
-	err := haproxyConfigTmpl.ExecuteTemplate(buf, "httpListen", data)
+	err = haproxyConfigTmpl.ExecuteTemplate(buf, "httpListen", data)
 	return err
 }
 
 func (b *LoadbalancerCorpus) genHaproxyConfigTcp(buf *bytes.Buffer, listener *LoadbalancerListener, opts *AgentParams) error {
 	lb := listener.loadbalancer
-	data := b.genHaproxyConfigCommon(lb, listener, opts)
+	data, err := b.genHaproxyConfigCommon(lb, listener, opts)
+	if err != nil {
+		return errors.Wrap(err, "genHaproxyConfigCommon for tcp listener")
+	}
 	if listener.BackendGroupId != "" {
-		backendGroup := lb.backendGroups[listener.BackendGroupId]
+		backendGroup := lb.BackendGroups[listener.BackendGroupId]
 		backendData := map[string]interface{}{
 			"comment": fmt.Sprintf("listener %s(%s) backendGroup %s(%s)",
 				listener.Name, listener.Id,

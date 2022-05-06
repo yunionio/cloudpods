@@ -3100,7 +3100,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncRdsSecurityGroups(ctx
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
+func (self *SManagedVirtualizationRegionDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iEip, err := eip.GetIEip(ctx)
 		if err != nil {
