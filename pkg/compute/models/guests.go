@@ -463,6 +463,9 @@ func (manager *SGuestManager) ListItemFilter(
 		case "backup":
 			query.Gpu = &falseVal
 			query.Backup = &trueVal
+		case "usb":
+			query.Usb = &trueVal
+			query.Backup = &falseVal
 		default:
 			return nil, httperrors.NewInputParameterError("unknown server type %s", query.ServerType)
 		}
@@ -476,18 +479,24 @@ func (manager *SGuestManager) ListItemFilter(
 		}
 	}
 
-	if query.Gpu != nil {
-		isodev := IsolatedDeviceManager.Query().SubQuery()
-		sgq := isodev.Query(isodev.Field("guest_id")).
-			Filter(sqlchemy.AND(
-				sqlchemy.IsNotNull(isodev.Field("guest_id")),
-				sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
-		cond := sqlchemy.NotIn
-		if *query.Gpu {
-			cond = sqlchemy.In
+	devTypeQ := func(q *sqlchemy.SQuery, checkType *bool, dType string) *sqlchemy.SQuery {
+		if checkType != nil {
+			isodev := IsolatedDeviceManager.Query().SubQuery()
+			sgq := isodev.Query(isodev.Field("guest_id")).
+				Filter(sqlchemy.AND(
+					sqlchemy.IsNotNull(isodev.Field("guest_id")),
+					sqlchemy.Startswith(isodev.Field("dev_type"), dType)))
+			cond := sqlchemy.NotIn
+			if *checkType {
+				cond = sqlchemy.In
+			}
+			return q.Filter(cond(q.Field("id"), sgq))
 		}
-		q = q.Filter(cond(q.Field("id"), sgq))
+		return q
 	}
+
+	q = devTypeQ(q, query.Gpu, "GPU")
+	q = devTypeQ(q, query.Usb, api.USB_TYPE)
 
 	groupFilter := query.GroupId
 	if len(groupFilter) != 0 {
