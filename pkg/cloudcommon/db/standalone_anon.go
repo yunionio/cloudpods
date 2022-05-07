@@ -452,17 +452,6 @@ func (model *SStandaloneAnonResourceBase) PostCreate(ctx context.Context, userCr
 	}
 }
 
-func (model *SStandaloneAnonResourceBase) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	if model.Deleted {
-		model.RemoveAllMetadata(ctx, userCred)
-	}
-	model.SResourceBase.PostDelete(ctx, userCred)
-}
-
-// func (model *SStandaloneAnonResourceBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-// 	return DeleteModel(ctx, userCred, model)
-// }
-
 func (model *SStandaloneAnonResourceBase) ClearSchedDescCache() error {
 	return nil
 }
