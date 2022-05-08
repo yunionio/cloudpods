@@ -15,8 +15,6 @@
 package diskutils
 
 import (
-	"fmt"
-
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -108,7 +106,7 @@ func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) (fsdriver.IRootFsDriver, e
 		}
 	}
 	if len(partitions) == 0 {
-		return nil, fmt.Errorf("not found any partitions")
+		return nil, errors.Wrap(errors.ErrNotFound, "not found any partition")
 	}
 	return nil, errors.NewAggregate(errs)
 }
