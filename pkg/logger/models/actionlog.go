@@ -17,10 +17,12 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 	"yunion.io/x/sqlchemy/backends/clickhouse"
 
@@ -128,9 +130,36 @@ func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient
 
 func (self *SActionlog) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SOpsLog.PostCreate(ctx, userCred, ownerId, query, data)
-	msg := fmt.Sprintf("#%d ", self.Id)
-	msg += fmt.Sprintf("%s %s %s %s %s %s", self.Service, self.ObjType, self.ObjName, self.ObjId, self.Action, self.Kind)
-	msg += fmt.Sprintf("%s %s %s %s %s %s", self.Domain, self.Project, self.User, self.OwnerDomainId, self.OwnerProjectId, self.Notes)
+	parts := []string{}
+	parts = append(parts, "0003")
+	parts = append(parts, fmt.Sprintf("%d", self.Id))
+	parts = append(parts, self.User)
+	parts = append(parts, self.Service)
+	parts = append(parts, timeutils.MysqlTime(self.OpsTime))
+	parts = append(parts, self.Action)
+	succ := "success"
+	if !self.Success {
+		succ = "fail"
+	}
+	parts = append(parts, succ)
+	notes := fmt.Sprintf("%s %s %s(%s)", self.Action, self.ObjType, self.ObjName, self.ObjId)
+	if len(self.Notes) > 0 {
+		notes = fmt.Sprintf("%s: %s", notes, self.Notes)
+	}
+	parts = append(parts, notes)
+	kind := ""
+	switch self.Kind {
+	case api.KindNormal:
+		kind = "0"
+	case api.KindAbnormal:
+		kind = "1"
+	case api.KindIllegal:
+		kind = "2"
+	}
+	parts = append(parts, kind)
+	parts = append(parts, "")
+
+	msg := strings.Join(parts, "*|")
 	if len(self.Severity) == 0 {
 		if self.Success {
 			extern.Info(msg)
