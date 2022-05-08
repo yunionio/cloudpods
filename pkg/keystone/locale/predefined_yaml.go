@@ -44,6 +44,7 @@ policy:
     secgroups:
       '*': deny
       list: allow
+      get: allow
     servers:
       '*': allow
       perform:
@@ -51,6 +52,12 @@ policy:
         start: deny
         stop: deny
         change-owner: deny
+        add-secgroup: deny
+        set-secgroup: deny
+        revoke-secgroup: deny
+        revoke-admin-secgroup: deny
+        assign-secgroup: deny
+        assign-admin-secgroup: deny
   image:
     '*':
       '*': allow
@@ -103,6 +110,8 @@ policy:
       '*': deny
     secgroups:
       '*': allow
+    secgrouprules:
+      '*': allow
     servers:
       '*': deny
       delete: allow
@@ -111,6 +120,12 @@ policy:
       perform:
         '*': deny
         change-owner: allow
+        add-secgroup: allow
+        set-secgroup: allow
+        revoke-secgroup: allow
+        revoke-admin-secgroup: allow
+        assign-secgroup: allow
+        assign-admin-secgroup: allow
         purge: allow
   monitor:
     events:
