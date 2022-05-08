@@ -148,7 +148,7 @@ func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) (fsdriver.IRootFsDriver, e
 		}
 	}
 	if len(partitions) == 0 {
-		return nil, errors.Wrap(errors.ErrNotFound, "not found any partitions")
+		return nil, errors.Wrap(errors.ErrNotFound, "not found any partition")
 	}
 	return nil, errors.NewAggregate(errs)
 }
