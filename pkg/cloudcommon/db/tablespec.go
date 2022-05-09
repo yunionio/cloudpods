@@ -136,15 +136,7 @@ func (ts *sTableSpec) rejectRecordChecksumAfterInsert(model IModel) error {
 	if !ok {
 		return nil
 	}
-	_, err := ts.ITableSpec.Update(obj, func() error {
-		checkSum, err := CalculateModelChecksum(obj)
-		if err != nil {
-			return errors.Wrap(err, "CalculateModelChecksum for InsertOrUpdate")
-		}
-		obj.SetRecordChecksum(checkSum)
-		return nil
-	})
-	return err
+	return UpdateModelChecksum(obj)
 }
 
 func (ts *sTableSpec) Insert(ctx context.Context, dt interface{}) error {
