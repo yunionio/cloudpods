@@ -70,6 +70,11 @@ policy:
       get: allow
     events:
       '*': deny
+  monitor:
+    events:
+      '*': deny
+    '*':
+      '*': allow
   log:
     actions:
       list:
@@ -127,11 +132,6 @@ policy:
         assign-secgroup: allow
         assign-admin-secgroup: allow
         purge: allow
-  monitor:
-    events:
-      '*': deny
-    '*':
-      '*': allow
   notify:
     events:
       '*': deny
