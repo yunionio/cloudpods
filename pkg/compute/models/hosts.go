@@ -4350,6 +4350,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				if err != nil {
 					return err
 				}
+				hw.syncClassMetadata(ctx)
 			} else {
 				db.Update(hw, func() error {
 					hw.Bridge = bridge
@@ -4359,6 +4360,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 					hw.IsMaster = isMaster
 					return nil
 				})
+				hw.syncClassMetadata(ctx)
 			}
 		}
 	}

@@ -299,10 +299,16 @@ func (hw *SHostwire) PostCreate(
 	data jsonutils.JSONObject,
 ) {
 	hw.SHostJointsBase.PostCreate(ctx, userCred, ownerId, query, data)
+	hw.syncClassMetadata(ctx)
+}
+
+func (hw *SHostwire) syncClassMetadata(ctx context.Context) error {
 	host := hw.GetHost()
 	wire := hw.GetWire()
 	err := db.InheritFromTo(ctx, wire, host)
 	if err != nil {
 		log.Errorf("Inherit class metadata from host to wire fail: %s", err)
+		return errors.Wrap(err, "InheritFromTo")
 	}
+	return nil
 }
