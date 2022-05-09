@@ -529,6 +529,10 @@ func (log *SOpsLog) CustomizeCreate(ctx context.Context,
 	return log.SModelBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
+func (log *SOpsLog) GetRecordTime() time.Time {
+	return log.OpsTime
+}
+
 func (manager *SOpsLogManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
