@@ -217,6 +217,9 @@ type DBInstanceListInput struct {
 	EngineVersion string `json:"engine_version"`
 
 	InstanceType string `json:"instance_type"`
+
+	// 通过IP搜索RDS实例
+	IpAddr string `json:"ip_addr"`
 }
 
 type DBInstanceBackupListInput struct {
