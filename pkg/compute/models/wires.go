@@ -1554,6 +1554,7 @@ func (self *SWire) GetDetailsTopology(ctx context.Context, userCred mcclient.Tok
 	}
 	for i := range hosts {
 		hns := hosts[i].GetBaremetalnetworks()
+		hss := hosts[i]._getAttachedStorages(tristate.None, tristate.None, nil)
 		host := api.HostTopologyOutput{
 			Name:       hosts[i].Name,
 			Id:         hosts[i].Id,
@@ -1567,6 +1568,16 @@ func (self *SWire) GetDetailsTopology(ctx context.Context, userCred mcclient.Tok
 			host.Networks = append(host.Networks, api.HostnetworkTopologyOutput{
 				IpAddr:  hns[j].IpAddr,
 				MacAddr: hns[j].MacAddr,
+			})
+		}
+		for j := range hss {
+			host.Storages = append(host.Storages, api.StorageShortDesc{
+				Name:        hss[j].Name,
+				Id:          hss[j].Id,
+				Status:      hss[j].Status,
+				Enabled:     hss[j].Enabled.Bool(),
+				StorageType: hss[j].StorageType,
+				CapacityMb:  hss[j].Capacity,
 			})
 		}
 		ret.Hosts = append(ret.Hosts, host)
