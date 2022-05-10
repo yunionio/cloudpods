@@ -1204,7 +1204,7 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 		if !self.GetEnabled() {
 			return nil
 		}
-		if self.Status != api.BAREMETAL_RUNNING || self.GetBaremetalServer() != nil || self.IsMaintenance {
+		if !utils.IsInStringArray(self.Status, []string{api.BAREMETAL_RUNNING, api.BAREMETAL_READY}) || self.GetBaremetalServer() != nil || self.IsMaintenance {
 			return nil
 		}
 		if self.MemSize == 0 || self.CpuCount == 0 {
