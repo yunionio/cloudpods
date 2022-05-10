@@ -1757,6 +1757,7 @@ func (self *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 		}
 		for i := range hosts {
 			hns := hosts[i].GetBaremetalnetworks()
+			hss := hosts[i]._getAttachedStorages(tristate.None, tristate.None, nil)
 			host := api.HostTopologyOutput{
 				Name:       hosts[i].Name,
 				Id:         hosts[i].Id,
@@ -1764,12 +1765,23 @@ func (self *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 				HostStatus: hosts[i].HostStatus,
 				HostType:   hosts[i].HostType,
 				Networks:   []api.HostnetworkTopologyOutput{},
+				Storages:   []api.StorageShortDesc{},
 				Schedtags:  GetSchedtagsDetailsToResourceV2(&hosts[i], ctx),
 			}
 			for j := range hns {
 				host.Networks = append(host.Networks, api.HostnetworkTopologyOutput{
 					IpAddr:  hns[j].IpAddr,
 					MacAddr: hns[j].MacAddr,
+				})
+			}
+			for j := range hss {
+				host.Storages = append(host.Storages, api.StorageShortDesc{
+					Name:        hss[j].Name,
+					Id:          hss[j].Id,
+					Status:      hss[j].Status,
+					Enabled:     hss[j].Enabled.Bool(),
+					StorageType: hss[j].StorageType,
+					CapacityMb:  hss[j].Capacity,
 				})
 			}
 			wire.Hosts = append(wire.Hosts, host)

@@ -137,6 +137,15 @@ type HostnetworkTopologyOutput struct {
 	MacAddr string `json:"mac_addr"`
 }
 
+type StorageShortDesc struct {
+	Id          string `json:"name"`
+	Name        string `json:"id"`
+	Status      string `json:"status"`
+	Enabled     bool   `json:"enabled"`
+	StorageType string `json:"storage_type"`
+	CapacityMb  int64  `json:"capacity_mb"`
+}
+
 type HostTopologyOutput struct {
 	Name       string                      `json:"name"`
 	Id         string                      `json:"id"`
@@ -145,6 +154,7 @@ type HostTopologyOutput struct {
 	HostType   string                      `json:"host_type"`
 	Networks   []HostnetworkTopologyOutput `json:"networks"`
 	Schedtags  []SchedtagShortDescDetails  `json:"schedtags"`
+	Storages   []StorageShortDesc          `json:"storages"`
 }
 
 type WireTopologyOutput struct {
