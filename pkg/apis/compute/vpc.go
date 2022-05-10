@@ -138,8 +138,8 @@ type HostnetworkTopologyOutput struct {
 }
 
 type StorageShortDesc struct {
-	Id          string `json:"name"`
-	Name        string `json:"id"`
+	Id          string `json:"id"`
+	Name        string `json:"name"`
 	Status      string `json:"status"`
 	Enabled     bool   `json:"enabled"`
 	StorageType string `json:"storage_type"`
