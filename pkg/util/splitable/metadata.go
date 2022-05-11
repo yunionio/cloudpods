@@ -34,6 +34,21 @@ type STableMetadata struct {
 	CreatedAt time.Time `nullable:"false" created_at:"true"`
 }
 
+func (spec *SSplitTableSpec) GetTableMetaByTime(recordTime time.Time) (*STableMetadata, error) {
+	q := spec.metaSpec.Query().Desc("id").IsFalse("deleted")
+	meta := new(STableMetadata)
+	err := q.LE("start_date", recordTime).First(meta)
+	return meta, err
+}
+
+type ISplitTableObject interface {
+	GetRecordTime() time.Time
+}
+
+func (spec *SSplitTableSpec) GetTableMetaByObject(obj ISplitTableObject) (*STableMetadata, error) {
+	return spec.GetTableMetaByTime(obj.GetRecordTime())
+}
+
 func (spec *SSplitTableSpec) GetTableMetas() ([]STableMetadata, error) {
 	q := spec.metaSpec.Query().Asc("id").IsFalse("deleted")
 	metas := make([]STableMetadata, 0)
