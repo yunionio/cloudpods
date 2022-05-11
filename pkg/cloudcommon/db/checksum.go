@@ -25,6 +25,9 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/util/splitable"
 )
 
 var checksumTestFailedNotifier func(obj *jsonutils.JSONDict)
@@ -158,7 +161,17 @@ func CalculateModelChecksum(dbObj IRecordChecksumModel) (string, error) {
 }
 
 func UpdateModelChecksum(dbObj IRecordChecksumModel) error {
-	ts := dbObj.GetModelManager().TableSpec().GetTableSpec()
+	var ts sqlchemy.ITableSpec
+	tss := dbObj.GetModelManager().TableSpec().GetSplitTable()
+	if tss != nil {
+		meta, err := tss.GetTableMetaByObject(dbObj.(splitable.ISplitTableObject))
+		if err != nil {
+			return errors.Wrapf(err, "GetTableMetaByObject")
+		}
+		ts = tss.GetTableSpec(*meta)
+	} else {
+		ts = dbObj.GetModelManager().TableSpec().GetTableSpec()
+	}
 	updateChecksum, err := CalculateModelChecksum(dbObj)
 	if err != nil {
 		return errors.Wrap(err, "CalculateModelChecksum for update")
