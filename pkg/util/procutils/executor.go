@@ -68,12 +68,14 @@ type defaultExecutor struct{}
 func (e *defaultExecutor) Command(name string, args ...string) Cmd {
 	cmd := exec.Command(name, args...)
 	cmdSetSid(cmd)
+	cmdSetEnv(cmd)
 	return &defaultCmd{cmd}
 }
 
 func (e *defaultExecutor) CommandContext(ctx context.Context, name string, args ...string) Cmd {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmdSetSid(cmd)
+	cmdSetEnv(cmd)
 	return &defaultCmd{cmd}
 }
 
@@ -90,11 +92,13 @@ type remoteExecutor struct{}
 
 func (e *remoteExecutor) Command(name string, args ...string) Cmd {
 	cmd := client.Command(name, args...)
+	remoteCmdSetEnv(cmd)
 	return cmd
 }
 
 func (e *remoteExecutor) CommandContext(ctx context.Context, name string, args ...string) Cmd {
 	cmd := client.CommandContext(ctx, name, args...)
+	remoteCmdSetEnv(cmd)
 	return cmd
 }
 
