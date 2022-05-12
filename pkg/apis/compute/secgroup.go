@@ -237,13 +237,13 @@ type SecgroupDetails struct {
 	apis.SharableVirtualResourceDetails
 	SSecurityGroup
 
-	// 关联云主机数量
+	// 关联云主机数量, 不包含回收站云主机
 	GuestCnt int `json:"guest_cnt,allowempty"`
 
-	// 关联此安全组的云主机is_system为true数量
+	// 关联此安全组的云主机is_system为true数量, , 不包含回收站云主机
 	SystemGuestCnt int `json:"system_guest_cnt,allowempty"`
 
-	// admin_secgrp_id为此安全组的云主机数量
+	// admin_secgrp_id为此安全组的云主机数量, , 不包含回收站云主机
 	AdminGuestCnt int `json:"admin_guest_cnt,allowempty"`
 
 	// 安全组缓存数量
