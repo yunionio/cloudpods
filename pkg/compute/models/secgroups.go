@@ -412,7 +412,7 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 	}
 
 	guests := []SGuest{}
-	q = GuestManager.Query()
+	q = GuestManager.Query().IsFalse("pending_deleted")
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.In(q.Field("secgrp_id"), secgroupIds),
 		sqlchemy.In(q.Field("admin_secgrp_id"), secgroupIds),
@@ -454,7 +454,7 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		}
 	}
 
-	sq := GuestManager.Query("id")
+	sq := GuestManager.Query("id").IsFalse("pending_deleted")
 	sq = GuestManager.FilterByOwner(sq, ownerId, queryScope)
 
 	guestSecgroups := []SGuestsecgroup{}
