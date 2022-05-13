@@ -41,7 +41,7 @@ func (so *ScriptOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SscriptApplyOptions struct {
-	SERVERID string `help:"server id" json:"server_id"`
+	SERVERID []string `help:"server id" json:"server_id"`
 }
 
 type ScriptApplyOptions struct {
@@ -54,7 +54,7 @@ func (so *ScriptApplyOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SscriptBatchApplyOptions struct {
-	ServerIds []string `help:"server id list"`
+	SERVERIDS []string `help:"server id list" json:"server_ids"`
 }
 
 type ScriptBatchApplyOptions struct {
