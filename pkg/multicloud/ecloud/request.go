@@ -205,7 +205,8 @@ func (br *SBaseRequest) GetVersion() string {
 }
 
 func (br *SBaseRequest) GetTimestamp() string {
-	return time.Now().Format("2006-01-02T15:04:05Z")
+	sh, _ := time.LoadLocation("Asia/Shanghai")
+	return time.Now().In(sh).Format("2006-01-02T15:04:05Z")
 }
 
 func (br *SBaseRequest) GetReadTimeout() time.Duration {
