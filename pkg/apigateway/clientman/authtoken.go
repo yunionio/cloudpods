@@ -27,7 +27,6 @@ import (
 
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwe"
-	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/pquerna/otp/totp"
 
@@ -279,11 +278,11 @@ func (t *SAuthToken) VerifyTotpPasscode(s *mcclient.ClientSession, uid, passcode
 }
 
 func SignJWT(t jwt.Token) (string, error) {
-	jwkKey, err := jwk.New(privateKey)
-	if err != nil {
-		return "", errors.Wrap(err, "jwk.New")
-	}
-	signed, err := jwt.Sign(t, jwa.RS256, jwkKey)
+	//jwkKey, err := jwk.New(privateKey)
+	//if err != nil {
+	//	return "", errors.Wrap(err, "jwk.New")
+	//}
+	signed, err := jwt.Sign(t, jwa.RS256, privateKey)
 	if err != nil {
 		return "", errors.Wrap(err, "jwt.Sign")
 	}
