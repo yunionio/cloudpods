@@ -326,7 +326,8 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 		log.Infof("CreateRawDisk %s", createParams)
 		return s.CreateRawDisk(ctx, disk, createParams)
 	default:
-		return nil, fmt.Errorf("Not fount")
+		log.Errorf("Unhandled disk info %s", createParams.DiskInfo)
+		return nil, fmt.Errorf("Unhandled disk info: %s", createParams.DiskInfo)
 	}
 }
 
