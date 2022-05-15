@@ -1654,8 +1654,10 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	for _, skip := range skipLogFields(manager) {
 		delete(diff, skip)
 	}
-	OpsLog.LogEvent(item, ACT_UPDATE, diff, userCred)
-	logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, diff, userCred, true)
+	if len(diff) > 0 {
+		OpsLog.LogEvent(item, ACT_UPDATE, diff, userCred)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, diff, userCred, true)
+	}
 
 	item.PostUpdate(ctx, userCred, query, data)
 
@@ -1725,6 +1727,7 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 	}
 	if userCred != nil {
 		OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
+		logclient.AddSimpleActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
 	}
 	if _, ok := item.(IStandaloneModel); ok && len(item.GetId()) > 0 {
 		err := Metadata.RemoveAll(ctx, item, userCred)

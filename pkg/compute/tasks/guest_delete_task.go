@@ -240,7 +240,7 @@ func (self *GuestDeleteTask) OnGuestDeleteFailed(ctx context.Context, obj db.ISt
 func (self *GuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.IStandaloneModel) {
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, api.VM_DELETING, "delete server after stop")
-	db.OpsLog.LogEvent(guest, db.ACT_DELOCATING, nil, self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_DELOCATING, guest.GetShortDesc(ctx), self.UserCred)
 	self.StartDeleteGuest(ctx, guest)
 }
 
@@ -256,7 +256,7 @@ func (self *GuestDeleteTask) OnPendingDeleteComplete(ctx context.Context, obj db
 		self.NotifyServerDeleted(ctx, guest)
 	}
 	// self.SetStage("on_sync_guest_conf_complete", nil)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_PENDING_DELETE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_PENDING_DELETE, guest.GetShortDesc(ctx), self.UserCred, true)
 	// guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
 	self.SetStageComplete(ctx, nil)
 }
@@ -350,7 +350,7 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGuest) {
 	guest.RealDelete(ctx, self.UserCred)
 	// guest.RemoveAllMetadata(ctx, self.UserCred)
-	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, nil, self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, guest.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	if !guest.IsSystem {
 		guest.EventNotify(ctx, self.UserCred, notifyclient.ActionDelete)
