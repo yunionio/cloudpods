@@ -363,23 +363,23 @@ func (s *SRbdStorage) deleteSnapshot(pool string, diskId string, snapshotId stri
 	return snap.Delete()
 }
 
-func (s *SRbdStorage) SyncStorageSize() error {
-	content := jsonutils.NewDict()
+func (s *SRbdStorage) SyncStorageSize() (api.SHostStorageStat, error) {
+	stat := api.SHostStorageStat{
+		StorageId: s.StorageId,
+	}
+
 	client, err := s.GetClient()
 	if err != nil {
-		return errors.Wrapf(err, "GetClient")
+		return stat, errors.Wrapf(err, "GetClient")
 	}
 	defer client.Close()
 	capacity, err := client.GetCapacity()
 	if err != nil {
-		return errors.Wrapf(err, "GetCapacity")
+		return stat, errors.Wrapf(err, "GetCapacity")
 	}
-	content.Set("capacity", jsonutils.NewInt(int64(capacity.CapacitySizeKb/1024)))
-	content.Set("actual_capacity_used", jsonutils.NewInt(int64(capacity.UsedCapacitySizeKb/1024)))
-	_, err = modules.Storages.Put(
-		hostutils.GetComputeSession(context.Background()),
-		s.StorageId, content)
-	return errors.Wrapf(err, "storage update")
+	stat.CapacityMb = capacity.CapacitySizeKb / 1024
+	stat.ActualCapacityUsedMb = capacity.UsedCapacitySizeKb / 1024
+	return stat, nil
 }
 
 func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {

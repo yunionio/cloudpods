@@ -4006,9 +4006,31 @@ func (self *SHost) StartSyncAllGuestsStatusTask(ctx context.Context, userCred mc
 	}
 }
 
-func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SHostPingInput) (jsonutils.JSONObject, error) {
+	if input.WithData {
+		// piggyback storage stats info
+		log.Debugf("host ping %s", jsonutils.Marshal(input))
+		for _, si := range input.StorageStats {
+			storageObj, err := StorageManager.FetchById(si.StorageId)
+			if err != nil {
+				log.Errorf("fetch storage %s error %s", si.StorageId, err)
+			} else {
+				storage := storageObj.(*SStorage)
+				_, err := db.Update(storage, func() error {
+					storage.Capacity = si.CapacityMb
+					storage.ActualCapacityUsed = si.ActualCapacityUsedMb
+					return nil
+				})
+				if err != nil {
+					log.Errorf("update storage info error %s", err)
+				}
+			}
+		}
+		self.SetMetadata(ctx, "root_partition_used_capacity_mb", input.RootPartitionUsedCapacityMb, userCred)
+		self.SetMetadata(ctx, "memory_used_mb", input.MemoryUsedMb, userCred)
+	}
 	if self.HostStatus != api.HOST_ONLINE {
-		self.PerformOnline(ctx, userCred, query, data)
+		self.PerformOnline(ctx, userCred, query, nil)
 	} else {
 		self.SaveUpdates(func() error {
 			self.LastPingAt = time.Now()

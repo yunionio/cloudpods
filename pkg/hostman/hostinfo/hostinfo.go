@@ -1191,12 +1191,12 @@ func (h *SHostInfo) updateHostMetadata(hostname string) error {
 	return err
 }
 
-func (h *SHostInfo) SyncRootPartitionUsedCapacity() error {
-	data := jsonutils.NewDict()
-	data.Set("root_partition_used_capacity_mb", jsonutils.NewInt(int64(storageman.GetRootPartUsedCapacity())))
-	_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, data)
-	return err
-}
+// func (h *SHostInfo) SyncRootPartitionUsedCapacity() error {
+//	data := jsonutils.NewDict()
+//	data.Set("root_partition_used_capacity_mb", jsonutils.NewInt(int64(storageman.GetRootPartUsedCapacity())))
+//	_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, data)
+//	return err
+// }
 
 func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	h.HostId, _ = hostbody.GetString("id")
@@ -1556,9 +1556,9 @@ func (h *SHostInfo) uploadStorageInfo() {
 			h.onSyncStorageInfoSucc(s, res)
 		}
 	}
-	go storageman.StartSyncStorageSizeTask(
-		time.Duration(options.HostOptions.SyncStorageInfoDurationSecond) * time.Second,
-	)
+	// go storageman.StartSyncStorageSizeTask(
+	//	time.Duration(options.HostOptions.SyncStorageInfoDurationSecond) * time.Second,
+	// )
 	h.probeSyncIsolatedDevicesStep()
 }
 
