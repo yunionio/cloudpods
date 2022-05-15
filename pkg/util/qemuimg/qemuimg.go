@@ -211,6 +211,10 @@ type SImageInfo struct {
 	secId      string
 }
 
+func (info *SImageInfo) SetSecId(id string) {
+	info.secId = id
+}
+
 func (info SImageInfo) ImageOptions() string {
 	opts := make([]string, 0)
 	format := info.Format
@@ -238,8 +242,8 @@ func (info SImageInfo) ImageOptions() string {
 }
 
 func (info SImageInfo) SecretOptions() string {
-	opts := make([]string, 0)
 	if info.Encrypted() {
+		opts := make([]string, 0)
 		secId := info.secId
 		if len(secId) == 0 {
 			secId = "sec0"
@@ -248,8 +252,10 @@ func (info SImageInfo) SecretOptions() string {
 		opts = append(opts, fmt.Sprintf("id=%s", secId))
 		opts = append(opts, fmt.Sprintf("data=%s", info.Password))
 		opts = append(opts, "format=base64")
+
+		return strings.Join(opts, ",")
 	}
-	return strings.Join(opts, ",")
+	return ""
 }
 
 func (info SImageInfo) Encrypted() bool {
