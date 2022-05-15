@@ -28,6 +28,7 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
@@ -35,6 +36,7 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SHostImageOptions struct {
@@ -162,7 +164,7 @@ func closeImage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	} else {
 		f = &SQcow2Image{}
 	}
-	err = f.Load(imagePath, true)
+	err = f.Load(imagePath, true, false)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
@@ -178,20 +180,35 @@ func getImage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var f IImage
-	var startPos, endPos int64
-	var rateLimit int64 = -1
+	var (
+		f                IImage
+		startPos, endPos int64
+		rateLimit        int64 = -1
+		encryptInfo      *apis.SEncryptInfo
+	)
 
 	if r.Header.Get("X-Read-File") == "true" {
 		f = &SFile{}
 	} else {
 		f = &SQcow2Image{}
 	}
-	if err = f.Open(imagePath, true); err != nil {
-		log.Errorf("Open image error: %s", err)
-		httperrors.GeneralServerError(ctx, w, err)
-		return
+
+	err = f.Load(imagePath, true, true)
+	if err != nil {
+		encryptKey := r.Header.Get("X-Encrypt-Key")
+		if len(encryptKey) > 0 {
+			encryptInfo = new(apis.SEncryptInfo)
+			encryptInfo.Key = encryptKey
+			encryptInfo.Alg = seclib2.TSymEncAlg(r.Header.Get("X-Encrypt-Alg"))
+		}
+
+		if err = f.Open(imagePath, true, encryptInfo); err != nil {
+			log.Errorf("Open image error: %s", err)
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		}
 	}
+
 	defer f.Close()
 
 	endPos = f.Length() - 1
@@ -293,16 +310,34 @@ func getImageMeta(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var f IImage
+	var (
+		f           IImage
+		encryptInfo *apis.SEncryptInfo
+	)
+
 	if r.Header.Get("X-Read-File") == "true" {
 		f = &SFile{}
 	} else {
 		f = &SQcow2Image{}
 	}
-	if err = f.Open(imagePath, true); err != nil {
-		httperrors.GeneralServerError(ctx, w, err)
-		return
+
+	log.Infof("open image %s", imagePath)
+	err = f.Load(imagePath, true, true)
+	if err != nil {
+		encryptKey := r.Header.Get("X-Encrypt-Key")
+		if len(encryptKey) > 0 {
+			encryptInfo = new(apis.SEncryptInfo)
+			encryptInfo.Key = encryptKey
+			encryptInfo.Alg = seclib2.TSymEncAlg(r.Header.Get("X-Encrypt-Alg"))
+		}
+
+		if err = f.Open(imagePath, true, encryptInfo); err != nil {
+			log.Errorf("Open image error: %s", err)
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		}
 	}
+	defer f.Close()
 
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Length()))
 	w.Header().Set("Content-Type", "application/octet-stream")

@@ -209,16 +209,22 @@ func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string, size i
 		}
 	}
 	if !newImg.IsValid() || newImg.IsChained() {
-		if err := fuseutils.MountFusefs(options.HostOptions.FetcherfsPath, url, localPath,
-			auth.GetTokenString(), mntPath, options.HostOptions.FetcherfsBlockSize); err != nil {
+		if err := fuseutils.MountFusefs(
+			options.HostOptions.FetcherfsPath, url, localPath,
+			auth.GetTokenString(), mntPath, options.HostOptions.FetcherfsBlockSize, encryptInfo,
+		); err != nil {
 			log.Errorln(err)
 			return err
 		}
 	}
 	if !newImg.IsValid() {
-		if err := newImg.CreateQcow2(0, false, contentPath, "", "", ""); err != nil {
-			log.Errorln(err)
-			return err
+		if encryptInfo != nil {
+			err = newImg.CreateQcow2(0, false, contentPath, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
+		} else {
+			err = newImg.CreateQcow2(0, false, contentPath, "", "", "")
+		}
+		if err != nil {
+			return errors.Wrapf(err, "create from fuse")
 		}
 	}
 

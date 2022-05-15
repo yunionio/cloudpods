@@ -31,6 +31,10 @@ type Options struct {
 	MountPoint string `help:"mount path of fuse fs" required:"true"`
 	Debug      bool   `help:"enable debug go fuse"`
 	Foreground bool   `help:"run in foreground"`
+
+	// image encrypt info
+	EncryptAlg string `help:"image encrypt alg"`
+	EncryptKey string `help:"image encrypt password"`
 }
 
 var opt = &Options{}
