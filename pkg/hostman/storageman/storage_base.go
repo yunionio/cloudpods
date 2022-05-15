@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -90,7 +91,7 @@ type IStorage interface {
 
 	SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error
 	SyncStorageInfo() (jsonutils.JSONObject, error)
-	SyncStorageSize() error
+	SyncStorageSize() (api.SHostStorageStat, error)
 	StorageType() string
 	GetStorageConf() *jsonutils.JSONDict
 	GetStoragecacheId() string
@@ -272,8 +273,13 @@ func (s *SBaseStorage) SetStorageInfo(storageId, storageName string, conf jsonut
 	return nil
 }
 
-func (s *SBaseStorage) SyncStorageSize() error {
-	return fmt.Errorf("not ipmlement")
+func (s *SBaseStorage) SyncStorageSize() (api.SHostStorageStat, error) {
+	stat := api.SHostStorageStat{
+		StorageId: s.StorageId,
+	}
+	stat.CapacityMb = int64(s.GetCapacity())
+	stat.ActualCapacityUsedMb = int64(s.GetUsedSizeMb())
+	return stat, nil
 }
 
 func (s *SBaseStorage) bindMountTo(sPath string) error {
