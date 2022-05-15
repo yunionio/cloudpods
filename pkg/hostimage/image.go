@@ -27,12 +27,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"unsafe"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 var qemuBlkCache sync.Map
@@ -40,6 +44,7 @@ var qemuBlkCache sync.Map
 type QemuioBlkDev struct {
 	imagePath string
 	readonly  bool
+	encrypted bool
 	refCount  int32
 
 	blk *C.struct_QemuioBlk
@@ -63,20 +68,44 @@ func (qb *QemuioBlkDev) ReadQcow2(offset int64, count int64) ([]byte, int64) {
 	}
 }
 
-func OpenQcow2(imagePath string, readonly bool) *QemuioBlkDev {
-	key := fmt.Sprintf("%s_%v", imagePath, readonly)
+func OpenQcow2(disk *qemuimg.SImageInfo, readonly bool) *QemuioBlkDev {
+	key := fmt.Sprintf("%s_%v", disk.Path, readonly)
 	if blk, ok := qemuBlkCache.Load(key); ok {
 		qb := blk.(*QemuioBlkDev)
 		atomic.AddInt32(&qb.refCount, 1)
 		return qb
 	}
+
 	qb := &QemuioBlkDev{
-		imagePath: imagePath,
+		imagePath: disk.Path,
 		readonly:  readonly,
 	}
-	cImagePath := C.CString(imagePath)
-	blk := C.open_qcow2(cImagePath, C.bool(readonly))
-	C.free(unsafe.Pointer(cImagePath))
+	diskPath := C.CString(disk.Path)
+	imageOpts := C.CString(disk.ImageOptions())
+
+	// sec options
+	var secretOpts *C.char
+	secOpt := disk.SecretOptions()
+	if len(secOpt) > 0 {
+		secretOpts = C.CString(secOpt)
+		qb.encrypted = true
+	}
+
+	// qemu io open image
+	blk := C.open_qcow2(diskPath, imageOpts, secretOpts, C.bool(readonly))
+
+	C.free(unsafe.Pointer(diskPath))
+	C.free(unsafe.Pointer(imageOpts))
+
+	if secretOpts != nil {
+		C.free(unsafe.Pointer(secretOpts))
+	}
+
+	if blk == nil {
+		// failed open qemu image
+		return nil
+	}
+
 	qb.blk = blk
 	qb.refCount = 1
 	qemuBlkCache.Store(key, qb)
@@ -101,16 +130,26 @@ func (qb *QemuioBlkDev) Qcow2GetLength() int64 {
 
 func (qb *QemuioBlkDev) CloseQcow2() {
 	if qb.blk != nil && atomic.AddInt32(&qb.refCount, -1) == 0 {
-		C.close_qcow2(qb.blk)
+		var secId *C.char
+		if qb.encrypted {
+			secId = C.CString(filepath.Base(qb.imagePath))
+		}
+
+		C.close_qcow2(qb.blk, secId)
+		qemuBlkCache.Delete(fmt.Sprintf("%s_%v", qb.imagePath, qb.readonly))
+
+		if secId != nil {
+			C.free(unsafe.Pointer(secId))
+		}
 	}
 }
 
 type IImage interface {
 	// Open image file and its backing file (if have)
-	Open(imagePath string, readonly bool) error
+	Open(imagePath string, readonly bool, encryptInfo *apis.SEncryptInfo) error
 
 	// load opend qcow2 img form qemu blk cache
-	Load(imagePath string, readonly bool) error
+	Load(imagePath string, readonly, reference bool) error
 
 	// Close may not really close image file handle, just reudce ref count
 	Close()
@@ -126,8 +165,22 @@ type SQcow2Image struct {
 	fd *QemuioBlkDev
 }
 
-func (img *SQcow2Image) Open(imagePath string, readonly bool) error {
-	fd := OpenQcow2(imagePath, readonly)
+func (img *SQcow2Image) newQemuImage(imagePath string, encryptInfo *apis.SEncryptInfo) *qemuimg.SImageInfo {
+	info := &qemuimg.SImageInfo{
+		Path: imagePath,
+	}
+
+	if encryptInfo != nil {
+		info.SetSecId(filepath.Base(imagePath))
+		info.Password = encryptInfo.Key
+		info.EncryptAlg = encryptInfo.Alg
+	}
+	return info
+}
+
+func (img *SQcow2Image) Open(imagePath string, readonly bool, encryptInfo *apis.SEncryptInfo) error {
+	disk := img.newQemuImage(imagePath, encryptInfo)
+	fd := OpenQcow2(disk, readonly)
 	if fd == nil {
 		return fmt.Errorf("open image %s failed", imagePath)
 	} else {
@@ -136,11 +189,12 @@ func (img *SQcow2Image) Open(imagePath string, readonly bool) error {
 	}
 }
 
-func (img *SQcow2Image) Load(imagePath string, readonly bool) error {
+func (img *SQcow2Image) Load(imagePath string, readonly, reference bool) error {
 	fd := LoadQcow2(imagePath, readonly)
 	if fd == nil {
 		return fmt.Errorf("image %s readonly: %v not found", imagePath, readonly)
 	} else {
+		atomic.AddInt32(&fd.refCount, 1)
 		img.fd = fd
 		return nil
 	}
@@ -167,7 +221,7 @@ type SFile struct {
 	fd *os.File
 }
 
-func (f *SFile) Open(imagePath string, readonly bool) error {
+func (f *SFile) Open(imagePath string, readonly bool, encryptInfo *apis.SEncryptInfo) error {
 	var mode = os.O_RDWR
 	if readonly {
 		mode = os.O_RDONLY
@@ -181,7 +235,7 @@ func (f *SFile) Open(imagePath string, readonly bool) error {
 	}
 }
 
-func (f *SFile) Load(imagePath string, readonly bool) error {
+func (f *SFile) Load(imagePath string, readonly, reference bool) error {
 	return fmt.Errorf("File don't support load")
 }
 

@@ -24,11 +24,15 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
-func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize int) error {
+func MountFusefs(
+	fetcherfsPath, url, tmpdir, token, mntpath string,
+	blocksize int, encryptInfo *apis.SEncryptInfo,
+) error {
 	var metaPath = path.Join(mntpath, "meta")
 	if f, err := os.OpenFile(metaPath, os.O_RDONLY, 0644); err == nil {
 		f.Close()
@@ -64,6 +68,14 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 		"--blocksize", strconv.Itoa(blocksize),
 		"--mount-point", mntpath,
 	}
+	if encryptInfo != nil && len(encryptInfo.Key) > 0 {
+		// TODO: base64 encrypt key
+		cmd = append(cmd, "--encrypt-key", encryptInfo.Key)
+	}
+	if encryptInfo != nil && len(encryptInfo.Alg) > 0 {
+		cmd = append(cmd, "--encrypt-alg", string(encryptInfo.Alg))
+	}
+
 	log.Infof("%s", strings.Join(cmd, " "))
 	out, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
 	if err != nil {
