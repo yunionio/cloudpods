@@ -63,7 +63,7 @@ func initFetcherFs() (*FetcherFs, error) {
 		url:       opt.Url,
 	}
 	if err := fetcherFs.fetchMetaInfo(); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "fetch meta info")
 	}
 	segs := strings.Split(opt.Url, "/")
 	if len(segs[len(segs)-1]) == 0 {
@@ -271,5 +271,11 @@ func (fs *FetcherFs) destory() error {
 func NewRequestHeader() http.Header {
 	header := http.Header{}
 	header.Set("X-Auth-Token", opt.Token)
+	if len(opt.EncryptKey) > 0 {
+		header.Set("X-Encrypt-Key", opt.EncryptKey)
+	}
+	if len(opt.EncryptAlg) > 0 {
+		header.Set("X-Encrypt-Alg", opt.EncryptAlg)
+	}
 	return header
 }
