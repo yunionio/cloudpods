@@ -18,10 +18,16 @@ import (
 	"context"
 	"time"
 
+	"github.com/shirou/gopsutil/mem"
+
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -30,6 +36,8 @@ import (
 type SHostPingTask struct {
 	interval int // second
 	running  bool
+
+	lastStatAt time.Time
 }
 
 type SEndpoint struct {
@@ -58,7 +66,10 @@ func NewHostPingTask(interval int) *SHostPingTask {
 	if interval <= 0 {
 		return nil
 	}
-	return &SHostPingTask{interval, true}
+	return &SHostPingTask{
+		interval: interval,
+		running:  true,
+	}
 }
 
 func (p *SHostPingTask) Start() {
@@ -83,10 +94,32 @@ func (p *SHostPingTask) Start() {
 	}
 }
 
+func (p *SHostPingTask) payload() api.SHostPingInput {
+	data := api.SHostPingInput{}
+
+	now := time.Now()
+	if !p.lastStatAt.IsZero() && now.Before(p.lastStatAt.Add(time.Duration(options.HostOptions.SyncStorageInfoDurationSecond)*time.Second)) {
+		return data
+	}
+
+	p.lastStatAt = now
+	data = storageman.GatherHostStorageStats()
+	data.WithData = true
+	info, err := mem.VirtualMemory()
+	if err != nil {
+		return data
+	}
+	memTotal := int(info.Total / 1024 / 1024)
+	memFree := int(info.Available / 1024 / 1024)
+	memUsed := memTotal - memFree
+	data.MemoryUsedMb = memUsed
+	return data
+}
+
 func (p *SHostPingTask) ping(div int, hostId string) error {
 	log.Debugf("ping region at %d...", div)
 	res, err := modules.Hosts.PerformAction(hostutils.GetComputeSession(context.Background()),
-		hostId, "ping", nil)
+		hostId, "ping", jsonutils.Marshal(p.payload()))
 	if err != nil {
 		if errors.Cause(err) == httperrors.ErrResourceNotFound {
 			log.Errorf("host seemd removed from region ...")

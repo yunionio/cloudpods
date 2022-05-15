@@ -460,3 +460,20 @@ type HostOfflineInput struct {
 	UpdateHealthStatus *bool `json:"update_health_status"`
 	Reason             string
 }
+
+type SHostStorageStat struct {
+	StorageId string `json:"storage_id"`
+
+	CapacityMb           int64 `json:"capacity_mb"`
+	ActualCapacityUsedMb int64 `json:"actual_capacity_used_mb"`
+}
+
+type SHostPingInput struct {
+	WithData bool `json:"with_data"`
+
+	MemoryUsedMb int `json:"memory_used_mb"`
+
+	RootPartitionUsedCapacityMb int `json:"root_partition_used_capacity_mb"`
+
+	StorageStats []SHostStorageStat `json:"storage_stats"`
+}
