@@ -15,9 +15,11 @@
 package monitor
 
 import (
+	"encoding/json"
 	"fmt"
 
-	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/pkg/errors"
+
 	monitorapi "yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
@@ -25,7 +27,7 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(monitor.Alerts)
+	cmd := NewResourceCmd(monitor.Alerts)
 	cmd.List(new(options.AlertListOptions))
 	cmd.Create(new(options.AlertCreateOptions))
 	cmd.Show(new(options.AlertShowOptions))
@@ -42,9 +44,13 @@ func init() {
 			}
 			ret, err := monitor.Alerts.DoTestRun(s, args.ID, data)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "DoTestRun")
 			}
-			fmt.Println(ret.JSON(ret).YAMLString())
+			jsonBytes, err := json.MarshalIndent(ret, "", "  ")
+			if err != nil {
+				return errors.Wrap(err, "MarshalIndent")
+			}
+			fmt.Printf("%s\n", jsonBytes)
 			return nil
 		})
 }

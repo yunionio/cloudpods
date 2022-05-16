@@ -70,6 +70,10 @@ func doIdentityEventList(s *mcclient.ClientSession, args *EventListOptions) erro
 	return DoEventList(modules.IdentityLogs, s, args)
 }
 
+func doMonitorEventList(s *mcclient.ClientSession, args *EventListOptions) error {
+	return DoEventList(modules.MonitorLogs, s, args)
+}
+
 func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
 	params := jsonutils.NewDict()
 	if len(args.Type) > 0 {
@@ -252,5 +256,10 @@ func init() {
 	R(&TypeEventListOptions{}, "credential-event", "Show operation event logs of keystone credentials", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"credential"}}
 		return doIdentityEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "monitor-migrationalert-event", "Show operation event logs of monitor auto migrations", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"migrationalert"}}
+		return doMonitorEventList(s, &nargs)
 	})
 }
