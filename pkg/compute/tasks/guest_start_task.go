@@ -55,7 +55,7 @@ func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGue
 func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, "success", self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, guest.GetShortDesc(ctx), self.UserCred, true)
 	self.taskComplete(ctx, guest)
 }
 

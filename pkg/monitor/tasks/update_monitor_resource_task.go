@@ -23,7 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/monitor/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
+	// "yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type UpdateMonitorResourceJointTask struct {
@@ -42,13 +42,13 @@ func (self *UpdateMonitorResourceJointTask) OnInit(ctx context.Context, obj db.I
 		self.taskFail(ctx, alert, msg)
 		return
 	}
-	logclient.AddActionLogWithStartable(self, alert, logclient.ACT_UPDATE_MONITOR_RESOURCE_JOINT, nil, self.UserCred, true)
+	// logclient.AddActionLogWithStartable(self, alert, logclient.ACT_UPDATE_MONITOR_RESOURCE_JOINT, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *UpdateMonitorResourceJointTask) taskFail(ctx context.Context, alert *models.SCommonAlert, msg jsonutils.JSONObject) {
-	db.OpsLog.LogEvent(alert, db.ACT_UPDATE_MONITOR_RESOURCE_JOINT, msg, self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, alert, logclient.ACT_UPDATE_MONITOR_RESOURCE_JOINT, msg, self.UserCred, false)
+	// db.OpsLog.LogEvent(alert, db.ACT_UPDATE_MONITOR_RESOURCE_JOINT, msg, self.GetUserCred())
+	// logclient.AddActionLogWithStartable(self, alert, logclient.ACT_UPDATE_MONITOR_RESOURCE_JOINT, msg, self.UserCred, false)
 	self.SetStageFailed(ctx, msg)
 	return
 }
