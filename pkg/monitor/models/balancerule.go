@@ -12,16 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor
+package models
 
-import (
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
-	options "yunion.io/x/onecloud/pkg/mcclient/options/monitor"
-)
-
-func init() {
-	cmd := NewResourceCmd(modules.AlertRecordManager)
-	cmd.List(new(options.AlertRecordListOptions))
-	cmd.Show(new(options.AlertRecordShowOptions))
-	cmd.Get("", new(options.AlertRecordTotalOptions))
+type SBalanceRule struct {
 }

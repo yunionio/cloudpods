@@ -35,14 +35,14 @@ type Query struct {
 type Select []QueryPart
 
 type Response struct {
-	Results []Result
-	Err     error
+	Results []Result `json:"results"`
+	Err     error    `json:"err"`
 }
 
 type Result struct {
-	Series  []Row
-	Message []*Message
-	Err     error
+	Series  []Row      `json:"series"`
+	Message []*Message `json:"message"`
+	Err     error      `json:"err"`
 }
 
 type Message struct {

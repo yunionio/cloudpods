@@ -15,20 +15,31 @@
 package monitor
 
 import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/util/printutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 var (
-	R                 = shell.R
-	printList         = printutils.PrintJSONList
-	printObject       = printutils.PrintJSONObject
-	printBatchResults = printutils.PrintJSONBatchResults
+	MigrationAlertManager *SMigrationAlertManager
 )
 
-func NewResourceCmd(manager modulebase.IBaseManager) *shell.ResourceCmd {
-	cmd := shell.NewResourceCmd(manager)
-	cmd.SetPrefix("monitor")
-	return cmd
+type SMigrationAlertManager struct {
+	*modulebase.ResourceManager
+}
+
+func init() {
+	MigrationAlertManager = NewMigrationAlertManager()
+	modules.Register(MigrationAlertManager)
+	MigrationAlertManager.SetApiVersion(mcclient.V2_API_VERSION)
+	modules.RegisterV2(MigrationAlertManager)
+}
+
+func NewMigrationAlertManager() *SMigrationAlertManager {
+	m := modules.NewMonitorV2Manager("migrationalert", "migrationalerts",
+		[]string{"id", "name", "metric_type"},
+		[]string{})
+	return &SMigrationAlertManager{
+		ResourceManager: &m,
+	}
 }

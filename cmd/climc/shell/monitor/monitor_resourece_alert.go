@@ -21,6 +21,6 @@ import (
 )
 
 func init() {
-	cmd := shell.NewJointCmd(modules.MonitorResourceAlertManager)
+	cmd := shell.NewJointCmd(modules.MonitorResourceAlertManager).SetPrefix("monitor")
 	cmd.List(new(options.MonitorResourceAlertListOptions))
 }
