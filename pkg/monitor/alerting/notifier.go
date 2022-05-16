@@ -73,8 +73,7 @@ func (n *notificationService) sendAndMarkAsComplete(evalCtx *EvalContext, state 
 	log.Debugf("Sending notification, type %s, id %s", notifier.GetType(), notifier.GetNotifierId())
 
 	if err := notifier.Notify(evalCtx, state.state.GetParams()); err != nil {
-		log.Errorf("failed to send notification %s: %v", notifier.GetNotifierId(), err)
-		return err
+		return errors.Wrapf(err, "notify driver %s(%s)", notifier.GetType(), notifier.GetNotifierId())
 	}
 
 	if evalCtx.IsTestRun {
@@ -82,7 +81,7 @@ func (n *notificationService) sendAndMarkAsComplete(evalCtx *EvalContext, state 
 	}
 	err := state.state.UpdateSendTime()
 	if err != nil {
-		return errors.Wrap(err, "notifierState UpdateSendTime err")
+		return errors.Wrap(err, "notifierState UpdateSendTime")
 	}
 	return state.state.SetToCompleted()
 }
@@ -90,7 +89,7 @@ func (n *notificationService) sendAndMarkAsComplete(evalCtx *EvalContext, state 
 func (n *notificationService) sendNotifications(evalCtx *EvalContext, states notifierStateSlice) error {
 	for _, state := range states {
 		if err := n.sendNotification(evalCtx, state); err != nil {
-			log.Errorf("failed to send %s notification: %v", state.notifier.GetNotifierId(), err)
+			log.Errorf("failed to send %s(%s) notification: %v", state.notifier.GetType(), state.notifier.GetNotifierId(), err)
 			if evalCtx.IsTestRun {
 				return err
 			}

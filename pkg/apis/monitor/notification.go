@@ -31,10 +31,11 @@ var (
 )
 
 const (
-	AlertNotificationTypeOneCloud    = "onecloud"
-	AlertNotificationTypeDingding    = "dingding"
-	AlertNotificationTypeFeishu      = "feishu"
-	AlertNotificationTypeAutoScaling = "autoscaling"
+	AlertNotificationTypeOneCloud      = "onecloud"
+	AlertNotificationTypeDingding      = "dingding"
+	AlertNotificationTypeFeishu        = "feishu"
+	AlertNotificationTypeAutoScaling   = "autoscaling"
+	AlertNotificationTypeAutoMigration = "automigration"
 )
 
 type NotificationCreateInput struct {
@@ -102,4 +103,8 @@ type NotificationSettingFeishu struct {
 	// Url         string `json:"url"`
 	AppId     string `json:"app_id"`
 	AppSecret string `json:"app_secret"`
+}
+
+type NotificationSettingAutoMigration struct {
+	MigrationAlertSettings
 }

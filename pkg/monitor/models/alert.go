@@ -131,7 +131,7 @@ type SAlert struct {
 	// change to `Alerting` and send alert notifications.
 	For int64 `nullable:"false" list:"user" update:"user"`
 
-	EvalData            jsonutils.JSONObject `list:"user" list:"user"`
+	EvalData            jsonutils.JSONObject `list:"user"`
 	State               string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" update:"user"`
 	NoDataState         string               `width:"36" charset:"ascii" nullable:"false" default:"no_data" create:"optional"  list:"user" update:"user"`
 	ExecutionErrorState string               `width:"36" charset:"ascii" nullable:"false" default:"alerting" create:"optional" list:"user" update:"user"`

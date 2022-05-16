@@ -66,11 +66,19 @@ var (
 )
 
 func init() {
+	GetCommonAlertManager()
+	//registry.RegisterService(CommonAlertManager)
+}
+
+func GetCommonAlertManager() *SCommonAlertManager {
+	if CommonAlertManager != nil {
+		return CommonAlertManager
+	}
 	CommonAlertManager = &SCommonAlertManager{
 		SAlertManager: *NewAlertManager(SCommonAlert{}, "commonalert", "commonalerts"),
 	}
 	CommonAlertManager.SetVirtualObject(CommonAlertManager)
-	//registry.RegisterService(CommonAlertManager)
+	return CommonAlertManager
 }
 
 type ISubscriptionManager interface {

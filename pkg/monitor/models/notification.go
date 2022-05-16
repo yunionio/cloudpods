@@ -180,6 +180,22 @@ func (man *SNotificationManager) CreateOneCloudNotification(ctx context.Context,
 		duration, _ := time.ParseDuration(silentPeriod)
 		input.Frequency = duration / time.Second
 	}
+	return man.createNotification(ctx, userCred, input)
+}
+
+func (man *SNotificationManager) CreateAutoMigrationNotification(ctx context.Context, userCred mcclient.TokenCredential, alertName string) (*SNotification, error) {
+	newName, err := db.GenerateName(ctx, man, userCred, alertName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "generate name: %s", alertName)
+	}
+	input := &monitor.NotificationCreateInput{
+		Name: newName,
+		Type: monitor.AlertNotificationTypeAutoMigration,
+	}
+	return man.createNotification(ctx, userCred, input)
+}
+
+func (man *SNotificationManager) createNotification(ctx context.Context, userCred mcclient.TokenCredential, input *monitor.NotificationCreateInput) (*SNotification, error) {
 	obj, err := db.DoCreate(man, ctx, userCred, nil, input.JSON(input), userCred)
 	if err != nil {
 		return nil, errors.Wrapf(err, "create notification input: %s", input.JSON(input))
