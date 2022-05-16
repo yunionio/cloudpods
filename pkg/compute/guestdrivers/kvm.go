@@ -611,7 +611,7 @@ func (self *SKVMGuestDriver) RequestSuspendOnHost(ctx context.Context, guest *mo
 
 func (self *SKVMGuestDriver) RequestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	host, _ := guest.GetHost()
-	url := fmt.Sprintf("%s/servers/%s/resume", host.ManagerUri, guest.Id)
+	url := fmt.Sprintf("%s/servers/%s/start", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, nil, false)
 	return err
