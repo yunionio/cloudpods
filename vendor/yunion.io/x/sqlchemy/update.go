@@ -172,6 +172,13 @@ func (us *SUpdateSession) saveUpdateSql(dt interface{}) (*sUpdateSQLResult, erro
 		if reflect.DeepEqual(of, nf) {
 			continue
 		}
+		if of != nil && nf != nil {
+			ofJsonStr := jsonutils.Marshal(of).String()
+			nfJsonStr := jsonutils.Marshal(nf).String()
+			if ofJsonStr == nfJsonStr {
+				continue
+			}
+		}
 		if c.IsZero(nf) && c.IsText() {
 			nf = nil
 		}
