@@ -41,6 +41,8 @@ var (
 	historicalUniqueName = false
 
 	enableQuotaCheck = false
+
+	enableDataResp = false
 )
 
 func SetRegion(region string) {
@@ -49,6 +51,14 @@ func SetRegion(region string) {
 
 func GetRegion() string {
 	return globalRegion
+}
+
+func SetDataResp(enable bool) {
+	enableDataResp = enable
+}
+
+func GetDataResp() bool {
+	return enableDataResp
 }
 
 func SetServiceType(srvType string) {
