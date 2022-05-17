@@ -167,6 +167,9 @@ type SHostOptions struct {
 	RestrictQemuImgConvertWorker bool `help:"restrict qemu-img convert worker" default:"false"`
 
 	DefaultLiveMigrateDowntime float32 `help:"allow downtime in seconds for live migrate" default:"5.0"`
+
+	LocalBackupStoragePath string `help:"path for mounting backup nfs storage" default:"/opt/cloud/workspace/backupstorage"`
+	LocalBackupTempPath    string `help:"the local temporary directory for backup" default:"/opt/cloud/workspace/run/backups"`
 }
 
 var (

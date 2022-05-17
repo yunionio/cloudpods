@@ -344,6 +344,18 @@ type IClassMetadataOwner interface {
 	GetAllClassMetadata() (map[string]string, error)
 }
 
+type AllMetadataOwner map[string]string
+
+func (w AllMetadataOwner) GetAllClassMetadata() (map[string]string, error) {
+	ret := make(map[string]string)
+	for k, v := range w {
+		if strings.HasPrefix(k, CLASS_TAG_PREFIX) {
+			ret[k[len(CLASS_TAG_PREFIX):]] = v
+		}
+	}
+	return ret, nil
+}
+
 type ClassMetadataOwner map[string]string
 
 func (w ClassMetadataOwner) GetAllClassMetadata() (map[string]string, error) {
@@ -368,6 +380,19 @@ func IsInSameClass(ctx context.Context, cmo1, cmo2 IClassMetadataOwner) (bool, e
 		}
 	}
 	return true, nil
+}
+
+func RequireSameClass(ctx context.Context, cmo1, cmo2 IClassMetadataOwner) error {
+	same, err := IsInSameClass(ctx, cmo1, cmo2)
+	if err != nil {
+		return errors.Wrap(err, "IsInSameClass")
+	}
+	if !same {
+		tag1, _ := cmo1.GetAllClassMetadata()
+		tag2, _ := cmo2.GetAllClassMetadata()
+		return errors.Wrapf(httperrors.ErrConflict, "inconsist class metadata: %s %s", tag1, tag2)
+	}
+	return nil
 }
 
 func (model *SStandaloneAnonResourceBase) IsInSameClass(ctx context.Context, pModel *SStandaloneAnonResourceBase) (bool, error) {

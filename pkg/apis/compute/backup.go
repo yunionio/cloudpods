@@ -151,6 +151,11 @@ type InstanceBackupPackMetadata struct {
 	InstanceType   string
 	SizeMb         int
 	DiskMetadatas  []DiskBackupPackMetadata
+
+	// 加密密钥ID
+	EncryptKeyId string
+	// Instance Backup metadata
+	Metadata map[string]string `json:"metadata"`
 }
 
 type InstanceBackupManagerSyncstatusInput struct {
