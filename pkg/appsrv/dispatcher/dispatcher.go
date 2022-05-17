@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -207,7 +208,11 @@ func handleList(ctx context.Context, w http.ResponseWriter, manager IModelDispat
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
+	key := manager.KeywordPlural()
+	if consts.GetDataResp() {
+		key = "data"
+	}
+	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, key))
 }
 
 func fetchContextIds(segs []string, params map[string]string) ([]SResourceContext, []string) {
@@ -260,7 +265,7 @@ func headHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 func sendJSON(ctx context.Context, w http.ResponseWriter, result jsonutils.JSONObject, keyword string) {
 	appParams := appsrv.AppContextGetParams(ctx)
 	var body jsonutils.JSONObject
-	if appParams != nil && appParams.OverrideResponseBodyWrapper {
+	if consts.GetDataResp() || appParams != nil && appParams.OverrideResponseBodyWrapper {
 		body = result
 	} else {
 		body = wrapBody(result, keyword)
@@ -335,7 +340,10 @@ func handleCreate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
-		appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
+		if !consts.GetDataResp() {
+			result = wrapBody(result, manager.Keyword())
+		}
+		appsrv.SendJSON(w, result)
 	} else {
 		results, err := manager.BatchCreate(ctx, query, data, int(count), ctxIds)
 		if err != nil {
@@ -349,7 +357,11 @@ func handleCreate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 			res.Add(results[i].Data, "body")
 			ret.Add(res)
 		}
-		appsrv.SendJSON(w, wrapBody(ret, manager.KeywordPlural()))
+		key := manager.KeywordPlural()
+		if consts.GetDataResp() {
+			key = "data"
+		}
+		appsrv.SendJSON(w, wrapBody(ret, key))
 	}
 }
 
