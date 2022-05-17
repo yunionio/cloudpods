@@ -15,6 +15,7 @@
 package backupstorage
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -31,8 +32,8 @@ type IBackupStorage interface {
 	IsExists(backupId string) (bool, error)
 	ConvertTo(destPath string, format qemuimg.TImageFormat, backupId string) error
 	ConvertFrom(srcPath string, format qemuimg.TImageFormat, backupId string) (int, error)
-	InstancePack(packageName string, backupIds []string, metadata *api.InstanceBackupPackMetadata) error
-	InstanceUnpack(packageName string) ([]string, *api.InstanceBackupPackMetadata, error)
+	InstancePack(ctx context.Context, packageName string, backupIds []string, metadata *api.InstanceBackupPackMetadata) (string, error)
+	InstanceUnpack(ctx context.Context, packageName string, metadataOnly bool) ([]string, *api.InstanceBackupPackMetadata, error)
 	IsOnline() (bool, string, error)
 }
 

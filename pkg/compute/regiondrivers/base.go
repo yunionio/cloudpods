@@ -504,6 +504,6 @@ func (self *SBaseRegionDriver) RequestSyncBackupStorageStatus(ctx context.Contex
 func (self *SBaseRegionDriver) RequestPackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestPackInstanceBackup")
 }
-func (self *SBaseRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string) error {
+func (self *SBaseRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string, metadataOnly bool) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestUnpackInstanceBackup")
 }

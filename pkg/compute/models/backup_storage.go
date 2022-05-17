@@ -92,7 +92,6 @@ func (bs *SBackupStorageManager) ValidateCreateData(ctx context.Context, userCre
 		if input.NfsSharedDir == "" {
 			return input, httperrors.NewInputParameterError("nfs_shared_dir is required when storage type is nfs")
 		}
-
 	}
 	return input, nil
 }

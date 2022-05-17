@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -36,6 +36,8 @@ type DiskCreateOptions struct {
 	TaskNotify bool     `help:"Setup task notify"`
 	SnapshotId string   `help:"snapshot id"`
 	BackupId   string   `help:"backupid"`
+
+	Project string `help:"owner project"`
 }
 
 func (o DiskCreateOptions) Params() (*api.DiskCreateInput, error) {
@@ -64,6 +66,7 @@ func (o DiskCreateOptions) Params() (*api.DiskCreateInput, error) {
 	}
 	params.Description = o.Desc
 	params.Name = o.NAME
+	params.ProjectId = o.Project
 	if o.Storage != "" {
 		params.Storage = o.Storage
 	}

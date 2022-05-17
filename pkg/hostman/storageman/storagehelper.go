@@ -83,6 +83,7 @@ type SStorageUnpackInstanceBackup struct {
 	PackageName             string
 	BackupStorageId         string
 	BackupStorageAccessInfo *jsonutils.JSONDict
+	MetadataOnly            *bool
 }
 
 type SStorageSaveToGlanceInfo struct {

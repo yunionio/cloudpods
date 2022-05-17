@@ -51,13 +51,41 @@ func (self *InstanceBackupUnpackTask) taskSuccess(ctx context.Context, ib *model
 
 func (self *InstanceBackupUnpackTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	ib := obj.(*models.SInstanceBackup)
+	ib.SetStatus(self.UserCred, compute.INSTANCE_BACKUP_STATUS_CREATING_FROM_PACKAGE, "")
 	packageName, _ := self.GetParams().GetString("package_name")
-	self.SetStage("OnUnpackComplete", nil)
-	err := ib.GetRegionDriver().RequestUnpackInstanceBackup(ctx, ib, self, packageName)
+	// fetch metadata first
+	self.SetStage("OnUnpackMetadata", nil)
+	err := ib.GetRegionDriver().RequestUnpackInstanceBackup(ctx, ib, self, packageName, true)
 	if err != nil {
 		self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
 		return
 	}
+}
+
+func (self *InstanceBackupUnpackTask) OnUnpackMetadata(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
+	metadata := &compute.InstanceBackupPackMetadata{}
+	err := data.Unmarshal(metadata, "metadata")
+	if err != nil {
+		self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
+		return
+	}
+	_, err = ib.FillFromPackMetadata(ctx, self.GetUserCred(), nil, metadata)
+	if err != nil {
+		self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
+		return
+	}
+	packageName, _ := self.GetParams().GetString("package_name")
+	// fetch full backup info, including disks
+	self.SetStage("OnUnpackComplete", nil)
+	err = ib.GetRegionDriver().RequestUnpackInstanceBackup(ctx, ib, self, packageName, false)
+	if err != nil {
+		self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
+		return
+	}
+}
+
+func (self *InstanceBackupUnpackTask) OnUnpackMetadataFailed(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
+	self.taskFailed(ctx, ib, data)
 }
 
 func (self *InstanceBackupUnpackTask) OnUnpackComplete(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {

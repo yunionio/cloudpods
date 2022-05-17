@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	compute_options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/sparsefile"
 )
@@ -213,7 +214,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.DiskCreateOptions{}, "disk-create", "Create a virtual disk", func(s *mcclient.ClientSession, args *options.DiskCreateOptions) error {
+	R(&compute_options.DiskCreateOptions{}, "disk-create", "Create a virtual disk", func(s *mcclient.ClientSession, args *compute_options.DiskCreateOptions) error {
 		params, err := args.Params()
 		if err != nil {
 			return err
