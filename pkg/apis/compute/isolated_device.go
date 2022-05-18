@@ -97,6 +97,7 @@ type IsolatedDeviceReservedResourceInput struct {
 type IsolatedDeviceUpdateInput struct {
 	apis.StandaloneResourceBaseUpdateInput
 	IsolatedDeviceReservedResourceInput
+	DevType string `json:"dev_type"`
 }
 
 type IsolatedDeviceJsonDesc struct {
