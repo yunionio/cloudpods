@@ -481,6 +481,7 @@ func (manager *SGuestManager) ListItemFilter(
 
 	devTypeQ := func(q *sqlchemy.SQuery, checkType *bool, dType string) *sqlchemy.SQuery {
 		if checkType != nil {
+			conditions := []sqlchemy.ICondition{}
 			isodev := IsolatedDeviceManager.Query().SubQuery()
 			sgq := isodev.Query(isodev.Field("guest_id")).
 				Filter(sqlchemy.AND(
@@ -490,7 +491,12 @@ func (manager *SGuestManager) ListItemFilter(
 			if *checkType {
 				cond = sqlchemy.In
 			}
-			return q.Filter(cond(q.Field("id"), sgq))
+			if dType == "GPU" {
+				sq := ServerSkuManager.Query("name").GT("gpu_count", 0).Distinct().SubQuery()
+				conditions = append(conditions, cond(q.Field("instance_type"), sq))
+			}
+			conditions = append(conditions, cond(q.Field("id"), sgq))
+			return q.Filter(sqlchemy.OR(conditions...))
 		}
 		return q
 	}
