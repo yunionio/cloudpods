@@ -142,7 +142,7 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
 	if input.DevType == "" {
 		return input, httperrors.NewNotEmptyError("dev_type is empty")
 	}
-	if !utils.IsInStringArray(input.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE, api.NIC_TYPE}) {
+	if !utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
 		return input, httperrors.NewInputParameterError("device type %q not supported", input.DevType)
 	}
 
@@ -201,6 +201,14 @@ func (self *SIsolatedDevice) ValidateUpdateData(
 	}
 	if input.ReservedStorage != nil && *input.ReservedStorage < 0 {
 		return input, httperrors.NewInputParameterError("reserved storage must >= 0")
+	}
+	if input.DevType != "" {
+		if !utils.IsInStringArray(input.DevType, api.VALID_GPU_TYPES) {
+			return input, httperrors.NewInputParameterError("device type %q not support update", input.DevType)
+		}
+		if !self.IsGPU() {
+			return input, httperrors.NewInputParameterError("Can't update for device %q", self.DevType)
+		}
 	}
 	return input, nil
 }
