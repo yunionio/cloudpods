@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -48,12 +49,15 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	hostRows := manager.SHostResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	guestIds := make([]string, len(objs))
+	guests := make([]SGuest, len(objs))
 	for i := range objs {
 		rows[i] = api.ServerDetails{
 			VirtualResourceDetails: virtRows[i],
 			HostResourceInfo:       hostRows[i],
 		}
-		guestIds[i] = objs[i].(*SGuest).GetId()
+		guest := objs[i].(*SGuest)
+		guestIds[i] = guest.GetId()
+		guests[i] = *guest
 	}
 
 	if len(fields) == 0 || fields.Contains("disk") {
@@ -199,6 +203,14 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 					if len(fields) == 0 || fields.Contains("is_gpu") {
 						rows[i].IsGpu = false
 					}
+				}
+			}
+		}
+		instanceTypes := fetchGuestGpuInstanceTypes(guestIds)
+		if len(instanceTypes) > 0 {
+			for i := range rows {
+				if utils.IsInStringArray(guests[i].InstanceType, instanceTypes) {
+					rows[i].IsGpu = true
 				}
 			}
 		}
@@ -634,6 +646,19 @@ func fetchGuestKeypairs(guestIds []string) map[string]sGuestKeypair {
 		ret[gkps[i].GuestId] = gkps[i]
 	}
 	return ret
+}
+
+func fetchGuestGpuInstanceTypes(guestIds []string) []string {
+	sq := GuestManager.Query("instance_type").In("id", guestIds).SubQuery()
+	q := ServerSkuManager.Query("name").In("name", sq).GT("gpu_count", 0).Distinct()
+	instanceTypes := []string{}
+	skus, _ := q.AllStringMap()
+	for i := range skus {
+		for _, v := range skus[i] {
+			instanceTypes = append(instanceTypes, v)
+		}
+	}
+	return instanceTypes
 }
 
 func fetchGuestIsolatedDevices(guestIds []string) map[string][]api.SIsolatedDevice {
