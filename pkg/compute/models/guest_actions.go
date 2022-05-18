@@ -3699,7 +3699,11 @@ func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient
 	}
 
 	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
-	return nil, err
+	if err != nil {
+		return nil, err
+	}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SET_EXPIRED_TIME, input, userCred, true)
+	return nil, nil
 }
 
 func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
