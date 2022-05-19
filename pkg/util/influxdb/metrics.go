@@ -50,10 +50,12 @@ func (m *SMetricData) Line() string {
 
 	line := strings.Builder{}
 	line.WriteString(m.Name)
+	keys := map[string]bool{}
 	for i := range m.Tags {
-		if len(m.Tags[i].Key) > 0 && len(m.Tags[i].Value) > 0 {
+		if _, ok := keys[m.Tags[i].Key]; !ok && len(m.Tags[i].Key) > 0 && len(m.Tags[i].Value) > 0 {
 			line.WriteByte(',')
 			line.WriteString(m.Tags[i].String())
+			keys[m.Tags[i].Key] = true
 		}
 	}
 	line.WriteByte(' ')
