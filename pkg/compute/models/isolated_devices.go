@@ -186,7 +186,7 @@ func (self *SIsolatedDevice) ValidateUpdateData(
 	if input.ReservedStorage != nil && *input.ReservedStorage < 0 {
 		return input, httperrors.NewInputParameterError("reserved storage must >= 0")
 	}
-	if input.DevType != "" {
+	if input.DevType != "" && input.DevType != self.DevType {
 		if !utils.IsInStringArray(input.DevType, api.VALID_GPU_TYPES) {
 			return input, httperrors.NewInputParameterError("device type %q not support update", input.DevType)
 		}
