@@ -636,7 +636,7 @@ func cloudproviderRunfunc(ctx context.Context, factory ICloudReportFactory, prov
 	session *mcclient.ClientSession) {
 	opt := o.Options
 	group, _ := errgroup.WithContext(ctx)
-	for i, _ := range ResMonTypeList {
+	for i := range ResMonTypeList {
 		resType := ResMonTypeList[i]
 		group.Go(func() error {
 			log.Errorf("cloudprovider: %s,operator: %s start report().", provider.Name, resType)
@@ -658,7 +658,8 @@ func CustomizeRunFunc(ctx context.Context, factory ICloudReportFactory, provider
 	opt := o.Options
 	err := factory.NewCloudReport(provider, session, &opt.ReportOptions, "").Report()
 	if err != nil {
-		log.Errorf("provider: %s report metric err: %v", provider.Name, err)
+		// provider maybe nil
+		log.Errorf("provider: %v report metric err: %v", provider, err)
 		return
 	}
 	log.Errorf("operator: %s report() end.", factory.GetId())
