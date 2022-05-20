@@ -27,6 +27,6 @@ const (
 )
 
 const (
-	CACHED_IMAGE_REFRESH_SECONDS                  = 900   // 15 minutes
+	CACHED_IMAGE_REFRESH_SECONDS                  = 1     // 1 second
 	CACHED_IMAGE_REFERENCE_SESSION_EXPIRE_SECONDS = 86400 // 1 day
 )
