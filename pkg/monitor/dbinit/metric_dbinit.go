@@ -164,6 +164,12 @@ func init() {
 			newMetricFieldCreateInput("write_bytes", "Bytes write", monitor.METRIC_UNIT_BYTE, 6),
 		})
 
+	// vm_disk
+	RegistryMetricCreateInput("vm_disk", "Guest disk", monitor.METRIC_RES_TYPE_GUEST,
+		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Used vm disk rate", monitor.METRIC_UNIT_PERCENT, 1),
+		})
+
 	// vm_mem
 	RegistryMetricCreateInput("vm_mem", "Guest memory", monitor.METRIC_RES_TYPE_GUEST,
 		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
