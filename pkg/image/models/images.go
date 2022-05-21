@@ -1030,7 +1030,8 @@ func (self *SImage) newSubformat(ctx context.Context, format qemuimg.TImageForma
 		subformat.Size = self.Size
 		subformat.Checksum = self.Checksum
 		subformat.FastHash = self.FastHash
-		subformat.Status = self.Status
+		// saved successfully
+		subformat.Status = api.IMAGE_STATUS_ACTIVE
 		subformat.Location = self.Location
 	} else {
 		subformat.Status = api.IMAGE_STATUS_QUEUED
@@ -1880,6 +1881,7 @@ func (img *SImage) doConvert(ctx context.Context, userCred mcclient.TokenCredent
 				if err != nil {
 					return false, errors.Wrap(err, "cleanup sub image")
 				}
+				continue
 			}
 			subimgs[i].checkStatus(true, false)
 			if subimgs[i].Status != api.IMAGE_STATUS_ACTIVE {
@@ -1888,7 +1890,7 @@ func (img *SImage) doConvert(ctx context.Context, userCred mcclient.TokenCredent
 		}
 	}
 	log.Debugf("doConvert imageStatus %s %v", img.Status, needConvert)
-	if (img.Status == api.IMAGE_STATUS_SAVED || img.Status == api.IMAGE_STATUS_ACTIVE) && needConvert {
+	if (img.Status == api.IMAGE_STATUS_SAVED || img.Status == api.IMAGE_STATUS_ACTIVE || img.Status == api.IMAGE_STATUS_PROBING) && needConvert {
 		err := img.migrateSubImage(ctx)
 		if err != nil {
 			return false, errors.Wrap(err, "migrateSubImage")
