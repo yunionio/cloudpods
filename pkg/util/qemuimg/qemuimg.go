@@ -117,6 +117,33 @@ func (img *SQemuImage) parse() error {
 	if err != nil {
 		return err
 	}
+	/*
+	   {
+	       "virtual-size": 107374182400,
+	       "filename": "/opt/cloud/workspace/data/glance/images/3ccecd2b-0ab4-4525-8e64-6f1d3c3a2457",
+	       "cluster-size": 65536,
+	       "format": "vmdk",
+	       "actual-size": 2173186048,
+	       "format-specific": {
+	           "type": "vmdk",
+	           "data": {
+	               "cid": 3046516340,
+	               "parent-cid": 4294967295,
+	               "create-type": "streamOptimized",
+	               "extents": [
+	                   {
+	                       "compressed": true,
+	                       "virtual-size": 107374182400,
+	                       "filename": "/opt/cloud/workspace/data/glance/images/3ccecd2b-0ab4-4525-8e64-6f1d3c3a2457",
+	                       "cluster-size": 65536,
+	                       "format": ""
+	                   }
+	               ]
+	           }
+	       },
+	       "dirty-flag": false
+	   }
+	*/
 
 	info := struct {
 		VirtualSizeBytes      int64  `json:"virtual-size"`
@@ -131,6 +158,16 @@ func (img *SQemuImage) parse() error {
 		FormatSpecific        struct {
 			Type string `json:"type"`
 			Data struct {
+				Cid        uint64 `json:"cid"`
+				ParentCid  uint64 `json:"parent-cid"`
+				CreateType string `json:"create-type"`
+				Extents    []struct {
+					Compressed  bool   `json:"compressed"`
+					VirtualSize uint64 `json:"virtual-size"`
+					Filename    string `json:"filename"`
+					ClusterSize uint64 `json:"cluster-size"`
+					Format      string `json:"format"`
+				} `json:"extents"`
 				Compat        string `json:"compat"`
 				LazyRefcounts int    `json:"lazy-refcounts"`
 				RefcountBits  int    `json:"refcount-bits"`
@@ -163,6 +200,9 @@ func (img *SQemuImage) parse() error {
 		return errors.Wrap(err, "ParseQemuFilepath")
 	}
 	img.Subformat = info.CreateType
+	if img.Subformat == "" {
+		img.Subformat = info.FormatSpecific.Data.CreateType
+	}
 
 	if img.Encrypted {
 		img.EncryptFormat = TEncryptFormat(info.FormatSpecific.Data.Encrypt.Format)
