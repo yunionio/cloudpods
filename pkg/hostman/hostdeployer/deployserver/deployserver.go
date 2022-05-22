@@ -156,6 +156,9 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 
 	root, err := disk.MountRootfs()
 	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return new(deployapi.Empty), nil
+		}
 		return new(deployapi.Empty), errors.Wrapf(err, "disk.MountRootfs")
 	}
 	if !root.IsResizeFsPartitionSupport() {
@@ -214,49 +217,47 @@ func (*DeployerServer) SaveToGlance(ctx context.Context, req *deployapi.SaveToGl
 	}
 	defer kvmDisk.Cleanup()
 
-	err = kvmDisk.Connect()
-	if err != nil {
-		log.Errorf("failed connect kvm disk %#v: %s", apiDiskInfo(req.DiskInfo), err)
-	} else {
-		defer kvmDisk.Disconnect()
-
-		err = func() error {
-			var err error
-			root, err := kvmDisk.MountKvmRootfs()
-			if err == nil {
-				defer kvmDisk.UmountKvmRootfs(root)
-
-				osInfo = root.GetOs()
-				relInfo = root.GetReleaseInfo(root.GetPartition())
-				if req.Compress {
-					err = root.PrepareFsForTemplate(root.GetPartition())
-					if err != nil {
-						log.Errorf("PrepareFsForTemplate %s", err)
-					}
-				}
-				if req.Compress {
-					kvmDisk.Zerofree()
-				}
-			} else if errors.Cause(err) == errors.ErrNotFound {
-				// ignore no partition error
-				err = nil
-			} else {
-				log.Errorf("SaveToGlance: MountKvmRootfs fail: %s", err)
-			}
-			return err
-		}()
-	}
-
-	return &deployapi.SaveToGlanceResponse{
+	ret := &deployapi.SaveToGlanceResponse{
 		OsInfo:      osInfo,
 		ReleaseInfo: relInfo,
-	}, err
+	}
+
+	err = kvmDisk.Connect()
+	if err != nil {
+		return ret, errors.Wrapf(err, "kvmDisk.Connect %#v", apiDiskInfo(req.DiskInfo))
+	}
+	defer kvmDisk.Disconnect()
+
+	root, err := kvmDisk.MountKvmRootfs()
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return ret, nil
+		}
+		return ret, errors.Wrapf(err, "MountKvmRootfs")
+	}
+	defer kvmDisk.UmountKvmRootfs(root)
+
+	osInfo = root.GetOs()
+	relInfo = root.GetReleaseInfo(root.GetPartition())
+	if req.Compress {
+		err = root.PrepareFsForTemplate(root.GetPartition())
+		if err != nil {
+			log.Errorf("PrepareFsForTemplate %s", err)
+		}
+	}
+	if req.Compress {
+		kvmDisk.Zerofree()
+	}
+	return ret, err
 }
 
 func (*DeployerServer) getImageInfo(kvmDisk *diskutils.SKVMGuestDisk) (*deployapi.ImageInfo, error) {
 	// Fsck is executed during mount
 	rootfs, err := kvmDisk.MountKvmRootfs()
 	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return new(deployapi.ImageInfo), nil
+		}
 		return new(deployapi.ImageInfo), errors.Wrapf(err, "kvmDisk.MountKvmRootfs")
 	}
 	partition := rootfs.GetPartition()
