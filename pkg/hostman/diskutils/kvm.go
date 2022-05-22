@@ -86,6 +86,7 @@ func (d *SKVMGuestDisk) MountRootfs() (fsdriver.IRootFsDriver, error) {
 func (d *SKVMGuestDisk) MountKvmRootfs() (fsdriver.IRootFsDriver, error) {
 	return d.mountKvmRootfs(false)
 }
+
 func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) (fsdriver.IRootFsDriver, error) {
 	partitions := d.deployer.GetPartitions()
 	errs := []error{}
@@ -108,7 +109,7 @@ func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) (fsdriver.IRootFsDriver, e
 	if len(partitions) == 0 {
 		return nil, errors.Wrap(errors.ErrNotFound, "not found any partition")
 	}
-	return nil, errors.NewAggregate(errs)
+	return nil, errors.Wrapf(errors.ErrNotFound, errors.NewAggregate(errs).Error())
 }
 
 func (d *SKVMGuestDisk) MountKvmRootfsReadOnly() (fsdriver.IRootFsDriver, error) {
