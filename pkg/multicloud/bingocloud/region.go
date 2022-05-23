@@ -16,7 +16,7 @@ package bingocloud
 
 import (
 	"fmt"
-
+	"strconv"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -41,6 +41,8 @@ type SRegion struct {
 	Hypervisor     string
 	NetworkMode    string
 	RegionEndpoint string
+
+	iskus []cloudprovider.ICloudSku
 }
 
 func (self *SRegion) GetId() string {
@@ -172,4 +174,85 @@ func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}
+
+func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	iStores := make([]cloudprovider.ICloudStorage, 0)
+
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		iZoneStores, err := izones[i].GetIStorages()
+		if err != nil {
+			return nil, err
+		}
+		iStores = append(iStores, iZoneStores...)
+	}
+	return iStores, nil
+}
+
+func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		istore, err := izones[i].GetIStorageById(id)
+		if err == nil {
+			return istore, nil
+		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
+	instance, err := self.GetInstance(instanceId)
+	if err != nil {
+		return "", err
+	}
+	return instance.InstancesSet.InstanceState.Name, nil
+}
+
+func (self *SRegion) GetMatchInstanceTypes(cpu int, memMB int, gpu int, zoneId string) ([]SInstanceType, error) {
+	instanceTypes, err := self.GetInstanceTypes(zoneId)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]SInstanceType, 0)
+	for _, t := range instanceTypes {
+		// cpu & mem & disk都匹配才行
+		if t.CPU == strconv.Itoa(cpu) && t.memoryMB() == memMB {
+			ret = append(ret, t)
+		}
+	}
+	return ret, nil
+
+}
+
+func (self *SRegion) GetISkus() ([]cloudprovider.ICloudSku, error) {
+	return self.GetSkus("")
+}
+
+func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+	if self.iskus != nil {
+		return self.iskus, nil
+	}
+
+	ret := make([]cloudprovider.ICloudSku, 0)
+	instanceTypes, err := self.GetInstanceTypes(zoneId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetInstanceTypes")
+	}
+
+	for i := range instanceTypes {
+		ret = append(ret, &instanceTypes[i])
+	}
+
+	self.iskus = ret
+	return ret, nil
 }

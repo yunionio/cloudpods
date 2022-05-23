@@ -15,7 +15,9 @@
 package bingocloud
 
 import (
+	"fmt"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -57,7 +59,9 @@ func (self *SStorage) GetId() string {
 }
 
 func (self *SStorage) GetGlobalId() string {
-	return self.GetId()
+	return fmt.Sprintf("%s-%s-%s-%s",
+		self.cluster.region.client.cpcfg.Id, self.cluster.GetGlobalId(), self.StorageType, self.StorageId)
+	//return self.GetId()
 }
 
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {

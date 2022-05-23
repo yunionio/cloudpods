@@ -15,6 +15,7 @@
 package bingocloud
 
 import (
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -102,4 +103,35 @@ func (self *SRegion) GetClusters() ([]SCluster, error) {
 	}
 	ret := []SCluster{}
 	return ret, resp.Unmarshal(&ret, "clusterSet")
+}
+
+func (self *SCluster) GetIWires() ([]cloudprovider.ICloudWire, error) {
+	vpcs, err := self.region.GetVpcs("")
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudWire{}
+	for i := range vpcs {
+		vpcs[i].region = self.region
+		wire := &SWire{
+			vpc:     &vpcs[i],
+			cluster: self,
+		}
+		ret = append(ret, wire)
+	}
+	return ret, nil
+}
+
+func (self *SCluster) getNetworkById(networkId string) *SNetwork {
+	iwires, _ := self.GetIWires()
+	log.Debugf("Search in wires %d", len(iwires))
+	for i := 0; i < len(iwires); i += 1 {
+		log.Debugf("Search in wire %s", iwires[i].GetName())
+		wire := iwires[i].(*SWire)
+		net := wire.getNetworkById(networkId)
+		if net != nil {
+			return net
+		}
+	}
+	return nil
 }

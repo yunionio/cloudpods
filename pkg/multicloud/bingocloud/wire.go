@@ -16,7 +16,7 @@ package bingocloud
 
 import (
 	"fmt"
-
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -91,4 +91,20 @@ func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
 		ret = append(ret, wire)
 	}
 	return ret, nil
+}
+
+func (self *SWire) getNetworkById(networkId string) *SNetwork {
+	networks, err := self.GetINetworks()
+	if err != nil {
+		return nil
+	}
+	log.Debugf("search for networks %d", len(networks))
+	for i := 0; i < len(networks); i += 1 {
+		log.Debugf("search %s", networks[i].GetName())
+		network := networks[i].(*SNetwork)
+		if network.SubnetId == networkId {
+			return network
+		}
+	}
+	return nil
 }

@@ -150,7 +150,7 @@ func setItemToArray(obj jsonutils.JSONObject) jsonutils.JSONObject {
 					item, _ := vDict.Get("item")
 					_, ok := item.(*jsonutils.JSONArray)
 					if !ok {
-						if k != "instancesSet" {
+						if k != "instancesSet" && k != "snapshotSet" {
 							item = setItemToArray(item)
 							objDict.Set(k, jsonutils.NewArray(item))
 						} else {

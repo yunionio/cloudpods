@@ -15,7 +15,10 @@
 package bingocloud
 
 import (
+	"fmt"
 	"strings"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/billing"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -151,8 +154,47 @@ func (self *SNode) GetNodeType() string {
 	return api.HOST_TYPE_BINGO_CLOUD
 }
 
+func (self *SNode) GetInstanceById(instanceId string) (*SInstance, error) {
+	instance, err := self.cluster.region.GetInstance(instanceId)
+	if err != nil {
+		return nil, err
+	}
+
+	instance.node = self
+	return instance, nil
+}
+
+// CreateVM 创建虚拟机
+//{
+//    "Tag.1.Key":"测试",
+//    "Action":"RunInstances",
+//    "MaxCount":"1",
+//    "SubnetId":"subnet-A4798336",
+//    "RootDevicePersistent":"true",
+//    "InstanceName":"我的 Demo 实例",
+//    "VpcId":"vpc-D37DF705",
+//    "OwnerId":"zhouqifeng",
+//    "Version":"2011-11-01",
+//    "Tag.1.Value":"test",
+//    "ImageId":"ami-03F1FC93",
+//    "InstanceType":"m1.small",
+//    "MinCount":"1",
+//    "SecurityGroup.1":"default"
+//}
 func (self *SNode) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vmId, err := self._createVM(desc.Name, desc.Hostname, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB,
+		desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password,
+		desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.BillingCycle,
+		desc.ProjectId, desc.OsType, desc.Tags, desc.SPublicIpInfo)
+	if err != nil {
+		return nil, err
+	}
+	vm, err := self.GetInstanceById(strings.Trim(vmId, "\""))
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetInstanceById")
+	}
+	return vm, nil
+	//return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SNode) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
@@ -212,7 +254,8 @@ func (self *SNode) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SNode) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return self.cluster.GetIWires()
+	//return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SNode) GetSchedtags() ([]string, error) {
@@ -267,4 +310,96 @@ func (self *SCluster) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 		ret = append(ret, &nodes[i])
 	}
 	return ret, nil
+}
+
+func (self *SNode) _createVM(name, hostname string, imgId string,
+	sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string,
+	networkId string, ipAddr string, desc string, passwd string,
+	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupId string,
+	userData string, bc *billing.SBillingCycle, projectId, osType string,
+	tags map[string]string, publicIp cloudprovider.SPublicIpInfo,
+) (string, error) {
+	net := self.cluster.getNetworkById(networkId)
+	if net == nil {
+		return "", fmt.Errorf("invalid network ID %s", networkId)
+	}
+	if net.wire == nil {
+		log.Errorf("network's wire is empty")
+		return "", fmt.Errorf("network's wire is empty")
+	}
+
+	if net.wire.vpc == nil {
+		log.Errorf("wire's vpc is empty")
+		return "", fmt.Errorf("wire's vpc is empty")
+	}
+
+	var err error
+	keypair := ""
+	if len(publicKey) > 0 {
+		keypair, err = self.cluster.region.syncKeypair(publicKey)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	img, err := self.cluster.region.GetImage(imgId)
+	if err != nil {
+		log.Errorf("GetImage fail %s", err)
+		return "", err
+	}
+	if img.ImageState != "available" {
+		log.Errorf("image %s state %s", imgId, img.ImageState)
+		return "", fmt.Errorf("image not ready")
+	}
+	tmpStorages := make(map[string]cloudprovider.ICloudStorage)
+	storages, err := self.GetIStorages()
+	if err != nil {
+		log.Errorf("GetIStorages err %s", err)
+		return "", fmt.Errorf("GetIStorages err")
+	}
+	for i := range storages {
+		tmpStorages[storages[i].GetGlobalId()] = storages[i]
+	}
+	disks := make([]SDisk, len(dataDisks)+1)
+	storage, ok := tmpStorages[sysDisk.StorageExternalId]
+	if !ok {
+		log.Errorf("GetIStorages %s for sysDisk is nil", sysDisk.StorageExternalId)
+		return "", fmt.Errorf("GetIStorages err")
+	}
+
+	//系统盘
+	disks[0].Size = int(img.GetSizeGB())
+	disks[0].StorageId = storage.GetId()
+	if sysDisk.SizeGB > 0 && sysDisk.SizeGB > int(img.GetSizeGB()) {
+		disks[0].Size = sysDisk.SizeGB
+	}
+
+	//数据盘
+	for i := range dataDisks {
+		storage, ok := tmpStorages[dataDisks[i].StorageExternalId]
+		if !ok {
+			log.Errorf("GetIStorages %s for dataDisk is nil", dataDisks[i].StorageExternalId)
+			return "", fmt.Errorf("GetIStorages err")
+		}
+		disks[i+1].StorageId = storage.GetId()
+		disks[i+1].Size = dataDisks[i].SizeGB
+	}
+
+	securityGroup, err := self.cluster.region.GetISecurityGroupById(secgroupId)
+	if err != nil {
+		return "", errors.Wrap(err, "SHost.CreateVM.GetSecurityGroupDetails")
+	}
+
+	// 创建实例
+	if len(instanceType) > 0 {
+		log.Debugf("Try instancetype : %s", instanceType)
+		vmId, err := self.cluster.region.CreateInstance(name, self.NodeId, img, instanceType, networkId, securityGroup.GetName(), net.VpcId, self.cluster.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc, projectId, tags)
+		if err != nil {
+			log.Errorf("Failed for %s: %s", instanceType, err)
+			return "", err
+		} else {
+			return vmId, nil
+		}
+	}
+	return "", fmt.Errorf("%s", "Failed to create, instance type should not be empty")
 }
