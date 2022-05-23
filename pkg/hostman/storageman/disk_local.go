@@ -153,8 +153,10 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 		log.Errorf("qemuimg.NewQemuImage %s fail: %s", d.GetPath(), err)
 		return nil, err
 	}
-	if err := disk.Resize(int(sizeMb)); err != nil {
-		return nil, err
+	if disk.SizeBytes/1024/1024 < sizeMb {
+		if err := disk.Resize(int(sizeMb)); err != nil {
+			return nil, err
+		}
 	}
 	if options.HostOptions.EnableFallocateDisk {
 		// TODO
