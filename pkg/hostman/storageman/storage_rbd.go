@@ -194,6 +194,13 @@ func (s *SRbdStorage) resizeImage(pool string, name string, sizeMb uint64) error
 	if err != nil {
 		return errors.Wrapf(err, "GetImage")
 	}
+	info, err := img.GetInfo()
+	if err != nil {
+		return errors.Wrapf(err, "img.GetInfo")
+	}
+	if uint64(info.SizeByte/1024/1024) >= sizeMb {
+		return nil
+	}
 	return img.Resize(int64(sizeMb))
 }
 
