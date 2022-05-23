@@ -334,9 +334,8 @@ func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", cmdline...)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Errorf("qemu convert fail %s, output: %s", err, string(output))
 		os.Remove(destInfo.Path)
-		return err
+		return errors.Wrapf(err, "convert: %s", output)
 	}
 	return nil
 }
@@ -404,9 +403,8 @@ func convertEncrypt(srcInfo, destInfo SImageInfo, compact bool, workerOpions []s
 	output, err := cmd.Output()
 	log.Infof("XXXX qemu-img convert command: %s output: %s", cmdline, output)
 	if err != nil {
-		log.Errorf("qemu convert fail %s, output: %s", err, string(output))
 		os.Remove(destInfo.Path)
-		return err
+		return errors.Wrapf(err, "convert: %s", string(output))
 	}
 	return nil
 }
@@ -465,9 +463,8 @@ func (img *SQemuImage) convert(format TImageFormat, compact bool, password strin
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("mv", "-f", tmpPath, img.Path)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Errorf("convert move temp file error %s: %s", err, string(output))
 		os.Remove(tmpPath)
-		return errors.Wrap(err, "move")
+		return errors.Wrapf(err, "move %s", string(output))
 	}
 	img.Password = password
 	img.EncryptFormat = encryptFormat
@@ -493,9 +490,8 @@ func (img *SQemuImage) Copy(name string) (*SQemuImage, error) {
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("cp", "--sparse=always", img.Path, name)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Errorf("copy fail %s: %s", err, string(output))
 		os.Remove(name)
-		return nil, err
+		return nil, errors.Wrapf(err, "cp: %s", string(output))
 	}
 	newImg, err := NewQemuImage(name)
 	if err != nil {
@@ -604,7 +600,6 @@ func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string,
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Errorf("%v create error %s %s", args, output, err)
 		return errors.Wrapf(err, "create image failed: %s", output)
 	}
 	return img.parse()
@@ -730,8 +725,7 @@ func (img *SQemuImage) Resize(sizeMB int) error {
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Errorf("resize fail %s: %s", err, string(output))
-		return err
+		return errors.Wrapf(err, "resize: %s", string(output))
 	}
 	return img.parse()
 }
@@ -749,8 +743,7 @@ func (img *SQemuImage) Rebase(backPath string, force bool) error {
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Errorf("rebase fail %s: %s", err, string(output))
-		return err
+		return errors.Wrapf(err, "rebase %s", string(output))
 	}
 	return img.parse()
 }
@@ -777,8 +770,7 @@ func (img *SQemuImage) Fallocate() error {
 	cmd := procutils.NewCommand("fallocate", "-l", fmt.Sprintf("%dm", img.GetSizeMB()), img.Path)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Errorf("fallocate fail %s: %s", err, string(output))
-		return errors.Wrap(err, "fallocate")
+		return errors.Wrapf(err, "fallocate: %s", string(output))
 	}
 	return nil
 }
@@ -819,8 +811,7 @@ func (img *SQemuImage) Check() error {
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Errorf("rebase fail %s, output %s", err, string(output))
-		return errors.Wrap(err, "check")
+		return errors.Wrapf(err, "check: %s", string(output))
 	}
 	return nil
 }
