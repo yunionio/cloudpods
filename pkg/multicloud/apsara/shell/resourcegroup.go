@@ -60,7 +60,7 @@ func init() {
 	})
 
 	type OrganizationListOptions struct {
-		Id int
+		Id string
 	}
 
 	shellutils.R(&OrganizationListOptions{}, "organization-tree", "List organization tree", func(cli *apsara.SRegion, args *OrganizationListOptions) error {

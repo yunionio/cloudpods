@@ -197,7 +197,7 @@ func (r *SRegion) fetchMetricData(department string, name string, ns string, sin
 
 func (r *SRegion) FetchMetricData(name string, ns string, since time.Time, until time.Time) ([]jsonutils.JSONObject, error) {
 	data := make([]jsonutils.JSONObject, 0)
-	part, err := r.fetchMetricData("1", name, ns, since, until)
+	part, err := r.fetchMetricData(r.client.organizationId, name, ns, since, until)
 	if err == nil {
 		return part, nil
 	}
