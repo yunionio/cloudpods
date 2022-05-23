@@ -435,6 +435,7 @@ func (opts *SAliyunCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSON
 type SApsaraCloudAccountUpdateCredentialOptions struct {
 	SCloudAccountIdOptions
 	SAccessKeyCredential
+	OrganizationId int
 }
 
 func (opts *SApsaraCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
