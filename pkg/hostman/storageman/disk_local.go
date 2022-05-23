@@ -173,8 +173,10 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 			resizeFsInfo.EncryptAlg = string(encryptInfo.Alg)
 		}
 	}
-	if err := disk.Resize(int(sizeMb)); err != nil {
-		return nil, err
+	if disk.SizeBytes/1024/1024 < sizeMb {
+		if err := disk.Resize(int(sizeMb)); err != nil {
+			return nil, err
+		}
 	}
 	if options.HostOptions.EnableFallocateDisk {
 		// TODO
