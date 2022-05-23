@@ -98,12 +98,12 @@ func (self *SOrganizationTree) GetProject(tags []string) []SProject {
 	return ret
 }
 
-func (self *SApsaraClient) GetOrganizationTree(id int) (*SOrganizationTree, error) {
-	if id == 0 {
-		id = 1
+func (self *SApsaraClient) GetOrganizationTree(id string) (*SOrganizationTree, error) {
+	if len(id) == 0 {
+		id = "1"
 	}
 	params := map[string]string{
-		"Id": fmt.Sprintf("%d", id),
+		"Id": id,
 	}
 	resp, err := self.ascmRequest("GetOrganizationTree", params)
 	if err != nil {
@@ -118,7 +118,7 @@ func (self *SApsaraClient) GetOrganizationTree(id int) (*SOrganizationTree, erro
 }
 
 func (self *SApsaraClient) GetOrganizationList() ([]SOrganization, error) {
-	params := map[string]string{"Id": "1"}
+	params := map[string]string{"Id": self.organizationId}
 	resp, err := self.ascmRequest("GetOrganizationList", params)
 	if err != nil {
 		return nil, err
@@ -185,7 +185,7 @@ func (self *SProject) GetTags() (map[string]string, error) {
 }
 
 func (self *SApsaraClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	tree, err := self.GetOrganizationTree(1)
+	tree, err := self.GetOrganizationTree(self.organizationId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetOrganizationTree")
 	}

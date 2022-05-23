@@ -85,6 +85,9 @@ type SCloudaccountCredential struct {
 	//秘钥key (Qcloud)
 	SecretKey string `json:"secret_key"`
 
+	// 飞天允许的最高组织id, 默认为1
+	OrganizationId int `json:"organization_id"`
+
 	// Google服务账号email (gcp)
 	GCPClientEmail string `json:"gcp_client_email"`
 	// Google服务账号project id (gcp)

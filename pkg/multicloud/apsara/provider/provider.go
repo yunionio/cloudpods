@@ -16,6 +16,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -56,6 +57,9 @@ func (self *SApsaraProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
 	}
 	output.Account = input.AccessKeyId
+	if input.OrganizationId > 0 {
+		output.Account = fmt.Sprintf("%s/%d", input.AccessKeyId, input.OrganizationId)
+	}
 	output.Secret = input.AccessKeySecret
 	if len(input.Endpoint) == 0 {
 		return output, httperrors.NewMissingParameterError("endpoint")
@@ -75,8 +79,12 @@ func (self *SApsaraProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	if len(input.AccessKeySecret) == 0 {
 		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
 	}
+	account := input.AccessKeyId
+	if input.OrganizationId > 0 {
+		account = fmt.Sprintf("%s/%d", input.AccessKeyId, input.OrganizationId)
+	}
 	output = cloudprovider.SCloudaccount{
-		Account: input.AccessKeyId,
+		Account: account,
 		Secret:  input.AccessKeySecret,
 	}
 	return output, nil
@@ -100,11 +108,15 @@ func (self *SApsaraProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 }
 
 func (self *SApsaraProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+	region := ""
+	if info.Options != nil {
+		region, _ = info.Options.GetString("default_region")
+	}
 	return map[string]string{
 		"APSARA_ACCESS_KEY": info.Account,
 		"APSARA_SECRET":     info.Secret,
 		"APSARA_ENDPOINT":   info.Url,
-		"APSARA_REGION":     "",
+		"APSARA_REGION":     region,
 	}, nil
 }
 

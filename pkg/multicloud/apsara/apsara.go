@@ -72,16 +72,21 @@ const (
 )
 
 type ApsaraClientConfig struct {
-	cpcfg        cloudprovider.ProviderConfig
-	accessKey    string
-	accessSecret string
-	debug        bool
+	cpcfg          cloudprovider.ProviderConfig
+	accessKey      string
+	accessSecret   string
+	organizationId string
+	debug          bool
 }
 
 func NewApsaraClientConfig(accessKey, accessSecret string, endpoint string) *ApsaraClientConfig {
 	cfg := &ApsaraClientConfig{
-		accessKey:    accessKey,
-		accessSecret: accessSecret,
+		accessKey:      accessKey,
+		accessSecret:   accessSecret,
+		organizationId: "1",
+	}
+	if info := strings.Split(accessKey, "/"); len(info) == 2 {
+		cfg.accessKey, cfg.organizationId = info[0], info[1]
 	}
 	return cfg
 }
@@ -414,6 +419,9 @@ func (self *SApsaraClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	subAccount := cloudprovider.SSubAccount{}
 	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.accessKey
+	if self.organizationId != "1" {
+		subAccount.Account = fmt.Sprintf("%s/%s", self.accessKey, self.organizationId)
+	}
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
