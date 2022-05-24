@@ -219,7 +219,7 @@ func (conf *config) initConfigWithDefault() error {
 		urlHolder.scheme = "http"
 		address = conf.endpoint[len("http://"):]
 	} else {
-		urlHolder.scheme = "http"
+		urlHolder.scheme = "https"
 		address = conf.endpoint
 	}
 
@@ -328,11 +328,25 @@ func DummyQueryEscape(s string) string {
 	return s
 }
 
-func (conf *config) formatUrls(bucketName, objectKey string, params map[string]string, escape bool) (requestUrl string, canonicalizedUrl string) {
+func (conf *config) requestUrl(bucket string) string {
+	urlHolder := conf.urlHolder
+	requestUrl := fmt.Sprintf("%s://%s", urlHolder.scheme, urlHolder.host)
+	if len(bucket) > 0 {
+		requestUrl = fmt.Sprintf("%s://%s.%s", urlHolder.scheme, bucket, urlHolder.host)
+	}
+	if urlHolder.scheme == "https" && urlHolder.port != 443 {
+		requestUrl += fmt.Sprintf(":%d", urlHolder.port)
+	}
+	if urlHolder.scheme == "http" && urlHolder.port != 80 {
+		requestUrl += fmt.Sprintf(":%d", urlHolder.port)
+	}
+	return requestUrl
+}
 
+func (conf *config) formatUrls(bucketName, objectKey string, params map[string]string, escape bool) (requestUrl string, canonicalizedUrl string) {
 	urlHolder := conf.urlHolder
 	if conf.cname {
-		requestUrl = fmt.Sprintf("%s://%s:%d", urlHolder.scheme, urlHolder.host, urlHolder.port)
+		requestUrl = conf.requestUrl("")
 		if conf.signature == "v4" {
 			canonicalizedUrl = "/"
 		} else {
@@ -340,14 +354,14 @@ func (conf *config) formatUrls(bucketName, objectKey string, params map[string]s
 		}
 	} else {
 		if bucketName == "" {
-			requestUrl = fmt.Sprintf("%s://%s:%d", urlHolder.scheme, urlHolder.host, urlHolder.port)
+			requestUrl = conf.requestUrl("")
 			canonicalizedUrl = "/"
 		} else {
 			if conf.pathStyle {
-				requestUrl = fmt.Sprintf("%s://%s:%d/%s", urlHolder.scheme, urlHolder.host, urlHolder.port, bucketName)
+				requestUrl = fmt.Sprintf("%s/%s", conf.requestUrl(""), bucketName)
 				canonicalizedUrl = "/" + bucketName
 			} else {
-				requestUrl = fmt.Sprintf("%s://%s.%s:%d", urlHolder.scheme, bucketName, urlHolder.host, urlHolder.port)
+				requestUrl = conf.requestUrl(bucketName)
 				if conf.signature == "v2" || conf.signature == "OBS" {
 					canonicalizedUrl = "/" + bucketName + "/"
 				} else {
