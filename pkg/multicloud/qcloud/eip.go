@@ -142,7 +142,10 @@ func (self *SEipAddress) GetAssociationType() string {
 				return instanceType
 			}
 		}
-		return api.EIP_ASSOCIATE_TYPE_UNKNOWN
+		if info := strings.Split(self.InstanceId, "-"); len(info) > 0 {
+			return info[0]
+		}
+		return self.InstanceId
 	}
 	return ""
 }
