@@ -744,6 +744,8 @@ type GuestJsonDesc struct {
 	} `json:"instance_snapshot_info"`
 
 	EncryptKeyId string `json:"encrypt_key_id,omitempty"`
+
+	IsDaemon bool `json:"is_daemon"`
 }
 
 type ServerChangeDiskStorageInput struct {
