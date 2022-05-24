@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -74,28 +73,28 @@ type SCertificate struct {
 	CertificatePublicKey  string   `json:"CertificatePublicKey"`
 }
 
-func (self *SCertificate) GetDetails() *SCertificate {
+func (self *SCertificate) GetDetails() (*SCertificate, error) {
 	if !self.detailsInitd {
 		cert, err := self.region.GetCertificate(self.GetId())
 		if err != nil {
-			log.Debugf("GetCertificate %s", err)
+			return nil, err
 		}
-
 		self.detailsInitd = true
 		self.SubjectAltName = cert.SubjectAltName
 		self.CertificatePrivateKey = cert.CertificatePrivateKey
 		self.CertificatePublicKey = cert.CertificatePublicKey
 	}
-
-	return self
+	return self, nil
 }
 
 func (self *SCertificate) GetPublickKey() string {
-	return self.GetDetails().CertificatePublicKey
+	self.GetDetails()
+	return self.CertificatePublicKey
 }
 
 func (self *SCertificate) GetPrivateKey() string {
-	return self.GetDetails().CertificatePrivateKey
+	self.GetDetails()
+	return self.CertificatePrivateKey
 }
 
 // 证书不能修改
@@ -142,11 +141,13 @@ func (self *SCertificate) GetCommonName() string {
 }
 
 func (self *SCertificate) GetSubjectAlternativeNames() string {
-	return strings.Join(self.GetDetails().SubjectAltName, ",")
+	self.GetDetails()
+	return strings.Join(self.SubjectAltName, ",")
 }
 
 func (self *SCertificate) GetFingerprint() string {
-	_fp := sha1.Sum([]byte(self.GetDetails().CertificatePublicKey))
+	self.GetDetails()
+	_fp := sha1.Sum([]byte(self.CertificatePublicKey))
 	fp := fmt.Sprintf("sha1:% x", _fp)
 	return strings.Replace(fp, " ", ":", -1)
 }
