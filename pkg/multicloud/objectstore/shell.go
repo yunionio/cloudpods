@@ -793,6 +793,26 @@ func S3Shell() {
 		return nil
 	})
 
+	type BucketObjectTempUrlOptions struct {
+		BUCKET string `help:"name of bucket"`
+		KEY    string `help:"Key of object"`
+		Method string `default:"GET" choices:"GET|PUT|POST"`
+		Hour   int64  `default:"1"`
+	}
+
+	shellutils.R(&BucketObjectTempUrlOptions{}, "object-temp-url", "Show object temp url", func(cli cloudprovider.ICloudRegion, args *BucketObjectTempUrlOptions) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		url, err := bucket.GetTempUrl(args.Method, args.KEY, time.Duration(args.Hour)*time.Hour)
+		if err != nil {
+			return err
+		}
+		fmt.Println(url)
+		return nil
+	})
+
 	type BucketObjectCopyOptions struct {
 		SRC       string `help:"name of source bucket"`
 		SRCKEY    string `help:"Key of source object"`
