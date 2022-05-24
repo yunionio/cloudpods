@@ -67,7 +67,10 @@ func (self *SEip) GetINetworkId() string {
 }
 
 func (self *SEip) GetAssociationType() string {
-	return api.EIP_ASSOCIATE_TYPE_SERVER
+	if len(self.InstanceId) > 0 {
+		return api.EIP_ASSOCIATE_TYPE_SERVER
+	}
+	return ""
 }
 
 func (self *SEip) GetAssociationExternalId() string {

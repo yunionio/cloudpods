@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,11 +35,11 @@ func init() {
 	taskman.RegisterTask(EipSyncstatusTask{})
 }
 
-func (self *EipSyncstatusTask) taskFail(ctx context.Context, eip *models.SElasticip, msg jsonutils.JSONObject) {
-	eip.SetStatus(self.UserCred, api.EIP_STATUS_UNKNOWN, msg.String())
-	db.OpsLog.LogEvent(eip, db.ACT_SYNC_STATUS, msg, self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_SYNC_STATUS, msg, self.UserCred, false)
-	self.SetStageFailed(ctx, msg)
+func (self *EipSyncstatusTask) taskFail(ctx context.Context, eip *models.SElasticip, err error) {
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_UNKNOWN, err.Error())
+	db.OpsLog.LogEvent(eip, db.ACT_SYNC_STATUS, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *EipSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -47,29 +47,25 @@ func (self *EipSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 	extEip, err := eip.GetIEip(ctx)
 	if err != nil {
-		msg := fmt.Sprintf("fail to find ieip for eip %s", err)
-		self.taskFail(ctx, eip, jsonutils.NewString(msg))
+		self.taskFail(ctx, eip, errors.Wrapf(err, "eip.GetIEip"))
 		return
 	}
 
 	err = extEip.Refresh()
 	if err != nil {
-		msg := fmt.Sprintf("fail to refresh eip status %s", err)
-		self.taskFail(ctx, eip, jsonutils.NewString(msg))
+		self.taskFail(ctx, eip, errors.Wrapf(err, "extEip.Refresh"))
 		return
 	}
 
 	err = eip.SyncWithCloudEip(ctx, self.UserCred, eip.GetCloudprovider(), extEip, nil)
 	if err != nil {
-		msg := fmt.Sprintf("fail to sync eip status %s", err)
-		self.taskFail(ctx, eip, jsonutils.NewString(msg))
+		self.taskFail(ctx, eip, errors.Wrapf(err, "SyncWithCloudEip"))
 		return
 	}
 
 	err = eip.SyncInstanceWithCloudEip(ctx, self.UserCred, extEip)
 	if err != nil {
-		msg := fmt.Sprintf("fail to sync eip status %s", err)
-		self.taskFail(ctx, eip, jsonutils.NewString(msg))
+		self.taskFail(ctx, eip, errors.Wrapf(err, "SyncInstanceWithCloudEip"))
 		return
 	}
 
