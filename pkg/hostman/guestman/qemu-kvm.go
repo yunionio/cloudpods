@@ -299,6 +299,10 @@ func (s *SKVMGuestInstance) IsDirtyShotdown() bool {
 	return s.GetPid() == -2
 }
 
+func (s *SKVMGuestInstance) IsDaemon() bool {
+	return jsonutils.QueryBoolean(s.Desc, "is_daemon", false)
+}
+
 func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 	hostId, _ := s.Desc.GetString("host_id")
 	var body = jsonutils.NewDict()
@@ -419,8 +423,8 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 	s.manager.SaveServer(s.Id, s)
 	s.manager.RemoveCandidateServer(s)
 
-	if s.IsDirtyShotdown() && !pendingDelete {
-		log.Infof("Server dirty shotdown %s", s.GetName())
+	if (s.IsDirtyShotdown() || s.IsDaemon()) && !pendingDelete {
+		log.Infof("Server dirty shotdown or a daemon %s", s.GetName())
 		if jsonutils.QueryBoolean(s.Desc, "is_master", false) ||
 			jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 			go s.DirtyServerRequestStart()
