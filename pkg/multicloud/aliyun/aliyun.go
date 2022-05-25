@@ -565,6 +565,9 @@ func (client *SAliyunClient) getOssClientByEndpoint(endpoint string) (*oss.Clien
 	cliOpts := []oss.ClientOption{
 		oss.HTTPClient(httpClient),
 	}
+	if !strings.HasPrefix(endpoint, "http") {
+		endpoint = "https://" + endpoint
+	}
 	cli, err := oss.New(endpoint, client.accessKey, client.accessSecret, cliOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "oss.New")
