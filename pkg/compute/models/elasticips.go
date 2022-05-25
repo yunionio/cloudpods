@@ -88,12 +88,12 @@ type SElasticip struct {
 	Mode string `width:"32" charset:"ascii" get:"user" list:"user" create:"optional"`
 
 	// IP地址
-	IpAddr string `width:"17" charset:"ascii" list:"user"`
+	IpAddr string `width:"17" charset:"ascii" list:"user" update:"admin"`
 
 	// 绑定资源类型
-	AssociateType string `width:"32" charset:"ascii" list:"user"`
+	AssociateType string `width:"32" charset:"ascii" list:"user" update:"admin"`
 	// 绑定资源Id
-	AssociateId string `width:"256" charset:"ascii" list:"user"`
+	AssociateId string `width:"256" charset:"ascii" list:"user" update:"admin"`
 
 	// 带宽大小
 	Bandwidth int `list:"user" create:"optional" default:"0"`
