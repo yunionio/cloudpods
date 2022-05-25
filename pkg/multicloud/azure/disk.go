@@ -172,6 +172,10 @@ func (self *SDisk) GetTags() (map[string]string, error) {
 }
 
 func (self *SDisk) GetStatus() string {
+	// 为了不统计这种磁盘挂载率, 单独设置一个状态
+	if self.Properties.DiskState == "ActiveSAS" {
+		return self.Properties.DiskState
+	}
 	status := self.Properties.ProvisioningState
 	switch status {
 	case "Updating":
