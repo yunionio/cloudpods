@@ -122,7 +122,10 @@ func (addr *SAddress) GetINetworkId() string {
 }
 
 func (addr *SAddress) GetAssociationType() string {
-	return api.EIP_ASSOCIATE_TYPE_SERVER
+	if len(addr.GetAssociationExternalId()) > 0 {
+		return api.EIP_ASSOCIATE_TYPE_SERVER
+	}
+	return ""
 }
 
 func (addr *SAddress) GetAssociationExternalId() string {

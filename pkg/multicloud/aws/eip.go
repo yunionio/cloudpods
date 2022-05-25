@@ -113,9 +113,11 @@ func (self *SEipAddress) GetAssociationType() string {
 		switch net.InterfaceType {
 		case "nat_gateway":
 			return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+		default:
+			return net.InterfaceType
 		}
 	}
-	return api.EIP_ASSOCIATE_TYPE_SERVER
+	return ""
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {

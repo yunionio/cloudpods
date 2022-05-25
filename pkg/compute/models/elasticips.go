@@ -352,13 +352,9 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 }
 
 func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
-	// ownerProjId := projectId
+	lockman.LockRawObject(ctx, manager.KeywordPlural(), region.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.KeywordPlural(), region.Id)
 
-	lockman.LockRawObject(ctx, "elasticip", region.Id)
-	defer lockman.ReleaseRawObject(ctx, "elasticip", region.Id)
-
-	// localEips := make([]SElasticip, 0)
-	// remoteEips := make([]cloudprovider.ICloudEIP, 0)
 	syncResult := compare.SyncResult{}
 
 	dbEips, err := region.GetElasticIps(provider.Id, api.EIP_MODE_STANDALONE_EIP)
@@ -490,8 +486,6 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 
 func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-
-		// self.Name = ext.GetName()
 		if bandwidth := ext.GetBandwidth(); bandwidth != 0 {
 			self.Bandwidth = bandwidth
 		}
@@ -500,6 +494,7 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 		self.Status = ext.GetStatus()
 		self.ExternalId = ext.GetGlobalId()
 		self.IsEmulated = ext.IsEmulated()
+		self.AssociateType = ext.GetAssociationType()
 
 		if chargeType := ext.GetInternetChargeType(); len(chargeType) > 0 {
 			self.ChargeType = chargeType
@@ -532,10 +527,10 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 		})
 	}
 
-	err = self.SyncInstanceWithCloudEip(ctx, userCred, ext)
-	if err != nil {
-		return errors.Wrap(err, "fail to sync associated instance of EIP")
-	}
+	//err = self.SyncInstanceWithCloudEip(ctx, userCred, ext)
+	//if err != nil {
+	//	return errors.Wrap(err, "fail to sync associated instance of EIP")
+	//}
 	syncVirtualResourceMetadata(ctx, userCred, self, ext)
 
 	// eip有绑定资源，并且绑定资源是项目资源,eip项目信息跟随绑定资源
@@ -560,6 +555,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.ManagerId = provider.Id
 	eip.CloudregionId = region.Id
 	eip.ChargeType = extEip.GetInternetChargeType()
+	eip.AssociateType = extEip.GetAssociationType()
 	if len(eip.ChargeType) == 0 {
 		eip.ChargeType = api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	}
@@ -596,10 +592,10 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		return nil, errors.Wrapf(err, "newFromCloudEip")
 	}
 
-	err = eip.SyncInstanceWithCloudEip(ctx, userCred, extEip)
-	if err != nil {
-		return nil, errors.Wrap(err, "fail to sync associated instance of EIP")
-	}
+	//err = eip.SyncInstanceWithCloudEip(ctx, userCred, extEip)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "fail to sync associated instance of EIP")
+	//}
 
 	syncVirtualResourceMetadata(ctx, userCred, &eip, extEip)
 
@@ -1738,7 +1734,7 @@ func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId
 	q3sq := manager.Query().SubQuery()
 	q3 := q3sq.Query(
 		sqlchemy.COUNT("eip_used_count", q3sq.Field("id")),
-	).Equals("mode", api.EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
+	).Equals("mode", api.EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_type")
 	q3 = manager.usageQ(scope, ownerId, q3, rangeObjs, providers, brands, cloudEnv, policyResult)
 
 	err := q1.First(&usage)

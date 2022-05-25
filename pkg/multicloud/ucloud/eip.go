@@ -157,18 +157,21 @@ func (self *SEip) GetMode() string {
 }
 
 func (self *SEip) GetAssociationType() string {
-	return api.EIP_ASSOCIATE_TYPE_SERVER
+	switch self.Resource.ResourceType {
+	case "uhost":
+		return api.EIP_ASSOCIATE_TYPE_SERVER
+	case "natgw":
+		return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+	case "ulb":
+		return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
+	default:
+		return self.Resource.ResourceType
+	}
 }
 
 // 已绑定的资源类型, 枚举值为: uhost, 云主机；natgw：NAT网关；ulb：负载均衡器；upm: 物理机; hadoophost: 大数据集群;fortresshost：堡垒机；udockhost：容器；udhost：私有专区主机；vpngw：IPSec VPN；ucdr：云灾备；dbaudit：数据库审计。
 func (self *SEip) GetAssociationExternalId() string {
-	if self.Resource.ResourceType == "uhost" {
-		return self.Resource.ResourceID
-	} else if self.Resource.ResourceType != "" {
-		log.Warningf("GetAssociationExternalId bind with %s %s.expect uhost", self.Resource.ResourceType, self.Resource.ResourceID)
-	}
-
-	return ""
+	return self.Resource.ResourceID
 }
 
 func (self *SEip) GetBandwidth() int {

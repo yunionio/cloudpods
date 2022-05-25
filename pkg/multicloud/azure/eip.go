@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -169,21 +170,28 @@ func (region *SRegion) DissociateEip(eipId string) error {
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
-	interfaceId := self.Properties.IPConfiguration.ID
-	if len(interfaceId) > 0 && strings.Index(interfaceId, "/ipConfigurations/") > 0 {
-		interfaceId = strings.Split(interfaceId, "/ipConfigurations/")[0]
-		nic, err := self.region.GetNetworkInterface(interfaceId)
-		if err != nil {
-			log.Errorf("Failt to find NetworkInterface for eip %s nic %s", self.Name, interfaceId)
-			return ""
+	if self.GetAssociationType() == api.EIP_ASSOCIATE_TYPE_SERVER {
+		info := strings.Split(self.Properties.IPConfiguration.ID, "/")
+		nic, _ := self.region.GetNetworkInterface(strings.Join(info[:len(info)-2], "/"))
+		if nic != nil {
+			return strings.ToLower(nic.Properties.VirtualMachine.ID)
 		}
-		return strings.ToLower(nic.Properties.VirtualMachine.ID)
 	}
 	return ""
 }
 
 func (self *SEipAddress) GetAssociationType() string {
-	return api.EIP_ASSOCIATE_TYPE_SERVER
+	if len(self.Properties.IPConfiguration.ID) == 0 {
+		return ""
+	}
+	if info := strings.Split(self.Properties.IPConfiguration.ID, "/"); len(info) > 7 {
+		resType := strings.ToLower(info[6])
+		if utils.IsInStringArray(resType, []string{"networkinterfaces"}) {
+			return api.EIP_ASSOCIATE_TYPE_SERVER
+		}
+		return resType
+	}
+	return ""
 }
 
 func (self *SEipAddress) GetBandwidth() int {
@@ -212,10 +220,6 @@ func (self *SEipAddress) GetIpAddr() string {
 
 func (self *SEipAddress) GetMode() string {
 	if self.IsEmulated() {
-		return api.EIP_MODE_INSTANCE_PUBLICIP
-	}
-	nic, err := self.region.GetNetworkInterface(self.Properties.IPConfiguration.ID)
-	if err == nil && len(nic.Properties.VirtualMachine.ID) > 0 {
 		return api.EIP_MODE_INSTANCE_PUBLICIP
 	}
 	return api.EIP_MODE_STANDALONE_EIP
