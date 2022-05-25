@@ -163,6 +163,8 @@ type SGuest struct {
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 
 	SshableLastState tristate.TriState `default:"false" list:"user"`
+
+	IsDaemon tristate.TriState `default:"false" list:"user" create:"optional" update:"user"`
 }
 
 // 云主机实例列表
@@ -4248,6 +4250,8 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		HostId:      host.Id,
 
 		EncryptKeyId: self.EncryptKeyId,
+
+		IsDaemon: self.IsDaemon.Bool(),
 	}
 
 	if len(self.BackupHostId) > 0 {
