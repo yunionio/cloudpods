@@ -185,7 +185,7 @@ func (self *SEipAddress) GetAssociationType() string {
 		return ""
 	}
 	if info := strings.Split(self.Properties.IPConfiguration.ID, "/"); len(info) > 7 {
-		resType := strings.ToLower(info[6])
+		resType := strings.ToLower(info[7])
 		if utils.IsInStringArray(resType, []string{"networkinterfaces"}) {
 			return api.EIP_ASSOCIATE_TYPE_SERVER
 		}
