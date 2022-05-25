@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -393,11 +394,19 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 		if len(eips[i].GetIpAddr()) == 0 {
 			continue
 		}
+		_, err := netutils.NewIPV4Addr(eips[i].GetIpAddr())
+		if err != nil {
+			continue
+		}
 		eips[i].region = region
 		ieips = append(ieips, &eips[i])
 	}
 	for i := 0; i < len(classicEips); i++ {
 		if len(classicEips[i].GetIpAddr()) == 0 {
+			continue
+		}
+		_, err := netutils.NewIPV4Addr(eips[i].GetIpAddr())
+		if err != nil {
 			continue
 		}
 		classicEips[i].region = region

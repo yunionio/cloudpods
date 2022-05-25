@@ -152,15 +152,14 @@ func (self *SEipAddress) GetMode() string {
 
 func (self *SEipAddress) GetAssociationType() string {
 	switch self.InstanceType {
-	case EIP_INSTANCE_TYPE_ECS:
+	case EIP_INSTANCE_TYPE_ECS, "NetworkInterface":
 		return api.EIP_ASSOCIATE_TYPE_SERVER
 	case EIP_INSTANCE_TYPE_NAT:
 		return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
 	case EIP_INTANNCE_TYPE_SLB:
 		return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 	default:
-		//log.Fatalf("unsupported type: %s", self.InstanceType)
-		return "unsupported"
+		return self.InstanceType
 	}
 }
 

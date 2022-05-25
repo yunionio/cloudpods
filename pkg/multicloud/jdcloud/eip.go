@@ -74,7 +74,7 @@ func (e *SEip) GetAssociationType() string {
 	case "lb":
 		return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 	default:
-		return api.EIP_ASSOCIATE_TYPE_UNKNOWN
+		return e.InstanceType
 	}
 }
 

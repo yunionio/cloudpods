@@ -100,7 +100,7 @@ func (e *SEip) GetAssociationType() string {
 	case "elb":
 		return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 	default:
-		return "unsupported"
+		return e.BindType
 	}
 }
 

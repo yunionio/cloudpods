@@ -179,8 +179,7 @@ func (self *SEipAddress) GetAssociationType() string {
 	case "network:nat_gateway":
 		return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
 	default:
-		log.Infof("eip %s associate type: %s", self.ID, port.DeviceOwner)
-		return api.EIP_ASSOCIATE_TYPE_SERVER
+		return port.DeviceOwner
 	}
 }
 
