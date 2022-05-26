@@ -24,7 +24,7 @@ type ElasticipListOptions struct {
 	Region string `help:"List eips in cloudregion"`
 
 	Usable                    *bool  `help:"List all zones that is usable"`
-	UsableEipForAssociateType string `help:"With associate id filter which eip can associate" choices:"server|natgateway"`
+	UsableEipForAssociateType string `help:"With associate id filter which eip can associate" choices:"server|natgateway|loadbalancer"`
 	UsableEipForAssociateId   string `help:"With associate type filter which eip can associate"`
 
 	options.BaseListOptions
