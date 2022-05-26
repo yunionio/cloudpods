@@ -53,6 +53,9 @@ type EipUpdateOptions struct {
 	options.BaseUpdateOptions
 
 	AutoDellocate *string `help:"enable or disable automatically dellocate when dissociate from instance" choices:"true|false"`
+	IpAddr        string
+	AssociateId   string
+	AssociateType string
 }
 
 func (opts *EipUpdateOptions) Params() (jsonutils.JSONObject, error) {
