@@ -18,8 +18,8 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -43,19 +43,25 @@ func init() {
 	modules.Register(&Parameters)
 }
 
-func (this *ParametersManager) GetGlobalSettings(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (m *ParametersManager) GetGlobalSettings(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return m.getParametersRpc(s, "global-settings", params)
+}
+
+func (m *ParametersManager) GetWidgetSettings(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return m.getParametersRpc(s, "widget-settings", params)
+}
+
+func (m *ParametersManager) getParametersRpc(s *mcclient.ClientSession, key string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	adminSession := auth.GetAdminSession(context.Background(), "", "")
 	p := jsonutils.NewDict()
 	p.Add(jsonutils.NewString("system"), "scope")
-	p.Add(jsonutils.NewString("global-settings"), "name")
-	parameters, err := this.ListInContext(adminSession, p, &identity.ServicesV3, "yunionagent")
+	p.Add(jsonutils.NewString(key), "name")
+	parameters, err := m.ListInContext(adminSession, p, &identity.ServicesV3, "yunionagent")
 	if err != nil {
 		return nil, err
 	}
-
 	if parameters.Total == 0 {
-		return nil, httperrors.NewNotFoundError("global-settings not found")
+		return nil, errors.Wrap(errors.ErrNotFound, key)
 	}
-
 	return parameters.Data[0], nil
 }
