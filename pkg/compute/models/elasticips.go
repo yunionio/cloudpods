@@ -221,6 +221,17 @@ func (manager *SElasticipManager) ListItemFilter(
 					sqlchemy.IsNullOrEmpty(q.Field("associate_id")),
 				),
 			)
+		case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+			_lb, err := validators.ValidateModel(userCred, LoadbalancerManager, &query.UsableEipForAssociateId)
+			if err != nil {
+				return nil, err
+			}
+			lb := _lb.(*SLoadbalancer)
+			q = q.Equals("cloudregion_id", lb.CloudregionId)
+			if len(lb.ManagerId) > 0 {
+				q = q.Equals("manager_id", lb.ManagerId)
+			}
+			q = q.IsNullOrEmpty("associate_type")
 		default:
 			return nil, httperrors.NewInputParameterError("Not support associate type %s, only support %s", associateType, api.EIP_ASSOCIATE_VALID_TYPES)
 		}
