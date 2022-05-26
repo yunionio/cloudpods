@@ -1920,16 +1920,21 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.Associate")
 				}
 
-				eip, err := db.FetchByExternalIdAndManagerId(models.ElasticipManager, ieip.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				_eip, err := db.FetchByExternalIdAndManagerId(models.ElasticipManager, ieip.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 					return q.Equals("manager_id", lb.ManagerId)
 				})
 				if err != nil {
 					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.FetchByExternalId")
 				}
+				eip := _eip.(*models.SElasticip)
 
-				err = eip.(*models.SElasticip).SyncWithCloudEip(ctx, userCred, lb.GetCloudprovider(), ieip, lb.GetOwnerId())
+				err = eip.SyncWithCloudEip(ctx, userCred, lb.GetCloudprovider(), ieip, lb.GetOwnerId())
 				if err != nil {
 					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SyncWithCloudEip")
+				}
+				err = eip.SyncInstanceWithCloudEip(ctx, userCred, ieip)
+				if err != nil {
+					return nil, errors.Wrapf(err, "SyncInstanceWithCloudEip")
 				}
 			}
 		}
