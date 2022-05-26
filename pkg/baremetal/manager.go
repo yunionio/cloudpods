@@ -1174,6 +1174,9 @@ func (b *SBaremetalInstance) getGrubPXEConf(isTftp bool) string {
 	}
 	// TODO: support not tftp situation
 	kernelArgs := b.getKernelArgs(isTftp, initrd)
+	if len(o.Options.NfsBootRootfs) > 0 {
+		kernelArgs = fmt.Sprintf("root=/dev/nfs nfsroot=%s rw", o.Options.NfsBootRootfs)
+	}
 	var resp string
 	endpoint, err := b.getTftpEndpoint()
 	if err != nil {

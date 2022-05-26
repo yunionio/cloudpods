@@ -55,6 +55,8 @@ type BaremetalOptions struct {
 	TftpFileMap        map[string]string `help:"map of filename to real file path for tftp"`
 	BootLoader         string            `help:"PXE boot loader" default:"grub"`
 	UseMegaRaidPerccli bool              `help:"Use MegaRAID perccli" default:"false"`
+
+	NfsBootRootfs string `help:"nfs root fs URL"`
 }
 
 const (
