@@ -180,6 +180,10 @@ func (b *SBucket) GetLimit() cloudprovider.SBucketStats {
 	return ret
 }
 
+func (b *SBucket) LimitSupport() cloudprovider.SBucketStats {
+	return b.GetLimit()
+}
+
 func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 	osscli, err := b.GetOssClient()
 	if err != nil {
