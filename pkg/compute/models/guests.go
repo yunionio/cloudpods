@@ -164,7 +164,7 @@ type SGuest struct {
 
 	SshableLastState tristate.TriState `default:"false" list:"user"`
 
-	IsDaemon tristate.TriState `default:"false" list:"user" create:"optional" update:"user"`
+	IsDaemon tristate.TriState `default:"false" list:"admin" create:"admin_optional" update:"admin"`
 }
 
 // 云主机实例列表
