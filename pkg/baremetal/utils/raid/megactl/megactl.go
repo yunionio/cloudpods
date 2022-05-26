@@ -196,7 +196,7 @@ func (dev *MegaRaidPhyDev) convertState(val string) string {
 		state = "online"
 	} else if val == "Rebuild" {
 		state = "rebuild"
-	} else if strings.Contains(strings.ToLower(val), "hotspare") {
+	} else if strings.Contains(strings.ToLower(val), "hotspare") || strings.HasPrefix(strings.ToLower(val), "hotspare") {
 		state = "hotspare"
 	} else if strings.Contains(strings.ToLower(val), "copyback") {
 		state = "copyback"
