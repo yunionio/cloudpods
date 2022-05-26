@@ -146,7 +146,7 @@ func (c *RaidInfoCollector) Start() {
 	go procutils.WaitZombieLoop(context.TODO())
 	for {
 		c.runMain()
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Minute * 1)
 	}
 }
 
