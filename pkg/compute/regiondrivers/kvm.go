@@ -195,6 +195,25 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 	if vpc.Id == api.DEFAULT_VPC_ID {
 		lbNetworkType = api.LB_NETWORK_TYPE_CLASSIC
 	}
+	eipId, _ := data.GetString("eip")
+	if len(eipId) > 0 {
+		_eip, err := validators.ValidateModel(userCred, models.ElasticipManager, &eipId)
+		if err != nil {
+			return nil, err
+		}
+		eip := _eip.(*models.SElasticip)
+		if eip.CloudregionId != region.GetId() {
+			return nil, httperrors.NewInputParameterError("lb region %s does not match eip region %s ",
+				region.GetId(), eip.CloudregionId)
+		}
+		if eip.Status != api.EIP_STATUS_READY {
+			return nil, httperrors.NewInvalidStatusError("eip %s status not ready", eip.Name)
+		}
+		if len(eip.AssociateType) > 0 {
+			return nil, httperrors.NewInvalidStatusError("eip %s alread associate %s", eip.Name, eip.AssociateType)
+		}
+		data.Set("eip_id", jsonutils.NewString(eip.Id))
+	}
 
 	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 	data.Set("zone_id", jsonutils.NewString(zone.GetId()))
@@ -773,7 +792,24 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, use
 			}
 			return nil
 		})
-		return nil, err
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.Update")
+		}
+		// bind eip
+		eipId, _ := task.GetParams().GetString("eip_id")
+		if len(eipId) > 0 {
+			_eip, err := models.ElasticipManager.FetchById(eipId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "ElasticipManager.FetchById(%s)", eipId)
+			}
+			eip := _eip.(*models.SElasticip)
+			err = eip.AssociateLoadbalancer(ctx, userCred, lb)
+			if err != nil {
+				return nil, errors.Wrapf(err, "eip.AssociateLoadbalancer")
+			}
+		}
+
+		return nil, nil
 	})
 	return nil
 }

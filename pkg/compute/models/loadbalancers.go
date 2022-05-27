@@ -699,6 +699,7 @@ func (lb *SLoadbalancer) getMoreDetails(out api.LoadbalancerDetails) (api.Loadba
 	if eip != nil {
 		out.Eip = eip.IpAddr
 		out.EipMode = eip.Mode
+		out.EipId = eip.Id
 	}
 
 	if lb.BackendGroupId != "" {
