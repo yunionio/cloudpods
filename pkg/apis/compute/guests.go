@@ -756,6 +756,8 @@ type ServerChangeDiskStorageInternalInput struct {
 	ServerChangeDiskStorageInput
 	StorageId    string `json:"storage_id"`
 	TargetDiskId string `json:"target_disk_id"`
+	DiskFormat   string `json:"disk_format"`
+	GuestRunning bool   `josn:"guest_running"`
 }
 
 type ServerSetExtraOptionInput struct {

@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
@@ -1142,7 +1143,12 @@ func (s *SGuestStreamDisksTask) startWaitBlockStream(res string) {
 func (s *SGuestStreamDisksTask) checkStreamJobs(jobs int) {
 	if jobs == 0 && s.c != nil {
 		close(s.c)
-		s.startDoBlockStream()
+		if s.streamDevs == nil {
+			s.checkBlockDrives()
+		} else {
+			s.startDoBlockStream()
+		}
+
 	}
 }
 
@@ -1505,7 +1511,7 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 	if s.index < len(disks) {
 		target := fmt.Sprintf("%s:exportname=drive_%d", s.nbdUri, s.index)
 		s.Monitor.DriveMirror(s.startMirror, fmt.Sprintf("drive_%d", s.index),
-			target, s.syncMode, true, blockReplication)
+			target, s.syncMode, "", true, blockReplication)
 		s.index += 1
 	} else {
 		if s.onSucc != nil {
@@ -1842,24 +1848,181 @@ func (task *SCancelBlockJobs) taskComplete() {
 }
 
 type SGuestStorageCloneDiskTask struct {
-	guest  *SKVMGuestInstance
+	*SKVMGuestInstance
+
+	ctx    context.Context
 	params *SStorageCloneDisk
 }
 
-func NewGuestStorageCloneDiskTask(guest *SKVMGuestInstance, params *SStorageCloneDisk) *SGuestStorageCloneDiskTask {
+func NewGuestStorageCloneDiskTask(ctx context.Context, guest *SKVMGuestInstance, params *SStorageCloneDisk) *SGuestStorageCloneDiskTask {
 	return &SGuestStorageCloneDiskTask{
-		guest:  guest,
-		params: params,
+		SKVMGuestInstance: guest,
+		ctx:               ctx,
+		params:            params,
 	}
 }
 
-func (t *SGuestStorageCloneDiskTask) Start(ctx context.Context) {
-	resp, err := t.params.TargetStorage.CloneDiskFromStorage(ctx, t.params.SourceStorage, t.params.SourceDisk, t.params.TargetDiskId)
-	if err != nil {
+func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
+	var diskIndex = -1
+	disks, _ := t.Desc.GetArray("disks")
+	for diskIndex = 0; diskIndex < len(disks); diskIndex++ {
+		diskId, _ := disks[diskIndex].GetString("disk_id")
+		if diskId == t.params.SourceDisk.GetId() {
+			break
+		}
+	}
+	if diskIndex < 0 {
 		hostutils.TaskFailed(
-			ctx,
-			errors.Wrapf(err, "Clone disk %s to storage %s", t.params.SourceDisk.GetPath(), t.params.TargetStorage.GetId()).Error())
+			t.ctx, fmt.Sprintf("failed find disk index %s", t.params.SourceDisk.GetId()),
+		)
 		return
 	}
-	hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
+
+	resp, err := t.params.TargetStorage.CloneDiskFromStorage(
+		t.ctx, t.params.SourceStorage, t.params.SourceDisk, t.params.TargetDiskId, !guestRunning)
+	if err != nil {
+		hostutils.TaskFailed(
+			t.ctx, fmt.Sprintf("Clone disk %s to storage %s failed %s",
+				t.params.SourceDisk.GetPath(), t.params.TargetStorage.GetId(), err),
+		)
+		return
+	}
+
+	targetDisk, err := t.params.TargetStorage.GetDiskById(t.params.TargetDiskId)
+	if err != nil {
+		hostutils.TaskFailed(
+			t.ctx, fmt.Sprintf("Failed get target disk %s %s", t.params.TargetDiskId, err),
+		)
+		return
+	}
+
+	if !guestRunning {
+		hostutils.TaskComplete(t.ctx, jsonutils.Marshal(resp))
+		return
+	}
+
+	onDriveMirror := func(res string) {
+		if len(res) > 0 {
+			hostutils.TaskFailed(
+				t.ctx, fmt.Sprintf("Clone disk %s to storage %s drive mirror failed %s",
+					t.params.SourceDisk.GetPath(), t.params.TargetStorage.GetId(), res),
+			)
+		} else {
+			hostutils.TaskComplete(t.ctx, jsonutils.Marshal(resp))
+			timeutils2.AddTimeout(time.Second*3, func() {
+				t.SyncStatus("drive mirror started")
+			})
+		}
+	}
+
+	t.Monitor.DriveMirror(onDriveMirror,
+		fmt.Sprintf("drive_%d", diskIndex),
+		targetDisk.GetPath(),
+		"full",
+		t.params.DiskFormat,
+		true,
+		false,
+	)
+}
+
+type SGuestLiveChangeDisk struct {
+	*SKVMGuestInstance
+
+	ctx             context.Context
+	params          *SStorageCloneDisk
+	guestNeedResume bool
+	diskIndex       int
+	targetDisk      storageman.IDisk
+}
+
+func NewGuestLiveChangeDiskTask(ctx context.Context, guest *SKVMGuestInstance, params *SStorageCloneDisk) (*SGuestLiveChangeDisk, error) {
+	disk, err := params.TargetStorage.GetDiskById(params.TargetDiskId)
+	if err != nil {
+		return nil, err
+	}
+
+	var diskIndex = -1
+	disks, _ := guest.Desc.GetArray("disks")
+	for diskIndex = 0; diskIndex < len(disks); diskIndex++ {
+		diskId, _ := disks[diskIndex].GetString("disk_id")
+		if diskId == params.SourceDisk.GetId() {
+			break
+		}
+	}
+	if diskIndex < 0 {
+		return nil, fmt.Errorf("failed found disk %s index", params.SourceDisk.GetId())
+	}
+
+	return &SGuestLiveChangeDisk{
+		SKVMGuestInstance: guest,
+		ctx:               ctx,
+		params:            params,
+		guestNeedResume:   false,
+		diskIndex:         diskIndex,
+		targetDisk:        disk,
+	}, nil
+}
+
+func (t *SGuestLiveChangeDisk) Start() {
+	// pause guest first
+	if !t.IsSuspend() {
+		t.Monitor.SimpleCommand("stop", t.onGuestPaused)
+		t.guestNeedResume = true
+	} else {
+		t.onGuestPaused("")
+	}
+}
+
+func (t *SGuestLiveChangeDisk) onGuestPaused(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		hostutils.TaskFailed(t.ctx, fmt.Sprintf("pause error: %s", res))
+		return
+	}
+
+	// register mirror block job complete event
+	var c = make(chan struct{})
+	t.blockJobTigger[t.params.SourceDisk.GetId()] = c
+	onBlockJobComplete := func(res string) {
+		select {
+		case <-c: // It's essential wait for block job complete
+			delete(t.blockJobTigger, t.params.SourceDisk.GetId())
+		case <-time.After(time.Second * 10):
+			// in case no event arrived, we must continue the guest after timeout
+			if t.guestNeedResume {
+				t.Monitor.SimpleCommand("cont", nil)
+			}
+			hostutils.TaskFailed(
+				t.ctx,
+				fmt.Sprintf("disk %s no block job complete event found",
+					t.params.SourceDisk.GetId()),
+			)
+			return
+		}
+
+		// block job completed, start reopen disk
+		log.Infof("guest %s start reopen block %s %s", t.Id, t.diskIndex, t.targetDisk.GetPath())
+		t.Monitor.BlockReopenImage(
+			fmt.Sprintf("drive_%d", t.diskIndex),
+			t.targetDisk.GetPath(),
+			t.params.DiskFormat,
+			t.onReopenImageSuccess,
+		)
+	}
+	t.Monitor.BlockJobComplete(fmt.Sprintf("drive_%d", t.diskIndex), onBlockJobComplete)
+}
+
+func (t *SGuestLiveChangeDisk) onReopenImageSuccess(res string) {
+	// resume guest first
+	if t.guestNeedResume {
+		t.Monitor.SimpleCommand("cont", nil)
+	}
+	if len(res) > 0 {
+		hostutils.TaskFailed(t.ctx, fmt.Sprintf("reopen image failed: %s", res))
+		return
+	}
+
+	resp := &hostapi.ServerCloneDiskFromStorageResponse{
+		TargetAccessPath: t.targetDisk.GetPath(),
+	}
+	hostutils.TaskComplete(t.ctx, jsonutils.Marshal(resp))
 }

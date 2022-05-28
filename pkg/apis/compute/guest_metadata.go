@@ -19,6 +19,8 @@ const (
 	MIRROR_JOB_READY  = "ready"
 	MIRROR_JOB_FAILED = "failed"
 
+	DISK_CLONE_TASK_ID = "__disk_clone_task_id"
+
 	SSH_PORT = "__ssh_port"
 )
 
