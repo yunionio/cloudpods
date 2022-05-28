@@ -4951,8 +4951,16 @@ func (self *SGuest) isInReconcile(userCred mcclient.TokenCredential) bool {
 }
 
 func (self *SGuest) IsEipAssociable() error {
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+		return errors.Wrapf(httperrors.ErrInvalidStatus, "cannot associate eip in status %s", self.Status)
+	}
+
+	err := ValidateAssociateEip(self)
+	if err != nil {
+		return errors.Wrap(err, "ValidateAssociateEip")
+	}
+
 	var eip *SElasticip
-	var err error
 	switch self.Hypervisor {
 	case api.HYPERVISOR_AWS:
 		eip, err = self.GetElasticIp()
