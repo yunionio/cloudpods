@@ -183,6 +183,8 @@ type LoadbalancerDetails struct {
 	// 公网IP地址
 	Eip string `json:"eip"`
 
+	EipId string `json:"eip_id"`
+
 	// 公网IP地址类型: 弹性、非弹性
 	// example: public_ip
 	EipMode string `json:"eip_mode"`
