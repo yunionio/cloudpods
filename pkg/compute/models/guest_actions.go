@@ -2974,16 +2974,7 @@ func (self *SGuest) SendMonitorCommand(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerAssociateEipInput) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
-		return nil, httperrors.NewInvalidStatusError("cannot associate eip in status %s", self.Status)
-	}
-
-	err := ValidateAssociateEip(self)
-	if err != nil {
-		return nil, err
-	}
-
-	err = self.IsEipAssociable()
+	err := self.IsEipAssociable()
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -3103,9 +3094,9 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		autoDellocate = (input.AutoDellocate != nil && *input.AutoDellocate)
 	)
 
-	err := ValidateAssociateEip(self)
+	err := self.IsEipAssociable()
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewGeneralError(err)
 	}
 
 	if chargeType == "" {
