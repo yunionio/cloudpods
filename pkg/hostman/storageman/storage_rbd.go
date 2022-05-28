@@ -605,17 +605,27 @@ func (s *SRbdStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId s
 	return s.GetDiskPath(targetDiskId)
 }
 
-func (s *SRbdStorage) CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
+func (s *SRbdStorage) CloneDiskFromStorage(
+	ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool,
+) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
 	srcDiskPath := srcDisk.GetPath()
 	srcImg, err := qemuimg.NewQemuImage(srcDiskPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Get source image %q info", srcDiskPath)
 	}
 	accessPath := s.GetCloneTargetDiskPath(ctx, targetDiskId)
-	_, err = srcImg.Clone(accessPath, qemuimg.RAW, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "Clone source disk to target rbd storage")
+	if fullCopy {
+		_, err = srcImg.Clone(accessPath, qemuimg.RAW, false)
+		if err != nil {
+			return nil, errors.Wrap(err, "Clone source disk to target rbd storage")
+		}
+	} else {
+		err = s.createImage(s.Pool, targetDiskId, uint64(srcImg.GetSizeMB()))
+		if err != nil {
+			return nil, errors.Wrap(err, "Create rbd image")
+		}
 	}
+
 	return &hostapi.ServerCloneDiskFromStorageResponse{
 		TargetAccessPath: accessPath,
 		TargetFormat:     qemuimg.RAW.String(),

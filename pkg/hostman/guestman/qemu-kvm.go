@@ -79,19 +79,21 @@ type SKVMGuestInstance struct {
 	QemuVersion string
 	VncPassword string
 
-	Desc        *jsonutils.JSONDict
-	Monitor     monitor.Monitor
-	manager     *SGuestManager
-	startupTask *SGuestResumeTask
-	migrateTask *SGuestLiveMigrateTask
-	stopping    bool
-	syncMeta    *jsonutils.JSONDict
+	Desc           *jsonutils.JSONDict
+	Monitor        monitor.Monitor
+	manager        *SGuestManager
+	startupTask    *SGuestResumeTask
+	migrateTask    *SGuestLiveMigrateTask
+	stopping       bool
+	syncMeta       *jsonutils.JSONDict
+	blockJobTigger map[string]chan struct{}
 }
 
 func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
 	return &SKVMGuestInstance{
-		Id:      id,
-		manager: manager,
+		Id:             id,
+		manager:        manager,
+		blockJobTigger: make(map[string]chan struct{}),
 	}
 }
 
@@ -598,49 +600,123 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func()) {
 
 func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 	switch {
-	case event.Event == `"BLOCK_JOB_READY"` && s.IsMaster():
-		if itype, ok := event.Data["type"]; ok {
-			stype, _ := itype.(string)
-			if stype == "mirror" {
-				mirrorStatus := s.MirrorJobStatus()
-				if mirrorStatus.IsSucc() {
-					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), api.VM_RUNNING, "BLOCK_JOB_READY")
-					if err != nil {
-						log.Errorf("onReceiveQMPEvent update server status error: %s", err)
-					}
-				} else if mirrorStatus.IsFailed() {
-					s.SyncMirrorJobFailed("Block job missing")
-				}
-			}
-		}
+	case event.Event == `"BLOCK_JOB_READY"`:
+		s.eventBlockJobReady(event)
 	case event.Event == `"BLOCK_JOB_ERROR"`:
 		s.SyncMirrorJobFailed("BLOCK_JOB_ERROR")
+	case event.Event == `"BLOCK_JOB_COMPLETED"`:
+		s.eventBlockJobCompleted(event)
 	case event.Event == `"GUEST_PANICKED"`:
-		// qemu runc state event source qemu/src/qapi/run-state.json
-		params := jsonutils.NewDict()
-		if action, ok := event.Data["action"]; ok {
-			sAction, _ := action.(string)
-			params.Set("action", jsonutils.NewString(sAction))
-		}
-		if info, ok := event.Data["info"]; ok {
-			params.Set("info", jsonutils.Marshal(info))
-		}
-		params.Set("event", jsonutils.NewString(strings.Trim(event.Event, "\"")))
-		modules.Servers.PerformAction(
-			hostutils.GetComputeSession(context.Background()),
-			s.GetId(), "event", params)
-		// case utils.IsInStringArray(event.Event, []string{`"SHUTDOWN"`, `"POWERDOWN"`, `"RESET"`}):
-		// 	params := jsonutils.NewDict()
-		// 	params.Set("event", jsonutils.NewString(strings.Trim(event.Event, "\"")))
-		// 	modules.Servers.PerformAction(
-		// 		hostutils.GetComputeSession(context.Background()),
-		// 		s.GetId(), "event", params)
+		s.eventGuestPaniced(event)
 	case event.Event == `"STOP"`:
 		if s.migrateTask != nil {
 			// migrating complete
 			s.migrateTask.migrateComplete()
 		}
 		hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
+	}
+}
+
+func (s *SKVMGuestInstance) eventBlockJobCompleted(event *monitor.Event) {
+	itype, ok := event.Data["type"]
+	if !ok {
+		log.Errorf("BLOCK_JOB_COMPLETED missing event type")
+		return
+	}
+	// only dealwith event type mirror
+	stype, _ := itype.(string)
+	if stype != "mirror" {
+		return
+	}
+
+	iDevice, ok := event.Data["device"]
+	if !ok {
+		return
+	}
+	device := iDevice.(string)
+	if !strings.HasPrefix(device, "drive_") {
+		return
+	}
+	disks, _ := s.Desc.GetArray("disks")
+	log.Infof("mirror job complete disk index %s", device[len("drive_"):])
+	diskIndex, err := strconv.Atoi(device[len("drive_"):])
+	if err != nil || diskIndex < 0 || diskIndex >= len(disks) {
+		log.Errorf("failed get disk from index %d", diskIndex)
+		return
+	}
+	diskId, _ := disks[diskIndex].GetString("disk_id")
+	if c, ok := s.blockJobTigger[diskId]; ok {
+		c <- struct{}{}
+	}
+}
+
+func (s *SKVMGuestInstance) eventGuestPaniced(event *monitor.Event) {
+	// qemu runc state event source qemu/src/qapi/run-state.json
+	params := jsonutils.NewDict()
+	if action, ok := event.Data["action"]; ok {
+		sAction, _ := action.(string)
+		params.Set("action", jsonutils.NewString(sAction))
+	}
+	if info, ok := event.Data["info"]; ok {
+		params.Set("info", jsonutils.Marshal(info))
+	}
+	params.Set("event", jsonutils.NewString(strings.Trim(event.Event, "\"")))
+	_, err := modules.Servers.PerformAction(
+		hostutils.GetComputeSession(context.Background()),
+		s.GetId(), "event", params)
+	if err != nil {
+		log.Errorf("Server %s send event guest paniced got error %s", s.GetId(), err)
+	}
+}
+
+func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
+	itype, ok := event.Data["type"]
+	if !ok {
+		log.Errorf("BLOCK_JOB_READY missing event type")
+		return
+	}
+	// only dealwith event type mirror
+	stype, _ := itype.(string)
+	if stype != "mirror" {
+		return
+	}
+
+	if s.IsMaster() { // has backup server
+		mirrorStatus := s.MirrorJobStatus()
+		if mirrorStatus.IsSucc() {
+			_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), api.VM_RUNNING, "BLOCK_JOB_READY")
+			if err != nil {
+				log.Errorf("onReceiveQMPEvent update server status error: %s", err)
+			}
+		} else if mirrorStatus.IsFailed() {
+			s.SyncMirrorJobFailed("Block job missing")
+		}
+	} else {
+		iDevice, ok := event.Data["device"]
+		if !ok {
+			return
+		}
+		device := iDevice.(string)
+		if !strings.HasPrefix(device, "drive_") {
+			return
+		}
+		disks, _ := s.Desc.GetArray("disks")
+		log.Infof("mirror job ready disk index %s", device[len("drive_"):])
+		diskIndex, err := strconv.Atoi(device[len("drive_"):])
+		if err != nil || diskIndex < 0 || diskIndex >= len(disks) {
+			log.Errorf("failed get disk from index %d", diskIndex)
+			return
+		}
+		diskId, _ := disks[diskIndex].GetString("disk_id")
+		params := jsonutils.NewDict()
+		params.Set("disk_id", jsonutils.NewString(diskId))
+		_, err = modules.Servers.PerformAction(
+			hostutils.GetComputeSession(context.Background()),
+			s.GetId(), "block-mirror-ready", params,
+		)
+		if err != nil {
+			log.Errorf("Server %s perform block-mirror-ready got error %s", s.GetId(), err)
+		}
 	}
 }
 
@@ -948,6 +1024,7 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 				s.SyncMirrorJobFailed("Block job missing")
 			}
 		} else {
+			// TODO: check block jobs ready
 			status = api.VM_BLOCK_STREAM
 		}
 	}

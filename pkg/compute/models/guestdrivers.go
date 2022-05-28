@@ -215,6 +215,7 @@ type IGuestDriver interface {
 	ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input *api.ServerChangeDiskStorageInput) error
 	StartChangeDiskStorageTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *api.ServerChangeDiskStorageInternalInput, parentTaskId string) error
 	RequestChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error
+	RequestSwitchToTargetStorageDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error
 
 	RequestSyncIsolatedDevice(ctx context.Context, guest *SGuest, task taskman.ITask) error
 

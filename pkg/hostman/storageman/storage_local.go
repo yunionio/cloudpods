@@ -638,14 +638,35 @@ func (s *SLocalStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId
 	return path.Join(s.GetPath(), targetDiskId)
 }
 
-func (s *SLocalStorage) CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
+func (s *SLocalStorage) CloneDiskFromStorage(
+	ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool,
+) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
 	srcDiskPath := srcDisk.GetPath()
 	srcImg, err := qemuimg.NewQemuImage(srcDiskPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Get source image %q info", srcDiskPath)
 	}
+
+	// start create target disk. if full copy is false, just create
+	// empty target disk with same size and format
 	accessPath := s.GetCloneTargetDiskPath(ctx, targetDiskId)
-	_, err = srcImg.Clone(s.GetCloneTargetDiskPath(ctx, targetDiskId), qemuimg.QCOW2, false)
+	if fullCopy {
+		_, err = srcImg.Clone(s.GetCloneTargetDiskPath(ctx, targetDiskId), qemuimg.QCOW2, false)
+	} else {
+		newImg, err := qemuimg.NewQemuImage(accessPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed new qemu image")
+		}
+
+		switch srcImg.Format {
+		case qemuimg.QCOW2:
+			err = newImg.CreateQcow2(srcImg.GetSizeMB(), false, "", "", "", "")
+		case qemuimg.RAW:
+			err = newImg.CreateRaw(srcImg.GetSizeMB())
+		default:
+			err = fmt.Errorf("unsupport format %s", srcImg.Format)
+		}
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "Clone source disk to target local storage")
 	}

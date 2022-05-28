@@ -176,7 +176,7 @@ func (self *GuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IS
 		return
 	}
 	purge := jsonutils.QueryBoolean(self.Params, "purge", false)
-	guest.StartGuestDetachdiskTask(ctx, self.UserCred, lastDisk, true, self.GetTaskId(), purge)
+	guest.StartGuestDetachdiskTask(ctx, self.UserCred, lastDisk, true, self.GetTaskId(), purge, false)
 }
 
 func (self *GuestDeleteTask) OnDiskDetachCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {

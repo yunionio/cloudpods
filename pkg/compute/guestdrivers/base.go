@@ -449,6 +449,10 @@ func (self *SBaseGuestDriver) RequestChangeDiskStorage(ctx context.Context, user
 	return cloudprovider.ErrNotImplemented
 }
 
+func (self *SBaseGuestDriver) RequestSwitchToTargetStorageDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SBaseGuestDriver) RequestSyncIsolatedDevice(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil

@@ -173,7 +173,10 @@ type Monitor interface {
 	DeviceAdd(dev string, params map[string]interface{}, callback StringCallback)
 
 	BlockStream(drive string, idx, blkCnt int, callback StringCallback)
-	DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool)
+	DriveMirror(callback StringCallback, drive, target, syncMode, format string, unmap, blockReplication bool)
+	BlockJobComplete(drive string, cb StringCallback)
+	BlockReopenImage(drive, newImagePath, format string, cb StringCallback)
+	SnapshotBlkdev(drive, newImagePath, format string, reuse bool, cb StringCallback)
 
 	MigrateSetDowntime(dtSec float32, callback StringCallback)
 	MigrateSetCapability(capability, state string, callback StringCallback)
