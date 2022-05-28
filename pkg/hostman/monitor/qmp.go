@@ -173,10 +173,12 @@ func (m *QmpMonitor) read(r io.Reader) {
 	for scanner.Scan() {
 		var objmap map[string]*json.RawMessage
 		b := scanner.Bytes()
-		log.Infof("QMP Read %s: %s", m.server, string(b))
 		if err := json.Unmarshal(b, &objmap); err != nil {
 			log.Errorf("Unmarshal %s error: %s", m.server, err.Error())
 			continue
+		}
+		if val, ok := objmap["event"]; !ok || !utils.IsInStringArray(string(*val), ignoreEvents) {
+			log.Infof("QMP Read %s: %s", m.server, string(b))
 		}
 		if val, ok := objmap["error"]; ok {
 			var res = &Response{}
