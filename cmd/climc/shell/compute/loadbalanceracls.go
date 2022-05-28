@@ -20,7 +20,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
@@ -86,7 +87,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerAclListOptions{}, "lbacl-list", "List lbacls", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclListOptions) error {
-		params, err := options.ListStructToParams(opts)
+		params, err := baseoptions.ListStructToParams(opts)
 		if err != nil {
 			return err
 		}

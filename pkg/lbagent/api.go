@@ -34,7 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
@@ -296,7 +296,7 @@ func (h *ApiHelper) newAgentHbParams(ctx context.Context) (*jsonutils.JSONDict, 
 		HaState: state,
 		Version: version,
 	}
-	params, err := options.StructToParams(opts)
+	params, err := opts.Params()
 	if err != nil {
 		return nil, err
 	}

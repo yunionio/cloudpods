@@ -18,7 +18,8 @@ import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
@@ -33,8 +34,11 @@ func init() {
 	cmd.Perform("syncstatus", &options.LoadbalancerIdOptions{})
 	cmd.Perform("remote-update", &options.LoadbalancerRemoteUpdateOptions{})
 	cmd.Get("change-owner-candidate-domains", &options.LoadbalancerIdOptions{})
+	cmd.Perform("associate-eip", &options.LoadbalancerAssociateEipOptions{})
+	cmd.Perform("create-eip", &options.LoadbalancerCreateEipOptions{})
+	cmd.Perform("dissociate-eip", &options.LoadbalancerDissociateEipOptions{})
 
-	R(&options.ResourceMetadataOptions{}, "lb-add-tag", "Set tag of a lb", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+	R(&baseoptions.ResourceMetadataOptions{}, "lb-add-tag", "Set tag of a lb", func(s *mcclient.ClientSession, opts *baseoptions.ResourceMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err
@@ -47,7 +51,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ResourceMetadataOptions{}, "lb-set-tag", "Set tag of a lb", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+	R(&baseoptions.ResourceMetadataOptions{}, "lb-set-tag", "Set tag of a lb", func(s *mcclient.ClientSession, opts *baseoptions.ResourceMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err

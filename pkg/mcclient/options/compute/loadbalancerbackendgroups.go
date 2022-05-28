@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"fmt"
@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type LoadbalancerBackendGroupCreateOptions struct {
@@ -97,7 +98,7 @@ func NewBackends(ss []string) (Backends, error) {
 }
 
 func (opts *LoadbalancerBackendGroupCreateOptions) Params() (*jsonutils.JSONDict, error) {
-	params, err := optionsStructToParams(opts)
+	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +120,10 @@ type LoadbalancerBackendGroupUpdateOptions struct {
 	Name string
 }
 
+func (opts *LoadbalancerBackendGroupUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
+}
+
 type LoadbalancerBackendGroupDeleteOptions struct {
 	ID string `json:"-"`
 }
@@ -128,8 +133,12 @@ type LoadbalancerBackendGroupIDOptions struct {
 }
 
 type LoadbalancerBackendGroupListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 	Loadbalancer string
 	Cloudregion  string
 	NoRef        bool
+}
+
+func (opts *LoadbalancerBackendGroupListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
 }

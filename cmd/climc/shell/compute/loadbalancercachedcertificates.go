@@ -17,7 +17,7 @@ package compute
 import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
@@ -30,13 +30,8 @@ func init() {
 		return nil
 	})
 
-	type LoadbalancerCertificateListOptions struct {
-		options.LoadbalancerCertificateListOptions
-		CertificateId string `help:"related certificate id"`
-	}
-
-	R(&LoadbalancerCertificateListOptions{}, "lbcert-cache-list", "List cached lbcerts", func(s *mcclient.ClientSession, opts *LoadbalancerCertificateListOptions) error {
-		params, err := options.ListStructToParams(opts)
+	R(&options.LoadbalancerCachedCertificateListOptions{}, "lbcert-cache-list", "List cached lbcerts", func(s *mcclient.ClientSession, opts *options.LoadbalancerCachedCertificateListOptions) error {
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}
@@ -48,14 +43,8 @@ func init() {
 		return nil
 	})
 
-	type LoadbalancerCachedCertificateCreateOptions struct {
-		CLOUDPROVIDER string `help:"cloud provider id"`
-		CLOUDREGION   string `help:"cloud region id"`
-		CERTIFICATE   string `help:"certificate id"`
-	}
-
-	R(&LoadbalancerCachedCertificateCreateOptions{}, "lbcert-cache-create", "Create cached lbcert", func(s *mcclient.ClientSession, opts *LoadbalancerCachedCertificateCreateOptions) error {
-		params, err := options.StructToParams(opts)
+	R(&options.LoadbalancerCachedCertificateCreateOptions{}, "lbcert-cache-create", "Create cached lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCachedCertificateCreateOptions) error {
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}

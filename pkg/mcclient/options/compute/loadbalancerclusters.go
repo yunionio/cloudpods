@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
+
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
 type LoadbalancerClusterCreateOptions struct {
 	NAME string
@@ -21,17 +27,29 @@ type LoadbalancerClusterCreateOptions struct {
 	Wire string
 }
 
+func (opts *LoadbalancerClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
+}
+
 type LoadbalancerClusterUpdateOptions struct {
 	ID string `json:"-"`
 
 	Wire string
 }
 
+func (opts *LoadbalancerClusterUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
+}
+
 type LoadbalancerClusterListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 
 	Zone string
 	Wire string
+}
+
+func (opts *LoadbalancerClusterListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
 }
 
 type LoadbalancerClusterGetOptions struct {

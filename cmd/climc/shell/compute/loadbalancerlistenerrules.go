@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
@@ -41,7 +41,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerListenerRuleListOptions{}, "lblistenerrule-list", "List lblistenerrules", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerRuleListOptions) error {
-		params, err := options.ListStructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}
@@ -53,7 +53,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerListenerRuleUpdateOptions{}, "lblistenerrule-update", "Update lblistenerrule", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerRuleUpdateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		lblistenerrule, err := modules.LoadbalancerListenerRules.Update(s, opts.ID, params)
 		if err != nil {
 			return err
@@ -78,7 +78,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerListenerRuleActionStatusOptions{}, "lblistenerrule-status", "Change lblistenerrule status", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerRuleActionStatusOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}

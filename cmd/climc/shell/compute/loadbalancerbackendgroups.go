@@ -17,7 +17,7 @@ package compute
 import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
@@ -42,7 +42,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerBackendGroupListOptions{}, "lbbackendgroup-list", "List lbbackendgroups", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupListOptions) error {
-		params, err := options.ListStructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}
@@ -54,7 +54,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerBackendGroupUpdateOptions{}, "lbbackendgroup-update", "Update lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupUpdateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}

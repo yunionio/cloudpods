@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"fmt"
 	"io/ioutil"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func loadbalancerCertificateLoadFiles(cert, pkey string, allowEmpty bool) (*jsonutils.JSONDict, error) {
@@ -48,7 +50,7 @@ func loadbalancerCertificateLoadFiles(cert, pkey string, allowEmpty bool) (*json
 }
 
 type LoadbalancerCertificateCreateOptions struct {
-	SharableProjectizedResourceBaseCreateInput
+	options.SharableProjectizedResourceBaseCreateInput
 
 	NAME string
 
@@ -57,7 +59,7 @@ type LoadbalancerCertificateCreateOptions struct {
 }
 
 func (opts *LoadbalancerCertificateCreateOptions) Params() (*jsonutils.JSONDict, error) {
-	params, err := StructToParams(opts)
+	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -86,13 +88,17 @@ type LoadbalancerCertificateDeleteOptions struct {
 }
 
 type LoadbalancerCertificateListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 
 	PublicKeyAlgorithm string
 	PublicKeyBitLen    *int
 	SignatureAlgorithm string
 	Cloudregion        string
 	Usable             *bool `help:"List certificates are usable"`
+}
+
+func (opts *LoadbalancerCertificateListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
 }
 
 type LoadbalancerCertificateUpdateOptions struct {
@@ -113,11 +119,31 @@ func (opts *LoadbalancerCertificateUpdateOptions) Params() (*jsonutils.JSONDict,
 }
 
 type LoadbalancerCertificatePublicOptions struct {
-	SharableResourcePublicBaseOptions
+	options.SharableResourcePublicBaseOptions
 
 	ID string `json:"-"`
 }
 
 type LoadbalancerCertificatePrivateOptions struct {
 	ID string `json:"-"`
+}
+
+type LoadbalancerCachedCertificateListOptions struct {
+	LoadbalancerCertificateListOptions
+
+	CertificateId string `help:"related certificate id"`
+}
+
+func (opts *LoadbalancerCachedCertificateListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
+}
+
+type LoadbalancerCachedCertificateCreateOptions struct {
+	CLOUDPROVIDER string `help:"cloud provider id"`
+	CLOUDREGION   string `help:"cloud region id"`
+	CERTIFICATE   string `help:"certificate id"`
+}
+
+func (opts *LoadbalancerCachedCertificateCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
 }

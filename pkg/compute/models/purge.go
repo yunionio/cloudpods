@@ -409,7 +409,7 @@ func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCrede
 		return err
 	}
 
-	err = lb.DeleteEip(ctx, userCred)
+	err = lb.DeleteEip(ctx, userCred, false)
 	if err != nil {
 		return err
 	}

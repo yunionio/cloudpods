@@ -17,12 +17,12 @@ package compute
 import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 	R(&options.LoadbalancerClusterCreateOptions{}, "lbcluster-create", "Create lbcluster", func(s *mcclient.ClientSession, opts *options.LoadbalancerClusterCreateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}
@@ -34,7 +34,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerClusterUpdateOptions{}, "lbcluster-update", "Update lbcluster", func(s *mcclient.ClientSession, opts *options.LoadbalancerClusterUpdateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}
@@ -54,7 +54,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerClusterListOptions{}, "lbcluster-list", "List lbclusters", func(s *mcclient.ClientSession, opts *options.LoadbalancerClusterListOptions) error {
-		params, err := options.ListStructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}

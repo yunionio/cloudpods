@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type AclEntry struct {
@@ -70,7 +72,7 @@ func (entries AclEntries) String() string {
 }
 
 type LoadbalancerAclCreateOptions struct {
-	SharableProjectizedResourceBaseCreateInput
+	options.SharableProjectizedResourceBaseCreateInput
 
 	NAME     string
 	AclEntry []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
@@ -84,7 +86,7 @@ type LoadbalancerAclGetOptions struct {
 }
 
 type LoadbalancerAclListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 	Cloudregion string
 }
 
@@ -106,7 +108,7 @@ type LoadbalancerAclActionPatchOptions struct {
 }
 
 type LoadbalancerAclPublicOptions struct {
-	SharableResourcePublicBaseOptions
+	options.SharableResourcePublicBaseOptions
 
 	ID string `json:"-"`
 }
@@ -116,7 +118,7 @@ type LoadbalancerAclPrivateOptions struct {
 }
 
 func (opts *LoadbalancerAclCreateOptions) Params() (*jsonutils.JSONDict, error) {
-	params, err := optionsStructToParams(opts)
+	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +136,7 @@ func (opts *LoadbalancerAclCreateOptions) Params() (*jsonutils.JSONDict, error) 
 }
 
 func (opts *LoadbalancerAclUpdateOptions) Params() (*jsonutils.JSONDict, error) {
-	params, err := optionsStructToParams(opts)
+	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +152,7 @@ func (opts *LoadbalancerAclUpdateOptions) Params() (*jsonutils.JSONDict, error) 
 }
 
 func (opts *LoadbalancerAclActionPatchOptions) Params() (*jsonutils.JSONDict, error) {
-	params, err := optionsStructToParams(opts)
+	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -164,4 +166,24 @@ func (opts *LoadbalancerAclActionPatchOptions) Params() (*jsonutils.JSONDict, er
 		params.Set(k, aclEntriesJson)
 	}
 	return params, nil
+}
+
+type CachedLoadbalancerAclListOptions struct {
+	LoadbalancerAclListOptions
+	AclId string `help:"local acl id" `
+}
+
+func (opts *CachedLoadbalancerAclListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
+}
+
+type LoadbalancerCachedAclCreateOptions struct {
+	CLOUDPROVIDER string `help:"cloud provider id"`
+	CLOUDREGION   string `help:"cloud region id"`
+	ACL           string `help:"acl id"`
+	Listener      string `help:"cloud listener id, required by huawei"`
+}
+
+func (opts *LoadbalancerCachedAclCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
 }
