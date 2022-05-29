@@ -203,6 +203,79 @@ func (man *SLoadbalancerManager) ListItemFilter(
 		q = q.Filter(sqlchemy.OR(c1, c2))
 	}
 
+	// eip filters
+	usableLbForEipFilter := query.UsableLoadbalancerForEip
+	if len(usableLbForEipFilter) > 0 {
+		eipObj, err := ElasticipManager.FetchByIdOrName(userCred, usableLbForEipFilter)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("eip %s not found", usableLbForEipFilter)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		eip := eipObj.(*SElasticip)
+
+		if len(eip.NetworkId) > 0 {
+			// kvm
+			sq := LoadbalancernetworkManager.Query("loadbalancer_id").Equals("network_id", eip.NetworkId).SubQuery()
+			q = q.NotIn("id", sq)
+			if cp := eip.GetCloudprovider(); cp == nil || cp.Provider == api.CLOUD_PROVIDER_ONECLOUD {
+				gnq := LoadbalancernetworkManager.Query().SubQuery()
+				nq := NetworkManager.Query().SubQuery()
+				wq := WireManager.Query().SubQuery()
+				vq := VpcManager.Query().SubQuery()
+				q.Join(gnq, sqlchemy.Equals(gnq.Field("loadbalancer_id"), q.Field("id")))
+				q.Join(nq, sqlchemy.Equals(nq.Field("id"), gnq.Field("network_id")))
+				q.Join(wq, sqlchemy.Equals(wq.Field("id"), nq.Field("wire_id")))
+				q.Join(vq, sqlchemy.Equals(vq.Field("id"), wq.Field("vpc_id")))
+				q.Filter(sqlchemy.IsNullOrEmpty(gnq.Field("eip_id")))
+				q.Filter(sqlchemy.NotEquals(vq.Field("id"), api.DEFAULT_VPC_ID))
+				// vpc provider thing will be handled ok below
+			}
+		}
+
+		if eip.ManagerId != "" {
+			q = q.Equals("manager_id", eip.ManagerId)
+		} else {
+			q = q.IsNullOrEmpty("manager_id")
+		}
+		region, err := eip.GetRegion()
+		if err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "eip.GetRegion"))
+		}
+		q = q.Equals("cloudregion_id", region.Id)
+	}
+
+	withEip := (query.WithEip != nil && *query.WithEip)
+	withoutEip := (query.WithoutEip != nil && *query.WithoutEip) || (query.EipAssociable != nil && *query.EipAssociable)
+	if withEip || withoutEip {
+		eips := ElasticipManager.Query().SubQuery()
+		sq := eips.Query(eips.Field("associate_id")).Equals("associate_type", api.EIP_ASSOCIATE_TYPE_LOADBALANCER)
+		sq = sq.IsNotNull("associate_id").IsNotEmpty("associate_id")
+
+		if withEip {
+			q = q.In("id", sq)
+		} else if withoutEip {
+			q = q.NotIn("id", sq)
+		}
+	}
+
+	if query.EipAssociable != nil {
+		sq1 := NetworkManager.Query("id")
+		sq2 := WireManager.Query().SubQuery()
+		sq3 := VpcManager.Query().SubQuery()
+		sq1 = sq1.Join(sq2, sqlchemy.Equals(sq1.Field("wire_id"), sq2.Field("id")))
+		sq1 = sq1.Join(sq3, sqlchemy.Equals(sq2.Field("vpc_id"), sq3.Field("id")))
+		cond1 := []string{api.VPC_EXTERNAL_ACCESS_MODE_EIP, api.VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW}
+		if *query.EipAssociable {
+			sq1 = sq1.Filter(sqlchemy.In(sq3.Field("external_access_mode"), cond1))
+		} else {
+			sq1 = sq1.Filter(sqlchemy.NotIn(sq3.Field("external_access_mode"), cond1))
+		}
+		sq := LoadbalancernetworkManager.Query("loadbalancer_id").In("network_id", sq1)
+		q = q.In("id", sq)
+	}
+
 	if len(query.AddressType) > 0 {
 		q = q.In("address_type", query.AddressType)
 	}
@@ -359,6 +432,9 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 
 	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, cloudprovider)
 	pendingUsage := SRegionQuota{Loadbalancer: 1}
+	if input.EipBw > 0 && len(input.Eip) == 0 {
+		pendingUsage.Eip = 1
+	}
 	pendingUsage.SetKeys(quotaKeys)
 	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
@@ -565,11 +641,13 @@ func (lb *SLoadbalancer) StartLoadBalancerDeleteTask(ctx context.Context, userCr
 }
 
 func (lb *SLoadbalancer) StartLoadBalancerCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	taskData := jsonutils.NewDict()
-	eipId, _ := data.GetString("eip_id")
-	if len(eipId) > 0 {
-		taskData.Set("eip_id", jsonutils.NewString(eipId)) // for huawei internet elb
-	}
+	taskData := data.CopyIncludes(
+		"eip_id", // for huawei internet elb
+		"eip_bw",
+		"eip_bgp_type",
+		"eip_charge_type",
+		"eip_auto_dellocate",
+	)
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerCreateTask", lb, userCred, taskData, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -743,7 +821,12 @@ func (lb *SLoadbalancer) validatePurgeCondition(ctx context.Context) error {
 
 func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	lb.SetStatus(userCred, api.LB_STATUS_DELETING, "")
-	return lb.StartLoadBalancerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
+	params := jsonutils.NewDict()
+	deleteEip := jsonutils.QueryBoolean(data, "delete_eip", false)
+	if deleteEip {
+		params.Set("delete_eip", jsonutils.JSONTrue)
+	}
+	return lb.StartLoadBalancerDeleteTask(ctx, userCred, params, "")
 }
 
 func (lb *SLoadbalancer) GetLoadbalancerListeners() ([]SLoadbalancerListener, error) {
