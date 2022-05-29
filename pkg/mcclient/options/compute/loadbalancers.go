@@ -38,6 +38,12 @@ type LoadbalancerCreateOptions struct {
 	Cluster          string `json:"cluster_id"`
 	Manager          string
 	Tags             []string `help:"Tags info,prefix with 'user:', eg: user:project=default" json:"-"`
+
+	Eip              string `json:"eip" help:"Id or name of EIP to associate with"`
+	EipBw            int    `json:"eip_bw"`
+	EipChargeType    string `json:"eip_charge_type"`
+	EipBgpType       string `json:"eip_bgp_type"`
+	EipAutoDellocate *bool  `json:"eip_auto_dellocate"`
 }
 
 func (opts *LoadbalancerCreateOptions) Params() (jsonutils.JSONObject, error) {

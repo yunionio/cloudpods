@@ -231,6 +231,16 @@ func (manager *SElasticipManager) ListItemFilter(
 			q = q.Equals("cloudregion_id", lb.CloudregionId)
 			if len(lb.ManagerId) > 0 {
 				q = q.Equals("manager_id", lb.ManagerId)
+			} else {
+				zone, _ := lb.GetZone()
+				networks := NetworkManager.Query().SubQuery()
+				wires := WireManager.Query().SubQuery()
+
+				sq := networks.Query(networks.Field("id")).Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id"))).
+					Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id)).SubQuery()
+				q = q.Filter(sqlchemy.In(q.Field("network_id"), sq))
+				gns := LoadbalancernetworkManager.Query("network_id").Equals("loadbalancer_id", lb.Id).SubQuery()
+				q = q.Filter(sqlchemy.NotIn(q.Field("network_id"), gns))
 			}
 			q = q.IsNullOrEmpty("associate_type")
 		default:

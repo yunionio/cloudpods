@@ -32,6 +32,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -797,7 +798,40 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, use
 		}
 		// bind eip
 		eipId, _ := task.GetParams().GetString("eip_id")
-		if len(eipId) > 0 {
+		eipBw, _ := task.GetParams().Int("eip_bw")
+		if eipBw > 0 && len(eipId) == 0 {
+			// create eip first
+			bgpType, _ := task.GetParams().GetString("eip_bgp_type")
+			chargeType, _ := task.GetParams().GetString("eip_charge_type")
+			autoDellocate := jsonutils.QueryBoolean(task.GetParams(), "eip_auto_dellocate", false)
+
+			eipPendingUsage := &models.SRegionQuota{Eip: 1}
+			eipPendingUsage.SetKeys(lb.GetQuotaKeys())
+			eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, userCred, &models.NewEipForVMOnHostArgs{
+				Bandwidth:     int(eipBw),
+				BgpType:       bgpType,
+				ChargeType:    chargeType,
+				AutoDellocate: autoDellocate,
+
+				Loadbalancer: lb,
+				PendingUsage: eipPendingUsage,
+			})
+			if err != nil {
+				log.Errorf("NewEipForVMOnHost fail %s", err)
+				quotas.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage, false)
+			} else {
+				opts := api.ElasticipAssociateInput{
+					InstanceId:         lb.Id,
+					InstanceExternalId: lb.ExternalId,
+					InstanceType:       api.EIP_ASSOCIATE_TYPE_LOADBALANCER,
+				}
+
+				err = eip.AllocateAndAssociateInstance(ctx, userCred, lb, opts, "")
+				if err != nil {
+					return nil, errors.Wrap(err, "AllocateAndAssociateInstance")
+				}
+			}
+		} else if len(eipId) > 0 {
 			_eip, err := models.ElasticipManager.FetchById(eipId)
 			if err != nil {
 				return nil, errors.Wrapf(err, "ElasticipManager.FetchById(%s)", eipId)

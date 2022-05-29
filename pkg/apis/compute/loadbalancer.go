@@ -92,6 +92,12 @@ type LoadbalancerListInput struct {
 	ChargeType []string `json:"charge_type"`
 	// 套餐名称
 	LoadbalancerSpec []string `json:"loadbalancer_spec"`
+
+	// filter for EIP
+	WithEip                  *bool  `json:"with_eip"`
+	WithoutEip               *bool  `json:"without_eip"`
+	EipAssociable            *bool  `json:"eip_associable"`
+	UsableLoadbalancerForEip string `json:"usable_loadbalancer_for_eip"`
 }
 
 type LoadbalancerAgentListInput struct {
@@ -252,6 +258,16 @@ type LoadbalancerCreateInput struct {
 
 	// 套餐名称
 	LoadbalancerSpec string `json:"loadbalancer_spec"`
+
+	// 弹性公网IP带宽
+	// 指定此参数后会创建新的弹性公网IP并绑定到新建的负载均衡
+	EipBw int `json:"eip_bw,omitzero"`
+	// 弹性公网IP线路类型
+	EipBgpType string `json:"eip_bgp_type,omitzero"`
+	// 弹性公网IP计费类型
+	EipChargeType string `json:"eip_charge_type,omitempty"`
+	// 是否跟随主机删除而自动释放
+	EipAutoDellocate bool `json:"eip_auto_dellocate,omitempty"`
 
 	// EIP ID
 	Eip string `json:"eip"`
