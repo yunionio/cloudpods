@@ -17,12 +17,12 @@ package compute
 import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 	R(&options.LoadbalancerBackendCreateOptions{}, "lbbackend-create", "Create lbbackend", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendCreateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}
@@ -42,7 +42,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerBackendListOptions{}, "lbbackend-list", "List lbbackends", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendListOptions) error {
-		params, err := options.ListStructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}
@@ -54,7 +54,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerBackendUpdateOptions{}, "lbbackend-update", "Update lbbackend", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendUpdateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		lbbackend, err := modules.LoadbalancerBackends.Update(s, opts.ID, params)
 		if err != nil {
 			return err

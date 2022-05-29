@@ -281,3 +281,33 @@ type LoadbalancerRemoteUpdateInput struct {
 	// 是否覆盖替换所有标签
 	ReplaceTags *bool `json:"replace_tags" help:"replace all remote tags"`
 }
+
+type LoadbalancerAssociateEipInput struct {
+	// 弹性公网IP的ID
+	EipId string `json:"eip_id"`
+
+	// 弹性IP映射的内网IP地址，可选
+	IpAddr string `json:"ip_addr"`
+}
+
+type LoadbalancerCreateEipInput struct {
+	// 计费方式，traffic or bandwidth
+	ChargeType string `json:"charge_type"`
+
+	// Bandwidth
+	Bandwidth int64 `json:"bandwidth"`
+
+	// bgp_type
+	BgpType string `json:"bgp_type"`
+
+	// auto_dellocate
+	AutoDellocate *bool `json:"auto_dellocate"`
+
+	// 弹性IP映射的内网IP地址，可选
+	// IpAddr string `json:"ip_addr"`
+}
+
+type LoadbalancerDissociateEipInput struct {
+	// 是否自动释放
+	AudoDelete *bool `json:"auto_delete"`
+}

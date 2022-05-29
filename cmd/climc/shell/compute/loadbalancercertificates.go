@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
@@ -44,7 +44,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerCertificateListOptions{}, "lbcert-list", "List lbcerts", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateListOptions) error {
-		params, err := options.ListStructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}

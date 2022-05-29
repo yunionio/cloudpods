@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
+
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
 type LoadbalancerBackendCreateOptions struct {
 	BackendGroup string `required:"true"`
@@ -25,8 +31,12 @@ type LoadbalancerBackendCreateOptions struct {
 	Ssl       string `choices:"on|off"`
 }
 
+func (opts *LoadbalancerBackendCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
+}
+
 type LoadbalancerBackendListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 	BackendGroup string
 	Backend      string
 	BackendType  string
@@ -38,6 +48,10 @@ type LoadbalancerBackendListOptions struct {
 	Ssl       string `choices:"on|off"`
 }
 
+func (opts *LoadbalancerBackendListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
+}
+
 type LoadbalancerBackendUpdateOptions struct {
 	ID   string `json:"-"`
 	Name string
@@ -47,6 +61,10 @@ type LoadbalancerBackendUpdateOptions struct {
 
 	SendProxy string `choices:"off|v1|v2|v2-ssl|v2-ssl-on"`
 	Ssl       string `choices:"on|off"`
+}
+
+func (opts *LoadbalancerBackendUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
 }
 
 type LoadbalancerBackendGetOptions struct {

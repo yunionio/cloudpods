@@ -68,7 +68,7 @@ func (self *LoadbalancerDeleteTask) OnLoadbalancerDeleteComplete(ctx context.Con
 		Obj:    lb,
 		Action: notifyclient.ActionDelete,
 	})
-	lb.DeleteEip(ctx, self.UserCred)
+	lb.DeleteEip(ctx, self.UserCred, false)
 	lb.LBPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }

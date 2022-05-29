@@ -22,7 +22,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
@@ -71,7 +72,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerAgentDefaultParamsOptions{}, "lbagent-show-default-params", "Show lbagent default params", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentDefaultParamsOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := baseoptions.StructToParams(opts)
 		if err != nil {
 			return err
 		}
@@ -83,7 +84,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerAgentListOptions{}, "lbagent-list", "List lbagents", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentListOptions) error {
-		params, err := options.ListStructToParams(opts)
+		params, err := baseoptions.ListStructToParams(opts)
 		if err != nil {
 			return err
 		}
@@ -95,7 +96,7 @@ func init() {
 		return nil
 	})
 	R(&options.LoadbalancerAgentUpdateOptions{}, "lbagent-update", "Update lbagent", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentUpdateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		lbagent, err := modules.LoadbalancerAgents.Update(s, opts.ID, params)
 		if err != nil {
 			return err

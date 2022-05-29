@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"fmt"
@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type LoadbalancerCreateOptions struct {
@@ -40,7 +41,7 @@ type LoadbalancerCreateOptions struct {
 }
 
 func (opts *LoadbalancerCreateOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := StructToParams(opts)
+	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +105,8 @@ type LoadbalancerPurgeOptions struct {
 }
 
 type LoadbalancerListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
+
 	Address      string
 	AddressType  string `choices:"intranet|internet"`
 	NetworkType  string `choices:"classic|vpc"`
@@ -116,7 +118,7 @@ type LoadbalancerListOptions struct {
 }
 
 func (opts *LoadbalancerListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return options.ListStructToParams(opts)
 }
 
 type LoadbalancerActionStatusOptions struct {
@@ -141,5 +143,32 @@ type LoadbalancerRemoteUpdateOptions struct {
 }
 
 func (opts *LoadbalancerRemoteUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type LoadbalancerAssociateEipOptions struct {
+	LoadbalancerIdOptions
+	computeapi.LoadbalancerAssociateEipInput
+}
+
+func (opts *LoadbalancerAssociateEipOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type LoadbalancerCreateEipOptions struct {
+	LoadbalancerIdOptions
+	computeapi.LoadbalancerCreateEipInput
+}
+
+func (opts *LoadbalancerCreateEipOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type LoadbalancerDissociateEipOptions struct {
+	LoadbalancerIdOptions
+	computeapi.LoadbalancerDissociateEipInput
+}
+
+func (opts *LoadbalancerDissociateEipOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"fmt"
@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	compute_apis "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 )
 
@@ -68,7 +69,7 @@ func (opts *LoadbalancerAgentParamsOptions) setPrefixedParams(params *jsonutils.
 }
 
 func (opts *LoadbalancerAgentParamsOptions) Params() (*jsonutils.JSONDict, error) {
-	params, err := optionsStructToParams(opts)
+	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +88,7 @@ type LoadbalancerAgentCreateOptions struct {
 }
 
 func (opts *LoadbalancerAgentCreateOptions) Params() (*jsonutils.JSONDict, error) {
-	params, err := StructToParams(opts)
+	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +101,7 @@ func (opts *LoadbalancerAgentCreateOptions) Params() (*jsonutils.JSONDict, error
 }
 
 type LoadbalancerAgentListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 
 	Cluster string
 }
@@ -124,6 +125,10 @@ type LoadbalancerAgentUpdateOptions struct {
 	LoadbalancerCertificates  *time.Time
 }
 
+func (opts *LoadbalancerAgentUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
+}
+
 type LoadbalancerAgentDeleteOptions struct {
 	ID string `json:"-"`
 }
@@ -134,6 +139,10 @@ type LoadbalancerAgentActionHbOptions struct {
 	Version string
 	IP      string
 	HaState string
+}
+
+func (opts *LoadbalancerAgentActionHbOptions) Params() (*jsonutils.JSONDict, error) {
+	return options.StructToParams(opts)
 }
 
 type LoadbalancerAgentActionPatchParamsOptions struct {

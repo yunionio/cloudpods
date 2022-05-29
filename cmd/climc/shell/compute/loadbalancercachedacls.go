@@ -20,7 +20,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
@@ -74,13 +74,8 @@ func init() {
 		return nil
 	})
 
-	type CachedLoadbalancerAclListOptions struct {
-		options.LoadbalancerAclListOptions
-		AclId string `help:"local acl id" `
-	}
-
-	R(&CachedLoadbalancerAclListOptions{}, "lbacl-cache-list", "List cached lbacls", func(s *mcclient.ClientSession, opts *CachedLoadbalancerAclListOptions) error {
-		params, err := options.ListStructToParams(opts)
+	R(&options.CachedLoadbalancerAclListOptions{}, "lbacl-cache-list", "List cached lbacls", func(s *mcclient.ClientSession, opts *options.CachedLoadbalancerAclListOptions) error {
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}
@@ -92,15 +87,8 @@ func init() {
 		return nil
 	})
 
-	type LoadbalancerCachedAclCreateOptions struct {
-		CLOUDPROVIDER string `help:"cloud provider id"`
-		CLOUDREGION   string `help:"cloud region id"`
-		ACL           string `help:"acl id"`
-		Listener      string `help:"cloud listener id, required by huawei"`
-	}
-
-	R(&LoadbalancerCachedAclCreateOptions{}, "lbacl-cache-create", "Create cached lbacl", func(s *mcclient.ClientSession, opts *LoadbalancerCachedAclCreateOptions) error {
-		params, err := options.StructToParams(opts)
+	R(&options.LoadbalancerCachedAclCreateOptions{}, "lbacl-cache-create", "Create cached lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerCachedAclCreateOptions) error {
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}

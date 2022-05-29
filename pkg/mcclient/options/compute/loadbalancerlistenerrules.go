@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
+
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
 type LoadbalancerListenerRuleCreateOptions struct {
 	NAME         string
@@ -32,7 +38,7 @@ type LoadbalancerListenerRuleCreateOptions struct {
 }
 
 type LoadbalancerListenerRuleListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 
 	BackendGroup string
 	Listener     string
@@ -44,6 +50,10 @@ type LoadbalancerListenerRuleListOptions struct {
 	RedirectScheme *string `choices:"http|https|" json:",allowempty"`
 	RedirectHost   *string `json:",allowempty"`
 	RedirectPath   *string `json:",allowempty"`
+}
+
+func (opts *LoadbalancerListenerRuleListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
 }
 
 type LoadbalancerListenerRuleUpdateOptions struct {
@@ -62,6 +72,10 @@ type LoadbalancerListenerRuleUpdateOptions struct {
 	RedirectPath   *string `json:",allowempty"`
 }
 
+func (opts *LoadbalancerListenerRuleUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
+}
+
 type LoadbalancerListenerRuleGetOptions struct {
 	ID string `json:"-"`
 }
@@ -77,4 +91,8 @@ type LoadbalancerListenerRuleGetBackendStatusOptions struct {
 type LoadbalancerListenerRuleActionStatusOptions struct {
 	ID     string `json:"-"`
 	Status string `choices:"enabled|disabled"`
+}
+
+func (opts *LoadbalancerListenerRuleActionStatusOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
 }
