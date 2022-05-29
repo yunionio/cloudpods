@@ -18,10 +18,12 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -61,6 +63,14 @@ func (self *InstanceBackupPackTask) OnInit(ctx context.Context, obj db.IStandalo
 }
 
 func (self *InstanceBackupPackTask) OnPackComplete(ctx context.Context, ib *models.SInstanceBackup, data jsonutils.JSONObject) {
+	log.Infof("OnPackComplete %s", data)
+	notifyclient.NotifyImportantWithCtx(
+		ctx,
+		[]string{self.UserCred.GetUserId()},
+		false,
+		"BACKUP_PACK_COMPLETE",
+		data,
+	)
 	self.taskSuccess(ctx, ib)
 }
 

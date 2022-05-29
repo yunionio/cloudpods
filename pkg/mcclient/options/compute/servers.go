@@ -113,6 +113,20 @@ type ServerConvertToKvmOptions struct {
 	PreferHost string `help:"Perfer host id or name" json:"prefer_host"`
 }
 
+func (o *ServerConvertToKvmOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
+type ServerStartOptions struct {
+	ServerIdsOptions
+
+	QemuVersion string `help:"prefer qemu version" json:"qemu_version"`
+}
+
+func (o *ServerStartOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
 type ServerIdsOptions struct {
 	ID []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 }

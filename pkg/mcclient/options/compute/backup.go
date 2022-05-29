@@ -176,6 +176,7 @@ type InstanceBackupManagerCreateFromPackageOptions struct {
 	PackageName     string `help:"package name" json:"package_name"`
 	Name            string `help:"instance backup name" json:"name"`
 	BackupStorageId string `help:"backup storage id" json:"backup_storage_id"`
+	ProjectId       string `help:"target project id" json:"project_id"`
 }
 
 func (opts *InstanceBackupManagerCreateFromPackageOptions) Params() (jsonutils.JSONObject, error) {

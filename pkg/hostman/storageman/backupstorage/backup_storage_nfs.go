@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,8 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
-
-const BackupStoragePath = "/opt/cloud/workspace/backupstorage"
 
 var ErrorBackupStorageOffline error = errors.Error(api.BackupStorageOffline)
 
@@ -53,7 +52,7 @@ func NewNFSBackupStorage(backupStorageId, nfsHost, nfsSharedDir string) *SNFSBac
 		BackupStorageId: backupStorageId,
 		NfsHost:         nfsHost,
 		NfsSharedDir:    nfsSharedDir,
-		Path:            path.Join(BackupStoragePath, backupStorageId),
+		Path:            path.Join(options.HostOptions.LocalBackupStoragePath, backupStorageId),
 		lock:            &sync.Mutex{},
 	}
 }
@@ -156,6 +155,7 @@ const (
 	PackageMetadataFilename = "metadata"
 )
 
+/*
 func (s *SNFSBackupStorage) Pack(backupId string, packageName string, metadata jsonutils.JSONObject) error {
 	err := s.checkAndMount()
 	if err != nil {
@@ -255,92 +255,140 @@ func (s *SNFSBackupStorage) UnPack(backupId string, packageName string) (jsonuti
 	}
 	return metadata, nil
 }
+*/
 
-func (s *SNFSBackupStorage) InstancePack(packageName string, backupIds []string, metadata *api.InstanceBackupPackMetadata) error {
+func (s *SNFSBackupStorage) InstancePack(ctx context.Context, packageName string, backupIds []string, metadata *api.InstanceBackupPackMetadata) (string, error) {
 	err := s.checkAndMount()
 	if err != nil {
-		return errors.Wrap(err, "unable to checkAndMount")
+		return "", errors.Wrap(err, "unable to checkAndMount")
 	}
 	defer s.unMount()
-	lockman.LockRawObject(context.Background(), "package", packageName)
-	defer lockman.ReleaseRawObject(context.Background(), "package", packageName)
-	backupDir := s.getBackupDir()
-	packageDir := s.getPackageDir()
-	packagePath := path.Join(packageDir, packageName)
-	packageFilename := path.Join(packageDir, packageName+".tar")
-	if fileutils2.Exists(packageFilename) {
-		return errors.Error("A package with the same name already exists")
+
+	tmpFileDir, err := ioutil.TempDir(options.HostOptions.LocalBackupTempPath, "pack")
+	if err != nil {
+		return "", errors.Wrap(err, "create tempdir")
 	}
-	if fileutils2.Exists(packagePath) {
-		// delete residual data
-		if output, err := procutils.NewCommand("rm", "-rf", packagePath).Output(); err != nil {
-			log.Errorf("unable to rm %s: %s", packagePath, output)
-			return errors.Wrapf(err, "rm %s failed and output is %q", packagePath, output)
+	defer func() {
+		if output, err := procutils.NewCommand("rm", "-rf", tmpFileDir).Output(); err != nil {
+			log.Errorf("unable to rm %s: %s", tmpFileDir, output)
 		}
+	}()
+
+	backupDir := s.getBackupDir()
+
+	packagePath := path.Join(tmpFileDir, packageName)
+	tmpPkgFilename := path.Join(tmpFileDir, packageName+".tar")
+
+	err = func() error {
+		if _, err := procutils.NewCommand("touch", packageName).Output(); err != nil {
+			return errors.Wrapf(err, "create %s", packageName)
+		}
+		return nil
+	}()
+	if err != nil {
+		return "", errors.Wrap(err, "A package with the same name already exists")
 	}
+
 	output, err := procutils.NewCommand("mkdir", "-p", packagePath).Output()
 	if err != nil {
 		log.Errorf("mkdir %s failed: %s", packagePath, output)
-		return errors.Wrapf(err, "mkdir %s failed: %s", packageDir, output)
+		return "", errors.Wrapf(err, "mkdir %s failed: %s", packagePath, output)
 	}
 	defer func() {
 		if output, err := procutils.NewCommand("rm", "-rf", packagePath).Output(); err != nil {
 			log.Errorf("unable to rm %s: %s", packagePath, output)
 		}
 	}()
+	// copy disk files
 	for i, backupId := range backupIds {
 		packageDiskPath := path.Join(packagePath, fmt.Sprintf("%s_%d", PackageDiskFilename, i))
 		backupPath := path.Join(backupDir, backupId)
 		if output, err := procutils.NewCommand("cp", backupPath, packageDiskPath).Output(); err != nil {
 			log.Errorf("unable to cp %s to %s: %s", backupPath, packageDiskPath, output)
-			return errors.Wrapf(err, "cp %s to %s failed and output is %q", backupPath, packageDiskPath, output)
+			return "", errors.Wrapf(err, "cp %s to %s failed and output is %q", backupPath, packageDiskPath, output)
 		}
 	}
+	// save snapshot metadata
 	packageMetadataPath := path.Join(packagePath, PackageMetadataFilename)
 	err = ioutil.WriteFile(packageMetadataPath, []byte(jsonutils.Marshal(metadata).PrettyString()), 0644)
 	if err != nil {
-		return errors.Wrapf(err, "unable to write to %s", packageMetadataPath)
+		return "", errors.Wrapf(err, "unable to write to %s", packageMetadataPath)
 	}
 	// tar
-	if output, err := procutils.NewCommand("tar", "-cf", packageFilename, "-C", packageDir, packageName).Output(); err != nil {
-		log.Errorf("unable to 'tar -cf %s -C %s %s': %s", packageFilename, packageDir, packageName, output)
-		return errors.Wrap(err, "unable to tar")
+	if output, err := procutils.NewCommand("tar", "-cf", tmpPkgFilename, "-C", tmpFileDir, packageName).Output(); err != nil {
+		log.Errorf("unable to 'tar -cf %s -C %s %s': %s", tmpPkgFilename, tmpFileDir, packageName, output)
+		return "", errors.Wrap(err, "unable to tar")
 	}
-	return nil
+	// move to pack dir
+	var packageFilename string
+	{
+		lockman.LockRawObject(ctx, "package", packageName)
+		defer lockman.ReleaseRawObject(ctx, "package", packageName)
+
+		packageDir := s.getPackageDir()
+
+		// find the filename
+		tried := 0
+		packageFilename = path.Join(packageDir, packageName+".tar")
+		for fileutils2.Exists(packageFilename) {
+			tried++
+			packageFilename = path.Join(packageDir, fmt.Sprintf("%s-%d.tar", packageName, tried))
+		}
+
+		// move file
+		if output, err := procutils.NewCommand("cp", "-a", tmpPkgFilename, packageFilename).Output(); err != nil {
+			log.Errorf("cp %s to %s fail: %s", tmpPkgFilename, packageFilename, output)
+			return "", errors.Wrap(err, "cp")
+		}
+	}
+	return packageFilename, nil
 }
 
-func (s *SNFSBackupStorage) InstanceUnpack(packageName string) ([]string, *api.InstanceBackupPackMetadata, error) {
+func (s *SNFSBackupStorage) InstanceUnpack(ctx context.Context, packageName string, metadataOnly bool) ([]string, *api.InstanceBackupPackMetadata, error) {
 	err := s.checkAndMount()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to checkAndMount")
 	}
 	defer s.unMount()
-	lockman.LockRawObject(context.Background(), "package", packageName)
-	defer lockman.ReleaseRawObject(context.Background(), "package", packageName)
-	backupDir := s.getBackupDir()
-	packageDir := s.getPackageDir()
-	packagePath := path.Join(packageDir, packageName)
-	packageFilename := path.Join(packageDir, packageName+".tar")
-	if !fileutils2.Exists(packageFilename) {
-		return nil, nil, errors.Wrapf(err, "package %s does not exists", packageName)
-	}
-	if fileutils2.Exists(packagePath) {
-		// delete residual data
-		if output, err := procutils.NewCommand("rm", "-rf", packagePath).Output(); err != nil {
-			log.Errorf("unable to rm %s: %s", packagePath, output)
-			return nil, nil, errors.Wrapf(err, "rm %s failed and output is %q", packagePath, output)
-		}
-	}
-	// untar
-	if output, err := procutils.NewCommand("tar", "-xf", packageFilename, "-C", packageDir, packageName).Output(); err != nil {
-		log.Errorf("unable to 'tar -xf %s -C %s %s': %s", packageFilename, packageDir, packageName, output)
-		return nil, nil, errors.Wrap(err, "unable to untar")
+
+	// create temp working dir
+	tmpFileDir, err := ioutil.TempDir(options.HostOptions.LocalBackupTempPath, "unpack")
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "create tempdir")
 	}
 	defer func() {
-		if output, err := procutils.NewCommand("rm", "-rf", packagePath).Output(); err != nil {
-			log.Errorf("unable to rm %s: %s", packagePath, output)
+		if output, err := procutils.NewCommand("rm", "-rf", tmpFileDir).Output(); err != nil {
+			log.Errorf("unable to rm %s: %s", tmpFileDir, output)
 		}
 	}()
+
+	backupDir := s.getBackupDir()
+	packageDir := s.getPackageDir()
+	if strings.HasSuffix(packageName, ".tar") {
+		// remove suffix
+		packageName = packageName[:len(packageName)-4]
+	}
+	packageFilename := path.Join(packageDir, packageName+".tar")
+	if !fileutils2.Exists(packageFilename) {
+		return nil, nil, errors.Wrapf(errors.ErrNotFound, "package %s does not exists", packageName)
+	}
+
+	// untar to temp dir
+	packagePath := path.Join(tmpFileDir, packageName)
+	log.Infof("unpack to %s", packagePath)
+	untarArgs := []string{
+		"-xf", packageFilename, "-C", tmpFileDir,
+	}
+	if metadataOnly {
+		untarArgs = append(untarArgs, fmt.Sprintf("%s/metadata", packageName))
+	} else {
+		untarArgs = append(untarArgs, packageName)
+	}
+	if output, err := procutils.NewCommand("tar", untarArgs...).Output(); err != nil {
+		log.Errorf("unable to 'tar -xf %s -C %s %s': %s", packageFilename, tmpFileDir, packageName, output)
+		return nil, nil, errors.Wrap(err, "unable to untar")
+	}
+	// unpack metadata
 	packageMetadataPath := path.Join(packagePath, PackageMetadataFilename)
 	metadataBytes, err := ioutil.ReadFile(packageMetadataPath)
 	if err != nil {
@@ -353,16 +401,19 @@ func (s *SNFSBackupStorage) InstanceUnpack(packageName string) ([]string, *api.I
 	metadata := &api.InstanceBackupPackMetadata{}
 	err = metadataJson.Unmarshal(metadata)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "unmarshal backup metadata")
 	}
+	// copy disk files only if !metadataOnly
 	backupIds := make([]string, len(metadata.DiskMetadatas))
-	for i := 0; i < len(metadata.DiskMetadatas); i++ {
-		backupId := db.DefaultUUIDGenerator()
-		backupIds[i] = backupId
-		backupPath := path.Join(backupDir, backupId)
-		packageDiskPath := path.Join(packagePath, fmt.Sprintf("%s_%d", PackageDiskFilename, i))
-		if output, err := procutils.NewCommand("mv", packageDiskPath, backupPath).Output(); err != nil {
-			return nil, nil, errors.Wrapf(err, "mv %s to %s failed and output is %q", packageDiskPath, backupPath, output)
+	if !metadataOnly {
+		for i := 0; i < len(metadata.DiskMetadatas); i++ {
+			backupId := db.DefaultUUIDGenerator()
+			backupIds[i] = backupId
+			backupPath := path.Join(backupDir, backupId)
+			packageDiskPath := path.Join(packagePath, fmt.Sprintf("%s_%d", PackageDiskFilename, i))
+			if output, err := procutils.NewCommand("cp", "-a", packageDiskPath, backupPath).Output(); err != nil {
+				return nil, nil, errors.Wrapf(err, "mv %s to %s failed and output is %q", packageDiskPath, backupPath, output)
+			}
 		}
 	}
 	return backupIds, metadata, nil

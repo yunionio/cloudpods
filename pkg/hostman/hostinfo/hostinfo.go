@@ -337,6 +337,7 @@ func (h *SHostInfo) prepareEnv() error {
 	for _, dirPath := range []string{
 		options.HostOptions.ServersPath,
 		options.HostOptions.MemorySnapshotsPath,
+		options.HostOptions.LocalBackupTempPath,
 	} {
 		output, err := procutils.NewCommand("mkdir", "-p", dirPath).Output()
 		if err != nil {

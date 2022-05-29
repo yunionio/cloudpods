@@ -18,10 +18,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 )
 
 func ZeroFile(filename string) error {
+	log.Debugf("zerofile %s", filename)
+
 	f, err := os.OpenFile(filename, os.O_RDWR, 0644)
 	if err != nil {
 		return errors.Wrap(err, "os.OpenFile")
