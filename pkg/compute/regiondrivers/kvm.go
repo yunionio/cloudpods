@@ -1465,7 +1465,7 @@ func (self *SKVMRegionDriver) RequestPackInstanceBackup(ctx context.Context, ib 
 	for i := range backupIds {
 		backupIds[i] = backups[i].GetId()
 	}
-	metadata, err := ib.PackMetadata()
+	metadata, err := ib.PackMetadata(ctx, task.GetUserCred())
 	if err != nil {
 		return errors.Wrap(err, "unable to PackMetadata")
 	}
@@ -1484,7 +1484,7 @@ func (self *SKVMRegionDriver) RequestPackInstanceBackup(ctx context.Context, ib 
 	return nil
 }
 
-func (self *SKVMRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string) error {
+func (self *SKVMRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string, metadataOnly bool) error {
 	log.Infof("RequestUnpackInstanceBackup")
 	backupStorage, err := ib.GetBackupStorage()
 	if err != nil {
@@ -1500,6 +1500,9 @@ func (self *SKVMRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, i
 	body.Set("package_name", jsonutils.NewString(packageName))
 	body.Set("backup_storage_id", jsonutils.NewString(backupStorage.GetId()))
 	body.Set("backup_storage_access_info", jsonutils.Marshal(backupStorage.AccessInfo))
+	if metadataOnly {
+		body.Set("metadata_only", jsonutils.JSONTrue)
+	}
 	header := task.GetTaskRequestHeader()
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	if err != nil {

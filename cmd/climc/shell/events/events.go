@@ -41,6 +41,8 @@ type BaseEventListOptions struct {
 	OwnerDomainIds  []string `help:"filter by owner domain ids"`
 
 	PagingMarker string `help:"marker for pagination"`
+
+	Filter []string `help:"Filters"`
 }
 
 type EventListOptions struct {
@@ -118,6 +120,9 @@ func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args
 	}
 	if len(args.PagingMarker) > 0 {
 		params.Add(jsonutils.NewString(args.PagingMarker), "paging_marker")
+	}
+	if len(args.Filter) > 0 {
+		params.Add(jsonutils.NewStringArray(args.Filter), "filter")
 	}
 	logs, err := man.List(s, params)
 	if err != nil {

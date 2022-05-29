@@ -50,7 +50,7 @@ func init() {
 	cmd.BatchPut(new(options.ServerUpdateOptions))
 	cmd.GetMetadata(new(options.ServerIdOptions))
 	cmd.Perform("clone", new(options.ServerCloneOptions))
-	cmd.BatchPerform("start", new(options.ServerIdsOptions))
+	cmd.BatchPerform("start", new(options.ServerStartOptions))
 	cmd.BatchPerform("syncstatus", new(options.ServerIdsOptions))
 	cmd.BatchPerform("sync", new(options.ServerIdsOptions))
 	cmd.Perform("switch-to-backup", new(options.ServerSwitchToBackupOptions))
@@ -743,7 +743,7 @@ func init() {
 		BACKUP          string `help:"Instance backup name" json:"name"`
 		BACKUPSTORAGEID string `help:"backup storage id" json:"backup_storage_id"`
 	}
-	R(&ServerCreateBackup{}, "instance-backup-create", "create instance backup", func(s *mcclient.ClientSession, opts *ServerCreateBackup) error {
+	R(&ServerCreateBackup{}, "server-create-instance-backup", "create instance backup", func(s *mcclient.ClientSession, opts *ServerCreateBackup) error {
 		params := jsonutils.Marshal(opts)
 		result, err := modules.Servers.PerformAction(s, opts.ID, "instance-backup", params)
 		if err != nil {

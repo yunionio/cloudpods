@@ -521,6 +521,7 @@ func (manager *SDiskBackupManager) CreateFromPackMetadata(ctx context.Context, o
 	}
 	backup.DiskType = metadata.DiskType
 	backup.DiskSizeMb = metadata.DiskSizeMb
+	backup.SizeMb = metadata.SizeMb
 	backup.OsArch = metadata.OsArch
 	backup.DiskType = metadata.DiskType
 	backup.OsType = metadata.OsType

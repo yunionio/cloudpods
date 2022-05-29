@@ -315,26 +315,34 @@ func packInstanceBackup(ctx context.Context, params interface{}) (jsonutils.JSON
 	sbParams := params.(*storageman.SStoragePackInstanceBackup)
 	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetBackupStorage")
 	}
-	err = backupStorage.InstancePack(sbParams.PackageName, sbParams.BackupIds, &sbParams.Metadata)
-	return nil, err
+	packFileName, err := backupStorage.InstancePack(ctx, sbParams.PackageName, sbParams.BackupIds, &sbParams.Metadata)
+	if err != nil {
+		return nil, errors.Wrap(err, "InstancePack")
+	}
+	ret := jsonutils.NewDict()
+	ret.Set("pack_file_name", jsonutils.NewString(packFileName))
+	return ret, nil
 }
 
 func unpackInstanceBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sbParams := params.(*storageman.SStorageUnpackInstanceBackup)
 	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetBackupStorage")
 	}
-	diskBackupIds, metadata, err := backupStorage.InstanceUnpack(sbParams.PackageName)
+	metadataOnly := (sbParams.MetadataOnly != nil && *sbParams.MetadataOnly)
+	diskBackupIds, metadata, err := backupStorage.InstanceUnpack(ctx, sbParams.PackageName, metadataOnly)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "InstanceUnpack")
 	}
 	ret := jsonutils.NewDict()
-	ret.Set("disk_backup_ids", jsonutils.Marshal(diskBackupIds))
+	if diskBackupIds != nil {
+		ret.Set("disk_backup_ids", jsonutils.Marshal(diskBackupIds))
+	}
 	ret.Set("metadata", jsonutils.Marshal(metadata))
-	return ret, err
+	return ret, nil
 }
 
 func storageDeleteBackup(ctx context.Context, w http.ResponseWriter, r *http.Request) {

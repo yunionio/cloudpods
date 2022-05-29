@@ -45,6 +45,8 @@ func init() {
 	ibCmd.DeleteWithParam(&compute.InstanceBackupDeleteOptions{})
 	ibCmd.Perform("recovery", &compute.InstanceBackupRecoveryOptions{})
 	ibCmd.Perform("pack", &compute.InstanceBackupPackOptions{})
-	ibCmd.PerformClass("create-from-package", &compute.InstanceBackupManagerCreateFromPackageOptions{})
+	// ibCmd.PerformClass("create-from-package", &compute.InstanceBackupManagerCreateFromPackageOptions{})
+	ibCmd.Create(&compute.InstanceBackupManagerCreateFromPackageOptions{})
 	ibCmd.Perform("syncstatus", &compute.DiskBackupSyncstatusOptions{})
+	ibCmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 }

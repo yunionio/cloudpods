@@ -27,10 +27,13 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -57,7 +60,7 @@ type SInstanceBackup struct {
 
 	BackupStorageId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
 
-	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" index:"true"`
 	// 云主机配置 corresponds to api.ServerCreateInput
 	ServerConfig jsonutils.JSONObject `nullable:"true" list:"user"`
 	// 云主机标签
@@ -509,37 +512,43 @@ func (self *SInstanceBackup) PerformPack(ctx context.Context, userCred mcclient.
 	return nil, nil
 }
 
-func (self *SInstanceBackupManager) PerformCreateFromPackage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InstanceBackupManagerCreateFromPackageInput) (jsonutils.JSONObject, error) {
-	if input.Name == "" {
-		return nil, httperrors.NewMissingParameterError("miss name")
-	}
+func (manager *SInstanceBackupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.InstanceBackupManagerCreateFromPackageInput) (api.InstanceBackupManagerCreateFromPackageInput, error) {
 	if input.PackageName == "" {
-		return nil, httperrors.NewMissingParameterError("miss package_name")
+		return input, httperrors.NewMissingParameterError("miss package_name")
 	}
 	_, err := BackupStorageManager.FetchById(input.BackupStorageId)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("unable to fetch backupStorage %s", input.BackupStorageId)
+		return input, httperrors.NewInputParameterError("unable to fetch backupStorage %s", input.BackupStorageId)
 	}
-	name, err := db.GenerateName(ctx, self, userCred, input.Name)
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to generate name")
+		return input, errors.Wrap(err, "SVirtualResourceBaseManager.ValidateCreateData")
 	}
-	ib, err := self.CreateInstanceBackupFromPackage(ctx, userCred, input.BackupStorageId, name)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create instanceBackup")
-	}
-	params := jsonutils.NewDict()
-	params.Set("package_name", jsonutils.NewString(input.PackageName))
-	task, err := taskman.TaskManager.NewTask(ctx, "InstanceBackupUnpackTask", ib, userCred, params, "", "", nil)
-	if err != nil {
-		return nil, err
-	} else {
-		task.ScheduleRun(nil)
-	}
-	return nil, nil
+
+	return input, nil
 }
 
-func (self *SInstanceBackup) PackMetadata() (*api.InstanceBackupPackMetadata, error) {
+func (manager *SInstanceBackupManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	packageName, _ := data.GetString("package_name")
+	params := jsonutils.NewDict()
+	params.Set("package_name", jsonutils.NewString(packageName))
+	for i := range items {
+		ib := items[i].(*SInstanceBackup)
+		task, err := taskman.TaskManager.NewTask(ctx, "InstanceBackupUnpackTask", ib, userCred, params, "", "", nil)
+		if err != nil {
+			log.Errorf("InstanceBackupUnpackTask fail %s", err)
+		} else {
+			task.ScheduleRun(nil)
+		}
+	}
+}
+
+func (self *SInstanceBackup) PackMetadata(ctx context.Context, userCred mcclient.TokenCredential) (*api.InstanceBackupPackMetadata, error) {
+	allMetadata, err := self.GetAllMetadata(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetAllMetadata")
+	}
+
 	metadata := &api.InstanceBackupPackMetadata{
 		OsArch:         self.OsArch,
 		ServerConfig:   self.ServerConfig,
@@ -549,6 +558,9 @@ func (self *SInstanceBackup) PackMetadata() (*api.InstanceBackupPackMetadata, er
 		OsType:         self.OsType,
 		InstanceType:   self.InstanceType,
 		SizeMb:         self.SizeMb,
+
+		EncryptKeyId: self.EncryptKeyId,
+		Metadata:     allMetadata,
 	}
 	dbs, err := self.GetBackups()
 	if err != nil {
@@ -561,7 +573,7 @@ func (self *SInstanceBackup) PackMetadata() (*api.InstanceBackupPackMetadata, er
 	return metadata, nil
 }
 
-func (manager *SInstanceBackupManager) CreateInstanceBackupFromPackage(ctx context.Context, owner mcclient.TokenCredential, backupStorageId, name string) (*SInstanceBackup, error) {
+/*func (manager *SInstanceBackupManager) CreateInstanceBackupFromPackage(ctx context.Context, owner mcclient.TokenCredential, backupStorageId, name string) (*SInstanceBackup, error) {
 	ib := &SInstanceBackup{}
 	ib.SetModelManager(manager, ib)
 	ib.ProjectId = owner.GetProjectId()
@@ -575,7 +587,7 @@ func (manager *SInstanceBackupManager) CreateInstanceBackupFromPackage(ctx conte
 		return nil, errors.Wrap(err, "unable to insert instance backup")
 	}
 	return ib, nil
-}
+}*/
 
 func (ib *SInstanceBackup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InstanceBackupManagerSyncstatusInput) (jsonutils.JSONObject, error) {
 	var openTask = true
@@ -591,6 +603,26 @@ func (ib *SInstanceBackup) PerformSyncstatus(ctx context.Context, userCred mccli
 }
 
 func (ib *SInstanceBackup) FillFromPackMetadata(ctx context.Context, userCred mcclient.TokenCredential, diskBackupIds []string, metadata *api.InstanceBackupPackMetadata) (*SInstanceBackup, error) {
+	if len(metadata.Metadata) > 0 {
+		// check class metadata
+		allOwner := db.AllMetadataOwner(metadata.Metadata)
+		err := db.RequireSameClass(ctx, allOwner, ib)
+		if err != nil {
+			return nil, errors.Wrap(err, "db.IsInSameClass")
+		}
+		meta := make(map[string]interface{})
+		for k, v := range metadata.Metadata {
+			meta[k] = v
+		}
+		ib.SetAllMetadata(ctx, meta, userCred)
+	}
+	if len(metadata.EncryptKeyId) > 0 {
+		session := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
+		_, err := identity_modules.Credentials.GetEncryptKey(session, metadata.EncryptKeyId)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetEncryptKey")
+		}
+	}
 	for i, backupId := range diskBackupIds {
 		_, err := DiskBackupManager.CreateFromPackMetadata(ctx, userCred, ib.BackupStorageId, backupId, fmt.Sprintf("%s_disk_%d", ib.Name, i), &metadata.DiskMetadatas[i])
 		if err != nil {
@@ -610,6 +642,8 @@ func (ib *SInstanceBackup) FillFromPackMetadata(ctx context.Context, userCred mc
 		ib.OsType = metadata.OsType
 		ib.InstanceType = metadata.InstanceType
 		ib.SizeMb = metadata.SizeMb
+
+		ib.EncryptKeyId = metadata.EncryptKeyId
 		return nil
 	})
 	if err != nil {
@@ -625,11 +659,13 @@ func (self *SInstanceBackup) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
-	// use disk's ownerId instead of default ownerId
-	guestObj, err := GuestManager.FetchById(self.GuestId)
-	if err != nil {
-		return errors.Wrap(err, "GuestManager.FetchById")
+	if len(self.GuestId) > 0 {
+		// use disk's ownerId instead of default ownerId
+		guestObj, err := GuestManager.FetchById(self.GuestId)
+		if err != nil {
+			return errors.Wrap(err, "GuestManager.FetchById")
+		}
+		ownerId = guestObj.(*SGuest).GetOwnerId()
 	}
-	ownerId = guestObj.(*SGuest).GetOwnerId()
 	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }

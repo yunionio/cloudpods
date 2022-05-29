@@ -103,7 +103,8 @@ type InstanceBackupPackInput struct {
 }
 
 type InstanceBackupManagerCreateFromPackageInput struct {
+	apis.VirtualResourceCreateInput
+
 	BackupStorageId string
 	PackageName     string
-	Name            string
 }
