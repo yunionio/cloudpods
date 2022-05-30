@@ -41,6 +41,10 @@ func (click *SClickhouseBackend) Name() sqlchemy.DBBackendName {
 	return sqlchemy.ClickhouseBackend
 }
 
+func (click *SClickhouseBackend) CaseInsensitiveLikeString() string {
+	return "ILIKE"
+}
+
 // CanUpdate returns wether the backend supports update
 func (click *SClickhouseBackend) CanUpdate() bool {
 	return false
