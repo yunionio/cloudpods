@@ -361,6 +361,7 @@ type ServerCreateInput struct {
 	VcpuCount int `json:"vcpu_count"`
 
 	// 用户自定义启动脚本
+	// 公有云私有云只支持 #cloud-config yaml 格式, 且只有linux系统生效
 	// required: false
 	UserData string `json:"user_data"`
 

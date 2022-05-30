@@ -63,6 +63,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	config.Name = guest.Name
 	config.Cpu = int(guest.VcpuCount)
 	config.MemoryMB = guest.VmemSize
+	config.UserData = guest.GetUserData(ctx, userCred)
 	config.Description = guest.Description
 	if params != nil {
 		params.Unmarshal(&config.SPublicIpInfo)
@@ -210,6 +211,12 @@ func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx conte
 func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	if input.Cdrom != "" {
 		return nil, httperrors.NewInputParameterError("%s not support cdrom params", input.Hypervisor)
+	}
+	if len(input.UserData) > 0 {
+		_, err := cloudinit.ParseUserData(input.UserData)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return input, nil
 }

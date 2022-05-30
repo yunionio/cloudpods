@@ -168,9 +168,7 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 	if strings.ToLower(vmConfig.OsType) == strings.ToLower(osprofile.OS_TYPE_LINUX) {
 		adminPublicKey, _ := config.GetString("admin_public_key")
 		projectPublicKey, _ := config.GetString("project_public_key")
-		oUserData, _ := config.GetString("user_data")
-
-		vmConfig.UserData = generateUserData(adminPublicKey, projectPublicKey, oUserData)
+		vmConfig.UserData = generateUserData(adminPublicKey, projectPublicKey, vmConfig.UserData)
 	}
 
 	resetPassword := jsonutils.QueryBoolean(config, "reset_password", false)
