@@ -3313,8 +3313,13 @@ func (self *SGuest) setUserData(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (self *SGuest) AllowPerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "user-data")
+func (self *SGuest) GetUserData(ctx context.Context, userCred mcclient.TokenCredential) string {
+	userData := self.GetMetadata("user_data", userCred)
+	if len(userData) == 0 {
+		return userData
+	}
+	decodeData, _ := userdata.Decode(userData)
+	return decodeData
 }
 
 func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerUserDataInput) (jsonutils.JSONObject, error) {
