@@ -20,6 +20,7 @@ package sqlchemy
 // the struct implements IQueryField interface
 type SRawQueryField struct {
 	name string
+	db   *SDatabase
 }
 
 // Expression implementation of SRawQueryField for IQueryField
@@ -47,6 +48,10 @@ func (rqf *SRawQueryField) Variables() []interface{} {
 	return nil
 }
 
+func (rqf *SRawQueryField) database() *SDatabase {
+	return rqf.db
+}
+
 // NewRawQuery returns an instance of SQuery with raw SQL query. e.g. show tables
 func NewRawQuery(sqlStr string, fields ...string) *SQuery {
 	return GetDefaultDB().NewRawQuery(sqlStr, fields...)
@@ -56,7 +61,10 @@ func NewRawQuery(sqlStr string, fields ...string) *SQuery {
 func (db *SDatabase) NewRawQuery(sqlStr string, fields ...string) *SQuery {
 	qfs := make([]IQueryField, len(fields))
 	for i, f := range fields {
-		rqf := SRawQueryField{name: f}
+		rqf := SRawQueryField{
+			name: f,
+			db:   db,
+		}
 		qfs[i] = &rqf
 	}
 	q := SQuery{

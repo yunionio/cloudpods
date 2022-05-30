@@ -50,7 +50,9 @@ type IBackend interface {
 	// GetColumnSpecByFieldType parse the field of model struct to extract column specifiction of a field
 	GetColumnSpecByFieldType(table *STableSpec, fieldType reflect.Type, fieldname string, tagmap map[string]string, isPointer bool) IColumnSpec
 	//
-	// CurrentUTCTimeStampString() string
+	CurrentUTCTimeStampString() string
+	//
+	CaseInsensitiveLikeString() string
 
 	// Capability
 
@@ -74,6 +76,45 @@ type IBackend interface {
 
 	// CommitTableChangeSQL outputs the SQLs to alter a table
 	CommitTableChangeSQL(ts ITableSpec, changes STableChanges) []string
+
+	///////////////////////////////////////////////////////////////////////
+	////////////////// FUNCTIONS //////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
+
+	// cast
+	CAST(field IQueryField, typeStr string, fieldname string) IQueryField
+	// TIMESTAMPADD
+	TIMESTAMPADD(name string, field IQueryField, offsetSeconds int) IQueryField
+	// INET_ATON
+	INET_ATON(field IQueryField) IQueryField
+	// AND_Val
+	AND_Val(name string, field IQueryField, v interface{}) IQueryField
+	// OR_Val
+	OR_Val(name string, field IQueryField, v interface{}) IQueryField
+	// SUBSTR
+	SUBSTR(name string, field IQueryField, pos, length int) IQueryField
+	// CONCAT
+	CONCAT(name string, fields ...IQueryField) IQueryField
+	// REPLACE
+	REPLACE(name string, field IQueryField, old string, new string) IQueryField
+	// GROUP_CONCAT2
+	GROUP_CONCAT2(name string, sep string, field IQueryField) IQueryField
+	// DISTINCT
+	DISTINCT(name string, field IQueryField) IQueryField
+	// COUNT
+	COUNT(name string, field ...IQueryField) IQueryField
+	// MAX
+	MAX(name string, field IQueryField) IQueryField
+	// MIN
+	MIN(name string, field IQueryField) IQueryField
+	// SUM
+	SUM(name string, field IQueryField) IQueryField
+	// LENGTH
+	LENGTH(name string, field IQueryField) IQueryField
+	// LOWER
+	LOWER(name string, field IQueryField) IQueryField
+	// UPPER
+	UPPER(name string, field IQueryField) IQueryField
 }
 
 var _driver_tbl = make(map[DBBackendName]IBackend)
