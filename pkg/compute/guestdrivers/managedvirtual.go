@@ -996,11 +996,10 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 
 		disks, _ := guest.GetGuestDisks()
 		if len(disks) != len(diskInfo) {
-			msg := fmt.Sprintf("inconsistent disk number: guest have %d disks, data contains %d disks", len(disks), len(diskInfo))
-			log.Errorf(msg)
-			return fmt.Errorf(msg)
+			// 公有云镜像可能包含数据盘, 若忽略设置磁盘的external id, 会导致部分磁盘状态异常
+			log.Warningf("inconsistent disk number: guest have %d disks, data contains %d disks", len(disks), len(diskInfo))
 		}
-		for i := 0; i < len(diskInfo); i += 1 {
+		for i := 0; i < len(diskInfo) && i < len(disks); i += 1 {
 			disk := disks[i].GetDisk()
 			_, err = db.Update(disk, func() error {
 				disk.DiskSize = diskInfo[i].Size
