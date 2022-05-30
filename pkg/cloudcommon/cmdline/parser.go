@@ -176,9 +176,6 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 		case "mountpoint":
 			diskConfig.Mountpoint = str
 		case "storage_type", "backend":
-			if !utils.IsInStringArray(str, compute.STORAGE_ALL_TYPES) {
-				return nil, errors.Errorf("invalid disk storage type %s, allow choices: %s", str, compute.STORAGE_ALL_TYPES)
-			}
 			diskConfig.Backend = str
 		case "snapshot", "snapshot_id":
 			diskConfig.SnapshotId = str
