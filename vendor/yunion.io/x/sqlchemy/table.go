@@ -245,8 +245,23 @@ func (tbl *STable) Fields() []IQueryField {
 }
 
 // Database implementaion of STable for IQuerySource
-func (tbl *STable) Database() *SDatabase {
+func (tbl *STable) database() *SDatabase {
 	return tbl.spec.Database()
+}
+
+// Expression implementation of STable for IQuerySource
+func (tbl *STable) Expression() string {
+	return tbl.spec.Expression()
+}
+
+// Alias implementation of STable for IQuerySource
+func (tbl *STable) Alias() string {
+	return tbl.alias
+}
+
+// Variables implementation of STable for IQuerySource
+func (tbl *STable) Variables() []interface{} {
+	return []interface{}{}
 }
 
 // Expression implementation of STableField for IQueryField
@@ -281,4 +296,9 @@ func (c *STableField) Label(label string) IQueryField {
 // Variables implementation of STableField for IQueryField
 func (c *STableField) Variables() []interface{} {
 	return nil
+}
+
+// database implementation of STableField for IQueryField
+func (c *STableField) database() *SDatabase {
+	return c.table.database()
 }

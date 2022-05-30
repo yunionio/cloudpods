@@ -53,5 +53,5 @@ const (
 	ErrUnionFieldsNotMatch = errors.Error("cannot union, name of fields not match")
 
 	// ErrUnionDatabasesNotMatch is an Error constant: backend database of union queries not match
-	ErrUnionDatabasesNotMatch = errors.Error("cannot union across different databases")
+	ErrUnionAcrossDatabases = errors.Error("cannot union across different databases")
 )

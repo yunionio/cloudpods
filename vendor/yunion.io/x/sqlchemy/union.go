@@ -64,6 +64,10 @@ func (sqf *SUnionQueryField) Variables() []interface{} {
 	return nil
 }
 
+func (sqf *SUnionQueryField) database() *SDatabase {
+	return sqf.union.database()
+}
+
 // SUnion is the struct to store state of a Union query, which implementation the interface of IQuerySource
 type SUnion struct {
 	alias   string
@@ -85,7 +89,7 @@ func (uq *SUnion) operator() string {
 	if uq.isAll {
 		return " UNION ALL "
 	} else {
-		return " UNION "
+		return " UNION DISTINCT "
 	}
 }
 
@@ -178,8 +182,14 @@ func (uq *SUnion) Variables() []interface{} {
 }
 
 // Database implementation of SUnion for IQUerySource
-func (uq *SUnion) Database() *SDatabase {
-	return uq.queries[0].Database()
+func (uq *SUnion) database() *SDatabase {
+	for _, q := range uq.queries {
+		db := q.database()
+		if db != nil {
+			return db
+		}
+	}
+	return nil
 }
 
 // Union method returns union query of several queries.
@@ -216,9 +226,9 @@ func unionWithError(isAll bool, query ...IQuery) (*SUnion, error) {
 	var db *SDatabase
 	for i := 1; i < len(query); i++ {
 		if db == nil {
-			db = query[i].Database()
-		} else if db != query[i].Database() {
-			panic(ErrUnionDatabasesNotMatch)
+			db = query[i].database()
+		} else if db != query[i].database() {
+			panic(ErrUnionAcrossDatabases)
 		}
 		qfields := query[i].QueryFields()
 		if len(fieldNames) != len(qfields) {
