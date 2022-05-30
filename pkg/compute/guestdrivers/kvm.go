@@ -208,7 +208,7 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 		Host:       host.AccessIp,
 		Protocol:   guest.GetVdi(),
 		Port:       int64(port),
-		Hypervisor: api.HYPERVISOR_ESXI,
+		Hypervisor: api.HYPERVISOR_KVM,
 	}
 	return result, nil
 }
