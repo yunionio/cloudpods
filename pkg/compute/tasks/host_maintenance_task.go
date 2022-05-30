@@ -58,7 +58,8 @@ func (self *HostMaintainTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 
 	if len(guests) == 0 {
 		// no guest to migrate
-		self.SetStageComplete(ctx, nil)
+		// self.SetStageComplete(ctx, nil)
+		self.OnGuestsMigrate(ctx, host, nil)
 		return
 	}
 
