@@ -228,7 +228,6 @@ func (man *SLoadbalancerManager) ListItemFilter(
 				q.Join(nq, sqlchemy.Equals(nq.Field("id"), gnq.Field("network_id")))
 				q.Join(wq, sqlchemy.Equals(wq.Field("id"), nq.Field("wire_id")))
 				q.Join(vq, sqlchemy.Equals(vq.Field("id"), wq.Field("vpc_id")))
-				q.Filter(sqlchemy.IsNullOrEmpty(gnq.Field("eip_id")))
 				q.Filter(sqlchemy.NotEquals(vq.Field("id"), api.DEFAULT_VPC_ID))
 				// vpc provider thing will be handled ok below
 			}
@@ -1563,7 +1562,11 @@ func (lb *SLoadbalancer) IsEipAssociable() error {
 	return nil
 }
 
+// 绑定弹性公网IP, 仅支持kvm
 func (lb *SLoadbalancer) PerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LoadbalancerAssociateEipInput) (jsonutils.JSONObject, error) {
+	if lb.IsManaged() {
+		return nil, httperrors.NewUnsupportOperationError("not support managed lb")
+	}
 	err := lb.IsEipAssociable()
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
@@ -1630,10 +1633,24 @@ func (lb *SLoadbalancer) PerformAssociateEip(ctx context.Context, userCred mccli
 		return nil, errors.Wrap(err, "AssociateLoadbalancer")
 	}
 
+	_, err = db.Update(lb, func() error {
+		lb.Address = eip.IpAddr
+		lb.AddressType = api.LB_ADDR_TYPE_INTERNET
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "set loadbalancer address")
+	}
+
 	return nil, nil
 }
 
+// 解绑弹性公网IP，仅支持kvm
 func (lb *SLoadbalancer) PerformDissociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LoadbalancerDissociateEipInput) (jsonutils.JSONObject, error) {
+	if lb.IsManaged() {
+		return nil, httperrors.NewUnsupportOperationError("not support managed lb")
+	}
+
 	eip, err := lb.GetEip()
 	if err != nil {
 		log.Errorf("Fail to get Eip %s", err)
@@ -1646,6 +1663,18 @@ func (lb *SLoadbalancer) PerformDissociateEip(ctx context.Context, userCred mccl
 	err = db.IsObjectRbacAllowed(ctx, eip, userCred, policy.PolicyActionGet)
 	if err != nil {
 		return nil, errors.Wrap(err, "eip is not accessible")
+	}
+
+	lbnet, err := LoadbalancernetworkManager.FetchFirstByLbId(ctx, lb.Id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "LoadbalancernetworkManager.FetchFirstByLbId(%s)", lb.Id)
+	}
+	if _, err := db.Update(lb, func() error {
+		lb.Address = lbnet.IpAddr
+		lb.AddressType = api.LB_ADDR_TYPE_INTRANET
+		return nil
+	}); err != nil {
+		return nil, errors.Wrapf(err, "db.Update")
 	}
 
 	autoDelete := (input.AudoDelete != nil && *input.AudoDelete)
