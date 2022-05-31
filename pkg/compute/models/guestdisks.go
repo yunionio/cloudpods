@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -144,10 +145,10 @@ func (manager *SGuestdiskManager) FetchCustomizeColumns(
 func (self *SGuestdisk) DoSave(ctx context.Context, driver string, cache string, mountpoint string) error {
 	self.ImagePath = ""
 	if len(driver) == 0 {
-		driver = "scsi"
+		driver = options.Options.DefaultDiskDriver
 	}
 	if len(cache) == 0 {
-		cache = "writeback"
+		cache = options.Options.DefaultDiskCacheMode
 	}
 	if len(mountpoint) > 0 {
 		self.Mountpoint = mountpoint
