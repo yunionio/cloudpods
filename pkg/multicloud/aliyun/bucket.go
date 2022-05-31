@@ -102,30 +102,6 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 			Description: "IntranetEndpoint",
 		},
 	}
-
-	osscli, err := b.region.GetOssClient()
-	if err != nil {
-		return ret
-	}
-	info, err := osscli.GetBucketInfo(b.Name)
-	if err != nil {
-		return ret
-	}
-	ret = []cloudprovider.SBucketAccessUrl{}
-	if len(info.BucketInfo.ExtranetEndpoint) > 0 {
-		ret = append(ret, cloudprovider.SBucketAccessUrl{
-			Url:         info.BucketInfo.ExtranetEndpoint,
-			Description: "ExtranetEndpoint",
-			Primary:     true,
-		})
-	}
-	if len(info.BucketInfo.IntranetEndpoint) > 0 {
-		ret = append(ret, cloudprovider.SBucketAccessUrl{
-			Url:         info.BucketInfo.IntranetEndpoint,
-			Description: "IntranetEndpoint",
-			Primary:     true,
-		})
-	}
 	return ret
 }
 
