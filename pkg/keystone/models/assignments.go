@@ -70,10 +70,14 @@ func init() {
 type SAssignment struct {
 	db.SResourceBase
 
-	Type     string `width:"16" charset:"ascii" nullable:"false" primary:"true" list:"admin"`
-	ActorId  string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"admin"`
+	// 关联类型，分为四类：'UserProject','GroupProject','UserDomain','GroupDomain'
+	Type string `width:"16" charset:"ascii" nullable:"false" primary:"true" list:"admin"`
+	// 用户或者用户组ID
+	ActorId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"admin"`
+	// 项目或者域ID
 	TargetId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"admin"`
-	RoleId   string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"admin"`
+	// 角色ID
+	RoleId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"admin"`
 
 	Inherited tristate.TriState `primary:"true" list:"admin"`
 }

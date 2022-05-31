@@ -17,45 +17,65 @@ package identity
 import "yunion.io/x/onecloud/pkg/util/rbacutils"
 
 type SIdentityObject struct {
-	Id   string `json:"id"`
+	// UUID
+	Id string `json:"id"`
+	// 名称
 	Name string `json:"name"`
 }
 
 type SDomainObject struct {
 	SIdentityObject
+
+	// 归属域信息
 	Domain SIdentityObject `json:"domain"`
 }
 
 type SDomainObjectWithMetadata struct {
 	SDomainObject
+
+	// 标签信息
 	Metadata map[string]string `json:"metadata"`
 }
 
 type SFetchDomainObject struct {
 	SIdentityObject
-	Domain   string `json:"domain"`
+	// 归属域名称
+	Domain string `json:"domain"`
+	// 归属域ID
 	DomainId string `json:"domain_id"`
 }
 
 type SFetchDomainObjectWithMetadata struct {
 	SFetchDomainObject
 
+	// 项目标签
 	Metadata map[string]string `json:"metadata"`
 }
 
 type SRoleAssignment struct {
+	// 归属范围
 	Scope struct {
-		Domain  SIdentityObject           `json:"domain"`
+		// 归属域信息
+		Domain SIdentityObject `json:"domain"`
+		// 归属项目信息，归属范围为项目时有值
 		Project SDomainObjectWithMetadata `json:"project"`
 	} `json:"scope"`
-	User  SDomainObject `json:"user"`
-	Group SDomainObject `json:"group"`
-	Role  SDomainObject `json:"role"`
 
+	// 用户信息
+	User SDomainObject `json:"user"`
+	// 用户组信息
+	Group SDomainObject `json:"group"`
+	// 用户加入项目的角色信息
+	Role SDomainObject `json:"role"`
+
+	// 用户角色关联的权限信息
 	Policies struct {
+		// 关联的项目权限名称列表
 		Project []string `json:"project"`
-		Domain  []string `json:"domain"`
-		System  []string `json:"system"`
+		// 关联的域权限名称列表
+		Domain []string `json:"domain"`
+		// 关联的系统权限名称列表
+		System []string `json:"system"`
 	} `json:"policies"`
 }
 

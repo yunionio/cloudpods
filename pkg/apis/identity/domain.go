@@ -22,13 +22,20 @@ type DomainDetails struct {
 
 	SDomain
 
-	UserCount    int `json:"user_count"`
-	GroupCount   int `json:"group_count"`
+	// 归属域的用户数量
+	UserCount int `json:"user_count"`
+	// 归属域的用户组数量
+	GroupCount int `json:"group_count"`
+	// 归属域的项目数量
 	ProjectCount int `json:"project_count"`
-	RoleCount    int `json:"role_count"`
-	PolicyCount  int `json:"policy_count"`
-	IdpCount     int `json:"idp_count"`
+	// 归属域的角色数量
+	RoleCount int `json:"role_count"`
+	// 归属域的权限策略数量
+	PolicyCount int `json:"policy_count"`
+	// 归属域的认证源数量
+	IdpCount int `json:"idp_count"`
 
+	// 归属该域的外部资源统计信息
 	ExternalResourceInfo
 }
 
