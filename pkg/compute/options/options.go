@@ -87,6 +87,9 @@ type ComputeOptions struct {
 	DefaultHostQuota int `default:"500" help:"Common host quota per domain, default 500"`
 	DefaultVpcQuota  int `default:"500" help:"Common vpc quota per domain, default 500"`
 
+	DefaultDiskDriver    string `help:"default disk driver" choices:"scsi|virtio|ide" default:"scsi"`
+	DefaultDiskCacheMode string `help:"default kvm disk cache mode" choices:"writeback|none|writethrough" default:"writeback"`
+
 	SystemAdminQuotaCheck         bool `help:"Enable quota check for system admin, default False" default:"false"`
 	CloudaccountHealthStatusCheck bool `help:"Enable cloudaccount health status check, default True" default:"true"`
 
