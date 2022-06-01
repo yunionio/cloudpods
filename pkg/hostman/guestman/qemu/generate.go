@@ -267,7 +267,7 @@ func generateDisksOptions(drvOpt QemuOptions, disks []api.GuestdiskJsonDesc, pci
 					// FIXME: iothread will make qemu-monitor hang
 					// REF: https://www.mail-archive.com/qemu-devel@nongnu.org/msg592729.html
 					// cmd += " -device virtio-scsi-pci,id=scsi,iothread=iothread0,num_queues=4,vectors=5"
-					opts = append(opts, drvOpt.Device("virtio-scsi-pci,id=scsi,num_queues=4,vectors=5"))
+					opts = append(opts, drvOpt.Device("virtio-scsi-pci,id=scsi"))
 				case DISK_DRIVER_PVSCSI:
 					opts = append(opts, drvOpt.Device("pvscsi,id=scsi"))
 				}
