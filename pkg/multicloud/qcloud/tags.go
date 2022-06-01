@@ -19,6 +19,7 @@ import (
 	"strconv"
 
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -183,6 +184,9 @@ func (region *SRegion) createTag(key, value string) error {
 	apiName := "CreateTag"
 	_, err := region.client.tagRequest(apiName, params)
 	if err != nil {
+		if e, ok := errors.Cause(err).(*sdkerrors.TencentCloudSDKError); ok && e.Code == "ResourceInUse.TagDuplicate" {
+			return nil
+		}
 		return errors.Wrap(err, apiName)
 	}
 	return nil
