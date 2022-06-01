@@ -250,7 +250,8 @@ func (s *SKVMGuestInstance) getVdiskDesc(disk api.GuestdiskJsonDesc, isArm bool)
 	if diskDriver == DISK_DRIVER_VIRTIO {
 		// virtio-blk
 		cmd += fmt.Sprintf(",bus=%s,addr=0x%x", s.GetPciBus(), s.GetDiskAddr(int(diskIndex)))
-		cmd += fmt.Sprintf(",num-queues=%d,vectors=%d,iothread=iothread0", numQueues, numQueues+1)
+		// cmd += fmt.Sprintf(",num-queues=%d,vectors=%d,iothread=iothread0", numQueues, numQueues+1)
+		cmd += ",iothread=iothread0"
 	} else if utils.IsInStringArray(diskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
 		cmd += ",bus=scsi.0"
 	} else if diskDriver == DISK_DRIVER_IDE {
