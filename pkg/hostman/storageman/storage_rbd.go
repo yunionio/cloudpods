@@ -457,10 +457,11 @@ func (s *SRbdStorage) Detach() error {
 }
 
 func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	data, ok := params.(*jsonutils.JSONDict)
+	info, ok := params.(SStorageSaveToGlanceInfo)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
+	data := info.DiskInfo
 
 	rbdImageCache := storageManager.GetStoragecacheById(s.GetStoragecacheId())
 	if rbdImageCache == nil {
