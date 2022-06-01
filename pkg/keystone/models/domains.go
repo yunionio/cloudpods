@@ -58,9 +58,13 @@ func init() {
 type SDomain struct {
 	db.SStandaloneResourceBase
 
+	// 额外信息
 	Extra *jsonutils.JSONDict `nullable:"true"`
 
-	Enabled  tristate.TriState `default:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// 改域是否启用
+	Enabled tristate.TriState `default:"true" list:"admin" update:"admin" create:"admin_optional"`
+
+	// 是否为域
 	IsDomain tristate.TriState `default:"false"`
 
 	// IdpId string `token:"parent_id" width:"64" charset:"ascii" index:"true" list:"admin"`

@@ -21,9 +21,12 @@ import (
 )
 
 type ExternalResourceInfo struct {
-	ExtResource            jsonutils.JSONObject `json:"ext_resource"`
-	ExtResourcesLastUpdate time.Time            `json:"ext_resources_last_update"`
-	ExtResourcesNextUpdate time.Time            `json:"ext_resources_next_update"`
+	// 外部资源统计信息（资源类别：数量）
+	ExtResource jsonutils.JSONObject `json:"ext_resource"`
+	// 外部资源统计信息上次更新时间
+	ExtResourcesLastUpdate time.Time `json:"ext_resources_last_update"`
+	// 外部资源统计信息下次更新时间
+	ExtResourcesNextUpdate time.Time `json:"ext_resources_next_update"`
 }
 
 type ProjectDetails struct {
@@ -31,8 +34,11 @@ type ProjectDetails struct {
 
 	SProject
 
+	// 加入项目的用户组数量
 	GroupCount int `json:"group_count"`
-	UserCount  int `json:"user_count"`
+	// 加入项目的用户数量
+	UserCount int `json:"user_count"`
 
+	// 归属该项目的外部资源统计信息
 	ExternalResourceInfo
 }

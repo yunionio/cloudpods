@@ -67,6 +67,7 @@ func init() {
 type SGroup struct {
 	SIdentityBaseResource
 
+	// 用户组的显示名称
 	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 

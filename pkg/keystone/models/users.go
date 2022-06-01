@@ -81,24 +81,33 @@ type SUser struct {
 	db.SRecordChecksumResourceBase
 	SEnabledIdentityBaseResource
 
-	Email  string `width:"64" charset:"utf8" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// 用户邮箱
+	Email string `width:"64" charset:"utf8" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// 用户手机号
 	Mobile string `width:"20" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
 
+	// 显示名称，用户登录后显示在右上角菜单入口
 	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
+	// 上次登录时间
 	LastActiveAt time.Time `nullable:"true" list:"domain"`
-
-	LastLoginIp     string `nullable:"true" list:"domain"`
+	// 上次用户登录IP
+	LastLoginIp string `nullable:"true" list:"domain"`
+	// 上次用户登录方式，可能值有：web（web控制台），cli（命令行climc），API（api）
 	LastLoginSource string `nullable:"true" list:"domain"`
 
+	// 是否为系统账号，系统账号不会检查密码复杂度，默认不在列表显示
 	IsSystemAccount tristate.TriState `default:"false" list:"domain" update:"admin" create:"admin_optional"`
 
 	// deprecated
 	DefaultProjectId string `width:"64" charset:"ascii" nullable:"true"`
 
+	// 是否允许登录Web控制台，如果是用于API访问的用户，可禁用web控制台登录
 	AllowWebConsole tristate.TriState `default:"true" list:"domain" update:"domain" create:"domain_optional"`
-	EnableMfa       tristate.TriState `default:"false" list:"domain" update:"domain" create:"domain_optional"`
+	// 是否开启MFA
+	EnableMfa tristate.TriState `default:"false" list:"domain" update:"domain" create:"domain_optional"`
 
+	// 用户的默认语言设置，默认是zh_CN
 	Lang string `width:"8" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_optional"`
 }
 

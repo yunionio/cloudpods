@@ -77,8 +77,10 @@ func init() {
 type SProject struct {
 	SIdentityBaseResource
 
+	// 上级项目或域的ID
 	ParentId string `width:"64" charset:"ascii" list:"domain" create:"domain_optional"`
 
+	// 该项目是否为域（domain）
 	IsDomain tristate.TriState `default:"false"`
 }
 

@@ -63,6 +63,7 @@ type SIdentityBaseResource struct {
 	db.SStandaloneResourceBase
 	db.SDomainizedResourceBase
 
+	// 额外信息
 	Extra *jsonutils.JSONDict `nullable:"true"`
 	// DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true" list:"user"`
 }
