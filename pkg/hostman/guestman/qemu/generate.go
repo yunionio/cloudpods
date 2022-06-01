@@ -344,7 +344,8 @@ func getDiskDeviceOption(optDrv QemuOptions, disk api.GuestdiskJsonDesc, isArm b
 	if diskDriver == DISK_DRIVER_VIRTIO {
 		// virtio-blk
 		opt += fmt.Sprintf(",bus=%s,addr=0x%x", pciBus, GetDiskAddr(int(diskIndex), isVdiSpice))
-		opt += fmt.Sprintf(",num-queues=%d,vectors=%d,iothread=iothread0", numQueues, numQueues+1)
+		// opt += fmt.Sprintf(",num-queues=%d,vectors=%d,iothread=iothread0", numQueues, numQueues+1)
+		opt += ",iothread=iothread0"
 	} else if utils.IsInStringArray(diskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
 		opt += ",bus=scsi.0"
 	} else if diskDriver == DISK_DRIVER_IDE {
