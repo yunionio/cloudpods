@@ -562,7 +562,7 @@ func (model *SStandaloneAnonResourceBase) PerformSetClassMetadata(ctx context.Co
 	return nil, nil
 }
 
-func (model *SStandaloneAnonResourceBase) GetDetailsClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, input apis.GetClassMetadataOutput) (apis.GetClassMetadataOutput, error) {
+func (model *SStandaloneAnonResourceBase) GetDetailsClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, input apis.GetClassMetadataInput) (apis.GetClassMetadataOutput, error) {
 	return model.GetAllClassMetadata()
 }
 
