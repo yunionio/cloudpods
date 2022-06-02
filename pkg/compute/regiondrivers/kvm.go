@@ -797,6 +797,7 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, use
 			return nil, errors.Wrapf(err, "db.Update")
 		}
 		// bind eip
+		eipAddr := ""
 		eipId, _ := task.GetParams().GetString("eip_id")
 		eipBw, _ := task.GetParams().Int("eip_bw")
 		if eipBw > 0 && len(eipId) == 0 {
@@ -820,6 +821,7 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, use
 				log.Errorf("NewEipForVMOnHost fail %s", err)
 				quotas.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage, false)
 			} else {
+				eipAddr = eip.IpAddr
 				opts := api.ElasticipAssociateInput{
 					InstanceId:         lb.Id,
 					InstanceExternalId: lb.ExternalId,
@@ -841,8 +843,19 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, use
 			if err != nil {
 				return nil, errors.Wrapf(err, "eip.AssociateLoadbalancer")
 			}
+			eipAddr = eip.IpAddr
 		}
 
+		if len(eipAddr) > 0 {
+			_, err = db.Update(lb, func() error {
+				lb.Address = eipAddr
+				lb.AddressType = api.LB_ADDR_TYPE_INTERNET
+				return nil
+			})
+			if err != nil {
+				return nil, errors.Wrap(err, "set loadbalancer address")
+			}
+		}
 		return nil, nil
 	})
 	return nil
