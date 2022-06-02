@@ -695,7 +695,10 @@ func (h *SHostInfo) detectOsDist() {
 		}
 	}
 	if utils.IsInStringArray(strings.ToLower(h.sysinfo.OsDistribution), []string{"uos", "debian", "ubuntu"}) {
-		system_service.SetOpenvswitchName("openvswitch-switch")
+		if err := procutils.NewRemoteCommandAsFarAsPossible("systemctl", "cat", "--", "openvswitch").Run(); err != nil {
+			log.Warningf("system_service.SetOpenvswitchName to openvswitch-switch")
+			system_service.SetOpenvswitchName("openvswitch-switch")
+		}
 	}
 }
 
