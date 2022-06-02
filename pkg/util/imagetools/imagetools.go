@@ -81,6 +81,16 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 		return "FreeBSD"
 	} else if strings.Contains(osDist, "euleros") {
 		return "EulerOS"
+	} else if strings.Contains(osDist, "alibaba cloud linux") {
+		return "Alibaba Cloud Linux"
+	} else if strings.Contains(osDist, "anolis") {
+		return "Anolis OS"
+	} else if strings.Contains(osDist, "rocky") {
+		return "Rocky Linux"
+	} else if strings.Contains(osDist, "fedora") {
+		return "Fedora"
+	} else if strings.Contains(osDist, "alma") {
+		return "AlmaLinux"
 	} else if strings.Contains(osDist, "windows") {
 		if strings.Contains(osDist, "2003") {
 			return "Windows Server 2003"
@@ -90,6 +100,10 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 			return "Windows Server 2012"
 		} else if strings.Contains(osDist, "2016") {
 			return "Windows Server 2016"
+		} else if strings.Contains(osDist, "2019") {
+			return "Windows Server 2019"
+		} else if strings.Contains(osDist, "2022") {
+			return "Windows Server 2022"
 		} else {
 			return "Windows Server 2008"
 		}
@@ -99,16 +113,22 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 }
 
 var imageVersions = map[string][]string{
-	"CentOS":   {"5", "6", "7"},
+	"CentOS":   {"5", "6", "7", "8"},
 	"RHEL":     {"5", "6", "7", "8"},
 	"FreeBSD":  {"10", "11", "12"},
-	"Ubuntu":   {"10", "12", "14", "16", "18", "19"},
+	"Ubuntu":   {"10", "12", "14", "16", "18", "19", "20", "22"},
 	"OpenSUSE": {"11", "12"},
 	"SUSE":     {"10", "11", "12", "13"},
-	"Debian":   {"6", "7", "8", "9", "10"},
+	"Debian":   {"6", "7", "8", "9", "10", "11"},
 	"CoreOS":   {"7"},
 	"EulerOS":  {"2"},
 	"Aliyun":   {},
+
+	"Alibaba Cloud Linux": {"2.1903", "3.2104"},
+	"Anolis OS":           {"7.9", "8.2", "8.4"},
+	"Rocky Linux":         {"8.5"},
+	"Fedora":              {"33", "34", "35"},
+	"AlmaLinux":           {"8.5"},
 }
 
 func normalizeOsVersion(imageName string, osDist string, osVersion string) string {
