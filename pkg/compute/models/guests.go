@@ -4791,6 +4791,9 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 	for i := 0; i < len(guests); i += 1 {
 		opts := api.ServerDeleteInput{
 			OverridePendingDelete: true,
+			DeleteSnapshots:       options.Options.DeleteSnapshotExpiredRelease,
+			DeleteEip:             options.Options.DeleteEipExpiredRelease,
+			DeleteDisks:           options.Options.DeleteDisksExpiredRelease,
 		}
 		guests[i].StartDeleteGuestTask(ctx, userCred, "", opts)
 	}
@@ -4863,7 +4866,6 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 	if guests == nil {
 		return
 	}
-	deleteSnapshot := options.Options.DeleteSnapshotExpiredRelease
 	for i := 0; i < len(guests); i += 1 {
 		// fake delete expired prepaid servers
 		if len(guests[i].ExternalId) > 0 {
@@ -4874,7 +4876,9 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 		}
 		guests[i].SetDisableDelete(userCred, false)
 		opts := api.ServerDeleteInput{
-			DeleteSnapshots: deleteSnapshot,
+			DeleteSnapshots: options.Options.DeleteSnapshotExpiredRelease,
+			DeleteEip:       options.Options.DeleteEipExpiredRelease,
+			DeleteDisks:     options.Options.DeleteDisksExpiredRelease,
 		}
 		guests[i].StartDeleteGuestTask(ctx, userCred, "", opts)
 	}
@@ -4903,7 +4907,6 @@ func (manager *SGuestManager) DeleteExpiredPostpaidServers(ctx context.Context, 
 		log.Infof("No expired postpaid guest")
 		return
 	}
-	deleteSnapshot := options.Options.DeleteSnapshotExpiredRelease
 	for i := 0; i < len(guests); i++ {
 		if len(guests[i].ExternalId) > 0 {
 			err := guests[i].doExternalSync(ctx, userCred)
@@ -4912,7 +4915,11 @@ func (manager *SGuestManager) DeleteExpiredPostpaidServers(ctx context.Context, 
 			}
 		}
 		guests[i].SetDisableDelete(userCred, false)
-		opts := api.ServerDeleteInput{DeleteSnapshots: deleteSnapshot}
+		opts := api.ServerDeleteInput{
+			DeleteSnapshots: options.Options.DeleteSnapshotExpiredRelease,
+			DeleteEip:       options.Options.DeleteEipExpiredRelease,
+			DeleteDisks:     options.Options.DeleteDisksExpiredRelease,
+		}
 		guests[i].StartDeleteGuestTask(ctx, userCred, "", opts)
 	}
 }
