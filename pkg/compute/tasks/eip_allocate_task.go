@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -40,15 +41,15 @@ func init() {
 	taskman.RegisterTask(EipAllocateTask{})
 }
 
-func (self *EipAllocateTask) onFailed(ctx context.Context, eip *models.SElasticip, reason jsonutils.JSONObject) {
-	eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, reason.String())
-	self.setGuestAllocateEipFailed(eip, reason)
+func (self *EipAllocateTask) onFailed(ctx context.Context, eip *models.SElasticip, err error) {
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, err.Error())
+	self.setGuestAllocateEipFailed(eip, jsonutils.NewString(err.Error()))
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
 		Obj:    eip,
 		Action: notifyclient.ActionCreate,
 		IsFail: true,
 	})
-	self.SetStageFailed(ctx, reason)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *EipAllocateTask) setGuestAllocateEipFailed(eip *models.SElasticip, reason jsonutils.JSONObject) {
@@ -85,24 +86,22 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	if eip.NetworkId != "" {
 		_network, err := models.NetworkManager.FetchById(eip.NetworkId)
 		if err != nil {
-			msg := fmt.Sprintf("failed to found network %s error: %v", eip.NetworkId, err)
-			self.onFailed(ctx, eip, jsonutils.NewString(msg))
+			self.onFailed(ctx, eip, errors.Wrapf(err, "NetworkManager.FetchById(%s)", eip.NetworkId))
 			return
 		}
 		network := _network.(*models.SNetwork)
 		reqIp, _ := self.GetParams().GetString("ip_addr")
-		if reqIp != "" || !eipIsManaged {
+		if len(eip.IpAddr) == 0 && (reqIp != "" || !eipIsManaged) {
 			lockman.LockObject(ctx, network)
 			defer lockman.ReleaseObject(ctx, network)
 
 			ipAddr, err := network.GetFreeIP(ctx, self.UserCred, nil, nil, reqIp, api.IPAllocationNone, false)
 			if err != nil {
-				self.onFailed(ctx, eip, jsonutils.NewString(err.Error()))
+				self.onFailed(ctx, eip, errors.Wrapf(err, "GetFreeIP(%s)", reqIp))
 				return
 			}
 			if reqIp != "" && ipAddr != reqIp {
-				msg := fmt.Sprintf("requested ip %s is occupied!", reqIp)
-				self.onFailed(ctx, eip, jsonutils.NewString(msg))
+				self.onFailed(ctx, eip, fmt.Errorf("requested ip %s is occupied!", reqIp))
 				return
 			}
 			_, err = db.Update(eip, func() error {
@@ -111,12 +110,12 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 				return nil
 			})
 			if err != nil {
-				self.onFailed(ctx, eip, jsonutils.NewString(err.Error()))
+				self.onFailed(ctx, eip, errors.Wrapf(err, "db.Update"))
 				return
 			}
-			if !eipIsManaged {
-				eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "allocated from network")
-			}
+		}
+		if !eipIsManaged {
+			eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "allocated from network")
 		}
 		args.NetworkExternalId = network.ExternalId
 	}
@@ -132,32 +131,29 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 
 		iregion, err := eip.GetIRegion(ctx)
 		if err != nil {
-			msg := fmt.Sprintf("fail to find iregion for eip %s", err)
-			eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, msg)
-			self.onFailed(ctx, eip, jsonutils.NewString(msg))
+			eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, "")
+			self.onFailed(ctx, eip, errors.Wrapf(err, "eip.GetIRegion"))
 			return
 		}
 
 		extEip, err := iregion.CreateEIP(args)
 		if err != nil {
-			msg := fmt.Sprintf("create eip fail %s", err)
-			eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, msg)
-			self.onFailed(ctx, eip, jsonutils.NewString(msg))
+			eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, "")
+			self.onFailed(ctx, eip, errors.Wrapf(err, "iregion.CreateEIP"))
 			return
 		}
 
 		cloudprovider.WaitStatus(extEip, api.EIP_STATUS_READY, time.Second*5, time.Minute*3)
 
 		if err := eip.SyncWithCloudEip(ctx, self.UserCred, eip.GetCloudprovider(), extEip, nil); err != nil {
-			msg := fmt.Sprintf("sync eip fail %s", err)
-			eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, msg)
-			self.onFailed(ctx, eip, jsonutils.NewString(msg))
+			eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, "")
+			self.onFailed(ctx, eip, errors.Wrapf(err, "ip.SyncWithCloudEip"))
 			return
 		}
 	}
 
 	if self.Params != nil && self.Params.Contains("instance_id") {
-		self.SetStage("on_eip_associate_complete", nil)
+		self.SetStage("OnEipAssociateComplete", nil)
 		if err := eip.StartEipAssociateTask(ctx, self.UserCred, self.Params, self.GetId()); err != nil {
 			msg := fmt.Sprintf("start associate task fail %s", err)
 			self.SetStageFailed(ctx, jsonutils.NewString(msg))

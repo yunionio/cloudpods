@@ -972,6 +972,16 @@ func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCre
 	}
 	input.NetworkId = network.Id
 
+	if len(input.IpAddr) > 0 {
+		if !network.Contains(input.IpAddr) {
+			return httperrors.NewInputParameterError("candidate %s out of range", input.IpAddr)
+		}
+		addrTable := network.GetUsedAddresses()
+		if _, ok := addrTable[input.IpAddr]; ok {
+			return httperrors.NewInputParameterError("requested ip %s is occupied!", input.IpAddr)
+		}
+	}
+
 	vpc, _ := network.GetVpc()
 	if vpc == nil {
 		return httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
