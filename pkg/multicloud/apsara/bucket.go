@@ -175,7 +175,7 @@ func (b *SBucket) GetLimit() cloudprovider.SBucketStats {
 	dep, _ := strconv.Atoi(b.Department)
 	capa, _ := b.region.GetBucketCapacity(b.Name, dep)
 	if capa > 0 {
-		ret.SizeBytes = capa * 1024 * 1024 * 1024 * 1024
+		ret.SizeBytes = capa * 1024 * 1024 * 1024
 	}
 	return ret
 }
