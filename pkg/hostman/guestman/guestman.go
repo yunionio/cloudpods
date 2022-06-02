@@ -1147,6 +1147,7 @@ type SStorageCloneDisk struct {
 	SourceDisk    storageman.IDisk
 	TargetStorage storageman.IStorage
 	TargetDiskId  string
+	DiskFormat    string
 }
 
 func (m *SGuestManager) StorageCloneDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -1155,10 +1156,25 @@ func (m *SGuestManager) StorageCloneDisk(ctx context.Context, params interface{}
 	if guest == nil {
 		return nil, httperrors.NewNotFoundError("Not found guest by id %s", input.ServerId)
 	}
-	if guest.IsRunning() || guest.IsSuspend() {
-		return nil, httperrors.NewBadRequestError("Cannot change disk storage on running/suspend guest")
+	guestRunning := guest.IsRunning() || guest.IsSuspend()
+	NewGuestStorageCloneDiskTask(ctx, guest, input).Start(guestRunning)
+	return nil, nil
+}
+
+func (m *SGuestManager) LiveChangeDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	input := params.(*SStorageCloneDisk)
+	guest, _ := m.GetServer(input.ServerId)
+	if guest == nil {
+		return nil, httperrors.NewNotFoundError("Not found guest by id %s", input.ServerId)
 	}
-	NewGuestStorageCloneDiskTask(guest, input).Start(ctx)
+	if !(guest.IsRunning() || guest.IsSuspend()) {
+		return nil, httperrors.NewBadRequestError("Guest %s is not in state running", input.ServerId)
+	}
+	task, err := NewGuestLiveChangeDiskTask(ctx, guest, input)
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("Start live change disk task failed: %s", err)
+	}
+	task.Start()
 	return nil, nil
 }
 

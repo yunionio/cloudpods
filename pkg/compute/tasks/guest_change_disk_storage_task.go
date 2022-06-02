@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -84,12 +85,53 @@ func (t *GuestChangeDiskStorageTask) ChangeDiskStorage(ctx context.Context, gues
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetTargetDisk error: %v", err)))
 		return
 	}
+	sourceDisk, err := t.GetSourceDisk()
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetSourceDisk error: %v", err)))
+		return
+	}
+
 	// set target disk's status to clone
 	targetDisk.SetStatus(t.GetUserCred(), api.DISK_CLONE, "")
 
-	t.SetStage("OnDiskChangeStorageComplete", nil)
+	err = sourceDisk.SetMetadata(ctx, api.DISK_CLONE_TASK_ID, t.GetId(), t.GetUserCred())
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("SetMetadata clone task id: %v", err)))
+		return
+	}
+
+	if input.GuestRunning {
+		t.SetStage("OnDiskLiveChangeStorageReady", nil)
+	} else {
+		t.SetStage("OnDiskChangeStorageComplete", nil)
+	}
+
+	// create target disk
 	if err := guest.GetDriver().RequestChangeDiskStorage(ctx, t.GetUserCred(), guest, input, t); err != nil {
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("RequestChangeDiskStorage: %s", err)))
+		return
+	}
+}
+
+func (t *GuestChangeDiskStorageTask) OnDiskLiveChangeStorageReady(
+	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
+) {
+	if !jsonutils.QueryBoolean(data, "block_jobs_ready", false) {
+		log.Infof("OnDiskLiveChangeStorageReady block jobs not ready")
+		return
+	}
+
+	input, err := t.GetInputParams()
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetInputParams error: %v", err)))
+		return
+	}
+
+	t.SetStage("OnDiskChangeStorageComplete", nil)
+	// block job ready, start switch to target storage disk
+	err = guest.GetDriver().RequestSwitchToTargetStorageDisk(ctx, t.UserCred, guest, input, t)
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("OnDiskLiveChangeStorageReady: %s", err)))
 		return
 	}
 }
@@ -101,12 +143,23 @@ func (t *GuestChangeDiskStorageTask) OnDiskChangeStorageComplete(ctx context.Con
 		return
 	}
 
+	err = srcDisk.SetMetadata(ctx, api.DISK_CLONE_TASK_ID, "", t.GetUserCred())
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("SetMetadata clone task id: %v", err)))
+		return
+	}
+
 	// update target disk attributes by response
 	resp := new(hostapi.ServerCloneDiskFromStorageResponse)
 	if err := data.Unmarshal(resp); err != nil {
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Unmarshal response: %v", err)))
 		return
 	}
+
+	if len(resp.TargetFormat) == 0 {
+		resp.TargetFormat = srcDisk.DiskFormat
+	}
+
 	targetDisk, err := t.GetTargetDisk()
 	if err != nil {
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetTargetDisk error: %v", err)))
@@ -147,7 +200,8 @@ func (t *GuestChangeDiskStorageTask) detachSourceDisk(ctx context.Context, guest
 	if err != nil {
 		return errors.Wrap(err, "GetInputParams")
 	}
-	return guest.StartGuestDetachdiskTask(ctx, t.GetUserCred(), srcDisk, input.KeepOriginDisk, t.GetTaskId(), false)
+	return guest.StartGuestDetachdiskTask(ctx, t.GetUserCred(),
+		srcDisk, input.KeepOriginDisk, t.GetTaskId(), false, true)
 }
 
 func (t *GuestChangeDiskStorageTask) OnSourceDiskDetachComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -173,10 +227,11 @@ func (t *GuestChangeDiskStorageTask) attachTargetDisk(ctx context.Context, guest
 		return errors.Wrap(err, "GetTargetDisk")
 	}
 	confData := map[string]interface{}{
-		"index":      conf.Index,
-		"mountpoint": conf.Mountpoint,
-		"driver":     conf.Driver,
-		"cache":      conf.Cache,
+		"index":          conf.Index,
+		"mountpoint":     conf.Mountpoint,
+		"driver":         conf.Driver,
+		"cache":          conf.Cache,
+		"sync_desc_only": true,
 	}
 	attachData := jsonutils.Marshal(confData).(*jsonutils.JSONDict)
 	attachData.Add(jsonutils.NewString(targetDisk.GetId()), "disk_id")

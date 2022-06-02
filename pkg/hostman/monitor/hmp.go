@@ -400,7 +400,7 @@ func (m *HmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallba
 	m.Query(fmt.Sprintf("reload_disk_snapshot_blkdev -n %s %s", device, path), callback)
 }
 
-func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool) {
+func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode, format string, unmap, blockReplication bool) {
 	cmd := "drive_mirror -n"
 	if blockReplication {
 		cmd += " -c"
@@ -408,7 +408,7 @@ func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 	if syncMode == "full" {
 		cmd += " -f"
 	}
-	cmd += fmt.Sprintf(" %s %s", drive, target)
+	cmd += fmt.Sprintf(" %s %s %s", drive, target, format)
 	m.Query(cmd, callback)
 }
 
@@ -418,6 +418,23 @@ func (m *HmpMonitor) BlockStream(drive string, _, _ int, callback StringCallback
 		cmd   = fmt.Sprintf("block_stream %s %d", drive, speed)
 	)
 	m.Query(cmd, callback)
+}
+
+func (m *HmpMonitor) BlockJobComplete(drive string, callback StringCallback) {
+	m.Query(fmt.Sprintf("block_job_complete"), callback)
+}
+
+func (m *HmpMonitor) BlockReopenImage(drive, newImagePath, format string, cb StringCallback) {
+	m.Query(fmt.Sprintf("block_reopen_image %s %s %s", drive, newImagePath, format), cb)
+}
+
+func (m *HmpMonitor) SnapshotBlkdev(drive, newImagePath, format string, reuse bool, cb StringCallback) {
+	var cmd = "snapshot_blkdev"
+	if reuse {
+		cmd += " -n"
+	}
+	cmd += fmt.Sprintf(" %s %s %s", drive, newImagePath, format)
+	m.Query(cmd, cb)
 }
 
 func (m *HmpMonitor) SetVncPassword(proto, password string, callback StringCallback) {

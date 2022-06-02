@@ -441,11 +441,21 @@ func (self *SKVMGuestDriver) RequestDetachDisk(ctx context.Context, guest *model
 		}
 
 	}
-	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+	return guest.StartSyncTask(
+		ctx,
+		task.GetUserCred(),
+		jsonutils.QueryBoolean(task.GetParams(), "sync_desc_only", false),
+		task.GetTaskId(),
+	)
 }
 
 func (self *SKVMGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
-	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+	return guest.StartSyncTask(
+		ctx,
+		task.GetUserCred(),
+		jsonutils.QueryBoolean(task.GetParams(), "sync_desc_only", false),
+		task.GetTaskId(),
+	)
 }
 
 func (self *SKVMGuestDriver) RequestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
@@ -792,8 +802,7 @@ func (self *SKVMGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred
 }
 
 func (self *SKVMGuestDriver) ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInput) error {
-	// kvm guest must in ready status
-	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
 		return httperrors.NewBadRequestError("Cannot change disk storage in status %s", guest.Status)
 	}
 
@@ -828,6 +837,18 @@ func (self *SKVMGuestDriver) RequestChangeDiskStorage(ctx context.Context, userC
 	body := jsonutils.Marshal(input)
 	header := self.getTaskRequestHeader(task)
 	url := fmt.Sprintf("%s/servers/%s/storage-clone-disk", host.ManagerUri, guest.GetId())
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	return err
+}
+
+func (self *SKVMGuestDriver) RequestSwitchToTargetStorageDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error {
+	host, err := guest.GetHost()
+	if err != nil {
+		return err
+	}
+	body := jsonutils.Marshal(input)
+	header := self.getTaskRequestHeader(task)
+	url := fmt.Sprintf("%s/servers/%s/live-change-disk", host.ManagerUri, guest.GetId())
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	return err
 }

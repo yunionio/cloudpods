@@ -31,7 +31,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/apis/host"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -129,7 +129,7 @@ type IStorage interface {
 	// GetCloneTargetDiskPath generate target disk path by target disk id
 	GetCloneTargetDiskPath(ctx context.Context, targetDiskId string) string
 	// CloneDiskFromStorage clone disk from other storage
-	CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string) (*host.ServerCloneDiskFromStorageResponse, error)
+	CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool) (*hostapi.ServerCloneDiskFromStorageResponse, error)
 
 	CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error
 
@@ -422,7 +422,9 @@ func (s *SBaseStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId 
 	return ""
 }
 
-func (s *SBaseStorage) CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string) (*host.ServerCloneDiskFromStorageResponse, error) {
+func (s *SBaseStorage) CloneDiskFromStorage(
+	ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool,
+) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
 	return nil, httperrors.ErrNotImplemented
 }
 
