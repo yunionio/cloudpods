@@ -348,6 +348,9 @@ type PerformClassMetadataInput map[string]string
 
 type PerformSetClassMetadataInput map[string]string
 
+type GetClassMetadataInput struct {
+}
+
 type GetClassMetadataOutput map[string]string
 
 // 获取资源的元数据输入
