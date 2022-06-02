@@ -86,6 +86,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"list-forward":          guestListForward,
 			"close-forward":         guestCloseForward,
 			"storage-clone-disk":    guestStorageCloneDisk,
+			"live-change-disk":      guestLiveChangeDisk,
 			"cpuset":                guestCPUSet,
 			"cpuset-remove":         guestCPUSetRemove,
 			"memory-snapshot":       guestMemorySnapshot,
@@ -632,7 +633,7 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 	return nil, nil
 }
 
-func guestStorageCloneDisk(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func formatCloneDiskParams(sid string, body jsonutils.JSONObject) (*guestman.SStorageCloneDisk, error) {
 	input := new(computeapi.ServerChangeDiskStorageInternalInput)
 	if err := body.Unmarshal(input); err != nil {
 		return nil, err
@@ -659,8 +660,28 @@ func guestStorageCloneDisk(ctx context.Context, userCred mcclient.TokenCredentia
 		SourceDisk:    srcDisk,
 		TargetStorage: targetStorage,
 		TargetDiskId:  input.TargetDiskId,
+		DiskFormat:    input.DiskFormat,
 	}
+	return params, nil
+}
+
+func guestStorageCloneDisk(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	params, err := formatCloneDiskParams(sid, body)
+	if err != nil {
+		return nil, err
+	}
+
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StorageCloneDisk, params)
+	return nil, nil
+}
+
+func guestLiveChangeDisk(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	params, err := formatCloneDiskParams(sid, body)
+	if err != nil {
+		return nil, err
+	}
+
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().LiveChangeDisk, params)
 	return nil, nil
 }
 

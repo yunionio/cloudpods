@@ -837,7 +837,7 @@ func (m *QmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallba
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool) {
+func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode, format string, unmap, blockReplication bool) {
 	var (
 		cb = func(res *Response) {
 			callback(m.actionResult(res))
@@ -977,6 +977,37 @@ func (m *QmpMonitor) CancelBlockJob(driveName string, force bool, callback Strin
 		cmd += "-f "
 	}
 	cmd += driveName
+	m.HumanMonitorCommand(cmd, callback)
+}
+
+func (m *QmpMonitor) BlockJobComplete(drive string, callback StringCallback) {
+	m.HumanMonitorCommand(fmt.Sprintf("block_job_complete %s", drive), callback)
+}
+
+func (m *QmpMonitor) BlockReopenImage(drive, newImagePath, format string, callback StringCallback) {
+	var cb = func(res *Response) {
+		callback(m.actionResult(res))
+	}
+
+	var cmd = &Command{
+		Execute: "block_reopen_image",
+		Args: map[string]interface{}{
+			"device":    drive,
+			"new_image": newImagePath,
+			"format":    format,
+		},
+	}
+
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) SnapshotBlkdev(drive, newImagePath, format string, reuse bool, callback StringCallback) {
+	var cmd = "snapshot_blkdev"
+	if reuse {
+		cmd += " -n"
+	}
+	cmd += fmt.Sprintf(" %s %s %s", drive, newImagePath, format)
+
 	m.HumanMonitorCommand(cmd, callback)
 }
 
