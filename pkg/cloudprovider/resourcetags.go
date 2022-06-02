@@ -22,8 +22,6 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 const (
@@ -40,11 +38,6 @@ func (t TagsUpdateInfo) IsChanged() bool {
 }
 
 func SetTags(ctx context.Context, res ICloudResource, managerId string, tags map[string]string, replace bool) error {
-	// 避免同时设置多个资源标签出现以下错误
-	// Code=ResourceInUse.TagDuplicate, Message=tagKey-tagValue have exists., RequestId=e87714c0-e50b-4241-b79d-32897437174d
-	lockman.LockRawObject(ctx, SET_TAGS, managerId)
-	defer lockman.ReleaseRawObject(ctx, SET_TAGS, managerId)
-
 	err := res.SetTags(tags, replace)
 	if err != nil {
 		return errors.Wrapf(err, "SetTags")
