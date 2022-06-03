@@ -62,6 +62,7 @@ func init() {
 
 	cmd.Get("ipmi", &options.BaseIdOptions{})
 	cmd.Get("vnc", &options.BaseIdOptions{})
+	cmd.Get("app-options", &options.BaseIdOptions{})
 
 	R(&options.BaseIdOptions{}, "host-logininfo", "Get SSH login information of a host", func(s *mcclient.ClientSession, args *options.BaseIdOptions) error {
 		srvid, e := modules.Hosts.GetId(s, args.ID, nil)
