@@ -17,6 +17,7 @@ package service
 import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -24,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/capabilities"
 	"yunion.io/x/onecloud/pkg/compute/misc"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/compute/specs"
 	"yunion.io/x/onecloud/pkg/compute/sshkeys"
 	"yunion.io/x/onecloud/pkg/compute/usages"
@@ -49,6 +51,8 @@ func InitHandlers(app *appsrv.Application) {
 	sshkeys.AddSshKeysHandler("", app)
 	taskman.AddTaskHandler("", app)
 	misc.AddMiscHandler("", app)
+
+	app_common.ExportOptionsHandler(app, &options.Options)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,

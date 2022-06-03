@@ -6185,3 +6185,7 @@ func (host *SHost) IsAssignable(userCred mcclient.TokenCredential) error {
 func (self *SHost) PerformProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.GetHostDriver().RequestProbeIsolatedDevices(ctx, userCred, self, data)
 }
+
+func (h *SHost) GetDetailsAppOptions(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return h.Request(ctx, userCred, httputils.GET, "/app-options", nil, nil)
+}
