@@ -143,6 +143,8 @@ func (host *SHostService) initHandlers(app *appsrv.Application) {
 	downloader.AddDownloadHandler("", app)
 	kubehandlers.AddKubeAgentHandler("", app)
 	hosthandler.AddHostHandler("", app)
+
+	app_common.ExportOptionsHandler(app, &options.HostOptions)
 }
 
 func (host *SHostService) initEtcdConfig() error {
