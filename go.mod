@@ -114,7 +114,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
-	github.com/tencentcloud/tencentcloud-sdk-go v3.0.135+incompatible
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.413
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/tjfoc/gmsm v1.4.1
@@ -156,7 +156,7 @@ require (
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v1.0.0
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v1.1.2-0.20220530125156-f4b471d64c78
+	yunion.io/x/sqlchemy v1.1.2-0.20220601213056-0df1a10628ff
 	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
 )
 
