@@ -25,9 +25,11 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
+	"yunion.io/x/onecloud/pkg/baremetal/options"
 	baremetalstatus "yunion.io/x/onecloud/pkg/baremetal/status"
 	"yunion.io/x/onecloud/pkg/baremetal/tasks"
 	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -60,6 +62,8 @@ func customizeHandlerInfo(info *appsrv.SHandlerInfo) {
 }
 
 func initBaremetalsHandler(app *appsrv.Application) {
+	app_common.ExportOptionsHandler(app, &options.Options)
+
 	// baremetal actions handler
 	AddHandler(app, "GET", bmActionPrefix("notify"), bmObjMiddleware(handleBaremetalNotify))
 	AddHandler(app, "POST", bmActionPrefix("maintenance"), bmObjMiddleware(handleBaremetalMaintenance))
