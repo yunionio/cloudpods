@@ -6031,3 +6031,7 @@ func (self *SHost) GetPinnedCpusetCores(ctx context.Context, userCred mcclient.T
 	}
 	return ret, nil
 }
+
+func (h *SHost) GetDetailsAppOptions(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return h.Request(ctx, userCred, httputils.GET, "/app-options", nil, nil)
+}
