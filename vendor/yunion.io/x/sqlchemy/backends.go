@@ -65,6 +65,8 @@ type IBackend interface {
 
 	// InsertSQLTemplate returns the template of insert SQL
 	InsertSQLTemplate() string
+	// UpdateSQLTemplate returns the template of update SQL
+	UpdateSQLTemplate() string
 	// InsertOrUpdateSQLTemplate returns the template of insert or update SQL
 	InsertOrUpdateSQLTemplate() string
 
