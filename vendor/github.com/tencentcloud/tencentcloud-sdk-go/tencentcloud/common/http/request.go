@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"io"
 	//"log"
 	"math/rand"
@@ -15,6 +16,9 @@ const (
 	POST = "POST"
 	GET  = "GET"
 
+	HTTP  = "http"
+	HTTPS = "https"
+
 	RootDomain = "tencentcloudapi.com"
 	Path       = "/"
 )
@@ -22,27 +26,48 @@ const (
 type Request interface {
 	GetAction() string
 	GetBodyReader() io.Reader
+	GetScheme() string
+	GetRootDomain() string
+	GetServiceDomain(string) string
 	GetDomain() string
 	GetHttpMethod() string
 	GetParams() map[string]string
+	GetBody() []byte
 	GetPath() string
 	GetService() string
 	GetUrl() string
 	GetVersion() string
+	GetContentType() string
+	GetContext() context.Context
+	GetHeader() map[string]string
+	SetScheme(string)
+	SetRootDomain(string)
 	SetDomain(string)
 	SetHttpMethod(string)
+	SetPath(string)
+	SetContentType(string)
+	SetBody([]byte)
+	SetContext(context.Context)
+	SetHeader(header map[string]string)
 }
 
 type BaseRequest struct {
+	context    context.Context
 	httpMethod string
+	scheme     string
+	rootDomain string
 	domain     string
 	path       string
 	params     map[string]string
 	formParams map[string]string
+	header     map[string]string
 
 	service string
 	version string
 	action  string
+
+	contentType string
+	body        []byte
 }
 
 func (r *BaseRequest) GetAction() string {
@@ -65,8 +90,55 @@ func (r *BaseRequest) GetDomain() string {
 	return r.domain
 }
 
+func (r *BaseRequest) GetScheme() string {
+	return r.scheme
+}
+
+func (r *BaseRequest) GetRootDomain() string {
+	return r.rootDomain
+}
+
+func (r *BaseRequest) GetServiceDomain(service string) (domain string) {
+	rootDomain := r.rootDomain
+	if rootDomain == "" {
+		rootDomain = RootDomain
+	}
+	domain = service + "." + rootDomain
+	return
+}
+
+func (r *BaseRequest) GetBody() []byte {
+	return r.body
+}
+
+func (r *BaseRequest) SetBody(body []byte) {
+	r.body = body
+}
+
+func (r *BaseRequest) GetContentType() string {
+	return r.contentType
+}
+
+func (r *BaseRequest) SetContentType(contentType string) {
+	r.contentType = contentType
+}
+
 func (r *BaseRequest) SetDomain(domain string) {
 	r.domain = domain
+}
+
+func (r *BaseRequest) SetScheme(scheme string) {
+	scheme = strings.ToLower(scheme)
+	switch scheme {
+	case HTTP:
+		r.scheme = HTTP
+	default:
+		r.scheme = HTTPS
+	}
+}
+
+func (r *BaseRequest) SetRootDomain(rootDomain string) {
+	r.rootDomain = rootDomain
 }
 
 func (r *BaseRequest) SetHttpMethod(method string) {
@@ -86,15 +158,19 @@ func (r *BaseRequest) SetHttpMethod(method string) {
 	}
 }
 
+func (r *BaseRequest) SetPath(path string) {
+	r.path = path
+}
+
 func (r *BaseRequest) GetService() string {
 	return r.service
 }
 
 func (r *BaseRequest) GetUrl() string {
 	if r.httpMethod == GET {
-		return "https://" + r.domain + r.path + "?" + GetUrlQueriesEncoded(r.params)
+		return r.GetScheme() + "://" + r.domain + r.path + "?" + GetUrlQueriesEncoded(r.params)
 	} else if r.httpMethod == POST {
-		return "https://" + r.domain + r.path
+		return r.GetScheme() + "://" + r.domain + r.path
 	} else {
 		return ""
 	}
@@ -104,12 +180,32 @@ func (r *BaseRequest) GetVersion() string {
 	return r.version
 }
 
+func (r *BaseRequest) GetContext() context.Context {
+	if r.context == nil {
+		return context.Background()
+	}
+	return r.context
+}
+
+func (r *BaseRequest) SetContext(ctx context.Context) {
+	r.context = ctx
+}
+
+func (r *BaseRequest) GetHeader() map[string]string {
+	return r.header
+}
+
+func (r *BaseRequest) SetHeader(header map[string]string) {
+	if header == nil {
+		return
+	}
+	r.header = header
+}
+
 func GetUrlQueriesEncoded(params map[string]string) string {
 	values := url.Values{}
 	for key, value := range params {
-		if value != "" {
-			values.Add(key, value)
-		}
+		values.Add(key, value)
 	}
 	return values.Encode()
 }
@@ -138,6 +234,12 @@ func (r *BaseRequest) WithApiInfo(service, version, action string) *BaseRequest 
 	return r
 }
 
+func (r *BaseRequest) WithContentType(contentType string) *BaseRequest {
+	r.contentType = contentType
+	return r
+}
+
+// Deprecated, use request.GetServiceDomain instead
 func GetServiceDomain(service string) (domain string) {
 	domain = service + "." + RootDomain
 	return
@@ -152,7 +254,7 @@ func CompleteCommonParams(request Request, region string) {
 	params["Action"] = request.GetAction()
 	params["Timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
 	params["Nonce"] = strconv.Itoa(rand.Int())
-	params["RequestClient"] = "SDK_GO_3.0.135"
+	params["RequestClient"] = "SDK_GO_1.0.413"
 }
 
 func ConstructParams(req Request) (err error) {

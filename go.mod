@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
-	cloud.google.com/go/storage v1.5.0
+	cloud.google.com/go/storage v1.10.0
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.9.6
@@ -52,16 +52,15 @@ require (
 	github.com/frankban/quicktest v1.14.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
-	github.com/gin-gonic/gin v1.7.0
+	github.com/gin-gonic/gin v1.7.7
 	github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 // indirect
 	github.com/go-ole/go-ole v1.2.2 // indirect
-	github.com/go-sql-driver/mysql v1.5.0
+	github.com/go-sql-driver/mysql v1.6.0
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/gofrs/uuid v4.1.0+incompatible // indirect
 	github.com/golang-plus/errors v1.0.0
-	github.com/golang-plus/testing v1.0.0 // indirect
 	github.com/golang-plus/uuid v1.0.0
-	github.com/golang/mock v1.3.1
+	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.5.2
 	github.com/google/gopacket v1.1.17
 	github.com/googollee/go-engine.io v0.0.0-20180829091931-e2f255711dcb // indirect
@@ -113,7 +112,8 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
-	github.com/tencentcloud/tencentcloud-sdk-go v3.0.135+incompatible
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.413
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.413
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
@@ -124,11 +124,11 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
+	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40
-	golang.org/x/text v0.3.5
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
+	golang.org/x/text v0.3.6
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
@@ -139,18 +139,17 @@ require (
 	gopkg.in/fatih/set.v0 v0.2.1
 	gopkg.in/ini.v1 v1.44.0 // indirect
 	gopkg.in/ldap.v3 v3.0.3
-	gopkg.in/yaml.v2 v2.3.0
-	honnef.co/go/tools v0.0.1-2020.1.4 // indirect
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.19.3
 	k8s.io/apimachinery v0.19.3
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
-	yunion.io/x/jsonutils v0.0.0-20220106020632-953b71a4c3a8
-	yunion.io/x/log v0.0.0-20201210064738-43181789dc74
+	yunion.io/x/jsonutils v1.0.0
+	yunion.io/x/log v1.0.0
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
-	yunion.io/x/pkg v0.0.0-20220406030238-39fbc60d5d4e
+	yunion.io/x/pkg v1.0.0
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v1.0.2
 	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
