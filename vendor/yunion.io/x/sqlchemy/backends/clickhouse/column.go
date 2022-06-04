@@ -324,14 +324,16 @@ func (c *SIntegerColumn) IsAutoVersion() bool {
 
 // NewIntegerColumn return an instance of SIntegerColumn
 func NewIntegerColumn(name string, sqltype string, tagmap map[string]string, isPointer bool) SIntegerColumn {
+	isAutoVersion := false
 	if _, ok := tagmap[sqlchemy.TAG_AUTOVERSION]; ok {
-		log.Warningf("auto_version field %s not supported by ClickHouse", name)
+		isAutoVersion = true
 	}
 	if _, ok := tagmap[sqlchemy.TAG_AUTOINCREMENT]; ok {
 		log.Warningf("auto_increment field %s not supported by ClickHouse", name)
 	}
 	c := SIntegerColumn{
 		SClickhouseBaseColumn: NewClickhouseBaseColumn(name, sqltype, tagmap, isPointer),
+		isAutoVersion:         isAutoVersion,
 	}
 	return c
 }

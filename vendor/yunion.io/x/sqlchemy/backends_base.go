@@ -88,6 +88,10 @@ func (bb *SBaseBackend) InsertSQLTemplate() string {
 	return "INSERT INTO `{{ .Table }}` ({{ .Columns }}) VALUES ({{ .Values }})"
 }
 
+func (bb *SBaseBackend) UpdateSQLTemplate() string {
+	return "UPDATE `{{ .Table }}` SET {{ .Columns }} WHERE {{ .Conditions }}"
+}
+
 func (bb *SBaseBackend) InsertOrUpdateSQLTemplate() string {
 	return ""
 }

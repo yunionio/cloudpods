@@ -668,11 +668,12 @@ github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
 # github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
 github.com/tatsushid/go-fastping
-# github.com/tencentcloud/tencentcloud-sdk-go v3.0.135+incompatible
+# github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.413
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/regions
 # github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 github.com/tencentyun/cos-go-sdk-v5
 github.com/tencentyun/cos-go-sdk-v5/debug
@@ -1226,7 +1227,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.2-0.20220530125156-f4b471d64c78
+# yunion.io/x/sqlchemy v1.1.2-0.20220601213056-0df1a10628ff
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
 yunion.io/x/sqlchemy/backends/clickhouse
