@@ -15,7 +15,6 @@
 package sqlchemy
 
 import (
-	"bytes"
 	"fmt"
 	"reflect"
 	"strings"
@@ -35,7 +34,7 @@ type SUpdateSession struct {
 	tableSpec *STableSpec
 }
 
-func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
+func (ts *STableSpec) PrepareUpdate(dt interface{}) (*SUpdateSession, error) {
 	if reflect.ValueOf(dt).Kind() != reflect.Ptr {
 		return nil, errors.Wrap(ErrNeedsPointer, "Update input must be a Pointer")
 	}
@@ -110,14 +109,14 @@ type sPrimaryKeyValue struct {
 	value interface{}
 }
 
-type sUpdateSQLResult struct {
-	sql       string
-	vars      []interface{}
+type SUpdateSQLResult struct {
+	Sql       string
+	Vars      []interface{}
 	setters   []SUpdateDiff
 	primaries []sPrimaryKeyValue
 }
 
-func (us *SUpdateSession) saveUpdateSql(dt interface{}) (*sUpdateSQLResult, error) {
+func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, error) {
 	beforeUpdateFunc := reflect.ValueOf(dt).MethodByName("BeforeUpdate")
 	if beforeUpdateFunc.IsValid() && !beforeUpdateFunc.IsNil() {
 		beforeUpdateFunc.Call([]reflect.Value{})
@@ -194,49 +193,52 @@ func (us *SUpdateSession) saveUpdateSql(dt interface{}) (*sUpdateSQLResult, erro
 	}
 
 	vars := make([]interface{}, 0)
-	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("UPDATE `%s` SET ", us.tableSpec.name))
-	for i, udif := range setters {
-		if i > 0 {
-			buf.WriteString(", ")
-		}
+	colsets := make([]string, 0)
+	conditions := make([]string, 0)
+	for _, udif := range setters {
 		if gotypes.IsNil(udif.new) {
-			buf.WriteString(fmt.Sprintf("`%s` = NULL", udif.col.Name()))
+			colsets = append(colsets, fmt.Sprintf("`%s` = NULL", udif.col.Name()))
 		} else {
-			buf.WriteString(fmt.Sprintf("`%s` = ?", udif.col.Name()))
+			colsets = append(colsets, fmt.Sprintf("`%s` = ?", udif.col.Name()))
 			vars = append(vars, udif.col.ConvertFromValue(udif.new))
 		}
 	}
 	for _, versionField := range versionFields {
-		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))
+		colsets = append(colsets, fmt.Sprintf("`%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		buf.WriteString(fmt.Sprintf(", `%s` = ?", updatedField))
+		colsets = append(colsets, fmt.Sprintf("`%s` = ?", updatedField))
 		vars = append(vars, now)
 	}
-	buf.WriteString(" WHERE ")
-	for i, pkv := range primaries {
-		if i > 0 {
-			buf.WriteString(" AND ")
-		}
-		buf.WriteString(fmt.Sprintf("`%s` = ?", pkv.key))
+	for _, pkv := range primaries {
+		conditions = append(conditions, fmt.Sprintf("`%s` = ?", pkv.key))
 		vars = append(vars, pkv.value)
 	}
 
+	updateSql := templateEval(us.tableSpec.Database().backend.UpdateSQLTemplate(), struct {
+		Table      string
+		Columns    string
+		Conditions string
+	}{
+		Table:      us.tableSpec.name,
+		Columns:    strings.Join(colsets, ", "),
+		Conditions: strings.Join(conditions, " AND "),
+	})
+
 	if DEBUG_SQLCHEMY {
-		log.Infof("Update: %s %s", buf.String(), vars)
+		log.Infof("Update: %s %s", updateSql, vars)
 	}
 
-	return &sUpdateSQLResult{
-		sql:       buf.String(),
-		vars:      vars,
+	return &SUpdateSQLResult{
+		Sql:       updateSql,
+		Vars:      vars,
 		setters:   setters,
 		primaries: primaries,
 	}, nil
 }
 
 func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
-	sqlResult, err := us.saveUpdateSql(dt)
+	sqlResult, err := us.SaveUpdateSql(dt)
 	if err != nil {
 		return nil, errors.Wrap(err, "saveUpateSql")
 	}
@@ -249,8 +251,8 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 	return updateDiffList2Map(sqlResult.setters), nil
 }
 
-func (ts *STableSpec) execUpdateSql(dt interface{}, result *sUpdateSQLResult) error {
-	results, err := ts.Database().TxExec(result.sql, result.vars...)
+func (ts *STableSpec) execUpdateSql(dt interface{}, result *SUpdateSQLResult) error {
+	results, err := ts.Database().TxExec(result.Sql, result.Vars...)
 	if err != nil {
 		return errors.Wrap(err, "TxExec")
 	}
@@ -282,7 +284,7 @@ func (ts *STableSpec) Update(dt interface{}, doUpdate func() error) (UpdateDiffs
 	if !ts.Database().backend.CanUpdate() {
 		return nil, errors.ErrNotSupported
 	}
-	session, err := ts.prepareUpdate(dt)
+	session, err := ts.PrepareUpdate(dt)
 	if err != nil {
 		return nil, errors.Wrap(err, "prepareUpdate")
 	}

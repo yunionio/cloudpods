@@ -47,7 +47,7 @@ func (click *SClickhouseBackend) CaseInsensitiveLikeString() string {
 
 // CanUpdate returns wether the backend supports update
 func (click *SClickhouseBackend) CanUpdate() bool {
-	return false
+	return true
 }
 
 // CanInsert returns wether the backend supports Insert
@@ -66,6 +66,10 @@ func (click *SClickhouseBackend) IsSupportIndexAndContraints() bool {
 
 func (click *SClickhouseBackend) CanSupportRowAffected() bool {
 	return false
+}
+
+func (click *SClickhouseBackend) UpdateSQLTemplate() string {
+	return "ALTER TABLE `{{ .Table }}` UPDATE {{ .Columns }} WHERE {{ .Conditions }}"
 }
 
 func (click *SClickhouseBackend) GetCreateSQLs(ts sqlchemy.ITableSpec) []string {

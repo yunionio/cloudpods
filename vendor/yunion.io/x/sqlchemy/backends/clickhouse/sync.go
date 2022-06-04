@@ -107,7 +107,7 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 		sql := fmt.Sprintf("ADD COLUMN %s", col.DefinitionString())
 		alters = append(alters, sql)
 	}
-	if changePrimary {
+	/*if changePrimary {
 		primaries := make([]string, 0)
 		for _, c := range ts.Columns() {
 			if c.IsPrimary() {
@@ -118,7 +118,7 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 			sql := fmt.Sprintf("ADD PRIMARY KEY(%s)", strings.Join(primaries, ", "))
 			alters = append(alters, sql)
 		}
-	}
+	}*/
 
 	oldTtlSpec := findTtlColumn(changes.OldColumns)
 	newTtlSpec := findTtlColumn(ts.Columns())

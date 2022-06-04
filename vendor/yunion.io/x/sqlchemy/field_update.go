@@ -36,7 +36,7 @@ func (ts *STableSpec) UpdateFields(dt interface{}, fields map[string]interface{}
 // find primary key and index key
 // find fields correlatively columns
 // joint sql and executed
-func (ts *STableSpec) updateFieldSql(dt interface{}, fields map[string]interface{}, debug bool) (*sUpdateSQLResult, error) {
+func (ts *STableSpec) updateFieldSql(dt interface{}, fields map[string]interface{}, debug bool) (*SUpdateSQLResult, error) {
 	dataValue := reflect.Indirect(reflect.ValueOf(dt))
 
 	cv := make(map[string]interface{})
@@ -120,9 +120,9 @@ func (ts *STableSpec) updateFieldSql(dt interface{}, fields map[string]interface
 		log.Infof("Update: %s", buf.String())
 	}
 
-	return &sUpdateSQLResult{
-		sql:       buf.String(),
-		vars:      vars,
+	return &SUpdateSQLResult{
+		Sql:       buf.String(),
+		Vars:      vars,
 		primaries: primaryCols,
 	}, nil
 }

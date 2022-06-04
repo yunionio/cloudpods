@@ -46,7 +46,7 @@ func (t *STableSpec) Decrement(diff interface{}, target interface{}) error {
 	return t.incrementInternal(diff, "-", target)
 }
 
-func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, target interface{}) (*sUpdateSQLResult, error) {
+func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, target interface{}) (*SUpdateSQLResult, error) {
 	dataValue := reflect.Indirect(reflect.ValueOf(diff))
 	fields := reflectutils.FetchStructFieldValueSet(dataValue)
 	var targetFields reflectutils.SStructFieldValueSet
@@ -139,9 +139,9 @@ func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, targe
 		log.Infof("Update: %s %s", buf.String(), vars)
 	}
 
-	return &sUpdateSQLResult{
-		sql:       buf.String(),
-		vars:      vars,
+	return &SUpdateSQLResult{
+		Sql:       buf.String(),
+		Vars:      vars,
 		primaries: primaries,
 	}, nil
 }
