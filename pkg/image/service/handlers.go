@@ -17,10 +17,12 @@ package service
 import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/image/models"
+	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/image/usages"
 )
 
@@ -41,6 +43,8 @@ func InitHandlers(app *appsrv.Application) {
 	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, API_VERSION, app)
 	usages.AddUsageHandler(API_VERSION, app)
 	taskman.AddTaskHandler(API_VERSION, app)
+
+	app_common.ExportOptionsHandler(app, &options.Options)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
