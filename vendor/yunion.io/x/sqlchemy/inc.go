@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
-	"yunion.io/x/pkg/util/timeutils"
 )
 
 // Increment perform an incremental update on a record, the primary key of the record is specified in diff,
@@ -54,8 +53,6 @@ func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, targe
 		targetValue := reflect.Indirect(reflect.ValueOf(target))
 		targetFields = reflectutils.FetchStructFieldValueSet(targetValue)
 	}
-
-	now := timeutils.UtcNow()
 
 	primaries := make([]sPrimaryKeyValue, 0)
 	vars := make([]interface{}, 0)
@@ -122,8 +119,7 @@ func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, targe
 		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		buf.WriteString(fmt.Sprintf(", `%s` = ?", updatedField))
-		vars = append(vars, now)
+		buf.WriteString(fmt.Sprintf(", `%s` = %s", updatedField, t.Database().backend.CurrentUTCTimeStampString()))
 	}
 
 	buf.WriteString(" WHERE ")

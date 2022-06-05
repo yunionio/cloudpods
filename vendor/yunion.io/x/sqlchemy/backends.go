@@ -49,8 +49,10 @@ type IBackend interface {
 	FetchIndexesAndConstraints(ts ITableSpec) ([]STableIndex, []STableConstraint, error)
 	// GetColumnSpecByFieldType parse the field of model struct to extract column specifiction of a field
 	GetColumnSpecByFieldType(table *STableSpec, fieldType reflect.Type, fieldname string, tagmap map[string]string, isPointer bool) IColumnSpec
-	//
+	// CurrentUTCTimeStampString returns the string represents current UTC time
 	CurrentUTCTimeStampString() string
+	// CurrentTimeStampString returns the string represents current local time
+	CurrentTimeStampString() string
 	//
 	CaseInsensitiveLikeString() string
 

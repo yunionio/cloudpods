@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
-	"yunion.io/x/pkg/util/timeutils"
 )
 
 // UpdateFields update a record with the values provided by fields stringmap
@@ -42,8 +41,6 @@ func (ts *STableSpec) updateFieldSql(dt interface{}, fields map[string]interface
 	cv := make(map[string]interface{})
 	// use field to store field order
 	cnames := make([]string, 0)
-
-	now := timeutils.UtcNow()
 
 	fullFields := reflectutils.FetchStructFieldValueSet(dataValue)
 	versionFields := make([]string, 0)
@@ -104,8 +101,7 @@ func (ts *STableSpec) updateFieldSql(dt interface{}, fields map[string]interface
 		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		buf.WriteString(fmt.Sprintf(", `%s` = ?", updatedField))
-		vars = append(vars, now)
+		buf.WriteString(fmt.Sprintf(", `%s` = %s", updatedField, ts.Database().backend.CurrentUTCTimeStampString()))
 	}
 	buf.WriteString(" WHERE ")
 	for i, pkv := range primaryCols {

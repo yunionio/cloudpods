@@ -150,7 +150,11 @@ func (mock *sMockBackend) GetColumnSpecByFieldType(table *STableSpec, fieldType 
 }
 
 func (mock *sMockBackend) CurrentUTCTimeStampString() string {
-	return ""
+	return "UTC_NOW()"
+}
+
+func (mock *sMockBackend) CurrentTimeStampString() string {
+	return "NOW()"
 }
 
 func (mock *sMockBackend) CommitTableChangeSQL(ts ITableSpec, changes STableChanges) []string {
