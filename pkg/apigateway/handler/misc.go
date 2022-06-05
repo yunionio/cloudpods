@@ -98,9 +98,9 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	imageDownloadByUrl := uploadHandlerInfo(GET, prefix+"imageutils/image/<image_name>", imageDownloadByUrlHandler)
 	app.AddHandler3(imageDownloadByUrl)
 	// fetch vm image download url or download large file directly with query parameter <direct=true>
-	imageDownloader := uploadHandlerInfo("GET", prefix+"/imageutils/download/<image_id>", FetchAuthToken(imageDownloadHandler))
+	imageDownloader := uploadHandlerInfo("GET", prefix+"imageutils/download/<image_id>", FetchAuthToken(imageDownloadHandler))
 	app.AddHandler3(imageDownloader)
-	imageUploader := uploadHandlerInfo("POST", prefix+"/imageutils/upload", FetchAuthToken(imageUploadHandler))
+	imageUploader := uploadHandlerInfo("POST", prefix+"imageutils/upload", FetchAuthToken(imageUploadHandler))
 	app.AddHandler3(imageUploader)
 	s3upload := uploadHandlerInfo(POST, prefix+"s3uploads", FetchAuthToken(h.postS3UploadHandler))
 	app.AddHandler3(s3upload)

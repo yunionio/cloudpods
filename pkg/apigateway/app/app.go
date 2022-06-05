@@ -15,7 +15,10 @@
 package app
 
 import (
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/apigateway/handler"
+	"yunion.io/x/onecloud/pkg/apigateway/options"
 	"yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/appsrv"
 )
@@ -29,8 +32,10 @@ type Application struct {
 	ResourceHandler     handler.IHandler
 	CSRFResourceHandler handler.IHandler
 	RPCHandler          handler.IHandler
-	// InfluxdbProxyHandler handler.IHandler
+
 	CloudIdSAMLHandler handler.IHandler
+
+	BackendServiceProxyHandler handler.IHandler
 }
 
 func NewApp(app *appsrv.Application) *Application {
@@ -66,7 +71,11 @@ func (app *Application) InitHandlers() *Application {
 		AddGet(handler.FetchAuthToken).
 		AddPost(handler.FetchAuthToken)
 
-	// app.InfluxdbProxyHandler = handler.NewInfluxdbProxyHandler("/query")
+	if options.Options.EnableBackendServiceProxy {
+		// bind backend service API proxy
+		log.Infof("enable backend service proxy")
+		app.BackendServiceProxyHandler = handler.NewBackendServiceProxyHandler("/api/s/<service>")
+	}
 
 	app.CloudIdSAMLHandler = handler.NewProxyHandlerWithService(cloudid.SAML_IDP_PREFIX, cloudid.SERVICE_TYPE)
 
@@ -75,8 +84,8 @@ func (app *Application) InitHandlers() *Application {
 
 func (app *Application) Bind() {
 	for _, h := range []handler.IHandler{
+		app.BackendServiceProxyHandler,
 		app.CloudIdSAMLHandler,
-		// app.InfluxdbProxyHandler,
 		app.MiscHandler,
 		app.AuthHandler,
 		app.K8sHandler,
@@ -84,6 +93,8 @@ func (app *Application) Bind() {
 		app.ResourceHandler,
 		app.CSRFResourceHandler,
 	} {
-		h.Bind(app.Application)
+		if h != nil {
+			h.Bind(app.Application)
+		}
 	}
 }
