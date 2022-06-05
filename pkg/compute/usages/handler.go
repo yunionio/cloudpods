@@ -931,7 +931,7 @@ func guestUsage(prefix string, scope rbacutils.TRbacScope, userCred mcclient.IId
 	policyResult rbacutils.SPolicyResult,
 ) Usage {
 	hypervisors := sets.NewString(api.HYPERVISORS...)
-	hypervisors.Delete(api.HYPERVISOR_CONTAINER)
+	hypervisors.Delete(api.HYPERVISOR_CONTAINER, api.HYPERVISOR_BAREMETAL)
 	return guestHypervisorsUsage(prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, status, hypervisors.List(), pendingDelete, includeSystem, since, policyResult)
 }
 
