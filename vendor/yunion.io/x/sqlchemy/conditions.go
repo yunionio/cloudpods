@@ -297,7 +297,7 @@ type SNoLaterThanCondition struct {
 
 // WhereClause implementation of SNoLaterThanCondition for ICondition
 func (c *SNoLaterThanCondition) WhereClause() string {
-	nowStr := c.field.database().backend.CurrentUTCTimeStampString()
+	nowStr := c.field.database().backend.CurrentTimeStampString()
 	return fmt.Sprintf("%s <= %s", c.field.Reference(), nowStr)
 }
 
@@ -314,7 +314,7 @@ type SNoEarlierThanCondition struct {
 
 // WhereClause implementation of SNoEarlierThanCondition for ICondition
 func (c *SNoEarlierThanCondition) WhereClause() string {
-	nowStr := c.field.database().backend.CurrentUTCTimeStampString()
+	nowStr := c.field.database().backend.CurrentTimeStampString()
 	return fmt.Sprintf("%s >= %s", c.field.Reference(), nowStr)
 }
 

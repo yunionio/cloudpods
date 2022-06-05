@@ -55,6 +55,14 @@ func (sqlite *SSqliteBackend) CanInsertOrUpdate() bool {
 	return true
 }
 
+func (sqlite *SSqliteBackend) CurrentUTCTimeStampString() string {
+	return "DATETIME('now')"
+}
+
+func (sqlite *SSqliteBackend) CurrentTimeStampString() string {
+	return "DATETIME('now', 'localtime')"
+}
+
 func (sqlite *SSqliteBackend) DropIndexSQLTemplate() string {
 	return "DROP INDEX IF EXISTS `{{ .Table }}`.`{{ .Index }}`"
 }

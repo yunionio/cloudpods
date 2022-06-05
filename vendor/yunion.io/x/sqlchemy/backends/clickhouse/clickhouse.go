@@ -68,6 +68,14 @@ func (click *SClickhouseBackend) CanSupportRowAffected() bool {
 	return false
 }
 
+func (click *SClickhouseBackend) CurrentUTCTimeStampString() string {
+	return "NOW('UTC')"
+}
+
+func (click *SClickhouseBackend) CurrentTimeStampString() string {
+	return "NOW()"
+}
+
 func (click *SClickhouseBackend) UpdateSQLTemplate() string {
 	return "ALTER TABLE `{{ .Table }}` UPDATE {{ .Columns }} WHERE {{ .Conditions }}"
 }
