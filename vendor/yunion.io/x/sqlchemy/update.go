@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
-	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -122,8 +121,6 @@ func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, erro
 		beforeUpdateFunc.Call([]reflect.Value{})
 	}
 
-	now := timeutils.UtcNow()
-
 	// dataType := reflect.TypeOf(dt).Elem()
 	dataValue := reflect.ValueOf(dt).Elem()
 	ofields := reflectutils.FetchStructFieldValueSet(us.oValue)
@@ -207,8 +204,7 @@ func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, erro
 		colsets = append(colsets, fmt.Sprintf("`%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		colsets = append(colsets, fmt.Sprintf("`%s` = ?", updatedField))
-		vars = append(vars, now)
+		colsets = append(colsets, fmt.Sprintf("`%s` = %s", updatedField, us.tableSpec.Database().backend.CurrentUTCTimeStampString()))
 	}
 	for _, pkv := range primaries {
 		conditions = append(conditions, fmt.Sprintf("`%s` = ?", pkv.key))

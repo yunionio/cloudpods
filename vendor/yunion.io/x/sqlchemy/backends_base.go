@@ -49,6 +49,10 @@ func (bb *SBaseBackend) GetColumnSpecByFieldType(table *STableSpec, fieldType re
 }
 
 func (bb *SBaseBackend) CurrentUTCTimeStampString() string {
+	return "NOW('UTC')"
+}
+
+func (bb *SBaseBackend) CurrentTimeStampString() string {
 	return "NOW()"
 }
 

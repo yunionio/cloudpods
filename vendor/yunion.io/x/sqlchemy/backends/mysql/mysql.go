@@ -60,6 +60,14 @@ func (mysql *SMySQLBackend) InsertOrUpdateSQLTemplate() string {
 	return "INSERT INTO `{{ .Table }}` ({{ .Columns }}) VALUES ({{ .Values }}) ON DUPLICATE KEY UPDATE {{ .SetValues }}"
 }
 
+func (mysql *SMySQLBackend) CurrentUTCTimeStampString() string {
+	return "UTC_TIMESTAMP()"
+}
+
+func (mysql *SMySQLBackend) CurrentTimeStampString() string {
+	return "NOW()"
+}
+
 func (mysql *SMySQLBackend) GetCreateSQLs(ts sqlchemy.ITableSpec) []string {
 	cols := make([]string, 0)
 	primaries := make([]string, 0)
