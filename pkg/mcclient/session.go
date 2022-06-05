@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
@@ -143,25 +144,11 @@ func (this *ClientSession) GetServiceCatalog() IServiceCatalog {
 }
 
 func (this *ClientSession) GetServiceVersionURL(service, endpointType, apiVersion string) (string, error) {
-	if len(this.endpointType) > 0 {
-		// session specific endpoint type should override the input endpointType, which is supplied by manager
-		endpointType = this.endpointType
+	urls, err := this.GetServiceVersionURLs(service, endpointType, apiVersion)
+	if err != nil {
+		return "", errors.Wrap(err, "GetServiceVersionURLs")
 	}
-	service = this.getServiceName(service, apiVersion)
-	catalog := this.GetServiceCatalog()
-	if gotypes.IsNil(catalog) {
-		return this.client.authUrl, nil
-	}
-	url, err := catalog.GetServiceURL(service, this.region, this.zone, endpointType)
-	if err != nil && service == api.SERVICE_TYPE {
-		return this.client.authUrl, nil
-	}
-	// HACK! in case schema of keystone changed, always trust authUrl
-	if service == api.SERVICE_TYPE && this.client.authUrl[:5] != url[:5] {
-		log.Warningf("Schema of keystone authUrl and endpoint mismatch: %s!=%s", this.client.authUrl, url)
-		return this.client.authUrl, nil
-	}
-	return url, err
+	return urls[rand.Intn(len(urls))], nil
 }
 
 func (this *ClientSession) GetServiceURLs(service, endpointType string) ([]string, error) {
@@ -174,9 +161,65 @@ func (this *ClientSession) GetServiceVersionURLs(service, endpointType, apiVersi
 		endpointType = this.endpointType
 	}
 	service = this.getServiceName(service, apiVersion)
-	urls, err := this.GetServiceCatalog().GetServiceURLs(service, this.region, this.zone, endpointType)
-	if err != nil && service == api.SERVICE_TYPE {
+	if endpointType == api.EndpointInterfaceApigateway {
+		return this.getApigatewayServiceURLs(service, endpointType)
+	} else {
+		return this.getServiceVersionURLs(service, endpointType)
+	}
+}
+
+func (this *ClientSession) getApigatewayServiceURLs(service, endpointType string) ([]string, error) {
+	urls, err := this.getServiceVersionURLs(service, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "getServiceVersionURLs")
+	}
+	// replace URLs with authUrl prefix
+	// find the common prefix
+	prefix := this.client.authUrl
+	lastSlashPos := strings.LastIndex(prefix, "/api/s/identity")
+	if lastSlashPos <= 0 {
+		return nil, errors.Wrapf(err, "invalue auth_url %s", prefix)
+	}
+	prefix = httputils.JoinPath(prefix[:lastSlashPos], "api/s", service)
+	rets := make([]string, len(urls))
+	for i, url := range urls {
+		if len(url) < 9 {
+			// len("https://") == 8
+			log.Errorf("invalid url %s: shorter than 9 bytes", url)
+			continue
+		}
+		slashPos := strings.IndexByte(url[9:], '/')
+		if slashPos > 0 {
+			url = url[9+slashPos:]
+			rets[i] = httputils.JoinPath(prefix, url)
+		} else {
+			rets[i] = prefix
+		}
+	}
+	return rets, nil
+}
+
+func (this *ClientSession) getServiceVersionURLs(service, endpointType string) ([]string, error) {
+	catalog := this.GetServiceCatalog()
+	if gotypes.IsNil(catalog) {
 		return []string{this.client.authUrl}, nil
+	}
+	urls, err := catalog.GetServiceURLs(service, this.region, this.zone, endpointType)
+	// HACK! in case of fail to get kestone url or schema of keystone changed, always trust authUrl
+	if service == api.SERVICE_TYPE && (err != nil || len(urls) == 0 || (len(this.client.authUrl) != 0 && this.client.authUrl[:5] != urls[0][:5])) {
+		var msg string
+		if err != nil {
+			msg = fmt.Sprintf("fail to retrieve keystone urls: %s", err)
+		} else if len(urls) == 0 {
+			msg = fmt.Sprintf("empty keystone url")
+		} else {
+			msg = fmt.Sprintf("Schema of keystone authUrl and endpoint mismatch: %s!=%s", this.client.authUrl, urls)
+		}
+		log.Warningln(msg)
+		return []string{this.client.authUrl}, nil
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "catalog.GetServiceURLs")
 	}
 	return urls, err
 }
