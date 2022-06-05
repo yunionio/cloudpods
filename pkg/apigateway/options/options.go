@@ -43,6 +43,9 @@ type GatewayOptions struct {
 	// 上报非敏感基础信息，帮助软件更加完善
 	DisableReporting bool `default:"false" help:"Reporting data every 24 hours, report data incloud version, os, platform and usages"`
 
+	// 启用后端服务反向代理网关
+	EnableBackendServiceProxy bool `default:"false" help:"Proxy API request to backend services"`
+
 	common_options.CommonOptions `"request_worker_count->default":"32"`
 }
 
@@ -56,6 +59,10 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 
 	changed := false
 	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+
+	if oldOpts.EnableBackendServiceProxy != newOpts.EnableBackendServiceProxy {
 		changed = true
 	}
 

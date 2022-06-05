@@ -54,6 +54,8 @@ const (
 	EndpointInterfaceAdmin    = "admin"
 	EndpointInterfaceConsole  = "console"
 
+	EndpointInterfaceApigateway = "apigateway"
+
 	KeystoneDomainRoot = "<<keystone.domain.root>>"
 
 	IdMappingEntityUser   = "user"
