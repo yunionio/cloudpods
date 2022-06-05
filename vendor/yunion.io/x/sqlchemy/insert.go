@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
-	"yunion.io/x/pkg/util/timeutils"
 )
 
 // Insert perform a insert operation, the value of the record is store in dt
@@ -73,8 +72,6 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 	primaryKeys := make([]string, 0)
 	primaries := make(map[string]interface{})
 
-	now := timeutils.UtcNow()
-
 	for _, c := range t.Columns() {
 		isAutoInc := false
 		if c.IsAutoIncrement() {
@@ -98,9 +95,9 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 			createdAtFields = append(createdAtFields, k)
 			names = append(names, fmt.Sprintf("`%s`", k))
 			if c.IsZero(ov) {
-				// format = append(format, t.Database().backend.CurrentUTCTimeStampString())
-				values = append(values, now)
-				format = append(format, "?")
+				format = append(format, t.Database().backend.CurrentUTCTimeStampString())
+				// values = append(values, now)
+				// format = append(format, "?")
 			} else {
 				values = append(values, ov)
 				format = append(format, "?")
@@ -108,21 +105,22 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 
 			if update && c.IsUpdatedAt() && !c.IsPrimary() {
 				if c.IsZero(ov) {
-					updates = append(updates, fmt.Sprintf("`%s` = ?", k))
-					updateValues = append(updateValues, now)
+					updates = append(updates, fmt.Sprintf("`%s` = %s", k, t.Database().backend.CurrentUTCTimeStampString()))
+					// updateValues = append(updateValues, now)
 				} else {
 					updates = append(updates, fmt.Sprintf("`%s` = ?", k))
 					updateValues = append(updateValues, ov)
 				}
 			}
 
-			if c.IsPrimary() {
-				if c.IsZero(ov) {
-					primaries[k] = now
-				} else {
-					primaries[k] = ov
-				}
-			}
+			// unlikely if created or updated as a primary key but exec an insertOrUpdate query. QIUJIAN 2022/6/5
+			// if c.IsPrimary() {
+			// 	if c.IsZero(ov) {
+			// 		primaries[k] = now
+			// 	} else {
+			// 		primaries[k] = ov
+			// 	}
+			// }
 			continue
 		}
 
