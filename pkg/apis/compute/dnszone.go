@@ -99,10 +99,10 @@ type DnsZoneCreateInput struct {
 	// 区域类型
 	//
 	//
-	// | 类型			| 说明    |
-	// |----------		|---------|
-	// | PublicZone		| 公有    |
-	// | PrivateZone	| 私有    |
+	// | 类型            | 说明    |
+	// |----------       |---------|
+	// | PublicZone      | 公有    |
+	// | PrivateZone     | 私有    |
 	ZoneType string `json:"zone_type"`
 	// 额外参数
 
@@ -134,10 +134,10 @@ type DnsZoneListInput struct {
 	// 区域类型
 	//
 	//
-	// | 类型			| 说明    |
-	// |----------		|---------|
-	// | PublicZone		| 公有    |
-	// | PrivateZone	| 私有    |
+	// | 类型            | 说明    |
+	// |----------       |---------|
+	// | PublicZone      | 公有    |
+	// | PrivateZone     | 私有    |
 	ZoneType string `json:"zone_type"`
 
 	// Filter dns zone By vpc
@@ -152,9 +152,9 @@ type DnsZoneCacheInput struct {
 	// 云账号Id
 	//
 	//
-	// | 要求								|
-	// |----------							|
-	// | 1. dns zone 状态必须为available		|
+	// | 要求                                |
+	// |----------                            |
+	// | 1. dns zone 状态必须为available        |
 	// | 2. dns zone zone_type 必须为PublicZone |
 	// | 3. 指定云账号未在云上创建相应的 dns zone |
 	CloudaccountId string

@@ -23,11 +23,14 @@ type SDBInstanceDatabasePrivilege struct {
 	// swagger:ignore
 	DBInstanceaccountId string
 	// 权限
-	// | 平台		|Rds引擎				|	支持类型	|
-	// | ----		|-------				|	--------	|
-	// | Aliyun		|MySQL, MariaBD			|	rw, r, ddl, dml	|
-	// | Aliyun		|SQLServer				|	rw, r, owner	|
-	// | Huawei		|MySQL, MariaDB			|	rw, r	|
+	//
+	//
+	//
+	// | 平台        |Rds引擎                |    支持类型    |
+	// | ----        |-------                |    --------    |
+	// | Aliyun      |MySQL, MariaBD         |    rw, r, ddl, dml    |
+	// | Aliyun      |SQLServer              |    rw, r, owner    |
+	// | Huawei      |MySQL, MariaDB         |    rw, r    |
 	// 同一平台不同的rds类型支持的权限不尽相同
 	// required: true
 	Privilege string `json:"privilege"`
@@ -40,11 +43,11 @@ type DBInstanceDatabaseCreateInput struct {
 	//
 	//
 	//
-	// | 平台		|支持Rds引擎				|
-	// | ----		|-------					|
-	// | Aliyun		|MySQL, MariaBD, SQLServer  |
-	// | 华为云		|MySQL, MariaBD				|
-	// | 腾讯云		|           				|
+	// | 平台        |支持Rds引擎                |
+	// | ----        |-------                    |
+	// | Aliyun      |MySQL, MariaBD, SQLServer  |
+	// | 华为云      |MySQL, MariaBD             |
+	// | 腾讯云      |                           |
 	// required: true
 	// 阿里云SQL Server 2017集群版不支持创建数据库
 	// 阿里云只读实例不支持创建数据库

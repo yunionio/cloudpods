@@ -77,14 +77,13 @@ type SchedtagDetails struct {
 
 	SSchedtag
 
-	DynamicSchedtagCount int `json:"dynamic_schedtag_count"`
-	SchedpolicyCount     int `json:"schedpolicy_count"`
-	// ProjectId            string `json:"project_id"`
-	HostCount        int    `json:"host_count"`
-	ServerCount      int    `json:"server_count"`
-	OtherCount       int    `json:"other_count"`
-	ResourceCount    int    `json:"resource_count"`
-	JoinModelKeyword string `json:"join_model_keyword"`
+	DynamicSchedtagCount int    `json:"dynamic_schedtag_count"`
+	SchedpolicyCount     int    `json:"schedpolicy_count"`
+	HostCount            int    `json:"host_count"`
+	ServerCount          int    `json:"server_count"`
+	OtherCount           int    `json:"other_count"`
+	ResourceCount        int    `json:"resource_count"`
+	JoinModelKeyword     string `json:"join_model_keyword"`
 }
 
 type SchedtagResourceInfo struct {
