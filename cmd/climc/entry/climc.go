@@ -19,12 +19,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/c-bata/go-prompt"
+	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
@@ -33,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/cmd/climc/promputils"
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type BaseOptions struct {
@@ -144,6 +148,18 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		options.Insecure,
 		options.CertFile,
 		options.KeyFile)
+
+	cfg := &httpproxy.Config{
+		HTTPProxy:  os.Getenv("HTTP_PROXY"),
+		HTTPSProxy: os.Getenv("HTTPS_PROXY"),
+		NoProxy:    os.Getenv("NO_PROXY"),
+	}
+
+	cfgProxyFunc := cfg.ProxyFunc()
+	proxyFunc := func(req *http.Request) (*url.URL, error) {
+		return cfgProxyFunc(req.URL)
+	}
+	httputils.SetClientProxyFunc(client.GetClient(), proxyFunc)
 
 	var cacheToken mcclient.TokenCredential
 	authUrlAlter := strings.Replace(options.OsAuthURL, "/", "", -1)
