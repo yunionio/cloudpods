@@ -47,10 +47,12 @@ type ClouduserCreateInput struct {
 
 	// 用户密码, 若is_console_login = true时, 此参数不传时会生成12位随机密码
 	//
+	//
+	//
 	// | 云平台   | 说明                                        |
 	// |----------|---------------------------------------------|
 	// | Google   | 不支持此参数                                |
-	// | Aliyun   | 支持										|
+	// | Aliyun   | 支持                                        |
 	// | Huawei   | 支持                                        |
 	// | Azure    | 支持                                        |
 	// | 腾讯云   | 支持                                        |
@@ -68,10 +70,12 @@ type ClouduserCreateInput struct {
 
 	// 初始的权限Id列表, 权限必须属于指定的云账号
 	//
+	//
+	//
 	// | 云平台   | 说明                                        |
 	// |----------|---------------------------------------------|
 	// | Google   | 至少需要一个初始权限                        |
-	// | Aliyun   | 支持										|
+	// | Aliyun   | 支持                                        |
 	// | Huawei   | 不支持                                      |
 	// | Azure    | 支持                                        |
 	// | 腾讯云   | 支持                                        |
@@ -182,10 +186,12 @@ type ClouduserAttachPolicyInput struct {
 
 	// 权限Id
 	//
+	//
+	//
 	// | 云平台   | 说明                                        |
 	// |----------|---------------------------------------------|
 	// | Google   | 支持                                        |
-	// | Aliyun   | 支持										|
+	// | Aliyun   | 支持                                        |
 	// | Huawei   | 不支持                                      |
 	// | Azure    | 支持                                        |
 	// | 腾讯云   | 支持                                        |
@@ -221,10 +227,12 @@ type ClouduserDetachPolicyInput struct {
 	CloudproviderId string `json:"cloudprovider_id"`
 	// 权限Id
 	//
+	//
+	//
 	// | 云平台   | 说明                                        |
 	// |----------|---------------------------------------------|
 	// | Google   | 支持，但最少需要保留一个权限                |
-	// | Aliyun   | 支持										|
+	// | Aliyun   | 支持                                        |
 	// | Huawei   | 不支持                                      |
 	// | Azure    | 不支持                                      |
 	// | 腾讯云   | 支持                                        |
@@ -243,10 +251,12 @@ type ClouduserUpdateInput struct {
 type ClouduserResetPasswordInput struct {
 	// 若此参数为空, 默认会生成随机12位密码
 	//
+	//
+	//
 	// | 云平台   | 说明                                        |
 	// |----------|---------------------------------------------|
 	// | Google   | 不支持                                      |
-	// | Aliyun   | 支持										|
+	// | Aliyun   | 支持                                        |
 	// | Huawei   | 支持                                        |
 	// | Azure    | 支持                                        |
 	// | 腾讯云   | 支持                                        |

@@ -110,12 +110,6 @@ type ElasticcacheRemoteUpdateInput struct {
 	ReplaceTags *bool `json:"replace_tags" help:"replace all remote tags"`
 }
 
-//type SElasticcacheJointsBase struct {
-//	apis.SVirtualJointResourceBase
-//	// 弹性缓存实例(ID or Name)
-//	ElasticcacheId string `json:"elasticcache_id"`
-//}
-
 type ElasticcacheJointResourceDetails struct {
 	apis.VirtualJointResourceBaseDetails
 
@@ -140,11 +134,11 @@ type ElasticcacheSecgroupsInput struct {
 	// 实例必须处于运行状态
 	//
 	//
-	// | 平台		 | 最多绑定安全组数量	|
-	// |-------------|-------------------	|
-	// | 腾讯云       | 10     			    |
-	// | 华为云       | 不支持安全组			|
-	// | 阿里云       | 不支持安全组			|
+	// | 平台         | 最多绑定安全组数量    |
+	// |-------------|-------------------    |
+	// | 腾讯云       | 10                     |
+	// | 华为云       | 不支持安全组            |
+	// | 阿里云       | 不支持安全组            |
 	SecgroupIds []string `json:"secgroup_ids"`
 }
 

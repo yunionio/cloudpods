@@ -152,42 +152,42 @@ type DiskConfig struct {
 	//
 	//
 	//
-	//| 平台			|  存储类型				|	中文		|	数据盘		|	系统盘			|	可否扩容	|	可否单独创建	|	扩容步长	|	说明	|
-	//|	----			|	----				|	----		|	-----		|	-----			|	-------		|	-----------		|	-------		|	-----	|
-	//|	Esxi			|local					|本地盘			|1-500GB		|30~500GB			|	是			|	否				|	1G			|			|
-	//|	Esxi			|nas					|NAS盘			|30-3072GB		|30~500GB			|	是			|	否				|	1G			|			|
-	//|	Esxi			|vsan					|VSAN盘			|30-3072GB		|30~500GB			|	是			|	否				|	1G			|			|
-	//|	KVM				|local					|本地盘盘		|1-500GB		|30~500GB			|	是			|	否				|	1G			|			|
-	//|	KVM				|rbd					|云硬盘			|1-3072GB		|30~500GB			|	是			|	是				|	1G			|			|
-	//|	Azure			|standard_lrs			|标准 HDD		|1-4095GB		|30~4095GB			|	是			|	是				|	1G			|			|
-	//|	Azure			|standardssd_lrs		|标准 SSD		|1-4095GB		|30~4095GB			|	是			|	是				|	1G			|			|
-	//|	Azure			|premium_lrs			|高级SSD		|1-4095GB		|30~4095GB			|	是			|	是				|	1G			|			|
-	//|	AWS				|gp2					|通用型SSD		|1-16384GB		|20~16384GB			|	是			|	是				|	1G			|			|
-	//|	AWS				|io1					|预配置 IOPS SSD|4-16384GB		|20-16384GB			|	是			|	是				|	1G			|			|
-	//|	AWS				|st1					|吞吐优化HDD	|500-16384GB	|不支持				|	是			|	是				|	1G			|			|
-	//|	AWS				|sc1					|Cold HDD		|500-16384GB	|不支持				|	是			|	是				|	1G			|			|
-	//|	AWS				|standard				|磁介质			|1-1024GB		|20-1024GB			|	是			|	是				|	1G			|			|
-	//|	腾讯云			|cloud_ssd				|SSD云硬盘		|10-16000GB		|50~500GB			|	是			|	是				|	10G			|			|
-	//|	腾讯云			|cloud_basic			|普通云硬盘		|10-16000GB		|50~500GB			|	是			|	是				|	10G			|			|
-	//|	腾讯云			|cloud_preium			|高性能云硬盘	|10-16000GB		|50~1024GB			|	是			|	是				|	10G			|			|
-	//|	腾讯云			|local_basic			|普通本地盘		|10-1600GB		|不支持				|	否			|	否				|				|			|
-	//|	腾讯云			|local_ssd				|SSD本地盘		|10-7000GB		|部分区域套餐支持	|	否			|	否				|				|			|
-	//|	腾讯云			|local_pro				|HDD本地盘		|跟随套餐		|部分区域套餐支持	|	否			|	否				|				|			|
-	//|	华为云或天翼云	|SSD					|超高IO云硬盘	|10-32768GB		|40~1024GB			|	是			|	是				|	1G			|			|
-	//|	华为云或天翼云	|SAS					|高IO云硬盘		|10-32768GB		|40~1024GB			|	是			|	是				|	1G			|			|
-	//|	华为云或天翼云	|SATA					|普通IO云硬盘	|10-32768GB		|40~1024GB			|	是			|	是				|	1G			|			|
-	//|	OpenStack		|nova					|nova			|不支持			|30-500GB			|	否			|	否				|				|			|
-	//|	OpenStack		|自定义					|...			|无限制			|无限制				|	是			|	是				|	1G			|			|
-	//|	Ucloud			|CLOUD_NORMAL			|普通云盘		|20-8000GB		|不支持				|	是			|	是				|	1G			|			|
-	//|	Ucloud			|CLOUD_SSD				|SSD云盘		|20-4000GB		|20-500GB			|	是			|	是				|	1G			|			|
-	//|	Ucloud			|LOCAL_NORMAL			|普通本地盘		|				|					|	是			|	是				|	1G			|			|
-	//|	Ucloud			|LOCAL_SSD				|SSD本地盘		|				|					|	是			|	是				|	1G			|			|
-	//|	Ucloud			|EXCLUSIVE_LOCAL_DISK	|独享本地盘		|				|					|	是			|	是				|	1G			|			|
-	//|	ZStack			|localstorage			|本地盘			|				|					|	是			|	是				|	1G			|			|
-	//|	ZStack			|ceph					|云硬盘			|				|					|	是			|	是				|	1G			|			|
-	//|	Google			|local-ssd				|本地SSD暂存盘	|375GB			|不支持				|	否			|	否				|				|	跟随实例创建，一次最多添加8个		|
-	//|	Google			|pd-standard			|标准永久性磁盘	|10-65536GB		|10-65536GB			|	是			|	是				|	1G			|			|
-	//|	Google			|pd-ssd					|SSD永久性磁盘	|10-65536GB		|10-65536GB			|	是			|	是				|	1G			|			|
+	//  | 平台           |  存储类型             |    中文        |    数据盘     |    系统盘          |    可否扩容      |    可否单独创建      |    扩容步长      |    说明    |
+	//  |----            |    ----               |    ----        |    -----      |    -----           |    -------       |    -----------       |    -------       |    -----   |
+	//  |Esxi            |local                  |本地盘          |1-500GB        |30~500GB            |    是            |    否                |    1G            |            |
+	//  |Esxi            |nas                    |NAS盘           |30-3072GB      |30~500GB            |    是            |    否                |    1G            |            |
+	//  |Esxi            |vsan                   |VSAN盘          |30-3072GB      |30~500GB            |    是            |    否                |    1G            |            |
+	//  |KVM             |local                  |本地盘盘        |1-500GB        |30~500GB            |    是            |    否                |    1G            |            |
+	//  |KVM             |rbd                    |云硬盘          |1-3072GB       |30~500GB            |    是            |    是                |    1G            |            |
+	//  |Azure           |standard_lrs           |标准 HDD        |1-4095GB       |30~4095GB           |    是            |    是                |    1G            |            |
+	//  |Azure           |standardssd_lrs        |标准 SSD        |1-4095GB       |30~4095GB           |    是            |    是                |    1G            |            |
+	//  |Azure           |premium_lrs            |高级SSD         |1-4095GB       |30~4095GB           |    是            |    是                |    1G            |            |
+	//  |AWS             |gp2                    |通用型SSD       |1-16384GB      |20~16384GB          |    是            |    是                |    1G            |            |
+	//  |AWS             |io1                    |预配置 IOPS SSD |4-16384GB      |20-16384GB          |    是            |    是                |    1G            |            |
+	//  |AWS             |st1                    |吞吐优化HDD     |500-16384GB    |不支持              |    是            |    是                |    1G            |            |
+	//  |AWS             |sc1                    |Cold HDD        |500-16384GB    |不支持              |    是            |    是                |    1G            |            |
+	//  |AWS             |standard               |磁介质          |1-1024GB       |20-1024GB           |    是            |    是                |    1G            |            |
+	//  |腾讯云          |cloud_ssd              |SSD云硬盘       |10-16000GB     |50~500GB            |    是            |    是                |    10G           |            |
+	//  |腾讯云          |cloud_basic            |普通云硬盘      |10-16000GB     |50~500GB            |    是            |    是                |    10G           |            |
+	//  |腾讯云          |cloud_preium           |高性能云硬盘    |10-16000GB     |50~1024GB           |    是            |    是                |    10G           |            |
+	//  |腾讯云          |local_basic            |普通本地盘      |10-1600GB      |不支持              |    否            |    否                |                  |            |
+	//  |腾讯云          |local_ssd              |SSD本地盘       |10-7000GB      |部分区域套餐支持    |    否            |    否                |                  |            |
+	//  |腾讯云          |local_pro              |HDD本地盘       |跟随套餐       |部分区域套餐支持    |    否            |    否                |                  |            |
+	//  |华为云或天翼云  |SSD                    |超高IO云硬盘    |10-32768GB     |40~1024GB           |    是            |    是                |    1G            |            |
+	//  |华为云或天翼云  |SAS                    |高IO云硬盘      |10-32768GB     |40~1024GB           |    是            |    是                |    1G            |            |
+	//  |华为云或天翼云  |SATA                   |普通IO云硬盘    |10-32768GB     |40~1024GB           |    是            |    是                |    1G            |            |
+	//  |OpenStack       |nova                   |nova            |不支持         |30-500GB            |    否            |    否                |                  |            |
+	//  |OpenStack       |自定义                 |...             |无限制         |无限制              |    是            |    是                |    1G            |            |
+	//  |Ucloud          |CLOUD_NORMAL           |普通云盘        |20-8000GB      |不支持              |    是            |    是                |    1G            |            |
+	//  |Ucloud          |CLOUD_SSD              |SSD云盘         |20-4000GB      |20-500GB            |    是            |    是                |    1G            |            |
+	//  |Ucloud          |LOCAL_NORMAL           |普通本地盘      |               |                    |    是            |    是                |    1G            |            |
+	//  |Ucloud          |LOCAL_SSD              |SSD本地盘       |               |                    |    是            |    是                |    1G            |            |
+	//  |Ucloud          |EXCLUSIVE_LOCAL_DISK   |独享本地盘      |               |                    |    是            |    是                |    1G            |            |
+	//  |ZStack          |localstorage           |本地盘          |               |                    |    是            |    是                |    1G            |            |
+	//  |ZStack          |ceph                   |云硬盘          |               |                    |    是            |    是                |    1G            |            |
+	//  |Google          |local-ssd              |本地SSD暂存盘   |375GB          |不支持              |    否            |    否                |                  |    跟随实例创建，一次最多添加8个        |
+	//  |Google          |pd-standard            |标准永久性磁盘  |10-65536GB     |10-65536GB          |    是            |    是                |    1G            |            |
+	//  |Google          |pd-ssd                 |SSD永久性磁盘   |10-65536GB     |10-65536GB          |    是            |    是                |    1G            |            |
 	Backend string `json:"backend"`
 
 	//介质类型
@@ -260,21 +260,21 @@ type ServerConfigs struct {
 	//
 	//
 	//
-	// |hypervisor	|	技术或平台	|
-	// |-------		|	----------	|
-	// |kvm			|	本地私有云	|
-	// |esxi		|	VMWare		|
-	// |baremetal	|	裸金属		|
-	// |aliyun		|	阿里云		|
-	// |aws			|	亚马逊		|
-	// |qcloud		|	腾讯云		|
-	// |azure		|	微软云		|
-	// |huawei		|	华为云		|
-	// |openstack	|	OpenStack	|
-	// |ucloud		|	Ucloud		|
-	// |zstack		|	ZStack		|
-	// |google		|	谷歌云		|
-	// |ctyun		|	天翼云		|
+	// |hypervisor    |    技术或平台    |
+	// |-------        |    ----------    |
+	// |kvm            |    本地私有云    |
+	// |esxi        |    VMWare        |
+	// |baremetal    |    裸金属        |
+	// |aliyun        |    阿里云        |
+	// |aws            |    亚马逊        |
+	// |qcloud        |    腾讯云        |
+	// |azure        |    微软云        |
+	// |huawei        |    华为云        |
+	// |openstack    |    OpenStack    |
+	// |ucloud        |    Ucloud        |
+	// |zstack        |    ZStack        |
+	// |google        |    谷歌云        |
+	// |ctyun        |    天翼云        |
 	// default: kvm
 	Hypervisor string `json:"hypervisor"`
 
@@ -434,20 +434,20 @@ type ServerCreateInput struct {
 	// 包年包月时长
 	//
 	//
-	// |平台				|是否支持	|
-	// |----				|-------	|
-	// |KVM					|否			|
-	// |ESxi				|否			|
-	// |OpenStack			|否			|
-	// |ZStack				|否			|
-	// |Google				|否			|
-	// |Azure				|否			|
-	// |AWS					|否			|
-	// |腾讯云				|是			|
-	// |Aliyun				|是			|
-	// |Ucloud				|是			|
-	// |Huawei				|是			|
-	// |天翼云				|是			|
+	// |平台                |是否支持    |
+	// |----                |-------    |
+	// |KVM                    |否            |
+	// |ESxi                |否            |
+	// |OpenStack            |否            |
+	// |ZStack                |否            |
+	// |Google                |否            |
+	// |Azure                |否            |
+	// |AWS                    |否            |
+	// |腾讯云                |是            |
+	// |Aliyun                |是            |
+	// |Ucloud                |是            |
+	// |Huawei                |是            |
+	// |天翼云                |是            |
 	Duration string `json:"duration"`
 
 	// 是否自动续费
@@ -478,18 +478,18 @@ type ServerCreateInput struct {
 	// 私有云不支持此参数
 	//
 	//
-	// |平台				|支持范围	|
-	// |----				|-------	|
-	// |腾讯云				|按量计费1-100, 包年包月1-200 |
+	// |平台                |支持范围    |
+	// |----                |-------    |
+	// |腾讯云                |按量计费1-100, 包年包月1-200 |
 	PublicIpBw int `json:"public_ip_bw,omitzero"`
 	// 公网IP计费类型
 	// 默认按流量计费
 	//
 	//
-	// |类别					|说明	|
-	// |----					|-------	|
-	// |traffic					|按流量计费|
-	// |bandwidth				|按带宽计费|
+	// |类别                    |说明    |
+	// |----                    |-------    |
+	// |traffic                    |按流量计费|
+	// |bandwidth                |按带宽计费|
 	PublicIpChargeType string `json:"public_ip_charge_type,omitempty"`
 
 	// 使用主机快照创建虚拟机, 主机快照不会重置密码及秘钥信息
