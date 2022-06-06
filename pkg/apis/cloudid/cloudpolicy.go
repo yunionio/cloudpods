@@ -49,9 +49,9 @@ type CloudpolicyListInput struct {
 	// 权限类型
 	//
 	//
-	// | 类型    |  说明				|
-	// |---------| ------------			|
-	// | system  |  过滤系统权限		|
+	// | 类型    |  说明                |
+	// |---------| ------------            |
+	// | system  |  过滤系统权限        |
 	// | custom  |  过滤自定义权限      |
 	PolicyType string `json:"policy_type"`
 

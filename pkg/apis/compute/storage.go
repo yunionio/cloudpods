@@ -27,16 +27,16 @@ type StorageCreateInput struct {
 	//
 	//
 	//
-	// | storage_type	| 参数						|是否必传	|	默认值	| 说明		|
-	// | --------		| -------					| --------	| --------	| ---------	|
-	// | rbd			| rbd_mon_host				| 是		|			| ceph mon_host	|
-	// | rbd 			| rbd_pool					| 是 		|			| ceph pool		|
-	// | rbd 			| rbd_key					| 否 		|			|若cephx认证开启,此参数必传	|
-	// | rbd 			| rbd_rados_mon_op_timeout	| 否 		|	3		|单位: 秒	|
-	// | rbd 			| rbd_rados_osd_op_timeout	| 否 		|	1200	|单位: 秒	|
-	// | rbd 			| rbd_client_mount_timeout	| 否 		|	120		|单位: 秒	|
-	// | nfs 			| nfs_host					| 是 		|			|网络文件系统主机	|
-	// | nfs 			| nfs_shared_dir			| 是 		|			|网络文件系统共享目录	|
+	// | storage_type    | 参数                        |是否必传    |    默认值    | 说明        |
+	// | --------        | -------                    | --------    | --------    | ---------    |
+	// | rbd            | rbd_mon_host                | 是        |            | ceph mon_host    |
+	// | rbd             | rbd_pool                    | 是         |            | ceph pool        |
+	// | rbd             | rbd_key                    | 否         |            |若cephx认证开启,此参数必传    |
+	// | rbd             | rbd_rados_mon_op_timeout    | 否         |    3        |单位: 秒    |
+	// | rbd             | rbd_rados_osd_op_timeout    | 否         |    1200    |单位: 秒    |
+	// | rbd             | rbd_client_mount_timeout    | 否         |    120        |单位: 秒    |
+	// | nfs             | nfs_host                    | 是         |            |网络文件系统主机    |
+	// | nfs             | nfs_shared_dir            | 是         |            |网络文件系统共享目录    |
 	// local: 本地存储
 	// rbd: ceph块存储, ceph存储创建时仅会检测是否重复创建，不会具体检测认证参数是否合法，只有挂载存储时
 	// 计算节点会验证参数，若挂载失败，宿主机和存储不会关联，可以通过查看存储日志查找挂载失败原因

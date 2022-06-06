@@ -42,20 +42,20 @@ type SElasticipCreateInput struct {
 	//
 	//
 	//
-	// | 平台		|	支持类型			|
-	// | ---		|	--------			|
-	// |Aliyun		| traffic, bandwidth	|
-	// |腾讯云		| traffic				|
-	// |Azure		| traffic				|
-	// |Google		| traffic, bandwidth	|
-	// |Ucloud		| traffic				|
-	// |Aws			| traffic				|
-	// |华为云		| traffic, bandwidth	|
-	// |天翼云		| traffic, bandwidth	|
-	// |KVM			| 不支持创建			|
-	// |VMware		| 不支持创建			|
-	// |ZStack		| traffic				|
-	// |OpenStack	| traffic				|
+	// | 平台       |    支持类型            |
+	// | ---        |    --------            |
+	// |Aliyun      | traffic, bandwidth    |
+	// |腾讯云      | traffic                |
+	// |Azure       | traffic                |
+	// |Google      | traffic, bandwidth    |
+	// |Ucloud      | traffic                |
+	// |Aws         | traffic                |
+	// |华为云      | traffic, bandwidth    |
+	// |天翼云      | traffic, bandwidth    |
+	// |KVM         | 不支持创建            |
+	// |VMware      | 不支持创建            |
+	// |ZStack      | traffic                |
+	// |OpenStack   | traffic                |
 	// default: traffic
 	// enum: traffic, bandwidth
 	ChargeType string `json:"charge_type"`
