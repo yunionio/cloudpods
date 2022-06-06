@@ -109,38 +109,38 @@ type SCloudaccount struct {
 	//
 	//
 	//
-	// | 云平台		|字段				| 翻译				| 是否必传	| 默认值	| 可否更新	| 获取方式	|
-	// | ------ 	|------				| ------			| ---------	| --------	|--------	|--------	|
-	// |Aliyun	 	|access_key_id		|秘钥ID				| 是		|			|	是		|			|
-	// |Aliyun		|access_key_secret	|秘钥Key			| 是		|			|	是		|			|
-	// |Qcloud	 	|app_id				|APP ID				| 是		|			|	否		|			|
-	// |Qcloud		|secret_id			|秘钥ID				| 是		|			|	是		|			|
-	// |Qcloud		|secret_key			|秘钥Key			| 是		|			|	是		|			|
-	// |OpenStack	|project_name		|用户所在项目 		| 是		|			|	是		|			|
-	// |OpenStack	|username			|用户名				| 是		|			|	是		|			|
-	// |OpenStack	|password			|用户密码			| 是		|			|	是		|			|
-	// |OpenStack	|auth_url			|认证地址			| 是		|			|	否		|			|
-	// |OpenStack	|domain_name		|用户所在的域		| 否		|Default	|	是		|			|
-	// |VMware		|username			|用户名				| 是		|			|	是		|			|
-	// |VMware		|password			|密码				| 是		|			|	是		|			|
-	// |VMware		|host				|主机IP或域名		| 是		|			|	否		|			|
-	// |VMware		|port				|主机端口			| 否		|443		|	否		|			|
-	// |Azure		|directory_id		|目录ID				| 是		|			|	否		|			|
-	// |Azure		|environment		|区域				| 是		|			|	否		|			|
-	// |Azure		|client_id			|客户端ID			| 是		|			|	是		|			|
-	// |Azure		|client_secret		|客户端密码			| 是		|			|	是		|			|
-	// |Huawei		|access_key_id		|秘钥ID				| 是		|			|	是		|			|
-	// |Huawei		|access_key_secret	|秘钥				| 是		|			|	是		|			|
-	// |Huawei		|environment		|区域				| 是		|			|	否		|			|
-	// |Aws			|access_key_id		|秘钥ID				| 是		|			|	是		|			|
-	// |Aws			|access_key_secret	|秘钥				| 是		|			|	是		|			|
-	// |Aws			|environment		|区域				| 是		|			|	否		|			|
-	// |Ucloud		|access_key_id		|秘钥ID				| 是		|			|	是		|			|
-	// |Ucloud		|access_key_secret	|秘钥				| 是		|			|	是		|			|
-	// |Google		|project_id			|项目ID				| 是		|			|	否		|			|
-	// |Google		|client_email		|客户端email		| 是		|			|	否		|			|
-	// |Google		|private_key_id		|秘钥ID				| 是		|			|	是		|			|
-	// |Google		|private_key		|秘钥Key			| 是		|			|	是		|			|
+	// | 云平台     |字段                | 翻译              | 是否必传  | 默认值    | 可否更新      | 获取方式   |
+	// | ------     |------              | ------            | --------- | --------  |--------       |--------    |
+	// |Aliyun      |access_key_id       |秘钥ID             | 是        |            |    是        |            |
+	// |Aliyun      |access_key_secret   |秘钥Key            | 是        |            |    是        |            |
+	// |Qcloud      |app_id              |APP ID             | 是        |            |    否        |            |
+	// |Qcloud      |secret_id           |秘钥ID             | 是        |            |    是        |            |
+	// |Qcloud      |secret_key          |秘钥Key            | 是        |            |    是        |            |
+	// |OpenStack   |project_name        |用户所在项目       | 是        |            |    是        |            |
+	// |OpenStack   |username            |用户名             | 是        |            |    是        |            |
+	// |OpenStack   |password            |用户密码           | 是        |            |    是        |            |
+	// |OpenStack   |auth_url            |认证地址           | 是        |            |    否        |            |
+	// |OpenStack   |domain_name         |用户所在的域       | 否        |Default     |    是        |            |
+	// |VMware      |username            |用户名             | 是        |            |    是        |            |
+	// |VMware      |password            |密码               | 是        |            |    是        |            |
+	// |VMware      |host                |主机IP或域名       | 是        |            |    否        |            |
+	// |VMware      |port                |主机端口           | 否        |443         |    否        |            |
+	// |Azure       |directory_id        |目录ID             | 是        |            |    否        |            |
+	// |Azure       |environment         |区域               | 是        |            |    否        |            |
+	// |Azure       |client_id           |客户端ID           | 是        |            |    是        |            |
+	// |Azure       |client_secret       |客户端密码         | 是        |            |    是        |            |
+	// |Huawei      |access_key_id       |秘钥ID             | 是        |            |    是        |            |
+	// |Huawei      |access_key_secret   |秘钥               | 是        |            |    是        |            |
+	// |Huawei      |environment         |区域               | 是        |            |    否        |            |
+	// |Aws         |access_key_id       |秘钥ID             | 是        |            |    是        |            |
+	// |Aws         |access_key_secret   |秘钥               | 是        |            |    是        |            |
+	// |Aws         |environment         |区域               | 是        |            |    否        |            |
+	// |Ucloud      |access_key_id       |秘钥ID             | 是        |            |    是        |            |
+	// |Ucloud      |access_key_secret   |秘钥               | 是        |            |    是        |            |
+	// |Google      |project_id          |项目ID             | 是        |            |    否        |            |
+	// |Google      |client_email        |客户端email        | 是        |            |    否        |            |
+	// |Google      |private_key_id      |秘钥ID             | 是        |            |    是        |            |
+	// |Google      |private_key         |秘钥Key            | 是        |            |    是        |            |
 	Account string `json:"account"`
 
 	// swagger:ignore
