@@ -401,13 +401,13 @@ type GuestSetSecgroupInput struct {
 	// 实例必须处于运行,休眠或者关机状态
 	//
 	//
-	// | 平台		 | 最多绑定安全组数量	|
-	// |-------------|-------------------	|
-	// | Azure       | 1					|
-	// | VMware      | 不支持安全组			|
-	// | Baremetal   | 不支持安全组			|
-	// | ZStack	     | 1					|
-	// | 其他	     | 5					|
+	// | 平台         | 最多绑定安全组数量    |
+	// |-------------|-------------------    |
+	// | Azure       | 1                    |
+	// | VMware      | 不支持安全组            |
+	// | Baremetal   | 不支持安全组            |
+	// | ZStack         | 1                    |
+	// | 其他         | 5                    |
 	SecgroupIds []string `json:"secgroup_ids"`
 }
 
@@ -436,13 +436,13 @@ type GuestAddSecgroupInput struct {
 	// 实例必须处于运行,休眠或者关机状态
 	//
 	//
-	// | 平台		 | 最多绑定安全组数量	|
-	// |-------------|-------------------	|
-	// | Azure       | 1					|
-	// | VMware      | 不支持安全组			|
-	// | Baremetal   | 不支持安全组			|
-	// | ZStack	     | 1					|
-	// | 其他	     | 5					|
+	// | 平台        | 最多绑定安全组数量    |
+	// |-------------|-------------------    |
+	// | Azure       | 1                    |
+	// | VMware      | 不支持安全组            |
+	// | Baremetal   | 不支持安全组            |
+	// | ZStack      | 1                    |
+	// | 其他        | 5                    |
 	SecgroupIds []string `json:"secgroup_ids"`
 }
 
