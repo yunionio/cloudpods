@@ -36,16 +36,16 @@ type ServerSkuCreateInput struct {
 	//
 	//
 	//
-	// | instance_type_category	|	说明	|
-	// |	-----				|	---		|
-	// |general_purpose			|通用型		|
-	// |burstable				|突发性能型		|
-	// |compute_optimized		|计算优化型		|
-	// |memory_optimized		|内存优化型		|
-	// |storage_optimized		|存储IO优化型		|
-	// |hardware_accelerated	|硬件加速型		|
-	// |high_storage			|高存储型		|
-	// |high_memory				|高内存型		|
+	// | instance_type_category    |    说明    |
+	// |    -----                |    ---        |
+	// |general_purpose            |通用型        |
+	// |burstable                |突发性能型        |
+	// |compute_optimized        |计算优化型        |
+	// |memory_optimized        |内存优化型        |
+	// |storage_optimized        |存储IO优化型        |
+	// |hardware_accelerated    |硬件加速型        |
+	// |high_storage            |高存储型        |
+	// |high_memory                |高内存型        |
 	// default: general_purpose
 	InstanceTypeCategory string `json:"instance_type_category"`
 

@@ -37,23 +37,23 @@ type SSecgroupRuleResource struct {
 	//
 	//
 	//
-	// | protocol | name	|
-	// | -------- | ----	|
-	// | any	  | 所有协议|
-	// | tcp	  | TCP		|
-	// | icmp	  | ICMP	|
-	// | udp	  | UDP 	|
+	// | protocol | name    |
+	// | -------- | ----    |
+	// | any      | 所有协议|
+	// | tcp      | TCP     |
+	// | icmp     | ICMP    |
+	// | udp      | UDP     |
 	// enum: any, tcp, udp, icmp
 	Protocol string `json:"protocol"`
 
 	// 端口列表, 参数为空代表任意端口
 	// 此参数仅对protocol是tcp, udp时生效
 	// 支持格式:
-	// | 格式类型 | 举例	|
-	// | -------- | ----	|
-	// | 单端口	  | 22		|
-	// | 端口范围 | 100-200	|
-	// | 不连续端口| 80,443	|
+	// | 格式类型 | 举例    |
+	// | -------- | ----    |
+	// | 单端口   | 22      |
+	// | 端口范围 | 100-200 |
+	// | 不连续端口| 80,443 |
 	// requried: false
 	Ports string `json:"ports"`
 
