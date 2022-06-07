@@ -168,6 +168,9 @@ func (self *CephClient) GetCapacity() (*SCapacity, error) {
 	for _, pool := range stats.Pools {
 		if pool.Name == self.pool {
 			result.UsedCapacitySizeKb = int64(pool.Stats.KbUsed)
+			if pool.Stats.MaxAvail > 0 {
+				result.CapacitySizeKb = int64(pool.Stats.MaxAvail / 1024)
+			}
 		}
 	}
 	if result.CapacitySizeKb == 0 {
