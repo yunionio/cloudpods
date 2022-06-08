@@ -173,9 +173,10 @@ func storcliBuildRaid(
 	if err != nil {
 		return errors.Wrapf(err, "build raid %d", level)
 	}
-	log.Infof("_storcliBuildRaid command: %s", cmd)
-	_, err = term.Run(cmd)
-	return err
+	if _, err := term.Run(cmd); err != nil {
+		return err
+	}
+	return nil
 }
 
 func conf2ParamsStorcliSize(conf *api.BaremetalDiskConfig) []string {

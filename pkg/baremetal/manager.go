@@ -2516,10 +2516,10 @@ func (s *SBaremetalServer) GetDiskConfig() ([]*api.BaremetalDiskConfig, error) {
 	return baremetal.GetLayoutRaidConfig(layouts), nil
 }
 
-func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
-	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, true)
+func (s *SBaremetalServer) NewConfigedSSHPartitionTool(term *ssh.Client) (*disktool.SSHPartitionTool, error) {
+	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	if err != nil {
-		return err
+		return nil, errors.Wrap(err, "DetectStorageInfo")
 	}
 	storages := make([]*baremetal.BaremetalStorage, 0)
 	storages = append(storages, raid...)
@@ -2527,11 +2527,52 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
 	storages = append(storages, pcie...)
 	confs, err := s.GetDiskConfig()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	layouts, err := baremetal.CalculateLayout(confs, storages)
 	if err != nil {
-		return fmt.Errorf("CalculateLayout: %v", err)
+		return nil, fmt.Errorf("CalculateLayout: %v", err)
+	}
+
+	diskConfs := baremetal.GroupLayoutResultsByDriverAdapter(layouts)
+	for _, dConf := range diskConfs {
+		driver := dConf.Driver
+		adapter := dConf.Adapter
+		raidDrv := raiddrivers.GetDriver(driver, term)
+		if raidDrv != nil {
+			if err := raidDrv.ParsePhyDevs(); err != nil {
+				return nil, fmt.Errorf("RaidDriver %s parse physical devices: %v", raidDrv.GetName(), err)
+			}
+			if err := raiddrivers.PostBuildRaid(raidDrv, adapter); err != nil {
+				return nil, fmt.Errorf("Build %s raid failed: %v", raidDrv.GetName(), err)
+			}
+			time.Sleep(10 * time.Second) // wait 10 seconds for raid status OK
+		}
+	}
+
+	tool, err := disktool.NewSSHPartitionTool(term, layouts)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewSSHPartitionTool")
+	}
+	return tool, nil
+}
+
+func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) (*disktool.SSHPartitionTool, error) {
+	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "DetectStorageInfo")
+	}
+	storages := make([]*baremetal.BaremetalStorage, 0)
+	storages = append(storages, raid...)
+	storages = append(storages, nonRaid...)
+	storages = append(storages, pcie...)
+	confs, err := s.GetDiskConfig()
+	if err != nil {
+		return nil, err
+	}
+	layouts, err := baremetal.CalculateLayout(confs, storages)
+	if err != nil {
+		return nil, fmt.Errorf("CalculateLayout: %v", err)
 	}
 	log.Errorf("===layouts: %s", jsonutils.Marshal(layouts).PrettyString())
 	diskConfs := baremetal.GroupLayoutResultsByDriverAdapter(layouts)
@@ -2541,7 +2582,7 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
 		raidDrv := raiddrivers.GetDriver(driver, term)
 		if raidDrv != nil {
 			if err := raidDrv.ParsePhyDevs(); err != nil {
-				return fmt.Errorf("RaidDriver %s parse physical devices: %v", raidDrv.GetName(), err)
+				return nil, fmt.Errorf("RaidDriver %s parse physical devices: %v", raidDrv.GetName(), err)
 			}
 			raidDrv.CleanRaid()
 		}
@@ -2553,10 +2594,10 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
 		raidDrv := raiddrivers.GetDriver(driver, term)
 		if raidDrv != nil {
 			if err := raidDrv.ParsePhyDevs(); err != nil {
-				return fmt.Errorf("RaidDriver %s parse physical devices: %v", raidDrv.GetName(), err)
+				return nil, fmt.Errorf("RaidDriver %s parse physical devices: %v", raidDrv.GetName(), err)
 			}
 			if err := raiddrivers.BuildRaid(raidDrv, dConf.Configs, adapter); err != nil {
-				return fmt.Errorf("Build %s raid failed: %v", raidDrv.GetName(), err)
+				return nil, fmt.Errorf("Build %s raid failed: %v", raidDrv.GetName(), err)
 			}
 			time.Sleep(10 * time.Second) // wait 10 seconds for raid status OK
 		}
@@ -2564,7 +2605,7 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
 
 	tool, err := disktool.NewSSHPartitionTool(term, layouts)
 	if err != nil {
-		return err
+		return nil, errors.Wrap(err, "NewSSHPartitionTool")
 	}
 	maxTries := 60
 	for tried := 0; !tool.IsAllDisksReady() && tried < maxTries; tried++ {
@@ -2574,10 +2615,10 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
 	}
 
 	if !tool.IsAllDisksReady() {
-		return fmt.Errorf("Raid disks are not ready???")
+		return nil, fmt.Errorf("Raid disks are not ready???")
 	}
 
-	return nil
+	return tool, nil
 }
 
 func (s *SBaremetalServer) DoDiskUnconfig(term *ssh.Client) error {
@@ -2623,7 +2664,7 @@ func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string) error 
 	return nil
 }
 
-func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partition, error) {
+func (s *SBaremetalServer) DoPartitionDisk(tool *disktool.SSHPartitionTool, term *ssh.Client) ([]*disktool.Partition, error) {
 	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	if err != nil {
 		return nil, err
@@ -2632,19 +2673,19 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 	storages = append(storages, raid...)
 	storages = append(storages, nonRaid...)
 	storages = append(storages, pcie...)
-	confs, err := s.GetDiskConfig()
-	if err != nil {
-		return nil, errors.Wrapf(err, "do disk config")
-	}
-	layouts, err := baremetal.CalculateLayout(confs, storages)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CalculateLayout")
-	}
-
-	tool, err := disktool.NewSSHPartitionTool(term, layouts)
-	if err != nil {
-		return nil, errors.Wrapf(err, "NewSSHPartitionTool")
-	}
+	// confs, err := s.GetDiskConfig()
+	// if err != nil {
+	// 	return nil, errors.Wrapf(err, "do disk config")
+	// }
+	// layouts, err := baremetal.CalculateLayout(confs, storages)
+	// if err != nil {
+	// 	return nil, errors.Wrapf(err, "CalculateLayout")
+	// }
+	//
+	// tool, err := disktool.NewSSHPartitionTool(term, layouts)
+	// if err != nil {
+	// 	return nil, errors.Wrapf(err, "NewSSHPartitionTool")
+	// }
 
 	disks, _ := s.desc.GetArray("disks")
 	if len(disks) == 0 {
@@ -2698,28 +2739,28 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 	return tool.GetPartitions(), nil
 }
 
-func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Partition, error) {
-	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
-	if err != nil {
-		return nil, err
-	}
-	storages := make([]*baremetal.BaremetalStorage, 0)
-	storages = append(storages, raid...)
-	storages = append(storages, nonRaid...)
-	storages = append(storages, pcie...)
-	confs, err := s.GetDiskConfig()
-	if err != nil {
-		return nil, err
-	}
-	layouts, err := baremetal.CalculateLayout(confs, storages)
-	if err != nil {
-		return nil, err
-	}
-
-	tool, err := disktool.NewSSHPartitionTool(term, layouts)
-	if err != nil {
-		return nil, err
-	}
+func (s *SBaremetalServer) DoRebuildRootDisk(tool *disktool.SSHPartitionTool, term *ssh.Client) ([]*disktool.Partition, error) {
+	// raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// storages := make([]*baremetal.BaremetalStorage, 0)
+	// storages = append(storages, raid...)
+	// storages = append(storages, nonRaid...)
+	// storages = append(storages, pcie...)
+	// confs, err := s.GetDiskConfig()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// layouts, err := baremetal.CalculateLayout(confs, storages)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	//
+	// tool, err := disktool.NewSSHPartitionTool(term, layouts)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	disks, _ := s.desc.GetArray("disks")
 	if len(disks) == 0 {
@@ -2729,7 +2770,7 @@ func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Part
 	rootDisk := disks[0]
 	rootSize, _ := rootDisk.Int("size")
 	rd := tool.GetRootDisk()
-	err = s.doCreateRoot(term, rd.GetDevName())
+	err := s.doCreateRoot(term, rd.GetDevName())
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create root: %v", err)
 	}
@@ -2797,7 +2838,7 @@ func (s *SBaremetalServer) SyncPartitionSize(term *ssh.Client, parts []*disktool
 	return disks, nil
 }
 
-func (s *SBaremetalServer) DoDeploy(term *ssh.Client, data jsonutils.JSONObject, isInit bool) (jsonutils.JSONObject, error) {
+func (s *SBaremetalServer) DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.Client, data jsonutils.JSONObject, isInit bool) (jsonutils.JSONObject, error) {
 	publicKey := deployapi.GetKeys(data)
 	deploys, _ := data.GetArray("deploys")
 	password, _ := data.GetString("password")
@@ -2807,10 +2848,10 @@ func (s *SBaremetalServer) DoDeploy(term *ssh.Client, data jsonutils.JSONObject,
 	}
 	deployInfo := deployapi.NewDeployInfo(publicKey, deployapi.JsonDeploysToStructs(deploys),
 		password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false, "")
-	return s.deployFs(term, deployInfo)
+	return s.deployFs(tool, term, deployInfo)
 }
 
-func (s *SBaremetalServer) deployFs(term *ssh.Client, deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
+func (s *SBaremetalServer) deployFs(tool *disktool.SSHPartitionTool, term *ssh.Client, deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
 	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	if err != nil {
 		return nil, err
@@ -2827,7 +2868,7 @@ func (s *SBaremetalServer) deployFs(term *ssh.Client, deployInfo *deployapi.Depl
 	if err != nil {
 		return nil, err
 	}
-	rootDev, rootfs, err := sshpart.MountSSHRootfs(term, layouts)
+	rootDev, rootfs, err := sshpart.MountSSHRootfs(tool, term, layouts)
 	if err != nil {
 		return nil, fmt.Errorf("Find rootfs error: %s", err)
 	}

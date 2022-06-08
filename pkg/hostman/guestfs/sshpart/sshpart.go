@@ -582,12 +582,12 @@ func (p *SSHPartition) Zerofree() {
 	log.Warningf("zerofree should not called in ssh partition")
 }
 
-func MountSSHRootfs(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition, fsdriver.IRootFsDriver, error) {
-	tool, err := disktool.NewSSHPartitionTool(term, layouts)
-	if err != nil {
-		return nil, nil, err
-	}
-	tool.RetrievePartitionInfo()
+func MountSSHRootfs(tool *disktool.SSHPartitionTool, term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition, fsdriver.IRootFsDriver, error) {
+	// tool, err := disktool.NewSSHPartitionTool(term, layouts)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
+	// tool.RetrievePartitionInfo()
 	rootDisk := tool.GetRootDisk()
 	if err := rootDisk.ReInitInfo(); err != nil {
 		return nil, nil, errors.Wrapf(err, "Reinit root disk")

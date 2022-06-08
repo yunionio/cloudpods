@@ -17,10 +17,9 @@ package drivers
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
@@ -147,6 +146,20 @@ func buildRaid(driver raid.IRaidDriver, adapter raid.IRaidAdapter, confs []*api.
 	if len(nonDisks) > 0 {
 		if err := adapter.BuildNoneRaid(nonDisks); err != nil {
 			return fmt.Errorf("Build raw disks: %v", err)
+		}
+	}
+	if err := adapter.PostBuildRaid(); err != nil {
+		return errors.Wrap(err, "Post build raid")
+	}
+	return nil
+}
+
+func PostBuildRaid(driver raid.IRaidDriver, adapterIdx int) error {
+	for _, a := range driver.GetAdapters() {
+		if a.GetIndex() == adapterIdx {
+			if err := a.PostBuildRaid(); err != nil {
+				return errors.Wrap(err, "PostBuildRaid")
+			}
 		}
 	}
 	return nil
