@@ -61,13 +61,24 @@ func (f *UEFIImagePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []
 	return true, nil
 }
 
+func (f *UEFIImagePredicate) isImageUEFI() bool {
+	if f.cacheImage.UEFI.Bool() {
+		return true
+	}
+	support, err := f.cacheImage.Info.Bool("properties", "uefi_support")
+	if err != nil {
+		return false
+	}
+	return support
+}
+
 func (f *UEFIImagePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(f, u, c)
 	imgName := f.cacheImage.GetName()
 	hostName := c.Getter().Name()
 	imageMsg := fmt.Sprintf("image %s is not UEFI", imgName)
 	hostMsg := fmt.Sprintf("host %s is not UEFI boot", hostName)
-	isUEFIImage := f.cacheImage.UEFI.Bool()
+	isUEFIImage := f.isImageUEFI()
 	if isUEFIImage {
 		imageMsg = fmt.Sprintf("image %s is UEFI", imgName)
 	}
