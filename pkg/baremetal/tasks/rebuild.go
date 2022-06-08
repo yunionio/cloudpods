@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -50,7 +51,11 @@ func (self *SBaremetalServerRebuildTask) RemoveEFIOSEntry() bool {
 }
 
 func (self *SBaremetalServerRebuildTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
-	parts, err := self.Baremetal.GetServer().DoRebuildRootDisk(term)
+	tool, err := self.Baremetal.GetServer().NewConfigedSSHPartitionTool(term)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewConfigedSSHPartitionTool")
+	}
+	parts, err := self.Baremetal.GetServer().DoRebuildRootDisk(tool, term)
 	if err != nil {
 		return nil, fmt.Errorf("Rebuild root disk: %v", err)
 	}
@@ -60,7 +65,7 @@ func (self *SBaremetalServerRebuildTask) DoDeploys(term *ssh.Client) (jsonutils.
 	}
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewArray(disks...), "disks")
-	deployInfo, err := self.Baremetal.GetServer().DoDeploy(term, self.data, true)
+	deployInfo, err := self.Baremetal.GetServer().DoDeploy(tool, term, self.data, true)
 	if err != nil {
 		return nil, fmt.Errorf("DoDeploy: %v", err)
 	}

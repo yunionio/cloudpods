@@ -209,6 +209,10 @@ func (adapter *MarvelRaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig)
 	return nil
 }
 
+func (adapter *MarvelRaidAdaptor) PostBuildRaid() error {
+	return nil
+}
+
 func (adapter *MarvelRaidAdaptor) buildRaid(level string, devs []*baremetal.BaremetalStorage, _ *api.BaremetalDiskConfig) error {
 	pds := []string{}
 	for _, dev := range devs {

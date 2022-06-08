@@ -168,6 +168,10 @@ func (r *sRaidAdaptor) PreBuildRaid(_ []*compute.BaremetalDiskConfig) error {
 	return nil
 }
 
+func (r *sRaidAdaptor) PostBuildRaid() error {
+	return nil
+}
+
 func (r *sRaidAdaptor) ClearJBODDisks() {
 	r.iAdaptor.ClearJBODDisks(r.devs)
 }

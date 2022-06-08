@@ -141,6 +141,7 @@ type RaidLogicalVolume struct {
 	Index    int
 	Adapter  int
 	BlockDev string
+	IsSSD    tristate.TriState
 }
 
 func SGMap(term IExecTerm) ([]compute.SGMapItem, error) {

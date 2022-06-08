@@ -253,6 +253,10 @@ func (adapter *Mpt2SASRaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig
 	return nil
 }
 
+func (adapter *Mpt2SASRaidAdaptor) PostBuildRaid() error {
+	return nil
+}
+
 func (adapter *Mpt2SASRaidAdaptor) buildRaid(level string, devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	if len(conf.Size) > 1 {
 		return fmt.Errorf("Subdivide sub-size not supported")

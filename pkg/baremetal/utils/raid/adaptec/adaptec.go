@@ -183,6 +183,10 @@ func (ada *AdaptecRaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig) er
 	return nil
 }
 
+func (r *AdaptecRaidAdaptor) PostBuildRaid() error {
+	return nil
+}
+
 func (ada *AdaptecRaidAdaptor) getInitializeCmd(args ...string) string {
 	newArgs := []string{"TASK", "START", fmt.Sprintf("%d", ada.GetIndex()), "DEVICE"}
 	newArgs = append(newArgs, args...)
