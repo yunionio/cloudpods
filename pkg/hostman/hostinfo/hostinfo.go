@@ -491,9 +491,12 @@ func (h *SHostInfo) checkSystemServices() error {
 			srvinst.Start(false)
 		}
 	}
-	for _, srv := range []string{"ntpd"} {
-		srvinst := system_service.GetService(srv)
-		funcEn(srv, srvinst)
+
+	if options.HostOptions.ManageNtpConfiguration {
+		for _, srv := range []string{"ntpd"} {
+			srvinst := system_service.GetService(srv)
+			funcEn(srv, srvinst)
+		}
 	}
 
 	svcs := os.Getenv("HOST_SYSTEM_SERVICES_OFF")
