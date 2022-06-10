@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
@@ -461,17 +460,49 @@ func (adapter *MegaRaidAdaptor) getMegacliLogicVolumes() ([]*raiddrivers.RaidLog
 	return adapter.parseLogicVolumes(ret)
 }
 
+// func (adapter *MegaRaidAdaptor) getStorcliLogicVolums() ([]*raiddrivers.RaidLogicalVolume, error) {
+// 	cmd := GetCommand2(fmt.Sprintf("/c%d/vall", adapter.index), "show")
+// 	ret, err := adapter.remoteRun(cmd)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("getStorcliLogicVolums error: %v", err)
+// 	}
+// 	lvs, err := parseStorcliLogicalVolumes(adapter.index, ret)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return lvs, nil
+// }
+
 func (adapter *MegaRaidAdaptor) getStorcliLogicVolums() ([]*raiddrivers.RaidLogicalVolume, error) {
-	cmd := GetCommand2(fmt.Sprintf("/c%d/vall", adapter.index), "show")
-	ret, err := adapter.remoteRun(cmd)
-	if err != nil {
-		return nil, fmt.Errorf("getStorcliLogicVolums error: %v", err)
-	}
-	lvs, err := parseStorcliLogicalVolumes(adapter.index, ret)
+	lvs, err := adapter.getStorcliLogicVolumsV2()
 	if err != nil {
 		return nil, err
 	}
-	return lvs, nil
+	ret := make([]*raiddrivers.RaidLogicalVolume, len(lvs))
+	for i := range lvs {
+		lv := lvs[i]
+		ret[i] = &raiddrivers.RaidLogicalVolume{
+			Index:    i,
+			Adapter:  adapter.index,
+			BlockDev: lv.GetOSDevice(),
+			IsSSD:    tristate.NewFromBool(lv.IsSSD()),
+		}
+	}
+	return ret, nil
+}
+
+func (adapter *MegaRaidAdaptor) getStorcliLogicVolumsV2() ([]*StorcliLogicalVolume, error) {
+	cmd := GetCommand2(fmt.Sprintf("/c%d/vall", adapter.index), "show", "all", "J")
+	ret, err := adapter.remoteRun(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("getStorcliLogicVolumsV2 error: %v", err)
+	}
+	output := strings.Join(ret, "\n")
+	lvs, err := parseStorcliLVs(output)
+	if err != nil {
+		return nil, errors.Wrap(err, "parseStorcliLVs")
+	}
+	return lvs.GetLogicalVolumes(adapter.index)
 }
 
 var storcliLVRegexp = regexp.MustCompile(`^(?P<dg>\d+)\/(?P<vd>\d+)\s+(?P<type>RAID\d+).*`)
@@ -540,6 +571,32 @@ func getLogicVolumeDeviceById(hostNum, scsiId int, term raid.IExecTerm) (string,
 
 func (adapter *MegaRaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig) error {
 	adapter.clearJBODDisks()
+	return nil
+}
+
+func (adapter *MegaRaidAdaptor) PostBuildRaid() error {
+	// sync rotational of logical block device
+	if err := adapter.storcliSyncBlockDeviceAttrs(); err != nil {
+		log.Warningf("adapter %d storcliSyncBlockDeviceAttrs: %v", adapter.index, err)
+	}
+	return nil
+}
+
+func (adapter *MegaRaidAdaptor) storcliSyncBlockDeviceAttrs() error {
+	lvs, err := adapter.getStorcliLogicVolumsV2()
+	if err != nil {
+		return errors.Wrap(err, "getStorcliLogicVolumsV2")
+	}
+	for _, lv := range lvs {
+		if !lv.IsSSD() {
+			continue
+		}
+		// e.g: echo 0 | tee /sys/block/sda/queue/rotational if logical volume is SSD
+		cmd := fmt.Sprintf("echo 0 | tee %s", lv.GetSysBlockRotationalPath())
+		if out, err := adapter.remoteRun(cmd); err != nil {
+			return errors.Wrapf(err, "%s out %v", cmd, out)
+		}
+	}
 	return nil
 }
 
@@ -633,10 +690,13 @@ func (adapter *MegaRaidAdaptor) megacliBuildRaid10(devs []*baremetal.BaremetalSt
 }
 
 func (adapter *MegaRaidAdaptor) storcliBuildRaid(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig, level uint) error {
-	return storcliBuildRaid(
+	if err := storcliBuildRaid(
 		adapter.GetStorcliCommand,
 		adapter.getTerm(),
-		devs, conf, level)
+		devs, conf, level); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (adapter *MegaRaidAdaptor) megacliBuildRaid(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig, level uint) error {
@@ -687,184 +747,6 @@ func (adapter *MegaRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, 
 
 func (adapter *MegaRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage) error {
 	return cliBuildRaid(devs, nil, adapter.megacliBuildNoRaid, adapter.storcliBuildNoRaid)
-}
-
-type StorcliAdaptor struct {
-	Controller   int
-	isSNEmpty    bool
-	sn           string
-	name         string
-	busNumber    string
-	deviceNumber string
-	funcNumber   string
-}
-
-func newStorcliAdaptor() *StorcliAdaptor {
-	return &StorcliAdaptor{
-		Controller:   -1,
-		isSNEmpty:    false,
-		sn:           "",
-		name:         "",
-		busNumber:    "",
-		deviceNumber: "",
-		funcNumber:   "",
-	}
-}
-
-func (a StorcliAdaptor) key() string {
-	return a.name + a.sn
-}
-
-func (a *StorcliAdaptor) isComplete() bool {
-	if a.isSNEmpty {
-		return a.Controller >= 0 && a.name != "" && a.isPciInfoFilled()
-	}
-	return a.Controller >= 0 && a.name != "" && a.sn != "" && a.isPciInfoFilled()
-}
-
-func (a *StorcliAdaptor) isPciInfoFilled() bool {
-	return a.busNumber != "" && a.deviceNumber != "" && a.funcNumber != ""
-}
-
-func parseLineForStorcli(a *StorcliAdaptor, l string) {
-	controllerKey := "Controller"
-	productNameKey := "Product Name"
-	snKey := "Serial Number"
-	busNumber := "Bus Number"
-	devNumber := "Device Number"
-	funcNumber := "Function Number"
-
-	if !regexp.MustCompile(fmt.Sprintf("^(%s|%s|%s|%s|%s|%s)\\s*=", controllerKey, productNameKey, snKey, busNumber, devNumber, funcNumber)).Match([]byte(l)) {
-		return
-	}
-
-	parts := strings.Split(l, "=")
-	if len(parts) != 2 {
-		return
-	}
-
-	trimBeginEndSpace := func(s string) string {
-		return strings.TrimLeft(strings.TrimRight(s, " "), " ")
-	}
-
-	key := trimBeginEndSpace(parts[0])
-	val := trimBeginEndSpace(parts[1])
-
-	if key == snKey && val == "" {
-		a.isSNEmpty = true
-		return
-	}
-
-	switch key {
-	case controllerKey:
-		a.Controller, _ = strconv.Atoi(val)
-	case snKey:
-		a.sn = val
-	case productNameKey:
-		a.name = val
-	case busNumber:
-		a.busNumber = fmt.Sprintf("0%s", val)
-	case devNumber:
-		a.deviceNumber = fmt.Sprintf("0%s", val)
-	case funcNumber:
-		a.funcNumber = val
-	}
-}
-
-func (a *StorcliAdaptor) parseLine(l string) {
-	parseLineForStorcli(a, l)
-}
-
-func (a *StorcliAdaptor) String() string {
-	return fmt.Sprintf("{controller: %d, isSNEmpty: %v, sn: %q, name: %s}", a.Controller, a.isSNEmpty, a.sn, a.name)
-}
-
-type StorcliControllersInfo struct {
-	Controllers []*StorcliControllerInfo `json:"Controllers"`
-}
-
-type StorcliControllerInfo struct {
-	CommandStatus struct {
-		CliVersion      string `json:"CLI Version"`
-		OperatingSystem string `json:"Operating system"`
-		Controller      int    `json:"Controller"`
-		Status          string `json:"Status"`
-	} `json:"Command Status"`
-	ResponseData StorcliControllerData `json:"Response Data"`
-}
-
-type StorcliControllerData struct {
-	Info []*StorcliPhysicalDrive `json:"Drive Information"`
-}
-
-type StorcliPhysicalDrive struct {
-	EnclosureIdSlotNo   string `json:"EID:Slt"`
-	DeviceId            string `json:"DID"`
-	State               string `json:"State"`
-	DriveGroup          string `json:"DG"`
-	Size                string `json:"Size"`
-	Interface           string `json:"Intf"`
-	MediaType           string `json:"Med"`
-	SelfEncryptiveDrive string `json:"SED"`
-	ProtectionInfo      string `json:"PI"`
-	SectorSize          string `json:"SeSz"`
-	Model               string `json:"Model"`
-	Spun                string `json:"Sp"`
-	Type                string `json:"Type"`
-}
-
-func (d *StorcliPhysicalDrive) toMegaraidDev() (*MegaRaidPhyDev, error) {
-	dev := NewMegaRaidPhyDev()
-	if err := dev.fillByStorcliPD(d); err != nil {
-		return nil, errors.Wrap(err, "fillByStorcliPD")
-	}
-	return dev, nil
-}
-
-// parseStorcliControllers parse command `storecli64 /c0/eall/sall show J` json output
-func parseStorcliControllers(jsonStr string) (*StorcliControllersInfo, error) {
-	obj, err := jsonutils.ParseString(jsonStr)
-	if err != nil {
-		return nil, err
-	}
-	info := new(StorcliControllersInfo)
-	if err := obj.Unmarshal(info); err != nil {
-		return nil, err
-	}
-	return info, nil
-}
-
-func (a *StorcliAdaptor) getPhyDevs(getCmd func(...string) string, term raid.IExecTerm) ([]*StorcliPhysicalDrive, error) {
-	cmd := getCmd(fmt.Sprintf("/c%d/eall/sall show J", a.Controller))
-	lines, err := term.Run(cmd)
-	if err != nil {
-		return nil, errors.Wrap(err, "Get storcli PDList json output")
-	}
-	jStr := strings.Join(lines, "\n")
-	info, err := parseStorcliControllers(jStr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "parseStorcliControllers by string %q", jStr)
-	}
-	if len(info.Controllers) != 1 {
-		return nil, errors.Errorf("Not matched storcli PD list: %s", jsonutils.Marshal(info).PrettyString())
-	}
-	return info.Controllers[0].ResponseData.Info, nil
-}
-
-func (a *StorcliAdaptor) getMegaPhyDevs(getCmd func(...string) string, term raid.IExecTerm) ([]*MegaRaidPhyDev, error) {
-	pdList, err := a.getPhyDevs(getCmd, term)
-	if err != nil {
-		return nil, errors.Wrap(err, "storcli getPhyDevs")
-	}
-	ret := make([]*MegaRaidPhyDev, len(pdList))
-	for i, pd := range pdList {
-		dev, err := pd.toMegaraidDev()
-		if err != nil {
-			return nil, errors.Wrapf(err, "toMegaraidDev %s", jsonutils.Marshal(pd))
-		}
-		ret[i] = dev
-	}
-	return ret, nil
 }
 
 func (raid *MegaRaid) GetStorcliAdaptor() ([]*StorcliAdaptor, map[string]*StorcliAdaptor, error) {

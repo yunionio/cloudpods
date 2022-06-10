@@ -19,9 +19,8 @@ import (
 	"math"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -612,8 +611,13 @@ func (tool *PartitionTool) Disks() []*DiskPartitions {
 	return tool.disks
 }
 
-func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
+func (tool *PartitionTool) parseDiskInfo(lines []string, driver string) []*types.SDiskInfo {
 	disks := sysutils.ParseDiskInfo(lines, driver)
+	return disks
+}
+
+func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
+	disks := tool.parseDiskInfo(lines, driver)
 	if len(disks) == 0 {
 		return
 	}
