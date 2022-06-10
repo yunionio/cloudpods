@@ -52,7 +52,7 @@ func (self *SBaremetalServerCreateTask) RemoveEFIOSEntry() bool {
 
 func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
 	// Build raid
-	err := self.Baremetal.GetServer().DoDiskConfig(term)
+	tool, err := self.Baremetal.GetServer().DoDiskConfig(term)
 	if err != nil {
 		return nil, self.onError(term, err)
 	}
@@ -61,7 +61,7 @@ func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.J
 		return nil, self.onError(term, err)
 	}
 	time.Sleep(2 * time.Second)
-	parts, err := self.Baremetal.GetServer().DoPartitionDisk(term)
+	parts, err := self.Baremetal.GetServer().DoPartitionDisk(tool, term)
 	if err != nil {
 		return nil, self.onError(term, err)
 	}
@@ -73,7 +73,7 @@ func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.J
 	data.Add(jsonutils.Marshal(disks), "disks")
 	rootImageId := self.Baremetal.GetServer().GetRootTemplateId()
 	if len(rootImageId) > 0 {
-		deployInfo, err := self.Baremetal.GetServer().DoDeploy(term, self.data, true)
+		deployInfo, err := self.Baremetal.GetServer().DoDeploy(tool, term, self.data, true)
 		if err != nil {
 			return nil, self.onError(term, err)
 		}

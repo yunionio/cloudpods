@@ -130,6 +130,10 @@ func (adapter *HPSARaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig) e
 	return nil
 }
 
+func (adapter *HPSARaidAdaptor) PostBuildRaid() error {
+	return nil
+}
+
 func (adapter *HPSARaidAdaptor) ParsePhyDevs() error {
 	parseByCmd := func(cmd string, isRotate bool) error {
 		ret, err := adapter.raid.term.Run(cmd)

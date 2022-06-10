@@ -42,6 +42,7 @@ type IRaidAdapter interface {
 	BuildRaid5(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error
 	BuildRaid10(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error
 	BuildNoneRaid(devs []*baremetal.BaremetalStorage) error
+	PostBuildRaid() error
 }
 
 type IExecTerm interface {

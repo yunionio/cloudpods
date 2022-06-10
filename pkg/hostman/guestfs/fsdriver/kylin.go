@@ -73,7 +73,7 @@ func (d *SGalaxyKylinRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics
 }
 
 func (c *SGalaxyKylinRootFs) EnableSerialConsole(rootFs IDiskPartition, sysInfo *jsonutils.JSONDict) error {
-	return c.enableSerialConsole(c, rootFs, sysInfo)
+	return c.enableSerialConsoleSystemd(rootFs)
 }
 
 func (c *SGalaxyKylinRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
