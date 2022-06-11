@@ -111,7 +111,7 @@ func (sqlite *SSqliteBackend) FetchIndexesAndConstraints(ts sqlchemy.ITableSpec)
 	}
 	indexes := make([]sqlchemy.STableIndex, 0)
 	for i := range results {
-		ti, err := results[i].parseTableIndex()
+		ti, err := results[i].parseTableIndex(ts)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "parseTableIndex fail %s", results[i].Sql)
 		}

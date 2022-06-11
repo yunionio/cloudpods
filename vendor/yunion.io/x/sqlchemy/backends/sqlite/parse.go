@@ -36,10 +36,10 @@ type sSqliteTableInfo struct {
 	Sql  string
 }
 
-func (ti *sSqliteTableInfo) parseTableIndex() (sqlchemy.STableIndex, error) {
+func (ti *sSqliteTableInfo) parseTableIndex(ts sqlchemy.ITableSpec) (sqlchemy.STableIndex, error) {
 	matches := indexRegexp.FindAllStringSubmatch(ti.Sql, -1)
 	if len(matches) > 0 {
-		return sqlchemy.NewTableIndex(ti.Name, sqlchemy.FetchColumns(matches[0][1]), false), nil
+		return sqlchemy.NewTableIndex(ts, sqlchemy.FetchColumns(matches[0][1]), false), nil
 	}
 	return sqlchemy.STableIndex{}, errors.ErrNotFound
 }

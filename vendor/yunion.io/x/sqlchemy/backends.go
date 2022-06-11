@@ -55,6 +55,10 @@ type IBackend interface {
 	CurrentTimeStampString() string
 	//
 	CaseInsensitiveLikeString() string
+	//
+	UnionAllString() string
+	//
+	UnionDistinctString() string
 
 	// Capability
 

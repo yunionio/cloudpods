@@ -145,10 +145,10 @@ func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 			buf.WriteString(f.Reference())
 		}
 	}
-	if tq.having != nil {
+	/*if tq.having != nil {
 		buf.WriteString(" HAVING ")
 		buf.WriteString(tq.having.WhereClause())
-	}
+	}*/
 	if tq.orderBy != nil && len(tq.orderBy) > 0 {
 		buf.WriteString(" ORDER BY ")
 		for i, f := range tq.orderBy {

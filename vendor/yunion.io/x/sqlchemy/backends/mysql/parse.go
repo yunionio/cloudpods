@@ -48,12 +48,12 @@ func parseConstraints(defStr string) []sqlchemy.STableConstraint {
 	return tcs
 }
 
-func parseIndexes(defStr string) []sqlchemy.STableIndex {
+func parseIndexes(ts sqlchemy.ITableSpec, defStr string) []sqlchemy.STableIndex {
 	matches := indexRegexp.FindAllStringSubmatch(defStr, -1)
 	tcs := make([]sqlchemy.STableIndex, len(matches))
 	for i := range matches {
 		tcs[i] = sqlchemy.NewTableIndex(
-			matches[i][2],
+			ts,
 			fetchColumns(matches[i][3]),
 			len(matches[i][1]) > 0,
 		)
