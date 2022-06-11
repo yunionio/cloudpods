@@ -24,9 +24,13 @@ import (
 type SHostBaseOptions struct {
 	common_options.HostCommonOptions
 
-	ManageNtpConfiguration bool `default:"true"`
+	ManageNtpConfiguration bool `help:"host agent manage ntp service on host" default:"true"`
 
 	DisableSecurityGroup bool `help:"disable security group" default:"false"`
+
+	HostCpuPassthrough bool `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
+
+	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
 }
 
 type SHostOptions struct {
@@ -85,8 +89,6 @@ type SHostOptions struct {
 	LocalImagePath  []string `help:"Local image storage paths"`
 	SharedStorages  []string `help:"Path of shared storages"`
 
-	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
-
 	DhcpRelay       []string `help:"DHCP relay upstream"`
 	DhcpLeaseTime   int      `default:"100663296" help:"DHCP lease time in seconds"`
 	DhcpRenewalTime int      `default:"67108864" help:"DHCP renewal time in seconds"`
@@ -125,8 +127,7 @@ type SHostOptions struct {
 
 	EnableTelegraf bool `default:"true" help:"enable send monitoring data to telegraf"`
 
-	HostCpuPassthrough bool `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
-	DisableSetCgroup   bool `default:"false" help:"disable cgroup for guests"`
+	DisableSetCgroup bool `default:"false" help:"disable cgroup for guests"`
 
 	MaxReservedMemory int `default:"10240" help:"host reserved memory"`
 
