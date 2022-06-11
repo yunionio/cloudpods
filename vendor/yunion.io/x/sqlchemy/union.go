@@ -87,9 +87,9 @@ func (uq *SUnion) Alias() string {
 
 func (uq *SUnion) operator() string {
 	if uq.isAll {
-		return " UNION ALL "
+		return uq.database().backend.UnionAllString()
 	} else {
-		return " UNION DISTINCT "
+		return uq.database().backend.UnionDistinctString()
 	}
 }
 
@@ -99,7 +99,9 @@ func (uq *SUnion) Expression() string {
 	buf.WriteString("(")
 	for i := range uq.queries {
 		if i != 0 {
+			buf.WriteByte(' ')
 			buf.WriteString(uq.operator())
+			buf.WriteByte(' ')
 		}
 		subQ := uq.queries[i].SubQuery()
 		buf.WriteString(subQ.Query().String())

@@ -152,14 +152,19 @@ func (ts *STableSpec) Clone(name string, autoIncOffset int64) *STableSpec {
 			newCols[i] = col
 		}
 	}
-	return &STableSpec{
+	nts := &STableSpec{
 		structType:  ts.structType,
 		name:        name,
 		_columns:    newCols,
-		_indexes:    ts._indexes,
 		_contraints: ts._contraints,
 		sDBReferer:  ts.sDBReferer,
 	}
+	newIndexes := make([]STableIndex, len(ts._indexes))
+	for i := range ts._indexes {
+		newIndexes[i] = ts._indexes[i].clone(nts)
+	}
+	nts._indexes = newIndexes
+	return nts
 }
 
 // Columns implementation of STableSpec for ITableSpec

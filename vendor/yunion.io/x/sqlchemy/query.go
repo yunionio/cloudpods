@@ -59,9 +59,9 @@ type SQuery struct {
 	where    ICondition
 	groupBy  []IQueryField
 	orderBy  []sQueryOrder
-	having   ICondition
-	limit    int
-	offset   int
+	// having   ICondition
+	limit  int
+	offset int
 
 	fieldCache map[string]IQueryField
 
@@ -247,10 +247,10 @@ func (tq *SQuery) Variables() []interface{} {
 		fromvars = tq.where.Variables()
 		vars = append(vars, fromvars...)
 	}
-	if tq.having != nil {
+	/*if tq.having != nil {
 		fromvars = tq.having.Variables()
 		vars = append(vars, fromvars...)
-	}
+	}*/
 	return vars
 }
 

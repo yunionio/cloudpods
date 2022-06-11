@@ -124,7 +124,7 @@ func (mysql *SMySQLBackend) FetchIndexesAndConstraints(ts sqlchemy.ITableSpec) (
 		}
 		return nil, nil, err
 	}
-	indexes := parseIndexes(defStr)
+	indexes := parseIndexes(ts, defStr)
 	constraints := parseConstraints(defStr)
 	return indexes, constraints, nil
 }

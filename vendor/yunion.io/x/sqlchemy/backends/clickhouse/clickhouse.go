@@ -76,6 +76,14 @@ func (click *SClickhouseBackend) CurrentTimeStampString() string {
 	return "NOW()"
 }
 
+func (click *SClickhouseBackend) UnionAllString() string {
+	return "UNION ALL"
+}
+
+func (click *SClickhouseBackend) UnionDistinctString() string {
+	return "UNION DISTINCT"
+}
+
 func (click *SClickhouseBackend) UpdateSQLTemplate() string {
 	return "ALTER TABLE `{{ .Table }}` UPDATE {{ .Columns }} WHERE {{ .Conditions }}"
 }
