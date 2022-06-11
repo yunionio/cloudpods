@@ -17,19 +17,19 @@ package sqlchemy
 // Filter method filters a SQL query with given ICondition
 // equivalent to add a clause in where conditions
 func (tq *SQuery) Filter(cond ICondition) *SQuery {
-	if tq.groupBy != nil && len(tq.groupBy) > 0 {
+	/*if tq.groupBy != nil && len(tq.groupBy) > 0 {
 		if tq.having == nil {
 			tq.having = cond
 		} else {
 			tq.having = AND(tq.having, cond)
 		}
+	} else {*/
+	if tq.where == nil {
+		tq.where = cond
 	} else {
-		if tq.where == nil {
-			tq.where = cond
-		} else {
-			tq.where = AND(tq.where, cond)
-		}
+		tq.where = AND(tq.where, cond)
 	}
+	//}
 	return tq
 }
 
