@@ -60,6 +60,14 @@ func (bb *SBaseBackend) CaseInsensitiveLikeString() string {
 	return "LIKE"
 }
 
+func (bb *SBaseBackend) UnionAllString() string {
+	return "UNION ALL"
+}
+
+func (bb *SBaseBackend) UnionDistinctString() string {
+	return "UNION"
+}
+
 func (bb *SBaseBackend) CanUpdate() bool {
 	return false
 }
