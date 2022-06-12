@@ -51,7 +51,7 @@ func StartService() {
 	db.DefaultProjectsFetcher = keystoneProjectsFetcher
 	policy.DefaultPolicyFetcher = localPolicyFetcher
 	logclient.DefaultSessionGenerator = models.GetDefaultClientSession
-	cronman.DefaultAdminSessionGenerator = models.GetDefaultAdminCred
+	cronman.DefaultAdminSessionGenerator = tokens.GetDefaultAdminCredToken
 	notifyclient.AdminSessionGenerator = util.GetDefaulAdminSession
 	notifyclient.UserLangFetcher = models.GetUserLangForKeyStone
 
