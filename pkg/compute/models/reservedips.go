@@ -76,6 +76,10 @@ type SReservedip struct {
 	Status string `width:"12" charset:"ascii" nullable:"false" default:"unknown" list:"user" create:"optional" update:"user"`
 }
 
+func (manager *SReservedipManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *SReservedipManager) ReserveIP(userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string) error {
 	return manager.ReserveIPWithDuration(userCred, network, ip, notes, 0)
 }

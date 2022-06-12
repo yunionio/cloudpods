@@ -76,6 +76,10 @@ func NewModelBaseManagerWithSplitableDBName(model interface{}, tableName string,
 	return modelMan
 }
 
+func (manager *SModelBaseManager) CreateByInsertOrUpdate() bool {
+	return true
+}
+
 func (manager *SModelBaseManager) IsStandaloneManager() bool {
 	return false
 }

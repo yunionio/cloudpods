@@ -80,6 +80,10 @@ func (user *SLocalUser) GetName() string {
 	return user.Name
 }
 
+func (manager *SLocalUserManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *SLocalUserManager) FetchLocalUserById(localId int) (*SLocalUser, error) {
 	return manager.fetchLocalUser("", "", localId)
 }

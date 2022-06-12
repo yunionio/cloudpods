@@ -83,6 +83,10 @@ func shaPassword(passwd string) string {
 	return hex.EncodeToString(shaOut[:])
 }
 
+func (manager *SPasswordManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *SPasswordManager) FetchLastPassword(localUserId int) (*SPassword, error) {
 	passes, err := manager.fetchByLocaluserId(localUserId)
 	if err != nil {

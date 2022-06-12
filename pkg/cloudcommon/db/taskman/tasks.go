@@ -96,6 +96,10 @@ type STask struct {
 	taskObjects []db.IStandaloneModel `ignore:"true"`
 }
 
+func (manager *STaskManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *STaskManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
