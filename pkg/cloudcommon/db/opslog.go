@@ -112,6 +112,10 @@ func InitOpsLog() {
 	opslogWriteWorkerMan = appsrv.NewWorkerManager("opslog_write_worker", 1, 2048, true)
 }
 
+func (manager *SOpsLogManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *SOpsLogManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
 	manager.SModelBaseManager.CustomizeHandlerInfo(info)
 

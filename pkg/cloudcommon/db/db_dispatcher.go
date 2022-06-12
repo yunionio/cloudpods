@@ -1241,7 +1241,11 @@ func _doCreateItem(
 		return model, nil
 	}
 
-	err = manager.TableSpec().InsertOrUpdate(ctx, model)
+	if manager.CreateByInsertOrUpdate() {
+		err = manager.TableSpec().InsertOrUpdate(ctx, model)
+	} else {
+		err = manager.TableSpec().Insert(ctx, model)
+	}
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

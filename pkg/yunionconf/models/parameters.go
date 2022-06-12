@@ -166,6 +166,10 @@ func getNamespace(userCred mcclient.TokenCredential, resource string, query json
 	return namespace, namespace_id, nil
 }
 
+func (manager *SParameterManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *SParameterManager) NamespaceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeUser
 }

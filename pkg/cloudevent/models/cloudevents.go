@@ -99,6 +99,10 @@ func (event *SCloudevent) BeforeInsert() {
 	event.EventId = db.CurrentTimestamp(t)
 }
 
+func (manager *SCloudeventManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 // 云平台操作日志列表
 func (manager *SCloudeventManager) ListItemFilter(
 	ctx context.Context,
