@@ -73,9 +73,8 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		ident.Password.User.Password = "***"
 		log.Errorf("authenticate fail for %s reason: %s", jsonutils.Marshal(ident), err)
 		user := logclient.NewSimpleObject(ident.Password.User.Id, ident.Password.User.Name, "user")
-		token := models.GetDefaultAdminSSimpleToken()
-		token.Token, _ = GetDefaultToken()
-		token.Context = authCtx
+		token := GetDefaultAdminCredToken()
+		token.(*mcclient.SSimpleToken).Context = authCtx
 		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_AUTHENTICATE, err, token, false)
 	}
 	return usr, err

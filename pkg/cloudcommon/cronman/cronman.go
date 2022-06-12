@@ -22,9 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -35,7 +34,7 @@ import (
 
 var (
 	DefaultAdminSessionGenerator = auth.AdminCredential
-	ErrCronJobNameConflict       = errors.New("Cron job Name Conflict")
+	ErrCronJobNameConflict       = errors.Error("Cron job Name Conflict")
 )
 
 type TCronJobFunction func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool)
@@ -164,7 +163,7 @@ func (self *SCronJobManager) AddJobAtIntervals(name string, interval time.Durati
 
 func (self *SCronJobManager) AddJobAtIntervalsWithStartRun(name string, interval time.Duration, jobFunc TCronJobFunction, startRun bool) error {
 	if interval <= 0 {
-		return errors.New("AddJobAtIntervals: interval must > 0")
+		return errors.Error("AddJobAtIntervals: interval must > 0")
 	}
 	self.dataLock.Lock()
 	defer self.dataLock.Unlock()
@@ -193,13 +192,13 @@ func (self *SCronJobManager) AddJobAtIntervalsWithStartRun(name string, interval
 func (self *SCronJobManager) AddJobEveryFewDays(name string, day, hour, min, sec int, jobFunc TCronJobFunction, startRun bool) error {
 	switch {
 	case day <= 0:
-		return errors.New("AddJobEveryFewDays: day must > 0")
+		return errors.Error("AddJobEveryFewDays: day must > 0")
 	case hour < 0:
-		return errors.New("AddJobEveryFewDays: hour must > 0")
+		return errors.Error("AddJobEveryFewDays: hour must > 0")
 	case min < 0:
-		return errors.New("AddJobEveryFewDays: min must > 0")
+		return errors.Error("AddJobEveryFewDays: min must > 0")
 	case sec < 0:
-		return errors.New("AddJobEveryFewDays: sec must > 0")
+		return errors.Error("AddJobEveryFewDays: sec must > 0")
 	}
 
 	self.dataLock.Lock()
@@ -232,11 +231,11 @@ func (self *SCronJobManager) AddJobEveryFewDays(name string, day, hour, min, sec
 func (self *SCronJobManager) AddJobEveryFewHour(name string, hour, min, sec int, jobFunc TCronJobFunction, startRun bool) error {
 	switch {
 	case hour <= 0:
-		return errors.New("AddJobEveryFewHour: hour must > 0")
+		return errors.Error("AddJobEveryFewHour: hour must > 0")
 	case min < 0:
-		return errors.New("AddJobEveryFewHour: min must > 0")
+		return errors.Error("AddJobEveryFewHour: min must > 0")
 	case sec < 0:
-		return errors.New("AddJobEveryFewHour: sec must > 0")
+		return errors.Error("AddJobEveryFewHour: sec must > 0")
 	}
 
 	self.dataLock.Lock()
