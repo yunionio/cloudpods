@@ -143,7 +143,6 @@ func (manager *SDomainManager) FetchDomain(domainId string, domainName string) (
 	if len(domainId) == 0 && len(domainName) == 0 {
 		domainId = api.DEFAULT_DOMAIN_ID
 	}
-	log.Debugf("FetchDomain id %s name %s", domainId, domainName)
 	if len(domainId) > 0 {
 		return manager.FetchDomainById(domainId)
 	} else {
