@@ -77,6 +77,10 @@ func (self *SAccessGroupRule) GetId() string {
 	return self.Id
 }
 
+func (manager *SAccessGroupRuleManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *SAccessGroupRuleManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
 }

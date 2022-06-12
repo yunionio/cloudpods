@@ -133,6 +133,8 @@ type IModelManager interface {
 	GetI18N(ctx context.Context, idstr string, resObj jsonutils.JSONObject) *jsonutils.JSONDict
 
 	GetSplitTable() *splitable.SSplitTableSpec
+
+	CreateByInsertOrUpdate() bool
 }
 
 type IModel interface {

@@ -42,8 +42,8 @@ type SScheduledTaskLabelManager struct {
 
 type SScheduledTaskLabel struct {
 	db.SResourceBase
-	ScheduledTaskId string `width:"36" charset:"ascii" nullable:"false" index:"true"`
-	Label           string `width:"64" charset:"utf8" nullable:"false" index:"true"`
+	ScheduledTaskId string `width:"36" charset:"ascii" nullable:"false" primary:"true"`
+	Label           string `width:"64" charset:"utf8" nullable:"false" primary:"true"`
 }
 
 func (slm *SScheduledTaskLabelManager) Attach(ctx context.Context, taskId, label string) error {
@@ -51,7 +51,7 @@ func (slm *SScheduledTaskLabelManager) Attach(ctx context.Context, taskId, label
 		ScheduledTaskId: taskId,
 		Label:           label,
 	}
-	return slm.TableSpec().Insert(ctx, sl)
+	return slm.TableSpec().InsertOrUpdate(ctx, sl)
 }
 
 func (sl *SScheduledTaskLabel) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {

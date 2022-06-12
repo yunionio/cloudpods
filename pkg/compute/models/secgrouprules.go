@@ -76,6 +76,10 @@ func (self *SSecurityGroupRule) GetId() string {
 	return self.Id
 }
 
+func (manager *SSecurityGroupRuleManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *SSecurityGroupRuleManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	secgroupId, _ := data.GetString("secgroup_id")
 	return jsonutils.Marshal(map[string]string{"secgroup_id": secgroupId})

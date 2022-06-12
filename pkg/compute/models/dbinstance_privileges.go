@@ -66,6 +66,10 @@ func (self *SDBInstancePrivilege) BeforeInsert() {
 	}
 }
 
+func (manager *SDBInstancePrivilegeManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *SDBInstancePrivilegeManager) GetContextManagers() [][]db.IModelManager {
 	return [][]db.IModelManager{
 		{DBInstanceAccountManager, DBInstanceDatabaseManager},
