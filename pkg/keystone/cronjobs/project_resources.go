@@ -95,7 +95,7 @@ func refreshScopeResourceCount(ctx context.Context) error {
 			url = ep.external
 		}
 		url = httputils.JoinPath(url, "scope-resources")
-		tk, _ := tokens.GetDefaultToken()
+		tk := tokens.GetDefaultToken()
 		hdr := http.Header{}
 		hdr.Add("X-Auth-Token", tk)
 		_, ret, err := httputils.JSONRequest(
