@@ -144,7 +144,13 @@ func (man *SNatGatewayManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SNatGatewayManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NatgatewayCreateInput) (api.NatgatewayCreateInput, error) {
+func (man *SNatGatewayManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.NatgatewayCreateInput,
+) (api.NatgatewayCreateInput, error) {
 	if len(input.NetworkId) == 0 {
 		return input, httperrors.NewMissingParameterError("network_id")
 	}
@@ -216,7 +222,13 @@ func (man *SNatGatewayManager) ValidateCreateData(ctx context.Context, userCred 
 	return driver.ValidateCreateNatGateway(ctx, userCred, input)
 }
 
-func (self *SNatGateway) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+func (self *SNatGateway) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
 	self.SInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	err := self.StartNatGatewayCreateTask(ctx, userCred, data.(*jsonutils.JSONDict))
@@ -348,7 +360,7 @@ func (self *SNatGateway) GetDTableSize(filter func(q *sqlchemy.SQuery) *sqlchemy
 	return q.CountWithError()
 }
 
-func (manager SNatGatewayManager) FetchCustomizeColumns(
+func (manager *SNatGatewayManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,

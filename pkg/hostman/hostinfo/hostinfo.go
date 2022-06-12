@@ -40,6 +40,7 @@ import (
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	napi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -1337,6 +1338,18 @@ func (h *SHostInfo) getNetworkInfo() {
 }
 
 func (h *SHostInfo) uploadNetworkInfo() {
+	phyNics, err := sysutils.Nics()
+	if err != nil {
+		h.onFail(errors.Wrap(err, "parse physical nics info"))
+		return
+	}
+	for _, pnic := range phyNics {
+		err := h.doSendPhysicalNicInfo(pnic)
+		if err != nil {
+			h.onFail(errors.Wrapf(err, "doSendPhysicalNicInfo %s", pnic.Dev))
+			return
+		}
+	}
 	for _, nic := range h.Nics {
 		if len(nic.WireId) == 0 {
 			if len(nic.Network) == 0 {
@@ -1352,30 +1365,57 @@ func (h *SHostInfo) uploadNetworkInfo() {
 					return
 				} else {
 					nic.Network, _ = wireInfo.GetString("name")
-					h.doUploadNicInfo(nic)
+					err := h.doUploadNicInfo(nic)
+					if err != nil {
+						h.onFail(errors.Wrapf(err, "doUploadNicInfo %s", nic.Inter))
+						return
+					}
 				}
-
 			} else {
-				h.doUploadNicInfo(nic)
+				err := h.doUploadNicInfo(nic)
+				if err != nil {
+					h.onFail(errors.Wrapf(err, "doUploadNicInfo %s", nic.Inter))
+					return
+				}
 			}
 		} else {
-			h.doSyncNicInfo(nic)
+			err := h.doSyncNicInfo(nic)
+			if err != nil {
+				h.onFail(errors.Wrapf(err, "doSyncNicInfo %s", nic.Inter))
+				return
+			}
 		}
 	}
 	h.getStoragecacheInfo()
 }
 
-func (h *SHostInfo) doUploadNicInfo(nic *SNIC) {
-	log.Infof("Upload NIC br:%s if:%s", nic.Bridge, nic.Inter)
+func (h *SHostInfo) doSendPhysicalNicInfo(nic *types.SNicDevInfo) error {
+	return h.doUploadNicInfoInternal(nic.Dev, nic.Mac.String(), "", "", "", nic.Up != nil && *nic.Up)
+}
+
+func (h *SHostInfo) doUploadNicInfo(nic *SNIC) error {
+	err := h.doUploadNicInfoInternal(nic.Inter, nic.BridgeDev.GetMac(), nic.Network, nic.Bridge, nic.Ip, true)
+	if err != nil {
+		return errors.Wrap(err, "doUploadNicInfoInternal")
+	}
+	return h.onUploadNicInfoSucc(nic)
+}
+
+func (h *SHostInfo) doUploadNicInfoInternal(ifname, mac, net, bridge, ipaddr string, isUp bool) error {
+	log.Infof("Upload NIC br:%s if:%s", bridge, ifname)
 	content := jsonutils.NewDict()
-	content.Set("mac", jsonutils.NewString(nic.BridgeDev.GetMac()))
-	content.Set("wire", jsonutils.NewString(nic.Network))
-	content.Set("bridge", jsonutils.NewString(nic.Bridge))
-	content.Set("interface", jsonutils.NewString(nic.Inter))
-	content.Set("link_up", jsonutils.JSONTrue)
-	if len(nic.Ip) > 0 {
-		content.Set("ip_addr", jsonutils.NewString(nic.Ip))
-		if nic.Ip == h.GetMasterIp() {
+	content.Set("mac", jsonutils.NewString(mac))
+	content.Set("wire", jsonutils.NewString(net))
+	content.Set("bridge", jsonutils.NewString(bridge))
+	content.Set("interface", jsonutils.NewString(ifname))
+	if isUp {
+		content.Set("link_up", jsonutils.JSONTrue)
+	} else {
+		content.Set("link_up", jsonutils.JSONFalse)
+	}
+	if len(ipaddr) > 0 {
+		content.Set("ip_addr", jsonutils.NewString(ipaddr))
+		if ipaddr == h.GetMasterIp() {
 			content.Set("nic_type", jsonutils.NewString(api.NIC_TYPE_ADMIN))
 		}
 		// always try to allocate from reserved pool
@@ -1384,14 +1424,12 @@ func (h *SHostInfo) doUploadNicInfo(nic *SNIC) {
 	_, err := modules.Hosts.PerformAction(h.GetSession(),
 		h.HostId, "add-netif", content)
 	if err != nil {
-		h.onFail(err)
-		return
-	} else {
-		h.onUploadNicInfoSucc(nic)
+		return errors.Wrap(err, "modules.Hosts.PerformAction add-netif")
 	}
+	return nil
 }
 
-func (h *SHostInfo) doSyncNicInfo(nic *SNIC) {
+func (h *SHostInfo) doSyncNicInfo(nic *SNIC) error {
 	content := jsonutils.NewDict()
 	content.Set("bridge", jsonutils.NewString(nic.Bridge))
 	content.Set("interface", jsonutils.NewString(nic.Inter))
@@ -1400,16 +1438,15 @@ func (h *SHostInfo) doSyncNicInfo(nic *SNIC) {
 	_, err := modules.Hostwires.Update(h.GetSession(),
 		h.HostId, nic.WireId, query, content)
 	if err != nil {
-		h.onFail(err)
-		return
+		return errors.Wrap(err, "modules.Hostwires.Update")
 	}
+	return nil
 }
 
-func (h *SHostInfo) onUploadNicInfoSucc(nic *SNIC) {
+func (h *SHostInfo) onUploadNicInfoSucc(nic *SNIC) error {
 	res, err := modules.Hostwires.Get(h.GetSession(), h.HostId, nic.Network, nil)
 	if err != nil {
-		h.onFail(err)
-		return
+		return errors.Wrap(err, "modules.Hostwires.Get")
 	} else {
 		bridge, _ := res.GetString("bridge")
 		iface, _ := res.GetString("interface")
@@ -1424,10 +1461,10 @@ func (h *SHostInfo) onUploadNicInfoSucc(nic *SNIC) {
 			}
 			nic.SetWireId(wire, wireId, bandwidth)
 		} else {
-			h.onFail("GetMatchNic failed!!!")
-			return
+			return errors.Error("GetMatchNic failed!!!")
 		}
 	}
+	return nil
 }
 
 func (h *SHostInfo) getStoragecacheInfo() {

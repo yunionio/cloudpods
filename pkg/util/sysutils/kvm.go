@@ -182,6 +182,10 @@ func unloadKvmModule(name string) bool {
 
 func GetKernelModuleParameter(name, moduel string) string {
 	pa := path.Join("/sys/module/", strings.Replace(name, "-", "_", -1), "/parameters/", moduel)
+	return GetSysConfig(pa)
+}
+
+func GetSysConfig(pa string) string {
 	if f, err := os.Stat(pa); err == nil {
 		if f.IsDir() {
 			return ""
@@ -218,7 +222,7 @@ func SetSysConfig(cpath, val string) bool {
 			log.Errorln(err)
 			return false
 		}
-		if string(oval) != val {
+		if strings.TrimSpace(string(oval)) != val {
 			err = fileutils2.FilePutContents(cpath, val, false)
 			if err == nil {
 				return true
