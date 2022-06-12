@@ -53,10 +53,6 @@ func GetDefaultAdminCred() mcclient.TokenCredential {
 	return defaultAdminCred
 }
 
-func GetDefaultAdminSSimpleToken() *mcclient.SSimpleToken {
-	return getDefaultAdminCred()
-}
-
 func getDefaultAdminCred() *mcclient.SSimpleToken {
 	token := mcclient.SSimpleToken{}
 	usr, _ := UserManager.FetchUserExtended("", api.SystemAdminUser, api.DEFAULT_DOMAIN_ID, "")

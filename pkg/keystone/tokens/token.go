@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -31,10 +32,11 @@ import (
 )
 
 var (
-	defaultAuthToken *SAuthToken
+	defaultAuthToken    *SAuthToken
+	defaultAuthTokenStr string
 )
 
-func GetDefaultToken() (string, error) {
+func GetDefaultToken() string {
 	now := time.Now()
 	if defaultAuthToken == nil || defaultAuthToken.ExpiresAt.Sub(now) < time.Duration(3600) {
 		simpleToken := models.GetDefaultAdminCred()
@@ -45,8 +47,21 @@ func GetDefaultToken() (string, error) {
 			ExpiresAt: now.Add(time.Duration(options.Options.TokenExpirationSeconds) * time.Second),
 			AuditIds:  []string{utils.GenRequestId(16)},
 		}
+		var err error
+		defaultAuthTokenStr, err = defaultAuthToken.EncodeFernetToken()
+		if err != nil {
+			log.Fatalf("defaultAuthToken.EncodeFernetToken fail: %s", err)
+		}
+		if simpleToken.(*mcclient.SSimpleToken).Token != defaultAuthTokenStr {
+			simpleToken.(*mcclient.SSimpleToken).Token = defaultAuthTokenStr
+		}
 	}
-	return defaultAuthToken.EncodeFernetToken()
+	return defaultAuthTokenStr
+}
+
+func GetDefaultAdminCredToken() mcclient.TokenCredential {
+	GetDefaultToken()
+	return models.GetDefaultAdminCred()
 }
 
 type SAuthToken struct {
