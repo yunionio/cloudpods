@@ -81,19 +81,7 @@ func (t *SSplitTableSpec) DropForeignKeySQL() []string {
 }
 
 func (t *SSplitTableSpec) AddIndex(unique bool, cols ...string) bool {
-	metas, err := t.GetTableMetas()
-	if err != nil {
-		return false
-	}
-	var ret bool
-	for _, meta := range metas {
-		ts := t.GetTableSpec(meta)
-		if !ts.AddIndex(unique, cols...) {
-			ret = false
-			break
-		}
-	}
-	return ret
+	return t.tableSpec.AddIndex(unique, cols...)
 }
 
 func (t *SSplitTableSpec) Fetch(dt interface{}) error {
