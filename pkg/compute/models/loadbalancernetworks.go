@@ -115,7 +115,7 @@ func (m *SLoadbalancernetworkManager) NewLoadbalancerNetwork(ctx context.Context
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)
 	if req.Loadbalancer.NetworkType == api.LB_NETWORK_TYPE_VPC {
-		macAddr, err := GuestnetworkManager.GenerateMac(network.Id, "")
+		macAddr, err := GuestnetworkManager.GenerateMac("")
 		if err != nil {
 			return nil, errors.Wrapf(err, "generate macaddr")
 		}

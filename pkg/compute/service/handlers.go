@@ -243,6 +243,9 @@ func InitHandlers(app *appsrv.Application) {
 		models.InstanceBackupManager,
 
 		models.IPv6GatewayManager,
+
+		models.NetTapServiceManager,
+		models.NetTapFlowManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
