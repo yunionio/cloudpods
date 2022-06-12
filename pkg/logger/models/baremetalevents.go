@@ -100,6 +100,10 @@ func (event *SBaremetalEvent) GetModelManager() db.IModelManager {
 	return BaremetalEventManager
 }
 
+func (manager *SBaremetalEventManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *SBaremetalEventManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeSystem
 }

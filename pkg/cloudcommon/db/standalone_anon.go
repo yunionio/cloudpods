@@ -77,6 +77,10 @@ func NewStandaloneAnonResourceBaseManager(
 	}
 }
 
+func (manager *SStandaloneAnonResourceBaseManager) CreateByInsertOrUpdate() bool {
+	return false
+}
+
 func (manager *SStandaloneAnonResourceBaseManager) IsStandaloneManager() bool {
 	return true
 }
