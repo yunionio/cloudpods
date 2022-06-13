@@ -93,7 +93,7 @@ func (self *SNutanixGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_SHELL
 }
 
-func (self *SNutanixGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+func (self *SNutanixGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
 	return true
 }
 

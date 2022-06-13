@@ -186,7 +186,7 @@ type IGuestDriver interface {
 	ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error
 	ValidateDetachDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, disk *SDisk) error
 
-	IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool
+	IsNeedInjectPasswordByCloudInit() bool
 	GetUserDataType() string
 	GetWindowsUserDataType() string
 	IsWindowsUserDataTypeNeedEncode() bool

@@ -145,7 +145,7 @@ func (self *SZStackGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
-func (self *SZStackGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+func (self *SZStackGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
 	return true
 }
 
