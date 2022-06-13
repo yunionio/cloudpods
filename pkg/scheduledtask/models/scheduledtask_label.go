@@ -28,7 +28,7 @@ func init() {
 		ScheduledTaskLabelManager = &SScheduledTaskLabelManager{
 			SResourceBaseManager: db.NewResourceBaseManager(
 				SScheduledTaskLabel{},
-				"scheduledtasklabels_tbl",
+				"scheduledtasklabels2_tbl",
 				"scheduledtasklabel",
 				"scheduledtasklabels",
 			),
