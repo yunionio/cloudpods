@@ -256,6 +256,9 @@ func (manager *SCloudproviderManager) syncCloudeventTask(ctx context.Context, us
 }
 
 func (manager *SCloudproviderManager) SyncCloudeventTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if options.Options.DisableSyncCloudEvent {
+		return
+	}
 	err := manager.syncCloudeventTask(ctx, userCred)
 	if err != nil {
 		log.Errorf("syncCloudeventTask error: %v", err)
