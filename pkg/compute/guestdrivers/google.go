@@ -190,7 +190,7 @@ func (self *SGoogleGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
-func (self *SGoogleGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+func (self *SGoogleGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
 	return true
 }
 

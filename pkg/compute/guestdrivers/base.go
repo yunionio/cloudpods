@@ -324,7 +324,7 @@ func (self *SBaseGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
-func (self *SBaseGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+func (self *SBaseGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
 	return false
 }
 
