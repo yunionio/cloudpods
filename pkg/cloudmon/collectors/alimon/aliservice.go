@@ -37,12 +37,14 @@ func (self *SAliCloudReport) collectRegionMetricOfResource(region cloudprovider.
 	}
 	namespace, metrics := self.getMetricSpecs(servers)
 	dimensionId := self.getDimensionId()
+	dataCnt := 0
 	for metricName, influxDbSpecs := range metrics {
 		rtnArray, _, err := aliReg.DescribeMetricList(metricName, namespace, since, until, "", nil)
 		if err != nil {
 			log.Errorln(err)
 			continue
 		}
+		dataCnt = len(dataList)
 		if len(rtnArray) > 0 {
 			for _, rtnMetric := range rtnArray {
 				for _, server := range servers {
@@ -64,6 +66,7 @@ func (self *SAliCloudReport) collectRegionMetricOfResource(region cloudprovider.
 				}
 			}
 		}
+		log.Debugf("%s %s %s report %d metric", self.SProvider.Name, self.Operator, metricName, len(dataList)-dataCnt)
 	}
 	return common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
 }
@@ -94,6 +97,7 @@ func (self *SAliCloudReport) collectRegionMetricOfRedis(region cloudprovider.ICl
 		}
 
 	}
+	dataCnt := 0
 	for metricName, influxDbSpecs := range aliRedisMetricSpecs {
 		for _, pre := range redisDeployType {
 			rtnArray, _, err := aliReg.DescribeMetricList(pre+metricName, "acs_kvstore", since, until, "", nil)
@@ -101,6 +105,7 @@ func (self *SAliCloudReport) collectRegionMetricOfRedis(region cloudprovider.ICl
 				log.Errorln(err)
 				continue
 			}
+			dataCnt = len(dataList)
 			if len(rtnArray) > 0 {
 				for _, rtnMetric := range rtnArray {
 					for _, server := range servers {
@@ -118,6 +123,7 @@ func (self *SAliCloudReport) collectRegionMetricOfRedis(region cloudprovider.ICl
 				}
 			}
 		}
+		log.Debugf("%s %s %s report %d metric", self.SProvider.Name, self.Operator, metricName, len(dataList)-dataCnt)
 	}
 	return common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
 }
@@ -217,7 +223,7 @@ func (self *SAliCloudReport) getDimensionId() *common.DimensionId {
 	case common.RDS:
 		return &common.DimensionId{
 			LocalId: "external_id",
-			ExtId:   "InstanceId",
+			ExtId:   "instanceId",
 		}
 	case common.OSS:
 		return &common.DimensionId{
@@ -250,17 +256,19 @@ func (self *SAliCloudReport) CollectK8sModuleMetric(region cloudprovider.ICloudR
 	}
 	namespace, metricSpecs := helper.MyNamespaceAndMetrics()
 	metricNames := make([]string, 0)
-	for metricName, _ := range metricSpecs {
+	for metricName := range metricSpecs {
 		metricNames = append(metricNames, metricName)
 	}
 	dimensionId := helper.MyResDimensionId()
 	dataList := make([]influxdb.SMetricData, 0)
+	dataCnt := 0
 	for metricName, influxDbSpecs := range metricSpecs {
 		rtnArray, _, err := aliReg.DescribeMetricList(metricName, namespace, since, until, "", nil)
 		if err != nil {
 			log.Errorln(err)
 			continue
 		}
+		dataCnt = len(dataList)
 		if len(rtnArray) > 0 {
 			for _, rtnMetric := range rtnArray {
 				for _, resource := range resources {
@@ -275,7 +283,7 @@ func (self *SAliCloudReport) CollectK8sModuleMetric(region cloudprovider.ICloudR
 				}
 			}
 		}
-
+		log.Debugf("%s %s %s report %d metric", self.SProvider.Name, self.Operator, metricName, len(dataList)-dataCnt)
 	}
 	err = common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
 	if err != nil {
