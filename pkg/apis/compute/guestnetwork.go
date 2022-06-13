@@ -90,6 +90,7 @@ type GuestnetworkJsonDesc struct {
 	Ifname     string               `json:"ifname"`
 	Masklen    int8                 `json:"masklen"`
 	Driver     string               `json:"driver"`
+	NumQueues  int                  `json:"num_queues"`
 	Vlan       int                  `json:"vlan"`
 	Bw         int                  `json:"bw"`
 	Mtu        int                  `json:"mtu"`
