@@ -16,16 +16,13 @@ package guestdrivers
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -221,7 +218,8 @@ func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Conte
 	if input.Cdrom != "" {
 		return nil, httperrors.NewInputParameterError("%s not support cdrom params", input.Hypervisor)
 	}
-	if len(input.UserData) > 0 {
+	driver := models.GetDriver(input.Hypervisor)
+	if len(input.UserData) > 0 && driver != nil && driver.IsNeedInjectPasswordByCloudInit() {
 		_, err := cloudinit.ParseUserData(input.UserData)
 		if err != nil {
 			return nil, err
@@ -369,7 +367,12 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 	}
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
-	desc := cloudprovider.SManagedVMCreateConfig{}
+	desc := cloudprovider.SManagedVMCreateConfig{
+		IsNeedInjectPasswordByCloudInit: guest.GetDriver().IsNeedInjectPasswordByCloudInit(),
+		UserDataType:                    guest.GetDriver().GetUserDataType(),
+		WindowsUserDataType:             guest.GetDriver().GetWindowsUserDataType(),
+		IsWindowsUserDataTypeNeedEncode: guest.GetDriver().IsWindowsUserDataTypeNeedEncode(),
+	}
 	err = desc.GetConfig(config)
 	if err != nil {
 		return errors.Wrapf(err, "desc.GetConfig")
@@ -411,38 +414,9 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 	}
 
 	desc.Account = guest.GetDriver().GetDefaultAccount(desc)
-
-	if guest.GetDriver().IsNeedInjectPasswordByCloudInit(&desc) {
-		err = desc.InjectPasswordByCloudInit()
-		if err != nil {
-			log.Warningf("failed to inject password by cloud-init error: %v", err)
-		}
-	}
-
-	if len(desc.UserData) > 0 {
-		oUserData, err := cloudinit.ParseUserData(desc.UserData)
-		if err != nil {
-			return err
-		}
-		switch guest.GetDriver().GetUserDataType() {
-		case cloudprovider.CLOUD_SHELL:
-			desc.UserData = oUserData.UserDataScriptBase64()
-		case cloudprovider.CLOUD_SHELL_WITHOUT_ENCRYPT:
-			desc.UserData = oUserData.UserDataScript()
-		default:
-			desc.UserData = oUserData.UserDataBase64()
-		}
-		if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
-			switch guest.GetDriver().GetWindowsUserDataType() {
-			case cloudprovider.CLOUD_EC2:
-				desc.UserData = oUserData.UserDataEc2()
-			default:
-				desc.UserData = oUserData.UserDataPowerShell()
-			}
-			if guest.GetDriver().IsWindowsUserDataTypeNeedEncode() {
-				desc.UserData = base64.StdEncoding.EncodeToString([]byte(desc.UserData))
-			}
-		}
+	desc.UserData, err = desc.GetUserData()
+	if err != nil {
+		return errors.Wrapf(err, "GetUserData")
 	}
 
 	action, err := config.GetString("action")

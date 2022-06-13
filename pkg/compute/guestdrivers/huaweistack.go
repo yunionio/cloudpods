@@ -193,7 +193,7 @@ func (self *SHCSOGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) 
 	return false
 }
 
-func (self *SHCSOGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+func (self *SHCSOGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
 	return true
 }
 

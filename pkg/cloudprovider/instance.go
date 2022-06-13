@@ -15,9 +15,12 @@
 package cloudprovider
 
 import (
+	"encoding/base64"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 
 	"yunion.io/x/onecloud/pkg/util/ansible"
@@ -142,6 +145,11 @@ type SManagedVMCreateConfig struct {
 	Tags map[string]string
 
 	BillingCycle *billing.SBillingCycle
+
+	IsNeedInjectPasswordByCloudInit bool
+	UserDataType                    string
+	WindowsUserDataType             string
+	IsWindowsUserDataTypeNeedEncode bool
 }
 
 type SManagedVMChangeConfig struct {
@@ -160,8 +168,15 @@ type SManagedVMRebuildRootConfig struct {
 }
 
 func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) error {
-	if err := config.Unmarshal(vmConfig, "desc"); err != nil {
-		return err
+	err := config.Unmarshal(vmConfig, "desc")
+	if err != nil {
+		return errors.Wrapf(err, "config.Unmarshal")
+	}
+	if !vmConfig.IsNeedInjectPasswordByCloudInit {
+		_, err := cloudinit.ParseUserData(vmConfig.UserData)
+		if err != nil {
+			return nil
+		}
 	}
 	if publicKey, _ := config.GetString("public_key"); len(publicKey) > 0 {
 		vmConfig.PublicKey = publicKey
@@ -177,6 +192,12 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 	vmConfig.Password, _ = config.GetString("password")
 	if resetPassword && len(vmConfig.Password) == 0 {
 		vmConfig.Password = seclib2.RandomPassword2(12)
+	}
+	if vmConfig.IsNeedInjectPasswordByCloudInit {
+		err = vmConfig.InjectPasswordByCloudInit()
+		if err != nil {
+			log.Warningf("failed to inject password by cloud-init error: %v", err)
+		}
 	}
 	return nil
 }
@@ -205,6 +226,42 @@ func generateUserData(adminPublicKey, projectPublicKey, oUserData string) string
 	}
 
 	return cloudConfig.UserData()
+}
+
+func (vmConfig *SManagedVMCreateConfig) GetUserData() (string, error) {
+	if len(vmConfig.UserData) == 0 {
+		return "", nil
+	}
+	oUserData, err := cloudinit.ParseUserData(vmConfig.UserData)
+	if err != nil {
+		// 用户输入非标准cloud-init数据
+		if !vmConfig.IsNeedInjectPasswordByCloudInit {
+			return base64.StdEncoding.EncodeToString([]byte(vmConfig.UserData)), nil
+		}
+		return "", err
+	}
+	if strings.ToLower(vmConfig.OsType) == strings.ToLower(osprofile.OS_TYPE_LINUX) {
+		switch vmConfig.UserDataType {
+		case CLOUD_SHELL:
+			return oUserData.UserDataScriptBase64(), nil
+		case CLOUD_SHELL_WITHOUT_ENCRYPT:
+			return oUserData.UserDataScript(), nil
+		default:
+			return oUserData.UserDataBase64(), nil
+		}
+	} else {
+		userData := ""
+		switch vmConfig.WindowsUserDataType {
+		case CLOUD_EC2:
+			userData = oUserData.UserDataEc2()
+		default:
+			userData = oUserData.UserDataPowerShell()
+		}
+		if vmConfig.IsWindowsUserDataTypeNeedEncode {
+			userData = base64.StdEncoding.EncodeToString([]byte(userData))
+		}
+		return userData, nil
+	}
 }
 
 func (vmConfig *SManagedVMCreateConfig) InjectPasswordByCloudInit() error {
