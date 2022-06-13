@@ -137,7 +137,7 @@ func (self *SOpenStackGuestDriver) GetChangeConfigStatus(guest *models.SGuest) (
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SOpenStackGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+func (self *SOpenStackGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
 	return true
 }
 
