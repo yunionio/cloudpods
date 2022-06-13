@@ -639,14 +639,14 @@ func cloudproviderRunfunc(ctx context.Context, factory ICloudReportFactory, prov
 	for i := range ResMonTypeList {
 		resType := ResMonTypeList[i]
 		group.Go(func() error {
-			log.Errorf("cloudprovider: %s,operator: %s start report().", provider.Name, resType)
+			log.Infof("cloudprovider: %s,operator: %s start report().", provider.Name, resType)
 
 			err := factory.NewCloudReport(provider, session, &opt.ReportOptions, resType).Report()
 			if err != nil {
 				log.Errorf("provider: %s report metric err: %v", provider.Name, err)
 				return nil
 			}
-			log.Errorf("cloudprovider: %s,operator: %s report() end.", provider.Name, resType)
+			log.Infof("cloudprovider: %s,operator: %s report() end.", provider.Name, resType)
 			return nil
 		})
 	}
