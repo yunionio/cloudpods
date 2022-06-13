@@ -305,11 +305,17 @@ func (s *SKVMGuestInstance) getNetdevDesc(nic jsonutils.JSONObject) (string, err
 	}
 	upscript := s.getNicUpScriptPath(nic)
 	downscript := s.getNicDownScriptPath(nic)
+
+	numQueues, _ := nic.Int("num_queues")
+
 	cmd := " -netdev type=tap"
 	cmd += fmt.Sprintf(",id=%s", ifname)
 	cmd += fmt.Sprintf(",ifname=%s", ifname)
 	if driver == "virtio" && s.IsKvmSupport() {
 		cmd += ",vhost=on,vhostforce=off"
+		if numQueues > 1 {
+			cmd += fmt.Sprintf(",queues=%d", numQueues)
+		}
 	}
 	cmd += fmt.Sprintf(",script=%s", upscript)
 	cmd += fmt.Sprintf(",downscript=%s", downscript)
@@ -347,6 +353,7 @@ func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject, withAddr bool)
 	index, _ := nic.Int("index")
 	vectors, _ := nic.Int("vectors")
 	bw, _ := nic.Int("bw")
+	numQueues, _ := nic.Int("num_queues")
 
 	cmd := fmt.Sprintf(" -device %s", s.getNicDeviceModel(driver))
 	cmd += fmt.Sprintf(",id=netdev-%s", ifname)
@@ -357,6 +364,9 @@ func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject, withAddr bool)
 		cmd += fmt.Sprintf(",addr=0x%x", s.getNicAddr(int(index)))
 	}
 	if driver == "virtio" {
+		if numQueues > 1 {
+			cmd += fmt.Sprintf(",mq=on")
+		}
 		if nic.Contains("vectors") {
 			cmd += fmt.Sprintf(",vectors=%d", vectors)
 		}
@@ -595,6 +605,12 @@ function nic_mtu() {
 		cmd += fmt.Sprintf(" -bios %s", options.HostOptions.OvmfPath)
 	}
 
+	for i := 0; i < len(nics); i++ {
+		nic := nics[i].(*jsonutils.JSONDict)
+		if numQueues, _ := nic.Int("num_queues"); numQueues > 1 {
+			nic.Set("vectors", jsonutils.NewInt(2*numQueues+1))
+		}
+	}
 	if osname == OS_NAME_MACOS {
 		cmd += " -device isa-applesmc,osk=ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
 		for i := 0; i < len(disks); i++ {

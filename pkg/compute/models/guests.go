@@ -2893,6 +2893,7 @@ type Attach2NetworkArgs struct {
 
 	BwLimit   int
 	NicDriver string
+	NumQueues int
 	NicConfs  []SNicConfig
 
 	Virtual bool
@@ -2915,6 +2916,7 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 
 		bwLimit:   args.BwLimit,
 		nicDriver: args.NicDriver,
+		numQueues: args.NumQueues,
 		nicConf:   args.NicConfs[i],
 
 		virtual: args.Virtual,
@@ -2930,6 +2932,7 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 		r.useDesignatedIP = false
 		r.nicConf = args.NicConfs[i]
 		r.nicDriver = ""
+		r.numQueues = 1
 	}
 	return r
 }
@@ -2945,6 +2948,7 @@ type attach2NetworkOnceArgs struct {
 
 	bwLimit     int
 	nicDriver   string
+	numQueues   int
 	nicConf     SNicConfig
 	teamWithMac string
 
@@ -3015,6 +3019,7 @@ func (self *SGuest) attach2NetworkOnce(
 		macAddr:     args.nicConf.Mac,
 		bwLimit:     args.bwLimit,
 		nicDriver:   nicDriver,
+		numQueues:   args.numQueues,
 		teamWithMac: args.teamWithMac,
 
 		virtual: args.virtual,
@@ -3580,6 +3585,13 @@ func (self *SGuest) CreateNetworksOnHost(
 		if candidateNet != nil {
 			networkIds = candidateNet.NetworkIds
 		}
+		if idx == 0 && netConfig.NumQueues == 0 {
+			numQueues := self.VcpuCount / 2
+			if numQueues > 16 {
+				numQueues = 16
+			}
+			netConfig.NumQueues = numQueues
+		}
 		_, err = self.attach2NetworkDesc(ctx, userCred, host, netConfig, pendingUsage, networkIds)
 		if err != nil {
 			return errors.Wrap(err, "self.attach2NetworkDesc")
@@ -3644,6 +3656,7 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 			PendingUsage:        pendingUsage,
 			IpAddr:              netConfig.Address,
 			NicDriver:           netConfig.Driver,
+			NumQueues:           netConfig.NumQueues,
 			BwLimit:             netConfig.BwLimit,
 			Virtual:             netConfig.Vip,
 			TryReserved:         netConfig.Reserved,

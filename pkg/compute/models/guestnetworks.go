@@ -85,6 +85,8 @@ type SGuestnetwork struct {
 	Ip6Addr string `width:"64" charset:"ascii" nullable:"true" list:"user"`
 	// 虚拟网卡驱动
 	Driver string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"`
+	// 网卡队列数
+	NumQueues int `nullable:"true" default:"1" list:"user" update:"user"`
 	// 带宽限制，单位mbps
 	BwLimit int `nullable:"false" default:"0" list:"user"`
 	// 网卡序号
@@ -264,6 +266,7 @@ type newGuestNetworkArgs struct {
 	macAddr     string
 	bwLimit     int
 	nicDriver   string
+	numQueues   int
 	teamWithMac string
 
 	virtual bool
@@ -284,6 +287,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 		address              = args.ipAddr
 		mac                  = args.macAddr
 		driver               = args.nicDriver
+		numQueues            = args.numQueues
 		bwLimit              = args.bwLimit
 		virtual              = args.virtual
 		reserved             = args.tryReserved
@@ -302,6 +306,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 		driver = "virtio"
 	}
 	gn.Driver = driver
+	gn.NumQueues = numQueues
 	if bwLimit >= 0 {
 		gn.BwLimit = bwLimit
 	}
@@ -592,6 +597,7 @@ func (self *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	desc.Ifname = self.GetIfname()
 	desc.Masklen = net.GuestIpMask
 	desc.Driver = self.Driver
+	desc.NumQueues = self.NumQueues
 	desc.Vlan = net.VlanId
 	desc.Bw = self.getBandwidth()
 	desc.Mtu = self.getMtu(net)
