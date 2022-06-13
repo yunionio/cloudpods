@@ -433,11 +433,16 @@ func getNicNetdevOption(drvOpt QemuOptions, nic jsonutils.JSONObject, isKVMSuppo
 	if downscript == "" {
 		return "", errors.Error("downscript_path is empty")
 	}
+	numQueues, _ := nic.Int("num_queues")
+
 	opt := "-netdev type=tap"
 	opt += fmt.Sprintf(",id=%s", ifname)
 	opt += fmt.Sprintf(",ifname=%s", ifname)
 	if driver == "virtio" && isKVMSupport {
 		opt += ",vhost=on,vhostforce=off"
+		if numQueues > 1 {
+			opt += fmt.Sprintf(",queues=%d", numQueues)
+		}
 	}
 	opt += fmt.Sprintf(",script=%s", upscript)
 	opt += fmt.Sprintf(",downscript=%s", downscript)
@@ -452,6 +457,7 @@ func getNicDeviceOption(drvOpt QemuOptions, nic jsonutils.JSONObject, input *Gen
 	index, _ := nic.Int("index")
 	vectors, _ := nic.Int("vectors")
 	bw, _ := nic.Int("bw")
+	numQueues, _ := nic.Int("num_queues")
 
 	cmd := fmt.Sprintf("-device %s", GetNicDeviceModel(driver))
 	cmd += fmt.Sprintf(",id=netdev-%s", ifname)
@@ -467,6 +473,9 @@ func getNicDeviceOption(drvOpt QemuOptions, nic jsonutils.JSONObject, input *Gen
 		cmd += fmt.Sprintf(",addr=0x%x", GetNicAddr(int(index), disksLen, isoDevsLen, input.IsVdiSpice))
 	}
 	if driver == "virtio" {
+		if numQueues > 1 {
+			cmd += fmt.Sprintf(",mq=on")
+		}
 		if nic.Contains("vectors") {
 			cmd += fmt.Sprintf(",vectors=%d", vectors)
 		}

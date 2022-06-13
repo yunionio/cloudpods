@@ -62,11 +62,12 @@ type NetworkConfig struct {
 
 	// 驱动方式
 	// 若指定镜像的网络驱动方式，此参数会被覆盖
-	Driver   string `json:"driver"`
-	BwLimit  int    `json:"bw_limit"`
-	Vip      bool   `json:"vip"`
-	Reserved bool   `json:"reserved"`
-	NetType  string `json:"net_type"`
+	Driver    string `json:"driver"`
+	BwLimit   int    `json:"bw_limit"`
+	Vip       bool   `json:"vip"`
+	Reserved  bool   `json:"reserved"`
+	NetType   string `json:"net_type"`
+	NumQueues int    `json:"num_queues"`
 
 	RequireDesignatedIP bool `json:"require_designated_ip"`
 
