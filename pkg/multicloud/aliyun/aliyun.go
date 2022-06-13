@@ -430,7 +430,7 @@ func (self *SAliyunClient) getSdkClient(regionId string) (*sdk.Client, error) {
 						}
 					}
 				}
-				for _, prefix := range []string{"Get", "List", "Describe"} {
+				for _, prefix := range []string{"Get", "List", "Describe", "Query"} {
 					if strings.HasPrefix(action, prefix) {
 						return respCheck, nil
 					}
