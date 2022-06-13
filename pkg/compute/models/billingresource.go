@@ -210,7 +210,7 @@ type SBillingResourceCheck struct {
 	db.SResourceBase
 	ResourceId   string `width:"128" charset:"ascii" primary:"true"`
 	ResourceType string `width:"36" charset:"ascii" primary:"true"`
-	AdvanceDays  int
+	AdvanceDays  int    `primary:"true"`
 	LastCheck    time.Time
 	NotifyNumber int
 }
@@ -221,7 +221,7 @@ func init() {
 	BillingResourceCheckManager = &SBillingResourceCheckManager{
 		SResourceBaseManager: db.NewResourceBaseManager(
 			SBillingResourceCheck{},
-			"billingresourcecheck_tbl",
+			"billingresourcecheck2_tbl",
 			"billingresourcecheck",
 			"billingresourcechecks",
 		),
