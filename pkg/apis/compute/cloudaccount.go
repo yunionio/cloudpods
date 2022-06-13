@@ -495,7 +495,7 @@ type SyncRangeInput struct {
 
 	// 按资源类型同步，可输入多个
 	// enmu: compute, network, loadbalancer, objectstore, rds, cache, nat, nas, waf, mongodb, es, kafka, app, container
-	Resources []string `json:"resources" choices:"compute|network|loadbalancer|objectstore|rds|cache|nat|nas|waf|mongodb|es|kafka|app|container"`
+	Resources []string `json:"resources" choices:"compute|network|loadbalancer|objectstore|rds|cache|nat|nas|waf|mongodb|es|kafka|app|container|eip"`
 }
 
 type SAccountPermission struct {
