@@ -434,6 +434,13 @@ function nic_mtu() {
 	}
 
 	// inject nic and disks
+	for i := 0; i < len(input.Nics); i++ {
+		nic := nics[i].(*jsonutils.JSONDict)
+		if numQueues, _ := nic.Int("num_queues"); numQueues > 1 {
+			nic.Set("vectors", jsonutils.NewInt(2*numQueues+1))
+		}
+	}
+
 	if input.OsName == OS_NAME_MACOS {
 		for i := 0; i < len(input.Disks); i++ {
 			disks[i].Driver = DISK_DRIVER_SATA

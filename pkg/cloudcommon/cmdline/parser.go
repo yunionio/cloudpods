@@ -242,6 +242,8 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.StandbyAddrCount, _ = strconv.Atoi(p[len("standby-addr="):])
 		} else if utils.IsInStringArray(p, []string{"virtio", "e1000", "vmxnet3"}) {
 			netConfig.Driver = p
+		} else if strings.HasPrefix(p, "num-queues=") {
+			netConfig.NumQueues, _ = strconv.Atoi(p[len("num-queues="):])
 		} else if regutils.MatchSize(p) {
 			bw, err := fileutils.GetSizeMb(p, 'M', 1000)
 			if err != nil {
