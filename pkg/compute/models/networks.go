@@ -3014,3 +3014,11 @@ func (self *SNetwork) PerformSetBgpType(ctx context.Context, userCred mcclient.T
 	}
 	return nil, nil
 }
+
+func (net *SNetwork) IsClassic() bool {
+	vpc, _ := net.GetVpc()
+	if vpc != nil && vpc.Id == api.DEFAULT_VPC_ID {
+		return true
+	}
+	return false
+}

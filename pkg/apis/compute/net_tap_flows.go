@@ -40,6 +40,8 @@ type NetTapFlowListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 
 	TapId string `json:"tap_id"`
+
+	HostId string `json:"host_id" help:"filter by host id or name"`
 }
 
 type NetTapFlowDetails struct {

@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -26,6 +27,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -77,7 +79,45 @@ func (man *SNetTapServiceManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+
+	if len(query.HostId) > 0 {
+		hostObj, err := HostManager.FetchByIdOrName(userCred, query.HostId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), query.HostId)
+			} else {
+				return nil, errors.Wrap(err, "HostManager.FetchHostById")
+			}
+		}
+		q = man.filterByHostId(q, hostObj.GetId())
+	}
 	return q, nil
+}
+
+func (man *SNetTapServiceManager) filterByHostId(q *sqlchemy.SQuery, hostId string) *sqlchemy.SQuery {
+	guestIdQ := GuestManager.Query("id").Equals("host_id", hostId).SubQuery()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("type"), api.TapServiceHost),
+			sqlchemy.Equals(q.Field("target_id"), hostId),
+		),
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("type"), api.TapServiceGuest),
+			sqlchemy.In(q.Field("target_id"), guestIdQ),
+		),
+	))
+	return q
+}
+
+func (man *SNetTapServiceManager) getEnabledTapServiceOnHost(hostId string) ([]SNetTapService, error) {
+	q := man.Query().IsTrue("enabled")
+	q = man.filterByHostId(q, hostId)
+	srvs := make([]SNetTapService, 0)
+	err := db.FetchModelObjects(man, q, &srvs)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return srvs, nil
 }
 
 func (man *SNetTapServiceManager) OrderByExtraFields(
@@ -322,4 +362,186 @@ func (manager *SNetTapServiceManager) GenerateMac(suggestion string) (string, er
 
 func (manager *SNetTapServiceManager) FilterByMac(mac string) *sqlchemy.SQuery {
 	return manager.Query().Equals("mac_addr", mac)
+}
+
+func (srv *SNetTapService) getTapHostIp() string {
+	var hostId string
+	if srv.Type == api.TapServiceGuest {
+		guest := GuestManager.FetchGuestById(srv.TargetId)
+		hostId = guest.HostId
+	} else {
+		hostId = srv.TargetId
+	}
+	host := HostManager.FetchHostById(hostId)
+	return host.AccessIp
+}
+
+func (srv *SNetTapService) getConfig() (api.STapServiceConfig, error) {
+	conf := api.STapServiceConfig{}
+
+	flows, err := NetTapFlowManager.getEnabledTapFlowsOfTap(srv.Id)
+	if err != nil {
+		return conf, errors.Wrap(err, "NetTapFlowManager.getEnabledTapFlows")
+	}
+	mirrors := make([]api.SMirrorConfig, 0)
+	for _, flow := range flows {
+		mc, err := flow.getMirrorConfig(false)
+		if err != nil {
+			log.Errorf("getMirrorConfig fail: %s", err)
+		} else {
+			mirrors = append(mirrors, mc)
+		}
+	}
+	conf.Mirrors = groupMirrorConfig(mirrors)
+
+	conf.TapHostIp = srv.getTapHostIp()
+	conf.MacAddr = srv.MacAddr
+	conf.Ifname = srv.Ifname
+	return conf, nil
+}
+
+type sMirrorConfigs []api.SMirrorConfig
+
+func (a sMirrorConfigs) Len() int { return len(a) }
+
+func (a sMirrorConfigs) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+
+func (a sMirrorConfigs) Less(i, j int) bool {
+	if a[i].TapHostIp != a[j].TapHostIp {
+		return a[i].TapHostIp < a[j].TapHostIp
+	}
+	if a[i].HostIp != a[j].HostIp {
+		return a[i].HostIp < a[j].HostIp
+	}
+	if a[i].Bridge != a[j].Bridge {
+		return a[i].Bridge < a[j].Bridge
+	}
+	if a[i].Direction != a[j].Direction {
+		return a[i].Direction < a[j].Direction
+	}
+	if a[i].VlanId != a[j].VlanId {
+		return a[i].VlanId < a[j].VlanId
+	}
+	if a[i].Port != a[j].Port {
+		return a[i].Port < a[j].Port
+	}
+	return a[i].FlowId < a[j].FlowId
+}
+
+func groupMirrorConfig(mirrors []api.SMirrorConfig) []api.SHostBridgeMirrorConfig {
+	sort.Sort(sMirrorConfigs(mirrors))
+	ret := make([]api.SHostBridgeMirrorConfig, 0)
+	var mc *api.SHostBridgeMirrorConfig
+	for _, m := range mirrors {
+		if mc != nil && (mc.TapHostIp != m.TapHostIp || mc.HostIp != m.HostIp || mc.Bridge != m.Bridge || mc.Direction != m.Direction) {
+			ret = append(ret, *mc)
+			mc = nil
+		}
+		if mc == nil {
+			mc = &api.SHostBridgeMirrorConfig{
+				TapHostIp: m.TapHostIp,
+				HostIp:    m.HostIp,
+				Bridge:    m.Bridge,
+				Direction: m.Direction,
+				FlowId:    m.FlowId,
+			}
+		}
+		if m.VlanId > 0 {
+			mc.VlanId = append(mc.VlanId, m.VlanId)
+		}
+		if len(m.Port) > 0 {
+			mc.Port = append(mc.Port, m.Port)
+		}
+	}
+	if mc != nil {
+		ret = append(ret, *mc)
+	}
+	return ret
+}
+
+func (manager *SNetTapServiceManager) getEnabledTapServiceByGuestId(guestId string) *SNetTapService {
+	srvs, err := manager.getTapServicesByGuestId(guestId, true)
+	if err != nil {
+		log.Errorf("getTapServicesByGuestId fail %s", err)
+		return nil
+	}
+	if len(srvs) == 0 {
+		return nil
+	}
+	return &srvs[0]
+}
+
+func (manager *SNetTapServiceManager) getTapServicesByGuestId(guestId string, enabled bool) ([]SNetTapService, error) {
+	return manager.getTapServices(api.TapServiceGuest, guestId, enabled)
+}
+
+func (manager *SNetTapServiceManager) getTapServicesByHostId(hostId string, enabled bool) ([]SNetTapService, error) {
+	return manager.getTapServices(api.TapServiceHost, hostId, enabled)
+}
+
+func (manager *SNetTapServiceManager) getTapServices(typeStr string, guestId string, enabled bool) ([]SNetTapService, error) {
+	q := manager.Query().Equals("type", typeStr).Equals("target_id", guestId)
+	if enabled {
+		q = q.IsTrue("enabled")
+	}
+	srvs := make([]SNetTapService, 0)
+	err := db.FetchModelObjects(manager, q, &srvs)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return srvs, nil
+}
+
+func (srv *SNetTapService) PerformEnable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformEnableInput,
+) (jsonutils.JSONObject, error) {
+	ret, err := srv.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.PerformEnable")
+	}
+	if srv.Type == api.TapServiceGuest {
+		// need to sync config
+		guest := GuestManager.FetchGuestById(srv.TargetId)
+		guest.StartSyncTask(ctx, userCred, false, "")
+	}
+	return ret, nil
+}
+
+func (srv *SNetTapService) PerformDisable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformDisableInput,
+) (jsonutils.JSONObject, error) {
+	ret, err := srv.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.PerformEnable")
+	}
+	if srv.Type == api.TapServiceGuest {
+		// need to sync config
+		guest := GuestManager.FetchGuestById(srv.TargetId)
+		guest.StartSyncTask(ctx, userCred, false, "")
+	}
+	return ret, nil
+}
+
+func (srv *SNetTapService) cleanup(ctx context.Context, userCred mcclient.TokenCredential) error {
+	flows, err := srv.getFlows()
+	if err != nil {
+		return errors.Wrap(err, "getFlows")
+	}
+	for _, flow := range flows {
+		err := flow.Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "flow.Delete")
+		}
+	}
+	err = srv.Delete(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "srv.Delete")
+	}
+	return nil
 }

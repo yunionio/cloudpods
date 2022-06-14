@@ -443,7 +443,7 @@ func (n *SGuestNetworkSyncTask) syncNetworkConf() {
 func (n *SGuestNetworkSyncTask) removeNic(nic jsonutils.JSONObject) {
 	ifname, _ := nic.GetString("ifname")
 	callback := func(res string) {
-		if len(res) > 0 {
+		if len(res) > 0 && !strings.Contains(res, "not found") {
 			log.Errorf("netdev del failed %s", res)
 			n.errors = append(n.errors, fmt.Errorf("netdev del failed %s", res))
 			n.syncNetworkConf()
