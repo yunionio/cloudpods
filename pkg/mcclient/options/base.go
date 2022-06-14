@@ -174,15 +174,17 @@ func ListStructToParams(v interface{}) (*jsonutils.JSONDict, error) {
 		return nil, err
 	}
 	{
-		f := rv.FieldByName("BaseListOptions")
-		if f.IsValid() {
-			listOpts, ok := f.Addr().Interface().(*BaseListOptions)
-			if ok {
-				listParams, err := listOpts.Params()
-				if err != nil {
-					return nil, err
+		for _, oName := range []string{"BaseListOptions", "MultiArchListOptions"} {
+			f := rv.FieldByName(oName)
+			if f.IsValid() {
+				listOpts, ok := f.Addr().Interface().(IParamsOptions)
+				if ok {
+					listParams, err := listOpts.Params()
+					if err != nil {
+						return nil, err
+					}
+					params.Update(listParams)
 				}
-				params.Update(listParams)
 			}
 		}
 	}
@@ -419,6 +421,14 @@ type ScopedResourceListOptions struct {
 }
 
 func (o *ScopedResourceListOptions) Params() (*jsonutils.JSONDict, error) {
+	return optionsStructToParams(o)
+}
+
+type MultiArchListOptions struct {
+	OsArch string `help:"Filter resource by arch" choices:"i386|x86|x86_32|x86_64|arm|aarch32|aarch64"`
+}
+
+func (o *MultiArchListOptions) Params() (*jsonutils.JSONDict, error) {
 	return optionsStructToParams(o)
 }
 
