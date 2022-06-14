@@ -781,6 +781,18 @@ func (self *SHost) StartDeleteBaremetalTask(ctx context.Context, userCred mcclie
 func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	DeleteResourceJointSchedtags(self, ctx, userCred)
 
+	// delete tap devices
+	if srvs, err := NetTapServiceManager.getTapServicesByHostId(self.Id, false); err != nil {
+		return errors.Wrap(err, "NetTapServiceManager.getTapServicesByHostId")
+	} else {
+		for _, srv := range srvs {
+			err := srv.cleanup(ctx, userCred)
+			if err != nil {
+				return errors.Wrap(err, "srv.Delete")
+			}
+		}
+	}
+
 	IsolatedDeviceManager.DeleteDevicesByHost(ctx, userCred, self)
 
 	for _, hoststorage := range self.GetHoststorages() {

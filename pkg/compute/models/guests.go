@@ -4046,6 +4046,18 @@ func (self *SGuest) Delete(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func (self *SGuest) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// delete tap devices
+	if srvs, err := NetTapServiceManager.getTapServicesByGuestId(self.Id, false); err != nil {
+		return errors.Wrap(err, "NetTapServiceManager.getTapServicesByGuestId")
+	} else {
+		for _, srv := range srvs {
+			err := srv.cleanup(ctx, userCred)
+			if err != nil {
+				return errors.Wrap(err, "srv.Delete")
+			}
+		}
+	}
+
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
@@ -4291,6 +4303,18 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		desc.Nics = append(desc.Nics, nicDesc)
 		if len(nicDesc.Domain) > 0 {
 			desc.Domain = nicDesc.Domain
+		}
+	}
+
+	{
+		var prevNicDesc *api.GuestnetworkJsonDesc
+		if len(desc.Nics) > 0 {
+			prevNicDesc = desc.Nics[len(desc.Nics)-1]
+		}
+		// append tap nic
+		tapNicDesc := self.getTapNicJsonDesc(ctx, prevNicDesc)
+		if tapNicDesc != nil {
+			desc.Nics = append(desc.Nics, tapNicDesc)
 		}
 	}
 

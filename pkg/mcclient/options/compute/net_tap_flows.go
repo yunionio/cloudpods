@@ -33,6 +33,8 @@ type NetTapFlowListOptions struct {
 	options.BaseListOptions
 
 	TapId string `help:"filter by tap id" json:"tap_id"`
+
+	HostId string `help:"filter by host id" json:"host_id"`
 }
 
 func (o *NetTapFlowListOptions) Params() (jsonutils.JSONObject, error) {

@@ -1473,6 +1473,10 @@ func getNicBridge(nic jsonutils.JSONObject) string {
 		if vpcProvider == api.VPC_PROVIDER_OVN {
 			bridge = options.HostOptions.OvnIntegrationBridge
 		}
+	} else if bridge == api.HostTapBridge {
+		bridge = options.HostOptions.TapBridgeName
+	} else if bridge == api.HostVpcBridge {
+		bridge = options.HostOptions.OvnIntegrationBridge
 	}
 	return bridge
 }
