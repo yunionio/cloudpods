@@ -93,7 +93,62 @@ func (man *SNetTapFlowManager) ListItemFilter(
 		}
 		q = q.Equals("tap_id", tapObj.GetId())
 	}
+	if len(query.HostId) > 0 {
+		hostObj, err := HostManager.FetchByIdOrName(userCred, query.HostId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), query.HostId)
+			} else {
+				return nil, errors.Wrap(err, "HostManager.FetchHostById")
+			}
+		}
+		q = man.filterByHostId(q, hostObj.GetId())
+	}
 	return q, nil
+}
+
+func (man *SNetTapFlowManager) filterByHostId(q *sqlchemy.SQuery, hostId string) *sqlchemy.SQuery {
+	guestIdQ := GuestManager.Query("id").Equals("host_id", hostId).SubQuery()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("type"), api.TapFlowVSwitch),
+			sqlchemy.Equals(q.Field("source_id"), hostId),
+		),
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("type"), api.TapFlowGuestNic),
+			sqlchemy.In(q.Field("source_id"), guestIdQ),
+		),
+	))
+	return q
+}
+
+func (man *SNetTapFlowManager) getEnabledTapFlowsOfTap(tapId string) ([]SNetTapFlow, error) {
+	return man.getEnabledTapFlows("", tapId)
+}
+
+func (man *SNetTapFlowManager) getEnabledTapFlowsOnHost(hostId string) ([]SNetTapFlow, error) {
+	return man.getEnabledTapFlows(hostId, "")
+}
+
+func (man *SNetTapFlowManager) getEnabledTapFlows(hostId string, tapId string) ([]SNetTapFlow, error) {
+	q := man.Query().IsTrue("enabled")
+	if len(hostId) > 0 {
+		q = man.filterByHostId(q, hostId)
+	}
+	if len(tapId) > 0 {
+		q = q.Equals("tap_id", tapId)
+	}
+
+	// filter by enabled tap
+	tapQ := NetTapServiceManager.Query().IsTrue("enabled").SubQuery()
+	q = q.Join(tapQ, sqlchemy.Equals(q.Field("tap_id"), tapQ.Field("id")))
+
+	flows := make([]SNetTapFlow, 0)
+	err := db.FetchModelObjects(man, q, &flows)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return flows, nil
 }
 
 func (man *SNetTapFlowManager) OrderByExtraFields(
@@ -334,4 +389,59 @@ func (manager *SNetTapFlowManager) getFreeFlowId() (uint16, error) {
 		}
 	}
 	return 0, errors.Wrap(httperrors.ErrOutOfResource, "run out of flow id!!!")
+}
+
+func (flow *SNetTapFlow) getTap() *SNetTapService {
+	srvObj, _ := NetTapServiceManager.FetchById(flow.TapId)
+	return srvObj.(*SNetTapService)
+}
+
+func (flow *SNetTapFlow) getTapHostIp() string {
+	return flow.getTap().getTapHostIp()
+}
+
+func (flow *SNetTapFlow) getMirrorConfig(needTapHostIp bool) (api.SMirrorConfig, error) {
+	ret := api.SMirrorConfig{}
+
+	if needTapHostIp {
+		ret.TapHostIp = flow.getTapHostIp()
+	}
+
+	var hostId, wireId string
+	switch flow.Type {
+	case api.TapFlowVSwitch:
+		hostId = flow.SourceId
+		wireId = flow.NetId
+	case api.TapFlowGuestNic:
+		guest := GuestManager.FetchGuestById(flow.SourceId)
+		gn, err := guest.GetGuestnetworkByMac(flow.MacAddr)
+		if err != nil {
+			return ret, errors.Wrap(err, "GetGuestnetworkByMac")
+		}
+		ret.Port = gn.Ifname
+		hostId = guest.HostId
+		net := gn.GetNetwork()
+		if net.IsClassic() {
+			wireId = net.WireId
+		} else {
+			ret.Bridge = api.HostVpcBridge
+		}
+	}
+	host := HostManager.FetchHostById(hostId)
+	if len(wireId) > 0 {
+		// classic network
+		hws := host.getHostwiresOfId(wireId)
+		if len(hws) == 0 {
+			return ret, errors.Error("invalid flow? no valid hostwire")
+		}
+		if len(hws) > 1 {
+			return ret, errors.Error("invalid flow? host and wire have multiple hostwires")
+		}
+		ret.Bridge = hws[0].Bridge
+	}
+	ret.HostIp = host.AccessIp
+	ret.FlowId = flow.FlowId
+	ret.VlanId = flow.VlanId
+	ret.Direction = flow.Direction
+	return ret, nil
 }

@@ -23,6 +23,8 @@ const (
 
 type NetTapServiceListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
+
+	HostId string `json:"host_id" help:"filter by host id or name"`
 }
 
 type NetTapServiceDetails struct {

@@ -142,6 +142,9 @@ type SHostOptions struct {
 	SdnEnableEipMan   bool   `help:"enable eip network manager in sdnagent" default:"$SDN_ENABLE_EIP_MAN|false"`
 	SdnEnableTcMan    bool   `help:"enable TC manager in sdnagent" default:"$SDN_ENABLE_TC_MAN|true"`
 
+	SdnEnableTapMan bool   `help:"enable tap service"`
+	TapBridgeName   string `help:"bridge name for tap service" default:"brtap"`
+
 	SdnAllowConntrackInvalid bool `help:"allow packets marked by conntrack as INVALID to pass" default:"$SDN_ALLOW_CONNTRACK_INVALID|false"`
 
 	OvnSouthDatabase          string `help:"address for accessing ovn south database" default:"$HOST_OVN_SOUTH_DATABASE|unix:/var/run/openvswitch/ovnsb_db.sock"`
