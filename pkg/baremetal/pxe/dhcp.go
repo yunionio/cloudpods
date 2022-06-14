@@ -83,7 +83,7 @@ func (h *DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interfac
 	log.Infof("[DHCP] from relay %s packet, mac: %s", req.RelayAddr, req.ClientMac)
 	conf, targets, err := req.fetchConfig(h.baremetalManager.GetClientSession())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrapf(err, "fetchConfig for %s", req.ClientMac.String())
 	}
 	if conf == nil {
 		return nil, nil, fmt.Errorf("Empty packet config")
@@ -207,18 +207,18 @@ func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.Resp
 		log.Infof("DHCP relay from %s(%s) for %s, find matched networks: %#v", req.RelayAddr, req.ClientAddr, req.ClientMac, netConf)
 		bmDesc, err := req.createOrUpdateBaremetal(session)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errors.Wrapf(err, "createOrUpdateBaremetal for %s", req.ClientMac.String())
 		}
 		err = req.doInitBaremetalAdminNetif(bmDesc)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errors.Wrapf(err, "doInitBaremetalAdminNetif for %s", req.ClientMac.String())
 		}
 		// always response PXE request
 		// let bootloader decide boot local or remote
 		// if req.baremetalInstance.NeedPXEBoot() {
 		conf, err := req.baremetalInstance.GetPXEDHCPConfig(req.ClientArch)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "req.baremetalInstance.GetPXEDHCPConfig")
+			return nil, nil, errors.Wrapf(err, "req.baremetalInstance.GetPXEDHCPConfig for %s", req.ClientMac.String())
 		}
 		return conf, dhcpAddrList, nil
 
@@ -244,18 +244,18 @@ func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.Resp
 			err = req.baremetalInstance.InitAdminNetif(
 				req.ClientMac, req.netConfig.WireId, api.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI, false, "")
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, errors.Wrapf(err, "InitAdminNetif for %s", req.ClientMac.String())
 			}
 		} else {
 			err = req.baremetalInstance.RegisterNetif(req.ClientMac, req.netConfig.WireId)
 			if err != nil {
-				log.Errorf("RegisterNetif error: %v", err)
-				return nil, nil, err
+				log.Errorf("RegisterNetif %s error: %v", req.ClientMac.String(), err)
+				return nil, nil, errors.Wrapf(err, "RegisterNetif for %s", req.ClientMac.String())
 			}
 		}
 		conf, err := req.baremetalInstance.GetDHCPConfig(req.ClientMac)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "req.baremetalInstance.GetDHCPConfig")
+			return nil, nil, errors.Wrapf(err, "req.baremetalInstance.GetDHCPConfig for %s", req.ClientMac.String())
 		}
 		return conf, dhcpAddrList, nil
 	}
