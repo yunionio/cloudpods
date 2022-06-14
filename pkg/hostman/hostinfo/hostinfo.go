@@ -117,8 +117,15 @@ func (h *SHostInfo) GetBridgeDev(bridge string) hostbridge.IBridgeDriver {
 			return n.BridgeDev
 		}
 	}
-	if bridge == options.HostOptions.OvnIntegrationBridge {
+	if bridge == options.HostOptions.OvnIntegrationBridge || bridge == api.HostVpcBridge {
 		drv, err := hostbridge.NewOVSBridgeDriverByName(bridge)
+		if err != nil {
+			log.Errorf("create ovn bridge driver: %v", err)
+			return nil
+		}
+		return drv
+	} else if bridge == api.HostTapBridge {
+		drv, err := hostbridge.NewOVSBridgeDriverByName(options.HostOptions.TapBridgeName)
 		if err != nil {
 			log.Errorf("create ovn bridge driver: %v", err)
 			return nil
