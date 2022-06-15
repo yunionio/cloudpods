@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"sort"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -37,7 +38,8 @@ func (h *SHost) GetDetailsTapConfig(ctx context.Context, userCred mcclient.Token
 		}
 		mirrors = append(mirrors, mirror)
 	}
-	conf.Mirrors = groupMirrorConfig(mirrors)
+	sort.Sort(sMirrorConfigs(mirrors))
+	conf.Mirrors = mirrors // groupMirrorConfig(mirrors)
 
 	return conf, nil
 }

@@ -128,7 +128,7 @@ func (o *SOVSBridgeDriver) GenerateIfupScripts(scriptPath string, nic jsonutils.
 
 func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isSlave bool) (string, error) {
 	var (
-		bridge, _      = nic.GetString("bridge")
+		bridge         = o.bridge.String()
 		ifname, _      = nic.GetString("ifname")
 		ip, _          = nic.GetString("ip")
 		mac, _         = nic.GetString("mac")
@@ -198,7 +198,7 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isSlave bool) 
 
 func (o *SOVSBridgeDriver) getDownScripts(nic jsonutils.JSONObject, isSlave bool) (string, error) {
 	var (
-		bridge, _ = nic.GetString("bridge")
+		bridge    = o.bridge.String()
 		ifname, _ = nic.GetString("ifname")
 		ip, _     = nic.GetString("ip")
 		mac, _    = nic.GetString("mac")
