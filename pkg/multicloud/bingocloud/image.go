@@ -91,6 +91,10 @@ func (self *SImage) GetSizeByte() int64 {
 	return self.ImageSize
 }
 
+func (self *SImage) GetSizeGB() int64 {
+	return self.GetSizeByte() / 1024 / 1024 / 1024
+}
+
 func (self *SImage) GetImageType() cloudprovider.TImageType {
 	if self.IsPublic {
 		return cloudprovider.ImageTypeSystem
@@ -99,7 +103,12 @@ func (self *SImage) GetImageType() cloudprovider.TImageType {
 }
 
 func (self *SImage) GetImageStatus() string {
-	return ""
+	switch self.ImageState {
+	case "available":
+		return cloudprovider.IMAGE_STATUS_ACTIVE
+	default:
+		return cloudprovider.IMAGE_STATUS_KILLED
+	}
 }
 
 func (self *SImage) GetOsType() cloudprovider.TOsType {
@@ -122,7 +131,7 @@ func (self *SImage) GetOsArch() string {
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
-	return 0
+	return int(self.ImageSize) / 1024 / 1024 / 1024
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
@@ -168,7 +177,7 @@ func (self *SImage) GetStatus() string {
 func (self *SRegion) GetImages(id, nextToken string) ([]SImage, string, error) {
 	params := map[string]string{}
 	if len(id) > 0 {
-		params["imageId"] = id
+		params["ImageId.1"] = id
 	}
 	if len(nextToken) > 0 {
 		params["nextToken"] = nextToken
@@ -215,11 +224,22 @@ func (self *SStoragecache) GetIImageById(id string) (cloudprovider.ICloudImage, 
 		return nil, err
 	}
 	for i := range images {
-		if images[i].GetGlobalId() == id && images[i].StorageId == self.storageId {
+		if images[i].GetGlobalId() == id {
 			images[i].cache = self
 			return &images[i], nil
 		}
 	}
 
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}
+
+func (self *SRegion) GetImage(imageId string) (*SImage, error) {
+	images, _, err := self.GetImages(imageId, "")
+	if err != nil {
+		return nil, err
+	}
+	if len(images) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return &images[0], nil
 }

@@ -1458,3 +1458,7 @@ func (self *SSecurityGroup) PerformImportRules(ctx context.Context, userCred mcc
 	}
 	return nil, nil
 }
+
+func (self *SSecurityGroup) GetName() string {
+	return self.Name
+}

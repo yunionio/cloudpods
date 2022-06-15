@@ -142,7 +142,8 @@ func (self *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return nil
+	//return cloudprovider.ErrNotImplemented
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
@@ -158,7 +159,7 @@ func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
-	return cloudprovider.ErrNotImplemented
+	return self.storage.cluster.region.resizeDisk(self.GetId(), newSizeMB)
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
@@ -252,4 +253,34 @@ func (self *SRegion) GetDisk(id string) (*SDisk, error) {
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}
+
+func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
+	disk, err := self.GetDisk(diskId)
+	if err != nil {
+		return err
+	}
+
+	if disk.GetDiskSizeMB() >= int(sizeMb) {
+		return nil
+	}
+	params := make(map[string]string)
+	params["volumeId"] = diskId
+	params["size"] = fmt.Sprintf("%d", sizeMb/1024)
+	resp, err := self.invoke("ResizeVolume", params)
+	if err != nil {
+		return err
+	}
+	ret := struct {
+		Size     string
+		VolumeId string
+	}{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return err
+	}
+	if ret.VolumeId != diskId {
+		return errors.Wrapf(cloudprovider.ErrNotFound, diskId)
+	}
+	return nil
 }

@@ -532,10 +532,10 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		return nil, err
 	}
 	log.Debugf("VMcreated %s, and status is running", iVM.GetGlobalId())
-
-	iVM, err = ihost.GetIVMById(iVM.GetGlobalId())
+	vmId := iVM.GetGlobalId()
+	iVM, err = ihost.GetIVMById(vmId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetIVMById(%s)", iVM.GetGlobalId())
+		return nil, errors.Wrapf(err, "GetIVMById(%s)", vmId)
 	}
 
 	if guest.GetDriver().GetMaxSecurityGroupCount() > 0 {

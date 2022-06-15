@@ -71,7 +71,7 @@ func (self *SSecurityGroup) GetName() string {
 }
 
 func (self *SSecurityGroup) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.region.DeleteSecurityGroup(self.GroupId)
 }
 
 func (self *SSecurityGroup) GetDescription() string {
@@ -135,7 +135,7 @@ func (self *SSecurityGroup) GetStatus() string {
 }
 
 func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	return cloudprovider.ErrNotImplemented
+	return nil
 }
 
 func (self *SRegion) GetSecurityGroups(id, name, nextToken string) ([]SSecurityGroup, string, error) {
@@ -187,4 +187,32 @@ func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFi
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return region.CreateSecurityGroup(conf.Name, conf.Desc)
+}
+
+func (region *SRegion) CreateSecurityGroup(name, desc string) (*SSecurityGroup, error) {
+	secgroup := &SSecurityGroup{region: region}
+	params := make(map[string]string)
+	params["groupName"] = name
+	params["groupDescription"] = desc
+	resp, err := region.invoke("CreateSecurityGroup", params)
+	if err != nil {
+		return nil, err
+	}
+	resp.Unmarshal(&secgroup)
+	return secgroup, nil
+
+}
+
+func (region *SRegion) DeleteSecurityGroup(secGrpId string) error {
+	params := make(map[string]string)
+	params["groupId"] = secGrpId
+	_, err := region.invoke("DeleteSecurityGroup", params)
+	if err != nil {
+		return err
+	}
+	return nil
 }

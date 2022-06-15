@@ -150,7 +150,7 @@ func setItemToArray(obj jsonutils.JSONObject) jsonutils.JSONObject {
 					item, _ := vDict.Get("item")
 					_, ok := item.(*jsonutils.JSONArray)
 					if !ok {
-						if k != "instancesSet" {
+						if k != "instancesSet" && k != "snapshotSet" {
 							item = setItemToArray(item)
 							objDict.Set(k, jsonutils.NewArray(item))
 						} else {
@@ -313,8 +313,8 @@ func (self *SBingoCloudClient) GetIRegionById(id string) (cloudprovider.ICloudRe
 
 func (self *SBingoCloudClient) GetCapabilities() []string {
 	return []string{
-		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
-		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
-		cloudprovider.CLOUD_CAPABILITY_EIP + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_EIP,
 	}
 }
