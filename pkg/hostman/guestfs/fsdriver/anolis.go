@@ -65,9 +65,10 @@ func (d *SAnolisRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*t
 }
 
 func (c *SAnolisRootFs) EnableSerialConsole(rootFs IDiskPartition, sysInfo *jsonutils.JSONDict) error {
-	return c.enableSerialConsole(c, rootFs, sysInfo)
+	return c.enableSerialConsoleSystemd(rootFs)
 }
 
 func (c *SAnolisRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
-	return c.disableSerialConcole(c, rootFs)
+	c.disableSerialConsoleSystemd(rootFs)
+	return nil
 }
