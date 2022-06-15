@@ -77,5 +77,6 @@ func (c *SGalaxyKylinRootFs) EnableSerialConsole(rootFs IDiskPartition, sysInfo 
 }
 
 func (c *SGalaxyKylinRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
-	return c.disableSerialConcole(c, rootFs)
+	c.disableSerialConsoleSystemd(rootFs)
+	return nil
 }
