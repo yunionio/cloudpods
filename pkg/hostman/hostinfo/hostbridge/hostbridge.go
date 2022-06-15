@@ -59,6 +59,8 @@ type IBridgeDriver interface {
 
 	getUpScripts(nic jsonutils.JSONObject, isSlave bool) (string, error)
 	getDownScripts(nic jsonutils.JSONObject, isSlave bool) (string, error)
+
+	Bridge() string
 }
 
 type SBaseBridgeDriver struct {
@@ -95,6 +97,10 @@ func (d *SBaseBridgeDriver) GetMac() string {
 		d.bridge.FetchConfig()
 	}
 	return d.bridge.Mac
+}
+
+func (d *SBaseBridgeDriver) Bridge() string {
+	return d.bridge.String()
 }
 
 func (d *SBaseBridgeDriver) PersistentConfig() error {

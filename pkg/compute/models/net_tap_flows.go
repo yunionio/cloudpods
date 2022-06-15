@@ -191,6 +191,7 @@ func (manager *SNetTapFlowManager) FetchCustomizeColumns(
 		}
 		flow := objs[i].(*SNetTapFlow)
 		tapIds[i] = flow.TapId
+		rows[i] = flow.getMoreDetails(ctx, rows[i])
 	}
 	tapIdMap, err := db.FetchIdNameMap2(NetTapServiceManager, tapIds)
 	if err != nil {
@@ -201,7 +202,6 @@ func (manager *SNetTapFlowManager) FetchCustomizeColumns(
 		if name, ok := tapIdMap[tapIds[i]]; ok {
 			rows[i].Tap = name
 		}
-		rows[i] = objs[i].(*SNetTapFlow).getMoreDetails(ctx, rows[i])
 	}
 	return rows
 }
@@ -337,6 +337,10 @@ func (manager *SNetTapFlowManager) ValidateCreateData(
 	}
 	if !utils.IsInStringArray(input.Direction, api.TapFlowDirections) {
 		return input, errors.Wrapf(httperrors.ErrNotSupported, "unsupported direction %s", input.Direction)
+	}
+	if input.Enabled == nil {
+		trueVal := true
+		input.Enabled = &trueVal
 	}
 	return input, nil
 }
