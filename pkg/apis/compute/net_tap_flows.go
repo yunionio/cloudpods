@@ -68,7 +68,7 @@ type NetTapFlowCreateInput struct {
 
 	WireId string `json:"wire_id" help:"id or name of wire to tap with"`
 
-	VlanId int `json:"vlan_id" help:"vlan id of vswitch to tap with"`
+	VlanId *int `json:"vlan_id" help:"vlan id of vswitch to tap with"`
 
 	GuestId string `json:"guest_id" help:"id or name of vm to tap with"`
 

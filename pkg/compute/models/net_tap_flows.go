@@ -201,6 +201,7 @@ func (manager *SNetTapFlowManager) FetchCustomizeColumns(
 		if name, ok := tapIdMap[tapIds[i]]; ok {
 			rows[i].Tap = name
 		}
+		rows[i] = objs[i].(*SNetTapFlow).getMoreDetails(ctx, rows[i])
 	}
 	return rows
 }
@@ -286,8 +287,8 @@ func (manager *SNetTapFlowManager) ValidateCreateData(
 		input.SourceId = host.Id
 		input.MacAddr = ""
 		input.NetId = wire.Id
-		if input.VlanId <= 0 || input.VlanId > 4095 {
-			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid vlan id %d", input.VlanId)
+		if input.VlanId != nil && (*input.VlanId <= 0 || *input.VlanId > 4095) {
+			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid vlan id %d", *input.VlanId)
 		}
 	case api.TapFlowGuestNic:
 		guestObj, err := GuestManager.FetchByIdOrName(userCred, input.GuestId)
@@ -327,7 +328,7 @@ func (manager *SNetTapFlowManager) ValidateCreateData(
 		input.SourceId = guest.Id
 		input.MacAddr = gn.MacAddr
 		input.NetId = gn.NetworkId
-		input.VlanId = 0
+		input.VlanId = nil
 	default:
 		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid flow type %s", input.Type)
 	}
