@@ -169,13 +169,15 @@ func (s *SKVMGuestInstance) GetDiskAddr(idx int) int {
 func (s *SKVMGuestInstance) getNicUpScriptPath(nic jsonutils.JSONObject) string {
 	ifname, _ := nic.GetString("ifname")
 	bridge, _ := nic.GetString("bridge")
-	return path.Join(s.HomeDir(), fmt.Sprintf("if-up-%s-%s.sh", bridge, ifname))
+	dev := guestManager.GetHost().GetBridgeDev(bridge)
+	return path.Join(s.HomeDir(), fmt.Sprintf("if-up-%s-%s.sh", dev.Bridge(), ifname))
 }
 
 func (s *SKVMGuestInstance) getNicDownScriptPath(nic jsonutils.JSONObject) string {
 	ifname, _ := nic.GetString("ifname")
 	bridge, _ := nic.GetString("bridge")
-	return path.Join(s.HomeDir(), fmt.Sprintf("if-down-%s-%s.sh", bridge, ifname))
+	dev := guestManager.GetHost().GetBridgeDev(bridge)
+	return path.Join(s.HomeDir(), fmt.Sprintf("if-down-%s-%s.sh", dev.Bridge(), ifname))
 }
 
 func (s *SKVMGuestInstance) generateNicScripts(nic jsonutils.JSONObject) error {

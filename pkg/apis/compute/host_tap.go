@@ -21,6 +21,7 @@ type SMirrorConfig struct {
 	Direction string `json:"direction"`
 }
 
+/*
 type SHostBridgeMirrorConfig struct {
 	TapHostIp string `json:"tap_host_ip"`
 
@@ -36,6 +37,7 @@ type SHostBridgeMirrorConfig struct {
 
 	Port []string `json:"port"`
 }
+*/
 
 type STapServiceConfig struct {
 	TapHostIp string `json:"tap_host_ip"`
@@ -44,11 +46,11 @@ type STapServiceConfig struct {
 
 	Ifname string `json:"ifname"`
 
-	Mirrors []SHostBridgeMirrorConfig
+	Mirrors []SMirrorConfig
 }
 
 type SHostTapConfig struct {
 	Taps []STapServiceConfig `json:"taps"`
 
-	Mirrors []SHostBridgeMirrorConfig `json:"mirrors"`
+	Mirrors []SMirrorConfig `json:"mirrors"`
 }
