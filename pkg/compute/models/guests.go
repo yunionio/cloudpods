@@ -167,6 +167,32 @@ type SGuest struct {
 	IsDaemon tristate.TriState `default:"false" list:"admin" create:"admin_optional" update:"admin"`
 }
 
+func (manager *SGuestManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
+	ret, err := manager.SVirtualResourceBaseManager.GetPropertyStatistics(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	q := manager.Query()
+	q, err = db.ListItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionList)
+	if err != nil {
+		return nil, err
+	}
+
+	sq := q.SubQuery()
+	statQ := sq.Query(sqlchemy.SUM("total_cpu_count", sq.Field("vcpu_count")), sqlchemy.SUM("total_mem_size_mb", sq.Field("vmem_size")))
+	err = statQ.First(ret)
+	if err != nil {
+		return ret, err
+	}
+	diskQ := DiskManager.Query()
+	gdsSQ := GuestdiskManager.Query().SubQuery()
+	diskQ = diskQ.Join(gdsSQ, sqlchemy.Equals(diskQ.Field("id"), gdsSQ.Field("disk_id"))).
+		Join(sq, sqlchemy.Equals(gdsSQ.Field("guest_id"), sq.Field("id")))
+	diskSQ := diskQ.SubQuery()
+	return ret, diskSQ.Query(sqlchemy.SUM("total_disk_size_mb", diskSQ.Field("disk_size"))).First(ret)
+}
+
 // 云主机实例列表
 func (manager *SGuestManager) ListItemFilter(
 	ctx context.Context,

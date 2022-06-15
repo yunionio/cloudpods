@@ -231,12 +231,23 @@ type OpsLogDetails struct {
 	OwnerProject string `json:"owner_tenant"`
 }
 
-type StatusStatistic struct {
+type StatusStatisticStatusInfo struct {
+	Status string
 	// 资源总数
 	TotalCount int64 `json:"total_count"`
 	// 回收站数量
 	// 需要指定pending_delete=all
 	PendingDeletedCount int64 `json:"pending_deleted_count"`
+}
+
+type StatusStatistic struct {
+	StatusInfo []StatusStatisticStatusInfo `json:"status_info,allowempty"`
+	// CPU总量
+	TotalCpuCount int
+	// 内存总量
+	TotalMemSizeMb int
+	// 存储总量
+	TotalDiskSizeMb int
 }
 
 type ProjectStatistic struct {
