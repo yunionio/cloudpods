@@ -2131,3 +2131,21 @@ func (manager *SKubeClusterManager) purgeAll(ctx context.Context, userCred mccli
 	}
 	return nil
 }
+
+func (manager *STablestoreManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	tablestores := make([]STablestore, 0)
+	err := fetchByManagerId(manager, providerId, &tablestores)
+	if err != nil {
+		return err
+	}
+	for i := range tablestores {
+		lockman.LockObject(ctx, &tablestores[i])
+		defer lockman.ReleaseObject(ctx, &tablestores[i])
+
+		err := tablestores[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "real delete %s", tablestores[i].Id)
+		}
+	}
+	return nil
+}
