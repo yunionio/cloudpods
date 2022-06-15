@@ -87,7 +87,7 @@ func (manager *SVirtualResourceBaseManager) GetIVirtualModelManager() IVirtualMo
 	return q
 }*/
 
-func (manager *SVirtualResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (map[string]apis.StatusStatistic, error) {
+func (manager *SVirtualResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
 		im = manager
@@ -116,12 +116,15 @@ func (manager *SVirtualResourceBaseManager) GetPropertyStatistics(ctx context.Co
 		TotalCount          int64
 		PendingDeletedCount int64
 	}
-	result := map[string]apis.StatusStatistic{}
+	result := &apis.StatusStatistic{
+		StatusInfo: []apis.StatusStatisticStatusInfo{},
+	}
 	for _, s := range ret {
-		result[s.Status] = apis.StatusStatistic{
+		result.StatusInfo = append(result.StatusInfo, apis.StatusStatisticStatusInfo{
+			Status:              s.Status,
 			TotalCount:          s.TotalCount,
 			PendingDeletedCount: s.PendingDeletedCount,
-		}
+		})
 	}
 	return result, nil
 }
