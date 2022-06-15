@@ -62,7 +62,7 @@ func (self *SEnabledStatusInfrasResourceBase) PerformDisable(ctx context.Context
 	return nil, nil
 }
 
-func (manager *SEnabledStatusInfrasResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (map[string]apis.StatusStatistic, error) {
+func (manager *SEnabledStatusInfrasResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
 		im = manager
@@ -87,11 +87,14 @@ func (manager *SEnabledStatusInfrasResourceBaseManager) GetPropertyStatistics(ct
 	if err != nil {
 		return nil, errors.Wrapf(err, "q.All")
 	}
-	result := map[string]apis.StatusStatistic{}
+	result := &apis.StatusStatistic{
+		StatusInfo: []apis.StatusStatisticStatusInfo{},
+	}
 	for _, s := range ret {
-		result[s.Status] = apis.StatusStatistic{
+		result.StatusInfo = append(result.StatusInfo, apis.StatusStatisticStatusInfo{
+			Status:     s.Status,
 			TotalCount: s.TotalCount,
-		}
+		})
 	}
 	return result, nil
 }
