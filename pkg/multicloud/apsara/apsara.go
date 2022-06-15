@@ -58,6 +58,7 @@ const (
 	APSARA_API_VERION_RDS   = "2014-08-15"
 	APSARA_ASCM_API_VERSION = "2019-05-10"
 	APSARA_STS_API_VERSION  = "2015-04-01"
+	APSARA_OTS_API_VERSION  = "2016-06-20"
 
 	APSARA_PRODUCT_METRICS      = "Cms"
 	APSARA_PRODUCT_RDS          = "Rds"
@@ -69,6 +70,7 @@ const (
 	APSARA_PRODUCT_STS          = "Sts"
 	APSARA_PRODUCT_RAM          = "Ram"
 	APSARA_PRODUCT_ASCM         = "ascm"
+	APSARA_PRODUCT_OTS          = "ots"
 )
 
 type ApsaraClientConfig struct {
@@ -500,6 +502,7 @@ func (region *SApsaraClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_CACHE,
 		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_IPV6_GATEWAY + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_TABLESTORE + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

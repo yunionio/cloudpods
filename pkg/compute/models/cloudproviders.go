@@ -1428,6 +1428,7 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		ElasticSearchManager,
 		KafkaManager,
 		CDNDomainManager,
+		TablestoreManager,
 		NetworkInterfaceManager,
 		KubeClusterManager,
 		InterVpcNetworkManager,

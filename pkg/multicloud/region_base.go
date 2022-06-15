@@ -247,6 +247,10 @@ func (self *SRegion) GetICloudKubeClusterById(id string) (cloudprovider.ICloudKu
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudKubeClusterById")
 }
 
+func (self *SRegion) GetICloudTablestores() ([]cloudprovider.ICloudTablestore, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudTablestores")
+}
+
 type SRegionZoneBase struct {
 }
 

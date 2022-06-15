@@ -192,6 +192,8 @@ type ICloudRegion interface {
 
 	GetICloudKubeClusters() ([]ICloudKubeCluster, error)
 	GetICloudKubeClusterById(id string) (ICloudKubeCluster, error)
+
+	GetICloudTablestores() ([]ICloudTablestore, error)
 }
 
 type ICloudZone interface {
@@ -1554,4 +1556,8 @@ type ICloudKubeNode interface {
 
 type ICloudKubeNodePool interface {
 	ICloudResource
+}
+
+type ICloudTablestore interface {
+	IVirtualResource
 }
