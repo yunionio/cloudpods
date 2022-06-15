@@ -392,7 +392,8 @@ func (srv *SNetTapService) getConfig() (api.STapServiceConfig, error) {
 			mirrors = append(mirrors, mc)
 		}
 	}
-	conf.Mirrors = groupMirrorConfig(mirrors)
+	sort.Sort(sMirrorConfigs(mirrors))
+	conf.Mirrors = mirrors // groupMirrorConfig(mirrors)
 
 	conf.TapHostIp = srv.getTapHostIp()
 	conf.MacAddr = srv.MacAddr
@@ -428,6 +429,7 @@ func (a sMirrorConfigs) Less(i, j int) bool {
 	return a[i].FlowId < a[j].FlowId
 }
 
+/*
 func groupMirrorConfig(mirrors []api.SMirrorConfig) []api.SHostBridgeMirrorConfig {
 	sort.Sort(sMirrorConfigs(mirrors))
 	ret := make([]api.SHostBridgeMirrorConfig, 0)
@@ -458,6 +460,7 @@ func groupMirrorConfig(mirrors []api.SMirrorConfig) []api.SHostBridgeMirrorConfi
 	}
 	return ret
 }
+*/
 
 func (manager *SNetTapServiceManager) getEnabledTapServiceByGuestId(guestId string) *SNetTapService {
 	srvs, err := manager.getTapServicesByGuestId(guestId, true)
