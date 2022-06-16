@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/errors"
 )
 
 var ReceiverNotificationManager *SReceiverNotificationManager
@@ -68,6 +69,14 @@ type SReceiverNotification struct {
 
 func (self *SReceiverNotificationManager) InitializeData() error {
 	return dataCleaning(self.TableSpec().Name())
+}
+
+func (self *SReceiverNotification) GetReceiver() (*SReceiver, error) {
+	recv, err := ReceiverManager.FetchById(self.ReceiverID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "with id %s", self.ReceiverID)
+	}
+	return recv.(*SReceiver), nil
 }
 
 func (rnm *SReceiverNotificationManager) Create(ctx context.Context, userCred mcclient.TokenCredential, receiverID, notificationID string) (*SReceiverNotification, error) {
@@ -151,6 +160,7 @@ func (rn *SReceiverNotification) robot() (*SRobot, error) {
 	return &robot, nil
 }
 
+/*
 func (rn *SReceiverNotification) Receiver() (IReceiver, error) {
 	switch rn.ReceiverType {
 	case api.RECEIVER_TYPE_USER:
@@ -167,6 +177,7 @@ func (rn *SReceiverNotification) Receiver() (IReceiver, error) {
 		return &SContact{contact: rn.Contact}, nil
 	}
 }
+*/
 
 func (rn *SReceiverNotification) BeforeSend(ctx context.Context, sendTime time.Time) error {
 	if sendTime.IsZero() {

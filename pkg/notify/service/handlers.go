@@ -20,7 +20,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/notify/models"
-	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 )
 
 const (
@@ -33,13 +32,6 @@ func InitHandlers(app *appsrv.Application) {
 	db.RegistUserCredCacheUpdater()
 
 	db.AddScopeResourceCountHandler(API_VERSION, app)
-
-	// Data migration
-	db.RegisterModelManager(oldmodels.NotificationManager)
-	db.RegisterModelManager(oldmodels.ContactManager)
-	db.RegisterModelManager(oldmodels.ConfigManager)
-	db.RegisterModelManager(oldmodels.TemplateManager)
-	db.RegisterModelManager(oldmodels.UserCacheManager)
 
 	taskman.AddTaskHandler(API_VERSION, app)
 	for _, manager := range []db.IModelManager{

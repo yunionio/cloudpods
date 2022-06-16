@@ -16,27 +16,15 @@ package tasks
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	apis "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
-
-var PullContactType = []string{
-	apis.DINGTALK,
-	apis.FEISHU,
-	apis.WORKWX,
-}
 
 type SubcontactPullTask struct {
 	taskman.STask
@@ -46,62 +34,31 @@ func init() {
 	taskman.RegisterTask(SubcontactPullTask{})
 }
 
-func (self *SubcontactPullTask) taskFailed(ctx context.Context, receiver *models.SReceiver, reason string) {
-	log.Errorf("fail to pull subcontact of receiver %q: %s", receiver.Id, reason)
-	receiver.SetStatus(self.UserCred, apis.RECEIVER_STATUS_PULL_FAILED, reason)
-	logclient.AddActionLogWithContext(ctx, receiver, logclient.ACT_PULL_SUBCONTACT, reason, self.UserCred, false)
-	self.SetStageFailed(ctx, jsonutils.NewString(reason))
+func (self *SubcontactPullTask) taskFailed(ctx context.Context, receiver *models.SReceiver, err error) {
+	receiver.SetStatus(self.UserCred, apis.RECEIVER_STATUS_PULL_FAILED, err.Error())
+	logclient.AddActionLogWithContext(ctx, receiver, logclient.ACT_PULL_SUBCONTACT, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	failedReasons := make([]string, 0)
-	// pull contacts
 	receiver := obj.(*models.SReceiver)
-	if len(receiver.Mobile) == 0 {
-		self.SetStageComplete(ctx, nil)
-		return
-	}
-	var contactTypes []string
-	if self.Params.Contains("contact_types") {
-		jArray, _ := self.Params.Get("contact_types")
-		contactTypes = jArray.(*jsonutils.JSONArray).GetStringArray()
-	} else {
+	contactTypes := []string{}
+	self.Params.Unmarshal(&contactTypes, "contact_types")
+	if len(contactTypes) == 0 {
 		contactTypes, _ = receiver.GetEnabledContactTypes()
 	}
 	for _, cType := range contactTypes {
-		if !utils.IsInStringArray(cType, PullContactType) {
+		driver := models.GetDriver(cType)
+		if !driver.IsPullType() {
 			continue
 		}
-		userid, err := models.NotifyService.ContactByMobile(ctx, receiver.Mobile, cType, receiver.GetDomainId())
+		userId, err := driver.ContactByMobile(ctx, receiver.Mobile, receiver.DomainId)
 		if err != nil {
-			var reason string
-			if errors.Cause(err) == notify.ErrNoSuchMobile {
-				receiver.MarkContactTypeUnVerified(cType, notify.ErrNoSuchMobile.Error())
-				reason = fmt.Sprintf("%q: no such mobile %s", cType, receiver.Mobile)
-			} else if errors.Cause(err) == notify.ErrIncompleteConfig {
-				receiver.MarkContactTypeUnVerified(cType, notify.ErrIncompleteConfig.Error())
-				reason = fmt.Sprintf("%q: %v", cType, err)
-			} else {
-				receiver.MarkContactTypeUnVerified(cType, "service exceptions")
-				reason = fmt.Sprintf("%q: %v", cType, err)
-			}
-			failedReasons = append(failedReasons, reason)
+			receiver.MarkContactTypeUnVerified(ctx, cType, err.Error())
 			continue
 		}
-		receiver.SetContact(cType, userid)
-		receiver.MarkContactTypeVerified(cType)
-	}
-	// push cache
-	err := receiver.PushCache(ctx)
-	if err != nil {
-		reason := fmt.Sprintf("PushCache: %v", err)
-		self.taskFailed(ctx, receiver, reason)
-		return
-	}
-	if len(failedReasons) > 0 {
-		reason := strings.Join(failedReasons, "; ")
-		self.taskFailed(ctx, receiver, reason)
-		return
+		receiver.SetContact(cType, userId)
+		receiver.MarkContactTypeVerified(ctx, cType)
 	}
 	// success
 	receiver.SetStatus(self.UserCred, apis.RECEIVER_STATUS_READY, "")

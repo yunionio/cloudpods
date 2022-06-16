@@ -29,8 +29,9 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/options"
+	_ "yunion.io/x/onecloud/pkg/notify/plugins/email"
+	_ "yunion.io/x/onecloud/pkg/notify/plugins/feishu"
 	_ "yunion.io/x/onecloud/pkg/notify/policy"
-	"yunion.io/x/onecloud/pkg/notify/rpc"
 	_ "yunion.io/x/onecloud/pkg/notify/tasks"
 )
 
@@ -60,20 +61,14 @@ func StartService() {
 	db.EnsureAppSyncDB(applicaion, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	err := models.ReceiverManager.StartWatchUserInKeystone()
-	if err != nil {
-		log.Logger().Panic(err.Error())
+	if options.Options.EnableWatchUser {
+		err := models.ReceiverManager.StartWatchUserInKeystone()
+		if err != nil {
+			log.Logger().Panic(err.Error())
+		}
 	}
 
-	// init notify service
-	models.NotifyService = rpc.NewSRpcService(opts.SocketFileDir, models.ConfigManager, models.TemplateManager)
-	models.NotifyService.InitAll()
-	defer models.NotifyService.StopAll()
-
 	cron := cronman.InitCronJobManager(true, 2)
-	// update service
-	cron.AddJobAtIntervals("UpdateServices", time.Duration(opts.UpdateInterval)*time.Minute, models.NotifyService.UpdateServices)
-
 	// wrapped func to resend notifications
 	cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Second, models.NotificationManager.ReSend)
 	cron.Start()

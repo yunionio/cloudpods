@@ -54,9 +54,7 @@ type NotificationCreateInput struct {
 	// description: notification tag
 	// required: false
 	// example: alert
-	Tag                       string                 `json:"tag"`
-	Metadata                  map[string]interface{} `json:"metadata"`
-	IgnoreNonexistentReceiver bool                   `json:"ignore_nonexistent_receiver"`
+	IgnoreNonexistentReceiver bool `json:"ignore_nonexistent_receiver"`
 }
 
 type ReceiveDetail struct {
@@ -85,7 +83,6 @@ type NotificationListInput struct {
 
 	ContactType string
 	ReceiverId  string
-	Tag         string
 	TopicType   string
 }
 
@@ -117,7 +114,11 @@ type NotificationManagerEventNotifyInput struct {
 	// description: event trigger sending notification
 	// required: true
 	// example: SERVER_DELETE
-	Event string `json:"event"`
+	ResourceType string
+
+	Action SAction
+	// failed,succeed
+	Result SResult
 	// description: day left before the event
 	// required: false
 	// example: 0
@@ -133,7 +134,7 @@ type NotificationManagerEventNotifyInput struct {
 }
 
 type NotificationManagerEventNotifyOutput struct {
-	FailedList []FailedElem
+	//FailedList []FailedElem
 }
 
 type FailedElem struct {

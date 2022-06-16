@@ -53,7 +53,7 @@ type SNotifyV2Message struct {
 	Priority                  string                 `json:"priority"`
 	Message                   string                 `json:"message"`
 	Tag                       string                 `json:"tag"`
-	Metadata                  map[string]interface{} `json:"metadata"`
+	Meta                      map[string]interface{} `json:"__meta__"`
 	IgnoreNonexistentReceiver bool                   `json:"ignore_nonexistent_receiver"`
 }
 
@@ -91,7 +91,7 @@ func (manager *NotificationManager) Send(s *mcclient.ClientSession, msg SNotifyM
 		Priority:                  string(msg.Priority),
 		Message:                   msg.Msg,
 		Tag:                       msg.Tag,
-		Metadata:                  msg.Metadata,
+		Meta:                      msg.Metadata,
 		IgnoreNonexistentReceiver: msg.IgnoreNonexistentReceiver,
 	}
 	params := jsonutils.Marshal(&v2msg)

@@ -106,6 +106,22 @@ func (sm *SSubscriberManager) validateReceivers(ctx context.Context, receivers [
 	return reIds, nil
 }
 
+func (self *SSubscriber) GetEnabledReceivers() ([]SReceiver, error) {
+	q := ReceiverManager.Query().IsTrue("enabled")
+	sq := SubscriberReceiverManager.Query().SubQuery()
+	q = q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("receiver_id"))).Filter(sqlchemy.Equals(sq.Field("subscriber_id"), self.Id))
+	ret := []SReceiver{}
+	return ret, db.FetchModelObjects(ReceiverManager, q, &ret)
+}
+
+func (self *SSubscriber) GetRobot() (*SRobot, error) {
+	robot, err := RobotManager.FetchById(self.Identification)
+	if err != nil {
+		return nil, errors.Wrapf(err, "RobotManager.FetchById(%s)", self.Identification)
+	}
+	return robot.(*SRobot), nil
+}
+
 func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SubscriberCreateInput) (api.SubscriberCreateInput, error) {
 	var err error
 	// permission check
@@ -439,13 +455,7 @@ func (srm *SSubscriberManager) findSuitableOnes(tid, projectDomainId, projectId 
 		),
 		sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_SYSTEM),
 	))
-	switch len(types) {
-	case 0:
-	case 1:
-		q = q.Equals("type", types[0])
-	default:
-		q = q.In("type", types)
-	}
+	q = q.In("type", types)
 	srs := make([]SSubscriber, 0, 1)
 	err := db.FetchModelObjects(srm, q, &srs)
 	if err != nil {

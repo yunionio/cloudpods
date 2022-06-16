@@ -33,6 +33,8 @@ type NotifyOption struct {
 
 	VerifyExpireInterval int `help:"expire interval of verify message; minutes" default:"2"`
 	VerifyValidInterval  int `help:"valid interval of verify message; miniutes" default:"20"`
+
+	EnableWatchUser bool `help:"enable watch user" default:"true"`
 }
 
 var Options NotifyOption

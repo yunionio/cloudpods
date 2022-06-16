@@ -35,8 +35,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	schapi "yunion.io/x/onecloud/pkg/apis/scheduledtask"
 	"yunion.io/x/onecloud/pkg/i18n"
-	notifyv2 "yunion.io/x/onecloud/pkg/notify"
-	rpcapi "yunion.io/x/onecloud/pkg/notify/rpc/apis"
 )
 
 type SEventDisplay struct {
@@ -93,74 +91,77 @@ func (lt *SLocalTemplateManager) detailsDisplay(resourceType string, details *js
 	}
 }
 
-func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang string, no notifyv2.SNotification) (params rpcapi.SendParams, err error) {
-	out, event := rpcapi.SendParams{}, no.Event
-	rtStr, aStr, resultStr := event.ResourceType(), string(event.Action()), string(event.Result())
-	dict, err := jsonutils.ParseString(no.Message)
-	if err != nil {
-		return out, errors.Wrapf(err, "unable to parse json from %q", no.Message)
-	}
-	webhookMsg := jsonutils.NewDict()
-	webhookMsg.Set("resource_type", jsonutils.NewString(rtStr))
-	webhookMsg.Set("action", jsonutils.NewString(aStr))
-	webhookMsg.Set("result", jsonutils.NewString(resultStr))
-	webhookMsg.Set("resource_details", dict)
-	if no.ContactType == api.WEBHOOK {
-		return rpcapi.SendParams{
-			Title:   no.Event.StringWithDeli("_"),
-			Message: webhookMsg.String(),
-		}, nil
-	}
-
-	if lang == "" {
-		lang = getLangSuffix(ctx)
-	}
-
-	tag := languageTag(lang)
-	rtDis := notifyclientI18nTable.LookupByLang(tag, rtStr)
-	if len(rtDis) == 0 {
-		rtDis = rtStr
-	}
-	aDis := notifyclientI18nTable.LookupByLang(tag, aStr)
-	if len(aDis) == 0 {
-		aDis = aStr
-	}
-	resultDis := notifyclientI18nTable.LookupByLang(tag, resultStr)
-	if len(resultDis) == 0 {
-		resultDis = resultStr
-	}
-
-	lt.detailsDisplay(rtStr, dict.(*jsonutils.JSONDict), tag)
-
-	templateParams := webhookMsg
-	templateParams.Set("advance_days", jsonutils.NewInt(int64(no.AdvanceDays)))
-	templateParams.Set("resource_type_display", jsonutils.NewString(rtDis))
-	templateParams.Set("action_display", jsonutils.NewString(aDis))
-	templateParams.Set("result_display", jsonutils.NewString(resultDis))
-
-	// get title
-	title, err := lt.fillWithTemplate(ctx, "title", no.ContactType, lang, event, templateParams)
-	if err != nil {
-		if errors.Cause(err) == errors.ErrNotFound {
-			title = no.Topic
-		} else {
-			return out, err
+func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang string, no api.SsNotification) (params api.SendParams, err error) {
+	return
+	/*
+		out, event := rpcapi.SendParams{}, no.Event
+		rtStr, aStr, resultStr := event.ResourceType(), string(event.Action()), string(event.Result())
+		dict, err := jsonutils.ParseString(no.Message)
+		if err != nil {
+			return out, errors.Wrapf(err, "unable to parse json from %q", no.Message)
 		}
-	}
-
-	// get content
-	content, err := lt.fillWithTemplate(ctx, "content", no.ContactType, lang, event, templateParams)
-	if err != nil {
-		if errors.Cause(err) == errors.ErrNotFound {
-			content = no.Message
-		} else {
-			return out, err
+		webhookMsg := jsonutils.NewDict()
+		webhookMsg.Set("resource_type", jsonutils.NewString(rtStr))
+		webhookMsg.Set("action", jsonutils.NewString(aStr))
+		webhookMsg.Set("result", jsonutils.NewString(resultStr))
+		webhookMsg.Set("resource_details", dict)
+		if no.ContactType == api.WEBHOOK {
+			return rpcapi.SendParams{
+				Title:   no.Event.StringWithDeli("_"),
+				Message: webhookMsg.String(),
+			}, nil
 		}
-	}
 
-	out.Title = title
-	out.Message = content
-	return out, nil
+		if lang == "" {
+			lang = getLangSuffix(ctx)
+		}
+
+		tag := languageTag(lang)
+		rtDis := notifyclientI18nTable.LookupByLang(tag, rtStr)
+		if len(rtDis) == 0 {
+			rtDis = rtStr
+		}
+		aDis := notifyclientI18nTable.LookupByLang(tag, aStr)
+		if len(aDis) == 0 {
+			aDis = aStr
+		}
+		resultDis := notifyclientI18nTable.LookupByLang(tag, resultStr)
+		if len(resultDis) == 0 {
+			resultDis = resultStr
+		}
+
+		lt.detailsDisplay(rtStr, dict.(*jsonutils.JSONDict), tag)
+
+		templateParams := webhookMsg
+		templateParams.Set("advance_days", jsonutils.NewInt(int64(no.AdvanceDays)))
+		templateParams.Set("resource_type_display", jsonutils.NewString(rtDis))
+		templateParams.Set("action_display", jsonutils.NewString(aDis))
+		templateParams.Set("result_display", jsonutils.NewString(resultDis))
+
+		// get title
+		title, err := lt.fillWithTemplate(ctx, "title", no.ContactType, lang, event, templateParams)
+		if err != nil {
+			if errors.Cause(err) == errors.ErrNotFound {
+				title = no.Topic
+			} else {
+				return out, err
+			}
+		}
+
+		// get content
+		content, err := lt.fillWithTemplate(ctx, "content", no.ContactType, lang, event, templateParams)
+		if err != nil {
+			if errors.Cause(err) == errors.ErrNotFound {
+				content = no.Message
+			} else {
+				return out, err
+			}
+		}
+
+		out.Title = title
+		out.Message = content
+		return out, nil
+	*/
 }
 
 var action2Topic = make(map[string]string, 0)

@@ -60,20 +60,6 @@ func init() {
 	SubContactManager.SetVirtualObject(SubContactManager)
 }
 
-func (scm *SSubContactManager) fetchMapByReceiverID(receiverID string) (map[string]*SSubContact, error) {
-	q := scm.Query().Equals("receiver_id", receiverID)
-	scontacts := make([]SSubContact, 0, 3)
-	err := db.FetchModelObjects(scm, q, &scontacts)
-	if err != nil {
-		return nil, err
-	}
-	ret := make(map[string]*SSubContact, len(scontacts))
-	for i := range scontacts {
-		ret[scontacts[i].Type] = &scontacts[i]
-	}
-	return ret, nil
-}
-
 func (sc *SSubContact) Enable() error {
 	return sc.Update(nil, pTrue, nil)
 }

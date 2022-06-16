@@ -16,15 +16,11 @@ package tasks
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -40,94 +36,48 @@ func init() {
 	taskman.RegisterTask(RepullSuncontactTask{})
 }
 
-func (self *RepullSuncontactTask) taskFailed(ctx context.Context, config *models.SConfig, reason string) {
-	if !config.Deleted {
-		logclient.AddActionLogWithContext(ctx, config, logclient.ACT_PULL_SUBCONTACT, reason, self.UserCred, false)
+func (self *RepullSuncontactTask) taskFailed(ctx context.Context, config *models.SConfig, err error) {
+	logclient.AddActionLogWithContext(ctx, config, logclient.ACT_PULL_SUBCONTACT, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+}
+
+func (self *RepullSuncontactTask) taskComplete(ctx context.Context, config *models.SConfig) {
+	if jsonutils.QueryBoolean(self.GetParams(), "deleted", false) {
+		config.RealDelete(ctx, self.GetUserCred())
 	}
-	self.SetStageFailed(ctx, jsonutils.NewString(reason))
-}
-
-type repullFailedReason struct {
-	ReceiverId string
-	Reason     string
-}
-
-func (s repullFailedReason) String() string {
-	return fmt.Sprintf("receiver %q: %s", s.ReceiverId, s.Reason)
+	self.SetStageComplete(ctx, nil)
 }
 
 func (self *RepullSuncontactTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	config := obj.(*models.SConfig)
-	if !utils.IsInStringArray(config.Type, PullContactType) {
-		if del, _ := self.GetParams().Bool("deleted"); del {
-			config.RealDelete(ctx, self.GetUserCred())
-		}
-		self.SetStageComplete(ctx, nil)
+	driver := models.GetDriver(config.Type)
+	if !driver.IsPullType() {
+		self.taskComplete(ctx, config)
 		return
 	}
-	subq := models.SubContactManager.Query("receiver_id").Equals("type", config.Type).SubQuery()
-	q := models.ReceiverManager.Query()
-	if config.Attribution == notify.CONFIG_ATTRIBUTION_DOMAIN {
-		q = q.Equals("domain_id", config.DomainId)
-	} else {
-		// The system-level config update should not affect the receiver under the domain with config
-		configq := models.ConfigManager.Query("domain_id").Equals("type", config.Type).Equals("attribution", notify.CONFIG_ATTRIBUTION_DOMAIN).SubQuery()
-		q = q.NotIn("domain_id", configq)
-	}
-	q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("receiver_id")))
-	rs := make([]models.SReceiver, 0)
-	err := db.FetchModelObjects(models.ReceiverManager, q, &rs)
+
+	receivers, err := config.GetReceivers()
 	if err != nil {
-		self.taskFailed(ctx, config, fmt.Sprintf("unable to FetchModelObjects: %v", err))
+		self.taskFailed(ctx, config, errors.Wrapf(err, "GetRece"))
 		return
 	}
 
-	if del, _ := self.GetParams().Bool("deleted"); del {
-		config.RealDelete(ctx, self.GetUserCred())
-	}
+	for i := range receivers {
+		receiver := &receivers[i]
+		lockman.LockObject(ctx, receiver)
+		defer lockman.ReleaseObject(ctx, receiver)
 
-	var reasons []string
-	for i := range rs {
-		r := &rs[i]
-		func() {
-			lockman.LockObject(ctx, r)
-			defer lockman.ReleaseObject(ctx, r)
-			// unverify
-			cts, err := r.GetVerifiedContactTypes()
-			if err != nil {
-				reasons = append(reasons, repullFailedReason{
-					ReceiverId: r.Id,
-					Reason:     fmt.Sprintf("unable to GetVerifiedContactTypes: %v", err),
-				}.String())
-				return
-			}
-			ctSets := sets.NewString(cts...)
-			if ctSets.Has(config.Type) {
-				ctSets.Delete(config.Type)
-				err = r.SetVerifiedContactTypes(ctSets.UnsortedList())
-				if err != nil {
-					reasons = append(reasons, repullFailedReason{
-						ReceiverId: r.Id,
-						Reason:     fmt.Sprintf("unable to SetVerifiedContactTypes: %v", err),
-					}.String())
-					return
-				}
-			}
-			// pull
-			params := jsonutils.NewDict()
-			params.Set("contact_types", jsonutils.NewArray(jsonutils.NewString(config.Type)))
-			err = r.StartSubcontactPullTask(ctx, self.UserCred, params, self.Id)
-			if err != nil {
-				reasons = append(reasons, repullFailedReason{
-					ReceiverId: r.Id,
-					Reason:     fmt.Sprintf("unable to StartSubcontactPullTask: %v", err),
-				}.String())
-			}
-		}()
+		cts, err := receiver.GetVerifiedContactTypes()
+		if err != nil {
+			self.taskFailed(ctx, config, errors.Wrapf(err, "GetVerifiedContactTypes"))
+			return
+		}
+		// unverify
+		if utils.IsInStringArray(config.Type, cts) {
+			receiver.MarkContactTypeUnVerified(ctx, config.Type, "config update")
+		}
+		// pull
+		receiver.StartSubcontactPullTask(ctx, self.UserCred, []string{config.Type}, self.Id)
 	}
-	if len(reasons) > 0 {
-		self.taskFailed(ctx, config, strings.Join(reasons, "; "))
-		return
-	}
-	self.SetStageComplete(ctx, nil)
+	self.taskComplete(ctx, config)
 }

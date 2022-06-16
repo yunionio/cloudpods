@@ -41,16 +41,17 @@ func init() {
 type SEvent struct {
 	db.SStandaloneAnonResourceBase
 
-	Message     string
-	Event       string `width:"64" nullable:"true"`
-	AdvanceDays int
-	TopicId     string `width:"128" nullable:"true" index:"true"`
+	Message      string
+	ResourceType string `width:"64" nullable:"true"`
+	Action       string `width:"64" nullable:"true"`
+	AdvanceDays  int
+	TopicId      string `width:"128" nullable:"true" index:"true"`
 }
 
 func (e *SEventManager) CreateEvent(ctx context.Context, event, topicId, message string, advanceDays int) (*SEvent, error) {
 	eve := &SEvent{
-		Message:     message,
-		Event:       event,
+		Message: message,
+		//Event:       event,
 		AdvanceDays: advanceDays,
 		TopicId:     topicId,
 	}

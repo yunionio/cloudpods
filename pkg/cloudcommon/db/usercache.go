@@ -64,7 +64,7 @@ func init() {
 
 func (manager *SUserCacheManager) updateUserCache(ctx context.Context, userCred mcclient.TokenCredential) {
 	manager.Save(ctx, userCred.GetUserId(), userCred.GetUserName(),
-		userCred.GetDomainId(), userCred.GetDomainName())
+		userCred.GetDomainId(), userCred.GetDomainName(), "")
 }
 
 func (manager *SUserCacheManager) FetchUserByIdOrName(ctx context.Context, idStr string) (*SUser, error) {
@@ -143,10 +143,11 @@ func (manager *SUserCacheManager) FetchUserFromKeystone(ctx context.Context, idS
 	name, _ := user.GetString("name")
 	domainId, _ := user.GetString("domain_id")
 	domainNmae, _ := user.GetString("project_domain")
-	return manager.Save(ctx, id, name, domainId, domainNmae)
+	lang, _ := user.GetString("lang")
+	return manager.Save(ctx, id, name, domainId, domainNmae, lang)
 }
 
-func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name string, domainId string, domain string) (*SUser, error) {
+func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name string, domainId string, domain, lang string) (*SUser, error) {
 	lockman.LockRawObject(ctx, manager.KeywordPlural(), idStr)
 	defer lockman.ReleaseRawObject(ctx, manager.KeywordPlural(), idStr)
 
@@ -163,6 +164,9 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 			obj.Domain = domain
 			obj.DomainId = domainId
 			obj.LastCheck = time.Now().UTC()
+			if len(lang) > 0 {
+				obj.Lang = lang
+			}
 			return nil
 		})
 		if err != nil {
@@ -178,6 +182,7 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 		obj.Domain = domain
 		obj.DomainId = domainId
 		obj.LastCheck = time.Now().UTC()
+		obj.Lang = lang
 		err = manager.TableSpec().InsertOrUpdate(ctx, obj)
 		if err != nil {
 			return nil, err

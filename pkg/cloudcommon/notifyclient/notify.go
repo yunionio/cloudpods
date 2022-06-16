@@ -249,9 +249,18 @@ func (t *eventTask) Run() {
 }
 
 func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEventNotifyParam) {
+	params := api.NotificationManagerEventNotifyInput{
+		ReceiverIds:  []string{userCred.GetUserId()},
+		ResourceType: ep.ResourceType,
+		Action:       ep.Action,
+		Result:       api.ResultSucceed,
+		AdvanceDays:  ep.AdvanceDays,
+		Priority:     string(npk.NotifyPriorityNormal),
+	}
+
 	var objDetails *jsonutils.JSONDict
 	if ep.Action == ActionDelete || ep.Action == ActionSyncDelete {
-		objDetails = jsonutils.Marshal(ep.Obj).(*jsonutils.JSONDict)
+		params.ResourceDetails = jsonutils.Marshal(ep.Obj).(*jsonutils.JSONDict)
 	} else {
 		ret, err := db.FetchCustomizeColumns(ep.Obj.GetModelManager(), ctx, userCred, jsonutils.NewDict(), []interface{}{ep.Obj}, nil, false)
 		if err != nil {
@@ -267,31 +276,13 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 	if ep.ObjDetailsDecorator != nil {
 		ep.ObjDetailsDecorator(ctx, objDetails)
 	}
-	rt := ep.ResourceType
-	if len(rt) == 0 {
-		rt = ep.Obj.GetModelManager().Keyword()
-	}
-	event := api.Event.WithAction(ep.Action).WithResourceType(rt)
 	if ep.IsFail {
-		event = event.WithResult(api.ResultFailed)
+		params.Result = api.ResultFailed
 	}
-	var (
-		projectId       string
-		projectDomainId string
-	)
 	ownerId := ep.Obj.GetOwnerId()
 	if ownerId != nil {
-		projectId = ownerId.GetProjectId()
-		projectDomainId = ownerId.GetProjectDomainId()
-	}
-	params := api.NotificationManagerEventNotifyInput{
-		ReceiverIds:     []string{userCred.GetUserId()},
-		ResourceDetails: objDetails,
-		Event:           event.String(),
-		AdvanceDays:     ep.AdvanceDays,
-		Priority:        string(npk.NotifyPriorityNormal),
-		ProjectId:       projectId,
-		ProjectDomainId: projectDomainId,
+		params.ProjectId = ownerId.GetProjectId()
+		params.ProjectDomainId = ownerId.GetProjectDomainId()
 	}
 	t := eventTask{
 		params: params,
@@ -300,11 +291,12 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 }
 
 func systemEventNotify(ctx context.Context, action api.SAction, resType string, result api.SResult, priority string, obj *jsonutils.JSONDict) {
-	event := api.Event.WithAction(action).WithResourceType(resType).WithResult(result)
 	params := api.NotificationManagerEventNotifyInput{
 		ReceiverIds:     []string{},
 		ResourceDetails: obj,
-		Event:           event.String(),
+		Action:          action,
+		ResourceType:    resType,
+		Result:          result,
 		Priority:        priority,
 	}
 	t := eventTask{
