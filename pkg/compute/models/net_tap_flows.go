@@ -245,7 +245,8 @@ func (manager *SNetTapFlowManager) ValidateCreateData(
 			return input, errors.Wrap(err, "NetTapServiceManager.FetchByIdOrName")
 		}
 	}
-	input.TapId = tapObj.GetId()
+	tap := tapObj.(*SNetTapService)
+	input.TapId = tap.Id
 	switch input.Type {
 	case api.TapFlowVSwitch:
 		hostObj, err := HostManager.FetchByIdOrName(userCred, input.HostId)
@@ -329,8 +330,20 @@ func (manager *SNetTapFlowManager) ValidateCreateData(
 		input.MacAddr = gn.MacAddr
 		input.NetId = gn.NetworkId
 		input.VlanId = nil
+		// check loop
+		if tap.Type == api.TapServiceGuest && tap.TargetId == input.SourceId {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "cannot tap trafic from guest itself")
+		}
 	default:
 		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid flow type %s", input.Type)
+	}
+	// check duplicity
+	dupCnt, err := manager.Query().Equals("tap_id", tap.Id).Equals("type", input.Type).Equals("source_id", input.SourceId).Equals("net_id", input.NetId).CountWithError()
+	if err != nil {
+		return input, errors.Wrap(err, "query duplicity")
+	}
+	if dupCnt > 0 {
+		return input, errors.Wrap(httperrors.ErrConflict, "this source has been added")
 	}
 	if len(input.Direction) == 0 {
 		input.Direction = api.TapFlowDirectionBoth
