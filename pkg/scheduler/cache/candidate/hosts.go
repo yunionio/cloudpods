@@ -193,7 +193,7 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.S
 	for _, g := range gst {
 		dSize := guestDiskSize(&g, true)
 		disk += int64(dSize)
-		if o.GetOptions().IgnoreNonrunningGuests && (g.Status == computeapi.VM_READY) {
+		if o.Options.IgnoreNonrunningGuests && (g.Status == computeapi.VM_READY) {
 			continue
 		}
 		cpu += int64(g.VcpuCount)
@@ -779,7 +779,7 @@ func (b *HostBuilder) build() ([]interface{}, error) {
 		descResultLock.Unlock()
 	}
 
-	workqueue.Parallelize(o.GetOptions().HostBuildParallelizeSize, len(b.hosts), buildOne)
+	workqueue.Parallelize(o.Options.HostBuildParallelizeSize, len(b.hosts), buildOne)
 	schedDescs = schedDescs[:descedLen]
 	if len(errs) > 0 {
 		//return nil, errors.NewAggregate(errs)
@@ -906,13 +906,13 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 
 	var memFreeSize int64
 	var cpuFreeCount int64
-	if o.GetOptions().IgnoreNonrunningGuests {
+	if o.Options.IgnoreNonrunningGuests {
 		memFreeSize = desc.TotalMemSize - desc.RunningMemSize - desc.CreatingMemSize
 		cpuFreeCount = desc.TotalCPUCount - desc.RunningCPUCount - desc.CreatingCPUCount
 	} else {
 		memFreeSize = desc.TotalMemSize - desc.RequiredMemSize
 		cpuFreeCount = desc.TotalCPUCount - desc.RequiredCPUCount
-		if o.GetOptions().IgnoreFakeDeletedGuests {
+		if o.Options.IgnoreFakeDeletedGuests {
 			memFreeSize += memFakeDeletedSize
 			cpuFreeCount += cpuFakeDeletedCount
 		}

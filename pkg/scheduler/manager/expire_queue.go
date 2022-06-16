@@ -35,7 +35,7 @@ type ExpireManager struct {
 
 func NewExpireManager(stopCh <-chan struct{}) *ExpireManager {
 	return &ExpireManager{
-		expireChannel: make(chan *api.ExpireArgs, o.GetOptions().ExpireQueueMaxLength),
+		expireChannel: make(chan *api.ExpireArgs, o.Options.ExpireQueueMaxLength),
 		stopCh:        stopCh,
 		mergeLock:     new(sync.Mutex),
 	}
@@ -62,7 +62,7 @@ func newExpireHost(id string, sid string) *expireHost {
 }
 
 func (e *ExpireManager) Run() {
-	t := time.Tick(u.ToDuration(o.GetOptions().ExpireQueueConsumptionPeriod))
+	t := time.Tick(u.ToDuration(o.Options.ExpireQueueConsumptionPeriod))
 	// Watching the expires.
 	for {
 		select {
@@ -77,7 +77,7 @@ func (e *ExpireManager) Run() {
 			return
 		default:
 			// if expire number is bigger then 80 then update
-			if len(e.expireChannel) >= o.GetOptions().ExpireQueueDealLength {
+			if len(e.expireChannel) >= o.Options.ExpireQueueDealLength {
 				e.batchMergeExpire()
 			} else {
 				time.Sleep(1 * time.Second)
@@ -137,7 +137,7 @@ func (e *ExpireManager) batchMergeExpire() {
 			schedManager.HistoryManager.CancelCandidatesPendingUsage(dirtyBaremetals)
 		}
 	}()
-	if ok := e.waitTimeOut(wg, u.ToDuration(o.GetOptions().ExpireQueueConsumptionTimeout)); !ok {
+	if ok := e.waitTimeOut(wg, u.ToDuration(o.Options.ExpireQueueConsumptionTimeout)); !ok {
 		log.Errorln("time out reload data.")
 	}
 }

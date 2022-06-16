@@ -295,6 +295,10 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 	if err != nil {
 		log.Fatalf("Set log level %q: %v", optionsRef.LogLevel, err)
 	}
+	log.Infof("Set log level to %q", optionsRef.LogLevel)
+	log.Logger().Formatter = &log.TextFormatter{
+		TimestampFormat: "2006-01-02 15:04:05",
+	}
 	if optionsRef.LogFilePrefix != "" {
 		dir, name := filepath.Split(optionsRef.LogFilePrefix)
 		h := &hooks.LogFileRotateHook{
