@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -94,5 +95,10 @@ func (s *SNasStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 }
 
 func (s *SNasStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
-	return disk.CreateFromSnapshotLocation(ctx, input.DiskInfo.SnapshotUrl, int64(input.DiskInfo.DiskSizeMb))
+	info := input.DiskInfo
+	var encryptInfo *apis.SEncryptInfo
+	if info.Encryption {
+		encryptInfo = &info.EncryptInfo
+	}
+	return disk.CreateFromSnapshotLocation(ctx, input.DiskInfo.SnapshotUrl, int64(input.DiskInfo.DiskSizeMb), encryptInfo)
 }
