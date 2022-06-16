@@ -27,7 +27,7 @@ type BasePredicate struct {
 }
 
 func (p *BasePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
-	if o.GetOptions().DisableBaremetalPredicates {
+	if o.Options.DisableBaremetalPredicates {
 		return false, nil
 	}
 	return true, nil
