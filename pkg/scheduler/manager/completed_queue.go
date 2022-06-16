@@ -31,7 +31,7 @@ type CompletedManager struct {
 
 func NewCompletedManager(stopCh <-chan struct{}) *CompletedManager {
 	return &CompletedManager{
-		completedChannel: make(chan *api.CompletedNotifyArgs, o.GetOptions().CompletedQueueMaxLength),
+		completedChannel: make(chan *api.CompletedNotifyArgs, o.Options.CompletedQueueMaxLength),
 		stopCh:           stopCh,
 	}
 }
@@ -41,7 +41,7 @@ func (c *CompletedManager) Add(completedNotifyArgs *api.CompletedNotifyArgs) {
 }
 
 func (c *CompletedManager) Run() {
-	t := time.Tick(utils.ToDuration(o.GetOptions().CompletedQueueConsumptionPeriod))
+	t := time.Tick(utils.ToDuration(o.Options.CompletedQueueConsumptionPeriod))
 
 	removeSession := func() {
 		//completedNotifyArgs := <-c.completedChannel
@@ -79,7 +79,7 @@ func (c *CompletedManager) Run() {
 			wg.Wrap(removeSession)
 		}
 
-		if ok := utils.WaitTimeOut(wg, time.Duration(completedRequestNumber)*utils.ToDuration(o.GetOptions().CompletedQueueConsumptionTimeout)); !ok {
+		if ok := utils.WaitTimeOut(wg, time.Duration(completedRequestNumber)*utils.ToDuration(o.Options.CompletedQueueConsumptionTimeout)); !ok {
 			log.Errorln("time out reload data in completed when remove sessions.")
 		}
 	}
@@ -98,7 +98,7 @@ func (c *CompletedManager) Run() {
 			return
 		default:
 			// if sessions' number is bigger then 10 then reload and remove.
-			if len(c.completedChannel) >= o.GetOptions().CompletedQueueDealLength {
+			if len(c.completedChannel) >= o.Options.CompletedQueueDealLength {
 				reloadAndRemoveSessions()
 			} else {
 				time.Sleep(10 * time.Second)

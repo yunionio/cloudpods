@@ -424,7 +424,7 @@ func findCandidatesThatFit(ctx context.Context, unit *Unit, candidates []Candida
 				unit.AppendFailedCandidates(fcs)
 			}
 		}
-		workerSize := o.GetOptions().PredicateParallelizeSize
+		workerSize := o.Options.PredicateParallelizeSize
 		if workerSize == 0 {
 			workerSize = 1
 		}
@@ -534,7 +534,7 @@ func unitFitsOnCandidate(
 			// the configured predicates even after one or more of them fails.
 			// When the flag is set to false, scheduler skips checking the rest
 			// of the predicates after it finds one predicate that failed.
-			if !o.GetOptions().AlwaysCheckAllPredicates {
+			if !o.Options.AlwaysCheckAllPredicates {
 				break
 			}
 		}
@@ -590,7 +590,7 @@ func PrioritizeCandidates(
 			}
 		}
 	}
-	workqueue.Parallelize(o.GetOptions().PriorityParallelizeSize, len(candidates), processCandidate)
+	workqueue.Parallelize(o.Options.PriorityParallelizeSize, len(candidates), processCandidate)
 
 	for i, p := range newPriorities {
 		wg.Add(1)

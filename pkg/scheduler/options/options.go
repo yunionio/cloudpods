@@ -28,7 +28,7 @@ type SchedulerOptions struct {
 	SchedOptions
 
 	// gin http framework mode
-	GinMode string `help:"gin http framework work mode" default:"debug" choices:"debug|release"`
+	// GinMode string `help:"gin http framework work mode" default:"debug" choices:"debug|release"`
 }
 
 type SchedOptions struct {
@@ -120,16 +120,12 @@ func OnOpenstackOptionsChange(oOpts, nOpts interface{}) bool {
 }
 
 var (
-	opt SchedulerOptions
+	Options SchedulerOptions
 )
 
-func GetOptions() *SchedulerOptions {
-	return &opt
-}
-
 func Init() {
-	common_options.ParseOptions(&opt, os.Args, "region.conf", api.SERVICE_TYPE)
-	options.Options = opt.ComputeOptions
+	common_options.ParseOptions(&Options, os.Args, "region.conf", api.SERVICE_TYPE)
+	options.Options = Options.ComputeOptions
 }
 
 func OnOptionsChange(oldO, newO interface{}) bool {
@@ -143,10 +139,11 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 	if common_options.OnDBOptionsChange(&oldOpts.DBOptions, &newOpts.DBOptions) {
 		changed = true
 	}
-
-	if OnOptionsChange(&oldOpts.OpenstackOptions, &newOpts.OpenstackOptions) {
+	if OnOpenstackOptionsChange(&oldOpts.OpenstackOptions, &newOpts.OpenstackOptions) {
 		changed = true
 	}
+
+	options.Options = newOpts.ComputeOptions
 
 	return changed
 }
