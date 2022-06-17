@@ -181,7 +181,9 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printObject(jsonutils.Marshal(&secret))
+		result := jsonutils.Marshal(secret)
+		result.(*jsonutils.JSONDict).Add(jsonutils.NewString(secret.KeyId), "access_key")
+		printObject(result)
 		return nil
 	})
 
