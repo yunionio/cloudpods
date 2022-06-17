@@ -107,7 +107,7 @@ type HistoryManager struct {
 
 func NewHistoryManager(stopCh <-chan struct{}) *HistoryManager {
 	return &HistoryManager{
-		capacity:          o.GetOptions().SchedulerHistoryLimit,
+		capacity:          o.Options.SchedulerHistoryLimit,
 		historyMap:        make(map[string]*HistoryItem),
 		historyList:       list.New(),
 		normalHistoryList: list.New(),
@@ -160,7 +160,7 @@ func (m *HistoryManager) cleanHistoryMap() {
 }
 
 func (m *HistoryManager) Run() {
-	go wait.Until(m.cleanHistoryMap, u.ToDuration(o.GetOptions().SchedulerHistoryCleanPeriod), m.stopCh)
+	go wait.Until(m.cleanHistoryMap, u.ToDuration(o.Options.SchedulerHistoryCleanPeriod), m.stopCh)
 }
 
 func (m *HistoryManager) GetHistoryList(offset int64, limit int64, all bool, isSuggestion bool) ([]*HistoryItem, int64) {

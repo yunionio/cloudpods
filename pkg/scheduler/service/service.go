@@ -46,21 +46,11 @@ import (
 
 func StartService() error {
 	o.Init()
-	opts := o.GetOptions()
-	dbOpts := &opts.DBOptions
+	dbOpts := o.Options.DBOptions
 
-	// gin http framework mode configuration
-	gin.SetMode(opts.GinMode)
-
-	startSched := func() {
-		stopEverything := make(chan struct{})
-		go skuman.Start(utils.ToDuration(opts.SkuRefreshInterval))
-		schedman.InitAndStart(stopEverything)
-	}
-
-	opts.Port = opts.SchedulerPort
+	o.Options.Port = o.Options.SchedulerPort
 	// init region compute models
-	cloudcommon.InitDB(dbOpts)
+	cloudcommon.InitDB(&dbOpts)
 	defer cloudcommon.CloseDB()
 
 	db.InitAllManagers()
@@ -80,23 +70,36 @@ func StartService() error {
 		count++
 	}
 
-	commonOpts := &opts.CommonOptions
+	commonOpts := &o.Options.CommonOptions
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
-		startSched()
 	})
+
+	common_options.StartOptionManager(&o.Options, o.Options.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, o.OnOptionsChange)
+
+	// gin http framework mode configuration
+	ginMode := "release"
+	if o.Options.LogLevel == "debug" {
+		ginMode = "debug"
+	}
+	gin.SetMode(ginMode)
+
+	startSched := func() {
+		stopEverything := make(chan struct{})
+		go skuman.Start(utils.ToDuration(o.Options.SkuRefreshInterval))
+		schedman.InitAndStart(stopEverything)
+	}
+	startSched()
 
 	if err := computemodels.InitDB(); err != nil {
 		log.Fatalf("InitDB fail: %s", err)
 	}
 
-	common_options.StartOptionManager(&opts, opts.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, o.OnOptionsChange)
-
-	app := app_common.InitApp(&opts.BaseOptions, true)
+	app := app_common.InitApp(&o.Options.BaseOptions, true)
 	db.AppDBInit(app)
 
 	//InitHandlers(app)
-	return startHTTP(opts)
+	return startHTTP(&o.Options)
 }
 
 func startHTTP(opt *o.SchedulerOptions) error {
@@ -117,9 +120,8 @@ func startHTTP(opt *o.SchedulerOptions) error {
 
 	log.Infof("Start server on: %s:%d", opt.Address, opt.Port)
 
-	if o.GetOptions().EnableSsl {
-		return server.ListenAndServeTLS(o.GetOptions().SslCertfile,
-			o.GetOptions().SslKeyfile)
+	if opt.EnableSsl {
+		return server.ListenAndServeTLS(opt.SslCertfile, opt.SslKeyfile)
 	} else {
 		return server.ListenAndServe()
 	}

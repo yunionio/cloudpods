@@ -196,7 +196,7 @@ func (data *SchedInfo) reviseData() {
 	data.IgnoreFilters = ignoreFilters
 
 	if data.SuggestionLimit == 0 {
-		data.SuggestionLimit = int64(o.GetOptions().SchedulerTestLimit)
+		data.SuggestionLimit = int64(o.Options.SchedulerTestLimit)
 	}
 
 	data.Raw = input.JSON(input).String()

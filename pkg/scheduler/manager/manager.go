@@ -56,7 +56,7 @@ func NewSchedulerManager(stopCh <-chan struct{}) *SchedulerManager {
 	sm.CompletedManager = NewCompletedManager(stopCh)
 	sm.HistoryManager = NewHistoryManager(stopCh)
 	sm.TaskManager = NewTaskManager(stopCh)
-	sm.KubeClusterManager = k8s.NewKubeClusterManager(o.GetOptions().Region, 30*time.Second)
+	sm.KubeClusterManager = k8s.NewKubeClusterManager(o.Options.Region, 30*time.Second)
 
 	return sm
 }

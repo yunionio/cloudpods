@@ -88,13 +88,13 @@ func generalGetUpdateFunc(isBaremetal bool) cache.GetUpdateFunc {
 	fullUpdateCounter := 0
 	return func(d []interface{}) ([]string, error) {
 		// Full update every 10 minutes(30s * 20)
-		if isBaremetal && fullUpdateCounter >= options.GetOptions().BaremetalCandidateCacheReloadCount {
+		if isBaremetal && fullUpdateCounter >= options.Options.BaremetalCandidateCacheReloadCount {
 			fullUpdateCounter = 1
 			log.Infof("FullUpdateCounter: %d, update all baremetals.", fullUpdateCounter)
 			return nil, nil
 		}
 
-		if !isBaremetal && fullUpdateCounter >= options.GetOptions().HostCandidateCacheReloadCount {
+		if !isBaremetal && fullUpdateCounter >= options.Options.HostCandidateCacheReloadCount {
 			fullUpdateCounter = 1
 			log.Infof("FullUpdateCounter: %d, update all hosts.", fullUpdateCounter)
 			return nil, nil
@@ -146,8 +146,8 @@ func newHostCache() cache.CachedItem {
 
 	item.CachedItem = cache.NewCacheItem(
 		HostCandidateCache,
-		u.ToDuration(options.GetOptions().HostCandidateCacheTTL),
-		u.ToDuration(options.GetOptions().HostCandidateCachePeriod),
+		u.ToDuration(options.Options.HostCandidateCacheTTL),
+		u.ToDuration(options.Options.HostCandidateCachePeriod),
 		uuidKey,
 		update,
 		load,
@@ -166,8 +166,8 @@ func newBaremetalCache() cache.CachedItem {
 
 	item.CachedItem = cache.NewCacheItem(
 		BaremetalCandidateCache,
-		u.ToDuration(options.GetOptions().BaremetalCandidateCacheTTL),
-		u.ToDuration(options.GetOptions().BaremetalCandidateCachePeriod),
+		u.ToDuration(options.Options.BaremetalCandidateCacheTTL),
+		u.ToDuration(options.Options.BaremetalCandidateCachePeriod),
 		uuidKey,
 		update,
 		load,
