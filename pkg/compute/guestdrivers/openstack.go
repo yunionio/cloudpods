@@ -50,19 +50,19 @@ func init() {
 }
 
 func (self *SOpenStackGuestDriver) DoScheduleCPUFilter() bool {
-	return scheduler.GetOptions().OpenstackSchedulerCPUFilter
+	return scheduler.Options.OpenstackSchedulerCPUFilter
 }
 
 func (self *SOpenStackGuestDriver) DoScheduleMemoryFilter() bool {
-	return scheduler.GetOptions().OpenstackSchedulerMemoryFilter
+	return scheduler.Options.OpenstackSchedulerMemoryFilter
 }
 
 func (self *SOpenStackGuestDriver) DoScheduleSKUFilter() bool {
-	return scheduler.GetOptions().OpenstackSchedulerSKUFilter
+	return scheduler.Options.OpenstackSchedulerSKUFilter
 }
 
 func (self *SOpenStackGuestDriver) DoScheduleStorageFilter() bool {
-	return scheduler.GetOptions().OpenstackSchedulerStorageFilter
+	return scheduler.Options.OpenstackSchedulerStorageFilter
 }
 
 func (self *SOpenStackGuestDriver) GetHypervisor() string {

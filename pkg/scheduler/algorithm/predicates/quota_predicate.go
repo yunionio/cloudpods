@@ -37,7 +37,7 @@ func (p *SQuotaPredicate) Clone() core.FitPredicate {
 }
 
 func (p *SQuotaPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
-	if !options.GetOptions().EnableQuotaCheck {
+	if !options.Options.EnableQuotaCheck {
 		return false, nil
 	}
 	if len(u.SchedData().HostId) > 0 {
