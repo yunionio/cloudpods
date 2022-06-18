@@ -25,6 +25,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -215,4 +216,21 @@ func (manager *SGroupnetworkManager) getVips(groupId string) ([]string, error) {
 		ret[i] = gns[i].IpAddr
 	}
 	return ret, nil
+}
+
+func (manager *SGroupnetworkManager) InitializeData() error {
+	grps := GroupManager.Query("id").SubQuery()
+	q := manager.Query().NotIn("group_id", grps)
+	grpnets := make([]SGroupnetwork, 0)
+	err := db.FetchModelObjects(manager, q, &grpnets)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range grpnets {
+		err := grpnets[i].Delete(context.Background(), auth.AdminCredential())
+		if err != nil {
+			return errors.Wrap(err, "Delete")
+		}
+	}
+	return nil
 }
