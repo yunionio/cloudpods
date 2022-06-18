@@ -188,7 +188,7 @@ func (self *SVpc) newFromCloudIPv6Gateway(ctx context.Context, userCred mcclient
 			return err
 		}
 		ret.Name = newName
-		return IPv6GatewayManager.TableSpec().Insert(ctx, &ret)
+		return IPv6GatewayManager.TableSpec().Insert(ctx, ret)
 	}()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")

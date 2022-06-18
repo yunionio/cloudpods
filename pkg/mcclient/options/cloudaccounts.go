@@ -26,7 +26,7 @@ import (
 
 type CloudaccountListOptions struct {
 	BaseListOptions
-	Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
+	Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event|tablestore"`
 
 	//DistinctField string `help:"distinct field"`
 	ProxySetting string `help:"Proxy setting id or name"`
