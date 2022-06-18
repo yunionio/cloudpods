@@ -1860,6 +1860,10 @@ func syncPublicCloudProviderInfo(
 		syncKubeClusters(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
+	if cloudprovider.IsSupportTablestore(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_TABLESTORE) {
+		syncTablestore(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+	}
+
 	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
 		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 		for i := range storageCachePairs {
@@ -2312,5 +2316,28 @@ func syncGlobalVpcs(ctx context.Context, userCred mcclient.TokenCredential, sync
 
 	result := provider.SyncGlobalVpcs(ctx, userCred, gvpcs)
 	log.Infof("Sync global vpcs for cloudprovider %s result: %s", provider.GetName(), result.Result())
+	return nil
+}
+
+func syncTablestore(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
+	iTablestores, err := func() ([]cloudprovider.ICloudTablestore, error) {
+		defer syncResults.AddRequestCost(TablestoreManager)()
+		return remoteRegion.GetICloudTablestores()
+	}()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudTablestores for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return err
+	}
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(TablestoreManager)()
+		return localRegion.SyncTablestores(ctx, userCred, iTablestores, provider)
+	}()
+	syncResults.Add(TablestoreManager, result)
+	msg := result.Result()
+	log.Infof("SyncTablestores for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
 	return nil
 }

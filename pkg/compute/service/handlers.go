@@ -243,6 +243,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.InstanceBackupManager,
 
 		models.IPv6GatewayManager,
+		models.TablestoreManager,
 
 		models.NetTapServiceManager,
 		models.NetTapFlowManager,
