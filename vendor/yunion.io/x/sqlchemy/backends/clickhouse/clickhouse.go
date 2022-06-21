@@ -117,16 +117,24 @@ func (click *SClickhouseBackend) GetCreateSQLs(ts sqlchemy.ITableSpec) []string 
 	if len(orderbys) == 0 {
 		orderbys = primaries
 	}
-	if len(orderbys) > 0 {
-		createSql += fmt.Sprintf("\nORDER BY (%s)", strings.Join(orderbys, ", "))
-	} else {
-		createSql += fmt.Sprintf("\nORDER BY tuple()")
-	}
 	if len(partitions) > 0 {
 		createSql += fmt.Sprintf("\nPARTITION BY (%s)", strings.Join(partitions, ", "))
 	}
 	if len(primaries) > 0 {
 		createSql += fmt.Sprintf("\nPRIMARY KEY (%s)", strings.Join(primaries, ", "))
+		newOrderBys := make([]string, len(primaries))
+		copy(newOrderBys, primaries)
+		for _, f := range orderbys {
+			if !utils.IsInStringArray(f, newOrderBys) {
+				newOrderBys = append(newOrderBys, f)
+			}
+		}
+		orderbys = newOrderBys
+	}
+	if len(orderbys) > 0 {
+		createSql += fmt.Sprintf("\nORDER BY (%s)", strings.Join(orderbys, ", "))
+	} else {
+		createSql += fmt.Sprintf("\nORDER BY tuple()")
 	}
 	if ttlCol != nil {
 		ttlCount, ttlUnit := ttlCol.GetTTL()
