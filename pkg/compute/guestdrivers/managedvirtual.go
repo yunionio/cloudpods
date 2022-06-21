@@ -57,7 +57,12 @@ func (d SManagedVirtualizedGuestDriver) DoScheduleStorageFilter() bool { return 
 func (d SManagedVirtualizedGuestDriver) DoScheduleCloudproviderTagFilter() bool { return true }
 
 func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	config := cloudprovider.SManagedVMCreateConfig{}
+	config := cloudprovider.SManagedVMCreateConfig{
+		IsNeedInjectPasswordByCloudInit: guest.GetDriver().IsNeedInjectPasswordByCloudInit(),
+		UserDataType:                    guest.GetDriver().GetUserDataType(),
+		WindowsUserDataType:             guest.GetDriver().GetWindowsUserDataType(),
+		IsWindowsUserDataTypeNeedEncode: guest.GetDriver().IsWindowsUserDataTypeNeedEncode(),
+	}
 	config.Name = guest.Name
 	config.NameEn = pinyinutils.Text2Pinyin(guest.Name)
 	config.Hostname = guest.Hostname
@@ -367,12 +372,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 	}
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
-	desc := cloudprovider.SManagedVMCreateConfig{
-		IsNeedInjectPasswordByCloudInit: guest.GetDriver().IsNeedInjectPasswordByCloudInit(),
-		UserDataType:                    guest.GetDriver().GetUserDataType(),
-		WindowsUserDataType:             guest.GetDriver().GetWindowsUserDataType(),
-		IsWindowsUserDataTypeNeedEncode: guest.GetDriver().IsWindowsUserDataTypeNeedEncode(),
-	}
+	desc := cloudprovider.SManagedVMCreateConfig{}
 	err = desc.GetConfig(config)
 	if err != nil {
 		return errors.Wrapf(err, "desc.GetConfig")
