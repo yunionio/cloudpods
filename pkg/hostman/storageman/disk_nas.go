@@ -59,7 +59,7 @@ func (d *SNasDisk) CreateFromImageFuse(ctx context.Context, url string, size int
 	return fmt.Errorf("Not implemented")
 }
 
-func (d *SNasDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocation string, size int64) error {
+func (d *SNasDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocation string, size int64, encryptInfo *apis.SEncryptInfo) error {
 	snapshotPath := path.Join(d.Storage.GetPath(), snapshotLocation)
 	newImg, err := qemuimg.NewQemuImage(d.GetPath())
 	if err != nil {
@@ -71,7 +71,11 @@ func (d *SNasDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocat
 			return err
 		}
 	}
-	err = newImg.CreateQcow2(0, false, snapshotPath, "", "", "")
+	if encryptInfo != nil {
+		err = newImg.CreateQcow2(0, false, snapshotPath, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
+	} else {
+		err = newImg.CreateQcow2(0, false, snapshotPath, "", "", "")
+	}
 	if err != nil {
 		return errors.Wrap(err, "create image from snapshot")
 	}
@@ -80,6 +84,9 @@ func (d *SNasDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocat
 	if size > retSize {
 		params := jsonutils.NewDict()
 		params.Set("size", jsonutils.NewInt(size))
+		if encryptInfo != nil {
+			params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
+		}
 		_, err = d.Resize(ctx, params)
 		return err
 	}
