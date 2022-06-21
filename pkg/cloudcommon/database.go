@@ -36,12 +36,6 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
 
-const (
-	MIN_DB_CONN_MAX = 5
-
-	ClickhouseDB = sqlchemy.DBName("clickhosue_db")
-)
-
 func InitDB(options *common_options.DBOptions) {
 	if options.DebugSqlchemy {
 		log.Warningf("debug Sqlchemy is turned on")

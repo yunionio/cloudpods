@@ -16,13 +16,16 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 )
 
@@ -33,7 +36,20 @@ const (
 )
 
 func AppDBInit(app *appsrv.Application) {
-	dbConn := sqlchemy.GetDB()
+	dbConn := sqlchemy.GetDefaultDB()
+	if dbConn != nil {
+		setDbConnection(dbConn.DB())
+	}
+	dbConn = sqlchemy.GetDBWithName(ClickhouseDB)
+	if dbConn != nil {
+		setDbConnection(dbConn.DB())
+	}
+
+	app.AddDefaultHandler("GET", "/db_stats", DBStatsHandler, "db_stats")
+	app.AddDefaultHandler("GET", "/db_stats/<db>", DBStatsHandler, "db_stats_with_name")
+}
+
+func setDbConnection(dbConn *sql.DB) {
 	if dbConn != nil {
 		connMax := appsrv.GetDBConnectionCount()
 		if connMax < MIN_DB_CONN_MAX {
@@ -43,15 +59,20 @@ func AppDBInit(app *appsrv.Application) {
 		dbConn.SetMaxIdleConns(connMax)
 		dbConn.SetMaxOpenConns(connMax*2 + 1)
 	}
-
-	app.AddDefaultHandler("GET", "/db_stats", DBStatsHandler, "db_stats")
 }
 
 func DBStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	var dbname sqlchemy.DBName
+	params := appctx.AppContextParams(ctx)
+	if dbn, ok := params["<db>"]; ok && strings.HasPrefix(dbn, "click") {
+		dbname = ClickhouseDB
+	} else {
+		dbname = sqlchemy.DefaultDB
+	}
 	result := jsonutils.NewDict()
-	dbConn := sqlchemy.GetDB()
+	dbConn := sqlchemy.GetDBWithName(dbname)
 	if dbConn != nil {
-		stats := dbConn.Stats()
+		stats := dbConn.DB().Stats()
 		result.Add(jsonutils.Marshal(&stats), "db_stats")
 	}
 	fmt.Fprintf(w, result.String())
