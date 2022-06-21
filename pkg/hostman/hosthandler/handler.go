@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -52,7 +53,7 @@ func AddHostHandler(prefix string, app *appsrv.Application) {
 }
 
 func setOnHostDown(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	if err := host_health.SetOnHostDown(host_health.SHUTDOWN_SERVERS); err != nil {
+	if err := host_health.SetOnHostDown(hostconsts.SHUTDOWN_SERVERS); err != nil {
 		hostutils.Response(ctx, w, err)
 		return
 	}

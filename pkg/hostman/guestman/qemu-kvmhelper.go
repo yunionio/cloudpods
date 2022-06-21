@@ -836,7 +836,7 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd := ""
 	cmd += fmt.Sprintf("VNC_FILE=%s\n", s.GetVncFilePath())
 	cmd += fmt.Sprintf("PID_FILE=%s\n", s.GetPidFilePath())
-	cmd += "if [ -f $VNC_FILE ]; then\n"
+	cmd += "if [ \"$1\" != \"--force\" ] && [ -f $VNC_FILE ]; then\n"
 	cmd += "  VNC=`cat $VNC_FILE`\n"
 
 	// TODO, replace with qmp monitor
