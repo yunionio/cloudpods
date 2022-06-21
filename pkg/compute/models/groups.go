@@ -227,6 +227,13 @@ func (group *SGroup) GetGuests() []SGuest {
 }
 
 func (group *SGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	eip, err := group.getElasticIp()
+	if err != nil {
+		return errors.Wrap(err, "getElasticIp")
+	}
+	if eip != nil {
+		return errors.Wrapf(httperrors.ErrNotEmpty, "group associate with eip %s", eip.IpAddr)
+	}
 	q := GroupguestManager.Query().Equals("group_id", group.Id)
 	count, err := q.CountWithError()
 	if err != nil {
@@ -237,8 +244,8 @@ func (group *SGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils
 	}
 	return nil
 }
-func (group *SGroup) GetNetworks() ([]SGroupnetwork, error) {
 
+func (group *SGroup) GetNetworks() ([]SGroupnetwork, error) {
 	q := GroupnetworkManager.Query().Equals("group_id", group.Id)
 	groupnets := make([]SGroupnetwork, 0)
 	err := db.FetchModelObjects(GroupnetworkManager, q, &groupnets)
@@ -246,16 +253,6 @@ func (group *SGroup) GetNetworks() ([]SGroupnetwork, error) {
 		return nil, err
 	}
 	return groupnets, nil
-}
-
-func (group *SGroup) getGroupnetworks() ([]SGroupnetwork, error) {
-	ret := make([]SGroupnetwork, 0)
-	q := GroupnetworkManager.Query().Equals("group_id", group.Id)
-	err := db.FetchModelObjects(GroupnetworkManager, q, &ret)
-	if err != nil && errors.Cause(err) != sql.ErrNoRows {
-		return nil, errors.Wrap(err, "FetchModelObjects")
-	}
-	return ret, nil
 }
 
 func (group *SGroup) PerformBindGuests(ctx context.Context, userCred mcclient.TokenCredential,
@@ -282,9 +279,9 @@ func (group *SGroup) PerformBindGuests(ctx context.Context, userCred mcclient.To
 	}
 
 	var networkId string
-	gns, err := group.getGroupnetworks()
+	gns, err := group.GetNetworks()
 	if err != nil {
-		return nil, errors.Wrap(err, "getGroupnetworks")
+		return nil, errors.Wrap(err, "GetNetworks")
 	}
 	if len(gns) > 0 {
 		networkId = gns[0].NetworkId
@@ -681,9 +678,9 @@ func (grp *SGroup) isEipAssociable() (*SNetwork, error) {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "group network is not a VPC network")
 	}
 
-	gns, err := grp.getGroupnetworks()
+	gns, err := grp.GetNetworks()
 	if err != nil {
-		return nil, errors.Wrap(err, "getGroupnetworks")
+		return nil, errors.Wrap(err, "GetNetworks")
 	}
 	if len(gns) == 0 {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "group no vips")
@@ -841,4 +838,19 @@ func (grp *SGroup) PerformDissociateEip(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewGeneralError(err)
 	}
 	return nil, nil
+}
+
+func (grp *SGroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// cleanup groupnetwork
+	grpnets, err := grp.GetNetworks()
+	if err != nil {
+		return errors.Wrap(err, "GetNetworks")
+	}
+	for i := range grpnets {
+		err := grpnets[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "groupnetwork.Delete")
+		}
+	}
+	return grp.SVirtualResourceBase.Delete(ctx, userCred)
 }
