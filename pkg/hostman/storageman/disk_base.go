@@ -55,7 +55,7 @@ type IDisk interface {
 	PrepareMigrate(liveMigrate bool) (string, error)
 	CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float64, totalSizeMb int64)) error
 	CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error)
-	CreateFromSnapshotLocation(ctx context.Context, location string, size int64) error
+	CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) error
 	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
 	CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
@@ -112,7 +112,7 @@ func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64, *
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func (d *SBaseDisk) CreateFromSnapshotLocation(ctx context.Context, location string, size int64) error {
+func (d *SBaseDisk) CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) error {
 	return fmt.Errorf("Not implemented")
 }
 
