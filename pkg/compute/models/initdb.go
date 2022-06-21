@@ -71,6 +71,8 @@ func InitDB() error {
 		SnapshotPolicyDiskManager,
 		AccessGroupManager,
 		AccessGroupRuleManager,
+
+		GroupnetworkManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
