@@ -95,7 +95,8 @@ func (t *SSplitTableSpec) newTable(lastRecIndex int64, lastDate time.Time) (*sql
 		Table: fmt.Sprintf("%s_%d", t.tableName, lastDate.Unix()),
 	}
 	if lastRecIndex > 0 {
-		meta.Start = lastRecIndex + 1
+		// auto_increment offset should consider HA setup
+		meta.Start = lastRecIndex + 10000
 		meta.StartDate = lastDate
 	}
 	err := t.metaSpec.Insert(&meta)
