@@ -84,16 +84,10 @@ func (c *SEtcdClient) SetOnUnhealthy(onUnhealthy func()) {
 }
 
 func (c *SEtcdClient) OnKeepaliveFailure() {
-	var timeout = c.timeout
-	for timeout > 0 {
-		timeout -= c.requestExpend
-		if err := c.cli.RestartSession(); err != nil {
-			log.Errorf("etcd restart session failed %s", err)
-		} else {
-			break
-		}
-	}
-	if timeout > 0 {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(c.timeout))
+	defer cancel()
+	err := c.cli.RestartSessionWithContext(ctx)
+	if err == nil {
 		if err := c.cli.PutSession(context.Background(),
 			fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, c.hostId),
 			api.HOST_HEALTH_STATUS_RUNNING,
@@ -104,7 +98,7 @@ func (c *SEtcdClient) OnKeepaliveFailure() {
 			return
 		}
 	}
-	log.Errorln("keep etcd lease failed")
+	log.Errorf("keep etcd lease failed: %s", err)
 	if c.onUnhealthy != nil {
 		c.onUnhealthy()
 	}

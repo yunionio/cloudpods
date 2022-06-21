@@ -22,7 +22,7 @@ import (
 // yunion.io/x/onecloud/pkg/hostman/guestman
 
 type IHealthCheckReactor interface {
-	ShutdownSharedStorageServers()
+	ShutdownServers()
 }
 
 var HealthCheckReactor IHealthCheckReactor
