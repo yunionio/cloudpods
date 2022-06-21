@@ -16,7 +16,6 @@ package sqlchemy
 
 import (
 	"database/sql"
-	"fmt"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -80,7 +79,8 @@ func GetDBWithName(name DBName) *SDatabase {
 	if db, ok := _db_tbl[name]; ok {
 		return db
 	}
-	panic(fmt.Sprintf("no such database %s", name))
+	// panic(fmt.Sprintf("no such database %s", name))
+	return nil
 }
 
 type sDBReferer struct {
@@ -189,4 +189,8 @@ func (db *SDatabase) TxExec(sqlstr string, vars ...interface{}) (sql.Result, err
 		return nil, errors.Wrap(err, "TxBatchExec")
 	}
 	return results[0].Result, results[0].Error
+}
+
+func (db *SDatabase) DB() *sql.DB {
+	return db.db
 }
