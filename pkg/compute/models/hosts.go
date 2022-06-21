@@ -3991,7 +3991,6 @@ func (self *SHost) PerformAutoMigrateOnHostDown(
 	if val == "enable" {
 		meta = map[string]interface{}{
 			"__auto_migrate_on_host_down": "enable",
-			"__on_host_down":              "shutdown-servers",
 		}
 		_, err := self.Request(ctx, userCred, "POST", "/hosts/shutdown-servers-on-host-down",
 			mcclient.GetTokenHeaders(userCred), nil)
@@ -4001,7 +4000,6 @@ func (self *SHost) PerformAutoMigrateOnHostDown(
 	} else {
 		meta = map[string]interface{}{
 			"__auto_migrate_on_host_down": "disable",
-			"__on_host_down":              "",
 		}
 	}
 

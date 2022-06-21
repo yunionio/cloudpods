@@ -78,11 +78,12 @@ func (m *SHostHealthManager) StartHealthCheck() error {
 }
 
 func (m *SHostHealthManager) OnUnhealth() {
-	log.Debugf("Host unhealthy, going to shotdown servers")
 	m.status = UNHEALTHY
 	if m.onHostDown == SHUTDOWN_SERVERS {
+		log.Errorf("Host unhealthy, going to shotdown servers")
 		m.shutdownServers()
 	}
+	m.cli.Reconnect()
 	utils.DumpAllGoroutineStack(log.Logger().Out)
 	os.Exit(1)
 }
@@ -93,7 +94,7 @@ func (m *SHostHealthManager) SetOnHostDown(onHostDown string) {
 
 // shutdown servers used shared storage
 func (m *SHostHealthManager) shutdownServers() {
-	types.HealthCheckReactor.ShutdownSharedStorageServers()
+	types.HealthCheckReactor.ShutdownServers()
 }
 
 func (m *SHostHealthManager) Stop() error {
@@ -111,5 +112,6 @@ func SetOnHostDown(onHostDown string) error {
 type Client interface {
 	StartHostHealthCheck(context.Context) error
 	SetOnUnhealthy(func())
+	Reconnect()
 	Stop() error
 }
