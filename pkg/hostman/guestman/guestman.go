@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/seclib"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -831,6 +832,14 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 
 	disks, _ := migParams.Desc.GetArray("disks")
 	if len(migParams.TargetStorageIds) > 0 {
+		var encInfo *apis.SEncryptInfo
+		if guest.isEncrypted() {
+			info, err := guest.getEncryptKey(ctx, migParams.UserCred)
+			if err != nil {
+				return nil, errors.Wrap(err, "getEncryptKey")
+			}
+			encInfo = &info
+		}
 		for i := 0; i < len(migParams.TargetStorageIds); i++ {
 			iStorage := storageman.GetManager().GetStorage(migParams.TargetStorageIds[i])
 			if iStorage == nil {
@@ -840,6 +849,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 			err := iStorage.DestinationPrepareMigrate(
 				ctx, migParams.LiveMigrate, migParams.DisksUri, migParams.SnapshotsUri,
 				migParams.DisksBackingFile, migParams.SrcSnapshots, migParams.RebaseDisks, disks[i], migParams.Sid, i+1, len(disks),
+				encInfo,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("dest prepare migrate failed %s", err)

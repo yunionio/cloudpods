@@ -332,6 +332,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		tried += 1
 
 		vncPort := s.manager.GetFreeVncPort()
+		log.Infof("Use vnc port %d", vncPort)
 		if err = s.saveVncPort(vncPort); err != nil {
 			goto finally
 		} else {

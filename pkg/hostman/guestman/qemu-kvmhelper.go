@@ -581,6 +581,9 @@ func (s *SKVMGuestInstance) parseCmdline(input string) (*qemutils.Cmdline, []qem
 		case "vnc":
 			filterOpts = append(filterOpts, o)
 			return true
+		case "spice":
+			filterOpts = append(filterOpts, o)
+			return true
 		case "chardev":
 			valsMatch := []string{
 				"socket,id=hmqmondev",
