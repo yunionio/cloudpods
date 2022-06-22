@@ -548,3 +548,25 @@ func (srv *SNetTapService) cleanup(ctx context.Context, userCred mcclient.TokenC
 	}
 	return nil
 }
+
+func (manager *SNetTapServiceManager) removeTapServicesByGuestId(ctx context.Context, userCred mcclient.TokenCredential, targetId string) error {
+	return manager.removeTapServices(ctx, userCred, api.TapServiceGuest, targetId)
+}
+
+func (manager *SNetTapServiceManager) removeTapServicesByHostId(ctx context.Context, userCred mcclient.TokenCredential, targetId string) error {
+	return manager.removeTapServices(ctx, userCred, api.TapServiceHost, targetId)
+}
+
+func (manager *SNetTapServiceManager) removeTapServices(ctx context.Context, userCred mcclient.TokenCredential, srvType string, targetId string) error {
+	srvs, err := manager.getTapServices(srvType, targetId, false)
+	if err != nil {
+		return errors.Wrap(err, "getTapServicesByHostId")
+	}
+	for i := range srvs {
+		err := srvs[i].cleanup(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "cleanup")
+		}
+	}
+	return nil
+}

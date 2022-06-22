@@ -34,7 +34,11 @@ func (h *SHost) GetDetailsTapConfig(ctx context.Context, userCred mcclient.Token
 	for _, flow := range flows {
 		mirror, err := flow.getMirrorConfig(true)
 		if err != nil {
-			return conf, errors.Wrap(err, "flow.getMirrorConfig")
+			if errors.Cause(err) == errors.ErrNotFound {
+				continue
+			} else {
+				return conf, errors.Wrap(err, "flow.getMirrorConfig")
+			}
 		}
 		mirrors = append(mirrors, mirror)
 	}
