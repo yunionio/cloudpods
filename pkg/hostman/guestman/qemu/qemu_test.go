@@ -47,7 +47,7 @@ func Test_baseOptions(t *testing.T) {
 		"-device qxl-vga,id=video0,ram_size=141557760,vram_size=141557760",
 		"-device intel-hda,id=sound0",
 		"-device hda-duplex,id=sound0-codec0,bus=sound0.0,cad=0",
-		"-spice port=5910,password=87654312,seamless-migration=on",
+		"-spice port=5910,disable-ticketing=off,seamless-migration=on",
 		"-device virtio-serial-pci,id=virtio-serial0,max_ports=16,bus=pcie.0",
 		"-chardev spicevmc,id=vdagent,name=vdagent",
 		"-device virtserialport,nr=1,bus=virtio-serial0.0,chardev=vdagent,name=com.redhat.spice.0",

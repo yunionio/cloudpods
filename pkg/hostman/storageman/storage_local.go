@@ -517,7 +517,12 @@ func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{})
 
 func (s *SLocalStorage) DestinationPrepareMigrate(
 	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo jsonutils.JSONObject, serverId string, idx, totalDiskCount int) error {
+	disksBackingFile, srcSnapshots jsonutils.JSONObject,
+	rebaseDisks bool,
+	diskinfo jsonutils.JSONObject,
+	serverId string, idx, totalDiskCount int,
+	encInfo *apis.SEncryptInfo,
+) error {
 	var (
 		diskId, _    = diskinfo.GetString("disk_id")
 		snapshots, _ = srcSnapshots.GetArray(diskId)
@@ -554,11 +559,22 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 		}
 		if i == 0 && len(templateId) > 0 {
 			templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
-			if err := doRebaseDisk(snapshotPath, templatePath); err != nil {
+			// check if template is encrypted
+			img, err := qemuimg.NewQemuImage(templatePath)
+			if err != nil {
+				return errors.Wrap(err, "template image probe fail")
+			}
+			if img.Encrypted {
+				templatePath = qemuimg.GetQemuFilepath(templatePath, "sec0", qemuimg.EncryptFormatLuks)
+			}
+			if err := doRebaseDisk(snapshotPath, templatePath, encInfo); err != nil {
 				return err
 			}
 		} else if rebaseDisks && len(baseImagePath) > 0 {
-			if err := doRebaseDisk(snapshotPath, baseImagePath); err != nil {
+			if encInfo != nil {
+				baseImagePath = qemuimg.GetQemuFilepath(baseImagePath, "sec0", qemuimg.EncryptFormatLuks)
+			}
+			if err := doRebaseDisk(snapshotPath, baseImagePath, encInfo); err != nil {
 				return err
 			}
 		}
@@ -569,7 +585,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 		// create local disk
 		backingFile, _ := disksBackingFile.GetString(diskId)
 		size, _ := diskinfo.Int("size")
-		_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", nil, "", backingFile)
+		_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", encInfo, "", backingFile)
 		if err != nil {
 			log.Errorln(err)
 			return err
@@ -591,11 +607,22 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 	}
 	if rebaseDisks && len(templateId) > 0 && len(baseImagePath) == 0 {
 		templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
-		if err := doRebaseDisk(disk.GetPath(), templatePath); err != nil {
+		// check if template is encrypted
+		img, err := qemuimg.NewQemuImage(templatePath)
+		if err != nil {
+			return errors.Wrap(err, "template image probe fail")
+		}
+		if img.Encrypted {
+			templatePath = qemuimg.GetQemuFilepath(templatePath, "sec0", qemuimg.EncryptFormatLuks)
+		}
+		if err := doRebaseDisk(disk.GetPath(), templatePath, encInfo); err != nil {
 			return err
 		}
 	} else if rebaseDisks && len(baseImagePath) > 0 {
-		if err := doRebaseDisk(disk.GetPath(), baseImagePath); err != nil {
+		if encInfo != nil {
+			baseImagePath = qemuimg.GetQemuFilepath(baseImagePath, "sec0", qemuimg.EncryptFormatLuks)
+		}
+		if err := doRebaseDisk(disk.GetPath(), baseImagePath, encInfo); err != nil {
 			return err
 		}
 	}
@@ -604,10 +631,13 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 	return nil
 }
 
-func doRebaseDisk(diskPath, newBasePath string) error {
+func doRebaseDisk(diskPath, newBasePath string, encInfo *apis.SEncryptInfo) error {
 	img, err := qemuimg.NewQemuImage(diskPath)
 	if err != nil {
 		return errors.Wrap(err, "failed open disk as qemu image")
+	}
+	if encInfo != nil {
+		img.SetPassword(encInfo.Key)
 	}
 	if err = img.Rebase(newBasePath, true); err != nil {
 		return errors.Wrap(err, "failed rebase disk backing file")
