@@ -1694,6 +1694,11 @@ func (image *SImage) updateImageInfo(
 	userCred mcclient.TokenCredential,
 	imageInfo *deployapi.ImageInfo,
 ) error {
+	if imageInfo.OsInfo == nil {
+		log.Warningln("imageInfo.OsInfo is empty!")
+		return nil
+	}
+
 	db.Update(image, func() error {
 		image.OsArch = imageInfo.OsInfo.Arch
 		return nil
