@@ -708,8 +708,7 @@ func (s *SGuestLiveMigrateTask) Start() {
 
 func (s *SGuestLiveMigrateTask) onSetZeroBlocks(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
-		s.migrateTask = nil
-		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability zero-blocks error: %s", res))
+		s.migrateFailed(fmt.Sprintf("Migrate set capability zero-blocks error: %s", res))
 		return
 	}
 	// https://wiki.qemu.org/Features/AutoconvergeLiveMigration
@@ -732,37 +731,37 @@ func (s *SGuestLiveMigrateTask) startRamMigrateTimeout() {
 
 func (s *SGuestLiveMigrateTask) startMigrate(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
-		s.migrateTask = nil
-		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
+		s.migrateFailed(fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
 		return
 	}
 	if s.params.EnableTLS {
 		// https://wiki.qemu.org/Features/MigrationTLS
-		s.Monitor.ObjectAdd("tls-creds-x509", map[string]string{
-			"dir":         s.getPKIDirPath(),
-			"endpoint":    "client",
-			"id":          "tls0",
-			"verify-peer": "no",
-		}, func(res string) {
-			if strings.Contains(strings.ToLower(res), "error") {
-				s.migrateTask = nil
-				hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate add tls-creds-x509 object client tls0 error: %s", res))
-				return
-			}
-			s.Monitor.MigrateSetParameter("tls-creds", "tls0", func(res string) {
+		// first remove possible existing tls0
+		s.Monitor.ObjectDel("tls0", func(res string) {
+			log.Infof("cleanup possible existing tls0: %s", res)
+			s.Monitor.ObjectAdd("tls-creds-x509", map[string]string{
+				"dir":         s.getPKIDirPath(),
+				"endpoint":    "client",
+				"id":          "tls0",
+				"verify-peer": "no",
+			}, func(res string) {
 				if strings.Contains(strings.ToLower(res), "error") {
-					s.migrateTask = nil
-					hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set tls-creds tls0 error: %s", res))
+					s.migrateFailed(fmt.Sprintf("Migrate add tls-creds-x509 object client tls0 error: %s", res))
 					return
 				}
-				s.doMigrate()
+				s.Monitor.MigrateSetParameter("tls-creds", "tls0", func(res string) {
+					if strings.Contains(strings.ToLower(res), "error") {
+						s.migrateFailed(fmt.Sprintf("Migrate set tls-creds tls0 error: %s", res))
+						return
+					}
+					s.doMigrate()
+				})
 			})
 		})
 	} else {
 		s.Monitor.MigrateSetParameter("tls-creds", "", func(res string) {
 			if strings.Contains(strings.ToLower(res), "error") {
-				s.migrateTask = nil
-				hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set tls-creds to empty error: %s", res))
+				s.migrateFailed(fmt.Sprintf("Migrate set tls-creds to empty error: %s", res))
 				return
 			}
 			s.doMigrate()
@@ -786,8 +785,7 @@ func (s *SGuestLiveMigrateTask) onSetMigrateDowntime(res string) {
 
 func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
-		s.migrateTask = nil
-		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate error: %s", res))
+		s.migrateFailed(fmt.Sprintf("Migrate error: %s", res))
 		return
 	}
 
@@ -802,8 +800,7 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 				s.Monitor.GetMigrateStatus(s.onGetMigrateStatus)
 			} else {
 				log.Errorf("server %s(%s) migrate stopped unexpectedly", s.GetId(), s.GetName())
-				s.migrateTask = nil
-				hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate error: %s", res))
+				s.migrateFailed(fmt.Sprintf("Migrate error: %s", res))
 				return
 			}
 		}
@@ -814,9 +811,7 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(status string) {
 	if status == "completed" {
 		s.migrateComplete()
 	} else if status == "failed" || status == "cancelled" {
-		s.migrateTask = nil
-		close(s.c)
-		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Query migrate got status: %s", status))
+		s.migrateFailed(fmt.Sprintf("Query migrate got status: %s", status))
 	} else if status == "migrate_disk_copy" {
 		// do nothing, simply wait
 	} else if status == "migrate_ram_copy" {
@@ -834,9 +829,7 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(status string) {
 
 func (s *SGuestLiveMigrateTask) onMigrateStartPostcopy(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
-		s.migrateTask = nil
-		close(s.c)
-		hostutils.TaskFailed(s.ctx, fmt.Sprintf("onMigrateStartPostcopy error: %s", res))
+		s.migrateFailed(fmt.Sprintf("onMigrateStartPostcopy error: %s", res))
 		return
 	} else {
 		log.Infof("onMigrateStartPostcopy success")
@@ -845,10 +838,32 @@ func (s *SGuestLiveMigrateTask) onMigrateStartPostcopy(res string) {
 
 func (s *SGuestLiveMigrateTask) migrateComplete() {
 	s.migrateTask = nil
-	close(s.c)
+	if s.c != nil {
+		close(s.c)
+		s.c = nil
+	}
 	s.Monitor.Disconnect()
 	s.Monitor = nil
 	hostutils.TaskComplete(s.ctx, nil)
+}
+
+func (s *SGuestLiveMigrateTask) migrateFailed(msg string) {
+	cleanup := func() {
+		s.migrateTask = nil
+		if s.c != nil {
+			close(s.c)
+			s.c = nil
+		}
+		hostutils.TaskFailed(s.ctx, msg)
+	}
+	if s.params.EnableTLS {
+		s.Monitor.ObjectDel("tls0", func(res string) {
+			log.Infof("cleanup possible existing tls0: %s", res)
+			cleanup()
+		})
+	} else {
+		cleanup()
+	}
 }
 
 /**

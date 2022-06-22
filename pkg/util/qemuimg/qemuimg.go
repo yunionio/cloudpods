@@ -708,7 +708,7 @@ func (img *SQemuImage) Resize(sizeMB int) error {
 	}
 	encInfo := SImageInfo{
 		Path:    img.Path,
-		Format:  QCOW2,
+		Format:  img.Format,
 		IoLevel: img.IoLevel,
 	}
 	args := make([]string, 0)
@@ -734,12 +734,25 @@ func (img *SQemuImage) Rebase(backPath string, force bool) error {
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
+	encInfo := SImageInfo{
+		Path:    img.Path,
+		Format:  img.Format,
+		IoLevel: img.IoLevel,
+	}
 	args := []string{"-c", strconv.Itoa(int(img.IoLevel)),
 		qemutils.GetQemuImg(), "rebase"}
+	if len(img.Password) > 0 {
+		encInfo.Password = img.Password
+		encInfo.EncryptFormat = img.EncryptFormat
+		encInfo.EncryptAlg = img.EncryptAlg
+		encInfo.secId = "sec0"
+		args = append(args, "--object", encInfo.SecretOptions())
+	}
+	args = append(args, "--image-opts", encInfo.ImageOptions())
 	if force {
 		args = append(args, "-u")
 	}
-	args = append(args, "-b", backPath, img.Path)
+	args = append(args, "-b", backPath)
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	output, err := cmd.Output()
 	if err != nil {
