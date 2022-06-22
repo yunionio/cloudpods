@@ -782,15 +782,11 @@ func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 	DeleteResourceJointSchedtags(self, ctx, userCred)
 
 	// delete tap devices
-	if srvs, err := NetTapServiceManager.getTapServicesByHostId(self.Id, false); err != nil {
+	if err := NetTapServiceManager.removeTapServicesByHostId(ctx, userCred, self.Id); err != nil {
 		return errors.Wrap(err, "NetTapServiceManager.getTapServicesByHostId")
-	} else {
-		for _, srv := range srvs {
-			err := srv.cleanup(ctx, userCred)
-			if err != nil {
-				return errors.Wrap(err, "srv.Delete")
-			}
-		}
+	}
+	if err := NetTapFlowManager.removeTapFlowsByHostId(ctx, userCred, self.Id); err != nil {
+		return errors.Wrap(err, "NetTapFlowManager.getTapFlowsByHostId")
 	}
 
 	IsolatedDeviceManager.DeleteDevicesByHost(ctx, userCred, self)

@@ -4071,19 +4071,22 @@ func (self *SGuest) Delete(ctx context.Context, userCred mcclient.TokenCredentia
 	return nil
 }
 
-func (self *SGuest) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SGuest) CleanTapRecords(ctx context.Context, userCred mcclient.TokenCredential) error {
 	// delete tap devices
-	if srvs, err := NetTapServiceManager.getTapServicesByGuestId(self.Id, false); err != nil {
+	if err := NetTapServiceManager.removeTapServicesByGuestId(ctx, userCred, self.Id); err != nil {
 		return errors.Wrap(err, "NetTapServiceManager.getTapServicesByGuestId")
-	} else {
-		for _, srv := range srvs {
-			err := srv.cleanup(ctx, userCred)
-			if err != nil {
-				return errors.Wrap(err, "srv.Delete")
-			}
-		}
 	}
+	if err := NetTapFlowManager.removeTapFlowsByGuestId(ctx, userCred, self.Id); err != nil {
+		return errors.Wrap(err, "NetTapFlowManager.getTapServicesByGuestId")
+	}
+	return nil
+}
 
+func (self *SGuest) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := self.CleanTapRecords(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "CleanTapRecords")
+	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
