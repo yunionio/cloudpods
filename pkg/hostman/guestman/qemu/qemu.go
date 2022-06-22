@@ -313,7 +313,7 @@ func (o baseOptions) VdiSpice(spicePort uint, pciBus string) []string {
 	return []string{
 		o.Device("intel-hda,id=sound0"),
 		o.Device("hda-duplex,id=sound0-codec0,bus=sound0.0,cad=0"),
-		fmt.Sprintf("-spice port=%d,password=87654312,seamless-migration=on", spicePort),
+		fmt.Sprintf("-spice port=%d,disable-ticketing=off,seamless-migration=on", spicePort),
 		// # ,streaming-video=all,playback-compression=on,jpeg-wan-compression=always,zlib-glz-wan-compression=always,image-compression=glz" % (5900+vnc_port)
 		o.Device(fmt.Sprintf("virtio-serial-pci,id=virtio-serial0,max_ports=16,bus=%s", pciBus)),
 		o.Chardev("spicevmc", "vdagent", "vdagent"),
