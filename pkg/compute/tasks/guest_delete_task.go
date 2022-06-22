@@ -203,6 +203,9 @@ func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IS
 
 	// try to leave all groups
 	guest.LeaveAllGroups(ctx, self.UserCred)
+	// cleanup tap services and flows
+	guest.CleanTapRecords(ctx, self.UserCred)
+
 	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
 	overridePendingDelete := jsonutils.QueryBoolean(self.Params, "override_pending_delete", false)
 
