@@ -165,6 +165,10 @@ func (self *ImageProbeTask) updateImageMetadata(
 }
 
 func (self *ImageProbeTask) updateImageInfo(ctx context.Context, image *models.SImage, imageInfo *deployapi.ImageInfo) {
+	if imageInfo.OsInfo == nil {
+		log.Warningln("image info.OsInfo is empty")
+		return
+	}
 	imageProperties := jsonutils.Marshal(imageInfo.OsInfo).(*jsonutils.JSONDict)
 	if len(imageInfo.OsInfo.Arch) > 0 {
 		imageProperties.Set(api.IMAGE_OS_ARCH, jsonutils.NewString(imageInfo.OsInfo.Arch))
