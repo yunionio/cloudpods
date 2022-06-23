@@ -20,8 +20,9 @@ import (
 )
 
 func init() {
-	cmd := NewResourceCmd(modules.AlertRecordManager)
-	cmd.List(new(options.AlertRecordListOptions))
-	cmd.Show(new(options.AlertRecordShowOptions))
-	cmd.Get("", new(options.AlertRecordTotalOptions))
+	cmd := NewResourceCmd(modules.MigrationAlertManager)
+	cmd.List(new(options.MigrationAlertListOptions))
+	cmd.Show(new(options.MigrationAlertShowOptions))
+	cmd.Create(new(options.MigrationAlertCreateOptions))
+	cmd.Delete(new(options.MigrationAlertShowOptions))
 }

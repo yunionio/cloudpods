@@ -29,10 +29,12 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	_ "yunion.io/x/onecloud/pkg/monitor/alerting"
 	_ "yunion.io/x/onecloud/pkg/monitor/alerting/conditions"
 	_ "yunion.io/x/onecloud/pkg/monitor/alerting/notifiers"
 	_ "yunion.io/x/onecloud/pkg/monitor/alertresourcedrivers"
+	"yunion.io/x/onecloud/pkg/monitor/controller/balancer"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	_ "yunion.io/x/onecloud/pkg/monitor/notifydrivers"
 	"yunion.io/x/onecloud/pkg/monitor/options"
@@ -86,6 +88,12 @@ func StartService() {
 	//common_app.ServeForever(app, baseOpts)
 	InitInfluxDBSubscriptionHandlers(app, baseOpts)
 
+	// start migration recover routine
+	go func() {
+		if err := balancer.RecoverInProcessAlerts(app.GetContext(), auth.GetAdminSession(app.GetContext(), options.Options.Region, "")); err != nil {
+			log.Errorf("RecoverInProcessAlerts error: %v", err)
+		}
+	}()
 }
 
 func startServices() {

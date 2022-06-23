@@ -123,7 +123,7 @@ func (man *SNodeAlertManager) ValidateCreateData(
 	if err != nil {
 		return nil, err
 	}
-	alertInput := data.ToAlertCreateInput(name, field, measurement, "telegraf")
+	alertInput := data.ToAlertCreateInput(name, field, measurement, monitor.METRIC_DATABASE_TELE)
 	alertInput, err = AlertManager.ValidateCreateData(ctx, userCred, ownerId, query, alertInput)
 	if err != nil {
 		return nil, err

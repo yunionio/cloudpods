@@ -131,7 +131,7 @@ type SAlert struct {
 	// change to `Alerting` and send alert notifications.
 	For int64 `nullable:"false" list:"user" update:"user"`
 
-	EvalData            jsonutils.JSONObject `list:"user" list:"user"`
+	EvalData            jsonutils.JSONObject `list:"user"`
 	State               string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" update:"user"`
 	NoDataState         string               `width:"36" charset:"ascii" nullable:"false" default:"no_data" create:"optional"  list:"user" update:"user"`
 	ExecutionErrorState string               `width:"36" charset:"ascii" nullable:"false" default:"alerting" create:"optional" list:"user" update:"user"`
@@ -499,6 +499,29 @@ func (alert *SAlert) GetNotifications() ([]SAlertnotification, error) {
 		return nil, err
 	}
 	return notis, nil
+}
+
+func (alert *SAlert) deleteNotifications(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	notis, err := alert.GetNotifications()
+	if err != nil {
+		return err
+	}
+	for _, noti := range notis {
+		conf, err := noti.GetNotification()
+		if err != nil {
+			return errors.Wrap(err, "GetNotification")
+		}
+		if err := conf.CustomizeDelete(ctx, userCred, query, data); err != nil {
+			return errors.Wrapf(err, "notification %s(%s) CustomizeDelete", conf.GetName(), conf.GetId())
+		}
+		if err := noti.Detach(ctx, userCred); err != nil {
+			return errors.Wrapf(err, "notification %s(%s) Detach ", conf.GetName(), conf.GetId())
+		}
+		if err := conf.Delete(ctx, userCred); err != nil {
+			return errors.Wrapf(err, "notification %s(%s) Delete", conf.GetName(), conf.GetId())
+		}
+	}
+	return nil
 }
 
 func (alert *SAlert) GetAlertResources() ([]*SAlertResource, error) {
