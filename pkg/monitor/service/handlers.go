@@ -64,6 +64,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.AlertPanelManager,
 		models.MonitorResourceManager,
 		models.AlertRecordShieldManager,
+		models.GetMigrationAlertManager(),
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

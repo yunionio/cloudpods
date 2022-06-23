@@ -121,13 +121,18 @@ func (input NodeAlertCreateInput) GetEvaluator() Condition {
 	return GetNodeAlertEvaluator(input.Comparator, input.Threshold)
 }
 
+const (
+	ConditionGreaterThan = "gt"
+	ConditionLessThan    = "lt"
+)
+
 func GetNodeAlertEvaluator(comparator string, threshold float64) Condition {
-	typ := "gt"
+	typ := ConditionGreaterThan
 	switch comparator {
 	case ">=", ">":
-		typ = "gt"
+		typ = ConditionGreaterThan
 	case "<=", "<":
-		typ = "lt"
+		typ = ConditionLessThan
 	}
 	return Condition{
 		Type:   typ,

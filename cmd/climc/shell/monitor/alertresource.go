@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(monitor.AlertResources)
+	cmd := NewResourceCmd(monitor.AlertResources)
 	cmd.List(new(options.AlertResourceListOptions))
 	cmd.Show(new(options.AlertResourceShowOptions))
 	cmd.BatchDelete(new(options.AlertResourceDeleteOptions))

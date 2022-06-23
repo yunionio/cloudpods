@@ -16,6 +16,7 @@ package monitor
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -465,6 +466,18 @@ func (w *AlertQueryWhere) AND() *AlertQueryWhere {
 func (w *AlertQueryWhere) OR() *AlertQueryWhere {
 	w.cond = "OR"
 	return w
+}
+
+func (w *AlertQueryWhere) REGEX(key, val string) *AlertQueryWhere {
+	return w.filter("=~", key, fmt.Sprintf("/%s/", val))
+}
+
+func (w *AlertQueryWhere) IN(key string, vals []string) *AlertQueryWhere {
+	if len(vals) == 0 {
+		return w
+	}
+	valStr := strings.Join(vals, "|")
+	return w.REGEX(key, valStr)
 }
 
 func (w *AlertQueryWhere) newTag(op string, key string, value string) monitor.MetricQueryTag {

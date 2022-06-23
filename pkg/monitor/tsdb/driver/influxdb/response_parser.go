@@ -21,6 +21,9 @@ import (
 	"strconv"
 	"strings"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
 
@@ -92,6 +95,8 @@ func (rp *ResponseParser) transformRowsV2(rows []Row, queryResult *tsdb.QueryRes
 			point, err := rp.parseTimepointV2(valuePair)
 			if err == nil {
 				points = append(points, point)
+			} else {
+				log.Errorf("rp.parseTimepointV2 error: %v", err)
 			}
 		}
 		tags := make(map[string]string)
@@ -200,7 +205,7 @@ func (rp *ResponseParser) parseTimepointV2(valuePair []interface{}) (tsdb.TimePo
 	timestampNumber, _ := valuePair[0].(json.Number)
 	timestamp, err := timestampNumber.Float64()
 	if err != nil {
-		return tsdb.TimePoint{}, err
+		return tsdb.TimePoint{}, errors.Wrapf(err, "timestampNumber.Float64 of %#v", timestampNumber)
 	}
 	timepoint = append(timepoint, timestamp)
 	return timepoint, nil

@@ -35,7 +35,6 @@ func newScheduler() scheduler {
 
 func (s *schedulerImpl) Update(rules []*Rule) {
 	log.Debugf("Scheduling update, rule count %d", len(rules))
-	log.Errorf("Scheduling update, rule count %d", len(rules))
 
 	jobs := make(map[string]*Job)
 

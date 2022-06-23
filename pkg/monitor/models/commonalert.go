@@ -66,11 +66,19 @@ var (
 )
 
 func init() {
+	GetCommonAlertManager()
+	//registry.RegisterService(CommonAlertManager)
+}
+
+func GetCommonAlertManager() *SCommonAlertManager {
+	if CommonAlertManager != nil {
+		return CommonAlertManager
+	}
 	CommonAlertManager = &SCommonAlertManager{
 		SAlertManager: *NewAlertManager(SCommonAlert{}, "commonalert", "commonalerts"),
 	}
 	CommonAlertManager.SetVirtualObject(CommonAlertManager)
-	//registry.RegisterService(CommonAlertManager)
+	return CommonAlertManager
 }
 
 type ISubscriptionManager interface {
@@ -1089,26 +1097,7 @@ func (self *SCommonAlert) DeleteAttachAlertRecords(ctx context.Context, userCred
 func (alert *SCommonAlert) customizeDeleteNotis(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	notis, err := alert.GetNotifications()
-	if err != nil {
-		return err
-	}
-	for _, noti := range notis {
-		conf, err := noti.GetNotification()
-		if err != nil {
-			return err
-		}
-		if err := conf.CustomizeDelete(ctx, userCred, query, data); err != nil {
-			return err
-		}
-		if err := noti.Detach(ctx, userCred); err != nil {
-			return err
-		}
-		if err := conf.Delete(ctx, userCred); err != nil {
-			return err
-		}
-	}
-	return nil
+	return alert.deleteNotifications(ctx, userCred, query, data)
 }
 
 func (alert *SCommonAlert) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
