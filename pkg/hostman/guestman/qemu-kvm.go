@@ -1116,6 +1116,15 @@ func (s *SKVMGuestInstance) scriptStop() bool {
 	return true
 }
 
+func (s *SKVMGuestInstance) forceStop() bool {
+	_, err := procutils.NewRemoteCommandAsFarAsPossible("bash", s.GetStopScriptPath(), "--force").Output()
+	if err != nil {
+		log.Errorln(err)
+		return false
+	}
+	return true
+}
+
 func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	timeout, ok := params.(int64)
 	if !ok {
