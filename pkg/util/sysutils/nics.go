@@ -42,7 +42,10 @@ func Nics() ([]*types.SNicDevInfo, error) {
 		nics := make([]*types.SNicDevInfo, 0)
 		for _, nic := range nicDevs {
 			netPath := filepath.Join(sysNetPath, nic.Name())
-			if _, err := os.Stat(filepath.Join(netPath, "device")); os.IsNotExist(err) {
+			// make sure this is a real NIC device
+			if fi, err := os.Stat(filepath.Join(netPath, "device")); err != nil || fi == nil {
+				continue
+			} else if (fi.Mode() & os.ModeSymlink) == 0 {
 				continue
 			}
 			speedStr := GetSysConfig(filepath.Join(netPath, "speed"))
