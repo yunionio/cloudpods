@@ -17,6 +17,8 @@ package host_health
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -26,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 func NewEtcdOptions(
@@ -84,16 +87,11 @@ func (c *SEtcdClient) SetOnUnhealthy(onUnhealthy func()) {
 }
 
 func (c *SEtcdClient) OnKeepaliveFailure() {
-	var timeout = c.timeout
-	for timeout > 0 {
-		timeout -= c.requestExpend
-		if err := c.cli.RestartSession(); err != nil {
-			log.Errorf("etcd restart session failed %s", err)
-		} else {
-			break
-		}
-	}
-	if timeout > 0 {
+	nicRecord := c.recordNic()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(c.timeout))
+	defer cancel()
+	err := c.cli.RestartSessionWithContext(ctx)
+	if err == nil {
 		if err := c.cli.PutSession(context.Background(),
 			fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, c.hostId),
 			api.HOST_HEALTH_STATUS_RUNNING,
@@ -104,11 +102,60 @@ func (c *SEtcdClient) OnKeepaliveFailure() {
 			return
 		}
 	}
-	log.Errorln("keep etcd lease failed")
-	if c.onUnhealthy != nil {
-		c.onUnhealthy()
+	log.Errorf("keep etcd lease failed: %s", err)
+
+	if c.networkAvailable(nicRecord) {
+		// may be etcd not work
+		c.Reconnect()
+	} else {
+		if c.onUnhealthy != nil {
+			c.onUnhealthy()
+		}
 	}
-	go c.Reconnect()
+}
+
+func (c *SEtcdClient) recordNic() map[string]int {
+	nicRecord := make(map[string]int)
+	for _, n := range options.HostOptions.Networks {
+		data := strings.Split(n, "/")
+		interf := data[0]
+		rx, err := fileutils2.FileGetContents(
+			fmt.Sprintf("/sys/class/net/%s/statistics/rx_bytes", interf),
+		)
+		if err != nil {
+			log.Errorf("failed get nic rx %s  statistics %s", interf, err)
+			continue
+		}
+		tx, err := fileutils2.FileGetContents(
+			fmt.Sprintf("/sys/class/net/%s/statistics/tx_bytes", interf),
+		)
+		if err != nil {
+			log.Errorf("failed get nic tx %s  statistics %s", interf, err)
+			continue
+		}
+		irx, _ := strconv.Atoi(rx)
+		itx, _ := strconv.Atoi(tx)
+		nicRecord[interf] = irx + itx
+	}
+	return nicRecord
+}
+
+func (c *SEtcdClient) networkAvailable(oldRecord map[string]int) bool {
+	newRecord := c.recordNic()
+	for _, n := range options.HostOptions.Networks {
+		oldR, ok := oldRecord[n]
+		if !ok {
+			continue
+		}
+		newR, ok := newRecord[n]
+		if !ok {
+			log.Errorf("nic %s record not found", n)
+		}
+		if newR != oldR {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *SEtcdClient) Reconnect() {

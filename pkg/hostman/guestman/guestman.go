@@ -329,14 +329,14 @@ func (m *SGuestManager) LoadServer(sid string) {
 	m.CandidateServers[sid] = guest
 }
 
-func (m *SGuestManager) ShutdownSharedStorageServers() {
+func (m *SGuestManager) ShutdownServers() {
 	m.Servers.Range(func(k, v interface{}) bool {
 		guest := v.(*SKVMGuestInstance)
-		if guest.IsSharedStorage() {
-			log.Infof("Start shutdown server %s", guest.GetName())
-			if !guest.scriptStop() {
-				log.Errorf("shutdown server %s failed", guest.GetName())
-			}
+		log.Infof("Start shutdown server %s", guest.GetName())
+
+		// scriptStop maybe stuck on guest storage offline
+		if !guest.forceStop() {
+			log.Errorf("shutdown server %s failed", guest.GetName())
 		}
 		return true
 	})
