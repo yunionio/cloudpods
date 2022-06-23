@@ -33,8 +33,8 @@ import (
 type BaseOptions struct {
 	Debug        bool   `help:"debug mode"`
 	Host         string `help:"Host" default:"$INCLOUD_SPHERE_HOST" metavar:"INCLOUD_SPHERE_HOST"`
-	AccessKey    string `help:"AccessKey" default:"$INCLOUD_SPHERE_USERNAME" metavar:"INCLOUD_SPHERE_ACCESS_KEY"`
-	AccessSecret string `help:"AccessSecret" default:"$INCLOUD_SPHERE_PASSWORD" metavar:"INCLOUD_SPHERE_ACCESS_SECRET"`
+	AccessKeyId  string `help:"AccessKey" default:"$INCLOUD_SPHERE_ACCESS_KEY_ID" metavar:"INCLOUD_SPHERE_ACCESS_KEY_ID"`
+	AccessSecret string `help:"AccessSecret" default:"$INCLOUD_SPHERE_ACCESS_KEY_SECRET" metavar:"INCLOUD_SPHERE_ACCESS_SECRET"`
 	SUBCOMMAND   string `help:"incloudspherecli subcommand" subcommand:"true"`
 }
 
@@ -72,8 +72,8 @@ func newClient(options *BaseOptions) (*incloudsphere.SRegion, error) {
 		return nil, fmt.Errorf("Missing host")
 	}
 
-	if len(options.AccessKey) == 0 {
-		return nil, fmt.Errorf("Missing access key")
+	if len(options.AccessKeyId) == 0 {
+		return nil, fmt.Errorf("Missing access key id")
 	}
 
 	if len(options.AccessSecret) == 0 {
@@ -93,7 +93,7 @@ func newClient(options *BaseOptions) (*incloudsphere.SRegion, error) {
 	cli, err := incloudsphere.NewSphereClient(
 		incloudsphere.NewSphereClientConfig(
 			options.Host,
-			options.AccessKey,
+			options.AccessKeyId,
 			options.AccessSecret,
 		).Debug(options.Debug).
 			CloudproviderConfig(

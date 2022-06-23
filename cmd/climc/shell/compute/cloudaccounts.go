@@ -50,6 +50,7 @@ func init() {
 	cmd.CreateWithKeyword("create-cloudpods", &options.SCloudpodsCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-nutanix", &options.SNutanixCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-bingocloud", &options.SBingoCloudAccountCreateOptions{})
+	cmd.CreateWithKeyword("create-incloudsphere", &options.SInCloudSphereAccountCreateOptions{})
 
 	cmd.UpdateWithKeyword("update-vmware", &options.SVMwareCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-aliyun", &options.SAliyunCloudAccountUpdateOptions{})
@@ -68,6 +69,7 @@ func init() {
 	cmd.UpdateWithKeyword("update-cloudpods", &options.SCloudpodsCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-nutanix", &options.SNutanixCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-bingocloud", &options.SBingoCloudAccountUpdateOptions{})
+	cmd.UpdateWithKeyword("update-incloudsphere", &options.SInCloudSphereAccountUpdateOptions{})
 
 	cmd.Perform("update-credential", &options.CloudaccountUpdateCredentialOptions{})
 
@@ -89,6 +91,7 @@ func init() {
 	cmd.PerformWithKeyword("update-credential-cloudpods", "update-credential", &options.SCloudpodsCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-nutanix", "update-credential", &options.SNutanixCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-bingocloud", "update-credential", &options.SBingoCloudAccountUpdateCredentialOptions{})
+	cmd.PerformWithKeyword("update-credential-incloudsphere", "update-credential", &options.SInCloudSphereAccountUpdateCredentialOptions{})
 
 	cmd.PerformWithKeyword("test-connectivity-google", "test-connectivity", &options.SGoogleCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("test-connectivity-vmware", "test-connectivity", &options.SVMwareCloudAccountUpdateCredentialOptions{})
