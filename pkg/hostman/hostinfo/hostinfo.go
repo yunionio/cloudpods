@@ -1220,7 +1220,10 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 		h.onFail(err)
 		return
 	}
-	h.onHostDown, _ = hostbody.GetString("metadata", "__on_host_down")
+	if jsonutils.QueryBoolean(hostbody, "auto_migrate_on_host_down", false) {
+		h.onHostDown = hostconsts.SHUTDOWN_SERVERS
+	}
+	log.Infof("on host down %s", h.onHostDown)
 
 	memReservedMb, _ := hostbody.Int("mem_reserved")
 	if options.HostOptions.HugepagesOption == "native" && memReservedMb > int64(h.getReservedMemMb()) {

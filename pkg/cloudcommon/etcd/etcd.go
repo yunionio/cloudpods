@@ -121,7 +121,7 @@ func NewEtcdClient(opt *SEtcdOptions, onKeepaliveFailure func()) (*SEtcdClient, 
 
 	etcdClient.namespace = opt.EtcdNamspace
 
-	err = etcdClient.startSession()
+	err = etcdClient.startSession(context.TODO())
 	if err != nil {
 		if e := etcdClient.Close(); e != nil {
 			log.Errorf("etcd client close failed %s", e)
@@ -150,9 +150,7 @@ func (cli *SEtcdClient) SessionLiving() bool {
 	return cli.leaseLiving
 }
 
-func (cli *SEtcdClient) startSession() error {
-	ctx := context.TODO()
-
+func (cli *SEtcdClient) startSession(ctx context.Context) error {
 	resp, err := cli.client.Grant(ctx, int64(cli.leaseTtlTimeout))
 	if err != nil {
 		return err
@@ -185,7 +183,15 @@ func (cli *SEtcdClient) RestartSession() error {
 	if cli.leaseLiving {
 		return errors.Error("session is living, can't restart")
 	}
-	return cli.startSession()
+	ctx := context.TODO()
+	return cli.startSession(ctx)
+}
+
+func (cli *SEtcdClient) RestartSessionWithContext(ctx context.Context) error {
+	if cli.leaseLiving {
+		return errors.Error("session is living, can't restart")
+	}
+	return cli.startSession(ctx)
 }
 
 func (cli *SEtcdClient) getKey(key string) string {
