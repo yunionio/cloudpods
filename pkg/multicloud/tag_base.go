@@ -457,3 +457,19 @@ func (self *BingoTags) GetSysTags() map[string]string {
 func (self *BingoTags) SetTags(tags map[string]string, replace bool) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
 }
+
+type InCloudSphereTags struct {
+}
+
+func (self *InCloudSphereTags) GetTags() (map[string]string, error) {
+	tags := map[string]string{}
+	return tags, nil
+}
+
+func (self *InCloudSphereTags) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *InCloudSphereTags) SetTags(tags map[string]string, replace bool) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
+}

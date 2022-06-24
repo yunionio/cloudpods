@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package incloudsphere
 
 import (
@@ -83,11 +97,14 @@ func (self *SphereClient) auth() error {
 }
 
 func (self *SphereClient) GetRegion() (*SRegion, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	region := &SRegion{client: self}
+	return region, nil
 }
 
 func (self *SphereClient) GetRegions() ([]SRegion, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	ret := []SRegion{}
+	ret = append(ret, SRegion{client: self})
+	return ret, nil
 }
 
 type SphereError struct {
@@ -137,7 +154,35 @@ func (cli *SphereClient) post(res string, params interface{}) (jsonutils.JSONObj
 	return cli._jsonRequest(httputils.POST, res, params)
 }
 
-func (cli *SphereClient) list(res string, params url.Values) (jsonutils.JSONObject, error) {
+func (cli *SphereClient) list(res string, params url.Values, retVal interface{}) error {
+	if params == nil {
+		params = url.Values{}
+	}
+	page, items := 1, jsonutils.NewArray()
+	params.Set("pageSize", "100")
+	for {
+		params.Set("currentPage", fmt.Sprintf("%d", page))
+		resp, err := cli._list(res, params)
+		if err != nil {
+			return errors.Wrapf(err, "list(%s)", res)
+		}
+		totalSize, _ := resp.Int("totalSize")
+		if resp.Contains("items") {
+			array, err := resp.GetArray("items")
+			if err != nil {
+				return errors.Wrapf(err, "get items")
+			}
+			items.Add(array...)
+		}
+		if totalSize <= int64(items.Length()) {
+			break
+		}
+		page++
+	}
+	return items.Unmarshal(retVal)
+}
+
+func (cli *SphereClient) _list(res string, params url.Values) (jsonutils.JSONObject, error) {
 	if params != nil {
 		res = fmt.Sprintf("%s?%s", res, params.Encode())
 	}
@@ -146,7 +191,7 @@ func (cli *SphereClient) list(res string, params url.Values) (jsonutils.JSONObje
 
 func (cli *SphereClient) _jsonRequest(method httputils.THttpMethod, res string, params interface{}) (jsonutils.JSONObject, error) {
 	client := httputils.NewJsonClient(cli.getDefaultClient())
-	url := fmt.Sprintf("%s/%s", cli.authURL, res)
+	url := fmt.Sprintf("%s/%s", cli.authURL, strings.TrimPrefix(res, "/"))
 	req := httputils.NewJsonRequest(method, url, params)
 	header := http.Header{}
 	if len(cli.sessionId) > 0 {
@@ -173,14 +218,15 @@ func (self *SphereClient) GetAccountId() string {
 
 func (self *SphereClient) GetIRegions() []cloudprovider.ICloudRegion {
 	ret := []cloudprovider.ICloudRegion{}
-	_, err := self.GetRegions()
-	if err != nil {
-		return nil
-	}
+	region, _ := self.GetRegion()
+	ret = append(ret, region)
 	return ret
 }
 
 func (self *SphereClient) GetCapabilities() []string {
-	ret := []string{}
+	ret := []string{
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
+	}
 	return ret
 }
