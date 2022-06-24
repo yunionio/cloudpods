@@ -1109,3 +1109,28 @@ type SBingoCloudAccountUpdateCredentialOptions struct {
 func (opts *SBingoCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts.SAccessKeyCredential), nil
 }
+
+type SInCloudSphereAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	HOST string
+	SAccessKeyCredential
+}
+
+func (opts *SInCloudSphereAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString(api.CLOUD_PROVIDER_INCLOUD_SPHERE), "provider")
+	return params, nil
+}
+
+type SInCloudSphereAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+type SInCloudSphereAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	SAccessKeyCredential
+}
+
+func (opts *SInCloudSphereAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.SAccessKeyCredential), nil
+}
