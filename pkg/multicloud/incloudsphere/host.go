@@ -22,6 +22,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/pkg/errors"
 )
 
 type SHost struct {
@@ -207,11 +208,25 @@ func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vms, err := self.zone.region.GetInstances(self.Id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetInstances")
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		vms[i].host = self
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
 }
 
 func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vm, err := self.zone.region.GetInstance(id)
+	if err != nil {
+		return nil, err
+	}
+	vm.host = self
+	return vm, nil
 }
 
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {

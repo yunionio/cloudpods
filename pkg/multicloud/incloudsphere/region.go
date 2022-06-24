@@ -137,3 +137,7 @@ func (self *SRegion) _list(res string, params url.Values) (jsonutils.JSONObject,
 func (self *SRegion) list(res string, params url.Values, retVal interface{}) error {
 	return self.client.list(res, params, retVal)
 }
+
+func (self *SRegion) get(res string, params url.Values, retVal interface{}) error {
+	return self.client.get(res, params, retVal)
+}

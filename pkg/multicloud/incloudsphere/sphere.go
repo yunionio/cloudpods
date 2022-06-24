@@ -108,23 +108,23 @@ func (self *SphereClient) GetRegions() ([]SRegion, error) {
 }
 
 type SphereError struct {
-	httputils.JSONClientError
+	Message string
+	Code    int
+	Params  []string
+}
+
+func (self SphereError) Error() string {
+	return fmt.Sprintf("[%d] %s with params %s", self.Code, self.Message, self.Params)
 }
 
 func (ce *SphereError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
 	if body != nil {
 		body.Unmarshal(ce)
 	}
-	if ce.Code == 0 {
+	if ce.Code == 0 && statusCode > 0 {
 		ce.Code = statusCode
 	}
-	if len(ce.Details) == 0 && body != nil {
-		ce.Details = body.String()
-	}
-	if len(ce.Class) == 0 {
-		ce.Class = http.StatusText(statusCode)
-	}
-	if statusCode == 404 {
+	if ce.Code == 404 || ce.Code == 20027 {
 		return errors.Wrap(cloudprovider.ErrNotFound, ce.Error())
 	}
 	return ce
@@ -152,6 +152,17 @@ func (cli *SphereClient) getDefaultClient() *http.Client {
 
 func (cli *SphereClient) post(res string, params interface{}) (jsonutils.JSONObject, error) {
 	return cli._jsonRequest(httputils.POST, res, params)
+}
+
+func (cli *SphereClient) get(res string, params url.Values, retVal interface{}) error {
+	if params != nil {
+		res = fmt.Sprintf("%s?%s", res, params.Encode())
+	}
+	resp, err := cli._jsonRequest(httputils.GET, res, nil)
+	if err != nil {
+		return err
+	}
+	return resp.Unmarshal(retVal)
 }
 
 func (cli *SphereClient) list(res string, params url.Values, retVal interface{}) error {
@@ -201,6 +212,9 @@ func (cli *SphereClient) _jsonRequest(method httputils.THttpMethod, res string, 
 	req.SetHeader(header)
 	oe := &SphereError{}
 	_, resp, err := client.Send(context.Background(), req, oe, cli.debug)
+	if resp.Contains("code") && resp.Contains("message") {
+		return nil, oe.ParseErrorFromJsonResponse(0, resp)
+	}
 	return resp, err
 }
 
