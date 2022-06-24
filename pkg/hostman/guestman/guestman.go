@@ -335,9 +335,10 @@ func (m *SGuestManager) ShutdownServers() {
 		log.Infof("Start shutdown server %s", guest.GetName())
 
 		// scriptStop maybe stuck on guest storage offline
-		if !guest.forceStop() {
+		if !guest.forceScriptStop() {
 			log.Errorf("shutdown server %s failed", guest.GetName())
 		}
+		guest.Monitor.Disconnect()
 		return true
 	})
 }

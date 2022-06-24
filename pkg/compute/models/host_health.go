@@ -100,7 +100,12 @@ func (h *SHostHealthChecker) startWatcher(ctx context.Context, hostId string) {
 	if _, ok := h.hc[hostId]; !ok {
 		h.hc[hostId] = ch
 	}
-	h.cli.Watch(ctx, key, h.onHostOnline(ctx, hostId), h.onHostOffline(ctx, hostId), h.onHostOfflineDeleted(ctx, hostId))
+	h.cli.Watch(
+		ctx, key,
+		h.onHostOnline(ctx, hostId),
+		h.onHostOffline(ctx, hostId),
+		h.onHostOfflineDeleted(ctx, hostId),
+	)
 }
 
 func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostId string) {
@@ -135,12 +140,14 @@ func (h *SHostHealthChecker) processHostOffline(ctx context.Context, hostId stri
 
 func (h *SHostHealthChecker) onHostOffline(ctx context.Context, hostId string) etcd.TEtcdModifyEventFunc {
 	return func(ctx context.Context, key, oldvalue, value []byte) {
+		log.Errorf("watch host key modified %s %s %s", key, oldvalue, value)
 		h.processHostOffline(ctx, hostId)
 	}
 }
 
 func (h *SHostHealthChecker) onHostOfflineDeleted(ctx context.Context, hostId string) etcd.TEtcdDeleteEventFunc {
 	return func(ctx context.Context, key []byte) {
+		log.Errorf("watch host key deleled %s", key)
 		h.processHostOffline(ctx, hostId)
 	}
 }

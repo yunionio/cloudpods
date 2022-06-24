@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 )
 
@@ -41,11 +42,9 @@ type SHostHealthManager struct {
 	onHostDown string
 }
 
-const SHUTDOWN_SERVERS = "shutdown-servers"
-
 var (
 	manager         *SHostHealthManager
-	HostDownActions = []string{SHUTDOWN_SERVERS}
+	HostDownActions = []string{hostconsts.SHUTDOWN_SERVERS}
 )
 
 func InitHostHealthManager(hostId, onHostDown string) (*SHostHealthManager, error) {
@@ -79,7 +78,7 @@ func (m *SHostHealthManager) StartHealthCheck() error {
 
 func (m *SHostHealthManager) OnUnhealth() {
 	m.status = UNHEALTHY
-	if m.onHostDown == SHUTDOWN_SERVERS {
+	if m.onHostDown == hostconsts.SHUTDOWN_SERVERS {
 		log.Errorf("Host unhealthy, going to shotdown servers")
 		m.shutdownServers()
 	}
