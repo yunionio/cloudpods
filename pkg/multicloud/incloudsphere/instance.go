@@ -355,11 +355,11 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 }
 
 func (self *SInstance) GetBios() string {
-	return "BIOS"
+	return self.BootMode
 }
 
 func (self *SInstance) GetBootOrder() string {
-	return "dcn"
+	return strings.ToLower(self.Boot)
 }
 
 func (self *SInstance) GetError() error {
@@ -367,7 +367,7 @@ func (self *SInstance) GetError() error {
 }
 
 func (self *SInstance) GetHostname() string {
-	return self.Name
+	return self.HostName
 }
 
 func (self *SInstance) GetHypervisor() string {
@@ -375,7 +375,15 @@ func (self *SInstance) GetHypervisor() string {
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	ret := []cloudprovider.ICloudDisk{}
+	for i := range self.Disks {
+		disk, err := self.host.zone.region.GetDisk(self.Disks[i].Volume.Id)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, disk)
+	}
+	return ret, nil
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {

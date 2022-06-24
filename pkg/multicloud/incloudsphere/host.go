@@ -144,7 +144,7 @@ func (self *SHost) GetSysInfo() jsonutils.JSONObject {
 }
 
 func (self *SHost) GetSN() string {
-	return ""
+	return self.SerialNumber
 }
 
 func (self *SHost) GetCpuCount() int {
@@ -156,11 +156,11 @@ func (self *SHost) GetNodeCount() int8 {
 }
 
 func (self *SHost) GetCpuDesc() string {
-	return ""
+	return self.CPUType
 }
 
 func (self *SHost) GetCpuMhz() int {
-	return int(self.CPUTotalHz)
+	return int(self.CPUFrequency * 1024)
 }
 
 func (self *SHost) GetCpuCmtbound() float32 {
@@ -196,7 +196,7 @@ func (self *SHost) GetIsMaintenance() bool {
 }
 
 func (self *SHost) GetVersion() string {
-	return ""
+	return self.NodeVersion
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
@@ -225,6 +225,9 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	if err != nil {
 		return nil, err
 	}
+	if vm.HostId != self.Id {
+		return nil, cloudprovider.ErrNotFound
+	}
 	vm.host = self
 	return vm, nil
 }
@@ -234,15 +237,38 @@ func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	storages, err := self.zone.region.GetStoragesByHost(self.Id)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudStorage{}
+	for i := range storages {
+		storages[i].zone = self.zone
+		ret = append(ret, &storages[i])
+	}
+	return ret, nil
 }
 
 func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	storage, err := self.zone.region.GetStorage(id)
+	if err != nil {
+		return nil, err
+	}
+	storage.zone = self.zone
+	if storage.HostId != self.Id {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return storage, nil
 }
 
 func (self *SRegion) GetHosts(dcId string) ([]SHost, error) {
 	hosts := []SHost{}
 	res := fmt.Sprintf("/datacenters/%s/hosts", dcId)
 	return hosts, self.list(res, url.Values{}, &hosts)
+}
+
+func (self *SRegion) GetHost(id string) (*SHost, error) {
+	ret := &SHost{}
+	res := fmt.Sprintf("/hosts/%s", id)
+	return ret, self.get(res, url.Values{}, ret)
 }

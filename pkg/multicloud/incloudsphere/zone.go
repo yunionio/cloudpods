@@ -94,16 +94,15 @@ func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
 }
 
 func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	hosts, err := self.GetIHosts()
+	host, err := self.region.GetHost(id)
 	if err != nil {
 		return nil, err
 	}
-	for i := range hosts {
-		if hosts[i].GetGlobalId() == id {
-			return hosts[i], nil
-		}
+	host.zone = self
+	if host.DataCenterId != self.Id {
+		return nil, cloudprovider.ErrNotFound
 	}
-	return nil, cloudprovider.ErrNotFound
+	return host, nil
 }
 
 func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
@@ -120,20 +119,28 @@ func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	storages, err := self.GetIStorages()
+	storages, err := self.region.GetStoragesByDc(self.Id)
 	if err != nil {
 		return nil, err
 	}
+	ret := []cloudprovider.ICloudStorage{}
 	for i := range storages {
-		if storages[i].GetGlobalId() == id {
-			return storages[i], nil
-		}
+		storages[i].zone = self
+		ret = append(ret, &storages[i])
 	}
-	return nil, cloudprovider.ErrNotFound
+	return ret, nil
+}
+
+func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	storage, err := self.region.GetStorage(id)
+	if err != nil {
+		return nil, err
+	}
+	if storage.DataCenterId != self.Id {
+		return nil, cloudprovider.ErrNotFound
+	}
+	storage.zone = self
+	return storage, nil
 }
 
 func (self *SRegion) GetZones() ([]SZone, error) {

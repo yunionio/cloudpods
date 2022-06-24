@@ -20,29 +20,28 @@ import (
 )
 
 func init() {
-	type HostListOptions struct {
-		DATACENTERID string
+	type DiskListOptions struct {
+		STORAGE_ID string
 	}
-	shellutils.R(&HostListOptions{}, "host-list", "list hosts", func(cli *incloudsphere.SRegion, args *HostListOptions) error {
-		hosts, err := cli.GetHosts(args.DATACENTERID)
+	shellutils.R(&DiskListOptions{}, "disk-list", "list disks", func(cli *incloudsphere.SRegion, args *DiskListOptions) error {
+		disks, err := cli.GetDisks(args.STORAGE_ID)
 		if err != nil {
 			return err
 		}
-		printList(hosts, 0, 0, 0, []string{})
+		printList(disks, 0, 0, 0, []string{})
 		return nil
 	})
 
-	type HostIdOptions struct {
+	type DiskIdOptions struct {
 		ID string
 	}
 
-	shellutils.R(&HostIdOptions{}, "host-show", "show host", func(cli *incloudsphere.SRegion, args *HostIdOptions) error {
-		ret, err := cli.GetHost(args.ID)
+	shellutils.R(&DiskIdOptions{}, "disk-show", "show disk", func(cli *incloudsphere.SRegion, args *DiskIdOptions) error {
+		ret, err := cli.GetDisk(args.ID)
 		if err != nil {
 			return err
 		}
 		printObject(ret)
 		return nil
 	})
-
 }

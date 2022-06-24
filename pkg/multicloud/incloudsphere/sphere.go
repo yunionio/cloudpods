@@ -31,6 +31,7 @@ import (
 
 const (
 	CLOUD_PROVIDER_INCLOUD_SPHERE = api.CLOUD_PROVIDER_INCLOUD_SPHERE
+	AUTH_ADDR                     = "system/user/login"
 )
 
 type SphereClient struct {
@@ -82,7 +83,7 @@ func (self *SphereClient) auth() error {
 		"domain":   "internal",
 		"locale":   "cn",
 	}
-	ret, err := self.post("system/user/login", params)
+	ret, err := self.__jsonRequest(httputils.POST, AUTH_ADDR, params)
 	if err != nil {
 		return errors.Wrapf(err, "post")
 	}
@@ -201,11 +202,23 @@ func (cli *SphereClient) _list(res string, params url.Values) (jsonutils.JSONObj
 }
 
 func (cli *SphereClient) _jsonRequest(method httputils.THttpMethod, res string, params interface{}) (jsonutils.JSONObject, error) {
+	ret, err := cli.__jsonRequest(method, res, params)
+	if err != nil {
+		if e, ok := err.(*SphereError); ok && e.Code == 107001 {
+			cli.auth()
+			return cli.__jsonRequest(method, res, params)
+		}
+		return ret, err
+	}
+	return ret, nil
+}
+
+func (cli *SphereClient) __jsonRequest(method httputils.THttpMethod, res string, params interface{}) (jsonutils.JSONObject, error) {
 	client := httputils.NewJsonClient(cli.getDefaultClient())
 	url := fmt.Sprintf("%s/%s", cli.authURL, strings.TrimPrefix(res, "/"))
 	req := httputils.NewJsonRequest(method, url, params)
 	header := http.Header{}
-	if len(cli.sessionId) > 0 {
+	if len(cli.sessionId) > 0 && res != AUTH_ADDR {
 		header.Set("Authorization", cli.sessionId)
 	}
 	header.Set("Version", "5.8")

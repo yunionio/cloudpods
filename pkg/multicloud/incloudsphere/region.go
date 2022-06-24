@@ -130,6 +130,18 @@ func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
 	return ret, nil
 }
 
+func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	vm, err := self.GetInstance(id)
+	if err != nil {
+		return nil, err
+	}
+	return vm, nil
+}
+
+func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+	return self.GetHost(id)
+}
+
 func (self *SRegion) _list(res string, params url.Values) (jsonutils.JSONObject, error) {
 	return self.client._list(res, params)
 }
