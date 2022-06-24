@@ -19,10 +19,11 @@ import (
 	"net/url"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-	"yunion.io/x/pkg/errors"
 )
 
 type SHost struct {
@@ -233,7 +234,16 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	wires, err := self.zone.region.GetWiresByDs(self.DataCenterId)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudWire{}
+	for i := range wires {
+		wires[i].region = self.zone.region
+		ret = append(ret, &wires[i])
+	}
+	return ret, nil
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {

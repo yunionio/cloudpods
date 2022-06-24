@@ -15,6 +15,7 @@
 package incloudsphere
 
 import (
+	"fmt"
 	"net/url"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -146,4 +147,10 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 func (self *SRegion) GetZones() ([]SZone, error) {
 	ret := []SZone{}
 	return ret, self.list("/datacenters", url.Values{}, &ret)
+}
+
+func (self *SRegion) GetZone(id string) (*SZone, error) {
+	ret := &SZone{region: self}
+	res := fmt.Sprintf("/datacenters/%s", id)
+	return ret, self.get(res, url.Values{}, ret)
 }

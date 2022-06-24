@@ -19,10 +19,11 @@ import (
 	"net/url"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-	"yunion.io/x/pkg/errors"
 )
 
 type SRegion struct {
@@ -96,25 +97,34 @@ func (self *SRegion) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
 
+func (self *SRegion) getVpc() *SVpc {
+	return &SVpc{region: self}
+}
+
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vpc := self.getVpc()
+	return []cloudprovider.ICloudVpc{vpc}, nil
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
-	zones, err := self.GetIZones()
+	vpcs, err := self.GetIVpcs()
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetIZones")
+		return nil, err
 	}
-	for i := range zones {
-		if zones[i].GetGlobalId() == id {
-			return zones[i], nil
+	for i := range vpcs {
+		if vpcs[i].GetGlobalId() == id {
+			return vpcs[i], nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
+	zone, err := self.GetZone(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetZone(%s)", id)
+	}
+	return zone, nil
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
@@ -139,7 +149,16 @@ func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	return self.GetHost(id)
+	host, err := self.GetHost(id)
+	if err != nil {
+		return nil, err
+	}
+	zone, err := self.GetZone(host.DataCenterId)
+	if err != nil {
+		return nil, err
+	}
+	host.zone = zone
+	return host, nil
 }
 
 func (self *SRegion) _list(res string, params url.Values) (jsonutils.JSONObject, error) {
