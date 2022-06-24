@@ -25,6 +25,9 @@ import (
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -57,6 +60,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/k8s/tokens"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -3978,9 +3982,6 @@ func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCr
 		if err != nil {
 			return nil, err
 		}
-		if hostHealthChecker != nil {
-			hostHealthChecker.UnwatchHost(context.Background(), self.Id)
-		}
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, input.Reason, userCred)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_OFFLINE, input, userCred, true)
 		ndata := jsonutils.Marshal(self).(*jsonutils.JSONDict)
@@ -5602,7 +5603,38 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 }
 
 func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCredential) {
-	log.Errorf("watched host down %s", host.Id)
+	log.Errorf("watched host down %s, status %s", host.Name, host.HostStatus)
+	hostHealthChecker.UnwatchHost(ctx, host.Id)
+
+	hostname := host.Name
+	if host.HostStatus == api.HOST_OFFLINE {
+		// host has been marked offline, check host status in k8s
+		coreCli, err := tokens.GetCoreClient()
+		if err != nil {
+			log.Errorf("failed get k8s client %s", err)
+			return
+		}
+		accessIp := strings.Replace(host.AccessIp, ".", "-", -1)
+		if strings.HasSuffix(host.Name, "-"+accessIp) {
+			hostname = hostname[0 : len(hostname)-len(accessIp)-1]
+		}
+		node, err := coreCli.Nodes().Get(context.TODO(), hostname, metav1.GetOptions{})
+		if err != nil {
+			log.Errorf("failed get node %s info %s", hostname, err)
+			return
+		}
+
+		// check node status is ready
+		if length := len(node.Status.Conditions); length > 0 {
+			if node.Status.Conditions[length-1].Type == v1.NodeReady &&
+				node.Status.Conditions[length-1].Status == v1.ConditionTrue {
+				log.Infof("node %s status ready, no need entry rescue", hostname)
+				return
+			}
+		}
+	}
+
+	log.Errorf("host %s down, try rescue guests", hostname)
 	db.OpsLog.LogEvent(host, db.ACT_HOST_DOWN, "", userCred)
 	if _, err := host.SaveCleanUpdates(func() error {
 		host.EnableHealthCheck = false

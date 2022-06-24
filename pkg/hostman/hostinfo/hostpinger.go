@@ -86,10 +86,10 @@ func (p *SHostPingTask) ping(div int, hostId string) error {
 	if err != nil {
 		return err
 	} else {
-		name, err := res.GetString("name")
-		if err != nil {
-			Instance().setHostname(name)
-		}
+		// name, err := res.GetString("name")
+		// if err != nil {
+		// 	Instance().setHostname(name)
+		// }
 		catalog, err := res.Get("catalog")
 		if err == nil {
 			cl := make(mcclient.KeystoneServiceCatalogV3, 0)

@@ -1285,7 +1285,6 @@ func (h *SHostInfo) PutHostOnline() error {
 		if err != nil {
 			log.Fatalf("Init host health manager failed %s", err)
 		}
-		data.Set("update_health_status", jsonutils.JSONTrue)
 	}
 
 	_, err := modules.Hosts.PerformAction(

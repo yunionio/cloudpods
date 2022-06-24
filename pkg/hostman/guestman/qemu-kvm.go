@@ -1116,7 +1116,7 @@ func (s *SKVMGuestInstance) scriptStop() bool {
 	return true
 }
 
-func (s *SKVMGuestInstance) forceStop() bool {
+func (s *SKVMGuestInstance) forceScriptStop() bool {
 	_, err := procutils.NewRemoteCommandAsFarAsPossible("bash", s.GetStopScriptPath(), "--force").Output()
 	if err != nil {
 		log.Errorln(err)
