@@ -5,7 +5,7 @@ version: 2
 jobs:
   check:
     docker:
-      - image: yunionio/centos-build:1.1-4
+      - image: yunion/centos-build:1.1-6
         environment:
           ONECLOUD_CI_BUILD: "1"
     working_directory: /root/go/src/yunion.io/x/onecloud
@@ -18,7 +18,7 @@ jobs:
     requires:
       - check
     docker:
-      - image: yunionio/centos-build:1.1-4
+      - image: yunion/centos-build:1.1-6
         environment:
           ONECLOUD_CI_BUILD: "1"
 
@@ -38,7 +38,7 @@ jobs:
           command: |
             targets="$(circleci tests glob "cmd/*" | grep -v cmd/host-image | circleci tests split)"
             echo $targets | tr ' ' '\n'
-            make -j2 $targets
+            make $targets
             ls -lh _output/bin/
       - save_cache:
           key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
@@ -51,7 +51,7 @@ jobs:
     requires:
       - check
     docker:
-      - image: yunionio/centos-build:1.1-4
+      - image: yunion/centos-build:1.1-6
         environment:
           ONECLOUD_CI_BUILD: "1"
     working_directory: /root/go/src/yunion.io/x/onecloud
