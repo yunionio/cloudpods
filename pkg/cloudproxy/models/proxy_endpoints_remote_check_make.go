@@ -110,7 +110,7 @@ func (proxyendpoint *SProxyEndpoint) remoteCheckMake(ctx context.Context, userCr
 		case <-time.After(2 * time.Second):
 		}
 	}
-	return httperrors.NewConflictError("remote sshd_config may have a problem with GatewayPorts")
+	// return httperrors.NewConflictError("remote sshd_config may have a problem with GatewayPorts")
 }
 
 func (proxyendpoint *SProxyEndpoint) remoteConfigure(ctx context.Context, userCred mcclient.TokenCredential) error {
