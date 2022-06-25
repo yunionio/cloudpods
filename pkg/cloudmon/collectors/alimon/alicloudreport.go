@@ -27,8 +27,8 @@ func init() {
 	factory := SAliCloudReportFactory{}
 	common.RegisterFactory(&factory)
 	cluster := &AliK8sClusterHelper{
-		&common.K8sClusterMetricBaseHelper{
-			map[common.K8sClusterModuleType]common.IK8sClusterModuleHelper{},
+		K8sClusterMetricBaseHelper: &common.K8sClusterMetricBaseHelper{
+			ModuleHelper: map[common.K8sClusterModuleType]common.IK8sClusterModuleHelper{},
 		},
 	}
 	cluster.RegisterModuleHelper(new(AliK8sClusterPodHelper))

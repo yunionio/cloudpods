@@ -28,8 +28,8 @@ func init() {
 	common.RegisterFactory(&factory)
 
 	cluster := &QcloudK8sClusterHelper{
-		&common.K8sClusterMetricBaseHelper{
-			map[common.K8sClusterModuleType]common.IK8sClusterModuleHelper{},
+		K8sClusterMetricBaseHelper: &common.K8sClusterMetricBaseHelper{
+			ModuleHelper: map[common.K8sClusterModuleType]common.IK8sClusterModuleHelper{},
 		},
 	}
 	cluster.RegisterModuleHelper(new(QcloudK8sClusterDeployHelper))
