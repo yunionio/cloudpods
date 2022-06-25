@@ -2015,7 +2015,7 @@ func (t *SGuestLiveChangeDisk) onGuestPaused(res string) {
 		}
 
 		// block job completed, start reopen disk
-		log.Infof("guest %s start reopen block %s %s", t.Id, t.diskIndex, t.targetDisk.GetPath())
+		log.Infof("guest %s start reopen block %d %s", t.Id, t.diskIndex, t.targetDisk.GetPath())
 		t.Monitor.BlockReopenImage(
 			fmt.Sprintf("drive_%d", t.diskIndex),
 			t.targetDisk.GetPath(),

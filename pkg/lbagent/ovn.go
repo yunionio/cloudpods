@@ -552,7 +552,7 @@ func (ovnHost *OvnHost) Refresh(ctx context.Context, lb *agentmodels.Loadbalance
 		return err
 	}
 
-	return nil
+	// return nil
 }
 
 func (ovnHost *OvnHost) refresh(ctx context.Context, lb *agentmodels.Loadbalancer) error {
@@ -744,7 +744,7 @@ func (ovn *OvnWorker) Refresh(ctx context.Context, lbs agentmodels.Loadbalancers
 		return err
 	}
 
-	return nil
+	// return nil
 }
 
 func (ovn *OvnWorker) refresh(ctx context.Context, lbs agentmodels.Loadbalancers) error {

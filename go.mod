@@ -1,6 +1,6 @@
 module yunion.io/x/onecloud
 
-go 1.13
+go 1.16
 
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
@@ -99,7 +99,7 @@ require (
 	github.com/opentracing/opentracing-go v1.0.2 // indirect
 	github.com/openzipkin/zipkin-go-opentracing v0.3.4 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
-	github.com/pierrec/lz4/v4 v4.1.12
+	github.com/pierrec/lz4/v4 v4.1.14
 	github.com/pkg/errors v0.9.1
 	github.com/pquerna/otp v1.2.0
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
@@ -107,18 +107,17 @@ require (
 	github.com/sergi/go-diff v1.2.0
 	github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
 	github.com/sevlyar/go-daemon v0.1.5
-	github.com/shirou/gopsutil v2.21.11+incompatible
+	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/sirupsen/logrus v1.6.0
 	github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 	github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.413
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/tjfoc/gmsm v1.4.1
-	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74
@@ -131,7 +130,7 @@ require (
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
+	golang.org/x/sys v0.0.0-20220429233432-b5fbb4746d32
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
 	golang.org/x/text v0.3.7
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
@@ -139,7 +138,7 @@ require (
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c
 	google.golang.org/grpc v1.38.0
-	google.golang.org/protobuf v1.26.0
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/fatih/set.v0 v0.2.1
 	gopkg.in/ini.v1 v1.44.0 // indirect
@@ -156,8 +155,11 @@ require (
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v1.0.0
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v1.1.2-0.20220621143704-497d072a7a3b
+	yunion.io/x/sqlchemy v1.1.2-0.20220623180503-1fe0bae99707
 	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
 )
 
-replace google.golang.org/grpc => google.golang.org/grpc v1.29.0
+replace (
+	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
+	google.golang.org/grpc => google.golang.org/grpc v1.29.0
+)
