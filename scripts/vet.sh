@@ -54,7 +54,7 @@ chk() {
 	chki "composite literal uses unkeyed fields"
 	: chki "repeats json tag"
 	: chki "bad syntax for struct tag key"
-	chki "bad syntax for struct tag value"
+	: chki "bad syntax for struct tag value"
 	chki "pairs not separated by spaces"
 	chki "bad syntax for struct tag pair"
 }
