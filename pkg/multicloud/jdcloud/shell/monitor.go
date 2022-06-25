@@ -22,7 +22,7 @@ import (
 func init() {
 	type DescribeMetricDataOptions struct {
 		/* 监控项英文标识(id)  */
-		Metric       string `help:"metric name"json:"metric"`
+		Metric       string `help:"metric name" json:"metric"`
 		TimeInterval string `help:"time interval" choices:"1h|6h|12h|1d|3d|7d|14d" json:"timeInterval"`
 		ServiceCode  string `help:"resource code" choices:"vm" json:"serviceCode"`
 		ResourceId   string `help:"resource id" json:"resourceId"`
