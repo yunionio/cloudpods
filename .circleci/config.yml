@@ -65,7 +65,7 @@ jobs:
       - run:
           name: unit_test
           command: |
-            ./scripts/coverage.sh --codecov
+            make test
       - save_cache:
           key: onecloud-test-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
           paths:
