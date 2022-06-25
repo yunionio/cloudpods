@@ -295,7 +295,7 @@ func (self *SQCloudReport) getDimensions(res []jsonutils.JSONObject) []qcloud.SQ
 	for _, server := range res {
 		external_id, _ := server.GetString(dimensionId.LocalId)
 		dimensions = append(dimensions, qcloud.SQcInstanceMetricDimension{
-			[]qcloud.SQcMetricDimension{qcloud.SQcMetricDimension{
+			Dimensions: []qcloud.SQcMetricDimension{qcloud.SQcMetricDimension{
 				Name:  dimensionId.ExtId,
 				Value: external_id,
 			}},
