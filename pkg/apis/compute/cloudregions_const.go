@@ -106,6 +106,8 @@ const (
 	CITY_MUMBAI      = "Mumbai"      //孟买
 	CITY_KANCHIPURAM = "Kanchipuram" //甘吉布勒姆
 	CITY_MAHARASHTRA = "Maharashtra" //马哈拉施特拉邦
+	CITY_JAMNAGAR    = "Jamnagar"    //贾姆讷格尔
+	CITY_NAGPUR      = "Nagpur"      //那格浦尔
 
 	// 美国
 	CITY_VIRGINIA       = "Virginia"       //弗吉尼亚
