@@ -16,6 +16,7 @@ define dockerCentOSBuildCmd
 set -o xtrace
 set -o errexit
 set -o pipefail
+git config --global --add safe.directory /root/go/src/yunion.io/x/$(ModBaseName)
 cd /root/go/src/yunion.io/x/$(ModBaseName)
 env \
 	$(call EnvIf,GOARCH) \
@@ -51,6 +52,7 @@ define dockerAlpineBuildCmd
 set -o xtrace
 set -o errexit
 set -o pipefail
+git config --global --add safe.directory /root/go/src/yunion.io/x/$(ModBaseName)
 cd /root/go/src/yunion.io/x/$(ModBaseName)
 env \
 	$(call EnvIf,GOARCH) \
