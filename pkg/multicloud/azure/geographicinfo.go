@@ -61,10 +61,13 @@ var AzureGeographicInfo = map[string]cloudprovider.SGeographicInfo{
 	"germanywestcentral": api.RegionFrankfurt,   // 法兰克福
 	"germanynorth":       api.RegionDelmenhorst, // 代尔门霍斯特
 	"westus3":            api.RegionPhoenix,
-	"brazilsoutheast":    api.RegionRioDeJaneiro, // 里约热内卢
+	"brazilsoutheast":    api.RegionRioDeJaneiro,    // 里约热内卢
+	"jioindiawest":       api.RegionJioIndiaWest,    // 贾姆讷格尔
+	"jioindiacentral":    api.RegionJioIndiaCentral, // 那格浦尔
 
 	"chinaeast":   api.RegionShanghai,
 	"chinaeast2":  api.RegionShanghai,
 	"chinanorth":  api.RegionBeijing,
 	"chinanorth2": api.RegionBeijing,
+	"chinanorth3": api.RegionZhangjiakou,
 }
