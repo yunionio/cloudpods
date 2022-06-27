@@ -24,7 +24,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"reflect"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
@@ -53,7 +52,11 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 		return nil, err
 	}
 	if opt.Debug {
-		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, conn.RemoteAddr()), 0).Printf
+		if opt.Debugf != nil {
+			debugf = opt.Debugf
+		} else {
+			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, conn.RemoteAddr()), 0).Printf
+		}
 	}
 	var compression bool
 	if opt.Compression != nil {
@@ -62,16 +65,14 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	var (
 		stream  = io.NewStream(conn)
 		connect = &connect{
-			opt:      opt,
-			conn:     conn,
-			debugf:   debugf,
-			stream:   stream,
-			encoder:  binary.NewEncoder(stream),
-			decoder:  binary.NewDecoder(stream),
-			revision: proto.ClientTCPProtocolVersion,
-			structMap: structMap{
-				cache: make(map[reflect.Type]map[string][]int),
-			},
+			opt:         opt,
+			conn:        conn,
+			debugf:      debugf,
+			stream:      stream,
+			encoder:     binary.NewEncoder(stream),
+			decoder:     binary.NewDecoder(stream),
+			revision:    proto.ClientTCPProtocolVersion,
+			structMap:   &structMap{},
 			compression: compression,
 			connectedAt: time.Now(),
 		}
@@ -94,9 +95,9 @@ type connect struct {
 	decoder     *binary.Decoder
 	released    bool
 	revision    uint64
-	structMap   structMap
+	structMap   *structMap
 	compression bool
-	//lastUsedIn  time.Time
+	// lastUsedIn  time.Time
 	connectedAt time.Time
 }
 
