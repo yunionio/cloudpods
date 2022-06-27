@@ -225,10 +225,13 @@ func (cli *SphereClient) __jsonRequest(method httputils.THttpMethod, res string,
 	req.SetHeader(header)
 	oe := &SphereError{}
 	_, resp, err := client.Send(context.Background(), req, oe, cli.debug)
+	if err != nil {
+		return nil, err
+	}
 	if resp.Contains("code") && resp.Contains("message") {
 		return nil, oe.ParseErrorFromJsonResponse(0, resp)
 	}
-	return resp, err
+	return resp, nil
 }
 
 func (self *SphereClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
