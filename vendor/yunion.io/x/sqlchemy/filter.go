@@ -81,8 +81,8 @@ func (tq *SQuery) In(f string, v interface{}) *SQuery {
 
 // NotIn filters query with a not in condition
 func (tq *SQuery) NotIn(f string, v interface{}) *SQuery {
-	cond := In(tq.Field(f), v)
-	return tq.Filter(NOT(cond))
+	cond := NotIn(tq.Field(f), v)
+	return tq.Filter(cond)
 }
 
 // Between filters query with a between condition
