@@ -98,23 +98,55 @@ func EvalBool(exprStr string, input interface{}) (bool, error) {
 func eval(expr ast.Expr, input interface{}) (interface{}, error) {
 	switch expr.(type) {
 	case *ast.BinaryExpr:
-		return evalBinary(expr.(*ast.BinaryExpr), input)
+		v, err := evalBinary(expr.(*ast.BinaryExpr), input)
+		if err != nil {
+			return nil, errors.Wrap(err, "evalBinary")
+		}
+		return v, nil
 	case *ast.UnaryExpr:
-		return evalUnary(expr.(*ast.UnaryExpr), input)
+		v, err := evalUnary(expr.(*ast.UnaryExpr), input)
+		if err != nil {
+			return nil, errors.Wrap(err, "evalUnary")
+		}
+		return v, nil
 	case *ast.SelectorExpr:
-		return evalSelector(expr.(*ast.SelectorExpr), input)
+		v, err := evalSelector(expr.(*ast.SelectorExpr), input)
+		if err != nil {
+			return nil, errors.Wrap(err, "evalSelector")
+		}
+		return v, nil
 	case *ast.Ident:
-		return evalIdent(expr.(*ast.Ident), input)
+		v, err := evalIdent(expr.(*ast.Ident), input)
+		if err != nil {
+			return nil, errors.Wrap(err, "evalIdent")
+		}
+		return v, nil
 	case *ast.ParenExpr:
-		return evalParen(expr.(*ast.ParenExpr), input)
+		v, err := evalParen(expr.(*ast.ParenExpr), input)
+		if err != nil {
+			return nil, errors.Wrap(err, "evalParen")
+		}
+		return v, nil
 	case *ast.CallExpr:
-		return evalCall(expr.(*ast.CallExpr), input)
+		v, err := evalCall(expr.(*ast.CallExpr), input)
+		if err != nil {
+			return nil, errors.Wrap(err, "evalCall")
+		}
+		return v, nil
 	case *ast.IndexExpr:
-		return evalIndex(expr.(*ast.IndexExpr), input)
+		v, err := evalIndex(expr.(*ast.IndexExpr), input)
+		if err != nil {
+			return nil, errors.Wrap(err, "evalIndex")
+		}
+		return v, nil
 	case *ast.BasicLit:
-		return evalBasicLit(expr.(*ast.BasicLit), input)
+		v, err := evalBasicLit(expr.(*ast.BasicLit), input)
+		if err != nil {
+			return nil, errors.Wrap(err, "evalBasicLit")
+		}
+		return v, nil
 	default:
-		return nil, ErrInvalidOp
+		return nil, errors.Wrapf(ErrInvalidOp, "unsupported expr type %s", reflect.TypeOf(expr))
 	}
 }
 
@@ -126,7 +158,7 @@ func evalBasicLit(expr *ast.BasicLit, input interface{}) (interface{}, error) {
 			jsonX := input.(*jsonutils.JSONDict)
 			return jsonX.Get(expr.Value)
 		default:
-			return nil, ErrInvalidOp
+			return nil, errors.Wrapf(ErrInvalidOp, "evalBasicLit unsupported type %s", reflect.TypeOf(input))
 		}
 	case token.INT:
 		return strconv.Atoi(expr.Value)
@@ -137,7 +169,7 @@ func evalBasicLit(expr *ast.BasicLit, input interface{}) (interface{}, error) {
 	case token.STRING:
 		return expr.Value[1 : len(expr.Value)-1], nil
 	default:
-		return nil, ErrInvalidOp
+		return nil, errors.Wrapf(ErrInvalidOp, "evalBasicLit unsupported kind %s", expr.Kind)
 	}
 }
 
@@ -375,7 +407,7 @@ func getJSONProperty(json *jsonutils.JSONDict, identStr string) (jsonutils.JSONO
 }
 
 func evalIdent(expr *ast.Ident, input interface{}) (interface{}, error) {
-	if expr.Obj == nil || input == nil {
+	if input == nil {
 		return expr.Name, nil
 	} else {
 		switch input.(type) {
@@ -383,7 +415,7 @@ func evalIdent(expr *ast.Ident, input interface{}) (interface{}, error) {
 			json := input.(*jsonutils.JSONDict)
 			return getJSONProperty(json, expr.Name)
 		default:
-			return nil, ErrInvalidOp
+			return nil, errors.Wrapf(ErrInvalidOp, "evalIdent unsupported type %s", reflect.TypeOf(input))
 		}
 	}
 }
@@ -415,7 +447,7 @@ func evalSelectorInternal(X interface{}, identStr string) (interface{}, error) {
 		if err == ErrFieldNotFound {
 			return &funcCaller{caller: X, method: identStr}, nil
 		} else {
-			return ret, err
+			return ret, errors.Wrapf(err, "getJSONProperty %s", identStr)
 		}
 	case []interface{}, *jsonutils.JSONArray:
 		if identStr == "len" || identStr == "contains" {
@@ -434,18 +466,18 @@ func evalSelectorInternal(X interface{}, identStr string) (interface{}, error) {
 	case string, *jsonutils.JSONString:
 		return &funcCaller{caller: getString(X), method: identStr}, nil
 	default:
-		return nil, ErrInvalidOp
+		return nil, errors.Wrapf(ErrInvalidOp, "unsupported type %s", reflect.TypeOf(X))
 	}
 }
 
 func evalSelector(expr *ast.SelectorExpr, input interface{}) (interface{}, error) {
 	X, err := eval(expr.X, input)
 	if err != nil {
-		return nil, ErrInvalidOp
+		return nil, errors.Wrap(ErrInvalidOp, "eval selector X")
 	}
 	ident, err := evalIdent(expr.Sel, nil)
 	if err != nil {
-		return nil, ErrInvalidOp
+		return nil, errors.Wrap(ErrInvalidOp, "eval selector Sel")
 	}
 	identStr := ident.(string)
 
@@ -551,7 +583,7 @@ func evalBinaryInternal(X, Y interface{}, op token.Token) (interface{}, error) {
 		for i := 0; i < len(arrX); i += 1 {
 			reti, err := evalBinaryInternal(arrX[i], Y, op)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(err, "X.evalBinaryInternal at [%d]", i)
 			}
 			ret[i] = reti
 		}
@@ -564,7 +596,7 @@ func evalBinaryInternal(X, Y interface{}, op token.Token) (interface{}, error) {
 		for i := 0; i < len(arrY); i += 1 {
 			reti, err := evalBinaryInternal(X, arrY[i], op)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(err, "Y.evalBinaryInternal at [%d]", i)
 			}
 			ret[i] = reti
 		}
@@ -582,10 +614,10 @@ func evalBinaryInternal(X, Y interface{}, op token.Token) (interface{}, error) {
 			case token.LOR:
 				return boolX || boolY, nil
 			default:
-				return nil, ErrInvalidOp
+				return nil, errors.Wrapf(ErrInvalidOp, "bool op %v", op)
 			}
 		default:
-			return nil, ErrInvalidOp
+			return nil, errors.Wrap(ErrInvalidOp, "mismatch bool type")
 		}
 	case string, *jsonutils.JSONString:
 		switch Y.(type) {
@@ -600,10 +632,10 @@ func evalBinaryInternal(X, Y interface{}, op token.Token) (interface{}, error) {
 			case token.NEQ:
 				return strX != strY, nil
 			default:
-				return nil, ErrInvalidOp
+				return nil, errors.Wrapf(ErrInvalidOp, "string op %v", op)
 			}
 		default:
-			return nil, ErrInvalidOp
+			return nil, errors.Wrap(ErrInvalidOp, "mismatch string type")
 		}
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, *jsonutils.JSONInt:
 		intX := getInt(X)
@@ -616,7 +648,7 @@ func evalBinaryInternal(X, Y interface{}, op token.Token) (interface{}, error) {
 			floatY := getFloat(Y)
 			return evalFloatOp(floatX, floatY, op)
 		default:
-			return nil, ErrInvalidOp
+			return nil, errors.Wrap(ErrInvalidOp, "mismatch type int")
 		}
 	case float32, float64, *jsonutils.JSONFloat:
 		floatX := getFloat(X)
@@ -628,21 +660,21 @@ func evalBinaryInternal(X, Y interface{}, op token.Token) (interface{}, error) {
 			floatY := getFloat(Y)
 			return evalFloatOp(floatX, floatY, op)
 		default:
-			return nil, ErrInvalidOp
+			return nil, errors.Wrap(ErrInvalidOp, "mismatch type float")
 		}
 	default:
-		return nil, ErrInvalidOp
+		return nil, errors.Wrapf(ErrInvalidOp, "unsupported op type %v", reflect.TypeOf(X))
 	}
 }
 
 func evalBinary(bExpr *ast.BinaryExpr, input interface{}) (interface{}, error) {
 	X, err := eval(bExpr.X, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "eval binary left")
 	}
 	Y, err := eval(bExpr.Y, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "eval binary right")
 	}
 	return evalBinaryInternal(X, Y, bExpr.Op)
 }
