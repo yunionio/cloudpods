@@ -1,6 +1,6 @@
 module yunion.io/x/onecloud
 
-go 1.16
+go 1.18
 
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
