@@ -344,7 +344,7 @@ func questionMark(count int) string {
 	if count == 0 {
 		return ""
 	} else if count == 1 {
-		return "( ? )"
+		return " ? "
 	} else {
 		var buf bytes.Buffer
 		buf.WriteString("( ")
@@ -424,6 +424,18 @@ func (t *SInCondition) WhereClause() string {
 
 // In SQL operator
 func In(f IQueryField, v interface{}) ICondition {
+	switch v.(type) {
+	case IQueryField, *SQuery, *SSubQuery:
+	default:
+		expandV := reflectutils.ExpandInterface(v)
+		switch len(expandV) {
+		case 0:
+			return &SFalseCondition{}
+		case 1:
+			return Equals(f, expandV[0])
+		default:
+		}
+	}
 	c := SInCondition{
 		NewTupleCondition(f, v),
 		SQL_OP_IN,
@@ -433,6 +445,18 @@ func In(f IQueryField, v interface{}) ICondition {
 
 // NotIn SQL operator
 func NotIn(f IQueryField, v interface{}) ICondition {
+	switch v.(type) {
+	case IQueryField, *SQuery, *SSubQuery:
+	default:
+		expandV := reflectutils.ExpandInterface(v)
+		switch len(expandV) {
+		case 0:
+			return &STrueCondition{}
+		case 1:
+			return NotEquals(f, expandV[0])
+		default:
+		}
+	}
 	c := SInCondition{
 		NewTupleCondition(f, v),
 		SQL_OP_NOTIN,

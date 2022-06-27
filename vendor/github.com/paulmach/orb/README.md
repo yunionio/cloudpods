@@ -107,6 +107,10 @@ for _, f := range fc {
 }
 ```
 
+The library supports third party "encoding/json" replacements
+such [github.com/json-iterator/go](https://github.com/json-iterator/go).
+See the [geojson](geojson) readme for more details.
+
 ## Mapbox Vector Tiles
 
 The [encoding/mvt](encoding/mvt) sub-package implements Marshalling and
@@ -140,34 +144,35 @@ data, err := layers.Marshal() // this data is NOT gzipped.
 data, err := layers.MarshalGzipped()
 ```
 
-## Decoding WKB from a database query
+## Decoding WKB/EWKB from a database query
 
-Geometries are usually returned from databases in WKB format. The [encoding/wkb](encoding/wkb)
+Geometries are usually returned from databases in WKB or EWKB format. The [encoding/ewkb](encoding/ewkb)
 sub-package offers helpers to "scan" the data into the base types directly.
 For example:
 
 ```go
+db.Exec(
+  "INSERT INTO postgis_table (point_column) VALUES (ST_GeomFromEWKB(?))",
+  ewkb.Value(orb.Point{1, 2}, 4326),
+)
+
 row := db.QueryRow("SELECT ST_AsBinary(point_column) FROM postgis_table")
 
 var p orb.Point
-err := row.Scan(wkb.Scanner(&p))
-
-db.Exec("INSERT INTO table (point_column) VALUES (ST_GeomFromWKB(?))", wkb.Value(p))
+err := row.Scan(ewkb.Scanner(&p))
 ```
 
-Scanning directly from MySQL columns is supported. By default MySQL returns geometry
-data as WKB but prefixed with a 4 byte SRID. To support this, if the data is not
-valid WKB, the code will strip the first 4 bytes, the SRID, and try again.
-This works for most use cases.
+For more information see the readme in the [encoding/ewkb](encoding/ewkb) package.
 
 ## List of sub-package utilities
 
 -   [`clip`](clip) - clipping geometry to a bounding box
 -   [`encoding/mvt`](encoding/mvt) - encoded and decoding from [Mapbox Vector Tiles](https://www.mapbox.com/vector-tiles/)
 -   [`encoding/wkb`](encoding/wkb) - well-known binary as well as helpers to decode from the database queries
+-   [`encoding/ewkb`](encoding/ewkb) - extended well-known binary format that includes the SRID
 -   [`encoding/wkt`](encoding/wkt) - well-known text encoding
 -   [`geojson`](geojson) - working with geojson and the types in this package
--   [`maptile`](maptile) - working with mercator map tiles
+-   [`maptile`](maptile) - working with mercator map tiles and quadkeys
 -   [`project`](project) - project geometries between geo and planar contexts
 -   [`quadtree`](quadtree) - quadtree implementation using the types in this package
 -   [`resample`](resample) - resample points in a line string geometry

@@ -50,9 +50,13 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		conn   *connect
 		connID = int(atomic.AddInt64(&globalConnID, 1))
 	)
-	for num := range o.opt.Addr {
-		if o.opt.ConnOpenStrategy == ConnOpenRoundRobin {
-			num = int(connID) % len(o.opt.Addr)
+	for i := range o.opt.Addr {
+		var num int
+		switch o.opt.ConnOpenStrategy {
+		case ConnOpenInOrder:
+			num = i
+		case ConnOpenRoundRobin:
+			num = (int(connID) + i) % len(o.opt.Addr)
 		}
 		if conn, err = dial(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
 			return &stdDriver{
@@ -99,6 +103,7 @@ func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	if err := opt.fromDSN(dsn); err != nil {
 		return nil, err
 	}
+	opt.setDefaults()
 	return (&stdConnOpener{opt: &opt}).Connect(context.Background())
 }
 
