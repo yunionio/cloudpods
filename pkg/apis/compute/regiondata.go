@@ -553,4 +553,16 @@ var (
 		City:        CITY_US_GOV_WEST,
 		CountryCode: COUNTRY_CODE_US,
 	}
+	RegionJioIndiaWest = cloudprovider.SGeographicInfo{
+		Latitude:    22.4707,
+		Longitude:   70.0577,
+		City:        CITY_JAMNAGAR,
+		CountryCode: COUNTRY_CODE_IN,
+	}
+	RegionJioIndiaCentral = cloudprovider.SGeographicInfo{
+		Latitude:    21.1466,
+		Longitude:   79.0889,
+		City:        CITY_NAGPUR,
+		CountryCode: COUNTRY_CODE_IN,
+	}
 )
