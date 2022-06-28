@@ -117,7 +117,7 @@ func (self *SHost) GetGlobalId() string {
 }
 
 func (self *SHost) GetName() string {
-	return self.Name
+	return self.HostName
 }
 
 func (self *SHost) GetEnabled() bool {
@@ -133,7 +133,7 @@ func (self *SHost) GetStatus() string {
 }
 
 func (self *SHost) GetAccessIp() string {
-	return self.IP
+	return self.Name
 }
 
 func (self *SHost) GetAccessMac() string {
