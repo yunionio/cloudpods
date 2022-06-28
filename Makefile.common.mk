@@ -52,6 +52,7 @@ set -o xtrace
 set -o errexit
 set -o pipefail
 cd /root/go/src/yunion.io/x/$(ModBaseName)
+git config --global --add safe.directory /root/go/src/yunion.io/x/onecloud
 env \
 	$(call EnvIf,GOARCH) \
 	$(call EnvIf,GOOS) \
