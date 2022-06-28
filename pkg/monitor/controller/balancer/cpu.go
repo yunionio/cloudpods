@@ -16,7 +16,6 @@ package balancer
 
 import (
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -87,12 +86,12 @@ func (c *cpuCondition) GetThreshold() float64 {
 
 func (c *cpuCondition) GetSourceThresholdDelta(threshold float64, host IHost) float64 {
 	// cpu.usage_active
-	log.Errorf("--host %s current: %f, threshold: %f", host.GetName(), host.GetCurrent(), threshold)
 	return host.GetCurrent() - threshold
 }
 
 func (m *cpuCondition) IsFitTarget(t ITarget, c ICandidate) error {
-	if t.GetCurrent()+c.GetScore() < m.GetThreshold() {
+	tCPUCnt := t.(*targetCPUHost).GetCPUCount()
+	if t.GetCurrent()+c.(*cpuCandidate).getTargetScore(tCPUCnt) < m.GetThreshold() {
 		return nil
 	}
 	return errors.Errorf("host:%s:current(%f) + guest:%s:score(%f) >= threshold(%f)", t.GetName(), t.GetCurrent(), c.GetName(), c.GetScore(), m.GetThreshold())
@@ -101,7 +100,9 @@ func (m *cpuCondition) IsFitTarget(t ITarget, c ICandidate) error {
 // cpuCandidate implements ICandidate
 type cpuCandidate struct {
 	*guestResource
-	score float64
+	usageActive   float64
+	guestCPUCount int
+	hostCPUCount  int
 }
 
 func newCPUCandidate(gst jsonutils.JSONObject, host *HostResource, ds *tsdb.DataSource) (ICandidate, error) {
@@ -127,15 +128,21 @@ func newCPUCandidate(gst jsonutils.JSONObject, host *HostResource, ds *tsdb.Data
 
 	metric := metrics.Get(res.GetId())
 	usage := metric.Values["usage_active"]
-	score := usage * (float64(gstCPUCount) / float64(host.cpuCount))
 	return &cpuCandidate{
 		guestResource: res,
-		score:         score,
+		usageActive:   usage,
+		guestCPUCount: int(gstCPUCount),
+		hostCPUCount:  int(host.cpuCount),
 	}, nil
 }
 
 func (c cpuCandidate) GetScore() float64 {
-	return c.score
+	return c.getTargetScore(c.hostCPUCount)
+}
+
+func (c cpuCandidate) getTargetScore(tCPUCnt int) float64 {
+	score := c.usageActive * (float64(c.guestCPUCount) / float64(tCPUCnt))
+	return score
 }
 
 type cpuHost struct {
@@ -184,4 +191,8 @@ func newTargetCPUHost(obj jsonutils.JSONObject) (ITarget, error) {
 func (ts *targetCPUHost) Selected(c ICandidate) ITarget {
 	ts.SetCurrent(ts.GetCurrent() + c.GetScore())
 	return ts
+}
+
+func (ts *targetCPUHost) GetCPUCount() int {
+	return int(ts.IHost.(*cpuHost).cpuCount)
 }
