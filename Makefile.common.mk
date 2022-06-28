@@ -54,6 +54,7 @@ set -o errexit
 set -o pipefail
 git config --global --add safe.directory /root/go/src/yunion.io/x/$(ModBaseName)
 cd /root/go/src/yunion.io/x/$(ModBaseName)
+git config --global --add safe.directory /root/go/src/yunion.io/x/onecloud
 env \
 	$(call EnvIf,GOARCH) \
 	$(call EnvIf,GOOS) \
