@@ -32,7 +32,7 @@ import (
 const (
 	MIN_DB_CONN_MAX = 5
 
-	ClickhouseDB = sqlchemy.DBName("clickhosue_db")
+	ClickhouseDB = sqlchemy.DBName("clickhouse_db")
 )
 
 func AppDBInit(app *appsrv.Application) {
