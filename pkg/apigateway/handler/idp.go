@@ -125,12 +125,37 @@ func findExtUserId(input string) string {
 	return ""
 }
 
+func (h *AuthHandlers) handleIdpInitSsoLogin(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	params := appctx.AppContextParams(ctx)
+	idpId := params["<idp_id>"]
+	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	resp, err := modules.IdentityProviders.Get(s, idpId, nil)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	idpDriver, _ := resp.GetString("driver")
+	h.internalSsoLogin(ctx, w, req, idpId, idpDriver)
+}
+
 func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	idpId := getCookie(req, "idp_id")
-	idpDriver := getCookie(req, "idp_driver")
+
+	h.internalSsoLogin(ctx, w, req, "", "")
+}
+
+func (h *AuthHandlers) internalSsoLogin(ctx context.Context, w http.ResponseWriter, req *http.Request, idpId, idpDriver string) {
+	idpIdC := getCookie(req, "idp_id")
+	idpDriverC := getCookie(req, "idp_driver")
 	idpState := getCookie(req, "idp_state")
 	idpReferer := getCookie(req, "idp_referer")
 	idpLinkUser := getCookie(req, "idp_link_user")
+
+	if len(idpIdC) > 0 {
+		idpId = idpIdC
+	}
+	if len(idpDriverC) > 0 {
+		idpDriver = idpDriverC
+	}
 
 	for _, k := range []string{"idp_id", "idp_driver", "idp_state", "idp_referer", "idp_link_user"} {
 		clearCookie(w, k, "")
@@ -143,12 +168,12 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 	if len(idpDriver) == 0 {
 		missing = append(missing, "idp_driver")
 	}
-	if len(idpState) == 0 {
+	/*if len(idpState) == 0 {
 		missing = append(missing, "idp_state")
 	}
 	if len(idpReferer) == 0 {
 		missing = append(missing, "idp_referer")
-	}
+	}*/
 	if len(missing) > 0 {
 		httperrors.TimeoutError(ctx, w, "session expires, missing %s", strings.Join(missing, ","))
 		return

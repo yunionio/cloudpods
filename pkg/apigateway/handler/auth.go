@@ -69,6 +69,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.getIdpSsoRedirectUri, "sso", "redirect", "<idp_id>"),
 		NewHP(h.listTotpRecoveryQuestions, "recovery"),
 		NewHP(h.handleSsoLogin, "ssologin"),
+		NewHP(h.handleIdpInitSsoLogin, "ssologin", "<idp_id>"),
 		NewHP(h.postLogoutHandler, "logout"),
 		// oidc auth
 		NewHP(handleOIDCAuth, "oidc", "auth"),
