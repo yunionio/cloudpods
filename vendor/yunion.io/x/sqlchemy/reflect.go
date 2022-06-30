@@ -42,7 +42,7 @@ func getQuoteStringValue(dat interface{}) string {
 }
 
 func GetStringValue(dat interface{}) string {
-	value := reflect.ValueOf(dat)
+	value := reflect.Indirect(reflect.ValueOf(dat))
 	switch value.Type() {
 	case tristate.TriStateType:
 		return dat.(tristate.TriState).String()

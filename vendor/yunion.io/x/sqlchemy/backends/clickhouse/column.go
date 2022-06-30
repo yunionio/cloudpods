@@ -633,7 +633,7 @@ func NewDateTimeColumn(name string, tagmap map[string]string, isPointer bool) SD
 		updatedAt = utils.ToBool(v)
 	}
 	dtc := SDateTimeColumn{
-		STimeTypeColumn: NewTimeTypeColumn(name, "DateTime", tagmap, isPointer),
+		STimeTypeColumn: NewTimeTypeColumn(name, "DateTime('UTC')", tagmap, isPointer),
 		isCreatedAt:     createdAt,
 		isUpdatedAt:     updatedAt,
 	}
