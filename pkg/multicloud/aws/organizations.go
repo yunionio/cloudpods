@@ -249,7 +249,7 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 				subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_SUSPENDED
 			}
 			if account.IsMaster {
-				subAccount.Name = self.cpcfg.Name
+				subAccount.Name = fmt.Sprintf("%s/%s", account.Name, self.cpcfg.Name)
 				subAccount.Account = self.accessKey
 			} else {
 				if isRootAccount {
