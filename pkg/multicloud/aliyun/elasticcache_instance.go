@@ -336,6 +336,22 @@ func (self *SElasticcache) GetMaintainStartTime() string {
 	return ""
 }
 
+func (self *SElasticcache) GetBandwidth() int {
+	return int(self.Bandwidth)
+}
+
+func (self *SElasticcache) GetConnections() int {
+	attr, err := self.GetAttribute()
+	if err != nil {
+		log.Errorf("SElasticcache.GetMaintainEndTime %s", err)
+	}
+
+	if attr != nil {
+		return int(attr.Connections)
+	}
+	return 0
+}
+
 func (self *SElasticcache) GetMaintainEndTime() string {
 	attr, err := self.GetAttribute()
 	if err != nil {

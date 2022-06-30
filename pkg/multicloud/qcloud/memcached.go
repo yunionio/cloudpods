@@ -30,7 +30,7 @@ import (
 )
 
 type SMemcached struct {
-	multicloud.SResourceBase
+	multicloud.SElasticcacheBase
 	multicloud.QcloudTags
 	region *SRegion
 
