@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-5 as build
+FROM registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:3.16.0-go-1.18.2-0 as build
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 RUN mkdir -p /root/go/src/yunion.io/x/onecloud
