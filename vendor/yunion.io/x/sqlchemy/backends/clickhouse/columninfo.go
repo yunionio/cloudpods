@@ -97,7 +97,7 @@ func (info *sSqlColumnInfo) toColumnSpec() sqlchemy.IColumnSpec {
 	case "Float32", "Float64":
 		c := NewFloatColumn(info.Name, sqlType, info.getTagmap(), false)
 		return &c
-	case "DateTime":
+	case "DateTime", "DateTime('UTC')":
 		c := NewDateTimeColumn(info.Name, info.getTagmap(), false)
 		return &c
 	default:

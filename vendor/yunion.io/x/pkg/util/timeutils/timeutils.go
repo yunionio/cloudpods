@@ -49,6 +49,7 @@ const (
 	FullIsoTimeFormat     = "2006-01-02T15:04:05.000000Z07:00"
 	FullIsoNanoTimeFormat = "2006-01-02T15:04:05.000000000Z07:00"
 	MysqlTimeFormat       = "2006-01-02 15:04:05"
+	ClickhouseTimeFormat  = "2006-01-02 15:04:05 +0000 UTC"
 	NormalTimeFormat      = "2006-01-02T15:04:05"
 	FullNormalTimeFormat  = "2006-01-02T15:04:05.000000"
 	CompactTimeFormat     = "20060102150405"
@@ -84,6 +85,10 @@ func FullIsoNanoTime(now time.Time) string {
 
 func MysqlTime(now time.Time) string {
 	return Utcify(now).Format(MysqlTimeFormat)
+}
+
+func ClickhouseTime(now time.Time) string {
+	return Utcify(now).Format(ClickhouseTimeFormat)
 }
 
 func CompactTime(now time.Time) string {
@@ -168,6 +173,10 @@ func ParseMysqlTime(str string) (time.Time, error) {
 	return time.Parse(MysqlTimeFormat, str)
 }
 
+func ParseClickhouseTime(str string) (time.Time, error) {
+	return time.Parse(ClickhouseTimeFormat, str)
+}
+
 func ParseNormalTime(str string) (time.Time, error) {
 	return time.Parse(NormalTimeFormat, str)
 }
@@ -216,6 +225,8 @@ func ParseTimeStr(str string) (time.Time, error) {
 		return ParseIsoNoSecondTime2(str)
 	} else if regutils.MatchMySQLTime(str) {
 		return ParseMysqlTime(str)
+	} else if regutils.MatchClickhouseTime(str) {
+		return ParseClickhouseTime(str)
 	} else if regutils.MatchNormalTime(str) {
 		return ParseNormalTime(str)
 	} else if regutils.MatchFullNormalTime(str) {
