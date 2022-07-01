@@ -95,7 +95,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.UnknownServers = new(sync.Map)
 	manager.ServersLock = &sync.Mutex{}
 	manager.GuestStartWorker = appsrv.NewWorkerManager("GuestStart", 1, appsrv.DEFAULT_BACKLOG, false)
-	manager.StartCpusetBalancer()
+	// manager.StartCpusetBalancer()
 	manager.LoadExistingGuests()
 	manager.host.StartDHCPServer()
 	manager.dirtyServersChan = make(chan struct{})
