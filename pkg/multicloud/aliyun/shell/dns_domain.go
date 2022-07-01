@@ -36,8 +36,8 @@ import (
 
 func init() {
 	type DnsProductListOptions struct {
-		PageNumber int `help:"page size"`
-		PageSize   int `help:"page PageSize"`
+		PageNumber int `help:"page size" default:"1"`
+		PageSize   int `help:"page PageSize" default:"20"`
 	}
 	shellutils.R(&DnsProductListOptions{}, "dnsproduct-list", "List dnsproduct", func(cli *aliyun.SRegion, args *DnsProductListOptions) error {
 		//products, e := cli.GetClient().DescribeDnsProductInstances(args.PageNumber, args.PageSize)
@@ -51,8 +51,8 @@ func init() {
 	})
 
 	type DomianListOptions struct {
-		PageNumber int `help:"page size"`
-		PageSize   int `help:"page PageSize"`
+		PageNumber int `help:"page size" default:"1"`
+		PageSize   int `help:"page PageSize" default:"20"`
 	}
 	shellutils.R(&DomianListOptions{}, "domain-list", "List Domain", func(cli *aliyun.SRegion, args *DomianListOptions) error {
 		sdomains, e := cli.GetClient().DescribeDomains(args.PageNumber, args.PageSize)
@@ -100,8 +100,8 @@ func init() {
 
 	type SDomainRecordListOptions struct {
 		DOMAINNAME string
-		PageNumber int `help:"page size"`
-		PageSize   int `help:"page PageSize"`
+		PageNumber int `help:"page size" default:"1"`
+		PageSize   int `help:"page PageSize" default:"20"`
 	}
 	shellutils.R(&SDomainRecordListOptions{}, "domainrecord-list", "List domainrecord", func(cli *aliyun.SRegion, args *SDomainRecordListOptions) error {
 		srecords, e := cli.GetClient().DescribeDomainRecords(args.DOMAINNAME, args.PageNumber, args.PageSize)
