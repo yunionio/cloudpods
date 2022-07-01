@@ -42,33 +42,15 @@ func getQuoteStringValue(dat interface{}) string {
 }
 
 func GetStringValue(dat interface{}) string {
-	value := reflect.Indirect(reflect.ValueOf(dat))
-	switch value.Type() {
-	case tristate.TriStateType:
-		return dat.(tristate.TriState).String()
-	case gotypes.TimeType:
-		tm, ok := dat.(time.Time)
-		if !ok {
-			log.Errorf("Fail to convert to time.Time %s", value)
-		} else {
-			return timeutils.MysqlTime(tm)
-		}
-	/*case jsonutils.JSONStringType, jsonutils.JSONIntType, jsonutils.JSONFloatType, jsonutils.JSONBoolType,
-		jsonutils.JSONDictType, jsonutils.JSONArrayType:
-	json, ok := value.Interface().(jsonutils.JSONObject)
-	if !ok {
-		log.Errorf("fail to convert to JSONObject", value)
-	}else {
-		return json.String()
-	}*/
-	case gotypes.Uint8SliceType:
-		rawBytes, ok := value.Interface().([]byte)
-		if !ok {
-			log.Errorf("Fail to convert to bytes %s", value)
-		} else {
-			return string(rawBytes)
-		}
+	switch g := dat.(type) {
+	case tristate.TriState:
+		return g.String()
+	case time.Time:
+		return timeutils.MysqlTime(g)
+	case []byte:
+		return string(g)
 	}
+	value := reflect.Indirect(reflect.ValueOf(dat))
 	switch value.Kind() {
 	case reflect.Bool:
 		if value.Bool() {
