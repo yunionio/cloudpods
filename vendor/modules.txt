@@ -46,19 +46,16 @@ github.com/Azure/go-autorest/logger
 # github.com/Azure/go-autorest/tracing v0.5.0
 ## explicit; go 1.12
 github.com/Azure/go-autorest/tracing
-# github.com/ClickHouse/clickhouse-go/v2 v2.1.0
-## explicit; go 1.16
-github.com/ClickHouse/clickhouse-go/v2
-github.com/ClickHouse/clickhouse-go/v2/contributors
-github.com/ClickHouse/clickhouse-go/v2/ext
-github.com/ClickHouse/clickhouse-go/v2/lib/binary
-github.com/ClickHouse/clickhouse-go/v2/lib/cityhash102
-github.com/ClickHouse/clickhouse-go/v2/lib/column
-github.com/ClickHouse/clickhouse-go/v2/lib/compress
-github.com/ClickHouse/clickhouse-go/v2/lib/driver
-github.com/ClickHouse/clickhouse-go/v2/lib/io
-github.com/ClickHouse/clickhouse-go/v2/lib/proto
-github.com/ClickHouse/clickhouse-go/v2/lib/timezone
+# github.com/ClickHouse/clickhouse-go v1.5.4
+## explicit; go 1.12
+github.com/ClickHouse/clickhouse-go
+github.com/ClickHouse/clickhouse-go/lib/binary
+github.com/ClickHouse/clickhouse-go/lib/cityhash102
+github.com/ClickHouse/clickhouse-go/lib/column
+github.com/ClickHouse/clickhouse-go/lib/data
+github.com/ClickHouse/clickhouse-go/lib/lz4
+github.com/ClickHouse/clickhouse-go/lib/protocol
+github.com/ClickHouse/clickhouse-go/lib/types
 # github.com/DataDog/dd-trace-go v0.6.1
 ## explicit
 github.com/DataDog/dd-trace-go/opentracing
@@ -287,6 +284,9 @@ github.com/cespare/xxhash/v2
 ## explicit; go 1.12
 github.com/cheggaaa/pb/v3
 github.com/cheggaaa/pb/v3/termutil
+# github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58
+## explicit
+github.com/cloudflare/golz4
 # github.com/coredns/coredns v1.3.0
 ## explicit
 github.com/coredns/coredns/core/dnsserver
@@ -482,6 +482,8 @@ github.com/golang/snappy
 # github.com/google/btree v1.0.0
 ## explicit
 github.com/google/btree
+# github.com/google/go-cmp v0.5.7
+## explicit; go 1.11
 # github.com/google/go-querystring v1.0.0
 ## explicit
 github.com/google/go-querystring/query
@@ -744,9 +746,6 @@ github.com/openzipkin/zipkin-go-opentracing/thrift/gen-go/scribe
 github.com/openzipkin/zipkin-go-opentracing/thrift/gen-go/zipkincore
 github.com/openzipkin/zipkin-go-opentracing/types
 github.com/openzipkin/zipkin-go-opentracing/wire
-# github.com/paulmach/orb v0.7.1
-## explicit; go 1.15
-github.com/paulmach/orb
 # github.com/philhofer/fwd v1.0.0
 ## explicit
 github.com/philhofer/fwd
@@ -822,9 +821,6 @@ github.com/shirou/gopsutil/internal/common
 github.com/shirou/gopsutil/mem
 github.com/shirou/gopsutil/net
 github.com/shirou/gopsutil/process
-# github.com/shopspring/decimal v1.3.1
-## explicit; go 1.13
-github.com/shopspring/decimal
 # github.com/sirupsen/logrus v1.6.0
 ## explicit; go 1.13
 github.com/sirupsen/logrus
@@ -972,14 +968,6 @@ go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/propagation
 go.opencensus.io/trace/tracestate
-# go.opentelemetry.io/otel v1.7.0
-## explicit; go 1.16
-go.opentelemetry.io/otel/attribute
-go.opentelemetry.io/otel/codes
-go.opentelemetry.io/otel/internal
-# go.opentelemetry.io/otel/trace v1.7.0
-## explicit; go 1.16
-go.opentelemetry.io/otel/trace
 # go.uber.org/atomic v1.7.0
 ## explicit; go 1.13
 go.uber.org/atomic
@@ -1491,7 +1479,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.2-0.20220701050442-4a04411dc606
+# yunion.io/x/sqlchemy v1.1.2-0.20220701113246-498f1b8c1941
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends

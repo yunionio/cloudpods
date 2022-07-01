@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"strings"
 
-	_ "github.com/ClickHouse/clickhouse-go/v2"
+	_ "github.com/ClickHouse/clickhouse-go"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
