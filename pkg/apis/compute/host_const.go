@@ -142,3 +142,7 @@ const (
 	HOST_HEALTH_STATUS_RUNNING = "running"
 	HOST_HEALTH_LOCK_PREFIX    = "host-health"
 )
+
+const (
+	HOSTMETA_RESERVED_CPUS_INFO = "reserved_cpus_info"
+)

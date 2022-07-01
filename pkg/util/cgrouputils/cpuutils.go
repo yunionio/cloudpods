@@ -231,7 +231,7 @@ func NewProcessCPUinfo(pid int) (*ProcessCPUinfo, error) {
 	cpuinfo.Pid = pid
 	spid := strconv.Itoa(pid)
 
-	cpuTask := NewCGroupCPUTask(spid, 0)
+	cpuTask := NewCGroupCPUTask(spid, "", 0)
 	if cpuTask.taskIsExist() {
 		share := cpuTask.GetParam("cpu.shares")
 		ishare, err := strconv.ParseFloat(share, 64)
@@ -243,7 +243,7 @@ func NewProcessCPUinfo(pid int) (*ProcessCPUinfo, error) {
 		}
 	}
 
-	cpusetTask := NewCGroupCPUSetTask(fmt.Sprintf("%d", pid), 0, "")
+	cpusetTask := NewCGroupCPUSetTask(fmt.Sprintf("%d", pid), "", 0, "")
 	if cpusetTask.taskIsExist() {
 		cpuset := cpusetTask.GetParam("cpuset.cpus")
 		if len(cpuset) > 0 {

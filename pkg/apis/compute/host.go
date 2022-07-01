@@ -477,3 +477,9 @@ type SHostPingInput struct {
 
 	StorageStats []SHostStorageStat `json:"storage_stats"`
 }
+
+type HostReserveCpusInput struct {
+	Cpus                    string
+	Mems                    string
+	DisableSchedLoadBalance *bool `json:disable_sched_load_balance`
+}
