@@ -59,7 +59,8 @@ func InitDB(options *common_options.DBOptions) {
 		log.Fatalf("Invalid SqlConnection string: %s error: %v", options.SqlConnection, err)
 	}
 	backend := sqlchemy.MySQLBackend
-	if dialect == "sqlite3" {
+	switch dialect {
+	case "sqlite3":
 		backend = sqlchemy.SQLiteBackend
 		dialect = "sqlite3_with_extensions"
 		sql.Register(dialect,
@@ -69,6 +70,8 @@ func InitDB(options *common_options.DBOptions) {
 				},
 			},
 		)
+	case "clickhouse":
+		log.Fatalf("cannot use clickhouse as primary database")
 	}
 	log.Infof("database dialect: %s sqlStr: %s", dialect, sqlStr)
 	dbConn, err := sql.Open(dialect, sqlStr)
@@ -80,6 +83,15 @@ func InitDB(options *common_options.DBOptions) {
 	dialect, sqlStr, err = options.GetClickhouseConnStr()
 	if err == nil {
 		// connect to clickcloud
+		// force convert sqlstr from clickhouse v2 to v1
+		sqlStr, err = clickhouseSqlStrV2ToV1(sqlStr)
+		if err != nil {
+			log.Fatalf("fail to convert clickhouse sqlstr from v2 to v1: %s", err)
+		}
+		err = validateClickhouseV1Str(sqlStr)
+		if err != nil {
+			log.Fatalf("invalid clickhouse sqlstr: %s", err)
+		}
 		click, err := sql.Open(dialect, sqlStr)
 		if err != nil {
 			panic(err)
