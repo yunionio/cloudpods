@@ -291,6 +291,20 @@ func (m *SBaseMonitor) checkWriting() bool {
 	return true
 }
 
+func (m *SBaseMonitor) parseStatus(callback StringCallback) StringCallback {
+	return func(output string) {
+		strs := strings.Split(output, "\r\n")
+		for _, str := range strs {
+			if strings.HasPrefix(str, "VM status:") {
+				callback(strings.TrimSpace(
+					strings.Trim(str[len("VM status:"):], "\\r\\n"),
+				))
+				return
+			}
+		}
+	}
+}
+
 func getSaveStatefileUri(stateFilePath string) string {
 	if strings.HasSuffix(stateFilePath, ".gz") {
 		return fmt.Sprintf("exec:gzip -c > %s", stateFilePath)

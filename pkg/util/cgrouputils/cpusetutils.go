@@ -95,7 +95,7 @@ func CommitProcessCpuset(proc *ProcessCPUinfo, idx int) {
 	cpu, _ := GetSystemCpu()
 	sets := cpu.GetCpuset(idx)
 	if len(sets) > 0 {
-		cpuset := NewCGroupCPUSetTask(strconv.Itoa(proc.Pid), 0, sets)
+		cpuset := NewCGroupCPUSetTask(strconv.Itoa(proc.Pid), "", 0, sets)
 		cpuset.SetTask()
 	}
 }

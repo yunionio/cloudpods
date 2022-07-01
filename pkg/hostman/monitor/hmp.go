@@ -193,18 +193,6 @@ func (m *HmpMonitor) QueryStatus(callback StringCallback) {
 	m.Query("info status", m.parseStatus(callback))
 }
 
-func (m *HmpMonitor) parseStatus(callback StringCallback) StringCallback {
-	return func(output string) {
-		strs := strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
-		for _, str := range strs {
-			if strings.HasPrefix(str, "VM status:") {
-				callback(strings.TrimSpace(str[len("VM status:"):]))
-				return
-			}
-		}
-	}
-}
-
 func (m *HmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
 	m.Query(cmd, callback)
 }

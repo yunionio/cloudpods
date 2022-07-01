@@ -59,6 +59,8 @@ func init() {
 	cmd.BatchPerform("sync-config", &options.BaseIdsOptions{})
 	cmd.BatchPerform("prepare", &options.BaseIdsOptions{})
 	cmd.BatchPerform("ipmi-probe", &options.BaseIdsOptions{})
+	cmd.BatchPerform("reserve-cpus", &compute.HostReserveCpusOptions{})
+	cmd.BatchPerform("unreserve-cpus", &options.BaseIdsOptions{})
 
 	cmd.Get("ipmi", &options.BaseIdOptions{})
 	cmd.Get("vnc", &options.BaseIdOptions{})

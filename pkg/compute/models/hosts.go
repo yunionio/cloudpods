@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	napi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -56,6 +57,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -4060,6 +4062,83 @@ func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	return result, nil
+}
+
+func (host *SHost) getHostLogicalCores() ([]int, error) {
+	topoObj, err := host.SysInfo.Get("topology")
+	if err != nil {
+		return nil, errors.Wrap(err, "get topology from host sys_info")
+	}
+
+	hostTopo := new(hostapi.HostTopology)
+	if err := topoObj.Unmarshal(hostTopo); err != nil {
+		return nil, errors.Wrap(err, "Unmarshal host topology struct")
+	}
+
+	// get host logical cores
+	allCores := []int{}
+	for _, node := range hostTopo.Nodes {
+		for _, cores := range node.Cores {
+			allCores = append(allCores, cores.LogicalProcessors...)
+		}
+	}
+	return allCores, nil
+}
+
+func (self *SHost) PerformUnreserveCpus(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	return nil, self.RemoveMetadata(ctx, api.HOSTMETA_RESERVED_CPUS_INFO, userCred)
+}
+
+func (self *SHost) PerformReserveCpus(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input api.HostReserveCpusInput,
+) (jsonutils.JSONObject, error) {
+	if self.HostType != api.HOST_TYPE_HYPERVISOR {
+		return nil, httperrors.NewNotSupportedError("host type %s not support reserve cpus", self.HostType)
+	}
+
+	cnt, err := self.GetRunningGuestCount()
+	if err != nil {
+		return nil, err
+	}
+	if cnt > 0 {
+		return nil, httperrors.NewBadRequestError("host %s has %d guests, can't update reserve cpus", self.Id, cnt)
+	}
+
+	if input.Cpus == "" {
+		return nil, httperrors.NewInputParameterError("missing cpus")
+	}
+	cs, err := cpuset.Parse(input.Cpus)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("cpus %s not valid", input.Cpus)
+	}
+
+	allCores, err := self.getHostLogicalCores()
+	if err != nil {
+		return nil, err
+	}
+
+	if !sets.NewInt(allCores...).HasAll(cs.ToSlice()...) {
+		return nil, httperrors.NewInputParameterError("Host cores not contains input %v", input.Cpus)
+	}
+
+	if input.Mems != "" {
+		mems, err := cpuset.Parse(input.Mems)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("mems %s not valid", input.Mems)
+		}
+		// to slice will sort slice default
+		memSlice := mems.ToSlice()
+		if 0 > memSlice[len(memSlice)-1] || memSlice[len(memSlice)-1] >= int(self.NodeCount) {
+			return nil, httperrors.NewInputParameterError("mems %s out of range", input.Mems)
+		}
+	}
+
+	err = self.SetMetadata(ctx, api.HOSTMETA_RESERVED_CPUS_INFO, input, userCred)
+	return nil, err
 }
 
 func (self *SHost) HasBMC() bool {

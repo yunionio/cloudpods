@@ -368,30 +368,29 @@ func (m *QmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
 }
 
 func (m *QmpMonitor) QueryStatus(callback StringCallback) {
-	cmd := &Command{Execute: "query-status"}
-	m.Query(cmd, m.parseStatus(callback))
+	m.HumanMonitorCommand("info status", m.parseStatus(callback))
 }
 
-func (m *QmpMonitor) parseStatus(callback StringCallback) qmpMonitorCallBack {
-	return func(res *Response) {
-		if res.ErrorVal != nil {
-			callback("unknown")
-			return
-		}
-		var val map[string]interface{}
-		err := json.Unmarshal(res.Return, &val)
-		if err != nil {
-			callback("unknown")
-			return
-		}
-		if status, ok := val["status"]; !ok {
-			callback("unknown")
-		} else {
-			str, _ := status.(string)
-			callback(str)
-		}
-	}
-}
+// func (m *QmpMonitor) parseStatus(callback StringCallback) qmpMonitorCallBack {
+// 	return func(res *Response) {
+// 		if res.ErrorVal != nil {
+// 			callback("unknown")
+// 			return
+// 		}
+// 		var val map[string]interface{}
+// 		err := json.Unmarshal(res.Return, &val)
+// 		if err != nil {
+// 			callback("unknown")
+// 			return
+// 		}
+// 		if status, ok := val["status"]; !ok {
+// 			callback("unknown")
+// 		} else {
+// 			str, _ := status.(string)
+// 			callback(str)
+// 		}
+// 	}
+// }
 
 // If get version error, callback with empty string
 func (m *QmpMonitor) GetVersion(callback StringCallback) {
