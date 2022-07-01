@@ -31,12 +31,13 @@ const (
 }*/
 
 type SInMemoryLockRecord struct {
-	key    string
-	lock   *sync.Mutex
-	cond   *sync.Cond
-	holder context.Context
-	depth  int
-	waiter *FIFO
+	key      string
+	lock     *sync.Mutex
+	cond     *sync.Cond
+	holder   context.Context
+	depth    int
+	waiter   *FIFO
+	waitLock bool
 }
 
 func newInMemoryLockRecord(ctx context.Context) *SInMemoryLockRecord {
@@ -55,10 +56,13 @@ func (rec *SInMemoryLockRecord) lockContext(ctx context.Context) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
 
+	rec.waitLock = false
 	if rec.holder == nil {
-		rec.holder = ctx
-		rec.depth = 1
-		return
+		if rec.waiter.Len() == 0 {
+			rec.holder = ctx
+			rec.depth = 1
+			return
+		}
 	}
 
 	if debug_log {
@@ -92,9 +96,7 @@ func (rec *SInMemoryLockRecord) lockContext(ctx context.Context) {
 		log.Debugf("Start to wait ... [%p] key=[%s]", ctx, rec.key)
 	}
 
-	for rec.holder != nil {
-		rec.cond.Wait()
-	}
+	rec.cond.Wait()
 
 	if debug_log {
 		log.Debugf("End of wait ... [%p] key=[%s]", ctx, rec.key)
@@ -131,6 +133,9 @@ func (rec *SInMemoryLockRecord) unlockContext(ctx context.Context) (needClean bo
 
 		rec.holder = nil
 		if rec.waiter.Len() == 0 {
+			if rec.waitLock {
+				return false
+			}
 			return true
 		}
 		rec.cond.Signal()
@@ -176,7 +181,7 @@ func (lockman *SInMemoryLockManager) getRecord(ctx context.Context, key string, 
 
 func (lockman *SInMemoryLockManager) LockKey(ctx context.Context, key string) {
 	record := lockman.getRecordWithLock(ctx, key)
-
+	record.waitLock = true
 	record.lockContext(ctx)
 }
 
