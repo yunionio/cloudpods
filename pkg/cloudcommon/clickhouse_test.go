@@ -27,6 +27,14 @@ func TestClickhouseSqlStrV1ToV2(t *testing.T) {
 			in:   "tcp://192.168.222.4:9000?database=yunionmeter&read_timeout=10&write_timeout=20",
 			want: "clickhouse://192.168.222.4:9000/yunionmeter?dial_timeout=200ms&max_execution_time=60",
 		},
+		{
+			in:   "tcp://192.168.222.4:9000?username=admin&database=yunionmeter&read_timeout=10&write_timeout=20",
+			want: "clickhouse://admin@192.168.222.4:9000/yunionmeter?dial_timeout=200ms&max_execution_time=60",
+		},
+		{
+			in:   "tcp://192.168.222.4:9000?username=admin&password=pass&database=yunionmeter&read_timeout=10&write_timeout=20",
+			want: "clickhouse://admin:pass@192.168.222.4:9000/yunionmeter?dial_timeout=200ms&max_execution_time=60",
+		},
 	} {
 		got, err := clickhouseSqlStrV1ToV2(c.in)
 		if err != nil {
@@ -43,8 +51,20 @@ func TestClickhouseSqlStrV2ToV1(t *testing.T) {
 		want string
 	}{
 		{
+			in:   "clickhouse://admin:pass@192.168.222.4:9000/yunionmeter",
+			want: "tcp://192.168.222.4:9000?database=yunionmeter&password=pass&username=admin&read_timeout=10&write_timeout=20",
+		},
+		{
 			in:   "clickhouse://192.168.222.4:9000/yunionmeter?dial_timeout=200ms&max_execution_time=60",
 			want: "tcp://192.168.222.4:9000?database=yunionmeter&read_timeout=10&write_timeout=20",
+		},
+		{
+			in:   "clickhouse://admin@192.168.222.4:9000/yunionmeter?dial_timeout=200ms&max_execution_time=60",
+			want: "tcp://192.168.222.4:9000?database=yunionmeter&username=admin&read_timeout=10&write_timeout=20",
+		},
+		{
+			in:   "clickhouse://admin:pass@192.168.222.4:9000/yunionmeter?dial_timeout=200ms&max_execution_time=60",
+			want: "tcp://192.168.222.4:9000?database=yunionmeter&password=pass&username=admin&read_timeout=10&write_timeout=20",
 		},
 	} {
 		got, err := clickhouseSqlStrV2ToV1(c.in)
