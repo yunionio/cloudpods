@@ -111,7 +111,7 @@ type SHostOptions struct {
 	SetVncPassword         bool `default:"true" help:"Auto set vnc password after monitor connected"`
 	UseBootVga             bool `default:"false" help:"Use boot VGA GPU for guest"`
 
-	EnableCpuBinding         bool `default:"true" help:"Enable cpu binding and rebalance"`
+	EnableCpuBinding         bool `default:"false" help:"Enable cpu binding and rebalance"`
 	EnableOpenflowController bool `default:"false"`
 
 	PingRegionInterval int      `default:"60" help:"interval to ping region, deefault is 1 minute"`

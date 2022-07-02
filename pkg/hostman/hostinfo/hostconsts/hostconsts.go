@@ -27,4 +27,7 @@ const (
 	TELEGRAF_TAG_ONECLOUD_HOST_TYPE_CONTROLLER = "controller"
 
 	SHUTDOWN_SERVERS = "shutdown-servers"
+
+	HOST_CGROUP          = "cloudpods.hostagent"
+	HOST_RESERVED_CPUSET = "cloudpods.hostagent.reserved"
 )

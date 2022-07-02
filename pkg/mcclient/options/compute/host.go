@@ -85,6 +85,17 @@ func (opts *HostListOptions) Params() (jsonutils.JSONObject, error) {
 	return params, nil
 }
 
+type HostReserveCpusOptions struct {
+	options.BaseIdsOptions
+	Cpus                    string
+	Mems                    string
+	DisableSchedLoadBalance bool
+}
+
+func (o *HostReserveCpusOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
 type HostStatusStatisticsOptions struct {
 	HostListOptions
 	options.StatusStatisticsOptions

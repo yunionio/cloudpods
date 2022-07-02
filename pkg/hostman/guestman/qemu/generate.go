@@ -102,7 +102,7 @@ func GenerateStartOptions(
 		return "", errors.Wrap(err, "Get CPU option")
 	}
 
-	opts = append(opts, cpuOpt)
+	opts = append(opts, drvOpt.FreezeCPU(), cpuOpt)
 
 	if input.EnableLog {
 		opts = append(opts, drvOpt.Log(input.EnableLog, input.LogPath))
