@@ -82,6 +82,7 @@ type QemuOptions interface {
 	CPU(opt CPUOption, osName string) (string, string, error)
 	Log(enable bool, qemuLogPath string) string
 	RTC() string
+	FreezeCPU() string
 	Daemonize() string
 	Nodefaults() string
 	Nodefconfig() string
@@ -203,6 +204,10 @@ func (o baseOptions) RTC() string {
 
 func (o baseOptions) Daemonize() string {
 	return "-daemonize"
+}
+
+func (o baseOptions) FreezeCPU() string {
+	return "-S"
 }
 
 func (o baseOptions) Nodefaults() string {

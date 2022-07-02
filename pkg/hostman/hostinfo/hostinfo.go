@@ -57,6 +57,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/k8s/tokens"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -83,8 +84,9 @@ type SHostInfo struct {
 
 	kubeletConfig kubelet.KubeletConfig
 
-	isInit     bool
-	onHostDown string
+	isInit           bool
+	onHostDown       string
+	reservedCpusInfo *api.HostReserveCpusInput
 
 	IsolatedDeviceMan isolated_device.IsolatedDeviceManager
 
@@ -668,6 +670,52 @@ func (h *SHostInfo) resetIptables() error {
 	return nil
 }
 
+func (h *SHostInfo) initCgroup() error {
+	reservedCpus := cpuset.NewCPUSet()
+	if h.reservedCpusInfo != nil {
+		var err error
+		reservedCpus, err = cpuset.Parse(h.reservedCpusInfo.Cpus)
+		if err != nil {
+			return errors.Wrap(err, "failed parse reserved cpus")
+		}
+	}
+
+	hostCpusetBuilder := cpuset.NewBuilder()
+	for i := 0; i < h.Cpu.CpuCount; i++ {
+		if reservedCpus.Contains(i) {
+			continue
+		}
+		hostCpusetBuilder.Add(i)
+	}
+	hostCpuset := hostCpusetBuilder.Result()
+	hostCpusetStr := hostCpuset.String()
+	// init host cpuset root group
+	if !cgrouputils.NewCGroupCPUSetTask("", hostconsts.HOST_CGROUP, 0, hostCpusetStr).Configure() {
+		return fmt.Errorf("failed init host root cpuset")
+	}
+	// init host cpu root group
+	cgrouputils.CgroupSet("", hostconsts.HOST_CGROUP, hostCpuset.Size()*1024)
+	// init host blkio root group
+	cgrouputils.CgroupIoHardlimitSet("", hostconsts.HOST_CGROUP, 0, nil, "")
+
+	if h.reservedCpusInfo != nil {
+		reservedCpusTask := cgrouputils.NewCGroupCPUSetTask("", hostconsts.HOST_RESERVED_CPUSET, 0, h.reservedCpusInfo.Cpus)
+		if !reservedCpusTask.Configure() {
+			return fmt.Errorf("failed init host reserved cpuset %s", h.reservedCpusInfo.Cpus)
+		}
+		if h.reservedCpusInfo.Mems != "" &&
+			!reservedCpusTask.CustomConfig(cgrouputils.CPUSET_MEMS, h.reservedCpusInfo.Mems) {
+			return fmt.Errorf("failed init host reserved cpuset mems %s", h.reservedCpusInfo.Mems)
+		}
+		if h.reservedCpusInfo.DisableSchedLoadBalance != nil &&
+			*h.reservedCpusInfo.DisableSchedLoadBalance &&
+			!reservedCpusTask.CustomConfig(cgrouputils.CPUSET_SCHED_LOAD_BALANCE, "0") {
+			return fmt.Errorf("failed init host reserved cpuset sched load balance")
+		}
+	}
+	return nil
+}
+
 func (h *SHostInfo) detectKvmModuleSupport() string {
 	h.sysinfo.KvmModule = sysutils.GetKVMModuleSupport()
 	return h.sysinfo.KvmModule
@@ -1224,6 +1272,24 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 		h.onHostDown = hostconsts.SHUTDOWN_SERVERS
 	}
 	log.Infof("on host down %s", h.onHostDown)
+
+	// fetch host reserved cpus info
+	reservedCpusStr, _ := hostbody.GetString("metadata", api.HOSTMETA_RESERVED_CPUS_INFO)
+	if reservedCpusStr != "" {
+		reservedCpusJson, err := jsonutils.ParseString(reservedCpusStr)
+		if err != nil {
+			h.onFail(fmt.Sprintf("parse reserved cpus info failed %s", err))
+			return
+		}
+		reservedCpusInfo := api.HostReserveCpusInput{}
+		err = reservedCpusJson.Unmarshal(&reservedCpusInfo)
+		if err != nil {
+			h.onFail(fmt.Sprintf("unmarshal host reserved cpus info failed %s", err))
+			return
+		}
+		h.reservedCpusInfo = &reservedCpusInfo
+	}
+	h.initCgroup()
 
 	memReservedMb, _ := hostbody.Int("mem_reserved")
 	if options.HostOptions.HugepagesOption == "native" && memReservedMb > int64(h.getReservedMemMb()) {

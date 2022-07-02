@@ -31,9 +31,9 @@ import (
 )
 
 const (
-	CGROUP_PATH_UBUNTU = "/sys/fs/cgroup"
-	CGROUP_PATH_CENTOS = "/cgroup"
-	CGROUP_TASKS       = "tasks"
+	CGROUP_PATH_SYSFS = "/sys/fs/cgroup"
+	CGROUP_PATH_ROOT  = "/cgroup"
+	CGROUP_TASKS      = "tasks"
 
 	maxWeight     = 16
 	normalizeBase = 1024
@@ -44,8 +44,9 @@ var (
 )
 
 type ICGroupTask interface {
-	InitTask(hand ICGroupTask, coreNum int, pid string)
+	InitTask(hand ICGroupTask, coreNum int, pid, name string)
 	SetPid(string)
+	SetName(string)
 	SetWeight(coreNum int)
 	SetHand(hand ICGroupTask)
 
@@ -54,29 +55,32 @@ type ICGroupTask interface {
 	Module() string
 	RemoveTask() bool
 	SetTask() bool
+	Configure() bool
 
 	init() bool
 }
 
 type CGroupTask struct {
 	pid    string
+	name   string
 	weight float64
 
 	hand ICGroupTask
 }
 
-func NewCGroupTask(pid string, coreNum int) *CGroupTask {
+func NewCGroupTask(pid, name string, coreNum int) *CGroupTask {
 	return &CGroupTask{
 		pid:    pid,
+		name:   name,
 		weight: float64(coreNum) / normalizeBase,
 	}
 }
 
 func getGroupPath() string {
-	if fileutils2.Exists(CGROUP_PATH_UBUNTU) {
-		return CGROUP_PATH_UBUNTU
+	if fileutils2.Exists(CGROUP_PATH_SYSFS) {
+		return CGROUP_PATH_SYSFS
 	} else {
-		return CGROUP_PATH_CENTOS
+		return CGROUP_PATH_ROOT
 	}
 }
 
@@ -135,6 +139,7 @@ func SetRootParam(module, name, value, pid string) bool {
 	return true
 }
 
+// cleanup
 func CleanupNonexistPids(module string) {
 	var root = RootTaskPath(module)
 	files, err := ioutil.ReadDir(root)
@@ -171,10 +176,22 @@ func (c *CGroupTask) SetPid(pid string) {
 	c.pid = pid
 }
 
-func (c *CGroupTask) InitTask(hand ICGroupTask, coreNum int, pid string) {
+func (c *CGroupTask) SetName(name string) {
+	c.name = name
+}
+
+func (c *CGroupTask) GroupName() string {
+	if len(c.name) > 0 {
+		return c.name
+	}
+	return c.pid
+}
+
+func (c *CGroupTask) InitTask(hand ICGroupTask, coreNum int, pid, name string) {
 	c.SetHand(hand)
 	c.SetWeight(coreNum)
 	c.SetPid(pid)
+	c.SetName(name)
 }
 
 func (c *CGroupTask) Module() string {
@@ -190,6 +207,10 @@ func (c *CGroupTask) GetWeight() float64 {
 }
 
 func (c *CGroupTask) GetTaskIds() []string {
+	if len(c.pid) == 0 {
+		return nil
+	}
+
 	files, err := ioutil.ReadDir(fmt.Sprintf("/proc/%s/task", c.pid))
 	if err != nil {
 		log.Errorf("GetTaskIds failed: %s", err)
@@ -203,7 +224,7 @@ func (c *CGroupTask) GetTaskIds() []string {
 }
 
 func (c *CGroupTask) TaskPath() string {
-	return path.Join(RootTaskPath(c.hand.Module()), c.pid)
+	return path.Join(RootTaskPath(c.hand.Module()), c.GroupName())
 }
 
 func (c *CGroupTask) taskIsExist() bool {
@@ -219,7 +240,7 @@ func (c *CGroupTask) createTask() bool {
 }
 
 func (c *CGroupTask) GetParam(name string) string {
-	return GetRootParam(c.hand.Module(), name, c.pid)
+	return GetRootParam(c.hand.Module(), name, c.GroupName())
 }
 
 func (c *CGroupTask) MoveTasksToRoot() {
@@ -255,17 +276,33 @@ func (c *CGroupTask) GetConfig() map[string]string {
 }
 
 func (c *CGroupTask) SetParam(name, value string) bool {
-	return SetRootParam(c.hand.Module(), name, value, c.pid)
+	return SetRootParam(c.hand.Module(), name, value, c.GroupName())
 }
 
 func (c *CGroupTask) SetParams(conf map[string]string) bool {
 	for k, v := range conf {
 		if !c.SetParam(k, v) {
-			log.Errorf("Fail to set %s/%s=%s for %s", c.hand.Module(), k, v, c.pid)
+			log.Errorf("Fail to set %s/%s=%s for %s", c.hand.Module(), k, v, c.GroupName())
 			return false
 		}
 	}
 	return true
+}
+
+func (c *CGroupTask) Configure() bool {
+	if !c.taskIsExist() {
+		if !c.createTask() {
+			return false
+		}
+	}
+
+	conf := c.hand.GetStaticConfig()
+	if !c.SetParams(conf) {
+		return false
+	}
+
+	conf = c.hand.GetConfig()
+	return c.SetParams(conf)
 }
 
 func (c *CGroupTask) SetTask() bool {
@@ -274,23 +311,30 @@ func (c *CGroupTask) SetTask() bool {
 			return false
 		}
 	}
+
 	conf := c.hand.GetStaticConfig()
+	if !c.SetParams(conf) {
+		return false
+	}
+
+	conf = c.hand.GetConfig()
 	if c.SetParams(conf) {
-		conf = c.hand.GetConfig()
-		if c.SetParams(conf) {
-			pids := c.GetTaskIds()
-			if len(pids) > 0 {
-				for _, pid := range pids {
-					c.PushPid(pid, false)
-				}
-				return true
+		pids := c.GetTaskIds()
+		if len(pids) > 0 {
+			for _, pid := range pids {
+				c.PushPid(pid, false)
 			}
+			return true
 		}
 	}
 	return false
 }
 
 func (c *CGroupTask) PushPid(pid string, isRoot bool) {
+	if c.pid == "" {
+		return
+	}
+
 	subdir := fmt.Sprintf("/proc/%s/task/%s", c.pid, pid)
 	if fi, err := os.Stat(subdir); err != nil {
 		log.Errorf("Fail to put pid in task %s", err)
@@ -392,8 +436,8 @@ func (c *CGroupCPUTask) init() bool {
 		fmt.Sprintf("%d", CgroupsSharesWeight), "")
 }
 
-func NewCGroupCPUTask(pid string, coreNum int) CGroupCPUTask {
-	cgroup := CGroupCPUTask{NewCGroupTask(pid, coreNum)}
+func NewCGroupCPUTask(pid, name string, coreNum int) CGroupCPUTask {
+	cgroup := CGroupCPUTask{NewCGroupTask(pid, name, coreNum)}
 	cgroup.hand = &cgroup
 	return cgroup
 }
@@ -455,8 +499,8 @@ func (c *CGroupIOTask) init() bool {
 	}
 }
 
-func NewCGroupIOTask(pid string, coreNum int) *CGroupIOTask {
-	task := &CGroupIOTask{NewCGroupTask(pid, coreNum)}
+func NewCGroupIOTask(pid, name string, coreNum int) *CGroupIOTask {
+	task := &CGroupIOTask{NewCGroupTask(pid, name, coreNum)}
 	task.SetHand(task)
 	return task
 }
@@ -483,10 +527,10 @@ func (c *CGroupIOHardlimitTask) GetConfig() map[string]string {
 	return config
 }
 
-func NewCGroupIOHardlimitTask(pid string, mem int, params map[string]int, devId string) *CGroupIOHardlimitTask {
+func NewCGroupIOHardlimitTask(pid, name string, coreNum int, params map[string]int, devId string) *CGroupIOHardlimitTask {
 	task := &CGroupIOHardlimitTask{
-		CGroupIOTask: NewCGroupIOTask(pid, 0),
-		cpuNum:       mem,
+		CGroupIOTask: NewCGroupIOTask(pid, name, 0),
+		cpuNum:       coreNum,
 		params:       params,
 		devId:        devId,
 	}
@@ -516,9 +560,9 @@ func (c *CGroupMemoryTask) GetConfig() map[string]string {
 	return map[string]string{MEMORY_SWAPPINESS: fmt.Sprintf("%d", vm_swappiness)}
 }
 
-func NewCGroupMemoryTask(pid string, coreNum int) *CGroupMemoryTask {
+func NewCGroupMemoryTask(pid, name string, coreNum int) *CGroupMemoryTask {
 	task := &CGroupMemoryTask{
-		CGroupTask: NewCGroupTask(pid, coreNum),
+		CGroupTask: NewCGroupTask(pid, name, coreNum),
 	}
 	task.SetHand(task)
 	return task
@@ -535,8 +579,9 @@ type CGroupCPUSetTask struct {
 }
 
 const (
-	CPUSET_CPUS = "cpuset.cpus"
-	CPUSET_MEMS = "cpuset.mems"
+	CPUSET_CPUS               = "cpuset.cpus"
+	CPUSET_MEMS               = "cpuset.mems"
+	CPUSET_SCHED_LOAD_BALANCE = "cpuset.sched_load_balance"
 )
 
 func (c *CGroupCPUSetTask) Module() string {
@@ -548,12 +593,20 @@ func (c *CGroupCPUSetTask) GetStaticConfig() map[string]string {
 }
 
 func (c *CGroupCPUSetTask) GetConfig() map[string]string {
+	if c.cpuset == "" {
+		parentPath := filepath.Dir(c.GroupName())
+		c.cpuset = GetRootParam(c.Module(), CPUSET_CPUS, parentPath)
+	}
 	return map[string]string{CPUSET_CPUS: c.cpuset}
 }
 
-func NewCGroupCPUSetTask(pid string, coreNum int, cpuset string) CGroupCPUSetTask {
+func (c *CGroupCPUSetTask) CustomConfig(key, value string) bool {
+	return SetRootParam(c.hand.Module(), key, value, c.GroupName())
+}
+
+func NewCGroupCPUSetTask(pid, name string, coreNum int, cpuset string) CGroupCPUSetTask {
 	task := CGroupCPUSetTask{
-		CGroupTask: NewCGroupTask(pid, coreNum),
+		CGroupTask: NewCGroupTask(pid, name, coreNum),
 		cpuset:     cpuset,
 	}
 	task.SetHand(&task)
@@ -570,14 +623,14 @@ func Init(ioScheduler string) bool {
 	return true
 }
 
-func CgroupSet(pid string, coreNum int) bool {
+func CgroupSet(pid, name string, coreNum int) bool {
 	tasks := []ICGroupTask{
 		&CGroupCPUTask{&CGroupTask{}},
 		&CGroupIOTask{&CGroupTask{}},
 		&CGroupMemoryTask{&CGroupTask{}},
 	}
 	for _, hand := range tasks {
-		hand.InitTask(hand, coreNum, pid)
+		hand.InitTask(hand, coreNum, pid, name)
 		if !hand.SetTask() {
 			return false
 		}
@@ -586,14 +639,14 @@ func CgroupSet(pid string, coreNum int) bool {
 }
 
 func CgroupIoHardlimitSet(
-	pid string, coreNum int,
+	pid, name string, coreNum int,
 	params map[string]int, devId string,
 ) bool {
-	cg := NewCGroupIOHardlimitTask(pid, coreNum, params, devId)
+	cg := NewCGroupIOHardlimitTask(pid, name, coreNum, params, devId)
 	return cg.SetTask()
 }
 
-func CgroupDestroy(pid string) bool {
+func CgroupDestroy(pid, name string) bool {
 	tasks := []ICGroupTask{
 		&CGroupCPUTask{&CGroupTask{}},
 		&CGroupIOTask{&CGroupTask{}},
@@ -602,7 +655,7 @@ func CgroupDestroy(pid string) bool {
 		&CGroupIOHardlimitTask{CGroupIOTask: &CGroupIOTask{&CGroupTask{}}},
 	}
 	for _, hand := range tasks {
-		hand.InitTask(hand, 0, pid)
+		hand.InitTask(hand, 0, pid, name)
 		if !hand.RemoveTask() {
 			return false
 		}
