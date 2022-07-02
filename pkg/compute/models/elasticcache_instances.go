@@ -119,6 +119,9 @@ type SElasticcache struct {
 	// 所属网络ID
 	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"network_id"`
 
+	// 带宽
+	Bandwidth int `nullable:"true" list:"user" create:"optional"`
+
 	// 安全组
 	SecurityGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"security_group_id"`
 
@@ -150,8 +153,8 @@ type SElasticcache struct {
 	// 访问密码？ on （开启密码）|off （免密码访问）
 	AuthMode string `width:"8" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"auth_mode"`
 
-	// AutoRenew // 自动续费
-	// AutoRenewPeriod // 自动续费周期
+	// 最大连接数
+	Connections int `nullable:"true" list:"user" create:"optional"`
 }
 
 // elastic cache 子资源获取owner id
@@ -603,6 +606,13 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 		self.MaintainEndTime = extInstance.GetMaintainEndTime()
 		self.AuthMode = extInstance.GetAuthMode()
 
+		if bw := extInstance.GetBandwidth(); bw > 0 {
+			self.Bandwidth = bw
+		}
+		if cnns := extInstance.GetConnections(); cnns > 0 {
+			self.Connections = cnns
+		}
+
 		factory, err := provider.GetProviderFactory()
 		if err != nil {
 			return errors.Wrap(err, "SyncWithCloudElasticcache.GetProviderFactory")
@@ -660,6 +670,8 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 	instance.MaintainStartTime = extInstance.GetMaintainStartTime()
 	instance.MaintainEndTime = extInstance.GetMaintainEndTime()
 	instance.AuthMode = extInstance.GetAuthMode()
+	instance.Bandwidth = extInstance.GetBandwidth()
+	instance.Connections = extInstance.GetConnections()
 
 	var zone *SZone
 	if zoneId := extInstance.GetZoneId(); len(zoneId) > 0 {

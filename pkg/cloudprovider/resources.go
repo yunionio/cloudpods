@@ -503,6 +503,7 @@ type ICloudDisk interface {
 	GetDiskType() string
 	GetFsFormat() string
 	GetIsNonPersistent() bool
+	GetIops() int
 
 	GetDriver() string
 	GetCacheMode() string
@@ -1050,6 +1051,8 @@ type ICloudElasticcache interface {
 	GetZoneId() string
 	GetNetworkType() string
 	GetNetworkId() string
+	GetBandwidth() int
+	GetConnections() int
 
 	GetPrivateDNS() string
 	GetPrivateIpAddr() string

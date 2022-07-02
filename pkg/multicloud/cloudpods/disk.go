@@ -53,6 +53,10 @@ func (self *SDisk) GetStatus() string {
 	return self.Status
 }
 
+func (self *SDisk) GetIops() int {
+	return 0
+}
+
 func (self *SDisk) Refresh() error {
 	disk, err := self.region.GetDisk(self.Id)
 	if err != nil {

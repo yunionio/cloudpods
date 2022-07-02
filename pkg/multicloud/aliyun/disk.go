@@ -38,6 +38,7 @@ type SDisk struct {
 	multicloud.SDisk
 	multicloud.AliyunTags
 
+	IOPS                          int
 	AttachedTime                  time.Time
 	AutoSnapshotPolicyId          string
 	Category                      string
@@ -68,6 +69,10 @@ type SDisk struct {
 	Status                        string
 	Type                          string
 	ZoneId                        string
+}
+
+func (self *SDisk) GetIops() int {
+	return self.IOPS
 }
 
 func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {

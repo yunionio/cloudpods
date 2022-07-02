@@ -126,6 +126,9 @@ type SDisk struct {
 
 	// 是否标记为SSD磁盘
 	IsSsd bool `nullable:"false" default:"false" list:"user" update:"user" create:"optional"`
+
+	// 最大连接数
+	Iops int `nullable:"true" list:"user" create:"optional"`
 }
 
 func (manager *SDiskManager) GetContextManagers() [][]db.IModelManager {
@@ -1549,6 +1552,9 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		self.DiskFormat = extDisk.GetDiskFormat()
 		self.DiskSize = extDisk.GetDiskSizeMB()
 		self.AccessPath = extDisk.GetAccessPath()
+		if iops := extDisk.GetIops(); iops > 0 {
+			self.Iops = iops
+		}
 		if extDisk.GetIsAutoDelete() {
 			self.AutoDelete = true
 		}
@@ -1631,6 +1637,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk.ExternalId = extDisk.GetGlobalId()
 	disk.StorageId = storage.Id
 
+	disk.Iops = extDisk.GetIops()
 	disk.DiskFormat = extDisk.GetDiskFormat()
 	disk.DiskSize = extDisk.GetDiskSizeMB()
 	disk.AutoDelete = extDisk.GetIsAutoDelete()

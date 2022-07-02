@@ -33,10 +33,13 @@ import (
 )
 
 type SElasticcache struct {
-	multicloud.SResourceBase
+	multicloud.SElasticcacheBase
 	multicloud.QcloudTags
 	region *SRegion
 
+	ClientLimit      int
+	ClientLimitMax   int
+	ClientLimitMin   int
 	MaintenanceTime  *MaintenanceTime `json:"maintenance_time"`
 	NoAuth           *bool            `json:"no_auth"`
 	NodeSet          []NodeSet        `json:"NodeSet"`
@@ -229,6 +232,10 @@ func (self *SElasticcache) GetStatus() string {
 	}
 
 	return ""
+}
+
+func (self *SElasticcache) GetConnections() int {
+	return self.ClientLimit
 }
 
 func (self *SElasticcache) Refresh() error {
