@@ -45,6 +45,15 @@ func clickhouseSqlStrV1ToV2(sqlstr string) (string, error) {
 	if len(dbname) == 0 {
 		return "", errors.Wrap(httperrors.ErrInputParameter, "empty database")
 	}
+	uname, _ := qs.GetString("username")
+	pword, _ := qs.GetString("password")
+	if len(uname) > 0 {
+		if len(pword) > 0 {
+			hostPart = fmt.Sprintf("%s:%s@%s", uname, pword, hostPart)
+		} else {
+			hostPart = fmt.Sprintf("%s@%s", uname, hostPart)
+		}
+	}
 	return fmt.Sprintf("clickhouse://%s/%s?dial_timeout=200ms&max_execution_time=60", hostPart, dbname), nil
 }
 
@@ -53,18 +62,31 @@ func clickhouseSqlStrV2ToV1(sqlstr string) (string, error) {
 		// already v1 format
 		return sqlstr, nil
 	}
-	queryPos := strings.IndexByte(sqlstr, '?')
-	if queryPos <= 0 {
-		return "", errors.Wrap(httperrors.ErrInputParameter, "no query string")
+	hostPart := sqlstr[len("clickhouse://"):]
+	queryPos := strings.IndexByte(hostPart, '?')
+	if queryPos > 0 {
+		hostPart = hostPart[:queryPos]
 	}
-	hostPart := sqlstr[len("clickhouse://"):queryPos]
 	slashPos := strings.IndexByte(hostPart, '/')
 	if slashPos <= 0 {
 		return "", errors.Wrap(httperrors.ErrInputParameter, "no database part")
 	}
-	dbname := hostPart[slashPos+1:]
+	qs := make(map[string]string)
+	qs["database"] = hostPart[slashPos+1:]
 	hostPart = hostPart[:slashPos]
-	return fmt.Sprintf("tcp://%s?database=%s&read_timeout=10&write_timeout=20", hostPart, dbname), nil
+	atPos := strings.IndexByte(hostPart, '@')
+	if atPos > 0 {
+		authPart := hostPart[:atPos]
+		hostPart = hostPart[atPos+1:]
+		colonPos := strings.IndexByte(authPart, ':')
+		if colonPos > 0 {
+			qs["username"] = authPart[:colonPos]
+			qs["password"] = authPart[colonPos+1:]
+		} else {
+			qs["username"] = authPart
+		}
+	}
+	return fmt.Sprintf("tcp://%s?%s&read_timeout=10&write_timeout=20", hostPart, jsonutils.Marshal(qs).QueryString()), nil
 }
 
 func validateClickhouseV2Str(sqlstr string) error {
