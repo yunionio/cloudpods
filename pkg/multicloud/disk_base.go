@@ -26,3 +26,7 @@ func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
 func (self *SDisk) GetIStorageId() string {
 	return ""
 }
+
+func (self *SDisk) GetIops() int {
+	return 0
+}
