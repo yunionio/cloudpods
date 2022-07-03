@@ -68,6 +68,10 @@ func (bb *SBaseBackend) UnionDistinctString() string {
 	return "UNION"
 }
 
+func (bb *SBaseBackend) SupportMixedInsertVariables() bool {
+	return true
+}
+
 func (bb *SBaseBackend) CanUpdate() bool {
 	return false
 }
