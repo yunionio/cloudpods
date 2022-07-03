@@ -59,6 +59,8 @@ type IBackend interface {
 	UnionAllString() string
 	//
 	UnionDistinctString() string
+	// support mixed insert vars
+	SupportMixedInsertVariables() bool
 
 	// Capability
 
