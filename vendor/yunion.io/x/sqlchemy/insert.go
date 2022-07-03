@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -62,6 +63,8 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 	var autoIncField string
 	createdAtFields := make([]string, 0)
 
+	now := time.Now().UTC()
+
 	names := make([]string, 0)
 	format := make([]string, 0)
 	values := make([]interface{}, 0)
@@ -95,9 +98,12 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 			createdAtFields = append(createdAtFields, k)
 			names = append(names, fmt.Sprintf("`%s`", k))
 			if c.IsZero(ov) {
-				format = append(format, t.Database().backend.CurrentUTCTimeStampString())
-				// values = append(values, now)
-				// format = append(format, "?")
+				if t.Database().backend.SupportMixedInsertVariables() {
+					format = append(format, t.Database().backend.CurrentUTCTimeStampString())
+				} else {
+					values = append(values, now)
+					format = append(format, "?")
+				}
 			} else {
 				values = append(values, ov)
 				format = append(format, "?")
