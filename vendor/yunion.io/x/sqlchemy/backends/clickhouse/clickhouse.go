@@ -84,6 +84,10 @@ func (click *SClickhouseBackend) UnionDistinctString() string {
 	return "UNION DISTINCT"
 }
 
+func (click *SClickhouseBackend) SupportMixedInsertVariables() bool {
+	return false
+}
+
 func (click *SClickhouseBackend) UpdateSQLTemplate() string {
 	return "ALTER TABLE `{{ .Table }}` UPDATE {{ .Columns }} WHERE {{ .Conditions }}"
 }
