@@ -85,6 +85,12 @@ func (opts *HostListOptions) Params() (jsonutils.JSONObject, error) {
 	return params, nil
 }
 
+type HostAutoMigrateOnHostDownOptions struct {
+	options.BaseIdsOptions
+	AutoMigarteOnHostDown     string `help:"Auto migrate on host down" choices:"enable|disable" default:"disable"`
+	AutoMigarteOnHostShutdown string `help:"Auto migrate on host shutdown" choices:"enable|disable" default:"disable"`
+}
+
 type HostStatusStatisticsOptions struct {
 	HostListOptions
 	options.StatusStatisticsOptions

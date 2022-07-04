@@ -1280,7 +1280,7 @@ func (h *SHostInfo) PutHostOnline() error {
 		data.Set("warning", jsonutils.Marshal(h.SysWarning))
 	}
 
-	if options.HostOptions.EnableHealthChecker && len(options.HostOptions.EtcdEndpoints) > 0 {
+	if len(options.HostOptions.EtcdEndpoints) > 0 {
 		_, err := host_health.InitHostHealthManager(h.HostId, h.onHostDown)
 		if err != nil {
 			log.Fatalf("Init host health manager failed %s", err)
@@ -1786,8 +1786,12 @@ func (h *SHostInfo) stop() {
 func (h *SHostInfo) unregister() {
 	isLog := false
 	for {
-		_, err := modules.Hosts.PerformAction(
-			h.GetSession(), h.HostId, "offline", jsonutils.Marshal(map[string]string{"reason": "host stop"}))
+		updateHealthStatus := true
+		input := api.HostOfflineInput{
+			UpdateHealthStatus: &updateHealthStatus,
+			Reason:             "host stop",
+		}
+		_, err := modules.Hosts.PerformAction(h.GetSession(), h.HostId, "offline", jsonutils.Marshal(input))
 		if err != nil {
 			if !isLog {
 				logclient.AddSimpleActionLog(h, logclient.ACT_OFFLINE, err, hostutils.GetComputeSession(context.Background()).GetToken(), false)

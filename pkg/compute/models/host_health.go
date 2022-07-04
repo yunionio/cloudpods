@@ -54,17 +54,17 @@ func InitHostHealthChecker(cli *etcd.SEtcdClient, timeout int) *SHostHealthCheck
 	return hostHealthChecker
 }
 
-func (h *SHostHealthChecker) StartHostsHealthCheck(ctx context.Context) {
+func (h *SHostHealthChecker) StartHostsHealthCheck(ctx context.Context) error {
 	log.Infof("Start host health check......")
-	h.startHealthCheck(ctx)
+	return h.startHealthCheck(ctx)
 }
 
-func (h *SHostHealthChecker) startHealthCheck(ctx context.Context) {
+func (h *SHostHealthChecker) startHealthCheck(ctx context.Context) error {
 	q := HostManager.Query().IsTrue("enabled").IsTrue("enable_health_check").Equals("host_type", api.HOST_TYPE_HYPERVISOR)
 	rows, err := q.Rows()
 	if err != nil {
 		log.Errorf("HostHealth check Query hosts %s", err)
-		return
+		return err
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -73,6 +73,7 @@ func (h *SHostHealthChecker) startHealthCheck(ctx context.Context) {
 		host.SetModelManager(HostManager, host)
 		h.startWatcher(ctx, host.Id)
 	}
+	return nil
 }
 
 func (h *SHostHealthChecker) startWatcher(ctx context.Context, hostId string) {
@@ -112,7 +113,7 @@ func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostId string)
 	lockman.LockRawObject(ctx, api.HOST_HEALTH_LOCK_PREFIX, hostId)
 	defer lockman.ReleaseRawObject(ctx, api.HOST_HEALTH_LOCK_PREFIX, hostId)
 	host := HostManager.FetchHostById(hostId)
-	if host != nil && host.EnableHealthCheck == true {
+	if host != nil {
 		host.OnHostDown(ctx, auth.AdminCredential())
 	}
 }

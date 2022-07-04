@@ -151,7 +151,6 @@ type SHostOptions struct {
 	OvnUnderlayMtu            int    `help:"mtu of ovn underlay network" default:"1500"`
 
 	EnableRemoteExecutor bool   `help:"Enable remote executor" default:"false"`
-	EnableHealthChecker  bool   `help:"enable host health checker" default:"false"`
 	HealthDriver         string `help:"Component save host health state" default:"etcd"`
 	HostHealthTimeout    int    `help:"host health timeout" default:"30"`
 	HostLeaseTimeout     int    `help:"lease timeout" default:"10"`
