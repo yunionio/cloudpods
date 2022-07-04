@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -38,8 +40,8 @@ type SHostHealthChecker struct {
 	hc map[string]chan struct{}
 }
 
-func hostKey(hostId string) string {
-	return fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, hostId)
+func hostKey(hostname string) string {
+	return fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, hostname)
 }
 
 func InitHostHealthChecker(cli *etcd.SEtcdClient, timeout int) *SHostHealthChecker {
@@ -54,111 +56,127 @@ func InitHostHealthChecker(cli *etcd.SEtcdClient, timeout int) *SHostHealthCheck
 	return hostHealthChecker
 }
 
-func (h *SHostHealthChecker) StartHostsHealthCheck(ctx context.Context) {
+func (h *SHostHealthChecker) StartHostsHealthCheck(ctx context.Context) error {
 	log.Infof("Start host health check......")
-	h.startHealthCheck(ctx)
+	return h.startHealthCheck(ctx)
 }
 
-func (h *SHostHealthChecker) startHealthCheck(ctx context.Context) {
+func (h *SHostHealthChecker) startHealthCheck(ctx context.Context) error {
 	q := HostManager.Query().IsTrue("enabled").IsTrue("enable_health_check").Equals("host_type", api.HOST_TYPE_HYPERVISOR)
 	rows, err := q.Rows()
 	if err != nil {
 		log.Errorf("HostHealth check Query hosts %s", err)
-		return
+		return err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		host := new(SHost)
-		q.Row2Struct(rows, host)
+		err = q.Row2Struct(rows, host)
+		if err != nil {
+			return errors.Wrap(err, "q.Row2Struct")
+		}
 		host.SetModelManager(HostManager, host)
-		h.startWatcher(ctx, host.Id)
+		err = h.startWatcher(ctx, host.GetHostnameByName())
+		if err != nil {
+			return errors.Wrap(err, "startWatcher")
+		}
 	}
+	return nil
 }
 
-func (h *SHostHealthChecker) startWatcher(ctx context.Context, hostId string) {
-	log.Infof("Start watch host %s", hostId)
-	var (
-		ch  chan struct{}
-		key = hostKey(hostId)
-	)
+func (h *SHostHealthChecker) startWatcher(ctx context.Context, hostname string) error {
+	log.Infof("Start watch host %s", hostname)
+	var key = hostKey(hostname)
 
+	if _, ok := h.hc[hostname]; !ok {
+		h.hc[hostname] = make(chan struct{})
+	}
+	if err := h.cli.Watch(
+		ctx, key,
+		h.onHostOnline(ctx, hostname),
+		h.onHostOffline(ctx, hostname),
+		h.onHostOfflineDeleted(ctx, hostname),
+	); err != nil {
+		return err
+	}
+
+	// watched key not found, wait 60s(default) and do onHostUnhealthy
 	_, err := h.cli.Get(ctx, key)
 	if err == etcd.ErrNoSuchKey {
-		log.Warningf("No such key %s", hostId)
-		ch = make(chan struct{})
+		log.Warningf("No such key %s", hostname)
 		go func() {
 			select {
 			case <-time.NewTimer(h.timeout).C:
-				h.onHostUnhealthy(ctx, hostId)
-			case <-h.hc[hostId]:
-				h.startWatcher(ctx, hostId)
+				h.onHostUnhealthy(ctx, hostname)
+			case <-h.hc[hostname]:
+				if _err := h.startWatcher(ctx, hostname); _err != nil {
+					log.Errorf("failed start watcher %s", _err)
+				}
 			case <-ctx.Done():
-				log.Infof("exit watch host %s", hostId)
+				log.Infof("exit watch host %s", hostname)
 			}
 		}()
+		return nil
 	}
-	if _, ok := h.hc[hostId]; !ok {
-		h.hc[hostId] = ch
-	}
-	h.cli.Watch(
-		ctx, key,
-		h.onHostOnline(ctx, hostId),
-		h.onHostOffline(ctx, hostId),
-		h.onHostOfflineDeleted(ctx, hostId),
-	)
+	return err
 }
 
-func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostId string) {
-	lockman.LockRawObject(ctx, api.HOST_HEALTH_LOCK_PREFIX, hostId)
-	defer lockman.ReleaseRawObject(ctx, api.HOST_HEALTH_LOCK_PREFIX, hostId)
-	host := HostManager.FetchHostById(hostId)
-	if host != nil && host.EnableHealthCheck == true {
+func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostname string) {
+	lockman.LockRawObject(ctx, api.HOST_HEALTH_LOCK_PREFIX, hostname)
+	defer lockman.ReleaseRawObject(ctx, api.HOST_HEALTH_LOCK_PREFIX, hostname)
+	host := HostManager.FetchHostByHostname(hostname)
+	if host != nil && !utils.IsInStringArray(host.RemoteHealthStatus(ctx),
+		[]string{api.HOST_HEALTH_STATUS_RECONNECTING, api.HOST_HEALTH_STATUS_RUNNING},
+	) {
+		// in case hostagent health manager in status reconnecting
 		host.OnHostDown(ctx, auth.AdminCredential())
 	}
 }
 
-func (h *SHostHealthChecker) onHostOnline(ctx context.Context, hostId string) etcd.TEtcdCreateEventFunc {
+func (h *SHostHealthChecker) onHostOnline(ctx context.Context, hostname string) etcd.TEtcdCreateEventFunc {
 	return func(ctx context.Context, key, value []byte) {
-		log.Infof("Got host online %s", hostId)
-		if h.hc[hostId] != nil {
-			h.hc[hostId] <- struct{}{}
+		log.Infof("Got host online %s", hostname)
+		if h.hc[hostname] != nil {
+			h.hc[hostname] <- struct{}{}
 		}
 	}
 }
 
-func (h *SHostHealthChecker) processHostOffline(ctx context.Context, hostId string) {
-	log.Warningf("host %s disconnect with etcd", hostId)
+func (h *SHostHealthChecker) processHostOffline(ctx context.Context, hostname string) {
+	log.Warningf("host %s disconnect with etcd", hostname)
 	go func() {
 		select {
 		case <-time.NewTimer(h.timeout).C:
-			h.onHostUnhealthy(ctx, hostId)
-		case <-h.hc[hostId]:
-			h.startWatcher(ctx, hostId)
+			h.onHostUnhealthy(ctx, hostname)
+		case <-h.hc[hostname]:
+			if err := h.startWatcher(ctx, hostname); err != nil {
+				log.Errorf("failed start watcher %s", err)
+			}
 		}
 	}()
 }
 
-func (h *SHostHealthChecker) onHostOffline(ctx context.Context, hostId string) etcd.TEtcdModifyEventFunc {
+func (h *SHostHealthChecker) onHostOffline(ctx context.Context, hostname string) etcd.TEtcdModifyEventFunc {
 	return func(ctx context.Context, key, oldvalue, value []byte) {
 		log.Errorf("watch host key modified %s %s %s", key, oldvalue, value)
-		h.processHostOffline(ctx, hostId)
+		h.processHostOffline(ctx, hostname)
 	}
 }
 
-func (h *SHostHealthChecker) onHostOfflineDeleted(ctx context.Context, hostId string) etcd.TEtcdDeleteEventFunc {
+func (h *SHostHealthChecker) onHostOfflineDeleted(ctx context.Context, hostname string) etcd.TEtcdDeleteEventFunc {
 	return func(ctx context.Context, key []byte) {
 		log.Errorf("watch host key deleled %s", key)
-		h.processHostOffline(ctx, hostId)
+		h.processHostOffline(ctx, hostname)
 	}
 }
 
-func (h *SHostHealthChecker) WatchHost(ctx context.Context, hostId string) {
-	h.cli.Unwatch(hostKey(hostId))
-	h.startWatcher(ctx, hostId)
+func (h *SHostHealthChecker) WatchHost(ctx context.Context, hostname string) error {
+	h.cli.Unwatch(hostKey(hostname))
+	return h.startWatcher(ctx, hostname)
 }
 
-func (h *SHostHealthChecker) UnwatchHost(ctx context.Context, hostId string) {
-	log.Infof("Unwatch host %s", hostId)
-	h.cli.Unwatch(hostKey(hostId))
-	delete(h.hc, hostId)
+func (h *SHostHealthChecker) UnwatchHost(ctx context.Context, hostname string) {
+	log.Infof("Unwatch host %s", hostname)
+	h.cli.Unwatch(hostKey(hostname))
+	delete(h.hc, hostname)
 }

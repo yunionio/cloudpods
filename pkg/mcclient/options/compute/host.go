@@ -96,6 +96,16 @@ func (o *HostReserveCpusOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
 
+type HostAutoMigrateOnHostDownOptions struct {
+	options.BaseIdsOptions
+	AutoMigrateOnHostDown     string `help:"Auto migrate on host down" choices:"enable|disable" default:"disable"`
+	AutoMigrateOnHostShutdown string `help:"Auto migrate on host shutdown" choices:"enable|disable" default:"disable"`
+}
+
+func (o *HostAutoMigrateOnHostDownOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
 type HostStatusStatisticsOptions struct {
 	HostListOptions
 	options.StatusStatisticsOptions
