@@ -177,8 +177,9 @@ type SHost struct {
 	// 是否处于维护状态
 	IsMaintenance bool `nullable:"true" default:"false" list:"domain"`
 
-	LastPingAt        time.Time ``
-	EnableHealthCheck bool      `nullable:"true" default:"false"`
+	LastPingAt time.Time ``
+	// health check enabled by host agent online
+	EnableHealthCheck bool `nullable:"true" default:"false"`
 
 	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_optional" default:"shared"`
 
@@ -3054,7 +3055,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, show
 	if self.EnableHealthCheck && hostHealthChecker != nil {
 		out.AllowHealthCheck = true
 	}
-	if self.GetMetadata(ctx, "__auto_migrate_on_host_down", nil) == "enable" {
+	if self.GetMetadata(ctx, api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN, nil) == "enable" {
 		out.AutoMigrateOnHostDown = true
 	}
 
@@ -3984,12 +3985,42 @@ func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCre
 func (self *SHost) PerformAutoMigrateOnHostDown(
 	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
-	val, _ := data.GetString("auto_migrate_on_host_down")
+	var meta = make(map[string]interface{})
+	val, err := data.GetString("auto_migrate_on_host_shutdown")
+	if err == nil {
+		if val == "enable" {
+			meta[api.HOSTMETA_AUTO_MIGRATE_ON_HOST_SHUTDOWN] = "enable"
+		} else {
+			meta[api.HOSTMETA_AUTO_MIGRATE_ON_HOST_SHUTDOWN] = "disable"
+		}
+	}
+
+	val, err = data.GetString("auto_migrate_on_host_down")
+	if err == nil {
+		if val == "enable" {
+			meta[api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN] = "enable"
+			_, err = self.Request(ctx, userCred, "POST", "/hosts/shutdown-servers-on-host-down",
+				mcclient.GetTokenHeaders(userCred), nil)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			meta[api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN] = "disable"
+		}
+	}
+
+	return nil, self.SetAllMetadata(ctx, meta, userCred)
+}
+
+func (self *SHost) PerformAutoMigrateOnHostShutdown(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	val, _ := data.GetString("auto_migrate_on_host_shutdown")
 
 	var meta map[string]interface{}
 	if val == "enable" {
 		meta = map[string]interface{}{
-			"__auto_migrate_on_host_down": "enable",
+			api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN: "enable",
 		}
 		_, err := self.Request(ctx, userCred, "POST", "/hosts/shutdown-servers-on-host-down",
 			mcclient.GetTokenHeaders(userCred), nil)
@@ -3998,7 +4029,7 @@ func (self *SHost) PerformAutoMigrateOnHostDown(
 		}
 	} else {
 		meta = map[string]interface{}{
-			"__auto_migrate_on_host_down": "disable",
+			api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN: "disable",
 		}
 	}
 
@@ -5524,9 +5555,19 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 	return nil, host.StartMaintainTask(ctx, userCred, kwargs)
 }
 
+func (host *SHost) autoMigrateOnHostShutdown(ctx context.Context) bool {
+	return host.GetMetadata(ctx, api.HOSTMETA_AUTO_MIGRATE_ON_HOST_SHUTDOWN, nil) == "enable"
+}
+
 func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCredential) {
 	log.Errorf("watched host down %s, status %s", host.Name, host.HostStatus)
 	hostHealthChecker.UnwatchHost(ctx, host.Id)
+
+	if host.HostStatus == api.HOST_OFFLINE && !host.EnableHealthCheck &&
+		!host.autoMigrateOnHostShutdown(ctx) {
+		// hostagent requested offline, and not enable auto migrate on host shutdown
+		return
+	}
 
 	hostname := host.Name
 	if host.HostStatus == api.HOST_OFFLINE {
@@ -5618,7 +5659,7 @@ func (host *SHost) switchWithBackup(ctx context.Context, userCred mcclient.Token
 }
 
 func (host *SHost) migrateOnHostDown(ctx context.Context, userCred mcclient.TokenCredential) {
-	if host.GetMetadata(ctx, "__auto_migrate_on_host_down", nil) == "enable" {
+	if host.GetMetadata(ctx, api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN, nil) == "enable" {
 		if err := host.MigrateSharedStorageServers(ctx, userCred); err != nil {
 			db.OpsLog.LogEvent(host, db.ACT_HOST_DOWN, fmt.Sprintf("migrate servers failed %s", err), userCred)
 		}

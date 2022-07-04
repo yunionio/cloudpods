@@ -144,5 +144,10 @@ const (
 )
 
 const (
+	HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN     = "__auto_migrate_on_host_down"
+	HOSTMETA_AUTO_MIGRATE_ON_HOST_SHUTDOWN = "__auto_migrate_on_host_shutdown"
+)
+
+const (
 	HOSTMETA_RESERVED_CPUS_INFO = "reserved_cpus_info"
 )

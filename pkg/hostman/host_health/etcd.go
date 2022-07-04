@@ -105,9 +105,11 @@ func (c *SEtcdClient) OnKeepaliveFailure() {
 	log.Errorf("keep etcd lease failed: %s", err)
 
 	if c.networkAvailable(nicRecord) {
+		log.Infof("network is available, try reconnect")
 		// may be etcd not work
 		c.Reconnect()
 	} else {
+		log.Errorf("netwrok is unavailable, going to shutdown servers")
 		if c.onUnhealthy != nil {
 			c.onUnhealthy()
 		}
@@ -133,8 +135,14 @@ func (c *SEtcdClient) recordNic() map[string]int {
 			log.Errorf("failed get nic tx %s  statistics %s", interf, err)
 			continue
 		}
-		irx, _ := strconv.Atoi(rx)
-		itx, _ := strconv.Atoi(tx)
+		irx, err := strconv.Atoi(strings.TrimSpace(rx))
+		if err != nil {
+			log.Errorf("failed convert rx %s %s", rx, err)
+		}
+		itx, err := strconv.Atoi(strings.TrimSpace(tx))
+		if err != nil {
+			log.Errorf("failed convert tx %s %s", tx, err)
+		}
 		nicRecord[interf] = irx + itx
 	}
 	return nicRecord
@@ -143,14 +151,19 @@ func (c *SEtcdClient) recordNic() map[string]int {
 func (c *SEtcdClient) networkAvailable(oldRecord map[string]int) bool {
 	newRecord := c.recordNic()
 	for _, n := range options.HostOptions.Networks {
-		oldR, ok := oldRecord[n]
+		data := strings.Split(n, "/")
+		interf := data[0]
+
+		oldR, ok := oldRecord[interf]
 		if !ok {
 			continue
 		}
-		newR, ok := newRecord[n]
+		newR, ok := newRecord[interf]
 		if !ok {
 			log.Errorf("nic %s record not found", n)
+			continue
 		}
+
 		if newR != oldR {
 			return true
 		}
