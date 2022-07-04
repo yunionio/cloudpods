@@ -122,8 +122,10 @@ func StartService() {
 		if err := initDefaultEtcdClient(dbOpts); err != nil {
 			log.Fatalf("init etcd client failed %s", err)
 		}
-		models.InitHostHealthChecker(etcd.Default(), opts.HostHealthTimeout).
-			StartHostsHealthCheck(context.Background())
+		if err := models.InitHostHealthChecker(etcd.Default(), opts.HostHealthTimeout).
+			StartHostsHealthCheck(context.Background()); err != nil {
+			log.Fatalf("failed start host health checker %s", err)
+		}
 	}
 
 	if !opts.IsSlaveNode {
