@@ -16,6 +16,7 @@ package hostman
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	execlient "yunion.io/x/executor/client"
@@ -30,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/guesthandlers"
+	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hosthandler"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
@@ -75,9 +77,29 @@ func (host *SHostService) InitService() {
 func (host *SHostService) OnExitService() {}
 
 func (host *SHostService) RunService() {
+	hn, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("fail to get hostname %s", err)
+	}
+
 	app := app_common.InitApp(&options.HostOptions.BaseOptions, false)
 	cronManager := cronman.InitCronJobManager(false, options.HostOptions.CronJobWorkerCount)
 	hostutils.Init()
+
+	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
+		log.Infof("Auth complete!!")
+
+		if err := host.initEtcdConfig(); err != nil {
+			log.Fatalln("Init etcd config:", err)
+		}
+
+		if len(options.HostOptions.EtcdEndpoints) > 0 {
+			_, err := host_health.InitHostHealthManager(hn, "")
+			if err != nil {
+				log.Fatalf("Init host health manager failed %s", err)
+			}
+		}
+	})
 
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
@@ -91,22 +113,15 @@ func (host *SHostService) RunService() {
 
 	var guestChan chan struct{}
 	guestman.Init(hostInstance, options.HostOptions.ServersPath)
-	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
-		log.Infof("Auth complete!!")
 
-		if err := host.initEtcdConfig(); err != nil {
-			log.Fatalln("Init etcd config:", err)
-		}
-
-		hostInstance.StartRegister(2, func() {
-			guestChan = guestman.GetGuestManager().Bootstrap()
-			// hostmetrics after guestmanager bootstrap
-			hostmetrics.Init()
-			hostmetrics.Start()
-		})
+	hostInstance.StartRegister(2, func() {
+		guestChan = guestman.GetGuestManager().Bootstrap()
+		// hostmetrics after guestmanager bootstrap
+		hostmetrics.Init()
+		hostmetrics.Start()
 	})
-
 	<-hostinfo.Instance().IsRegistered // wait host and guest init
+
 	host.initHandlers(app)
 
 	// Init Metadata handler

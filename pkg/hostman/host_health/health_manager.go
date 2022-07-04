@@ -18,27 +18,31 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/options"
-)
-
-type Status int
-
-const (
-	UNKNOWN Status = iota
-	HEALTHY
-	UNHEALTHY
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SHostHealthManager struct {
-	cli        Client
-	status     Status
+	cli *etcd.SEtcdClient
+
+	timeout       int
+	requestExpend int
+
+	hostId     string
+	status     string
 	onHostDown string
 }
 
@@ -51,40 +55,182 @@ func InitHostHealthManager(hostId, onHostDown string) (*SHostHealthManager, erro
 	if manager != nil {
 		return manager, nil
 	}
-	var m *SHostHealthManager
-	switch options.HostOptions.HealthDriver {
-	case "etcd":
-		cli, err := NewEtcdClient(&options.HostOptions.EtcdOptions, hostId)
-		if err != nil {
-			return nil, errors.Wrap(err, "new etcd client")
-		}
-		m = new(SHostHealthManager)
-		m.cli = cli
-	default:
-		return nil, fmt.Errorf("not support health driver %s", options.HostOptions.HealthDriver)
+
+	var m = SHostHealthManager{}
+	var dialTimeout, requestTimeout = 3, 2
+
+	cfg, err := NewEtcdOptions(
+		&options.HostOptions.EtcdOptions,
+		options.HostOptions.HostLeaseTimeout,
+		dialTimeout, requestTimeout,
+	)
+	if err != nil {
+		return nil, err
 	}
+	err = etcd.InitDefaultEtcdClient(cfg, m.OnKeepaliveFailure)
+	if err != nil {
+		return nil, errors.Wrap(err, "init default etcd client")
+	}
+
+	m.cli = etcd.Default()
 	m.onHostDown = onHostDown
-	m.cli.SetOnUnhealthy(m.OnUnhealth)
+	m.hostId = hostId
+	m.requestExpend = requestTimeout
+	m.timeout = options.HostOptions.HostHealthTimeout - options.HostOptions.HostLeaseTimeout
+
 	if err := m.StartHealthCheck(); err != nil {
 		return nil, err
 	}
-	manager = m
+	m.status = api.HOST_HEALTH_STATUS_RUNNING
+	manager = &m
 	return manager, nil
 }
 
+func NewEtcdOptions(
+	opt *common_options.EtcdOptions, leaseTimeout, dialTimeout, requestTimeout int,
+) (*etcd.SEtcdOptions, error) {
+	cfg, err := opt.GetEtcdTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+	return &etcd.SEtcdOptions{
+		EtcdEndpoint:              opt.EtcdEndpoints,
+		EtcdLeaseExpireSeconds:    leaseTimeout,
+		EtcdTimeoutSeconds:        dialTimeout,
+		EtcdRequestTimeoutSeconds: requestTimeout,
+		EtcdEnabldSsl:             opt.EtcdUseTLS,
+		TLSConfig:                 cfg,
+	}, nil
+}
+
 func (m *SHostHealthManager) StartHealthCheck() error {
-	return m.cli.StartHostHealthCheck(context.Background())
+	return m.cli.PutSession(context.Background(),
+		fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, m.hostId),
+		api.HOST_HEALTH_STATUS_RUNNING,
+	)
+}
+
+func (m *SHostHealthManager) OnKeepaliveFailure() {
+	m.status = api.HOST_HEALTH_STATUS_RECONNECTING
+	nicRecord := m.recordNic()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(m.timeout))
+	defer cancel()
+	err := m.cli.RestartSessionWithContext(ctx)
+	if err == nil {
+		if err := m.cli.PutSession(context.Background(),
+			fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, m.hostId),
+			api.HOST_HEALTH_STATUS_RUNNING,
+		); err != nil {
+			log.Errorf("put host key failed %s", err)
+		} else {
+			m.status = api.HOST_HEALTH_STATUS_RUNNING
+			log.Infof("etcd client restart session success")
+			return
+		}
+	}
+	log.Errorf("keep etcd lease failed: %s", err)
+
+	if m.networkAvailable(nicRecord) {
+		log.Infof("network is available, try reconnect")
+		// may be etcd not work
+		m.Reconnect()
+	} else {
+		log.Errorf("netwrok is unavailable, going to shutdown servers")
+		m.status = api.HOST_HEALTH_STATUS_UNKNOWN
+		m.OnUnhealth()
+	}
+}
+
+func (m *SHostHealthManager) recordNic() map[string]int {
+	nicRecord := make(map[string]int)
+	for _, n := range options.HostOptions.Networks {
+		data := strings.Split(n, "/")
+		interf := data[0]
+		rx, err := fileutils2.FileGetContents(
+			fmt.Sprintf("/sys/class/net/%s/statistics/rx_bytes", interf),
+		)
+		if err != nil {
+			log.Errorf("failed get nic rx %s  statistics %s", interf, err)
+			continue
+		}
+		tx, err := fileutils2.FileGetContents(
+			fmt.Sprintf("/sys/class/net/%s/statistics/tx_bytes", interf),
+		)
+		if err != nil {
+			log.Errorf("failed get nic tx %s  statistics %s", interf, err)
+			continue
+		}
+		irx, err := strconv.Atoi(strings.TrimSpace(rx))
+		if err != nil {
+			log.Errorf("failed convert rx %s %s", rx, err)
+		}
+		itx, err := strconv.Atoi(strings.TrimSpace(tx))
+		if err != nil {
+			log.Errorf("failed convert tx %s %s", tx, err)
+		}
+		nicRecord[interf] = irx + itx
+	}
+	return nicRecord
+}
+
+func (m *SHostHealthManager) networkAvailable(oldRecord map[string]int) bool {
+	newRecord := m.recordNic()
+	for _, n := range options.HostOptions.Networks {
+		data := strings.Split(n, "/")
+		interf := data[0]
+
+		oldR, ok := oldRecord[interf]
+		if !ok {
+			continue
+		}
+		newR, ok := newRecord[interf]
+		if !ok {
+			log.Errorf("nic %s record not found", n)
+			continue
+		}
+
+		if newR != oldR {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *SHostHealthManager) OnUnhealth() {
-	m.status = UNHEALTHY
 	if m.onHostDown == hostconsts.SHUTDOWN_SERVERS {
 		log.Errorf("Host unhealthy, going to shotdown servers")
 		m.shutdownServers()
 	}
-	m.cli.Reconnect()
+	// reconnect wait for network available
+	m.Reconnect()
 	utils.DumpAllGoroutineStack(log.Logger().Out)
 	os.Exit(1)
+}
+
+func (m *SHostHealthManager) Reconnect() {
+	if m.cli.SessionLiving() {
+		return
+	}
+	for {
+		if err := m.cli.RestartSession(); err != nil && !m.cli.SessionLiving() {
+			log.Errorf("restart session failed %s", err)
+			time.Sleep(1 * time.Second)
+		} else {
+			log.Infof("restart ression success")
+			break
+		}
+	}
+	if err := m.cli.PutSession(context.Background(),
+		fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, m.hostId),
+		api.HOST_HEALTH_STATUS_RUNNING,
+	); err != nil {
+		log.Errorf("put host key failed %s", err)
+		go m.Reconnect()
+	} else {
+		m.status = api.HOST_HEALTH_STATUS_RUNNING
+		log.Infof("put key %s/%s success", api.HOST_HEALTH_PREFIX, m.hostId)
+		return
+	}
 }
 
 func (m *SHostHealthManager) SetOnHostDown(onHostDown string) {
@@ -96,10 +242,6 @@ func (m *SHostHealthManager) shutdownServers() {
 	types.HealthCheckReactor.ShutdownServers()
 }
 
-func (m *SHostHealthManager) Stop() error {
-	return m.cli.Stop()
-}
-
 func SetOnHostDown(onHostDown string) error {
 	if manager != nil {
 		manager.SetOnHostDown(onHostDown)
@@ -108,9 +250,9 @@ func SetOnHostDown(onHostDown string) error {
 	return fmt.Errorf("host health manager not init")
 }
 
-type Client interface {
-	StartHostHealthCheck(context.Context) error
-	SetOnUnhealthy(func())
-	Reconnect()
-	Stop() error
+func GetHealthStatus() string {
+	if manager == nil {
+		return ""
+	}
+	return manager.status
 }
