@@ -4,6 +4,7 @@ __inc_Makefile_common_mk:=1
 ifeq ($(ModName),)
   $(error ModName must be set, e.g. yunion.io/x/onecloud)
 endif
+
 ModBaseName:=$(notdir $(ModName))
 
 DockerImageRegistry?=registry.cn-beijing.aliyuncs.com
@@ -26,12 +27,14 @@ env \
 chown -R $(shell id -u):$(shell id -g) _output
 endef
 
+tmpName=$(ModBaseName)-$(shell date +"%Y%m%d.%H%M%S%3N")
+
 docker-centos-build: export dockerCentOSBuildCmd:=$(call dockerCentOSBuildCmd,$(F))
 docker-centos-build:
-	docker rm --force docker-centos-build-$(ModBaseName) &>/dev/null || true
+	docker rm --force docker-centos-build-$(tmpName) &>/dev/null || true
 	docker run \
 		--rm \
-		--name docker-centos-build-$(ModBaseName) \
+		--name docker-centos-build-$(tmpName) \
 		-v $(CURDIR):/root/go/src/yunion.io/x/$(ModBaseName) \
 		-v $(CURDIR)/_output/centos-build:/root/go/src/yunion.io/x/$(ModBaseName)/_output \
 		-v $(CURDIR)/_output/centos-build/_cache:/root/.cache \
@@ -42,7 +45,7 @@ docker-centos-build:
 # NOTE we need a way to stop and remove the container started by docker-build.
 # No --tty, --stop-signal won't work
 docker-centos-build-stop:
-	docker stop --time 0 docker-centos-build-$(ModBaseName) || true
+	docker stop --time 0 docker-centos-build-$(tmpName) || true
 
 .PHONY: docker-centos-build
 .PHONY: docker-centos-build-stop
@@ -65,10 +68,10 @@ endef
 
 docker-alpine-build: export dockerAlpineBuildCmd:=$(call dockerAlpineBuildCmd,$(F))
 docker-alpine-build:
-	docker rm --force docker-alpine-build-$(ModBaseName) &>/dev/null || true
+	docker rm --force docker-alpine-build-$(tmpName) &>/dev/null || true
 	docker run \
 		--rm \
-		--name docker-alpine-build-$(ModBaseName) \
+		--name docker-alpine-build-$(tmpName) \
 		-v $(CURDIR):/root/go/src/yunion.io/x/$(ModBaseName) \
 		-v $(CURDIR)/_output/alpine-build:/root/go/src/yunion.io/x/$(ModBaseName)/_output \
 		-v $(CURDIR)/_output/alpine-build/_cache:/root/.cache \
@@ -77,7 +80,7 @@ docker-alpine-build:
 	ls -lh _output/alpine-build/bin
 
 docker-alpine-build-stop:
-	docker stop --time 0 docker-alpine-build-$(ModBaseName) || true
+	docker stop --time 0 docker-alpine-build-$(tmpName) || true
 
 .PHONY: docker-alpine-build
 .PHONY: docker-alpine-build-stop
