@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -32,6 +33,24 @@ func (i *Info) load() error {
 	return nil
 }
 
+func ProcByID(procs []*Processor, id int) *Processor {
+	for pid := range procs {
+		if procs[pid].ID == id {
+			return procs[pid]
+		}
+	}
+	return nil
+}
+
+func CoreByID(cores []*ProcessorCore, id int) *ProcessorCore {
+	for cid := range cores {
+		if cores[cid].Index == id {
+			return cores[cid]
+		}
+	}
+	return nil
+}
+
 func processorsGet(ctx *context.Context) []*Processor {
 	procs := make([]*Processor, 0)
 	paths := linuxpath.New(ctx)
@@ -46,6 +65,7 @@ func processorsGet(ctx *context.Context) []*Processor {
 	procAttrs := make([]map[string]string, 0)
 	curProcAttrs := make(map[string]string)
 
+	// Parse /proc/cpuinfo
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -64,85 +84,69 @@ func processorsGet(ctx *context.Context) []*Processor {
 		curProcAttrs[key] = value
 	}
 
-	// Build a set of physical processor IDs which represent the physical
-	// package of the CPU
-	setPhysicalIDs := make(map[int]bool)
-	for _, attrs := range procAttrs {
-		pid, err := strconv.Atoi(attrs["physical id"])
-		if err != nil {
+	// Iterate on /sys/devices/system/cpu/cpuN, not on /proc/cpuinfo
+	Entries, _ := ioutil.ReadDir(paths.SysDevicesSystemCPU)
+	for _, lcore := range Entries {
+		reg := regexp.MustCompile("^cpu([0-9]+)$")
+		if !reg.MatchString(lcore.Name()) {
 			continue
 		}
-		setPhysicalIDs[pid] = true
-	}
 
-	for pid := range setPhysicalIDs {
-		p := &Processor{
-			ID: pid,
-		}
-		// The indexes into the array of attribute maps for each logical
-		// processor within the physical processor
-		lps := make([]int, 0)
-		for x := range procAttrs {
-			lppid, err := strconv.Atoi(procAttrs[x]["physical id"])
-			if err != nil {
-				continue
-			}
-			if pid == lppid {
-				lps = append(lps, x)
-			}
-		}
-		first := procAttrs[lps[0]]
-		p.Model = first["model name"]
-		p.Vendor = first["vendor_id"]
-		numCores, err := strconv.Atoi(first["cpu cores"])
-		if err != nil {
+		lcoreID, error := strconv.Atoi(lcore.Name()[3:]) // get "N" out of "cpuN"
+		if error != nil {
 			continue
 		}
-		p.NumCores = uint32(numCores)
-		numThreads, err := strconv.Atoi(first["siblings"])
-		if err != nil {
-			continue
-		}
-		p.NumThreads = uint32(numThreads)
 
-		// The flags field is a space-separated list of CPU capabilities
-		p.Capabilities = strings.Split(first["flags"], " ")
+		// Fetch CPU ID
+		physIdPath := fmt.Sprintf(
+			"%s/cpu%d/topology/physical_package_id",
+			paths.SysDevicesSystemCPU,
+			lcoreID,
+		)
+		cpuID := util.SafeIntFromFile(ctx, physIdPath)
 
-		cores := make([]*ProcessorCore, 0)
-		for _, lpidx := range lps {
-			lpid, err := strconv.Atoi(procAttrs[lpidx]["processor"])
-			if err != nil {
-				continue
+		proc := ProcByID(procs, cpuID)
+		if proc == nil {
+			proc = &Processor{ID: cpuID}
+			// Assumes /proc/cpuinfo is in order of logical cpu id, then
+			// procAttrs[lcoreID] describes logical cpu `lcoreID`.
+			// Once got a more robust way of fetching the following info,
+			// can we drop /proc/cpuinfo.
+			if len(procAttrs[lcoreID]["flags"]) != 0 { // x86
+				proc.Capabilities = strings.Split(procAttrs[lcoreID]["flags"], " ")
+			} else if len(procAttrs[lcoreID]["Features"]) != 0 { // ARM64
+				proc.Capabilities = strings.Split(procAttrs[lcoreID]["Features"], " ")
 			}
-			coreID, err := strconv.Atoi(procAttrs[lpidx]["core id"])
-			if err != nil {
-				continue
+			if len(procAttrs[lcoreID]["model name"]) != 0 {
+				proc.Model = procAttrs[lcoreID]["model name"]
+			} else if len(procAttrs[lcoreID]["uarch"]) != 0 { // SiFive
+				proc.Model = procAttrs[lcoreID]["uarch"]
 			}
-			var core *ProcessorCore
-			for _, c := range cores {
-				if c.ID == coreID {
-					c.LogicalProcessors = append(
-						c.LogicalProcessors,
-						lpid,
-					)
-					c.NumThreads = uint32(len(c.LogicalProcessors))
-					core = c
-				}
+			if len(procAttrs[lcoreID]["vendor_id"]) != 0 {
+				proc.Vendor = procAttrs[lcoreID]["vendor_id"]
+			} else if len(procAttrs[lcoreID]["isa"]) != 0 { // RISCV64
+				proc.Vendor = procAttrs[lcoreID]["isa"]
 			}
-			if core == nil {
-				coreLps := make([]int, 1)
-				coreLps[0] = lpid
-				core = &ProcessorCore{
-					ID:                coreID,
-					Index:             len(cores),
-					NumThreads:        1,
-					LogicalProcessors: coreLps,
-				}
-				cores = append(cores, core)
-			}
+			procs = append(procs, proc)
 		}
-		p.Cores = cores
-		procs = append(procs, p)
+
+		// Fetch Core ID
+		coreIdPath := fmt.Sprintf(
+			"%s/cpu%d/topology/core_id",
+			paths.SysDevicesSystemCPU,
+			lcoreID,
+		)
+		coreID := util.SafeIntFromFile(ctx, coreIdPath)
+		core := CoreByID(proc.Cores, coreID)
+		if core == nil {
+			core = &ProcessorCore{Index: coreID, NumThreads: 1}
+			proc.Cores = append(proc.Cores, core)
+			proc.NumCores += 1
+		} else {
+			core.NumThreads += 1
+		}
+		proc.NumThreads += 1
+		core.LogicalProcessors = append(core.LogicalProcessors, lcoreID)
 	}
 	return procs
 }
