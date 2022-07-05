@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -38,7 +39,9 @@ func getQuoteStringValue(dat interface{}) string {
 	case reflect.Float32, reflect.Float64:
 		return fmt.Sprintf("%f", value.Float())
 	}
-	return strconv.Quote(GetStringValue(dat))
+	strVal := GetStringValue(dat)
+	strVal = strings.ReplaceAll(strVal, "'", "\\'")
+	return "'" + strVal + "'"
 }
 
 func GetStringValue(dat interface{}) string {
