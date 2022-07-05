@@ -4066,21 +4066,40 @@ func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (host *SHost) getHostLogicalCores() ([]int, error) {
-	topoObj, err := host.SysInfo.Get("topology")
+	cpuObj, err := host.SysInfo.Get("cpu_info")
 	if err != nil {
-		return nil, errors.Wrap(err, "get topology from host sys_info")
+		return nil, errors.Wrap(err, "get cpu info from host sys_info")
 	}
-
-	hostTopo := new(hostapi.HostTopology)
-	if err := topoObj.Unmarshal(hostTopo); err != nil {
-		return nil, errors.Wrap(err, "Unmarshal host topology struct")
+	cpuInfo := new(hostapi.HostCPUInfo)
+	if err := cpuObj.Unmarshal(cpuInfo); err != nil {
+		return nil, errors.Wrap(err, "Unmarshal host cpu info struct")
 	}
 
 	// get host logical cores
 	allCores := []int{}
-	for _, node := range hostTopo.Nodes {
-		for _, cores := range node.Cores {
-			allCores = append(allCores, cores.LogicalProcessors...)
+
+	if len(cpuInfo.Processors) != 0 {
+		for _, p := range cpuInfo.Processors {
+			for _, core := range p.Cores {
+				allCores = append(allCores, core.LogicalProcessors...)
+			}
+		}
+		sort.Ints(allCores)
+	} else {
+		topoObj, err := host.SysInfo.Get("topology")
+		if err != nil {
+			return nil, errors.Wrap(err, "get topology from host sys_info")
+		}
+
+		hostTopo := new(hostapi.HostTopology)
+		if err := topoObj.Unmarshal(hostTopo); err != nil {
+			return nil, errors.Wrap(err, "Unmarshal host topology struct")
+		}
+
+		for _, node := range hostTopo.Nodes {
+			for _, cores := range node.Cores {
+				allCores = append(allCores, cores.LogicalProcessors...)
+			}
 		}
 	}
 	return allCores, nil

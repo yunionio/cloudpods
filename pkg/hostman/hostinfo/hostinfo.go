@@ -482,7 +482,12 @@ func (h *SHostInfo) detectHostInfo() error {
 	if err != nil {
 		return errors.Wrap(err, "Get hardware topology")
 	}
+	cpuInfo, err := hardware.GetCPU()
+	if err != nil {
+		return errors.Wrap(err, "Get CPU info")
+	}
 	h.sysinfo.Topology = topoInfo
+	h.sysinfo.CPUInfo = cpuInfo
 
 	system_service.Init()
 	if options.HostOptions.CheckSystemServices {

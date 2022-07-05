@@ -42,7 +42,7 @@ require (
 	github.com/gosuri/uitable v0.0.0-20160404203958-36ee7e946282
 	github.com/hako/durafmt v0.0.0-20180520121703-7b7ae1e72ead
 	github.com/huaweicloud/huaweicloud-sdk-go v1.0.26
-	github.com/jaypipes/ghw v0.9.0
+	github.com/jaypipes/ghw v0.9.1
 	github.com/jdcloud-api/jdcloud-sdk-go v1.55.0
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/lestrrat-go/jwx v1.0.2
@@ -261,5 +261,6 @@ require (
 
 replace (
 	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
+	github.com/jaypipes/ghw => github.com/zexi/ghw v0.9.1
 	google.golang.org/grpc => google.golang.org/grpc v1.29.0
 )
