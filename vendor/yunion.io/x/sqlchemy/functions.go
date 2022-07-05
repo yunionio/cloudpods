@@ -16,7 +16,6 @@ package sqlchemy
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"yunion.io/x/log"
@@ -257,7 +256,7 @@ func (s *SStringField) Name() string {
 
 // Reference implementation of SStringField for IQueryField
 func (s *SStringField) Reference() string {
-	return strconv.Quote(s.strConst)
+	return getQuoteStringValue(s.strConst)
 }
 
 // Label implementation of SStringField for IQueryField
