@@ -25,6 +25,12 @@ type SLoggerOptions struct {
 	common_options.DBOptions
 
 	SyslogUrl string `help:"external syslog url, e.g. tcp://localhost:1234@cloud"`
+
+	EnableSeparateAdminLog bool `help:"enable separate log for auditor admin" default:"false"`
+
+	SecadminRoleNames []string `help:"role names of security admin" default:"sys_secadmin,domain_secadmin"`
+	OpsadminRoleNames []string `help:"role names of operation admin" default:"sys_opsadmin,domain_opsadmin"`
+	AuditorRoleNames  []string `help:"role names of auditor admin" default:"sys_adtadmin,domain_adtadmin"`
 }
 
 var (

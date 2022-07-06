@@ -27,6 +27,7 @@ type STableMetadata struct {
 	Table     string    `width:"64" charset:"ascii"`
 	Start     int64     `nullable:"true"`
 	End       int64     `nullable:"true"`
+	Count     uint64    `nullable:"true"`
 	StartDate time.Time `nullable:"true"`
 	EndDate   time.Time `nullable:"true"`
 	Deleted   bool      `nullable:"false"`
@@ -55,6 +56,20 @@ func (spec *SSplitTableSpec) GetTableMetas() ([]STableMetadata, error) {
 	err := q.All(&metas)
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "query metadata")
+	}
+	for i := 0; i < len(metas); i++ {
+		if metas[i].Count <= 0 {
+			// fix count
+			tbl := spec.GetTableSpec(metas[i]).Instance()
+			cnt, err := tbl.Query().CountWithError()
+			if err != nil {
+				return nil, errors.Wrap(err, "CountWithError")
+			}
+			spec.metaSpec.Update(&metas[i], func() error {
+				metas[i].Count = uint64(cnt)
+				return nil
+			})
+		}
 	}
 	return metas, nil
 }

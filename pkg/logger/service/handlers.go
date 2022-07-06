@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/logger/models"
+	"yunion.io/x/onecloud/pkg/logger/options"
 )
 
 func initHandlers(app *appsrv.Application) {
@@ -33,6 +34,10 @@ func initHandlers(app *appsrv.Application) {
 		db.DistinctFieldManager,
 	} {
 		db.RegisterModelManager(manager)
+	}
+
+	if options.Options.EnableSeparateAdminLog {
+		db.RegisterModelManagerWithKeyword(models.AdminActionLog, "admin-action")
 	}
 
 	for _, manager := range []db.IModelManager{
