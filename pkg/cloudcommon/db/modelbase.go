@@ -72,7 +72,11 @@ func NewModelBaseManagerWithSplitable(model interface{}, tableName string, keywo
 
 func NewModelBaseManagerWithSplitableDBName(model interface{}, tableName string, keyword string, keywordPlural string, indexField string, dateField string, maxDuration time.Duration, maxSegments int, dbName sqlchemy.DBName) SModelBaseManager {
 	ts := newTableSpec(model, tableName, indexField, dateField, maxDuration, maxSegments, dbName)
-	modelMan := SModelBaseManager{tableSpec: ts, keyword: keyword, keywordPlural: keywordPlural}
+	modelMan := SModelBaseManager{
+		tableSpec:     ts,
+		keyword:       keyword,
+		keywordPlural: keywordPlural,
+	}
 	return modelMan
 }
 
@@ -96,6 +100,14 @@ func (manager *SModelBaseManager) GetIModelManager() IModelManager {
 	return r
 }
 
+func (manager *SModelBaseManager) GetImmutableInstance(userCred mcclient.TokenCredential) IModelManager {
+	return manager.GetIModelManager()
+}
+
+func (manager *SModelBaseManager) GetMutableInstance(userCred mcclient.TokenCredential) IModelManager {
+	return manager.GetIModelManager()
+}
+
 func (manager *SModelBaseManager) SetAlias(alias string, aliasPlural string) {
 	manager.alias = alias
 	manager.aliasPlural = aliasPlural
@@ -106,7 +118,7 @@ func (manager *SModelBaseManager) TableSpec() ITableSpec {
 }
 
 func (manager *SModelBaseManager) GetSplitTable() *splitable.SSplitTableSpec {
-	return manager.tableSpec.GetSplitTable()
+	return manager.TableSpec().GetSplitTable()
 }
 
 func (manager *SModelBaseManager) Keyword() string {
@@ -191,7 +203,7 @@ func (manager *SModelBaseManager) ExtraSearchConditions(ctx context.Context, q *
 
 // fetch hook
 func (manager *SModelBaseManager) getTable() *sqlchemy.STable {
-	return manager.tableSpec.Instance()
+	return manager.TableSpec().Instance()
 }
 
 func (manager *SModelBaseManager) Query(fieldNames ...string) *sqlchemy.SQuery {
@@ -446,16 +458,32 @@ func (manager *SModelBaseManager) GetI18N(ctx context.Context, idstr string, res
 	return nil
 }
 
-func (manager *SModelBaseManager) AllowGetPropertySplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (manager *SModelBaseManager) GetPropertySplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	splitable := manager.GetSplitTable()
-	if splitable == nil {
-		return nil, errors.Wrap(httperrors.ErrNotSupported, "not splitable")
+	stable := manager.GetImmutableInstance(userCred).GetSplitTable()
+	if stable == nil {
+		// generate a fake metadata tbl record
+		man := manager.GetImmutableInstance(userCred)
+		subq := man.Query().SubQuery()
+		q := subq.Query(
+			sqlchemy.MIN("start", subq.Field("id")),
+			sqlchemy.MAX("end", subq.Field("id")),
+			sqlchemy.MIN("start_date", subq.Field("ops_time")),
+			sqlchemy.MAX("end_date", subq.Field("ops_time")),
+			sqlchemy.COUNT("count", subq.Field("id")),
+			sqlchemy.MIN("created_at", subq.Field("ops_time")),
+		)
+		meta := splitable.STableMetadata{
+			Id:    1,
+			Table: "action_tbl",
+		}
+		err := q.First(&meta)
+		if err != nil {
+			return nil, errors.Wrap(err, "Query metadata")
+		}
+		metas := []splitable.STableMetadata{meta}
+		return jsonutils.Marshal(metas), nil
 	}
-	metas, err := splitable.GetTableMetas()
+	metas, err := stable.GetTableMetas()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetTableMetas")
 	}
@@ -463,7 +491,7 @@ func (manager *SModelBaseManager) GetPropertySplitable(ctx context.Context, user
 }
 
 func (manager *SModelBaseManager) GetPropertySplitableExport(ctx context.Context, userCred mcclient.TokenCredential, input apis.SplitTableExportInput) (jsonutils.JSONObject, error) {
-	splitable := manager.GetSplitTable()
+	splitable := manager.GetImmutableInstance(userCred).GetSplitTable()
 	if splitable == nil {
 		return nil, errors.Wrap(httperrors.ErrNotSupported, "not splitable")
 	}
@@ -477,7 +505,13 @@ func (manager *SModelBaseManager) GetPropertySplitableExport(ctx context.Context
 	}
 	for i := 0; i < len(metas); i += 1 {
 		if metas[i].Table == input.Table {
-			q := splitable.GetTableSpec(metas[i]).Query()
+			if input.Limit <= 0 {
+				input.Limit = apis.MAX_SPLITABLE_EXPORT_LIMIT
+			}
+			if input.Offset < 0 {
+				input.Offset = 0
+			}
+			q := splitable.GetTableSpec(metas[i]).Query().Limit(input.Limit).Offset(input.Offset)
 			resp, err := q.AllStringMap()
 			if err != nil {
 				return nil, errors.Wrapf(err, "q.AllStringMap")
@@ -493,9 +527,9 @@ func (manager *SModelBaseManager) AllowPerformPurgeSplitable(ctx context.Context
 }
 
 func (manager *SModelBaseManager) PerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PurgeSplitTableInput) (jsonutils.JSONObject, error) {
-	splitable := manager.GetSplitTable()
+	splitable := manager.GetImmutableInstance(userCred).GetSplitTable()
 	if splitable == nil {
-		return nil, errors.Wrap(httperrors.ErrNotSupported, "not splitable")
+		return jsonutils.Marshal(map[string][]string{"tables": []string{}}), nil
 	}
 	ret, err := splitable.Purge(input.Tables)
 	if err != nil {

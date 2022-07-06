@@ -40,6 +40,9 @@ type IModelManager interface {
 
 	GetIModelManager() IModelManager
 
+	GetMutableInstance(userCred mcclient.TokenCredential) IModelManager
+	GetImmutableInstance(userCred mcclient.TokenCredential) IModelManager
+
 	// Table() *sqlchemy.STable
 	TableSpec() ITableSpec
 

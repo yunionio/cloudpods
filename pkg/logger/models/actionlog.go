@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 	"yunion.io/x/sqlchemy/backends/clickhouse"
 
@@ -31,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/logger/extern"
+	"yunion.io/x/onecloud/pkg/logger/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -72,44 +74,81 @@ type SActionlog struct {
 }
 
 var ActionLog *SActionlogManager
+var AdminActionLog *SActionlogManager
+
 var logQueue = make(chan *SActionlog, 50)
 
 func InitActionLog() {
 	InitActionWhiteList()
+	var initTable func(tbname string) *SActionlogManager
 	if consts.OpsLogWithClickhouse {
-		ActionLog = &SActionlogManager{
-			SOpsLogManager: db.SOpsLogManager{
-				SModelBaseManager: db.NewModelBaseManagerWithDBName(
-					SActionlog{},
-					"action_tbl",
-					"action",
-					"actions",
-					db.ClickhouseDB,
-				),
-			},
-		}
-		col := ActionLog.TableSpec().ColumnSpec("ops_time")
-		if clickCol, ok := col.(clickhouse.IClickhouseColumnSpec); ok {
-			clickCol.SetTTL(consts.SplitableMaxKeepMonths(), "MONTH")
+		initTable = func(tbname string) *SActionlogManager {
+			tbl := &SActionlogManager{
+				SOpsLogManager: db.SOpsLogManager{
+					SModelBaseManager: db.NewModelBaseManagerWithDBName(
+						SActionlog{},
+						tbname,
+						"action",
+						"actions",
+						db.ClickhouseDB,
+					),
+				},
+			}
+			col := tbl.TableSpec().ColumnSpec("ops_time")
+			if clickCol, ok := col.(clickhouse.IClickhouseColumnSpec); ok {
+				clickCol.SetTTL(consts.SplitableMaxKeepMonths(), "MONTH")
+			}
+			return tbl
 		}
 	} else {
-		ActionLog = &SActionlogManager{
-			SOpsLogManager: db.SOpsLogManager{
-				SModelBaseManager: db.NewModelBaseManagerWithSplitable(
-					SActionlog{},
-					"action_tbl",
-					"action",
-					"actions",
-					"id",
-					"start_time",
-					consts.SplitableMaxDuration(),
-					consts.SplitableMaxKeepMonths(),
-				),
-			},
-			SRecordChecksumResourceBaseManager: *db.NewRecordChecksumResourceBaseManager(),
+		initTable = func(tbname string) *SActionlogManager {
+			tbl := &SActionlogManager{
+				SOpsLogManager: db.SOpsLogManager{
+					SModelBaseManager: db.NewModelBaseManagerWithSplitable(
+						SActionlog{},
+						tbname,
+						"action",
+						"actions",
+						"id",
+						"start_time",
+						consts.SplitableMaxDuration(),
+						consts.SplitableMaxKeepMonths(),
+					),
+				},
+				SRecordChecksumResourceBaseManager: *db.NewRecordChecksumResourceBaseManager(),
+			}
+			return tbl
 		}
 	}
+	ActionLog = initTable("action_tbl")
 	ActionLog.SetVirtualObject(ActionLog)
+	if options.Options.EnableSeparateAdminLog {
+		AdminActionLog = initTable("admin_action_tbl")
+		AdminActionLog.SetVirtualObject(AdminActionLog)
+	}
+}
+
+func isRoleInNames(userCred mcclient.TokenCredential, roles []string) bool {
+	for _, r := range userCred.GetRoles() {
+		if utils.IsInStringArray(r, roles) {
+			return true
+		}
+	}
+	return false
+}
+
+func (manager *SActionlogManager) GetImmutableInstance(userCred mcclient.TokenCredential) db.IModelManager {
+	if options.Options.EnableSeparateAdminLog && isRoleInNames(userCred, options.Options.AuditorRoleNames) {
+		return AdminActionLog
+	}
+	return ActionLog
+}
+
+func (manager *SActionlogManager) GetMutableInstance(userCred mcclient.TokenCredential) db.IModelManager {
+	if options.Options.EnableSeparateAdminLog && (isRoleInNames(userCred, options.Options.SecadminRoleNames) || isRoleInNames(userCred, options.Options.OpsadminRoleNames)) {
+		return AdminActionLog
+	}
+	return ActionLog
 }
 
 func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
