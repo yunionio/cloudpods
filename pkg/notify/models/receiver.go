@@ -95,7 +95,7 @@ type SReceiver struct {
 	db.SDomainizedResourceBase
 	db.SEnabledResourceBase
 
-	Email string `width:"64" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
+	Email string `width:"128" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
 	// swagger:ignore
 	Mobile string `width:"32" nullable:"false" create:"optional"`
 	Lang   string `width:"8" charset:"ascii" nullable:"false" list:"user" update:"user"`
