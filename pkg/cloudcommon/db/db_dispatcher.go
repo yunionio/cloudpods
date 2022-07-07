@@ -46,24 +46,24 @@ import (
 )
 
 type DBModelDispatcher struct {
-	modelManager IModelManager
+	manager IModelManager
 }
 
 func NewModelHandler(manager IModelManager) *DBModelDispatcher {
 	// registerModelManager(manager)
-	return &DBModelDispatcher{modelManager: manager}
+	return &DBModelDispatcher{manager: manager}
 }
 
 func (dispatcher *DBModelDispatcher) Keyword() string {
-	return dispatcher.modelManager.Keyword()
+	return dispatcher.manager.Keyword()
 }
 
 func (dispatcher *DBModelDispatcher) KeywordPlural() string {
-	return dispatcher.modelManager.KeywordPlural()
+	return dispatcher.manager.KeywordPlural()
 }
 
 func (dispatcher *DBModelDispatcher) ContextKeywordPlurals() [][]string {
-	ctxMans := dispatcher.modelManager.GetContextManagers()
+	ctxMans := dispatcher.manager.GetContextManagers()
 	if ctxMans != nil {
 		keys := make([][]string, len(ctxMans))
 		for i := 0; i < len(ctxMans); i += 1 {
@@ -82,7 +82,7 @@ func (dispatcher *DBModelDispatcher) Filter(f appsrv.FilterHandler) appsrv.Filte
 }
 
 func (dispatcher *DBModelDispatcher) CustomizeHandlerInfo(handler *appsrv.SHandlerInfo) {
-	dispatcher.modelManager.CustomizeHandlerInfo(handler)
+	dispatcher.manager.CustomizeHandlerInfo(handler)
 }
 
 func fetchUserCredential(ctx context.Context) mcclient.TokenCredential {
@@ -844,13 +844,14 @@ func getExportCols(query jsonutils.JSONObject, retList []jsonutils.JSONObject) [
 
 func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modulebase.ListResult, error) {
 	userCred := fetchUserCredential(ctx)
+	manager := dispatcher.manager.GetImmutableInstance(userCred)
 
-	items, err := ListItems(dispatcher.modelManager, ctx, userCred, query, ctxIds)
+	items, err := ListItems(manager, ctx, userCred, query, ctxIds)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "ListItems"))
 	}
 
-	if userCred != nil && userCred.HasSystemAdminPrivilege() && dispatcher.modelManager.ListSkipLog(ctx, userCred, query) {
+	if userCred != nil && userCred.HasSystemAdminPrivilege() && manager.ListSkipLog(ctx, userCred, query) {
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil {
 			appParams.SkipLog = true
@@ -909,7 +910,8 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
 	funcName := fmt.Sprintf("GetProperty%s", utils.Kebab2Camel(property, "-"))
-	modelValue := reflect.ValueOf(dispatcher.modelManager)
+	manager := dispatcher.manager.GetImmutableInstance(userCred)
+	modelValue := reflect.ValueOf(manager)
 	params := []interface{}{ctx, userCred, query}
 
 	funcValue := modelValue.MethodByName(funcName)
@@ -917,7 +919,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 		return nil, nil
 	}
 
-	_, _, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, dispatcher.modelManager, policy.PolicyActionList, true)
+	_, _, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, policy.PolicyActionList, true)
 	if err != nil {
 		return nil, err
 	}
@@ -946,13 +948,14 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, query jsonutils.JSONObject, isHead bool) (jsonutils.JSONObject, error) {
 	// log.Debugf("Get %s", idStr)
 	userCred := fetchUserCredential(ctx)
+	manager := dispatcher.manager.GetImmutableInstance(userCred)
 
 	data, err := dispatcher.tryGetModelProperty(ctx, idStr, query)
 	if err != nil {
 		return nil, err
 	} else if data != nil {
 		if dataDict, ok := data.(*jsonutils.JSONDict); ok {
-			i18nDict := dispatcher.modelManager.GetI18N(ctx, idStr, data)
+			i18nDict := manager.GetI18N(ctx, idStr, data)
 			if i18nDict != nil {
 				dataDict.Set("_i18n", i18nDict)
 			}
@@ -960,9 +963,9 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 		return data, nil
 	}
 
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
+	model, err := fetchItem(manager, ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, errors.Wrapf(err, "fetchItem")
 	}
@@ -972,20 +975,21 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 		return nil, err
 	}
 
-	if userCred.HasSystemAdminPrivilege() && dispatcher.modelManager.GetSkipLog(ctx, userCred, query) {
+	if userCred.HasSystemAdminPrivilege() && manager.GetSkipLog(ctx, userCred, query) {
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil {
 			appParams.SkipLog = true
 		}
 	}
-	return getModelItemDetails(dispatcher.modelManager, model, ctx, userCred, query, isHead)
+	return getModelItemDetails(manager, model, ctx, userCred, query, isHead)
 }
 
 func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr string, spec string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
+	manager := dispatcher.manager.GetImmutableInstance(userCred)
+	model, err := fetchItem(manager, ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
@@ -1264,12 +1268,12 @@ func _doCreateItem(
 }
 
 func (dispatcher *DBModelDispatcher) FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
-	return dispatcher.modelManager.FetchCreateHeaderData(ctx, header)
+	return dispatcher.manager.FetchCreateHeaderData(ctx, header)
 }
 
 func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.modelManager
+	manager := dispatcher.manager.GetMutableInstance(userCred)
 
 	ownerId, err := fetchOwnerId(ctx, manager, userCred, data)
 	if err != nil {
@@ -1281,14 +1285,14 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		if !ok {
 			return nil, httperrors.NewGeneralError(fmt.Errorf("fail to parse body %s", data))
 		}
-		data, err = fetchContextObjectsIds(dispatcher.modelManager, ctx, userCred, ctxIds, dataDict)
+		data, err = fetchContextObjectsIds(manager, ctx, userCred, ctxIds, dataDict)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "fetchContextObjectsIds"))
 		}
 	}
 
 	var policyResult rbacutils.SPolicyResult
-	policyResult, err = isClassRbacAllowed(ctx, dispatcher.modelManager, userCred, ownerId, policy.PolicyActionCreate)
+	policyResult, err = isClassRbacAllowed(ctx, manager, userCred, ownerId, policy.PolicyActionCreate)
 	if err != nil {
 		return nil, errors.Wrap(err, "isClassRbacAllowed")
 	}
@@ -1299,7 +1303,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 
 	data.(*jsonutils.JSONDict).Update(policyResult.Json())
 
-	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerId)
+	model, err := DoCreate(manager, ctx, userCred, query, data, ownerId)
 	if err != nil {
 		if CancelPendingUsagesInContext != nil {
 			e := CancelPendingUsagesInContext(ctx, userCred)
@@ -1326,8 +1330,8 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		OpsLog.LogEvent(model, ACT_CREATE, notes, userCred)
 		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, notes, userCred, true)
 	}
-	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, ownerId, query, data)
-	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
+	manager.OnCreateComplete(ctx, []IModel{model}, userCred, ownerId, query, data)
+	return getItemDetails(manager, model, ctx, userCred, query)
 }
 
 func expandMultiCreateParams(manager IModelManager, data jsonutils.JSONObject, count int) ([]jsonutils.JSONObject, error) {
@@ -1355,8 +1359,7 @@ func expandMultiCreateParams(manager IModelManager, data jsonutils.JSONObject, c
 
 func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []dispatcher.SResourceContext) ([]modulebase.SubmitResult, error) {
 	userCred := fetchUserCredential(ctx)
-
-	manager := dispatcher.modelManager
+	manager := dispatcher.manager.GetMutableInstance(userCred)
 
 	ownerId, err := fetchOwnerId(ctx, manager, userCred, data)
 	if err != nil {
@@ -1488,7 +1491,7 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 	}
 
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.modelManager
+	manager := dispatcher.manager.GetMutableInstance(userCred)
 
 	ownerId, err := fetchOwnerId(ctx, manager, userCred, data)
 	if err != nil {
@@ -1498,15 +1501,16 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 	lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
 	defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
-	managerValue := reflect.ValueOf(dispatcher.modelManager)
-	return objectPerformAction(dispatcher, nil, managerValue, ctx, userCred, action, query, data)
+	managerValue := reflect.ValueOf(manager)
+	return objectPerformAction(manager, nil, managerValue, ctx, userCred, action, query, data)
 }
 
 func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr string, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
+	manager := dispatcher.manager.GetMutableInstance(userCred)
+	model, err := fetchItem(manager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1517,15 +1521,16 @@ func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr st
 	if err := model.PreCheckPerformAction(ctx, userCred, action, query, data); err != nil {
 		return nil, err
 	}
-	return objectPerformAction(dispatcher, model, reflect.ValueOf(model), ctx, userCred, action, query, data)
+	return objectPerformAction(manager, model, reflect.ValueOf(model), ctx, userCred, action, query, data)
 }
 
-func objectPerformAction(dispatcher *DBModelDispatcher, model IModel, modelValue reflect.Value, ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return reflectDispatcher(dispatcher, model, modelValue, ctx, userCred, policy.PolicyActionPerform, "PerformAction", "Perform", action, query, data)
+func objectPerformAction(manager IModelManager, model IModel, modelValue reflect.Value, ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return reflectDispatcher(manager, model, modelValue, ctx, userCred, policy.PolicyActionPerform, "PerformAction", "Perform", action, query, data)
 }
 
 func reflectDispatcher(
-	dispatcher *DBModelDispatcher,
+	// dispatcher *DBModelDispatcher,
+	manager IModelManager,
 	model IModel,
 	modelValue reflect.Value,
 	ctx context.Context,
@@ -1538,15 +1543,16 @@ func reflectDispatcher(
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
 	result, err := reflectDispatcherInternal(
-		dispatcher, model, modelValue, ctx, userCred, operator, generalFuncName, funcPrefix, spec, query, data)
+		manager, model, modelValue, ctx, userCred, operator, generalFuncName, funcPrefix, spec, query, data)
 	if model != nil && err == nil && result == nil {
-		return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
+		return getItemDetails(manager, model, ctx, userCred, query)
 	} else {
 		return result, err
 	}
 }
 func reflectDispatcherInternal(
-	dispatcher *DBModelDispatcher,
+	// dispatcher *DBModelDispatcher,
+	manager IModelManager,
 	model IModel,
 	modelValue reflect.Value,
 	ctx context.Context,
@@ -1566,7 +1572,7 @@ func reflectDispatcherInternal(
 		funcValue = modelValue.MethodByName(generalFuncName)
 		if !funcValue.IsValid() || funcValue.IsNil() {
 			return nil, httperrors.NewActionNotFoundError("%s %s %s not found",
-				dispatcher.Keyword(), operator, spec)
+				manager.Keyword(), operator, spec)
 		} else {
 			isGeneral = true
 			funcName = generalFuncName
@@ -1583,11 +1589,11 @@ func reflectDispatcherInternal(
 
 	var result rbacutils.SPolicyResult
 	if model == nil {
-		ownerId, err := fetchOwnerId(ctx, dispatcher.modelManager, userCred, data)
+		ownerId, err := fetchOwnerId(ctx, manager, userCred, data)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
-		_, err = isClassRbacAllowed(ctx, dispatcher.modelManager, userCred, ownerId, operator, spec)
+		_, err = isClassRbacAllowed(ctx, manager, userCred, ownerId, operator, spec)
 		if err != nil {
 			return nil, err
 		}
@@ -1674,14 +1680,15 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 }
 
 func (dispatcher *DBModelDispatcher) FetchUpdateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
-	return dispatcher.modelManager.FetchUpdateHeaderData(ctx, header)
+	return dispatcher.manager.FetchUpdateHeaderData(ctx, header)
 }
 
 func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
+	manager := dispatcher.manager.GetMutableInstance(userCred)
+	model, err := fetchItem(manager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1693,7 +1700,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 	data.(*jsonutils.JSONDict).Update(result.Json())
 
 	if len(ctxIds) > 0 {
-		ctxObjs, err := fetchContextObjects(dispatcher.modelManager, ctx, userCred, ctxIds)
+		ctxObjs, err := fetchContextObjects(manager, ctx, userCred, ctxIds)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
@@ -1703,15 +1710,17 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 		lockman.LockObject(ctx, model)
 		defer lockman.ReleaseObject(ctx, model)
 
-		return updateItem(dispatcher.modelManager, model, ctx, userCred, query, data)
+		return updateItem(manager, model, ctx, userCred, query, data)
 	}
 }
 
 func (dispatcher *DBModelDispatcher) UpdateSpec(ctx context.Context, idStr string, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
+	manager := dispatcher.manager.GetMutableInstance(userCred)
+
+	model, err := fetchItem(manager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1719,11 +1728,11 @@ func (dispatcher *DBModelDispatcher) UpdateSpec(ctx context.Context, idStr strin
 	lockman.LockObject(ctx, model)
 	defer lockman.ReleaseObject(ctx, model)
 
-	return objectUpdateSpec(dispatcher, model, reflect.ValueOf(model), ctx, userCred, spec, query, data)
+	return objectUpdateSpec(manager, model, reflect.ValueOf(model), ctx, userCred, spec, query, data)
 }
 
-func objectUpdateSpec(dispatcher *DBModelDispatcher, model IModel, modelValue reflect.Value, ctx context.Context, userCred mcclient.TokenCredential, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return reflectDispatcher(dispatcher, model, modelValue, ctx, userCred, policy.PolicyActionUpdate, "UpdateSpec", "Update", spec, query, data)
+func objectUpdateSpec(manager IModelManager, model IModel, modelValue reflect.Value, ctx context.Context, userCred mcclient.TokenCredential, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return reflectDispatcher(manager, model, modelValue, ctx, userCred, policy.PolicyActionUpdate, "UpdateSpec", "Update", spec, query, data)
 }
 
 func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IModel) error {
@@ -1778,9 +1787,11 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 
 func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idstr, nil)
+	manager := dispatcher.manager.GetMutableInstance(userCred)
+
+	model, err := fetchItem(manager, ctx, userCred, idstr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idstr)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idstr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1791,7 +1802,7 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 	}
 
 	if len(ctxIds) > 0 {
-		ctxObjs, err := fetchContextObjects(dispatcher.modelManager, ctx, userCred, ctxIds)
+		ctxObjs, err := fetchContextObjects(manager, ctx, userCred, ctxIds)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
@@ -1801,15 +1812,17 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 		lockman.LockObject(ctx, model)
 		defer lockman.ReleaseObject(ctx, model)
 
-		return deleteItem(dispatcher.modelManager, model, ctx, userCred, query, data)
+		return deleteItem(manager, model, ctx, userCred, query, data)
 	}
 }
 
 func (dispatcher *DBModelDispatcher) DeleteSpec(ctx context.Context, idstr string, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idstr, nil)
+	manager := dispatcher.manager.GetMutableInstance(userCred)
+
+	model, err := fetchItem(manager, ctx, userCred, idstr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idstr)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idstr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1817,9 +1830,9 @@ func (dispatcher *DBModelDispatcher) DeleteSpec(ctx context.Context, idstr strin
 	lockman.LockObject(ctx, model)
 	defer lockman.ReleaseObject(ctx, model)
 
-	return objectDeleteSpec(dispatcher, model, reflect.ValueOf(model), ctx, userCred, spec, query, data)
+	return objectDeleteSpec(manager, model, reflect.ValueOf(model), ctx, userCred, spec, query, data)
 }
 
-func objectDeleteSpec(dispatcher *DBModelDispatcher, model IModel, modelValue reflect.Value, ctx context.Context, userCred mcclient.TokenCredential, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return reflectDispatcher(dispatcher, model, modelValue, ctx, userCred, policy.PolicyActionDelete, "DeleteSpec", "Delete", spec, query, data)
+func objectDeleteSpec(manager IModelManager, model IModel, modelValue reflect.Value, ctx context.Context, userCred mcclient.TokenCredential, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return reflectDispatcher(manager, model, modelValue, ctx, userCred, policy.PolicyActionDelete, "DeleteSpec", "Delete", spec, query, data)
 }

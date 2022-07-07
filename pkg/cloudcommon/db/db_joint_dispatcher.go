@@ -35,11 +35,11 @@ type DBJointModelDispatcher struct {
 
 func NewJointModelHandler(manager IJointModelManager) *DBJointModelDispatcher {
 	// registerModelManager(manager)
-	return &DBJointModelDispatcher{DBModelDispatcher: DBModelDispatcher{modelManager: manager}}
+	return &DBJointModelDispatcher{DBModelDispatcher: DBModelDispatcher{manager: manager}}
 }
 
 func (dispatcher *DBJointModelDispatcher) JointModelManager() IJointModelManager {
-	return dispatcher.modelManager.(IJointModelManager)
+	return dispatcher.manager.(IJointModelManager)
 }
 
 func (dispatcher *DBJointModelDispatcher) MasterKeywordPlural() string {
@@ -139,9 +139,11 @@ func fetchJointItem(dispatcher *DBJointModelDispatcher, ctx context.Context, use
 
 func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
+	manager := dispatcher.manager.GetImmutableInstance(userCred)
+
 	_, _, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), id1+"-"+id2)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), id1+"-"+id2)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -152,7 +154,15 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
 }
 
-func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, slave IStandaloneModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func attachItems(
+	dispatcher *DBJointModelDispatcher,
+	master IStandaloneModel,
+	slave IStandaloneModel,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
 	err := isObjectRbacAllowed(ctx, master, userCred, policy.PolicyActionPerform, "attach")
 	if err != nil {
 		return nil, err
@@ -180,7 +190,7 @@ func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, sl
 	}
 	item.PostCreate(ctx, userCred, nil, query, data)
 	OpsLog.LogAttachEvent(ctx, master, slave, userCred, jsonutils.Marshal(item))
-	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{item}, userCred, nil, query, data)
+	dispatcher.manager.OnCreateComplete(ctx, []IModel{item}, userCred, nil, query, data)
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
 }
 
@@ -218,6 +228,8 @@ func (dispatcher *DBJointModelDispatcher) Attach(ctx context.Context, id1 string
 
 func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
+	manager := dispatcher.manager.GetMutableInstance(userCred)
+
 	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
 		if jsonutils.QueryBoolean(query, "auto_create", false) {
@@ -225,7 +237,7 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 			queryDict.Remove("auto_create")
 			return dispatcher.Attach(ctx, id1, id2, query, data)
 		}
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), id1+"-"+id2)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), id1+"-"+id2)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -242,9 +254,11 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 
 func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
+	manager := dispatcher.manager.GetMutableInstance(userCred)
+
 	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), id1+"-"+id2)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), id1+"-"+id2)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

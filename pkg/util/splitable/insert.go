@@ -49,10 +49,11 @@ func (t *SSplitTableSpec) Insert(dt interface{}) error {
 		if !lastMeta.StartDate.IsZero() && lastDate.Sub(lastMeta.StartDate) > t.maxDuration {
 			lastTable := t.GetTableSpec(lastMeta)
 			ti := lastTable.Instance()
-			q := ti.Query(sqlchemy.MAX("last_index", ti.Field(t.indexField)), sqlchemy.MAX("last_date", ti.Field(t.dateField)))
+			q := ti.Query(sqlchemy.MAX("last_index", ti.Field(t.indexField)), sqlchemy.MAX("last_date", ti.Field(t.dateField)), sqlchemy.COUNT("total"))
 			r := q.Row()
 			var lastRecDateStr string
-			err := r.Scan(&lastRecIndex, &lastRecDateStr)
+			var total uint64
+			err := r.Scan(&lastRecIndex, &lastRecDateStr, &total)
 			if err != nil {
 				return errors.Wrap(err, "scan lastRecIndex and lastRecDate")
 			}
@@ -62,6 +63,7 @@ func (t *SSplitTableSpec) Insert(dt interface{}) error {
 			_, err = t.metaSpec.Update(&lastMeta, func() error {
 				lastMeta.End = lastRecIndex
 				lastMeta.EndDate = lastRecDate
+				lastMeta.Count = total
 				return nil
 			})
 			if err != nil {

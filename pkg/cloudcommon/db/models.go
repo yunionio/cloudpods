@@ -34,14 +34,21 @@ func GlobalModelManagerTables() map[string]IModelManager {
 }
 
 func RegisterModelManager(modelMan IModelManager) {
+	RegisterModelManagerWithKeyword(modelMan, "")
+}
+
+func RegisterModelManagerWithKeyword(modelMan IModelManager, keyword string) {
 	if globalTables == nil {
 		globalTables = make(map[string]IModelManager)
 	}
-	mustCheckModelManager(modelMan)
-	if _, ok := globalTables[modelMan.Keyword()]; ok {
-		log.Fatalf("keyword %s exists in globalTables!", modelMan.Keyword())
+	if len(keyword) == 0 {
+		keyword = modelMan.Keyword()
 	}
-	globalTables[modelMan.Keyword()] = modelMan
+	mustCheckModelManager(modelMan)
+	if _, ok := globalTables[keyword]; ok {
+		log.Fatalf("keyword %s exists in globalTables!", keyword)
+	}
+	globalTables[keyword] = modelMan
 }
 
 func mustCheckModelManager(modelMan IModelManager) {
