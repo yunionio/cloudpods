@@ -39,6 +39,8 @@ func AddHostHandler(prefix string, app *appsrv.Application) {
 	for _, keyword := range keyWords {
 		app.AddHandler("POST", fmt.Sprintf("%s/%s/shutdown-servers-on-host-down", prefix, keyword),
 			auth.Authenticate(setOnHostDown))
+		app.AddHandler("GET", fmt.Sprintf("%s/%s/health-status", prefix, keyword),
+			auth.Authenticate(getHealthManagerStatus))
 
 		for action, f := range map[string]actionFunc{
 			"sync":                   hostSync,
@@ -58,6 +60,11 @@ func setOnHostDown(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	hostutils.ResponseOk(ctx, w)
+}
+
+func getHealthManagerStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	status := host_health.GetHealthStatus()
+	hostutils.Response(ctx, w, map[string]string{"status": status})
 }
 
 func hostActions(f actionFunc) appsrv.FilterHandler {
