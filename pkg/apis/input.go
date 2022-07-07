@@ -399,6 +399,12 @@ type PurgeSplitTableInput struct {
 	Tables []string `json:"tables"`
 }
 
+const (
+	MAX_SPLITABLE_EXPORT_LIMIT = 10000
+)
+
 type SplitTableExportInput struct {
-	Table string `json:"table"`
+	Table  string `json:"table"`
+	Offset int    `json:"offset"`
+	Limit  int    `json:"limit"`
 }
