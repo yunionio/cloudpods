@@ -338,7 +338,6 @@ func (m *SGuestManager) ShutdownServers() {
 		if !guest.forceScriptStop() {
 			log.Errorf("shutdown server %s failed", guest.GetName())
 		}
-		guest.Monitor.Disconnect()
 		return true
 	})
 }
