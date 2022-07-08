@@ -1046,23 +1046,17 @@ func (self *SRegion) DeleteIBucket(name string) error {
 }
 
 func (self *SRegion) GetBucket(name string) (*SBucket, error) {
-	cli, err := self.GetOssClient()
-	if err != nil {
-		return nil, err
+	params := map[string]string{
+		"AccountInfo":      "aaa",
+		"x-acs-instanceid": name,
+		"Params":           jsonutils.Marshal(map[string]string{"BucketName": name}).String(),
 	}
-	bucket, err := cli.GetBucketInfo(name)
+	resp, err := self.ossRequest("GetBucketInfo", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetBucketInfo")
 	}
-
-	bInfo := bucket.BucketInfo
-	return &SBucket{
-		region:       self,
-		Name:         bInfo.Name,
-		Location:     bInfo.Location,
-		CreationDate: bInfo.CreationDate,
-		StorageClass: bInfo.StorageClass,
-	}, nil
+	bucket := &SBucket{region: self}
+	return bucket, resp.Unmarshal(bucket, "Data", "BucketInfo", "Bucket")
 }
 
 func (self *SRegion) IBucketExist(name string) (bool, error) {
