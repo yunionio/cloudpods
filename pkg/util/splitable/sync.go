@@ -105,7 +105,7 @@ func (spec *SSplitTableSpec) SyncSQL() []string {
 	zeroMeta := false
 
 	if spec.metaSpec.Exists() {
-		metas, err := spec.GetTableMetas()
+		metas, err := spec.getTableMetasForInit()
 		if err != nil {
 			log.Errorf("GetTableMetas fail %s", err)
 			return nil
