@@ -232,6 +232,9 @@ func (lvs *StorcliLogicalVolumes) responseData(controller int) (*jsonutils.JSOND
 	if err != nil {
 		return nil, errors.Wrap(err, "controllersData")
 	}
+	if len(cData) <= controller {
+		return nil, jsonutils.ErrJsonDictKeyNotFound
+	}
 	data, err := cData[controller].Get("Response Data")
 	if err != nil {
 		return nil, errors.Wrap(err, "Get 'Response Data")
