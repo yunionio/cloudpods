@@ -202,6 +202,10 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	id := ""
 	if params != nil {
 		for k, v := range params {
+			if strings.HasPrefix(k, "x-acs-") {
+				req.GetHeaders()[k] = v
+				continue
+			}
 			req.QueryParams[k] = v
 			if strings.ToLower(k) != "regionid" && strings.HasSuffix(k, "Id") {
 				id = v

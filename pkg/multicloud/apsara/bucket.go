@@ -61,18 +61,21 @@ func (self *SBucket) GetOssClient() (*oss.Client, error) {
 }
 
 func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
-	acl := cloudprovider.ACLPrivate
-	osscli, err := b.GetOssClient()
-	if err != nil {
-		log.Errorf("b.region.GetOssClient fail %s", err)
-		return acl
+	acl := b.region.GetBucketAcl(b.Name)
+	return cloudprovider.TBucketACLType(acl)
+}
+
+func (self *SRegion) GetBucketAcl(bucket string) string {
+	params := map[string]string{
+		"AccountInfo":      "aaa",
+		"x-acs-instanceid": bucket,
+		"Params":           jsonutils.Marshal(map[string]string{"BucketName": bucket, "acl": "acl"}).String(),
 	}
-	aclResp, err := osscli.GetBucketACL(b.Name)
+	resp, err := self.ossRequest("GetBucketAcl", params)
 	if err != nil {
-		log.Errorf("osscli.GetBucketACL fail %s", err)
-		return acl
+		return ""
 	}
-	acl = cloudprovider.TBucketACLType(aclResp.ACL)
+	acl, _ := resp.GetString("Data", "AccessControlPolicy", "AccessControlList", "Grant")
 	return acl
 }
 
