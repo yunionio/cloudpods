@@ -50,6 +50,18 @@ func (spec *SSplitTableSpec) GetTableMetaByObject(obj ISplitTableObject) (*STabl
 	return spec.GetTableMetaByTime(obj.GetRecordTime())
 }
 
+func (spec *SSplitTableSpec) getTableMetasForInit() ([]STableMetadata, error) {
+	q := spec.metaSpec.Query().Asc("id").IsFalse("deleted")
+	q = q.AppendField(q.Field("table"))
+	q = q.AppendField(q.Field("start"))
+	metas := make([]STableMetadata, 0)
+	err := q.All(&metas)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "query metadata")
+	}
+	return metas, nil
+}
+
 func (spec *SSplitTableSpec) GetTableMetas() ([]STableMetadata, error) {
 	q := spec.metaSpec.Query().Asc("id").IsFalse("deleted")
 	metas := make([]STableMetadata, 0)
