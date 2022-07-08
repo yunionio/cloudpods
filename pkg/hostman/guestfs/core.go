@@ -159,11 +159,13 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 	if partition.SupportSerialPorts() {
 		if deployInfo.EnableTty {
 			if err = rootfs.EnableSerialConsole(partition, nil); err != nil {
-				return nil, fmt.Errorf("EnableSerialConsole: %v", err)
+				// return nil, fmt.Errorf("EnableSerialConsole: %v", err)
+				log.Warningf("EnableSerialConsole error: %v", err)
 			}
 		} else {
 			if err = rootfs.DisableSerialConsole(partition); err != nil {
-				return nil, fmt.Errorf("DisableSerialConsole: %v", err)
+				// return nil, fmt.Errorf("DisableSerialConsole: %v", err)
+				log.Warningf("DisableSerialConsole error: %v", err)
 			}
 		}
 	}
