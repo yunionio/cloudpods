@@ -155,9 +155,9 @@ type SHostOptions struct {
 	OvnEipBridge              string `help:"name of bridge for eip traffic management" default:"$HOST_OVN_EIP_BRIDGE|breip"`
 	OvnUnderlayMtu            int    `help:"mtu of ovn underlay network" default:"1500"`
 
-	EnableRemoteExecutor bool `help:"Enable remote executor" default:"false"`
-	HostHealthTimeout    int  `help:"host health timeout" default:"30"`
-	HostLeaseTimeout     int  `help:"lease timeout" default:"10"`
+	// EnableRemoteExecutor bool `help:"Enable remote executor" default:"false"`
+	HostHealthTimeout int `help:"host health timeout" default:"30"`
+	HostLeaseTimeout  int `help:"lease timeout" default:"10"`
 
 	SyncStorageInfoDurationSecond int  `help:"sync storage size duration, unit is second, default is every 2 minutes" default:"120"`
 	StartHostIgnoreSysError       bool `help:"start host agent ignore sys error" default:"false"`
