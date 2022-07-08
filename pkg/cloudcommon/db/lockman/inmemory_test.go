@@ -15,7 +15,10 @@
 package lockman
 
 import (
+	"context"
+	"math/rand"
 	"testing"
+	"time"
 )
 
 func TestInMemoryLockManager(t *testing.T) {
@@ -28,4 +31,28 @@ func TestInMemoryLockManager(t *testing.T) {
 		shared:  shared,
 	}
 	testLockManager(t, cfg)
+}
+
+func TestRunManu(t *testing.T) {
+	rand.Seed(100)
+	lockman := NewInMemoryLockManager()
+	counter := 0
+	MAX := 512
+	for i := 0; i < MAX; i++ {
+		go func() {
+			ctx := context.Background()
+			now := time.Now()
+			ms := now.UnixMilli()
+			ctx = context.WithValue(ctx, "Time", ms)
+			lockman.LockKey(ctx, "test")
+			defer lockman.UnlockKey(ctx, "test")
+			counter++
+			time.Sleep(1 + time.Duration(rand.Intn(50))*time.Millisecond)
+			t.Logf("counter: %d", counter)
+		}()
+	}
+	for counter < MAX {
+		time.Sleep(1)
+	}
+	t.Logf("complete")
 }
