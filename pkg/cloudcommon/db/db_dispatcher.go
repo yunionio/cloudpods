@@ -368,7 +368,6 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		if err != nil {
 			return nil, err
 		}
-
 		if len(exportKeys) > 0 {
 			rowMap, err := q.Row2Map(rows)
 			if err != nil {
@@ -400,6 +399,10 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 					return nil, err
 				}
 			}
+		}
+
+		if err := CheckRecordChecksumConsistent(item); err != nil {
+			return nil, err
 		}
 
 		items = append(items, item)
