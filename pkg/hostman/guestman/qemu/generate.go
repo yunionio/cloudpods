@@ -525,8 +525,6 @@ func getMigrateOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) []s
 		}
 	} else if input.IsSlave {
 		opts = append(opts, fmt.Sprintf("-incoming tcp:0:%d", input.LiveMigratePort))
-	} else if input.IsMaster {
-		opts = append(opts, "-S")
 	}
 	return opts
 }

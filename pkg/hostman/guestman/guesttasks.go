@@ -941,6 +941,7 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 		// handle error first, results may be 'paused (internal-error)'
 		s.taskFailed(status)
 	} else if strings.Contains(status, "paused") {
+		s.onGuestPrelaunch()
 		s.Monitor.GetBlocks(s.onGetBlockInfo)
 	} else if status == "postmigrate" {
 		s.resumeGuest()
