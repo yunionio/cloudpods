@@ -52,6 +52,8 @@ var (
 
 	ActionLock SAction = "lock"
 
+	ActionExceedCount SAction = "exceed_count"
+
 	ResultFailed  SResult = "failed"
 	ResultSucceed SResult = "succeed"
 )

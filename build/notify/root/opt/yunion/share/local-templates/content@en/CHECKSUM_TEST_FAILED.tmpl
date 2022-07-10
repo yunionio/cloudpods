@@ -1,6 +1,6 @@
 {{- $d := .resource_details -}}
-{{- if eq .resource_type "db_table_field" }}
-The record {{ $d.name }} in table {{ $d.table_name }} of the database {{ $d.db_name }} has been modified because the checksum test failed.
+{{- if eq .resource_type "db_table_record" }}
+The record {{ $d.name }} in table {{ $d.table_name }} of the database {{ $d.db_name }} has been modified because the checksum test failed. Expected_checksum({{ $d.expected_checksum }}) != Calculated_checksum({{ $d.calculated_checksum }}).
 {{- end -}}
 {{- if eq .resource_type "cloudpods_component" }}
 {{ $d.details }}
