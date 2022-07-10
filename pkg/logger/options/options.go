@@ -28,9 +28,11 @@ type SLoggerOptions struct {
 
 	EnableSeparateAdminLog bool `help:"enable separate log for auditor admin" default:"false"`
 
-	SecadminRoleNames []string `help:"role names of security admin" default:"sys_secadmin,domain_secadmin"`
-	OpsadminRoleNames []string `help:"role names of operation admin" default:"sys_opsadmin,domain_opsadmin"`
-	AuditorRoleNames  []string `help:"role names of auditor admin" default:"sys_adtadmin,domain_adtadmin"`
+	SecadminRoleNames                  []string `help:"role names of security admin" default:"sys_secadmin,domain_secadmin"`
+	OpsadminRoleNames                  []string `help:"role names of operation admin" default:"sys_opsadmin,domain_opsadmin"`
+	AuditorRoleNames                   []string `help:"role names of auditor admin" default:"sys_adtadmin,domain_adtadmin"`
+	ActionLogExceedCount               int      `help:"trigger notification when action log exceed count" default:"-1"`
+	ActionLogExceedCountNotifyInterval string   `help:"trigger notification interval" default:"5m"`
 }
 
 var (

@@ -1,6 +1,6 @@
 {{- $d := .resource_details -}}
-{{- if eq .resource_type "db_table_field" }}
-数据库{{ $d.db_name }}表{{ $d.table_name }}记录{{ $d.name }}被修改，完整性校验失败
+{{- if eq .resource_type "db_table_record" }}
+表{{ $d.table_name }}记录{{ $d.name }}被修改，完整性校验失败。期望校验和({{ $d.expected_checksum }}) != 计算校验和({{ $d.calculated_checksum }})。
 {{- end -}}
 {{- if eq .resource_type "cloudpods_component" }}
 {{ $d.details }}
