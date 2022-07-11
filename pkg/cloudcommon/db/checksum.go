@@ -107,9 +107,16 @@ func CheckRecordChecksumConsistent(model IModel) error {
 		ts := model.GetModelManager().TableSpec()
 		// notify
 		data := jsonutils.NewDict()
+		spt := ts.GetSplitTable()
+		tableName := ts.Name()
+		if spt != nil {
+			tableName = spt.Name()
+		}
 		data.Set("db_name", jsonutils.NewString(string(ts.GetDBName())))
-		data.Set("table_name", jsonutils.NewString(ts.Name()))
+		data.Set("table_name", jsonutils.NewString(tableName))
 		data.Set("name", jsonutils.NewString(fmt.Sprintf("%s(%s)", obj.Keyword(), obj.GetId())))
+		data.Set("expected_checksum", jsonutils.NewString(savedChecksum))
+		data.Set("calculated_checksum", jsonutils.NewString(calChecksum))
 		if checksumTestFailedNotifier != nil {
 			checksumTestFailedNotifier(data)
 		}

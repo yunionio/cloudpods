@@ -125,6 +125,7 @@ const (
 	TOPIC_RESOURCE_DB_TABLE_RECORD          = "db_table_record"
 	TOPIC_RESOURCE_CLOUDPODS_COMPONENT      = "cloudpods_component"
 	TOPIC_RESOURCE_USER                     = "user"
+	TOPIC_RESOURCE_ACTION_LOG               = "action_log"
 
 	SUBSCRIBER_TYPE_ROLE     = "role"
 	SUBSCRIBER_TYPE_ROBOT    = "robot"

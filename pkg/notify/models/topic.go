@@ -94,6 +94,7 @@ const (
 	DefaultSystemExceptionEvent    = "system exception event"
 	DefaultChecksumTestFailed      = "checksum test failed"
 	DefaultUserLock                = "user lock"
+	DefaultActionLogExceedCount    = "action log exceed count"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -112,6 +113,7 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultSystemExceptionEvent,
 		DefaultChecksumTestFailed,
 		DefaultUserLock,
+		DefaultActionLogExceedCount,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -317,6 +319,14 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionLock,
 			)
 			t.Type = notify.TOPIC_TYPE_SECURITY
+		case DefaultActionLogExceedCount:
+			t.addResources(
+				notify.TOPIC_RESOURCE_ACTION_LOG,
+			)
+			t.addAction(
+				notify.ActionExceedCount,
+			)
+			t.Type = notify.TOPIC_TYPE_RESOURCE
 		}
 		if topic == nil {
 			err := sm.TableSpec().Insert(ctx, t)
@@ -545,6 +555,7 @@ func init() {
 			notify.TOPIC_RESOURCE_CLOUDPODS_COMPONENT:      34,
 			notify.TOPIC_RESOURCE_DB_TABLE_RECORD:          35,
 			notify.TOPIC_RESOURCE_USER:                     36,
+			notify.TOPIC_RESOURCE_ACTION_LOG:               37,
 		},
 	)
 	converter.registerAction(
@@ -572,6 +583,7 @@ func init() {
 			notify.ActionSystemException:    20,
 			notify.ActionChecksumTest:       21,
 			notify.ActionLock:               22,
+			notify.ActionExceedCount:        23,
 		},
 	)
 }

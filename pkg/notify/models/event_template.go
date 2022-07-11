@@ -508,6 +508,11 @@ func init() {
 			"数据库记录",
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_ACTION_LOG,
+			"action log",
+			"操作日志",
+		},
+		sI18nElme{
 			api.TOPIC_RESOURCE_CLOUDPODS_COMPONENT,
 			"cloudpods component",
 			"cloudpods服务组件",
