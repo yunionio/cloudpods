@@ -224,9 +224,9 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 		logentry: logentry,
 	}
 	// keystone no need to auth
-	if auth.IsAuthed() {
-		task.userCred = auth.AdminCredential()
-	}
+	// if auth.IsAuthed() {
+	//	task.userCred = auth.AdminCredential()
+	// }
 
 	logclientWorkerMan.Run(task, nil, nil)
 }

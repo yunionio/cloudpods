@@ -81,6 +81,7 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 			return nil, err
 		}
 		ret.Id = self.Id
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CONSOLE, ret, userCred, true)
 		return ret, nil
 	}
 	return ret, nil
@@ -5303,8 +5304,10 @@ func (self *SGuest) PerformOpenForward(ctx context.Context, userCred mcclient.To
 
 	resp, err := self.GetDriver().RequestOpenForward(ctx, userCred, self, req)
 	if err != nil {
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_WEBSSH, err, userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_WEBSSH, resp, userCred, true)
 	return resp.JSON(), nil
 }
 
