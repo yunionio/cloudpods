@@ -822,6 +822,7 @@ type SServerCreate struct {
 	Extendparam      ServerExtendparam `json:"extendparam"`
 	ServerTags       []ServerTag       `json:"server_tags"`
 	Description      string            `json:"description"`
+	Metadata         map[string]string `json:"metadata"`
 }
 
 type DataVolume struct {
@@ -885,6 +886,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params.Nics = []NIC{{SubnetID: SubnetId, IpAddress: ipAddr}}
 	params.SecurityGroups = []SecGroup{{ID: securityGroupId}}
 	params.Vpcid = vpcId
+	params.Metadata = map[string]string{}
 
 	for i, disk := range disks {
 		if i == 0 {
@@ -920,6 +922,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 			params.Extendparam.IsAutoRenew = "false"
 		}
 		params.Extendparam.IsAutoPay = "true"
+		params.Metadata["op_svc_userid"] = self.client.ownerId
 	} else {
 		params.Extendparam.ChargingMode = POST_PAID
 	}
