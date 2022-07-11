@@ -29,8 +29,10 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/logger"
+	noapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/logger/extern"
 	"yunion.io/x/onecloud/pkg/logger/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -52,6 +54,8 @@ func IsInActionWhiteList(key string) bool {
 type SActionlogManager struct {
 	db.SOpsLogManager
 	db.SRecordChecksumResourceBaseManager
+
+	lastExceedCountNotifyTime time.Time
 }
 
 type SActionlog struct {
@@ -233,6 +237,31 @@ func (self *SActionlog) PostCreate(ctx context.Context, userCred mcclient.TokenC
 		"obj_type": self.ObjType,
 	} {
 		db.DistinctFieldManager.InsertOrUpdate(ctx, ActionLog, k, v)
+	}
+
+	ActionLog.notifyIfExceedCount(ctx, self)
+}
+
+func (manager *SActionlogManager) notifyIfExceedCount(ctx context.Context, l *SActionlog) {
+	exceedCnt := options.Options.ActionLogExceedCount
+	if exceedCnt <= 0 {
+		return
+	}
+
+	interval := utils.ToDuration(options.Options.ActionLogExceedCountNotifyInterval)
+	if time.Since(manager.lastExceedCountNotifyTime) < interval {
+		return
+	}
+	totalCnt := ActionLog.Query().Count()
+	if totalCnt >= exceedCnt {
+		result := map[string]interface{}{
+			"action":        jsonutils.Marshal(l),
+			"current_count": totalCnt,
+			"exceed_count":  exceedCnt,
+		}
+		resultObj := jsonutils.Marshal(result).(*jsonutils.JSONDict)
+		notifyclient.SystemExceptionNotifyWithResult(ctx, noapi.ActionExceedCount, noapi.TOPIC_RESOURCE_ACTION_LOG, "", resultObj)
+		manager.lastExceedCountNotifyTime = time.Now()
 	}
 }
 
