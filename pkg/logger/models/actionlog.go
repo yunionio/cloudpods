@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
@@ -138,20 +139,26 @@ func isRoleInNames(userCred mcclient.TokenCredential, roles []string) bool {
 }
 
 func (manager *SActionlogManager) GetImmutableInstance(userCred mcclient.TokenCredential) db.IModelManager {
-	if options.Options.EnableSeparateAdminLog && isRoleInNames(userCred, options.Options.AuditorRoleNames) {
+	match := isRoleInNames(userCred, options.Options.AuditorRoleNames)
+	log.Debugf("roles: %s auditor: %s match auditor: %v", userCred.GetRoles(), options.Options.AuditorRoleNames, match)
+	if options.Options.EnableSeparateAdminLog && match {
 		return AdminActionLog
 	}
 	return ActionLog
 }
 
 func (manager *SActionlogManager) GetMutableInstance(userCred mcclient.TokenCredential) db.IModelManager {
-	if options.Options.EnableSeparateAdminLog && (isRoleInNames(userCred, options.Options.SecadminRoleNames) || isRoleInNames(userCred, options.Options.OpsadminRoleNames)) {
+	matchSec := isRoleInNames(userCred, options.Options.SecadminRoleNames)
+	matchOps := isRoleInNames(userCred, options.Options.OpsadminRoleNames)
+	log.Debugf("roles: %s sec: %s match: %v ops: %s match: %v", userCred.GetRoles(), options.Options.SecadminRoleNames, matchSec, options.Options.OpsadminRoleNames, matchOps)
+	if options.Options.EnableSeparateAdminLog && (matchSec || matchOps) {
 		return AdminActionLog
 	}
 	return ActionLog
 }
 
 func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	log.Infof("action: %s", data)
 	now := time.Now().UTC()
 	action.OpsTime = now
 	if action.StartTime.IsZero() {

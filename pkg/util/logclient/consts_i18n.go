@@ -1336,4 +1336,19 @@ func init() {
 		EN("Unpackage VM").
 		CN("导入主机"),
 	)
+
+	o.Set(ACT_ENCRYPTION, i18n.NewTableEntry().
+		EN("Encryption").
+		CN("加密"),
+	)
+
+	o.Set(ACT_CONSOLE, i18n.NewTableEntry().
+		EN("Console").
+		CN("控制台"),
+	)
+
+	o.Set(ACT_WEBSSH, i18n.NewTableEntry().
+		EN("WebSSH").
+		CN("WebSSH"),
+	)
 }
