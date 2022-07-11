@@ -4053,6 +4053,11 @@ func (self *SHost) AllowPerformAutoMigrateOnHostDown(ctx context.Context,
 func (self *SHost) PerformAutoMigrateOnHostDown(
 	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.HostAutoMigrateInput,
 ) (jsonutils.JSONObject, error) {
+	if input.AutoMigrateOnHostShutdown == "enable" &&
+		input.AutoMigrateOnHostDown != "enable" {
+		return nil, httperrors.NewBadRequestError("must enable auto_migrate_on_host_down at same time")
+	}
+
 	var meta = make(map[string]interface{})
 	if input.AutoMigrateOnHostShutdown == "enable" {
 		meta[api.HOSTMETA_AUTO_MIGRATE_ON_HOST_SHUTDOWN] = "enable"
@@ -5627,7 +5632,7 @@ func (host *SHost) RemoteHealthStatus(ctx context.Context) string {
 	var status = api.HOST_HEALTH_STATUS_UNKNOWN
 	userCred := auth.AdminCredential()
 	res, err := host.Request(
-		ctx, userCred, "POST", "/hosts/health-status",
+		ctx, userCred, "GET", "/hosts/health-status",
 		mcclient.GetTokenHeaders(userCred), nil,
 	)
 	if err != nil {
@@ -5764,6 +5769,11 @@ func (host *SHost) MigrateSharedStorageServers(ctx context.Context, userCred mcc
 	hostGuests := []*api.GuestBatchMigrateParams{}
 
 	for i := 0; i < len(guests); i++ {
+		if guests[i].isNotRunningStatus(guests[i].Status) {
+			// skip not running guests
+			continue
+		}
+
 		lockman.LockObject(ctx, &guests[i])
 		defer lockman.ReleaseObject(ctx, &guests[i])
 		_, err := guests[i].validateForBatchMigrate(ctx, true)
