@@ -229,4 +229,7 @@ const (
 	ACT_SYNC_CLASS_METADATA = "sync_class_metadata"
 
 	ACT_ENCRYPTION = "encrypt"
+
+	ACT_CONSOLE = "console"
+	ACT_WEBSSH  = "webssh"
 )
