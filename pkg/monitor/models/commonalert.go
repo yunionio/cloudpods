@@ -32,6 +32,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	notiapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -146,6 +147,18 @@ func (man *SCommonAlertManager) UpdateAlertsResType(ctx context.Context, userCre
 	return errors.NewAggregate(errs)
 }
 
+func (man *SCommonAlertManager) validateRoles(ctx context.Context, roles []string) ([]string, error) {
+	ids := []string{}
+	for _, role := range roles {
+		roleCache, err := db.RoleCacheManager.FetchRoleByIdOrName(ctx, role)
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetch role by id or name: %q", role)
+		}
+		ids = append(ids, roleCache.GetId())
+	}
+	return ids, nil
+}
+
 func (man *SCommonAlertManager) ValidateCreateData(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject,
@@ -168,6 +181,7 @@ func (man *SCommonAlertManager) ValidateCreateData(
 	//else {
 	//	data.Channel = append(data.Channel, monitor.DEFAULT_SEND_NOTIFY_CHANNEL)
 	//}
+
 	if !utils.IsInStringArray(data.Level, monitor.CommonAlertLevels) {
 		return data, httperrors.NewInputParameterError("Invalid level format: %s", data.Level)
 	}
@@ -215,6 +229,22 @@ func (man *SCommonAlertManager) ValidateCreateData(
 	var err = man.ValidateMetricQuery(&data.CommonMetricInputQuery, data.Scope, ownerId)
 	if err != nil {
 		return data, errors.Wrap(err, "metric query error")
+	}
+
+	// validate role
+	if len(data.Roles) != 0 {
+		roleIds, err := man.validateRoles(ctx, data.Roles)
+		if err != nil {
+			return data, errors.Wrap(err, "validateRole")
+		}
+		data.Roles = roleIds
+		if !utils.IsInStringArray(data.Scope, []string{
+			notiapi.SUBSCRIBER_SCOPE_SYSTEM,
+			notiapi.SUBSCRIBER_SCOPE_DOMAIN,
+			notiapi.SUBSCRIBER_SCOPE_PROJECT,
+		}) {
+			return data, httperrors.NewInputParameterError("unsupport scope %s", data.Scope)
+		}
 	}
 
 	name, err := man.genName(ctx, ownerId, data.Name)
@@ -320,30 +350,47 @@ func (alert *SCommonAlert) customizeCreateNotis(ctx context.Context, userCred mc
 	if err := data.Unmarshal(input); err != nil {
 		return err
 	}
-	//user_by 弃用
+
+	// used_by 弃用
 	if input.AlertType == monitor.CommonAlertSystemAlertType {
-		return alert.createAlertNoti(ctx, userCred, input.Name, "webconsole", []string{}, nil, input.SilentPeriod, true)
+		s := &monitor.NotificationSettingOneCloud{
+			Channel: "webconsole",
+		}
+		return alert.createAlertNoti(ctx, userCred, input.Name, s, input.SilentPeriod, true)
 	}
+
 	for _, channel := range input.Channel {
-		err := alert.createAlertNoti(ctx, userCred, input.Name, channel, input.Recipients, nil, input.SilentPeriod, false)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("create notify[channel is %s]error", channel))
+		s := &monitor.NotificationSettingOneCloud{
+			Channel: channel,
+			UserIds: input.Recipients,
+		}
+		if err := alert.createAlertNoti(ctx, userCred, input.Name, s, input.SilentPeriod, false); err != nil {
+			return errors.Wrap(err, fmt.Sprintf("create notify[channel is %s] error", channel))
 		}
 	}
+
 	if len(input.RobotIds) != 0 {
-		err := alert.createAlertNoti(ctx, userCred, input.Name, string(notify.NotifyByRobot), []string{},
-			input.RobotIds,
-			input.SilentPeriod, false)
-		if err != nil {
-			return errors.Wrap(err, "create notify channel is robot error")
+		s := &monitor.NotificationSettingOneCloud{
+			Channel:  string(notify.NotifyByRobot),
+			RobotIds: input.RobotIds,
+		}
+		if err := alert.createAlertNoti(ctx, userCred, input.Name, s, input.SilentPeriod, false); err != nil {
+			return errors.Wrapf(err, "create alert notification by robot %v", input.RobotIds)
+		}
+	}
+	if len(input.Roles) != 0 {
+		s := &monitor.NotificationSettingOneCloud{
+			RoleIds: input.Roles,
+		}
+		if err := alert.createAlertNoti(ctx, userCred, input.Name, s, input.SilentPeriod, false); err != nil {
+			return errors.Wrapf(err, "create alert notify by role %v, scope %q", input.Roles, input.Scope)
 		}
 	}
 	return nil
 }
 
-func (alert *SCommonAlert) createAlertNoti(ctx context.Context, userCred mcclient.TokenCredential, notiName, channel string, userIds []string, robotIds []string, silentPeriod string, isSysNoti bool) error {
-	noti, err := NotificationManager.CreateOneCloudNotification(ctx, userCred, notiName, channel, userIds, robotIds,
-		silentPeriod)
+func (alert *SCommonAlert) createAlertNoti(ctx context.Context, userCred mcclient.TokenCredential, notiName string, settings *monitor.NotificationSettingOneCloud, silentPeriod string, isSysNoti bool) error {
+	noti, err := NotificationManager.CreateOneCloudNotification(ctx, userCred, notiName, settings, silentPeriod)
 	if err != nil {
 		return errors.Wrap(err, "create notification")
 	}
@@ -649,6 +696,9 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 		}
 		if len(settings.RobotIds) != 0 {
 			out.RobotIds = settings.RobotIds
+		}
+		if len(settings.RoleIds) != 0 {
+			out.RoleIds = settings.RoleIds
 		}
 	}
 	out.Channel = channel.List()

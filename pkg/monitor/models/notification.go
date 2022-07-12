@@ -160,13 +160,7 @@ func (man *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	return q, err
 }
 
-func (man *SNotificationManager) CreateOneCloudNotification(ctx context.Context, userCred mcclient.TokenCredential, alertName string, channel string, userIds []string, robotIds []string, silentPeriod string) (*SNotification, error) {
-	settings := &monitor.NotificationSettingOneCloud{
-		Channel:  channel,
-		UserIds:  userIds,
-		RobotIds: robotIds,
-	}
-
+func (man *SNotificationManager) CreateOneCloudNotification(ctx context.Context, userCred mcclient.TokenCredential, alertName string, settings *monitor.NotificationSettingOneCloud, silentPeriod string) (*SNotification, error) {
 	newName, err := db.GenerateName(ctx, man, userCred, alertName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "generate name: %s", alertName)
