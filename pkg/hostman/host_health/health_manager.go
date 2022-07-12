@@ -211,26 +211,27 @@ func (m *SHostHealthManager) Reconnect() {
 	if m.cli.SessionLiving() {
 		return
 	}
-	for {
-		if err := m.cli.RestartSession(); err != nil && !m.cli.SessionLiving() {
-			log.Errorf("restart session failed %s", err)
-			time.Sleep(1 * time.Second)
-		} else {
-			log.Infof("restart ression success")
-			break
-		}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	if err := m.cli.RestartSessionWithContext(ctx); err != nil && !m.cli.SessionLiving() {
+		log.Errorf("restart session failed %s", err)
+		go m.Reconnect()
+		return
 	}
-	if err := m.cli.PutSession(context.Background(),
-		fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, m.hostId),
+	log.Infof("restart ression success")
+
+	if err := m.cli.PutSession(
+		context.Background(), fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, m.hostId),
 		api.HOST_HEALTH_STATUS_RUNNING,
 	); err != nil {
 		log.Errorf("put host key failed %s", err)
 		go m.Reconnect()
-	} else {
-		m.status = api.HOST_HEALTH_STATUS_RUNNING
-		log.Infof("put key %s/%s success", api.HOST_HEALTH_PREFIX, m.hostId)
 		return
 	}
+	log.Infof("put key %s/%s success", api.HOST_HEALTH_PREFIX, m.hostId)
+	m.status = api.HOST_HEALTH_STATUS_RUNNING
 }
 
 func (m *SHostHealthManager) SetOnHostDown(onHostDown string) {

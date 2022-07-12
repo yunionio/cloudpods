@@ -157,7 +157,7 @@ func (cli *SEtcdClient) startSession(ctx context.Context) error {
 	}
 	cli.leaseId = resp.ID
 
-	ch, err := cli.client.KeepAlive(ctx, cli.leaseId)
+	ch, err := cli.client.KeepAlive(context.Background(), cli.leaseId)
 	if err != nil {
 		return err
 	}
