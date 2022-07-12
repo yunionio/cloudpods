@@ -22,22 +22,41 @@ import (
 
 func TestQcloudRuleSync(t *testing.T) {
 	data := []TestData{
-
 		{
 			Name: "Test out rules",
 			SrcRules: cloudprovider.SecurityRuleSet{
-				ruleWithPriority("out:allow any", 11),
-				ruleWithPriority("out:deny any", 10),
+				ruleWithPriority("out:deny any", 1),
+				ruleWithPriority("out:allow 10.160.240.0/20 any", 10),
 			},
 			DestRules: []cloudprovider.SecurityRule{},
 			Common:    []cloudprovider.SecurityRule{},
 			InAdds:    []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "out:allow any", 100),
+				ruleWithPriority("out:allow 10.160.240.0/20 any", 100),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
+		{
+			Name: "Test out rules",
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPriority("out:deny any", 1),
+				ruleWithPriority("out:allow 10.160.240.0/20 any", 10),
+			},
+			DestRules: []cloudprovider.SecurityRule{
+				ruleWithPriority("out:allow any", 2),
+			},
+			Common: []cloudprovider.SecurityRule{},
+			InAdds: []cloudprovider.SecurityRule{},
+			OutAdds: []cloudprovider.SecurityRule{
+				ruleWithPriority("out:allow 10.160.240.0/20 any", 2),
+			},
+			InDels: []cloudprovider.SecurityRule{},
+			OutDels: []cloudprovider.SecurityRule{
+				ruleWithPriority("out:allow any", 2),
+			},
+		},
+
 		{
 			Name: "Test peer out rules",
 			SrcRules: cloudprovider.SecurityRuleSet{
