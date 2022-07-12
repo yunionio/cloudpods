@@ -1464,6 +1464,7 @@ func (h *SHostInfo) uploadNetworkInfo() {
 }
 
 func (h *SHostInfo) doSendPhysicalNicInfo(nic *types.SNicDevInfo) error {
+	log.Infof("upload physical nic: %s(%s)", nic.Dev, nic.Mac)
 	return h.doUploadNicInfoInternal(nic.Dev, nic.Mac.String(), "", "", "", nic.Up != nil && *nic.Up)
 }
 

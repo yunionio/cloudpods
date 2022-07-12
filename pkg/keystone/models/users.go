@@ -905,7 +905,7 @@ func (manager *SUserManager) traceLoginEvent(ctx context.Context, token mcclient
 	})
 	db.OpsLog.LogEvent(usr, "auth", &s, token)
 	// to reduce auth event, log web console login only
-	if authCtx.Source == mcclient.AuthSourceWeb {
+	if authCtx.Source == mcclient.AuthSourceWeb && token.GetProjectId() != "" {
 		logclient.AddActionLogWithContext(ctx, usr, logclient.ACT_AUTHENTICATE, &s, token, true)
 		return
 	}

@@ -120,7 +120,9 @@ policy:
     servers:
       '*': deny
       delete: allow
-      get: allow
+      get:
+        '*': allow
+        vnc: deny
       list: allow
       perform:
         '*': deny
@@ -155,10 +157,13 @@ policy:
         change-owner: allow
         purge: allow
   log:
-    actions:
-      list:
-        '*': allow
-        splitable: deny
+    '*':
+      '*': deny
+      get: allow
+      list: allow
+      perform:
+        '*': deny
+        purge-splitable: allow
   yunionconf:
     '*':
       '*': allow
@@ -176,6 +181,9 @@ policy:
       '*': deny
       get: allow
       list: allow
+      perform:
+        '*': deny
+        purge-splitable: allow
   identity:
     '*':
       '*': deny
