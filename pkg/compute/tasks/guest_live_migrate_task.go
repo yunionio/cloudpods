@@ -67,7 +67,7 @@ func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 		input.PreferHostId = preferHostId
 	}
 	guestStatus, _ := self.Params.GetString("guest_status")
-	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
+	if !self.isRescueMode() && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		input.LiveMigrate = true
 		skipCpuCheck := jsonutils.QueryBoolean(self.Params, "skip_cpu_check", false)
 		skipKernelCheck := jsonutils.QueryBoolean(self.Params, "skip_kernel_check", false)
@@ -184,12 +184,12 @@ func (self *GuestMigrateTask) OnCachedCdromComplete(ctx context.Context, guest *
 	header := self.GetTaskRequestHeader()
 	body := jsonutils.NewDict()
 	guestStatus, _ := self.Params.GetString("guest_status")
-	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
+	if !self.isRescueMode() && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		body.Set("live_migrate", jsonutils.JSONTrue)
 		body.Set("enable_tls", jsonutils.NewBool(jsonutils.QueryBoolean(self.GetParams(), "enable_tls", false)))
 	}
 
-	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) {
+	if !self.isRescueMode() {
 		host, _ := guest.GetHost()
 		url := fmt.Sprintf("%s/servers/%s/src-prepare-migrate", host.ManagerUri, guest.Id)
 		self.SetStage("OnSrcPrepareComplete", body)
@@ -240,7 +240,7 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 		return
 	}
 	guestStatus, _ := self.Params.GetString("guest_status")
-	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
+	if !self.isRescueMode() && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		body.Set("live_migrate", jsonutils.JSONTrue)
 	}
 
@@ -283,7 +283,7 @@ func (self *GuestMigrateTask) OnMigrateConfAndDiskComplete(ctx context.Context, 
 		self.Params.Set("dest_prepared_memory_snapshots", msData)
 	}
 	guestStatus, _ := self.Params.GetString("guest_status")
-	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
+	if !self.isRescueMode() && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		// Live migrate
 		self.SetStage("OnStartDestComplete", nil)
 	} else {
@@ -297,7 +297,7 @@ func (self *GuestMigrateTask) OnNormalMigrateComplete(ctx context.Context, guest
 	self.setGuest(ctx, guest)
 	guestStatus, _ := self.Params.GetString("guest_status")
 	guest.SetStatus(self.UserCred, guestStatus, "")
-	if jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) {
+	if self.isRescueMode() {
 		guest.StartGueststartTask(ctx, self.UserCred, nil, "")
 		self.TaskComplete(ctx, guest)
 	} else {
@@ -328,6 +328,10 @@ func (self *GuestMigrateTask) OnGuestStartSuccFailed(ctx context.Context, guest 
 	self.TaskFailed(ctx, guest, data)
 }
 
+func (self *GuestMigrateTask) isRescueMode() bool {
+	return jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false)
+}
+
 func (self *GuestMigrateTask) getInstanceSnapShotsWithMemory(guest *models.SGuest) ([]*models.SInstanceSnapshot, error) {
 	isps, err := guest.GetInstanceSnapshots()
 	if err != nil {
@@ -336,7 +340,16 @@ func (self *GuestMigrateTask) getInstanceSnapShotsWithMemory(guest *models.SGues
 	ret := make([]*models.SInstanceSnapshot, 0)
 	for idx := range isps {
 		if isps[idx].WithMemory {
-			ret = append(ret, &isps[idx])
+			if self.isRescueMode() {
+				// do not copy memory snapshot in rescure mode, as it is not accessible
+				// remove memory flag, because the memory snapshot will be lost after migration
+				db.Update(&isps[idx], func() error {
+					isps[idx].WithMemory = false
+					return nil
+				})
+			} else {
+				ret = append(ret, &isps[idx])
+			}
 		}
 	}
 	return ret, nil
