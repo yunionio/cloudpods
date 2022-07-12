@@ -58,12 +58,16 @@ type CommonAlertCreateInput struct {
 	Recipients []string `json:"recipients"`
 
 	RobotIds []string `json:"robot_ids"`
+
+	// 角色 id 或者 name
+	Roles []string `json:"roles"`
+
 	// 静默期
 	SilentPeriod string `json:"silent_period"`
 	// 报警类型
 	AlertType string `json:"alert_type"`
 
-	//scope Resource
+	// Scope Resource
 	Scope       string `json:"scope"`
 	DomainId    string `json:"domain_id"`
 	ProjectId   string `json:"project_id"`
@@ -136,6 +140,7 @@ type CommonAlertDetails struct {
 	Channel       []string `json:"channel"`
 	Recipients    []string `json:"recipients"`
 	RobotIds      []string `json:"robot_ids"`
+	RoleIds       []string `json:"role_ids"`
 	// 静默期
 	SilentPeriod string `json:"silent_period"`
 	Status       string `json:"status"`

@@ -82,6 +82,7 @@ type NotificationSettingOneCloud struct {
 	Channel  string   `json:"channel"`
 	UserIds  []string `json:"user_ids"`
 	RobotIds []string `json:"robot_ids"`
+	RoleIds  []string `json:"role_ids"`
 }
 
 type SendWebhookSync struct {

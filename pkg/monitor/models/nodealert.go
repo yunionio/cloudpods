@@ -84,7 +84,11 @@ func (v1man *SV1AlertManager) CreateNotification(
 	channel string,
 	recipients string) (*SNotification, error) {
 	userIds := strings.Split(recipients, ",")
-	return NotificationManager.CreateOneCloudNotification(ctx, userCred, alertName, channel, userIds, nil, "")
+	s := &monitor.NotificationSettingOneCloud{
+		Channel: channel,
+		UserIds: userIds,
+	}
+	return NotificationManager.CreateOneCloudNotification(ctx, userCred, alertName, s, "")
 }
 
 func (man *SNodeAlertManager) ValidateCreateData(
