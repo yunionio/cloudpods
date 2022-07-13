@@ -503,9 +503,11 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 		outCommon, outAdds, outDels = _compare(srcOutRules, destOutRules)
 	}
 
-	var handleDefaultRules = func(removed, added []SecurityRule, isOnlyAllowList bool) ([]SecurityRule, []SecurityRule) {
+	var handleDefaultRules = func(removed, added []SecurityRule, isOnlyAllowList bool) ([]SecurityRule, []SecurityRule, *SecurityRule) {
 		ret := []SecurityRule{}
-		for _, rule := range removed {
+		var defaultRule *SecurityRule = nil
+		for i := range removed {
+			rule := removed[i]
 			if rule.ExternalId == DEFAULT_DEST_RULE_ID {
 				if debug {
 					log.Debugf("remove dest default rule: %s external id %s priority: %d", rule.String(), rule.ExternalId, rule.Priority)
@@ -520,30 +522,32 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 					rule.Action = secrules.SecurityRuleDeny
 				}
 				rule.Priority = dest.MinPriority
-
-				find := false
-				for i := range added {
-					if added[i].String() == rule.String() {
-						find = true
-						break
-					}
-				}
-				if !find {
-					if debug {
-						log.Debugf("add new default rule: %s external id %s priority: %d", rule.String(), rule.ExternalId, rule.Priority)
-					}
-					added = append(added, rule)
-				}
+				defaultRule = &rule
 			} else {
 				ret = append(ret, rule)
 			}
 		}
-		return ret, added
+		return ret, added, defaultRule
 	}
 
-	inDels, inAdds = handleDefaultRules(inDels, inAdds, dest.IsOnlySupportAllowRules)
-	outDels, outAdds = handleDefaultRules(outDels, outAdds, dest.IsOnlySupportAllowRules)
-	_common, _ := handleDefaultRules(append(inCommon, outCommon...), []SecurityRule{}, dest.IsOnlySupportAllowRules)
+	var inDefault *SecurityRule
+	var outDefault *SecurityRule
+	inDels, inAdds, inDefault = handleDefaultRules(inDels, inAdds, dest.IsOnlySupportAllowRules)
+	if inDefault != nil {
+		inAllow, _ := append(inAdds, inCommon...).AllowList()
+		if len(inAllow.String()) == 0 || (!strings.Contains(inAllow.String(), inDefault.String()) && !srcInAllowList.Equals(inAllow)) {
+			inAdds = append(inAdds, *inDefault)
+		}
+	}
+	outDels, outAdds, outDefault = handleDefaultRules(outDels, outAdds, dest.IsOnlySupportAllowRules)
+
+	if outDefault != nil {
+		outAllow, _ := append(outAdds, outCommon...).AllowList()
+		if len(outAllow.String()) == 0 || (!strings.Contains(outAllow.String(), outDefault.String()) && !srcOutAllowList.Equals(outAllow)) {
+			outAdds = append(outAdds, *outDefault)
+		}
+	}
+	_common, _, _ := handleDefaultRules(append(inCommon, outCommon...), []SecurityRule{}, dest.IsOnlySupportAllowRules)
 	common = append(common, _common...)
 	return
 }
