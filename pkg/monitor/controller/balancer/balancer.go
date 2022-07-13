@@ -96,17 +96,18 @@ type ICondition interface {
 }
 
 type Rules struct {
-	Alert    *models.SMigrationAlert
-	Condtion ICondition
-	Source   *SourceRule
-	Target   *TargetRule
+	Alert          *models.SMigrationAlert
+	Condtion       ICondition
+	Source         *SourceRule
+	Target         *TargetRule
+	ResultMustPair bool
 }
 
 func (r *Rules) GetAlert() *models.SMigrationAlert {
 	return r.Alert
 }
 
-func NewRules(_ *alerting.EvalContext, m *monitor.EvalMatch, alert *models.SMigrationAlert, drv IMetricDriver) (*Rules, error) {
+func NewRules(_ *alerting.EvalContext, m *monitor.EvalMatch, alert *models.SMigrationAlert, drv IMetricDriver, resultMustPair bool) (*Rules, error) {
 	hostId, ok := m.Tags["host_id"]
 	if !ok {
 		return nil, errors.Errorf("Not found host_id in tags: %#v", m.Tags)
@@ -149,6 +150,7 @@ func NewRules(_ *alerting.EvalContext, m *monitor.EvalMatch, alert *models.SMigr
 		return nil, errors.Wrapf(err, "Get default DataSource")
 	}
 	ds := dsObj.ToTSDBDataSource("")
+	// find guests to filtered by source setting of source host alerted
 	cds, err := findGuestsOfHost(drv, srcHost, ds, msettings)
 	if err != nil {
 		return nil, errors.Wrapf(err, "findGuestsOfHost %s", srcHost.GetName())
@@ -175,8 +177,9 @@ func NewRules(_ *alerting.EvalContext, m *monitor.EvalMatch, alert *models.SMigr
 		return nil, errors.Wrapf(err, "Get Condtion")
 	}
 	rs := &Rules{
-		Alert:    alert,
-		Condtion: cond,
+		Alert:          alert,
+		Condtion:       cond,
+		ResultMustPair: resultMustPair,
 	}
 	rs.Source = NewSourceRule(srcHost, cds)
 	rs.Target = NewTargetRule(targetHosts)
@@ -184,9 +187,13 @@ func NewRules(_ *alerting.EvalContext, m *monitor.EvalMatch, alert *models.SMigr
 }
 
 func filterTargetHosts(drv IMetricDriver, srcHost IHost, allHost []jsonutils.JSONObject, ms *monitor.MigrationAlertSettings) ([]ITarget, error) {
-	specifyHostIds := []string{}
+	specifyTargetHostIds := []string{}
+	specifySrcHostIds := []string{}
 	if ms != nil && ms.Target != nil {
-		specifyHostIds = ms.Target.HostIds
+		specifyTargetHostIds = ms.Target.HostIds
+	}
+	if ms != nil && ms.Source != nil {
+		specifySrcHostIds = ms.Source.HostIds
 	}
 	srcHostId := srcHost.GetId()
 	srcHostObj := srcHost.GetObject()
@@ -207,8 +214,15 @@ func filterTargetHosts(drv IMetricDriver, srcHost IHost, allHost []jsonutils.JSO
 		if id == srcHostId {
 			continue
 		}
-		if len(specifyHostIds) != 0 {
-			if !utils.IsInStringArray(id, specifyHostIds) {
+		if len(specifySrcHostIds) != 0 {
+			if utils.IsInStringArray(id, specifySrcHostIds) {
+				// filter target host if it in source specified hosts
+				continue
+			}
+		}
+		if len(specifyTargetHostIds) != 0 {
+			// filter target host if it not in target specified hosts
+			if !utils.IsInStringArray(id, specifyTargetHostIds) {
 				continue
 			}
 		}
@@ -220,6 +234,17 @@ func filterTargetHosts(drv IMetricDriver, srcHost IHost, allHost []jsonutils.JSO
 		if arch != srcArch {
 			continue
 		}
+
+		enabled, _ := obj.Bool("enabled")
+		if !enabled {
+			continue
+		}
+
+		hostStatus, _ := obj.GetString("host_status")
+		if hostStatus != "online" {
+			continue
+		}
+
 		th, err := drv.GetTarget(obj)
 		if err != nil {
 			return nil, errors.Wrapf(err, "drv.GetTarget %s", obj)
@@ -398,17 +423,20 @@ type resultPair struct {
 
 func findResult(rules *Rules) (*result, error) {
 	// 找到 rules.Source 里面可以迁移的虚拟机
-	guests, err := findCandidates(rules.Source, rules.Condtion)
-	if err != nil {
-		return nil, errors.Wrap(err, "find source candidates to migrate")
-	}
+	// guests, err := findCandidates(rules.Source, rules.Condtion)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "find source candidates to migrate")
+	// }
+
+	// all guests of source host to migrate
+	guests := rules.Source.Candidates
 
 	// TODO
 	// 将找到的 guests 进行配对，调用 scheduler-forecast 接口判断能否迁移到宿主机
 	// 如果不能迁就提出这些 guests，重新 findCandidates
 
 	// 将找到的虚拟机分配到对应的宿主机，形成 1-1 配对
-	return pairMigratResult(guests, rules.Target, rules.Condtion)
+	return pairMigratResult(guests, rules.Target, rules.Condtion, rules.ResultMustPair)
 }
 
 type IResource interface {
@@ -433,7 +461,7 @@ func getCScores(css []ICandidate) []float64 {
 
 func findFitCandidates(css []ICandidate, delta float64) ([]ICandidate, error) {
 	if len(css) == 0 {
-		return nil, errors.Errorf("Not found fit input for delta %f", delta)
+		return nil, errors.Errorf("Not found fit guest candidate for delta %f", delta)
 	}
 	first := css[0]
 	rest := css[1:]
@@ -517,13 +545,19 @@ func findFitTarget(c ICandidate, targets iTargets, cond ICondition) (ITarget, er
 	return nil, errors.NewAggregate(errs)
 }
 
-func pairMigratResult(gsts []ICandidate, target *TargetRule, cond ICondition) (*result, error) {
+func pairMigratResult(gsts []ICandidate, target *TargetRule, cond ICondition, mustPair bool) (*result, error) {
 	pairs := make([]*resultPair, 0)
 	hosts := target.Items
+	errs := []error{}
 	for _, gst := range gsts {
 		host, err := findFitTarget(gst, hosts, cond)
 		if err != nil {
-			return nil, errors.Wrapf(err, "not found target for guest %#v", gst)
+			err = errors.Wrapf(err, "not found target for guest %s on %s", gst.GetName(), gst.GetHostName())
+			if mustPair {
+				return nil, err
+			} else {
+				errs = append(errs, err)
+			}
 		}
 		host.Selected(gst)
 		pairs = append(pairs, &resultPair{
@@ -532,7 +566,15 @@ func pairMigratResult(gsts []ICandidate, target *TargetRule, cond ICondition) (*
 		})
 	}
 	if len(gsts) != len(pairs) {
-		return nil, errors.Errorf("Paired: %d candidates != %d hosts", len(gsts), len(pairs))
+		if mustPair {
+			return nil, errors.Wrapf(errors.NewAggregate(errs), "Paired: %d candidates != %d hosts", len(gsts), len(pairs))
+		}
+	}
+	if len(pairs) == 0 {
+		return nil, errors.Wrapf(errors.NewAggregate(errs), "Not found any pairs, mustPair is %v", mustPair)
+	}
+	if !mustPair && len(errs) != 0 {
+		log.Warningf("some guest not paired: %v", errors.NewAggregate(errs))
 	}
 	return &result{
 		pairs: pairs,
