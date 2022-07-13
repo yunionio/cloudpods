@@ -85,10 +85,10 @@ var azureRdsMetricsSpec = map[string][]string{
 }
 
 var azureRdsMetricsSpecSqlserver = map[string][]string{
-	"cpu_percent":          {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_CPU_USAGE},
-	"memory_usage_percent": {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_MEM_USAGE},
-	"storage_percent":      {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_DISK_USAGE},
-	"connections_failed":   {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIELD_RDS_CONN_FAILED},
+	"cpu_percent":                      {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_CPU_USAGE},
+	"sqlserver_process_memory_percent": {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_MEM_USAGE},
+	"storage_percent":                  {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_DISK_USAGE},
+	"connection_failed":                {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIELD_RDS_CONN_FAILED},
 }
 
 var azureElbMetricSpecs = map[string][]string{
