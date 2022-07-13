@@ -33,6 +33,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -67,48 +68,40 @@ func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
 	return self.zone
 }
 
-func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks := make([]SDisk, 0)
-	offset := 0
-	storageType := self.storageType
-	if self.storageType == api.STORAGE_CLOUD_ESSD_PL2 || self.storageType == api.STORAGE_CLOUD_ESSD_PL3 {
-		storageType = api.STORAGE_CLOUD_ESSD
+func (self *SStorage) getDisks() ([]SDisk, error) {
+	if len(self.zone.disks) > 0 {
+		return self.zone.disks, nil
 	}
+	self.zone.disks = []SDisk{}
 	for {
-		parts, total, err := self.zone.region.GetDisks("", self.zone.GetId(), storageType, nil, offset, 50)
+		part, total, err := self.zone.region.GetDisks("", self.zone.GetId(), "", nil, len(self.zone.disks), 100)
 		if err != nil {
-			log.Errorf("GetDisks fail %s", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "GetDisks")
 		}
-		performanceLevel := ""
-		switch self.storageType {
-		case api.STORAGE_CLOUD_ESSD_PL2:
-			performanceLevel = "PL2"
-		case api.STORAGE_CLOUD_ESSD_PL3:
-			performanceLevel = "PL3"
-		}
-		for _, disk := range parts {
-			if disk.PerformanceLevel == performanceLevel {
-				disks = append(disks, disk)
-			}
-		}
-
-		offset += len(parts)
-
-		if offset >= total {
+		self.zone.disks = append(self.zone.disks, part...)
+		if len(self.zone.disks) >= total {
 			break
 		}
 	}
-	idisks := make([]cloudprovider.ICloudDisk, len(disks))
-	for i := 0; i < len(disks); i += 1 {
-		disks[i].storage = self
-		idisks[i] = &disks[i]
+	return self.zone.disks, nil
+}
+
+func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+	disks, err := self.getDisks()
+	if err != nil {
+		return nil, err
 	}
-	return idisks, nil
+	ret := []cloudprovider.ICloudDisk{}
+	for i := 0; i < len(disks); i += 1 {
+		if disks[i].Category == self.storageType {
+			disks[i].storage = self
+			ret = append(ret, &disks[i])
+		}
+	}
+	return ret, nil
 }
 
 func (self *SStorage) GetStorageType() string {
-	//return models.STORAGE_PUBLIC_CLOUD
 	return self.storageType
 }
 
