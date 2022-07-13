@@ -130,6 +130,8 @@ type SZone struct {
 	/* 支持的磁盘种类集合 */
 	AvailableDiskCategories     SDiskCategories
 	AvailableDedicatedHostTypes SDedicatedHostTypes
+
+	disks []SDisk
 }
 
 func (self *SZone) GetId() string {
