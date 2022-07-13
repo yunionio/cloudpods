@@ -38,7 +38,9 @@ func InitHandlers(app *appsrv.Application) {
 
 	db.RegisterModelManager(db.TenantCacheManager)
 	db.RegisterModelManager(db.UserCacheManager)
+	db.RegisterModelManager(db.RoleCacheManager)
 	db.RegistUserCredCacheUpdater()
+
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
 		taskman.SubTaskManager,
