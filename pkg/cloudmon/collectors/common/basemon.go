@@ -160,10 +160,6 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 	if err != nil {
 		return nil, errors.Wrap(err, "getCloudAccount error")
 	}
-	options, err := cloudAccout.Get("options")
-	if err != nil {
-		log.Errorf("get cloudAccout options err:%v", err)
-	}
 	cfg := cloudprovider.ProviderConfig{
 		Id:        self.SProvider.Id,
 		Name:      self.SProvider.Name,
@@ -173,11 +169,10 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 		Vendor:    self.SProvider.Provider,
 		ProxyFunc: proxyFunc,
 	}
-	if options != nil {
+	if options, _ := cloudAccout.Get("options"); options != nil {
 		cfg.Options = options.(*jsonutils.JSONDict)
 		defaultRegion, _ := options.GetString("default_region")
 		cfg.DefaultRegion = defaultRegion
-
 	}
 	return cloudprovider.GetProvider(cfg)
 }
