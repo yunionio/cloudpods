@@ -25,8 +25,10 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	notiapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -40,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/alerting/notifiers/templates"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/options"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -104,8 +107,12 @@ func newOneCloudNotifier(config alerting.NotificationConfig) (alerting.Notifier,
 	return &OneCloudNotifier{
 		NotifierBase: NewNotifierBase(config),
 		Setting:      setting,
-		session:      auth.GetAdminSession(context.Background(), options.Options.Region, ""),
+		session:      getAdminSession(),
 	}, nil
+}
+
+func getAdminSession() *mcclient.ClientSession {
+	return auth.GetAdminSession(context.Background(), options.Options.Region, "")
 }
 
 func GetNotifyTemplateConfig(ctx *alerting.EvalContext) monitor.NotificationTemplateConfig {
@@ -175,20 +182,32 @@ func GetNotifyTemplateConfigOfEN(ctx *alerting.EvalContext) monitor.Notification
 // Notify sends the alert notification.
 func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObject) error {
 	log.Infof("Sending alert notification %s to onecloud", ctx.GetRuleTitle())
-	langIdsMap, err := GetUserLangIdsMap(oc.Setting.UserIds)
-	if err != nil {
-		return errors.Wrapf(err, "OneCloudNotifier getIds:%s userLang err", oc.Setting.UserIds)
+	userIds := oc.Setting.UserIds
+	if len(oc.Setting.RoleIds) != 0 {
+		alert, err := models.CommonAlertManager.GetAlert(ctx.Rule.Id)
+		if err != nil {
+			return errors.Wrapf(err, "Get alert by %s", ctx.Rule.Id)
+		}
+		scope := alert.GetResourceScope()
+		scopeId := ""
+		switch scope {
+		case rbacutils.ScopeDomain:
+			scopeId = alert.GetDomainId()
+		case rbacutils.ScopeProject:
+			scopeId = alert.GetProjectId()
+		}
+		roleUserIds, err := getUsersByRoles(oc.Setting.RoleIds, string(scope), scopeId)
+		if err != nil {
+			return errors.Wrapf(err, "getUsersByRoles with %v:%s:%s", oc.Setting.RoleIds, scope, scopeId)
+		}
+		userIds = append(userIds, roleUserIds...)
+		userIds = sets.NewString(userIds...).List()
 	}
 	langNotifyGroup, _ := errgroup.WithContext(ctx.Ctx)
-	for lang, _ := range langIdsMap {
-		ids := langIdsMap[lang]
-		langTag, _ := language.Parse(lang)
-		langStr := i18nTable.LookupByLang(langTag, SUFFIX)
-		langContext := i18n.WithLangTag(context.Background(), getLangBystr(langStr))
-		langNotifyGroup.Go(func() error {
-			return oc.notifyByContextLang(langContext, ctx, ids)
-		})
+	if err := oc.notifyByUserIds(ctx, userIds, langNotifyGroup); err != nil {
+		return errors.Wrapf(err, "notifyByUserIds with %v", userIds)
 	}
+
 	if len(oc.Setting.RobotIds) != 0 {
 		withLangTag := i18n.WithLangTag(context.Background(), language.English)
 		langNotifyGroup.Go(func() error {
@@ -196,6 +215,60 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 		})
 	}
 	return langNotifyGroup.Wait()
+}
+
+func (oc *OneCloudNotifier) notifyByUserIds(ctx *alerting.EvalContext, userIds []string, errGrp *errgroup.Group) error {
+	langIdsMap, err := GetUserLangIdsMap(userIds)
+	if err != nil {
+		return errors.Wrapf(err, "GetUserLangIdsMap: %v", userIds)
+	}
+	for lang, _ := range langIdsMap {
+		ids := langIdsMap[lang]
+		langTag, _ := language.Parse(lang)
+		langStr := i18nTable.LookupByLang(langTag, SUFFIX)
+		langContext := i18n.WithLangTag(context.Background(), getLangBystr(langStr))
+		errGrp.Go(func() error {
+			return oc.notifyByContextLang(langContext, ctx, ids)
+		})
+	}
+	return nil
+}
+
+func getUsersByRoles(roleIds []string, roleScope string, scopeId string) ([]string, error) {
+	query := jsonutils.NewDict()
+	query.Set("roles", jsonutils.Marshal(roleIds))
+	query.Set("effective", jsonutils.JSONTrue)
+	switch roleScope {
+	case notiapi.SUBSCRIBER_SCOPE_SYSTEM:
+	case notiapi.SUBSCRIBER_SCOPE_DOMAIN:
+		if scopeId == "" {
+			return nil, errors.Errorf("need projectDomainId")
+		}
+		query.Set("project_domain_id", jsonutils.NewString(scopeId))
+	case notiapi.SUBSCRIBER_SCOPE_PROJECT:
+		if scopeId == "" {
+			return nil, errors.Errorf("need projectId")
+		}
+		query.Add(jsonutils.NewString(scopeId), "scope", "project", "id")
+	}
+	s := getAdminSession()
+	ret, err := modules.RoleAssignments.List(s, query)
+	if err != nil {
+		return nil, errors.Wrapf(err, "list RoleAssignments with query %s", query.String())
+	}
+	users := make([]string, 0)
+	for i := range ret.Data {
+		ras := ret.Data[i]
+		user, err := ras.Get("user")
+		if err == nil {
+			id, err := user.GetString("id")
+			if err != nil {
+				return nil, errors.Wrap(err, "unable to get user.id from result of RoleAssignments.List")
+			}
+			users = append(users, id)
+		}
+	}
+	return users, nil
 }
 
 func getLangBystr(str string) language.Tag {
@@ -303,7 +376,7 @@ func GetUserLangIdsMap(ids []string) (map[string][]string, error) {
 	if len(ids) == 0 {
 		return map[string][]string{}, nil
 	}
-	session := auth.GetAdminSession(context.Background(), "", "")
+	session := getAdminSession()
 	langIdsMap := make(map[string][]string)
 	params := jsonutils.NewDict()
 	params.Set("filter", jsonutils.NewString(fmt.Sprintf("id.in(%s)", strings.Join(ids, ","))))
