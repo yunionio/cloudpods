@@ -51,8 +51,13 @@ func CORSHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
     }
 }*/
 
-func AddPProfHandler(app *Application) {
-	prefix := "/debug/pprof"
+func AddPProfHandler(prefix string, app *Application) {
+	pp := "/debug/pprof"
+	if prefix != "" {
+		prefix = fmt.Sprintf("%s/%s", prefix, pp)
+	} else {
+		prefix = pp
+	}
 	app.AddHandler("GET", fmt.Sprintf("%s/", prefix), profIndex).SetProcessNoTimeout()
 	app.AddHandler("GET", fmt.Sprintf("%s/cmdline", prefix), profCmdline).SetProcessNoTimeout()
 	app.AddHandler("GET", fmt.Sprintf("%s/profile", prefix), profProfile).SetProcessNoTimeout()
