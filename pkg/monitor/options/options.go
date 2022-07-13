@@ -35,6 +35,8 @@ type AlerterOptions struct {
 	APIListBatchSize int `default:"1024"`
 
 	WorkerCheckInterval int `default:"180"`
+
+	AutoMigrationMustPair bool `default:"false" help:"result of auto migration source guests and target hosts must be paired"`
 }
 
 var (

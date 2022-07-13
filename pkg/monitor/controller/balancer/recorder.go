@@ -146,7 +146,7 @@ func (r *sRecorder) startWatchMigratingProcess(ctx context.Context, s *mcclient.
 			}
 			return false, errors.Errorf("Server fail status %s", status)
 		}
-		log.Errorf("%s: server status %q, continue watching", noteStr, status)
+		log.Infof("%s: server status %q, continue watching", noteStr, status)
 		return false, nil
 	}); err != nil {
 		note.Error = err.Error()

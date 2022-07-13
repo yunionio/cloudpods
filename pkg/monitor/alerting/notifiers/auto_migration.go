@@ -72,7 +72,7 @@ func (am *autoMigrationNotifier) getBalancerRules(ctx *alerting.EvalContext, ale
 		return nil, errors.Wrap(err, "Get metric driver")
 	}
 	log.Infof("autoMigrationNotifier for evalMatch: %s", jsonutils.Marshal(match))
-	return balancer.NewRules(ctx, match, alert, drv)
+	return balancer.NewRules(ctx, match, alert, drv, options.Options.AutoMigrationMustPair)
 }
 
 func (am *autoMigrationNotifier) Notify(ctx *alerting.EvalContext, data jsonutils.JSONObject) error {
