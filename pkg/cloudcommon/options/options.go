@@ -166,7 +166,8 @@ type DBOptions struct {
 	LockmanMethod string `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
 
 	OpsLogMaxKeepMonths int `help:"maximal months of logs to keep, default 6 months" default:"6"`
-	// SplitableMaxDurationHours int `help:"maximal number of hours that a splitable segement lasts, default 30 days" default:"720"`
+
+	SplitableMaxDurationHours int `help:"maximal number of hours that a splitable segement lasts, default 30 days" default:"720"`
 
 	EtcdOptions
 
