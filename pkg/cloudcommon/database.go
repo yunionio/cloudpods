@@ -53,6 +53,9 @@ func InitDB(options *common_options.DBOptions) {
 	if options.OpsLogMaxKeepMonths > 0 {
 		consts.SetSplitableMaxKeepMonths(options.OpsLogMaxKeepMonths)
 	}
+	if options.SplitableMaxDurationHours > 0 {
+		consts.SetSplitableMaxDurationHours(options.SplitableMaxDurationHours)
+	}
 
 	dialect, sqlStr, err := options.GetDBConnection()
 	if err != nil {

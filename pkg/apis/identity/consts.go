@@ -181,6 +181,7 @@ var (
 			"etcd_key",
 			"splitable_max_duration_hours",
 			"splitable_max_keep_segments",
+			"ops_log_max_keep_months",
 
 			// ############################
 			// keystone blacklist options
