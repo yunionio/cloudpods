@@ -63,6 +63,7 @@ func init() {
 	cmd.BatchPerform("reset", new(options.ServerResetOptions))
 	cmd.BatchPerform("restart", new(options.ServerRestartOptions))
 	cmd.BatchPerform("purge", new(options.ServerIdsOptions))
+	cmd.BatchPerform("convert-to-kvm", new(options.ServerConvertToKvmOptions))
 	cmd.PrintObjectYAML().Perform("migrate-forecast", new(options.ServerMigrateForecastOptions))
 	cmd.Perform("migrate", new(options.ServerMigrateOptions))
 	cmd.Perform("live-migrate", new(options.ServerLiveMigrateOptions))
@@ -944,18 +945,6 @@ func init() {
 		if forwardItem != nil {
 			closeForward(s, srvid, forwardItem)
 		}
-		return nil
-	})
-
-	R(&options.ServerConvertToKvmOptions{}, "server-convert-to-kvm", "Convert esxi server to kvm", func(s *mcclient.ClientSession, opts *options.ServerConvertToKvmOptions) error {
-		params := jsonutils.Marshal(opts)
-		dict := params.(*jsonutils.JSONDict)
-		dict.Set("target_hypervisor", jsonutils.NewString("kvm"))
-		result, err := modules.Servers.PerformAction(s, opts.ID, "convert", dict)
-		if err != nil {
-			return err
-		}
-		printObject(result)
 		return nil
 	})
 }
