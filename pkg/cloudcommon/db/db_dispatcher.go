@@ -214,6 +214,15 @@ func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery
 			if jointModelManager == nil {
 				return nil, httperrors.NewResourceNotFoundError("invalid joint resources %s", jfc.GetJointModelName())
 			}
+			hasKey := false
+			for _, colume := range manager.TableSpec().Columns() {
+				if colume.Name() == jfc.OriginKey {
+					hasKey = true
+				}
+			}
+			if !hasKey {
+				return q, httperrors.NewInputParameterError("invalid joint filter %s, because %s doesn't have %s field", f, manager.Keyword(), jfc.OriginKey)
+			}
 			schFields := searchFields(jointModelManager, userCred)
 			if schFields.Contains(jfc.GetField()) {
 				sq := jointModelManager.Query(jfc.RelatedKey)
