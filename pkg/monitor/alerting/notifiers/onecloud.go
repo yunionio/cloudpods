@@ -71,8 +71,8 @@ func init() {
 			if err := input.Settings.Unmarshal(settings); err != nil {
 				return input, errors.Wrap(err, "unmarshal setting")
 			}
-			if settings.Channel == "" && len(settings.RobotIds) == 0 {
-				return input, httperrors.NewInputParameterError("channel is empty")
+			if settings.Channel == "" && len(settings.RobotIds) == 0 && len(settings.RoleIds) == 0 {
+				return input, httperrors.NewInputParameterError("channel, robot_ids or role_ids is empty")
 			}
 			ids := make([]string, 0)
 			for _, uid := range settings.UserIds {
