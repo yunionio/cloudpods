@@ -234,7 +234,8 @@ func guestMonitor(ctx context.Context, userCred mcclient.TokenCredential, sid st
 			c <- res
 		}
 		cmd, _ := body.GetString("cmd")
-		err := guestman.GetGuestManager().Monitor(sid, cmd, cb)
+		qmp := jsonutils.QueryBoolean(body, "qmp", false)
+		err := guestman.GetGuestManager().Monitor(sid, cmd, qmp, cb)
 		if err != nil {
 			return nil, err
 		} else {

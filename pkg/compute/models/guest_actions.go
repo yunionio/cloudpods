@@ -115,14 +115,13 @@ func (self *SGuest) PerformMonitor(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input *api.ServerMonitorInput,
 ) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_MIGRATING}) {
-		cmd, err := data.GetString("command")
-		if err != nil {
+		if input.COMMAND == "" {
 			return nil, httperrors.NewMissingParameterError("command")
 		}
-		return self.SendMonitorCommand(ctx, userCred, cmd)
+		return self.SendMonitorCommand(ctx, userCred, input)
 	}
 	return nil, httperrors.NewInvalidStatusError("Cannot send command in status %s", self.Status)
 }
@@ -2987,7 +2986,7 @@ func (self *SGuest) PerformSendkeys(ctx context.Context, userCred mcclient.Token
 	if err == nil {
 		cmd = fmt.Sprintf("%s %d", cmd, duration)
 	}
-	_, err = self.SendMonitorCommand(ctx, userCred, cmd)
+	_, err = self.SendMonitorCommand(ctx, userCred, &api.ServerMonitorInput{COMMAND: cmd})
 	return nil, err
 }
 
@@ -3022,13 +3021,14 @@ func (self *SGuest) IsLegalKey(key string) bool {
 	return true
 }
 
-func (self *SGuest) SendMonitorCommand(ctx context.Context, userCred mcclient.TokenCredential, cmd string) (jsonutils.JSONObject, error) {
+func (self *SGuest) SendMonitorCommand(ctx context.Context, userCred mcclient.TokenCredential, cmd *api.ServerMonitorInput) (jsonutils.JSONObject, error) {
 	host, _ := self.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/monitor", host.ManagerUri, self.Id)
 	header := http.Header{}
 	header.Add("X-Auth-Token", userCred.GetTokenString())
 	body := jsonutils.NewDict()
-	body.Add(jsonutils.NewString(cmd), "cmd")
+	body.Add(jsonutils.NewString(cmd.COMMAND), "cmd")
+	body.Add(jsonutils.NewBool(cmd.QMP), "qmp")
 	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	if err != nil {
 		return nil, err

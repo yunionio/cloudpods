@@ -788,10 +788,14 @@ func (o *ServerSendKeyOptions) Description() string {
 }
 
 type ServerMonitorOptions struct {
-	ID string `help:"ID or Name of server" json:"-"`
+	ServerIdOptions
 
+	Qmp     bool   `help:"Use qmp protocol, default is hmp"`
 	COMMAND string `help:"Qemu Monitor command to send"`
-	Admin   *bool  `help:"Is this an admin call?"`
+}
+
+func (o *ServerMonitorOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
 }
 
 type ServerQgaSetPassword struct {

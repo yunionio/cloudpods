@@ -348,6 +348,25 @@ func (m *QmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
 	m.Query(c, cb)
 }
 
+func (m *QmpMonitor) QemuMonitorCommand(rawCmd string, callback StringCallback) error {
+	c := Command{}
+	if err := json.Unmarshal([]byte(rawCmd), &c); err != nil {
+		return errors.Errorf("unsupport command format: %s", err)
+	}
+
+	cb := func(res *Response) {
+		log.Debugf("Monitor %s ret: %s", m.server, res.Return)
+		if res.ErrorVal != nil {
+			callback(res.ErrorVal.Error())
+		} else {
+			callback(strings.Trim(string(res.Return), `""`))
+		}
+	}
+
+	m.Query(&c, cb)
+	return nil
+}
+
 func (m *QmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
 	var (
 		c = &Command{

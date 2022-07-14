@@ -425,7 +425,10 @@ func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *m
 }
 
 func (self *SKVMGuestDriver) RequestSoftReset(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	_, err := guest.SendMonitorCommand(ctx, task.GetUserCred(), "system_reset")
+	_, err := guest.SendMonitorCommand(
+		ctx, task.GetUserCred(),
+		&api.ServerMonitorInput{COMMAND: "system_reset"},
+	)
 	return err
 }
 

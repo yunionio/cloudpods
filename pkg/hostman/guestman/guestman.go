@@ -400,13 +400,19 @@ func (m *SGuestManager) PrepareDeploy(sid string) error {
 	return nil
 }
 
-func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
+func (m *SGuestManager) Monitor(sid, cmd string, qmp bool, callback func(string)) error {
 	if guest, ok := m.GetServer(sid); ok {
 		if guest.IsRunning() {
 			if guest.Monitor == nil {
 				return httperrors.NewBadRequestError("Monitor disconnected??")
 			}
-			guest.Monitor.HumanMonitorCommand(cmd, callback)
+			if qmp {
+				if err := guest.Monitor.QemuMonitorCommand(cmd, callback); err != nil {
+					return errors.Wrap(err, "qemu monitor command")
+				}
+			} else {
+				guest.Monitor.HumanMonitorCommand(cmd, callback)
+			}
 			return nil
 		} else {
 			return httperrors.NewBadRequestError("Server stopped??")
