@@ -45,9 +45,9 @@ func Nics() ([]*types.SNicDevInfo, error) {
 			// make sure this is a real NIC device
 			if fi, err := os.Stat(filepath.Join(netPath, "device")); err != nil || fi == nil {
 				continue
-			} else if (fi.Mode() & os.ModeSymlink) == 0 {
+			} /*else if (fi.Mode() & os.ModeSymlink) == 0 {
 				continue
-			}
+			}*/
 			speedStr := GetSysConfig(filepath.Join(netPath, "speed"))
 			speed := 0
 			if len(speedStr) > 0 {
