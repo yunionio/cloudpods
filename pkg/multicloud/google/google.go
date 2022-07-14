@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"unicode"
 
 	"golang.org/x/oauth2"
@@ -868,6 +869,7 @@ func _jsonRequest(cli *http.Client, method httputils.THttpMethod, url string, bo
 		} else {
 			log.Errorf("%s %s error: %v", method, url, err)
 		}
+		retry := false
 		for _, msg := range []string{
 			"EOF",
 			"i/o timeout",
@@ -875,10 +877,14 @@ func _jsonRequest(cli *http.Client, method httputils.THttpMethod, url string, bo
 			"connection reset by peer",
 		} {
 			if strings.Index(err.Error(), msg) >= 0 {
-				continue
+				retry = true
+				break
 			}
 		}
-		return nil, err
+		if !retry {
+			return nil, err
+		}
+		time.Sleep(time.Second * 10)
 	}
 	return nil, err
 }
