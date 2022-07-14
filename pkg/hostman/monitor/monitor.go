@@ -150,6 +150,7 @@ type Monitor interface {
 	// The callback function will be called in another goroutine
 	SimpleCommand(cmd string, callback StringCallback)
 	HumanMonitorCommand(cmd string, callback StringCallback)
+	QemuMonitorCommand(cmd string, callback StringCallback) error
 
 	QueryStatus(StringCallback)
 	GetVersion(StringCallback)
@@ -267,6 +268,10 @@ func (m *SBaseMonitor) Disconnect() {
 
 func (m *SBaseMonitor) IsConnected() bool {
 	return m.connected
+}
+
+func (m *SBaseMonitor) QemuMonitorCommand(cmd string, callback StringCallback) error {
+	return errors.ErrNotSupported
 }
 
 func (m *SBaseMonitor) checkReading() bool {
