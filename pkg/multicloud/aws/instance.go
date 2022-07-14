@@ -72,31 +72,33 @@ type SInstance struct {
 	InstanceId string
 	ImageId    string
 
-	HostName          string
-	InstanceName      string
-	InstanceType      string
-	Cpu               int
-	Memory            int // MB
-	IoOptimized       bool
-	KeyPairName       string
-	CreationTime      time.Time // LaunchTime
-	ExpiredTime       time.Time
-	ProductCodes      []string
-	PublicDNSName     string
-	InnerIpAddress    SIpAddress
-	PublicIpAddress   SIpAddress
-	RootDeviceName    string
-	Status            string // state
-	VlanId            string // subnet ID ?
-	VpcAttributes     SVpcAttributes
-	SecurityGroupIds  SSecurityGroupIds
-	NetworkInterfaces []SNetworkInterface
-	EipAddress        SEipAddress
-	Disks             []string
-	DeviceNames       []string
-	OSName            string
-	OSType            string
-	Description       string
+	HostName                string
+	InstanceName            string
+	InstanceType            string
+	Cpu                     int
+	Memory                  int // MB
+	IoOptimized             bool
+	KeyPairName             string
+	CreationTime            time.Time // LaunchTime
+	ExpiredTime             time.Time
+	ProductCodes            []string
+	PublicDNSName           string
+	InnerIpAddress          SIpAddress
+	PublicIpAddress         SIpAddress
+	RootDeviceName          string
+	Status                  string // state
+	VlanId                  string // subnet ID ?
+	VpcAttributes           SVpcAttributes
+	SecurityGroupIds        SSecurityGroupIds
+	NetworkInterfaces       []SNetworkInterface
+	EipAddress              SEipAddress
+	Disks                   []string
+	DeviceNames             []string
+	OSName                  string
+	OSType                  string
+	Description             string
+	InternetMaxBandwidthOut int
+	Throughput              int
 
 	TagSpec TagSpec
 
@@ -239,6 +241,14 @@ func (self *SInstance) GetExpiredAt() time.Time {
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
+}
+
+func (self *SInstance) GetThroughput() int {
+	return self.Throughput
+}
+
+func (self *SInstance) GetInternetMaxBandwidthOut() int {
+	return self.InternetMaxBandwidthOut
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {

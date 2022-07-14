@@ -68,8 +68,7 @@ type SDBInstance struct {
 	multicloud.HuaweiTags
 	region *SRegion
 
-	flavorCache []SDBInstanceFlavor
-
+	flavorCache         []SDBInstanceFlavor
 	BackupStrategy      SBackupStrategy
 	Created             string //time.Time
 	Datastore           SDatastore
@@ -79,6 +78,7 @@ type SDBInstance struct {
 	Ha                  SHa
 	Id                  string
 	MaintenanceWindow   string
+	MaxIops             int
 	Name                string
 	Nodes               []SNonde
 	Port                int
@@ -308,6 +308,10 @@ func (rds *SDBInstance) GetZone2Id() string {
 
 func (rds *SDBInstance) GetZone3Id() string {
 	return ""
+}
+
+func (rds *SDBInstance) GetIops() int {
+	return rds.MaxIops
 }
 
 type SRdsNetwork struct {

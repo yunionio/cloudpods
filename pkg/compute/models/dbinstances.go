@@ -106,6 +106,9 @@ type SDBInstance struct {
 	// example: ha
 	Category string `nullable:"false" list:"user" create:"optional"`
 
+	// 最大连接数
+	Iops int `nullable:"true" list:"user" create:"optional"`
+
 	// 引擎
 	// example: MySQL
 	Engine string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -1600,6 +1603,9 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		self.Category = ext.GetCategory()
 		self.Status = ext.GetStatus()
 		self.Port = ext.GetPort()
+		if iops := ext.GetIops(); iops > 0 {
+			self.Iops = iops
+		}
 
 		self.ConnectionStr = ext.GetConnectionStr()
 		self.InternalConnectionStr = ext.GetInternalConnectionStr()
@@ -1688,6 +1694,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	instance.Status = extInstance.GetStatus()
 	instance.Port = extInstance.GetPort()
 
+	instance.Iops = extInstance.GetIops()
 	instance.Engine = extInstance.GetEngine()
 	instance.EngineVersion = extInstance.GetEngineVersion()
 	instance.InstanceType = extInstance.GetInstanceType()
