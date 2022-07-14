@@ -165,6 +165,11 @@ type SGuest struct {
 	SshableLastState tristate.TriState `default:"false" list:"user"`
 
 	IsDaemon tristate.TriState `default:"false" list:"admin" create:"admin_optional" update:"admin"`
+
+	// 最大内网带宽
+	InternetMaxBandwidthOut int `nullable:"false" list:"user" create:"optional"`
+	// 磁盘吞吐量
+	Throughput int `nullable:"true" list:"user" create:"optional"`
 }
 
 func (manager *SGuestManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
@@ -2705,6 +2710,8 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		if !recycle {
 			self.HostId = host.Id
 		}
+		self.InternetMaxBandwidthOut = extVM.GetInternetMaxBandwidthOut()
+		self.Throughput = extVM.GetThroughput()
 
 		instanceType := extVM.GetInstanceType()
 
@@ -2791,6 +2798,8 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Machine = extVM.GetMachine()
 	guest.Hypervisor = extVM.GetHypervisor()
 	guest.Hostname = extVM.GetHostname()
+	guest.InternetMaxBandwidthOut = extVM.GetInternetMaxBandwidthOut()
+	guest.Throughput = extVM.GetThroughput()
 
 	guest.IsEmulated = extVM.IsEmulated()
 

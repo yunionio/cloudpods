@@ -78,3 +78,11 @@ func (self *SInstanceBase) GetOSArch() string {
 func (self *SInstanceBase) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
 	return "", errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateDisk")
 }
+
+func (self *SInstanceBase) GetThroughput() int {
+	return 0
+}
+
+func (self *SInstanceBase) GetInternetMaxBandwidthOut() int {
+	return 0
+}

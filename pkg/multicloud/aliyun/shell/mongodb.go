@@ -49,6 +49,7 @@ func init() {
 		}
 		printObject(db)
 		return nil
+
 	})
 
 	shellutils.R(&MongoDBIdOptions{}, "mongodb-delete", "Delete mongodb", func(cli *aliyun.SRegion, args *MongoDBIdOptions) error {
