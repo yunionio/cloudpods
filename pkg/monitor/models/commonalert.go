@@ -194,8 +194,10 @@ func (man *SCommonAlertManager) ValidateCreateData(
 		}
 	}
 	// 默认的系统配置Recipients=commonalert-default
-	if data.AlertType != monitor.CommonAlertSystemAlertType && len(data.Recipients) == 0 {
-		return data, merrors.NewArgIsEmptyErr("recipients")
+	if data.AlertType != monitor.CommonAlertSystemAlertType {
+		if len(data.Recipients) == 0 && len(data.RobotIds) == 0 && len(data.Roles) == 0 {
+			return data, merrors.NewArgIsEmptyErr("recipients, robot_ids or roles")
+		}
 	}
 
 	if len(data.CommonMetricInputQuery.MetricQuery) == 0 {
