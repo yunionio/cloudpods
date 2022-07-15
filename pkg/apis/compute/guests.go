@@ -840,6 +840,11 @@ type ServerGetCPUSetCoresResp struct {
 	HostUsedCores []int `json:"host_used_cores"`
 }
 
+type ServerMonitorInput struct {
+	COMMAND string
+	QMP     bool
+}
+
 type ServerQemuInfo struct {
 	Version string `json:"version"`
 	Cmdline string `json:"cmdline"`

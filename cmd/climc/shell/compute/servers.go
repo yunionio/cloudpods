@@ -104,6 +104,7 @@ func init() {
 	cmd.Perform("cpuset-remove", &options.ServerIdOptions{})
 	cmd.Perform("calculate-record-checksum", &options.ServerIdOptions{})
 	cmd.Perform("set-class-metadata", &baseoptions.ResourceMetadataOptions{})
+	cmd.Perform("monitor", &options.ServerMonitorOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
@@ -302,23 +303,6 @@ func init() {
 			return e
 		}
 		printObject(i)
-		return nil
-	})
-
-	R(&options.ServerMonitorOptions{}, "server-monitor", "Send commands to qemu monitor", func(s *mcclient.ClientSession, opts *options.ServerMonitorOptions) error {
-		params, err := baseoptions.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		ret, err := modules.Servers.PerformAction(s, opts.ID, "monitor", params)
-		if err != nil {
-			return err
-		}
-		result, err := ret.GetString("results")
-		if err != nil {
-			return err
-		}
-		fmt.Println(result)
 		return nil
 	})
 
