@@ -110,12 +110,13 @@ type ServerSSHLoginOptions struct {
 }
 
 type ServerConvertToKvmOptions struct {
-	ServerIdOptions
+	ServerIdsOptions
+
 	PreferHost string `help:"Perfer host id or name" json:"prefer_host"`
 }
 
 func (o *ServerConvertToKvmOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(o), nil
+	return options.StructToParams(o)
 }
 
 type ServerStartOptions struct {
