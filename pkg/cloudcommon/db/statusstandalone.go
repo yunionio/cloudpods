@@ -16,6 +16,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -141,6 +142,7 @@ func (manager *SStatusStandaloneResourceBaseManager) OrderByExtraFields(ctx cont
 }
 
 func (manager *SStatusStandaloneResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	fmt.Println("this is SStatusStandaloneResourceBaseManager", field)
 	q, err := manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil

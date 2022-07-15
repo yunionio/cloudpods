@@ -166,6 +166,7 @@ func (manager *SNetworkResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.
 		netQuery := NetworkManager.Query("name", "id").SubQuery()
 		q = q.AppendField(netQuery.Field("name", field)).Distinct()
 		q = q.Join(netQuery, sqlchemy.Equals(q.Field("network_id"), netQuery.Field("id")))
+		q.DebugQuery()
 		return q, nil
 	default:
 		nets := NetworkManager.Query("id", "wire_id").SubQuery()

@@ -16,6 +16,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -148,6 +149,7 @@ func (manager *SStandaloneAnonResourceBaseManager) ListItemFilter(
 }
 
 func (manager *SStandaloneAnonResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	fmt.Println("this is SStandaloneAnonResourceBaseManager:", field)
 	q, err := manager.SMetadataResourceBaseModelManager.QueryDistinctExtraField(manager.GetIModelManager(), q, field)
 	if err == nil {
 		return q, nil

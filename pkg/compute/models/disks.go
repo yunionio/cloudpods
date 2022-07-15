@@ -293,6 +293,14 @@ func (manager *SDiskManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field s
 	if err == nil {
 		return q, nil
 	}
+	if field == "guest_status" {
+		guestDiskQuery := GuestdiskManager.Query("disk_id", "guest_id").SubQuery()
+		q = q.LeftJoin(guestDiskQuery, sqlchemy.Equals(q.Field("id"), guestDiskQuery.Field("disk_id")))
+		guestQuery := GuestManager.Query().SubQuery()
+		q.AppendField(guestQuery.Field("status", field)).Distinct()
+		q.Join(guestQuery, sqlchemy.Equals(guestQuery.Field("id"), guestDiskQuery.Field("guest_id")))
+		return q, nil
+	}
 	q, err = manager.SStorageResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil

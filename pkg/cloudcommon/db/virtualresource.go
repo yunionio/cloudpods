@@ -16,6 +16,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -666,6 +667,7 @@ func (manager *SVirtualResourceBaseManager) ListItemFilter(
 }
 
 func (manager *SVirtualResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	fmt.Println("this is in SVirtualResourceBaseManager:", field)
 	q, err := manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
