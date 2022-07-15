@@ -154,7 +154,7 @@ func (s Servers) NeedSync() bool {
 }
 
 func (s Servers) ModelFilter() []string {
-	return []string{"hypervisor.notin(baremetal,container)"}
+	return []string{"hypervisor.notin(container)"}
 }
 
 func (h Hosts) AddModel(i db.IModel) {
