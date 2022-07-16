@@ -459,10 +459,10 @@ func (manager *SModelBaseManager) GetI18N(ctx context.Context, idstr string, res
 }
 
 func (manager *SModelBaseManager) GetPropertySplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	stable := manager.GetImmutableInstance(userCred).GetSplitTable()
+	stable := manager.GetIModelManager().GetImmutableInstance(userCred).GetSplitTable()
 	if stable == nil {
 		// generate a fake metadata tbl record
-		man := manager.GetImmutableInstance(userCred)
+		man := manager.GetIModelManager().GetImmutableInstance(userCred)
 		subq := man.Query().SubQuery()
 		q := subq.Query(
 			sqlchemy.MIN("start", subq.Field("id")),
@@ -491,7 +491,7 @@ func (manager *SModelBaseManager) GetPropertySplitable(ctx context.Context, user
 }
 
 func (manager *SModelBaseManager) GetPropertySplitableExport(ctx context.Context, userCred mcclient.TokenCredential, input apis.SplitTableExportInput) (jsonutils.JSONObject, error) {
-	splitable := manager.GetImmutableInstance(userCred).GetSplitTable()
+	splitable := manager.GetIModelManager().GetImmutableInstance(userCred).GetSplitTable()
 	if splitable == nil {
 		return nil, errors.Wrap(httperrors.ErrNotSupported, "not splitable")
 	}
@@ -527,7 +527,7 @@ func (manager *SModelBaseManager) AllowPerformPurgeSplitable(ctx context.Context
 }
 
 func (manager *SModelBaseManager) PerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PurgeSplitTableInput) (jsonutils.JSONObject, error) {
-	splitable := manager.GetImmutableInstance(userCred).GetSplitTable()
+	splitable := manager.GetIModelManager().GetImmutableInstance(userCred).GetSplitTable()
 	if splitable == nil {
 		return jsonutils.Marshal(map[string][]string{"tables": []string{}}), nil
 	}
