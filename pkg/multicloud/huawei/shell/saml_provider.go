@@ -15,7 +15,9 @@
 package shell
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei"
+	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
@@ -28,6 +30,29 @@ func init() {
 			return err
 		}
 		printList(result, 0, 0, 0, nil)
+		return nil
+	})
+
+	type SAMLProviderCreateOptions struct {
+		NAME     string
+		Metadata string
+	}
+	shellutils.R(&SAMLProviderCreateOptions{}, "saml-provider-create", "Create saml provider", func(cli *huawei.SRegion, args *SAMLProviderCreateOptions) error {
+		opts := cloudprovider.SAMLProviderCreateOptions{
+			Name: args.NAME,
+		}
+		if len(args.Metadata) > 0 {
+			var err error
+			opts.Metadata, err = samlutils.ParseMetadata([]byte(args.Metadata))
+			if err != nil {
+				return err
+			}
+		}
+		result, err := cli.GetClient().CreateSAMLProvider(&opts)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 
