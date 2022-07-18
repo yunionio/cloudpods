@@ -156,6 +156,8 @@ const (
 	QCLOUD_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD = "local_ssd" //本地盘SSD盘
 	QCLOUD_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD = "cloud_ssd" //SSD云盘
 
+	// Azure
+	AZURE_DBINSTANCE_STORAGE_TYPE_DEFAULT = "default"
 )
 
 var (
