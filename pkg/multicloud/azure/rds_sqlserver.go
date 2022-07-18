@@ -142,7 +142,7 @@ func (self *SSQLServer) GetStatus() string {
 }
 
 func (self *SSQLServer) GetStorageType() string {
-	return ""
+	return api.AZURE_DBINSTANCE_STORAGE_TYPE_DEFAULT
 }
 
 func (self *SSQLServer) fetchDatabase() ([]SSQLServerDatabase, error) {
