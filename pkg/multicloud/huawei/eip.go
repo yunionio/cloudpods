@@ -16,7 +16,6 @@ package huawei
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -172,10 +171,6 @@ func (self *SEipAddress) GetAssociationType() string {
 	if err != nil {
 		log.Errorf("Get eip %s port %s error: %v", self.ID, self.PortId, err)
 		return ""
-	}
-
-	if strings.HasPrefix(port.DeviceOwner, "compute") {
-		return api.EIP_ASSOCIATE_TYPE_SERVER
 	}
 
 	switch port.DeviceOwner {
