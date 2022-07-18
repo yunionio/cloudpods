@@ -161,7 +161,7 @@ func (self *SAzureClient) getClient(resource TAzureResource) (*autorest.Client, 
 	transport, _ := httpClient.Transport.(*http.Transport)
 	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
 		if self.cpcfg.ReadOnly {
-			if req.Method == "GET" {
+			if req.Method == "GET" || (req.Method == "POST" && strings.HasSuffix(req.URL.Path, "oauth2/token")) {
 				return nil, nil
 			}
 			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
