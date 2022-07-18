@@ -264,10 +264,6 @@ func (self *SRegion) cloudWatchRequest(apiName string, params *cloudwatch.GetMet
 		APIVersion:    "2010-08-01",
 	}
 
-	requestErr := aws.LogDebugWithRequestErrors
-
-	c.Config.LogLevel = &requestErr
-
 	client := client.New(*c.Config, metadata, c.Handlers)
 	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
 	client.Handlers.Build.PushBackNamed(query.BuildHandler)
