@@ -37,70 +37,80 @@ func (self *SAzureCloudReport) CollectRegionMetric(region cloudprovider.ICloudRe
 
 func (self *SAzureCloudReport) collectRegionMetricOfHost(region cloudprovider.ICloudRegion,
 	servers []jsonutils.JSONObject) error {
-	dataList := make([]influxdb.SMetricData, 0)
 	azureReg := region.(*azure.SRegion)
 	since, until, err := common.TimeRangeFromArgs(self.Args)
 	if err != nil {
 		return err
 	}
 	for _, server := range servers {
+		dataList := make([]influxdb.SMetricData, 0)
 		srvId, _ := server.GetString("id")
 		srvName, _ := server.GetString("name")
 		srvPrefix := srvId + "/" + "srvName"
-		external_id, err := server.GetString("external_id")
+		externalId, err := server.GetString("external_id")
 		if err != nil {
 			continue
 		}
 		classicKey := "microsoft.classiccompute/virtualmachines"
 		ns, metricSpecs := self.getMetricSpecs(server)
-		if strings.Contains(strings.ToLower(external_id), classicKey) {
+		if strings.Contains(strings.ToLower(externalId), classicKey) {
 			ns = classicKey
 			metricSpecs = azureClassicMetricsSpec
 		}
-		metricNameArr := make([]string, 0)
-		for metricName := range metricSpecs {
-			metricNameArr = append(metricNameArr, metricName)
+		// SQLServer with databases/master
+		if strings.Contains(strings.ToLower(externalId), "microsoft.sql/servers") {
+			externalId = fmt.Sprintf("%s/databases/master", externalId)
 		}
-		metricNames := strings.Join(metricNameArr, ",")
-		azureReg.GetClient().Debug(true)
-		rtnMetrics, err := azureReg.GetMonitorData(metricNames, ns, external_id, since, until, self.Args.MetricInterval)
-		if err != nil {
-			log.Errorf("get metrics for server %s error: %v", srvPrefix, err)
-			continue
-		}
-		if rtnMetrics == nil || rtnMetrics.Value == nil {
-			log.Warningf("server %s metrics is nil", srvPrefix)
-			continue
-		}
-		for metricName, influxDbSpecs := range metricSpecs {
-			for _, value := range *rtnMetrics.Value {
-				if value.Name.LocalizedValue != nil {
-					if metricName == *(value.Name.LocalizedValue) || (value.Name.Value != nil && *value.Name.Value == metricName) {
-						if self.Operator == string(common.SERVER) {
-							metric, err := common.FillVMCapacity(server.(*jsonutils.JSONDict))
-							if err != nil {
-								return errors.Wrapf(err, "fill vm %q capacity", srvPrefix)
-							}
-							dataList = append(dataList, metric)
-						}
-						if value.Timeseries != nil {
-							for _, timeserie := range *value.Timeseries {
-								serverMetric, err := self.collectMetricFromThisServer(server, timeserie, influxDbSpecs)
+
+		err = func() error {
+			metricNameArr := make([]string, 0)
+			for metricName := range metricSpecs {
+				metricNameArr = append(metricNameArr, metricName)
+			}
+			metricNames := strings.Join(metricNameArr, ",")
+			rtnMetrics, err := azureReg.GetMonitorData(metricNames, ns, externalId, since, until, self.Args.MetricInterval)
+			if err != nil {
+				return errors.Wrapf(err, "GetMonitorData")
+			}
+			if rtnMetrics == nil || rtnMetrics.Value == nil {
+				return fmt.Errorf("server %s metic is nil", srvPrefix)
+			}
+
+			for metricName, influxDbSpecs := range metricSpecs {
+				for _, value := range *rtnMetrics.Value {
+					if value.Name.LocalizedValue != nil {
+						if metricName == *(value.Name.LocalizedValue) || (value.Name.Value != nil && *value.Name.Value == metricName) {
+							if self.Operator == string(common.SERVER) {
+								metric, err := common.FillVMCapacity(server.(*jsonutils.JSONDict))
 								if err != nil {
-									return errors.Wrapf(err, "collect metrics from server %q", srvPrefix)
+									return errors.Wrapf(err, "fill vm %q capacity", srvPrefix)
 								}
-								dataList = append(dataList, serverMetric...)
+								dataList = append(dataList, metric)
+							}
+							if value.Timeseries != nil {
+								for _, timeserie := range *value.Timeseries {
+									serverMetric, err := self.collectMetricFromThisServer(server, timeserie, influxDbSpecs)
+									if err != nil {
+										return errors.Wrapf(err, "collect metrics from server %q", srvPrefix)
+									}
+									dataList = append(dataList, serverMetric...)
+								}
 							}
 						}
 					}
 				}
 			}
+			return nil
+		}()
+		if err != nil {
+			log.Errorf("collect azure %s %s %s metric error: %v", externalId, ns, srvName, err)
+			continue
 		}
+		log.Infof("send %s %s %d metrics", ns, externalId, len(dataList))
 		err = common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
 		if err != nil {
 			log.Errorf("send %q metrics error: %v", srvName, err)
 		}
-		dataList = dataList[:0]
 	}
 	return nil
 }
@@ -181,7 +191,7 @@ func (self *SAzureCloudReport) getRdsMetricSpecsByEngine(res jsonutils.JSONObjec
 	}
 	switch engine {
 	case com_api.DBINSTANCE_TYPE_SQLSERVER:
-		return "Microsoft.Sql/servers/databases", azureRdsMetricsSpec
+		return "Microsoft.Sql/servers/databases", azureRdsMetricsSpecSqlserver
 	case com_api.DBINSTANCE_TYPE_MYSQL:
 		return fmt.Sprintf("Microsoft.DBforMySQL/%s", suffix), azureRdsMetricsSpec
 	case com_api.DBINSTANCE_TYPE_POSTGRESQL:

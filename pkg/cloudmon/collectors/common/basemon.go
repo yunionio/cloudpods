@@ -142,10 +142,7 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 	if err != nil {
 		return nil, errors.Wrap(err, "getCloudAccount error")
 	}
-	options, err := cloudAccout.Get("options")
-	if err != nil {
-		log.Errorf("get cloudAccout options err:%v", err)
-	}
+	options, _ := cloudAccout.Get("options")
 	if options == nil || options.Interface() == nil {
 		options = jsonutils.NewDict()
 	}
