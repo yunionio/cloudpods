@@ -218,19 +218,38 @@ func (self *SHuaweiClient) CreateSAMLProvider(opts *cloudprovider.SAMLProviderCr
 			name = append(name, '-')
 		}
 	}
-	opts.Name = string(name)
-	_, err = client.SAMLProviders.Update(opts.Name, params)
-	if err != nil {
-		if he, ok := err.(*modules.HuaweiClientError); ok && he.Code != 409 {
-			return nil, errors.Wrapf(err, "SAMLProviders.Update")
+	samlName := string(name)
+	err = func() error {
+		idx := 1
+		for {
+			_, err = client.SAMLProviders.Update(samlName, params)
+			if err == nil {
+				return nil
+			}
+			he, ok := err.(*modules.HuaweiClientError)
+			if !ok {
+				return errors.Wrapf(err, "SAMLProviders.Update")
+			}
+			if he.Code != 409 {
+				return errors.Wrapf(err, "SAMLProviders.Update")
+			}
+			samlName = fmt.Sprintf("%s-%d", string(name), idx)
+			idx++
+			if idx >= 40 {
+				break
+			}
 		}
+		return err
+	}()
+	if err != nil {
+		return nil, errors.Wrapf(err, "saml provider create")
 	}
-	ret := SAMLProvider{client: self, Id: opts.Name}
-	err = self.UpdateSAMLProviderMetadata(opts.Name, opts.Metadata.String())
+	ret := SAMLProvider{client: self, Id: samlName}
+	err = self.UpdateSAMLProviderMetadata(samlName, opts.Metadata.String())
 	if err != nil {
 		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
-	err = self.InitSAMLProviderMapping(opts.Name)
+	err = self.InitSAMLProviderMapping(samlName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "InitSAMLProviderMapping")
 	}
