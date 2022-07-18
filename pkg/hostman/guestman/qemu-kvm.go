@@ -1705,7 +1705,7 @@ func (s *SKVMGuestInstance) setCgroupCPUSet() {
 	var input *api.ServerCPUSetInput
 	if s.Desc.Contains("metadata", api.VM_METADATA_CGROUP_CPUSET) {
 		input = new(api.ServerCPUSetInput)
-		err := s.Desc.Unmarshal(s.Desc, "metadata", api.VM_METADATA_CGROUP_CPUSET)
+		err := s.Desc.Unmarshal(input, "metadata", api.VM_METADATA_CGROUP_CPUSET)
 		if err != nil {
 			log.Errorf("Unmarshal %s to ServerCPUSetInput failed: %s", api.VM_METADATA_CGROUP_CPUSET, err)
 			return
