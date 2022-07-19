@@ -15,7 +15,7 @@ onecloud-base:
 onecloud-base-3-15-4:
 	$(DOCKER_BUILDX)/onecloud-base:$(ONECLOUD_BASE_VERSION_3-15-4) -f ./Dockerfile.onecloud-base-3-15-4 .
 
-ANSIBLESERVER_BASE = v1.0.5-2
+ANSIBLESERVER_BASE = v1.1.1
 
 ansibleserver-base:
 	$(DOCKER_BUILDX)/ansibleserver-base:$(ANSIBLESERVER_BASE) -f ./Dockerfile.ansibleserver-base .
