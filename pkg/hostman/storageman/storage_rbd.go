@@ -577,6 +577,10 @@ func (s *SRbdStorage) GetBackupDir() string {
 	return ""
 }
 
+func (s *SRbdStorage) CreateDiskFromExistingPath(context.Context, IDisk, *SDiskCreateByDiskinfo) error {
+	return fmt.Errorf("Not support")
+}
+
 func (s *SRbdStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
 	backup := input.DiskInfo.Backup
 	pool, _ := s.StorageConf.GetString("pool")

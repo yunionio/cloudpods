@@ -461,12 +461,17 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 	if err != nil {
 		return input, err
 	}
+	if input.ExistingPath != "" && input.Storage == "" {
+		return input, httperrors.NewInputParameterError("disk create from existing disk must give storage")
+	}
+
 	input.ProjectId = ownerId.GetProjectId()
 	input.ProjectDomainId = ownerId.GetProjectDomainId()
 
 	var quotaKey quotas.IQuotaKeys
 
 	storageID := input.Storage
+
 	if storageID != "" {
 		storageObj, err := StorageManager.FetchByIdOrName(nil, storageID)
 		if err != nil {
@@ -558,6 +563,13 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, s
 	if storage.StorageType != diskConfig.Backend {
 		return httperrors.NewInputParameterError("Storage type[%s] not match backend %s", storage.StorageType, diskConfig.Backend)
 	}
+	if diskConfig.ExistingPath != "" {
+		if !utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
+			return httperrors.NewInputParameterError(
+				"Disk create from existing path, unsupport storage type %s", storage.StorageType)
+		}
+	}
+
 	if host, _ := storage.GetMasterHost(); host != nil {
 		//公有云磁盘大小检查。
 		if err := host.GetHostDriver().ValidateDiskSize(storage, diskConfig.SizeMb>>10); err != nil {
@@ -663,12 +675,24 @@ func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCre
 	return newData
 }*/
 
+func (disk *SDisk) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	input := api.DiskCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		log.Errorf("!!!data.Unmarshal api.DiskCreateInput fail %s", err)
+	}
+	if input.ExistingPath != "" {
+		disk.SetMetadata(ctx, api.DISK_META_EXISTING_PATH, input.ExistingPath, userCred)
+	}
+}
+
 func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	input := api.DiskCreateInput{}
 	err := data.Unmarshal(&input)
 	if err != nil {
 		log.Errorf("!!!data.Unmarshal api.DiskCreateInput fail %s", err)
 	}
+
 	pendingUsage := getDiskResourceRequirements(ctx, userCred, ownerId, input, len(items))
 	parentTaskId, _ := data.GetString("parent_task_id")
 	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, SRegionQuota{}, "DiskBatchCreateTask", parentTaskId)
@@ -761,6 +785,10 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 			return errors.Wrap(err, "GetEncryptInfo")
 		}
 	}
+	if ePath := self.GetMetadata(ctx, api.DISK_META_EXISTING_PATH, userCred); ePath != "" {
+		input.ExistingPath = ePath
+	}
+
 	if rebuild {
 		return host.GetHostDriver().RequestRebuildDiskOnStorage(ctx, host, storage, self, task, input)
 	} else {

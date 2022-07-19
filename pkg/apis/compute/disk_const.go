@@ -63,3 +63,5 @@ const (
 	DISK_NOT_EXIST = "not_exist"
 	DISK_EXIST     = "exist"
 )
+
+const DISK_META_EXISTING_PATH = "disk_existing_path"
