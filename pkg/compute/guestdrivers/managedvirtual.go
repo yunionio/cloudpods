@@ -373,6 +373,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
 	desc := cloudprovider.SManagedVMCreateConfig{}
+	// 账号必须在desc.GetConfig()之前设置，避免默认用户不能正常注入
+	desc.Account = guest.GetDriver().GetDefaultAccount(desc)
 	err = desc.GetConfig(config)
 	if err != nil {
 		return errors.Wrapf(err, "desc.GetConfig")
@@ -413,7 +415,6 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 		}
 	}
 
-	desc.Account = guest.GetDriver().GetDefaultAccount(desc)
 	desc.UserData, err = desc.GetUserData()
 	if err != nil {
 		return errors.Wrapf(err, "GetUserData")
