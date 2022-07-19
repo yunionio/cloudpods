@@ -422,6 +422,14 @@ type ClusterComponentMonitorGrafanaOAuth struct {
 	RoleAttributePath string `help:"Role attribute path" json:"roleAttributePath"`
 }
 
+type ClusterComponentMonitorGrafanaDB struct {
+	Host     string `help:"db host" json:"host"`
+	Port     int    `help:"db port" json:"port"`
+	Database string `help:"db name" json:"database"`
+	Username string `help:"db username" json:"username"`
+	Password string `help:"db password" json:"password"`
+}
+
 type ClusterComponentMonitorGrafana struct {
 	Disable           bool                                 `help:"Disable grafana component" json:"disable"`
 	AdminUser         string                               `help:"Grafana admin user" default:"admin" json:"adminUser"`
@@ -435,6 +443,7 @@ type ClusterComponentMonitorGrafana struct {
 	Subpath           string                               `help:"Grafana subpath" default:"grafana" json:"subpath"`
 	EnableThanosQuery bool                                 `help:"Enable thanos query datasource" json:"enableThanosQueryDataSource"`
 	Oauth             ClusterComponentMonitorGrafanaOAuth  `help:"OAuth config" json:"oauth"`
+	Db                ClusterComponentMonitorGrafanaDB     `help:"db config" json:"db"`
 }
 
 type ObjectStoreConfig struct {
