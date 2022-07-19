@@ -296,6 +296,7 @@ type DiskAllocateInput struct {
 	Protocol           string
 	SrcDiskId          string
 	SrcPool            string
+	ExistingPath       string
 
 	// vmware
 	HostIp    string

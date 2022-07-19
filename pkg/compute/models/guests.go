@@ -3902,6 +3902,10 @@ func (self *SGuest) createDiskOnHost(
 	if err != nil {
 		return nil, err
 	}
+	if diskConfig.ExistingPath != "" {
+		disk.SetMetadata(ctx, api.DISK_META_EXISTING_PATH, diskConfig.ExistingPath, userCred)
+	}
+
 	if len(self.BackupHostId) > 0 {
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
 		backupStorage, err := self.ChooseHostStorage(backupHost, diskConfig, backupCandidate)

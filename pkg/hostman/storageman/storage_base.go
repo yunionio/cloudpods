@@ -123,7 +123,7 @@ type IStorage interface {
 	CreateDiskByDiskinfo(context.Context, interface{}) (jsonutils.JSONObject, error)
 	SaveToGlance(context.Context, interface{}) (jsonutils.JSONObject, error)
 	CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) error
-
+	CreateDiskFromExistingPath(context.Context, IDisk, *SDiskCreateByDiskinfo) error
 	CreateDiskFromBackup(context.Context, IDisk, *SDiskCreateByDiskinfo) error
 
 	// GetCloneTargetDiskPath generate target disk path by target disk id
@@ -354,6 +354,8 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 	case createParams.DiskInfo.Backup != nil:
 		log.Infof("CreateDiskFromBackup %s", createParams)
 		return s.createDiskFromBackup(ctx, disk, createParams)
+	case len(createParams.DiskInfo.ExistingPath) > 0:
+		return s.createDiskFromExistingPath(ctx, disk, createParams)
 	case createParams.DiskInfo.DiskSizeMb > 0:
 		log.Infof("CreateRawDisk %s", createParams)
 		return s.CreateRawDisk(ctx, disk, createParams)
@@ -392,6 +394,22 @@ func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, i
 	err := storage.CreateDiskFromSnapshot(ctx, disk, input)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateDiskFromSnapshot")
+	}
+
+	return disk.GetDiskDesc(), nil
+}
+
+func (s *SBaseStorage) createDiskFromExistingPath(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
+	var storage = input.Storage
+	if len(input.DiskInfo.ExistingPath) == 0 {
+		return nil, httperrors.NewMissingParameterError("existing_path")
+	}
+	if !strings.HasPrefix(input.DiskInfo.ExistingPath, storage.GetPath()) {
+		return nil, errors.Errorf("disk %s not in storage %s", input.DiskInfo.ExistingPath, storage.GetPath())
+	}
+	err := storage.CreateDiskFromExistingPath(ctx, disk, input)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateDiskFromExistingPath")
 	}
 
 	return disk.GetDiskDesc(), nil

@@ -212,6 +212,9 @@ type DiskConfig struct {
 
 	//swagger:ignore
 	DiskId string `json:"disk_id"`
+
+	//swagger:ignore
+	ExistingPath string `json:"existing_path"`
 }
 
 type IsolatedDeviceConfig struct {
