@@ -185,6 +185,8 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 			diskConfig.Storage = str
 		case "image", "image_id":
 			diskConfig.ImageId = str
+		case "existing_path":
+			diskConfig.ExistingPath = str
 		default:
 			return nil, errors.Errorf("invalid disk description %s", p)
 		}
