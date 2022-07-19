@@ -4,6 +4,8 @@ MAINTAINER "Yousong Zhou <zhouyousong@yunionyun.com>"
 
 ENV TZ UTC
 
+RUN sed -i 's!https://dl-cdn.alpinelinux.org/!https://mirrors.ustc.edu.cn/!g' /etc/apk/repositories
+
 # openssh-client, for ansible ssh connection
 # git, ca-certificates, for fetching ansible roles
 RUN set -x \
