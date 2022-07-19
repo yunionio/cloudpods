@@ -664,6 +664,16 @@ func (s *SLocalStorage) CreateDiskFromSnapshot(
 	return httperrors.NewUnsupportOperationError("Unsupport protocol %s for Local storage", info.Protocol)
 }
 
+func (s *SLocalStorage) CreateDiskFromExistingPath(
+	ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo,
+) error {
+	err := os.Link(input.DiskInfo.ExistingPath, disk.GetPath())
+	if err != nil {
+		return errors.Wrap(err, "os.link")
+	}
+	return nil
+}
+
 func (s *SLocalStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId string) string {
 	return path.Join(s.GetPath(), targetDiskId)
 }
