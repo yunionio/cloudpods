@@ -492,7 +492,7 @@ type UserCreateInput struct {
 
 	Email string `json:"email"`
 
-	Mobile string `json:"mobule"`
+	Mobile string `json:"mobile"`
 
 	Displayname string `json:"displayname"`
 
