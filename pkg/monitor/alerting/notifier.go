@@ -157,7 +157,7 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 	return result, nil
 }
 
-func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, shouldNotify bool) {
+func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, shouldNotify bool) error {
 	var matches []*monitor.EvalMatch
 	if evalCtx.Firing {
 		matches = evalCtx.EvalMatches
@@ -188,7 +188,7 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
 		createData, evalCtx.UserCred)
 	if err != nil {
-		log.Errorf("create alert record err:%v", err)
+		return errors.Wrapf(err, "db.DoCreate")
 	}
 	alertData := jsonutils.Marshal(alert)
 	alertData.(*jsonutils.JSONDict).Set("project_id", jsonutils.NewString(alert.GetProjectId()))
@@ -196,11 +196,12 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	dbMatches, _ := record.(*models.SAlertRecord).GetEvalData()
 	if !evalCtx.Firing {
 		evalCtx.AlertOkEvalMatches = make([]*monitor.EvalMatch, len(dbMatches))
-		for i, _ := range dbMatches {
+		for i := range dbMatches {
 			evalCtx.AlertOkEvalMatches[i] = &dbMatches[i]
 		}
 	}
 	record.PostCreate(evalCtx.Ctx, evalCtx.UserCred, evalCtx.UserCred, nil, createData)
+	return nil
 }
 
 func (n *notificationService) dealNeedShieldEvalMatchs(evalCtx *EvalContext, match []*monitor.EvalMatch) {
@@ -209,7 +210,7 @@ func (n *notificationService) dealNeedShieldEvalMatchs(evalCtx *EvalContext, mat
 		AlertId: evalCtx.Rule.Id,
 	}
 filterMatch:
-	for i, _ := range match {
+	for i := range match {
 		input.ResId = match[i].Tags[monitor.MEASUREMENT_TAG_ID[input.ResType]]
 		alertRecordShields, err := models.AlertRecordShieldManager.GetRecordShields(input)
 		if err != nil {
