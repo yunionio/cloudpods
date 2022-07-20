@@ -17,6 +17,8 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"net/url"
 
 	"yunion.io/x/pkg/errors"
 
@@ -27,11 +29,81 @@ import (
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 )
 
-func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error) {
-	// not supported
+func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider, redirectUrl string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 	data := samlutils.SSAMLIdpInitiatedLoginData{}
+	_account, err := CloudaccountManager.FetchById(cloudAccountId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return data, httperrors.NewResourceNotFoundError2("cloudaccount", cloudAccountId)
+		}
+		return data, httperrors.NewGeneralError(err)
+	}
+	account := _account.(*SCloudaccount)
+	if account.Provider != api.CLOUD_PROVIDER_HUAWEI && account.Provider != api.CLOUD_PROVIDER_HCSO {
+		return data, httperrors.NewClientError("cloudaccount %s is %s not %s", account.Id, account.Provider, api.CLOUD_PROVIDER_HUAWEI)
+	}
+	if account.SAMLAuth.IsFalse() {
+		return data, httperrors.NewNotSupportedError("cloudaccount %s not open saml auth", account.Id)
+	}
 
-	return data, httperrors.ErrNotSupported
+	saml, valid := account.IsSAMLProviderValid()
+	if !valid {
+		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
+	}
+
+	uri := saml.AuthUrl
+	if len(uri) == 0 {
+		return data, httperrors.NewResourceNotReadyError("saml provider no auth url")
+	}
+	url, err := url.Parse(uri)
+	if err != nil {
+		return data, httperrors.NewInputParameterError("parse saml auth url %s error", uri)
+	}
+
+	domainId := url.Query().Get("domain_id")
+	idpId := url.Query().Get("idp")
+	if len(domainId) == 0 {
+		return data, httperrors.NewInputParameterError("saml auth url %s missing domain_id", uri)
+	}
+	if len(idpId) == 0 {
+		return data, httperrors.NewInputParameterError("saml auth url %s missing idp", uri)
+	}
+	groups, err := account.GetUserCloudgroups(userCred.GetUserId())
+	if err != nil {
+		return data, httperrors.NewGeneralError(errors.Wrapf(err, "GetUserCloudgroups"))
+	}
+	if len(groups) == 0 {
+		return data, httperrors.NewResourceNotFoundError("no available group found")
+	}
+
+	data.NameId = userCred.GetUserName()
+	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
+	data.AudienceRestriction = sp.GetEntityId()
+	for k, v := range map[string][]string{
+		"User":   {userCred.GetUserName()},
+		"Groups": groups,
+	} {
+		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
+			Name: k, FriendlyName: k,
+			NameFormat: "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+			Values:     v,
+		})
+	}
+	data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
+		Name: "IAM_SAML_Attributes_identityProviders", FriendlyName: "IAM_SAML_Attributes_identityProviders",
+		NameFormat: "urn:oasis:names:tc:SAML:2.0:attrname-format:basic",
+		Values:     []string{fmt.Sprintf("iam::%s:identityProvider:%s", domainId, idpId)},
+	})
+
+	if len(redirectUrl) > 0 {
+		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
+			Name: "IAM_SAML_Attributes_redirect_url", FriendlyName: "IAM_SAML_Attributes_redirect_url",
+			NameFormat: "urn:oasis:names:tc:SAML:2.0:attrname-format:basic",
+			Values:     []string{redirectUrl},
+		})
+	}
+
+	return data, nil
 }
 
 func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
@@ -78,6 +150,5 @@ func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCre
 			Values:     v,
 		})
 	}
-
 	return data, nil
 }

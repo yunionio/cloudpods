@@ -40,7 +40,7 @@ const (
 )
 
 type OnSpInitiatedLogin func(ctx context.Context, idpId string, sp *SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error)
-type OnIdpInitiatedLogin func(ctx context.Context, sp *SSAMLServiceProvider, IdpId string) (samlutils.SSAMLIdpInitiatedLoginData, error)
+type OnIdpInitiatedLogin func(ctx context.Context, sp *SSAMLServiceProvider, IdpId, redirectUrl string) (samlutils.SSAMLIdpInitiatedLoginData, error)
 type OnLogout func(ctx context.Context, idpId string) string
 
 type SSAMLIdpInstance struct {
@@ -307,7 +307,7 @@ func (idp *SSAMLIdpInstance) processIdpInitiatedLogin(ctx context.Context, input
 	if sp == nil {
 		return "", errors.Wrapf(httperrors.ErrResourceNotFound, "issuer %s not found", input.EntityID)
 	}
-	data, err := idp.onIdpInitiatedLogin(ctx, sp, input.IdpId)
+	data, err := idp.onIdpInitiatedLogin(ctx, sp, input.IdpId, input.RedirectUrl)
 	if err != nil {
 		return "", errors.Wrap(err, "idp.onIdpInitiatedLogin")
 	}
