@@ -246,7 +246,7 @@ func prepareServer() error {
 		return data, nil
 	}
 
-	idpFunc := func(ctx context.Context, sp *idp.SSAMLServiceProvider, idpId string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
+	idpFunc := func(ctx context.Context, sp *idp.SSAMLServiceProvider, idpId, redirectUrl string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 		log.Debugf("Recive IDP initiated Login: %s", sp.GetEntityId())
 		data := samlutils.SSAMLIdpInitiatedLoginData{}
 		switch sp.GetEntityId() {

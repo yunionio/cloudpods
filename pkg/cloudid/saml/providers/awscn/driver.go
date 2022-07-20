@@ -29,7 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 )
 
-func (d *SAWSCNSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error) {
+func (d *SAWSCNSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider, redirectUrl string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 	data := samlutils.SSAMLIdpInitiatedLoginData{}
 	_account, err := models.CloudaccountManager.FetchById(cloudAccountId)
 	if err != nil {
