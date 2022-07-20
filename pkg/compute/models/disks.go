@@ -1844,7 +1844,7 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 	// if len(diskConfig.ImageId) > 0 && diskConfig.SizeMb == 0 {
 	// 	diskConfig.SizeMb = options.Options.DefaultDiskSize // MB
 	// else
-	if len(info.ImageId) == 0 && info.SizeMb == 0 {
+	if len(info.ImageId) == 0 && info.SizeMb == 0 && info.ExistingPath == "" {
 		return nil, httperrors.NewInputParameterError("Diskinfo index %d: both imageID and size are absent", info.Index)
 	}
 	return info, nil
@@ -1991,7 +1991,8 @@ func fillDiskConfigByStorage(userCred mcclient.TokenCredential,
 	if storage.Status != api.STORAGE_ONLINE {
 		return errors.Wrap(httperrors.ErrInvalidStatus, "storage not online")
 	}
-	diskConfig.Storage = storageObj.GetId()
+	diskConfig.Storage = storage.Id
+	diskConfig.Backend = storage.StorageType
 	return nil
 }
 
