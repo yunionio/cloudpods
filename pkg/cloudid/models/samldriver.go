@@ -41,7 +41,7 @@ type ICloudSAMLLoginDriver interface {
 	GetMetadataFilename() string
 	GetMetadataUrl() string
 
-	GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLIdpInitiatedLoginData, error)
+	GetIdpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider, redirectUrl string) (samlutils.SSAMLIdpInitiatedLoginData, error)
 	GetSpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccoutId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error)
 }
 
