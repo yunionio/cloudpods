@@ -46,18 +46,9 @@ func initSAMLIdp(app *appsrv.Application, prefix string) error {
 			return data, errors.Wrap(err, "driver.GetSpInitiatedLoginData")
 		}
 		return data, nil
-		/*
-			switch sp.GetEntityId() {
-			case SAML_ENTITY_ID_HUAWEI_CLOUD: // 华为云 SSO
-
-			case SAML_ENTITY_ID_TENCENT_CLOUD: // 腾讯云 role SSO
-
-			}
-			return data
-		*/
 	}
 
-	idpFunc := func(ctx context.Context, sp *idp.SSAMLServiceProvider, idpId string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
+	idpFunc := func(ctx context.Context, sp *idp.SSAMLServiceProvider, idpId, redirectUrl string) (samlutils.SSAMLIdpInitiatedLoginData, error) {
 		token := auth.FetchUserCredential(ctx, nil)
 		log.Debugf("Recive IDP initiated Login: %s", sp.GetEntityId())
 		data := samlutils.SSAMLIdpInitiatedLoginData{}
@@ -65,7 +56,7 @@ func initSAMLIdp(app *appsrv.Application, prefix string) error {
 		if driver == nil {
 			return data, errors.Wrapf(httperrors.ErrResourceNotFound, "entityID %s not found", sp.GetEntityId())
 		}
-		data, err := driver.GetIdpInitiatedLoginData(ctx, token, idpId, sp)
+		data, err := driver.GetIdpInitiatedLoginData(ctx, token, idpId, sp, redirectUrl)
 		if err != nil {
 			return data, errors.Wrap(err, "driver.GetIdpInitiatedLoginData")
 		}
