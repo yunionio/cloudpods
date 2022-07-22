@@ -76,6 +76,10 @@ func (h *APIHelper) ModelSets() <-chan IModelSets {
 	return h.modelSetsCh
 }
 
+func (h *APIHelper) RunManually(ctx context.Context) {
+	h.run(ctx)
+}
+
 func (h *APIHelper) run(ctx context.Context) {
 	changed, err := h.doSync(ctx)
 	if err != nil {

@@ -97,6 +97,14 @@ type SMonitorResourceManager struct {
 	db.SEnabledResourceBaseManager
 
 	monitorResModelSets *MonitorResModelSets
+	apih                *apihelper.APIHelper
+}
+
+func (manager *SMonitorResourceManager) SetAPIHelper(h *apihelper.APIHelper) {
+	if manager.apih != nil {
+		panic("MonitorResourceManager's apihelper already set")
+	}
+	manager.apih = h
 }
 
 type SMonitorResource struct {
@@ -482,6 +490,10 @@ func (manager *SMonitorResourceManager) GetResourceObjByResType(typ string) (boo
 		return true, objects
 	}
 	return false, nil
+}
+
+func (manager *SMonitorResourceManager) SyncManually(ctx context.Context) {
+	manager.apih.RunManually(ctx)
 }
 
 func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *MonitorResModelSets) error {

@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/wait"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -126,7 +127,7 @@ func (r *sRecorder) startWatchMigratingProcess(ctx context.Context, s *mcclient.
 		if err != nil {
 			return false, errors.Wrapf(err, "Get server host_id %s(%s)", serverName, serverId)
 		}
-		if status == compute.VM_RUNNING {
+		if utils.IsInStringArray(status, []string{compute.VM_RUNNING, compute.VM_READY}) {
 			if curHostId != sourceHostId {
 				if curHostId == targetHostId {
 					return true, nil
@@ -136,8 +137,7 @@ func (r *sRecorder) startWatchMigratingProcess(ctx context.Context, s *mcclient.
 			} else {
 				return false, errors.Errorf("Server still in source host %s", sourceHostId)
 			}
-		}
-		if strings.HasSuffix(status, "_fail") || strings.HasSuffix(status, "_failed") {
+		} else if strings.HasSuffix(status, "_fail") || strings.HasSuffix(status, "_failed") {
 			if status == compute.VM_MIGRATE_FAILED {
 				// try sync status to orignal
 				if _, err := computemod.Servers.PerformAction(s, serverId, "syncstatus", nil); err != nil {
@@ -156,6 +156,8 @@ func (r *sRecorder) startWatchMigratingProcess(ctx context.Context, s *mcclient.
 		}
 	} else {
 		r.Record(s.GetToken(), alert, note, EventActionMigrateSuccess)
+		man := models.MonitorResourceManager
+		man.SyncManually(ctx)
 		if err := alert.SetMigrateNote(ctx, note, true); err != nil {
 			log.Errorf("Delete alert %s(%s) migrate note on success: %s", alert.GetName(), alert.GetId(), noteStr)
 		}

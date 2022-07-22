@@ -34,8 +34,9 @@ type Worker struct {
 	apih *apihelper.APIHelper
 }
 
-func NewWorker(opts *options.AlerterOptions) worker.IWorker {
-	modelSets := models.MonitorResourceManager.GetModelSets()
+func NewWorker(opts *options.AlerterOptions) (worker.IWorker, error) {
+	man := models.MonitorResourceManager
+	modelSets := man.GetModelSets()
 	apiOpts := &apihelper.Options{
 		CommonOptions:        opts.CommonOptions,
 		SyncInterval:         opts.APISyncInterval,
@@ -45,13 +46,14 @@ func NewWorker(opts *options.AlerterOptions) worker.IWorker {
 	}
 	apih, err := apihelper.NewAPIHelper(apiOpts, modelSets)
 	if err != nil {
-		return nil
+		return nil, errors.Wrap(err, "NewAPIHelper")
 	}
+	man.SetAPIHelper(apih)
 	w := &Worker{
 		opts: opts,
 		apih: apih,
 	}
-	return w
+	return w, nil
 }
 
 func (w *Worker) Start(ctx context.Context) {
