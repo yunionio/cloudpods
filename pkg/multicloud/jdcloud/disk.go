@@ -62,6 +62,10 @@ func (d *SDisk) GetGlobalId() string {
 	return d.GetId()
 }
 
+func (d *SDisk) GetIops() int {
+	return d.Iops
+}
+
 func (d *SDisk) GetStatus() string {
 	switch d.Status {
 	case "available", "in-use":

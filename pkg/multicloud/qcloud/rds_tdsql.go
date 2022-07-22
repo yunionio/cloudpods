@@ -29,8 +29,8 @@ import (
 )
 
 type STDSQL struct {
-	multicloud.SVirtualResourceBase
-	multicloud.SBillingBase
+	multicloud.SDBInstanceBase
+	// multicloud.SBillingBase
 	multicloud.QcloudTags
 	region *SRegion
 

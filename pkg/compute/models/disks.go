@@ -129,6 +129,9 @@ type SDisk struct {
 
 	// 最大连接数
 	Iops int `nullable:"true" list:"user" create:"optional"`
+
+	// 磁盘吞吐量
+	Throughput int `nullable:"true" list:"user" create:"optional"`
 }
 
 func (manager *SDiskManager) GetContextManagers() [][]db.IModelManager {

@@ -37,6 +37,8 @@ type SMongoDB struct {
 	multicloud.SBillingBase
 	region *SRegion
 
+	IOPS                int
+	NetworkAddress      string
 	AutoRenewFlag       int           `json:"AutoRenewFlag"`
 	CloneInstances      []interface{} `json:"CloneInstances"`
 	ClusterType         int           `json:"ClusterType"`
@@ -297,6 +299,14 @@ func (self *SRegion) GetMongoDBs(ids []string, limit, offset int) ([]SMongoDB, i
 	}
 	totalCount, _ := resp.Float("TotalCount")
 	return dbs, int(totalCount), nil
+}
+
+func (self *SMongoDB) GetIops() int {
+	return self.IOPS
+}
+
+func (self *SMongoDB) GetNetworkAddress() string {
+	return self.NetworkAddress
 }
 
 func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) {
