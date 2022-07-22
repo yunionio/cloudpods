@@ -178,6 +178,10 @@ func (rds *SDBInstance) GetStorageType() string {
 	return rds.DBInstanceStorageType
 }
 
+func (rds *SDBInstance) GetIops() int {
+	return rds.MaxIOPS
+}
+
 func (rds *SDBInstance) GetEngine() string {
 	switch rds.Engine {
 	case "MySQL":

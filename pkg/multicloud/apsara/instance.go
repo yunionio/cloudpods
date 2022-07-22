@@ -128,6 +128,7 @@ type SInstance struct {
 	VlanId                  string
 	VpcAttributes           SVpcAttributes
 	ZoneId                  string
+
 	DepartmentInfo
 }
 
@@ -199,6 +200,10 @@ func (self *SInstance) IsEmulated() bool {
 
 func (self *SInstance) GetInstanceType() string {
 	return self.InstanceType
+}
+
+func (self *SInstance) GetInternetMaxBandwidthOut() int {
+	return self.InternetMaxBandwidthOut
 }
 
 func (self *SInstance) getVpc() (*SVpc, error) {

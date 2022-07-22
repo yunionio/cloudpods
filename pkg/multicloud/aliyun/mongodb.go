@@ -31,19 +31,31 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
+type SMOngoDBAttribute struct {
+	// 实例最大IOPS
+	MaxIops     int
+	ReplicaSets struct {
+		ReplicaSet []struct {
+			ConnectionDomain string `json:"ConnectionDomain"`
+		}
+	}
+}
+
 type SMongoDB struct {
 	region *SRegion
 	multicloud.AliyunTags
 	multicloud.SBillingBase
 	multicloud.SResourceBase
 
-	ChargeType      TChargeType `json:"ChargeType"`
-	LockMode        string      `json:"LockMode"`
-	DBInstanceClass string      `json:"DBInstanceClass"`
-	ResourceGroupId string      `json:"ResourceGroupId"`
-	DBInstanceId    string      `json:"DBInstanceId"`
-	ZoneId          string      `json:"ZoneId"`
-	MongosList      struct {
+	ConnectionDomain string `json:"ConnectionDomain"`
+	NetworkAddress   string
+	ChargeType       TChargeType `json:"ChargeType"`
+	LockMode         string      `json:"LockMode"`
+	DBInstanceClass  string      `json:"DBInstanceClass"`
+	ResourceGroupId  string      `json:"ResourceGroupId"`
+	DBInstanceId     string      `json:"DBInstanceId"`
+	ZoneId           string      `json:"ZoneId"`
+	MongosList       struct {
 		MongosAttribute []struct {
 			NodeId    string `json:"NodeId"`
 			NodeClass string `json:"NodeClass"`
@@ -237,6 +249,16 @@ func (self *SMongoDB) GetVmemSizeMb() int {
 	return 0
 }
 
+func (self *SMongoDB) GetIops() int {
+	iops, _ := self.region.GetIops(self.DBInstanceId)
+	return iops
+}
+
+func (self *SMongoDB) GetNetworkAddress() string {
+	addr, _ := self.region.GetNetworkAddress(self.DBInstanceId)
+	return addr
+}
+
 func (self *SRegion) GetMongoDBsByType(mongoType string) ([]SMongoDB, error) {
 	dbs := []SMongoDB{}
 	for {
@@ -279,6 +301,47 @@ func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) 
 		ret = append(ret, &dbs[i])
 	}
 	return ret, nil
+}
+
+func (self *SRegion) GetIops(id string) (int, error) {
+	ret, err := self.GetMongoDBAttribute(id)
+	if err != nil {
+		return 0, errors.Wrapf(err, "DescribeDBInstanceAttribute err")
+	}
+	if len(ret) == 0 {
+		return 0, errors.Wrapf(err, "ret missing err")
+	}
+	return ret[0].MaxIops, nil
+}
+
+func (self *SRegion) GetNetworkAddress(id string) (string, error) {
+	ret, err := self.GetMongoDBAttribute(id)
+	if err != nil {
+		return "", errors.Wrapf(err, "DescribeDBInstanceAttribute err")
+	}
+	addrList := make([]string, 0)
+	for _, v := range ret[0].ReplicaSets.ReplicaSet {
+		addrList = append(addrList, v.ConnectionDomain)
+	}
+	addrs := strings.Join(addrList, ",")
+	return addrs, nil
+}
+
+func (self *SRegion) GetMongoDBAttribute(id string) ([]SMOngoDBAttribute, error) {
+	params := map[string]string{
+		"Action":       "DescribeDBInstanceAttribute",
+		"DBInstanceId": id,
+	}
+	resp, err := self.mongodbRequest("DescribeDBInstanceAttribute", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeDBInstanceAttribute err")
+	}
+	ret := []SMOngoDBAttribute{}
+	err = resp.Unmarshal(&ret, "DBInstances", "DBInstance")
+	if err != nil {
+		return nil, errors.Wrapf(err, "unmarshal err")
+	}
+	return ret, err
 }
 
 func (self *SRegion) GetMongoDBs(mongoType string, pageSize int, pageNum int) ([]SMongoDB, int, error) {

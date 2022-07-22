@@ -60,6 +60,7 @@ type SDBInstance struct {
 	DBInstanceId              string
 	ConnectionMode            string
 	ConnectionString          string
+	ConnectionDomain          string
 	CurrentKernelVersion      string
 	DBInstanceCPU             int
 	CreateTime                time.Time
@@ -282,6 +283,17 @@ func (rds *SDBInstance) GetZone2Id() string {
 
 func (rds *SDBInstance) GetZone3Id() string {
 	return rds.getZoneId(3)
+}
+
+func (rds *SDBInstance) GetIOPS() int {
+	if rds.MaxIOPS == 0 {
+		rds.Refresh()
+	}
+	return rds.MaxIOPS
+}
+
+func (rds *SDBInstance) GetNetworkAddress() string {
+	return rds.ConnectionDomain
 }
 
 func (rds *SDBInstance) getZone(index int) string {

@@ -34,6 +34,7 @@ type SDisk struct {
 	multicloud.SDisk
 	multicloud.GoogleTags
 
+	ProvisionedIops        int
 	CreationTimestamp      time.Time
 	SizeGB                 int
 	Zone                   string
@@ -154,6 +155,10 @@ func (disk *SDisk) GetMountpoint() string {
 
 func (disk *SDisk) GetAccessPath() string {
 	return ""
+}
+
+func (disk *SDisk) GetIops() int {
+	return disk.ProvisionedIops
 }
 
 func (disk *SDisk) Delete(ctx context.Context) error {
