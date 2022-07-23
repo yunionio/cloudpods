@@ -881,8 +881,11 @@ func (manager *SCachedimageManager) AutoCleanImageCaches(ctx context.Context, us
 					caches[i].Delete(ctx, userCred)
 					continue
 				}
+				deleteMark := "-deleted@"
 				db.Update(&caches[i], func() error {
-					caches[i].Name = fmt.Sprintf("%s-deleted@%s", caches[i].Name, timeutils.ShortDate(time.Now()))
+					if !strings.Contains(caches[i].Name, deleteMark) {
+						caches[i].Name = fmt.Sprintf("%s%s%s", caches[i].Name, deleteMark, timeutils.ShortDate(time.Now()))
+					}
 					return nil
 				})
 			}
