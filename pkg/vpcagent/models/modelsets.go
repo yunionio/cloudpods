@@ -15,7 +15,10 @@
 package models
 
 import (
+	"strings"
 	"time"
+
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apihelper"
 )
@@ -220,31 +223,59 @@ func (mss *ModelSets) join() bool {
 	mss.Guests.initJoin()
 	mss.Groups = Groups{}
 	var p []bool
+	var msg []string
 	p = append(p, mss.Vpcs.joinWires(mss.Wires))
+	msg = append(msg, "mss.Vpcs.joinWires(mss.Wires)")
 	p = append(p, mss.Vpcs.joinRouteTables(mss.RouteTables))
+	msg = append(msg, "mss.Vpcs.joinRouteTables(mss.RouteTables)")
 	p = append(p, mss.Wires.joinNetworks(mss.Networks))
+	msg = append(msg, "mss.Wires.joinNetworks(mss.Networks)")
 	p = append(p, mss.Vpcs.joinNetworks(mss.Networks))
+	msg = append(msg, "mss.Vpcs.joinNetworks(mss.Networks)")
 	p = append(p, mss.Networks.joinGuestnetworks(mss.Guestnetworks))
+	msg = append(msg, "mss.Networks.joinGuestnetworks(mss.Guestnetworks)")
 	p = append(p, mss.Networks.joinNetworkAddresses(mss.NetworkAddresses))
+	msg = append(msg, "mss.Networks.joinNetworkAddresses(mss.NetworkAddresses)")
 	p = append(p, mss.Networks.joinLoadbalancerNetworks(mss.LoadbalancerNetworks))
+	msg = append(msg, "mss.Networks.joinLoadbalancerNetworks(mss.LoadbalancerNetworks)")
 	p = append(p, mss.Networks.joinElasticips(mss.Elasticips))
+	msg = append(msg, "mss.Networks.joinElasticips(mss.Elasticips)")
 	p = append(p, mss.Guests.joinHosts(mss.Hosts))
+	msg = append(msg, "mss.Guests.joinHosts(mss.Hosts)")
 	p = append(p, mss.Guests.joinSecurityGroups(mss.SecurityGroups))
+	msg = append(msg, "mss.Guests.joinSecurityGroups(mss.SecurityGroups)")
 	p = append(p, mss.Guests.joinGroupguests(mss.Groups, mss.Groupguests))
+	msg = append(msg, "mss.Guests.joinGroupguests(mss.Groups, mss.Groupguests)")
 	p = append(p, mss.SecurityGroups.joinSecurityGroupRules(mss.SecurityGroupRules))
+	msg = append(msg, "mss.SecurityGroups.joinSecurityGroupRules(mss.SecurityGroupRules)")
 	p = append(p, mss.Guestsecgroups.join(mss.SecurityGroups, mss.Guests))
+	msg = append(msg, "mss.Guestsecgroups.join(mss.SecurityGroups, mss.Guests)")
 	p = append(p, mss.Guestnetworks.joinGuests(mss.Guests))
+	msg = append(msg, "mss.Guestnetworks.joinGuests(mss.Guests)")
 	p = append(p, mss.Guestnetworks.joinElasticips(mss.Elasticips))
+	msg = append(msg, "mss.Guestnetworks.joinElasticips(mss.Elasticips)")
 	p = append(p, mss.Guestnetworks.joinNetworkAddresses(mss.NetworkAddresses))
+	msg = append(msg, "mss.Guestnetworks.joinNetworkAddresses(mss.NetworkAddresses)")
 	p = append(p, mss.Groups.joinGroupnetworks(mss.Groupnetworks, mss.Networks))
+	msg = append(msg, "mss.Groups.joinGroupnetworks(mss.Groupnetworks, mss.Networks)")
 	p = append(p, mss.Groupnetworks.joinElasticips(mss.Elasticips))
+	msg = append(msg, "mss.Groupnetworks.joinElasticips(mss.Elasticips)")
 	p = append(p, mss.LoadbalancerNetworks.joinElasticips(mss.Elasticips))
+	msg = append(msg, "mss.LoadbalancerNetworks.joinElasticips(mss.Elasticips)")
 	p = append(p, mss.LoadbalancerNetworks.joinLoadbalancerListeners(mss.LoadbalancerListeners))
+	msg = append(msg, "mss.LoadbalancerNetworks.joinLoadbalancerListeners(mss.LoadbalancerListeners)")
 	p = append(p, mss.LoadbalancerListeners.joinLoadbalancerAcls(mss.LoadbalancerAcls))
-	for _, b := range p {
+	msg = append(msg, "mss.LoadbalancerListeners.joinLoadbalancerAcls(mss.LoadbalancerAcls)")
+	ret := true
+	var failMsg []string
+	for i, b := range p {
 		if !b {
-			return false
+			ret = false
+			failMsg = append(failMsg, msg[i])
 		}
 	}
-	return true
+	if !ret {
+		log.Errorln(strings.Join(failMsg, ","))
+	}
+	return ret
 }
