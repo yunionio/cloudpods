@@ -181,21 +181,30 @@ func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient
 func (self *SActionlog) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SOpsLog.PostCreate(ctx, userCred, ownerId, query, data)
 	parts := []string{}
-	parts = append(parts, "0003")
+	// 厂商代码
+	parts = append(parts, options.Options.SyslogVendorCode)
+	// 事件ID
 	parts = append(parts, fmt.Sprintf("%d", self.Id))
+	// 用户名
 	parts = append(parts, self.User)
+	// 模块类型
 	parts = append(parts, self.Service)
+	// 事件时间
 	parts = append(parts, timeutils.MysqlTime(self.OpsTime))
+	// 事件类型
 	parts = append(parts, self.Action)
 	succ := "success"
 	if !self.Success {
 		succ = "fail"
 	}
+	// 事件结果
 	parts = append(parts, succ)
+	// 事件描述
 	notes := fmt.Sprintf("%s %s %s(%s)", self.Action, self.ObjType, self.ObjName, self.ObjId)
 	if len(self.Notes) > 0 {
 		notes = fmt.Sprintf("%s: %s", notes, self.Notes)
 	}
+	notes = extern.FormatMsg(notes, options.Options.SyslogSeparator, options.Options.SyslogSepEscape)
 	parts = append(parts, notes)
 	kind := ""
 	switch self.Kind {
@@ -206,10 +215,11 @@ func (self *SActionlog) PostCreate(ctx context.Context, userCred mcclient.TokenC
 	case api.KindIllegal:
 		kind = "2"
 	}
+	// 行为类别
 	parts = append(parts, kind)
 	parts = append(parts, "")
 
-	msg := strings.Join(parts, "*|")
+	msg := strings.Join(parts, options.Options.SyslogSeparator)
 	if len(self.Severity) == 0 {
 		if self.Success {
 			extern.Info(msg)

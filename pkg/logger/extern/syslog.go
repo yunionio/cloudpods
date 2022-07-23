@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	sysLog          *syslog.Writer
+	sysLog          ISyslogWriter
 	syslogWorkerMan *appsrv.SWorkerManager
 )
 
@@ -54,7 +54,7 @@ func InitSyslog(url string) error {
 	}
 
 	var err error
-	sysLog, err = syslog.Dial(proto, addr, syslog.LOG_ERR|syslog.LOG_INFO, tag)
+	sysLog, err = syslog.Dial(proto, addr, 0, tag)
 	if err != nil {
 		return errors.Wrap(err, "syslog.Dial")
 	}

@@ -33,6 +33,10 @@ type SLoggerOptions struct {
 	AuditorRoleNames                   []string `help:"role names of auditor admin" default:"sys_adtadmin,domain_adtadmin"`
 	ActionLogExceedCount               int      `help:"trigger notification when action log exceed count" default:"-1"`
 	ActionLogExceedCountNotifyInterval string   `help:"trigger notification interval" default:"5m"`
+
+	SyslogVendorCode string `help:"vendor code of syslog" default:"0003"`
+	SyslogSeparator  string `help:"syslog message field separator" default:","`
+	SyslogSepEscape  string `help:"syslog message separate escape string" default:"+"`
 }
 
 var (
