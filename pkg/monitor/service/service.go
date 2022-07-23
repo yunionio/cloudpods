@@ -79,9 +79,9 @@ func StartService() {
 	subscriptionmodel.SubscriptionManager.AddSubscription()
 	models.CommonAlertManager.SetSubscriptionManager(subscriptionmodel.SubscriptionManager)
 
-	worker := worker.NewWorker(opts)
-	if worker == nil {
-		log.Fatalf("new worker failed")
+	worker, err := worker.NewWorker(opts)
+	if err != nil {
+		log.Fatalf("new worker failed: %v", err)
 	}
 	go worker.Start(context.Background())
 
