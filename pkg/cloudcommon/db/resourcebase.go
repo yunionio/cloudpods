@@ -83,7 +83,7 @@ func (model *SResourceBase) GetIResourceModel() IResourceModel {
 
 func (model *SResourceBase) MarkDelete() error {
 	model.Deleted = true
-	model.DeletedAt = timeutils.UtcNow()
+	model.DeletedAt = timeutils.UtcNow().Round(time.Second)
 	return nil
 }
 
