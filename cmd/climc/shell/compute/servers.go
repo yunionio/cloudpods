@@ -104,6 +104,7 @@ func init() {
 	cmd.Perform("cpuset-remove", &options.ServerIdOptions{})
 	cmd.Perform("calculate-record-checksum", &options.ServerIdOptions{})
 	cmd.Perform("set-class-metadata", &baseoptions.ResourceMetadataOptions{})
+	cmd.BatchPerform("enable-memclean", new(options.ServerIdsOptions))
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))

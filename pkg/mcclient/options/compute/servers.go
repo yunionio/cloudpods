@@ -390,7 +390,8 @@ type ServerCreateOptions struct {
 type ServerCreateOptionalOptions struct {
 	ServerConfigs
 
-	MemSpec string `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-"`
+	MemSpec        string `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-"`
+	EnableMemclean bool   `help:"clean guest memory after guest exit" json:"enable_memclean"`
 
 	Keypair          string   `help:"SSH Keypair"`
 	Password         string   `help:"Default user password"`
@@ -523,6 +524,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		OsType:             opts.OsType,
 		GuestImageID:       opts.GuestImageID,
 		Secgroups:          opts.Secgroups,
+		EnableMemclean:     opts.EnableMemclean,
 	}
 
 	if len(opts.EncryptKey) > 0 {

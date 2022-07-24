@@ -331,6 +331,7 @@ const (
 	VM_METADATA_OS_NAME             = "os_name"
 	VM_METADATA_OS_VERSION          = "os_version"
 	VM_METADATA_CGROUP_CPUSET       = "cgroup_cpuset"
+	VM_METADATA_ENABLE_MEMCLEAN     = "enable_memclean"
 )
 
 func Hypervisors2HostTypes(hypervisors []string) []string {

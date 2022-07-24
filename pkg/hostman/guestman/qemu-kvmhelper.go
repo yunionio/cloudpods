@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -110,6 +111,11 @@ func (s *SKVMGuestInstance) isWindows10() bool {
 		}
 	}
 	return false
+}
+
+func (s *SKVMGuestInstance) isMemcleanEnabled() bool {
+	val, _ := s.Desc.GetString("metadata", "enable_memclean")
+	return val == "true"
 }
 
 func (s *SKVMGuestInstance) getMachine() string {
@@ -242,6 +248,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 			OVNIntegrationBridge: options.HostOptions.OvnIntegrationBridge,
 			HomeDir:              s.HomeDir(),
 			HugepagesEnabled:     s.manager.host.IsHugepagesEnabled(),
+			EnableMemfd:          s.isMemcleanEnabled(),
 			PidFilePath:          s.GetPidFilePath(),
 			BIOS:                 s.getBios(),
 		}
@@ -766,6 +773,21 @@ func (s *SKVMGuestInstance) WriteMigrateCerts(certs map[string]string) error {
 	}
 	if err := qemucerts.CreateByMap(pkiDir, certs); err != nil {
 		return errors.Wrapf(err, "create by map %#v", certs)
+	}
+	return nil
+}
+
+func (s *SKVMGuestInstance) startMemCleaner() error {
+	mem, _ := s.Desc.Int("mem")
+	err := procutils.NewRemoteCommandAsFarAsPossible(
+		options.HostOptions.BinaryMemcleanPath,
+		"--pid", strconv.Itoa(s.GetPid()),
+		"--mem-size", strconv.FormatInt(mem*1024*1024, 10),
+		"--log-dir", s.HomeDir(),
+	).Run()
+	if err != nil {
+		log.Errorf("failed start memcleaner: %s", err)
+		return errors.Wrap(err, "start memclean")
 	}
 	return nil
 }

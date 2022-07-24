@@ -96,6 +96,7 @@ type QemuOptions interface {
 	Memory(sizeMB uint64) string
 	MemPath(sizeMB uint64, p string) string
 	MemDev(sizeMB uint64) string
+	MemFd(sizeMB uint64) string
 	Boot(order string, enableMenu bool) string
 	BIOS(file string) string
 	Device(devStr string) string
@@ -251,6 +252,10 @@ func (o baseOptions) MemPath(sizeMB uint64, p string) string {
 
 func (o baseOptions) MemDev(sizeMB uint64) string {
 	return fmt.Sprintf("-object memory-backend-ram,id=mem,size=%dM -numa node,memdev=mem", sizeMB)
+}
+
+func (o baseOptions) MemFd(sizeMB uint64) string {
+	return fmt.Sprintf("-object memory-backend-memfd,id=mem,size=%dM,share=on,prealloc=on -numa node,memdev=mem", sizeMB)
 }
 
 func (o baseOptions) Boot(order string, enableMenu bool) string {
