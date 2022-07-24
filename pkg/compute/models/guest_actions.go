@@ -5600,3 +5600,7 @@ func (self *SGuest) PerformCalculateRecordChecksum(ctx context.Context, userCred
 		"checksum": checksum,
 	}), nil
 }
+
+func (self *SGuest) PerformEnableMemclean(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, self.SetMetadata(ctx, api.VM_METADATA_ENABLE_MEMCLEAN, "true", userCred)
+}
