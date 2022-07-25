@@ -45,8 +45,6 @@ jobs:
           key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
           paths:
             - /root/.cache/go-build
-      - store_artifacts:
-          path: _output/
 
   test:
     requires:
