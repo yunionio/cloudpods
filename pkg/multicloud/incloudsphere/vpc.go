@@ -40,7 +40,7 @@ func (self *SVpc) GetGlobalId() string {
 }
 
 func (self *SVpc) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SVpc) IsEmulated() bool {

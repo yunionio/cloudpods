@@ -121,7 +121,11 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	disk, err := self.zone.region.CreateDisk(conf.Name, self.Id, conf.SizeGb)
+	if err != nil {
+		return nil, err
+	}
+	return disk, nil
 }
 
 func (self *SStorage) GetCapacityMB() int64 {
@@ -148,9 +152,7 @@ func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) 
 }
 
 func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	//TODO
-	return nil
-	//return &SStoragecache{storage: self, region: self.zone.region}
+	return self.zone.region.getStorageCache()
 }
 
 func (self *SStorage) GetMediumType() string {
@@ -190,7 +192,16 @@ func (self *SStorage) IsSysDiskStore() bool {
 }
 
 func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return self.GetStorage(id)
+	storage, err := self.GetStorage(id)
+	if err != nil {
+		return nil, err
+	}
+	zone, err := self.GetZone(storage.DataCenterId)
+	if err != nil {
+		return nil, err
+	}
+	storage.zone = zone
+	return storage, nil
 }
 
 func (self *SRegion) GetStoragesByDc(dcId string) ([]SStorage, error) {

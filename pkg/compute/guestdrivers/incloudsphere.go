@@ -15,11 +15,15 @@
 package guestdrivers
 
 import (
+	"context"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -31,6 +35,10 @@ type SInCloudSphereGuestDriver struct {
 func init() {
 	driver := SInCloudSphereGuestDriver{}
 	models.RegisterGuestDriver(&driver)
+}
+
+func (self *SInCloudSphereGuestDriver) DoScheduleSKUFilter() bool {
+	return false
 }
 
 func (self *SInCloudSphereGuestDriver) GetHypervisor() string {
@@ -73,5 +81,54 @@ func (self *SInCloudSphereGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbac
 }
 
 func (self *SInCloudSphereGuestDriver) GetDefaultSysDiskBackend() string {
-	return ""
+	return api.STORAGE_LOCAL
+}
+
+func (self *SInCloudSphereGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
+	return true
+}
+
+func (self *SInCloudSphereGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	return nil // do nothing, not support securitygroup
+}
+
+func (self *SInCloudSphereGuestDriver) GetMaxSecurityGroupCount() int {
+	//暂不支持绑定安全组
+	return 0
+}
+
+func (self *SInCloudSphereGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{api.VM_READY}, nil
+}
+
+func (self *SInCloudSphereGuestDriver) GetAttachDiskStatus() ([]string, error) {
+	return []string{api.VM_READY}, nil
+}
+
+func (self *SInCloudSphereGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+	return []string{api.VM_READY}, nil
+}
+
+func (self *SInCloudSphereGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{}, cloudprovider.ErrNotSupported
+}
+
+func (self *SInCloudSphereGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{api.VM_RUNNING}, nil
+}
+
+func (self *SInCloudSphereGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
+	return httperrors.NewInputParameterError("%s not support create eip", self.GetHypervisor())
+}
+
+func (self *SInCloudSphereGuestDriver) IsSupportEip() bool {
+	return false
+}
+
+func (self *SInCloudSphereGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
+	return false, nil
+}
+
+func (self *SInCloudSphereGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {
+	return nil
 }

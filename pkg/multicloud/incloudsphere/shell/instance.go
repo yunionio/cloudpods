@@ -44,4 +44,42 @@ func init() {
 		printObject(ret)
 		return nil
 	})
+
+	shellutils.R(&InstanceIdOptions{}, "instance-stop", "stop instance", func(cli *incloudsphere.SRegion, args *InstanceIdOptions) error {
+		return cli.StopVm(args.ID)
+	})
+
+	type InstanceStartOptions struct {
+		ID        string
+		Password  string
+		PublicKey string
+	}
+
+	shellutils.R(&InstanceStartOptions{}, "instance-start", "Start instance", func(cli *incloudsphere.SRegion, args *InstanceStartOptions) error {
+		return cli.StartVm(args.ID, args.Password, args.PublicKey)
+	})
+
+	type InstanceAttachDiskOptions struct {
+		ID      string
+		DISK_ID string
+	}
+
+	shellutils.R(&InstanceAttachDiskOptions{}, "instance-attach-disk", "Attach instance disk", func(cli *incloudsphere.SRegion, args *InstanceAttachDiskOptions) error {
+		return cli.AttachDisk(args.ID, args.DISK_ID)
+	})
+
+	shellutils.R(&InstanceAttachDiskOptions{}, "instance-detach-disk", "Attach instance disk", func(cli *incloudsphere.SRegion, args *InstanceAttachDiskOptions) error {
+		return cli.DetachDisk(args.ID, args.DISK_ID)
+	})
+
+	type InstanceChangeConfigOptions struct {
+		ID    string
+		Cpu   int
+		MemMb int
+	}
+
+	shellutils.R(&InstanceChangeConfigOptions{}, "instance-change-config", "Change instance config", func(cli *incloudsphere.SRegion, args *InstanceChangeConfigOptions) error {
+		return cli.ChangeConfig(args.ID, args.Cpu, args.MemMb)
+	})
+
 }

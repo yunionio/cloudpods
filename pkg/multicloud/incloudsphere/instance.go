@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -33,7 +34,10 @@ type Cdrom struct {
 	Connected      bool   `json:"connected"`
 	StartConnected bool   `json:"startConnected"`
 	CifsDto        string `json:"cifsDto"`
-	DataStore      string `json:"dataStore"`
+	DataStore      struct {
+		Id   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"dataStore"`
 }
 
 type Floppy struct {
@@ -43,44 +47,44 @@ type Floppy struct {
 }
 
 type Volume struct {
-	Id                 string  `json:"id"`
-	UUID               string  `json:"uuid"`
-	Size               float64 `json:"size"`
-	RealSize           float64 `json:"realSize"`
-	Name               string  `json:"name"`
-	FileName           string  `json:"fileName"`
-	Offset             int     `json:"offset"`
-	Shared             bool    `json:"shared"`
-	DeleteModel        string  `json:"deleteModel"`
-	VolumePolicy       string  `json:"volumePolicy"`
-	Format             string  `json:"format"`
-	BlockDeviceId      string  `json:"blockDeviceId"`
-	DiskType           string  `json:"diskType"`
-	DataStoreId        string  `json:"dataStoreId"`
-	DataStoreName      string  `json:"dataStoreName"`
-	DataStoreSize      float64 `json:"dataStoreSize"`
-	FreeStorage        float64 `json:"freeStorage"`
-	DataStoreType      string  `json:"dataStoreType"`
-	DataStoreReplicate int     `json:"dataStoreReplicate"`
-	VMName             string  `json:"vmName"`
-	VMStatus           string  `json:"vmStatus"`
-	Type               string  `json:"type"`
-	Description        string  `json:"description"`
-	Bootable           bool    `json:"bootable"`
-	VolumeStatus       string  `json:"volumeStatus"`
-	MountedHostIds     string  `json:"mountedHostIds"`
-	Md5                string  `json:"md5"`
-	DataSize           int     `json:"dataSize"`
-	OpenStackId        string  `json:"openStackId"`
-	VvSourceDto        string  `json:"vvSourceDto"`
-	FormatDisk         bool    `json:"formatDisk"`
-	ToBeConverted      bool    `json:"toBeConverted"`
-	RelatedVms         string  `json:"relatedVms"`
-	XactiveDataStoreId string  `json:"xactiveDataStoreId"`
-	ClusterSize        int     `json:"clusterSize"`
-	ScsiId             string  `json:"scsiId"`
-	SecondaryUUID      string  `json:"secondaryUuid"`
-	SecondaryVolumes   string  `json:"secondaryVolumes"`
+	Id                 string     `json:"id"`
+	UUID               string     `json:"uuid"`
+	Size               float64    `json:"size"`
+	RealSize           float64    `json:"realSize"`
+	Name               string     `json:"name"`
+	FileName           string     `json:"fileName"`
+	Offset             int        `json:"offset"`
+	Shared             bool       `json:"shared"`
+	DeleteModel        string     `json:"deleteModel"`
+	VolumePolicy       string     `json:"volumePolicy"`
+	Format             string     `json:"format"`
+	BlockDeviceId      string     `json:"blockDeviceId"`
+	DiskType           string     `json:"diskType"`
+	DataStoreId        string     `json:"dataStoreId"`
+	DataStoreName      string     `json:"dataStoreName"`
+	DataStoreSize      float64    `json:"dataStoreSize"`
+	FreeStorage        float64    `json:"freeStorage"`
+	DataStoreType      string     `json:"dataStoreType"`
+	DataStoreReplicate int        `json:"dataStoreReplicate"`
+	VMName             string     `json:"vmName"`
+	VMStatus           string     `json:"vmStatus"`
+	Type               string     `json:"type"`
+	Description        string     `json:"description"`
+	Bootable           bool       `json:"bootable"`
+	VolumeStatus       string     `json:"volumeStatus"`
+	MountedHostIds     string     `json:"mountedHostIds"`
+	Md5                string     `json:"md5"`
+	DataSize           int        `json:"dataSize"`
+	OpenStackId        string     `json:"openStackId"`
+	VvSourceDto        string     `json:"vvSourceDto"`
+	FormatDisk         bool       `json:"formatDisk"`
+	ToBeConverted      bool       `json:"toBeConverted"`
+	RelatedVms         string     `json:"relatedVms"`
+	XactiveDataStoreId string     `json:"xactiveDataStoreId"`
+	ClusterSize        int        `json:"clusterSize"`
+	ScsiId             string     `json:"scsiId"`
+	SecondaryUUID      string     `json:"secondaryUuid"`
+	SecondaryVolumes   []struct{} `json:"secondaryVolumes"`
 }
 
 type Disks struct {
@@ -158,28 +162,35 @@ type SInstance struct {
 	Initialized        bool   `json:"initialized"`
 	GuestosLabel       string `json:"guestosLabel"`
 	GuestosType        string `json:"guestosType"`
-	GuestOSInfo        string `json:"guestOsInfo"`
-	InnerName          string `json:"innerName"`
-	UUId               string `json:"uuid"`
-	MaxMemory          int64  `json:"maxMemory"`
-	Memory             int64  `json:"memory"`
-	MemoryUsage        int64  `json:"memoryUsage"`
-	MemHotplugEnabled  bool   `json:"memHotplugEnabled"`
-	EnableHugeMemPage  bool   `json:"enableHugeMemPage"`
-	CPUNum             int64  `json:"cpuNum"`
-	CPUSocket          int64  `json:"cpuSocket"`
-	CPUCore            int64  `json:"cpuCore"`
-	CPUUsage           int64  `json:"cpuUsage"`
-	MaxCPUNum          int64  `json:"maxCpuNum"`
-	CPUHotplugEnabled  bool   `json:"cpuHotplugEnabled"`
-	CPUModelType       string `json:"cpuModelType"`
-	CPUModelEnabled    bool   `json:"cpuModelEnabled"`
-	RunningTime        int64  `json:"runningTime"`
-	Boot               string `json:"boot"`
-	BootMode           string `json:"bootMode"`
-	SplashTime         int64  `json:"splashTime"`
-	StoragePriority    int64  `json:"storagePriority"`
-	USB                string `json:"usb"`
+	GuestOSInfo        struct {
+		Model               string `json:"model"`
+		SocketLimit         int    `json:"socketLimit"`
+		SupportCpuHotPlug   bool   `json:"supportCpuHotPlug"`
+		SupportDiskHotPlug  bool   `json:"supportDiskHotPlug"`
+		SupportMemHotPlug   bool   `json:"supportMemHotPlug"`
+		SupportUefiBootMode bool   `json:"supportUefiBootMode"`
+	} `json:"guestOsInfo"`
+	InnerName         string `json:"innerName"`
+	UUId              string `json:"uuid"`
+	MaxMemory         int64  `json:"maxMemory"`
+	Memory            int    `json:"memory"`
+	MemoryUsage       int64  `json:"memoryUsage"`
+	MemHotplugEnabled bool   `json:"memHotplugEnabled"`
+	EnableHugeMemPage bool   `json:"enableHugeMemPage"`
+	CPUNum            int    `json:"cpuNum"`
+	CPUSocket         int    `json:"cpuSocket"`
+	CPUCore           int64  `json:"cpuCore"`
+	CPUUsage          int64  `json:"cpuUsage"`
+	MaxCPUNum         int64  `json:"maxCpuNum"`
+	CPUHotplugEnabled bool   `json:"cpuHotplugEnabled"`
+	CPUModelType      string `json:"cpuModelType"`
+	CPUModelEnabled   bool   `json:"cpuModelEnabled"`
+	RunningTime       int64  `json:"runningTime"`
+	Boot              string `json:"boot"`
+	BootMode          string `json:"bootMode"`
+	SplashTime        int64  `json:"splashTime"`
+	StoragePriority   int64  `json:"storagePriority"`
+	USB               string `json:"usb"`
 
 	//Usbs                     []interface{}   `json:"usbs"`
 	Cdrom  Cdrom          `json:"cdrom"`
@@ -259,27 +270,27 @@ func (self *SInstance) AssignSecurityGroup(id string) error {
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	return cloudprovider.ErrNotSupported
+	return self.host.zone.region.AttachDisk(self.Id, diskId)
 }
 
 func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	return "", cloudprovider.ErrNotSupported
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedVMChangeConfig) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.ChangeConfig(self.Id, opts.Cpu, opts.MemoryMB)
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.DeleteVM(self.Id)
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.ResetVmPassword(self.Id, username, password)
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.DetachDisk(self.Id, diskId)
 }
 
 func (self *SInstance) GetBios() string {
@@ -394,7 +405,7 @@ func (self *SInstance) GetProjectId() string {
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SInstance) GetVcpuCount() int {
@@ -426,15 +437,18 @@ func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.StartVm(self.Id, "", "")
 }
 
 func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
-	return cloudprovider.ErrNotImplemented
+	if self.GetStatus() == api.VM_READY {
+		return nil
+	}
+	return self.host.zone.region.StopVm(self.Id)
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
@@ -451,4 +465,103 @@ func (self *SRegion) GetInstance(id string) (*SInstance, error) {
 	ret := &SInstance{}
 	res := fmt.Sprintf("/vms/%s", id)
 	return ret, self.get(res, nil, ret)
+}
+
+func (self *SRegion) StartVm(id string, password, publicKey string) error {
+	res := fmt.Sprintf("/vms/%s", id)
+	params := url.Values{}
+	params.Set("action", "poweron")
+	if len(password) > 0 {
+		params.Set("os-passwd", password)
+	}
+	if len(publicKey) > 0 {
+		params.Set("publicKey", publicKey)
+	}
+	return self.put(res, params, nil, nil)
+}
+
+func (self *SRegion) StopVm(id string) error {
+	res := fmt.Sprintf("/vms/%s", id)
+	params := url.Values{}
+	params.Set("action", "poweroff")
+	return self.put(res, params, nil, nil)
+}
+
+func (self *SRegion) AttachDisk(vmId, diskId string) error {
+	disk, err := self.GetDisk(diskId)
+	if err != nil {
+		return errors.Wrapf(err, "GetDisk(%s)", diskId)
+	}
+	vm, err := self.GetInstance(vmId)
+	if err != nil {
+		return errors.Wrapf(err, "GetInstance(%s)", vmId)
+	}
+	vm.VNCPasswd = ""
+	diskInfo := Disks{
+		BusModel:       "VIRTIO",
+		ReadWriteModel: "NONE",
+		QueueNum:       1,
+		Volume: Volume{
+			Id:   disk.Id,
+			Size: disk.Size,
+		},
+	}
+	vm.Disks = append(vm.Disks, diskInfo)
+	return self.put("/vms/"+vm.Id, nil, jsonutils.Marshal(vm), nil)
+}
+
+func (self *SRegion) DetachDisk(vmId, diskId string) error {
+	vm, err := self.GetInstance(vmId)
+	if err != nil {
+		return errors.Wrapf(err, "GetInstance(%s)", vmId)
+	}
+	vm.VNCPasswd = ""
+	disks := []Disks{}
+	for i := 0; i < len(vm.Disks); i++ {
+		if vm.Disks[i].Volume.Id == diskId {
+			continue
+		}
+		disks = append(disks, vm.Disks[i])
+	}
+	vm.Disks = disks
+	return self.put("/vms/"+vm.Id, nil, jsonutils.Marshal(vm), nil)
+}
+
+func (self *SRegion) ChangeConfig(vmId string, cpu int, memMb int) error {
+	vm, err := self.GetInstance(vmId)
+	if err != nil {
+		return errors.Wrapf(err, "GetInstance(%s)", vmId)
+	}
+	vm.VNCPasswd = ""
+	changed := false
+	if cpu > 0 {
+		vm.CPUCore = 1
+		vm.CPUNum = cpu
+		vm.CPUSocket = cpu
+		changed = true
+	}
+	if memMb > 0 {
+		vm.Memory = memMb
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	return self.put("/vms/"+vm.Id, nil, jsonutils.Marshal(vm), nil)
+}
+
+func (self *SRegion) ResetVmPassword(vmId string, username, password string) error {
+	params := url.Values{}
+	params.Set("action", "updateOsAuth")
+	body := map[string]interface{}{
+		"userName": username,
+		"userPwd":  password,
+	}
+	return self.put("/vms/"+vmId, params, jsonutils.Marshal(body), nil)
+}
+
+func (self *SRegion) DeleteVM(vmId string) error {
+	params := url.Values{}
+	params.Set("type", "force")
+	return self.del("/vms/"+vmId, params, nil)
 }

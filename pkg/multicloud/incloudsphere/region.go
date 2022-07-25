@@ -90,7 +90,7 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 }
 
 func (self *SRegion) CreateIVpc(conf *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) GetCapabilities() []string {
@@ -161,6 +161,23 @@ func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	return host, nil
 }
 
+func (self *SRegion) getStorageCache() *SStoragecache {
+	return &SStoragecache{region: self}
+}
+
+func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	cache := self.getStorageCache()
+	return []cloudprovider.ICloudStoragecache{cache}, nil
+}
+
+func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
+	cache := self.getStorageCache()
+	if cache.GetGlobalId() == id {
+		return cache, nil
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (self *SRegion) _list(res string, params url.Values) (jsonutils.JSONObject, error) {
 	return self.client._list(res, params)
 }
@@ -171,4 +188,16 @@ func (self *SRegion) list(res string, params url.Values, retVal interface{}) err
 
 func (self *SRegion) get(res string, params url.Values, retVal interface{}) error {
 	return self.client.get(res, params, retVal)
+}
+
+func (self *SRegion) post(res string, params interface{}) (jsonutils.JSONObject, error) {
+	return self.client.post(res, params)
+}
+
+func (self *SRegion) put(res string, params url.Values, body jsonutils.JSONObject, retVal interface{}) error {
+	return self.client.put(res, params, body, retVal)
+}
+
+func (self *SRegion) del(res string, params url.Values, retVal interface{}) error {
+	return self.client.del(res, params, retVal)
 }

@@ -44,4 +44,29 @@ func init() {
 		printObject(ret)
 		return nil
 	})
+
+	type DiskResizeOptions struct {
+		ID      string
+		SIZE_GB int
+	}
+
+	shellutils.R(&DiskResizeOptions{}, "disk-resize", "resize disk", func(cli *incloudsphere.SRegion, args *DiskResizeOptions) error {
+		return cli.ResizeDisk(args.ID, args.SIZE_GB)
+	})
+
+	type DiskCreateOptions struct {
+		NAME       string
+		STORAGE_ID string
+		SIZE_GB    int
+	}
+
+	shellutils.R(&DiskCreateOptions{}, "disk-create", "create disk", func(cli *incloudsphere.SRegion, args *DiskCreateOptions) error {
+		disk, err := cli.CreateDisk(args.NAME, args.STORAGE_ID, args.SIZE_GB)
+		if err != nil {
+			return err
+		}
+		printObject(disk)
+		return nil
+	})
+
 }
