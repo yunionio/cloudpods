@@ -48,7 +48,9 @@ mkdir -p $BUILDROOT/DEBIAN
 mkdir -p $BUILDROOT/$BIN_PATH
 
 cp -rf $BIN $BUILDROOT/$BIN_PATH
-cp -rf $ROOT/root/* $BUILDROOT/
+if [ -d $ROOT/root ]; then
+    cp -rf $ROOT/root/* $BUILDROOT/
+fi
 
 
 echo "Build root ${BUILDROOT}"
