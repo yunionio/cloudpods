@@ -46,6 +46,7 @@ type GenerateStartOptionsInput struct {
 	Name                  string
 	OsName                string
 	HugepagesEnabled      bool
+	EnableMemfd           bool
 	IsQ35                 bool
 	BootOrder             string
 	CdromPath             string
@@ -132,6 +133,8 @@ func GenerateStartOptions(
 	var memDev string
 	if input.HugepagesEnabled {
 		memDev = drvOpt.MemPath(input.Mem, fmt.Sprintf("/dev/hugepages/%s", input.UUID))
+	} else if input.EnableMemfd {
+		memDev = drvOpt.MemFd(input.Mem)
 	} else {
 		memDev = drvOpt.MemDev(input.Mem)
 	}

@@ -364,7 +364,8 @@ type ServerCreateInput struct {
 	apis.EncryptedResourceCreateInput
 
 	// 虚拟机内存大小,单位Mb,若未指定instance_type,此参数为必传项
-	VmemSize int `json:"vmem_size"`
+	VmemSize       int  `json:"vmem_size"`
+	EnableMemclean bool `json:"enable_memclean"`
 
 	// 虚拟机Cpu大小,若未指定instance_type,此参数为必传项
 	// default: 1
