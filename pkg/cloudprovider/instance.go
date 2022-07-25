@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 
@@ -173,9 +172,11 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 		return errors.Wrapf(err, "config.Unmarshal")
 	}
 	if !vmConfig.IsNeedInjectPasswordByCloudInit {
-		_, err := cloudinit.ParseUserData(vmConfig.UserData)
-		if err != nil {
-			return nil
+		if len(vmConfig.UserData) > 0 {
+			_, err := cloudinit.ParseUserData(vmConfig.UserData)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	if publicKey, _ := config.GetString("public_key"); len(publicKey) > 0 {
@@ -196,7 +197,7 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 	if vmConfig.IsNeedInjectPasswordByCloudInit {
 		err = vmConfig.InjectPasswordByCloudInit()
 		if err != nil {
-			log.Warningf("failed to inject password by cloud-init error: %v", err)
+			return errors.Wrapf(err, "InjectPasswordByCloudInit")
 		}
 	}
 	return nil
