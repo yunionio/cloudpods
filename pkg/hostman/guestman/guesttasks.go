@@ -933,7 +933,11 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 		/* ref: qemu/src/qapi/run-state.json
 		 * prelaunch: QEMU was started with -S and guest has not started.
 		 * we need resume guest at state prelaunch */
-		s.onGuestPrelaunch()
+		if err := s.onGuestPrelaunch(); err != nil {
+			s.ForceStop()
+			s.taskFailed(err.Error())
+			return
+		}
 		s.resumeGuest()
 	} else if status == "running" || status == "paused (suspended)" {
 		s.onStartRunning()
@@ -941,7 +945,11 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 		// handle error first, results may be 'paused (internal-error)'
 		s.taskFailed(status)
 	} else if strings.Contains(status, "paused") {
-		s.onGuestPrelaunch()
+		if err := s.onGuestPrelaunch(); err != nil {
+			s.ForceStop()
+			s.taskFailed(err.Error())
+			return
+		}
 		s.Monitor.GetBlocks(s.onGetBlockInfo)
 	} else if status == "postmigrate" {
 		s.resumeGuest()
@@ -954,6 +962,7 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 		log.Infof("start guest timeout seconds: %d", migSeconds)
 		if s.isTimeout && time.Now().Sub(s.startTime) >= time.Second*time.Duration(migSeconds) {
 			s.taskFailed("Timeout")
+			return
 		} else {
 			time.Sleep(time.Second * 3)
 			s.confirmRunning()

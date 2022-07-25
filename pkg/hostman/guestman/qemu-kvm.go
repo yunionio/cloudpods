@@ -1855,14 +1855,20 @@ func (s *SKVMGuestInstance) doBlockIoThrottle() {
 	}
 }
 
-func (s *SKVMGuestInstance) onGuestPrelaunch() {
+func (s *SKVMGuestInstance) onGuestPrelaunch() error {
 	if options.HostOptions.SetVncPassword {
 		s.SetVncPassword()
+	}
+	if s.isMemcleanEnabled() {
+		if err := s.startMemCleaner(); err != nil {
+			return err
+		}
 	}
 	s.OnResumeSyncMetadataInfo()
 	s.SetCgroup()
 	s.optimizeOom()
 	s.doBlockIoThrottle()
+	return nil
 }
 
 func (s *SKVMGuestInstance) CleanImportMetadata() *jsonutils.JSONDict {
