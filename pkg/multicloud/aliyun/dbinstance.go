@@ -237,6 +237,13 @@ func (rds *SDBInstance) GetDiskSizeGB() int {
 	return rds.DBInstanceStorage
 }
 
+func (rds *SDBInstance) GetDiskSizeUsedMB() int {
+	if rds.DBInstanceDiskUsed == 0 {
+		rds.Refresh()
+	}
+	return int(rds.DBInstanceDiskUsed / 1024 / 1024)
+}
+
 func (rds *SDBInstance) GetPort() int {
 	if rds.Port == 0 {
 		rds.Refresh()

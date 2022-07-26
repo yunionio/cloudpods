@@ -1700,9 +1700,11 @@ func (manager *SBucketManager) usageQ(q *sqlchemy.SQuery, rangeObjs []db.IStanda
 }
 
 type SBucketUsages struct {
-	Buckets int
-	Objects int
-	Bytes   int64
+	Buckets      int
+	Objects      int
+	Bytes        int64
+	BytesLimit   int64
+	DiskUsedRate float64
 }
 
 func (manager *SBucketManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) SBucketUsages {
@@ -1726,6 +1728,14 @@ func (manager *SBucketManager) TotalCount(scope rbacutils.TRbacScope, ownerId mc
 			).Else(sqlchemy.NewConstField(0)),
 			"size_bytes1",
 		),
+		sqlchemy.NewFunction(
+			sqlchemy.NewCase().When(
+				sqlchemy.GT(buckets.Field("size_bytes_limit"), 0),
+				buckets.Field("size_bytes_limit"),
+			).Else(
+				buckets.Field("size_bytes")),
+			"size_bytes_limit",
+		),
 	)
 	bucketsQ = manager.usageQ(bucketsQ, rangeObjs, providers, brands, cloudEnv)
 	buckets = bucketsQ.SubQuery()
@@ -1733,10 +1743,14 @@ func (manager *SBucketManager) TotalCount(scope rbacutils.TRbacScope, ownerId mc
 		sqlchemy.COUNT("buckets"),
 		sqlchemy.SUM("objects", buckets.Field("object_cnt1")),
 		sqlchemy.SUM("bytes", buckets.Field("size_bytes1")),
+		sqlchemy.SUM("bytes_limit", buckets.Field("size_bytes_limit")),
 	)
 	err := q.First(&usage)
 	if err != nil {
 		log.Errorf("Query bucket usage error %s", err)
+	}
+	if usage.BytesLimit > 0 {
+		usage.DiskUsedRate = float64(usage.Bytes) / float64(usage.BytesLimit)
 	}
 	return usage
 }

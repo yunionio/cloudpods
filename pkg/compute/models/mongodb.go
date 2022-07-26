@@ -97,7 +97,8 @@ type SMongoDB struct {
 	ReplicationNum int `nullable:"false" default:"0" list:"user" create:"optional"`
 
 	// 最大连接数
-	Iops int `nullable:"true" list:"user" create:"optional"`
+	MaxConnections int `nullable:"true" list:"user" create:"optional"`
+	Iops           int `nullable:"true" list:"user" create:"optional"`
 
 	// 实例IP地址
 	IpAddr string `nullable:"false" list:"user"`
@@ -504,6 +505,7 @@ func (self *SMongoDB) SyncWithCloudMongoDB(ctx context.Context, userCred mcclien
 		if iops := ext.GetIops(); iops > 0 {
 			self.Iops = iops
 		}
+		self.MaxConnections = ext.GetMaxConnections()
 		self.NetworkAddress = ext.GetNetworkAddress()
 
 		if vpcId := ext.GetVpcId(); len(vpcId) > 0 {
@@ -578,6 +580,7 @@ func (self *SCloudregion) newFromCloudMongoDB(ctx context.Context, userCred mccl
 	ins.Port = ext.GetPort()
 	ins.ReplicationNum = ext.GetReplicationNum()
 	ins.Iops = ext.GetIops()
+	ins.MaxConnections = ext.GetMaxConnections()
 	ins.NetworkAddress = ext.GetNetworkAddress()
 
 	if zoneId := ext.GetZoneId(); len(zoneId) > 0 {
