@@ -124,5 +124,5 @@ func (self *SInstanceNic) GetINetworkId() string {
 }
 
 func (self *SInstanceNic) AssignAddress(ipAddrs []string) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }

@@ -20,6 +20,9 @@ import (
 	"net/url"
 	"strings"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -109,7 +112,7 @@ func (self *SDisk) GetGlobalId() string {
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
@@ -168,7 +171,7 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 }
 
 func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
-	return cloudprovider.ErrNotImplemented
+	return self.region.ResizeDisk(self.Id, int(sizeMb/1024))
 }
 
 func (self *SDisk) GetTemplateId() string {
@@ -184,11 +187,11 @@ func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 }
 
 func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return []cloudprovider.ICloudSnapshot{}, nil
 }
 
 func (self *SRegion) GetDisks(storageId string) ([]SDisk, error) {
@@ -201,4 +204,40 @@ func (self *SRegion) GetDisk(id string) (*SDisk, error) {
 	ret := &SDisk{region: self}
 	res := fmt.Sprintf("/volumes/%s", id)
 	return ret, self.get(res, nil, ret)
+}
+
+func (self *SRegion) ResizeDisk(id string, sizeGb int) error {
+	disk, err := self.GetDisk(id)
+	if err != nil {
+		return errors.Wrapf(err, "GetDisk(%s)", id)
+	}
+	body := map[string]interface{}{
+		"size": sizeGb,
+		"name": disk.Name,
+	}
+	return self.put("/volumes/"+disk.Id, nil, jsonutils.Marshal(body), nil)
+}
+
+func (self *SRegion) CreateDisk(name, storageId string, sizeGb int) (*SDisk, error) {
+	body := map[string]interface{}{
+		"dataStoreId":  storageId,
+		"format":       "RAW",
+		"name":         name,
+		"replicate":    1,
+		"size":         sizeGb,
+		"volumePolicy": "THIN",
+	}
+	resp, err := self.client.post("/volumes", jsonutils.Marshal(body))
+	if err != nil {
+		return nil, err
+	}
+	taskId, err := resp.GetString("taskId")
+	if err != nil {
+		return nil, err
+	}
+	diskId, err := self.client.waitTask(taskId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "waitTask(%s)", taskId)
+	}
+	return self.GetDisk(diskId)
 }

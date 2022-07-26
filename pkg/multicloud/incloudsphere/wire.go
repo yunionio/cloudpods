@@ -83,7 +83,7 @@ func (self *SWire) GetGlobalId() string {
 }
 
 func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SWire) GetBandwidth() int {

@@ -166,6 +166,38 @@ func (cli *SphereClient) get(res string, params url.Values, retVal interface{}) 
 	return resp.Unmarshal(retVal)
 }
 
+func (cli *SphereClient) put(res string, params url.Values, body jsonutils.JSONObject, retVal interface{}) error {
+	if params != nil {
+		res = fmt.Sprintf("%s?%s", res, params.Encode())
+	}
+	resp, err := cli._jsonRequest(httputils.PUT, res, body)
+	if err != nil {
+		return err
+	}
+	if !resp.Contains("taskId") {
+		return resp.Unmarshal(retVal)
+	}
+	taskId, _ := resp.GetString("taskId")
+	_, err = cli.waitTask(taskId)
+	return err
+}
+
+func (cli *SphereClient) del(res string, params url.Values, retVal interface{}) error {
+	if params != nil {
+		res = fmt.Sprintf("%s?%s", res, params.Encode())
+	}
+	resp, err := cli._jsonRequest(httputils.DELETE, res, nil)
+	if err != nil {
+		return err
+	}
+	if !resp.Contains("taskId") {
+		return resp.Unmarshal(retVal)
+	}
+	taskId, _ := resp.GetString("taskId")
+	_, err = cli.waitTask(taskId)
+	return err
+}
+
 func (cli *SphereClient) list(res string, params url.Values, retVal interface{}) error {
 	if params == nil {
 		params = url.Values{}
