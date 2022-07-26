@@ -47,6 +47,12 @@ type GatewayOptions struct {
 	EnableBackendServiceProxy bool `default:"false" help:"Proxy API request to backend services"`
 
 	common_options.CommonOptions `"request_worker_count->default":"32"`
+
+	EnableSyslogWebservice bool `help:"enable syslog webservice"`
+
+	SyslogWebserviceUsername string `help:"syslog web service user name"`
+
+	SyslogWebservicePassword string `help:"syslog web service password"`
 }
 
 var (
