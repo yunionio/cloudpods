@@ -698,14 +698,7 @@ func (s *SLocalStorage) CloneDiskFromStorage(
 			return nil, errors.Wrap(err, "failed new qemu image")
 		}
 
-		switch srcImg.Format {
-		case qemuimg.QCOW2:
-			err = newImg.CreateQcow2(srcImg.GetSizeMB(), false, "", "", "", "")
-		case qemuimg.RAW:
-			err = newImg.CreateRaw(srcImg.GetSizeMB())
-		default:
-			err = fmt.Errorf("unsupport format %s", srcImg.Format)
-		}
+		err = newImg.CreateQcow2(srcImg.GetSizeMB(), false, "", "", "", "")
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "Clone source disk to target local storage")
