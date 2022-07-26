@@ -115,3 +115,7 @@ func (instance *SDBInstanceBase) RecoveryFromBackup(conf *cloudprovider.SDBInsta
 func (instance *SDBInstanceBase) GetIops() int {
 	return 0
 }
+
+func (instance *SDBInstanceBase) GetDiskSizeUsedMB() int {
+	return 0
+}

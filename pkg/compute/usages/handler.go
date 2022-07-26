@@ -1011,6 +1011,8 @@ func BucketUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider,
 	count[getKey(scope, "buckets")] = bucketUsage.Buckets
 	count[getKey(scope, "bucket_objects")] = bucketUsage.Objects
 	count[getKey(scope, "bucket_bytes")] = bucketUsage.Bytes
+	count[getKey(scope, "bucket_bytes_limit")] = bucketUsage.BytesLimit
+	count[getKey(scope, "bucket_disk_used_rate")] = bucketUsage.DiskUsedRate
 	return count
 }
 
@@ -1041,6 +1043,9 @@ func DBInstanceUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvi
 	count[getKey(scope, "rds")] = cnt.TotalRdsCount
 	count[getKey(scope, "rds.cpu")] = cnt.TotalCpuCount
 	count[getKey(scope, "rds.memory")] = cnt.TotalMemSizeMb
+	count[getKey(scope, "rds.disk_size_gb")] = cnt.TotalDiskSizeGb
+	count[getKey(scope, "rds.disk_size_used_mb")] = cnt.TotalDiskSizeUsedMb
+	count[getKey(scope, "rds.disk_size_used_rate")] = cnt.DiskUsedRate
 	return count
 }
 
