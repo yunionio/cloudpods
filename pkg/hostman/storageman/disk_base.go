@@ -36,6 +36,7 @@ type IDisk interface {
 	GetId() string
 	Probe() error
 	GetPath() string
+	GetFormat() (string, error)
 	GetSnapshotDir() string
 	GetDiskDesc() jsonutils.JSONObject
 	GetDiskSetupScripts(idx int) string
@@ -90,6 +91,10 @@ func (d *SBaseDisk) GetId() string {
 
 func (d *SBaseDisk) GetPath() string {
 	return path.Join(d.Storage.GetPath(), d.Id)
+}
+
+func (d *SBaseDisk) GetFormat() (string, error) {
+	return "", nil
 }
 
 func (d *SBaseDisk) Probe() error {
