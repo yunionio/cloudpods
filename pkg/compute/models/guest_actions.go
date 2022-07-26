@@ -417,32 +417,63 @@ func (self *SGuest) validateMigrate(
 	}
 }
 
+func (self *SGuest) validateConvertToKvm(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	migrateInput *api.GuestMigrateInput,
+) error {
+	if len(migrateInput.PreferHost) > 0 {
+		iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHost)
+		if iHost == nil {
+			return httperrors.NewBadRequestError("Host %s not found", migrateInput.PreferHost)
+		}
+		host := iHost.(*SHost)
+		migrateInput.PreferHost = host.Id
+	}
+	if self.Status != api.VM_READY {
+		return httperrors.NewServerStatusError("can't convert guest in status %s", self.Status)
+	}
+	return nil
+}
+
 func (self *SGuest) PerformMigrateForecast(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.ServerMigrateForecastInput) (jsonutils.JSONObject, error) {
 	var (
 		mInput  *api.GuestMigrateInput     = nil
 		lmInput *api.GuestLiveMigrateInput = nil
 	)
 
-	if input.LiveMigrate {
-		lmInput = &api.GuestLiveMigrateInput{
-			PreferHost:   input.PreferHostId,
-			SkipCpuCheck: &input.SkipCpuCheck,
-		}
-		if err := self.validateMigrate(ctx, userCred, nil, lmInput); err != nil {
-			return nil, err
-		}
-		input.PreferHostId = lmInput.PreferHost
-	} else {
-		mInput = &api.GuestMigrateInput{
-			PreferHost: input.PreferHostId,
-		}
-		if err := self.validateMigrate(ctx, userCred, mInput, nil); err != nil {
+	if input.ConvertToKvm {
+		mInput = &api.GuestMigrateInput{PreferHost: input.PreferHostId}
+		if err := self.validateConvertToKvm(ctx, userCred, mInput); err != nil {
 			return nil, err
 		}
 		input.PreferHostId = mInput.PreferHost
+	} else {
+		if input.LiveMigrate {
+			lmInput = &api.GuestLiveMigrateInput{
+				PreferHost:   input.PreferHostId,
+				SkipCpuCheck: &input.SkipCpuCheck,
+			}
+			if err := self.validateMigrate(ctx, userCred, nil, lmInput); err != nil {
+				return nil, err
+			}
+			input.PreferHostId = lmInput.PreferHost
+		} else {
+			mInput = &api.GuestMigrateInput{
+				PreferHost: input.PreferHostId,
+			}
+			if err := self.validateMigrate(ctx, userCred, mInput, nil); err != nil {
+				return nil, err
+			}
+			input.PreferHostId = mInput.PreferHost
+		}
 	}
 
 	schedParams := self.GetSchedMigrateParams(userCred, input)
+	if input.ConvertToKvm {
+		schedParams.Hypervisor = api.HYPERVISOR_KVM
+	}
+
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	_, res, err := scheduler.SchedManager.DoScheduleForecast(s, schedParams, 1)
 	if err != nil {
