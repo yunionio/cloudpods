@@ -3,18 +3,7 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
-  check:
-    docker:
-      - image: yunion/centos-build:go-1.18.3-0
-        environment:
-          ONECLOUD_CI_BUILD: "1"
-    working_directory: /root/go/src/yunion.io/x/onecloud
-    steps:
-      - checkout
-      - run:
-          command: |
-            make -j3 check
-  build:
+  test:
     requires:
       - check
     docker:
@@ -31,55 +20,17 @@ jobs:
     parallelism: 1
     steps:
       - checkout
-      - restore_cache:
-          key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
-          paths:
-            - /root/.cache/go-build
       - run:
           command: |
+            make -j3 check
+            make test
             targets="$(circleci tests glob "cmd/*" | grep -v cmd/host-image | circleci tests split)"
             echo $targets | tr ' ' '\n'
             make $targets
             ls -lh _output/bin/
-      - save_cache:
-          key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
-          paths:
-            - /root/.cache/go-build
-
-  test:
-    requires:
-      - check
-    docker:
-      - image: yunion/centos-build:go-1.18.3-0
-        environment:
-          ONECLOUD_CI_BUILD: "1"
-    working_directory: /root/go/src/yunion.io/x/onecloud
-    resource_class: large
-    parallelism: 1
-    steps:
-      - checkout
-      - restore_cache:
-          key: onecloud-test-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
-          paths:
-            - /root/.cache/go-build
-      - run:
-          name: unit_test
-          command: |
-            make test
-      - save_cache:
-          key: onecloud-test-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
-          paths:
-            - /root/.cache/go-build
 
 workflows:
   version: 2
   build_and_test:
     jobs:
-      - check
-      - build:
-          requires:
-            - check
-            - test
-      - test:
-          requires:
-            - check
+      - test
