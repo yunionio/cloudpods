@@ -15,15 +15,12 @@
 package bwutils
 
 import (
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/netutils"
 )
 
-func GetBwValue(nicDesc jsonutils.JSONObject) int {
-	bw, err := nicDesc.Int("bw")
-	if err != nil {
-		ip, err := nicDesc.GetString("ip")
-		if err != nil {
+func GetBwValue(bw int, ip string) int {
+	if bw > 0 {
+		if ip == "" {
 			bw = 1
 		} else {
 			ipv4, err := netutils.NewIPV4Addr(ip)
@@ -37,16 +34,14 @@ func GetBwValue(nicDesc jsonutils.JSONObject) int {
 	return int(bw)
 }
 
-func GetDownloadBwValue(nicDesc jsonutils.JSONObject, bwDownloadBandwidth int) (int, error) {
-	ip, _ := nicDesc.GetString("ip")
-	ifname, _ := nicDesc.GetString("ifname")
+func GetDownloadBwValue(bw int, ip, ifname string, bwDownloadBandwidth int) (int, error) {
 	if len(ip) > 0 {
 		ipv4, err := netutils.NewIPV4Addr(ip)
 		if err != nil {
 			return 0, err
 		}
 		if netutils.IsExitAddress(ipv4) && len(ifname) > 0 && bwDownloadBandwidth > 0 {
-			bw := GetBwValue(nicDesc)
+			bw = GetBwValue(bw, ip)
 			if bw > bwDownloadBandwidth {
 				return bw, nil
 			} else {
@@ -57,11 +52,10 @@ func GetDownloadBwValue(nicDesc jsonutils.JSONObject, bwDownloadBandwidth int) (
 	return 0, nil
 }
 
-func GetOvsBwValues(nicDesc jsonutils.JSONObject) (int, int, error) {
+func GetOvsBwValues(bw int, ip string) (int, int, error) {
 	var bwOvs int
-	bw := GetBwValue(nicDesc)
-	ip, err := nicDesc.GetString("ip")
-	if err == nil {
+	bw = GetBwValue(bw, ip)
+	if ip != "" {
 		ipv4, err := netutils.NewIPV4Addr(ip)
 		if err != nil {
 			return 0, 0, err

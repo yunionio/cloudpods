@@ -20,7 +20,6 @@ import (
 	"path/filepath"
 
 	execlient "yunion.io/x/executor/client"
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -30,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/guesthandlers"
 	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -130,7 +130,7 @@ func (host *SHostService) RunService() {
 		&metadata.Service{
 			Address: options.HostOptions.Address,
 			Port:    options.HostOptions.Port + 1000,
-			DescGetter: metadata.DescGetterFunc(func(ip string) jsonutils.JSONObject {
+			DescGetter: metadata.DescGetterFunc(func(ip string) *desc.SGuestDesc {
 				guestDesc, _ := guestman.GetGuestManager().GetGuestNicDesc("", ip, "", "", false)
 				return guestDesc
 			}),

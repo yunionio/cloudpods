@@ -14,12 +14,13 @@
 
 package types
 
-import (
-	"yunion.io/x/jsonutils"
-)
-
 // this is mainly to avoid direct improt of
 // yunion.io/x/onecloud/pkg/hostman/guestman
+
+import (
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
+)
 
 type IHealthCheckReactor interface {
 	ShutdownServers()
@@ -28,7 +29,7 @@ type IHealthCheckReactor interface {
 var HealthCheckReactor IHealthCheckReactor
 
 type IGuestDescGetter interface {
-	GetGuestNicDesc(mac, ip, port, bridge string, isCandidate bool) (jsonutils.JSONObject, jsonutils.JSONObject)
+	GetGuestNicDesc(mac, ip, port, bridge string, isCandidate bool) (*desc.SGuestDesc, *api.GuestnetworkJsonDesc)
 }
 
 var GuestDescGetter IGuestDescGetter

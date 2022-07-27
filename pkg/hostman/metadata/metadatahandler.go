@@ -24,12 +24,12 @@ import (
 	"strconv"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -42,12 +42,12 @@ func Start(app *appsrv.Application, s *Service) {
 }
 
 type DescGetter interface {
-	Get(ip string) (guestDesc jsonutils.JSONObject)
+	Get(ip string) (guestDesc *desc.SGuestDesc)
 }
 
-type DescGetterFunc func(ip string) (guestDesc jsonutils.JSONObject)
+type DescGetterFunc func(ip string) (guestDesc *desc.SGuestDesc)
 
-func (f DescGetterFunc) Get(ip string) (guestDesc jsonutils.JSONObject) {
+func (f DescGetterFunc) Get(ip string) (guestDesc *desc.SGuestDesc) {
 	return f(ip)
 }
 
@@ -58,7 +58,7 @@ type Service struct {
 	DescGetter DescGetter
 }
 
-func (s *Service) getGuestNicDesc(r *http.Request) (guestDesc jsonutils.JSONObject) {
+func (s *Service) getGuestDesc(r *http.Request) (guestDesc *desc.SGuestDesc) {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		panic(errors.Wrapf(err, "SplitHostPort %s", r.RemoteAddr))
@@ -88,22 +88,21 @@ func (s *Service) versionOnly(ctx context.Context, w http.ResponseWriter, r *htt
 }
 
 func (s *Service) userData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	guestDesc := s.getGuestNicDesc(r)
+	guestDesc := s.getGuestDesc(r)
 	if guestDesc == nil {
 		hostutils.Response(ctx, w, "")
 		return
 	}
 
-	if !guestDesc.Contains("user_data") {
+	guestUserData := guestDesc.UserData
+	if guestUserData == "" {
 		hostutils.Response(ctx, w, "")
 		return
 	}
 
-	guestUserData, _ := guestDesc.GetString("user_data")
 	userDataDecoded, err := base64.StdEncoding.DecodeString(guestUserData)
 	if err != nil {
-		guestId, _ := guestDesc.GetString("id")
-		log.Errorf("Error format user_data %s, %s", guestId, guestUserData)
+		log.Errorf("Error format user_data %s, %s", guestDesc.Uuid, guestUserData)
 		hostutils.Response(ctx, w, "")
 		return
 	}
@@ -111,7 +110,7 @@ func (s *Service) userData(ctx context.Context, w http.ResponseWriter, r *http.R
 }
 
 func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	guestDesc := s.getGuestNicDesc(r)
+	guestDesc := s.getGuestDesc(r)
 	if guestDesc == nil {
 		hostutils.Response(ctx, w, "")
 		return
@@ -134,13 +133,13 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 			//"placement/", "public-keys/",
 			//"reservation-id", "security-groups", "password",
 		}
-		if guestDesc.Contains("pubkey") {
+		if guestDesc.Pubkey != "" {
 			resNames = append(resNames, "public-keys/")
 		}
-		if guestDesc.Contains("zone") {
+		if guestDesc.Zone != "" {
 			resNames = append(resNames, "placement/")
 		}
-		if guestDesc.Contains("secgroup") {
+		if guestDesc.Secgroup != "" {
 			resNames = append(resNames, "security-groups/")
 		}
 		hostutils.Response(ctx, w, strings.Join(resNames, "\n"))
@@ -149,7 +148,7 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 		resName := req[0]
 		switch resName {
 		case "public-keys":
-			if guestDesc.Contains("pubkey") {
+			if guestDesc.Pubkey != "" {
 				if len(req) == 1 {
 					hostutils.Response(ctx, w, "0=my-public-key")
 					return
@@ -157,49 +156,45 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 					hostutils.Response(ctx, w, "openssh-key")
 					return
 				} else if len(req) == 3 {
-					pubkey, _ := guestDesc.GetString("pubkeu")
+					pubkey := guestDesc.Pubkey
 					hostutils.Response(ctx, w, pubkey)
 					return
 				}
 			}
 		case "hostname", "public-hostname", "local-hostname":
-			guestName, _ := guestDesc.GetString("name")
-			hostutils.Response(ctx, w, guestName)
+			hostutils.Response(ctx, w, guestDesc.Name)
 			return
 		case "instance-id":
-			guestUUID, _ := guestDesc.GetString("uuid")
-			hostutils.Response(ctx, w, guestUUID)
+			hostutils.Response(ctx, w, guestDesc.Uuid)
 			return
 		case "instance-type":
-			flavor, err := guestDesc.GetString("flavor")
-			if err != nil {
+			flavor := guestDesc.Flavor
+			if flavor == "" {
 				flavor = "customized"
 			}
 			hostutils.Response(ctx, w, flavor)
 			return
 		case "mac":
 			macs := make([]string, 0)
-			guestNics, _ := guestDesc.GetArray("nics")
+			guestNics := guestDesc.Nics
 			for _, nic := range guestNics {
-				nicMac, _ := nic.GetString("mac")
-				macs = append(macs, nicMac)
+				macs = append(macs, nic.Mac)
 			}
 			hostutils.Response(ctx, w, strings.Join(macs, "\n"))
 			return
 		case "local-ipv4":
 			ips := make([]string, 0)
-			guestNics, _ := guestDesc.GetArray("nics")
+			guestNics := guestDesc.Nics
 			for _, nic := range guestNics {
-				nicip, _ := nic.GetString("ip")
-				ips = append(ips, nicip)
+				ips = append(ips, nic.Ip)
 			}
 			hostutils.Response(ctx, w, strings.Join(ips, "\n"))
 			return
 		case "local-sub-ipv4s":
 			ips := make([]string, 0)
-			guestNics, _ := guestDesc.GetArray("nics")
+			guestNics := guestDesc.Nics
 			for _, nic := range guestNics {
-				nas, _ := nic.GetArray("networkaddresses")
+				nas, _ := nic.Networkaddresses.GetArray()
 				for _, na := range nas {
 					if typ, _ := na.GetString("type"); typ == "sub_ip" {
 						ip, _ := na.GetString("ip_addr")
@@ -213,31 +208,28 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 			return
 		case "public-ipv4":
 			ips := make([]string, 0)
-			guestNics, _ := guestDesc.GetArray("nics")
+			guestNics := guestDesc.Nics
 			for _, nic := range guestNics {
-				nicip, _ := nic.GetString("ip")
-				ipv4, _ := netutils.NewIPV4Addr(nicip)
+				ipv4, _ := netutils.NewIPV4Addr(nic.Ip)
 				if !netutils.IsPrivate(ipv4) {
-					ips = append(ips, nicip)
+					ips = append(ips, nic.Ip)
 				}
 			}
 			hostutils.Response(ctx, w, strings.Join(ips, "\n"))
 			return
 		case "placement":
-			if guestDesc.Contains("zone") {
+			if guestDesc.Zone != "" {
 				if len(req) == 1 {
 					hostutils.Response(ctx, w, "availability-zone")
 					return
 				} else if len(req) == 2 && req[1] == "availability-zone" {
-					guestZone, _ := guestDesc.GetString("zone")
-					hostutils.Response(ctx, w, guestZone)
+					hostutils.Response(ctx, w, guestDesc.Zone)
 					return
 				}
 			}
 		case "security-groups":
-			if guestDesc.Contains("secgroup") {
-				guestSecgroup, _ := guestDesc.GetString("secgroup")
-				hostutils.Response(ctx, w, guestSecgroup)
+			if guestDesc.Secgroup != "" {
+				hostutils.Response(ctx, w, guestDesc.Secgroup)
 				return
 			}
 		case "ami-launch-index":
@@ -258,16 +250,14 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 				}
 			}
 		case "block-device-mapping":
-			guestDisks, _ := guestDesc.GetArray("disks")
+			guestDisks := guestDesc.Disks
 			swapDisks := make([]string, 0)
 			dataDisk := make([]string, 0)
 			for _, d := range guestDisks {
-				fs, err := d.GetString("fs")
-				idx, _ := d.Int("index")
-				if err != nil && fs == "swap" {
-					swapDisks = append(swapDisks, strconv.Itoa(int(idx)))
+				if d.Fs == "swap" {
+					swapDisks = append(swapDisks, strconv.Itoa(int(d.Index)))
 				} else {
-					dataDisk = append(dataDisk, strconv.Itoa(int(idx)))
+					dataDisk = append(dataDisk, strconv.Itoa(int(d.Index)))
 				}
 			}
 			if len(req) == 1 {

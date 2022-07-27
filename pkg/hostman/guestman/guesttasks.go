@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
@@ -216,15 +217,15 @@ func (t *SGuestSyncConfigTaskExecutor) runNextTaskCallback(err ...error) {
 
 type SGuestDiskSyncTask struct {
 	guest    *SKVMGuestInstance
-	delDisks []jsonutils.JSONObject
-	addDisks []jsonutils.JSONObject
+	delDisks []*api.GuestdiskJsonDesc
+	addDisks []*api.GuestdiskJsonDesc
 	cdrom    *string
 
 	callback      func(...error)
 	checkeDrivers []string
 }
 
-func NewGuestDiskSyncTask(guest *SKVMGuestInstance, delDisks, addDisks []jsonutils.JSONObject, cdrom *string) *SGuestDiskSyncTask {
+func NewGuestDiskSyncTask(guest *SKVMGuestInstance, delDisks, addDisks []*api.GuestdiskJsonDesc, cdrom *string) *SGuestDiskSyncTask {
 	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdrom, nil, nil}
 }
 
@@ -288,9 +289,8 @@ func (d *SGuestDiskSyncTask) OnChangeCdromContentSucc(results string) {
 	d.syncDisksConf()
 }
 
-func (d *SGuestDiskSyncTask) removeDisk(disk jsonutils.JSONObject) {
-	index, _ := disk.Int("index")
-	devId := fmt.Sprintf("drive_%d", index)
+func (d *SGuestDiskSyncTask) removeDisk(disk *api.GuestdiskJsonDesc) {
+	devId := fmt.Sprintf("drive_%d", disk.Index)
 	d.guest.Monitor.DriveDel(devId,
 		func(results string) { d.onRemoveDriveSucc(devId, results) })
 }
@@ -303,13 +303,12 @@ func (d *SGuestDiskSyncTask) onRemoveDiskSucc(results string) {
 	d.syncDisksConf()
 }
 
-func (d *SGuestDiskSyncTask) checkDiskDriver(disk jsonutils.JSONObject) {
+func (d *SGuestDiskSyncTask) checkDiskDriver(disk *api.GuestdiskJsonDesc) {
 	if d.checkeDrivers == nil {
 		d.checkeDrivers = make([]string, 0)
 	}
-	driver, _ := disk.GetString("driver")
-	log.Debugf("sync disk driver: %s", driver)
-	if driver == DISK_DRIVER_SCSI {
+	log.Debugf("sync disk driver: %s", disk.Driver)
+	if disk.Driver == DISK_DRIVER_SCSI {
 		if utils.IsInStringArray(DISK_DRIVER_SCSI, d.checkeDrivers) {
 			d.startAddDisk(disk)
 		} else {
@@ -321,7 +320,7 @@ func (d *SGuestDiskSyncTask) checkDiskDriver(disk jsonutils.JSONObject) {
 	}
 }
 
-func (d *SGuestDiskSyncTask) checkScsiDriver(ret string, disk jsonutils.JSONObject) {
+func (d *SGuestDiskSyncTask) checkScsiDriver(ret string, disk *api.GuestdiskJsonDesc) {
 	if strings.Contains(ret, "SCSI controller") {
 		d.checkeDrivers = append(d.checkeDrivers, DISK_DRIVER_SCSI)
 		d.startAddDisk(disk)
@@ -335,23 +334,22 @@ func (d *SGuestDiskSyncTask) checkScsiDriver(ret string, disk jsonutils.JSONObje
 	}
 }
 
-func (d *SGuestDiskSyncTask) addDisk(disk jsonutils.JSONObject) {
+func (d *SGuestDiskSyncTask) addDisk(disk *api.GuestdiskJsonDesc) {
 	d.checkDiskDriver(disk)
 }
 
-func (d *SGuestDiskSyncTask) startAddDisk(disk jsonutils.JSONObject) {
-	diskPath, _ := disk.GetString("path")
-	iDisk, _ := storageman.GetManager().GetDiskByPath(diskPath)
+func (d *SGuestDiskSyncTask) startAddDisk(disk *api.GuestdiskJsonDesc) {
+	iDisk, _ := storageman.GetManager().GetDiskByPath(disk.Path)
 	if iDisk == nil {
 		d.syncDisksConf()
 		return
 	}
 
 	var (
-		diskIndex, _  = disk.Int("index")
-		aio, _        = disk.GetString("aio_mode")
-		diskDirver, _ = disk.GetString("driver")
-		cacheMode, _  = disk.GetString("cache_mode")
+		diskIndex  = disk.Index
+		aio        = disk.AioMode
+		diskDirver = disk.Driver
+		cacheMode  = disk.CacheMode
 	)
 
 	var params = map[string]string{
@@ -384,11 +382,11 @@ func (d *SGuestDiskSyncTask) startAddDisk(disk jsonutils.JSONObject) {
 	d.guest.Monitor.DriveAdd(bus, params, func(result string) { d.onAddDiskSucc(disk, result) })
 }
 
-func (d *SGuestDiskSyncTask) onAddDiskSucc(disk jsonutils.JSONObject, results string) {
+func (d *SGuestDiskSyncTask) onAddDiskSucc(disk *api.GuestdiskJsonDesc, results string) {
 	var (
-		diskIndex, _  = disk.Int("index")
-		diskDirver, _ = disk.GetString("driver")
-		dev           = qemu.GetDiskDeviceModel(diskDirver)
+		diskIndex  = disk.Index
+		diskDirver = disk.Driver
+		dev        = qemu.GetDiskDeviceModel(diskDirver)
 	)
 
 	var params = map[string]interface{}{
@@ -414,8 +412,8 @@ func (d *SGuestDiskSyncTask) onAddDeviceSucc(results string) {
 
 type SGuestNetworkSyncTask struct {
 	guest   *SKVMGuestInstance
-	delNics []jsonutils.JSONObject
-	addNics []jsonutils.JSONObject
+	delNics []*api.GuestnetworkJsonDesc
+	addNics []*api.GuestnetworkJsonDesc
 	errors  []error
 
 	callback func(...error)
@@ -440,8 +438,7 @@ func (n *SGuestNetworkSyncTask) syncNetworkConf() {
 	}
 }
 
-func (n *SGuestNetworkSyncTask) removeNic(nic jsonutils.JSONObject) {
-	ifname, _ := nic.GetString("ifname")
+func (n *SGuestNetworkSyncTask) removeNic(nic *api.GuestnetworkJsonDesc) {
 	callback := func(res string) {
 		if len(res) > 0 && !strings.Contains(res, "not found") {
 			log.Errorf("netdev del failed %s", res)
@@ -451,10 +448,10 @@ func (n *SGuestNetworkSyncTask) removeNic(nic jsonutils.JSONObject) {
 			n.onNetdevDel(nic)
 		}
 	}
-	n.guest.Monitor.NetdevDel(ifname, callback)
+	n.guest.Monitor.NetdevDel(nic.Ifname, callback)
 }
 
-func (n *SGuestNetworkSyncTask) onNetdevDel(nic jsonutils.JSONObject) {
+func (n *SGuestNetworkSyncTask) onNetdevDel(nic *api.GuestnetworkJsonDesc) {
 	downScript := n.guest.getNicDownScriptPath(nic)
 	output, err := procutils.NewCommand("sh", downScript).Output()
 	if err != nil {
@@ -464,7 +461,7 @@ func (n *SGuestNetworkSyncTask) onNetdevDel(nic jsonutils.JSONObject) {
 	n.delNicDevice(nic)
 }
 
-func (n *SGuestNetworkSyncTask) delNicDevice(nic jsonutils.JSONObject) {
+func (n *SGuestNetworkSyncTask) delNicDevice(nic *api.GuestnetworkJsonDesc) {
 	callback := func(res string) {
 		if len(res) > 0 {
 			log.Errorf("network device del failed %s", res)
@@ -473,11 +470,10 @@ func (n *SGuestNetworkSyncTask) delNicDevice(nic jsonutils.JSONObject) {
 			n.syncNetworkConf()
 		}
 	}
-	ifname, _ := nic.GetString("ifname")
-	n.guest.Monitor.DeviceDel(fmt.Sprintf("netdev-%s", ifname), callback)
+	n.guest.Monitor.DeviceDel(fmt.Sprintf("netdev-%s", nic.Ifname), callback)
 }
 
-func (n *SGuestNetworkSyncTask) addNic(nic jsonutils.JSONObject) {
+func (n *SGuestNetworkSyncTask) addNic(nic *api.GuestnetworkJsonDesc) {
 	if err := n.guest.generateNicScripts(nic); err != nil {
 		log.Errorln(err)
 		n.errors = append(n.errors, err)
@@ -486,9 +482,8 @@ func (n *SGuestNetworkSyncTask) addNic(nic jsonutils.JSONObject) {
 	}
 	upscript := n.guest.getNicUpScriptPath(nic)
 	downscript := n.guest.getNicDownScriptPath(nic)
-	ifname, _ := nic.GetString("ifname")
 	params := map[string]string{
-		"ifname": ifname, "script": upscript, "downscript": downscript,
+		"ifname": nic.Ifname, "script": upscript, "downscript": downscript,
 		"vhost": "on", "vhostforce": "off",
 	}
 	netType := "tap"
@@ -503,21 +498,17 @@ func (n *SGuestNetworkSyncTask) addNic(nic jsonutils.JSONObject) {
 		}
 	}
 
-	n.guest.Monitor.NetdevAdd(ifname, netType, params, callback)
+	n.guest.Monitor.NetdevAdd(nic.Ifname, netType, params, callback)
 }
 
-func (n *SGuestNetworkSyncTask) onNetdevAdd(nic jsonutils.JSONObject) {
-	index, _ := nic.Int("index")
-	ifname, _ := nic.GetString("ifname")
-	mac, _ := nic.GetString("mac")
-	driver, _ := nic.GetString("driver")
-	dev := n.guest.getNicDeviceModel(driver)
-	addr := n.guest.getNicAddr(int(index))
+func (n *SGuestNetworkSyncTask) onNetdevAdd(nic *api.GuestnetworkJsonDesc) {
+	dev := n.guest.getNicDeviceModel(nic.Driver)
+	addr := n.guest.getNicAddr(int(nic.Index))
 	params := map[string]interface{}{
-		"id":     fmt.Sprintf("netdev-%s", ifname),
-		"netdev": ifname,
+		"id":     fmt.Sprintf("netdev-%s", nic.Ifname),
+		"netdev": nic.Ifname,
 		"addr":   fmt.Sprintf("0x%x", addr),
-		"mac":    mac,
+		"mac":    nic.Mac,
 		"bus":    "pci.0",
 	}
 	callback := func(res string) {
@@ -532,11 +523,13 @@ func (n *SGuestNetworkSyncTask) onNetdevAdd(nic jsonutils.JSONObject) {
 	n.guest.Monitor.DeviceAdd(dev, params, callback)
 }
 
-func (n *SGuestNetworkSyncTask) onDeviceAdd(nic jsonutils.JSONObject) {
+func (n *SGuestNetworkSyncTask) onDeviceAdd(nic *api.GuestnetworkJsonDesc) {
 	n.syncNetworkConf()
 }
 
-func NewGuestNetworkSyncTask(guest *SKVMGuestInstance, delNics, addNics []jsonutils.JSONObject) *SGuestNetworkSyncTask {
+func NewGuestNetworkSyncTask(
+	guest *SKVMGuestInstance, delNics, addNics []*api.GuestnetworkJsonDesc,
+) *SGuestNetworkSyncTask {
 	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), nil}
 }
 
@@ -546,14 +539,14 @@ func NewGuestNetworkSyncTask(guest *SKVMGuestInstance, delNics, addNics []jsonut
 
 type SGuestIsolatedDeviceSyncTask struct {
 	guest   *SKVMGuestInstance
-	delDevs []jsonutils.JSONObject
-	addDevs []jsonutils.JSONObject
+	delDevs []*api.IsolatedDeviceJsonDesc
+	addDevs []*api.IsolatedDeviceJsonDesc
 	errors  []error
 
 	callback func(...error)
 }
 
-func NewGuestIsolatedDeviceSyncTask(guest *SKVMGuestInstance, delDevs, addDevs []jsonutils.JSONObject) *SGuestIsolatedDeviceSyncTask {
+func NewGuestIsolatedDeviceSyncTask(guest *SKVMGuestInstance, delDevs, addDevs []*api.IsolatedDeviceJsonDesc) *SGuestIsolatedDeviceSyncTask {
 	return &SGuestIsolatedDeviceSyncTask{guest, delDevs, addDevs, make([]error, 0), nil}
 }
 
@@ -576,7 +569,7 @@ func (t *SGuestIsolatedDeviceSyncTask) syncDevice() {
 	}
 }
 
-func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev jsonutils.JSONObject) {
+func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *api.IsolatedDeviceJsonDesc) {
 	cb := func(res string) {
 		if len(res) > 0 {
 			t.errors = append(t.errors, fmt.Errorf("device del failed: %s", res))
@@ -584,20 +577,9 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev jsonutils.JSONObject) {
 		t.syncDevice()
 	}
 
-	vendorDevId, err := dev.GetString("vendor_device_id")
-	if err != nil {
-		cb(err.Error())
-		return
-	}
-	addr, err := dev.GetString("addr")
-	if err != nil {
-		cb(err.Error())
-		return
-	}
-
-	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(vendorDevId, addr)
+	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr)
 	if devObj == nil {
-		cb(fmt.Sprintf("Not found host isolated_device by %s %s", vendorDevId, addr))
+		cb(fmt.Sprintf("Not found host isolated_device by %s %s", dev.VendorDeviceId, dev.Addr))
 		return
 	}
 
@@ -610,7 +592,7 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev jsonutils.JSONObject) {
 	t.delDeviceCallBack(opts, 0, cb)
 }
 
-func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev jsonutils.JSONObject) {
+func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *api.IsolatedDeviceJsonDesc) {
 	cb := func(res string) {
 		if len(res) > 0 {
 			t.errors = append(t.errors, fmt.Errorf("device add failed: %s", res))
@@ -618,20 +600,9 @@ func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev jsonutils.JSONObject) {
 		t.syncDevice()
 	}
 
-	vendorDevId, err := dev.GetString("vendor_device_id")
-	if err != nil {
-		cb(err.Error())
-		return
-	}
-	addr, err := dev.GetString("addr")
-	if err != nil {
-		cb(err.Error())
-		return
-	}
-
-	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(vendorDevId, addr)
+	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr)
 	if devObj == nil {
-		cb(fmt.Sprintf("Not found host isolated_device by %s %s", vendorDevId, addr))
+		cb(fmt.Sprintf("Not found host isolated_device by %s %s", dev.VendorDeviceId, dev.Addr))
 		return
 	}
 
@@ -698,7 +669,7 @@ func NewGuestLiveMigrateTask(
 	ctx context.Context, guest *SKVMGuestInstance, params *SLiveMigrate,
 ) *SGuestLiveMigrateTask {
 	task := &SGuestLiveMigrateTask{SKVMGuestInstance: guest, ctx: ctx, params: params}
-	task.migrateTask = task
+	task.MigrateTask = task
 	return task
 }
 
@@ -720,7 +691,7 @@ func (s *SGuestLiveMigrateTask) startRamMigrateTimeout() {
 		// timeout has been set
 		return
 	}
-	memMb, _ := s.Desc.Int("mem")
+	memMb := s.Desc.Mem
 	migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
 	if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
 		migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
@@ -837,7 +808,7 @@ func (s *SGuestLiveMigrateTask) onMigrateStartPostcopy(res string) {
 }
 
 func (s *SGuestLiveMigrateTask) migrateComplete() {
-	s.migrateTask = nil
+	s.MigrateTask = nil
 	if s.c != nil {
 		close(s.c)
 		s.c = nil
@@ -849,7 +820,7 @@ func (s *SGuestLiveMigrateTask) migrateComplete() {
 
 func (s *SGuestLiveMigrateTask) migrateFailed(msg string) {
 	cleanup := func() {
-		s.migrateTask = nil
+		s.MigrateTask = nil
 		if s.c != nil {
 			close(s.c)
 			s.c = nil
@@ -954,7 +925,7 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 	} else if status == "postmigrate" {
 		s.resumeGuest()
 	} else {
-		memMb, _ := s.Desc.Int("mem")
+		memMb := s.Desc.Mem
 		migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
 		if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
 			migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
@@ -1519,8 +1490,7 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 		blockReplication = true
 		log.Infof("mirror block replication supported")
 	}
-	disks, _ := s.Desc.GetArray("disks")
-	if s.index < len(disks) {
+	if s.index < len(s.Desc.Disks) {
 		target := fmt.Sprintf("%s:exportname=drive_%d", s.nbdUri, s.index)
 		s.Monitor.DriveMirror(s.startMirror, fmt.Sprintf("drive_%d", s.index),
 			target, s.syncMode, "", true, blockReplication)
@@ -1876,10 +1846,9 @@ func NewGuestStorageCloneDiskTask(ctx context.Context, guest *SKVMGuestInstance,
 
 func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
 	var diskIndex = -1
-	disks, _ := t.Desc.GetArray("disks")
+	disks := t.Desc.Disks
 	for diskIndex = 0; diskIndex < len(disks); diskIndex++ {
-		diskId, _ := disks[diskIndex].GetString("disk_id")
-		if diskId == t.params.SourceDisk.GetId() {
+		if disks[diskIndex].DiskId == t.params.SourceDisk.GetId() {
 			break
 		}
 	}
@@ -1954,10 +1923,9 @@ func NewGuestLiveChangeDiskTask(ctx context.Context, guest *SKVMGuestInstance, p
 	}
 
 	var diskIndex = -1
-	disks, _ := guest.Desc.GetArray("disks")
+	disks := guest.Desc.Disks
 	for diskIndex = 0; diskIndex < len(disks); diskIndex++ {
-		diskId, _ := disks[diskIndex].GetString("disk_id")
-		if diskId == params.SourceDisk.GetId() {
+		if disks[diskIndex].DiskId == params.SourceDisk.GetId() {
 			break
 		}
 	}

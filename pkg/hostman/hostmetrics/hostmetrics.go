@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -173,31 +174,29 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 		}
 		pid := guest.GetPid()
 		if pid > 0 {
-			guestName, _ := guest.Desc.GetString("name")
+			guestName := guest.Desc.Name
 			guestId := guest.GetId()
-			nicsDesc, _ := guest.Desc.GetArray("nics")
-			nics := make([]jsonutils.JSONObject, len(nicsDesc))
-			copy(nics, nicsDesc)
-			vcpuCount, _ := guest.Desc.Int("cpu")
+			nicsDesc := guest.Desc.Nics
+			vcpuCount := guest.Desc.Cpu
 			gm, ok := s.monitors[guestId]
 			if ok && gm.Pid == pid {
 				delete(s.monitors, guestId)
 				gm.UpdateVmName(guestName)
-				gm.UpdateNicsDesc(nics)
+				gm.UpdateNicsDesc(nicsDesc)
 				gm.UpdateCpuCount(int(vcpuCount))
 			} else {
 				delete(s.monitors, guestId)
-				gm, err = NewGuestMonitor(guestName, guestId, pid, nics, int(vcpuCount))
+				gm, err = NewGuestMonitor(guestName, guestId, pid, nicsDesc, int(vcpuCount))
 				if err != nil {
 					log.Errorln(err)
 					return true
 				}
 			}
-			gm.ScalingGroupId, _ = guest.Desc.GetString("scaling_group_id")
-			gm.Tenant, _ = guest.Desc.GetString("tenant")
-			gm.TenantId, _ = guest.Desc.GetString("tenant_id")
-			gm.DomainId, _ = guest.Desc.GetString("domain_id")
-			gm.ProjectDomain, _ = guest.Desc.GetString("project_domain")
+			gm.ScalingGroupId = guest.Desc.ScalingGroupId
+			gm.Tenant = guest.Desc.Tenant
+			gm.TenantId = guest.Desc.TenantId
+			gm.DomainId = guest.Desc.DomainId
+			gm.ProjectDomain = guest.Desc.ProjectDomain
 
 			gms[guestId] = gm
 		}
@@ -423,7 +422,7 @@ type SGuestMonitor struct {
 	Name           string
 	Id             string
 	Pid            int
-	Nics           []jsonutils.JSONObject
+	Nics           []*api.GuestnetworkJsonDesc
 	CpuCnt         int
 	Ip             string
 	Process        *process.Process
@@ -434,11 +433,11 @@ type SGuestMonitor struct {
 	ProjectDomain  string
 }
 
-func NewGuestMonitor(name, id string, pid int, nics []jsonutils.JSONObject, cpuCount int,
+func NewGuestMonitor(name, id string, pid int, nics []*api.GuestnetworkJsonDesc, cpuCount int,
 ) (*SGuestMonitor, error) {
 	var ip string
 	if len(nics) >= 1 {
-		ip, _ = nics[0].GetString("ip")
+		ip = nics[0].Ip
 	}
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
@@ -451,7 +450,7 @@ func (m *SGuestMonitor) UpdateVmName(name string) {
 	m.Name = name
 }
 
-func (m *SGuestMonitor) UpdateNicsDesc(nics []jsonutils.JSONObject) {
+func (m *SGuestMonitor) UpdateNicsDesc(nics []*api.GuestnetworkJsonDesc) {
 	m.Nics = nics
 }
 
@@ -473,7 +472,7 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 
 	var res = jsonutils.NewArray()
 	for i, nic := range m.Nics {
-		ifname, _ := nic.GetString("ifname")
+		ifname := nic.Ifname
 		var nicStat *psnet.IOCountersStat
 		for j, netstat := range netstats {
 			if netstat.Name == ifname {
@@ -486,7 +485,7 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 		data := jsonutils.NewDict()
 		meta := jsonutils.NewDict()
 
-		ip, _ := nic.GetString("ip")
+		ip := nic.Ip
 		ipv4, _ := netutils.NewIPV4Addr(ip)
 		if netutils.IsExitAddress(ipv4) {
 			meta.Set("ip_type", jsonutils.NewString("external"))
@@ -494,7 +493,7 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 			meta.Set("ip_type", jsonutils.NewString("internal"))
 		}
 
-		netId, _ := nic.GetString("net_id")
+		netId := nic.NetId
 		meta.Set("ip", jsonutils.NewString(ip))
 		meta.Set("index", jsonutils.NewInt(int64(i)))
 		meta.Set("ifname", jsonutils.NewString(ifname))

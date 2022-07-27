@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
@@ -56,7 +57,7 @@ type SDestPrepareMigrate struct {
 	LiveMigrate      bool
 	RebaseDisks      bool
 
-	Desc             jsonutils.JSONObject
+	Desc             *desc.SGuestDesc
 	DisksBackingFile jsonutils.JSONObject
 	SrcSnapshots     jsonutils.JSONObject
 
@@ -77,7 +78,7 @@ type SLiveMigrate struct {
 type SDriverMirror struct {
 	Sid          string
 	NbdServerUri string
-	Desc         jsonutils.JSONObject
+	Desc         *desc.SGuestDesc
 }
 
 type SGuestHotplugCpuMem struct {
@@ -140,7 +141,7 @@ type SLibvirtDomainImportConfig struct {
 type SGuestCreateFromLibvirt struct {
 	Sid         string
 	MonitorPath string
-	GuestDesc   *jsonutils.JSONDict
+	GuestDesc   *desc.SGuestDesc
 	DisksPath   *jsonutils.JSONDict
 }
 
@@ -152,7 +153,7 @@ type SGuestIoThrottle struct {
 
 type SGuestCreateFromEsxi struct {
 	Sid            string
-	GuestDesc      *jsonutils.JSONDict
+	GuestDesc      *desc.SGuestDesc
 	EsxiAccessInfo SEsxiAccessInfo
 }
 

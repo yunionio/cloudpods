@@ -65,31 +65,26 @@ func (s *SKVMGuestInstance) IsKvmSupport() bool {
 }
 
 func (s *SKVMGuestInstance) IsVdiSpice() bool {
-	vdi, _ := s.Desc.GetString("vdi")
-	return vdi == "spice"
+	return s.Desc.Vdi == "spice"
 }
 
 func (s *SKVMGuestInstance) getOsname() string {
-	osName, err := s.Desc.GetString("metadata", "os_name")
-	if err != nil {
-		return OS_NAME_LINUX
+	if osName, ok := s.Desc.Metadata["os_name"]; ok {
+		return osName
 	}
-	return osName
+	return OS_NAME_LINUX
 }
 
 func (s *SKVMGuestInstance) disableUsbKbd() bool {
-	val, _ := s.Desc.GetString("metadata", "disable_usb_kbd")
-	return val == "true"
+	return s.Desc.Metadata["disable_usb_kbd"] == "true"
 }
 
 func (s *SKVMGuestInstance) getOsDistribution() string {
-	osDis, _ := s.Desc.GetString("metadata", "os_distribution")
-	return osDis
+	return s.Desc.Metadata["os_distribution"]
 }
 
 func (s *SKVMGuestInstance) getOsVersion() string {
-	osVer, _ := s.Desc.GetString("metadata", "os_version")
-	return osVer
+	return s.Desc.Metadata["os_version"]
 }
 
 // is windows prioer to windows server 2003
@@ -114,21 +109,20 @@ func (s *SKVMGuestInstance) isWindows10() bool {
 }
 
 func (s *SKVMGuestInstance) isMemcleanEnabled() bool {
-	val, _ := s.Desc.GetString("metadata", "enable_memclean")
-	return val == "true"
+	return s.Desc.Metadata["enable_memclean"] == "true"
 }
 
 func (s *SKVMGuestInstance) getMachine() string {
-	machine, err := s.Desc.GetString("machine")
-	if err != nil {
+	machine := s.Desc.Machine
+	if machine == "" {
 		machine = api.VM_MACHINE_TYPE_PC
 	}
 	return machine
 }
 
 func (s *SKVMGuestInstance) getBios() string {
-	bios, err := s.Desc.GetString("bios")
-	if err != nil {
+	bios := s.Desc.Bios
+	if bios == "" {
 		bios = "bios"
 	}
 	return bios
@@ -143,8 +137,8 @@ func (s *SKVMGuestInstance) isVirt() bool {
 }
 
 func (s *SKVMGuestInstance) GetVdiProtocol() string {
-	vdi, err := s.Desc.GetString("vdi")
-	if err != nil {
+	vdi := s.Desc.Vdi
+	if vdi == "" {
 		vdi = "vnc"
 	}
 	return vdi
@@ -159,35 +153,29 @@ func (s *SKVMGuestInstance) GetPciBus() string {
 }
 
 func (s *SKVMGuestInstance) disableIsaSerialDev() bool {
-	val, _ := s.Desc.GetString("metadata", "disable_isa_serial")
-	return val == "true"
+	return s.Desc.Metadata["disable_isa_serial"] == "true"
 }
 
 func (s *SKVMGuestInstance) disablePvpanicDev() bool {
-	val, _ := s.Desc.GetString("metadata", "disable_pvpanic")
-	return val == "true"
+	return s.Desc.Metadata["disable_pvpanic"] == "true"
 }
 
 func (s *SKVMGuestInstance) GetDiskAddr(idx int) int {
 	return qemu.GetDiskAddr(idx, s.IsVdiSpice())
 }
 
-func (s *SKVMGuestInstance) getNicUpScriptPath(nic jsonutils.JSONObject) string {
-	ifname, _ := nic.GetString("ifname")
-	bridge, _ := nic.GetString("bridge")
-	dev := guestManager.GetHost().GetBridgeDev(bridge)
-	return path.Join(s.HomeDir(), fmt.Sprintf("if-up-%s-%s.sh", dev.Bridge(), ifname))
+func (s *SKVMGuestInstance) getNicUpScriptPath(nic *api.GuestnetworkJsonDesc) string {
+	dev := guestManager.GetHost().GetBridgeDev(nic.Bridge)
+	return path.Join(s.HomeDir(), fmt.Sprintf("if-up-%s-%s.sh", dev.Bridge(), nic.Ifname))
 }
 
-func (s *SKVMGuestInstance) getNicDownScriptPath(nic jsonutils.JSONObject) string {
-	ifname, _ := nic.GetString("ifname")
-	bridge, _ := nic.GetString("bridge")
-	dev := guestManager.GetHost().GetBridgeDev(bridge)
-	return path.Join(s.HomeDir(), fmt.Sprintf("if-down-%s-%s.sh", dev.Bridge(), ifname))
+func (s *SKVMGuestInstance) getNicDownScriptPath(nic *api.GuestnetworkJsonDesc) string {
+	dev := guestManager.GetHost().GetBridgeDev(nic.Bridge)
+	return path.Join(s.HomeDir(), fmt.Sprintf("if-down-%s-%s.sh", dev.Bridge(), nic.Ifname))
 }
 
-func (s *SKVMGuestInstance) generateNicScripts(nic jsonutils.JSONObject) error {
-	bridge, _ := nic.GetString("bridge")
+func (s *SKVMGuestInstance) generateNicScripts(nic *api.GuestnetworkJsonDesc) error {
+	bridge := nic.Bridge
 	dev := guestManager.GetHost().GetBridgeDev(bridge)
 	if dev == nil {
 		return fmt.Errorf("Can't find bridge %s", bridge)
@@ -207,15 +195,12 @@ func (s *SKVMGuestInstance) getNicDeviceModel(name string) string {
 }
 
 func (s *SKVMGuestInstance) getNicAddr(index int) int {
-	disks, _ := s.Desc.GetArray("disks")
-	isolatedDevices, _ := s.Desc.GetArray("isolated_devices")
-	return qemu.GetNicAddr(index, len(disks), len(isolatedDevices), s.IsVdiSpice())
+	return qemu.GetNicAddr(index, len(s.Desc.Disks), len(s.Desc.IsolatedDevices), s.IsVdiSpice())
 }
 
 func (s *SKVMGuestInstance) extraOptions() string {
 	cmd := " "
-	extraOptions, _ := s.Desc.GetMap("extra_options")
-	for k, v := range extraOptions {
+	for k, v := range s.Desc.ExtraOptions {
 		switch jsonV := v.(type) {
 		case *jsonutils.JSONArray:
 			for i := 0; i < jsonV.Size(); i++ {
@@ -231,28 +216,21 @@ func (s *SKVMGuestInstance) extraOptions() string {
 
 func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (string, error) {
 	// initial data
-	var (
-		uuid, _ = s.Desc.GetString("uuid")
-		mem, _  = s.Desc.Int("mem")
-		cpu, _  = s.Desc.Int("cpu")
-		name, _ = s.Desc.GetString("name")
-		nics, _ = s.Desc.GetArray("nics")
-		osname  = s.getOsname()
-		input   = &qemu.GenerateStartOptionsInput{
-			UUID:                 uuid,
-			Mem:                  uint64(mem),
-			Cpu:                  uint(cpu),
-			Name:                 name,
-			OsName:               osname,
-			Nics:                 nics,
-			OVNIntegrationBridge: options.HostOptions.OvnIntegrationBridge,
-			HomeDir:              s.HomeDir(),
-			HugepagesEnabled:     s.manager.host.IsHugepagesEnabled(),
-			EnableMemfd:          s.isMemcleanEnabled(),
-			PidFilePath:          s.GetPidFilePath(),
-			BIOS:                 s.getBios(),
-		}
-	)
+	var input = &qemu.GenerateStartOptionsInput{
+		UUID:                 s.Desc.Uuid,
+		Mem:                  uint64(s.Desc.Mem),
+		Cpu:                  uint(s.Desc.Cpu),
+		Name:                 s.Desc.Name,
+		OsName:               s.getOsname(),
+		Nics:                 s.Desc.Nics,
+		Disks:                s.Desc.Disks,
+		OVNIntegrationBridge: options.HostOptions.OvnIntegrationBridge,
+		HomeDir:              s.HomeDir(),
+		HugepagesEnabled:     s.manager.host.IsHugepagesEnabled(),
+		EnableMemfd:          s.isMemcleanEnabled(),
+		PidFilePath:          s.GetPidFilePath(),
+		BIOS:                 s.getBios(),
+	}
 
 	if data.Contains("encrypt_key") {
 		key, _ := data.GetString("encrypt_key")
@@ -262,16 +240,11 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 
 	cmd := ""
 
-	// inject disks
-	disks := make([]api.GuestdiskJsonDesc, 0)
-	s.Desc.Unmarshal(&disks, "disks")
-	input.Disks = disks
-
 	// inject machine and bios
 	if input.OsName == OS_NAME_MACOS {
-		s.Desc.Set("machine", jsonutils.NewString(api.VM_MACHINE_TYPE_Q35))
+		s.Desc.Machine = api.VM_MACHINE_TYPE_Q35
 		input.Machine = api.VM_MACHINE_TYPE_Q35
-		s.Desc.Set("bios", jsonutils.NewString(qemu.BIOS_UEFI))
+		s.Desc.Bios = qemu.BIOS_UEFI
 		input.BIOS = qemu.BIOS_UEFI
 	}
 
@@ -297,18 +270,16 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 
 	// inject isolatedDevices
 	var devAddrs = []string{}
-	isolatedParams, _ := s.Desc.GetArray("isolated_devices")
+	isolatedParams := s.Desc.IsolatedDevices
 	for _, params := range isolatedParams {
-		devAddr, _ := params.GetString("addr")
-		devAddrs = append(devAddrs, devAddr)
+		devAddrs = append(devAddrs, params.Addr)
 	}
 	isolatedDevsParams := s.manager.GetHost().GetIsolatedDeviceManager().GetQemuParams(devAddrs)
 	input.IsolatedDevicesParams = isolatedDevsParams
 
 	for _, nic := range input.Nics {
 		downscript := s.getNicDownScriptPath(nic)
-		ifname, _ := nic.GetString("ifnam")
-		cmd += fmt.Sprintf("%s %s\n", downscript, ifname)
+		cmd += fmt.Sprintf("%s %s\n", downscript, nic.Ifname)
 	}
 
 	if input.HugepagesEnabled {
@@ -422,12 +393,9 @@ function nic_mtu() {
 	input.Machine = s.getMachine()
 
 	// inject bootOrder and cdrom
-	bootOrder, _ := s.Desc.GetString("boot_order")
-	input.BootOrder = bootOrder
-	cdrom, _ := s.Desc.Get("cdrom")
-	if cdrom != nil && cdrom.Contains("path") {
-		cdromPath, _ := cdrom.GetString("path")
-		input.CdromPath = cdromPath
+	input.BootOrder = s.Desc.BootOrder
+	if s.Desc.Cdrom != nil && s.Desc.Cdrom.Path != "" {
+		input.CdromPath = s.Desc.Cdrom.Path
 	}
 
 	// UEFI ovmf file path
@@ -444,27 +412,26 @@ function nic_mtu() {
 
 	// inject nic and disks
 	for i := 0; i < len(input.Nics); i++ {
-		nic := nics[i].(*jsonutils.JSONDict)
-		if numQueues, _ := nic.Int("num_queues"); numQueues > 1 {
-			nic.Set("vectors", jsonutils.NewInt(2*numQueues+1))
+		if input.Nics[i].NumQueues > 1 {
+			vectors := input.Nics[i].NumQueues * 2
+			input.Nics[i].Vectors = &vectors
 		}
 	}
 
 	if input.OsName == OS_NAME_MACOS {
 		for i := 0; i < len(input.Disks); i++ {
-			disks[i].Driver = DISK_DRIVER_SATA
+			input.Disks[i].Driver = DISK_DRIVER_SATA
 		}
 		for i := 0; i < len(input.Nics); i++ {
-			nic := nics[i].(*jsonutils.JSONDict)
-			nic.Set("vectors", jsonutils.NewInt(0))
-			nic.Set("driver", jsonutils.NewString("e1000"))
+			vectors := 0
+			input.Nics[i].Vectors = &vectors
+			input.Nics[i].Driver = "e1000"
 		}
 	} else if input.OsName == OS_NAME_ANDROID {
 		if len(input.Nics) > 1 {
-			s.Desc.Set("nics", jsonutils.NewArray(input.Nics[0]))
+			s.Desc.Nics = input.Nics[:1]
 		}
-		nics, _ = s.Desc.GetArray("nics")
-		input.Nics = nics
+		input.Nics = s.Desc.Nics
 	}
 
 	// inject devices
@@ -481,7 +448,7 @@ function nic_mtu() {
 			!s.disableUsbKbd() {
 			input.Devices = append(input.Devices, "usb-kbd")
 		}
-		if osname == OS_NAME_ANDROID {
+		if input.OsName == OS_NAME_ANDROID {
 			input.Devices = append(input.Devices, "usb-mouse")
 		} else if !s.isOldWindows() {
 			input.Devices = append(input.Devices, "usb-tablet")
@@ -493,8 +460,8 @@ function nic_mtu() {
 	input.SpicePort = uint(5900 + vncPort)
 	input.PCIBus = s.GetPciBus()
 	if input.QemuArch != qemu.Arch_aarch64 {
-		vga, err := s.Desc.GetString("vga")
-		if err != nil {
+		vga := s.Desc.Vga
+		if vga == "" {
 			vga = "std"
 		}
 		input.VGA = vga
@@ -505,15 +472,13 @@ function nic_mtu() {
 	input.IsKVMSupport = s.IsKvmSupport()
 	for i := 0; i < len(input.Nics); i++ {
 		if input.OsName == OS_NAME_VMWARE {
-			input.Nics[i].(*jsonutils.JSONDict).Set("driver", jsonutils.NewString("vmxnet3"))
+			input.Nics[i].Driver = "vmxnet3"
 		}
 		if err := s.generateNicScripts(input.Nics[i]); err != nil {
-			return "", errors.Wrapf(err, "generateNicScripts for nic: %s", input.Nics[i])
+			return "", errors.Wrapf(err, "generateNicScripts for nic: %v", input.Nics[i])
 		}
-		upscript := s.getNicUpScriptPath(input.Nics[i])
-		downscript := s.getNicDownScriptPath(input.Nics[i])
-		input.Nics[i].(*jsonutils.JSONDict).Set("upscript_path", jsonutils.NewString(upscript))
-		input.Nics[i].(*jsonutils.JSONDict).Set("downscript_path", jsonutils.NewString(downscript))
+		input.Nics[i].UpscriptPath = s.getNicUpScriptPath(input.Nics[i])
+		input.Nics[i].DownscriptPath = s.getNicDownScriptPath(input.Nics[i])
 	}
 
 	input.ExtraOptions = append(input.ExtraOptions, s.extraOptions())
@@ -536,16 +501,16 @@ function nic_mtu() {
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		input.NeedMigrate = true
 		migratePort := s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE)
-		s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(migratePort)))
+		s.LiveMigrateDestPort = &migratePort
 		input.LiveMigratePort = uint(migratePort)
 		if jsonutils.QueryBoolean(data, "live_migrate_use_tls", false) {
+			s.LiveMigrateUseTls = true
 			input.LiveMigrateUseTLS = true
-			s.Desc.Set("live_migrate_use_tls", jsonutils.JSONTrue)
 		}
-	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
+	} else if s.Desc.IsSlave {
 		input.IsSlave = true
 		input.LiveMigratePort = uint(s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE))
-	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
+	} else if s.Desc.IsMaster {
 		input.IsMaster = true
 	}
 	// cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))
@@ -644,8 +609,8 @@ func (s *SKVMGuestInstance) unifyMigrateQemuCmdline(cur string, src string) (str
 
 func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string {
 	var (
-		uuid, _ = s.Desc.GetString("uuid")
-		nics, _ = s.Desc.GetArray("nics")
+		uuid = s.Desc.Uuid
+		nics = s.Desc.Nics
 	)
 
 	cmd := ""
@@ -681,18 +646,16 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += fmt.Sprintf("done\n")
 
 	for _, nic := range nics {
-		ifname, _ := nic.GetString("ifname")
 		downscript := s.getNicDownScriptPath(nic)
-		cmd += fmt.Sprintf("%s %s\n", downscript, ifname)
+		cmd += fmt.Sprintf("%s %s\n", downscript, nic.Ifname)
 	}
 	return cmd
 }
 
-func (s *SKVMGuestInstance) presendArpForNic(nic jsonutils.JSONObject) {
-	ifname, _ := nic.GetString("ifname")
-	ifi, err := net.InterfaceByName(ifname)
+func (s *SKVMGuestInstance) presendArpForNic(nic *api.GuestnetworkJsonDesc) {
+	ifi, err := net.InterfaceByName(nic.Ifname)
 	if err != nil {
-		log.Errorf("InterfaceByName error %s", ifname)
+		log.Errorf("InterfaceByName error %s", nic.Ifname)
 		return
 	}
 
@@ -704,11 +667,11 @@ func (s *SKVMGuestInstance) presendArpForNic(nic jsonutils.JSONObject) {
 	defer cli.Close()
 
 	var (
-		sSrcMac, _ = nic.GetString("mac")
-		sScrIp, _  = nic.GetString("ip")
-		srcIp      = net.ParseIP(sScrIp)
-		dstMac, _  = net.ParseMAC("00:00:00:00:00:00")
-		dstIp      = net.ParseIP("255.255.255.255")
+		sSrcMac   = nic.Mac
+		sScrIp    = nic.Ip
+		srcIp     = net.ParseIP(sScrIp)
+		dstMac, _ = net.ParseMAC("00:00:00:00:00:00")
+		dstIp     = net.ParseIP("255.255.255.255")
 	)
 	srcMac, err := net.ParseMAC(sSrcMac)
 	if err != nil {
@@ -730,8 +693,7 @@ func (s *SKVMGuestInstance) presendArpForNic(nic jsonutils.JSONObject) {
 func (s *SKVMGuestInstance) StartPresendArp() {
 	go func() {
 		for i := 0; i < 5; i++ {
-			nics, _ := s.Desc.GetArray("nics")
-			for _, nic := range nics {
+			for _, nic := range s.Desc.Nics {
 				s.presendArpForNic(nic)
 			}
 			time.Sleep(1 * time.Second)
@@ -778,11 +740,10 @@ func (s *SKVMGuestInstance) WriteMigrateCerts(certs map[string]string) error {
 }
 
 func (s *SKVMGuestInstance) startMemCleaner() error {
-	mem, _ := s.Desc.Int("mem")
 	err := procutils.NewRemoteCommandAsFarAsPossible(
 		options.HostOptions.BinaryMemcleanPath,
 		"--pid", strconv.Itoa(s.GetPid()),
-		"--mem-size", strconv.FormatInt(mem*1024*1024, 10),
+		"--mem-size", strconv.FormatInt(s.Desc.Mem*1024*1024, 10),
 		"--log-dir", s.HomeDir(),
 	).Run()
 	if err != nil {

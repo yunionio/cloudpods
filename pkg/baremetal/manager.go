@@ -57,6 +57,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/sshpart"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -2878,16 +2879,21 @@ func (s *SBaremetalServer) deployFs(tool *disktool.SSHPartitionTool, term *ssh.C
 	if strings.ToLower(rootfs.GetOs()) == "windows" {
 		return nil, fmt.Errorf("Unsupported OS: %s", rootfs.GetOs())
 	}
-	desc, err := deployapi.GuestDescToDeployDesc(s.desc)
+	guestDesc := new(desc.SGuestDesc)
+	err = s.desc.Unmarshal(guestDesc)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed unmarsh guest desc")
+	}
+	deployDesc := deployapi.GuestDescToDeployDesc(guestDesc)
 	if err != nil {
 		return nil, errors.Wrap(err, "To deploy desc fail")
 	}
-	desc, err = s.reIndexDescNics(term, desc)
+	deployDesc, err = s.reIndexDescNics(term, deployDesc)
 	if err != nil {
 		return nil, errors.Wrap(err, "reIndexDescNics")
 	}
 
-	return guestfs.DeployGuestFs(rootfs, desc, deployInfo)
+	return guestfs.DeployGuestFs(rootfs, deployDesc, deployInfo)
 }
 
 func (s *SBaremetalServer) reIndexDescNics(term *ssh.Client, desc *deployapi.GuestDesc) (*deployapi.GuestDesc, error) {
