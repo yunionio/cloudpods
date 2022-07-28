@@ -35,6 +35,8 @@ type SMongoDB struct {
 	multicloud.QcloudTags
 	multicloud.SVirtualResourceBase
 	multicloud.SBillingBase
+	multicloud.SMongodbBase
+
 	region *SRegion
 
 	IOPS                int
