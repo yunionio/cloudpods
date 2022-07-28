@@ -33,6 +33,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -77,8 +78,7 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	for {
 		parts, total, err := self.zone.region.GetDisks("", self.zone.GetId(), storageType, nil, offset, 50)
 		if err != nil {
-			log.Errorf("GetDisks fail %s", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "GetDisks")
 		}
 		performanceLevel := ""
 		switch self.storageType {
@@ -143,6 +143,9 @@ func (self *SStorage) Refresh() error {
 }
 
 func (self *SStorage) GetEnabled() bool {
+	if utils.IsInStringArray(self.storageType, LOCAL_STORAGES) {
+		return false
+	}
 	return true
 }
 
@@ -166,12 +169,12 @@ func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudpr
 }
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
-	if disk, err := self.zone.region.getDisk(idStr); err != nil {
+	disk, err := self.zone.region.getDisk(idStr)
+	if err != nil {
 		return nil, err
-	} else {
-		disk.storage = self
-		return disk, nil
 	}
+	disk.storage = self
+	return disk, nil
 }
 
 func (self *SStorage) GetMountPoint() string {
