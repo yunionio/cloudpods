@@ -287,7 +287,7 @@ func (self *SphereClient) GetIRegions() []cloudprovider.ICloudRegion {
 
 func (self *SphereClient) GetCapabilities() []string {
 	ret := []string{
-		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return ret
