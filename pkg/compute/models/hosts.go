@@ -4038,6 +4038,9 @@ func (self *SHost) StartSyncAllGuestsStatusTask(ctx context.Context, userCred mc
 }
 
 func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SHostPingInput) (jsonutils.JSONObject, error) {
+	if self.HostType == api.HOST_TYPE_BAREMETAL {
+		return nil, httperrors.NewNotSupportedError("ping host type %s not support", self.HostType)
+	}
 	if input.WithData {
 		// piggyback storage stats info
 		log.Debugf("host ping %s", jsonutils.Marshal(input))
