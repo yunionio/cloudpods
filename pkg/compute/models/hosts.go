@@ -4097,6 +4097,9 @@ func (self *SHost) AllowPerformPing(ctx context.Context,
 }
 
 func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.HostType == api.HOST_TYPE_BAREMETAL {
+		return nil, httperrors.NewNotSupportedError("ping host type %s not support", self.HostType)
+	}
 	if self.HostStatus != api.HOST_ONLINE {
 		self.PerformOnline(ctx, userCred, query, data)
 	} else {
