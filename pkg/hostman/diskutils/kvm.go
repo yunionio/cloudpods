@@ -151,7 +151,11 @@ func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) (fsdriver.IRootFsDriver, e
 	if len(partitions) == 0 {
 		return nil, errors.Wrap(errors.ErrNotFound, "not found any partition")
 	}
-	return nil, errors.Wrapf(errors.ErrNotFound, errors.NewAggregate(errs).Error())
+	var err error = errors.ErrNotFound
+	if len(errs) > 0 {
+		err = errors.Wrapf(errors.ErrNotFound, errors.NewAggregate(errs).Error())
+	}
+	return nil, err
 }
 
 func (d *SKVMGuestDisk) MountKvmRootfsReadOnly() (fsdriver.IRootFsDriver, error) {
