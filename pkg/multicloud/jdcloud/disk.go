@@ -249,8 +249,8 @@ func (r *SRegion) GetDisks(instanceId, zoneId, diskType string, diskIds []string
 		})
 	}
 	req := apis.NewDescribeDisksRequestWithAllParams(r.ID, &pageNumber, &pageSize, nil, filters)
-	client := client.NewDiskClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewDiskClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeDisks(req)
 	if err != nil {
 		return nil, 0, err
@@ -270,8 +270,8 @@ func (r *SRegion) GetDisks(instanceId, zoneId, diskType string, diskIds []string
 
 func (r *SRegion) GetDiskById(id string) (*SDisk, error) {
 	req := apis.NewDescribeDiskRequest(r.ID, id)
-	client := client.NewDiskClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewDiskClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeDisk(req)
 	if err != nil {
 		return nil, err

@@ -309,3 +309,7 @@ func (self *SGoogleProvider) GetICloudGlobalVpcById(id string) (cloudprovider.IC
 func (self *SGoogleProvider) CreateICloudGlobalVpc(opts *cloudprovider.GlobalVpcCreateOptions) (cloudprovider.ICloudGlobalVpc, error) {
 	return self.client.CreateICloudGlobalVpc(opts)
 }
+
+func (self *SGoogleProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

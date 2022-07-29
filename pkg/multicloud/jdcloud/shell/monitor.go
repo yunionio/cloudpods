@@ -15,27 +15,23 @@
 package shell
 
 import (
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/jdcloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
-	type DescribeMetricDataOptions struct {
-		/* 监控项英文标识(id)  */
-		Metric       string `help:"metric name" json:"metric"`
-		TimeInterval string `help:"time interval" choices:"1h|6h|12h|1d|3d|7d|14d" json:"timeInterval"`
-		ServiceCode  string `help:"resource code" choices:"vm" json:"serviceCode"`
-		ResourceId   string `help:"resource id" json:"resourceId"`
-	}
-	shellutils.R(&DescribeMetricDataOptions{}, "metric-list", "list metric", func(cli *jdcloud.SRegion,
-		args *DescribeMetricDataOptions) error {
-		request := jdcloud.NewDescribeMetricDataRequestWithAllParams(cli.GetId(),
-			args.Metric, nil, nil, &args.TimeInterval, &args.ServiceCode, args.ResourceId)
-		response, err := cli.GetMetricsData(request)
+	shellutils.R(&cloudprovider.MetricListOptions{}, "metric-list", "List metrics", func(cli *jdcloud.SRegion, args *cloudprovider.MetricListOptions) error {
+		metrics, err := cli.GetClient().GetMetrics(args)
 		if err != nil {
 			return err
 		}
-		printList(response.Result.MetricDatas, 0, 0, 0, nil)
+		for i := range metrics {
+			log.Infof("metric: %s %s %s", metrics[i].Id, metrics[i].MetricType, metrics[i].Unit)
+			printList(metrics[i].Values, len(metrics[i].Values), 0, 0, []string{})
+		}
 		return nil
 	})
 }

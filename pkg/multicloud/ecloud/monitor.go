@@ -16,6 +16,7 @@ package ecloud
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -23,6 +24,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
@@ -39,9 +41,9 @@ var (
 	noMetricRegion = []string{"guangzhou-2", "beijing-1", "hunan-1"}
 
 	portRegionMap = map[string][]string{
-		"8443": []string{"wuxi-1", "dongguan-1", "yaan-1", "zhengzhou-1", "beijing-2", "zhuzhou-1", "jinan-1",
+		"8443": {"wuxi-1", "dongguan-1", "yaan-1", "zhengzhou-1", "beijing-2", "zhuzhou-1", "jinan-1",
 			"xian-1", "shanghai-1", "chongqing-1", "ningbo-1"},
-		"18080": []string{"tianjin-1", "jilin-1", "hubei-1", "jiangxi-1", "gansu-1", "shanxi-1", "liaoning-1",
+		"18080": {"tianjin-1", "jilin-1", "hubei-1", "jiangxi-1", "gansu-1", "shanxi-1", "liaoning-1",
 			"yunnan-2", "hebei-1", "fujian-1", "guangxi-1", "anhui-1", "huhehaote-1", "guiyang-1"},
 	}
 )
@@ -105,16 +107,10 @@ func (br *SMonitorRequest) ForMateResponseBody(jrbody jsonutils.JSONObject) (jso
 	return jrbody, nil
 }
 
-func (r *SRegion) DescribeMetricList(productType string, metrics []Metric, resourceId string,
+func (self *SEcloudClient) DescribeMetricList(regionId, productType string, metrics []Metric, resourceId string,
 	since time.Time, until time.Time) (MetricData, error) {
 	metricData := MetricData{
 		Entitys: make([]Entity, 0),
-	}
-	if utils.IsInStringArray(r.GetId(), noMetricRegion) {
-		return metricData, httperrors.NewInputParameterError("region:%s no support pull metric at the moment", r.GetName())
-	}
-	if metrics == nil || len(metrics) == 0 {
-		return metricData, httperrors.NewInputParameterError("metrics is empty")
 	}
 	params := map[string]string{
 		"eAction": MONITOR_FETCH_REQUEST_ACTION,
@@ -125,13 +121,11 @@ func (r *SRegion) DescribeMetricList(productType string, metrics []Metric, resou
 	getBody.Set("productType", jsonutils.NewString(productType))
 	getBody.Set("resourceId", jsonutils.NewString(resourceId))
 	getBody.Set("metrics", jsonutils.Marshal(&metrics))
-	request := NewMonitorRequest(r.ID, MONITOR_FETCH_SERVER_PATH, params, getBody)
-
-	err := r.client.doGet(context.Background(), request, &metricData)
+	request := NewMonitorRequest(regionId, MONITOR_FETCH_SERVER_PATH, params, getBody)
+	err := self.doGet(context.Background(), request, &metricData)
 	if err != nil {
 		return metricData, errors.Wrap(err, "client doGet error")
 	}
-
 	return metricData, nil
 }
 
@@ -146,4 +140,67 @@ func (r *SRegion) GetProductTypes() (jsonutils.JSONObject, error) {
 		return nil, errors.Wrap(err, "client doGet error")
 	}
 	return rtn, nil
+}
+
+func (self *SEcloudClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	switch opts.ResourceType {
+	case cloudprovider.METRIC_RESOURCE_TYPE_SERVER:
+		return self.GetEcsMetrics(opts)
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
+	}
+}
+
+func (self *SEcloudClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	metrics := map[string]cloudprovider.TMetricType{
+		"cpu_util":                        cloudprovider.VM_METRIC_TYPE_CPU_USAGE,
+		"memory.util":                     cloudprovider.VM_METRIC_TYPE_MEM_USAGE,
+		"disk.device.read.requests.rate":  cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS,
+		"disk.device.write.requests.rate": cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS,
+		"disk.device.read.bytes.rate":     cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS,
+		"disk.device.write.bytes.rate":    cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS,
+		"network.incoming.bytes":          cloudprovider.VM_METRIC_TYPE_NET_BPS_RX,
+		"network.outgoing.bytes":          cloudprovider.VM_METRIC_TYPE_NET_BPS_TX,
+	}
+	metricNames := []Metric{}
+	for metric := range metrics {
+		metricNames = append(metricNames, Metric{
+			Name: metric,
+		})
+	}
+	if utils.IsInStringArray(opts.RegionExtId, noMetricRegion) {
+		return []cloudprovider.MetricValues{}, nil
+	}
+	data, err := self.DescribeMetricList(opts.RegionExtId, "vm", metricNames, opts.ResourceId, opts.StartTime, opts.EndTime)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeMetricList")
+	}
+	ret := []cloudprovider.MetricValues{}
+	for _, value := range data.Entitys {
+		metric := cloudprovider.MetricValues{}
+		metric.Id = opts.ResourceId
+		metricType, ok := metrics[value.MetricName]
+		if !ok {
+			continue
+		}
+		metric.MetricType = metricType
+		for _, points := range value.Datapoints {
+			if len(points) != 2 {
+				continue
+			}
+			metricValue := cloudprovider.MetricValue{}
+			pointTime, err := strconv.ParseInt(points[1], 10, 64)
+			if err != nil {
+				continue
+			}
+			metricValue.Timestamp = time.Unix(pointTime, 0)
+			metricValue.Value, err = strconv.ParseFloat(points[0], 64)
+			if err != nil {
+				continue
+			}
+			metric.Values = append(metric.Values, metricValue)
+		}
+		ret = append(ret, metric)
+	}
+	return ret, nil
 }

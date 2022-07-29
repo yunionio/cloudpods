@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth/credentials"
@@ -185,13 +186,13 @@ func canonicalHeaderNames(request requests.IRequest) string {
 	return strings.ToLower(ret)
 }
 
-var SigningKeyCache = map[string][]byte{}
+var SigningKeyCache sync.Map // map[string][]byte{}
 
 func getSigningKey(secretKey, date, regionId, service string) string {
 	joinedKey := strings.Join([]string{secretKey, date, regionId, service}, "")
 	cacheKey := fmt.Sprintf("%x", md5.Sum([]byte(joinedKey)))
-	if v, ok := SigningKeyCache[cacheKey]; ok {
-		return string(v)
+	if v, ok := SigningKeyCache.Load(cacheKey); ok {
+		return v.(string)
 	}
 
 	ret := []byte("SDK" + secretKey)
@@ -199,7 +200,7 @@ func getSigningKey(secretKey, date, regionId, service string) string {
 		ret = signers.HmacSha256(k, ret)
 	}
 
-	SigningKeyCache[cacheKey] = ret
+	SigningKeyCache.Store(cacheKey, string(ret))
 	return string(ret)
 }
 

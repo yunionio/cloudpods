@@ -404,3 +404,7 @@ func (self *SAwsProvider) CreateICloudrole(opts *cloudprovider.SRoleCreateOption
 	}
 	return role, nil
 }
+
+func (self *SAwsProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

@@ -667,6 +667,27 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 		}
 	}
 
+	q = DBInstanceDatabaseManager.Query().In("dbinstance_id", rdsIds)
+	databases := []SDBInstanceDatabase{}
+	err = db.FetchModelObjects(DBInstanceDatabaseManager, q, &databases)
+	if err != nil {
+		return rows
+	}
+	databaseMap := map[string][]apis.IdNameDetails{}
+	for i := range databases {
+		_, ok := databaseMap[databases[i].DBInstanceId]
+		if !ok {
+			databaseMap[databases[i].DBInstanceId] = []apis.IdNameDetails{}
+		}
+		databaseMap[databases[i].DBInstanceId] = append(databaseMap[databases[i].DBInstanceId], apis.IdNameDetails{
+			Id:   databases[i].Id,
+			Name: databases[i].Name,
+		})
+	}
+	for i := range rows {
+		rows[i].Databases, _ = databaseMap[rdsIds[i]]
+	}
+
 	return rows
 }
 

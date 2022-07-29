@@ -135,8 +135,8 @@ func (e *SEip) GetProjectId() string {
 
 func (r *SRegion) GetEIPById(id string) (*SEip, error) {
 	req := apis.NewDescribeElasticIpRequest(r.ID, id)
-	client := client.NewVpcClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVpcClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeElasticIp(req)
 	if err != nil {
 		return nil, err

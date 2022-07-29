@@ -15,7 +15,9 @@
 package compute
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
@@ -315,6 +317,29 @@ type CloudaccountDetail struct {
 	ProxySetting proxyapi.SProxySetting `json:"proxy_setting"`
 
 	ProjectMappingResourceInfo
+}
+
+func (self CloudaccountDetail) GetMetricTags() map[string]string {
+	ret := map[string]string{
+		"cloudaccount_id":   self.Id,
+		"cloudaccount_name": self.Name,
+		"brand":             self.Brand,
+		"domain_id":         self.DomainId,
+		"project_domain":    self.ProjectDomain,
+	}
+	for k, v := range self.Metadata {
+		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
+func (self CloudaccountDetail) GetMetricPairs() map[string]string {
+	ret := map[string]string{
+		"balance": fmt.Sprintf("%.2f", self.Balance),
+	}
+	return ret
 }
 
 type CloudaccountUpdateInput struct {

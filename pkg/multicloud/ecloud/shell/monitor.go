@@ -15,6 +15,9 @@
 package shell
 
 import (
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/ecloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -31,4 +34,17 @@ func init() {
 		printObject(prod)
 		return nil
 	})
+
+	shellutils.R(&cloudprovider.MetricListOptions{}, "metric-list", "List metrics", func(cli *ecloud.SRegion, args *cloudprovider.MetricListOptions) error {
+		metrics, err := cli.GetClient().GetMetrics(args)
+		if err != nil {
+			return err
+		}
+		for i := range metrics {
+			log.Infof("metric: %s %s %s", metrics[i].Id, metrics[i].MetricType, metrics[i].Unit)
+			printList(metrics[i].Values, len(metrics[i].Values), 0, 0, []string{})
+		}
+		return nil
+	})
+
 }
