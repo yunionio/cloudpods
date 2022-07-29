@@ -35,7 +35,7 @@ import (
 type Options struct {
 	Debug        bool   `help:"Show debug" default:"false"`
 	AccessKey    string `help:"Access key" default:"$JDCLOUD_ACCESS_KEY"`
-	AccessSecret string `help:"Secret" default:"$JDCLOUD_ACCESS_SECRET"`
+	AccessSecret string `help:"Secret" default:"$JDCLOUD_SECRET"`
 	RegionId     string `help:"RegionId" default:"$JDCLOUD_REGION"`
 	SUBCOMMAND   string `help:"jdcloudcli subcommand" subcommand:"true"`
 }
@@ -69,7 +69,7 @@ func showErrorAndExit(e error) {
 	os.Exit(1)
 }
 
-func newClient(options *Options) (*jdcloud.SRegion, error) {
+func newClient(options *Options) (*jdcloud.SJDCloudClient, error) {
 	if len(options.AccessKey) == 0 {
 		return nil, fmt.Errorf("Missing access key")
 	}
@@ -91,15 +91,16 @@ func newClient(options *Options) (*jdcloud.SRegion, error) {
 		return cfgProxyFunc(req.URL)
 	}
 
-	cfcg := &cloudprovider.ProviderConfig{
+	cfcg := cloudprovider.ProviderConfig{
 		ProxyFunc: proxyFunc,
 	}
 
-	region := jdcloud.NewRegion(regionId, options.AccessKey, options.AccessSecret, cfcg, options.Debug)
-	if region == nil {
-		return nil, fmt.Errorf("no such region %s", regionId)
-	}
-	return region, nil
+	return jdcloud.NewJDCloudClient(
+		jdcloud.NewJDCloudClientConfig(
+			options.AccessKey,
+			options.AccessSecret,
+		).CloudproviderConfig(cfcg).Debug(options.Debug),
+	)
 }
 
 func main() {
@@ -134,10 +135,14 @@ func main() {
 		fmt.Print(subparser.HelpString())
 		return
 	}
-	var region *jdcloud.SRegion
-	region, err = newClient(options)
+	client, err := newClient(options)
 	if err != nil {
 		showErrorAndExit(err)
+	}
+	region := client.GetRegion(options.RegionId)
+	if region == nil {
+		fmt.Printf("not found region: %s", options.RegionId)
+		return
 	}
 	err = subcmd.Invoke(region, suboptions)
 	if err != nil {

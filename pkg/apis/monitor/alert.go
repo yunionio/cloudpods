@@ -159,6 +159,8 @@ type AlertListInput struct {
 }
 
 type AlertDetails struct {
+	SAlert
+
 	apis.StatusStandaloneResourceDetails
 	apis.ScopedResourceBaseInfo
 }

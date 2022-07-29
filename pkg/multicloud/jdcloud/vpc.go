@@ -151,8 +151,8 @@ func (v *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 
 func (r *SRegion) GetVpcs(pageNumber, pageSize int) (vpcs []SVpc, total int, err error) {
 	req := apis.NewDescribeVpcsRequestWithAllParams(r.ID, &pageNumber, &pageSize, nil)
-	client := client.NewVpcClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVpcClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeVpcs(req)
 	if err != nil {
 		return
@@ -174,8 +174,8 @@ func (r *SRegion) GetVpcs(pageNumber, pageSize int) (vpcs []SVpc, total int, err
 
 func (r *SRegion) GetVpcById(id string) (*SVpc, error) {
 	req := apis.NewDescribeVpcRequest(r.ID, id)
-	client := client.NewVpcClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVpcClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeVpc(req)
 	if err != nil {
 		return nil, err

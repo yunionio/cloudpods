@@ -179,3 +179,7 @@ func (p *SEcloudProvider) GetCloudRegionExternalIdPrefix() string {
 func (p *SEcloudProvider) GetCapabilities() []string {
 	return p.client.GetCapabilities()
 }
+
+func (self *SEcloudProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

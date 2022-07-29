@@ -21,17 +21,15 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	sdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elasticache"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -123,7 +121,8 @@ type SAwsClient struct {
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
 
-	sessions map[string]map[bool]*session.Session
+	//sessions map[string]map[bool]*session.Session
+	sessions sync.Map // map[string]map[bool]*session.Session
 }
 
 func NewAwsClient(cfg *AwsClientConfig) (*SAwsClient, error) {
@@ -188,8 +187,8 @@ func (client *SAwsClient) GetAccountId() string {
 
 var (
 	// cache for describeRegions
-	describeRegionResult        map[string]*ec2.DescribeRegionsOutput = map[string]*ec2.DescribeRegionsOutput{}
-	describeRegionResultCacheAt map[string]time.Time                  = map[string]time.Time{}
+	describeRegionResult        sync.Map //map[string]*ec2.DescribeRegionsOutput = map[string]*ec2.DescribeRegionsOutput{}
+	describeRegionResultCacheAt sync.Map // map[string]time.Time                  = map[string]time.Time{}
 )
 
 const (
@@ -198,8 +197,8 @@ const (
 
 // 用于初始化region信息
 func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
-	cacheTime, _ := describeRegionResultCacheAt[self.accessUrl]
-	if _, ok := describeRegionResult[self.accessUrl]; !ok || cacheTime.IsZero() || time.Now().After(cacheTime.Add(time.Hour*describeRegionExpireHours)) {
+	cacheTime, _ := describeRegionResultCacheAt.Load(self.accessUrl)
+	if _, ok := describeRegionResult.Load(self.accessUrl); !ok || cacheTime.(time.Time).IsZero() || time.Now().After(cacheTime.(time.Time).Add(time.Hour*describeRegionExpireHours)) {
 		s, err := self.getDefaultSession(false)
 		if err != nil {
 			return nil, errors.Wrap(err, "getDefaultSession")
@@ -215,13 +214,14 @@ func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
 			}
 			return nil, errors.Wrap(err, "DescribeRegions")
 		}
-		describeRegionResult[self.accessUrl] = result
-		describeRegionResultCacheAt[self.accessUrl] = time.Now()
+		describeRegionResult.Store(self.accessUrl, result)
+		describeRegionResultCacheAt.Store(self.accessUrl, time.Now())
 	}
 
 	self.iregions = []cloudprovider.ICloudRegion{}
 	regions := make([]SRegion, 0)
-	for _, region := range describeRegionResult[self.accessUrl].Regions {
+	descRegions, _ := describeRegionResult.Load(self.accessUrl)
+	for _, region := range descRegions.(*ec2.DescribeRegionsOutput).Regions {
 		name := *region.RegionName
 		endpoint := *region.Endpoint
 		sregion := SRegion{client: self, RegionId: name, RegionEndpoint: endpoint}
@@ -235,14 +235,11 @@ func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
 }
 
 func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*session.Session, error) {
-	if client.sessions == nil {
-		client.sessions = make(map[string]map[bool]*session.Session)
-	}
-	if _, ok := client.sessions[regionId]; !ok {
-		client.sessions[regionId] = make(map[bool]*session.Session)
-	}
-	if sess, ok := client.sessions[regionId][assumeRole]; ok {
-		return sess, nil
+	client.sessions.LoadOrStore(regionId, map[bool]*session.Session{})
+	if sess, ok := client.sessions.Load(regionId); ok {
+		if ret, ok := sess.(map[bool]*session.Session)[assumeRole]; ok {
+			return ret, nil
+		}
 	}
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	transport, _ := httpClient.Transport.(*http.Transport)
@@ -322,8 +319,8 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 		s.Config.LogLevel = &logLevel
 	}
 
-	client.sessions[regionId][assumeRole] = s
-	return client.sessions[regionId][assumeRole], nil
+	client.sessions.Store(regionId, map[bool]*session.Session{assumeRole: s})
+	return s, nil
 }
 
 func (region *SRegion) getAwsElasticacheClient() (*elasticache.ElastiCache, error) {
@@ -569,21 +566,6 @@ func (self *SAwsClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_WAF,
 	}
 	return caps
-}
-
-func cloudWatchRequest(cli *client.Client, apiName string, params *cloudwatch.GetMetricStatisticsInput, retval interface{}, debug bool) error {
-	op := &request.Operation{
-		Name:       apiName,
-		HTTPMethod: "POST",
-		HTTPPath:   "/",
-	}
-
-	req := cli.NewRequest(op, params, retval)
-	err := req.Send()
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (client *SAwsClient) GetIamLoginUrl() string {

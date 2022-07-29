@@ -457,3 +457,7 @@ func (self *SQcloudProvider) GetICloudCDNDomainByName(name string) (cloudprovide
 func (self *SQcloudProvider) CreateICloudCDNDomain(opts *cloudprovider.CdnCreateOptions) (cloudprovider.ICloudCDNDomain, error) {
 	return self.client.CreateCDNDomain(opts)
 }
+
+func (self *SQcloudProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

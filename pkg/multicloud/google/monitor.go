@@ -16,28 +16,104 @@ package google
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
-	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
-
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-func (region *SRegion) GetMonitorData(id, serverName, metricName string, since time.Time,
-	until time.Time) (*jsonutils.JSONArray, error) {
+type MetricDataValue struct {
+	DoubleValue float64
+	Int64Value  float64
+}
+
+func (self *MetricDataValue) GetValue() float64 {
+	return self.DoubleValue + self.Int64Value
+}
+
+type MetricData struct {
+	Resource struct {
+		Labels struct {
+			InstanceId string
+		}
+	}
+	MetricKind string
+	ValueType  string
+	Points     []struct {
+		Interval struct {
+			StartTime time.Time
+			EndTime   time.Time
+		}
+		Value MetricDataValue
+	}
+}
+
+func (self *SGoogleClient) GetMonitorData(metricName string, since time.Time, until time.Time) (*jsonutils.JSONArray, error) {
 	params := map[string]string{
-		"filter": `metric.type="` + metricName + `" AND metric.labels.instance_name="` + serverName + `"`,
-		//"filter":             "metric.type=" + metricName + " AND metric.labels.instance_name=" + serverName,
+		"filter":             fmt.Sprintf(`metric.type="%s"`, metricName),
 		"interval.startTime": since.Format(time.RFC3339),
 		"interval.endTime":   until.Format(time.RFC3339),
-		"view":               strconv.FormatInt(int64(monitoringpb.ListTimeSeriesRequest_FULL), 10),
 	}
-	resource := fmt.Sprintf("%s/%s/%s", "projects", id, "timeSeries")
-
-	timeSeries, err := region.client.monitorListAll(resource, params)
+	resource := fmt.Sprintf("%s/%s/%s", "projects", self.projectId, "timeSeries")
+	timeSeries, err := self.monitorListAll(resource, params)
 	if err != nil {
 		return nil, err
 	}
 	return timeSeries, nil
+}
+
+func (self *SGoogleClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	switch opts.ResourceType {
+	case cloudprovider.METRIC_RESOURCE_TYPE_SERVER:
+		return self.GetEcsMetrics(opts)
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
+	}
+}
+
+func (self *SGoogleClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	metricName := ""
+	switch opts.MetricType {
+	case cloudprovider.VM_METRIC_TYPE_CPU_USAGE:
+		metricName = "compute.googleapis.com/instance/cpu/utilization"
+	case cloudprovider.VM_METRIC_TYPE_NET_BPS_RX:
+		metricName = "compute.googleapis.com/instance/network/received_bytes_count"
+	case cloudprovider.VM_METRIC_TYPE_NET_BPS_TX:
+		metricName = "compute.googleapis.com/instance/network/sent_bytes_count"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS:
+		metricName = "compute.googleapis.com/instance/disk/read_bytes_count"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS:
+		metricName = "compute.googleapis.com/instance/disk/write_bytes_count"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS:
+		metricName = "compute.googleapis.com/instance/disk/read_ops_count"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS:
+		metricName = "compute.googleapis.com/instance/disk/write_ops_count"
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", opts.MetricType)
+	}
+	metrics, err := self.GetMonitorData(metricName, opts.StartTime, opts.EndTime)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetMonitorData")
+	}
+	data := []MetricData{}
+	err = metrics.Unmarshal(&data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "metrics.Unmarshal")
+	}
+	ret := []cloudprovider.MetricValues{}
+	for i := range data {
+		value := cloudprovider.MetricValues{}
+		value.Id = data[i].Resource.Labels.InstanceId
+		value.MetricType = opts.MetricType
+		for j := range data[i].Points {
+			metricValue := cloudprovider.MetricValue{}
+			metricValue.Timestamp = data[i].Points[j].Interval.StartTime
+			metricValue.Value = data[i].Points[j].Value.GetValue()
+			value.Values = append(value.Values, metricValue)
+		}
+		ret = append(ret, value)
+	}
+	return ret, nil
 }

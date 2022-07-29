@@ -18,6 +18,9 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SDataPoint struct {
@@ -25,9 +28,9 @@ type SDataPoint struct {
 }
 
 type DataPoint struct {
-	Value     float64 `json:"value"`
-	TimeStemp int64   `json:"time"`
-	Labels    *Label  `json:"labels"`
+	Value  float64 `json:"value"`
+	Time   int64   `json:"time"`
+	Labels Label   `json:"labels"`
 }
 
 type Label struct {
@@ -35,8 +38,7 @@ type Label struct {
 	HostUuid string `json:"HostUuid"`
 }
 
-func (region *SRegion) GetMonitorData(name string, namespace string, since time.Time,
-	until time.Time) (*SDataPoint, error) {
+func (self *SZStackClient) GetMonitorData(name string, namespace string, since time.Time, until time.Time) ([]DataPoint, error) {
 	datas := SDataPoint{}
 	param := jsonutils.NewDict()
 	param.Add(jsonutils.NewString(namespace), "namespace")
@@ -44,10 +46,96 @@ func (region *SRegion) GetMonitorData(name string, namespace string, since time.
 	param.Add(jsonutils.NewString("60"), "period")
 	param.Add(jsonutils.NewInt(since.Unix()), "startTime")
 	param.Add(jsonutils.NewInt(until.Unix()), "endTime")
-	rep, err := region.client.getMonitor("zwatch/metrics", param)
+	rep, err := self.getMonitor("zwatch/metrics", param)
 	if err != nil {
 		return nil, err
 	}
-	rep.Unmarshal(&datas)
-	return &datas, nil
+	return datas.DataPoints, rep.Unmarshal(&datas)
+}
+
+func (self *SZStackClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	switch opts.ResourceType {
+	case cloudprovider.METRIC_RESOURCE_TYPE_SERVER:
+		return self.GetEcsMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_HOST:
+		return self.GetHostMetrics(opts)
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
+	}
+}
+
+func (self *SZStackClient) GetHostMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	ns, metricName := "ZStack/Host", ""
+	switch opts.MetricType {
+	case cloudprovider.VM_METRIC_TYPE_CPU_USAGE:
+		metricName = "CPUAverageUsedUtilization"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS:
+		metricName = "DiskReadBytes"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS:
+		metricName = "DiskWriteBytes"
+	case cloudprovider.VM_METRIC_TYPE_NET_BPS_RX:
+		metricName = "NetworkInBytes"
+	case cloudprovider.VM_METRIC_TYPE_NET_BPS_TX:
+		metricName = "NetworkOutBytes"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS:
+		metricName = "DiskReadOps"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS:
+		metricName = "DiskWriteOps"
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", opts.MetricType)
+	}
+	data, err := self.GetMonitorData(metricName, ns, opts.StartTime, opts.EndTime)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetMonitorData")
+	}
+	ret := []cloudprovider.MetricValues{}
+	for i := range data {
+		metric := cloudprovider.MetricValues{}
+		metric.MetricType = opts.MetricType
+		metric.Id = data[i].Labels.HostUuid
+		metric.Values = append(metric.Values, cloudprovider.MetricValue{
+			Timestamp: time.Unix(data[i].Time, 0),
+			Value:     data[i].Value,
+		})
+		ret = append(ret, metric)
+	}
+	return ret, nil
+}
+
+func (self *SZStackClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	ns, metricName := "ZStack/VM", ""
+	switch opts.MetricType {
+	case cloudprovider.VM_METRIC_TYPE_CPU_USAGE:
+		metricName = "CPUAverageUsedUtilization"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS:
+		metricName = "DiskReadBytes"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS:
+		metricName = "DiskWriteBytes"
+	case cloudprovider.VM_METRIC_TYPE_NET_BPS_RX:
+		metricName = "NetworkInBytes"
+	case cloudprovider.VM_METRIC_TYPE_NET_BPS_TX:
+		metricName = "NetworkOutBytes"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS:
+		metricName = "DiskReadOps"
+	case cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS:
+		metricName = "DiskWriteOps"
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", opts.MetricType)
+	}
+	data, err := self.GetMonitorData(metricName, ns, opts.StartTime, opts.EndTime)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetMonitorData")
+	}
+	ret := []cloudprovider.MetricValues{}
+	for i := range data {
+		metric := cloudprovider.MetricValues{}
+		metric.MetricType = opts.MetricType
+		metric.Id = data[i].Labels.VMUuid
+		metric.Values = append(metric.Values, cloudprovider.MetricValue{
+			Timestamp: time.Unix(data[i].Time, 0),
+			Value:     data[i].Value,
+		})
+		ret = append(ret, metric)
+	}
+	return ret, nil
 }

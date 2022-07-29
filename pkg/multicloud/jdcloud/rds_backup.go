@@ -107,8 +107,8 @@ func (self *SDBInstanceBackup) GetStatus() string {
 
 func (self *SRegion) GetDBInstanceBackups(id string, pageNumber, pageSize int) ([]SDBInstanceBackup, int, error) {
 	req := apis.NewDescribeBackupsRequest(self.ID, id, pageNumber, pageSize)
-	client := client.NewRdsClient(self.Credential)
-	client.Logger = Logger{}
+	client := client.NewRdsClient(self.getCredential())
+	client.Logger = Logger{debug: self.client.debug}
 	resp, err := client.DescribeBackups(req)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "DescribeBackups")

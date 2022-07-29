@@ -20,8 +20,12 @@ import (
 	"yunion.io/x/log"
 )
 
-type Logger struct{}
+type Logger struct {
+	debug bool
+}
 
 func (l Logger) Log(level int, message ...interface{}) {
-	log.Logger().Log(logrus.Level(level+2), message...)
+	if l.debug {
+		log.Logger().Log(logrus.Level(level+2), message...)
+	}
 }

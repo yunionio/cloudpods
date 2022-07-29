@@ -15,12 +15,16 @@
 package qcloud
 
 import (
-	"strconv"
+	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 const (
@@ -72,47 +76,38 @@ type SBatchQueryMetricDataInput struct {
 	Period     string               `json:"Period"`
 }
 
-func (r *SRegion) metricsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
-	client := r.GetClient()
-	cli, err := client.getDefaultClient(params)
+func (self *SQcloudClient) metricsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
-	return monitorRequest(cli, action, params, client.cpcfg.UpdatePermission, client.debug)
+	return monitorRequest(cli, action, params, self.cpcfg.UpdatePermission, self.debug)
 }
 
-func (r *SRegion) GetMonitorData(name string, ns string, since time.Time, until time.Time, demensions []SQcInstanceMetricDimension) ([]SDataPoint, error) {
+func (self *SQcloudClient) GetMonitorData(ns string, name string, since time.Time, until time.Time, regionId string, dimensionName string, resIds []string) ([]SDataPoint, error) {
 	params := make(map[string]string)
-	params["Region"] = r.Region
+	params["Region"] = regionId
 	params["MetricName"] = name
 	params["Namespace"] = ns
-	if !since.IsZero() {
-		params["StartTime"] = since.Format(timeutils.IsoTimeFormat)
-
+	params["StartTime"] = since.Format(timeutils.IsoTimeFormat)
+	params["EndTime"] = until.Format(timeutils.IsoTimeFormat)
+	for idx, resId := range resIds {
+		params[fmt.Sprintf("Instances.%d.Dimensions.0.Name", idx)] = dimensionName
+		params[fmt.Sprintf("Instances.%d.Dimensions.0.Value", idx)] = resId
 	}
-	if !until.IsZero() {
-		params["EndTime"] = until.Format(timeutils.IsoTimeFormat)
-	}
-	for index, metricDimension := range demensions {
-		i := strconv.FormatInt(int64(index), 10)
-		for internalIndex, interDimension := range metricDimension.Dimensions {
-			j := strconv.FormatInt(int64(internalIndex), 10)
-			params["Instances."+i+".Dimensions."+j+".Name"] = interDimension.Name
-			params["Instances."+i+".Dimensions."+j+".Value"] = interDimension.Value
-		}
-	}
-	body, err := r.metricsRequest("GetMonitorData", params)
+	body, err := self.metricsRequest("GetMonitorData", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.MetricRequest")
+		return nil, errors.Wrapf(err, "MetricRequest for %s", resIds)
 	}
-	dataArray := make([]SDataPoint, 0)
-	err = body.Unmarshal(&dataArray, "DataPoints")
+	ret := []SDataPoint{}
+	err = body.Unmarshal(&ret, "DataPoints")
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
-	return dataArray, nil
+	return ret, nil
 }
 
+/*
 func (r *SRegion) GetK8sMonitorData(metricNames []string, ns string, since time.Time, until time.Time,
 	demensions []SQcMetricDimension) ([]SK8SDataPoint, error) {
 	params := make(map[string]string)
@@ -147,4 +142,209 @@ func (r *SRegion) GetK8sMonitorData(metricNames []string, ns string, since time.
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
 	return dataArray, nil
+}
+*/
+
+func (self *SQcloudClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	switch opts.ResourceType {
+	case cloudprovider.METRIC_RESOURCE_TYPE_SERVER:
+		return self.GetEcsMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_REDIS:
+		return self.GetRedisMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_RDS:
+		return self.GetRdsMetrics(opts)
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
+	}
+}
+
+func (self *SQcloudClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	ret := []cloudprovider.MetricValues{}
+	for metricType, metricNames := range map[cloudprovider.TMetricType]map[string]string{
+		cloudprovider.VM_METRIC_TYPE_CPU_USAGE: {
+			"CPUUsage": "",
+		},
+		cloudprovider.VM_METRIC_TYPE_MEM_USAGE: {
+			"MemUsage": "",
+		},
+		cloudprovider.VM_METRIC_TYPE_NET_BPS_TX: {
+			"lanOuttraffic": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTRANET,
+			"WanOuttraffic": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTERNET,
+		},
+		cloudprovider.VM_METRIC_TYPE_NET_BPS_RX: {
+			"lanIntraffic": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTRANET,
+			"WanIntraffic": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTERNET,
+		},
+	} {
+		for metricName, tag := range metricNames {
+			metrics, err := self.GetMonitorData("QCE/CVM", metricName, opts.StartTime, opts.EndTime, opts.RegionExtId, "InstanceId", opts.ResourceIds)
+			if err != nil {
+				log.Errorf("GetMonitorData error: %v", err)
+				continue
+			}
+			for i := range metrics {
+				metric := cloudprovider.MetricValues{}
+				if len(metrics[i].Dimensions) < 1 || metrics[i].Dimensions[0].Name != "InstanceId" {
+					continue
+				}
+				metric.Id = metrics[i].Dimensions[0].Value
+				metric.MetricType = metricType
+				metricValue := cloudprovider.MetricValue{}
+				metricValue.Tags = map[string]string{}
+				idx := strings.Index(tag, ":")
+				if idx > 0 {
+					metricValue.Tags[tag[:idx]] = tag[idx+1:]
+				}
+				if len(metrics[i].Timestamps) == 0 {
+					continue
+				}
+				for j := range metrics[i].Timestamps {
+					metricValue.Value = metrics[i].Values[j]
+					if strings.Contains(metricName, "traffic") { //Mbps
+						metricValue.Value *= 1024 * 1024
+					}
+					metricValue.Timestamp = time.Unix(int64(metrics[i].Timestamps[j]), 0)
+					metric.Values = append(metric.Values, metricValue)
+				}
+				ret = append(ret, metric)
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (self *SQcloudClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	ret := []cloudprovider.MetricValues{}
+	for metricType, metricNames := range map[cloudprovider.TMetricType]map[string]string{
+		cloudprovider.REDIS_METRIC_TYPE_CPU_USAGE: {
+			"CpuUsMin": "",
+		},
+		cloudprovider.REDIS_METRIC_TYPE_MEM_USAGE: {
+			"StorageUsMin": "",
+		},
+		cloudprovider.REDIS_METRIC_TYPE_NET_BPS_RX: {
+			"InFlowMin": "",
+		},
+		cloudprovider.REDIS_METRIC_TYPE_NET_BPS_TX: {
+			"OutFlowMin": "",
+		},
+		cloudprovider.REDIS_METRIC_TYPE_CONN_USAGE: {
+			"ConnectionsUsMin": "",
+		},
+		cloudprovider.REDIS_METRIC_TYPE_OPT_SES: {
+			"QpsMin": "",
+		},
+		cloudprovider.REDIS_METRIC_TYPE_CACHE_KEYS: {
+			"KeysMin": "",
+		},
+		cloudprovider.REDIS_METRIC_TYPE_CACHE_EXP_KEYS: {
+			"ExpiredKeysMin": "",
+		},
+		cloudprovider.REDIS_METRIC_TYPE_DATA_MEM_USAGE: {
+			"StorageMin": "",
+		},
+	} {
+		for metricName, tag := range metricNames {
+			metrics, err := self.GetMonitorData("QCE/REDIS", metricName, opts.StartTime, opts.EndTime, opts.RegionExtId, "instanceid", opts.ResourceIds)
+			if err != nil {
+				log.Errorf("GetMonitorData error: %v", err)
+				continue
+			}
+			for i := range metrics {
+				metric := cloudprovider.MetricValues{}
+				if len(metrics[i].Dimensions) < 1 || metrics[i].Dimensions[0].Name != "instanceid" {
+					continue
+				}
+				metric.Id = metrics[i].Dimensions[0].Value
+				metric.MetricType = metricType
+				metricValue := cloudprovider.MetricValue{}
+				metricValue.Tags = map[string]string{}
+				idx := strings.Index(tag, ":")
+				if idx > 0 {
+					metricValue.Tags[tag[:idx]] = tag[idx+1:]
+				}
+				if len(metrics[i].Timestamps) == 0 {
+					continue
+				}
+				for j := range metrics[i].Timestamps {
+					metricValue.Value = metrics[i].Values[j]
+					metricValue.Timestamp = time.Unix(int64(metrics[i].Timestamps[j]), 0)
+					metric.Values = append(metric.Values, metricValue)
+				}
+				ret = append(ret, metric)
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (self *SQcloudClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	ret := []cloudprovider.MetricValues{}
+	for metricType, metricNames := range map[cloudprovider.TMetricType]map[string]string{
+		cloudprovider.RDS_METRIC_TYPE_MEM_USAGE: {
+			"CPUUseRate": "",
+		},
+		cloudprovider.VM_METRIC_TYPE_MEM_USAGE: {
+			"MemoryUseRate": "",
+		},
+		cloudprovider.RDS_METRIC_TYPE_NET_BPS_TX: {
+			"BytesSent": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTRANET,
+		},
+		cloudprovider.RDS_METRIC_TYPE_NET_BPS_RX: {
+			"BytesReceived": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTRANET,
+		},
+		cloudprovider.RDS_METRIC_TYPE_DISK_USAGE: {
+			"VolumeRate": "",
+		},
+		cloudprovider.RDS_METRIC_TYPE_CONN_COUNT: {
+			"ThreadsConnected": "",
+		},
+		cloudprovider.RDS_METRIC_TYPE_CONN_USAGE: {
+			"ConnectionUseRate": "",
+		},
+		cloudprovider.RDS_METRIC_TYPE_QPS: {
+			"QPS": "",
+		},
+		cloudprovider.RDS_METRIC_TYPE_TPS: {
+			"TPS": "",
+		},
+		cloudprovider.RDS_METRIC_TYPE_INNODB_READ_BPS: {
+			"InnodbDataRead": "",
+		},
+		cloudprovider.RDS_METRIC_TYPE_INNODB_WRITE_BPS: {
+			"InnodbDataWritten": "",
+		},
+	} {
+		for metricName, tag := range metricNames {
+			metrics, err := self.GetMonitorData("QCE/CDB", metricName, opts.StartTime, opts.EndTime, opts.RegionExtId, "InstanceId", opts.ResourceIds)
+			if err != nil {
+				log.Errorf("GetMonitorData error: %v", err)
+				continue
+			}
+			for i := range metrics {
+				metric := cloudprovider.MetricValues{}
+				if len(metrics[i].Dimensions) < 1 || metrics[i].Dimensions[0].Name != "InstanceId" {
+					continue
+				}
+				metric.Id = metrics[i].Dimensions[0].Value
+				metric.MetricType = metricType
+				metricValue := cloudprovider.MetricValue{}
+				metricValue.Tags = map[string]string{}
+				idx := strings.Index(tag, ":")
+				if idx > 0 {
+					metricValue.Tags[tag[:idx]] = tag[idx+1:]
+				}
+				if len(metrics[i].Timestamps) == 0 {
+					continue
+				}
+				for j := range metrics[i].Timestamps {
+					metricValue.Value = metrics[i].Values[j]
+					metricValue.Timestamp = time.Unix(int64(metrics[i].Timestamps[j]), 0)
+					metric.Values = append(metric.Values, metricValue)
+				}
+				ret = append(ret, metric)
+			}
+		}
+	}
+	return ret, nil
 }

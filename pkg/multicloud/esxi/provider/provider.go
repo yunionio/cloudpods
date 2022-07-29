@@ -226,3 +226,7 @@ func (self *SESXiProvider) GetObjectCannedAcls(regionId string) []string {
 func (self *SESXiProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
+
+func (self *SESXiProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

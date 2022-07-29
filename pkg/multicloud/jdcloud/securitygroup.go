@@ -141,8 +141,8 @@ func (r *SRegion) GetSecurityGroups(vpcId string, securityGroupIds []string, pag
 		})
 	}
 	req := apis.NewDescribeNetworkSecurityGroupsRequestWithAllParams(r.ID, &pageNumber, &pageSize, filters)
-	client := client.NewVpcClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVpcClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeNetworkSecurityGroups(req)
 	if err != nil {
 		return nil, 0, err

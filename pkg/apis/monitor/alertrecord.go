@@ -42,12 +42,27 @@ type AlertRecordListInput struct {
 }
 
 type AlertRecordDetails struct {
+	SAlertRecord
+
 	apis.StatusStandaloneResourceDetails
 	apis.ScopedResourceBaseInfo
 
 	ResNum      int64  `json:"res_num"`
 	AlertName   string `json:"alert_name"`
 	TriggerTime time.Time
+}
+
+func (self AlertRecordDetails) GetMetricTags() map[string]string {
+	ret := map[string]string{
+		"alert_id":       self.AlertId,
+		"alert_name":     self.AlertName,
+		"domain_id":      self.DomainId,
+		"project_domain": self.ProjectDomain,
+		"res_type":       "agent",
+		"tenant":         self.Tenant,
+		"tenant_id":      self.TenantId,
+	}
+	return ret
 }
 
 type AlertRecordCreateInput struct {
