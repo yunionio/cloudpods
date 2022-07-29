@@ -29,6 +29,11 @@ import (
 
 type TChargeType string
 
+var LOCAL_STORAGES = []string{
+	api.STORAGE_LOCAL_HDD_PRO,
+	api.STORAGE_LOCAL_SSD_PRO,
+}
+
 const (
 	PrePaidInstanceChargeType    TChargeType = "PrePaid"
 	PrePaidDBInstanceChargeType  TChargeType = "Prepaid"
@@ -187,11 +192,7 @@ func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
 
 func (self *SZone) fetchStorages() error {
 	categories := self.AvailableDiskCategories.DiskCategories
-	// if len(self.AvailableResources.ResourcesInfo) > 0 {
-	// 	categories = self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory
-	// }
 	self.istorages = []cloudprovider.ICloudStorage{}
-
 	for _, sc := range categories {
 		storage := SStorage{zone: self, storageType: sc}
 		self.istorages = append(self.istorages, &storage)
@@ -201,6 +202,10 @@ func (self *SZone) fetchStorages() error {
 			storage_l3 := SStorage{zone: self, storageType: api.STORAGE_CLOUD_ESSD_PL3}
 			self.istorages = append(self.istorages, &storage_l3)
 		}
+	}
+	for _, localStorage := range LOCAL_STORAGES {
+		storage := SStorage{zone: self, storageType: localStorage}
+		self.istorages = append(self.istorages, &storage)
 	}
 	return nil
 }
