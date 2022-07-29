@@ -28,6 +28,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -316,10 +317,12 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 	if !guestman.GetGuestManager().CanMigrate(sid) {
 		return httperrors.NewBadRequestError("Guest exist")
 	}
-	desc, err := body.Get("desc")
+	var guestDesc = new(desc.SGuestDesc)
+	err := body.Unmarshal(guestDesc, "desc")
 	if err != nil {
-		return httperrors.NewMissingParameterError("desc")
+		return httperrors.NewBadRequestError("Failed unmarshal guest desc %s", err)
 	}
+
 	qemuVersion, err := body.GetString("qemu_version")
 	if err != nil {
 		return httperrors.NewMissingParameterError("qemu_version")
@@ -335,7 +338,7 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 	}
 	var params = &guestman.SDestPrepareMigrate{}
 	params.Sid = sid
-	params.Desc = desc
+	params.Desc = guestDesc
 	params.QemuVersion = qemuVersion
 	params.LiveMigrate = liveMigrate
 	params.SourceQemuCmdline = qemuCmdline
@@ -382,13 +385,13 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 		} else {
 			params.DisksBackingFile = disksBack
 		}
-		disks, err := desc.GetArray("disks")
+		disks := guestDesc.Disks
 		if err != nil {
 			return httperrors.NewInputParameterError("Get desc disks error")
 		} else {
 			targetStorageIds := []string{}
 			for i := 0; i < len(disks); i++ {
-				targetStorageId, _ := disks[i].GetString("target_storage_id")
+				targetStorageId := disks[i].TargetStorageId
 				if len(targetStorageId) == 0 {
 					return httperrors.NewMissingParameterError("target_storage_id")
 				}
@@ -468,15 +471,17 @@ func guestDriveMirror(ctx context.Context, userCred mcclient.TokenCredential, si
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("backup_nbd_server_uri")
 	}
-	desc, err := body.Get("desc")
+	var guestDesc = new(desc.SGuestDesc)
+	err = body.Unmarshal(guestDesc, "desc")
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("desc")
+		return nil, httperrors.NewInputParameterError("failed unmarshal desc %s", err)
 	}
+
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StartDriveMirror,
 		&guestman.SDriverMirror{
 			Sid:          sid,
 			NbdServerUri: backupNbdServerUri,
-			Desc:         desc,
+			Desc:         guestDesc,
 		})
 	return nil, nil
 }
@@ -520,12 +525,10 @@ func guestReloadDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredent
 	}
 
 	var disk storageman.IDisk
-	disks, _ := guest.Desc.GetArray("disks")
+	disks := guest.Desc.Disks
 	for _, d := range disks {
-		id, _ := d.GetString("disk_id")
-		if diskId == id {
-			diskPath, _ := d.GetString("path")
-			disk, _ = storageman.GetManager().GetDiskByPath(diskPath)
+		if diskId == d.DiskId {
+			disk, _ = storageman.GetManager().GetDiskByPath(d.Path)
 			break
 		}
 	}
@@ -556,11 +559,10 @@ func guestSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid s
 	log.Infof("guest info: %s", jsonutils.Marshal(guest))
 
 	var disk storageman.IDisk
-	disks, _ := guest.Desc.GetArray("disks")
+	disks := guest.Desc.Disks
 	for _, d := range disks {
-		id, _ := d.GetString("disk_id")
-		if diskId == id {
-			diskPath, _ := d.GetString("path")
+		if diskId == d.DiskId {
+			diskPath := d.Path
 			disk, err = storageman.GetManager().GetDiskByPath(diskPath)
 			if err != nil {
 				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
@@ -596,14 +598,12 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 	}
 
 	var disk storageman.IDisk
-	disks, _ := guest.Desc.GetArray("disks")
+	disks := guest.Desc.Disks
 	for _, d := range disks {
-		id, _ := d.GetString("disk_id")
-		if diskId == id {
-			diskPath, _ := d.GetString("path")
-			disk, err = storageman.GetManager().GetDiskByPath(diskPath)
+		if diskId == d.DiskId {
+			disk, err = storageman.GetManager().GetDiskByPath(d.Path)
 			if err != nil {
-				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
+				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", d.Path)
 			}
 			break
 		}

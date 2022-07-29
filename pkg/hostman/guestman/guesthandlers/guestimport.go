@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -98,13 +99,10 @@ func guestCreateFromLibvirt(ctx context.Context, userCred mcclient.TokenCredenti
 		return nil, err
 	}
 
-	iGuestDesc, err := body.Get("desc")
+	var guestDesc = new(desc.SGuestDesc)
+	err = body.Unmarshal(guestDesc, "desc")
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("desc")
-	}
-	guestDesc, ok := iGuestDesc.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, httperrors.NewInputParameterError("desc is not dict")
+		return nil, httperrors.NewBadRequestError("Guest desc unmarshal failed %s", err)
 	}
 
 	iDisksPath, err := body.Get("disks_path")
@@ -137,13 +135,10 @@ func guestCreateFromEsxi(ctx context.Context, userCred mcclient.TokenCredential,
 		return nil, err
 	}
 
-	iGuestDesc, err := body.Get("desc")
+	var guestDesc = new(desc.SGuestDesc)
+	err = body.Unmarshal(guestDesc, "desc")
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("desc")
-	}
-	guestDesc, ok := iGuestDesc.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, httperrors.NewInputParameterError("desc is not dict")
+		return nil, httperrors.NewBadRequestError("Guest desc unmarshal failed %s", err)
 	}
 	var disksAccessInfo = guestman.SEsxiAccessInfo{}
 	err = body.Unmarshal(&disksAccessInfo, "esxi_access_info")

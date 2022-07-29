@@ -34,8 +34,10 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	fwd "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder"
 	fwdpb "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder/api"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
@@ -322,10 +324,9 @@ func (m *SGuestManager) LoadServer(sid string) {
 		return
 	}
 
-	if jsonutils.QueryBoolean(guest.Desc, "need_sync_stream_disks", false) {
+	if guest.NeedSyncStreamDisks {
 		go guest.sendStreamDisksComplete(context.Background())
 	}
-
 	m.CandidateServers[sid] = guest
 }
 
@@ -342,12 +343,14 @@ func (m *SGuestManager) ShutdownServers() {
 	})
 }
 
-func (m *SGuestManager) GetGuestNicDesc(mac, ip, port, bridge string, isCandidate bool) (jsonutils.JSONObject, jsonutils.JSONObject) {
+func (m *SGuestManager) GetGuestNicDesc(
+	mac, ip, port, bridge string, isCandidate bool,
+) (*desc.SGuestDesc, *api.GuestnetworkJsonDesc) {
 	if isCandidate {
 		return m.getGuestNicDescInCandidate(mac, ip, port, bridge)
 	}
-	var nic jsonutils.JSONObject
-	var guestDesc jsonutils.JSONObject
+	var nic *api.GuestnetworkJsonDesc
+	var guestDesc *desc.SGuestDesc
 	m.Servers.Range(func(k interface{}, v interface{}) bool {
 		guest := v.(*SKVMGuestInstance)
 		if guest.IsLoaded() {
@@ -362,7 +365,9 @@ func (m *SGuestManager) GetGuestNicDesc(mac, ip, port, bridge string, isCandidat
 	return guestDesc, nic
 }
 
-func (m *SGuestManager) getGuestNicDescInCandidate(mac, ip, port, bridge string) (jsonutils.JSONObject, jsonutils.JSONObject) {
+func (m *SGuestManager) getGuestNicDescInCandidate(
+	mac, ip, port, bridge string,
+) (*desc.SGuestDesc, *api.GuestnetworkJsonDesc) {
 	for _, guest := range m.CandidateServers {
 		if guest.IsLoaded() {
 			nic := guest.GetNicDescMatch(mac, ip, port, bridge)
@@ -441,7 +446,7 @@ func (m *SGuestManager) OpenForward(ctx context.Context, sid string, req *hostap
 		return nil, httperrors.NewBadRequestError("no vpc nic")
 	}
 
-	netId, _ := nic.GetString("net_id")
+	netId := nic.NetId
 	if netId == "" {
 		return nil, httperrors.NewBadRequestError("no network id")
 	}
@@ -449,7 +454,7 @@ func (m *SGuestManager) OpenForward(ctx context.Context, sid string, req *hostap
 	if req.Addr != "" {
 		ip = req.Addr
 	} else {
-		ip, _ := nic.GetString("ip")
+		ip := nic.Ip
 		if ip == "" {
 			return nil, httperrors.NewBadRequestError("no vpc ip")
 		}
@@ -492,7 +497,7 @@ func (m *SGuestManager) CloseForward(ctx context.Context, sid string, req *hosta
 		return nil, httperrors.NewBadRequestError("no vpc nic")
 	}
 
-	netId, _ := nic.GetString("net_id")
+	netId := nic.NetId
 	if netId == "" {
 		return nil, httperrors.NewBadRequestError("no network id")
 	}
@@ -533,7 +538,7 @@ func (m *SGuestManager) ListForward(ctx context.Context, sid string, req *hostap
 		return nil, httperrors.NewBadRequestError("no vpc nic")
 	}
 
-	netId, _ := nic.GetString("net_id")
+	netId := nic.NetId
 	if netId == "" {
 		return nil, httperrors.NewBadRequestError("no network id")
 	}
@@ -576,16 +581,22 @@ func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (js
 	}
 
 	var guest *SKVMGuestInstance
-	err := func() error {
+	e := func() error {
 		m.ServersLock.Lock()
 		defer m.ServersLock.Unlock()
 		if _, ok := m.GetServer(deployParams.Sid); ok {
 			return httperrors.NewBadRequestError("Guest %s exists", deployParams.Sid)
 		}
 		guest = NewKVMGuestInstance(deployParams.Sid, m)
-		desc, _ := deployParams.Body.Get("desc")
-		if desc != nil {
-			err := guest.PrepareDir()
+
+		if deployParams.Body.Contains("desc") {
+			var desc = new(desc.SGuestDesc)
+			err := deployParams.Body.Unmarshal(desc, "desc")
+			if err != nil {
+				return httperrors.NewBadRequestError("Guest desc unmarshal failed %s", err)
+			}
+
+			err = guest.PrepareDir()
 			if err != nil {
 				return errors.Wrap(err, "guest prepare dir")
 			}
@@ -594,11 +605,12 @@ func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (js
 				return errors.Wrap(err, "save desc")
 			}
 		}
+
 		m.SaveServer(deployParams.Sid, guest)
 		return nil
 	}()
-	if err != nil {
-		return nil, errors.Wrap(err, "prepare guest")
+	if e != nil {
+		return nil, errors.Wrap(e, "prepare guest")
 	}
 	return m.startDeploy(ctx, deployParams, guest)
 }
@@ -639,9 +651,13 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 
 	guest, ok := m.GetServer(deployParams.Sid)
 	if ok {
-		desc, _ := deployParams.Body.Get("desc")
-		if desc != nil {
-			guest.SaveDesc(desc)
+		if deployParams.Body.Contains("desc") {
+			var guestDesc = new(desc.SGuestDesc)
+			err := deployParams.Body.Unmarshal(guestDesc, "desc")
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Failed unmarshal guest desc %s", err)
+			}
+			guest.SaveDesc(guestDesc)
 		}
 		return m.startDeploy(ctx, deployParams, guest)
 	} else {
@@ -725,8 +741,9 @@ func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
 
 func (m *SGuestManager) GuestStart(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if guest, ok := m.GetServer(sid); ok {
-		if desc, err := body.Get("desc"); err == nil {
-			guest.SaveDesc(desc)
+		guestDesc := new(desc.SGuestDesc)
+		if err := body.Unmarshal(guestDesc, "desc"); err == nil {
+			guest.SaveDesc(guestDesc)
 		}
 		if guest.IsStopped() {
 			data := struct {
@@ -771,9 +788,13 @@ func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (json
 	}
 	guest, _ := m.GetServer(syncParams.Sid)
 	if syncParams.Body.Contains("desc") {
-		desc, _ := syncParams.Body.Get("desc")
+		guestDesc := new(desc.SGuestDesc)
+		if err := syncParams.Body.Unmarshal(guestDesc, "desc"); err != nil {
+			return nil, errors.Wrap(err, "unmarshal guest desc")
+		}
+
 		fwOnly := jsonutils.QueryBoolean(syncParams.Body, "fw_only", false)
-		return guest.SyncConfig(ctx, desc, fwOnly)
+		return guest.SyncConfig(ctx, guestDesc, fwOnly)
 	}
 	return nil, nil
 }
@@ -836,7 +857,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		return nil, err
 	}
 
-	disks, _ := migParams.Desc.GetArray("disks")
+	disks := migParams.Desc.Disks
 	if len(migParams.TargetStorageIds) > 0 {
 		var encInfo *apis.SEncryptInfo
 		if guest.isEncrypted() {
@@ -1199,7 +1220,7 @@ func (m *SGuestManager) GetHost() hostutils.IHost {
 }
 
 func (m *SGuestManager) RequestVerifyDirtyServer(s *SKVMGuestInstance) {
-	hostId, _ := s.Desc.GetString("host_id")
+	hostId := s.Desc.HostId
 	var body = jsonutils.NewDict()
 	body.Set("guest_id", jsonutils.NewString(s.Id))
 	body.Set("host_id", jsonutils.NewString(hostId))

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -50,9 +49,9 @@ type GenerateStartOptionsInput struct {
 	IsQ35                 bool
 	BootOrder             string
 	CdromPath             string
-	Nics                  []jsonutils.JSONObject
+	Nics                  []*api.GuestnetworkJsonDesc
 	OVNIntegrationBridge  string
-	Disks                 []api.GuestdiskJsonDesc
+	Disks                 []*api.GuestdiskJsonDesc
 	Devices               []string
 	Machine               string
 	BIOS                  string
@@ -166,6 +165,10 @@ func GenerateStartOptions(
 		opts = append(opts, drvOpt.Device(device))
 	}
 
+	// if input.IsPcie {
+	// 	opts = append(opts, drvOpt.PciePciBridge(input.PciePciBridgeId))
+	// }
+
 	// vdi spice
 	if input.IsVdiSpice {
 		opts = append(opts, drvOpt.VdiSpice(input.SpicePort, input.PCIBus)...)
@@ -253,7 +256,7 @@ func getMonitorOptions(drvOpt QemuOptions, input *Monitor) []string {
 	return opts
 }
 
-func generateDisksOptions(drvOpt QemuOptions, disks []api.GuestdiskJsonDesc, pciBus string, isVdiSpice bool, isEncrypt bool) []string {
+func generateDisksOptions(drvOpt QemuOptions, disks []*api.GuestdiskJsonDesc, pciBus string, isVdiSpice bool, isEncrypt bool) []string {
 	opts := []string{}
 	isArm := drvOpt.IsArm()
 	firstDriver := make(map[string]bool)
@@ -285,7 +288,7 @@ func generateDisksOptions(drvOpt QemuOptions, disks []api.GuestdiskJsonDesc, pci
 	return opts
 }
 
-func getDiskDriveOption(drvOpt QemuOptions, disk api.GuestdiskJsonDesc, isArm bool, isEncrypt bool) string {
+func getDiskDriveOption(drvOpt QemuOptions, disk *api.GuestdiskJsonDesc, isArm bool, isEncrypt bool) string {
 	format := disk.Format
 	diskIndex := disk.Index
 	cacheMode := disk.CacheMode
@@ -316,7 +319,7 @@ func getDiskDriveOption(drvOpt QemuOptions, disk api.GuestdiskJsonDesc, isArm bo
 	return drvOpt.Drive(opt)
 }
 
-func isLocalStorage(disk api.GuestdiskJsonDesc) bool {
+func isLocalStorage(disk *api.GuestdiskJsonDesc) bool {
 	if disk.StorageType == api.STORAGE_LOCAL || len(disk.StorageType) == 0 {
 		return true
 	} else {
@@ -324,7 +327,7 @@ func isLocalStorage(disk api.GuestdiskJsonDesc) bool {
 	}
 }
 
-func getDiskDeviceOption(optDrv QemuOptions, disk api.GuestdiskJsonDesc, isArm bool, pciBus string, isVdiSpice bool) string {
+func getDiskDeviceOption(optDrv QemuOptions, disk *api.GuestdiskJsonDesc, isArm bool, pciBus string, isVdiSpice bool) string {
 	diskIndex := disk.Index
 	diskDriver := disk.Driver
 	numQueues := disk.NumQueues
@@ -411,7 +414,7 @@ func generateNicOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) ([
 	for idx := range nics {
 		netDevOpt, err := getNicNetdevOption(drvOpt, nics[idx], input.IsKVMSupport)
 		if err != nil {
-			return nil, errors.Wrapf(err, "getNicNetdevOption %s", nics[idx])
+			return nil, errors.Wrapf(err, "getNicNetdevOption %v", nics[idx])
 		}
 		opts = append(opts,
 			netDevOpt,
@@ -422,50 +425,41 @@ func generateNicOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) ([
 	return opts, nil
 }
 
-func getNicNetdevOption(drvOpt QemuOptions, nic jsonutils.JSONObject, isKVMSupport bool) (string, error) {
-	ifname, _ := nic.GetString("ifname")
-	if ifname == "" {
+func getNicNetdevOption(drvOpt QemuOptions, nic *api.GuestnetworkJsonDesc, isKVMSupport bool) (string, error) {
+	if nic.Ifname == "" {
 		return "", errors.Error("ifname is empty")
 	}
-	driver, _ := nic.GetString("driver")
-	upscript, _ := nic.GetString("upscript_path")
-	if upscript == "" {
+	if nic.UpscriptPath == "" {
 		return "", errors.Error("upscript_path is empty")
 	}
-	downscript, _ := nic.GetString("downscript_path")
-	if downscript == "" {
+	if nic.DownscriptPath == "" {
 		return "", errors.Error("downscript_path is empty")
 	}
-	numQueues, _ := nic.Int("num_queues")
 
 	opt := "-netdev type=tap"
-	opt += fmt.Sprintf(",id=%s", ifname)
-	opt += fmt.Sprintf(",ifname=%s", ifname)
-	if driver == "virtio" && isKVMSupport {
+	opt += fmt.Sprintf(",id=%s", nic.Ifname)
+	opt += fmt.Sprintf(",ifname=%s", nic.Ifname)
+	if nic.Driver == "virtio" && isKVMSupport {
 		opt += ",vhost=on,vhostforce=off"
-		if numQueues > 1 {
-			opt += fmt.Sprintf(",queues=%d", numQueues)
+		if nic.NumQueues > 1 {
+			opt += fmt.Sprintf(",queues=%d", nic.NumQueues)
 		}
 	}
-	opt += fmt.Sprintf(",script=%s", upscript)
-	opt += fmt.Sprintf(",downscript=%s", downscript)
+	opt += fmt.Sprintf(",script=%s", nic.UpscriptPath)
+	opt += fmt.Sprintf(",downscript=%s", nic.DownscriptPath)
 	return opt, nil
 }
 
-func getNicDeviceOption(drvOpt QemuOptions, nic jsonutils.JSONObject, input *GenerateStartOptionsInput, withAddr bool) string {
-	bridge, _ := nic.GetString("bridge")
-	ifname, _ := nic.GetString("ifname")
-	driver, _ := nic.GetString("driver")
-	mac, _ := nic.GetString("mac")
-	index, _ := nic.Int("index")
-	vectors, _ := nic.Int("vectors")
-	bw, _ := nic.Int("bw")
-	numQueues, _ := nic.Int("num_queues")
-
-	cmd := fmt.Sprintf("-device %s", GetNicDeviceModel(driver))
-	cmd += fmt.Sprintf(",id=netdev-%s", ifname)
-	cmd += fmt.Sprintf(",netdev=%s", ifname)
-	cmd += fmt.Sprintf(",mac=%s", mac)
+func getNicDeviceOption(
+	drvOpt QemuOptions,
+	nic *api.GuestnetworkJsonDesc,
+	input *GenerateStartOptionsInput,
+	withAddr bool,
+) string {
+	cmd := fmt.Sprintf("-device %s", GetNicDeviceModel(nic.Driver))
+	cmd += fmt.Sprintf(",id=netdev-%s", nic.Ifname)
+	cmd += fmt.Sprintf(",netdev=%s", nic.Ifname)
+	cmd += fmt.Sprintf(",mac=%s", nic.Mac)
 
 	if withAddr {
 		disksLen := len(input.Disks)
@@ -473,18 +467,18 @@ func getNicDeviceOption(drvOpt QemuOptions, nic jsonutils.JSONObject, input *Gen
 		if input.IsolatedDevicesParams != nil {
 			isoDevsLen = len(input.IsolatedDevicesParams.Devices)
 		}
-		cmd += fmt.Sprintf(",addr=0x%x", GetNicAddr(int(index), disksLen, isoDevsLen, input.IsVdiSpice))
+		cmd += fmt.Sprintf(",addr=0x%x", GetNicAddr(int(nic.Index), disksLen, isoDevsLen, input.IsVdiSpice))
 	}
-	if driver == "virtio" {
-		if numQueues > 1 {
+	if nic.Driver == "virtio" {
+		if nic.NumQueues > 1 {
 			cmd += fmt.Sprintf(",mq=on")
 		}
-		if nic.Contains("vectors") {
-			cmd += fmt.Sprintf(",vectors=%d", vectors)
+		if nic.Vectors != nil {
+			cmd += fmt.Sprintf(",vectors=%d", *nic.Vectors)
 		}
-		cmd += fmt.Sprintf("$(nic_speed %d)", bw)
-		if bridge == input.OVNIntegrationBridge {
-			cmd += fmt.Sprintf("$(nic_mtu %q)", bridge)
+		cmd += fmt.Sprintf("$(nic_speed %d)", nic.Bw)
+		if nic.Bridge == input.OVNIntegrationBridge {
+			cmd += fmt.Sprintf("$(nic_mtu %q)", nic.Bridge)
 		}
 	}
 	return cmd

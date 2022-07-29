@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -63,7 +64,7 @@ type IDisk interface {
 	PostCreateFromImageFuse()
 	CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error
 	DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error
-	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *jsonutils.JSONDict,
+	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
 		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)
 
 	GetBackupDir() string
@@ -124,12 +125,9 @@ func (d *SBaseDisk) GetZoneId() string {
 	return d.Storage.GetZoneId()
 }
 
-func (d *SBaseDisk) DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *jsonutils.JSONDict,
+func (d *SBaseDisk) DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
 	deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
-	deployGuestDesc, err := deployapi.GuestDescToDeployDesc(guestDesc)
-	if err != nil {
-		return nil, errors.Wrap(err, "guest desc to deploy desc")
-	}
+	deployGuestDesc := deployapi.GuestDescToDeployDesc(guestDesc)
 	ret, err := deployclient.GetDeployClient().DeployGuestFs(
 		context.Background(), &deployapi.DeployParams{
 			DiskInfo:   diskInfo,

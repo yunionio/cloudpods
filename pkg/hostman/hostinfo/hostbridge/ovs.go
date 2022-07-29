@@ -18,12 +18,12 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/util/bwutils"
@@ -118,23 +118,23 @@ func (d *SOVSBridgeDriver) PersistentConfig() error {
 	return nil
 }
 
-func (o *SOVSBridgeDriver) GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
+func (o *SOVSBridgeDriver) GenerateIfdownScripts(scriptPath string, nic *api.GuestnetworkJsonDesc, isSlave bool) error {
 	return o.generateIfdownScripts(o, scriptPath, nic, isSlave)
 }
 
-func (o *SOVSBridgeDriver) GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
+func (o *SOVSBridgeDriver) GenerateIfupScripts(scriptPath string, nic *api.GuestnetworkJsonDesc, isSlave bool) error {
 	return o.generateIfupScripts(o, scriptPath, nic, isSlave)
 }
 
-func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isSlave bool) (string, error) {
+func (o *SOVSBridgeDriver) getUpScripts(nic *api.GuestnetworkJsonDesc, isSlave bool) (string, error) {
 	var (
-		bridge         = o.bridge.String()
-		ifname, _      = nic.GetString("ifname")
-		ip, _          = nic.GetString("ip")
-		mac, _         = nic.GetString("mac")
-		netId, _       = nic.GetString("net_id")
-		vlan, _        = nic.Int("vlan")
-		vpcProvider, _ = nic.GetString("vpc", "provider")
+		bridge      = o.bridge.String()
+		ifname      = nic.Ifname
+		ip          = nic.Ip
+		mac         = nic.Mac
+		netId       = nic.NetId
+		vlan        = nic.Vlan
+		vpcProvider = nic.Vpc.Provider
 	)
 
 	if vpcProvider == compute.VPC_PROVIDER_OVN {
@@ -148,13 +148,13 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isSlave bool) 
 	s += fmt.Sprintf("MAC='%s'\n", mac)
 	s += fmt.Sprintf("VLAN_ID=%d\n", vlan)
 	s += fmt.Sprintf("NET_ID=%s\n", netId)
-	limit, burst, err := bwutils.GetOvsBwValues(nic)
+	limit, burst, err := bwutils.GetOvsBwValues(nic.Bw, nic.Ip)
 	if err != nil {
 		return "", err
 	}
 	s += fmt.Sprintf("LIMIT=%d\n", limit)
 	s += fmt.Sprintf("BURST=%d\n", burst)
-	bwDownload, err := bwutils.GetDownloadBwValue(nic, options.HostOptions.BwDownloadBandwidth)
+	bwDownload, err := bwutils.GetDownloadBwValue(nic.Bw, nic.Ip, nic.Ifname, options.HostOptions.BwDownloadBandwidth)
 	if err != nil {
 		return "", err
 	}
@@ -196,13 +196,13 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isSlave bool) 
 	return s, nil
 }
 
-func (o *SOVSBridgeDriver) getDownScripts(nic jsonutils.JSONObject, isSlave bool) (string, error) {
+func (o *SOVSBridgeDriver) getDownScripts(nic *api.GuestnetworkJsonDesc, isSlave bool) (string, error) {
 	var (
-		bridge    = o.bridge.String()
-		ifname, _ = nic.GetString("ifname")
-		ip, _     = nic.GetString("ip")
-		mac, _    = nic.GetString("mac")
-		vlan, _   = nic.Int("vlan")
+		bridge = o.bridge.String()
+		ifname = nic.Ifname
+		ip     = nic.Ip
+		mac    = nic.Mac
+		vlan   = nic.Vlan
 	)
 
 	s := "#!/bin/bash\n\n"

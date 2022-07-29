@@ -20,11 +20,13 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	guestman "yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
@@ -89,10 +91,83 @@ func (s *SGuestDHCPServer) RelaySetup(addr string) error {
 	return nil
 }
 
-func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObject) *dhcp.ResponseConfig {
+func gusetnetworkJsonDescToServerNic(nicdesc *types.SServerNic, guestNic *api.GuestnetworkJsonDesc) error {
+	if err := guestNic.Routes.Unmarshal(nicdesc.Routes); err != nil {
+		return err
+	}
+	nicdesc.Index = int(guestNic.Index)
+	nicdesc.Bridge = guestNic.Bridge
+	nicdesc.Domain = guestNic.Domain
+	nicdesc.Ip = guestNic.Ip
+	nicdesc.Vlan = guestNic.Vlan
+	nicdesc.Driver = guestNic.Driver
+	nicdesc.Masklen = int(guestNic.Masklen)
+	nicdesc.Virtual = guestNic.Virtual
+	if guestNic.Manual != nil {
+		nicdesc.Manual = *guestNic.Manual
+	}
+	nicdesc.WireId = guestNic.WireId
+	nicdesc.NetId = guestNic.NetId
+	nicdesc.Mac = guestNic.Mac
+	nicdesc.Mtu = guestNic.Mtu
+	nicdesc.Dns = guestNic.Dns
+	nicdesc.Ntp = guestNic.Ntp
+	nicdesc.Net = guestNic.Net
+	nicdesc.Interface = guestNic.Interface
+	nicdesc.Gateway = guestNic.Gateway
+	nicdesc.Ifname = guestNic.Ifname
+	nicdesc.NicType = guestNic.NicType
+	nicdesc.LinkUp = guestNic.LinkUp
+	nicdesc.TeamWith = guestNic.TeamWith
+	return nil
+}
+
+func GetMainNic(nics []*api.GuestnetworkJsonDesc) (*api.GuestnetworkJsonDesc, error) {
+	var mainIp netutils.IPV4Addr
+	var mainNic *api.GuestnetworkJsonDesc
+	for _, n := range nics {
+		if n.Gateway != "" {
+			ipInt, err := netutils.NewIPV4Addr(n.Ip)
+			if err != nil {
+				return nil, err
+			}
+			if mainIp == 0 {
+				mainIp = ipInt
+				mainNic = n
+			} else if !netutils.IsPrivate(ipInt) && netutils.IsPrivate(mainIp) {
+				mainIp = ipInt
+				mainNic = n
+			}
+		}
+	}
+	if mainNic != nil {
+		return mainNic, nil
+	}
+	for _, n := range nics {
+		ipInt, err := netutils.NewIPV4Addr(n.Ip)
+		if err != nil {
+			return nil, errors.Wrapf(err, "netutils.NewIPV4Addr %s", n.Ip)
+		}
+		if mainIp == 0 {
+			mainIp = ipInt
+			mainNic = n
+		} else if !netutils.IsPrivate(ipInt) && netutils.IsPrivate(mainIp) {
+			mainIp = ipInt
+			mainNic = n
+		}
+	}
+	if mainNic != nil {
+		return mainNic, nil
+	}
+	return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid nic")
+}
+
+func (s *SGuestDHCPServer) getGuestConfig(
+	guestDesc *desc.SGuestDesc, guestNic *api.GuestnetworkJsonDesc,
+) *dhcp.ResponseConfig {
 	var nicdesc = new(types.SServerNic)
-	if err := guestNic.Unmarshal(nicdesc); err != nil {
-		log.Errorln(err)
+	if err := gusetnetworkJsonDescToServerNic(nicdesc, guestNic); err != nil {
+		log.Errorf("failed convert server nic desc")
 		return nil
 	}
 
@@ -105,26 +180,26 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 	conf.ServerIP = net.ParseIP(v4Ip.NetAddr(int8(masklen)).String())
 	conf.SubnetMask = net.ParseIP(netutils2.Netlen2Mask(int(masklen)))
 	conf.BroadcastAddr = v4Ip.BroadcastAddr(int8(masklen)).ToBytes()
-	conf.Hostname, _ = guestDesc.GetString("name")
-	if hostname, _ := guestDesc.GetString("hostname"); len(hostname) > 0 {
-		conf.Hostname = hostname
+	conf.Hostname = guestDesc.Name
+	if len(guestDesc.Hostname) > 0 {
+		conf.Hostname = guestDesc.Hostname
 	}
 	conf.Domain = nicdesc.Domain
 
 	// get main ip
-	guestNics, _ := guestDesc.GetArray("nics")
-	manNic, err := netutils2.GetMainNic(guestNics)
+	guestNics := guestDesc.Nics
+	manNic, err := GetMainNic(guestNics)
 	if err != nil {
 		log.Errorln(err)
 		return nil
 	}
-	mainIp, _ := manNic.GetString("ip")
+	mainIp := manNic.Ip
 
 	var route = [][]string{}
 	if len(nicdesc.Gateway) > 0 && mainIp == nicIp {
 		conf.Gateway = net.ParseIP(nicdesc.Gateway)
 
-		osName, _ := guestDesc.GetString("os_name")
+		osName := guestDesc.OsName
 		if len(osName) == 0 {
 			osName = "Linux"
 		}
@@ -155,7 +230,7 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 		conf.MTU = uint16(nicdesc.Mtu)
 	}
 
-	conf.OsName, _ = guestDesc.GetString("os_name")
+	conf.OsName = guestDesc.OsName
 	conf.LeaseTime = time.Duration(options.HostOptions.DhcpLeaseTime) * time.Second
 	conf.RenewalTime = time.Duration(options.HostOptions.DhcpRenewalTime) * time.Second
 	return conf
@@ -175,7 +250,7 @@ func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
 	if guestNic == nil {
 		guestDesc, guestNic = guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.iface, !isCandidate)
 	}
-	if guestNic != nil && !jsonutils.QueryBoolean(guestNic, "virtual", false) {
+	if guestNic != nil && !guestNic.Virtual {
 		return s.getGuestConfig(guestDesc, guestNic)
 	}
 	return nil

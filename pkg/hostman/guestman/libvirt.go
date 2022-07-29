@@ -45,34 +45,29 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	disks, err := createConfig.GuestDesc.GetArray("disks")
-	if err != nil {
-		return nil, err
-	}
+	disks := createConfig.GuestDesc.Disks
 
 	disksPath := jsonutils.NewDict()
 	for _, disk := range disks {
-		diskId, _ := disk.GetString("disk_id")
-		diskPath, err := createConfig.DisksPath.GetString(diskId)
+		diskPath, err := createConfig.DisksPath.GetString(disk.DiskId)
 		if err != nil {
-			return nil, fmt.Errorf("Disks path missing disk %s", diskId)
+			return nil, fmt.Errorf("Disks path missing disk %s", disk.DiskId)
 		}
-		storageId, _ := disk.GetString("storage_id")
-		storage := storageman.GetManager().GetStorage(storageId)
+		storage := storageman.GetManager().GetStorage(disk.StorageId)
 		if storage == nil {
-			return nil, fmt.Errorf("Host has no stroage %s", storageId)
+			return nil, fmt.Errorf("Host has no stroage %s", disk.StorageId)
 		}
-		iDisk := storage.CreateDisk(diskId)
+		iDisk := storage.CreateDisk(disk.DiskId)
 
 		// use symbol link replace mv, more security
 		output, err := procutils.NewCommand("ln", "-s", diskPath, iDisk.GetPath()).Output()
 		if err != nil {
 			return nil, fmt.Errorf("Symbol link disk from %s to %s error %s", diskPath, iDisk.GetPath(), output)
 		}
-		disksPath.Set(diskId, jsonutils.NewString(iDisk.GetPath()))
+		disksPath.Set(disk.DiskId, jsonutils.NewString(iDisk.GetPath()))
 	}
 	guest, _ := m.GetServer(createConfig.Sid)
-	if err = guest.SaveDesc(createConfig.GuestDesc); err != nil {
+	if err := guest.SaveDesc(createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
 

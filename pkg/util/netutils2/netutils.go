@@ -23,7 +23,6 @@ import (
 	"strings"
 	"unicode"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
@@ -120,48 +119,6 @@ func GetMainNicFromDeployApi(nics []*types.SServerNic) (*types.SServerNic, error
 		ipInt, err := netutils.NewIPV4Addr(ip)
 		if err != nil {
 			return nil, errors.Wrap(err, "netutils.NewIPV4Addr")
-		}
-		if mainIp == 0 {
-			mainIp = ipInt
-			mainNic = n
-		} else if !netutils.IsPrivate(ipInt) && netutils.IsPrivate(mainIp) {
-			mainIp = ipInt
-			mainNic = n
-		}
-	}
-	if mainNic != nil {
-		return mainNic, nil
-	}
-	return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid nic")
-}
-
-func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	var mainIp netutils.IPV4Addr
-	var mainNic jsonutils.JSONObject
-	for _, n := range nics {
-		if n.Contains("gateway") {
-			ip, _ := n.GetString("ip")
-			ipInt, err := netutils.NewIPV4Addr(ip)
-			if err != nil {
-				return nil, err
-			}
-			if mainIp == 0 {
-				mainIp = ipInt
-				mainNic = n
-			} else if !netutils.IsPrivate(ipInt) && netutils.IsPrivate(mainIp) {
-				mainIp = ipInt
-				mainNic = n
-			}
-		}
-	}
-	if mainNic != nil {
-		return mainNic, nil
-	}
-	for _, n := range nics {
-		ip, _ := n.GetString("ip")
-		ipInt, err := netutils.NewIPV4Addr(ip)
-		if err != nil {
-			return nil, errors.Wrapf(err, "netutils.NewIPV4Addr %s", ip)
 		}
 		if mainIp == 0 {
 			mainIp = ipInt

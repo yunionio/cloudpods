@@ -82,15 +82,15 @@ func (m *SGuestManager) GuestCreateFromEsxi(
 	log.Infof("Connection disks %v", connections.String())
 
 	var ret = jsonutils.NewDict()
-	disksDesc, _ := guest.Desc.GetArray("disks")
+	disksDesc := guest.Desc.Disks
 	for i := 0; i < len(disksDesc); i++ {
-		storageId, _ := disksDesc[i].GetString("storage_id")
+		storageId := disksDesc[i].StorageId
 		if storage := storageman.GetManager().GetStorage(storageId); storage == nil {
 			err = errors.Wrapf(err, "get storage %s", storageId)
 			break
 		} else {
 			var diskInfo jsonutils.JSONObject
-			diskId, _ := disksDesc[i].GetString("disk_id")
+			diskId := disksDesc[i].DiskId
 			iDisk := storage.CreateDisk(diskId)
 			diskInfo, err = iDisk.CreateRaw(ctx, 0, "qcow2", "", nil, "", connections.Disks[i].DiskPath)
 			if err != nil {

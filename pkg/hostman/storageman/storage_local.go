@@ -519,12 +519,12 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
 	disksBackingFile, srcSnapshots jsonutils.JSONObject,
 	rebaseDisks bool,
-	diskinfo jsonutils.JSONObject,
+	diskinfo *api.GuestdiskJsonDesc,
 	serverId string, idx, totalDiskCount int,
 	encInfo *apis.SEncryptInfo,
 ) error {
 	var (
-		diskId, _    = diskinfo.GetString("disk_id")
+		diskId       = diskinfo.DiskId
 		snapshots, _ = srcSnapshots.GetArray(diskId)
 		disk         = s.CreateDisk(diskId)
 	)
@@ -534,7 +534,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 			"Storage %s create disk %s failed", s.GetId(), diskId)
 	}
 
-	templateId, _ := diskinfo.GetString("template_id")
+	templateId := diskinfo.TemplateId
 	// prepare disk snapshot dir
 	if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
 		output, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Output()
@@ -545,8 +545,8 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 
 	// create snapshots form remote url
 	var (
-		diskStorageId, _ = diskinfo.GetString("storage_id")
-		baseImagePath    string
+		diskStorageId = diskinfo.StorageId
+		baseImagePath string
 	)
 	for i, snapshotId := range snapshots {
 		snapId, _ := snapshotId.GetString()
@@ -584,8 +584,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 	if liveMigrate {
 		// create local disk
 		backingFile, _ := disksBackingFile.GetString(diskId)
-		size, _ := diskinfo.Int("size")
-		_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", encInfo, "", backingFile)
+		_, err := disk.CreateRaw(ctx, int(diskinfo.Size), "qcow2", "", encInfo, "", backingFile)
 		if err != nil {
 			log.Errorln(err)
 			return err
@@ -626,8 +625,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 			return err
 		}
 	}
-	diskDesc, _ := diskinfo.(*jsonutils.JSONDict)
-	diskDesc.Set("path", jsonutils.NewString(disk.GetPath()))
+	diskinfo.Path = disk.GetPath()
 	return nil
 }
 

@@ -23,11 +23,11 @@ import (
 	"syscall"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/iproute2"
@@ -53,12 +53,12 @@ type IBridgeDriver interface {
 	PersistentConfig() error
 	DisableDHCPClient() (bool, error)
 
-	GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error
-	GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error
+	GenerateIfupScripts(scriptPath string, nic *api.GuestnetworkJsonDesc, isSlave bool) error
+	GenerateIfdownScripts(scriptPath string, nic *api.GuestnetworkJsonDesc, isSlave bool) error
 	RegisterHostlocalServer(mac, ip string) error
 
-	getUpScripts(nic jsonutils.JSONObject, isSlave bool) (string, error)
-	getDownScripts(nic jsonutils.JSONObject, isSlave bool) (string, error)
+	getUpScripts(nic *api.GuestnetworkJsonDesc, isSlave bool) (string, error)
+	getDownScripts(nic *api.GuestnetworkJsonDesc, isSlave bool) (string, error)
 
 	Bridge() string
 }
@@ -340,7 +340,7 @@ func (d *SBaseBridgeDriver) saveFileExecutable(scriptPath, script string) error 
 	return os.Chmod(scriptPath, syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR)
 }
 
-func (d *SBaseBridgeDriver) generateIfdownScripts(driver IBridgeDriver, scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
+func (d *SBaseBridgeDriver) generateIfdownScripts(driver IBridgeDriver, scriptPath string, nic *api.GuestnetworkJsonDesc, isSlave bool) error {
 	script, err := driver.getDownScripts(nic, isSlave)
 	if err != nil {
 		return errors.Wrap(err, "getDownScripts")
@@ -348,7 +348,7 @@ func (d *SBaseBridgeDriver) generateIfdownScripts(driver IBridgeDriver, scriptPa
 	return d.saveFileExecutable(scriptPath, script)
 }
 
-func (d *SBaseBridgeDriver) generateIfupScripts(driver IBridgeDriver, scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
+func (d *SBaseBridgeDriver) generateIfupScripts(driver IBridgeDriver, scriptPath string, nic *api.GuestnetworkJsonDesc, isSlave bool) error {
 	script, err := driver.getUpScripts(nic, isSlave)
 	if err != nil {
 		log.Errorln(err)
