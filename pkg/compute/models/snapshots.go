@@ -490,6 +490,22 @@ func (self *SSnapshot) GetHost() (*SHost, error) {
 	return storage.GetMasterHost()
 }
 
+func (self *SSnapshot) GetFuseUrl() (string, error) {
+	iStorage, err := StorageManager.FetchById(self.StorageId)
+	if err != nil {
+		return "", errors.Wrapf(err, "StorageManager.FetchById(%s)", self.StorageId)
+	}
+	storage := iStorage.(*SStorage)
+	if storage.StorageType != api.STORAGE_LOCAL {
+		return "", nil
+	}
+	host, err := storage.GetMasterHost()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s/snapshots/%s/%s", host.GetFetchUrl(true), self.DiskId, self.Id), nil
+}
+
 func (self *SSnapshotManager) AddRefCount(snapshotId string, count int) {
 	iSnapshot, _ := self.FetchById(snapshotId)
 	if iSnapshot != nil {

@@ -746,13 +746,14 @@ func (m *SGuestManager) GuestStart(ctx context.Context, userCred mcclient.TokenC
 			guest.SaveDesc(guestDesc)
 		}
 		if guest.IsStopped() {
-			data := struct {
-				Params *jsonutils.JSONDict
-			}{
-				Params: jsonutils.NewDict(),
+			data, err := body.Get("params")
+			if err != nil {
+				data = jsonutils.NewDict()
 			}
-			body.Unmarshal(&data)
-			guest.StartGuest(ctx, userCred, data.Params)
+			err = guest.StartGuest(ctx, userCred, data.(*jsonutils.JSONDict))
+			if err != nil {
+				return nil, err
+			}
 			res := jsonutils.NewDict()
 			res.Set("vnc_port", jsonutils.NewInt(0))
 			return res, nil
