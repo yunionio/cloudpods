@@ -79,6 +79,14 @@ func (d *SLocalDisk) GetPath() string {
 	}
 }
 
+func (d *SLocalDisk) GetFormat() (string, error) {
+	disk, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return "", err
+	}
+	return string(disk.Format), nil
+}
+
 func (d *SLocalDisk) GetSnapshotDir() string {
 	return path.Join(d.Storage.GetSnapshotDir(), d.Id+options.HostOptions.SnapshotDirSuffix)
 }

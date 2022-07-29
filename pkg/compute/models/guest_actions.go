@@ -5400,7 +5400,6 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 	diskConf := &api.DiskConfig{
 		Index:    -1,
 		ImageId:  srcDisk.TemplateId,
-		Format:   srcDisk.DiskFormat,
 		SizeMb:   srcDisk.DiskSize,
 		Fs:       srcDisk.FsFormat,
 		DiskType: srcDisk.DiskType,
@@ -5415,7 +5414,6 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 		ServerChangeDiskStorageInput: *input,
 		StorageId:                    srcDisk.StorageId,
 		TargetDiskId:                 targetDisk.GetId(),
-		DiskFormat:                   srcDisk.DiskFormat,
 		GuestRunning:                 self.Status == api.VM_RUNNING,
 	}
 
