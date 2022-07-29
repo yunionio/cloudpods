@@ -156,7 +156,9 @@ func init() {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.DISK), "disk_id")
 		if args.DeleteDisk {
-			params.Add(jsonutils.NewInt(0), "keep_disk")
+			params.Add(jsonutils.JSONFalse, "keep_disk")
+		} else {
+			params.Add(jsonutils.JSONTrue, "keep_disk")
 		}
 		srv, err := modules.Servers.PerformAction(s, args.SERVER, "detachdisk", params)
 		if err != nil {
