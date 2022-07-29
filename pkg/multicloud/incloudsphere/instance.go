@@ -310,7 +310,7 @@ func (self *SInstance) GetHostname() string {
 }
 
 func (self *SInstance) GetHypervisor() string {
-	return api.HYPERVISOR_BINGO_CLOUD
+	return api.HYPERVISOR_INCLOUD_SPHERE
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
