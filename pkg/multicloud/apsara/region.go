@@ -1068,11 +1068,17 @@ func (self *SRegion) IBucketExist(name string) (bool, error) {
 }
 
 func (self *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
-	bucket, err := self.GetBucket(name)
+	buckets, err := self.GetBuckets()
 	if err != nil {
 		return nil, err
 	}
-	return bucket, nil
+	for i := range buckets {
+		if buckets[i].GetName() == name {
+			buckets[i].region = self
+			return &buckets[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
 }
 
 func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
