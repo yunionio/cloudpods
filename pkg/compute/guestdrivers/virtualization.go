@@ -202,14 +202,19 @@ func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, guest
 	if err != nil {
 		return nil, errors.Wrapf(err, "fetch storages by ids: %v", storageIds)
 	}
-	// try to find mediumType matched storage
-	for _, s := range ss {
-		tmp := s
-		if s.MediumType == diskConfig.Medium {
-			return &tmp, nil
+	var candidates []models.SStorage
+	if len(diskConfig.Medium) > 0 {
+		// try to find mediumType matched storage
+		for i := range ss {
+			if ss[i].MediumType == diskConfig.Medium {
+				candidates = append(candidates, ss[i])
+			}
+		}
+		if len(candidates) == 0 {
+			candidates = ss
 		}
 	}
-	return &ss[0], nil
+	return models.ChooseLeastUsedStorage(candidates, ""), nil
 }
 
 func (self *SVirtualizedGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {

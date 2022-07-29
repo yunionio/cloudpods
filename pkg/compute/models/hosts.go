@@ -1466,7 +1466,7 @@ func _getLeastUsedStorage(storages []SStorage, backends []string) *SStorage {
 	return best
 }
 
-func getLeastUsedStorage(storages []SStorage, backend string) *SStorage {
+func ChooseLeastUsedStorage(storages []SStorage, backend string) *SStorage {
 	var backends []string
 	if backend == api.STORAGE_LOCAL {
 		backends = []string{api.STORAGE_NAS, api.STORAGE_LOCAL}
@@ -1481,7 +1481,7 @@ func getLeastUsedStorage(storages []SStorage, backend string) *SStorage {
 func (self *SHost) GetLeastUsedStorage(backend string) *SStorage {
 	storages := self.GetAttachedEnabledHostStorages(nil)
 	if storages != nil {
-		return getLeastUsedStorage(storages, backend)
+		return ChooseLeastUsedStorage(storages, backend)
 	}
 	return nil
 }
