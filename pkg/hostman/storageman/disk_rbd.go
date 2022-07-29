@@ -69,6 +69,10 @@ func (d *SRBDDisk) GetPath() string {
 	return fmt.Sprintf("%s%s", d.getPath(), storage.getStorageConfString())
 }
 
+func (d *SRBDDisk) GetFormat() (string, error) {
+	return "raw", nil
+}
+
 func (d *SRBDDisk) GetSnapshotDir() string {
 	return ""
 }

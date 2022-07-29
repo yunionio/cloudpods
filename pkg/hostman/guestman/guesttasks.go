@@ -1876,6 +1876,13 @@ func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
 		)
 		return
 	}
+	targetDiskFormat, err := targetDisk.GetFormat()
+	if err != nil {
+		hostutils.TaskFailed(
+			t.ctx, fmt.Sprintf("Failed get target disk format %s %s", t.params.TargetDiskId, err),
+		)
+		return
+	}
 
 	if !guestRunning {
 		hostutils.TaskComplete(t.ctx, jsonutils.Marshal(resp))
@@ -1896,11 +1903,12 @@ func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
 		}
 	}
 
-	t.Monitor.DriveMirror(onDriveMirror,
+	t.Monitor.DriveMirror(
+		onDriveMirror,
 		fmt.Sprintf("drive_%d", diskIndex),
 		targetDisk.GetPath(),
 		"full",
-		t.params.DiskFormat,
+		targetDiskFormat,
 		true,
 		false,
 	)
@@ -1933,6 +1941,12 @@ func NewGuestLiveChangeDiskTask(ctx context.Context, guest *SKVMGuestInstance, p
 		return nil, fmt.Errorf("failed found disk %s index", params.SourceDisk.GetId())
 	}
 
+	diskFormat, err := params.SourceDisk.GetFormat()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed get disk fromat")
+	}
+	params.DiskFormat = diskFormat
+
 	return &SGuestLiveChangeDisk{
 		SKVMGuestInstance: guest,
 		ctx:               ctx,
@@ -1959,36 +1973,7 @@ func (t *SGuestLiveChangeDisk) onGuestPaused(res string) {
 		return
 	}
 
-	// register mirror block job complete event
-	var c = make(chan struct{})
-	t.blockJobTigger[t.params.SourceDisk.GetId()] = c
-	onBlockJobComplete := func(res string) {
-		select {
-		case <-c: // It's essential wait for block job complete
-			delete(t.blockJobTigger, t.params.SourceDisk.GetId())
-		case <-time.After(time.Second * 10):
-			// in case no event arrived, we must continue the guest after timeout
-			if t.guestNeedResume {
-				t.Monitor.SimpleCommand("cont", nil)
-			}
-			hostutils.TaskFailed(
-				t.ctx,
-				fmt.Sprintf("disk %s no block job complete event found",
-					t.params.SourceDisk.GetId()),
-			)
-			return
-		}
-
-		// block job completed, start reopen disk
-		log.Infof("guest %s start reopen block %d %s", t.Id, t.diskIndex, t.targetDisk.GetPath())
-		t.Monitor.BlockReopenImage(
-			fmt.Sprintf("drive_%d", t.diskIndex),
-			t.targetDisk.GetPath(),
-			t.params.DiskFormat,
-			t.onReopenImageSuccess,
-		)
-	}
-	t.Monitor.BlockJobComplete(fmt.Sprintf("drive_%d", t.diskIndex), onBlockJobComplete)
+	t.Monitor.BlockJobComplete(fmt.Sprintf("drive_%d", t.diskIndex), t.onReopenImageSuccess)
 }
 
 func (t *SGuestLiveChangeDisk) onReopenImageSuccess(res string) {
