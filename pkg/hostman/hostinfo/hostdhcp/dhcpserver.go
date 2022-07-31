@@ -92,9 +92,12 @@ func (s *SGuestDHCPServer) RelaySetup(addr string) error {
 }
 
 func gusetnetworkJsonDescToServerNic(nicdesc *types.SServerNic, guestNic *api.GuestnetworkJsonDesc) error {
-	if err := guestNic.Routes.Unmarshal(nicdesc.Routes); err != nil {
-		return err
+	if guestNic.Routes != nil {
+		if err := guestNic.Routes.Unmarshal(&nicdesc.Routes); err != nil {
+			return err
+		}
 	}
+
 	nicdesc.Index = int(guestNic.Index)
 	nicdesc.Bridge = guestNic.Bridge
 	nicdesc.Domain = guestNic.Domain
