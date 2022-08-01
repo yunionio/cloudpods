@@ -215,6 +215,8 @@ func (self *SKubeCluster) doRemoteImport(ctx context.Context, userCred mcclient.
 
 	params := map[string]interface{}{
 		"name":                self.Name,
+		"project_domain_id":   self.DomainId,
+		"domain_id":           self.DomainId,
 		"mode":                "import",
 		"external_cluster_id": self.GetId(),
 		"resource_type":       "guest",
