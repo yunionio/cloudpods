@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	guestman "yunion.io/x/onecloud/pkg/hostman/guestman/types"
@@ -91,7 +90,7 @@ func (s *SGuestDHCPServer) RelaySetup(addr string) error {
 	return nil
 }
 
-func gusetnetworkJsonDescToServerNic(nicdesc *types.SServerNic, guestNic *api.GuestnetworkJsonDesc) error {
+func gusetnetworkJsonDescToServerNic(nicdesc *types.SServerNic, guestNic *desc.SGuestNetwork) error {
 	if guestNic.Routes != nil {
 		if err := guestNic.Routes.Unmarshal(&nicdesc.Routes); err != nil {
 			return err
@@ -125,9 +124,9 @@ func gusetnetworkJsonDescToServerNic(nicdesc *types.SServerNic, guestNic *api.Gu
 	return nil
 }
 
-func GetMainNic(nics []*api.GuestnetworkJsonDesc) (*api.GuestnetworkJsonDesc, error) {
+func GetMainNic(nics []*desc.SGuestNetwork) (*desc.SGuestNetwork, error) {
 	var mainIp netutils.IPV4Addr
-	var mainNic *api.GuestnetworkJsonDesc
+	var mainNic *desc.SGuestNetwork
 	for _, n := range nics {
 		if n.Gateway != "" {
 			ipInt, err := netutils.NewIPV4Addr(n.Ip)
@@ -166,7 +165,7 @@ func GetMainNic(nics []*api.GuestnetworkJsonDesc) (*api.GuestnetworkJsonDesc, er
 }
 
 func (s *SGuestDHCPServer) getGuestConfig(
-	guestDesc *desc.SGuestDesc, guestNic *api.GuestnetworkJsonDesc,
+	guestDesc *desc.SGuestDesc, guestNic *desc.SGuestNetwork,
 ) *dhcp.ResponseConfig {
 	var nicdesc = new(types.SServerNic)
 	if err := gusetnetworkJsonDescToServerNic(nicdesc, guestNic); err != nil {

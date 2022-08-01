@@ -51,7 +51,7 @@ type IHost interface {
 
 type HotPlugOption struct {
 	Device  string
-	Options map[string]interface{}
+	Options map[string]string
 }
 
 type HotUnplugOption struct {
@@ -73,8 +73,10 @@ type IDevice interface {
 	SetDetectedOnHost(isDetected bool)
 	DetectByAddr() error
 
+	GetPassthroughOptions() map[string]string
 	GetPassthroughCmd(index int) string
 	GetIOMMUGroupDeviceCmd() string
+	GetIOMMUGroupRestAddrs() []string
 	GetVGACmd() string
 	GetCPUCmd() string
 
@@ -85,6 +87,7 @@ type IDevice interface {
 type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId string, addr string) IDevice
+	GetDeviceByAddr(addr string) IDevice
 	ProbePCIDevices(skipGPUs, skipUSBs bool) error
 	StartDetachTask()
 	BatchCustomProbe() error
@@ -331,6 +334,10 @@ func (dev *sBaseDevice) GetKernelDriver() (string, error) {
 
 func (dev *sBaseDevice) getVFIODeviceCmd(addr string) string {
 	return fmt.Sprintf(" -device vfio-pci,host=%s", addr)
+}
+
+func (dev *sBaseDevice) GetPassthroughOptions() map[string]string {
+	return nil
 }
 
 func (dev *sBaseDevice) GetPassthroughCmd(_ int) string {

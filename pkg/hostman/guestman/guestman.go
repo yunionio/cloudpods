@@ -34,7 +34,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
@@ -324,7 +323,7 @@ func (m *SGuestManager) LoadServer(sid string) {
 		return
 	}
 
-	if guest.NeedSyncStreamDisks {
+	if guest.needSyncStreamDisks {
 		go guest.sendStreamDisksComplete(context.Background())
 	}
 	m.CandidateServers[sid] = guest
@@ -345,11 +344,11 @@ func (m *SGuestManager) ShutdownServers() {
 
 func (m *SGuestManager) GetGuestNicDesc(
 	mac, ip, port, bridge string, isCandidate bool,
-) (*desc.SGuestDesc, *api.GuestnetworkJsonDesc) {
+) (*desc.SGuestDesc, *desc.SGuestNetwork) {
 	if isCandidate {
 		return m.getGuestNicDescInCandidate(mac, ip, port, bridge)
 	}
-	var nic *api.GuestnetworkJsonDesc
+	var nic *desc.SGuestNetwork
 	var guestDesc *desc.SGuestDesc
 	m.Servers.Range(func(k interface{}, v interface{}) bool {
 		guest := v.(*SKVMGuestInstance)
@@ -367,7 +366,7 @@ func (m *SGuestManager) GetGuestNicDesc(
 
 func (m *SGuestManager) getGuestNicDescInCandidate(
 	mac, ip, port, bridge string,
-) (*desc.SGuestDesc, *api.GuestnetworkJsonDesc) {
+) (*desc.SGuestDesc, *desc.SGuestNetwork) {
 	for _, guest := range m.CandidateServers {
 		if guest.IsLoaded() {
 			nic := guest.GetNicDescMatch(mac, ip, port, bridge)
@@ -595,14 +594,9 @@ func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (js
 			if err != nil {
 				return httperrors.NewBadRequestError("Guest desc unmarshal failed %s", err)
 			}
-
-			err = guest.PrepareDir()
+			err = guest.CreateFromDesc(desc)
 			if err != nil {
-				return errors.Wrap(err, "guest prepare dir")
-			}
-			err = guest.SaveDesc(desc)
-			if err != nil {
-				return errors.Wrap(err, "save desc")
+				return errors.Wrap(err, "create from desc")
 			}
 		}
 
@@ -657,7 +651,7 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 			if err != nil {
 				return nil, httperrors.NewBadRequestError("Failed unmarshal guest desc %s", err)
 			}
-			guest.SaveDesc(guestDesc)
+			guest.SaveSourceDesc(guestDesc)
 		}
 		return m.startDeploy(ctx, deployParams, guest)
 	} else {
@@ -743,7 +737,7 @@ func (m *SGuestManager) GuestStart(ctx context.Context, userCred mcclient.TokenC
 	if guest, ok := m.GetServer(sid); ok {
 		guestDesc := new(desc.SGuestDesc)
 		if err := body.Unmarshal(guestDesc, "desc"); err == nil {
-			guest.SaveDesc(guestDesc)
+			guest.SaveSourceDesc(guestDesc)
 		}
 		if guest.IsStopped() {
 			data, err := body.Get("params")
@@ -883,7 +877,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 				return nil, fmt.Errorf("dest prepare migrate failed %s", err)
 			}
 		}
-		if err := guest.SaveDesc(migParams.Desc); err != nil {
+		if err := guest.SaveSourceDesc(migParams.Desc); err != nil {
 			log.Errorln(err)
 			return nil, err
 		}
@@ -1129,7 +1123,8 @@ func (m *SGuestManager) StartDriveMirror(ctx context.Context, params interface{}
 		return nil, hostutils.ParamsError
 	}
 	guest, _ := m.GetServer(mirrorParams.Sid)
-	if err := guest.SaveDesc(mirrorParams.Desc); err != nil {
+	// TODO: check desc
+	if err := guest.SaveSourceDesc(mirrorParams.Desc); err != nil {
 		return nil, err
 	}
 	task := NewDriveMirrorTask(ctx, guest, mirrorParams.NbdServerUri, "top", true, nil)

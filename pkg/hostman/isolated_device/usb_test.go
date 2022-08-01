@@ -153,7 +153,7 @@ func Test_getUSBDevQemuOptions(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want map[string]interface{}
+		want map[string]string
 	}{
 		{
 			name: "",
@@ -163,9 +163,7 @@ func Test_getUSBDevQemuOptions(t *testing.T) {
 				bus:      "001",
 				addr:     "009",
 			},
-			want: map[string]interface{}{
-				"id":        "dev_1d6b_0001-001_009",
-				"bus":       "usb.0",
+			want: map[string]string{
 				"vendorid":  "0x1d6b",
 				"productid": "0x0001",
 				"hostbus":   "1",

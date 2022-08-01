@@ -42,12 +42,6 @@ func (o opt_420_x86_64) Nodefconfig() string {
 	return "-no-user-config"
 }
 
-func (o opt_420_x86_64) NoKVMPitReinjection() string {
-	// https://www.qemu.org/docs/master/about/removed-features.html#no-kvm-pit-reinjection-removed-in-3-0
-	// -no-kvm-pit-reinjection (removed in 3.0)
-	return ""
-}
-
 func newCmd_4_2_0_aarch64() QemuCommand {
 	return newBaseCommand(
 		Version_4_2_0,

@@ -37,7 +37,7 @@ func (m *SGuestManager) GuestCreateFromEsxi(
 		return nil, hostutils.ParamsError
 	}
 	guest, _ := m.GetServer(createConfig.Sid)
-	if err := guest.SaveDesc(createConfig.GuestDesc); err != nil {
+	if err := guest.SaveSourceDesc(createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
 	esxiCli, err := esxi.NewESXiClientFromAccessInfo(ctx, &createConfig.EsxiAccessInfo.Datastore)

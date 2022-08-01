@@ -33,12 +33,12 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	qemucerts "yunion.io/x/onecloud/pkg/hostman/guestman/qemu/certs"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
-	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 const (
@@ -61,7 +61,7 @@ const (
 )
 
 func (s *SKVMGuestInstance) IsKvmSupport() bool {
-	return guestManager.GetHost().IsKvmSupport()
+	return s.manager.GetHost().IsKvmSupport()
 }
 
 func (s *SKVMGuestInstance) IsVdiSpice() bool {
@@ -85,6 +85,18 @@ func (s *SKVMGuestInstance) getOsDistribution() string {
 
 func (s *SKVMGuestInstance) getOsVersion() string {
 	return s.Desc.Metadata["os_version"]
+}
+
+func (s *SKVMGuestInstance) pciInitialized() bool {
+	return len(s.Desc.PCIControllers) > 0
+}
+
+func (s *SKVMGuestInstance) hasPcieExtendBus() bool {
+	return s.Desc.Metadata["__pcie_extend_bus"] == "true"
+}
+
+func (s *SKVMGuestInstance) setPcieExtendBus() {
+	s.Desc.Metadata["__pcie_extend_bus"] = "true"
 }
 
 // is windows prioer to windows server 2003
@@ -136,6 +148,11 @@ func (s *SKVMGuestInstance) isVirt() bool {
 	return s.getMachine() == api.VM_MACHINE_TYPE_ARM_VIRT
 }
 
+func (s *SKVMGuestInstance) isPcie() bool {
+	return utils.IsInStringArray(s.getMachine(),
+		[]string{api.VM_MACHINE_TYPE_Q35, api.VM_MACHINE_TYPE_ARM_VIRT})
+}
+
 func (s *SKVMGuestInstance) GetVdiProtocol() string {
 	vdi := s.Desc.Vdi
 	if vdi == "" {
@@ -164,19 +181,19 @@ func (s *SKVMGuestInstance) GetDiskAddr(idx int) int {
 	return qemu.GetDiskAddr(idx, s.IsVdiSpice())
 }
 
-func (s *SKVMGuestInstance) getNicUpScriptPath(nic *api.GuestnetworkJsonDesc) string {
-	dev := guestManager.GetHost().GetBridgeDev(nic.Bridge)
+func (s *SKVMGuestInstance) getNicUpScriptPath(nic *desc.SGuestNetwork) string {
+	dev := s.manager.GetHost().GetBridgeDev(nic.Bridge)
 	return path.Join(s.HomeDir(), fmt.Sprintf("if-up-%s-%s.sh", dev.Bridge(), nic.Ifname))
 }
 
-func (s *SKVMGuestInstance) getNicDownScriptPath(nic *api.GuestnetworkJsonDesc) string {
-	dev := guestManager.GetHost().GetBridgeDev(nic.Bridge)
+func (s *SKVMGuestInstance) getNicDownScriptPath(nic *desc.SGuestNetwork) string {
+	dev := s.manager.GetHost().GetBridgeDev(nic.Bridge)
 	return path.Join(s.HomeDir(), fmt.Sprintf("if-down-%s-%s.sh", dev.Bridge(), nic.Ifname))
 }
 
-func (s *SKVMGuestInstance) generateNicScripts(nic *api.GuestnetworkJsonDesc) error {
+func (s *SKVMGuestInstance) generateNicScripts(nic *desc.SGuestNetwork) error {
 	bridge := nic.Bridge
-	dev := guestManager.GetHost().GetBridgeDev(bridge)
+	dev := s.manager.GetHost().GetBridgeDev(bridge)
 	if dev == nil {
 		return fmt.Errorf("Can't find bridge %s", bridge)
 	}
@@ -217,19 +234,13 @@ func (s *SKVMGuestInstance) extraOptions() string {
 func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (string, error) {
 	// initial data
 	var input = &qemu.GenerateStartOptionsInput{
-		UUID:                 s.Desc.Uuid,
-		Mem:                  uint64(s.Desc.Mem),
-		Cpu:                  uint(s.Desc.Cpu),
-		Name:                 s.Desc.Name,
+		GuestDesc:            s.Desc,
 		OsName:               s.getOsname(),
-		Nics:                 s.Desc.Nics,
-		Disks:                s.Desc.Disks,
 		OVNIntegrationBridge: options.HostOptions.OvnIntegrationBridge,
 		HomeDir:              s.HomeDir(),
 		HugepagesEnabled:     s.manager.host.IsHugepagesEnabled(),
 		EnableMemfd:          s.isMemcleanEnabled(),
 		PidFilePath:          s.GetPidFilePath(),
-		BIOS:                 s.getBios(),
 	}
 
 	if data.Contains("encrypt_key") {
@@ -241,14 +252,6 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	}
 
 	cmd := ""
-
-	// inject machine and bios
-	if input.OsName == OS_NAME_MACOS {
-		s.Desc.Machine = api.VM_MACHINE_TYPE_Q35
-		input.Machine = api.VM_MACHINE_TYPE_Q35
-		s.Desc.Bios = qemu.BIOS_UEFI
-		input.BIOS = qemu.BIOS_UEFI
-	}
 
 	// inject vncPort
 	vncPort, _ := data.Int("vnc_port")
@@ -270,30 +273,21 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		input.QemuArch = qemu.Arch_x86_64
 	}
 
-	// inject isolatedDevices
-	var devAddrs = []string{}
-	isolatedParams := s.Desc.IsolatedDevices
-	for _, params := range isolatedParams {
-		devAddrs = append(devAddrs, params.Addr)
-	}
-	isolatedDevsParams := s.manager.GetHost().GetIsolatedDeviceManager().GetQemuParams(devAddrs)
-	input.IsolatedDevicesParams = isolatedDevsParams
-
-	for _, nic := range input.Nics {
+	for _, nic := range s.Desc.Nics {
 		downscript := s.getNicDownScriptPath(nic)
 		cmd += fmt.Sprintf("%s %s\n", downscript, nic.Ifname)
 	}
 
 	if input.HugepagesEnabled {
-		cmd += fmt.Sprintf("mkdir -p /dev/hugepages/%s\n", input.UUID)
+		cmd += fmt.Sprintf("mkdir -p /dev/hugepages/%s\n", s.Desc.Uuid)
 		cmd += fmt.Sprintf("mount -t hugetlbfs -o pagesize=%dK,size=%dM hugetlbfs-%s /dev/hugepages/%s\n",
-			s.manager.host.HugepageSizeKb(), input.Mem, input.UUID, input.UUID)
+			s.manager.host.HugepageSizeKb(), s.Desc.Mem, s.Desc.Uuid, s.Desc.Uuid)
 	}
 
 	cmd += "sleep 1\n"
 	cmd += fmt.Sprintf("echo %d > %s\n", input.VNCPort, s.GetVncFilePath())
 
-	diskScripts, err := s.generateDiskSetupScripts(input.Disks)
+	diskScripts, err := s.generateDiskSetupScripts(s.Desc.Disks)
 	if err != nil {
 		return "", errors.Wrap(err, "generateDiskSetupScripts")
 	}
@@ -362,15 +356,6 @@ function nic_mtu() {
 	// Generate Start VM script
 	cmd += `CMD="$QEMU_CMD $QEMU_CMD_KVM_ARG`
 
-	// inject cpu info
-	if s.IsKvmSupport() && !options.HostOptions.DisableKVM {
-		input.EnableKVM = true
-		input.HostCPUPassthrough = options.HostOptions.HostCpuPassthrough
-		input.IsCPUIntel = sysutils.IsProcessorIntel()
-		input.IsCPUAMD = sysutils.IsProcessorAmd()
-		input.EnableNested = guestManager.GetHost().IsNestedVirtualization()
-	}
-
 	if options.HostOptions.LogLevel == "debug" {
 		input.EnableLog = true
 		input.LogPath = s.getQemuLogPath()
@@ -391,59 +376,22 @@ function nic_mtu() {
 	}
 
 	input.EnableUUID = options.HostOptions.EnableVmUuid
-	// inject machine
-	input.Machine = s.getMachine()
-
-	// inject bootOrder and cdrom
-	input.BootOrder = s.Desc.BootOrder
-	if s.Desc.Cdrom != nil && s.Desc.Cdrom.Path != "" {
-		input.CdromPath = s.Desc.Cdrom.Path
-	}
-
-	// UEFI ovmf file path
-	if input.QemuArch == qemu.Arch_aarch64 {
-		if !strings.HasPrefix(input.BIOS, qemu.BIOS_UEFI) {
-			input.BIOS = qemu.BIOS_UEFI
-		}
-	}
-	if input.BIOS == qemu.BIOS_UEFI {
+	if s.Desc.Bios == qemu.BIOS_UEFI {
 		if len(input.OVMFPath) == 0 {
 			input.OVMFPath = options.HostOptions.OvmfPath
 		}
 	}
 
-	// inject nic and disks
-	for i := 0; i < len(input.Nics); i++ {
-		if input.Nics[i].NumQueues > 1 {
-			vectors := input.Nics[i].NumQueues * 2
-			input.Nics[i].Vectors = &vectors
-		}
-	}
-
-	if input.OsName == OS_NAME_MACOS {
-		for i := 0; i < len(input.Disks); i++ {
-			input.Disks[i].Driver = DISK_DRIVER_SATA
-		}
-		for i := 0; i < len(input.Nics); i++ {
-			vectors := 0
-			input.Nics[i].Vectors = &vectors
-			input.Nics[i].Driver = "e1000"
-		}
-	} else if input.OsName == OS_NAME_ANDROID {
-		if len(input.Nics) > 1 {
-			s.Desc.Nics = input.Nics[:1]
-		}
-		input.Nics = s.Desc.Nics
-	}
-
-	// inject devices
+	// inject usb devices
 	if input.QemuArch == qemu.Arch_aarch64 {
 		input.Devices = append(input.Devices,
-			"qemu-xhci,p2=8,p3=8,id=usb1",
-			"usb-tablet,id=input0,bus=usb1.0,port=1",
-			"usb-kbd,id=input1,bus=usb1.0,port=2",
-			"virtio-gpu-pci,id=video1,max_outputs=1",
+			fmt.Sprintf("usb-tablet,id=input0,bus=%s.0,port=1", s.Desc.Usb.Id),
+			fmt.Sprintf("usb-kbd,id=input1,bus=%s.0,port=2", s.Desc.Usb.Id),
 		)
+		// "qemu-xhci,p2=8,p3=8,id=usb1",
+		// "usb-tablet,id=input0,bus=usb1.0,port=1",
+		// "usb-kbd,id=input1,bus=usb1.0,port=2",
+		// "virtio-gpu-pci,id=video1,max_outputs=1",
 	} else {
 		if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) &&
 			!s.isOldWindows() && !s.isWindows10() &&
@@ -460,45 +408,10 @@ function nic_mtu() {
 	// inject spice and vnc display
 	input.IsVdiSpice = s.IsVdiSpice()
 	input.SpicePort = uint(5900 + vncPort)
-	input.PCIBus = s.GetPciBus()
-	if input.QemuArch != qemu.Arch_aarch64 {
-		vga := s.Desc.Vga
-		if vga == "" {
-			vga = "std"
-		}
-		input.VGA = vga
-	}
 	input.VNCPassword = options.HostOptions.SetVncPassword
 
-	// reinject nics
 	input.IsKVMSupport = s.IsKvmSupport()
-	for i := 0; i < len(input.Nics); i++ {
-		if input.OsName == OS_NAME_VMWARE {
-			input.Nics[i].Driver = "vmxnet3"
-		}
-		if err := s.generateNicScripts(input.Nics[i]); err != nil {
-			return "", errors.Wrapf(err, "generateNicScripts for nic: %v", input.Nics[i])
-		}
-		input.Nics[i].UpscriptPath = s.getNicUpScriptPath(input.Nics[i])
-		input.Nics[i].DownscriptPath = s.getNicDownScriptPath(input.Nics[i])
-	}
-
 	input.ExtraOptions = append(input.ExtraOptions, s.extraOptions())
-
-	/*
-		QIU Jian
-		virtio-rng device may cause live migration failure
-		qemu-system-x86_64: Unknown savevm section or instance '0000:00:05.0/virtio-rng' 0
-		qemu-system-x86_64: load of migration failed: Invalid argument
-	*/
-	if options.HostOptions.EnableVirtioRngDevice {
-		input.EnableRNGRandom = true
-	}
-
-	// add serial device
-	if !s.disableIsaSerialDev() {
-		input.EnableSerialDevice = true
-	}
 
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		input.NeedMigrate = true
@@ -510,14 +423,10 @@ function nic_mtu() {
 			input.LiveMigrateUseTLS = true
 		}
 	} else if s.Desc.IsSlave {
-		input.IsSlave = true
+		//input.IsSlave = true
 		input.LiveMigratePort = uint(s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE))
 	} else if s.Desc.IsMaster {
-		input.IsMaster = true
-	}
-	// cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))
-	if !s.disablePvpanicDev() {
-		input.EnablePvpanic = true
+		//input.IsMaster = true
 	}
 
 	qemuOpts, err := qemu.GenerateStartOptions(input)
@@ -654,7 +563,7 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	return cmd
 }
 
-func (s *SKVMGuestInstance) presendArpForNic(nic *api.GuestnetworkJsonDesc) {
+func (s *SKVMGuestInstance) presendArpForNic(nic *desc.SGuestNetwork) {
 	ifi, err := net.InterfaceByName(nic.Ifname)
 	if err != nil {
 		log.Errorf("InterfaceByName error %s", nic.Ifname)
@@ -751,6 +660,83 @@ func (s *SKVMGuestInstance) startMemCleaner() error {
 	if err != nil {
 		log.Errorf("failed start memcleaner: %s", err)
 		return errors.Wrap(err, "start memclean")
+	}
+	return nil
+}
+
+func (s *SKVMGuestInstance) hasGpu() bool {
+	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
+		if s.Desc.IsolatedDevices[i].DevType != api.USB_TYPE {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *SKVMGuestInstance) gpusHasVga() bool {
+	manager := s.manager.GetHost().GetIsolatedDeviceManager()
+	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
+		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		if dev.GetDeviceType() == api.GPU_VGA_TYPE {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *SKVMGuestInstance) initCpuDesc() {
+	var osName = s.getOsname()
+	var enableKVM = s.IsKvmSupport() && !options.HostOptions.DisableKVM
+	var enableNested = s.manager.GetHost().IsNestedVirtualization()
+	var hasGpu = s.hasGpu()
+	var hideKVM = !enableNested || hasGpu
+
+	s.Desc.CpuDesc = s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), osName, enableKVM, hideKVM)
+}
+
+func (s *SKVMGuestInstance) initMemDesc() {
+	// hugepagesEnabled := s.manager.host.IsHugepagesEnabled()
+	// memPath := fmt.Sprintf("/dev/hugepages/%s", input.UUID)
+	// enableMemfd := s.isMemcleanEnabled()
+	s.Desc.MemDesc = s.archMan.GenerateMemDesc()
+}
+
+func (s *SKVMGuestInstance) initMachineDesc() {
+	if s.getOsname() == OS_NAME_MACOS {
+		s.Desc.Machine = api.VM_MACHINE_TYPE_Q35
+		s.Desc.Bios = qemu.BIOS_UEFI
+	}
+	if s.manager.host.IsAarch64() {
+		if utils.IsInStringArray(s.Desc.Machine, []string{
+			"", api.VM_MACHINE_TYPE_PC, api.VM_MACHINE_TYPE_Q35,
+		}) {
+			s.Desc.Machine = api.VM_MACHINE_TYPE_ARM_VIRT
+		}
+		s.Desc.Bios = qemu.BIOS_UEFI
+	}
+	s.Desc.MachineDesc = s.archMan.GenerateMachineDesc(s.Desc.CpuDesc.Accel)
+}
+
+func (s *SKVMGuestInstance) initQgaDesc() {
+	s.Desc.Qga = s.archMan.GenerateQgaDesc(path.Join(s.HomeDir(), "qga.sock"))
+}
+
+func (s *SKVMGuestInstance) initPvpanicDesc() {
+	s.Desc.Pvpanic = s.archMan.GeneratePvpanicDesc()
+}
+
+func (s *SKVMGuestInstance) initIsaSerialDesc() {
+	if !s.disableIsaSerialDev() {
+		s.Desc.IsaSerial = s.archMan.GenerateIsaSerialDesc()
+	}
+}
+
+func (s *SKVMGuestInstance) getHotPlugPciController() *desc.PCIController {
+	for i := 0; i < len(s.Desc.PCIControllers); i++ {
+		switch s.Desc.PCIControllers[i].CType {
+		case desc.CONTROLLER_TYPE_PCI_ROOT, desc.CONTROLLER_TYPE_PCI_BRIDGE:
+			return s.Desc.PCIControllers[i]
+		}
 	}
 	return nil
 }

@@ -12,23 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types
-
-// this is mainly to avoid direct improt of
-// yunion.io/x/onecloud/pkg/hostman/guestman
-
-import (
-	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
-)
-
-type IHealthCheckReactor interface {
-	ShutdownServers()
-}
-
-var HealthCheckReactor IHealthCheckReactor
-
-type IGuestDescGetter interface {
-	GetGuestNicDesc(mac, ip, port, bridge string, isCandidate bool) (*desc.SGuestDesc, *desc.SGuestNetwork)
-}
-
-var GuestDescGetter IGuestDescGetter
+package arch // import "yunion.io/x/onecloud/pkg/hostman/guestman/arch"
