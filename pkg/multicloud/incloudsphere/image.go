@@ -30,19 +30,20 @@ type SImage struct {
 	multicloud.InCloudSphereTags
 	cache *SStoragecache
 
-	OsType              string
-	OsDist              string
-	Model               string
-	SocketLimit         int
-	SupportCpuHotPlug   bool
-	SupportMemHotPlug   bool
-	SupportDiskHotPlug  bool
-	SupportUefiBootMode bool
-}
-
-func (self *SRegion) GetImages() ([]SImage, error) {
-	ret := []SImage{}
-	return ret, self.list("/vms/guestos", nil, &ret)
+	Name          string `json:"name"`
+	FileSize      int64  `json:"fileSize"`
+	RealSize      int64  `json:"realSize"`
+	SourceType    string `json:"sourceType"`
+	Format        string `json:"format"`
+	FileType      string `json:"fileType"`
+	Size          int64  `json:"size"`
+	Date          string `json:"date"`
+	Path          string `json:"path"`
+	FTPServer     string `json:"ftpServer"`
+	DataStoreID   string `json:"dataStoreId"`
+	DataStoreName string `json:"dataStoreName"`
+	ServerID      string `json:"serverId"`
+	Md5           string `json:"md5"`
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
@@ -50,23 +51,19 @@ func (self *SImage) GetMinRamSizeMb() int {
 }
 
 func (self *SImage) GetId() string {
-	return self.Model
+	return fmt.Sprintf("%s/%s/%s", self.cache.zone.Id, self.Path, self.Name)
 }
 
 func (self *SImage) GetName() string {
-	return self.Model
-}
-
-func (self *SImage) IsEmulated() bool {
-	return true
+	return self.Name
 }
 
 func (self *SImage) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotSupported
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SImage) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s/%s", self.OsType, self.OsDist, self.Model)
+	return self.GetId()
 }
 
 func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
@@ -86,11 +83,11 @@ func (self *SImage) GetImageType() cloudprovider.TImageType {
 }
 
 func (self *SImage) GetSizeByte() int64 {
-	return 20 * 1024 * 1024 * 1024
+	return self.FileSize
 }
 
 func (self *SImage) GetOsType() cloudprovider.TOsType {
-	if strings.Contains(strings.ToLower(self.OsType), "windows") {
+	if strings.Contains(strings.ToLower(self.Name), "windows") {
 		return cloudprovider.OsTypeWindows
 	}
 	return cloudprovider.OsTypeLinux
@@ -101,7 +98,7 @@ func (self *SImage) GetOsDist() string {
 }
 
 func (self *SImage) getNormalizedImageInfo() imagetools.ImageInfo {
-	return imagetools.NormalizeImageInfo(self.Model, "", "", "", "")
+	return imagetools.NormalizeImageInfo(self.Name, "", "", "", "")
 }
 
 func (self *SImage) GetOsVersion() string {
@@ -120,11 +117,28 @@ func (self *SImage) GetMinOsDiskSizeGb() int {
 }
 
 func (self *SImage) GetImageFormat() string {
-	return "vhd"
+	return self.Format
 }
 
 func (self *SImage) UEFI() bool {
 	return false
+}
+
+type SImageInfo struct {
+	OsType              string
+	OsDist              string
+	Model               string
+	SocketLimit         int
+	SupportCpuHotPlug   bool
+	SupportMemHotPlug   bool
+	SupportDiskHotPlug  bool
+	SupportUefiBootMode bool
+}
+
+func (self *SImageInfo) IsEquals(name string) bool {
+	model := imagetools.NormalizeImageInfo(self.Model, "", "", "", "")
+	image := imagetools.NormalizeImageInfo(name, "", "", "", "")
+	return model.OsDistro == image.OsDistro && model.OsVersion == image.OsVersion
 }
 
 type SImageTree struct {
@@ -136,13 +150,13 @@ type SImageTree struct {
 		Children []struct {
 			Id     string
 			Name   string
-			Object SImage
+			Object SImageInfo
 		}
 	}
 }
 
-func (self *SImageTree) ToList() []SImage {
-	ret := []SImage{}
+func (self *SImageTree) ToList() []SImageInfo {
+	ret := []SImageInfo{}
 	for i := range self.Children {
 		for j := range self.Children[i].Children {
 			self.Children[i].Children[j].Object.OsType = self.Name

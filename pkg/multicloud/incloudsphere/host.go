@@ -202,6 +202,32 @@ func (self *SHost) GetVersion() string {
 }
 
 func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	storages, err := self.zone.region.GetImageStorages(self.zone.Id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImageStorages")
+	}
+	var image *SImage = nil
+	storageCache := &SStoragecache{zone: self.zone}
+	for i := range storages {
+		images, err := self.zone.region.GetImageList(storages[i].Id)
+		if err != nil {
+			return nil, err
+		}
+		for j := range images {
+			images[j].cache = storageCache
+			if images[j].GetGlobalId() == opts.ExternalImageId {
+				image = &images[j]
+				break
+			}
+		}
+	}
+	if image == nil {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, opts.ExternalImageId)
+	}
+	format := "RAW"
+	if strings.HasSuffix(opts.ExternalImageId, "qcow2") {
+		format = "QCOW2"
+	}
 	disks := []Disks{}
 	disks = append(disks, Disks{
 		BusModel:       "IDE",
@@ -210,9 +236,17 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		Volume: Volume{
 			Bootable:     true,
 			DataStoreId:  opts.SysDisk.StorageExternalId,
-			Format:       "RAW",
-			Size:         float64(opts.SysDisk.SizeGB),
+			Format:       format,
+			Size:         float64(image.GetSizeByte() / 1024 / 1024 / 1024),
 			VolumePolicy: "THIN",
+			VvSourceDto: VvSourceDto{
+				FilePath:   fmt.Sprintf("%s/%s", image.Path, image.Name),
+				SourceType: "IMAGE_STORAGE",
+				FtpServerHost: FtpServerHost{
+					Id: image.ServerID,
+					Ip: image.FTPServer,
+				},
+			},
 		},
 	})
 	for i := range opts.DataDisks {
@@ -229,9 +263,20 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			},
 		})
 	}
-	imageInfo := strings.Split(opts.ExternalImageId, "/")
-	if len(imageInfo) != 3 {
-		return nil, fmt.Errorf("invalid image id %s", opts.ExternalImageId)
+	imageTree, err := self.zone.region.GetImageTrees()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImageTrees")
+	}
+	guestLabel, guestosType := "CentOS 7.9(2009) 64bit", "CentOS"
+	for i := range imageTree {
+		images := imageTree[i].ToList()
+		for j := range images {
+			if images[j].IsEquals(image.Name) {
+				guestLabel = images[j].Model
+				guestosType = images[j].OsDist
+				break
+			}
+		}
 	}
 	body := map[string]interface{}{
 		"boot":               "HD",
@@ -254,8 +299,8 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		"enableReplicate":    false,
 		"graphicsCardMemory": 16384,
 		"graphicsCardModel":  "VGA",
-		"guestosLabel":       imageInfo[2],
-		"guestosType":        imageInfo[1],
+		"guestosLabel":       guestLabel,
+		"guestosType":        guestosType,
 		"hostBinded":         false,
 		"hostId":             self.Id,
 		"maxCpuNum":          128,

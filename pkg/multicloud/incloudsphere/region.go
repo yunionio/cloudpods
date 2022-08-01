@@ -161,19 +161,28 @@ func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	return host, nil
 }
 
-func (self *SRegion) getStorageCache() *SStoragecache {
-	return &SStoragecache{region: self}
-}
-
 func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
-	cache := self.getStorageCache()
-	return []cloudprovider.ICloudStoragecache{cache}, nil
+	zones, err := self.GetZones()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudStoragecache{}
+	for i := range zones {
+		cache := &SStoragecache{zone: &zones[i]}
+		ret = append(ret, cache)
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	cache := self.getStorageCache()
-	if cache.GetGlobalId() == id {
-		return cache, nil
+	caches, err := self.GetIStoragecaches()
+	if err != nil {
+		return nil, err
+	}
+	for i := range caches {
+		if caches[i].GetGlobalId() == id {
+			return caches[i], nil
+		}
 	}
 	return nil, cloudprovider.ErrNotFound
 }

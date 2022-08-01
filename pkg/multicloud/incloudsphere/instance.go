@@ -46,45 +46,57 @@ type Floppy struct {
 	VfdType   string `json:"vfdType"`
 }
 
+type FtpServerHost struct {
+	Id string `json:"id"`
+	Ip string `json:"ip"`
+}
+
+type VvSourceDto struct {
+	SourceType    string        `json:"sourceType"`
+	FilePath      string        `json:"filePath"`
+	Name          string        `json:"name"`
+	FtpServerHost FtpServerHost `json:"ftpServerHost"`
+}
+
 type Volume struct {
-	Id                 string     `json:"id"`
-	UUID               string     `json:"uuid"`
-	Size               float64    `json:"size"`
-	RealSize           float64    `json:"realSize"`
-	Name               string     `json:"name"`
-	FileName           string     `json:"fileName"`
-	Offset             int        `json:"offset"`
-	Shared             bool       `json:"shared"`
-	DeleteModel        string     `json:"deleteModel"`
-	VolumePolicy       string     `json:"volumePolicy"`
-	Format             string     `json:"format"`
-	BlockDeviceId      string     `json:"blockDeviceId"`
-	DiskType           string     `json:"diskType"`
-	DataStoreId        string     `json:"dataStoreId"`
-	DataStoreName      string     `json:"dataStoreName"`
-	DataStoreSize      float64    `json:"dataStoreSize"`
-	FreeStorage        float64    `json:"freeStorage"`
-	DataStoreType      string     `json:"dataStoreType"`
-	DataStoreReplicate int        `json:"dataStoreReplicate"`
-	VMName             string     `json:"vmName"`
-	VMStatus           string     `json:"vmStatus"`
-	Type               string     `json:"type"`
-	Description        string     `json:"description"`
-	Bootable           bool       `json:"bootable"`
-	VolumeStatus       string     `json:"volumeStatus"`
-	MountedHostIds     string     `json:"mountedHostIds"`
-	Md5                string     `json:"md5"`
-	DataSize           int        `json:"dataSize"`
-	OpenStackId        string     `json:"openStackId"`
-	VvSourceDto        string     `json:"vvSourceDto"`
-	FormatDisk         bool       `json:"formatDisk"`
-	ToBeConverted      bool       `json:"toBeConverted"`
-	RelatedVms         string     `json:"relatedVms"`
-	XactiveDataStoreId string     `json:"xactiveDataStoreId"`
-	ClusterSize        int        `json:"clusterSize"`
-	ScsiId             string     `json:"scsiId"`
-	SecondaryUUID      string     `json:"secondaryUuid"`
-	SecondaryVolumes   []struct{} `json:"secondaryVolumes"`
+	Id                 string      `json:"id"`
+	UUID               string      `json:"uuid"`
+	Size               float64     `json:"size"`
+	RealSize           float64     `json:"realSize"`
+	Name               string      `json:"name"`
+	FileName           string      `json:"fileName"`
+	Offset             int         `json:"offset"`
+	Shared             bool        `json:"shared"`
+	DeleteModel        string      `json:"deleteModel"`
+	VolumePolicy       string      `json:"volumePolicy"`
+	Format             string      `json:"format"`
+	BlockDeviceId      string      `json:"blockDeviceId"`
+	DiskType           string      `json:"diskType"`
+	DataStoreId        string      `json:"dataStoreId"`
+	DataStoreName      string      `json:"dataStoreName"`
+	DataStoreSize      float64     `json:"dataStoreSize"`
+	FreeStorage        float64     `json:"freeStorage"`
+	DataStoreType      string      `json:"dataStoreType"`
+	DataStoreReplicate int         `json:"dataStoreReplicate"`
+	VMName             string      `json:"vmName"`
+	VMStatus           string      `json:"vmStatus"`
+	Type               string      `json:"type"`
+	Description        string      `json:"description"`
+	Bootable           bool        `json:"bootable"`
+	VolumeStatus       string      `json:"volumeStatus"`
+	MountedHostIds     string      `json:"mountedHostIds"`
+	Md5                string      `json:"md5"`
+	DataSize           int         `json:"dataSize"`
+	OpenStackId        string      `json:"openStackId"`
+	VvSourceDto        VvSourceDto `json:"vvSourceDto"`
+	FormatDisk         bool        `json:"formatDisk"`
+	ToBeConverted      bool        `json:"toBeConverted"`
+	RelatedVms         string      `json:"relatedVms"`
+	XactiveDataStoreId string      `json:"xactiveDataStoreId"`
+	ClusterSize        int         `json:"clusterSize"`
+	ScsiId             string      `json:"scsiId"`
+	SecondaryUUID      string      `json:"secondaryUuid"`
+	SecondaryVolumes   []struct{}  `json:"secondaryVolumes"`
 }
 
 type Disks struct {

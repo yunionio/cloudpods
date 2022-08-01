@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -121,6 +122,7 @@ func (self SphereError) Error() string {
 func (ce *SphereError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
 	if body != nil {
 		body.Unmarshal(ce)
+		log.Errorf("error: %v", body.PrettyString())
 	}
 	if ce.Code == 0 && statusCode > 0 {
 		ce.Code = statusCode
