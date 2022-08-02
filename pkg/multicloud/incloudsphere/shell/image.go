@@ -20,9 +20,9 @@ import (
 )
 
 func init() {
-	type ImageListOptions struct {
+	type ImageTreeOptions struct {
 	}
-	shellutils.R(&ImageListOptions{}, "image-list", "list images", func(cli *incloudsphere.SRegion, args *ImageListOptions) error {
+	shellutils.R(&ImageTreeOptions{}, "image-tree", "list images", func(cli *incloudsphere.SRegion, args *ImageTreeOptions) error {
 		trees, err := cli.GetImageTrees()
 		if err != nil {
 			return err
@@ -32,4 +32,31 @@ func init() {
 		}
 		return nil
 	})
+
+	type ImageStorageListOptions struct {
+		DS_ID string
+	}
+
+	shellutils.R(&ImageStorageListOptions{}, "image-storage-list", "list image storages", func(cli *incloudsphere.SRegion, args *ImageStorageListOptions) error {
+		storages, err := cli.GetImageStorages(args.DS_ID)
+		if err != nil {
+			return err
+		}
+		printList(storages, 0, 0, 0, []string{})
+		return nil
+	})
+
+	type ImageListOptions struct {
+		STORAGE_ID string
+	}
+
+	shellutils.R(&ImageListOptions{}, "image-list", "list images", func(cli *incloudsphere.SRegion, args *ImageListOptions) error {
+		images, err := cli.GetImageList(args.STORAGE_ID)
+		if err != nil {
+			return err
+		}
+		printList(images, 0, 0, 0, []string{})
+		return nil
+	})
+
 }

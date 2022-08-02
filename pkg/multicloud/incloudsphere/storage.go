@@ -152,7 +152,8 @@ func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) 
 }
 
 func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	return self.zone.region.getStorageCache()
+	cache := &SStoragecache{zone: self.zone}
+	return cache
 }
 
 func (self *SStorage) GetMediumType() string {
