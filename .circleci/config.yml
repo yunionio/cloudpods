@@ -3,18 +3,7 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
-  check:
-    docker:
-      - image: yunionio/centos-build:1.1-4
-        environment:
-          ONECLOUD_CI_BUILD: "1"
-    working_directory: /root/go/src/yunion.io/x/onecloud
-    steps:
-      - checkout
-      - run:
-          command: |
-            make -j3 check
-  build:
+  test:
     requires:
       - check
     docker:
@@ -27,58 +16,21 @@ jobs:
     ####   /go/src/github.com/circleci/go-tool
     ####   /go/src/bitbucket.org/circleci/go-tool
     working_directory: /root/go/src/yunion.io/x/onecloud
-    parallelism: 4
+    resource_class: large
+    parallelism: 1
     steps:
       - checkout
-      - restore_cache:
-          key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
-          paths:
-            - /root/.cache/go-build
       - run:
           command: |
+            make -j3 check
+            make test
             targets="$(circleci tests glob "cmd/*" | grep -v cmd/host-image | circleci tests split)"
             echo $targets | tr ' ' '\n'
-            make -j2 $targets
+            make $targets
             ls -lh _output/bin/
-      - save_cache:
-          key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
-          paths:
-            - /root/.cache/go-build
-      - store_artifacts:
-          path: _output/
-
-  test:
-    requires:
-      - check
-    docker:
-      - image: yunionio/centos-build:1.1-4
-        environment:
-          ONECLOUD_CI_BUILD: "1"
-    working_directory: /root/go/src/yunion.io/x/onecloud
-    parallelism: 4
-    steps:
-      - checkout
-      - restore_cache:
-          key: onecloud-test-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
-          paths:
-            - /root/.cache/go-build
-      - run:
-          name: unit_test
-          command: |
-            ./scripts/coverage.sh --codecov
-      - save_cache:
-          key: onecloud-test-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
-          paths:
-            - /root/.cache/go-build
 
 workflows:
   version: 2
   build_and_test:
     jobs:
-      - check
-      - build:
-          requires:
-            - check
-      - test:
-          requires:
-            - check
+      - test
