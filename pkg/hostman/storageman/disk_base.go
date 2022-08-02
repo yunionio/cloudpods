@@ -44,6 +44,7 @@ type IDisk interface {
 	GetSnapshotLocation() string
 	OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error
 	DoDeleteSnapshot(snapshotId string) error
+	GetStorage() IStorage
 
 	DeleteAllSnapshot(skipRecycle bool) error
 	DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
@@ -88,6 +89,10 @@ func NewBaseDisk(storage IStorage, id string) *SBaseDisk {
 
 func (d *SBaseDisk) GetId() string {
 	return d.Id
+}
+
+func (d *SBaseDisk) GetStorage() IStorage {
+	return d.Storage
 }
 
 func (d *SBaseDisk) GetPath() string {

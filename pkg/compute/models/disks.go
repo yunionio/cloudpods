@@ -722,6 +722,15 @@ func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
+func (self *SDisk) GetSnapshotFuseUrl() (string, error) {
+	snapObj, err := SnapshotManager.FetchById(self.SnapshotId)
+	if err != nil {
+		return "", errors.Wrapf(err, "SnapshotManager.FetchById(%s)", self.SnapshotId)
+	}
+	snapshot := snapObj.(*SSnapshot)
+	return snapshot.GetFuseUrl()
+}
+
 func (self *SDisk) GetSnapshotCount() (int, error) {
 	q := SnapshotManager.Query()
 	return q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), self.Id),
