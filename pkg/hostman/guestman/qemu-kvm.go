@@ -322,12 +322,15 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 }
 
 func (s *SKVMGuestInstance) fuseMount(encryptInfo *apis.SEncryptInfo) error {
-	disks := s.Desc.Disks
+	disks, _ := s.Desc.GetArray("disks")
 	for i := 0; i < len(disks); i++ {
-		if disks[i].MergeSnapshot && len(disks[i].Url) > 0 {
-			disk, err := storageman.GetManager().GetDiskByPath(disks[i].Path)
+		mergeSnapshot := jsonutils.QueryBoolean(disks[i], "merge_snapshot", false)
+		diskUrl, _ := disks[i].GetString("url")
+		diskPath, _ := disks[i].GetString("path")
+		if mergeSnapshot && len(diskUrl) > 0 {
+			disk, err := storageman.GetManager().GetDiskByPath(diskPath)
 			if err != nil {
-				return errors.Wrapf(err, "GetDiskByPath(%s)", disks[i].Path)
+				return errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 			}
 			storage := disk.GetStorage()
 			mntPath := path.Join(storage.GetFuseMountPath(), disk.GetId())
@@ -337,7 +340,7 @@ func (s *SKVMGuestInstance) fuseMount(encryptInfo *apis.SEncryptInfo) error {
 			}
 			tmpdir := storage.GetFuseTmpPath()
 			err = fuseutils.MountFusefs(
-				options.HostOptions.FetcherfsPath, disks[i].Url, tmpdir,
+				options.HostOptions.FetcherfsPath, diskUrl, tmpdir,
 				auth.GetTokenString(), mntPath,
 				options.HostOptions.FetcherfsBlockSize,
 				encryptInfo,
