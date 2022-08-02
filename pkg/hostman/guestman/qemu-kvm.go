@@ -56,6 +56,7 @@ import (
 	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/fuseutils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -320,17 +321,56 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 	}
 }
 
+func (s *SKVMGuestInstance) fuseMount(encryptInfo *apis.SEncryptInfo) error {
+	disks := s.Desc.Disks
+	for i := 0; i < len(disks); i++ {
+		if disks[i].MergeSnapshot && len(disks[i].Url) > 0 {
+			disk, err := storageman.GetManager().GetDiskByPath(disks[i].Path)
+			if err != nil {
+				return errors.Wrapf(err, "GetDiskByPath(%s)", disks[i].Path)
+			}
+			storage := disk.GetStorage()
+			mntPath := path.Join(storage.GetFuseMountPath(), disk.GetId())
+			if err := procutils.NewCommand("mountpoint", mntPath).Run(); err == nil {
+				// fetcherfs is mounted
+				continue
+			}
+			tmpdir := storage.GetFuseTmpPath()
+			err = fuseutils.MountFusefs(
+				options.HostOptions.FetcherfsPath, disks[i].Url, tmpdir,
+				auth.GetTokenString(), mntPath,
+				options.HostOptions.FetcherfsBlockSize,
+				encryptInfo,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	data, ok := params.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
 
-	hostbridge.CleanDeletedPorts(options.HostOptions.BridgeDriver)
-
-	time.Sleep(100 * time.Millisecond)
-	var isStarted, tried = false, 0
 	var err error
+	var encryptInfo *apis.SEncryptInfo
+	if data.Contains("encrypt_info") {
+		encryptInfo = new(apis.SEncryptInfo)
+		data.Unmarshal(encryptInfo, "encrypt_info")
+	}
+	err = s.fuseMount(encryptInfo)
+	if err != nil {
+		return nil, errors.Wrap(err, "fuse mount")
+	}
+
+	hostbridge.CleanDeletedPorts(options.HostOptions.BridgeDriver)
+	time.Sleep(100 * time.Millisecond)
+
+	var isStarted, tried = false, 0
 	for !isStarted && tried < MAX_TRY {
 		tried += 1
 
@@ -432,7 +472,8 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 	if (s.IsDirtyShotdown() || s.IsDaemon()) && !pendingDelete {
 		log.Infof("Server dirty shotdown or a daemon %s", s.GetName())
 		if jsonutils.QueryBoolean(s.Desc, "is_master", false) ||
-			jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
+			jsonutils.QueryBoolean(s.Desc, "is_slave", false) ||
+			len(s.GetNeedMergeBackingFileDiskIndexs()) > 0 {
 			go s.DirtyServerRequestStart()
 		} else {
 			s.StartGuest(context.Background(), nil, jsonutils.NewDict())
@@ -1100,6 +1141,7 @@ func (s *SKVMGuestInstance) prepareEncryptKeyForStart(ctx context.Context, userC
 			params = jsonutils.NewDict()
 		}
 		params.Add(jsonutils.NewString(ekey.Key), "encrypt_key")
+		params.Add(jsonutils.Marshal(ekey), "encrypt_info")
 	}
 	return params, nil
 }

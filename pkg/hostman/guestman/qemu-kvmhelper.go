@@ -256,7 +256,9 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 
 	if data.Contains("encrypt_key") {
 		key, _ := data.GetString("encrypt_key")
-		s.saveEncryptKeyFile(key)
+		if err := s.saveEncryptKeyFile(key); err != nil {
+			return "", errors.Wrap(err, "save encrypt key file")
+		}
 		input.EncryptKeyPath = s.getEncryptKeyPath()
 	}
 

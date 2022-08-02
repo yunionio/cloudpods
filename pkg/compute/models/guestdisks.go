@@ -211,6 +211,13 @@ func (self *SGuestdisk) GetJsonDescAtHost(ctx context.Context, host *SHost) *api
 		if needMerge == "true" {
 			desc.MergeSnapshot = true
 		}
+		if desc.MergeSnapshot {
+			if url, err := disk.GetSnapshotFuseUrl(); err != nil {
+				log.Errorf("failed get snapshot fuse url: %s", err)
+			} else {
+				desc.Url = url
+			}
+		}
 	}
 	if fpath := disk.GetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, nil); len(fpath) > 0 {
 		desc.MergeSnapshot = true
