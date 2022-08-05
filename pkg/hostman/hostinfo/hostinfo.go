@@ -460,14 +460,14 @@ func (h *SHostInfo) prepareEnv() error {
 func (h *SHostInfo) detectHostInfo() error {
 	output, err := procutils.NewCommand("dmidecode", "-t", "1").Output()
 	if err != nil {
-		return err
+		log.Errorf("dmidecode -t 1 error %s(%s)", err, string(output))
+		h.sysinfo.SSystemInfo = &types.SSystemInfo{}
+	} else {
+		h.sysinfo.SSystemInfo, err = sysutils.ParseDMISysinfo(strings.Split(string(output), "\n"))
+		if err != nil {
+			return err
+		}
 	}
-
-	sysinfo, err := sysutils.ParseDMISysinfo(strings.Split(string(output), "\n"))
-	if err != nil {
-		return err
-	}
-	h.sysinfo.SSystemInfo = sysinfo
 
 	h.detectKvmModuleSupport()
 	h.detectNestSupport()
