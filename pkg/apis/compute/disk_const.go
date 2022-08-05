@@ -65,3 +65,11 @@ const (
 )
 
 const DISK_META_EXISTING_PATH = "disk_existing_path"
+
+const (
+	DISK_DRIVER_VIRTIO = "virtio"
+	DISK_DRIVER_SCSI   = "scsi"
+	DISK_DRIVER_PVSCSI = "pvscsi"
+	DISK_DRIVER_IDE    = "ide"
+	DISK_DRIVER_SATA   = "sata"
+)
