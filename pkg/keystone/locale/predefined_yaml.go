@@ -27,7 +27,7 @@ policy:
     events:
       '*': deny
       list:
-        '*': allow
+        '*': deny
         splitable: deny
   compute:
     '*':
@@ -35,7 +35,7 @@ policy:
     events:
       '*': deny
       list:
-        '*': allow
+        '*': deny
         splitable: deny
     dynamicschedtags:
       '*': deny
@@ -78,7 +78,7 @@ policy:
   log:
     actions:
       list:
-        '*': allow
+        '*': deny
         splitable: deny
 `
 
