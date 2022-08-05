@@ -89,11 +89,10 @@ func DetectCpuInfo() (*SCPUInfo, error) {
 	}
 	bret, err := procutils.NewCommand("dmidecode", "-t", "4").Output()
 	if err != nil {
-		return nil, errors.Wrap(err, "get dmidecode info -t 4")
-	}
-	cpuinfo.cpuInfoDmi = sysutils.ParseDMICPUInfo(strings.Split(string(bret), "\n"))
-	if err != nil {
-		return nil, errors.Wrap(err, "parse dmi cpuinfo")
+		log.Errorf("dmidecode -t 4 error: %s(%s)", err, string(bret))
+		cpuinfo.cpuInfoDmi = &types.SDMICPUInfo{Nodes: 1}
+	} else {
+		cpuinfo.cpuInfoDmi = sysutils.ParseDMICPUInfo(strings.Split(string(bret), "\n"))
 	}
 	cpuArch, err := procutils.NewCommand("uname", "-m").Output()
 	if err != nil {
@@ -156,9 +155,12 @@ func DetectMemoryInfo() (*SMemory, error) {
 	smem.Used = smem.Total - smem.Free
 	ret, err := procutils.NewCommand("dmidecode", "-t", "17").Output()
 	if err != nil {
-		return nil, err
+		// ignore
+		log.Errorf("dmidecode fail %s: %s", err, ret)
+		smem.MemInfo = &types.SDMIMemInfo{}
+	} else {
+		smem.MemInfo = sysutils.ParseDMIMemInfo(strings.Split(string(ret), "\n"))
 	}
-	smem.MemInfo = sysutils.ParseDMIMemInfo(strings.Split(string(ret), "\n"))
 	if smem.MemInfo.Total == 0 {
 		// in case dmidecode is not work, use gopsutil
 		smem.MemInfo.Total = smem.Total

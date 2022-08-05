@@ -81,6 +81,7 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		conf += fmt.Sprintf("  urls = [%s]\n", strings.Join(urls, ", "))
 		conf += fmt.Sprintf("  database = \"%s\"\n", tdb)
 		conf += "  insecure_skip_verify = true\n"
+		conf += "  timeout = \"30s\"\n"
 		conf += "\n"
 	}
 	if kafka, ok := kwargs["kafka"]; ok {
