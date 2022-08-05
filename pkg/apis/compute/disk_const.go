@@ -63,3 +63,11 @@ const (
 	DISK_NOT_EXIST = "not_exist"
 	DISK_EXIST     = "exist"
 )
+
+const (
+	DISK_DRIVER_VIRTIO = "virtio"
+	DISK_DRIVER_SCSI   = "scsi"
+	DISK_DRIVER_PVSCSI = "pvscsi"
+	DISK_DRIVER_IDE    = "ide"
+	DISK_DRIVER_SATA   = "sata"
+)

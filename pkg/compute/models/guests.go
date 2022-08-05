@@ -3279,7 +3279,12 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 		// depends the last disk of this guest
 		existingDisks, _ := self.GetGuestDisks()
 		if len(existingDisks) > 0 {
-			driver = existingDisks[len(existingDisks)-1].Driver
+			prevDisk := existingDisks[len(existingDisks)-1]
+			if prevDisk.Driver == api.DISK_DRIVER_IDE {
+				driver = api.DISK_DRIVER_VIRTIO
+			} else {
+				driver = prevDisk.Driver
+			}
 		} else {
 			osProf := self.GetOSProfile()
 			driver = osProf.DiskDriver
