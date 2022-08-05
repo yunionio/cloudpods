@@ -151,7 +151,11 @@ func GenerateStartOptions(
 		if input.OVMFPath == "" {
 			return "", errors.Errorf("input OVMF path is empty")
 		}
-		opts = append(opts, drvOpt.BIOS(input.OVMFPath))
+		fmOpt, err := drvOpt.BIOS(input.OVMFPath, input.HomeDir)
+		if err != nil {
+			return "", errors.Wrap(err, "bios option")
+		}
+		opts = append(opts, fmOpt)
 	}
 
 	if input.OsName == OS_NAME_MACOS {

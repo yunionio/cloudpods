@@ -21,8 +21,11 @@ import (
 	"sync"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type Version string
@@ -98,7 +101,7 @@ type QemuOptions interface {
 	MemDev(sizeMB uint64) string
 	MemFd(sizeMB uint64) string
 	Boot(order string, enableMenu bool) string
-	BIOS(file string) string
+	BIOS(ovmfPath, homedir string) (string, error)
 	Device(devStr string) string
 	Drive(driveStr string) string
 	Spice(port uint, password string) string
@@ -266,8 +269,18 @@ func (o baseOptions) Boot(order string, enableMenu bool) string {
 	return opt
 }
 
-func (o baseOptions) BIOS(file string) string {
-	return "-bios " + file
+func (o baseOptions) BIOS(ovmfPath, homedir string) (string, error) {
+	ovmfVarsPath := path.Join(homedir, "OVMF_VARS.fd")
+	if !fileutils2.Exists(ovmfVarsPath) {
+		err := procutils.NewRemoteCommandAsFarAsPossible("cp", "-f", ovmfPath, ovmfVarsPath).Run()
+		if err != nil {
+			return "", errors.Wrap(err, "failed copy ovmf vars")
+		}
+	}
+	return fmt.Sprintf(
+		"-drive if=pflash,format=raw,unit=0,file=%s,readonly=on -drive if=pflash,format=raw,unit=1,file=%s",
+		ovmfPath, ovmfVarsPath,
+	), nil
 }
 
 func (o baseOptions) Device(devStr string) string {
