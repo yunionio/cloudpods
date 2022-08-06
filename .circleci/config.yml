@@ -7,7 +7,7 @@ jobs:
     requires:
       - check
     docker:
-      - image: yunionio/centos-build:1.1-4
+      - image: yunion/centos-build:go-1.18.3-0
         environment:
           ONECLOUD_CI_BUILD: "1"
 
@@ -16,7 +16,6 @@ jobs:
     ####   /go/src/github.com/circleci/go-tool
     ####   /go/src/bitbucket.org/circleci/go-tool
     working_directory: /root/go/src/yunion.io/x/onecloud
-    resource_class: large
     parallelism: 1
     steps:
       - checkout
