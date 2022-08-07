@@ -65,7 +65,7 @@ type SAlertRecordShield struct {
 	db.SStatusStandaloneResourceBase
 	SMonitorScopedResource
 
-	AlertId string `width:"36" charset:"ascii" nullable:"false" list:"user" create :"required" json:"alert_id"`
+	AlertId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" json:"alert_id"`
 	ResId   string `width:"36" nullable:"false"  create:"optional" list:"user" update:"user" json:"res_id"`
 	ResType string `width:"36" nullable:"false"  create:"optional" list:"user" update:"user" json:"res_type"`
 

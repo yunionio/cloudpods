@@ -78,7 +78,7 @@ func relayMain() error {
 		time.Sleep(time.Hour)
 	}
 
-	return nil
+	// return nil
 }
 
 func main() {
