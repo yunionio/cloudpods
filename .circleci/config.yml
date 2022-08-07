@@ -22,7 +22,6 @@ jobs:
       - run:
           command: |
             make -j3 check
-            make test
             targets="$(circleci tests glob "cmd/*" | grep -v cmd/host-image | circleci tests split)"
             echo $targets | tr ' ' '\n'
             make $targets
