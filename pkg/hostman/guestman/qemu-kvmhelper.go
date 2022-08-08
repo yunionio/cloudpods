@@ -602,7 +602,16 @@ function nic_mtu() {
 	}
 
 	if s.getBios() == "UEFI" {
-		cmd += fmt.Sprintf(" -bios %s", options.HostOptions.OvmfPath)
+		// cmd += fmt.Sprintf(" -bios %s", options.HostOptions.OvmfPath)
+		ovmfVarsPath := path.Join(s.HomeDir(), "OVMF_VARS.fd")
+		if !fileutils2.Exists(ovmfVarsPath) {
+			err := procutils.NewRemoteCommandAsFarAsPossible("cp", "-f", options.HostOptions.OvmfPath, ovmfVarsPath).Run()
+			if err != nil {
+				return "", errors.Wrap(err, "failed copy ovmf vars")
+			}
+		}
+		cmd += fmt.Sprintf(" -drive if=pflash,format=raw,unit=0,file=%s,readonly=on", options.HostOptions.OvmfPath)
+		cmd += fmt.Sprintf(" -drive if=pflash,format=raw,unit=1,file=%s", ovmfVarsPath)
 	}
 
 	for i := 0; i < len(nics); i++ {
