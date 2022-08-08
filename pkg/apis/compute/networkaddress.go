@@ -53,6 +53,8 @@ type NetworkAddressListInput struct {
 	NetworkFilterListInput
 
 	GuestId []string
+
+	ManagedResourceListInput
 }
 
 type NetworkAddressDetails struct {
