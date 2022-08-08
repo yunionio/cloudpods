@@ -237,7 +237,7 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			Bootable:     true,
 			DataStoreId:  opts.SysDisk.StorageExternalId,
 			Format:       format,
-			Size:         float64(image.GetSizeByte() / 1024 / 1024 / 1024),
+			Size:         float64((image.GetSizeByte() + 1024/2) / 1024 / 1024 / 1024),
 			VolumePolicy: "THIN",
 			VvSourceDto: VvSourceDto{
 				FilePath:   fmt.Sprintf("%s/%s", image.Path, image.Name),

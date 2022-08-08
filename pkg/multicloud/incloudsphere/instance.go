@@ -421,7 +421,7 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 }
 
 func (self *SInstance) GetVcpuCount() int {
-	return int(self.CPUNum) * int(self.CPUSocket)
+	return int(self.CPUNum)
 }
 
 func (self *SInstance) GetVmemSizeMB() int {
