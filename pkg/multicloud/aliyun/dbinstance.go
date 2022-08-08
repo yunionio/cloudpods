@@ -685,12 +685,12 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 	}
 	if desc.BillingCycle != nil {
 		params["PayType"] = "Prepaid"
-		if desc.BillingCycle.GetMonths() > 0 {
-			params["Period"] = "Month"
-			params["UsedTime"] = fmt.Sprintf("%d", desc.BillingCycle.GetMonths())
-		} else {
+		if desc.BillingCycle.GetYears() > 0 {
 			params["Period"] = "Year"
 			params["UsedTime"] = fmt.Sprintf("%d", desc.BillingCycle.GetYears())
+		} else {
+			params["Period"] = "Month"
+			params["UsedTime"] = fmt.Sprintf("%d", desc.BillingCycle.GetMonths())
 		}
 		params["AutoRenew"] = "False"
 		if desc.BillingCycle.AutoRenew {
