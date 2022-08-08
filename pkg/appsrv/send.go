@@ -156,7 +156,7 @@ func SendStream(w http.ResponseWriter, isPartial bool, hdr http.Header, stream i
 
 func SendRedirect(w http.ResponseWriter, redirectUrl string) {
 	w.Header().Set("Location", redirectUrl)
-	w.WriteHeader(301)
+	w.WriteHeader(302)
 	w.Write([]byte{})
 }
 
