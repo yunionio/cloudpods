@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -316,6 +317,7 @@ func (self *SStorage) PerformEnable(ctx context.Context, userCred mcclient.Token
 			return nil, err
 		}
 		db.OpsLog.LogEvent(self, db.ACT_ENABLE, "", userCred)
+		logclient.AddSimpleActionLog(self, logclient.ACT_ENABLE, nil, userCred, true)
 		self.ClearSchedDescCache()
 	}
 	return nil, nil
@@ -332,6 +334,7 @@ func (self *SStorage) PerformDisable(ctx context.Context, userCred mcclient.Toke
 			return nil, err
 		}
 		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
+		logclient.AddSimpleActionLog(self, logclient.ACT_DISABLE, nil, userCred, true)
 		self.ClearSchedDescCache()
 	}
 	return nil, nil
