@@ -56,6 +56,8 @@ type NetworkAddressListOptions struct {
 	IpAddr     string
 
 	GuestId []string
+
+	CloudEnv string `choices:"public|private|onpremise"`
 }
 
 func (opts *NetworkAddressListOptions) Params() (jsonutils.JSONObject, error) {
