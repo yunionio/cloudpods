@@ -406,8 +406,8 @@ func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context,
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRules")
 	}
-	rules, _ := secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
-	return rules, nil
+	rules, err := secgroup.SyncSecurityGroupRules(ctx, userCred, self, provider, dest)
+	return rules, err
 }
 
 func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {

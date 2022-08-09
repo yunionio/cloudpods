@@ -91,7 +91,7 @@ func TestQcloudRuleSync(t *testing.T) {
 			},
 			InAdds: []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				ruleWithPeerSecgroup("", "out:allow tcp", 0, "sec2"),
+				ruleWithPeerSecgroup("", "out:allow tcp", 1, "sec2"),
 			},
 			InDels: []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{

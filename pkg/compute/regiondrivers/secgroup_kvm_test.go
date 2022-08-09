@@ -21,6 +21,7 @@ import (
 )
 
 func TestKvmRuleSync(t *testing.T) {
+
 	data := []TestData{
 		{
 			Name:      "Test kvm deny rules",
@@ -61,23 +62,18 @@ func TestKvmRuleSync(t *testing.T) {
 				ruleWithName("allow tcp 80", "in:allow tcp 80", 50),
 				ruleWithName("allow tcp", "in:allow tcp", 1),
 			},
-			Common: []cloudprovider.SecurityRule{},
-			InAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "in:allow tcp 1521", 1),
-				ruleWithName("", "in:allow tcp 3389", 1),
-				ruleWithName("", "in:allow tcp 443", 1),
-				ruleWithName("", "in:allow tcp 6379", 1),
-				ruleWithName("", "in:allow tcp 80", 1),
+			Common: []cloudprovider.SecurityRule{
+				ruleWithName("allow tcp 443", "in:allow tcp 443", 50),
+				ruleWithName("allow tcp 6379", "in:allow tcp 6379", 50),
+				ruleWithName("allow tcp 3389", "in:allow tcp 3389", 50),
+				ruleWithName("allow tcp 1521", "in:allow tcp 1521", 50),
+				ruleWithName("allow tcp 80", "in:allow tcp 80", 50),
 			},
+			InAdds:  []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels: []cloudprovider.SecurityRule{
 				ruleWithName("allow tcp", "in:allow tcp", 51),
 				ruleWithName("allow tcp", "in:allow tcp", 1),
-				ruleWithName("allow tcp 1521", "in:allow tcp 1521", 50),
-				ruleWithName("allow tcp 3389", "in:allow tcp 3389", 50),
-				ruleWithName("allow tcp 443", "in:allow tcp 443", 50),
-				ruleWithName("allow tcp 6379", "in:allow tcp 6379", 50),
-				ruleWithName("allow tcp 80", "in:allow tcp 80", 50),
 			},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
@@ -90,9 +86,46 @@ func TestKvmRuleSync(t *testing.T) {
 			DestRules: []cloudprovider.SecurityRule{},
 			Common:    []cloudprovider.SecurityRule{},
 			InAdds: []cloudprovider.SecurityRule{
-				ruleWithPeerSecgroup("allow tcp 443", "in:allow tcp 443", 3, "peer1"),
-				ruleWithName("deny tcp 1521", "in:deny tcp 1521", 2),
+				ruleWithPeerSecgroup("allow tcp 443", "in:allow tcp 443", 1, "peer1"),
+				ruleWithName("deny tcp 1521", "in:deny tcp 1521", 1),
 			},
+			OutAdds: []cloudprovider.SecurityRule{},
+			InDels:  []cloudprovider.SecurityRule{},
+			OutDels: []cloudprovider.SecurityRule{},
+		},
+		{
+			Name: "Test sort",
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPeerSecgroup("allow tcp 443", "in:allow tcp 443", 1, "sg-m5ejf0fjkrh3q6s3r7db"),
+				ruleWithPeerSecgroup("allow tcp 22", "in:allow tcp 22", 1, ""),
+				ruleWithPeerSecgroup("allow tcp 1433", "in:allow tcp 1433", 1, ""),
+				ruleWithPeerSecgroup("allow tcp", "in:allow tcp", 1, ""),
+				ruleWithPeerSecgroup("allow tcp 1521", "in:allow tcp 1521", 1, ""),
+				ruleWithPeerSecgroup("allow tcp 80", "in:allow tcp 80", 1, ""),
+				ruleWithPeerSecgroup("allow tcp 3306", "in:allow tcp 3306", 2, ""),
+				ruleWithPeerSecgroup("allow tcp 5432", "in:allow tcp 5432", 1, ""),
+			},
+			DestRules: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("allow tcp 443", "in:allow tcp 443", 7, "sg-m5ejf0fjkrh3q6s3r7db"),
+				ruleWithPeerSecgroup("allow tcp 22", "in:allow tcp 22", 7, ""),
+				ruleWithPeerSecgroup("allow tcp 1433", "in:allow tcp 1433", 7, ""),
+				ruleWithPeerSecgroup("allow tcp", "in:allow tcp", 7, ""),
+				ruleWithPeerSecgroup("allow tcp 1521", "in:allow tcp 1521", 7, ""),
+				ruleWithPeerSecgroup("allow tcp 5432", "in:allow tcp 5432", 7, ""),
+				ruleWithPeerSecgroup("allow tcp 80", "in:allow tcp 80", 7, ""),
+				ruleWithPeerSecgroup("allow tcp 3306", "in:allow tcp 3306", 1, ""),
+			},
+			Common: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("allow tcp 443", "in:allow tcp 443", 7, "sg-m5ejf0fjkrh3q6s3r7db"),
+				ruleWithPeerSecgroup("allow tcp 22", "in:allow tcp 22", 7, ""),
+				ruleWithPeerSecgroup("allow tcp 1433", "in:allow tcp 1433", 7, ""),
+				ruleWithPeerSecgroup("allow tcp", "in:allow tcp", 7, ""),
+				ruleWithPeerSecgroup("allow tcp 1521", "in:allow tcp 1521", 7, ""),
+				ruleWithPeerSecgroup("allow tcp 5432", "in:allow tcp 5432", 7, ""),
+				ruleWithPeerSecgroup("allow tcp 80", "in:allow tcp 80", 7, ""),
+				ruleWithPeerSecgroup("allow tcp 3306", "in:allow tcp 3306", 1, ""),
+			},
+			InAdds:  []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},

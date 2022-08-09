@@ -59,7 +59,7 @@ func TestAliyunRuleSync(t *testing.T) {
 			Common:    []cloudprovider.SecurityRule{},
 			InAdds:    []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "out:deny tcp 443", 99),
+				ruleWithName("", "out:deny tcp 443", 100),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},

@@ -662,7 +662,7 @@ func (self *SSecurityGroup) GetSecuritRuleSet() (cloudprovider.SecurityRuleSet, 
 		if err != nil {
 			return nil, errors.Wrapf(err, "toRule")
 		}
-		ruleSet = append(ruleSet, cloudprovider.SecurityRule{SecurityRule: *rule, ExternalId: rules[i].Id})
+		ruleSet = append(ruleSet, cloudprovider.SecurityRule{SecurityRule: *rule, ExternalId: rules[i].Id, PeerSecgroupId: rules[i].PeerSecgroupId})
 	}
 	return ruleSet, nil
 }
@@ -1017,20 +1017,50 @@ func (self *SSecurityGroup) removeRules(ruleIds []string, result *compare.SyncRe
 	}
 }
 
-func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, src cloudprovider.SecRuleInfo) ([]SSecurityGroupRule, compare.SyncResult) {
+func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, secgroupCache *SSecurityGroupCache, provider *SCloudprovider, src *cloudprovider.SecRuleInfo) ([]SSecurityGroupRule, error) {
 	result := compare.SyncResult{}
 	localRules, err := self.GetSecuritRuleSet()
 	if err != nil {
-		result.Error(errors.Wrapf(err, "GetSecuritRuleSet"))
-		return nil, result
+		return nil, errors.Wrapf(err, "GetSecuritRuleSet")
 	}
 
 	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
-	dest.Rules = localRules
+	regionDriver := GetRegionDriver(provider.Provider)
+	isSupportPeerSecgroup := regionDriver.IsSupportPeerSecgroup()
+	for i := range localRules {
+		if len(localRules[i].PeerSecgroupId) > 0 && (secgroupCache == nil || !isSupportPeerSecgroup) {
+			continue
+		}
+		if len(localRules[i].PeerSecgroupId) > 0 {
+			_peerSecgroup, err := SecurityGroupManager.FetchById(localRules[i].PeerSecgroupId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "SecurityGroupManager.FetchById(%s)", localRules[i].PeerSecgroupId)
+			}
+			peerSecgroup := _peerSecgroup.(*SSecurityGroup)
+			peerCaches, err := peerSecgroup.GetSecurityGroupCaches()
+			if err != nil {
+				return nil, errors.Wrapf(err, "peerSecgroup.GetSecurityGroupCaches")
+			}
+			peerId := ""
+			for _, cache := range peerCaches {
+				if cache.ManagerId == provider.Id && cache.VpcId == secgroupCache.VpcId && len(cache.ExternalId) > 0 && (!regionDriver.IsPeerSecgroupWithSameProject() || cache.ExternalProjectId == secgroupCache.ExternalProjectId) {
+					peerId = cache.ExternalId
+					break
+				}
+			}
+			if len(peerId) == 0 {
+				return nil, errors.Wrapf(err, "not found peer secgroup id: %s", peerId)
+			}
+			localRules[i].PeerSecgroupId = peerId
+		}
 
-	_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
+		dest.Rules = append(dest.Rules, localRules[i])
+	}
+
+	_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, true)
 	if len(inAdds)+len(inDels)+len(outAdds)+len(outDels) == 0 {
-		return nil, result
+		log.Debugf("secgroup %s(%s) rules equals skip sync", self.Name, self.Id)
+		return nil, nil
 	}
 
 	ruleIds := []string{}
@@ -1060,7 +1090,7 @@ func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred
 	}
 
 	log.Infof("Sync Rules for Secgroup %s(%s) result: %s", self.Name, self.Id, result.Result())
-	return rules, result
+	return rules, nil
 }
 
 func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, []SSecurityGroupRule, error) {
@@ -1120,7 +1150,10 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		return nil, nil, errors.Wrapf(err, "Insert")
 	}
 
-	rules, _ := secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
+	rules, err := secgroup.SyncSecurityGroupRules(ctx, userCred, nil, provider, dest)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "SyncSecurityGroupRules")
+	}
 
 	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{

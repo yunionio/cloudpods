@@ -32,10 +32,10 @@ func TestCtyunRuleSync(t *testing.T) {
 			Common:    []cloudprovider.SecurityRule{},
 			InAdds:    []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "out:allow icmp", 0),
-				ruleWithName("", "out:allow tcp 1-199", 0),
-				ruleWithName("", "out:allow tcp 201-65535", 0),
 				ruleWithName("", "out:allow udp", 0),
+				ruleWithName("", "out:allow tcp 201-65535", 0),
+				ruleWithName("", "out:allow tcp 1-199", 0),
+				ruleWithName("", "out:allow icmp", 0),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
