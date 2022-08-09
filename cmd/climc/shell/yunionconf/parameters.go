@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
@@ -133,14 +134,19 @@ func init() {
 		return nil
 	})
 
-	type ParametersUpdateOptions struct {
-		User    string `help:"Update parameter of specificated user id, ADMIN only"`
-		Service string `help:"Update parameter of specificated service id, ADMIN only"`
-		NAME    string `help:"The name of parameter"`
-		VALUE   string `help:"The content of parameter"`
+	type ParametersEditOptions struct {
+		NamespaceId string `help:"List parameter of specificated namespace id, ADMIN only"`
+		User        string `help:"Update parameter of specificated user id, ADMIN only"`
+		Service     string `help:"Update parameter of specificated service id, ADMIN only"`
+		NAME        string `help:"The name of parameter"`
 	}
 
-	R(&ParametersUpdateOptions{}, "parameter-update", "update parameter", func(s *mcclient.ClientSession, args *ParametersUpdateOptions) error {
+	type ParametersUpdateOptions struct {
+		ParametersEditOptions
+		VALUE string `help:"The content of parameter"`
+	}
+
+	updateFunc := func(s *mcclient.ClientSession, args *ParametersUpdateOptions) error {
 		var parameter jsonutils.JSONObject
 		var err error
 		value, err := jsonutils.ParseString(args.VALUE)
@@ -166,6 +172,48 @@ func init() {
 		}
 		printObject(parameter)
 		return nil
+	}
+	R(&ParametersUpdateOptions{}, "parameter-update", "update parameter", updateFunc)
+	R(&ParametersEditOptions{}, "parameter-edit", "edit parameter", func(s *mcclient.ClientSession, args *ParametersEditOptions) error {
+		params := jsonutils.NewDict()
+		var parameter jsonutils.JSONObject
+		var err error
+		if len(args.User) > 0 {
+			params.Add(jsonutils.NewString("system"), "scope")
+			parameter, err = yunionconf.Parameters.GetInContext(s, args.NAME, params, &identity.UsersV3, args.User)
+		} else if len(args.Service) > 0 {
+			params.Add(jsonutils.NewString("system"), "scope")
+			parameter, err = yunionconf.Parameters.GetInContext(s, args.NAME, params, &identity.ServicesV3, args.Service)
+		} else {
+			parameter, err = yunionconf.Parameters.Get(s, args.NAME, params)
+		}
+		if err != nil {
+			return err
+		}
+		valueStr, err := parameter.GetString("value")
+		if err != nil {
+			return err
+		}
+		valueJson, err := jsonutils.ParseString(valueStr)
+		if err != nil {
+			return err
+		}
+		valueYaml := valueJson.YAMLString()
+		valueYaml, err = shellutils.Edit(valueYaml)
+		if err != nil {
+			return err
+		}
+		valueJson, err = jsonutils.ParseYAML(valueYaml)
+		if err != nil {
+			return err
+		}
+		valueStr = valueJson.String()
+
+		updateArgs := &ParametersUpdateOptions{
+			ParametersEditOptions: *args,
+			VALUE:                 valueStr,
+		}
+		return updateFunc(s, updateArgs)
 	})
 
 	type ParametersDeleteOptions struct {
