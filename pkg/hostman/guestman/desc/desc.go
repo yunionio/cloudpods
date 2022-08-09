@@ -25,8 +25,11 @@ type SGuestControlDesc struct {
 	IsMaster bool
 	IsSlave  bool
 
-	ScalingGroupId string
-	EncryptKeyId   string
+	ScalingGroupId     string
+	SecurityRules      string
+	AdminSecurityRules string
+
+	EncryptKeyId string
 }
 
 type SGuestHardwareDesc struct {
