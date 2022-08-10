@@ -139,7 +139,7 @@ func fetchJointItem(dispatcher *DBJointModelDispatcher, ctx context.Context, use
 
 func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetImmutableInstance(userCred)
+	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
 
 	_, _, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
@@ -228,7 +228,7 @@ func (dispatcher *DBJointModelDispatcher) Attach(ctx context.Context, id1 string
 
 func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetMutableInstance(userCred)
+	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
 	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
@@ -254,7 +254,7 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 
 func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetMutableInstance(userCred)
+	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
 	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {

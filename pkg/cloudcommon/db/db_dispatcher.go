@@ -856,7 +856,7 @@ func getExportCols(query jsonutils.JSONObject, retList []jsonutils.JSONObject) [
 
 func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modulebase.ListResult, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetImmutableInstance(userCred)
+	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
 
 	items, err := ListItems(manager, ctx, userCred, query, ctxIds)
 	if err != nil {
@@ -922,7 +922,7 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
 	funcName := fmt.Sprintf("GetProperty%s", utils.Kebab2Camel(property, "-"))
-	manager := dispatcher.manager.GetImmutableInstance(userCred)
+	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
 	modelValue := reflect.ValueOf(manager)
 	params := []interface{}{ctx, userCred, query}
 
@@ -960,7 +960,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, query jsonutils.JSONObject, isHead bool) (jsonutils.JSONObject, error) {
 	// log.Debugf("Get %s", idStr)
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetImmutableInstance(userCred)
+	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
 
 	data, err := dispatcher.tryGetModelProperty(ctx, idStr, query)
 	if err != nil {
@@ -998,7 +998,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 
 func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr string, spec string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetImmutableInstance(userCred)
+	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
 	model, err := fetchItem(manager, ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idStr)
@@ -1285,7 +1285,7 @@ func (dispatcher *DBModelDispatcher) FetchCreateHeaderData(ctx context.Context, 
 
 func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetMutableInstance(userCred)
+	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
 	ownerId, err := fetchOwnerId(ctx, manager, userCred, data)
 	if err != nil {
@@ -1371,7 +1371,7 @@ func expandMultiCreateParams(manager IModelManager, data jsonutils.JSONObject, c
 
 func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []dispatcher.SResourceContext) ([]modulebase.SubmitResult, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetMutableInstance(userCred)
+	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
 	ownerId, err := fetchOwnerId(ctx, manager, userCred, data)
 	if err != nil {
@@ -1503,7 +1503,7 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 	}
 
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetMutableInstance(userCred)
+	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
 	ownerId, err := fetchOwnerId(ctx, manager, userCred, data)
 	if err != nil {
@@ -1519,7 +1519,7 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 
 func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr string, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetMutableInstance(userCred)
+	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 	model, err := fetchItem(manager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idStr)
@@ -1697,7 +1697,7 @@ func (dispatcher *DBModelDispatcher) FetchUpdateHeaderData(ctx context.Context, 
 
 func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetMutableInstance(userCred)
+	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 	model, err := fetchItem(manager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), idStr)
@@ -1728,7 +1728,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 
 func (dispatcher *DBModelDispatcher) UpdateSpec(ctx context.Context, idStr string, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetMutableInstance(userCred)
+	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
 	model, err := fetchItem(manager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
@@ -1799,7 +1799,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 
 func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetMutableInstance(userCred)
+	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
 	model, err := fetchItem(manager, ctx, userCred, idstr, nil)
 	if err == sql.ErrNoRows {
@@ -1830,7 +1830,7 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 
 func (dispatcher *DBModelDispatcher) DeleteSpec(ctx context.Context, idstr string, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	manager := dispatcher.manager.GetMutableInstance(userCred)
+	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
 	model, err := fetchItem(manager, ctx, userCred, idstr, nil)
 	if err == sql.ErrNoRows {
