@@ -55,6 +55,12 @@ type SNutanixCredentialWithEnvironment struct {
 	Port string `help:"Nutanix host port" default:"9440"`
 }
 
+type SProxmoxCredentialWithEnvironment struct {
+	SUserPasswordCredential
+	Host string `help:"Proxmox host" positional:"true"`
+	Port string `help:"Proxmox host port" default:"8006"`
+}
+
 type SAzureCredential struct {
 	ClientID     string `help:"Azure client_id" positional:"true"`
 	ClientSecret string `help:"Azure clinet_secret" positional:"true"`
@@ -1133,4 +1139,28 @@ type SInCloudSphereAccountUpdateCredentialOptions struct {
 
 func (opts *SInCloudSphereAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts.SAccessKeyCredential), nil
+}
+
+type SProxmoxAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SProxmoxCredentialWithEnvironment
+}
+
+func (opts *SProxmoxAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString(api.CLOUD_PROVIDER_PROXMOX), "provider")
+	return params, nil
+}
+
+type SProxmoxAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+type SProxmoxAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	SUserPasswordCredential
+}
+
+func (opts *SProxmoxAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.SUserPasswordCredential), nil
 }
