@@ -119,6 +119,7 @@ func (self *SElbListenerPolicy) GetRules() ([]SElbListenerPolicyRule, error) {
 	}
 
 	for i := range ret {
+		ret[i].region = self.lb.region
 		ret[i].policy = self
 	}
 
