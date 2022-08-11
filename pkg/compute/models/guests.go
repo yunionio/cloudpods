@@ -167,7 +167,7 @@ type SGuest struct {
 	IsDaemon tristate.TriState `default:"false" list:"admin" create:"admin_optional" update:"admin"`
 
 	// 最大内网带宽
-	InternetMaxBandwidthOut int `nullable:"false" list:"user" create:"optional"`
+	InternetMaxBandwidthOut int `nullable:"true" list:"user" create:"optional"`
 	// 磁盘吞吐量
 	Throughput int `nullable:"true" list:"user" create:"optional"`
 }
@@ -670,6 +670,13 @@ func (manager *SGuestManager) OrderByExtraFields(ctx context.Context, q *sqlchem
 
 		q = q.LeftJoin(guestdiskSQ, sqlchemy.Equals(q.Field("id"), guestdiskSQ.Field("guest_id")))
 		db.OrderByFields(q, []string{query.OrderByDisk}, []sqlchemy.IQueryField{guestdiskSQ.Field("disks_size")})
+	}
+	if db.NeedOrderQuery([]string{query.OrderByIp}) {
+		guestnet := GuestnetworkManager.Query("guest_id", "ip_addr").SubQuery()
+		q.AppendField(q.QueryFields()...)
+		q.AppendField(guestnet.Field("ip_addr"))
+		q = q.LeftJoin(guestnet, sqlchemy.Equals(q.Field("id"), guestnet.Field("guest_id")))
+		db.OrderByFields(q, []string{query.OrderByIp}, []sqlchemy.IQueryField{sqlchemy.INET_ATON(q.Field("ip_addr"))})
 	}
 
 	return q, nil
@@ -3601,7 +3608,6 @@ func _guestResourceCountQuery(
 	} else {
 		gq = GuestManager.Query()
 	}
-
 	if len(rangeObjs) > 0 || len(hostTypes) > 0 || len(resourceTypes) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		gq = filterGuestByRange(gq, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv)
 	}
