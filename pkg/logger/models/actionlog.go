@@ -142,7 +142,7 @@ func isRoleInNames(userCred mcclient.TokenCredential, roles []string) bool {
 	return false
 }
 
-func (manager *SActionlogManager) GetImmutableInstance(userCred mcclient.TokenCredential) db.IModelManager {
+func (manager *SActionlogManager) GetImmutableInstance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) db.IModelManager {
 	match := isRoleInNames(userCred, options.Options.AuditorRoleNames)
 	log.Debugf("roles: %s auditor: %s match auditor: %v", userCred.GetRoles(), options.Options.AuditorRoleNames, match)
 	if options.Options.EnableSeparateAdminLog && match {
@@ -151,7 +151,7 @@ func (manager *SActionlogManager) GetImmutableInstance(userCred mcclient.TokenCr
 	return ActionLog
 }
 
-func (manager *SActionlogManager) GetMutableInstance(userCred mcclient.TokenCredential) db.IModelManager {
+func (manager *SActionlogManager) GetMutableInstance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) db.IModelManager {
 	matchSec := isRoleInNames(userCred, options.Options.SecadminRoleNames)
 	matchOps := isRoleInNames(userCred, options.Options.OpsadminRoleNames)
 	log.Debugf("roles: %s sec: %s match: %v ops: %s match: %v", userCred.GetRoles(), options.Options.SecadminRoleNames, matchSec, options.Options.OpsadminRoleNames, matchOps)

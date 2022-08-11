@@ -40,8 +40,8 @@ type IModelManager interface {
 
 	GetIModelManager() IModelManager
 
-	GetMutableInstance(userCred mcclient.TokenCredential) IModelManager
-	GetImmutableInstance(userCred mcclient.TokenCredential) IModelManager
+	GetMutableInstance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) IModelManager
+	GetImmutableInstance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) IModelManager
 
 	// Table() *sqlchemy.STable
 	TableSpec() ITableSpec
