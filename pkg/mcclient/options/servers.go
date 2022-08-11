@@ -58,6 +58,7 @@ type ServerListOptions struct {
 	OrderByDisk    string `help:"Order by disk size" choices:"asc|desc"`
 	OrderByHost    string `help:"Order by host name" choices:"asc|desc"`
 	OrderByNetwork string `help:"Order by network name" choices:"asc|desc"`
+	OrderByIp      string `help:"Order by ip" choices:"asc|desc"`
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 

@@ -40,13 +40,15 @@ import (
 func init() {
 	type DiskListOptions struct {
 		options.BaseListOptions
-		Unused    *bool  `help:"Show unused disks"`
-		Share     *bool  `help:"Show Share storage disks"`
-		Local     *bool  `help:"Show Local storage disks"`
-		Guest     string `help:"Guest ID or name"`
-		Storage   string `help:"Storage ID or name"`
-		Type      string `help:"Disk type" choices:"sys|data|swap|volume"`
-		CloudType string `help:"Public cloud or private cloud" choices:"Public|Private"`
+		Unused        *bool  `help:"Show unused disks"`
+		Share         *bool  `help:"Show Share storage disks"`
+		Local         *bool  `help:"Show Local storage disks"`
+		Guest         string `help:"Guest ID or name"`
+		GuestStatus   string `help:"Guest Status"`
+		OrderByServer string `help:"Order By Server"`
+		Storage       string `help:"Storage ID or name"`
+		Type          string `help:"Disk type" choices:"sys|data|swap|volume"`
+		CloudType     string `help:"Public cloud or private cloud" choices:"Public|Private"`
 
 		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 
