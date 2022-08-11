@@ -284,3 +284,7 @@ func (self *SAzureProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLPro
 func (self *SAzureProvider) GetSamlEntityId() string {
 	return cloudprovider.SAML_ENTITY_ID_AZURE
 }
+
+func (self *SAzureProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

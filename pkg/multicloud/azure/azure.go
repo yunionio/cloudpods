@@ -708,6 +708,8 @@ type sOdataError struct {
 type AzureResponseError struct {
 	OdataError sOdataError `json:"odata.error"`
 	AzureError AzureError  `json:"error"`
+	Code       string
+	Message    string
 }
 
 func (ae AzureResponseError) Error() string {
@@ -725,7 +727,7 @@ func (ae *AzureResponseError) ParseErrorFromJsonResponse(statusCode int, body js
 		}
 		return errors.Wrap(cloudprovider.ErrNotFound, msg)
 	}
-	if len(ae.OdataError.Code) > 0 || len(ae.AzureError.Code) > 0 {
+	if len(ae.OdataError.Code) > 0 || len(ae.AzureError.Code) > 0 || (len(ae.Code) > 0 && len(ae.Message) > 0) {
 		return ae
 	}
 	return nil

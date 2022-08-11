@@ -16,15 +16,16 @@ package shell
 
 import (
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/multicloud/huawei"
+	"yunion.io/x/onecloud/pkg/multicloud/azure"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
-	shellutils.R(&cloudprovider.MetricListOptions{}, "metric-list", "List metrics", func(cli *huawei.SRegion, args *cloudprovider.MetricListOptions) error {
+	type LoadbalancerListOptions struct {
+	}
+	shellutils.R(&cloudprovider.MetricListOptions{}, "metric-list", "List metrics", func(cli *azure.SRegion, args *cloudprovider.MetricListOptions) error {
 		metrics, err := cli.GetClient().GetMetrics(args)
 		if err != nil {
 			return err
@@ -33,33 +34,6 @@ func init() {
 			log.Infof("metric: %s %s %s", metrics[i].Id, metrics[i].MetricType, metrics[i].Unit)
 			printList(metrics[i].Values, len(metrics[i].Values), 0, 0, []string{})
 		}
-		return nil
-	})
-
-	type MetricDataOptions struct {
-		START int    `help:"Start metrics"`
-		Count int    `help:"Metric count" default:"1"`
-		SINCE string `help:"since"`
-		UNTIL string `help:"until"`
-	}
-	shellutils.R(&MetricDataOptions{}, "metrics-data-list", "List metrics", func(cli *huawei.SRegion, args *MetricDataOptions) error {
-		metrics, err := cli.GetMetrics()
-		if err != nil {
-			return err
-		}
-		since, err := timeutils.ParseTimeStr(args.SINCE)
-		if err != nil {
-			return err
-		}
-		until, err := timeutils.ParseTimeStr(args.UNTIL)
-		if err != nil {
-			return err
-		}
-		data, err := cli.GetMetricsData(metrics[args.START:args.START+args.Count], since, until)
-		if err != nil {
-			return err
-		}
-		printList(data, 0, 0, 0, nil)
 		return nil
 	})
 }

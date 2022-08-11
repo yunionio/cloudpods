@@ -41,7 +41,7 @@ type SSQLServerDatabase struct {
 		Maxsizebytes                  int64     `json:"maxSizeBytes"`
 		Status                        string    `json:"status"`
 		Databaseid                    string    `json:"databaseId"`
-		Creationdate                  time.Time `json:"creationDate"`
+		Creationdate                  string    `json:"creationDate"`
 		Currentserviceobjectivename   string    `json:"currentServiceObjectiveName"`
 		Requestedserviceobjectivename string    `json:"requestedServiceObjectiveName"`
 		Defaultsecondarylocation      string    `json:"defaultSecondaryLocation"`
