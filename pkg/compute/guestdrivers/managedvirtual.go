@@ -368,7 +368,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 
 	desc.Tags, _ = guest.GetAllUserMetadata()
 
-	//创建并同步安全组规则
+	//创建并同步安全组规则, 仅新建的安全组会同步规则
 	{
 		vpc, err := guest.GetVpc()
 		if err != nil {
@@ -389,7 +389,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 			return errors.Wrap(err, "GetSecgroups")
 		}
 		for i, secgroup := range secgroups {
-			externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup, desc.ProjectId, "")
+			externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup, desc.ProjectId, "", true)
 			if err != nil {
 				return errors.Wrap(err, "RequestSyncSecurityGroup")
 			}
@@ -1129,7 +1129,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx conte
 	}
 	externalIds := []string{}
 	for _, secgroup := range secgroups {
-		externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup, remoteProjectId, "")
+		externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup, remoteProjectId, "", true)
 		if err != nil {
 			return errors.Wrap(err, "RequestSyncSecurityGroup")
 		}
