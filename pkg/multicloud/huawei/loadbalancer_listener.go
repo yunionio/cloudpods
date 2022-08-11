@@ -417,6 +417,7 @@ func (self *SElbListener) GetILoadbalancerListenerRules() ([]cloudprovider.IClou
 		rule := ret[i]
 		rule.listener = self
 		rule.lb = self.lb
+		rule.region = self.lb.region
 		iret = append(iret, &rule)
 	}
 
