@@ -4263,7 +4263,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) getVga() string {
-	if utils.IsInStringArray(self.Vga, []string{"cirrus", "vmware", "qxl"}) {
+	if utils.IsInStringArray(self.Vga, []string{"cirrus", "vmware", "qxl", "virtio", "std"}) {
 		return self.Vga
 	}
 	return "std"
