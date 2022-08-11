@@ -15,8 +15,13 @@
 package hostdrivers
 
 import (
+	"context"
+
+	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SInCloudSphereHostDriver struct {
@@ -40,6 +45,10 @@ func (self *SInCloudSphereHostDriver) ValidateDiskSize(storage *models.SStorage,
 	return nil
 }
 
-func (driver *SInCloudSphereHostDriver) GetStoragecacheQuota(host *models.SHost) int {
+func (self *SInCloudSphereHostDriver) GetStoragecacheQuota(host *models.SHost) int {
 	return 100
+}
+
+func (self *SInCloudSphereHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return data, nil
 }

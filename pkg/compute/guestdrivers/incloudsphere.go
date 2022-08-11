@@ -16,6 +16,9 @@ package guestdrivers
 
 import (
 	"context"
+	"fmt"
+
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -80,6 +83,13 @@ func (self *SInCloudSphereGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbac
 	return keys
 }
 
+func (self *SInCloudSphereGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	return nil
+}
+
 func (self *SInCloudSphereGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }
@@ -115,6 +125,20 @@ func (self *SInCloudSphereGuestDriver) GetRebuildRootStatus() ([]string, error) 
 
 func (self *SInCloudSphereGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_RUNNING}, nil
+}
+
+func (self *SInCloudSphereGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	input, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
+	if err != nil {
+		return nil, err
+	}
+	if len(input.Networks) > 2 {
+		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+	}
+	if len(input.Eip) > 0 || input.EipBw > 0 {
+		return nil, httperrors.NewUnsupportOperationError("%s not support create virtual machine with eip", self.GetHypervisor())
+	}
+	return input, nil
 }
 
 func (self *SInCloudSphereGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
