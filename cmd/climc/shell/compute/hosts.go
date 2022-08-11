@@ -93,7 +93,7 @@ func init() {
 		return nil
 	})
 
-	R(&compute.HostListOptions{}, "host-node-count", "Get host node count", func(s *mcclient.ClientSession, opts *compute.HostListOptions) error {
+	countFunc := func(s *mcclient.ClientSession, opts *compute.HostListOptions, action string) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
@@ -115,12 +115,18 @@ func init() {
 		if len(opts.Sn) > 0 {
 			params.Add(jsonutils.NewString(opts.Sn), "sn")
 		}
-		result, err := modules.Hosts.Get(s, "node-count", params)
+		result, err := modules.Hosts.Get(s, action, params)
 		if err != nil {
 			return err
 		}
 		printObject(result)
 		return nil
+	}
+	R(&compute.HostListOptions{}, "host-node-count", "Get host node count", func(s *mcclient.ClientSession, opts *compute.HostListOptions) error {
+		return countFunc(s, opts, "node-count")
+	})
+	R(&compute.HostListOptions{}, "host-type-count", "Get host type count", func(s *mcclient.ClientSession, opts *compute.HostListOptions) error {
+		return countFunc(s, opts, "host-type-count")
 	})
 
 	type HostSysInfoOpt struct {
