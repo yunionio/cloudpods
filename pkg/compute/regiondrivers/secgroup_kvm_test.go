@@ -27,8 +27,10 @@ func TestKvmRuleSync(t *testing.T) {
 			Name:      "Test kvm deny rules",
 			SrcRules:  cloudprovider.SecurityRuleSet{},
 			DestRules: []cloudprovider.SecurityRule{},
-			Common:    []cloudprovider.SecurityRule{},
-			InAdds:    []cloudprovider.SecurityRule{},
+			Common: []cloudprovider.SecurityRule{
+				ruleWithName("", "in:deny any", 0),
+			},
+			InAdds: []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
 				ruleWithName("", "out:deny any", 1),
 			},
