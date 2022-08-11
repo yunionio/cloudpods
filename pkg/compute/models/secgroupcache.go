@@ -683,7 +683,7 @@ func (manager *SSecurityGroupCacheManager) ListItemExportKeys(ctx context.Contex
 
 func (self *SSecurityGroupCache) GetISecurityGroup(ctx context.Context) (cloudprovider.ICloudSecurityGroup, error) {
 	if len(self.ExternalId) == 0 {
-		return self.CreateISecurityGroup(ctx)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
 	}
 
 	manager := self.GetCloudprovider()
@@ -695,14 +695,22 @@ func (self *SSecurityGroupCache) GetISecurityGroup(ctx context.Context) (cloudpr
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIRegion")
 	}
-	iSecgroup, err := iRegion.GetISecurityGroupById(self.ExternalId)
+	return iRegion.GetISecurityGroupById(self.ExternalId)
+}
+
+func (self *SSecurityGroupCache) GetOrCreateISecurityGroup(ctx context.Context) (cloudprovider.ICloudSecurityGroup, bool, error) {
+	secgroup, err := self.GetISecurityGroup(ctx)
 	if err != nil {
-		if errors.Cause(err) != cloudprovider.ErrNotFound {
-			return nil, errors.Wrap(err, "iRegion.GetSecurityGroupById")
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			secgroup, err = self.CreateISecurityGroup(ctx)
+			if err != nil {
+				return nil, false, errors.Wrapf(err, "CreateISecurityGroup")
+			}
+			return secgroup, true, nil
 		}
-		return self.CreateISecurityGroup(ctx)
+		return nil, false, errors.Wrapf(err, "GetIISecurityGroup")
 	}
-	return iSecgroup, nil
+	return secgroup, false, nil
 }
 
 func (self *SSecurityGroupCache) CreateISecurityGroup(ctx context.Context) (cloudprovider.ICloudSecurityGroup, error) {
@@ -822,14 +830,17 @@ func (self *SSecurityGroupCache) GetSecuritRuleSet(ctx context.Context) (cloudpr
 	return ruleSet, caches, nil
 }
 
-func (self *SSecurityGroupCache) SyncRules(ctx context.Context) error {
+func (self *SSecurityGroupCache) SyncRules(ctx context.Context, skipSyncRule bool) error {
 	region, err := self.GetRegion()
 	if err != nil {
 		return err
 	}
-	iSecgroup, err := self.GetISecurityGroup(ctx)
+	iSecgroup, isNew, err := self.GetOrCreateISecurityGroup(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "GetISecurityGroup")
+		return errors.Wrapf(err, "GetOrCreateISecurityGroup")
+	}
+	if !isNew && skipSyncRule {
+		return nil
 	}
 
 	rules, err := iSecgroup.GetRules()
@@ -853,12 +864,15 @@ func (self *SSecurityGroupCache) SyncRules(ctx context.Context) error {
 	if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
 		return nil
 	}
+	if len(inDels)+len(outDels) > 10 {
+		return fmt.Errorf("too many rules operations with %s inDel:%d outDel:%d inAdd:%d outAdd: %d", self.Name, len(inDels), len(outDels), len(inAdds), len(outAdds))
+	}
 	err = iSecgroup.SyncRules(common, inAdds, outAdds, inDels, outDels)
 	if err != nil {
 		return errors.Wrapf(err, "iSecgroup.SyncRules")
 	}
 	for i := range caches {
-		err = caches[i].SyncRules(ctx)
+		err = caches[i].SyncRules(ctx, skipSyncRule)
 		if err != nil {
 			return errors.Wrapf(err, "SyncRules for caches %s(%s)", caches[i].Name, caches[i].Id)
 		}
