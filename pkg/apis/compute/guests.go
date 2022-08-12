@@ -73,6 +73,7 @@ type ServerListInput struct {
 	// enum: asc,desc
 	OrderByDisk string `json:"order_by_disk"`
 
+	OrderByIp string `json:"order_by_ip"`
 	// 根据ip查找机器
 	IpAddr string `json:"ip_addr"`
 
