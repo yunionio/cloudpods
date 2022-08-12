@@ -228,6 +228,21 @@ func (self *SHuaweiClient) monitorPost(resource string, params map[string]interf
 	return self.request(httputils.POST, url, nil, params)
 }
 
+// func (self *SHuaweiClient) modelartsList(regionId, resource string, query url.Values) (jsonutils.JSONObject, error) {
+// 	url := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+// 	return self.request(httputils.GET, url, query, nil)
+// }
+
+// func (self *SHuaweiClient) modelartsPoolByName(regionId, resource, poolName string, query url.Values) (jsonutils.JSONObject, error) {
+// 	url := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s/%s", regionId, self.projectId, resource, poolName)
+// 	return self.request(httputils.GET, url, query, nil)
+// }
+
+func (self *SHuaweiClient) modelartsPoolCreate(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	return self.request(httputils.POST, uri, url.Values{}, params)
+}
+
 func (self *SHuaweiClient) lbGet(regionId, resource string) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
 	return self.request(httputils.GET, uri, url.Values{}, nil)
@@ -310,6 +325,9 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, que
 	if len(self.projectId) > 0 {
 		header.Set("X-Project-Id", self.projectId)
 	}
+	// if len(self.ownerId) > 0 {
+	// 	header.Set("X-Domain-Id", self.ownerId)
+	// }
 	_, resp, err := httputils.JSONRequest(client, context.Background(), method, url, header, body, self.debug)
 	if err != nil {
 		if e, ok := err.(*httputils.JSONClientError); ok && e.Code == 404 {

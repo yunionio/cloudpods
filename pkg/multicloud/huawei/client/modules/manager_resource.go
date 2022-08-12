@@ -52,6 +52,8 @@ const (
 	ServiceNameCES  ServiceNameType = "ces"  // 监控服务 CloudEye
 	ServiceNameEPS  ServiceNameType = "eps"  // 企业项目
 
+	ServiceNameModelarts ServiceNameType = "modelarts" // AI ModelArts
+
 	ServiceNameSFSTurbo ServiceNameType = "sfs-turbo" // 文件系统
 )
 
