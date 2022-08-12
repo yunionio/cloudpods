@@ -314,6 +314,8 @@ type ICloudProvider interface {
 	GetICloudCDNDomains() ([]ICloudCDNDomain, error)
 	GetICloudCDNDomainByName(name string) (ICloudCDNDomain, error)
 	CreateICloudCDNDomain(opts *CdnCreateOptions) (ICloudCDNDomain, error)
+
+	GetMetrics(opts *MetricListOptions) ([]MetricValues, error)
 }
 
 func IsSupportCapability(prod ICloudProvider, capa string) bool {
@@ -612,6 +614,10 @@ func (self *SBaseProvider) GetICloudCDNDomainByName(name string) (ICloudCDNDomai
 
 func (self *SBaseProvider) CreateICloudCDNDomain(opts *CdnCreateOptions) (ICloudCDNDomain, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "CreateICloudCDNDomain")
+}
+
+func (self *SBaseProvider) GetMetrics(opts *MetricListOptions) ([]MetricValues, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "GetMetric")
 }
 
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {
