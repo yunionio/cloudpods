@@ -1713,7 +1713,7 @@ func (self *SQcloudRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context
 			}
 
 			for i := range ess {
-				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, ess[i].GetSecGroup(), extProjectId, "redis")
+				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, ess[i].GetSecGroup(), extProjectId, "redis", true)
 				if err != nil {
 					return nil, errors.Wrap(err, "RequestSyncSecurityGroup")
 				}
