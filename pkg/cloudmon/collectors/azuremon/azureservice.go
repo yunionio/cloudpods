@@ -78,24 +78,22 @@ func (self *SAzureCloudReport) collectRegionMetricOfHost(region cloudprovider.IC
 			}
 
 			for metricName, influxDbSpecs := range metricSpecs {
-				for _, value := range *rtnMetrics.Value {
-					if value.Name.LocalizedValue != nil {
-						if metricName == *(value.Name.LocalizedValue) || (value.Name.Value != nil && *value.Name.Value == metricName) {
-							if self.Operator == string(common.SERVER) {
-								metric, err := common.FillVMCapacity(server.(*jsonutils.JSONDict))
-								if err != nil {
-									return errors.Wrapf(err, "fill vm %q capacity", srvPrefix)
-								}
-								dataList = append(dataList, metric)
+				for _, value := range rtnMetrics.Value {
+					if metricName == value.Name.LocalizedValue || (value.Name.Value == metricName) {
+						if self.Operator == string(common.SERVER) {
+							metric, err := common.FillVMCapacity(server.(*jsonutils.JSONDict))
+							if err != nil {
+								return errors.Wrapf(err, "fill vm %q capacity", srvPrefix)
 							}
-							if value.Timeseries != nil {
-								for _, timeserie := range *value.Timeseries {
-									serverMetric, err := self.collectMetricFromThisServer(server, timeserie, influxDbSpecs)
-									if err != nil {
-										return errors.Wrapf(err, "collect metrics from server %q", srvPrefix)
-									}
-									dataList = append(dataList, serverMetric...)
+							dataList = append(dataList, metric)
+						}
+						if value.Timeseries != nil {
+							for _, timeserie := range value.Timeseries {
+								serverMetric, err := self.collectMetricFromThisServer(server, timeserie, influxDbSpecs)
+								if err != nil {
+									return errors.Wrapf(err, "collect metrics from server %q", srvPrefix)
 								}
+								dataList = append(dataList, serverMetric...)
 							}
 						}
 					}
@@ -119,50 +117,46 @@ func (self *SAzureCloudReport) collectRegionMetricOfHost(region cloudprovider.IC
 func (self *SAzureCloudReport) collectMetricFromThisServer(server jsonutils.JSONObject,
 	rtnMetric azure.TimeSeriesElement, influxDbSpecs []string) ([]influxdb.SMetricData, error) {
 	datas := make([]influxdb.SMetricData, 0)
-	for _, data := range *rtnMetric.Data {
+	for _, data := range rtnMetric.Data {
 		metric, err := self.NewMetricFromJson(server)
 		if err != nil {
 			return nil, err
 		}
-		if data.TimeStamp != nil {
-			metric.Timestamp = *data.TimeStamp
-			if data.Average != nil {
-				//根据条件拼装metric的tag和metirc信息
-				fieldValue := *data.Average
-				influxDbSpec := influxDbSpecs[2]
-				measurement := common.SubstringBefore(influxDbSpec, ".")
-				metric.Name = measurement
-				var pairsKey string
-				if strings.Contains(influxDbSpec, ",") {
-					pairsKey = common.SubstringBetween(influxDbSpec, ".", ",")
-				} else {
-					pairsKey = common.SubstringAfter(influxDbSpec, ".")
-				}
-				if influxDbSpecs[1] == common.UNIT_MEM {
-					//fieldValue = fieldValue * 8 / common.PERIOD
-					fieldValue = fieldValue * 8
-				}
-				tag := common.SubstringAfter(influxDbSpec, ",")
-				if tag != "" && strings.Contains(influxDbSpec, "=") {
-					metric.Tags = append(metric.Tags, influxdb.SKeyValue{
-						Key:   common.SubstringBefore(tag, "="),
-						Value: common.SubstringAfter(tag, "="),
-					})
-				}
-				cpu_cout, err := server.Get("vcpu_count")
-				if err == nil {
-					metric.Metrics = append(metric.Metrics, influxdb.SKeyValue{
-						Key:   "cpu_count",
-						Value: strconv.FormatInt(cpu_cout.(*jsonutils.JSONInt).Value(), 10),
-					})
-				}
-				metric.Metrics = append(metric.Metrics, influxdb.SKeyValue{
-					Key:   pairsKey,
-					Value: strconv.FormatFloat(fieldValue, 'E', -1, 64),
-				})
-				datas = append(datas, metric)
-			}
+		metric.Timestamp = data.TimeStamp
+		//根据条件拼装metric的tag和metirc信息
+		fieldValue := data.Average
+		influxDbSpec := influxDbSpecs[2]
+		measurement := common.SubstringBefore(influxDbSpec, ".")
+		metric.Name = measurement
+		var pairsKey string
+		if strings.Contains(influxDbSpec, ",") {
+			pairsKey = common.SubstringBetween(influxDbSpec, ".", ",")
+		} else {
+			pairsKey = common.SubstringAfter(influxDbSpec, ".")
 		}
+		if influxDbSpecs[1] == common.UNIT_MEM {
+			//fieldValue = fieldValue * 8 / common.PERIOD
+			fieldValue = fieldValue * 8
+		}
+		tag := common.SubstringAfter(influxDbSpec, ",")
+		if tag != "" && strings.Contains(influxDbSpec, "=") {
+			metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+				Key:   common.SubstringBefore(tag, "="),
+				Value: common.SubstringAfter(tag, "="),
+			})
+		}
+		cpu_cout, err := server.Get("vcpu_count")
+		if err == nil {
+			metric.Metrics = append(metric.Metrics, influxdb.SKeyValue{
+				Key:   "cpu_count",
+				Value: strconv.FormatInt(cpu_cout.(*jsonutils.JSONInt).Value(), 10),
+			})
+		}
+		metric.Metrics = append(metric.Metrics, influxdb.SKeyValue{
+			Key:   pairsKey,
+			Value: strconv.FormatFloat(fieldValue, 'E', -1, 64),
+		})
+		datas = append(datas, metric)
 	}
 
 	return datas, nil
@@ -238,17 +232,15 @@ func (self *SAzureCloudReport) CollectK8sModuleMetric(region cloudprovider.IClou
 
 		dataList := make([]influxdb.SMetricData, 0)
 		for metricName, influxDbSpecs := range metricSpecs {
-			for _, value := range *rtnMetrics.Value {
-				if value.Name.LocalizedValue != nil {
-					if metricName == *(value.Name.LocalizedValue) || (value.Name.Value != nil && *value.Name.Value == metricName) {
-						if value.Timeseries != nil {
-							for _, timeserie := range *value.Timeseries {
-								serverMetric, err := self.collectMetricFromThisServer(resource, timeserie, influxDbSpecs)
-								if err != nil {
-									log.Errorf("collect pod: %s metric err: %v", parentName, err)
-								}
-								dataList = append(dataList, serverMetric...)
+			for _, value := range rtnMetrics.Value {
+				if metricName == value.Name.LocalizedValue || (value.Name.Value == metricName) {
+					if value.Timeseries != nil {
+						for _, timeserie := range value.Timeseries {
+							serverMetric, err := self.collectMetricFromThisServer(resource, timeserie, influxDbSpecs)
+							if err != nil {
+								log.Errorf("collect pod: %s metric err: %v", parentName, err)
 							}
+							dataList = append(dataList, serverMetric...)
 						}
 					}
 				}

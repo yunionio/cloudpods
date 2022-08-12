@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/huaweicloud/huaweicloud-sdk-go/auth/aksk"
@@ -58,7 +59,7 @@ const (
 	HUAWEI_API_VERSION    = "2018-12-25"
 )
 
-var HUAWEI_REGION_CACHES = map[string]userRegionsCache{}
+var HUAWEI_REGION_CACHES sync.Map
 
 type userRegionsCache struct {
 	UserId   string
@@ -103,6 +104,7 @@ type SHuaweiClient struct {
 	signer auth.Signer
 
 	isMainProject bool // whether the project is the main project in the region
+	clientRegion  string
 
 	ownerId         string
 	ownerName       string
@@ -216,6 +218,16 @@ func (self *SHuaweiClient) lbList(regionId, resource string, query url.Values) (
 	return self.request(httputils.GET, url, query, nil)
 }
 
+func (self *SHuaweiClient) monitorList(resource string, query url.Values) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("https://ces.%s.myhuaweicloud.com/v1.0/%s/%s", self.clientRegion, self.projectId, resource)
+	return self.request(httputils.GET, url, query, nil)
+}
+
+func (self *SHuaweiClient) monitorPost(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("https://ces.%s.myhuaweicloud.com/V1.0/%s/%s", self.clientRegion, self.projectId, resource)
+	return self.request(httputils.POST, url, nil, params)
+}
+
 func (self *SHuaweiClient) lbGet(regionId, resource string) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
 	return self.request(httputils.GET, uri, url.Values{}, nil)
@@ -316,17 +328,19 @@ func (self *SHuaweiClient) fetchRegions() error {
 			return errors.Wrap(err, "GetUserId")
 		}
 
-		if regionsCache, ok := HUAWEI_REGION_CACHES[userId]; !ok || regionsCache.ExpireAt.Sub(time.Now()).Seconds() > 0 {
+		if regionsCache, ok := HUAWEI_REGION_CACHES.Load(userId); !ok || regionsCache.(*userRegionsCache).ExpireAt.Sub(time.Now()).Seconds() > 0 {
 			regions := make([]SRegion, 0)
 			err := doListAll(huawei.Regions.List, nil, &regions)
 			if err != nil {
 				return errors.Wrap(err, "Regions.List")
 			}
 
-			HUAWEI_REGION_CACHES[userId] = userRegionsCache{ExpireAt: time.Now().Add(24 * time.Hour), UserId: userId, Regions: regions}
+			HUAWEI_REGION_CACHES.Store(userId, &userRegionsCache{ExpireAt: time.Now().Add(24 * time.Hour), UserId: userId, Regions: regions})
 		}
 
-		self.regions = HUAWEI_REGION_CACHES[userId].Regions
+		if regionsCache, ok := HUAWEI_REGION_CACHES.Load(userId); ok {
+			self.regions = regionsCache.(*userRegionsCache).Regions
+		}
 	}
 
 	filtedRegions := make([]SRegion, 0)
@@ -338,6 +352,7 @@ func (self *SHuaweiClient) fetchRegions() error {
 
 		for _, region := range self.regions {
 			if strings.Count(project.Name, region.ID) >= 1 {
+				self.clientRegion = region.ID
 				filtedRegions = append(filtedRegions, region)
 			}
 			if project.Name == region.ID {
