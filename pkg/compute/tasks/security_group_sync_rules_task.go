@@ -55,7 +55,7 @@ func (self *SecurityGroupSyncRulesTask) OnInit(ctx context.Context, obj db.IStan
 	}
 
 	for i := range caches {
-		err := caches[i].SyncRules()
+		err := caches[i].SyncRules(ctx, false)
 		if err != nil {
 			logclient.AddActionLogWithContext(ctx, secgroup, logclient.ACT_SYNC_CONF, errors.Wrapf(err, "SyncRules"), self.UserCred, false)
 		}
