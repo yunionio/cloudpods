@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -342,12 +343,14 @@ func handleOIDCConfiguration(ctx context.Context, w http.ResponseWriter, req *ht
 	authUrl := httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/oidc/auth")
 	tokenUrl := httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/oidc/token")
 	userinfoUrl := httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/oidc/user")
+	logoutUrl := httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/oidc/logout")
 	jwksUrl := httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/oidc/keys")
 	conf := oidcutils.SOIDCConfiguration{
 		Issuer:                httputils.JoinPath(options.Options.ApiServer, "api/v1/auth/oidc"),
 		AuthorizationEndpoint: authUrl,
 		TokenEndpoint:         tokenUrl,
 		UserinfoEndpoint:      userinfoUrl,
+		EndSessionEndpoint:    logoutUrl,
 		JwksUri:               jwksUrl,
 		ResponseTypesSupported: []string{
 			oidcutils.OIDC_RESPONSE_TYPE_CODE,
@@ -409,4 +412,94 @@ func handleOIDCUserInfo(ctx context.Context, w http.ResponseWriter, req *http.Re
 		return
 	}
 	appsrv.SendJSON(w, data)
+}
+
+type SOIDCRPInitLogoutRequest struct {
+	// RECOMMENDED. ID Token previously issued by the OP to the RP passed to the Logout Endpoint
+	// as a hint about the End-User's current authenticated session with the Client. This is used
+	// as an indication of the identity of the End-User that the RP is requesting be logged out by the OP.
+	IdTokenHint string `json:"id_token_hint"`
+	// OPTIONAL. Hint to the Authorization Server about the End-User that is logging out. The value
+	// and meaning of this parameter is left up to the OP's discretion. For instance, the value might
+	// contain an email address, phone number, username, or session identifier pertaining to the RP's
+	// session with the OP for the End-User. (This parameter is intended to be analogous to the
+	// login_hint parameter defined in Section 3.1.2.1 of OpenID Connect Core 1.0 [OpenID.Core] that
+	// is used in Authentication Requests; whereas, logout_hint is used in RP-Initiated Logout Requests.)
+	LogoutHint string `json:"logout_hint"`
+	// OPTIONAL. OAuth 2.0 Client Identifier valid at the Authorization Server. When both client_id and
+	// id_token_hint are present, the OP MUST verify that the Client Identifier matches the one used when
+	// issuing the ID Token. The most common use case for this parameter is to specify the Client Identifier
+	// when post_logout_redirect_uri is used but id_token_hint is not. Another use is for symmetrically
+	// encrypted ID Tokens used as id_token_hint values that require the Client Identifier to be specified
+	// by other means, so that the ID Tokens can be decrypted by the OP.
+	ClientId string `json:"client_id"`
+	// OPTIONAL. URI to which the RP is requesting that the End-User's User Agent be redirected after a
+	// logout has been performed. This URI SHOULD use the https scheme and MAY contain port, path, and
+	// query parameter components; however, it MAY use the http scheme, provided that the Client Type is
+	// confidential, as defined in Section 2.1 of OAuth 2.0 [RFC6749], and provided the OP allows the use
+	// of http RP URIs. The URI MAY use an alternate scheme, such as one that is intended to identify a
+	// callback into a native application. The value MUST have been previously registered with the OP,
+	// either using the post_logout_redirect_uris Registration parameter or via another mechanism. An
+	// id_token_hint is also RECOMMENDED when this parameter is included.
+	PostLogoutRedirectUri string `json:"post_logout_redirect_uri"`
+	// OPTIONAL. Opaque value used by the RP to maintain state between the logout request and the callback
+	// to the endpoint specified by the post_logout_redirect_uri parameter. If included in the logout request,
+	// the OP passes this value back to the RP using the state parameter when redirecting the User Agent back to the RP.
+	State string `json:"state"`
+	// OPTIONAL. End-User's preferred languages and scripts for the user interface, represented as a
+	// space-separated list of BCP47 [RFC5646] language tag values, ordered by preference. For instance,
+	// the value "fr-CA fr en" represents a preference for French as spoken in Canada, then French (without
+	// a region designation), followed by English (without a region designation). An error SHOULD NOT result
+	// if some or all of the requested locales are not supported by the OpenID Provider.
+	UiLocales string `json:"ui_locales"`
+}
+
+func handleOIDCRPInitLogout(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	params, err := fetchOIDCRPInitLogoutParam(req)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	doLogout(ctx, w, req)
+	var redirUrl string
+	if len(params.PostLogoutRedirectUri) > 0 {
+		redirUrl = params.PostLogoutRedirectUri
+		if len(params.State) > 0 {
+			redirUrl = addQuery(redirUrl, jsonutils.Marshal(map[string]string{"state": params.State}))
+		}
+	} else {
+		redirUrl = getSsoAuthCallbackUrl()
+	}
+	appsrv.SendRedirect(w, redirUrl)
+}
+
+func fetchOIDCRPInitLogoutParam(req *http.Request) (*SOIDCRPInitLogoutRequest, error) {
+	var qs string
+	if req.Method == "GET" {
+		qs = req.URL.RawQuery
+	} else if req.Method == "POST" {
+		b, err := req.GetBody()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetBody")
+		}
+		defer b.Close()
+		qsBytes, err := ioutil.ReadAll(b)
+		if err != nil {
+			return nil, errors.Wrap(err, "ioutil.ReadAll")
+		}
+		qs = string(qsBytes)
+	}
+	params := SOIDCRPInitLogoutRequest{}
+	if len(qs) == 0 {
+		return &params, nil
+	}
+	qsJson, err := jsonutils.ParseQueryString(qs)
+	if err != nil {
+		return nil, errors.Wrap(err, "jsonutils.ParseQueryString")
+	}
+	err = qsJson.Unmarshal(&params)
+	if err != nil {
+		return nil, errors.Wrap(err, "qsJson.Unmarshal")
+	}
+	return &params, nil
 }
