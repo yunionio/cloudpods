@@ -45,7 +45,6 @@ type ProxmoxClientConfig struct {
 	password string
 	host     string
 	authURL  string
-	opt      string
 	port     int
 
 	csrfToken  string
@@ -54,13 +53,13 @@ type ProxmoxClientConfig struct {
 	debug bool
 }
 
-func NewProxmoxClientConfig(username, password, host, opt string, port, tasktimeout int) *ProxmoxClientConfig {
+func NewProxmoxClientConfig(username, password, host string, port int) *ProxmoxClientConfig {
+
 	cfg := &ProxmoxClientConfig{
 		username: username,
 		password: password,
 		host:     host,
-		authURL:  fmt.Sprintf("https://%s:%s/api2/json", host, port),
-		opt:      opt,
+		authURL:  fmt.Sprintf("https://%s:%d/api2/json", host, port),
 		port:     port,
 	}
 	return cfg
@@ -89,7 +88,6 @@ func (self *SProxmoxClient) auth() error {
 	params := map[string]interface{}{
 		"username": self.username,
 		"password": self.password,
-		"opt":      self.opt,
 	}
 	ret, err := self.__jsonRequest(httputils.POST, AUTH_ADDR, params)
 	if err != nil {

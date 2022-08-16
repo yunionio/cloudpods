@@ -71,6 +71,21 @@ func (self *SProxmoxProviderFactory) ValidateCreateCloudaccountData(ctx context.
 	return output, nil
 }
 
+func (self *SProxmoxProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
+	if len(input.Username) == 0 {
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "username")
+	}
+	if len(input.Password) == 0 {
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "password")
+	}
+	output = cloudprovider.SCloudaccount{
+		Account: input.Username,
+		Secret:  input.Password,
+	}
+	return output, nil
+}
+
 func parseHostPort(_url string) (string, int, error) {
 	urlParse, err := url.Parse(_url)
 	if err != nil {
@@ -94,7 +109,7 @@ func (self *SProxmoxProviderFactory) GetProvider(cfg cloudprovider.ProviderConfi
 
 	client, err := proxmox.NewProxmoxClient(
 		proxmox.NewProxmoxClientConfig(
-			host, cfg.Account, cfg.Secret, port,
+			cfg.Account, cfg.Secret, host, port,
 		).CloudproviderConfig(cfg),
 	)
 	if err != nil {
@@ -144,10 +159,6 @@ func (self *SProxmoxProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, err
 
 func (self *SProxmoxProvider) GetAccountId() string {
 	return self.client.GetAccountId()
-}
-
-func (self *SInCloudSphereProvider) GetIRegions() []cloudprovider.ICloudRegion {
-	return self.client.GetIRegions()
 }
 
 func (self *SProxmoxProvider) GetIRegions() []cloudprovider.ICloudRegion {

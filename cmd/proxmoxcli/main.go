@@ -29,9 +29,9 @@ import (
 
 type BaseOptions struct {
 	Debug      bool   `help:"debug mode"`
-	Host       string `help:"Host" default:"$PROXMOX_HOST" metavar:"PROXMOX_HOST"`
 	Username   string `help:"Username" default:"$PROXMOX_USERNAME" metavar:"PROXMOX_USERNAME"`
 	Password   string `help:"Password" default:"$PROXMOX_PASSWORD" metavar:"PROXMOX_PASSWORD"`
+	Host       string `help:"Host" default:"$PROXMOX_HOST" metavar:"PROXMOX_HOST"`
 	Port       int    `help:"Port" default:"$PROXMOX_PORT|8006" metavar:"PROXMOX_PORT"`
 	SUBCOMMAND string `help:"proxmoxcli subcommand" subcommand:"true"`
 }
@@ -90,9 +90,9 @@ func newClient(options *BaseOptions) (*proxmox.SRegion, error) {
 
 	cli, err := proxmox.NewProxmoxClient(
 		proxmox.NewProxmoxClientConfig(
-			options.Host,
 			options.Username,
 			options.Password,
+			options.Host,
 			options.Port,
 		).Debug(options.Debug).
 			CloudproviderConfig(
