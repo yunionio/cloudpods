@@ -527,6 +527,17 @@ func (man *SNetworkAddressManager) ListItemFilter(ctx context.Context, q *sqlche
 		idq = idq.Join(gq, sqlchemy.Equals(gq.Field("id"), gnq.Field("guest_id")))
 		q = q.In("id", idq.SubQuery())
 	}
+
+	q, err = managedResourceFilterByAccount(q, input.ManagedResourceListInput, "network_id", func() *sqlchemy.SQuery {
+		networks := NetworkManager.Query().SubQuery()
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		subq := networks.Query(networks.Field("id"))
+		subq = subq.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("network_id")))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		return subq
+	})
+
 	return q, nil
 }
 
