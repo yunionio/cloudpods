@@ -108,41 +108,73 @@ func newClient(options *BaseOptions) (*proxmox.SRegion, error) {
 	return cli.GetRegion()
 }
 
+func test(options *BaseOptions) {
+
+	cfg := &httpproxy.Config{
+		HTTPProxy:  os.Getenv("HTTP_PROXY"),
+		HTTPSProxy: os.Getenv("HTTPS_PROXY"),
+		NoProxy:    os.Getenv("NO_PROXY"),
+	}
+
+	cfgProxyFunc := cfg.ProxyFunc()
+	proxyFunc := func(req *http.Request) (*url.URL, error) {
+		return cfgProxyFunc(req.URL)
+	}
+
+	proxmox.NewProxmoxClient(
+		proxmox.NewProxmoxClientConfig(
+			options.Username,
+			options.Password,
+			options.Host,
+			options.Port,
+		).Debug(options.Debug).
+			CloudproviderConfig(
+				cloudprovider.ProviderConfig{
+					ProxyFunc: proxyFunc,
+				},
+			),
+	)
+
+}
+
 func main() {
 	parser, e := getSubcommandParser()
 	if e != nil {
 		showErrorAndExit(e)
 	}
+
 	e = parser.ParseArgs(os.Args[1:], false)
 	options := parser.Options().(*BaseOptions)
 
-	if parser.IsHelpSet() {
-		fmt.Print(parser.HelpString())
-		return
-	}
-	subcmd := parser.GetSubcommand()
-	subparser := subcmd.GetSubParser()
-	if e != nil || subparser == nil {
-		if subparser != nil {
-			fmt.Print(subparser.Usage())
-		} else {
-			fmt.Print(parser.Usage())
-		}
-		showErrorAndExit(e)
-		return
-	}
-	suboptions := subparser.Options()
-	if subparser.IsHelpSet() {
-		fmt.Print(subparser.HelpString())
-		return
-	}
-	var region *proxmox.SRegion
-	region, e = newClient(options)
-	if e != nil {
-		showErrorAndExit(e)
-	}
-	e = subcmd.Invoke(region, suboptions)
-	if e != nil {
-		showErrorAndExit(e)
-	}
+	test(options)
+
+	// if parser.IsHelpSet() {
+	// 	fmt.Print(parser.HelpString())
+	// 	return
+	// }
+	// subcmd := parser.GetSubcommand()
+	// subparser := subcmd.GetSubParser()
+	// if e != nil || subparser == nil {
+	// 	if subparser != nil {
+	// 		fmt.Print(subparser.Usage())
+	// 	} else {
+	// 		fmt.Print(parser.Usage())
+	// 	}
+	// 	showErrorAndExit(e)
+	// 	return
+	// }
+	// suboptions := subparser.Options()
+	// if subparser.IsHelpSet() {
+	// 	fmt.Print(subparser.HelpString())
+	// 	return
+	// }
+	// var region *proxmox.SRegion
+	// region, e = newClient(options)
+	// if e != nil {
+	// 	showErrorAndExit(e)
+	// }
+	// e = subcmd.Invoke(region, suboptions)
+	// if e != nil {
+	// 	showErrorAndExit(e)
+	// }
 }

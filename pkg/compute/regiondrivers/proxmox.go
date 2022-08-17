@@ -19,15 +19,15 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type SInCloudSphereRegionDriver struct {
+type SProxmoxRegionDriver struct {
 	SManagedVirtualizationRegionDriver
 }
 
 func init() {
-	driver := SInCloudSphereRegionDriver{}
+	driver := SProxmoxRegionDriver{}
 	models.RegisterRegionDriver(&driver)
 }
 
-func (self *SInCloudSphereRegionDriver) GetProvider() string {
+func (self *SProxmoxRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_PROXMOX
 }

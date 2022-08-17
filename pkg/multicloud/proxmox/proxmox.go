@@ -84,6 +84,11 @@ func NewProxmoxClient(cfg *ProxmoxClientConfig) (*SProxmoxClient, error) {
 	return client, client.auth()
 }
 
+type sessonMsg struct {
+	username            string
+	CSRFPreventionToken string
+}
+
 func (self *SProxmoxClient) auth() error {
 	params := map[string]interface{}{
 		"username": self.username,
@@ -94,18 +99,23 @@ func (self *SProxmoxClient) auth() error {
 		return errors.Wrapf(err, "post")
 	}
 
-	if ret.Contains("ticket") && ret.Contains("CSRFPreventionToken") {
-		self.authTicket, err = ret.GetString("ticket")
-		if err != nil {
-			return errors.Wrapf(err, "get authTicket")
-		}
+	dat, err := ret.Get("data")
+	if err != nil {
+		return errors.Wrapf(err, "decode data")
+	}
 
-		self.csrfToken, err = ret.GetString("CSRFPreventionToken")
-		if err != nil {
-			return errors.Wrapf(err, "get csrfToken")
-		}
+	if ticket, err := dat.Get("ticket"); err != nil {
+		return errors.Wrapf(err, "get ticket")
+	} else {
+		self.authTicket = ticket.PrettyString()
+		log.Debugf("ticket=%s", self.authTicket)
+	}
 
-		return nil
+	if token, err := dat.Get("CSRFPreventionToken"); err != nil {
+		return errors.Wrapf(err, "get Token")
+	} else {
+		self.csrfToken = token.PrettyString()
+		log.Debugf("token=%s", self.csrfToken)
 	}
 
 	return fmt.Errorf(ret.String())
@@ -141,6 +151,7 @@ func (ce *ProxmoxError) ParseErrorFromJsonResponse(statusCode int, body jsonutil
 		ce.Code = statusCode
 	}
 	if ce.Code == 404 || ce.Code == 400 {
+		log.Errorf("code: %d", ce.Code)
 		return errors.Wrap(cloudprovider.ErrNotFound, ce.Error())
 	}
 	return ce
@@ -208,6 +219,7 @@ func (cli *SProxmoxClient) _jsonRequest(method httputils.THttpMethod, res string
 func (cli *SProxmoxClient) __jsonRequest(method httputils.THttpMethod, res string, params interface{}) (jsonutils.JSONObject, error) {
 	client := httputils.NewJsonClient(cli.getDefaultClient())
 	url := fmt.Sprintf("%s/%s", cli.authURL, strings.TrimPrefix(res, "/"))
+	log.Debugf("url : %s", url)
 	req := httputils.NewJsonRequest(method, url, params)
 	header := http.Header{}
 	if len(cli.csrfToken) > 0 && len(cli.csrfToken) > 0 && res != AUTH_ADDR {
@@ -215,8 +227,8 @@ func (cli *SProxmoxClient) __jsonRequest(method httputils.THttpMethod, res strin
 		header.Set("Cookie", "CSRFPreventionToken"+cli.csrfToken)
 	}
 
-	header.Set("Content-Type", "application/x-www-form-urlencoded")
-	header.Set("Accept", "application/json")
+	//header.Set("Content-Type", "application/x-www-form-urlencoded")
+	//header.Set("Accept", "application/json")
 
 	req.SetHeader(header)
 	oe := &ProxmoxError{}

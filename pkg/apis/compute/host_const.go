@@ -41,6 +41,7 @@ const (
 	HOST_TYPE_NUTANIX        = "nutanix"
 	HOST_TYPE_BINGO_CLOUD    = "bingocloud"
 	HOST_TYPE_INCLOUD_SPHERE = "incloudsphere"
+	HOST_TYPE_PROXMOX        = "proxmox"
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 

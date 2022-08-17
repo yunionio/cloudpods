@@ -12,22 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package regiondrivers
+package hostdrivers
 
 import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type SInCloudSphereRegionDriver struct {
-	SManagedVirtualizationRegionDriver
+type SProxmoxHostDriver struct {
+	SManagedVirtualizationHostDriver
 }
 
 func init() {
-	driver := SInCloudSphereRegionDriver{}
-	models.RegisterRegionDriver(&driver)
+	driver := SProxmoxHostDriver{}
+	models.RegisterHostDriver(&driver)
 }
 
-func (self *SInCloudSphereRegionDriver) GetProvider() string {
-	return api.CLOUD_PROVIDER_PROXMOX
+func (self *SProxmoxHostDriver) GetHostType() string {
+	return api.HYPERVISOR_PROXMOX
+}
+
+func (self *SProxmoxHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_PROXMOX
+}
+
+func (self *SProxmoxHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+	return nil
+}
+
+func (driver *SProxmoxHostDriver) GetStoragecacheQuota(host *models.SHost) int {
+	return 100
 }
