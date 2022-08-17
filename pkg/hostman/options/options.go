@@ -184,6 +184,8 @@ type SHostOptions struct {
 	LocalBackupTempPath    string `help:"the local temporary directory for backup" default:"/opt/cloud/workspace/run/backups"`
 
 	BinaryMemcleanPath string `help:"execute binary memclean path" default:"/opt/yunion/bin/memclean"`
+
+	MaxHotplugVCpuCount int `help:"maximal possible vCPU count that the platform kvm supports"`
 }
 
 var (

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -422,7 +423,13 @@ func (o baseOptions_x86_64) Machine(mType string, accel string) string {
 }
 
 func (o baseOptions_x86_64) SMP(cpus uint) string {
-	return fmt.Sprintf("-smp cpus=%d,sockets=2,cores=64,maxcpus=128", cpus)
+	maxCpus := options.HostOptions.MaxHotplugVCpuCount
+	if maxCpus == 0 {
+		maxCpus = 128
+	}
+	sockets := 2
+	cores := maxCpus / sockets
+	return fmt.Sprintf("-smp cpus=%d,sockets=%d,cores=%d,maxcpus=%d", cpus, sockets, cores, maxCpus)
 }
 
 func (o baseOptions_x86_64) Memory(sizeMB uint64) string {
@@ -511,7 +518,7 @@ func (o baseOptions_aarch64) Machine(mType string, accel string) string {
 	if mType == "" || mType == compute.VM_MACHINE_TYPE_PC || mType == compute.VM_MACHINE_TYPE_Q35 {
 		mType = "virt"
 	}
-	return fmt.Sprintf("-machine %s,accel=%s,gic-version=3", mType, accel)
+	return fmt.Sprintf("-machine %s,accel=%s,gic-version=max", mType, accel)
 }
 
 func (o baseOptions_aarch64) NoKVMPitReinjection() string {
@@ -525,7 +532,13 @@ func (o baseOptions_aarch64) Global() string {
 func (o baseOptions_aarch64) SMP(cpus uint) string {
 	// warning: Number of hotpluggable cpus requested (128)
 	// exceeds the recommended cpus supported by KVM (32)
-	return fmt.Sprintf("-smp cpus=%d,sockets=2,cores=32,maxcpus=64", cpus)
+	maxCpus := options.HostOptions.MaxHotplugVCpuCount
+	if maxCpus == 0 {
+		maxCpus = 64
+	}
+	sockets := 2
+	cores := maxCpus / sockets
+	return fmt.Sprintf("-smp cpus=%d,sockets=%d,cores=%d,maxcpus=%d", cpus, sockets, cores, maxCpus)
 }
 
 func (o baseOptions_aarch64) Memory(sizeMB uint64) string {
