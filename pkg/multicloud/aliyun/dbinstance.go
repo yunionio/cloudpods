@@ -353,12 +353,17 @@ func (rds *SDBInstance) GetInternalConnectionStr() string {
 		return ""
 	}
 
+	str := ""
 	for _, net := range rds.netInfo {
 		if net.IPType != "Public" {
-			return net.ConnectionString
+			if net.IPType == "Private" {
+				return net.ConnectionString
+			} else if net.IPType == "Inner" {
+				str = net.ConnectionString
+			}
 		}
 	}
-	return ""
+	return str
 }
 
 func (rds *SDBInstance) GetConnectionStr() string {
