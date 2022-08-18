@@ -84,11 +84,6 @@ func NewProxmoxClient(cfg *ProxmoxClientConfig) (*SProxmoxClient, error) {
 	return client, client.auth()
 }
 
-type sessonMsg struct {
-	username            string
-	CSRFPreventionToken string
-}
-
 func (self *SProxmoxClient) auth() error {
 	params := map[string]interface{}{
 		"username": self.username,
@@ -104,21 +99,19 @@ func (self *SProxmoxClient) auth() error {
 		return errors.Wrapf(err, "decode data")
 	}
 
-	if ticket, err := dat.Get("ticket"); err != nil {
+	if ticket, err := dat.GetString("ticket"); err != nil {
 		return errors.Wrapf(err, "get ticket")
 	} else {
-		self.authTicket = ticket.PrettyString()
-		log.Debugf("ticket=%s", self.authTicket)
+		self.authTicket = ticket
 	}
 
-	if token, err := dat.Get("CSRFPreventionToken"); err != nil {
+	if token, err := dat.GetString("CSRFPreventionToken"); err != nil {
 		return errors.Wrapf(err, "get Token")
 	} else {
-		self.csrfToken = token.PrettyString()
-		log.Debugf("token=%s", self.csrfToken)
+		self.csrfToken = token
 	}
 
-	return fmt.Errorf(ret.String())
+	return nil
 }
 
 func (self *SProxmoxClient) GetRegion() (*SRegion, error) {
@@ -183,14 +176,19 @@ func (cli *SProxmoxClient) post(res string, params interface{}) (jsonutils.JSONO
 }
 
 func (cli *SProxmoxClient) get(res string, params url.Values, retVal interface{}) error {
-	if params != nil {
-		res = fmt.Sprintf("%s?%s", res, params.Encode())
-	}
+
 	resp, err := cli._jsonRequest(httputils.GET, res, nil)
 	if err != nil {
 		return err
 	}
-	return resp.Unmarshal(retVal)
+
+	dat, err := resp.Get("data")
+
+	if err != nil {
+		return errors.Wrapf(err, "decode data")
+	}
+
+	return dat.Unmarshal(retVal)
 }
 
 func (cli *SProxmoxClient) del(res string, params url.Values, retVal interface{}) error {
@@ -201,7 +199,15 @@ func (cli *SProxmoxClient) del(res string, params url.Values, retVal interface{}
 	if err != nil {
 		return err
 	}
-	return resp.Unmarshal(retVal)
+
+	dat, err := resp.Get("data")
+
+	if err != nil {
+		return errors.Wrapf(err, "decode data")
+	}
+
+	return dat.Unmarshal(retVal)
+
 }
 
 func (cli *SProxmoxClient) _jsonRequest(method httputils.THttpMethod, res string, params interface{}) (jsonutils.JSONObject, error) {
@@ -217,14 +223,14 @@ func (cli *SProxmoxClient) _jsonRequest(method httputils.THttpMethod, res string
 }
 
 func (cli *SProxmoxClient) __jsonRequest(method httputils.THttpMethod, res string, params interface{}) (jsonutils.JSONObject, error) {
+	log.Debugf("%s/%s \n do debug =========================================== \n", cli.authURL, strings.TrimPrefix(res, "/"))
 	client := httputils.NewJsonClient(cli.getDefaultClient())
 	url := fmt.Sprintf("%s/%s", cli.authURL, strings.TrimPrefix(res, "/"))
-	log.Debugf("url : %s", url)
 	req := httputils.NewJsonRequest(method, url, params)
 	header := http.Header{}
 	if len(cli.csrfToken) > 0 && len(cli.csrfToken) > 0 && res != AUTH_ADDR {
 		header.Set("Cookie", "PVEAuthCookie="+cli.authTicket)
-		header.Set("Cookie", "CSRFPreventionToken"+cli.csrfToken)
+		header.Set("CSRFPreventionToken", "CSRFPreventionToken"+cli.csrfToken)
 	}
 
 	//header.Set("Content-Type", "application/x-www-form-urlencoded")

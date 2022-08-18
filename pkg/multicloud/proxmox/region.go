@@ -95,11 +95,6 @@ func (self *SRegion) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
 
-//func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-//vpc := self.getVpc()
-//return []cloudprovider.ICloudVpc{vpc}, nil
-//}
-
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
