@@ -50,6 +50,8 @@ func init() {
 		Type          string `help:"Disk type" choices:"sys|data|swap|volume"`
 		CloudType     string `help:"Public cloud or private cloud" choices:"Public|Private"`
 
+		OrderByGuestCount string `help:"Order By Guest Count"`
+
 		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 
 		SnapshotpolicyId string `help:"snapshotpolicy id"`
