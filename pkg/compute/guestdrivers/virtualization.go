@@ -213,6 +213,8 @@ func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, guest
 		if len(candidates) == 0 {
 			candidates = ss
 		}
+	} else {
+		candidates = ss
 	}
 	return models.ChooseLeastUsedStorage(candidates, ""), nil
 }
