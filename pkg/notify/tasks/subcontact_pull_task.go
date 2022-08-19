@@ -63,6 +63,20 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		self.SetStageComplete(ctx, nil)
 		return
 	}
+	// sync email and mobile to keystone
+	s := auth.GetSession(ctx, self.UserCred, "")
+	mobile := receiver.Mobile
+	if strings.HasPrefix(mobile, "+86 ") {
+		mobile = strings.TrimSpace(mobile[4:])
+	}
+	params := map[string]string{
+		"email":  receiver.Email,
+		"mobile": receiver.Mobile,
+	}
+	_, err := identity.UsersV3.Update(s, receiver.Id, jsonutils.Marshal(params))
+	if err != nil {
+		log.Errorf("update user email and mobile fail %s", err)
+	}
 	var contactTypes []string
 	if self.Params.Contains("contact_types") {
 		jArray, _ := self.Params.Get("contact_types")
@@ -94,7 +108,7 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		receiver.MarkContactTypeVerified(cType)
 	}
 	// push cache
-	err := receiver.PushCache(ctx)
+	err = receiver.PushCache(ctx)
 	if err != nil {
 		reason := fmt.Sprintf("PushCache: %v", err)
 		self.taskFailed(ctx, receiver, reason)
@@ -104,20 +118,6 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		reason := strings.Join(failedReasons, "; ")
 		self.taskFailed(ctx, receiver, reason)
 		return
-	}
-	// sync email and mobile to keystone
-	s := auth.GetSession(ctx, self.UserCred, "")
-	mobile := receiver.Mobile
-	if strings.HasPrefix(mobile, "+86 ") {
-		mobile = strings.TrimSpace(mobile[4:])
-	}
-	params := map[string]string{
-		"email":  receiver.Email,
-		"mobile": receiver.Mobile,
-	}
-	_, err = identity.UsersV3.Update(s, receiver.Id, jsonutils.Marshal(params))
-	if err != nil {
-		log.Errorf("update user email and mobile fail %s", err)
 	}
 	// success
 	receiver.SetStatus(self.UserCred, apis.RECEIVER_STATUS_READY, "")
