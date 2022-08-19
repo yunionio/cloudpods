@@ -26,12 +26,14 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	notify_api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	notify_modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/s3auth"
 )
@@ -391,6 +393,26 @@ func authUserByAccessKeyV3(ctx context.Context, input mcclient.SAuthenticationIn
 	return usrExt, credential.ProjectId, aksk, nil
 }
 
+func authUserByVerify(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
+	extUser, err := models.UserManager.FetchUserExtended(input.Auth.Identity.Verify.Uid, "", "", "")
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchUserExtended")
+	}
+	s, err := GetDefaulAdminSession(ctx, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDefaultAdminSession")
+	}
+	verifyInput := notify_api.ReceiverVerifyInput{
+		ContactType: input.Auth.Identity.Verify.ContactType,
+		Token:       input.Auth.Identity.Verify.VerifyCode,
+	}
+	_, err = notify_modules.NotifyReceiver.PerformAction(s, extUser.Id, "verify", jsonutils.Marshal(verifyInput))
+	if err != nil {
+		return nil, errors.Wrap(err, "Verify")
+	}
+	return extUser, nil
+}
+
 // +onecloud:swagger-gen-route-method=POST
 // +onecloud:swagger-gen-route-path=/v3/auth/tokens
 // +onecloud:swagger-gen-route-tag=authentication
@@ -444,6 +466,11 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		user, err = authUserByOAuth2(ctx, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserByOAuth2")
+		}
+	case api.AUTH_METHOD_VERIFY:
+		user, err = authUserByVerify(ctx, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "authUserByVerify")
 		}
 	default:
 		// auth by other methods, e.g. password , etc...

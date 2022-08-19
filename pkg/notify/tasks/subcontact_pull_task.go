@@ -27,6 +27,8 @@ import (
 	apis "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -102,6 +104,20 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		reason := strings.Join(failedReasons, "; ")
 		self.taskFailed(ctx, receiver, reason)
 		return
+	}
+	// sync email and mobile to keystone
+	s := auth.GetSession(ctx, self.UserCred, "")
+	mobile := receiver.Mobile
+	if strings.HasPrefix(mobile, "+86 ") {
+		mobile = strings.TrimSpace(mobile[4:])
+	}
+	params := map[string]string{
+		"email":  receiver.Email,
+		"mobile": receiver.Mobile,
+	}
+	_, err = identity.UsersV3.Update(s, receiver.Id, jsonutils.Marshal(params))
+	if err != nil {
+		log.Errorf("update user email and mobile fail %s", err)
 	}
 	// success
 	receiver.SetStatus(self.UserCred, apis.RECEIVER_STATUS_READY, "")
