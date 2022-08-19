@@ -22,13 +22,15 @@ import (
 type SNode struct {
 	CPU            string `json:"CPU"`
 	Level          string `json:"level"`
-	Maxcpu         int    `json:"maxcpu"`
-	Maxmem         int    `json:"maxmem"`
-	Mem            int    `json:"mem"`
 	Node           string `json:"node"`
 	SslFingerprint string `json:"ssl_fingerprint"`
 	Status         string `json:"status"`
 	Uptime         int    `json:"uptime"`
+	Maxcpu         int    `json:"maxcpu"`
+	Maxmem         int    `json:"maxmem"`
+	Mem            int    `json:"mem"`
+	Type           string `json:"type"`
+	Id             string `json:"id"`
 }
 
 func (self *SRegion) GetNodes() ([]SNode, error) {
