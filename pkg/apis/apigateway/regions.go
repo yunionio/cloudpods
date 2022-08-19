@@ -32,8 +32,6 @@ type SRegionsReponse struct {
 	Regions []string `json:"regions,allowempty"`
 	Domains []string `json:"domains,allowempty"`
 
-	Captcha bool `json:"captcha,allowempty"`
-
 	Idps              []SIdp `json:"idps,allowempty"`
 	ReturnFullDomains bool   `json:"return_full_domains"`
 

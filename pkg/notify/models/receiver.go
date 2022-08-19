@@ -845,13 +845,15 @@ func (r *SReceiver) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	}
 	// 需求：管理后台新建的联系人，手机号和邮箱无需进行校验
 	// 方案：检查请求者对于创建联系人 是否具有system scope
-	allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
-	if allowScope == rbacutils.ScopeSystem {
-		if r.EnabledEmail.Bool() {
-			r.VerifiedEmail = tristate.True
-		}
-		if r.EnabledMobile.Bool() {
-			r.VerifiedMobile = tristate.True
+	if input.ForceVerified {
+		allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
+		if allowScope == rbacutils.ScopeSystem {
+			if r.EnabledEmail.Bool() {
+				r.VerifiedEmail = tristate.True
+			}
+			if r.EnabledMobile.Bool() {
+				r.VerifiedMobile = tristate.True
+			}
 		}
 	}
 	return nil
@@ -914,21 +916,23 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		log.Errorf("PushCache: %v", err)
 	}
 	// 管理后台修改联系人，如果修改或者启用手机号和邮箱，无需进行校验
-	allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
-	if allowScope == rbacutils.ScopeSystem {
-		// 修改并启用
-		if len(input.Email) != 0 && input.Email != r.Email && r.EnabledEmail.Bool() {
-			r.VerifiedEmail = tristate.True
-		}
-		if len(mobile) != 0 && mobile != r.Mobile && r.EnabledMobile.Bool() {
-			r.VerifiedMobile = tristate.True
-		}
-		// 从禁用变启用
-		if !originEmailEnable.Bool() && r.EnabledEmail.Bool() {
-			r.VerifiedEmail = tristate.True
-		}
-		if !originMobileEnable.Bool() && r.EnabledMobile.Bool() {
-			r.VerifiedMobile = tristate.True
+	if input.ForceVerified {
+		allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
+		if allowScope == rbacutils.ScopeSystem {
+			// 修改并启用
+			if len(input.Email) != 0 && input.Email != r.Email && r.EnabledEmail.Bool() {
+				r.VerifiedEmail = tristate.True
+			}
+			if len(mobile) != 0 && mobile != r.Mobile && r.EnabledMobile.Bool() {
+				r.VerifiedMobile = tristate.True
+			}
+			// 从禁用变启用
+			if !originEmailEnable.Bool() && r.EnabledEmail.Bool() {
+				r.VerifiedEmail = tristate.True
+			}
+			if !originMobileEnable.Bool() && r.EnabledMobile.Bool() {
+				r.VerifiedMobile = tristate.True
+			}
 		}
 	}
 	r.Mobile = mobile
@@ -947,7 +951,6 @@ func (r *SReceiver) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 	if err != nil {
 		log.Errorf("unable to StartSubcontactPullTask: %v", err)
 	}
-
 }
 
 func (r *SReceiver) StartSubcontactPullTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
@@ -1056,11 +1059,11 @@ func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.
 		return nil, r.StartSubcontactPullTask(ctx, userCred, params, "")
 	}
 	_, err := VerificationManager.Create(ctx, r.Id, input.ContactType)
-	if err == ErrVerifyFrequently {
+	/*if err == ErrVerifyFrequently {
 		return nil, httperrors.NewForbiddenError("Send verify message too frequently, please try again later")
-	}
+	}*/
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "VerifyManager.Create")
 	}
 
 	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
