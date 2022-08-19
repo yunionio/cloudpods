@@ -34,6 +34,9 @@ import (
 )
 
 func pingProbeCoolector(s *mcclient.ClientSession, args *common.ReportOptions) error {
+	if args.DisablePingProbe {
+		return nil
+	}
 	isRoot := sysutils.IsRootPermission()
 	if !isRoot {
 		return errors.Error("require root permissions")
