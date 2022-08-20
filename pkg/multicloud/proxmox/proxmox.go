@@ -223,7 +223,6 @@ func (cli *SProxmoxClient) _jsonRequest(method httputils.THttpMethod, res string
 }
 
 func (cli *SProxmoxClient) __jsonRequest(method httputils.THttpMethod, res string, params interface{}) (jsonutils.JSONObject, error) {
-	log.Debugf("%s/%s \n do debug =========================================== \n", cli.authURL, strings.TrimPrefix(res, "/"))
 	client := httputils.NewJsonClient(cli.getDefaultClient())
 	url := fmt.Sprintf("%s/%s", cli.authURL, strings.TrimPrefix(res, "/"))
 	req := httputils.NewJsonRequest(method, url, params)

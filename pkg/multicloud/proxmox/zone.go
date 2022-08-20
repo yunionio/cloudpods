@@ -15,6 +15,9 @@
 package proxmox
 
 import (
+	"net/url"
+
+	"github.com/pkg/errors"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -26,19 +29,36 @@ type SZone struct {
 
 	region *SRegion
 
-	SNode
+	Name    string
+	Nodes   int
+	Quorate int
+	Version int
+}
+
+type ClusterStatus struct {
+	Nodes   int    `json:"nodes,omitempty"`
+	Quorate int    `json:"quorate,omitempty"`
+	Version int    `json:"version,omitempty"`
+	Type    string `json:"type"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Online  int    `json:"online,omitempty"`
+	Level   string `json:"level,omitempty"`
+	Nodeid  int    `json:"nodeid,omitempty"`
+	Local   int    `json:"local,omitempty"`
+	IP      string `json:"ip,omitempty"`
 }
 
 func (self *SZone) GetId() string {
-	return self.Node
+	return self.Name
 }
 
 func (self *SZone) GetGlobalId() string {
-	return self.Node
+	return self.Name
 }
 
 func (self *SZone) GetName() string {
-	return self.Node
+	return self.Name
 }
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
@@ -61,14 +81,12 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 		return nil, err
 	}
 	host.zone = self
-	if host.DataCenterId != self.Id {
-		return nil, cloudprovider.ErrNotFound
-	}
+
 	return host, nil
 }
 
 func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	hosts, err := self.region.GetHosts(self.Id)
+	hosts, err := self.region.GetHosts()
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +99,7 @@ func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	storages, err := self.region.GetStoragesByDc(self.Id)
+	storages, err := self.region.GetStorages()
 	if err != nil {
 		return nil, err
 	}
@@ -96,11 +114,30 @@ func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	storage, err := self.region.GetStorage(id)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetStorage %s", id)
 	}
-	if storage.DataCenterId != self.Id {
-		return nil, cloudprovider.ErrNotFound
-	}
+
 	storage.zone = self
 	return storage, nil
+}
+
+func (self *SRegion) GetZone() (*SZone, error) {
+	ret := &SZone{region: self}
+	css := []ClusterStatus{}
+	err := self.get("/cluster/status", url.Values{}, css)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, cs := range css {
+		if cs.Type == "cluster" {
+			ret.Name = cs.Name
+			ret.Nodes = cs.Nodes
+			ret.Quorate = cs.Quorate
+			ret.Version = cs.Version
+		}
+		break
+	}
+
+	return ret, nil
 }

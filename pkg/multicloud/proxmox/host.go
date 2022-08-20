@@ -17,6 +17,7 @@ package proxmox
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 
@@ -30,6 +31,9 @@ type SHost struct {
 	multicloud.SHostBase
 
 	zone *SZone
+
+	Id   string
+	Node string
 
 	Uptime     int      `json:"uptime"`
 	Wait       int      `json:"wait"`
@@ -79,16 +83,16 @@ type Ksm struct {
 	Shared int `json:"shared"`
 }
 
-func (host *SHost) GetId() string {
-	return host.zone.GetGlobalId()
+func (self *SHost) GetId() string {
+	return self.Id
 }
 
-func (host *SHost) GetGlobalId() string {
-	return host.GetId()
+func (self *SHost) GetGlobalId() string {
+	return self.Id
 }
 
-func (host *SHost) GetName() string {
-	return fmt.Sprintf("%s-%s", host.zone.region.client.cpcfg.Name, host.zone.GetName())
+func (self *SHost) GetName() string {
+	return self.Node
 }
 
 func (self *SHost) GetEnabled() bool {
@@ -159,6 +163,10 @@ func (self *SHost) GetStorageType() string {
 	return api.STORAGE_LOCAL
 }
 
+func (self *SHost) GetHostType() string {
+	return api.HOST_TYPE_PROXMOX
+}
+
 func (self *SHost) GetIsMaintenance() bool {
 	return false
 }
@@ -196,17 +204,24 @@ func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SRegion) GetHosts(dcId string) ([]SHost, error) {
+func (self *SRegion) GetHosts() ([]SHost, error) {
 	hosts := []SHost{}
-	nodes, err := self.GetNodes()
+	resources, err := self.GetClusterNodeResources()
 	if err != nil {
 		return nil, err
 	}
 
-	for _, node := range nodes {
+	for _, rc := range resources {
 		host := &SHost{}
-		res := fmt.Sprintf("nodes/%s/status", node.Id)
-		self.get(res, url.Values{}, host)
+		res := fmt.Sprintf("nodes/%s/status", rc.Node)
+		err := self.get(res, url.Values{}, host)
+		host.Id = rc.Id
+		host.Node = rc.Node
+
+		if err != nil {
+			return nil, err
+		}
+
 		hosts = append(hosts, *host)
 	}
 
@@ -215,6 +230,22 @@ func (self *SRegion) GetHosts(dcId string) ([]SHost, error) {
 
 func (self *SRegion) GetHost(id string) (*SHost, error) {
 	ret := &SHost{}
-	res := fmt.Sprintf("nodes/%s/status", id)
-	return ret, self.get(res, url.Values{}, ret)
+	nodeName := ""
+
+	//"id": "node/strogeNAME",
+	splited := strings.Split(id, "/")
+	if len(splited) == 2 {
+		nodeName = splited[1]
+	}
+
+	res := fmt.Sprintf("nodes/%s/status", nodeName)
+	err := self.get(res, url.Values{}, ret)
+	ret.Id = id
+	ret.Node = nodeName
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
 }

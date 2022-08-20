@@ -20,27 +20,27 @@ import (
 )
 
 func init() {
-	type NodeListOptions struct {
+	type StorageListOptions struct {
 	}
-	shellutils.R(&NodeListOptions{}, "node-list", "list nodes", func(cli *proxmox.SRegion, args *NodeListOptions) error {
-		nodes, err := cli.GetNodes()
+	shellutils.R(&StorageListOptions{}, "storage-list", "list storage", func(cli *proxmox.SRegion, args *StorageListOptions) error {
+		storages, err := cli.GetStorages()
 		if err != nil {
 			return err
 		}
-		printList(nodes, 0, 0, 0, []string{})
+		printList(storages, 0, 0, 0, []string{})
 		return nil
 	})
 
-	type NodeIdOptions struct {
+	type StorageIdOptions struct {
 		ID string
 	}
 
-	shellutils.R(&NodeIdOptions{}, "node-show", "show nodes", func(cli *proxmox.SRegion, args *NodeIdOptions) error {
-		node, err := cli.GetNode(args.ID)
+	shellutils.R(&StorageIdOptions{}, "storage-show", "show storage", func(cli *proxmox.SRegion, args *StorageIdOptions) error {
+		storage, err := cli.GetStorage(args.ID)
 		if err != nil {
 			return err
 		}
-		printObject(node)
+		printObject(storage)
 		return nil
 	})
 

@@ -15,6 +15,13 @@
 package proxmox
 
 import (
+	"fmt"
+	"net/url"
+	"strings"
+
+	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -24,6 +31,9 @@ type SStorage struct {
 	multicloud.InCloudSphereTags
 
 	zone *SZone
+
+	Id   string
+	Node string
 
 	Total        int64   `json:"total"`
 	Storage      string  `json:"storage"`
@@ -42,32 +52,41 @@ func (self *SStorage) GetName() string {
 }
 
 func (self *SStorage) GetId() string {
-	return self.Storage
+	return self.Id
 }
 
 func (self *SStorage) GetGlobalId() string {
 	return self.GetId()
 }
 
+//wait after
+// func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+// 	disks, err := self.zone.region.GetDisks(self.Id)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	ret := []cloudprovider.ICloudDisk{}
+// 	for i := range disks {
+// 		disks[i].region = self.zone.region
+// 		ret = append(ret, &disks[i])
+// 	}
+// 	return ret, nil
+// }
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, err := self.zone.region.GetDisks(self.Id)
-	if err != nil {
-		return nil, err
-	}
-	ret := []cloudprovider.ICloudDisk{}
-	for i := range disks {
-		disks[i].region = self.zone.region
-		ret = append(ret, &disks[i])
-	}
-	return ret, nil
+	return nil, cloudprovider.ErrNotFound
 }
 
+//wait after
+// func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+// 	disk, err := self.zone.region.CreateDisk(conf.Name, self.Id, conf.SizeGb)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return disk, nil
+// }
+
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	disk, err := self.zone.region.CreateDisk(conf.Name, self.Id, conf.SizeGb)
-	if err != nil {
-		return nil, err
-	}
-	return disk, nil
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SStorage) GetCapacityMB() int64 {
@@ -82,18 +101,148 @@ func (self *SStorage) GetEnabled() bool {
 	return true
 }
 
+//wait after
+// func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+// 	disk, err := self.zone.region.GetDisk(id)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if disk.DataStoreId != self.Id {
+// 		return nil, cloudprovider.ErrNotFound
+// 	}
+// 	return disk, nil
+// }
+
 func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	disk, err := self.zone.region.GetDisk(id)
+	return nil, cloudprovider.ErrNotFound
+}
+
+//wait after
+// func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
+// 	cache := &SStoragecache{zone: self.zone}
+// 	return cache
+// }
+
+func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
+	return nil
+}
+
+func (self *SStorage) GetMediumType() string {
+	return api.DISK_TYPE_SSD
+}
+
+func (self *SStorage) GetMountPoint() string {
+	return ""
+}
+
+func (self *SStorage) GetStatus() string {
+	return api.STORAGE_ONLINE
+}
+
+func (self *SStorage) Refresh() error {
+	ret, err := self.zone.region.GetStorage(self.GetGlobalId())
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, ret)
+}
+
+func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
+	return self.zone
+}
+
+func (self *SStorage) GetStorageConf() jsonutils.JSONObject {
+	return jsonutils.NewDict()
+}
+
+func (self *SStorage) GetStorageType() string {
+	return strings.ToLower(self.Type)
+}
+
+func (self *SStorage) IsSysDiskStore() bool {
+	return true
+}
+
+func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	storage, err := self.GetStorage(id)
 	if err != nil {
 		return nil, err
 	}
-	if disk.DataStoreId != self.Id {
-		return nil, cloudprovider.ErrNotFound
+	zone, err := self.GetZone()
+	if err != nil {
+		return nil, err
 	}
-	return disk, nil
+	storage.zone = zone
+	return storage, nil
 }
 
-func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	cache := &SStoragecache{zone: self.zone}
-	return cache
+func (self *SRegion) GetStorages() ([]SStorage, error) {
+	storages := []SStorage{}
+	resources, err := self.GetClusterStoragesResources()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, rc := range resources {
+		storage := &SStorage{}
+		res := fmt.Sprintf("%s/status", rc.Path)
+		err := self.get(res, url.Values{}, storage)
+		storage.Id = rc.Id
+		storage.Node = rc.Node
+
+		if err != nil {
+			return nil, err
+		}
+
+		storages = append(storages, *storage)
+	}
+
+	return storages, nil
+}
+
+func (self *SRegion) GetStoragesByHost(hostId string) ([]SStorage, error) {
+	storages := []SStorage{}
+	nodeName := ""
+	splited := strings.Split(hostId, "/")
+	nodeName = splited[1]
+
+	res := fmt.Sprintf("/nodes/%s/storage", nodeName)
+	err := self.get(res, url.Values{}, &storages)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, storage := range storages {
+		id := fmt.Sprintf("storage/%s/%s", hostId, storage.Storage)
+		storage.Node = hostId
+		storage.Id = id
+	}
+
+	return storages, nil
+}
+
+func (self *SRegion) GetStorage(id string) (*SStorage, error) {
+	ret := &SStorage{}
+
+	//"id": "storage/nodeNAME/strogeNAME",
+	splited := strings.Split(id, "/")
+	nodeName := ""
+	storageName := ""
+
+	if len(splited) == 3 {
+		nodeName = splited[1]
+		storageName = splited[2]
+	}
+
+	res := fmt.Sprintf("/nodes/%s/storage/%s/status", nodeName, storageName)
+	err := self.get(res, url.Values{}, ret)
+	ret.Id = id
+	ret.Node = nodeName
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
 }
