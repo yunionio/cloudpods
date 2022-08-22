@@ -90,6 +90,8 @@ type PingProbeOptions struct {
 	Debug         bool `help:"debug"`
 	ProbeCount    int  `help:"probe count, default is 3" default:"3"`
 	TimeoutSecond int  `help:"probe timeout in second, default is 1 second" default:"1"`
+
+	DisablePingProbe bool `help:"disable ping probe"`
 }
 
 var InstanceProviders = "Aliyun,Azure,Aws,Qcloud,VMWare,Huawei,Openstack,Ucloud,ZStack"
