@@ -36,7 +36,7 @@ func StartService() {
 	duration := time.Duration(opts.CloudproviderSyncInterval) * time.Minute
 	log.Errorf("CloudproviderSyncInterval: %d", opts.CloudproviderSyncInterval)
 	nextSync := time.Now()
-	for i, _ := range common.CustomizeMonTypeList {
+	for i := range common.CustomizeMonTypeList {
 		monType := common.CustomizeMonTypeList[i]
 		cutomizeOperatorChanmap[monType] = make(chan struct{})
 		cloudReportFactory, err := common.GetCloudReportFactory(monType)
@@ -95,7 +95,6 @@ func getCloudproviderList(ctx context.Context) ([]jsonutils.JSONObject, error) {
 	}
 	cloudProviderList := make([]jsonutils.JSONObject, 0)
 	for _, val := range common.SupportMetricBrands {
-
 		query.Add(jsonutils.NewString(val), "provider")
 		tmpList, err := common.ListAllResources(&modules.Cloudproviders, session, query)
 		if err != nil {
@@ -126,5 +125,4 @@ func syncCloudproviderChanMap(cloudproviderList []jsonutils.JSONObject) []jsonut
 		close(channel)
 	}
 	return newCloudprovider
-
 }
