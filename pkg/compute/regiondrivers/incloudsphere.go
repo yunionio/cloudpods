@@ -29,5 +29,5 @@ func init() {
 }
 
 func (self *SInCloudSphereRegionDriver) GetProvider() string {
-	return api.CLOUD_PROVIDER_PROXMOX
+	return api.CLOUD_PROVIDER_INCLOUD_SPHERE
 }

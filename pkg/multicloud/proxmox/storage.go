@@ -59,24 +59,20 @@ func (self *SStorage) GetGlobalId() string {
 	return self.GetId()
 }
 
-//wait after
-// func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-// 	disks, err := self.zone.region.GetDisks(self.Id)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	ret := []cloudprovider.ICloudDisk{}
-// 	for i := range disks {
-// 		disks[i].region = self.zone.region
-// 		ret = append(ret, &disks[i])
-// 	}
-// 	return ret, nil
-// }
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotFound
+	disks, err := self.zone.region.GetDisks(self.Id)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudDisk{}
+	for i := range disks {
+		disks[i].region = self.zone.region
+		ret = append(ret, &disks[i])
+	}
+	return ret, nil
 }
 
-//wait after
+//
 // func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 // 	disk, err := self.zone.region.CreateDisk(conf.Name, self.Id, conf.SizeGb)
 // 	if err != nil {

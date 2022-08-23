@@ -32,6 +32,10 @@ import (
 
 const (
 	CLOUD_PROVIDER_PROXMOX = api.CLOUD_PROVIDER_PROXMOX
+	DISK_DRIVER_SCSI       = "scsi"
+	DISK_DRIVER_IDE        = "ide"
+	DISK_DRIVER_VIRTIO     = "virtio"
+	DISK_DRIVER_SATA       = "sata"
 	AUTH_ADDR              = "/access/ticket"
 )
 
@@ -143,7 +147,7 @@ func (ce *ProxmoxError) ParseErrorFromJsonResponse(statusCode int, body jsonutil
 	if ce.Code == 0 && statusCode > 0 {
 		ce.Code = statusCode
 	}
-	if ce.Code == 404 || ce.Code == 400 {
+	if ce.Code == 404 || ce.Code == 400 || ce.Code == 500 {
 		log.Errorf("code: %d", ce.Code)
 		return errors.Wrap(cloudprovider.ErrNotFound, ce.Error())
 	}
@@ -173,6 +177,11 @@ func (cli *SProxmoxClient) getDefaultClient() *http.Client {
 
 func (cli *SProxmoxClient) post(res string, params interface{}) (jsonutils.JSONObject, error) {
 	return cli._jsonRequest(httputils.POST, res, params)
+}
+
+func (cli *SProxmoxClient) put(res string, params url.Values, body jsonutils.JSONObject, retVal interface{}) error {
+	_, err := cli._jsonRequest(httputils.PUT, res, params)
+	return err
 }
 
 func (cli *SProxmoxClient) get(res string, params url.Values, retVal interface{}) error {

@@ -143,9 +143,9 @@ func (self *SRegion) post(res string, params interface{}) (jsonutils.JSONObject,
 	return self.client.post(res, params)
 }
 
-// func (self *SRegion) put(res string, params url.Values, body jsonutils.JSONObject, retVal interface{}) error {
-// 	return self.client.put(res, params, body, retVal)
-// }
+func (self *SRegion) put(res string, params url.Values, body jsonutils.JSONObject, retVal interface{}) error {
+	return self.client.put(res, params, body, retVal)
+}
 
 func (self *SRegion) del(res string, params url.Values, retVal interface{}) error {
 	return self.client.del(res, params, retVal)

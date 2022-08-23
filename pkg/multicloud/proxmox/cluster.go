@@ -26,7 +26,7 @@ type SClusterResource struct {
 	Netin      int    `json:"netin,omitempty"`
 	Mem        int    `json:"mem,omitempty"`
 	Node       string `json:"node"`
-	Vmid       int    `json:"vmid,omitempty"`
+	VmId       int    `json:"vmid,omitempty"`
 	Maxdisk    int64  `json:"maxdisk"`
 	Netout     int    `json:"netout,omitempty"`
 	Diskwrite  int    `json:"diskwrite,omitempty"`
@@ -46,15 +46,24 @@ type SClusterResource struct {
 }
 
 type SStorageResource struct {
-	Id   string
-	Path string
-	Node string
-	Name string
+	Id     string
+	Path   string
+	Node   string
+	Name   string
+	Shared int
 }
 
 type SNodeResource struct {
 	Id   string
 	Node string
+}
+
+type SVmResource struct {
+	VmId   int
+	Id     string
+	Name   string
+	Node   string
+	Status string
 }
 
 func (self *SRegion) GetClusterAllResources() ([]SClusterResource, error) {
@@ -75,10 +84,11 @@ func (self *SRegion) GetClusterStoragesResources() ([]SStorageResource, error) {
 	for _, rc := range resources {
 		if rc.Type == "storage" {
 			src := SStorageResource{
-				Id:   rc.Id,
-				Path: fmt.Sprintf("/nodes/%s/storage/%s", rc.Node, rc.Storage),
-				Node: rc.Node,
-				Name: rc.Storage,
+				Id:     rc.Id,
+				Path:   fmt.Sprintf("/nodes/%s/storage/%s", rc.Node, rc.Storage),
+				Node:   rc.Node,
+				Name:   rc.Storage,
+				Shared: rc.Shared,
 			}
 
 			storageResources = append(storageResources, src)
@@ -109,4 +119,30 @@ func (self *SRegion) GetClusterNodeResources() ([]SNodeResource, error) {
 	}
 
 	return nodeResources, nil
+}
+
+func (self *SRegion) GetClusterVmResources() ([]SVmResource, error) {
+	resources := []SClusterResource{}
+	VmResources := []SVmResource{}
+	err := self.get("/cluster/resources", url.Values{}, &resources)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, rc := range resources {
+		if rc.Type == "qemu" {
+			vrc := SVmResource{
+				VmId:   rc.VmId,
+				Id:     rc.Id,
+				Name:   rc.Name,
+				Node:   rc.Node,
+				Status: rc.Status,
+			}
+
+			VmResources = append(VmResources, vrc)
+		}
+	}
+
+	return VmResources, nil
 }
