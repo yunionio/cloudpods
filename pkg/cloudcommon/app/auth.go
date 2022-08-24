@@ -100,7 +100,7 @@ func InitBaseAuth(options *common_options.BaseOptions) {
 }
 
 func FetchEtcdServiceInfo() (*identity.EndpointDetails, error) {
-	s := auth.GetAdminSession(context.Background(), "", "")
+	s := auth.GetAdminSession(context.Background(), "")
 	return s.GetCommonEtcdEndpoint()
 }
 

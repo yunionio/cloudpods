@@ -417,7 +417,7 @@ func (cli *SOpenStackClient) getDefaultSession(regionName string) *mcclient.Clie
 		regionName = cli.getDefaultRegionName()
 	}
 	client := cli.getDefaultClient()
-	return client.NewSession(context.Background(), regionName, "", cli.endpointType, cli.tokenCredential, "")
+	return client.NewSession(context.Background(), regionName, "", cli.endpointType, cli.tokenCredential)
 }
 
 func (cli *SOpenStackClient) getDefaultClient() *mcclient.Client {

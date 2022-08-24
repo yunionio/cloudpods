@@ -85,7 +85,7 @@ func StartService() {
 }
 
 func getCloudproviderList(ctx context.Context) ([]jsonutils.JSONObject, error) {
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString("10"), common.KEY_LIMIT)
 	query.Add(jsonutils.NewString("true"), common.KEY_ADMIN)

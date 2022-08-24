@@ -22,6 +22,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func GetDefaulAdminSession(ctx context.Context, region, apiVersion string) (*mcclient.ClientSession, error) {
-	return models.GetDefaultClientSession(ctx, tokens.GetDefaultAdminCredToken(), region, apiVersion), nil
+func GetDefaulAdminSession(ctx context.Context, region string) (*mcclient.ClientSession, error) {
+	return models.GetDefaultClientSession(ctx, tokens.GetDefaultAdminCredToken(), region), nil
 }

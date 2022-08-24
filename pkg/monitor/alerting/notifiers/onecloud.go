@@ -112,7 +112,7 @@ func newOneCloudNotifier(config alerting.NotificationConfig) (alerting.Notifier,
 }
 
 func getAdminSession() *mcclient.ClientSession {
-	return auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	return auth.GetAdminSession(context.Background(), options.Options.Region)
 }
 
 func GetNotifyTemplateConfig(ctx *alerting.EvalContext) monitor.NotificationTemplateConfig {

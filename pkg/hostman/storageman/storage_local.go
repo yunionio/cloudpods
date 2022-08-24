@@ -369,7 +369,7 @@ func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (j
 		encAlg    seclib2.TSymEncAlg
 	)
 	if len(encKeyId) > 0 {
-		session := auth.GetSession(ctx, info.UserCred, consts.GetRegion(), "")
+		session := auth.GetSession(ctx, info.UserCred, consts.GetRegion())
 		key, err := identity_modules.Credentials.GetEncryptKey(session, encKeyId)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetEncryptKey")

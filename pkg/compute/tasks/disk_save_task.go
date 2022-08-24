@@ -56,7 +56,7 @@ func (self *DiskSaveTask) taskFailed(ctx context.Context, disk *models.SDisk, er
 	disk.SetDiskReady(ctx, self.GetUserCred(), err.Error())
 	db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, err.Error(), self.GetUserCred())
 	if imageId, _ := self.GetParams().GetString("image_id"); len(imageId) > 0 {
-		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region)
 		image.Images.PerformAction(s, imageId, "status", jsonutils.Marshal(map[string]string{"status": "killed", "reason": err.Error()}))
 	}
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

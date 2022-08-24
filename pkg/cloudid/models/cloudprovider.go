@@ -83,7 +83,7 @@ func (manager *SCloudproviderManager) FetchProvider(ctx context.Context, id stri
 	provider, err := manager.FetchById(id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			session := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+			session := auth.GetAdminSession(context.Background(), options.Options.Region)
 			result, err := modules.Cloudproviders.Get(session, id, nil)
 			if err != nil {
 				return nil, errors.Wrap(err, "Cloudproviders.Get")
@@ -105,7 +105,7 @@ func (manager *SCloudproviderManager) FetchProvider(ctx context.Context, id stri
 }
 
 func (self *SCloudprovider) getCloudDelegate(ctx context.Context) (*SCloudDelegate, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	result, err := modules.Cloudproviders.Get(s, self.Id, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Cloudproviders.Get")

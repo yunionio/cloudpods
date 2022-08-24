@@ -215,7 +215,7 @@ var PlaybookWorker *workmanager.SWorkManager
 
 func taskFailed(ctx context.Context, reason string) {
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
-		session := auth.GetAdminSessionWithInternal(ctx, "", "")
+		session := auth.GetAdminSessionWithInternal(ctx, "")
 		modules.TaskFailed(&compute.DevtoolTasks, session, taskId.(string), reason)
 	} else {
 		log.Warningf("Reqeuest task failed missing task id, with reason: %s", reason)
@@ -224,7 +224,7 @@ func taskFailed(ctx context.Context, reason string) {
 
 func taskCompleted(ctx context.Context, data jsonutils.JSONObject) {
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
-		session := auth.GetAdminSessionWithInternal(ctx, "", "")
+		session := auth.GetAdminSessionWithInternal(ctx, "")
 		modules.TaskComplete(&compute.DevtoolTasks, session, taskId.(string), data)
 	} else {
 		log.Warningf("Reqeuest task failed missing task id, with data: %v", data)

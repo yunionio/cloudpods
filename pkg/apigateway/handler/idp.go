@@ -49,7 +49,7 @@ func getSsoBaseCallbackUrl() string {
 
 func getSsoCallbackUrl(ctx context.Context, req *http.Request, idpId string) string {
 	baseUrl := getSsoBaseCallbackUrl()
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	input := api.GetIdpSsoCallbackUriInput{
 		RedirectUri: baseUrl,
 	}
@@ -110,7 +110,7 @@ func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.Response
 	query.(*jsonutils.JSONDict).Set("idp_nonce", jsonutils.NewString(utils.GenRequestId(4)))
 	state := base64.URLEncoding.EncodeToString([]byte(query.String()))
 	redirectUri := getSsoCallbackUrl(ctx, req, idpId)
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	input := api.GetIdpSsoRedirectUriInput{
 		RedirectUri: redirectUri,
 		State:       state,
@@ -145,7 +145,7 @@ func findExtUserId(input string) string {
 func (h *AuthHandlers) handleIdpInitSsoLogin(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	params := appctx.AppContextParams(ctx)
 	idpId := params["<idp_id>"]
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	resp, err := modules.IdentityProviders.Get(s, idpId, nil)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
@@ -383,7 +383,7 @@ func linkWithExistingUser(ctx context.Context, req *http.Request, idpId, idpLink
 			IdpId:       idpId,
 			IdpEntityId: extUserId,
 		}
-		s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+		s := auth.GetAdminSession(ctx, FetchRegion(req))
 		_, err = modules.UsersV3.PerformAction(s, t.GetUserId(), "link-idp", jsonutils.Marshal(linkInput))
 		if err != nil {
 			return errors.Wrap(err, "link-idp")
@@ -413,7 +413,7 @@ func handleUnlinkIdp(ctx context.Context, w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	input := api.UserUnlinkIdpInput{
 		IdpId:       idpId,
 		IdpEntityId: idpEntityId,
@@ -438,7 +438,7 @@ func fetchIdpBasicConfig(ctx context.Context, w http.ResponseWriter, req *http.R
 }
 
 func getIdpBasicConfig(ctx context.Context, req *http.Request, idpId string) (jsonutils.JSONObject, error) {
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	baseUrl := getSsoBaseCallbackUrl()
 	input := api.GetIdpSsoCallbackUriInput{
 		RedirectUri: baseUrl,
@@ -468,7 +468,7 @@ func getIdpBasicConfig(ctx context.Context, req *http.Request, idpId string) (js
 }
 
 func fetchIdpSAMLMetadata(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	params := appctx.AppContextParams(ctx)
 	idpId := params["<idp_id>"]
 	query := jsonutils.NewDict()

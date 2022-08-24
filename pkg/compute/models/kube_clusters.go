@@ -224,7 +224,7 @@ func (self *SKubeCluster) doRemoteImport(ctx context.Context, userCred mcclient.
 			"kubeconfig": config.Config,
 		},
 	}
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	resp, err := k8s.KubeClusters.Create(s, jsonutils.Marshal(params))
 	if err != nil {
 		return errors.Wrapf(err, "Create")

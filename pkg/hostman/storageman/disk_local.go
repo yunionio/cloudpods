@@ -406,7 +406,7 @@ func (d *SLocalDisk) DiskBackup(ctx context.Context, params interface{}) (jsonut
 
 	encKey := ""
 	if len(diskBackup.EncryptKeyId) > 0 {
-		session := auth.GetSession(ctx, diskBackup.UserCred, consts.GetRegion(), "")
+		session := auth.GetSession(ctx, diskBackup.UserCred, consts.GetRegion())
 		secKey, err := identity_modules.Credentials.GetEncryptKey(session, diskBackup.EncryptKeyId)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetEncryptKey")

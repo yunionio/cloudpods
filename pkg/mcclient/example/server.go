@@ -44,7 +44,7 @@ func getSession() (*mcclient.ClientSession, error) {
 	if err != nil {
 		return nil, err
 	}
-	return client.NewSession(context.Background(), Region, "", EndpointType, token, "v2"), nil
+	return client.NewSession(context.Background(), Region, "", EndpointType, token), nil
 }
 
 func CreateServerExample() error {

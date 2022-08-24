@@ -617,7 +617,7 @@ func (ib *SInstanceBackup) FillFromPackMetadata(ctx context.Context, userCred mc
 		ib.SetAllMetadata(ctx, meta, userCred)
 	}
 	if len(metadata.EncryptKeyId) > 0 {
-		session := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
+		session := auth.GetSession(ctx, userCred, consts.GetRegion())
 		_, err := identity_modules.Credentials.GetEncryptKey(session, metadata.EncryptKeyId)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetEncryptKey")

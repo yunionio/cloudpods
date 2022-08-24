@@ -138,7 +138,7 @@ func eventToJson(e redfish.SEvent) *jsonutils.JSONDict {
 
 func fetchLogs(baremetal *SBaremetalInstance, ctx context.Context, logType string) error {
 	params := jsonutils.NewDict()
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	params.Add(jsonutils.NewInt(1), "limit")
 	params.Add(jsonutils.NewString(baremetal.GetId()), "host_id")
 	params.Add(jsonutils.NewString(logType), "type")
@@ -216,8 +216,8 @@ func (job *SSendMetricsJob) Name() string {
 }
 
 func (job *SSendMetricsJob) Do(ctx context.Context, now time.Time) error {
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "")
-	urls, err := s.GetServiceURLs("influxdb", o.Options.SessionEndpointType)
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
+	urls, err := s.GetServiceURLs("influxdb", o.Options.SessionEndpointType, "")
 	if err != nil {
 		return errors.Wrap(err, "s.GetServiceURLs")
 	}

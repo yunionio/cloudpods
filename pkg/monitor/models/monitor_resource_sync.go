@@ -340,7 +340,7 @@ func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([
 	params.Add(jsonutils.NewInt(0), "limit")
 	params.Add(jsonutils.NewBool(true), "details")
 	var count int
-	session := auth.GetAdminSession(context.Background(), "", "")
+	session := auth.GetAdminSession(context.Background(), "")
 	objs := make([]jsonutils.JSONObject, 0)
 	for {
 		params.Set("offset", jsonutils.NewInt(int64(count)))

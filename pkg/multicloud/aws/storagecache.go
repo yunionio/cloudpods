@@ -154,7 +154,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	defer self.region.DeleteIBucket(bucketName)
 
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	meta, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", errors.Wrap(err, "Images.Download")
@@ -275,7 +275,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, errors.Wrap(err, "GetObject")
 	}
 
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
 	if result, err := modules.Images.Upload(s, params, ret.Body, IntVal(ret.ContentLength)); err != nil {
 		return nil, errors.Wrap(err, "Images.Images")

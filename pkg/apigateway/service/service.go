@@ -31,7 +31,6 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 func StartService() {
@@ -45,10 +44,6 @@ func StartService() {
 	})
 
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
-
-	if opts.DisableModuleApiVersion {
-		mcclient.DisableApiVersionByModule()
-	}
 
 	if err := clientman.InitClient(); err != nil {
 		log.Fatalf("Init client token manager: %v", err)

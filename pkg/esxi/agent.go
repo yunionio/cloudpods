@@ -85,7 +85,7 @@ func (ea *SEsxiAgent) GetZoneId() string {
 }
 
 func (ea *SEsxiAgent) GetAdminSession() *mcclient.ClientSession {
-	return auth.GetAdminSession(context.TODO(), options.Options.Region, "v2")
+	return auth.GetAdminSession(context.TODO(), options.Options.Region)
 }
 
 func (ea *SEsxiAgent) TuneSystem() error {

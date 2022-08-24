@@ -35,7 +35,6 @@ type IBaseManager interface {
 	EndpointType() string
 	GetColumns(session *mcclient.ClientSession) []string
 	List(session *mcclient.ClientSession, params jsonutils.JSONObject) (*ListResult, error)
-	SetApiVersion(string)
 }
 
 type ManagerContext struct {
@@ -171,8 +170,8 @@ type JointManager interface {
 }
 
 var (
-	modules      map[string]map[string][]IBaseManager
-	jointModules map[string]map[string][]JointManager
+	modules      map[string][]IBaseManager
+	jointModules map[string][]JointManager
 )
 
 func _getJointKey(mod1 Manager, mod2 Manager) string {
@@ -190,16 +189,11 @@ func ensureModuleNotRegistered(mod, newMod IBaseManager) {
 	}
 }
 
-func Register(version string, mod IBaseManager) {
+func Register(mod IBaseManager) {
 	if modules == nil {
-		modules = make(map[string]map[string][]IBaseManager)
+		modules = make(map[string][]IBaseManager)
 	}
-	modtable, ok := modules[version]
-	if !ok {
-		modtable = make(map[string][]IBaseManager)
-		modules[version] = modtable
-	}
-	mods, ok := modtable[mod.KeyString()]
+	mods, ok := modules[mod.KeyString()]
 	if !ok {
 		mods = make([]IBaseManager, 0)
 	}
@@ -207,21 +201,16 @@ func Register(version string, mod IBaseManager) {
 		ensureModuleNotRegistered(mods[i], mod)
 	}
 	mods = append(mods, mod)
-	modules[version][mod.KeyString()] = mods
+	modules[mod.KeyString()] = mods
 	// modtable[mod.KeyString()] = append(mods, mod)
 }
 
-func RegisterJointModule(version string, mod IBaseManager) {
+func RegisterJointModule(mod IBaseManager) {
 	jointMod, ok := mod.(JointManager)
 	if ok { // also a joint manager
 		jointKey := _getJointKey(jointMod.MasterManager(), jointMod.SlaveManager())
 		// log.Printf("%s(%s) is also a joint module", mod.KeyString(), jointKey)
-		modtable, ok := jointModules[version]
-		if !ok {
-			modtable = make(map[string][]JointManager)
-			jointModules[version] = modtable
-		}
-		jointMods, ok := modtable[jointKey]
+		jointMods, ok := jointModules[jointKey]
 		if !ok {
 			jointMods = make([]JointManager, 0)
 		}
@@ -231,31 +220,25 @@ func RegisterJointModule(version string, mod IBaseManager) {
 			//}
 		}
 		// modtable[jointKey] = append(jointMods, jointMod)
-		jointModules[version][jointKey] = append(jointMods, jointMod)
+		jointModules[jointKey] = append(jointMods, jointMod)
 	}
 }
 
 func registerAllJointModules() {
 	if jointModules == nil {
-		jointModules = make(map[string]map[string][]JointManager)
-		for version := range modules {
-			for modname := range modules[version] {
-				for i := range modules[version][modname] {
-					RegisterJointModule(version, modules[version][modname][i])
-				}
+		jointModules = make(map[string][]JointManager)
+		for modname := range modules {
+			for i := range modules[modname] {
+				RegisterJointModule(modules[modname][i])
 			}
 		}
 	}
 }
 
 func _getModule(session *mcclient.ClientSession, name string) (IBaseManager, error) {
-	modtable, ok := modules[session.GetApiVersion()]
+	mods, ok := modules[name]
 	if !ok {
-		return nil, fmt.Errorf("No such version: %s", session.GetApiVersion())
-	}
-	mods, ok := modtable[name]
-	if !ok {
-		return nil, fmt.Errorf("No such module %s for version %s", name, session.GetApiVersion())
+		return nil, fmt.Errorf("No such module %s", name)
 	}
 
 	if len(mods) == 1 {
@@ -263,7 +246,7 @@ func _getModule(session *mcclient.ClientSession, name string) (IBaseManager, err
 	}
 
 	for _, mod := range mods {
-		url, e := session.GetServiceURL(mod.ServiceType(), mod.EndpointType())
+		url, e := session.GetServiceURL(mod.ServiceType(), mod.EndpointType(), mod.GetApiVersion())
 		if e != nil {
 			return nil, errors.Wrap(e, "session.GetServiceURL")
 		}
@@ -305,11 +288,7 @@ func GetJointModule(session *mcclient.ClientSession, name string) (JointManager,
 func GetJointModule2(session *mcclient.ClientSession, mod1 Manager, mod2 Manager) (JointManager, error) {
 	registerAllJointModules()
 	key := _getJointKey(mod1, mod2)
-	modtable, ok := jointModules[session.GetApiVersion()]
-	if !ok {
-		return nil, fmt.Errorf("No such version: %s", session.GetApiVersion())
-	}
-	mods, ok := modtable[key]
+	mods, ok := jointModules[key]
 	if !ok {
 		return nil, fmt.Errorf("No such joint module: %s", key)
 	}
@@ -326,28 +305,18 @@ func GetJointModule2(session *mcclient.ClientSession, mod1 Manager, mod2 Manager
 	return nil, fmt.Errorf("Version mismatch")
 }
 
-func GetRegisterdModules() (map[string][]string, map[string][]string) {
+func GetRegisterdModules() ([]string, []string) {
 	registerAllJointModules()
 
-	ret := make(map[string][]string)
-	for k, v := range modules {
-		ret[k] = make([]string, 0)
-		for m := range v {
-			ret[k] = append(ret[k], m)
-		}
+	ret := make([]string, 0)
+	for k := range modules {
+		ret = append(ret, k)
 	}
-	for k := range ret {
-		sort.Strings(ret[k])
+	sort.Strings(ret)
+	ret2 := make([]string, 0)
+	for k := range jointModules {
+		ret2 = append(ret2, k)
 	}
-	ret2 := make(map[string][]string)
-	for k, v := range jointModules {
-		ret2[k] = make([]string, 0)
-		for m := range v {
-			ret2[k] = append(ret2[k], m)
-		}
-	}
-	for k := range ret2 {
-		sort.Strings(ret2[k])
-	}
+	sort.Strings(ret2)
 	return ret, ret2
 }

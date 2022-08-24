@@ -387,7 +387,7 @@ func (self *SServerSku) GetPrivateCloudproviders() ([]SCloudprovider, error) {
 }
 
 func (self *SServerSkuManager) ClearSchedDescCache(wait bool) error {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	_, err := scheduler.SchedManager.SyncSku(s, true)
 	if err != nil {
 		return errors.Wrapf(err, "chedManager.SyncSku")
@@ -1215,7 +1215,7 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 	}
 
 	// notfiy sched manager
-	_, err = scheduler.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
+	_, err = scheduler.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region), false)
 	if err != nil {
 		log.Errorf("SchedManager SyncSku %s", err)
 	}

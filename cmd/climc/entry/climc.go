@@ -68,9 +68,9 @@ type BaseOptions struct {
 	OsRegionName   string `default:"$OS_REGION_NAME" help:"Defaults to env[OS_REGION_NAME]"`
 	OsZoneName     string `default:"$OS_ZONE_NAME" help:"Defaults to env[OS_ZONE_NAME]"`
 	OsEndpointType string `default:"$OS_ENDPOINT_TYPE|internalURL" help:"Defaults to env[OS_ENDPOINT_TYPE] or internalURL" choices:"publicURL|internalURL|adminURL"`
-	ApiVersion     string `default:"$API_VERSION" help:"override default modules service api version"`
-	OutputFormat   string `default:"$CLIMC_OUTPUT_FORMAT|table" choices:"table|kv|json|flatten-table|flatten-kv" help:"output format"`
-	SUBCOMMAND     string `help:"climc subcommand" subcommand:"true"`
+	// ApiVersion     string `default:"$API_VERSION" help:"override default modules service api version"`
+	OutputFormat string `default:"$CLIMC_OUTPUT_FORMAT|table" choices:"table|kv|json|flatten-table|flatten-kv" help:"output format"`
+	SUBCOMMAND   string `help:"climc subcommand" subcommand:"true"`
 }
 
 func getSubcommandsParser() (*structarg.ArgumentParser, error) {
@@ -222,16 +222,13 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		}
 	}
 
-	if options.ApiVersion != "" {
-		mcclient.DisableApiVersionByModule()
-	}
 	session := client.NewSession(
 		context.Background(),
 		options.OsRegionName,
 		options.OsZoneName,
 		options.OsEndpointType,
 		cacheToken,
-		options.ApiVersion)
+	)
 	return session, nil
 }
 

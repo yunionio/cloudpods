@@ -143,7 +143,7 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, tmpPath string, callback func(progress float32)) (string, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	meta, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VHD), false)
 	if err != nil {
 		return "", err
@@ -273,7 +273,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		if _, err := tmpImageFile.Seek(0, os.SEEK_SET); err != nil {
 			return nil, errors.Wrap(err, "seek")
 		}
-		s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+		s := auth.GetAdminSession(context.Background(), options.Options.Region)
 		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
 		if result, err := modules.Images.Upload(s, params, tmpImageFile, resp.ContentLength); err != nil {
 			return nil, err
