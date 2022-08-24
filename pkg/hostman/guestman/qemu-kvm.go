@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/arch"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -82,36 +83,68 @@ type SKVMInstanceRuntime struct {
 	LiveMigrateDestPort *int
 	LiveMigrateUseTls   bool
 
-	SyncMeta *jsonutils.JSONDict
+	syncMeta *jsonutils.JSONDict
 
 	cgroupPid  int
 	cgroupName string
 
 	stopping            bool
-	NeedSyncStreamDisks bool
+	needSyncStreamDisks bool
 	blockJobTigger      map[string]chan struct{}
 
 	StartupTask *SGuestResumeTask
 	MigrateTask *SGuestLiveMigrateTask
+
+	pciAddrs *desc.SGuestPCIAddresses
 }
 
 type SKVMGuestInstance struct {
 	SKVMInstanceRuntime
 
 	Id      string
-	Desc    *desc.SGuestDesc
 	Monitor monitor.Monitor
 	manager *SGuestManager
+
+	archMan arch.Arch
+
+	// runtime description, generate from source desc
+	Desc *desc.SGuestDesc
+	// source description, input from region
+	SourceDesc *desc.SGuestDesc
 }
 
 func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
+	qemuArch := arch.Arch_x86_64
+	if manager.host.IsAarch64() {
+		qemuArch = arch.Arch_aarch64
+	}
 	return &SKVMGuestInstance{
 		SKVMInstanceRuntime: SKVMInstanceRuntime{
 			blockJobTigger: make(map[string]chan struct{}),
 		},
 		Id:      id,
 		manager: manager,
+		archMan: arch.NewArch(qemuArch),
 	}
+}
+
+// update guest runtime desc from source desc
+// and check is need regenerate runtime desc
+// these property can't be upate in running guest
+func (s *SKVMGuestInstance) updateGuestDesc() error {
+	s.Desc = new(desc.SGuestDesc)
+	jsonutils.Marshal(s.SourceDesc).Unmarshal(s.Desc)
+
+	if s.isPcie() {
+		s.setPcieExtendBus()
+	}
+
+	err := s.initGuestDesc()
+	if err != nil {
+		return err
+	}
+
+	return s.SaveLiveDesc(s.Desc)
 }
 
 func (s *SKVMGuestInstance) IsStopping() bool {
@@ -285,23 +318,68 @@ func (s *SKVMGuestInstance) GetDescFilePath() string {
 	return path.Join(s.HomeDir(), "desc")
 }
 
+func (s *SKVMGuestInstance) GetSourceDescFilePath() string {
+	return path.Join(s.HomeDir(), "source-desc")
+}
+
 func (s *SKVMGuestInstance) LoadDesc() error {
 	descPath := s.GetDescFilePath()
 	descStr, err := ioutil.ReadFile(descPath)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "read desc")
 	}
 
-	guestDesc := new(desc.SGuestDesc)
-	descJson, err := jsonutils.Parse(descStr)
-	if err != nil {
-		return errors.Wrap(err, "json parse")
+	var (
+		srcDescStr  []byte
+		srcDescPath = s.GetSourceDescFilePath()
+	)
+	if !fileutils2.Exists(srcDescPath) {
+		err = fileutils2.FilePutContents(srcDescPath, string(descStr), false)
+		if err != nil {
+			return errors.Wrap(err, "save source desc")
+		}
+		srcDescStr = descStr
+	} else {
+		srcDescStr, err = ioutil.ReadFile(srcDescPath)
+		if err != nil {
+			return errors.Wrap(err, "read source desc")
+		}
 	}
-	err = descJson.Unmarshal(guestDesc)
+
+	// parse source desc
+	srcGuestDesc := new(desc.SGuestDesc)
+	jsonSrcDesc, err := jsonutils.Parse(srcDescStr)
+	if err != nil {
+		return errors.Wrap(err, "json parse source desc")
+	}
+	err = jsonSrcDesc.Unmarshal(srcGuestDesc)
+	if err != nil {
+		return errors.Wrap(err, "unmarshal source desc")
+	}
+	s.SourceDesc = srcGuestDesc
+
+	// parse desc
+	guestDesc := new(desc.SGuestDesc)
+	jsonDesc, err := jsonutils.Parse(descStr)
+	if err != nil {
+		return errors.Wrap(err, "json parse desc")
+	}
+	err = jsonDesc.Unmarshal(guestDesc)
 	if err != nil {
 		return errors.Wrap(err, "unmarshal desc")
 	}
 	s.Desc = guestDesc
+
+	if len(s.Desc.PCIControllers) > 0 {
+		err = s.initGuestPciAddresses()
+		if err != nil {
+			return errors.Wrap(err, "init guest pci addresses")
+		}
+		err = s.ensurePciAddresses()
+		if err != nil {
+			return errors.Wrap(err, "load desc ensure pci address")
+		}
+	}
 	return nil
 }
 
@@ -370,6 +448,11 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		return nil, errors.Wrap(err, "fuse mount")
 	}
 
+	err = s.updateGuestDesc()
+	if err != nil {
+		return nil, errors.Wrap(err, "generate desc")
+	}
+
 	hostbridge.CleanDeletedPorts(options.HostOptions.BridgeDriver)
 	time.Sleep(100 * time.Millisecond)
 
@@ -406,7 +489,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 	// is on_async_script_start
 	if isStarted {
 		log.Infof("Async start server %s success!", s.GetName())
-		s.SyncMeta = s.CleanImportMetadata()
+		s.syncMeta = s.CleanImportMetadata()
 		s.StartMonitor(ctx, nil)
 		return nil, nil
 	}
@@ -465,7 +548,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 	if s.Desc.HostId != hostinfo.Instance().HostId {
 		// fix host_id
 		s.Desc.HostId = hostinfo.Instance().HostId
-		s.SaveDesc(s.Desc)
+		s.SaveLiveDesc(s.Desc)
 	}
 
 	s.manager.SaveServer(s.Id, s)
@@ -1077,8 +1160,8 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 	}
 }
 
-func (s *SKVMGuestInstance) SaveDesc(desc *desc.SGuestDesc) error {
-	s.Desc = desc
+func (s *SKVMGuestInstance) SaveLiveDesc(guestDesc *desc.SGuestDesc) error {
+	s.Desc = guestDesc
 
 	// fill in ovn vpc nic bridge field
 	for _, nic := range s.Desc.Nics {
@@ -1096,7 +1179,25 @@ func (s *SKVMGuestInstance) SaveDesc(desc *desc.SGuestDesc) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) GetVpcNIC() *api.GuestnetworkJsonDesc {
+func (s *SKVMGuestInstance) SaveSourceDesc(guestDesc *desc.SGuestDesc) error {
+	s.SourceDesc = guestDesc
+	// fill in ovn vpc nic bridge field
+	for _, nic := range s.SourceDesc.Nics {
+		if nic.Bridge == "" {
+			nic.Bridge = getNicBridge(nic)
+		}
+	}
+
+	if err := fileutils2.FilePutContents(
+		s.GetSourceDescFilePath(), jsonutils.Marshal(s.SourceDesc).String(), false,
+	); err != nil {
+		log.Errorf("save source desc failed %s", err)
+		return errors.Wrap(err, "source save desc")
+	}
+	return nil
+}
+
+func (s *SKVMGuestInstance) GetVpcNIC() *desc.SGuestNetwork {
 	for _, nic := range s.Desc.Nics {
 		if nic.Vpc.Provider == api.VPC_PROVIDER_OVN {
 			if nic.Ip != "" {
@@ -1354,7 +1455,7 @@ func (s *SKVMGuestInstance) ExecSuspendTask(ctx context.Context) {
 	NewGuestSuspendTask(s, ctx, nil).Start()
 }
 
-func (s *SKVMGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) *api.GuestnetworkJsonDesc {
+func (s *SKVMGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) *desc.SGuestNetwork {
 	nics := s.Desc.Nics
 	for _, nic := range nics {
 		if bridge == "" && nic.Bridge != "" && nic.Bridge == options.HostOptions.OvnIntegrationBridge {
@@ -1370,7 +1471,7 @@ func (s *SKVMGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) *api.G
 	return nil
 }
 
-func pathEqual(disk, ndisk *api.GuestdiskJsonDesc) bool {
+func pathEqual(disk, ndisk *desc.SGuestDisk) bool {
 	if disk.Path != "" && ndisk.Path != "" {
 		return disk.Path == ndisk.Path
 	} else if disk.Url != "" && ndisk.Url != "" {
@@ -1384,12 +1485,13 @@ func pathEqual(disk, ndisk *api.GuestdiskJsonDesc) bool {
 	}
 }
 
-func (s *SKVMGuestInstance) compareDescDisks(newDesc *desc.SGuestDesc) ([]*api.GuestdiskJsonDesc, []*api.GuestdiskJsonDesc) {
-	var delDisks, addDisks = make([]*api.GuestdiskJsonDesc, 0), make([]*api.GuestdiskJsonDesc, 0)
+func (s *SKVMGuestInstance) compareDescDisks(newDesc *desc.SGuestDesc) ([]*desc.SGuestDisk, []*desc.SGuestDisk) {
+	var delDisks, addDisks = make([]*desc.SGuestDisk, 0), make([]*desc.SGuestDisk, 0)
 	newDisks := newDesc.Disks
 	for _, disk := range newDisks {
 		if utils.IsInStringArray(disk.Driver, []string{"virtio", "scsi"}) {
-			addDisks = append(addDisks, disk)
+			newDisk := *disk
+			addDisks = append(addDisks, &newDisk)
 		}
 	}
 	oldDisks := s.Desc.Disks
@@ -1414,11 +1516,12 @@ func (s *SKVMGuestInstance) compareDescDisks(newDesc *desc.SGuestDesc) ([]*api.G
 }
 
 func (s *SKVMGuestInstance) compareDescIsolatedDevices(newDesc *desc.SGuestDesc,
-) ([]*api.IsolatedDeviceJsonDesc, []*api.IsolatedDeviceJsonDesc) {
-	var delDevs, addDevs = []*api.IsolatedDeviceJsonDesc{}, []*api.IsolatedDeviceJsonDesc{}
+) ([]*desc.SGuestIsolatedDevice, []*desc.SGuestIsolatedDevice) {
+	var delDevs, addDevs = []*desc.SGuestIsolatedDevice{}, []*desc.SGuestIsolatedDevice{}
 	newDevs := newDesc.IsolatedDevices
 	for _, dev := range newDevs {
-		addDevs = append(addDevs, dev)
+		newDev := *dev
+		addDevs = append(addDevs, &newDev)
 	}
 	oldDevs := s.Desc.IsolatedDevices
 	for _, oldDev := range oldDevs {
@@ -1443,7 +1546,8 @@ func (s *SKVMGuestInstance) compareDescCdrom(newDesc *desc.SGuestDesc) *string {
 	if s.Desc.Cdrom == nil && newDesc.Cdrom == nil {
 		return nil
 	} else if s.Desc.Cdrom == nil && newDesc.Cdrom != nil {
-		return &newDesc.Cdrom.Path
+		cdromPath := newDesc.Cdrom.Path
+		return &cdromPath
 	} else if s.Desc.Cdrom != nil && newDesc.Cdrom == nil {
 		var res = ""
 		return &res
@@ -1451,18 +1555,19 @@ func (s *SKVMGuestInstance) compareDescCdrom(newDesc *desc.SGuestDesc) *string {
 		if s.Desc.Cdrom.Path == newDesc.Cdrom.Path {
 			return nil
 		} else {
-			return &newDesc.Cdrom.Path
+			cdromPath := newDesc.Cdrom.Path
+			return &cdromPath
 		}
 	}
 }
 
 func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
-) ([]*api.GuestnetworkJsonDesc, []*api.GuestnetworkJsonDesc, [][2]*api.GuestnetworkJsonDesc) {
-	var isValid = func(net *api.GuestnetworkJsonDesc) bool {
+) ([]*desc.SGuestNetwork, []*desc.SGuestNetwork, [][2]*desc.SGuestNetwork) {
+	var isValid = func(net *desc.SGuestNetwork) bool {
 		return net.Driver == "virtio"
 	}
 
-	var findNet = func(nets []*api.GuestnetworkJsonDesc, net *api.GuestnetworkJsonDesc) int {
+	var findNet = func(nets []*desc.SGuestNetwork, net *desc.SGuestNetwork) int {
 		for i := 0; i < len(nets); i++ {
 			if nets[i].Mac == net.Mac {
 				return i
@@ -1471,12 +1576,13 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 		return -1
 	}
 
-	var delNics, addNics = []*api.GuestnetworkJsonDesc{}, []*api.GuestnetworkJsonDesc{}
-	var changedNics = [][2]*api.GuestnetworkJsonDesc{}
+	var delNics, addNics = []*desc.SGuestNetwork{}, []*desc.SGuestNetwork{}
+	var changedNics = [][2]*desc.SGuestNetwork{}
 	for _, n := range newDesc.Nics {
 		if isValid(n) {
+			newNic := *n
 			// assume all nics in new desc are new
-			addNics = append(addNics, n)
+			addNics = append(addNics, &newNic)
 		}
 	}
 
@@ -1485,7 +1591,7 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 			idx := findNet(addNics, n)
 			if idx >= 0 {
 				// check if bridge changed
-				changedNics = append(changedNics, [2]*api.GuestnetworkJsonDesc{
+				changedNics = append(changedNics, [2]*desc.SGuestNetwork{
 					n,            // old
 					addNics[idx], // new
 				})
@@ -1500,7 +1606,7 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 	return delNics, addNics, changedNics
 }
 
-func getNicBridge(nic *api.GuestnetworkJsonDesc) string {
+func getNicBridge(nic *desc.SGuestNetwork) string {
 	if nic.Bridge == "" && nic.Vpc.Provider == api.VPC_PROVIDER_OVN {
 		return options.HostOptions.OvnIntegrationBridge
 	} else if nic.Bridge == api.HostTapBridge {
@@ -1512,7 +1618,7 @@ func getNicBridge(nic *api.GuestnetworkJsonDesc) string {
 	}
 }
 
-func onNicChange(oldNic, newNic *api.GuestnetworkJsonDesc) error {
+func onNicChange(oldNic, newNic *desc.SGuestNetwork) error {
 	oldbr := getNicBridge(oldNic)
 	oldifname := oldNic.Ifname
 	newbr := getNicBridge(newNic)
@@ -1563,19 +1669,23 @@ func onNicChange(oldNic, newNic *api.GuestnetworkJsonDesc) error {
 }
 
 func (s *SKVMGuestInstance) SyncConfig(
-	ctx context.Context, desc *desc.SGuestDesc, fwOnly bool,
+	ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool,
 ) (jsonutils.JSONObject, error) {
-	var delDisks, addDisks []*api.GuestdiskJsonDesc
-	var delNetworks, addNetworks []*api.GuestnetworkJsonDesc
-	var changedNetworks [][2]*api.GuestnetworkJsonDesc
-	var delDevs, addDevs []*api.IsolatedDeviceJsonDesc
+	var delDisks, addDisks []*desc.SGuestDisk
+	var delNetworks, addNetworks []*desc.SGuestNetwork
+	var changedNetworks [][2]*desc.SGuestNetwork
+	var delDevs, addDevs []*desc.SGuestIsolatedDevice
 	var cdrom *string
 
+	if err := s.SaveSourceDesc(guestDesc); err != nil {
+		return nil, err
+	}
+
 	if !fwOnly && !s.isImportFromLibvirt() {
-		delDisks, addDisks = s.compareDescDisks(desc)
-		cdrom = s.compareDescCdrom(desc)
-		delNetworks, addNetworks, changedNetworks = s.compareDescNetworks(desc)
-		delDevs, addDevs = s.compareDescIsolatedDevices(desc)
+		delDisks, addDisks = s.compareDescDisks(guestDesc)
+		cdrom = s.compareDescCdrom(guestDesc)
+		delNetworks, addNetworks, changedNetworks = s.compareDescNetworks(guestDesc)
+		delDevs, addDevs = s.compareDescIsolatedDevices(guestDesc)
 	}
 
 	if len(changedNetworks) > 0 && s.IsRunning() {
@@ -1588,10 +1698,6 @@ func (s *SKVMGuestInstance) SyncConfig(
 		}
 	}
 
-	if err := s.SaveDesc(desc); err != nil {
-		return nil, err
-	}
-
 	if !s.IsRunning() {
 		return nil, nil
 	}
@@ -1599,7 +1705,7 @@ func (s *SKVMGuestInstance) SyncConfig(
 	vncPort := s.GetVncPort()
 	data := jsonutils.NewDict()
 	data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
-	s.saveScripts(data)
+	//s.saveScripts(data)
 
 	if fwOnly {
 		res := jsonutils.NewDict()
@@ -1610,6 +1716,7 @@ func (s *SKVMGuestInstance) SyncConfig(
 	var tasks = []IGuestTasks{}
 
 	var callBack = func(errs []error) {
+		s.SaveLiveDesc(s.Desc)
 		if len(errs) == 0 {
 			hostutils.TaskComplete(ctx, nil)
 		} else {
@@ -1740,7 +1847,10 @@ func (s *SKVMGuestInstance) CreateFromDesc(desc *desc.SGuestDesc) error {
 	if err := s.PrepareDir(); err != nil {
 		return fmt.Errorf("Failed to create server dir %s", desc.Uuid)
 	}
-	return s.SaveDesc(desc)
+	if err := s.SaveSourceDesc(desc); err != nil {
+		return fmt.Errorf("Failed save source desc %s", err)
+	}
+	return s.SaveLiveDesc(desc)
 }
 
 func (s *SKVMGuestInstance) GetNeedMergeBackingFileDiskIndexs() []int {
@@ -1763,10 +1873,10 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 		}
 		if disks[i].MergeSnapshot {
 			disks[i].MergeSnapshot = false
-			s.NeedSyncStreamDisks = true
+			s.needSyncStreamDisks = true
 		}
 	}
-	if err := s.SaveDesc(s.Desc); err != nil {
+	if err := s.SaveLiveDesc(s.Desc); err != nil {
 		log.Errorf("save guest desc failed %s", err)
 	}
 	if err := s.delFlatFiles(ctx); err != nil {
@@ -1788,8 +1898,8 @@ func (s *SKVMGuestInstance) sendStreamDisksComplete(ctx context.Context) {
 		}
 	}
 
-	s.NeedSyncStreamDisks = false
-	if err := s.SaveDesc(s.Desc); err != nil {
+	s.needSyncStreamDisks = false
+	if err := s.SaveLiveDesc(s.Desc); err != nil {
 		log.Errorf("save guest desc failed %s", err)
 	}
 }
@@ -1853,8 +1963,8 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	} else {
 		meta.Set("__qemu_cmdline", jsonutils.NewString(cmdline))
 	}
-	if s.SyncMeta != nil {
-		meta.Update(s.SyncMeta)
+	if s.syncMeta != nil {
+		meta.Update(s.syncMeta)
 	}
 	s.SyncMetadata(meta)
 }
@@ -1899,7 +2009,7 @@ func (s *SKVMGuestInstance) CleanImportMetadata() *jsonutils.JSONDict {
 
 	if meta.Length() > 0 {
 		// update local metadata record, after monitor started updata region record
-		s.SaveDesc(s.Desc)
+		s.SaveLiveDesc(s.Desc)
 		return meta
 	}
 	return nil
@@ -2176,7 +2286,7 @@ func (s *SKVMGuestInstance) IsSharedStorage() bool {
 	return true
 }
 
-func (s *SKVMGuestInstance) generateDiskSetupScripts(disks []*api.GuestdiskJsonDesc) (string, error) {
+func (s *SKVMGuestInstance) generateDiskSetupScripts(disks []*desc.SGuestDisk) (string, error) {
 	cmd := " "
 	for i := range disks {
 		diskPath := disks[i].Path
@@ -2235,7 +2345,7 @@ func (s *SKVMGuestInstance) CPUSet(ctx context.Context, input *api.ServerCPUSetI
 
 func (s *SKVMGuestInstance) CPUSetRemove(ctx context.Context) error {
 	delete(s.Desc.Metadata, api.VM_METADATA_CGROUP_CPUSET)
-	if err := s.SaveDesc(s.Desc); err != nil {
+	if err := s.SaveLiveDesc(s.Desc); err != nil {
 		return errors.Wrap(err, "save desc after update metadata")
 	}
 	if !s.IsRunning() {

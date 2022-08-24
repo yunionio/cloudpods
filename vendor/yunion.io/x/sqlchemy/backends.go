@@ -125,6 +125,8 @@ type IBackend interface {
 	LOWER(name string, field IQueryField) IQueryField
 	// UPPER
 	UPPER(name string, field IQueryField) IQueryField
+	// DATEDIFF
+	DATEDIFF(unit string, field1, field2 IQueryField) IQueryField
 }
 
 var _driver_tbl = make(map[DBBackendName]IBackend)

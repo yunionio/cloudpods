@@ -55,8 +55,8 @@ func GetUSBDevId(vendorId, devId, bus, addr string) string {
 	return fmt.Sprintf("dev_%s_%s-%s_%s", vendorId, devId, bus, addr)
 }
 
-func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr string) (map[string]interface{}, error) {
-	id := GetUSBDevId(vendorId, deviceId, bus, addr)
+func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr string) (map[string]string, error) {
+	// id := GetUSBDevId(vendorId, deviceId, bus, addr)
 	busI, err := strconv.Atoi(bus)
 	if err != nil {
 		return nil, errors.Wrapf(err, "parse bus to int %q", bus)
@@ -65,9 +65,9 @@ func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr string) (map[stri
 	if err != nil {
 		return nil, errors.Wrapf(err, "parse addr to int %q", bus)
 	}
-	return map[string]interface{}{
-		"id":        id,
-		"bus":       "usb.0",
+	return map[string]string{
+		// "id": id,
+		// "bus":       "usb.0",
 		"vendorid":  fmt.Sprintf("0x%s", vendorId),
 		"productid": fmt.Sprintf("0x%s", deviceId),
 		"hostbus":   fmt.Sprintf("%d", busI),
@@ -75,7 +75,7 @@ func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr string) (map[stri
 	}, nil
 }
 
-func GetUSBDevQemuOptions(vendorDevId string, addr string) (map[string]interface{}, error) {
+func GetUSBDevQemuOptions(vendorDevId string, addr string) (map[string]string, error) {
 	parts := strings.Split(vendorDevId, ":")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid vendor_device_id %q", vendorDevId)
@@ -103,6 +103,11 @@ func (dev *sUSBDevice) GetQemuId() (string, error) {
 		return "", errors.Errorf("Invalid addr %q", dev.dev.Addr)
 	}
 	return GetUSBDevId(dev.dev.VendorId, dev.dev.DeviceId, addrParts[0], addrParts[1]), nil
+}
+
+func (dev *sUSBDevice) GetPassthroughOptions() map[string]string {
+	opts, _ := GetUSBDevQemuOptions(dev.dev.GetVendorDeviceId(), dev.dev.Addr)
+	return opts
 }
 
 func (dev *sUSBDevice) GetPassthroughCmd(index int) string {

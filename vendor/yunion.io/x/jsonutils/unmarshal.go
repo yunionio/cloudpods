@@ -558,6 +558,9 @@ func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStruct
 		}
 	}
 	for _, index := range indexes {
+		if fieldValues[index].Parent != nil && fieldValues[index].Parent.Field.IsNil() {
+			fieldValues[index].Parent.Field.Set(fieldValues[index].Parent.Value)
+		}
 		err := v.unmarshalValue(fieldValues[index].Value)
 		if err != nil {
 			return errors.Wrap(err, "JSONDict.unmarshalStruct")
@@ -574,7 +577,7 @@ func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStruct
 }
 
 func (this *JSONDict) unmarshalStruct(val reflect.Value) error {
-	fieldValues := reflectutils.FetchStructFieldValueSetForWrite(val)
+	fieldValues := reflectutils.FetchStructFieldValueSet(val)
 	keyIndexMap := fieldValues.GetStructFieldIndexesMap()
 	errs := make([]error, 0)
 	for iter := sortedmap.NewIterator(this.data); iter.HasMore(); iter.Next() {

@@ -20,17 +20,18 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -217,16 +218,17 @@ func (t *SGuestSyncConfigTaskExecutor) runNextTaskCallback(err ...error) {
 
 type SGuestDiskSyncTask struct {
 	guest    *SKVMGuestInstance
-	delDisks []*api.GuestdiskJsonDesc
-	addDisks []*api.GuestdiskJsonDesc
+	delDisks []*desc.SGuestDisk
+	addDisks []*desc.SGuestDisk
 	cdrom    *string
+	errors   []error
 
-	callback      func(...error)
-	checkeDrivers []string
+	callback     func(...error)
+	checkDrivers []string
 }
 
-func NewGuestDiskSyncTask(guest *SKVMGuestInstance, delDisks, addDisks []*api.GuestdiskJsonDesc, cdrom *string) *SGuestDiskSyncTask {
-	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdrom, nil, nil}
+func NewGuestDiskSyncTask(guest *SKVMGuestInstance, delDisks, addDisks []*desc.SGuestDisk, cdrom *string) *SGuestDiskSyncTask {
+	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdrom, make([]error, 0), nil, nil}
 }
 
 func (d *SGuestDiskSyncTask) Start(callback func(...error)) {
@@ -256,7 +258,7 @@ func (d *SGuestDiskSyncTask) syncDisksConf() {
 			func() { d.guest.streamDisksComplete(context.Background()) }, idxs,
 		)
 	}
-	d.callback()
+	d.callback(d.errors...)
 }
 
 func (d *SGuestDiskSyncTask) changeCdrom() {
@@ -285,60 +287,102 @@ func (d *SGuestDiskSyncTask) changeCdromContent(cdName string) {
 }
 
 func (d *SGuestDiskSyncTask) OnChangeCdromContentSucc(results string) {
+	d.guest.Desc.Cdrom.Path = *d.cdrom
 	d.cdrom = nil
 	d.syncDisksConf()
 }
 
-func (d *SGuestDiskSyncTask) removeDisk(disk *api.GuestdiskJsonDesc) {
+func (d *SGuestDiskSyncTask) removeDisk(disk *desc.SGuestDisk) {
 	devId := fmt.Sprintf("drive_%d", disk.Index)
-	d.guest.Monitor.DriveDel(devId,
-		func(results string) { d.onRemoveDriveSucc(devId, results) })
+	d.guest.Monitor.DriveDel(devId, func(results string) {
+		d.onRemoveDriveSucc(devId, results, disk.Index)
+	})
 }
 
-func (d *SGuestDiskSyncTask) onRemoveDriveSucc(devId, results string) {
-	d.guest.Monitor.DeviceDel(devId, d.onRemoveDiskSucc)
+func (d *SGuestDiskSyncTask) onRemoveDriveSucc(devId, results string, diskIdx int8) {
+	log.Infof("remove drive %s results: %s", devId, results)
+	d.guest.Monitor.DeviceDel(devId, func(results string) {
+		d.onRemoveDiskSucc(results, diskIdx)
+	})
 }
 
-func (d *SGuestDiskSyncTask) onRemoveDiskSucc(results string) {
+func (d *SGuestDiskSyncTask) onRemoveDiskSucc(results string, diskIdx int8) {
+	var i = 0
+	for ; i < len(d.guest.Desc.Disks); i++ {
+		if d.guest.Desc.Disks[i].Index == diskIdx {
+			if d.guest.Desc.Disks[i].Pci != nil {
+				err := d.guest.pciAddrs.ReleasePCIAddress(d.guest.Desc.Disks[i].Pci.PCIAddr)
+				if err != nil {
+					log.Errorf("failed release disk pci addr %s", d.guest.Desc.Disks[i].Pci.PCIAddr)
+				}
+			}
+			break
+		}
+	}
+
+	if i < len(d.guest.Desc.Disks) {
+		d.guest.Desc.Disks = append(d.guest.Desc.Disks[:i], d.guest.Desc.Disks[i+1:]...)
+	}
+
 	d.syncDisksConf()
 }
 
-func (d *SGuestDiskSyncTask) checkDiskDriver(disk *api.GuestdiskJsonDesc) {
-	if d.checkeDrivers == nil {
-		d.checkeDrivers = make([]string, 0)
+func (d *SGuestDiskSyncTask) checkDiskDriver(disk *desc.SGuestDisk) {
+	if d.checkDrivers == nil {
+		d.checkDrivers = make([]string, 0)
 	}
 	log.Debugf("sync disk driver: %s", disk.Driver)
-	if disk.Driver == DISK_DRIVER_SCSI {
-		if utils.IsInStringArray(DISK_DRIVER_SCSI, d.checkeDrivers) {
-			d.startAddDisk(disk)
-		} else {
-			cb := func(ret string) { d.checkScsiDriver(ret, disk) }
-			d.guest.Monitor.HumanMonitorCommand("info pci", cb)
+
+	if disk.Driver == DISK_DRIVER_SCSI && d.guest.pciInitialized() && d.guest.Desc.VirtioScsi == nil {
+		// insert virtio scsi
+		var pciRoot = d.guest.getHotPlugPciController()
+		if pciRoot == nil {
+			err := errors.Errorf("failed get hotplugable pci controller")
+			d.errors = append(d.errors, err)
+			d.syncDisksConf()
+			return
 		}
+
+		d.guest.Desc.VirtioScsi = &desc.SGuestVirtioScsi{
+			PCIDevice: desc.NewPCIDevice(pciRoot.CType, "virtio-scsi-pci", "scsi"),
+		}
+		cb := func(ret string) {
+			log.Infof("Add scsi controller %s", ret)
+			d.checkDrivers = append(d.checkDrivers, DISK_DRIVER_SCSI)
+			d.startAddDisk(disk)
+		}
+		params := map[string]string{
+			"id":   d.guest.Desc.VirtioScsi.Id,
+			"bus":  d.guest.Desc.VirtioScsi.BusStr(),
+			"addr": d.guest.Desc.VirtioScsi.SlotFunc(),
+		}
+		d.guest.Monitor.DeviceAdd(d.guest.Desc.VirtioScsi.DevType, params, cb)
+	} else if disk.Driver == DISK_DRIVER_SCSI {
+		// oldway check and insert scsi driver
+		cb := func(ret string) { d.checkScsiDriver(ret, disk) }
+		d.guest.Monitor.HumanMonitorCommand("info pci", cb)
 	} else {
 		d.startAddDisk(disk)
 	}
 }
 
-func (d *SGuestDiskSyncTask) checkScsiDriver(ret string, disk *api.GuestdiskJsonDesc) {
+func (d *SGuestDiskSyncTask) checkScsiDriver(ret string, disk *desc.SGuestDisk) {
 	if strings.Contains(ret, "SCSI controller") {
-		d.checkeDrivers = append(d.checkeDrivers, DISK_DRIVER_SCSI)
 		d.startAddDisk(disk)
 	} else {
 		cb := func(ret string) {
 			log.Infof("Add scsi controller %s", ret)
-			d.checkeDrivers = append(d.checkeDrivers, DISK_DRIVER_SCSI)
 			d.startAddDisk(disk)
 		}
-		d.guest.Monitor.DeviceAdd("virtio-scsi-pci", map[string]interface{}{"id": "scsi"}, cb)
+		d.guest.Monitor.DeviceAdd("virtio-scsi-pci", map[string]string{"id": "scsi"}, cb)
 	}
 }
 
-func (d *SGuestDiskSyncTask) addDisk(disk *api.GuestdiskJsonDesc) {
+func (d *SGuestDiskSyncTask) addDisk(disk *desc.SGuestDisk) {
 	d.checkDiskDriver(disk)
 }
 
-func (d *SGuestDiskSyncTask) startAddDisk(disk *api.GuestdiskJsonDesc) {
+func (d *SGuestDiskSyncTask) startAddDisk(disk *desc.SGuestDisk) {
 	iDisk, _ := storageman.GetManager().GetDiskByPath(disk.Path)
 	if iDisk == nil {
 		d.syncDisksConf()
@@ -348,7 +392,7 @@ func (d *SGuestDiskSyncTask) startAddDisk(disk *api.GuestdiskJsonDesc) {
 	var (
 		diskIndex  = disk.Index
 		aio        = disk.AioMode
-		diskDirver = disk.Driver
+		diskDriver = disk.Driver
 		cacheMode  = disk.CacheMode
 	)
 
@@ -369,37 +413,76 @@ func (d *SGuestDiskSyncTask) startAddDisk(disk *api.GuestdiskJsonDesc) {
 	}
 
 	var bus string
-	switch diskDirver {
+	var pciRoot *desc.PCIController
+	switch diskDriver {
 	case DISK_DRIVER_SCSI:
 		bus = "scsi.0"
 	case DISK_DRIVER_VIRTIO:
+		if d.guest.pciInitialized() {
+			pciRoot := d.guest.getHotPlugPciController()
+			if pciRoot == nil {
+				log.Errorf("no hotplugable pci controller found")
+				d.errors = append(d.errors, errors.Errorf("no hotplugable pci controller found"))
+				d.syncDisksConf()
+				return
+			}
+		}
 		bus = d.guest.GetPciBus()
 	case DISK_DRIVER_IDE:
 		bus = fmt.Sprintf("ide.%d", diskIndex/2)
 	case DISK_DRIVER_SATA:
 		bus = fmt.Sprintf("ide.%d", diskIndex)
 	}
-	d.guest.Monitor.DriveAdd(bus, params, func(result string) { d.onAddDiskSucc(disk, result) })
+	// drive_add bus is a placeholder
+	d.guest.Monitor.DriveAdd(bus, params, func(result string) { d.onAddDiskSucc(disk, result, pciRoot) })
 }
 
-func (d *SGuestDiskSyncTask) onAddDiskSucc(disk *api.GuestdiskJsonDesc, results string) {
+func (d *SGuestDiskSyncTask) onAddDiskSucc(disk *desc.SGuestDisk, results string, pciRoot *desc.PCIController) {
 	var (
 		diskIndex  = disk.Index
-		diskDirver = disk.Driver
-		dev        = qemu.GetDiskDeviceModel(diskDirver)
+		diskDriver = disk.Driver
+		devType    = qemu.GetDiskDeviceModel(diskDriver)
+		id         = fmt.Sprintf("drive_%d", diskIndex)
 	)
+	if d.guest.pciInitialized() {
+		switch diskDriver {
+		case DISK_DRIVER_VIRTIO:
+			disk.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
+			err := d.guest.ensureDevicePciAddress(disk.Pci, -1, nil)
+			if err != nil {
+				log.Errorln(err)
+				d.guest.Monitor.DriveDel(id, func(res string) {
+					log.Infof("drive %s del %s", id, res)
+				})
 
-	var params = map[string]interface{}{
+				d.errors = append(d.errors, err)
+				d.syncDisksConf()
+				return
+			}
+		case DISK_DRIVER_SCSI:
+			disk.Scsi = desc.NewScsiDevice(d.guest.Desc.VirtioScsi.Id, devType, id)
+		case DISK_DRIVER_PVSCSI:
+			disk.Scsi = desc.NewScsiDevice(d.guest.Desc.PvScsi.Id, devType, id)
+		case DISK_DRIVER_IDE:
+			disk.Ide = desc.NewIdeDevice(devType, id)
+		case DISK_DRIVER_SATA: // -device ahci,id=ahci pci device
+			disk.Ide = desc.NewIdeDevice(devType, id)
+		}
+	}
+
+	d.guest.Desc.Disks = append(d.guest.Desc.Disks, disk)
+	var params = map[string]string{
 		"drive": fmt.Sprintf("drive_%d", diskIndex),
 		"id":    fmt.Sprintf("drive_%d", diskIndex),
 	}
 
-	if diskDirver == DISK_DRIVER_VIRTIO {
-		params["addr"] = fmt.Sprintf("0x%x", d.guest.GetDiskAddr(int(diskIndex)))
-	} else if DISK_DRIVER_IDE == diskDirver {
-		params["unit"] = diskIndex % 2
+	if diskDriver == DISK_DRIVER_VIRTIO && disk.Pci != nil {
+		params["bus"] = disk.Pci.BusStr()
+		params["addr"] = disk.Pci.SlotFunc()
+	} else if DISK_DRIVER_IDE == diskDriver {
+		params["unit"] = strconv.Itoa(int(diskIndex % 2))
 	}
-	d.guest.Monitor.DeviceAdd(dev, params, d.onAddDeviceSucc)
+	d.guest.Monitor.DeviceAdd(devType, params, d.onAddDeviceSucc)
 }
 
 func (d *SGuestDiskSyncTask) onAddDeviceSucc(results string) {
@@ -412,8 +495,8 @@ func (d *SGuestDiskSyncTask) onAddDeviceSucc(results string) {
 
 type SGuestNetworkSyncTask struct {
 	guest   *SKVMGuestInstance
-	delNics []*api.GuestnetworkJsonDesc
-	addNics []*api.GuestnetworkJsonDesc
+	delNics []*desc.SGuestNetwork
+	addNics []*desc.SGuestNetwork
 	errors  []error
 
 	callback func(...error)
@@ -438,7 +521,7 @@ func (n *SGuestNetworkSyncTask) syncNetworkConf() {
 	}
 }
 
-func (n *SGuestNetworkSyncTask) removeNic(nic *api.GuestnetworkJsonDesc) {
+func (n *SGuestNetworkSyncTask) removeNic(nic *desc.SGuestNetwork) {
 	callback := func(res string) {
 		if len(res) > 0 && !strings.Contains(res, "not found") {
 			log.Errorf("netdev del failed %s", res)
@@ -451,7 +534,7 @@ func (n *SGuestNetworkSyncTask) removeNic(nic *api.GuestnetworkJsonDesc) {
 	n.guest.Monitor.NetdevDel(nic.Ifname, callback)
 }
 
-func (n *SGuestNetworkSyncTask) onNetdevDel(nic *api.GuestnetworkJsonDesc) {
+func (n *SGuestNetworkSyncTask) onNetdevDel(nic *desc.SGuestNetwork) {
 	downScript := n.guest.getNicDownScriptPath(nic)
 	output, err := procutils.NewCommand("sh", downScript).Output()
 	if err != nil {
@@ -461,19 +544,36 @@ func (n *SGuestNetworkSyncTask) onNetdevDel(nic *api.GuestnetworkJsonDesc) {
 	n.delNicDevice(nic)
 }
 
-func (n *SGuestNetworkSyncTask) delNicDevice(nic *api.GuestnetworkJsonDesc) {
+func (n *SGuestNetworkSyncTask) delNicDevice(nic *desc.SGuestNetwork) {
 	callback := func(res string) {
 		if len(res) > 0 {
 			log.Errorf("network device del failed %s", res)
 			n.errors = append(n.errors, fmt.Errorf("network device del failed %s", res))
 		} else {
+			var i = 0
+			for ; i < len(n.guest.Desc.Nics); i++ {
+				if n.guest.Desc.Nics[i].Index == nic.Index {
+					if nic.Pci != nil {
+						err := n.guest.pciAddrs.ReleasePCIAddress(nic.Pci.PCIAddr)
+						if err != nil {
+							log.Errorf("failed release nic pci addr %s", nic.Pci.PCIAddr)
+						}
+					}
+					break
+				}
+			}
+
+			if i < len(n.guest.Desc.Nics) {
+				n.guest.Desc.Nics = append(n.guest.Desc.Nics[:i], n.guest.Desc.Nics[i+1:]...)
+			}
+
 			n.syncNetworkConf()
 		}
 	}
 	n.guest.Monitor.DeviceDel(fmt.Sprintf("netdev-%s", nic.Ifname), callback)
 }
 
-func (n *SGuestNetworkSyncTask) addNic(nic *api.GuestnetworkJsonDesc) {
+func (n *SGuestNetworkSyncTask) addNic(nic *desc.SGuestNetwork) {
 	if err := n.guest.generateNicScripts(nic); err != nil {
 		log.Errorln(err)
 		n.errors = append(n.errors, err)
@@ -488,47 +588,95 @@ func (n *SGuestNetworkSyncTask) addNic(nic *api.GuestnetworkJsonDesc) {
 	}
 	netType := "tap"
 
+	var pciRoot *desc.PCIController
+	if n.guest.pciInitialized() {
+		pciRoot = n.guest.getHotPlugPciController()
+		if pciRoot == nil {
+			err := errors.Errorf("no hotplugable pci controller found")
+			log.Errorln(err)
+			n.errors = append(n.errors, err)
+			n.syncNetworkConf()
+			return
+		}
+	}
+
+	//id = fmt.Sprintf("netdev-%s", nic.Ifname)
+	//devType = n.guest.getNicDeviceModel(nic.Driver)
+
 	callback := func(res string) {
 		if len(res) > 0 {
 			log.Errorf("netdev add failed %s", res)
 			n.errors = append(n.errors, fmt.Errorf("netdev add failed %s", res))
 			n.syncNetworkConf()
 		} else {
-			n.onNetdevAdd(nic)
+			n.onNetdevAdd(nic, pciRoot)
 		}
 	}
 
 	n.guest.Monitor.NetdevAdd(nic.Ifname, netType, params, callback)
 }
 
-func (n *SGuestNetworkSyncTask) onNetdevAdd(nic *api.GuestnetworkJsonDesc) {
-	dev := n.guest.getNicDeviceModel(nic.Driver)
-	addr := n.guest.getNicAddr(int(nic.Index))
-	params := map[string]interface{}{
+func (n *SGuestNetworkSyncTask) onNetdevAdd(nic *desc.SGuestNetwork, pciRoot *desc.PCIController) {
+	id := fmt.Sprintf("netdev-%s", nic.Ifname)
+	devType := n.guest.getNicDeviceModel(nic.Driver)
+	onFail := func(e error) {
+		log.Errorln(e)
+		n.errors = append(n.errors, e)
+		n.guest.Monitor.NetdevDel(id, func(res string) {
+			log.Infof("netdev %s del %s", id, res)
+		})
+		n.syncNetworkConf()
+	}
+
+	if n.guest.pciInitialized() {
+		switch nic.Driver {
+		case "virtio":
+			nic.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
+		case "e1000":
+			nic.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
+		case "vmxnet3":
+			nic.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
+		default:
+			err := errors.Errorf("unknown nic driver %s", nic.Driver)
+			onFail(err)
+			return
+		}
+		err := n.guest.ensureDevicePciAddress(nic.Pci, -1, nil)
+		if err != nil {
+			onFail(err)
+			return
+		}
+	}
+
+	params := map[string]string{
 		"id":     fmt.Sprintf("netdev-%s", nic.Ifname),
 		"netdev": nic.Ifname,
-		"addr":   fmt.Sprintf("0x%x", addr),
 		"mac":    nic.Mac,
-		"bus":    "pci.0",
 	}
+	if nic.Pci != nil {
+		params["bus"] = nic.Pci.BusStr()
+		params["addr"] = nic.Pci.SlotFunc()
+	}
+
 	callback := func(res string) {
 		if len(res) > 0 {
-			log.Errorf("device add failed %s", res)
-			n.errors = append(n.errors, fmt.Errorf("device add failed %s", res))
-			n.syncNetworkConf()
+			err := fmt.Errorf("device add failed %s", res)
+			onFail(err)
+			return
 		} else {
 			n.onDeviceAdd(nic)
 		}
 	}
-	n.guest.Monitor.DeviceAdd(dev, params, callback)
+	n.guest.Monitor.DeviceAdd(devType, params, callback)
 }
 
-func (n *SGuestNetworkSyncTask) onDeviceAdd(nic *api.GuestnetworkJsonDesc) {
+func (n *SGuestNetworkSyncTask) onDeviceAdd(nic *desc.SGuestNetwork) {
+	n.guest.Desc.Nics = append(n.guest.Desc.Nics, nic)
 	n.syncNetworkConf()
 }
 
 func NewGuestNetworkSyncTask(
-	guest *SKVMGuestInstance, delNics, addNics []*api.GuestnetworkJsonDesc,
+	guest *SKVMGuestInstance, delNics, addNics []*desc.SGuestNetwork,
 ) *SGuestNetworkSyncTask {
 	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), nil}
 }
@@ -539,14 +687,14 @@ func NewGuestNetworkSyncTask(
 
 type SGuestIsolatedDeviceSyncTask struct {
 	guest   *SKVMGuestInstance
-	delDevs []*api.IsolatedDeviceJsonDesc
-	addDevs []*api.IsolatedDeviceJsonDesc
+	delDevs []*desc.SGuestIsolatedDevice
+	addDevs []*desc.SGuestIsolatedDevice
 	errors  []error
 
 	callback func(...error)
 }
 
-func NewGuestIsolatedDeviceSyncTask(guest *SKVMGuestInstance, delDevs, addDevs []*api.IsolatedDeviceJsonDesc) *SGuestIsolatedDeviceSyncTask {
+func NewGuestIsolatedDeviceSyncTask(guest *SKVMGuestInstance, delDevs, addDevs []*desc.SGuestIsolatedDevice) *SGuestIsolatedDeviceSyncTask {
 	return &SGuestIsolatedDeviceSyncTask{guest, delDevs, addDevs, make([]error, 0), nil}
 }
 
@@ -569,10 +717,24 @@ func (t *SGuestIsolatedDeviceSyncTask) syncDevice() {
 	}
 }
 
-func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *api.IsolatedDeviceJsonDesc) {
+func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *desc.SGuestIsolatedDevice) {
 	cb := func(res string) {
 		if len(res) > 0 {
 			t.errors = append(t.errors, fmt.Errorf("device del failed: %s", res))
+		} else {
+			var i = 0
+			for ; i < len(t.guest.Desc.IsolatedDevices); i++ {
+				if t.guest.Desc.IsolatedDevices[i].Id == dev.Id {
+					if len(t.guest.Desc.IsolatedDevices[i].VfioDevs) > 0 {
+						//TODO: vfio dev hutplug
+					}
+					break
+				}
+			}
+			if i < len(t.guest.Desc.IsolatedDevices) {
+				// remove device
+				t.guest.Desc.IsolatedDevices = append(t.guest.Desc.IsolatedDevices[:i], t.guest.Desc.IsolatedDevices[i+1:]...)
+			}
 		}
 		t.syncDevice()
 	}
@@ -592,18 +754,33 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *api.IsolatedDeviceJsonD
 	t.delDeviceCallBack(opts, 0, cb)
 }
 
-func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *api.IsolatedDeviceJsonDesc) {
+func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *desc.SGuestIsolatedDevice) {
+	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr)
+	if devObj == nil {
+		err := errors.Errorf("Not found host isolated_device by %s %s", dev.VendorDeviceId, dev.Addr)
+		log.Errorln(err)
+		t.errors = append(t.errors, err)
+		t.syncDevice()
+		return
+	}
+
 	cb := func(res string) {
 		if len(res) > 0 {
 			t.errors = append(t.errors, fmt.Errorf("device add failed: %s", res))
+		} else {
+			if t.guest.pciInitialized() {
+				if dev.DevType == api.USB_TYPE {
+					dev.Usb = desc.NewUsbDevice("usb-host",
+						fmt.Sprintf("usb%d", len(t.guest.Desc.IsolatedDevices)))
+					dev.Usb.Options = devObj.GetPassthroughOptions()
+				} else {
+					// TODO: vfio dev hotplug
+				}
+			}
+
+			t.guest.Desc.IsolatedDevices = append(t.guest.Desc.IsolatedDevices, dev)
 		}
 		t.syncDevice()
-	}
-
-	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr)
-	if devObj == nil {
-		cb(fmt.Sprintf("Not found host isolated_device by %s %s", dev.VendorDeviceId, dev.Addr))
-		return
 	}
 
 	opts, err := devObj.GetHotPlugOptions()
@@ -1155,7 +1332,7 @@ func (s *SGuestStreamDisksTask) taskComplete() {
 	// 	}
 	// }
 	// if needSync {
-	// 	s.SaveDesc(s.Desc)
+	// 	s.SaveLiveDesc(s.Desc)
 	// }
 
 	if s.callback != nil {
@@ -1690,7 +1867,7 @@ func (task *SGuestHotplugCpuMemTask) onAddMemObject(reason string) {
 		task.onAddMemFailed(reason)
 		return
 	}
-	params := map[string]interface{}{
+	params := map[string]string{
 		"id":     fmt.Sprintf("dimm%d", *task.memSlotNewIndex),
 		"memdev": fmt.Sprintf("mem%d", *task.memSlotNewIndex),
 	}

@@ -23,8 +23,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -83,21 +81,16 @@ type CPUOption struct {
 
 type QemuOptions interface {
 	IsArm() bool
-	CPU(opt CPUOption, osName string) (string, string, error)
 	Log(enable bool, qemuLogPath string) string
 	RTC() string
 	FreezeCPU() string
 	Daemonize() string
 	Nodefaults() string
 	Nodefconfig() string
-	NoKVMPitReinjection() string
 	Global() string
-	Machine(machineType string, accel string) string
 	KeyboardLayoutLanguage(lang string) string
-	SMP(cpus uint) string
 	Name(name string) string
 	UUID(enable bool, uuid string) string
-	Memory(sizeMB uint64) string
 	MemPath(sizeMB uint64, p string) string
 	MemDev(sizeMB uint64) string
 	MemFd(sizeMB uint64) string
@@ -105,20 +98,13 @@ type QemuOptions interface {
 	BIOS(ovmfPath, homedir string) (string, error)
 	Device(devStr string) string
 	Drive(driveStr string) string
-	Spice(port uint, password string) string
 	Chardev(backend string, id string, name string) string
 	MonitorChardev(id string, port uint, host string) string
 	Mon(chardev string, id string, mode string) string
 	Object(typeName string, props map[string]string) string
 	Pidfile(file string) string
 	USB() string
-	VdiSpice(spicePort uint, pciBus string) []string
 	VNC(port uint, usePasswd bool) string
-	VGA(vType string, alterOpt string) string
-	Cdrom(cdromPath string, osName string, isQ35 bool, disksLen int) []string
-	SerialDevice() []string
-	QGA(homeDir string) []string
-	PvpanicDevice() string
 }
 
 var (
@@ -223,10 +209,12 @@ func (o baseOptions) Nodefconfig() string {
 	return "-nodefconfig"
 }
 
-func (o baseOptions) NoKVMPitReinjection() string {
-	return "-no-kvm-pit-reinjection"
-}
+/*
+@subsection -no-kvm-pit-reinjection (since 1.3.0)
 
+The ``-no-kvm-pit-reinjection'' argument is now a
+synonym for setting ``-global kvm-pit.lost_tick_policy=discard''.
+*/
 func (o baseOptions) Global() string {
 	return "-global kvm-pit.lost_tick_policy=discard"
 }
@@ -292,10 +280,6 @@ func (o baseOptions) Drive(driveStr string) string {
 	return "-drive " + driveStr
 }
 
-func (o baseOptions) Spice(port uint, password string) string {
-	return fmt.Sprintf("-spice port=%d,password=%s,seamless-migration=on", port, password)
-}
-
 func (o baseOptions) Chardev(backend string, id string, name string) string {
 	opt := fmt.Sprintf("-chardev %s,id=%s", backend, id)
 	if name != "" {
@@ -333,41 +317,12 @@ func (o baseOptions) USB() string {
 	return "-usb"
 }
 
-func (o baseOptions) VdiSpice(spicePort uint, pciBus string) []string {
-	return []string{
-		o.Device("intel-hda,id=sound0"),
-		o.Device("hda-duplex,id=sound0-codec0,bus=sound0.0,cad=0"),
-		fmt.Sprintf("-spice port=%d,disable-ticketing=off,seamless-migration=on", spicePort),
-		// # ,streaming-video=all,playback-compression=on,jpeg-wan-compression=always,zlib-glz-wan-compression=always,image-compression=glz" % (5900+vnc_port)
-		o.Device(fmt.Sprintf("virtio-serial-pci,id=virtio-serial0,max_ports=16,bus=%s", pciBus)),
-		o.Chardev("spicevmc", "vdagent", "vdagent"),
-		o.Device("virtserialport,nr=1,bus=virtio-serial0.0,chardev=vdagent,name=com.redhat.spice.0"),
-
-		// usb redirect
-		o.Device("ich9-usb-ehci1,id=usbspice"),
-		o.Device("ich9-usb-uhci1,masterbus=usbspice.0,firstport=0,multifunction=on"),
-		o.Device("ich9-usb-uhci2,masterbus=usbspice.0,firstport=2"),
-		o.Device("ich9-usb-uhci3,masterbus=usbspice.0,firstport=4"),
-		o.Chardev("spicevmc", "usbredirchardev1", "usbredir"),
-		o.Device("usb-redir,chardev=usbredirchardev1,id=usbredirdev1"),
-		o.Chardev("spicevmc", "usbredirchardev2", "usbredir"),
-		o.Device("usb-redir,chardev=usbredirchardev2,id=usbredirdev2"),
-	}
-}
-
 func (o baseOptions) VNC(port uint, usePasswd bool) string {
 	opt := fmt.Sprintf("-vnc :%d", port)
 	if usePasswd {
 		opt += ",password"
 	}
 	return opt
-}
-
-func (o baseOptions) VGA(vType string, alternativeOpt string) string {
-	if alternativeOpt != "" {
-		return alternativeOpt
-	}
-	return "-vga " + vType
 }
 
 type baseOptions_x86_64 struct {
@@ -380,111 +335,6 @@ func newBaseOptions_x86_64() *baseOptions_x86_64 {
 	}
 }
 
-func (o *baseOptions_x86_64) CPU(input CPUOption, osName string) (string, string, error) {
-	var accel, cpuType string
-	if input.EnableKVM {
-		accel = "kvm"
-		cpuType = ""
-		if osName == OS_NAME_MACOS {
-			cpuType = "Penryn,vendor=GenuineIntel"
-		} else if input.HostCPUPassthrough {
-			cpuType = "host"
-			// https://unix.stackexchange.com/questions/216925/nmi-received-for-unknown-reason-20-do-you-have-a-strange-power-saving-mode-ena
-			cpuType += ",+kvm_pv_eoi"
-		} else {
-			cpuType = "qemu64"
-			cpuType += ",+kvm_pv_eoi"
-			if input.IsCPUIntel {
-				cpuType += ",+vmx"
-				cpuType += ",+ssse3,+sse4.1,+sse4.2,-x2apic,+aes,+avx"
-				cpuType += ",+vme,+pat,+ss,+pclmulqdq,+xsave"
-				cpuType += ",level=13"
-			} else if input.IsCPUAMD {
-				cpuType += ",+svm"
-			}
-		}
-
-		if !input.EnableNested {
-			cpuType += ",kvm=off"
-		}
-
-		if len(input.IsolatedDeviceCPU) > 0 {
-			cpuType = input.IsolatedDeviceCPU
-		}
-	} else {
-		accel = "tcg"
-		cpuType = "qemu64"
-	}
-	return fmt.Sprintf("-cpu %s", cpuType), accel, nil
-}
-
-func (o baseOptions_x86_64) Machine(mType string, accel string) string {
-	return fmt.Sprintf("-machine %s,accel=%s", mType, accel)
-}
-
-func (o baseOptions_x86_64) SMP(cpus uint) string {
-	maxCpus := options.HostOptions.MaxHotplugVCpuCount
-	if maxCpus == 0 {
-		maxCpus = 128
-	}
-	sockets := 2
-	cores := maxCpus / sockets
-	return fmt.Sprintf("-smp cpus=%d,sockets=%d,cores=%d,maxcpus=%d", cpus, sockets, cores, maxCpus)
-}
-
-func (o baseOptions_x86_64) Memory(sizeMB uint64) string {
-	return fmt.Sprintf("-m %dM,slots=4,maxmem=524288M", sizeMB)
-}
-
-func (o baseOptions_x86_64) Cdrom(cdromPath string, osName string, isQ35 bool, disksLen int) []string {
-	opts := []string{}
-	cdromDrv := "id=ide0-cd0,media=cdrom,if=none"
-	if osName != OS_NAME_MACOS {
-		tmpOpt := "ide-cd,drive=ide0-cd0,bus=ide.1"
-		if isQ35 {
-			tmpOpt += ",unit=1"
-		}
-		opts = append(opts, o.Device(tmpOpt))
-	}
-	if cdromPath != "" {
-		if osName != OS_NAME_MACOS {
-			cdromDrv += fmt.Sprintf(",file=%s", cdromPath)
-		} else {
-			opts = append(opts,
-				o.Device(fmt.Sprintf("ide-drive,drive=MacDVD,bus=ide.%d", disksLen)),
-				o.Drive(fmt.Sprintf("id=MacDVD,if=none,snapshot=on,file=%s", cdromPath)))
-		}
-	}
-	if osName != OS_NAME_MACOS {
-		opts = append(opts, o.Drive(cdromDrv))
-	}
-	return opts
-}
-
-func (o baseOptions_x86_64) SerialDevice() []string {
-	return []string{
-		o.Chardev("pty", "charserial0", ""),
-		o.Device("isa-serial,chardev=charserial0,id=serial0"),
-	}
-}
-
-func (o baseOptions_x86_64) QGA(homeDir string) []string {
-	return []string{
-		fmt.Sprintf("-chardev socket,path=%s,server,nowait,id=qga0", path.Join(homeDir, "qga.sock")),
-		o.Device("virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"),
-	}
-}
-
-func (o baseOptions_x86_64) PvpanicDevice() string {
-	return o.Device("pvpanic")
-}
-
-func (o baseOptions_x86_64) VdiSpice(spicePort uint, pciBus string) []string {
-	baseOpts := o.baseOptions.VdiSpice(spicePort, pciBus)
-	vga := o.Device("qxl-vga,id=video0,ram_size=141557760,vram_size=141557760")
-	return append([]string{vga}, baseOpts...)
-}
-
 type baseOptions_aarch64 struct {
 	*baseOptions
 }
@@ -495,79 +345,6 @@ func newBaseOptions_aarch64() *baseOptions_aarch64 {
 	}
 }
 
-func (o *baseOptions_aarch64) CPU(input CPUOption, osName string) (string, string, error) {
-	var accel, cpuType string
-	if input.EnableKVM {
-		accel = "kvm"
-		if input.HostCPUPassthrough {
-			cpuType = "host"
-		} else {
-			// * under KVM, -cpu max is the same as -cpu host
-			// * under TCG, -cpu max means "emulate with as many features as possible"
-			cpuType = "max"
-		}
-	} else {
-		accel = "tcg"
-		cpuType = "max"
-	}
-	return fmt.Sprintf("-cpu %s", cpuType), accel, nil
-}
-
-func (o baseOptions_aarch64) Machine(mType string, accel string) string {
-	// TODO: fix machine type on region controller side
-	if mType == "" || mType == compute.VM_MACHINE_TYPE_PC || mType == compute.VM_MACHINE_TYPE_Q35 {
-		mType = "virt"
-	}
-	return fmt.Sprintf("-machine %s,accel=%s,gic-version=max", mType, accel)
-}
-
-func (o baseOptions_aarch64) NoKVMPitReinjection() string {
-	return ""
-}
-
 func (o baseOptions_aarch64) Global() string {
 	return ""
-}
-
-func (o baseOptions_aarch64) SMP(cpus uint) string {
-	// warning: Number of hotpluggable cpus requested (128)
-	// exceeds the recommended cpus supported by KVM (32)
-	maxCpus := options.HostOptions.MaxHotplugVCpuCount
-	if maxCpus == 0 {
-		maxCpus = 64
-	}
-	sockets := 2
-	cores := maxCpus / sockets
-	return fmt.Sprintf("-smp cpus=%d,sockets=%d,cores=%d,maxcpus=%d", cpus, sockets, cores, maxCpus)
-}
-
-func (o baseOptions_aarch64) Memory(sizeMB uint64) string {
-	return fmt.Sprintf("-m %dM,slots=4,maxmem=262144M", sizeMB)
-}
-
-func (o baseOptions_aarch64) Cdrom(cdromPath string, osName string, isQ35 bool, disksLen int) []string {
-	opts := []string{}
-	if len(cdromPath) > 0 {
-		opts = append(opts,
-			o.Device("virtio-scsi-device -device scsi-cd,drive=cd0,share-rw=true"),
-			o.Drive(fmt.Sprintf("if=none,file=%s,id=cd0,media=cdrom", cdromPath)))
-	}
-	return opts
-}
-
-func (o baseOptions_aarch64) SerialDevice() []string {
-	return nil
-}
-
-func (o baseOptions_aarch64) QGA(_ string) []string {
-	return nil
-}
-
-func (o baseOptions_aarch64) PvpanicDevice() string {
-	// -device pvpanic: 'pvpanic' is not a valid device model name
-	return ""
-}
-
-func (o baseOptions_aarch64) VdiSpice(spicePort uint, pciBus string) []string {
-	return o.baseOptions.VdiSpice(spicePort, "pcie.0")
 }

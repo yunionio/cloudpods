@@ -20,7 +20,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 )
@@ -88,7 +87,7 @@ func ConvertRoutes(routes string) []types.SRoute {
 	return ret
 }
 
-func GuestdisksDescToDeployDesc(guestDisks []*api.GuestdiskJsonDesc) []*Disk {
+func GuestdisksDescToDeployDesc(guestDisks []*desc.SGuestDisk) []*Disk {
 	if len(guestDisks) == 0 {
 		return nil
 	}
@@ -117,7 +116,7 @@ func GuestdisksDescToDeployDesc(guestDisks []*api.GuestdiskJsonDesc) []*Disk {
 	return disks
 }
 
-func GuestnetworksDescToDeployDesc(guestnetworks []*api.GuestnetworkJsonDesc) []*Nic {
+func GuestnetworksDescToDeployDesc(guestnetworks []*desc.SGuestNetwork) []*Nic {
 	if len(guestnetworks) == 0 {
 		return nil
 	}
