@@ -15,7 +15,6 @@
 package monitor
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -31,8 +30,6 @@ type SMigrationAlertManager struct {
 func init() {
 	MigrationAlertManager = NewMigrationAlertManager()
 	modules.Register(MigrationAlertManager)
-	MigrationAlertManager.SetApiVersion(mcclient.V2_API_VERSION)
-	modules.RegisterV2(MigrationAlertManager)
 }
 
 func NewMigrationAlertManager() *SMigrationAlertManager {

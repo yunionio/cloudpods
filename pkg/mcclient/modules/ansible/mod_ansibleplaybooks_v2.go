@@ -42,5 +42,5 @@ func init() {
 			[]string{},
 		),
 	}
-	modules.RegisterV2(&AnsiblePlaybooksV2)
+	modules.Register(&AnsiblePlaybooksV2)
 }

@@ -70,9 +70,9 @@ var (
 	BatchHostPXERegisterTemplate = []string{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_MAC_ADDR_OPTIONAL, HOST_MNG_IP_ADDR_OPTIONAL}
 )
 
-func FetchSession(ctx context.Context, r *http.Request, apiVersion string) *mcclient.ClientSession {
+func FetchSession(ctx context.Context, r *http.Request) *mcclient.ClientSession {
 	token := AppContextToken(ctx)
-	session := auth.GetSession(ctx, token, FetchRegion(r), apiVersion)
+	session := auth.GetSession(ctx, token, FetchRegion(r))
 	return session
 }
 
@@ -279,7 +279,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	}
 
 	params := jsonutils.NewDict()
-	s := FetchSession(ctx, req, "")
+	s := FetchSession(ctx, req)
 	params.Set("hosts", jsonutils.NewString(hosts.String()))
 
 	// extra params
@@ -301,8 +301,8 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 }
 
 func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	adminS := auth.GetAdminSession(ctx, FetchRegion(req), "")
-	s := FetchSession(ctx, req, "")
+	adminS := auth.GetAdminSession(ctx, FetchRegion(req))
+	s := FetchSession(ctx, req)
 	files := req.MultipartForm.File
 
 	userfiles, ok := files["users"]
@@ -543,7 +543,7 @@ func (mh *MiscHandler) postS3UploadHandler(ctx context.Context, w http.ResponseW
 	acl, _ := p["acl"]
 
 	token := AppContextToken(ctx)
-	s := auth.GetSession(ctx, token, FetchRegion(r), "")
+	s := auth.GetSession(ctx, token, FetchRegion(r))
 
 	meta := http.Header{}
 	meta.Set("Content-Type", "application/octet-stream")

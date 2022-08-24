@@ -214,7 +214,7 @@ func initTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	code, err := doCreateUserTotpCred(s, t)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
@@ -237,7 +237,7 @@ func validatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *ht
 		return
 	}
 
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
 		httperrors.InvalidInputError(ctx, w, "request body is empty")
@@ -276,7 +276,7 @@ func resetTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
 		httperrors.InvalidInputError(ctx, w, "request body is empty")
@@ -314,7 +314,7 @@ func listTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *
 		return
 	}
 
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	// 做缓存？
 	ss, err := modules.Credentials.GetRecoverySecrets(s, t.GetUserId())
 	if len(ss) == 0 {
@@ -340,7 +340,7 @@ func resetTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req 
 		return
 	}
 
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
 		httperrors.InvalidInputError(ctx, w, "request body is empty")

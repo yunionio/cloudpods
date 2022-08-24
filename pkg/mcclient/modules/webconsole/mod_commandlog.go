@@ -25,7 +25,7 @@ var (
 func init() {
 	CommandLog = NewCommandLogManager()
 
-	modulebase.Register("v1", CommandLog)
+	modulebase.Register(CommandLog)
 }
 
 type CommandLogManager struct {
@@ -38,7 +38,7 @@ func NewCommandLogManager() *CommandLogManager {
 			BaseManager: *modulebase.NewBaseManager("webconsole", "", "webconsole", []string{
 				"id", "ops_time", "obj_id", "obj_type", "obj_name", "user", "user_id", "tenant", "tenant_id", "owner_tenant_id", "action", "notes",
 				"session_id", "accessed_at", "type", "login_user", "start_time", "ps1", "command",
-			}, nil),
+			}, nil, ""),
 			Keyword: "commandlog", KeywordPlural: "commandlogs",
 		},
 	}

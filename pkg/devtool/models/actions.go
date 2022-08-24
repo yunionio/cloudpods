@@ -61,8 +61,8 @@ func getServerAttrs(ID string, s *mcclient.ClientSession) (map[string]string, er
 
 func getInfluxdbURL() (string, error) {
 
-	s := auth.GetAdminSessionWithPublic(nil, "", "")
-	url, err := s.GetServiceURL("influxdb", apiidentity.EndpointInterfacePublic)
+	s := auth.GetAdminSessionWithPublic(nil, "")
+	url, err := s.GetServiceURL("influxdb", apiidentity.EndpointInterfacePublic, "")
 
 	if err != nil {
 		log.Errorf("get influxdb Endpoint error %s", err)
@@ -116,7 +116,7 @@ func (obj *SDevtoolTemplate) Binding(ctx context.Context, userCred mcclient.Toke
 	// * create playbook
 
 	template := obj
-	s := auth.GetSession(ctx, userCred, "", "")
+	s := auth.GetSession(ctx, userCred, "")
 	ServerID, err := data.GetString("server_id")
 
 	attrs, err := getServerAttrs(ServerID, s)
@@ -189,7 +189,7 @@ func (obj *SDevtoolTemplate) Unbinding(ctx context.Context, userCred mcclient.To
 	// * get cronjob struct and create obj
 	// * create playbook
 	template := obj
-	s := auth.GetSession(ctx, userCred, "", "")
+	s := auth.GetSession(ctx, userCred, "")
 	ServerID, err := data.GetString("server_id")
 
 	newPlaybookName := template.Name + "-" + template.Id[0:8] + "-" + ServerID[0:8]

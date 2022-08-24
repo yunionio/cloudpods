@@ -39,11 +39,12 @@ type BaseManager struct {
 	adminColumns []string
 }
 
-func NewBaseManager(serviceType, endpointType, version string, columns, adminColumns []string) *BaseManager {
+func NewBaseManager(serviceType, endpointType, version string, columns, adminColumns []string, apiVersion string) *BaseManager {
 	return &BaseManager{
 		serviceType:  serviceType,
 		endpointType: endpointType,
 		version:      version,
+		apiVersion:   apiVersion,
 		columns:      columns,
 		adminColumns: adminColumns,
 	}
@@ -59,10 +60,6 @@ func (this *BaseManager) GetColumns(session *mcclient.ClientSession) []string {
 
 func (this *BaseManager) SetVersion(v string) {
 	this.version = v
-}
-
-func (this *BaseManager) SetApiVersion(v string) {
-	this.apiVersion = v
 }
 
 func (this *BaseManager) GetApiVersion() string {

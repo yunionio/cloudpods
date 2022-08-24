@@ -125,7 +125,7 @@ func (self *SAzureGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mo
 
 func (self *SAzureGuestDriver) ValidateImage(ctx context.Context, image *cloudprovider.SImage) error {
 	if len(image.ExternalId) == 0 {
-		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region)
 		result, err := modules.Images.GetSpecific(s, image.Id, "subformats", nil)
 		if err != nil {
 			return errors.Wrap(err, "get subformats")

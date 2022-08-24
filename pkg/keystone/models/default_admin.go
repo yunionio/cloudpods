@@ -71,6 +71,6 @@ func getDefaultAdminCred() *mcclient.SSimpleToken {
 	return &token
 }
 
-func GetDefaultClientSession(ctx context.Context, token mcclient.TokenCredential, region, apiVersion string) *mcclient.ClientSession {
-	return GetDefaultClient().NewSession(ctx, region, "", "", token, apiVersion)
+func GetDefaultClientSession(ctx context.Context, token mcclient.TokenCredential, region string) *mcclient.ClientSession {
+	return GetDefaultClient().NewSession(ctx, region, "", "", token)
 }

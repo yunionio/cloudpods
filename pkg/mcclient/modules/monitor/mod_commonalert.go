@@ -15,7 +15,6 @@
 package monitor
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -34,8 +33,6 @@ func init() {
 		CommonAlertManager,
 	} {
 		modules.Register(m)
-		m.SetApiVersion(mcclient.V2_API_VERSION)
-		modules.RegisterV2(m)
 	}
 }
 

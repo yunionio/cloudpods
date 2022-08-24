@@ -52,7 +52,7 @@ func (m *ParametersManager) GetWidgetSettings(s *mcclient.ClientSession, params 
 }
 
 func (m *ParametersManager) getParametersRpc(s *mcclient.ClientSession, key string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	adminSession := auth.GetAdminSession(context.Background(), "", "")
+	adminSession := auth.GetAdminSession(context.Background(), "")
 	p := jsonutils.NewDict()
 	p.Add(jsonutils.NewString("system"), "scope")
 	p.Add(jsonutils.NewString(key), "name")

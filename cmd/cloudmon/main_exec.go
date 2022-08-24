@@ -62,7 +62,7 @@ func newClientSession(options *options.CloudMonOptions) (*mcclient.ClientSession
 		"",
 		options.EndpointType,
 		token,
-		options.ApiVersion)
+	)
 
 	return session, nil
 }

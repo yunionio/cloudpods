@@ -40,7 +40,7 @@ func MapKeys(idMap map[string]string) []string {
 }
 
 func FetchDomainNames(ctx context.Context, domainMap map[string]string) (map[string]string, error) {
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString(fmt.Sprintf("id.equals(%s)", strings.Join(MapKeys(domainMap), ","))), "filter.0")
 	query.Add(jsonutils.NewInt(int64(len(domainMap))), "limit")
@@ -69,7 +69,7 @@ func FetchDomainNames(ctx context.Context, domainMap map[string]string) (map[str
 }
 
 func FetchTenantNames(ctx context.Context, tenantMap map[string]string) (map[string]string, error) {
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString(fmt.Sprintf("id.equals(%s)", strings.Join(MapKeys(tenantMap), ","))), "filter.0")
 	query.Add(jsonutils.NewInt(int64(len(tenantMap))), "limit")

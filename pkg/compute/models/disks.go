@@ -1098,7 +1098,7 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		return "", httperrors.NewResourceNotFoundError("No zone for this disk")
 	}
 	if len(input.GenerateName) == 0 {
-		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region)
 		imageList, err := image.Images.List(s, jsonutils.Marshal(map[string]string{"name": input.Name, "admin": "true"}))
 		if err != nil {
 			return "", err
@@ -1150,7 +1150,7 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		if _, err := image.ImageQuotas.DoQuotaCheck(session, jsonutils.Marshal(&quota)); err != nil {
 			return "", err
 		}*/
-	us := auth.GetSession(ctx, userCred, options.Options.Region, "")
+	us := auth.GetSession(ctx, userCred, options.Options.Region)
 	result, err := image.Images.Create(us, jsonutils.Marshal(opts))
 	if err != nil {
 		return "", err

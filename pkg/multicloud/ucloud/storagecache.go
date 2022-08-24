@@ -135,7 +135,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	}()
 
 	// upload to  ucloud
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	meta, reader, size, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", err

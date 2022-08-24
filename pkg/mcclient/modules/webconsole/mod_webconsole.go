@@ -35,7 +35,7 @@ var (
 func init() {
 	WebConsole = WebConsoleManager{NewWebConsoleManager()}
 
-	modulebase.Register("v1", &WebConsole)
+	modulebase.Register(&WebConsole)
 }
 
 type WebConsoleManager struct {
@@ -43,7 +43,7 @@ type WebConsoleManager struct {
 }
 
 func NewWebConsoleManager() modulebase.ResourceManager {
-	return modulebase.ResourceManager{BaseManager: *modulebase.NewBaseManager("webconsole", "", "", nil, nil),
+	return modulebase.ResourceManager{BaseManager: *modulebase.NewBaseManager("webconsole", "", "", nil, nil, ""),
 		Keyword: "webconsole", KeywordPlural: "webconsole"}
 }
 
@@ -70,7 +70,7 @@ func (m WebConsoleManager) DoK8sShellConnect(s *mcclient.ClientSession, id strin
 }
 
 func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	adminSession := auth.GetAdminSession(s.GetContext(), s.GetRegion(), "")
+	adminSession := auth.GetAdminSession(s.GetContext(), s.GetRegion())
 
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.JSONTrue, "system")
@@ -110,7 +110,7 @@ func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.J
 	req.Container = "climc"
 	req.Command = "/bin/bash"
 	endpointType := "internal"
-	authUrl, _ := s.GetServiceURL("identity", endpointType)
+	authUrl, _ := s.GetServiceURL("identity", endpointType, "")
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("auth_url not found")
 	}

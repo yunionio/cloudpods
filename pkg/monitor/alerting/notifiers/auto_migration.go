@@ -94,7 +94,7 @@ func (am *autoMigrationNotifier) Notify(ctx *alerting.EvalContext, data jsonutil
 		return errors.Wrapf(err, "get balancer rules")
 	}
 
-	if err := balancer.DoBalance(ctx.Ctx, auth.GetAdminSession(ctx.Ctx, options.Options.Region, ""), rules, balancer.NewRecorder()); err != nil {
+	if err := balancer.DoBalance(ctx.Ctx, auth.GetAdminSession(ctx.Ctx, options.Options.Region), rules, balancer.NewRecorder()); err != nil {
 		return errors.Wrap(err, "DoBalance")
 	}
 

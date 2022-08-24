@@ -81,7 +81,7 @@ func (manager *SInformerSyncManager) StartWatching(resMan informer.IResourceMana
 func (manager *SInformerSyncManager) startWatcher() error {
 	log.Infof("[%s] Start resource informer watcher for %s", manager.Name(), manager.resourceManager.GetKeyword())
 	ctx := context.Background()
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	informer.NewWatchManagerBySessionBg(s, func(watchMan *informer.SWatchManager) error {
 		if err := watchMan.For(manager.resourceManager).AddEventHandler(ctx, manager); err != nil {
 			return errors.Wrapf(err, "watch resource %s", manager.resourceManager.GetKeyword())
