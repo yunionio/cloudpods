@@ -39,6 +39,7 @@ type SMOngoDBAttribute struct {
 			ConnectionDomain string `json:"ConnectionDomain"`
 		}
 	}
+	MaxConnections int
 }
 
 type SMongoDB struct {
@@ -254,6 +255,11 @@ func (self *SMongoDB) GetIops() int {
 	return iops
 }
 
+func (self *SMongoDB) GetMaxConnections() int {
+	maxConnection, _ := self.region.GetMaxConnections(self.DBInstanceId)
+	return maxConnection
+}
+
 func (self *SMongoDB) GetNetworkAddress() string {
 	addr, _ := self.region.GetNetworkAddress(self.DBInstanceId)
 	return addr
@@ -312,6 +318,17 @@ func (self *SRegion) GetIops(id string) (int, error) {
 		return 0, errors.Wrapf(err, "ret missing err")
 	}
 	return ret[0].MaxIops, nil
+}
+
+func (self *SRegion) GetMaxConnections(id string) (int, error) {
+	ret, err := self.GetMongoDBAttribute(id)
+	if err != nil {
+		return 0, errors.Wrapf(err, "DescribeDBInstanceAttribute err")
+	}
+	if len(ret) == 0 {
+		return 0, errors.Wrapf(err, "ret missing err")
+	}
+	return ret[0].MaxConnections, nil
 }
 
 func (self *SRegion) GetNetworkAddress(id string) (string, error) {
