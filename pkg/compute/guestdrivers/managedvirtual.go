@@ -129,7 +129,8 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		}
 	}
 
-	if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
+	// 避免因同步包年包月实例billing_cycle失败,导致重置虚拟机密码异常
+	if guest.BillingType == billing_api.BILLING_TYPE_PREPAID && len(guest.BillingCycle) > 0 {
 		bc, err := billing.ParseBillingCycle(guest.BillingCycle)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ParseBillingCycle(%s)", guest.BillingCycle)
