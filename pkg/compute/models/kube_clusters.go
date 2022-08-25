@@ -402,6 +402,17 @@ func (self *SKubeCluster) RealDelete(ctx context.Context, userCred mcclient.Toke
 			return errors.Wrapf(err, "delete kube node pool %s", pools[i].Name)
 		}
 	}
+	if len(self.ExternalClusterId) > 0 {
+		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		_, err = k8s.KubeClusters.PerformAction(s,
+			self.ExternalClusterId,
+			"purge",
+			jsonutils.Marshal(map[string]interface{}{"force": true}),
+		)
+		if err != nil {
+			return errors.Wrapf(err, "Create")
+		}
+	}
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
