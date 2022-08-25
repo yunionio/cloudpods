@@ -74,6 +74,30 @@ func (qga *QemuGuestAgent) Unlock() {
 	<-qga.c
 }
 
+func (qga *QemuGuestAgent) QgaCommand(cmd *monitor.Command) ([]byte, error) {
+	info, err := qga.GuestInfo()
+	if err != nil {
+		return nil, err
+	}
+	var i = 0
+	for ; i < len(info.SupportedCommands); i++ {
+		if info.SupportedCommands[i].Name == cmd.Execute {
+			break
+		}
+	}
+	if i > len(info.SupportedCommands) {
+		return nil, errors.Errorf("unsupported command %s", cmd.Execute)
+	}
+	if !info.SupportedCommands[i].Enabled {
+		return nil, errors.Errorf("command %s not enabled", cmd.Execute)
+	}
+	res, err := qga.execCmd(cmd, info.SupportedCommands[i].SuccessResp)
+	if err != nil {
+		return nil, err
+	}
+	return *res, nil
+}
+
 func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool) (*json.RawMessage, error) {
 	rawCmd, err := json.Marshal(cmd)
 	if err != nil {
@@ -94,6 +118,7 @@ func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool) (*json
 	}
 	var objmap map[string]*json.RawMessage
 	b := qga.scanner.Bytes()
+	log.Infof("qga response %s", b)
 	if err := json.Unmarshal(b, &objmap); err != nil {
 		return nil, errors.Wrap(err, "unmarshal qga res")
 	}
@@ -119,16 +144,16 @@ func (qga *QemuGuestAgent) GuestPing() error {
 }
 
 type GuestCommand struct {
-	Enabled bool
-	Name    string
+	Enabled bool   `json:"enabled"`
+	Name    string `json:"name"`
 
 	// whether command returns a response on success (since 1.7)
 	SuccessResp bool `json:"success-response"`
 }
 
 type GuestInfo struct {
-	Version         string
-	SupportCommands []GuestCommand
+	Version           string         `json:"version"`
+	SupportedCommands []GuestCommand `json:"supported_commands"`
 }
 
 func (qga *QemuGuestAgent) GuestInfo() (*GuestInfo, error) {

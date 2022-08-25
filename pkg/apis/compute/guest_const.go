@@ -154,7 +154,8 @@ const (
 
 	VM_SYNC_ISOLATED_DEVICE_FAILED = "sync_isolated_device_failed"
 
-	VM_RESET_PASSWORD = "reset_password"
+	VM_QGA_SET_PASSWORD      = "qga_set_password"
+	VM_QGA_COMMAND_EXECUTING = "qga_command_executing"
 
 	SHUTDOWN_STOP      = "stop"
 	SHUTDOWN_TERMINATE = "terminate"

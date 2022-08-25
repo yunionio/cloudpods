@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
@@ -83,4 +84,23 @@ func (m *SGuestManager) QgaGuestPing(ctx context.Context, params interface{}) (j
 	}
 	err = qgaExec(QGA_EXEC_TIMEOUT, f)
 	return nil, err
+}
+
+func (m *SGuestManager) QgaCommand(cmd *monitor.Command, sid string) (string, error) {
+	guest, err := m.checkAndInitGuestQga(sid)
+	if err != nil {
+		return "", err
+	}
+	var res []byte
+	f := func(c chan error) {
+		if guest.guestAgent.TryLock(QGA_LOCK_TIMEOUT) {
+			defer guest.guestAgent.Unlock()
+			res, err = guest.guestAgent.QgaCommand(cmd)
+			c <- err
+		} else {
+			c <- errors.Errorf("qga unfinished last cmd, is qga unavailable?")
+		}
+	}
+	err = qgaExec(QGA_EXEC_TIMEOUT, f)
+	return string(res), err
 }

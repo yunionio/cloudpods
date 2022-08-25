@@ -473,3 +473,7 @@ func (self *SBaseGuestDriver) QgaRequestGuestPing(ctx context.Context, task task
 func (self *SBaseGuestDriver) QgaRequestSetUserPassword(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input *api.ServerQgaSetPasswordInput) error {
 	return httperrors.ErrNotImplemented
 }
+
+func (self *SBaseGuestDriver) RequestQgaCommand(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) (jsonutils.JSONObject, error) {
+	return nil, httperrors.ErrNotImplemented
+}
