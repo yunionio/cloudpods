@@ -154,6 +154,8 @@ const (
 
 	VM_SYNC_ISOLATED_DEVICE_FAILED = "sync_isolated_device_failed"
 
+	VM_RESET_PASSWORD = "reset_password"
+
 	SHUTDOWN_STOP      = "stop"
 	SHUTDOWN_TERMINATE = "terminate"
 
@@ -184,6 +186,13 @@ const (
 
 	//	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
 	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
+)
+
+const (
+	QGA_STATUS_UNKNOWN        = "unknown"
+	QGA_STATUS_EXCUTING       = "executing"
+	QGA_STATUS_EXECUTE_FAILED = "execute_failed"
+	QGA_STATUS_AVAILABLE      = "available"
 )
 
 const (

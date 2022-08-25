@@ -230,6 +230,7 @@ const (
 
 	ACT_ENCRYPTION = "encrypt"
 
-	ACT_CONSOLE = "console"
-	ACT_WEBSSH  = "webssh"
+	ACT_CONSOLE           = "console"
+	ACT_WEBSSH            = "webssh"
+	ACT_SET_USER_PASSWORD = "set_user_password"
 )

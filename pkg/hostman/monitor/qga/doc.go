@@ -12,28 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package host
-
-import (
-	"github.com/jaypipes/ghw/pkg/cpu"
-	"github.com/jaypipes/ghw/pkg/topology"
-)
-
-type ServerCloneDiskFromStorageResponse struct {
-	TargetAccessPath string `json:"target_access_path"`
-	TargetFormat     string `json:"target_format"`
-}
-
-type HostTopology struct {
-	*topology.Info
-}
-
-type HostCPUInfo struct {
-	*cpu.Info
-}
-
-type GuestSetPasswordRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Crypted  bool   `json:"crypted"`
-}
+package qga // import "yunion.io/x/onecloud/pkg/hostman/monitor/qga"
