@@ -162,3 +162,8 @@ type SEsxiAccessInfo struct {
 	HostIp     string
 	GuestExtId string
 }
+
+type SQgaGuestSetPassword struct {
+	*hostapi.GuestSetPasswordRequest
+	Sid string
+}

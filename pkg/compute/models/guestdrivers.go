@@ -221,6 +221,9 @@ type IGuestDriver interface {
 
 	RequestCPUSet(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, guest *SGuest, input *api.ServerCPUSetInput) (*api.ServerCPUSetResp, error)
 	RequestCPUSetRemove(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, guest *SGuest, input *api.ServerCPUSetRemoveInput) error
+
+	QgaRequestGuestPing(ctx context.Context, task taskman.ITask, host *SHost, guest *SGuest) error
+	QgaRequestSetUserPassword(ctx context.Context, task taskman.ITask, host *SHost, guest *SGuest, input *api.ServerQgaSetPasswordInput) error
 }
 
 var guestDrivers map[string]IGuestDriver

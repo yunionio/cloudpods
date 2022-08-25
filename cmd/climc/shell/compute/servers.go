@@ -107,6 +107,7 @@ func init() {
 	cmd.Perform("set-class-metadata", &baseoptions.ResourceMetadataOptions{})
 	cmd.Perform("monitor", &options.ServerMonitorOptions{})
 	cmd.BatchPerform("enable-memclean", new(options.ServerIdsOptions))
+	cmd.Perform("qga-set-password", &options.ServerQgaSetPassword{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))

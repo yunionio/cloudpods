@@ -49,6 +49,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
+	"yunion.io/x/onecloud/pkg/hostman/monitor/qga"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -101,9 +102,10 @@ type SKVMInstanceRuntime struct {
 type SKVMGuestInstance struct {
 	SKVMInstanceRuntime
 
-	Id      string
-	Monitor monitor.Monitor
-	manager *SGuestManager
+	Id         string
+	Monitor    monitor.Monitor
+	manager    *SGuestManager
+	guestAgent *qga.QemuGuestAgent
 
 	archMan arch.Arch
 
@@ -848,6 +850,19 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 	}
 }
 
+func (s *SKVMGuestInstance) QgaPath() string {
+	return path.Join(s.HomeDir(), "qga.sock")
+}
+
+func (s *SKVMGuestInstance) InitQga() error {
+	guestAgent, err := qga.NewQemuGuestAgent(s.Id, s.QgaPath())
+	if err != nil {
+		return err
+	}
+	s.guestAgent = guestAgent
+	return nil
+}
+
 func (s *SKVMGuestInstance) SyncMirrorJobFailed(reason string) {
 	params := jsonutils.NewDict()
 	params.Set("reason", jsonutils.NewString(reason))
@@ -900,6 +915,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 	s.QemuVersion = version
 	log.Infof("Guest(%s) qemu version %s", s.Id, s.QemuVersion)
 	if s.LiveMigrateDestPort != nil && ctx != nil {
+		// dest migrate guest
 		body := jsonutils.NewDict()
 		body.Set("live_migrate_dest_port", jsonutils.NewInt(int64(*s.LiveMigrateDestPort)))
 		if s.LiveMigrateUseTls {
@@ -909,18 +925,23 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		}
 	} else if s.IsSlave() {
 		s.startQemuBuiltInNbdServer(ctx)
-	} else if s.IsMaster() {
-		s.startDiskBackupMirror(ctx)
-		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
-			s.DoResumeTask(ctx, false)
-		} else {
-			if options.HostOptions.SetVncPassword {
-				s.SetVncPassword()
-			}
-			s.OnResumeSyncMetadataInfo()
-		}
 	} else {
-		s.DoResumeTask(ctx, true)
+		if s.IsMaster() {
+			s.startDiskBackupMirror(ctx)
+			if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
+				s.DoResumeTask(ctx, false)
+			} else {
+				if options.HostOptions.SetVncPassword {
+					s.SetVncPassword()
+				}
+				s.OnResumeSyncMetadataInfo()
+			}
+		} else {
+			s.DoResumeTask(ctx, true)
+		}
+		if err := s.InitQga(); err != nil {
+			log.Errorf("Guest %s init qga failed %s", s.Id, err)
+		}
 	}
 }
 
@@ -930,6 +951,10 @@ func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 	s.scriptStop()
 	if !s.IsSlave() {
 		s.SyncStatus(fmt.Sprintf("monitor disconnect %v", err))
+	}
+	if s.guestAgent != nil {
+		s.guestAgent.Close()
+		s.guestAgent = nil
 	}
 	s.clearCgroup(0)
 	s.Monitor = nil
