@@ -118,8 +118,8 @@ func GetModels(opts *GetModelsOptions) error {
 		listOptions.Filter = append(listOptions.Filter,
 			"manager_id.isnullorempty()",  // len(manager_id) > 0 is for pubcloud objects
 			"external_id.isnullorempty()", // len(external_id) > 0 is for pubcloud objects
-			"cloud_env=onpremise",
 		)
+		listOptions.CloudEnv = "onpremise"
 	}
 	if inter, ok := opts.ModelSet.(IModelSetFilter); ok {
 		filter := inter.ModelFilter()

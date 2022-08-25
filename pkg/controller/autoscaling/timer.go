@@ -60,7 +60,7 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 	}
 	log.Debugf("total %d need to exec, %v", len(scalingTimers), scalingTimers)
 	log.Debugf("timeScope: start: %s, end: %s", timeScope.Start, timeScope.End)
-	session := auth.GetSession(ctx, userCred, "", "")
+	session := auth.GetSession(ctx, userCred, "")
 	triggerParams := jsonutils.NewDict()
 	for i := range scalingTimers {
 		scalingTimer := scalingTimers[i]

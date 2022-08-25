@@ -224,7 +224,7 @@ func (self *SKubeCluster) doRemoteImport(ctx context.Context, userCred mcclient.
 			"kubeconfig": config.Config,
 		},
 	}
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	resp, err := k8s.KubeClusters.Create(s, jsonutils.Marshal(params))
 	if err != nil {
 		return errors.Wrapf(err, "Create")
@@ -400,6 +400,17 @@ func (self *SKubeCluster) RealDelete(ctx context.Context, userCred mcclient.Toke
 		err = pools[i].RealDelete(ctx, userCred)
 		if err != nil {
 			return errors.Wrapf(err, "delete kube node pool %s", pools[i].Name)
+		}
+	}
+	if len(self.ExternalClusterId) > 0 {
+		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		_, err = k8s.KubeClusters.PerformAction(s,
+			self.ExternalClusterId,
+			"purge",
+			jsonutils.Marshal(map[string]interface{}{"force": true}),
+		)
+		if err != nil {
+			return errors.Wrapf(err, "Create")
 		}
 	}
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)

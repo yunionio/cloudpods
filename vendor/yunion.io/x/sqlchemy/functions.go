@@ -356,3 +356,7 @@ func MUL(name string, fields ...IQueryField) IQueryField {
 func DIV(name string, fields ...IQueryField) IQueryField {
 	return bc(name, "/", fields...)
 }
+
+func DATEDIFF(unit string, field1, field2 IQueryField) IQueryField {
+	return getFieldBackend(field1).DATEDIFF(unit, field1, field2)
+}

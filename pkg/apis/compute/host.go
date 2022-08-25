@@ -192,7 +192,7 @@ type HostDetails struct {
 	// CPU超售比
 	CpuCommitBound float32 `json:"cpu_commit_bound"`
 	// 内存超售比
-	MemCommitBound float32 `json:"mem_commint_bound"`
+	MemCommitBound float32 `json:"mem_commit_bound"`
 	// 存储大小
 	Storage int64 `json:"storage"`
 	// 已使用存储大小

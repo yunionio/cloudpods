@@ -1923,7 +1923,7 @@ func (img *SImage) doEncrypt(ctx context.Context, userCred mcclient.TokenCredent
 	if img.EncryptStatus == api.IMAGE_ENCRYPT_STATUS_ENCRYPTED {
 		return false, nil
 	}
-	session := auth.GetSession(ctx, userCred, options.Options.Region, "v1")
+	session := auth.GetSession(ctx, userCred, options.Options.Region)
 	keyObj, err := identity_modules.Credentials.GetById(session, img.EncryptKeyId, nil)
 	if err != nil {
 		return false, errors.Wrap(err, "GetByEncryptKeyId")

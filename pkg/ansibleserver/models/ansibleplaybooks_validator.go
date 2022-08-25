@@ -102,7 +102,7 @@ func (v *ValidatorAnsiblePlaybook) Validate(data *jsonutils.JSONDict) error {
 }
 
 func (v *ValidatorAnsiblePlaybook) getHostAccessIp(name string) (string, error) {
-	sess := mcclient_auth.GetSession(context.Background(), v.userCred, "", "")
+	sess := mcclient_auth.GetSession(context.Background(), v.userCred, "")
 	hostJson, err := compute.Hosts.Get(sess, name, nil)
 	if err != nil {
 		return "", httperrors.NewBadRequestError("cannot find host %s", name)
@@ -118,7 +118,7 @@ func (v *ValidatorAnsiblePlaybook) getHostAccessIp(name string) (string, error) 
 }
 
 func (v *ValidatorAnsiblePlaybook) getServerIp(name string) (string, error) {
-	sess := mcclient_auth.GetSession(context.Background(), v.userCred, "", "")
+	sess := mcclient_auth.GetSession(context.Background(), v.userCred, "")
 	serverJson, err := compute.Servers.Get(sess, name, nil)
 	if err != nil {
 		return "", httperrors.NewBadRequestError("find server %s: %v", name, err)

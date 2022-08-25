@@ -400,7 +400,7 @@ func explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONOb
 }
 
 func fetchPolicyDataByIdOrName(ctx context.Context, id string) (*sPolicyData, error) {
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	data, err := identity.Policies.Get(s, id, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.Policies.Get")

@@ -284,10 +284,10 @@ func (m *HmpMonitor) DriveAdd(bus string, params map[string]string, callback Str
 	m.Query(fmt.Sprintf("drive_add %s %s", bus, strings.Join(paramsKvs, ",")), callback)
 }
 
-func (m *HmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback StringCallback) {
+func (m *HmpMonitor) DeviceAdd(dev string, params map[string]string, callback StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
-		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%v", k, v))
+		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
 	}
 	m.Query(fmt.Sprintf("device_add %s,%s", dev, strings.Join(paramsKvs, ",")), callback)
 }

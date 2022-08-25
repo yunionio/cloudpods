@@ -80,7 +80,7 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 		k8sReq.Namespace = "default"
 	}
 	podName := params["<podName>"]
-	adminSession := auth.GetAdminSession(ctx, o.Options.Region, "")
+	adminSession := auth.GetAdminSession(ctx, o.Options.Region)
 
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString(k8sReq.Namespace), "namespace")
@@ -134,7 +134,7 @@ func fetchCloudEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if userCred == nil {
 		return nil, httperrors.NewUnauthorizedError("No token founded")
 	}
-	s := auth.Client().NewSession(ctx, o.Options.Region, "", "internal", userCred, "v2")
+	s := auth.Client().NewSession(ctx, o.Options.Region, "", "internal", userCred)
 	return &CloudEnv{
 		ClientSessin: s,
 		Params:       params,

@@ -165,7 +165,7 @@ func (guest *SGuest) sshableTryEach(
 		}
 	}
 
-	sess := auth.GetSession(ctx, userCred, "", "")
+	sess := auth.GetSession(ctx, userCred, "")
 	//   - check existing proxy forward
 	proxyforwardTried := false
 	for i := range gnInfos {
@@ -488,7 +488,7 @@ func (guest *SGuest) PerformMakeSshable(
 		host.SetVar("ansible_password", input.Password)
 	}
 
-	cliSess := auth.GetSession(ctx, userCred, "", "")
+	cliSess := auth.GetSession(ctx, userCred, "")
 	pbId := ""
 	pbName := "make-sshable-" + guest.Id
 	pbModel, err := ansible_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(

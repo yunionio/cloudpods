@@ -78,7 +78,7 @@ func NewBaremetalRegisterTask(
 }
 
 func (s *sBaremetalRegisterTask) getSession() *mcclient.ClientSession {
-	return auth.GetSession(context.Background(), s.userCred, o.Options.Region, "v2")
+	return auth.GetSession(context.Background(), s.userCred, o.Options.Region)
 }
 
 func (s *sBaremetalRegisterTask) getAccessDevMacAddr(ip string) (string, error) {

@@ -48,7 +48,7 @@ func (this *SSshkeypairManager) List(s *mcclient.ClientSession, params jsonutils
 }
 
 func (this *SSshkeypairManager) FetchPrivateKey(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
-	s := auth.GetSession(ctx, userCred, "", "")
+	s := auth.GetSession(ctx, userCred, "")
 	return this.FetchPrivateKeyBySession(ctx, s)
 }
 
@@ -89,5 +89,5 @@ func init() {
 		[]string{},
 		[]string{})}
 
-	modules.RegisterComputeV2(&Sshkeypairs)
+	modules.RegisterCompute(&Sshkeypairs)
 }

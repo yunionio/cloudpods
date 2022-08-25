@@ -509,7 +509,7 @@ func (manager *SCommonAlertManager) GetExportExtraKeys(ctx context.Context, keys
 }
 
 func GetGlobalSettingsDictionary(ctx context.Context, param string) (val string) {
-	s := auth.GetAdminSession(ctx, "", "")
+	s := auth.GetAdminSession(ctx, "")
 	globalSettings, err := yunionconf.Parameters.GetGlobalSettings(s, jsonutils.NewDict())
 	if err != nil {
 		log.Errorf("GetGlobalSettings err:%v", err)

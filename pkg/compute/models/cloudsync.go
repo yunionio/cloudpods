@@ -1032,7 +1032,7 @@ func syncSkusFromPrivateCloud(ctx context.Context, userCred mcclient.TokenCreden
 	if result.IsError() {
 		return
 	}
-	s := auth.GetSession(ctx, userCred, "", "")
+	s := auth.GetSession(ctx, userCred, "")
 	if _, err := scheduler.SchedManager.SyncSku(s, true); err != nil {
 		log.Errorf("Sync scheduler sku cache error: %v", err)
 	}

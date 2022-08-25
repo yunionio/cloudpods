@@ -32,6 +32,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -369,7 +370,7 @@ func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (j
 		encAlg    seclib2.TSymEncAlg
 	)
 	if len(encKeyId) > 0 {
-		session := auth.GetSession(ctx, info.UserCred, consts.GetRegion(), "")
+		session := auth.GetSession(ctx, info.UserCred, consts.GetRegion())
 		key, err := identity_modules.Credentials.GetEncryptKey(session, encKeyId)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetEncryptKey")
@@ -519,7 +520,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
 	disksBackingFile, srcSnapshots jsonutils.JSONObject,
 	rebaseDisks bool,
-	diskinfo *api.GuestdiskJsonDesc,
+	diskinfo *desc.SGuestDisk,
 	serverId string, idx, totalDiskCount int,
 	encInfo *apis.SEncryptInfo,
 ) error {

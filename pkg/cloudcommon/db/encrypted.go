@@ -52,7 +52,7 @@ func (res *SEncryptedResource) GetEncryptInfo(
 	userCred mcclient.TokenCredential,
 ) (apis.SEncryptInfo, error) {
 	ret := apis.SEncryptInfo{}
-	session := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
+	session := auth.GetSession(ctx, userCred, consts.GetRegion())
 	secKey, err := identity_modules.Credentials.GetEncryptKey(session, res.EncryptKeyId)
 	if err != nil {
 		return ret, errors.Wrap(err, "GetEncryptKey")
@@ -82,7 +82,7 @@ func (manager *SEncryptedResourceManager) ValidateCreateData(
 	input apis.EncryptedResourceCreateInput,
 ) (apis.EncryptedResourceCreateInput, error) {
 	if input.EncryptKeyId != nil && len(*input.EncryptKeyId) > 0 {
-		session := auth.GetSession(ctx, userCred, consts.GetRegion(), "v1")
+		session := auth.GetSession(ctx, userCred, consts.GetRegion())
 		keyObj, err := identity_modules.Credentials.Get(session, *input.EncryptKeyId, nil)
 		if err != nil {
 			return input, errors.Wrap(err, "Credentials get key")
@@ -103,7 +103,7 @@ func (manager *SEncryptedResourceManager) ValidateCreateData(
 func (res *SEncryptedResource) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data jsonutils.JSONObject, nameHint string) error {
 	if len(res.EncryptKeyId) == 0 && jsonutils.QueryBoolean(data, "encrypt_key_new", false) && !jsonutils.QueryBoolean(data, "dry_run", false) {
 		// create new encrypt key
-		session := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+		session := auth.GetAdminSession(ctx, consts.GetRegion())
 		now := time.Now()
 		keyName := "key-" + nameHint + "-" + timeutils.ShortDate(now)
 		algName, _ := data.GetString("encrypt_key_alg")
@@ -127,7 +127,7 @@ func (manager *SEncryptedResourceManager) FetchCustomizeColumns(
 ) []apis.EncryptedResourceDetails {
 	rets := make([]apis.EncryptedResourceDetails, len(objs))
 
-	session := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
+	session := auth.GetSession(ctx, userCred, consts.GetRegion())
 	encKeyMap := make(map[string]identity_modules.SEncryptKeySecret)
 	for i := range objs {
 		var base *SEncryptedResource

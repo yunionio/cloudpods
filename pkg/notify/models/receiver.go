@@ -234,7 +234,7 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 		return input, err
 	}
 	// check uid
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 	if len(input.UID) > 0 {
 		userObj, err := modules.UsersV3.GetById(session, input.UID, nil)
 		if err != nil {
@@ -666,7 +666,7 @@ func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 }
 
 func (rm *SReceiverManager) findUserIdsWithProjectDomain(ctx context.Context, userCred mcclient.TokenCredential, projectDomainId string) ([]string, error) {
-	session := auth.GetSession(ctx, userCred, "", "")
+	session := auth.GetSession(ctx, userCred, "")
 	query := jsonutils.NewDict()
 	query.Set("effective", jsonutils.JSONTrue)
 	query.Set("project_domain_id", jsonutils.NewString(projectDomainId))
@@ -1000,7 +1000,7 @@ func (rm *SReceiverManager) PerformIntellijGet(ctx context.Context, userCred mcc
 	getParam := jsonutils.NewDict()
 	getParam.Set("scope", jsonutils.NewString(input.Scope))
 	// try to get itself
-	s := auth.GetSession(ctx, userCred, "", "")
+	s := auth.GetSession(ctx, userCred, "")
 	// modules.NotifyReceiver
 	ret, err := notify_modules.NotifyReceiver.Get(s, input.UserId, getParam)
 	if err == nil {
@@ -1017,7 +1017,7 @@ func (rm *SReceiverManager) PerformIntellijGet(ctx context.Context, userCred mcc
 		return jsonutils.NewDict(), nil
 	}
 	// create one
-	adminSession := auth.GetAdminSession(ctx, "", "")
+	adminSession := auth.GetAdminSession(ctx, "")
 	ret, err = modules.UsersV3.GetById(adminSession, input.UserId, getParam)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable get user from keystone")
@@ -1121,7 +1121,7 @@ func (r *SReceiver) PerformDisable(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (r *SReceiver) Sync(ctx context.Context) error {
-	session := auth.GetAdminSessionWithInternal(ctx, "", "")
+	session := auth.GetAdminSessionWithInternal(ctx, "")
 	params := jsonutils.NewDict()
 	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("system", jsonutils.JSONTrue)
@@ -1211,14 +1211,14 @@ func (rm *SReceiverManager) OnDelete(obj *jsonutils.JSONDict) {
 		return
 	}
 	receiver := &receivers[0]
-	err = receiver.Delete(context.Background(), auth.GetAdminSession(context.Background(), "", "").GetToken())
+	err = receiver.Delete(context.Background(), auth.GetAdminSession(context.Background(), "").GetToken())
 	if err != nil {
 		log.Errorf("fail to delete contact %q: %v", receiver.Id, err)
 	}
 }
 
 func (rm *SReceiverManager) StartWatchUserInKeystone() error {
-	adminSession := auth.GetAdminSession(context.Background(), "", "")
+	adminSession := auth.GetAdminSession(context.Background(), "")
 	watchMan, err := informer.NewWatchManagerBySession(adminSession)
 	if err != nil {
 		return err

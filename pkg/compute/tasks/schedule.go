@@ -126,7 +126,7 @@ func doScheduleWithInput(
 		params = jsonutils.Marshal(schedInput).(*jsonutils.JSONDict)
 	}
 	task.SetStage("OnScheduleComplete", params)
-	s := auth.GetSession(ctx, task.GetUserCred(), options.Options.Region, "")
+	s := auth.GetSession(ctx, task.GetUserCred(), options.Options.Region)
 	return scheduler.SchedManager.DoSchedule(s, schedInput, count)
 }
 

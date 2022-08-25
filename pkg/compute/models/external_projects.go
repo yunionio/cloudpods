@@ -237,7 +237,7 @@ func (self *SExternalProject) syncRemoveCloudProject(ctx context.Context, userCr
 }
 
 func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, ext cloudprovider.ICloudProject) error {
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	providers := account.GetCloudproviders()
 	providerMaps := map[string]string{}
 	for _, provider := range providers {
@@ -323,7 +323,7 @@ func (self *SCloudaccount) getOrCreateDomain(ctx context.Context, userCred mccli
 		if errors.Cause(err) != sql.ErrNoRows {
 			return "", errors.Wrapf(err, "FetchDomainByIdOrName")
 		}
-		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region)
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(name), "generate_name")
 
@@ -412,7 +412,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 
 	tags, _ := extProject.GetTags()
 	if len(tags) > 0 {
-		s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+		s := auth.GetAdminSession(ctx, consts.GetRegion())
 		identity.Projects.PerformAction(s, project.ProjectId, "user-metadata", jsonutils.Marshal(tags))
 	}
 

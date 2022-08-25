@@ -44,7 +44,7 @@ func (h *CSRFResourceHandler) Bind(app *appsrv.Application) {
 	h.SHandlers.Bind(app)
 }
 
-func getAdminSession(ctx context.Context, apiVer string, region string, w http.ResponseWriter) *mcclient.ClientSession {
+func getAdminSession(ctx context.Context, region string, w http.ResponseWriter) *mcclient.ClientSession {
 	adminToken := auth.AdminCredential()
 	if adminToken == nil {
 		httperrors.NotFoundError(ctx, w, "get admin credential is nil")
@@ -60,7 +60,7 @@ func getAdminSession(ctx context.Context, apiVer string, region string, w http.R
 	if !ret {
 		httperrors.NotFoundError(ctx, w, "illegal region %s, please contact admin", region)
 	}
-	s := auth.GetAdminSession(ctx, region, apiVer)
+	s := auth.GetAdminSession(ctx, region)
 	return s
 }
 
@@ -109,7 +109,7 @@ func fetchEnvCsrf0(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return nil, nil, nil, nil
 	}
 	log.Infof("csrf region from url: %s", region)
-	session := getAdminSession(ctx, params[APIVer], region, w)
+	session := getAdminSession(ctx, region, w)
 	log.Infof("csrf got session: %s", region)
 	if session == nil {
 		return nil, nil, nil, nil

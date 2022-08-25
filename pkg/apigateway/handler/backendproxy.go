@@ -68,8 +68,8 @@ func (h *SBackendServiceProxyHandler) fetchReverseEndpoint() *proxy.SEndpointFac
 			return "", httperrors.NewBadRequestError("no service")
 		}
 		endpointType := "internalURL"
-		session := auth.GetAdminSession(ctx, FetchRegion(r), "")
-		ep, err := session.GetServiceURL(serviceName, endpointType)
+		session := auth.GetAdminSession(ctx, FetchRegion(r))
+		ep, err := session.GetServiceURL(serviceName, endpointType, "")
 		if err != nil {
 			return "", httperrors.NewBadRequestError("invalid service %s: %s", serviceName, err)
 		}

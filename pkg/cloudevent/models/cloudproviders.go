@@ -329,7 +329,7 @@ type SCloudproviderDelegate struct {
 }
 
 func (self *SCloudprovider) GetDelegate() (*SCloudproviderDelegate, error) {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	result, err := modules.Cloudproviders.Get(s, self.Id, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.Cloudproviders.Get")

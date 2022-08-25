@@ -466,7 +466,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 			configInfo.Image = gt.ImageId
 		}
 	case IMAGE_TYPE_GUEST:
-		s := auth.GetSession(ctx, userCred, options.Options.Region, "")
+		s := auth.GetSession(ctx, userCred, options.Options.Region)
 		ret, err := image.GuestImages.Get(s, gt.ImageId, jsonutils.JSONNull)
 		if err != nil || !ret.Contains("id") {
 			configInfo.Image = gt.ImageId
@@ -561,7 +561,7 @@ func (gt *SGuestTemplate) PerformPublic(
 		}
 		isPublic, publicScope = image.IsPublic, image.PublicScope
 	case IMAGE_TYPE_GUEST:
-		s := auth.GetSession(ctx, userCred, options.Options.Region, "")
+		s := auth.GetSession(ctx, userCred, options.Options.Region)
 		ret, err := image.GuestImages.Get(s, gt.ImageId, jsonutils.JSONNull)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to fetch guest image %s descripted by guest template", gt.ImageId)

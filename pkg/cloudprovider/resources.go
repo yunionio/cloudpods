@@ -953,6 +953,7 @@ type ICloudDBInstance interface {
 	GetVcpuCount() int
 	GetVmemSizeMB() int //MB
 	GetDiskSizeGB() int
+	GetDiskSizeUsedMB() int
 	//基础版、高可用？
 	GetCategory() string
 	GetStorageType() string
@@ -1438,6 +1439,9 @@ type ICloudMongoDB interface {
 	GetMaintainTime() string
 	GetPort() int
 	GetIops() int
+
+	GetMaxConnections() int
+
 	GetNetworkAddress() string
 
 	GetIBackups() ([]SMongoDBBackup, error)

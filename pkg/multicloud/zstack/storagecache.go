@@ -104,7 +104,7 @@ func (scache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 
 	meta, reader, size, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
 	if err != nil {

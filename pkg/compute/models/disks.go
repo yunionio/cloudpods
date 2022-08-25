@@ -289,6 +289,22 @@ func (manager *SDiskManager) OrderByExtraFields(
 		q.Join(guestQuery, sqlchemy.Equals(guestQuery.Field("id"), guestDiskQuery.Field("guest_id")))
 		db.OrderByFields(q, []string{query.OrderByServer}, []sqlchemy.IQueryField{guestQuery.Field("name")})
 	}
+	if db.NeedOrderQuery([]string{query.OrderByGuestCount}) {
+		guestdisks := GuestdiskManager.Query().SubQuery()
+		disks := DiskManager.Query().SubQuery()
+		guestdiskQ := guestdisks.Query(
+			guestdisks.Field("guest_id"),
+			guestdisks.Field("disk_id"),
+			sqlchemy.COUNT("guest_count", guestdisks.Field("guest_id")),
+		)
+
+		guestdiskQ = guestdiskQ.LeftJoin(disks, sqlchemy.Equals(guestdiskQ.Field("disk_id"), disks.Field("id")))
+		guestdiskSQ := guestdiskQ.GroupBy(guestdiskQ.Field("disk_id")).SubQuery()
+		q.AppendField(q.QueryFields()...)
+		q.AppendField(guestdiskSQ.Field("guest_count"))
+		q = q.LeftJoin(guestdiskSQ, sqlchemy.Equals(q.Field("id"), guestdiskSQ.Field("disk_id")))
+		db.OrderByFields(q, []string{query.OrderByGuestCount}, []sqlchemy.IQueryField{guestdiskQ.Field("guest_count")})
+	}
 	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
@@ -1082,7 +1098,7 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		return "", httperrors.NewResourceNotFoundError("No zone for this disk")
 	}
 	if len(input.GenerateName) == 0 {
-		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region)
 		imageList, err := image.Images.List(s, jsonutils.Marshal(map[string]string{"name": input.Name, "admin": "true"}))
 		if err != nil {
 			return "", err
@@ -1134,7 +1150,7 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		if _, err := image.ImageQuotas.DoQuotaCheck(session, jsonutils.Marshal(&quota)); err != nil {
 			return "", err
 		}*/
-	us := auth.GetSession(ctx, userCred, options.Options.Region, "")
+	us := auth.GetSession(ctx, userCred, options.Options.Region)
 	result, err := image.Images.Create(us, jsonutils.Marshal(opts))
 	if err != nil {
 		return "", err

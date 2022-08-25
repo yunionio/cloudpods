@@ -49,6 +49,5 @@ func init() {
 		},
 		[]string{},
 	)
-	modules.RegisterV2(&AnsiblePlaybookReference)
-	modules.RegisterV2(&AnsiblePlaybookInstance)
+	modules.Register(&AnsiblePlaybookReference)
 }

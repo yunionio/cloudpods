@@ -18,7 +18,6 @@ package types
 // yunion.io/x/onecloud/pkg/hostman/guestman
 
 import (
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 )
 
@@ -29,7 +28,7 @@ type IHealthCheckReactor interface {
 var HealthCheckReactor IHealthCheckReactor
 
 type IGuestDescGetter interface {
-	GetGuestNicDesc(mac, ip, port, bridge string, isCandidate bool) (*desc.SGuestDesc, *api.GuestnetworkJsonDesc)
+	GetGuestNicDesc(mac, ip, port, bridge string, isCandidate bool) (*desc.SGuestDesc, *desc.SGuestNetwork)
 }
 
 var GuestDescGetter IGuestDescGetter

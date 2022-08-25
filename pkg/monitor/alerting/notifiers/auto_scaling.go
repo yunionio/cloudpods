@@ -47,7 +47,7 @@ type AutoScalingNotifier struct {
 func newAutoScalingNotifier(config alerting.NotificationConfig) (alerting.Notifier, error) {
 	return &AutoScalingNotifier{
 		NotifierBase: NewNotifierBase(config),
-		session:      auth.GetAdminSession(context.Background(), options.Options.Region, ""),
+		session:      auth.GetAdminSession(context.Background(), options.Options.Region),
 	}, nil
 }
 

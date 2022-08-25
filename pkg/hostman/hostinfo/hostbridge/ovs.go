@@ -23,7 +23,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/util/bwutils"
@@ -118,15 +118,15 @@ func (d *SOVSBridgeDriver) PersistentConfig() error {
 	return nil
 }
 
-func (o *SOVSBridgeDriver) GenerateIfdownScripts(scriptPath string, nic *api.GuestnetworkJsonDesc, isSlave bool) error {
+func (o *SOVSBridgeDriver) GenerateIfdownScripts(scriptPath string, nic *desc.SGuestNetwork, isSlave bool) error {
 	return o.generateIfdownScripts(o, scriptPath, nic, isSlave)
 }
 
-func (o *SOVSBridgeDriver) GenerateIfupScripts(scriptPath string, nic *api.GuestnetworkJsonDesc, isSlave bool) error {
+func (o *SOVSBridgeDriver) GenerateIfupScripts(scriptPath string, nic *desc.SGuestNetwork, isSlave bool) error {
 	return o.generateIfupScripts(o, scriptPath, nic, isSlave)
 }
 
-func (o *SOVSBridgeDriver) getUpScripts(nic *api.GuestnetworkJsonDesc, isSlave bool) (string, error) {
+func (o *SOVSBridgeDriver) getUpScripts(nic *desc.SGuestNetwork, isSlave bool) (string, error) {
 	var (
 		bridge      = o.bridge.String()
 		ifname      = nic.Ifname
@@ -196,7 +196,7 @@ func (o *SOVSBridgeDriver) getUpScripts(nic *api.GuestnetworkJsonDesc, isSlave b
 	return s, nil
 }
 
-func (o *SOVSBridgeDriver) getDownScripts(nic *api.GuestnetworkJsonDesc, isSlave bool) (string, error) {
+func (o *SOVSBridgeDriver) getDownScripts(nic *desc.SGuestNetwork, isSlave bool) (string, error) {
 	var (
 		bridge = o.bridge.String()
 		ifname = nic.Ifname

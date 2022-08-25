@@ -398,7 +398,7 @@ func getTenant(ctx context.Context, projectId string, name string) (*db.STenant,
 }
 
 func createTenant(ctx context.Context, name, domainId, desc string) (string, string, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(name), "generate_name")
 

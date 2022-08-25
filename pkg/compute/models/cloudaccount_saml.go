@@ -49,7 +49,7 @@ func (account *SCloudaccount) GetDetailsSaml(ctx context.Context, userCred mccli
 	output.RedirectLoginUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "redirect/login", account.Id)
 	output.RedirectLogoutUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "redirect/logout", account.Id)
 	output.MetadataUrl = httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, "metadata", account.Id)
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	params := map[string]string{
 		"scope":           "system",
 		"cloudaccount_id": account.Id,

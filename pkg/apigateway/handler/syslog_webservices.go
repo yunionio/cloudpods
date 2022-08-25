@@ -156,7 +156,7 @@ func fetchSyslogMessage(r *http.Request) jsonutils.JSONObject {
 		params.Add(jsonutils.NewString(moduleType), "service")
 	}
 
-	sess := auth.GetAdminSession(nil, "", "")
+	sess := auth.GetAdminSession(nil, "")
 	logs, err := modules.Actions.List(sess, params)
 	if err != nil {
 		ret.Code = 2

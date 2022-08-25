@@ -237,6 +237,13 @@ func (rds *SDBInstance) GetDiskSizeGB() int {
 	return rds.DBInstanceStorage
 }
 
+func (rds *SDBInstance) GetDiskSizeUsedMB() int {
+	if rds.DBInstanceDiskUsed == 0 {
+		rds.Refresh()
+	}
+	return int(rds.DBInstanceDiskUsed / 1024 / 1024)
+}
+
 func (rds *SDBInstance) GetPort() int {
 	if rds.Port == 0 {
 		rds.Refresh()
@@ -346,12 +353,17 @@ func (rds *SDBInstance) GetInternalConnectionStr() string {
 		return ""
 	}
 
+	str := ""
 	for _, net := range rds.netInfo {
 		if net.IPType != "Public" {
-			return net.ConnectionString
+			if net.IPType == "Private" {
+				return net.ConnectionString
+			} else if net.IPType == "Inner" {
+				str = net.ConnectionString
+			}
 		}
 	}
-	return ""
+	return str
 }
 
 func (rds *SDBInstance) GetConnectionStr() string {

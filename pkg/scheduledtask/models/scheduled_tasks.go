@@ -374,7 +374,7 @@ func (st *SScheduledTask) CustomizeDelete(ctx context.Context, userCred mcclient
 }
 
 func (st *SScheduledTask) Action(ctx context.Context, userCred mcclient.TokenCredential) SAction {
-	session := auth.GetSession(ctx, userCred, "", "")
+	session := auth.GetSession(ctx, userCred, "")
 	return Action.ResourceOperation(st.ResourceOperation()).Session(session)
 }
 

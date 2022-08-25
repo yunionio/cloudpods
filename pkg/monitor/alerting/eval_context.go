@@ -121,7 +121,7 @@ func (c *EvalContext) GetNotificationTitle() string {
 }
 
 func (c *EvalContext) GetCallbackURLPrefix() string {
-	config, err := modules.ServicesV3.GetSpecific(auth.GetAdminSession(c.Ctx, "", ""), "common", "config",
+	config, err := modules.ServicesV3.GetSpecific(auth.GetAdminSession(c.Ctx, ""), "common", "config",
 		jsonutils.NewDict())
 	if err != nil {
 		log.Errorf("GetCallbackURLPrefix err:%v", err)

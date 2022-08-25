@@ -576,7 +576,7 @@ func (m *QmpMonitor) DriveAdd(bus string, params map[string]string, callback Str
 	// m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback StringCallback) {
+func (m *QmpMonitor) DeviceAdd(dev string, params map[string]string, callback StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%v", k, v))

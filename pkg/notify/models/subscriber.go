@@ -496,7 +496,7 @@ func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string,
 				}
 				query.Add(jsonutils.NewString(projectId), "scope", "project", "id")
 			}
-			s := auth.GetAdminSession(ctx, "", "")
+			s := auth.GetAdminSession(ctx, "")
 			log.Debugf("query for role-assignments: %s", query.String())
 			listRet, err := modules.RoleAssignments.List(s, query)
 			if err != nil {

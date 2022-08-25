@@ -103,7 +103,7 @@ func (asc *SASController) CheckInstanceHealth(ctx context.Context, userCred mccl
 	removeParams := jsonutils.NewDict()
 	removeParams.Set("delete_server", jsonutils.JSONTrue)
 	removeParams.Set("auto", jsonutils.JSONTrue)
-	session := auth.GetSession(ctx, userCred, "", "")
+	session := auth.GetSession(ctx, userCred, "")
 	for i := range unnormalGuests {
 		ug := unnormalGuests[i]
 		if ug.CreateCompleteTime.Add(time.Duration(scalingGroupMap[ug.ScalngGroupId].HealthCheckGov) * time.Second).After(now) {

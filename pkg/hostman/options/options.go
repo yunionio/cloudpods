@@ -186,6 +186,7 @@ type SHostOptions struct {
 	BinaryMemcleanPath string `help:"execute binary memclean path" default:"/opt/yunion/bin/memclean"`
 
 	MaxHotplugVCpuCount int `help:"maximal possible vCPU count that the platform kvm supports"`
+	PcieRootPortCount   int `help:"pcie root port count" default:"2"`
 }
 
 var (

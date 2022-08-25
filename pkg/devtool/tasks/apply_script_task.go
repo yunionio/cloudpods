@@ -106,7 +106,7 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		self.taskFailed(ctx, sa, sar, err)
 		return
 	}
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 	sshable, cleanFunc, err := utils.CheckSSHable(session, sa.GuestId)
 	// check sshable
 	if err != nil {
@@ -180,7 +180,7 @@ const (
 
 func (self *ApplyScriptTask) OnAnsiblePlaybookComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	// try to delete local forward
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 
 	sa := obj.(*models.SScriptApply)
 	// try to set metadata for guest

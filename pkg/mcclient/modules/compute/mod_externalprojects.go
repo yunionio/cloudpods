@@ -30,5 +30,5 @@ func init() {
 		[]string{"ID", "Name", "External_Id", "Tenant_id", "Tenant", "Manager_id", "Manager"},
 		[]string{})
 
-	modules.RegisterComputeV2(&ExternalProjects)
+	modules.RegisterCompute(&ExternalProjects)
 }

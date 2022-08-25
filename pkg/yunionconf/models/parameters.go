@@ -84,7 +84,7 @@ func isAdminQuery(query jsonutils.JSONObject) bool {
 }
 
 func getUserId(user string) (string, error) {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	userObj, err := modules.UsersV3.Get(s, user, nil)
 	if err != nil {
 		return "", err
@@ -99,7 +99,7 @@ func getUserId(user string) (string, error) {
 }
 
 func getServiceId(service string) (string, error) {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	serviceObj, err := modules.ServicesV3.Get(s, service, nil)
 	if err != nil {
 		return "", err

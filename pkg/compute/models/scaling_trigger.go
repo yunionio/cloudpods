@@ -275,7 +275,7 @@ func (sa *SScalingAlarm) Register(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return err
 	}
-	session := auth.GetSession(ctx, userCred, "", "")
+	session := auth.GetSession(ctx, userCred, "")
 	notificationID, err := ScalingPolicyManager.NotificationID(session)
 	if err != nil {
 		return errors.Wrap(err, "ScalingPolicyManager.NotificationID")
@@ -357,7 +357,7 @@ func (sa *SScalingAlarm) generateAlertConfig(sp *SScalingPolicy) (*monitor.Alert
 }
 
 func (sa *SScalingAlarm) UnRegister(ctx context.Context, userCred mcclient.TokenCredential) error {
-	session := auth.GetSession(ctx, userCred, "", "")
+	session := auth.GetSession(ctx, userCred, "")
 	_, err := monitor.Alerts.Delete(session, sa.AlarmId, jsonutils.NewDict())
 	if err != nil {
 		return errors.Wrap(err, "Alerts.Delete")

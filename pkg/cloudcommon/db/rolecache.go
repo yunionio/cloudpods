@@ -123,7 +123,7 @@ func (manager *SRoleCacheManager) FetchRoleFromKeystone(ctx context.Context, idS
 	query.Set("scope", jsonutils.NewString("system"))
 	query.Set("system", jsonutils.JSONTrue)
 
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	role, err := modules.RolesV3.GetById(s, idStr, query)
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
@@ -263,7 +263,7 @@ func (manager *SRoleCacheManager) StartWatchRoleInKeystone() error {
 		return nil
 	}
 	ctx := context.Background()
-	s := auth.GetAdminSession(ctx, "", "")
+	s := auth.GetAdminSession(ctx, "")
 	watchMan, err := informer.NewWatchManagerBySession(s)
 	if err != nil {
 		return err

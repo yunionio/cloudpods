@@ -31,5 +31,5 @@ func init() {
 		},
 		[]string{})
 
-	modules.RegisterComputeV2(&Schedpolicies)
+	modules.RegisterCompute(&Schedpolicies)
 }

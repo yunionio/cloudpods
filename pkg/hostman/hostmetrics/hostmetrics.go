@@ -32,8 +32,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -422,7 +422,7 @@ type SGuestMonitor struct {
 	Name           string
 	Id             string
 	Pid            int
-	Nics           []*api.GuestnetworkJsonDesc
+	Nics           []*desc.SGuestNetwork
 	CpuCnt         int
 	Ip             string
 	Process        *process.Process
@@ -433,7 +433,7 @@ type SGuestMonitor struct {
 	ProjectDomain  string
 }
 
-func NewGuestMonitor(name, id string, pid int, nics []*api.GuestnetworkJsonDesc, cpuCount int,
+func NewGuestMonitor(name, id string, pid int, nics []*desc.SGuestNetwork, cpuCount int,
 ) (*SGuestMonitor, error) {
 	var ip string
 	if len(nics) >= 1 {
@@ -450,7 +450,7 @@ func (m *SGuestMonitor) UpdateVmName(name string) {
 	m.Name = name
 }
 
-func (m *SGuestMonitor) UpdateNicsDesc(nics []*api.GuestnetworkJsonDesc) {
+func (m *SGuestMonitor) UpdateNicsDesc(nics []*desc.SGuestNetwork) {
 	m.Nics = nics
 }
 

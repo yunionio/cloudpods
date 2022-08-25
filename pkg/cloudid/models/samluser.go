@@ -205,7 +205,7 @@ func (self *SSamluser) SyncAzureGroup() error {
 		return errors.Wrapf(err, "group cache Register")
 	}
 	if len(cache.ExternalId) == 0 {
-		s := auth.GetAdminSession(context.TODO(), options.Options.Region, "")
+		s := auth.GetAdminSession(context.TODO(), options.Options.Region)
 		_, err = cache.GetOrCreateICloudgroup(context.TODO(), s.GetToken())
 		if err != nil {
 			return errors.Wrapf(err, "GetOrCreateICloudgroup")

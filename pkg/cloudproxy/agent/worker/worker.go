@@ -71,7 +71,6 @@ func NewWorker(commonOpts *common_options.CommonOptions, opts *agentoptions.Opti
 		clientSet: agentssh.NewClientSet(),
 		sessionCache: &auth.SessionCache{
 			Region:        commonOpts.Region,
-			APIVersion:    "v2",
 			UseAdminToken: true,
 			EarlyRefresh:  time.Hour,
 		},

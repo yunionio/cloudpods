@@ -32,20 +32,256 @@ type SGuestControlDesc struct {
 	EncryptKeyId string
 }
 
+type SGuestCpu struct {
+	Cpus    uint
+	Sockets uint
+	Cores   uint
+	Threads uint
+	MaxCpus uint
+
+	Model    string
+	Vendor   string
+	Level    string
+	Features map[string]bool `json:",omitempty"`
+
+	Accel string
+	// emulate, passthrough, disable
+	// CpuCacheMode string
+}
+
+type SGuestMem struct {
+	Slots  uint
+	MaxMem uint
+
+	// Backend     string
+	// MemFilePath *string `json:",omitempty"`
+}
+
 type SGuestHardwareDesc struct {
-	Cpu       int64
-	Mem       int64
-	Machine   string
+	Cpu     int64
+	CpuDesc *SGuestCpu `json:",omitempty"`
+	// Clock   *SGuestClock `json:",omitempty"`
+
+	Mem     int64
+	MemDesc *SGuestMem `json:",omitempty"`
+
 	Bios      string
-	Vga       string
-	Vdi       string
 	BootOrder string
 
-	Cdrom           *api.GuestcdromJsonDesc
-	Disks           []*api.GuestdiskJsonDesc
-	Nics            []*api.GuestnetworkJsonDesc
-	NicsStandby     []*api.GuestnetworkJsonDesc
-	IsolatedDevices []*api.IsolatedDeviceJsonDesc
+	// supported machine type: pc, q35, virt
+	Machine     string
+	MachineDesc *SGuestMachine `json:",omitempty"`
+
+	VirtioSerial *SGuestVirtioSerial
+
+	// std virtio cirrus vmware qlx none
+	Vga       string
+	VgaDevice *SGuestVga `json:",omitempty"`
+
+	// vnc or spice
+	Vdi       string
+	VdiDevice *SGuestVdi `json:",omitempty"`
+
+	VirtioScsi      *SGuestVirtioScsi       `json:",omitempty"`
+	PvScsi          *SGuestPvScsi           `json:",omitempty"`
+	Cdrom           *SGuestCdrom            `json:",omitempty"`
+	Disks           []*SGuestDisk           `json:",omitempty"`
+	Nics            []*SGuestNetwork        `json:",omitempty"`
+	NicsStandby     []*SGuestNetwork        `json:",omitempty"`
+	IsolatedDevices []*SGuestIsolatedDevice `json:",omitempty"`
+
+	// Random Number Generator Device
+	Rng       *SGuestRng       `json:",omitempty"`
+	Qga       *SGuestQga       `json:",omitempty"`
+	Pvpanic   *SGuestPvpanic   `json:",omitempty"`
+	IsaSerial *SGuestIsaSerial `json:",omitempty"`
+
+	Usb            *UsbController   `json:",omitempty"`
+	PCIControllers []*PCIController `json:",omitempty"`
+}
+
+type SGuestIsaSerial struct {
+	Pty *CharDev
+	Id  string
+}
+
+type SGuestQga struct {
+	Socket     *CharDev
+	SerialPort *VirtSerialPort
+}
+
+type VirtSerialPort struct {
+	Chardev string
+	Name    string
+
+	Options map[string]string `json:",omitempty"`
+}
+
+type SGuestPvpanic struct {
+	Ioport uint // default ioport 1285(0x505)
+	Id     string
+}
+
+// -device pcie-pci-bridge,id=pci.1,bus=pcie.0 \
+// -device pci-bridge,id=pci.2,bus=pci.1,chassis_nr=1,addr=0x01 \
+
+type PCIController struct {
+	*PCIDevice
+
+	CType PCI_CONTROLLER_TYPE
+	//HotPlug bool
+	//Bus     string
+}
+
+type SGuestMachine struct {
+	Accel string
+
+	// arm only
+	GicVersion *string `json:",omitempty"`
+}
+
+type SGuestDisk struct {
+	api.GuestdiskJsonDesc
+
+	// disk driver virtio
+	Pci *PCIDevice `json:",omitempty"`
+	// disk driver scsi/pvscsi
+	Scsi *SCSIDevice `json:",omitempty"`
+	// disk driver ide/sata
+	Ide *IDEDevice `json:",omitempty"`
+}
+
+// -device ide-cd,drive=ide0-cd0,bus=ide.1
+// -drive id=ide0-cd0,media=cdrom,if=none,file=%s
+// --- mac os
+// -device ide-drive,drive=MacDVD,bus=ide.%d
+// -drive id=MacDVD,if=none,snapshot=on,file=%s
+
+type SGuestCdrom struct {
+	Id   string
+	Path string
+
+	Ide          *IDEDevice        `json:",omitempty"`
+	Scsi         *SCSIDevice       `json:",omitempty"`
+	DriveOptions map[string]string `json:",omitempty"`
+}
+
+type SGuestNetwork struct {
+	api.GuestnetworkJsonDesc
+	Pci *PCIDevice `json:",omitempty"`
+}
+
+type VFIODevice struct {
+	*PCIDevice
+
+	HostAddr string
+	XVga     bool
+}
+
+type SGuestIsolatedDevice struct {
+	api.IsolatedDeviceJsonDesc
+	VfioDevs []*VFIODevice `json:",omitempty"`
+	Usb      *UsbDevice
+}
+
+type SGuestVga struct {
+	*PCIDevice `json:",omitempty"`
+}
+
+type SGuestRng struct {
+	*PCIDevice `json:",omitempty"`
+
+	RngRandom *Object
+}
+
+type SoundCard struct {
+	*PCIDevice `json:",omitempty"`
+	Codec      *Codec
+}
+
+type Codec struct {
+	Id   string
+	Type string
+	Cad  int
+}
+
+type SSpiceDesc struct {
+	// Intel High Definition Audio
+	IntelHDA *SoundCard
+
+	// vdagent
+	VdagentSerial     *SGuestVirtioSerial
+	Vdagent           *CharDev
+	VdagentSerialPort *VirtSerialPort
+
+	// usb redirect
+	UsbRedirct *UsbRedirctDesc
+
+	Options map[string]string `json:",omitempty"`
+}
+
+type UsbMasterBus struct {
+	Masterbus string
+	Port      int
+}
+
+type UsbController struct {
+	*PCIDevice
+
+	MasterBus *UsbMasterBus `json:",omitempty"`
+}
+
+type UsbAddr struct {
+	Bus  int
+	Port int
+}
+
+type UsbDevice struct {
+	*UsbAddr
+
+	Id      string
+	DevType string
+
+	Options map[string]string `json:",omitempty"`
+}
+
+type UsbRedirctDesc struct {
+	// EHCI adapter: Enhanced Host Controller Interface, USB2.0
+	// Depends on UHCI to support full of usb devices
+	EHCI1 *UsbController
+
+	// UHCI controllers: Universal Host Controller Interface, USB 1.0, 1.1
+	UHCI1 *UsbController
+	UHCI2 *UsbController
+	UHCI3 *UsbController
+
+	UsbRedirDev1 *UsbRedir
+	UsbRedirDev2 *UsbRedir
+}
+
+type UsbRedir struct {
+	Id     string
+	Source *CharDev
+}
+
+type SGuestVdi struct {
+	// Protocol string
+	// Port     int
+	// Password string
+
+	Spice *SSpiceDesc
+}
+
+type SGuestVirtioSerial struct {
+	*PCIDevice
+}
+
+type SGuestVirtioScsi struct {
+	*PCIDevice
+}
+
+type SGuestPvScsi struct {
+	*PCIDevice
 }
 
 type SGuestDesc struct {

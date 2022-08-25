@@ -52,7 +52,7 @@ func jsonToMetric(obj *jsonutils.JSONDict, name string, tags []string, metrics [
 }
 
 func sendMetrics(s *mcclient.ClientSession, metrics []influxdb.SMetricData, debug bool) error {
-	urls, err := s.GetServiceURLs("influxdb", o.Options.SessionEndpointType)
+	urls, err := s.GetServiceURLs("influxdb", o.Options.SessionEndpointType, "")
 	if err != nil {
 		return errors.Wrap(err, "GetServiceURLs")
 	}

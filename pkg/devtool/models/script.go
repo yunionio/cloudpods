@@ -84,7 +84,7 @@ func (sm *SScriptManager) InitializeData() error {
 
 func (sm *SScriptManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ScriptCreateInput) (api.ScriptCreateInput, error) {
 	// check ansible playbook reference
-	session := auth.GetSessionWithInternal(ctx, userCred, "", "")
+	session := auth.GetSessionWithInternal(ctx, userCred, "")
 	pr, err := ansible.AnsiblePlaybookReference.Get(session, input.PlaybookReference, nil)
 	if err != nil {
 		return input, errors.Wrapf(err, "unable to get AnsiblePlaybookReference %q", input.PlaybookReference)

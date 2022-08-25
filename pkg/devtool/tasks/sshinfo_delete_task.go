@@ -41,7 +41,7 @@ func (self *SshInfoDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		self.SetStageComplete(ctx, nil)
 		return
 	}
-	session := auth.GetSession(ctx, self.GetUserCred(), "", "")
+	session := auth.GetSession(ctx, self.GetUserCred(), "")
 	clean := utils.GetCleanFunc(session, sshInfo.ServerHypervisor, sshInfo.ServerId, sshInfo.Host, sshInfo.ForwardId, sshInfo.Port)
 	err := clean()
 	if err != nil {

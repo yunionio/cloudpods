@@ -107,7 +107,7 @@ func (man *SKubeClusterManager) refreshKubeConfig() {
 }
 
 func (man *SKubeClusterManager) getKubeClusterConfig() (string, error) {
-	session := auth.GetAdminSession(context.Background(), man.region, "v1")
+	session := auth.GetAdminSession(context.Background(), man.region)
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.JSONTrue, "directly")
 	ret, err := kubeserver.KubeClusters.PerformAction(session, "default", "generate-kubeconfig", params)
