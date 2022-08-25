@@ -72,75 +72,75 @@ func (self *SRegion) GetClusterAllResources() ([]SClusterResource, error) {
 	return resources, err
 }
 
-func (self *SRegion) GetClusterStoragesResources() ([]SStorageResource, error) {
+func (self *SRegion) GetClusterStoragesResources() (map[string]SStorageResource, error) {
 	resources := []SClusterResource{}
-	storageResources := []SStorageResource{}
+	storageResources := map[string]SStorageResource{}
 	err := self.get("/cluster/resources", url.Values{}, &resources)
 
 	if err != nil {
 		return nil, err
 	}
 
-	for _, rc := range resources {
-		if rc.Type == "storage" {
-			src := SStorageResource{
-				Id:     rc.Id,
-				Path:   fmt.Sprintf("/nodes/%s/storage/%s", rc.Node, rc.Storage),
-				Node:   rc.Node,
-				Name:   rc.Storage,
-				Shared: rc.Shared,
+	for _, res := range resources {
+		if res.Type == "storage" {
+			sres := SStorageResource{
+				Id:     res.Id,
+				Path:   fmt.Sprintf("/nodes/%s/storage/%s", res.Node, res.Storage),
+				Node:   res.Node,
+				Name:   res.Storage,
+				Shared: res.Shared,
 			}
 
-			storageResources = append(storageResources, src)
+			storageResources[sres.Id] = sres
 		}
 	}
 
 	return storageResources, nil
 }
 
-func (self *SRegion) GetClusterNodeResources() ([]SNodeResource, error) {
+func (self *SRegion) GetClusterNodeResources() (map[string]SNodeResource, error) {
 	resources := []SClusterResource{}
-	nodeResources := []SNodeResource{}
+	nodeResources := map[string]SNodeResource{}
 	err := self.get("/cluster/resources", url.Values{}, &resources)
 
 	if err != nil {
 		return nil, err
 	}
 
-	for _, rc := range resources {
-		if rc.Type == "node" {
-			nrc := SNodeResource{
-				Id:   rc.Id,
-				Node: rc.Node,
+	for _, res := range resources {
+		if res.Type == "node" {
+			nres := SNodeResource{
+				Id:   res.Id,
+				Node: res.Node,
 			}
 
-			nodeResources = append(nodeResources, nrc)
+			nodeResources[nres.Id] = nres
 		}
 	}
 
 	return nodeResources, nil
 }
 
-func (self *SRegion) GetClusterVmResources() ([]SVmResource, error) {
+func (self *SRegion) GetClusterVmResources() (map[int]SVmResource, error) {
 	resources := []SClusterResource{}
-	VmResources := []SVmResource{}
+	VmResources := map[int]SVmResource{}
 	err := self.get("/cluster/resources", url.Values{}, &resources)
 
 	if err != nil {
 		return nil, err
 	}
 
-	for _, rc := range resources {
-		if rc.Type == "qemu" {
-			vrc := SVmResource{
-				VmId:   rc.VmId,
-				Id:     rc.Id,
-				Name:   rc.Name,
-				Node:   rc.Node,
-				Status: rc.Status,
+	for _, res := range resources {
+		if res.Type == "qemu" {
+			vres := SVmResource{
+				VmId:   res.VmId,
+				Id:     res.Id,
+				Name:   res.Name,
+				Node:   res.Node,
+				Status: res.Status,
 			}
 
-			VmResources = append(VmResources, vrc)
+			VmResources[vres.VmId] = vres
 		}
 	}
 

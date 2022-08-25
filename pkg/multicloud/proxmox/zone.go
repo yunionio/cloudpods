@@ -124,6 +124,10 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 func (self *SRegion) GetZone() (*SZone, error) {
 	ret := &SZone{region: self}
 	css := []ClusterStatus{}
+
+	noneClusterMsg := true
+	nodeNum := 0
+
 	err := self.get("/cluster/status", url.Values{}, css)
 	if err != nil {
 		return nil, err
@@ -135,8 +139,17 @@ func (self *SRegion) GetZone() (*SZone, error) {
 			ret.Nodes = cs.Nodes
 			ret.Quorate = cs.Quorate
 			ret.Version = cs.Version
+			noneClusterMsg = false
+			break
+		} else {
+			nodeNum++
 		}
-		break
+
+	}
+
+	if noneClusterMsg == true {
+		ret.Name = "cluster"
+		ret.Nodes = nodeNum
 	}
 
 	return ret, nil

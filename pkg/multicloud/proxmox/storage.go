@@ -72,15 +72,6 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	return ret, nil
 }
 
-//
-// func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-// 	disk, err := self.zone.region.CreateDisk(conf.Name, self.Id, conf.SizeGb)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return disk, nil
-// }
-
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	return nil, cloudprovider.ErrNotFound
 }
@@ -97,27 +88,14 @@ func (self *SStorage) GetEnabled() bool {
 	return true
 }
 
-//wait after
-// func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-// 	disk, err := self.zone.region.GetDisk(id)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if disk.DataStoreId != self.Id {
-// 		return nil, cloudprovider.ErrNotFound
-// 	}
-// 	return disk, nil
-// }
-
 func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotFound
-}
+	disk, err := self.zone.region.GetDisk(id)
+	if err != nil {
+		return nil, err
+	}
 
-//wait after
-// func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-// 	cache := &SStoragecache{zone: self.zone}
-// 	return cache
-// }
+	return disk, nil
+}
 
 func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return nil
@@ -179,12 +157,12 @@ func (self *SRegion) GetStorages() ([]SStorage, error) {
 		return nil, err
 	}
 
-	for _, rc := range resources {
+	for _, res := range resources {
 		storage := &SStorage{}
-		res := fmt.Sprintf("%s/status", rc.Path)
-		err := self.get(res, url.Values{}, storage)
-		storage.Id = rc.Id
-		storage.Node = rc.Node
+		status := fmt.Sprintf("%s/status", res.Path)
+		err := self.get(status, url.Values{}, storage)
+		storage.Id = res.Id
+		storage.Node = res.Node
 
 		if err != nil {
 			return nil, err

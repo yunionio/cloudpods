@@ -22,6 +22,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/pkg/errors"
 )
 
 type SRegion struct {
@@ -104,11 +105,22 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
-	return nil, cloudprovider.ErrNotSupported
+	zone, err := self.GetZone()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetZone()")
+	}
+	return zone, nil
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	return nil, cloudprovider.ErrNotSupported
+	zone, err := self.GetZone()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudZone{}
+	zone.region = self
+	ret = append(ret, zone)
+	return ret, nil
 }
 
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
@@ -116,7 +128,16 @@ func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	return nil, cloudprovider.ErrNotSupported
+	host, err := self.GetHost(id)
+	if err != nil {
+		return nil, err
+	}
+	zone, err := self.GetZone()
+	if err != nil {
+		return nil, err
+	}
+	host.zone = zone
+	return host, nil
 }
 
 func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
@@ -126,14 +147,6 @@ func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, er
 func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
-
-// func (self *SRegion) _list(res string, params url.Values) (jsonutils.JSONObject, error) {
-// 	return self.client._list(res, params)
-// }
-
-// func (self *SRegion) list(res string, params url.Values, retVal interface{}) error {
-// 	return self.client.list(res, params, retVal)
-// }
 
 func (self *SRegion) get(res string, params url.Values, retVal interface{}) error {
 	return self.client.get(res, params, retVal)

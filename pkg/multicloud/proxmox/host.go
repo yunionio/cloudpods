@@ -211,12 +211,12 @@ func (self *SRegion) GetHosts() ([]SHost, error) {
 		return nil, err
 	}
 
-	for _, rc := range resources {
+	for _, res := range resources {
 		host := &SHost{}
-		res := fmt.Sprintf("nodes/%s/status", rc.Node)
-		err := self.get(res, url.Values{}, host)
-		host.Id = rc.Id
-		host.Node = rc.Node
+		status := fmt.Sprintf("nodes/%s/status", res.Node)
+		err := self.get(status, url.Values{}, host)
+		host.Id = res.Id
+		host.Node = res.Node
 
 		if err != nil {
 			return nil, err
@@ -232,7 +232,7 @@ func (self *SRegion) GetHost(id string) (*SHost, error) {
 	ret := &SHost{}
 	nodeName := ""
 
-	//"id": "node/strogeNAME",
+	//"id": "node/nodeNAME",
 	splited := strings.Split(id, "/")
 	if len(splited) == 2 {
 		nodeName = splited[1]

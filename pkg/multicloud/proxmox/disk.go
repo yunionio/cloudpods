@@ -145,15 +145,19 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return []cloudprovider.ICloudSnapshot{}, nil
 }
 
+var (
+	vmIdPattern        = regexp.MustCompile("-(.*?)-disk-")
+	DiskKeyNamePattern = regexp.MustCompile("(scsi|ide|virtio|sata|unused)(\\d)")
+)
+
 func (self *SRegion) GetVMByDiskId(Id string) (vmId int, storage string, err error) {
 
-	compileRegex := regexp.MustCompile("-(.*?)-disk-")
 	splitedFrist := strings.Split(Id, ":")
 	storage = splitedFrist[0]
 
 	splitedSecond := strings.Split(splitedFrist[1], "/")
 	disk := splitedSecond[len(splitedSecond)-1]
-	matchArr := compileRegex.FindStringSubmatch(disk)
+	matchArr := vmIdPattern.FindStringSubmatch(disk)
 
 	if len(matchArr) == 0 {
 		vmId = 0
@@ -173,122 +177,40 @@ func (self *SRegion) GetQemuDiskConfig(node, id string, vmId int) (diskDriver, c
 	err = self.get(res, url.Values{}, &params)
 
 	if err != nil {
-		return "", "", 0, errors.Wrapf(err, "self.GetQemuDiskConfig")
+		return "", "", 0, errors.Wrapf(err, "self.GetQemuDiskConfig self.get in %s", res)
 	}
 
-	for idx := 0; idx < 4; idx++ {
-		di := fmt.Sprintf("%s%d", DISK_DRIVER_IDE, idx)
-		part1 := strings.Split(params[di], ",")
-		if part1[0] == id {
-			m := make(map[string]string)
-			for _, p := range part1 {
-				part2 := strings.Split(p, "=")
-				m[part2[0]] = part2[1]
+	for k, v := range params {
+
+		match, _ := regexp.MatchString("(scsi|ide|virtio|sata|unused)", k)
+
+		if match == true {
+			part1 := strings.Split(v, ",")
+			if part1[0] == id {
+				diskParms := make(map[string]string)
+				for _, p := range part1 {
+					part2 := strings.Split(p, "=")
+					if len(part2) != 2 {
+						continue
+					}
+					diskParms[part2[0]] = part2[1]
+				}
+
+				if v, ok := diskParms["cache"]; ok {
+					cacheMode = v
+				} else {
+					cacheMode = "none"
+				}
+
+				part3 := DiskKeyNamePattern.FindStringSubmatch(k)
+
+				driverIdx, _ = strconv.Atoi(part3[2])
+				diskDriver = part3[1]
+
+				return diskDriver, cacheMode, driverIdx, nil
 			}
-
-			if v, ok := m["cache"]; ok {
-				cacheMode = v
-			} else {
-				cacheMode = "none"
-			}
-
-			driverIdx = idx
-			diskDriver = DISK_DRIVER_IDE
-
-			return diskDriver, cacheMode, driverIdx, nil
 		}
-	}
 
-	for idx := 0; idx < 31; idx++ {
-		di := fmt.Sprintf("%s%d", DISK_DRIVER_SCSI, idx)
-		part1 := strings.Split(params[di], ",")
-		if part1[0] == id {
-			m := make(map[string]string)
-			for _, p := range part1 {
-				part2 := strings.Split(p, "=")
-				m[part2[0]] = part2[1]
-			}
-
-			if v, ok := m["cache"]; ok {
-				cacheMode = v
-			} else {
-				cacheMode = "none"
-			}
-
-			driverIdx = idx
-			diskDriver = DISK_DRIVER_SCSI
-
-			return diskDriver, cacheMode, driverIdx, nil
-		}
-	}
-
-	for idx := 0; idx < 16; idx++ {
-		di := fmt.Sprintf("%s%d", DISK_DRIVER_VIRTIO, idx)
-		part1 := strings.Split(params[di], ",")
-		if part1[0] == id {
-			m := make(map[string]string)
-			for _, p := range part1 {
-				part2 := strings.Split(p, "=")
-				m[part2[0]] = part2[1]
-			}
-
-			if v, ok := m["cache"]; ok {
-				cacheMode = v
-			} else {
-				cacheMode = "none"
-			}
-
-			driverIdx = idx
-			diskDriver = DISK_DRIVER_VIRTIO
-
-			return diskDriver, cacheMode, driverIdx, nil
-		}
-	}
-
-	for idx := 0; idx < 16; idx++ {
-		di := fmt.Sprintf("%s%d", DISK_DRIVER_VIRTIO, idx)
-		part1 := strings.Split(params[di], ",")
-		if part1[0] == id {
-			m := make(map[string]string)
-			for _, p := range part1 {
-				part2 := strings.Split(p, "=")
-				m[part2[0]] = part2[1]
-			}
-
-			if v, ok := m["cache"]; ok {
-				cacheMode = v
-			} else {
-				cacheMode = "none"
-			}
-
-			driverIdx = idx
-			diskDriver = DISK_DRIVER_VIRTIO
-
-			return diskDriver, cacheMode, driverIdx, nil
-		}
-	}
-
-	for idx := 0; idx < 6; idx++ {
-		di := fmt.Sprintf("%s%d", DISK_DRIVER_SATA, idx)
-		part1 := strings.Split(params[di], ",")
-		if part1[0] == id {
-			m := make(map[string]string)
-			for _, p := range part1 {
-				part2 := strings.Split(p, "=")
-				m[part2[0]] = part2[1]
-			}
-
-			if v, ok := m["cache"]; ok {
-				cacheMode = v
-			} else {
-				cacheMode = "none"
-			}
-
-			driverIdx = idx
-			diskDriver = DISK_DRIVER_SATA
-
-			return diskDriver, cacheMode, driverIdx, nil
-		}
 	}
 
 	return "", "", 0, errors.Wrapf(err, "self.GetQemuDiskConfig not fond ")
@@ -310,6 +232,8 @@ func (self *SRegion) GetDisks(storageId string) ([]SDisk, error) {
 	res := fmt.Sprintf("/nodes/%s/storage/%s/content", nodeName, storageName)
 	err := self.get(res, url.Values{}, &vols)
 
+	resources, _ := self.GetClusterVmResources()
+
 	if err != nil {
 		return nil, err
 	}
@@ -317,17 +241,21 @@ func (self *SRegion) GetDisks(storageId string) ([]SDisk, error) {
 	for _, vol := range vols {
 		if vol.VmId > 0 {
 
+			if _, ok := resources[vol.VmId]; !ok {
+				continue
+			}
+
 			diskDriver, cacheMode, driverIdx, err := self.GetQemuDiskConfig(nodeName, vol.VolId, vol.VmId)
+
+			if err != nil {
+				log.Debugf("faild to get QemuDiskConfig GetDisks ")
+			}
 
 			vol.Storage = storageName
 			vol.Node = nodeName
 			vol.DiskDriver = diskDriver
 			vol.CacheMode = cacheMode
 			vol.DriverIdx = driverIdx
-
-			if err != nil {
-				log.Debugf("faild to get QemuDiskConfig GetDisks ")
-			}
 
 			disks = append(disks, vol)
 		}
@@ -350,11 +278,10 @@ func (self *SRegion) GetDisk(Id string) (*SDisk, error) {
 
 	resources, _ := self.GetClusterVmResources()
 
-	for _, rc := range resources {
-		if vmId == rc.VmId {
-			nodeName = rc.Node
-			break
-		}
+	if res, ok := resources[vmId]; !ok {
+		return nil, errors.Wrapf(err, "self.GetDisk")
+	} else {
+		nodeName = res.Node
 	}
 
 	res := fmt.Sprintf("/nodes/%s/storage/%s/content", nodeName, storageName)
