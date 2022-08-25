@@ -900,3 +900,7 @@ type ServerQgaSetPasswordInput struct {
 	Username string
 	Password string
 }
+
+type ServerQgaCommandInput struct {
+	Command string
+}

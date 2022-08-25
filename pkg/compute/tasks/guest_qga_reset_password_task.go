@@ -70,6 +70,7 @@ func (self *GuestQgaSetPasswordTask) OnQgaGuestPingFailed(ctx context.Context, g
 
 func (self *GuestQgaSetPasswordTask) OnQgaSetUserPassword(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, api.VM_RUNNING, "on qga set user password success")
+	guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
 	db.OpsLog.LogEvent(guest, db.ACT_SET_USER_PASSWORD, "", self.UserCred)
 
 	input := &api.ServerQgaSetPasswordInput{}
