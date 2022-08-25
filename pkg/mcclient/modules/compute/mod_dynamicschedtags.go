@@ -30,5 +30,5 @@ func init() {
 			"Schedtag_Id", "Resource_Type", "Enabled"},
 		[]string{})
 
-	modules.RegisterComputeV2(&Dynamicschedtags)
+	modules.RegisterCompute(&Dynamicschedtags)
 }

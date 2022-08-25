@@ -100,7 +100,7 @@ func (man *SMeterAlertManager) genName(ctx context.Context, ownerId mcclient.IId
 }
 
 func (man *SMeterAlertManager) getAllBillAccounts(ctx context.Context) ([]jsonutils.JSONObject, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	results := make([]jsonutils.JSONObject, 0)
 	for {
 		q := jsonutils.NewDict()

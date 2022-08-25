@@ -49,7 +49,7 @@ type Request struct {
 func newRequest(ctx context.Context, w http.ResponseWriter, r *http.Request) *Request {
 	params := appctx.AppContextParams(ctx)
 	token := AppContextToken(ctx)
-	session := auth.GetSession(ctx, token, FetchRegion(r), params[APIVer])
+	session := auth.GetSession(ctx, token, FetchRegion(r))
 	query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 	req := &Request{
 		ctx:     ctx,

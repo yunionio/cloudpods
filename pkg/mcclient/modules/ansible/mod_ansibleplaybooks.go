@@ -51,7 +51,7 @@ func init() {
 			[]string{},
 		),
 	}
-	modules.RegisterV2(&AnsiblePlaybooks)
+	modules.Register(&AnsiblePlaybooks)
 }
 
 func (man *AnsiblePlaybookManager) UpdateOrCreatePbModel(

@@ -68,7 +68,7 @@ func serviceComplete2(service Service) (completeUrl string, expectedCode int) {
 
 func proxyEndpoints(ctx context.Context, proxyEndpointId string, info sServerInfo) ([]sProxyEndpoint, error) {
 	pes := make([]sProxyEndpoint, 0)
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 	if len(proxyEndpointId) > 0 {
 		ep, err := cloudproxy.ProxyEndpoints.Get(session, proxyEndpointId, nil)
 		if err != nil {
@@ -130,7 +130,7 @@ func serviceUrlDirect(ctx context.Context, service Service, proxyEndpointId stri
 
 func GetServerInfo(ctx context.Context, serverId string) (sServerInfo, error) {
 	// check server
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 	data, err := compute.Servers.Get(session, serverId, nil)
 	if err != nil {
 		if httputils.ErrorCode(err) == 404 {
@@ -243,7 +243,7 @@ func GetServiceUrl(ctx context.Context, serviceName string) (string, error) {
 	if url, ok := serviceUrls[serviceName]; ok {
 		return url, nil
 	}
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 	params := jsonutils.NewDict()
 	params.Set("interface", jsonutils.NewString("public"))
 	params.Set("service", jsonutils.NewString(serviceName))
@@ -262,7 +262,7 @@ func GetServiceUrl(ctx context.Context, serviceName string) (string, error) {
 }
 
 func convertServiceUrl(ctx context.Context, service Service, endpointId string) (port int64, recycle func() error, err error) {
-	session := auth.AdminSessionWithInternal(ctx, "", "", "")
+	session := auth.AdminSessionWithInternal(ctx, "", "")
 	filter := jsonutils.NewDict()
 	filter.Set("proxy_endpoint_id", jsonutils.NewString(endpointId))
 	filter.Set("opaque", jsonutils.NewString(service.Url))
@@ -328,7 +328,7 @@ func convertServiceUrl(ctx context.Context, service Service, endpointId string) 
 }
 
 func checkUrl(ctx context.Context, completeUrl string, expectedCode int, host *ansible_api.AnsibleHost) (bool, error) {
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 	ahost := ansible.Host{}
 	ahost.Name = host.IP
 	ahost.Vars = map[string]string{

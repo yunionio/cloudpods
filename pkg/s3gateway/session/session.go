@@ -23,9 +23,9 @@ import (
 )
 
 func GetSession(ctx context.Context, token mcclient.TokenCredential) *mcclient.ClientSession {
-	return auth.GetSession(ctx, token, options.Options.Region, "")
+	return auth.GetSession(ctx, token, options.Options.Region)
 }
 
 func GetAdminSession(ctx context.Context) *mcclient.ClientSession {
-	return auth.GetAdminSession(ctx, options.Options.Region, "")
+	return auth.GetAdminSession(ctx, options.Options.Region)
 }

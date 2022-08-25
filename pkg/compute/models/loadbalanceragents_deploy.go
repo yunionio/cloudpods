@@ -274,7 +274,7 @@ func (lbagent *SLoadbalancerAgent) validateHost(ctx context.Context, userCred mc
 
 		// Better make this explicit in the API
 		if guest.SrcIpCheck.Bool() || guest.SrcMacCheck.Bool() {
-			sess := auth.GetSession(ctx, userCred, "", "")
+			sess := auth.GetSession(ctx, userCred, "")
 			params := jsonutils.NewDict()
 			params.Set("src_ip_check", jsonutils.JSONFalse)
 			params.Set("src_mac_check", jsonutils.JSONFalse)
@@ -363,7 +363,7 @@ func (lbagent *SLoadbalancerAgent) updateOrCreatePbModel(ctx context.Context,
 	pbName string,
 	pb *ansible.Playbook,
 ) (*ansible_model.AnsiblePlaybook, error) {
-	cliSess := auth.GetSession(ctx, userCred, "", "")
+	cliSess := auth.GetSession(ctx, userCred, "")
 	pbModel, err := ansible_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(
 		ctx, cliSess, pbId, pbName, pb,
 	)

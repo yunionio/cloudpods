@@ -144,7 +144,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	defer self.region.DeleteIBucket(bucketName)
 
 	// upload to huawei cloud
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	meta, reader, sizeByte, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", errors.Wrap(err, "Images.Download")

@@ -148,8 +148,8 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 					}
 					if host.OvnMappedIpAddr == "" {
 						// trigger ovn mapped ip addr allocation
-						apiVersion := "v2"
-						s := auth.GetAdminSession(ctx, w.opts.Region, apiVersion)
+						// apiVersion := "v2"
+						s := auth.GetAdminSession(ctx, w.opts.Region)
 						j, err := mcclient_modules.Hosts.Update(s, host.Id, nil)
 						if err != nil {
 							log.Errorf("host %s(%s) dummy update err: %v", host.Id, host.Name, err)

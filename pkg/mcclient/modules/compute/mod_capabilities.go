@@ -50,5 +50,5 @@ func init() {
 	Capabilities = SCapabilityManager{
 		ResourceManager: modules.NewComputeManager("capability", "capabilities", []string{}, []string{}),
 	}
-	modules.RegisterComputeV2(&Capabilities)
+	modules.RegisterCompute(&Capabilities)
 }

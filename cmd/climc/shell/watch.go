@@ -62,9 +62,7 @@ func init() {
 		if opts.All {
 			resSets := sets.NewString()
 			mods, _ := modulebase.GetRegisterdModules()
-			for _, ress := range mods {
-				resSets.Insert(ress...)
-			}
+			resSets.Insert(mods...)
 			resources = resSets.List()
 		}
 		if len(resources) == 0 {

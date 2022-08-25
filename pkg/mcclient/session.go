@@ -46,19 +46,6 @@ const (
 	V2_API_VERSION      = "v2"
 )
 
-var (
-	MutilVersionService = []string{"compute"}
-	ApiVersionByModule  = true
-)
-
-func DisableApiVersionByModule() {
-	ApiVersionByModule = false
-}
-
-func EnableApiVersionByModule() {
-	ApiVersionByModule = true
-}
-
 type ClientSession struct {
 	ctx context.Context
 
@@ -70,7 +57,6 @@ type ClientSession struct {
 	Header        http.Header /// headers for this session
 	notifyChannel chan string
 
-	defaultApiVersion   string
 	customizeServiceUrl map[string]string
 }
 
@@ -121,22 +107,26 @@ func (this *ClientSession) GetClient() *Client {
 	return this.client
 }
 
+func getApiVersionByServiceType(serviceType string) string {
+	switch serviceType {
+	case "compute":
+		return "v2"
+	}
+	return ""
+}
+
 func (this *ClientSession) getServiceName(service, apiVersion string) string {
-	if utils.IsInStringArray(service, MutilVersionService) && len(apiVersion) > 0 && apiVersion != DEFAULT_API_VERSION {
+	if len(apiVersion) == 0 {
+		apiVersion = getApiVersionByServiceType(service)
+	}
+	if len(apiVersion) > 0 && apiVersion != DEFAULT_API_VERSION {
 		service = fmt.Sprintf("%s_%s", service, apiVersion)
 	}
 	return service
 }
 
-func (this *ClientSession) getApiVersion(moduleApiVersion string) string {
-	if moduleApiVersion != "" && ApiVersionByModule {
-		return moduleApiVersion
-	}
-	return this.defaultApiVersion
-}
-
-func (this *ClientSession) GetServiceURL(service, endpointType string) (string, error) {
-	return this.GetServiceVersionURL(service, endpointType, this.getApiVersion(""))
+func (this *ClientSession) GetServiceURL(service, endpointType, apiVersion string) (string, error) {
+	return this.GetServiceVersionURL(service, endpointType, apiVersion)
 }
 
 func (this *ClientSession) GetServiceCatalog() IServiceCatalog {
@@ -151,8 +141,8 @@ func (this *ClientSession) GetServiceVersionURL(service, endpointType, apiVersio
 	return urls[rand.Intn(len(urls))], nil
 }
 
-func (this *ClientSession) GetServiceURLs(service, endpointType string) ([]string, error) {
-	return this.GetServiceVersionURLs(service, endpointType, this.getApiVersion(""))
+func (this *ClientSession) GetServiceURLs(service, endpointType, apiVersion string) ([]string, error) {
+	return this.GetServiceVersionURLs(service, endpointType, apiVersion)
 }
 
 func (this *ClientSession) GetServiceVersionURLs(service, endpointType, apiVersion string) ([]string, error) {
@@ -231,7 +221,7 @@ func (this *ClientSession) getBaseUrl(service, endpointType, apiVersion string) 
 		} else if url, ok := this.customizeServiceUrl[service]; ok {
 			return url, nil
 		} else {
-			return this.GetServiceVersionURL(service, endpointType, this.getApiVersion(apiVersion))
+			return this.GetServiceVersionURL(service, endpointType, apiVersion)
 		}
 	} else {
 		return "", fmt.Errorf("Empty service type or baseURL")
@@ -407,7 +397,7 @@ func (this *ClientSession) WaitTaskNotify() {
 	}
 }
 
-func (this *ClientSession) SetApiVersion(version string) {
+/*func (this *ClientSession) SetApiVersion(version string) {
 	this.defaultApiVersion = version
 }
 
@@ -417,14 +407,14 @@ func (this *ClientSession) GetApiVersion() string {
 		return DEFAULT_API_VERSION
 	}
 	return apiVersion
-}
+}*/
 
 func (this *ClientSession) ToJson() jsonutils.JSONObject {
 	params := jsonutils.NewDict()
 	simpleToken := SimplifyToken(this.token)
 	tokenJson := jsonutils.Marshal(simpleToken)
 	params.Update(tokenJson)
-	params.Add(jsonutils.NewString(this.GetApiVersion()), "api_version")
+	// params.Add(jsonutils.NewString(this.GetApiVersion()), "api_version")
 	if len(this.endpointType) > 0 {
 		params.Add(jsonutils.NewString(this.endpointType), "endpoint_type")
 	}

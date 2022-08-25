@@ -81,7 +81,7 @@ func (agent *SBaremetalAgent) GetZoneId() string {
 }
 
 func (agent *SBaremetalAgent) GetAdminSession() *mcclient.ClientSession {
-	return auth.GetAdminSession(context.TODO(), o.Options.Region, "v2")
+	return auth.GetAdminSession(context.TODO(), o.Options.Region)
 }
 
 func (agent *SBaremetalAgent) GetListenIP() (net.IP, error) {

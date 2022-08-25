@@ -26,5 +26,6 @@ func NewCloudirManager(keyword, keywordPlural string, columns, adminColumns []st
 		keywordPlural,
 		columns,
 		adminColumns,
+		"",
 	)
 }

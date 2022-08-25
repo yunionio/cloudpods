@@ -238,7 +238,7 @@ type logTask struct {
 }
 
 func (t *logTask) Run() {
-	s := DefaultSessionGenerator(context.Background(), t.userCred, "", "")
+	s := DefaultSessionGenerator(context.Background(), t.userCred, "")
 	_, err := t.api.Create(s, t.logentry)
 	if err != nil {
 		log.Errorf("create action log %s failed %s", t.logentry, err)

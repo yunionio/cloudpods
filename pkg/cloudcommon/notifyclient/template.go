@@ -46,15 +46,15 @@ var (
 	checkTemplates        bool
 )
 
-type SAdminSessionGenerator func(ctx context.Context, region string, apiVersion string) (*mcclient.ClientSession, error)
+type SAdminSessionGenerator func(ctx context.Context, region string) (*mcclient.ClientSession, error)
 type SUserLangFetcher func(uids []string) (map[string]string, error)
 
-func getAdminSesion(ctx context.Context, region string, apiVersion string) (*mcclient.ClientSession, error) {
-	return auth.GetAdminSession(ctx, region, apiVersion), nil
+func getAdminSesion(ctx context.Context, region string) (*mcclient.ClientSession, error) {
+	return auth.GetAdminSession(ctx, region), nil
 }
 
 func getUserLang(uids []string) (map[string]string, error) {
-	s, err := AdminSessionGenerator(context.Background(), consts.GetRegion(), "")
+	s, err := AdminSessionGenerator(context.Background(), consts.GetRegion())
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func getUserLang(uids []string) (map[string]string, error) {
 }
 
 func getRobotLang(robots []string) (map[string]string, error) {
-	s, err := AdminSessionGenerator(context.Background(), consts.GetRegion(), "")
+	s, err := AdminSessionGenerator(context.Background(), consts.GetRegion())
 	if err != nil {
 		return nil, err
 	}

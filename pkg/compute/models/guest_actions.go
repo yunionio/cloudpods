@@ -265,7 +265,7 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 		kwargs.OsArch = self.OsArch
 	}
 
-	s := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
+	s := auth.GetSession(ctx, userCred, consts.GetRegion())
 	ret, err := image.GuestImages.Create(s, jsonutils.Marshal(kwargs))
 	if err != nil {
 		return nil, err
@@ -474,7 +474,7 @@ func (self *SGuest) PerformMigrateForecast(ctx context.Context, userCred mcclien
 		schedParams.Hypervisor = api.HYPERVISOR_KVM
 	}
 
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	_, res, err := scheduler.SchedManager.DoScheduleForecast(s, schedParams, 1)
 	if err != nil {
 		return nil, errors.Wrap(err, "Do schedule migrate forecast")
@@ -2667,7 +2667,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	// schedulr forecast
 	schedDesc := self.changeConfToSchedDesc(addCpu, addMem, schedInputDisks)
 	confs.Set("sched_desc", jsonutils.Marshal(schedDesc))
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	canChangeConf, res, err := scheduler.SchedManager.DoScheduleForecast(s, schedDesc, 1)
 	if err != nil {
 		return nil, err

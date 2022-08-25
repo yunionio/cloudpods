@@ -60,7 +60,7 @@ func getServerInfo(
 	userCred mcclient.TokenCredential,
 	serverId string,
 ) (*serverInfo, error) {
-	sess := auth.GetSession(ctx, userCred, "", "")
+	sess := auth.GetSession(ctx, userCred, "")
 	serverJson, err := compute_modules.Servers.Get(sess, serverId, nil)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)

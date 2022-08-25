@@ -121,7 +121,7 @@ func (self *SCloudpodsClient) auth() error {
 			serviceRegion = region
 		}
 	}
-	self.s = client.NewSession(context.Background(), serviceRegion, "", "publicURL", token, "")
+	self.s = client.NewSession(context.Background(), serviceRegion, "", "publicURL", token)
 	return nil
 }
 

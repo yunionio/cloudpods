@@ -100,7 +100,7 @@ func (this *SchedulerManager) DoForecast(s *mcclient.ClientSession, params jsonu
 		domainId = ""
 	}
 	if domainId == "" {
-		adminSession := auth.GetAdminSession(context.TODO(), "", "")
+		adminSession := auth.GetAdminSession(context.TODO(), "")
 		ret, err := identity.Projects.Get(adminSession, projectId, nil)
 		if err != nil {
 			return nil, err

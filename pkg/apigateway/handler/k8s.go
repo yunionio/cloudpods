@@ -76,7 +76,7 @@ func (h *K8sResourceHandler) fetchEnv(ctx context.Context, req *http.Request) (*
 	namespace, _ := params.GetString("namespace")
 	cluster, _ := params.GetString("cluster")
 	token := AppContextToken(ctx)
-	s := auth.GetSession(ctx, token, FetchRegion(req), "")
+	s := auth.GetSession(ctx, token, FetchRegion(req))
 	return &k8sResourceEnv{
 		session:   s,
 		cluster:   cluster,

@@ -5837,7 +5837,7 @@ func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.Serve
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.JSONTrue, "details")
 
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	ret, err := image.GuestImages.Get(s, guestImageId, params)
 	if err != nil {
 		return errors.Wrap(err, "get guest image from glance error")

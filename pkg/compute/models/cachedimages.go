@@ -207,7 +207,7 @@ func (self *SCachedimage) GetImage() (*cloudprovider.SImage, error) {
 }
 
 func (self *SCachedimage) syncClassMetadata(ctx context.Context, userCred mcclient.TokenCredential) error {
-	session := auth.GetSessionWithInternal(ctx, userCred, "", "")
+	session := auth.GetSessionWithInternal(ctx, userCred, "")
 	ret, err := image.Images.GetSpecific(session, self.Id, "class-metadata", nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to get class_metadata")
@@ -321,7 +321,7 @@ func (manager *SCachedimageManager) GetCachedimageById(ctx context.Context, user
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return nil, err
 	}
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	obj, err := image.Images.Get(s, imageId, nil)
 	if err != nil {
 		log.Errorf("GetImageById %s error %s", imageId, err)
@@ -347,7 +347,7 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 			return cachedImage.requestRefreshExternalImage(ctx, userCred)
 		}
 	}
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	obj, err := image.Images.Get(s, imageId, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.Images.Get")
@@ -371,7 +371,7 @@ func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred
 			return cachedImage.requestRefreshExternalImage(ctx, userCred)
 		}
 	}
-	s := auth.GetSession(ctx, userCred, options.Options.Region, "")
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
 	obj, err := image.Images.GetByName(s, imageId, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.Images.GetByName")
@@ -448,7 +448,7 @@ func (self *SCachedimageManager) PerformCacheImage(ctx context.Context, userCred
 	if len(input.ImageId) == 0 {
 		return nil, httperrors.NewMissingParameterError("image_id")
 	}
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	obj, err := image.Images.Get(s, input.ImageId, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.Images.Get")
@@ -871,7 +871,7 @@ func (manager *SCachedimageManager) AutoCleanImageCaches(ctx context.Context, us
 	if err != nil {
 		return
 	}
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	for i := range caches {
 		_, err := image.Images.Get(s, caches[i].Id, nil)
 		if err != nil {

@@ -401,7 +401,7 @@ func (this *Client) GetCommonEtcdTLSConfig(endpoint *api.EndpointDetails) (*tls.
 	return seclib2.InitTLSConfigByData(caData, certData, keyData)
 }
 
-func (this *Client) NewSession(ctx context.Context, region, zone, endpointType string, token TokenCredential, apiVersion string) *ClientSession {
+func (this *Client) NewSession(ctx context.Context, region, zone, endpointType string, token TokenCredential) *ClientSession {
 	cata := token.GetServiceCatalog()
 	if this.GetServiceCatalog() == nil {
 		if cata == nil || cata.Len() == 0 {
@@ -420,7 +420,6 @@ func (this *Client) NewSession(ctx context.Context, region, zone, endpointType s
 		zone:                zone,
 		endpointType:        endpointType,
 		token:               token,
-		defaultApiVersion:   apiVersion,
 		Header:              http.Header{},
 		customizeServiceUrl: map[string]string{},
 	}

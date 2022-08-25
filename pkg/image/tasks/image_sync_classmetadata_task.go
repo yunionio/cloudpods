@@ -45,7 +45,7 @@ func (self *ImageSyncClassMetadataTask) OnInit(ctx context.Context, obj db.IStan
 		self.taskFailed(ctx, img, jsonutils.NewString(err.Error()))
 		return
 	}
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 	_, err = compute.Cachedimages.PerformAction(session, img.Id, "set-class-metadata", jsonutils.Marshal(cm))
 	if err == nil {
 		self.taskSuccess(ctx, img)

@@ -582,7 +582,7 @@ func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredenti
 }
 
 func FetchSkuResourcesMeta() (*SSkuResourcesMeta, error) {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	transport := httputils.GetTransport(true)
 	transport.Proxy = options.Options.HttpTransportProxyFunc()
 	client := &http.Client{Transport: transport}

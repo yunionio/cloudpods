@@ -72,7 +72,7 @@ func systemNotify(ctx context.Context, priority npk.TNotifyPriority, event strin
 }
 
 func notifyAll(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	s, err := AdminSessionGenerator(ctx, consts.GetRegion(), "")
+	s, err := AdminSessionGenerator(ctx, consts.GetRegion())
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func lang(ctx context.Context, contactType npk.TNotifyChannel, reIds []string, c
 
 func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, error) {
 	reIds := make([]string, 0)
-	s, err := AdminSessionGenerator(context.Background(), consts.GetRegion(), "")
+	s, err := AdminSessionGenerator(context.Background(), consts.GetRegion())
 	if err != nil {
 		return nil, err
 	}
@@ -359,7 +359,7 @@ func (t *notifyTask) Dump() string {
 }
 
 func (t *notifyTask) Run() {
-	s, err := AdminSessionGenerator(t.ctx, consts.GetRegion(), "")
+	s, err := AdminSessionGenerator(t.ctx, consts.GetRegion())
 	if err != nil {
 		log.Errorf("fail to get session: %v", err)
 	}
