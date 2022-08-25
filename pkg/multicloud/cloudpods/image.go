@@ -173,7 +173,7 @@ func (self *SRegion) GetImage(id string) (*SImage, error) {
 }
 
 func (self *SRegion) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 
 	meta, reader, sizeByte, err := modules.Images.Download(s, opts.ImageId, string(qemuimg.QCOW2), false)
 	if err != nil {

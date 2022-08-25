@@ -1170,7 +1170,7 @@ func (self *SHostManager) ClearSchedDescCache(hostId string) error {
 }
 
 func (self *SHostManager) ClearSchedDescSessionCache(hostId, sessionId string) error {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	return scheduler.SchedManager.CleanCache(s, hostId, sessionId, false)
 }
 
@@ -1184,7 +1184,7 @@ func (self *SHost) ClearSchedDescSessionCache(sessionId string) error {
 
 // sync clear sched desc on scheduler side
 func (self *SHostManager) SyncClearSchedDescSessionCache(hostId, sessionId string) error {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	return scheduler.SchedManager.CleanCache(s, hostId, sessionId, true)
 }
 
@@ -3238,7 +3238,7 @@ func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, region
 }
 
 func (self *SHost) Request(ctx context.Context, userCred mcclient.TokenCredential, method httputils.THttpMethod, url string, headers http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	s := auth.GetSession(ctx, userCred, "", "")
+	s := auth.GetSession(ctx, userCred, "")
 	_, ret, err := s.JSONRequest(self.ManagerUri, "", method, url, headers, body)
 	return ret, err
 }

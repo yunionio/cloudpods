@@ -124,7 +124,7 @@ func (r *SRegionDNS) initK8s() {
 }
 
 func (r *SRegionDNS) getAdminSession(ctx context.Context) *mcclient.ClientSession {
-	return auth.GetAdminSession(ctx, r.Region, "")
+	return auth.GetAdminSession(ctx, r.Region)
 }
 
 func (r *SRegionDNS) initAuth() {

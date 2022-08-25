@@ -20,12 +20,12 @@ import (
 
 func NewCloudnetManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("cloudnet", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager("cloudnet", "", "", columns, adminColumns, ""),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 var (
 	registerV2 = func(mod modulebase.IBaseManager) {
-		modulebase.Register("v2", mod)
+		modulebase.Register(mod)
 	}
 )

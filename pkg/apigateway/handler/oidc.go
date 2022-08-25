@@ -107,7 +107,7 @@ func handleOIDCAuth(ctx context.Context, w http.ResponseWriter, req *http.Reques
 
 func fetchOIDCCredential(ctx context.Context, req *http.Request, clientId string) (modules.SOpenIDConnectCredential, error) {
 	var oidcSecret modules.SOpenIDConnectCredential
-	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	secret, err := modules.Credentials.GetById(s, clientId, nil)
 	if err != nil {
 		return oidcSecret, errors.Wrap(err, "Request Credential")
@@ -405,7 +405,7 @@ func handleOIDCUserInfo(ctx context.Context, w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	s := auth.GetAdminSession(ctx, token.Info.Region, "")
+	s := auth.GetAdminSession(ctx, token.Info.Region)
 	data, err := getUserInfo2(s, token.Info.UserId, token.Info.ProjectId, token.Info.Ip.String())
 	if err != nil {
 		httperrors.NotFoundError(ctx, w, "%v", err)

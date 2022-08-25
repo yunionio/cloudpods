@@ -328,7 +328,7 @@ func (asc *SASController) DetachInstances(ctx context.Context, userCred mcclient
 	removeParams.Set("scaling_group", jsonutils.NewString(sg.Id))
 	removeParams.Set("delete_server", jsonutils.JSONTrue)
 	removeParams.Set("auto", jsonutils.JSONTrue)
-	session := auth.GetSession(ctx, userCred, "", "")
+	session := auth.GetSession(ctx, userCred, "")
 	failedList := make([]string, 0)
 	waitList := make([]string, 0, len(instances))
 	instanceMap := make(map[string]SInstance, len(instances))
@@ -484,7 +484,7 @@ func (asc *SASController) CreateInstances(
 	countPR, requests := asc.countPRAndRequests(num)
 	log.Debugf("countPR: %d, requests: %d", countPR, requests)
 	rand.Seed(time.Now().UnixNano())
-	session := auth.GetSession(ctx, userCred, "", "")
+	session := auth.GetSession(ctx, userCred, "")
 
 	failedList := make([]string, 0)
 	succeedList := make([]SInstance, 0, num/2)

@@ -69,7 +69,7 @@ func getCommand(ctx context.Context, us *mcclient.ClientSession, ip string, port
 	if !o.Options.EnableAutoLogin {
 		return "", nil, nil
 	}
-	s := auth.GetAdminSession(ctx, o.Options.Region, "v2")
+	s := auth.GetAdminSession(ctx, o.Options.Region)
 	key, err := compute.Sshkeypairs.GetById(s, us.GetProjectId(), jsonutils.Marshal(map[string]bool{"admin": true}))
 	if err != nil {
 		return "", nil, err

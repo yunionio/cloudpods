@@ -90,7 +90,7 @@ func StartService() {
 
 	// start migration recover routine
 	go func() {
-		if err := balancer.RecoverInProcessAlerts(app.GetContext(), auth.GetAdminSession(app.GetContext(), options.Options.Region, "")); err != nil {
+		if err := balancer.RecoverInProcessAlerts(app.GetContext(), auth.GetAdminSession(app.GetContext(), options.Options.Region)); err != nil {
 			log.Errorf("RecoverInProcessAlerts error: %v", err)
 		}
 	}()

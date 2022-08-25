@@ -231,7 +231,7 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 	query := jsonutils.NewDict()
 	query.Set("scope", jsonutils.NewString("system"))
 
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	tenant, err := modules.Projects.GetById(s, idStr, query)
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
@@ -286,7 +286,7 @@ func (manager *STenantCacheManager) fetchDomainFromKeystone(ctx context.Context,
 		log.Debugf("fetch empty domain!!!!\n%s", debug.Stack())
 		return nil, fmt.Errorf("Empty idStr")
 	}
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	tenant, err := modules.Domains.GetById(s, idStr, nil)
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
@@ -421,7 +421,7 @@ func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(ctx context.C
 		return fmt.Errorf("Empty domainId")
 	}
 
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(domainId), "domain_id")
 	params.Add(jsonutils.JSONTrue, "details")

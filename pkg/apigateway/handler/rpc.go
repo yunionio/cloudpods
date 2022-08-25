@@ -83,8 +83,8 @@ func RpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	token := AppContextToken(ctx)
-	pathParams := appctx.AppContextParams(ctx)
-	s := auth.GetSession(ctx, token, FetchRegion(req), pathParams["<apiver>"])
+	// pathParams := appctx.AppContextParams(ctx)
+	s := auth.GetSession(ctx, token, FetchRegion(req))
 	funcname := verb + utils.Kebab2Camel(callName, "-")
 	mod, e := modulebase.GetModule(s, resType)
 	if e != nil || mod == nil {

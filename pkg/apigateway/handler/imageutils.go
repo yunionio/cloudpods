@@ -130,7 +130,7 @@ func imageUploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 
 	token := AppContextToken(ctx)
-	s := auth.GetSession(ctx, token, FetchRegion(r), "")
+	s := auth.GetSession(ctx, token, FetchRegion(r))
 
 	res, e := modules.Images.Upload(s, params, f, imageSize)
 	if e != nil {
@@ -213,7 +213,7 @@ func imageDownload(ctx context.Context, w http.ResponseWriter, s *mcclient.Clien
 func imageDownloadHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, query, _ := appsrv.FetchEnv(ctx, w, r)
 	token := AppContextToken(ctx)
-	s := auth.GetSession(ctx, token, FetchRegion(r), "")
+	s := auth.GetSession(ctx, token, FetchRegion(r))
 	// input params
 	imageId, ok := params["<image_id>"]
 	if !ok || len(imageId) == 0 {
@@ -273,7 +273,7 @@ func imageDownloadByUrlHandler(ctx context.Context, w http.ResponseWriter, r *ht
 		return
 	}
 	format, _ := d.GetString("format")
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	imageDownload(ctx, w, s, id, format)
 }
 

@@ -88,7 +88,7 @@ func (manager *SCloudaccountManager) GetResourceCount() ([]db.SScopeResourceCoun
 }
 
 func (manager *SCloudaccountManager) GetICloudaccounts() ([]SCloudaccount, error) {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 
 	data := []jsonutils.JSONObject{}
 	offset := int64(0)
@@ -449,7 +449,7 @@ func (manager *SCloudaccountManager) FetchAccount(ctx context.Context, id string
 	account, err := manager.FetchById(id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			session := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+			session := auth.GetAdminSession(context.Background(), options.Options.Region)
 			result, err := modules.Cloudaccounts.Get(session, id, nil)
 			if err != nil {
 				return nil, errors.Wrap(err, "Cloudaccounts.Get")
@@ -493,7 +493,7 @@ type SCloudDelegate struct {
 }
 
 func (self *SCloudaccount) getCloudDelegate(ctx context.Context) (*SCloudDelegate, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	result, err := modules.Cloudaccounts.Get(s, self.Id, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Cloudaccounts.Get")
@@ -515,7 +515,7 @@ func (self *SCloudaccount) GetProvider() (cloudprovider.ICloudProvider, error) {
 }
 
 func (self *SCloudaccount) GetCloudDelegaes(ctx context.Context) ([]SCloudDelegate, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	params := map[string]string{"cloudaccount": self.Id}
 	result, err := modules.Cloudproviders.List(s, jsonutils.Marshal(params))
 	if err != nil {
@@ -860,7 +860,7 @@ func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context,
 		return nil
 	}
 
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	transport := httputils.GetTransport(true)
 	transport.Proxy = options.Options.HttpTransportProxyFunc()
 	client := &http.Client{Transport: transport}
@@ -982,7 +982,7 @@ func (self *SCloudaccount) GetCloudproviders() ([]SCloudprovider, error) {
 }
 
 func (self *SCloudaccount) GetICloudprovider() ([]SCloudprovider, error) {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	data := []jsonutils.JSONObject{}
 	offset := int64(0)
 	params := map[string]interface{}{
@@ -1895,7 +1895,7 @@ func (self *SCloudaccount) GetUserCloudgroups(userId string) ([]string, error) {
 		if len(cache.ExternalId) > 0 {
 			ret = append(ret, cache.Name)
 		} else {
-			s := auth.GetAdminSession(context.TODO(), options.Options.Region, "")
+			s := auth.GetAdminSession(context.TODO(), options.Options.Region)
 			_, err = cache.GetOrCreateICloudgroup(context.TODO(), s.GetToken())
 			if err != nil {
 				return []string{}, errors.Wrapf(err, "GetOrCreateICloudgroup")

@@ -72,7 +72,7 @@ func (router *SRouter) realize(ctx context.Context, userCred mcclient.TokenCrede
 	params.Set("inventory", jsonutils.NewString(inv.String()))
 	params.Set("playbook", jsonutils.NewString(pb.String()))
 	params.Set("files", jsonutils.NewString(files))
-	cliSess := auth.GetSession(ctx, userCred, "", "")
+	cliSess := auth.GetSession(ctx, userCred, "")
 	if _, err := ansible.AnsiblePlaybooksV2.Create(cliSess, params); err != nil {
 		return errors.WithMessagef(err, "create ansible task")
 	}

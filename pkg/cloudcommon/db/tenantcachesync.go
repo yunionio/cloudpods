@@ -69,7 +69,7 @@ func (w *tenantCacheSyncWorker) Dump() string {
 }
 
 func syncDomains(ctx context.Context) error {
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewInt(1024), "limit")
 	query.Add(jsonutils.NewString(string(rbacutils.ScopeSystem)), "scope")
@@ -98,7 +98,7 @@ func syncDomains(ctx context.Context) error {
 }
 
 func syncProjects(ctx context.Context) error {
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewInt(1024), "limit")
 	query.Add(jsonutils.NewString(string(rbacutils.ScopeSystem)), "scope")

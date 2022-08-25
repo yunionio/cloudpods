@@ -451,7 +451,7 @@ func JsonToMetric(obj *jsonutils.JSONDict, name string, tags map[string]string, 
 }
 
 func SendMetrics(s *mcclient.ClientSession, metrics []influxdb.SMetricData, debug bool, database string) error {
-	urls, err := s.GetServiceURLs("influxdb", o.Options.SessionEndpointType)
+	urls, err := s.GetServiceURLs("influxdb", o.Options.SessionEndpointType, "")
 	if err != nil {
 		return errors.Wrap(err, "GetServiceURLs")
 	}
@@ -596,7 +596,7 @@ func MakePullMetricRoutineWithDur(ctx context.Context, factory ICloudReportFacto
 	go func() {
 		timer := time.NewTimer(0)
 		for {
-			session := auth.GetAdminSession(ctx, "", "")
+			session := auth.GetAdminSession(ctx, "")
 			select {
 			case <-closeChan:
 				log.Warningf("closed provider: %s,name: %s. pull metric", provider.Name, provider.Name)
@@ -618,7 +618,7 @@ func MakePullMetricRoutineAtZeroPoint(ctx context.Context, factory ICloudReportF
 			next := now.Add(time.Hour * 24 * interval)
 			date := time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
 			timer.Reset(date.Sub(now))
-			session := auth.GetAdminSession(ctx, "", "")
+			session := auth.GetAdminSession(ctx, "")
 			select {
 			case <-closeChan:
 				log.Warningf("closed provider: %s,brand: %s. pull metric", provider.Name, provider.Brand)

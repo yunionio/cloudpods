@@ -176,7 +176,7 @@ func (man *SNodeAlertManager) validateHostResource(ctx context.Context, id strin
 }
 
 func (man *SNodeAlertManager) validateResourceByMod(ctx context.Context, mod modulebase.Manager, id string) (string, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	ret, err := mod.Get(s, id, nil)
 	if err != nil {
 		return "", err

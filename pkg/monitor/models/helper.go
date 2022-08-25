@@ -28,7 +28,7 @@ import (
 )
 
 func FetchAllRemoteDomainProjects(ctx context.Context) ([]*db.STenant, []*db.STenant, error) {
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	projects := make([]*db.STenant, 0)
 	domains := make([]*db.STenant, 0)
 	var count int

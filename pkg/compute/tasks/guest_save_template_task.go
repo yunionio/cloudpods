@@ -63,7 +63,7 @@ func (self *GuestSaveTemplateTask) OnInit(ctx context.Context, obj db.IStandalon
 	}
 	dict.Set("description", jsonutils.NewString(fmt.Sprintf("Save from Guest '%s'", g.Name)))
 	dict.Set("content", jsonutils.Marshal(ci))
-	session := auth.GetSession(ctx, self.UserCred, "", "")
+	session := auth.GetSession(ctx, self.UserCred, "")
 	_, err := compute.GuestTemplate.Create(session, dict)
 	if err != nil {
 		self.taskFailed(ctx, g, jsonutils.NewString(err.Error()))

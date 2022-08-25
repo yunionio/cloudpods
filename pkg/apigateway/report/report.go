@@ -69,7 +69,7 @@ func Report(ctx context.Context, userCred mcclient.TokenCredential, isStart bool
 	getFunc := func() (*sReport, error) {
 		ret := &sReport{}
 		ret.Version = version.GetShortString()
-		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region)
 		system := jsonutils.Marshal(map[string]string{"scope": "system"})
 		user, err := identity.UsersV3.Get(s, idapi.SystemAdminUser, nil)
 		if err != nil {

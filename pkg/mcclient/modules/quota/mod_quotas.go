@@ -193,10 +193,10 @@ func init() {
 	ImageQuotas = QuotaManager{modules.NewImageManager("image_quota", "image_quotas",
 		quotaColumns,
 		[]string{})}
-	modules.RegisterV2(&ImageQuotas)
+	modules.Register(&ImageQuotas)
 
 	IdentityQuotas = QuotaManager{modules.NewIdentityV3Manager("identity_quota", "identity_quotas",
 		quotaColumns,
 		[]string{})}
-	modules.RegisterV2(&IdentityQuotas)
+	modules.Register(&IdentityQuotas)
 }

@@ -45,7 +45,7 @@ func (self *GuestRestartNetworkTask) OnCloseIpMacSrcCheckComplete(ctx context.Co
 	guest := obj.(*models.SGuest)
 
 	ip, _ := self.Params.GetString("ip")
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 	sshable, clean, err := self.checkSshable(ctx, guest, ip)
 	log.Infof("start to CheckSshableForYunionCloud")
 	if err != nil {

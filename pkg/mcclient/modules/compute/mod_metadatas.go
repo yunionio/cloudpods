@@ -53,7 +53,7 @@ func init() {
 }
 
 func (this *MetadataManager) getModule(session *mcclient.ClientSession, params jsonutils.JSONObject) (modulebase.Manager, error) {
-	service, version := "compute", ""
+	service := "compute"
 	if params.Contains("service") {
 		service, _ = params.GetString("service")
 	} else {
@@ -78,18 +78,13 @@ func (this *MetadataManager) getModule(session *mcclient.ClientSession, params j
 			}
 			find := false
 			mods, _ := modulebase.GetRegisterdModules()
-			for _versin, mds := range mods {
-				if utils.IsInStringArray(keyString, mds) {
-					version = _versin
-					session.SetApiVersion(version)
-					mod, err := modulebase.GetModule(session, keyString)
-					if err != nil {
-						return nil, err
-					}
-					service = mod.ServiceType()
-					find = true
-					break
+			if utils.IsInStringArray(keyString, mods) {
+				mod, err := modulebase.GetModule(session, keyString)
+				if err != nil {
+					return nil, err
 				}
+				service = mod.ServiceType()
+				find = true
 			}
 			if !find {
 				return nil, fmt.Errorf("No such module %s", keyString)
@@ -97,23 +92,13 @@ func (this *MetadataManager) getModule(session *mcclient.ClientSession, params j
 		}
 	}
 
-	switch service {
-	case "identity":
-		version = "v3"
-	case "compute":
-		version = "v2"
-	default:
-		version = "v1"
-	}
-
-	session.SetApiVersion(version)
-	_, err := session.GetServiceURL(service, "")
+	_, err := session.GetServiceURL(service, "", "")
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("service %s not found error: %v", service, err)
 	}
 
 	return &modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(service, "", "", []string{}, []string{}),
+		BaseManager: *modulebase.NewBaseManager(service, "", "", []string{}, []string{}, ""),
 		Keyword:     "metadata", KeywordPlural: "metadatas",
 	}, nil
 }

@@ -40,7 +40,7 @@ func init() {
 func (self *SshInfoCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	sshInfo := obj.(*models.SSshInfo)
 	serverId := sshInfo.ServerId
-	session := auth.GetSession(ctx, self.GetUserCred(), "", "")
+	session := auth.GetSession(ctx, self.GetUserCred(), "")
 	sshable, cleanFunc, err := utils.CheckSSHable(session, serverId)
 	if err != nil {
 		sshInfo.MarkCreateFailed(err.Error())

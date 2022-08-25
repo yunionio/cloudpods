@@ -115,8 +115,8 @@ func (h *ApiHelper) adminClientSession(ctx context.Context) *mcclient.ClientSess
 	}
 
 	region := h.opts.CommonOptions.Region
-	apiVersion := "v2"
-	h.mcclientSession = auth.GetAdminSession(ctx, region, apiVersion)
+	// apiVersion := "v2"
+	h.mcclientSession = auth.GetAdminSession(ctx, region)
 	return h.mcclientSession
 }
 

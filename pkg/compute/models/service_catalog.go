@@ -156,7 +156,7 @@ func (sc *SServiceCatalog) PerformDeploy(ctx context.Context, userCred mcclient.
 		input.Count = 1
 	}
 	contentDict.Add(jsonutils.NewInt(int64(input.Count)), "count")
-	s := auth.GetSession(ctx, userCred, options.Options.Region, "")
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
 	_, err = compute.Servers.Create(s, content)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create guest")

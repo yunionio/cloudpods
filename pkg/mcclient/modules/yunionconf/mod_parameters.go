@@ -44,7 +44,7 @@ func init() {
 }
 
 func (this *ParametersManager) GetGlobalSettings(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	adminSession := auth.GetAdminSession(context.Background(), "", "")
+	adminSession := auth.GetAdminSession(context.Background(), "")
 	p := jsonutils.NewDict()
 	p.Add(jsonutils.NewString("system"), "scope")
 	p.Add(jsonutils.NewString("global-settings"), "name")

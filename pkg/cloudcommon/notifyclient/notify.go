@@ -237,7 +237,7 @@ func (t *eventTask) Dump() string {
 }
 
 func (t *eventTask) Run() {
-	s, err := AdminSessionGenerator(context.Background(), "", "")
+	s, err := AdminSessionGenerator(context.Background(), "")
 	if err != nil {
 		log.Errorf("unable to get admin session: %v", err)
 		return
@@ -361,7 +361,7 @@ func IntelliNotify(ctx context.Context, recipientId []string, isGroup bool, chan
 }
 
 func FetchNotifyAdminRecipients(ctx context.Context, region string, users []string, groups []string) {
-	s, err := AdminSessionGenerator(ctx, region, "v1")
+	s, err := AdminSessionGenerator(ctx, region)
 	if err != nil {
 		log.Errorf("unable to get admin session: %v", err)
 	}

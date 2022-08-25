@@ -183,7 +183,7 @@ func (s *SKVMGuestInstance) getEncryptKey(ctx context.Context, userCred mcclient
 		if userCred == nil {
 			return ret, errors.Wrap(httperrors.ErrUnauthorized, "no credential to fetch encrypt key")
 		}
-		session := auth.GetSession(ctx, userCred, consts.GetRegion(), "")
+		session := auth.GetSession(ctx, userCred, consts.GetRegion())
 		secKey, err := identity_modules.Credentials.GetEncryptKey(session, encKeyId)
 		if err != nil {
 			return ret, errors.Wrap(err, "GetEncryptKey")

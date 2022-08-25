@@ -154,7 +154,7 @@ func (proxyendpoint *SProxyEndpoint) remoteConfigure(ctx context.Context, userCr
 		},
 	}
 
-	cliSess := auth.GetSession(ctx, userCred, "", "")
+	cliSess := auth.GetSession(ctx, userCred, "")
 	pbId := ""
 	pbName := "pe-remote-configure-" + proxyendpoint.Name
 	_, err := ansible_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(

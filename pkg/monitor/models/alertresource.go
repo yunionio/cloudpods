@@ -483,7 +483,7 @@ func (manager *SAlertResourceManager) GetAdminRoleUsers(ctx context.Context, use
 	}
 	offset := 0
 	query := jsonutils.NewDict()
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetAdminSession(ctx, "")
 	rid, err := identity.RolesV3.GetId(session, "admin", jsonutils.NewDict())
 	if err != nil {
 		errors.Errorf("get role id error:%v", err)

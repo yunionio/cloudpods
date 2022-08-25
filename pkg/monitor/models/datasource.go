@@ -101,12 +101,12 @@ func (man *SDataSourceManager) initDefaultDataSource(ctx context.Context) error 
 			log.Errorf("Get default datasource: %v", err)
 			return
 		}
-		s := auth.GetAdminSession(ctx, region, "")
+		s := auth.GetAdminSession(ctx, region)
 		if s == nil {
 			log.Errorf("get empty public session for region %s", region)
 			return
 		}
-		url, err := s.GetServiceURL("influxdb", epType)
+		url, err := s.GetServiceURL("influxdb", epType, "")
 		if err != nil {
 			log.Errorf("get influxdb public url: %v", err)
 			return

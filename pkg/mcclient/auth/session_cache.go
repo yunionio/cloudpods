@@ -26,8 +26,8 @@ type SessionCache struct {
 	mu      sync.RWMutex
 	session *mcclient.ClientSession
 
-	Region     string
-	APIVersion string
+	Region string
+	// APIVersion string
 
 	// EarlyRefresh tells the cache how early to fetch a new session before
 	// actual expiration of the old
@@ -67,6 +67,6 @@ func (sc *SessionCache) Get(ctx context.Context) *mcclient.ClientSession {
 	mu.Lock()
 	defer mu.Unlock()
 	token := sc.getToken()
-	sc.session = GetSession(ctx, token, sc.Region, sc.APIVersion)
+	sc.session = GetSession(ctx, token, sc.Region)
 	return sc.session
 }
