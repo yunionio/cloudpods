@@ -212,4 +212,12 @@ func init() {
 		return cli.SetInstanceAutoRenew(args.ID, args.AutoRenew)
 	})
 
+	type InstanceUpdateNameOptions struct {
+		ID   string `help:"Instance ID"`
+		NAME string `help:"new name"`
+	}
+	shellutils.R(&InstanceUpdateNameOptions{}, "instance-update-name", "Update instance name", func(cli *apsara.SRegion, args *InstanceUpdateNameOptions) error {
+		return cli.UpdateVM(args.ID, args.NAME)
+	})
+
 }

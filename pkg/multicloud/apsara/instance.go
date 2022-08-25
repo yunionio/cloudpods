@@ -418,7 +418,7 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.InstanceId, name, self.OSType)
+	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -758,7 +758,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
-func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
+func (self *SRegion) UpdateVM(instanceId string, name string) error {
 	/*
 			api: ModifyInstanceAttribute
 		    https://help.apsara.com/document_detail/25503.html?spm=a2c4g.11186623.4.1.DrgpjW
@@ -769,6 +769,7 @@ func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
 }
 
 func (self *SRegion) modifyInstanceAttribute(instanceId string, params map[string]string) error {
+	params["x-acs-instanceid"] = instanceId
 	return self.instanceOperation(instanceId, "ModifyInstanceAttribute", params)
 }
 
@@ -788,6 +789,7 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd
 	if sysDiskSizeGB > 0 {
 		params["SystemDisk.Size"] = fmt.Sprintf("%d", sysDiskSizeGB)
 	}
+	params["x-acs-instanceid"] = instanceId
 	body, err := self.ecsRequest("ReplaceSystemDisk", params)
 	if err != nil {
 		return "", err
@@ -835,6 +837,7 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	params["InstanceId"] = instanceId
 	params["DiskId"] = diskId
 	log.Infof("Detach instance %s disk %s", instanceId, diskId)
+	params["x-acs-instanceid"] = instanceId
 	_, err := self.ecsRequest("DetachDisk", params)
 	if err != nil {
 		if strings.Contains(err.Error(), "The specified disk has not been attached on the specified instance") {
@@ -850,6 +853,7 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instanceId
 	params["DiskId"] = diskId
+	params["x-acs-instanceid"] = instanceId
 	_, err := self.ecsRequest("AttachDisk", params)
 	if err != nil {
 		log.Errorf("AttachDisk %s to %s fail %s", diskId, instanceId, err)
@@ -928,6 +932,7 @@ func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle
 		return err
 	}
 	params["ClientToken"] = utils.GenRequestId(20)
+	params["x-acs-instanceid"] = instanceId
 	_, err = region.ecsRequest("RenewInstance", params)
 	if err != nil {
 		log.Errorf("RenewInstance fail %s", err)
@@ -962,6 +967,7 @@ func (region *SRegion) SetInstanceAutoRenew(instanceId string, autoRenew bool) e
 	} else {
 		params["RenewalStatus"] = "Normal"
 	}
+	params["x-acs-instanceid"] = instanceId
 	_, err := region.ecsRequest("ModifyInstanceAutoRenewAttribute", params)
 	return err
 }
