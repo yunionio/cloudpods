@@ -99,6 +99,15 @@ func (s *SKVMGuestInstance) setPcieExtendBus() {
 	s.Desc.Metadata["__pcie_extend_bus"] = "true"
 }
 
+func (s *SKVMGuestInstance) getUsbControllerType() string {
+	usbContType := s.Desc.Metadata["usb_controller_type"]
+	if usbContType == "usb-ehci" {
+		return usbContType
+	} else {
+		return "qemu-xhci"
+	}
+}
+
 // is windows prioer to windows server 2003
 func (s *SKVMGuestInstance) isOldWindows() bool {
 	if s.getOsname() == OS_NAME_WINDOWS {
