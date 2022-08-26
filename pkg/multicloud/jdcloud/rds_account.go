@@ -74,8 +74,8 @@ func (self *SDBInstanceAccount) GetIDBInstanceAccountPrivileges() ([]cloudprovid
 
 func (self *SRegion) GetDBInstanceAccounts(id string, pageNumber, pageSize int) ([]SDBInstanceAccount, int, error) {
 	req := apis.NewDescribeAccountsRequestWithAllParams(self.ID, id, &pageNumber, &pageSize)
-	client := client.NewRdsClient(self.Credential)
-	client.Logger = Logger{}
+	client := client.NewRdsClient(self.getCredential())
+	client.Logger = Logger{debug: self.client.debug}
 	resp, err := client.DescribeAccounts(req)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "DescribeAccounts")

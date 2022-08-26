@@ -507,3 +507,7 @@ func (self *SAliyunProvider) GetICloudCDNDomains() ([]cloudprovider.ICloudCDNDom
 func (self *SAliyunProvider) GetICloudCDNDomainByName(name string) (cloudprovider.ICloudCDNDomain, error) {
 	return self.client.GetICloudCDNDomainByName(name)
 }
+
+func (self *SAliyunProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

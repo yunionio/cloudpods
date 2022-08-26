@@ -15,6 +15,7 @@
 package compute
 
 import (
+	"strings"
 	"time"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -317,6 +318,42 @@ type DBInstanceDetails struct {
 	Zone2Name string `json:"zone2_name"`
 	// Zone3名称
 	Zone3Name string `json:"zone3_name"`
+
+	Databases []apis.IdNameDetails `json:"databases"`
+}
+
+func (self DBInstanceDetails) GetMetricTags() map[string]string {
+	ret := map[string]string{
+		"rds_id":         self.Id,
+		"rds_name":       self.Name,
+		"zone":           self.Zone1Name,
+		"zone_id":        self.Zone1,
+		"status":         self.Status,
+		"engine":         self.Engine,
+		"server_type":    strings.ToLower(self.Engine),
+		"cloudregion":    self.Cloudregion,
+		"cloudregion_id": self.CloudregionId,
+		"region_ext_id":  self.RegionExtId,
+		"tenant":         self.Project,
+		"tenant_id":      self.ProjectId,
+		"brand":          self.Brand,
+		"domain_id":      self.DomainId,
+		"project_domain": self.ProjectDomain,
+	}
+	if len(self.IpAddrs) > 0 {
+		ret["rds_ip"] = strings.ReplaceAll(self.IpAddrs, ",", "|")
+	}
+	for k, v := range self.Metadata {
+		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
+func (self DBInstanceDetails) GetMetricPairs() map[string]string {
+	ret := map[string]string{}
+	return ret
 }
 
 type DBInstanceResourceInfoBase struct {

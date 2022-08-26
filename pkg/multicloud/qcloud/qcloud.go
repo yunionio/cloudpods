@@ -457,7 +457,7 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	resp := &QcloudResponse{
 		BaseResponse: &tchttp.BaseResponse{},
 	}
-	ret, err := _baseJsonRequest(client, req, resp, debug, retry)
+	ret, err := _baseJsonRequest(client, req, resp, apiName, debug, retry)
 	if err != nil {
 		if errors.Cause(err) == httperrors.ErrNoPermission && updateFun != nil {
 			updateFun(service, apiName)
@@ -485,7 +485,7 @@ func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, 
 		req.GetParams()[k] = v
 	}
 
-	ret, err := _baseJsonRequest(client, req, resp, debug, true)
+	ret, err := _baseJsonRequest(client, req, resp, apiName, debug, true)
 	if err != nil {
 		if errors.Cause(err) == httperrors.ErrNoPermission && updateFunc != nil {
 			updateFunc(service, apiName)
@@ -495,7 +495,7 @@ func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, 
 	return ret, nil
 }
 
-func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResponse, debug bool, retry bool) (jsonutils.JSONObject, error) {
+func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResponse, apiName string, debug bool, retry bool) (jsonutils.JSONObject, error) {
 	tryMax := 1
 	if retry {
 		tryMax = 3
@@ -535,6 +535,9 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 
 			if e.Code == "UnsupportedRegion" {
 				return nil, cloudprovider.ErrNotSupported
+			}
+			if e.Code == "InvalidParameterValue" && apiName == "GetMonitorData" && strings.Contains(e.Message, "the instance has been destroyed") {
+				return nil, cloudprovider.ErrNotFound
 			}
 
 			if utils.IsInStringArray(e.Code, []string{

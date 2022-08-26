@@ -377,3 +377,8 @@ type OpsLogListInput struct {
 
 	Until time.Time `json:"until"`
 }
+
+type IdNameDetails struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}

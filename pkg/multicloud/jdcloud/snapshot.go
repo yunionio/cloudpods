@@ -121,8 +121,8 @@ func (r *SRegion) GetSnapshots(diskId string, pageNumber, pageSize int) ([]SSnap
 		})
 	}
 	req := apis.NewDescribeSnapshotsRequestWithAllParams(r.ID, &pageNumber, &pageSize, nil, filters)
-	client := client.NewDiskClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewDiskClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeSnapshots(req)
 	if err != nil {
 		return nil, 0, err
@@ -142,8 +142,8 @@ func (r *SRegion) GetSnapshots(diskId string, pageNumber, pageSize int) ([]SSnap
 
 func (r *SRegion) GetSnapshotById(id string) (*SSnapshot, error) {
 	req := apis.NewDescribeSnapshotRequest(r.ID, id)
-	client := client.NewDiskClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewDiskClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeSnapshot(req)
 	if err != nil {
 		return nil, err

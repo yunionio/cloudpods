@@ -34,6 +34,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Azure/go-autorest/autorest"
@@ -67,17 +68,18 @@ var (
 	DefaultResource = TAzureResource("default")
 )
 
+type azureAuthClient struct {
+	client *autorest.Client
+	domain string
+}
+
 type SAzureClient struct {
 	*AzureClientConfig
 
-	client  autorest.Client
-	domain  string
-	baseUrl string
+	clientCache map[TAzureResource]*azureAuthClient
+	lock        sync.Mutex
 
 	ressourceGroups []SResourceGroup
-
-	env        azureenv.Environment
-	authorizer autorest.Authorizer
 
 	regions  []SRegion
 	iBuckets []cloudprovider.ICloudBucket
@@ -129,6 +131,7 @@ func NewAzureClient(cfg *AzureClientConfig) (*SAzureClient, error) {
 	client := SAzureClient{
 		AzureClientConfig: cfg,
 		debug:             cfg.debug,
+		clientCache:       map[TAzureResource]*azureAuthClient{},
 	}
 	var err error
 	client.subscriptions, err = client.ListSubscriptions()
@@ -149,7 +152,12 @@ func NewAzureClient(cfg *AzureClientConfig) (*SAzureClient, error) {
 	return &client, nil
 }
 
-func (self *SAzureClient) getClient(resource TAzureResource) (*autorest.Client, error) {
+func (self *SAzureClient) getClient(resource TAzureResource) (*azureAuthClient, error) {
+	_client, ok := self.clientCache[resource]
+	if ok {
+		return _client, nil
+	}
+	ret := &azureAuthClient{}
 	client := autorest.NewClientWithUserAgent("Yunion API")
 	conf := auth.NewClientCredentialsConfig(self.clientId, self.clientSecret, self.tenantId)
 	env, err := azureenv.EnvironmentFromName(self.envName)
@@ -170,13 +178,12 @@ func (self *SAzureClient) getClient(resource TAzureResource) (*autorest.Client, 
 	})
 	client.Sender = httpClient
 
-	self.env = env
 	switch resource {
 	case GraphResource:
-		self.domain = env.GraphEndpoint
+		ret.domain = env.GraphEndpoint
 		conf.Resource = env.GraphEndpoint
 	default:
-		self.domain = env.ResourceManagerEndpoint
+		ret.domain = env.ResourceManagerEndpoint
 		conf.Resource = env.ResourceManagerEndpoint
 	}
 	conf.AADEndpoint = env.ActiveDirectoryEndpoint
@@ -190,17 +197,19 @@ func (self *SAzureClient) getClient(resource TAzureResource) (*autorest.Client, 
 	}
 	if self.debug {
 		client.RequestInspector = LogRequest()
-		//client.ResponseInspector = LogResponse()
 	}
-
-	return &client, nil
+	ret.client = &client
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	self.clientCache[resource] = ret
+	return ret, nil
 }
 
-func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
+func (self *SAzureClient) getDefaultClient() (*azureAuthClient, error) {
 	return self.getClient(DefaultResource)
 }
 
-func (self *SAzureClient) getGraphClient() (*autorest.Client, error) {
+func (self *SAzureClient) getGraphClient() (*azureAuthClient, error) {
 	return self.getClient(GraphResource)
 }
 
@@ -220,7 +229,7 @@ func (self *SAzureClient) jsonRequest(method, path string, body jsonutils.JSONOb
 	}()
 	var resp jsonutils.JSONObject
 	for i := 0; i < 2; i++ {
-		resp, err = jsonRequest(cli, method, self.domain, path, body, params, self.debug)
+		resp, err = jsonRequest(cli.client, method, cli.domain, path, body, params, self.debug)
 		if err != nil {
 			if ae, ok := err.(*AzureResponseError); ok {
 				switch ae.AzureError.Code {
@@ -260,7 +269,7 @@ func (self *SAzureClient) gjsonRequest(method, path string, body jsonutils.JSONO
 		params = url.Values{}
 	}
 	params.Set("api-version", "1.6")
-	return jsonRequest(cli, method, self.domain, path, body, params, self.debug)
+	return jsonRequest(cli.client, method, cli.domain, path, body, params, self.debug)
 }
 
 func (self *SAzureClient) put(path string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {

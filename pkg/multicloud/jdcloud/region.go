@@ -18,9 +18,6 @@ import (
 	"fmt"
 
 	"github.com/jdcloud-api/jdcloud-sdk-go/core"
-	"github.com/sirupsen/logrus"
-
-	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -47,7 +44,8 @@ type SRegion struct {
 	multicloud.SRegion
 	multicloud.SNoObjectStorageRegion
 
-	*core.Credential
+	client *SJDCloudClient
+
 	cpcfg        cloudprovider.ProviderConfig
 	storageCache *SStoragecache
 
@@ -58,43 +56,12 @@ type SRegion struct {
 	ivpcs  []cloudprovider.ICloudVpc
 }
 
-func AllRegions(accessKey, secretKey string, config *cloudprovider.ProviderConfig, debug bool) []SRegion {
-	regions := make([]SRegion, 0, len(regionList))
-	for id, name := range regionList {
-		regions = append(regions, SRegion{
-			ID:         id,
-			Name:       name,
-			Credential: core.NewCredentials(accessKey, secretKey),
-			cpcfg:      *config,
-		})
-	}
-	if debug {
-		log.SetLogLevel(log.Logger(), logrus.DebugLevel)
-	} else {
-		log.SetLogLevel(log.Logger(), logrus.InfoLevel)
-	}
-	return regions
+func (self *SRegion) GetClient() *SJDCloudClient {
+	return self.client
 }
 
-func NewRegion(regionId, accessKey, secretKey string, config *cloudprovider.ProviderConfig, debug bool) *SRegion {
-	name, ok := regionList[regionId]
-	if !ok {
-		return nil
-	}
-	region := &SRegion{
-		Credential: core.NewCredentials(accessKey, secretKey),
-		ID:         regionId,
-		Name:       name,
-	}
-	if config != nil {
-		region.cpcfg = *config
-	}
-	if debug {
-		log.SetLogLevel(log.Logger(), logrus.DebugLevel)
-	} else {
-		log.SetLogLevel(log.Logger(), logrus.InfoLevel)
-	}
-	return region
+func (self *SRegion) getCredential() *core.Credential {
+	return self.client.getCredential()
 }
 
 func (r *SRegion) GetId() string {

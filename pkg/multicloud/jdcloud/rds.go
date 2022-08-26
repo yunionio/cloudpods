@@ -210,8 +210,8 @@ func (self *SRegion) GetIDBInstanceById(id string) (cloudprovider.ICloudDBInstan
 
 func (self *SRegion) GetDBInstance(id string) (*SDBInstance, error) {
 	req := apis.NewDescribeInstanceAttributesRequest(self.ID, id)
-	client := client.NewRdsClient(self.Credential)
-	client.Logger = Logger{}
+	client := client.NewRdsClient(self.getCredential())
+	client.Logger = Logger{debug: self.client.debug}
 	resp, err := client.DescribeInstanceAttributes(req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DescribeInstanceAttributes")
@@ -230,7 +230,7 @@ func (self *SRegion) GetDBInstance(id string) (*SDBInstance, error) {
 
 func (self *SRegion) DeleteDBInstance(id string) error {
 	req := apis.NewDeleteInstanceRequest(self.ID, id)
-	client := client.NewRdsClient(self.Credential)
+	client := client.NewRdsClient(self.getCredential())
 	client.Logger = Logger{}
 	resp, err := client.DeleteInstance(req)
 	if err != nil {
@@ -244,8 +244,8 @@ func (self *SRegion) DeleteDBInstance(id string) error {
 
 func (self *SRegion) GetDBInstances(pageNumber int, pageSize int) ([]SDBInstance, int, error) {
 	req := apis.NewDescribeInstancesRequestWithAllParams(self.ID, &pageNumber, &pageSize, []commodels.Filter{}, []commodels.TagFilter{})
-	client := client.NewRdsClient(self.Credential)
-	client.Logger = Logger{}
+	client := client.NewRdsClient(self.getCredential())
+	client.Logger = Logger{debug: self.client.debug}
 	resp, err := client.DescribeInstances(req)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "DescribeInstances")

@@ -154,8 +154,8 @@ func (i *SImage) UEFI() bool {
 
 func (r *SRegion) GetImage(imageId string) (*SImage, error) {
 	req := apis.NewDescribeImageRequest(r.ID, imageId)
-	client := client.NewVmClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVmClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeImage(req)
 	if err != nil {
 		return nil, err
@@ -171,8 +171,8 @@ func (r *SRegion) GetImage(imageId string) (*SImage, error) {
 
 func (r *SRegion) GetImages(imageIds []string, imageSource string, pageNumber, pageSize int) ([]SImage, int, error) {
 	req := apis.NewDescribeImagesRequestWithAllParams(r.ID, &imageSource, nil, nil, nil, imageIds, nil, nil, nil, nil, &pageNumber, &pageSize)
-	client := client.NewVmClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVmClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeImages(req)
 	if err != nil {
 		log.Errorf("err: %v", err)

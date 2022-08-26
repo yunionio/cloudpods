@@ -45,8 +45,15 @@ type KubeClusterCreateInput struct {
 
 type KubeClusterDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
+
+	SKubeCluster
 	ManagedResourceInfo
 	CloudregionResourceInfo
+}
+
+func (self KubeClusterDetails) GetMetricTags() map[string]string {
+	ret := map[string]string{}
+	return ret
 }
 
 type KubeClusterUpdateInput struct {
