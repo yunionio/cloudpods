@@ -4183,6 +4183,15 @@ func (self *SHost) PerformReserveCpus(
 	}
 
 	err = self.SetMetadata(ctx, api.HOSTMETA_RESERVED_CPUS_INFO, input, userCred)
+	if err != nil {
+		return nil, err
+	}
+	if self.CpuReserved < cs.Size() {
+		_, err = db.Update(self, func() error {
+			self.CpuReserved = cs.Size()
+			return nil
+		})
+	}
 	return nil, err
 }
 
