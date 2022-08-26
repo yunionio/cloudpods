@@ -128,7 +128,7 @@ func (self *SRegion) GetZone() (*SZone, error) {
 	noneClusterMsg := true
 	nodeNum := 0
 
-	err := self.get("/cluster/status", url.Values{}, css)
+	err := self.get("/cluster/status", url.Values{}, &css)
 	if err != nil {
 		return nil, err
 	}

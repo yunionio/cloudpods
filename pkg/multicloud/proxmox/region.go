@@ -96,12 +96,26 @@ func (self *SRegion) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
 
+func (self *SRegion) getVpc() *SVpc {
+	return &SVpc{region: self}
+}
+
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	return nil, cloudprovider.ErrNotSupported
+	vpc := self.getVpc()
+	return []cloudprovider.ICloudVpc{vpc}, nil
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	return nil, cloudprovider.ErrNotSupported
+	vpcs, err := self.GetIVpcs()
+	if err != nil {
+		return nil, err
+	}
+	for i := range vpcs {
+		if vpcs[i].GetGlobalId() == id {
+			return vpcs[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {

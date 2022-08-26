@@ -27,9 +27,8 @@ import (
 )
 
 type SHost struct {
-	multicloud.STagBase
 	multicloud.SHostBase
-
+	multicloud.ProxmoxTags
 	zone *SZone
 
 	Id   string

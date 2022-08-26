@@ -28,7 +28,7 @@ import (
 
 type SStorage struct {
 	multicloud.SStorageBase
-	multicloud.InCloudSphereTags
+	multicloud.ProxmoxTags
 
 	zone *SZone
 
@@ -209,14 +209,10 @@ func (self *SRegion) GetStorage(id string) (*SStorage, error) {
 		storageName = splited[2]
 	}
 
-	res := fmt.Sprintf("/nodes/%s/storage/%s/status", nodeName, storageName)
-	err := self.get(res, url.Values{}, ret)
+	status := fmt.Sprintf("/nodes/%s/storage/%s/status", nodeName, storageName)
+	err := self.get(status, url.Values{}, ret)
 	ret.Id = id
 	ret.Node = nodeName
 
-	if err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	return ret, err
 }

@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -33,7 +32,7 @@ import (
 
 type SDisk struct {
 	multicloud.SDisk
-	multicloud.InCloudSphereTags
+	multicloud.ProxmoxTags
 
 	region *SRegion
 
@@ -150,9 +149,9 @@ var (
 	DiskKeyNamePattern = regexp.MustCompile("(scsi|ide|virtio|sata|unused)(\\d)")
 )
 
-func (self *SRegion) GetVMByDiskId(Id string) (vmId int, storage string, err error) {
+func (self *SRegion) GetVMByDiskId(id string) (vmId int, storage string, err error) {
 
-	splitedFrist := strings.Split(Id, ":")
+	splitedFrist := strings.Split(id, ":")
 	storage = splitedFrist[0]
 
 	splitedSecond := strings.Split(splitedFrist[1], "/")
@@ -162,7 +161,7 @@ func (self *SRegion) GetVMByDiskId(Id string) (vmId int, storage string, err err
 	if len(matchArr) == 0 {
 		vmId = 0
 
-		return vmId, storage, errors.Errorf("failed to get vm number by %d", Id)
+		return vmId, storage, errors.Errorf("failed to get vm number by %d", id)
 	} else {
 		num, _ := strconv.Atoi(matchArr[len(matchArr)-1])
 		vmId = num
@@ -245,11 +244,7 @@ func (self *SRegion) GetDisks(storageId string) ([]SDisk, error) {
 				continue
 			}
 
-			diskDriver, cacheMode, driverIdx, err := self.GetQemuDiskConfig(nodeName, vol.VolId, vol.VmId)
-
-			if err != nil {
-				log.Debugf("faild to get QemuDiskConfig GetDisks ")
-			}
+			diskDriver, cacheMode, driverIdx, _ := self.GetQemuDiskConfig(nodeName, vol.VolId, vol.VmId)
 
 			vol.Storage = storageName
 			vol.Node = nodeName
