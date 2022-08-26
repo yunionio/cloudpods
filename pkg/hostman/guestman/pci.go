@@ -299,7 +299,6 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 func (s *SKVMGuestInstance) initCdromDesc() {
 	if s.Desc.Cdrom == nil {
 		s.Desc.Cdrom = new(desc.SGuestCdrom)
-		return
 	}
 
 	s.archMan.GenerateCdromDesc(s.getOsname(), s.Desc.Cdrom)
