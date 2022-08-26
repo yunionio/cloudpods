@@ -16,6 +16,7 @@ jobs:
     ####   /go/src/github.com/circleci/go-tool
     ####   /go/src/bitbucket.org/circleci/go-tool
     working_directory: /root/go/src/yunion.io/x/onecloud
+    resource_class: large
     parallelism: 1
     steps:
       - checkout
