@@ -695,10 +695,11 @@ func init() {
 	})
 
 	type ServerQemuParams struct {
-		ID               string `help:"ID or name of VM"`
-		DisableIsaSerial string `help:"disable isa serial device" choices:"true|false"`
-		DisablePvpanic   string `help:"disable pvpanic device" choices:"true|false"`
-		DisableUsbKbd    string `help:"disable usb kbd" choices:"true|false"`
+		ID                string `help:"ID or name of VM"`
+		DisableIsaSerial  string `help:"disable isa serial device" choices:"true|false"`
+		DisablePvpanic    string `help:"disable pvpanic device" choices:"true|false"`
+		DisableUsbKbd     string `help:"disable usb kbd" choices:"true|false"`
+		UsbControllerType string `help:"usb controller type" choices:"usb-ehci|qemu-xhci"`
 	}
 
 	R(&ServerQemuParams{}, "server-set-qemu-params", "config qemu params", func(s *mcclient.ClientSession,
@@ -712,6 +713,9 @@ func init() {
 		}
 		if len(opts.DisableUsbKbd) > 0 {
 			params.Set("disable_usb_kbd", jsonutils.NewString(opts.DisableUsbKbd))
+		}
+		if len(opts.UsbControllerType) > 0 {
+			params.Set("usb_controller_type", jsonutils.NewString(opts.UsbControllerType))
 		}
 		result, err := modules.Servers.PerformAction(s, opts.ID, "set-qemu-params", params)
 		if err != nil {

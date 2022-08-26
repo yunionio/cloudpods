@@ -3362,6 +3362,13 @@ func (self *SGuest) PerformSetQemuParams(ctx context.Context, userCred mcclient.
 			return nil, err
 		}
 	}
+	usbContType, err := data.GetString("usb_controller_type")
+	if err == nil {
+		err = self.SetMetadata(ctx, "usb_controller_type", usbContType, userCred)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return nil, nil
 }
 
