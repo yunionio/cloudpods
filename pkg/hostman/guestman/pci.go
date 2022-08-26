@@ -200,12 +200,15 @@ func (s *SKVMGuestInstance) initRandomDevice(pciRoot *desc.PCIController) {
 }
 
 func (s *SKVMGuestInstance) initUsbController(pciRoot *desc.PCIController) {
+	contType := s.getUsbControllerType()
 	s.Desc.Usb = &desc.UsbController{
-		PCIDevice: desc.NewPCIDevice(pciRoot.CType, " qemu-xhci", "usb"),
+		PCIDevice: desc.NewPCIDevice(pciRoot.CType, contType, "usb"),
 	}
-	s.Desc.Usb.Options = map[string]string{
-		"p2": "8", // usb2 port count
-		"p3": "8", // usb3 port count
+	if contType == "qemu-xhci" {
+		s.Desc.Usb.Options = map[string]string{
+			"p2": "8", // usb2 port count
+			"p3": "8", // usb3 port count
+		}
 	}
 }
 
