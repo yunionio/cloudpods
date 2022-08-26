@@ -92,6 +92,15 @@ func (s *SKVMGuestInstance) getOsVersion() string {
 	return osVer
 }
 
+func (s *SKVMGuestInstance) getUsbControllerType() string {
+	usbContType, _ := s.Desc.GetString("metadata", "usb_controller_type")
+	if usbContType == "usb-ehci" {
+		return usbContType
+	} else {
+		return "qemu-xhci"
+	}
+}
+
 // is windows prioer to windows server 2003
 func (s *SKVMGuestInstance) isOldWindows() bool {
 	if s.getOsname() == OS_NAME_WINDOWS {
@@ -251,6 +260,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 			EnableMemfd:          s.isMemcleanEnabled(),
 			PidFilePath:          s.GetPidFilePath(),
 			BIOS:                 s.getBios(),
+			UsbControllerType:    s.getUsbControllerType(),
 		}
 	)
 

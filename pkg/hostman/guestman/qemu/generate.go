@@ -79,6 +79,7 @@ type GenerateStartOptionsInput struct {
 	IsSlave               bool
 	IsMaster              bool
 	EnablePvpanic         bool
+	UsbControllerType     string
 
 	EncryptKeyPath string
 }
@@ -208,7 +209,7 @@ func GenerateStartOptions(
 
 	// isolated devices
 	// USB 3.0
-	opts = append(opts, drvOpt.Device("qemu-xhci,id=usb"))
+	opts = append(opts, drvOpt.Device(fmt.Sprintf("%s,id=usb", input.UsbControllerType)))
 	if input.IsolatedDevicesParams != nil {
 		for _, each := range input.IsolatedDevicesParams.Devices {
 			opts = append(opts, each)
