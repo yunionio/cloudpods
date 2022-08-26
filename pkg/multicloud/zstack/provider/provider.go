@@ -161,3 +161,7 @@ func (self *SZStackProvider) GetObjectCannedAcls(regionId string) []string {
 func (self *SZStackProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
+
+func (self *SZStackProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetEcsMetrics(opts)
+}

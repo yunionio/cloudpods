@@ -22,35 +22,37 @@ import (
 type TResourceType string
 type TMetricType string
 
-func (self TMetricType) Name() string {
-	if !strings.Contains(string(self), ".") {
-		return string(self)
+func (key TMetricType) Name() string {
+	if !strings.Contains(string(key), ".") {
+		return string(key)
 	}
-	return string(self)[0:strings.Index(string(self), ".")]
+	return string(key)[0:strings.Index(string(key), ".")]
 }
 
-func (self TMetricType) Key() string {
-	return func(key string) string {
-		if len(key) == 0 {
-			return ""
-		}
-		first, last := 0, len(key)
-		if strings.Contains(key, ",") {
-			last = strings.Index(key, ",")
-		}
-		if strings.Contains(key, ".") {
-			first = strings.LastIndex(key, ".") + 1
-		}
-		return key[first:last]
-	}(string(self))
+func (key TMetricType) Key() string {
+	if len(key) == 0 {
+		return ""
+	}
+	first, last := 0, len(key)
+	if strings.Contains(string(key), ",") {
+		last = strings.Index(string(key), ",")
+	}
+	if strings.Contains(string(key), ".") {
+		first = strings.LastIndex(string(key), ".") + 1
+	}
+	return string(key)[first:last]
 }
 
 const (
-	METRIC_RESOURCE_TYPE_RDS    TResourceType = "RDS"
-	METRIC_RESOURCE_TYPE_SERVER TResourceType = "SERVER"
-	METRIC_RESOURCE_TYPE_REDIS  TResourceType = "REDIS"
-	METRIC_RESOURCE_TYPE_LB     TResourceType = "LB"
-	METRIC_RESOURCE_TYPE_BUCKET TResourceType = "BUCKET"
+	METRIC_RESOURCE_TYPE_RDS           TResourceType = "rds"
+	METRIC_RESOURCE_TYPE_SERVER        TResourceType = "server"
+	METRIC_RESOURCE_TYPE_HOST          TResourceType = "host"
+	METRIC_RESOURCE_TYPE_REDIS         TResourceType = "redis"
+	METRIC_RESOURCE_TYPE_LB            TResourceType = "lb"
+	METRIC_RESOURCE_TYPE_BUCKET        TResourceType = "bucket"
+	METRIC_RESOURCE_TYPE_K8S           TResourceType = "k8s"
+	METRIC_RESOURCE_TYPE_STORAGE       TResourceType = "storage"
+	METRIC_RESOURCE_TYPE_CLOUD_ACCOUNT TResourceType = "cloudaccount_balance"
 )
 
 const (
@@ -58,7 +60,7 @@ const (
 	RDS_METRIC_TYPE_CPU_USAGE  TMetricType = "rds_cpu.usage_active"
 	RDS_METRIC_TYPE_MEM_USAGE  TMetricType = "rds_mem.used_percent"
 	RDS_METRIC_TYPE_NET_BPS_RX TMetricType = "rds_netio.bps_recv"
-	RDS_METRIC_TYPE_NET_BPS_TX TMetricType = "rds_netio.bps_send"
+	RDS_METRIC_TYPE_NET_BPS_TX TMetricType = "rds_netio.bps_sent"
 
 	RDS_METRIC_TYPE_DISK_USAGE      TMetricType = "rds_disk.used_percent"
 	RDS_METRIC_TYPE_DISK_READ_BPS   TMetricType = "rds_diskio.read_bps"
@@ -85,7 +87,7 @@ const (
 	VM_METRIC_TYPE_DISK_IO_WRITE_IOPS TMetricType = "vm_diskio.write_iops"
 
 	VM_METRIC_TYPE_NET_BPS_RX TMetricType = "vm_netio.bps_recv"
-	VM_METRIC_TYPE_NET_BPS_TX TMetricType = "vm_netio.bps_send"
+	VM_METRIC_TYPE_NET_BPS_TX TMetricType = "vm_netio.bps_sent"
 
 	VM_METRIC_TYPE_EIP_BPS_IN  TMetricType = "vm_eipio.bps_in"
 	VM_METRIC_TYPE_EIP_BPS_OUT TMetricType = "vm_eipio.bps_out"
@@ -93,32 +95,79 @@ const (
 	VM_METRIC_TYPE_EIP_PPS_IN  TMetricType = "vm_eipio.pps_in"
 	VM_METRIC_TYPE_EIP_PPS_OUT TMetricType = "vm_eipio.pps_out"
 
-	REDIS_METRIC_TYPE_CPU_USAGE      = "dcs_cpu.usage_active"
-	REDIS_METRIC_TYPE_MEM_USAGE      = "dcs_mem.used_percent"
-	REDIS_METRIC_TYPE_NET_BPS_RX     = "dcs_netio.bps_recv"
-	REDIS_METRIC_TYPE_NET_BPS_TX     = "dcs_netio.bps_sent"
-	REDIS_METRIC_TYPE_CONN_USAGE     = "dcs_conn.used_percent"
-	REDIS_METRIC_TYPE_OPT_SES        = "dcs_instantopt.opt_sec"
-	REDIS_METRIC_TYPE_CACHE_KEYS     = "dcs_cachekeys.key_count"
-	REDIS_METRIC_TYPE_CACHE_EXP_KEYS = "dcs_cachekeys.key_count,exp=expire"
-	REDIS_METRIC_TYPE_DATA_MEM_USAGE = "dcs_datamem.used_byte"
-	REDIS_METRIC_TYPE_SERVER_LOAD    = "dcs_cpu.server_load"
-	REDIS_METRIC_TYPE_CONN_ERRORS    = "dcs_conn.errors"
+	HOST_METRIC_TYPE_CPU_USAGE          TMetricType = "cpu.usage_active"
+	HOST_METRIC_TYPE_MEM_USAGE          TMetricType = "mem.used_percent"
+	HOST_METRIC_TYPE_DISK_IO_READ_BPS   TMetricType = "diskio.read_bps"
+	HOST_METRIC_TYPE_DISK_IO_WRITE_BPS  TMetricType = "diskio.write_bps"
+	HOST_METRIC_TYPE_DISK_IO_READ_IOPS  TMetricType = "diskio.read_iops"
+	HOST_METRIC_TYPE_DISK_IO_WRITE_IOPS TMetricType = "diskio.write_iops"
+	HOST_METRIC_TYPE_NET_BPS_RX         TMetricType = "net.bps_recv"
+	HOST_METRIC_TYPE_NET_BPS_TX         TMetricType = "net.bps_sent"
 
-	LB_METRIC_TYPE_SNAT_PORT       = "haproxy.used_snat_port"
-	LB_METRIC_TYPE_SNAT_CONN_COUNT = "haproxy.snat_conn_count"
-	LB_METRIC_TYPE_NET_BPS_RX      = "haproxy.bin"
-	LB_METRIC_TYPE_NET_BPS_TX      = "haproxy.bout"
-	LB_METRIC_TYPE_CHC_STATUS      = "haproxy.check_status"
-	LB_METRIC_TYPE_CHC_CODE        = "haproxy.check_code"
-	LB_METRIC_TYPE_LAST_CHC        = "haproxy.last_chk"
-	LB_METRIC_TYPE_REQ_RATE        = "haproxy.req_rate"
-	LB_METRIC_TYPE_HRSP_COUNT      = "haproxy.hrsp_Nxx"
+	REDIS_METRIC_TYPE_CPU_USAGE      TMetricType = "dcs_cpu.usage_active"
+	REDIS_METRIC_TYPE_MEM_USAGE      TMetricType = "dcs_mem.used_percent"
+	REDIS_METRIC_TYPE_NET_BPS_RX     TMetricType = "dcs_netio.bps_recv"
+	REDIS_METRIC_TYPE_NET_BPS_TX     TMetricType = "dcs_netio.bps_sent"
+	REDIS_METRIC_TYPE_CONN_USAGE     TMetricType = "dcs_conn.used_percent"
+	REDIS_METRIC_TYPE_OPT_SES        TMetricType = "dcs_instantopt.opt_sec"
+	REDIS_METRIC_TYPE_CACHE_KEYS     TMetricType = "dcs_cachekeys.key_count"
+	REDIS_METRIC_TYPE_CACHE_EXP_KEYS TMetricType = "dcs_cachekeys.key_count,exp=expire"
+	REDIS_METRIC_TYPE_DATA_MEM_USAGE TMetricType = "dcs_datamem.used_byte"
+	REDIS_METRIC_TYPE_SERVER_LOAD    TMetricType = "dcs_cpu.server_load"
+	REDIS_METRIC_TYPE_CONN_ERRORS    TMetricType = "dcs_conn.errors"
 
-	BUCKET_METRIC_TYPE_NET_BPS_TX = "oss_netio.bps_sent"
-	BUCKET_METRIC_TYPE_NET_BPS_RX = "oss_netio.bps_recv"
-	BUCKET_METRIC_TYPE_LATECY     = "oss_latency.req_late"
-	BUCKET_METRYC_TYPE_REQ_COUNT  = "oss_req.req_count"
+	LB_METRIC_TYPE_SNAT_PORT       TMetricType = "haproxy.used_snat_port"
+	LB_METRIC_TYPE_SNAT_CONN_COUNT TMetricType = "haproxy.snat_conn_count"
+	LB_METRIC_TYPE_NET_BPS_RX      TMetricType = "haproxy.bin"
+	LB_METRIC_TYPE_NET_BPS_TX      TMetricType = "haproxy.bout"
+	LB_METRIC_TYPE_CHC_STATUS      TMetricType = "haproxy.check_status"
+	LB_METRIC_TYPE_CHC_CODE        TMetricType = "haproxy.check_code"
+	LB_METRIC_TYPE_LAST_CHC        TMetricType = "haproxy.last_chk"
+	LB_METRIC_TYPE_REQ_RATE        TMetricType = "haproxy.req_rate"
+	LB_METRIC_TYPE_HRSP_COUNT      TMetricType = "haproxy.hrsp_Nxx"
+
+	BUCKET_METRIC_TYPE_NET_BPS_TX TMetricType = "oss_netio.bps_sent"
+	BUCKET_METRIC_TYPE_NET_BPS_RX TMetricType = "oss_netio.bps_recv"
+	BUCKET_METRIC_TYPE_LATECY     TMetricType = "oss_latency.req_late"
+	BUCKET_METRYC_TYPE_REQ_COUNT  TMetricType = "oss_req.req_count"
+
+	METRIC_TAG_REQUST      = "request"
+	METRIC_TAG_REQUST_GET  = "get"
+	METRIC_TAG_REQUST_POST = "post"
+	METRIC_TAG_REQUST_2XX  = "2xx"
+	METRIC_TAG_REQUST_3XX  = "3xx"
+	METRIC_TAG_REQUST_4XX  = "4xx"
+	METRIC_TAG_REQUST_5XX  = "5xx"
+
+	METRIC_TAG_NET_TYPE          = "net_type"
+	METRIC_TAG_NET_TYPE_INTERNET = "internet"
+	METRIC_TAG_NET_TYPE_INTRANET = "intranet"
+
+	METRIC_TAG_TYPE_DISK_TYPE     = "disk_type"
+	METRIC_TAG_TYPE_DISK_TYPE_EBS = "ebs"
+
+	// 磁盘利用率
+	METRIC_TAG_DEVICE = "device"
+
+	K8S_CLUSTER_METRIC_TYPE_CPU_USAGE       TMetricType = "k8s_cluster.cpu_used_percent"
+	K8S_CLUSTER_METRIC_TYPE_MEM_USAGE       TMetricType = "k8s_cluster.mem_used_percent"
+	K8S_CLUSTER_METRIC_TYPE_ALLOCATABLE_POD TMetricType = "k8s_cluster.allocatable_pod"
+	K8S_CLUSTER_METRIC_TYPE_TOTAL_CPUCORE   TMetricType = "k8s_cluster.total_cpu"
+	K8S_CLUSTER_METRIC_TYPE_CPU_ALLOCATED   TMetricType = "k8s_cluster.cpu_allocated_percent"
+
+	K8S_NODE_METRIC_TYPE_CPU_USAGE         TMetricType = "k8s_node.cpu_used_percent"
+	K8S_NODE_METRIC_TYPE_MEM_USAGE         TMetricType = "k8s_node.mem_used_percent"
+	K8S_NODE_METRIC_TYPE_DISK_USAGE        TMetricType = "k8s_node.disk_used_percent"
+	K8S_NODE_METRIC_TYPE_NET_BPS_RX        TMetricType = "k8s_node.bps_recv"
+	K8S_NODE_METRIC_TYPE_NET_BPS_TX        TMetricType = "k8s_node.bps_sent"
+	K8S_NODE_METRIC_TYPE_POD_RESTART_TOTAL TMetricType = "k8s_node.pod_restart_total"
+
+	K8S_POD_METRIC_TYPE_CPU_USAGE     TMetricType = "k8s_pod.cpu_used_percent"
+	K8S_POD_METRIC_TYPE_MEM_USAGE     TMetricType = "k8s_pod.mem_used_percent"
+	K8S_POD_METRIC_TYPE_RESTART_TOTAL TMetricType = "k8s_pod.restart_total"
+
+	K8S_POD_METRIC_TYPE_OOM_CONTAINER_COUNT TMetricType = "k8s_deploy.pod_oom_total"
+	K8S_POD_METRIC_TYPE_RESTARTING_COUNT    TMetricType = "k8s_deploy.pod_restarting_total"
 )
 
 var (
@@ -142,6 +191,17 @@ var (
 		RDS_METRIC_TYPE_TPS,
 		RDS_METRIC_TYPE_INNODB_READ_BPS,
 		RDS_METRIC_TYPE_INNODB_WRITE_BPS,
+	}
+
+	ALL_HOST_METRIC_TYPES = []TMetricType{
+		HOST_METRIC_TYPE_CPU_USAGE,
+		HOST_METRIC_TYPE_MEM_USAGE,
+		HOST_METRIC_TYPE_DISK_IO_READ_BPS,
+		HOST_METRIC_TYPE_DISK_IO_WRITE_BPS,
+		HOST_METRIC_TYPE_DISK_IO_READ_IOPS,
+		HOST_METRIC_TYPE_DISK_IO_WRITE_IOPS,
+		HOST_METRIC_TYPE_NET_BPS_RX,
+		HOST_METRIC_TYPE_NET_BPS_TX,
 	}
 
 	ALL_VM_METRIC_TYPES = []TMetricType{
@@ -203,11 +263,19 @@ type MetricListOptions struct {
 	MetricType   TMetricType
 
 	ResourceId string
-	StartTime  time.Time
-	EndTime    time.Time
+	// batch metric pull for tencentcloud
+	ResourceIds []string
+	RegionExtId string
+	StartTime   time.Time
+	EndTime     time.Time
 
 	Interval int
-	Engine   string
+	// rds
+	Engine string
+
+	// k8s
+	Node string
+	Pod  string
 }
 
 type MetricValue struct {

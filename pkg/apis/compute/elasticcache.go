@@ -15,6 +15,7 @@
 package compute
 
 import (
+	"strings"
 	"time"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -35,6 +36,37 @@ type ElasticcacheDetails struct {
 
 	// 备可用区列表
 	SlaveZoneInfos []apis.StandaloneShortDesc `json:"slave_zone_infos"`
+}
+
+func (self ElasticcacheDetails) GetMetricTags() map[string]string {
+	ret := map[string]string{
+		"redis_id":       self.Id,
+		"redis_ip":       self.PrivateIpAddr,
+		"redis_name":     self.Name,
+		"zone":           self.Zone,
+		"zone_id":        self.ZoneId,
+		"zone_ext_id":    self.ZoneExtId,
+		"status":         self.Status,
+		"cloudregion":    self.Cloudregion,
+		"cloudregion_id": self.CloudregionId,
+		"region_ext_id":  self.RegionExtId,
+		"tenant":         self.Tenant,
+		"tenant_id":      self.TenantId,
+		"brand":          self.Brand,
+		"domain_id":      self.DomainId,
+		"project_domain": self.ProjectDomain,
+	}
+	for k, v := range self.Metadata {
+		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
+func (self ElasticcacheDetails) GetMetricPairs() map[string]string {
+	ret := map[string]string{}
+	return ret
 }
 
 type ElasticcacheResourceInfo struct {

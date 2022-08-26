@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
+	azureenv "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/common"
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream"
 
@@ -353,7 +354,11 @@ func (self *SStorageAccount) getBlobServiceClient() (*storage.BlobStorageClient,
 	if err != nil {
 		return nil, err
 	}
-	client, err := storage.NewBasicClientOnSovereignCloud(self.Name, accessKey, self.region.client.env)
+	env, err := azureenv.EnvironmentFromName(self.region.client.envName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "azureenv.EnvironmentFromName(%s)", self.region.client.envName)
+	}
+	client, err := storage.NewBasicClientOnSovereignCloud(self.Name, accessKey, env)
 	if err != nil {
 		return nil, err
 	}

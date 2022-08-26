@@ -25,10 +25,10 @@ type SBalance struct {
 	apis.DescribeAccountAmountResult
 }
 
-func (self *SRegion) DescribeAccountAmount() (*SBalance, error) {
-	req := apis.NewDescribeAccountAmountRequest(self.ID)
-	client := client.NewAssetClient(self.Credential)
-	client.Logger = Logger{}
+func (self *SJDCloudClient) DescribeAccountAmount() (*SBalance, error) {
+	req := apis.NewDescribeAccountAmountRequest("cn-north-1")
+	client := client.NewAssetClient(self.getCredential())
+	client.Logger = Logger{debug: self.debug}
 	resp, err := client.DescribeAccountAmount(req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DescribeAccountAmoun")

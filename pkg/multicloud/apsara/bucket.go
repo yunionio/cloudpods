@@ -117,7 +117,7 @@ func (self *SRegion) GetBucketSize(bucket string, department int) (int64, error)
 		"StartTime":  strconv.FormatInt(time.Now().Add(time.Hour*-24*2).Unix()*1000, 10),
 		"EndTime":    strconv.FormatInt(time.Now().Unix()*1000, 10),
 	}
-	resp, err := self.metricsRequest("DescribeMetricList", params)
+	resp, err := self.client.metricsRequest("DescribeMetricList", params)
 	if err != nil {
 		return 0, nil
 	}

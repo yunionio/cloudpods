@@ -156,3 +156,7 @@ func (self *SBingoCloudProvider) GetObjectCannedAcls(regionId string) []string {
 func (self *SBingoCloudProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
+
+func (self *SBingoCloudProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

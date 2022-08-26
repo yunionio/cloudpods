@@ -16,6 +16,7 @@ package compute
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -243,6 +244,49 @@ type ServerDetails struct {
 
 	// 伸缩组id
 	ScalingGroupId string `json:"scaling_group_id"`
+}
+
+func (self ServerDetails) GetMetricTags() map[string]string {
+	ret := map[string]string{
+		"res_type":            "guest",
+		"is_vm":               "true",
+		"paltform":            self.Hypervisor,
+		"host":                self.Host,
+		"host_id":             self.HostId,
+		"vm_id":               self.Id,
+		"vm_name":             self.Name,
+		"zone":                self.Zone,
+		"zone_id":             self.ZoneId,
+		"zone_ext_id":         self.ZoneExtId,
+		"os_type":             self.OsType,
+		"status":              self.Status,
+		"cloudregion":         self.Cloudregion,
+		"cloudregion_id":      self.CloudregionId,
+		"region_ext_id":       self.RegionExtId,
+		"tenant":              self.Tenant,
+		"tenant_id":           self.TenantId,
+		"brand":               self.Brand,
+		"vm_scaling_group_id": self.ScalingGroupId,
+		"domain_id":           self.DomainId,
+		"project_domain":      self.TenantId,
+		"account":             self.Account,
+		"account_id":          self.AccountId,
+	}
+	for k, v := range self.Metadata {
+		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
+func (self ServerDetails) GetMetricPairs() map[string]string {
+	ret := map[string]string{
+		"vcpu_count": fmt.Sprintf("%d", self.VcpuCount),
+		"vmem_size":  fmt.Sprintf("%d", self.VmemSize),
+		"disk":       fmt.Sprintf("%d", self.DiskSizeMb),
+	}
+	return ret
 }
 
 // GuestDiskInfo describe the information of disk on the guest.

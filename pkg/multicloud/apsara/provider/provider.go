@@ -240,3 +240,7 @@ func (self *SApsaraProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpo
 func (self *SApsaraProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
 	return self.client.CreateICloudpolicy(opts)
 }
+
+func (self *SApsaraProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

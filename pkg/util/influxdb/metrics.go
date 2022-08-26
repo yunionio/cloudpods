@@ -28,7 +28,7 @@ type SKeyValue struct {
 }
 
 func (kv SKeyValue) String() string {
-	return fmt.Sprintf("%s=%s", kv.Key, strings.ReplaceAll(kv.Value, " ", "+"))
+	return fmt.Sprintf("%s=%s", strings.Trim(kv.Key, " "), strings.ReplaceAll(kv.Value, " ", "+"))
 }
 
 type TKeyValuePairs []SKeyValue
@@ -39,14 +39,14 @@ func (a TKeyValuePairs) Less(i, j int) bool { return a[i].Key < a[j].Key }
 
 type SMetricData struct {
 	Name      string
-	Tags      []SKeyValue
-	Metrics   []SKeyValue
+	Tags      TKeyValuePairs
+	Metrics   TKeyValuePairs
 	Timestamp time.Time
 }
 
 func (m *SMetricData) Line() string {
-	sort.Sort(TKeyValuePairs(m.Tags))
-	sort.Sort(TKeyValuePairs(m.Metrics))
+	sort.Sort(m.Tags)
+	sort.Sort(m.Metrics)
 
 	line := strings.Builder{}
 	line.WriteString(m.Name)
@@ -70,6 +70,5 @@ func (m *SMetricData) Line() string {
 		m.Timestamp = time.Now()
 	}
 	line.WriteString(strconv.FormatInt(m.Timestamp.UnixNano()/1000000, 10))
-
 	return line.String()
 }

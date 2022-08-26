@@ -84,6 +84,28 @@ func (db *SInfluxdb) Write(data string, precision string) error {
 	return nil
 }
 
+func (db *SInfluxdb) BatchWrite(data []string, precision string) error {
+	if precision == "" {
+		precision = "ns"
+	}
+	nurl := fmt.Sprintf("%s/write?db=%s&precision=%s", db.accessUrl, db.dbName, precision)
+	header := http.Header{}
+	header.Set("Content-Type", "application/octet-stream")
+	resp, err := httputils.Request(db.client, context.Background(), "POST", nurl, header, strings.NewReader(strings.Join(data, "\n")), db.debug)
+	if err != nil {
+		return errors.Wrap(err, "httputils.Request")
+	}
+	defer httputils.CloseResponse(resp)
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return errors.Wrap(err, "ioutil.ReadAll")
+	}
+	if resp.StatusCode >= 300 {
+		return errors.Error(fmt.Sprintf("Status: %d Message: %s", resp.StatusCode, string(b)))
+	}
+	return nil
+}
+
 func (db *SInfluxdb) Query(sql string) ([][]dbResult, error) {
 	nurl := fmt.Sprintf("%s/query?db=%s&q=%s&epoch=ms", db.accessUrl, db.dbName, url.QueryEscape(sql))
 	_, body, err := httputils.JSONRequest(db.client, context.Background(), "GET", nurl, nil, nil, db.debug)
