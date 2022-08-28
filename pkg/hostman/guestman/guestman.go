@@ -55,8 +55,10 @@ import (
 )
 
 var (
-	LAST_USED_PORT = 0
-	NbdWorker      = appsrv.NewWorkerManager("nbd_worker", 1, appsrv.DEFAULT_BACKLOG, false)
+	LAST_USED_PORT            = 0
+	LAST_USED_NBD_SERVER_PORT = 0
+	LAST_USED_MIGRATE_PORT    = 0
+	NbdWorker                 = appsrv.NewWorkerManager("nbd_worker", 1, appsrv.DEFAULT_BACKLOG, false)
 )
 
 const (
@@ -76,6 +78,7 @@ type SGuestManager struct {
 	CandidateServers map[string]*SKVMGuestInstance
 	UnknownServers   *sync.Map
 	ServersLock      *sync.Mutex
+	portsInUse       *sync.Map
 
 	GuestStartWorker *appsrv.SWorkerManager
 
@@ -91,6 +94,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.host = host
 	manager.ServersPath = serversPath
 	manager.Servers = new(sync.Map)
+	manager.portsInUse = new(sync.Map)
 	manager.CandidateServers = make(map[string]*SKVMGuestInstance, 0)
 	manager.UnknownServers = new(sync.Map)
 	manager.ServersLock = &sync.Mutex{}
@@ -942,15 +946,46 @@ func (m *SGuestManager) CanMigrate(sid string) bool {
 	return true
 }
 
+func (m *SGuestManager) checkAndSetPort(port int) bool {
+	_, loaded := m.portsInUse.LoadOrStore(port, struct{}{})
+	return !loaded
+}
+
+func (m *SGuestManager) unsetPort(port int) {
+	m.portsInUse.Delete(port)
+}
+
 func (m *SGuestManager) GetFreePortByBase(basePort int) int {
 	var port = 1
 	for {
 		if netutils2.IsTcpPortUsed("0.0.0.0", basePort+port) {
 			port += 1
 		} else {
-			return basePort + port
+			if !m.checkAndSetPort(basePort + port) {
+				continue
+			}
+			break
 		}
 	}
+	return port + basePort
+}
+
+func (m *SGuestManager) GetLiveMigrateFreePort() int {
+	port := m.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE + LAST_USED_MIGRATE_PORT)
+	LAST_USED_MIGRATE_PORT = port - LIVE_MIGRATE_PORT_BASE
+	if LAST_USED_MIGRATE_PORT > 5000 {
+		LAST_USED_MIGRATE_PORT = 0
+	}
+	return port
+}
+
+func (m *SGuestManager) GetNBDServerFreePort() int {
+	port := m.GetFreePortByBase(BUILT_IN_NBD_SERVER_PORT_BASE + LAST_USED_NBD_SERVER_PORT)
+	LAST_USED_NBD_SERVER_PORT = port - BUILT_IN_NBD_SERVER_PORT_BASE
+	if LAST_USED_NBD_SERVER_PORT > 5000 {
+		LAST_USED_NBD_SERVER_PORT = 0
+	}
+	return port
 }
 
 func (m *SGuestManager) GetFreeVncPort() int {
@@ -965,12 +1000,15 @@ func (m *SGuestManager) GetFreeVncPort() int {
 	})
 	var port = LAST_USED_PORT + 1
 	for {
-		if _, ok := vncPorts[port]; !ok &&
-			!netutils2.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) &&
-			!netutils2.IsTcpPortUsed("127.0.0.1", MONITOR_PORT_BASE+port) {
-			break
-		} else {
+		if _, ok := vncPorts[port]; ok ||
+			netutils2.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) ||
+			netutils2.IsTcpPortUsed("127.0.0.1", MONITOR_PORT_BASE+port) {
 			port += 1
+		} else {
+			if !m.checkAndSetPort(port) {
+				continue
+			}
+			break
 		}
 	}
 	LAST_USED_PORT = port
