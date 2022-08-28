@@ -413,20 +413,16 @@ function nic_mtu() {
 	input.IsKVMSupport = s.IsKvmSupport()
 	input.ExtraOptions = append(input.ExtraOptions, s.extraOptions())
 
+	liveMigratePort, _ := data.Int("live_migrate_port")
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		input.NeedMigrate = true
-		migratePort := s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE)
-		s.LiveMigrateDestPort = &migratePort
-		input.LiveMigratePort = uint(migratePort)
+		input.LiveMigratePort = uint(liveMigratePort)
 		if jsonutils.QueryBoolean(data, "live_migrate_use_tls", false) {
 			s.LiveMigrateUseTls = true
 			input.LiveMigrateUseTLS = true
 		}
 	} else if s.Desc.IsSlave {
-		//input.IsSlave = true
-		input.LiveMigratePort = uint(s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE))
-	} else if s.Desc.IsMaster {
-		//input.IsMaster = true
+		input.LiveMigratePort = uint(liveMigratePort)
 	}
 
 	qemuOpts, err := qemu.GenerateStartOptions(input)

@@ -6,7 +6,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
-type SGuestPorjectDesc struct {
+type SGuestProjectDesc struct {
 	Tenant        string
 	TenantId      string
 	DomainId      string
@@ -265,10 +265,6 @@ type UsbRedir struct {
 }
 
 type SGuestVdi struct {
-	// Protocol string
-	// Port     int
-	// Password string
-
 	Spice *SSpiceDesc
 }
 
@@ -285,7 +281,7 @@ type SGuestPvScsi struct {
 }
 
 type SGuestDesc struct {
-	SGuestPorjectDesc
+	SGuestProjectDesc
 	SGuestRegionDesc
 	SGuestControlDesc
 	SGuestHardwareDesc
