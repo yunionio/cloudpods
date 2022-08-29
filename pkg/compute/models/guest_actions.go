@@ -71,7 +71,7 @@ import (
 
 func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	ret := &cloudprovider.ServerVncOutput{}
-	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
+	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_MIGRATING}) {
 		host, err := self.GetHost()
 		if err != nil {
 			return nil, httperrors.NewInternalServerError(errors.Wrapf(err, "GetHost").Error())
