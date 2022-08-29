@@ -43,6 +43,9 @@ type ReceiverCreateInput struct {
 	// description: enabled contact types for user
 	// example: {"email", "mobile", "feishu", "dingtalk", "workwx"}
 	EnabledContactTypes []string `json:"enabled_contact_types"`
+
+	// force verified if admin create the records
+	ForceVerified bool `json:"force_verified"`
 }
 
 type SInternationalMobile struct {
@@ -129,6 +132,8 @@ type ReceiverUpdateInput struct {
 	// description: enabled contacts for user
 	// example: {"email", "mobile", "feishu", "dingtalk", "workwx"}
 	EnabledContactTypes []string `json:"enabled_contact_types"`
+
+	ForceVerified bool `json:"force_verified"`
 }
 
 type ReceiverTriggerVerifyInput struct {

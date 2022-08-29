@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/notify/options"
 )
 
@@ -54,7 +55,7 @@ type SVerification struct {
 	Token       string `width:"200" nullable:"false"`
 }
 
-var ErrVerifyFrequently = errors.Error("Send validation messages too frequently")
+var ErrVerifyFrequently = errors.Wrap(httperrors.ErrTooManyRequests, "Send validation messages too frequently")
 
 func (vm *SVerificationManager) generateVerifyToken() string {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))

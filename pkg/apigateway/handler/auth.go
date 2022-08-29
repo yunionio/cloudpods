@@ -355,9 +355,14 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 		idpId, _ := body.GetString("idp_id")
 		redirectUri := getSsoCallbackUrl(ctx, req, idpId)
 		token, err = processSsoLoginData(body, cliIp, redirectUri)
-		if err != nil {
-			return nil, errors.Wrap(err, "processSsoLoginData")
-		}
+		// if err != nil {
+		//	return nil, errors.Wrap(err, "processSsoLoginData")
+		// }
+	} else if body.Contains("verify_code") { // verify by mobile
+		verifyCode, _ := body.GetString("verify_code")
+		uid, _ := body.GetString("uid")
+		contactType, _ := body.GetString("contact_type")
+		token, err = processVerifyLoginData(uid, contactType, verifyCode, cliIp)
 	} else {
 		return nil, httperrors.NewInputParameterError("missing credential")
 	}
