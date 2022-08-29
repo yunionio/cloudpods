@@ -63,6 +63,7 @@ type SVmResource struct {
 	Id     string
 	Name   string
 	Node   string
+	NodeId string
 	Status string
 }
 
@@ -125,7 +126,6 @@ func (self *SRegion) GetClusterVmResources() (map[int]SVmResource, error) {
 	resources := []SClusterResource{}
 	VmResources := map[int]SVmResource{}
 	err := self.get("/cluster/resources", url.Values{}, &resources)
-
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +137,7 @@ func (self *SRegion) GetClusterVmResources() (map[int]SVmResource, error) {
 				Id:     res.Id,
 				Name:   res.Name,
 				Node:   res.Node,
+				NodeId: fmt.Sprintf("node/%s", res.Node),
 				Status: res.Status,
 			}
 

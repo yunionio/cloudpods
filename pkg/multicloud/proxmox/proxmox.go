@@ -32,10 +32,6 @@ import (
 
 const (
 	CLOUD_PROVIDER_PROXMOX = api.CLOUD_PROVIDER_PROXMOX
-	DISK_DRIVER_SCSI       = "scsi"
-	DISK_DRIVER_IDE        = "ide"
-	DISK_DRIVER_VIRTIO     = "virtio"
-	DISK_DRIVER_SATA       = "sata"
 	AUTH_ADDR              = "/access/ticket"
 )
 
@@ -180,7 +176,13 @@ func (cli *SProxmoxClient) post(res string, params interface{}) (jsonutils.JSONO
 }
 
 func (cli *SProxmoxClient) put(res string, params url.Values, body jsonutils.JSONObject, retVal interface{}) error {
-	_, err := cli._jsonRequest(httputils.PUT, res, params)
+	if params != nil {
+		res = fmt.Sprintf("%s?%s", res, params.Encode())
+	}
+	_, err := cli._jsonRequest(httputils.PUT, res, body)
+	if err != nil {
+		return err
+	}
 	return err
 }
 
@@ -198,6 +200,23 @@ func (cli *SProxmoxClient) get(res string, params url.Values, retVal interface{}
 	}
 
 	return dat.Unmarshal(retVal)
+}
+
+func (cli *SProxmoxClient) getAgent(res string, params url.Values, retVal interface{}) error {
+
+	resp, err := cli._jsonRequest(httputils.GET, res, nil)
+	if err != nil {
+		return err
+	}
+
+	dat, _ := resp.Get("data")
+	ret, err := dat.Get("result")
+
+	if err != nil {
+		return errors.Wrapf(err, "decode data")
+	}
+
+	return ret.Unmarshal(retVal)
 }
 
 func (cli *SProxmoxClient) del(res string, params url.Values, retVal interface{}) error {
@@ -238,7 +257,7 @@ func (cli *SProxmoxClient) __jsonRequest(method httputils.THttpMethod, res strin
 	header := http.Header{}
 	if len(cli.csrfToken) > 0 && len(cli.csrfToken) > 0 && res != AUTH_ADDR {
 		header.Set("Cookie", "PVEAuthCookie="+cli.authTicket)
-		header.Set("CSRFPreventionToken", "CSRFPreventionToken"+cli.csrfToken)
+		header.Set("CSRFPreventionToken", cli.csrfToken)
 	}
 
 	//header.Set("Content-Type", "application/x-www-form-urlencoded")

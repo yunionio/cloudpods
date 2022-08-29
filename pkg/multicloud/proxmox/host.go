@@ -180,7 +180,6 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 
 func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
 	return nil, cloudprovider.ErrNotImplemented
-	//not need doing
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
@@ -192,15 +191,39 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	wires, err := self.zone.region.GetWires()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudWire{}
+	for i := range wires {
+		wires[i].region = self.zone.region
+		ret = append(ret, &wires[i])
+	}
+	return ret, nil
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	storages, err := self.zone.region.GetStoragesByHost(self.Id)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudStorage{}
+	for i := range storages {
+		storages[i].zone = self.zone
+		ret = append(ret, &storages[i])
+	}
+	return ret, nil
 }
 
 func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	storage, err := self.zone.region.GetStorage(id)
+	if err != nil {
+		return nil, err
+	}
+	storage.zone = self.zone
+
+	return storage, nil
 }
 
 func (self *SRegion) GetHosts() ([]SHost, error) {

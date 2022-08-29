@@ -166,6 +166,10 @@ func (self *SRegion) get(res string, params url.Values, retVal interface{}) erro
 	return self.client.get(res, params, retVal)
 }
 
+func (self *SRegion) getAgent(res string, params url.Values, retVal interface{}) error {
+	return self.client.getAgent(res, params, retVal)
+}
+
 func (self *SRegion) post(res string, params interface{}) (jsonutils.JSONObject, error) {
 	return self.client.post(res, params)
 }
