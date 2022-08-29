@@ -16,7 +16,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -114,19 +113,6 @@ type SJdcloudProvider struct {
 	client *jdcloud.SJDCloudClient
 }
 
-type SJDCloudClient struct {
-}
-
-func (p *SJdcloudProvider) TryConnect() error {
-	iregions := p.GetIRegions()
-	if len(iregions) == 0 {
-		return fmt.Errorf("no invalid region for ecloud")
-	}
-	region := iregions[0].(*jdcloud.SRegion)
-	_, _, err := region.GetImages(nil, "private", 1, 10)
-	return err
-}
-
 func (p *SJdcloudProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return p.client.GetSubAccounts()
 }
@@ -136,7 +122,7 @@ func (p *SJdcloudProvider) GetAccountId() string {
 }
 
 func (p *SJdcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
-	return p.GetIRegions()
+	return p.client.GetIRegions()
 }
 
 func (p *SJdcloudProvider) GetSysInfo() (jsonutils.JSONObject, error) {
