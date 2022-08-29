@@ -36,12 +36,12 @@ func init() {
 		return nil
 	})
 
-	shellutils.R(&ModelartsPoolListOption{}, "pool-detail", "List pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
-		pools, err := cli.GetClient().GetIModelartsPoolDetail(args.PoolId)
+	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-detail", "List pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
+		pools, err := cli.GetClient().GetIModelartsPoolById(args.PoolId)
 		if err != nil {
 			return err
 		}
-		printList(pools, 1, 0, 0, nil)
+		log.Infoln(pools)
 		return nil
 	})
 
@@ -54,17 +54,6 @@ func init() {
 		log.Infoln("this is res:", res)
 		return nil
 	})
-
-	// shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-detial", "Delete Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
-	// 	log.Infof("this is args.poolName", args.PoolId)
-	// 	res, err := cli.FindPoolByName(args.PoolId)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	// printList(pools, len(pools), 0, 0, nil)
-	// 	log.Infoln("this is res:", res)
-	// 	return nil
-	// })
 
 	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-delete", "Delete Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
 		res, err := cli.GetClient().DeletePool(args.PoolId)
@@ -87,7 +76,7 @@ func init() {
 
 	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-monitor", "Delete Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
 		log.Infof("this is args.poolName", args.PoolId)
-		res, err := cli.MonitorPool(args.PoolId)
+		res, err := cli.GetClient().MonitorPool(args.PoolId)
 		if err != nil {
 			return err
 		}

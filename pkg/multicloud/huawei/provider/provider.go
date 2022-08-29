@@ -309,7 +309,7 @@ func (self *SHuaweiProvider) CreateIModelartsPool(args *cloudprovider.ModelartsP
 	return self.client.CreateIModelartsPool(args)
 }
 
-func (self *SHuaweiProvider) DeletePool(poolName string) (jsonutils.JSONObject, error) {
+func (self *SHuaweiProvider) Delete(poolName string) (jsonutils.JSONObject, error) {
 	return self.client.DeletePool(poolName)
 }
 
@@ -317,6 +317,6 @@ func (self *SHuaweiProvider) UpdatePool(poolName string) (jsonutils.JSONObject, 
 	return self.client.UpdatePool(poolName)
 }
 
-func (self *SHuaweiProvider) GetIModelartsPoolDetail(poolId string) (cloudprovider.ICloudModelartsPool, error) {
-	return self.client.GetIModelartsPoolDetail(poolId)
+func (self *SHuaweiProvider) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
+	return self.client.GetIModelartsPoolById(poolId)
 }

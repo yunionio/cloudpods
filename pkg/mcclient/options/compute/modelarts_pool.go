@@ -14,7 +14,7 @@ func (opts *ModelartsPoolListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ModelartsPoolIdOption struct {
-	ID string `help:"Elasticsearch Id"`
+	ID string `help:"ModelartsPool Id"`
 }
 
 func (opts *ModelartsPoolIdOption) GetId() string {
@@ -25,10 +25,28 @@ func (opts *ModelartsPoolIdOption) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
 
-type ModelartsCreateOption struct {
-	Name string `help:"name"`
+type ModelartsPoolCreateOption struct {
+	Name         string `help:"Name"`
+	ManagerId    string `help:"Manager Id"`
+	InstanceType string `help:"Instance Type"`
+	IsTrain      *bool
+	IsInfer      *bool
+	IsNotebook   *bool
 }
 
-func (opts *ModelartsCreateOption) Params() (jsonutils.JSONObject, error) {
+func (opts *ModelartsPoolCreateOption) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
+}
+
+type ModelartsPoolDeleteOption struct {
+	ID     string `help:"Id"`
+	PoolId string `help:"Pool Id"`
+}
+
+func (opts *ModelartsPoolDeleteOption) GetId() string {
+	return opts.ID
+}
+
+func (opts *ModelartsPoolDeleteOption) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
 }

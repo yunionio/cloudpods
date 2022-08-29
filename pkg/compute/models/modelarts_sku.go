@@ -29,7 +29,7 @@ func init() {
 	ModelartsSkuManager = &SModelartsSkuManager{
 		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SModelartsSku{},
-			"modelarts_sku_tbl",
+			"modelarts_skus_tbl",
 			"modelarts_sku",
 			"modelarts_skus",
 		),
@@ -47,7 +47,6 @@ type SModelartsSku struct {
 	// SDeletePreventableResourceBase
 	db.SEnabledStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
-	SCloudregionResourceBase
 	SZoneResourceBase
 	// 备注
 	// Description string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
@@ -64,27 +63,6 @@ type SModelartsSku struct {
 	NpuSize string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`  // NPU卡数量
 
 	Memory string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
-	// Spec   string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
-
-	// WorkingCount int    `nullable:"false" default:"0" list:"user" create:"optional"`
-	// InstanceType SPoolInstanceType `json:"instance_type"`
-
-	// Memory         int
-	// GraphicsMemory string
-	// SpecCode       string
-	// SpecName       string
-	// GpuType        string
-	// GpuMemoryUnit  string
-	// GpuNum         int
-	// Npu            Npu
-
-	// NodeCount int `nullable:"false" default:"0" list:"user" create:"optional"`
-	// NodeMetrics NodeMetrics `json:"node_metrics"`
-	// OrderId  string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
-	// PoolId   string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
-	// PoolName string `width:"36" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
-	// PoolType string `width:"36" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
-	// SpecCode string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 }
 
 func (manager *SModelartsSkuManager) GetContextManagers() [][]db.IModelManager {

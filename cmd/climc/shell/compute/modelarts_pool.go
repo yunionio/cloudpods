@@ -23,6 +23,6 @@ func init() {
 	// })
 	// cmd.Update(&compute.ElasticSearchUpdateOptions{})
 	// cmd.Show(&compute.ElasticSearchIdOption{})
-	// cmd.Delete(&compute.ElasticSearchIdOption{})
-	cmd.Create(&compute.ModelartsCreateOption{})
+	cmd.Delete(&compute.ModelartsPoolDeleteOption{})
+	cmd.Create(&compute.ModelartsPoolCreateOption{})
 }

@@ -318,7 +318,7 @@ type ICloudProvider interface {
 	GetMetrics(opts *MetricListOptions) ([]MetricValues, error)
 
 	GetIModelartsPools() ([]ICloudModelartsPool, error)
-	GetIModelartsPoolDetail(id string) (ICloudModelartsPool, error)
+	GetIModelartsPoolById(id string) (ICloudModelartsPool, error)
 	CreateIModelartsPool(pool *ModelartsPoolCreateOption) (ICloudModelartsPool, error)
 }
 
@@ -628,7 +628,7 @@ func (self *SBaseProvider) GetIModelartsPools() ([]ICloudModelartsPool, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetIModelartsPools")
 }
 
-func (self *SBaseProvider) GetIModelartsPoolDetail(id string) (ICloudModelartsPool, error) {
+func (self *SBaseProvider) GetIModelartsPoolById(id string) (ICloudModelartsPool, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetIModelartsPoolDetail")
 }
 
@@ -929,4 +929,8 @@ func (factory *SPrivateCloudBaseProviderFactory) NeedSyncSkuFromCloud() bool {
 
 type ICloudModelartsPool interface {
 	ICloudResource
+	IBillingResource
+
+	Delete() error
+	GetProjectId() string
 }

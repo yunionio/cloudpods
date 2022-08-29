@@ -2,16 +2,21 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -21,7 +26,6 @@ type SModelartsPoolManager struct {
 	db.SExternalizedResourceBaseManager
 	SDeletePreventableResourceBaseManager
 
-	SCloudregionResourceBaseManager
 	SManagedResourceBaseManager
 }
 
@@ -31,7 +35,7 @@ func init() {
 	ModelartsPoolManager = &SModelartsPoolManager{
 		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SModelartsPool{},
-			"modelarts_pool_tbl",
+			"modelarts_pools_tbl",
 			"modelarts_pool",
 			"modelarts_pools",
 		),
@@ -47,37 +51,11 @@ type SModelartsPool struct {
 
 	SDeletePreventableResourceBase
 
-	// 备注
-	// Description string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
-	NodeCount int `nullable:"false" default:"0" list:"user" create:"optional"`
-	// NodeMetrics NodeMetrics `json:"node_metrics"`
+	NodeCount    int    `nullable:"false" default:"0" list:"user" create:"optional"`
 	InstanceType string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
-}
-
-type SPoolInstanceType struct {
-	Memory         int
-	GraphicsMemory string
-	SpecCode       string
-	SpecName       string
-	GpuType        string
-	GpuMemoryUnit  string
-	GpuNum         int
-	Npu            Npu
-}
-
-type Npu struct {
-	Info        string
-	Memory      int
-	ProductName string
-	Unit        string
-	UnitNum     int
-}
-
-type NodeMetrics struct {
-	AbnormalCount int
-	CreatingCount int
-	DeletingCount int
-	RunningCount  int
+	IsTrain      bool   `default:"false" create:"optional" list:"user"`
+	IsNotebook   bool   `default:"false" create:"optional" list:"user"`
+	IsInfer      bool   `default:"false" create:"optional" list:"user"`
 }
 
 func (manager *SModelartsPoolManager) GetContextManagers() [][]db.IModelManager {
@@ -110,10 +88,6 @@ func (man *SModelartsPoolManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
-	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
-	}
 
 	return q, nil
 }
@@ -128,10 +102,6 @@ func (man *SModelartsPoolManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
-	q, err = man.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
-	}
 	q, err = man.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
@@ -141,10 +111,6 @@ func (man *SModelartsPoolManager) OrderByExtraFields(
 
 func (man *SModelartsPoolManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
-	if err == nil {
-		return q, nil
-	}
-	q, err = man.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -158,7 +124,6 @@ func (man *SModelartsPoolManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 func (man *SModelartsPoolManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ModelartsPoolCreateInput) (
 	api.ModelartsPoolCreateInput, error) {
-	input.ManagerId = "test"
 	return input, nil
 }
 
@@ -173,13 +138,11 @@ func (manager *SModelartsPoolManager) FetchCustomizeColumns(
 	rows := make([]api.ElasticSearchDetails, len(objs))
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.ElasticSearchDetails{
-			VirtualResourceDetails:  virtRows[i],
-			ManagedResourceInfo:     manRows[i],
-			CloudregionResourceInfo: regRows[i],
+			VirtualResourceDetails: virtRows[i],
+			ManagedResourceInfo:    manRows[i],
 		}
 	}
 
@@ -204,13 +167,6 @@ func (manager *SModelartsPoolManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 
-	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
-		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
-		if err != nil {
-			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
-		}
-	}
-
 	return q, nil
 }
 func (self *SCloudregion) GetPools(managerId string) ([]SElasticSearch, error) {
@@ -226,69 +182,69 @@ func (self *SCloudregion) GetPools(managerId string) ([]SElasticSearch, error) {
 	return ret, nil
 }
 
-// func (self *SCloudregion) SyncPools(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudElasticSearch) compare.SyncResult {
-// 	// 加锁防止重入
-// 	lockman.LockRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
-// 	defer lockman.ReleaseRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
+func (self *SModelartsPool) SyncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudModelartsPool) compare.SyncResult {
+	// 加锁防止重入
+	lockman.LockRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
+	defer lockman.ReleaseRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 
-// 	result := compare.SyncResult{}
+	result := compare.SyncResult{}
 
-// 	dbEss, err := self.GetModelartsPools(provider.Id)
-// 	if err != nil {
-// 		result.Error(err)
-// 		return result
-// 	}
+	dbEss, err := self.GetIModelartsPoolById(ctx)
+	if err != nil {
+		result.Error(err)
+		return result
+	}
 
-// 	removed := make([]SModelartsPool, 0)
-// 	commondb := make([]SElasticSearch, 0)
-// 	commonext := make([]cloudprovider.ICloudElasticSearch, 0)
-// 	added := make([]cloudprovider.ICloudElasticSearch, 0)
-// 	// 本地和云上资源列表进行比对
-// 	err = compare.CompareSets(dbEss, exts, &removed, &commondb, &commonext, &added)
-// 	if err != nil {
-// 		result.Error(err)
-// 		return result
-// 	}
+	removed := make([]SModelartsPool, 0)
+	commondb := make([]SModelartsPool, 0)
+	commonext := make([]cloudprovider.ICloudModelartsPool, 0)
+	added := make([]cloudprovider.ICloudModelartsPool, 0)
+	// 本地和云上资源列表进行比对
+	err = compare.CompareSets(dbEss, exts, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(err)
+		return result
+	}
 
-// 	// 删除云上没有的资源
-// 	for i := 0; i < len(removed); i++ {
-// 		err := removed[i].syncRemoveCloudElasticSearch(ctx, userCred)
-// 		if err != nil {
-// 			result.DeleteError(err)
-// 			continue
-// 		}
-// 		result.Delete()
-// 	}
+	// 删除云上没有的资源
+	for i := 0; i < len(removed); i++ {
+		err := removed[i].syncRemoveCloudModelartsPool(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
 
-// 	// 和云上资源属性进行同步
-// 	for i := 0; i < len(commondb); i++ {
-// 		err := commondb[i].SyncWithCloudElasticSearch(ctx, userCred, commonext[i])
-// 		if err != nil {
-// 			result.UpdateError(err)
-// 			continue
-// 		}
-// 		result.Update()
-// 	}
+	// 和云上资源属性进行同步
+	for i := 0; i < len(commondb); i++ {
+		err := commondb[i].SyncWithCloudModelartsPool(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+			continue
+		}
+		result.Update()
+	}
 
-// 	// 创建本地没有的云上资源
-// 	for i := 0; i < len(added); i++ {
-// 		_, err := self.newFromCloudElasticSearch(ctx, userCred, provider, added[i])
-// 		if err != nil {
-// 			result.AddError(err)
-// 			continue
-// 		}
-// 		result.Add()
-// 	}
-// 	return result
-// }
+	// 创建本地没有的云上资源
+	for i := 0; i < len(added); i++ {
+		_, err := self.newFromCloudModelartsPool(ctx, userCred, provider, added[i])
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+	return result
+}
 
 // 判断资源是否可以删除
-// func (self *SModelartsPool) ValidateDeleteCondition(ctx context.Context) error {
-// 	if self.DisableDelete.IsTrue() {
-// 		return httperrors.NewInvalidStatusError("ElasticSearch is locked, cannot delete")
-// 	}
-// 	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
-// }
+func (self *SModelartsPool) ValidateDeleteCondition(ctx context.Context) error {
+	if self.DisableDelete.IsTrue() {
+		return httperrors.NewInvalidStatusError("ElasticSearch is locked, cannot delete")
+	}
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
+}
 
 func (self *SModelartsPool) syncRemoveCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return self.Delete(ctx, userCred)
@@ -325,4 +281,132 @@ func (self *SModelartsPool) StartSyncstatus(ctx context.Context, userCred mcclie
 
 func (self *SModelartsPool) GetCloudproviderId() string {
 	return self.ManagerId
+}
+
+func (self *SModelartsPool) GetIModelartsPoolById(ctx context.Context) (cloudprovider.ICloudModelartsPool, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
+	}
+	iProvider, err := self.GetDriver(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetIRegion")
+	}
+	return iProvider.GetIModelartsPoolById(self.ExternalId)
+}
+
+func (self *SModelartsPool) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (self *SModelartsPool) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
+// 进入删除任务
+func (self *SModelartsPool) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.StartDeleteTask(ctx, userCred, "")
+}
+
+func (self *SModelartsPool) GetICloudModelartsPool(ctx context.Context) (cloudprovider.ICloudModelartsPool, error) {
+	iProvider, err := self.GetDriver(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetDriver")
+	}
+	return iProvider.GetIModelartsPoolById(self.ExternalId)
+}
+
+func (self *SModelartsPool) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ModelartsPoolDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	self.SetStatus(userCred, api.Modelarts_Pool_STATUS_DELETING, "")
+	task.ScheduleRun(nil)
+	return nil
+}
+
+// 获取云上对应的资源
+// func (self *SModelartsPool) GetIElasticSearch() (cloudprovider.ICloudElasticSearch, error) {
+// 	if len(self.ExternalId) == 0 {
+// 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
+// 	}
+// 	iRegion, err := self.GetIRegion()
+// 	if err != nil {
+// 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetIRegion")
+// 	}
+// 	return iRegion.GetIElasticSearchById(self.ExternalId)
+// }
+
+// 同步资源属性
+func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudModelartsPool) error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		self.ExternalId = ext.GetGlobalId()
+		self.Status = ext.GetStatus()
+
+		self.BillingType = ext.GetBillingType()
+		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
+			if expiredAt := ext.GetExpiredAt(); !expiredAt.IsZero() {
+				self.ExpiredAt = expiredAt
+			}
+			self.AutoRenew = ext.IsAutoRenew()
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "db.Update")
+	}
+
+	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	if provider := self.GetCloudprovider(); provider != nil {
+		SyncCloudProject(userCred, self, provider.GetOwnerId(), ext, provider.Id)
+	}
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
+}
+
+func (self *SModelartsPool) newFromCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudModelartsPool) (*SModelartsPool, error) {
+	es := SModelartsPool{}
+	es.SetModelManager(ModelartsPoolManager, &es)
+
+	es.ExternalId = ext.GetGlobalId()
+	es.ManagerId = provider.Id
+	es.IsEmulated = ext.IsEmulated()
+	es.Status = ext.GetStatus()
+
+	if createdAt := ext.GetCreatedAt(); !createdAt.IsZero() {
+		es.CreatedAt = createdAt
+	}
+
+	es.BillingType = ext.GetBillingType()
+	if es.BillingType == billing_api.BILLING_TYPE_PREPAID {
+		if expired := ext.GetExpiredAt(); !expired.IsZero() {
+			es.ExpiredAt = expired
+		}
+		es.AutoRenew = ext.IsAutoRenew()
+	}
+
+	var err error
+	err = func() error {
+		// 这里加锁是为了防止名称重复
+		lockman.LockRawObject(ctx, ModelartsPoolManager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, ModelartsPoolManager.Keyword(), "name")
+
+		es.Name, err = db.GenerateName(ctx, ModelartsPoolManager, provider.GetOwnerId(), ext.GetName())
+		if err != nil {
+			return errors.Wrapf(err, "db.GenerateName")
+		}
+		return ModelartsPoolManager.TableSpec().Insert(ctx, &es)
+	}()
+	if err != nil {
+		return nil, errors.Wrapf(err, "newFromCloudElasticSearch.Insert")
+	}
+
+	// 同步标签
+	syncVirtualResourceMetadata(ctx, userCred, &es, ext)
+	// 同步项目归属
+	SyncCloudProject(userCred, &es, provider.GetOwnerId(), ext, provider.Id)
+
+	db.OpsLog.LogEvent(&es, db.ACT_CREATE, es.GetShortDesc(ctx), userCred)
+
+	return &es, nil
 }

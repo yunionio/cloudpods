@@ -24,7 +24,7 @@ func init() {
 	type ModelartsResourceflavorsListOption struct {
 		PoolName string `help:"Pool Name"`
 	}
-	shellutils.R(&ModelartsResourceflavorsListOption{}, "modelarts-resourceflavors-list", "List Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsResourceflavorsListOption) error {
+	shellutils.R(&ModelartsResourceflavorsListOption{}, "modelarts-sku-list", "List Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsResourceflavorsListOption) error {
 		resourceflavors, err := cli.GetResourceflavors()
 		if err != nil {
 			return err

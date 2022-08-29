@@ -34,8 +34,11 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 	pool := obj.(*models.SModelartsPool)
 
 	opts := &cloudprovider.ModelartsPoolCreateOption{
-		Name:           pool.Name,
-		ResourceFlavor: pool.InstanceType,
+		Name:         pool.Name,
+		InstanceType: pool.InstanceType,
+		IsTrain:      pool.IsTrain,
+		IsNotebook:   pool.IsNotebook,
+		IsInfer:      pool.IsInfer,
 	}
 	iProvider, err := pool.GetDriver(ctx)
 	if err != nil {
@@ -46,10 +49,10 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 
 	ipool, err := iProvider.CreateIModelartsPool(opts)
 	if err != nil {
-		self.taskFailed(ctx, pool, errors.Wrapf(err, "iRegion.CreaetICloudFileSystem"))
+		self.taskFailed(ctx, pool, errors.Wrapf(err, "iRegion.CreateIModelartsPool"))
 		return
 	}
-	db.SetExternalId(pool, self.GetUserCred(), "")
+	db.SetExternalId(pool, self.GetUserCred(), ipool.GetGlobalId())
 
 	cloudprovider.WaitMultiStatus(ipool, []string{api.NAS_STATUS_AVAILABLE, api.NAS_STATUS_CREATE_FAILED}, time.Second*5, time.Minute*10)
 

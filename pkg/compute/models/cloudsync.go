@@ -1881,7 +1881,12 @@ func syncPublicCloudProviderInfo(
 			}
 		}
 	}
+	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_MODELARTES_POOL, driver.GetCapabilities()) {
+		// syncModelartsPools(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+	}
 
+	if cloudprovider.IsSupportCompute(driver) {
+	}
 	return nil
 }
 
@@ -2336,6 +2341,24 @@ func syncTablestore(ctx context.Context, userCred mcclient.TokenCredential, sync
 	syncResults.Add(TablestoreManager, result)
 	msg := result.Result()
 	log.Infof("SyncTablestores for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+	return nil
+}
+
+func syncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localProvider *SModelartsPool, remoteProvider cloudprovider.ICloudProvider) error {
+	iEss, err := remoteProvider.GetIModelartsPools()
+	if err != nil {
+		msg := fmt.Sprintf("GetIElasticSearchs for region %s failed %s", err)
+		log.Errorf(msg)
+		return err
+	}
+
+	result := localProvider.SyncModelartsPools(ctx, userCred, provider, iEss)
+	syncResults.Add(ModelartsPoolManager, result)
+	msg := result.Result()
+	log.Infof("SyncElasticSearchs for region %s result: %s", localProvider.Name, msg)
 	if result.IsError() {
 		return result.AllError()
 	}

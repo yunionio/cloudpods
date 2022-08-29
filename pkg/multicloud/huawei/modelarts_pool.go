@@ -18,9 +18,11 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 // 算力资源池
@@ -36,6 +38,7 @@ type SModelartsPoolMetadata struct {
 	Name              string `json:"name"`
 	CreationTimestamp string `json:"creationTimestamp"`
 	Labels            SModelartsPoolMeatadataLabel
+	Annotations       SModelartsPoolMetadataAnnotations `json:"annotations"`
 }
 
 type SModelartsPoolMeatadataLabel struct {
@@ -91,10 +94,22 @@ func (self *SHuaweiClient) GetIModelartsPools() ([]cloudprovider.ICloudModelarts
 	for i := 0; i < len(pools); i++ {
 		res[i] = &pools[i]
 	}
+	log.Infoln(res)
 	return res, nil
 }
 
 func (self *SHuaweiClient) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
+	scopeArr := make([]string, 0)
+	if args.IsTrain {
+		scopeArr = append(scopeArr, "Train")
+	}
+	if args.IsInfer {
+		scopeArr = append(scopeArr, "Infer")
+	}
+	if args.IsNotebook {
+		scopeArr = append(scopeArr, "Notebook")
+	}
+
 	params := map[string]interface{}{
 		"apiVersion": "v2",
 		"kind":       "Pool",
@@ -106,15 +121,15 @@ func (self *SHuaweiClient) CreateIModelartsPool(args *cloudprovider.ModelartsPoo
 		},
 		"spec": map[string]interface{}{
 			"type":  "Dedicate",
-			"scope": []string{"Train"},
+			"scope": scopeArr,
 			"network": map[string]interface{}{
 				"name": "test-4f954e9555964f019f88813161540828",
 			},
 
 			"resources": []map[string]interface{}{
 				{
-					"flavor": args.ResourceFlavor, // "modelarts.vm.cpu.8ud", // resourceType
-					"count":  args.ResourceCount,  //
+					"flavor": args.InstanceType, // "modelarts.vm.cpu.8ud", // resourceType
+					"count":  1,                 //
 				},
 			},
 		},
@@ -127,7 +142,7 @@ func (self *SHuaweiClient) CreateIModelartsPool(args *cloudprovider.ModelartsPoo
 	if err != nil {
 		return nil, errors.Wrap(err, "metadata.name")
 	}
-	pool, err := self.GetIModelartsPoolDetail(id)
+	pool, err := self.GetIModelartsPoolById(id)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetIModelartsPoolDetail")
 	}
@@ -142,18 +157,33 @@ func (self *SHuaweiClient) UpdatePool(poolName string) (jsonutils.JSONObject, er
 	return self.modelartsPoolUpdate(poolName, nil)
 }
 
-func (self *SHuaweiClient) GetIModelartsPoolDetail(poolId string) (cloudprovider.ICloudModelartsPool, error) {
+func (self *SHuaweiClient) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
 	obj, err := self.modelartsPoolById(poolId, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.modelartsPoolByName")
 	}
 	pool := &SModelartsPool{}
 	obj.Unmarshal(&pool)
+	log.Infoln(pool)
 	res := []cloudprovider.ICloudModelartsPool{}
 	for i := 0; i < 1; i++ {
-		res[i] = pool
+		pool.client = self
+		res = append(res, pool)
 	}
 	return res[0], nil
+}
+
+func (self *SHuaweiClient) MonitorPool(poolId string) (*SModelArtsMetrics, error) {
+	resObj, err := self.modelartsPoolMonitor(poolId, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "send request error")
+	}
+	metrics := SModelArtsMetrics{}
+	err = resObj.Unmarshal(&metrics)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unmarsh error")
+	}
+	return &metrics, nil
 }
 
 type SModelArtsMetrics struct {
@@ -185,19 +215,6 @@ type SModelArtsDataPoints struct {
 type ModelArtsStatistics struct {
 	Statistic string
 	Value     int
-}
-
-func (self *SRegion) MonitorPool(poolId string) (*SModelArtsMetrics, error) {
-	resObj, err := self.client.modelartsPoolMonitor(poolId, nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "send request error")
-	}
-	metrics := SModelArtsMetrics{}
-	err = resObj.Unmarshal(&metrics)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unmarsh error")
-	}
-	return &metrics, nil
 }
 
 func (self *SHuaweiClient) GetPoolNetworks(poolName string) (jsonutils.JSONObject, error) {
@@ -262,6 +279,36 @@ func (self *SModelartsPool) IsEmulated() bool {
 	return false
 }
 
+func (self *SModelartsPool) GetBillingType() string {
+	return self.Metadata.Annotations.BillingType
+}
+
+// 获取资源归属项目Id
+func (self *SModelartsPool) GetProjectId() string {
+	return ""
+}
+
+func (self *SModelartsPool) GetExpiredAt() time.Time {
+	ret, _ := time.Parse("2006-01-02T15:04:05CST", self.Metadata.CreationTimestamp)
+	if !ret.IsZero() {
+		ret = ret.Add(time.Hour * 8)
+	}
+	return ret
+}
+
+func (self *SModelartsPool) IsAutoRenew() bool {
+	return false
+}
+
+func (self *SModelartsPool) Renew(bc billing.SBillingCycle) error {
+
+	return nil
+}
+
+func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
+	return nil
+}
+
 func (self *SModelartsPool) Refresh() error {
 	fs, err := self.client.modelartsPoolById(self.GetId(), nil)
 	if err != nil {
@@ -272,5 +319,14 @@ func (self *SModelartsPool) Refresh() error {
 
 func (self *SModelartsPool) SetTags(tags map[string]string, replace bool) error {
 	// return self.client.SetResourceTags(ALIYUN_SERVICE_NAS, "filesystem", self.FileSystemId, tags, replace)
+	return nil
+}
+
+func (self *SModelartsPool) Delete() error {
+	log.Errorln("this is in delete")
+	_, err := self.client.DeletePool(self.GetId())
+	if err != nil {
+		return err
+	}
 	return nil
 }
