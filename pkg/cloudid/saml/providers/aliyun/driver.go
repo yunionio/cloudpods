@@ -70,7 +70,10 @@ func (d *SAliyunSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 			Values: []string{v},
 		})
 	}
-	data.RelayState = "https://homenew.console.aliyun.com/"
+	if len(redirectUrl) == 0 {
+		redirectUrl = "https://homenew.console.aliyun.com/"
+	}
+	data.RelayState = redirectUrl
 	return data, nil
 }
 
