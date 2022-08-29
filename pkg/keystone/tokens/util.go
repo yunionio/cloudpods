@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package tokens
 
 import (
 	"context"
 
-	"yunion.io/x/onecloud/pkg/keystone/tokens"
+	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 func GetDefaulAdminSession(ctx context.Context, region string) (*mcclient.ClientSession, error) {
-	return tokens.GetDefaulAdminSession(ctx, region)
+	return models.GetDefaultClientSession(ctx, GetDefaultAdminCredToken(), region), nil
 }

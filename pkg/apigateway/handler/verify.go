@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package handler
 
 import (
-	"context"
-
-	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
-func GetDefaulAdminSession(ctx context.Context, region string) (*mcclient.ClientSession, error) {
-	return tokens.GetDefaulAdminSession(ctx, region)
+func processVerifyLoginData(uid, contactType, verifyCode string, cliIp string) (mcclient.TokenCredential, error) {
+	return auth.Client().AuthenticateVerify(uid, contactType, verifyCode, "", "", "", cliIp)
 }
