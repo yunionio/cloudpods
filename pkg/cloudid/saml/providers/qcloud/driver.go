@@ -84,7 +84,10 @@ func (d *SQcloudSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 			Values:       []string{v.value},
 		})
 	}
-	data.RelayState = "https://console.cloud.tencent.com/"
+	if len(redirectUrl) == 0 {
+		redirectUrl = "https://console.cloud.tencent.com/"
+	}
+	data.RelayState = redirectUrl
 
 	return data, nil
 }
