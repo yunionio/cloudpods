@@ -239,14 +239,14 @@ type policyTask struct {
 }
 
 func (t *policyTask) Run() {
-	val := t.manager.policyCache.Get(t.key)
+	val := t.manager.policyCache.AtomicGet(t.key)
 	result := fetchResult{}
 	if gotypes.IsNil(val) {
 		pg, err := DefaultPolicyFetcher(context.Background(), t.userCred)
 		if err != nil {
 			result.err = errors.Wrap(err, "DefaultPolicyFetcher")
 		} else {
-			t.manager.policyCache.Set(t.key, pg)
+			t.manager.policyCache.AtomicSet(t.key, pg)
 			result.output = pg
 		}
 	} else {
@@ -297,7 +297,7 @@ func (manager *SPolicyManager) allow(scope rbacutils.TRbacScope, userCred mcclie
 		policySet = rbacutils.TPolicySet{}
 	}
 	result := manager.allowWithoutCache(policySet, scope, userCred, service, resource, action, extra...)
-	manager.permissionCache.Set(key, result)
+	manager.permissionCache.AtomicSet(key, result)
 	return result
 }
 
