@@ -340,6 +340,13 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 			HealthStatus:     project.GetHealthStatus(),
 			DefaultProjectId: "0",
 		}
+		for j := range self.iregions {
+			region := self.iregions[j].(*SRegion)
+			if strings.Contains(project.Name, region.ID) {
+				s.Desc = region.Locales.ZhCN
+				break
+			}
+		}
 
 		subAccounts = append(subAccounts, s)
 	}

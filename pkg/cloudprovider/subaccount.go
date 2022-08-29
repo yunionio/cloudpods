@@ -16,6 +16,7 @@ package cloudprovider
 
 type SSubAccount struct {
 	Name             string
+	Desc             string
 	Account          string
 	HealthStatus     string // 云端服务健康状态。例如欠费、项目冻结都属于不健康状态。
 	DefaultProjectId string // 默认云订阅项目Id
