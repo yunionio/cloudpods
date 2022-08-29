@@ -304,3 +304,19 @@ func (self *SHuaweiProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLPr
 	}
 	return sp, nil
 }
+
+func (self *SHuaweiProvider) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
+	return self.client.CreateIModelartsPool(args)
+}
+
+func (self *SHuaweiProvider) DeletePool(poolName string) (jsonutils.JSONObject, error) {
+	return self.client.DeletePool(poolName)
+}
+
+func (self *SHuaweiProvider) UpdatePool(poolName string) (jsonutils.JSONObject, error) {
+	return self.client.UpdatePool(poolName)
+}
+
+func (self *SHuaweiProvider) GetIModelartsPoolDetail(poolId string) (cloudprovider.ICloudModelartsPool, error) {
+	return self.client.GetIModelartsPoolDetail(poolId)
+}

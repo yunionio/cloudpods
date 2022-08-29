@@ -4,10 +4,8 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -15,7 +13,7 @@ import (
 	"yunion.io/x/sqlchemy"
 )
 
-type SModelartsPoolManager struct {
+type SModelartsSkuManager struct {
 	// 由于资源是用户资源，因此定义为Virtual资源
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
@@ -25,69 +23,78 @@ type SModelartsPoolManager struct {
 	SManagedResourceBaseManager
 }
 
-var ModelartsPoolManager *SModelartsPoolManager
+var ModelartsSkuManager *SModelartsSkuManager
 
 func init() {
-	ModelartsPoolManager = &SModelartsPoolManager{
+	ModelartsSkuManager = &SModelartsSkuManager{
 		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
-			SModelartsPool{},
-			"modelarts_pool_tbl",
-			"modelarts_pool",
-			"modelarts_pools",
+			SModelartsSku{},
+			"modelarts_sku_tbl",
+			"modelarts_sku",
+			"modelarts_skus",
 		),
 	}
-	ModelartsPoolManager.SetVirtualObject(ModelartsPoolManager)
 }
 
-type SModelartsPool struct {
-	db.SVirtualResourceBase
+type SModelartsSku struct {
+	// // db.SVirtualResourceBase
+	// db.SExternalizedResourceBase
+	// SManagedResourceBase
+	// // SBillingResourceBase
+	// db.SStatusInfrasResourceBase
+
+	// SCloudregionResourceBase
+	// SDeletePreventableResourceBase
+	db.SEnabledStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
-	SManagedResourceBase
-	SBillingResourceBase
-
-	SDeletePreventableResourceBase
-
+	SCloudregionResourceBase
+	SZoneResourceBase
 	// 备注
 	// Description string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
-	NodeCount int `nullable:"false" default:"0" list:"user" create:"optional"`
+
+	// 状态
+	Status string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional" default:"normal"`
+	Type   string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // 资源规格类型
+
+	CpuArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`  // CPU 架构 x86|xarm
+	Cpu     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`  //CPU核心数量
+	GpuType string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // GPU卡类型
+	GpuSize string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`  // GPU卡数量
+	NpuType string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // NPU卡类型
+	NpuSize string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`  // NPU卡数量
+
+	Memory string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	// Spec   string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
+
+	// WorkingCount int    `nullable:"false" default:"0" list:"user" create:"optional"`
+	// InstanceType SPoolInstanceType `json:"instance_type"`
+
+	// Memory         int
+	// GraphicsMemory string
+	// SpecCode       string
+	// SpecName       string
+	// GpuType        string
+	// GpuMemoryUnit  string
+	// GpuNum         int
+	// Npu            Npu
+
+	// NodeCount int `nullable:"false" default:"0" list:"user" create:"optional"`
 	// NodeMetrics NodeMetrics `json:"node_metrics"`
-	InstanceType string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	// OrderId  string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	// PoolId   string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	// PoolName string `width:"36" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
+	// PoolType string `width:"36" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
+	// SpecCode string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 }
 
-type SPoolInstanceType struct {
-	Memory         int
-	GraphicsMemory string
-	SpecCode       string
-	SpecName       string
-	GpuType        string
-	GpuMemoryUnit  string
-	GpuNum         int
-	Npu            Npu
-}
-
-type Npu struct {
-	Info        string
-	Memory      int
-	ProductName string
-	Unit        string
-	UnitNum     int
-}
-
-type NodeMetrics struct {
-	AbnormalCount int
-	CreatingCount int
-	DeletingCount int
-	RunningCount  int
-}
-
-func (manager *SModelartsPoolManager) GetContextManagers() [][]db.IModelManager {
+func (manager *SModelartsSkuManager) GetContextManagers() [][]db.IModelManager {
 	return [][]db.IModelManager{
 		{CloudregionManager},
 	}
 }
 
 // Pool实例列表
-func (man *SModelartsPoolManager) ListItemFilter(
+func (man *SModelartsSkuManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
@@ -118,7 +125,7 @@ func (man *SModelartsPoolManager) ListItemFilter(
 	return q, nil
 }
 
-func (man *SModelartsPoolManager) OrderByExtraFields(
+func (man *SModelartsSkuManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
@@ -139,7 +146,7 @@ func (man *SModelartsPoolManager) OrderByExtraFields(
 	return q, nil
 }
 
-func (man *SModelartsPoolManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+func (man *SModelartsSkuManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
@@ -155,14 +162,11 @@ func (man *SModelartsPoolManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SModelartsPoolManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ModelartsPoolCreateInput) (
-	api.ModelartsPoolCreateInput, error) {
-	input.ManagerId = "c3121aa9-09f5-4b55-8cd3-66d3cecdef3b"
-	return input, nil
+func (man *SModelartsSkuManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ElasticSearchCreateInput) (api.ElasticSearchCreateInput, error) {
+	return input, httperrors.NewNotImplementedError("Not Implemented")
 }
 
-func (manager *SModelartsPoolManager) FetchCustomizeColumns(
+func (manager *SModelartsSkuManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
@@ -185,7 +189,7 @@ func (manager *SModelartsPoolManager) FetchCustomizeColumns(
 
 	return rows
 }
-func (manager *SModelartsPoolManager) ListItemExportKeys(ctx context.Context,
+func (manager *SModelartsSkuManager) ListItemExportKeys(ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
 	keys stringutils2.SSortedStrings,
@@ -213,7 +217,7 @@ func (manager *SModelartsPoolManager) ListItemExportKeys(ctx context.Context,
 
 	return q, nil
 }
-func (self *SCloudregion) GetPools(managerId string) ([]SElasticSearch, error) {
+func (self *SCloudregion) GetResourceFlavor(managerId string) ([]SElasticSearch, error) {
 	q := ElasticSearchManager.Query().Equals("cloudregion_id", self.Id)
 	if len(managerId) > 0 {
 		q = q.Equals("manager_id", managerId)
@@ -228,18 +232,18 @@ func (self *SCloudregion) GetPools(managerId string) ([]SElasticSearch, error) {
 
 // func (self *SCloudregion) SyncPools(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudElasticSearch) compare.SyncResult {
 // 	// 加锁防止重入
-// 	lockman.LockRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
-// 	defer lockman.ReleaseRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
+// 	lockman.LockRawObject(ctx, ElasticSearchManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
+// 	defer lockman.ReleaseRawObject(ctx, ElasticSearchManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 
 // 	result := compare.SyncResult{}
 
-// 	dbEss, err := self.GetModelartsPools(provider.Id)
+// 	dbEss, err := self.GetElasticSearchs(provider.Id)
 // 	if err != nil {
 // 		result.Error(err)
 // 		return result
 // 	}
 
-// 	removed := make([]SModelartsPool, 0)
+// 	removed := make([]SElasticSearch, 0)
 // 	commondb := make([]SElasticSearch, 0)
 // 	commonext := make([]cloudprovider.ICloudElasticSearch, 0)
 // 	added := make([]cloudprovider.ICloudElasticSearch, 0)
@@ -290,39 +294,29 @@ func (self *SCloudregion) GetPools(managerId string) ([]SElasticSearch, error) {
 // 	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 // }
 
-func (self *SModelartsPool) syncRemoveCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.Delete(ctx, userCred)
-}
+// func (self *SModelartsResourceFlavor) syncRemoveCloudElasticSearch(ctx context.Context, userCred mcclient.TokenCredential) error {
+// 	return self.Delete(ctx, userCred)
+// }
 
-func (self *SModelartsPool) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	self.StartCreateTask(ctx, userCred, "")
-}
+// func (self *SModelartsResourceFlavor) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+// 	self.SStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+// 	self.StartCreateTask(ctx, userCred, jsonutils.GetAnyString(data, []string{"network_id"}), "")
+// }
 
-func (self *SModelartsPool) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	var err = func() error {
-		params := jsonutils.NewDict()
-		task, err := taskman.TaskManager.
-			NewTask(ctx, "ModelartsPoolCreateTask", self, userCred, params, parentTaskId, "", nil)
-		if err != nil {
-			log.Errorln("this is new Task error", err)
-			return errors.Wrapf(err, "NewTask")
-		}
-		return task.ScheduleRun(nil)
-	}()
-	if err != nil {
-		self.SetStatus(userCred, api.NAS_STATUS_CREATE_FAILED, err.Error())
-		log.Errorln("this is run Task error", err)
-		return err
-	}
-	self.SetStatus(userCred, api.NAS_STATUS_CREATING, "")
-	return nil
-}
-
-func (self *SModelartsPool) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	return StartResourceSyncStatusTask(ctx, userCred, self, "ModelartsPoolSyncstatusTask", parentTaskId)
-}
-
-func (self *SModelartsPool) GetCloudproviderId() string {
-	return self.ManagerId
-}
+// func (self *SModelartsResourceFlavor) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, networkId string, parentTaskId string) error {
+// 	var err = func() error {
+// 		params := jsonutils.NewDict()
+// 		params.Add(jsonutils.NewString(networkId), "network_id")
+// 		task, err := taskman.TaskManager.NewTask(ctx, "FileSystemCreateTask", self, userCred, params, parentTaskId, "", nil)
+// 		if err != nil {
+// 			return errors.Wrapf(err, "NewTask")
+// 		}
+// 		return task.ScheduleRun(nil)
+// 	}()
+// 	if err != nil {
+// 		self.SetStatus(userCred, api.NAS_STATUS_CREATE_FAILED, err.Error())
+// 		return err
+// 	}
+// 	self.SetStatus(userCred, api.NAS_STATUS_CREATING, "")
+// 	return nil
+// }

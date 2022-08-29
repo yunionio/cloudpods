@@ -7,9 +7,9 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.ModelartsPools)
-	cmd.List(&compute.PoolListOptions{})
-	// R(&compute.PoolListOptions{}, "pool-list", "List modelarts pool", func(s *mcclient.ClientSession, opts *compute.PoolListOptions) error {
+	cmd := shell.NewResourceCmd(&modules.ModelartsPools).WithKeyword("modelarts-pool")
+	cmd.List(&compute.ModelartsPoolListOptions{})
+	// R(&compute.ModelartsPoolListOptions{}, "pool-list", "List modelarts pool", func(s *mcclient.ClientSession, opts *compute.ModelartsPoolListOptions) error {
 	// 	params, err := options.ListStructToParams(opts)
 	// 	if err != nil {
 	// 		return err
@@ -21,9 +21,8 @@ func init() {
 	// 	printList(result, []string{})
 	// 	return nil
 	// })
-	cmd.Update(&compute.ElasticSearchUpdateOptions{})
-	cmd.Show(&compute.ElasticSearchIdOption{})
-	cmd.Delete(&compute.ElasticSearchIdOption{})
-	cmd.Perform("syncstatus", &compute.ElasticSearchIdOption{})
-	cmd.Get("access-info", &compute.ElasticSearchIdOption{})
+	// cmd.Update(&compute.ElasticSearchUpdateOptions{})
+	// cmd.Show(&compute.ElasticSearchIdOption{})
+	// cmd.Delete(&compute.ElasticSearchIdOption{})
+	cmd.Create(&compute.ModelartsCreateOption{})
 }

@@ -238,9 +238,53 @@ func (self *SHuaweiClient) monitorPost(resource string, params map[string]interf
 // 	return self.request(httputils.GET, url, query, nil)
 // }
 
-func (self *SHuaweiClient) modelartsPoolCreate(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+func (self *SHuaweiClient) modelartsPoolNetworkList(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/networks", self.clientRegion, self.projectId)
+	return self.request(httputils.GET, uri, url.Values{}, params)
+}
+
+func (self *SHuaweiClient) modelartsPoolNetworkCreate(params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/networks", self.clientRegion, self.projectId)
 	return self.request(httputils.POST, uri, url.Values{}, params)
+}
+
+func (self *SHuaweiClient) modelartsPoolById(poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/pools/%s", self.clientRegion, self.projectId, poolName)
+	return self.request(httputils.GET, uri, url.Values{}, params)
+}
+
+func (self *SHuaweiClient) modelartsPoolList(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/%s", self.clientRegion, self.projectId, resource)
+	return self.request(httputils.GET, uri, url.Values{}, params)
+}
+
+func (self *SHuaweiClient) modelartsPoolCreate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/%s", self.clientRegion, self.projectId, resource)
+	return self.request(httputils.POST, uri, url.Values{}, params)
+}
+
+func (self *SHuaweiClient) modelartsPoolDelete(resource, poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/pools/%s", self.clientRegion, self.projectId, poolName)
+	return self.request(httputils.DELETE, uri, url.Values{}, params)
+}
+
+func (self *SHuaweiClient) modelartsPoolUpdate(poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/pools/%s", self.clientRegion, self.projectId, poolName)
+	urlValue := url.Values{}
+	urlValue.Add("time_range", "")
+	urlValue.Add("statistics", "")
+	urlValue.Add("period", "")
+	return self.request(httputils.PATCH, uri, urlValue, params)
+}
+
+func (self *SHuaweiClient) modelartsPoolMonitor(poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/pools/%s/monitor", self.clientRegion, self.projectId, poolName)
+	return self.request(httputils.GET, uri, url.Values{}, params)
+}
+
+func (self *SHuaweiClient) modelartsResourceflavors(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
 func (self *SHuaweiClient) lbGet(regionId, resource string) (jsonutils.JSONObject, error) {
@@ -295,7 +339,7 @@ type akClient struct {
 
 func (self *akClient) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Del("Accept")
-	if req.Method == string(httputils.GET) || req.Method == string(httputils.DELETE) {
+	if req.Method == string(httputils.GET) || req.Method == string(httputils.DELETE) || req.Method == string(httputils.PATCH) {
 		req.Header.Del("Content-Length")
 	}
 	aksk.Sign(req, self.aksk)

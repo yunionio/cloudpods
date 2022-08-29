@@ -194,9 +194,6 @@ type ICloudRegion interface {
 	GetICloudKubeClusterById(id string) (ICloudKubeCluster, error)
 
 	GetICloudTablestores() ([]ICloudTablestore, error)
-
-	GetIPools() ([]ICloudPool, error)
-	GetIPoolsById(id string) (ICloudPool, error)
 }
 
 type ICloudZone interface {
@@ -1575,9 +1572,4 @@ type ICloudKubeNodePool interface {
 
 type ICloudTablestore interface {
 	IVirtualResource
-}
-
-type ICloudPool interface {
-	IVirtualResource
-	IBillingResource
 }
