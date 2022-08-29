@@ -1010,7 +1010,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 			return nil, isNew, errors.Wrapf(err, "q.First")
 		}
 		provider.markProviderConnected(ctx, userCred, subAccount.HealthStatus)
-		provider.updateName(ctx, userCred, subAccount.Name)
+		provider.updateName(ctx, userCred, subAccount.Name, subAccount.Desc)
 		return provider, isNew, nil
 	}
 	// not found, create a new cloudprovider
@@ -1024,6 +1024,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		newCloudprovider.Provider = self.Provider
 		newCloudprovider.AccessUrl = self.AccessUrl
 		newCloudprovider.HealthStatus = subAccount.HealthStatus
+		newCloudprovider.Description = subAccount.Desc
 		if !options.Options.CloudaccountHealthStatusCheck {
 			newCloudprovider.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 		}
