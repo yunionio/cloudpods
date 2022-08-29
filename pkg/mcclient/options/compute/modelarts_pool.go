@@ -5,22 +5,30 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
-type PoolListOptions struct {
+type ModelartsPoolListOptions struct {
 	options.BaseListOptions
 }
 
-func (opts *PoolListOptions) Params() (jsonutils.JSONObject, error) {
+func (opts *ModelartsPoolListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
 }
 
-type PoolIdOption struct {
+type ModelartsPoolIdOption struct {
 	ID string `help:"Elasticsearch Id"`
 }
 
-func (opts *PoolIdOption) GetId() string {
+func (opts *ModelartsPoolIdOption) GetId() string {
 	return opts.ID
 }
 
-func (opts *PoolIdOption) Params() (jsonutils.JSONObject, error) {
+func (opts *ModelartsPoolIdOption) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
+}
+
+type ModelartsCreateOption struct {
+	Name string `help:"name"`
+}
+
+func (opts *ModelartsCreateOption) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
 }

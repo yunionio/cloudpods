@@ -376,11 +376,3 @@ func (self *SRegionEipBase) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 func (self *SRegionEipBase) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateEIP")
 }
-
-func (self *SRegion) GetIPools() ([]cloudprovider.ICloudPool, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIPools")
-}
-
-func (self *SRegion) GetIPoolsById(id string) (cloudprovider.ICloudPool, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIPoolsById")
-}

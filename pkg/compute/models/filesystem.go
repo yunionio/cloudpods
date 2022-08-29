@@ -130,7 +130,9 @@ func (manager *SFileSystemManager) ListItemFilter(
 	return q, nil
 }
 
-func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.FileSystemCreateInput) (api.FileSystemCreateInput, error) {
+func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.FileSystemCreateInput) (
+	api.FileSystemCreateInput, error) {
 	var err error
 	if len(input.NetworkId) > 0 {
 		net, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)

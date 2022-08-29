@@ -403,7 +403,7 @@ func (self *SKubeCluster) RealDelete(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	if len(self.ExternalClusterId) > 0 {
-		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region)
 		_, err = k8s.KubeClusters.PerformAction(s,
 			self.ExternalClusterId,
 			"purge",

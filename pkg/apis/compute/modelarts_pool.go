@@ -13,8 +13,16 @@ const (
 
 // 资源创建参数, 目前仅站位
 type ModelartsPoolCreateInput struct {
+	// apis.StatusInfrasResourceBaseCreateInput
+
 	Metadata ModelartsPoolMetadata `json:"meatdata"`
 	Spec     ModelartsPoolSpec     `json:"spec"`
+
+	ManagerId string `json:"manager_id"`
+	AccessKey string `json:"access_key"`
+	Secret    string `json:"secret"`
+	RegionId  string `json:"region_id"`
+	ProjectId string `json:"project_id"`
 }
 
 type ModelartsPoolMetadata struct {

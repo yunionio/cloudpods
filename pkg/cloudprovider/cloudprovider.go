@@ -316,6 +316,10 @@ type ICloudProvider interface {
 	CreateICloudCDNDomain(opts *CdnCreateOptions) (ICloudCDNDomain, error)
 
 	GetMetrics(opts *MetricListOptions) ([]MetricValues, error)
+
+	GetIModelartsPools() ([]ICloudModelartsPool, error)
+	GetIModelartsPoolDetail(id string) (ICloudModelartsPool, error)
+	CreateIModelartsPool(pool *ModelartsPoolCreateOption) (ICloudModelartsPool, error)
 }
 
 func IsSupportCapability(prod ICloudProvider, capa string) bool {
@@ -620,6 +624,18 @@ func (self *SBaseProvider) GetMetrics(opts *MetricListOptions) ([]MetricValues, 
 	return nil, errors.Wrapf(ErrNotImplemented, "GetMetric")
 }
 
+func (self *SBaseProvider) GetIModelartsPools() ([]ICloudModelartsPool, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "GetIModelartsPools")
+}
+
+func (self *SBaseProvider) GetIModelartsPoolDetail(id string) (ICloudModelartsPool, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "GetIModelartsPoolDetail")
+}
+
+func (self *SBaseProvider) CreateIModelartsPool(pool *ModelartsPoolCreateOption) (ICloudModelartsPool, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "CreateIModelartsPool")
+}
+
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {
 	return SBaseProvider{factory: factory}
 }
@@ -909,4 +925,8 @@ func (factory *SPrivateCloudBaseProviderFactory) IsSupportPrepaidResources() boo
 
 func (factory *SPrivateCloudBaseProviderFactory) NeedSyncSkuFromCloud() bool {
 	return true
+}
+
+type ICloudModelartsPool interface {
+	ICloudResource
 }

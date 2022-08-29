@@ -21,15 +21,15 @@ import (
 )
 
 func init() {
-	type ModelartsPoolListOption struct {
+	type ModelartsResourceflavorsListOption struct {
 		PoolName string `help:"Pool Name"`
 	}
-	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-list", "List Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
-		pools, err := cli.GetPools()
+	shellutils.R(&ModelartsResourceflavorsListOption{}, "modelarts-resourceflavors-list", "List Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsResourceflavorsListOption) error {
+		resourceflavors, err := cli.GetResourceflavors()
 		if err != nil {
 			return err
 		}
-		printList(pools, len(pools), 0, 0, nil)
+		printList(resourceflavors, len(resourceflavors), 0, 0, nil)
 		return nil
 	})
 
@@ -40,18 +40,5 @@ func init() {
 	// 	}
 	// 	printList(pools, len(pools), 0, 0, nil)
 	// 	return nil
-	// })
-
-	/*type RouteTableIdOptions struct {
-		ID string `help:"RouteTable ID"`
-	}
-	shellutils.R(&RouteTableIdOptions{}, "routetable-show", "Show vpc route table", func(cli *huawei.SRegion, args *RouteTableIdOptions) error {
-		routetable, err := cli.GetRouteTable(args.ID)
-		if err != nil {
-			return err
-		}
-		printObject(routetable)
-		return nil
-	})*/
-
+	// }
 }
