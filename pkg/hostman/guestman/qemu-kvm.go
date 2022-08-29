@@ -1543,12 +1543,15 @@ func (s *SKVMGuestInstance) compareDescIsolatedDevices(newDesc *desc.SGuestDesc,
 }
 
 func (s *SKVMGuestInstance) compareDescCdrom(newDesc *desc.SGuestDesc) *string {
-	if s.Desc.Cdrom == nil && newDesc.Cdrom == nil {
+	newCdromIsNil := newDesc.Cdrom == nil || newDesc.Cdrom.Path == ""
+	oldCdromIsNil := s.Desc.Cdrom == nil || s.Desc.Cdrom.Path == ""
+
+	if oldCdromIsNil && newCdromIsNil {
 		return nil
-	} else if s.Desc.Cdrom == nil && newDesc.Cdrom != nil {
+	} else if oldCdromIsNil && !newCdromIsNil {
 		cdromPath := newDesc.Cdrom.Path
 		return &cdromPath
-	} else if s.Desc.Cdrom != nil && newDesc.Cdrom == nil {
+	} else if !oldCdromIsNil && newCdromIsNil {
 		var res = ""
 		return &res
 	} else {

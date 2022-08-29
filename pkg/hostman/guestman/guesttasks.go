@@ -275,6 +275,9 @@ func (d *SGuestDiskSyncTask) onGetBlockInfo(blocks []monitor.QemuBlock) {
 	}
 	if len(cdName) > 0 {
 		d.changeCdromContent(cdName)
+	} else {
+		d.cdrom = nil
+		d.syncDisksConf()
 	}
 }
 
