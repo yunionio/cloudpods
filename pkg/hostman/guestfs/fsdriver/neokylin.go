@@ -23,24 +23,24 @@ import (
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
-type SGalaxyKylinRootFs struct {
+type SNeoKylinRootFs struct {
 	*sRedhatLikeRootFs
 }
 
-func NewGalaxyKylinRootFs(part IDiskPartition) IRootFsDriver {
-	return &SGalaxyKylinRootFs{sRedhatLikeRootFs: newRedhatLikeRootFs(part)}
+func NewNeoKylinRootFs(part IDiskPartition) IRootFsDriver {
+	return &SNeoKylinRootFs{sRedhatLikeRootFs: newRedhatLikeRootFs(part)}
 }
 
-func (d *SGalaxyKylinRootFs) GetName() string {
-	return "Kylin"
+func (d *SNeoKylinRootFs) GetName() string {
+	return "NeoKylin"
 }
 
-func (d *SGalaxyKylinRootFs) String() string {
-	return "KylinRootFs"
+func (d *SNeoKylinRootFs) String() string {
+	return "NeoKylinRootFs"
 }
 
-func (d *SGalaxyKylinRootFs) RootSignatures() []string {
-	sigs := []string{"/etc/kylin-release", "/etc/.productinfo"}
+func (d *SNeoKylinRootFs) RootSignatures() []string {
+	sigs := []string{"/etc/neokylin-release", "/etc/.productinfo"}
 	for _, sig := range d.sRedhatLikeRootFs.RootSignatures() {
 		if sig != "/etc/redhat-release" {
 			sigs = append(sigs, sig)
@@ -49,8 +49,8 @@ func (d *SGalaxyKylinRootFs) RootSignatures() []string {
 	return sigs
 }
 
-func (d *SGalaxyKylinRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
-	rel, _ := rootFs.FileGetContents("/etc/kylin-release", false)
+func (d *SNeoKylinRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
+	rel, _ := rootFs.FileGetContents("/etc/neokylin-release", false)
 	var version string
 	if len(rel) > 0 {
 		relStr := string(rel)
@@ -64,7 +64,7 @@ func (d *SGalaxyKylinRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Re
 	return deployapi.NewReleaseInfo(d.GetName(), version, d.GetArch(rootFs))
 }
 
-func (d *SGalaxyKylinRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
+func (d *SNeoKylinRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := d.GetReleaseInfo(rootFs)
 	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
@@ -72,11 +72,11 @@ func (d *SGalaxyKylinRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics
 	return nil
 }
 
-func (c *SGalaxyKylinRootFs) EnableSerialConsole(rootFs IDiskPartition, sysInfo *jsonutils.JSONDict) error {
+func (c *SNeoKylinRootFs) EnableSerialConsole(rootFs IDiskPartition, sysInfo *jsonutils.JSONDict) error {
 	return c.enableSerialConsoleSystemd(rootFs)
 }
 
-func (c *SGalaxyKylinRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
+func (c *SNeoKylinRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
 	c.disableSerialConsoleSystemd(rootFs)
 	return nil
 }
