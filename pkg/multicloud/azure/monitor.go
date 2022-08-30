@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -174,12 +175,16 @@ func (self *SAzureClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) (
 		return nil, err
 	}
 
-	for metricType, name := range map[cloudprovider.TMetricType]string{
-		cloudprovider.VM_METRIC_TYPE_MEM_USAGE:  "/builtin/memory/percentusedmemory",
-		cloudprovider.VM_METRIC_TYPE_DISK_USAGE: "/builtin/filesystem/percentusedspace",
+	for metricType, names := range map[cloudprovider.TMetricType][]string{
+		cloudprovider.VM_METRIC_TYPE_MEM_USAGE:  {"/builtin/memory/percentusedmemory", "\\Memory\\% Committed Bytes In Use"},
+		cloudprovider.VM_METRIC_TYPE_DISK_USAGE: {"/builtin/filesystem/percentusedspace", "\\LogicalDisk(_Total)\\% Free Space"},
 	} {
-		filter := fmt.Sprintf("name.value eq '%s'", name)
-		metricDefinitions, err := self.getMetricDefinitions(opts.ResourceId, filter)
+		filters := []string{}
+		for _, name := range names {
+			filter := fmt.Sprintf("name.value eq '%s'", name)
+			filters = append(filters, filter)
+		}
+		metricDefinitions, err := self.getMetricDefinitions(opts.ResourceId, strings.Join(filters, " or "))
 		if err != nil {
 			log.Errorf("getMetricDefinitions error: %v", err)
 			continue
@@ -206,7 +211,8 @@ func (self *SAzureClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) (
 					values := &AzureTableMetricData{}
 					resp.Unmarshal(values)
 					for _, v := range values.Value {
-						if v.CounterName != name {
+						name := strings.ReplaceAll(v.CounterName, `\\`, `\`)
+						if !utils.IsInStringArray(name, names) {
 							continue
 						}
 						if v.Timestamp.After(opts.StartTime) && v.Timestamp.Before(opts.EndTime) {
