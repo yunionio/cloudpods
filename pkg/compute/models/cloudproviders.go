@@ -1360,10 +1360,13 @@ func (provider *SCloudprovider) markProviderDisconnected(ctx context.Context, us
 	return provider.ClearSchedDescCache()
 }
 
-func (self *SCloudprovider) updateName(ctx context.Context, userCred mcclient.TokenCredential, name string) error {
-	if self.Name != name {
+func (self *SCloudprovider) updateName(ctx context.Context, userCred mcclient.TokenCredential, name, desc string) error {
+	if self.Name != name || self.Description != desc {
 		diff, err := db.Update(self, func() error {
 			self.Name = name
+			if len(self.Description) == 0 {
+				self.Description = desc
+			}
 			return nil
 		})
 		if err != nil {
