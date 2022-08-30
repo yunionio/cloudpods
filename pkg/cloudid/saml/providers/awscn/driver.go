@@ -86,7 +86,10 @@ func (d *SAWSCNSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCre
 			Values:       []string{v.value},
 		})
 	}
-	data.RelayState = "https://console.amazonaws.cn/"
+	if len(redirectUrl) == 0 {
+		redirectUrl = "https://console.amazonaws.cn/"
+	}
+	data.RelayState = redirectUrl
 
 	return data, nil
 }
