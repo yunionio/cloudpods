@@ -545,18 +545,18 @@ function nic_mtu() {
 		input.EnableSerialDevice = true
 	}
 
+	liveMigratePort, _ := data.Int("live_migrate_port")
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		input.NeedMigrate = true
-		migratePort := s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE)
-		s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(migratePort)))
-		input.LiveMigratePort = uint(migratePort)
+		s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(liveMigratePort)))
+		input.LiveMigratePort = uint(liveMigratePort)
 		if jsonutils.QueryBoolean(data, "live_migrate_use_tls", false) {
 			input.LiveMigrateUseTLS = true
 			s.Desc.Set("live_migrate_use_tls", jsonutils.JSONTrue)
 		}
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		input.IsSlave = true
-		input.LiveMigratePort = uint(s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE))
+		input.LiveMigratePort = uint(liveMigratePort)
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
 		input.IsMaster = true
 	}
