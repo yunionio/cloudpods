@@ -532,6 +532,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	offset, _ := query.Int("offset")
 	pagingMarker, _ := query.GetString("paging_marker")
 	pagingOrderStr, _ := query.GetString("paging_order")
+	groupByStr, _ := query.GetString("group_by")
 	pagingOrder := sqlchemy.QueryOrderType(strings.ToUpper(pagingOrderStr))
 
 	var (
@@ -705,6 +706,16 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, errors.Wrap(err, "OrderByExtraFields")
 	}
+
+	if len(groupByStr) > 0 {
+		for _, field := range q.QueryFields() {
+			if groupByStr == field.Name() {
+				q = q.GroupBy(field)
+				break
+			}
+		}
+	}
+
 	if orderBy == nil {
 		orderBy = []string{}
 	}

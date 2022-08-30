@@ -27,7 +27,8 @@ type ServerSkusListOptions struct {
 	Name           string  `help:"Name of Sku"`
 	PostpaidStatus string  `help:"Postpaid status" choices:"soldout|available"`
 	PrepaidStatus  string  `help:"Prepaid status" choices:"soldout|available"`
-	Enabled        *bool   `help:"Filter enabled skus"`
+	GroupBy        string
+	Enabled        *bool `help:"Filter enabled skus"`
 }
 
 func (opts *ServerSkusListOptions) GetId() string {
