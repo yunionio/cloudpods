@@ -32,6 +32,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
@@ -841,6 +842,9 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 		BlockDeviceMappings: blockDevices,
 		Placement:           &ec2.Placement{AvailabilityZone: &zoneId},
 		TagSpecifications:   []*ec2.TagSpecification{ec2TagSpec},
+	}
+	params.Monitoring = &ec2.RunInstancesMonitoringEnabled{
+		Enabled: &options.Options.EnableAwsMonitorAgent,
 	}
 
 	// keypair
