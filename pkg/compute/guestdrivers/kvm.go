@@ -991,3 +991,37 @@ func (self *SKVMGuestDriver) RequestCPUSetRemove(ctx context.Context, userCred m
 	}
 	return nil
 }
+
+func (self *SKVMGuestDriver) QgaRequestGuestPing(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest) error {
+	url := fmt.Sprintf("%s/servers/%s/qga-guest-ping", host.ManagerUri, guest.Id)
+	httpClient := httputils.GetDefaultClient()
+	header := task.GetTaskRequestHeader()
+	_, _, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, nil, false)
+	if err != nil {
+		return errors.Wrap(err, "host request")
+	}
+	return nil
+}
+
+func (self *SKVMGuestDriver) QgaRequestSetUserPassword(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input *api.ServerQgaSetPasswordInput) error {
+	url := fmt.Sprintf("%s/servers/%s/qga-set-password", host.ManagerUri, guest.Id)
+	httpClient := httputils.GetDefaultClient()
+	header := task.GetTaskRequestHeader()
+	body := jsonutils.Marshal(input)
+	_, _, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return errors.Wrap(err, "host request")
+	}
+	return nil
+}
+
+func (self *SKVMGuestDriver) RequestQgaCommand(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("%s/servers/%s/qga-command", host.ManagerUri, guest.Id)
+	httpClient := httputils.GetDefaultClient()
+	header := mcclient.GetTokenHeaders(userCred)
+	_, res, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "host request")
+	}
+	return res, nil
+}

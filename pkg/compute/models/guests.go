@@ -170,6 +170,8 @@ type SGuest struct {
 	InternetMaxBandwidthOut int `nullable:"true" list:"user" create:"optional"`
 	// 磁盘吞吐量
 	Throughput int `nullable:"true" list:"user" create:"optional"`
+
+	QgaStatus string `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" create:"optional"`
 }
 
 func (manager *SGuestManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {

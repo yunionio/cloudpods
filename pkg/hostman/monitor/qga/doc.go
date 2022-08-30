@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sparsefile // import "yunion.io/x/onecloud/pkg/util/sparsefile"
+package qga // import "yunion.io/x/onecloud/pkg/hostman/monitor/qga"

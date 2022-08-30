@@ -150,6 +150,9 @@ const (
 	ACT_VM_DEPLOY      = "deploy"
 	ACT_VM_DEPLOY_FAIL = "deploy_fail"
 
+	ACT_SET_USER_PASSWORD      = "set_user_password"
+	ACT_SET_USER_PASSWORD_FAIL = "set_user_password_fail"
+
 	ACT_VM_IO_THROTTLE      = "io_throttle"
 	ACT_VM_IO_THROTTLE_FAIL = "io_throttle_fail"
 
