@@ -985,3 +985,34 @@ func (self *SRegion) DeleteVM(vmId int) error {
 	res := fmt.Sprintf("/nodes/%s/qemu/%d", nodeName, vmId)
 	return self.del(res, params, nil)
 }
+func (self *SRegion) GenVM(name, node string, cores, memMB int) (*SInstance, error) {
+	vmId := self.GetClusterVmMaxId() + 1
+
+	body := map[string]interface{}{
+		"vmid":        vmId,
+		"name":        name,
+		"ostype":      "other",
+		"sockets":     1,
+		"cores":       cores,
+		"cpu":         "host",
+		"kvm":         1,
+		"hotplug":     "network,disk,usb",
+		"memory":      memMB,
+		"description": "",
+		"scsihw":      "virtio-scsi-pci",
+	}
+
+	res := fmt.Sprintf("/nodes/%s/qemu", node)
+	_, err := self.post(res, jsonutils.Marshal(body))
+	if err != nil {
+		return nil, err
+	}
+
+	vmIdRet := strconv.Itoa(vmId)
+	vm, err := self.GetInstance(vmIdRet)
+	if err != nil {
+		return nil, err
+	}
+
+	return vm, nil
+}

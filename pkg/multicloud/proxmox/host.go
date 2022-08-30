@@ -17,9 +17,11 @@ package proxmox
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -175,7 +177,36 @@ func (self *SHost) GetVersion() string {
 }
 
 func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+
+	vmId := self.zone.region.GetClusterVmMaxId() + 1
+
+	body := map[string]interface{}{
+		"vmid":        vmId,
+		"name":        opts.Name,
+		"ostype":      "other",
+		"sockets":     1,
+		"cores":       opts.Cpu,
+		"cpu":         "host",
+		"kvm":         1,
+		"hotplug":     "network,disk,usb",
+		"memory":      opts.MemoryMB,
+		"description": opts.OsDistribution,
+		"scsihw":      "virtio-scsi-pci",
+	}
+
+	res := fmt.Sprintf("/nodes/%s/qemu", self.Node)
+	_, err := self.zone.region.post(res, jsonutils.Marshal(body))
+	if err != nil {
+		return nil, err
+	}
+
+	vmIdRet := strconv.Itoa(vmId)
+	vm, err := self.zone.region.GetInstance(vmIdRet)
+	if err != nil {
+		return nil, err
+	}
+	vm.host = self
+	return vm, nil
 }
 
 func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
@@ -183,11 +214,29 @@ func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vms, err := self.zone.region.GetInstances(self.Id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetInstances")
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		vms[i].host = self
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
 }
 
 func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vm, err := self.zone.region.GetInstance(id)
+	if err != nil {
+		return nil, err
+	}
+	hostId := fmt.Sprintf("node/%s", vm.Node)
+	if hostId != self.Id {
+		return nil, cloudprovider.ErrNotFound
+	}
+	vm.host = self
+	return vm, nil
 }
 
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {

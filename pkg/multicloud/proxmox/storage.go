@@ -205,8 +205,7 @@ func (self *SRegion) GetStorage(id string) (*SStorage, error) {
 	storageName := ""
 
 	if len(splited) == 3 {
-		nodeName = splited[1]
-		storageName = splited[2]
+		nodeName, storageName = splited[1], splited[2]
 	}
 
 	status := fmt.Sprintf("/nodes/%s/storage/%s/status", nodeName, storageName)

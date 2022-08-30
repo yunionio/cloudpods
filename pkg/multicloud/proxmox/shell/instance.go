@@ -52,6 +52,11 @@ func init() {
 		return cli.StopVm(id)
 	})
 
+	shellutils.R(&InstanceIdOptions{}, "instance-delete", "delete instance", func(cli *proxmox.SRegion, args *InstanceIdOptions) error {
+		id, _ := strconv.Atoi(args.ID)
+		return cli.DeleteVM(id)
+	})
+
 	type InstanceStartOptions struct {
 		ID        string
 		Password  string
@@ -87,6 +92,19 @@ func init() {
 	shellutils.R(&InstanceChangeConfigOptions{}, "instance-change-config", "Change instance config", func(cli *proxmox.SRegion, args *InstanceChangeConfigOptions) error {
 		id, _ := strconv.Atoi(args.ID)
 		return cli.ChangeConfig(id, args.Cpu, args.MemMb)
+	})
+
+	type InstanceCreateOptions struct {
+		Name  string
+		Node  string
+		Cpu   int
+		MemMb int
+	}
+
+	shellutils.R(&InstanceCreateOptions{}, "instance-create", "create instance ", func(cli *proxmox.SRegion, args *InstanceCreateOptions) error {
+		ret, err := cli.GenVM(args.Name, args.Node, args.Cpu, args.MemMb)
+		printObject(ret)
+		return err
 	})
 
 }

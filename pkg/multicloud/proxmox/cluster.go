@@ -17,6 +17,7 @@ package proxmox
 import (
 	"fmt"
 	"net/url"
+	"sort"
 )
 
 type SClusterResource struct {
@@ -146,4 +147,26 @@ func (self *SRegion) GetClusterVmResources() (map[int]SVmResource, error) {
 	}
 
 	return VmResources, nil
+}
+
+func (self *SRegion) GetClusterVmMaxId() int {
+	resources := []SClusterResource{}
+	idxs := []int{}
+	err := self.get("/cluster/resources", url.Values{}, &resources)
+	if err != nil {
+		return 0
+	}
+
+	for _, res := range resources {
+		if res.Type == "qemu" {
+			idxs = append(idxs, res.VmId)
+		}
+	}
+
+	if len(idxs) < 1 {
+		return 0
+	}
+
+	sort.Ints(idxs)
+	return idxs[len(idxs)-1]
 }

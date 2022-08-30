@@ -6,33 +6,8 @@ import (
 	"strings"
 )
 
-func inArray(arr []string, str string) bool {
-	for _, elem := range arr {
-		if elem == str {
-			return true
-		}
-	}
-
-	return false
-}
-
 func Itob(i int) bool {
 	return i == 1
-}
-
-func BoolInvert(b bool) bool {
-	return b == false
-}
-
-// Check the value of a key in a nested array of map[string]interface{}
-func ItemInKeyOfArray(array []interface{}, key, value string) (existance bool) {
-	for i := range array {
-		item := array[i].(map[string]interface{})
-		if string(item[key].(string)) == value {
-			return true
-		}
-	}
-	return false
 }
 
 // ParseSubConf - Parse standard sub-conf strings `key=value`.
@@ -117,52 +92,4 @@ func DiskSizeGB(dcSize interface{}) float64 {
 		diskSize = dcSize
 	}
 	return diskSize
-}
-
-func AddToList(list, newItem string) string {
-	if list != "" {
-		return list + "," + newItem
-	}
-	return newItem
-}
-
-func CSVtoArray(csv string) []string {
-	return strings.Split(csv, ",")
-}
-
-// Convert Array to a comma (,) delimited list
-func ArrayToCSV(array interface{}) (csv string) {
-	var arrayString []string
-	switch array.(type) {
-	case []interface{}:
-		arrayString = ArrayToStringType(array.([]interface{}))
-	case []string:
-		arrayString = array.([]string)
-	}
-	csv = strings.Join(arrayString, `,`)
-	return
-}
-
-// Convert Array of type []interface{} to array of type []string
-func ArrayToStringType(inputarray []interface{}) (array []string) {
-	array = make([]string, len(inputarray))
-	for i, v := range inputarray {
-		array[i] = v.(string)
-	}
-	return
-}
-
-// Creates a pointer to a string
-func PointerString(text string) *string {
-	return &text
-}
-
-// Creates a pointer to an int
-func PointerInt(number int) *int {
-	return &number
-}
-
-// Creates a pointer to a bool
-func PointerBool(boolean bool) *bool {
-	return &boolean
 }

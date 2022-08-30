@@ -172,17 +172,28 @@ func (cli *SProxmoxClient) getDefaultClient() *http.Client {
 }
 
 func (cli *SProxmoxClient) post(res string, params interface{}) (jsonutils.JSONObject, error) {
-	return cli._jsonRequest(httputils.POST, res, params)
+	resp, err := cli._jsonRequest(httputils.POST, res, params)
+	taskId, _ := resp.GetString("data")
+	if err != nil {
+		return resp, err
+	}
+	_, err = cli.waitTask(taskId)
+
+	return resp, err
 }
 
 func (cli *SProxmoxClient) put(res string, params url.Values, body jsonutils.JSONObject, retVal interface{}) error {
 	if params != nil {
 		res = fmt.Sprintf("%s?%s", res, params.Encode())
 	}
-	_, err := cli._jsonRequest(httputils.PUT, res, body)
+	resp, err := cli._jsonRequest(httputils.PUT, res, body)
 	if err != nil {
 		return err
 	}
+
+	taskId, _ := resp.GetString("data")
+	_, err = cli.waitTask(taskId)
+
 	return err
 }
 
@@ -227,14 +238,10 @@ func (cli *SProxmoxClient) del(res string, params url.Values, retVal interface{}
 	if err != nil {
 		return err
 	}
+	taskId, _ := resp.GetString("data")
+	_, err = cli.waitTask(taskId)
 
-	dat, err := resp.Get("data")
-
-	if err != nil {
-		return errors.Wrapf(err, "decode data")
-	}
-
-	return dat.Unmarshal(retVal)
+	return err
 
 }
 
