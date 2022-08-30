@@ -275,6 +275,9 @@ func (d *SGuestDiskSyncTask) onGetBlockInfo(blocks []monitor.QemuBlock) {
 	}
 	if len(cdName) > 0 {
 		d.changeCdromContent(cdName)
+	} else {
+		d.cdrom = nil
+		d.syncDisksConf()
 	}
 }
 
@@ -287,6 +290,9 @@ func (d *SGuestDiskSyncTask) changeCdromContent(cdName string) {
 }
 
 func (d *SGuestDiskSyncTask) OnChangeCdromContentSucc(results string) {
+	if d.guest.Desc.Cdrom == nil {
+		d.guest.Desc.Cdrom = new(desc.SGuestCdrom)
+	}
 	d.guest.Desc.Cdrom.Path = *d.cdrom
 	d.cdrom = nil
 	d.syncDisksConf()

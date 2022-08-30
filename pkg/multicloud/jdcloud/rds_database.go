@@ -59,7 +59,7 @@ func (self *SDBInstanceDatabase) GetStatus() string {
 func (self *SRegion) GetDBInstanceDatabases(id string, pageNumber, pageSize int) ([]SDBInstanceDatabase, int, error) {
 
 	req := apis.NewDescribeDatabasesRequestWithAllParams(self.ID, id, nil, &pageNumber, &pageSize)
-	client := client.NewRdsClient(self.Credential)
+	client := client.NewRdsClient(self.getCredential())
 	client.Logger = Logger{}
 	resp, err := client.DescribeDatabases(req)
 	if err != nil {

@@ -121,8 +121,8 @@ func (r *SRegion) GetNetworks(vpcId string, pageNumber int, pageSize int) ([]SNe
 		})
 	}
 	req := apis.NewDescribeSubnetsRequestWithAllParams(r.ID, &pageNumber, &pageSize, filters)
-	client := client.NewVpcClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVpcClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeSubnets(req)
 	if err != nil {
 		return nil, 0, err
@@ -141,8 +141,8 @@ func (r *SRegion) GetNetworks(vpcId string, pageNumber int, pageSize int) ([]SNe
 
 func (r *SRegion) GetNetworkById(id string) (*SNetwork, error) {
 	req := apis.NewDescribeSubnetRequest(r.ID, id)
-	client := client.NewVpcClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVpcClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeSubnet(req)
 	if err != nil {
 		return nil, err

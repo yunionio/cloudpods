@@ -23,7 +23,7 @@ func init() {
 	type BalanceShowOptions struct {
 	}
 	shellutils.R(&BalanceShowOptions{}, "balance-show", "Show balance", func(cli *jdcloud.SRegion, args *BalanceShowOptions) error {
-		balance, err := cli.DescribeAccountAmount()
+		balance, err := cli.GetClient().DescribeAccountAmount()
 		if err != nil {
 			return err
 		}

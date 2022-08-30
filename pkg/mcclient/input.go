@@ -83,6 +83,7 @@ type SAuthenticationIdentity struct {
 	// | saml     | 作为SAML 2.0 SP通过IDP认证                                            |
 	// | oidc     | 作为OpenID Connect/OAuth2 Client认证                                 |
 	// | oauth2   | OAuth2认证                                                          |
+	// | verify   | 手机短信或邮箱认证                                                     |
 	//
 	Methods []string `json:"methods,omitempty"`
 	// 当认证方式为password时，通过该字段提供密码认证信息
@@ -127,7 +128,12 @@ type SAuthenticationIdentity struct {
 	} `json:"oidc_auth,omitempty"`
 	OAuth2 struct {
 		Code string `json:"code,omitempty"`
-	}
+	} `json:"oauth2,omitempty"`
+	Verify struct {
+		Uid         string `json:"uid,omitempty"`
+		VerifyCode  string `json:"verify_code,omitempty"`
+		ContactType string `json:"contact_type,omitempty"`
+	} `json:"mobile,omitempty"`
 }
 
 type SAuthenticationInputV3 struct {

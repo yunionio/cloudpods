@@ -204,11 +204,14 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 		port = findVNCPort(results)
 	}
 
+	password := guest.GetMetadata(ctx, "__vnc_password", userCred)
+
 	result := &cloudprovider.ServerVncOutput{
 		Host:       host.AccessIp,
 		Protocol:   guest.GetVdi(),
 		Port:       int64(port),
 		Hypervisor: api.HYPERVISOR_KVM,
+		Password:   password,
 	}
 	return result, nil
 }

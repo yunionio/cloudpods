@@ -164,7 +164,6 @@ func (self *SHuaweiClient) GetIModelartsPoolById(poolId string) (cloudprovider.I
 	}
 	pool := &SModelartsPool{}
 	obj.Unmarshal(&pool)
-	log.Infoln(pool)
 	res := []cloudprovider.ICloudModelartsPool{}
 	for i := 0; i < 1; i++ {
 		pool.client = self

@@ -41,8 +41,8 @@ func (r *SRegion) InstanceTypes(instanceTypes ...string) ([]SInstanceType, error
 			Values: instanceTypes,
 		},
 	})
-	client := client.NewVmClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVmClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeInstanceTypes(req)
 	if err != nil {
 		return nil, err

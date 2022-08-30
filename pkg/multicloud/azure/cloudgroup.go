@@ -243,9 +243,13 @@ func (self *SAzureClient) AddGroupUser(id, userName string) error {
 	if len(users) > 1 {
 		return cloudprovider.ErrDuplicateId
 	}
+	cli, err := self.getGraphClient()
+	if err != nil {
+		return errors.Wrapf(err, "getGraphClient")
+	}
 	resource := fmt.Sprintf("groups/%s/$links/members", id)
 	params := map[string]string{
-		"url": fmt.Sprintf("%s%s/directoryObjects/%s", self.domain, self.tenantId, users[0].ObjectId),
+		"url": fmt.Sprintf("%s%s/directoryObjects/%s", cli.domain, self.tenantId, users[0].ObjectId),
 	}
 	err = self.gcreate(resource, jsonutils.Marshal(params), nil)
 	if err != nil && !strings.Contains(err.Error(), "One or more added object references already exist for the following modified properties") {

@@ -21,13 +21,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/client/metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
-	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
-	"github.com/aws/aws-sdk-go/private/protocol/query"
 	"github.com/aws/aws-sdk-go/service/acm"
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
@@ -245,32 +240,8 @@ func (self *SRegion) ec2Request(apiName string, params map[string]string, retval
 	return self.client.request(self.RegionId, EC2_SERVICE_NAME, EC2_SERVICE_ID, "2016-11-15", apiName, params, retval, true)
 }
 
-func (self *SRegion) cloudWatchRequest(apiName string, params *cloudwatch.GetMetricStatisticsInput,
-	retval interface{}) error {
-	lock.Lock()
-	session, err := self.getAwsSession()
-	if err != nil {
-		lock.Unlock()
-		return err
-	}
-	lock.Unlock()
-	c := session.ClientConfig(CLOUDWATCH_SERVICE_NAME)
-	metadata := metadata.ClientInfo{
-		ServiceName:   CLOUDWATCH_SERVICE_NAME,
-		ServiceID:     CLOUDWATCH_SERVICE_ID,
-		SigningName:   c.SigningName,
-		SigningRegion: c.SigningRegion,
-		Endpoint:      c.Endpoint,
-		APIVersion:    "2010-08-01",
-	}
-
-	client := client.New(*c.Config, metadata, c.Handlers)
-	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
-	client.Handlers.Build.PushBackNamed(query.BuildHandler)
-	client.Handlers.Unmarshal.PushBackNamed(query.UnmarshalHandler)
-	client.Handlers.UnmarshalMeta.PushBackNamed(query.UnmarshalMetaHandler)
-	client.Handlers.UnmarshalError.PushBackNamed(query.UnmarshalErrorHandler)
-	return cloudWatchRequest(client, apiName, params, retval, false)
+func (self *SAwsClient) monitorRequest(regionId, apiName string, params map[string]string, retval interface{}) error {
+	return self.request(regionId, CLOUDWATCH_SERVICE_NAME, CLOUDWATCH_SERVICE_ID, "2010-08-01", apiName, params, retval, true)
 }
 
 func (self *SRegion) GetElbV2Client() (*elbv2.ELBV2, error) {

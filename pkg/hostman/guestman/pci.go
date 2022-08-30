@@ -200,12 +200,15 @@ func (s *SKVMGuestInstance) initRandomDevice(pciRoot *desc.PCIController) {
 }
 
 func (s *SKVMGuestInstance) initUsbController(pciRoot *desc.PCIController) {
+	contType := s.getUsbControllerType()
 	s.Desc.Usb = &desc.UsbController{
-		PCIDevice: desc.NewPCIDevice(pciRoot.CType, " qemu-xhci", "usb"),
+		PCIDevice: desc.NewPCIDevice(pciRoot.CType, contType, "usb"),
 	}
-	s.Desc.Usb.Options = map[string]string{
-		"p2": "8", // usb2 port count
-		"p3": "8", // usb3 port count
+	if contType == "qemu-xhci" {
+		s.Desc.Usb.Options = map[string]string{
+			"p2": "8", // usb2 port count
+			"p3": "8", // usb3 port count
+		}
 	}
 }
 
@@ -296,7 +299,6 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 func (s *SKVMGuestInstance) initCdromDesc() {
 	if s.Desc.Cdrom == nil {
 		s.Desc.Cdrom = new(desc.SGuestCdrom)
-		return
 	}
 
 	s.archMan.GenerateCdromDesc(s.getOsname(), s.Desc.Cdrom)

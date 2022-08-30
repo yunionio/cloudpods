@@ -16,7 +16,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -79,18 +78,20 @@ func (f *SJdcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) 
 	if len(segs) == 2 {
 		account = segs[0]
 	}
-
-	p := &SJdcloudProvider{
-		SBaseProvider: cloudprovider.NewBaseProvider(f),
-		accessKey:     account,
-		secret:        cfg.Secret,
-		cfg:           cfg,
-	}
-	err := p.TryConnect()
+	client, err := jdcloud.NewJDCloudClient(
+		jdcloud.NewJDCloudClientConfig(
+			account,
+			cfg.Secret,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
-	return p, nil
+
+	return &SJdcloudProvider{
+		SBaseProvider: cloudprovider.NewBaseProvider(f),
+		client:        client,
+	}, nil
 }
 
 func (f *SJdcloudProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
@@ -108,45 +109,20 @@ func init() {
 
 type SJdcloudProvider struct {
 	cloudprovider.SBaseProvider
-	accessKey string
-	secret    string
-	cfg       cloudprovider.ProviderConfig
 
-	iregion []cloudprovider.ICloudRegion
-}
-
-func (p *SJdcloudProvider) TryConnect() error {
-	iregions := p.GetIRegions()
-	if len(iregions) == 0 {
-		return fmt.Errorf("no invalid region for ecloud")
-	}
-	region := iregions[0].(*jdcloud.SRegion)
-	_, _, err := region.GetImages(nil, "private", 1, 10)
-	return err
+	client *jdcloud.SJDCloudClient
 }
 
 func (p *SJdcloudProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	subAccount := cloudprovider.SSubAccount{}
-	subAccount.Name = p.cfg.Name
-	subAccount.Account = p.accessKey
-	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
-	return []cloudprovider.SSubAccount{subAccount}, nil
+	return p.client.GetSubAccounts()
 }
 
 func (p *SJdcloudProvider) GetAccountId() string {
-	return p.accessKey
+	return p.client.GetAccountId()
 }
 
 func (p *SJdcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
-	if p.iregion != nil {
-		return p.iregion
-	}
-	regions := jdcloud.AllRegions(p.accessKey, p.secret, &p.cfg, false)
-	iregions := make([]cloudprovider.ICloudRegion, len(regions))
-	for i := range iregions {
-		iregions[i] = &regions[i]
-	}
-	return iregions
+	return p.client.GetIRegions()
 }
 
 func (p *SJdcloudProvider) GetSysInfo() (jsonutils.JSONObject, error) {
@@ -171,22 +147,17 @@ func (p *SJdcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion
 }
 
 func (p *SJdcloudProvider) GetBalance() (float64, string, error) {
-	regions := p.GetIRegions()
-	if len(regions) > 0 {
-		region := regions[0].(*jdcloud.SRegion)
-		balance, err := region.DescribeAccountAmount()
-		if err != nil {
-			return 0.0, api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION, errors.Wrap(err, "DescribeAccountAmount")
-		}
-		amount, _ := jsonutils.Marshal(balance).Float("totalAmount")
-		if amount < 0 {
-			return amount, api.CLOUD_PROVIDER_HEALTH_ARREARS, nil
-		} else if amount < 50 {
-			return amount, api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT, nil
-		}
-		return amount, api.CLOUD_PROVIDER_HEALTH_NORMAL, nil
+	balance, err := p.client.DescribeAccountAmount()
+	if err != nil {
+		return 0.0, api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION, errors.Wrap(err, "DescribeAccountAmount")
 	}
-	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
+	amount, _ := jsonutils.Marshal(balance).Float("totalAmount")
+	if amount < 0 {
+		return amount, api.CLOUD_PROVIDER_HEALTH_ARREARS, nil
+	} else if amount < 50 {
+		return amount, api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT, nil
+	}
+	return amount, api.CLOUD_PROVIDER_HEALTH_NORMAL, nil
 }
 
 func (p *SJdcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
@@ -222,4 +193,8 @@ func (p *SJdcloudProvider) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_RDS + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
+}
+
+func (self *SJdcloudProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
 }

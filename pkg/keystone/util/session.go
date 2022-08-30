@@ -17,11 +17,10 @@ package util
 import (
 	"context"
 
-	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 func GetDefaulAdminSession(ctx context.Context, region string) (*mcclient.ClientSession, error) {
-	return models.GetDefaultClientSession(ctx, tokens.GetDefaultAdminCredToken(), region), nil
+	return tokens.GetDefaulAdminSession(ctx, region)
 }

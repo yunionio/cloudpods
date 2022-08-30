@@ -315,8 +315,8 @@ func (in *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SMa
 func (in *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	region := in.host.zone.region
 	req := apis.NewDescribeInstanceVncUrlRequest(region.ID, in.InstanceId)
-	client := client.NewVmClient(region.Credential)
-	client.Logger = Logger{}
+	client := client.NewVmClient(region.getCredential())
+	client.Logger = Logger{debug: region.client.debug}
 	resp, err := client.DescribeInstanceVncUrl(req)
 	if err != nil {
 		return nil, err
@@ -362,8 +362,8 @@ func (r *SRegion) GetInstances(zoneId string, ids []string, pangeNumber, pageSiz
 		})
 	}
 	req := apis.NewDescribeInstancesRequestWithAllParams(r.ID, &pangeNumber, &pageSize, filters)
-	client := client.NewVmClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVmClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeInstances(req)
 	if err != nil {
 		return nil, 0, err
@@ -382,8 +382,8 @@ func (r *SRegion) GetInstances(zoneId string, ids []string, pangeNumber, pageSiz
 
 func (r *SRegion) GetInstanceById(id string) (*SInstance, error) {
 	req := apis.NewDescribeInstanceRequest(r.ID, id)
-	client := client.NewVmClient(r.Credential)
-	client.Logger = Logger{}
+	client := client.NewVmClient(r.getCredential())
+	client.Logger = Logger{debug: r.client.debug}
 	resp, err := client.DescribeInstance(req)
 	if err != nil {
 		return nil, err

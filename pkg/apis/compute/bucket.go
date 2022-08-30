@@ -16,6 +16,7 @@ package compute
 
 import (
 	"net/http"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
@@ -61,6 +62,33 @@ type BucketDetails struct {
 
 	// 访问URL列表
 	AccessUrls []cloudprovider.SBucketAccessUrl `json:"access_urls"`
+}
+
+func (self BucketDetails) GetMetricTags() map[string]string {
+	ret := map[string]string{
+		"brand":          self.Brand,
+		"cloudregion":    self.Cloudregion,
+		"cloudregion_id": self.CloudregionId,
+		"domain_id":      self.DomainId,
+		"oss_id":         self.Id,
+		"oss_name":       self.Name,
+		"project_domain": self.ProjectDomain,
+		"region_ext_id":  self.RegionExtId,
+		"status":         self.Status,
+		"tenant":         self.Tenant,
+		"tenant_id":      self.TenantId,
+	}
+	for k, v := range self.Metadata {
+		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
+func (self BucketDetails) GetMetricPairs() map[string]string {
+	ret := map[string]string{}
+	return ret
 }
 
 type BucketObjectsActionInput struct {

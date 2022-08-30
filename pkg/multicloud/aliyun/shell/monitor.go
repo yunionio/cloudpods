@@ -17,8 +17,10 @@ package shell
 import (
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/timeutils"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/multicloud/aliyun"
 	"yunion.io/x/onecloud/pkg/util/printutils"
@@ -46,6 +48,18 @@ func init() {
 			return err
 		}
 		printList(metrics, 0, 0, 0, nil)
+		return nil
+	})
+
+	shellutils.R(&cloudprovider.MetricListOptions{}, "metric-list", "List metrics in a namespace", func(cli *aliyun.SRegion, args *cloudprovider.MetricListOptions) error {
+		metrics, err := cli.GetClient().GetMetrics(args)
+		if err != nil {
+			return err
+		}
+		for i := range metrics {
+			log.Infof("metric: %s %s %s", metrics[i].Id, metrics[i].MetricType, metrics[i].Unit)
+			printList(metrics[i].Values, len(metrics[i].Values), 0, 0, []string{})
+		}
 		return nil
 	})
 
