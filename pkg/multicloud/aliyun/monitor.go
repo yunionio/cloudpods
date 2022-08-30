@@ -627,22 +627,6 @@ func (self *SAliyunClient) GetElbMetrics(opts *cloudprovider.MetricListOptions) 
 func (self *SAliyunClient) GetK8sMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	metricTags, tagKey := map[string]string{}, ""
 	switch opts.MetricType {
-	case cloudprovider.K8S_CLUSTER_METRIC_TYPE_CPU_USAGE:
-		metricTags = map[string]string{
-			"cluster.cpu.utilization": "",
-		}
-	case cloudprovider.K8S_CLUSTER_METRIC_TYPE_MEM_USAGE:
-		metricTags = map[string]string{
-			"cluster.memory.utilization": "",
-		}
-	case cloudprovider.K8S_POD_METRIC_TYPE_CPU_USAGE:
-		metricTags = map[string]string{
-			"pod.cpu.utilization": "",
-		}
-	case cloudprovider.K8S_POD_METRIC_TYPE_MEM_USAGE:
-		metricTags = map[string]string{
-			"pod.memory.utilization": "",
-		}
 	case cloudprovider.K8S_NODE_METRIC_TYPE_CPU_USAGE:
 		metricTags = map[string]string{
 			"node.cpu.utilization": "",
