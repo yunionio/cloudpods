@@ -105,6 +105,8 @@ func init() {
 	cmd.Perform("calculate-record-checksum", &options.ServerIdOptions{})
 	cmd.Perform("set-class-metadata", &baseoptions.ResourceMetadataOptions{})
 	cmd.BatchPerform("enable-memclean", new(options.ServerIdsOptions))
+	cmd.Perform("qga-set-password", &options.ServerQgaSetPassword{})
+	cmd.Perform("qga-command", &options.ServerQgaCommand{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))

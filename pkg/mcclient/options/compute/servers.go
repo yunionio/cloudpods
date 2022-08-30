@@ -788,6 +788,27 @@ type ServerMonitorOptions struct {
 	Admin   *bool  `help:"Is this an admin call?"`
 }
 
+type ServerQgaSetPassword struct {
+	ServerIdOptions
+
+	USERNAME string `help:"Which user to set password" json:"username"`
+	PASSWORD string `help:"Password content" json:"password"`
+}
+
+func (o *ServerQgaSetPassword) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
+type ServerQgaCommand struct {
+	ServerIdOptions
+
+	COMMAND string `help:"qga command"`
+}
+
+func (o *ServerQgaCommand) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
 type ServerSaveImageOptions struct {
 	ServerIdOptions
 	IMAGE     string `help:"Image name" json:"name"`

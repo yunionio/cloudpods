@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -91,6 +92,9 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"cpuset-remove":         guestCPUSetRemove,
 			"memory-snapshot":       guestMemorySnapshot,
 			"memory-snapshot-reset": guestMemorySnapshotReset,
+			"qga-set-password":      qgaGuestSetPassword,
+			"qga-guest-ping":        qgaGuestPing,
+			"qga-command":           qgaCommand,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -753,4 +757,47 @@ func guestMemorySnapshotDelete(ctx context.Context, w http.ResponseWriter, r *ht
 	hostutils.DelayTask(ctx, gm.DoDeleteMemorySnapshot, &guestman.SMemorySnapshotDelete{
 		GuestMemorySnapshotDeleteRequest: input,
 	})
+}
+
+func qgaGuestSetPassword(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	input := new(hostapi.GuestSetPasswordRequest)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, err
+	}
+	if input.Username == "" {
+		return nil, httperrors.NewMissingParameterError("username")
+	}
+	if input.Password == "" {
+		return nil, httperrors.NewMissingParameterError("password")
+	}
+	gm := guestman.GetGuestManager()
+	hostutils.DelayTask(ctx, gm.QgaGuestSetPassword, &guestman.SQgaGuestSetPassword{
+		GuestSetPasswordRequest: input,
+		Sid:                     sid,
+	})
+	return nil, nil
+}
+
+func qgaGuestPing(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	hostutils.DelayTask(ctx, gm.QgaGuestPing, &guestman.SBaseParms{Sid: sid})
+	return nil, nil
+}
+
+func qgaCommand(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	cmdStr, err := body.GetString("command")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("command")
+	}
+	cmdJson, err := jsonutils.ParseString(cmdStr)
+	if err != nil {
+		return nil, errors.Errorf("parse qga command")
+	}
+	qgaCmd := &monitor.Command{}
+	err = cmdJson.Unmarshal(qgaCmd)
+	if err != nil {
+		return nil, errors.Errorf("unmarshal qga command")
+	}
+	return gm.QgaCommand(qgaCmd, sid)
 }

@@ -465,3 +465,15 @@ func (self *SBaseGuestDriver) RequestCPUSet(ctx context.Context, userCred mcclie
 func (self *SBaseGuestDriver) RequestCPUSetRemove(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, guest *models.SGuest, input *api.ServerCPUSetRemoveInput) error {
 	return httperrors.ErrNotImplemented
 }
+
+func (self *SBaseGuestDriver) QgaRequestGuestPing(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest) error {
+	return httperrors.ErrNotImplemented
+}
+
+func (self *SBaseGuestDriver) QgaRequestSetUserPassword(ctx context.Context, task taskman.ITask, host *models.SHost, guest *models.SGuest, input *api.ServerQgaSetPasswordInput) error {
+	return httperrors.ErrNotImplemented
+}
+
+func (self *SBaseGuestDriver) RequestQgaCommand(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) (jsonutils.JSONObject, error) {
+	return nil, httperrors.ErrNotImplemented
+}
