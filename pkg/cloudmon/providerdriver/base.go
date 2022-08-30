@@ -896,7 +896,7 @@ func (self *SCollectByMetricTypeDriver) CollectRedisMetrics(ctx context.Context,
 				}
 				for _, v := range value.Values {
 					metric := influxdb.SMetricData{
-						Name:      value.MetricType.Key(),
+						Name:      value.MetricType.Name(),
 						Timestamp: v.Timestamp,
 						Tags:      []influxdb.SKeyValue{},
 						Metrics: []influxdb.SKeyValue{
@@ -978,7 +978,7 @@ func (self *SCollectByMetricTypeDriver) CollectBucketMetrics(ctx context.Context
 				}
 				for _, v := range value.Values {
 					metric := influxdb.SMetricData{
-						Name:      value.MetricType.Key(),
+						Name:      value.MetricType.Name(),
 						Timestamp: v.Timestamp,
 						Tags:      []influxdb.SKeyValue{},
 						Metrics: []influxdb.SKeyValue{
