@@ -74,6 +74,10 @@ func (d *sGuestRootFsDriver) DeployFiles(deploys []*deployapi.DeployContent) err
 	return nil
 }
 
+func (d *sGuestRootFsDriver) DeployTelegraf(string) (bool, error) {
+	return false, nil
+}
+
 func (d *sGuestRootFsDriver) GetPartition() IDiskPartition {
 	return d.rootFs
 }

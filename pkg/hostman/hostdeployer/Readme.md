@@ -1,7 +1,10 @@
 ```sh
-$ go get -u github.com/golang/protobuf/protoc-gen-go
+$ protoc --version
+libprotoc 3.21.5
+$ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+$ go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
 ```
 
 ```sh
-$ protoc -I apis/ apis/deploy.proto --go_out=plugins=grpc:apis
+$ protoc -I apis --go_out=./apis --go_opt=paths=source_relative --go-grpc_out=./apis --go-grpc_opt=paths=source_relative apis/deploy.proto
 ```
