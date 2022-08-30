@@ -107,43 +107,25 @@ func (self *SQcloudClient) GetMonitorData(ns string, name string, since time.Tim
 	return ret, nil
 }
 
-/*
-func (r *SRegion) GetK8sMonitorData(metricNames []string, ns string, since time.Time, until time.Time,
-	demensions []SQcMetricDimension) ([]SK8SDataPoint, error) {
+func (self *SQcloudClient) GetK8sMonitorData(ns, name, resourceId string, since time.Time, until time.Time, regionId string) ([]SK8SDataPoint, error) {
 	params := make(map[string]string)
 	params["Module"] = "monitor"
-	params["Region"] = r.Region
-	for index, name := range metricNames {
-		i := strconv.FormatInt(int64(index), 10)
-		params["MetricNames."+i] = name
-
-	}
+	params["Region"] = regionId
+	params["MetricNames.0"] = name
 	params["Namespace"] = ns
-	if !since.IsZero() {
-		params["StartTime"] = since.Format(timeutils.IsoTimeFormat)
-
-	}
-	if !until.IsZero() {
-		params["EndTime"] = until.Format(timeutils.IsoTimeFormat)
-	}
-	for index, metricDimension := range demensions {
-		i := strconv.FormatInt(int64(index), 10)
-		params["Conditions."+i+".Key"] = metricDimension.Name
-		params["Conditions."+i+".Operator"] = "="
-		params["Conditions."+i+".Value.0"] = metricDimension.Value
-	}
-	body, err := r.metricsRequest("DescribeStatisticData", params)
+	params["Period"] = "60"
+	params["StartTime"] = since.Format(timeutils.IsoTimeFormat)
+	params["EndTime"] = until.Format(timeutils.IsoTimeFormat)
+	params["Conditions.0.Key"] = "tke_cluster_instance_id"
+	params["Conditions.0.Operator"] = "in"
+	params["Conditions.0.Value.0"] = resourceId
+	body, err := self.metricsRequest("DescribeStatisticData", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.MetricRequest")
 	}
-	dataArray := make([]SK8SDataPoint, 0)
-	err = body.Unmarshal(&dataArray, "Data")
-	if err != nil {
-		return nil, errors.Wrap(err, "resp.Unmarshal")
-	}
-	return dataArray, nil
+	ret := []SK8SDataPoint{}
+	return ret, body.Unmarshal(&ret, "Data")
 }
-*/
 
 func (self *SQcloudClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	switch opts.ResourceType {
@@ -153,6 +135,8 @@ func (self *SQcloudClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 		return self.GetRedisMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_RDS:
 		return self.GetRdsMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_K8S:
+		return self.GetK8sMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
 	}
@@ -343,6 +327,44 @@ func (self *SQcloudClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) 
 					metric.Values = append(metric.Values, metricValue)
 				}
 				ret = append(ret, metric)
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (self *SQcloudClient) GetK8sMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	ret := []cloudprovider.MetricValues{}
+	for metricType, metricName := range map[cloudprovider.TMetricType]string{
+		cloudprovider.K8S_NODE_METRIC_TYPE_CPU_USAGE: "K8sNodeCpuUsage",
+		cloudprovider.K8S_NODE_METRIC_TYPE_MEM_USAGE: "K8sNodeMemUsage",
+	} {
+		metrics, err := self.GetK8sMonitorData("QCE/TKE2", metricName, opts.ResourceId, opts.StartTime, opts.EndTime, opts.RegionExtId)
+		if err != nil {
+			log.Errorf("GetMonitorData error: %v", err)
+			continue
+		}
+		for i := range metrics {
+			for _, point := range metrics[i].Points {
+				tags := map[string]string{}
+				for _, dim := range point.Dimensions {
+					if dim.Name == "node" {
+						tags[cloudprovider.METRIC_TAG_NODE] = dim.Value
+					}
+				}
+				metric := cloudprovider.MetricValues{}
+				metric.Id = opts.ResourceId
+				metric.MetricType = metricType
+				for _, value := range point.Values {
+					metric.Values = append(metric.Values, cloudprovider.MetricValue{
+						Value:     value.Value,
+						Timestamp: time.Unix(int64(value.Timestamp), 0),
+						Tags:      tags,
+					})
+				}
+				if len(metric.Values) > 0 {
+					ret = append(ret, metric)
+				}
 			}
 		}
 	}
