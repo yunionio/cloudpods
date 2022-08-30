@@ -227,6 +227,10 @@ func (rm *SReceiverManager) InitializeData() error {
 	return nil
 }
 
+func (rm *SReceiverManager) CreateByInsertOrUpdate() bool {
+	return true
+}
+
 func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ReceiverCreateInput) (api.ReceiverCreateInput, error) {
 	var err error
 	input.StatusStandaloneResourceCreateInput, err = rm.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
