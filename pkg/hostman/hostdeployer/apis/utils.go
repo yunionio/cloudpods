@@ -34,8 +34,10 @@ func NewDeployInfo(
 	windowsDefaultAdminUser bool,
 	enableCloudInit bool,
 	loginAccount string,
+	enableTelegraf bool,
+	telegrafConf string,
 ) *DeployInfo {
-	return &DeployInfo{
+	depInfo := &DeployInfo{
 		PublicKey:               publicKey,
 		Deploys:                 deploys,
 		Password:                password,
@@ -46,6 +48,12 @@ func NewDeployInfo(
 		EnableCloudInit:         enableCloudInit,
 		LoginAccount:            loginAccount,
 	}
+	if enableTelegraf {
+		depInfo.Telegraf = &Telegraf{
+			TelegrafConf: telegrafConf,
+		}
+	}
+	return depInfo
 }
 
 func JsonDeploysToStructs(jdeploys []jsonutils.JSONObject) []*DeployContent {

@@ -108,6 +108,14 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 			return nil, fmt.Errorf("DeployFiles: %v", err)
 		}
 	}
+	if deployInfo.Telegraf != nil {
+		if deployed, err := rootfs.DeployTelegraf(deployInfo.Telegraf.TelegrafConf); err != nil {
+			return nil, errors.Wrap(err, "deploy telegraf")
+		} else {
+			ret.TelegrafDeployed = deployed
+		}
+	}
+
 	if err = rootfs.DeployHostname(partition, hn, domain); err != nil {
 		return nil, fmt.Errorf("DeployHostname: %v", err)
 	}

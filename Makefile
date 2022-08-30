@@ -241,6 +241,21 @@ y18n-check:
 
 .PHONY: y18n-check
 
+define hostdeployer-grpc-gen
+	set -o errexit; \
+	set -o pipefail; \
+	protoc -I pkg/hostman/hostdeployer/apis \
+		--go_out=pkg/hostman/hostdeployer/apis \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=pkg/hostman/hostdeployer/apis \
+		--go-grpc_opt=paths=source_relative \
+		pkg/hostman/hostdeployer/apis/deploy.proto
+
+endef
+
+hostdeployer-grpc-gen:
+	$(hostdeployer-grpc-gen)
+
 check: fmt-check
 check: gendocgo-check
 check: goimports-check

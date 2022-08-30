@@ -624,11 +624,20 @@ func (m *SGuestManager) startDeploy(
 	}
 	enableCloudInit := jsonutils.QueryBoolean(deployParams.Body, "enable_cloud_init", false)
 	loginAccount, _ := deployParams.Body.GetString("login_account")
+	deployTelegraf := jsonutils.QueryBoolean(deployParams.Body, "deploy_telegraf", false)
+	telegrafConfig, _ := deployParams.Body.GetString("telegraf_conf")
+	if deployTelegraf && telegrafConfig == "" {
+		return nil, errors.Errorf("missing telegraf_conf")
+	}
 
 	guestInfo, err := guest.DeployFs(ctx, deployParams.UserCred,
 		deployapi.NewDeployInfo(
-			publicKey, deployapi.JsonDeploysToStructs(deploys), password, deployParams.IsInit, false,
-			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser, enableCloudInit, loginAccount))
+			publicKey, deployapi.JsonDeploysToStructs(deploys),
+			password, deployParams.IsInit, false,
+			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser,
+			enableCloudInit, loginAccount, deployTelegraf, telegrafConfig,
+		),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "Deploy guest fs")
 	} else {
