@@ -78,7 +78,7 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		}
 		message = jsonutils.Marshal(data).String()
 	case api.MOBILE:
-		message = fmt.Sprintf(`{"code": "%s"}`, verification.Token)
+		message = fmt.Sprintf(`[["code", "%s"]]`, verification.Token)
 	default:
 		// no way
 	}
