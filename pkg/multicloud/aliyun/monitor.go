@@ -625,43 +625,36 @@ func (self *SAliyunClient) GetElbMetrics(opts *cloudprovider.MetricListOptions) 
 }
 
 func (self *SAliyunClient) GetK8sMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	metricTags, tagKey := map[string]string{}, ""
+	metricName := ""
 	switch opts.MetricType {
 	case cloudprovider.K8S_NODE_METRIC_TYPE_CPU_USAGE:
-		metricTags = map[string]string{
-			"node.cpu.utilization": "",
-		}
+		metricName = "node.cpu.utilization"
 	case cloudprovider.K8S_NODE_METRIC_TYPE_MEM_USAGE:
-		metricTags = map[string]string{
-			"node.memory.utilization": "",
-		}
+		metricName = "node.memory.utilization"
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
+	result, err := self.ListMetrics("acs_k8s", metricName, opts.StartTime, opts.EndTime)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListMetrics(%s)", metricName)
+	}
 	ret := []cloudprovider.MetricValues{}
-	for metric, tag := range metricTags {
-		result, err := self.ListMetrics("acs_k8s", metric, opts.StartTime, opts.EndTime)
-		if err != nil {
-			log.Errorf("ListMetric(%s) error: %v", metric, err)
-			continue
-		}
+	for i := range result {
 		tags := map[string]string{}
-		if len(tag) > 0 && len(tagKey) > 0 {
-			tags[tagKey] = tag
+		if len(result[i].Node) > 0 {
+			tags[cloudprovider.METRIC_TAG_NODE] = result[i].Node
 		}
-		for i := range result {
-			ret = append(ret, cloudprovider.MetricValues{
-				Id:         result[i].Cluster,
-				MetricType: opts.MetricType,
-				Values: []cloudprovider.MetricValue{
-					{
-						Timestamp: time.UnixMilli(result[i].Timestamp),
-						Value:     result[i].GetValue(),
-						Tags:      tags,
-					},
+		ret = append(ret, cloudprovider.MetricValues{
+			Id:         result[i].Cluster,
+			MetricType: opts.MetricType,
+			Values: []cloudprovider.MetricValue{
+				{
+					Timestamp: time.UnixMilli(result[i].Timestamp),
+					Value:     result[i].GetValue(),
+					Tags:      tags,
 				},
-			})
-		}
+			},
+		})
 	}
 	return ret, nil
 }
