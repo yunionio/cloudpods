@@ -52,9 +52,9 @@ type SModelartsPool struct {
 	SDeletePreventableResourceBase
 
 	InstanceType string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
-	IsTrain      bool   `default:"false" create:"optional" list:"user"`
-	IsNotebook   bool   `default:"false" create:"optional" list:"user"`
-	IsInfer      bool   `default:"false" create:"optional" list:"user"`
+	WorkType     string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	CpuArch      string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // CPU 架构 x86|xarm
+
 }
 
 func (manager *SModelartsPoolManager) GetContextManagers() [][]db.IModelManager {
@@ -68,7 +68,7 @@ func (man *SModelartsPoolManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query api.ElasticSearchListInput,
+	query api.ModelartsPoolListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
@@ -95,7 +95,7 @@ func (man *SModelartsPoolManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query api.ElasticSearchListInput,
+	query api.ModelartsPoolListInput,
 ) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
@@ -120,9 +120,7 @@ func (man *SModelartsPoolManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SModelartsPoolManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ModelartsPoolCreateInput) (
-	api.ModelartsPoolCreateInput, error) {
+func (man *SModelartsPoolManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ModelartsPoolCreateInput) (api.ModelartsPoolCreateInput, error) {
 	return input, nil
 }
 
@@ -133,13 +131,13 @@ func (manager *SModelartsPoolManager) FetchCustomizeColumns(
 	objs []interface{},
 	fields stringutils2.SSortedStrings,
 	isList bool,
-) []api.ElasticSearchDetails {
-	rows := make([]api.ElasticSearchDetails, len(objs))
+) []api.ModelartsPoolDetails {
+	rows := make([]api.ModelartsPoolDetails, len(objs))
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
-		rows[i] = api.ElasticSearchDetails{
+		rows[i] = api.ModelartsPoolDetails{
 			VirtualResourceDetails: virtRows[i],
 			ManagedResourceInfo:    manRows[i],
 		}
@@ -153,42 +151,34 @@ func (manager *SModelartsPoolManager) ListItemExportKeys(ctx context.Context,
 	keys stringutils2.SSortedStrings,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-
 	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
 	}
-
 	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
 		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 		if err != nil {
 			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
 		}
 	}
-
 	return q, nil
 }
-func (self *SCloudprovider) GetPools(managerId string) ([]SElasticSearch, error) {
-	q := ElasticSearchManager.Query().Equals("cloudregion_id", self.Id)
-	if len(managerId) > 0 {
-		q = q.Equals("manager_id", managerId)
-	}
-	ret := []SElasticSearch{}
-	err := db.FetchModelObjects(ElasticSearchManager, q, &ret)
+func (self *SCloudprovider) GetPools() ([]SModelartsPool, error) {
+	q := ModelartsPoolManager.Query().Equals("manager_id", self.Id)
+	ret := []SModelartsPool{}
+	err := db.FetchModelObjects(ModelartsPoolManager, q, &ret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	return ret, nil
 }
 
-func (self *SCloudprovider) SyncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudModelartsPool) compare.SyncResult {
+func (self *SCloudprovider) SyncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudModelartsPool) compare.SyncResult {
 	// 加锁防止重入
-	log.Errorln("this is in SyncModelartsPools")
-	lockman.LockRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
-	defer lockman.ReleaseRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
+	lockman.LockRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s", self.Id))
+	defer lockman.ReleaseRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s", self.Id))
 	result := compare.SyncResult{}
-
-	dbPools, err := self.GetPools(provider.Id)
+	dbPools, err := self.GetPools()
 	if err != nil {
 		result.Error(err)
 		return result
@@ -198,17 +188,12 @@ func (self *SCloudprovider) SyncModelartsPools(ctx context.Context, userCred mcc
 	commondb := make([]SModelartsPool, 0)
 	commonext := make([]cloudprovider.ICloudModelartsPool, 0)
 	added := make([]cloudprovider.ICloudModelartsPool, 0)
-	log.Errorln("this is dbPools", dbPools)
 	// 本地和云上资源列表进行比对
 	err = compare.CompareSets(dbPools, exts, &removed, &commondb, &commonext, &added)
 	if err != nil {
 		result.Error(err)
 		return result
 	}
-	log.Errorln("this is removed", removed)
-	log.Errorln("this is commondb", commondb)
-	log.Errorln("this is commonext", commonext)
-	log.Errorln("this is added", added)
 
 	// 删除云上没有的资源
 	for i := 0; i < len(removed); i++ {
@@ -232,7 +217,7 @@ func (self *SCloudprovider) SyncModelartsPools(ctx context.Context, userCred mcc
 
 	// 创建本地没有的云上资源
 	for i := 0; i < len(added); i++ {
-		_, err := self.newFromCloudModelartsPool(ctx, userCred, provider, added[i])
+		_, err := self.newFromCloudModelartsPool(ctx, userCred, self, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -243,15 +228,15 @@ func (self *SCloudprovider) SyncModelartsPools(ctx context.Context, userCred mcc
 }
 
 // 判断资源是否可以删除
-func (self *SModelartsPool) ValidateDeleteCondition(ctx context.Context) error {
-	if self.DisableDelete.IsTrue() {
-		return httperrors.NewInvalidStatusError("ElasticSearch is locked, cannot delete")
-	}
-	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
-}
+// func (self *SModelartsPool) ValidateDeleteCondition(ctx context.Context) error {
+// 	if self.DisableDelete.IsTrue() {
+// 		return httperrors.NewInvalidStatusError("ElasticSearch is locked, cannot delete")
+// 	}
+// 	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
+// }
 
 func (self *SModelartsPool) syncRemoveCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.Delete(ctx, userCred)
+	return self.RealDelete(ctx, userCred)
 }
 
 func (self *SModelartsPool) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -262,20 +247,17 @@ func (self *SModelartsPool) PostCreate(ctx context.Context, userCred mcclient.To
 func (self *SModelartsPool) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	var err = func() error {
 		params := jsonutils.NewDict()
-		task, err := taskman.TaskManager.
-			NewTask(ctx, "ModelartsPoolCreateTask", self, userCred, params, parentTaskId, "", nil)
+		task, err := taskman.TaskManager.NewTask(ctx, "ModelartsPoolCreateTask", self, userCred, params, parentTaskId, "", nil)
 		if err != nil {
-			log.Errorln("this is new Task error", err)
 			return errors.Wrapf(err, "NewTask")
 		}
 		return task.ScheduleRun(nil)
 	}()
 	if err != nil {
-		self.SetStatus(userCred, api.NAS_STATUS_CREATE_FAILED, err.Error())
-		log.Errorln("this is run Task error", err)
+		self.SetStatus(userCred, api.MODELARTS_POOL_STATUS_ERROR, err.Error())
 		return err
 	}
-	self.SetStatus(userCred, api.NAS_STATUS_CREATING, "")
+	self.SetStatus(userCred, api.MODELARTS_POOL_STATUS_CREATING, "")
 	return nil
 }
 
@@ -287,16 +269,16 @@ func (self *SModelartsPool) GetCloudproviderId() string {
 	return self.ManagerId
 }
 
-func (self *SModelartsPool) GetIModelartsPoolById(ctx context.Context) (cloudprovider.ICloudModelartsPool, error) {
-	if len(self.ExternalId) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
-	}
-	iProvider, err := self.GetDriver(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "self.GetIRegion")
-	}
-	return iProvider.GetIModelartsPoolById(self.ExternalId)
-}
+// func (self *SModelartsPool) GetIModelartsPoolById(ctx context.Context) (cloudprovider.ICloudModelartsPool, error) {
+// 	if len(self.ExternalId) == 0 {
+// 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
+// 	}
+// 	iProvider, err := self.GetDriver(ctx)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "self.GetIRegion")
+// 	}
+// 	return iProvider.GetIModelartsPoolById(self.ExternalId)
+// }
 
 func (self *SModelartsPool) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
@@ -324,7 +306,7 @@ func (self *SModelartsPool) StartDeleteTask(ctx context.Context, userCred mcclie
 	if err != nil {
 		return err
 	}
-	self.SetStatus(userCred, api.Modelarts_Pool_STATUS_DELETING, "")
+	self.SetStatus(userCred, api.MODELARTS_POOL_STATUS_DELETING, "")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -334,29 +316,39 @@ func (self *SModelartsPool) GetIModelartsPool() (cloudprovider.ICloudModelartsPo
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
 	}
-	return self.GetIModelartsPoolById(context.Background())
+	iProvider, err := self.GetDriver(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetDriver")
+	}
+	return iProvider.GetIModelartsPoolById(self.ExternalId)
 }
 
 // 同步资源属性
 func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudModelartsPool) error {
+	instanceName := ext.GetInstanceType()
+	sku := SModelartsPoolSku{}
+	ModelartsPoolSkuManager.Query().Equals("name", instanceName).DebugQuery()
+	err := ModelartsPoolSkuManager.Query().Equals("name", instanceName).First(&sku)
+	if err != nil {
+		return errors.Wrapf(err, "get modelartsPoolSku")
+	}
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		self.ExternalId = ext.GetGlobalId()
 		self.Status = ext.GetStatus()
 		self.BillingType = ext.GetBillingType()
-		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
-			if expiredAt := ext.GetExpiredAt(); !expiredAt.IsZero() {
-				self.ExpiredAt = expiredAt
-			}
-			self.AutoRenew = ext.IsAutoRenew()
-		}
-		log.Errorln("this is SyncWithCloudModelartsPool self", self)
+		// self.BillingCycle = ext.GetBillingCycle()
+		self.InstanceType = instanceName
+		self.WorkType = ext.GetWorkType()
+		self.CpuArch = sku.CpuArch
 		return nil
 	})
 	if err != nil {
 		return errors.Wrapf(err, "db.Update")
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	err = syncVirtualResourceMetadata(ctx, userCred, self, ext)
+	if err != nil {
+		return errors.Wrapf(err, "syncVirtualResourceMetadata")
+	}
 	if provider := self.GetCloudprovider(); provider != nil {
 		SyncCloudProject(userCred, self, provider.GetOwnerId(), ext, provider.Id)
 	}
@@ -365,48 +357,84 @@ func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, user
 }
 
 func (self *SCloudprovider) newFromCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudModelartsPool) (*SModelartsPool, error) {
-	es := SModelartsPool{}
-	es.SetModelManager(ModelartsPoolManager, &es)
+	pool := SModelartsPool{}
+	pool.SetModelManager(ModelartsPoolManager, &pool)
 
-	es.ExternalId = ext.GetGlobalId()
-	es.ManagerId = provider.Id
-	es.IsEmulated = ext.IsEmulated()
-	es.Status = ext.GetStatus()
-
+	pool.ExternalId = ext.GetGlobalId()
+	pool.ManagerId = provider.Id
+	pool.IsEmulated = ext.IsEmulated()
+	pool.Status = ext.GetStatus()
+	pool.WorkType = ext.GetWorkType()
+	pool.InstanceType = ext.GetInstanceType()
 	if createdAt := ext.GetCreatedAt(); !createdAt.IsZero() {
-		es.CreatedAt = createdAt
+		pool.CreatedAt = createdAt
 	}
+	sku := SModelartsPoolSku{}
+	err := ModelartsPoolSkuManager.Query().Equals("Name", pool.InstanceType).First(&sku)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ModelartsPoolSkuManager get cpuArch")
+	}
+	pool.CpuArch = sku.CpuArch
 
-	es.BillingType = ext.GetBillingType()
-	if es.BillingType == billing_api.BILLING_TYPE_PREPAID {
+	pool.BillingType = ext.GetBillingType()
+	if pool.BillingType == billing_api.BILLING_TYPE_PREPAID {
 		if expired := ext.GetExpiredAt(); !expired.IsZero() {
-			es.ExpiredAt = expired
+			pool.ExpiredAt = expired
 		}
-		es.AutoRenew = ext.IsAutoRenew()
+		pool.AutoRenew = ext.IsAutoRenew()
 	}
 
-	var err error
 	err = func() error {
 		// 这里加锁是为了防止名称重复
 		lockman.LockRawObject(ctx, ModelartsPoolManager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, ModelartsPoolManager.Keyword(), "name")
 
-		es.Name, err = db.GenerateName(ctx, ModelartsPoolManager, provider.GetOwnerId(), ext.GetName())
+		pool.Name, err = db.GenerateName(ctx, ModelartsPoolManager, provider.GetOwnerId(), ext.GetName())
 		if err != nil {
 			return errors.Wrapf(err, "db.GenerateName")
 		}
-		return ModelartsPoolManager.TableSpec().Insert(ctx, &es)
+		return ModelartsPoolManager.TableSpec().Insert(ctx, &pool)
 	}()
 	if err != nil {
-		return nil, errors.Wrapf(err, "newFromCloudElasticSearch.Insert")
+		return nil, errors.Wrapf(err, "newFromCloudModelartsPool.Insert")
 	}
 
 	// 同步标签
-	syncVirtualResourceMetadata(ctx, userCred, &es, ext)
+	syncVirtualResourceMetadata(ctx, userCred, &pool, ext)
 	// 同步项目归属
-	SyncCloudProject(userCred, &es, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(userCred, &pool, provider.GetOwnerId(), ext, provider.Id)
 
-	db.OpsLog.LogEvent(&es, db.ACT_CREATE, es.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(&pool, db.ACT_CREATE, pool.GetShortDesc(ctx), userCred)
 
-	return &es, nil
+	return &pool, nil
+}
+
+func (self *SModelartsPool) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	pool := api.ModelartsPoolUpdateInput{}
+	data.Unmarshal(&pool)
+	opts := &cloudprovider.ModelartsPoolUpdateOption{
+		Id:       self.ExternalId,
+		WorkType: pool.WorkType,
+	}
+	self.VirtualModelManager()
+	iProvider, err := self.GetDriver(ctx)
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "self.GetDriver"))
+		return
+	}
+	res, err := iProvider.UpdateIModelartsPool(opts)
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "self.UpdateIModelartsPool"))
+		return
+	}
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		self.WorkType = res.GetWorkType()
+		return nil
+	})
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "diff"))
+		return
+	}
+	self.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 }

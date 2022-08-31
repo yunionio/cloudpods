@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -25,13 +26,14 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
-// 算力资源池
 type SModelartsPool struct {
 	client *SHuaweiClient
 
-	Metadata SModelartsPoolMetadata `json:"metadata"`
-	Spec     SModelartsPoolSpec     `json:"spec"`
-	Status   SModelartsPoolStatus   `json:"status"`
+	Metadata     SModelartsPoolMetadata `json:"metadata"`
+	Spec         SModelartsPoolSpec     `json:"spec"`
+	Status       SModelartsPoolStatus   `json:"status"`
+	InstanceType string
+	WorkType     string
 }
 
 type SModelartsPoolMetadata struct {
@@ -60,7 +62,7 @@ type SModelartsPoolMetadataAnnotations struct {
 type SModelartsPoolSpec struct {
 	Type     string                   `json:"type"`
 	Scope    []string                 `json:"scope"`
-	Resource []SModelartsPoolResource `json:"resource"`
+	Resource []SModelartsPoolResource `json:"resources"`
 }
 
 type SModelartsPoolResource struct {
@@ -74,15 +76,8 @@ type SModelartsPoolStatus struct {
 	Message string `json:"message"`
 }
 
-type PredefinedFlavors struct {
-}
-
-type PoolSfsTurbo struct {
-}
-
 func (self *SHuaweiClient) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, error) {
 	pools := make([]SModelartsPool, 0)
-	log.Errorln("this is in GetIModelartsPools")
 	resObj, err := self.modelartsPoolList("pools", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetPools")
@@ -100,17 +95,7 @@ func (self *SHuaweiClient) GetIModelartsPools() ([]cloudprovider.ICloudModelarts
 }
 
 func (self *SHuaweiClient) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
-	scopeArr := make([]string, 0)
-	if args.IsTrain {
-		scopeArr = append(scopeArr, "Train")
-	}
-	if args.IsInfer {
-		scopeArr = append(scopeArr, "Infer")
-	}
-	if args.IsNotebook {
-		scopeArr = append(scopeArr, "Notebook")
-	}
-
+	scopeArr := strings.Split(args.WorkType, ",")
 	params := map[string]interface{}{
 		"apiVersion": "v2",
 		"kind":       "Pool",
@@ -135,32 +120,52 @@ func (self *SHuaweiClient) CreateIModelartsPool(args *cloudprovider.ModelartsPoo
 			},
 		},
 	}
-	res, err := self.modelartsPoolCreate("pools", params)
+	obj, err := self.modelartsPoolCreate("pools", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetPools")
 	}
-	id, err := res.GetString("metadata", "name")
-	if err != nil {
-		return nil, errors.Wrap(err, "metadata.name")
+	pool := &SModelartsPool{}
+	obj.Unmarshal(&pool)
+	res := []cloudprovider.ICloudModelartsPool{}
+	for i := 0; i < 1; i++ {
+		pool.client = self
+		res = append(res, pool)
 	}
-	pool, err := self.GetIModelartsPoolById(id)
-	if err != nil {
-		return nil, errors.Wrap(err, "region.GetIModelartsPoolDetail")
-	}
-	return pool, nil
+
+	return res[0], nil
 }
 
 func (self *SHuaweiClient) DeletePool(poolName string) (jsonutils.JSONObject, error) {
 	return self.modelartsPoolDelete("pools", poolName, nil)
 }
 
-func (self *SHuaweiClient) UpdatePool(poolName string) (jsonutils.JSONObject, error) {
-	return self.modelartsPoolUpdate(poolName, nil)
+func (self *SHuaweiClient) Update(args *cloudprovider.ModelartsPoolUpdateOption) (cloudprovider.ICloudModelartsPool, error) {
+	scopeArr := strings.Split(args.WorkType, ",")
+	params := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"scope": scopeArr,
+		},
+	}
+	obj, err := self.modelartsPoolUpdate(args.Id, params)
+	if err != nil {
+		return nil, errors.Wrap(err, "modelartsPoolUpdate")
+	}
+	pool := &SModelartsPool{}
+	obj.Unmarshal(&pool)
+	res := []cloudprovider.ICloudModelartsPool{}
+	for i := 0; i < 1; i++ {
+		pool.client = self
+		res = append(res, pool)
+	}
+	return res[0], nil
 }
 
 func (self *SHuaweiClient) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
 	obj, err := self.modelartsPoolById(poolId, nil)
 	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "")
+		}
 		return nil, errors.Wrap(err, "region.modelartsPoolByName")
 	}
 	pool := &SModelartsPool{}
@@ -264,7 +269,7 @@ func (self *SModelartsPool) GetName() string {
 }
 
 func (self *SModelartsPool) GetStatus() string {
-	return self.Status.Phase
+	return strings.ToLower(self.Status.Phase)
 }
 
 func (self *SModelartsPool) GetSysTags() map[string]string {
@@ -285,7 +290,7 @@ func (self *SModelartsPool) GetBillingType() string {
 
 // 获取资源归属项目Id
 func (self *SModelartsPool) GetProjectId() string {
-	return ""
+	return self.Metadata.Name
 }
 
 func (self *SModelartsPool) GetExpiredAt() time.Time {
@@ -301,7 +306,6 @@ func (self *SModelartsPool) IsAutoRenew() bool {
 }
 
 func (self *SModelartsPool) Renew(bc billing.SBillingCycle) error {
-
 	return nil
 }
 
@@ -312,7 +316,7 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 func (self *SModelartsPool) Refresh() error {
 	pool, err := self.client.modelartsPoolById(self.GetId(), nil)
 	if err != nil {
-		return errors.Wrapf(err, "GetFileSystem(%s)", self.GetId())
+		return errors.Wrapf(err, "GetModelartsPool(%s)", self.GetId())
 	}
 	return jsonutils.Update(self, pool)
 }
@@ -328,4 +332,13 @@ func (self *SModelartsPool) Delete() error {
 		return err
 	}
 	return nil
+}
+
+func (self *SModelartsPool) GetInstanceType() string {
+	return self.Spec.Resource[0].Flavor
+
+}
+
+func (self *SModelartsPool) GetWorkType() string {
+	return strings.Join(self.Spec.Scope, ",")
 }

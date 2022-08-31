@@ -25,7 +25,7 @@ func init() {
 		PoolName string `help:"Pool Name"`
 	}
 	shellutils.R(&ModelartsResourceflavorsListOption{}, "modelarts-sku-list", "List Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsResourceflavorsListOption) error {
-		resourceflavors, err := cli.GetResourceflavors()
+		resourceflavors, err := cli.GetClient().GetIModelartsPoolSku()
 		if err != nil {
 			return err
 		}

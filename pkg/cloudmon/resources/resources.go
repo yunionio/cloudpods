@@ -678,7 +678,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 
 			resources = self.KubeClusters.getResources(manager.Id)
 			clusters := map[string]api.KubeClusterDetails{}
-			jsonutils.Update(&buckets, resources)
+			jsonutils.Update(&clusters, resources)
 			err = driver.CollectK8sMetrics(ctx, manager, provider, clusters, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectK8sMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)

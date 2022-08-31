@@ -29,24 +29,23 @@ type ModelartsPoolCreateOption struct {
 	Name         string `help:"Name"`
 	ManagerId    string `help:"Manager Id"`
 	InstanceType string `help:"Instance Type"`
-	IsTrain      *bool
-	IsInfer      *bool
-	IsNotebook   *bool
+	WorkType     string `help:"Work Type"`
+	CpuArch      string `help:"Cpu Arch"`
 }
 
 func (opts *ModelartsPoolCreateOption) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
 }
 
-type ModelartsPoolDeleteOption struct {
-	ID     string `help:"Id"`
-	PoolId string `help:"Pool Id"`
+type ModelartsPoolUpdateOption struct {
+	ID       string `help:"Id"`
+	WorkType string `help:"Work Type"`
 }
 
-func (opts *ModelartsPoolDeleteOption) GetId() string {
+func (opts *ModelartsPoolUpdateOption) GetId() string {
 	return opts.ID
 }
 
-func (opts *ModelartsPoolDeleteOption) Params() (jsonutils.JSONObject, error) {
+func (opts *ModelartsPoolUpdateOption) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
 }

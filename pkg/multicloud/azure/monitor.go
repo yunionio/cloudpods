@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -169,17 +170,21 @@ func (self *SAzureClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) (
 	if strings.Contains(opts.ResourceId, "microsoft.classiccompute/virtualmachines") {
 		metricnamespace = "microsoft.classiccompute/virtualmachines"
 	}
-	ret, err := self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, "", "", opts.StartTime, opts.EndTime)
+	ret, err := self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, nil, "", opts.StartTime, opts.EndTime)
 	if err != nil {
 		return nil, err
 	}
 
-	for metricType, name := range map[cloudprovider.TMetricType]string{
-		cloudprovider.VM_METRIC_TYPE_MEM_USAGE:  "/builtin/memory/percentusedmemory",
-		cloudprovider.VM_METRIC_TYPE_DISK_USAGE: "/builtin/filesystem/percentusedspace",
+	for metricType, names := range map[cloudprovider.TMetricType][]string{
+		cloudprovider.VM_METRIC_TYPE_MEM_USAGE:  {"/builtin/memory/percentusedmemory", "\\Memory\\% Committed Bytes In Use"},
+		cloudprovider.VM_METRIC_TYPE_DISK_USAGE: {"/builtin/filesystem/percentusedspace", "\\LogicalDisk(_Total)\\% Free Space"},
 	} {
-		filter := fmt.Sprintf("name.value eq '%s'", name)
-		metricDefinitions, err := self.getMetricDefinitions(opts.ResourceId, filter)
+		filters := []string{}
+		for _, name := range names {
+			filter := fmt.Sprintf("name.value eq '%s'", name)
+			filters = append(filters, filter)
+		}
+		metricDefinitions, err := self.getMetricDefinitions(opts.ResourceId, strings.Join(filters, " or "))
 		if err != nil {
 			log.Errorf("getMetricDefinitions error: %v", err)
 			continue
@@ -206,7 +211,8 @@ func (self *SAzureClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) (
 					values := &AzureTableMetricData{}
 					resp.Unmarshal(values)
 					for _, v := range values.Value {
-						if v.CounterName != name {
+						name := strings.ReplaceAll(v.CounterName, `\\`, `\`)
+						if !utils.IsInStringArray(name, names) {
 							continue
 						}
 						if v.Timestamp.After(opts.StartTime) && v.Timestamp.Before(opts.EndTime) {
@@ -231,27 +237,20 @@ func (self *SAzureClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) (
 func (self *SAzureClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	metricnamespace := "Microsoft.Cache/redis"
 	metricnames := "percentProcessorTime,usedmemorypercentage,connectedclients,operationsPerSecond,alltotalkeys,expiredkeys,usedmemory,serverLoad,errors"
-	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, "", "", opts.StartTime, opts.EndTime)
+	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, nil, "", opts.StartTime, opts.EndTime)
 }
 
 func (self *SAzureClient) GetLbMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	metricnamespace := "Microsoft.Network/loadBalancers"
 	metricnames := "SnatConnectionCount,UsedSnatPorts"
-	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, "", "", opts.StartTime, opts.EndTime)
+	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, nil, "", opts.StartTime, opts.EndTime)
 }
 
 func (self *SAzureClient) GetK8sMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	filter := ""
 	metricnamespace := "Microsoft.ContainerService/managedClusters"
 	metricnames := "node_cpu_usage_percentage,node_memory_rss_percentage,node_disk_usage_percentage,node_network_in_bytes,node_network_out_bytes"
-	if len(opts.Node) > 0 {
-		filter = fmt.Sprintf("node eq '%s'", opts.Node)
-	} else if len(opts.Pod) > 0 {
-		metricnamespace = "insights.container/pods"
-		metricnames = "oomKilledContainerCount,restartingContainerCount"
-	}
-
-	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, "", filter, opts.StartTime, opts.EndTime)
+	filter := fmt.Sprintf("node eq '*'")
+	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, nil, filter, opts.StartTime, opts.EndTime)
 }
 
 func (self *SAzureClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
@@ -282,7 +281,7 @@ func (self *SAzureClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) (
 			if result.Value[i].Name == "master" {
 				continue
 			}
-			metrics, err := self.getMetricValues(result.Value[i].ID, metricnamespace, metricnames, result.Value[i].Name, "", opts.StartTime, opts.EndTime)
+			metrics, err := self.getMetricValues(result.Value[i].ID, metricnamespace, metricnames, map[string]string{cloudprovider.METRIC_TAG_DATABASE: result.Value[i].Name}, "", opts.StartTime, opts.EndTime)
 			if err != nil {
 				log.Errorf("error: %v", err)
 				continue
@@ -299,7 +298,7 @@ func (self *SAzureClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) (
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, opts.Engine)
 	}
-	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, "", "", opts.StartTime, opts.EndTime)
+	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, nil, "", opts.StartTime, opts.EndTime)
 }
 
 type MetrifDefinitions struct {
@@ -350,7 +349,7 @@ func (self *SAzureClient) getMetricDefinitions(resourceId, filter string) (*Metr
 	return result, nil
 }
 
-func (self *SAzureClient) getMetricValues(resourceId, metricnamespace, metricnames string, database, filter string, startTime, endTime time.Time) ([]cloudprovider.MetricValues, error) {
+func (self *SAzureClient) getMetricValues(resourceId, metricnamespace, metricnames string, metricTag map[string]string, filter string, startTime, endTime time.Time) ([]cloudprovider.MetricValues, error) {
 	ret := []cloudprovider.MetricValues{}
 	params := url.Values{}
 	params.Set("interval", "PT1M")
@@ -436,20 +435,21 @@ func (self *SAzureClient) getMetricValues(resourceId, metricnamespace, metricnam
 			metric.MetricType = cloudprovider.K8S_NODE_METRIC_TYPE_NET_BPS_RX
 		case "node_network_out_bytes":
 			metric.MetricType = cloudprovider.K8S_NODE_METRIC_TYPE_NET_BPS_TX
-		case "oomKilledContainerCount":
-			metric.MetricType = cloudprovider.K8S_POD_METRIC_TYPE_OOM_CONTAINER_COUNT
-		case "restartingContainerCount":
-			metric.MetricType = cloudprovider.K8S_POD_METRIC_TYPE_RESTARTING_COUNT
 		default:
 			log.Warningf("incognizance metric type %s", element.Name.Value)
 			continue
 		}
 		for _, timeserie := range element.Timeseries {
-			for _, data := range timeserie.Data {
-				tags := map[string]string{}
-				if len(database) > 0 {
-					tags["database"] = database
+			tags := map[string]string{}
+			for _, metadata := range timeserie.Metadatavalues {
+				if metadata.Name.Value == "node" { //k8s node
+					tags[cloudprovider.METRIC_TAG_NODE] = metadata.Value
 				}
+			}
+			for k, v := range metricTag {
+				tags[k] = v
+			}
+			for _, data := range timeserie.Data {
 				metric.Values = append(metric.Values, cloudprovider.MetricValue{
 					Timestamp: data.TimeStamp,
 					Value:     data.GetValue(),

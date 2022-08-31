@@ -110,11 +110,6 @@ func (self *SBaseManager) _list(request requests.IRequest, responseKey string) (
 		return &responses.ListResult{}, nil
 	}
 
-	apiVer, _ := body.GetString("apiVersion")
-	if apiVer == "v2" {
-		responseKey = "items"
-	}
-
 	rets, err := body.GetArray(responseKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "body.GetArray %s", responseKey)

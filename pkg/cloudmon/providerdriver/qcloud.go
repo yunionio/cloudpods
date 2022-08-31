@@ -352,3 +352,8 @@ func (self *QcloudCollect) CollectRedisMetrics(ctx context.Context, manager api.
 	log.Infof("send %d redis with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
 	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
 }
+
+func (self *QcloudCollect) CollectK8sMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.KubeClusterDetails, start, end time.Time) error {
+	base := &SCollectByResourceIdDriver{}
+	return base.CollectK8sMetrics(ctx, manager, provider, res, start, end)
+}

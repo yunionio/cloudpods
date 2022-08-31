@@ -72,7 +72,6 @@ func (self *HuaweiCollect) CollectModelartsPoolMetrics(ctx context.Context, mana
 			}
 
 			data, err := provider.GetMetrics(opts)
-			log.Errorln("this is data", data)
 			if err != nil {
 				if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 					log.Errorf("get modelarts_pool %s(%s) error: %v", pool.Name, pool.Id, err)
@@ -107,7 +106,6 @@ func (self *HuaweiCollect) CollectModelartsPoolMetrics(ctx context.Context, mana
 		}(res[i])
 	}
 	wg.Wait()
-	log.Errorln("this is metrics", metrics)
 	s := auth.GetAdminSession(ctx, options.Options.Region)
 	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
 	if err != nil {

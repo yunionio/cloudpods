@@ -10,12 +10,15 @@ type ModelartsPoolCreateOption struct {
 	InstanceType string
 	NetworkId    string
 
-	IsTrain    bool
-	IsInfer    bool
-	IsNotebook bool
+	WorkType string
 }
 
 type Azs struct {
 	Az    string `json:"az"`
 	Count int    `json:"count"`
+}
+
+type ModelartsPoolUpdateOption struct {
+	Id       string
+	WorkType string
 }

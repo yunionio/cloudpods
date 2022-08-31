@@ -64,8 +64,8 @@ func init() {
 		log.Infoln("this is res:", res)
 		return nil
 	})
-	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-update", "Update Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
-		res, err := cli.GetClient().UpdatePool(args.PoolId)
+	shellutils.R(&cloudprovider.ModelartsPoolUpdateOption{}, "modelarts-pool-update", "Update Modelarts Pool", func(cli *huawei.SRegion, args *cloudprovider.ModelartsPoolUpdateOption) error {
+		res, err := cli.GetClient().Update(args)
 		if err != nil {
 			return err
 		}
@@ -84,26 +84,4 @@ func init() {
 		// printList(res.Metrics, len(res.Metrics), 0, 0, nil)
 		return nil
 	})
-	/*
-		shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-network-list", "Delete Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolDeleteOption) error {
-			log.Infof("this is args.poolName", args.PoolName)
-			res, err := cli.GetPoolNetworks(args.PoolName)
-			if err != nil {
-				return err
-			}
-			// printList(pools, len(pools), 0, 0, nil)
-			log.Infoln("this is res:", res)
-			return nil
-		})
-
-		shellutils.R(&ModelartsPoolDeleteOption{}, "modelarts-pool-network-create", "Delete Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolDeleteOption) error {
-			log.Infof("this is args.poolName", args.PoolName)
-			res, err := cli.CreatePoolNetworks(args.PoolName)
-			if err != nil {
-				return err
-			}
-			// printList(pools, len(pools), 0, 0, nil)
-			log.Infoln("this is res:", res)
-			return nil
-		})*/
 }

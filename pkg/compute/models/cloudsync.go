@@ -1881,13 +1881,15 @@ func syncPublicCloudProviderInfo(
 			}
 		}
 	}
-	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_MODELARTES_POOL, driver.GetCapabilities()) {
-		log.Errorln("this is IsInStringArray", driver.GetAccountId())
+
+	if cloudprovider.IsSupportModelartsPoolSku(driver) {
+		syncModelartsPoolSkus(ctx, userCred, syncResults, provider, driver)
+	}
+
+	if cloudprovider.IsSupportModelartsPool(driver) {
 		syncModelartsPools(ctx, userCred, syncResults, provider, driver)
 	}
 
-	if cloudprovider.IsSupportCompute(driver) {
-	}
 	return nil
 }
 
@@ -2349,15 +2351,25 @@ func syncTablestore(ctx context.Context, userCred mcclient.TokenCredential, sync
 }
 
 func syncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider) error {
-	log.Errorln("this is in syncModelartsPools")
 	ipools, err := driver.GetIModelartsPools()
 	if err != nil {
 		msg := fmt.Sprintf("GetIModelartsPools for provider %s failed %s", err, ipools)
 		log.Errorf(msg)
 		return err
 	}
-	log.Errorln("this is before result")
-	result := provider.SyncModelartsPools(ctx, userCred, provider, ipools)
+	result := provider.SyncModelartsPools(ctx, userCred, ipools)
 	log.Infof("SyncModelartsPools for region %s result: %s", provider.GetName(), result.Result())
+	return nil
+}
+
+func syncModelartsPoolSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider) error {
+	ipools, err := driver.GetIModelartsPoolSku()
+	if err != nil {
+		msg := fmt.Sprintf("GetIModelartsPoolSku for provider %s failed %s", err, ipools)
+		log.Errorf(msg)
+		return err
+	}
+	result := provider.SyncModelartsPoolSkus(ctx, userCred, ipools)
+	log.Infof("SyncModelartsPoolSkus for region %s result: %s", provider.GetName(), result.Result())
 	return nil
 }

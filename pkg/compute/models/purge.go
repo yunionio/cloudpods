@@ -2167,3 +2167,21 @@ func (manager *SModelartsPoolManager) purgeAll(ctx context.Context, userCred mcc
 	}
 	return nil
 }
+
+func (manager *SModelartsPoolSkuManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	poolSku := []SModelartsPoolSku{}
+	err := fetchByManagerId(manager, providerId, &poolSku)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range poolSku {
+		lockman.LockObject(ctx, &poolSku[i])
+		defer lockman.ReleaseObject(ctx, &poolSku[i])
+
+		err := poolSku[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "modelarts pool delete")
+		}
+	}
+	return nil
+}

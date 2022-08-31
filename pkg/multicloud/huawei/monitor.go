@@ -524,12 +524,6 @@ func (self *SHuaweiClient) getModelartsPoolMetrics(opts *cloudprovider.MetricLis
 			ret.MetricType = cloudprovider.MODELARTS_POOL_METRIC_TYPE_DISK_CAPACITY
 		case "diskUsedRate":
 			ret.MetricType = cloudprovider.MODELARTS_POOL_METRIC_TYPE_DISK_USAGE
-		case "rds009_tps":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_TPS
-		case "rds013_innodb_reads":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_INNODB_READ_BPS
-		case "rds014_innodb_writes":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_INNODB_WRITE_BPS
 		default:
 			log.Warningf("invalid metricName %s for %s %s", metricData[i].Metric.MetricName, opts.ResourceType, opts.ResourceId)
 			continue

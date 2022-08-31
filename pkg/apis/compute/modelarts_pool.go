@@ -5,45 +5,32 @@ import (
 )
 
 const (
-	MODELARTS_POOL_STATUS_RUNNING  = "Running"
-	Modelarts_Pool_STATUS_ABNORMAL = "Abnormal"
-	Modelarts_Pool_STATUS_CREATING = "Creating"
-	Modelarts_Pool_STATUS_DELETING = "Deleting"
-	Modelarts_Pool_STATUS_ERROR    = "Error"
+	MODELARTS_POOL_STATUS_RUNNING  = "running"
+	MODELARTS_POOL_STATUS_ABNORMAL = "abnormal"
+	MODELARTS_POOL_STATUS_CREATING = "creating"
+	MODELARTS_POOL_STATUS_DELETING = "deleting"
+	MODELARTS_POOL_STATUS_ERROR    = "error"
 )
 
-// 资源创建参数, 目前仅站位
 type ModelartsPoolCreateInput struct {
 	apis.StatusInfrasResourceBaseCreateInput
-
-	// Metadata ModelartsPoolMetadata `json:"meatdata"`
-	// Spec     ModelartsPoolSpec     `json:"spec"`
-
-	ManagerId string `json:"manager_id"`
+	CloudproviderResourceInput
 }
 
-type ModelartsPoolMetadata struct {
-}
-
-type ModelartsPoolSpec struct {
+type ModelartsPoolUpdateInput struct {
+	apis.StatusInfrasResourceBaseCreateInput
+	CloudproviderResourceInput
+	WorkType string `json:"work_type"`
 }
 
 // 资源返回详情
 type ModelartsPoolDetails struct {
 	apis.SVirtualResourceBase
+	apis.VirtualResourceDetails
+
 	apis.SExternalizedResourceBase
 	SBillingResourceBase
 	ManagedResourceInfo
-}
-
-// 资源列表请求参数
-type PoolhListInput struct {
-	apis.VirtualResourceListInput
-	apis.ExternalizedResourceBaseListInput
-	apis.DeletePreventableResourceBaseListInput
-
-	RegionalFilterListInput
-	ManagedResourceListInput
 }
 
 func (self ModelartsPoolDetails) GetMetricTags() map[string]string {
@@ -58,4 +45,11 @@ func (self ModelartsPoolDetails) GetMetricTags() map[string]string {
 		"account":             self.Account,
 	}
 	return ret
+}
+
+type ModelartsPoolListInput struct {
+	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+	ManagedResourceListInput
+	apis.DeletePreventableResourceBaseListInput
 }

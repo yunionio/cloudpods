@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/timeutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -264,7 +266,7 @@ func (self *SHuaweiClient) modelartsPoolUpdate(poolName string, params map[strin
 	urlValue.Add("time_range", "")
 	urlValue.Add("statistics", "")
 	urlValue.Add("period", "")
-	return self.request(httputils.PATCH, uri, urlValue, params)
+	return self.patchRequest(httputils.PATCH, uri, urlValue, params)
 }
 
 func (self *SHuaweiClient) modelartsPoolMonitor(poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
@@ -272,8 +274,8 @@ func (self *SHuaweiClient) modelartsPoolMonitor(poolName string, params map[stri
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
-func (self *SHuaweiClient) modelartsResourceflavors(regionId, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
+func (self *SHuaweiClient) modelartsResourceflavors(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s", self.clientRegion, self.projectId, resource)
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
@@ -563,6 +565,13 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 			HealthStatus:     project.GetHealthStatus(),
 			DefaultProjectId: "0",
 		}
+		for j := range self.iregions {
+			region := self.iregions[j].(*SRegion)
+			if strings.Contains(project.Name, region.ID) {
+				s.Desc = region.Locales.ZhCN
+				break
+			}
+		}
 
 		subAccounts = append(subAccounts, s)
 	}
@@ -736,6 +745,7 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_NAS,
 		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_MODELARTES_POOL,
+		cloudprovider.CLOUD_CAPABILITY_MODELARTES_POOL_SKU,
 	}
 	// huawei objectstore is shared across projects(subscriptions)
 	// to avoid multiple project access the same bucket
@@ -802,4 +812,35 @@ func (self *SHuaweiClient) initOwner() error {
 
 	self.ownerId = ownerId
 	return nil
+}
+
+func (self *SHuaweiClient) patchRequest(method httputils.THttpMethod, url string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	client := self.getAkClient()
+	if len(query) > 0 {
+		url = fmt.Sprintf("%s?%s", url, query.Encode())
+	}
+	var body jsonutils.JSONObject = nil
+	if len(params) > 0 {
+		body = jsonutils.Marshal(params)
+	}
+	header := http.Header{}
+	if len(self.projectId) > 0 {
+		header.Set("X-Project-Id", self.projectId)
+	}
+	var bodystr string
+	if !gotypes.IsNil(body) {
+		bodystr = body.String()
+	}
+	jbody := strings.NewReader(bodystr)
+	header.Set("Content-Length", strconv.FormatInt(int64(len(bodystr)), 10))
+	header.Set("Content-Type", "application/merge-patch+json")
+	resp, err := httputils.Request(client, context.Background(), method, url, header, jbody, self.debug)
+	_, respValue, err := httputils.ParseJSONResponse(bodystr, resp, err, self.debug)
+	if err != nil {
+		if e, ok := err.(*httputils.JSONClientError); ok && e.Code == 404 {
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+		}
+		return nil, err
+	}
+	return respValue, err
 }

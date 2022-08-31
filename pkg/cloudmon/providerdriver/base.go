@@ -20,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -29,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
@@ -540,62 +538,58 @@ func (self *SCollectByResourceIdDriver) CollectK8sMetrics(ctx context.Context, m
 				log.Infof("skip collect %s %s(%s) metric, because not with local kubeserver", vm.Name, manager.Name, manager.Id)
 				return
 			}
-			params := jsonutils.Marshal(map[string]interface{}{
-				"cluster": vm.ExternalClusterId,
-				"scope":   "system",
-				"limit":   100,
-			})
-			resp, err := k8s.K8sNodes.List(s, params)
+			opts := &cloudprovider.MetricListOptions{
+				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_K8S,
+				ResourceId:   vm.ExternalId,
+				RegionExtId:  vm.RegionExtId,
+				StartTime:    start,
+				EndTime:      end,
+			}
+			data, err := provider.GetMetrics(opts)
 			if err != nil {
-				log.Errorf("Pods.List error: %v", err)
+				if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("get %s %s(%s) error: %v", opts.ResourceType, vm.Name, vm.Id, err)
+					return
+				}
 				return
 			}
-			nodes := []struct {
-				Id   string
-				Name string
-			}{}
-			jsonutils.Update(&nodes, resp.Data)
-			for i := range nodes {
-				opts := &cloudprovider.MetricListOptions{
-					ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_K8S,
-					ResourceId:   vm.ExternalId,
-					RegionExtId:  vm.RegionExtId,
-					StartTime:    start,
-					EndTime:      end,
-
-					Node: nodes[i].Name,
-				}
-				data, err := provider.GetMetrics(opts)
-				if err != nil {
-					if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-						log.Errorf("get %s %s(%s) error: %v", opts.ResourceType, vm.Name, vm.Id, err)
-						continue
-					}
-					continue
-				}
-				for _, values := range data {
-					for _, value := range values.Values {
-						metric := influxdb.SMetricData{
-							Name:      values.MetricType.Name(),
-							Timestamp: value.Timestamp,
-							Tags:      []influxdb.SKeyValue{},
-							Metrics: []influxdb.SKeyValue{
-								{
-									Key:   values.MetricType.Key(),
-									Value: strconv.FormatFloat(value.Value, 'E', -1, 64),
-								},
+			tags := []influxdb.SKeyValue{}
+			for k, v := range vm.GetMetricTags() {
+				tags = append(tags, influxdb.SKeyValue{
+					Key:   k,
+					Value: v,
+				})
+			}
+			pairs := []influxdb.SKeyValue{}
+			for k, v := range vm.GetMetricPairs() {
+				pairs = append(pairs, influxdb.SKeyValue{
+					Key:   k,
+					Value: v,
+				})
+			}
+			for _, values := range data {
+				for _, value := range values.Values {
+					metric := influxdb.SMetricData{
+						Name:      values.MetricType.Name(),
+						Timestamp: value.Timestamp,
+						Tags:      []influxdb.SKeyValue{},
+						Metrics: []influxdb.SKeyValue{
+							{
+								Key:   values.MetricType.Key(),
+								Value: strconv.FormatFloat(value.Value, 'E', -1, 64),
 							},
-						}
-						for k, v := range value.Tags {
-							metric.Tags = append(metric.Tags, influxdb.SKeyValue{
-								Key:   k,
-								Value: v,
-							})
-						}
-						mu.Lock()
-						metrics = append(metrics, metric)
-						mu.Unlock()
+						},
 					}
+					for k, v := range value.Tags {
+						metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+							Key:   k,
+							Value: v,
+						})
+					}
+					metric.Metrics = append(metric.Metrics, pairs...)
+					mu.Lock()
+					metrics = append(metrics, metric)
+					mu.Unlock()
 				}
 			}
 		}(res[i])
@@ -900,7 +894,7 @@ func (self *SCollectByMetricTypeDriver) CollectRedisMetrics(ctx context.Context,
 				}
 				for _, v := range value.Values {
 					metric := influxdb.SMetricData{
-						Name:      value.MetricType.Key(),
+						Name:      value.MetricType.Name(),
 						Timestamp: v.Timestamp,
 						Tags:      []influxdb.SKeyValue{},
 						Metrics: []influxdb.SKeyValue{
@@ -982,7 +976,7 @@ func (self *SCollectByMetricTypeDriver) CollectBucketMetrics(ctx context.Context
 				}
 				for _, v := range value.Values {
 					metric := influxdb.SMetricData{
-						Name:      value.MetricType.Key(),
+						Name:      value.MetricType.Name(),
 						Timestamp: v.Timestamp,
 						Tags:      []influxdb.SKeyValue{},
 						Metrics: []influxdb.SKeyValue{
@@ -1022,7 +1016,7 @@ func (self *SCollectByMetricTypeDriver) CollectK8sMetrics(ctx context.Context, m
 	metrics := []influxdb.SMetricData{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	for _, _metricType := range cloudprovider.ALL_RDS_METRIC_TYPES {
+	for _, _metricType := range cloudprovider.ALL_K8S_NODE_TYPES {
 		wg.Add(1)
 		go func(metricType cloudprovider.TMetricType) {
 			defer func() {
@@ -1058,6 +1052,13 @@ func (self *SCollectByMetricTypeDriver) CollectK8sMetrics(ctx context.Context, m
 					metric := influxdb.SMetricData{
 						Name:      value.MetricType.Name(),
 						Timestamp: v.Timestamp,
+						Tags:      []influxdb.SKeyValue{},
+						Metrics: []influxdb.SKeyValue{
+							{
+								Key:   value.MetricType.Key(),
+								Value: strconv.FormatFloat(v.Value, 'E', -1, 64),
+							},
+						},
 					}
 					for k, v := range v.Tags {
 						metric.Tags = append([]influxdb.SKeyValue{
@@ -1066,12 +1067,6 @@ func (self *SCollectByMetricTypeDriver) CollectK8sMetrics(ctx context.Context, m
 								Value: v,
 							},
 						}, tags...)
-					}
-					metric.Metrics = []influxdb.SKeyValue{
-						{
-							Key:   value.MetricType.Key(),
-							Value: strconv.FormatFloat(v.Value, 'E', -1, 64),
-						},
 					}
 					mu.Lock()
 					metrics = append(metrics, metric)

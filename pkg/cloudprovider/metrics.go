@@ -73,6 +73,8 @@ const (
 	RDS_METRIC_TYPE_CONN_USAGE  TMetricType = "rds_conn.used_percent"
 	RDS_METRIC_TYPE_CONN_FAILED TMetricType = "rds_conn.failed_count"
 
+	METRIC_TAG_DATABASE = "database"
+
 	RDS_METRIC_TYPE_QPS              TMetricType = "rds_qps.query_qps"
 	RDS_METRIC_TYPE_TPS              TMetricType = "rds_tps.trans_qps"
 	RDS_METRIC_TYPE_INNODB_READ_BPS  TMetricType = "rds_innodb.read_bps"
@@ -150,25 +152,13 @@ const (
 	// 磁盘利用率
 	METRIC_TAG_DEVICE = "device"
 
-	K8S_CLUSTER_METRIC_TYPE_CPU_USAGE       TMetricType = "k8s_cluster.cpu_used_percent"
-	K8S_CLUSTER_METRIC_TYPE_MEM_USAGE       TMetricType = "k8s_cluster.mem_used_percent"
-	K8S_CLUSTER_METRIC_TYPE_ALLOCATABLE_POD TMetricType = "k8s_cluster.allocatable_pod"
-	K8S_CLUSTER_METRIC_TYPE_TOTAL_CPUCORE   TMetricType = "k8s_cluster.total_cpu"
-	K8S_CLUSTER_METRIC_TYPE_CPU_ALLOCATED   TMetricType = "k8s_cluster.cpu_allocated_percent"
+	METRIC_TAG_NODE = "node"
 
-	K8S_NODE_METRIC_TYPE_CPU_USAGE         TMetricType = "k8s_node.cpu_used_percent"
-	K8S_NODE_METRIC_TYPE_MEM_USAGE         TMetricType = "k8s_node.mem_used_percent"
-	K8S_NODE_METRIC_TYPE_DISK_USAGE        TMetricType = "k8s_node.disk_used_percent"
-	K8S_NODE_METRIC_TYPE_NET_BPS_RX        TMetricType = "k8s_node.bps_recv"
-	K8S_NODE_METRIC_TYPE_NET_BPS_TX        TMetricType = "k8s_node.bps_sent"
-	K8S_NODE_METRIC_TYPE_POD_RESTART_TOTAL TMetricType = "k8s_node.pod_restart_total"
-
-	K8S_POD_METRIC_TYPE_CPU_USAGE     TMetricType = "k8s_pod.cpu_used_percent"
-	K8S_POD_METRIC_TYPE_MEM_USAGE     TMetricType = "k8s_pod.mem_used_percent"
-	K8S_POD_METRIC_TYPE_RESTART_TOTAL TMetricType = "k8s_pod.restart_total"
-
-	K8S_POD_METRIC_TYPE_OOM_CONTAINER_COUNT TMetricType = "k8s_deploy.pod_oom_total"
-	K8S_POD_METRIC_TYPE_RESTARTING_COUNT    TMetricType = "k8s_deploy.pod_restarting_total"
+	K8S_NODE_METRIC_TYPE_CPU_USAGE  TMetricType = "k8s_node_cpu.usage_active"
+	K8S_NODE_METRIC_TYPE_MEM_USAGE  TMetricType = "k8s_node_mem.used_percent"
+	K8S_NODE_METRIC_TYPE_DISK_USAGE TMetricType = "k8s_node_disk.used_percent"
+	K8S_NODE_METRIC_TYPE_NET_BPS_RX TMetricType = "k8s_node_netio.bps_recv"
+	K8S_NODE_METRIC_TYPE_NET_BPS_TX TMetricType = "k8s_node_netio.bps_sent"
 
 	// modelarts专属资源池监控数据
 	MODELARTS_POOL_METRIC_TYPE_CPU_USAGE     TMetricType = "modelarts_pool_cpu.usage_percent"
@@ -270,6 +260,11 @@ var (
 		BUCKET_METRIC_TYPE_LATECY,
 		BUCKET_METRYC_TYPE_REQ_COUNT,
 	}
+
+	ALL_K8S_NODE_TYPES = []TMetricType{
+		K8S_NODE_METRIC_TYPE_CPU_USAGE,
+		K8S_NODE_METRIC_TYPE_MEM_USAGE,
+	}
 )
 
 type MetricListOptions struct {
@@ -286,10 +281,6 @@ type MetricListOptions struct {
 	Interval int
 	// rds
 	Engine string
-
-	// k8s
-	Node string
-	Pod  string
 }
 
 type MetricValue struct {
