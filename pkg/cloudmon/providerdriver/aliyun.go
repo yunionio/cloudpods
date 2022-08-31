@@ -15,6 +15,8 @@
 package providerdriver
 
 import (
+	"time"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
@@ -28,6 +30,10 @@ func (self *AliyunCollect) GetProvider() string {
 
 func (self *AliyunCollect) IsSupportMetrics() bool {
 	return true
+}
+
+func (self *AliyunCollect) GetDelayDuration() time.Duration {
+	return time.Minute * 3
 }
 
 func init() {
