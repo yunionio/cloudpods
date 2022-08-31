@@ -31,3 +31,9 @@ type HostTopology struct {
 type HostCPUInfo struct {
 	*cpu.Info
 }
+
+type GuestSetPasswordRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Crypted  bool   `json:"crypted"`
+}

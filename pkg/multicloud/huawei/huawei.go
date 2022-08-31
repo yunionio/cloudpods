@@ -228,16 +228,6 @@ func (self *SHuaweiClient) monitorPost(resource string, params map[string]interf
 	return self.request(httputils.POST, url, nil, params)
 }
 
-// func (self *SHuaweiClient) modelartsList(regionId, resource string, query url.Values) (jsonutils.JSONObject, error) {
-// 	url := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s", regionId, self.projectId, resource)
-// 	return self.request(httputils.GET, url, query, nil)
-// }
-
-// func (self *SHuaweiClient) modelartsPoolByName(regionId, resource, poolName string, query url.Values) (jsonutils.JSONObject, error) {
-// 	url := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/%s/%s", regionId, self.projectId, resource, poolName)
-// 	return self.request(httputils.GET, url, query, nil)
-// }
-
 func (self *SHuaweiClient) modelartsPoolNetworkList(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v1/%s/networks", self.clientRegion, self.projectId)
 	return self.request(httputils.GET, uri, url.Values{}, params)
@@ -745,6 +735,7 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_NAT,
 		cloudprovider.CLOUD_CAPABILITY_NAS,
 		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_MODELARTES_POOL,
 	}
 	// huawei objectstore is shared across projects(subscriptions)
 	// to avoid multiple project access the same bucket

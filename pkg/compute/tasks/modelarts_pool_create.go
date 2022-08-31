@@ -54,15 +54,7 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 	}
 	db.SetExternalId(pool, self.GetUserCred(), ipool.GetGlobalId())
 
-	cloudprovider.WaitMultiStatus(ipool, []string{api.NAS_STATUS_AVAILABLE, api.NAS_STATUS_CREATE_FAILED}, time.Second*5, time.Minute*10)
-
-	// tags, _ := pool.GetAllUserMetadata()
-	// if len(tags) > 0 {
-	// 	err = ipool.SetTags(tags, true)
-	// 	if err != nil {
-	// 		logclient.AddActionLogWithStartable(self, pool, logclient.ACT_UPDATE, errors.Wrapf(err, "SetTags"), self.UserCred, false)
-	// 	}
-	// }
+	cloudprovider.WaitMultiStatus(ipool, []string{api.MODELARTS_POOL_STATUS_RUNNING, api.Modelarts_Pool_STATUS_ERROR}, time.Second*5, time.Minute*10)
 
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    self,

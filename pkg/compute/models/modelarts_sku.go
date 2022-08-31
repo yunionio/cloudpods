@@ -19,7 +19,6 @@ type SModelartsSkuManager struct {
 	db.SExternalizedResourceBaseManager
 	SDeletePreventableResourceBaseManager
 
-	SCloudregionResourceBaseManager
 	SManagedResourceBaseManager
 }
 
@@ -46,7 +45,6 @@ type SModelartsSku struct {
 	// SCloudregionResourceBase
 	// SDeletePreventableResourceBase
 	db.SEnabledStatusStandaloneResourceBase
-	db.SExternalizedResourceBase
 	SZoneResourceBase
 	// 备注
 	// Description string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
@@ -95,10 +93,6 @@ func (man *SModelartsSkuManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
-	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
-	}
 
 	return q, nil
 }
@@ -113,10 +107,6 @@ func (man *SModelartsSkuManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
-	q, err = man.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
-	}
 	q, err = man.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
@@ -126,10 +116,6 @@ func (man *SModelartsSkuManager) OrderByExtraFields(
 
 func (man *SModelartsSkuManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
-	if err == nil {
-		return q, nil
-	}
-	q, err = man.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -155,13 +141,11 @@ func (manager *SModelartsSkuManager) FetchCustomizeColumns(
 	rows := make([]api.ElasticSearchDetails, len(objs))
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.ElasticSearchDetails{
-			VirtualResourceDetails:  virtRows[i],
-			ManagedResourceInfo:     manRows[i],
-			CloudregionResourceInfo: regRows[i],
+			VirtualResourceDetails: virtRows[i],
+			ManagedResourceInfo:    manRows[i],
 		}
 	}
 
@@ -183,13 +167,6 @@ func (manager *SModelartsSkuManager) ListItemExportKeys(ctx context.Context,
 		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 		if err != nil {
 			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
-		}
-	}
-
-	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
-		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
-		if err != nil {
-			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
 		}
 	}
 

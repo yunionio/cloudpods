@@ -1882,7 +1882,8 @@ func syncPublicCloudProviderInfo(
 		}
 	}
 	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_MODELARTES_POOL, driver.GetCapabilities()) {
-		// syncModelartsPools(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+		log.Errorln("this is IsInStringArray", driver.GetAccountId())
+		syncModelartsPools(ctx, userCred, syncResults, provider, driver)
 	}
 
 	if cloudprovider.IsSupportCompute(driver) {
@@ -2347,20 +2348,16 @@ func syncTablestore(ctx context.Context, userCred mcclient.TokenCredential, sync
 	return nil
 }
 
-func syncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localProvider *SModelartsPool, remoteProvider cloudprovider.ICloudProvider) error {
-	iEss, err := remoteProvider.GetIModelartsPools()
+func syncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider) error {
+	log.Errorln("this is in syncModelartsPools")
+	ipools, err := driver.GetIModelartsPools()
 	if err != nil {
-		msg := fmt.Sprintf("GetIElasticSearchs for region %s failed %s", err)
+		msg := fmt.Sprintf("GetIModelartsPools for provider %s failed %s", err, ipools)
 		log.Errorf(msg)
 		return err
 	}
-
-	result := localProvider.SyncModelartsPools(ctx, userCred, provider, iEss)
-	syncResults.Add(ModelartsPoolManager, result)
-	msg := result.Result()
-	log.Infof("SyncElasticSearchs for region %s result: %s", localProvider.Name, msg)
-	if result.IsError() {
-		return result.AllError()
-	}
+	log.Errorln("this is before result")
+	result := provider.SyncModelartsPools(ctx, userCred, provider, ipools)
+	log.Infof("SyncModelartsPools for region %s result: %s", provider.GetName(), result.Result())
 	return nil
 }

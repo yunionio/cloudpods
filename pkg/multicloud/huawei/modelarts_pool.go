@@ -82,6 +82,7 @@ type PoolSfsTurbo struct {
 
 func (self *SHuaweiClient) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, error) {
 	pools := make([]SModelartsPool, 0)
+	log.Errorln("this is in GetIModelartsPools")
 	resObj, err := self.modelartsPoolList("pools", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetPools")
@@ -172,12 +173,12 @@ func (self *SHuaweiClient) GetIModelartsPoolById(poolId string) (cloudprovider.I
 	return res[0], nil
 }
 
-func (self *SHuaweiClient) MonitorPool(poolId string) (*SModelArtsMetrics, error) {
+func (self *SHuaweiClient) MonitorPool(poolId string) (*SModelartsMetrics, error) {
 	resObj, err := self.modelartsPoolMonitor(poolId, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "send request error")
 	}
-	metrics := SModelArtsMetrics{}
+	metrics := SModelartsMetrics{}
 	err = resObj.Unmarshal(&metrics)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unmarsh error")
@@ -185,35 +186,35 @@ func (self *SHuaweiClient) MonitorPool(poolId string) (*SModelArtsMetrics, error
 	return &metrics, nil
 }
 
-type SModelArtsMetrics struct {
-	Metrics []SModelArtsMetric `json:"metrics"`
+type SModelartsMetrics struct {
+	Metrics []SModelartsMetric `json:"metrics"`
 }
 
-type SModelArtsMetric struct {
-	SModelArtsMetricInfo `json:"metric"`
-	SModelArtsDataPoints `json:"dataPoints"`
+type SModelartsMetric struct {
+	Metric     SModelartsMetricInfo   `json:"metric"`
+	Datapoints []SModelartsDataPoints `json:"dataPoints"`
 }
 
-type SModelArtsMetricInfo struct {
-	Dimensions SModelArtsDimensions `json:"dimensions"`
+type SModelartsMetricInfo struct {
+	Dimensions []SModelartsDimensions `json:"dimensions"`
 	MetricName string
 	Namespace  string
 }
 
-type SModelArtsDimensions struct {
+type SModelartsDimensions struct {
 	Name  string
 	Value string
 }
 
-type SModelArtsDataPoints struct {
-	Timestamp  uint64
+type SModelartsDataPoints struct {
+	Timestamp  int64
 	Unit       string
-	Statistics []ModelArtsStatistics
+	Statistics []ModelartsStatistics
 }
 
-type ModelArtsStatistics struct {
+type ModelartsStatistics struct {
 	Statistic string
-	Value     int
+	Value     float64
 }
 
 func (self *SHuaweiClient) GetPoolNetworks(poolName string) (jsonutils.JSONObject, error) {
@@ -309,11 +310,11 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 }
 
 func (self *SModelartsPool) Refresh() error {
-	fs, err := self.client.modelartsPoolById(self.GetId(), nil)
+	pool, err := self.client.modelartsPoolById(self.GetId(), nil)
 	if err != nil {
 		return errors.Wrapf(err, "GetFileSystem(%s)", self.GetId())
 	}
-	return jsonutils.Update(self, fs)
+	return jsonutils.Update(self, pool)
 }
 
 func (self *SModelartsPool) SetTags(tags map[string]string, replace bool) error {
@@ -322,7 +323,6 @@ func (self *SModelartsPool) SetTags(tags map[string]string, replace bool) error 
 }
 
 func (self *SModelartsPool) Delete() error {
-	log.Errorln("this is in delete")
 	_, err := self.client.DeletePool(self.GetId())
 	if err != nil {
 		return err

@@ -895,3 +895,12 @@ type ServerQemuInfo struct {
 	Version string `json:"version"`
 	Cmdline string `json:"cmdline"`
 }
+
+type ServerQgaSetPasswordInput struct {
+	Username string
+	Password string
+}
+
+type ServerQgaCommandInput struct {
+	Command string
+}

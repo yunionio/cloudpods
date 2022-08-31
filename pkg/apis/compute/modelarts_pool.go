@@ -1,14 +1,15 @@
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
-	Modelarts_Pool_STATUS_AVAILABLE     = "available"
-	Modelarts_Pool_STATUS_UNAVAILABLE   = "unavailable"
-	Modelarts_Pool_STATUS_CREATING      = "creating"
-	Modelarts_Pool_STATUS_DELETING      = "deleting"
-	Modelarts_Pool_STATUS_DELETE_FAILED = "delete_failed"
-	Modelarts_Pool_STATUS_UNKNOWN       = "unknown"
+	MODELARTS_POOL_STATUS_RUNNING  = "Running"
+	Modelarts_Pool_STATUS_ABNORMAL = "Abnormal"
+	Modelarts_Pool_STATUS_CREATING = "Creating"
+	Modelarts_Pool_STATUS_DELETING = "Deleting"
+	Modelarts_Pool_STATUS_ERROR    = "Error"
 )
 
 // 资源创建参数, 目前仅站位
@@ -28,10 +29,11 @@ type ModelartsPoolSpec struct {
 }
 
 // 资源返回详情
-type PoolDetails struct {
-	apis.VirtualResourceDetails
+type ModelartsPoolDetails struct {
+	apis.SVirtualResourceBase
+	apis.SExternalizedResourceBase
+	SBillingResourceBase
 	ManagedResourceInfo
-	CloudregionResourceInfo
 }
 
 // 资源列表请求参数
@@ -42,4 +44,18 @@ type PoolhListInput struct {
 
 	RegionalFilterListInput
 	ManagedResourceListInput
+}
+
+func (self ModelartsPoolDetails) GetMetricTags() map[string]string {
+	ret := map[string]string{
+		"modelarts_pool_id":   self.Id,
+		"modelarts_pool_name": self.Name,
+		"status":              self.Status,
+		"tenant_id":           self.ProjectId,
+		"brand":               self.Brand,
+		"domain_id":           self.DomainId,
+		"account_id":          self.AccountId,
+		"account":             self.Account,
+	}
+	return ret
 }

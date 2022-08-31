@@ -51,7 +51,6 @@ type SModelartsPool struct {
 
 	SDeletePreventableResourceBase
 
-	NodeCount    int    `nullable:"false" default:"0" list:"user" create:"optional"`
 	InstanceType string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	IsTrain      bool   `default:"false" create:"optional" list:"user"`
 	IsNotebook   bool   `default:"false" create:"optional" list:"user"`
@@ -169,7 +168,7 @@ func (manager *SModelartsPoolManager) ListItemExportKeys(ctx context.Context,
 
 	return q, nil
 }
-func (self *SCloudregion) GetPools(managerId string) ([]SElasticSearch, error) {
+func (self *SCloudprovider) GetPools(managerId string) ([]SElasticSearch, error) {
 	q := ElasticSearchManager.Query().Equals("cloudregion_id", self.Id)
 	if len(managerId) > 0 {
 		q = q.Equals("manager_id", managerId)
@@ -182,14 +181,14 @@ func (self *SCloudregion) GetPools(managerId string) ([]SElasticSearch, error) {
 	return ret, nil
 }
 
-func (self *SModelartsPool) SyncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudModelartsPool) compare.SyncResult {
+func (self *SCloudprovider) SyncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudModelartsPool) compare.SyncResult {
 	// 加锁防止重入
+	log.Errorln("this is in SyncModelartsPools")
 	lockman.LockRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 	defer lockman.ReleaseRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
-
 	result := compare.SyncResult{}
 
-	dbEss, err := self.GetIModelartsPoolById(ctx)
+	dbPools, err := self.GetPools(provider.Id)
 	if err != nil {
 		result.Error(err)
 		return result
@@ -199,12 +198,17 @@ func (self *SModelartsPool) SyncModelartsPools(ctx context.Context, userCred mcc
 	commondb := make([]SModelartsPool, 0)
 	commonext := make([]cloudprovider.ICloudModelartsPool, 0)
 	added := make([]cloudprovider.ICloudModelartsPool, 0)
+	log.Errorln("this is dbPools", dbPools)
 	// 本地和云上资源列表进行比对
-	err = compare.CompareSets(dbEss, exts, &removed, &commondb, &commonext, &added)
+	err = compare.CompareSets(dbPools, exts, &removed, &commondb, &commonext, &added)
 	if err != nil {
 		result.Error(err)
 		return result
 	}
+	log.Errorln("this is removed", removed)
+	log.Errorln("this is commondb", commondb)
+	log.Errorln("this is commonext", commonext)
+	log.Errorln("this is added", added)
 
 	// 删除云上没有的资源
 	for i := 0; i < len(removed); i++ {
@@ -326,23 +330,18 @@ func (self *SModelartsPool) StartDeleteTask(ctx context.Context, userCred mcclie
 }
 
 // 获取云上对应的资源
-// func (self *SModelartsPool) GetIElasticSearch() (cloudprovider.ICloudElasticSearch, error) {
-// 	if len(self.ExternalId) == 0 {
-// 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
-// 	}
-// 	iRegion, err := self.GetIRegion()
-// 	if err != nil {
-// 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetIRegion")
-// 	}
-// 	return iRegion.GetIElasticSearchById(self.ExternalId)
-// }
+func (self *SModelartsPool) GetIModelartsPool() (cloudprovider.ICloudModelartsPool, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
+	}
+	return self.GetIModelartsPoolById(context.Background())
+}
 
 // 同步资源属性
 func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudModelartsPool) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.ExternalId = ext.GetGlobalId()
 		self.Status = ext.GetStatus()
-
 		self.BillingType = ext.GetBillingType()
 		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			if expiredAt := ext.GetExpiredAt(); !expiredAt.IsZero() {
@@ -350,6 +349,7 @@ func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, user
 			}
 			self.AutoRenew = ext.IsAutoRenew()
 		}
+		log.Errorln("this is SyncWithCloudModelartsPool self", self)
 		return nil
 	})
 	if err != nil {
@@ -364,7 +364,7 @@ func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, user
 	return nil
 }
 
-func (self *SModelartsPool) newFromCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudModelartsPool) (*SModelartsPool, error) {
+func (self *SCloudprovider) newFromCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudModelartsPool) (*SModelartsPool, error) {
 	es := SModelartsPool{}
 	es.SetModelManager(ModelartsPoolManager, &es)
 

@@ -187,6 +187,8 @@ type ComputeOptions struct {
 	// 弹性伸缩中的ecs一般会有特殊的系统标签，通过指定这些标签可以忽略这部分ecs的同步, 指定多个key需要以 ',' 分隔
 	SkipServerBySysTagKeys string `help:"skip server sync and create with system tags" default:"acs:autoscaling:scalingGroupId"`
 
+	EnableAwsMonitorAgent bool `help:"enable aws monitor agent" default:"true"`
+
 	esxi.EsxiOptions
 }
 

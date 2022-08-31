@@ -320,3 +320,7 @@ func (self *SHuaweiProvider) UpdatePool(poolName string) (jsonutils.JSONObject, 
 func (self *SHuaweiProvider) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
 	return self.client.GetIModelartsPoolById(poolId)
 }
+
+func (self *SHuaweiProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}
