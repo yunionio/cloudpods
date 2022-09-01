@@ -83,6 +83,9 @@ type ServerSkuListInput struct {
 
 	// 预付费状态
 	PrepaidStatus string `json:"prepaid_status"`
+
+	// 按套餐名称去重
+	Distinct bool `json:"distinct"`
 }
 
 type ElasticcacheSkuListInput struct {
