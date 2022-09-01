@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -367,6 +368,33 @@ func (self *SSecurityGroup) getDesc() *api.SecgroupJsonDesc {
 		Id:   self.Id,
 		Name: self.Name,
 	}
+}
+
+func (self *SSecurityGroup) ClearRuleDirty() error {
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"update %s set is_dirty = false where secgroup_id = ?",
+			SecurityGroupRuleManager.TableSpec().Name(),
+		), self.Id,
+	)
+	return err
+}
+
+func (self *SSecurityGroup) GetOldRules() ([]SSecurityGroupRule, error) {
+	q := SecurityGroupRuleManager.Query().Equals("secgroup_id", self.Id).IsFalse("is_dirty")
+	rules := []SSecurityGroupRule{}
+	err := db.FetchModelObjects(SecurityGroupRuleManager, q, &rules)
+	if err != nil {
+		return nil, err
+	}
+	q = SecurityGroupRuleManager.RawQuery().Equals("secgroup_id", self.Id).IsTrue("is_dirty").IsTrue("deleted")
+	part := []SSecurityGroupRule{}
+	err = db.FetchModelObjects(SecurityGroupRuleManager, q, &part)
+	if err != nil {
+		return nil, err
+	}
+	rules = append(rules, part...)
+	return rules, nil
 }
 
 func (manager *SSecurityGroupManager) FetchCustomizeColumns(

@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -23,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -36,12 +38,14 @@ func init() {
 }
 
 func (self *SecurityGroupSyncRulesTask) taskFailed(ctx context.Context, secgroup *models.SSecurityGroup, err error) {
+	secgroup.ClearRuleDirty()
 	secgroup.SetStatus(self.UserCred, api.SECGROUP_STATUS_READY, "")
 	logclient.AddActionLogWithContext(ctx, secgroup, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *SecurityGroupSyncRulesTask) taskComplete(ctx context.Context, secgroup *models.SSecurityGroup) {
+	secgroup.ClearRuleDirty()
 	secgroup.SetStatus(self.UserCred, api.SECGROUP_STATUS_READY, "")
 	self.SetStageComplete(ctx, nil)
 }
@@ -54,6 +58,39 @@ func (self *SecurityGroupSyncRulesTask) OnInit(ctx context.Context, obj db.IStan
 		return
 	}
 
+	for i := range caches {
+		iSecgroup, err := caches[i].GetISecurityGroup(ctx)
+		if err != nil {
+			self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetISecurityGroup"))
+			return
+		}
+		oldRules, _, err := caches[i].GetOldSecuritRuleSet(ctx)
+		if err != nil {
+			self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetOldSecuritRuleSet"))
+			return
+		}
+		rules, err := iSecgroup.GetRules()
+		if err != nil {
+			self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetRules"))
+			return
+		}
+
+		src := cloudprovider.NewSecRuleInfo(models.GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
+		src.Rules = oldRules
+
+		region, err := caches[i].GetRegion()
+		if err != nil {
+			self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetRegion"))
+			return
+		}
+		dest := cloudprovider.NewSecRuleInfo(models.GetRegionDriver(region.Provider))
+		dest.Rules = rules
+		_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
+		if len(inDels)+len(outDels)+len(inAdds)+len(outAdds) > 0 {
+			self.taskFailed(ctx, secgroup, fmt.Errorf("secgroup rule not equal with cache %s(%s)", caches[i].Name, region.Provider))
+			return
+		}
+	}
 	for i := range caches {
 		err := caches[i].SyncRules(ctx, false)
 		if err != nil {
