@@ -28,6 +28,7 @@ type ServerSkusListOptions struct {
 	PostpaidStatus string  `help:"Postpaid status" choices:"soldout|available"`
 	PrepaidStatus  string  `help:"Prepaid status" choices:"soldout|available"`
 	Enabled        *bool   `help:"Filter enabled skus"`
+	Distinct       bool    `help:"distinct sku by name"`
 }
 
 func (opts *ServerSkusListOptions) GetId() string {
