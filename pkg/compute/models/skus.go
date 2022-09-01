@@ -725,6 +725,10 @@ func (manager *SServerSkuManager) ListItemFilter(
 		}
 	}
 
+	if query.Distinct {
+		q = q.GroupBy(q.Field("name"))
+	}
+
 	brands := query.Brands
 	if len(brands) > 0 {
 		q = q.Filter(sqlchemy.In(q.Field("brand"), brands))
