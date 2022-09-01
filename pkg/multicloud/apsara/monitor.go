@@ -300,7 +300,7 @@ func (self *SApsaraClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions
 		metricTags = map[string]string{
 			"IntranetOut": "",
 		}
-	case cloudprovider.REDIS_METRIC_TYPE_CONN_USAGE:
+	case cloudprovider.REDIS_METRIC_TYPE_USED_CONN:
 		metricTags = map[string]string{
 			"UsedConnection": "",
 		}

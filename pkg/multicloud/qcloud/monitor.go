@@ -212,7 +212,7 @@ func (self *SQcloudClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions
 		cloudprovider.REDIS_METRIC_TYPE_NET_BPS_TX: {
 			"OutFlowMin": "",
 		},
-		cloudprovider.REDIS_METRIC_TYPE_CONN_USAGE: {
+		cloudprovider.REDIS_METRIC_TYPE_USED_CONN: {
 			"ConnectionsUsMin": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_OPT_SES: {
@@ -265,10 +265,10 @@ func (self *SQcloudClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions
 func (self *SQcloudClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	ret := []cloudprovider.MetricValues{}
 	for metricType, metricNames := range map[cloudprovider.TMetricType]map[string]string{
-		cloudprovider.RDS_METRIC_TYPE_MEM_USAGE: {
+		cloudprovider.RDS_METRIC_TYPE_CPU_USAGE: {
 			"CPUUseRate": "",
 		},
-		cloudprovider.VM_METRIC_TYPE_MEM_USAGE: {
+		cloudprovider.RDS_METRIC_TYPE_MEM_USAGE: {
 			"MemoryUseRate": "",
 		},
 		cloudprovider.RDS_METRIC_TYPE_NET_BPS_TX: {
