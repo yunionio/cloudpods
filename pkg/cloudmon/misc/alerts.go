@@ -39,40 +39,29 @@ const (
 
 func AlertHistoryReport(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	err := func() error {
-		alerts := []api.CommonAlertDetails{}
 		s := auth.GetAdminSession(ctx, options.Options.Region)
-		for {
-			params := map[string]interface{}{
-				"limit":  1024,
-				"offset": len(alerts),
-				"scope":  "system",
-			}
-			resp, err := monitor.CommonAlertManager.List(s, jsonutils.Marshal(params))
-			if err != nil {
-				return errors.Wrapf(err, "CommonAlertManager.List")
-			}
-			part := []api.CommonAlertDetails{}
-			err = jsonutils.Update(&part, resp.Data)
-			if err != nil {
-				return errors.Wrapf(err, "jsonutils.Update")
-			}
-			alerts = append(alerts, part...)
-			if len(alerts) >= resp.Total {
-				break
-			}
+		params := map[string]interface{}{
+			"field":    "res_type",
+			"scope":    "system",
+			"filter.0": fmt.Sprintf("created_at.ge('%s')", time.Now().Add(time.Hour*-24)),
 		}
+		ret, err := monitor.AlertRecordManager.Get(s, "distinct-field", jsonutils.Marshal(params))
+		if err != nil {
+			return errors.Wrapf(err, "distinct-filed")
+		}
+		resTypes := []string{}
+		ret.Unmarshal(&resTypes, "res_type")
 		metrics := []influxdb.SMetricData{}
-		for i := range alerts {
+		for _, resType := range resTypes {
 			records := []api.AlertRecordDetails{}
 			for {
 				query := map[string]interface{}{
 					"limit":    40,
 					"offset":   len(records),
-					"alert_id": alerts[i].Id,
-					"state":    "alerting",
-					"order_by": "res_num",
-					"order":    "desc",
-					"filter":   fmt.Sprintf("created_at.ge('%s')", time.Now().Add(time.Hour*-24)),
+					"@state":   "alerting",
+					"scope":    "system",
+					"filter.0": fmt.Sprintf(`res_type.equals('%s')`, resType),
+					"filter.1": fmt.Sprintf("created_at.ge('%s')", time.Now().Add(time.Hour*-24)),
 				}
 				ret, err := monitor.AlertRecordManager.List(s, jsonutils.Marshal(query))
 				if err != nil {
@@ -85,30 +74,29 @@ func AlertHistoryReport(ctx context.Context, userCred mcclient.TokenCredential, 
 					break
 				}
 				records = append(records, part...)
+				if len(records) >= ret.Total {
+					break
+				}
 			}
 			metric := influxdb.SMetricData{}
 			metric.Name = ALERT_RECORD_HISTORY_MEASUREMENT
-			maxIdx, maxValue := -1, int64(0)
-			for j := range records {
-				if records[j].ResNum > maxValue {
-					maxValue = records[j].ResNum
-					maxIdx = j
+			cnt := 0
+			for i, record := range records {
+				cnt += int(record.ResNum)
+				if i == 0 {
+					for k, v := range record.GetMetricTags() {
+						metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+							Key:   k,
+							Value: v,
+						})
+					}
 				}
 			}
-			if maxIdx == -1 {
-				break
-			}
-			for k, v := range records[maxIdx].GetMetricTags() {
-				metric.Tags = append(metric.Tags, influxdb.SKeyValue{
-					Key:   k,
-					Value: v,
-				})
-			}
-			metric.Timestamp = records[maxIdx].CreatedAt
+			metric.Timestamp = time.Now()
 			metric.Metrics = []influxdb.SKeyValue{
 				{
 					Key:   "res_num",
-					Value: fmt.Sprintf("%d", records[maxIdx].ResNum),
+					Value: fmt.Sprintf("%d", cnt),
 				},
 			}
 			metrics = append(metrics, metric)
@@ -117,7 +105,7 @@ func AlertHistoryReport(ctx context.Context, userCred mcclient.TokenCredential, 
 		if err != nil {
 			return errors.Wrap(err, "GetServiceURLs")
 		}
-		return influxdb.SendMetrics(urls, ALERT_METRIC_DATABASE, metrics, false)
+		return influxdb.BatchSendMetrics(urls, ALERT_METRIC_DATABASE, metrics, false)
 	}()
 	if err != nil {
 		log.Errorf("AlertHistoryReport error: %v", err)
