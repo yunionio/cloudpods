@@ -175,7 +175,7 @@ func (self *SAwsClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions) (
 		cloudprovider.REDIS_METRIC_TYPE_CPU_USAGE: {
 			"CPUUtilization": "",
 		},
-		cloudprovider.REDIS_METRIC_TYPE_CONN_USAGE: {
+		cloudprovider.REDIS_METRIC_TYPE_USED_CONN: {
 			"CurrConnections": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_CACHE_EXP_KEYS: {

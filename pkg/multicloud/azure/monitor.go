@@ -236,7 +236,7 @@ func (self *SAzureClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) (
 
 func (self *SAzureClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	metricnamespace := "Microsoft.Cache/redis"
-	metricnames := "percentProcessorTime,usedmemorypercentage,connectedclients,operationsPerSecond,alltotalkeys,expiredkeys,usedmemory,serverLoad,errors"
+	metricnames := "percentProcessorTime,usedmemorypercentage,connectedclients,operationsPerSecond,alltotalkeys,expiredkeys,usedmemory"
 	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, nil, "", opts.StartTime, opts.EndTime)
 }
 
@@ -408,7 +408,7 @@ func (self *SAzureClient) getMetricValues(resourceId, metricnamespace, metricnam
 		case "usedmemorypercentage":
 			metric.MetricType = cloudprovider.REDIS_METRIC_TYPE_MEM_USAGE
 		case "connectedclients":
-			metric.MetricType = cloudprovider.REDIS_METRIC_TYPE_CONN_USAGE
+			metric.MetricType = cloudprovider.REDIS_METRIC_TYPE_USED_CONN
 		case "operationsPerSecond":
 			metric.MetricType = cloudprovider.REDIS_METRIC_TYPE_OPT_SES
 		case "alltotalkeys":
@@ -417,10 +417,6 @@ func (self *SAzureClient) getMetricValues(resourceId, metricnamespace, metricnam
 			metric.MetricType = cloudprovider.REDIS_METRIC_TYPE_CACHE_EXP_KEYS
 		case "usedmemory":
 			metric.MetricType = cloudprovider.REDIS_METRIC_TYPE_DATA_MEM_USAGE
-		case "serverLoad":
-			metric.MetricType = cloudprovider.REDIS_METRIC_TYPE_SERVER_LOAD
-		case "errors":
-			metric.MetricType = cloudprovider.REDIS_METRIC_TYPE_CONN_ERRORS
 		case "SnatConnectionCount":
 			metric.MetricType = cloudprovider.LB_METRIC_TYPE_SNAT_PORT
 		case "UsedSnatPorts":
