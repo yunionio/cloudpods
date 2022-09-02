@@ -213,7 +213,7 @@ func (self *SQcloudClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions
 			"OutFlowMin": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_USED_CONN: {
-			"ConnectionsUsMin": "",
+			"ConnectionsMin": "",
 		},
 		cloudprovider.REDIS_METRIC_TYPE_OPT_SES: {
 			"QpsMin": "",
