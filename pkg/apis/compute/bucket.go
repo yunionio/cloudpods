@@ -75,8 +75,8 @@ func (self BucketDetails) GetMetricTags() map[string]string {
 		"project_domain": self.ProjectDomain,
 		"region_ext_id":  self.RegionExtId,
 		"status":         self.Status,
-		"tenant":         self.Tenant,
-		"tenant_id":      self.TenantId,
+		"tenant":         self.Project,
+		"tenant_id":      self.ProjectId,
 	}
 	for k, v := range self.Metadata {
 		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
