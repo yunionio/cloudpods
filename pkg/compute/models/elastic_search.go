@@ -652,3 +652,11 @@ func (self *SElasticSearch) GetDetailsAccessInfo(ctx context.Context, userCred m
 	}
 	return iEs.GetAccessInfo()
 }
+
+func (es *SElasticSearch) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	es.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    es,
+		Action: notifyclient.ActionUpdate,
+	})
+}

@@ -2111,3 +2111,11 @@ func (manager *SDBInstanceManager) GetExpiredModels(advanceDay int) ([]IBillingM
 func (self *SDBInstance) GetExpiredAt() time.Time {
 	return self.ExpiredAt
 }
+
+func (db *SDBInstance) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	db.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    db,
+		Action: notifyclient.ActionUpdate,
+	})
+}
