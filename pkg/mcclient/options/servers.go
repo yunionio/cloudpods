@@ -589,6 +589,8 @@ type ServerUpdateOptions struct {
 	Delete           string `help:"Lock server to prevent from deleting" choices:"enable|disable" json:"-"`
 	ShutdownBehavior string `help:"Behavior after VM server shutdown" choices:"stop|terminate"`
 	Machine          string `help:"Machine type" choices:"q35|pc"`
+
+	PendingDeletedAt string `help:"change pending deleted time"`
 }
 
 func (opts *ServerUpdateOptions) Params() (jsonutils.JSONObject, error) {
