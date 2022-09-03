@@ -155,6 +155,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		apis.TEMPLATE_LANG_EN: receiversEn,
 	} {
 		if len(receivers) == 0 {
+			log.Warningf("no receiver to send, skip ...")
 			continue
 		}
 

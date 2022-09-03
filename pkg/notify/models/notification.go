@@ -521,7 +521,7 @@ func (n *SNotification) ReceiverNotificationsNotOK() ([]SReceiverNotification, e
 
 func (n *SNotification) ReceiveDetails(userCred mcclient.TokenCredential, scope string) ([]api.ReceiveDetail, error) {
 	RQ := ReceiverManager.Query("id", "name")
-	q := ReceiverNotificationManager.Query("receiver_id", "notification_id", "contact", "send_at", "send_by", "status", "failed_reason").Equals("notification_id", n.Id)
+	q := ReceiverNotificationManager.Query("receiver_id", "notification_id", "receiver_type", "contact", "send_at", "send_by", "status", "failed_reason").Equals("notification_id", n.Id)
 	s := rbacutils.TRbacScope(scope)
 
 	switch s {
