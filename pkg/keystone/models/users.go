@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
@@ -769,6 +770,10 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			log.Errorf("unable to clear failed auth: %v", err)
 		}
 	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    user,
+		Action: notifyclient.ActionUpdate,
+	})
 }
 
 func (user *SUser) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {

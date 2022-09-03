@@ -62,7 +62,7 @@ func init() {
 	Notification = modules.NewNotifyv2Manager(
 		"notification",
 		"notifications",
-		[]string{"Title", "Content", "ContactType", "Priority", "Receiver_Details"},
+		[]string{"ID", "Name", "Contact_Type", "Title", "Content", "Priority", "Status", "Received_At", "Receiver_Type"},
 		[]string{},
 	)
 	modules.Register(&Notification)

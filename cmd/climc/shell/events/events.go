@@ -74,6 +74,10 @@ func doMonitorEventList(s *mcclient.ClientSession, args *EventListOptions) error
 	return DoEventList(modules.MonitorLogs, s, args)
 }
 
+func doNotifyEventList(s *mcclient.ClientSession, args *EventListOptions) error {
+	return DoEventList(modules.NotifyLogs, s, args)
+}
+
 func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
 	params := jsonutils.NewDict()
 	if len(args.Type) > 0 {
@@ -261,5 +265,10 @@ func init() {
 	R(&TypeEventListOptions{}, "monitor-migrationalert-event", "Show operation event logs of monitor auto migrations", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"migrationalert"}}
 		return doMonitorEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "notification-event", "Show operation event logs of a notification", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"notification"}}
+		return doNotifyEventList(s, &nargs)
 	})
 }
