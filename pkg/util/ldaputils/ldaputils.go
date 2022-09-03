@@ -19,16 +19,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	"gopkg.in/ldap.v3"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 var (
-	ErrUserNotFound      = errors.New("not found")
-	ErrUserDuplicate     = errors.New("user id duplicate")
-	ErrUserBadCredential = errors.New("bad credential")
+	ErrUserNotFound      = errors.Error("not found")
+	ErrUserDuplicate     = errors.Error("user id duplicate")
+	ErrUserBadCredential = errors.Error("bad credential")
 
 	binaryAttributes = []string{
 		"objectGUID",
@@ -61,7 +61,7 @@ func NewLDAPClient(url, account, password string, baseDN string, isDebug bool) *
 func (cli *SLDAPClient) Connect() error {
 	conn, err := ldap.DialURL(cli.url)
 	if err != nil {
-		return errors.WithMessage(err, "DiaURL")
+		return errors.Wrap(err, "DiaURL")
 	}
 	cli.conn = conn
 
@@ -72,7 +72,7 @@ func (cli *SLDAPClient) bind() error {
 	if len(cli.account) > 0 {
 		err := cli.conn.Bind(cli.account, cli.password)
 		if err != nil {
-			return errors.WithMessage(err, "Bind")
+			return errors.Wrap(err, "Bind")
 		}
 	}
 	return nil
@@ -88,26 +88,47 @@ func (cli *SLDAPClient) Close() {
 func (cli *SLDAPClient) Authenticate(baseDN string, objClass string, uidAttr string, uname string, passwd string, filter string, fields []string, queryScope int) (*ldap.Entry, error) {
 	attrMap := make(map[string]string)
 	attrMap[uidAttr] = uname
-	entries, err := cli.Search(baseDN, objClass, attrMap, filter, fields, queryScope)
+	var retEntry *ldap.Entry
+	total, err := cli.Search(
+		baseDN, objClass, attrMap, filter, fields, queryScope,
+		2, 2,
+		func(offset uint32, entry *ldap.Entry) error {
+			retEntry = entry
+			return nil
+		},
+	)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Search")
+		return nil, errors.Wrap(err, "Search")
 	}
-	if len(entries) == 0 {
+	if total == 0 {
 		return nil, ErrUserNotFound
 	}
-	if len(entries) > 1 {
+	if total > 1 {
 		return nil, ErrUserDuplicate
 	}
 	defer cli.bind()
-	entry := entries[0]
-	err = cli.conn.Bind(entry.DN, passwd)
+	err = cli.conn.Bind(retEntry.DN, passwd)
 	if err != nil {
 		return nil, ErrUserBadCredential
 	}
-	return entry, nil
+	return retEntry, nil
 }
 
-func (cli *SLDAPClient) Search(base string, objClass string, condition map[string]string, filter string, fields []string, queryScope int) ([]*ldap.Entry, error) {
+const (
+	StopSearch = errors.Error("stop dap search")
+)
+
+// support pagination
+// reference: https://zerokspot.com/weblog/2018/03/07/paging-in-gopkg-ldap/
+func (cli *SLDAPClient) Search(
+	base string, objClass string,
+	condition map[string]string,
+	filter string,
+	fields []string,
+	queryScope int,
+	pageSize uint32, limit uint32,
+	entryFunc func(offset uint32, entry *ldap.Entry) error,
+) (uint32, error) {
 	searches := strings.Builder{}
 	if len(condition) == 0 && len(objClass) == 0 {
 		searches.WriteString("(objectClass=*)")
@@ -142,19 +163,47 @@ func (cli *SLDAPClient) Search(base string, objClass string, condition map[strin
 
 	log.Debugf("ldapSearch: %s", searchStr)
 
-	searchRequest := ldap.NewSearchRequest(
-		base, // The base dn to search
-		queryScope, ldap.NeverDerefAliases, 0, 0, false,
-		searchStr,
-		fields, // A list attributes to retrieve
-		nil,
-	)
-	sr, err := cli.conn.Search(searchRequest)
-	if err != nil {
-		return nil, errors.Wrap(err, "Search")
+	offset := uint32(0)
+	paging := ldap.NewControlPaging(pageSize)
+	for {
+		searchRequest := ldap.NewSearchRequest(
+			base, // The base dn to search
+			queryScope, ldap.NeverDerefAliases, 0, 0, false,
+			searchStr,
+			fields, // A list attributes to retrieve
+			[]ldap.Control{paging},
+		)
+		searchResult, err := cli.conn.Search(searchRequest)
+		if err != nil {
+			return offset, errors.Wrap(err, "Seearch")
+		}
+		pageTotal := len(searchResult.Entries)
+		for i := 0; i < pageTotal; i++ {
+			entry := searchResult.Entries[i]
+			err := entryFunc(offset, entry)
+			if err != nil && errors.Cause(err) != StopSearch {
+				return offset, errors.Wrapf(err, "process entry fail at %d-%d-%d", pageTotal, i, offset)
+			}
+			offset += 1
+			if (err != nil && errors.Cause(err) == StopSearch) || (limit > 0 && offset >= limit) {
+				// stop, offset exceeds limit or receive StopSearch error
+				return offset, nil
+			}
+		}
+
+		resultCtrl := ldap.FindControl(searchResult.Controls, paging.GetControlType())
+		if resultCtrl == nil {
+			break
+		}
+		if pagingCtrl, ok := resultCtrl.(*ldap.ControlPaging); ok {
+			if len(pagingCtrl.Cookie) == 0 {
+				break
+			}
+			paging.SetCookie(pagingCtrl.Cookie)
+		}
 	}
 
-	return sr.Entries, nil
+	return offset, nil
 }
 
 func isBinaryAttr(attrName string) bool {

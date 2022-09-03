@@ -59,6 +59,8 @@ type SKeystoneOptions struct {
 
 	DomainAdminRoleToNotify string `help:"domain admin role to notify" default:"domainadmin"`
 	AdminRoleToNotify       string `help:"admin role to notify" default:"admin"`
+
+	LdapSearchPageSize uint32 `help:"pagination size for LDAP search" default:"100"`
 }
 
 var (
