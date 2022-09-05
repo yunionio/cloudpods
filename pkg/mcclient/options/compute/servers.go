@@ -412,6 +412,7 @@ type ServerCreateOptionalOptions struct {
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate"`
 	AutoStart        bool     `help:"Auto start server after it is created"`
 	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
+	DeployTelegraf   bool     `help:"Deploy telegraf agent if guest os is supported"`
 	Group            []string `help:"Group ID or Name of virtual server"`
 	System           bool     `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
 	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
@@ -547,6 +548,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		return nil, err
 	}
 	params.DeployConfigs = deployInfos
+	params.DeployTelegraf = opts.DeployTelegraf
 
 	if len(opts.Boot) > 0 {
 		if opts.Boot == "disk" {
@@ -687,12 +689,13 @@ func (o *ServerCancelDeleteOptions) Description() string {
 
 type ServerDeployOptions struct {
 	ServerIdOptions
-	Keypair       string   `help:"ssh Keypair used for login" json:"-"`
-	DeleteKeypair bool     `help:"Remove ssh Keypairs" json:"-"`
-	Deploy        []string `help:"Specify deploy files in virtual server file system" json:"-"`
-	ResetPassword bool     `help:"Force reset password"`
-	Password      string   `help:"Default user password"`
-	AutoStart     bool     `help:"Auto start server after deployed"`
+	Keypair        string   `help:"ssh Keypair used for login" json:"-"`
+	DeleteKeypair  bool     `help:"Remove ssh Keypairs" json:"-"`
+	Deploy         []string `help:"Specify deploy files in virtual server file system" json:"-"`
+	ResetPassword  bool     `help:"Force reset password"`
+	Password       string   `help:"Default user password"`
+	AutoStart      bool     `help:"Auto start server after deployed"`
+	DeployTelegraf bool     `help:"Deploy telegraf if guest os supported"`
 }
 
 func (opts *ServerDeployOptions) Params() (jsonutils.JSONObject, error) {
@@ -706,6 +709,7 @@ func (opts *ServerDeployOptions) Params() (jsonutils.JSONObject, error) {
 		params.AutoStart = opts.AutoStart
 		params.ResetPassword = opts.ResetPassword
 		params.Password = opts.Password
+		params.DeployTelegraf = opts.DeployTelegraf
 	}
 	{
 		deployInfos, err := ParseServerDeployInfoList(opts.Deploy)

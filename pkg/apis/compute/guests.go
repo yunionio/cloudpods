@@ -662,6 +662,8 @@ type ServerDeployInput struct {
 
 	// swagger: ignore
 	DeployConfigs []*DeployConfig `json:"deploy_configs"`
+	// swagger: ignore
+	DeployTelegraf bool `json:"deploy_telegraf"`
 }
 
 type ServerUserDataInput struct {

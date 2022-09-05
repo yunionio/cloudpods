@@ -87,6 +87,11 @@ message DeployInfo {
   bool windows_default_admin_user = 7;
   bool enable_cloud_init = 8;
   string login_account = 9;
+  Telegraf telegraf = 10;
+}
+
+message Telegraf {
+  string telegraf_conf = 1;
 }
 
 message SSHKeys {
@@ -113,6 +118,7 @@ message DeployGuestFsResponse {
   string os = 5;
   string account = 6;
   string key = 7;
+  bool telegraf_deployed = 8;
 }
 
 message DiskInfo {

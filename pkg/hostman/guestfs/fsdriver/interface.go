@@ -45,6 +45,7 @@ type IDiskPartition interface {
 	Cleandir(dir string, keepdir, caseInsensitive bool) error
 	Zerofiles(dir string, caseInsensitive bool) error
 	SupportSerialPorts() bool
+	//Copy(src, dest string) error
 
 	GetPartDev() string
 	IsMounted() bool
@@ -81,6 +82,7 @@ type IRootFsDriver interface {
 	DisableSerialConsole(IDiskPartition) error
 	CommitChanges(IDiskPartition) error
 	DeployFiles(deploys []*deployapi.DeployContent) error
+	DeployTelegraf(config string) (bool, error)
 	DetectIsUEFISupport(IDiskPartition) bool
 	IsCloudinitInstall() bool
 	IsResizeFsPartitionSupport() bool

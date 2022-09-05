@@ -44,8 +44,10 @@ import (
 )
 
 const (
-	ROOT_USER       = "root"
-	YUNIONROOT_USER = "cloudroot"
+	ROOT_USER             = "root"
+	YUNIONROOT_USER       = "cloudroot"
+	TELEGRAF_BINARY_PATH  = "/opt/yunion/bin/telegraf"
+	SUPERVISE_BINARY_PATH = "/opt/yunion/bin/supervise"
 )
 
 var (
@@ -602,6 +604,63 @@ func (l *sLinuxRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
 
 func (l *sLinuxRootFs) IsCloudinitInstall() bool {
 	return l.GetPartition().Exists("/usr/bin/cloud-init", false)
+}
+
+func (d *sLinuxRootFs) DeployTelegraf(config string) (bool, error) {
+	var (
+		part             = d.GetPartition()
+		modeRwxOwner     = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
+		cloudMonitorPath = "/opt/.cloud-monitor"
+		telegrafPath     = path.Join(cloudMonitorPath, "run")
+	)
+
+	err := part.Mkdir(cloudMonitorPath, modeRwxOwner, false)
+	if err != nil {
+		return false, errors.Wrap(err, "mkdir cloud-monitor")
+	}
+	err = part.Mkdir(telegrafPath, modeRwxOwner, false)
+	if err != nil {
+		return false, errors.Wrap(err, "mkdir telegraf")
+	}
+	// telegraf files
+	err = part.FilePutContents(path.Join(cloudMonitorPath, "telegraf.conf"), config, false, false)
+	if err != nil {
+		return false, errors.Wrap(err, "write telegraf config")
+	}
+	output, err := procutils.NewCommand("cp", "-f", TELEGRAF_BINARY_PATH, path.Join(part.GetMountPath(), cloudMonitorPath)).Output()
+	if err != nil {
+		return false, errors.Wrapf(err, "cp telegraf failed %s", output)
+	}
+	// supervise
+	output, err = procutils.NewCommand("cp", "-f", SUPERVISE_BINARY_PATH, path.Join(part.GetMountPath(), cloudMonitorPath)).Output()
+	if err != nil {
+		return false, errors.Wrapf(err, "cp supervise failed %s", output)
+	}
+	err = part.FilePutContents(
+		path.Join(telegrafPath, "run"),
+		fmt.Sprintf("#!/bin/sh\n%s/telegraf -config %s/telegraf.conf", cloudMonitorPath, cloudMonitorPath),
+		false, false,
+	)
+	if err != nil {
+		return false, errors.Wrap(err, "write supervise run script")
+	}
+	err = part.Chmod(path.Join(telegrafPath, "run"), 0755, false)
+	if err != nil {
+		return false, errors.Wrap(err, "chmod supervise run script")
+	}
+	// add crontab: start telegraf on guest boot
+	cronJob := fmt.Sprintf("@reboot %s/supervise %s", cloudMonitorPath, telegrafPath)
+	if procutils.NewCommand("chroot", part.GetMountPath(), "crontab", "-l", "|", "grep", cronJob).Run() == nil {
+		// if cronjob exist, return success
+		return true, nil
+	}
+	output, err = procutils.NewCommand("chroot", part.GetMountPath(), "sh", "-c",
+		fmt.Sprintf("(crontab -l 2>/dev/null; echo '%s') |crontab -", cronJob),
+	).Output()
+	if err != nil {
+		return false, errors.Wrapf(err, "add crontab")
+	}
+	return true, nil
 }
 
 type sDebianLikeRootFs struct {
