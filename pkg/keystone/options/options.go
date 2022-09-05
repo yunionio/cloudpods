@@ -65,6 +65,8 @@ type SKeystoneOptions struct {
 	ProjectDashboardPolicy string `help:"dashboard policy name for project view" default:"project-dashboard"`
 
 	NoPolicyViolationCheck bool `help:"do not check policy violation when modify or assign policy" default:"false"`
+
+	LdapSearchPageSize uint32 `help:"pagination size for LDAP search" default:"100"`
 }
 
 var (

@@ -25,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/models"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/util/ldaputils"
 )
 
@@ -83,32 +84,36 @@ func (self *SLDAPDriver) syncSingleDomain(ctx context.Context, cli *ldaputils.SL
 	return nil
 }
 
-func (self *SLDAPDriver) searchDomainEntries(cli *ldaputils.SLDAPClient, domainid string) ([]*ldap.Entry, error) {
+func (self *SLDAPDriver) searchDomainEntries(cli *ldaputils.SLDAPClient, domainid string, entryFunc func(*ldap.Entry) error) error {
 	attrMap := make(map[string]string)
 	if len(domainid) > 0 {
 		attrMap[self.ldapConfig.DomainIdAttribute] = domainid
 	}
-	return cli.Search(self.getDomainTreeDN(),
+	_, err := cli.Search(self.getDomainTreeDN(),
 		self.ldapConfig.DomainObjectclass,
 		attrMap,
 		self.ldapConfig.DomainFilter,
 		self.domainAttributeList(),
 		self.domainQueryScope(),
+		options.Options.LdapSearchPageSize, 0,
+		func(offset uint32, entry *ldap.Entry) error {
+			return entryFunc(entry)
+		},
 	)
+	if err != nil {
+		return errors.Wrap(err, "Search")
+	}
+	return nil
 }
 
 func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPClient) error {
-	entries, err := self.searchDomainEntries(cli, "")
-	if err != nil {
-		return errors.Wrap(err, "searchLDAP")
-	}
 	domainIds := make([]string, 0)
-	for i := range entries {
-		domainInfo := self.entry2Domain(entries[i])
+	err := self.searchDomainEntries(cli, "", func(entry *ldap.Entry) error {
+		domainInfo := self.entry2Domain(entry)
 		err := domainInfo.isValid()
 		if err != nil {
 			log.Errorf("invalid domainInfo: %s, skip", err)
-			continue
+			return nil
 		}
 		domain, err := self.syncDomainInfo(ctx, domainInfo)
 		if err != nil {
@@ -123,7 +128,12 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 		if err != nil {
 			return errors.Wrap(err, "syncGroups")
 		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "searchDomainEntries")
 	}
+
 	// remove any obsolete domains
 	obsoleteDomainIds, err := models.IdmappingManager.FetchPublicIdsExcludes(self.IdpId, api.IdMappingEntityDomain, domainIds)
 	if err != nil {
@@ -171,37 +181,39 @@ func (self *SLDAPDriver) syncDomainInfo(ctx context.Context, info SDomainInfo) (
 }
 
 func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClient, domainId string, baseDN string) (map[string]string, error) {
-	entries, err := cli.Search(baseDN,
+	userIds := make([]string, 0)
+	userIdMap := make(map[string]string)
+	_, err := cli.Search(baseDN,
 		self.ldapConfig.UserObjectclass,
 		nil,
 		self.ldapConfig.UserFilter,
 		self.userAttributeList(),
 		self.userQueryScope(),
+		options.Options.LdapSearchPageSize, 0,
+		func(offset uint32, entry *ldap.Entry) error {
+			userInfo := self.entry2User(entry)
+			err := userInfo.isValid()
+			if err != nil {
+				log.Debugf("userInfo is invalid: %s, skip", err)
+				return nil
+			}
+			userId, err := self.syncUserDB(ctx, userInfo, domainId)
+			if err != nil {
+				return errors.Wrap(err, "syncUserDB")
+			}
+			userIds = append(userIds, userId)
+			if self.ldapConfig.GroupMembersAreIds {
+				userIdMap[userInfo.Id] = userId
+			} else {
+				userIdMap[userInfo.DN] = userId
+			}
+			return nil
+		},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "searchLDAP")
 	}
-	log.Debugf("syncUsers: ldapSearch entries: %#v", entries)
-	userIds := make([]string, 0)
-	userIdMap := make(map[string]string)
-	for i := range entries {
-		userInfo := self.entry2User(entries[i])
-		err := userInfo.isValid()
-		if err != nil {
-			log.Debugf("userInfo is invalid: %s, skip", err)
-			continue
-		}
-		userId, err := self.syncUserDB(ctx, userInfo, domainId)
-		if err != nil {
-			return nil, errors.Wrap(err, "syncUserDB")
-		}
-		userIds = append(userIds, userId)
-		if self.ldapConfig.GroupMembersAreIds {
-			userIdMap[userInfo.Id] = userId
-		} else {
-			userIdMap[userInfo.DN] = userId
-		}
-	}
+
 	deleteUsers, err := models.UserManager.FetchUsersInDomain(domainId, userIds)
 	if err != nil {
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserIdsInDomain")
@@ -259,30 +271,33 @@ func (self *SLDAPDriver) syncUserDB(ctx context.Context, ui SUserInfo, domainId 
 }
 
 func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPClient, domainId string, baseDN string, userIdMap map[string]string) error {
-	entries, err := cli.Search(baseDN,
+	groupIds := make([]string, 0)
+	_, err := cli.Search(baseDN,
 		self.ldapConfig.GroupObjectclass,
 		nil,
 		self.ldapConfig.GroupFilter,
 		self.groupAttributeList(),
 		self.groupQueryScope(),
+		options.Options.LdapSearchPageSize, 0,
+		func(offset uint32, entry *ldap.Entry) error {
+			groupInfo := self.entry2Group(entry)
+			err := groupInfo.isValid()
+			if err != nil {
+				log.Errorf("invalid group info: %s, skip", err)
+				return nil
+			}
+			groupId, err := self.syncGroupDB(ctx, groupInfo, domainId, userIdMap)
+			if err != nil {
+				return errors.Wrap(err, "syncGroupDB")
+			}
+			groupIds = append(groupIds, groupId)
+			return nil
+		},
 	)
 	if err != nil {
 		return errors.Wrap(err, "searchLDAP")
 	}
-	groupIds := make([]string, 0)
-	for i := range entries {
-		groupInfo := self.entry2Group(entries[i])
-		err := groupInfo.isValid()
-		if err != nil {
-			log.Errorf("invalid group info: %s, skip", err)
-			continue
-		}
-		groupId, err := self.syncGroupDB(ctx, groupInfo, domainId, userIdMap)
-		if err != nil {
-			return errors.Wrap(err, "syncGroupDB")
-		}
-		groupIds = append(groupIds, groupId)
-	}
+
 	deleteGroups, err := models.GroupManager.FetchGroupsInDomain(domainId, groupIds)
 	if err != nil {
 		return errors.Wrap(err, "models.GroupManager.FetchGroupsInDomain")
