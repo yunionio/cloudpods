@@ -65,7 +65,7 @@ require (
 	github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
 	github.com/sevlyar/go-daemon v0.1.5
 	github.com/shirou/gopsutil v3.21.11+incompatible
-	github.com/sirupsen/logrus v1.6.0
+	github.com/sirupsen/logrus v1.9.0
 	github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/stretchr/testify v1.7.2
@@ -84,12 +84,11 @@ require (
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20220429233432-b5fbb4746d32
+	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261
 	golang.org/x/text v0.3.7
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
-	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c
 	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/fatih/set.v0 v0.2.1
@@ -190,7 +189,6 @@ require (
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/lestrrat-go/iter v0.0.0-20200422075355-fc1769541911 // indirect
 	github.com/lestrrat-go/pdebug v0.0.0-20200204225717-4d6bd78da58d // indirect
@@ -249,7 +247,9 @@ require (
 	golang.org/x/tools v0.1.2 // indirect
 	google.golang.org/api v0.30.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
+	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.44.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -262,5 +262,4 @@ require (
 replace (
 	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
 	github.com/jaypipes/ghw => github.com/zexi/ghw v0.9.1
-	google.golang.org/grpc => google.golang.org/grpc v1.29.0
 )

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	ansible_api "yunion.io/x/onecloud/pkg/apis/ansible"
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -31,6 +32,20 @@ type sProxyEndpoint struct {
 
 var ErrCannotReachInfluxbd = errors.Error("no suitable network to reach influxdb")
 
+func GetLocalArgs(serverDetails *comapi.ServerDetails, influxdbUrl string) map[string]interface{} {
+	info := sServerInfo{}
+	info.serverDetails = serverDetails
+	info.ServerId = serverDetails.Id
+	networkIds := sets.NewString()
+	for _, nic := range serverDetails.Nics {
+		networkIds.Insert(nic.NetworkId)
+		info.VpcId = nic.VpcId
+	}
+	info.NetworkIds = networkIds.UnsortedList()
+
+	return getArgs(&info, influxdbUrl)
+}
+
 func GetArgs(ctx context.Context, serverId, proxyEndpointId string, others interface{}) (map[string]interface{}, error) {
 	host, ok := others.(*ansible_api.AnsibleHost)
 	if !ok {
@@ -40,7 +55,6 @@ func GetArgs(ctx context.Context, serverId, proxyEndpointId string, others inter
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to get serverInfo of server %s", serverId)
 	}
-
 	influxdbUrl, err := GetServiceUrl(ctx, "influxdb")
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get influxdbUrl")
@@ -53,6 +67,9 @@ func GetArgs(ctx context.Context, serverId, proxyEndpointId string, others inter
 	if len(influxdbUrl) == 0 {
 		return nil, errors.Wrap(ErrCannotReachInfluxbd, "please create usable Proxy Endpoint for server and try again")
 	}
+	return getArgs(&info, influxdbUrl), nil
+}
+func getArgs(info *sServerInfo, influxdbUrl string) map[string]interface{} {
 	tags := map[string]string{
 		"host":             info.serverDetails.Host,
 		"host_id":          info.serverDetails.HostId,
@@ -89,5 +106,5 @@ func GetArgs(ctx context.Context, serverId, proxyEndpointId string, others inter
 	if info.serverDetails.Hypervisor == comapi.HYPERVISOR_BAREMETAL {
 		ret["server_type"] = "baremetal"
 	}
-	return ret, nil
+	return ret
 }

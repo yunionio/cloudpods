@@ -2848,7 +2848,9 @@ func (s *SBaremetalServer) DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.C
 		password = seclib.RandomPassword(12)
 	}
 	deployInfo := deployapi.NewDeployInfo(publicKey, deployapi.JsonDeploysToStructs(deploys),
-		password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false, "")
+		password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false, "",
+		false, "",
+	)
 	return s.deployFs(tool, term, deployInfo)
 }
 
