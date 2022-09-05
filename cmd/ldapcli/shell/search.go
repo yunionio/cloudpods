@@ -40,6 +40,8 @@ func init() {
 		Search      []string `help:"search conditions, in format of field:value"`
 		Field       []string `help:"retrieve field info"`
 		Scope       string   `help:"query scope" choices:"one|sub" default:"sub"`
+		PageLimit   uint32   `help:"page size" default:"100"`
+		Limit       uint32   `help:"maximal output items"`
 	}
 	shellutils.R(&LdapSearchOptions{}, "search", "search ldap", func(cli *ldaputils.SLDAPClient, args *LdapSearchOptions) error {
 		search := make(map[string]string)
@@ -50,13 +52,14 @@ func init() {
 			}
 			search[s[:colonPos]] = s[(colonPos + 1):]
 		}
-		entries, err := cli.Search(args.Base, args.Objectclass, search, "", args.Field, queryScope(args.Scope))
+		total, err := cli.Search(args.Base, args.Objectclass, search, "", args.Field, queryScope(args.Scope), args.PageLimit, args.Limit, func(offset uint32, entry *ldap.Entry) error {
+			entry.PrettyPrint(2)
+			return nil
+		})
 		if err != nil {
 			return err
 		}
-		for _, entry := range entries {
-			entry.PrettyPrint(2)
-		}
+		fmt.Println("Total:", total)
 		return nil
 	})
 

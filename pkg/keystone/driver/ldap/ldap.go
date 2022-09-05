@@ -253,14 +253,19 @@ func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 		if err != nil {
 			return nil, errors.Wrap(err, "IdmappingManager.FetchEntity for domain")
 		}
-		entries, err := self.searchDomainEntries(cli, idMap.IdpEntityId)
+		var searchEntry *ldap.Entry
+		err = self.searchDomainEntries(cli, idMap.IdpEntityId,
+			func(entry *ldap.Entry) error {
+				searchEntry = entry
+				return ldaputils.StopSearch
+			})
 		if err != nil {
 			return nil, errors.Wrap(err, "self.searchDomainEntries")
 		}
-		if len(entries) == 0 {
+		if searchEntry == nil {
 			return nil, errors.Error("fail to find domain DN")
 		}
-		userTreeDN = entries[0].DN
+		userTreeDN = searchEntry.DN
 	} else {
 		userTreeDN = self.getUserTreeDN()
 	}
