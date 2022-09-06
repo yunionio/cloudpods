@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	QGA_LOCK_TIMEOUT = time.Second * 10
-	QGA_EXEC_TIMEOUT = time.Second * 5
+	QGA_LOCK_TIMEOUT = time.Second * 5
+	QGA_EXEC_TIMEOUT = time.Second * 10
 )
 
 func qgaExec(timeout time.Duration, qgaFunc func(chan error)) error {
@@ -64,11 +64,6 @@ func (m *SGuestManager) QgaGuestSetPassword(ctx context.Context, params interfac
 		return nil, err
 	}
 
-	if guest.guestAgent.TryLock(QGA_LOCK_TIMEOUT) {
-		defer guest.guestAgent.Unlock()
-	} else {
-		return nil, errors.Wrap(err, "qga unfinished last cmd, is qga unavailable?")
-	}
 	f := func(c chan error) {
 		if guest.guestAgent.TryLock(QGA_LOCK_TIMEOUT) {
 			defer guest.guestAgent.Unlock()

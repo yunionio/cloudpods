@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
@@ -633,6 +634,36 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 func (self *SGuest) GetDetailsCreateParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	input := self.ToCreateInput(ctx, userCred)
 	return input.JSON(input), nil
+}
+
+func (self *SGuest) PerformSetPassword(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSetPasswordInput) (jsonutils.JSONObject, error) {
+	switch self.Status {
+	case api.VM_RUNNING:
+		inputQga := &api.ServerQgaSetPasswordInput{
+			Username: input.Username,
+			Password: input.Password,
+		}
+		if inputQga.Username == "" {
+			if self.OsType == osprofile.OS_TYPE_WINDOWS {
+				inputQga.Username = api.VM_DEFAULT_WINDOWS_LOGIN_USER
+			} else {
+				inputQga.Username = api.VM_DEFAULT_LINUX_LOGIN_USER
+			}
+		}
+		if inputQga.Password == "" && input.ResetPassword {
+			inputQga.Password = seclib2.RandomPassword2(12)
+		}
+		return self.PerformQgaSetPassword(ctx, userCred, query, inputQga)
+	case api.VM_READY:
+		inputDeploy := api.ServerDeployInput{
+			Password:      input.Password,
+			ResetPassword: input.ResetPassword,
+			AutoStart:     input.AutoStart,
+		}
+		return self.PerformDeploy(ctx, userCred, query, inputDeploy)
+	default:
+		return nil, httperrors.NewServerStatusError("Cannot deploy in status %s", self.Status)
+	}
 }
 
 func (self *SGuest) saveOldPassword(ctx context.Context, userCred mcclient.TokenCredential) {
