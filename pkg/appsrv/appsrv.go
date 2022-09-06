@@ -66,6 +66,8 @@ type Application struct {
 	idleConnsClosed chan struct{}
 	httpServer      *http.Server
 	slaveHttpServer *http.Server
+
+	isTLS bool
 }
 
 const (
@@ -314,6 +316,9 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 	w.Header().Set("Server", "Yunion AppServer/Go/2018.4")
 	w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 	w.Header().Set("X-XSS-Protection", "1; mode=block")
+	if app.isTLS {
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+	}
 	isCors := app.handleCORS(w, r)
 	handler := app.getRoot(r.Method).Match(segs, params)
 	if handler != nil {
@@ -499,6 +504,7 @@ func (app *Application) ListenAndServeWithoutCleanup(addr, certFile, keyFile str
 }
 
 func (app *Application) ListenAndServeTLSWithCleanup2(addr string, certFile, keyFile string, onStop func(), isMaster bool) {
+	app.isTLS = true
 	httpSrv := app.initServer(addr)
 	if isMaster {
 		app.addDefaultHandlers()
