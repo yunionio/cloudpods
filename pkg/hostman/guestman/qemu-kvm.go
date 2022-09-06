@@ -1307,7 +1307,7 @@ func (s *SKVMGuestInstance) DeployFs(ctx context.Context, userCred mcclient.Toke
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
-		diskInfo.Path = diskPath
+		diskInfo.Path = disk.GetPath()
 		return disk.DeployGuestFs(&diskInfo, s.Desc, deployInfo)
 	} else {
 		return nil, fmt.Errorf("Guest dosen't have disk ??")
