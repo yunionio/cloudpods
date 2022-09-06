@@ -103,6 +103,7 @@ func GetModels(opts *GetModelsOptions) error {
 
 	listOptions := options.BaseListOptions{
 		Admin:        options.Bool(true),
+		Scope:        "system",
 		Details:      options.Bool(opts.IncludeDetails),
 		ShowEmulated: options.Bool(opts.IncludeEmulated),
 		Filter: []string{
