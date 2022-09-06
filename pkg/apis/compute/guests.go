@@ -263,12 +263,12 @@ func (self ServerDetails) GetMetricTags() map[string]string {
 		"cloudregion":         self.Cloudregion,
 		"cloudregion_id":      self.CloudregionId,
 		"region_ext_id":       self.RegionExtId,
-		"tenant":              self.Tenant,
-		"tenant_id":           self.TenantId,
+		"tenant":              self.Project,
+		"tenant_id":           self.ProjectId,
 		"brand":               self.Brand,
 		"vm_scaling_group_id": self.ScalingGroupId,
 		"domain_id":           self.DomainId,
-		"project_domain":      self.TenantId,
+		"project_domain":      self.ProjectDomain,
 		"account":             self.Account,
 		"account_id":          self.AccountId,
 	}
@@ -663,6 +663,8 @@ type ServerDeployInput struct {
 
 	// swagger: ignore
 	DeployConfigs []*DeployConfig `json:"deploy_configs"`
+	// swagger: ignore
+	DeployTelegraf bool `json:"deploy_telegraf"`
 }
 
 type ServerUserDataInput struct {

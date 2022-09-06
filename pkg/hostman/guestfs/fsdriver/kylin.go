@@ -40,7 +40,7 @@ func (d *SGalaxyKylinRootFs) String() string {
 }
 
 func (d *SGalaxyKylinRootFs) RootSignatures() []string {
-	sigs := []string{"/etc/kylin-release"}
+	sigs := []string{"/etc/kylin-release", "/etc/.productinfo"}
 	for _, sig := range d.sRedhatLikeRootFs.RootSignatures() {
 		if sig != "/etc/redhat-release" {
 			sigs = append(sigs, sig)

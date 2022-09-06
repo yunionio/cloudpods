@@ -346,6 +346,18 @@ func (manager *SDnsRecordSetManager) FetchCustomizeColumns(
 	return rows
 }
 
+func (self *SDnsRecordSet) ToZoneLine() string {
+	result := self.Name + "\t" + fmt.Sprint(self.TTL) + "\tIN\t" + self.DnsType + "\t"
+	if self.MxPriority != 0 {
+		result += fmt.Sprint(self.MxPriority) + "\t"
+	}
+	result += self.DnsValue
+	if self.DnsType == "CNAME" || self.DnsType == "MX" || self.DnsType == "SRV" {
+		result += "."
+	}
+	return result
+}
+
 func (self *SDnsRecordSet) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	policies, err := self.GetDnsTrafficPolicies()
 	if err != nil {

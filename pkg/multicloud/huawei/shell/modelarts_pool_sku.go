@@ -32,13 +32,4 @@ func init() {
 		printList(resourceflavors, len(resourceflavors), 0, 0, nil)
 		return nil
 	})
-
-	// shellutils.R(&PoolListOption{}, "pool-detail", "List pool", func(cli *huawei.SRegion, args *PoolListOption) error {
-	// 	pools, err := cli.GetPoolsByName(args.PoolName)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	printList(pools, len(pools), 0, 0, nil)
-	// 	return nil
-	// }
 }

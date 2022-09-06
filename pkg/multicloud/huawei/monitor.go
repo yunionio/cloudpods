@@ -188,7 +188,7 @@ func (self *SHuaweiClient) getRedisMetrics(opts *cloudprovider.MetricListOptions
 		case "instantaneous_output_kbps":
 			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_NET_BPS_TX
 		case "connected_clients":
-			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_CONN_USAGE
+			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_USED_CONN
 		case "instantaneous_ops":
 			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_OPT_SES
 		case "keys":
@@ -408,7 +408,6 @@ func (self *SHuaweiClient) getLoadbalancerMetrics(opts *cloudprovider.MetricList
 	namespace, dimesionName, metricNames := "SYS.ELB", "lb_instance_id", []string{
 		"m7_in_Bps",
 		"m8_out_Bps",
-		"mb_l7_qps",
 		"mc_l7_http_2xx",
 		"md_l7_http_3xx",
 		"me_l7_http_4xx",
@@ -450,9 +449,6 @@ func (self *SHuaweiClient) getLoadbalancerMetrics(opts *cloudprovider.MetricList
 			ret.MetricType = cloudprovider.LB_METRIC_TYPE_NET_BPS_RX
 		case "m8_out_Bps":
 			ret.MetricType = cloudprovider.LB_METRIC_TYPE_NET_BPS_TX
-		case "mb_l7_qps":
-			ret.MetricType = cloudprovider.LB_METRIC_TYPE_REQ_RATE
-			tags = map[string]string{"request": "http"}
 		case "mc_l7_http_2xx":
 			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
 			tags = map[string]string{"request": "2xx"}

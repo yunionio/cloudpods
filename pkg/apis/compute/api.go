@@ -441,8 +441,9 @@ type ServerCreateInput struct {
 	// 创建后自动启动
 	// 部分云创建后会自动启动例如: 腾讯云, AWS, OpenStack, ZStack, Ucloud, Huawei, Azure, 天翼云
 	// default: false
-	AutoStart     bool            `json:"auto_start"`
-	DeployConfigs []*DeployConfig `json:"deploy_configs"`
+	AutoStart      bool            `json:"auto_start"`
+	DeployConfigs  []*DeployConfig `json:"deploy_configs"`
+	DeployTelegraf bool            `json:"deploy_telegraf"`
 
 	// 包年包月时长
 	//

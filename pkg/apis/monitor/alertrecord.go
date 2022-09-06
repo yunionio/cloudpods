@@ -58,7 +58,7 @@ func (self AlertRecordDetails) GetMetricTags() map[string]string {
 		"alert_name":     self.AlertName,
 		"domain_id":      self.DomainId,
 		"project_domain": self.ProjectDomain,
-		"res_type":       "agent",
+		"res_type":       self.ResType,
 		"tenant":         self.Tenant,
 		"tenant_id":      self.TenantId,
 	}

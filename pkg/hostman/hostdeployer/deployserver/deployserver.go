@@ -46,7 +46,9 @@ import (
 	"yunion.io/x/onecloud/pkg/util/winutils"
 )
 
-type DeployerServer struct{}
+type DeployerServer struct {
+	deployapi.UnimplementedDeployAgentServer
+}
 
 var _ deployapi.DeployAgentServer = &DeployerServer{}
 

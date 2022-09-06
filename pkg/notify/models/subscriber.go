@@ -367,11 +367,11 @@ func (s *SSubscriber) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 		return err
 	}
 	if s.Scope == string(rbacutils.ScopeSystem) {
-		if db.IsAdminAllowDelete(ctx, userCred, s) {
+		if !db.IsAdminAllowDelete(ctx, userCred, s) {
 			return httperrors.NewForbiddenError("")
 		}
 	} else {
-		if db.IsDomainAllowDelete(ctx, userCred, s) {
+		if !db.IsDomainAllowDelete(ctx, userCred, s) {
 			return httperrors.NewForbiddenError("")
 		}
 		if s.DomainId != userCred.GetProjectDomainId() {

@@ -185,7 +185,7 @@ func UnmarshalError(r *request.Request) {
 		}
 	}
 
-	if strings.Contains(respErr.Errors.Code, "NotFound") {
+	if strings.Contains(respErr.Errors.Code, "NotFound") || respErr.Errors.Code == "NoSuchEntity" {
 		r.Error = errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(respErr).String())
 		return
 	}

@@ -1,11 +1,29 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
+
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -15,9 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/sqlchemy"
 )
 
 type SModelartsPoolManager struct {
@@ -58,9 +73,7 @@ type SModelartsPool struct {
 }
 
 func (manager *SModelartsPoolManager) GetContextManagers() [][]db.IModelManager {
-	return [][]db.IModelManager{
-		{CloudregionManager},
-	}
+	return [][]db.IModelManager{}
 }
 
 // Pool实例列表
@@ -261,6 +274,24 @@ func (self *SModelartsPool) StartCreateTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
+func (modelarts *SModelartsPool) PerformSyncstatus(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.ModelartsPoolSyncstatusInput,
+) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(modelarts, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("ModelartsPool has %d task active, can't sync status", count)
+	}
+
+	return nil, StartResourceSyncStatusTask(ctx, userCred, modelarts, "ModelartsPoolSyncstatusTask", "")
+}
+
 func (self *SModelartsPool) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	return StartResourceSyncStatusTask(ctx, userCred, self, "ModelartsPoolSyncstatusTask", parentTaskId)
 }
@@ -268,17 +299,6 @@ func (self *SModelartsPool) StartSyncstatus(ctx context.Context, userCred mcclie
 func (self *SModelartsPool) GetCloudproviderId() string {
 	return self.ManagerId
 }
-
-// func (self *SModelartsPool) GetIModelartsPoolById(ctx context.Context) (cloudprovider.ICloudModelartsPool, error) {
-// 	if len(self.ExternalId) == 0 {
-// 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
-// 	}
-// 	iProvider, err := self.GetDriver(ctx)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "self.GetIRegion")
-// 	}
-// 	return iProvider.GetIModelartsPoolById(self.ExternalId)
-// }
 
 func (self *SModelartsPool) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
@@ -335,7 +355,6 @@ func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, user
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Status = ext.GetStatus()
 		self.BillingType = ext.GetBillingType()
-		// self.BillingCycle = ext.GetBillingCycle()
 		self.InstanceType = instanceName
 		self.WorkType = ext.GetWorkType()
 		self.CpuArch = sku.CpuArch
@@ -407,34 +426,4 @@ func (self *SCloudprovider) newFromCloudModelartsPool(ctx context.Context, userC
 	db.OpsLog.LogEvent(&pool, db.ACT_CREATE, pool.GetShortDesc(ctx), userCred)
 
 	return &pool, nil
-}
-
-func (self *SModelartsPool) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	pool := api.ModelartsPoolUpdateInput{}
-	data.Unmarshal(&pool)
-	opts := &cloudprovider.ModelartsPoolUpdateOption{
-		Id:       self.ExternalId,
-		WorkType: pool.WorkType,
-	}
-	self.VirtualModelManager()
-	iProvider, err := self.GetDriver(ctx)
-	if err != nil {
-		log.Errorln(errors.Wrap(err, "self.GetDriver"))
-		return
-	}
-	res, err := iProvider.UpdateIModelartsPool(opts)
-	if err != nil {
-		log.Errorln(errors.Wrap(err, "self.UpdateIModelartsPool"))
-		return
-	}
-	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		self.WorkType = res.GetWorkType()
-		return nil
-	})
-	if err != nil {
-		log.Errorln(errors.Wrap(err, "diff"))
-		return
-	}
-	self.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
-	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 }

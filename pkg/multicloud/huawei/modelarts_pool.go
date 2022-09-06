@@ -15,19 +15,21 @@
 package huawei
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SModelartsPool struct {
 	client *SHuaweiClient
+	multicloud.SResourceBase
 
 	Metadata     SModelartsPoolMetadata `json:"metadata"`
 	Spec         SModelartsPoolSpec     `json:"spec"`
@@ -88,9 +90,10 @@ func (self *SHuaweiClient) GetIModelartsPools() ([]cloudprovider.ICloudModelarts
 	}
 	res := make([]cloudprovider.ICloudModelartsPool, len(pools))
 	for i := 0; i < len(pools); i++ {
+		pools[i].client = self
 		res[i] = &pools[i]
+		fmt.Println(res[i].GetStatus())
 	}
-	log.Infoln(res)
 	return res, nil
 }
 
@@ -137,27 +140,6 @@ func (self *SHuaweiClient) CreateIModelartsPool(args *cloudprovider.ModelartsPoo
 
 func (self *SHuaweiClient) DeletePool(poolName string) (jsonutils.JSONObject, error) {
 	return self.modelartsPoolDelete("pools", poolName, nil)
-}
-
-func (self *SHuaweiClient) Update(args *cloudprovider.ModelartsPoolUpdateOption) (cloudprovider.ICloudModelartsPool, error) {
-	scopeArr := strings.Split(args.WorkType, ",")
-	params := map[string]interface{}{
-		"spec": map[string]interface{}{
-			"scope": scopeArr,
-		},
-	}
-	obj, err := self.modelartsPoolUpdate(args.Id, params)
-	if err != nil {
-		return nil, errors.Wrap(err, "modelartsPoolUpdate")
-	}
-	pool := &SModelartsPool{}
-	obj.Unmarshal(&pool)
-	res := []cloudprovider.ICloudModelartsPool{}
-	for i := 0; i < 1; i++ {
-		pool.client = self
-		res = append(res, pool)
-	}
-	return res[0], nil
 }
 
 func (self *SHuaweiClient) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
@@ -322,7 +304,6 @@ func (self *SModelartsPool) Refresh() error {
 }
 
 func (self *SModelartsPool) SetTags(tags map[string]string, replace bool) error {
-	// return self.client.SetResourceTags(ALIYUN_SERVICE_NAS, "filesystem", self.FileSystemId, tags, replace)
 	return nil
 }
 

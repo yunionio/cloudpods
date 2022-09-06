@@ -578,6 +578,22 @@ func (self *SDnsZone) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
+func (self *SDnsZone) GetDetailsExports(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	records, err := self.GetDnsRecordSets()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDnsRecordSets")
+	}
+	result := "$ORIGIN " + self.Name + ".\n"
+	lines := []string{}
+	for _, record := range records {
+		lines = append(lines, record.ToZoneLine())
+	}
+	result += strings.Join(lines, "\n")
+	rr := make(map[string]string)
+	rr["zone"] = result
+	return jsonutils.Marshal(rr), nil
+}
+
 func (self *SDnsZone) GetDnsRecordSets() ([]SDnsRecordSet, error) {
 	records := []SDnsRecordSet{}
 	q := DnsRecordSetManager.Query().Equals("dns_zone_id", self.Id)

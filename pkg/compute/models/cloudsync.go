@@ -1882,12 +1882,9 @@ func syncPublicCloudProviderInfo(
 		}
 	}
 
-	if cloudprovider.IsSupportModelartsPoolSku(driver) {
-		syncModelartsPoolSkus(ctx, userCred, syncResults, provider, driver)
-	}
-
-	if cloudprovider.IsSupportModelartsPool(driver) {
+	if cloudprovider.IsSupportModelartsPool(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_MODELARTES) {
 		syncModelartsPools(ctx, userCred, syncResults, provider, driver)
+		syncModelartsPoolSku(ctx, userCred, syncResults, provider, driver)
 	}
 
 	return nil

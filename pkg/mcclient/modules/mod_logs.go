@@ -34,6 +34,7 @@ var (
 	CloudeventLogs modulebase.ResourceManager
 	ComputeLogs    modulebase.ResourceManager
 	MonitorLogs    modulebase.ResourceManager
+	NotifyLogs     modulebase.ResourceManager
 )
 
 func (this *LogsManager) Get(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -47,6 +48,10 @@ func (this *LogsManager) Get(session *mcclient.ClientSession, id string, params 
 		return IdentityLogs.Get(session, id, params)
 	case apis.SERVICE_TYPE_CLOUDEVENT:
 		return CloudeventLogs.Get(session, id, params)
+	case apis.SERVICE_TYPE_MONITOR:
+		return MonitorLogs.Get(session, id, params)
+	case apis.SERVICE_TYPE_NOTIFY:
+		return NotifyLogs.Get(session, id, params)
 	default:
 		return ComputeLogs.Get(session, id, params)
 	}
@@ -63,6 +68,10 @@ func (this *LogsManager) PerformClassAction(session *mcclient.ClientSession, act
 		return IdentityLogs.PerformClassAction(session, action, params)
 	case apis.SERVICE_TYPE_CLOUDEVENT:
 		return CloudeventLogs.PerformClassAction(session, action, params)
+	case apis.SERVICE_TYPE_MONITOR:
+		return MonitorLogs.PerformClassAction(session, action, params)
+	case apis.SERVICE_TYPE_NOTIFY:
+		return NotifyLogs.PerformClassAction(session, action, params)
 	default:
 		return ComputeLogs.PerformClassAction(session, action, params)
 	}
@@ -86,6 +95,9 @@ func init() {
 		[]string{})
 	// ComputeLogs.SetApiVersion(mcclient.V2_API_VERSION)
 	MonitorLogs = NewMonitorV2Manager("event", "events",
+		[]string{"id", "ops_time", "obj_id", "obj_type", "obj_name", "user", "tenant", "action", "notes"},
+		[]string{})
+	NotifyLogs = NewNotifyv2Manager("event", "events",
 		[]string{"id", "ops_time", "obj_id", "obj_type", "obj_name", "user", "tenant", "action", "notes"},
 		[]string{})
 

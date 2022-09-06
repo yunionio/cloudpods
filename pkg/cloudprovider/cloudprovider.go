@@ -320,9 +320,7 @@ type ICloudProvider interface {
 	GetIModelartsPools() ([]ICloudModelartsPool, error)
 	GetIModelartsPoolById(id string) (ICloudModelartsPool, error)
 	CreateIModelartsPool(pool *ModelartsPoolCreateOption) (ICloudModelartsPool, error)
-	UpdateIModelartsPool(pool *ModelartsPoolUpdateOption) (ICloudModelartsPool, error)
 	GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error)
-	// GetIModelartsPoolSkuById() (ICloudModelartsPoolSku, error)
 }
 
 func IsSupportCapability(prod ICloudProvider, capa string) bool {
@@ -406,11 +404,7 @@ func IsSupportTablestore(prod ICloudProvider) bool {
 }
 
 func IsSupportModelartsPool(prod ICloudProvider) bool {
-	return IsSupportCapability(prod, CLOUD_CAPABILITY_MODELARTES_POOL)
-}
-
-func IsSupportModelartsPoolSku(prod ICloudProvider) bool {
-	return IsSupportCapability(prod, CLOUD_CAPABILITY_MODELARTES_POOL_SKU)
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_MODELARTES)
 }
 
 var providerTable map[string]ICloudProviderFactory
@@ -645,10 +639,6 @@ func (self *SBaseProvider) GetIModelartsPoolById(id string) (ICloudModelartsPool
 
 func (self *SBaseProvider) CreateIModelartsPool(pool *ModelartsPoolCreateOption) (ICloudModelartsPool, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "CreateIModelartsPool")
-}
-
-func (self *SBaseProvider) UpdateIModelartsPool(pool *ModelartsPoolUpdateOption) (ICloudModelartsPool, error) {
-	return nil, errors.Wrapf(ErrNotImplemented, "UpdateIModelartsPool")
 }
 
 func (self *SBaseProvider) GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error) {
@@ -957,7 +947,6 @@ type ICloudModelartsPool interface {
 }
 
 type ICloudModelartsPoolSku interface {
-	// ICloudSku
 	ICloudResource
 
 	GetCpuCoreCount() int

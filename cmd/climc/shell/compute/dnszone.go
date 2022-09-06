@@ -15,6 +15,11 @@
 package compute
 
 import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -34,4 +39,15 @@ func init() {
 	cmd.Perform("purge", &options.SDnsZoneIdOptions{})
 	cmd.Perform("add-vpcs", &options.DnsZoneAddVpcsOptions{})
 	cmd.Perform("remove-vpcs", &options.DnsZoneRemoveVpcsOptions{})
+	cmd.GetWithCustomShow("exports", func(result jsonutils.JSONObject) {
+		rr := make(map[string]string)
+		err := result.Unmarshal(&rr)
+		if err != nil {
+			log.Errorf("error: %v", err)
+			return
+		}
+		for _, v := range rr {
+			fmt.Printf("%s\n", v)
+		}
+	}, &options.SDnsZoneIdOptions{})
 }

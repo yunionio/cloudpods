@@ -336,6 +336,13 @@ func (oc *OneCloudNotifier) newRemoteMobileContent(config *monitor.NotificationT
 	}
 }
 
+func mobileContent(alertName string, typeStr string) string {
+	content := make([][]string, 2)
+	content[0] = []string{"alert_name", alertName}
+	content[1] = []string{"type", typeStr}
+	return jsonutils.Marshal(content).String()
+}
+
 func (oc *OneCloudNotifier) newDefaultRemoteMobileContent(config *monitor.NotificationTemplateConfig,
 	evalCtx *alerting.EvalContext, lang language.Tag) string {
 	typ := ""
@@ -347,10 +354,7 @@ func (oc *OneCloudNotifier) newDefaultRemoteMobileContent(config *monitor.Notifi
 		typ = "告警策略"
 		config.Title = MOBILE_DEFAULT_TOPIC_CN
 	}
-	content := jsonutils.NewDict()
-	content.Set("alert_name", jsonutils.NewString(evalCtx.Rule.Name))
-	content.Set("type", jsonutils.NewString(typ))
-	return content.String()
+	return mobileContent(evalCtx.Rule.Name, typ)
 }
 
 func (oc *OneCloudNotifier) newMeterRemoteMobileContent(config *monitor.NotificationTemplateConfig,
@@ -366,10 +370,7 @@ func (oc *OneCloudNotifier) newMeterRemoteMobileContent(config *monitor.Notifica
 	}
 	customizeConfig := new(monitor.MeterCustomizeConfig)
 	evalCtx.Rule.CustomizeConfig.Unmarshal(customizeConfig)
-	content := jsonutils.NewDict()
-	content.Set("alert_name", jsonutils.NewString(customizeConfig.Name))
-	content.Set("type", jsonutils.NewString(typ))
-	return content.String()
+	return mobileContent(customizeConfig.Name, typ)
 }
 
 func GetUserLangIdsMap(ids []string) (map[string][]string, error) {

@@ -187,6 +187,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_SERVER,
 				notify.TOPIC_RESOURCE_DBINSTANCE,
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
+				notify.TOPIC_RESOURCE_USER,
 			)
 			t.addAction(notify.ActionUpdate)
 			t.addAction(notify.ActionRebuildRoot)

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -6,6 +20,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -13,13 +31,9 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/sqlchemy"
 )
 
 type SModelartsPoolSkuManager struct {
-	// 由于资源是用户资源，因此定义为Virtual资源
 	db.SExternalizedResourceBaseManager
 	db.SEnabledStatusStandaloneResourceBaseManager
 
@@ -46,9 +60,6 @@ type SModelartsPoolSku struct {
 	db.SEnabledStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	// SZoneResourceBase
-	// 备注
-
 	Type string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // 资源规格类型
 
 	CpuArch  string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`  // CPU 架构 x86|xarm
@@ -62,9 +73,7 @@ type SModelartsPoolSku struct {
 }
 
 func (manager *SModelartsPoolSkuManager) GetContextManagers() [][]db.IModelManager {
-	return [][]db.IModelManager{
-		{CloudregionManager},
-	}
+	return [][]db.IModelManager{}
 }
 
 func (man *SModelartsPoolSkuManager) ListItemFilter(
@@ -132,13 +141,13 @@ func (manager *SModelartsPoolSkuManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.ModelartsPoolSkuDetails {
 	rows := make([]api.ModelartsPoolSkuDetails, len(objs))
-	// virtRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	enabledRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.ModelartsPoolSkuDetails{
-			// VirtualResourceDetails: virtRows[i],
-			ManagedResourceInfo: manRows[i],
+			EnabledStatusStandaloneResourceDetails: enabledRows[i],
+			ManagedResourceInfo:                    manRows[i],
 		}
 	}
 
@@ -240,7 +249,7 @@ func (self *SModelartsPoolSku) syncWithCloudSku(ctx context.Context, userCred mc
 func (self *SCloudprovider) newFromCloudModelartsPoolSku(ctx context.Context, userCred mcclient.TokenCredential, isku cloudprovider.ICloudModelartsPoolSku) error {
 	sku := SModelartsPoolSku{}
 	sku.SetModelManager(ModelartsPoolSkuManager, &sku)
-	sku.Name = isku.GetName() //避免使用yunion meta的id,导致出现duplicate entry问题
+	sku.Name = isku.GetName()
 	sku.CpuCount = isku.GetCpuCoreCount()
 	sku.CpuArch = isku.GetCpuArch()
 	sku.Status = isku.GetStatus()

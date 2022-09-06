@@ -17,6 +17,7 @@ package aliyun
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -450,71 +451,44 @@ func (self *SAliyunClient) GetOssMetrics(opts *cloudprovider.MetricListOptions) 
 }
 
 func (self *SAliyunClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	metricTags, tagKey := map[string]string{}, ""
-	switch opts.MetricType {
-	case cloudprovider.REDIS_METRIC_TYPE_CPU_USAGE:
-		metricTags = map[string]string{
-			"CpuUsage": "",
-		}
-	case cloudprovider.REDIS_METRIC_TYPE_MEM_USAGE:
-		metricTags = map[string]string{
-			"MemoryUsage": "",
-		}
-	case cloudprovider.REDIS_METRIC_TYPE_NET_BPS_RX:
-		metricTags = map[string]string{
-			"IntranetIn": "",
-		}
-	case cloudprovider.REDIS_METRIC_TYPE_NET_BPS_TX:
-		metricTags = map[string]string{
-			"IntranetOut": "",
-		}
-	case cloudprovider.REDIS_METRIC_TYPE_CONN_USAGE:
-		metricTags = map[string]string{
-			"UsedConnection": "",
-		}
-	case cloudprovider.REDIS_METRIC_TYPE_OPT_SES:
-		metricTags = map[string]string{
-			"UsedQPS": "",
-		}
-	case cloudprovider.REDIS_METRIC_TYPE_CACHE_KEYS:
-		metricTags = map[string]string{
-			"StandardKeys": "",
-		}
-	//case cloudprovider.REDIS_METRIC_TYPE_CACHE_EXP_KEYS:
-	//	metricTags = map[string]string{
-	//		"ExpiredKeys": "",
-	//	}
-	case cloudprovider.REDIS_METRIC_TYPE_DATA_MEM_USAGE:
-		metricTags = map[string]string{
-			"UsedMemory": "",
-		}
-	default:
+	metrics := map[cloudprovider.TMetricType]string{
+		cloudprovider.REDIS_METRIC_TYPE_CPU_USAGE:      "CpuUsage",
+		cloudprovider.REDIS_METRIC_TYPE_MEM_USAGE:      "MemoryUsage",
+		cloudprovider.REDIS_METRIC_TYPE_NET_BPS_RX:     "IntranetIn",
+		cloudprovider.REDIS_METRIC_TYPE_NET_BPS_TX:     "IntranetOut",
+		cloudprovider.REDIS_METRIC_TYPE_USED_CONN:      "UsedConnection",
+		cloudprovider.REDIS_METRIC_TYPE_OPT_SES:        "UsedQPS",
+		cloudprovider.REDIS_METRIC_TYPE_CACHE_KEYS:     "StandardKeys",
+		cloudprovider.REDIS_METRIC_TYPE_DATA_MEM_USAGE: "UsedMemory",
+	}
+	metric, ok := metrics[opts.MetricType]
+	if !ok {
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
 	ret := []cloudprovider.MetricValues{}
-	for metric, tag := range metricTags {
-		result, err := self.ListMetrics("acs_kvstore", metric, opts.StartTime, opts.EndTime)
-		if err != nil {
-			log.Errorf("ListMetric(%s) error: %v", metric, err)
-			continue
-		}
+	result, err := self.ListMetrics("acs_kvstore", metric, opts.StartTime, opts.EndTime)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListMetric(%s)", metric)
+	}
+	for i := range result {
 		tags := map[string]string{}
-		if len(tag) > 0 && len(tagKey) > 0 {
-			tags[tagKey] = tag
+		if strings.Contains(result[i].InstanceId, "-db-") {
+			tags[cloudprovider.METRIC_TAG_NODE] = result[i].InstanceId
+			idx := strings.Index(result[i].InstanceId, "-db-")
+			result[i].InstanceId = result[i].InstanceId[:idx]
 		}
-		for i := range result {
-			ret = append(ret, cloudprovider.MetricValues{
-				Id:         result[i].InstanceId,
-				MetricType: opts.MetricType,
-				Values: []cloudprovider.MetricValue{
-					{
-						Timestamp: time.UnixMilli(result[i].Timestamp),
-						Value:     result[i].GetValue(),
-						Tags:      tags,
-					},
+		value := cloudprovider.MetricValues{
+			Id:         result[i].InstanceId,
+			MetricType: opts.MetricType,
+			Values: []cloudprovider.MetricValue{
+				{
+					Timestamp: time.UnixMilli(result[i].Timestamp),
+					Value:     result[i].GetValue(),
+					Tags:      tags,
 				},
-			})
+			},
 		}
+		ret = append(ret, value)
 	}
 	return ret, nil
 }
@@ -625,43 +599,36 @@ func (self *SAliyunClient) GetElbMetrics(opts *cloudprovider.MetricListOptions) 
 }
 
 func (self *SAliyunClient) GetK8sMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	metricTags, tagKey := map[string]string{}, ""
+	metricName := ""
 	switch opts.MetricType {
 	case cloudprovider.K8S_NODE_METRIC_TYPE_CPU_USAGE:
-		metricTags = map[string]string{
-			"node.cpu.utilization": "",
-		}
+		metricName = "node.cpu.utilization"
 	case cloudprovider.K8S_NODE_METRIC_TYPE_MEM_USAGE:
-		metricTags = map[string]string{
-			"node.memory.utilization": "",
-		}
+		metricName = "node.memory.utilization"
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
+	result, err := self.ListMetrics("acs_k8s", metricName, opts.StartTime, opts.EndTime)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListMetrics(%s)", metricName)
+	}
 	ret := []cloudprovider.MetricValues{}
-	for metric, tag := range metricTags {
-		result, err := self.ListMetrics("acs_k8s", metric, opts.StartTime, opts.EndTime)
-		if err != nil {
-			log.Errorf("ListMetric(%s) error: %v", metric, err)
-			continue
-		}
+	for i := range result {
 		tags := map[string]string{}
-		if len(tag) > 0 && len(tagKey) > 0 {
-			tags[tagKey] = tag
+		if len(result[i].Node) > 0 {
+			tags[cloudprovider.METRIC_TAG_NODE] = result[i].Node
 		}
-		for i := range result {
-			ret = append(ret, cloudprovider.MetricValues{
-				Id:         result[i].Cluster,
-				MetricType: opts.MetricType,
-				Values: []cloudprovider.MetricValue{
-					{
-						Timestamp: time.UnixMilli(result[i].Timestamp),
-						Value:     result[i].GetValue(),
-						Tags:      tags,
-					},
+		ret = append(ret, cloudprovider.MetricValues{
+			Id:         result[i].Cluster,
+			MetricType: opts.MetricType,
+			Values: []cloudprovider.MetricValue{
+				{
+					Timestamp: time.UnixMilli(result[i].Timestamp),
+					Value:     result[i].GetValue(),
+					Tags:      tags,
 				},
-			})
-		}
+			},
+		})
 	}
 	return ret, nil
 }

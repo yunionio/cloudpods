@@ -63,6 +63,7 @@ type ReceiveDetail struct {
 	ReceiverId   string    `json:"receiver_id"`
 	ReceiverName string    `json:"receiver_name"`
 	Contact      string    `json:"contact"`
+	ReceiverType string    `json:"receiver_type"`
 	SendAt       time.Time `json:"sendAt"`
 	SendBy       string    `json:"send_by"`
 	Status       string    `json:"status"`

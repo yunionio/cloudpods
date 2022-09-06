@@ -17,6 +17,7 @@ package shell
 
 import (
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -64,24 +65,14 @@ func init() {
 		log.Infoln("this is res:", res)
 		return nil
 	})
-	shellutils.R(&cloudprovider.ModelartsPoolUpdateOption{}, "modelarts-pool-update", "Update Modelarts Pool", func(cli *huawei.SRegion, args *cloudprovider.ModelartsPoolUpdateOption) error {
-		res, err := cli.GetClient().Update(args)
-		if err != nil {
-			return err
-		}
-		// printList(pools, len(pools), 0, 0, nil)
-		log.Infoln("this is res:", res)
-		return nil
-	})
 
 	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-monitor", "Delete Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
-		log.Infof("this is args.poolName", args.PoolId)
 		res, err := cli.GetClient().MonitorPool(args.PoolId)
 		if err != nil {
 			return err
 		}
-		log.Println("this is res:", res)
-		// printList(res.Metrics, len(res.Metrics), 0, 0, nil)
+		// log.Println("this is res:", res)
+		printList(res.Metrics, len(res.Metrics), 0, 0, nil)
 		return nil
 	})
 }

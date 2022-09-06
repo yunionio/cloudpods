@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	apiidentity "yunion.io/x/onecloud/pkg/apis/identity"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
@@ -52,6 +53,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/compute/sshkeys"
+	devtool_utils "yunion.io/x/onecloud/pkg/devtool/utils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -1884,6 +1886,10 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 			log.Errorf("unable to set sshport for guest %s", self.GetId())
 		}
 	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionUpdate,
+	})
 }
 
 func (manager *SGuestManager) checkCreateQuota(
@@ -4267,7 +4273,38 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 
 	config.Add(jsonutils.NewString(onFinish), "on_finish")
 
+	if jsonutils.QueryBoolean(params, "deploy_telegraf", false) {
+		s := auth.GetAdminSessionWithPublic(nil, consts.GetRegion())
+		influxdbUrl, err := s.GetServiceURL("influxdb", apiidentity.EndpointInterfacePublic, "")
+		if err != nil {
+			return nil, errors.Wrap(err, "get influxdb url")
+		}
+		config.Add(jsonutils.JSONTrue, "deploy_telegraf")
+		serverDetails, err := self.getDetails(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrap(err, "get details")
+		}
+		telegrafConf, err := devtool_utils.GenerateTelegrafConf(
+			serverDetails, influxdbUrl, self.OsType, self.Hypervisor)
+		if err != nil {
+			return nil, errors.Wrap(err, "get telegraf conf")
+		}
+		config.Add(jsonutils.NewString(telegrafConf), "telegraf_conf")
+	}
+
 	return config, nil
+}
+
+func (self *SGuest) getDetails(ctx context.Context, userCred mcclient.TokenCredential) (*api.ServerDetails, error) {
+	res := GuestManager.FetchCustomizeColumns(ctx, userCred, jsonutils.NewDict(), []interface{}{self}, nil, false)
+	jsonDict := jsonutils.Marshal(res[0]).(*jsonutils.JSONDict)
+	jsonDict.Update(jsonutils.Marshal(self).(*jsonutils.JSONDict))
+	serverDetails := new(api.ServerDetails)
+	err := jsonDict.Unmarshal(serverDetails)
+	if err != nil {
+		return nil, err
+	}
+	return serverDetails, nil
 }
 
 func (self *SGuest) getVga() string {
@@ -4740,13 +4777,14 @@ func (self *SGuest) saveOsType(userCred mcclient.TokenCredential, osType string)
 }
 
 type sDeployInfo struct {
-	Os       string
-	Account  string
-	Key      string
-	Distro   string
-	Version  string
-	Arch     string
-	Language string
+	Os               string
+	Account          string
+	Key              string
+	Distro           string
+	Version          string
+	Arch             string
+	Language         string
+	TelegrafDeployed bool
 }
 
 func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
@@ -4782,6 +4820,9 @@ func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenC
 	}
 	if len(deployInfo.Language) > 0 {
 		info["os_language"] = deployInfo.Language
+	}
+	if deployInfo.TelegrafDeployed {
+		info["telegraf_deployed"] = true
 	}
 	self.SetAllMetadata(ctx, info, userCred)
 	self.saveOldPassword(ctx, userCred)

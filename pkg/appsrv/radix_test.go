@@ -20,87 +20,59 @@ import (
 )
 
 func TestRadixNode(t *testing.T) {
-	r := NewRadix()
-	r.Add([]string{"layer1"}, "layer1")
-	r.Add([]string{"layer1", "layer1.1", "layer1.1.1", "layer1.1.1.1"}, "layer1.1.1.1")
-	r.Add([]string{"layer1", "layer1.2", "layer1.2.1"}, "layer1.2.1")
-	r.Add([]string{"layer1", "<layer1.x>"}, "layer1.*")
-	r.Add([]string{"layer1", "layer1.0"}, "layer1.0")
-	r.Add([]string{"layer1", "<layer1.x>", "layer1.*.1"}, "layer1.*.1")
+	root := NewRadix()
+	root.Add([]string{}, "root")
+	root.Add([]string{"layer1"}, "layer1")
+	if root.Add([]string{"layer1"}, "layer1") == nil {
+		t.Fatal("add duplicate data should fail")
+	}
 
-	r.Add([]string{"layer1", "<phone_number:^1[0-9-]{10}$>", "layer1.2.1"}, "layer1.*.1_CHINA_MOBILE_REG")
-	r.Add([]string{"layer1", "layer1.0", "<phone_number:^1[0-9-]{10}$>"}, "layer1.1.*_CHINA_MOBILE_REG")
+	root.Add([]string{"layer1", "layer1.1", "layer1.1.1", "layer1.1.1.1"}, "layer1.1.1.1")
+	root.Add([]string{"layer1", "layer1.2", "layer1.2.1"}, "layer1.2.1")
+	root.Add([]string{"layer1", "<layer1.x>"}, "layer1.*")
+	root.Add([]string{"layer1", "layer1.0"}, "layer1.0")
+	root.Add([]string{"layer1", "<layer1.x>", "layer1.*.1"}, "layer1.*.1")
+	root.Add([]string{"layer1", "<phone_number:^1[0-9-]{10}$>", "layer1.2.1"}, "layer1.*.1_CHINA_MOBILE_REG")
+	root.Add([]string{"layer1", "layer1.0", "<phone_number:^1[0-9-]{10}$>"}, "layer1.1.*_CHINA_MOBILE_REG")
+	root.Add([]string{"<phone_number:^1[0-9-]{10}$>"}, "phonelayer1")
 
-	var ret interface{}
 	f := func(path string, data interface{}) {
 		t.Logf("%s %s", path, data)
 	}
-	r.Walk(f)
-	params := make(map[string]string)
+	root.Walk(f)
 
-	ret = r.Match([]string{"layer1", "layer1.0", "layer2.0"}, params)
-	if ret.(string) != "layer1.0" {
-		t.Error("0 Unexpect result:", ret, "!= layer1.0")
-	}
-	ret = r.Match([]string{"layer1", "layer1.0"}, params)
-	if ret.(string) != "layer1.0" {
-		t.Error("0 Unexpect result:", ret, "!= layer1.0")
-	}
-	ret = r.Match([]string{"layer1", "layer1.1"}, params)
-	if ret.(string) != "layer1.*" {
-		t.Error("1 Unexpect result:", ret, "!= layer1.*")
-	}
-	ret = r.Match([]string{"layer1", "layer1.4"}, params)
-	if ret.(string) != "layer1.*" {
-		t.Error("2 Unexpect result:", ret, "!= layer1.*")
-	}
-	ret = r.Match([]string{"layer1", "layer1.1", "layer1.1.1", "layer1.1.1.1", "layer1.1.1.1.1", "layer1.1.1.1.1.1"}, params)
-	if ret.(string) != "layer1.1.1.1" {
-		t.Error("3 Unexpect result:", ret, "!= layer1.1.1.1")
-	}
-	ret = r.Match([]string{"layer1", "layer1.2", "layer1.2.1"}, params)
-	if ret.(string) != "layer1.2.1" {
-		t.Error("4 Unexpect result:", ret, "!= layer1.2.1")
-	}
-	ret = r.Match([]string{"layer1", "layer1.2"}, params)
-	if ret.(string) != "layer1.*" {
-		t.Error("5 Unexpect result:", ret, "!= layer1.*")
-	}
-	ret = r.Match([]string{"layer1", "layer1.3"}, params)
-	if ret.(string) != "layer1.*" {
-		t.Error("6 Unexpect result:", ret, "!= layer1.*")
-	}
-	ret = r.Match([]string{"layer1", "layer1.3", "layer1.*.1"}, params)
-	if ret.(string) != "layer1.*.1" {
-		t.Error("7 Unexpect result:", ret, "!= layer1.*.1")
-	}
-	ret = r.Match([]string{"layer1", "layer1.3", "layer1.*.1", "layer1.*.1.1"}, params)
-	if ret.(string) != "layer1.*.1" {
-		t.Error("8 Unexpect result:", ret, "!= layer1.*.1")
-	}
-	ret = r.Match([]string{"layer1", "12345678901", "layer1.2.1"}, params)
-	if ret.(string) != "layer1.*.1_CHINA_MOBILE_REG" {
-		t.Error("11 Unexpect result:", ret, "!= layer1.*.1_CHINA_MOBILE_REG")
-	}
-	ret = r.Match([]string{"layer1", "layer1.0", "12345678901"}, params)
-	if ret.(string) != "layer1.1.*_CHINA_MOBILE_REG" {
-		t.Error("12 Unexpect result:", ret, "!= layer1.1.*_CHINA_MOBILE_REG")
+	cases := []struct {
+		caseName string
+		segments []string
+		want     string
+	}{
+		{"case1", []string{"layer1", "layer1.0", "layer2.0"}, "layer1.0"},
+		{"case2", []string{"layer1", "layer1.0"}, "layer1.0"},
+		{"case3", []string{"layer1", "layer1.1"}, "layer1.*"},
+		{"case4", []string{"layer1", "layer1.4"}, "layer1.*"},
+		{
+			"case5", []string{"layer1", "layer1.1", "layer1.1.1", "layer1.1.1.1", "layer1.1.1.1.1", "layer1.1.1.1.1.1"},
+			"layer1.1.1.1",
+		},
+		{"case6", []string{"layer1", "layer1.2", "layer1.2.1"}, "layer1.2.1"},
+		{"case7", []string{"layer1", "layer1.2"}, "layer1.*"},
+		{"case8", []string{"layer1", "layer1.3"}, "layer1.*"},
+		{"case9", []string{"layer1", "layer1.3", "layer1.*.1"}, "layer1.*.1"},
+		{"case10", []string{"layer1", "layer1.3", "layer1.*.1", "layer1.*.1.1"}, "layer1.*.1"},
+		{"case11", []string{"layer1", "12345678901", "layer1.2.1"}, "layer1.*.1_CHINA_MOBILE_REG"},
+		{"case12", []string{"layer1", "layer1.0", "12345678901"}, "layer1.1.*_CHINA_MOBILE_REG"},
+		{"case13", []string{}, "root"},
+		{"case14", []string{"12345678900"}, "phonelayer1"},
 	}
 
-	r.Add([]string{}, "root")
-	ret = r.Match([]string{"layer2"}, params)
-	if ret.(string) != "root" {
-		t.Error("9 Unexpect result:", ret, "!= root")
-	}
-
-	r.Add([]string{"<phone_number:^1[0-9-]{10}$>"}, "phonelayer1")
-	ret = r.Match([]string{"12345678900"}, params)
-	if ret.(string) != "phonelayer1" {
-		t.Error("13 Unexpect result:", ret, "!= phonelayer1")
-	}
-
-	if r.Add([]string{"layer1"}, "layer1") == nil {
-		t.Error("10 Add duplicate data should fail")
+	for _, c := range cases {
+		t.Run(c.caseName, func(t *testing.T) {
+			params := make(map[string]string)
+			got := root.Match(c.segments, params)
+			if got.(string) != c.want {
+				t.Error("unexpect result:", got, "!=", c.want)
+			}
+		})
 	}
 }
 

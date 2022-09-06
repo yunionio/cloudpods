@@ -103,4 +103,6 @@ type ElasticipListInput struct {
 
 	// 是否跟随主机删除而自动释放
 	AutoDellocate *bool `json:"auto_dellocate"`
+
+	OrderByIp string `json:"order_by_ip"`
 }
