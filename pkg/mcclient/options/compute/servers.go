@@ -815,6 +815,19 @@ func (o *ServerQgaCommand) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
 
+type ServerSetPasswordOptions struct {
+	ServerIdOptions
+
+	Username      string `help:"Which user to set password" json:"username"`
+	Password      string `help:"Password content" json:"password"`
+	ResetPassword bool   `help:"Force reset password"`
+	AutoStart     bool   `help:"Auto start server after reset password"`
+}
+
+func (o *ServerSetPasswordOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
 type ServerSaveImageOptions struct {
 	ServerIdOptions
 	IMAGE     string `help:"Image name" json:"name"`
