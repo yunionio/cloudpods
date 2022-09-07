@@ -164,6 +164,10 @@ func (manager *SProjectizedResourceBaseManager) FetchCustomizeColumns(
 			}
 		}
 	}
+	domainRows := manager.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range ret {
+		ret[i].DomainizedResourceInfo = domainRows[i]
+	}
 	return ret
 }
 
