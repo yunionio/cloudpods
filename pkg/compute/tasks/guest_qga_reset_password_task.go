@@ -59,7 +59,7 @@ func (self *GuestQgaSetPasswordTask) OnInit(ctx context.Context, obj db.IStandal
 	guest := obj.(*models.SGuest)
 	self.SetStage("OnQgaGuestPing", nil)
 	if err := self.guestPing(ctx, guest); err != nil {
-		self.OnQgaGuestPingFailed(ctx, guest, nil)
+		self.taskFailed(ctx, guest, err.Error())
 	}
 }
 
