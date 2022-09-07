@@ -163,6 +163,9 @@ func (g *GenericScheduler) Schedule(ctx context.Context, unit *Unit, candidates 
 		selectedCandidates = []*SelectedCandidate{}
 	}
 
+	if unit.SchedInfo.IsSuggestion {
+		filteredCandidates = candidates
+	}
 	resultItems, err := generateScheduleResult(unit, selectedCandidates, filteredCandidates)
 	if err != nil {
 		return nil, err
