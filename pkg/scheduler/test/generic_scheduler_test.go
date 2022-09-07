@@ -15,10 +15,10 @@
 package test
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	apisdu "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -195,8 +195,7 @@ func TestGenericSchedulerSchedule(t *testing.T) {
 			},
 		}
 		res.ForecastResult.Candidates = nil
-		if !reflect.DeepEqual(res.ForecastResult, forcastResult) {
-			t.Errorf("want: %v, real: %v", forcastResult, res.ForecastResult)
-		}
+		assert := assert.New(t)
+		assert.Equal(forcastResult, res.ForecastResult, "ForecastResult should equal")
 	})
 }
