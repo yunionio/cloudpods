@@ -1009,6 +1009,30 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		if err != nil {
 			return nil, isNew, errors.Wrapf(err, "q.First")
 		}
+		if len(provider.ProjectId) == 0 {
+			db.Update(provider, func() error {
+				if len(subAccount.DefaultProjectId) > 0 {
+					proj, err := self.getDefaultExternalProject(subAccount.DefaultProjectId)
+					if err != nil {
+						logclient.AddSimpleActionLog(provider, logclient.ACT_UPDATE, errors.Wrapf(err, "getDefaultExternalProject(%s)", subAccount.DefaultProjectId), userCred, false)
+					} else {
+						provider.DomainId = proj.DomainId
+						provider.ProjectId = proj.ProjectId
+						return nil
+					}
+				}
+				// find default project of domain
+				ownerId := self.GetOwnerId()
+				t, err := db.TenantCacheManager.FindFirstProjectOfDomain(ctx, ownerId.GetProjectDomainId())
+				if err != nil {
+					logclient.AddSimpleActionLog(provider, logclient.ACT_UPDATE, errors.Wrapf(err, "FindFirstProjectOfDomain(%s)", ownerId.GetProjectDomainId()), userCred, false)
+					return errors.Wrapf(err, "FindFirstProjectOfDomain(%s)", ownerId.GetProjectDomainId())
+				}
+				provider.DomainId = t.DomainId
+				provider.ProjectId = t.Id
+				return nil
+			})
+		}
 		provider.markProviderConnected(ctx, userCred, subAccount.HealthStatus)
 		provider.updateName(ctx, userCred, subAccount.Name, subAccount.Desc)
 		return provider, isNew, nil
@@ -1025,6 +1049,8 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		newCloudprovider.AccessUrl = self.AccessUrl
 		newCloudprovider.HealthStatus = subAccount.HealthStatus
 		newCloudprovider.Description = subAccount.Desc
+		newCloudprovider.DomainId = self.DomainId
+		newCloudprovider.ProjectId = self.ProjectId
 		if !options.Options.CloudaccountHealthStatusCheck {
 			newCloudprovider.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 		}
@@ -1035,40 +1061,10 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 			newCloudprovider.SetEnabled(false)
 			newCloudprovider.Status = api.CLOUD_PROVIDER_DISCONNECTED
 		}
-		if len(subAccount.DefaultProjectId) > 0 {
-			proj, err := self.getDefaultExternalProject(subAccount.DefaultProjectId)
-			if err != nil {
-				log.Errorf("getDefaultExternalProject: %v", err)
-			} else {
-				newCloudprovider.DomainId = proj.DomainId
-				newCloudprovider.ProjectId = proj.ProjectId
-			}
-		}
-		if len(newCloudprovider.ProjectId) == 0 && (!self.AutoCreateProject || len(self.ProjectId) > 0) {
+		if len(newCloudprovider.ProjectId) == 0 {
 			ownerId := self.GetOwnerId()
-			if len(self.ProjectId) > 0 {
-				t, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
-				if err != nil {
-					log.Errorf("cannot find tenant %s for domain %s", self.ProjectId, ownerId.GetProjectDomainId())
-					return nil, err
-				}
-				ownerId = &db.SOwnerId{
-					DomainId:  t.DomainId,
-					ProjectId: t.Id,
-				}
-			} else if ownerId == nil || ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+			if ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
 				ownerId = userCred
-			} else {
-				// find default project of domain
-				t, err := db.TenantCacheManager.FindFirstProjectOfDomain(ctx, ownerId.GetProjectDomainId())
-				if err != nil {
-					log.Errorf("cannot find a valid porject for domain %s", ownerId.GetProjectDomainId())
-					return nil, err
-				}
-				ownerId = &db.SOwnerId{
-					DomainId:  t.DomainId,
-					ProjectId: t.Id,
-				}
 			}
 			newCloudprovider.DomainId = ownerId.GetProjectDomainId()
 			newCloudprovider.ProjectId = ownerId.GetProjectId()
