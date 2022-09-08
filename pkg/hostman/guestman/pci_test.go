@@ -177,7 +177,7 @@ func TestSKVMGuestInstance_initGuestDesc(t *testing.T) {
 
 	//s.initIsolatedDevices(pciRoot, pciBridge)
 	s.initUsbController(pciRoot)
-	s.initRandomDevice(pciRoot)
+	s.initRandomDevice(pciRoot, true)
 	//s.initQgaDesc()
 	s.initPvpanicDesc()
 	s.initIsaSerialDesc()

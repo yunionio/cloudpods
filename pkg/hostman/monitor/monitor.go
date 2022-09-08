@@ -156,6 +156,7 @@ type Monitor interface {
 	GetVersion(StringCallback)
 	GetBlockJobCounts(func(jobs int))
 	GetBlockJobs(func([]BlockJob))
+	QueryPci(callback QueryPciCallback)
 
 	GetCpuCount(func(count int))
 	AddCpu(cpuIndex int, callback StringCallback)

@@ -339,7 +339,7 @@ func (d *SGuestDiskSyncTask) checkDiskDriver(disk *desc.SGuestDisk) {
 	}
 	log.Debugf("sync disk driver: %s", disk.Driver)
 
-	if disk.Driver == DISK_DRIVER_SCSI && d.guest.pciInitialized() && d.guest.Desc.VirtioScsi == nil {
+	if disk.Driver == DISK_DRIVER_SCSI && d.guest.Desc.VirtioScsi == nil {
 		// insert virtio scsi
 		var pciRoot = d.guest.getHotPlugPciController()
 		if pciRoot == nil {
@@ -363,24 +363,8 @@ func (d *SGuestDiskSyncTask) checkDiskDriver(disk *desc.SGuestDisk) {
 			"addr": d.guest.Desc.VirtioScsi.SlotFunc(),
 		}
 		d.guest.Monitor.DeviceAdd(d.guest.Desc.VirtioScsi.DevType, params, cb)
-	} else if disk.Driver == DISK_DRIVER_SCSI {
-		// oldway check and insert scsi driver
-		cb := func(ret string) { d.checkScsiDriver(ret, disk) }
-		d.guest.Monitor.HumanMonitorCommand("info pci", cb)
 	} else {
 		d.startAddDisk(disk)
-	}
-}
-
-func (d *SGuestDiskSyncTask) checkScsiDriver(ret string, disk *desc.SGuestDisk) {
-	if strings.Contains(ret, "SCSI controller") {
-		d.startAddDisk(disk)
-	} else {
-		cb := func(ret string) {
-			log.Infof("Add scsi controller %s", ret)
-			d.startAddDisk(disk)
-		}
-		d.guest.Monitor.DeviceAdd("virtio-scsi-pci", map[string]string{"id": "scsi"}, cb)
 	}
 }
 
@@ -424,14 +408,12 @@ func (d *SGuestDiskSyncTask) startAddDisk(disk *desc.SGuestDisk) {
 	case DISK_DRIVER_SCSI:
 		bus = "scsi.0"
 	case DISK_DRIVER_VIRTIO:
-		if d.guest.pciInitialized() {
-			pciRoot := d.guest.getHotPlugPciController()
-			if pciRoot == nil {
-				log.Errorf("no hotplugable pci controller found")
-				d.errors = append(d.errors, errors.Errorf("no hotplugable pci controller found"))
-				d.syncDisksConf()
-				return
-			}
+		pciRoot := d.guest.getHotPlugPciController()
+		if pciRoot == nil {
+			log.Errorf("no hotplugable pci controller found")
+			d.errors = append(d.errors, errors.Errorf("no hotplugable pci controller found"))
+			d.syncDisksConf()
+			return
 		}
 		bus = d.guest.GetPciBus()
 	case DISK_DRIVER_IDE:
@@ -450,30 +432,28 @@ func (d *SGuestDiskSyncTask) onAddDiskSucc(disk *desc.SGuestDisk, results string
 		devType    = qemu.GetDiskDeviceModel(diskDriver)
 		id         = fmt.Sprintf("drive_%d", diskIndex)
 	)
-	if d.guest.pciInitialized() {
-		switch diskDriver {
-		case DISK_DRIVER_VIRTIO:
-			disk.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
-			err := d.guest.ensureDevicePciAddress(disk.Pci, -1, nil)
-			if err != nil {
-				log.Errorln(err)
-				d.guest.Monitor.DriveDel(id, func(res string) {
-					log.Infof("drive %s del %s", id, res)
-				})
+	switch diskDriver {
+	case DISK_DRIVER_VIRTIO:
+		disk.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
+		err := d.guest.ensureDevicePciAddress(disk.Pci, -1, nil)
+		if err != nil {
+			log.Errorln(err)
+			d.guest.Monitor.DriveDel(id, func(res string) {
+				log.Infof("drive %s del %s", id, res)
+			})
 
-				d.errors = append(d.errors, err)
-				d.syncDisksConf()
-				return
-			}
-		case DISK_DRIVER_SCSI:
-			disk.Scsi = desc.NewScsiDevice(d.guest.Desc.VirtioScsi.Id, devType, id)
-		case DISK_DRIVER_PVSCSI:
-			disk.Scsi = desc.NewScsiDevice(d.guest.Desc.PvScsi.Id, devType, id)
-		case DISK_DRIVER_IDE:
-			disk.Ide = desc.NewIdeDevice(devType, id)
-		case DISK_DRIVER_SATA: // -device ahci,id=ahci pci device
-			disk.Ide = desc.NewIdeDevice(devType, id)
+			d.errors = append(d.errors, err)
+			d.syncDisksConf()
+			return
 		}
+	case DISK_DRIVER_SCSI:
+		disk.Scsi = desc.NewScsiDevice(d.guest.Desc.VirtioScsi.Id, devType, id)
+	case DISK_DRIVER_PVSCSI:
+		disk.Scsi = desc.NewScsiDevice(d.guest.Desc.PvScsi.Id, devType, id)
+	case DISK_DRIVER_IDE:
+		disk.Ide = desc.NewIdeDevice(devType, id)
+	case DISK_DRIVER_SATA: // -device ahci,id=ahci pci device
+		disk.Ide = desc.NewIdeDevice(devType, id)
 	}
 
 	d.guest.Desc.Disks = append(d.guest.Desc.Disks, disk)
@@ -492,6 +472,7 @@ func (d *SGuestDiskSyncTask) onAddDiskSucc(disk *desc.SGuestDisk, results string
 }
 
 func (d *SGuestDiskSyncTask) onAddDeviceSucc(results string) {
+	log.Infof("%s device add res: %s", d.guest.GetName(), results)
 	d.syncDisksConf()
 }
 
@@ -586,28 +567,24 @@ func (n *SGuestNetworkSyncTask) addNic(nic *desc.SGuestNetwork) {
 		n.syncNetworkConf()
 		return
 	}
-	upscript := n.guest.getNicUpScriptPath(nic)
-	downscript := n.guest.getNicDownScriptPath(nic)
-	params := map[string]string{
-		"ifname": nic.Ifname, "script": upscript, "downscript": downscript,
-		"vhost": "on", "vhostforce": "off",
-	}
-	netType := "tap"
-
-	var pciRoot *desc.PCIController
-	if n.guest.pciInitialized() {
-		pciRoot = n.guest.getHotPlugPciController()
-		if pciRoot == nil {
-			err := errors.Errorf("no hotplugable pci controller found")
-			log.Errorln(err)
-			n.errors = append(n.errors, err)
-			n.syncNetworkConf()
-			return
+	var (
+		netType    = "tap"
+		upscript   = n.guest.getNicUpScriptPath(nic)
+		downscript = n.guest.getNicDownScriptPath(nic)
+		params     = map[string]string{
+			"ifname": nic.Ifname, "script": upscript, "downscript": downscript,
+			"vhost": "on", "vhostforce": "off",
 		}
-	}
+		pciRoot = n.guest.getHotPlugPciController()
+	)
 
-	//id = fmt.Sprintf("netdev-%s", nic.Ifname)
-	//devType = n.guest.getNicDeviceModel(nic.Driver)
+	if pciRoot == nil {
+		err := errors.Errorf("no hotplugable pci controller found")
+		log.Errorln(err)
+		n.errors = append(n.errors, err)
+		n.syncNetworkConf()
+		return
+	}
 
 	callback := func(res string) {
 		if len(res) > 0 {
@@ -634,34 +611,30 @@ func (n *SGuestNetworkSyncTask) onNetdevAdd(nic *desc.SGuestNetwork, pciRoot *de
 		n.syncNetworkConf()
 	}
 
-	if n.guest.pciInitialized() {
-		switch nic.Driver {
-		case "virtio":
-			nic.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
-		case "e1000":
-			nic.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
-		case "vmxnet3":
-			nic.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
-		default:
-			err := errors.Errorf("unknown nic driver %s", nic.Driver)
-			onFail(err)
-			return
-		}
-		err := n.guest.ensureDevicePciAddress(nic.Pci, -1, nil)
-		if err != nil {
-			onFail(err)
-			return
-		}
+	switch nic.Driver {
+	case "virtio":
+		nic.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
+	case "e1000":
+		nic.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
+	case "vmxnet3":
+		nic.Pci = desc.NewPCIDevice(pciRoot.CType, devType, id)
+	default:
+		err := errors.Errorf("unknown nic driver %s", nic.Driver)
+		onFail(err)
+		return
+	}
+	err := n.guest.ensureDevicePciAddress(nic.Pci, -1, nil)
+	if err != nil {
+		onFail(err)
+		return
 	}
 
 	params := map[string]string{
 		"id":     fmt.Sprintf("netdev-%s", nic.Ifname),
 		"netdev": nic.Ifname,
 		"mac":    nic.Mac,
-	}
-	if nic.Pci != nil {
-		params["bus"] = nic.Pci.BusStr()
-		params["addr"] = nic.Pci.SlotFunc()
+		"bus":    nic.Pci.BusStr(),
+		"addr":   nic.Pci.SlotFunc(),
 	}
 
 	callback := func(res string) {
@@ -774,16 +747,13 @@ func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *desc.SGuestIsolatedDevice)
 		if len(res) > 0 {
 			t.errors = append(t.errors, fmt.Errorf("device add failed: %s", res))
 		} else {
-			if t.guest.pciInitialized() {
-				if dev.DevType == api.USB_TYPE {
-					dev.Usb = desc.NewUsbDevice("usb-host",
-						fmt.Sprintf("usb%d", len(t.guest.Desc.IsolatedDevices)))
-					dev.Usb.Options = devObj.GetPassthroughOptions()
-				} else {
-					// TODO: vfio dev hotplug
-				}
+			if dev.DevType == api.USB_TYPE {
+				dev.Usb = desc.NewUsbDevice("usb-host",
+					fmt.Sprintf("usb%d", len(t.guest.Desc.IsolatedDevices)))
+				dev.Usb.Options = devObj.GetPassthroughOptions()
+			} else {
+				// TODO: vfio dev hotplug
 			}
-
 			t.guest.Desc.IsolatedDevices = append(t.guest.Desc.IsolatedDevices, dev)
 		}
 		t.syncDevice()

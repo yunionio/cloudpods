@@ -1056,3 +1056,25 @@ func (m *QmpMonitor) SaveState(stateFilePath string, callback StringCallback) {
 	)
 	m.Query(cmd, cb)
 }
+
+func (m *QmpMonitor) QueryPci(callback QueryPciCallback) {
+	var (
+		cb = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(nil, res.ErrorVal.Error())
+			} else {
+				pciInfoList := make([]PCIInfo, 0)
+				err := json.Unmarshal(res.Return, &pciInfoList)
+				if err != nil {
+					callback(nil, err.Error())
+				} else {
+					callback(pciInfoList, "")
+				}
+			}
+		}
+		cmd = &Command{
+			Execute: "query-pci",
+		}
+	)
+	m.Query(cmd, cb)
+}

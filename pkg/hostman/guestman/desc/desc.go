@@ -20,32 +20,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
-type SGuestProjectDesc struct {
-	Tenant        string
-	TenantId      string
-	DomainId      string
-	ProjectDomain string
-}
-
-type SGuestRegionDesc struct {
-	Zone     string
-	Domain   string
-	HostId   string
-	Hostname string
-}
-
-type SGuestControlDesc struct {
-	IsDaemon bool
-	IsMaster bool
-	IsSlave  bool
-
-	ScalingGroupId     string
-	SecurityRules      string
-	AdminSecurityRules string
-
-	EncryptKeyId string
-}
-
 type SGuestCpu struct {
 	Cpus    uint
 	Sockets uint
@@ -112,6 +86,8 @@ type SGuestHardwareDesc struct {
 
 	Usb            *UsbController   `json:",omitempty"`
 	PCIControllers []*PCIController `json:",omitempty"`
+
+	AnonymousPCIDevs []*PCIDevice `json:",omitempty"`
 }
 
 type SGuestIsaSerial struct {
@@ -294,12 +270,33 @@ type SGuestPvScsi struct {
 	*PCIDevice
 }
 
-type SGuestDesc struct {
-	SGuestProjectDesc
-	SGuestRegionDesc
-	SGuestControlDesc
-	SGuestHardwareDesc
+type SGuestProjectDesc struct {
+	Tenant        string
+	TenantId      string
+	DomainId      string
+	ProjectDomain string
+}
 
+type SGuestRegionDesc struct {
+	Zone     string
+	Domain   string
+	HostId   string
+	Hostname string
+}
+
+type SGuestControlDesc struct {
+	IsDaemon bool
+	IsMaster bool
+	IsSlave  bool
+
+	ScalingGroupId     string
+	SecurityRules      string
+	AdminSecurityRules string
+
+	EncryptKeyId string
+}
+
+type SGuestMetaDesc struct {
 	Name         string
 	Uuid         string
 	OsName       string
@@ -310,4 +307,12 @@ type SGuestDesc struct {
 	UserData     string
 	Metadata     map[string]string
 	ExtraOptions map[string]jsonutils.JSONObject
+}
+
+type SGuestDesc struct {
+	SGuestProjectDesc
+	SGuestRegionDesc
+	SGuestControlDesc
+	SGuestHardwareDesc
+	SGuestMetaDesc
 }
