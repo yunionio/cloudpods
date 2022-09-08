@@ -743,6 +743,7 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 	hosts := hostQuery.SubQuery()
 
 	q := devices.Query(devices.Field("model"))
+	q = q.Startswith("dev_type", "GPU")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
 		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
