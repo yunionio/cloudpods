@@ -73,6 +73,10 @@ func StartService() {
 	}
 	log.Infof("serviceUrl: %s", serviceUrl)
 	taskman.SetServiceUrl(serviceUrl)
+	err = taskman.UpdateWorkerCount(opts.TaskWorkerCount)
+	if err != nil {
+		log.Fatalf("failed update task manager worker count %s", err)
+	}
 
 	err = esxi.InitEsxiConfig(opts.EsxiOptions)
 	if err != nil {

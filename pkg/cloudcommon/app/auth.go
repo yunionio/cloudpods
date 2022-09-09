@@ -95,6 +95,7 @@ func InitBaseAuth(options *common_options.BaseOptions) {
 	policy.EnableGlobalRbac(
 		time.Second*time.Duration(options.RbacPolicyRefreshIntervalSeconds),
 		options.RbacDebug,
+		options.PolicyWorkerCount,
 	)
 	consts.SetNonDefaultDomainProjects(options.NonDefaultDomainProjects)
 }
