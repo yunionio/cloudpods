@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -59,6 +61,9 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("GET",
 			fmt.Sprintf("%s/%s/is-mount-point", prefix, keyWords),
 			auth.Authenticate(storageVerifyMountPoint))
+		app.AddHandler("GET",
+			fmt.Sprintf("%s/%s/is-local-mount-point", prefix, keyWords),
+			auth.Authenticate(storageIsLocalMountPoint))
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/delete-backup", prefix, keyWords),
 			auth.Authenticate(storageDeleteBackup))
@@ -74,6 +79,34 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/sync-backup-storage", prefix, keyWords),
 			auth.Authenticate(storageSyncBackupStorage))
+	}
+}
+
+func storageIsLocalMountPoint(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, query, _ := appsrv.FetchEnv(ctx, w, r)
+	mountPoint, err := query.GetString("mount_point")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("mount_point"))
+		return
+	}
+	dev, err := procutils.NewRemoteCommandAsFarAsPossible(
+		"sh", "-c",
+		fmt.Sprintf("df --output=source %s | grep -v Filesystem", mountPoint),
+	).Output()
+	if err != nil {
+		log.Errorf("failed get source of mountpoint %s: %s", mountPoint, err)
+		hostutils.Response(ctx, w, httperrors.NewInternalServerError("failed get source of mountpoint %s: %s", mountPoint, err))
+		return
+	}
+	devStr := strings.TrimSpace(string(dev))
+	err = procutils.NewRemoteCommandAsFarAsPossible(
+		"sh", "-c",
+		fmt.Sprintf("lsblk -o name | grep %s", path.Base(devStr)),
+	).Run()
+	if err == nil {
+		appsrv.SendStruct(w, map[string]interface{}{"is_local_mount_point": true})
+	} else {
+		appsrv.SendStruct(w, map[string]interface{}{"is_local_mount_point": false})
 	}
 }
 
