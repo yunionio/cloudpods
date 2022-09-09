@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -1882,6 +1883,13 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 				// otherwise, the disk was crated by snapshot or backup, not depends on vald image info
 				return nil, errors.Wrap(err, "fillDiskConfigByImage")
 			}
+		}
+	}
+	if info.ExistingPath != "" {
+		info.ExistingPath = strings.TrimSpace(info.ExistingPath)
+		_, err := filepath.Rel("/", info.ExistingPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "invaild existing path")
 		}
 	}
 	// XXX: do not set default disk size here, set it by each hypervisor driver
