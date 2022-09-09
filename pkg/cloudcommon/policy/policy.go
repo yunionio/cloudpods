@@ -94,7 +94,7 @@ func (data sPolicyData) getPolicy() (rbacutils.TPolicy, error) {
 	return rbacutils.DecodePolicyData(data.Policy)
 }
 
-func (manager *SPolicyManager) init(refreshInterval time.Duration) {
+func (manager *SPolicyManager) init(refreshInterval time.Duration, workerCount int) {
 	manager.refreshInterval = refreshInterval
 	// manager.InitSync(manager)
 	if len(predefinedDefaultPolicies) > 0 {
@@ -125,7 +125,11 @@ func (manager *SPolicyManager) init(refreshInterval time.Duration) {
 		isDB = true
 	}
 
-	manager.fetchWorker = appsrv.NewWorkerManager("policyFetchWorker", 1, 2048, isDB)
+	if workerCount <= 0 {
+		workerCount = 1
+	}
+	log.Infof("policy fetch worker count %d", workerCount)
+	manager.fetchWorker = appsrv.NewWorkerManager("policyFetchWorker", workerCount, 2048, isDB)
 }
 
 func getMaskedLoginIp(userCred mcclient.TokenCredential) string {

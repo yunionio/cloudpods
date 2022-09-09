@@ -20,18 +20,31 @@ import (
 	"runtime/debug"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 )
 
+const (
+	DEFAULT_WORKER_COUNT = 4
+)
+
 var taskWorkMan *appsrv.SWorkerManager
 var taskWorkerTable map[string]*appsrv.SWorkerManager
 
 func init() {
-	taskWorkMan = appsrv.NewWorkerManager("TaskWorkerManager", 4, 1024, true)
+	taskWorkMan = appsrv.NewWorkerManager("TaskWorkerManager", DEFAULT_WORKER_COUNT, 1024, true)
 	taskWorkerTable = make(map[string]*appsrv.SWorkerManager)
+}
+
+func UpdateWorkerCount(workerCount int) error {
+	if workerCount != DEFAULT_WORKER_COUNT {
+		log.Infof("update task work count: %d", workerCount)
+		return taskWorkMan.UpdateWorkerCount(workerCount)
+	}
+	return nil
 }
 
 type taskTask struct {
