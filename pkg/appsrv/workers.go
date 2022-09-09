@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 const (
@@ -197,6 +198,17 @@ type sWorkerTask struct {
 	worker  chan *SWorker
 	onError func(error)
 	start   time.Time
+}
+
+func (wm *SWorkerManager) UpdateWorkerCount(workerCount int) error {
+	wm.workerLock.Lock()
+	defer wm.workerLock.Unlock()
+	if wm.queue.Size() > 0 {
+		return errors.Errorf("worker queue is not empty")
+	}
+	wm.queue = NewRing(workerCount * wm.backlog)
+	wm.workerCount = workerCount
+	return nil
 }
 
 func (wm *SWorkerManager) String() string {
