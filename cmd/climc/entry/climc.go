@@ -24,12 +24,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/c-bata/go-prompt"
+	"github.com/cheggaaa/pb/v3"
 	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/structarg"
 
@@ -70,7 +73,10 @@ type BaseOptions struct {
 	OsEndpointType string `default:"$OS_ENDPOINT_TYPE|internalURL" help:"Defaults to env[OS_ENDPOINT_TYPE] or internalURL" choices:"publicURL|internalURL|adminURL"`
 	// ApiVersion     string `default:"$API_VERSION" help:"override default modules service api version"`
 	OutputFormat string `default:"$CLIMC_OUTPUT_FORMAT|table" choices:"table|kv|json|flatten-table|flatten-kv" help:"output format"`
-	SUBCOMMAND   string `help:"climc subcommand" subcommand:"true"`
+
+	ParallelRun int `help:"run in parallel to stess test the performance of server"`
+
+	SUBCOMMAND string `help:"climc subcommand" subcommand:"true"`
 }
 
 func getSubcommandsParser() (*structarg.ArgumentParser, error) {
@@ -253,19 +259,56 @@ func executeSubcommand(
 	subparser *structarg.ArgumentParser,
 	options *BaseOptions,
 	sessionFactory func() *mcclient.ClientSession,
+	parallel int,
 ) {
 	suboptions := subparser.Options()
 	if subparser.IsHelpSet() {
 		helpStr, err := subcmd.SubHelpString(options.SUBCOMMAND)
 		if err != nil {
 			showErrorAndExit(err)
+			return
 		}
 		fmt.Println(helpStr)
 		return
 	}
-	err := subcmd.Invoke(sessionFactory(), suboptions)
-	if err != nil {
-		showErrorAndExit(err)
+	if parallel <= 1 {
+		sess := sessionFactory()
+		err := subcmd.Invoke(sess, suboptions)
+		if err != nil {
+			showErrorAndExit(err)
+			return
+		}
+	} else {
+		fmt.Println("Authenticating...")
+		bar := pb.StartNew(parallel)
+		sess := make([]*mcclient.ClientSession, parallel)
+		for i := 0; i < parallel; i++ {
+			sess[i] = sessionFactory()
+			bar.Increment()
+		}
+		bar.Finish()
+		fmt.Println("Tokens are ready, start to request ...")
+		start := time.Now()
+		var wg sync.WaitGroup
+		var errs []error
+		for i := 0; i < parallel; i++ {
+			wg.Add(1)
+			s := sess[i]
+			go func() {
+				defer wg.Done()
+				err := subcmd.Invoke(s, suboptions)
+				if err != nil {
+					errs = append(errs, err)
+				}
+			}()
+		}
+		wg.Wait()
+		if len(errs) > 0 {
+			showErrorAndExit(errors.NewAggregate(errs))
+			return
+		}
+		diff := time.Now().Sub(start)
+		fmt.Printf("cost: %f seconds %f qps\n", diff.Seconds(), float64(parallel)/diff.Seconds())
 	}
 }
 
@@ -273,6 +316,7 @@ func ClimcMain() {
 	parser, e := getSubcommandsParser()
 	if e != nil {
 		showErrorAndExit(e)
+		return
 	}
 	e = parser.ParseArgs(os.Args[1:], false)
 	options := parser.Options().(*BaseOptions)
@@ -300,6 +344,7 @@ func ClimcMain() {
 		session, err := newClientSession(options)
 		if err != nil {
 			showErrorAndExit(err)
+			return nil
 		}
 		return session
 	}
@@ -319,8 +364,9 @@ func ClimcMain() {
 			fmt.Print(parser.Usage())
 		}
 		showErrorAndExit(e)
+		return
 	}
 
 	// execute subcommand in non-interactive mode
-	executeSubcommand(subcmd, subparser, options, ensureSessionFactory)
+	executeSubcommand(subcmd, subparser, options, ensureSessionFactory, options.ParallelRun)
 }
