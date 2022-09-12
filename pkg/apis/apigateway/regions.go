@@ -23,11 +23,6 @@ type SIdp struct {
 	IsDefault bool   `json:"is_default"`
 }
 
-type SCommonConfig struct {
-	ApiServer         string `json:"api_server,allowempty"`
-	IsForgetLoginUser bool   `json:"is_forget_login_user"`
-}
-
 type SRegionsReponse struct {
 	Regions []string `json:"regions,allowempty"`
 	Domains []string `json:"domains,allowempty"`
@@ -37,5 +32,5 @@ type SRegionsReponse struct {
 
 	EncryptPasswd bool `json:"encrypt_passwd"`
 
-	SCommonConfig
+	ApiServer string `json:"api_server,allowempty"`
 }
