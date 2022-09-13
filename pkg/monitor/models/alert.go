@@ -609,10 +609,10 @@ func (alert *SAlert) PerformTestRun(
 	query jsonutils.JSONObject,
 	input monitor.AlertTestRunInput,
 ) (*monitor.AlertTestRunOutput, error) {
-	return alert.testRunAlert(userCred, input)
+	return alert.TestRunAlert(userCred, input)
 }
 
-func (alert *SAlert) testRunAlert(userCred mcclient.TokenCredential, input monitor.AlertTestRunInput) (*monitor.AlertTestRunOutput, error) {
+func (alert *SAlert) TestRunAlert(userCred mcclient.TokenCredential, input monitor.AlertTestRunInput) (*monitor.AlertTestRunOutput, error) {
 	return AlertManager.GetTester().DoTest(alert, userCred, input)
 }
 

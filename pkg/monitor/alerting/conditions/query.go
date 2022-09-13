@@ -177,7 +177,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 
 		if context.IsTestRun {
 			context.Logs = append(context.Logs, &monitor.ResultLogEntry{
-				Message: fmt.Sprintf("Condition[%d]: Eval: %v, Metric: %s, Value: %v", c.Index, evalMatch, series.Name, reducedValue),
+				Message: fmt.Sprintf("Condition[%d]: EvalMatch: %v, Metric: %s, Value: %s", c.Index, evalMatch, series.Name, jsonutils.Marshal(reducedValue)),
 			})
 		}
 
