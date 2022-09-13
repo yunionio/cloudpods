@@ -145,10 +145,8 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 		Domains:           []string{},
 		ReturnFullDomains: false,
 		Idps:              []agapi.SIdp{},
-		SCommonConfig: agapi.SCommonConfig{
-			ApiServer: options.Options.ApiServer,
-		},
-		EncryptPasswd: true,
+		EncryptPasswd:     true,
+		ApiServer:         options.Options.ApiServer,
 	}
 
 	s := auth.GetAdminSession(ctx, regions[0])
@@ -195,12 +193,10 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 	// fetch this option directly from Keystone
 	commonCfg, err := modules.ServicesV3.GetSpecific(s, "common", "config", nil)
 	if err == nil && commonCfg != nil {
-		config := agapi.SCommonConfig{}
-		commonCfg.Unmarshal(&config, "config", "default")
-		if len(config.ApiServer) > 0 {
-			ret.ApiServer = config.ApiServer
+		apiServer, _ := commonCfg.GetString("config", "default", "api_server")
+		if len(apiServer) > 0 {
+			ret.ApiServer = apiServer
 		}
-		ret.IsForgetLoginUser = config.IsForgetLoginUser
 	}
 	return ret, nil
 }
