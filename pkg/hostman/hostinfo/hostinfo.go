@@ -620,9 +620,11 @@ func (h *SHostInfo) PreventArpFlux() {
 
 // Any system wide optimizations
 // set swappiness=0 to avoid swap
+// set vfs_cache_pressure=300 to avoid stale pagecache
 func (h *SHostInfo) tuneSystem() {
 	kv := map[string]string{
 		"/proc/sys/vm/swappiness":                        "0",
+		"/proc/sys/vm/vfs_cache_pressure":                "350",
 		"/proc/sys/net/ipv4/tcp_mtu_probing":             "2",
 		"/proc/sys/net/ipv4/neigh/default/gc_thresh1":    "1024",
 		"/proc/sys/net/ipv4/neigh/default/gc_thresh2":    "4096",
