@@ -49,7 +49,7 @@ type ModelartsPoolCreateOption struct {
 }
 
 func (opts *ModelartsPoolCreateOption) Params() (jsonutils.JSONObject, error) {
-	return options.ListStructToParams(opts)
+	return jsonutils.Marshal(opts), nil
 }
 
 type ModelartsPoolUpdateOption struct {

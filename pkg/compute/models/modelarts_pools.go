@@ -68,8 +68,8 @@ type SModelartsPool struct {
 
 	InstanceType string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	WorkType     string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
-	CpuArch      string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // CPU 架构 x86|xarm
-
+	// CPU 架构 x86|xarm
+	CpuArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 }
 
 func (manager *SModelartsPoolManager) GetContextManagers() [][]db.IModelManager {

@@ -15,13 +15,13 @@
 package huawei
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -92,7 +92,6 @@ func (self *SHuaweiClient) GetIModelartsPools() ([]cloudprovider.ICloudModelarts
 	for i := 0; i < len(pools); i++ {
 		pools[i].client = self
 		res[i] = &pools[i]
-		fmt.Println(res[i].GetStatus())
 	}
 	return res, nil
 }
@@ -267,6 +266,11 @@ func (self *SModelartsPool) IsEmulated() bool {
 }
 
 func (self *SModelartsPool) GetBillingType() string {
+	if self.Metadata.Annotations.BillingType == "1" {
+		return billing_api.BILLING_TYPE_PREPAID
+	} else {
+		return billing_api.BILLING_TYPE_POSTPAID
+	}
 	return self.Metadata.Annotations.BillingType
 }
 

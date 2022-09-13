@@ -61,14 +61,19 @@ type SModelartsPoolSku struct {
 	db.SExternalizedResourceBase
 
 	Type string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // 资源规格类型
-
-	CpuArch  string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`  // CPU 架构 x86|xarm
-	CpuCount int    `list:"user" create:"admin_optional" update:"admin"`                                             //CPU核心数量
-	GpuType  string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // GPU卡类型
-	GpuSize  int    `nullable:"true" list:"user" create:"admin_optional" update:"admin"`                             // GPU卡数量
-	NpuType  string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // NPU卡类型
-	NpuSize  int    `nullable:"true" list:"user" create:"admin_optional" update:"admin"`                             // NPU卡数量
-
+	// CPU 架构 x86|xarm
+	CpuArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	//CPU核心数量
+	CpuCount int `list:"user" create:"admin_optional" update:"admin"`
+	// GPU卡类型
+	GpuType string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	// GPU卡数量
+	GpuSize int `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	// NPU卡类型
+	NpuType string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	// NPU卡数量
+	NpuSize int `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	// 内存
 	Memory int `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 }
 

@@ -24,6 +24,7 @@ const (
 	MODELARTS_POOL_STATUS_CREATING = "creating"
 	MODELARTS_POOL_STATUS_DELETING = "deleting"
 	MODELARTS_POOL_STATUS_ERROR    = "error"
+	MODELARTS_POOL_STATUS_UNKNOWN  = "unknown"
 )
 
 type ModelartsPoolCreateInput struct {

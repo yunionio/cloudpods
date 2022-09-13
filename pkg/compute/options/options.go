@@ -15,6 +15,8 @@
 package options
 
 import (
+	"yunion.io/x/log"
+
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/pending_delete"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
@@ -189,6 +191,8 @@ type ComputeOptions struct {
 
 	EnableAwsMonitorAgent bool `help:"enable aws monitor agent" default:"true"`
 
+	EnableTlsMigration bool `help:"Enable TLS migration" default:"false"`
+
 	esxi.EsxiOptions
 }
 
@@ -227,6 +231,9 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 		if !oldOpts.IsSlaveNode {
 			changed = true
 		}
+	}
+	if oldOpts.EnableTlsMigration != newOpts.EnableTlsMigration {
+		log.Debugf("enable_tls_migration changed from %v to %v", oldOpts.EnableTlsMigration, newOpts.EnableTlsMigration)
 	}
 
 	return changed

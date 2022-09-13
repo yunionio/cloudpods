@@ -906,3 +906,12 @@ type ServerQgaSetPasswordInput struct {
 type ServerQgaCommandInput struct {
 	Command string
 }
+
+type ServerSetPasswordInput struct {
+	Username string
+	Password string
+
+	// deploy params
+	ResetPassword bool
+	AutoStart     bool
+}

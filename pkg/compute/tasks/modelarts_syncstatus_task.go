@@ -18,12 +18,13 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/pkg/errors"
 )
 
 type ModelartsPoolSyncstatusTask struct {
@@ -35,7 +36,7 @@ func init() {
 }
 
 func (self *ModelartsPoolSyncstatusTask) taskFailed(ctx context.Context, modelarts *models.SModelartsPool, err error) {
-	modelarts.SetStatus(self.GetUserCred(), api.MODELARTS_POOL_STATUS_ERROR, err.Error())
+	modelarts.SetStatus(self.GetUserCred(), api.MODELARTS_POOL_STATUS_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(modelarts, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, modelarts, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

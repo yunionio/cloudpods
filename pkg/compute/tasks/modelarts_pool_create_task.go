@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -40,7 +39,7 @@ func init() {
 }
 
 func (self *ModelartsPoolCreateTask) taskFailed(ctx context.Context, pool *models.SModelartsPool, err error) {
-	pool.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_CREATING, err.Error())
+	pool.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_UNKNOWN, err.Error())
 	logclient.AddActionLogWithStartable(self, pool, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -66,12 +65,12 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 	}
 	err = db.SetExternalId(pool, self.GetUserCred(), ipool.GetGlobalId())
 	if err != nil {
-		log.Errorln(err, "SetExternalId")
+		self.taskFailed(ctx, pool, errors.Wrapf(err, "db.SetExternalId"))
 		return
 	}
 	err = cloudprovider.WaitStatusWithDelay(ipool, api.MODELARTS_POOL_STATUS_RUNNING, 30*time.Second, 15*time.Second, 600*time.Second)
 	if err != nil {
-		log.Errorln(err, "WaitMultiStatus")
+		self.taskFailed(ctx, pool, errors.Wrapf(err, "db.WaitStatusWithDelay"))
 		return
 	}
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{

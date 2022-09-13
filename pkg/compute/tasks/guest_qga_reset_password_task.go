@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -59,7 +60,7 @@ func (self *GuestQgaSetPasswordTask) OnInit(ctx context.Context, obj db.IStandal
 	guest := obj.(*models.SGuest)
 	self.SetStage("OnQgaGuestPing", nil)
 	if err := self.guestPing(ctx, guest); err != nil {
-		self.OnQgaGuestPingFailed(ctx, guest, nil)
+		self.taskFailed(ctx, guest, err.Error())
 	}
 }
 
@@ -89,11 +90,13 @@ func (self *GuestQgaSetPasswordTask) OnQgaSetUserPassword(ctx context.Context, g
 
 	input := &api.ServerQgaSetPasswordInput{}
 	self.GetParams().Unmarshal(input)
-	info := make(map[string]interface{})
-	secret, _ := utils.EncryptAESBase64(guest.Id, input.Password)
-	info["login_account"] = input.Username
-	info["login_key"] = secret
-	guest.SetAllMetadata(ctx, info, self.UserCred)
+	if guest.GetMetadata(ctx, "login_account", self.UserCred) == input.Username {
+		info := make(map[string]interface{})
+		secret, _ := utils.EncryptAESBase64(guest.Id, input.Password)
+		info["login_key"] = secret
+		info["login_key_timestamp"] = timeutils.UtcNow()
+		guest.SetAllMetadata(ctx, info, self.UserCred)
+	}
 
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SET_USER_PASSWORD, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)

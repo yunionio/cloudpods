@@ -55,13 +55,6 @@ type SModelartsResourceflavorsStatus struct {
 	Phase map[string]interface{} `json:"phase"`
 }
 
-type SModelartsResourceflavorsStatusPhase struct {
-	CnNorth4a string `json:"cn-north-4a"`
-	CnNorth4b string `json:"cn-north-4b"`
-	CnNorth4c string `json:"cn-north-4c"`
-	CnNorth4g string `json:"cn-north-4g"`
-}
-
 func (self *SHuaweiClient) GetIModelartsPoolSku() ([]cloudprovider.ICloudModelartsPoolSku, error) {
 	params := make(map[string]interface{})
 	resourceflavors := make([]SModelartsPoolSku, 0)

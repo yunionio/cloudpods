@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"yunion.io/x/jsonutils"
@@ -70,6 +71,8 @@ type SSecurityGroupRule struct {
 	Action         string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
 	Description    string `width:"256" charset:"utf8" list:"user" update:"user" create:"optional"`
 	PeerSecgroupId string `width:"128" charset:"ascii" create:"optional" list:"user" update:"user"`
+
+	IsDirty bool `nullable:"false" default:"false"`
 }
 
 func (self *SSecurityGroupRule) GetId() string {
@@ -388,12 +391,13 @@ func (self *SSecurityGroupRule) toRule() (*secrules.SecurityRule, error) {
 func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
-	if len(self.PeerSecgroupId) > 0 {
-		db.Update(self, func() error {
+	db.Update(self, func() error {
+		if len(self.PeerSecgroupId) > 0 {
 			self.CIDR = ""
-			return nil
-		})
-	}
+		}
+		self.IsDirty = true
+		return nil
+	})
 
 	log.Debugf("POST Create %s", data)
 	if secgroup := self.GetSecGroup(); secgroup != nil {
@@ -405,9 +409,27 @@ func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclien
 func (self *SSecurityGroupRule) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	self.SResourceBase.PreDelete(ctx, userCred)
 
+	db.Update(self, func() error {
+		self.IsDirty = true
+		return nil
+	})
+
 	if secgroup := self.GetSecGroup(); secgroup != nil {
 		logclient.AddSimpleActionLog(secgroup, logclient.ACT_DELETE, jsonutils.Marshal(self), userCred, true)
 		secgroup.DoSync(ctx, userCred)
+	}
+}
+
+func (self *SSecurityGroupRule) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	old := &SSecurityGroupRule{}
+	old.SetModelManager(SecurityGroupRuleManager, old)
+	jsonutils.Update(old, self)
+	old.IsDirty = true
+	old.Deleted = true
+	old.Id = fmt.Sprintf("%s-back", self.Id)
+	err := SecurityGroupRuleManager.TableSpec().InsertOrUpdate(ctx, old)
+	if err != nil {
+		log.Errorf("insert old rule error: %v", err)
 	}
 }
 

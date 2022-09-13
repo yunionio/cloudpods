@@ -163,7 +163,10 @@ func (g *GenericScheduler) Schedule(ctx context.Context, unit *Unit, candidates 
 		selectedCandidates = []*SelectedCandidate{}
 	}
 
-	resultItems, err := generateScheduleResult(unit, selectedCandidates, candidates)
+	if unit.SchedInfo.IsSuggestion {
+		filteredCandidates = candidates
+	}
+	resultItems, err := generateScheduleResult(unit, selectedCandidates, filteredCandidates)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +197,7 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 	return r
 }
 
-func generateScheduleResult(u *Unit, scs []*SelectedCandidate, cs []Candidater) (SchedResultItems, error) {
+func generateScheduleResult(u *Unit, scs []*SelectedCandidate, fcs []Candidater) (SchedResultItems, error) {
 	results := make(SchedResultItems, 0)
 	itemMap := make(map[string]int)
 
@@ -206,7 +209,7 @@ func generateScheduleResult(u *Unit, scs []*SelectedCandidate, cs []Candidater) 
 	}
 
 	suggestionLimit := u.SchedInfo.SuggestionLimit
-	for _, c := range cs {
+	for _, c := range fcs {
 		if suggestionLimit <= int64(len(results)) {
 			break
 		}
@@ -220,7 +223,7 @@ func generateScheduleResult(u *Unit, scs []*SelectedCandidate, cs []Candidater) 
 
 	suggestionAll := u.SchedInfo.SuggestionAll
 	if suggestionAll || len(u.SchedData().PreferCandidates) > 0 {
-		for _, c := range cs {
+		for _, c := range fcs {
 			if suggestionLimit <= int64(len(results)) {
 				break
 			}
@@ -326,6 +329,11 @@ func SelectHosts(unit *Unit, priorityList HostPriorityList) ([]*SelectedCandidat
 	}
 
 	selectedMap := make(map[string]*SelectedCandidate)
+	noSelectedMap := make(map[string]Candidater)
+	for _, item := range priorityList {
+		noSelectedMap[item.Host] = item.Candidate
+	}
+
 	schedData := unit.SchedData()
 	count := schedData.Count
 	isSuggestion := unit.SchedInfo.IsSuggestion
@@ -355,6 +363,7 @@ completed:
 					Candidate: it.Candidate,
 				}
 				selectedMap[hostID] = selectedItem
+				delete(noSelectedMap, hostID)
 			}
 			selectedItem.Count++
 			count--
@@ -373,6 +382,12 @@ completed:
 			plugin.OnSelectEnd(unit, sc.Candidate, sc.Count)
 		}
 		selectedCandidates = append(selectedCandidates, sc)
+	}
+	// hack: not selected host should also execute OnSelectEnd step to inject result of network and storage candiates
+	for _, nsc := range noSelectedMap {
+		for _, plugin := range plugins {
+			plugin.OnSelectEnd(unit, nsc, 0)
+		}
 	}
 
 	if !isSuggestion && !bestEffort {
@@ -545,7 +560,7 @@ func unitFitsOnCandidate(
 // PrioritizeCandidates by running the individual priority functions in parallel.
 // Each priority function is expected to set a score of 0-10
 // 0 is the lowest priority score (least preffered node) and 10 is the highest
-/// Each priority function can also have its own weight
+// / Each priority function can also have its own weight
 // The resource scores returned by priority function are multiplied by the weights to get weighted scores
 // All scores are finally combined (added) to get the total weighted scores of all resources
 func PrioritizeCandidates(
