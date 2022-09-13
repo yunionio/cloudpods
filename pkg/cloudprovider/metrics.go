@@ -44,15 +44,16 @@ func (key TMetricType) Key() string {
 }
 
 const (
-	METRIC_RESOURCE_TYPE_RDS           TResourceType = "rds"
-	METRIC_RESOURCE_TYPE_SERVER        TResourceType = "server"
-	METRIC_RESOURCE_TYPE_HOST          TResourceType = "host"
-	METRIC_RESOURCE_TYPE_REDIS         TResourceType = "redis"
-	METRIC_RESOURCE_TYPE_LB            TResourceType = "lb"
-	METRIC_RESOURCE_TYPE_BUCKET        TResourceType = "bucket"
-	METRIC_RESOURCE_TYPE_K8S           TResourceType = "k8s"
-	METRIC_RESOURCE_TYPE_STORAGE       TResourceType = "storage"
-	METRIC_RESOURCE_TYPE_CLOUD_ACCOUNT TResourceType = "cloudaccount_balance"
+	METRIC_RESOURCE_TYPE_RDS            TResourceType = "rds"
+	METRIC_RESOURCE_TYPE_SERVER         TResourceType = "server"
+	METRIC_RESOURCE_TYPE_HOST           TResourceType = "host"
+	METRIC_RESOURCE_TYPE_REDIS          TResourceType = "redis"
+	METRIC_RESOURCE_TYPE_LB             TResourceType = "lb"
+	METRIC_RESOURCE_TYPE_BUCKET         TResourceType = "bucket"
+	METRIC_RESOURCE_TYPE_K8S            TResourceType = "k8s"
+	METRIC_RESOURCE_TYPE_STORAGE        TResourceType = "storage"
+	METRIC_RESOURCE_TYPE_CLOUD_ACCOUNT  TResourceType = "cloudaccount_balance"
+	METRIC_RESOURCE_TYPE_MODELARTS_POOL TResourceType = "modelarts_pool"
 )
 
 const (
@@ -252,6 +253,19 @@ const (
 	K8S_NODE_METRIC_TYPE_DISK_USAGE TMetricType = "k8s_node_disk.used_percent"
 	K8S_NODE_METRIC_TYPE_NET_BPS_RX TMetricType = "k8s_node_netio.bps_recv"
 	K8S_NODE_METRIC_TYPE_NET_BPS_TX TMetricType = "k8s_node_netio.bps_sent"
+
+	// modelarts专属资源池监控数据
+	MODELARTS_POOL_METRIC_TYPE_CPU_USAGE     TMetricType = "modelarts_pool_cpu.usage_percent"
+	MODELARTS_POOL_METRIC_TYPE_MEM_USAGE     TMetricType = "modelarts_pool_mem.usage_percent"
+	MODELARTS_POOL_METRIC_TYPE_GPU_MEM_USAGE TMetricType = "modelarts_pool_gpu_mem.usage_percent"
+	MODELARTS_POOL_METRIC_TYPE_GPU_UTIL      TMetricType = "modelarts_pool_gpu_util.percent"
+	MODELARTS_POOL_METRIC_TYPE_NPU_UTIL      TMetricType = "modelarts_pool_npu_util.percent"
+	MODELARTS_POOL_METRIC_TYPE_NPU_MEM_USAGE TMetricType = "modelarts_pool_npu_mem.usage_percent"
+
+	//磁盘可用容量
+	MODELARTS_POOL_METRIC_TYPE_DISK_AVAILABLE_CAPACITY TMetricType = "modelarts_pool_disk.available_capacity"
+	MODELARTS_POOL_METRIC_TYPE_DISK_CAPACITY           TMetricType = "modelarts_pool_disk.capacity"
+	MODELARTS_POOL_METRIC_TYPE_DISK_USAGE              TMetricType = "modelarts_pool_disk.usage_percent"
 )
 
 var (

@@ -112,7 +112,7 @@ func (self *SBaseManager) _list(request requests.IRequest, responseKey string) (
 
 	rets, err := body.GetArray(responseKey)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "body.GetArray %s", responseKey)
 	}
 	total, _ := body.Int("count")
 	// if err != nil {

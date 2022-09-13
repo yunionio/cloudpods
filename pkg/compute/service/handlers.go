@@ -247,6 +247,9 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.NetTapServiceManager,
 		models.NetTapFlowManager,
+
+		models.ModelartsPoolManager,
+		models.ModelartsPoolSkuManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
