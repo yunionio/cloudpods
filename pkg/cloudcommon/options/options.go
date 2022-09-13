@@ -110,8 +110,6 @@ type BaseOptions struct {
 
 	PlatformName  string            `help:"identity name of this platform" default:"Cloudpods"`
 	PlatformNames map[string]string `help:"identity name of this platform by language"`
-
-	EnableTlsMigration bool `help:"Enable TLS migration" default:"false"`
 }
 
 const (

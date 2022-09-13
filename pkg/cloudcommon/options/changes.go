@@ -53,9 +53,6 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	if oldOpts.ApiServer != newOpts.ApiServer {
 		log.Debugf("api_server changed from %s to %s", oldOpts.ApiServer, newOpts.ApiServer)
 	}
-	if oldOpts.EnableTlsMigration != newOpts.EnableTlsMigration {
-		log.Debugf("enable_tls_migration changed from %v to %v", oldOpts.EnableTlsMigration, newOpts.EnableTlsMigration)
-	}
 	return changed
 }
 
