@@ -439,6 +439,12 @@ type GuestLiveMigrateInput struct {
 	SkipKernelCheck *bool `json:"skip_kernel_check"`
 	// 是否启用 tls
 	EnableTLS *bool `json:"enable_tls"`
+
+	// 迁移带宽限制
+	MaxBandwidthMb *int64 `json:"max_bandwidth_mb"`
+	// 快速完成，内存同步一定周期后调整 downtime
+	QuicklyFinish         *bool `json:"quickly_finish"`
+	KeepDestGuestOnFailed *bool `json:"keep_dest_guest_on_failed"`
 }
 
 type GuestSetSecgroupInput struct {
@@ -914,4 +920,9 @@ type ServerSetPasswordInput struct {
 	// deploy params
 	ResetPassword bool
 	AutoStart     bool
+}
+
+type ServerSetLiveMigrateParamsInput struct {
+	MaxBandwidthMB  *int64
+	DowntimeLimitMS *int64
 }

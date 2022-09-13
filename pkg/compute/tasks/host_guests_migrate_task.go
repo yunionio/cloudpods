@@ -48,8 +48,10 @@ func (self *HostGuestsMigrateTask) OnInit(ctx context.Context, objs []db.IStanda
 	for i := range objs {
 		guest := objs[i].(*models.SGuest)
 		if guests[i].LiveMigrate {
-			err := guest.StartGuestLiveMigrateTask(
-				ctx, self.UserCred, guests[i].OldStatus, preferHostId, &guests[i].SkipCpuCheck, &guests[i].SkipKernelCheck, guests[i].EnableTLS, self.Id)
+			err := guest.StartGuestLiveMigrateTask(ctx, self.UserCred,
+				guests[i].OldStatus, preferHostId, &guests[i].SkipCpuCheck, &guests[i].SkipKernelCheck,
+				guests[i].EnableTLS, guests[i].QuciklyFinish, guests[i].MaxBandwidthMb, nil, self.Id,
+			)
 			if err != nil {
 				log.Errorln(err)
 			}

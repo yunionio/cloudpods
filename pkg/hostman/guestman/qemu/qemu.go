@@ -81,7 +81,7 @@ type CPUOption struct {
 
 type QemuOptions interface {
 	IsArm() bool
-	Log(enable bool, qemuLogPath string) string
+	Log(enable bool) string
 	RTC() string
 	FreezeCPU() string
 	Daemonize() string
@@ -182,11 +182,11 @@ func (o baseOptions) IsArm() bool {
 	return o.arch == Arch_aarch64
 }
 
-func (o baseOptions) Log(enable bool, qemuLogPath string) string {
+func (o baseOptions) Log(enable bool) string {
 	if !enable {
 		return ""
 	}
-	return fmt.Sprintf("-D %s -d all", qemuLogPath)
+	return "-d all"
 }
 
 func (o baseOptions) RTC() string {

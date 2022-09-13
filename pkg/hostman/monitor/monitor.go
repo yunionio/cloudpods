@@ -105,6 +105,49 @@ type QemuBlock struct {
 	}
 }
 
+type MigrationInfo struct {
+	Status                *MigrationStatus  `json:"status,omitempty"`
+	RAM                   *MigrationStats   `json:"ram,omitempty"`
+	Disk                  *MigrationStats   `json:"disk,omitempty"`
+	XbzrleCache           *XbzrleCacheStats `json:"xbzrle-cache,omitempty"`
+	TotalTime             *int64            `json:"total-time,omitempty"`
+	ExpectedDowntime      *int64            `json:"expected-downtime,omitempty"`
+	Downtime              *int64            `json:"downtime,omitempty"`
+	SetupTime             *int64            `json:"setup-time,omitempty"`
+	CPUThrottlePercentage *int64            `json:"cpu-throttle-percentage,omitempty"`
+	ErrorDesc             *string           `json:"error-desc,omitempty"`
+}
+
+type MigrationStats struct {
+	Transferred      int64   `json:"transferred"`
+	Remaining        int64   `json:"remaining"`
+	Total            int64   `json:"total"`
+	Duplicate        int64   `json:"duplicate"`
+	Skipped          int64   `json:"skipped"`
+	Normal           int64   `json:"normal"`
+	NormalBytes      int64   `json:"normal-bytes"`
+	DirtyPagesRate   int64   `json:"dirty-pages-rate"`
+	Mbps             float64 `json:"mbps"`
+	DirtySyncCount   int64   `json:"dirty-sync-count"`
+	PostcopyRequests int64   `json:"postcopy-requests"`
+	PageSize         int64   `json:"page-size"`
+}
+
+// XbzrleCacheStats implements the "XBZRLECacheStats" QMP API type.
+type XbzrleCacheStats struct {
+	CacheSize     int64   `json:"cache-size"`
+	Bytes         int64   `json:"bytes"`
+	Pages         int64   `json:"pages"`
+	CacheMiss     int64   `json:"cache-miss"`
+	CacheMissRate float64 `json:"cache-miss-rate"`
+	Overflow      int64   `json:"overflow"`
+}
+
+// MigrationStatus implements the "MigrationStatus" QMP API type.
+type MigrationStatus string
+
+type MigrateStatsCallback func(*MigrationInfo, error)
+
 type blockSizeByte int64
 
 func (self blockSizeByte) String() string {
@@ -161,6 +204,7 @@ type Monitor interface {
 	GetCpuCount(func(count int))
 	AddCpu(cpuIndex int, callback StringCallback)
 	GeMemtSlotIndex(func(index int))
+	GetMemoryDevicesInfo(QueryMemoryDevicesCallback)
 
 	GetBlocks(callback func([]QemuBlock))
 	EjectCdrom(dev string, callback StringCallback)
@@ -187,6 +231,7 @@ type Monitor interface {
 	Migrate(destStr string, copyIncremental, copyFull bool, callback StringCallback)
 	GetMigrateStatus(callback StringCallback)
 	MigrateStartPostcopy(callback StringCallback)
+	GetMigrateStats(callback MigrateStatsCallback)
 
 	ReloadDiskBlkdev(device, path string, callback StringCallback)
 	SetVncPassword(proto, password string, callback StringCallback)

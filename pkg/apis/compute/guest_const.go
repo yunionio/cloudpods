@@ -71,6 +71,7 @@ const (
 
 	VM_START_MIGRATE  = "start_migrate"
 	VM_MIGRATING      = "migrating"
+	VM_LIVE_MIGRATING = "live_migrating"
 	VM_MIGRATE_FAILED = "migrate_failed"
 
 	VM_CHANGE_FLAVOR      = "change_flavor"

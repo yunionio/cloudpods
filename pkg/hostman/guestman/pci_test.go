@@ -15,6 +15,7 @@
 package guestman
 
 import (
+	"fmt"
 	"testing"
 
 	"yunion.io/x/jsonutils"
@@ -147,7 +148,14 @@ func TestSKVMGuestInstance_initGuestDesc(t *testing.T) {
 		Accel: "kvm",
 	}
 	//s.initCpuDesc()
-	s.initMemDesc()
+	// s.initMemDesc()
+	s.Desc.MemDesc = new(desc.SGuestMem)
+	s.Desc.MemDesc.SizeMB = s.Desc.Mem
+	s.Desc.MemDesc.Mem = desc.NewObject("memory-backend-memfd", "mem")
+	s.Desc.MemDesc.Mem.Options = map[string]string{
+		"size":  fmt.Sprintf("%dM", s.Desc.Mem),
+		"share": "on", "prealloc": "on",
+	}
 	// s.initMachineDesc()
 
 	pciRoot, _ := s.initGuestPciControllers()

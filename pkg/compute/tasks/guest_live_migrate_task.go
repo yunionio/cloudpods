@@ -79,7 +79,11 @@ func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 
 func (self *GuestMigrateTask) OnStartSchedule(obj IScheduleModel) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_MIGRATING, "")
+	guestStatus, _ := self.Params.GetString("guest_status")
+	if guestStatus != api.VM_RUNNING && guestStatus != api.VM_SUSPEND {
+		guest.SetStatus(self.UserCred, api.VM_MIGRATING, "")
+	}
+
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, "", self.UserCred)
 }
 
@@ -102,6 +106,8 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 		return
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, fmt.Sprintf("guest start migrate from host %s to %s", guest.HostId, targetHostId), self.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATING,
+		fmt.Sprintf("guest start migrate from host %s to %s(%s)", guest.HostId, targetHostId, targetHost.GetName()), self.UserCred, true)
 
 	body := jsonutils.NewDict()
 	body.Set("target_host_id", jsonutils.NewString(targetHostId))
@@ -461,12 +467,18 @@ func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 	body.Set("live_migrate_dest_port", liveMigrateDestPort)
 	body.Set("dest_ip", jsonutils.NewString(targetHost.AccessIp))
 	body.Set("enable_tls", jsonutils.NewBool(jsonutils.QueryBoolean(self.GetParams(), "enable_tls", false)))
+	body.Set("quickly_finish", jsonutils.NewBool(jsonutils.QueryBoolean(self.GetParams(), "quickly_finish", false)))
+	if self.Params.Contains("max_bandwidth_mb") {
+		maxBandwidthMb, _ := self.Params.Get("max_bandwidth_mb")
+		body.Set("max_bandwidth_mb", maxBandwidthMb)
+	}
 
 	headers := self.GetTaskRequestHeader()
 
 	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/live-migrate", host.ManagerUri, guest.Id)
 	self.SetStage("OnLiveMigrateComplete", nil)
+	guest.SetStatus(self.UserCred, api.VM_LIVE_MIGRATING, "")
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
@@ -511,12 +523,19 @@ func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest
 }
 
 func (self *GuestLiveMigrateTask) OnLiveMigrateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	targetHostId, _ := self.Params.GetString("target_host_id")
-	guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
+	if !jsonutils.QueryBoolean(self.Params, "keep_dest_guest_on_failed", false) {
+		targetHostId, _ := self.Params.GetString("target_host_id")
+		guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
+	}
 	self.TaskFailed(ctx, guest, data)
 }
 
 func (self *GuestLiveMigrateTask) OnLiveMigrateComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if migInfo, err := data.Get("migration_info"); err != nil {
+		db.OpsLog.LogEvent(guest, db.ACT_MIGRATE, migInfo, self.UserCred)
+		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, migInfo, self.UserCred, true)
+	}
+
 	headers := self.GetTaskRequestHeader()
 	body := jsonutils.NewDict()
 	body.Set("live_migrate", jsonutils.JSONTrue)
