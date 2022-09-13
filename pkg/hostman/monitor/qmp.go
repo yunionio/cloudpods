@@ -728,6 +728,26 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 	m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) GetMigrateStats(callback MigrateStatsCallback) {
+	var (
+		cmd = &Command{Execute: "query-migrate"}
+		cb  = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(nil, errors.Errorf(res.ErrorVal.Error()))
+			} else {
+				migStats := new(MigrationInfo)
+				err := json.Unmarshal(res.Return, migStats)
+				if err != nil {
+					callback(nil, err)
+					return
+				}
+				callback(migStats, nil)
+			}
+		}
+	)
+	m.Query(cmd, cb)
+}
+
 func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 	var (
 		cmd = &Command{Execute: "migrate-start-postcopy"}

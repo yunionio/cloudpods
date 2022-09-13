@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
@@ -338,6 +339,10 @@ func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
 	}
 
 	m.Query("info migrate", cb)
+}
+
+func (m *HmpMonitor) GetMigrateStats(callback MigrateStatsCallback) {
+	go callback(nil, errors.Errorf("unsupport get migrate stats"))
 }
 
 func (m *HmpMonitor) MigrateStartPostcopy(callback StringCallback) {

@@ -580,6 +580,8 @@ type GuestBatchMigrateRequest struct {
 	SkipCpuCheck    bool   `json:"skip_cpu_check"`
 	SkipKernelCheck bool   `json:"skip_kernel_check"`
 	EnableTLS       *bool  `json:"enable_tls"`
+	MaxBandwidthMb  *int64 `json:"max_bandwidth_mb"`
+	QuciklyFinish   *bool  `json:"quickly_finish"`
 }
 
 type GuestBatchMigrateParams struct {
@@ -590,6 +592,8 @@ type GuestBatchMigrateParams struct {
 	EnableTLS       *bool
 	RescueMode      bool
 	OldStatus       string
+	MaxBandwidthMb  *int64
+	QuciklyFinish   *bool
 }
 
 type HostLoginInfo struct {
