@@ -1324,11 +1324,8 @@ func (alert *SCommonAlert) StartUpdateMonitorAlertJointTask(ctx context.Context,
 }
 
 func (alert *SCommonAlert) UpdateMonitorResourceJoint(ctx context.Context, userCred mcclient.TokenCredential) error {
-	setting, _ := alert.GetSettings()
-	inputQuery := monitor.MetricInputQuery{
-		MetricQuery: make([]*monitor.AlertQuery, 0),
-	}
 	var resType string
+	setting, _ := alert.GetSettings()
 	for _, con := range setting.Conditions {
 		measurement, _ := MetricMeasurementManager.GetCache().Get(con.Query.Model.Measurement)
 		if measurement == nil {
@@ -1336,24 +1333,15 @@ func (alert *SCommonAlert) UpdateMonitorResourceJoint(ctx context.Context, userC
 		} else {
 			resType = measurement.ResType
 		}
-		//if !utils.IsInStringArray(measurement.ResType, []string{monitor.METRIC_RES_TYPE_HOST,
-		//	monitor.METRIC_RES_TYPE_GUEST, monitor.METRIC_RES_TYPE_AGENT}) {
-		//	continue
-		//}
-
-		inputQuery.MetricQuery = append(inputQuery.MetricQuery, &con.Query)
 	}
-	if len(inputQuery.MetricQuery) == 0 {
-		return nil
-	}
-	metrics, err := doQuery(inputQuery)
+	ret, err := alert.TestRunAlert(userCred, monitor.AlertTestRunInput{})
 	if err != nil {
-		return errors.Wrap(err, "doQuery err")
+		return errors.Wrapf(err, "TestRunAlert %s", alert.GetName())
 	}
 	resourceIds := make([]string, 0)
-	for _, serie := range metrics.Series {
+	for _, em := range ret.EvalMatches {
 		resourceKeyId := monitor.MEASUREMENT_TAG_ID[resType]
-		resourceId := serie.Tags[resourceKeyId]
+		resourceId := em.Tags[resourceKeyId]
 		if len(resourceId) == 0 {
 			continue
 		}
@@ -1376,27 +1364,34 @@ jointLoop:
 		}
 		deleteJointIds = append(deleteJointIds, joint.RowId)
 	}
-	if len(resourceIds) == 0 {
+
+	if len(resourceIds) == 0 && len(deleteJointIds) == 0 {
 		return nil
 	}
-	if len(deleteJointIds) != 0 {
+	//  sync joints should be deleted
+	if len(deleteJointIds) > 0 {
 		err := MonitorResourceAlertManager.DetachJoint(ctx, userCred, monitor.MonitorResourceJointListInput{JointId: deleteJointIds})
 		if err != nil {
-			return errors.Wrapf(err, "DetachJoint By alertName:%s err", alert.GetName())
+			return errors.Wrapf(err, "DetachJoint by alert %s(%s)", alert.GetName(), alert.GetId())
 		}
-	}
-	monitorResources, _ := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: resourceIds})
-	errs := make([]error, 0)
-	for _, monRes := range monitorResources {
-		err := monRes.AttachAlert(ctx, userCred, alert.GetId())
-		if err != nil {
-			errs = append(errs, err)
-		}
-		monRes.UpdateAlertState()
 	}
 
-	if len(errs) != 0 {
-		return errors.NewAggregate(errs)
+	if len(resourceIds) > 0 {
+		monitorResources, _ := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: resourceIds})
+		errs := make([]error, 0)
+		for _, monRes := range monitorResources {
+			resDesc := fmt.Sprintf("%s/%s/%s", monRes.ResType, monRes.GetName(), monRes.ResId)
+			if err := monRes.AttachAlert(ctx, userCred, alert.GetId()); err != nil {
+				errs = append(errs, errors.Wrapf(err, "AttachAlert %s to %s", alert.GetName(), resDesc))
+			}
+			if err := monRes.UpdateAlertState(); err != nil {
+				errs = append(errs, errors.Wrapf(err, "UpdateAlertState for monitor resource %s", resDesc))
+			}
+		}
+
+		if len(errs) != 0 {
+			return errors.NewAggregate(errs)
+		}
 	}
 	return nil
 }
