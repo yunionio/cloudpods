@@ -217,6 +217,9 @@ func (self *SAzureClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) (
 						}
 						if v.Timestamp.After(opts.StartTime) && v.Timestamp.Before(opts.EndTime) {
 							value := v.GetValue()
+							if metricType == cloudprovider.VM_METRIC_TYPE_DISK_USAGE && strings.Contains(strings.ToLower(name), "free") {
+								value = 100 - value
+							}
 							metric.Values = append(metric.Values, cloudprovider.MetricValue{
 								Timestamp: v.Timestamp,
 								Value:     value,
