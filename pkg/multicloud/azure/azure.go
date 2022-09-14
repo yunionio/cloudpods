@@ -64,8 +64,9 @@ const (
 type TAzureResource string
 
 var (
-	GraphResource   = TAzureResource("graph")
-	DefaultResource = TAzureResource("default")
+	GraphResource        = TAzureResource("graph")
+	DefaultResource      = TAzureResource("default")
+	LoganalyticsResource = TAzureResource("loganalytics")
 )
 
 type azureAuthClient struct {
@@ -87,6 +88,8 @@ type SAzureClient struct {
 	subscriptions []SSubscription
 
 	debug bool
+
+	workspaces []SLoganalyticsWorkspace
 }
 
 type AzureClientConfig struct {
@@ -182,6 +185,13 @@ func (self *SAzureClient) getClient(resource TAzureResource) (*azureAuthClient, 
 	case GraphResource:
 		ret.domain = env.GraphEndpoint
 		conf.Resource = env.GraphEndpoint
+	case LoganalyticsResource:
+		ret.domain = env.ResourceIdentifiers.OperationalInsights
+		conf.Resource = env.ResourceIdentifiers.OperationalInsights
+		if conf.Resource == "N/A" && self.envName == "AzureChinaCloud" {
+			ret.domain = "https://api.loganalytics.azure.cn"
+			conf.Resource = ret.domain
+		}
 	default:
 		ret.domain = env.ResourceManagerEndpoint
 		conf.Resource = env.ResourceManagerEndpoint
@@ -211,6 +221,10 @@ func (self *SAzureClient) getDefaultClient() (*azureAuthClient, error) {
 
 func (self *SAzureClient) getGraphClient() (*azureAuthClient, error) {
 	return self.getClient(GraphResource)
+}
+
+func (self *SAzureClient) getLoganalyticsClient() (*azureAuthClient, error) {
+	return self.getClient(LoganalyticsResource)
 }
 
 func (self *SAzureClient) jsonRequest(method, path string, body jsonutils.JSONObject, params url.Values, showErrorMsg bool) (jsonutils.JSONObject, error) {
@@ -258,6 +272,18 @@ func (self *SAzureClient) jsonRequest(method, path string, body jsonutils.JSONOb
 		return resp, err
 	}
 	return resp, err
+}
+
+func (self *SAzureClient) ljsonRequest(method, path string, body jsonutils.JSONObject, params url.Values) (jsonutils.JSONObject, error) {
+	cli, err := self.getLoganalyticsClient()
+	if err != nil {
+		return nil, errors.Wrapf(err, "getLoganalyticsClient")
+	}
+	if params == nil {
+		params = url.Values{}
+	}
+	params.Set("api-version", "2021-12-01-preview")
+	return jsonRequest(cli.client, method, cli.domain, path, body, params, self.debug)
 }
 
 func (self *SAzureClient) gjsonRequest(method, path string, body jsonutils.JSONObject, params url.Values) (jsonutils.JSONObject, error) {
@@ -512,6 +538,8 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 		return "2020-06-01"
 	} else if utils.IsInStringArray("microsoft.containerservice", info) {
 		return "2021-05-01"
+	} else if utils.IsInStringArray("microsoft.operationalinsights", info) {
+		return "2021-12-01-preview"
 	}
 	return AZURE_API_VERSION
 }

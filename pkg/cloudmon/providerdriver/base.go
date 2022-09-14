@@ -221,6 +221,7 @@ func (self *SCollectByResourceIdDriver) CollectServerMetrics(ctx context.Context
 				RegionExtId:  vm.RegionExtId,
 				StartTime:    start,
 				EndTime:      end,
+				OsType:       vm.OsType,
 			}
 			opts.ResourceId = vm.ExternalId
 

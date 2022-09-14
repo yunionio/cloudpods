@@ -19,11 +19,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -231,6 +233,48 @@ func (self *SAzureClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) (
 		}
 		if len(metric.Values) > 0 {
 			ret = append(ret, metric)
+		}
+	}
+
+	if len(opts.OsType) == 0 || strings.Contains(strings.ToLower(opts.OsType), "win") {
+		workspaces, err := self.GetLoganalyticsWorkspaces()
+		if err != nil {
+			return ret, nil
+		}
+		winmetric := cloudprovider.MetricValues{}
+		winmetric.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_USAGE
+		winmetric.Values = []cloudprovider.MetricValue{}
+		for i := range workspaces {
+			data, err := self.GetInstanceDiskUsage(workspaces[i].SLoganalyticsWorkspaceProperties.CustomerId, opts.ResourceId, opts.StartTime, opts.EndTime)
+			if err != nil {
+				continue
+			}
+			for i := range data {
+				for j := range data[i].Rows {
+					if len(data[i].Rows[j]) == 5 {
+						date, device, free := data[i].Rows[j][0], data[i].Rows[j][1], data[i].Rows[j][2]
+						dataTime, err := timeutils.ParseTimeStr(date)
+						if err != nil {
+							continue
+						}
+						if dataTime.Second() > 15 {
+							continue
+						}
+						freeSize, err := strconv.ParseFloat(free, 64)
+						if err != nil {
+							continue
+						}
+						winmetric.Values = append(winmetric.Values, cloudprovider.MetricValue{
+							Timestamp: dataTime,
+							Value:     100 - freeSize,
+							Tags:      map[string]string{cloudprovider.METRIC_TAG_DEVICE: device},
+						})
+					}
+				}
+			}
+		}
+		if len(winmetric.Values) > 0 {
+			ret = append(ret, winmetric)
 		}
 	}
 
