@@ -188,7 +188,7 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 				delete(s.monitors, guestId)
 				gm, err = NewGuestMonitor(guestName, guestId, pid, nicsDesc, int(vcpuCount))
 				if err != nil {
-					log.Errorln(err)
+					log.Errorf("NewGuestMonitor for %s(%s), pid: %d, nics: %s", guestName, guestId, pid, jsonutils.Marshal(nics).String())
 					return true
 				}
 			}
