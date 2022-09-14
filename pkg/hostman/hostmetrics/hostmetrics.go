@@ -189,11 +189,16 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 				delete(s.monitors, guestId)
 				gm, err = NewGuestMonitor(guestName, guestId, pid, nics, int(vcpuCount))
 				if err != nil {
-					log.Errorln(err)
+					log.Errorf("NewGuestMonitor for %s(%s), pid: %d, nics: %s", guestName, guestId, pid, jsonutils.Marshal(nics).String())
 					return true
 				}
 			}
 			gm.ScalingGroupId, _ = guest.Desc.GetString("scaling_group_id")
+			if gm.ScalingGroupId == "" {
+				// Compatibility for old typo data
+				gm.ScalingGroupId, _ = guest.Desc.GetString("scalling_group_id")
+			}
+
 			gm.Tenant, _ = guest.Desc.GetString("tenant")
 			gm.TenantId, _ = guest.Desc.GetString("tenant_id")
 			gm.DomainId, _ = guest.Desc.GetString("domain_id")
