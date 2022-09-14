@@ -342,6 +342,7 @@ type SResources struct {
 	Buckets        TResource
 	KubeClusters   TResource
 	Storages       TResource
+	ModelartsPool  TResource
 }
 
 func NewResources() *SResources {
@@ -356,6 +357,7 @@ func NewResources() *SResources {
 		Loadbalancers:  NewBaseResources(&compute.Loadbalancers),
 		Buckets:        NewBaseResources(&compute.Buckets),
 		KubeClusters:   NewBaseResources(&compute.KubeClusters),
+		ModelartsPool:  NewBaseResources(&compute.ModelartsPools),
 	}
 }
 
@@ -402,6 +404,10 @@ func (self *SResources) Init(ctx context.Context, userCred mcclient.TokenCredent
 			err = self.KubeClusters.init()
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "KubeClusters.init"))
+			}
+			err = self.ModelartsPool.init()
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "ModelartsPool.init"))
 			}
 			return errors.NewAggregate(errs)
 		}()
@@ -455,7 +461,11 @@ func (self *SResources) IncrementSync(ctx context.Context, userCred mcclient.Tok
 		}
 		err = self.KubeClusters.increment()
 		if err != nil {
-			errs = append(errs, errors.Wrapf(err, "Buckets.increment"))
+			errs = append(errs, errors.Wrapf(err, "KubeClusters.increment"))
+		}
+		err = self.ModelartsPool.increment()
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "ModelartsPool.increment"))
 		}
 		return errors.NewAggregate(errs)
 	}()
@@ -510,6 +520,10 @@ func (self *SResources) DecrementSync(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "KubeClusters.decrement"))
 		}
+		err = self.ModelartsPool.decrement()
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "ModelartsPool.decrement"))
+		}
 		return errors.NewAggregate(errs)
 	}()
 	if err != nil {
@@ -550,6 +564,10 @@ func (self *SResources) UpdateSync(ctx context.Context, userCred mcclient.TokenC
 		err = self.Loadbalancers.update()
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Loadbalancers.update"))
+		}
+		err = self.ModelartsPool.update()
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "ModelartsPool.update"))
 		}
 		return errors.NewAggregate(errs)
 	}()
@@ -662,6 +680,14 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 			clusters := map[string]api.KubeClusterDetails{}
 			jsonutils.Update(&clusters, resources)
 			err = driver.CollectK8sMetrics(ctx, manager, provider, clusters, startTime, endTime)
+			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+				log.Errorf("CollectK8sMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			}
+
+			resources = self.ModelartsPool.getResources(manager.Id)
+			pools := map[string]api.ModelartsPoolDetails{}
+			jsonutils.Update(&pools, resources)
+			err = driver.CollectModelartsPoolMetrics(ctx, manager, provider, pools, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectK8sMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}

@@ -70,6 +70,7 @@ const (
 	CLOUD_CAPABILITY_CONTAINER       = "container"    // 容器
 	CLOUD_CAPABILITY_IPV6_GATEWAY    = "ipv6_gateway" // IPv6网关
 	CLOUD_CAPABILITY_TABLESTORE      = "tablestore"   // 表格存储
+	CLOUD_CAPABILITY_MODELARTES      = "modelarts"
 )
 
 const (
