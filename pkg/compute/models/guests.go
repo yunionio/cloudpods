@@ -4476,7 +4476,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 	// add scaling group
 	sggs, err := ScalingGroupGuestManager.Fetch("", self.Id)
 	if err == nil && len(sggs) > 0 {
-		desc.ScallingGroupId = sggs[0].ScalingGroupId
+		desc.ScalingGroupId = sggs[0].ScalingGroupId
 	}
 
 	return desc
