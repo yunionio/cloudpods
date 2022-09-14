@@ -778,7 +778,7 @@ type GuestJsonDesc struct {
 	UserData       string            `json:"user_data"`
 	PendingDeleted bool              `json:"pending_deleted"`
 
-	ScallingGroupId string `json:"scalling_group_id"`
+	ScalingGroupId string `json:"scaling_group_id"`
 
 	// baremetal
 	DiskConfig  jsonutils.JSONObject    `json:"disk_config"`
