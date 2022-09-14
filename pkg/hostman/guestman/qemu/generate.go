@@ -45,12 +45,13 @@ func optionsToString(options map[string]string) string {
 
 func generatePCIDeviceOption(dev *desc.PCIDevice) string {
 	cmd := fmt.Sprintf(
-		"-device %s,id=%s,bus=%s,addr=%s",
-		dev.DevType, dev.Id, dev.BusStr(), dev.SlotFunc(),
+		"-device %s,id=%s", dev.DevType, dev.Id,
 	)
-
-	if dev.Multi != nil {
-		cmd += fmt.Sprintf(",%s", dev.MultiFunction())
+	if dev.PCIAddr != nil {
+		cmd += fmt.Sprintf(",bus=%s,addr=%s", dev.BusStr(), dev.SlotFunc())
+		if dev.Multi != nil {
+			cmd += fmt.Sprintf(",%s", dev.MultiFunction())
+		}
 	}
 
 	cmd += optionsToString(dev.Options)
@@ -209,28 +210,7 @@ func getMonitorOptions(drvOpt QemuOptions, input *Monitor) []string {
 
 func generateDisksOptions(drvOpt QemuOptions, disks []*desc.SGuestDisk, isEncrypt bool) []string {
 	opts := make([]string, 0)
-	// isArm := drvOpt.IsArm()
-	// firstDriver := make(map[string]bool)
 	for _, disk := range disks {
-		// driver := disk.Driver
-		// if isArm && (driver == DISK_DRIVER_IDE || driver == DISK_DRIVER_SATA) {
-		// 	// unsupported configuration: IDE controllers are unsupported
-		// 	driver = DISK_DRIVER_SCSI
-		// }
-		// if driver == DISK_DRIVER_SCSI || driver == DISK_DRIVER_PVSCSI {
-		// 	if _, ok := firstDriver[driver]; !ok {
-		// 		switch driver {
-		// 		case DISK_DRIVER_SCSI:
-		// 			// FIXME: iothread will make qemu-monitor hang
-		// 			// REF: https://www.mail-archive.com/qemu-devel@nongnu.org/msg592729.html
-		// 			// cmd += " -device virtio-scsi-pci,id=scsi,iothread=iothread0,num_queues=4,vectors=5"
-		// 			opts = append(opts, drvOpt.Device("virtio-scsi-pci,id=scsi"))
-		// 		case DISK_DRIVER_PVSCSI:
-		// 			opts = append(opts, drvOpt.Device("pvscsi,id=scsi"))
-		// 		}
-		// 		firstDriver[driver] = true
-		// 	}
-		// }
 		opts = append(opts,
 			getDiskDriveOption(drvOpt, disk, isEncrypt),
 			getDiskDeviceOption(drvOpt, disk),
@@ -288,19 +268,14 @@ func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk) string {
 		numQueues = 4
 	}
 
-	// if isArm && (diskDriver == DISK_DRIVER_IDE || diskDriver == DISK_DRIVER_SATA) {
-	// 	// unsupported configuration: IDE controllers are unsupported
-	// 	// for this QEMU binary or machine type
-	// 	// replace with scsi
-	// 	diskDriver = DISK_DRIVER_SCSI
-	// }
-
 	var opt = ""
 	opt += GetDiskDeviceModel(diskDriver)
 	opt += fmt.Sprintf(",drive=drive_%d", diskIndex)
 	if diskDriver == DISK_DRIVER_VIRTIO {
 		// virtio-blk
-		opt += fmt.Sprintf(",bus=%s,addr=0x%s", disk.Pci.BusStr(), disk.Pci.SlotFunc())
+		if disk.Pci != nil {
+			opt += fmt.Sprintf(",bus=%s,addr=0x%s", disk.Pci.BusStr(), disk.Pci.SlotFunc())
+		}
 		// opt += fmt.Sprintf(",num-queues=%d,vectors=%d,iothread=iothread0", numQueues, numQueues+1)
 		opt += ",iothread=iothread0"
 	} else if utils.IsInStringArray(diskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
@@ -347,26 +322,6 @@ func generateCdromOptions(optDrv QemuOptions, cdrom *desc.SGuestCdrom) []string 
 		}
 	}
 	return opts
-}
-
-func GetNicAddr(index int, disksLen int, isoDevsLen int, isVdiSpice bool) int {
-	var pciBase = 10
-	if disksLen > 10 {
-		pciBase = 20
-	}
-	if isoDevsLen > 0 {
-		pciBase += 10
-	}
-	return GetDiskAddr(pciBase+index, isVdiSpice)
-}
-
-func GetDiskAddr(idx int, isVdiSpice bool) int {
-	// host-bridge / isa-bridge / vga / serial / network / block / usb / rng
-	var base = 7
-	if isVdiSpice {
-		base += 10
-	}
-	return base + idx
 }
 
 func GetDiskDeviceModel(driver string) string {
@@ -432,19 +387,9 @@ func getNicDeviceOption(
 	input *GenerateStartOptionsInput,
 ) string {
 	cmd := generatePCIDeviceOption(nic.Pci)
-	// cmd := fmt.Sprintf("-device %s", GetNicDeviceModel(nic.Driver))
-	// cmd += fmt.Sprintf(",id=netdev-%s", nic.Ifname)
 	cmd += fmt.Sprintf(",netdev=%s", nic.Ifname)
 	cmd += fmt.Sprintf(",mac=%s", nic.Mac)
 
-	// if withAddr {
-	// 	disksLen := len(input.Disks)
-	// 	isoDevsLen := 0
-	// 	if input.IsolatedDevicesParams != nil {
-	// 		isoDevsLen = len(input.IsolatedDevicesParams.Devices)
-	// 	}
-	// 	cmd += fmt.Sprintf(",addr=0x%x", GetNicAddr(int(nic.Index), disksLen, isoDevsLen, input.IsVdiSpice))
-	// }
 	if nic.Driver == "virtio" {
 		if nic.NumQueues > 1 {
 			cmd += fmt.Sprintf(",mq=on")
@@ -561,49 +506,31 @@ type GenerateStartOptionsInput struct {
 	GuestDesc    *desc.SGuestDesc
 	IsKVMSupport bool
 
-	//CPUOption
-
-	EnableUUID bool
-	// UUID             string
-	// Mem              uint64
-	// Cpu              uint
-	// Name             string
+	EnableUUID       bool
 	OsName           string
 	HugepagesEnabled bool
 	EnableMemfd      bool
 
-	// IsQ35                 bool
-	// BootOrder             string
-	// CdromPath             string
-	// Nics                  []*desc.SGuestNetwork
 	OVNIntegrationBridge string
-	// Disks                 []*desc.SGuestDisk
-	Devices []string
-	// Machine               string
-	// BIOS                  string
-	OVMFPath    string
-	VNCPort     uint
-	VNCPassword bool
-	// IsolatedDevicesParams *isolated_device.QemuParams
-	EnableLog  bool
-	LogPath    string
-	HMPMonitor *Monitor
-	QMPMonitor *Monitor
-	IsVdiSpice bool
-	SpicePort  uint
-	// PCIBus                string
-	// VGA                   string
-	PidFilePath        string
-	HomeDir            string
-	ExtraOptions       []string
-	EnableRNGRandom    bool
-	EnableSerialDevice bool
-	NeedMigrate        bool
-	LiveMigratePort    uint
-	LiveMigrateUseTLS  bool
-	// IsSlave               bool
-	// IsMaster              bool
-	EnablePvpanic bool
+	Devices              []string
+	OVMFPath             string
+	VNCPort              uint
+	VNCPassword          bool
+	EnableLog            bool
+	LogPath              string
+	HMPMonitor           *Monitor
+	QMPMonitor           *Monitor
+	IsVdiSpice           bool
+	SpicePort            uint
+	PidFilePath          string
+	HomeDir              string
+	ExtraOptions         []string
+	EnableRNGRandom      bool
+	EnableSerialDevice   bool
+	NeedMigrate          bool
+	LiveMigratePort      uint
+	LiveMigrateUseTLS    bool
+	EnablePvpanic        bool
 
 	EncryptKeyPath string
 }
@@ -684,8 +611,6 @@ func GenerateStartOptions(
 		opts = append(opts, drvOpt.Device("isa-applesmc,osk=ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"))
 	}
 
-	// opts = append(opts, drvOpt.Device("virtio-serial"))
-
 	if input.GuestDesc.Vga != "none" {
 		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.VgaDevice.PCIDevice))
 	}
@@ -722,7 +647,6 @@ func GenerateStartOptions(
 
 	// cdrom
 	opts = append(opts, generateCdromOptions(drvOpt, input.GuestDesc.Cdrom)...)
-	// opts = append(opts, drvOpt.Cdrom(input.CdromPath, input.OsName, input.IsQ35, len(input.Disks))...)
 
 	// generate nics
 	nicOpts, err := generateNicOptions(drvOpt, input)

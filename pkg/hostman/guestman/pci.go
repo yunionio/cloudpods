@@ -16,11 +16,15 @@ package guestman
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -75,7 +79,7 @@ func (s *SKVMGuestInstance) initGuestDesc() error {
 
 	s.initIsolatedDevices(pciRoot, pciBridge)
 	s.initUsbController(pciRoot)
-	s.initRandomDevice(pciRoot)
+	s.initRandomDevice(pciRoot, options.HostOptions.EnableVirtioRngDevice)
 	s.initQgaDesc()
 	s.initPvpanicDesc()
 	s.initIsaSerialDesc()
@@ -152,16 +156,13 @@ func (s *SKVMGuestInstance) initMachineDefaultDevices() error {
 func (s *SKVMGuestInstance) initGuestPciControllers() (*desc.PCIController, *desc.PCIController) {
 	var isPcie = s.isPcie()
 	var pciRoot, pciBridge *desc.PCIController
-	if isPcie {
+	if isPcie && s.hasPcieExtendBus() {
 		pciRoot = s.addPCIController(desc.CONTROLLER_TYPE_PCIE_ROOT, "")
-		if s.hasPcieExtendBus() {
-			s.addPCIController(desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_ROOT)
-			pciBridge = s.addPCIController(desc.CONTROLLER_TYPE_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE)
-			for i := 0; i < options.HostOptions.PcieRootPortCount; i++ {
-				s.addPCIController(desc.CONTROLLER_TYPE_PCIE_ROOT_PORT, desc.CONTROLLER_TYPE_PCIE_ROOT)
-			}
+		s.addPCIController(desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_ROOT)
+		pciBridge = s.addPCIController(desc.CONTROLLER_TYPE_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE)
+		for i := 0; i < options.HostOptions.PcieRootPortCount; i++ {
+			s.addPCIController(desc.CONTROLLER_TYPE_PCIE_ROOT_PORT, desc.CONTROLLER_TYPE_PCIE_ROOT)
 		}
-
 	} else {
 		pciRoot = s.addPCIController(desc.CONTROLLER_TYPE_PCI_ROOT, "")
 	}
@@ -186,8 +187,8 @@ func (s *SKVMGuestInstance) cleanGuestPciAddressed() {
 	s.pciAddrs = nil
 }
 
-func (s *SKVMGuestInstance) initRandomDevice(pciRoot *desc.PCIController) {
-	if !options.HostOptions.EnableVirtioRngDevice {
+func (s *SKVMGuestInstance) initRandomDevice(pciRoot *desc.PCIController, enableVirtioRngDevice bool) {
+	if !enableVirtioRngDevice {
 		return
 	}
 
@@ -520,7 +521,7 @@ func (s *SKVMGuestInstance) ensureDevicePciAddress(
 
 func (s *SKVMGuestInstance) ensurePciAddresses() error {
 	var err error
-	if s.Desc.VgaDevice != nil {
+	if s.Desc.VgaDevice != nil && s.Desc.VgaDevice.PCIDevice != nil {
 		err = s.ensureDevicePciAddress(s.Desc.VgaDevice.PCIDevice, -1, nil)
 		if err != nil {
 			return errors.Wrap(err, "ensure vga pci address")
@@ -591,15 +592,6 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 			}
 		}
 	}
-
-	for i := 0; i < len(s.Desc.Disks); i++ {
-		if s.Desc.Disks[i].Pci != nil {
-			err = s.ensureDevicePciAddress(s.Desc.Disks[i].Pci, -1, nil)
-			if err != nil {
-				return errors.Wrapf(err, "ensure disk %d pci address", s.Desc.Disks[i].Index)
-			}
-		}
-	}
 	for i := 0; i < len(s.Desc.Nics); i++ {
 		if s.Desc.Nics[i].Pci != nil {
 			err = s.ensureDevicePciAddress(s.Desc.Nics[i].Pci, -1, nil)
@@ -640,5 +632,201 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 		}
 	}
 
+	for i := 0; i < len(s.Desc.AnonymousPCIDevs); i++ {
+		err = s.ensureDevicePciAddress(s.Desc.AnonymousPCIDevs[i], -1, nil)
+		if err != nil {
+			return errors.Wrap(err, "ensure anonymous pci dev pci address")
+		}
+	}
+	return nil
+}
+
+// guests description no pci description before host-agent assign pci device address info
+// in this case wo need query pci address info by `query-pci` command
+func (s *SKVMGuestInstance) initGuestDescFromPCIInfoList(pciInfoList []monitor.PCIInfo) error {
+	if len(pciInfoList) > 1 {
+		return errors.Errorf("unsupported pci info list with multi bus")
+	}
+
+	unknownDevices := make([]monitor.PCIDeviceInfo, 0)
+
+	s.initCpuDesc()
+	s.initMemDesc()
+	s.initMachineDesc()
+
+	pciRoot, _ := s.initGuestPciControllers()
+	err := s.initGuestPciAddresses()
+	if err != nil {
+		return errors.Wrap(err, "init guest pci addresses")
+	}
+
+	// vdi device for spice
+	s.Desc.VdiDevice = new(desc.SGuestVdi)
+	if s.IsVdiSpice() {
+		s.initSpiceDevices(pciRoot)
+	}
+
+	s.initVirtioSerial(pciRoot)
+	s.initGuestVga(pciRoot)
+	s.initCdromDesc()
+	s.initGuestDisks(pciRoot, nil)
+	if err = s.initGuestNetworks(pciRoot, nil); err != nil {
+		return errors.Wrap(err, "init guest networks")
+	}
+
+	s.initIsolatedDevices(pciRoot, nil)
+	s.initUsbController(pciRoot)
+	s.initRandomDevice(pciRoot, options.HostOptions.EnableVirtioRngDevice)
+	s.initQgaDesc()
+	s.initPvpanicDesc()
+	s.initIsaSerialDesc()
+
+	for i := 0; i < len(pciInfoList[0].Devices); i++ {
+		pciAddr := &desc.PCIAddr{
+			Bus:      uint(pciInfoList[0].Devices[i].Bus),
+			Slot:     uint(pciInfoList[0].Devices[i].Slot),
+			Function: uint(pciInfoList[0].Devices[i].Function),
+		}
+		switch pciInfoList[0].Devices[i].QdevID {
+		case "scsi":
+			if s.Desc.VirtioScsi != nil {
+				s.Desc.VirtioScsi.PCIAddr = pciAddr
+				err = s.ensureDevicePciAddress(s.Desc.VirtioScsi.PCIDevice, -1, nil)
+				if err != nil {
+					return errors.Wrap(err, "ensure virtio scsi pci address")
+				}
+			} else if s.Desc.PvScsi != nil {
+				s.Desc.PvScsi.PCIAddr = pciAddr
+				err = s.ensureDevicePciAddress(s.Desc.PvScsi.PCIDevice, -1, nil)
+				if err != nil {
+					return errors.Wrap(err, "ensure pvscsi pci address")
+				}
+			}
+		case "video0":
+			s.Desc.VgaDevice.PCIAddr = pciAddr
+			err = s.ensureDevicePciAddress(s.Desc.VgaDevice.PCIDevice, -1, nil)
+			if err != nil {
+				return errors.Wrap(err, "ensure vga pci address")
+			}
+		case "random0":
+			if s.Desc.Rng == nil {
+				// in case rng device disable by host options
+				s.initRandomDevice(pciRoot, true)
+			}
+			s.Desc.Rng.PCIAddr = pciAddr
+			err = s.ensureDevicePciAddress(s.Desc.Rng.PCIDevice, -1, nil)
+			if err != nil {
+				return errors.Wrap(err, "ensure random device pci address")
+			}
+		case "usb":
+			s.Desc.Usb.PCIAddr = pciAddr
+			err = s.ensureDevicePciAddress(s.Desc.Usb.PCIDevice, -1, nil)
+			if err != nil {
+				return errors.Wrap(err, "ensure usb controller pci address")
+			}
+		case "sound0":
+			if s.Desc.VdiDevice.Spice == nil {
+				s.Desc.Vdi = "spice"
+				s.initSpiceDevices(pciRoot)
+			}
+			s.Desc.VdiDevice.Spice.IntelHDA.PCIAddr = pciAddr
+			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.IntelHDA.PCIDevice, -1, nil)
+			if err != nil {
+				return errors.Wrap(err, "ensure vdi hda pci address")
+			}
+		case "virtio-serial0":
+			if s.Desc.VdiDevice.Spice == nil {
+				s.Desc.Vdi = "spice"
+				s.initSpiceDevices(pciRoot)
+			}
+			s.Desc.VdiDevice.Spice.VdagentSerial.PCIAddr = pciAddr
+			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.VdagentSerial.PCIDevice, -1, nil)
+			if err != nil {
+				return errors.Wrap(err, "ensure vdagent serial pci address")
+			}
+		case "usbspice":
+			if s.Desc.VdiDevice.Spice == nil {
+				s.Desc.Vdi = "spice"
+				s.initSpiceDevices(pciRoot)
+			}
+			s.Desc.VdiDevice.Spice.UsbRedirct.EHCI1.PCIAddr = pciAddr
+			multiFunc := true
+			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.EHCI1.PCIDevice, 7, &multiFunc)
+			if err != nil {
+				return errors.Wrap(err, "ensure vdi usb ehci1 pci address")
+			}
+			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIAddr = s.Desc.VdiDevice.Spice.UsbRedirct.EHCI1.PCIAddr.Copy()
+			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIDevice, 0, &multiFunc)
+			if err != nil {
+				return errors.Wrap(err, "ensure vdi usb ehci1 pci address")
+			}
+			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI2.PCIAddr = s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIAddr.Copy()
+			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.UHCI2.PCIDevice, 1, &multiFunc)
+			if err != nil {
+				return errors.Wrap(err, "ensure vdi usb ehci1 pci address")
+			}
+			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI3.PCIAddr = s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIAddr.Copy()
+			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.UHCI3.PCIDevice, 2, &multiFunc)
+			if err != nil {
+				return errors.Wrap(err, "ensure vdi usb ehci1 pci address")
+			}
+		default:
+			switch {
+			case strings.HasPrefix(pciInfoList[0].Devices[i].QdevID, "drive_"):
+				indexStr := strings.TrimPrefix(pciInfoList[0].Devices[i].QdevID, "drive_")
+				index, err := strconv.Atoi(indexStr)
+				if err != nil {
+					log.Errorf("failed parse disk pci id %s", pciInfoList[0].Devices[i].QdevID)
+					unknownDevices = append(unknownDevices, pciInfoList[0].Devices[i])
+					continue
+				}
+				for i := 0; i < len(s.Desc.Disks); i++ {
+					if s.Desc.Disks[i].Index == int8(index) {
+						if s.Desc.Disks[i].Pci == nil {
+							devType := qemu.GetDiskDeviceModel(DISK_DRIVER_VIRTIO)
+							s.Desc.Disks[i].Pci = desc.NewPCIDevice(pciRoot.CType, devType, pciInfoList[0].Devices[i].QdevID)
+							s.Desc.Disks[i].Scsi = nil
+							s.Desc.Disks[i].Ide = nil
+						}
+						s.Desc.Disks[i].Pci.PCIAddr = pciAddr
+						err = s.ensureDevicePciAddress(s.Desc.Disks[i].Pci, -1, nil)
+						if err != nil {
+							return errors.Wrapf(err, "ensure disk %d pci address", s.Desc.Disks[i].Index)
+						}
+					}
+				}
+			case strings.HasPrefix(pciInfoList[0].Devices[i].QdevID, "netdev-"):
+				ifname := strings.TrimPrefix(pciInfoList[0].Devices[i].QdevID, "netdev-")
+				for i := 0; i < len(s.Desc.Nics); i++ {
+					if s.Desc.Nics[i].Ifname == ifname {
+						s.Desc.Nics[i].Pci.PCIAddr = pciAddr
+						err = s.ensureDevicePciAddress(s.Desc.Nics[i].Pci, -1, nil)
+						if err != nil {
+							return errors.Wrapf(err, "ensure nic %s pci address", s.Desc.Nics[i].Ifname)
+						}
+					}
+				}
+			default:
+				unknownDevices = append(unknownDevices, pciInfoList[0].Devices[i])
+			}
+		}
+	}
+
+	if len(unknownDevices) > 0 {
+		s.Desc.AnonymousPCIDevs = make([]*desc.PCIDevice, len(unknownDevices))
+	}
+	for i := 0; i < len(unknownDevices); i++ {
+		pciDev := desc.NewPCIDevice(pciRoot.CType, "", unknownDevices[i].QdevID)
+		pciDev.PCIAddr = &desc.PCIAddr{
+			Bus:      uint(unknownDevices[i].Bus),
+			Slot:     uint(unknownDevices[i].Slot),
+			Function: uint(unknownDevices[i].Function),
+		}
+		err = s.ensureDevicePciAddress(pciDev, -1, nil)
+		if err != nil {
+			return errors.Wrap(err, "ensure anonymous pci dev address")
+		}
+		s.Desc.AnonymousPCIDevs = append(s.Desc.AnonymousPCIDevs, pciDev)
+	}
 	return nil
 }

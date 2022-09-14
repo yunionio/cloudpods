@@ -186,10 +186,6 @@ func (s *SKVMGuestInstance) disablePvpanicDev() bool {
 	return s.Desc.Metadata["disable_pvpanic"] == "true"
 }
 
-func (s *SKVMGuestInstance) GetDiskAddr(idx int) int {
-	return qemu.GetDiskAddr(idx, s.IsVdiSpice())
-}
-
 func (s *SKVMGuestInstance) getNicUpScriptPath(nic *desc.SGuestNetwork) string {
 	dev := s.manager.GetHost().GetBridgeDev(nic.Bridge)
 	return path.Join(s.HomeDir(), fmt.Sprintf("if-up-%s-%s.sh", dev.Bridge(), nic.Ifname))
@@ -218,10 +214,6 @@ func (s *SKVMGuestInstance) generateNicScripts(nic *desc.SGuestNetwork) error {
 
 func (s *SKVMGuestInstance) getNicDeviceModel(name string) string {
 	return qemu.GetNicDeviceModel(name)
-}
-
-func (s *SKVMGuestInstance) getNicAddr(index int) int {
-	return qemu.GetNicAddr(index, len(s.Desc.Disks), len(s.Desc.IsolatedDevices), s.IsVdiSpice())
 }
 
 func (s *SKVMGuestInstance) extraOptions() string {

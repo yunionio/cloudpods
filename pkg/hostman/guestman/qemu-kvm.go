@@ -96,7 +96,8 @@ type SKVMInstanceRuntime struct {
 	StartupTask *SGuestResumeTask
 	MigrateTask *SGuestLiveMigrateTask
 
-	pciAddrs *desc.SGuestPCIAddresses
+	pciUninitialized bool
+	pciAddrs         *desc.SGuestPCIAddresses
 }
 
 type SKVMGuestInstance struct {
@@ -135,13 +136,16 @@ func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
 // these property can't be upate in running guest
 func (s *SKVMGuestInstance) updateGuestDesc() error {
 	s.Desc = new(desc.SGuestDesc)
-	jsonutils.Marshal(s.SourceDesc).Unmarshal(s.Desc)
+	err := jsonutils.Marshal(s.SourceDesc).Unmarshal(s.Desc)
+	if err != nil {
+		return errors.Wrap(err, "unmarshal source desc")
+	}
 
 	if s.isPcie() {
 		s.setPcieExtendBus()
 	}
 
-	err := s.initGuestDesc()
+	err = s.initGuestDesc()
 	if err != nil {
 		return err
 	}
@@ -372,16 +376,21 @@ func (s *SKVMGuestInstance) LoadDesc() error {
 	}
 	s.Desc = guestDesc
 
-	if len(s.Desc.PCIControllers) > 0 {
-		err = s.initGuestPciAddresses()
-		if err != nil {
-			return errors.Wrap(err, "init guest pci addresses")
-		}
-		err = s.ensurePciAddresses()
-		if err != nil {
-			return errors.Wrap(err, "load desc ensure pci address")
+	if s.IsRunning() {
+		if len(s.Desc.PCIControllers) > 0 {
+			err = s.initGuestPciAddresses()
+			if err != nil {
+				return errors.Wrap(err, "init guest pci addresses")
+			}
+			err = s.ensurePciAddresses()
+			if err != nil {
+				return errors.Wrap(err, "load desc ensure pci address")
+			}
+		} else {
+			s.pciUninitialized = true
 		}
 	}
+
 	return nil
 }
 
@@ -923,6 +932,28 @@ func (s *SKVMGuestInstance) setDestMigrateTLS(ctx context.Context, data *jsonuti
 func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string) {
 	s.QemuVersion = version
 	log.Infof("Guest(%s) qemu version %s", s.Id, s.QemuVersion)
+	if s.pciUninitialized {
+		cb := func(pciInfoList []monitor.PCIInfo, err string) {
+			if err != "" && pciInfoList == nil {
+				log.Errorf("failed query pci %s", err)
+			} else {
+				// initialize pci address
+				if err := s.initGuestDescFromPCIInfoList(pciInfoList); err != nil {
+					log.Errorf("failed init pci devices %s", err)
+				} else {
+					s.pciUninitialized = false
+					s.SaveLiveDesc(s.Desc)
+				}
+			}
+			s.guestRun(ctx)
+		}
+		s.Monitor.QueryPci(cb)
+	} else {
+		s.guestRun(ctx)
+	}
+}
+
+func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
 	if s.LiveMigrateDestPort != nil && ctx != nil {
 		// dest migrate guest
 		body := jsonutils.NewDict()
@@ -1740,10 +1771,12 @@ func (s *SKVMGuestInstance) SyncConfig(
 		return nil, nil
 	}
 
-	// vncPort := s.GetVncPort()
-	// data := jsonutils.NewDict()
-	// data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
-	//s.saveScripts(data)
+	// update guest live desc
+	s.Desc.SGuestControlDesc = guestDesc.SGuestControlDesc
+	s.Desc.SGuestProjectDesc = guestDesc.SGuestProjectDesc
+	s.Desc.SGuestRegionDesc = guestDesc.SGuestRegionDesc
+	s.Desc.SGuestMetaDesc = guestDesc.SGuestMetaDesc
+	s.SaveLiveDesc(s.Desc)
 
 	if fwOnly {
 		res := jsonutils.NewDict()
@@ -1755,6 +1788,13 @@ func (s *SKVMGuestInstance) SyncConfig(
 
 	var callBack = func(errs []error) {
 		s.SaveLiveDesc(s.Desc)
+		if len(tasks) > 0 { // devices updated, regenerate start script
+			vncPort := s.GetVncPort()
+			data := jsonutils.NewDict()
+			data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
+			s.saveScripts(data)
+		}
+
 		if len(errs) == 0 {
 			hostutils.TaskComplete(ctx, nil)
 		} else {
@@ -1994,6 +2034,9 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 		meta.Set("__cpu_mode", jsonutils.NewString(api.CPU_MODE_QEMU))
 	} else {
 		meta.Set("__cpu_mode", jsonutils.NewString(api.CPU_MODE_HOST))
+	}
+	if s.hasPcieExtendBus() {
+		meta.Set("__pcie_extend_bus", jsonutils.JSONTrue)
 	}
 	cmdline, err := s.getQemuCmdline()
 	if err != nil {
