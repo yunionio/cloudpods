@@ -29,7 +29,7 @@ import (
 func init() {
 	cmd := NewResourceCmd(monitor.Alerts)
 	cmd.List(new(options.AlertListOptions))
-	cmd.Create(new(options.AlertCreateOptions))
+	// cmd.Create(new(options.AlertCreateOptions))
 	cmd.Show(new(options.AlertShowOptions))
 	cmd.Update(new(options.AlertUpdateOptions))
 	cmd.BatchDelete(new(options.AlertDeleteOptions))

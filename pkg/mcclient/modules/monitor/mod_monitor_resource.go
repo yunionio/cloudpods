@@ -54,6 +54,6 @@ func newAlertResourceAlertManager() *SMonitorResourceAlertManager {
 		[]string{"monitor_resource_id", "alert_id", "res_name", "res_type", "alert_name", "alert_state", "send_state", "level",
 			"trigger_time", "data"},
 		[]string{},
-		MonitorResourceManager, CommonAlertManager)
+		MonitorResourceManager, CommonAlerts)
 	return &SMonitorResourceAlertManager{&man}
 }
