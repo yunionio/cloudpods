@@ -21,11 +21,13 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
+	"yunion.io/x/pkg/utils"
 )
 
 // AlertConfig is a helper to generate monitor service alert related api input
 type AlertConfig struct {
 	name           string
+	frequencyStr   string
 	frequency      int64
 	forTime        int64
 	level          string
@@ -42,11 +44,12 @@ func NewAlertConfig(name string, frequency string, enabled bool) (*AlertConfig, 
 		return nil, err
 	}
 	input := &AlertConfig{
-		name:       name,
-		frequency:  int64(freq / time.Second),
-		level:      "",
-		enabled:    enabled,
-		conditions: make([]*AlertCondition, 0),
+		name:         name,
+		frequencyStr: frequency,
+		frequency:    int64(freq / time.Second),
+		level:        "",
+		enabled:      enabled,
+		conditions:   make([]*AlertCondition, 0),
 	}
 	return input, nil
 }
@@ -81,7 +84,35 @@ func (c *AlertConfig) ToAlertCreateInput() monitor.AlertCreateInput {
 		For:                 c.forTime,
 		ExecutionErrorState: c.execErrorState,
 		NoDataState:         c.noDataState,
+		UsedBy:              c.UsedBy,
 	}
+}
+
+func (c *AlertConfig) ToCommonMetricInputQuery() monitor.CommonMetricInputQuery {
+	conds := make([]*monitor.CommonAlertQuery, len(c.conditions))
+	for i, cc := range c.conditions {
+		tmp := cc.ToCommonAlertQuery()
+		conds[i] = &tmp
+	}
+	return monitor.CommonMetricInputQuery{
+		MetricQuery: conds,
+	}
+}
+
+func (c *AlertConfig) ToCommonAlertCreateInput(bi *monitor.CommonAlertCreateBaseInput) monitor.CommonAlertCreateInput {
+	mq := c.ToCommonMetricInputQuery()
+	ai := c.ToAlertCreateInput()
+	if bi == nil {
+		bi = new(monitor.CommonAlertCreateBaseInput)
+	}
+	input := monitor.CommonAlertCreateInput{
+		CommonMetricInputQuery:     mq,
+		AlertCreateInput:           ai,
+		CommonAlertCreateBaseInput: *bi,
+		Period:                     c.frequencyStr,
+	}
+	input.UsedBy = c.UsedBy
+	return input
 }
 
 func (c *AlertConfig) ToAlertSetting() monitor.AlertSetting {
@@ -146,6 +177,32 @@ func (c *AlertCondition) ToCondition() monitor.AlertCondition {
 		Reducer:   *c.reducer,
 		Evaluator: *c.evaluator,
 		Operator:  c.operator,
+	}
+}
+
+func (c *AlertCondition) ToCommonAlertQuery() monitor.CommonAlertQuery {
+	aq := c.query.ToAlertQuery()
+	eval := c.evaluator.Type
+	if !utils.IsInStringArray(eval, []string{"lt", "gt", "eq"}) {
+		panic(fmt.Sprintf("Invalid evaluator %q", eval))
+	}
+	var comp string
+	switch eval {
+	case "lt":
+		comp = "<="
+	case "gt":
+		comp = ">="
+	case "eq":
+		comp = "=="
+	}
+	return monitor.CommonAlertQuery{
+		AlertQuery: &aq,
+		Reduce:     c.reducer.Type,
+		Comparator: comp,
+		Threshold:  c.evaluator.Params[0],
+		// TODO: figure out what's the meaning of FieldOpt
+		FieldOpt:      "",
+		ConditionType: "query",
 	}
 }
 

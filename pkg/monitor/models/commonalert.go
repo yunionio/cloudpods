@@ -173,7 +173,7 @@ func (man *SCommonAlertManager) ValidateCreateData(
 		return data, merrors.NewArgIsEmptyErr("name")
 	}
 	if data.Level == "" {
-		return data, merrors.NewArgIsEmptyErr("level")
+		data.Level = monitor.CommonAlertLevelNormal
 	}
 	if len(data.Channel) == 0 {
 		data.Channel = []string{monitor.DEFAULT_SEND_NOTIFY_CHANNEL}
@@ -194,7 +194,10 @@ func (man *SCommonAlertManager) ValidateCreateData(
 		}
 	}
 	// 默认的系统配置Recipients=commonalert-default
-	if data.AlertType != monitor.CommonAlertSystemAlertType {
+	if !utils.IsInStringArray(data.AlertType, []string{
+		monitor.CommonAlertSystemAlertType,
+		monitor.CommonAlertServiceAlertType,
+	}) {
 		if len(data.Recipients) == 0 && len(data.RobotIds) == 0 && len(data.Roles) == 0 {
 			return data, merrors.NewArgIsEmptyErr("recipients, robot_ids or roles")
 		}
@@ -225,7 +228,7 @@ func (man *SCommonAlertManager) ValidateCreateData(
 
 	if data.AlertType != "" {
 		if !utils.IsInStringArray(data.AlertType, validators.CommonAlertType) {
-			return data, httperrors.NewInputParameterError("the AlertType is illegal:%s", data.AlertType)
+			return data, httperrors.NewInputParameterError("Invalid AlertType: %s", data.AlertType)
 		}
 	}
 	var err = man.ValidateMetricQuery(&data.CommonMetricInputQuery, data.Scope, ownerId)
@@ -409,7 +412,6 @@ func (alert *SCommonAlert) createAlertNoti(ctx context.Context, userCred mcclien
 	if alert.Id == "" {
 		alert.Id = db.DefaultUUIDGenerator()
 	}
-	//alert.UsedBy = usedBy
 	_, err = alert.AttachNotification(
 		ctx, userCred, noti,
 		monitor.AlertNotificationStateUnknown,
@@ -1097,8 +1099,8 @@ func (alert *SCommonAlert) getUpdateAlertInput(updateInput monitor.CommonAlertUp
 	input := monitor.CommonAlertCreateInput{
 		CommonMetricInputQuery: updateInput.CommonMetricInputQuery,
 		Period:                 updateInput.Period,
-		AlertDuration:          updateInput.AlertDuration,
 	}
+	input.AlertDuration = updateInput.AlertDuration
 	alertCreateInput := CommonAlertManager.toAlertCreatInput(input)
 	return alertCreateInput
 }
