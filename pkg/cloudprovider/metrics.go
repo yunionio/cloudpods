@@ -358,6 +358,7 @@ type MetricListOptions struct {
 	StartTime   time.Time
 	EndTime     time.Time
 
+	OsType   string
 	Interval int
 	// rds
 	Engine string
