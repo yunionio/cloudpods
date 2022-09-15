@@ -194,6 +194,11 @@ type ICloudRegion interface {
 	GetICloudKubeClusterById(id string) (ICloudKubeCluster, error)
 
 	GetICloudTablestores() ([]ICloudTablestore, error)
+
+	GetIModelartsPools() ([]ICloudModelartsPool, error)
+	GetIModelartsPoolById(id string) (ICloudModelartsPool, error)
+	CreateIModelartsPool(pool *ModelartsPoolCreateOption) (ICloudModelartsPool, error)
+	GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error)
 }
 
 type ICloudZone interface {
