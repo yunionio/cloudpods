@@ -46,6 +46,7 @@ type ModelartsPoolDetails struct {
 	apis.SExternalizedResourceBase
 	SBillingResourceBase
 	ManagedResourceInfo
+	CloudregionResourceInfo
 }
 
 func (self ModelartsPoolDetails) GetMetricTags() map[string]string {
@@ -66,6 +67,7 @@ type ModelartsPoolListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
 	ManagedResourceListInput
+	RegionalFilterListInput
 	apis.DeletePreventableResourceBaseListInput
 }
 

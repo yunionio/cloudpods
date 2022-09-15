@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
@@ -41,6 +42,7 @@ type SModelartsPoolManager struct {
 	db.SExternalizedResourceBaseManager
 	SDeletePreventableResourceBaseManager
 
+	SCloudregionResourceBaseManager
 	SManagedResourceBaseManager
 }
 
@@ -64,6 +66,7 @@ type SModelartsPool struct {
 	SManagedResourceBase
 	SBillingResourceBase
 
+	SCloudregionResourceBase
 	SDeletePreventableResourceBase
 
 	InstanceType string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
@@ -73,7 +76,7 @@ type SModelartsPool struct {
 }
 
 func (manager *SModelartsPoolManager) GetContextManagers() [][]db.IModelManager {
-	return [][]db.IModelManager{}
+	return [][]db.IModelManager{{CloudregionManager}}
 }
 
 // Pool实例列表
@@ -100,7 +103,10 @@ func (man *SModelartsPoolManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
-
+	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
 	return q, nil
 }
 
@@ -114,6 +120,10 @@ func (man *SModelartsPoolManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
+	q, err = man.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
 	q, err = man.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
@@ -123,6 +133,10 @@ func (man *SModelartsPoolManager) OrderByExtraFields(
 
 func (man *SModelartsPoolManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -148,11 +162,13 @@ func (manager *SModelartsPoolManager) FetchCustomizeColumns(
 	rows := make([]api.ModelartsPoolDetails, len(objs))
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.ModelartsPoolDetails{
-			VirtualResourceDetails: virtRows[i],
-			ManagedResourceInfo:    manRows[i],
+			VirtualResourceDetails:  virtRows[i],
+			ManagedResourceInfo:     manRows[i],
+			CloudregionResourceInfo: regRows[i],
 		}
 	}
 
@@ -176,8 +192,11 @@ func (manager *SModelartsPoolManager) ListItemExportKeys(ctx context.Context,
 	}
 	return q, nil
 }
-func (self *SCloudprovider) GetPools() ([]SModelartsPool, error) {
-	q := ModelartsPoolManager.Query().Equals("manager_id", self.Id)
+func (self *SCloudregion) GetPools(managerId string) ([]SModelartsPool, error) {
+	q := ModelartsPoolManager.Query().Equals("cloudregion_id", self.Id)
+	if len(managerId) > 0 {
+		q = q.Equals("manager_id", managerId)
+	}
 	ret := []SModelartsPool{}
 	err := db.FetchModelObjects(ModelartsPoolManager, q, &ret)
 	if err != nil {
@@ -186,12 +205,12 @@ func (self *SCloudprovider) GetPools() ([]SModelartsPool, error) {
 	return ret, nil
 }
 
-func (self *SCloudprovider) SyncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudModelartsPool) compare.SyncResult {
+func (self *SCloudregion) SyncModelartsPools(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudModelartsPool) compare.SyncResult {
 	// 加锁防止重入
-	lockman.LockRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s", self.Id))
-	defer lockman.ReleaseRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s", self.Id))
+	lockman.LockRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
+	defer lockman.ReleaseRawObject(ctx, ModelartsPoolManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 	result := compare.SyncResult{}
-	dbPools, err := self.GetPools()
+	dbPools, err := self.GetPools(provider.Id)
 	if err != nil {
 		result.Error(err)
 		return result
@@ -230,7 +249,7 @@ func (self *SCloudprovider) SyncModelartsPools(ctx context.Context, userCred mcc
 
 	// 创建本地没有的云上资源
 	for i := 0; i < len(added); i++ {
-		_, err := self.newFromCloudModelartsPool(ctx, userCred, self, added[i])
+		_, err := self.newFromCloudModelartsPool(ctx, userCred, provider, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -241,7 +260,8 @@ func (self *SCloudprovider) SyncModelartsPools(ctx context.Context, userCred mcc
 }
 
 // 判断资源是否可以删除
-func (self *SModelartsPool) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SModelartsPool) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	log.Errorln("this is IN Validata")
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("ModelartsPool is locked, cannot delete")
 	}
@@ -313,14 +333,6 @@ func (self *SModelartsPool) CustomizeDelete(ctx context.Context, userCred mcclie
 	return self.StartDeleteTask(ctx, userCred, "")
 }
 
-func (self *SModelartsPool) GetICloudModelartsPool(ctx context.Context) (cloudprovider.ICloudModelartsPool, error) {
-	iProvider, err := self.GetDriver(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "self.GetDriver")
-	}
-	return iProvider.GetIModelartsPoolById(self.ExternalId)
-}
-
 func (self *SModelartsPool) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "ModelartsPoolDeleteTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
@@ -331,16 +343,28 @@ func (self *SModelartsPool) StartDeleteTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
+func (self *SModelartsPool) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	provider, err := self.GetDriver(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetDriver")
+	}
+	return provider.GetIRegionById(region.GetExternalId())
+}
+
 // 获取云上对应的资源
 func (self *SModelartsPool) GetIModelartsPool() (cloudprovider.ICloudModelartsPool, error) {
 	if len(self.ExternalId) == 0 {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
 	}
-	iProvider, err := self.GetDriver(context.Background())
+	iRegion, err := self.GetIRegion()
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetDriver")
 	}
-	return iProvider.GetIModelartsPoolById(self.ExternalId)
+	return iRegion.GetIModelartsPoolById(self.ExternalId)
 }
 
 // 同步资源属性
@@ -374,11 +398,12 @@ func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, user
 	return nil
 }
 
-func (self *SCloudprovider) newFromCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudModelartsPool) (*SModelartsPool, error) {
+func (self *SCloudregion) newFromCloudModelartsPool(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudModelartsPool) (*SModelartsPool, error) {
 	pool := SModelartsPool{}
 	pool.SetModelManager(ModelartsPoolManager, &pool)
 
 	pool.ExternalId = ext.GetGlobalId()
+	pool.CloudregionId = self.Id
 	pool.ManagerId = provider.Id
 	pool.IsEmulated = ext.IsEmulated()
 	pool.Status = ext.GetStatus()

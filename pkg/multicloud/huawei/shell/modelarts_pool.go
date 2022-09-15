@@ -29,7 +29,7 @@ func init() {
 	}
 
 	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-list", "List Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
-		pools, err := cli.GetClient().GetIModelartsPools()
+		pools, err := cli.GetIModelartsPools()
 		if err != nil {
 			return err
 		}
@@ -38,7 +38,7 @@ func init() {
 	})
 
 	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-detail", "List pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
-		pools, err := cli.GetClient().GetIModelartsPoolById(args.PoolId)
+		pools, err := cli.GetIModelartsPoolById(args.PoolId)
 		if err != nil {
 			return err
 		}
@@ -47,7 +47,7 @@ func init() {
 	})
 
 	shellutils.R(&cloudprovider.ModelartsPoolCreateOption{}, "modelarts-pool-create", "Create Modelarts Pool", func(cli *huawei.SRegion, args *cloudprovider.ModelartsPoolCreateOption) error {
-		res, err := cli.GetClient().CreateIModelartsPool(args)
+		res, err := cli.CreateIModelartsPool(args)
 		if err != nil {
 			return err
 		}
@@ -57,7 +57,7 @@ func init() {
 	})
 
 	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-delete", "Delete Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
-		res, err := cli.GetClient().DeletePool(args.PoolId)
+		res, err := cli.DeletePool(args.PoolId)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func init() {
 	})
 
 	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-monitor", "Delete Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
-		res, err := cli.GetClient().MonitorPool(args.PoolId)
+		res, err := cli.MonitorPool(args.PoolId)
 		if err != nil {
 			return err
 		}

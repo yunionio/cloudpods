@@ -316,11 +316,6 @@ type ICloudProvider interface {
 	CreateICloudCDNDomain(opts *CdnCreateOptions) (ICloudCDNDomain, error)
 
 	GetMetrics(opts *MetricListOptions) ([]MetricValues, error)
-
-	GetIModelartsPools() ([]ICloudModelartsPool, error)
-	GetIModelartsPoolById(id string) (ICloudModelartsPool, error)
-	CreateIModelartsPool(pool *ModelartsPoolCreateOption) (ICloudModelartsPool, error)
-	GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error)
 }
 
 func IsSupportCapability(prod ICloudProvider, capa string) bool {
