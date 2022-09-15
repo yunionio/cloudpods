@@ -15,7 +15,7 @@
 package monitor
 
 import (
-	"time"
+	"strings"
 )
 
 const (
@@ -51,38 +51,78 @@ type NodeAlertCreateInput struct {
 	NodeName string `json:"node_name"`
 	// 监控资源 Id
 	NodeId string `json:"node_id"`
+
+	// CommonAlertCreateInput injected by server and do not pass it through API
+	CommonAlertCreateInput *CommonAlertCreateInput `json:"common_alert_create_input,omitempty"`
 }
 
-func (input NodeAlertCreateInput) ToAlertCreateInput(
+func (input NodeAlertCreateInput) ToCommonAlertCreateInput(
 	name string,
 	field string,
 	measurement string,
-	db string) AlertCreateInput {
-	freq, _ := time.ParseDuration(input.Window)
-	ret := AlertCreateInput{
-		Name:      name,
-		Frequency: int64(freq / time.Second),
-		Level:     input.Level,
-		Settings: AlertSetting{
-			Conditions: []AlertCondition{
+	db string) CommonAlertCreateInput {
+	ret := CommonAlertCreateInput{
+		AlertCreateInput: AlertCreateInput{
+			Name:  name,
+			Level: input.Level,
+		},
+		CommonAlertCreateBaseInput: CommonAlertCreateBaseInput{
+			Channel:    strings.Split(input.Channel, ","),
+			Recipients: strings.Split(input.Recipients, ","),
+			AlertType:  CommonAlertNomalAlertType,
+		},
+		CommonMetricInputQuery: CommonMetricInputQuery{
+			MetricQuery: []*CommonAlertQuery{
 				{
-					Type:     "query",
-					Operator: "and",
-					Query: AlertQuery{
+					AlertQuery: &AlertQuery{
 						Model: input.GetQuery(field, measurement, db),
 						From:  input.Period,
 						To:    "now",
 					},
-					Evaluator: input.GetEvaluator(),
-					Reducer: Condition{
-						Type: "avg",
-					},
+					Comparator:    input.Comparator,
+					Threshold:     input.Threshold,
+					ConditionType: "query",
+					Reduce:        "avg",
 				},
 			},
 		},
+		Period: input.Window,
 	}
+	ret.UsedBy = AlertNotificationUsedByNodeAlert
+
 	return ret
 }
+
+// func (input NodeAlertCreateInput) ToAlertCreateInput(
+// 	name string,
+// 	field string,
+// 	measurement string,
+// 	db string) AlertCreateInput {
+// 	freq, _ := time.ParseDuration(input.Window)
+// 	ret := AlertCreateInput{
+// 		Name:      name,
+// 		Frequency: int64(freq / time.Second),
+// 		Level:     input.Level,
+// 		Settings: AlertSetting{
+// 			Conditions: []AlertCondition{
+// 				{
+// 					Type:     "query",
+// 					Operator: "and",
+// 					Query: AlertQuery{
+// 						Model: input.GetQuery(field, measurement, db),
+// 						From:  input.Period,
+// 						To:    "now",
+// 					},
+// 					Evaluator: input.GetEvaluator(),
+// 					Reducer: Condition{
+// 						Type: "avg",
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
+// 	return ret
+// }
 
 func (input NodeAlertCreateInput) GetQuery(field, measurement, db string) MetricQuery {
 	return GetNodeAlertQuery(input.Type, field, measurement, db, input.NodeId)
@@ -102,8 +142,9 @@ func GetNodeAlertQuery(typ, field, measurement, db, nodeId string) MetricQuery {
 		Selects: sels,
 		Tags: []MetricQueryTag{
 			{
-				Key:   idField,
-				Value: nodeId,
+				Key:      idField,
+				Operator: "=",
+				Value:    nodeId,
 			},
 		},
 		GroupBy: []MetricQueryPart{
@@ -145,7 +186,7 @@ type V1AlertListInput struct {
 }
 
 type NodeAlertListInput struct {
-	V1AlertListInput
+	AlertListInput
 
 	// 监控指标名称
 	Metric string `json:"metric"`
@@ -155,6 +196,13 @@ type NodeAlertListInput struct {
 	NodeName string `json:"node_name"`
 	// 监控资源 Id
 	NodeId string `json:"node_id"`
+}
+
+func (o NodeAlertListInput) ToCommonAlertListInput() CommonAlertListInput {
+	return CommonAlertListInput{
+		AlertListInput: o.AlertListInput,
+		Metric:         o.Metric,
+	}
 }
 
 type AlertV1Details struct {
@@ -185,7 +233,7 @@ type NodeAlertDetails struct {
 }
 
 type NodeAlertUpdateInput struct {
-	V1AlertUpdateInput
+	AlertUpdateInput
 
 	// 监控指标名称
 	Metric *string `json:"metric"`

@@ -35,10 +35,10 @@ func init() {
 }
 
 func (self *UpdateMonitorResourceJointTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	alert := obj.(*models.SCommonAlert)
+	alert := obj.(models.ICommonAlert)
 	err := alert.UpdateMonitorResourceJoint(ctx, self.GetUserCred())
 	if err != nil {
-		msg := jsonutils.NewString(fmt.Sprintf("alert:%s UpdateMonitorResourceJoint err:%v", alert.Name, err))
+		msg := jsonutils.NewString(fmt.Sprintf("alert:%s UpdateMonitorResourceJoint err:%v", alert.GetName(), err))
 		self.taskFail(ctx, alert, msg)
 		return
 	}
@@ -46,9 +46,8 @@ func (self *UpdateMonitorResourceJointTask) OnInit(ctx context.Context, obj db.I
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *UpdateMonitorResourceJointTask) taskFail(ctx context.Context, alert *models.SCommonAlert, msg jsonutils.JSONObject) {
+func (self *UpdateMonitorResourceJointTask) taskFail(ctx context.Context, alert models.ICommonAlert, msg jsonutils.JSONObject) {
 	// db.OpsLog.LogEvent(alert, db.ACT_UPDATE_MONITOR_RESOURCE_JOINT, msg, self.GetUserCred())
 	// logclient.AddActionLogWithStartable(self, alert, logclient.ACT_UPDATE_MONITOR_RESOURCE_JOINT, msg, self.UserCred, false)
 	self.SetStageFailed(ctx, msg)
-	return
 }

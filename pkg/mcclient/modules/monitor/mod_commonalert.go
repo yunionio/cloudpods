@@ -16,7 +16,6 @@ package monitor
 
 import (
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -52,6 +51,5 @@ func NewCommonAlertManager() *SCommonAlertManager {
 
 func (m *SCommonAlertManager) DoCreate(s *mcclient.ClientSession, config *AlertConfig, bi *monitor.CommonAlertCreateBaseInput) (jsonutils.JSONObject, error) {
 	input := config.ToCommonAlertCreateInput(bi)
-	log.Errorf("======create json: %s", input.JSON(input).PrettyString())
 	return m.Create(s, input.JSON(input))
 }
