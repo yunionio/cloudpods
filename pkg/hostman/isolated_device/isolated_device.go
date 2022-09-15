@@ -398,11 +398,10 @@ func getQemuParams(man *isolatedDeviceManager, devAddrs []string) *QemuParams {
 			continue
 		}
 		devType := dev.GetDeviceType()
-		devs, ok := devices[devType]
-		if !ok {
+		if _, ok := devices[devType]; !ok {
 			devices[devType] = []IDevice{dev}
 		} else {
-			devs = append(devs, dev)
+			devices[devType] = append(devices[devType], dev)
 		}
 	}
 
