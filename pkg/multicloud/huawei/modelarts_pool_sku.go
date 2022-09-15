@@ -55,10 +55,10 @@ type SModelartsResourceflavorsStatus struct {
 	Phase map[string]interface{} `json:"phase"`
 }
 
-func (self *SHuaweiClient) GetIModelartsPoolSku() ([]cloudprovider.ICloudModelartsPoolSku, error) {
+func (self *SRegion) GetIModelartsPoolSku() ([]cloudprovider.ICloudModelartsPoolSku, error) {
 	params := make(map[string]interface{})
 	resourceflavors := make([]SModelartsPoolSku, 0)
-	obj, err := self.modelartsResourceflavors("resourceflavors", params)
+	obj, err := self.client.modelartsResourceflavors("resourceflavors", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.modelartsResourceflavors")
 	}

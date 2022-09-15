@@ -52,13 +52,13 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 		InstanceType: pool.InstanceType,
 		WorkType:     pool.WorkType,
 	}
-	iProvider, err := pool.GetDriver(ctx)
+	iRegion, err := pool.GetIRegion()
 	if err != nil {
 		self.taskFailed(ctx, pool, errors.Wrapf(err, "pool.GetDriver"))
 		return
 	}
 
-	ipool, err := iProvider.CreateIModelartsPool(opts)
+	ipool, err := iRegion.CreateIModelartsPool(opts)
 	if err != nil {
 		self.taskFailed(ctx, pool, errors.Wrapf(err, "iProvider.CreateIModelartsPool"))
 		return

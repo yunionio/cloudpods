@@ -304,23 +304,3 @@ func (self *SHuaweiProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLPr
 	}
 	return sp, nil
 }
-
-func (self *SHuaweiProvider) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
-	return self.client.CreateIModelartsPool(args)
-}
-
-func (self *SHuaweiProvider) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
-	return self.client.GetIModelartsPoolById(poolId)
-}
-
-func (self *SHuaweiProvider) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, error) {
-	return self.client.GetIModelartsPools()
-}
-
-func (self *SHuaweiProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	return self.client.GetMetrics(opts)
-}
-
-func (self *SHuaweiProvider) GetIModelartsPoolSku() ([]cloudprovider.ICloudModelartsPoolSku, error) {
-	return self.client.GetIModelartsPoolSku()
-}

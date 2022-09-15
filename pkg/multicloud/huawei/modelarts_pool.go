@@ -29,6 +29,7 @@ import (
 
 type SModelartsPool struct {
 	client *SHuaweiClient
+	region *SRegion
 	multicloud.SResourceBase
 
 	Metadata     SModelartsPoolMetadata `json:"metadata"`
@@ -87,9 +88,9 @@ type SModelartsPoolNetworkMetadata struct {
 	CreationTimestamp string `json:"creationTimestamp"`
 }
 
-func (self *SHuaweiClient) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, error) {
+func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, error) {
 	pools := make([]SModelartsPool, 0)
-	resObj, err := self.modelartsPoolList("pools", nil)
+	resObj, err := self.client.modelartsPoolList("pools", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetPools")
 	}
@@ -99,14 +100,16 @@ func (self *SHuaweiClient) GetIModelartsPools() ([]cloudprovider.ICloudModelarts
 	}
 	res := make([]cloudprovider.ICloudModelartsPool, len(pools))
 	for i := 0; i < len(pools); i++ {
-		pools[i].client = self
+		pools[i].region = self
+		pools[i].client = self.GetClient()
 		res[i] = &pools[i]
 	}
+
 	return res, nil
 }
 
-func (self *SHuaweiClient) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
-	netObj, err := self.modelartsPoolNetworkList("network", nil)
+func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
+	netObj, err := self.client.modelartsPoolNetworkList("network", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.GetPools")
 	}
@@ -116,7 +119,7 @@ func (self *SHuaweiClient) CreateIModelartsPool(args *cloudprovider.ModelartsPoo
 	if len(netRes) != 0 {
 		netId = netRes[0].Metadata.Name
 	} else {
-		createNetObj, err := self.CreatePoolNetworks()
+		createNetObj, err := self.client.CreatePoolNetworks()
 		if err != nil {
 			return nil, errors.Wrap(err, "SHuaweiClient.CreatePoolNetworks")
 		}
@@ -148,7 +151,7 @@ func (self *SHuaweiClient) CreateIModelartsPool(args *cloudprovider.ModelartsPoo
 			},
 		},
 	}
-	obj, err := self.modelartsPoolCreate("pools", params)
+	obj, err := self.client.modelartsPoolCreate("pools", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.GetPools")
 	}
@@ -156,19 +159,20 @@ func (self *SHuaweiClient) CreateIModelartsPool(args *cloudprovider.ModelartsPoo
 	obj.Unmarshal(&pool)
 	res := []cloudprovider.ICloudModelartsPool{}
 	for i := 0; i < 1; i++ {
-		pool.client = self
+		pool.region = self
+		pool.client = self.GetClient()
 		res = append(res, pool)
 	}
 
 	return res[0], nil
 }
 
-func (self *SHuaweiClient) DeletePool(poolName string) (jsonutils.JSONObject, error) {
-	return self.modelartsPoolDelete("pools", poolName, nil)
+func (self *SRegion) DeletePool(poolName string) (jsonutils.JSONObject, error) {
+	return self.client.modelartsPoolDelete("pools", poolName, nil)
 }
 
-func (self *SHuaweiClient) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
-	obj, err := self.modelartsPoolById(poolId, nil)
+func (self *SRegion) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
+	obj, err := self.client.modelartsPoolById(poolId, nil)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "")
@@ -179,14 +183,15 @@ func (self *SHuaweiClient) GetIModelartsPoolById(poolId string) (cloudprovider.I
 	obj.Unmarshal(&pool)
 	res := []cloudprovider.ICloudModelartsPool{}
 	for i := 0; i < 1; i++ {
-		pool.client = self
+		pool.region = self
+		pool.client = self.GetClient()
 		res = append(res, pool)
 	}
 	return res[0], nil
 }
 
-func (self *SHuaweiClient) MonitorPool(poolId string) (*SModelartsMetrics, error) {
-	resObj, err := self.modelartsPoolMonitor(poolId, nil)
+func (self *SRegion) MonitorPool(poolId string) (*SModelartsMetrics, error) {
+	resObj, err := self.client.modelartsPoolMonitor(poolId, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "send request error")
 	}
@@ -333,7 +338,7 @@ func (self *SModelartsPool) SetTags(tags map[string]string, replace bool) error 
 }
 
 func (self *SModelartsPool) Delete() error {
-	_, err := self.client.DeletePool(self.GetId())
+	_, err := self.region.DeletePool(self.GetId())
 	if err != nil {
 		return err
 	}
