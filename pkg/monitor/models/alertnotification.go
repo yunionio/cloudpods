@@ -29,10 +29,10 @@ import (
 )
 
 const (
-	AlertNotificationUsedByMeterAlert     = "meter_alert"
-	AlertNotificationUsedByNodeAlert      = "node_alert"
-	AlertNotificationUsedByCommonAlert    = "common_alert"
-	AlertNotificationUsedByMigrationAlert = "migration_alert"
+	AlertNotificationUsedByMeterAlert     = monitor.AlertNotificationUsedByMeterAlert
+	AlertNotificationUsedByNodeAlert      = monitor.AlertNotificationUsedByNodeAlert
+	AlertNotificationUsedByCommonAlert    = monitor.AlertNotificationUsedByCommonAlert
+	AlertNotificationUsedByMigrationAlert = monitor.AlertNotificationUsedByMigrationAlert
 )
 
 type SAlertNotificationManager struct {

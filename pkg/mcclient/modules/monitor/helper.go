@@ -19,9 +19,10 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
-	"yunion.io/x/pkg/utils"
 )
 
 // AlertConfig is a helper to generate monitor service alert related api input
