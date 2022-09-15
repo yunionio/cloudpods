@@ -376,3 +376,19 @@ func (self *SRegionEipBase) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 func (self *SRegionEipBase) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateEIP")
 }
+
+func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIModelartsPools")
+}
+
+func (self *SRegion) GetIModelartsPoolById(id string) (cloudprovider.ICloudModelartsPool, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIModelartsPoolDetail")
+}
+
+func (self *SRegion) CreateIModelartsPool(pool *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateIModelartsPool")
+}
+
+func (self *SRegion) GetIModelartsPoolSku() ([]cloudprovider.ICloudModelartsPoolSku, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIModelartsPoolSku")
+}
