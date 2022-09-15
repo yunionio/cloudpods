@@ -268,3 +268,15 @@ type ClouduserChangeOwnerInput struct {
 	// 本地用户Id
 	UserId string `json:"user_id"`
 }
+
+type ClouduserCreateAccessKeyInput struct {
+	UserId      string `json:"user_id"`
+	Description string `json:"description"`
+}
+
+type ClouduserDeleteAccessKeyInput struct {
+	AccessKey string `json:"access_key"`
+}
+
+type ClouduserListAccessKeyInput struct {
+}

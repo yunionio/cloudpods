@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
 )
 
@@ -29,6 +30,7 @@ type SLink struct {
 }
 
 type SClouduser struct {
+	multicloud.SBaseClouduser
 	client *SHuaweiClient
 
 	Description       string

@@ -15,8 +15,13 @@
 package cloudid
 
 import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/cloudid"
 )
 
@@ -35,4 +40,15 @@ func init() {
 	cmd.Perform("reset-password", &cloudid.ClouduserResetPasswordOptions{})
 	cmd.Perform("cloud-user-join-group", &cloudid.ClouduserGroupOptions{})
 	cmd.Perform("cloud-user-leave-group", &cloudid.ClouduserGroupOptions{})
+	cmd.GetWithCustomShow("access-keys", func(result jsonutils.JSONObject) {
+		rr := make(map[string]string)
+		err := result.Unmarshal(&rr)
+		if err != nil {
+			log.Errorf("error: %v", err)
+			return
+		}
+		for _, v := range rr {
+			fmt.Printf("%s\n", v)
+		}
+	}, &options.SDnsZoneIdOptions{})
 }

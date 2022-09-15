@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type sUsers struct {
@@ -35,6 +36,8 @@ type SUsers struct {
 }
 
 type SUser struct {
+	multicloud.SBaseClouduser
+
 	client *SApsaraClient
 
 	Comments    string

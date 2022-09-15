@@ -30,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
 	_ "yunion.io/x/onecloud/pkg/cloudid/policy"
-	"yunion.io/x/onecloud/pkg/cloudid/saml"
 	_ "yunion.io/x/onecloud/pkg/cloudid/tasks"
 	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
@@ -56,11 +55,11 @@ func StartService() {
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	err := saml.InitSAML(app, api.SAML_IDP_PREFIX)
-	if err != nil {
-		log.Errorf("SAML initialization fail %s", err)
-		return
-	}
+	// err := saml.InitSAML(app, api.SAML_IDP_PREFIX)
+	// if err != nil {
+	// 	log.Errorf("SAML initialization fail %s", err)
+	// 	return
+	// }
 
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)

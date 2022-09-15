@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -66,6 +67,7 @@ func init() {
 }
 
 type SClouduser struct {
+	multicloud.SBaseClouduser
 	db.SStatusDomainLevelUserResourceBase
 	db.SExternalizedResourceBase
 	SCloudaccountResourceBase
@@ -1511,4 +1513,26 @@ func (self *SClouduser) SyncCustomCloudpoliciesForCloud(ctx context.Context, use
 	}
 
 	return account.SyncCustomCloudpoliciesForCloud(ctx, userCred, self)
+}
+
+func (self *SClouduser) PerformCreateAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserCreateAccessKeyInput) (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (self *SClouduser) GetDetailsAccessKeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	user, err := self.GetIClouduser()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIClouduser error")
+	}
+	obj, err := user.GetDetailsAccessKeys()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDetailsAccessKeys error")
+	}
+	res := jsonutils.Marshal(obj)
+	return res, nil
+}
+
+func (self *SClouduser) PerformDeleteAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserDeleteAccessKeyInput) (jsonutils.JSONObject, error) {
+
+	return nil, nil
 }

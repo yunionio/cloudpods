@@ -1188,6 +1188,10 @@ type IClouduser interface {
 
 	ResetPassword(password string) error
 	IsConsoleLogin() bool
+
+	PerformCreateAccessKey(userId, description string) (ICloudAccessKey, error)
+	PerformDeleteAccessKey(accessKey string) (ICloudAccessKey, error)
+	GetDetailsAccessKeys() ([]ICloudAccessKey, error)
 }
 
 // 公有云子账号权限
@@ -1572,4 +1576,10 @@ type ICloudKubeNodePool interface {
 
 type ICloudTablestore interface {
 	IVirtualResource
+}
+
+type ICloudAccessKey interface {
+	PerformCreateAccessKey(userId, description string) (map[string]interface{}, error)
+	PerformDeleteAccessKey(accessKey string) error
+	GetDetailsAccessKeys() (map[string]interface{}, error)
 }

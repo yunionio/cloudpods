@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SClouduserPasswordProfile struct {
@@ -32,6 +33,8 @@ type SClouduserPasswordProfile struct {
 }
 
 type SClouduser struct {
+	multicloud.SBaseClouduser
+
 	client *SAzureClient
 
 	OdataType                        string `json:"odata.type"`
