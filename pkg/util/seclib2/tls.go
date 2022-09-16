@@ -19,7 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -78,7 +78,7 @@ func NewCertPool(CAFiles []string) (*x509.CertPool, error) {
 	certPool := x509.NewCertPool()
 
 	for _, CAFile := range CAFiles {
-		pemByte, err := ioutil.ReadFile(CAFile)
+		pemByte, err := os.ReadFile(CAFile)
 		if err != nil {
 			return nil, err
 		}
@@ -102,12 +102,12 @@ func NewCertPool(CAFiles []string) (*x509.CertPool, error) {
 
 // NewCert generates TLS cert by using the given cert,key and parse function.
 func NewCert(certfile, keyfile string, parseFunc func([]byte, []byte) (tls.Certificate, error)) (*tls.Certificate, error) {
-	cert, err := ioutil.ReadFile(certfile)
+	cert, err := os.ReadFile(certfile)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := ioutil.ReadFile(keyfile)
+	key, err := os.ReadFile(keyfile)
 	if err != nil {
 		return nil, err
 	}
@@ -124,13 +124,13 @@ func NewCert(certfile, keyfile string, parseFunc func([]byte, []byte) (tls.Certi
 }
 
 func InitTLSConfig(certFile, keyFile string) (*tls.Config, error) {
-	allCertPEM, err := ioutil.ReadFile(certFile)
+	allCertPEM, err := os.ReadFile(certFile)
 	if err != nil {
 		log.Errorf("read tls certfile fail %s", err)
 		return nil, err
 	}
 	certPEMs := splitCert(allCertPEM)
-	keyPEM, err := ioutil.ReadFile(keyFile)
+	keyPEM, err := os.ReadFile(keyFile)
 	if err != nil {
 		log.Errorf("read tls keyfile fail %s", err)
 		return nil, err

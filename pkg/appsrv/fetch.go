@@ -16,7 +16,7 @@ package appsrv
 
 import (
 	"encoding/xml"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -26,7 +26,7 @@ import (
 
 func Fetch(req *http.Request) ([]byte, error) {
 	defer req.Body.Close()
-	return ioutil.ReadAll(req.Body)
+	return io.ReadAll(req.Body)
 }
 
 func FetchStruct(req *http.Request, v interface{}) error {

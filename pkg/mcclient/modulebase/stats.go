@@ -15,7 +15,7 @@
 package modulebase
 
 import (
-	"io/ioutil"
+	"io"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -31,9 +31,9 @@ func GetStats(s *mcclient.ClientSession, path string, serviceType string) (jsonu
 		return nil, errors.Wrap(err, "man.rawBaseUrlRequest")
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "ioutil.ReadAll")
+		return nil, errors.Wrap(err, "io.ReadAll")
 	}
 	return jsonutils.Parse(body)
 }

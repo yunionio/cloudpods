@@ -19,7 +19,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -58,14 +58,14 @@ func (m *SFernetKeyManager) SetKeys(keys []*fernet.Key) {
 }
 
 func (m *SFernetKeyManager) LoadKeys(path string) error {
-	filesInfos, err := ioutil.ReadDir(path)
+	filesInfos, err := os.ReadDir(path)
 	if err != nil {
 		return err
 	}
 	keyStrs := make([]string, 0)
 	for i := range filesInfos {
 		fn := filepath.Join(path, filesInfos[i].Name())
-		keyBytes, err := ioutil.ReadFile(fn)
+		keyBytes, err := os.ReadFile(fn)
 		if err != nil {
 			return err
 		}

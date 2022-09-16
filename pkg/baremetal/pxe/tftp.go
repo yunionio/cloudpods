@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -99,7 +98,7 @@ func (h *TFTPHandler) sendPxeLinuxCfgResponse(mac net.HardwareAddr, _ net.Addr) 
 	size := int64(len(bs))
 	buffer := bytes.NewBufferString(respStr)
 
-	return ioutil.NopCloser(buffer), size, nil
+	return io.NopCloser(buffer), size, nil
 }
 
 func (h *TFTPHandler) sendFile(filename string, _ net.Addr) (io.ReadCloser, int64, error) {

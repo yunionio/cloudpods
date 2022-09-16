@@ -16,7 +16,6 @@ package fileutils2
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -25,7 +24,7 @@ import (
 
 func TestSparseFileWriter(t *testing.T) {
 	writeTmp := func(t *testing.T, want []byte, partSizes []int) {
-		f, err := ioutil.TempFile("", "sparse-test-")
+		f, err := os.CreateTemp("", "sparse-test-")
 		if err != nil {
 			t.Fatalf("tmpfile: %v", err)
 		}
@@ -46,7 +45,7 @@ func TestSparseFileWriter(t *testing.T) {
 			}
 		}()
 
-		got, err := ioutil.ReadFile(f.Name())
+		got, err := os.ReadFile(f.Name())
 		if err != nil {
 			t.Fatalf("read tmpfile: %v", err)
 		}

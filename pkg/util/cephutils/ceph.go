@@ -17,7 +17,7 @@ package cephutils
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
@@ -112,11 +112,11 @@ func (self *CephClient) output(name string, opts []string) (jsonutils.JSONObject
 		return nil, errors.Wrap(err, "start ceph process")
 	}
 
-	stdoutPut, err := ioutil.ReadAll(outb)
+	stdoutPut, err := io.ReadAll(outb)
 	if err != nil {
 		return nil, err
 	}
-	stderrPut, err := ioutil.ReadAll(errb)
+	stderrPut, err := io.ReadAll(errb)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (self *CephClient) GetCapacity() (*SCapacity, error) {
 }
 
 func writeFile(pattern string, content string) (string, error) {
-	file, err := ioutil.TempFile("", pattern)
+	file, err := os.CreateTemp("", pattern)
 	if err != nil {
 		return "", errors.Wrapf(err, "TempFile")
 	}

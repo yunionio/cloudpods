@@ -17,7 +17,6 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -69,7 +68,7 @@ func NewSRpcService(socketFileDir string, configStore notifyv2.IServiceConfigSto
 // the name of file is the service's name; then try to dial to this rpc service
 // through corresponding socket file, if failed, only print log but not return error.
 func (self *SRpcService) InitAll() error {
-	files, err := ioutil.ReadDir(self.socketFileDir)
+	files, err := os.ReadDir(self.socketFileDir)
 	if err != nil {
 		return errors.Wrapf(err, "read dir %s failed", self.socketFileDir)
 	}
@@ -330,7 +329,7 @@ func (self *SRpcService) closeService(ctx context.Context, serviceName string) {
 }
 
 func (self *SRpcService) updateService(ctx context.Context) error {
-	files, err := ioutil.ReadDir(self.socketFileDir)
+	files, err := os.ReadDir(self.socketFileDir)
 	if err != nil {
 		return errors.Wrapf(err, "read dir %s failed", self.socketFileDir)
 	}

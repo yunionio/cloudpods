@@ -16,7 +16,7 @@ package nbd
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"runtime/debug"
@@ -109,7 +109,7 @@ func (d *NBDDriver) findPartitions() error {
 	}
 	dev := filepath.Base(d.nbdDev)
 	devpath := filepath.Dir(d.nbdDev)
-	files, err := ioutil.ReadDir(devpath)
+	files, err := os.ReadDir(devpath)
 	if err != nil {
 		return errors.Wrapf(err, "read dir %s", devpath)
 	}

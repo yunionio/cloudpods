@@ -17,7 +17,7 @@ package shell
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/aws"
@@ -51,7 +51,7 @@ func init() {
 		PUBLICKEY string `help:"PublicKey file path"`
 	}
 	shellutils.R(&InstanceCreateOptions{}, "instance-create", "Create a instance", func(cli *aws.SRegion, args *InstanceCreateOptions) error {
-		content, err := ioutil.ReadFile(args.PUBLICKEY)
+		content, err := os.ReadFile(args.PUBLICKEY)
 		if err != nil {
 			return err
 		}

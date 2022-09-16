@@ -17,7 +17,6 @@ package fsutils
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"path"
 	"regexp"
 	"strconv"
@@ -164,11 +163,11 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		for _, s := range []string{"r", "e", "Y", "w", "Y", "Y"} {
 			io.WriteString(stdin, fmt.Sprintf("%s\n", s))
 		}
-		stdoutPut, err := ioutil.ReadAll(outb)
+		stdoutPut, err := io.ReadAll(outb)
 		if err != nil {
 			return err
 		}
-		stderrOutPut, err := ioutil.ReadAll(errb)
+		stderrOutPut, err := io.ReadAll(errb)
 		if err != nil {
 			return err
 		}

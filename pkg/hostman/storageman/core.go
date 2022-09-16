@@ -17,7 +17,7 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -340,7 +340,7 @@ func cleanDailyFiles(storagePath, subDir string, keepDay int) {
 
 	// before mark should be deleted
 	markTime := timeutils.UtcNow().Add(time.Hour * 24 * -1 * time.Duration(keepDay))
-	files, err := ioutil.ReadDir(recycleDir)
+	files, err := os.ReadDir(recycleDir)
 	if err != nil {
 		log.Errorln(err)
 		return

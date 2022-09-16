@@ -15,7 +15,7 @@
 package sysutils
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -64,12 +64,12 @@ func fetchHugepageInfo(sizeKb int, dir string) (SHugepageInfo, error) {
 	info := SHugepageInfo{
 		SizeKb: sizeKb,
 	}
-	cont, err := ioutil.ReadFile(filepath.Join(dir, "nr_hugepages"))
+	cont, err := os.ReadFile(filepath.Join(dir, "nr_hugepages"))
 	if err != nil {
 		return info, errors.Wrap(err, "FileGetContents nr_hugepages")
 	}
 	total, _ := strconv.Atoi(strings.TrimSpace(string(cont)))
-	cont, err = ioutil.ReadFile(filepath.Join(dir, "free_hugepages"))
+	cont, err = os.ReadFile(filepath.Join(dir, "free_hugepages"))
 	if err != nil {
 		return info, errors.Wrap(err, "FileGetContents free_hugepages")
 	}
@@ -81,7 +81,7 @@ func fetchHugepageInfo(sizeKb int, dir string) (SHugepageInfo, error) {
 
 func GetHugepages() (THugepages, error) {
 	const hugepageDir = "/sys/kernel/mm/hugepages"
-	files, err := ioutil.ReadDir(hugepageDir)
+	files, err := os.ReadDir(hugepageDir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadDir %s", hugepageDir)
 	}

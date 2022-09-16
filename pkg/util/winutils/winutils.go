@@ -18,7 +18,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"path"
 	"regexp"
 	"strconv"
@@ -71,7 +71,7 @@ type SWinRegTool struct {
 }
 
 func (w *SWinRegTool) CheckPath() bool {
-	files, err := ioutil.ReadDir(w.ConfigPath)
+	files, err := os.ReadDir(w.ConfigPath)
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -148,11 +148,11 @@ func (w *SWinRegTool) samChange(user string, seq ...string) error {
 		io.WriteString(stdin, s+"\n")
 	}
 	io.WriteString(stdin, CONFIRM+"\n")
-	stdoutPut, err := ioutil.ReadAll(outb)
+	stdoutPut, err := io.ReadAll(outb)
 	if err != nil {
 		return err
 	}
-	stderrOutPut, err := ioutil.ReadAll(errb)
+	stderrOutPut, err := io.ReadAll(errb)
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func (w *SWinRegTool) showRegistry(spath string, keySeg []string, verb string) (
 	keypath := strings.Join(keySeg, "\\")
 	io.WriteString(stdin, fmt.Sprintf("%s %s\n", verb, keypath))
 	io.WriteString(stdin, "q\n")
-	stdoutPut, err := ioutil.ReadAll(outb)
+	stdoutPut, err := io.ReadAll(outb)
 	if err != nil {
 		return nil, err
 	}
@@ -346,12 +346,12 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode []int) boo
 	}
 	io.WriteString(stdin, "q\n")
 	io.WriteString(stdin, CONFIRM+"\n")
-	stdoutPut, err := ioutil.ReadAll(outb)
+	stdoutPut, err := io.ReadAll(outb)
 	if err != nil {
 		log.Errorln(err)
 		return false
 	}
-	stderrOutPut, err := ioutil.ReadAll(errb)
+	stderrOutPut, err := io.ReadAll(errb)
 	if err != nil {
 		log.Errorln(err)
 		return false

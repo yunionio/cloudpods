@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -69,7 +68,7 @@ func initFetcherFs() (*FetcherFs, error) {
 	if len(segs[len(segs)-1]) == 0 {
 		return nil, errors.Errorf("bad url: %s", opt.Url)
 	}
-	fd, err := ioutil.TempFile(opt.Tmpdir, fmt.Sprintf("%s.*", segs[len(segs)-1]))
+	fd, err := os.CreateTemp(opt.Tmpdir, fmt.Sprintf("%s.*", segs[len(segs)-1]))
 	if err != nil {
 		return nil, errors.Wrap(err, "create tempfile")
 	}
@@ -222,7 +221,7 @@ func (fs *FetcherFs) doFetchData(idx int64) error {
 	}
 	defer res.Body.Close()
 	if res.StatusCode >= 300 {
-		body, _ := ioutil.ReadAll(res.Body)
+		body, _ := io.ReadAll(res.Body)
 		return errors.Errorf("failed fetch data: %d %s", res.StatusCode, body)
 	}
 
@@ -231,7 +230,7 @@ func (fs *FetcherFs) doFetchData(idx int64) error {
 		return errors.Errorf("Apply lz4 option: %v", err)
 	}
 
-	buf, err := ioutil.ReadAll(lz4Reader)
+	buf, err := io.ReadAll(lz4Reader)
 	if len(buf) != int(end-start+1) {
 		return errors.Wrap(err, "written local file")
 	}

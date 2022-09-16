@@ -16,7 +16,6 @@ package utils
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -41,7 +40,7 @@ func NewPidFile(path, comm string) *PidFile {
 }
 
 func (pf *PidFile) findProcess() (*os.Process, error) {
-	data, err := ioutil.ReadFile(pf.Path)
+	data, err := os.ReadFile(pf.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +61,7 @@ func (pf *PidFile) findProcess() (*os.Process, error) {
 
 func (pf *PidFile) findComm(pid int) (string, error) {
 	fp := fmt.Sprintf("/proc/%d/comm", pid)
-	data, err := ioutil.ReadFile(fp)
+	data, err := os.ReadFile(fp)
 	if err != nil {
 		return "", err
 	}
@@ -101,6 +100,6 @@ func (pf *PidFile) ConfirmOrUnlink() (proc *os.Process, confirmed bool, err erro
 
 func WritePidFile(pid int, pidFile string) error {
 	data := fmt.Sprintf("%d\n", pid)
-	err := ioutil.WriteFile(pidFile, []byte(data), FileModeFile)
+	err := os.WriteFile(pidFile, []byte(data), FileModeFile)
 	return err
 }

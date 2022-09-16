@@ -17,7 +17,7 @@ package influxdb
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -74,9 +74,9 @@ func (db *SInfluxdb) Write(data string, precision string) error {
 		return errors.Wrap(err, "httputils.Request")
 	}
 	defer httputils.CloseResponse(resp)
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return errors.Wrap(err, "ioutil.ReadAll")
+		return errors.Wrap(err, "io.ReadAll")
 	}
 	if resp.StatusCode >= 300 {
 		return errors.Error(fmt.Sprintf("Status: %d Message: %s", resp.StatusCode, string(b)))
@@ -96,9 +96,9 @@ func (db *SInfluxdb) BatchWrite(data []string, precision string) error {
 		return errors.Wrap(err, "httputils.Request")
 	}
 	defer httputils.CloseResponse(resp)
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return errors.Wrap(err, "ioutil.ReadAll")
+		return errors.Wrap(err, "io.ReadAll")
 	}
 	if resp.StatusCode >= 300 {
 		return errors.Error(fmt.Sprintf("Status: %d Message: %s", resp.StatusCode, string(b)))

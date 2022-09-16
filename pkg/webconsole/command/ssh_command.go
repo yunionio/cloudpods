@@ -17,7 +17,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -78,7 +77,7 @@ func getCommand(ctx context.Context, us *mcclient.ClientSession, ip string, port
 	if err != nil {
 		return "", nil, err
 	}
-	file, err := ioutil.TempFile("", fmt.Sprintf("id_rsa.%s.", ip))
+	file, err := os.CreateTemp("", fmt.Sprintf("id_rsa.%s.", ip))
 	if err != nil {
 		return "", nil, err
 	}

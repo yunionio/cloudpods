@@ -16,7 +16,6 @@ package k8s
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -346,7 +345,7 @@ func initKubeCluster() {
 		writeFile := func(name, content string) error {
 			fp := filepath.Join(args.OUTPUT, name)
 			log.Infof("Write file: %s", fp)
-			if err := ioutil.WriteFile(fp, []byte(content), 0644); err != nil {
+			if err := os.WriteFile(fp, []byte(content), 0644); err != nil {
 				return errors.Wrap(err, "write file")
 			}
 			if err := os.Chmod(fp, 0600); err != nil {

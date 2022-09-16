@@ -16,7 +16,7 @@ package k8s
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -213,7 +213,7 @@ type KubeClusterImportOptions struct {
 }
 
 func (o KubeClusterImportOptions) Params() (jsonutils.JSONObject, error) {
-	kubeconfig, err := ioutil.ReadFile(o.KUBECONFIG)
+	kubeconfig, err := os.ReadFile(o.KUBECONFIG)
 	if err != nil {
 		return nil, fmt.Errorf("Read kube config %q error: %v", o.KUBECONFIG, err)
 	}
@@ -493,11 +493,11 @@ func (o ClusterEnableComponentMonitorOpt) Params() (jsonutils.JSONObject, error)
 	certFile := o.Grafana.Tls.CertificateFile
 	keyFile := o.Grafana.Tls.KeyFile
 	if certFile != "" {
-		cert, err := ioutil.ReadFile(certFile)
+		cert, err := os.ReadFile(certFile)
 		if err != nil {
 			return nil, errors.Wrap(err, "read grafana tls certFile")
 		}
-		key, err := ioutil.ReadFile(keyFile)
+		key, err := os.ReadFile(keyFile)
 		if err != nil {
 			return nil, errors.Wrap(err, "read grafana tls keyFile")
 		}

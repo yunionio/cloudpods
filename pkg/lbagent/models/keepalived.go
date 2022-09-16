@@ -16,7 +16,7 @@ package models
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"text/template"
 
@@ -62,7 +62,7 @@ func (b *LoadbalancerCorpus) GenKeepalivedConfigs(dir string, opts *GenKeepalive
 		// write keepalived.conf
 		d := buf.Bytes()
 		p := filepath.Join(dir, "keepalived.conf")
-		err := ioutil.WriteFile(p, d, agentutils.FileModeFile)
+		err := os.WriteFile(p, d, agentutils.FileModeFile)
 		if err != nil {
 			return err
 		}

@@ -16,7 +16,8 @@ package models
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
+	"os"
 	"path"
 
 	"yunion.io/x/log"
@@ -70,7 +71,7 @@ func AllDrivers() map[string]ICloudSAMLLoginDriver {
 
 func GetMetadata(driver ICloudSAMLLoginDriver) ([]byte, error) {
 	filePath := path.Join(options.Options.CloudSAMLMetadataPath, driver.GetMetadataFilename())
-	metaBytes, err := ioutil.ReadFile(filePath)
+	metaBytes, err := os.ReadFile(filePath)
 	if err != nil || len(metaBytes) == 0 {
 		metaUrl := driver.GetMetadataUrl()
 		if len(metaUrl) > 0 {
@@ -80,7 +81,7 @@ func GetMetadata(driver ICloudSAMLLoginDriver) ([]byte, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "http get %s fail", metaUrl)
 			}
-			metaBytes, err = ioutil.ReadAll(resp.Body)
+			metaBytes, err = io.ReadAll(resp.Body)
 			if err != nil {
 				return nil, errors.Wrapf(err, "read body %s fail", metaUrl)
 			}

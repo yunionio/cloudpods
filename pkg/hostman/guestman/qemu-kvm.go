@@ -17,7 +17,6 @@ package guestman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -263,9 +262,9 @@ func (s *SKVMGuestInstance) GetPid() int {
 }
 
 /*
- pid -> running qemu's pid
- -1 -> pid file does not exists
- -2 -> pid file ok but content does not match any qemu process
+pid -> running qemu's pid
+-1 -> pid file does not exists
+-2 -> pid file ok but content does not match any qemu process
 */
 func (s *SKVMGuestInstance) getPid(pidFile, uuid string) int {
 	if !fileutils2.Exists(pidFile) {
@@ -310,7 +309,7 @@ func (s *SKVMGuestInstance) isSelfQemuPid(pid, uuid string) bool {
 	if !fi.Mode().IsRegular() {
 		return false
 	}
-	cmdline, err := ioutil.ReadFile(cmdlineFile)
+	cmdline, err := os.ReadFile(cmdlineFile)
 	if err != nil {
 		log.Warningf("IsSelfQemuPid Read File %s error %s", cmdlineFile, err)
 		return false
@@ -334,7 +333,7 @@ func (s *SKVMGuestInstance) GetSourceDescFilePath() string {
 
 func (s *SKVMGuestInstance) LoadDesc() error {
 	descPath := s.GetDescFilePath()
-	descStr, err := ioutil.ReadFile(descPath)
+	descStr, err := os.ReadFile(descPath)
 	if err != nil {
 		return errors.Wrap(err, "read desc")
 	}
@@ -350,7 +349,7 @@ func (s *SKVMGuestInstance) LoadDesc() error {
 		}
 		srcDescStr = descStr
 	} else {
-		srcDescStr, err = ioutil.ReadFile(srcDescPath)
+		srcDescStr, err = os.ReadFile(srcDescPath)
 		if err != nil {
 			return errors.Wrap(err, "read source desc")
 		}
@@ -1204,7 +1203,7 @@ func (s *SKVMGuestInstance) GetQmpMonitorPort(vncPort int) int {
 
 func (s *SKVMGuestInstance) GetVncPort() int {
 	if s.IsRunning() {
-		vncPort, err := ioutil.ReadFile(s.GetVncFilePath())
+		vncPort, err := os.ReadFile(s.GetVncFilePath())
 		if err != nil {
 			return -1
 		}
@@ -2192,7 +2191,7 @@ func (s *SKVMGuestInstance) CleanImportMetadata() *jsonutils.JSONDict {
 func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 	var ret = []string{}
 	if fileutils2.Exists(s.HomeDir()) {
-		files, err := ioutil.ReadDir(s.HomeDir())
+		files, err := os.ReadDir(s.HomeDir())
 		if err != nil {
 			log.Errorln(err)
 			return nil

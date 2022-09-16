@@ -15,7 +15,7 @@
 package shell
 
 import (
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -78,7 +78,7 @@ func init() {
 	shellutils.R(&LbCertUploadOptions{}, "lbcert-upload", "Upload cert", func(cli *qcloud.SRegion, args *LbCertUploadOptions) error {
 		public := ""
 		if len(args.PublicKeyPath) > 0 {
-			_public, err := ioutil.ReadFile(args.PublicKeyPath)
+			_public, err := os.ReadFile(args.PublicKeyPath)
 			if err != nil {
 				return err
 			}
@@ -88,7 +88,7 @@ func init() {
 
 		private := ""
 		if len(args.PrivateKeyPath) > 0 {
-			_private, err := ioutil.ReadFile(args.PrivateKeyPath)
+			_private, err := os.ReadFile(args.PrivateKeyPath)
 			if err != nil {
 				return err
 			}

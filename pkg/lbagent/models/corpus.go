@@ -17,7 +17,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"yunion.io/x/jsonutils"
@@ -53,13 +53,13 @@ func (b *LoadbalancerCorpus) SaveDir(dir string) error {
 		return err
 	}
 	p := filepath.Join(dir, "corpus")
-	err = ioutil.WriteFile(p, d, agentutils.FileModeFileSensitive)
+	err = os.WriteFile(p, d, agentutils.FileModeFileSensitive)
 	return err
 }
 
 func (b *LoadbalancerCorpus) LoadDir(dir string) error {
 	p := filepath.Join(dir, "corpus")
-	d, err := ioutil.ReadFile(p)
+	d, err := os.ReadFile(p)
 	if err != nil {
 		return err
 	}

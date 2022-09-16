@@ -16,7 +16,6 @@ package utils
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -42,7 +41,7 @@ type ConfigDirManager struct {
 
 // TODO
 //
-//  - set active
+//   - set active
 func NewConfigDirManager(baseDir string) *ConfigDirManager {
 	return &ConfigDirManager{
 		baseDir: baseDir,
@@ -80,7 +79,7 @@ func (m *ConfigDirManager) NewDir(f DirFunc) (finalDir string, err error) {
 
 func (m *ConfigDirManager) subdirs() []string {
 	dirs := []string{}
-	fis, err := ioutil.ReadDir(m.baseDir)
+	fis, err := os.ReadDir(m.baseDir)
 	if err != nil {
 		return dirs
 	}

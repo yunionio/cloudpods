@@ -17,7 +17,6 @@ package aliyun
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -309,7 +308,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, err
 	}
 
-	tmpImageFile, err := ioutil.TempFile(path, extId)
+	tmpImageFile, err := os.CreateTemp(path, extId)
 	if err != nil {
 		return nil, err
 	}

@@ -16,7 +16,6 @@ package nbd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -172,7 +171,7 @@ func (p *SKVMGuestLVMPartition) SetupDevice() bool {
 func (p *SKVMGuestLVMPartition) FindPartitions() []*kvmpart.SKVMGuestDiskPartition {
 	parts := []*kvmpart.SKVMGuestDiskPartition{}
 	// try /dev/{vgname}/{lvname}
-	files, err := ioutil.ReadDir("/dev/" + p.vgname)
+	files, err := os.ReadDir("/dev/" + p.vgname)
 	if err == nil {
 		for _, f := range files {
 			partPath := fmt.Sprintf("/dev/%s/%s", p.vgname, f.Name())

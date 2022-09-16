@@ -15,7 +15,6 @@
 package sysutils
 
 import (
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -34,10 +33,10 @@ const (
 
 func Nics() ([]*types.SNicDevInfo, error) {
 	if _, err := os.Stat(sysNetPath); !os.IsNotExist(err) {
-		nicDevs, err := ioutil.ReadDir(sysNetPath)
+		nicDevs, err := os.ReadDir(sysNetPath)
 		if err != nil {
 			log.Errorf("ReadDir %s error: %s", sysNetPath, err)
-			return nil, errors.Wrapf(err, "ioutil.ReadDir(%s)", sysNetPath)
+			return nil, errors.Wrapf(err, "os.ReadDir(%s)", sysNetPath)
 		}
 		nics := make([]*types.SNicDevInfo, 0)
 		for _, nic := range nicDevs {

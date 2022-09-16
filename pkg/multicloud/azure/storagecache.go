@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -238,7 +237,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	} else if resp, err := http.Get(uri); err != nil {
 		return nil, err
 	} else {
-		tmpImageFile, err := ioutil.TempFile(path, "temp")
+		tmpImageFile, err := os.CreateTemp(path, "temp")
 		if err != nil {
 			return nil, err
 		}

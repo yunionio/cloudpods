@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +51,7 @@ type sEvenWebhookMsg struct {
 	ResourceDetails map[string]interface{} `json:"resource_details"`
 }
 
-//templateDir = "/opt/yunion/share/local-templates"
+// templateDir = "/opt/yunion/share/local-templates"
 type SLocalTemplateManager struct {
 	templateDir    string
 	templatesTable *sync.Map
@@ -297,7 +296,7 @@ func (lt *SLocalTemplateManager) getTemplateString(ctx context.Context, titleOrC
 	} else {
 		path = filepath.Join(lt.templateDir, titleOrContent, fmt.Sprintf("%s.tmpl", topic))
 	}
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		if _, ok := err.(*os.PathError); ok {
 			return nil, errors.ErrNotFound

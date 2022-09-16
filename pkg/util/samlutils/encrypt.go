@@ -24,7 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"hash"
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/pkg/errors"
 
@@ -33,18 +33,18 @@ import (
 )
 
 func (saml *SSAMLInstance) parseKeys() error {
-	privData, err := ioutil.ReadFile(saml.privateKeyFile)
+	privData, err := os.ReadFile(saml.privateKeyFile)
 	if err != nil {
-		return errors.Wrapf(err, "ioutil.ReadFile %s", saml.privateKeyFile)
+		return errors.Wrapf(err, "os.ReadFile %s", saml.privateKeyFile)
 	}
 	saml.privateKey, err = seclib2.DecodePrivateKey(privData)
 	if err != nil {
 		return errors.Wrap(err, "decodePrivateKey")
 	}
 
-	certData, err := ioutil.ReadFile(saml.certFile)
+	certData, err := os.ReadFile(saml.certFile)
 	if err != nil {
-		return errors.Wrapf(err, "ioutil.Readfile %s", saml.certFile)
+		return errors.Wrapf(err, "os.Readfile %s", saml.certFile)
 	}
 
 	var block *pem.Block

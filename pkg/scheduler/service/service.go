@@ -15,7 +15,7 @@
 package service
 
 import (
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -103,7 +103,7 @@ func StartService() error {
 }
 
 func startHTTP(opt *o.SchedulerOptions) error {
-	gin.DefaultWriter = ioutil.Discard
+	gin.DefaultWriter = io.Discard
 
 	router := gin.Default()
 	router.Use(middleware.Logger())

@@ -20,7 +20,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -541,7 +540,7 @@ func (self *SDatastore) FileGetContent(ctx context.Context, remotePath string) (
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("%s", resp.Status)
 		}
-		cont, err := ioutil.ReadAll(resp.Body)
+		cont, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
@@ -776,7 +775,7 @@ func (self *SDatastore) Upload(ctx context.Context, remotePath string, body io.R
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("%s", resp.Status)
 		}
-		_, err := ioutil.ReadAll(resp.Body)
+		_, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
@@ -825,7 +824,7 @@ func (self *SDatastore) Delete(ctx context.Context, remotePath string) error {
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("%s", resp.Status)
 		}
-		_, err := ioutil.ReadAll(resp.Body)
+		_, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}

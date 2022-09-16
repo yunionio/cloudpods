@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -115,7 +114,7 @@ func hasTemplateOfTopic(topic string) bool {
 		return ok
 	}
 	path := filepath.Join(consts.NotifyTemplateDir, consts.GetServiceType(), "content@cn")
-	fileInfoList, err := ioutil.ReadDir(path)
+	fileInfoList, err := os.ReadDir(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			checkTemplates = true
@@ -136,13 +135,13 @@ func getTemplateString(suffix string, topic string, contType string, channel npk
 	contType = contType + "@" + suffix
 	if len(channel) > 0 {
 		path := filepath.Join(consts.NotifyTemplateDir, consts.GetServiceType(), contType, fmt.Sprintf("%s.%s", topic, string(channel)))
-		cont, err := ioutil.ReadFile(path)
+		cont, err := os.ReadFile(path)
 		if err == nil {
 			return cont, nil
 		}
 	}
 	path := filepath.Join(consts.NotifyTemplateDir, consts.GetServiceType(), contType, topic)
-	return ioutil.ReadFile(path)
+	return os.ReadFile(path)
 }
 
 func getTemplate(suffix string, topic string, contType string, channel npk.TNotifyChannel) (*template.Template, error) {

@@ -17,7 +17,6 @@ package lbagent
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -131,7 +130,7 @@ func (hsw *HaStateWatcher) loadHaState() (err error) {
 			hsw.CurrentState = api.LB_HA_STATE_UNKNOWN
 		}
 	}()
-	data, err := ioutil.ReadFile(hsw.HaStatePath)
+	data, err := os.ReadFile(hsw.HaStatePath)
 	if err != nil {
 		return err
 	}
@@ -171,7 +170,7 @@ func NewHaStateWatcher(opts *Options) (hsw *HaStateWatcher, err error) {
 		content := fmt.Sprintf(HA_STATE_SCRIPT_CONTENT, haStatePath)
 		content = strings.TrimLeftFunc(content, unicode.IsSpace)
 		mode := agentutils.FileModeFileExec
-		err = ioutil.WriteFile(haStateScriptPath, []byte(content), mode)
+		err = os.WriteFile(haStateScriptPath, []byte(content), mode)
 		if err != nil {
 			return
 		}

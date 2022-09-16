@@ -17,7 +17,6 @@ package fileutils2
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -34,7 +33,7 @@ func Cleandir(sPath string, keepdir bool) error {
 	if f, _ := os.Lstat(sPath); f == nil || f.Mode()&os.ModeSymlink == os.ModeSymlink {
 		return nil
 	}
-	files, _ := ioutil.ReadDir(sPath)
+	files, _ := os.ReadDir(sPath)
 	for _, file := range files {
 		fp := path.Join(sPath, file.Name())
 		if f, _ := os.Lstat(fp); f.Mode()&os.ModeSymlink == os.ModeSymlink {
@@ -71,18 +70,18 @@ func Zerofiles(sPath string) error {
 	case f.Mode().IsRegular():
 		return FilePutContents(sPath, "", false)
 	case f.Mode().IsDir():
-		files, err := ioutil.ReadDir(sPath)
+		files, err := os.ReadDir(sPath)
 		if err != nil {
 			return err
 		}
 		for _, file := range files {
-			if file.Mode()&os.ModeSymlink == os.ModeSymlink {
+			if file.Type()&os.ModeSymlink == os.ModeSymlink {
 				continue
-			} else if file.Mode().IsRegular() {
+			} else if file.Type().IsRegular() {
 				if err := FilePutContents(path.Join(sPath, file.Name()), "", false); err != nil {
 					return err
 				}
-			} else if file.Mode().IsDir() {
+			} else if file.IsDir() {
 				return Zerofiles(path.Join(sPath, file.Name()))
 			}
 		}
@@ -142,10 +141,10 @@ func IsBlockDeviceUsed(dev string) bool {
 
 func GetAllBlkdevsIoSchedulers() ([]string, error) {
 	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
-		blockDevs, err := ioutil.ReadDir("/sys/block")
+		blockDevs, err := os.ReadDir("/sys/block")
 		if err != nil {
 			log.Errorf("ReadDir /sys/block error: %s", err)
-			return nil, errors.Wrap(err, "ioutil.ReadDir(/sys/block)")
+			return nil, errors.Wrap(err, "os.ReadDir(/sys/block)")
 		}
 		for _, b := range blockDevs {
 			if IsBlockDevMounted(b.Name()) {
@@ -176,7 +175,7 @@ func GetAllBlkdevsIoSchedulers() ([]string, error) {
 
 func ChangeAllBlkdevsParams(params map[string]string) {
 	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
-		blockDevs, err := ioutil.ReadDir("/sys/block")
+		blockDevs, err := os.ReadDir("/sys/block")
 		if err != nil {
 			log.Errorf("ReadDir /sys/block error: %s", err)
 			return
@@ -212,7 +211,7 @@ func GetBlkdevConfig(dev, key string) (string, error) {
 }
 
 func FileGetContents(file string) (string, error) {
-	content, err := ioutil.ReadFile(file)
+	content, err := os.ReadFile(file)
 	if err != nil {
 		return "", err
 	}

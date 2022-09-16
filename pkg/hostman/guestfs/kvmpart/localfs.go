@@ -17,7 +17,6 @@ package kvmpart
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -56,7 +55,7 @@ func (f *SLocalGuestFS) GetLocalPath(sPath string, caseInsensitive bool) string 
 	for _, seg := range pathSegs {
 		if len(seg) > 0 {
 			var realSeg string
-			files, _ := ioutil.ReadDir(fullPath)
+			files, _ := os.ReadDir(fullPath)
 			for _, file := range files {
 				var f = file.Name()
 				if f == seg || (caseInsensitive && strings.ToLower(f) == strings.ToLower(seg)) ||
@@ -108,7 +107,7 @@ func (f *SLocalGuestFS) Mkdir(sPath string, mode int, caseInsensitive bool) erro
 func (f *SLocalGuestFS) ListDir(sPath string, caseInsensitive bool) []string {
 	sPath = f.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
-		files, err := ioutil.ReadDir(sPath)
+		files, err := os.ReadDir(sPath)
 		if err != nil {
 			log.Errorln(err)
 			return nil
@@ -163,11 +162,11 @@ func (f *SLocalGuestFS) Passwd(account, password string, caseInsensitive bool) e
 	}
 	io.WriteString(stdin, fmt.Sprintf("%s\n", password))
 	io.WriteString(stdin, fmt.Sprintf("%s\n", password))
-	stdoutPut, err := ioutil.ReadAll(outb)
+	stdoutPut, err := io.ReadAll(outb)
 	if err != nil {
 		return err
 	}
-	stderrOutPut, err := ioutil.ReadAll(errb)
+	stderrOutPut, err := io.ReadAll(errb)
 	if err != nil {
 		return err
 	}
@@ -289,7 +288,7 @@ func (f *SLocalGuestFS) FileGetContents(sPath string, caseInsensitive bool) ([]b
 
 func (f *SLocalGuestFS) FileGetContentsByPath(sPath string) ([]byte, error) {
 	if len(sPath) > 0 {
-		return ioutil.ReadFile(sPath)
+		return os.ReadFile(sPath)
 	}
 	return nil, fmt.Errorf("Cann't find local path")
 }

@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"syscall"
@@ -128,7 +127,7 @@ func main() {
 }
 
 func findMemBackendFd(fdDir string) (string, error) {
-	files, err := ioutil.ReadDir(fdDir)
+	files, err := os.ReadDir(fdDir)
 	if err != nil {
 		return "", errors.Wrapf(err, "read dir %s", fdDir)
 	}

@@ -17,7 +17,7 @@ package compute
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -207,7 +207,7 @@ func ParseServerDeployInfo(info string) (*computeapi.DeployConfig, error) {
 		sdi.Path = info[:colon]
 	}
 	nameOrContent := info[colon+1:]
-	data, err := ioutil.ReadFile(nameOrContent)
+	data, err := os.ReadFile(nameOrContent)
 	if err != nil {
 		sdi.Content = nameOrContent
 	} else {
@@ -567,7 +567,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 	}
 
 	if len(opts.UserDataFile) > 0 {
-		userdata, err := ioutil.ReadFile(opts.UserDataFile)
+		userdata, err := os.ReadFile(opts.UserDataFile)
 		if err != nil {
 			return nil, err
 		}

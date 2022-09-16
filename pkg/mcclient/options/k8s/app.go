@@ -16,7 +16,7 @@ package k8s
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -119,7 +119,7 @@ func (o K8sAppCreateFromFileOptions) Params() (*jsonutils.JSONDict, error) {
 	}
 	params := ret.(*jsonutils.JSONDict)
 	params.Add(jsonutils.NewString(o.NAME), "name")
-	content, err := ioutil.ReadFile(o.FILE)
+	content, err := os.ReadFile(o.FILE)
 	if err != nil {
 		return nil, err
 	}

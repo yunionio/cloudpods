@@ -34,8 +34,6 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
-	"os"
 	"path"
 	"testing"
 
@@ -118,11 +116,7 @@ func TestMakeCertTree(t *testing.T) {
 }
 
 func TestCreateCertificateChain(t *testing.T) {
-	dir, err := ioutil.TempDir("", t.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	caCfg := Certificates{
 		{

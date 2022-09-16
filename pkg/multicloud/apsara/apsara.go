@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -259,11 +259,11 @@ func (self *SApsaraClient) getDefaultClient(regionId string) (*sdk.Client, error
 				service := strings.ToLower(params.Get("Product"))
 				respCheck := func(resp *http.Response) {
 					if self.cpcfg.UpdatePermission != nil {
-						body, err := ioutil.ReadAll(resp.Body)
+						body, err := io.ReadAll(resp.Body)
 						if err != nil {
 							return
 						}
-						resp.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+						resp.Body = io.NopCloser(bytes.NewBuffer(body))
 						obj, err := jsonutils.Parse(body)
 						if err != nil {
 							return

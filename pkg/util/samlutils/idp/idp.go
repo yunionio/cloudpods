@@ -18,8 +18,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/xml"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	"yunion.io/x/log"
@@ -111,9 +111,9 @@ func (idp *SSAMLIdpInstance) SetHtmlTemplate(entry i18n.TableEntry) error {
 }
 
 func (idp *SSAMLIdpInstance) AddSPMetadataFile(filename string) error {
-	metadata, err := ioutil.ReadFile(filename)
+	metadata, err := os.ReadFile(filename)
 	if err != nil {
-		return errors.Wrap(err, "ioutil.ReadFile")
+		return errors.Wrap(err, "os.ReadFile")
 	}
 	return idp.AddSPMetadata(metadata)
 }

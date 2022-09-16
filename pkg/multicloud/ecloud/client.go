@@ -20,7 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -267,7 +267,7 @@ func (ec *SEcloudClient) doRequest(ctx context.Context, r IRequest) (jsonutils.J
 	if err != nil {
 		return nil, err
 	}
-	rbody, err := ioutil.ReadAll(resp.Body)
+	rbody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to read body of response")
 	}

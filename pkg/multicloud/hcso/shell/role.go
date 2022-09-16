@@ -16,7 +16,7 @@ package shell
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -86,6 +86,6 @@ func init() {
 				Status:      cloudid_api.CLOUD_POLICY_STATUS_AVAILABLE,
 			})
 		}
-		return ioutil.WriteFile(fmt.Sprintf("%s.json", api.CLOUD_PROVIDER_HCSO), []byte(jsonutils.Marshal(ret).PrettyString()), 0644)
+		return os.WriteFile(fmt.Sprintf("%s.json", api.CLOUD_PROVIDER_HCSO), []byte(jsonutils.Marshal(ret).PrettyString()), 0644)
 	})
 }

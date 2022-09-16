@@ -19,7 +19,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -483,9 +483,9 @@ func fetchOIDCRPInitLogoutParam(req *http.Request) (*SOIDCRPInitLogoutRequest, e
 			return nil, errors.Wrap(err, "GetBody")
 		}
 		defer b.Close()
-		qsBytes, err := ioutil.ReadAll(b)
+		qsBytes, err := io.ReadAll(b)
 		if err != nil {
-			return nil, errors.Wrap(err, "ioutil.ReadAll")
+			return nil, errors.Wrap(err, "io.ReadAll")
 		}
 		qs = string(qsBytes)
 	}

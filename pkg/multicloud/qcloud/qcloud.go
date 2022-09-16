@@ -19,7 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -614,11 +614,11 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	ts, _ := httpClient.Transport.(*http.Transport)
 	cli.WithHttpTransport(cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
-		body, err := ioutil.ReadAll(req.Body)
+		body, err := io.ReadAll(req.Body)
 		if err != nil {
-			return nil, errors.Wrapf(err, "ioutil.ReadAll")
+			return nil, errors.Wrapf(err, "io.ReadAll")
 		}
-		req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		req.Body = io.NopCloser(bytes.NewBuffer(body))
 		params, err := url.ParseQuery(string(body))
 		if err != nil {
 			return nil, errors.Wrapf(err, "ParseQuery(%s)", string(body))

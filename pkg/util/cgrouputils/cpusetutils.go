@@ -16,7 +16,7 @@ package cgrouputils
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"sync"
@@ -202,7 +202,7 @@ func GetProcessesCpuinfo(pids []string) ([]*ProcessCPUinfo, error) {
 
 func GetAllPids() ([]string, error) {
 	var pids = []string{}
-	files, err := ioutil.ReadDir("/proc")
+	files, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil, err
 	}

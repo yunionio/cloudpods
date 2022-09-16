@@ -18,7 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -177,7 +177,7 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 			fileInfo, _ := cacheFile.Stat()
 			dur, err := time.ParseDuration("-24h")
 			if fileInfo != nil && err == nil && fileInfo.ModTime().After(time.Now().Add(dur)) {
-				bytesToken, err := ioutil.ReadAll(cacheFile)
+				bytesToken, err := io.ReadAll(cacheFile)
 				if err == nil {
 					token := client.NewAuthTokenCredential()
 					err := json.Unmarshal(bytesToken, token)

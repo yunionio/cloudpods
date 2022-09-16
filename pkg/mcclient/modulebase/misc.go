@@ -15,7 +15,7 @@
 package modulebase
 
 import (
-	"io/ioutil"
+	"io"
 
 	"yunion.io/x/jsonutils"
 
@@ -29,7 +29,7 @@ func GetVersion(s *mcclient.ClientSession, serviceType string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
@@ -43,7 +43,7 @@ func ListWorkers(s *mcclient.ClientSession, serviceType string) (*ListResult, er
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

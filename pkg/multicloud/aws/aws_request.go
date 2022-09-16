@@ -17,7 +17,6 @@ package aws
 import (
 	"encoding/xml"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"strings"
 
@@ -45,10 +44,10 @@ func Unmarshal(r *request.Request) {
 	if r.DataFilled() {
 		var decoder *xml.Decoder
 		if DEBUG {
-			body, err := ioutil.ReadAll(r.HTTPResponse.Body)
+			body, err := io.ReadAll(r.HTTPResponse.Body)
 			if err != nil {
 				r.Error = awserr.NewRequestFailure(
-					awserr.New("ioutil.ReadAll", "read response body", err),
+					awserr.New("io.ReadAll", "read response body", err),
 					r.HTTPResponse.StatusCode,
 					r.RequestID,
 				)

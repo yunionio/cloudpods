@@ -15,8 +15,8 @@
 package promputils
 
 import (
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -70,7 +70,7 @@ func fileCompleter(d prompt.Document) []prompt.Suggest {
 		return cached
 	}
 
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.Print("[ERROR] catch error " + err.Error())
 		return []prompt.Suggest{}

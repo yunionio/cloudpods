@@ -16,7 +16,7 @@ package shell
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -193,7 +193,7 @@ func init() {
 		if err != nil {
 			return errors.Wrapf(err, "GetWebAcl")
 		}
-		data, err := ioutil.ReadFile(args.RULE_FILE)
+		data, err := os.ReadFile(args.RULE_FILE)
 		if err != nil {
 			return errors.Wrapf(err, "ReadFile")
 		}

@@ -16,7 +16,7 @@ package options
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/jsonutils"
 
@@ -203,7 +203,7 @@ type SGoogleCloudAccountCreateOptions struct {
 }
 
 func parseGcpCredential(filename string) (jsonutils.JSONObject, error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

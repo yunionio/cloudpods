@@ -17,7 +17,7 @@ package identity
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -142,7 +142,7 @@ func init() {
 		ObjectTags  string `help:"object tags"`
 	}
 	R(&PolicyCreateOptions{}, "policy-create", "Create a new policy", func(s *mcclient.ClientSession, args *PolicyCreateOptions) error {
-		policyBytes, err := ioutil.ReadFile(args.FILE)
+		policyBytes, err := os.ReadFile(args.FILE)
 		if err != nil {
 			return err
 		}
@@ -170,7 +170,7 @@ func init() {
 		Domain string `help:"domain of the policy"`
 	}
 	R(&PolicyImportOptions{}, "policy-import", "Import a policy", func(s *mcclient.ClientSession, args *PolicyImportOptions) error {
-		cont, err := ioutil.ReadFile(args.FILE)
+		cont, err := os.ReadFile(args.FILE)
 		if err != nil {
 			return err
 		}
@@ -223,7 +223,7 @@ func init() {
 			params.Add(jsonutils.NewString(args.Type), "type")
 		}
 		if len(args.File) > 0 {
-			policyBytes, err := ioutil.ReadFile(args.File)
+			policyBytes, err := os.ReadFile(args.File)
 			if err != nil {
 				return err
 			}

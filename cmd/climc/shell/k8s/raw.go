@@ -16,7 +16,6 @@ package k8s
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 
@@ -72,7 +71,7 @@ func initRaw() {
 	})
 
 	doPut := func(s *mcclient.ClientSession, args *rawPutOpt) error {
-		content, err := ioutil.ReadFile(args.File)
+		content, err := os.ReadFile(args.File)
 		if err != nil {
 			return err
 		}
@@ -100,7 +99,7 @@ func initRaw() {
 		if err != nil {
 			return err
 		}
-		tempfile, err := ioutil.TempFile("", fmt.Sprintf("k8s-%s-%s.yaml", args.KIND, args.NAME))
+		tempfile, err := os.CreateTemp("", fmt.Sprintf("k8s-%s-%s.yaml", args.KIND, args.NAME))
 		if err != nil {
 			return err
 		}

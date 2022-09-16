@@ -17,7 +17,7 @@ package aliyun
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -411,11 +411,11 @@ func (self *SAliyunClient) getSdkClient(regionId string) (*sdk.Client, error) {
 				action := params.Get("Action")
 				respCheck := func(resp *http.Response) {
 					if self.cpcfg.UpdatePermission != nil && resp.StatusCode >= 400 && resp.ContentLength > 0 {
-						body, err := ioutil.ReadAll(resp.Body)
+						body, err := io.ReadAll(resp.Body)
 						if err != nil {
 							return
 						}
-						resp.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+						resp.Body = io.NopCloser(bytes.NewBuffer(body))
 						obj, err := jsonutils.Parse(body)
 						if err != nil {
 							return

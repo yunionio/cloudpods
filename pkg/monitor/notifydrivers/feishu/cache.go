@@ -17,7 +17,7 @@ package feishu
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 )
 
@@ -44,13 +44,13 @@ func NewFileCache(path string) *FileCache {
 func (c *FileCache) Set(data IExpirable) error {
 	bytes, err := json.Marshal(data)
 	if err == nil {
-		ioutil.WriteFile(c.Path, bytes, 0644)
+		os.WriteFile(c.Path, bytes, 0644)
 	}
 	return err
 }
 
 func (c *FileCache) Get(data IExpirable) error {
-	bytes, err := ioutil.ReadFile(c.Path)
+	bytes, err := os.ReadFile(c.Path)
 	if err != nil {
 		return err
 	}

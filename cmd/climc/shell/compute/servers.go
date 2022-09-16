@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -298,7 +297,7 @@ func init() {
 
 		params := jsonutils.NewDict()
 		if len(opts.Key) > 0 {
-			privateKey, e := ioutil.ReadFile(opts.Key)
+			privateKey, e := os.ReadFile(opts.Key)
 			if e != nil {
 				return e
 			}
@@ -359,7 +358,7 @@ func init() {
 	}
 	R(&ServerUserDataOptions{}, "server-set-user-data", "Update server user_data", func(s *mcclient.ClientSession, args *ServerUserDataOptions) error {
 		params := jsonutils.NewDict()
-		content, err := ioutil.ReadFile(args.FILE)
+		content, err := os.ReadFile(args.FILE)
 		if err != nil {
 			return err
 		}
@@ -449,7 +448,7 @@ func init() {
 		}
 
 		importF := func(desc string) error {
-			ret, err := ioutil.ReadFile(desc)
+			ret, err := os.ReadFile(desc)
 			if err != nil {
 				return fmt.Errorf("Read file %s: %v", desc, err)
 			}
@@ -508,7 +507,7 @@ func init() {
 			err       error
 		)
 
-		rawConfig, err = ioutil.ReadFile(args.CONFIG_FILE)
+		rawConfig, err = os.ReadFile(args.CONFIG_FILE)
 		if err != nil {
 			return fmt.Errorf("Read config file %s error: %s", args.CONFIG_FILE, err)
 		}
@@ -844,7 +843,7 @@ func init() {
 		privateKey := ""
 		params := jsonutils.NewDict()
 		if len(opts.Key) > 0 {
-			key, e := ioutil.ReadFile(opts.Key)
+			key, e := os.ReadFile(opts.Key)
 			if e != nil {
 				return e
 			}

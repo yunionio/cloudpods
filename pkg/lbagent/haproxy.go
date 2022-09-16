@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -186,7 +185,7 @@ func (h *HaproxyHelper) handleUseCorpusCmd(ctx context.Context, cmd *LbagentCmd)
 			if err == nil {
 				d := buf.Bytes()
 				p := filepath.Join(dir, "telegraf.conf")
-				err := ioutil.WriteFile(p, d, agentutils.FileModeFile)
+				err := os.WriteFile(p, d, agentutils.FileModeFile)
 				if err == nil {
 					err := h.reloadTelegraf(ctx)
 					if err != nil {

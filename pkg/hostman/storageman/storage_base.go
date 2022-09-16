@@ -17,7 +17,7 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"regexp"
 	"runtime/debug"
@@ -502,7 +502,7 @@ func snapshotRecycle(ctx context.Context, userCred mcclient.TokenCredential, isS
 		log.Errorln("Request region get snapshot max count failed")
 		return
 	}
-	files, err := ioutil.ReadDir(storage.GetSnapshotDir())
+	files, err := os.ReadDir(storage.GetSnapshotDir())
 	if err != nil {
 		log.Errorln(err)
 		return
@@ -534,7 +534,7 @@ func checkSnapshots(storage IStorage, snapshotDir string, maxSnapshotCount int) 
 		return
 	}
 
-	snapshots, err := ioutil.ReadDir(snapshotPath)
+	snapshots, err := os.ReadDir(snapshotPath)
 	if err != nil {
 		log.Errorln(err)
 		return

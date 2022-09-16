@@ -17,7 +17,6 @@ package shell
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -141,11 +140,11 @@ func init() {
 		if err != nil {
 			return errors.Wrap(err, "DownloadObjectRange")
 		}
-		content, err := ioutil.ReadAll(data)
+		content, err := io.ReadAll(data)
 		if err != nil {
-			return errors.Wrap(err, "ioutil.ReadAll")
+			return errors.Wrap(err, "io.ReadAll")
 		}
-		return ioutil.WriteFile(args.OBJECT, content, 0644)
+		return os.WriteFile(args.OBJECT, content, 0644)
 	})
 
 	type ObjectUploadCheckOptions struct {

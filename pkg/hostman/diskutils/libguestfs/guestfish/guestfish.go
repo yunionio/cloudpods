@@ -17,7 +17,7 @@ package guestfish
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"runtime/debug"
@@ -134,7 +134,7 @@ func (fish *Guestfish) fetch() ([]string, error) {
 	}
 
 	fish.stderr.SetReadDeadline(time.Now().Add(time.Second * 1))
-	output, err := ioutil.ReadAll(fish.stderr)
+	output, err := io.ReadAll(fish.stderr)
 	if err != nil && !strings.Contains(err.Error(), "i/o timeout") {
 		log.Errorf("scan guestfish stderrScanner error %s", err)
 		fish.Quit()

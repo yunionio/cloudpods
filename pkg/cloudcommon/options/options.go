@@ -19,7 +19,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -200,7 +200,7 @@ func (opt *EtcdOptions) GetEtcdTLSConfig() (*tls.Config, error) {
 		opt.EtcdUseTLS = true
 	}
 	if opt.EtcdCacert != "" {
-		data, err := ioutil.ReadFile(opt.EtcdCacert)
+		data, err := os.ReadFile(opt.EtcdCacert)
 		if err != nil {
 			return nil, errors.Wrap(err, "read cacert file")
 		}
@@ -341,7 +341,7 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 		h.Init()
 		log.DisableColors()
 		log.Logger().AddHook(h)
-		log.Logger().Out = ioutil.Discard
+		log.Logger().Out = io.Discard
 		atexit.Register(atexit.ExitHandler{
 			Prio:   atexit.PRIO_LOG_CLOSE,
 			Reason: "deinit log rotate hook",

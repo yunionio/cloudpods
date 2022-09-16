@@ -16,7 +16,7 @@ package k8s
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -97,7 +97,7 @@ func (m *RawResourceManager) GetYAML(s *mcclient.ClientSession, kind string, nam
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 func (m *RawResourceManager) Put(s *mcclient.ClientSession, kind string, namespace string, name string, body jsonutils.JSONObject, cluster string) error {

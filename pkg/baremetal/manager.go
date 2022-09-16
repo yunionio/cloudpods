@@ -17,7 +17,6 @@ package baremetal
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -114,16 +113,16 @@ func (m *SBaremetalManager) GetZoneName() string {
 	return m.Agent.Zone.Name
 }
 
-func (m *SBaremetalManager) loadConfigs() ([]os.FileInfo, error) {
+func (m *SBaremetalManager) loadConfigs() ([]os.DirEntry, error) {
 	m.killAllIPMITool()
-	files, err := ioutil.ReadDir(m.configPath)
+	files, err := os.ReadDir(m.configPath)
 	if err != nil {
 		return nil, err
 	}
 	return files, nil
 }
 
-func (m *SBaremetalManager) initBaremetals(files []os.FileInfo) error {
+func (m *SBaremetalManager) initBaremetals(files []os.DirEntry) error {
 	bmIds := make([]string, 0)
 	for _, file := range files {
 		if file.IsDir() && regutils.MatchUUID(file.Name()) {
@@ -617,7 +616,7 @@ func (b *SBaremetalInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	if desc != nil {
 		b.desc = desc.(*jsonutils.JSONDict)
 	}
-	return ioutil.WriteFile(b.GetDescFilePath(), []byte(b.desc.String()), 0644)
+	return os.WriteFile(b.GetDescFilePath(), []byte(b.desc.String()), 0644)
 }
 
 func (b *SBaremetalInstance) loadServer() {
@@ -627,7 +626,7 @@ func (b *SBaremetalInstance) loadServer() {
 		return
 	}
 	descPath := b.GetServerDescFilePath()
-	desc, err := ioutil.ReadFile(descPath)
+	desc, err := os.ReadFile(descPath)
 	if err != nil {
 		log.Errorf("Failed to read server desc %s: %v", descPath, err)
 		return
@@ -661,7 +660,7 @@ func (b *SBaremetalInstance) SaveSSHConfig(remoteAddr string, key string) error 
 		RemoteIP: remoteAddr,
 	}
 	conf := jsonutils.Marshal(sshConf)
-	err = ioutil.WriteFile(b.GetSSHConfigFilePath(), []byte(conf.String()), 0644)
+	err = os.WriteFile(b.GetSSHConfigFilePath(), []byte(conf.String()), 0644)
 	if err != nil {
 		return err
 	}
@@ -672,7 +671,7 @@ func (b *SBaremetalInstance) SaveSSHConfig(remoteAddr string, key string) error 
 
 func (b *SBaremetalInstance) GetSSHConfig() (*types.SSHConfig, error) {
 	path := b.GetSSHConfigFilePath()
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -2189,9 +2188,9 @@ func (b *SBaremetalInstance) GenerateBootISO() error {
 		return errors.Wrap(httperrors.ErrNotSupported, "no valid redfishApi")
 	}
 	// generate ISO
-	isoDir, err := ioutil.TempDir("", "bmiso")
+	isoDir, err := os.MkdirTemp("", "bmiso")
 	if err != nil {
-		return errors.Wrap(err, "ioutil.TempDir")
+		return errors.Wrap(err, "os.MkdirTemp")
 	}
 	defer os.RemoveAll(isoDir)
 	isoLinDir := filepath.Join(isoDir, "isolinux")
@@ -2510,7 +2509,7 @@ func (server *SBaremetalServer) SaveDesc(desc jsonutils.JSONObject) error {
 	if desc != nil {
 		server.desc = desc.(*jsonutils.JSONDict)
 	}
-	return ioutil.WriteFile(server.baremetal.GetServerDescFilePath(), []byte(server.desc.String()), 0644)
+	return os.WriteFile(server.baremetal.GetServerDescFilePath(), []byte(server.desc.String()), 0644)
 }
 
 func (s *SBaremetalServer) RemoveDesc() {

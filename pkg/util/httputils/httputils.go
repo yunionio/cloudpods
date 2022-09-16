@@ -22,7 +22,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -464,7 +463,7 @@ func Request(client sClient, ctx context.Context, method THttpMethod, urlStr str
 		var reqBody string
 		if bodySeeker, ok := body.(io.ReadSeeker); ok {
 			bodySeeker.Seek(0, io.SeekStart)
-			reqBodyBytes, _ := ioutil.ReadAll(bodySeeker)
+			reqBodyBytes, _ := io.ReadAll(bodySeeker)
 			if reqBodyBytes != nil {
 				reqBody = string(reqBodyBytes)
 			}
@@ -604,7 +603,7 @@ func CloseResponse(resp *http.Response) {
 		// Without this closing connection would disallow re-using
 		// the same connection for future uses.
 		//  - http://stackoverflow.com/a/17961593/4465767
-		io.Copy(ioutil.Discard, resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 	}
 }
@@ -632,7 +631,7 @@ func (client *JsonClient) Send(ctx context.Context, req JsonRequest, response Js
 		}
 	}
 
-	rbody, err := ioutil.ReadAll(resp.Body)
+	rbody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		ce := newJsonClientErrorFromRequest(resp.Request, bodystr)
 		ce.Code = resp.StatusCode
@@ -697,7 +696,7 @@ func ParseResponse(reqBody string, resp *http.Response, err error, debug bool) (
 			red(string(dump))
 		}
 	}
-	rbody, err := ioutil.ReadAll(resp.Body)
+	rbody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		ce := newJsonClientErrorFromRequest(resp.Request, reqBody)
 		ce.Code = 499
@@ -743,7 +742,7 @@ func ParseJSONResponse(reqBody string, resp *http.Response, err error, debug boo
 		}
 	}
 
-	rbody, err := ioutil.ReadAll(resp.Body)
+	rbody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		ce := newJsonClientErrorFromRequest(resp.Request, reqBody)
 		ce.Code = 499

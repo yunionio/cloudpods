@@ -17,7 +17,7 @@ package backupstorage
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -264,7 +264,7 @@ func (s *SNFSBackupStorage) InstancePack(ctx context.Context, packageName string
 	}
 	defer s.unMount()
 
-	tmpFileDir, err := ioutil.TempDir(options.HostOptions.LocalBackupTempPath, "pack")
+	tmpFileDir, err := os.MkdirTemp(options.HostOptions.LocalBackupTempPath, "pack")
 	if err != nil {
 		return "", errors.Wrap(err, "create tempdir")
 	}
@@ -310,7 +310,7 @@ func (s *SNFSBackupStorage) InstancePack(ctx context.Context, packageName string
 	}
 	// save snapshot metadata
 	packageMetadataPath := path.Join(packagePath, PackageMetadataFilename)
-	err = ioutil.WriteFile(packageMetadataPath, []byte(jsonutils.Marshal(metadata).PrettyString()), 0644)
+	err = os.WriteFile(packageMetadataPath, []byte(jsonutils.Marshal(metadata).PrettyString()), 0644)
 	if err != nil {
 		return "", errors.Wrapf(err, "unable to write to %s", packageMetadataPath)
 	}
@@ -352,7 +352,7 @@ func (s *SNFSBackupStorage) InstanceUnpack(ctx context.Context, packageName stri
 	defer s.unMount()
 
 	// create temp working dir
-	tmpFileDir, err := ioutil.TempDir(options.HostOptions.LocalBackupTempPath, "unpack")
+	tmpFileDir, err := os.MkdirTemp(options.HostOptions.LocalBackupTempPath, "unpack")
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "create tempdir")
 	}
@@ -390,7 +390,7 @@ func (s *SNFSBackupStorage) InstanceUnpack(ctx context.Context, packageName stri
 	}
 	// unpack metadata
 	packageMetadataPath := path.Join(packagePath, PackageMetadataFilename)
-	metadataBytes, err := ioutil.ReadFile(packageMetadataPath)
+	metadataBytes, err := os.ReadFile(packageMetadataPath)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to read metadata file")
 	}

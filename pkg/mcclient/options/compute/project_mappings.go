@@ -15,7 +15,7 @@
 package compute
 
 import (
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/jsonutils"
 
@@ -38,7 +38,7 @@ type ProjectMappingCreateOption struct {
 func (opts *ProjectMappingCreateOption) Params() (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
 	ret.Update(jsonutils.Marshal(opts.BaseCreateOptions))
-	data, err := ioutil.ReadFile(opts.RULES_FILE)
+	data, err := os.ReadFile(opts.RULES_FILE)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (opts *ProjectMappingUpdateOption) Params() (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
 	ret.Update(jsonutils.Marshal(opts.BaseUpdateOptions))
 	if len(opts.RulesFile) > 0 {
-		data, err := ioutil.ReadFile(opts.RulesFile)
+		data, err := os.ReadFile(opts.RulesFile)
 		if err != nil {
 			return nil, err
 		}

@@ -19,7 +19,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"sort"
 	"strings"
 	"time"
@@ -111,7 +111,7 @@ func contentSha256(request requests.IRequest) string {
 	method := strings.ToUpper(request.GetMethod())
 	content := []byte{}
 	body := request.GetBodyReader()
-	content, _ = ioutil.ReadAll(body)
+	content, _ = io.ReadAll(body)
 	if method == "POST" {
 		if len(content) == 0 {
 			// other http method use query as content

@@ -17,7 +17,7 @@ package guestman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -166,9 +166,9 @@ func setAttributeFromLibvirtConfig(
 			}
 			log.Infof("config monitor path is %s, guest config id %s", libvirtConfig.MonitorPath, guestConfig.Id)
 			if len(libvirtConfig.MonitorPath) > 0 {
-				files, _ := ioutil.ReadDir(libvirtConfig.MonitorPath)
+				files, _ := os.ReadDir(libvirtConfig.MonitorPath)
 				for i := 0; i < len(files); i++ {
-					if files[i].Mode().IsDir() &&
+					if files[i].IsDir() &&
 						strings.HasPrefix(files[i].Name(), "domain") &&
 						strings.HasSuffix(files[i].Name(), guestConfig.Name) {
 						monitorPath := path.Join(libvirtConfig.MonitorPath, files[i].Name(), "monitor.sock")

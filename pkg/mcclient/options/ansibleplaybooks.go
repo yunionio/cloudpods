@@ -16,7 +16,7 @@ package options
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -76,7 +76,7 @@ func (opts *AnsiblePlaybookCommonOptions) ToPlaybook() (*ansible.Playbook, error
 		v := s[i+1:]
 		if len(v) > 0 && v[0] == '@' {
 			path := v[1:]
-			d, err := ioutil.ReadFile(path)
+			d, err := os.ReadFile(path)
 			if err != nil {
 				return nil, fmt.Errorf("read file %s: %v", path, err)
 			}

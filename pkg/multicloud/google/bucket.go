@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -404,7 +403,7 @@ func (region *SRegion) UploadPart(bucket, uploadId string, partIndex int, offset
 		return errors.Wrap(err, "storageUploadPart")
 	}
 	if resp.StatusCode >= 500 {
-		content, _ := ioutil.ReadAll(resp.Body)
+		content, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("status code: %d %s", resp.StatusCode, content)
 	}
 	defer resp.Body.Close()
@@ -421,7 +420,7 @@ func (region *SRegion) CheckUploadRange(bucket string, uploadId string) error {
 	}
 	defer resp.Body.Close()
 
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return errors.Wrap(err, "ReadAll")
 	}

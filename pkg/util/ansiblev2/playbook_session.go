@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -64,7 +63,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 	defer r.SetStopped()
 
 	// make tmpdir
-	tmpdir, err = ioutil.TempDir("", "onecloud-ansiblev2")
+	tmpdir, err = os.MkdirTemp("", "onecloud-ansiblev2")
 	if err != nil {
 		err = errors.Wrap(err, "making tmp dir")
 		return
@@ -80,7 +79,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 
 	// write out inventory
 	inventory := filepath.Join(tmpdir, "inventory")
-	err = ioutil.WriteFile(inventory, []byte(r.GetInventory()), os.FileMode(0600))
+	err = os.WriteFile(inventory, []byte(r.GetInventory()), os.FileMode(0600))
 	if err != nil {
 		err = errors.Wrapf(err, "writing inventory %s", inventory)
 		return
@@ -90,7 +89,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 	playbook := r.GetPlaybookPath()
 	if len(playbook) == 0 {
 		playbook = filepath.Join(tmpdir, "playbook")
-		err = ioutil.WriteFile(playbook, []byte(r.GetPlaybook()), os.FileMode(0600))
+		err = os.WriteFile(playbook, []byte(r.GetPlaybook()), os.FileMode(0600))
 		if err != nil {
 			err = errors.Wrapf(err, "writing playbook %s", playbook)
 			return
@@ -101,7 +100,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 	var privateKey string
 	if len(r.GetPrivateKey()) > 0 {
 		privateKey = filepath.Join(tmpdir, "private_key")
-		err = ioutil.WriteFile(privateKey, []byte(r.GetPrivateKey()), os.FileMode(0600))
+		err = os.WriteFile(privateKey, []byte(r.GetPrivateKey()), os.FileMode(0600))
 		if err != nil {
 			err = errors.Wrapf(err, "writing private key %s", privateKey)
 			return
@@ -112,7 +111,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 	var requirements string
 	if len(r.GetRequirements()) > 0 {
 		requirements = filepath.Join(tmpdir, "requirements.yml")
-		err = ioutil.WriteFile(requirements, []byte(r.GetRequirements()), os.FileMode(0600))
+		err = os.WriteFile(requirements, []byte(r.GetRequirements()), os.FileMode(0600))
 		if err != nil {
 			err = errors.Wrapf(err, "writing requirements %s", requirements)
 			return
@@ -128,7 +127,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 			err = errors.Wrapf(err, "mkdir -p %s", dir)
 			return
 		}
-		err = ioutil.WriteFile(path, content, os.FileMode(0600))
+		err = os.WriteFile(path, content, os.FileMode(0600))
 		if err != nil {
 			err = errors.Wrapf(err, "writing file %s", name)
 			return
@@ -143,14 +142,14 @@ func (r runnable) Run(ctx context.Context) (err error) {
 			return errors.Wrap(err, "unable to marshal map to yaml")
 		}
 		config = filepath.Join(tmpdir, "config")
-		err = ioutil.WriteFile(config, yml, os.FileMode(0600))
+		err = os.WriteFile(config, yml, os.FileMode(0600))
 		if err != nil {
 			return errors.Wrapf(err, "unable to write config to file %s", config)
 		}
 	} else if r.GetConfigYaml() != "" {
 		yml := r.GetConfigYaml()
 		config = filepath.Join(tmpdir, "config")
-		err = ioutil.WriteFile(config, []byte(yml), os.FileMode(0600))
+		err = os.WriteFile(config, []byte(yml), os.FileMode(0600))
 		if err != nil {
 			return errors.Wrapf(err, "unable to write config to file %s", config)
 		}
@@ -207,7 +206,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "ANSIBLE_HOST_KEY_CHECKING=False")
 		// for debug
-		ioutil.WriteFile(path.Join(tmpdir, "run_cmd"), []byte(cmd.String()), os.ModePerm)
+		os.WriteFile(path.Join(tmpdir, "run_cmd"), []byte(cmd.String()), os.ModePerm)
 		stdout, _ := cmd.StdoutPipe()
 		stderr, _ := cmd.StderrPipe()
 		if err1 := cmd.Start(); err1 != nil {

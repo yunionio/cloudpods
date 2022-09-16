@@ -16,7 +16,6 @@ package fileutils2
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 
 	"yunion.io/x/log"
@@ -35,7 +34,7 @@ type SReadSeeker struct {
 }
 
 func NewReadSeeker(reader io.Reader, size int64) (*SReadSeeker, error) {
-	tmpfile, err := ioutil.TempFile("", "fakeseeker")
+	tmpfile, err := os.CreateTemp("", "fakeseeker")
 	if err != nil {
 		return nil, errors.Wrap(err, "TempFile")
 	}

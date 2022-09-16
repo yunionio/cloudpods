@@ -19,7 +19,6 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -380,7 +379,7 @@ func (ovnHost *OvnHost) ensureNs(ctx context.Context) {
 	netnsName := ovnHost.netnsName()
 	{
 		p := path.Join("/var/run/netns", netnsName)
-		if _, err := ioutil.ReadFile(p); err == nil {
+		if _, err := os.ReadFile(p); err == nil {
 			err := os.Remove(p)
 			log.Warningf("removing possible leftover file: %s: %v", p, err)
 		}

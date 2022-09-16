@@ -16,7 +16,6 @@ package storageman
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 
 	"yunion.io/x/jsonutils"
@@ -61,7 +60,7 @@ func (c *SLocalImageCacheManager) loadCache(ctx context.Context) {
 	}
 	c.lock.LockRawObject(ctx, "LOCAL", "image-cache")
 	defer c.lock.ReleaseRawObject(ctx, "LOCAL", "image-cache")
-	files, _ := ioutil.ReadDir(c.cachePath)
+	files, _ := os.ReadDir(c.cachePath)
 	for _, f := range files {
 		if regutils.MatchUUIDExact(f.Name()) {
 			c.LoadImageCache(f.Name())

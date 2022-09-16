@@ -17,7 +17,7 @@ package aws
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -246,11 +246,11 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
 		var action string
 		if req.ContentLength > 0 {
-			body, err := ioutil.ReadAll(req.Body)
+			body, err := io.ReadAll(req.Body)
 			if err != nil {
-				return nil, errors.Wrapf(err, "ioutil.ReadAll")
+				return nil, errors.Wrapf(err, "io.ReadAll")
 			}
-			req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+			req.Body = io.NopCloser(bytes.NewBuffer(body))
 			params, err := url.ParseQuery(string(body))
 			if err != nil {
 				return nil, errors.Wrapf(err, "ParseQuery(%s)", string(body))

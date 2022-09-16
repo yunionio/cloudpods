@@ -20,7 +20,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	ptem "text/template"
@@ -93,7 +93,7 @@ func (tm *STemplateManager) defaultTemplate() ([]STemplate, error) {
 		for _, lang := range []string{api.TEMPLATE_LANG_CN, api.TEMPLATE_LANG_EN} {
 			contactType, topic := CONTACTTYPE_ALL, ""
 			titleTemplatePath := fmt.Sprintf("%s/%s@%s", templatePath, templateType, lang)
-			files, err := ioutil.ReadDir(titleTemplatePath)
+			files, err := os.ReadDir(titleTemplatePath)
 			if err != nil {
 				return templates, errors.Wrapf(err, "Read Dir '%s'", titleTemplatePath)
 			}
@@ -107,7 +107,7 @@ func (tm *STemplateManager) defaultTemplate() ([]STemplate, error) {
 					contactType = spliteName[1]
 				}
 				fullPath := filepath.Join(titleTemplatePath, file.Name())
-				content, err := ioutil.ReadFile(fullPath)
+				content, err := os.ReadFile(fullPath)
 				if err != nil {
 					return templates, err
 				}

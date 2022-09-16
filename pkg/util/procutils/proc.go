@@ -17,7 +17,7 @@ package procutils
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,7 +26,7 @@ import (
 
 func GetProcCmdline(pid uint) ([]string, error) {
 	pPath := filepath.Join("/proc", fmt.Sprintf("%d", pid), "cmdline")
-	content, err := ioutil.ReadFile(pPath)
+	content, err := os.ReadFile(pPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadFile %q", pPath)
 	}

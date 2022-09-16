@@ -16,7 +16,7 @@ package compute
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/jsonutils"
 
@@ -140,7 +140,7 @@ func init() {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		if len(args.PublicKey) > 0 {
-			content, e := ioutil.ReadFile(args.PublicKey)
+			content, e := os.ReadFile(args.PublicKey)
 			if e != nil {
 				params.Add(jsonutils.NewString(args.PublicKey), "public_key")
 			} else {

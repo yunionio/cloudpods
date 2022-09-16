@@ -15,7 +15,6 @@
 package sysutils
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"regexp"
@@ -217,7 +216,7 @@ func IsKernelModuleLoaded(name string) bool {
 
 func SetSysConfig(cpath, val string) bool {
 	if fileutils2.Exists(cpath) {
-		oval, err := ioutil.ReadFile(cpath)
+		oval, err := os.ReadFile(cpath)
 		if err != nil {
 			log.Errorln(err)
 			return false

@@ -15,7 +15,7 @@
 package cloudnet
 
 import (
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/jsonutils"
 
@@ -40,7 +40,7 @@ func (opts *RouterCreateOptions) Params() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	if opts.PrivateKey != "" && opts.PrivateKey[0] == '@' {
-		data, err := ioutil.ReadFile(opts.PrivateKey[1:])
+		data, err := os.ReadFile(opts.PrivateKey[1:])
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +73,7 @@ func (opts *RouterUpdateOptions) Params() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	if opts.PrivateKey != "" && opts.PrivateKey[0] == '@' {
-		data, err := ioutil.ReadFile(opts.PrivateKey[1:])
+		data, err := os.ReadFile(opts.PrivateKey[1:])
 		if err != nil {
 			return nil, err
 		}

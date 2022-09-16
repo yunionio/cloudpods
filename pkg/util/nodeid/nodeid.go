@@ -20,7 +20,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"reflect"
@@ -55,7 +54,7 @@ func stringToLines(s string) (lines []string, err error) {
 
 func getLinuxMacAddress() (string, error) {
 	path := "/sys/class/net/"
-	fs, e := ioutil.ReadDir(path)
+	fs, e := os.ReadDir(path)
 	if e != nil {
 		return "", e
 	}
@@ -67,7 +66,7 @@ func getLinuxMacAddress() (string, error) {
 		if e != nil || !strings.Contains(link, "/pci") {
 			continue
 		}
-		u, e := ioutil.ReadFile(path + f.Name() + "/address")
+		u, e := os.ReadFile(path + f.Name() + "/address")
 		if e == nil {
 			us := strings.TrimSpace(string(u))
 			isNew := true
@@ -101,7 +100,7 @@ func getLinuxMacAddress() (string, error) {
 }
 
 func getLinuxCpuInfo() (string, error) {
-	u, e := ioutil.ReadFile("/proc/cpuinfo")
+	u, e := os.ReadFile("/proc/cpuinfo")
 	if e != nil {
 		return "", e
 	}

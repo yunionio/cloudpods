@@ -15,7 +15,7 @@
 package compute
 
 import (
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -39,7 +39,7 @@ type WafRuleOptions struct {
 }
 
 func (opts *WafRuleOptions) Params() (jsonutils.JSONObject, error) {
-	data, err := ioutil.ReadFile(opts.RULE_FILE)
+	data, err := os.ReadFile(opts.RULE_FILE)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ioutils.ReadFile")
 	}

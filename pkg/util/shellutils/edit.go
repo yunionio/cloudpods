@@ -15,7 +15,6 @@
 package shellutils
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 
@@ -23,9 +22,9 @@ import (
 )
 
 func Edit(yaml string) (string, error) {
-	tmpfile, err := ioutil.TempFile("", "policy-blob")
+	tmpfile, err := os.CreateTemp("", "policy-blob")
 	if err != nil {
-		return "", errors.Wrap(err, "ioutil.TempFile")
+		return "", errors.Wrap(err, "os.CreateTemp")
 	}
 	defer os.Remove(tmpfile.Name()) // clean up
 
@@ -44,9 +43,9 @@ func Edit(yaml string) (string, error) {
 		return "", errors.Wrap(err, "cmd.Run")
 	}
 
-	policyBytes, err := ioutil.ReadFile(tmpfile.Name())
+	policyBytes, err := os.ReadFile(tmpfile.Name())
 	if err != nil {
-		return "", errors.Wrap(err, "ioutil.ReadFile")
+		return "", errors.Wrap(err, "os.ReadFile")
 	}
 
 	if yaml == string(policyBytes) {

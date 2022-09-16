@@ -17,7 +17,6 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -116,7 +115,7 @@ func (d *SLocalDisk) UmountFuseImage() {
 	procutils.NewCommand("umount", mntPath).Run()
 	procutils.NewCommand("rm", "-rf", mntPath).Run()
 	tmpPath := d.Storage.GetFuseTmpPath()
-	tmpFiles, err := ioutil.ReadDir(tmpPath)
+	tmpFiles, err := os.ReadDir(tmpPath)
 	if err != nil {
 		for _, f := range tmpFiles {
 			if strings.HasPrefix(f.Name(), d.Id) {
@@ -391,7 +390,7 @@ func (d *SLocalDisk) PostCreateFromImageFuse() {
 		log.Errorf("rm %s failed: %s, %s", mntPath, err, output)
 	}
 	tmpPath := d.Storage.GetFuseTmpPath()
-	tmpFiles, err := ioutil.ReadDir(tmpPath)
+	tmpFiles, err := os.ReadDir(tmpPath)
 	if err != nil {
 		for _, f := range tmpFiles {
 			if strings.HasPrefix(f.Name(), d.Id) {

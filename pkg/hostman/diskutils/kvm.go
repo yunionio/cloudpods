@@ -15,7 +15,6 @@
 package diskutils
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -43,10 +42,10 @@ func NewKVMGuestDisk(imageInfo qemuimg.SImageInfo, driver string, readOnly bool)
 	imagePath := imageInfo.Path
 	if readOnly {
 		// if readonly, create a top image over the original image, open device as RW
-		tmpFileDir, err := ioutil.TempDir(cloudconsts.DeployTempDir(), "kvm_disks")
+		tmpFileDir, err := os.MkdirTemp(cloudconsts.DeployTempDir(), "kvm_disks")
 		if err != nil {
 			log.Errorf("fail to obtain tempFile for readonly kvm disk: %s", err)
-			return nil, errors.Wrap(err, "ioutil.TempDir")
+			return nil, errors.Wrap(err, "os.MkdirTemp")
 		}
 		tmpFileName := filepath.Join(tmpFileDir, "disk")
 		img, err := qemuimg.NewQemuImage(tmpFileName)

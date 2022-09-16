@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -541,7 +540,7 @@ func (self *SGoogleClient) storageUpload(resource string, header http.Header, bo
 		return nil, errors.Wrap(err, "rawRequest")
 	}
 	if resp.StatusCode >= 400 {
-		msg, _ := ioutil.ReadAll(resp.Body)
+		msg, _ := io.ReadAll(resp.Body)
 		defer resp.Body.Close()
 		return nil, fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
 	}
@@ -554,7 +553,7 @@ func (self *SGoogleClient) storageUploadPart(resource string, header http.Header
 		return nil, errors.Wrap(err, "rawRequest")
 	}
 	if resp.StatusCode >= 400 {
-		msg, _ := ioutil.ReadAll(resp.Body)
+		msg, _ := io.ReadAll(resp.Body)
 		defer resp.Body.Close()
 		return nil, fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
 	}
@@ -568,7 +567,7 @@ func (self *SGoogleClient) storageAbortUpload(resource string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		msg, _ := ioutil.ReadAll(resp.Body)
+		msg, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
 	}
 	return nil
@@ -581,7 +580,7 @@ func (self *SGoogleClient) storageDownload(resource string, header http.Header) 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		msg, _ := ioutil.ReadAll(resp.Body)
+		msg, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
 	}
 	return resp.Body, err

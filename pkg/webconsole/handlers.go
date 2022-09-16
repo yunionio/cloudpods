@@ -18,9 +18,9 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -102,7 +102,7 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("Not found cluster %q kubeconfig", k8sReq.Cluster)
 	}
-	f, err := ioutil.TempFile("", "kubeconfig-")
+	f, err := os.CreateTemp("", "kubeconfig-")
 	if err != nil {
 		return nil, fmt.Errorf("Save kubeconfig error: %v", err)
 	}

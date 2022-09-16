@@ -16,7 +16,6 @@ package k8s
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 
@@ -58,7 +57,7 @@ func (cmd *K8sResourceCmd) ShowEvent() *K8sResourceCmd {
 }
 
 func FileTempEdit(prefix, suffix string, input string) (string, error) {
-	tempfile, err := ioutil.TempFile("", fmt.Sprintf("k8s-%s*.%s", prefix, suffix))
+	tempfile, err := os.CreateTemp("", fmt.Sprintf("k8s-%s*.%s", prefix, suffix))
 	if err != nil {
 		return "", errors.Wrap(err, "New tempfile")
 	}
@@ -75,7 +74,7 @@ func FileTempEdit(prefix, suffix string, input string) (string, error) {
 	if err := cmd.Run(); err != nil {
 		return "", err
 	}
-	content, err := ioutil.ReadFile(tempfile.Name())
+	content, err := os.ReadFile(tempfile.Name())
 	if err != nil {
 		return "", errors.Wrapf(err, "read file %s", tempfile.Name())
 	}
@@ -94,7 +93,7 @@ func (cmd *K8sResourceCmd) EditRaw(opt shell.IGetOpt) *K8sResourceCmd {
 			return err
 		}
 		yamlBytes := rawData.YAMLString()
-		tempfile, err := ioutil.TempFile("", fmt.Sprintf("k8s-%s*.yaml", args.GetId()))
+		tempfile, err := os.CreateTemp("", fmt.Sprintf("k8s-%s*.yaml", args.GetId()))
 		if err != nil {
 			return err
 		}
@@ -112,7 +111,7 @@ func (cmd *K8sResourceCmd) EditRaw(opt shell.IGetOpt) *K8sResourceCmd {
 		if err := cmd.Run(); err != nil {
 			return err
 		}
-		content, err := ioutil.ReadFile(tempfile.Name())
+		content, err := os.ReadFile(tempfile.Name())
 		if err != nil {
 			return err
 		}

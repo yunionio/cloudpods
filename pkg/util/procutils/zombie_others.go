@@ -19,7 +19,6 @@ package procutils
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -40,7 +39,7 @@ func WaitZombieLoop(ctx context.Context) {
 
 	tick := time.NewTicker(31 * time.Second)
 	for {
-		dirs, err := ioutil.ReadDir("/proc")
+		dirs, err := os.ReadDir("/proc")
 		if err != nil {
 			log.Errorf("read /proc dir: %v", err)
 		}
@@ -63,7 +62,7 @@ func WaitZombieLoop(ctx context.Context) {
 
 			// read /proc/<pid>/stat
 			statPath := filepath.Join("/proc", name, "stat")
-			data, err := ioutil.ReadFile(statPath)
+			data, err := os.ReadFile(statPath)
 			if err != nil {
 				log.Errorf("read %s: %v", statPath, err)
 				continue

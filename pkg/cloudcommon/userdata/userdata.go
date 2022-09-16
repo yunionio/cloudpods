@@ -19,7 +19,7 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/pkg/errors"
 )
@@ -51,7 +51,7 @@ func Decode(encodeUserdata string) (string, error) {
 		return "", errors.Wrap(err, "new reader")
 	}
 	defer gr.Close()
-	data, err := ioutil.ReadAll(gr)
+	data, err := io.ReadAll(gr)
 	if err != nil {
 		return "", errors.Wrap(err, "read data")
 	}

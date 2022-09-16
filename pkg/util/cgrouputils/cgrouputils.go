@@ -17,7 +17,6 @@ package cgrouputils
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -127,7 +126,7 @@ func GetRootParam(module, name, pid string) string {
 func SetRootParam(module, name, value, pid string) bool {
 	param := GetRootParam(module, name, pid)
 	if param != value {
-		err := ioutil.WriteFile(GetTaskParamPath(module, name, pid), []byte(value), 0644)
+		err := os.WriteFile(GetTaskParamPath(module, name, pid), []byte(value), 0644)
 		if err != nil {
 			if len(pid) == 0 {
 				pid = "root"
@@ -142,7 +141,7 @@ func SetRootParam(module, name, value, pid string) bool {
 // cleanup
 func CleanupNonexistPids(module string) {
 	var root = RootTaskPath(module)
-	files, err := ioutil.ReadDir(root)
+	files, err := os.ReadDir(root)
 	if err != nil {
 		log.Errorf("GetTaskIds failed: %s", err)
 		return
@@ -211,7 +210,7 @@ func (c *CGroupTask) GetTaskIds() []string {
 		return nil
 	}
 
-	files, err := ioutil.ReadDir(fmt.Sprintf("/proc/%s/task", c.pid))
+	files, err := os.ReadDir(fmt.Sprintf("/proc/%s/task", c.pid))
 	if err != nil {
 		log.Errorf("GetTaskIds failed: %s", err)
 		return nil

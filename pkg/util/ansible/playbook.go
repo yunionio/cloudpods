@@ -17,7 +17,6 @@ package ansible
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -126,7 +125,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 	}
 
 	// make tmpdir
-	tmpdir, err = ioutil.TempDir("", "onecloud-ansible")
+	tmpdir, err = os.MkdirTemp("", "onecloud-ansible")
 	if err != nil {
 		err = errors.WithMessage(err, "making tmp dir")
 		return
@@ -143,7 +142,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 
 	// write out inventory
 	inventory := filepath.Join(tmpdir, "inventory")
-	err = ioutil.WriteFile(inventory, pb.Inventory.Data(), os.FileMode(0600))
+	err = os.WriteFile(inventory, pb.Inventory.Data(), os.FileMode(0600))
 	if err != nil {
 		err = errors.WithMessagef(err, "writing inventory %s", inventory)
 		return
@@ -153,7 +152,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 	var privateKey string
 	if len(pb.PrivateKey) > 0 {
 		privateKey = filepath.Join(tmpdir, "private_key")
-		err = ioutil.WriteFile(privateKey, pb.PrivateKey, os.FileMode(0600))
+		err = os.WriteFile(privateKey, pb.PrivateKey, os.FileMode(0600))
 		if err != nil {
 			err = errors.WithMessagef(err, "writing private key %s", privateKey)
 			return
@@ -169,7 +168,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 			err = errors.WithMessagef(err, "mkdir -p %s", dir)
 			return
 		}
-		err = ioutil.WriteFile(path, content, os.FileMode(0600))
+		err = os.WriteFile(path, content, os.FileMode(0600))
 		if err != nil {
 			err = errors.WithMessagef(err, "writing file %s", name)
 			return

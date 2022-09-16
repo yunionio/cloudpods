@@ -16,7 +16,7 @@ package compute
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/jsonutils"
 
@@ -37,7 +37,7 @@ func loadbalancerCertificateLoadFiles(cert, pkey string, allowEmpty bool) (*json
 				return nil, fmt.Errorf("%s: empty path", fieldName)
 			}
 		}
-		d, err := ioutil.ReadFile(path)
+		d, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("%s: read %s: %s", fieldName, path, err)
 		}

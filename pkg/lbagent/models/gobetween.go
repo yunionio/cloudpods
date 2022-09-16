@@ -17,7 +17,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"yunion.io/x/log"
@@ -171,7 +171,7 @@ func (b *LoadbalancerCorpus) GenGobetweenConfigs(dir string, opts *GenGobetweenC
 			return err
 		}
 		p := filepath.Join(dir, "gobetween.json")
-		err = ioutil.WriteFile(p, d, agentutils.FileModeFile)
+		err = os.WriteFile(p, d, agentutils.FileModeFile)
 		if err != nil {
 			return err
 		}

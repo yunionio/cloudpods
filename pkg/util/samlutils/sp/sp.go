@@ -18,8 +18,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/xml"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -83,9 +83,9 @@ func (sp *SSAMLSpInstance) GetIdentityProviders() []*SSAMLIdentityProvider {
 }
 
 func (sp *SSAMLSpInstance) AddIdpMetadataFile(filename string) error {
-	metadata, err := ioutil.ReadFile(filename)
+	metadata, err := os.ReadFile(filename)
 	if err != nil {
-		return errors.Wrap(err, "ioutil.ReadFile")
+		return errors.Wrap(err, "os.ReadFile")
 	}
 	return sp.AddIdpMetadata(metadata)
 }

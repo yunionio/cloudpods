@@ -15,7 +15,7 @@
 package k8s
 
 import (
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -89,7 +89,7 @@ func (o ReleaseCreateUpdateOptions) Params() (*jsonutils.JSONDict, error) {
 	params.Add(jsonutils.NewInt(o.Timeout), "timeout")
 	if o.Values != "" {
 		//vals, err := helm.MergeValuesF(args.Values, args.Set, []string{})
-		vals, err := ioutil.ReadFile(o.Values)
+		vals, err := os.ReadFile(o.Values)
 		if err != nil {
 			return nil, err
 		}

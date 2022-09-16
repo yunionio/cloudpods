@@ -16,8 +16,8 @@ package libguestfs
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -159,7 +159,7 @@ func (d *SLibguestfsDriver) findNbdPartitions() ([]fsdriver.IDiskPartition, erro
 	}
 	dev := filepath.Base(d.nbddev)
 	devpath := filepath.Dir(d.nbddev)
-	files, err := ioutil.ReadDir(devpath)
+	files, err := os.ReadDir(devpath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "read dir %s", devpath)
 	}

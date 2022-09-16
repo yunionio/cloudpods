@@ -17,7 +17,6 @@ package models
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,7 +45,7 @@ func (b *LoadbalancerCorpus) GenHaproxyToplevelConfig(dir string, opts *AgentPar
 	}
 	data := buf.Bytes()
 	p := filepath.Join(dir, "00-haproxy.cfg")
-	err = ioutil.WriteFile(p, data, agentutils.FileModeFile)
+	err = os.WriteFile(p, data, agentutils.FileModeFile)
 	if err != nil {
 		return err
 	}
@@ -69,7 +68,7 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 				"",
 			}
 			s := strings.Join(lines, "\n")
-			err := ioutil.WriteFile(p, []byte(s), agentutils.FileModeFile)
+			err := os.WriteFile(p, []byte(s), agentutils.FileModeFile)
 			if err != nil {
 				return nil, fmt.Errorf("write 01-haproxy.cfg: %s", err)
 			}
@@ -82,7 +81,7 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 			d = append(d, []byte(lbcert.PrivateKey)...)
 			fn := fmt.Sprintf("%s.pem", lbcert.Id)
 			p := filepath.Join(certsBase, fn)
-			err := ioutil.WriteFile(p, d, agentutils.FileModeFileSensitive)
+			err := os.WriteFile(p, d, agentutils.FileModeFileSensitive)
 			if err != nil {
 				return nil, fmt.Errorf("write cert %s: %s", lbcert.Id, err)
 			}
@@ -100,7 +99,7 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 			s += strings.Join(cidrs, "\n")
 			s += "\n"
 			p := filepath.Join(dir, "acl-"+lbacl.Id)
-			err := ioutil.WriteFile(p, []byte(s), agentutils.FileModeFile)
+			err := os.WriteFile(p, []byte(s), agentutils.FileModeFile)
 			if err != nil {
 				return nil, err
 			}
@@ -161,7 +160,7 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 			}
 			fn := fmt.Sprintf("%s.%s", lb.Id, agentutils.HaproxyCfgExt)
 			p := filepath.Join(dir, fn)
-			err := ioutil.WriteFile(p, d, agentutils.FileModeFile)
+			err := os.WriteFile(p, d, agentutils.FileModeFile)
 			if err != nil {
 				return nil, err
 			}

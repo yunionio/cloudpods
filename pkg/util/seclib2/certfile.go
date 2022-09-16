@@ -19,7 +19,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 
@@ -37,13 +37,13 @@ const (
 //
 // Callers are responsible for removing the returned tmpfile
 func MergeCaCertFiles(cafile string, certfile string) (string, error) {
-	tmpfile, err := ioutil.TempFile("", "cerfile.*.crt")
+	tmpfile, err := os.CreateTemp("", "cerfile.*.crt")
 	if err != nil {
 		return "", fmt.Errorf("fail to open tempfile for ca cerfile: %s", err)
 	}
 	defer tmpfile.Close()
 
-	cont, err := ioutil.ReadFile(certfile)
+	cont, err := os.ReadFile(certfile)
 	if err != nil {
 		return "", fmt.Errorf("fail to read certfile %s", err)
 	}
@@ -55,7 +55,7 @@ func MergeCaCertFiles(cafile string, certfile string) (string, error) {
 		offset -= 1
 	}
 	tmpfile.Write(cont[offset:])
-	cont, err = ioutil.ReadFile(cafile)
+	cont, err = os.ReadFile(cafile)
 	if err != nil {
 		return "", fmt.Errorf("fail to read cafile %s", err)
 	}

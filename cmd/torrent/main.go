@@ -17,7 +17,7 @@ package main
 import (
 	"crypto/sha1"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -206,7 +206,7 @@ func main() {
 							log.Errorf("callback fail %s", err)
 						} else {
 							defer resp.Body.Close()
-							respBody, _ := ioutil.ReadAll(resp.Body)
+							respBody, _ := io.ReadAll(resp.Body)
 							log.Errorf("callback response error %s", string(respBody))
 						}
 						time.Sleep(time.Duration(tried+1) * 10 * time.Second)

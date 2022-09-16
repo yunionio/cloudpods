@@ -17,7 +17,6 @@ package misc
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"syscall"
 
@@ -40,7 +39,7 @@ func init() {
 	}
 
 	downloadToTemp := func(input io.Reader, pattern string) (string, error) {
-		tmpfile, err := ioutil.TempFile("", pattern)
+		tmpfile, err := os.CreateTemp("", pattern)
 		if err != nil {
 			return "", err
 		}

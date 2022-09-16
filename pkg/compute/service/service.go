@@ -16,7 +16,6 @@ package service
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -237,7 +236,7 @@ func initEtcdLockOpts(opts *options.ComputeOptions) error {
 	if etcdEndpoint != nil {
 		opts.EtcdEndpoints = []string{etcdEndpoint.Url}
 		if len(etcdEndpoint.CertId) > 0 {
-			dir, err := ioutil.TempDir("", "etcd-cluster-tls")
+			dir, err := os.MkdirTemp("", "etcd-cluster-tls")
 			if err != nil {
 				return errors.Wrap(err, "create dir etcd cluster tls")
 			}
@@ -261,5 +260,5 @@ func initEtcdLockOpts(opts *options.ComputeOptions) error {
 
 func writeFile(dir, file string, data []byte) (string, error) {
 	p := filepath.Join(dir, file)
-	return p, ioutil.WriteFile(p, data, 0600)
+	return p, os.WriteFile(p, data, 0600)
 }

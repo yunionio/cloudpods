@@ -17,7 +17,7 @@ package ucloud
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -109,11 +109,11 @@ func NewUcloudClient(cfg *UcloudClientConfig) (*SUcloudClient, error) {
 	httpClient.Transport = cloudprovider.GetCheckTransport(ts, func(req *http.Request) (func(resp *http.Response), error) {
 		if cfg.cpcfg.ReadOnly {
 			if req.ContentLength > 0 {
-				body, err := ioutil.ReadAll(req.Body)
+				body, err := io.ReadAll(req.Body)
 				if err != nil {
-					return nil, errors.Wrapf(err, "ioutil.ReadAll")
+					return nil, errors.Wrapf(err, "io.ReadAll")
 				}
-				req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+				req.Body = io.NopCloser(bytes.NewBuffer(body))
 				obj, err := jsonutils.Parse(body)
 				if err != nil {
 					return nil, errors.Wrapf(err, "Parse request body")

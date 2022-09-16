@@ -16,7 +16,7 @@ package shell
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -58,9 +58,9 @@ func init() {
 	}
 
 	shellutils.R(&SkuEstimate{}, "sku-estimate", "Estimate sku price", func(cli *google.SRegion, args *SkuEstimate) error {
-		data, err := ioutil.ReadFile(args.RATE_FAILE)
+		data, err := os.ReadFile(args.RATE_FAILE)
 		if err != nil {
-			return errors.Wrap(err, "ioutil.ReadFile")
+			return errors.Wrap(err, "os.ReadFile")
 		}
 		rate := google.SRateInfo{}
 		j, err := jsonutils.Parse(data)

@@ -21,7 +21,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
@@ -116,13 +115,13 @@ func SendWebRequestSync(ctx context.Context, webhook *monitor.SendWebhookSync) e
 
 	if resp.StatusCode/100 == 2 {
 		// flushing the body enables the transport to reuse the same connection
-		if _, err := io.Copy(ioutil.Discard, resp.Body); err != nil {
-			log.Errorf("Failed to copy resp.Body to ioutil.Discard: %v", err)
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+			log.Errorf("Failed to copy resp.Body to io.Discard: %v", err)
 		}
 		return nil
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

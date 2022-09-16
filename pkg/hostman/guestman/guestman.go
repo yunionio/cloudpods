@@ -17,7 +17,6 @@ package guestman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -289,11 +288,11 @@ func (m *SGuestManager) CPUSetRemove(ctx context.Context, sid string) error {
 	return guest.CPUSetRemove(ctx)
 }
 
-func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
+func (m *SGuestManager) IsGuestDir(f os.DirEntry) bool {
 	if !regutils.MatchUUID(f.Name()) {
 		return false
 	}
-	if !f.Mode().IsDir() && f.Mode()&os.ModeSymlink == 0 {
+	if !f.IsDir() && f.Type()&os.ModeSymlink == 0 {
 		return false
 	}
 	descFile := path.Join(m.ServersPath, f.Name(), "desc")
@@ -312,7 +311,7 @@ func (m *SGuestManager) IsGuestExist(sid string) bool {
 }
 
 func (m *SGuestManager) LoadExistingGuests() {
-	files, err := ioutil.ReadDir(m.ServersPath)
+	files, err := os.ReadDir(m.ServersPath)
 	if err != nil {
 		log.Errorf("List servers path %s error %s", m.ServersPath, err)
 	}

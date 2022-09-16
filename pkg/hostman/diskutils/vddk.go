@@ -21,7 +21,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -192,9 +191,9 @@ func (vd *VDDKDisk) ParsePartitions(buf string) error {
 	if len(ms) != 0 {
 		vd.FUseDir = ms[0][1]
 		diskId := filepath.Base(vd.FUseDir)
-		files, err := ioutil.ReadDir(TMPDIR)
+		files, err := os.ReadDir(TMPDIR)
 		if err != nil {
-			return errors.Wrapf(err, "ioutil.ReadDir for %s", TMPDIR)
+			return errors.Wrapf(err, "os.ReadDir for %s", TMPDIR)
 		}
 		for _, f := range files {
 			if strings.HasPrefix(f.Name(), diskId) {
