@@ -15,12 +15,16 @@
 package monitor
 
 import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 var (
-	CommonAlertManager *SCommonAlertManager
+	CommonAlerts *SCommonAlertManager
 )
 
 type SCommonAlertManager struct {
@@ -28,9 +32,9 @@ type SCommonAlertManager struct {
 }
 
 func init() {
-	CommonAlertManager = NewCommonAlertManager()
+	CommonAlerts = NewCommonAlertManager()
 	for _, m := range []modulebase.IBaseManager{
-		CommonAlertManager,
+		CommonAlerts,
 	} {
 		modules.Register(m)
 	}
@@ -43,4 +47,9 @@ func NewCommonAlertManager() *SCommonAlertManager {
 	return &SCommonAlertManager{
 		ResourceManager: &man,
 	}
+}
+
+func (m *SCommonAlertManager) DoCreate(s *mcclient.ClientSession, config *AlertConfig, bi *monitor.CommonAlertCreateBaseInput) (jsonutils.JSONObject, error) {
+	input := config.ToCommonAlertCreateInput(bi)
+	return m.Create(s, input.JSON(input))
 }

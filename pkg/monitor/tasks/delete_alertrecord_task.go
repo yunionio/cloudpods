@@ -36,10 +36,10 @@ func init() {
 }
 
 func (self *DeleteAlertRecordTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	alert := obj.(*models.SCommonAlert)
+	alert := obj.(models.ICommonAlert)
 	errs := alert.DeleteAttachAlertRecords(ctx, self.GetUserCred())
 	if len(errs) != 0 {
-		msg := jsonutils.NewString(fmt.Sprintf("fail to DeleteAttachAlertRecords:%s.err:%v", alert.Name, errors.NewAggregate(errs)))
+		msg := jsonutils.NewString(fmt.Sprintf("fail to DeleteAttachAlertRecords:%s.err:%v", alert.GetName(), errors.NewAggregate(errs)))
 		self.taskFail(ctx, alert, msg)
 		return
 	}
@@ -55,9 +55,8 @@ func (self *DeleteAlertRecordTask) OnInit(ctx context.Context, obj db.IStandalon
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *DeleteAlertRecordTask) taskFail(ctx context.Context, alert *models.SCommonAlert, msg jsonutils.JSONObject) {
+func (self *DeleteAlertRecordTask) taskFail(ctx context.Context, alert models.ICommonAlert, msg jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(alert, db.ACT_DELETE_FAIL, msg, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, alert, logclient.ACT_DELETE, msg, self.UserCred, false)
 	self.SetStageFailed(ctx, msg)
-	return
 }

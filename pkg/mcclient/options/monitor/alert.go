@@ -94,7 +94,6 @@ type AlertConditionOptions struct {
 	THRESHOLD  float64  `help:"Alert threshold"`
 	Period     string   `help:"Query metric period e.g. '5m', '1h'" default:"5m"`
 	Tag        []string `help:"Query tag, e.g. 'zone=zon0,name=vmname'"`
-	For        string   `help:"For time duration"`
 }
 
 func (opt AlertConditionOptions) Params(conf *monitor2.AlertConfig) (*monitor2.AlertCondition, error) {
@@ -152,6 +151,7 @@ type AlertCreateOptions struct {
 	Frequency string `help:"Alert execute frequency, e.g. '5m', '1h'"`
 	Enabled   bool   `help:"Enable alert"`
 	Level     string `help:"Alert level"`
+	For       string `help:"For time duration"`
 }
 
 func (opt AlertCreateOptions) Params() (jsonutils.JSONObject, error) {

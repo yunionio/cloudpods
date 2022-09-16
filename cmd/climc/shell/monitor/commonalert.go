@@ -20,7 +20,8 @@ import (
 )
 
 func init() {
-	cmd := NewResourceCmd(modules.CommonAlertManager)
+	cmd := NewResourceCmd(modules.CommonAlerts)
+	cmd.Create(new(options.CommonAlertCreateOptions))
 	cmd.List(new(options.CommonAlertListOptions))
 	cmd.Show(new(options.CommonAlertShowOptions))
 	cmd.Perform("enable", &options.CommonAlertShowOptions{})

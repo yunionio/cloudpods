@@ -56,13 +56,13 @@ type SV1AlertManager struct {
 }
 
 type SNodeAlertManager struct {
-	SV1AlertManager
+	SCommonAlertManager
 }
 
 func NewNodeAlertManager() *SNodeAlertManager {
 	man := &SNodeAlertManager{
-		SV1AlertManager: SV1AlertManager{
-			*NewAlertManager(SNodeAlert{}, "nodealert", "nodealerts"),
+		SCommonAlertManager: SCommonAlertManager{
+			SAlertManager: *NewAlertManager(SNodeAlert{}, "nodealert", "nodealerts"),
 		},
 	}
 	man.SetVirtualObject(man)
@@ -74,7 +74,7 @@ type SV1Alert struct {
 }
 
 type SNodeAlert struct {
-	SV1Alert
+	SCommonAlert
 }
 
 func (v1man *SV1AlertManager) CreateNotification(
@@ -127,12 +127,14 @@ func (man *SNodeAlertManager) ValidateCreateData(
 	if err != nil {
 		return nil, err
 	}
-	alertInput := data.ToAlertCreateInput(name, field, measurement, monitor.METRIC_DATABASE_TELE)
-	alertInput, err = AlertManager.ValidateCreateData(ctx, userCred, ownerId, query, alertInput)
+	alertInput := data.ToCommonAlertCreateInput(name, field, measurement, monitor.METRIC_DATABASE_TELE)
+	alertInput, err = GetCommonAlertManager().ValidateCreateData(ctx, userCred, ownerId, query, alertInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CommonAlertManager.ValidateCreateData")
 	}
-	data.AlertCreateInput = alertInput
+	data.CommonAlertCreateInput = &alertInput
+	data.AlertCreateInput = alertInput.AlertCreateInput
+	data.UsedBy = AlertNotificationUsedByNodeAlert
 	return &data, nil
 }
 
@@ -254,7 +256,7 @@ func (man *SNodeAlertManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query monitor.NodeAlertListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := man.SV1AlertManager.ListItemFilter(ctx, q, userCred, query.V1AlertListInput)
+	q, err := man.SCommonAlertManager.ListItemFilter(ctx, q, userCred, query.ToCommonAlertListInput())
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +284,7 @@ func (man *SNodeAlertManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = man.SV1AlertManager.OrderByExtraFields(ctx, q, userCred, query.V1AlertListInput)
+	q, err = man.SCommonAlertManager.OrderByExtraFields(ctx, q, userCred, query.AlertListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SV1AlertManager.OrderByExtraFields")
 	}
@@ -293,7 +295,7 @@ func (man *SNodeAlertManager) OrderByExtraFields(
 func (man *SNodeAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = man.SV1AlertManager.QueryDistinctExtraField(q, field)
+	q, err = man.SCommonAlertManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -313,7 +315,7 @@ func (man *SNodeAlertManager) CustomizeFilterList(
 	ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (
 	*db.CustomizeListFilters, error) {
-	filters, err := man.SV1AlertManager.CustomizeFilterList(ctx, q, userCred, query)
+	filters, err := man.SCommonAlertManager.CustomizeFilterList(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +385,7 @@ func (man *SNodeAlertManager) CustomizeFilterList(
 func (alert *SV1Alert) CustomizeCreate(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	notiName, channel, recipients, usedBy string) error {
-	noti, err := NodeAlertManager.CreateNotification(ctx, userCred, notiName, channel, recipients)
+	noti, err := MeterAlertManager.CreateNotification(ctx, userCred, notiName, channel, recipients)
 	if err != nil {
 		return errors.Wrap(err, "create notification")
 	}
@@ -413,14 +415,19 @@ func (alert *SNodeAlert) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
-	if err := alert.SAlert.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
-		return err
-	}
 	input := new(monitor.NodeAlertCreateInput)
 	if err := data.Unmarshal(input); err != nil {
 		return err
 	}
-	return alert.SV1Alert.CustomizeCreate(ctx, userCred, input.Metric, input.Channel, input.Recipients, AlertNotificationUsedByNodeAlert)
+	if alert.Id == "" {
+		alert.Id = db.DefaultUUIDGenerator()
+	}
+	alert.UsedBy = input.UsedBy
+	caInput := input.CommonAlertCreateInput
+	if err := alert.SCommonAlert.CustomizeCreate(ctx, userCred, ownerId, query, caInput.JSON(caInput)); err != nil {
+		return errors.Wrap(err, "CommonAlert.CustomizeCreate")
+	}
+	return nil
 }
 
 func (alert *SNodeAlert) getNodeId() string {
@@ -450,7 +457,6 @@ func (alert *SNodeAlert) setType(ctx context.Context, userCred mcclient.TokenCre
 func (alert *SNodeAlert) PostCreate(ctx context.Context,
 	userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	alert.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	input := new(monitor.NodeAlertCreateInput)
 	if err := data.Unmarshal(input); err != nil {
 		log.Errorf("post create unmarshal input: %v", err)
@@ -468,6 +474,8 @@ func (alert *SNodeAlert) PostCreate(ctx context.Context,
 		log.Errorf("set type: %v", err)
 		return
 	}
+	caInput := input.CommonAlertCreateInput
+	alert.SCommonAlert.PostCreate(ctx, userCred, ownerId, query, caInput.JSON(caInput))
 }
 
 func (man *SV1AlertManager) FetchCustomizeColumns(
@@ -512,7 +520,7 @@ func (alert *SV1Alert) getMoreDetails(out monitor.AlertV1Details, usedBy string)
 
 	setting, err := alert.GetSettings()
 	if err != nil {
-		return out, err
+		return out, errors.Wrapf(err, "GetSettings")
 	}
 	if len(setting.Conditions) == 0 {
 		return out, nil
@@ -532,13 +540,13 @@ func (alert *SV1Alert) getMoreDetails(out monitor.AlertV1Details, usedBy string)
 
 	noti, err := alert.GetNotification(usedBy)
 	if err != nil {
-		return out, err
+		return out, errors.Wrapf(err, "GetNotification for %q", usedBy)
 	}
 	if noti != nil {
 		out.NotifierId = noti.GetId()
 		settings := new(monitor.NotificationSettingOneCloud)
 		if err := noti.Settings.Unmarshal(settings); err != nil {
-			return out, err
+			return out, errors.Wrapf(err, "Unmarshal to NotificationSettingOneCloud")
 		}
 		out.Recipients = strings.Join(settings.UserIds, ",")
 		out.Channel = settings.Channel
@@ -565,37 +573,76 @@ func (man *SNodeAlertManager) FetchCustomizeColumns(
 ) []monitor.NodeAlertDetails {
 	rows := make([]monitor.NodeAlertDetails, len(objs))
 
-	v1Rows := man.SV1AlertManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	v1Rows := man.SCommonAlertManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = monitor.NodeAlertDetails{
-			AlertV1Details: v1Rows[i],
+			AlertV1Details: monitor.AlertV1Details{
+				AlertDetails: v1Rows[i].AlertDetails,
+			},
 		}
-		rows[i], _ = objs[i].(*SNodeAlert).getMoreDetails(rows[i])
+		var err error
+		rows[i], err = objs[i].(*SNodeAlert).getMoreDetails(ctx, v1Rows[i], rows[i])
+		if err != nil {
+			log.Warningf("getMoreDetails for nodealert %s: %v", rows[i].Name, err)
+		}
 	}
 
 	return rows
 }
 
-func (alert *SNodeAlert) getMoreDetails(out monitor.NodeAlertDetails) (monitor.NodeAlertDetails, error) {
-	var err error
-	out.AlertV1Details, err = alert.SV1Alert.getMoreDetails(out.AlertV1Details, AlertNotificationUsedByNodeAlert)
-	if err != nil {
-		return out, errors.Wrap(err, "SV1Alert.getMoreDetails")
-	}
-
+func (alert *SNodeAlert) getMoreDetails(ctx context.Context, input monitor.CommonAlertDetails, out monitor.NodeAlertDetails) (monitor.NodeAlertDetails, error) {
 	out.Type = alert.getType()
 	out.NodeId = alert.getNodeId()
 	out.NodeName = alert.getNodeName()
 
+	out.AlertDetails = input.AlertDetails
+	out.Name = alert.GetName()
+	out.Period = input.Period
+	if alert.Frequency < 60 {
+		out.Window = fmt.Sprintf("%ds", alert.Frequency)
+	} else {
+		out.Window = fmt.Sprintf("%dm", alert.Frequency/60)
+	}
+
 	setting, err := alert.GetSettings()
 	if err != nil {
-		return out, err
+		return out, errors.Wrap(err, "GetSettings")
 	}
 	if len(setting.Conditions) == 0 {
 		return out, nil
 	}
+	cond := setting.Conditions[0]
+	cmp := ""
+	switch cond.Evaluator.Type {
+	case "gt":
+		cmp = ">="
+	case "lt":
+		cmp = "<="
+	}
+	out.Level = alert.Level
+	out.Comparator = cmp
+	out.Threshold = cond.Evaluator.Params[0]
+	out.Period = cond.Query.From
+	q := cond.Query
+	measurement := q.Model.Measurement
+	field := q.Model.Selects[0][0].Params[0]
+	db := q.Model.Database
+	out.Measurement = measurement
+	out.Field = field
 	out.Metric = fmt.Sprintf("%s.%s", out.Measurement, out.Field)
+	out.DB = db
+	out.Status = alert.GetStatus()
+
+	input, err = alert.SCommonAlert.GetMoreDetails(ctx, input)
+	if err != nil {
+		return out, errors.Wrap(err, "SCommonAlert.GetMoreDetails")
+	}
+
+	if len(input.Channel) > 0 {
+		out.Channel = input.Channel[0]
+	}
+	out.Recipients = strings.Join(input.Recipients, ",")
 
 	return out, nil
 }
@@ -695,14 +742,8 @@ func (alert *SV1Alert) CustomizeDelete(
 	return nil
 }
 
-func (alert *SNodeAlert) ValidateUpdateData(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input monitor.NodeAlertUpdateInput,
-) (monitor.NodeAlertUpdateInput, error) {
-	// ret := monitor.AlertUpdateInput{}
-	detailsList := NodeAlertManager.FetchCustomizeColumns(ctx, userCred, query, []interface{}{alert}, nil, false)
+func (alert *SNodeAlert) GetCommonAlertUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *monitor.NodeAlertUpdateInput) (jsonutils.JSONObject, error) {
+	detailsList := NodeAlertManager.FetchCustomizeColumns(ctx, userCred, nil, []interface{}{alert}, nil, false)
 	if len(detailsList) == 0 {
 		panic("inconsistent return results of FetchCustomizeColumns")
 	}
@@ -713,37 +754,36 @@ func (alert *SNodeAlert) ValidateUpdateData(
 		nameChange = true
 		details.NodeId = *input.NodeId
 		if err := alert.setNodeId(ctx, userCred, details.NodeId); err != nil {
-			return input, err
+			return nil, err
 		}
 	}
 	if input.Type != nil && *input.Type != details.Type {
 		nameChange = true
 		details.Type = *input.Type
 		if err := alert.setType(ctx, userCred, details.Type); err != nil {
-			return input, err
+			return nil, err
 		}
 	}
 	nodeName, resType, err := NodeAlertManager.validateResourceId(ctx, details.Type, details.NodeId)
 	if err != nil {
-		return input, err
+		return nil, err
 	}
 	if details.NodeName != nodeName {
 		nameChange = true
 		if err := alert.setNodeName(ctx, userCred, nodeName); err != nil {
-			return input, err
+			return nil, err
 		}
 		details.NodeName = nodeName
 	}
 	if input.Level != nil && *input.Level != details.Level {
 		details.Level = *input.Level
-		// ret.Level = input.Level
 	}
 
 	if input.Window != nil && *input.Window != details.Window {
 		details.Window = *input.Window
 		freq, err := time.ParseDuration(details.Window)
 		if err != nil {
-			return input, err
+			return nil, err
 		}
 		freqSec := int64(freq / time.Second)
 		input.Frequency = &freqSec
@@ -761,11 +801,19 @@ func (alert *SNodeAlert) ValidateUpdateData(
 		details.Period = *input.Period
 	}
 
+	if input.Channel != nil {
+		details.Channel = *input.Channel
+	}
+
+	if input.Recipients != nil {
+		details.Recipients = *input.Recipients
+	}
+
 	if input.Metric != nil && *input.Metric != details.Metric {
 		details.Metric = *input.Metric
 		measurement, field, err := GetMeasurementField(*input.Metric)
 		if err != nil {
-			return input, err
+			return nil, err
 		}
 		details.Measurement = measurement
 		details.Field = field
@@ -775,35 +823,40 @@ func (alert *SNodeAlert) ValidateUpdateData(
 	if nameChange {
 		name, err = NodeAlertManager.genName(ctx, userCred, resType, details.NodeName, details.Metric)
 		if err != nil {
-			return input, err
+			return nil, err
 		}
 		input.Name = name
 	}
 
 	ds, err := DataSourceManager.GetDefaultSource()
 	if err != nil {
-		return input, errors.Wrap(err, "get default data source")
+		return nil, errors.Wrap(err, "get default data source")
 	}
-	// hack: update notification here
-	if err := alert.UpdateNotification(AlertNotificationUsedByNodeAlert, input.Channel, input.Recipients); err != nil {
-		return input, errors.Wrap(err, "update notification")
-	}
-	tmpS := alert.getUpdateSetting(name, details, ds.GetId())
-	input.Settings = &tmpS
+	tmpS := alert.getUpdateInput(name, details, ds.GetId())
+	input.Settings = &tmpS.Settings
 
-	input.V1AlertUpdateInput, err = alert.SV1Alert.ValidateUpdateData(ctx, userCred, query, input.V1AlertUpdateInput)
+	uData, err := alert.SCommonAlert.ValidateUpdateData(ctx, userCred, nil, tmpS.JSON(tmpS))
 	if err != nil {
-		return input, errors.Wrap(err, "SV1Alert.ValidateUpdateData")
+		return nil, errors.Wrap(err, "SCommonAlert.ValidateUpdateData")
 	}
 
-	return input, nil
+	return uData, nil
 }
 
-func (alert *SNodeAlert) getUpdateSetting(
+func (alert *SNodeAlert) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input monitor.NodeAlertUpdateInput,
+) (jsonutils.JSONObject, error) {
+	return alert.GetCommonAlertUpdateData(ctx, userCred, query, &input)
+}
+
+func (alert *SNodeAlert) getUpdateInput(
 	name string,
 	details monitor.NodeAlertDetails,
 	dsId string,
-) monitor.AlertSetting {
+) monitor.CommonAlertCreateInput {
 	data := monitor.NodeAlertCreateInput{
 		ResourceAlertV1CreateInput: monitor.ResourceAlertV1CreateInput{
 			Period:     details.Period,
@@ -818,24 +871,29 @@ func (alert *SNodeAlert) getUpdateSetting(
 		NodeId: details.NodeId,
 	}
 	data.Level = details.Level
-	out := data.ToAlertCreateInput(name, details.Field, details.Measurement, details.DB)
+	out := data.ToCommonAlertCreateInput(name, details.Field, details.Measurement, details.DB)
 	out.Settings = *setAlertDefaultSetting(&out.Settings, dsId)
-	return out.Settings
+	return out
 }
 
 func (alert *SNodeAlert) PostUpdate(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	alert.SV1Alert.PostUpdate(ctx, userCred, query, data)
+	input := new(monitor.NodeAlertUpdateInput)
+	data.Unmarshal(input)
+	uData, err := alert.GetCommonAlertUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		log.Errorf("GetCommonAlertUpdateData when PostUpdate: %v", err)
+	}
+	alert.SCommonAlert.PostUpdate(ctx, userCred, query, uData)
 }
 
 func (alert *SNodeAlert) CustomizeDelete(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return alert.SV1Alert.CustomizeDelete(ctx, userCred, query, data)
+	return alert.SCommonAlert.CustomizeDelete(ctx, userCred, query, data)
 }
 
 func (m *SNodeAlertManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-
 	return q
 }
