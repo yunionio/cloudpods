@@ -148,6 +148,10 @@ func (man *SModelartsPoolManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 }
 
 func (man *SModelartsPoolManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ModelartsPoolCreateInput) (api.ModelartsPoolCreateInput, error) {
+	if len(input.ManagerId) == 0 {
+		return input, httperrors.NewMissingParameterError("manager_id")
+	}
+
 	return input, nil
 }
 
@@ -344,15 +348,19 @@ func (self *SModelartsPool) StartDeleteTask(ctx context.Context, userCred mcclie
 }
 
 func (self *SModelartsPool) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	region, err := self.GetRegion()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetRegion")
-	}
 	provider, err := self.GetDriver(context.Background())
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetDriver")
 	}
-	return provider.GetIRegionById(region.GetExternalId())
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	iRegion, err := provider.GetIRegionById(region.ExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "provider.GetIRegionById")
+	}
+	return iRegion, nil
 }
 
 // 获取云上对应的资源

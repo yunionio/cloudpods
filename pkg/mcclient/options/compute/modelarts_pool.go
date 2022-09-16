@@ -46,6 +46,8 @@ type ModelartsPoolCreateOption struct {
 	InstanceType string `help:"Instance Type"`
 	WorkType     string `help:"Work Type"`
 	CpuArch      string `help:"Cpu Arch"`
+
+	CloudregionId string `help:"Cloud Region ID"`
 }
 
 func (opts *ModelartsPoolCreateOption) Params() (jsonutils.JSONObject, error) {

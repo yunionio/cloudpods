@@ -30,6 +30,7 @@ const (
 type ModelartsPoolCreateInput struct {
 	apis.StatusInfrasResourceBaseCreateInput
 	CloudproviderResourceInput
+	CloudregionResourceInfo
 }
 
 type ModelartsPoolUpdateInput struct {
