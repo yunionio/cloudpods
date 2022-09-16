@@ -72,7 +72,8 @@ type SGuestHardwareDesc struct {
 
 	VirtioScsi      *SGuestVirtioScsi       `json:",omitempty"`
 	PvScsi          *SGuestPvScsi           `json:",omitempty"`
-	Cdrom           *SGuestCdrom            `json:",omitempty"`
+	Cdroms          []*SGuestCdrom          `json:"cdroms,omitempty"`
+	Floppys         []*SGuestFloppy         `json:",omitempty"`
 	Disks           []*SGuestDisk           `json:",omitempty"`
 	Nics            []*SGuestNetwork        `json:",omitempty"`
 	NicsStandby     []*SGuestNetwork        `json:",omitempty"`
@@ -148,8 +149,19 @@ type SGuestDisk struct {
 // -drive id=MacDVD,if=none,snapshot=on,file=%s
 
 type SGuestCdrom struct {
-	Id   string
-	Path string
+	Id      string
+	Path    string
+	Ordinal int64
+
+	Ide          *IDEDevice        `json:",omitempty"`
+	Scsi         *SCSIDevice       `json:",omitempty"`
+	DriveOptions map[string]string `json:",omitempty"`
+}
+
+type SGuestFloppy struct {
+	Id      string
+	Path    string
+	Ordinal int64
 
 	Ide          *IDEDevice        `json:",omitempty"`
 	Scsi         *SCSIDevice       `json:",omitempty"`

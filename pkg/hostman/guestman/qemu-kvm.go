@@ -1608,26 +1608,61 @@ func (s *SKVMGuestInstance) compareDescIsolatedDevices(newDesc *desc.SGuestDesc,
 	return delDevs, addDevs
 }
 
-func (s *SKVMGuestInstance) compareDescCdrom(newDesc *desc.SGuestDesc) *string {
-	newCdromIsNil := newDesc.Cdrom == nil || newDesc.Cdrom.Path == ""
-	oldCdromIsNil := s.Desc.Cdrom == nil || s.Desc.Cdrom.Path == ""
+func (s *SKVMGuestInstance) compareDescCdroms(newDesc *desc.SGuestDesc) []*desc.SGuestCdrom {
+	var changeCdroms []*desc.SGuestCdrom
+	newCdroms := newDesc.Cdroms
+	//删除所有old的iso
+	for i := 0; i < 2; i++ {
+		changeCdrom := new(desc.SGuestCdrom)
+		changeCdrom.Ordinal = int64(i)
+		changeCdrom.Path = ""
+		changeCdroms = append(changeCdroms, changeCdrom)
+	}
 
-	if oldCdromIsNil && newCdromIsNil {
-		return nil
-	} else if oldCdromIsNil && !newCdromIsNil {
-		cdromPath := newDesc.Cdrom.Path
-		return &cdromPath
-	} else if !oldCdromIsNil && newCdromIsNil {
-		var res = ""
-		return &res
-	} else {
-		if s.Desc.Cdrom.Path == newDesc.Cdrom.Path {
-			return nil
-		} else {
-			cdromPath := newDesc.Cdrom.Path
-			return &cdromPath
+	//添加所有新的iso
+	for _, newCdrom := range newCdroms { //新的跟旧的的差集，需要修改，
+		ordinal := newCdrom.Ordinal
+		path := newCdrom.Path
+		changeCdrom := new(desc.SGuestCdrom)
+		changeCdrom.Ordinal = ordinal
+		changeCdrom.Path = path
+		for i, tmp := range changeCdroms { //如果新增的跟changeCdrom重叠，则以新增为准
+			if tmp.Ordinal == ordinal {
+				changeCdroms[i] = changeCdrom
+			}
 		}
 	}
+
+	return changeCdroms
+}
+
+func (s *SKVMGuestInstance) compareDescFloppys(newDesc *desc.SGuestDesc) []*desc.SGuestFloppy {
+	var changeCdroms []*desc.SGuestFloppy
+	newFloppys := newDesc.Floppys
+	//删除所有old的vfd
+	for i := 0; i < 1; i++ {
+		changeCdrom := new(desc.SGuestFloppy)
+		changeCdrom.Ordinal = int64(i)
+		changeCdrom.Path = ""
+		changeCdroms = append(changeCdroms, changeCdrom)
+	}
+
+	//添加所有新的iso
+	for _, newFloppy := range newFloppys { //新的跟旧的的差集，需要修改，
+		ordinal := newFloppy.Ordinal
+		path := newFloppy.Path
+		changeCdrom := new(desc.SGuestFloppy)
+		changeCdrom.Ordinal = ordinal
+		changeCdrom.Path = path
+		for i, tmp := range changeCdroms { //如果新增的跟changeCdrom重叠，则以新增为准
+			if tmp.Ordinal == ordinal {
+				changeCdroms[i] = changeCdrom
+			}
+		}
+		changeCdroms = append(changeCdroms, changeCdrom)
+	}
+
+	return changeCdroms
 }
 
 func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
@@ -1744,7 +1779,8 @@ func (s *SKVMGuestInstance) SyncConfig(
 	var delNetworks, addNetworks []*desc.SGuestNetwork
 	var changedNetworks [][2]*desc.SGuestNetwork
 	var delDevs, addDevs []*desc.SGuestIsolatedDevice
-	var cdrom *string
+	var cdroms []*desc.SGuestCdrom
+	var floppys []*desc.SGuestFloppy
 
 	if err := s.SaveSourceDesc(guestDesc); err != nil {
 		return nil, err
@@ -1752,7 +1788,8 @@ func (s *SKVMGuestInstance) SyncConfig(
 
 	if !fwOnly && !s.isImportFromLibvirt() {
 		delDisks, addDisks = s.compareDescDisks(guestDesc)
-		cdrom = s.compareDescCdrom(guestDesc)
+		cdroms = s.compareDescCdroms(guestDesc)
+		floppys = s.compareDescFloppys(guestDesc)
 		delNetworks, addNetworks, changedNetworks = s.compareDescNetworks(guestDesc)
 		delDevs, addDevs = s.compareDescIsolatedDevices(guestDesc)
 	}
@@ -1805,9 +1842,9 @@ func (s *SKVMGuestInstance) SyncConfig(
 			hostutils.TaskFailed(ctx, reason[2:])
 		}
 	}
-
-	if len(delDisks)+len(addDisks) > 0 || cdrom != nil {
-		task := NewGuestDiskSyncTask(s, delDisks, addDisks, cdrom)
+	log.Errorf("cdrom is:%+v,floppy is %+v", cdroms, floppys)
+	if len(delDisks)+len(addDisks) > 0 || cdroms != nil || floppys != nil {
+		task := NewGuestDiskSyncTask(s, delDisks, addDisks, cdroms, floppys)
 		runTaskNames = append(runTaskNames, jsonutils.NewString("disksync"))
 		tasks = append(tasks, task)
 	}

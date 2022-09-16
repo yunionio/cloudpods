@@ -47,6 +47,10 @@ func (*ARM) GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom) {
 	cdrom.Id = "cd0"
 }
 
+func (*ARM) GenerateFloppyDesc(osName string, floppy *desc.SGuestFloppy) {
+
+}
+
 func (*ARM) GenerateMachineDesc(accel string) *desc.SGuestMachine {
 	gicVersion := "max"
 	return &desc.SGuestMachine{

@@ -80,6 +80,10 @@ func (self *SCloudpodsGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, e
 	return true, nil
 }
 
+func (self *SCloudpodsGuestDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
+	return false, nil
+}
+
 func (self *SCloudpodsGuestDriver) IsSupportMigrate() bool {
 	return true
 }

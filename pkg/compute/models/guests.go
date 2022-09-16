@@ -2227,6 +2227,7 @@ func (self *SGuest) moreExtraInfo(
 	}
 
 	out.CdromSupport, _ = self.GetDriver().IsSupportCdrom(self)
+	out.FloppySupport, _ = self.GetDriver().IsSupportFloppy(self)
 
 	return out
 }
@@ -2336,18 +2337,19 @@ func (self *SGuest) getNetworksDetails() string {
 }
 
 func (self *SGuest) GetCdrom() *SGuestcdrom {
-	return self.getCdrom(false)
+	return self.getCdrom(false, 0)
 }
 
-func (self *SGuest) getCdrom(create bool) *SGuestcdrom {
+func (self *SGuest) getCdrom(create bool, ordinal int64) *SGuestcdrom {
 	cdrom := SGuestcdrom{}
 	cdrom.SetModelManager(GuestcdromManager, &cdrom)
 
-	err := GuestcdromManager.Query().Equals("id", self.Id).First(&cdrom)
+	err := GuestcdromManager.Query().Equals("id", self.Id).Equals("ordinal", ordinal).First(&cdrom)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			if create {
 				cdrom.Id = self.Id
+				cdrom.Ordinal = int(ordinal)
 				err = GuestcdromManager.TableSpec().Insert(context.TODO(), &cdrom)
 				if err != nil {
 					log.Errorf("insert cdrom fail %s", err)
@@ -2363,6 +2365,54 @@ func (self *SGuest) getCdrom(create bool) *SGuestcdrom {
 		}
 	} else {
 		return &cdrom
+	}
+}
+
+func (self *SGuest) getCdroms() ([]SGuestcdrom, error) {
+	cdroms := make([]SGuestcdrom, 0)
+	q := GuestcdromManager.Query().Equals("id", self.Id)
+	err := db.FetchModelObjects(GuestcdromManager, q, &cdroms)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return cdroms, nil
+}
+
+func (self *SGuest) getFloppys() ([]SGuestfloppy, error) {
+	floppys := make([]SGuestfloppy, 0)
+	q := GuestFloppyManager.Query().Equals("id", self.Id)
+	err := db.FetchModelObjects(GuestFloppyManager, q, &floppys)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return floppys, nil
+}
+
+func (self *SGuest) getFloppy(create bool, ordinal int64) *SGuestfloppy {
+	floppy := SGuestfloppy{}
+	floppy.SetModelManager(GuestFloppyManager, &floppy)
+
+	err := GuestFloppyManager.Query().Equals("id", self.Id).Equals("ordinal", ordinal).First(&floppy)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			if create {
+				floppy.Id = self.Id
+				floppy.Ordinal = int(ordinal)
+				err = GuestFloppyManager.TableSpec().Insert(context.TODO(), &floppy)
+				if err != nil {
+					log.Errorf("insert cdrom fail %s", err)
+					return nil
+				}
+				return &floppy
+			} else {
+				return nil
+			}
+		} else {
+			log.Errorf("getFloppy query fail %s", err)
+			return nil
+		}
+	} else {
+		return &floppy
 	}
 }
 
@@ -4088,8 +4138,8 @@ func (self *SGuest) DetachAllNetworks(ctx context.Context, userCred mcclient.Tok
 	return GuestnetworkManager.DeleteGuestNics(ctx, userCred, gns, false)
 }
 
-func (self *SGuest) EjectIso(userCred mcclient.TokenCredential) bool {
-	cdrom := self.getCdrom(false)
+func (self *SGuest) EjectIso(cdromOrdinal int64, userCred mcclient.TokenCredential) bool {
+	cdrom := self.getCdrom(false, cdromOrdinal)
 	if cdrom != nil && len(cdrom.ImageId) > 0 {
 		imageId := cdrom.ImageId
 		if cdrom.ejectIso() {
@@ -4098,6 +4148,48 @@ func (self *SGuest) EjectIso(userCred mcclient.TokenCredential) bool {
 		}
 	}
 	return false
+}
+
+func (self *SGuest) EjectAllIso(userCred mcclient.TokenCredential) bool {
+	cdroms, _ := self.getCdroms()
+	for _, cdrom := range cdroms {
+		if len(cdrom.ImageId) > 0 {
+			imageId := cdrom.ImageId
+			if cdrom.ejectIso() {
+				db.OpsLog.LogEvent(self, db.ACT_ISO_DETACH, imageId, userCred)
+			} else {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (self *SGuest) EjectVfd(floppyOrdinal int64, userCred mcclient.TokenCredential) bool {
+	floppy := self.getFloppy(false, floppyOrdinal)
+	if floppy != nil && len(floppy.ImageId) > 0 {
+		imageId := floppy.ImageId
+		if floppy.ejectVfd() {
+			db.OpsLog.LogEvent(self, db.ACT_VFD_DETACH, imageId, userCred)
+			return true
+		}
+	}
+	return false
+}
+
+func (self *SGuest) EjectAllVfd(userCred mcclient.TokenCredential) bool {
+	floppys, _ := self.getFloppys()
+	for _, floppy := range floppys {
+		if len(floppy.ImageId) > 0 {
+			imageId := floppy.ImageId
+			if floppy.ejectVfd() {
+				db.OpsLog.LogEvent(self, db.ACT_ISO_DETACH, imageId, userCred)
+			} else {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (self *SGuest) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -4421,10 +4513,17 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		desc.Disks = append(desc.Disks, diskDesc)
 	}
 
-	// cdrom
-	cdrom := self.getCdrom(false)
-	if cdrom != nil {
-		desc.Cdrom = cdrom.getJsonDesc()
+	cdroms, _ := self.getCdroms()
+	for _, cdrom := range cdroms {
+		cdromDesc := cdrom.getJsonDesc()
+		desc.Cdroms = append(desc.Cdroms, cdromDesc)
+	}
+
+	//floppy
+	floppys, _ := self.getFloppys()
+	for _, floppy := range floppys {
+		floppyDesc := floppy.getJsonDesc()
+		desc.Floppys = append(desc.Floppys, floppyDesc)
 	}
 
 	// tenant
@@ -5631,7 +5730,7 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r := new(api.ServerCreateInput)
 	r.VmemSize = self.VmemSize
 	r.VcpuCount = int(self.VcpuCount)
-	if guestCdrom := self.getCdrom(false); guestCdrom != nil {
+	if guestCdrom := self.getCdrom(false, 0); guestCdrom != nil {
 		r.Cdrom = guestCdrom.ImageId
 	}
 	r.Vga = self.Vga

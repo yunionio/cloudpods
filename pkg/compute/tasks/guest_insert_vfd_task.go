@@ -25,24 +25,24 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type GuestInsertIsoTask struct {
+type GuestInsertVfdTask struct {
 	SGuestBaseTask
 }
 
 func init() {
-	taskman.RegisterTask(GuestInsertIsoTask{})
-	taskman.RegisterTask(HaGuestInsertIsoTask{})
+	taskman.RegisterTask(GuestInsertVfdTask{})
+	taskman.RegisterTask(HaGuestInsertVfdTask{})
 }
 
-func (self *GuestInsertIsoTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.prepareIsoImage(ctx, obj)
+func (self *GuestInsertVfdTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.prepareVfdImage(ctx, obj)
 }
 
-func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.IStandaloneModel) {
+func (self *GuestInsertVfdTask) prepareVfdImage(ctx context.Context, obj db.IStandaloneModel) {
 	guest := obj.(*models.SGuest)
 	imageId, _ := self.Params.GetString("image_id")
-	cdromOrdinal, _ := self.Params.Int("cdrom_ordinal")
-	db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARING, imageId, self.UserCred)
+	floppyOrdinal, _ := self.Params.Int("floppy_ordinal")
+	db.OpsLog.LogEvent(obj, db.ACT_VFD_PREPARING, imageId, self.UserCred)
 
 	disks, _ := guest.GetGuestDisks()
 	disk := disks[0].GetDisk()
@@ -50,32 +50,32 @@ func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.ISta
 	storageCache := storage.GetStoragecache()
 
 	if storageCache != nil {
-		self.SetStage("OnIsoPrepareComplete", nil)
+		self.SetStage("OnVfdPrepareComplete", nil)
 		input := api.CacheImageInput{
 			ImageId:      imageId,
-			Format:       "iso",
+			Format:       "raw",
 			ParentTaskId: self.GetTaskId(),
 		}
 		storageCache.StartImageCacheTask(ctx, self.UserCred, input)
 	} else {
-		guest.EjectIso(cdromOrdinal, self.UserCred)
-		db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
+		guest.EjectVfd(floppyOrdinal, self.UserCred)
+		db.OpsLog.LogEvent(obj, db.ACT_VFD_PREPARE_FAIL, imageId, self.UserCred)
 		self.SetStageFailed(ctx, jsonutils.NewString("host no local storage cache"))
 	}
 }
 
-func (self *GuestInsertIsoTask) OnIsoPrepareCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *GuestInsertVfdTask) OnVfdPrepareCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	imageId, _ := self.Params.GetString("image_id")
-	cdromOrdinal, _ := self.Params.Int("cdrom_ordinal")
-	db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
+	floppyOrdinal, _ := self.Params.Int("floppy_ordinal")
+	db.OpsLog.LogEvent(obj, db.ACT_VFD_PREPARE_FAIL, imageId, self.UserCred)
 	guest := obj.(*models.SGuest)
-	guest.EjectIso(cdromOrdinal, self.UserCred)
+	guest.EjectVfd(floppyOrdinal, self.UserCred)
 	self.SetStageFailed(ctx, data)
 }
 
-func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *GuestInsertVfdTask) OnVfdPrepareComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	floppyOrdinal, _ := self.Params.Int("floppy_ordinal")
 	imageId, _ := data.GetString("image_id")
-	cdromOrdinal, _ := self.Params.Int("cdrom_ordinal")
 	size, err := data.Int("size")
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -84,12 +84,12 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 	name, _ := data.GetString("name")
 	path, _ := data.GetString("path")
 	guest := obj.(*models.SGuest)
-	if guest.InsertIsoSucc(cdromOrdinal, imageId, path, size, name) {
-		db.OpsLog.LogEvent(guest, db.ACT_ISO_ATTACH, guest.GetDetailsIso(cdromOrdinal, self.UserCred), self.UserCred)
-		if guest.GetDriver().NeedRequestGuestHotAddIso(ctx, guest) {
+	if guest.InsertVfdSucc(floppyOrdinal, imageId, path, size, name) {
+		db.OpsLog.LogEvent(guest, db.ACT_VFD_ATTACH, guest.GetDetailsVfd(floppyOrdinal, self.UserCred), self.UserCred)
+		if guest.GetDriver().NeedRequestGuestHotAddVfd(ctx, guest) {
 			self.SetStage("OnConfigSyncComplete", nil)
 			boot := jsonutils.QueryBoolean(self.Params, "boot", false)
-			guest.GetDriver().RequestGuestHotAddIso(ctx, guest, path, boot, self)
+			guest.GetDriver().RequestGuestHotAddVfd(ctx, guest, path, boot, self)
 		} else {
 			self.SetStageComplete(ctx, nil)
 		}
@@ -98,50 +98,50 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 	}
 }
 
-func (self *GuestInsertIsoTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *GuestInsertVfdTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
 
-type HaGuestInsertIsoTask struct {
-	GuestInsertIsoTask
+type HaGuestInsertVfdTask struct {
+	GuestInsertVfdTask
 }
 
-func (self *HaGuestInsertIsoTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.prepareIsoImage(ctx, obj)
+func (self *HaGuestInsertVfdTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.prepareVfdImage(ctx, obj)
 }
 
-func (self *HaGuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.IStandaloneModel) {
+func (self *HaGuestInsertVfdTask) prepareVfdImage(ctx context.Context, obj db.IStandaloneModel) {
 	guest := obj.(*models.SGuest)
 	imageId, _ := self.Params.GetString("image_id")
-	cdromOrdinal, _ := self.Params.Int("cdrom_ordinal")
-	db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARING, imageId, self.UserCred)
+	floppyOrdinal, _ := self.Params.Int("floppy_ordinal")
+	db.OpsLog.LogEvent(obj, db.ACT_VFD_PREPARING, imageId, self.UserCred)
 	disks, _ := guest.GetGuestDisks()
 	disk := disks[0].GetDisk()
 	storage := disk.GetBackupStorage()
 	storageCache := storage.GetStoragecache()
 	if storageCache != nil {
-		self.SetStage("OnBackupIsoPrepareComplete", nil)
+		self.SetStage("OnBackupVfdPrepareComplete", nil)
 		input := api.CacheImageInput{
 			ImageId:      imageId,
-			Format:       "iso",
+			Format:       "raw",
 			ParentTaskId: self.GetTaskId(),
 		}
 		storageCache.StartImageCacheTask(ctx, self.UserCred, input)
 	} else {
-		guest.EjectIso(cdromOrdinal, self.UserCred)
-		db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
+		guest.EjectVfd(floppyOrdinal, self.UserCred)
+		db.OpsLog.LogEvent(obj, db.ACT_VFD_PREPARE_FAIL, imageId, self.UserCred)
 		self.SetStageFailed(ctx, jsonutils.NewString("host no local storage cache"))
 	}
 }
 
-func (self *HaGuestInsertIsoTask) OnBackupIsoPrepareComplete(
+func (self *HaGuestInsertVfdTask) OnBackupVfdPrepareComplete(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
-	self.GuestInsertIsoTask.prepareIsoImage(ctx, guest)
+	self.GuestInsertVfdTask.prepareVfdImage(ctx, guest)
 }
 
-func (self *HaGuestInsertIsoTask) OnBackupIsoPrepareCompleteFailed(
+func (self *HaGuestInsertVfdTask) OnBackupVfdPrepareCompleteFailed(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
-	self.OnIsoPrepareCompleteFailed(ctx, guest, data)
+	self.OnVfdPrepareCompleteFailed(ctx, guest, data)
 }

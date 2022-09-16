@@ -651,6 +651,18 @@ func (self *SKVMGuestDriver) RequestGuestHotRemoveIso(ctx context.Context, guest
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
+func (self *SKVMGuestDriver) NeedRequestGuestHotAddVfd(ctx context.Context, guest *models.SGuest) bool {
+	return guest.Status == api.VM_RUNNING
+}
+
+func (self *SKVMGuestDriver) RequestGuestHotAddVfd(ctx context.Context, guest *models.SGuest, path string, boot bool, task taskman.ITask) error {
+	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+}
+
+func (self *SKVMGuestDriver) RequestGuestHotRemoveVfd(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+}
+
 func (self *SKVMGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	subtask, err := taskman.TaskManager.NewTask(ctx, "KVMGuestRebuildRootTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
 	if err != nil {
@@ -711,6 +723,10 @@ func (self *SKVMGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, gues
 }
 
 func (self *SKVMGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
+	return true, nil
+}
+
+func (self *SKVMGuestDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
 	return true, nil
 }
 

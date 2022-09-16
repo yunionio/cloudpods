@@ -1189,6 +1189,10 @@ func (self *SManagedVirtualizedGuestDriver) IsSupportCdrom(guest *models.SGuest)
 	return false, nil
 }
 
+func (self *SManagedVirtualizedGuestDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
+	return false, nil
+}
+
 func GetCloudVMStatus(vm cloudprovider.ICloudVM) string {
 	status := vm.GetStatus()
 	switch status {

@@ -325,7 +325,7 @@ func (self *SBaremetalGuestDriver) RequestGuestHotRemoveIso(ctx context.Context,
 }
 
 func (self *SBaremetalGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
-	return guest.StartInsertIsoTask(ctx, imageId, true, guest.HostId, task.GetUserCred(), task.GetTaskId())
+	return guest.StartInsertIsoTask(ctx, 0, imageId, true, guest.HostId, task.GetUserCred(), task.GetTaskId())
 }
 
 func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
@@ -610,4 +610,8 @@ func (self *SBaremetalGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, e
 		return false, errors.Wrap(err, "host.GetIpmiInfo")
 	}
 	return ipmiInfo.CdromBoot, nil
+}
+
+func (self *SBaremetalGuestDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
+	return false, nil
 }

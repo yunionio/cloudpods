@@ -292,32 +292,59 @@ func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk) string {
 	return optDrv.Device(opt)
 }
 
-func generateCdromOptions(optDrv QemuOptions, cdrom *desc.SGuestCdrom) []string {
+func generateCdromOptions(optDrv QemuOptions, cdroms []*desc.SGuestCdrom) []string {
 	opts := make([]string, 0)
 
-	//cdromDriveId := cdrom
-	driveOpt := fmt.Sprintf("id=%s", cdrom.Id)
-	driveOpt += optionsToString(cdrom.DriveOptions)
+	for _, cdrom := range cdroms {
+		//cdromDriveId := cdrom
+		driveOpt := fmt.Sprintf("id=%s", cdrom.Id)
+		driveOpt += optionsToString(cdrom.DriveOptions)
 
-	var cdromPath = cdrom.Path
-	if len(cdromPath) > 0 {
-		driveOpt += fmt.Sprintf(",file=%s", cdromPath)
-	}
-
-	if cdrom.Ide != nil {
-		opts = append(opts, optDrv.Drive(driveOpt))
-		devOpt := fmt.Sprintf("%s,drive=%s,bus=ide.1",
-			cdrom.Ide.DevType, cdrom.Id)
-		// TODO: ,bus=ide.%d,unit=%d
-		//, cdrom.Ide.Bus, cdrom.Ide.Unit)
-		opts = append(opts, optDrv.Device(devOpt))
-	} else if cdrom.Scsi != nil {
+		var cdromPath = cdrom.Path
 		if len(cdromPath) > 0 {
+			driveOpt += fmt.Sprintf(",file=%s", cdromPath)
+		}
+
+		if cdrom.Ide != nil {
 			opts = append(opts, optDrv.Drive(driveOpt))
+			devOpt := fmt.Sprintf("%s,drive=%s,bus=ide.1",
+				cdrom.Ide.DevType, cdrom.Id)
+			// TODO: ,bus=ide.%d,unit=%d
+			//, cdrom.Ide.Bus, cdrom.Ide.Unit)
+			opts = append(opts, optDrv.Device(devOpt))
+		} else if cdrom.Scsi != nil {
+			if len(cdromPath) > 0 {
+				opts = append(opts, optDrv.Drive(driveOpt))
 
-			devOpt := fmt.Sprintf("%s,drive=%s", cdrom.Scsi.DevType, cdrom.Id)
-			devOpt += optionsToString(cdrom.Scsi.Options)
+				devOpt := fmt.Sprintf("%s,drive=%s", cdrom.Scsi.DevType, cdrom.Id)
+				devOpt += optionsToString(cdrom.Scsi.Options)
 
+				opts = append(opts, optDrv.Device(devOpt))
+			}
+		}
+	}
+	return opts
+}
+
+func generateFloppyOptions(optDrv QemuOptions, floppys []*desc.SGuestFloppy) []string {
+	opts := make([]string, 0)
+
+	for _, floppy := range floppys {
+		//cdromDriveId := cdrom
+		driveOpt := fmt.Sprintf("id=%s", floppy.Id)
+		driveOpt += optionsToString(floppy.DriveOptions)
+
+		var floppyPath = floppy.Path
+		if len(floppyPath) > 0 {
+			driveOpt += fmt.Sprintf(",file=%s", floppyPath)
+		}
+
+		if floppy.Ide != nil {
+			opts = append(opts, optDrv.Drive(driveOpt))
+			devOpt := fmt.Sprintf("%s,drive=%s",
+				floppy.Ide.DevType, floppy.Id)
+			// TODO: ,bus=ide.%d,unit=%d
+			//, cdrom.Ide.Bus, cdrom.Ide.Unit)
 			opts = append(opts, optDrv.Device(devOpt))
 		}
 	}
@@ -590,9 +617,14 @@ func GenerateStartOptions(
 
 	// bootOrder
 	enableMenu := false
-	if input.GuestDesc.Cdrom != nil && input.GuestDesc.Cdrom.Path != "" {
-		enableMenu = true
+	if len(input.GuestDesc.Cdroms) > 0 {
+		for _, cdrom := range input.GuestDesc.Cdroms {
+			if cdrom.Path != "" {
+				enableMenu = true
+			}
+		}
 	}
+
 	opts = append(opts, drvOpt.Boot(input.GuestDesc.BootOrder, enableMenu))
 
 	// bios
@@ -646,7 +678,10 @@ func GenerateStartOptions(
 	opts = append(opts, generateDisksOptions(drvOpt, input.GuestDesc.Disks, isEncrypt)...)
 
 	// cdrom
-	opts = append(opts, generateCdromOptions(drvOpt, input.GuestDesc.Cdrom)...)
+	opts = append(opts, generateCdromOptions(drvOpt, input.GuestDesc.Cdroms)...)
+
+	//floppy
+	opts = append(opts, generateFloppyOptions(drvOpt, input.GuestDesc.Floppys)...)
 
 	// generate nics
 	nicOpts, err := generateNicOptions(drvOpt, input)
