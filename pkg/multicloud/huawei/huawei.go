@@ -279,6 +279,21 @@ func (self *SHuaweiClient) modelartsResourceflavors(resource string, params map[
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
+func (self *SHuaweiClient) getAKSKList() (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://iam.%s.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials", self.clientRegion)
+	return self.request(httputils.GET, uri, url.Values{}, nil)
+}
+
+func (self *SHuaweiClient) deleteAKSK(accesskey string) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://iam.%s.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials/%s", self.clientRegion, accesskey)
+	return self.request(httputils.DELETE, uri, url.Values{}, nil)
+}
+
+func (self *SHuaweiClient) createAKSK(params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://iam.%s.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials", self.clientRegion)
+	return self.request(httputils.POST, uri, url.Values{}, params)
+}
+
 func (self *SHuaweiClient) lbGet(regionId, resource string) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
 	return self.request(httputils.GET, uri, url.Values{}, nil)

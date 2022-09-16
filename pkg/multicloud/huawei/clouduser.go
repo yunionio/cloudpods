@@ -221,3 +221,62 @@ func (self *SHuaweiClient) ResetClouduserPassword(id, password string) error {
 	}
 	return client.Users.ResetPassword(id, password)
 }
+
+type ICloudAccessKey struct {
+	client *SHuaweiClient
+
+	AccessKey   string
+	Secret      string
+	Description string
+}
+
+func (self *SHuaweiClient) GetAKSK() (map[string]interface{}, error) {
+	user := ICloudAccessKey{client: self}
+	return user.GetDetailsAccessKeys()
+}
+
+func (self *SHuaweiClient) CreateAKSK(userId, description string) (map[string]interface{}, error) {
+	user := ICloudAccessKey{client: self}
+	return user.PerformCreateAccessKey(userId, description)
+}
+
+func (self *SHuaweiClient) DeleteAKSK(accessKey string) error {
+	user := ICloudAccessKey{client: self}
+	return user.PerformDeleteAccessKey(accessKey)
+}
+
+func (user *ICloudAccessKey) PerformDeleteAccessKey(accessKey string) error {
+	params := make(map[string]interface{})
+	obj, err := user.client.deleteAKSK(accessKey)
+	if err != nil {
+		return errors.Wrap(err, "SHuaweiClient.deleteAKSK")
+	}
+	obj.Unmarshal(&params)
+	return nil
+}
+func (user *ICloudAccessKey) PerformCreateAccessKey(userId, description string) (map[string]interface{}, error) {
+	params := map[string]interface{}{
+		"credential": map[string]interface{}{
+			"user_id":     userId,
+			"description": description,
+		},
+	}
+	obj, err := user.client.createAKSK(params)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHuaweiClient.deleteAKSK")
+	}
+	obj.Unmarshal(&params)
+
+	return params, nil
+}
+
+func (user *ICloudAccessKey) GetDetailsAccessKeys() (map[string]interface{}, error) {
+	params := make(map[string]interface{})
+	obj, err := user.client.getAKSKList()
+	if err != nil {
+		return nil, errors.Wrap(err, "SHuaweiClient.getAKSKList")
+	}
+	obj.Unmarshal(&params)
+
+	return params, nil
+}
