@@ -53,7 +53,7 @@ const (
 	METRIC_RESOURCE_TYPE_K8S            TResourceType = "k8s"
 	METRIC_RESOURCE_TYPE_STORAGE        TResourceType = "storage"
 	METRIC_RESOURCE_TYPE_CLOUD_ACCOUNT  TResourceType = "cloudaccount_balance"
-	METRIC_RESOURCE_TYPE_MODELARTS_POOL TResourceType = "modelarts_pool"
+	METRIC_RESOURCE_TYPE_MODELARTS_POOL TResourceType = "modelarts"
 )
 
 const (

@@ -153,7 +153,7 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 	}
 	obj, err := self.client.modelartsPoolCreate("pools", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "SHuaweiClient.GetPools")
+		return nil, errors.Wrap(err, "SHuaweiClient.CreatePools")
 	}
 	pool := &SModelartsPool{}
 	obj.Unmarshal(&pool)
