@@ -439,26 +439,12 @@ func (manager *SCloudaccountManager) validateCreateData(
 		input.Zone = obj.GetId()
 	}
 
-	var endpointOptions jsonutils.JSONObject
-	if input.SCloudaccountCredential.SApsaraEndpoints != nil {
-		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SApsaraEndpoints)
+	if input.Options == nil {
+		input.Options = jsonutils.NewDict()
 	}
-
-	if input.SCloudaccountCredential.SHCSOEndpoints != nil {
-		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SHCSOEndpoints)
-	}
-
-	if input.SCloudaccountCredential.SCtyunExtraOptions != nil {
-		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SCtyunExtraOptions)
-	}
-
-	if endpointOptions != nil {
-		if input.Options == nil {
-			input.Options = jsonutils.NewDict()
-		}
-
-		input.Options.Update(endpointOptions)
-	}
+	input.Options.Update(jsonutils.Marshal(input.SCloudaccountCredential.SApsaraEndpoints))
+	input.Options.Update(jsonutils.Marshal(input.SCloudaccountCredential.SHCSOEndpoints))
+	input.Options.Update(jsonutils.Marshal(input.SCloudaccountCredential.SCtyunExtraOptions))
 
 	input.SCloudaccount, err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, input.SCloudaccountCredential)
 	if err != nil {
