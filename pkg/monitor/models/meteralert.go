@@ -63,7 +63,7 @@ type SMeterAlertManager struct {
 func NewMeterAlertManager() *SMeterAlertManager {
 	man := &SMeterAlertManager{
 		SV1AlertManager: SV1AlertManager{
-			*NewAlertManager(SMeterAlert{}, "meteralert", "meteralerts"),
+			SAlertManager: *NewAlertManager(SMeterAlert{}, "meteralert", "meteralerts"),
 		},
 	}
 	man.SetVirtualObject(man)

@@ -38,10 +38,10 @@ func init() {
 }
 
 func (self *DetachAlertResourceTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	alert := obj.(*models.SCommonAlert)
+	alert := obj.(models.ICommonAlert)
 	errs := alert.DetachAlertResourceOnDisable(ctx, self.GetUserCred())
 	if len(errs) != 0 {
-		msg := jsonutils.NewString(fmt.Sprintf("fail to DetachAlertResourceOnAlertDisable:%s.err:%v", alert.Name, errors.NewAggregate(errs)))
+		msg := jsonutils.NewString(fmt.Sprintf("fail to DetachAlertResourceOnAlertDisable:%s.err:%v", alert.GetName(), errors.NewAggregate(errs)))
 		self.taskFail(ctx, alert, msg)
 		return
 	}
@@ -59,7 +59,7 @@ func (self *DetachAlertResourceTask) OnInit(ctx context.Context, obj db.IStandal
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *DetachAlertResourceTask) taskFail(ctx context.Context, alert *models.SCommonAlert, msg jsonutils.JSONObject) {
+func (self *DetachAlertResourceTask) taskFail(ctx context.Context, alert models.ICommonAlert, msg jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(alert, db.ACT_DETACH, msg, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, alert, logclient.ACT_DETACH_ALERTRESOURCE, msg, self.UserCred, false)
 	self.SetStageFailed(ctx, msg)

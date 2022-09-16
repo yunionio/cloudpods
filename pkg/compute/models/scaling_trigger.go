@@ -285,7 +285,9 @@ func (sa *SScalingAlarm) Register(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return errors.Wrap(err, "ScalingAlarm.generateAlertConfig")
 	}
-	alert, err := monitor.Alerts.DoCreate(session, config)
+	alert, err := monitor.CommonAlerts.DoCreate(session, config, &monapi.CommonAlertCreateBaseInput{
+		AlertType: monapi.CommonAlertServiceAlertType,
+	})
 	if err != nil {
 		return errors.Wrap(err, "create Alert failed")
 	}
@@ -359,7 +361,7 @@ func (sa *SScalingAlarm) generateAlertConfig(sp *SScalingPolicy) (*monitor.Alert
 func (sa *SScalingAlarm) UnRegister(ctx context.Context, userCred mcclient.TokenCredential) error {
 	session := auth.GetSession(ctx, userCred, "")
 	_, err := monitor.Alerts.Delete(session, sa.AlarmId, jsonutils.NewDict())
-	if err != nil {
+	if err != nil && errors.Cause(err) != httperrors.ErrResourceNotFound {
 		return errors.Wrap(err, "Alerts.Delete")
 	}
 	err = sa.Delete(ctx, userCred)
