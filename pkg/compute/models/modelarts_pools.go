@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -148,6 +149,22 @@ func (man *SModelartsPoolManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 }
 
 func (man *SModelartsPoolManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ModelartsPoolCreateInput) (api.ModelartsPoolCreateInput, error) {
+	var err error
+	_, err = validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+	if err != nil {
+		return input, err
+	}
+	input.ManagerId = input.CloudproviderId
+
+	_, err = validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+	if err != nil {
+		return input, err
+	}
+
+	input.VirtualResourceCreateInput, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return input, err
+	}
 	return input, nil
 }
 
@@ -344,15 +361,19 @@ func (self *SModelartsPool) StartDeleteTask(ctx context.Context, userCred mcclie
 }
 
 func (self *SModelartsPool) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	region, err := self.GetRegion()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetRegion")
-	}
 	provider, err := self.GetDriver(context.Background())
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetDriver")
 	}
-	return provider.GetIRegionById(region.GetExternalId())
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	iRegion, err := provider.GetIRegionById(region.ExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "provider.GetIRegionById")
+	}
+	return iRegion, nil
 }
 
 // 获取云上对应的资源

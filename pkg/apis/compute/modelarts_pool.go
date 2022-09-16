@@ -28,7 +28,10 @@ const (
 )
 
 type ModelartsPoolCreateInput struct {
-	apis.StatusInfrasResourceBaseCreateInput
+	apis.VirtualResourceCreateInput
+	DeletePreventableCreateInput
+
+	CloudregionResourceInput
 	CloudproviderResourceInput
 }
 
