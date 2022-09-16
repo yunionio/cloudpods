@@ -15,7 +15,10 @@
 package huawei
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -230,34 +233,38 @@ type ICloudAccessKey struct {
 	Description string
 }
 
-func (self *SHuaweiClient) GetAKSK() (map[string]interface{}, error) {
-	user := ICloudAccessKey{client: self}
+func (self *SHuaweiClient) GetAKSK() (jsonutils.JSONObject, error) {
+	user := SClouduser{client: self}
 	return user.GetDetailsAccessKeys()
 }
 
-func (self *SHuaweiClient) CreateAKSK(userId, description string) (map[string]interface{}, error) {
-	user := ICloudAccessKey{client: self}
-	return user.PerformCreateAccessKey(userId, description)
+func (self *SHuaweiClient) CreateAKSK(description string) (jsonutils.JSONObject, error) {
+	user := SClouduser{client: self}
+	return user.PerformCreateAccessKey(description)
 }
 
 func (self *SHuaweiClient) DeleteAKSK(accessKey string) error {
-	user := ICloudAccessKey{client: self}
-	return user.PerformDeleteAccessKey(accessKey)
+	user := SClouduser{client: self}
+	res, err := user.PerformDeleteAccessKey(accessKey)
+	fmt.Println(res)
+	return err
 }
 
-func (user *ICloudAccessKey) PerformDeleteAccessKey(accessKey string) error {
-	params := make(map[string]interface{})
+func (user *SClouduser) PerformDeleteAccessKey(accessKey string) (jsonutils.JSONObject, error) {
 	obj, err := user.client.deleteAKSK(accessKey)
 	if err != nil {
-		return errors.Wrap(err, "SHuaweiClient.deleteAKSK")
+		return nil, errors.Wrap(err, "SHuaweiClient.deleteAKSK")
 	}
-	obj.Unmarshal(&params)
-	return nil
+	return obj, nil
 }
-func (user *ICloudAccessKey) PerformCreateAccessKey(userId, description string) (map[string]interface{}, error) {
+func (user *SClouduser) PerformCreateAccessKey(description string) (jsonutils.JSONObject, error) {
+	if user.Id == "" {
+		user.Id = "3ab5d68b19014137aa5492897e9d6f7f"
+	}
+	log.Errorln("this is user.Id:", user.Id)
 	params := map[string]interface{}{
 		"credential": map[string]interface{}{
-			"user_id":     userId,
+			"user_id":     user.Id,
 			"description": description,
 		},
 	}
@@ -265,18 +272,15 @@ func (user *ICloudAccessKey) PerformCreateAccessKey(userId, description string) 
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.deleteAKSK")
 	}
-	obj.Unmarshal(&params)
-
-	return params, nil
+	return obj, nil
 }
 
-func (user *ICloudAccessKey) GetDetailsAccessKeys() (map[string]interface{}, error) {
+func (user *SClouduser) GetDetailsAccessKeys() (jsonutils.JSONObject, error) {
 	params := make(map[string]interface{})
 	obj, err := user.client.getAKSKList()
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.getAKSKList")
 	}
 	obj.Unmarshal(&params)
-
-	return params, nil
+	return obj, nil
 }

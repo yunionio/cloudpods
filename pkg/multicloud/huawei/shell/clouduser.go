@@ -110,7 +110,7 @@ func init() {
 	}
 
 	shellutils.R(&AKSKCreateOption{}, "aksk-create", "List aksk", func(cli *huawei.SRegion, args *AKSKCreateOption) error {
-		res, err := cli.GetClient().CreateAKSK(args.UserId, args.Description)
+		res, err := cli.GetClient().CreateAKSK(args.Description)
 		if err != nil {
 			return err
 		}

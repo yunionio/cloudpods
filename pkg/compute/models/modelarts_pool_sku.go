@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -37,6 +36,7 @@ type SModelartsPoolSkuManager struct {
 	db.SExternalizedResourceBaseManager
 	db.SEnabledStatusStandaloneResourceBaseManager
 
+	SCloudregionResourceBaseManager
 	SManagedResourceBaseManager
 }
 
@@ -59,6 +59,7 @@ type SModelartsPoolSku struct {
 	SManagedResourceBase
 	db.SEnabledStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
+	SCloudregionResourceBase
 
 	Type string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // 资源规格类型
 	// CPU 架构 x86|xarm
@@ -100,6 +101,10 @@ func (man *SModelartsPoolSkuManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
+	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
 
 	return q, nil
 }
@@ -121,6 +126,10 @@ func (man *SModelartsPoolSkuManager) OrderByExtraFields(
 	q, err = man.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
 	}
 	return q, nil
 }
@@ -148,11 +157,13 @@ func (manager *SModelartsPoolSkuManager) FetchCustomizeColumns(
 	rows := make([]api.ModelartsPoolSkuDetails, len(objs))
 	enabledRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.ModelartsPoolSkuDetails{
 			EnabledStatusStandaloneResourceDetails: enabledRows[i],
 			ManagedResourceInfo:                    manRows[i],
+			CloudregionResourceInfo:                regRows[i],
 		}
 	}
 
@@ -179,8 +190,11 @@ func (manager *SModelartsPoolSkuManager) ListItemExportKeys(ctx context.Context,
 
 	return q, nil
 }
-func (self *SCloudprovider) GetModelartsPoolSkus() ([]SModelartsPoolSku, error) {
-	q := ModelartsPoolSkuManager.Query()
+func (self *SCloudregion) GetModelartsPoolSkus(managerId string) ([]SModelartsPoolSku, error) {
+	q := ModelartsPoolSkuManager.Query().Equals("cloudregion_id", self.Id)
+	if len(managerId) > 0 {
+		q = q.Equals("manager_id", managerId)
+	}
 	ret := []SModelartsPoolSku{}
 	err := db.FetchModelObjects(ModelartsPoolSkuManager, q, &ret)
 	if err != nil {
@@ -189,12 +203,12 @@ func (self *SCloudprovider) GetModelartsPoolSkus() ([]SModelartsPoolSku, error) 
 	return ret, nil
 }
 
-func (self *SCloudprovider) SyncModelartsPoolSkus(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudModelartsPoolSku) compare.SyncResult {
+func (self *SCloudregion) SyncModelartsPoolSkus(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudModelartsPoolSku) compare.SyncResult {
 	// 加锁防止重入
 	lockman.LockRawObject(ctx, self.Provider, "modelarts-pool-sku")
 	defer lockman.ReleaseRawObject(ctx, self.Provider, "modelarts-pool-sku")
 	result := compare.SyncResult{}
-	dbPoolSku, err := self.GetModelartsPoolSkus()
+	dbPoolSku, err := self.GetModelartsPoolSkus(provider.Id)
 	if err != nil {
 		result.Error(err)
 		return result
@@ -233,7 +247,7 @@ func (self *SCloudprovider) SyncModelartsPoolSkus(ctx context.Context, userCred 
 
 	// 创建本地没有的云上资源
 	for i := 0; i < len(added); i++ {
-		err := self.newFromCloudModelartsPoolSku(ctx, userCred, added[i])
+		err := self.newFromCloudModelartsPoolSku(ctx, userCred, provider, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -262,9 +276,10 @@ func (self *SModelartsPoolSku) syncWithCloudSku(ctx context.Context, userCred mc
 	return err
 }
 
-func (self *SCloudprovider) newFromCloudModelartsPoolSku(ctx context.Context, userCred mcclient.TokenCredential, isku cloudprovider.ICloudModelartsPoolSku) error {
+func (self *SCloudregion) newFromCloudModelartsPoolSku(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, isku cloudprovider.ICloudModelartsPoolSku) error {
 	sku := SModelartsPoolSku{}
 	sku.SetModelManager(ModelartsPoolSkuManager, &sku)
+	sku.CloudregionId = self.Id
 	sku.Name = isku.GetName()
 	sku.CpuCount = isku.GetCpuCoreCount()
 	sku.CpuArch = isku.GetCpuArch()
@@ -277,17 +292,6 @@ func (self *SCloudprovider) newFromCloudModelartsPoolSku(ctx context.Context, us
 	sku.NpuType = isku.GetNpuType()
 	sku.NpuSize = isku.GetNpuSize()
 	sku.ExternalId = isku.GetGlobalId()
+	sku.ManagerId = provider.Id
 	return ModelartsPoolSkuManager.TableSpec().Insert(ctx, &sku)
-}
-
-func syncModelartsPoolSku(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider) error {
-	ipools, err := driver.GetIModelartsPoolSku()
-	if err != nil {
-		msg := fmt.Sprintf("GetIModelartsPoolsSku for provider %s failed %s", err, ipools)
-		log.Errorf(msg)
-		return err
-	}
-	result := provider.SyncModelartsPoolSkus(ctx, userCred, ipools)
-	log.Infof("SyncModelartsPools for region %s result: %s", provider.GetName(), result.Result())
-	return nil
 }

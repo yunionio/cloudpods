@@ -194,6 +194,11 @@ type ICloudRegion interface {
 	GetICloudKubeClusterById(id string) (ICloudKubeCluster, error)
 
 	GetICloudTablestores() ([]ICloudTablestore, error)
+
+	GetIModelartsPools() ([]ICloudModelartsPool, error)
+	GetIModelartsPoolById(id string) (ICloudModelartsPool, error)
+	CreateIModelartsPool(pool *ModelartsPoolCreateOption) (ICloudModelartsPool, error)
+	GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error)
 }
 
 type ICloudZone interface {
@@ -1189,9 +1194,9 @@ type IClouduser interface {
 	ResetPassword(password string) error
 	IsConsoleLogin() bool
 
-	PerformCreateAccessKey(userId, description string) (ICloudAccessKey, error)
-	PerformDeleteAccessKey(accessKey string) (ICloudAccessKey, error)
-	GetDetailsAccessKeys() ([]ICloudAccessKey, error)
+	PerformCreateAccessKey(description string) (jsonutils.JSONObject, error)
+	PerformDeleteAccessKey(accessKey string) (jsonutils.JSONObject, error)
+	GetDetailsAccessKeys() (jsonutils.JSONObject, error)
 }
 
 // 公有云子账号权限
@@ -1576,10 +1581,4 @@ type ICloudKubeNodePool interface {
 
 type ICloudTablestore interface {
 	IVirtualResource
-}
-
-type ICloudAccessKey interface {
-	PerformCreateAccessKey(userId, description string) (map[string]interface{}, error)
-	PerformDeleteAccessKey(accessKey string) error
-	GetDetailsAccessKeys() (map[string]interface{}, error)
 }

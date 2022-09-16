@@ -19,7 +19,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 type ModelartsPoolSkuDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 	ManagedResourceInfo
-	// CloudregionResourceInfo
+	CloudregionResourceInfo
 }
 
 const (
@@ -31,6 +31,6 @@ type ModelartsPoolSkuListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 	apis.ExternalizedResourceBaseListInput
 
-	ManagedResourceListInput
 	RegionalFilterListInput
+	ManagedResourceListInput
 }

@@ -217,13 +217,6 @@ type ClouduserJoinGroupInput struct {
 	CloudgroupId string `json:"cloudgroup_id"`
 }
 
-type ClouduserCreateAccessKeyInput struct {
-
-	// 用户Id
-	UserId      string `json:"user_id"`
-	Description string `json:"description"`
-}
-
 type ClouduserLeaveGroupInput struct {
 	// 权限组Id
 	CloudgroupId string `json:"cloudgroup_id"`

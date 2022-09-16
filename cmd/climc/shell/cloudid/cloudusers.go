@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/cloudid"
 )
 
@@ -50,5 +49,8 @@ func init() {
 		for _, v := range rr {
 			fmt.Printf("%s\n", v)
 		}
-	}, &options.SDnsZoneIdOptions{})
+	}, &cloudid.ClouduserListAccessKeyInput{})
+	cmd.Perform("delete-access-key", &cloudid.ClouduserDeleteAccessKeyInput{})
+	cmd.Perform("create-access-key", &cloudid.ClouduserCreateAccessKeyInput{})
+
 }

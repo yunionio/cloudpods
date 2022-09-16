@@ -1513,24 +1513,45 @@ func (self *SClouduser) SyncCustomCloudpoliciesForCloud(ctx context.Context, use
 	return account.SyncCustomCloudpoliciesForCloud(ctx, userCred, self)
 }
 
-func (self *SClouduser) PerformCreateAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SClouduser) (jsonutils.JSONObject, error) {
-	return nil, nil
+func (self *SClouduser) PerformCreateAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserCreateAccessKeyInput) (jsonutils.JSONObject, error) {
+	user, err := self.GetIClouduser()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIClouduser error")
+	}
+	obj, err := user.PerformCreateAccessKey(input.Description)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDetailsAccessKeys error")
+	}
+	return obj, nil
 }
 
 func (self *SClouduser) GetDetailsAccessKeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	// user, err := self.GetIClouduser()
-	// if err != nil {
-	// 	return nil, errors.Wrapf(err, "GetIClouduser error")
-	// }
-	// obj, err := user.GetDetailsAccessKeys()
-	// if err != nil {
-	// 	return nil, errors.Wrapf(err, "GetDetailsAccessKeys error")
-	// }
-	// res := jsonutils.Marshal(obj)
-	// return res, nil
-	return nil, nil
+	user, err := self.GetIClouduser()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIClouduser error")
+	}
+	obj, err := user.GetDetailsAccessKeys()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDetailsAccessKeys error")
+	}
+	mid := make([]map[string]interface{}, 0)
+	obj.Unmarshal(&mid, "credentials")
+	res := make(map[string]interface{})
+	res["data"] = mid
+	res["total"] = len(mid)
+	res["limit"] = 20
+	result := jsonutils.Marshal(res)
+	return result, nil
 }
 
-func (self *SClouduser) PerformDeleteAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SClouduser) (jsonutils.JSONObject, error) {
-	return nil, nil
+func (self *SClouduser) PerformDeleteAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserDeleteAccessKeyInput) (jsonutils.JSONObject, error) {
+	user, err := self.GetIClouduser()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIClouduser error")
+	}
+	obj, err := user.PerformDeleteAccessKey(input.AccessKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDetailsAccessKeys error")
+	}
+	return obj, nil
 }

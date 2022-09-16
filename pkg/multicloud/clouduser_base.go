@@ -15,22 +15,21 @@
 package multicloud
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 )
 
 type SBaseClouduser struct {
 }
 
-func (self *SBaseClouduser) PerformCreateAccessKey(userid, description string) (cloudprovider.ICloudAccessKey, error) {
+func (self *SBaseClouduser) PerformCreateAccessKey(description string) (jsonutils.JSONObject, error) {
 	return nil, errors.Wrap(nil, "base PerformCreateAccessKey")
 }
 
-func (self *SBaseClouduser) GetDetailsAccessKeys() ([]cloudprovider.ICloudAccessKey, error) {
-
+func (self *SBaseClouduser) GetDetailsAccessKeys() (jsonutils.JSONObject, error) {
 	return nil, errors.Wrap(nil, "base GetDetailsAccessKeys")
 }
 
-func (self *SBaseClouduser) PerformDeleteAccessKey(accesskey string) (cloudprovider.ICloudAccessKey, error) {
+func (self *SBaseClouduser) PerformDeleteAccessKey(accesskey string) (jsonutils.JSONObject, error) {
 	return nil, errors.Wrap(nil, "base PerformDeleteAccessKey")
 }

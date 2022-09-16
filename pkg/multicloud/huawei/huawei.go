@@ -280,17 +280,17 @@ func (self *SHuaweiClient) modelartsResourceflavors(resource string, params map[
 }
 
 func (self *SHuaweiClient) getAKSKList() (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://iam.%s.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials", self.clientRegion)
+	uri := fmt.Sprintf("https://iam.cn-north-4.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials")
 	return self.request(httputils.GET, uri, url.Values{}, nil)
 }
 
 func (self *SHuaweiClient) deleteAKSK(accesskey string) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://iam.%s.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials/%s", self.clientRegion, accesskey)
+	uri := fmt.Sprintf("https://iam.cn-north-4.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials/%s", accesskey)
 	return self.request(httputils.DELETE, uri, url.Values{}, nil)
 }
 
 func (self *SHuaweiClient) createAKSK(params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://iam.%s.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials", self.clientRegion)
+	uri := fmt.Sprintf("https://iam.cn-north-4.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials")
 	return self.request(httputils.POST, uri, url.Values{}, params)
 }
 

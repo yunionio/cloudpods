@@ -287,8 +287,9 @@ $ git clone -b release/3.8 https://github.com/yunionio/ocboot && cd ./ocboot && 
 
 It takes 10-30 minutes to finish the installation. You may visit the webconsole of Cloudpods at https://10.168.26.216. The initial login account is *admin* and password is *admin@123*.
 
-For more detailed instructions, please refers to [quick start](https://www.cloudpods.org/en/docs/quickstart/).
+For more detailed instructions, please refers to [quick start](https://www.cloudpods.org/zh/docs/quickstart/allinone/).
 
+Already having a Kubernetes? Try [installing Cloudpods with Helm](https://www.cloudpods.org/zh/docs/quickstart/k8s/).
 
 ## Documentations
 
