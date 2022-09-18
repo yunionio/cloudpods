@@ -92,6 +92,17 @@ type SCommonAlertManager struct {
 	subscriptionManager ISubscriptionManager
 }
 
+type ICommonAlert interface {
+	db.IModel
+
+	RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error
+	DeleteAttachAlertRecords(ctx context.Context, userCred mcclient.TokenCredential) []error
+	DetachAlertResourceOnDisable(ctx context.Context, userCred mcclient.TokenCredential) []error
+	DetachMonitorResourceJoint(ctx context.Context, userCred mcclient.TokenCredential) error
+	UpdateMonitorResourceJoint(ctx context.Context, userCred mcclient.TokenCredential) error
+	GetMoreDetails(ctx context.Context, out monitor.CommonAlertDetails) (monitor.CommonAlertDetails, error)
+}
+
 type SCommonAlert struct {
 	SAlert
 }
@@ -173,7 +184,7 @@ func (man *SCommonAlertManager) ValidateCreateData(
 		return data, merrors.NewArgIsEmptyErr("name")
 	}
 	if data.Level == "" {
-		return data, merrors.NewArgIsEmptyErr("level")
+		data.Level = monitor.CommonAlertLevelNormal
 	}
 	if len(data.Channel) == 0 {
 		data.Channel = []string{monitor.DEFAULT_SEND_NOTIFY_CHANNEL}
@@ -194,7 +205,10 @@ func (man *SCommonAlertManager) ValidateCreateData(
 		}
 	}
 	// 默认的系统配置Recipients=commonalert-default
-	if data.AlertType != monitor.CommonAlertSystemAlertType {
+	if !utils.IsInStringArray(data.AlertType, []string{
+		monitor.CommonAlertSystemAlertType,
+		monitor.CommonAlertServiceAlertType,
+	}) {
 		if len(data.Recipients) == 0 && len(data.RobotIds) == 0 && len(data.Roles) == 0 {
 			return data, merrors.NewArgIsEmptyErr("recipients, robot_ids or roles")
 		}
@@ -225,7 +239,7 @@ func (man *SCommonAlertManager) ValidateCreateData(
 
 	if data.AlertType != "" {
 		if !utils.IsInStringArray(data.AlertType, validators.CommonAlertType) {
-			return data, httperrors.NewInputParameterError("the AlertType is illegal:%s", data.AlertType)
+			return data, httperrors.NewInputParameterError("Invalid AlertType: %s", data.AlertType)
 		}
 	}
 	var err = man.ValidateMetricQuery(&data.CommonMetricInputQuery, data.Scope, ownerId)
@@ -298,7 +312,8 @@ func (alert *SCommonAlert) setAlertType(ctx context.Context, userCred mcclient.T
 }
 
 func (alert *SCommonAlert) getAlertType() string {
-	return alert.GetMetadata(context.Background(), CommonAlertMetadataAlertType, nil)
+	ret := alert.GetMetadata(context.Background(), CommonAlertMetadataAlertType, nil)
+	return ret
 }
 
 func (alert *SCommonAlert) setFieldOpt(ctx context.Context, userCred mcclient.TokenCredential, fieldOpt string) error {
@@ -353,7 +368,6 @@ func (alert *SCommonAlert) customizeCreateNotis(ctx context.Context, userCred mc
 		return err
 	}
 
-	// used_by 弃用
 	if input.AlertType == monitor.CommonAlertSystemAlertType {
 		s := &monitor.NotificationSettingOneCloud{
 			Channel: "webconsole",
@@ -409,7 +423,6 @@ func (alert *SCommonAlert) createAlertNoti(ctx context.Context, userCred mcclien
 	if alert.Id == "" {
 		alert.Id = db.DefaultUUIDGenerator()
 	}
-	//alert.UsedBy = usedBy
 	_, err = alert.AttachNotification(
 		ctx, userCred, noti,
 		monitor.AlertNotificationStateUnknown,
@@ -430,7 +443,9 @@ func (alert *SCommonAlert) PostCreate(ctx context.Context,
 	alert.SetStatus(userCred, monitor.ALERT_STATUS_READY, "")
 
 	if input.AlertType != "" {
-		alert.setAlertType(ctx, userCred, input.AlertType)
+		if err := alert.setAlertType(ctx, userCred, input.AlertType); err != nil {
+			log.Errorf("etAlertType error for %q: %v", alert.GetId(), err)
+		}
 	}
 	fieldOpt := ""
 	for i, metricQ := range input.CommonMetricInputQuery.MetricQuery {
@@ -474,9 +489,12 @@ func (man *SCommonAlertManager) ListItemFilter(
 }
 
 func (man *SCommonAlertManager) FieldListFilter(q *sqlchemy.SQuery, input monitor.CommonAlertListInput) {
-	if len(input.UsedBy) == 0 {
-		q.Filter(sqlchemy.IsNull(q.Field("used_by")))
-	} else {
+	// if len(input.UsedBy) == 0 {
+	// 	q.Filter(sqlchemy.IsNull(q.Field("used_by")))
+	// } else {
+	// 	q.Equals("used_by", input.UsedBy)
+	// }
+	if len(input.UsedBy) != 0 {
 		q.Equals("used_by", input.UsedBy)
 	}
 
@@ -637,7 +655,11 @@ func (man *SCommonAlertManager) FetchCustomizeColumns(
 	alertRows := man.SAlertManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i].AlertDetails = alertRows[i]
-		rows[i], _ = objs[i].(*SCommonAlert).GetMoreDetails(ctx, rows[i])
+		var err error
+		rows[i], err = objs[i].(ICommonAlert).GetMoreDetails(ctx, rows[i])
+		if err != nil {
+			log.Warningf("GetMoreDetails for alert %s: %v", rows[i].Name, err)
+		}
 	}
 	return rows
 }
@@ -674,17 +696,17 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 	var err error
 	alertNotis, err := alert.GetNotifications()
 	if err != nil {
-		return out, err
+		return out, errors.Wrap(err, "GetNotifications")
 	}
 	channel := sets.String{}
 	for i, alertNoti := range alertNotis {
 		noti, err := alertNoti.GetNotification()
 		if err != nil {
-			return out, errors.Wrap(err, "get notify err:")
+			return out, errors.Wrap(err, "get notify")
 		}
 		settings := new(monitor.NotificationSettingOneCloud)
 		if err := noti.Settings.Unmarshal(settings); err != nil {
-			return out, err
+			return out, errors.Wrap(err, "Unmarshal to NotificationSettingOneCloud")
 		}
 		if i == 0 {
 			out.Recipients = settings.UserIds
@@ -716,9 +738,8 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 		out.AlertDuration = 1
 	}
 
-	err = alert.getCommonAlertMetricDetails(&out)
-	if err != nil {
-		return out, err
+	if err := alert.getCommonAlertMetricDetails(&out); err != nil {
+		return out, errors.Wrap(err, "getCommonAlertMetricDetails")
 	}
 	return out, nil
 }
@@ -1057,13 +1078,13 @@ func (alert *SCommonAlert) PostUpdate(
 	data.Unmarshal(updateInput)
 	if len(updateInput.Channel) != 0 {
 		if err := alert.UpdateNotification(ctx, userCred, query, data); err != nil {
-			log.Errorln("update notification", err)
+			log.Errorf("update notification error: %v", err)
 		}
 	}
 	if _, err := data.GetString("scope"); err == nil {
 		_, err = alert.PerformSetScope(ctx, userCred, query, data)
 		if err != nil {
-			log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
+			log.Errorf("Alert PerformSetScope: %v", err)
 		}
 	}
 	if updateInput.GetPointStr {
@@ -1088,7 +1109,7 @@ func (alert *SCommonAlert) UpdateNotification(ctx context.Context, userCred mccl
 	}
 	err = alert.customizeCreateNotis(ctx, userCred, query, data)
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("customizeCreateNotis for %s(%s): %v", alert.GetName(), alert.GetId(), err)
 	}
 	return err
 }
@@ -1097,8 +1118,8 @@ func (alert *SCommonAlert) getUpdateAlertInput(updateInput monitor.CommonAlertUp
 	input := monitor.CommonAlertCreateInput{
 		CommonMetricInputQuery: updateInput.CommonMetricInputQuery,
 		Period:                 updateInput.Period,
-		AlertDuration:          updateInput.AlertDuration,
 	}
+	input.AlertDuration = updateInput.AlertDuration
 	alertCreateInput := CommonAlertManager.toAlertCreatInput(input)
 	return alertCreateInput
 }
@@ -1416,6 +1437,9 @@ func (alert *SCommonAlert) DetachMonitorResourceJoint(ctx context.Context, userC
 
 func (alert *SCommonAlert) UpdateResType() error {
 	setting, _ := alert.GetSettings()
+	if len(setting.Conditions) == 0 {
+		return nil
+	}
 	measurement, _ := MetricMeasurementManager.GetCache().Get(setting.Conditions[0].Query.Model.Measurement)
 	if measurement == nil {
 		return nil

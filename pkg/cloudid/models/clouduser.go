@@ -1518,40 +1518,42 @@ func (self *SClouduser) PerformCreateAccessKey(ctx context.Context, userCred mcc
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIClouduser error")
 	}
-	obj, err := user.PerformCreateAccessKey(input.Description)
+	ak, err := user.CreateAccessKey(input.Name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetDetailsAccessKeys error")
 	}
-	return obj, nil
+	return jsonutils.Marshal(ak), nil
 }
 
 func (self *SClouduser) GetDetailsAccessKeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	user, err := self.GetIClouduser()
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetIClouduser error")
+		return nil, errors.Wrapf(err, "GetIClouduser")
 	}
-	obj, err := user.GetDetailsAccessKeys()
+	aks, err := user.GetAccessKeys()
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetDetailsAccessKeys error")
+		return nil, errors.Wrapf(err, "GetAccessKeys")
 	}
-	mid := make([]map[string]interface{}, 0)
-	obj.Unmarshal(&mid, "credentials")
-	res := make(map[string]interface{})
-	res["data"] = mid
-	res["total"] = len(mid)
-	res["limit"] = 20
-	result := jsonutils.Marshal(res)
-	return result, nil
+	ret := struct {
+		Data  []cloudprovider.SAccessKey
+		Total int
+		Limit int
+	}{
+		Data:  aks,
+		Total: len(aks),
+		Limit: 20,
+	}
+	return jsonutils.Marshal(ret), nil
 }
 
-func (self *SClouduser) PerformDeleteAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserDeleteAccessKeyInput) (jsonutils.JSONObject, error) {
+func (self *SClouduser) DeleteAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserDeleteAccessKeyInput) (jsonutils.JSONObject, error) {
 	user, err := self.GetIClouduser()
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetIClouduser error")
+		return nil, errors.Wrapf(err, "GetIClouduser")
 	}
-	obj, err := user.PerformDeleteAccessKey(input.AccessKey)
+	err = user.DeleteAccessKey(input.AccessKey)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetDetailsAccessKeys error")
+		return nil, errors.Wrapf(err, "DeleteAccessKey")
 	}
-	return obj, nil
+	return nil, nil
 }

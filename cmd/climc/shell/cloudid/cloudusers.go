@@ -15,11 +15,9 @@
 package cloudid
 
 import (
-	"fmt"
-
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
 	"yunion.io/x/onecloud/pkg/mcclient/options/cloudid"
 )
@@ -40,17 +38,9 @@ func init() {
 	cmd.Perform("cloud-user-join-group", &cloudid.ClouduserGroupOptions{})
 	cmd.Perform("cloud-user-leave-group", &cloudid.ClouduserGroupOptions{})
 	cmd.GetWithCustomShow("access-keys", func(result jsonutils.JSONObject) {
-		rr := make(map[string]string)
-		err := result.Unmarshal(&rr)
-		if err != nil {
-			log.Errorf("error: %v", err)
-			return
-		}
-		for _, v := range rr {
-			fmt.Printf("%s\n", v)
-		}
+		ret := modulebase.JSON2ListResult(result)
+		shell.PrintList(ret, nil)
 	}, &cloudid.ClouduserListAccessKeyInput{})
 	cmd.Perform("delete-access-key", &cloudid.ClouduserDeleteAccessKeyInput{})
 	cmd.Perform("create-access-key", &cloudid.ClouduserCreateAccessKeyInput{})
-
 }

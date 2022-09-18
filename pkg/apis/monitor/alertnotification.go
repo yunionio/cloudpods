@@ -20,6 +20,13 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+const (
+	AlertNotificationUsedByMeterAlert     = "meter_alert"
+	AlertNotificationUsedByNodeAlert      = "node_alert"
+	AlertNotificationUsedByCommonAlert    = "common_alert"
+	AlertNotificationUsedByMigrationAlert = "migration_alert"
+)
+
 type AlertJointResourceBaseDetails struct {
 	apis.JointResourceBaseDetails
 	SAlertJointsBase

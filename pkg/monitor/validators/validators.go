@@ -38,7 +38,11 @@ var (
 	EvaluatorDefaultTypes = []string{"gt", "lt", "eq"}
 	EvaluatorRangedTypes  = []string{"within_range", "outside_range"}
 
-	CommonAlertType             = []string{monitor.CommonAlertNomalAlertType, monitor.CommonAlertSystemAlertType}
+	CommonAlertType = []string{
+		monitor.CommonAlertNomalAlertType,
+		monitor.CommonAlertSystemAlertType,
+		monitor.CommonAlertServiceAlertType,
+	}
 	CommonAlertReducerFieldOpts = []string{"/"}
 	CommonAlertNotifyTypes      = []string{"email", "mobile", "dingtalk", "webconsole", "feishu"}
 

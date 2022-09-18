@@ -92,7 +92,7 @@ func init() {
 		ID string
 	}
 	shellutils.R(&ClouduserAKSKOptions{}, "aksk-list", "List AKSK", func(cli *huawei.SRegion, args *ClouduserAKSKOptions) error {
-		mid, err := cli.GetClient().GetAKSK()
+		mid, err := cli.GetClient().GetAKSK(args.ID)
 		log.Errorln(mid)
 		return err
 	})
@@ -109,8 +109,8 @@ func init() {
 		Description string `help:"description"`
 	}
 
-	shellutils.R(&AKSKCreateOption{}, "aksk-create", "List aksk", func(cli *huawei.SRegion, args *AKSKCreateOption) error {
-		res, err := cli.GetClient().CreateAKSK(args.Description)
+	shellutils.R(&AKSKCreateOption{}, "aksk-create", "Create aksk", func(cli *huawei.SRegion, args *AKSKCreateOption) error {
+		res, err := cli.GetClient().CreateAKSK(args.UserId, args.Description)
 		if err != nil {
 			return err
 		}

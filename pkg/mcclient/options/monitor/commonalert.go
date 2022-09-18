@@ -16,7 +16,11 @@ package monitor
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/monitor"
+	monitor2 "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -69,4 +73,42 @@ func (o *CommonAlertDeleteOptions) GetIds() []string {
 
 func (o *CommonAlertDeleteOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
+}
+
+type CommonAlertConditionOptions struct {
+	AlertConditionOptions
+}
+
+func (o CommonAlertConditionOptions) Params(conf *monitor2.AlertConfig) (*monitor2.AlertCondition, error) {
+	cond, err := o.AlertConditionOptions.Params(conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "AlertConditionOptions.Params")
+	}
+	return cond, nil
+}
+
+type CommonAlertCreateOptions struct {
+	apis.Meta
+	monitor.CommonAlertCreateBaseInput
+
+	CommonAlertConditionOptions
+	AlertStatesOptions
+
+	NAME string `help:"Name of the alert"`
+	// 报警级别
+	Level string `json:"level"`
+}
+
+func (o *CommonAlertCreateOptions) Params() (jsonutils.JSONObject, error) {
+	input, err := monitor2.NewAlertConfig(o.NAME, o.Period, true)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := o.CommonAlertConditionOptions.Params(input); err != nil {
+		return nil, err
+	}
+	input.NoDataState(o.NoDataState)
+	input.ExecutionErrorState(o.ExecutionErrorState)
+	ret := input.ToCommonAlertCreateInput(&o.CommonAlertCreateBaseInput)
+	return ret.JSON(ret), nil
 }

@@ -21,8 +21,9 @@ const (
 	ALERT_STATUS_DELETING    = "deleting"
 	ALERT_STATUS_DELETED     = "deleted"
 
-	CommonAlertSystemAlertType = "system"
-	CommonAlertNomalAlertType  = "normal"
+	CommonAlertSystemAlertType  = "system"
+	CommonAlertNomalAlertType   = "normal"
+	CommonAlertServiceAlertType = "service"
 
 	MonitorComponentType = "default-monitor"
 	MonitorComponentPort = 30093
@@ -40,16 +41,15 @@ const (
 
 	METRIC_QUERY_TYPE_NO_DATA     = "nodata_query"
 	METRIC_QUERY_NO_DATA_THESHOLD = "nodata"
+
+	CommonAlertLevelNormal    = "normal"
+	CommonAlertLevelImportant = "important"
+	CommonAlertLevelFatal     = "fatal"
 )
 
-var CommonAlertLevels = []string{"normal", "important", "fatal"}
+var CommonAlertLevels = []string{CommonAlertLevelNormal, CommonAlertLevelImportant, CommonAlertLevelFatal}
 
-type CommonAlertCreateInput struct {
-	CommonMetricInputQuery
-	AlertCreateInput
-
-	// 查询指标周期
-	Period string `json:"period"`
+type CommonAlertCreateBaseInput struct {
 	// 报警连续持续周期数
 	AlertDuration int64 `json:"alert_duration"`
 	// 通知方式, 比如: email, mobile
@@ -74,6 +74,15 @@ type CommonAlertCreateInput struct {
 	GetPointStr bool   `json:"get_point_str"`
 	MetaName    string `json:"meta_name"`
 	Description string `json:"description"`
+}
+
+type CommonAlertCreateInput struct {
+	CommonMetricInputQuery
+	AlertCreateInput
+	CommonAlertCreateBaseInput
+
+	// 查询指标周期
+	Period string `json:"period"`
 }
 
 type CommonMetricInputQuery struct {

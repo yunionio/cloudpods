@@ -122,11 +122,11 @@ func (opts *ClouduserResetPasswordOptions) Params() (jsonutils.JSONObject, error
 
 type ClouduserCreateAccessKeyInput struct {
 	ClouduserIdOption
-	Description string `json:"description"`
+	Name string `json:"Name"`
 }
 
 func (opts *ClouduserCreateAccessKeyInput) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(map[string]string{"id": opts.ID, "description": opts.Description}), nil
+	return jsonutils.Marshal(map[string]string{"id": opts.ID, "name": opts.Name}), nil
 }
 
 type ClouduserDeleteAccessKeyInput struct {

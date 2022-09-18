@@ -1194,9 +1194,9 @@ type IClouduser interface {
 	ResetPassword(password string) error
 	IsConsoleLogin() bool
 
-	PerformCreateAccessKey(description string) (jsonutils.JSONObject, error)
-	PerformDeleteAccessKey(accessKey string) (jsonutils.JSONObject, error)
-	GetDetailsAccessKeys() (jsonutils.JSONObject, error)
+	CreateAccessKey(name string) (*SAccessKey, error)
+	DeleteAccessKey(accessKey string) error
+	GetAccessKeys() ([]SAccessKey, error)
 }
 
 // 公有云子账号权限

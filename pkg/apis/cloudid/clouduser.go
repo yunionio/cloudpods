@@ -270,8 +270,8 @@ type ClouduserChangeOwnerInput struct {
 }
 
 type ClouduserCreateAccessKeyInput struct {
-	UserId      string `json:"user_id"`
-	Description string `json:"description"`
+	UserId string `json:"user_id"`
+	Name   string `json:"name"`
 }
 
 type ClouduserDeleteAccessKeyInput struct {

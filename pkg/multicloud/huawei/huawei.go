@@ -279,9 +279,14 @@ func (self *SHuaweiClient) modelartsResourceflavors(resource string, params map[
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
-func (self *SHuaweiClient) getAKSKList() (jsonutils.JSONObject, error) {
+func (self *SHuaweiClient) getAKSKList(userId string) (jsonutils.JSONObject, error) {
+	// uri := fmt.Sprintf("https://iam.cn-north-4.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials")
+	// return self.request(httputils.GET, uri, url.Values{}, nil)
+	params := url.Values{}
+	params.Set("user_id", userId)
 	uri := fmt.Sprintf("https://iam.cn-north-4.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials")
-	return self.request(httputils.GET, uri, url.Values{}, nil)
+	// return self.request(httputils.GET, uri, url.Values{}, nil)
+	return self.request(httputils.GET, uri, params, nil)
 }
 
 func (self *SHuaweiClient) deleteAKSK(accesskey string) (jsonutils.JSONObject, error) {
@@ -857,4 +862,31 @@ func (self *SHuaweiClient) patchRequest(method httputils.THttpMethod, url string
 		return nil, err
 	}
 	return respValue, err
+}
+
+func (self *SHuaweiClient) createakrequest(method httputils.THttpMethod, url, token string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	client := self.getAkClient()
+	if len(query) > 0 {
+		url = fmt.Sprintf("%s?%s", url, query.Encode())
+	}
+	var body jsonutils.JSONObject = nil
+	if len(params) > 0 {
+		body = jsonutils.Marshal(params)
+	}
+	header := http.Header{}
+	if len(self.projectId) > 0 {
+		header.Set("X-Project-Id", self.projectId)
+	}
+	// if len(self.ownerId) > 0 {
+	// 	header.Set("X-Domain-Id", self.ownerId)
+	// }
+	header.Set("X-Auth-Token", token)
+	_, resp, err := httputils.JSONRequest(client, context.Background(), method, url, header, body, self.debug)
+	if err != nil {
+		if e, ok := err.(*httputils.JSONClientError); ok && e.Code == 404 {
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+		}
+		return nil, err
+	}
+	return resp, err
 }
