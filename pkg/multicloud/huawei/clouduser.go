@@ -15,7 +15,10 @@
 package huawei
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -218,4 +221,90 @@ func (self *SHuaweiClient) ResetClouduserPassword(id, password string) error {
 		return errors.Wrap(err, "newGeneralAPIClient")
 	}
 	return client.Users.ResetPassword(id, password)
+}
+
+type SAccessKey struct {
+	client *SHuaweiClient
+
+	AccessKey   string `json:"access"`
+	Secret      string `json:"secret"`
+	Description string `json:"description"`
+	Status      string `json:"status"`
+}
+
+func (self *SHuaweiClient) GetAKSK(id string) ([]cloudprovider.SAccessKey, error) {
+	user := SClouduser{client: self, Id: id}
+	return user.GetAccessKeys()
+}
+
+func (self *SHuaweiClient) CreateAKSK(userId, name string) (*cloudprovider.SAccessKey, error) {
+	params := map[string]interface{}{
+		"credential": map[string]interface{}{
+			"user_id":     userId,
+			"description": name,
+		},
+	}
+	obj, err := self.createAKSK(params)
+	if err != nil {
+		return nil, err
+	}
+	ret := &cloudprovider.SAccessKey{}
+	ret.AccessKey, _ = obj.GetString("access")
+	ret.Secret, _ = obj.GetString("secret")
+	return ret, nil
+}
+
+func (self *SHuaweiClient) DeleteAKSK(accessKey string) error {
+	user := SClouduser{client: self}
+	err := user.DeleteAccessKey(accessKey)
+	return err
+}
+
+func (user *SClouduser) DeleteAccessKey(accessKey string) error {
+	obj, err := user.client.deleteAKSK(accessKey)
+	if err != nil {
+		return errors.Wrap(err, "SHuaweiClient.deleteAKSK")
+	}
+	fmt.Print(obj)
+	return nil
+}
+func (user *SClouduser) CreateAccessKey(name string) (*cloudprovider.SAccessKey, error) {
+	params := map[string]interface{}{
+		"credential": map[string]interface{}{
+			"user_id":     user.Id,
+			"description": name,
+		},
+	}
+	log.Errorln("this is params:", params)
+	log.Errorln("this is ak/sk", user.client.accessKey, user.client.accessSecret)
+	obj, err := user.client.createAKSK(params)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHuaweiClient.createAKSK")
+	}
+	ak := SAccessKey{}
+	obj.Unmarshal(&ak, "credential")
+	res := cloudprovider.SAccessKey{
+		Name:      ak.Description,
+		AccessKey: ak.AccessKey,
+		Secret:    ak.Secret,
+	}
+	return &res, nil
+}
+
+func (user *SClouduser) GetAccessKeys() ([]cloudprovider.SAccessKey, error) {
+	obj, err := user.client.getAKSKList(user.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHuaweiClient.getAKSKList")
+	}
+	aks := make([]SAccessKey, 0)
+	obj.Unmarshal(&aks, "credentials")
+	res := make([]cloudprovider.SAccessKey, len(aks))
+	for i := 0; i < len(aks); i++ {
+		res[i].Name = aks[i].Description
+		res[i].AccessKey = aks[i].AccessKey
+		res[i].Secret = aks[i].Secret
+		res[i].Status = aks[i].Status
+	}
+	fmt.Println(res)
+	return res, nil
 }

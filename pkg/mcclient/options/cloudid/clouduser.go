@@ -119,3 +119,29 @@ type ClouduserResetPasswordOptions struct {
 func (opts *ClouduserResetPasswordOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(map[string]string{"password": opts.Password}), nil
 }
+
+type ClouduserCreateAccessKeyInput struct {
+	ClouduserIdOption
+	Name string `json:"Name"`
+}
+
+func (opts *ClouduserCreateAccessKeyInput) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{"id": opts.ID, "name": opts.Name}), nil
+}
+
+type ClouduserDeleteAccessKeyInput struct {
+	ClouduserIdOption
+	AccessKey string `json:"access_key"`
+}
+
+func (opts *ClouduserDeleteAccessKeyInput) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{"access_key": opts.AccessKey}), nil
+}
+
+type ClouduserListAccessKeyInput struct {
+	ClouduserIdOption
+}
+
+func (opts *ClouduserListAccessKeyInput) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
