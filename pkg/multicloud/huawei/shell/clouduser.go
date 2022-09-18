@@ -16,6 +16,7 @@ package shell
 
 import (
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/multicloud/huawei"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
