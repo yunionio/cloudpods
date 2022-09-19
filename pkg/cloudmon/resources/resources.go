@@ -689,7 +689,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 			jsonutils.Update(&pools, resources)
 			err = driver.CollectModelartsPoolMetrics(ctx, manager, provider, pools, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectK8sMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				log.Errorf("CollectModelartsPoolMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 		}(cloudproviders[i])
 	}
