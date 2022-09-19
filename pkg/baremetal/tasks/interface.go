@@ -62,7 +62,7 @@ type IBaremetal interface {
 	GenerateBootISO() error
 	SendNicInfo(nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string, reserve bool) error
 	DoNTPConfig() error
-	GetImageCacheUrl() string
+	GetImageUrl(needImageCache bool) string
 
 	RemoveServer()
 	InitializeServer(session *mcclient.ClientSession, name string) error
