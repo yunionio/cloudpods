@@ -828,6 +828,10 @@ func NewIPv4AddrValidator(key string) *ValidatorIPv4Addr {
 }
 
 var ValidateModel = func(userCred mcclient.TokenCredential, manager db.IStandaloneModelManager, id *string) (db.IModel, error) {
+	if len(*id) == 0 {
+		return nil, httperrors.NewMissingParameterError(manager.Keyword())
+	}
+
 	model, err := manager.FetchByIdOrName(userCred, *id)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {

@@ -304,3 +304,11 @@ func (self *SHuaweiProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLPr
 	}
 	return sp, nil
 }
+
+func (self *SHuaweiProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	metrics, err := self.client.GetMetrics(opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetMetrics")
+	}
+	return metrics, nil
+}

@@ -46,16 +46,16 @@ func (self *ModelartsPoolCreateTask) taskFailed(ctx context.Context, pool *model
 
 func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	pool := obj.(*models.SModelartsPool)
+	iRegion, err := pool.GetIRegion()
+	if err != nil {
+		self.taskFailed(ctx, pool, errors.Wrapf(err, "pool.GetIRegion"))
+		return
+	}
 
 	opts := &cloudprovider.ModelartsPoolCreateOption{
 		Name:         pool.Name,
 		InstanceType: pool.InstanceType,
 		WorkType:     pool.WorkType,
-	}
-	iRegion, err := pool.GetIRegion()
-	if err != nil {
-		self.taskFailed(ctx, pool, errors.Wrapf(err, "pool.GetDriver"))
-		return
 	}
 
 	ipool, err := iRegion.CreateIModelartsPool(opts)
