@@ -53,6 +53,7 @@ type KubeClusterDetails struct {
 
 func (self KubeClusterDetails) GetMetricTags() map[string]string {
 	ret := map[string]string{
+		"id":             self.ExternalClusterId,
 		"res_type":       "kube_cluster",
 		"cluster_id":     self.ExternalClusterId,
 		"cluster_name":   self.Name,

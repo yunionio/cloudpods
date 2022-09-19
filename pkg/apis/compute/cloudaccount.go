@@ -321,6 +321,7 @@ type CloudaccountDetail struct {
 
 func (self CloudaccountDetail) GetMetricTags() map[string]string {
 	ret := map[string]string{
+		"id":                self.Id,
 		"cloudaccount_id":   self.Id,
 		"cloudaccount_name": self.Name,
 		"brand":             self.Brand,

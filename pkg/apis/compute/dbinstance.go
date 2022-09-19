@@ -324,6 +324,7 @@ type DBInstanceDetails struct {
 
 func (self DBInstanceDetails) GetMetricTags() map[string]string {
 	ret := map[string]string{
+		"id":             self.Id,
 		"rds_id":         self.Id,
 		"rds_name":       self.Name,
 		"zone":           self.Zone1Name,
