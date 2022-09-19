@@ -232,6 +232,7 @@ type HostDetails struct {
 
 func (self HostDetails) GetMetricTags() map[string]string {
 	ret := map[string]string{
+		"id":             self.Id,
 		"host_id":        self.Id,
 		"host_ip":        self.AccessIp,
 		"host":           self.Name,
