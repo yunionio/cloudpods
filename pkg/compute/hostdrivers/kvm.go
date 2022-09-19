@@ -97,6 +97,14 @@ func (self *SKVMHostDriver) ValidateAttachStorage(ctx context.Context, userCred 
 			if !jsonutils.QueryBoolean(res, "is_mount_point", false) {
 				return input, httperrors.NewBadRequestError("%s is not mount point %s", input.MountPoint, res)
 			}
+			urlStr = fmt.Sprintf("%s/storages/is-local-mount-point?%s", host.ManagerUri, params.QueryString())
+			_, res, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", urlStr, header, nil, false)
+			if err != nil {
+				return input, err
+			}
+			if jsonutils.QueryBoolean(res, "is_local_mount_point", false) {
+				return input, httperrors.NewBadRequestError("%s is local storage mount point", input.MountPoint)
+			}
 		}
 	}
 	return input, nil
