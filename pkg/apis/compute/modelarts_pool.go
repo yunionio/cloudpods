@@ -51,6 +51,7 @@ type ModelartsPoolDetails struct {
 
 func (self ModelartsPoolDetails) GetMetricTags() map[string]string {
 	ret := map[string]string{
+		"id":                  self.Id,
 		"modelarts_pool_id":   self.Id,
 		"modelarts_pool_name": self.Name,
 		"status":              self.Status,

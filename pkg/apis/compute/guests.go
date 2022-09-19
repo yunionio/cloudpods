@@ -248,6 +248,7 @@ type ServerDetails struct {
 
 func (self ServerDetails) GetMetricTags() map[string]string {
 	ret := map[string]string{
+		"id":                  self.Id,
 		"res_type":            "guest",
 		"is_vm":               "true",
 		"paltform":            self.Hypervisor,

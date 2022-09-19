@@ -40,6 +40,7 @@ type ElasticcacheDetails struct {
 
 func (self ElasticcacheDetails) GetMetricTags() map[string]string {
 	ret := map[string]string{
+		"id":             self.Id,
 		"redis_id":       self.Id,
 		"redis_ip":       self.PrivateIpAddr,
 		"redis_name":     self.Name,
