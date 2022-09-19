@@ -97,7 +97,7 @@ func (self *SBaremetalCdromTask) DoInsertISO(ctx context.Context, args interface
 	if !fileutils2.Exists(localImagePath) {
 		return errors.Error("image not cached")
 	}
-	imageBaseUrl := self.Baremetal.GetImageCacheUrl()
+	imageBaseUrl := self.Baremetal.GetImageUrl(true)
 	if len(imageBaseUrl) == 0 {
 		return errors.Error("empty image base url")
 	}

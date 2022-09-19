@@ -31,9 +31,9 @@ type IBaremetalServer interface {
 	DoDiskUnconfig(term *ssh.Client) error
 	DoDiskConfig(term *ssh.Client) (*disktool.SSHPartitionTool, error)
 	DoEraseDisk(term *ssh.Client) error
-	DoPartitionDisk(tool *disktool.SSHPartitionTool, term *ssh.Client) ([]*disktool.Partition, error)
+	DoPartitionDisk(tool *disktool.SSHPartitionTool, term *ssh.Client, disableImageCache bool) ([]*disktool.Partition, error)
 	NewConfigedSSHPartitionTool(term *ssh.Client) (*disktool.SSHPartitionTool, error)
-	DoRebuildRootDisk(tool *disktool.SSHPartitionTool, term *ssh.Client) ([]*disktool.Partition, error)
+	DoRebuildRootDisk(tool *disktool.SSHPartitionTool, term *ssh.Client, disableImageCache bool) ([]*disktool.Partition, error)
 	SyncPartitionSize(term *ssh.Client, parts []*disktool.Partition) ([]jsonutils.JSONObject, error)
 	DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.Client, data jsonutils.JSONObject, isInit bool) (jsonutils.JSONObject, error)
 	SaveDesc(desc jsonutils.JSONObject) error

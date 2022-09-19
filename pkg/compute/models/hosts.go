@@ -5392,8 +5392,12 @@ func (self *SHost) EsxiRequest(ctx context.Context, method httputils.THttpMethod
 	return self.doAgentRequest(api.AgentTypeEsxi, ctx, method, url, headers, body)
 }
 
+func (self *SHost) GetAgent(at api.TAgentType) *SBaremetalagent {
+	return BaremetalagentManager.GetAgent(at, self.ZoneId)
+}
+
 func (self *SHost) isAgentReady(agentType api.TAgentType) bool {
-	agent := BaremetalagentManager.GetAgent(agentType, self.ZoneId)
+	agent := self.GetAgent(agentType)
 	if agent == nil {
 		log.Errorf("%s ready: false", agentType)
 		return false
