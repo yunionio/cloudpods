@@ -152,6 +152,7 @@ type StorageDetails struct {
 
 func (self StorageDetails) GetMetricTags() map[string]string {
 	ret := map[string]string{
+		"id":             self.Id,
 		"storage_id":     self.Id,
 		"storage_name":   self.Name,
 		"brand":          self.Brand,

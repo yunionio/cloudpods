@@ -66,6 +66,7 @@ type BucketDetails struct {
 
 func (self BucketDetails) GetMetricTags() map[string]string {
 	ret := map[string]string{
+		"id":             self.Id,
 		"brand":          self.Brand,
 		"cloudregion":    self.Cloudregion,
 		"cloudregion_id": self.CloudregionId,
