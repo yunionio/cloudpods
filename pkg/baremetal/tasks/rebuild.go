@@ -55,7 +55,7 @@ func (self *SBaremetalServerRebuildTask) DoDeploys(term *ssh.Client) (jsonutils.
 	if err != nil {
 		return nil, errors.Wrap(err, "NewConfigedSSHPartitionTool")
 	}
-	parts, err := self.Baremetal.GetServer().DoRebuildRootDisk(tool, term)
+	parts, err := self.Baremetal.GetServer().DoRebuildRootDisk(tool, term, self.IsDisableImageCache())
 	if err != nil {
 		return nil, fmt.Errorf("Rebuild root disk: %v", err)
 	}

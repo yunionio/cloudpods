@@ -41,11 +41,9 @@ var (
 	baremetalAgent *SBaremetalAgent
 )
 
-//
 // BaremetalAgent has two types of address
 // - AccessAddress/Address: this is the address controller to accesss the agent
 // - ListenAddress: this is the address baremetal to access the agent
-//
 type SBaremetalAgent struct {
 	agent.SBaseAgent
 
@@ -82,6 +80,10 @@ func (agent *SBaremetalAgent) GetZoneId() string {
 
 func (agent *SBaremetalAgent) GetAdminSession() *mcclient.ClientSession {
 	return auth.GetAdminSession(context.TODO(), o.Options.Region)
+}
+
+func (agent *SBaremetalAgent) GetPublicAdminSession() *mcclient.ClientSession {
+	return auth.GetAdminSessionWithPublic(context.TODO(), o.Options.Region)
 }
 
 func (agent *SBaremetalAgent) GetListenIP() (net.IP, error) {
