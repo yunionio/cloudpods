@@ -16,6 +16,7 @@ package hcso
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -220,4 +221,14 @@ func (self *SHuaweiClient) ResetClouduserPassword(id, password string) error {
 		return errors.Wrap(err, "newGeneralAPIClient")
 	}
 	return client.Users.ResetPassword(id, password)
+}
+
+func (self *SRegion) GetAccessKeys(id string) error {
+	log.Errorln("this is ParentRegionID:", self.ParentRegionID)
+	res, err := self.client.getAkList("", "", nil)
+	if err != nil {
+		return err
+	}
+	log.Infoln("this is res:", jsonutils.Marshal(res))
+	return nil
 }

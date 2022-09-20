@@ -102,6 +102,8 @@ type SHuaweiClient struct {
 
 	projects []SProject
 	regions  []SRegion
+
+	httpClient *http.Client
 }
 
 // 进行资源操作时参数account 对应数据库cloudprovider表中的account字段,由accessKey和projectID两部分组成，通过"/"分割。
