@@ -68,7 +68,7 @@ type NetworkUpdateOptions struct {
 	Domain      string `help:"Domain"`
 	Dhcp        string `help:"DHCP server IP"`
 	Ntp         string `help:"Ntp server domain names"`
-	VlanId      int64  `help:"Vlan ID" default:"1"`
+	VlanId      int64  `help:"Vlan ID"`
 	ExternalId  string `help:"External ID"`
 	AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
 	IsAutoAlloc *bool  `help:"Add network into auto-allocation pool" negative:"no_auto_alloc"`
