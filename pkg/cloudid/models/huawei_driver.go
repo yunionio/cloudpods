@@ -68,12 +68,9 @@ func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 	if len(idpId) == 0 {
 		return data, httperrors.NewInputParameterError("saml auth url %s missing idp", uri)
 	}
-	groups, err := account.GetUserCloudgroups(userCred.GetUserId())
+	groups, err := account.GetUserCloudgroups(userCred)
 	if err != nil {
 		return data, httperrors.NewGeneralError(errors.Wrapf(err, "GetUserCloudgroups"))
-	}
-	if len(groups) == 0 {
-		return data, httperrors.NewResourceNotFoundError("no available group found")
 	}
 
 	data.NameId = userCred.GetUserName()
@@ -129,12 +126,9 @@ func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCre
 		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
 	}
 
-	groups, err := account.GetUserCloudgroups(userCred.GetUserId())
+	groups, err := account.GetUserCloudgroups(userCred)
 	if err != nil {
 		return data, httperrors.NewGeneralError(errors.Wrapf(err, "GetUserCloudgroups"))
-	}
-	if len(groups) == 0 {
-		return data, httperrors.NewResourceNotFoundError("no available group found")
 	}
 
 	data.NameId = userCred.GetUserName()
