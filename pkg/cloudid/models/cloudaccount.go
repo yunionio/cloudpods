@@ -1874,18 +1874,29 @@ func (self *SCloudaccount) SyncCloudroles(ctx context.Context, userCred mcclient
 	return result
 }
 
-func (self *SCloudaccount) GetUserCloudgroups(userId string) ([]string, error) {
+func (self *SCloudaccount) GetUserCloudgroups(userCred mcclient.TokenCredential) ([]string, error) {
 	ret := []string{}
-	q := CloudgroupManager.Query()
-	samlusers := SamluserManager.Query("cloudgroup_id").Equals("owner_id", userId).Equals("cloudaccount_id", self.Id).SubQuery()
-	q = q.In("id", samlusers)
+	q := SamluserManager.Query().Equals("owner_id", userCred.GetUserId()).Equals("cloudaccount_id", self.Id)
+	users := []SSamluser{}
+	err := db.FetchModelObjects(SamluserManager, q, &users)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	if len(users) == 0 {
+		return nil, fmt.Errorf("no available saml user for %s %s", userCred.GetUserName(), userCred.GetUserId())
+	}
+	groupIds := []string{}
+	for i := range users {
+		groupIds = append(groupIds, users[i].CloudgroupId)
+	}
+	q = CloudgroupManager.Query().In("id", groupIds)
 	groups := []SCloudgroup{}
-	err := db.FetchModelObjects(CloudgroupManager, q, &groups)
+	err = db.FetchModelObjects(CloudgroupManager, q, &groups)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	if len(groups) == 0 {
-		return ret, nil
+		return ret, fmt.Errorf("no available cloudgroup for %s %s", userCred.GetUserName(), userCred.GetUserId())
 	}
 	for i := range groups {
 		cache, err := CloudgroupcacheManager.Register(&groups[i], self)
