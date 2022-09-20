@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	cloudid_api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -56,8 +57,14 @@ func init() {
 			PolicyType  string
 			Status      string
 		}
+		idMap := map[string]bool{}
 		ret := []sRule{}
 		for i := range roles {
+			if _, ok := idMap[roles[i].DisplayName]; ok {
+				log.Errorf("duplicate id: %s", roles[i].DisplayName)
+				continue
+			}
+			idMap[roles[i].DisplayName] = true
 			ret = append(ret, sRule{
 				Name:        roles[i].DisplayName,
 				Id:          roles[i].Id,
