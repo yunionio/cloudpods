@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SBinding struct {
@@ -135,6 +136,8 @@ func (self *SGoogleClient) CreateRole(permissions []string, name, desc string) (
 }
 
 type SClouduser struct {
+	multicloud.SBaseClouduser
+
 	policy *SIamPolicy
 	Name   string
 	Roles  []string
