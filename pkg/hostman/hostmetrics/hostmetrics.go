@@ -246,7 +246,7 @@ func (s *SGuestMonitorCollector) toTelegrafReportData(data *jsonutils.JSONDict) 
 		rs, _ := report.(*jsonutils.JSONDict).GetMap()
 		for metrics, stat := range rs {
 			tags := map[string]string{
-				"vm_id": guestId, "vm_name": vmName, "vm_ip": vmIp,
+				"id": guestId, "vm_id": guestId, "vm_name": vmName, "vm_ip": vmIp,
 				"is_vm": "true", hostconsts.TELEGRAF_TAG_KEY_BRAND: hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND,
 				hostconsts.TELEGRAF_TAG_KEY_RES_TYPE: "guest",
 			}
