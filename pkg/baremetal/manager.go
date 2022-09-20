@@ -41,6 +41,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	apiidenty "yunion.io/x/onecloud/pkg/apis/identity"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
 	"yunion.io/x/onecloud/pkg/baremetal/pxe"
@@ -99,6 +100,10 @@ func (m *SBaremetalManager) killAllIPMITool() {
 
 func (m *SBaremetalManager) GetClientSession() *mcclient.ClientSession {
 	return m.Agent.GetAdminSession()
+}
+
+func (m *SBaremetalManager) GetPublicClientSession() *mcclient.ClientSession {
+	return m.Agent.GetPublicAdminSession()
 }
 
 func (m *SBaremetalManager) GetZoneId() string {
@@ -548,6 +553,10 @@ func (b *SBaremetalInstance) GetDHCPServerIP() (net.IP, error) {
 
 func (b *SBaremetalInstance) GetClientSession() *mcclient.ClientSession {
 	return b.manager.GetClientSession()
+}
+
+func (b *SBaremetalInstance) GetPublicClientSession() *mcclient.ClientSession {
+	return b.manager.GetPublicClientSession()
 }
 
 func (b *SBaremetalInstance) Keyword() string {
@@ -1062,7 +1071,15 @@ func (b *SBaremetalInstance) getTftpFileUrl(filename string) string {
 	return fmt.Sprintf("http://%s/tftp/%s", endpoint, filename)
 }
 
-func (b *SBaremetalInstance) GetImageCacheUrl() string {
+func (b *SBaremetalInstance) GetImageUrl(disableImageCache bool) string {
+	if disableImageCache {
+		url, err := b.GetPublicClientSession().GetServiceURL(apis.SERVICE_TYPE_IMAGE, apiidenty.EndpointInterfacePublic, "")
+		if err != nil {
+			log.Errorf("Get image public url: %v", err)
+			return ""
+		}
+		return url
+	}
 	serverIP, err := b.manager.Agent.GetDHCPServerIP()
 	if err != nil {
 		log.Errorf("Get http file server: %v", err)
@@ -2665,10 +2682,10 @@ func replaceHostAddr(urlStr string, addr string) string {
 	return urlComp.String()
 }
 
-func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string) error {
+func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string, disableImageCache bool) error {
 	session := s.baremetal.GetClientSession()
 	token := session.GetToken().GetTokenString()
-	urlStr := s.baremetal.GetImageCacheUrl()
+	urlStr := s.baremetal.GetImageUrl(disableImageCache)
 	imageId := s.GetRootTemplateId()
 	cmd := fmt.Sprintf("/lib/mos/rootcreate.sh %s %s %s %s", token, urlStr, imageId, devName)
 	log.Infof("rootcreate cmd: %q", cmd)
@@ -2678,7 +2695,7 @@ func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string) error 
 	return nil
 }
 
-func (s *SBaremetalServer) DoPartitionDisk(tool *disktool.SSHPartitionTool, term *ssh.Client) ([]*disktool.Partition, error) {
+func (s *SBaremetalServer) DoPartitionDisk(tool *disktool.SSHPartitionTool, term *ssh.Client, disableImageCache bool) ([]*disktool.Partition, error) {
 	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	if err != nil {
 		return nil, err
@@ -2711,7 +2728,7 @@ func (s *SBaremetalServer) DoPartitionDisk(tool *disktool.SSHPartitionTool, term
 	if len(rootImageId) > 0 {
 		rootDisk := disks[0]
 		rootSize, _ := rootDisk.Int("size")
-		err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName())
+		err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName(), disableImageCache)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to create root")
 		}
@@ -2753,7 +2770,7 @@ func (s *SBaremetalServer) DoPartitionDisk(tool *disktool.SSHPartitionTool, term
 	return tool.GetPartitions(), nil
 }
 
-func (s *SBaremetalServer) DoRebuildRootDisk(tool *disktool.SSHPartitionTool, term *ssh.Client) ([]*disktool.Partition, error) {
+func (s *SBaremetalServer) DoRebuildRootDisk(tool *disktool.SSHPartitionTool, term *ssh.Client, disableImageCache bool) ([]*disktool.Partition, error) {
 	// raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	// if err != nil {
 	// 	return nil, err
@@ -2784,7 +2801,7 @@ func (s *SBaremetalServer) DoRebuildRootDisk(tool *disktool.SSHPartitionTool, te
 	rootDisk := disks[0]
 	rootSize, _ := rootDisk.Int("size")
 	rd := tool.GetRootDisk()
-	err := s.doCreateRoot(term, rd.GetDevName())
+	err := s.doCreateRoot(term, rd.GetDevName(), disableImageCache)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create root: %v", err)
 	}

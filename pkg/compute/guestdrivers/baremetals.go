@@ -500,6 +500,18 @@ func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Con
 	return nil
 }
 
+func (self *SBaremetalGuestDriver) IsDisableImageCache(gst *models.SGuest) (bool, error) {
+	host, err := gst.GetHost()
+	if err != nil {
+		return false, errors.Wrapf(err, "Get guest %s(%s) host", gst.GetName(), gst.GetId())
+	}
+	agent := host.GetAgent(api.AgentTypeBaremetal)
+	if agent == nil {
+		return false, errors.Wrapf(errors.ErrNotFound, "get host %s(%s) agent", host.GetName(), host.GetId())
+	}
+	return agent.DisableImageCache, nil
+}
+
 func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
@@ -515,6 +527,13 @@ func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context,
 	} else if val == "deploy" && jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
 		config.Set("on_finish", jsonutils.NewString("shutdown"))
 	}
+
+	disableCache, err := self.IsDisableImageCache(guest)
+	if err != nil {
+		return errors.Wrap(err, "check IsDisableImageCache")
+	}
+	config.Set("disable_image_cache", jsonutils.NewBool(disableCache))
+
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/%s", host.Id, guest.Id, val)
 	headers := task.GetTaskRequestHeader()
 	_, err = host.BaremetalSyncRequest(ctx, "POST", url, headers, config)

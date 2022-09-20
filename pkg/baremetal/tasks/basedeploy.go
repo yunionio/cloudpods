@@ -69,6 +69,10 @@ func (self *SBaremetalServerBaseDeployTask) NeedPXEBoot() bool {
 	return self.needPXEBoot
 }
 
+func (self *SBaremetalServerBaseDeployTask) IsDisableImageCache() bool {
+	return jsonutils.QueryBoolean(self.data, "disable_image_cache", false)
+}
+
 func (self *SBaremetalServerBaseDeployTask) GetFinishAction() string {
 	if self.data != nil {
 		action, _ := self.data.GetString("on_finish")

@@ -50,7 +50,8 @@ type SBaremetalagent struct {
 
 	Version string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'))
 
-	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"admin_optional"`
+	StoragecacheId    string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"admin_optional"`
+	DisableImageCache bool   `default:"false" list:"admin" create:"admin_optional" update:"admin"`
 }
 
 var BaremetalagentManager *SBaremetalagentManager
@@ -150,6 +151,26 @@ func (self *SBaremetalagent) PerformDisable(ctx context.Context, userCred mcclie
 			return nil
 		})
 		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
+	}
+	return nil, nil
+}
+
+func (self *SBaremetalagent) PerformEnableImageCache(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.DisableImageCache {
+		db.Update(self, func() error {
+			self.DisableImageCache = false
+			return nil
+		})
+	}
+	return nil, nil
+}
+
+func (self *SBaremetalagent) PerformDisableImageCache(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !self.DisableImageCache {
+		db.Update(self, func() error {
+			self.DisableImageCache = true
+			return nil
+		})
 	}
 	return nil, nil
 }

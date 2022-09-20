@@ -17,69 +17,90 @@ package compute
 import (
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
+type AgentListOptions struct {
+	options.BaseListOptions
+}
+
+func (o AgentListOptions) Params() (jsonutils.JSONObject, error) {
+	return o.BaseListOptions.Params()
+}
+
+func (o AgentListOptions) Description() string {
+	return "List all agent"
+}
+
+type AgentOpsOperations struct {
+	ID string `help:"ID or name of agent"`
+}
+
+func (o AgentOpsOperations) GetId() string {
+	return o.ID
+}
+
+func (o AgentOpsOperations) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+type AgentShowOpt struct {
+	AgentOpsOperations
+}
+
+func (o AgentShowOpt) Description() string {
+	return "Show details of an agent"
+}
+
+type AgentEnableOpt struct {
+	AgentOpsOperations
+}
+
+func (o AgentEnableOpt) Description() string {
+	return "Enable agent"
+}
+
+type AgentDisableOpt struct {
+	AgentOpsOperations
+}
+
+func (o AgentDisableOpt) Description() string {
+	return "Disable agent"
+}
+
+type AgentDeleteOpt struct {
+	AgentOpsOperations
+}
+
+func (o AgentDeleteOpt) Description() string {
+	return "Delete agent"
+}
+
+type AgentEnableImageCacheOpt struct {
+	AgentOpsOperations
+}
+
+func (o AgentEnableImageCacheOpt) Description() string {
+	return "Enable cache image of a agent"
+}
+
+type AgentDisableImageCacheOpt struct {
+	AgentOpsOperations
+}
+
+func (o AgentDisableImageCacheOpt) Description() string {
+	return "Disable cache image of a agent"
+}
+
 func init() {
-	type BaremetalAgentListOptions struct {
-		options.BaseListOptions
-	}
-	R(&BaremetalAgentListOptions{}, "agent-list", "List all agent", func(s *mcclient.ClientSession, args *BaremetalAgentListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
-		result, err := modules.Baremetalagents.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.Baremetalagents.GetColumns(s))
-		return nil
-	})
-
-	type BaremetalAgentOpsOperations struct {
-		ID string `help:"ID or name of agent"`
-	}
-	R(&BaremetalAgentOpsOperations{}, "agent-show", "Show details of an agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
-		result, err := modules.Baremetalagents.Get(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&BaremetalAgentOpsOperations{}, "agent-enable", "Enable agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
-		result, err := modules.Baremetalagents.PerformAction(s, args.ID, "enable", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&BaremetalAgentOpsOperations{}, "agent-disable", "Disable agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
-		result, err := modules.Baremetalagents.PerformAction(s, args.ID, "disable", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&BaremetalAgentOpsOperations{}, "agent-delete", "Delete agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
-		result, err := modules.Baremetalagents.Delete(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.Baremetalagents).WithKeyword("agent")
+	cmd.List(new(AgentListOptions))
+	cmd.Show(new(AgentShowOpt))
+	cmd.Perform("enable", new(AgentEnableOpt))
+	cmd.Perform("disable", new(AgentDisableOpt))
+	cmd.Perform("enable-image-cache", new(AgentEnableImageCacheOpt))
+	cmd.Perform("disable-image-cache", new(AgentDisableImageCacheOpt))
+	cmd.Delete(new(AgentDeleteOpt))
 }

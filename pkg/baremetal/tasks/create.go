@@ -61,7 +61,7 @@ func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.J
 		return nil, self.onError(term, err)
 	}
 	time.Sleep(2 * time.Second)
-	parts, err := self.Baremetal.GetServer().DoPartitionDisk(tool, term)
+	parts, err := self.Baremetal.GetServer().DoPartitionDisk(tool, term, self.IsDisableImageCache())
 	if err != nil {
 		return nil, self.onError(term, err)
 	}

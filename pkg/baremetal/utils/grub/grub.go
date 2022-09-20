@@ -18,7 +18,9 @@ import "fmt"
 
 func GetYunionOSConfig(sleepTime int, httpSite, kernel string, kernelArgs string, initrd string) string {
 	kernel = fmt.Sprintf("(http,${http_site})/tftp/%s", kernel)
+	// kernel = fmt.Sprintf("(tftp,10.127.100.2)/%s", kernel)
 	initrd = fmt.Sprintf("(http,${http_site})/tftp/%s", initrd)
+	// initrd = fmt.Sprintf("(tftp,10.127.100.2)/%s", initrd)
 	return fmt.Sprintf(`
 set timeout=%d
 set http_site=%s

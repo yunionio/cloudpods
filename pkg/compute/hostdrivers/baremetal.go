@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -43,12 +44,31 @@ func (self *SBaremetalHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_BAREMETAL
 }
 
+func (self *SBaremetalHostDriver) IsDisableImageCache(host *models.SHost) (bool, error) {
+	agent := host.GetAgent(api.AgentTypeBaremetal)
+	if agent == nil {
+		return false, errors.Wrapf(errors.ErrNotFound, "get host %s(%s) agent", host.GetName(), host.GetId())
+	}
+	return agent.DisableImageCache, nil
+}
+
 func (self *SBaremetalHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	input := api.CacheImageInput{}
 	task.GetParams().Unmarshal(&input)
 	_, err := models.CachedimageManager.FetchById(input.ImageId)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "fetch cachedimage by image_id %s", input.ImageId)
+	}
+
+	disableCache, err := self.IsDisableImageCache(host)
+	if err != nil {
+		return errors.Wrapf(err, "check disable image cache by host %s(%s)", host.GetName(), host.GetId())
+	}
+
+	// iso must be cached to use
+	if disableCache && input.Format != "iso" {
+		task.ScheduleRun(nil)
+		return nil
 	}
 
 	url := "/disks/image_cache"
