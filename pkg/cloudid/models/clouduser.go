@@ -1512,3 +1512,48 @@ func (self *SClouduser) SyncCustomCloudpoliciesForCloud(ctx context.Context, use
 
 	return account.SyncCustomCloudpoliciesForCloud(ctx, userCred, self)
 }
+
+func (self *SClouduser) PerformCreateAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserCreateAccessKeyInput) (jsonutils.JSONObject, error) {
+	user, err := self.GetIClouduser()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIClouduser error")
+	}
+	ak, err := user.CreateAccessKey(input.Name)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDetailsAccessKeys error")
+	}
+	return jsonutils.Marshal(ak), nil
+}
+
+func (self *SClouduser) GetDetailsAccessKeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	user, err := self.GetIClouduser()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIClouduser")
+	}
+	aks, err := user.GetAccessKeys()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetAccessKeys")
+	}
+	ret := struct {
+		Data  []cloudprovider.SAccessKey
+		Total int
+		Limit int
+	}{
+		Data:  aks,
+		Total: len(aks),
+		Limit: 20,
+	}
+	return jsonutils.Marshal(ret), nil
+}
+
+func (self *SClouduser) DeleteAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserDeleteAccessKeyInput) (jsonutils.JSONObject, error) {
+	user, err := self.GetIClouduser()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIClouduser")
+	}
+	err = user.DeleteAccessKey(input.AccessKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DeleteAccessKey")
+	}
+	return nil, nil
+}
