@@ -1964,6 +1964,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	conf := map[string]interface{}{}
 	conf["hostname"] = h.getHostname()
 	conf["tags"] = map[string]string{
+		"id":                                  h.HostId,
 		"host_id":                             h.HostId,
 		"zone_id":                             h.ZoneId,
 		"zone":                                h.Zone,
