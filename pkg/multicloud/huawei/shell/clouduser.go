@@ -86,4 +86,37 @@ func init() {
 	shellutils.R(&ClouduserResetPassword{}, "cloud-user-reset-password", "Reset clouduser password", func(cli *huawei.SRegion, args *ClouduserResetPassword) error {
 		return cli.GetClient().ResetClouduserPassword(args.ID, args.PASSWORD)
 	})
+
+	type ClouduserAKSKOptions struct {
+		Id string
+	}
+	shellutils.R(&ClouduserAKSKOptions{}, "aksk-list", "List AKSK", func(cli *huawei.SRegion, args *ClouduserAKSKOptions) error {
+		res, err := cli.GetClient().GetAKSK(args.Id)
+		if err != nil {
+			return err
+		}
+		printList(res, len(res), 0, 0, []string{})
+		return nil
+	})
+	type ClouduserAKSKDeleteOptions struct {
+		AccessKey string
+	}
+	shellutils.R(&ClouduserAKSKDeleteOptions{}, "aksk-delete", "Delete AKSK", func(cli *huawei.SRegion, args *ClouduserAKSKDeleteOptions) error {
+		err := cli.GetClient().DeleteAKSK(args.AccessKey)
+		return err
+	})
+
+	type AKSKCreateOption struct {
+		UserId      string `help:"user id"`
+		Description string `help:"description"`
+	}
+
+	shellutils.R(&AKSKCreateOption{}, "aksk-create", "Create aksk", func(cli *huawei.SRegion, args *AKSKCreateOption) error {
+		res, err := cli.GetClient().CreateAKSK(args.UserId, args.Description)
+		if err != nil {
+			return err
+		}
+		printObject(res)
+		return nil
+	})
 }
