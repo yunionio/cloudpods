@@ -459,10 +459,14 @@ func findCandidatesThatFit(unit *Unit, candidates []Candidater, predicates map[s
 
 func preExecPredicate(unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) (map[string]FitPredicate, error) {
 	newPredicateFuncs := map[string]FitPredicate{}
+	// analysor := newPredicateAnalysor("preExecPredicate")
+	// defer analysor.ShowResult()
 	for name, predicate := range predicates {
+		// analysor.Start(name)
 		// generate new FitPredicates because of race condition?
 		newPredicate := predicate.Clone()
 		ok, err := newPredicate.PreExecute(unit, candidates)
+		// analysor.End(name, time.Now())
 		if err != nil {
 			return nil, err
 		}
@@ -531,8 +535,13 @@ func unitFitsOnCandidate(
 		return NewSchedLog(candidateLogIndex, stage, messages, !fit)
 	}
 
+	// analysor := newPredicateAnalysor("predicate Execute")
+	// defer analysor.ShowResult()
 	for _, predicate := range predicates {
+		// n := fmt.Sprintf("%s for %s", predicate.Name(), candidate.Getter().Name())
+		// analysor.Start(n)
 		fit, reasons, err = predicate.Execute(unit, candidate)
+		// analysor.End(n, time.Now())
 		logs = append(logs, toLog(fit, reasons, err, predicate.Name()))
 		if err != nil {
 			return false, nil, err
