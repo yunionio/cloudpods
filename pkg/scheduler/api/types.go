@@ -95,12 +95,14 @@ func SchedtagStrategyCheck(strategy string) (err error) {
 
 type CandidateStorage struct {
 	*models.SStorage
-	Schedtags []models.SSchedtag `json:"schedtags"`
+	Schedtags    []models.SSchedtag `json:"schedtags"`
+	FreeCapacity int64              `json:"free_capacity"`
 }
 
 type CandidateNetwork struct {
 	*models.SNetwork
 	Schedtags []models.SSchedtag `json:"schedtags"`
+	FreePort  int                `json:"free_port"`
 
 	Provider string
 	VpcId    string

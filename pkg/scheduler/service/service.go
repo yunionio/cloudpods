@@ -37,6 +37,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	_ "yunion.io/x/onecloud/pkg/scheduler/algorithmprovider"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/schedtag"
 	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	schedhandler "yunion.io/x/onecloud/pkg/scheduler/handler"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
@@ -84,13 +85,6 @@ func StartService() error {
 	}
 	gin.SetMode(ginMode)
 
-	startSched := func() {
-		stopEverything := make(chan struct{})
-		go skuman.Start(utils.ToDuration(o.Options.SkuRefreshInterval))
-		schedman.InitAndStart(stopEverything)
-	}
-	startSched()
-
 	if err := computemodels.InitDB(); err != nil {
 		log.Fatalf("InitDB fail: %s", err)
 	}
@@ -98,6 +92,13 @@ func StartService() error {
 	app := app_common.InitApp(&o.Options.BaseOptions, true)
 	db.AppDBInit(app)
 
+	startSched := func() {
+		stopEverything := make(chan struct{})
+		go skuman.Start(utils.ToDuration(o.Options.SkuRefreshInterval))
+		go schedtag.Start(utils.ToDuration("30s"))
+		schedman.InitAndStart(stopEverything)
+	}
+	startSched()
 	//InitHandlers(app)
 	return startHTTP(&o.Options)
 }

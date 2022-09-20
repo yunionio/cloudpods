@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/core/score"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/schedtag"
 )
 
 // BasePredicate is a default struct for all the predicates that will
@@ -247,7 +248,7 @@ type ISchedtagCandidateResource interface {
 	GetName() string
 	GetId() string
 	Keyword() string
-	GetSchedtags() []models.SSchedtag
+	// GetSchedtags() []models.SSchedtag
 	GetSchedtagJointManager() models.ISchedtagJointManager
 	GetDynamicConditionInput() *jsonutils.JSONDict
 }
@@ -313,6 +314,10 @@ type SchedtagResourceW struct {
 	input      ISchedtagCustomer
 }
 
+func (w SchedtagResourceW) GetId() string {
+	return w.candidater.GetId()
+}
+
 func (w SchedtagResourceW) IndexKey() string {
 	return fmt.Sprintf("%s:%s", w.candidater.GetName(), w.candidater.GetId())
 }
@@ -325,8 +330,8 @@ func getSchedtagResourceType(candidater ISchedtagCandidateResource) string {
 	return candidater.GetSchedtagJointManager().GetMasterManager().KeywordPlural()
 }
 
-func (w SchedtagResourceW) GetSchedtags() []models.SSchedtag {
-	return w.candidater.GetSchedtags()
+func (w SchedtagResourceW) GetSchedtags() []schedtag.ISchedtag {
+	return schedtag.GetCandidateSchedtags(w.ResourceType(), w.candidater.GetId())
 }
 
 func (w SchedtagResourceW) GetDynamicSchedDesc() *jsonutils.JSONDict {
@@ -343,7 +348,12 @@ func (p *BaseSchedtagPredicate) GetHypervisorDriver() models.IGuestDriver {
 }
 
 func (p *BaseSchedtagPredicate) check(input ISchedtagCustomer, candidate ISchedtagCandidateResource, u *core.Unit, c core.Candidater) (*PredicatedSchedtagResource, error) {
-	allTags, err := GetAllSchedtags(getSchedtagResourceType(candidate))
+	// allTags, err := GetAllSchedtags(getSchedtagResourceType(candidate))
+	// sMan, err := schedtag.GetSessionManager(u.SessionID())
+	// if err != nil {
+	// 	return nil, err
+	// }
+	allTags, err := schedtag.GetAllSchedtags(getSchedtagResourceType(candidate))
 	if err != nil {
 		return nil, err
 	}
@@ -475,9 +485,16 @@ func SetCandidateScoreBySchedtag(u *core.Unit, c core.Candidater, aggCountMap ma
 }
 
 func (p *BaseSchedtagPredicate) OnPriorityEnd(sp ISchedtagPredicateInstance, u *core.Unit, c core.Candidater) {
-	resTags := []models.SSchedtag{}
+	resTags := []schedtag.ISchedtag{}
+	// sessionMan, err := schedtag.GetSessionManager(u.SessionID())
+	// if err != nil {
+	// 	// should not happended
+	// 	panic(fmt.Sprintf("GetSessionManager(%q) error: %v", u.SessionID(), err))
+	// }
 	for _, res := range sp.GetResources(c) {
-		resTags = append(resTags, res.GetSchedtags()...)
+		resType := getSchedtagResourceType(res)
+		tags := schedtag.GetCandidateSchedtags(resType, res.GetId())
+		resTags = append(resTags, tags...)
 	}
 
 	inputRes := p.GetInputResourcesMap(c.IndexKey())
