@@ -38,3 +38,10 @@ type SCloudpolicyCreateOptions struct {
 	Desc     string
 	Document *jsonutils.JSONDict
 }
+
+type SAccessKey struct {
+	Name      string
+	AccessKey string
+	Secret    string
+	Status    string
+}

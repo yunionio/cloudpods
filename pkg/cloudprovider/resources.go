@@ -1193,6 +1193,10 @@ type IClouduser interface {
 
 	ResetPassword(password string) error
 	IsConsoleLogin() bool
+
+	CreateAccessKey(name string) (*SAccessKey, error)
+	DeleteAccessKey(accessKey string) error
+	GetAccessKeys() ([]SAccessKey, error)
 }
 
 // 公有云子账号权限

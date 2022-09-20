@@ -219,3 +219,67 @@ func (self *SHuaweiClient) ResetClouduserPassword(id, password string) error {
 	}
 	return client.Users.ResetPassword(id, password)
 }
+
+type SAccessKey struct {
+	client *SHuaweiClient
+
+	AccessKey   string `json:"access"`
+	Secret      string `json:"secret"`
+	Description string `json:"description"`
+	Status      string `json:"status"`
+}
+
+func (self *SHuaweiClient) GetAKSK(id string) ([]cloudprovider.SAccessKey, error) {
+	obj, err := self.getAKSKList(id)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHuaweiClient.getAKSKList")
+	}
+	aks := make([]SAccessKey, 0)
+	obj.Unmarshal(&aks, "credentials")
+	res := make([]cloudprovider.SAccessKey, len(aks))
+	for i := 0; i < len(aks); i++ {
+		res[i].Name = aks[i].Description
+		res[i].AccessKey = aks[i].AccessKey
+		res[i].Secret = aks[i].Secret
+		res[i].Status = aks[i].Status
+	}
+	return res, nil
+}
+
+func (self *SHuaweiClient) CreateAKSK(id, name string) (*cloudprovider.SAccessKey, error) {
+	params := map[string]interface{}{
+		"credential": map[string]interface{}{
+			"user_id":     id,
+			"description": name,
+		},
+	}
+	obj, err := self.createAKSK(params)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHuaweiClient.createAKSK")
+	}
+	ak := SAccessKey{}
+	obj.Unmarshal(&ak, "credential")
+	res := cloudprovider.SAccessKey{
+		Name:      ak.Description,
+		AccessKey: ak.AccessKey,
+		Secret:    ak.Secret,
+	}
+	return &res, nil
+}
+
+func (self *SHuaweiClient) DeleteAKSK(accessKey string) error {
+	_, err := self.deleteAKSK(accessKey)
+	return err
+}
+
+func (user *SClouduser) DeleteAccessKey(accessKey string) error {
+	return user.client.DeleteAKSK(accessKey)
+}
+
+func (user *SClouduser) CreateAccessKey(name string) (*cloudprovider.SAccessKey, error) {
+	return user.client.CreateAKSK(user.Id, name)
+}
+
+func (user *SClouduser) GetAccessKeys() ([]cloudprovider.SAccessKey, error) {
+	return user.client.GetAKSK(user.Id)
+}

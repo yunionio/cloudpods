@@ -279,6 +279,23 @@ func (self *SHuaweiClient) modelartsResourceflavors(resource string, params map[
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
+func (self *SHuaweiClient) getAKSKList(userId string) (jsonutils.JSONObject, error) {
+	params := url.Values{}
+	params.Set("user_id", userId)
+	uri := fmt.Sprintf("https://iam.cn-north-4.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials")
+	return self.request(httputils.GET, uri, params, nil)
+}
+
+func (self *SHuaweiClient) deleteAKSK(accesskey string) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://iam.cn-north-4.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials/%s", accesskey)
+	return self.request(httputils.DELETE, uri, url.Values{}, nil)
+}
+
+func (self *SHuaweiClient) createAKSK(params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://iam.cn-north-4.myhuaweicloud.com/v3.0/OS-CREDENTIAL/credentials")
+	return self.request(httputils.POST, uri, url.Values{}, params)
+}
+
 func (self *SHuaweiClient) lbGet(regionId, resource string) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://elb.%s.myhuaweicloud.com/v2/%s/%s", regionId, self.projectId, resource)
 	return self.request(httputils.GET, uri, url.Values{}, nil)
@@ -361,9 +378,9 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, que
 	if len(self.projectId) > 0 {
 		header.Set("X-Project-Id", self.projectId)
 	}
-	// if len(self.ownerId) > 0 {
-	// 	header.Set("X-Domain-Id", self.ownerId)
-	// }
+	if strings.Contains(url, "/OS-CREDENTIAL/credentials") && len(self.ownerId) > 0 {
+		header.Set("X-Domain-Id", self.ownerId)
+	}
 	_, resp, err := httputils.JSONRequest(client, context.Background(), method, url, header, body, self.debug)
 	if err != nil {
 		if e, ok := err.(*httputils.JSONClientError); ok && e.Code == 404 {
