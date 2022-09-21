@@ -468,11 +468,10 @@ func (as *SAgentStorage) PrepareSaveToGlance(ctx context.Context, taskId string,
 }
 
 func (as *SAgentStorage) SaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	info, ok := params.(SStorageSaveToGlanceInfo)
+	data, ok := params.(jsonutils.JSONObject)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	data := info.DiskInfo
 
 	var (
 		imageId, _   = data.GetString("image_id")
