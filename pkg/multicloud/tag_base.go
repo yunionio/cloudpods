@@ -54,7 +54,7 @@ type QcloudTags struct {
 	ResourceTags []STag
 }
 
-func (self *QcloudTags) GetTags() (map[string]string, error) {
+func (self *QcloudTags) getTags() (map[string]string, error) {
 	ret := map[string]string{}
 	for _, tag := range self.TagSet {
 		if tag.Value == "null" {
@@ -95,8 +95,25 @@ func (self *QcloudTags) GetTags() (map[string]string, error) {
 	return ret, nil
 }
 
+func (self *QcloudTags) GetTags() (map[string]string, error) {
+	tags, _ := self.getTags()
+	for k := range tags {
+		if strings.HasPrefix(k, "tencentcloud:") {
+			delete(tags, k)
+		}
+	}
+	return tags, nil
+}
+
 func (self *QcloudTags) GetSysTags() map[string]string {
-	return nil
+	tags, _ := self.getTags()
+	ret := map[string]string{}
+	for k, v := range tags {
+		if strings.HasPrefix(k, "tencentcloud:") {
+			ret[k] = v
+		}
+	}
+	return ret
 }
 
 func (self *QcloudTags) SetTags(tags map[string]string, replace bool) error {
@@ -124,7 +141,8 @@ func (self *AliyunTags) GetTags() (map[string]string, error) {
 	ret := map[string]string{}
 	for _, tag := range self.Tags.Tag {
 		if strings.HasPrefix(tag.TagKey, "aliyun") || strings.HasPrefix(tag.TagKey, "acs:") ||
-			strings.HasSuffix(tag.Key, "aliyun") || strings.HasPrefix(tag.Key, "acs:") {
+			strings.HasSuffix(tag.Key, "aliyun") || strings.HasPrefix(tag.Key, "acs:") ||
+			strings.HasSuffix(tag.Key, "ack.") { // k8s
 			continue
 		}
 		if len(tag.TagKey) > 0 {
@@ -141,7 +159,8 @@ func (self *AliyunTags) GetSysTags() map[string]string {
 	ret := map[string]string{}
 	for _, tag := range self.Tags.Tag {
 		if strings.HasPrefix(tag.TagKey, "aliyun") || strings.HasPrefix(tag.TagKey, "acs:") ||
-			strings.HasPrefix(tag.Key, "aliyun") || strings.HasPrefix(tag.Key, "acs:") {
+			strings.HasPrefix(tag.Key, "aliyun") || strings.HasPrefix(tag.Key, "acs:") ||
+			strings.HasPrefix(tag.Key, "ack.") { // k8s
 			if len(tag.TagKey) > 0 {
 				ret[tag.TagKey] = tag.TagValue
 			} else if len(tag.Key) > 0 {
@@ -204,13 +223,22 @@ type GoogleTags struct {
 func (self *GoogleTags) GetTags() (map[string]string, error) {
 	ret := map[string]string{}
 	for k, v := range self.Labels {
+		if strings.HasPrefix(k, "goog-") {
+			continue
+		}
 		ret[encode.DecodeGoogleLable(k)] = encode.DecodeGoogleLable(v)
 	}
 	return ret, nil
 }
 
 func (self *GoogleTags) GetSysTags() map[string]string {
-	return nil
+	ret := map[string]string{}
+	for k, v := range self.Labels {
+		if strings.HasPrefix(k, "goog-") {
+			ret[k] = v
+		}
+	}
+	return ret
 }
 
 func (self *GoogleTags) SetTags(tags map[string]string, replace bool) error {

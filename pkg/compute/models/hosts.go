@@ -2449,12 +2449,19 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	skipFunc := func(ext cloudprovider.ICloudVM) (bool, string) {
-		if len(options.Options.SkipServerBySysTagKeys) == 0 {
+		if len(options.Options.SkipServerBySysTagKeys) == 0 && len(options.Options.SkipServerBySysTagKeys) == 0 {
 			return false, ""
 		}
 		keys := strings.Split(options.Options.SkipServerBySysTagKeys, ",")
 		for key := range ext.GetSysTags() {
 			if utils.IsInStringArray(key, keys) {
+				return true, key
+			}
+		}
+		userKeys := strings.Split(options.Options.SkipServerByUserTagKeys, ",")
+		tags, _ := ext.GetTags()
+		for key := range tags {
+			if utils.IsInStringArray(key, userKeys) {
 				return true, key
 			}
 		}
