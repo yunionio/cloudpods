@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
@@ -278,7 +277,6 @@ func (self *SCloudregion) SyncModelartsPools(ctx context.Context, userCred mccli
 
 // 判断资源是否可以删除
 func (self *SModelartsPool) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	log.Errorln("this is IN Validata")
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("ModelartsPool is locked, cannot delete")
 	}
