@@ -14,6 +14,8 @@
 
 package monitor
 
+import "time"
+
 var (
 	UNIFIED_MONITOR_FIELD_OPT_TYPE   = []string{"Aggregations", "Selectors"}
 	UNIFIED_MONITOR_GROUPBY_OPT_TYPE = []string{"time", "tag", "fill"}
@@ -82,4 +84,26 @@ type MetricInputQuery struct {
 	MetricQuery []*AlertQuery `json:"metric_query"`
 	Signature   string        `json:"signature"`
 	ShowMeta    bool          `json:"show_meta"`
+}
+
+type SimpleQueryInput struct {
+	// 资源Id, 可以不填, 代表查询指定监控的所有监控数据
+	Id string `json:"id"`
+	// 查询指定数据库
+	// default: telegraf
+	Database string `json:"database"`
+	// 监控指标: https://github.com/codelinz/cloudpods/blob/monitor/pkg/cloudprovider/metrics.go
+	MetricName string `json:"metric_name"`
+	// 开始时间
+	StartTime time.Time `json:"start_time"`
+	// 结束时间
+	EndTime time.Time `json:"end_time"`
+	// 指定标签
+	Tags map[string]string `json:"tags"`
+}
+
+type SimpleQueryOutput struct {
+	Id    string    `json:"id"`
+	Time  time.Time `json:"time"`
+	Value float64   `json:"value"`
 }
