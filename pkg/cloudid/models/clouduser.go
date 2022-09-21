@@ -1546,7 +1546,7 @@ func (self *SClouduser) GetDetailsAccessKeys(ctx context.Context, userCred mccli
 	return jsonutils.Marshal(ret), nil
 }
 
-func (self *SClouduser) DeleteAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserDeleteAccessKeyInput) (jsonutils.JSONObject, error) {
+func (self *SClouduser) PerformDeleteAccessKey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ClouduserDeleteAccessKeyInput) (jsonutils.JSONObject, error) {
 	user, err := self.GetIClouduser()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIClouduser")

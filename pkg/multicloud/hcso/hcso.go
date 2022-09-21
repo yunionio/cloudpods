@@ -108,55 +108,77 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, que
 	return resp, err
 }
 
+func (self *SHuaweiClient) resetEndpoint(endpoint, serviceName string) string {
+	if len(endpoint) == 0 {
+		domain := self.HuaweiClientConfig.endpoints.EndpointDomain
+		regionId := self.HuaweiClientConfig.cpcfg.DefaultRegion
+		if len(regionId) == 0 {
+			regionId = self.GetRegions()[0].ID
+		}
+		endpoint = fmt.Sprintf("%s.%s.%s", serviceName, regionId, domain)
+	}
+	return endpoint
+}
+
 func (self *SHuaweiClient) getAKSKList(userId string) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://%s/v3.0/OS-CREDENTIAL/credentials", self.endpoints.Iam)
+	endpoint := self.resetEndpoint(self.endpoints.Iam, "iam-pub")
+	uri := fmt.Sprintf("https://%s/v3.0/OS-CREDENTIAL/credentials", endpoint)
 	query := url.Values{}
 	query.Set("user_id", userId)
 	return self.request(httputils.GET, uri, query, nil)
 }
 
 func (self *SHuaweiClient) createAKSK(params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://%s/v3.0/OS-CREDENTIAL/credentials", self.endpoints.Iam)
+	endpoint := self.resetEndpoint(self.endpoints.Iam, "iam-pub")
+	uri := fmt.Sprintf("https://%s/v3.0/OS-CREDENTIAL/credentials", endpoint)
 	return self.request(httputils.POST, uri, nil, params)
 }
 
 func (self *SHuaweiClient) deleteAKSK(accessKey string) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://%s/v3.0/OS-CREDENTIAL/credentials/%s", self.endpoints.Iam, accessKey)
-	return self.request(httputils.POST, uri, nil, nil)
+	endpoint := self.resetEndpoint(self.endpoints.Iam, "iam-pub")
+	uri := fmt.Sprintf("https://%s/v3.0/OS-CREDENTIAL/credentials/%s", endpoint, accessKey)
+	return self.request(httputils.DELETE, uri, nil, nil)
 }
 
 func (self *SHuaweiClient) modelartsPoolNetworkList(params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://%s/v1/%s/networks", self.endpoints.Modelarts, self.projectId)
+	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://%s/v1/%s/networks", endpoint, self.projectId)
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
 func (self *SHuaweiClient) modelartsPoolNetworkCreate(params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://%s/v1/%s/networks", self.endpoints.Modelarts, self.projectId)
+	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://%s/v1/%s/networks", endpoint, self.projectId)
 	return self.request(httputils.POST, uri, url.Values{}, params)
 }
 
 func (self *SHuaweiClient) modelartsPoolById(poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/pools/%s", self.endpoints.Modelarts, self.projectId, poolName)
+	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/pools/%s", endpoint, self.projectId, poolName)
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
 func (self *SHuaweiClient) modelartsPoolList(params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://%s/v2/%s/pools", self.endpoints.Modelarts, self.projectId)
+	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://%s/v2/%s/pools", endpoint, self.projectId)
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
 func (self *SHuaweiClient) modelartsPoolCreate(params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://%s/v2/%s/pools", self.endpoints.Modelarts, self.projectId)
+	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://%s/v2/%s/pools", endpoint, self.projectId)
 	return self.request(httputils.POST, uri, url.Values{}, params)
 }
 
 func (self *SHuaweiClient) modelartsPoolDelete(poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://%s/v2/%s/pools/%s", self.endpoints.Modelarts, self.projectId, poolName)
+	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://%s/v2/%s/pools/%s", endpoint, self.projectId, poolName)
 	return self.request(httputils.DELETE, uri, url.Values{}, params)
 }
 
 func (self *SHuaweiClient) modelartsPoolUpdate(poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/pools/%s", self.endpoints.Modelarts, self.projectId, poolName)
+	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://%s/v2/%s/pools/%s", endpoint, self.projectId, poolName)
 	urlValue := url.Values{}
 	urlValue.Add("time_range", "")
 	urlValue.Add("statistics", "")
@@ -165,12 +187,14 @@ func (self *SHuaweiClient) modelartsPoolUpdate(poolName string, params map[strin
 }
 
 func (self *SHuaweiClient) modelartsPoolMonitor(poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/pools/%s/monitor", self.endpoints.Modelarts, self.projectId, poolName)
+	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://%s/v2/%s/pools/%s/monitor", endpoint, self.projectId, poolName)
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
 func (self *SHuaweiClient) modelartsResourceflavors(params map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("https://%s/v1/%s/resourceflavors", self.endpoints.Modelarts, self.projectId)
+	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://%s/v1/%s/resourceflavors", endpoint, self.projectId)
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 

@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -91,7 +90,6 @@ type SModelartsPoolNetworkMetadata struct {
 
 func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, error) {
 	pools := make([]SModelartsPool, 0)
-	log.Errorln("this is in GetIModelartsPools:", self.client.endpoints.Modelarts)
 	resObj, err := self.client.modelartsPoolList(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetPools")
@@ -111,6 +109,7 @@ func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, 
 }
 
 func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
+
 	netObj, err := self.client.modelartsPoolNetworkList(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.GetPools")
