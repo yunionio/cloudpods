@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"yunion.io/x/onecloud/pkg/util/influxdb"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -506,4 +507,25 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 		}
 		(*series)[i] = serie
 	}
+}
+
+func GetDetailsSimpleQuery(query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	fmt.Println("hello!")
+	database, _ := query.GetString("database")
+	if database == "" {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
+	}
+	mid := make(map[string]interface{})
+	query.Unmarshal(&mid,)
+	sdataSourcemanager := &SDataSourceManager{}
+	dataSource, err := sdataSourcemanager.GetDefaultSource()
+	if err != nil {
+		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
+	}
+	db := influxdb.NewInfluxdb(dataSource.Url)
+	db.SetDatabase(database)
+	db.Query()
+
+
+	return nil, nil
 }
