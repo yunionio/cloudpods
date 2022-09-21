@@ -16,7 +16,6 @@
 package shell
 
 import (
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	huawei "yunion.io/x/onecloud/pkg/multicloud/hcso"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -28,7 +27,6 @@ func init() {
 	}
 
 	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-list", "List Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
-		log.Errorf("this is endpoints:%v,err:%s\n", cli.GetClient())
 		pools, err := cli.GetIModelartsPools()
 		if err != nil {
 			return err

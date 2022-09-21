@@ -60,7 +60,7 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 
 	ipool, err := iRegion.CreateIModelartsPool(opts)
 	if err != nil {
-		self.taskFailed(ctx, pool, errors.Wrapf(err, "iProvider.CreateIModelartsPool"))
+		self.taskFailed(ctx, pool, errors.Wrapf(err, "iRegion.CreateIModelartsPool"))
 		return
 	}
 	err = db.SetExternalId(pool, self.GetUserCred(), ipool.GetGlobalId())
