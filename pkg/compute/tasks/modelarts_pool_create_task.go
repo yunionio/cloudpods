@@ -68,15 +68,19 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 		self.taskFailed(ctx, pool, errors.Wrapf(err, "db.SetExternalId"))
 		return
 	}
-	err = cloudprovider.WaitStatusWithDelay(ipool, api.MODELARTS_POOL_STATUS_RUNNING, 30*time.Second, 15*time.Second, 600*time.Second)
+	err = cloudprovider.WaitStatusWithDelay(ipool, api.MODELARTS_POOL_STATUS_RUNNING, 30*time.Second, 15*time.Second, 30*time.Minute)
 	if err != nil {
 		self.taskFailed(ctx, pool, errors.Wrapf(err, "db.WaitStatusWithDelay"))
 		return
 	}
+	pool.SetStatus(self.GetUserCred(), api.MODELARTS_POOL_STATUS_RUNNING, "")
+	self.taskComplete(ctx, pool)
+}
+
+func (self *ModelartsPoolCreateTask) taskComplete(ctx context.Context, pool *models.SModelartsPool) {
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    self,
 		Action: notifyclient.ActionCreate,
 	})
-
-	pool.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
+	self.SetStageComplete(ctx, nil)
 }
