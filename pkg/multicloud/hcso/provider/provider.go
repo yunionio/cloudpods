@@ -326,3 +326,11 @@ func (self *SHCSOProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLProv
 	}
 	return sp, nil
 }
+
+func (self *SHCSOProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	metrics, err := self.client.GetMetrics(opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetMetrics")
+	}
+	return metrics, nil
+}

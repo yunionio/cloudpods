@@ -28,7 +28,6 @@ import (
 )
 
 type SModelartsPool struct {
-	client *SHuaweiClient
 	region *SRegion
 	multicloud.SResourceBase
 
@@ -101,7 +100,6 @@ func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, 
 	res := make([]cloudprovider.ICloudModelartsPool, len(pools))
 	for i := 0; i < len(pools); i++ {
 		pools[i].region = self
-		pools[i].client = self.GetClient()
 		res[i] = &pools[i]
 	}
 
@@ -161,7 +159,6 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 	res := []cloudprovider.ICloudModelartsPool{}
 	for i := 0; i < 1; i++ {
 		pool.region = self
-		pool.client = self.GetClient()
 		res = append(res, pool)
 	}
 
@@ -173,7 +170,7 @@ func (self *SRegion) DeletePool(poolName string) (jsonutils.JSONObject, error) {
 }
 
 func (self *SRegion) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
-	obj, err := self.client.modelartsPoolById(poolId, nil)
+	obj, err := self.client.modelartsPoolById(poolId)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "")
@@ -185,7 +182,6 @@ func (self *SRegion) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudM
 	res := []cloudprovider.ICloudModelartsPool{}
 	for i := 0; i < 1; i++ {
 		pool.region = self
-		pool.client = self.GetClient()
 		res = append(res, pool)
 	}
 	return res[0], nil
@@ -298,7 +294,6 @@ func (self *SModelartsPool) GetBillingType() string {
 	} else {
 		return billing_api.BILLING_TYPE_POSTPAID
 	}
-	return self.Metadata.Annotations.BillingType
 }
 
 // 获取资源归属项目Id
@@ -327,7 +322,7 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 }
 
 func (self *SModelartsPool) Refresh() error {
-	pool, err := self.client.modelartsPoolById(self.GetId(), nil)
+	pool, err := self.region.client.modelartsPoolById(self.GetId())
 	if err != nil {
 		return errors.Wrapf(err, "GetModelartsPool(%s)", self.GetId())
 	}

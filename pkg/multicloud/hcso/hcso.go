@@ -152,10 +152,10 @@ func (self *SHuaweiClient) modelartsPoolNetworkCreate(params map[string]interfac
 	return self.request(httputils.POST, uri, url.Values{}, params)
 }
 
-func (self *SHuaweiClient) modelartsPoolById(poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+func (self *SHuaweiClient) modelartsPoolById(poolName string) (jsonutils.JSONObject, error) {
 	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
-	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/pools/%s", endpoint, self.projectId, poolName)
-	return self.request(httputils.GET, uri, url.Values{}, params)
+	uri := fmt.Sprintf("https://%s/v2/%s/pools/%s", endpoint, self.projectId, poolName)
+	return self.request(httputils.GET, uri, url.Values{}, nil)
 }
 
 func (self *SHuaweiClient) modelartsPoolList(params map[string]interface{}) (jsonutils.JSONObject, error) {
