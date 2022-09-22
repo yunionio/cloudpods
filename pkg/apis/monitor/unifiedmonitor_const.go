@@ -83,3 +83,12 @@ type MetricInputQuery struct {
 	Signature   string        `json:"signature"`
 	ShowMeta    bool          `json:"show_meta"`
 }
+
+type SimpleQueryTest struct {
+	Id         string            `json:"id"`
+	NameSpace  string            `json:"name_space"`
+	MetricName string            `json:"metric_name"`
+	Starttime  string            `json:"start_time"`
+	Endtime    string            `json:"end_time"`
+	Tags       map[string]string `json:"tags"`
+}

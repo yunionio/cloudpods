@@ -509,20 +509,25 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 	}
 }
 
-func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(id, namespace, metricName, starttime, endtime string, tags map[string]string) (jsonutils.JSONObject, error) {
+func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, userCred mcclient.TokenCredential, query *monitor.SimpleQueryTest) (jsonutils.JSONObject, error) {
+	namespace := query.NameSpace
 	if namespace == "" {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
 	}
+	metricName := query.MetricName
 	metric := strings.Split(metricName, ".")
 	measurement, field := metric[0], metric[1]
 	if measurement == "" {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support measurement")
 	}
 	sqlstr := field + " from " + measurement + " where "
+	id := query.Id
 	if id != "" {
 		sqlstr = id + ", " + sqlstr
 	}
 	sqlstr = "select " + sqlstr
+	starttime := query.Starttime
+	endtime := query.Endtime
 	if starttime == "" && endtime == "" {
 		et := time.Now()
 		h, _ := time.ParseDuration("-1h")
@@ -535,14 +540,16 @@ func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(id, namespace, metricN
 	if et.Sub(st).Hours() > 1 {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("The query interval is greater than one hour!")
 	}
-	sqlstr += "time >= " + starttime + " and " + "time <= " + endtime
+	sqlstr += "time >= " + starttime + " and " + "time <= " + endtime + " "
 	cur := make([]string, 0)
-	for k, v := range tags {
-		cur = append(cur, k+" = "+v)
+	tags := query.Tags
+	if tags != nil {
+		for k, v := range tags {
+			cur = append(cur, k+" = "+v)
+		}
+		sqlstr += strings.Join(cur, " and ")
 	}
-	sqlstr += strings.Join(cur, " and ")
-	sdataSourcemanager := &SDataSourceManager{}
-	dataSource, err := sdataSourcemanager.GetDefaultSource()
+	dataSource, err := DataSourceManager.GetDefaultSource()
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
 	}
