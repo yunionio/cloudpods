@@ -240,9 +240,9 @@ func (self *SHuaweiClient) modelartsPoolNetworkCreate(params map[string]interfac
 	return self.request(httputils.POST, uri, url.Values{}, params)
 }
 
-func (self *SHuaweiClient) modelartsPoolById(poolName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+func (self *SHuaweiClient) modelartsPoolById(poolName string) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/pools/%s", self.clientRegion, self.projectId, poolName)
-	return self.request(httputils.GET, uri, url.Values{}, params)
+	return self.request(httputils.GET, uri, url.Values{}, nil)
 }
 
 func (self *SHuaweiClient) modelartsPoolList(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
