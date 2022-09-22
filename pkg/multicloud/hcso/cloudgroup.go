@@ -16,6 +16,7 @@ package hcso
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -278,6 +279,12 @@ func (self *SHuaweiClient) DetachGroupRole(groupId, roleId string) error {
 		if err != nil {
 			return errors.Wrapf(err, "DeleteRole")
 		}
+		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
+			err = client.Groups.DeleteProjectRole(self.GetMosProjectId(), groupId, role.Id)
+			if err != nil {
+				return errors.Wrapf(err, "DeleteProjectRole")
+			}
+		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
 		projects, err := self.GetProjects()
@@ -307,6 +314,12 @@ func (self *SHuaweiClient) DetachGroupCustomRole(groupId, roleId string) error {
 		err = client.Groups.DeleteRole(self.ownerId, groupId, role.Id)
 		if err != nil {
 			return errors.Wrapf(err, "DeleteRole")
+		}
+		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
+			err = client.Groups.DeleteProjectRole(self.GetMosProjectId(), groupId, role.Id)
+			if err != nil {
+				return errors.Wrapf(err, "DeleteProjectRole")
+			}
 		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
@@ -364,6 +377,12 @@ func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {
 		if err != nil {
 			return errors.Wrapf(err, "AddRole")
 		}
+		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
+			err = client.Groups.AddProjectRole(self.GetMosProjectId(), groupId, role.Id)
+			if err != nil {
+				return errors.Wrapf(err, "AddProjectRole")
+			}
+		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
 		projects, err := self.GetProjects()
@@ -393,6 +412,12 @@ func (self *SHuaweiClient) AttachGroupCustomRole(groupId, roleId string) error {
 		err = client.Groups.AddRole(self.ownerId, groupId, role.Id)
 		if err != nil {
 			return errors.Wrapf(err, "AddRole")
+		}
+		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
+			err = client.Groups.AddProjectRole(self.GetMosProjectId(), groupId, role.Id)
+			if err != nil {
+				return errors.Wrapf(err, "AddProjectRole")
+			}
 		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
