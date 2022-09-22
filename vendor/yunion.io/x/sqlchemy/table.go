@@ -77,6 +77,9 @@ type ITableSpec interface {
 
 	// Database returns the database of this table
 	Database() *SDatabase
+
+	// Drop drops table
+	Drop() error
 }
 
 // STableSpec defines the table specification, which implements ITableSpec

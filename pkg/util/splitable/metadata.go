@@ -35,10 +35,17 @@ type STableMetadata struct {
 	CreatedAt time.Time `nullable:"false" created_at:"true"`
 }
 
+func (spec *SSplitTableSpec) getTableLastMeta() (*STableMetadata, error) {
+	return spec.GetTableMetaByTime(time.Time{})
+}
+
 func (spec *SSplitTableSpec) GetTableMetaByTime(recordTime time.Time) (*STableMetadata, error) {
 	q := spec.metaSpec.Query().Desc("id").IsFalse("deleted")
+	if !recordTime.IsZero() {
+		q = q.LE("start_date", recordTime)
+	}
 	meta := new(STableMetadata)
-	err := q.LE("start_date", recordTime).First(meta)
+	err := q.First(meta)
 	return meta, err
 }
 
