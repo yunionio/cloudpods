@@ -141,9 +141,10 @@ func RemoteStoragecacheCacheImage(ctx context.Context, storagecacheId, imageId, 
 		storagecacheId, imageId, query, params)
 }
 
-func UpdateServerStatus(ctx context.Context, sid, status, reason string) (jsonutils.JSONObject, error) {
+func UpdateServerStatus(ctx context.Context, sid, status, powerStates, reason string) (jsonutils.JSONObject, error) {
 	var stats = jsonutils.NewDict()
 	stats.Set("status", jsonutils.NewString(status))
+	stats.Set("power_states", jsonutils.NewString(powerStates))
 	if len(reason) > 0 {
 		stats.Set("reason", jsonutils.NewString(reason))
 	}

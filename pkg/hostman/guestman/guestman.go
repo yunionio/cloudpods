@@ -686,8 +686,8 @@ func (m *SGuestManager) Status(sid string) string {
 func (m *SGuestManager) StatusWithBlockJobsCount(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sid := params.(string)
 	status := m.getStatus(sid)
+	guest, _ := m.GetServer(sid)
 	if status == GUEST_RUNNING {
-		guest, _ := m.GetServer(sid)
 		var runCb = func() {
 			if guest.IsMaster() {
 				mirrorStatus := guest.MirrorJobStatus()
@@ -713,6 +713,7 @@ func (m *SGuestManager) StatusWithBlockJobsCount(ctx context.Context, params int
 		return nil, nil
 	}
 	body := jsonutils.NewDict()
+	body.Set("power_status", jsonutils.NewString(guest.GetPowerStates()))
 	body.Set("status", jsonutils.NewString(status))
 	hostutils.TaskComplete(ctx, body)
 	return nil, nil

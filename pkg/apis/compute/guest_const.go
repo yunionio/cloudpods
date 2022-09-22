@@ -192,6 +192,12 @@ const (
 )
 
 const (
+	VM_POWER_STATES_ON      = "on"
+	VM_POWER_STATES_OFF     = "off"
+	VM_POWER_STATES_UNKNOWN = "unknown"
+)
+
+const (
 	QGA_STATUS_UNKNOWN        = "unknown"
 	QGA_STATUS_EXCUTING       = "executing"
 	QGA_STATUS_EXECUTE_FAILED = "execute_failed"

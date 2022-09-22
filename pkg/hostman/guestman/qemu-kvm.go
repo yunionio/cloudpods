@@ -833,7 +833,7 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 	if s.IsMaster() { // has backup server
 		mirrorStatus := s.MirrorJobStatus()
 		if mirrorStatus.IsSucc() {
-			_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), api.VM_RUNNING, "BLOCK_JOB_READY")
+			_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), api.VM_RUNNING, s.GetPowerStates(), "BLOCK_JOB_READY")
 			if err != nil {
 				log.Errorf("onReceiveQMPEvent update server status error: %s", err)
 			}
@@ -1010,7 +1010,7 @@ func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 			status = api.VM_BLOCK_STREAM_FAIL
 			s.SyncMirrorJobFailed("mirror job missing")
 		}
-		hostutils.UpdateServerStatus(context.Background(), s.GetId(), status, "")
+		hostutils.UpdateServerStatus(context.Background(), s.GetId(), status, s.GetPowerStates(), "")
 	} else {
 		nbdUri, ok := s.Desc.Metadata["backup_nbd_server_uri"]
 		if !ok {
@@ -1201,7 +1201,17 @@ func (s *SKVMGuestInstance) SyncStatus(reason string) {
 		status = "suspend"
 	}
 
-	hostutils.UpdateServerStatus(context.Background(), s.Id, status, reason)
+	if _, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status, s.GetPowerStates(), reason); err != nil {
+		log.Errorf("failed update guest status %s", err)
+	}
+}
+
+func (s *SKVMGuestInstance) GetPowerStates() string {
+	if s.IsRunning() {
+		return api.VM_POWER_STATES_ON
+	} else {
+		return api.VM_POWER_STATES_OFF
+	}
 }
 
 func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
@@ -1220,7 +1230,7 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 			status = api.VM_BLOCK_STREAM
 		}
 	}
-	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status, "")
+	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status, s.GetPowerStates(), "")
 	if err != nil {
 		log.Errorln(err)
 	}
