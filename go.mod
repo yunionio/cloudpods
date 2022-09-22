@@ -102,14 +102,16 @@ require (
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
-	yunion.io/x/jsonutils v1.0.0
+	yunion.io/x/jsonutils v1.0.1-0.20220819091305-3bab322ab4fd
 	yunion.io/x/log v1.0.0
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
-	yunion.io/x/pkg v1.0.1-0.20220630095420-9925accd7c5e
+	yunion.io/x/pkg v1.0.1-0.20220819080140-55b265a8658e
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v1.1.2-0.20220704015412-b0c3988ceaa2
+	yunion.io/x/sqlchemy v1.1.2-0.20220923040147-ddd3e96868af
 	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
 )
+
+require github.com/google/uuid v1.3.0
 
 require (
 	cloud.google.com/go v0.65.0 // indirect
@@ -178,7 +180,6 @@ require (
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/googleapis/gnostic v0.4.1 // indirect
 	github.com/googollee/go-engine.io v0.0.0-20180829091931-e2f255711dcb // indirect

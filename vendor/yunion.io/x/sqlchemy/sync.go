@@ -144,6 +144,27 @@ func (ts *STableSpec) Exists() bool {
 	return in
 }
 
+// Drop drop table
+func (ts *STableSpec) Drop() error {
+	if !ts.Exists() {
+		return nil
+	}
+	db := ts.Database()
+	if db == nil {
+		panic("DropForeignKeySQL empty database")
+	}
+	if db.backend == nil {
+		panic("DropForeignKeySQL empty backend")
+	}
+	sql := db.backend.DropTableSQL(ts.name)
+	_, err := db.Exec(sql)
+	if err != nil {
+		log.Errorf("exec sql error %s: %s", sql, err)
+		return errors.Wrap(err, "Exec")
+	}
+	return nil
+}
+
 type STableChanges struct {
 	// indexes
 	RemoveIndexes []STableIndex
