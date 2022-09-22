@@ -71,6 +71,7 @@ const (
 	CLOUD_CAPABILITY_IPV6_GATEWAY    = "ipv6_gateway" // IPv6网关
 	CLOUD_CAPABILITY_TABLESTORE      = "tablestore"   // 表格存储
 	CLOUD_CAPABILITY_MODELARTES      = "modelarts"
+	CLOUD_CAPABILITY_MISC            = "misc"
 )
 
 const (

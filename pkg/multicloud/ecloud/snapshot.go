@@ -17,6 +17,7 @@ package ecloud
 import (
 	"context"
 	"strings"
+	"time"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -77,6 +78,10 @@ func (s *SSnapshot) GetDiskId() string {
 		return s.SystemDisk
 	}
 	return s.VolumeId
+}
+
+func (s *SSnapshot) GetCreatedAt() time.Time {
+	return s.SCreateTime.GetCreatedAt()
 }
 
 func (s *SSnapshot) GetDiskType() string {

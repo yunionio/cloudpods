@@ -38,8 +38,9 @@ import (
 	_ "yunion.io/x/onecloud/pkg/multicloud/openstack/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/proxmox/provider" // private clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/ucloud/provider" // object storages
-	_ "yunion.io/x/onecloud/pkg/multicloud/zstack/provider" // private clouds
+	_ "yunion.io/x/onecloud/pkg/multicloud/remotefile/provider" // private clouds
+	_ "yunion.io/x/onecloud/pkg/multicloud/ucloud/provider"     // object storages
+	_ "yunion.io/x/onecloud/pkg/multicloud/zstack/provider"     // private clouds
 )
 
 func init() {

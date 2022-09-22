@@ -12,15 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ecloud
+package compute
 
-import "time"
+import "yunion.io/x/onecloud/pkg/apis"
 
-type SCreateTime struct {
-	CreatedTime string
+type MiscResourceDetails struct {
+	apis.VirtualResourceDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
 }
 
-func (c *SCreateTime) GetCreatedAt() time.Time {
-	t, _ := time.Parse("2006-01-02 15:04:05", c.CreatedTime)
-	return t
+type MiscResourceCreateInput struct {
+	apis.VirtualResourceCreateInput
+
+	CloudregionResourceInput
+
+	CloudproviderResourceInput
+}
+
+type MiscResourceUpdateInput struct {
+	apis.VirtualResourceBaseUpdateInput
+}
+
+type MiscResourceListInput struct {
+	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+	ManagedResourceListInput
+	RegionalFilterListInput
 }

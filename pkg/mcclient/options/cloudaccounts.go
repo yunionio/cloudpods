@@ -1164,3 +1164,14 @@ type SProxmoxAccountUpdateCredentialOptions struct {
 func (opts *SProxmoxAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts.SUserPasswordCredential), nil
 }
+
+type SRemoteFileAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	AuthURL string
+}
+
+func (opts *SRemoteFileAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString(api.CLOUD_PROVIDER_REMOTEFILE), "provider")
+	return params, nil
+}

@@ -233,7 +233,6 @@ type ICloudBucket interface {
 	GetAcl() TBucketACLType
 	GetLocation() string
 	GetIRegion() ICloudRegion
-	GetCreateAt() time.Time
 	GetStorageClass() string
 	GetAccessUrls() []SBucketAccessUrl
 	GetStats() SBucketStats

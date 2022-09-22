@@ -92,7 +92,7 @@ func (bucket *SBucket) GetIRegion() cloudprovider.ICloudRegion {
 	return bucket.client
 }
 
-func (bucket *SBucket) GetCreateAt() time.Time {
+func (bucket *SBucket) GetCreatedAt() time.Time {
 	return bucket.CreatedAt
 }
 

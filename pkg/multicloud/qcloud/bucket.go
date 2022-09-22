@@ -79,7 +79,7 @@ func (b *SBucket) GetIRegion() cloudprovider.ICloudRegion {
 	return b.region
 }
 
-func (b *SBucket) GetCreateAt() time.Time {
+func (b *SBucket) GetCreatedAt() time.Time {
 	return b.CreateDate
 }
 

@@ -1234,6 +1234,20 @@ func (self *SCloudregion) purgeSkus(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
+func (self *SCloudregion) purgeMiscResources(ctx context.Context, userCred mcclient.TokenCredential) error {
+	misc, err := self.GetMiscResources()
+	if err != nil {
+		return errors.Wrapf(err, "GetServerSkus")
+	}
+	for i := range misc {
+		err = misc[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (region *SCloudregion) purgeZones(ctx context.Context, userCred mcclient.TokenCredential) error {
 	zones, err := region.GetZones()
 	if err != nil {
@@ -1260,6 +1274,11 @@ func (region *SCloudregion) purge(ctx context.Context, userCred mcclient.TokenCr
 	err = region.purgeZones(ctx, userCred)
 	if err != nil {
 		return err
+	}
+
+	err = region.purgeMiscResources(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "purgeMiscResources")
 	}
 
 	err = region.ValidateDeleteCondition(ctx, nil)

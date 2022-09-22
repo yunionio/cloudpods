@@ -392,3 +392,7 @@ func (self *SRegion) CreateIModelartsPool(pool *cloudprovider.ModelartsPoolCreat
 func (self *SRegion) GetIModelartsPoolSku() ([]cloudprovider.ICloudModelartsPoolSku, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIModelartsPoolSku")
 }
+
+func (self *SRegion) GetIMiscResources() ([]cloudprovider.ICloudMiscResource, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIMiscResources")
+}

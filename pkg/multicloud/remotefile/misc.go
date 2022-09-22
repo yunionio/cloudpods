@@ -12,15 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ecloud
+package remotefile
 
-import "time"
+import "yunion.io/x/jsonutils"
 
-type SCreateTime struct {
-	CreatedTime string
+type SMisc struct {
+	SResourceBase
+
+	ResourceType string
+
+	Config jsonutils.JSONObject
 }
 
-func (c *SCreateTime) GetCreatedAt() time.Time {
-	t, _ := time.Parse("2006-01-02 15:04:05", c.CreatedTime)
-	return t
+func (self *SMisc) GetResourceType() string {
+	return self.ResourceType
+}
+
+func (self *SMisc) GetConfig() jsonutils.JSONObject {
+	return self.Config
 }

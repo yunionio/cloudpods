@@ -744,7 +744,7 @@ func (b *SStorageAccount) GetIRegion() cloudprovider.ICloudRegion {
 	return b.region
 }
 
-func (b *SStorageAccount) GetCreateAt() time.Time {
+func (b *SStorageAccount) GetCreatedAt() time.Time {
 	return time.Time{}
 }
 
