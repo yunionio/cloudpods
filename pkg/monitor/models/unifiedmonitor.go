@@ -509,33 +509,45 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 	}
 }
 
-func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	database, _ := query.GetString("database")
-	if database == "" {
+func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(id, namespace, metricName, starttime, endtime string, tags map[string]string) (jsonutils.JSONObject, error) {
+	if namespace == "" {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
 	}
-	measurement, _ := query.GetString("measurement")
+	metric := strings.Split(metricName, ".")
+	measurement, field := metric[0], metric[1]
 	if measurement == "" {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support measurement")
 	}
-	mid := make(map[string]interface{})
-	err := query.Unmarshal(&mid,)
-	sqlstr := "select * from " + measurement + " where "
-	cur := make([]string, 0)
-	for k , v := range mid {
-		if k == database || k == measurement {
-			continue
-		}
-		cur = append(cur, k + " = " + fmt.Sprintf("%v", v) + " ")
+	sqlstr := field + " from " + measurement + " where "
+	if id != "" {
+		sqlstr = id + ", " + sqlstr
 	}
-	sqlstr += strings.Join(cur, "and")
+	sqlstr = "select " + sqlstr
+	if starttime == "" && endtime == "" {
+		et := time.Now()
+		h, _ := time.ParseDuration("-1h")
+		st := et.Add(h)
+		endtime = et.Format("2006-01-02 15:04:05")
+		starttime = st.Format("2006-01-02 15:04:05")
+	}
+	st, err := time.Parse("2006-01-02 15:04:05", starttime)
+	et, err := time.Parse("2006-01-02 15:04:05", endtime)
+	if et.Sub(st).Hours() > 1 {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("The query interval is greater than one hour!")
+	}
+	sqlstr += "time >= " + starttime + " and " + "time <= " + endtime
+	cur := make([]string, 0)
+	for k, v := range tags {
+		cur = append(cur, k+" = "+v)
+	}
+	sqlstr += strings.Join(cur, " and ")
 	sdataSourcemanager := &SDataSourceManager{}
 	dataSource, err := sdataSourcemanager.GetDefaultSource()
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
 	}
 	db := influxdb.NewInfluxdb(dataSource.Url)
-	er := db.SetDatabase(database)
+	er := db.SetDatabase(namespace)
 	if er != nil {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
 	}

@@ -6,12 +6,15 @@ import (
 )
 
 type SimpleQueryTest struct {
-	Database string
-	Measurement string
-	Filed string
+	Id string
+	NameSpace string
+	MetricName string
+	Starttime string
+	Endtime string
+	Tags map[string]string
 }
 func (o SimpleQueryTest) GetId() string {
-	return ""
+	return o.Id
 }
 
 func (o SimpleQueryTest) Params() (jsonutils.JSONObject, error) {
