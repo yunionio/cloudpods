@@ -62,7 +62,7 @@ func init() {
 		return nil
 	})
 
-	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-monitor", "Delete Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
+	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-monitor", "Modelarts Pool Monitor", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
 		res, err := cli.MonitorPool(args.PoolId)
 		if err != nil {
 			return err
