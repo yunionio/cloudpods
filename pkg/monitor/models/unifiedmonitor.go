@@ -509,23 +509,37 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 	}
 }
 
-func GetDetailsSimpleQuery(query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	fmt.Println("hello!")
+func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	database, _ := query.GetString("database")
 	if database == "" {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
 	}
+	measurement, _ := query.GetString("measurement")
+	if measurement == "" {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support measurement")
+	}
 	mid := make(map[string]interface{})
-	query.Unmarshal(&mid,)
+	err := query.Unmarshal(&mid,)
+	sqlstr := "select * from " + measurement + " where "
+	for k , v := range mid {
+		if k == database || k == measurement {
+			continue
+		}
+		sqlstr += k + " = " + fmt.Sprintf("%v", v)
+	}
 	sdataSourcemanager := &SDataSourceManager{}
 	dataSource, err := sdataSourcemanager.GetDefaultSource()
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
 	}
 	db := influxdb.NewInfluxdb(dataSource.Url)
-	db.SetDatabase(database)
-	db.Query()
-
-
-	return nil, nil
+	er := db.SetDatabase(database)
+	if er != nil {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
+	}
+	res, err := db.Query(sqlstr)
+	if err != nil {
+		return jsonutils.JSONNull, err
+	}
+	return jsonutils.Marshal(res), nil
 }
