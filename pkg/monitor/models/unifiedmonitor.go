@@ -521,12 +521,14 @@ func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, u
 	mid := make(map[string]interface{})
 	err := query.Unmarshal(&mid,)
 	sqlstr := "select * from " + measurement + " where "
+	cur := make([]string, 0)
 	for k , v := range mid {
 		if k == database || k == measurement {
 			continue
 		}
-		sqlstr += k + " = " + fmt.Sprintf("%v", v)
+		cur = append(cur, k + " = " + fmt.Sprintf("%v", v) + " ")
 	}
+	sqlstr += strings.Join(cur, "and")
 	sdataSourcemanager := &SDataSourceManager{}
 	dataSource, err := sdataSourcemanager.GetDefaultSource()
 	if err != nil {
