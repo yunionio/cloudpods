@@ -301,6 +301,8 @@ type ICloudHost interface {
 	GetCpuDesc() string
 	GetCpuMhz() int
 	GetCpuCmtbound() float32
+	GetCpuArchitecture() string
+
 	GetMemSizeMB() int
 	GetMemCmtbound() float32
 	GetReservedMemoryMb() int

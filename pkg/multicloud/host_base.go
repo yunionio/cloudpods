@@ -19,22 +19,26 @@ type SHostBase struct {
 	STagBase
 }
 
-func (self *SHostBase) GetCpuCmtbound() float32 {
+func (host *SHostBase) GetCpuCmtbound() float32 {
 	return 0.0
 }
 
-func (self *SHostBase) GetMemCmtbound() float32 {
+func (host *SHostBase) GetMemCmtbound() float32 {
 	return 0.0
 }
 
-func (self *SHostBase) GetReservedMemoryMb() int {
+func (host *SHostBase) GetReservedMemoryMb() int {
 	return 0
 }
 
-func (self *SHostBase) GetSchedtags() ([]string, error) {
+func (host *SHostBase) GetSchedtags() ([]string, error) {
 	return nil, nil
 }
 
-func (self *SHostBase) GetOvnVersion() string {
+func (host *SHostBase) GetOvnVersion() string {
+	return ""
+}
+
+func (host *SHostBase) GetCpuArchitecture() string {
 	return ""
 }
