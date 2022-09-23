@@ -235,7 +235,9 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 			} else if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
 				retry -= 1
 				time.Sleep(3 * time.Second * time.Duration(MAX_RETRY-retry))
-			} else if (err.Code == 404 || strings.Contains(err.Details, "could not be found") || strings.Contains(err.Details, "does not exist")) && request.GetMethod() != "POST" {
+			} else if (err.Code == 404 || strings.Contains(err.Details, "could not be found") ||
+				strings.Contains(err.Error(), "Not Found") ||
+				strings.Contains(err.Details, "does not exist")) && request.GetMethod() != "POST" {
 				return h, b, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 			} else if err.Code == 429 && retry > 0 {
 				// 当前请求过多。
