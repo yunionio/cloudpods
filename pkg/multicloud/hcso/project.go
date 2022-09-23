@@ -61,6 +61,20 @@ func (self *SHuaweiClient) fetchProjects() ([]SProject, error) {
 	return projects, err
 }
 
+// obs 权限必须赋予到mos project之上
+func (self *SHuaweiClient) GetMosProjectId() string {
+	projects, err := self.GetProjects()
+	if err != nil {
+		return ""
+	}
+	for i := range projects {
+		if strings.ToLower(projects[i].Name) == "mos" {
+			return projects[i].ID
+		}
+	}
+	return ""
+}
+
 func (self *SHuaweiClient) GetProjectById(projectId string) (SProject, error) {
 	projects, err := self.fetchProjects()
 	if err != nil {
