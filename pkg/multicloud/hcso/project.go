@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
@@ -73,6 +75,16 @@ func (self *SHuaweiClient) GetMosProjectId() string {
 		}
 	}
 	return ""
+}
+
+func (self *SHuaweiClient) GetMosRoles(groupId string) ([]SRole, error) {
+	client, _ := self.newGeneralAPIClient()
+	resp, err := client.Projects.ListRoles(self.GetMosProjectId(), groupId)
+	if err != nil {
+		return nil, err
+	}
+	ret := []SRole{}
+	return ret, jsonutils.Update(&ret, resp.Data)
 }
 
 func (self *SHuaweiClient) GetProjectById(projectId string) (SProject, error) {
