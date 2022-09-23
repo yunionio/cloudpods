@@ -94,3 +94,21 @@ type PCIMemoryRegion struct {
 }
 
 type QueryPciCallback func(pciInfoList []PCIInfo, err string)
+
+type MemoryDeviceInfo struct {
+	Type string
+	Data PcdimmDeviceInfo
+}
+
+type PcdimmDeviceInfo struct {
+	ID           *string `json:"id,omitempty"`
+	Addr         int64   `json:"addr"`
+	Size         int64   `json:"size"`
+	Slot         int64   `json:"slot"`
+	Node         int64   `json:"node"`
+	Memdev       string  `json:"memdev"`
+	Hotplugged   bool    `json:"hotplugged"`
+	Hotpluggable bool    `json:"hotpluggable"`
+}
+
+type QueryMemoryDevicesCallback func(memoryDevicesInfoList []MemoryDeviceInfo, err string)

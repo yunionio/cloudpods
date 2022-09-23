@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
+	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 type IGuestTasks interface {
@@ -592,6 +593,8 @@ func (n *SGuestNetworkSyncTask) addNic(nic *desc.SGuestNetwork) {
 			n.errors = append(n.errors, fmt.Errorf("netdev add failed %s", res))
 			n.syncNetworkConf()
 		} else {
+			nic.UpscriptPath = upscript
+			nic.DownscriptPath = downscript
 			n.onNetdevAdd(nic, pciRoot)
 		}
 	}
@@ -605,7 +608,7 @@ func (n *SGuestNetworkSyncTask) onNetdevAdd(nic *desc.SGuestNetwork, pciRoot *de
 	onFail := func(e error) {
 		log.Errorln(e)
 		n.errors = append(n.errors, e)
-		n.guest.Monitor.NetdevDel(id, func(res string) {
+		n.guest.Monitor.NetdevDel(nic.Ifname, func(res string) {
 			log.Infof("netdev %s del %s", id, res)
 		})
 		n.syncNetworkConf()
@@ -816,12 +819,15 @@ type SGuestLiveMigrateTask struct {
 
 	timeoutAt        time.Time
 	doTimeoutMigrate bool
+
+	expectDowntime int64
 }
 
 func NewGuestLiveMigrateTask(
 	ctx context.Context, guest *SKVMGuestInstance, params *SLiveMigrate,
 ) *SGuestLiveMigrateTask {
 	task := &SGuestLiveMigrateTask{SKVMGuestInstance: guest, ctx: ctx, params: params}
+	task.expectDowntime = 300 // qemu default downtime 300ms
 	task.MigrateTask = task
 	return task
 }
@@ -835,8 +841,30 @@ func (s *SGuestLiveMigrateTask) onSetZeroBlocks(res string) {
 		s.migrateFailed(fmt.Sprintf("Migrate set capability zero-blocks error: %s", res))
 		return
 	}
+
 	// https://wiki.qemu.org/Features/AutoconvergeLiveMigration
-	s.Monitor.MigrateSetCapability("auto-converge", "on", s.startMigrate)
+	s.Monitor.MigrateSetCapability("auto-converge", "on", s.onSetAutoConverge)
+}
+
+func (s *SGuestLiveMigrateTask) onSetAutoConverge(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateFailed(fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
+		return
+	}
+	if version.LT(s.QemuVersion, "4.0.0") {
+		s.startMigrate()
+		return
+	}
+
+	cb := func(res string) {
+		if strings.Contains(strings.ToLower(res), "error") {
+			s.migrateFailed(fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
+			return
+		}
+		s.startMigrate()
+	}
+	log.Infof("migrate src guest enable multifd")
+	s.Monitor.MigrateSetCapability("multifd", "on", cb)
 }
 
 func (s *SGuestLiveMigrateTask) startRamMigrateTimeout() {
@@ -853,11 +881,7 @@ func (s *SGuestLiveMigrateTask) startRamMigrateTimeout() {
 	log.Infof("migrate timeout seconds: %d now: %v expectfinial: %v", migSeconds, time.Now(), s.timeoutAt)
 }
 
-func (s *SGuestLiveMigrateTask) startMigrate(res string) {
-	if strings.Contains(strings.ToLower(res), "error") {
-		s.migrateFailed(fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
-		return
-	}
+func (s *SGuestLiveMigrateTask) startMigrate() {
 	if s.params.EnableTLS {
 		// https://wiki.qemu.org/Features/MigrationTLS
 		// first remove possible existing tls0
@@ -900,11 +924,20 @@ func (s *SGuestLiveMigrateTask) doMigrate() {
 		copyIncremental = true
 	}
 	s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
-		copyIncremental, false, s.onSetMigrateDowntime)
+		copyIncremental, false, s.setMaxBandwidth)
 }
 
-func (s *SGuestLiveMigrateTask) onSetMigrateDowntime(res string) {
-	s.Monitor.MigrateSetParameter("downtime-limit", int(options.HostOptions.DefaultLiveMigrateDowntime*1000), s.startMigrateStatusCheck)
+func (s *SGuestLiveMigrateTask) setMaxBandwidth(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateFailed(fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
+		return
+	}
+
+	if s.params.MaxBandwidthMB != nil {
+		s.Monitor.MigrateSetParameter("max-bandwidth", *s.params.MaxBandwidthMB*1024*1024, s.startMigrateStatusCheck)
+	} else {
+		s.startMigrateStatusCheck("")
+	}
 }
 
 func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
@@ -921,7 +954,7 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 			break
 		case <-time.After(time.Second * 5):
 			if s.Monitor != nil {
-				s.Monitor.GetMigrateStatus(s.onGetMigrateStatus)
+				s.Monitor.GetMigrateStats(s.onGetMigrateStats)
 			} else {
 				log.Errorf("server %s(%s) migrate stopped unexpectedly", s.GetId(), s.GetName())
 				s.migrateFailed(fmt.Sprintf("Migrate error: %s", res))
@@ -931,22 +964,76 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 	}
 }
 
-func (s *SGuestLiveMigrateTask) onGetMigrateStatus(status string) {
+func (s *SGuestLiveMigrateTask) onGetMigrateStats(stats *monitor.MigrationInfo, err error) {
+	if err != nil {
+		log.Errorf("%s get migrate stats failed %s", s.GetName(), err)
+		return
+	}
+	s.onGetMigrateStatus(stats)
+}
+
+/*
+{ 'enum': 'MigrationStatus',
+  'data': [ 'none', 'setup', 'cancelling', 'cancelled',
+            'active', 'postcopy-active', 'postcopy-paused',
+            'postcopy-recover', 'completed', 'failed', 'colo',
+            'pre-switchover', 'device', 'wait-unplug' ] }
+*/
+
+func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo) {
+	status := *stats.Status
 	if status == "completed" {
-		s.migrateComplete()
+		jsonStats := jsonutils.Marshal(stats)
+		log.Infof("migration info %s", jsonStats)
+		s.migrateComplete(jsonStats)
 	} else if status == "failed" || status == "cancelled" {
 		s.migrateFailed(fmt.Sprintf("Query migrate got status: %s", status))
-	} else if status == "migrate_disk_copy" {
-		// do nothing, simply wait
-	} else if status == "migrate_ram_copy" {
-		if s.timeoutAt.IsZero() {
-			s.startRamMigrateTimeout()
-		} else if !s.doTimeoutMigrate && s.timeoutAt.Before(time.Now()) {
-			log.Warningf("migrate timeout, force stop to finish migrate")
-			// timeout, start memory postcopy
-			// https://wiki.qemu.org/Features/PostCopyLiveMigration
-			s.Monitor.SimpleCommand("stop", s.onMigrateStartPostcopy)
-			s.doTimeoutMigrate = true
+	} else if status == "active" {
+		var (
+			ramTotal   int64
+			ramRemain  int64
+			mbps       float64
+			diskTotal  int64
+			diskRemain int64
+		)
+		if stats.RAM != nil {
+			ramTotal = stats.RAM.Total
+			mbps = stats.RAM.Mbps
+			ramRemain = stats.RAM.Remaining
+		}
+		if stats.Disk != nil {
+			diskTotal = stats.Disk.Total
+			diskRemain = stats.Disk.Remaining
+		}
+		progress := (1 - float64(diskRemain+ramRemain)/float64(diskTotal+ramTotal)) * 100.0
+		hostutils.UpdateServerProgress(context.Background(), s.Id, progress, mbps)
+		if stats.Disk != nil && stats.Disk.Remaining > 0 {
+			// process disk copy
+			// do nothing, simply wait
+		} else if stats.RAM != nil && stats.RAM.Remaining > 0 {
+			if s.params.QuicklyFinish &&
+				stats.RAM.DirtySyncCount > 50 &&
+				stats.RAM.DirtyPagesRate > 0 &&
+				s.expectDowntime < *stats.ExpectedDowntime {
+				cb := func(res string) {
+					if len(res) == 0 {
+						s.expectDowntime = *stats.ExpectedDowntime
+						log.Infof("migrate update downtime to %d", *stats.ExpectedDowntime)
+					} else {
+						log.Errorf("failed set migrate downtime %s", res)
+					}
+				}
+				s.Monitor.MigrateSetDowntime(float32(*stats.ExpectedDowntime), cb)
+			} else if !s.doTimeoutMigrate &&
+				s.params.QuicklyFinish &&
+				stats.RAM.DirtySyncCount > 100 &&
+				stats.RAM.DirtyPagesRate > 0 {
+				log.Warningf("migrate timeout, force stop to finish migrate")
+				// timeout, start memory postcopy
+				// https://wiki.qemu.org/Features/PostCopyLiveMigration
+				s.Monitor.SimpleCommand("stop", s.onMigrateStartPostcopy)
+				s.doTimeoutMigrate = true
+			}
 		}
 	}
 }
@@ -960,7 +1047,7 @@ func (s *SGuestLiveMigrateTask) onMigrateStartPostcopy(res string) {
 	}
 }
 
-func (s *SGuestLiveMigrateTask) migrateComplete() {
+func (s *SGuestLiveMigrateTask) migrateComplete(stats jsonutils.JSONObject) {
 	s.MigrateTask = nil
 	if s.c != nil {
 		close(s.c)
@@ -968,7 +1055,11 @@ func (s *SGuestLiveMigrateTask) migrateComplete() {
 	}
 	s.Monitor.Disconnect()
 	s.Monitor = nil
-	hostutils.TaskComplete(s.ctx, nil)
+	res := jsonutils.NewDict()
+	if stats != nil {
+		res.Set("migration_info", stats)
+	}
+	hostutils.TaskComplete(s.ctx, res)
 }
 
 func (s *SGuestLiveMigrateTask) migrateFailed(msg string) {
@@ -1002,6 +1093,7 @@ type SGuestResumeTask struct {
 
 	isTimeout bool
 	cleanTLS  bool
+	resumed   bool
 
 	getTaskData func() (jsonutils.JSONObject, error)
 }
@@ -1069,6 +1161,10 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 		// handle error first, results may be 'paused (internal-error)'
 		s.taskFailed(status)
 	} else if strings.Contains(status, "paused") {
+		if s.resumed {
+			s.taskFailed("resume guest twice")
+			return
+		}
 		if err := s.onGuestPrelaunch(); err != nil {
 			s.ForceStop()
 			s.taskFailed(err.Error())
@@ -1109,7 +1205,7 @@ func (s *SGuestResumeTask) onGetBlockInfo(blocks []monitor.QemuBlock) {
 	// for _, drv := range results.GetArray() {
 	// 	// encryption not work
 	// }
-	time.Sleep(time.Second * 1)
+	//time.Sleep(time.Second * 1)
 	s.resumeGuest()
 }
 
@@ -1119,6 +1215,7 @@ func (s *SGuestResumeTask) resumeGuest() {
 }
 
 func (s *SGuestResumeTask) onResumeSucc(res string) {
+	s.resumed = true
 	s.confirmRunning()
 }
 
@@ -1729,7 +1826,9 @@ type SGuestHotplugCpuMemTask struct {
 	originalCpuCount int
 	addedCpuCount    int
 
+	addedMemSize    int
 	memSlotNewIndex *int
+	memSlot         *desc.SMemSlot
 }
 
 func NewGuestHotplugCpuMemTask(
@@ -1792,6 +1891,11 @@ func (task *SGuestHotplugCpuMemTask) startAddMem() {
 func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 	var newIndex = index
 	task.memSlotNewIndex = &newIndex
+
+	var objType string
+	var id = fmt.Sprintf("mem%d", *task.memSlotNewIndex)
+	var options map[string]string
+
 	if task.manager.host.IsHugepagesEnabled() {
 		memPath := fmt.Sprintf("/dev/hugepages/%s-%d", task.GetId(), index)
 
@@ -1814,21 +1918,31 @@ func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 			return
 		}
 
-		params := map[string]string{
-			"id":       fmt.Sprintf("mem%d", *task.memSlotNewIndex),
+		objType = "memory-backend-file"
+		options = map[string]string{
 			"size":     fmt.Sprintf("%dM", task.addMemSize),
 			"mem-path": memPath,
 			"share":    "on",
 			"prealloc": "on",
 		}
-		task.Monitor.ObjectAdd("memory-backend-file", params, task.onAddMemObject)
 	} else {
-		params := map[string]string{
-			"id":   fmt.Sprintf("mem%d", *task.memSlotNewIndex),
+		objType = "memory-backend-ram"
+		options = map[string]string{
 			"size": fmt.Sprintf("%dM", task.addMemSize),
 		}
-		task.Monitor.ObjectAdd("memory-backend-ram", params, task.onAddMemObject)
 	}
+	options["id"] = id
+	cb := func(reason string) {
+		if reason == "" {
+			memObj := desc.NewObject(objType, id)
+			memObj.Options = options
+			task.memSlot = new(desc.SMemSlot)
+			task.memSlot.MemObj = memObj
+			task.memSlot.SizeMB = int64(task.addMemSize)
+		}
+		task.onAddMemObject(reason)
+	}
+	task.Monitor.ObjectAdd(objType, options, cb)
 }
 
 func (task *SGuestHotplugCpuMemTask) onAddMemFailed(reason string) {
@@ -1847,7 +1961,17 @@ func (task *SGuestHotplugCpuMemTask) onAddMemObject(reason string) {
 		"id":     fmt.Sprintf("dimm%d", *task.memSlotNewIndex),
 		"memdev": fmt.Sprintf("mem%d", *task.memSlotNewIndex),
 	}
-	task.Monitor.DeviceAdd("pc-dimm", params, task.onAddMemDevice)
+	cb := func(reason string) {
+		if reason == "" {
+			task.memSlot.MemDev = &desc.SMemDevice{
+				Type: "pc-dimm",
+				Id:   fmt.Sprintf("dimm%d", *task.memSlotNewIndex),
+			}
+		}
+		task.onAddMemDevice(reason)
+	}
+
+	task.Monitor.DeviceAdd("pc-dimm", params, cb)
 }
 
 func (task *SGuestHotplugCpuMemTask) onAddMemDevice(reason string) {
@@ -1855,7 +1979,31 @@ func (task *SGuestHotplugCpuMemTask) onAddMemDevice(reason string) {
 		task.onAddMemFailed(reason)
 		return
 	}
+	task.addedMemSize = task.addMemSize
 	task.onSucc()
+}
+
+func (task *SGuestHotplugCpuMemTask) updateGuestDesc() {
+	task.Desc.Cpu += int64(task.addedCpuCount)
+	task.Desc.Mem += int64(task.addedMemSize)
+	if task.addedMemSize > 0 {
+		if task.Desc.MemDesc.MemSlots == nil {
+			task.Desc.MemDesc.MemSlots = make([]*desc.SMemSlot, 0)
+		}
+		task.Desc.MemDesc.MemSlots = append(task.Desc.MemDesc.MemSlots, task.memSlot)
+	}
+	if task.addedCpuCount > 0 || task.addedMemSize > 0 {
+		task.SaveLiveDesc(task.Desc)
+	}
+	if task.addedMemSize > 0 {
+		vncPort := task.GetVncPort()
+		data := jsonutils.NewDict()
+		data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
+		data.Set("sync_qemu_cmdline", jsonutils.JSONTrue)
+		if err := task.saveScripts(data); err != nil {
+			log.Errorf("failed save script: %s", err)
+		}
+	}
 }
 
 func (task *SGuestHotplugCpuMemTask) onFail(reason string) {
@@ -1866,10 +2014,12 @@ func (task *SGuestHotplugCpuMemTask) onFail(reason string) {
 	} else if task.memSlotNewIndex != nil {
 		body.Set("add_mem_failed", jsonutils.JSONTrue)
 	}
+	task.updateGuestDesc()
 	hostutils.TaskFailed2(task.ctx, reason, body)
 }
 
 func (task *SGuestHotplugCpuMemTask) onSucc() {
+	task.updateGuestDesc()
 	hostutils.TaskComplete(task.ctx, nil)
 }
 

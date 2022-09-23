@@ -155,11 +155,20 @@ func generatePciControllerOptions(controllers []*desc.PCIController) []string {
 	return opts
 }
 
-func generateMemoryOption(sizeMB int64, memDesc *desc.SGuestMem) string {
-	return fmt.Sprintf(
+func generateMemoryOption(memDesc *desc.SGuestMem) string {
+	cmds := []string{}
+	cmds = append(cmds, fmt.Sprintf(
 		"-m %dM,slots=%d,maxmem=%dM",
-		sizeMB, memDesc.Slots, memDesc.MaxMem,
-	)
+		memDesc.SizeMB, memDesc.Slots, memDesc.MaxMem,
+	))
+	cmds = append(cmds, generateObjectOption(memDesc.Mem))
+	for i := 0; i < len(memDesc.MemSlots); i++ {
+		memDev := memDesc.MemSlots[i].MemDev
+		memObj := memDesc.MemSlots[i].MemObj
+		cmds = append(cmds, generateObjectOption(memObj))
+		cmds = append(cmds, fmt.Sprintf("-device %s,id=%s,memdev=%s", memDev.Type, memDev.Id, memObj.Id))
+	}
+	return strings.Join(cmds, " ")
 }
 
 func generateMachineOption(machine string, machineDesc *desc.SGuestMachine) string {
@@ -517,7 +526,6 @@ type GenerateStartOptionsInput struct {
 	VNCPort              uint
 	VNCPassword          bool
 	EnableLog            bool
-	LogPath              string
 	HMPMonitor           *Monitor
 	QMPMonitor           *Monitor
 	IsVdiSpice           bool
@@ -551,7 +559,7 @@ func GenerateStartOptions(
 	opts = append(opts, drvOpt.FreezeCPU(), cpuOpt)
 
 	if input.EnableLog {
-		opts = append(opts, drvOpt.Log(input.EnableLog, input.LogPath))
+		opts = append(opts, drvOpt.Log(input.EnableLog))
 	}
 
 	// TODO hmp - -
@@ -562,7 +570,7 @@ func GenerateStartOptions(
 
 	opts = append(opts,
 		drvOpt.RTC(),
-		drvOpt.Daemonize(),
+		// drvOpt.Daemonize(),
 		drvOpt.Nodefaults(),
 		drvOpt.Nodefconfig(),
 		// drvOpt.NoKVMPitReinjection(),
@@ -572,21 +580,8 @@ func GenerateStartOptions(
 		generateSMPOption(input.GuestDesc.CpuDesc),
 		drvOpt.Name(input.GuestDesc.Name),
 		drvOpt.UUID(input.EnableUUID, input.GuestDesc.Uuid),
-		generateMemoryOption(input.GuestDesc.Mem, input.GuestDesc.MemDesc),
+		generateMemoryOption(input.GuestDesc.MemDesc),
 	)
-
-	var memDev string
-	if input.HugepagesEnabled {
-		memDev = drvOpt.MemPath(
-			uint64(input.GuestDesc.Mem),
-			fmt.Sprintf("/dev/hugepages/%s", input.GuestDesc.Uuid),
-		)
-	} else if input.EnableMemfd {
-		memDev = drvOpt.MemFd(uint64(input.GuestDesc.Mem))
-	} else {
-		memDev = drvOpt.MemDev(uint64(input.GuestDesc.Mem))
-	}
-	opts = append(opts, memDev)
 
 	// bootOrder
 	enableMenu := false

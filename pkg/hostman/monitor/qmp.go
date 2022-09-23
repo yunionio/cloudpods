@@ -747,6 +747,26 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 	m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) GetMigrateStats(callback MigrateStatsCallback) {
+	var (
+		cmd = &Command{Execute: "query-migrate"}
+		cb  = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(nil, errors.Errorf(res.ErrorVal.Error()))
+			} else {
+				migStats := new(MigrationInfo)
+				err := json.Unmarshal(res.Return, migStats)
+				if err != nil {
+					callback(nil, err)
+					return
+				}
+				callback(migStats, nil)
+			}
+		}
+	)
+	m.Query(cmd, cb)
+}
+
 func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 	var (
 		cmd = &Command{Execute: "migrate-start-postcopy"}
@@ -982,6 +1002,28 @@ func (m *QmpMonitor) GeMemtSlotIndex(callback func(index int)) {
 		callback(count)
 	}
 	m.HumanMonitorCommand("info memory-devices", cb)
+}
+
+func (m *QmpMonitor) GetMemoryDevicesInfo(callback QueryMemoryDevicesCallback) {
+	var (
+		cb = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(nil, res.ErrorVal.Error())
+			} else {
+				memDevices := make([]MemoryDeviceInfo, 0)
+				err := json.Unmarshal(res.Return, &memDevices)
+				if err != nil {
+					callback(nil, err.Error())
+				} else {
+					callback(memDevices, "")
+				}
+			}
+		}
+		cmd = &Command{
+			Execute: "query-memory-devices",
+		}
+	)
+	m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) BlockIoThrottle(driveName string, bps, iops int64, callback StringCallback) {

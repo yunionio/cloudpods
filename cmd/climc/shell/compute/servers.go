@@ -67,6 +67,8 @@ func init() {
 	cmd.PrintObjectYAML().Perform("migrate-forecast", new(options.ServerMigrateForecastOptions))
 	cmd.Perform("migrate", new(options.ServerMigrateOptions))
 	cmd.Perform("live-migrate", new(options.ServerLiveMigrateOptions))
+	cmd.BatchPerform("cancel-live-migrate", new(options.ServerIdsOptions))
+	cmd.Perform("set-live-migrate-params", new(options.ServerSetLiveMigrateParamsOptions))
 	cmd.Perform("modify-src-check", new(options.ServerModifySrcCheckOptions))
 	cmd.Perform("set-secgroup", new(options.ServerSecGroupsOptions))
 	cmd.Perform("add-secgroup", new(options.ServerSecGroupsOptions))

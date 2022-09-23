@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
@@ -340,6 +341,10 @@ func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
 	m.Query("info migrate", cb)
 }
 
+func (m *HmpMonitor) GetMigrateStats(callback MigrateStatsCallback) {
+	go callback(nil, errors.Errorf("unsupport get migrate stats"))
+}
+
 func (m *HmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 	cb := func(output string) {
 		log.Infof("MigrateStartPostcopy %s: %s", m.server, output)
@@ -473,6 +478,10 @@ func (m *HmpMonitor) GeMemtSlotIndex(callback func(index int)) {
 		callback(count)
 	}
 	m.Query("info memory-devices", cb)
+}
+
+func (m *HmpMonitor) GetMemoryDevicesInfo(cb QueryMemoryDevicesCallback) {
+	go cb(nil, "not supported")
 }
 
 func (m *HmpMonitor) ObjectAdd(objectType string, params map[string]string, callback StringCallback) {

@@ -51,7 +51,7 @@ func (s *SKVMGuestInstance) pciControllerFind(cont desc.PCI_CONTROLLER_TYPE) *de
 
 func (s *SKVMGuestInstance) initGuestDesc() error {
 	s.initCpuDesc()
-	s.initMemDesc()
+	s.initMemDesc(s.Desc.Mem)
 	s.initMachineDesc()
 
 	pciRoot, pciBridge := s.initGuestPciControllers()
@@ -85,6 +85,21 @@ func (s *SKVMGuestInstance) initGuestDesc() error {
 	s.initIsaSerialDesc()
 
 	return s.ensurePciAddresses()
+}
+
+func (s *SKVMGuestInstance) loadGuestPciAddresses() error {
+	err := s.initGuestPciAddresses()
+	if err != nil {
+		return errors.Wrap(err, "init guest pci addresses")
+	}
+	if err := s.initMachineDefaultDevices(); err != nil {
+		return errors.Wrap(err, "init machine default devices")
+	}
+	err = s.ensurePciAddresses()
+	if err != nil {
+		return errors.Wrap(err, "load desc ensure pci address")
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) initMachineDefaultDevices() error {
@@ -642,8 +657,10 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 }
 
 // guests description no pci description before host-agent assign pci device address info
-// in this case wo need query pci address info by `query-pci` command
-func (s *SKVMGuestInstance) initGuestDescFromPCIInfoList(pciInfoList []monitor.PCIInfo) error {
+// in this case wo need query pci address info by `query-pci` command. Also memory devices.
+func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
+	pciInfoList []monitor.PCIInfo, memoryDevicesInfoList []monitor.MemoryDeviceInfo,
+) error {
 	if len(pciInfoList) > 1 {
 		return errors.Errorf("unsupported pci info list with multi bus")
 	}
@@ -651,11 +668,14 @@ func (s *SKVMGuestInstance) initGuestDescFromPCIInfoList(pciInfoList []monitor.P
 	unknownDevices := make([]monitor.PCIDeviceInfo, 0)
 
 	s.initCpuDesc()
-	s.initMemDesc()
+	err := s.initMemDescFromMemoryInfo(memoryDevicesInfoList)
+	if err != nil {
+		return errors.Wrap(err, "init guest memory devices")
+	}
 	s.initMachineDesc()
 
 	pciRoot, _ := s.initGuestPciControllers()
-	err := s.initGuestPciAddresses()
+	err = s.initGuestPciAddresses()
 	if err != nil {
 		return errors.Wrap(err, "init guest pci addresses")
 	}
@@ -816,6 +836,10 @@ func (s *SKVMGuestInstance) initGuestDescFromPCIInfoList(pciInfoList []monitor.P
 		s.Desc.AnonymousPCIDevs = make([]*desc.PCIDevice, len(unknownDevices))
 	}
 	for i := 0; i < len(unknownDevices); i++ {
+		if unknownDevices[i].Bus == 0 && unknownDevices[i].Slot == 0 {
+			// host bridge
+			continue
+		}
 		pciDev := desc.NewPCIDevice(pciRoot.CType, "", unknownDevices[i].QdevID)
 		pciDev.PCIAddr = &desc.PCIAddr{
 			Bus:      uint(unknownDevices[i].Bus),
