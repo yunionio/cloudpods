@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 )
 
 func (t *SSplitTableSpec) Purge(tables []string) ([]string, error) {
@@ -35,12 +34,21 @@ func (t *SSplitTableSpec) Purge(tables []string) ([]string, error) {
 	if t.maxSegments >= len(metas) && len(tables) == 0 {
 		return nil, nil
 	}
+	metaMax := len(metas)
+	if len(tables) == 0 {
+		// keep maxSegments if no table specified
+		metaMax -= t.maxSegments
+	} else {
+		// cannot delete the last one
+		metaMax -= 1
+	}
 	ret := []string{}
-	for i := 0; i < len(metas); i += 1 {
+	for i := 0; i < metaMax; i += 1 {
 		if len(tables) == 0 || utils.IsInStringArray(metas[i].Table, tables) {
 			dropSQL := fmt.Sprintf("DROP TABLE `%s`", metas[i].Table)
 			log.Infof("Ready to drop table: %s", dropSQL)
-			_, err := sqlchemy.Exec(dropSQL)
+			tblSpec := t.GetTableSpec(metas[i])
+			err := tblSpec.Drop()
 			if err != nil {
 				return ret, errors.Wrap(err, "sqlchemy.Exec")
 			}

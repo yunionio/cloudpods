@@ -68,6 +68,10 @@ func (bb *SBaseBackend) UnionDistinctString() string {
 	return "UNION"
 }
 
+func (bb *SBaseBackend) DropTableSQL(table string) string {
+	return fmt.Sprintf("DROP TABLE `%s`", table)
+}
+
 func (bb *SBaseBackend) SupportMixedInsertVariables() bool {
 	return true
 }
@@ -211,4 +215,9 @@ func (bb *SBaseBackend) LOWER(name string, field IQueryField) IQueryField {
 // UPPER represents SQL function of UPPER
 func (bb *SBaseBackend) UPPER(name string, field IQueryField) IQueryField {
 	return NewFunctionField(name, "UPPER(%s)", field)
+}
+
+// DATEDIFF represents SQL function of DATEDIFF
+func (bb *SBaseBackend) DATEDIFF(unit string, field1, field2 IQueryField) IQueryField {
+	return NewFunctionField("", fmt.Sprintf("DATEDIFF('%s',%s,%s)", unit, "%s", "%s"), field1, field2)
 }
