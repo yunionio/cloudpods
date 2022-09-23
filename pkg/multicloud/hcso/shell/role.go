@@ -40,6 +40,15 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&RoleListOptions{}, "cloud-custom-policy-list", "List cloudpolicy", func(cli *huawei.SRegion, args *RoleListOptions) error {
+		roles, err := cli.GetClient().GetCustomRoles()
+		if err != nil {
+			return err
+		}
+		printList(roles, 0, 0, 0, nil)
+		return nil
+	})
+
 	shellutils.R(&RoleListOptions{}, "cloud-policy-export", "Export cloudpolicy", func(cli *huawei.SRegion, args *RoleListOptions) error {
 		roles, err := cli.GetClient().GetRoles(args.DomainId, args.Name)
 		if err != nil {
