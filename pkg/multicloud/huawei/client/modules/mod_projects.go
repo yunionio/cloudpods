@@ -15,7 +15,13 @@
 package modules
 
 import (
+	"fmt"
+
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
 type SProjectManager struct {
@@ -23,7 +29,7 @@ type SProjectManager struct {
 }
 
 func NewProjectManager(cfg manager.IManagerConfig) *SProjectManager {
-	return &SProjectManager{SResourceManager: SResourceManager{
+	m := &SProjectManager{SResourceManager: SResourceManager{
 		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameIAM,
 		Region:        "",
@@ -34,4 +40,50 @@ func NewProjectManager(cfg manager.IManagerConfig) *SProjectManager {
 
 		ResourceKeyword: "projects",
 	}}
+	m.SetDomainId(cfg.GetDomainId())
+	return m
+}
+
+func (manager *SProjectManager) ListRoles(projectId, groupId string) (*responses.ListResult, error) {
+	if len(projectId) == 0 {
+		return nil, fmt.Errorf("missing projectId")
+	}
+	if len(groupId) == 0 {
+		return nil, fmt.Errorf("missing groupId")
+	}
+	res := fmt.Sprintf("%s/groups/%s/roles", projectId, groupId)
+	return manager.ListInContextWithSpec(nil, res, nil, "roles")
+}
+
+func (manager *SProjectManager) DeleteProjectRole(projectId, groupId, roleId string) error {
+	if len(projectId) == 0 {
+		return fmt.Errorf("missing projectId")
+	}
+	if len(groupId) == 0 {
+		return fmt.Errorf("missing groupId")
+	}
+	if len(roleId) == 0 {
+		return fmt.Errorf("missing roleId")
+	}
+	res := fmt.Sprintf("groups/%s/roles/%s", groupId, roleId)
+	_, err := manager.DeleteInContextWithSpec(nil, projectId, res, nil, nil, "")
+	if err != nil && errors.Cause(err) == cloudprovider.ErrNotFound {
+		return nil
+	}
+	return err
+}
+
+func (manager *SProjectManager) AddProjectRole(projectId string, groupId, roleId string) error {
+	if len(projectId) == 0 {
+		return fmt.Errorf("missing projectId")
+	}
+	if len(groupId) == 0 {
+		return fmt.Errorf("missing groupId")
+	}
+	if len(roleId) == 0 {
+		return fmt.Errorf("missing roleId")
+	}
+	res := fmt.Sprintf("groups/%s/roles/%s", groupId, roleId)
+	_, err := manager.UpdateInContextWithSpec(nil, projectId, res, nil, "")
+	return err
 }
