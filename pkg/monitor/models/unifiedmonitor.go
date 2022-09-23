@@ -545,7 +545,13 @@ func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, u
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("Please set starttime and endtime at the same time")
 	}
 	st, err := time.Parse("2006-01-02 15:04:05", starttime)
+	if err != nil {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("starttime format should be 2006-01-02 15:04:05")
+	}
 	et, err := time.Parse("2006-01-02 15:04:05", endtime)
+	if err != nil {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("endtime format should be 2006-01-02 15:04:05")
+	}
 	if et.Sub(st).Hours() > 1 {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("The query interval is greater than one hour")
 	}
