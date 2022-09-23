@@ -543,7 +543,7 @@ func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, u
 	if et.Sub(st).Hours() > 1 {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("The query interval is greater than one hour")
 	}
-	sqlstr += "time >= " + starttime + " and " + "time <= " + endtime + " "
+	sqlstr += "time >= " + "'" + starttime + "'" + " and " + "time <= " + "'" + endtime + "'" + " "
 	cur := make([]string, 0)
 	tags := query.Tags
 	if tags != nil {
