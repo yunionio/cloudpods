@@ -510,12 +510,15 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 }
 
 func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, userCred mcclient.TokenCredential, query *monitor.SimpleQueryTest) (jsonutils.JSONObject, error) {
-	namespace := query.NameSpace
-	if namespace == "" {
+	database := query.Database
+	if database == "" {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
 	}
 	metricName := query.MetricName
 	metric := strings.Split(metricName, ".")
+	if len(metric) > 2 {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("only support one field")
+	}
 	measurement, field := metric[0], metric[1]
 	if measurement == "" {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support measurement")
@@ -526,8 +529,8 @@ func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, u
 		sqlstr = id + ", " + sqlstr
 	}
 	sqlstr = "select " + sqlstr
-	starttime := query.Starttime
-	endtime := query.Endtime
+	starttime := query.StartTime
+	endtime := query.EndTime
 	if starttime == "" && endtime == "" {
 		et := time.Now()
 		h, _ := time.ParseDuration("-1h")
@@ -538,7 +541,7 @@ func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, u
 	st, err := time.Parse("2006-01-02 15:04:05", starttime)
 	et, err := time.Parse("2006-01-02 15:04:05", endtime)
 	if et.Sub(st).Hours() > 1 {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("The query interval is greater than one hour!")
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("The query interval is greater than one hour")
 	}
 	sqlstr += "time >= " + starttime + " and " + "time <= " + endtime + " "
 	cur := make([]string, 0)
@@ -554,7 +557,7 @@ func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, u
 		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
 	}
 	db := influxdb.NewInfluxdb(dataSource.Url)
-	er := db.SetDatabase(namespace)
+	er := db.SetDatabase(database)
 	if er != nil {
 		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
 	}

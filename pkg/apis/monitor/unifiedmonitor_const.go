@@ -86,9 +86,9 @@ type MetricInputQuery struct {
 
 type SimpleQueryTest struct {
 	Id         string            `json:"id"`
-	NameSpace  string            `json:"name_space"`
+	Database   string            `json:"database"`
 	MetricName string            `json:"metric_name"`
-	Starttime  string            `json:"start_time"`
-	Endtime    string            `json:"end_time"`
+	StartTime  string            `json:"start_time"`
+	EndTime    string            `json:"end_time"`
 	Tags       map[string]string `json:"tags"`
 }

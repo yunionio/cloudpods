@@ -2,15 +2,16 @@ package monitor
 
 import (
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 )
 
 type SimpleQueryTest struct {
 	Id         string            `json:"id"`
-	NameSpace  string            `json:"name_space"`
+	Database   string            `json:"database"`
 	MetricName string            `json:"metric_name"`
-	Starttime  string            `json:"start_time"`
-	Endtime    string            `json:"end_time"`
+	StartTime  string            `json:"start_time"`
+	EndTime    string            `json:"end_time"`
 	Tags       map[string]string `json:"tags"`
 }
 
@@ -21,9 +22,9 @@ func (o *SimpleQueryTest) GetId() string {
 func (o *SimpleQueryTest) Params() (jsonutils.JSONObject, error) {
 	output := new(monitor.SimpleQueryTest)
 	output.Id = o.Id
-	output.NameSpace = o.NameSpace
-	output.Starttime = o.Starttime
-	output.Endtime = o.Endtime
+	output.Database = o.Database
+	output.StartTime = o.StartTime
+	output.EndTime = o.EndTime
 	output.Tags = o.Tags
 	return jsonutils.Marshal(output), nil
 }
