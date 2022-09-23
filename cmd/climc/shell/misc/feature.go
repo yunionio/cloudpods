@@ -54,6 +54,8 @@ func init() {
 		"bill",
 		"auth",
 		"onecloud",
+		"incloudsphere",
+		"proxmox",
 		"public",
 		"private",
 		"storage",
