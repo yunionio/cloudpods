@@ -63,4 +63,17 @@ func init() {
 		return nil
 	})
 
+	type SProjectRoleListOptions struct {
+		GROUPID string
+	}
+
+	shellutils.R(&SProjectRoleListOptions{}, "mos-role-list", "List account", func(cli *huawei.SRegion, args *SProjectRoleListOptions) error {
+		ret, err := cli.GetClient().GetMosRoles(args.GROUPID)
+		if err != nil {
+			return err
+		}
+		printList(ret, 0, 0, 0, nil)
+		return nil
+	})
+
 }
