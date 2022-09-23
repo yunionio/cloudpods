@@ -512,12 +512,15 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, userCred mcclient.TokenCredential, query *monitor.SimpleQueryTest) (jsonutils.JSONObject, error) {
 	database := query.Database
 	if database == "" {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("not set database")
 	}
 	metricName := query.MetricName
+	if metricName == "" {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("not set metricname")
+	}
 	metric := strings.Split(metricName, ".")
 	if len(metric) > 2 {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("only support one field")
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("only set one field")
 	}
 	measurement, field := metric[0], metric[1]
 	if measurement == "" {
@@ -537,6 +540,9 @@ func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, u
 		st := et.Add(h)
 		endtime = et.Format("2006-01-02 15:04:05")
 		starttime = st.Format("2006-01-02 15:04:05")
+	}
+	if starttime == "" || endtime == "" {
+		return jsonutils.JSONNull, httperrors.NewInputParameterError("Please set starttime and endtime at the same time")
 	}
 	st, err := time.Parse("2006-01-02 15:04:05", starttime)
 	et, err := time.Parse("2006-01-02 15:04:05", endtime)
