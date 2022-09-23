@@ -293,8 +293,8 @@ func (manager *SDnsZoneManager) FetchCustomizeColumns(
 				objs[i] = &caches[i]
 			}
 			cacheDetails := DnsZoneCacheManager.FetchCustomizeColumns(ctx, userCred, jsonutils.NewDict(), objs, stringutils2.SSortedStrings{}, true)
-			for i := range cacheDetails {
-				jsonDict := jsonutils.Marshal(cacheDetails[i]).(*jsonutils.JSONDict)
+			for j := range cacheDetails {
+				jsonDict := jsonutils.Marshal(cacheDetails[j]).(*jsonutils.JSONDict)
 				jsonDict.Update(jsonutils.Marshal(objs[i]).(*jsonutils.JSONDict))
 				rows[i].CloudCaches = append(rows[i].CloudCaches, jsonDict)
 			}
