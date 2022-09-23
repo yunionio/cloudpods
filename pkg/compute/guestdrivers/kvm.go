@@ -425,7 +425,10 @@ func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *m
 }
 
 func (self *SKVMGuestDriver) RequestSoftReset(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	_, err := guest.SendMonitorCommand(ctx, task.GetUserCred(), "system_reset")
+	_, err := guest.SendMonitorCommand(
+		ctx, task.GetUserCred(),
+		&api.ServerMonitorInput{COMMAND: "system_reset"},
+	)
 	return err
 }
 
@@ -773,6 +776,9 @@ func (self *SKVMGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models
 		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
 	}
 	if utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
+		if *input.MaxBandwidthMb < 50 {
+			return httperrors.NewBadRequestError("max bandwidth must gratethan 100M")
+		}
 		cdrom := guest.GetCdrom()
 		if cdrom != nil && len(cdrom.ImageId) > 0 {
 			return httperrors.NewBadRequestError("Cannot live migrate with cdrom")

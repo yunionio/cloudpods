@@ -66,6 +66,8 @@ func init() {
 	cmd.PrintObjectYAML().Perform("migrate-forecast", new(options.ServerMigrateForecastOptions))
 	cmd.Perform("migrate", new(options.ServerMigrateOptions))
 	cmd.Perform("live-migrate", new(options.ServerLiveMigrateOptions))
+	cmd.BatchPerform("cancel-live-migrate", new(options.ServerIdsOptions))
+	cmd.Perform("set-live-migrate-params", new(options.ServerSetLiveMigrateParamsOptions))
 	cmd.Perform("modify-src-check", new(options.ServerModifySrcCheckOptions))
 	cmd.Perform("set-secgroup", new(options.ServerSecGroupsOptions))
 	cmd.Perform("add-secgroup", new(options.ServerSecGroupsOptions))
@@ -108,6 +110,7 @@ func init() {
 	cmd.Perform("qga-set-password", &options.ServerQgaSetPassword{})
 	cmd.Perform("qga-command", &options.ServerQgaCommand{})
 	cmd.Perform("set-password", &options.ServerSetPasswordOptions{})
+	cmd.Perform("monitor", &options.ServerMonitorOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
@@ -306,23 +309,6 @@ func init() {
 			return e
 		}
 		printObject(i)
-		return nil
-	})
-
-	R(&options.ServerMonitorOptions{}, "server-monitor", "Send commands to qemu monitor", func(s *mcclient.ClientSession, opts *options.ServerMonitorOptions) error {
-		params, err := baseoptions.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		ret, err := modules.Servers.PerformAction(s, opts.ID, "monitor", params)
-		if err != nil {
-			return err
-		}
-		result, err := ret.GetString("results")
-		if err != nil {
-			return err
-		}
-		fmt.Println(result)
 		return nil
 	})
 

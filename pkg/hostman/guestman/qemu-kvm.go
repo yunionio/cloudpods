@@ -204,6 +204,9 @@ func (s *SKVMGuestInstance) saveEncryptKeyFile(key string) error {
 }
 
 func (s *SKVMGuestInstance) getOriginId() string {
+	if s.Desc == nil {
+		return s.Id
+	}
 	originId, _ := s.Desc.GetString("metadata", "__origin_id")
 	if len(originId) == 0 {
 		originId = s.Id
@@ -460,6 +463,16 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 	if err = fileutils2.FilePutContents(s.GetStartScriptPath(), startScript, false); err != nil {
 		return err
 	}
+
+	if jsonutils.QueryBoolean(data, "sync_qemu_cmdline", false) {
+		cmdline, err := s.getQemuCmdlineFromContent(startScript)
+		if err != nil {
+			log.Errorf("failed parse cmdline from start script: %s", err)
+		} else {
+			log.Errorf("new cmd: %s", cmdline)
+			s.SyncQemuCmdline(cmdline)
+		}
+	}
 	stopScript := s.generateStopScript(data)
 	return fileutils2.FilePutContents(s.GetStopScriptPath(), stopScript, false)
 }
@@ -671,7 +684,7 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 	case event.Event == `"STOP"`:
 		if s.migrateTask != nil {
 			// migrating complete
-			s.migrateTask.migrateComplete()
+			s.migrateTask.migrateComplete(nil)
 		}
 		hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
 	}
@@ -841,10 +854,32 @@ func (s *SKVMGuestInstance) setDestMigrateTLS(ctx context.Context, data *jsonuti
 	})
 }
 
+func (s *SKVMGuestInstance) migrateEnableMultifd() error {
+	if version.LT(s.QemuVersion, "4.0.0") {
+		return nil
+	}
+	var err = make(chan error)
+	cb := func(res string) {
+		if len(res) > 0 {
+			err <- errors.Errorf("failed enable multifd %s", res)
+		} else {
+			err <- nil
+		}
+	}
+	log.Infof("migrate dest guest enable multifd")
+	s.Monitor.MigrateSetCapability("multifd", "on", cb)
+	return <-err
+}
+
 func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string) {
 	s.QemuVersion = version
 	log.Infof("Guest(%s) qemu version %s", s.Id, s.QemuVersion)
 	if s.Desc.Contains("live_migrate_dest_port") && ctx != nil {
+		err := s.migrateEnableMultifd()
+		if err != nil {
+			hostutils.TaskFailed(ctx, err.Error())
+			return
+		}
 		migratePort, _ := s.Desc.Get("live_migrate_dest_port")
 		body := jsonutils.NewDict()
 		body.Set("live_migrate_dest_port", migratePort)
@@ -1670,18 +1705,6 @@ func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONO
 	var runTaskNames = []jsonutils.JSONObject{}
 	var tasks = []IGuestTasks{}
 
-	var callBack = func(errs []error) {
-		if len(errs) == 0 {
-			hostutils.TaskComplete(ctx, nil)
-		} else {
-			var reason string
-			for _, err := range errs {
-				reason += "; " + err.Error()
-			}
-			hostutils.TaskFailed(ctx, reason[2:])
-		}
-	}
-
 	if len(delDisks)+len(addDisks) > 0 || cdrom != nil {
 		task := NewGuestDiskSyncTask(s, delDisks, addDisks, cdrom)
 		runTaskNames = append(runTaskNames, jsonutils.NewString("disksync"))
@@ -1698,6 +1721,28 @@ func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONO
 		task := NewGuestIsolatedDeviceSyncTask(s, delDevs, addDevs)
 		runTaskNames = append(runTaskNames, jsonutils.NewString("isolated_device_sync"))
 		tasks = append(tasks, task)
+	}
+
+	lenTasks := len(tasks)
+	var callBack = func(errs []error) {
+		if lenTasks > 0 { // devices updated, regenerate start script
+			vncPort := s.GetVncPort()
+			data := jsonutils.NewDict()
+			data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
+			data.Set("sync_qemu_cmdline", jsonutils.JSONTrue)
+			if err := s.saveScripts(data); err != nil {
+				log.Errorf("failed save script: %s", err)
+			}
+		}
+		if len(errs) == 0 {
+			hostutils.TaskComplete(ctx, nil)
+		} else {
+			var reason string
+			for _, err := range errs {
+				reason += "; " + err.Error()
+			}
+			hostutils.TaskFailed(ctx, reason[2:])
+		}
 	}
 
 	NewGuestSyncConfigTaskExecutor(ctx, s, tasks, callBack).Start(1)
@@ -1921,6 +1966,12 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	if s.syncMeta != nil {
 		meta.Update(s.syncMeta)
 	}
+	s.SyncMetadata(meta)
+}
+
+func (s *SKVMGuestInstance) SyncQemuCmdline(cmdline string) {
+	meta := jsonutils.NewDict()
+	meta.Set("__qemu_cmdline", jsonutils.NewString(cmdline))
 	s.SyncMetadata(meta)
 }
 

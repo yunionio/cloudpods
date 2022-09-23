@@ -234,7 +234,8 @@ func guestMonitor(ctx context.Context, userCred mcclient.TokenCredential, sid st
 			c <- res
 		}
 		cmd, _ := body.GetString("cmd")
-		err := guestman.GetGuestManager().Monitor(sid, cmd, cb)
+		qmp := jsonutils.QueryBoolean(body, "qmp", false)
+		err := guestman.GetGuestManager().Monitor(sid, cmd, qmp, cb)
 		if err != nil {
 			return nil, err
 		} else {
@@ -435,13 +436,21 @@ func guestLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, si
 		return nil, httperrors.NewMissingParameterError("is_local_storage")
 	}
 	enableTLS := jsonutils.QueryBoolean(body, "enable_tls", false)
-	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().LiveMigrate, &guestman.SLiveMigrate{
-		Sid:       sid,
-		DestPort:  int(destPort),
-		DestIp:    destIp,
-		IsLocal:   isLocal,
-		EnableTLS: enableTLS,
-	})
+	quicklyFinish := jsonutils.QueryBoolean(body, "quickly_finish", false)
+	params := &guestman.SLiveMigrate{
+		Sid:           sid,
+		DestPort:      int(destPort),
+		DestIp:        destIp,
+		IsLocal:       isLocal,
+		EnableTLS:     enableTLS,
+		QuicklyFinish: quicklyFinish,
+	}
+	if body.Contains("max_bandwidth_mb") {
+		maxBandwidthMb, _ := body.Int("max_bandwidth_mb")
+		params.MaxBandwidthMB = &maxBandwidthMb
+	}
+
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().LiveMigrate, params)
 	return nil, nil
 }
 
