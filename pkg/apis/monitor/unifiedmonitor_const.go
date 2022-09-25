@@ -14,6 +14,8 @@
 
 package monitor
 
+import "time"
+
 var (
 	UNIFIED_MONITOR_FIELD_OPT_TYPE   = []string{"Aggregations", "Selectors"}
 	UNIFIED_MONITOR_GROUPBY_OPT_TYPE = []string{"time", "tag", "fill"}
@@ -88,7 +90,7 @@ type SimpleQueryTest struct {
 	Id         string            `json:"id"`
 	Database   string            `json:"database"`
 	MetricName string            `json:"metric_name"`
-	StartTime  string            `json:"start_time"`
-	EndTime    string            `json:"end_time"`
+	StartTime  time.Time         `json:"start_time"`
+	EndTime    time.Time         `json:"end_time"`
 	Tags       map[string]string `json:"tags"`
 }

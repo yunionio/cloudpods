@@ -509,73 +509,82 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 	}
 }
 
-func (self *SUnifiedMonitorManager) GetDetailsSimpleQuery(ctx context.Context, userCred mcclient.TokenCredential, query *monitor.SimpleQueryTest) (jsonutils.JSONObject, error) {
+func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, userCred mcclient.TokenCredential,
+	query *monitor.SimpleQueryTest) (jsonutils.JSONObject, error) {
 	database := query.Database
 	if database == "" {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not set database")
+		return nil, httperrors.NewInputParameterError("not set database")
 	}
 	metricName := query.MetricName
 	if metricName == "" {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not set metricname")
+		return nil, httperrors.NewInputParameterError("not set metricname")
 	}
 	metric := strings.Split(metricName, ".")
-	if len(metric) > 2 {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("only set one field")
+	if len(metric) != 2 {
+		return nil, httperrors.NewInputParameterError("set one field")
 	}
 	measurement, field := metric[0], metric[1]
 	if measurement == "" {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support measurement")
+		return nil, httperrors.NewInputParameterError("not support measurement")
 	}
-	sqlstr := field + " from " + measurement + " where "
+	sqlstr := "select id, " + field + " from " + measurement + " where "
+	sqlstrs := make([]string, 0)
 	id := query.Id
 	if id != "" {
-		sqlstr = id + ", " + sqlstr
+		sqlstrs = append(sqlstrs, "id = "+id)
 	}
-	sqlstr = "select " + sqlstr
-	starttime := query.StartTime
-	endtime := query.EndTime
-	if starttime == "" && endtime == "" {
-		et := time.Now()
-		h, _ := time.ParseDuration("-1h")
-		st := et.Add(h)
-		endtime = et.Format("2006-01-02 15:04:05")
-		starttime = st.Format("2006-01-02 15:04:05")
-	}
-	if starttime == "" || endtime == "" {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("Please set starttime and endtime at the same time")
-	}
-	st, err := time.Parse("2006-01-02 15:04:05", starttime)
-	if err != nil {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("starttime format should be 2006-01-02 15:04:05")
-	}
-	et, err := time.Parse("2006-01-02 15:04:05", endtime)
-	if err != nil {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("endtime format should be 2006-01-02 15:04:05")
-	}
-	if et.Sub(st).Hours() > 1 {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("The query interval is greater than one hour")
-	}
-	sqlstr += "time >= " + "'" + starttime + "'" + " and " + "time <= " + "'" + endtime + "'" + " "
-	cur := make([]string, 0)
 	tags := query.Tags
 	if tags != nil {
 		for k, v := range tags {
-			cur = append(cur, k+" = "+v)
+			sqlstrs = append(sqlstrs, k+" = "+v)
 		}
-		sqlstr += strings.Join(cur, " and ")
 	}
+	starttime := query.StartTime
+	endtime := query.EndTime
+	if starttime.IsZero() && endtime.IsZero() {
+		et := time.Now()
+		h, _ := time.ParseDuration("-1h")
+		st := et.Add(h)
+		starttime, endtime = st, et
+	}
+	if starttime.IsZero() || endtime.IsZero() {
+		return nil, httperrors.NewInputParameterError("Please set starttime and endtime at the same time")
+	}
+	if endtime.Sub(starttime).Hours() > 1 {
+		return nil, httperrors.NewInputParameterError("The query interval is greater than one hour")
+	}
+	st := starttime.Format("2006-01-02 15:04:05")
+	et := endtime.Format("2006-01-02 15:04:05")
+	sqlstrs = append(sqlstrs, "time >= "+"'"+st+"'", "time <= "+"'"+et+"'"+" tz('Asia/Shanghai')")
+	sqlstr += strings.Join(sqlstrs, " and ")
 	dataSource, err := DataSourceManager.GetDefaultSource()
 	if err != nil {
-		return jsonutils.JSONNull, errors.Wrap(err, "s.GetDefaultSource")
+		return nil, errors.Wrap(err, "s.GetDefaultSource")
 	}
 	db := influxdb.NewInfluxdb(dataSource.Url)
-	er := db.SetDatabase(database)
-	if er != nil {
-		return jsonutils.JSONNull, httperrors.NewInputParameterError("not support database")
-	}
-	res, err := db.Query(sqlstr)
+	err = db.SetDatabase(database)
 	if err != nil {
-		return jsonutils.JSONNull, err
+		return nil, httperrors.NewInputParameterError("not support database")
 	}
-	return jsonutils.Marshal(res), nil
+	dbRtn, err := db.Query(sqlstr)
+	if err != nil {
+		return nil, errors.Wrap(err, "sql selected error")
+	}
+	if len(dbRtn) > 0 && len(dbRtn[0]) > 0 {
+		res := dbRtn[0][0]
+		data := make([]map[string]interface{}, len(res.Values))
+		for i, v := range res.Values {
+			ma := jsonutils.NewDict()
+			ma.Set("id", v[1])
+			ma.Set("metricName", jsonutils.Marshal(&metricName))
+			ma.Set("value", v[2])
+			ma.Set("time", v[0])
+			err = ma.Unmarshal(&data[i])
+			if err != nil {
+				return nil, errors.Wrap(err, "sqldata unmarshal error")
+			}
+		}
+		return jsonutils.Marshal(&data), nil
+	}
+	return nil, nil
 }
