@@ -35,6 +35,7 @@ type StorageListOptions struct {
 
 	HostSchedtagId string `help:"filter storage by host schedtag"`
 	ImageId        string `help:"filter storage by image"`
+	IsBaremetal    *bool  `help:"Baremetal storage list"`
 }
 
 func (opts *StorageListOptions) Params() (jsonutils.JSONObject, error) {

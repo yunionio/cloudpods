@@ -236,4 +236,7 @@ type StorageListInput struct {
 
 	// filter storages which attached the specified host
 	HostId string `json:"host_id"`
+
+	// filter storages of baremetal host
+	IsBaremetal *bool `json:"is_baremetal"`
 }
