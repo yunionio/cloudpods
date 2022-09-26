@@ -626,6 +626,7 @@ type ServerMigrateForecastInput struct {
 	SkipCpuCheck    bool   `json:"skip_cpu_check"`
 	SkipKernelCheck bool   `json:"skip_kernel_check"`
 	ConvertToKvm    bool   `json:"convert_to_kvm"`
+	IsRescueMode    bool   `json:"is_rescue_mode"`
 }
 
 type ServerResizeDiskInput struct {
