@@ -434,7 +434,8 @@ func (self *SGuest) PerformMigrateForecast(ctx context.Context, userCred mcclien
 		input.PreferHostId = lmInput.PreferHost
 	} else {
 		mInput = &api.GuestMigrateInput{
-			PreferHost: input.PreferHostId,
+			PreferHost:   input.PreferHostId,
+			IsRescueMode: input.IsRescueMode,
 		}
 		if err := self.validateMigrate(ctx, userCred, mInput, nil); err != nil {
 			return nil, err
