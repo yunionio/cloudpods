@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -33,6 +34,7 @@ import (
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
+	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -506,4 +508,88 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 		}
 		(*series)[i] = serie
 	}
+}
+
+func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, userCred mcclient.TokenCredential,
+	input *monitor.SimpleQueryInput) ([]monitor.SimpleQueryOutput, error) {
+	if len(input.Database) == 0 {
+		input.Database = "telegraf"
+	}
+	if len(input.MetricName) == 0 {
+		return nil, httperrors.NewMissingParameterError("metric_name")
+	}
+	metric := strings.Split(input.MetricName, ".")
+	if len(metric) != 2 {
+		return nil, httperrors.NewInputParameterError("invalid metric_name %s", input.MetricName)
+	}
+	measurement, field := metric[0], metric[1]
+	sqlstr := "select id, " + field + " from " + measurement + " where "
+	if input.Tags == nil {
+		input.Tags = map[string]string{}
+	}
+	if len(input.Id) > 0 {
+		input.Tags["id"] = input.Id
+	}
+	if input.EndTime.IsZero() {
+		input.EndTime = time.Now()
+	}
+	if input.StartTime.IsZero() {
+		input.StartTime = input.EndTime.Add(time.Hour * -1)
+	}
+	if input.EndTime.Sub(input.StartTime).Hours() > 1 {
+		return nil, httperrors.NewInputParameterError("The query interval is greater than one hour")
+	}
+	st := input.StartTime.Format("2006-01-02T15:04:05Z")
+	et := input.EndTime.Format("2006-01-02T15:04:05Z")
+	conditions := []string{}
+	for k, v := range input.Tags {
+		conditions = append(conditions, fmt.Sprintf("%s = %s", k, v))
+	}
+	conditions = append(conditions, fmt.Sprintf("time >= '%s'", st))
+	conditions = append(conditions, fmt.Sprintf("time <= '%s'", et))
+	sqlstr += strings.Join(conditions, " and ")
+	dataSource, err := DataSourceManager.GetDefaultSource()
+	if err != nil {
+		return nil, errors.Wrap(err, "s.GetDefaultSource")
+	}
+	db := influxdb.NewInfluxdb(dataSource.Url)
+	err = db.SetDatabase(input.Database)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("not support database %s", input.Database)
+	}
+	dbRtn, err := db.Query(sqlstr)
+	if err != nil {
+		return nil, errors.Wrap(err, "sql selected error")
+	}
+	ret := []monitor.SimpleQueryOutput{}
+	for _, dbResults := range dbRtn {
+		for _, dbResult := range dbResults {
+			for _, value := range dbResult.Values {
+				if len(value) != 3 ||
+					gotypes.IsNil(value[0]) ||
+					gotypes.IsNil(value[1]) ||
+					gotypes.IsNil(value[2]) {
+					continue
+				}
+				timestamp, err := value[0].Int()
+				if err != nil {
+					continue
+				}
+				id, err := value[1].GetString()
+				if err != nil {
+					continue
+				}
+				v, err := value[2].Float()
+				if err != nil {
+					continue
+				}
+				ret = append(ret, monitor.SimpleQueryOutput{
+					Id:    id,
+					Time:  time.UnixMilli(timestamp),
+					Value: v,
+				})
+			}
+		}
+	}
+	return ret, nil
 }
