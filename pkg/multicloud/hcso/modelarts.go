@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package huawei
+package hcso
 
 import (
 	"strings"
@@ -89,7 +89,7 @@ type SModelartsPoolNetworkMetadata struct {
 
 func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, error) {
 	pools := make([]SModelartsPool, 0)
-	resObj, err := self.client.modelartsPoolList("pools", nil)
+	resObj, err := self.client.modelartsPoolList(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetPools")
 	}
@@ -107,7 +107,8 @@ func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, 
 }
 
 func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
-	netObj, err := self.client.modelartsPoolNetworkList("network", nil)
+
+	netObj, err := self.client.modelartsPoolNetworkList(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.GetPools")
 	}
@@ -149,7 +150,7 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 			},
 		},
 	}
-	obj, err := self.client.modelartsPoolCreate("pools", params)
+	obj, err := self.client.modelartsPoolCreate(params)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.CreatePools")
 	}
@@ -165,7 +166,7 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 }
 
 func (self *SRegion) DeletePool(poolName string) (jsonutils.JSONObject, error) {
-	return self.client.modelartsPoolDelete("pools", poolName, nil)
+	return self.client.modelartsPoolDelete(poolName, nil)
 }
 
 func (self *SRegion) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudModelartsPool, error) {
@@ -231,7 +232,7 @@ type ModelartsStatistics struct {
 }
 
 func (self *SHuaweiClient) GetPoolNetworks(poolName string) (jsonutils.JSONObject, error) {
-	return self.modelartsPoolNetworkList(poolName, nil)
+	return self.modelartsPoolNetworkList(nil)
 }
 
 func (self *SHuaweiClient) CreatePoolNetworks() (jsonutils.JSONObject, error) {

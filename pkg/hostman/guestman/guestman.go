@@ -105,7 +105,12 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.host.StartDHCPServer()
 	manager.dirtyServersChan = make(chan struct{})
 	manager.dirtyServers = make([]*SKVMGuestInstance, 0)
+	procutils.NewCommand("mkdir", "-p", manager.QemuLogDir()).Run()
 	return manager
+}
+
+func (m *SGuestManager) QemuLogDir() string {
+	return path.Join(m.ServersPath, "logs")
 }
 
 func (m *SGuestManager) GetServer(sid string) (*SKVMGuestInstance, bool) {

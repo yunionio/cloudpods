@@ -16,6 +16,7 @@ package hcso
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -89,9 +90,14 @@ func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolic
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range roles {
-		if roles[i].Catelog != "CUSTOMED" {
-			ret = append(ret, &roles[i])
+		_, err := group.client.GetRole(roles[i].GetName())
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				continue
+			}
+			return nil, errors.Wrapf(err, "GetRole(%s)", roles[i].GetName())
 		}
+		ret = append(ret, &roles[i])
 	}
 	return ret, nil
 }
@@ -103,9 +109,14 @@ func (group *SCloudgroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolic
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range roles {
-		if roles[i].Catelog == "CUSTOMED" {
-			ret = append(ret, &roles[i])
+		_, err := group.client.GetCustomRole(roles[i].GetName())
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				continue
+			}
+			return nil, errors.Wrapf(err, "GetRole(%s)", roles[i].GetName())
 		}
+		ret = append(ret, &roles[i])
 	}
 	return ret, nil
 }
@@ -183,7 +194,7 @@ func (self *SHuaweiClient) GetGroupRoles(groupId string) ([]SRole, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "newGeneralAPIClient")
 	}
-	resp, err := client.Groups.ListRoles(self.ownerId, groupId)
+	resp, err := client.Domains.ListRoles(self.ownerId, groupId)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListRoles")
 	}
@@ -274,9 +285,15 @@ func (self *SHuaweiClient) DetachGroupRole(groupId, roleId string) error {
 		return errors.Wrapf(err, "GetRole(%s)", roleId)
 	}
 	if role.Type == "AX" || role.Type == "AA" {
-		err = client.Groups.DeleteRole(self.ownerId, groupId, role.Id)
+		err = client.Domains.DeleteRole(self.ownerId, groupId, role.Id)
 		if err != nil {
 			return errors.Wrapf(err, "DeleteRole")
+		}
+		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
+			err = client.Projects.DeleteProjectRole(self.GetMosProjectId(), groupId, role.Id)
+			if err != nil {
+				return errors.Wrapf(err, "DeleteProjectRole")
+			}
 		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
@@ -285,7 +302,7 @@ func (self *SHuaweiClient) DetachGroupRole(groupId, roleId string) error {
 			return errors.Wrapf(err, "GetProjects")
 		}
 		for _, project := range projects {
-			err = client.Groups.DeleteProjectRole(project.ID, groupId, role.Id)
+			err = client.Projects.DeleteProjectRole(project.ID, groupId, role.Id)
 			if err != nil {
 				return errors.Wrapf(err, "DeleteProjectRole")
 			}
@@ -304,9 +321,15 @@ func (self *SHuaweiClient) DetachGroupCustomRole(groupId, roleId string) error {
 		return errors.Wrapf(err, "GetCustomRole(%s)", roleId)
 	}
 	if role.Type == "AX" || role.Type == "AA" {
-		err = client.Groups.DeleteRole(self.ownerId, groupId, role.Id)
+		err = client.Domains.DeleteRole(self.ownerId, groupId, role.Id)
 		if err != nil {
 			return errors.Wrapf(err, "DeleteRole")
+		}
+		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
+			err = client.Projects.DeleteProjectRole(self.GetMosProjectId(), groupId, role.Id)
+			if err != nil {
+				return errors.Wrapf(err, "DeleteProjectRole")
+			}
 		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
@@ -315,7 +338,7 @@ func (self *SHuaweiClient) DetachGroupCustomRole(groupId, roleId string) error {
 			return errors.Wrapf(err, "GetProjects")
 		}
 		for _, project := range projects {
-			err = client.Groups.DeleteProjectRole(project.ID, groupId, role.Id)
+			err = client.Projects.DeleteProjectRole(project.ID, groupId, role.Id)
 			if err != nil {
 				return errors.Wrapf(err, "DeleteProjectRole")
 			}
@@ -360,9 +383,15 @@ func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {
 		return errors.Wrapf(err, "GetRole(%s)", roleId)
 	}
 	if role.Type == "AX" || role.Type == "AA" {
-		err = client.Groups.AddRole(self.ownerId, groupId, role.Id)
+		err = client.Domains.AddRole(self.ownerId, groupId, role.Id)
 		if err != nil {
 			return errors.Wrapf(err, "AddRole")
+		}
+		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
+			err = client.Projects.AddProjectRole(self.GetMosProjectId(), groupId, role.Id)
+			if err != nil {
+				return errors.Wrapf(err, "AddProjectRole")
+			}
 		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
@@ -371,7 +400,7 @@ func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {
 			return errors.Wrapf(err, "GetProjects")
 		}
 		for _, project := range projects {
-			err = client.Groups.AddProjectRole(project.ID, groupId, role.Id)
+			err = client.Projects.AddProjectRole(project.ID, groupId, role.Id)
 			if err != nil {
 				return errors.Wrapf(err, "AddProjectRole")
 			}
@@ -390,9 +419,15 @@ func (self *SHuaweiClient) AttachGroupCustomRole(groupId, roleId string) error {
 		return errors.Wrapf(err, "GetRole(%s)", roleId)
 	}
 	if role.Type == "AX" || role.Type == "AA" {
-		err = client.Groups.AddRole(self.ownerId, groupId, role.Id)
+		err = client.Domains.AddRole(self.ownerId, groupId, role.Id)
 		if err != nil {
 			return errors.Wrapf(err, "AddRole")
+		}
+		if strings.Contains(strings.ToLower(role.Policy.String()), "obs") {
+			err = client.Projects.AddProjectRole(self.GetMosProjectId(), groupId, role.Id)
+			if err != nil {
+				return errors.Wrapf(err, "AddProjectRole")
+			}
 		}
 	}
 	if role.Type == "XA" || role.Type == "AA" {
@@ -401,7 +436,7 @@ func (self *SHuaweiClient) AttachGroupCustomRole(groupId, roleId string) error {
 			return errors.Wrapf(err, "GetProjects")
 		}
 		for _, project := range projects {
-			err = client.Groups.AddProjectRole(project.ID, groupId, role.Id)
+			err = client.Projects.AddProjectRole(project.ID, groupId, role.Id)
 			if err != nil {
 				return errors.Wrapf(err, "AddProjectRole")
 			}

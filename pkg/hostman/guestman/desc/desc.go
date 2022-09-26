@@ -37,12 +37,31 @@ type SGuestCpu struct {
 	// CpuCacheMode string
 }
 
+type SMemObject struct {
+	*Object
+	SizeMB int64
+}
+
+type SMemDevice struct {
+	Type string
+	Id   string
+}
+
+type SMemSlot struct {
+	SizeMB int64
+
+	MemObj *Object
+	MemDev *SMemDevice
+}
+
 type SGuestMem struct {
 	Slots  uint
 	MaxMem uint
 
-	// Backend     string
-	// MemFilePath *string `json:",omitempty"`
+	SizeMB int64
+	Mem    *Object `json:",omitempty"`
+
+	MemSlots []*SMemSlot `json:",omitempty"`
 }
 
 type SGuestHardwareDesc struct {

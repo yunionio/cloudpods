@@ -68,11 +68,13 @@ type SDestPrepareMigrate struct {
 }
 
 type SLiveMigrate struct {
-	Sid       string
-	DestPort  int
-	DestIp    string
-	IsLocal   bool
-	EnableTLS bool
+	Sid            string
+	DestPort       int
+	DestIp         string
+	IsLocal        bool
+	EnableTLS      bool
+	MaxBandwidthMB *int64
+	QuicklyFinish  bool
 }
 
 type SDriverMirror struct {

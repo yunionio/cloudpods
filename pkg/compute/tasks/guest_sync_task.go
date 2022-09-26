@@ -91,6 +91,9 @@ func (self *GuestSyncConfTask) OnDiskSyncCompleteFailed(ctx context.Context, obj
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_SYNC_CONF, data, self.UserCred, false)
+	if !jsonutils.QueryBoolean(self.Params, "without_sync_status", false) {
+		guest.SetStatus(self.GetUserCred(), api.VM_SYNC_FAIL, data.String())
+	}
 	self.SetStageFailed(ctx, data)
 }
 

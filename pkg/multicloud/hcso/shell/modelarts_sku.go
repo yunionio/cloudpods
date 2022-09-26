@@ -1,3 +1,4 @@
+// @@ -0,0 +1,46 @@
 // Copyright 2019 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,28 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package shell
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/hcso/client/manager"
+	huawei "yunion.io/x/onecloud/pkg/multicloud/hcso"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
-type SGroupManager struct {
-	SResourceManager
-}
-
-func NewGroupManager(cfg manager.IManagerConfig) *SGroupManager {
-	m := &SGroupManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(cfg),
-		ServiceName:   ServiceNameIAM,
-		Region:        cfg.GetRegionId(),
-		ProjectId:     "",
-		version:       "v3",
-		Keyword:       "group",
-		KeywordPlural: "groups",
-
-		ResourceKeyword: "groups",
-	}}
-	m.SetDomainId(cfg.GetDomainId())
-	return m
+func init() {
+	type ModelartsResourceflavorsListOption struct {
+		PoolName string `help:"Pool Name"`
+	}
+	shellutils.R(&ModelartsResourceflavorsListOption{}, "modelarts-sku-list", "List Modelarts Pool", func(cli *huawei.SRegion, args *ModelartsResourceflavorsListOption) error {
+		resourceflavors, err := cli.GetIModelartsPoolSku()
+		if err != nil {
+			return err
+		}
+		printList(resourceflavors, len(resourceflavors), 0, 0, nil)
+		return nil
+	})
 }

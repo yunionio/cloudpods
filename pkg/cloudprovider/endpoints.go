@@ -81,6 +81,8 @@ type SHCSOEndpoints struct {
 	Eps string `default:"$HUAWEI_EPS_ENDPOINT"`
 	// 文件系统
 	SfsTurbo string `default:"$HUAWEI_SFS_TURBO_ENDPOINT"`
+	// Modelarts
+	Modelarts string `default:"$HUAWEI_MODELARTS_ENDPOINT"`
 }
 
 func (self *SHCSOEndpoints) GetEndpoint(defaultRegion, serviceName string, region string) string {

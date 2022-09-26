@@ -15,7 +15,13 @@
 package modules
 
 import (
+	"fmt"
+
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/hcso/client/manager"
+	"yunion.io/x/onecloud/pkg/multicloud/hcso/client/responses"
 )
 
 type SDomainManager struct {
@@ -23,7 +29,7 @@ type SDomainManager struct {
 }
 
 func NewDomainManager(cfg manager.IManagerConfig) *SDomainManager {
-	return &SDomainManager{SResourceManager: SResourceManager{
+	m := &SDomainManager{SResourceManager: SResourceManager{
 		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameIAM,
 		Region:        cfg.GetRegionId(),
@@ -34,4 +40,56 @@ func NewDomainManager(cfg manager.IManagerConfig) *SDomainManager {
 
 		ResourceKeyword: "domains",
 	}}
+	m.SetDomainId(cfg.GetDomainId())
+	return m
+}
+
+func (manager *SDomainManager) DeleteRole(domainId string, groupId, roleId string) error {
+	if len(domainId) == 0 {
+		return fmt.Errorf("missing domainId")
+	}
+	if len(groupId) == 0 {
+		return fmt.Errorf("missing groupId")
+	}
+	if len(roleId) == 0 {
+		return fmt.Errorf("missing roleId")
+	}
+	manager.SetVersion("v3")
+	defer manager.SetVersion("v3/auth")
+	res := fmt.Sprintf("groups/%s/roles/%s", groupId, roleId)
+	_, err := manager.DeleteInContextWithSpec(nil, domainId, res, nil, nil, "")
+	if err != nil && errors.Cause(err) == cloudprovider.ErrNotFound {
+		return nil
+	}
+	return err
+}
+
+func (manager *SDomainManager) ListRoles(domainId string, groupId string) (*responses.ListResult, error) {
+	if len(domainId) == 0 {
+		return nil, fmt.Errorf("missing domainId")
+	}
+	if len(groupId) == 0 {
+		return nil, fmt.Errorf("missing groupId")
+	}
+	manager.SetVersion("v3")
+	defer manager.SetVersion("v3/auth")
+	res := fmt.Sprintf("%s/groups/%s/roles", domainId, groupId)
+	return manager.ListInContextWithSpec(nil, res, nil, "roles")
+}
+
+func (manager *SDomainManager) AddRole(domainId string, groupId, roleId string) error {
+	if len(domainId) == 0 {
+		return fmt.Errorf("missing domainId")
+	}
+	if len(groupId) == 0 {
+		return fmt.Errorf("missing groupId")
+	}
+	if len(roleId) == 0 {
+		return fmt.Errorf("missing roleId")
+	}
+	manager.SetVersion("v3")
+	defer manager.SetVersion("v3/auth")
+	res := fmt.Sprintf("groups/%s/roles/%s", groupId, roleId)
+	_, err := manager.UpdateInContextWithSpec(nil, domainId, res, nil, "")
+	return err
 }

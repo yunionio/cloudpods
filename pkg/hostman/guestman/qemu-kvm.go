@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -81,7 +82,7 @@ type SKVMInstanceRuntime struct {
 	QemuVersion string
 	VncPassword string
 
-	LiveMigrateDestPort *int
+	LiveMigrateDestPort *int64
 	LiveMigrateUseTls   bool
 
 	syncMeta *jsonutils.JSONDict
@@ -247,6 +248,9 @@ func (s *SKVMGuestInstance) saveEncryptKeyFile(key string) error {
 }
 
 func (s *SKVMGuestInstance) getOriginId() string {
+	if s.Desc == nil {
+		return ""
+	}
 	return s.Desc.Metadata["__origin_id"]
 }
 
@@ -378,14 +382,7 @@ func (s *SKVMGuestInstance) LoadDesc() error {
 
 	if s.IsRunning() {
 		if len(s.Desc.PCIControllers) > 0 {
-			err = s.initGuestPciAddresses()
-			if err != nil {
-				return errors.Wrap(err, "init guest pci addresses")
-			}
-			err = s.ensurePciAddresses()
-			if err != nil {
-				return errors.Wrap(err, "load desc ensure pci address")
-			}
+			return s.loadGuestPciAddresses()
 		} else {
 			s.pciUninitialized = true
 		}
@@ -491,9 +488,12 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		if err != nil {
 			goto finally
 		} else {
-			err = s.scriptStart()
+			err = s.scriptStart(ctx)
 			if err == nil {
 				isStarted = true
+			} else {
+				// call script stop if guest start failed
+				s.scriptStop()
 			}
 		}
 
@@ -510,7 +510,6 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 	if isStarted {
 		log.Infof("Async start server %s success!", s.GetName())
 		s.syncMeta = s.CleanImportMetadata()
-		s.StartMonitor(ctx, nil)
 		return nil, nil
 	}
 	log.Errorf("Async start server %s failed: %s!!!", s.GetName(), err)
@@ -551,6 +550,22 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 	if err = fileutils2.FilePutContents(s.GetStartScriptPath(), startScript, false); err != nil {
 		return err
 	}
+
+	if jsonutils.QueryBoolean(data, "sync_qemu_cmdline", false) {
+		cmdline, err := s.getQemuCmdlineFromContent(startScript)
+		if err != nil {
+			log.Errorf("failed parse cmdline from start script: %s", err)
+		} else {
+			log.Errorf("new cmd: %s", cmdline)
+			s.SyncQemuCmdline(cmdline)
+		}
+	}
+
+	launcher := fmt.Sprintf(guestLauncher, s.GetStartScriptPath(), s.LogFilePath())
+	if err := fileutils2.FilePutContents(s.pyLauncherPath(), launcher, false); err != nil {
+		return errors.Wrap(err, "generate guest launcher")
+	}
+
 	stopScript := s.generateStopScript(data)
 	return fileutils2.FilePutContents(s.GetStopScriptPath(), stopScript, false)
 }
@@ -677,73 +692,53 @@ func (s *SKVMGuestInstance) GetMonitorPath() string {
 	return s.Desc.Metadata["__monitor_path"]
 }
 
-func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Context, socketFile string, cb func()) {
-	timeutils2.AddTimeout(100*time.Millisecond, func() {
+func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Context, socketFile string, cb func()) error {
+	var mon monitor.Monitor
+	mon = monitor.NewQmpMonitor(
+		s.GetName(),
+		s.Id,
+		s.onImportGuestMonitorDisConnect, // on monitor disconnect
+		func(err error) { s.onImportGuestMonitorTimeout(ctx, err) }, // on monitor timeout
+		func() {
+			s.Monitor = mon
+			s.onImportGuestMonitorConnected(ctx)
+			if cb != nil {
+				cb()
+			}
+		}, // on monitor connected
+		s.onReceiveQMPEvent, // on reveive qmp event
+	)
+	return mon.ConnectWithSocket(socketFile)
+}
+
+func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func()) error {
+	if s.GetQmpMonitorPort(-1) > 0 {
 		var mon monitor.Monitor
 		mon = monitor.NewQmpMonitor(
-			s.GetName(),
-			s.Id,
-			s.onImportGuestMonitorDisConnect, // on monitor disconnect
-			func(err error) { s.onImportGuestMonitorTimeout(ctx, err) }, // on monitor timeout
+			s.GetName(), s.Id,
+			s.onMonitorDisConnect,                            // on monitor disconnect
+			func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
 			func() {
 				s.Monitor = mon
-				s.onImportGuestMonitorConnected(ctx)
+				s.onMonitorConnected(ctx)
 				if cb != nil {
 					cb()
 				}
 			}, // on monitor connected
-			s.onReceiveQMPEvent, // on reveive qmp event
+			s.onReceiveQMPEvent, // on receive qmp event
 		)
-		mon.ConnectWithSocket(socketFile)
-	})
-}
-
-func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func()) {
-	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
-		// try qmp first, if qmp connect failed, use hmp
-		timeutils2.AddTimeout(100*time.Millisecond, func() {
-			var mon monitor.Monitor
-			mon = monitor.NewQmpMonitor(
-				s.GetName(),
-				s.Id,
-				s.onMonitorDisConnect, // on monitor disconnect
-				func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
-				func() {
-					s.Monitor = mon
-					s.onMonitorConnected(ctx)
-					if cb != nil {
-						cb()
-					}
-				}, // on monitor connected
-				s.onReceiveQMPEvent, // on reveive qmp event
-			)
-			err := mon.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
-			if err != nil {
-				log.Errorf("Guest %s qmp monitor connect failed %s, try hmp", s.GetName(), err)
-				mon = monitor.NewHmpMonitor(
-					s.GetName(),
-					s.Id,
-					s.onMonitorDisConnect, // on monitor disconnect
-					func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
-					func() {
-						s.Monitor = mon
-						s.onMonitorConnected(ctx)
-						if cb != nil {
-							cb()
-						}
-					}, // on monitor connected
-				)
-				err = mon.Connect("127.0.0.1", s.GetHmpMonitorPort(-1))
-				if err != nil {
-					mon = nil
-					log.Errorf("Guest %s hmp monitor connect failed %s, something wrong", s.GetName(), err)
-				}
-			}
-		})
+		err := mon.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
+		if err != nil {
+			mon = nil
+			log.Errorf("Guest %s hmp monitor connect failed %s, something wrong", s.GetName(), err)
+			return errors.Errorf("connect qmp monitor: %s", err)
+		}
+		return nil
 	} else if monitorPath := s.GetMonitorPath(); len(monitorPath) > 0 {
-		s.StartMonitorWithImportGuestSocketFile(ctx, monitorPath, cb)
+		return s.StartMonitorWithImportGuestSocketFile(ctx, monitorPath, cb)
 	} else {
-		log.Errorf("Guest start monitor failed, can't get qmp monitor port or monitor path")
+		log.Errorf("Guest %s start monitor failed, can't get qmp monitor port or monitor path", s.Id)
+		return errors.Errorf("Guest %s start monitor failed, can't get qmp monitor port or monitor path", s.Id)
 	}
 }
 
@@ -760,7 +755,7 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 	case event.Event == `"STOP"`:
 		if s.MigrateTask != nil {
 			// migrating complete
-			s.MigrateTask.migrateComplete()
+			s.MigrateTask.migrateComplete(nil)
 		}
 		hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
 	}
@@ -929,35 +924,77 @@ func (s *SKVMGuestInstance) setDestMigrateTLS(ctx context.Context, data *jsonuti
 	})
 }
 
+func (s *SKVMGuestInstance) migrateEnableMultifd() error {
+	if version.LT(s.QemuVersion, "4.0.0") {
+		return nil
+	}
+	var err = make(chan error)
+	cb := func(res string) {
+		if len(res) > 0 {
+			err <- errors.Errorf("failed enable multifd %s", res)
+		} else {
+			err <- nil
+		}
+	}
+	log.Infof("migrate dest guest enable multifd")
+	s.Monitor.MigrateSetCapability("multifd", "on", cb)
+	return <-err
+}
+
 func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string) {
 	s.QemuVersion = version
 	log.Infof("Guest(%s) qemu version %s", s.Id, s.QemuVersion)
 	if s.pciUninitialized {
-		cb := func(pciInfoList []monitor.PCIInfo, err string) {
-			if err != "" && pciInfoList == nil {
-				log.Errorf("failed query pci %s", err)
-			} else {
-				// initialize pci address
-				if err := s.initGuestDescFromPCIInfoList(pciInfoList); err != nil {
-					log.Errorf("failed init pci devices %s", err)
-				} else {
-					s.pciUninitialized = false
-					s.SaveLiveDesc(s.Desc)
-				}
-			}
-			s.guestRun(ctx)
-		}
-		s.Monitor.QueryPci(cb)
+		s.getPciDevices(ctx)
 	} else {
 		s.guestRun(ctx)
 	}
+}
+
+func (s *SKVMGuestInstance) getPciDevices(ctx context.Context) {
+	cb := func(pciInfoList []monitor.PCIInfo, err string) {
+		if err != "" && pciInfoList == nil {
+			log.Errorf("failed query pci %s", err)
+			s.guestRun(ctx)
+		} else {
+			s.getMemoryDevices(ctx, pciInfoList)
+		}
+	}
+	s.Monitor.QueryPci(cb)
+}
+
+func (s *SKVMGuestInstance) getMemoryDevices(ctx context.Context, pciInfoList []monitor.PCIInfo) {
+	cb := func(memoryDevicesInfoList []monitor.MemoryDeviceInfo, err string) {
+		if err != "" && memoryDevicesInfoList == nil {
+			log.Errorf("failed query memory device info: %s", err)
+		} else {
+			if err := s.initGuestDescFromExistingGuest(pciInfoList, memoryDevicesInfoList); err != nil {
+				log.Errorf("failed init guest devices: %s", err)
+			} else {
+				s.pciUninitialized = false
+				s.SaveLiveDesc(s.Desc)
+				vncPort := s.GetVncPort()
+				data := jsonutils.NewDict()
+				data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
+				data.Set("sync_qemu_cmdline", jsonutils.JSONTrue)
+				s.saveScripts(data)
+			}
+		}
+		s.guestRun(ctx)
+	}
+	s.Monitor.GetMemoryDevicesInfo(cb)
 }
 
 func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
 	if s.LiveMigrateDestPort != nil && ctx != nil {
 		// dest migrate guest
 		body := jsonutils.NewDict()
-		body.Set("live_migrate_dest_port", jsonutils.NewInt(int64(*s.LiveMigrateDestPort)))
+		body.Set("live_migrate_dest_port", jsonutils.NewInt(*s.LiveMigrateDestPort))
+		err := s.migrateEnableMultifd()
+		if err != nil {
+			hostutils.TaskFailed(ctx, err.Error())
+			return
+		}
 		if s.LiveMigrateUseTls {
 			s.setDestMigrateTLS(ctx, body)
 		} else {
@@ -989,7 +1026,7 @@ func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 	log.Errorf("Guest %s on Monitor Disconnect reason: %v", s.Id, err)
 	s.CleanStartupTask()
 	s.scriptStop()
-	if !s.IsSlave() {
+	if !s.IsSlave() && s.LiveMigrateDestPort == nil {
 		s.SyncStatus(fmt.Sprintf("monitor disconnect %v", err))
 	}
 	if s.guestAgent != nil {
@@ -1462,9 +1499,6 @@ func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	if err := s.delFlatFiles(ctx); err != nil {
 		return errors.Wrap(err, "delFlatFiles")
 	}
-	if fileutils2.Exists(s.getQemuLogPath()) {
-		procutils.NewRemoteCommandAsFarAsPossible("mv", s.getQemuLogPath(), fmt.Sprintf("/tmp/%s-qemu.log", s.GetId())).Run()
-	}
 	output, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Output()
 	if err != nil {
 		return errors.Wrapf(err, "rm %s failed: %s", s.HomeDir(), output)
@@ -1481,13 +1515,59 @@ func (s *SKVMGuestInstance) Stop() bool {
 	}
 }
 
-func (s *SKVMGuestInstance) scriptStart() error {
-	output, err := procutils.NewRemoteCommandAsFarAsPossible("bash", s.GetStartScriptPath()).Output()
+func (s *SKVMGuestInstance) LogFilePath() string {
+	return path.Join(s.manager.QemuLogDir(), s.Id)
+}
+
+func (s *SKVMGuestInstance) readQemuLogFileEnd(size int64) string {
+	fname := s.LogFilePath()
+	file, err := os.Open(fname)
 	if err != nil {
-		s.scriptStop()
+		return fmt.Sprintf("failed open log file %s: %s", fname, err)
+	}
+	defer file.Close()
+
+	buf := make([]byte, size)
+	stat, err := os.Stat(fname)
+	if err != nil {
+		return fmt.Sprintf("failed stat file %s: %s", fname, err)
+	}
+	start := stat.Size() - size
+	_, err = file.ReadAt(buf, start)
+	if err != nil {
+		return fmt.Sprintf("failed read logfile %s: %s", fname, err)
+	}
+	return string(buf)
+}
+
+func (s *SKVMGuestInstance) pyLauncherPath() string {
+	return path.Join(s.HomeDir(), "startvm.py")
+}
+
+func (s *SKVMGuestInstance) scriptStart(ctx context.Context) error {
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("python2", s.pyLauncherPath()).Output()
+	if err != nil {
 		return fmt.Errorf("Start VM Failed %s %s", output, err)
 	}
-	return nil
+	pid, err := strconv.Atoi(string(output))
+	if err != nil {
+		return errors.Wrapf(err, "failed parse pid %s", output)
+	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return errors.Wrapf(err, "find process pid(%d)", pid)
+	}
+	for {
+		err = proc.Signal(syscall.Signal(0))
+		if err != nil { // qemu process exited
+			log.Errorf("Guest %s check qemu(%d) process failed: %s", s.Id, pid, err)
+			return errors.Errorf(s.readQemuLogFileEnd(64))
+		}
+		if err = s.StartMonitor(ctx, nil); err == nil {
+			return nil
+		}
+		time.Sleep(time.Millisecond * 10)
+	}
 }
 
 func (s *SKVMGuestInstance) scriptStop() bool {
@@ -1809,6 +1889,8 @@ func (s *SKVMGuestInstance) SyncConfig(
 	}
 
 	// update guest live desc
+	s.Desc.Cpu = guestDesc.Cpu
+	s.Desc.Mem = guestDesc.Mem
 	s.Desc.SGuestControlDesc = guestDesc.SGuestControlDesc
 	s.Desc.SGuestProjectDesc = guestDesc.SGuestProjectDesc
 	s.Desc.SGuestRegionDesc = guestDesc.SGuestRegionDesc
@@ -1823,26 +1905,6 @@ func (s *SKVMGuestInstance) SyncConfig(
 	var runTaskNames = []jsonutils.JSONObject{}
 	var tasks = []IGuestTasks{}
 
-	var callBack = func(errs []error) {
-		s.SaveLiveDesc(s.Desc)
-		if len(tasks) > 0 { // devices updated, regenerate start script
-			vncPort := s.GetVncPort()
-			data := jsonutils.NewDict()
-			data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
-			s.saveScripts(data)
-		}
-
-		if len(errs) == 0 {
-			hostutils.TaskComplete(ctx, nil)
-		} else {
-			var reason string
-			for _, err := range errs {
-				reason += "; " + err.Error()
-			}
-			hostutils.TaskFailed(ctx, reason[2:])
-		}
-	}
-	log.Errorf("cdrom is:%+v,floppy is %+v", cdroms, floppys)
 	if len(delDisks)+len(addDisks) > 0 || cdroms != nil || floppys != nil {
 		task := NewGuestDiskSyncTask(s, delDisks, addDisks, cdroms, floppys)
 		runTaskNames = append(runTaskNames, jsonutils.NewString("disksync"))
@@ -1859,6 +1921,30 @@ func (s *SKVMGuestInstance) SyncConfig(
 		task := NewGuestIsolatedDeviceSyncTask(s, delDevs, addDevs)
 		runTaskNames = append(runTaskNames, jsonutils.NewString("isolated_device_sync"))
 		tasks = append(tasks, task)
+	}
+
+	lenTasks := len(tasks)
+	var callBack = func(errs []error) {
+		s.SaveLiveDesc(s.Desc)
+		if lenTasks > 0 { // devices updated, regenerate start script
+			vncPort := s.GetVncPort()
+			data := jsonutils.NewDict()
+			data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
+			data.Set("sync_qemu_cmdline", jsonutils.JSONTrue)
+			if err := s.saveScripts(data); err != nil {
+				log.Errorf("failed save script: %s", err)
+			}
+		}
+
+		if len(errs) == 0 {
+			hostutils.TaskComplete(ctx, nil)
+		} else {
+			var reason string
+			for _, err := range errs {
+				reason += "; " + err.Error()
+			}
+			hostutils.TaskFailed(ctx, reason[2:])
+		}
 	}
 
 	NewGuestSyncConfigTaskExecutor(ctx, s, tasks, callBack).Start(1)
@@ -2087,6 +2173,12 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	s.SyncMetadata(meta)
 }
 
+func (s *SKVMGuestInstance) SyncQemuCmdline(cmdline string) {
+	meta := jsonutils.NewDict()
+	meta.Set("__qemu_cmdline", jsonutils.NewString(cmdline))
+	s.SyncMetadata(meta)
+}
+
 func (s *SKVMGuestInstance) doBlockIoThrottle() {
 	disks := s.Desc.Disks
 	if len(disks) > 0 {
@@ -2099,6 +2191,7 @@ func (s *SKVMGuestInstance) doBlockIoThrottle() {
 }
 
 func (s *SKVMGuestInstance) onGuestPrelaunch() error {
+	s.LiveMigrateDestPort = nil
 	if options.HostOptions.SetVncPassword {
 		s.SetVncPassword()
 	}

@@ -61,6 +61,8 @@ type IBackend interface {
 	UnionDistinctString() string
 	// support mixed insert vars
 	SupportMixedInsertVariables() bool
+	// Drop table
+	DropTableSQL(table string) string
 
 	// Capability
 

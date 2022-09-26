@@ -68,6 +68,10 @@ func (bb *SBaseBackend) UnionDistinctString() string {
 	return "UNION"
 }
 
+func (bb *SBaseBackend) DropTableSQL(table string) string {
+	return fmt.Sprintf("DROP TABLE `%s`", table)
+}
+
 func (bb *SBaseBackend) SupportMixedInsertVariables() bool {
 	return true
 }

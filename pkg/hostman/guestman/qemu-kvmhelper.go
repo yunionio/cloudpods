@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	qemucerts "yunion.io/x/onecloud/pkg/hostman/guestman/qemu/certs"
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -59,6 +60,56 @@ const (
 	DISK_DRIVER_IDE    = qemu.DISK_DRIVER_IDE
 	DISK_DRIVER_SATA   = qemu.DISK_DRIVER_SATA
 )
+
+const guestLauncher = `
+#!/usr/bin/env python
+import sys
+import os
+import time
+import subprocess
+
+with open(os.devnull, 'w')  as FNULL:
+    try:
+        cmd = subprocess.check_output(['bash', '%s'], stderr=FNULL).split()
+    except BaseException as e:
+        sys.stderr.write('%%s' %% e)
+        sys.exit(1)
+
+pid = os.fork()
+if pid < 0:
+    sys.stderr.write('failed fork child process')
+    sys.exit(1)
+
+if pid > 0:
+    status_encoded = os.waitpid(pid, 0)[1]
+    sys.exit((status_encoded>>8) & 0xff)
+else:
+    os.setsid()
+    os.chdir('/')
+
+    pid = os.fork()
+    if pid < 0:
+        sys.stderr.write('failed fork child process')
+        sys.exit(1)
+
+    if pid > 0:
+        sys.stdout.write('%%d' %% pid)
+        sys.exit(0)
+    else:
+        devnull = os.open('/dev/null', os.O_RDWR)
+        os.dup2(devnull, 0)
+        os.close(devnull)
+
+        logfd = os.open('%s', os.O_RDWR|os.O_CREAT|os.O_APPEND)
+        os.dup2(logfd, 1)
+        os.dup2(logfd, 2)
+        os.write(logfd, '%%s Run command: %%s\n' %% (time.strftime('%%Y-%%m-%%d %%H:%%M:%%S', time.localtime()), cmd))
+        os.close(logfd)
+
+        if os.execv(cmd[0], cmd) < 0:
+            sys.stderr.write('exec error')
+            sys.exit(1)
+`
 
 func (s *SKVMGuestInstance) IsKvmSupport() bool {
 	return s.manager.GetHost().IsKvmSupport()
@@ -357,9 +408,8 @@ function nic_mtu() {
 	// Generate Start VM script
 	cmd += `CMD="$QEMU_CMD $QEMU_CMD_KVM_ARG`
 
-	if options.HostOptions.LogLevel == "debug" {
+	if options.HostOptions.EnableQemuDebugLog {
 		input.EnableLog = true
-		input.LogPath = s.getQemuLogPath()
 	}
 
 	// inject monitor
@@ -368,12 +418,10 @@ function nic_mtu() {
 		Port: uint(s.GetHmpMonitorPort(int(input.VNCPort))),
 		Mode: MODE_READLINE,
 	}
-	if options.HostOptions.EnableQmpMonitor {
-		input.QMPMonitor = &qemu.Monitor{
-			Id:   "qmqmon",
-			Port: uint(s.GetQmpMonitorPort(int(input.VNCPort))),
-			Mode: MODE_CONTROL,
-		}
+	input.QMPMonitor = &qemu.Monitor{
+		Id:   "qmqmon",
+		Port: uint(s.GetQmpMonitorPort(int(input.VNCPort))),
+		Mode: MODE_CONTROL,
 	}
 
 	input.EnableUUID = options.HostOptions.EnableVmUuid
@@ -418,6 +466,7 @@ function nic_mtu() {
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		input.NeedMigrate = true
 		input.LiveMigratePort = uint(liveMigratePort)
+		s.LiveMigrateDestPort = &liveMigratePort
 		if jsonutils.QueryBoolean(data, "live_migrate_use_tls", false) {
 			s.LiveMigrateUseTls = true
 			input.LiveMigrateUseTLS = true
@@ -439,7 +488,7 @@ if [ ! -z "$STATE_FILE" ] && [ -d "$STATE_FILE" ] && [ -f "$STATE_FILE/content" 
 elif [ ! -z "$STATE_FILE" ] && [ -f "$STATE_FILE" ]; then
     CMD="$CMD --incoming \"exec: cat $STATE_FILE\""
 fi
-eval $CMD`
+echo $CMD`
 
 	return cmd, nil
 }
@@ -458,10 +507,7 @@ func (s *SKVMGuestInstance) parseCmdline(input string) (*qemutils.Cmdline, []qem
 				filterOpts = append(filterOpts, o)
 				return true
 			}
-		case "vnc":
-			filterOpts = append(filterOpts, o)
-			return true
-		case "spice":
+		case "vnc", "spice", "daemonize":
 			filterOpts = append(filterOpts, o)
 			return true
 		case "chardev":
@@ -691,11 +737,61 @@ func (s *SKVMGuestInstance) initCpuDesc() {
 	s.Desc.CpuDesc = s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), osName, enableKVM, hideKVM)
 }
 
-func (s *SKVMGuestInstance) initMemDesc() {
-	// hugepagesEnabled := s.manager.host.IsHugepagesEnabled()
-	// memPath := fmt.Sprintf("/dev/hugepages/%s", input.UUID)
-	// enableMemfd := s.isMemcleanEnabled()
+func (s *SKVMGuestInstance) initMemDesc(memSizeMB int64) {
 	s.Desc.MemDesc = s.archMan.GenerateMemDesc()
+	s.Desc.MemDesc.SizeMB = memSizeMB
+	if s.manager.host.IsHugepagesEnabled() {
+		s.Desc.MemDesc.Mem = desc.NewObject("memory-backend-file", "mem")
+		s.Desc.MemDesc.Mem.Options = map[string]string{
+			"mem-path": fmt.Sprintf("/dev/hugepages/%s", s.Desc.Uuid),
+			"size":     fmt.Sprintf("%dM", memSizeMB),
+			"share":    "on", "prealloc": "on",
+		}
+	} else if s.isMemcleanEnabled() {
+		s.Desc.MemDesc.Mem = desc.NewObject("memory-backend-memfd", "mem")
+		s.Desc.MemDesc.Mem.Options = map[string]string{
+			"size":  fmt.Sprintf("%dM", memSizeMB),
+			"share": "on", "prealloc": "on",
+		}
+	} else {
+		s.Desc.MemDesc.Mem = desc.NewObject("memory-backend-ram", "mem")
+		s.Desc.MemDesc.Mem.Options = map[string]string{
+			"size": fmt.Sprintf("%dM", memSizeMB),
+		}
+	}
+}
+
+func (s *SKVMGuestInstance) initMemDescFromMemoryInfo(memoryDevicesInfoList []monitor.MemoryDeviceInfo) error {
+	var objType string
+	if s.manager.host.IsHugepagesEnabled() {
+		objType = "memory-backend-file"
+	} else if s.isMemcleanEnabled() {
+		objType = "memory-backend-memfd"
+	} else {
+		objType = "memory-backend-ram"
+	}
+
+	memSize := s.Desc.Mem
+	memSlots := make([]*desc.SMemSlot, 0)
+	for i := 0; i < len(memoryDevicesInfoList); i++ {
+		if memoryDevicesInfoList[i].Type != "dimm" || memoryDevicesInfoList[i].Data.ID == nil {
+			return errors.Errorf("unsupported memory device type %s", memoryDevicesInfoList[i].Type)
+		}
+		memSize -= (memoryDevicesInfoList[i].Data.Size / 1024 / 1024)
+		memSlots = append(memSlots, &desc.SMemSlot{
+			SizeMB: memoryDevicesInfoList[i].Data.Size / 1024 / 1024,
+			MemObj: desc.NewObject(objType, path.Base(memoryDevicesInfoList[i].Data.Memdev)),
+			MemDev: &desc.SMemDevice{
+				Type: "pc-dimm", Id: *memoryDevicesInfoList[i].Data.ID,
+			},
+		})
+	}
+	if memSize <= 0 {
+		return errors.Errorf("wrong memsize %d", s.Desc.Mem)
+	}
+	s.initMemDesc(memSize)
+	s.Desc.MemDesc.MemSlots = memSlots
+	return nil
 }
 
 func (s *SKVMGuestInstance) initMachineDesc() {

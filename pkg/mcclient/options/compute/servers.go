@@ -1009,6 +1009,10 @@ type ServerLiveMigrateOptions struct {
 	SkipCpuCheck    *bool  `help:"Skip check CPU mode of the target host" json:"skip_cpu_check"`
 	SkipKernelCheck *bool  `help:"Skip target kernel version check" json:"skip_kernel_check"`
 	EnableTLS       *bool  `help:"Enable tls migration" json:"enable_tls"`
+	QuicklyFinish   *bool  `help:"quickly finish, fix downtime after a few rounds of memory synchronization"`
+	MaxBandwidthMb  *int64 `help:"live migrate downtime, unit MB"`
+
+	KeepDestGuestOnFailed *bool `help:"do not delete dest guest on migrate failed, for debug"`
 }
 
 func (o *ServerLiveMigrateOptions) GetId() string {
@@ -1016,6 +1020,20 @@ func (o *ServerLiveMigrateOptions) GetId() string {
 }
 
 func (o *ServerLiveMigrateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
+type ServerSetLiveMigrateParamsOptions struct {
+	ID              string `help:"ID of server" json:"-"`
+	MaxBandwidthMB  *int64 `help:"live migrate downtime, unit MB"`
+	DowntimeLimitMS *int64 `help:"live migrate downtime limit"`
+}
+
+func (o *ServerSetLiveMigrateParamsOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerSetLiveMigrateParamsOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
 
