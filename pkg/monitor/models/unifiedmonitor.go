@@ -511,7 +511,7 @@ func fillSerieTags(series *tsdb.TimeSeriesSlice) {
 }
 
 func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, userCred mcclient.TokenCredential,
-	input *monitor.SimpleQueryInput) ([]monitor.SimpleQueryOutput, error) {
+	input *monitor.SimpleQueryInput) (jsonutils.JSONObject, error) {
 	if len(input.Database) == 0 {
 		input.Database = "telegraf"
 	}
@@ -543,7 +543,7 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 	et := input.EndTime.Format("2006-01-02T15:04:05Z")
 	conditions := []string{}
 	for k, v := range input.Tags {
-		conditions = append(conditions, fmt.Sprintf("%s = %s", k, v))
+		conditions = append(conditions, fmt.Sprintf("%s = '%s'", k, v))
 	}
 	conditions = append(conditions, fmt.Sprintf("time >= '%s'", st))
 	conditions = append(conditions, fmt.Sprintf("time <= '%s'", et))
@@ -591,5 +591,5 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 			}
 		}
 	}
-	return ret, nil
+	return jsonutils.Marshal(map[string]interface{}{"values": ret}), nil
 }
