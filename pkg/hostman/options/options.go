@@ -31,6 +31,9 @@ type SHostBaseOptions struct {
 	HostCpuPassthrough bool `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
 
 	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
+
+	CdromCount  int `help:"cdrom count" default:"1"`
+	FloppyCount int `help:"floppy count" default:"1"`
 }
 
 type SHostOptions struct {

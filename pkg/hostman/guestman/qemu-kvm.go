@@ -1691,22 +1691,22 @@ func (s *SKVMGuestInstance) compareDescIsolatedDevices(newDesc *desc.SGuestDesc,
 func (s *SKVMGuestInstance) compareDescCdroms(newDesc *desc.SGuestDesc) []*desc.SGuestCdrom {
 	var changeCdroms []*desc.SGuestCdrom
 	newCdroms := newDesc.Cdroms
-	//删除所有old的iso
-	for i := 0; i < 2; i++ {
+	for i := 0; i < options.HostOptions.CdromCount; i++ {
 		changeCdrom := new(desc.SGuestCdrom)
 		changeCdrom.Ordinal = int64(i)
 		changeCdrom.Path = ""
+		s.archMan.GenerateCdromDesc(s.getOsname(), changeCdrom)
 		changeCdroms = append(changeCdroms, changeCdrom)
 	}
 
-	//添加所有新的iso
-	for _, newCdrom := range newCdroms { //新的跟旧的的差集，需要修改，
+	for _, newCdrom := range newCdroms {
 		ordinal := newCdrom.Ordinal
 		path := newCdrom.Path
 		changeCdrom := new(desc.SGuestCdrom)
 		changeCdrom.Ordinal = ordinal
 		changeCdrom.Path = path
-		for i, tmp := range changeCdroms { //如果新增的跟changeCdrom重叠，则以新增为准
+		s.archMan.GenerateCdromDesc(s.getOsname(), changeCdrom)
+		for i, tmp := range changeCdroms {
 			if tmp.Ordinal == ordinal {
 				changeCdroms[i] = changeCdrom
 			}
@@ -1717,32 +1717,31 @@ func (s *SKVMGuestInstance) compareDescCdroms(newDesc *desc.SGuestDesc) []*desc.
 }
 
 func (s *SKVMGuestInstance) compareDescFloppys(newDesc *desc.SGuestDesc) []*desc.SGuestFloppy {
-	var changeCdroms []*desc.SGuestFloppy
+	var changeFloppys []*desc.SGuestFloppy
 	newFloppys := newDesc.Floppys
-	//删除所有old的vfd
-	for i := 0; i < 1; i++ {
-		changeCdrom := new(desc.SGuestFloppy)
-		changeCdrom.Ordinal = int64(i)
-		changeCdrom.Path = ""
-		changeCdroms = append(changeCdroms, changeCdrom)
+	for i := 0; i < options.HostOptions.FloppyCount; i++ {
+		changeFloppy := new(desc.SGuestFloppy)
+		changeFloppy.Ordinal = int64(i)
+		changeFloppy.Path = ""
+		s.archMan.GenerateFloppyDesc(s.getOsname(), changeFloppy)
+		changeFloppys = append(changeFloppys, changeFloppy)
 	}
 
-	//添加所有新的iso
-	for _, newFloppy := range newFloppys { //新的跟旧的的差集，需要修改，
+	for _, newFloppy := range newFloppys {
 		ordinal := newFloppy.Ordinal
 		path := newFloppy.Path
-		changeCdrom := new(desc.SGuestFloppy)
-		changeCdrom.Ordinal = ordinal
-		changeCdrom.Path = path
-		for i, tmp := range changeCdroms { //如果新增的跟changeCdrom重叠，则以新增为准
+		changeFloppy := new(desc.SGuestFloppy)
+		changeFloppy.Ordinal = ordinal
+		changeFloppy.Path = path
+		s.archMan.GenerateFloppyDesc(s.getOsname(), changeFloppy)
+		for i, tmp := range changeFloppys { //如果新增的跟changeCdrom重叠，则以新增为准
 			if tmp.Ordinal == ordinal {
-				changeCdroms[i] = changeCdrom
+				changeFloppys[i] = changeFloppy
 			}
 		}
-		changeCdroms = append(changeCdroms, changeCdrom)
 	}
 
-	return changeCdroms
+	return changeFloppys
 }
 
 func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,

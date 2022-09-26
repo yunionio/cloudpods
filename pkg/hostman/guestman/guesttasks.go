@@ -302,7 +302,7 @@ func (d *SGuestDiskSyncTask) changeCdromContent(cdName string, cdrom *desc.SGues
 func (d *SGuestDiskSyncTask) OnEjectCdromContentSucc(cdName string) {
 	for i, cdrom := range d.guest.Desc.Cdroms {
 		if cdrom.Id == cdName {
-			d.guest.Desc.Cdroms = append(d.guest.Desc.Cdroms[:i], d.guest.Desc.Cdroms[i+1:]...)
+			d.guest.Desc.Cdroms[i].Path = ""
 		}
 	}
 	d.syncDisksConf()
@@ -310,7 +310,7 @@ func (d *SGuestDiskSyncTask) OnEjectCdromContentSucc(cdName string) {
 
 func (d *SGuestDiskSyncTask) OnChangeCdromContentSucc(cdrom *desc.SGuestCdrom) {
 	if d.guest.Desc.Cdroms == nil {
-		d.guest.Desc.Cdroms = make([]*desc.SGuestCdrom, 2)
+		d.guest.Desc.Cdroms = make([]*desc.SGuestCdrom, options.HostOptions.CdromCount)
 		for i := range d.guest.Desc.Cdroms {
 			d.guest.Desc.Cdroms[i] = new(desc.SGuestCdrom)
 			d.guest.Desc.Cdroms[i].Ordinal = int64(i)
@@ -357,7 +357,7 @@ func (d *SGuestDiskSyncTask) changeFloppyContent(flName string, floppy *desc.SGu
 func (d *SGuestDiskSyncTask) OnEjectFloppyContentSucc(flName string) {
 	for i, floppy := range d.guest.Desc.Floppys {
 		if floppy.Id == flName {
-			d.guest.Desc.Floppys = append(d.guest.Desc.Floppys[:i], d.guest.Desc.Floppys[i+1:]...)
+			d.guest.Desc.Floppys[i].Path = ""
 		}
 	}
 	d.syncDisksConf()
@@ -365,7 +365,7 @@ func (d *SGuestDiskSyncTask) OnEjectFloppyContentSucc(flName string) {
 
 func (d *SGuestDiskSyncTask) OnChangeFloppyContentSucc(floppy *desc.SGuestFloppy) {
 	if d.guest.Desc.Floppys == nil {
-		d.guest.Desc.Floppys = make([]*desc.SGuestFloppy, 2)
+		d.guest.Desc.Floppys = make([]*desc.SGuestFloppy, options.HostOptions.FloppyCount)
 		for i := range d.guest.Desc.Floppys {
 			d.guest.Desc.Floppys[i] = new(desc.SGuestFloppy)
 			d.guest.Desc.Floppys[i].Ordinal = int64(i)

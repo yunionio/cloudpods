@@ -339,7 +339,6 @@ func generateFloppyOptions(optDrv QemuOptions, floppys []*desc.SGuestFloppy) []s
 	opts := make([]string, 0)
 
 	for _, floppy := range floppys {
-		//cdromDriveId := cdrom
 		driveOpt := fmt.Sprintf("id=%s", floppy.Id)
 		driveOpt += optionsToString(floppy.DriveOptions)
 
@@ -348,10 +347,10 @@ func generateFloppyOptions(optDrv QemuOptions, floppys []*desc.SGuestFloppy) []s
 			driveOpt += fmt.Sprintf(",file=%s", floppyPath)
 		}
 
-		if floppy.Ide != nil {
+		if floppy.Floppy != nil {
 			opts = append(opts, optDrv.Drive(driveOpt))
 			devOpt := fmt.Sprintf("%s,drive=%s",
-				floppy.Ide.DevType, floppy.Id)
+				floppy.Floppy.DevType, floppy.Id)
 			// TODO: ,bus=ide.%d,unit=%d
 			//, cdrom.Ide.Bus, cdrom.Ide.Unit)
 			opts = append(opts, optDrv.Device(devOpt))

@@ -26,7 +26,7 @@ type Arch interface {
 	GenerateMemDesc() *desc.SGuestMem
 	GenerateMachineDesc(accel string) *desc.SGuestMachine
 	GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom)
-	GenerateFloppyDesc(osName string, cdrom *desc.SGuestFloppy)
+	GenerateFloppyDesc(osName string, floppy *desc.SGuestFloppy)
 	GenerateQgaDesc(qgaPath string) *desc.SGuestQga
 	GeneratePvpanicDesc() *desc.SGuestPvpanic
 	GenerateIsaSerialDesc() *desc.SGuestIsaSerial

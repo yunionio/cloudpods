@@ -329,23 +329,29 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 
 func (s *SKVMGuestInstance) initCdromDesc() {
 	if s.Desc.Cdroms == nil {
-		s.Desc.Cdroms = make([]*desc.SGuestCdrom, 2)
+		s.Desc.Cdroms = make([]*desc.SGuestCdrom, options.HostOptions.CdromCount)
+		for i := range s.Desc.Cdroms {
+			s.Desc.Cdroms[i] = new(desc.SGuestCdrom)
+			s.Desc.Cdroms[i].Ordinal = int64(i)
+		}
 	}
 	for i := range s.Desc.Cdroms {
-		s.Desc.Cdroms[i] = new(desc.SGuestCdrom)
-		s.Desc.Cdroms[i].Ordinal = int64(i)
 		s.archMan.GenerateCdromDesc(s.getOsname(), s.Desc.Cdroms[i])
 	}
 }
 
 func (s *SKVMGuestInstance) initFloppyDesc() {
-	if s.Desc.Floppys == nil {
-		s.Desc.Floppys = make([]*desc.SGuestFloppy, 1)
+	if s.getOsname() != OS_NAME_WINDOWS {
+		return
 	}
-
+	if s.Desc.Floppys == nil {
+		s.Desc.Floppys = make([]*desc.SGuestFloppy, options.HostOptions.FloppyCount)
+		for i := range s.Desc.Floppys {
+			s.Desc.Floppys[i] = new(desc.SGuestFloppy)
+			s.Desc.Floppys[i].Ordinal = int64(i)
+		}
+	}
 	for i := range s.Desc.Floppys {
-		s.Desc.Floppys[i] = new(desc.SGuestFloppy)
-		s.Desc.Floppys[i].Ordinal = int64(i)
 		s.archMan.GenerateFloppyDesc(s.getOsname(), s.Desc.Floppys[i])
 	}
 }

@@ -182,8 +182,7 @@ type SGuestFloppy struct {
 	Path    string
 	Ordinal int64
 
-	Ide          *IDEDevice        `json:",omitempty"`
-	Scsi         *SCSIDevice       `json:",omitempty"`
+	Floppy       *FloppyDevice     `json:",omitempty"`
 	DriveOptions map[string]string `json:",omitempty"`
 }
 

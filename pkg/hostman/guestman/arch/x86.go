@@ -91,13 +91,13 @@ func (*X86) GenerateFloppyDesc(osName string, floppy *desc.SGuestFloppy) {
 		driveOpts = map[string]string{
 			"if": "none",
 		}
+		floppy.Floppy = &desc.FloppyDevice{
+			DevType: devType,
+		}
+		floppy.DriveOptions = driveOpts
+		floppy.Id = id
 	}
 
-	floppy.Ide = &desc.IDEDevice{
-		DevType: devType,
-	}
-	floppy.DriveOptions = driveOpts
-	floppy.Id = id
 }
 
 func (*X86) GenerateMachineDesc(accel string) *desc.SGuestMachine {
