@@ -1569,6 +1569,14 @@ func (manager *SStorageManager) ListItemFilter(
 		q = q.In("id", sq.SubQuery())
 	}
 
+	if query.IsBaremetal != nil {
+		qf := q.NotEquals
+		if *query.IsBaremetal {
+			qf = q.Equals
+		}
+		q = qf("storage_type", api.STORAGE_BAREMETAL)
+	}
+
 	return q, err
 }
 
