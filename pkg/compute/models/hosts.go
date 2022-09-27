@@ -5630,7 +5630,7 @@ func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCreden
 	hostHealthChecker.UnwatchHost(ctx, host.GetHostnameByName())
 
 	if host.HostStatus == api.HOST_OFFLINE && !host.EnableHealthCheck &&
-		host.autoMigrateOnHostShutdown(ctx) {
+		!host.autoMigrateOnHostShutdown(ctx) {
 		// hostagent requested offline, and not enable auto migrate on host shutdown
 		log.Infof("host not need auto migrate on host shutdown")
 		return
