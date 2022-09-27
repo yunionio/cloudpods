@@ -30,8 +30,9 @@ const (
 	X86_THREADS  = 1
 
 	X86_MEM_DEFAULT_SLOTS = 4
-	X86_MAX_MEM_MB        = 524288
 )
+
+var X86_MAX_MEM_MB uint = 524288
 
 type X86 struct {
 	archBase
@@ -113,7 +114,7 @@ func (*X86) GenerateMemDesc() *desc.SGuestMem {
 	}
 }
 
-func (*X86) GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool) *desc.SGuestCpu {
+func (*X86) GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool, cpuMax uint) *desc.SGuestCpu {
 	var hostCPUPassthrough = options.HostOptions.HostCpuPassthrough
 	var isCPUIntel = sysutils.IsProcessorIntel()
 	var isCPUAMD = sysutils.IsProcessorAmd()
@@ -156,9 +157,9 @@ func (*X86) GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool) *
 	return &desc.SGuestCpu{
 		Cpus:     cpus,
 		Sockets:  X86_SOCKETS,
-		Cores:    X86_CORES,
+		Cores:    cpuMax / X86_SOCKETS / X86_THREADS,
 		Threads:  X86_THREADS,
-		MaxCpus:  X86_MAX_CPUS,
+		MaxCpus:  cpuMax,
 		Model:    cpuType,
 		Vendor:   vendor,
 		Level:    level,

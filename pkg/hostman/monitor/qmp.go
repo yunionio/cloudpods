@@ -222,7 +222,9 @@ func (m *QmpMonitor) read(r io.Reader) {
 			m.connected = true
 			m.timeout = false
 			go m.query()
-			go m.OnMonitorConnected()
+			if m.OnMonitorConnected != nil {
+				go m.OnMonitorConnected()
+			}
 		}
 	}
 
@@ -232,10 +234,14 @@ func (m *QmpMonitor) read(r io.Reader) {
 		log.Infof("QMP Disconnected %s: %s", m.server, err)
 	}
 	if m.timeout {
-		m.OnMonitorTimeout(err)
+		if m.OnMonitorTimeout != nil {
+			m.OnMonitorTimeout(err)
+		}
 	} else if m.connected {
 		m.connected = false
-		m.OnMonitorDisConnect(err)
+		if m.OnMonitorDisConnect != nil {
+			m.OnMonitorDisConnect(err)
+		}
 	}
 	m.reading = false
 }
@@ -1116,6 +1122,44 @@ func (m *QmpMonitor) QueryPci(callback QueryPciCallback) {
 		}
 		cmd = &Command{
 			Execute: "query-pci",
+		}
+	)
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) QueryMachines(callback QueryMachinesCallback) {
+	var (
+		cb = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(nil, res.ErrorVal.Error())
+			} else {
+				machineInfoList := make([]MachineInfo, 0)
+				err := json.Unmarshal(res.Return, &machineInfoList)
+				if err != nil {
+					callback(nil, err.Error())
+				} else {
+					callback(machineInfoList, "")
+				}
+			}
+		}
+		cmd = &Command{
+			Execute: "query-machines",
+		}
+	)
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) Quit(callback StringCallback) {
+	var (
+		cb = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(res.ErrorVal.Error())
+			} else {
+				callback(string(res.Return))
+			}
+		}
+		cmd = &Command{
+			Execute: "quit",
 		}
 	)
 	m.Query(cmd, cb)

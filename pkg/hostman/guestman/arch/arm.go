@@ -66,7 +66,7 @@ func (*ARM) GenerateMemDesc() *desc.SGuestMem {
 	}
 }
 
-func (*ARM) GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool) *desc.SGuestCpu {
+func (*ARM) GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool, cpuMax uint) *desc.SGuestCpu {
 	var hostCPUPassthrough = options.HostOptions.HostCpuPassthrough
 	var accel, cpuType string
 	if enableKVM {
@@ -85,9 +85,9 @@ func (*ARM) GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool) *
 	return &desc.SGuestCpu{
 		Cpus:    cpus,
 		Sockets: ARM_SOCKETS,
-		Cores:   ARM_CORES,
+		Cores:   cpuMax / ARM_SOCKETS / ARM_THREADS,
 		Threads: ARM_THREADS,
-		MaxCpus: ARM_MAX_CPUS,
+		MaxCpus: cpuMax,
 		Model:   cpuType,
 		Accel:   accel,
 	}

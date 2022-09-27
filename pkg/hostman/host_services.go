@@ -113,6 +113,10 @@ func (host *SHostService) RunService() {
 
 	var guestChan chan struct{}
 	guestman.Init(hostInstance, options.HostOptions.ServersPath)
+	guestman.GetGuestManager().InitQemuMaxCpus(
+		hostInstance.GetQemuMachineInfoList(), hostInstance.GetKVMMaxCpus(),
+	)
+	guestman.GetGuestManager().InitQemuMaxMems(uint(hostInstance.GetMemoryTotal()))
 
 	hostInstance.StartRegister(2, func() {
 		guestChan = guestman.GetGuestManager().Bootstrap()

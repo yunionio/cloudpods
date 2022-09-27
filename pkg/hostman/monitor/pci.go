@@ -112,3 +112,14 @@ type PcdimmDeviceInfo struct {
 }
 
 type QueryMemoryDevicesCallback func(memoryDevicesInfoList []MemoryDeviceInfo, err string)
+
+// MachineInfo implements the "MachineInfo" QMP API type.
+type MachineInfo struct {
+	Name             string  `json:"name"`
+	Alias            *string `json:"alias,omitempty"`
+	IsDefault        *bool   `json:"is-default,omitempty"`
+	CPUMax           int64   `json:"cpu-max"`
+	HotpluggableCpus bool    `json:"hotpluggable-cpus"`
+}
+
+type QueryMachinesCallback func(machineInfoList []MachineInfo, err string)

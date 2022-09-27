@@ -36,12 +36,14 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/arch"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	fwd "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder"
 	fwdpb "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder/api"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -88,6 +90,9 @@ type SGuestManager struct {
 	// dirty servers chan
 	dirtyServers     []*SKVMGuestInstance
 	dirtyServersChan chan struct{}
+
+	qemuMachineCpuMax map[string]uint
+	qemuMaxMem        int
 }
 
 func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
@@ -105,8 +110,41 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.host.StartDHCPServer()
 	manager.dirtyServersChan = make(chan struct{})
 	manager.dirtyServers = make([]*SKVMGuestInstance, 0)
+	manager.qemuMachineCpuMax = make(map[string]uint, 0)
 	procutils.NewCommand("mkdir", "-p", manager.QemuLogDir()).Run()
 	return manager
+}
+
+func (m *SGuestManager) InitQemuMaxCpus(machineCaps []monitor.MachineInfo, kvmMaxCpus uint) {
+	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_PC] = arch.X86_MAX_CPUS
+	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_Q35] = arch.X86_MAX_CPUS
+	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_ARM_VIRT] = arch.ARM_MAX_CPUS
+	if len(machineCaps) == 0 {
+		return
+	}
+	minFunc := func(a, b uint) uint {
+		if a < b {
+			return a
+		}
+		return b
+	}
+	log.Infof("KVM max cpus count: %d", kvmMaxCpus)
+	supportedMachineType := []string{"pc", "q35", "virt"}
+	for _, machine := range supportedMachineType {
+		for i := 0; i < len(machineCaps); i++ {
+			if (machineCaps[i].Alias != nil && *machineCaps[i].Alias == machine) ||
+				machineCaps[i].Name == machine {
+				m.qemuMachineCpuMax[machine] = minFunc(uint(machineCaps[i].CPUMax), kvmMaxCpus)
+				log.Infof("Machine type %s max cpus: %d", machine, m.qemuMachineCpuMax[machine])
+			}
+		}
+	}
+}
+
+func (m *SGuestManager) InitQemuMaxMems(maxMems uint) {
+	if maxMems > arch.X86_MAX_MEM_MB {
+		arch.X86_MAX_MEM_MB = maxMems
+	}
 }
 
 func (m *SGuestManager) QemuLogDir() string {

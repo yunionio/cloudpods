@@ -727,14 +727,20 @@ func (s *SKVMGuestInstance) gpusHasVga() bool {
 	return false
 }
 
-func (s *SKVMGuestInstance) initCpuDesc() {
+func (s *SKVMGuestInstance) initCpuDesc() error {
 	var osName = s.getOsname()
 	var enableKVM = s.IsKvmSupport() && !options.HostOptions.DisableKVM
 	var enableNested = s.manager.GetHost().IsNestedVirtualization()
 	var hasGpu = s.hasGpu()
 	var hideKVM = !enableNested || hasGpu
 
-	s.Desc.CpuDesc = s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), osName, enableKVM, hideKVM)
+	cpuMax, ok := s.manager.qemuMachineCpuMax[s.Desc.Machine]
+	if !ok {
+		return errors.Errorf("unsupported cpu max for qemu machine: %s", s.Desc.Machine)
+	}
+
+	s.Desc.CpuDesc = s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), osName, enableKVM, hideKVM, cpuMax)
+	return nil
 }
 
 func (s *SKVMGuestInstance) initMemDesc(memSizeMB int64) {
