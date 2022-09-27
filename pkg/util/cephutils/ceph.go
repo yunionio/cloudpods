@@ -397,6 +397,7 @@ func (self *SSnapshot) Unprotect() error {
 		}
 		return errors.Wrapf(err, "Unprotect")
 	}
+	self.Protected = false
 	return nil
 }
 
@@ -406,7 +407,11 @@ func (self *SSnapshot) Protect() error {
 	}
 	opts := self.options()
 	opts = append(opts, []string{"snap", "protect", self.GetName()}...)
-	return self.image.client.run("rbd", opts)
+	err := self.image.client.run("rbd", opts)
+	if err == nil {
+		self.Protected = true
+	}
+	return err
 }
 
 func (self *SSnapshot) Remove() error {
@@ -419,16 +424,16 @@ func (self *SSnapshot) Delete() error {
 	pool := self.image.client.pool
 	defer self.image.client.SetPool(pool)
 
-	chidren, err := self.ListChildren()
+	children, err := self.ListChildren()
 	if err != nil {
 		return errors.Wrapf(err, "ListChildren")
 	}
 
-	for i := range chidren {
-		self.image.client.SetPool(chidren[i].Pool)
-		image, err := self.image.client.GetImage(chidren[i].Image)
+	for i := range children {
+		self.image.client.SetPool(children[i].Pool)
+		image, err := self.image.client.GetImage(children[i].Image)
 		if err != nil {
-			return errors.Wrapf(err, "GetImage(%s/%s)", chidren[i].Pool, chidren[i].Image)
+			return errors.Wrapf(err, "GetImage(%s/%s)", children[i].Pool, children[i].Image)
 		}
 		err = image.Flatten()
 		if err != nil {
@@ -438,7 +443,7 @@ func (self *SSnapshot) Delete() error {
 
 	err = self.Unprotect()
 	if err != nil {
-		return errors.Wrapf(err, "Unprotect %s", self.GetName())
+		log.Errorf("Unprotect %s failed: %s", self.GetName(), err)
 	}
 
 	return self.Remove()
@@ -503,7 +508,13 @@ func (self *SImage) CreateSnapshot(name string) (*SSnapshot, error) {
 	snap := &SSnapshot{Name: name, image: self}
 	opts := self.options()
 	opts = append(opts, []string{"snap", "create", snap.GetName()}...)
-	return snap, self.client.run("rbd", opts)
+	if err := self.client.run("rbd", opts); err != nil {
+		return nil, errors.Wrap(err, "snap create")
+	}
+	if err := snap.Protect(); err != nil {
+		log.Errorf("failed protect snap %s: %s", snap.GetName(), err)
+	}
+	return snap, nil
 }
 
 func (self *SImage) Clone(ctx context.Context, pool, name string) error {
