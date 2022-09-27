@@ -849,7 +849,7 @@ func (self *SSecurityGroupCache) SyncRules(ctx context.Context, skipSyncRule boo
 	}
 	iSecgroup, isNew, err := self.GetOrCreateISecurityGroup(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "GetOrCreateISecurityGroup")
+		return errors.Wrapf(err, "GetISecurityGroup")
 	}
 	if !isNew && skipSyncRule {
 		return nil
