@@ -34,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/i18n"
@@ -1061,14 +1060,30 @@ func (alert *SCommonAlert) RealDelete(ctx context.Context, userCred mcclient.Tok
 	return alert.SStandaloneResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SCommonAlert) StartDeleteTask(
-	ctx context.Context, userCred mcclient.TokenCredential) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "DeleteAlertRecordTask", self, userCred, jsonutils.NewDict(), "", "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
+func (self *SCommonAlert) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential) {
+	RunModelTask("DeleteAlertRecordTask", self, func() error {
+		onErr := func(err error) {
+			msg := jsonutils.NewString(err.Error())
+			// db.OpsLog.LogEvent(self, db.ACT_DELETE_FAIL, msg, userCred)
+			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_DELETE, msg, userCred, false)
+		}
+
+		errs := self.DeleteAttachAlertRecords(ctx, userCred)
+		if len(errs) != 0 {
+			err := errors.Wrapf(errors.NewAggregate(errs), "DeleteAttachAlertRecords of %s", self.GetName())
+			onErr(err)
+			return err
+		}
+		if err := self.RealDelete(ctx, userCred); err != nil {
+			err = errors.Wrapf(err, "RealDelete CommonAlert %s", self.GetName())
+			onErr(err)
+			return err
+		}
+
+		// db.OpsLog.LogEvent(self, db.ACT_DELETE, nil, userCred)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_DELETE, nil, userCred, true)
+		return nil
+	})
 }
 
 func (self *SCommonAlert) DeleteAttachAlertRecords(ctx context.Context, userCred mcclient.TokenCredential) (errs []error) {
@@ -1228,7 +1243,7 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 }
 
 func PerformConfigLog(model db.IModel, userCred mcclient.TokenCredential) {
-	db.OpsLog.LogEvent(model, db.ACT_UPDATE_RULE, "", userCred)
+	// db.OpsLog.LogEvent(model, db.ACT_UPDATE_RULE, "", userCred)
 	logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_RULE, nil, userCred, true)
 }
 
@@ -1262,11 +1277,25 @@ func (alert *SCommonAlert) PerformDisable(ctx context.Context, userCred mcclient
 }
 
 func (alert *SCommonAlert) StartDetachTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "DetachAlertResourceTask", alert, userCred, jsonutils.NewDict(), "", "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
+	RunModelTask("DetachAlertResourceTask", alert, func() error {
+		onErr := func(err error) {
+			msg := jsonutils.NewString(err.Error())
+			// db.OpsLog.LogEvent(alert, db.ACT_DETACH, msg, userCred)
+			logclient.AddActionLogWithContext(ctx, alert, logclient.ACT_DETACH_ALERTRESOURCE, msg, userCred, false)
+		}
+		errs := alert.DetachAlertResourceOnDisable(ctx, userCred)
+		if len(errs) != 0 {
+			err := errors.Wrapf(errors.NewAggregate(errs), "DetachAlertResourceOnDisable of alert %s", alert.GetName())
+			onErr(err)
+			return err
+		}
+		if err := MonitorResourceAlertManager.DetachJoint(ctx, userCred,
+			monitor.MonitorResourceJointListInput{AlertId: alert.GetId()}); err != nil {
+			log.Errorf("DetachJoint when alert(%s) disable: %v", alert.GetName(), err)
+		}
+		logclient.AddActionLogWithContext(ctx, alert, logclient.ACT_DETACH_ALERTRESOURCE, nil, userCred, true)
+		return nil
+	})
 	return nil
 }
 
@@ -1291,13 +1320,13 @@ func (manager *SCommonAlertManager) DetachAlertResourceByAlertId(ctx context.Con
 	return
 }
 
-func (alert *SCommonAlert) StartUpdateMonitorAlertJointTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "UpdateMonitorResourceJointTask", alert, userCred, jsonutils.NewDict(), "", "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
+func (alert *SCommonAlert) StartUpdateMonitorAlertJointTask(ctx context.Context, userCred mcclient.TokenCredential) {
+	RunModelTask("UpdateMonitorResourceJointTask", alert, func() error {
+		if err := alert.UpdateMonitorResourceJoint(ctx, userCred); err != nil {
+			return errors.Wrapf(err, "UpdateMonitorResourceJoint of alert %s", alert.GetName())
+		}
+		return nil
+	})
 }
 
 func (alert *SCommonAlert) UpdateMonitorResourceJoint(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -1373,14 +1402,18 @@ jointLoop:
 	return nil
 }
 
-func (alert *SCommonAlert) StartDetachMonitorAlertJointTask(ctx context.Context,
-	userCred mcclient.TokenCredential) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "DetachMonitorResourceJointTask", alert, userCred, jsonutils.NewDict(), "", "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
+func (alert *SCommonAlert) StartDetachMonitorAlertJointTask(ctx context.Context, userCred mcclient.TokenCredential) {
+	RunModelTask("DetachMonitorResourceJointTask", alert, func() error {
+		if err := alert.DetachMonitorResourceJoint(ctx, userCred); err != nil {
+			err = errors.Wrapf(err, "DetachMonitorResourceJoint of alert %s", alert.GetName())
+			msg := jsonutils.NewString(err.Error())
+			// db.OpsLog.LogEvent(alert, db.ACT_DETACH_MONITOR_RESOURCE_JOINT, msg, userCred)
+			logclient.AddActionLogWithContext(ctx, alert, logclient.ACT_DETACH_MONITOR_RESOURCE_JOINT, msg, userCred, false)
+			return err
+		}
+		logclient.AddActionLogWithContext(ctx, alert, logclient.ACT_DETACH_MONITOR_RESOURCE_JOINT, nil, userCred, true)
+		return nil
+	})
 }
 
 func (alert *SCommonAlert) DetachMonitorResourceJoint(ctx context.Context, userCred mcclient.TokenCredential) error {
