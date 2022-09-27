@@ -518,3 +518,18 @@ function mtw_main() {
 mtw_main();
 
 `
+
+const winTelegrafSetupPowerShellScript = `
+$telegraf = $args[0]
+$telegraf_conf = $args[1]
+$logpath = $args[2]
+
+if ($logpath) {
+    & $telegraf --service install --config $telegraf_conf 2>&1 | Out-File $logpath -Append -Encoding Default
+    net start telegraf | Out-File $logpath -Append -Encoding Default
+} else {
+    & $telegraf --service install --config $telegraf_conf 2>&1
+    net start telegraf
+}
+
+`
