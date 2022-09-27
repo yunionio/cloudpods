@@ -1688,26 +1688,60 @@ func (s *SKVMGuestInstance) compareDescIsolatedDevices(newDesc *desc.SGuestDesc,
 	return delDevs, addDevs
 }
 
-func (s *SKVMGuestInstance) compareDescCdrom(newDesc *desc.SGuestDesc) *string {
-	newCdromIsNil := newDesc.Cdrom == nil || newDesc.Cdrom.Path == ""
-	oldCdromIsNil := s.Desc.Cdrom == nil || s.Desc.Cdrom.Path == ""
+func (s *SKVMGuestInstance) compareDescCdroms(newDesc *desc.SGuestDesc) []*desc.SGuestCdrom {
+	var changeCdroms []*desc.SGuestCdrom
+	newCdroms := newDesc.Cdroms
+	for i := 0; i < options.HostOptions.CdromCount; i++ {
+		changeCdrom := new(desc.SGuestCdrom)
+		changeCdrom.Ordinal = int64(i)
+		changeCdrom.Path = ""
+		s.archMan.GenerateCdromDesc(s.getOsname(), changeCdrom)
+		changeCdroms = append(changeCdroms, changeCdrom)
+	}
 
-	if oldCdromIsNil && newCdromIsNil {
-		return nil
-	} else if oldCdromIsNil && !newCdromIsNil {
-		cdromPath := newDesc.Cdrom.Path
-		return &cdromPath
-	} else if !oldCdromIsNil && newCdromIsNil {
-		var res = ""
-		return &res
-	} else {
-		if s.Desc.Cdrom.Path == newDesc.Cdrom.Path {
-			return nil
-		} else {
-			cdromPath := newDesc.Cdrom.Path
-			return &cdromPath
+	for _, newCdrom := range newCdroms {
+		ordinal := newCdrom.Ordinal
+		path := newCdrom.Path
+		changeCdrom := new(desc.SGuestCdrom)
+		changeCdrom.Ordinal = ordinal
+		changeCdrom.Path = path
+		s.archMan.GenerateCdromDesc(s.getOsname(), changeCdrom)
+		for i, tmp := range changeCdroms {
+			if tmp.Ordinal == ordinal {
+				changeCdroms[i] = changeCdrom
+			}
 		}
 	}
+
+	return changeCdroms
+}
+
+func (s *SKVMGuestInstance) compareDescFloppys(newDesc *desc.SGuestDesc) []*desc.SGuestFloppy {
+	var changeFloppys []*desc.SGuestFloppy
+	newFloppys := newDesc.Floppys
+	for i := 0; i < options.HostOptions.FloppyCount; i++ {
+		changeFloppy := new(desc.SGuestFloppy)
+		changeFloppy.Ordinal = int64(i)
+		changeFloppy.Path = ""
+		s.archMan.GenerateFloppyDesc(s.getOsname(), changeFloppy)
+		changeFloppys = append(changeFloppys, changeFloppy)
+	}
+
+	for _, newFloppy := range newFloppys {
+		ordinal := newFloppy.Ordinal
+		path := newFloppy.Path
+		changeFloppy := new(desc.SGuestFloppy)
+		changeFloppy.Ordinal = ordinal
+		changeFloppy.Path = path
+		s.archMan.GenerateFloppyDesc(s.getOsname(), changeFloppy)
+		for i, tmp := range changeFloppys { //如果新增的跟changeCdrom重叠，则以新增为准
+			if tmp.Ordinal == ordinal {
+				changeFloppys[i] = changeFloppy
+			}
+		}
+	}
+
+	return changeFloppys
 }
 
 func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
@@ -1824,7 +1858,8 @@ func (s *SKVMGuestInstance) SyncConfig(
 	var delNetworks, addNetworks []*desc.SGuestNetwork
 	var changedNetworks [][2]*desc.SGuestNetwork
 	var delDevs, addDevs []*desc.SGuestIsolatedDevice
-	var cdrom *string
+	var cdroms []*desc.SGuestCdrom
+	var floppys []*desc.SGuestFloppy
 
 	if err := s.SaveSourceDesc(guestDesc); err != nil {
 		return nil, err
@@ -1832,7 +1867,8 @@ func (s *SKVMGuestInstance) SyncConfig(
 
 	if !fwOnly && !s.isImportFromLibvirt() {
 		delDisks, addDisks = s.compareDescDisks(guestDesc)
-		cdrom = s.compareDescCdrom(guestDesc)
+		cdroms = s.compareDescCdroms(guestDesc)
+		floppys = s.compareDescFloppys(guestDesc)
 		delNetworks, addNetworks, changedNetworks = s.compareDescNetworks(guestDesc)
 		delDevs, addDevs = s.compareDescIsolatedDevices(guestDesc)
 	}
@@ -1868,8 +1904,8 @@ func (s *SKVMGuestInstance) SyncConfig(
 	var runTaskNames = []jsonutils.JSONObject{}
 	var tasks = []IGuestTasks{}
 
-	if len(delDisks)+len(addDisks) > 0 || cdrom != nil {
-		task := NewGuestDiskSyncTask(s, delDisks, addDisks, cdrom)
+	if len(delDisks)+len(addDisks) > 0 || cdroms != nil || floppys != nil {
+		task := NewGuestDiskSyncTask(s, delDisks, addDisks, cdroms, floppys)
 		runTaskNames = append(runTaskNames, jsonutils.NewString("disksync"))
 		tasks = append(tasks, task)
 	}

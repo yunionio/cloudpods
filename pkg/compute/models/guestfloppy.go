@@ -25,31 +25,31 @@ import (
 )
 
 // +onecloud:swagger-gen-ignore
-type SGuestcdromManager struct {
+type SGuestFloppyManager struct {
 	db.SModelBaseManager
 }
 
-var GuestcdromManager *SGuestcdromManager
+var GuestFloppyManager *SGuestFloppyManager
 
 func init() {
-	GuestcdromManager = &SGuestcdromManager{
+	GuestFloppyManager = &SGuestFloppyManager{
 		SModelBaseManager: db.NewModelBaseManager(
-			SGuestcdrom{},
-			"guestcdrom_tbl",
-			"guestcdrom",
-			"guestcdroms",
+			SGuestfloppy{},
+			"guestfloppy_tbl",
+			"guestfloppy",
+			"guestfloppys",
 		),
 	}
-	GuestcdromManager.SetVirtualObject(GuestcdromManager)
+	GuestFloppyManager.SetVirtualObject(GuestFloppyManager)
 }
 
 // +onecloud:swagger-gen-ignore
-type SGuestcdrom struct {
+type SGuestfloppy struct {
 	db.SModelBase
 
 	RowId         int64     `primary:"true" auto_increment:"true" list:"user"`
+	Id            string    `width:"36" charset:"ascii" `                 // = Column(VARCHAR(36, charset='ascii'), primary_key=True)
 	Ordinal       int       `nullable:"false" default:"0"`                // = Column(Integer, nullable=False, default=0)
-	Id            string    `width:"36" charset:"ascii"`                  // = Column(VARCHAR(36, charset='ascii'), primary_key=True)
 	ImageId       string    `width:"36" charset:"ascii" nullable:"true"`  // Column(VARCHAR(36, charset='ascii'), nullable=True)
 	Name          string    `width:"64" charset:"ascii" nullable:"true"`  // Column(VARCHAR(64, charset='ascii'), nullable=True)
 	Path          string    `width:"256" charset:"ascii" nullable:"true"` // Column(VARCHAR(256, charset='ascii'), nullable=True)
@@ -58,7 +58,7 @@ type SGuestcdrom struct {
 	UpdateVersion int       `default:"0" nullable:"false" auto_version:"true"`
 }
 
-func (self *SGuestcdrom) insertIso(imageId string) bool {
+func (self *SGuestfloppy) insertVfd(imageId string) bool {
 	if len(self.ImageId) == 0 {
 		_, err := db.Update(self, func() error {
 			self.ImageId = imageId
@@ -68,7 +68,7 @@ func (self *SGuestcdrom) insertIso(imageId string) bool {
 			return nil
 		})
 		if err != nil {
-			log.Errorf("insertISO saveupdate fail: %s", err)
+			log.Errorf("insertVfd saveupdate fail: %s", err)
 			return false
 		}
 		return true
@@ -77,7 +77,7 @@ func (self *SGuestcdrom) insertIso(imageId string) bool {
 	}
 }
 
-func (self *SGuestcdrom) insertIsoSucc(imageId string, path string, size int64, name string) bool {
+func (self *SGuestfloppy) insertVfdSucc(imageId string, path string, size int64, name string) bool {
 	if self.ImageId == imageId {
 		_, err := db.Update(self, func() error {
 			self.Name = name
@@ -95,7 +95,7 @@ func (self *SGuestcdrom) insertIsoSucc(imageId string, path string, size int64, 
 	}
 }
 
-func (self *SGuestcdrom) ejectIso() bool {
+func (self *SGuestfloppy) ejectVfd() bool {
 	if len(self.ImageId) > 0 {
 		_, err := db.Update(self, func() error {
 			self.ImageId = ""
@@ -105,7 +105,7 @@ func (self *SGuestcdrom) ejectIso() bool {
 			return nil
 		})
 		if err != nil {
-			log.Errorf("ejectIso saveUpdate fail %s", err)
+			log.Errorf("ejectVfd saveUpdate fail %s", err)
 			return false
 		}
 		return true
@@ -114,7 +114,7 @@ func (self *SGuestcdrom) ejectIso() bool {
 	}
 }
 
-func (self *SGuestcdrom) GetDetails() string {
+func (self *SGuestfloppy) GetDetails() string {
 	if len(self.ImageId) > 0 {
 		if self.Size > 0 {
 			return fmt.Sprintf("%s(%s/%dMB)", self.Name, self.ImageId, self.Size)
@@ -126,9 +126,9 @@ func (self *SGuestcdrom) GetDetails() string {
 	}
 }
 
-func (self *SGuestcdrom) getJsonDesc() *api.GuestcdromJsonDesc {
+func (self *SGuestfloppy) getJsonDesc() *api.GuestfloppyJsonDesc {
 	if len(self.ImageId) > 0 && len(self.Path) > 0 {
-		return &api.GuestcdromJsonDesc{
+		return &api.GuestfloppyJsonDesc{
 			Ordinal: self.Ordinal,
 			ImageId: self.ImageId,
 			Path:    self.Path,

@@ -332,7 +332,8 @@ func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, ob
 func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	guest.DetachAllNetworks(ctx, self.UserCred)
-	guest.EjectIso(self.UserCred)
+	guest.EjectAllIso(self.UserCred)
+	guest.EjectAllVfd(self.UserCred)
 	guest.DeleteEip(ctx, self.UserCred)
 	guest.GetDriver().OnDeleteGuestFinalCleanup(ctx, guest, self.UserCred)
 	// sync capacity used for storage

@@ -220,3 +220,7 @@ func (self *SContainerDriver) IsSupportGuestClone() bool {
 func (self *SContainerDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 	return false, nil
 }
+
+func (self *SContainerDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
+	return false, nil
+}

@@ -195,6 +195,8 @@ type ServerDetails struct {
 	DiskCount int `json:"disk_count"`
 	// 是否支持ISO启动
 	CdromSupport bool `json:"cdrom_support"`
+	//是否支持Floppy启动
+	FloppySupport bool `json:"floppy_support"`
 
 	// 磁盘大小
 	// example:30720
@@ -237,13 +239,26 @@ type ServerDetails struct {
 	IsGpu bool `json:"is_gpu"`
 
 	// Cdrom信息
-	Cdrom string `json:"cdrom,allowempty"`
+	Cdrom []Cdrom `json:"cdrom"`
+
+	//Floppy信息
+	Floppy []Floppy `json:"floppy"`
 
 	// 主机在伸缩组中的状态
 	ScalingStatus string `json:"scaling_status"`
 
 	// 伸缩组id
 	ScalingGroupId string `json:"scaling_group_id"`
+}
+
+type Floppy struct {
+	Ordinal int    `json:"ordinal"`
+	Detail  string `json:"detail"`
+}
+
+type Cdrom struct {
+	Ordinal int    `json:"ordinal"`
+	Detail  string `json:"detail"`
 }
 
 func (self ServerDetails) GetMetricTags() map[string]string {
@@ -758,7 +773,10 @@ type GuestJsonDesc struct {
 	Nics  []*GuestnetworkJsonDesc `json:"nics"`
 	Disks []*GuestdiskJsonDesc    `json:"disks"`
 
-	Cdrom *GuestcdromJsonDesc `json:"cdrom"`
+	Cdrom  *GuestcdromJsonDesc   `json:"cdrom"`
+	Cdroms []*GuestcdromJsonDesc `json:"cdroms"`
+
+	Floppys []*GuestfloppyJsonDesc `json:"floppys"`
 
 	Tenant        string `json:"tenant"`
 	TenantId      string `json:"tenant_id"`
@@ -922,6 +940,16 @@ type ServerSetPasswordInput struct {
 	// deploy params
 	ResetPassword bool
 	AutoStart     bool
+}
+
+type ServerInsertVfdInput struct {
+	FloppyOrdinal int64  `json:"floppy_ordinal"`
+	ImageId       string `json:"image_id"`
+}
+
+type ServerEjectVfdInput struct {
+	FloppyOrdinal int64  `json:"floppy_ordinal"`
+	ImageId       string `json:"image_id"`
 }
 
 type ServerSetLiveMigrateParamsInput struct {

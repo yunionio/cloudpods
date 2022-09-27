@@ -221,15 +221,16 @@ type SGuestDiskSyncTask struct {
 	guest    *SKVMGuestInstance
 	delDisks []*desc.SGuestDisk
 	addDisks []*desc.SGuestDisk
-	cdrom    *string
+	cdroms   []*desc.SGuestCdrom
+	floppys  []*desc.SGuestFloppy
 	errors   []error
 
 	callback     func(...error)
 	checkDrivers []string
 }
 
-func NewGuestDiskSyncTask(guest *SKVMGuestInstance, delDisks, addDisks []*desc.SGuestDisk, cdrom *string) *SGuestDiskSyncTask {
-	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdrom, make([]error, 0), nil, nil}
+func NewGuestDiskSyncTask(guest *SKVMGuestInstance, delDisks, addDisks []*desc.SGuestDisk, cdroms []*desc.SGuestCdrom, floppys []*desc.SGuestFloppy) *SGuestDiskSyncTask {
+	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdroms, floppys, make([]error, 0), nil, nil}
 }
 
 func (d *SGuestDiskSyncTask) Start(callback func(...error)) {
@@ -250,9 +251,15 @@ func (d *SGuestDiskSyncTask) syncDisksConf() {
 		d.addDisk(disk)
 		return
 	}
-	if d.cdrom != nil {
-		d.changeCdrom()
-		return
+	if len(d.cdroms) > 0 {
+		cdrom := d.cdroms[len(d.cdroms)-1]
+		d.cdroms = d.cdroms[:len(d.cdroms)-1]
+		d.changeCdrom(cdrom)
+	}
+	if len(d.floppys) > 0 {
+		floppy := d.floppys[len(d.floppys)-1]
+		d.floppys = d.floppys[:len(d.floppys)-1]
+		d.changeFloppy(floppy)
 	}
 	if idxs := d.guest.GetNeedMergeBackingFileDiskIndexs(); len(idxs) > 0 {
 		d.guest.StreamDisks(context.Background(),
@@ -262,40 +269,113 @@ func (d *SGuestDiskSyncTask) syncDisksConf() {
 	d.callback(d.errors...)
 }
 
-func (d *SGuestDiskSyncTask) changeCdrom() {
-	d.guest.Monitor.GetBlocks(d.onGetBlockInfo)
+func (d *SGuestDiskSyncTask) changeCdrom(cdrom *desc.SGuestCdrom) {
+	d.guest.Monitor.GetBlocks(func(blocks []monitor.QemuBlock) {
+		var cdName string
+		for _, r := range blocks {
+			if regexp.MustCompile(fmt.Sprintf(`^ide%d-cd\d+$`, cdrom.Ordinal)).MatchString(r.Device) {
+				cdName = r.Device
+				break
+			}
+		}
+		if len(cdName) > 0 {
+			d.changeCdromContent(cdName, cdrom)
+		} else {
+			cdrom.Path = ""
+			d.syncDisksConf()
+		}
+	})
 }
 
-func (d *SGuestDiskSyncTask) onGetBlockInfo(blocks []monitor.QemuBlock) {
-	var cdName string
-	for _, r := range blocks {
-		if regexp.MustCompile(`^ide\d+-cd\d+$`).MatchString(r.Device) {
-			cdName = r.Device
-			break
+func (d *SGuestDiskSyncTask) changeCdromContent(cdName string, cdrom *desc.SGuestCdrom) {
+	if cdrom.Path == "" {
+		d.guest.Monitor.EjectCdrom(cdName, func(s string) {
+			d.OnEjectCdromContentSucc(cdName)
+		})
+	} else {
+		d.guest.Monitor.ChangeCdrom(cdName, cdrom.Path, func(s string) {
+			d.OnChangeCdromContentSucc(cdrom)
+		})
+	}
+}
+
+func (d *SGuestDiskSyncTask) OnEjectCdromContentSucc(cdName string) {
+	for i, cdrom := range d.guest.Desc.Cdroms {
+		if cdrom.Id == cdName {
+			d.guest.Desc.Cdroms[i].Path = ""
 		}
 	}
-	if len(cdName) > 0 {
-		d.changeCdromContent(cdName)
+	d.syncDisksConf()
+}
+
+func (d *SGuestDiskSyncTask) OnChangeCdromContentSucc(cdrom *desc.SGuestCdrom) {
+	if d.guest.Desc.Cdroms == nil {
+		d.guest.Desc.Cdroms = make([]*desc.SGuestCdrom, options.HostOptions.CdromCount)
+		for i := range d.guest.Desc.Cdroms {
+			d.guest.Desc.Cdroms[i] = new(desc.SGuestCdrom)
+			d.guest.Desc.Cdroms[i].Ordinal = int64(i)
+		}
+	}
+	for i := range d.guest.Desc.Cdroms {
+		if cdrom.Ordinal == d.guest.Desc.Cdroms[i].Ordinal {
+			d.guest.Desc.Cdroms[i] = cdrom
+		}
+	}
+	d.syncDisksConf()
+}
+
+func (d *SGuestDiskSyncTask) changeFloppy(floppy *desc.SGuestFloppy) {
+	d.guest.Monitor.GetBlocks(func(blocks []monitor.QemuBlock) {
+		var flName string
+		for _, r := range blocks {
+			if regexp.MustCompile(fmt.Sprintf(`^floppy%d$`, floppy.Ordinal)).MatchString(r.Device) {
+				flName = r.Device
+				break
+			}
+		}
+		if len(flName) > 0 {
+			d.changeFloppyContent(flName, floppy)
+		} else {
+			floppy.Path = ""
+			d.syncDisksConf()
+		}
+	})
+}
+
+func (d *SGuestDiskSyncTask) changeFloppyContent(flName string, floppy *desc.SGuestFloppy) {
+	if floppy.Path == "" {
+		d.guest.Monitor.EjectCdrom(flName, func(s string) {
+			d.OnEjectFloppyContentSucc(flName)
+		})
 	} else {
-		d.cdrom = nil
-		d.syncDisksConf()
+		d.guest.Monitor.ChangeCdrom(flName, floppy.Path, func(s string) {
+			d.OnChangeFloppyContentSucc(floppy)
+		})
 	}
 }
 
-func (d *SGuestDiskSyncTask) changeCdromContent(cdName string) {
-	if *d.cdrom == "" {
-		d.guest.Monitor.EjectCdrom(cdName, d.OnChangeCdromContentSucc)
-	} else {
-		d.guest.Monitor.ChangeCdrom(cdName, *d.cdrom, d.OnChangeCdromContentSucc)
+func (d *SGuestDiskSyncTask) OnEjectFloppyContentSucc(flName string) {
+	for i, floppy := range d.guest.Desc.Floppys {
+		if floppy.Id == flName {
+			d.guest.Desc.Floppys[i].Path = ""
+		}
 	}
+	d.syncDisksConf()
 }
 
-func (d *SGuestDiskSyncTask) OnChangeCdromContentSucc(results string) {
-	if d.guest.Desc.Cdrom == nil {
-		d.guest.Desc.Cdrom = new(desc.SGuestCdrom)
+func (d *SGuestDiskSyncTask) OnChangeFloppyContentSucc(floppy *desc.SGuestFloppy) {
+	if d.guest.Desc.Floppys == nil {
+		d.guest.Desc.Floppys = make([]*desc.SGuestFloppy, options.HostOptions.FloppyCount)
+		for i := range d.guest.Desc.Floppys {
+			d.guest.Desc.Floppys[i] = new(desc.SGuestFloppy)
+			d.guest.Desc.Floppys[i].Ordinal = int64(i)
+		}
 	}
-	d.guest.Desc.Cdrom.Path = *d.cdrom
-	d.cdrom = nil
+	for i := range d.guest.Desc.Floppys {
+		if floppy.Ordinal == d.guest.Desc.Floppys[i].Ordinal {
+			d.guest.Desc.Floppys[i] = floppy
+		}
+	}
 	d.syncDisksConf()
 }
 

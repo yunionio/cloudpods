@@ -220,7 +220,7 @@ func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, guest
 }
 
 func (self *SVirtualizedGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
-	return guest.StartInsertIsoTask(ctx, imageId, true, guest.HostId, task.GetUserCred(), task.GetTaskId())
+	return guest.StartInsertIsoTask(ctx, 0, imageId, true, guest.HostId, task.GetUserCred(), task.GetTaskId())
 }
 
 func (self *SVirtualizedGuestDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {

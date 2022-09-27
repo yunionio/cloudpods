@@ -169,6 +169,10 @@ type IGuestDriver interface {
 	RequestGuestHotRemoveIso(ctx context.Context, guest *SGuest, task taskman.ITask) error
 	RequestRebuildRootDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
+	NeedRequestGuestHotAddVfd(ctx context.Context, guest *SGuest) bool
+	RequestGuestHotAddVfd(ctx context.Context, guest *SGuest, path string, boot bool, task taskman.ITask) error
+	RequestGuestHotRemoveVfd(ctx context.Context, guest *SGuest, task taskman.ITask) error
+
 	RequestDiskSnapshot(ctx context.Context, guest *SGuest, task taskman.ITask, snapshotId, diskId string) error
 	RequestDeleteSnapshot(ctx context.Context, guest *SGuest, task taskman.ITask, params *jsonutils.JSONDict) error
 	RequestReloadDiskSnapshot(ctx context.Context, guest *SGuest, task taskman.ITask, params *jsonutils.JSONDict) error
@@ -193,6 +197,7 @@ type IGuestDriver interface {
 	CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error
 
 	IsSupportCdrom(guest *SGuest) (bool, error)
+	IsSupportFloppy(guest *SGuest) (bool, error)
 	IsSupportPublicipToEip() bool
 	RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, task taskman.ITask) error
 

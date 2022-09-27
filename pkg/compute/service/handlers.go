@@ -63,6 +63,7 @@ func InitHandlers(app *appsrv.Application) {
 		db.SharedResourceManager,
 		db.I18nManager,
 		models.GuestcdromManager,
+		models.GuestFloppyManager,
 		models.NetInterfaceManager,
 
 		models.QuotaManager,

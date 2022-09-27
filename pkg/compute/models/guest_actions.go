@@ -1139,18 +1139,18 @@ func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.To
 	return self.GetDriver().StartGuestStopTask(self, ctx, userCred, params, parentTaskId)
 }
 
-func (self *SGuest) insertIso(imageId string) bool {
-	cdrom := self.getCdrom(true)
+func (self *SGuest) insertIso(imageId string, cdromOrdinal int64) bool {
+	cdrom := self.getCdrom(true, cdromOrdinal)
 	return cdrom.insertIso(imageId)
 }
 
-func (self *SGuest) InsertIsoSucc(imageId string, path string, size int64, name string) bool {
-	cdrom := self.getCdrom(false)
+func (self *SGuest) InsertIsoSucc(cdromOrdinal int64, imageId string, path string, size int64, name string) bool {
+	cdrom := self.getCdrom(false, cdromOrdinal)
 	return cdrom.insertIsoSucc(imageId, path, size, name)
 }
 
-func (self *SGuest) GetDetailsIso(userCred mcclient.TokenCredential) jsonutils.JSONObject {
-	cdrom := self.getCdrom(false)
+func (self *SGuest) GetDetailsIso(cdromOrdinal int64, userCred mcclient.TokenCredential) jsonutils.JSONObject {
+	cdrom := self.getCdrom(false, cdromOrdinal)
 	desc := jsonutils.NewDict()
 	if len(cdrom.ImageId) > 0 {
 		desc.Set("image_id", jsonutils.NewString(cdrom.ImageId))
@@ -1168,7 +1168,11 @@ func (self *SGuest) PerformInsertiso(ctx context.Context, userCred mcclient.Toke
 	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BAREMETAL}) {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
 	}
-	cdrom := self.getCdrom(false)
+	cdromOrdinal, _ := data.Int("cdrom_ordinal")
+	if cdromOrdinal < 0 {
+		return nil, httperrors.NewServerStatusError("invalid cdrom_ordinal: %d", cdromOrdinal)
+	}
+	cdrom := self.getCdrom(false, cdromOrdinal)
 	if cdrom != nil && len(cdrom.ImageId) > 0 {
 		return nil, httperrors.NewBadRequestError("CD-ROM not empty, please eject first")
 	}
@@ -1180,7 +1184,7 @@ func (self *SGuest) PerformInsertiso(ctx context.Context, userCred mcclient.Toke
 	}
 
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
-		err = self.StartInsertIsoTask(ctx, image.Id, false, self.HostId, userCred, "")
+		err = self.StartInsertIsoTask(ctx, cdromOrdinal, image.Id, false, self.HostId, userCred, "")
 		return nil, err
 	} else {
 		return nil, httperrors.NewServerStatusError("Insert ISO not allowed in status %s", self.Status)
@@ -1191,20 +1195,26 @@ func (self *SGuest) PerformEjectiso(ctx context.Context, userCred mcclient.Token
 	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BAREMETAL}) {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
 	}
-	cdrom := self.getCdrom(false)
+	cdromOrdinal, _ := data.Int("cdrom_ordinal")
+	if cdromOrdinal < 0 {
+		return nil, httperrors.NewServerStatusError("invalid cdrom_ordinal: %d", cdromOrdinal)
+	}
+	cdrom := self.getCdrom(false, cdromOrdinal)
 	if cdrom == nil || len(cdrom.ImageId) == 0 {
 		return nil, httperrors.NewBadRequestError("No ISO to eject")
 	}
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
-		err := self.StartEjectisoTask(ctx, userCred, "")
+		err := self.StartEjectisoTask(ctx, cdromOrdinal, userCred, "")
 		return nil, err
 	} else {
 		return nil, httperrors.NewServerStatusError("Eject ISO not allowed in status %s", self.Status)
 	}
 }
 
-func (self *SGuest) StartEjectisoTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestEjectISOTask", self, userCred, nil, parentTaskId, "", nil)
+func (self *SGuest) StartEjectisoTask(ctx context.Context, cdromOrdinal int64, userCred mcclient.TokenCredential, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewInt(cdromOrdinal), "cdrom_ordinal")
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestEjectISOTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -1212,11 +1222,12 @@ func (self *SGuest) StartEjectisoTask(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
-func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, boot bool, hostId string, userCred mcclient.TokenCredential, parentTaskId string) error {
-	self.insertIso(imageId)
+func (self *SGuest) StartInsertIsoTask(ctx context.Context, cdromOrdinal int64, imageId string, boot bool, hostId string, userCred mcclient.TokenCredential, parentTaskId string) error {
+	self.insertIso(imageId, cdromOrdinal)
 
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(imageId), "image_id")
+	data.Add(jsonutils.NewInt(cdromOrdinal), "cdrom_ordinal")
 	data.Add(jsonutils.NewString(hostId), "host_id")
 	if boot {
 		data.Add(jsonutils.JSONTrue, "boot")
@@ -1224,6 +1235,105 @@ func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, boot
 	taskName := "GuestInsertIsoTask"
 	if self.BackupHostId != "" {
 		taskName = "HaGuestInsertIsoTask"
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, taskName, self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SGuest) insertVfd(imageId string, floppyOrdinal int64) bool {
+	floppy := self.getFloppy(true, floppyOrdinal)
+	return floppy.insertVfd(imageId)
+}
+
+func (self *SGuest) InsertVfdSucc(floppyOrdinal int64, imageId string, path string, size int64, name string) bool {
+	floppy := self.getFloppy(true, floppyOrdinal)
+	return floppy.insertVfdSucc(imageId, path, size, name)
+}
+
+func (self *SGuest) GetDetailsVfd(floppyOrdinal int64, userCred mcclient.TokenCredential) jsonutils.JSONObject {
+	floppy := self.getFloppy(false, floppyOrdinal)
+	desc := jsonutils.NewDict()
+	if len(floppy.ImageId) > 0 {
+		desc.Set("image_id", jsonutils.NewString(floppy.ImageId))
+		desc.Set("status", jsonutils.NewString("inserting"))
+	}
+	if len(floppy.Path) > 0 {
+		desc.Set("name", jsonutils.NewString(floppy.Name))
+		desc.Set("size", jsonutils.NewInt(int64(floppy.Size)))
+		desc.Set("status", jsonutils.NewString("ready"))
+	}
+	return desc
+}
+
+func (self *SGuest) PerformInsertvfd(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data api.ServerInsertVfdInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BAREMETAL}) {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
+	}
+	if data.FloppyOrdinal < 0 {
+		return nil, httperrors.NewServerStatusError("invalid floppy_ordinal: %d", data.FloppyOrdinal)
+	}
+	floppy := self.getFloppy(false, data.FloppyOrdinal)
+	if floppy != nil && len(floppy.ImageId) > 0 {
+		return nil, httperrors.NewBadRequestError("Floppy not empty, please eject first")
+	}
+	image, err := parseIsoInfo(ctx, userCred, data.ImageId)
+	if err != nil {
+		log.Errorln(err)
+		return nil, err
+	}
+
+	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+		err = self.StartInsertVfdTask(ctx, data.FloppyOrdinal, image.Id, false, self.HostId, userCred, "")
+		return nil, err
+	} else {
+		return nil, httperrors.NewServerStatusError("Insert ISO not allowed in status %s", self.Status)
+	}
+}
+
+func (self *SGuest) PerformEjectvfd(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data api.ServerEjectVfdInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BAREMETAL}) {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
+	}
+	if data.FloppyOrdinal < 0 {
+		return nil, httperrors.NewServerStatusError("invalid floppy_ordinal: %d", data.FloppyOrdinal)
+	}
+	floppy := self.getFloppy(false, data.FloppyOrdinal)
+	if floppy == nil || len(floppy.ImageId) == 0 {
+		return nil, httperrors.NewBadRequestError("No VFD to eject")
+	}
+	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+		err := self.StartEjectvfdTask(ctx, userCred, "")
+		return nil, err
+	} else {
+		return nil, httperrors.NewServerStatusError("Eject ISO not allowed in status %s", self.Status)
+	}
+}
+
+func (self *SGuest) StartEjectvfdTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestEjectVFDTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SGuest) StartInsertVfdTask(ctx context.Context, floppyOrdinal int64, imageId string, boot bool, hostId string, userCred mcclient.TokenCredential, parentTaskId string) error {
+	self.insertVfd(imageId, floppyOrdinal)
+
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(imageId), "image_id")
+	data.Add(jsonutils.NewString(hostId), "host_id")
+	if boot {
+		data.Add(jsonutils.JSONTrue, "boot")
+	}
+	taskName := "GuestInsertVfdTask"
+	if self.BackupHostId != "" {
+		taskName = "HaGuestInsertVfdTask"
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, taskName, self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
@@ -2126,7 +2236,6 @@ func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.
 		return fmt.Errorf("Isolated device already attached to another guest: %s", dev.GuestId)
 	}
 	if dev.HostId !=
-
 		self.HostId {
 		return fmt.Errorf("Isolated device and guest are not located in the same host")
 	}
@@ -4631,9 +4740,17 @@ func (self *SGuest) validateForBatchMigrate(ctx context.Context, rescueMode bool
 		return guest, httperrors.NewBadRequestError("guest %s status %s can't migrate", guest.Name, guest.Status)
 	}
 	if guest.Status == api.VM_RUNNING {
-		cdrom := guest.getCdrom(false)
-		if cdrom != nil && len(cdrom.ImageId) > 0 {
-			return guest, httperrors.NewBadRequestError("cannot migrate with cdrom")
+		cdroms, _ := guest.getCdroms()
+		for _, cdrom := range cdroms {
+			if len(cdrom.ImageId) > 0 {
+				return guest, httperrors.NewBadRequestError("cannot migrate with cdrom")
+			}
+		}
+		floppys, _ := guest.getFloppys()
+		for _, floppy := range floppys {
+			if len(floppy.ImageId) > 0 {
+				return guest, httperrors.NewBadRequestError("cannot migrate with floppy")
+			}
 		}
 	} else if guest.Status == api.VM_UNKNOWN {
 		if guest.getDefaultStorageType() == api.STORAGE_LOCAL {

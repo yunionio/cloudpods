@@ -72,6 +72,7 @@ func (s *SKVMGuestInstance) initGuestDesc() error {
 	s.initVirtioSerial(pciRoot)
 	s.initGuestVga(pciRoot)
 	s.initCdromDesc()
+	s.initFloppyDesc()
 	s.initGuestDisks(pciRoot, pciBridge)
 	if err = s.initGuestNetworks(pciRoot, pciBridge); err != nil {
 		return errors.Wrap(err, "init guest networks")
@@ -327,11 +328,32 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 }
 
 func (s *SKVMGuestInstance) initCdromDesc() {
-	if s.Desc.Cdrom == nil {
-		s.Desc.Cdrom = new(desc.SGuestCdrom)
+	if s.Desc.Cdroms == nil {
+		s.Desc.Cdroms = make([]*desc.SGuestCdrom, options.HostOptions.CdromCount)
+		for i := range s.Desc.Cdroms {
+			s.Desc.Cdroms[i] = new(desc.SGuestCdrom)
+			s.Desc.Cdroms[i].Ordinal = int64(i)
+		}
 	}
+	for i := range s.Desc.Cdroms {
+		s.archMan.GenerateCdromDesc(s.getOsname(), s.Desc.Cdroms[i])
+	}
+}
 
-	s.archMan.GenerateCdromDesc(s.getOsname(), s.Desc.Cdrom)
+func (s *SKVMGuestInstance) initFloppyDesc() {
+	if s.getOsname() != OS_NAME_WINDOWS {
+		return
+	}
+	if s.Desc.Floppys == nil {
+		s.Desc.Floppys = make([]*desc.SGuestFloppy, options.HostOptions.FloppyCount)
+		for i := range s.Desc.Floppys {
+			s.Desc.Floppys[i] = new(desc.SGuestFloppy)
+			s.Desc.Floppys[i].Ordinal = int64(i)
+		}
+	}
+	for i := range s.Desc.Floppys {
+		s.archMan.GenerateFloppyDesc(s.getOsname(), s.Desc.Floppys[i])
+	}
 }
 
 func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIController) {

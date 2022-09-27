@@ -15,6 +15,8 @@
 package arch
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -62,7 +64,7 @@ func (*X86) GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom) {
 			"snapshot": "on",
 		}
 	default:
-		id = "ide0-cd0"
+		id = fmt.Sprintf("ide%d-cd0", cdrom.Ordinal)
 		devType = "ide-cd"
 		driveOpts = map[string]string{
 			"if":    "none",
@@ -75,6 +77,27 @@ func (*X86) GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom) {
 	}
 	cdrom.DriveOptions = driveOpts
 	cdrom.Id = id
+}
+
+//-device floppy,drive=floppy0 -drive id=floppy0,if=none
+func (*X86) GenerateFloppyDesc(osName string, floppy *desc.SGuestFloppy) {
+	var id, devType string
+	var driveOpts map[string]string
+
+	switch osName {
+	case qemu.OS_NAME_WINDOWS:
+		id = fmt.Sprintf("floppy%d", floppy.Ordinal)
+		devType = "floppy"
+		driveOpts = map[string]string{
+			"if": "none",
+		}
+		floppy.Floppy = &desc.FloppyDevice{
+			DevType: devType,
+		}
+		floppy.DriveOptions = driveOpts
+		floppy.Id = id
+	}
+
 }
 
 func (*X86) GenerateMachineDesc(accel string) *desc.SGuestMachine {

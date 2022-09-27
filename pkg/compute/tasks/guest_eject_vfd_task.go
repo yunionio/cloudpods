@@ -25,29 +25,29 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type GuestEjectISOTask struct {
+type GuestEjectVFDTask struct {
 	SGuestBaseTask
 }
 
 func init() {
-	taskman.RegisterTask(GuestEjectISOTask{})
+	taskman.RegisterTask(GuestEjectVFDTask{})
 }
 
-func (self *GuestEjectISOTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.startEjectIso(ctx, obj)
+func (self *GuestEjectVFDTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.startEjectVfd(ctx, obj)
 }
 
-func (self *GuestEjectISOTask) startEjectIso(ctx context.Context, obj db.IStandaloneModel) {
+func (self *GuestEjectVFDTask) startEjectVfd(ctx context.Context, obj db.IStandaloneModel) {
 	guest := obj.(*models.SGuest)
-	cdromOrdinal, _ := self.Params.Int("cdrom_ordinal")
-	if guest.EjectIso(cdromOrdinal, self.UserCred) && guest.Status == api.VM_RUNNING {
+	floppyOrdinal, _ := self.Params.Int("floppy_ordinal")
+	if guest.EjectVfd(floppyOrdinal, self.UserCred) && guest.Status == api.VM_RUNNING {
 		self.SetStage("OnConfigSyncComplete", nil)
-		guest.GetDriver().RequestGuestHotRemoveIso(ctx, guest, self)
+		guest.GetDriver().RequestGuestHotRemoveVfd(ctx, guest, self)
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}
 }
 
-func (self *GuestEjectISOTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *GuestEjectVFDTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }

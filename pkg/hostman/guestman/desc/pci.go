@@ -129,6 +129,19 @@ type IDEDevice struct {
 	Options map[string]string `json:",omitempty"`
 }
 
+type FloppyAddr struct {
+	Bus        uint
+	Controller uint
+}
+
+type FloppyDevice struct {
+	*FloppyAddr
+
+	Id      string
+	DevType string
+	Options map[string]string `json:",omitempty"`
+}
+
 type Object struct {
 	ObjType string
 	Id      string

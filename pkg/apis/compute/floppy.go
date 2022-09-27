@@ -14,7 +14,7 @@
 
 package compute
 
-type GuestcdromJsonDesc struct {
+type GuestfloppyJsonDesc struct {
 	Ordinal int    `json:"ordinal"`
 	ImageId string `json:"image_id"`
 	Path    string `json:"path"`

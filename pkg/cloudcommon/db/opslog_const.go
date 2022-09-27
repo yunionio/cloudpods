@@ -141,6 +141,11 @@ const (
 	ACT_ISO_ATTACH       = "iso_attach"
 	ACT_ISO_DETACH       = "iso_detach"
 
+	ACT_VFD_PREPARING    = "vfd_preparing"
+	ACT_VFD_PREPARE_FAIL = "vfd_prepare_fail"
+	ACT_VFD_ATTACH       = "vfd_attach"
+	ACT_VFD_DETACH       = "vfd_detach"
+
 	ACT_EIP_ATTACH = "eip_attach"
 	ACT_EIP_DETACH = "eip_detach"
 

@@ -248,6 +248,18 @@ func (self *SBaseGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest 
 	return fmt.Errorf("Not Implement")
 }
 
+func (self *SBaseGuestDriver) NeedRequestGuestHotAddVfd(ctx context.Context, guest *models.SGuest) bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) RequestGuestHotAddVfd(ctx context.Context, guest *models.SGuest, path string, boot bool, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) RequestGuestHotRemoveVfd(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
 func (self *SBaseGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
 	return fmt.Errorf("Not Implement")
 }

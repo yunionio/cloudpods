@@ -359,7 +359,7 @@ func (self *GuestCreateBackupTask) StartCreateBackupDisks(ctx context.Context, g
 
 func (self *GuestCreateBackupTask) StartInsertIso(ctx context.Context, guest *models.SGuest, imageId string) {
 	self.SetStage("OnInsertIso", nil)
-	guest.StartInsertIsoTask(ctx, imageId, false, guest.BackupHostId, self.UserCred, self.GetTaskId())
+	guest.StartInsertIsoTask(ctx, 0, imageId, false, guest.BackupHostId, self.UserCred, self.GetTaskId())
 }
 
 func (self *GuestCreateBackupTask) OnInsertIso(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
