@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"yunion.io/x/log"
@@ -37,7 +38,7 @@ type SHostHealthChecker struct {
 	// time of wait host reconnect
 	timeout time.Duration
 	// hosts chan
-	hc map[string]chan struct{}
+	hc *sync.Map
 }
 
 func hostKey(hostname string) string {
@@ -51,7 +52,7 @@ func InitHostHealthChecker(cli *etcd.SEtcdClient, timeout int) *SHostHealthCheck
 	hostHealthChecker = &SHostHealthChecker{
 		cli:     cli,
 		timeout: time.Duration(timeout) * time.Second,
-		hc:      make(map[string]chan struct{}),
+		hc:      new(sync.Map),
 	}
 	return hostHealthChecker
 }
@@ -59,6 +60,11 @@ func InitHostHealthChecker(cli *etcd.SEtcdClient, timeout int) *SHostHealthCheck
 func (h *SHostHealthChecker) StartHostsHealthCheck(ctx context.Context) error {
 	log.Infof("Start host health check......")
 	return h.startHealthCheck(ctx)
+}
+
+func (h *SHostHealthChecker) load(hostname string) chan struct{} {
+	v, _ := h.hc.Load(hostname)
+	return v.(chan struct{})
 }
 
 func (h *SHostHealthChecker) startHealthCheck(ctx context.Context) error {
@@ -88,8 +94,8 @@ func (h *SHostHealthChecker) startWatcher(ctx context.Context, hostname string) 
 	log.Infof("Start watch host %s", hostname)
 	var key = hostKey(hostname)
 
-	if _, ok := h.hc[hostname]; !ok {
-		h.hc[hostname] = make(chan struct{})
+	if _, ok := h.hc.Load(hostname); !ok {
+		h.hc.Store(hostname, make(chan struct{}))
 	}
 	if err := h.cli.Watch(
 		ctx, key,
@@ -108,7 +114,7 @@ func (h *SHostHealthChecker) startWatcher(ctx context.Context, hostname string) 
 			select {
 			case <-time.NewTimer(h.timeout).C:
 				h.onHostUnhealthy(ctx, hostname)
-			case <-h.hc[hostname]:
+			case <-h.load(hostname):
 				if _err := h.startWatcher(ctx, hostname); _err != nil {
 					log.Errorf("failed start watcher %s", _err)
 				}
@@ -136,8 +142,9 @@ func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostname strin
 func (h *SHostHealthChecker) onHostOnline(ctx context.Context, hostname string) etcd.TEtcdCreateEventFunc {
 	return func(ctx context.Context, key, value []byte) {
 		log.Infof("Got host online %s", hostname)
-		if h.hc[hostname] != nil {
-			h.hc[hostname] <- struct{}{}
+		if v, ok := h.hc.Load(hostname); ok {
+			c := v.(chan struct{})
+			c <- struct{}{}
 		}
 	}
 }
@@ -148,7 +155,7 @@ func (h *SHostHealthChecker) processHostOffline(ctx context.Context, hostname st
 		select {
 		case <-time.NewTimer(h.timeout).C:
 			h.onHostUnhealthy(ctx, hostname)
-		case <-h.hc[hostname]:
+		case <-h.load(hostname):
 			if err := h.startWatcher(ctx, hostname); err != nil {
 				log.Errorf("failed start watcher %s", err)
 			}
@@ -178,5 +185,5 @@ func (h *SHostHealthChecker) WatchHost(ctx context.Context, hostname string) err
 func (h *SHostHealthChecker) UnwatchHost(ctx context.Context, hostname string) {
 	log.Infof("Unwatch host %s", hostname)
 	h.cli.Unwatch(hostKey(hostname))
-	delete(h.hc, hostname)
+	h.hc.Delete(hostname)
 }
