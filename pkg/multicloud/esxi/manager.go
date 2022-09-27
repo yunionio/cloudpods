@@ -15,13 +15,18 @@
 package esxi
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"reflect"
 	"strings"
 	"sync"
 
+	xj "github.com/basgys/goxml2json"
+	"github.com/fatih/color"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
@@ -32,6 +37,7 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
+	"moul.io/http2curl/v2"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -70,6 +76,8 @@ type ESXiClientConfig struct {
 	password string
 
 	managed bool
+	debug   bool
+	format  string
 }
 
 func NewESXiClientConfig(host string, port int, account, password string) *ESXiClientConfig {
@@ -84,6 +92,16 @@ func NewESXiClientConfig(host string, port int, account, password string) *ESXiC
 
 func (cfg *ESXiClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *ESXiClientConfig {
 	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *ESXiClientConfig) Debug(debug bool) *ESXiClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+func (cfg *ESXiClientConfig) Format(format string) *ESXiClientConfig {
+	cfg.format = format
 	return cfg
 }
 
@@ -183,6 +201,13 @@ func (cli *SESXiClient) url() string {
 	return fmt.Sprintf("%s/sdk", cli.getUrl())
 }
 
+var (
+	red    = color.New(color.FgRed, color.Bold).PrintlnFunc()
+	green  = color.New(color.FgGreen, color.Bold).PrintlnFunc()
+	yellow = color.New(color.FgYellow, color.Bold).PrintlnFunc()
+	cyan   = color.New(color.FgHiCyan, color.Bold).PrintlnFunc()
+)
+
 func (cli *SESXiClient) connect() error {
 	u, err := url.Parse(cli.url())
 	if err != nil {
@@ -194,7 +219,39 @@ func (cli *SESXiClient) connect() error {
 		insecure := true
 		soapCli := soap.NewClient(u, insecure)
 		httpClient := &soapCli.Client
-		httputils.SetClientProxyFunc(httpClient, cli.cpcfg.ProxyFunc)
+		transport := httputils.GetAdaptiveTransport(true)
+		transport.Proxy = cli.cpcfg.ProxyFunc
+		httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
+			if cli.debug {
+				dump, _ := httputil.DumpRequestOut(req, false)
+				yellow(string(dump))
+				// 忽略掉上传文件的请求,避免大量日志输出
+				if req.Header.Get("Content-Type") != "application/octet-stream" {
+					curlCmd, _ := http2curl.GetCurlCommand(req)
+					cyan("CURL:", curlCmd, "\n")
+				}
+			}
+			respCheck := func(resp *http.Response) {
+				if cli.debug {
+					dump, _ := httputil.DumpResponse(resp, true)
+					body := string(dump)
+					if cli.format == "json" {
+						obj, err := xj.Convert(bytes.NewReader(dump))
+						if err == nil {
+							body = string(obj.String())
+						}
+					}
+					if resp.StatusCode < 300 {
+						green(body)
+					} else if resp.StatusCode < 400 {
+						yellow(body)
+					} else {
+						red(body)
+					}
+				}
+			}
+			return respCheck, nil
+		})
 		vimCli, err := vim25.NewClient(cli.context, soapCli)
 		if err != nil {
 			return err

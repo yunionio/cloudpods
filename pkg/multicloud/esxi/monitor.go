@@ -39,7 +39,7 @@ func (self *SESXiClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([
 	metricName := ""
 	switch opts.MetricType {
 	case cloudprovider.VM_METRIC_TYPE_CPU_USAGE:
-		metricName = "cpu.usage.vcpus.average"
+		metricName = "cpu.usage.average"
 	case cloudprovider.VM_METRIC_TYPE_MEM_USAGE:
 		metricName = "mem.usage.average"
 	case cloudprovider.VM_METRIC_TYPE_NET_BPS_RX:
