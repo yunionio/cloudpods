@@ -480,6 +480,10 @@ func (g *IOMMUGroup) ListDevices(groupNum, selfAddr, vendorId string) []*PCIDevi
 		if addr == selfAddr {
 			continue
 		}
+		if len(addr) < 5 {
+			log.Warningf("Invalid addr %q of %q iommu_group[%s], skip it", addr, selfAddr, groupNum)
+			continue
+		}
 		dev, _ := detectPCIDevByAddrWithoutIOMMUGroup(addr[5:])
 		if dev != nil {
 			if dev.VendorId == vendorId {
