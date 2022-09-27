@@ -1553,6 +1553,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 		return "", errors.Wrap(err, "SSecurityGroupCache.Register")
 	}
 
+	_, isNew, err := cache.GetOrCreateISecurityGroup(ctx)
+	if err != nil {
+		return "", errors.Wrapf(err, "GetOrCreateISecurityGroup")
+	}
+
+	if isNew {
+		skipSyncRule = false
+	}
+
 	return cache.ExternalId, cache.SyncRules(ctx, skipSyncRule)
 }
 

@@ -851,7 +851,7 @@ func (self *SSecurityGroupCache) SyncRules(ctx context.Context, skipSyncRule boo
 	}
 	iSecgroup, err := self.GetISecurityGroup(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "GetOrCreateISecurityGroup")
+		return errors.Wrapf(err, "GetISecurityGroup")
 	}
 	if skipSyncRule {
 		return nil
