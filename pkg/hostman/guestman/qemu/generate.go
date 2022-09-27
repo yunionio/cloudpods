@@ -650,14 +650,20 @@ func GenerateStartOptions(
 	}
 	opts = append(opts, nicOpts...)
 
-	// isolated devices
-	// USB 3.0
-	opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
-	// enable machine USB emulation
-	opts = append(opts, drvOpt.USB())
-	for _, device := range input.Devices {
-		opts = append(opts, drvOpt.Device(device))
+	if input.QemuArch == Arch_aarch64 {
+		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
+		for _, device := range input.Devices {
+			opts = append(opts, drvOpt.Device(device))
+		}
+	} else {
+		opts = append(opts, drvOpt.USB())
+		for _, device := range input.Devices {
+			opts = append(opts, drvOpt.Device(device))
+		}
+		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
 	}
+
+	// isolated devices
 	if len(input.GuestDesc.IsolatedDevices) > 0 {
 		opts = append(opts, generateIsolatedDeviceOptions(input.GuestDesc)...)
 	}
