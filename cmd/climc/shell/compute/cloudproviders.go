@@ -47,7 +47,7 @@ func init() {
 			return
 		}
 		for k, v := range rc {
-			fmt.Printf(`export %s="%s"`+"\n", k, v)
+			fmt.Printf(`export %s='%s'`+"\n", k, v)
 		}
 	}, &options.BaseIdOptions{})
 	cmd.Get("storage-classes", &compute.CloudproviderStorageClassesOptions{})

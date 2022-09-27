@@ -35,6 +35,8 @@ type BaseOptions struct {
 	Port       int    `help:"Service port" default:"$VMWARE_PORT" metavar:"VMWARE_PORT"`
 	Account    string `help:"VCenter or ESXi Account" default:"$VMWARE_ACCOUNT" metavar:"VMWARE_ACCOUNT"`
 	Password   string `help:"Password" default:"$VMWARE_PASSWORD" metavar:"VMWARE_PASSWORD"`
+	Debug      bool
+	Format     string `choices:"xml|json" default:"json"`
 	SUBCOMMAND string `help:"aliyuncli subcommand" subcommand:"true"`
 }
 
@@ -101,7 +103,7 @@ func newClient(options *BaseOptions) (*esxi.SESXiClient, error) {
 				cloudprovider.ProviderConfig{
 					ProxyFunc: proxyFunc,
 				},
-			),
+			).Debug(options.Debug).Format(options.Format),
 	)
 }
 
