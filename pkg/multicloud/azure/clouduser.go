@@ -17,6 +17,7 @@ package azure
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -24,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SClouduserPasswordProfile struct {
@@ -177,7 +179,7 @@ func (user *SClouduser) IsConsoleLogin() bool {
 
 // 需要当前应用有User administrator权限
 func (user *SClouduser) Delete() error {
-	return user.client.DeleteClouduser(user.ObjectId)
+	return user.client.DeleteClouduser(user.UserPrincipalName)
 }
 
 func (user *SClouduser) ResetPassword(password string) error {
@@ -230,13 +232,14 @@ func (self *SAzureClient) GetCloudusers(name string) ([]SClouduser, error) {
 }
 
 func (self *SAzureClient) DeleteClouduser(id string) error {
-	return self.gdel(fmt.Sprintf("%s/users/%s", self.tenantId, id))
+	_, err := self.msGraphRequest(string(httputils.DELETE), "users/"+id, nil)
+	return err
 }
 
 func (self *SAzureClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
-	users, err := self.GetCloudusers("")
+	users, err := self.ListGraphUsers()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetCloudusers")
+		return nil, errors.Wrap(err, "ListGraphUsers")
 	}
 	ret := []cloudprovider.IClouduser{}
 	for i := range users {
@@ -247,18 +250,17 @@ func (self *SAzureClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 }
 
 func (self *SAzureClient) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
-	users, err := self.GetCloudusers(name)
+	users, err := self.ListGraphUsers()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCloudusers")
 	}
-	if len(users) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range users {
+		if users[i].GetName() == name || strings.HasPrefix(name+"@", users[i].GetName()) {
+			users[i].client = self
+			return &users[i], nil
+		}
 	}
-	if len(users) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	users[0].client = self
-	return &users[0], nil
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SAzureClient) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
@@ -293,17 +295,18 @@ func (self *SAzureClient) GetDomains() ([]SDomain, error) {
 	return domains, nil
 }
 
-func (self *SAzureClient) GetDefaultDomain() (*SDomain, error) {
-	domains, err := self.GetDomains()
+func (self *SAzureClient) GetDefaultDomain() (string, error) {
+	users, err := self.ListGraphUsers()
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetDomains")
+		return "", errors.Wrapf(err, "ListGraphUsers")
 	}
-	for i := range domains {
-		if domains[i].IsDefault {
-			return &domains[i], nil
+	for i := range users {
+		idx := strings.Index(users[i].UserPrincipalName, "@")
+		if idx > -1 {
+			return users[i].UserPrincipalName[idx+1:], nil
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return "", cloudprovider.ErrNotFound
 }
 
 func (self *SAzureClient) CreateClouduser(name, password string) (*SClouduser, error) {
@@ -324,11 +327,15 @@ func (self *SAzureClient) CreateClouduser(name, password string) (*SClouduser, e
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDefaultDomain")
 	}
-	params["userPrincipalName"] = fmt.Sprintf("%s@%s", name, domain.Name)
+	params["userPrincipalName"] = fmt.Sprintf("%s@%s", name, domain)
 	user := SClouduser{client: self}
-	err = self.gcreate("users", jsonutils.Marshal(params), &user)
+	resp, err := self.msGraphRequest(string(httputils.POST), "users", jsonutils.Marshal(params))
 	if err != nil {
 		return nil, errors.Wrap(err, "Create")
+	}
+	err = resp.Unmarshal(&user)
+	if err != nil {
+		return nil, err
 	}
 	return &user, nil
 }
