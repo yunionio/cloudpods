@@ -3032,7 +3032,33 @@ func (self *SGuest) isNotRunningStatus(status string) bool {
 	return false
 }
 
+func (self *SGuest) SetStatus(userCred mcclient.TokenCredential, status, reason string) error {
+	if utils.IsInStringArray(status, api.VM_RUNNING_STATUS) {
+		if err := self.SetPowerStates(api.VM_POWER_STATES_ON); err != nil {
+			return err
+		}
+	}
+
+	return self.SVirtualResourceBase.SetStatus(userCred, status, reason)
+}
+
+func (self *SGuest) SetPowerStates(powerStates string) error {
+	if self.PowerStates == powerStates {
+		return nil
+	}
+	_, err := db.Update(self, func() error {
+		self.PowerStates = powerStates
+		return nil
+	})
+	return errors.Wrap(err, "Update power states")
+}
+
 func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
+	if input.PowerStates != "" {
+		if err := self.SetPowerStates(input.PowerStates); err != nil {
+			return nil, errors.Wrap(err, "set power states")
+		}
+	}
 	preStatus := self.Status
 
 	if len(self.BackupHostId) == 0 && input.Status == api.VM_RUNNING && input.BlockJobsCount > 0 {

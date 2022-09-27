@@ -88,8 +88,10 @@ func (self *GuestSyncstatusTask) OnGetStatusComplete(ctx context.Context, obj db
 	if err != nil {
 		blockJobsCount = -1
 	}
+	powerStatus, _ := body.GetString("power_status")
 	input := apis.PerformStatusInput{
 		Status:         statusStr,
+		PowerStates:    powerStatus,
 		BlockJobsCount: int(blockJobsCount),
 	}
 	guest.PerformStatus(ctx, self.UserCred, nil, input)
