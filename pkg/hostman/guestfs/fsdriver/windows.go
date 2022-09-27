@@ -31,6 +31,7 @@ import (
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/version"
@@ -44,6 +45,9 @@ const (
 	TCPIP_PARAM_KEY      = `HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters`
 	BOOT_SCRIPT_PATH     = "/Windows/System32/GroupPolicy/Machine/Scripts/Startup/cloudboot.bat"
 	WIN_BOOT_SCRIPT_PATH = "cloudboot"
+
+	WIN_TELEGRAF_BINARY_PATH = "/opt/yunion/bin/telegraf.exe"
+	WIN_TELEGRAF_PATH        = "/Program Files/Telegraf"
 )
 
 type SWindowsRootFs struct {
@@ -542,4 +546,49 @@ func (w *SWindowsRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
 
 func (l *SWindowsRootFs) IsResizeFsPartitionSupport() bool {
 	return true
+}
+
+func (w *SWindowsRootFs) DeployTelegraf(config string) (bool, error) {
+	if err := w.rootFs.Mkdir(WIN_TELEGRAF_PATH, syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR, true); err != nil {
+		return false, errors.Wrap(err, "mkdir telegraf path")
+	}
+
+	telegrafConfPath := path.Join(w.rootFs.GetMountPath(), WIN_TELEGRAF_PATH, "telegraf.conf")
+	if err := w.rootFs.FilePutContents(telegrafConfPath, config, false, true); err != nil {
+		return false, errors.Wrap(err, "write boot script")
+	}
+	telegrafConfPath = strings.ReplaceAll(path.Join("%PROGRAMFILES%", "Telegraf", "telegraf.conf"), "/", "\\")
+
+	telegrafBinaryPath := path.Join(w.rootFs.GetMountPath(), WIN_TELEGRAF_PATH, "telegraf.exe")
+	output, err := procutils.NewCommand("cp", "-f", WIN_TELEGRAF_BINARY_PATH, telegrafBinaryPath).Output()
+	if err != nil {
+		return false, errors.Wrapf(err, "cp telegraf failed %s", output)
+	}
+	telegrafBinaryPath = strings.ReplaceAll(path.Join("%PROGRAMFILES%", "Telegraf", "telegraf.exe"), "/", "\\")
+	bootScript := strings.Join([]string{
+		`set SETUP_TELEGRAF_SCRIPT=%SystemRoot%\telegraf.bat`,
+		`if exist %SETUP_TELEGRAF_SCRIPT% (`,
+		`    call %SETUP_TELEGRAF_SCRIPT%`,
+		`    del %SETUP_TELEGRAF_SCRIPT%`,
+		`)`,
+	}, "\r\n")
+	w.appendGuestBootScript("telegraf", bootScript)
+
+	setupTelegrafBatScript := strings.Join([]string{
+		w.MakeGuestDebugCmd("setup telegraf step 1"),
+		strings.Join([]string{
+			`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`,
+			` -executionpolicy bypass %SystemRoot%\telegraf.ps1`,
+			fmt.Sprintf(" '%s' '%s' %s", telegrafBinaryPath, telegrafConfPath, w.guestDebugLogPath),
+		}, ""),
+		`del %SystemRoot%\telegraf.ps1`,
+		w.MakeGuestDebugCmd("setup telegraf step 2"),
+	}, "\r\n")
+	if err := w.putGuestScriptContents("/windows/telegraf.bat", setupTelegrafBatScript); err != nil {
+		return false, errors.Wrap(err, "put setup bat scirpt")
+	}
+	if err := w.putGuestScriptContents("/windows/telegraf.ps1", winTelegrafSetupPowerShellScript); err != nil {
+		return false, errors.Wrap(err, "put setup ps1 script")
+	}
+	return true, nil
 }
