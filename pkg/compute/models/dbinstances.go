@@ -74,6 +74,7 @@ func init() {
 		),
 	}
 	DBInstanceManager.SetVirtualObject(DBInstanceManager)
+	notifyclient.AddNotifyDBHookResources(DBInstanceManager.KeywordPlural())
 }
 
 type SDBInstance struct {
@@ -934,7 +935,7 @@ func (self *SDBInstance) PerformReboot(ctx context.Context, userCred mcclient.To
 	return nil, self.StartDBInstanceRebootTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
-//同步RDS实例状态
+// 同步RDS实例状态
 func (self *SDBInstance) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.PerformSync(ctx, userCred, query, data)
 }
@@ -2114,8 +2115,4 @@ func (self *SDBInstance) GetExpiredAt() time.Time {
 
 func (db *SDBInstance) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	db.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
-	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-		Obj:    db,
-		Action: notifyclient.ActionUpdate,
-	})
 }
