@@ -939,6 +939,7 @@ type ICloudModelartsPool interface {
 	GetProjectId() string
 	GetInstanceType() string
 	GetWorkType() string
+	GetNodeCount() int
 }
 
 type ICloudModelartsPoolSku interface {

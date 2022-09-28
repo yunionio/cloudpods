@@ -56,6 +56,7 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 		Name:         pool.Name,
 		InstanceType: pool.InstanceType,
 		WorkType:     pool.WorkType,
+		NodeCount:    pool.NodeCount,
 	}
 
 	ipool, err := iRegion.CreateIModelartsPool(opts)
