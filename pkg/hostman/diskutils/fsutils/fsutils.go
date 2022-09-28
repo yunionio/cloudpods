@@ -199,20 +199,31 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		if label == "msdos" && end >= 4294967296 {
 			end = 4294967295
 		}
-		cmds := []string{"parted", "-a", "none", "-s", diskPath, "--", "resizepart", part[0], fmt.Sprintf("%ds", end)}
-		log.Infof("resize disk partition: %s", cmds)
-		output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
-		if err != nil {
-			return errors.Wrapf(err, "parted failed %s", output)
-		}
-		if len(part[6]) > 0 {
-			err, _ := ResizePartitionFs(part[7], part[6], false)
+		if isSupportResizeFs(part[6]) {
+			cmds := []string{"parted", "-a", "none", "-s", diskPath, "--", "resizepart", part[0], fmt.Sprintf("%ds", end)}
+			log.Infof("resize disk partition: %s", cmds)
+			output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "parted failed %s", output)
+			}
+			err, _ = ResizePartitionFs(part[7], part[6], false)
+			if err != nil {
+				return errors.Wrapf(err, "resize fs %s", part[6])
 			}
 		}
 	}
 	return nil
+}
+
+func isSupportResizeFs(fs string) bool {
+	if strings.HasPrefix(fs, "linux-swap") {
+		return true
+	} else if strings.HasPrefix(fs, "ext") {
+		return true
+	} else if fs == "xfs" {
+		return true
+	}
+	return false
 }
 
 func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
