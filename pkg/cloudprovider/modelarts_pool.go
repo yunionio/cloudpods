@@ -21,6 +21,7 @@ type ModelartsPoolCreateOption struct {
 	PeriodNum    uint
 	AutoRenew    uint
 	InstanceType string
+	NodeCount    int
 	NetworkId    string
 
 	WorkType string

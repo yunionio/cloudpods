@@ -33,6 +33,8 @@ type ModelartsPoolCreateInput struct {
 
 	CloudregionResourceInput
 	CloudproviderResourceInput
+
+	NodeCount int
 }
 
 type ModelartsPoolUpdateInput struct {
