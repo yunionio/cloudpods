@@ -199,6 +199,8 @@ type ICloudRegion interface {
 	GetIModelartsPoolById(id string) (ICloudModelartsPool, error)
 	CreateIModelartsPool(pool *ModelartsPoolCreateOption) (ICloudModelartsPool, error)
 	GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error)
+
+	GetIMiscResources() ([]ICloudMiscResource, error)
 }
 
 type ICloudZone interface {
@@ -1583,4 +1585,12 @@ type ICloudKubeNodePool interface {
 
 type ICloudTablestore interface {
 	IVirtualResource
+}
+
+type ICloudMiscResource interface {
+	IVirtualResource
+
+	GetResourceType() string
+
+	GetConfig() jsonutils.JSONObject
 }

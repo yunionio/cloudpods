@@ -12,15 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ecloud
+package compute
 
-import "time"
+import (
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+)
 
-type SCreateTime struct {
-	CreatedTime string
+type MiscResourceManager struct {
+	modulebase.ResourceManager
 }
 
-func (c *SCreateTime) GetCreatedAt() time.Time {
-	t, _ := time.Parse("2006-01-02 15:04:05", c.CreatedTime)
-	return t
+var (
+	MiscResource MiscResourceManager
+)
+
+func init() {
+	MiscResource = MiscResourceManager{modules.NewComputeManager("misc_resource", "misc_resources",
+		[]string{},
+		[]string{})}
+
+	modules.RegisterCompute(&MiscResource)
 }

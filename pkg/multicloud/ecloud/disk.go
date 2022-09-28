@@ -86,6 +86,10 @@ func (d *SDisk) GetGlobalId() string {
 	return d.ID
 }
 
+func (d *SDisk) GetCreatedAt() time.Time {
+	return d.SCreateTime.GetCreatedAt()
+}
+
 func (d *SDisk) GetStatus() string {
 	if d.IsDelete {
 		// TODO

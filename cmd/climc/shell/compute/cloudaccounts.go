@@ -52,6 +52,7 @@ func init() {
 	cmd.CreateWithKeyword("create-bingocloud", &options.SBingoCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-incloudsphere", &options.SInCloudSphereAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-proxmox", &options.SProxmoxAccountCreateOptions{})
+	cmd.CreateWithKeyword("create-remotefile", &options.SRemoteFileAccountCreateOptions{})
 
 	cmd.UpdateWithKeyword("update-vmware", &options.SVMwareCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-aliyun", &options.SAliyunCloudAccountUpdateOptions{})

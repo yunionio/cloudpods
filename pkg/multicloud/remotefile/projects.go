@@ -12,15 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ecloud
+package remotefile
 
-import "time"
+import (
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
+)
 
-type SCreateTime struct {
-	CreatedTime string
+type SProject struct {
+	multicloud.SProjectBase
+
+	Id   string
+	Name string
 }
 
-func (c *SCreateTime) GetCreatedAt() time.Time {
-	t, _ := time.Parse("2006-01-02 15:04:05", c.CreatedTime)
-	return t
+func (self *SProject) GetGlobalId() string {
+	return self.Id
+}
+
+func (self *SProject) GetId() string {
+	return self.Id
+}
+
+func (self *SProject) GetName() string {
+	return self.Name
+}
+
+func (self *SProject) Refresh() error {
+	return nil
+}
+
+func (self *SProject) GetStatus() string {
+	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
 }

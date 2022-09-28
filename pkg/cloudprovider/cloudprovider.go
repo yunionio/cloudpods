@@ -402,6 +402,10 @@ func IsSupportModelartsPool(prod ICloudProvider) bool {
 	return IsSupportCapability(prod, CLOUD_CAPABILITY_MODELARTES)
 }
 
+func IsSupportMiscResources(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_MISC)
+}
+
 var providerTable map[string]ICloudProviderFactory
 
 func init() {

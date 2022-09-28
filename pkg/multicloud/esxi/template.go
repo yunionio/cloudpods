@@ -174,7 +174,7 @@ func (t *SVMTemplate) GetImageFormat() string {
 	return "vmdk"
 }
 
-// GetCreateAt return vm's create time by getting the sys disk's create time
+// GetCreatedAt return vm's create time by getting the sys disk's create time
 func (t *SVMTemplate) GetCreatedAt() time.Time {
 	if len(t.vm.vdisks) == 0 {
 		return time.Time{}

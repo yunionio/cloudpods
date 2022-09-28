@@ -1887,6 +1887,10 @@ func syncPublicCloudProviderInfo(
 		syncModelartsPools(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
+	if cloudprovider.IsSupportMiscResources(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_MISC) {
+		syncMiscResources(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+	}
+
 	return nil
 }
 
@@ -2368,5 +2372,17 @@ func syncModelartsPoolSkus(ctx context.Context, userCred mcclient.TokenCredentia
 	}
 	result := localRegion.SyncModelartsPoolSkus(ctx, userCred, provider, ipools)
 	log.Infof("SyncModelartsPoolSkus for region %s result: %s", provider.GetName(), result.Result())
+	return nil
+}
+
+func syncMiscResources(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
+	exts, err := remoteRegion.GetIMiscResources()
+	if err != nil {
+		msg := fmt.Sprintf("GetIMiscResources for provider %s failed %v", provider.Name, err)
+		log.Errorf(msg)
+		return err
+	}
+	result := localRegion.SyncMiscResources(ctx, userCred, provider, exts)
+	log.Infof("SyncMiscResources for provider %s result: %s", provider.GetName(), result.Result())
 	return nil
 }

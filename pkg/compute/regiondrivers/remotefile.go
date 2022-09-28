@@ -12,15 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ecloud
+package regiondrivers
 
-import "time"
+import (
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/compute/models"
+)
 
-type SCreateTime struct {
-	CreatedTime string
+type SRemoteFileRegionDriver struct {
+	SManagedVirtualizationRegionDriver
 }
 
-func (c *SCreateTime) GetCreatedAt() time.Time {
-	t, _ := time.Parse("2006-01-02 15:04:05", c.CreatedTime)
-	return t
+func init() {
+	driver := SRemoteFileRegionDriver{}
+	models.RegisterRegionDriver(&driver)
+}
+
+func (self *SRemoteFileRegionDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_REMOTEFILE
 }

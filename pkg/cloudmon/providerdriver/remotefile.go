@@ -12,15 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ecloud
+package providerdriver
 
-import "time"
+import (
+	"time"
 
-type SCreateTime struct {
-	CreatedTime string
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+)
+
+type RemoteFileCollect struct {
+	SCollectByMetricTypeDriver
 }
 
-func (c *SCreateTime) GetCreatedAt() time.Time {
-	t, _ := time.Parse("2006-01-02 15:04:05", c.CreatedTime)
-	return t
+func (self *RemoteFileCollect) GetProvider() string {
+	return api.CLOUD_PROVIDER_REMOTEFILE
+}
+
+func (self *RemoteFileCollect) IsSupportMetrics() bool {
+	return true
+}
+
+func (self *RemoteFileCollect) GetDelayDuration() time.Duration {
+	return 0
+}
+
+func init() {
+	Register(&RemoteFileCollect{})
 }

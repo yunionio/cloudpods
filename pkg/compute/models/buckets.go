@@ -184,7 +184,7 @@ func (manager *SBucketManager) newFromCloudBucket(
 	bucket.CloudregionId = region.Id
 	bucket.Status = api.BUCKET_STATUS_READY
 
-	created := extBucket.GetCreateAt()
+	created := extBucket.GetCreatedAt()
 	if !created.IsZero() {
 		bucket.CreatedAt = created
 	}
