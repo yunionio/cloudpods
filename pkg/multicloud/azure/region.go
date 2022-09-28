@@ -638,12 +638,16 @@ func (self *SRegion) checkResourceGroup(resourceGroup string) (string, error) {
 	if len(resourceGroup) == 0 {
 		resourceGroup = "Default"
 	}
-	projs, err := self.client.GetIProjects()
+	resourceGroups, err := self.client.ListResourceGroups()
 	if err != nil {
-		return "", errors.Wrapf(err, "GetIProjects")
+		return "", errors.Wrapf(err, "ListResourceGroups")
 	}
-	for _, proj := range projs {
-		if strings.ToLower(proj.GetGlobalId()) == strings.ToLower(resourceGroup) {
+
+	for i := range resourceGroups {
+		proj := resourceGroups[i]
+		if strings.ToLower(proj.GetName()) == strings.ToLower(resourceGroup) ||
+			proj.GetGlobalId() == resourceGroup ||
+			(strings.Contains(resourceGroup, "/") && strings.HasSuffix(proj.GetGlobalId(), resourceGroup)) {
 			return resourceGroup, nil
 		}
 	}
@@ -680,7 +684,7 @@ func (self *SRegion) create(resourceGroup string, _body jsonutils.JSONObject, re
 	}
 	resourceGroup, err = self.checkResourceGroup(resourceGroup)
 	if err != nil {
-		return errors.Wrapf(err, "checkResourceGroup")
+		return errors.Wrapf(err, "checkResourceGroup(%s)", resourceGroup)
 	}
 	info.Name, err = self.client.getUniqName(resourceGroup, info.Type, info.Name)
 	if err != nil {
