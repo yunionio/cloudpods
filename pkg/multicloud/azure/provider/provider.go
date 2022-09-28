@@ -141,12 +141,19 @@ func (self *SAzureProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig)
 
 func (self *SAzureProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	tenantId, appId, appKey, subId := parseAccount(info.Account, info.Secret)
+	defaultRegion := ""
+	switch info.Url {
+	case "AzurePublicCloud":
+		defaultRegion = "eastus"
+	case "AzureChinaCloud":
+		defaultRegion = "chinaeast2"
+	}
 	return map[string]string{
 		"AZURE_DIRECTORY_ID":    tenantId,
 		"AZURE_SUBSCRIPTION_ID": subId,
 		"AZURE_APPLICATION_ID":  appId,
 		"AZURE_APPLICATION_KEY": appKey,
-		"AZURE_REGION_ID":       "",
+		"AZURE_REGION_ID":       defaultRegion,
 		"AZURE_CLOUD_ENV":       info.Url,
 	}, nil
 }

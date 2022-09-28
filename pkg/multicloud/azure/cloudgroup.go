@@ -28,9 +28,7 @@ import (
 type SCloudgroup struct {
 	client *SAzureClient
 
-	OdataType         string `json:"odata.type"`
-	ObjectType        string
-	ObjectId          string
+	Id                string
 	DeletionTimestamp string
 	Description       string
 	DirSyncEnabled    string
@@ -47,7 +45,7 @@ func (group *SCloudgroup) GetName() string {
 }
 
 func (group *SCloudgroup) GetGlobalId() string {
-	return group.ObjectId
+	return group.Id
 }
 
 func (group *SCloudgroup) GetDescription() string {
@@ -55,9 +53,9 @@ func (group *SCloudgroup) GetDescription() string {
 }
 
 func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := group.client.GetCloudpolicies(group.ObjectId)
+	policies, err := group.client.GetCloudpolicies(group.Id)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", group.ObjectId)
+		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", group.Id)
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
@@ -69,9 +67,9 @@ func (group *SCloudgroup) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolic
 }
 
 func (group *SCloudgroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := group.client.GetCloudpolicies(group.ObjectId)
+	policies, err := group.client.GetCloudpolicies(group.Id)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", group.ObjectId)
+		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", group.Id)
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
@@ -83,7 +81,7 @@ func (group *SCloudgroup) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolic
 }
 
 func (group *SCloudgroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
-	users, err := group.client.ListGroupMemebers(group.ObjectId)
+	users, err := group.client.ListGroupMemebers(group.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListGroupMemebers")
 	}
@@ -96,25 +94,25 @@ func (group *SCloudgroup) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 }
 
 func (group *SCloudgroup) AddUser(name string) error {
-	return group.client.AddGroupUser(group.ObjectId, name)
+	return group.client.AddGroupUser(group.Id, name)
 }
 
 func (group *SCloudgroup) RemoveUser(name string) error {
-	return group.client.RemoveGroupUser(group.ObjectId, name)
+	return group.client.RemoveGroupUser(group.Id, name)
 }
 
 func (group *SCloudgroup) AttachSystemPolicy(policyId string) error {
-	return group.client.AssignPolicy(group.ObjectId, policyId, "")
+	return group.client.AssignPolicy(group.Id, policyId, "")
 }
 
 func (group *SCloudgroup) AttachCustomPolicy(policyId string) error {
-	return group.client.AssignPolicy(group.ObjectId, policyId, "")
+	return group.client.AssignPolicy(group.Id, policyId, "")
 }
 
 func (group *SCloudgroup) DetachSystemPolicy(policyId string) error {
-	assignments, err := group.client.GetAssignments(group.ObjectId)
+	assignments, err := group.client.GetAssignments(group.Id)
 	if err != nil {
-		return errors.Wrapf(err, "GetAssignments(%s)", group.ObjectId)
+		return errors.Wrapf(err, "GetAssignments(%s)", group.Id)
 	}
 	for _, assignment := range assignments {
 		role, err := group.client.GetRole(assignment.Properties.RoleDefinitionId)
@@ -133,7 +131,7 @@ func (group *SCloudgroup) DetachCustomPolicy(policyId string) error {
 }
 
 func (group *SCloudgroup) Delete() error {
-	return group.client.DeleteGroup(group.ObjectId)
+	return group.client.DeleteGroup(group.Id)
 }
 
 func (self *SAzureClient) GetCloudgroups(name string) ([]SCloudgroup, error) {
@@ -188,16 +186,22 @@ func (self *SAzureClient) ListGroupMemebers(id string) ([]SClouduser, error) {
 }
 
 func (self *SAzureClient) DeleteGroup(id string) error {
-	return self.gdel(fmt.Sprintf("%s/groups/%s", self.tenantId, id))
+	return self.gdel(fmt.Sprintf("groups/%s", id))
 }
 
 func (self *SAzureClient) CreateGroup(name, desc string) (*SCloudgroup, error) {
 	params := map[string]interface{}{
 		"displayName":     name,
-		"mailNickname":    name,
 		"mailEnabled":     false,
 		"securityEnabled": true,
 	}
+	nickName := ""
+	for _, s := range name {
+		if s >= 0 && s <= 127 {
+			nickName += string(s)
+		}
+	}
+	params["mailNickname"] = nickName
 	if len(desc) > 0 {
 		params["Description"] = desc
 	}
@@ -210,17 +214,11 @@ func (self *SAzureClient) CreateGroup(name, desc string) (*SCloudgroup, error) {
 }
 
 func (self *SAzureClient) RemoveGroupUser(id, userName string) error {
-	users, err := self.GetCloudusers(userName)
+	user, err := self.GetClouduser(userName)
 	if err != nil {
 		return errors.Wrapf(err, "GetCloudusers(%s)", userName)
 	}
-	if len(users) == 0 {
-		return nil
-	}
-	if len(users) > 1 {
-		return cloudprovider.ErrDuplicateId
-	}
-	return self.gdel(fmt.Sprintf("%s/groups/%s/$links/members/%s", self.tenantId, id, users[0].ObjectId))
+	return self.gdel(fmt.Sprintf("/groups/%s/members/%s/$ref", id, user.Id))
 }
 
 func (self *SAzureClient) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
@@ -233,23 +231,13 @@ func (self *SAzureClient) CreateICloudgroup(name, desc string) (cloudprovider.IC
 }
 
 func (self *SAzureClient) AddGroupUser(id, userName string) error {
-	users, err := self.GetCloudusers(userName)
+	user, err := self.GetClouduser(userName)
 	if err != nil {
 		return errors.Wrapf(err, "GetCloudusers(%s)", userName)
 	}
-	if len(users) == 0 {
-		return nil
-	}
-	if len(users) > 1 {
-		return cloudprovider.ErrDuplicateId
-	}
-	cli, err := self.getGraphClient()
-	if err != nil {
-		return errors.Wrapf(err, "getGraphClient")
-	}
-	resource := fmt.Sprintf("groups/%s/$links/members", id)
+	resource := fmt.Sprintf("groups/%s/members/$ref", id)
 	params := map[string]string{
-		"url": fmt.Sprintf("%s%s/directoryObjects/%s", cli.domain, self.tenantId, users[0].ObjectId),
+		"@odata.id": fmt.Sprintf("https://graph.microsoft.com/v1.0/directoryObjects/%s", user.Id),
 	}
 	err = self.gcreate(resource, jsonutils.Marshal(params), nil)
 	if err != nil && !strings.Contains(err.Error(), "One or more added object references already exist for the following modified properties") {

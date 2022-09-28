@@ -40,7 +40,7 @@ type SClouduser struct {
 
 	OdataType                        string `json:"odata.type"`
 	ObjectType                       string
-	ObjectId                         string
+	Id                               string
 	DeletionTimestamp                string
 	AccountEnabled                   bool
 	AgeGroup                         string
@@ -93,7 +93,7 @@ func (user *SClouduser) GetName() string {
 }
 
 func (user *SClouduser) GetGlobalId() string {
-	return user.ObjectId
+	return user.Id
 }
 
 func (user *SClouduser) GetEmailAddr() string {
@@ -105,9 +105,9 @@ func (user *SClouduser) GetInviteUrl() string {
 }
 
 func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := user.client.GetCloudpolicies(user.ObjectId)
+	policies, err := user.client.GetCloudpolicies(user.Id)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", user.ObjectId)
+		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", user.Id)
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
@@ -119,9 +119,9 @@ func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy,
 }
 
 func (user *SClouduser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := user.client.GetCloudpolicies(user.ObjectId)
+	policies, err := user.client.GetCloudpolicies(user.Id)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", user.ObjectId)
+		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", user.Id)
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
@@ -134,7 +134,7 @@ func (user *SClouduser) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy,
 
 func (user *SClouduser) AttachSystemPolicy(policyId string) error {
 	for _, subscription := range user.client.subscriptions {
-		err := user.client.AssignPolicy(user.ObjectId, policyId, subscription.SubscriptionId)
+		err := user.client.AssignPolicy(user.Id, policyId, subscription.SubscriptionId)
 		if err != nil {
 			return errors.Wrapf(err, "AssignPolicy for subscription %s", subscription.SubscriptionId)
 		}
@@ -144,7 +144,7 @@ func (user *SClouduser) AttachSystemPolicy(policyId string) error {
 
 func (user *SClouduser) AttachCustomPolicy(policyId string) error {
 	for _, subscription := range user.client.subscriptions {
-		err := user.client.AssignPolicy(user.ObjectId, policyId, subscription.SubscriptionId)
+		err := user.client.AssignPolicy(user.Id, policyId, subscription.SubscriptionId)
 		if err != nil {
 			return errors.Wrapf(err, "AssignPolicy for subscription %s", subscription.SubscriptionId)
 		}
@@ -153,9 +153,9 @@ func (user *SClouduser) AttachCustomPolicy(policyId string) error {
 }
 
 func (user *SClouduser) DetachSystemPolicy(policyId string) error {
-	assignments, err := user.client.GetAssignments(user.ObjectId)
+	assignments, err := user.client.GetAssignments(user.Id)
 	if err != nil {
-		return errors.Wrapf(err, "GetAssignments(%s)", user.ObjectId)
+		return errors.Wrapf(err, "GetAssignments(%s)", user.Id)
 	}
 	for _, assignment := range assignments {
 		role, err := user.client.GetRole(assignment.Properties.RoleDefinitionId)
@@ -174,7 +174,7 @@ func (user *SClouduser) DetachCustomPolicy(policyId string) error {
 }
 
 func (user *SClouduser) IsConsoleLogin() bool {
-	return user.AccountEnabled
+	return true
 }
 
 // 需要当前应用有User administrator权限
@@ -183,11 +183,11 @@ func (user *SClouduser) Delete() error {
 }
 
 func (user *SClouduser) ResetPassword(password string) error {
-	return user.client.ResetClouduserPassword(user.ObjectId, password)
+	return user.client.ResetClouduserPassword(user.Id, password)
 }
 
 func (user *SClouduser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
-	groups, err := user.client.GetUserGroups(user.ObjectId)
+	groups, err := user.client.GetUserGroups(user.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetUserGroups")
 	}
@@ -200,9 +200,9 @@ func (user *SClouduser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
 }
 
 func (self *SAzureClient) GetUserGroups(userId string) ([]SCloudgroup, error) {
-	resource := fmt.Sprintf("%s/users/%s/memberOf", self.tenantId, userId)
+	resource := fmt.Sprintf("users/%s/memberOf", userId)
 	groups := []SCloudgroup{}
-	err := self.glist(resource, url.Values{}, groups)
+	err := self.glist(resource, url.Values{}, &groups)
 	return groups, err
 }
 
@@ -218,12 +218,23 @@ func (self *SAzureClient) ResetClouduserPassword(id, password string) error {
 	return err
 }
 
-func (self *SAzureClient) GetCloudusers(name string) ([]SClouduser, error) {
+func (self *SAzureClient) GetClouduser(name string) (*SClouduser, error) {
+	users, err := self.GetCloudusers()
+	if err != nil {
+		return nil, err
+	}
+	for i := range users {
+		if users[i].DisplayName == name || users[i].UserPrincipalName == name {
+			users[i].client = self
+			return &users[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SAzureClient) GetCloudusers() ([]SClouduser, error) {
 	users := []SClouduser{}
 	params := url.Values{}
-	if len(name) > 0 {
-		params.Set("$filter", fmt.Sprintf("userPrincipalName eq '%s'", name))
-	}
 	err := self.glist("users", params, &users)
 	if err != nil {
 		return nil, err
@@ -250,17 +261,11 @@ func (self *SAzureClient) GetICloudusers() ([]cloudprovider.IClouduser, error) {
 }
 
 func (self *SAzureClient) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
-	users, err := self.ListGraphUsers()
+	user, err := self.GetClouduser(name)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCloudusers")
 	}
-	for i := range users {
-		if users[i].GetName() == name || strings.HasPrefix(name+"@", users[i].GetName()) {
-			users[i].client = self
-			return &users[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
+	return user, nil
 }
 
 func (self *SAzureClient) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
@@ -338,4 +343,17 @@ func (self *SAzureClient) CreateClouduser(name, password string) (*SClouduser, e
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (self *SAzureClient) ListGraphUsers() ([]SClouduser, error) {
+	resp, err := self.msGraphRequest("GET", "users", nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "msGraphRequest.users")
+	}
+	users := []SClouduser{}
+	err = resp.Unmarshal(&users, "value")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return users, nil
 }

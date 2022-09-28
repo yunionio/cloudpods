@@ -21,10 +21,9 @@ import (
 
 func init() {
 	type ClouduserListOptions struct {
-		Name string
 	}
 	shellutils.R(&ClouduserListOptions{}, "cloud-user-list", "List cloudusers", func(cli *azure.SRegion, args *ClouduserListOptions) error {
-		users, err := cli.GetClient().GetCloudusers(args.Name)
+		users, err := cli.GetClient().GetCloudusers()
 		if err != nil {
 			return err
 		}

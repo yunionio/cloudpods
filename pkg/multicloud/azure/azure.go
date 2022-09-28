@@ -340,10 +340,10 @@ func (self *SAzureClient) get(resourceId string, params url.Values, retVal inter
 }
 
 func (self *SAzureClient) gcreate(resource string, body jsonutils.JSONObject, retVal interface{}) error {
-	path := fmt.Sprintf("%s/%s", self.tenantId, resource)
-	result, err := self.gjsonRequest("POST", path, body, url.Values{})
+	path := resource
+	result, err := self.msGraphRequest("POST", path, body)
 	if err != nil {
-		return errors.Wrapf(err, "gjsonRequest")
+		return errors.Wrapf(err, "msGraphRequest")
 	}
 	if retVal != nil {
 		return result.Unmarshal(retVal)
@@ -367,8 +367,11 @@ func (self *SAzureClient) glist(resource string, params url.Values, retVal inter
 }
 
 func (self *SAzureClient) _glist(resource string, params url.Values, retVal interface{}) error {
-	path := fmt.Sprintf("%s/%s", self.tenantId, resource)
-	body, err := self.gjsonRequest("GET", path, nil, params)
+	path := resource
+	if len(params) > 0 {
+		path = fmt.Sprintf("%s?%s", path, params.Encode())
+	}
+	body, err := self.msGraphRequest("GET", path, nil)
 	if err != nil {
 		return err
 	}
@@ -596,7 +599,7 @@ func (self *SAzureClient) GDelete(resourceId string) error {
 }
 
 func (self *SAzureClient) gdel(resourceId string) error {
-	_, err := self.gjsonRequest("DELETE", resourceId, nil, url.Values{})
+	_, err := self.msGraphRequest("DELETE", resourceId, nil)
 	if err != nil {
 		return errors.Wrapf(err, "gdel(%s)", resourceId)
 	}
@@ -1108,19 +1111,6 @@ func (self *SAzureClient) msGraphClient() *http.Client {
 		Scopes:   []string{"https://graph.microsoft.com/.default"},
 	}
 	return conf.Client(context.TODO())
-}
-
-func (self *SAzureClient) ListGraphUsers() ([]SClouduser, error) {
-	resp, err := self.msGraphRequest("GET", "users", nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "msGraphRequest.users")
-	}
-	users := []SClouduser{}
-	err = resp.Unmarshal(&users, "value")
-	if err != nil {
-		return nil, errors.Wrapf(err, "resp.Unmarshal")
-	}
-	return users, nil
 }
 
 func (self *SAzureClient) msGraphRequest(method string, resource string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
