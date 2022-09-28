@@ -16,7 +16,6 @@ package compute
 
 import (
 	"net/http"
-	"strings"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
@@ -79,11 +78,6 @@ func (self BucketDetails) GetMetricTags() map[string]string {
 		"tenant":         self.Project,
 		"tenant_id":      self.ProjectId,
 		"external_id":    self.ExternalId,
-	}
-	for k, v := range self.Metadata {
-		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
-			ret[k] = v
-		}
 	}
 	return ret
 }

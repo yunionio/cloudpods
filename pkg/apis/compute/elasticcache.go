@@ -15,7 +15,6 @@
 package compute
 
 import (
-	"strings"
 	"time"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -57,11 +56,6 @@ func (self ElasticcacheDetails) GetMetricTags() map[string]string {
 		"domain_id":      self.DomainId,
 		"project_domain": self.ProjectDomain,
 		"external_id":    self.ExternalId,
-	}
-	for k, v := range self.Metadata {
-		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
-			ret[k] = v
-		}
 	}
 	return ret
 }
