@@ -62,6 +62,7 @@ func init() {
 	db.InitManager(func() {
 		UserManager.TableSpec().ColumnSpec("lang").SetDefault(options.Options.DefaultUserLanguage)
 	})
+	notifyclient.AddNotifyDBHookResources(UserManager.KeywordPlural())
 }
 
 /*
@@ -230,7 +231,7 @@ func (manager *SUserManager) initSysUser(ctx context.Context) error {
 }
 
 /*
- Fetch extended userinfo by Id or name + domainId or name + domainName
+Fetch extended userinfo by Id or name + domainId or name + domainName
 */
 func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domainName string) (*api.SUserExtended, error) {
 	if len(userId) == 0 && len(userName) == 0 {
@@ -770,10 +771,6 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			log.Errorf("unable to clear failed auth: %v", err)
 		}
 	}
-	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-		Obj:    user,
-		Action: notifyclient.ActionUpdate,
-	})
 }
 
 func (user *SUser) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {

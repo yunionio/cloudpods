@@ -17,6 +17,7 @@ package notifyclient
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -36,10 +37,30 @@ var (
 
 	notifyAdminUsers  []string
 	notifyAdminGroups []string
+
+	notifyDBHookResources sync.Map
 )
 
 func init() {
 	notifyClientWorkerMan = appsrv.NewWorkerManager("NotifyClientWorkerManager", 1, 50, false)
+
+	// set db notify hook
+	db.SetUpdateNotifyHook(func(ctx context.Context, userCred mcclient.TokenCredential, obj db.IModel) {
+		_, ok := notifyDBHookResources.Load(obj.KeywordPlural())
+		if !ok {
+			return
+		}
+		EventNotify(ctx, userCred, SEventNotifyParam{
+			Obj:    obj,
+			Action: ActionUpdate,
+		})
+	})
+}
+
+func AddNotifyDBHookResources(keywordPlurals ...string) {
+	for _, kp := range keywordPlurals {
+		notifyDBHookResources.Store(kp, true)
+	}
 }
 
 func NotifyWithCtx(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
