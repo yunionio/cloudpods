@@ -158,6 +158,7 @@ func (self StorageDetails) GetMetricTags() map[string]string {
 		"brand":          self.Brand,
 		"domain_id":      self.DomainId,
 		"project_domain": self.ProjectDomain,
+		"external_id":    self.ExternalId,
 	}
 	for k, v := range self.Metadata {
 		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
