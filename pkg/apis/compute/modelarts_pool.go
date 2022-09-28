@@ -63,6 +63,7 @@ func (self ModelartsPoolDetails) GetMetricTags() map[string]string {
 		"domain_id":           self.DomainId,
 		"account_id":          self.AccountId,
 		"account":             self.Account,
+		"external_id":         self.ExternalId,
 	}
 	return ret
 }
