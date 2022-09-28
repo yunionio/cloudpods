@@ -979,29 +979,27 @@ func getResourceGroup(id string) string {
 		}
 	}
 	if idx > 0 && idx < len(info)-1 {
-		return info[idx]
+		return fmt.Sprintf("%s/%s", info[1], info[idx])
 	}
 	return ""
 }
 
 func (self *SAzureClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	subscriptionId := self.subscriptionId
-	groups := map[string]*SResourceGroup{}
+	groups := []SResourceGroup{}
 	for _, sub := range self.subscriptions {
 		self.subscriptionId = sub.SubscriptionId
 		resourceGroups, err := self.ListResourceGroups()
 		if err != nil {
 			return nil, errors.Wrapf(err, "ListResourceGroups")
 		}
-		for i := range resourceGroups {
-			groups[strings.ToLower(resourceGroups[i].Name)] = &resourceGroups[i]
-		}
+		groups = append(groups, resourceGroups...)
 	}
 	self.subscriptionId = subscriptionId
 	iprojects := []cloudprovider.ICloudProject{}
-	for _, group := range groups {
-		group.client = self
-		iprojects = append(iprojects, group)
+	for i := range groups {
+		groups[i].client = self
+		iprojects = append(iprojects, &groups[i])
 	}
 	return iprojects, nil
 }
