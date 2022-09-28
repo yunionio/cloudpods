@@ -46,7 +46,7 @@ func (o *SimpleQueryOptions) Params() (jsonutils.JSONObject, error) {
 		}
 	}
 	if len(tags) > 0 {
-		ret.Set("tags", jsonutils.Marshal(tags))
+		ret.Set("tag_pairs", jsonutils.Marshal(tags))
 	}
 	return ret, nil
 }

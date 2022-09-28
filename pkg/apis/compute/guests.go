@@ -287,6 +287,7 @@ func (self ServerDetails) GetMetricTags() map[string]string {
 		"project_domain":      self.ProjectDomain,
 		"account":             self.Account,
 		"account_id":          self.AccountId,
+		"external_id":         self.ExternalId,
 	}
 	for k, v := range self.Metadata {
 		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
