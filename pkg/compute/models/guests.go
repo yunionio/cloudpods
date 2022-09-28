@@ -101,6 +101,7 @@ func init() {
 	GuestManager.SetVirtualObject(GuestManager)
 	GuestManager.SetAlias("guest", "guests")
 	GuestManager.NameRequireAscii = false
+	notifyclient.AddNotifyDBHookResources(GuestManager.KeywordPlural(), GuestManager.AliasPlural())
 }
 
 type SGuest struct {
@@ -1888,10 +1889,6 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 			log.Errorf("unable to set sshport for guest %s", self.GetId())
 		}
 	}
-	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-		Obj:    self,
-		Action: notifyclient.ActionUpdate,
-	})
 }
 
 func (manager *SGuestManager) checkCreateQuota(
@@ -2594,7 +2591,7 @@ func (self *SGuest) getAdminSecgroupName() string {
 	return ""
 }
 
-//获取多个安全组规则，优先级降序排序
+// 获取多个安全组规则，优先级降序排序
 func (self *SGuest) getSecurityGroupsRules() string {
 	secgroups, _ := self.GetSecgroups()
 	secgroupids := []string{}
@@ -3038,7 +3035,7 @@ func (self *SGuest) GetOSProfile() osprofile.SOSProfile {
 
 // Summary of network address allocation strategy
 //
-// IpAddr when specified must be part of the network
+// # IpAddr when specified must be part of the network
 //
 // Use IpAddr without checking if it's already allocated when UseDesignatedIP
 // is true.  See b31bc7fa ("feature: 1. baremetal server reuse host ip...")
