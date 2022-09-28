@@ -65,6 +65,7 @@ func (self KubeClusterDetails) GetMetricTags() map[string]string {
 		"project_domain": self.ProjectDomain,
 		"account":        self.Account,
 		"account_id":     self.AccountId,
+		"external_id":    self.ExternalId,
 	}
 	return ret
 }

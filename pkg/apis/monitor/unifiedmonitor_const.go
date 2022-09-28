@@ -99,7 +99,7 @@ type SimpleQueryInput struct {
 	// 结束时间
 	EndTime time.Time `json:"end_time"`
 	// 指定标签
-	Tags map[string]string `json:"tags"`
+	Tags map[string]string `json:"tag_pairs"`
 }
 
 type SimpleQueryOutput struct {

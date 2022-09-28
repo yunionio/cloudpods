@@ -340,6 +340,7 @@ func (self DBInstanceDetails) GetMetricTags() map[string]string {
 		"brand":          self.Brand,
 		"domain_id":      self.DomainId,
 		"project_domain": self.ProjectDomain,
+		"external_id":    self.ExternalId,
 	}
 	if len(self.IpAddrs) > 0 {
 		ret["rds_ip"] = strings.ReplaceAll(self.IpAddrs, ",", "|")
