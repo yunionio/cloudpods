@@ -776,7 +776,7 @@ func (self *SKVMGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models
 		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
 	}
 	if utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
-		if *input.MaxBandwidthMb < 50 {
+		if input.MaxBandwidthMb != nil && *input.MaxBandwidthMb < 50 {
 			return httperrors.NewBadRequestError("max bandwidth must gratethan 100M")
 		}
 		cdrom := guest.GetCdrom()
