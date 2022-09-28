@@ -17,7 +17,6 @@ package compute
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
@@ -327,11 +326,6 @@ func (self CloudaccountDetail) GetMetricTags() map[string]string {
 		"brand":             self.Brand,
 		"domain_id":         self.DomainId,
 		"project_domain":    self.ProjectDomain,
-	}
-	for k, v := range self.Metadata {
-		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
-			ret[k] = v
-		}
 	}
 	return ret
 }

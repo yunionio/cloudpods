@@ -16,7 +16,6 @@ package compute
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -288,11 +287,6 @@ func (self ServerDetails) GetMetricTags() map[string]string {
 		"account":             self.Account,
 		"account_id":          self.AccountId,
 		"external_id":         self.ExternalId,
-	}
-	for k, v := range self.Metadata {
-		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
-			ret[k] = v
-		}
 	}
 	return ret
 }

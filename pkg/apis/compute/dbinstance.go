@@ -345,11 +345,6 @@ func (self DBInstanceDetails) GetMetricTags() map[string]string {
 	if len(self.IpAddrs) > 0 {
 		ret["rds_ip"] = strings.ReplaceAll(self.IpAddrs, ",", "|")
 	}
-	for k, v := range self.Metadata {
-		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
-			ret[k] = v
-		}
-	}
 	return ret
 }
 
