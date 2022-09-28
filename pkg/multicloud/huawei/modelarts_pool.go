@@ -144,7 +144,7 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 			"resources": []map[string]interface{}{
 				{
 					"flavor": args.InstanceType,
-					"count":  1,
+					"count":  args.NodeCount,
 				},
 			},
 		},
@@ -347,4 +347,11 @@ func (self *SModelartsPool) GetInstanceType() string {
 
 func (self *SModelartsPool) GetWorkType() string {
 	return strings.Join(self.Spec.Scope, ",")
+}
+
+func (self *SModelartsPool) GetNodeCount() int {
+	if len(self.Spec.Resource) < 1 {
+		return 0
+	}
+	return self.Spec.Resource[0].Count
 }
