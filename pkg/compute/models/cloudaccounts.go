@@ -2639,7 +2639,7 @@ func (account *SCloudaccount) GetUsages() []db.IUsage {
 	}
 }
 
-func (self *SCloudaccount) GetAvailableExternalProject(local *db.STenant, projects []SExternalProject) *SExternalProject {
+func GetAvailableExternalProject(local *db.STenant, projects []SExternalProject) *SExternalProject {
 	var ret *SExternalProject = nil
 	for i := 0; i < len(projects); i++ {
 		if projects[i].Status == api.EXTERNAL_PROJECT_STATUS_AVAILABLE {
@@ -2680,7 +2680,7 @@ func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.To
 		return "", errors.Wrapf(err, "GetExternalProjectsByProjectIdOrName(%s,%s)", projectId, project.Name)
 	}
 
-	extProj := self.GetAvailableExternalProject(project, projects)
+	extProj := GetAvailableExternalProject(project, projects)
 	if extProj != nil {
 		return extProj.ExternalId, nil
 	}

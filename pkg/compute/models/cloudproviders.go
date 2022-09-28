@@ -1839,11 +1839,99 @@ func (provider *SCloudprovider) GetChangeOwnerCandidateDomainIds() []string {
 }
 
 func (self *SCloudprovider) SyncProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (string, error) {
+	if self.Provider == api.CLOUD_PROVIDER_AZURE {
+		return self.SyncAzureProject(ctx, userCred, id)
+	}
 	account, err := self.GetCloudaccount()
 	if err != nil {
 		return "", errors.Wrapf(err, "GetCloudaccount")
 	}
 	return account.SyncProject(ctx, userCred, id)
+}
+
+func (self *SCloudprovider) GetExternalProjectsByProjectIdOrName(projectId, name string) ([]SExternalProject, error) {
+	projects := []SExternalProject{}
+	q := ExternalProjectManager.Query().Equals("manager_id", self.Id)
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.Equals(q.Field("name"), name),
+			sqlchemy.Equals(q.Field("tenant_id"), projectId),
+		),
+	)
+	err := db.FetchModelObjects(ExternalProjectManager, q, &projects)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return projects, nil
+}
+
+func (self *SCloudprovider) SyncAzureProject(ctx context.Context, userCred mcclient.TokenCredential, id string) (string, error) {
+	lockman.LockRawObject(ctx, "projects", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "projects", self.Id)
+
+	account, err := self.GetCloudaccount()
+	if err != nil {
+		return "", errors.Wrapf(err, "GetCloudaccount")
+	}
+
+	provider, err := self.GetProvider(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "GetProvider")
+	}
+
+	project, err := db.TenantCacheManager.FetchTenantById(ctx, id)
+	if err != nil {
+		return "", errors.Wrapf(err, "FetchTenantById(%s)", id)
+	}
+
+	projects, err := self.GetExternalProjectsByProjectIdOrName(id, project.Name)
+	if err != nil {
+		return "", errors.Wrapf(err, "GetExternalProjectsByProjectIdOrName(%s,%s)", id, project.Name)
+	}
+
+	extProj := GetAvailableExternalProject(project, projects)
+	if extProj != nil {
+		return extProj.ExternalId, nil
+	}
+
+	retry := 1
+	if len(projects) > 0 {
+		retry = 10
+	}
+
+	var iProject cloudprovider.ICloudProject = nil
+	projectName := project.Name
+	for i := 0; i < retry; i++ {
+		iProject, err = provider.CreateIProject(projectName)
+		if err == nil {
+			break
+		}
+		projectName = fmt.Sprintf("%s-%d", project.Name, i)
+	}
+	if err != nil {
+		if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+			logclient.AddSimpleActionLog(self, logclient.ACT_CREATE, err, userCred, false)
+		}
+		return "", errors.Wrapf(err, "CreateIProject(%s)", projectName)
+	}
+
+	extProj, err = ExternalProjectManager.newFromCloudProject(ctx, userCred, account, project, iProject)
+	if err != nil {
+		return "", errors.Wrap(err, "newFromCloudProject")
+	}
+
+	db.Update(extProj, func() error {
+		extProj.ManagerId = self.Id
+		return nil
+	})
+
+	idx := strings.Index(extProj.ExternalId, "/")
+	if idx > -1 {
+		return extProj.ExternalId[idx+1:], nil
+	}
+
+	return extProj.ExternalId, nil
+
 }
 
 func (self *SCloudprovider) GetSchedtags() []SSchedtag {

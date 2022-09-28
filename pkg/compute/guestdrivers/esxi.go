@@ -418,7 +418,7 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 			return errors.Wrapf(err, "GetExternalProjectsByProjectIdOrName(%s,%s)", project.Id, project.Name)
 		}
 
-		extProj := account.GetAvailableExternalProject(project, projects)
+		extProj := models.GetAvailableExternalProject(project, projects)
 		if extProj != nil {
 			config.Add(jsonutils.NewString(extProj.Name), "desc", "resource_pool")
 		} else {

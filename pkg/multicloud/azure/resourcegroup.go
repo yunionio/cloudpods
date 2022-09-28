@@ -42,21 +42,21 @@ type SResourceGroup struct {
 }
 
 func (self *SRegion) GetResourceGroupDetail(groupName string) (*SResourceGroup, error) {
-	resourceGroup := SResourceGroup{}
+	resourceGroup := SResourceGroup{client: self.client, subId: self.client._subscriptionId()}
 	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.client._subscriptionId(), groupName)
 	return &resourceGroup, self.get(idStr, url.Values{}, &resourceGroup)
 }
 
 // not support update, resource group name is immutable???
 func (self *SRegion) UpdateResourceGroup(groupName string, newName string) error {
-	resourceGroup := SResourceGroup{Name: newName}
+	resourceGroup := SResourceGroup{Name: newName, client: self.client, subId: self.client._subscriptionId()}
 	resource := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.client.subscriptionId, groupName)
 	_, err := self.client.patch(resource, jsonutils.Marshal(&resourceGroup))
 	return err
 }
 
 func (self *SRegion) CreateResourceGroup(groupName string) (jsonutils.JSONObject, error) {
-	resourceGroup := SResourceGroup{Location: self.Name}
+	resourceGroup := SResourceGroup{Location: self.Name, client: self.client, subId: self.client._subscriptionId()}
 	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.client._subscriptionId(), groupName)
 	return self.client.put(idStr, jsonutils.Marshal(resourceGroup))
 }
@@ -75,7 +75,7 @@ func (r *SResourceGroup) GetId() string {
 }
 
 func (r *SResourceGroup) GetGlobalId() string {
-	return strings.ToLower(r.Name)
+	return strings.ToLower(fmt.Sprintf("%s/%s", r.subId, r.Name))
 }
 
 func (r *SResourceGroup) GetStatus() string {
