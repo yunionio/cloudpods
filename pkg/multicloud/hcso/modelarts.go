@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -73,9 +74,22 @@ type SModelartsPoolResource struct {
 	cloudprovider.Azs
 }
 
+type SNodeStatus struct {
+	Creating  []SNodeFlavor `json:"creating"`
+	Available []SNodeFlavor `json:"available"`
+	Abnormal  []SNodeFlavor `json:"abnormal"`
+	Deleting  []SNodeFlavor `json:"deleting"`
+}
+
+type SNodeFlavor struct {
+	Flavor string `json:"flavor"`
+	Count  int    `json:"count"`
+}
+
 type SModelartsPoolStatus struct {
-	Phase   string `json:"phase"`
-	Message string `json:"message"`
+	Phase    string      `json:"phase"`
+	Message  string      `json:"message"`
+	Resource SNodeStatus `json:"resources"`
 }
 
 type SModelartsPoolNetwork struct {
@@ -107,7 +121,6 @@ func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, 
 }
 
 func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
-
 	netObj, err := self.client.modelartsPoolNetworkList(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.GetPools")
@@ -273,7 +286,12 @@ func (self *SModelartsPool) GetName() string {
 }
 
 func (self *SModelartsPool) GetStatus() string {
-	return strings.ToLower(self.Status.Phase)
+	res := strings.ToLower(self.Status.Phase)
+	switch {
+	case res == compute.MODELARTS_POOL_STATUS_RUNNING && len(self.Status.Resource.Creating) != 0:
+		res = compute.MODELARTS_POOL_STATUS_CREATING
+	}
+	return res
 }
 
 func (self *SModelartsPool) GetSysTags() map[string]string {

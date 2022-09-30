@@ -70,4 +70,13 @@ func init() {
 		printList(res.Metrics, len(res.Metrics), 0, 0, nil)
 		return nil
 	})
+
+	shellutils.R(&ModelartsPoolListOption{}, "modelarts-pool-by-id", "Modelarts Pool By Id", func(cli *huawei.SRegion, args *ModelartsPoolListOption) error {
+		res, err := cli.GetIModelartsPoolById(args.PoolId)
+		if err != nil {
+			return err
+		}
+		printObject(res)
+		return nil
+	})
 }
