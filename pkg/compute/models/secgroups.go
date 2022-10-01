@@ -690,11 +690,15 @@ func (self *SSecurityGroup) GetSecuritRuleSet() (cloudprovider.SecurityRuleSet, 
 		if err != nil {
 			return nil, errors.Wrapf(err, "toRule")
 		}
-		ruleSet = append(ruleSet, cloudprovider.SecurityRule{SecurityRule: *rule, ExternalId: rules[i].Id})
+		ruleSet = append(ruleSet, cloudprovider.SecurityRule{
+			SecurityRule: *rule,
+			ExternalId:   rules[i].Id,
+		})
 	}
 	return ruleSet, nil
 }
 
+/*
 func (self *SSecurityGroup) GetSecRules() ([]secrules.SecurityRule, error) {
 	rules := make([]secrules.SecurityRule, 0)
 	_rules, err := self.getSecurityRules()
@@ -711,6 +715,7 @@ func (self *SSecurityGroup) GetSecRules() ([]secrules.SecurityRule, error) {
 	}
 	return rules, nil
 }
+*/
 
 func (self *SSecurityGroup) getSecurityRuleString() (string, error) {
 	secgrouprules, err := self.getSecurityRules()
@@ -777,7 +782,28 @@ func (self *SSecurityGroup) PerformCacheSecgroup(ctx context.Context, userCred m
 		return nil, httperrors.NewInputParameterError("Not support cache classic security group")
 	}
 
+	hasPeerSg, err := self.HasPeerSecgroup()
+	if err != nil {
+		return nil, errors.Wrap(err, "HasPeerSecgroup")
+	}
+	if hasPeerSg && !region.GetDriver().IsSupportPeerSecgroup() {
+		return nil, httperrors.NewConflictError("target region not support peer secgroup")
+	}
+
 	return nil, self.StartSecurityGroupCacheTask(ctx, userCred, vpc.Id, classic, "")
+}
+
+func (sg *SSecurityGroup) HasPeerSecgroup() (bool, error) {
+	rules, err := sg.getSecurityRules()
+	if err != nil {
+		return false, errors.Wrap(err, "GetSecRules")
+	}
+	for _, r := range rules {
+		if len(r.PeerSecgroupId) > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (self *SSecurityGroup) StartSecurityGroupCacheTask(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, classic bool, parentTaskId string) error {
@@ -953,16 +979,18 @@ func (self *SSecurityGroup) PerformMerge(ctx context.Context, userCred mcclient.
 }
 
 func (self *SSecurityGroup) GetAllowList() (secrules.SecurityRuleSet, secrules.SecurityRuleSet, error) {
-	in, out := secrules.SecurityRuleSet{*secrules.MustParseSecurityRule("in:deny any")}, secrules.SecurityRuleSet{*secrules.MustParseSecurityRule("out:allow any")}
-	rules, err := self.GetSecRules()
+	in := secrules.SecurityRuleSet{*secrules.MustParseSecurityRule("in:deny any")}
+	out := secrules.SecurityRuleSet{*secrules.MustParseSecurityRule("out:allow any")}
+	rules, err := self.getSecurityRules()
 	if err != nil {
 		return in, out, errors.Wrapf(err, "GetSecRules")
 	}
 	for i := range rules {
+		r, _ := rules[i].toRule()
 		if rules[i].Direction == secrules.DIR_IN {
-			in = append(in, rules[i])
+			in = append(in, *r)
 		} else {
-			in = append(in, rules[i])
+			out = append(out, *r)
 		}
 	}
 	return in.AllowList(), out.AllowList(), nil
