@@ -80,15 +80,15 @@ require (
 	github.com/vmware/govmomi v0.20.1
 	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
-	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
+	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
+	golang.org/x/net v0.0.0-20220418201149-a630d4f3e7a2
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261
 	golang.org/x/text v0.3.7
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220916014741-473347a5e6e3
 	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/fatih/set.v0 v0.2.1
@@ -174,7 +174,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
 	github.com/google/btree v1.0.0 // indirect
-	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
@@ -243,7 +242,7 @@ require (
 	go.uber.org/zap v1.17.0 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/tools v0.1.2 // indirect
 	google.golang.org/api v0.30.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
