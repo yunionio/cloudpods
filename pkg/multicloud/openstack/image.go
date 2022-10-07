@@ -26,7 +26,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -221,6 +220,10 @@ func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	return self.imgInfo
 }
 
+func (image *SImage) GetFullOsName() string {
+	return image.Name
+}
+
 func (image *SImage) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.TOsType(image.getNormalizedImageInfo().OsType)
 }
@@ -230,11 +233,19 @@ func (image *SImage) GetOsDist() string {
 }
 
 func (image *SImage) GetOsVersion() string {
-	return ""
+	return image.getNormalizedImageInfo().OsVersion
 }
 
 func (image *SImage) GetOsArch() string {
-	return apis.OS_ARCH_X86_64
+	return image.getNormalizedImageInfo().OsArch
+}
+
+func (image *SImage) GetOsLang() string {
+	return image.getNormalizedImageInfo().OsLang
+}
+
+func (image *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(image.getNormalizedImageInfo().OsBios)
 }
 
 func (image *SImage) GetMinOsDiskSizeGb() int {
@@ -321,8 +332,4 @@ func (region *SRegion) CreateImage(imageName string, osType string, osDist strin
 		return nil, errors.Wrap(err, "imageUpload")
 	}
 	return image, nil
-}
-
-func (self *SImage) UEFI() bool {
-	return false
 }

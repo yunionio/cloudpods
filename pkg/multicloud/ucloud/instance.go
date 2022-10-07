@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -32,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 type SInstance struct {
@@ -39,6 +39,8 @@ type SInstance struct {
 	multicloud.UcloudTags
 
 	host *SHost
+
+	osInfo *imagetools.ImageInfo
 
 	UHostID            string    `json:"UHostId"`
 	Zone               string    `json:"Zone"`
@@ -351,16 +353,40 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) GetOsType() cloudprovider.TOsType {
-	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.OSType))
+func (ins *SInstance) getNormalizedOsInfo() *imagetools.ImageInfo {
+	if ins.osInfo == nil {
+		osInfo := imagetools.NormalizeImageInfo(ins.OSName, "", ins.OSType, "", "")
+		ins.osInfo = &osInfo
+	}
+	return ins.osInfo
 }
 
-func (self *SInstance) GetOSName() string {
-	return self.OSName
+func (ins *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(ins.getNormalizedOsInfo().OsType)
 }
 
-func (self *SInstance) GetBios() string {
-	return "BIOS"
+func (ins *SInstance) GetFullOsName() string {
+	return ins.OSName
+}
+
+func (ins *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(ins.getNormalizedOsInfo().OsBios)
+}
+
+func (ins *SInstance) GetOsArch() string {
+	return ins.getNormalizedOsInfo().OsArch
+}
+
+func (ins *SInstance) GetOsDist() string {
+	return ins.getNormalizedOsInfo().OsDistro
+}
+
+func (ins *SInstance) GetOsVersion() string {
+	return ins.getNormalizedOsInfo().OsVersion
+}
+
+func (ins *SInstance) GetOsLang() string {
+	return ins.getNormalizedOsInfo().OsLang
 }
 
 func (self *SInstance) GetMachine() string {

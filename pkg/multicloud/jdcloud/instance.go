@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
+	napis "yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -133,16 +134,52 @@ func (i *SInstance) GetOsType() cloudprovider.TOsType {
 	return image.GetOsType()
 }
 
-func (i *SInstance) GetOSName() string {
+func (i *SInstance) GetFullOsName() string {
 	image, err := i.GetImage()
 	if err != nil {
 		return ""
 	}
-	return image.Architecture
+	return image.GetFullOsName()
 }
 
-func (i *SInstance) GetBios() string {
-	return "BIOS"
+func (i *SInstance) GetBios() cloudprovider.TBiosType {
+	image, err := i.GetImage()
+	if err != nil {
+		return cloudprovider.BIOS
+	}
+	return image.GetBios()
+}
+
+func (i *SInstance) GetOsArch() string {
+	image, err := i.GetImage()
+	if err != nil {
+		return napis.OS_ARCH_X86_64
+	}
+	return image.GetOsArch()
+}
+
+func (i *SInstance) GetOsDist() string {
+	image, err := i.GetImage()
+	if err != nil {
+		return ""
+	}
+	return image.GetOsDist()
+}
+
+func (i *SInstance) GetOsVersion() string {
+	image, err := i.GetImage()
+	if err != nil {
+		return ""
+	}
+	return image.GetOsVersion()
+}
+
+func (i *SInstance) GetOsLang() string {
+	image, err := i.GetImage()
+	if err != nil {
+		return ""
+	}
+	return image.GetOsLang()
 }
 
 func (i *SInstance) GetMachine() string {

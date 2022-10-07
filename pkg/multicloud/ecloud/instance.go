@@ -160,16 +160,52 @@ func (i *SInstance) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.TOsType(i.ImageOsType)
 }
 
-func (i *SInstance) GetOSName() string {
+func (i *SInstance) GetFullOsName() string {
 	image, err := i.GetImage()
 	if err != nil {
 		return ""
 	}
-	return image.OsName
+	return image.GetFullOsName()
 }
 
-func (i *SInstance) GetBios() string {
-	return "BIOS"
+func (i *SInstance) GetBios() cloudprovider.TBiosType {
+	image, err := i.GetImage()
+	if err != nil {
+		return cloudprovider.BIOS
+	}
+	return image.GetBios()
+}
+
+func (i *SInstance) GetOsArch() string {
+	image, err := i.GetImage()
+	if err != nil {
+		return ""
+	}
+	return image.GetOsArch()
+}
+
+func (i *SInstance) GetOsDist() string {
+	image, err := i.GetImage()
+	if err != nil {
+		return ""
+	}
+	return image.GetOsDist()
+}
+
+func (i *SInstance) GetOsVersion() string {
+	image, err := i.GetImage()
+	if err != nil {
+		return ""
+	}
+	return image.GetOsVersion()
+}
+
+func (i *SInstance) GetOsLang() string {
+	image, err := i.GetImage()
+	if err != nil {
+		return ""
+	}
+	return image.GetOsLang()
 }
 
 func (i *SInstance) GetMachine() string {

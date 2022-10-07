@@ -315,24 +315,64 @@ func (self *SInstance) GetImage() (*SImage, error) {
 func (self *SInstance) GetOsType() cloudprovider.TOsType {
 	image, err := self.GetImage()
 	if err != nil {
+		log.Errorf("SInstance.Image %s", err)
 		return cloudprovider.OsTypeLinux
 	}
-
-	return cloudprovider.TOsType(image.OSType)
+	return image.GetOsType()
 }
 
-func (self *SInstance) GetOSName() string {
+func (self *SInstance) GetFullOsName() string {
 	image, err := self.GetImage()
 	if err != nil {
-		log.Errorf("SInstance.GetOSName %s", err)
+		log.Errorf("SInstance.Image %s", err)
 		return ""
 	}
-
-	return image.Name
+	return image.GetFullOsName()
 }
 
-func (self *SInstance) GetBios() string {
-	return "BIOS"
+func (self *SInstance) GetBios() cloudprovider.TBiosType {
+	image, err := self.GetImage()
+	if err != nil {
+		log.Errorf("SInstance.Image %s", err)
+		return cloudprovider.BIOS
+	}
+	return image.GetBios()
+}
+
+func (self *SInstance) GetOsArch() string {
+	image, err := self.GetImage()
+	if err != nil {
+		log.Errorf("SInstance.Image %s", err)
+		return ""
+	}
+	return image.GetOsArch()
+}
+
+func (self *SInstance) GetOsDist() string {
+	image, err := self.GetImage()
+	if err != nil {
+		log.Errorf("SInstance.Image %s", err)
+		return ""
+	}
+	return image.GetOsDist()
+}
+
+func (self *SInstance) GetOsVersion() string {
+	image, err := self.GetImage()
+	if err != nil {
+		log.Errorf("SInstance.Image %s", err)
+		return ""
+	}
+	return image.GetOsVersion()
+}
+
+func (self *SInstance) GetOsLang() string {
+	image, err := self.GetImage()
+	if err != nil {
+		log.Errorf("SInstance.Image %s", err)
+		return ""
+	}
+	return image.GetOsLang()
 }
 
 func (self *SInstance) GetMachine() string {

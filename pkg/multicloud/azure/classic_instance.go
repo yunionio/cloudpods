@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -341,6 +342,30 @@ func (self *SClassicInstance) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.Properties.StorageProfile.OperatingSystemDisk.OperatingSystem))
 }
 
+func (self *SClassicInstance) GetFullOsName() string {
+	return self.Properties.StorageProfile.OperatingSystemDisk.SourceImageName
+}
+
+func (self *SClassicInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.BIOS
+}
+
+func (sci *SClassicInstance) GetOsArch() string {
+	return apis.OS_ARCH_X86_64
+}
+
+func (sci *SClassicInstance) GetOsVersion() string {
+	return ""
+}
+
+func (sci *SClassicInstance) GetOsDist() string {
+	return ""
+}
+
+func (sci *SClassicInstance) GetOsLang() string {
+	return ""
+}
+
 func (self *SClassicInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	instancenics := make([]cloudprovider.ICloudNic, 0)
 	nics, err := self.getNics()
@@ -352,14 +377,6 @@ func (self *SClassicInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 		instancenics = append(instancenics, &nics[i])
 	}
 	return instancenics, nil
-}
-
-func (self *SClassicInstance) GetOSName() string {
-	return self.Properties.StorageProfile.OperatingSystemDisk.SourceImageName
-}
-
-func (self *SClassicInstance) GetBios() string {
-	return "BIOS"
 }
 
 func (self *SClassicInstance) GetMachine() string {

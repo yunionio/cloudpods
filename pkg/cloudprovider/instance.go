@@ -33,6 +33,22 @@ var (
 	OsTypeWindows = TOsType(osprofile.OS_TYPE_WINDOWS)
 )
 
+type TBiosType string
+
+var (
+	BIOS = TBiosType("BIOS")
+	UEFI = TBiosType("UEFI")
+)
+
+func ToBiosType(bios string) TBiosType {
+	switch strings.ToLower(bios) {
+	case "uefi", "efi":
+		return UEFI
+	default:
+		return BIOS
+	}
+}
+
 type SDistDefaultAccount struct {
 	// 操作系统发行版
 	OsDistribution string

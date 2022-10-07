@@ -38,6 +38,8 @@ type SImage struct {
 
 	cache *SStoragecache
 
+	imageInfo *imagetools.ImageInfo
+
 	UUID                 string `json:"uuid"`
 	Name                 string `json:"name"`
 	Deleted              bool   `json:"deleted"`
@@ -123,24 +125,40 @@ func (self *SImage) GetSizeByte() int64 {
 	return self.VMDiskSize
 }
 
-func (self *SImage) GetOsType() cloudprovider.TOsType {
-	return cloudprovider.TOsType(imagetools.NormalizeImageInfo(self.Name, "x86_64", "", "", "").OsType)
+func (img *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if img.imageInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(img.Name, "", "", "", "")
+		img.imageInfo = &imgInfo
+	}
+	return img.imageInfo
 }
 
-func (self *SImage) GetOsDist() string {
-	return imagetools.NormalizeImageInfo(self.Name, "x86_64", "", "", "").OsDistro
+func (img *SImage) GetFullOsName() string {
+	return img.Name
 }
 
-func (self *SImage) GetOsVersion() string {
-	return imagetools.NormalizeImageInfo(self.Name, "x86_64", "", "", "").OsVersion
+func (ins *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(ins.getNormalizedImageInfo().OsType)
 }
 
-func (self *SImage) UEFI() bool {
-	return false
+func (ins *SImage) GetOsDist() string {
+	return ins.getNormalizedImageInfo().OsDistro
 }
 
-func (self *SImage) GetOsArch() string {
-	return "x86_64"
+func (ins *SImage) GetOsVersion() string {
+	return ins.getNormalizedImageInfo().OsVersion
+}
+
+func (ins *SImage) GetOsLang() string {
+	return ins.getNormalizedImageInfo().OsLang
+}
+
+func (ins *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(ins.getNormalizedImageInfo().OsBios)
+}
+
+func (ins *SImage) GetOsArch() string {
+	return ins.getNormalizedImageInfo().OsArch
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
