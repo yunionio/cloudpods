@@ -166,6 +166,10 @@ func (self *SImage) GetSizeByte() int64 {
 	return int64(self.Properties.StorageProfile.OsDisk.DiskSizeGB) * 1024 * 1024 * 1024
 }
 
+func (i *SImage) GetFullOsName() string {
+	return ""
+}
+
 func (self *SImage) GetOsType() cloudprovider.TOsType {
 	osType := self.Properties.StorageProfile.OsDisk.OsType
 	if len(osType) == 0 {
@@ -190,6 +194,18 @@ func (self *SImage) GetOsDist() string {
 
 func (self *SImage) GetOsVersion() string {
 	return publisherGetOsVersion(self.Publisher, self.Offer, self.Sku, self.Version)
+}
+
+func (self *SImage) GetOsLang() string {
+	return ""
+}
+
+func (i *SImage) GetBios() cloudprovider.TBiosType {
+	if i.Properties.HyperVGeneration == "V2" {
+		return cloudprovider.UEFI
+	} else {
+		return cloudprovider.BIOS
+	}
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
@@ -588,8 +604,4 @@ func (image *SImage) getImageReference() ImageReference {
 			Offer:     image.Offer,
 		}
 	}
-}
-
-func (image *SImage) UEFI() bool {
-	return image.Properties.HyperVGeneration == "V2"
 }

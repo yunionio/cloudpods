@@ -200,8 +200,20 @@ func (image *SImage) GetOsVersion() string {
 	return image.getNormalizedImageInfo().OsVersion
 }
 
+func (image *SImage) GetOsLang() string {
+	return image.getNormalizedImageInfo().OsLang
+}
+
 func (image *SImage) GetOsArch() string {
 	return image.getNormalizedImageInfo().OsArch
+}
+
+func (image *SImage) GetFullOsName() string {
+	return image.Name
+}
+
+func (image *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(image.getNormalizedImageInfo().OsBios)
 }
 
 func (image *SImage) GetMinOsDiskSizeGb() int {
@@ -255,8 +267,4 @@ func (region *SRegion) CreateImage(name string, desc string, bucketName string, 
 		return nil, err
 	}
 	return region.GetImage(fmt.Sprintf("projects/%s/global/images/%s", region.GetProjectId(), name))
-}
-
-func (self *SImage) UEFI() bool {
-	return false
 }

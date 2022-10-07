@@ -106,6 +106,8 @@ type SInstance struct {
 
 	host *SHost
 
+	image *SImage
+
 	ID          string                 `json:"id"`
 	Name        string                 `json:"name"`
 	Addresses   map[string][]IpAddress `json:"addresses"`
@@ -462,14 +464,22 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) GetOSArch() string {
-	if len(self.Image.ID) > 0 {
-		image, err := self.host.zone.region.GetImage(self.Image.ID)
+func (i *SInstance) getImage() *SImage {
+	if i.image == nil && len(i.Image.ID) > 0 {
+		image, err := i.host.zone.region.GetImage(i.Image.ID)
 		if err == nil {
-			return image.GetOsArch()
+			i.image = image
+		} else {
+			log.Debugf("GetOSArch.GetImage %s: %s", i.Image.ID, err)
 		}
+	}
+	return i.image
+}
 
-		log.Debugf("GetOSArch.GetImage %s: %s", self.Image.ID, err)
+func (self *SInstance) GetOsArch() string {
+	img := self.getImage()
+	if img != nil {
+		return img.GetOsArch()
 	}
 
 	t := self.GetInstanceType()
@@ -486,12 +496,40 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.Metadata.OSType))
 }
 
-func (self *SInstance) GetOSName() string {
+func (self *SInstance) GetFullOsName() string {
 	return self.Metadata.ImageName
 }
 
-func (self *SInstance) GetBios() string {
-	return "BIOS"
+func (self *SInstance) GetBios() cloudprovider.TBiosType {
+	img := self.getImage()
+	if img != nil {
+		return img.GetBios()
+	}
+	return cloudprovider.BIOS
+}
+
+func (self *SInstance) GetOsDist() string {
+	img := self.getImage()
+	if img != nil {
+		return img.GetOsDist()
+	}
+	return ""
+}
+
+func (self *SInstance) GetOsVersion() string {
+	img := self.getImage()
+	if img != nil {
+		return img.GetOsVersion()
+	}
+	return ""
+}
+
+func (self *SInstance) GetOsLang() string {
+	img := self.getImage()
+	if img != nil {
+		return img.GetOsLang()
+	}
+	return ""
 }
 
 func (self *SInstance) GetMachine() string {

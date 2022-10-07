@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -111,7 +113,28 @@ func (self *SImage) GetOsArch() string {
 	if ok {
 		return osArch
 	}
-	return self.OsArch
+	return ""
+}
+
+func (self *SImage) GetOsLang() string {
+	osLang, ok := self.Properties["os_language"]
+	if ok {
+		return osLang
+	}
+	return ""
+}
+
+func (self *SImage) GetBios() cloudprovider.TBiosType {
+	uefi, ok := self.Properties["uefi_support"]
+	if ok && utils.ToBool(uefi) {
+		return cloudprovider.UEFI
+	}
+	return cloudprovider.BIOS
+}
+
+func (img *SImage) GetFullOsName() string {
+	imgInfo := imagetools.NormalizeImageInfo("", img.GetOsArch(), string(img.GetOsType()), img.GetOsDist(), img.GetOsVersion())
+	return imgInfo.GetFullOsName()
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
@@ -128,10 +151,6 @@ func (self *SImage) GetImageFormat() string {
 
 func (self *SImage) GetCreatedAt() time.Time {
 	return self.CreatedAt
-}
-
-func (self *SImage) UEFI() bool {
-	return false
 }
 
 func (self *SImage) Refresh() error {

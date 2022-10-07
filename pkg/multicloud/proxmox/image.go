@@ -35,6 +35,8 @@ type SImage struct {
 	multicloud.ProxmoxTags
 	cache *SStoragecache
 
+	imageInfo *imagetools.ImageInfo
+
 	VmId   int
 	Node   string
 	Name   string
@@ -82,27 +84,40 @@ func (self *SImage) GetSizeByte() int64 {
 	return int64(self.SizeGB * 1024 * 1024)
 }
 
-func (self *SImage) GetOsType() cloudprovider.TOsType {
-	if strings.Contains(strings.ToLower(self.Name), "windows") {
-		return cloudprovider.OsTypeWindows
+func (img *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if img.imageInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(img.Name, "", "", "", "")
+		img.imageInfo = &imgInfo
 	}
-	return cloudprovider.OsTypeLinux
+	return img.imageInfo
 }
 
-func (self *SImage) GetOsDist() string {
-	return self.getNormalizedImageInfo().OsDistro
+func (img *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(img.getNormalizedImageInfo().OsType)
 }
 
-func (self *SImage) getNormalizedImageInfo() imagetools.ImageInfo {
-	return imagetools.NormalizeImageInfo(self.Name, "", "linux", "Ubuntu", "14")
+func (img *SImage) GetOsDist() string {
+	return img.getNormalizedImageInfo().OsDistro
 }
 
-func (self *SImage) GetOsVersion() string {
-	return self.getNormalizedImageInfo().OsVersion
+func (img *SImage) GetOsVersion() string {
+	return img.getNormalizedImageInfo().OsVersion
 }
 
-func (self *SImage) GetOsArch() string {
-	return "x86_64"
+func (img *SImage) GetOsArch() string {
+	return img.getNormalizedImageInfo().OsArch
+}
+
+func (img *SImage) GetOsLang() string {
+	return img.getNormalizedImageInfo().OsLang
+}
+
+func (img *SImage) GetFullOsName() string {
+	return img.Name
+}
+
+func (img *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.BIOS
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
@@ -114,10 +129,6 @@ func (self *SImage) GetMinOsDiskSizeGb() int {
 
 func (self *SImage) GetImageFormat() string {
 	return "raw"
-}
-
-func (self *SImage) UEFI() bool {
-	return false
 }
 
 func (self *SRegion) GetImageList() ([]SImage, error) {

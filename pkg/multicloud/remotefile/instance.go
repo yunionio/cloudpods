@@ -19,12 +19,15 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 type SInstance struct {
 	SResourceBase
 
 	host *SHost
+
+	osInfo *imagetools.ImageInfo
 
 	HostId           string
 	Hostname         string
@@ -184,20 +187,40 @@ func (self *SInstance) GetVdi() string {
 	return self.Vdi
 }
 
-func (self *SInstance) GetOSArch() string {
-	return self.OsArch
+func (ins *SInstance) getNormalizedOsInfo() *imagetools.ImageInfo {
+	if ins.osInfo == nil {
+		osInfo := imagetools.NormalizeImageInfo(ins.OsName, ins.OsArch, ins.OsType, "", "")
+		ins.osInfo = &osInfo
+	}
+	return ins.osInfo
 }
 
-func (self *SInstance) GetOsType() cloudprovider.TOsType {
-	return cloudprovider.TOsType(self.OsType)
+func (ins *SInstance) GetOsArch() string {
+	return ins.getNormalizedOsInfo().OsArch
 }
 
-func (self *SInstance) GetOSName() string {
-	return self.OsName
+func (ins *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(ins.getNormalizedOsInfo().OsType)
 }
 
-func (self *SInstance) GetBios() string {
-	return self.Bios
+func (ins *SInstance) GetFullOsName() string {
+	return ins.OsName
+}
+
+func (ins *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(ins.Bios)
+}
+
+func (ins *SInstance) GetOsLang() string {
+	return ins.getNormalizedOsInfo().OsLang
+}
+
+func (ins *SInstance) GetOsDist() string {
+	return ins.getNormalizedOsInfo().OsDistro
+}
+
+func (ins *SInstance) GetOsVersion() string {
+	return ins.getNormalizedOsInfo().OsVersion
 }
 
 func (self *SInstance) GetMachine() string {
