@@ -238,7 +238,6 @@ func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 		imgInfo := imagetools.NormalizeImageInfo("", self.Architecture, self.OSType, self.OSDist, self.OSVersion)
 		self.imgInfo = &imgInfo
 	}
-
 	return self.imgInfo
 }
 
@@ -256,6 +255,18 @@ func (self *SImage) GetOsDist() string {
 
 func (self *SImage) GetOsVersion() string {
 	return self.getNormalizedImageInfo().OsVersion
+}
+
+func (self *SImage) GetOsLang() string {
+	return self.getNormalizedImageInfo().OsLang
+}
+
+func (self *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(self.getNormalizedImageInfo().OsBios)
+}
+
+func (self *SImage) GetFullOsName() string {
+	return self.getNormalizedImageInfo().GetFullOsName()
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
@@ -575,8 +586,4 @@ func (self *SRegion) addTags(resId string, key string, value string) error {
 		return errors.Wrap(err, "CreateTags")
 	}
 	return nil
-}
-
-func (self *SImage) UEFI() bool {
-	return false
 }

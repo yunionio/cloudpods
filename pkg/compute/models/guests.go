@@ -2641,7 +2641,7 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 			}
 		}
 	} else if errors.Cause(err) != cloudprovider.ErrNotFound {
-		return err
+		return errors.Wrap(err, "GetIVMById")
 	}
 
 	if options.SyncPurgeRemovedResources.Contains(self.Keyword()) {
@@ -2694,6 +2694,20 @@ func (guest *SGuest) SyncAllWithCloudVM(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
+func (g *SGuest) syncOsInfo(ctx context.Context, userCred mcclient.TokenCredential, extVM cloudprovider.IOSInfo) error {
+	// save os info
+	osinfo := map[string]interface{}{
+		"os_full_name":    extVM.GetFullOsName(),
+		"os_name":         string(extVM.GetOsType()),
+		"os_arch":         extVM.GetOsArch(),
+		"os_type":         string(extVM.GetOsType()),
+		"os_distribution": extVM.GetOsDist(),
+		"os_version":      extVM.GetOsVersion(),
+		"os_language":     extVM.GetOsLang(),
+	}
+	return g.SetAllMetadata(ctx, osinfo, userCred)
+}
+
 func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, syncStatus bool) error {
 	recycle := false
 
@@ -2719,9 +2733,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.BootOrder = extVM.GetBootOrder()
 		self.Vga = extVM.GetVga()
 		self.Vdi = extVM.GetVdi()
-		self.OsArch = extVM.GetOSArch()
+		self.OsArch = extVM.GetOsArch()
 		self.OsType = string(extVM.GetOsType())
-		self.Bios = extVM.GetBios()
+		self.Bios = string(extVM.GetBios())
 		self.Machine = extVM.GetMachine()
 		if !recycle {
 			self.HostId = host.Id
@@ -2783,6 +2797,8 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		})
 	}
 
+	self.syncOsInfo(ctx, userCred, extVM)
+
 	syncVirtualResourceMetadata(ctx, userCred, self, extVM)
 	SyncCloudProject(userCred, self, syncOwnerId, extVM, host.ManagerId)
 
@@ -2808,9 +2824,9 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.BootOrder = extVM.GetBootOrder()
 	guest.Vga = extVM.GetVga()
 	guest.Vdi = extVM.GetVdi()
-	guest.OsArch = extVM.GetOSArch()
+	guest.OsArch = extVM.GetOsArch()
 	guest.OsType = string(extVM.GetOsType())
-	guest.Bios = extVM.GetBios()
+	guest.Bios = string(extVM.GetBios())
 	guest.Machine = extVM.GetMachine()
 	guest.Hypervisor = extVM.GetHypervisor()
 	guest.Hostname = extVM.GetHostname()
@@ -2883,6 +2899,8 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")
 	}
+
+	guest.syncOsInfo(ctx, userCred, extVM)
 
 	syncVirtualResourceMetadata(ctx, userCred, &guest, extVM)
 	SyncCloudProject(userCred, &guest, syncOwnerId, extVM, host.ManagerId)

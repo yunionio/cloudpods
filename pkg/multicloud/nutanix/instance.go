@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -211,11 +212,11 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SInstance) GetBios() string {
+func (self *SInstance) GetBios() cloudprovider.TBiosType {
 	if self.Boot.UefiBoot {
-		return "UEFI"
+		return cloudprovider.UEFI
 	}
-	return "BIOS"
+	return cloudprovider.BIOS
 }
 
 func (self *SInstance) GetBootOrder() string {
@@ -320,7 +321,7 @@ func (self *SInstance) GetStatus() string {
 	return api.VM_UNKNOWN
 }
 
-func (self *SInstance) GetOSName() string {
+func (self *SInstance) GetFullOsName() string {
 	return ""
 }
 
@@ -329,6 +330,22 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 		return cloudprovider.OsTypeWindows
 	}
 	return cloudprovider.OsTypeLinux
+}
+
+func (ins *SInstance) GetOsDist() string {
+	return ""
+}
+
+func (ins *SInstance) GetOsVersion() string {
+	return ""
+}
+
+func (ins *SInstance) GetOsLang() string {
+	return ""
+}
+
+func (ins *SInstance) GetOsArch() string {
+	return apis.OS_ARCH_X86_64
 }
 
 func (self *SInstance) GetProjectId() string {

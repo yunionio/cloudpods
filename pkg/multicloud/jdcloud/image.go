@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 type SImage struct {
@@ -38,6 +39,9 @@ type SImage struct {
 	multicloud.JdcloudTags
 
 	storageCache *SStoragecache
+
+	imageInfo *imagetools.ImageInfo
+
 	models.Image
 }
 
@@ -84,20 +88,40 @@ func (i *SImage) IsEmulated() bool {
 	return false
 }
 
+func (i *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if i.imageInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(i.Name, i.Architecture, i.OsType, i.Platform, i.OsVersion)
+		i.imageInfo = &imgInfo
+	}
+	return i.imageInfo
+}
+
+func (i *SImage) GetFullOsName() string {
+	return i.Name
+}
+
 func (i *SImage) GetOsType() cloudprovider.TOsType {
-	return cloudprovider.TOsType(i.OsType)
+	return cloudprovider.TOsType(i.getNormalizedImageInfo().OsType)
 }
 
 func (i *SImage) GetOsDist() string {
-	return i.Platform
+	return i.getNormalizedImageInfo().OsDistro
 }
 
 func (i *SImage) GetOsVersion() string {
-	return i.OsVersion
+	return i.getNormalizedImageInfo().OsVersion
+}
+
+func (i *SImage) GetOsLang() string {
+	return i.getNormalizedImageInfo().OsLang
 }
 
 func (i *SImage) GetOsArch() string {
-	return i.Architecture
+	return i.getNormalizedImageInfo().OsArch
+}
+
+func (i *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(i.getNormalizedImageInfo().OsBios)
 }
 
 func (i *SImage) GetMinOsDiskSizeGb() int {
@@ -146,10 +170,6 @@ func (i *SImage) GetImageStatus() string {
 	default:
 		return cloudprovider.IMAGE_STATUS_ACTIVE
 	}
-}
-
-func (i *SImage) UEFI() bool {
-	return false
 }
 
 func (r *SRegion) GetImage(imageId string) (*SImage, error) {
