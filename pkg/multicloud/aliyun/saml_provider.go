@@ -17,6 +17,7 @@ package aliyun
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -157,6 +158,7 @@ func (self *SAliyunClient) UpdateSAMLProvider(name string, metadata string) erro
 }
 
 func (self *SAliyunClient) CreateSAMLProvider(name, metadata, desc string) (*SAMLProvider, error) {
+	name = strings.ReplaceAll(name, ":", "_")
 	params := map[string]string{
 		"EncodedSAMLMetadataDocument": base64.StdEncoding.EncodeToString([]byte(metadata)),
 		"SAMLProviderName":            name,
