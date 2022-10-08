@@ -27,4 +27,5 @@ func init() {
 	cmd.Delete(&options.BaseIdOptions{})
 	cmd.Create(&compute.ModelartsPoolCreateOption{})
 	cmd.Perform("syncstatus", &compute.ModelartsPoolSyncstatusOption{})
+	cmd.Perform("change-config", &compute.ModelartsPoolChangeConfigOption{})
 }
