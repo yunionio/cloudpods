@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -30,6 +31,8 @@ type SImage struct {
 	multicloud.SResourceBase
 	multicloud.BingoTags
 	cache *SStoragecache
+
+	imageInfo *imagetools.ImageInfo
 
 	Architecture       string `json:"architecture"`
 	BlockDeviceMapping string `json:"blockDeviceMapping"`
@@ -102,23 +105,40 @@ func (self *SImage) GetImageStatus() string {
 	return ""
 }
 
-func (self *SImage) GetOsType() cloudprovider.TOsType {
-	if self.Platform == "linux" {
-		return cloudprovider.OsTypeLinux
+func (i *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if i.imageInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(i.OSName, i.Architecture, i.Platform, "", "")
+		i.imageInfo = &imgInfo
 	}
-	return cloudprovider.OsTypeWindows
+	return i.imageInfo
 }
 
-func (self *SImage) GetOsDist() string {
-	return ""
+func (i *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(i.getNormalizedImageInfo().OsType)
 }
 
-func (self *SImage) GetOsVersion() string {
-	return ""
+func (i *SImage) GetFullOsName() string {
+	return i.OSName
 }
 
-func (self *SImage) GetOsArch() string {
-	return self.Architecture
+func (i *SImage) GetOsArch() string {
+	return i.getNormalizedImageInfo().OsArch
+}
+
+func (i *SImage) GetOsDist() string {
+	return i.getNormalizedImageInfo().OsDistro
+}
+
+func (i *SImage) GetOsVersion() string {
+	return i.getNormalizedImageInfo().OsVersion
+}
+
+func (i *SImage) GetOsLang() string {
+	return i.getNormalizedImageInfo().OsLang
+}
+
+func (i *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(i.getNormalizedImageInfo().OsBios)
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {

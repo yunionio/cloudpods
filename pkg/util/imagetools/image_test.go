@@ -22,36 +22,80 @@ func TestNormalizeImageInfo(t *testing.T) {
 		OsDistro  string
 		OsType    string
 		OsVersion string
+		OsLang    string
+		OsArch    string
 	}{
 		{
 			Name:      "rhel67_20180816.qcow2",
 			OsDistro:  "RHEL",
 			OsType:    "linux",
-			OsVersion: "-",
+			OsVersion: "6.7",
+			OsLang:    "",
+			OsArch:    "x86_64",
 		},
 		{
 			Name:      "Ubuntu_16.04.3_amd64_qingcloud_20180817.qcow2",
 			OsDistro:  "Ubuntu",
 			OsType:    "linux",
-			OsVersion: "16",
+			OsVersion: "16.04.3",
+			OsLang:    "",
+			OsArch:    "x86_64",
 		},
 		{
 			Name:      "windows-server-2008-dc-cn-20180717",
-			OsDistro:  "Windows Server 2008",
+			OsDistro:  "Windows Server",
 			OsType:    "windows",
-			OsVersion: "-",
+			OsVersion: "2008",
+			OsLang:    "zh_CN",
+			OsArch:    "x86_64",
 		},
 		{
 			Name:      "Ubuntu  14.04 32位",
 			OsDistro:  "Ubuntu",
 			OsType:    "linux",
-			OsVersion: "14",
+			OsVersion: "14.04",
+			OsLang:    "",
+			OsArch:    "x86_32",
 		},
 		{
 			Name:      "CentOS  7.2 64位",
 			OsDistro:  "CentOS",
 			OsType:    "linux",
-			OsVersion: "7",
+			OsVersion: "7.2",
+			OsLang:    "",
+			OsArch:    "x86_64",
+		},
+		{
+			Name:      "Windows Server 2019 数据中心版 64位 中文版 GRID13",
+			OsDistro:  "Windows Server",
+			OsType:    "windows",
+			OsVersion: "2019",
+			OsLang:    "zh_CN",
+			OsArch:    "x86_64",
+		},
+		{
+			Name:      "CentOS 8.2(arm64)",
+			OsDistro:  "CentOS",
+			OsType:    "linux",
+			OsVersion: "8.2",
+			OsLang:    "",
+			OsArch:    "aarch64",
+		},
+		{
+			Name:      "Ubuntu Server 22.04 LTS 64位",
+			OsDistro:  "Ubuntu Server",
+			OsType:    "linux",
+			OsVersion: "22.04",
+			OsLang:    "",
+			OsArch:    "x86_64",
+		},
+		{
+			Name:      "CentOS Stream 9 64位",
+			OsDistro:  "CentOS Stream",
+			OsType:    "linux",
+			OsVersion: "9",
+			OsLang:    "",
+			OsArch:    "x86_64",
 		},
 	}
 
@@ -65,6 +109,12 @@ func TestNormalizeImageInfo(t *testing.T) {
 		}
 		if info.OsVersion != image.OsVersion {
 			t.Errorf("%s osVersion should be %s, but is %s", image.Name, image.OsVersion, info.OsVersion)
+		}
+		if info.OsLang != image.OsLang {
+			t.Errorf("%s osLang should be %s, but is %s", image.Name, image.OsLang, info.OsLang)
+		}
+		if info.OsArch != image.OsArch {
+			t.Errorf("%s osArch should be %s, but is %s", image.Name, image.OsArch, info.OsArch)
 		}
 	}
 

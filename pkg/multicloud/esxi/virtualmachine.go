@@ -45,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
@@ -78,6 +79,8 @@ type SVirtualMachine struct {
 	snapshots []SVirtualMachineSnapshot
 
 	guestIps map[string]string
+
+	osInfo *imagetools.ImageInfo
 }
 
 type VMFetcher interface {
@@ -359,44 +362,50 @@ func (self *SVirtualMachine) GetGuestToolsRunningStatus() string {
 	return string(moVM.Guest.ToolsRunningStatus)
 }
 
-func (self *SVirtualMachine) GetOsType() cloudprovider.TOsType {
-	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
-		return cloudprovider.TOsType(osInfo.OsType)
+func (vm *SVirtualMachine) getNormalizedOsInfo() *imagetools.ImageInfo {
+	if vm.osInfo == nil {
+		if osInfo, ok := GuestOsInfo[vm.GetGuestId()]; ok {
+			osInfo := imagetools.NormalizeImageInfo("", string(osInfo.OsArch), string(osInfo.OsType), osInfo.OsDistribution, osInfo.OsVersion)
+			vm.osInfo = &osInfo
+		} else {
+			osInfo := imagetools.NormalizeImageInfo("", "", "", "", "")
+			vm.osInfo = &osInfo
+		}
 	}
-	return cloudprovider.OsTypeLinux
+	return vm.osInfo
 }
 
-func (self *SVirtualMachine) GetOSName() string {
-	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
-		return osInfo.OsDistribution
-	}
-	return ""
+func (vm *SVirtualMachine) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(vm.getNormalizedOsInfo().OsType)
 }
 
-func (self *SVirtualMachine) GetOSVersion() string {
-	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
-		return osInfo.OsVersion
-	}
-	return ""
+func (vm *SVirtualMachine) GetFullOsName() string {
+	return vm.getNormalizedOsInfo().GetFullOsName()
 }
 
-func (self *SVirtualMachine) GetOsArch() string {
-	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
-		return string(osInfo.OsArch)
-	}
-	return ""
+func (vm *SVirtualMachine) GetOsDist() string {
+	return vm.getNormalizedOsInfo().OsDistro
 }
 
-func (self *SVirtualMachine) GetOsDistribution() string {
-	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
-		return osInfo.OsDistribution
-	}
-	return ""
+func (vm *SVirtualMachine) GetOsVersion() string {
+	return vm.getNormalizedOsInfo().OsVersion
 }
 
-func (self *SVirtualMachine) GetBios() string {
+func (vm *SVirtualMachine) GetOsLang() string {
+	return vm.getNormalizedOsInfo().OsLang
+}
+
+func (vm *SVirtualMachine) GetOsArch() string {
+	return vm.getNormalizedOsInfo().OsArch
+}
+
+func (vm *SVirtualMachine) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(vm.getBios())
+}
+
+func (vm *SVirtualMachine) getBios() string {
 	// self.obj.config.firmware
-	switch self.getVirtualMachine().Config.Firmware {
+	switch vm.getVirtualMachine().Config.Firmware {
 	case "efi":
 		return "UEFI"
 	case "bios":

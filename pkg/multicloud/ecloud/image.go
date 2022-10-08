@@ -124,20 +124,40 @@ func (i *SImage) IsEmulated() bool {
 	return false
 }
 
-func (i *SImage) GetOsType() cloudprovider.TOsType {
-	return cloudprovider.TOsType(i.OsType)
+func (i *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if i.imgInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(i.OsName, "", i.OsType, "", "")
+		i.imgInfo = &imgInfo
+	}
+	return i.imgInfo
 }
 
-func (i *SImage) GetOsDist() string {
+func (i *SImage) GetFullOsName() string {
 	return i.OsName
 }
 
-func (i *SImage) GetOsVersion() string {
-	return ""
+func (i *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(i.getNormalizedImageInfo().OsType)
 }
 
 func (i *SImage) GetOsArch() string {
-	return ""
+	return i.getNormalizedImageInfo().OsArch
+}
+
+func (i *SImage) GetOsDist() string {
+	return i.getNormalizedImageInfo().OsDistro
+}
+
+func (i *SImage) GetOsVersion() string {
+	return i.getNormalizedImageInfo().OsVersion
+}
+
+func (i *SImage) GetOsLang() string {
+	return i.getNormalizedImageInfo().OsLang
+}
+
+func (i *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(i.getNormalizedImageInfo().OsBios)
 }
 
 func (i *SImage) GetMinOsDiskSizeGb() int {
@@ -173,8 +193,4 @@ func (self *SImage) GetImageType() cloudprovider.TImageType {
 
 func (self *SImage) GetImageStatus() string {
 	return cloudprovider.IMAGE_STATUS_ACTIVE
-}
-
-func (i *SImage) UEFI() bool {
-	return false
 }

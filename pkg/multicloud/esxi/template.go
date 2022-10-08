@@ -63,10 +63,6 @@ func (t *SVMTemplate) GetId() string {
 	return toTemplateId(providerId, t.uuid)
 }
 
-func (t *SVMTemplate) UEFI() bool {
-	return false
-}
-
 func (t *SVMTemplate) GetName() string {
 	return t.vm.GetName()
 }
@@ -146,20 +142,32 @@ func (t *SVMTemplate) GetImageStatus() string {
 	return cloudprovider.IMAGE_STATUS_DELETED
 }
 
+func (t *SVMTemplate) GetBios() cloudprovider.TBiosType {
+	return t.vm.GetBios()
+}
+
 func (t *SVMTemplate) GetOsType() cloudprovider.TOsType {
 	return t.vm.GetOsType()
 }
 
 func (t *SVMTemplate) GetOsDist() string {
-	return t.vm.GetOsDistribution()
+	return t.vm.GetOsDist()
 }
 
 func (t *SVMTemplate) GetOsVersion() string {
-	return t.vm.GetOSVersion()
+	return t.vm.GetOsVersion()
+}
+
+func (t *SVMTemplate) GetOsLang() string {
+	return t.vm.GetOsLang()
 }
 
 func (t *SVMTemplate) GetOsArch() string {
 	return t.vm.GetOsArch()
+}
+
+func (t *SVMTemplate) GetFullOsName() string {
+	return t.vm.GetFullOsName()
 }
 
 func (t *SVMTemplate) GetMinOsDiskSizeGb() int {
