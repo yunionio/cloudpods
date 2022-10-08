@@ -19,10 +19,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/schedtag"
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
 )
 
@@ -34,10 +36,11 @@ type ISchedtagPredicate interface {
 }
 
 type ISchedtagCandidate interface {
+	GetId() string
 	IndexKey() string
 	ResourceType() string
 	// GetSchedtags return schedtags bind to this candidate
-	GetSchedtags() []models.SSchedtag
+	GetSchedtags() []schedtag.ISchedtag
 	// GetDynamicSchedDesc return schedule description used by dynamic schedtags condition eval
 	GetDynamicSchedDesc() *jsonutils.JSONDict
 }
@@ -50,14 +53,14 @@ type SchedtagPredicate struct {
 	checker      *SchedtagChecker
 }
 
-func NewSchedtagPredicate(reqTags []*computeapi.SchedtagConfig, allTags []models.SSchedtag) *SchedtagPredicate {
+func NewSchedtagPredicate(reqTags []*computeapi.SchedtagConfig, allTags []schedtag.ISchedtag) *SchedtagPredicate {
 	p := new(SchedtagPredicate)
 	requireTags, execludeTags, preferTags, avoidTags := GetRequestSchedtags(reqTags, allTags)
 	p.requireTags = requireTags
 	p.execludeTags = execludeTags
 	p.preferTags = preferTags
 	p.avoidTags = avoidTags
-	p.checker = new(SchedtagChecker)
+	p.checker = &SchedtagChecker{}
 	return p
 }
 
@@ -81,12 +84,12 @@ func (p *SchedtagPredicate) Check(candidate ISchedtagCandidate) error {
 	return p.checker.Check(p, candidate)
 }
 
-func GetSchedtagCount(inTags []computeapi.SchedtagConfig, objTags []models.SSchedtag, strategy string) (countMap map[string]int) {
+func GetSchedtagCount(inTags []computeapi.SchedtagConfig, objTags []schedtag.ISchedtag, strategy string) (countMap map[string]int) {
 	countMap = make(map[string]int)
 
-	in := func(objTag models.SSchedtag, inTags []computeapi.SchedtagConfig) (bool, int) {
+	in := func(objTag schedtag.ISchedtag, inTags []computeapi.SchedtagConfig) (bool, int) {
 		for _, tag := range inTags {
-			if tag.Id == objTag.Id || tag.Id == objTag.Name {
+			if tag.Id == objTag.GetId() || tag.Id == objTag.GetName() {
 				return true, tag.Weight
 			}
 		}
@@ -95,7 +98,7 @@ func GetSchedtagCount(inTags []computeapi.SchedtagConfig, objTags []models.SSche
 
 	for _, objTag := range objTags {
 		if ok, weight := in(objTag, inTags); ok {
-			key := fmt.Sprintf("%s:%s:%s", objTag.Id, objTag.Name, strategy)
+			key := fmt.Sprintf("%s:%s:%s", objTag.GetId(), objTag.GetName(), strategy)
 			score, ok := countMap[key]
 			if ok {
 				score += weight
@@ -108,15 +111,7 @@ func GetSchedtagCount(inTags []computeapi.SchedtagConfig, objTags []models.SSche
 	return
 }
 
-func GetAllSchedtags(resType string) ([]models.SSchedtag, error) {
-	tags, err := models.SchedtagManager.GetResourceSchedtags(resType)
-	if err != nil {
-		return nil, err
-	}
-	return tags, nil
-}
-
-func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []models.SSchedtag) (requireTags, execludeTags, preferTags, avoidTags []computeapi.SchedtagConfig) {
+func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []schedtag.ISchedtag) (requireTags, execludeTags, preferTags, avoidTags []computeapi.SchedtagConfig) {
 	requireTags = make([]computeapi.SchedtagConfig, 0)
 	execludeTags = make([]computeapi.SchedtagConfig, 0)
 	preferTags = make([]computeapi.SchedtagConfig, 0)
@@ -126,9 +121,9 @@ func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []models.
 
 	for _, reqTag := range reqTags {
 		for _, dbTag := range allTags {
-			if reqTag.Id == dbTag.Id || reqTag.Id == dbTag.Name {
+			if reqTag.Id == dbTag.GetId() || reqTag.Id == dbTag.GetName() {
 				if reqTag.Strategy == "" {
-					reqTag.Strategy = dbTag.DefaultStrategy
+					reqTag.Strategy = dbTag.GetDefaultStrategy()
 				}
 			}
 		}
@@ -157,11 +152,11 @@ func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []models.
 	}
 
 	for _, tag := range allTags {
-		_, nameOk := appendedTagIds[tag.Name]
-		_, idOk := appendedTagIds[tag.Id]
+		_, nameOk := appendedTagIds[tag.GetName()]
+		_, idOk := appendedTagIds[tag.GetId()]
 
 		if !(nameOk || idOk) {
-			apiTag := &computeapi.SchedtagConfig{Id: tag.Id, Strategy: tag.DefaultStrategy}
+			apiTag := &computeapi.SchedtagConfig{Id: tag.GetId(), Strategy: tag.GetDefaultStrategy()}
 			appendTagByStrategy(apiTag, 1)
 		}
 	}
@@ -169,24 +164,25 @@ func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []models.
 	return
 }
 
-type SchedtagChecker struct{}
+type SchedtagChecker struct {
+}
 
 type apiTags []computeapi.SchedtagConfig
 
-func (t apiTags) contains(objTag models.SSchedtag) bool {
+func (t apiTags) contains(objTag schedtag.ISchedtag) bool {
 	for _, tag := range t {
-		if tag.Id == objTag.Id || tag.Id == objTag.Name {
+		if tag.Id == objTag.GetId() || tag.Id == objTag.GetName() {
 			return true
 		}
 	}
 	return false
 }
 
-type objTags []models.SSchedtag
+type objTags []schedtag.ISchedtag
 
 func (t objTags) contains(atag computeapi.SchedtagConfig) bool {
 	for _, tag := range t {
-		if tag.Id == atag.Id || tag.Name == atag.Id {
+		if tag.GetId() == atag.Id || tag.GetName() == atag.Id {
 			return true
 		}
 	}
@@ -202,17 +198,17 @@ func (c *SchedtagChecker) contains(tags []computeapi.SchedtagConfig, objTag mode
 	return false
 }
 
-func (c *SchedtagChecker) HasIntersection(tags []computeapi.SchedtagConfig, objTags []models.SSchedtag) (bool, *models.SSchedtag) {
+func (c *SchedtagChecker) HasIntersection(tags []computeapi.SchedtagConfig, objTags []schedtag.ISchedtag) (bool, schedtag.ISchedtag) {
 	var atags apiTags = tags
 	for _, objTag := range objTags {
 		if atags.contains(objTag) {
-			return true, &objTag
+			return true, objTag
 		}
 	}
 	return false, nil
 }
 
-func (c *SchedtagChecker) Contains(objectTags []models.SSchedtag, tags []computeapi.SchedtagConfig) (bool, *computeapi.SchedtagConfig) {
+func (c *SchedtagChecker) Contains(objectTags []schedtag.ISchedtag, tags []computeapi.SchedtagConfig) (bool, *computeapi.SchedtagConfig) {
 	var otags objTags = objectTags
 	for _, tag := range tags {
 		if !otags.contains(tag) {
@@ -222,17 +218,20 @@ func (c *SchedtagChecker) Contains(objectTags []models.SSchedtag, tags []compute
 	return true, nil
 }
 
-func (p *SchedtagChecker) getDynamicSchedtags(resType string, schedDesc *jsonutils.JSONDict) ([]models.SSchedtag, error) {
+func (p *SchedtagChecker) getDynamicSchedtags(resType string, schedDesc *jsonutils.JSONDict) ([]schedtag.ISchedtag, error) {
 	if schedDesc == nil {
-		return []models.SSchedtag{}, nil
+		return []schedtag.ISchedtag{}, nil
 	}
-	dynamicTags := models.DynamicschedtagManager.GetEnabledDynamicSchedtagsByResource(resType)
+	dynamicTags, err := schedtag.GetEnabledDynamicSchedtagsByResource(resType)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetEnabledDynamicSchedtagsByResource %q", resType)
+	}
 
-	tags := []models.SSchedtag{}
+	tags := []schedtag.ISchedtag{}
 	for _, tag := range dynamicTags {
-		matched, err := conditionparser.EvalBool(tag.Condition, schedDesc)
+		matched, err := conditionparser.EvalBool(tag.GetCondition(), schedDesc)
 		if err != nil {
-			log.Errorf("Condition parse eval: condition: %q, desc: %s, error: %v", tag.Condition, schedDesc, err)
+			log.Errorf("Condition parse eval: tag: %q, condition: %q, desc: %s, error: %v", tag.GetName(), tag.GetCondition(), schedDesc, err)
 			continue
 		}
 		if !matched {
@@ -240,22 +239,22 @@ func (p *SchedtagChecker) getDynamicSchedtags(resType string, schedDesc *jsonuti
 		}
 		objTag := tag.GetSchedtag()
 		if objTag != nil {
-			tags = append(tags, *objTag)
+			tags = append(tags, objTag)
 		}
 	}
 	return tags, nil
 }
 
-func (c *SchedtagChecker) mergeSchedtags(candiate ISchedtagCandidate, staticTags, dynamicTags []models.SSchedtag) []models.SSchedtag {
-	isIn := func(tags []models.SSchedtag, dt models.SSchedtag) bool {
+func (c *SchedtagChecker) mergeSchedtags(candiate ISchedtagCandidate, staticTags, dynamicTags []schedtag.ISchedtag) []schedtag.ISchedtag {
+	isIn := func(tags []schedtag.ISchedtag, dt schedtag.ISchedtag) bool {
 		for _, t := range tags {
-			if t.Id == dt.Id {
+			if t.GetId() == dt.GetId() {
 				return true
 			}
 		}
 		return false
 	}
-	ret := []models.SSchedtag{}
+	ret := []schedtag.ISchedtag{}
 	ret = append(ret, staticTags...)
 	for _, dt := range dynamicTags {
 		if !isIn(staticTags, dt) {
@@ -266,8 +265,9 @@ func (c *SchedtagChecker) mergeSchedtags(candiate ISchedtagCandidate, staticTags
 	return ret
 }
 
-func (c *SchedtagChecker) GetCandidateSchedtags(candidate ISchedtagCandidate) ([]models.SSchedtag, error) {
-	staticTags := candidate.GetSchedtags()
+func (c *SchedtagChecker) GetCandidateSchedtags(candidate ISchedtagCandidate) ([]schedtag.ISchedtag, error) {
+	// staticTags := candidate.GetSchedtags()
+	staticTags := schedtag.GetCandidateSchedtags(candidate.ResourceType(), candidate.GetId())
 	dynamicTags, err := c.getDynamicSchedtags(candidate.ResourceType(), candidate.GetDynamicSchedDesc())
 	if err != nil {
 		return nil, err
@@ -289,7 +289,7 @@ func (c *SchedtagChecker) Check(p ISchedtagPredicate, candidate ISchedtagCandida
 	candiInfo := fmt.Sprintf("%s:%s", candidate.ResourceType(), candidate.IndexKey())
 	if len(execludeTags) > 0 {
 		if ok, tag := c.HasIntersection(execludeTags, candidateTags); ok {
-			return fmt.Errorf("schedtag %q exclude %s", tag.Name, candiInfo)
+			return fmt.Errorf("schedtag %q exclude %s", tag.GetName(), candiInfo)
 		}
 	}
 
