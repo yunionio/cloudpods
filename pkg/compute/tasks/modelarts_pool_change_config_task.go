@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	apis "yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -30,55 +30,50 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type ModelartsPoolDeleteTask struct {
+type ModelartsPoolChangeConfigTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(ModelartsPoolDeleteTask{})
+	taskman.RegisterTask(ModelartsPoolChangeConfigTask{})
 }
 
-func (self *ModelartsPoolDeleteTask) taskFailed(ctx context.Context, mp *models.SModelartsPool, err error) {
-	mp.SetStatus(self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
-	db.OpsLog.LogEvent(mp, db.ACT_DELETE_FAIL, err, self.UserCred)
-	logclient.AddActionLogWithStartable(self, mp, logclient.ACT_DELOCATE, err, self.UserCred, false)
+func (self *ModelartsPoolChangeConfigTask) taskFailed(ctx context.Context, mp *models.SModelartsPool, err error) {
+	mp.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_UNKNOWN, err.Error())
+	db.OpsLog.LogEvent(mp, db.ACT_CHANGE_CONFIG, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, mp, logclient.ACT_CHANGE_CONFIG, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-func (self *ModelartsPoolDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+func (self *ModelartsPoolChangeConfigTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	pool := obj.(*models.SModelartsPool)
-
-	if len(pool.ExternalId) == 0 {
-		self.taskComplete(ctx, pool)
-		return
-	}
 	iMp, err := pool.GetIModelartsPool()
 	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			self.taskComplete(ctx, pool)
-			return
-		}
 		self.taskFailed(ctx, pool, errors.Wrapf(err, "iMp.GetIModelartsPoolById"))
 		return
 	}
-	err = iMp.Delete()
+	input := &api.ModelartsPoolChangeConfigInput{}
+	self.GetParams().Unmarshal(input)
+	opts := &cloudprovider.ModelartsPoolChangeConfigOptions{}
+	opts.NodeCount = input.NodeCount
+	err = iMp.ChangeConfig(opts)
 	if err != nil {
-		self.taskFailed(ctx, pool, errors.Wrapf(err, "iMp.Delete"))
+		self.taskFailed(ctx, pool, errors.Wrapf(err, "iMp.ChangeConfig"))
 		return
 	}
-	err = cloudprovider.WaitDeleted(iMp, time.Second*10, time.Minute*10)
+	err = cloudprovider.WaitStatusWithDelay(iMp, api.MODELARTS_POOL_STATUS_RUNNING, 30*time.Second, 15*time.Second, 30*time.Minute)
 	if err != nil {
-		self.taskFailed(ctx, pool, errors.Wrapf(err, "iMp.WaitDeleted"))
+		self.taskFailed(ctx, pool, errors.Wrapf(err, "WaitStatusWithDelay"))
 		return
 	}
+	pool.SyncWithCloudModelartsPool(ctx, self.GetUserCred(), iMp)
 	self.taskComplete(ctx, pool)
 }
 
-func (self *ModelartsPoolDeleteTask) taskComplete(ctx context.Context, pool *models.SModelartsPool) {
-	pool.RealDelete(ctx, self.GetUserCred())
+func (self *ModelartsPoolChangeConfigTask) taskComplete(ctx context.Context, pool *models.SModelartsPool) {
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    self,
-		Action: notifyclient.ActionDelete,
+		Action: notifyclient.ActionChangeConfig,
 	})
 	self.SetStageComplete(ctx, nil)
 }

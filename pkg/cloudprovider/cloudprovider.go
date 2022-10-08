@@ -944,6 +944,7 @@ type ICloudModelartsPool interface {
 	GetInstanceType() string
 	GetWorkType() string
 	GetNodeCount() int
+	ChangeConfig(opts *ModelartsPoolChangeConfigOptions) error
 }
 
 type ICloudModelartsPoolSku interface {
