@@ -19,7 +19,7 @@ import (
 	"regexp"
 	"strings"
 
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/osprofile"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
@@ -63,13 +63,13 @@ func normalizeOsArch(osArch string, imageName string) string {
 func normalizeOsType(osType string, osDist string) string {
 	osType = strings.ToLower(osType)
 	if osType == "linux" {
-		return "linux"
+		return osprofile.OS_TYPE_LINUX
 	} else if osType == "windows" {
-		return "windows"
+		return osprofile.OS_TYPE_WINDOWS
 	} else if strings.HasPrefix(strings.ToLower(osDist), "windows") {
-		return "windows"
+		return osprofile.OS_TYPE_WINDOWS
 	} else {
-		return "linux"
+		return osprofile.OS_TYPE_LINUX
 	}
 }
 
@@ -144,7 +144,6 @@ var imageVersions = map[string][]string{
 }
 
 func normalizeOsVersion(imageName string, osDist string, osVersion string) string {
-	log.Debugf("imageName: %s osDist: %s osVersion: %s", imageName, osDist, osVersion)
 	if versions, ok := imageVersions[osDist]; ok {
 		for _, version := range versions {
 			if len(osVersion) > 0 {
@@ -166,7 +165,7 @@ func normalizeOsVersion(imageName string, osDist string, osVersion string) strin
 			}
 		}
 	}
-	return "-"
+	return ""
 }
 
 func normalizeOsLang(imageName string) string {

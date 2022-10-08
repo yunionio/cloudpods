@@ -1094,6 +1094,12 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 	}
 
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
+
+	iVM, err := guest.GetIVM()
+	if err != nil {
+		return errors.Wrap(err, "guest.GetIVM")
+	}
+	guest.SyncOsInfo(ctx, task.GetUserCred(), iVM)
 	return nil
 }
 
@@ -1341,6 +1347,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Cont
 		logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		// sync back cloud metadata
 		iVM.Refresh()
+		guest.SyncOsInfo(ctx, userCred, iVM)
 		err = models.SyncVirtualResourceMetadata(ctx, userCred, guest, iVM)
 		if err != nil {
 			return errors.Wrap(err, "syncVirtualResourceMetadata")
