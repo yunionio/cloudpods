@@ -365,6 +365,23 @@ func (self *SModelartsPool) StartDeleteTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
+func (self *SModelartsPool) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ModelartsPoolChangeConfigInput) (jsonutils.JSONObject, error) {
+	if input.NodeCount == self.NodeCount {
+		return nil, nil
+	}
+	return nil, self.StartChangeConfigTask(ctx, userCred, input)
+}
+
+func (self *SModelartsPool) StartChangeConfigTask(ctx context.Context, userCred mcclient.TokenCredential, input api.ModelartsPoolChangeConfigInput) error {
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	task, err := taskman.TaskManager.NewTask(ctx, "ModelartsPoolChangeConfigTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return err
+	}
+	self.SetStatus(userCred, api.MODELARTS_POOL_STATUS_CHANGE_CONFIG, "")
+	return task.ScheduleRun(nil)
+}
+
 func (self *SModelartsPool) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := self.GetDriver(context.Background())
 	if err != nil {

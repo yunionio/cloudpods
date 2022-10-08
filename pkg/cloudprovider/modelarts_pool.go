@@ -31,3 +31,7 @@ type Azs struct {
 	Az    string `json:"az"`
 	Count int    `json:"count"`
 }
+
+type ModelartsPoolChangeConfigOptions struct {
+	NodeCount int
+}
