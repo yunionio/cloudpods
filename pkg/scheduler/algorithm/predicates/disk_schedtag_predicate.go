@@ -96,7 +96,7 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.
 	storage := res.(*api.CandidateStorage)
 	if storage.Status != computeapi.STORAGE_ONLINE || storage.Enabled.IsFalse() {
 		return &FailReason{
-			fmt.Sprintf("Storage status is %s, enable is %v", storage.Status, storage.Enabled),
+			fmt.Sprintf("Storage %s status is %s, enable is %v", storage.GetName(), storage.Status, storage.Enabled),
 			StorageEnable,
 		}
 	}
