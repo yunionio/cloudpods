@@ -35,7 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -79,15 +78,15 @@ func StartService() {
 }
 
 func initHandlers(app *appsrv.Application, prefix string) {
-	app.AddHandler("GET", fmt.Sprintf("%s/disks/<sid>", prefix), auth.Authenticate(getImage)).
+	app.AddHandler("GET", fmt.Sprintf("%s/disks/<sid>", prefix), getImage).
 		SetProcessNoTimeout().SetWorkerManager(streamingWorkerMan)
-	app.AddHandler("GET", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), auth.Authenticate(getImage)).
+	app.AddHandler("GET", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), getImage).
 		SetProcessNoTimeout().SetWorkerManager(streamingWorkerMan)
 
-	app.AddHandler("HEAD", fmt.Sprintf("%s/disks/<sid>", prefix), auth.Authenticate(getImageMeta))
-	app.AddHandler("HEAD", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), auth.Authenticate(getImageMeta))
-	app.AddHandler("POST", fmt.Sprintf("%s/disks/<sid>", prefix), auth.Authenticate(closeImage))
-	app.AddHandler("POST", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), auth.Authenticate(closeImage))
+	app.AddHandler("HEAD", fmt.Sprintf("%s/disks/<sid>", prefix), getImageMeta)
+	app.AddHandler("HEAD", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), getImageMeta)
+	app.AddHandler("POST", fmt.Sprintf("%s/disks/<sid>", prefix), closeImage)
+	app.AddHandler("POST", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), closeImage)
 }
 
 func getDiskPath(diskId string) string {
@@ -112,11 +111,6 @@ func getSnapshotPath(diskId, snapshotId string) string {
 }
 
 func inputCheck(ctx context.Context) (string, error) {
-	var userCred = auth.FetchUserCredential(ctx, nil)
-	if !userCred.HasSystemAdminPrivilege() {
-		return "", httperrors.NewForbiddenError("System admin only")
-	}
-
 	var params = appctx.AppContextParams(ctx)
 	var sid = params["<sid>"]
 	var imagePath string
