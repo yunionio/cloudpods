@@ -848,6 +848,30 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.TOsType(osprofile.NormalizeOSType(string(self.Properties.StorageProfile.OsDisk.OsType)))
 }
 
+func (self *SInstance) GetFullOsName() string {
+	return self.Properties.StorageProfile.ImageReference.Offer
+}
+
+func (self *SInstance) GetBios() cloudprovider.TBiosType {
+	return "BIOS"
+}
+
+func (i *SInstance) GetOsDist() string {
+	return ""
+}
+
+func (i *SInstance) GetOsVersion() string {
+	return ""
+}
+
+func (i *SInstance) GetOsLang() string {
+	return ""
+}
+
+func (i *SInstance) GetOsArch() string {
+	return apis.OS_ARCH_X86_64
+}
+
 func (self *SRegion) getOvsEnv(instanceId string) (string, error) {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
@@ -901,14 +925,6 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 		nics = append(nics, &_nics[i])
 	}
 	return nics, nil
-}
-
-func (self *SInstance) GetOSName() string {
-	return self.Properties.StorageProfile.ImageReference.Offer
-}
-
-func (self *SInstance) GetBios() string {
-	return "BIOS"
 }
 
 func (self *SInstance) GetMachine() string {

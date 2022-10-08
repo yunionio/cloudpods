@@ -92,6 +92,8 @@ type SInstance struct {
 	host *SHost
 	SResourceBase
 
+	osInfo *imagetools.ImageInfo
+
 	CreationTimestamp  time.Time
 	Description        string
 	Tags               SInstanceTag
@@ -291,31 +293,53 @@ func (instance *SInstance) GetVdi() string {
 }
 
 func (instance *SInstance) GetOsType() cloudprovider.TOsType {
-	for _, disk := range instance.Disks {
-		if disk.Index == 0 {
-			for _, license := range disk.Licenses {
-				if strings.Contains(strings.ToLower(license), "windows") {
-					return cloudprovider.OsTypeWindows
-				}
-			}
-		}
-	}
-	return cloudprovider.OsTypeLinux
+	return cloudprovider.TOsType(instance.getNormalizedOsInfo().OsType)
 }
 
-func (instance *SInstance) GetOSName() string {
+func (instance *SInstance) getValidLicense() string {
 	for _, disk := range instance.Disks {
 		if disk.Index == 0 {
 			for _, license := range disk.Licenses {
-				return imagetools.NormalizeImageInfo(license, "", "", "", "").OsDistro
+				if len(license) > 0 {
+					return license
+				}
 			}
 		}
 	}
 	return ""
 }
 
-func (instance *SInstance) GetBios() string {
-	return "BIOS"
+func (instance *SInstance) getNormalizedOsInfo() *imagetools.ImageInfo {
+	if instance.osInfo != nil {
+		return instance.osInfo
+	}
+	osinfo := imagetools.NormalizeImageInfo(instance.getValidLicense(), "", "", "", "")
+	instance.osInfo = &osinfo
+	return instance.osInfo
+}
+
+func (instance *SInstance) GetFullOsName() string {
+	return instance.getValidLicense()
+}
+
+func (instance *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(instance.getNormalizedOsInfo().OsBios)
+}
+
+func (instance *SInstance) GetOsArch() string {
+	return instance.getNormalizedOsInfo().OsArch
+}
+
+func (instance *SInstance) GetOsDist() string {
+	return instance.getNormalizedOsInfo().OsDistro
+}
+
+func (instance *SInstance) GetOsVersion() string {
+	return instance.getNormalizedOsInfo().OsVersion
+}
+
+func (instance *SInstance) GetOsLang() string {
+	return instance.getNormalizedOsInfo().OsLang
 }
 
 func (instance *SInstance) GetMachine() string {

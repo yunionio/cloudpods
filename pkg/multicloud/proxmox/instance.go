@@ -148,7 +148,7 @@ type SInstance struct {
 
 	// Deprecated single nic.
 	QemuNicModel string `json:"nic"`
-	QemuBrige    string `json:"bridge"`
+	QemuBridge   string `json:"bridge"`
 	QemuVlanTag  int    `json:"vlan"`
 	QemuMacAddr  string `json:"mac"`
 
@@ -211,8 +211,8 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	return self.host.zone.region.DetachDisk(self.VmID, diskId)
 }
 
-func (self *SInstance) GetBios() string {
-	return self.Bios
+func (self *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(self.Bios)
 }
 
 func (self *SInstance) GetBootOrder() string {
@@ -318,7 +318,7 @@ func (self *SInstance) GetStatus() string {
 	return api.VM_UNKNOWN
 }
 
-func (self *SInstance) GetOSName() string {
+func (self *SInstance) GetFullOsName() string {
 	return ""
 }
 
@@ -329,6 +329,22 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 	} else {
 		return cloudprovider.TOsType(osprofile.OS_TYPE_LINUX)
 	}
+}
+
+func (ins *SInstance) GetOsArch() string {
+	return "x86_64"
+}
+
+func (ins *SInstance) GetOsDist() string {
+	return ""
+}
+
+func (ins *SInstance) GetOsVersion() string {
+	return ""
+}
+
+func (ins *SInstance) GetOsLang() string {
+	return ""
 }
 
 func (self *SInstance) GetProjectId() string {

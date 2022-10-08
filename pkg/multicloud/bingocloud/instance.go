@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -196,8 +197,8 @@ func (self *SInstance) GetVdi() string {
 	return ""
 }
 
-func (self *SInstance) GetOSArch() string {
-	return "x86"
+func (self *SInstance) GetOsArch() string {
+	return apis.OS_ARCH_X86_64
 }
 
 func (self *SInstance) GetOsType() cloudprovider.TOsType {
@@ -207,12 +208,24 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.OsTypeWindows
 }
 
-func (self *SInstance) GetOSName() string {
+func (self *SInstance) GetFullOsName() string {
 	return ""
 }
 
-func (self *SInstance) GetBios() string {
-	return strings.ToUpper(self.InstancesSet.Bootloader)
+func (self *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(self.InstancesSet.Bootloader)
+}
+
+func (i *SInstance) GetOsDist() string {
+	return ""
+}
+
+func (i *SInstance) GetOsVersion() string {
+	return ""
+}
+
+func (i *SInstance) GetOsLang() string {
+	return ""
 }
 
 func (self *SInstance) GetMachine() string {

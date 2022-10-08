@@ -17,7 +17,6 @@ package incloudsphere
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -29,6 +28,8 @@ type SImage struct {
 	multicloud.SImageBase
 	multicloud.InCloudSphereTags
 	cache *SStoragecache
+
+	imageInfo *imagetools.ImageInfo
 
 	Name          string `json:"name"`
 	FileSize      int64  `json:"fileSize"`
@@ -86,27 +87,36 @@ func (self *SImage) GetSizeByte() int64 {
 	return self.FileSize
 }
 
-func (self *SImage) GetOsType() cloudprovider.TOsType {
-	if strings.Contains(strings.ToLower(self.Name), "windows") {
-		return cloudprovider.OsTypeWindows
+func (i *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(i.getNormalizedImageInfo().OsType)
+}
+
+func (i *SImage) GetOsDist() string {
+	return i.getNormalizedImageInfo().OsDistro
+}
+
+func (i *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if i.imageInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(i.Name, "", "", "", "")
+		i.imageInfo = &imgInfo
 	}
-	return cloudprovider.OsTypeLinux
+	return i.imageInfo
 }
 
-func (self *SImage) GetOsDist() string {
-	return self.getNormalizedImageInfo().OsDistro
+func (i *SImage) GetFullOsName() string {
+	return i.Name
 }
 
-func (self *SImage) getNormalizedImageInfo() imagetools.ImageInfo {
-	return imagetools.NormalizeImageInfo(self.Name, "", "", "", "")
+func (i *SImage) GetOsVersion() string {
+	return i.getNormalizedImageInfo().OsVersion
 }
 
-func (self *SImage) GetOsVersion() string {
-	return self.getNormalizedImageInfo().OsVersion
+func (i *SImage) GetOsArch() string {
+	return i.getNormalizedImageInfo().OsArch
 }
 
-func (self *SImage) GetOsArch() string {
-	return self.getNormalizedImageInfo().OsArch
+func (i *SImage) GetOsLang() string {
+	return i.getNormalizedImageInfo().OsLang
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
@@ -120,8 +130,8 @@ func (self *SImage) GetImageFormat() string {
 	return self.Format
 }
 
-func (self *SImage) UEFI() bool {
-	return false
+func (i *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(i.getNormalizedImageInfo().OsBios)
 }
 
 type SImageInfo struct {

@@ -26,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 type Cdrom struct {
@@ -146,6 +147,8 @@ type SInstance struct {
 	multicloud.InCloudSphereTags
 
 	host *SHost
+
+	osInfo *imagetools.ImageInfo
 
 	Id                 string `json:"id"`
 	CustomVMId         string `json:"customVmId"`
@@ -305,8 +308,8 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	return self.host.zone.region.DetachDisk(self.Id, diskId)
 }
 
-func (self *SInstance) GetBios() string {
-	return self.BootMode
+func (self *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(self.BootMode)
 }
 
 func (self *SInstance) GetBootOrder() string {
@@ -404,12 +407,36 @@ func (self *SInstance) GetStatus() string {
 	return strings.ToLower(self.Status)
 }
 
-func (self *SInstance) GetOSName() string {
-	return ""
+func (i *SInstance) GetFullOsName() string {
+	return i.GuestOSInfo.Model
 }
 
-func (self *SInstance) GetOsType() cloudprovider.TOsType {
-	return cloudprovider.TOsType(self.GuestosType)
+func (i *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(i.GuestosType)
+}
+
+func (i *SInstance) GetOsArch() string {
+	return i.GetIHost().GetCpuArchitecture()
+}
+
+func (i *SInstance) getNormalizedOsInfo() *imagetools.ImageInfo {
+	if i.osInfo == nil {
+		osInfo := imagetools.NormalizeImageInfo(i.GuestOSInfo.Model, "", "", "", "")
+		i.osInfo = &osInfo
+	}
+	return i.osInfo
+}
+
+func (i *SInstance) GetOsDist() string {
+	return i.getNormalizedOsInfo().OsDistro
+}
+
+func (i *SInstance) GetOsVersion() string {
+	return i.getNormalizedOsInfo().OsVersion
+}
+
+func (i *SInstance) GetOsLang() string {
+	return i.getNormalizedOsInfo().OsLang
 }
 
 func (self *SInstance) GetProjectId() string {

@@ -219,20 +219,19 @@ type ICloudZone interface {
 type ICloudImage interface {
 	IVirtualResource
 
+	IOSInfo
+
 	Delete(ctx context.Context) error
 	GetIStoragecache() ICloudStoragecache
 
 	GetSizeByte() int64
 	GetImageType() TImageType
 	GetImageStatus() string
-	GetOsType() TOsType
-	GetOsDist() string
-	GetOsVersion() string
-	GetOsArch() string
+
 	GetMinOsDiskSizeGb() int
 	GetMinRamSizeMb() int
 	GetImageFormat() string
-	UEFI() bool
+
 	GetPublicScope() rbacutils.TRbacScope
 	GetSubImages() []SSubImage
 }
@@ -327,6 +326,8 @@ type ICloudVM interface {
 	IBillingResource
 	IVirtualResource
 
+	IOSInfo
+
 	ConvertPublicIpToEip() error
 
 	GetHostname() string
@@ -350,10 +351,12 @@ type ICloudVM interface {
 	GetBootOrder() string
 	GetVga() string
 	GetVdi() string
-	GetOSArch() string
-	GetOsType() TOsType
-	GetOSName() string
-	GetBios() string
+
+	// GetOSArch() string
+	// GetOsType() TOsType
+	// GetOSName() string
+	// GetBios() string
+
 	GetMachine() string
 	GetInstanceType() string
 

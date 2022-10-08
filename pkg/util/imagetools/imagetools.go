@@ -15,17 +15,21 @@
 package imagetools
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
+
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-func normalizeOsArch(osArch string, osType string, osDist string) string {
+func normalizeOsArch(osArch string, imageName string) string {
 	if len(osArch) > 0 {
 		switch strings.ToLower(osArch) {
-		case "x86_64", "64":
+		case "x86_64", "amd64", "64", "64bit", "64位":
 			return apis.OS_ARCH_X86_64
-		case "x86", "x86_32", "32":
+		case "x86", "x86_32", "32", "32bit", "32位":
 			return apis.OS_ARCH_X86
 		case "arm", "arm64", "aarch", "aarch64":
 			return apis.OS_ARCH_AARCH64
@@ -33,13 +37,26 @@ func normalizeOsArch(osArch string, osType string, osDist string) string {
 			return osArch
 		}
 	} else {
-		if osType == "linux" {
-			return apis.OS_ARCH_AARCH64
-		} else if osDist == "Windows Server 2003" {
-			return apis.OS_ARCH_I386
-		} else {
-			return apis.OS_ARCH_X86_64
+		for _, arch := range []string{
+			"64bit", "64位", "amd64", "x86_64",
+			"32bit", "32位", "i386", "x86",
+			"armv8", "arm64", "aarch64", "aarch",
+			"armv6", "armv7", "armv7s", "arm", "aarch32",
+		} {
+			if strings.Contains(strings.ToLower(imageName), arch) {
+				switch arch {
+				case "64bit", "64位", "amd64", "x86_64":
+					return apis.OS_ARCH_X86_64
+				case "32bit", "32位", "i386", "x86":
+					return apis.OS_ARCH_X86_32
+				case "armv8", "arm64", "aarch64":
+					return apis.OS_ARCH_AARCH64
+				case "armv6", "armv7", "armv7s", "arm", "aarch32":
+					return apis.OS_ARCH_AARCH32
+				}
+			}
 		}
+		return apis.OS_ARCH_X86_64
 	}
 }
 
@@ -49,7 +66,7 @@ func normalizeOsType(osType string, osDist string) string {
 		return "linux"
 	} else if osType == "windows" {
 		return "windows"
-	} else if strings.HasPrefix(osDist, "Windows") {
+	} else if strings.HasPrefix(strings.ToLower(osDist), "windows") {
 		return "windows"
 	} else {
 		return "linux"
@@ -61,10 +78,14 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 		osDist = imageName
 	}
 	osDist = strings.ToLower(osDist)
-	if strings.Contains(osDist, "centos") {
+	if strings.Contains(osDist, "centos stream") {
+		return "CentOS Stream"
+	} else if strings.Contains(osDist, "centos") {
 		return "CentOS"
 	} else if strings.Contains(osDist, "redhat") || strings.Contains(osDist, "rhel") {
 		return "RHEL"
+	} else if strings.Contains(osDist, "ubuntu server") {
+		return "Ubuntu Server"
 	} else if strings.Contains(osDist, "ubuntu") {
 		return "Ubuntu"
 	} else if strings.Contains(osDist, "suse") {
@@ -92,31 +113,27 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 	} else if strings.Contains(osDist, "alma") {
 		return "AlmaLinux"
 	} else if strings.Contains(osDist, "windows") {
-		if strings.Contains(osDist, "2003") {
-			return "Windows Server 2003"
-		} else if strings.Contains(osDist, "2008") {
-			return "Windows Server 2008"
-		} else if strings.Contains(osDist, "2012") {
-			return "Windows Server 2012"
-		} else if strings.Contains(osDist, "2016") {
-			return "Windows Server 2016"
-		} else if strings.Contains(osDist, "2019") {
-			return "Windows Server 2019"
-		} else if strings.Contains(osDist, "2022") {
-			return "Windows Server 2022"
-		} else {
-			return "Windows Server 2008"
+		for _, ver := range []string{"2003", "2008", "2012", "2016", "2019", "2022"} {
+			if strings.Contains(osDist, ver) {
+				return "Windows Server"
+			}
 		}
+		return "Windows"
 	} else {
 		return "Others Linux"
 	}
 }
 
 var imageVersions = map[string][]string{
-	"CentOS":   {"5", "6", "7", "8"},
-	"RHEL":     {"5", "6", "7", "8"},
-	"FreeBSD":  {"10", "11", "12"},
-	"Ubuntu":   {"10", "12", "14", "16", "18", "19", "20", "22"},
+	"CentOS":        {"5", "6", "7", "8"},
+	"CentOS Stream": {"8", "9"},
+
+	"RHEL":    {"5", "6", "7", "8", "9"},
+	"FreeBSD": {"10", "11", "12"},
+
+	"Ubuntu Server": {"10", "12", "14", "16", "18", "20", "22"},
+	"Ubuntu":        {"10", "12", "14", "16", "17", "18", "19", "20", "21", "22"},
+
 	"OpenSUSE": {"11", "12"},
 	"SUSE":     {"10", "11", "12", "13"},
 	"Debian":   {"6", "7", "8", "9", "10", "11"},
@@ -129,24 +146,93 @@ var imageVersions = map[string][]string{
 	"Rocky Linux":         {"8.5"},
 	"Fedora":              {"33", "34", "35"},
 	"AlmaLinux":           {"8.5"},
+
+	"Windows Server": {"2003", "2008", "2012", "2016", "2019", "2022"},
+	"Windows":        {"XP", "7", "8", "Vista", "10", "11"},
+
+	"Kylin": {"V10"},
 }
 
 func normalizeOsVersion(imageName string, osDist string, osVersion string) string {
+	log.Debugf("imageName: %s osDist: %s osVersion: %s", imageName, osDist, osVersion)
 	if versions, ok := imageVersions[osDist]; ok {
 		for _, version := range versions {
 			if len(osVersion) > 0 {
 				if strings.HasPrefix(osVersion, version) {
-					return version
+					return osVersion
 				}
 			} else {
-				imageName = strings.Replace(imageName, "64", "", -1)
-				if strings.Contains(imageName, " "+version) || strings.Contains(imageName, "_"+version) || strings.Contains(imageName, "-"+version) {
-					return version
+				parts := strings.Split(strings.ToLower(osDist), " ")
+				parts = append(parts, fmt.Sprintf(`(?P<verstr>%s[.\d]*)`, version), "")
+				regexpStr := strings.Join(parts, `[\s-_]*`)
+				m := regexp.MustCompile(regexpStr).FindAllStringSubmatch(strings.ToLower(imageName), -1)
+				if m != nil && len(m) > 0 && len(m[0]) > 1 {
+					verStr := m[0][1]
+					if strings.HasPrefix(verStr, version) && len(verStr) > len(version) && !strings.HasPrefix(verStr, version+".") {
+						verStr = version + "." + verStr[len(version):]
+					}
+					return verStr
 				}
 			}
 		}
 	}
 	return "-"
+}
+
+func normalizeOsLang(imageName string) string {
+	for _, sep := range []string{" ", "-", "_"} {
+		lang := normalizeOsLang2(imageName, sep)
+		if len(lang) > 0 {
+			return lang
+		}
+	}
+	return ""
+}
+
+func normalizeOsLang2(imageName string, sep string) string {
+	parts := strings.Split(imageName, sep)
+	for _, o := range parts {
+		switch strings.ToLower(o) {
+		case "en":
+			return "en_US"
+		case "cn":
+			return "zh_CN"
+		case "zh":
+			return "zh_CN"
+		case "中文版":
+			return "zh_CN"
+		case "英文版":
+			return "en_US"
+		}
+	}
+	return ""
+}
+
+func normalizeOsBios(imageName string, osArch string) string {
+	if osArch != "" {
+		switch osArch {
+		case apis.OS_ARCH_ARM, apis.OS_ARCH_AARCH32, apis.OS_ARCH_AARCH64:
+			return "UEFI"
+		}
+	}
+	for _, sep := range []string{" ", "-", "_"} {
+		lang := normalizeOsLang2(imageName, sep)
+		if len(lang) > 0 {
+			return lang
+		}
+	}
+	return ""
+}
+
+func normalizeOsBios2(imageName string, sep string) string {
+	parts := strings.Split(imageName, sep)
+	for _, o := range parts {
+		switch strings.ToLower(o) {
+		case "uefi":
+			return "UEFI"
+		}
+	}
+	return "BIOS"
 }
 
 type ImageInfo struct {
@@ -156,6 +242,30 @@ type ImageInfo struct {
 	OsDistro      string
 	OsVersion     string
 	OsFullVersion string
+	OsLang        string
+	OsBios        string
+}
+
+func (i ImageInfo) GetFullOsName() string {
+	parts := make([]string, 0)
+	if len(i.OsDistro) > 0 {
+		parts = append(parts, i.OsDistro)
+	} else if len(i.OsType) > 0 {
+		parts = append(parts, string(i.OsType))
+	}
+	if len(i.OsVersion) > 0 {
+		parts = append(parts, i.OsVersion)
+	}
+	if len(i.OsArch) > 0 {
+		parts = append(parts, i.OsArch)
+	}
+	if len(i.OsBios) > 0 {
+		parts = append(parts, i.OsBios)
+	}
+	if len(i.OsLang) > 0 {
+		parts = append(parts, i.OsLang)
+	}
+	return strings.Join(parts, " ")
 }
 
 func NormalizeImageInfo(imageName, osArch, osType, osDist, osVersion string) ImageInfo {
@@ -163,8 +273,10 @@ func NormalizeImageInfo(imageName, osArch, osType, osDist, osVersion string) Ima
 	info.Name = imageName
 	info.OsDistro = normalizeOsDistribution(osDist, imageName)
 	info.OsType = normalizeOsType(osType, info.OsDistro)
-	info.OsArch = normalizeOsArch(osArch, info.OsType, info.OsDistro)
+	info.OsArch = normalizeOsArch(osArch, imageName)
 	info.OsVersion = normalizeOsVersion(imageName, info.OsDistro, osVersion)
 	info.OsFullVersion = osVersion
+	info.OsLang = normalizeOsLang(imageName)
+	info.OsBios = normalizeOsBios(imageName, info.OsArch)
 	return info
 }

@@ -134,7 +134,7 @@ func (self *SImage) GetImageStatus() string {
 
 func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	if self.imgInfo == nil {
-		imgInfo := imagetools.NormalizeImageInfo(self.ImageName, self.ImageName, self.ImageName, "", "")
+		imgInfo := imagetools.NormalizeImageInfo(self.ImageName, "", "", "", "")
 		self.imgInfo = &imgInfo
 	}
 
@@ -155,6 +155,18 @@ func (self *SImage) GetOsVersion() string {
 
 func (self *SImage) GetOsArch() string {
 	return self.getNormalizedImageInfo().OsArch
+}
+
+func (img *SImage) GetOsLang() string {
+	return img.getNormalizedImageInfo().OsLang
+}
+
+func (img *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(img.getNormalizedImageInfo().OsBios)
+}
+
+func (img *SImage) GetFullOsName() string {
+	return img.ImageName
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
@@ -213,8 +225,4 @@ func (self *SRegion) DeleteImage(imageId string) error {
 	params.Set("ImageId", imageId)
 
 	return self.DoAction("TerminateCustomImage", params, nil)
-}
-
-func (self *SImage) UEFI() bool {
-	return false
 }
