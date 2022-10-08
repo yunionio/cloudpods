@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -312,12 +313,53 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.OSType))
 }
 
-func (self *SInstance) GetOSName() string {
+func (self *SInstance) GetFullOsName() string {
 	return self.OSName
 }
 
-func (self *SInstance) GetBios() string {
-	return "BIOS"
+func (self *SInstance) GetBios() cloudprovider.TBiosType {
+	img, err := self.GetImage()
+	if err != nil {
+		log.Errorf("GetImage fail %s", err)
+		return cloudprovider.BIOS
+	}
+	return img.GetBios()
+}
+
+func (self *SInstance) GetOsArch() string {
+	img, err := self.GetImage()
+	if err != nil {
+		log.Errorf("GetImage fail %s", err)
+		return apis.OS_ARCH_X86_64
+	}
+	return img.GetOsArch()
+}
+
+func (self *SInstance) GetOsDist() string {
+	img, err := self.GetImage()
+	if err != nil {
+		log.Errorf("GetImage fail %s", err)
+		return ""
+	}
+	return img.GetOsDist()
+}
+
+func (self *SInstance) GetOsVersion() string {
+	img, err := self.GetImage()
+	if err != nil {
+		log.Errorf("GetImage fail %s", err)
+		return ""
+	}
+	return img.GetOsVersion()
+}
+
+func (self *SInstance) GetOsLang() string {
+	img, err := self.GetImage()
+	if err != nil {
+		log.Errorf("GetImage fail %s", err)
+		return ""
+	}
+	return img.GetOsLang()
 }
 
 func (self *SInstance) GetMachine() string {

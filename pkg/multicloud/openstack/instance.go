@@ -94,6 +94,8 @@ type SInstance struct {
 	multicloud.OpenStackTags
 	host *SHypervisor
 
+	imageObj *SImage
+
 	DiskConfig         string    `json:"OS-DCF:diskConfig,omitempty"`
 	AvailabilityZone   string    `json:"OS-EXT-AZ:availability_zone,omitempty"`
 	Host               string    `json:"OS-EXT-SRV-ATTR:host,omitempty"`
@@ -323,26 +325,76 @@ func (instance *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (instance *SInstance) GetOsType() cloudprovider.TOsType {
-	if instance.Image != nil {
+func (instance *SInstance) getImage() *SImage {
+	if instance.imageObj == nil && instance.Image != nil {
 		imageId, _ := instance.Image.GetString("id")
-		if len(imageId) > 0 {
-			image, err := instance.host.zone.region.GetImage(imageId)
-			if err != nil {
-				return cloudprovider.OsTypeLinux
-			}
-			return image.GetOsType()
+		if len(imageId) == 0 {
+			imageId, _ = instance.Image.GetString()
 		}
+		if len(imageId) > 0 {
+			image, _ := instance.host.zone.region.GetImage(imageId)
+			if image != nil {
+				instance.imageObj = image
+			}
+		}
+	}
+	return instance.imageObj
+}
+
+func (instance *SInstance) GetOsType() cloudprovider.TOsType {
+	img := instance.getImage()
+	if img != nil {
+		return img.GetOsType()
 	}
 	return cloudprovider.OsTypeLinux
 }
 
-func (instance *SInstance) GetOSName() string {
+func (instance *SInstance) GetFullOsName() string {
+	img := instance.getImage()
+	if img != nil {
+		return img.GetFullOsName()
+	}
 	return ""
 }
 
-func (instance *SInstance) GetBios() string {
+func (instance *SInstance) GetBios() cloudprovider.TBiosType {
+	img := instance.getImage()
+	if img != nil {
+		return img.GetBios()
+	}
 	return "BIOS"
+}
+
+func (instance *SInstance) GetOsDist() string {
+	img := instance.getImage()
+	if img != nil {
+		return img.GetOsDist()
+	}
+	return ""
+}
+
+func (instance *SInstance) GetOsVersion() string {
+	img := instance.getImage()
+	if img != nil {
+		return img.GetOsVersion()
+	}
+	return ""
+}
+
+func (instance *SInstance) GetOsLang() string {
+	img := instance.getImage()
+	if img != nil {
+		return img.GetOsLang()
+	}
+	return ""
+}
+
+func (instance *SInstance) GetOsArch() string {
+	img := instance.getImage()
+	if img != nil {
+		return img.GetOsArch()
+	}
+	return ""
 }
 
 func (instance *SInstance) GetMachine() string {

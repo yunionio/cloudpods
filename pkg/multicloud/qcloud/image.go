@@ -212,6 +212,18 @@ func (self *SImage) GetOsArch() string {
 	return self.getNormalizedImageInfo().OsArch
 }
 
+func (img *SImage) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(img.getNormalizedImageInfo().OsBios)
+}
+
+func (img *SImage) GetFullOsName() string {
+	return img.OsName
+}
+
+func (img *SImage) GetOsLang() string {
+	return img.getNormalizedImageInfo().OsLang
+}
+
 func (self *SImage) GetMinOsDiskSizeGb() int {
 	return 50
 }
@@ -368,8 +380,4 @@ func (self *SRegion) ImportImage(name string, osArch, osDist, osVersion string, 
 		time.Sleep(time.Minute * time.Duration(i))
 	}
 	return nil, cloudprovider.ErrNotFound
-}
-
-func (self *SImage) UEFI() bool {
-	return false
 }

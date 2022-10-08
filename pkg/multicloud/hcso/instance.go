@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud/hcso/client/modules"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 const (
@@ -104,6 +105,8 @@ type SInstance struct {
 	multicloud.HuaweiTags
 
 	host *SHost
+
+	osInfo *imagetools.ImageInfo
 
 	ID          string                 `json:"id"`
 	Name        string                 `json:"name"`
@@ -449,7 +452,7 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) GetOSArch() string {
+func (self *SInstance) GetOsArch() string {
 	if flavor, err := self.host.zone.region.GetICloudSku(self.Flavor.ID); err == nil {
 		return flavor.GetCpuArch()
 	} else {
@@ -470,12 +473,32 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.Metadata.OSType))
 }
 
-func (self *SInstance) GetOSName() string {
+func (self *SInstance) GetFullOsName() string {
 	return self.Metadata.ImageName
 }
 
-func (self *SInstance) GetBios() string {
-	return "BIOS"
+func (i *SInstance) getNormalizedOsInfo() *imagetools.ImageInfo {
+	if i.osInfo == nil {
+		osInfo := imagetools.NormalizeImageInfo(i.Metadata.ImageName, "", i.Metadata.OSType, "", "")
+		i.osInfo = &osInfo
+	}
+	return i.osInfo
+}
+
+func (i *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(i.getNormalizedOsInfo().OsBios)
+}
+
+func (i *SInstance) GetOsDist() string {
+	return i.getNormalizedOsInfo().OsDistro
+}
+
+func (i *SInstance) GetOsVersion() string {
+	return i.getNormalizedOsInfo().OsVersion
+}
+
+func (i *SInstance) GetOsLang() string {
+	return i.getNormalizedOsInfo().OsLang
 }
 
 func (self *SInstance) GetMachine() string {

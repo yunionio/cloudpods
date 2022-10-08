@@ -131,12 +131,40 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.TOsType(self.OsType)
 }
 
-func (self *SInstance) GetOSName() string {
+func (self *SInstance) GetFullOsName() string {
 	return self.OsName
 }
 
-func (self *SInstance) GetBios() string {
-	return self.Bios
+func (self *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(self.Bios)
+}
+
+func (ins *SInstance) GetOsDist() string {
+	val, ok := ins.Metadata["os_distribution"]
+	if ok {
+		return val
+	}
+	return ""
+}
+
+func (ins *SInstance) GetOsVersion() string {
+	val, ok := ins.Metadata["os_version"]
+	if ok {
+		return val
+	}
+	return ""
+}
+
+func (ins *SInstance) GetOsLang() string {
+	val, ok := ins.Metadata["os_language"]
+	if ok {
+		return val
+	}
+	return ""
+}
+
+func (ins *SInstance) GetOsArch() string {
+	return ins.OsArch
 }
 
 func (self *SInstance) GetMachine() string {

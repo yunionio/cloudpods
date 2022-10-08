@@ -15,6 +15,7 @@
 package cloudprovider
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -71,6 +72,10 @@ type SaveImageOptions struct {
 }
 
 func CloudImage2Image(image ICloudImage) SImage {
+	uefiSupport := false
+	if image.GetBios() == BIOS {
+		uefiSupport = true
+	}
 	return SImage{
 		CreatedAt:  image.GetCreatedAt(),
 		Deleted:    false,
@@ -81,10 +86,13 @@ func CloudImage2Image(image ICloudImage) SImage {
 		MinRamMB:   image.GetMinRamSizeMb(),
 		Name:       image.GetName(),
 		Properties: map[string]string{
+			"os_full_name":    image.GetFullOsName(),
 			"os_type":         string(image.GetOsType()),
 			"os_distribution": image.GetOsDist(),
 			"os_version":      image.GetOsVersion(),
 			"os_arch":         image.GetOsArch(),
+			"os_language":     image.GetOsLang(),
+			"uefi_support":    fmt.Sprintf("%v", uefiSupport),
 		},
 		Protected: true,
 		SizeBytes: image.GetSizeByte(),

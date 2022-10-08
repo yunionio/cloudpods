@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -104,6 +105,9 @@ type SInstance struct {
 	multicloud.QcloudTags
 
 	host *SHost
+
+	// normalized image info
+	osInfo *imagetools.ImageInfo
 
 	image  *SImage
 	idisks []cloudprovider.ICloudDisk
@@ -336,19 +340,40 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) GetOsType() cloudprovider.TOsType {
-	if strings.Contains(strings.ToLower(self.OsName), "win") {
-		return cloudprovider.OsTypeWindows
+func (ins *SInstance) getNormalizedOsInfo() *imagetools.ImageInfo {
+	if ins.osInfo == nil {
+		osInfo := imagetools.NormalizeImageInfo(ins.OsName, "", "", "", "")
+		ins.osInfo = &osInfo
 	}
-	return cloudprovider.OsTypeLinux
+	return ins.osInfo
 }
 
-func (self *SInstance) GetOSName() string {
-	return self.OsName
+func (ins *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(ins.getNormalizedOsInfo().OsType)
 }
 
-func (self *SInstance) GetBios() string {
-	return "BIOS"
+func (ins *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(ins.getNormalizedOsInfo().OsBios)
+}
+
+func (ins *SInstance) GetFullOsName() string {
+	return ins.OsName
+}
+
+func (ins *SInstance) GetOsLang() string {
+	return ins.getNormalizedOsInfo().OsLang
+}
+
+func (ins *SInstance) GetOsArch() string {
+	return ins.getNormalizedOsInfo().OsArch
+}
+
+func (ins *SInstance) GetOsDist() string {
+	return ins.getNormalizedOsInfo().OsDistro
+}
+
+func (ins *SInstance) GetOsVersion() string {
+	return ins.getNormalizedOsInfo().OsVersion
 }
 
 func (self *SInstance) GetMachine() string {
