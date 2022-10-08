@@ -145,7 +145,9 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 	}
 	if shouldNotify || evalCtx.Rule.State == monitor.AlertStateAlerting {
 		go func() {
-			n.createAlertRecordWhenNotify(evalCtx, shouldNotify)
+			if err := n.createAlertRecordWhenNotify(evalCtx, shouldNotify); err != nil {
+				log.Errorf("createAlertRecordWhenNotify error: %v", err)
+			}
 		}()
 	}
 	if !shouldNotify && evalCtx.shouldUpdateAlertState() && evalCtx.NoDataFound {
