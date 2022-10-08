@@ -96,9 +96,10 @@ func (p *NetworkSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer,
 }
 
 func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
-	network := res.(*api.CandidateNetwork)
-	net := input.(*netW)
-	return IsNetworkAvailable(c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType), nil)
+	// network := res.(*api.CandidateNetwork)
+	// net := input.(*netW)
+	// return IsNetworkAvailable(c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType), nil)
+	return nil
 }
 
 func (p *NetworkSchedtagPredicate) GetNetworkTypes(specifyType string) []string {
@@ -122,11 +123,7 @@ func (p *NetworkSchedtagPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, 
 }
 
 func (p *NetworkSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISchedtagCandidateResource) int64 {
-	cnt, err := selectRes.(*api.CandidateNetwork).GetFreeAddressCount()
-	if err != nil {
-		return -1
-	}
-	return int64(cnt)
+	return int64(selectRes.(*api.CandidateNetwork).FreePort)
 }
 
 type SortNetworks struct {

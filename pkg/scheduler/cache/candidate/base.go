@@ -384,8 +384,8 @@ func (b *BaseHostDesc) GetFreePort(netId string) int {
 	if selNet == nil {
 		return 0
 	}
-	freeCount, _ := selNet.GetFreeAddressCount()
-	return freeCount
+	// freeCount, _ := selNet.GetFreeAddressCount()
+	return selNet.FreePort
 }
 
 func (b BaseHostDesc) GetResourceType() string {
@@ -539,9 +539,14 @@ func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost) error {
 	}
 	b.Networks = make([]*api.CandidateNetwork, len(nets))
 	for idx, n := range nets {
+		freePort, err := n.GetFreeAddressCount()
+		if err != nil {
+			return errors.Wrapf(err, "GetFreeAddressCount for network %s(%s)", n.GetName(), n.GetId())
+		}
 		b.Networks[idx] = &api.CandidateNetwork{
 			SNetwork:  &nets[idx],
 			Schedtags: n.GetSchedtags(),
+			FreePort:  freePort,
 		}
 	}
 
@@ -596,8 +601,13 @@ func (b *BaseHostDesc) fillCloudpodsVpcNetworks() error {
 		row := &rows[i]
 		net := &row.SNetwork
 		net.SetModelManager(computemodels.NetworkManager, net)
+		freePort, err := net.GetFreeAddressCount()
+		if err != nil {
+			return errors.Wrapf(err, "GetFreeAddressCount for network %s(%s)", net.GetName(), net.GetId())
+		}
 		candidateNet := &api.CandidateNetwork{
 			SNetwork: net,
+			FreePort: freePort,
 			VpcId:    row.VpcId,
 			Provider: row.Provider,
 		}
@@ -637,8 +647,13 @@ func (b *BaseHostDesc) fillOnecloudVpcNetworks() error {
 		row := &rows[i]
 		net := &row.SNetwork
 		net.SetModelManager(computemodels.NetworkManager, net)
+		freePort, err := net.GetFreeAddressCount()
+		if err != nil {
+			return errors.Wrapf(err, "GetFreeAddressCount for network %s(%s)", net.GetName(), net.GetId())
+		}
 		candidateNet := &api.CandidateNetwork{
 			SNetwork: net,
+			FreePort: freePort,
 			VpcId:    row.VpcId,
 			Provider: row.Provider,
 		}
@@ -652,8 +667,9 @@ func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 	for _, s := range host.GetHoststorages() {
 		storage := s.GetStorage()
 		ss = append(ss, &api.CandidateStorage{
-			SStorage:  storage,
-			Schedtags: storage.GetSchedtags(),
+			SStorage:     storage,
+			FreeCapacity: storage.GetFreeCapacity(),
+			Schedtags:    storage.GetSchedtags(),
 		})
 	}
 	b.Storages = ss
