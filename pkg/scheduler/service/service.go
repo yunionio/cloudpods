@@ -15,6 +15,7 @@
 package service
 
 import (
+	"context"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -95,7 +96,7 @@ func StartService() error {
 	startSched := func() {
 		stopEverything := make(chan struct{})
 		go skuman.Start(utils.ToDuration(o.Options.SkuRefreshInterval))
-		go schedtag.Start(utils.ToDuration("30s"))
+		go schedtag.Start(context.Background(), utils.ToDuration("30s"))
 		schedman.InitAndStart(stopEverything)
 	}
 	startSched()

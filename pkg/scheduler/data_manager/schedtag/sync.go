@@ -1,24 +1,31 @@
 package schedtag
 
 import (
-	"fmt"
+	"context"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/wait"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/informer"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 var (
 	globalDataManager *dataManager
 )
 
-func Start(refreshInterval time.Duration) error {
+func Start(ctx context.Context, refreshInterval time.Duration) error {
 	var err error
 	globalDataManager, err = newDataManager(refreshInterval)
 	if err != nil {
 		panic(errors.Wrap(err, "newDataManager"))
 	}
+	globalDataManager.startWatch(ctx)
 	globalDataManager.sync()
 	return nil
 }
@@ -50,6 +57,57 @@ func newDataManager(refreshInterval time.Duration) (*dataManager, error) {
 		refreshInterval: refreshInterval,
 	}
 	return man, nil
+}
+
+func (m *dataManager) startWatch(ctx context.Context) {
+	s := auth.GetAdminSession(ctx, consts.GetRegion())
+	informer.NewWatchManagerBySessionBg(s, func(man *informer.SWatchManager) error {
+		for _, res := range []informer.IResourceManager{
+			compute.Schedtags,
+			compute.Schedtaghosts,
+			compute.Schedtagstorages,
+			compute.Schedtagnetworks,
+			compute.Schedtagcloudproviders,
+			compute.Schedtagcloudregions,
+			compute.Schedtagzones,
+		} {
+			if err := man.For(res).AddEventHandler(ctx, newEventHandler(res, m)); err != nil {
+				return errors.Wrapf(err, "watch resource %s", res.KeyString())
+			}
+		}
+		return nil
+	})
+}
+
+type eventHandler struct {
+	res     informer.IResourceManager
+	dataMan *dataManager
+}
+
+func newEventHandler(res informer.IResourceManager, dataMan *dataManager) informer.EventHandler {
+	return &eventHandler{
+		res:     res,
+		dataMan: dataMan,
+	}
+}
+
+func (e eventHandler) keyword() string {
+	return e.res.GetKeyword()
+}
+
+func (e eventHandler) OnAdd(obj *jsonutils.JSONDict) {
+	log.Infof("%s [CREATED]: \n%s", e.keyword(), obj.String())
+	e.dataMan.syncOnce()
+}
+
+func (e eventHandler) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
+	log.Infof("%s [UPDATED]: \n[NEW]: %s\n[OLD]: %s", e.keyword(), newObj.String(), oldObj.String())
+	e.dataMan.syncOnce()
+}
+
+func (e eventHandler) OnDelete(obj *jsonutils.JSONDict) {
+	log.Infof("%s [DELETED]: \n%s", e.keyword(), obj.String())
+	e.dataMan.syncOnce()
 }
 
 func (m *dataManager) sync() {
