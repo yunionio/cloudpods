@@ -373,3 +373,21 @@ func (self *SModelartsPool) GetNodeCount() int {
 	}
 	return self.Spec.Resource[0].Count
 }
+
+func (self *SModelartsPool) ChangeConfig(opts *cloudprovider.ModelartsPoolChangeConfigOptions) error {
+	//{"spec":{"resources":[{"flavor":"modelarts.kat1.8xlarge","count":2}]}}
+	res := []map[string]interface{}{}
+	for _, re := range self.Spec.Resource {
+		res = append(res, map[string]interface{}{
+			"flavor": re.Flavor,
+			"count":  opts.NodeCount,
+		})
+	}
+	params := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"resources": res,
+		},
+	}
+	_, err := self.region.client.modelartsPoolUpdate(self.Metadata.Name, params)
+	return err
+}
