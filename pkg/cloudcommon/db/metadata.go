@@ -692,6 +692,17 @@ func IsMetadataKeySystemAdmin(key string) bool {
 	return strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX)
 }
 
+func IsMetadataKeyPrivateKey(key string) bool {
+	for _, k := range []string{"admin", "project"} {
+		for _, v := range []string{"ssh-private-key", "ssh-public-key"} {
+			if key == fmt.Sprintf("%s-%s", k, v) {
+				return true
+			}
+		}
+	}
+	return strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX)
+}
+
 func IsMetadataKeySysTag(key string) bool {
 	return strings.HasPrefix(key, SYS_TAG_PREFIX)
 }
@@ -701,7 +712,7 @@ func (manager *SMetadataManager) GetSysadminKey(key string) string {
 }
 
 func IsMetadataKeyVisiable(key string) bool {
-	return !(IsMetadataKeySysTag(key) || IsMetadataKeySystemAdmin(key))
+	return !(IsMetadataKeySysTag(key) || IsMetadataKeySystemAdmin(key) || IsMetadataKeyPrivateKey(key))
 }
 
 func GetVisiableMetadata(ctx context.Context, model IStandaloneModel, userCred mcclient.TokenCredential) (map[string]string, error) {
