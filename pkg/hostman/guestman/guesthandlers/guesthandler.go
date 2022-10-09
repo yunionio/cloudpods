@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -568,7 +567,6 @@ func guestSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid s
 	if !ok {
 		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
 	}
-	log.Infof("guest info: %s", jsonutils.Marshal(guest))
 
 	var disk storageman.IDisk
 	disks := guest.Desc.Disks
