@@ -2614,8 +2614,8 @@ func (manager *SDiskManager) CleanPendingDeleteDisks(ctx context.Context, userCr
 }
 
 func (manager *SDiskManager) getAutoSnapshotDisksId(isExternal bool) ([]SSnapshotPolicyDisk, error) {
-
-	t := time.Now()
+	tz, _ := time.LoadLocation(options.Options.TimeZone)
+	t := time.Now().In(tz)
 	week := t.Weekday()
 	if week == 0 { // sunday is zero
 		week += 7
