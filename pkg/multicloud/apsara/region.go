@@ -42,8 +42,6 @@ type SRegion struct {
 	RegionId  string
 	LocalName string
 
-	RegionEndpoint string
-
 	izones []cloudprovider.ICloudZone
 
 	ivpcs []cloudprovider.ICloudVpc
@@ -108,12 +106,9 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
-	endpoint := self.RegionEndpoint
-	if len(endpoint) == 0 {
-		endpoint = self.client.getDomain(APSARA_PRODUCT_ECS)
-	}
+	domain := self.client.getDomain(APSARA_PRODUCT_ECS)
 	params["Product"] = APSARA_PRODUCT_ECS
-	return jsonRequest(client, endpoint, APSARA_API_VERSION, apiName, params, self.client.debug)
+	return jsonRequest(client, domain, APSARA_API_VERSION, apiName, params, self.client.debug)
 }
 
 func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
