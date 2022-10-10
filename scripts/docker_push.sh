@@ -73,12 +73,8 @@ build_bin() {
             GOOS=linux make cmd/$1
             ;;
         climc)
-             if [[  "$BUILD_ARCH" == *arm64 ]]; then
-                # exclude rbdcli for arm64
-                env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-alpine-build F="cmd/$1 $(ls -d cmd/*cli|grep -v rbdcli|xargs)"
-            else
-                env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-alpine-build F="cmd/$1 cmd/*cli"
-            fi
+            rm -vf _output/bin/*cli
+            env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-alpine-build F="cmd/$1 cmd/*cli"
             ;;
         host-deployer | telegraf-raid-plugin)
             env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-centos-build F="cmd/$1"
