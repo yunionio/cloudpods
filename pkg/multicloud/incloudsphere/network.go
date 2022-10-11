@@ -94,7 +94,7 @@ func (self *SNetwork) GetAllocTimeoutSeconds() int {
 }
 
 func (self *SNetwork) GetGateway() string {
-	return ""
+	return self.Gateway
 }
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
@@ -102,14 +102,24 @@ func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
 }
 
 func (self *SNetwork) GetIpStart() string {
-	cidr := "0.0.0.0/0"
-	_range, _ := netutils.NewIPV4Prefix(cidr)
+	if len(self.Cidr) == 0 {
+		self.Cidr = "0.0.0.0/0"
+	}
+	_range, err := netutils.NewIPV4Prefix(self.Cidr)
+	if err != nil {
+		return ""
+	}
 	return _range.ToIPRange().StartIp().StepUp().String()
 }
 
 func (self *SNetwork) GetIpEnd() string {
-	cidr := "0.0.0.0/0"
-	_range, _ := netutils.NewIPV4Prefix(cidr)
+	if len(self.Cidr) == 0 {
+		self.Cidr = "0.0.0.0/0"
+	}
+	_range, err := netutils.NewIPV4Prefix(self.Cidr)
+	if err != nil {
+		return ""
+	}
 	return _range.ToIPRange().EndIp().StepDown().String()
 }
 
@@ -121,7 +131,11 @@ func (self *SNetwork) Contains(_ip string) bool {
 }
 
 func (self *SNetwork) GetIpMask() int8 {
-	return 0
+	pref, err := netutils.NewIPV4Prefix(self.Cidr)
+	if err != nil {
+		return 0
+	}
+	return pref.MaskLen
 }
 
 func (self *SNetwork) GetProjectId() string {
