@@ -101,6 +101,14 @@ func TestNormalizeImageInfo(t *testing.T) {
 			OsLang:    "",
 			OsArch:    "x86_64",
 		},
+		{
+			Name:      "Debian 11.4 64位",
+			OsDistro:  "Debian",
+			OsType:    osprofile.OS_TYPE_LINUX,
+			OsVersion: "11.4",
+			OsLang:    "",
+			OsArch:    "x86_64",
+		},
 	}
 
 	for _, image := range images {
