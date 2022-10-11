@@ -14,7 +14,11 @@
 
 package imagetools
 
-import "testing"
+import (
+	"testing"
+
+	"yunion.io/x/pkg/util/osprofile"
+)
 
 func TestNormalizeImageInfo(t *testing.T) {
 	images := []struct {
@@ -28,7 +32,7 @@ func TestNormalizeImageInfo(t *testing.T) {
 		{
 			Name:      "rhel67_20180816.qcow2",
 			OsDistro:  "RHEL",
-			OsType:    "linux",
+			OsType:    osprofile.OS_TYPE_LINUX,
 			OsVersion: "6.7",
 			OsLang:    "",
 			OsArch:    "x86_64",
@@ -36,7 +40,7 @@ func TestNormalizeImageInfo(t *testing.T) {
 		{
 			Name:      "Ubuntu_16.04.3_amd64_qingcloud_20180817.qcow2",
 			OsDistro:  "Ubuntu",
-			OsType:    "linux",
+			OsType:    osprofile.OS_TYPE_LINUX,
 			OsVersion: "16.04.3",
 			OsLang:    "",
 			OsArch:    "x86_64",
@@ -44,7 +48,7 @@ func TestNormalizeImageInfo(t *testing.T) {
 		{
 			Name:      "windows-server-2008-dc-cn-20180717",
 			OsDistro:  "Windows Server",
-			OsType:    "windows",
+			OsType:    osprofile.OS_TYPE_WINDOWS,
 			OsVersion: "2008",
 			OsLang:    "zh_CN",
 			OsArch:    "x86_64",
@@ -52,7 +56,7 @@ func TestNormalizeImageInfo(t *testing.T) {
 		{
 			Name:      "Ubuntu  14.04 32位",
 			OsDistro:  "Ubuntu",
-			OsType:    "linux",
+			OsType:    osprofile.OS_TYPE_LINUX,
 			OsVersion: "14.04",
 			OsLang:    "",
 			OsArch:    "x86_32",
@@ -60,7 +64,7 @@ func TestNormalizeImageInfo(t *testing.T) {
 		{
 			Name:      "CentOS  7.2 64位",
 			OsDistro:  "CentOS",
-			OsType:    "linux",
+			OsType:    osprofile.OS_TYPE_LINUX,
 			OsVersion: "7.2",
 			OsLang:    "",
 			OsArch:    "x86_64",
@@ -68,7 +72,7 @@ func TestNormalizeImageInfo(t *testing.T) {
 		{
 			Name:      "Windows Server 2019 数据中心版 64位 中文版 GRID13",
 			OsDistro:  "Windows Server",
-			OsType:    "windows",
+			OsType:    osprofile.OS_TYPE_WINDOWS,
 			OsVersion: "2019",
 			OsLang:    "zh_CN",
 			OsArch:    "x86_64",
@@ -76,7 +80,7 @@ func TestNormalizeImageInfo(t *testing.T) {
 		{
 			Name:      "CentOS 8.2(arm64)",
 			OsDistro:  "CentOS",
-			OsType:    "linux",
+			OsType:    osprofile.OS_TYPE_LINUX,
 			OsVersion: "8.2",
 			OsLang:    "",
 			OsArch:    "aarch64",
@@ -84,7 +88,7 @@ func TestNormalizeImageInfo(t *testing.T) {
 		{
 			Name:      "Ubuntu Server 22.04 LTS 64位",
 			OsDistro:  "Ubuntu Server",
-			OsType:    "linux",
+			OsType:    osprofile.OS_TYPE_LINUX,
 			OsVersion: "22.04",
 			OsLang:    "",
 			OsArch:    "x86_64",
@@ -92,7 +96,7 @@ func TestNormalizeImageInfo(t *testing.T) {
 		{
 			Name:      "CentOS Stream 9 64位",
 			OsDistro:  "CentOS Stream",
-			OsType:    "linux",
+			OsType:    osprofile.OS_TYPE_LINUX,
 			OsVersion: "9",
 			OsLang:    "",
 			OsArch:    "x86_64",
