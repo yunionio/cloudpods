@@ -528,3 +528,11 @@ func (m *HmpMonitor) SaveState(stateFilePath string, callback StringCallback) {
 func (m *HmpMonitor) QueryPci(callback QueryPciCallback) {
 	go callback(nil, "unsupported query pci for hmp")
 }
+
+func (m *HmpMonitor) QueryMachines(callback QueryMachinesCallback) {
+	go callback(nil, "unsupported query machines for hmp")
+}
+
+func (m *HmpMonitor) Quit(cb StringCallback) {
+	m.Query("quit", cb)
+}

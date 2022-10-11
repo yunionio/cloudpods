@@ -131,12 +131,6 @@ func (c *SCPUInfo) fetchCpuSpecs() (map[string]string, error) {
 	return spec, nil
 }
 
-// percentInterval(ms)
-func (c *SCPUInfo) GetJsonDesc(percentInterval int) {
-	// perc, err := cpu.Percent(time.Millisecond*percentInterval, false)
-	// os. ?????可能不需要要写
-}
-
 type SMemory struct {
 	Total   int
 	Free    int

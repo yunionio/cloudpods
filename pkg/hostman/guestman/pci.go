@@ -50,12 +50,15 @@ func (s *SKVMGuestInstance) pciControllerFind(cont desc.PCI_CONTROLLER_TYPE) *de
 }
 
 func (s *SKVMGuestInstance) initGuestDesc() error {
-	s.initCpuDesc()
+	err := s.initCpuDesc()
+	if err != nil {
+		return err
+	}
 	s.initMemDesc(s.Desc.Mem)
 	s.initMachineDesc()
 
 	pciRoot, pciBridge := s.initGuestPciControllers()
-	err := s.initGuestPciAddresses()
+	err = s.initGuestPciAddresses()
 	if err != nil {
 		return errors.Wrap(err, "init guest pci addresses")
 	}
@@ -689,8 +692,11 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 
 	unknownDevices := make([]monitor.PCIDeviceInfo, 0)
 
-	s.initCpuDesc()
-	err := s.initMemDescFromMemoryInfo(memoryDevicesInfoList)
+	err := s.initCpuDesc()
+	if err != nil {
+		return err
+	}
+	err = s.initMemDescFromMemoryInfo(memoryDevicesInfoList)
 	if err != nil {
 		return errors.Wrap(err, "init guest memory devices")
 	}

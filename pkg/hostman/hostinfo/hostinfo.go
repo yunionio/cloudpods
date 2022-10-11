@@ -15,6 +15,7 @@
 package hostinfo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -25,6 +26,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/vishvananda/netlink"
@@ -50,6 +52,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/hardware"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
@@ -78,9 +81,11 @@ type SHostInfo struct {
 	saved  bool
 	pinger *SHostPingTask
 
-	Cpu     *SCPUInfo
-	Mem     *SMemory
-	sysinfo *SSysInfo
+	Cpu                 *SCPUInfo
+	Mem                 *SMemory
+	sysinfo             *SSysInfo
+	qemuMachineInfoList []monitor.MachineInfo
+	kvmMaxCpus          uint
 
 	kubeletConfig kubelet.KubeletConfig
 
@@ -470,6 +475,7 @@ func (h *SHostInfo) detectHostInfo() error {
 	}
 
 	h.detectKvmModuleSupport()
+	h.detectKVMMaxCpus()
 	h.detectNestSupport()
 
 	if err := h.detectSyssoftwareInfo(); err != nil {
@@ -572,6 +578,13 @@ func (h *SHostInfo) EnableTransparentHugepages() {
 }
 
 func (h *SHostInfo) GetMemory() int {
+	return h.Mem.Total
+}
+
+func (h *SHostInfo) GetMemoryTotal() int {
+	if h.Mem.MemInfo == nil {
+		return h.Mem.MemInfo.Total
+	}
 	return h.Mem.Total
 }
 
@@ -822,7 +835,11 @@ func (h *SHostInfo) detectQemuVersion() error {
 	} else {
 		versions := strings.Split(string(version), "\n")
 		parts := strings.Split(versions[0], " ")
-		v := parts[len(parts)-1]
+		var v = parts[len(parts)-1]
+		if strings.HasPrefix(parts[len(parts)-1], "(") {
+			v = parts[len(parts)-2]
+		}
+
 		if len(v) > 0 {
 			log.Infof("Detect qemu version is %s", v)
 			h.sysinfo.QemuVersion = v
@@ -830,7 +847,130 @@ func (h *SHostInfo) detectQemuVersion() error {
 			return fmt.Errorf("Failed to detect qemu version")
 		}
 	}
+	return h.detectQemuCapabilities(h.sysinfo.QemuVersion)
+}
+
+const (
+	KVM_GET_API_VERSION = uintptr(44544)
+	KVM_CREATE_VM       = uintptr(44545)
+	KVM_CHECK_EXTENSION = uintptr(44547)
+
+	KVM_CAP_NR_VCPUS  = 9
+	KVM_CAP_MAX_VCPUS = 66
+	// TODO: arm mem ipa size for max memsize
+	// KVM_CAP_ARM_VM_IPA_SIZE
+)
+
+func (h *SHostInfo) detectKVMMaxCpus() error {
+	ioctl := func(fd, op, arg uintptr) (uintptr, uintptr, syscall.Errno) {
+		return syscall.Syscall(syscall.SYS_IOCTL, fd, op, arg)
+	}
+	kvm, err := syscall.Open("/dev/kvm", syscall.O_RDONLY, 0644)
+	if err != nil {
+		return errors.Wrap(err, "failed open /dev/kvm")
+	}
+	defer syscall.Close(kvm)
+	r, _, errno := ioctl(uintptr(kvm), KVM_GET_API_VERSION, uintptr(0))
+	if errno != 0 {
+		return errors.Errorf("get api version: %d", errno)
+	}
+	log.Infof("KVM API VERSION %d", r)
+	r, _, errno = ioctl(uintptr(kvm), KVM_CHECK_EXTENSION, uintptr(KVM_CAP_MAX_VCPUS))
+	if errno != 0 {
+		return errors.Errorf("kvm check extension KVM_CAP_MAX_VCPUS errno: %d", errno)
+	}
+	log.Infof("KVM CAP MAX VCPUS: %d", r)
+	if r > 0 {
+		h.kvmMaxCpus = uint(r)
+	}
+	r, _, errno = ioctl(uintptr(kvm), KVM_CHECK_EXTENSION, uintptr(KVM_CAP_NR_VCPUS))
+	if errno != 0 {
+		return errors.Errorf("kvm check extension KVM_CAP_NR_VCPUS errno: %d", errno)
+	}
+	log.Infof("KVM CAP NR VCPUS: %d", r)
+	if r > 0 && (h.kvmMaxCpus == 0 || h.kvmMaxCpus > uint(r)) {
+		h.kvmMaxCpus = uint(r)
+	}
+
+	// kernel doc: If the KVM_CAP_NR_VCPUS does not exist
+	// you should assume that max_vcpus is 4 cpus max.
+	if h.kvmMaxCpus == 0 {
+		h.kvmMaxCpus = 4
+	}
 	return nil
+}
+
+type QemuCaps struct {
+	QemuVersion     string
+	MachineInfoList []monitor.MachineInfo
+}
+
+func (h *SHostInfo) loadQemuCaps(capsPath string) (*QemuCaps, error) {
+	if fileutils2.Exists(capsPath) {
+		caps, err := fileutils2.FileGetContents(capsPath)
+		if err != nil {
+			log.Errorf("failed get qemu caps: %s", err)
+			return nil, err
+		}
+		qemuCaps := new(QemuCaps)
+		jCaps, err := jsonutils.ParseString(caps)
+		if err != nil {
+			log.Errorf("failed parse qemu caps: %s", err)
+			return nil, err
+		}
+		err = jCaps.Unmarshal(qemuCaps)
+		if err != nil {
+			log.Errorf("failed unmarshal qemu caps: %s", err)
+			return nil, err
+		}
+		return qemuCaps, nil
+	}
+	return nil, nil
+}
+
+func (h *SHostInfo) detectQemuCapabilities(version string) error {
+	capsPath := path.Join(options.HostOptions.ServersPath, "qemu_caps")
+	caps, err := h.loadQemuCaps(capsPath)
+	if err == nil && caps != nil && caps.QemuVersion == version {
+		h.qemuMachineInfoList = caps.MachineInfoList
+		return nil
+	}
+
+	qmpCmds := fmt.Sprintf(`echo "{'execute': 'qmp_capabilities'}
+       {'execute': 'query-machines'}
+       {'execute': 'quit'}" | %s -qmp stdio  -vnc none -machine none -display none`, qemutils.GetQemu(version))
+	log.Debugf("qemu caps cmdline %v", qmpCmds)
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", qmpCmds).Output()
+	if err != nil {
+		log.Errorf("failed start qemu caps cmdline: %s", qmpCmds)
+	}
+	segs := bytes.Split(out, []byte{'\n'})
+	if len(segs) != 6 {
+		return errors.Errorf("unexpect qmp res %s", out)
+	}
+	res, err := jsonutils.Parse(bytes.TrimSpace(segs[2]))
+	if err != nil {
+		return errors.Errorf("Unmarshal %s error: %s", segs[2], err)
+	}
+	var machineInfoList = make([]monitor.MachineInfo, 0)
+	err = res.Unmarshal(&machineInfoList, "return")
+	if err != nil {
+		return errors.Errorf("failed unmarshal machineinfo return %s: %s", segs[3], err)
+	}
+	h.qemuMachineInfoList = machineInfoList
+	qemuCaps := &QemuCaps{
+		QemuVersion:     version,
+		MachineInfoList: machineInfoList,
+	}
+	return fileutils2.FilePutContents(capsPath, jsonutils.Marshal(qemuCaps).String(), false)
+}
+
+func (h *SHostInfo) GetQemuMachineInfoList() []monitor.MachineInfo {
+	return h.qemuMachineInfoList
+}
+
+func (h *SHostInfo) GetKVMMaxCpus() uint {
+	return h.kvmMaxCpus
 }
 
 func (h *SHostInfo) detectOvsVersion() {
