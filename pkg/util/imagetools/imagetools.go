@@ -126,7 +126,7 @@ var imageVersions = map[string][]string{
 
 	"OpenSUSE": {"11", "12"},
 	"SUSE":     {"10", "11", "12", "13"},
-	"Debian":   {"6", "7", "8", "9", "10"},
+	"Debian":   {"6", "7", "8", "9", "10", "11"},
 	"CoreOS":   {"7"},
 	"EulerOS":  {"2"},
 	"Aliyun":   {},
