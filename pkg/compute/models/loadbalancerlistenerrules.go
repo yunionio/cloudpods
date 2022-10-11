@@ -739,17 +739,19 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 					lbr.BackendGroupId = ""
 				}
 				log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+			} else {
+				lbr.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
 			}
 
-			lbr.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
 		} else if lbr.GetProviderName() == api.CLOUD_PROVIDER_AWS {
 			if len(groupId) > 0 {
 				group, err := db.FetchByExternalId(AwsCachedLbbgManager, groupId)
 				if err != nil {
 					log.Errorf("Fetch aws loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+				} else {
+					lbr.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
 				}
 
-				lbr.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
 			}
 		} else if lbr.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
 			group, err := db.FetchByExternalId(QcloudCachedLbbgManager, groupId)
@@ -758,9 +760,10 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 					lbr.BackendGroupId = ""
 				}
 				log.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+			} else {
+				lbr.BackendGroupId = group.(*SQcloudCachedLbbg).BackendGroupId
 			}
 
-			lbr.BackendGroupId = group.(*SQcloudCachedLbbg).BackendGroupId
 		} else if backendgroup, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
 			lbr.BackendGroupId = backendgroup.GetId()
 		}
