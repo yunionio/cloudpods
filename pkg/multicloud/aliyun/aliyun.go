@@ -134,8 +134,7 @@ func (cfg AliyunClientConfig) Copy() AliyunClientConfig {
 type SAliyunClient struct {
 	*AliyunClientConfig
 
-	ownerId   string
-	ownerName string
+	ownerId string
 
 	nasEndpoints map[string]string
 	vpcEndpoints map[string]string
@@ -150,18 +149,7 @@ func NewAliyunClient(cfg *AliyunClientConfig) (*SAliyunClient, error) {
 		nasEndpoints:       map[string]string{},
 		vpcEndpoints:       map[string]string{},
 	}
-	err := client.fetchRegions()
-	if err != nil {
-		return nil, err
-	}
-	err = client.fetchBuckets()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchBuckets")
-	}
-	if client.debug {
-		log.Debugf("ClientID: %s ClientName: %s", client.ownerId, client.ownerName)
-	}
-	return &client, nil
+	return &client, client.fetchRegions()
 }
 
 func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
@@ -618,8 +606,9 @@ func (self *SAliyunClient) fetchBuckets() error {
 		return errors.Wrap(err, "oss.ListBuckets")
 	}
 
-	self.ownerId = result.Owner.ID
-	self.ownerName = result.Owner.DisplayName
+	if len(self.ownerId) == 0 {
+		self.ownerId = result.Owner.ID
+	}
 
 	ret := make([]cloudprovider.ICloudBucket, 0)
 	for _, bInfo := range result.Buckets {
@@ -674,6 +663,14 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 }
 
 func (self *SAliyunClient) GetAccountId() string {
+	if len(self.ownerId) > 0 {
+		return self.ownerId
+	}
+	caller, err := self.GetCallerIdentity()
+	if err != nil {
+		return ""
+	}
+	self.ownerId = caller.AccountId
 	return self.ownerId
 }
 
