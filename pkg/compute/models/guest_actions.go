@@ -723,8 +723,7 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (self *SGuest) PerformSetPassword(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSetPasswordInput) (jsonutils.JSONObject, error) {
-	switch self.Status {
-	case api.VM_RUNNING:
+	if self.Hypervisor == api.HYPERVISOR_KVM && self.Status == api.VM_RUNNING {
 		inputQga := &api.ServerQgaSetPasswordInput{
 			Username: input.Username,
 			Password: input.Password,
@@ -740,15 +739,13 @@ func (self *SGuest) PerformSetPassword(ctx context.Context, userCred mcclient.To
 			inputQga.Password = seclib2.RandomPassword2(12)
 		}
 		return self.PerformQgaSetPassword(ctx, userCred, query, inputQga)
-	case api.VM_READY:
+	} else {
 		inputDeploy := api.ServerDeployInput{
 			Password:      input.Password,
 			ResetPassword: input.ResetPassword,
 			AutoStart:     input.AutoStart,
 		}
 		return self.PerformDeploy(ctx, userCred, query, inputDeploy)
-	default:
-		return nil, httperrors.NewServerStatusError("Cannot deploy in status %s", self.Status)
 	}
 }
 
