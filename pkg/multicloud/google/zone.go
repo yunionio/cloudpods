@@ -38,7 +38,7 @@ type SZone struct {
 }
 
 func (region *SRegion) GetZone(id string) (*SZone, error) {
-	zone := &SZone{}
+	zone := &SZone{region: region}
 	return zone, region.GetBySelfId(id, zone)
 }
 
