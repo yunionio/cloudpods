@@ -98,7 +98,7 @@ func (self *GuestQgaSetPasswordTask) OnQgaSetUserPassword(ctx context.Context, g
 		guest.SetAllMetadata(ctx, info, self.UserCred)
 	}
 
-	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SET_USER_PASSWORD, "", self.UserCred, true)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SET_USER_PASSWORD, "qga set password success", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
