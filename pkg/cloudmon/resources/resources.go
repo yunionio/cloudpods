@@ -106,7 +106,8 @@ func (self *SBaseResources) init() error {
 				ImportedAt time.Time
 			}{}
 			resp.Data[i].Unmarshal(&baseInfo)
-			if len(baseInfo.ExternalId) == 0 && self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() {
+			if len(baseInfo.ExternalId) == 0 && (self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() &&
+				self.manager.GetKeyword() != compute.Cloudaccounts.GetKeyword()) {
 				continue
 			}
 			key := baseInfo.ExternalId
@@ -175,7 +176,8 @@ func (self *SBaseResources) increment() error {
 	for i := range ret {
 		baseInfo := sBaseInfo{}
 		ret[i].Unmarshal(&baseInfo)
-		if len(baseInfo.ExternalId) == 0 && self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() {
+		if len(baseInfo.ExternalId) == 0 && (self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() &&
+			self.manager.GetKeyword() != compute.Cloudaccounts.GetKeyword()) {
 			continue
 		}
 		key := baseInfo.ExternalId
@@ -622,7 +624,10 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 
 			resources = self.DBInstances.getResources(manager.Id)
 			dbinstances := map[string]api.DBInstanceDetails{}
-			jsonutils.Update(&dbinstances, resources)
+			err = jsonutils.Update(&dbinstances, resources)
+			if err != nil {
+				log.Errorf("unmarsha rds resources error: %v", err)
+			}
 			err = driver.CollectDBInstanceMetrics(ctx, manager, provider, dbinstances, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectDBInstanceMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
@@ -630,7 +635,10 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 
 			resources = self.Servers.getResources(manager.Id)
 			servers := map[string]api.ServerDetails{}
-			jsonutils.Update(&servers, resources)
+			err = jsonutils.Update(&servers, resources)
+			if err != nil {
+				log.Errorf("unmarsha server resources error: %v", err)
+			}
 			err = driver.CollectServerMetrics(ctx, manager, provider, servers, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectServerMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
@@ -638,7 +646,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 
 			resources = self.Hosts.getResources(manager.Id)
 			hosts := map[string]api.HostDetails{}
-			jsonutils.Update(&hosts, resources)
+			err = jsonutils.Update(&hosts, resources)
+			if err != nil {
+				log.Errorf("unmarsha host resources error: %v", err)
+			}
+
 			err = driver.CollectHostMetrics(ctx, manager, provider, hosts, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectHostMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
@@ -646,7 +658,10 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 
 			resources = self.Storages.getResources(manager.Id)
 			storages := map[string]api.StorageDetails{}
-			jsonutils.Update(&storages, resources)
+			err = jsonutils.Update(&storages, resources)
+			if err != nil {
+				log.Errorf("unmarsha storage resources error: %v", err)
+			}
 			err = driver.CollectStorageMetrics(ctx, manager, provider, storages, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectStorageMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
@@ -654,7 +669,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 
 			resources = self.Redis.getResources(manager.Id)
 			caches := map[string]api.ElasticcacheDetails{}
-			jsonutils.Update(&caches, resources)
+			err = jsonutils.Update(&caches, resources)
+			if err != nil {
+				log.Errorf("unmarsha redis resources error: %v", err)
+			}
+
 			err = driver.CollectRedisMetrics(ctx, manager, provider, caches, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectRedisMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
@@ -662,7 +681,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 
 			resources = self.Loadbalancers.getResources(manager.Id)
 			lbs := map[string]api.LoadbalancerDetails{}
-			jsonutils.Update(&lbs, resources)
+			err = jsonutils.Update(&lbs, resources)
+			if err != nil {
+				log.Errorf("unmarsha lb resources error: %v", err)
+			}
+
 			err = driver.CollectLoadbalancerMetrics(ctx, manager, provider, lbs, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectLoadbalancerMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
@@ -670,7 +693,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 
 			resources = self.Buckets.getResources(manager.Id)
 			buckets := map[string]api.BucketDetails{}
-			jsonutils.Update(&buckets, resources)
+			err = jsonutils.Update(&buckets, resources)
+			if err != nil {
+				log.Errorf("unmarsha bucket resources error: %v", err)
+			}
+
 			err = driver.CollectBucketMetrics(ctx, manager, provider, buckets, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectBucketMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
@@ -678,7 +705,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 
 			resources = self.KubeClusters.getResources(manager.Id)
 			clusters := map[string]api.KubeClusterDetails{}
-			jsonutils.Update(&clusters, resources)
+			err = jsonutils.Update(&clusters, resources)
+			if err != nil {
+				log.Errorf("unmarsha k8s resources error: %v", err)
+			}
+
 			err = driver.CollectK8sMetrics(ctx, manager, provider, clusters, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectK8sMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
@@ -686,7 +717,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 
 			resources = self.ModelartsPool.getResources(manager.Id)
 			pools := map[string]api.ModelartsPoolDetails{}
-			jsonutils.Update(&pools, resources)
+			err = jsonutils.Update(&pools, resources)
+			if err != nil {
+				log.Errorf("unmarsha modelarts resources error: %v", err)
+			}
+
 			err = driver.CollectModelartsPoolMetrics(ctx, manager, provider, pools, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectModelartsPoolMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
