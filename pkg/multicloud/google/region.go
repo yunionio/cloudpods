@@ -279,6 +279,11 @@ func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	if err != nil {
 		return nil, err
 	}
+	zone, err := region.GetZone(ivm.Zone)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetZone(%s)", ivm.Zone)
+	}
+	ivm.host = &SHost{zone: zone}
 	return ivm, nil
 }
 
