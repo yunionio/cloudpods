@@ -363,7 +363,9 @@ func getDiskDeviceOption(optDrv QemuOptions, disk api.GuestdiskJsonDesc, isArm b
 	}
 	opt += fmt.Sprintf(",id=drive_%d", diskIndex)
 	if isSsd {
-		opt += ",rotation_rate=1"
+		if diskDriver == DISK_DRIVER_SCSI {
+			opt += ",rotation_rate=1"
+		}
 	}
 	return optDrv.Device(opt)
 
