@@ -21,7 +21,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/reflectutils"
 
+	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/syncman/watcher"
@@ -78,7 +80,13 @@ func StartOptionManagerWithSessionDriver(options interface{}, refreshSeconds int
 	OptionManager.FirstSync()
 
 	if session.IsRemote() {
-		OptionManager.StartWatching(&identity.ServicesV3)
+		var opts *CommonOptions
+		err := reflectutils.FindAnonymouStructPointer(options, &opts)
+		if err != nil {
+			log.Errorf("cannot find CommonOptions in options")
+		} else if opts.SessionEndpointType == identity_api.EndpointInterfaceInternal {
+			OptionManager.StartWatching(&identity.ServicesV3)
+		}
 	}
 }
 
