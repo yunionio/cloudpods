@@ -2487,8 +2487,8 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	for i := 0; i < len(commondb); i += 1 {
 		skip, key := skipFunc(commonext[i])
 		if skip {
-			log.Infof("skip server %s(%s) sync for delete with system tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
-			err := commondb[i].syncRemoveCloudVM(ctx, userCred)
+			log.Infof("delete server %s(%s) with system tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
+			err := commondb[i].purge(ctx, userCred)
 			if err != nil {
 				syncResult.DeleteError(err)
 				continue
