@@ -86,8 +86,9 @@ type ScheduleInput struct {
 	CpuMode      string `json:"cpu_mode"`
 	OsArch       string `json:"os_arch"`
 
-	SkipKernelCheck  *bool  `json:"skip_kernel_check"`
-	TargetHostKernel string `json:"target_host_kernel"`
+	HostMemPageSizeKB int    `json:"host_mem_page_size"`
+	SkipKernelCheck   *bool  `json:"skip_kernel_check"`
+	TargetHostKernel  string `json:"target_host_kernel"`
 
 	// In the migrate and create backup cases
 	// we don't need reallocate network

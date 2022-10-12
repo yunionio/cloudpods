@@ -507,6 +507,7 @@ func (self *SGuest) GetSchedMigrateParams(
 		if host != nil {
 			schedDesc.TargetHostKernel, _ = host.SysInfo.GetString("kernel_version")
 			schedDesc.SkipKernelCheck = &input.SkipKernelCheck
+			schedDesc.HostMemPageSizeKB = host.PageSizeKB
 		}
 	}
 	schedDesc.ReuseNetwork = true
