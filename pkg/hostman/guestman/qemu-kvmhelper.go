@@ -270,7 +270,9 @@ func (s *SKVMGuestInstance) getVdiskDesc(disk api.GuestdiskJsonDesc, isArm bool)
 	}
 	cmd += fmt.Sprintf(",id=drive_%d", diskIndex)
 	if isSsd {
-		cmd += ",rotation_rate=1"
+		if diskDriver == DISK_DRIVER_SCSI {
+			cmd += ",rotation_rate=1"
+		}
 	}
 	return cmd
 }
