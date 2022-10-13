@@ -513,7 +513,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 	}
 
 	// check accountId uniqueness
-	if len(accountId) > 0 {
+	if len(accountId) > 0 && !input.SkipDuplicateAccountCheck {
 		cnt, err := manager.Query().Equals("account_id", accountId).CountWithError()
 		if err != nil {
 			return input, httperrors.NewInternalServerError("check account_id duplication error %s", err)
