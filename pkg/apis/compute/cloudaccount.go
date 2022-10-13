@@ -145,6 +145,9 @@ type CloudaccountCreateInput struct {
 	// swagger:ignore
 	AccountId string
 
+	// 跳过重复账号注册检查
+	SkipDuplicateAccountCheck bool
+
 	// 指定云平台品牌, 此参数默认和provider相同
 	// requried: false
 	//

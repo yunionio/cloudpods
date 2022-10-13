@@ -122,6 +122,8 @@ type SCloudAccountCreateBaseOptions struct {
 
 	Disabled *bool `help:"create cloud account with disabled status"`
 
+	SkipDuplicateAccountCheck bool `help:"skip check duplicate account"`
+
 	SamlAuth string `help:"Enable or disable saml auth" choices:"true|false"`
 
 	ProxySetting    string `help:"proxy setting id or name" json:"proxy_setting"`

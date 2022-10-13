@@ -445,20 +445,22 @@ func (manager *SCloudaccountManager) validateCreateData(
 	input.IsPublicCloud = providerDriver.IsPublicCloud()
 	input.IsOnPremise = providerDriver.IsOnPremise()
 
-	q := manager.Query().Equals("provider", input.Provider)
-	if len(input.Account) > 0 {
-		q = q.Equals("account", input.Account)
-	}
-	if len(input.AccessUrl) > 0 {
-		q = q.Equals("access_url", input.AccessUrl)
-	}
+	if !input.SkipDuplicateAccountCheck {
+		q := manager.Query().Equals("provider", input.Provider)
+		if len(input.Account) > 0 {
+			q = q.Equals("account", input.Account)
+		}
+		if len(input.AccessUrl) > 0 {
+			q = q.Equals("access_url", input.AccessUrl)
+		}
 
-	cnt, err := q.CountWithError()
-	if err != nil {
-		return input, httperrors.NewInternalServerError("check uniqness fail %s", err)
-	}
-	if cnt > 0 {
-		return input, httperrors.NewConflictError("The account has been registered")
+		cnt, err := q.CountWithError()
+		if err != nil {
+			return input, httperrors.NewInternalServerError("check uniqness fail %s", err)
+		}
+		if cnt > 0 {
+			return input, httperrors.NewConflictError("The account has been registered")
+		}
 	}
 
 	var proxyFunc httputils.TransportProxyFunc
