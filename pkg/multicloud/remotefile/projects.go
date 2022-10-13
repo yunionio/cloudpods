@@ -21,6 +21,7 @@ import (
 
 type SProject struct {
 	multicloud.SProjectBase
+	multicloud.RemoteFileTags
 
 	Id   string
 	Name string

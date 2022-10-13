@@ -17,6 +17,8 @@ package remotefile
 import (
 	"fmt"
 
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -85,8 +87,18 @@ func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	instances, err := region.client.GetInstances()
+	if err != nil {
+		return nil, err
+	}
+	instance := SInstance{}
+	for _, v := range instances {
+		if v.Id == id {
+			return &instance, nil
+		}
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "GetIVMById:%s", id)
 }
 
 func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
