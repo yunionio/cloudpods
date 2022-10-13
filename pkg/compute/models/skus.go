@@ -23,7 +23,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -44,11 +43,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
-	"yunion.io/x/onecloud/pkg/util/hashcache"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
-
-var Cache *hashcache.Cache
 
 type SServerSkuManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
@@ -69,8 +65,6 @@ func init() {
 	}
 	ServerSkuManager.NameRequireAscii = false
 	ServerSkuManager.SetVirtualObject(ServerSkuManager)
-
-	Cache = hashcache.NewCache(2048, time.Second*300)
 }
 
 // SServerSku 实际对应的是instance type清单. 这里的Sku实际指的是instance type。
@@ -211,37 +205,8 @@ func genInstanceType(family string, cpu, memMb int64) (string, error) {
 	}
 }
 
-func skuRelatedGuestCount(self *SServerSku) (int, error) {
-	var q *sqlchemy.SQuery
-	if len(self.ZoneId) > 0 {
-		hostTable := HostManager.Query().SubQuery()
-		guestTable := GuestManager.Query().SubQuery()
-		q = guestTable.Query().Join(hostTable, sqlchemy.Equals(hostTable.Field("id"), guestTable.Field("host_id")))
-		q = q.Filter(sqlchemy.Equals(hostTable.Field("zone_id"), self.ZoneId))
-	} else {
-		q = GuestManager.Query()
-	}
-
-	q = q.Equals("instance_type", self.GetName())
-	return q.CountWithError()
-}
-
 func (self SServerSku) GetGlobalId() string {
 	return self.ExternalId
-}
-
-func (self *SServerSku) getTotalGuestCount() int {
-	// count
-	var count int
-	countKey := self.GetId() + ".total_guest_count"
-	v := Cache.Get(countKey)
-	if v == nil {
-		count, _ = skuRelatedGuestCount(self)
-		Cache.Set(countKey, count)
-	} else {
-		count = v.(int)
-	}
-	return count
 }
 
 func (manager *SServerSkuManager) FetchCustomizeColumns(
@@ -257,16 +222,67 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-
+	instanceTypes := []string{}
 	for i := range rows {
 		rows[i] = api.ServerSkuDetails{
 			EnabledStatusStandaloneResourceDetails: stdRows[i],
 			ZoneResourceInfoBase:                   zoneRows[i].ZoneResourceInfoBase,
 			CloudregionResourceInfo:                regRows[i],
 		}
+		sku := objs[i].(*SServerSku)
+		if !utils.IsInStringArray(sku.Name, instanceTypes) {
+			instanceTypes = append(instanceTypes, sku.Name)
+		}
 
 		rows[i].CloudEnv = strings.Split(zoneRows[i].RegionExternalId, "/")[0]
-		rows[i].TotalGuestCount = objs[i].(*SServerSku).getTotalGuestCount()
+	}
+
+	ret := []struct {
+		InstanceType  string
+		CloudregionId string
+		ZoneId        string
+	}{}
+
+	guestsQ := GuestManager.Query().SubQuery()
+	hostsQ := HostManager.Query().SubQuery()
+	zonesQ := ZoneManager.Query().SubQuery()
+	q := guestsQ.Query(
+		guestsQ.Field("instance_type"),
+		hostsQ.Field("zone_id"),
+		zonesQ.Field("cloudregion_id"),
+	).
+		Join(hostsQ, sqlchemy.Equals(guestsQ.Field("host_id"), hostsQ.Field("id"))).
+		Join(zonesQ, sqlchemy.Equals(hostsQ.Field("zone_id"), zonesQ.Field("id"))).
+		Filter(sqlchemy.In(guestsQ.Field("instance_type"), instanceTypes))
+	err := q.All(&ret)
+	if err != nil {
+		log.Errorf("query instance cnt error: %v", err)
+		return rows
+	}
+	skuMap := map[string]map[string]int{}
+	for _, sku := range ret {
+		_, ok := skuMap[sku.InstanceType]
+		if !ok {
+			skuMap[sku.InstanceType] = map[string]int{}
+		}
+		_, ok = skuMap[sku.InstanceType][sku.ZoneId]
+		if !ok {
+			skuMap[sku.InstanceType][sku.ZoneId] = 0
+		}
+		skuMap[sku.InstanceType][sku.ZoneId] += 1
+		_, ok = skuMap[sku.InstanceType][sku.CloudregionId]
+		if !ok {
+			skuMap[sku.InstanceType][sku.CloudregionId] = 0
+		}
+		skuMap[sku.InstanceType][sku.CloudregionId] += 1
+	}
+	for i := range rows {
+		sku := objs[i].(*SServerSku)
+		if len(sku.ZoneId) > 0 {
+			rows[i].TotalGuestCount = skuMap[sku.Name][sku.ZoneId]
+		} else {
+			rows[i].TotalGuestCount = skuMap[sku.Name][sku.CloudregionId]
+		}
 	}
 
 	return rows
@@ -623,12 +639,8 @@ func (self *SServerSku) StartServerSkuDeleteTask(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SServerSku) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	serverCount, err := skuRelatedGuestCount(self)
-	if err != nil {
-		return httperrors.NewInternalServerError("check instance")
-	}
-	if serverCount > 0 {
+func (self *SServerSku) ValidateDeleteCondition(ctx context.Context, info *api.ServerSkuDetails) error {
+	if info.TotalGuestCount > 0 {
 		return httperrors.NewNotEmptyError("now allow to delete inuse instance_type.please remove related servers first: %s", self.Name)
 	}
 
