@@ -1290,3 +1290,12 @@ func (o *ServerCPUSetOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	return jsonutils.Marshal(input), nil
 }
+
+type ServerVncOptions struct {
+	ServerIdOptions
+	Origin bool
+}
+
+func (o *ServerVncOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
