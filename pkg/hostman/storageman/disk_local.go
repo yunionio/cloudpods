@@ -187,8 +187,10 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 		}
 	}
 	if options.HostOptions.EnableFallocateDisk {
-		// TODO
-		// d.Fallocate()
+		err := d.fallocate()
+		if err != nil {
+			log.Errorf("fallocate fail %s", err)
+		}
 	}
 
 	if err := d.ResizeFs(resizeFsInfo); err != nil {
@@ -304,8 +306,10 @@ func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64, 
 		return errors.Wrapf(err, "fetch image from %s", url)
 	}
 	if options.HostOptions.EnableFallocateDisk {
-		//TODO
-		// d.fallocate()
+		err := d.fallocate()
+		if err != nil {
+			log.Errorf("fallocate fail %s", err)
+		}
 	}
 	return nil
 }
@@ -340,8 +344,10 @@ func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFo
 	}
 
 	if options.HostOptions.EnableFallocateDisk {
-		// TODO
-		// d.Fallocate
+		err := d.fallocate()
+		if err != nil {
+			log.Errorf("fallocate fail %s", err)
+		}
 	}
 
 	diskInfo := &deployapi.DiskInfo{
@@ -704,4 +710,16 @@ func (d *SLocalDisk) DoDeleteSnapshot(snapshotId string) error {
 
 func (d *SLocalDisk) IsFile() bool {
 	return true
+}
+
+func (d *SLocalDisk) fallocate() error {
+	img, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return errors.Wrap(err, "NewQemuImage")
+	}
+	err = img.Fallocate()
+	if err != nil {
+		return errors.Wrap(err, "Fallocate")
+	}
+	return nil
 }
