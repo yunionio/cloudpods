@@ -62,7 +62,11 @@ func InitAuth(options *common_options.CommonOptions, authComplete auth.AuthCompl
 
 	if options.SessionEndpointType != "" {
 		if !utils.IsInStringArray(options.SessionEndpointType,
-			[]string{identity.EndpointInterfacePublic, identity.EndpointInterfaceInternal}) {
+			[]string{
+				identity.EndpointInterfacePublic,
+				identity.EndpointInterfaceInternal,
+				identity.EndpointInterfaceApigateway,
+			}) {
 			log.Fatalf("Invalid session endpoint type %s", options.SessionEndpointType)
 		}
 		auth.SetEndpointType(options.SessionEndpointType)
@@ -85,10 +89,12 @@ func InitAuth(options *common_options.CommonOptions, authComplete auth.AuthCompl
 
 	InitBaseAuth(&options.BaseOptions)
 
-	watcher := newEndpointChangeManager()
-	watcher.StartWatching(&identity_modules.EndpointsV3)
+	if options.SessionEndpointType == identity.EndpointInterfaceInternal {
+		watcher := newEndpointChangeManager()
+		watcher.StartWatching(&identity_modules.EndpointsV3)
 
-	startEtcdEndpointPuller()
+		startEtcdEndpointPuller()
+	}
 }
 
 func InitBaseAuth(options *common_options.BaseOptions) {
@@ -106,7 +112,7 @@ func FetchEtcdServiceInfo() (*identity.EndpointDetails, error) {
 
 func startEtcdEndpointPuller() {
 	retryInterval := 60
-	etecdUrl, err := auth.GetServiceURL(apis.SERVICE_TYPE_ETCD, consts.GetRegion(), "", "")
+	etecdUrl, err := auth.GetServiceURL(apis.SERVICE_TYPE_ETCD, consts.GetRegion(), "", identity.EndpointInterfaceInternal)
 	if err != nil {
 		log.Errorf("[etcd] GetServiceURL fail %s, retry after %d seconds", err, retryInterval)
 	} else if len(etecdUrl) == 0 {
