@@ -36,6 +36,7 @@ const (
 	ErrHostIsSpecifiedForMigration            = `host_id specified for migration`
 	ErrHostCpuModelIsNotMatchForLiveMigrate   = `host cpu mode not match for live migrate`
 	ErrHostCpuMicrocodeNotMatchForLiveMigrate = `host cpu microcode not match for live migrate`
+	ErrHostMemPageSizeNotMatchForLiveMigrate  = `host mem page size not match for live migrate`
 	ErrHostKernelNotMatchForLiveMigrate       = `host kernel not match for live migrate`
 	ErrMoreThanOneSizeUnspecificSplit         = `more than 1 size unspecific split`
 	ErrNoMoreSpaceForUnspecificSplit          = `no more space for an unspecific split`

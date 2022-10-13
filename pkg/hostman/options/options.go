@@ -86,6 +86,7 @@ type SHostOptions struct {
 	BlockIoScheduler string `help:"Block IO scheduler, deadline or cfq" default:"deadline"`
 	EnableKsm        bool   `help:"Enable Kernel Same Page Merging"`
 	HugepagesOption  string `help:"Hugepages option: disable|native|transparent" default:"transparent"`
+	HugepageSizeMb   int    `help:"hugepage size mb default 1G" default:"1024"`
 
 	PrivatePrefixes []string `help:"IPv4 private prefixes"`
 	LocalImagePath  []string `help:"Local image storage paths"`

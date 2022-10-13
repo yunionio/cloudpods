@@ -144,6 +144,8 @@ type SHost struct {
 	MemReserved int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 	// 内存超分比
 	MemCmtbound float32 `nullable:"true" default:"1" list:"domain" update:"domain" create:"domain_optional"`
+	// 页大小
+	PageSizeKB int `nullable:"false" default:"4" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 存储大小,单位Mb
 	StorageSize int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
@@ -703,8 +705,12 @@ func (self *SHost) GetMemSize() int {
 	}
 }
 
+func (self *SHost) IsHugePage() bool {
+	return self.PageSizeKB > 4
+}
+
 func (self *SHost) GetMemoryOvercommitBound() float32 {
-	if self.MemCmtbound > 0 {
+	if self.MemCmtbound > 0 && self.IsHugePage() {
 		return self.MemCmtbound
 	}
 	return options.Options.DefaultMemoryOvercommitBound
@@ -3646,6 +3652,10 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	input.HostAccessAttributes, err = HostManager.inputUniquenessCheck(input.HostAccessAttributes, self.ZoneId, self.Id)
 	if err != nil {
 		return input, errors.Wrap(err, "inputUniquenessCheck")
+	}
+
+	if self.IsHugePage() && (input.MemReserved != "" || input.MemCmtbound != nil) {
+		return input, errors.Errorf("host mem is hugepage, cannot update mem_reserved or mem_cmtbound")
 	}
 
 	input.HostSizeAttributes, err = HostManager.ValidateSizeParams(input.HostSizeAttributes)
