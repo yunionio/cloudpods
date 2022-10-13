@@ -15,8 +15,6 @@
 package shell
 
 import (
-	"fmt"
-
 	"yunion.io/x/onecloud/pkg/multicloud/openstack"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -66,11 +64,14 @@ func init() {
 	})
 
 	shellutils.R(&InstanceOptions{}, "instance-vnc", "Show instance vnc url", func(cli *openstack.SRegion, args *InstanceOptions) error {
-		url, err := cli.GetInstanceVNCUrl(args.ID, false)
+		ret, err := cli.GetInstanceVNCUrl(args.ID, true)
+		if err != nil {
+			ret, err = cli.GetInstanceVNC(args.ID, true)
+		}
 		if err != nil {
 			return err
 		}
-		fmt.Println(url)
+		printObject(ret)
 		return nil
 	})
 

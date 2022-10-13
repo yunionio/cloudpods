@@ -509,12 +509,49 @@ func (region *SRegion) GetInstanceVNCUrl(instanceId string, origin bool) (*cloud
 	return ret, nil
 }
 
+func (region *SRegion) GetInstanceVNC(instanceId string, origin bool) (*cloudprovider.ServerVncOutput, error) {
+	params := map[string]map[string]string{
+		"os-getVNCConsole": {
+			"type": "novnc",
+		},
+	}
+	resource := fmt.Sprintf("/servers/%s/action", instanceId)
+	resp, err := region.ecsPost(resource, params)
+	if err != nil {
+		return nil, errors.Wrap(err, "ecsPost")
+	}
+	ret := &cloudprovider.ServerVncOutput{
+		Protocol:   "openstack",
+		InstanceId: instanceId,
+		Hypervisor: api.HYPERVISOR_OPENSTACK,
+	}
+
+	ret.Url, err = resp.GetString("console", "url")
+	if err != nil {
+		return nil, errors.Wrapf(err, "remote_console")
+	}
+
+	if origin {
+		return ret, nil
+	}
+
+	token := string([]byte(ret.Url)[len(ret.Url)-36:])
+	vncUrl, _ := url.Parse(ret.Url)
+	ret.Url = fmt.Sprintf("ws://%s?token=%s", vncUrl.Host, token)
+	ret.Protocol = "vnc"
+	return ret, nil
+}
+
 func (instance *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	origin := false
 	if input != nil {
 		origin = input.Origin
 	}
-	return instance.host.zone.region.GetInstanceVNCUrl(instance.Id, origin)
+	ret, err := instance.host.zone.region.GetInstanceVNCUrl(instance.Id, origin)
+	if err == nil {
+		return ret, nil
+	}
+	return instance.host.zone.region.GetInstanceVNC(instance.Id, origin)
 }
 
 func (instance *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
