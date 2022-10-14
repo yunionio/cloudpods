@@ -677,9 +677,10 @@ func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 	for _, s := range host.GetHoststorages() {
 		storage := s.GetStorage()
 		ss = append(ss, &api.CandidateStorage{
-			SStorage:     storage,
-			FreeCapacity: storage.GetFreeCapacity(),
-			Schedtags:    storage.GetSchedtags(),
+			SStorage:           storage,
+			FreeCapacity:       storage.GetFreeCapacity(),
+			ActualFreeCapacity: storage.Capacity - storage.ActualCapacityUsed,
+			Schedtags:          storage.GetSchedtags(),
 		})
 	}
 	b.Storages = ss
