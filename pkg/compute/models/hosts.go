@@ -710,7 +710,10 @@ func (self *SHost) IsHugePage() bool {
 }
 
 func (self *SHost) GetMemoryOvercommitBound() float32 {
-	if self.MemCmtbound > 0 && self.IsHugePage() {
+	if self.IsHugePage() {
+		return 1.0
+	}
+	if self.MemCmtbound > 0 {
 		return self.MemCmtbound
 	}
 	return options.Options.DefaultMemoryOvercommitBound
@@ -3654,8 +3657,8 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		return input, errors.Wrap(err, "inputUniquenessCheck")
 	}
 
-	if self.IsHugePage() && (input.MemReserved != "" || input.MemCmtbound != nil) {
-		return input, errors.Errorf("host mem is hugepage, cannot update mem_reserved or mem_cmtbound")
+	if self.IsHugePage() && input.MemCmtbound != nil {
+		return input, errors.Errorf("host mem is hugepage, cannot update mem_cmtbound")
 	}
 
 	input.HostSizeAttributes, err = HostManager.ValidateSizeParams(input.HostSizeAttributes)
