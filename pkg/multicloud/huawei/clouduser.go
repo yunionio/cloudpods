@@ -15,6 +15,8 @@
 package huawei
 
 import (
+	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -223,10 +225,11 @@ func (self *SHuaweiClient) ResetClouduserPassword(id, password string) error {
 type SAccessKey struct {
 	client *SHuaweiClient
 
-	AccessKey   string `json:"access"`
-	Secret      string `json:"secret"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
+	AccessKey   string    `json:"access"`
+	Secret      string    `json:"secret"`
+	Description string    `json:"description"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"create_time"`
 }
 
 func (self *SHuaweiClient) GetAKSK(id string) ([]cloudprovider.SAccessKey, error) {
@@ -242,6 +245,7 @@ func (self *SHuaweiClient) GetAKSK(id string) ([]cloudprovider.SAccessKey, error
 		res[i].AccessKey = aks[i].AccessKey
 		res[i].Secret = aks[i].Secret
 		res[i].Status = aks[i].Status
+		res[i].CreatedAt = aks[i].CreatedAt
 	}
 	return res, nil
 }

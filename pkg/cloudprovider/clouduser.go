@@ -14,7 +14,11 @@
 
 package cloudprovider
 
-import "yunion.io/x/jsonutils"
+import (
+	"time"
+
+	"yunion.io/x/jsonutils"
+)
 
 type SClouduserCreateConfig struct {
 	Name              string
@@ -44,4 +48,5 @@ type SAccessKey struct {
 	AccessKey string
 	Secret    string
 	Status    string
+	CreatedAt time.Time
 }
