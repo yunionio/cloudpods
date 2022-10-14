@@ -2673,6 +2673,9 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return err
 	}
+	if len(self.ExternalId) == 0 {
+		return self.purge(ctx, userCred)
+	}
 	iVM, err := iregion.GetIVMById(self.ExternalId)
 	if err == nil { //漂移归位
 		if hostId := iVM.GetIHostId(); len(hostId) > 0 {
