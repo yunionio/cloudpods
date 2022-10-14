@@ -213,14 +213,15 @@ func (cli *SphereClient) list(res string, params url.Values, retVal interface{})
 			return errors.Wrapf(err, "list(%s)", res)
 		}
 		totalSize, _ := resp.Int("totalSize")
+		array := []jsonutils.JSONObject{}
 		if resp.Contains("items") {
-			array, err := resp.GetArray("items")
+			array, err = resp.GetArray("items")
 			if err != nil {
 				return errors.Wrapf(err, "get items")
 			}
 			items.Add(array...)
 		}
-		if totalSize <= int64(items.Length()) {
+		if totalSize <= int64(items.Length()) || len(array) == 0 {
 			break
 		}
 		page++
