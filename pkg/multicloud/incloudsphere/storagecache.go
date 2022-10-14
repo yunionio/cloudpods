@@ -62,7 +62,7 @@ func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error
 			return nil, err
 		}
 		for j := range images {
-			if images[i].GetImageFormat() == "iso" {
+			if images[j].GetImageFormat() == "iso" {
 				continue
 			}
 			images[j].cache = self
