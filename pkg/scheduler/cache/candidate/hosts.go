@@ -328,7 +328,7 @@ func (h *HostDesc) freeStorageSizeOfType(storageType string, useRsvd bool) (int6
 	for _, storage := range h.Storages {
 		if storage.StorageType == storageType {
 			total += int64(storage.FreeCapacity)
-			actualTotal += storage.Capacity - storage.ActualCapacityUsed
+			actualTotal += int64(storage.ActualFreeCapacity)
 		}
 	}
 	if utils.IsLocalStorage(storageType) {

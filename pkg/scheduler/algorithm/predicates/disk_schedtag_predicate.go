@@ -148,6 +148,20 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.
 		}
 	}
 
+	// free capacity check
+	if storage.FreeCapacity < int64(d.SizeMb) {
+		return &FailReason{
+			Reason: fmt.Sprintf("Storage %s free capacity %d < %d(request)", storage.Name, storage.FreeCapacity, d.SizeMb),
+			Type:   StorageOwnership,
+		}
+	}
+	if storage.ActualFreeCapacity < int64(d.SizeMb) {
+		return &FailReason{
+			Reason: fmt.Sprintf("Storage %s actual free capacity %d < %d(request)", storage.Name, storage.ActualFreeCapacity, d.SizeMb),
+			Type:   StorageOwnership,
+		}
+	}
+
 	return nil
 }
 
