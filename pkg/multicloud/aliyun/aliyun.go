@@ -37,6 +37,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -138,6 +139,8 @@ type SAliyunClient struct {
 
 	nasEndpoints map[string]string
 	vpcEndpoints map[string]string
+
+	resourceGroups []SResourceGroup
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
@@ -443,6 +446,7 @@ func (self *SAliyunClient) imsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
+	params = self.SetResourceGropuId(params)
 	return jsonRequest(cli, "ims.aliyuncs.com", ALIYUN_IMS_API_VERSION, apiName, params, self.debug)
 }
 
@@ -459,6 +463,7 @@ func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
+	params = self.SetResourceGropuId(params)
 	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.debug)
 }
 
@@ -467,6 +472,7 @@ func (self *SAliyunClient) pvtzRequest(apiName string, params map[string]string)
 	if err != nil {
 		return nil, err
 	}
+	params = self.SetResourceGropuId(params)
 	return jsonRequest(cli, "pvtz.aliyuncs.com", ALIYUN_PVTZ_API_VERSION, apiName, params, self.debug)
 }
 
@@ -475,6 +481,7 @@ func (self *SAliyunClient) alidnsRequest(apiName string, params map[string]strin
 	if err != nil {
 		return nil, err
 	}
+	params = self.SetResourceGropuId(params)
 	return jsonRequest(cli, "alidns.aliyuncs.com", ALIYUN_ALIDNS_API_VERSION, apiName, params, self.debug)
 }
 
@@ -483,6 +490,7 @@ func (self *SAliyunClient) cbnRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
+	params = self.SetResourceGropuId(params)
 	return jsonRequest(cli, "cbn.aliyuncs.com", ALIYUN_CBN_API_VERSION, apiName, params, self.debug)
 }
 
@@ -491,6 +499,7 @@ func (self *SAliyunClient) cdnRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
+	params = self.SetResourceGropuId(params)
 	return jsonRequest(cli, "cdn.aliyuncs.com", ALIYUN_CDN_API_VERSION, apiName, params, self.debug)
 }
 
@@ -735,19 +744,54 @@ func (self *SAliyunClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+func (self *SAliyunClient) GetProjects() ([]SResourceGroup, error) {
+	if len(self.resourceGroups) > 0 {
+		return self.resourceGroups, nil
+	}
 	pageSize, pageNumber := 50, 1
-	resourceGroups := []SResourceGroup{}
+	self.resourceGroups = []SResourceGroup{}
 	for {
 		parts, total, err := self.GetResourceGroups(pageNumber, pageSize)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetResourceGroups")
 		}
-		resourceGroups = append(resourceGroups, parts...)
-		if len(resourceGroups) >= total {
+		self.resourceGroups = append(self.resourceGroups, parts...)
+		if len(self.resourceGroups) >= total {
 			break
 		}
 		pageNumber += 1
+	}
+	return self.resourceGroups, nil
+}
+
+func (self *SAliyunClient) SetResourceGropuId(params map[string]string) map[string]string {
+	if params == nil {
+		params = map[string]string{}
+	}
+	for _, groupId := range options.Options.AliyunResourceGroups {
+		if utils.IsInStringArray(groupId, self.GetResourceGroupIds()) {
+			params["ResourceGroupId"] = groupId
+		}
+	}
+	return params
+}
+
+func (self *SAliyunClient) GetResourceGroupIds() []string {
+	ret := []string{}
+	resourceGroups, err := self.GetProjects()
+	if err != nil {
+		return ret
+	}
+	for i := range resourceGroups {
+		ret = append(ret, resourceGroups[i].Id)
+	}
+	return ret
+}
+
+func (self *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	resourceGroups, err := self.GetProjects()
+	if err != nil {
+		return nil, err
 	}
 	ret := []cloudprovider.ICloudProject{}
 	for i := range resourceGroups {

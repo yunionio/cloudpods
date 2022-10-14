@@ -137,6 +137,7 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	if len(endpoint) == 0 {
 		endpoint = "ecs.aliyuncs.com"
 	}
+	params = self.client.SetResourceGropuId(params)
 	return jsonRequest(client, endpoint, ALIYUN_API_VERSION, apiName, params, self.client.debug)
 }
 
@@ -148,6 +149,7 @@ func (self *SRegion) wafRequest(apiName string, params map[string]string) (jsonu
 	if self.RegionId != "cn-hangzhou" && self.RegionId != "ap-southeast-1" {
 		return nil, cloudprovider.ErrNotSupported
 	}
+	params = self.client.SetResourceGropuId(params)
 	endpoint := fmt.Sprintf("wafopenapi.%s.aliyuncs.com", self.RegionId)
 	return jsonRequest(client, endpoint, ALIYUN_WAF_API_VERSION, apiName, params, self.client.debug)
 }
@@ -157,6 +159,7 @@ func (self *SRegion) esRequest(apiName string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
+	params = self.client.SetResourceGropuId(params)
 	domain := fmt.Sprintf("elasticsearch.%s.aliyuncs.com", self.RegionId)
 	return jsonRequest(client, domain, ALIYUN_ES_API_VERSION, apiName, params, self.client.debug)
 }
@@ -166,6 +169,7 @@ func (self *SRegion) kafkaRequest(apiName string, params map[string]string) (jso
 	if err != nil {
 		return nil, err
 	}
+	params = self.client.SetResourceGropuId(params)
 	domain := fmt.Sprintf("alikafka.%s.aliyuncs.com", self.RegionId)
 	return jsonRequest(client, domain, ALIYUN_KAFKA_API_VERSION, apiName, params, self.client.debug)
 }
@@ -175,6 +179,7 @@ func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
+	params = self.client.SetResourceGropuId(params)
 	return jsonRequest(client, "rds.aliyuncs.com", ALIYUN_RDS_API_VERSION, apiName, params, self.client.debug)
 }
 
@@ -183,6 +188,7 @@ func (self *SRegion) k8sRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
+	params = self.client.SetResourceGropuId(params)
 	return jsonRequest(client, fmt.Sprintf("cs.%s.aliyuncs.com", self.RegionId), ALIYUN_K8S_API_VERSION, apiName, params, self.client.debug)
 }
 
@@ -191,6 +197,7 @@ func (self *SRegion) mongodbRequest(apiName string, params map[string]string) (j
 	if err != nil {
 		return nil, err
 	}
+	params = self.client.SetResourceGropuId(params)
 	return jsonRequest(client, "mongodb.aliyuncs.com", ALIYUN_MONGO_DB_API_VERSION, apiName, params, self.client.debug)
 }
 
@@ -199,6 +206,7 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
+	params = self.client.SetResourceGropuId(params)
 	endpoint := self.GetClient().getVpcEndpoint(self.RegionId)
 	return jsonRequest(client, endpoint, ALIYUN_API_VERSION_VPC, action, params, self.client.debug)
 }
@@ -222,6 +230,7 @@ func (self *SRegion) nasRequest(action string, params map[string]string) (jsonut
 		}
 	}
 
+	params = self.client.SetResourceGropuId(params)
 	endpint := self.GetClient().getNasEndpoint(self.RegionId)
 	return jsonRequest(client, endpint, ALIYUN_NAS_API_VERSION, action, params, self.client.debug)
 }
@@ -236,6 +245,7 @@ func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonut
 		params["RegionId"] = transRegionIdFromEcsRegionId(self, "redis")
 	}
 
+	params = self.client.SetResourceGropuId(params)
 	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.debug)
 }
 
@@ -282,6 +292,7 @@ func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonut
 			domain = endpoint
 		}
 	}
+	params = self.client.SetResourceGropuId(params)
 	return self._lbRequest(client, apiName, domain, params)
 }
 
