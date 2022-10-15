@@ -329,6 +329,10 @@ func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 		cmdline = append(cmdline, "-c")
 	}
 	cmdline = append(cmdline, "-f", srcInfo.Format.String(), "-O", destInfo.Format.String())
+	if destInfo.Format.String() == "vmdk" { // for esxi vmdk
+		cmdline = append(cmdline, "-o")
+		cmdline = append(cmdline, vmdkOptions(compact)...)
+	}
 	cmdline = append(cmdline, srcInfo.Path, destInfo.Path)
 	log.Infof("XXXX qemu-img command: %s", cmdline)
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", cmdline...)
