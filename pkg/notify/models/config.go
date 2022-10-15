@@ -595,6 +595,22 @@ func (self *SConfigManager) GetConfigs(contactType string) ([]notifyv2.SConfig, 
 	return ret, nil
 }
 
+func (manager *SConfigManager) getEmailConfig() (*api.SEmailConfig, error) {
+	confs, err := manager.GetConfigs(api.EMAIL)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConfigs")
+	}
+	if len(confs) == 0 {
+		return nil, errors.Wrap(errors.ErrNotSupported, "email not supported")
+	}
+	conf := api.SEmailConfig{}
+	err = jsonutils.Marshal(confs[0].Config).Unmarshal(&conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	return &conf, nil
+}
+
 func (self *SConfigManager) SetConfig(contactType string, config notifyv2.SConfig) error {
 	content := jsonutils.Marshal(config.Config)
 	sConfig := &SConfig{

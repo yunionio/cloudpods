@@ -93,6 +93,7 @@ require (
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/fatih/set.v0 v0.2.1
 	gopkg.in/ldap.v3 v3.0.3
+	gopkg.in/mail.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.19.3
 	k8s.io/apimachinery v0.19.3
@@ -247,6 +248,7 @@ require (
 	google.golang.org/api v0.30.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

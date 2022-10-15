@@ -19,7 +19,6 @@ import (
 	"database/sql"
 	"fmt"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"time"
 
@@ -30,7 +29,6 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
-	"yunion.io/x/sqlchemy/backends/clickhouse"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -42,13 +40,12 @@ import (
 )
 
 type SOpsLogManager struct {
-	SModelBaseManager
+	SLogBaseManager
 }
 
 type SOpsLog struct {
-	SModelBase
+	SLogBase
 
-	Id      int64  `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(divide(id,100000000000))"`
 	ObjType string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	ObjId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 	ObjName string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
@@ -81,39 +78,19 @@ var _ IModel = (*SOpsLog)(nil)
 var opslogQueryWorkerMan *appsrv.SWorkerManager
 var opslogWriteWorkerMan *appsrv.SWorkerManager
 
-func InitOpsLog() {
-	if consts.OpsLogWithClickhouse {
-		OpsLog = &SOpsLogManager{NewModelBaseManagerWithDBName(
-			SOpsLog{},
-			"opslog_tbl",
-			"event",
-			"events",
-			ClickhouseDB,
-		)}
-		col := OpsLog.TableSpec().ColumnSpec("ops_time")
-		if clickCol, ok := col.(clickhouse.IClickhouseColumnSpec); ok {
-			clickCol.SetTTL(consts.SplitableMaxKeepMonths(), "MONTH")
-		}
-	} else {
-		OpsLog = &SOpsLogManager{NewModelBaseManagerWithSplitable(
-			SOpsLog{},
-			"opslog_tbl",
-			"event",
-			"events",
-			"id",
-			"ops_time",
-			consts.SplitableMaxDuration(),
-			consts.SplitableMaxKeepMonths(),
-		)}
+func NewOpsLogManager(opslog interface{}, tblName string, keyword, keywordPlural string, timeField string, clickhouse bool) SOpsLogManager {
+	return SOpsLogManager{
+		SLogBaseManager: NewLogBaseManager(opslog, tblName, keyword, keywordPlural, timeField, clickhouse),
 	}
+}
+
+func InitOpsLog() {
+	tmp := NewOpsLogManager(SOpsLog{}, "opslog_tbl", "event", "events", "ops_time", consts.OpsLogWithClickhouse)
+	OpsLog = &tmp
 	OpsLog.SetVirtualObject(OpsLog)
 
 	opslogQueryWorkerMan = appsrv.NewWorkerManager("opslog_query_worker", 2, 512, true)
 	opslogWriteWorkerMan = appsrv.NewWorkerManager("opslog_write_worker", 1, 2048, true)
-}
-
-func (manager *SOpsLogManager) CreateByInsertOrUpdate() bool {
-	return false
 }
 
 func (manager *SOpsLogManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
@@ -123,35 +100,6 @@ func (manager *SOpsLogManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
 	case "list":
 		info.SetProcessTimeout(time.Minute * 15).SetWorkerManager(opslogQueryWorkerMan)
 	}
-}
-
-func CurrentTimestamp(t time.Time) int64 {
-	ret := int64(0)
-	const (
-		yOffset = 10000000000000
-		mOffset = 100000000000
-		dOffset = 1000000000
-		hOffset = 10000000
-		iOffset = 100000
-		sOffset = 1000
-	)
-	ret += int64(t.Year()) * yOffset
-	ret += int64(t.Month()) * mOffset
-	ret += int64(t.Day()) * dOffset
-	ret += int64(t.Hour()) * hOffset
-	ret += int64(t.Minute()) * iOffset
-	ret += int64(t.Second()) * sOffset
-	ret += int64(t.Nanosecond()) / 1000000
-	return ret
-}
-
-func (opslog *SOpsLog) BeforeInsert() {
-	t := time.Now().UTC()
-	opslog.Id = CurrentTimestamp(t)
-}
-
-func (opslog *SOpsLog) GetId() string {
-	return fmt.Sprintf("%d", opslog.Id)
 }
 
 func (opslog *SOpsLog) GetName() string {
@@ -410,24 +358,6 @@ func (manager *SOpsLogManager) LogSyncUpdate(m IModel, uds sqlchemy.UpdateDiffs,
 	}
 }
 
-func (self *SOpsLog) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	return httperrors.NewForbiddenError("not allow to delete log")
-}
-
-func (self *SOpsLogManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
-	id, _ := strconv.Atoi(idStr)
-	return q.Equals("id", id)
-}
-
-func (self *SOpsLogManager) FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
-	id, _ := strconv.Atoi(idStr)
-	return q.NotEquals("id", id)
-}
-
-func (self *SOpsLogManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
-	return q
-}
-
 func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
 		switch scope {
@@ -487,14 +417,6 @@ func (manager *SOpsLogManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeUser
 }
 
-func (manager *SOpsLogManager) GetPagingConfig() *SPagingConfig {
-	return &SPagingConfig{
-		Order:        sqlchemy.SQL_ORDER_DESC,
-		MarkerFields: []string{"id"},
-		DefaultLimit: 20,
-	}
-}
-
 func (manager *SOpsLogManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	ownerId := SOwnerId{}
 	err := data.Unmarshal(&ownerId)
@@ -533,6 +455,7 @@ func (log *SOpsLog) CustomizeCreate(ctx context.Context,
 	return log.SModelBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
+// override
 func (log *SOpsLog) GetRecordTime() time.Time {
 	return log.OpsTime
 }

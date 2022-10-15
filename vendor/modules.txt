@@ -1228,6 +1228,9 @@ google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/pluginpb
+# gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc
+## explicit
+gopkg.in/alexcesaro/quotedprintable.v3
 # gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d
 ## explicit
 gopkg.in/asn1-ber.v1
@@ -1245,6 +1248,9 @@ gopkg.in/ini.v1
 # gopkg.in/ldap.v3 v3.0.3
 ## explicit
 gopkg.in/ldap.v3
+# gopkg.in/mail.v2 v2.3.1
+## explicit
+gopkg.in/mail.v2
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2

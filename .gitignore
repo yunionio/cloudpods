@@ -41,3 +41,5 @@ pkg/generated
 
 # gotext extracted
 out.gotext.json
+
+pkg/notify/sender/email_test.go

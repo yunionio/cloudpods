@@ -16,30 +16,30 @@ package models
 
 import (
 	"context"
+	"time"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 type SEventManager struct {
-	db.SStandaloneAnonResourceBaseManager
+	db.SLogBaseManager
 }
 
 var EventManager *SEventManager
 
-func init() {
+func InitEventLog() {
 	EventManager = &SEventManager{
-		SStandaloneAnonResourceBaseManager: db.NewStandaloneAnonResourceBaseManager(
-			SEvent{},
-			"events_tbl",
-			"notifyevent",
-			"notifyevents",
-		),
+		SLogBaseManager: db.NewLogBaseManager(SEvent{}, "events2_tbl", "notifyevent", "notifyevents", "created_at", consts.OpsLogWithClickhouse),
 	}
 	EventManager.SetVirtualObject(EventManager)
 }
 
 type SEvent struct {
-	db.SStandaloneAnonResourceBase
+	db.SLogBase
+
+	// 资源创建时间
+	CreatedAt time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user" json:"created_at"`
 
 	Message     string
 	Event       string `width:"64" nullable:"true"`
@@ -67,4 +67,8 @@ func (e *SEventManager) GetEvent(id string) (*SEvent, error) {
 		return nil, err
 	}
 	return model.(*SEvent), nil
+}
+
+func (e *SEvent) GetRecordTime() time.Time {
+	return e.CreatedAt
 }

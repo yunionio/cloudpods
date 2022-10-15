@@ -30,6 +30,9 @@ const (
 func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
+	models.InitEventLog()
+	models.InitEmailQueue()
+
 	db.RegistUserCredCacheUpdater()
 
 	db.AddScopeResourceCountHandler(API_VERSION, app)
@@ -54,6 +57,7 @@ func InitHandlers(app *appsrv.Application) {
 		db.SharedResourceManager,
 		models.VerificationManager,
 		models.EventManager,
+		models.EmailQueueStatusManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -68,6 +72,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.TopicManager,
 		models.RobotManager,
 		models.SubscriberManager,
+		models.EmailQueueManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
