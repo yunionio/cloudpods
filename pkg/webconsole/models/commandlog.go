@@ -45,18 +45,7 @@ func GetCommandLogManager() *SCommandLogManager {
 		return commandLogManager
 	}
 	commandLogManager = &SCommandLogManager{
-		SOpsLogManager: db.SOpsLogManager{
-			SModelBaseManager: db.NewModelBaseManagerWithSplitable(
-				SCommandLog{},
-				"command_log_tbl",
-				"commandlog",
-				"commandlogs",
-				"id",
-				"start_time",
-				consts.SplitableMaxDuration(),
-				consts.SplitableMaxKeepMonths(),
-			),
-		},
+		SOpsLogManager: db.NewOpsLogManager(SCommandLog{}, "command_log_tbl", "commandlog", "commandlogs", "start_time", consts.OpsLogWithClickhouse),
 	}
 	commandLogManager.SetVirtualObject(commandLogManager)
 	return commandLogManager

@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
-	"yunion.io/x/sqlchemy/backends/clickhouse"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/logger"
@@ -85,45 +84,14 @@ var logQueue = make(chan *SActionlog, 50)
 
 func InitActionLog() {
 	InitActionWhiteList()
-	var initTable func(tbname string) *SActionlogManager
-	if consts.OpsLogWithClickhouse {
-		initTable = func(tbname string) *SActionlogManager {
-			tbl := &SActionlogManager{
-				SOpsLogManager: db.SOpsLogManager{
-					SModelBaseManager: db.NewModelBaseManagerWithDBName(
-						SActionlog{},
-						tbname,
-						"action",
-						"actions",
-						db.ClickhouseDB,
-					),
-				},
-			}
-			col := tbl.TableSpec().ColumnSpec("ops_time")
-			if clickCol, ok := col.(clickhouse.IClickhouseColumnSpec); ok {
-				clickCol.SetTTL(consts.SplitableMaxKeepMonths(), "MONTH")
-			}
-			return tbl
+	initTable := func(tbname string) *SActionlogManager {
+		tbl := &SActionlogManager{
+			SOpsLogManager: db.NewOpsLogManager(SActionlog{}, tbname, "action", "actions", "ops_time", consts.OpsLogWithClickhouse),
 		}
-	} else {
-		initTable = func(tbname string) *SActionlogManager {
-			tbl := &SActionlogManager{
-				SOpsLogManager: db.SOpsLogManager{
-					SModelBaseManager: db.NewModelBaseManagerWithSplitable(
-						SActionlog{},
-						tbname,
-						"action",
-						"actions",
-						"id",
-						"start_time",
-						consts.SplitableMaxDuration(),
-						consts.SplitableMaxKeepMonths(),
-					),
-				},
-				SRecordChecksumResourceBaseManager: *db.NewRecordChecksumResourceBaseManager(),
-			}
-			return tbl
+		if consts.OpsLogWithClickhouse {
+			tbl.SRecordChecksumResourceBaseManager = *db.NewRecordChecksumResourceBaseManager()
 		}
+		return tbl
 	}
 	ActionLog = initTable("action_tbl")
 	ActionLog.SetVirtualObject(ActionLog)

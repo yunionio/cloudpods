@@ -303,7 +303,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 
 	if nm.needWebconsole([]STopic{*topic}) {
 		// webconsole
-		err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts.UnsortedList(), input.Priority, event.Id)
+		err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts.UnsortedList(), input.Priority, event.GetId())
 		if err != nil {
 			output.FailedList = append(output.FailedList, api.FailedElem{
 				ContactType: api.WEBCONSOLE,
@@ -316,7 +316,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		if ct == api.MOBILE {
 			continue
 		}
-		err := nm.create(ctx, userCred, ct, receiverIds, nil, input.Priority, event.Id)
+		err := nm.create(ctx, userCred, ct, receiverIds, nil, input.Priority, event.GetId())
 		if err != nil {
 			output.FailedList = append(output.FailedList, api.FailedElem{
 				ContactType: ct,
@@ -324,7 +324,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 			})
 		}
 	}
-	err = nm.createWithWebhookRobots(ctx, userCred, webhookRobots, input.Priority, event.Id)
+	err = nm.createWithWebhookRobots(ctx, userCred, webhookRobots, input.Priority, event.GetId())
 	if err != nil {
 		output.FailedList = append(output.FailedList, api.FailedElem{
 			ContactType: api.WEBHOOK,
@@ -332,7 +332,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		})
 	}
 	// robot
-	err = nm.createWithRobots(ctx, userCred, robots, input.Priority, event.Id)
+	err = nm.createWithRobots(ctx, userCred, robots, input.Priority, event.GetId())
 	if err != nil {
 		output.FailedList = append(output.FailedList, api.FailedElem{
 			ContactType: api.ROBOT,
