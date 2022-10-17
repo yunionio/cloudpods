@@ -91,6 +91,7 @@ type SInstanceNic struct {
 	SystemVMType    string  `json:"systemVmType"`
 	Dhcp            bool    `json:"dhcp"`
 	DhcpIP          string  `json:"dhcpIp"`
+	DhcpEnabled     bool    `json:"dhcpEnabled"`
 	UsedDpdk        bool    `json:"usedDpdk"`
 	Queues          int     `json:"queues"`
 }

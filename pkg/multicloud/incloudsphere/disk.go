@@ -212,8 +212,11 @@ func (self *SRegion) ResizeDisk(id string, sizeGb int) error {
 		return errors.Wrapf(err, "GetDisk(%s)", id)
 	}
 	body := map[string]interface{}{
-		"size": sizeGb,
-		"name": disk.Name,
+		"size":          sizeGb,
+		"name":          disk.Name,
+		"bootable":      disk.Bootable,
+		"volumePolicy":  disk.VolumePolicy,
+		"dataStoreType": disk.DataStoreType,
 	}
 	return self.put("/volumes/"+disk.Id, nil, jsonutils.Marshal(body), nil)
 }

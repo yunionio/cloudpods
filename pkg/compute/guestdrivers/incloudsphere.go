@@ -94,6 +94,10 @@ func (self *SInCloudSphereGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }
 
+func (self *SInCloudSphereGuestDriver) IsNeedRestartForResetLoginInfo() bool {
+	return false
+}
+
 func (self *SInCloudSphereGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
 	return true
 }
@@ -116,7 +120,7 @@ func (self *SInCloudSphereGuestDriver) GetAttachDiskStatus() ([]string, error) {
 }
 
 func (self *SInCloudSphereGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
-	return []string{api.VM_READY}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SInCloudSphereGuestDriver) GetRebuildRootStatus() ([]string, error) {
