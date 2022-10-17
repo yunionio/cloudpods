@@ -99,6 +99,8 @@ type EmailQueueSendInput struct {
 type EmailQueueDetails struct {
 	apis.ModelBaseDetails
 
+	SEmailQueue
+
 	SentAt time.Time `json:"sent_at"`
 
 	Status string `json:"status"`

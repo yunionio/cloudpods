@@ -1287,6 +1287,8 @@ type SHost struct {
 	MemReserved int `json:"mem_reserved"`
 	// 内存超分比
 	MemCmtbound float32 `json:"mem_cmtbound"`
+	// 页大小
+	PageSizeKB int `json:"page_size_kb"`
 	// 存储大小,单位Mb
 	StorageSize int `json:"storage_size"`
 	// 存储类型
