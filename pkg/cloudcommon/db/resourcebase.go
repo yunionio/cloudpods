@@ -81,6 +81,12 @@ func (model *SResourceBase) GetIResourceModel() IResourceModel {
 	return model.GetVirtualObject().(IResourceModel)
 }
 
+func (self *SResourceBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := self.SModelBase.GetShortDesc(ctx)
+	desc.Set("created_at", jsonutils.NewTimeString(self.CreatedAt))
+	return desc
+}
+
 func (model *SResourceBase) MarkDelete() error {
 	model.Deleted = true
 	model.DeletedAt = timeutils.UtcNow().Round(time.Second)

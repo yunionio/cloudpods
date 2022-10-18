@@ -2520,6 +2520,7 @@ func (self *SDisk) ClearHostSchedCache() error {
 func (self *SDisk) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
 	desc.Add(jsonutils.NewInt(int64(self.DiskSize)), "size")
+	desc.Add(jsonutils.NewString(self.DiskType), "disk_type")
 	storage, _ := self.GetStorage()
 	if storage != nil {
 		desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
