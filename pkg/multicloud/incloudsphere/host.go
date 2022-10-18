@@ -228,6 +228,7 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	if strings.HasSuffix(opts.ExternalImageId, "qcow2") {
 		format = "QCOW2"
 	}
+	sizeGb := float64((image.GetSizeByte() + 1024/2) / 1024 / 1024 / 1024)
 	disks := []Disks{}
 	disks = append(disks, Disks{
 		BusModel:       "IDE",
@@ -237,7 +238,7 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			Bootable:     true,
 			DataStoreId:  opts.SysDisk.StorageExternalId,
 			Format:       format,
-			Size:         float64((image.GetSizeByte() + 1024/2) / 1024 / 1024 / 1024),
+			Size:         sizeGb,
 			VolumePolicy: "THIN",
 			VvSourceDto: VvSourceDto{
 				FilePath:   fmt.Sprintf("%s/%s", image.Path, image.Name),
@@ -316,7 +317,9 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 				DeviceType:    "NETWORK",
 				Model:         "E1000",
 				Queues:        1,
-				IP:            opts.IpAddr,
+				Dhcp:          true,
+				DhcpEnabled:   true,
+				DhcpIP:        opts.IpAddr,
 			},
 		},
 		"panickPolicy":        "NO_ACTION",

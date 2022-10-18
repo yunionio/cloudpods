@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -62,7 +63,7 @@ func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error
 			return nil, err
 		}
 		for j := range images {
-			if images[j].GetImageFormat() == "iso" {
+			if utils.IsInStringArray(images[j].GetImageFormat(), []string{"iso", "ova"}) {
 				continue
 			}
 			images[j].cache = self
