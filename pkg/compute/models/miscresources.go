@@ -228,6 +228,17 @@ func (self *SCloudregion) newFromCloudMiscResource(ctx context.Context, userCred
 	return &misc, nil
 }
 
+func (self *SMiscResource) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
+	desc.Update(self.MiscConf)
+	region, _ := self.GetRegion()
+	provider := self.GetCloudprovider()
+	info := MakeCloudProviderInfo(region, nil, provider)
+	desc.Update(jsonutils.Marshal(&info))
+	desc.Set("resource_type", jsonutils.NewString(self.ResourceType))
+	return desc
+}
+
 func (manager *SMiscResourceManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

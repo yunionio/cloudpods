@@ -1138,6 +1138,21 @@ func (self *SDBInstance) SaveRenewInfo(
 	return nil
 }
 
+func (self *SDBInstance) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
+	region, _ := self.GetRegion()
+	provider := self.GetCloudprovider()
+	info := MakeCloudProviderInfo(region, nil, provider)
+	desc.Set("engine", jsonutils.NewString(self.Engine))
+	desc.Set("storage_type", jsonutils.NewString(self.StorageType))
+	desc.Set("instance_type", jsonutils.NewString(self.InstanceType))
+	desc.Set("vcpu_count", jsonutils.NewInt(int64(self.VcpuCount)))
+	desc.Set("vmem_size_mb", jsonutils.NewInt(int64(self.VmemSizeMb)))
+	desc.Set("disk_size_gb", jsonutils.NewInt(int64(self.DiskSizeGB)))
+	desc.Update(jsonutils.Marshal(&info))
+	return desc
+}
+
 func (self *SDBInstance) StartDBInstanceDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
 	self.SetStatus(userCred, api.DBINSTANCE_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceDeleteTask", self, userCred, data, parentTaskId, "", nil)
