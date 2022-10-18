@@ -19,7 +19,7 @@ import (
 )
 
 type BingoCloudCollect struct {
-	SBaseCollectDriver
+	SCollectByResourceIdDriver
 }
 
 func (self *BingoCloudCollect) GetProvider() string {
