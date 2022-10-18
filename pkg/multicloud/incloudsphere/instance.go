@@ -444,7 +444,14 @@ func (self *SInstance) GetProjectId() string {
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	return nil, cloudprovider.ErrNotSupported
+	ret := &cloudprovider.ServerVncOutput{
+		Protocol: "vnc",
+		Host:     self.host.Name,
+		Port:     self.VNCPort,
+		Id:       self.Id,
+		Password: "1q@W3e$R",
+	}
+	return ret, nil
 }
 
 func (self *SInstance) GetVcpuCount() int {

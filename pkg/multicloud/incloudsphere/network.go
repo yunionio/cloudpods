@@ -17,6 +17,7 @@ package incloudsphere
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/netutils"
@@ -42,11 +43,12 @@ type SNetwork struct {
 	Type       string `json:"type"`
 	VswitchDto SWire  `json:"vswitchDto"`
 	//PortDtos        []string `json:"portDtos"`
-	VMDtos          string `json:"vmDtos"`
-	VnicDtos        string `json:"vnicDtos"`
-	Vmcount         int    `json:"vmcount"`
-	Vniccount       int    `json:"vniccount"`
-	ConnectMode     string `json:"connectMode"`
+	VMDtos      string `json:"vmDtos"`
+	VnicDtos    string `json:"vnicDtos"`
+	Vmcount     int    `json:"vmcount"`
+	Vniccount   int    `json:"vniccount"`
+	ConnectMode string `json:"connectMode"`
+	// 约定未开启dhcp时，描述信息里面放置<gateway>/<netmask>
 	Description     string `json:"description"`
 	UplinkRate      int    `json:"uplinkRate"`
 	UplinkBurst     int    `json:"uplinkBurst"`
@@ -63,6 +65,17 @@ type SNetwork struct {
 	DNS             string `json:"dns"`
 	DataCenterDto   SZone  `json:"dataCenterDto"`
 	NetworkTopoly   bool   `json:"networkTopoly"`
+}
+
+func (self *SNetwork) GetCidr() string {
+	if len(self.Cidr) > 0 {
+		return self.Cidr
+	}
+	_, err := netutils.NewIPV4Prefix(self.Description)
+	if err == nil {
+		return self.Description
+	}
+	return "0.0.0.0/0"
 }
 
 func (self *SNetwork) GetName() string {
@@ -94,6 +107,16 @@ func (self *SNetwork) GetAllocTimeoutSeconds() int {
 }
 
 func (self *SNetwork) GetGateway() string {
+	if len(self.Gateway) > 0 {
+		return self.Gateway
+	}
+	if len(self.Description) > 0 && strings.Contains(self.Description, "/") {
+		info := strings.Split(self.Description, "/")
+		ip, err := netutils.NewIPV4Addr(info[0])
+		if err == nil {
+			return ip.String()
+		}
+	}
 	return self.Gateway
 }
 
@@ -102,10 +125,7 @@ func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
 }
 
 func (self *SNetwork) GetIpStart() string {
-	if len(self.Cidr) == 0 {
-		self.Cidr = "0.0.0.0/0"
-	}
-	_range, err := netutils.NewIPV4Prefix(self.Cidr)
+	_range, err := netutils.NewIPV4Prefix(self.GetCidr())
 	if err != nil {
 		return ""
 	}
@@ -113,10 +133,7 @@ func (self *SNetwork) GetIpStart() string {
 }
 
 func (self *SNetwork) GetIpEnd() string {
-	if len(self.Cidr) == 0 {
-		self.Cidr = "0.0.0.0/0"
-	}
-	_range, err := netutils.NewIPV4Prefix(self.Cidr)
+	_range, err := netutils.NewIPV4Prefix(self.GetCidr())
 	if err != nil {
 		return ""
 	}
@@ -131,7 +148,7 @@ func (self *SNetwork) Contains(_ip string) bool {
 }
 
 func (self *SNetwork) GetIpMask() int8 {
-	pref, err := netutils.NewIPV4Prefix(self.Cidr)
+	pref, err := netutils.NewIPV4Prefix(self.GetCidr())
 	if err != nil {
 		return 0
 	}
