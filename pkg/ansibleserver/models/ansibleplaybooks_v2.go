@@ -157,8 +157,8 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 		return fmt.Errorf("playbook is already running")
 	}
 
-	// hack: force Sleep 15s to wait some host ssh service started
-	time.Sleep(15 * time.Second)
+	// hack: force Sleep 50s to wait some host ssh service started
+	time.Sleep(50 * time.Second)
 
 	var (
 		privateKey string
