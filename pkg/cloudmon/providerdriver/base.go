@@ -35,7 +35,7 @@ type SBaseCollectDriver struct {
 }
 
 func (self *SBaseCollectDriver) GetDelayDuration() time.Duration {
-	return 0
+	return 6 * time.Minute
 }
 
 func (self *SBaseCollectDriver) IsSupportMetrics() bool {
