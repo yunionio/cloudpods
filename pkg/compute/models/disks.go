@@ -1760,11 +1760,11 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	// create new joint model aboutsnapshotpolicy and disk
 	snapshotpolicies, err := extDisk.GetExtSnapshotPolicyIds()
 	if err != nil {
-		return nil, errors.Wrapf(err, "Get snapshot policies of ICloudDisk %s.", extDisk.GetId())
+		log.Warningln("GetExtSnapshotPolicyIds:", errors.Wrapf(err, "Get snapshot policies of ICloudDisk %s.", extDisk.GetId()))
 	}
 	err = SnapshotPolicyDiskManager.SyncAttachDiskExt(ctx, userCred, snapshotpolicies, syncOwnerId, &disk, storage)
 	if err != nil {
-		return nil, err
+		log.Warningln("SyncAttachDiskExt:", err)
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, &disk, extDisk)
