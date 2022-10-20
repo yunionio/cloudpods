@@ -128,4 +128,5 @@ const (
 	StorageType      = "storage_type"
 	StorageOwnership = "storage_ownership"
 	StorageMedium    = "storage_medium"
+	StorageCapacity  = "storage_capacity"
 )
