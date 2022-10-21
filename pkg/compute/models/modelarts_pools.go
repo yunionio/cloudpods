@@ -70,7 +70,7 @@ type SModelartsPool struct {
 	SDeletePreventableResourceBase
 
 	InstanceType string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
-	NodeCount    int    `nullable:"false" list:"user" create:"required"`
+	NodeCount    int    `list:"user" create:"required"`
 	WorkType     string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	// CPU 架构 x86|xarm
 	CpuArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
