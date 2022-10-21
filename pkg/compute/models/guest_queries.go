@@ -223,8 +223,10 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 		if gcds != nil {
 			for i := range rows {
 				for _, gcd := range gcds[guestIds[i]] {
-					t := api.Cdrom{Ordinal: gcd.Ordinal, Detail: gcd.GetDetails()}
-					rows[i].Cdrom = append(rows[i].Cdrom, t)
+					if details := gcd.GetDetails(); len(details) > 0 {
+						t := api.Cdrom{Ordinal: gcd.Ordinal, Detail: details}
+						rows[i].Cdrom = append(rows[i].Cdrom, t)
+					}
 				}
 			}
 		}
@@ -234,8 +236,10 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 		if gfloppys != nil {
 			for i := range rows {
 				for _, gfl := range gfloppys[guestIds[i]] {
-					t := api.Floppy{Ordinal: gfl.Ordinal, Detail: gfl.GetDetails()}
-					rows[i].Floppy = append(rows[i].Floppy, t)
+					if details := gfl.GetDetails(); len(details) > 0 {
+						t := api.Floppy{Ordinal: gfl.Ordinal, Detail: details}
+						rows[i].Floppy = append(rows[i].Floppy, t)
+					}
 				}
 			}
 		}
