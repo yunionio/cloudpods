@@ -16,6 +16,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -39,14 +40,40 @@ func NewBackendServiceProxyHandler(prefix string) *SBackendServiceProxyHandler {
 	}
 }
 
+func removeLeadingSlash(p string) string {
+	for len(p) > 0 && p[0] == '/' {
+		p = p[1:]
+	}
+	return p
+}
+
 func (h *SBackendServiceProxyHandler) requestManipulator(ctx context.Context, r *http.Request) (*http.Request, error) {
 	// remove leading prefixes /api/s/<service>
 	path := r.URL.Path[len("/api/s/"):]
+	path = removeLeadingSlash(path)
 	slashPos := strings.Index(path, "/")
 	if slashPos <= 0 {
 		return r, httperrors.NewBadRequestError("invalid request URL %s", r.URL.Path)
 	}
 	path = path[slashPos:]
+	if strings.HasPrefix(path, "/r/") {
+		path = path[len("/r/"):]
+		path = removeLeadingSlash(path)
+		slashPos := strings.Index(path, "/")
+		if slashPos <= 0 {
+			return r, httperrors.NewBadRequestError("invalid request URL %s", r.URL.Path)
+		}
+		path = path[slashPos:]
+		if strings.HasPrefix(path, "/z/") {
+			path = path[len("/z/"):]
+			path = removeLeadingSlash(path)
+			slashPos := strings.Index(path, "/")
+			if slashPos <= 0 {
+				return r, httperrors.NewBadRequestError("invalid request URL %s", r.URL.Path)
+			}
+			path = path[slashPos:]
+		}
+	}
 	log.Debugf("Path: %s => %s", r.URL.Path, path)
 	r.URL = &url.URL{
 		Path:     path,
@@ -67,8 +94,40 @@ func (h *SBackendServiceProxyHandler) fetchReverseEndpoint() *proxy.SEndpointFac
 		if len(serviceName) == 0 {
 			return "", httperrors.NewBadRequestError("no service")
 		}
+		path := r.URL.Path
+		serviceSeg := fmt.Sprintf("/api/s/%s/", serviceName)
+		pos := strings.Index(path, serviceSeg)
+		if pos < 0 {
+			return "", httperrors.NewBadRequestError("malformed URL, expect service")
+		}
+		path = path[pos+len(serviceSeg):]
+		path = removeLeadingSlash(path)
+		region := FetchRegion(r)
+		zone := ""
+		if strings.HasPrefix(path, "r/") {
+			path = path[len("r/"):]
+			path = removeLeadingSlash(path)
+			slashPos := strings.Index(path, "/")
+			if slashPos <= 0 {
+				return "", httperrors.NewBadRequestError("malformed URL, expect region")
+			}
+			region = path[:slashPos]
+			path = path[slashPos+1:]
+			if strings.HasPrefix(path, "z/") {
+				path = path[len("z/"):]
+				path = removeLeadingSlash(path)
+				slashPos := strings.Index(path, "/")
+				if slashPos <= 0 {
+					return "", httperrors.NewBadRequestError("malformed URL, expect zone")
+				}
+				zone = path[:slashPos]
+			}
+		}
 		endpointType := "internalURL"
-		session := auth.GetAdminSession(ctx, FetchRegion(r))
+		session := auth.GetAdminSession(ctx, region)
+		if len(zone) > 0 {
+			session.SetZone(zone)
+		}
 		ep, err := session.GetServiceURL(serviceName, endpointType, "")
 		if err != nil {
 			return "", httperrors.NewBadRequestError("invalid service %s: %s", serviceName, err)

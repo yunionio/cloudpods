@@ -107,6 +107,10 @@ func (this *ClientSession) GetClient() *Client {
 	return this.client
 }
 
+func (this *ClientSession) SetZone(zone string) {
+	this.zone = zone
+}
+
 func getApiVersionByServiceType(serviceType string) string {
 	switch serviceType {
 	case "compute":
@@ -152,14 +156,14 @@ func (this *ClientSession) GetServiceVersionURLs(service, endpointType, apiVersi
 	}
 	service = this.getServiceName(service, apiVersion)
 	if endpointType == api.EndpointInterfaceApigateway {
-		return this.getApigatewayServiceURLs(service, endpointType)
+		return this.getApigatewayServiceURLs(service, this.region, this.zone, endpointType)
 	} else {
-		return this.getServiceVersionURLs(service, endpointType)
+		return this.getServiceVersionURLs(service, this.region, this.zone, endpointType)
 	}
 }
 
-func (this *ClientSession) getApigatewayServiceURLs(service, endpointType string) ([]string, error) {
-	urls, err := this.getServiceVersionURLs(service, "")
+func (this *ClientSession) getApigatewayServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	urls, err := this.getServiceVersionURLs(service, region, zone, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "getServiceVersionURLs")
 	}
@@ -171,6 +175,12 @@ func (this *ClientSession) getApigatewayServiceURLs(service, endpointType string
 		return nil, errors.Wrapf(err, "invalue auth_url %s", prefix)
 	}
 	prefix = httputils.JoinPath(prefix[:lastSlashPos], "api/s", service)
+	if len(region) > 0 {
+		prefix = httputils.JoinPath(prefix, "r", region)
+		if len(zone) > 0 {
+			prefix = httputils.JoinPath(prefix, "z", zone)
+		}
+	}
 	rets := make([]string, len(urls))
 	for i, url := range urls {
 		if len(url) < 9 {
@@ -189,12 +199,12 @@ func (this *ClientSession) getApigatewayServiceURLs(service, endpointType string
 	return rets, nil
 }
 
-func (this *ClientSession) getServiceVersionURLs(service, endpointType string) ([]string, error) {
+func (this *ClientSession) getServiceVersionURLs(service, region, zone, endpointType string) ([]string, error) {
 	catalog := this.GetServiceCatalog()
 	if gotypes.IsNil(catalog) {
 		return []string{this.client.authUrl}, nil
 	}
-	urls, err := catalog.GetServiceURLs(service, this.region, this.zone, endpointType)
+	urls, err := catalog.GetServiceURLs(service, region, zone, endpointType)
 	// HACK! in case of fail to get kestone url or schema of keystone changed, always trust authUrl
 	if service == api.SERVICE_TYPE && (err != nil || len(urls) == 0 || (len(this.client.authUrl) != 0 && this.client.authUrl[:5] != urls[0][:5])) {
 		var msg string
