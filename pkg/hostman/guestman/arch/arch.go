@@ -22,7 +22,7 @@ const (
 )
 
 type Arch interface {
-	GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool, cpuMax uint) *desc.SGuestCpu
+	GenerateCpuDesc(cpus uint, s KVMGuestInstance) (*desc.SGuestCpu, error)
 	GenerateMemDesc() *desc.SGuestMem
 	GenerateMachineDesc(accel string) *desc.SGuestMachine
 	GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom)
@@ -30,6 +30,17 @@ type Arch interface {
 	GenerateQgaDesc(qgaPath string) *desc.SGuestQga
 	GeneratePvpanicDesc() *desc.SGuestPvpanic
 	GenerateIsaSerialDesc() *desc.SGuestIsaSerial
+}
+
+type KVMGuestInstance interface {
+	HasGpu() bool
+	IsOldWindows() bool
+	GetOsName() string
+
+	GetKernelVersion() string
+	CpuMax() (uint, error)
+	IsEnabledNestedVirt() bool
+	IsKvmSupport() bool
 }
 
 func NewArch(arch string) Arch {

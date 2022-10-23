@@ -115,11 +115,27 @@ func (s *SKVMGuestInstance) IsKvmSupport() bool {
 	return s.manager.GetHost().IsKvmSupport()
 }
 
+func (s *SKVMGuestInstance) IsEnabledNestedVirt() bool {
+	return s.manager.GetHost().IsNestedVirtualization()
+}
+
+func (s *SKVMGuestInstance) GetKernelVersion() string {
+	return s.manager.host.GetKernelVersion()
+}
+
+func (s *SKVMGuestInstance) CpuMax() (uint, error) {
+	cpuMax, ok := s.manager.qemuMachineCpuMax[s.Desc.Machine]
+	if !ok {
+		return 0, errors.Errorf("unsupported cpu max for qemu machine: %s", s.Desc.Machine)
+	}
+	return cpuMax, nil
+}
+
 func (s *SKVMGuestInstance) IsVdiSpice() bool {
 	return s.Desc.Vdi == "spice"
 }
 
-func (s *SKVMGuestInstance) getOsname() string {
+func (s *SKVMGuestInstance) GetOsName() string {
 	if osName, ok := s.Desc.Metadata["os_name"]; ok {
 		return osName
 	}
@@ -160,8 +176,8 @@ func (s *SKVMGuestInstance) getUsbControllerType() string {
 }
 
 // is windows prioer to windows server 2003
-func (s *SKVMGuestInstance) isOldWindows() bool {
-	if s.getOsname() == OS_NAME_WINDOWS {
+func (s *SKVMGuestInstance) IsOldWindows() bool {
+	if s.GetOsName() == OS_NAME_WINDOWS {
 		ver := s.getOsVersion()
 		if len(ver) > 1 && ver[0:2] == "5." {
 			return true
@@ -171,7 +187,7 @@ func (s *SKVMGuestInstance) isOldWindows() bool {
 }
 
 func (s *SKVMGuestInstance) isWindows10() bool {
-	if s.getOsname() == OS_NAME_WINDOWS {
+	if s.GetOsName() == OS_NAME_WINDOWS {
 		distro := s.getOsDistribution()
 		if strings.Contains(strings.ToLower(distro), "windows 10") {
 			return true
@@ -287,7 +303,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	// initial data
 	var input = &qemu.GenerateStartOptionsInput{
 		GuestDesc:            s.Desc,
-		OsName:               s.getOsname(),
+		OsName:               s.GetOsName(),
 		OVNIntegrationBridge: options.HostOptions.OvnIntegrationBridge,
 		HomeDir:              s.HomeDir(),
 		HugepagesEnabled:     s.manager.host.IsHugepagesEnabled(),
@@ -443,13 +459,13 @@ function nic_mtu() {
 		// "virtio-gpu-pci,id=video1,max_outputs=1",
 	} else {
 		if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) &&
-			!s.isOldWindows() && !s.isWindows10() &&
+			!s.IsOldWindows() && !s.isWindows10() &&
 			!s.disableUsbKbd() {
 			input.Devices = append(input.Devices, "usb-kbd")
 		}
 		if input.OsName == OS_NAME_ANDROID {
 			input.Devices = append(input.Devices, "usb-mouse")
-		} else if !s.isOldWindows() {
+		} else if !s.IsOldWindows() {
 			input.Devices = append(input.Devices, "usb-tablet")
 		}
 	}
@@ -707,7 +723,7 @@ func (s *SKVMGuestInstance) startMemCleaner() error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) hasGpu() bool {
+func (s *SKVMGuestInstance) HasGpu() bool {
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		if s.Desc.IsolatedDevices[i].DevType != api.USB_TYPE {
 			return true
@@ -728,18 +744,11 @@ func (s *SKVMGuestInstance) gpusHasVga() bool {
 }
 
 func (s *SKVMGuestInstance) initCpuDesc() error {
-	var osName = s.getOsname()
-	var enableKVM = s.IsKvmSupport() && !options.HostOptions.DisableKVM
-	var enableNested = s.manager.GetHost().IsNestedVirtualization()
-	var hasGpu = s.hasGpu()
-	var hideKVM = !enableNested || hasGpu
-
-	cpuMax, ok := s.manager.qemuMachineCpuMax[s.Desc.Machine]
-	if !ok {
-		return errors.Errorf("unsupported cpu max for qemu machine: %s", s.Desc.Machine)
+	cpudesc, err := s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), s)
+	if err != nil {
+		return err
 	}
-
-	s.Desc.CpuDesc = s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), osName, enableKVM, hideKVM, cpuMax)
+	s.Desc.CpuDesc = cpudesc
 	return nil
 }
 
@@ -801,7 +810,7 @@ func (s *SKVMGuestInstance) initMemDescFromMemoryInfo(memoryDevicesInfoList []mo
 }
 
 func (s *SKVMGuestInstance) initMachineDesc() {
-	if s.getOsname() == OS_NAME_MACOS {
+	if s.GetOsName() == OS_NAME_MACOS {
 		s.Desc.Machine = api.VM_MACHINE_TYPE_Q35
 		s.Desc.Bios = qemu.BIOS_UEFI
 	}

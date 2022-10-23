@@ -16,6 +16,7 @@ package arch
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
@@ -114,22 +115,45 @@ func (*X86) GenerateMemDesc() *desc.SGuestMem {
 	}
 }
 
-func (*X86) GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool, cpuMax uint) *desc.SGuestCpu {
+func (*X86) IsKernelVersionEnableHyperv(kernelVersion string) bool {
+	return strings.HasPrefix(kernelVersion, "5.4")
+}
+
+func (*X86) enableHypervFeatures(features map[string]bool) {
+	for _, feat := range []string{
+		"hv_relaxed", "hv_vpindex", "hv_time",
+		"hv_vapic", "hv_runtime", "hv_synic", "hv_stimer"} {
+		features[feat] = true
+	}
+}
+
+func (x86 *X86) GenerateCpuDesc(cpus uint, s KVMGuestInstance) (*desc.SGuestCpu, error) {
+	cpuMax, err := s.CpuMax()
+	if err != nil {
+		return nil, err
+	}
+	hideKVM := !s.IsEnabledNestedVirt() || s.HasGpu()
+
 	var hostCPUPassthrough = options.HostOptions.HostCpuPassthrough
 	var isCPUIntel = sysutils.IsProcessorIntel()
 	var isCPUAMD = sysutils.IsProcessorAmd()
 
 	var accel, cpuType, vendor, level string
 	var features = make(map[string]bool, 0)
-	if enableKVM {
+	if s.IsKvmSupport() {
 		accel = "kvm"
-		if osName == qemu.OS_NAME_MACOS {
+		if s.GetOsName() == qemu.OS_NAME_MACOS {
 			cpuType = "Penryn"
 			vendor = "GenuineIntel"
 		} else if hostCPUPassthrough {
 			cpuType = "host"
 			// https://unix.stackexchange.com/questions/216925/nmi-received-for-unknown-reason-20-do-you-have-a-strange-power-saving-mode-ena
 			features["kvm_pv_eoi"] = true
+			if s.GetOsName() == qemu.OS_NAME_WINDOWS &&
+				!s.IsOldWindows() &&
+				x86.IsKernelVersionEnableHyperv(s.GetKernelVersion()) {
+				x86.enableHypervFeatures(features)
+			}
 		} else {
 			cpuType = "qemu64"
 			features["kvm_pv_eoi"] = true
@@ -165,5 +189,5 @@ func (*X86) GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool, c
 		Level:    level,
 		Features: features,
 		Accel:    accel,
-	}
+	}, nil
 }
