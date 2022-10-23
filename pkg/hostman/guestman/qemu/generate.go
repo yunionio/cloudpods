@@ -155,6 +155,10 @@ func generatePciControllerOptions(controllers []*desc.PCIController) []string {
 	return opts
 }
 
+func generateNumaOption(memId string) string {
+	return fmt.Sprintf("-numa node,memdev=%s", memId)
+}
+
 func generateMemoryOption(memDesc *desc.SGuestMem) string {
 	cmds := []string{}
 	cmds = append(cmds, fmt.Sprintf(
@@ -162,6 +166,7 @@ func generateMemoryOption(memDesc *desc.SGuestMem) string {
 		memDesc.SizeMB, memDesc.Slots, memDesc.MaxMem,
 	))
 	cmds = append(cmds, generateObjectOption(memDesc.Mem))
+	cmds = append(cmds, generateNumaOption(memDesc.Mem.Id))
 	for i := 0; i < len(memDesc.MemSlots); i++ {
 		memDev := memDesc.MemSlots[i].MemDev
 		memObj := memDesc.MemSlots[i].MemObj
