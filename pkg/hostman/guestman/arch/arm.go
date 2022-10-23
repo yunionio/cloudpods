@@ -66,10 +66,15 @@ func (*ARM) GenerateMemDesc() *desc.SGuestMem {
 	}
 }
 
-func (*ARM) GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool, cpuMax uint) *desc.SGuestCpu {
+func (*ARM) GenerateCpuDesc(cpus uint, s KVMGuestInstance) (*desc.SGuestCpu, error) {
+	cpuMax, err := s.CpuMax()
+	if err != nil {
+		return nil, err
+	}
+
 	var hostCPUPassthrough = options.HostOptions.HostCpuPassthrough
 	var accel, cpuType string
-	if enableKVM {
+	if s.IsKvmSupport() {
 		accel = "kvm"
 		if hostCPUPassthrough {
 			cpuType = "host"
@@ -90,5 +95,5 @@ func (*ARM) GenerateCpuDesc(cpus uint, osName string, enableKVM, hideKVM bool, c
 		MaxCpus: cpuMax,
 		Model:   cpuType,
 		Accel:   accel,
-	}
+	}, nil
 }

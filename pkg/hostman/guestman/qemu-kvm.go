@@ -1705,7 +1705,7 @@ func (s *SKVMGuestInstance) compareDescCdroms(newDesc *desc.SGuestDesc) []*desc.
 		changeCdrom := new(desc.SGuestCdrom)
 		changeCdrom.Ordinal = int64(i)
 		changeCdrom.Path = ""
-		s.archMan.GenerateCdromDesc(s.getOsname(), changeCdrom)
+		s.archMan.GenerateCdromDesc(s.GetOsName(), changeCdrom)
 		changeCdroms = append(changeCdroms, changeCdrom)
 	}
 
@@ -1715,7 +1715,7 @@ func (s *SKVMGuestInstance) compareDescCdroms(newDesc *desc.SGuestDesc) []*desc.
 		changeCdrom := new(desc.SGuestCdrom)
 		changeCdrom.Ordinal = ordinal
 		changeCdrom.Path = path
-		s.archMan.GenerateCdromDesc(s.getOsname(), changeCdrom)
+		s.archMan.GenerateCdromDesc(s.GetOsName(), changeCdrom)
 		for i, tmp := range changeCdroms {
 			if tmp.Ordinal == ordinal {
 				changeCdroms[i] = changeCdrom
@@ -1733,7 +1733,7 @@ func (s *SKVMGuestInstance) compareDescFloppys(newDesc *desc.SGuestDesc) []*desc
 		changeFloppy := new(desc.SGuestFloppy)
 		changeFloppy.Ordinal = int64(i)
 		changeFloppy.Path = ""
-		s.archMan.GenerateFloppyDesc(s.getOsname(), changeFloppy)
+		s.archMan.GenerateFloppyDesc(s.GetOsName(), changeFloppy)
 		changeFloppys = append(changeFloppys, changeFloppy)
 	}
 
@@ -1743,7 +1743,7 @@ func (s *SKVMGuestInstance) compareDescFloppys(newDesc *desc.SGuestDesc) []*desc
 		changeFloppy := new(desc.SGuestFloppy)
 		changeFloppy.Ordinal = ordinal
 		changeFloppy.Path = path
-		s.archMan.GenerateFloppyDesc(s.getOsname(), changeFloppy)
+		s.archMan.GenerateFloppyDesc(s.GetOsName(), changeFloppy)
 		for i, tmp := range changeFloppys { //如果新增的跟changeCdrom重叠，则以新增为准
 			if tmp.Ordinal == ordinal {
 				changeFloppys[i] = changeFloppy
@@ -2162,7 +2162,7 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 		meta.Set("__hugepage", jsonutils.NewString("native"))
 	}
 	// not exactly
-	if !options.HostOptions.HostCpuPassthrough || s.getOsname() == OS_NAME_MACOS {
+	if !options.HostOptions.HostCpuPassthrough || s.GetOsName() == OS_NAME_MACOS {
 		meta.Set("__cpu_mode", jsonutils.NewString(api.CPU_MODE_QEMU))
 	} else {
 		meta.Set("__cpu_mode", jsonutils.NewString(api.CPU_MODE_HOST))

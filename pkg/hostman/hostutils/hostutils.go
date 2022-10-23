@@ -42,6 +42,7 @@ type IHost interface {
 	GetMediumType() string
 	GetMasterIp() string
 	GetCpuArchitecture() string
+	GetKernelVersion() string
 	IsAarch64() bool
 
 	IsHugepagesEnabled() bool

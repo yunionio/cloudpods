@@ -252,12 +252,12 @@ func (s *SKVMGuestInstance) initGuestNetworks(pciRoot, pciBridge *desc.PCIContro
 		cont = pciBridge
 	}
 
-	if s.getOsname() == OS_NAME_ANDROID {
+	if s.GetOsName() == OS_NAME_ANDROID {
 		s.Desc.Nics = s.Desc.Nics[:1]
 	}
 
 	for i := 0; i < len(s.Desc.Nics); i++ {
-		switch s.getOsname() {
+		switch s.GetOsName() {
 		case OS_NAME_MACOS:
 			vectors := 0
 			s.Desc.Nics[i].Vectors = &vectors
@@ -339,12 +339,12 @@ func (s *SKVMGuestInstance) initCdromDesc() {
 		}
 	}
 	for i := range s.Desc.Cdroms {
-		s.archMan.GenerateCdromDesc(s.getOsname(), s.Desc.Cdroms[i])
+		s.archMan.GenerateCdromDesc(s.GetOsName(), s.Desc.Cdroms[i])
 	}
 }
 
 func (s *SKVMGuestInstance) initFloppyDesc() {
-	if s.getOsname() != OS_NAME_WINDOWS {
+	if s.GetOsName() != OS_NAME_WINDOWS {
 		return
 	}
 	if s.Desc.Floppys == nil {
@@ -355,7 +355,7 @@ func (s *SKVMGuestInstance) initFloppyDesc() {
 		}
 	}
 	for i := range s.Desc.Floppys {
-		s.archMan.GenerateFloppyDesc(s.getOsname(), s.Desc.Floppys[i])
+		s.archMan.GenerateFloppyDesc(s.GetOsName(), s.Desc.Floppys[i])
 	}
 }
 
@@ -395,7 +395,7 @@ func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIControlle
 func (s *SKVMGuestInstance) fixDiskDriver() (bool, bool) {
 	var virtioScsi, pvScsi = false, false
 	isArm := s.manager.host.IsAarch64()
-	osname := s.getOsname()
+	osname := s.GetOsName()
 
 	for i := 0; i < len(s.Desc.Disks); i++ {
 		if isArm && (s.Desc.Disks[i].Driver == DISK_DRIVER_IDE ||

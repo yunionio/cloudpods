@@ -2131,6 +2131,10 @@ func (h *SHostInfo) GetCpuArchitecture() string {
 	return h.Cpu.CpuArchitecture
 }
 
+func (h *SHostInfo) GetKernelVersion() string {
+	return h.sysinfo.KernelVersion
+}
+
 func (h *SHostInfo) IsAarch64() bool {
 	return h.GetCpuArchitecture() == apis.OS_ARCH_AARCH64
 }
