@@ -868,7 +868,8 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 		"created_at", "enable_mfa", "is_system_account",
 		"last_active_at", "last_login_ip",
 		"last_login_source",
-		"password_expires_at", "failed_auth_count", "failed_auth_at", "need_reset_password",
+		"password_expires_at", "failed_auth_count", "failed_auth_at",
+		"need_reset_password", "password_reset_hint",
 		"idps",
 		"is_local",
 	} {
