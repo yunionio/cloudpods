@@ -53,6 +53,8 @@ func StartService() {
 
 	cron := cronman.InitCronJobManager(true, 4)
 	cron.AddJobAtIntervalsWithStartRun("ScheduledTaskCheck", time.Duration(60)*time.Second, models.ScheduledTaskManager.Timer, true)
+	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+
 	go cron.Start()
 	app.ServeForever(applicaion, baseOpts)
 }

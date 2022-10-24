@@ -27,6 +27,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/splitable"
 )
 
 const (
@@ -76,4 +78,11 @@ func DBStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		result.Add(jsonutils.Marshal(&stats), "db_stats")
 	}
 	fmt.Fprintf(w, result.String())
+}
+
+func AutoPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, startRun bool) {
+	err := splitable.PurgeAll()
+	if err != nil {
+		log.Errorf("AutoPurgeSplitable fail %s", err)
+	}
 }
