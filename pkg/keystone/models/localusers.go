@@ -70,6 +70,7 @@ type SLocalUser struct {
 	FailedAuthAt    time.Time `nullable:"true"`
 
 	NeedResetPassword tristate.TriState `default:"false" list:"domain"`
+	ResetHint         string            `width:"16" charset:"ascii" list:"domain"`
 }
 
 func (user *SLocalUser) GetId() string {
@@ -175,15 +176,17 @@ func (usr *SLocalUser) ClearFailedAuth() error {
 	return nil
 }
 
-func (usr *SLocalUser) markNeedResetPassword(needReset bool) error {
+func (usr *SLocalUser) markNeedResetPassword(needReset bool, reason string) error {
 	if usr.NeedResetPassword.IsTrue() == needReset {
 		return nil
 	}
 	_, err := db.Update(usr, func() error {
 		if needReset {
 			usr.NeedResetPassword = tristate.True
+			usr.ResetHint = reason
 		} else {
 			usr.NeedResetPassword = tristate.False
+			usr.ResetHint = reason
 		}
 		return nil
 	})

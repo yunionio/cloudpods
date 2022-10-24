@@ -18,6 +18,11 @@ import (
 	"time"
 )
 
+const (
+	PasswordResetHintAdminReset = "admin_reset"
+	PasswordResetHintExpire     = "expire"
+)
+
 type UserDetails struct {
 	EnabledIdentityBaseResourceDetails
 	// IdpResourceInfo
@@ -39,6 +44,8 @@ type UserDetails struct {
 
 	// 登录后是否需要重置密码
 	NeedResetPassword bool `json:"need_reset_password"`
+	// 重置密码原因: admin_reset|expire
+	PasswordResetHint string `json:"password_reset_hint"`
 
 	// 该用户关联的外部认证源的认证信息
 	Idps []IdpResourceInfo `json:"idps"`
