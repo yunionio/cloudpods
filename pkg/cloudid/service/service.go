@@ -69,6 +69,9 @@ func StartService() {
 		cron.AddJobAtIntervalsWithStartRun("SyncSystemCloudpolicies", time.Duration(opts.SystemPoliciesSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncCloudidSystemPolicies, true)
 		cron.AddJobAtIntervalsWithStartRun("SyncCloudIdResources", time.Duration(opts.CloudIdResourceSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncCloudidResources, true)
 		cron.AddJobAtIntervalsWithStartRun("SyncCloudroles", time.Duration(opts.CloudroleSyncIntervalHours)*time.Hour, models.CloudaccountManager.SyncCloudroles, true)
+
+		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+
 		cron.Start()
 		defer cron.Stop()
 	}

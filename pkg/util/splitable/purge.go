@@ -16,12 +16,34 @@ package splitable
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 )
+
+var (
+	splitableManager sync.Map
+)
+
+func registerSplitable(splitable *SSplitTableSpec) {
+	splitableManager.Store(splitable.Name(), splitable)
+}
+
+func PurgeAll() error {
+	errs := make([]error, 0)
+	splitableManager.Range(func(k, v interface{}) bool {
+		log.Infof("purge splitable %s", k)
+		_, err := v.(*SSplitTableSpec).Purge(nil)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		return true
+	})
+	return errors.NewAggregate(errs)
+}
 
 func (t *SSplitTableSpec) Purge(tables []string) ([]string, error) {
 	if t.maxSegments <= 0 {

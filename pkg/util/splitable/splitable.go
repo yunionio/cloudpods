@@ -174,5 +174,7 @@ func NewSplitTableSpec(s interface{}, name string, indexField string, dateField 
 		lastTableLock: &sync.Mutex{},
 	}
 
+	registerSplitable(sts)
+
 	return sts, nil
 }
