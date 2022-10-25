@@ -130,6 +130,8 @@ func StartService() {
 		cron.AddJobAtIntervals("CleanPendingDeleteGuestImages",
 			time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.GuestImageManager.CleanPendingDeleteImages)
 
+		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+
 		cron.Start()
 	}
 

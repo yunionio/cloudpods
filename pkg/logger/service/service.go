@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/logger/extern"
@@ -60,6 +61,15 @@ func StartService() {
 
 	if len(opts.SyslogUrl) > 0 {
 		extern.InitSyslog(opts.SyslogUrl)
+	}
+
+	if !opts.IsSlaveNode {
+		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
+
+		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+
+		cron.Start()
+		defer cron.Stop()
 	}
 
 	app_common.ServeForever(app, baseOpts)
