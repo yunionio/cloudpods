@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	billingapi "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -642,7 +641,12 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	}
 
 	if len(ec.NodeType) > 0 {
-		params["NodeType"] = ec.NodeType
+		switch ec.NodeType {
+		case "single":
+			params["NodeType"] = "STAND_ALONE"
+		case "double":
+			params["NodeType"] = "MASTER_SLAVE"
+		}
 	}
 
 	if len(ec.ProjectId) > 0 {
@@ -652,25 +656,24 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	params["NetworkType"] = ec.NetworkType
 	params["VpcId"] = ec.VpcId
 	params["VSwitchId"] = ec.NetworkId
-	params["ChargeType"] = ec.ChargeType
-	if strings.ToLower(ec.ChargeType) == billingapi.BILLING_TYPE_PREPAID && ec.BC != nil {
-		if ec.BC.GetMonths() >= 1 && ec.BC.GetMonths() <= 9 {
-			params["Period"] = strconv.Itoa(ec.BC.GetMonths())
-		} else if ec.BC.GetMonths() == 12 || ec.BC.GetMonths() == 24 || ec.BC.GetMonths() == 36 {
-			params["Period"] = strconv.Itoa(ec.BC.GetMonths())
+	params["ChargeType"] = "PostPaid"
+	if ec.BillingCycle != nil {
+		params["ChargeType"] = "PrePaid"
+		if ec.BillingCycle.GetMonths() >= 1 && ec.BillingCycle.GetMonths() <= 9 {
+			params["Period"] = strconv.Itoa(ec.BillingCycle.GetMonths())
+		} else if ec.BillingCycle.GetMonths() == 12 || ec.BillingCycle.GetMonths() == 24 || ec.BillingCycle.GetMonths() == 36 {
+			params["Period"] = strconv.Itoa(ec.BillingCycle.GetMonths())
 		} else {
 			return nil, fmt.Errorf("region.CreateIElasticcaches invalid billing cycle.reqired month (1~9) or  year(1~3)")
 		}
 	}
 
-	ret := &SElasticcache{}
+	ret := &SElasticcache{region: self}
 	err := DoAction(self.kvsRequest, "CreateInstance", params, []string{}, ret)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.CreateIElasticcaches")
 	}
 	self.SetResourceTags(ALIYUN_SERVICE_KVS, "INSTANCE", ret.InstanceID, ec.Tags, true)
-
-	ret.region = self
 	return ret, nil
 }
 

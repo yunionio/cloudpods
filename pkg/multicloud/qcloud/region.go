@@ -1159,7 +1159,6 @@ func (r *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput
 
 	params["InstanceName"] = ec.InstanceName
 	if len(ec.ProjectId) > 0 {
-		log.Debugf("CreateIElasticcaches %s at project %s", ec.InstanceName, ec.ProjectId)
 		params["ProjectId"] = ec.ProjectId
 	}
 	params["ZoneId"] = fmt.Sprintf("%d", zoneId)
@@ -1168,7 +1167,7 @@ func (r *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput
 	params["RedisShardNum"] = spec.RedisShardNum
 	params["RedisReplicasNum"] = spec.RedisReplicasNum
 	params["GoodsNum"] = "1"
-	if strings.ToLower(ec.NetworkType) == api.LB_NETWORK_TYPE_VPC {
+	if ec.NetworkType == api.LB_NETWORK_TYPE_VPC {
 		params["VpcId"] = ec.VpcId
 		params["SubnetId"] = ec.NetworkId
 
@@ -1178,11 +1177,11 @@ func (r *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput
 	}
 	params["Period"] = "1"
 	params["BillingMode"] = "0"
-	if ec.BC != nil && ec.BC.GetMonths() >= 1 {
-		params["Period"] = strconv.Itoa(ec.BC.GetMonths())
+	if ec.BillingCycle != nil && ec.BillingCycle.GetMonths() >= 1 {
+		params["Period"] = strconv.Itoa(ec.BillingCycle.GetMonths())
 		params["BillingMode"] = "1"
 		// 自动续费
-		if ec.BC.AutoRenew {
+		if ec.BillingCycle.AutoRenew {
 			params["AutoRenew"] = "1"
 		}
 	}

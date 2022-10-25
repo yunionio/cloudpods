@@ -19,7 +19,6 @@ import "yunion.io/x/onecloud/pkg/util/billing"
 // https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423019.html
 // https://help.aliyun.com/document_detail/60873.html?spm=a2c4g.11174283.6.715.7412dce0qSYemb
 type SCloudElasticCacheInput struct {
-	RegionId         string                 // 地域
 	InstanceType     string                 // 实例规格 redis.master.small.default
 	CapacityGB       int64                  // 缓存容量 华为云此项参数必选
 	InstanceName     string                 // 实例名称
@@ -38,7 +37,7 @@ type SCloudElasticCacheInput struct {
 	EipId            string                 // 绑定弹性IP
 	MaintainBegin    string                 // 维护时间窗开始时间，格式为HH:mm:ss
 	MaintainEnd      string                 // 维护时间窗结束时间，格式为HH:mm:ss
-	BC               *billing.SBillingCycle // 包年包月
+	BillingCycle     *billing.SBillingCycle // 包年包月
 	ProjectId        string
 	Tags             map[string]string
 }

@@ -150,6 +150,7 @@ type ICloudRegion interface {
 	CreateIDBInstance(desc *SManagedDBInstanceCreateConfig) (ICloudDBInstance, error)
 
 	GetIElasticcaches() ([]ICloudElasticcache, error)
+	GetIElasticcacheSkus() ([]ICloudElasticcacheSku, error)
 	GetIElasticcacheById(id string) (ICloudElasticcache, error)
 	CreateIElasticcaches(ec *SCloudElasticCacheInput) (ICloudElasticcache, error)
 
@@ -1050,6 +1051,34 @@ type ICloudDBInstanceAccountPrivilege interface {
 
 	GetPrivilege() string
 	GetDBName() string
+}
+
+type ICloudElasticcacheSku interface {
+	GetName() string
+	GetGlobalId() string
+	GetZoneId() string
+	GetSlaveZoneId() string
+	GetEngineArch() string
+	GetLocalCategory() string
+	GetPrepaidStatus() string
+	GetPostpaidStatus() string
+	GetEngine() string
+	GetEngineVersion() string
+	GetCpuArch() string
+	GetStorageType() string
+	GetMemorySizeMb() int
+	GetPerformanceType() string
+	GetNodeType() string
+	GetDiskSizeGb() int
+	GetShardNum() int
+	GetMaxShardNum() int
+	GetReplicasNum() int
+	GetMaxReplicasNum() int
+	GetMaxClients() int
+	GetMaxConnections() int
+	GetMaxInBandwidthMb() int
+	GetMaxMemoryMb() int
+	GetQps() int
 }
 
 type ICloudElasticcache interface {

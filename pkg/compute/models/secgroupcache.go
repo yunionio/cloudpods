@@ -615,7 +615,7 @@ func (self *SSecurityGroupCache) StartSecurityGroupCacheDeleteTask(ctx context.C
 }
 
 func (manager *SSecurityGroupCacheManager) InitializeData() error {
-	providerIds := CloudproviderManager.Query("id").In("provider", []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_CTYUN, api.CLOUD_PROVIDER_QCLOUD}).SubQuery()
+	providerIds := CloudproviderManager.Query("id").In("provider", []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS, api.CLOUD_PROVIDER_CTYUN, api.CLOUD_PROVIDER_QCLOUD}).SubQuery()
 
 	deprecatedSecgroups := []SSecurityGroupCache{}
 	q := manager.Query().In("manager_id", providerIds).NotEquals("vpc_id", api.NORMAL_VPC_ID)

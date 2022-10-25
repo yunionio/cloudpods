@@ -606,11 +606,13 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, s
 		}
 	}
 
+	var guestdriver IGuestDriver = nil
 	if host, _ := storage.GetMasterHost(); host != nil {
 		//公有云磁盘大小检查。
 		if err := host.GetHostDriver().ValidateDiskSize(storage, diskConfig.SizeMb>>10); err != nil {
 			return httperrors.NewInputParameterError("%v", err)
 		}
+		guestdriver = GetDriver(api.HOSTTYPE_HYPERVISOR[host.HostType])
 	}
 	hoststorages := HoststorageManager.Query().SubQuery()
 	hoststorage := make([]SHoststorage, 0)
@@ -620,8 +622,10 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, s
 	if len(hoststorage) == 0 {
 		return httperrors.NewInputParameterError("Storage[%s] must attach to a host", storage.Name)
 	}
-	if int64(diskConfig.SizeMb) > storage.GetFreeCapacity() && !storage.IsEmulated {
-		return httperrors.NewInputParameterError("Not enough free space")
+	if guestdriver == nil || guestdriver.DoScheduleStorageFilter() {
+		if int64(diskConfig.SizeMb) > storage.GetFreeCapacity() && !storage.IsEmulated {
+			return httperrors.NewInputParameterError("Not enough free space")
+		}
 	}
 	return nil
 }
@@ -2191,7 +2195,7 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 	}
 
 	provider := self.GetCloudprovider()
-	if provider != nil && utils.IsInStringArray(provider.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO}) {
+	if provider != nil && utils.IsInStringArray(provider.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
 		cnt, err := self.GetSnapshotCount()
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)
@@ -2206,7 +2210,7 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 
 func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !jsonutils.QueryBoolean(query, "delete_snapshots", false) {
-		if provider := self.GetCloudprovider(); provider != nil && utils.IsInStringArray(provider.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO}) {
+		if provider := self.GetCloudprovider(); provider != nil && utils.IsInStringArray(provider.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
 			cnt, err := self.GetSnapshotCount()
 			if err != nil {
 				return httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)

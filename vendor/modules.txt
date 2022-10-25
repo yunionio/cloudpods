@@ -485,6 +485,8 @@ github.com/golang/snappy
 # github.com/google/btree v1.0.0
 ## explicit
 github.com/google/btree
+# github.com/google/go-cmp v0.5.7
+## explicit; go 1.11
 # github.com/google/go-querystring v1.0.0
 ## explicit
 github.com/google/go-querystring/query
@@ -543,6 +545,9 @@ github.com/huandu/xstrings
 # github.com/huaweicloud/huaweicloud-sdk-go v1.0.26
 ## explicit
 github.com/huaweicloud/huaweicloud-sdk-go/auth/aksk
+# github.com/huaweicloud/huaweicloud-sdk-go-obs v3.21.12+incompatible
+## explicit
+github.com/huaweicloud/huaweicloud-sdk-go-obs/obs
 # github.com/imdario/mergo v0.3.6
 ## explicit
 github.com/imdario/mergo
@@ -1107,8 +1112,8 @@ golang.org/x/tools/internal/imports
 ## explicit; go 1.11
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
-# golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220916014741-473347a5e6e3
-## explicit; go 1.17
+# golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
+## explicit; go 1.13
 golang.zx2c4.com/wireguard/wgctrl/wgtypes
 # google.golang.org/api v0.30.0
 ## explicit; go 1.11

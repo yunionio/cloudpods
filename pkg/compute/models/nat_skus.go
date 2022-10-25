@@ -187,6 +187,16 @@ func (self *SCloudregion) GetNatSkus() ([]SNatSku, error) {
 	return skus, nil
 }
 
+func (self *SCloudregion) GetElasticcacheSkus() ([]SElasticcacheSku, error) {
+	skus := []SElasticcacheSku{}
+	q := ElasticcacheSkuManager.Query().Equals("cloudregion_id", self.Id)
+	err := db.FetchModelObjects(NatSkuManager, q, &skus)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return skus, nil
+}
+
 func (self SNatSku) GetGlobalId() string {
 	return self.ExternalId
 }

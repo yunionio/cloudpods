@@ -534,3 +534,26 @@ func (self *RemoteFileTags) GetSysTags() map[string]string {
 func (self *RemoteFileTags) SetTags(tags map[string]string, replace bool) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
 }
+
+type HcsTags struct {
+	Tags []string
+}
+
+func (self *HcsTags) GetTags() (map[string]string, error) {
+	tags := map[string]string{}
+	for _, kv := range self.Tags {
+		splited := strings.Split(kv, "=")
+		if len(splited) == 2 {
+			tags[splited[0]] = splited[1]
+		}
+	}
+	return tags, nil
+}
+
+func (self *HcsTags) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *HcsTags) SetTags(tags map[string]string, replace bool) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
+}

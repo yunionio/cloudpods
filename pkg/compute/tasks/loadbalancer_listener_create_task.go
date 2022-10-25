@@ -38,7 +38,7 @@ func init() {
 
 func getOnLoadbalancerListenerCreateCompleteFunc(provider string) func(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject, self *LoadbalancerListenerCreateTask) {
 	switch provider {
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO:
+	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS:
 		return onHuaweiLoadbalancerListenerCreateComplete
 	case api.CLOUD_PROVIDER_OPENSTACK:
 		return onOpenstackLoadbalancerListenerCreateComplete

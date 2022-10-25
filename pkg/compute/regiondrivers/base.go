@@ -396,6 +396,10 @@ func (self *SBaseRegionDriver) RequestSyncDBInstanceBackupStatus(ctx context.Con
 	return fmt.Errorf("Not Implement RequestSyncDBInstanceBackupStatus")
 }
 
+func (self *SBaseRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateElasticcache")
+}
+
 func (self *SBaseRegionDriver) RequestSyncElasticcacheStatus(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestSyncElasticcacheStatus")
 }

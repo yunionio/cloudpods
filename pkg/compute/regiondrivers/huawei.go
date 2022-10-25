@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,7 +28,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -40,9 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/rand"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SHuaWeiRegionDriver struct {
@@ -149,6 +145,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
 	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 	data.Set("vpc_id", jsonutils.NewString(vpc.GetId()))
+	data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
 }
 
@@ -2345,225 +2342,19 @@ func validatorSlaveZones(ownerId mcclient.IIdentityProvider, regionId string, da
 	return nil
 }
 
-func ValidateElasticcacheSku(zoneId string, chargeType string, sku *models.SElasticcacheSku, network *models.SNetwork) error {
-	if sku.ZoneId != zoneId {
-		return httperrors.NewResourceNotFoundError("zone mismatch, elastic cache sku zone %s != %s", sku.ZoneId, zoneId)
+func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.ElasticcacheCreateInput) (*api.ElasticcacheCreateInput, error) {
+	if !utils.IsInStringArray(input.Engine, []string{"redis", "memcache"}) {
+		return nil, httperrors.NewInputParameterError("invalid engine %s", input.Engine)
+	}
+	if len(input.MaintainStartTime) > 0 && !utils.IsInStringArray(input.MaintainStartTime, []string{"22:00:00", "02:00:00", "06:00:00", "10:00:00", "14:00:00", "18:00:00"}) {
+		return nil, httperrors.NewInputParameterError("invalid maintain_start_time %s", input.MaintainStartTime)
 	}
 
-	if network != nil {
-		if zone, _ := network.GetZone(); zone != nil && zone.Id != sku.ZoneId {
-			return httperrors.NewResourceNotFoundError("elastic cache sku zone (%s) and subnet zone (%s) mismatch", sku.ZoneId, zone.Id)
-		}
+	if input.CapacityMb == 0 {
+		return nil, httperrors.NewMissingParameterError("capacity_mb")
 	}
 
-	if chargeType == billing_api.BILLING_TYPE_PREPAID {
-		if sku.PrepaidStatus != api.SkuStatusAvailable {
-			return httperrors.NewOutOfResourceError("sku %s is soldout", sku.Name)
-		}
-	} else {
-		if sku.PostpaidStatus != api.SkuStatusAvailable {
-			return httperrors.NewOutOfResourceError("sku %s is soldout", sku.Name)
-		}
-	}
-
-	return nil
-}
-
-func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
-	data := input.JSON(input)
-	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
-	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
-	// secgroupV := validators.NewModelIdOrNameValidator("security_group", "secgroup", ownerId)
-
-	// todo: fix me
-	instanceTypeV := validators.NewModelIdOrNameValidator("instance_type", "elasticcachesku", ownerId)
-	chargeTypeV := validators.NewStringChoicesValidator("billing_type", choices.NewChoices(billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID))
-	networkTypeV := validators.NewStringChoicesValidator("network_type", choices.NewChoices(api.LB_NETWORK_TYPE_VPC, api.LB_NETWORK_TYPE_CLASSIC)).Default(api.LB_NETWORK_TYPE_VPC).Optional(true)
-	engineV := validators.NewStringChoicesValidator("engine", choices.NewChoices("redis", "memcache"))
-	engineVersionV := validators.NewStringChoicesValidator("engine_version", choices.NewChoices("3.0", "4.0", "5.0"))
-	privateIpV := validators.NewIPv4AddrValidator("private_ip").Optional(true)
-	maintainStartTimeV := validators.NewStringChoicesValidator("maintain_start_time", choices.NewChoices("22:00:00", "02:00:00", "06:00:00", "10:00:00", "14:00:00", "18:00:00")).Default("02:00:00").Optional(true)
-
-	keyV := map[string]validators.IValidator{
-		"zone":          zoneV,
-		"billing_type":  chargeTypeV,
-		"network_type":  networkTypeV,
-		"network":       networkV,
-		"instance_type": instanceTypeV,
-		// "security_group":     secgroupV,
-		"engine":             engineV,
-		"engine_version":     engineVersionV,
-		"private_ip":         privateIpV,
-		"mantain_start_time": maintainStartTimeV,
-	}
-	if err := RunValidators(keyV, data, false); err != nil {
-		return nil, err
-	}
-
-	// validate password
-	if password, _ := data.GetString("password"); len(password) > 0 {
-		err := seclib2.ValidatePassword(password)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// validate sku
-	sku := instanceTypeV.Model.(*models.SElasticcacheSku)
-	zoneId, _ := data.GetString("zone_id")
-	billingType, _ := data.GetString("billing_type")
-	network := networkV.Model.(*models.SNetwork)
-	if err := ValidateElasticcacheSku(zoneId, billingType, sku, network); err != nil {
-		return nil, err
-	} else {
-		data.Set("instance_type", jsonutils.NewString(sku.InstanceSpec))
-		data.Set("node_type", jsonutils.NewString(sku.NodeType))
-		data.Set("local_category", jsonutils.NewString(sku.LocalCategory))
-		data.Set("capacity_mb", jsonutils.NewInt(int64(sku.MemorySizeMB)))
-	}
-
-	// validate slave zones
-	if len(input.SlaveZones) > 0 {
-		data.Set("slave_zones", jsonutils.NewString(strings.Join(input.SlaveZones, ",")))
-	}
-	if err := validatorSlaveZones(ownerId, zoneV.Model.(*models.SZone).GetCloudRegionId(), data, true); err != nil {
-		return nil, err
-	}
-
-	// validate capacity
-	if capacityMB, err := data.Int("capacity_mb"); err != nil {
-		return nil, errors.Wrap(err, "invalid parameter capacity_mb")
-	} else {
-		// todo: fix me
-		// Redis引擎：单机和主备类型实例取值：2、4、8、16、32、64。集群实例规格支持64G、128G、256G、512G和1024G。
-		data.Set("capacity_mb", jsonutils.NewInt(capacityMB))
-	}
-
-	// MaintainEndTime
-	// 开始时间必须为22:00:00、02:00:00、06:00:00、10:00:00、14:00:00和18:00:00。
-	data.Remove("mantain_end_time")
-	if startTime, err := data.GetString("maintain_start_time"); err == nil {
-		maintainTimes := []string{"22:00:00", "02:00:00", "06:00:00", "10:00:00", "14:00:00", "18:00:00", "22:00:00"}
-
-		for i := range maintainTimes {
-			if maintainTimes[i] == startTime {
-				data.Add(jsonutils.NewString(maintainTimes[i+1]), "mantain_end_time")
-				break
-			}
-		}
-	}
-
-	// billing cycle
-	if billingType == billing_api.BILLING_TYPE_PREPAID {
-		billingCycle, err := data.GetString("billing_cycle")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("billing_cycle")
-		}
-
-		cycle, err := billing.ParseBillingCycle(billingCycle)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid billing_cycle %s", billingCycle)
-		}
-
-		data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
-	}
-
-	vpc, _ := network.GetVpc()
-	if vpc == nil {
-		return nil, httperrors.NewNotFoundError("network %s related vpc not found", network.GetId())
-	}
-	data.Set("vpc_id", jsonutils.NewString(vpc.Id))
-	data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(sku.CloudregionId))
-	return data, nil
-}
-
-func (self *SHuaWeiRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := ec.GetIRegion(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetIRegion")
-		}
-
-		provider := ec.GetCloudprovider()
-		if provider == nil {
-			return nil, errors.Wrap(httperrors.ErrInvalidStatus, "huaweiRegionDriver.CreateElasticcache.GetProvider")
-		}
-
-		params, err := ec.GetCreateHuaweiElasticcacheParams(ctx, task.GetParams())
-		if err != nil {
-			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetCreateHuaweiElasticcacheParams")
-		}
-
-		iec, err := iRegion.CreateIElasticcaches(params)
-		if err != nil {
-			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.CreateIElasticcaches")
-		}
-
-		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 30*time.Second, 15*time.Second, 600*time.Second)
-		if err != nil {
-			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.WaitStatusWithDelay")
-		}
-
-		ec.SetModelManager(models.ElasticcacheManager, ec)
-		if err := db.SetExternalId(ec, userCred, iec.GetGlobalId()); err != nil {
-			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.SetExternalId")
-		}
-
-		{
-			// todo: 开启外网访问
-		}
-
-		if err := ec.SyncWithCloudElasticcache(ctx, userCred, provider, iec); err != nil {
-			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.SyncWithCloudElasticcache")
-		}
-
-		// sync accounts
-		{
-			iaccounts, err := iec.GetICloudElasticcacheAccounts()
-			if err != nil {
-				return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetICloudElasticcacheAccounts")
-			}
-
-			result := models.ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, ec, iaccounts)
-			log.Debugf("huaweiRegionDriver.CreateElasticcache.SyncElasticcacheAccounts %s", result.Result())
-
-			account, err := ec.GetAdminAccount()
-			if err != nil {
-				return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetAdminAccount")
-			}
-
-			err = account.SavePassword(params.Password)
-			if err != nil {
-				return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.SavePassword")
-			}
-		}
-
-		// sync acl
-		{
-			iacls, err := iec.GetICloudElasticcacheAcls()
-			if err != nil {
-				return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetICloudElasticcacheAcls")
-			}
-
-			result := models.ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, ec, iacls)
-			log.Debugf("huaweiRegionDriver.CreateElasticcache.SyncElasticcacheAcls %s", result.Result())
-		}
-
-		// sync parameters
-		{
-			iparams, err := iec.GetICloudElasticcacheParameters()
-			if err != nil {
-				return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetICloudElasticcacheParameters")
-			}
-
-			result := models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, iparams)
-			log.Debugf("huaweiRegionDriver.CreateElasticcache.SyncElasticcacheParameters %s", result.Result())
-		}
-
-		return nil, nil
-	})
-	return nil
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateElasticcacheData(ctx, userCred, ownerId, input)
 }
 
 func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

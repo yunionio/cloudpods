@@ -639,11 +639,11 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	params["VpcId"] = ec.VpcId
 	params["VSwitchId"] = ec.NetworkId
 	params["ChargeType"] = ec.ChargeType
-	if strings.ToLower(ec.ChargeType) == billingapi.BILLING_TYPE_PREPAID && ec.BC != nil {
-		if ec.BC.GetMonths() >= 1 && ec.BC.GetMonths() <= 9 {
-			params["Period"] = strconv.Itoa(ec.BC.GetMonths())
-		} else if ec.BC.GetMonths() == 12 || ec.BC.GetMonths() == 24 || ec.BC.GetMonths() == 36 {
-			params["Period"] = strconv.Itoa(ec.BC.GetMonths())
+	if strings.ToLower(ec.ChargeType) == billingapi.BILLING_TYPE_PREPAID && ec.BillingCycle != nil {
+		if ec.BillingCycle.GetMonths() >= 1 && ec.BillingCycle.GetMonths() <= 9 {
+			params["Period"] = strconv.Itoa(ec.BillingCycle.GetMonths())
+		} else if ec.BillingCycle.GetMonths() == 12 || ec.BillingCycle.GetMonths() == 24 || ec.BillingCycle.GetMonths() == 36 {
+			params["Period"] = strconv.Itoa(ec.BillingCycle.GetMonths())
 		} else {
 			return nil, fmt.Errorf("region.CreateIElasticcaches invalid billing cycle.reqired month (1~9) or  year(1~3)")
 		}

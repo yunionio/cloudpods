@@ -127,6 +127,10 @@ func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, er
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIElasticcaches")
 }
 
+func (self *SRegion) GetIElasticcacheSkus() ([]cloudprovider.ICloudElasticcacheSku, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIElasticcacheSkus")
+}
+
 func (self *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateIDBInstance")
 }
@@ -355,7 +359,7 @@ func (self *SRegionSecurityGroupBase) CreateISecurityGroup(conf *cloudprovider.S
 }
 
 func (self *SRegionSecurityGroupBase) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIElasticSearchById")
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISecurityGroupById")
 }
 
 func (self *SRegionSecurityGroupBase) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {

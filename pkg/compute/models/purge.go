@@ -557,7 +557,7 @@ func (lbbg *SLoadbalancerBackendGroup) purgeCachedlbbg(ctx context.Context, user
 	switch lbbg.GetProviderName() {
 	case api.CLOUD_PROVIDER_AWS:
 		return lbbg.purgeAwsCachedlbbg(ctx, userCred)
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO:
+	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS:
 		return lbbg.purgeHuaweiCachedlbbg(ctx, userCred)
 	}
 

@@ -37,7 +37,7 @@ func init() {
 
 func getOnPrepareLoadbalancerBackendgroupFunc(provider string) func(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject, self *LoadbalancerListenerRuleCreateTask) {
 	switch provider {
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO:
+	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS:
 		return onHuaiweiPrepareLoadbalancerBackendgroup
 	case api.CLOUD_PROVIDER_AWS:
 		return onAwsPrepareLoadbalancerBackendgroup
