@@ -485,17 +485,17 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 		params.Set("maintain_end", jsonutils.NewString(ec.MaintainEnd))
 	}
 
-	if strings.ToLower(ec.ChargeType) == billing_api.BILLING_TYPE_PREPAID && ec.BC != nil {
+	if ec.BillingCycle != nil {
 		bssParam := jsonutils.NewDict()
 		bssParam.Set("charging_mode", jsonutils.NewString("prePaid"))
 		bssParam.Set("is_auto_pay", jsonutils.NewString("true"))
-		bssParam.Set("is_auto_renew", jsonutils.NewString(fmt.Sprintf("%v", ec.BC.AutoRenew)))
-		if ec.BC.GetMonths() >= 1 && ec.BC.GetMonths() >= 9 {
+		bssParam.Set("is_auto_renew", jsonutils.NewString(fmt.Sprintf("%v", ec.BillingCycle.AutoRenew)))
+		if ec.BillingCycle.GetMonths() >= 1 && ec.BillingCycle.GetMonths() >= 9 {
 			bssParam.Set("period_type", jsonutils.NewString("month"))
-			bssParam.Set("period_num", jsonutils.NewInt(int64(ec.BC.GetMonths())))
-		} else if ec.BC.GetYears() >= 1 && ec.BC.GetYears() <= 3 {
+			bssParam.Set("period_num", jsonutils.NewInt(int64(ec.BillingCycle.GetMonths())))
+		} else if ec.BillingCycle.GetYears() >= 1 && ec.BillingCycle.GetYears() <= 3 {
 			bssParam.Set("period_type", jsonutils.NewString("year"))
-			bssParam.Set("period_num", jsonutils.NewInt(int64(ec.BC.GetYears())))
+			bssParam.Set("period_num", jsonutils.NewInt(int64(ec.BillingCycle.GetYears())))
 		} else {
 			return nil, fmt.Errorf("region.CreateIElasticcaches invalid billing cycle.reqired month (1~9) or  year(1~3)")
 		}

@@ -179,17 +179,23 @@ type ElasticcacheCreateInput struct {
 	ElasticcacheSecgroupsInput
 
 	// 主可用区名称或Id
-	Zone string `json:"zone"`
+	ZoneId string `json:"zone_id"`
 
-	// 备可用区名称或Id列表
+	// swagger: ignore
+	Zone string `json:"zone" yunion-deprecated-by:"zone_id"`
+
+	// 备可用区名称或Id列表, split by: ,
 	// 默认副本与主可用区一致
 	// 支持此参数的云厂商: 腾讯云
 	// required: false
-	SlaveZones []string `json:"slave_zones"`
+	SlaveZones string `json:"slave_zones"`
 
 	// Ip子网名称或Id,建议使用Id
 	// required: true
-	Network string `json:"network"`
+	NetworkId string `json:"network_id"`
+
+	// swagger: ignore
+	Network string `json:"network" yunion-deprecated-by:"network_id"`
 
 	// 网络类型
 	//  enum: vpc, cLassic
@@ -209,13 +215,20 @@ type ElasticcacheCreateInput struct {
 	// required: false
 	InstanceType string `json:"instance_type"`
 
+	NodeType string `json:"node_type"`
+
+	// swagger: ignore
+	MemorySizeMb int `json:"memory_size_mb" yunion-deprecated-by:"capacity_mb"`
+
 	// 初始密码
 	// required: false
 	Password string `json:"password"`
 
+	ResetPassword bool `json:"reset_password"`
+
 	// 安全组名称或Id
 	// default: default
-	Secgroup string `json:"secgroup"`
+	SecgroupIds []string `json:"secgroup_ids"`
 
 	// 内网IP
 	// 阿里云、华为云此参数可选，其它公有云该参数无效
@@ -249,4 +262,10 @@ type ElasticcacheCreateInput struct {
 	// enum: 22:00:00, 02:00:00, 06:00:00, 10:00:00, 14:00:00, 18:00:00
 	// required: false
 	MaintainStartTime string `json:"maintain_start_time"`
+
+	LocalCategory string `json:"local_category"`
+
+	CapacityMb int `json:"capacity_mb"`
+
+	CloudregionId string `json:"cloudregion_id"`
 }

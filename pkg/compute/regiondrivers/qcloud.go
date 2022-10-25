@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -29,7 +28,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -1481,201 +1479,16 @@ func (self *SQcloudRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
 	return 10
 }
 
-func (self *SQcloudRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
-	data := input.JSON(input)
-	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
-	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
-	instanceTypeV := validators.NewModelIdOrNameValidator("instance_type", "elasticcachesku", ownerId)
-	chargeTypeV := validators.NewStringChoicesValidator("billing_type", choices.NewChoices(billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID))
-	networkTypeV := validators.NewStringChoicesValidator("network_type", choices.NewChoices(api.LB_NETWORK_TYPE_VPC)).Default(api.LB_NETWORK_TYPE_VPC).Optional(true)
-	engineVersionV := validators.NewStringChoicesValidator("engine_version", choices.NewChoices("2.8", "3.0", "3.2", "4.0", "5.0"))
-
-	keyV := map[string]validators.IValidator{
-		"zone":           zoneV,
-		"billing_type":   chargeTypeV,
-		"network_type":   networkTypeV,
-		"network":        networkV,
-		"instance_type":  instanceTypeV,
-		"engine_version": engineVersionV,
+func (self *SQcloudRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.ElasticcacheCreateInput) (*api.ElasticcacheCreateInput, error) {
+	if len(input.NetworkType) == 0 {
+		input.NetworkType = api.LB_NETWORK_TYPE_VPC
 	}
-	if err := RunValidators(keyV, data, false); err != nil {
-		return nil, err
-	}
-
-	// validate password
-	if password, _ := data.GetString("password"); len(password) > 0 {
-		err := seclib2.ValidatePassword(password)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	zoneId, _ := data.GetString("zone_id")
-	billingType, _ := data.GetString("billing_type")
-	// validate sku
-	sku := instanceTypeV.Model.(*models.SElasticcacheSku)
-	network := networkV.Model.(*models.SNetwork)
-	if err := ValidateElasticcacheSku(zoneId, billingType, sku, network); err != nil {
-		return nil, err
-	} else {
-		data.Set("instance_type", jsonutils.NewString(sku.InstanceSpec))
-		data.Set("node_type", jsonutils.NewString(sku.NodeType))
-		data.Set("local_category", jsonutils.NewString(sku.LocalCategory))
-		data.Set("capacity_mb", jsonutils.NewInt(int64(sku.MemorySizeMB)))
-	}
-
-	// validate slave zones
-	if len(input.SlaveZones) > 0 {
-		if len(input.SlaveZones) < sku.ReplicasNum {
-			padding := make([]string, sku.ReplicasNum-len(input.SlaveZones))
-			for i := range padding {
-				padding[i] = zoneId
-			}
-
-			input.SlaveZones = append(input.SlaveZones, padding...)
-		}
-
-		data.Set("slave_zones", jsonutils.NewString(strings.Join(input.SlaveZones, ",")))
-	}
-	if err := validatorSlaveZones(ownerId, zoneV.Model.(*models.SZone).GetCloudRegionId(), data, true); err != nil {
-		return nil, err
-	}
-
-	sz, _ := data.GetString("slave_zones")
-	if len(strings.Split(sz, ",")) > sku.ReplicasNum {
-		return nil, fmt.Errorf("the number of slave zones can not beyond redis replicas number")
-	}
-
-	// validate secgroups
-	secgroups := []string{}
-	err := data.Unmarshal(&secgroups, "secgroup_ids")
-	if err != nil {
-		log.Debugf("Unmarshal.security_groups %s", err)
-		data.Set("secgroup_ids", jsonutils.NewArray(jsonutils.NewString(api.SECGROUP_DEFAULT_ID)))
-		secgroups = []string{api.SECGROUP_DEFAULT_ID}
-	}
-
-	if len(secgroups) == 0 || len(secgroups) > 10 {
-		return nil, errors.Wrap(err, "secgroups id quantity should between 1 and 10.")
-	}
-
-	_, err = models.CheckingSecgroupIds(ctx, userCred, secgroups)
-	if err != nil {
-		return nil, errors.Wrap(err, "CheckingSecgroupIds")
-	}
-
-	// billing cycle
-	if billingType == billing_api.BILLING_TYPE_PREPAID {
-		billingCycle, err := data.GetString("billing_cycle")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("billing_cycle")
-		}
-
-		cycle, err := billing.ParseBillingCycle(billingCycle)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid billing_cycle %s", billingCycle)
-		}
-
-		data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
-	}
-
-	vpc, _ := network.GetVpc()
-	if vpc == nil {
-		return nil, httperrors.NewNotFoundError("network %s related vpc not found", network.GetId())
-	}
-	data.Set("engine", jsonutils.NewString("redis"))
-	data.Set("vpc_id", jsonutils.NewString(vpc.Id))
-	data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(vpc.CloudregionId))
-	return data, nil
+	input.Engine = "redis"
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateElasticcacheData(ctx, userCred, ownerId, input)
 }
 
 func (self *SQcloudRegionDriver) IsSupportedElasticcache() bool {
 	return true
-}
-
-func (self *SQcloudRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := ec.GetIRegion(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.GetIRegion")
-		}
-
-		provider := ec.GetCloudprovider()
-		if provider == nil {
-			return nil, errors.Wrap(httperrors.ErrInvalidStatus, "qcloudRegionDriver.CreateElasticcache.GetProvider")
-		}
-
-		secgroups := []string{}
-		err = data.Unmarshal(&secgroups, "ext_secgroup_ids")
-		if err != nil {
-			return nil, errors.Wrap(err, "Unmarshal.ext_secgroup_ids")
-		}
-
-		params, err := ec.GetCreateQCloudElasticcacheParams(ctx, task.GetParams())
-		if err != nil {
-			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.GetCreateHuaweiElasticcacheParams")
-		}
-		params.SecurityGroupIds = secgroups
-		params.ProjectId, err = provider.SyncProject(ctx, userCred, ec.ProjectId)
-		if err != nil {
-			log.Errorf("failed to sync project %s for create %s elastic cache %s error: %v", ec.ProjectId, provider.Provider, ec.Name, err)
-		}
-
-		iec, err := iRegion.CreateIElasticcaches(params)
-		if err != nil {
-			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.CreateIElasticcaches")
-		}
-
-		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 30*time.Second, 15*time.Second, 900*time.Second)
-		if err != nil {
-			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.WaitStatusWithDelay")
-		}
-
-		ec.SetModelManager(models.ElasticcacheManager, ec)
-		if err := db.SetExternalId(ec, userCred, iec.GetGlobalId()); err != nil {
-			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.SetExternalId")
-		}
-
-		if err := ec.SyncWithCloudElasticcache(ctx, userCred, provider, iec); err != nil {
-			return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.SyncWithCloudElasticcache")
-		}
-
-		// sync accounts
-		{
-			iaccounts, err := iec.GetICloudElasticcacheAccounts()
-			if err != nil {
-				return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.GetICloudElasticcacheAccounts")
-			}
-
-			result := models.ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, ec, iaccounts)
-			log.Debugf("qcloudRegionDriver.CreateElasticcache.SyncElasticcacheAccounts %s", result.Result())
-
-			account, err := ec.GetAdminAccount()
-			if err != nil {
-				return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.GetAdminAccount")
-			}
-
-			err = account.SavePassword(params.Password)
-			if err != nil {
-				return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.SavePassword")
-			}
-		}
-
-		// sync parameters
-		{
-			iparams, err := iec.GetICloudElasticcacheParameters()
-			if err != nil {
-				return nil, errors.Wrap(err, "qcloudRegionDriver.CreateElasticcache.GetICloudElasticcacheParameters")
-			}
-
-			result := models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, iparams)
-			log.Debugf("qcloudRegionDriver.CreateElasticcache.SyncElasticcacheParameters %s", result.Result())
-		}
-
-		return nil, nil
-	})
-	return nil
 }
 
 func (self *SQcloudRegionDriver) GetSecurityGroupPublicScope(service string) rbacutils.TRbacScope {
@@ -1683,49 +1496,6 @@ func (self *SQcloudRegionDriver) GetSecurityGroupPublicScope(service string) rba
 		return rbacutils.ScopeProject
 	}
 	return rbacutils.ScopeSystem
-}
-
-func (self *SQcloudRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		// sync secgroups to cloud
-		secgroupExternalIds := []string{}
-		{
-			ess, err := ec.GetElasticcacheSecgroups()
-			if err != nil {
-				return nil, errors.Wrap(err, "qcloudRegionDriver.GetElasticcacheSecgroups")
-			}
-
-			provider := ec.GetCloudprovider()
-			if provider == nil {
-				return nil, errors.Wrap(httperrors.ErrInvalidStatus, "qcloudRegionDriver.GetCloudprovider")
-			}
-
-			extProjectId, err := provider.SyncProject(ctx, userCred, ec.ProjectId)
-			if err != nil {
-				return nil, fmt.Errorf("failed to sync project %s for create %s elastic cache %s error: %v", ec.ProjectId, provider.Provider, ec.Name, err)
-			}
-
-			vpc, _ := ec.GetVpc()
-			region, _ := vpc.GetRegion()
-			vpcId, err := self.GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
-			if err != nil {
-				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
-			}
-
-			for i := range ess {
-				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, ess[i].GetSecGroup(), extProjectId, "redis", true)
-				if err != nil {
-					return nil, errors.Wrap(err, "RequestSyncSecurityGroup")
-				}
-				secgroupExternalIds = append(secgroupExternalIds, externalId)
-			}
-		}
-
-		ret := jsonutils.NewDict()
-		ret.Set("ext_secgroup_ids", jsonutils.NewStringArray(secgroupExternalIds))
-		return ret, nil
-	})
-	return nil
 }
 
 func (self *SQcloudRegionDriver) ValidateCreateElasticcacheAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

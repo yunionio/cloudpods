@@ -25,12 +25,14 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -682,4 +684,95 @@ func (manager *SElasticcacheSkuManager) PerformSyncSkus(ctx context.Context, use
 
 func (manager *SElasticcacheSkuManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
 	return GetPropertySkusSyncTasks(ctx, userCred, query)
+}
+
+func (self *SCloudregion) SyncPrivateCloudCacheSkus(ctx context.Context, userCred mcclient.TokenCredential, iskus []cloudprovider.ICloudElasticcacheSku) compare.SyncResult {
+	lockman.LockRawObject(ctx, self.Id, ElasticcacheSkuManager.Keyword())
+	defer lockman.ReleaseRawObject(ctx, self.Id, ElasticcacheSkuManager.Keyword())
+
+	result := compare.SyncResult{}
+
+	dbSkus, err := self.GetElasticcacheSkus()
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	removed := make([]SElasticcacheSku, 0)
+	commondb := make([]SElasticcacheSku, 0)
+	commonext := make([]cloudprovider.ICloudElasticcacheSku, 0)
+	added := make([]cloudprovider.ICloudElasticcacheSku, 0)
+
+	err = compare.CompareSets(dbSkus, iskus, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].Delete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+	for i := 0; i < len(added); i += 1 {
+		err = self.newFromCloudElasticcacheSku(ctx, userCred, added[i])
+		if err != nil {
+			result.AddError(err)
+		} else {
+			result.Add()
+		}
+	}
+	return result
+}
+
+func (self *SCloudregion) newFromCloudElasticcacheSku(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudElasticcacheSku) error {
+	sku := &SElasticcacheSku{}
+	sku.SetModelManager(ElasticcacheSkuManager, sku)
+	sku.Name = ext.GetName()
+	sku.InstanceSpec = ext.GetName()
+	sku.Status = apis.SKU_STATUS_AVAILABLE
+	sku.CloudregionId = self.Id
+	sku.ExternalId = ext.GetGlobalId()
+	sku.Provider = self.Provider
+	sku.EngineArch = ext.GetEngineArch()
+	sku.LocalCategory = ext.GetLocalCategory()
+	sku.PrepaidStatus = ext.GetPrepaidStatus()
+	sku.PostpaidStatus = ext.GetPostpaidStatus()
+	sku.Engine = ext.GetEngine()
+	sku.EngineVersion = ext.GetEngineVersion()
+	sku.CpuArch = ext.GetCpuArch()
+	sku.StorageType = ext.GetStorageType()
+	sku.MemorySizeMB = ext.GetMemorySizeMb()
+	sku.PerformanceType = ext.GetPerformanceType()
+	sku.NodeType = ext.GetNodeType()
+	sku.DiskSizeGB = ext.GetDiskSizeGb()
+	sku.ShardNum = ext.GetShardNum()
+	sku.MaxShardNum = ext.GetMaxShardNum()
+	sku.ReplicasNum = ext.GetReplicasNum()
+	sku.MaxReplicasNum = ext.GetMaxReplicasNum()
+	sku.MaxClients = ext.GetMaxClients()
+	sku.MaxConnections = ext.GetMaxConnections()
+	sku.MaxInBandwidthMb = ext.GetMaxInBandwidthMb()
+	sku.MaxMemoryMB = ext.GetMaxMemoryMb()
+	sku.QPS = ext.GetQps()
+
+	zones, err := self.GetZones()
+	if err != nil {
+		return errors.Wrapf(err, "GetZones")
+	}
+	zoneId := ext.GetZoneId()
+	slaveZoneId := ext.GetSlaveZoneId()
+	for i := range zones {
+		if len(zoneId) > 0 && strings.HasSuffix(zones[i].ExternalId, zoneId) {
+			sku.ZoneId = zones[i].Id
+		}
+		if len(slaveZoneId) > 0 && strings.HasSuffix(zones[i].ExternalId, slaveZoneId) {
+			sku.SlaveZoneId = zones[i].Id
+		}
+	}
+
+	return ElasticcacheSkuManager.TableSpec().Insert(ctx, sku)
 }

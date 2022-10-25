@@ -1874,20 +1874,158 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
-	task.ScheduleRun(nil)
+func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := ec.GetIRegion(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetIRegion")
+		}
+
+		iprovider, err := db.FetchById(models.CloudproviderManager, ec.GetCloudproviderId())
+		if err != nil {
+			return nil, errors.Wrap(err, "GetProvider")
+		}
+		vpc, err := ec.GetVpc()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetVpc")
+		}
+
+		networkObj, err := db.FetchById(models.NetworkManager, ec.NetworkId)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetNetwork")
+		}
+		network := networkObj.(*models.SNetwork)
+
+		params := &cloudprovider.SCloudElasticCacheInput{
+			InstanceType:     ec.InstanceType,
+			InstanceName:     ec.Name,
+			Engine:           ec.Engine,
+			EngineVersion:    ec.EngineVersion,
+			PrivateIpAddress: ec.PrivateIpAddr,
+			CapacityGB:       int64(ec.CapacityMB / 1024),
+			NodeType:         ec.NodeType,
+			NetworkType:      ec.NetworkType,
+			VpcId:            vpc.ExternalId,
+			NetworkId:        network.ExternalId,
+			MaintainBegin:    ec.MaintainStartTime,
+			MaintainEnd:      ec.MaintainEndTime,
+		}
+		if ec.BillingType == billing_api.BILLING_TYPE_PREPAID {
+			bc, err := billing.ParseBillingCycle(ec.BillingCycle)
+			if err != nil {
+				return nil, errors.Wrapf(err, "ParseBillingCycle(%s)", ec.BillingCycle)
+			}
+			bc.AutoRenew = ec.AutoRenew
+			params.BillingCycle = &bc
+		}
+		params.Tags, _ = ec.GetAllUserMetadata()
+
+		zone, err := ec.GetZone()
+		if zone != nil {
+			izone, err := iRegion.GetIZoneById(zone.ExternalId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetIZoneById(%s)", zone.ExternalId)
+			}
+			params.ZoneIds = []string{izone.GetId()}
+		}
+		slaveZones, err := ec.GetSlaveZones()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSlaveZones")
+		}
+		for i := range slaveZones {
+			izone, err := iRegion.GetIZoneById(slaveZones[i].ExternalId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetSlaveZoneBy(%s)", slaveZones[i].ExternalId)
+			}
+			if !utils.IsInStringArray(izone.GetId(), params.ZoneIds) {
+				params.ZoneIds = append(params.ZoneIds, izone.GetId())
+			}
+		}
+
+		params.Password, _ = data.GetString("password")
+		data.Unmarshal(&params.SecurityGroupIds, "ext_secgroup_ids")
+
+		provider := iprovider.(*models.SCloudprovider)
+		params.ProjectId, err = provider.SyncProject(ctx, userCred, ec.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project %s for create %s elastic cache %s error: %v", ec.ProjectId, provider.Provider, ec.Name, err)
+		}
+
+		iec, err := iRegion.CreateIElasticcaches(params)
+		if err != nil {
+			return nil, errors.Wrap(err, "CreateIElasticcaches")
+		}
+
+		err = db.SetExternalId(ec, userCred, iec.GetGlobalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "SetExternalId")
+		}
+
+		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 30*time.Second, 15*time.Second, 10*time.Minute)
+		if err != nil {
+			return nil, errors.Wrap(err, "WaitStatusWithDelay")
+		}
+
+		err = ec.SyncWithCloudElasticcache(ctx, userCred, provider, iec)
+		if err != nil {
+			return nil, errors.Wrap(err, "SyncWithCloudElasticcache")
+		}
+
+		// sync accounts
+		{
+			iaccounts, err := iec.GetICloudElasticcacheAccounts()
+			if err != nil {
+				return nil, errors.Wrap(err, "GetICloudElasticcacheAccounts")
+			}
+
+			result := models.ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, ec, iaccounts)
+			log.Infof("SyncElasticcacheAccounts %s", result.Result())
+
+			account, err := ec.GetAdminAccount()
+			if err != nil {
+				return nil, errors.Wrap(err, "GetAdminAccount")
+			}
+
+			err = account.SavePassword(params.Password)
+			if err != nil {
+				return nil, errors.Wrap(err, "SavePassword")
+			}
+		}
+
+		// sync acl
+		{
+			iacls, err := iec.GetICloudElasticcacheAcls()
+			if err != nil {
+				return nil, errors.Wrap(err, "GetICloudElasticcacheAcls")
+			}
+
+			result := models.ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, ec, iacls)
+			log.Infof("SyncElasticcacheAcls %s", result.Result())
+		}
+
+		// sync parameters
+		{
+			iparams, err := iec.GetICloudElasticcacheParameters()
+			if err != nil {
+				return nil, errors.Wrap(err, "GetICloudElasticcacheParameters")
+			}
+
+			result := models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, iparams)
+			log.Infof("SyncElasticcacheParameters %s", result.Result())
+		}
+		return nil, nil
+	})
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
-	m := jsonutils.NewDict()
-	m.Set("manager_id", jsonutils.NewString(input.ManagerId))
-	_, err := self.ValidateManagerId(ctx, userCred, m)
-	if err != nil {
-		return nil, errors.Wrap(err, "ValidateManagerId")
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.ElasticcacheCreateInput) (*api.ElasticcacheCreateInput, error) {
+	if len(input.ManagerId) == 0 {
+		return nil, httperrors.NewMissingParameterError("manager_id")
 	}
-
-	return input.JSON(input), nil
+	if len(input.NetworkType) == 0 {
+		input.NetworkType = api.LB_NETWORK_TYPE_VPC
+	}
+	return input, nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestRestartElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
@@ -2994,7 +3132,47 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
-	return fmt.Errorf("Not Implement RequestSyncSecgroupsForElasticcache")
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		// sync secgroups to cloud
+		secgroupExternalIds := []string{}
+		{
+			ess, err := ec.GetElasticcacheSecgroups()
+			if err != nil {
+				return nil, errors.Wrap(err, "GetElasticcacheSecgroups")
+			}
+
+			provider := ec.GetCloudprovider()
+			if provider == nil {
+				return nil, errors.Wrap(httperrors.ErrInvalidStatus, "GetCloudprovider")
+			}
+
+			vpc, err := ec.GetVpc()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetVpc")
+			}
+			region, err := vpc.GetRegion()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetRegion")
+			}
+			vpcId, err := self.GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
+			}
+
+			for i := range ess {
+				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, ess[i].GetSecGroup(), "", "redis", true)
+				if err != nil {
+					return nil, errors.Wrap(err, "RequestSyncSecurityGroup")
+				}
+				secgroupExternalIds = append(secgroupExternalIds, externalId)
+			}
+		}
+
+		ret := jsonutils.NewDict()
+		ret.Set("ext_secgroup_ids", jsonutils.NewStringArray(secgroupExternalIds))
+		return ret, nil
+	})
+	return nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestRenewElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, bc billing.SBillingCycle) (time.Time, error) {

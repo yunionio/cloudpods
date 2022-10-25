@@ -724,7 +724,7 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 	}
 
 	if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
-		if utils.IsInStringArray(lbr.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO}) {
+		if utils.IsInStringArray(lbr.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
 			group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
 			if err != nil {
 				if err == sql.ErrNoRows {
@@ -769,7 +769,7 @@ func (lbr *SLoadbalancerListenerRule) updateCachedLoadbalancerBackendGroupAssoci
 	}
 
 	switch lbr.GetProviderName() {
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO:
+	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS:
 		_group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, exteralLbbgId)
 		if err != nil {
 			if err == sql.ErrNoRows {

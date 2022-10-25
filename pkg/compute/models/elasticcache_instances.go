@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -44,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	bc "yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -121,9 +123,6 @@ type SElasticcache struct {
 
 	// 带宽
 	Bandwidth int `nullable:"true" list:"user" create:"optional"`
-
-	// 安全组
-	SecurityGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"security_group_id"`
 
 	//  内网DNS
 	PrivateDNS string `width:"256" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"private_dns"`
@@ -779,48 +778,86 @@ func (manager *SElasticcacheManager) getElasticcachesByProviderId(providerId str
 	return instances, nil
 }
 
-func (manager *SElasticcacheManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	_data := api.ElasticcacheCreateInput{}
-	err := data.Unmarshal(&_data)
-	if err != nil {
-		return nil, errors.Wrap(err, "ElasticcacheCreateInput.Unmarshal")
-	}
-	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, _data)
+func (manager *SElasticcacheManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.ElasticcacheCreateInput) (*api.ElasticcacheCreateInput, error) {
+	var err error
+	input, err = manager.validateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "validateCreateData")
 	}
-
 	return input, nil
 }
 
-func (manager *SElasticcacheManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
+func (manager *SElasticcacheManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.ElasticcacheCreateInput) (*api.ElasticcacheCreateInput, error) {
 	return manager.validateCreateData(ctx, userCred, ownerId, query, input)
 }
 
-func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
-	var region *SCloudregion
-	var provider *SCloudprovider
-	if len(input.Network) > 0 {
-		network, err := db.FetchByIdOrName(NetworkManager, userCred, strings.Split(input.Network, ",")[0])
+func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.ElasticcacheCreateInput) (*api.ElasticcacheCreateInput, error) {
+	if len(input.NetworkId) == 0 {
+		return nil, httperrors.NewMissingParameterError("network_id")
+	}
+	networkObj, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+	if err != nil {
+		return nil, fmt.Errorf("getting network failed")
+	}
+	network := networkObj.(*SNetwork)
+	wire, err := network.GetWire()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetWire"))
+	}
+	if len(wire.ZoneId) > 0 {
+		input.ZoneId = wire.ZoneId
+	}
+	_, err = validators.ValidateModel(userCred, ZoneManager, &input.ZoneId)
+	if err != nil {
+		return nil, err
+	}
+	vpc, err := network.GetVpc()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetVpc"))
+	}
+	input.VpcId = vpc.Id
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetRegion"))
+	}
+	input.CloudregionId = region.Id
+	provider := vpc.GetCloudprovider()
+	input.ManagerId = provider.Id
+	skuObj, err := validators.ValidateModel(userCred, ElasticcacheSkuManager, &input.InstanceType)
+	if err != nil {
+		return nil, err
+	}
+	sku := skuObj.(*SElasticcacheSku)
+	input.Engine = sku.Engine
+	input.EngineVersion = sku.EngineVersion
+	input.InstanceType = sku.InstanceSpec
+	input.NodeType = sku.NodeType
+	input.LocalCategory = sku.LocalCategory
+
+	if len(input.PrivateIp) > 0 {
+		_, err = netutils.NewIPV4Addr(input.PrivateIp)
 		if err != nil {
-			return nil, fmt.Errorf("getting network failed")
+			return nil, httperrors.NewInputParameterError("invalid private ip %s", input.PrivateIp)
 		}
-		region, _ = network.(*SNetwork).GetRegion()
-		vpc, _ := network.(*SNetwork).GetVpc()
-		provider = vpc.GetCloudprovider()
 	}
 
-	if region == nil {
-		return nil, fmt.Errorf("getting region failed")
+	if len(input.SecgroupIds) == 0 {
+		input.SecgroupIds = []string{api.SECGROUP_DEFAULT_ID}
+	}
+
+	for i := range input.SecgroupIds {
+		_, err = validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupIds[i])
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// postpiad billing cycle
 	if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
-		_cycle := input.Duration
-		if len(_cycle) > 0 {
-			cycle, err := bc.ParseBillingCycle(_cycle)
+		if len(input.Duration) > 0 {
+			cycle, err := bc.ParseBillingCycle(input.Duration)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid billing_cycle %s", _cycle)
+				return nil, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 			}
 
 			tm := time.Time{}
@@ -828,9 +865,24 @@ func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, use
 			// .Format("2006-01-02 15:04:05")
 			input.ExpiredAt = cycle.EndAt(tm)
 		}
+	} else if input.BillingType == billing_api.BILLING_TYPE_PREPAID {
+		cycle, err := billing.ParseBillingCycle(input.BillingCycle)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid billing_cycle %s", input.BillingCycle)
+		}
+		input.BillingCycle = cycle.String()
 	}
 
-	var err error
+	// validate password
+	if len(input.Password) > 0 {
+		err := seclib2.ValidatePassword(input.Password)
+		if err != nil {
+			return nil, err
+		}
+	} else if input.ResetPassword {
+		input.Password = seclib2.RandomPassword2(12)
+	}
+
 	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ValidateCreateData")
@@ -861,335 +913,37 @@ func (self *SElasticcache) PostCreate(ctx context.Context, userCred mcclient.Tok
 		log.Errorf("CancelPendingUsage error %s", err)
 	}
 
-	password, _ := data.GetString("password")
-	if reset, _ := data.Bool("reset_password"); reset && len(password) == 0 {
-		password = seclib2.RandomPassword2(12)
-	}
-
-	params := jsonutils.NewDict()
-	params.Set("password", jsonutils.NewString(password))
-	secgroupIds, err := data.Get("secgroup_ids")
-	if err == nil {
-		params.Set("secgroup_ids", secgroupIds)
-	}
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_DEPLOYING, "")
-	if err := self.StartElasticcacheCreateTask(ctx, userCred, params, ""); err != nil {
-		log.Errorf("Failed to create elastic cache error: %v", err)
-	}
+	input := &api.ElasticcacheCreateInput{}
+	data.Unmarshal(input)
+	self.StartElasticcacheCreateTask(ctx, userCred, input, "")
 }
 
-func (self *SElasticcache) StartElasticcacheCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheCreateTask", self, userCred, params, parentTaskId, "", nil)
+func (self *SElasticcache) StartElasticcacheCreateTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ElasticcacheCreateInput, parentTaskId string) {
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_DEPLOYING, "")
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	err := func() error {
+		task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheCreateTask", self, userCred, params, parentTaskId, "", nil)
+		if err != nil {
+			return errors.Wrapf(err, "NewTask")
+		}
+		return task.ScheduleRun(nil)
+	}()
 	if err != nil {
-		return err
+		self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, err.Error())
 	}
-	task.ScheduleRun(nil)
-	return nil
 }
 
 func (self *SElasticcache) GetSlaveZones() ([]SZone, error) {
+	zones := []SZone{}
 	if len(self.SlaveZones) > 0 {
-		zones := []SZone{}
 		sz := strings.Split(self.SlaveZones, ",")
 		err := ZoneManager.Query().In("id", sz).All(&zones)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetZones")
 		}
-
-		zoneMap := map[string]SZone{}
-		for i := range zones {
-			zoneMap[zones[i].GetId()] = zones[i]
-		}
-
-		ret := make([]SZone, len(sz))
-		for i := range sz {
-			z, ok := zoneMap[sz[i]]
-			if !ok {
-				return nil, fmt.Errorf("zone %s is not found", sz[i])
-			}
-
-			ret[i] = z
-		}
-
-		return ret, nil
+		return zones, nil
 	}
-
-	return []SZone{}, nil
-}
-
-/*func (self *SElasticcache) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := self.GetDriver()
-	if err != nil {
-		return nil, fmt.Errorf("No cloudprovider for elastic cache %s: %s", self.Name, err)
-	}
-	region := self.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to find region for elastic cache %s", self.Name)
-	}
-	return provider.GetIRegionById(region.ExternalId)
-}*/
-
-func (self *SElasticcache) GetCreateAliyunElasticcacheParams(ctx context.Context, data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
-	input := &cloudprovider.SCloudElasticCacheInput{}
-	iregion, err := self.GetIRegion(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("elastic cache %s(%s) region not found", self.Name, self.Id)
-	} else {
-		input.RegionId = iregion.GetId()
-	}
-
-	input.InstanceType = self.InstanceType
-	input.InstanceName = self.GetName()
-
-	if password, _ := data.GetString("password"); len(password) > 0 {
-		input.Password = password
-	}
-
-	input.Engine = strings.Title(self.Engine)
-	input.EngineVersion = self.EngineVersion
-	input.PrivateIpAddress = self.PrivateIpAddr
-
-	zone, _ := self.GetZone()
-	if zone != nil {
-		izone, err := iregion.GetIZoneById(zone.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "elasticcache.GetCreateAliyunElasticcacheParams.Zone")
-		}
-		input.ZoneIds = []string{izone.GetId()}
-	}
-
-	switch self.BillingType {
-	case billing_api.BILLING_TYPE_PREPAID:
-		input.ChargeType = "PrePaid"
-		billingCycle, err := bc.ParseBillingCycle(self.BillingCycle)
-		if err != nil {
-			return nil, errors.Wrap(err, "elasticcache.GetCreateAliyunElasticcacheParams.BillingCycle")
-		}
-		billingCycle.AutoRenew = self.AutoRenew
-		input.BC = &billingCycle
-	default:
-		input.ChargeType = "PostPaid"
-	}
-
-	// todo: fix me
-	if len(self.NodeType) > 0 {
-		switch self.NodeType {
-		case "single":
-			input.NodeType = "STAND_ALONE"
-		case "double":
-			input.NodeType = "MASTER_SLAVE"
-		default:
-			input.NodeType = ""
-		}
-	}
-
-	switch self.NetworkType {
-	case api.LB_NETWORK_TYPE_CLASSIC:
-		input.NetworkType = "CLASSIC"
-	default:
-		input.NetworkType = "VPC"
-	}
-
-	if ivpc, err := db.FetchById(VpcManager, self.VpcId); err != nil {
-		return nil, errors.Wrap(err, "elasticcache.GetCreateAliyunElasticcacheParams.Vpc")
-	} else {
-		if ivpc != nil {
-			vpc := ivpc.(*SVpc)
-			input.VpcId = vpc.ExternalId
-		}
-	}
-
-	if inetwork, err := db.FetchById(NetworkManager, self.NetworkId); err != nil {
-		return nil, errors.Wrap(err, "elasticcache.GetCreateAliyunElasticcacheParams.Network")
-	} else {
-		if inetwork != nil {
-			network := inetwork.(*SNetwork)
-			input.NetworkId = network.ExternalId
-		}
-	}
-	input.Tags, _ = self.GetAllUserMetadata()
-
-	return input, nil
-}
-
-func (self *SElasticcache) GetCreateHuaweiElasticcacheParams(ctx context.Context, data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
-	input := &cloudprovider.SCloudElasticCacheInput{}
-	iregion, err := self.GetIRegion(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("elastic cache %s(%s) region not found", self.Name, self.Id)
-	} else {
-		input.RegionId = iregion.GetId()
-	}
-
-	if self.CapacityMB > 0 {
-		input.CapacityGB = int64(self.CapacityMB / 1024)
-	}
-
-	input.InstanceType = self.InstanceType
-	input.InstanceName = self.GetName()
-
-	if password, _ := data.GetString("password"); len(password) > 0 {
-		input.Password = password
-	}
-
-	switch self.Engine {
-	case "redis":
-		input.Engine = "Redis"
-	case "memcache":
-		input.Engine = "Memcached"
-	}
-	input.EngineVersion = self.EngineVersion
-	input.PrivateIpAddress = self.PrivateIpAddr
-
-	zone, _ := self.GetZone()
-	if zone != nil {
-		izone, err := iregion.GetIZoneById(zone.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.Zone")
-		}
-		input.ZoneIds = []string{izone.GetId()}
-	}
-
-	switch self.BillingType {
-	case billing_api.BILLING_TYPE_PREPAID:
-		input.ChargeType = "PrePaid"
-		billingCycle, err := bc.ParseBillingCycle(self.BillingCycle)
-		if err != nil {
-			return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.BillingCycle")
-		}
-		billingCycle.AutoRenew = self.AutoRenew
-		input.BC = &billingCycle
-	default:
-		input.ChargeType = "PostPaid"
-	}
-
-	if len(self.NodeType) > 0 {
-		input.NodeType = self.NodeType
-	}
-
-	switch self.NetworkType {
-	case api.LB_NETWORK_TYPE_CLASSIC:
-		input.NetworkType = "CLASSIC"
-	default:
-		input.NetworkType = "VPC"
-	}
-
-	if ivpc, err := db.FetchById(VpcManager, self.VpcId); err != nil {
-		return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.Vpc")
-	} else {
-		if ivpc != nil {
-			vpc := ivpc.(*SVpc)
-			input.VpcId = vpc.ExternalId
-		}
-	}
-
-	if inetwork, err := db.FetchById(NetworkManager, self.NetworkId); err != nil {
-		return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.Network")
-	} else {
-		if inetwork != nil {
-			network := inetwork.(*SNetwork)
-			input.NetworkId = network.ExternalId
-		}
-	}
-
-	// fill security group here
-	if len(self.SecurityGroupId) > 0 {
-		region, _ := self.GetRegion()
-		sgCache, err := SecurityGroupCacheManager.GetSecgroupCache(context.Background(), nil, self.SecurityGroupId, self.VpcId, region.Id, self.GetCloudprovider().Id, "")
-		if err != nil {
-			return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.SecurityGroup")
-		}
-
-		if sgCache == nil {
-			return nil, errors.Wrap(fmt.Errorf("cached security group not found"), "elasticcache.GetCreateHuaweiElasticcacheParams.SecurityGroup")
-		}
-
-		input.SecurityGroupIds = []string{sgCache.GetExternalId()}
-	}
-
-	if len(self.MaintainEndTime) > 0 {
-		input.MaintainBegin = self.MaintainStartTime
-		input.MaintainEnd = self.MaintainEndTime
-	}
-	return input, nil
-}
-
-func (self *SElasticcache) GetCreateQCloudElasticcacheParams(ctx context.Context, data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
-	input := &cloudprovider.SCloudElasticCacheInput{}
-	iregion, err := self.GetIRegion(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("elastic cache %s(%s) region not found", self.Name, self.Id)
-	} else {
-		input.RegionId = iregion.GetId()
-	}
-
-	input.InstanceType = self.InstanceType
-	input.InstanceName = self.GetName()
-
-	if password, _ := data.GetString("password"); len(password) > 0 {
-		input.Password = password
-	}
-
-	zone, _ := self.GetZone()
-	if zone != nil {
-		zones := []SZone{*zone}
-		// slave zones
-		sz, err := self.GetSlaveZones()
-		if err != nil {
-			return nil, errors.Wrap(err, "GetSlaveZones")
-		}
-
-		zones = append(zones, sz...)
-		for i := range zones {
-			izone, err := iregion.GetIZoneById(zones[i].ExternalId)
-			if err != nil {
-				return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.Zone")
-			}
-			input.ZoneIds = append(input.ZoneIds, izone.GetId())
-		}
-	}
-
-	switch self.BillingType {
-	case billing_api.BILLING_TYPE_PREPAID:
-		input.ChargeType = "PrePaid"
-		billingCycle, err := bc.ParseBillingCycle(self.BillingCycle)
-		if err != nil {
-			return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.BillingCycle")
-		}
-		billingCycle.AutoRenew = self.AutoRenew
-		input.BC = &billingCycle
-	default:
-		input.ChargeType = "PostPaid"
-	}
-
-	switch self.NetworkType {
-	case api.LB_NETWORK_TYPE_CLASSIC:
-		input.NetworkType = "CLASSIC"
-	default:
-		input.NetworkType = "VPC"
-	}
-
-	if ivpc, err := db.FetchById(VpcManager, self.VpcId); err != nil {
-		return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.Vpc")
-	} else {
-		if ivpc != nil {
-			vpc := ivpc.(*SVpc)
-			input.VpcId = vpc.ExternalId
-		}
-	}
-
-	if inetwork, err := db.FetchById(NetworkManager, self.NetworkId); err != nil {
-		return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.Network")
-	} else {
-		if inetwork != nil {
-			network := inetwork.(*SNetwork)
-			input.NetworkId = network.ExternalId
-		}
-	}
-
-	input.Tags, _ = self.GetAllUserMetadata()
-
-	return input, nil
+	return zones, nil
 }
 
 func (self *SElasticcache) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1983,30 +1737,14 @@ func (self *SElasticcache) validateSecgroupInput(secgroups []string) error {
 	return nil
 }
 
-func CheckingSecgroupIds(ctx context.Context, userCred mcclient.TokenCredential, secgroupIds []string) ([]string, error) {
-	secgroupNames := []string{}
-	for _, secgroupId := range secgroupIds {
-		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("secgroup", secgroupId)
-			}
-			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "FetchByIdOrName(%s)", secgroupId))
-		}
-
-		err = SecurityGroupManager.ValidateName(secgrp.GetName())
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgrp.GetName())
-		}
-
-		secgroupNames = append(secgroupNames, secgrp.GetName())
-	}
-
-	return secgroupNames, nil
-}
-
 func (self *SElasticcache) checkingSecgroupIds(ctx context.Context, userCred mcclient.TokenCredential, secgroupIds []string) ([]string, error) {
-	return CheckingSecgroupIds(ctx, userCred, secgroupIds)
+	for i := range secgroupIds {
+		_, err := validators.ValidateModel(userCred, SecurityGroupManager, &secgroupIds[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return secgroupIds, nil
 }
 
 // 返回 本次更新后secgroup id的全集、本次更增的secgroup id, 本次删除的secgroup id, error

@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,9 +36,9 @@ func init() {
 	taskman.RegisterTask(ElasticcacheSyncsecgroupsTask{})
 }
 
-func (self *ElasticcacheSyncsecgroupsTask) taskFailed(ctx context.Context, cache *models.SElasticcache, err jsonutils.JSONObject) {
-	cache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_SYNC_FAILED, err.String())
-	self.SetStageFailed(ctx, err)
+func (self *ElasticcacheSyncsecgroupsTask) taskFailed(ctx context.Context, cache *models.SElasticcache, err error) {
+	cache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_SYNC_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	db.OpsLog.LogEvent(cache, db.ACT_SYNC_CONF, cache.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, cache, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
 }
@@ -45,16 +46,16 @@ func (self *ElasticcacheSyncsecgroupsTask) taskFailed(ctx context.Context, cache
 func (self *ElasticcacheSyncsecgroupsTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	cache := obj.(*models.SElasticcache)
 
-	region, _ := cache.GetRegion()
-	if region == nil {
-		self.taskFailed(ctx, cache, jsonutils.NewString(fmt.Sprintf("failed to found cloudregion for elasticcache %s(%s)", cache.Name, cache.Id)))
+	region, err := cache.GetRegion()
+	if err != nil {
+		self.taskFailed(ctx, cache, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 
 	self.SetStage("OnElasticcacheSyncSecgroupsComplete", nil)
-	err := region.GetDriver().RequestSyncSecgroupsForElasticcache(ctx, self.GetUserCred(), cache, self)
+	err = region.GetDriver().RequestSyncSecgroupsForElasticcache(ctx, self.GetUserCred(), cache, self)
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, cache, errors.Wrapf(err, "RequestSyncSecgroupsForElasticcache"))
 		return
 	}
 }
@@ -65,25 +66,25 @@ func (self *ElasticcacheSyncsecgroupsTask) OnElasticcacheSyncSecgroupsComplete(c
 	secgroups := []string{}
 	err := data.Unmarshal(&secgroups, "ext_secgroup_ids")
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, cache, errors.Wrapf(err, "get ext_secgroup_ids"))
 		return
 	}
 
 	iregion, err := cache.GetIRegion(ctx)
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, cache, errors.Wrapf(err, "GetIRegion"))
 		return
 	}
 
 	iec, err := iregion.GetIElasticcacheById(cache.GetExternalId())
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, cache, errors.Wrapf(err, "GetIElasticcacheById"))
 		return
 	}
 
 	err = iec.UpdateSecurityGroups(secgroups)
 	if err != nil {
-		self.taskFailed(ctx, cache, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, cache, errors.Wrapf(err, "UpdateSecurityGroups"))
 		return
 	}
 
@@ -92,5 +93,5 @@ func (self *ElasticcacheSyncsecgroupsTask) OnElasticcacheSyncSecgroupsComplete(c
 }
 
 func (self *ElasticcacheSyncsecgroupsTask) OnElasticcacheSyncSecgroupsCompleteFailed(ctx context.Context, cache *models.SElasticcache, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, cache, data)
+	self.taskFailed(ctx, cache, fmt.Errorf(data.String()))
 }

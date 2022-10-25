@@ -18,7 +18,6 @@ const (
 	Unknown DeviceType = iota
 	LinuxKernel
 	OpenBSDKernel
-	WindowsKernel
 	Userspace
 )
 
@@ -29,8 +28,6 @@ func (dt DeviceType) String() string {
 		return "Linux kernel"
 	case OpenBSDKernel:
 		return "OpenBSD kernel"
-	case WindowsKernel:
-		return "Windows kernel"
 	case Userspace:
 		return "userspace"
 	default:
@@ -243,10 +240,6 @@ type PeerConfig struct {
 	// Remove specifies if the peer with this public key should be removed
 	// from a device's peer list.
 	Remove bool
-
-	// UpdateOnly specifies that an operation will only occur on this peer
-	// if the peer already exists as part of the interface.
-	UpdateOnly bool
 
 	// PresharedKey specifies a peer's preshared key configuration, if not nil.
 	//

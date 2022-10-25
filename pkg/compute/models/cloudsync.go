@@ -1130,6 +1130,33 @@ func syncNATSkus(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 	}
 }
 
+func syncCacheSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	skus, err := func() ([]cloudprovider.ICloudElasticcacheSku, error) {
+		defer syncResults.AddRequestCost(ElasticcacheSkuManager)()
+		return remoteRegion.GetIElasticcacheSkus()
+	}()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented {
+			return
+		}
+		msg := fmt.Sprintf("GetIElasticcacheSkus for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(ElasticcacheSkuManager)()
+		return localRegion.SyncPrivateCloudCacheSkus(ctx, userCred, skus)
+	}()
+
+	syncResults.Add(NasSkuManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncRedisSkus for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return
+	}
+}
+
 func syncDBInstanceResource(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) {
 	err := syncDBInstanceNetwork(ctx, userCred, syncResults, localInstance, remoteInstance)
 	if err != nil {
@@ -1766,6 +1793,9 @@ func syncPublicCloudProviderInfo(
 		}
 		if cloudprovider.IsSupportNAT(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAT) {
 			syncNATSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
+		if cloudprovider.IsSupportElasticCache(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CACHE) {
+			syncCacheSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		}
 	}
 
