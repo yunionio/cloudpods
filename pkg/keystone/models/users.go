@@ -312,8 +312,16 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 		return errors.Error("no valid password")
 	}
 	// password expiration check skip system account
-	if passes[0].IsExpired() && !user.IsSystemAccount {
-		return errors.Error("password expires")
+	// if passes[0].IsExpired() && !user.IsSystemAccount {
+	// 	return errors.Error("password expires")
+	// }
+	// password expires, no error returns but set user need to reset password silently
+	if passes[0].IsExpired() {
+		localUsr, err := LocalUserManager.fetchLocalUser("", "", user.LocalId)
+		if err != nil {
+			return errors.Wrap(err, "fetchLocalUser")
+		}
+		localUsr.markNeedResetPassword(true, api.PasswordResetHintExpire)
 	}
 	err = seclib2.BcryptVerifyPassword(passwd, passes[0].PasswordHash)
 	if err == nil {
@@ -645,6 +653,7 @@ func userExtra(ctx context.Context, userCred mcclient.TokenCredential, user *SUs
 		}
 		if localUser.NeedResetPassword.IsTrue() {
 			out.NeedResetPassword = true
+			out.PasswordResetHint = localUser.ResetHint
 		}
 		localPass, _ := PasswordManager.FetchLastPassword(localUser.Id)
 		if localPass != nil && !localPass.ExpiresAt.IsZero() {
@@ -690,9 +699,9 @@ func (user *SUser) initLocalData(passwd string, skipPassCheck bool) error {
 			return errors.Wrap(err, "save password")
 		}
 		if skipPassCheck {
-			localUsr.markNeedResetPassword(true)
+			localUsr.markNeedResetPassword(true, api.PasswordResetHintAdminReset)
 		} else {
-			localUsr.markNeedResetPassword(false)
+			localUsr.markNeedResetPassword(false, "")
 		}
 	}
 	return nil
@@ -751,9 +760,9 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		} else {
 			skipPassCheck := jsonutils.QueryBoolean(data, "skip_password_complexity_check", false)
 			if skipPassCheck {
-				localUsr.markNeedResetPassword(true)
+				localUsr.markNeedResetPassword(true, api.PasswordResetHintAdminReset)
 			} else {
-				localUsr.markNeedResetPassword(false)
+				localUsr.markNeedResetPassword(false, "")
 			}
 		}
 		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_UPDATE_PASSWORD, nil, userCred, true)

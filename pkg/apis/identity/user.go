@@ -18,6 +18,11 @@ import (
 	"time"
 )
 
+const (
+	PasswordResetHintAdminReset = "admin_reset"
+	PasswordResetHintExpire     = "expire"
+)
+
 type UserDetails struct {
 	EnabledIdentityBaseResourceDetails
 	// IdpResourceInfo
@@ -32,6 +37,8 @@ type UserDetails struct {
 	PasswordExpiresAt time.Time `json:"password_expires_at"`
 
 	NeedResetPassword bool `json:"need_reset_password"`
+	// 重置密码原因: admin_reset|expire
+	PasswordResetHint string `json:"password_reset_hint"`
 
 	Idps []IdpResourceInfo `json:"idps"`
 
