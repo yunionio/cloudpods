@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	X86_MAX_CPUS = 128
+	X86_MAX_CPUS = 240
 	X86_SOCKETS  = 2
 	X86_CORES    = 64
 	X86_THREADS  = 1
