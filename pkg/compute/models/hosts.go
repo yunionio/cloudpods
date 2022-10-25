@@ -2424,6 +2424,26 @@ type SGuestSyncResult struct {
 	IsNew  bool
 }
 
+func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
+	if len(options.Options.SkipServerBySysTagKeys) == 0 && len(options.Options.SkipServerBySysTagKeys) == 0 {
+		return false, ""
+	}
+	keys := strings.Split(options.Options.SkipServerBySysTagKeys, ",")
+	for key := range ext.GetSysTags() {
+		if utils.IsInStringArray(key, keys) {
+			return true, key
+		}
+	}
+	userKeys := strings.Split(options.Options.SkipServerByUserTagKeys, ",")
+	tags, _ := ext.GetTags()
+	for key := range tags {
+		if utils.IsInStringArray(key, userKeys) {
+			return true, key
+		}
+	}
+	return false, ""
+}
+
 func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider) ([]SGuestSyncResult, compare.SyncResult) {
 	lockman.LockRawObject(ctx, "guests", self.Id)
 	defer lockman.ReleaseRawObject(ctx, "guests", self.Id)
@@ -2455,26 +2475,6 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 		return nil, syncResult
 	}
 
-	skipFunc := func(ext cloudprovider.ICloudVM) (bool, string) {
-		if len(options.Options.SkipServerBySysTagKeys) == 0 && len(options.Options.SkipServerBySysTagKeys) == 0 {
-			return false, ""
-		}
-		keys := strings.Split(options.Options.SkipServerBySysTagKeys, ",")
-		for key := range ext.GetSysTags() {
-			if utils.IsInStringArray(key, keys) {
-				return true, key
-			}
-		}
-		userKeys := strings.Split(options.Options.SkipServerByUserTagKeys, ",")
-		tags, _ := ext.GetTags()
-		for key := range tags {
-			if utils.IsInStringArray(key, userKeys) {
-				return true, key
-			}
-		}
-		return false, ""
-	}
-
 	for i := 0; i < len(removed); i += 1 {
 		err := removed[i].syncRemoveCloudVM(ctx, userCred)
 		if err != nil {
@@ -2485,7 +2485,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		skip, key := skipFunc(commonext[i])
+		skip, key := IsNeedSkipSync(commonext[i])
 		if skip {
 			log.Infof("delete server %s(%s) with system tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
 			err := commondb[i].purge(ctx, userCred)
@@ -2511,7 +2511,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		skip, key := skipFunc(added[i])
+		skip, key := IsNeedSkipSync(added[i])
 		if skip {
 			log.Infof("skip server %s(%s) sync with system tag key: %s", added[i].GetName(), added[i].GetGlobalId(), key)
 			continue

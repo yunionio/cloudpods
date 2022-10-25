@@ -141,8 +141,8 @@ func (self *AliyunTags) GetTags() (map[string]string, error) {
 	ret := map[string]string{}
 	for _, tag := range self.Tags.Tag {
 		if strings.HasPrefix(tag.TagKey, "aliyun") || strings.HasPrefix(tag.TagKey, "acs:") ||
-			strings.HasSuffix(tag.Key, "aliyun") || strings.HasPrefix(tag.Key, "acs:") ||
-			strings.HasSuffix(tag.Key, "ack.aliyun.com") { // k8s
+			strings.HasPrefix(tag.Key, "aliyun") || strings.HasPrefix(tag.Key, "acs:") ||
+			strings.HasPrefix(tag.Key, "ack.") || strings.HasPrefix(tag.TagKey, "ack.") { // k8s
 			continue
 		}
 		if len(tag.TagKey) > 0 {
@@ -160,7 +160,7 @@ func (self *AliyunTags) GetSysTags() map[string]string {
 	for _, tag := range self.Tags.Tag {
 		if strings.HasPrefix(tag.TagKey, "aliyun") || strings.HasPrefix(tag.TagKey, "acs:") ||
 			strings.HasPrefix(tag.Key, "aliyun") || strings.HasPrefix(tag.Key, "acs:") ||
-			strings.HasPrefix(tag.Key, "ack.aliyun.com") { // k8s
+			strings.HasPrefix(tag.Key, "ack.") || strings.HasPrefix(tag.TagKey, "ack.") { // k8s
 			if len(tag.TagKey) > 0 {
 				ret[tag.TagKey] = tag.TagValue
 			} else if len(tag.Key) > 0 {
