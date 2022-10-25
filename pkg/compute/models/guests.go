@@ -58,6 +58,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/bitmap"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
@@ -1364,6 +1365,20 @@ func (manager *SGuestManager) validateCreateData(
 			input.Cdrom = image.Id
 			if len(imgProperties) == 0 {
 				imgProperties = image.Properties
+			}
+		}
+
+		// check boot indexes
+		bm := bitmap.NewBitMap(128)
+		if input.CdromBootIndex != nil && *input.CdromBootIndex >= 0 {
+			bm.Set(int64(*input.CdromBootIndex))
+		}
+		for i := 0; i < len(input.Disks); i++ {
+			if input.Disks[i].BootIndex != nil && *input.Disks[i].BootIndex >= 0 {
+				if bm.Has(int64(*input.Disks[i].BootIndex)) {
+					return nil, httperrors.NewInputParameterError("duplicate boot index %d", *input.Disks[i].BootIndex)
+				}
+				bm.Set(int64(*input.Disks[i].BootIndex))
 			}
 		}
 
@@ -3464,11 +3479,11 @@ func (self *SGuest) getDiskIndex() int8 {
 	return int8(max + 1)
 }
 
-func (self *SGuest) AttachDisk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
-	return self.attach2Disk(ctx, disk, userCred, driver, cache, mountpoint)
+func (self *SGuest) AttachDisk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string, bootIndex *int8) error {
+	return self.attach2Disk(ctx, disk, userCred, driver, cache, mountpoint, bootIndex)
 }
 
-func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
+func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string, bootIndex *int8) error {
 	attached, err := self.isAttach2Disk(disk)
 	if err != nil {
 		return errors.Wrap(err, "isAttach2Disk")
@@ -3502,6 +3517,11 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 	defer lockman.ReleaseObject(ctx, self)
 
 	guestdisk.Index = self.getDiskIndex()
+	if bootIndex != nil {
+		guestdisk.BootIndex = *bootIndex
+	} else {
+		guestdisk.BootIndex = -1
+	}
 	err = guestdisk.DoSave(ctx, driver, cache, mountpoint)
 	if err == nil {
 		db.OpsLog.LogAttachEvent(ctx, self, disk, userCred, nil)
@@ -3554,7 +3574,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 			continue
 		}
 		disk.SyncCloudProjectId(userCred, self.GetOwnerId())
-		err = self.attach2Disk(ctx, disk, userCred, added[i].GetDriver(), added[i].GetCacheMode(), added[i].GetMountpoint())
+		err = self.attach2Disk(ctx, disk, userCred, added[i].GetDriver(), added[i].GetCacheMode(), added[i].GetMountpoint(), nil)
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -4045,7 +4065,7 @@ func (self *SGuest) createDiskOnHost(
 		db.OpsLog.LogEvent(disk, db.ACT_UPDATE, diff, userCred)
 	}
 	if autoAttach {
-		err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint)
+		err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint, diskConfig.BootIndex)
 	}
 	err = self.InheritTo(ctx, disk)
 	if err != nil {
@@ -4433,6 +4453,31 @@ func (self *SGuest) getDetails(ctx context.Context, userCred mcclient.TokenCrede
 		return nil, err
 	}
 	return serverDetails, nil
+}
+
+func (self *SGuest) isBootIndexDuplicated(bootIndex int8) (bool, error) {
+	if bootIndex < 0 {
+		return false, nil
+	}
+	cdroms, err := self.getCdroms()
+	if err != nil {
+		return true, err
+	}
+	for i := 0; i < len(cdroms); i++ {
+		if cdroms[i].BootIndex == bootIndex {
+			return true, nil
+		}
+	}
+	gd, err := self.GetGuestDisks()
+	if err != nil {
+		return true, err
+	}
+	for i := 0; i < len(gd); i++ {
+		if gd[i].BootIndex == bootIndex {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (self *SGuest) getVga() string {

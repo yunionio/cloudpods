@@ -117,7 +117,7 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 			diskReady = false
 			break
 		}
-		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
+		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint, d.BootIndex)
 		if err != nil {
 			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
@@ -151,7 +151,7 @@ func (self *SGuestCreateDiskBaseTask) GetInputDisks() ([]api.DiskConfig, error) 
 	return disks, err
 }
 
-func (self *SGuestCreateDiskBaseTask) attachDisk(ctx context.Context, disk *models.SDisk, driver, cache, mountpoint string) error {
+func (self *SGuestCreateDiskBaseTask) attachDisk(ctx context.Context, disk *models.SDisk, driver, cache, mountpoint string, bootIndex *int8) error {
 	guest := self.getGuest()
 	attached, err := guest.IsAttach2Disk(disk)
 	if err != nil {
@@ -160,7 +160,7 @@ func (self *SGuestCreateDiskBaseTask) attachDisk(ctx context.Context, disk *mode
 	if attached {
 		return nil
 	}
-	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
+	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint, bootIndex)
 	if err != nil {
 		return errors.Wrapf(err, "AttachDisk")
 	}
@@ -229,7 +229,7 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Attach iDisk to guest fail error: %v", err)))
 			return
 		}
-		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
+		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint, d.BootIndex)
 		if err != nil {
 			log.Debugf("Attach Disk %s to guest fail: %s", diskId, err)
 			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Attach Disk to guest fail error: %v", err)))
@@ -307,7 +307,7 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 			return
 		}
 
-		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
+		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint, d.BootIndex)
 		if err != nil {
 			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("self.attachDisk fail %v", err)))
 			return
@@ -425,7 +425,7 @@ func (self *NutanixGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStan
 			return nil
 		})
 
-		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
+		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint, d.BootIndex)
 		if err != nil {
 			self.taskFailed(ctx, errors.Wrapf(err, "attachDisk"))
 			return

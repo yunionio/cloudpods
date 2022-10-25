@@ -187,6 +187,13 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 			diskConfig.ImageId = str
 		case "existing_path":
 			diskConfig.ExistingPath = str
+		case "boot_index":
+			bootIndex, err := strconv.Atoi(str)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse disk boot index %s", str)
+			}
+			bootIndex8 := int8(bootIndex)
+			diskConfig.BootIndex = &bootIndex8
 		default:
 			return nil, errors.Errorf("invalid disk description %s", p)
 		}

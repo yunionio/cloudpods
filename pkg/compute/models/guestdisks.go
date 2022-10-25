@@ -70,7 +70,8 @@ type SGuestdisk struct {
 
 	Mountpoint string `width:"256" charset:"utf8" nullable:"true" get:"user"` // Column(VARCHAR(256, charset='utf8'), nullable=True)
 
-	Index int8 `nullable:"false" default:"0" list:"user" update:"user"` // Column(TINYINT(4), nullable=False, default=0)
+	Index     int8 `nullable:"false" default:"0" list:"user" update:"user"` // Column(TINYINT(4), nullable=False, default=0)
+	BootIndex int8 `nullable:"false" default:"-1" list:"user" update:"user"`
 }
 
 func (manager *SGuestdiskManager) GetSlaveFieldName() string {
@@ -205,6 +206,7 @@ func (self *SGuestdisk) GetJsonDescAtHost(ctx context.Context, host *SHost) *api
 	}
 	desc.Format = disk.DiskFormat
 	desc.Index = self.Index
+	desc.BootIndex = &self.BootIndex
 
 	if len(disk.SnapshotId) > 0 {
 		needMerge := disk.GetMetadata(ctx, "merge_snapshot", nil)

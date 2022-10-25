@@ -219,8 +219,8 @@ func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, guest
 	return models.ChooseLeastUsedStorage(candidates, ""), nil
 }
 
-func (self *SVirtualizedGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
-	return guest.StartInsertIsoTask(ctx, 0, imageId, true, guest.HostId, task.GetUserCred(), task.GetTaskId())
+func (self *SVirtualizedGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, bootIndex *int8, task taskman.ITask, guest *models.SGuest) error {
+	return guest.StartInsertIsoTask(ctx, 0, imageId, true, bootIndex, guest.HostId, task.GetUserCred(), task.GetTaskId())
 }
 
 func (self *SVirtualizedGuestDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {

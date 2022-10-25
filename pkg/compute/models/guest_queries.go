@@ -224,7 +224,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			for i := range rows {
 				for _, gcd := range gcds[guestIds[i]] {
 					if details := gcd.GetDetails(); len(details) > 0 {
-						t := api.Cdrom{Ordinal: gcd.Ordinal, Detail: details}
+						t := api.Cdrom{Ordinal: gcd.Ordinal, Detail: details, BootIndex: gcd.BootIndex}
 						rows[i].Cdrom = append(rows[i].Cdrom, t)
 					}
 				}
@@ -296,6 +296,7 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 		guestdisks.Field("bps"),
 		disks.Field("template_id").Label("image_id"),
 		guestdisks.Field("guest_id"),
+		guestdisks.Field("boot_index"),
 		disks.Field("storage_id"),
 	)
 	q = q.Join(guestdisks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id")))

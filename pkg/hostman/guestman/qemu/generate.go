@@ -285,6 +285,9 @@ func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk) string {
 			opt += ",rotation_rate=1"
 		}
 	}
+	if disk.BootIndex != nil && *disk.BootIndex >= 0 {
+		opt += fmt.Sprintf(",bootindex=%d", *disk.BootIndex)
+	}
 	return optDrv.Device(opt)
 }
 
@@ -305,6 +308,9 @@ func generateCdromOptions(optDrv QemuOptions, cdroms []*desc.SGuestCdrom) []stri
 			opts = append(opts, optDrv.Drive(driveOpt))
 			devOpt := fmt.Sprintf("%s,drive=%s,bus=ide.1",
 				cdrom.Ide.DevType, cdrom.Id)
+			if cdrom.BootIndex != nil && *cdrom.BootIndex >= 0 {
+				devOpt += fmt.Sprintf(",bootindex=%d", *cdrom.BootIndex)
+			}
 			// TODO: ,bus=ide.%d,unit=%d
 			//, cdrom.Ide.Bus, cdrom.Ide.Unit)
 			opts = append(opts, optDrv.Device(devOpt))
@@ -314,7 +320,9 @@ func generateCdromOptions(optDrv QemuOptions, cdroms []*desc.SGuestCdrom) []stri
 
 				devOpt := fmt.Sprintf("%s,drive=%s", cdrom.Scsi.DevType, cdrom.Id)
 				devOpt += desc.OptionsToString(cdrom.Scsi.Options)
-
+				if cdrom.BootIndex != nil && *cdrom.BootIndex >= 0 {
+					devOpt += fmt.Sprintf(",bootindex=%d", *cdrom.BootIndex)
+				}
 				opts = append(opts, optDrv.Device(devOpt))
 			}
 		}
@@ -556,6 +564,20 @@ type GenerateStartOptionsInput struct {
 	EncryptKeyPath string
 }
 
+func (input *GenerateStartOptionsInput) HasBootIndex() bool {
+	for _, cdrom := range input.GuestDesc.Cdroms {
+		if cdrom.BootIndex != nil && *cdrom.BootIndex >= 0 {
+			return true
+		}
+	}
+	for _, disk := range input.GuestDesc.Disks {
+		if disk.BootIndex != nil && *disk.BootIndex >= 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func GenerateStartOptions(
 	input *GenerateStartOptionsInput,
 ) (string, error) {
@@ -598,15 +620,19 @@ func GenerateStartOptions(
 
 	// bootOrder
 	enableMenu := false
-	if len(input.GuestDesc.Cdroms) > 0 {
-		for _, cdrom := range input.GuestDesc.Cdroms {
-			if cdrom.Path != "" {
-				enableMenu = true
-			}
+	for _, cdrom := range input.GuestDesc.Cdroms {
+		if cdrom.Path != "" {
+			enableMenu = true
 		}
 	}
 
-	opts = append(opts, drvOpt.Boot(input.GuestDesc.BootOrder, enableMenu))
+	// Note that it does not make sense to use the bootindex property together
+	// with the "-boot order=..." (or "-boot once=...") parameter.
+	var bootOrder *string
+	if !input.HasBootIndex() {
+		bootOrder = &input.GuestDesc.BootOrder
+	}
+	opts = append(opts, drvOpt.Boot(bootOrder, enableMenu))
 
 	// bios
 	if input.GuestDesc.Bios == BIOS_UEFI {

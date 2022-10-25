@@ -324,8 +324,8 @@ func (self *SBaremetalGuestDriver) RequestGuestHotRemoveIso(ctx context.Context,
 	return host.StartEjectIsoTask(ctx, task.GetUserCred(), task.GetTaskId())
 }
 
-func (self *SBaremetalGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
-	return guest.StartInsertIsoTask(ctx, 0, imageId, true, guest.HostId, task.GetUserCred(), task.GetTaskId())
+func (self *SBaremetalGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, bootIndex *int8, task taskman.ITask, guest *models.SGuest) error {
+	return guest.StartInsertIsoTask(ctx, 0, imageId, true, nil, guest.HostId, task.GetUserCred(), task.GetTaskId())
 }
 
 func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {

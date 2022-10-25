@@ -53,8 +53,14 @@ func (self *GuestAttachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	driver, _ := self.Params.GetString("driver")
 	cache, _ := self.Params.GetString("cache")
 	mountpoint, _ := self.Params.GetString("mountpoint")
+	var bootIndex *int8
+	if self.Params.Contains("boot_index") {
+		bd, _ := self.Params.Int("boot_index")
+		bd8 := int8(bd)
+		bootIndex = &bd8
+	}
 
-	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
+	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint, bootIndex)
 	if err != nil {
 		self.OnTaskFail(ctx, guest, nil, jsonutils.NewString(err.Error()))
 		return

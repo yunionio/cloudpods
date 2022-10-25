@@ -894,6 +894,14 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 	if len(input.DiskId) == 0 {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
+	if input.BootIndex != nil {
+		if isDup, err := self.isBootIndexDuplicated(*input.BootIndex); err != nil {
+			return nil, err
+		} else if isDup {
+			return nil, httperrors.NewInputParameterError("boot index %d is duplicated", *input.BootIndex)
+		}
+	}
+
 	diskObj, err := validators.ValidateModel(userCred, DiskManager, &input.DiskId)
 	if err != nil {
 		return nil, err
@@ -905,6 +913,9 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 
 	taskData := jsonutils.NewDict()
 	taskData.Add(jsonutils.NewString(input.DiskId), "disk_id")
+	if input.BootIndex != nil && *input.BootIndex >= 0 {
+		taskData.Add(jsonutils.NewInt(int64(*input.BootIndex)), "boot_index")
+	}
 
 	self.SetStatus(userCred, api.VM_ATTACH_DISK, "")
 	return nil, self.GetDriver().StartGuestAttachDiskTask(ctx, userCred, self, taskData, "")
@@ -1173,9 +1184,9 @@ func (self *SGuest) insertIso(imageId string, cdromOrdinal int64) bool {
 	return cdrom.insertIso(imageId)
 }
 
-func (self *SGuest) InsertIsoSucc(cdromOrdinal int64, imageId string, path string, size int64, name string) bool {
+func (self *SGuest) InsertIsoSucc(cdromOrdinal int64, imageId string, path string, size int64, name string, bootIndex *int8) bool {
 	cdrom := self.getCdrom(false, cdromOrdinal)
-	return cdrom.insertIsoSucc(imageId, path, size, name)
+	return cdrom.insertIsoSucc(imageId, path, size, name, bootIndex)
 }
 
 func (self *SGuest) GetDetailsIso(cdromOrdinal int64, userCred mcclient.TokenCredential) jsonutils.JSONObject {
@@ -1211,9 +1222,21 @@ func (self *SGuest) PerformInsertiso(ctx context.Context, userCred mcclient.Toke
 		log.Errorln(err)
 		return nil, err
 	}
+	var bootIndex *int8
+	if data.Contains("boot_index") {
+		bd, _ := data.Int("boot_index")
+		bd8 := int8(bd)
+		bootIndex = &bd8
+
+		if isDup, err := self.isBootIndexDuplicated(bd8); err != nil {
+			return nil, err
+		} else if isDup {
+			return nil, httperrors.NewInputParameterError("boot index %d is duplicated", bd8)
+		}
+	}
 
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
-		err = self.StartInsertIsoTask(ctx, cdromOrdinal, image.Id, false, self.HostId, userCred, "")
+		err = self.StartInsertIsoTask(ctx, cdromOrdinal, image.Id, false, bootIndex, self.HostId, userCred, "")
 		return nil, err
 	} else {
 		return nil, httperrors.NewServerStatusError("Insert ISO not allowed in status %s", self.Status)
@@ -1251,7 +1274,7 @@ func (self *SGuest) StartEjectisoTask(ctx context.Context, cdromOrdinal int64, u
 	return nil
 }
 
-func (self *SGuest) StartInsertIsoTask(ctx context.Context, cdromOrdinal int64, imageId string, boot bool, hostId string, userCred mcclient.TokenCredential, parentTaskId string) error {
+func (self *SGuest) StartInsertIsoTask(ctx context.Context, cdromOrdinal int64, imageId string, boot bool, bootIndex *int8, hostId string, userCred mcclient.TokenCredential, parentTaskId string) error {
 	self.insertIso(imageId, cdromOrdinal)
 
 	data := jsonutils.NewDict()
@@ -1260,6 +1283,9 @@ func (self *SGuest) StartInsertIsoTask(ctx context.Context, cdromOrdinal int64, 
 	data.Add(jsonutils.NewString(hostId), "host_id")
 	if boot {
 		data.Add(jsonutils.JSONTrue, "boot")
+	}
+	if bootIndex != nil {
+		data.Add(jsonutils.NewInt(int64(*bootIndex)), "boot_index")
 	}
 	taskName := "GuestInsertIsoTask"
 	if self.BackupHostId != "" {

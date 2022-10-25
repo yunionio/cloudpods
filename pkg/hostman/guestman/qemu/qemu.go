@@ -94,7 +94,7 @@ type QemuOptions interface {
 	MemPath(sizeMB uint64, p string) string
 	MemDev(sizeMB uint64) string
 	MemFd(sizeMB uint64) string
-	Boot(order string, enableMenu bool) string
+	Boot(order *string, enableMenu bool) string
 	BIOS(ovmfPath, homedir string) (string, error)
 	Device(devStr string) string
 	Drive(driveStr string) string
@@ -250,12 +250,18 @@ func (o baseOptions) MemFd(sizeMB uint64) string {
 	return fmt.Sprintf("-object memory-backend-memfd,id=mem,size=%dM,share=on,prealloc=on -numa node,memdev=mem", sizeMB)
 }
 
-func (o baseOptions) Boot(order string, enableMenu bool) string {
-	opt := "-boot order=" + order
-	if enableMenu {
-		opt += ",menu=on"
+func (o baseOptions) Boot(order *string, enableMenu bool) string {
+	opts := []string{}
+	if order != nil {
+		opts = append(opts, *order)
 	}
-	return opt
+	if enableMenu {
+		opts = append(opts, "menu=on")
+	}
+	if len(opts) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("-boot %s", strings.Join(opts, ","))
 }
 
 func (o baseOptions) BIOS(ovmfPath, homedir string) (string, error) {

@@ -83,6 +83,7 @@ type GuestdiskJsonDesc struct {
 	Path             string `json:"path"`
 	Format           string `json:"format"`
 	Index            int8   `json:"index"`
+	BootIndex        *int8  `json:"boot_index"`
 	MergeSnapshot    bool   `json:"merge_snapshot"`
 	EsxiFlatFilePath string `json:"esxi_flat_file_path"`
 	Fs               string `json:"fs"`
