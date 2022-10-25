@@ -82,6 +82,8 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		}
 		performanceLevel := ""
 		switch self.storageType {
+		case api.STORAGE_CLOUD_ESSD:
+			performanceLevel = "PL1"
 		case api.STORAGE_CLOUD_ESSD_PL2:
 			performanceLevel = "PL2"
 		case api.STORAGE_CLOUD_ESSD_PL3:

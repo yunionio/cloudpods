@@ -1476,17 +1476,33 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
+		skip, key := IsNeedSkipSync(commonext[i])
+		if skip {
+			log.Infof("delete disk %s(%s) with tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
+			err := commondb[i].purge(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+				continue
+			}
+			syncResult.Delete()
+			continue
+		}
 		err = commondb[i].syncWithCloudDisk(ctx, userCred, provider, commonext[i], -1, syncOwnerId, storage.ManagerId)
 		if err != nil {
 			syncResult.UpdateError(err)
-		} else {
-			localDisks = append(localDisks, commondb[i])
-			remoteDisks = append(remoteDisks, commonext[i])
-			syncResult.Update()
+			continue
 		}
+		localDisks = append(localDisks, commondb[i])
+		remoteDisks = append(remoteDisks, commonext[i])
+		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i += 1 {
+		skip, key := IsNeedSkipSync(added[i])
+		if skip {
+			log.Infof("skip disk %s(%s) sync with tag key: %s", added[i].GetName(), added[i].GetGlobalId(), key)
+			continue
+		}
 		extId := added[i].GetGlobalId()
 		_disk, err := db.FetchByExternalIdAndManagerId(manager, extId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			sq := StorageManager.Query().SubQuery()
