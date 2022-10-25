@@ -32,6 +32,7 @@ func (self *SAliyunClient) otsRequest(apiName string, params map[string]string) 
 		return nil, err
 	}
 	regionId, _ := params["RegionId"]
+	params = self.SetResourceGropuId(params)
 	return jsonRequest(cli, fmt.Sprintf("ots.%s.aliyuncs.com", regionId), ALIYUN_OTS_API_VERSION, apiName, params, self.debug)
 }
 

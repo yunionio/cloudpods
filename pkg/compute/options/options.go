@@ -192,7 +192,8 @@ type ComputeOptions struct {
 
 	EnableAwsMonitorAgent bool `help:"enable aws monitor agent" default:"true"`
 
-	EnableTlsMigration bool `help:"Enable TLS migration" default:"false"`
+	EnableTlsMigration   bool     `help:"Enable TLS migration" default:"false"`
+	AliyunResourceGroups []string `help:"Only sync indicate resource group resource"`
 
 	esxi.EsxiOptions
 }
