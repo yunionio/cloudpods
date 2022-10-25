@@ -582,6 +582,8 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 	if isStart {
 		return
 	}
+	ch := make(chan struct{}, options.Options.CloudAccountCollectMetricsBatchCount)
+	defer close(ch)
 	s := auth.GetAdminSession(context.Background(), options.Options.Region)
 	resources := self.Cloudproviders.getResources("")
 	cloudproviders := map[string]api.CloudproviderDetails{}
@@ -591,10 +593,12 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 	_startTime := _endTime.Add(-1 * time.Minute * time.Duration(options.Options.CollectMetricInterval))
 	var wg sync.WaitGroup
 	for i := range cloudproviders {
+		ch <- struct{}{}
 		wg.Add(1)
 		go func(manager api.CloudproviderDetails) {
 			defer func() {
 				wg.Done()
+				<-ch
 			}()
 
 			if strings.Contains(strings.ToLower(options.Options.SkipMetricPullProviders), strings.ToLower(manager.Provider)) {

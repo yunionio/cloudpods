@@ -137,14 +137,18 @@ type SCollectByResourceIdDriver struct {
 }
 
 func (self *SCollectByResourceIdDriver) CollectDBInstanceMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.DBInstanceDetails, start, end time.Time) error {
+	ch := make(chan struct{}, options.Options.CloudResourceCollectMetricsBatchCount)
+	defer close(ch)
 	metrics := []influxdb.SMetricData{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for i := range res {
+		ch <- struct{}{}
 		wg.Add(1)
 		go func(rds api.DBInstanceDetails) {
 			defer func() {
 				wg.Done()
+				<-ch
 			}()
 			opts := &cloudprovider.MetricListOptions{
 				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_RDS,
@@ -207,14 +211,18 @@ func (self *SCollectByResourceIdDriver) CollectDBInstanceMetrics(ctx context.Con
 }
 
 func (self *SCollectByResourceIdDriver) CollectServerMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ServerDetails, start, end time.Time) error {
+	ch := make(chan struct{}, options.Options.CloudResourceCollectMetricsBatchCount)
+	defer close(ch)
 	metrics := []influxdb.SMetricData{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for i := range res {
+		ch <- struct{}{}
 		wg.Add(1)
 		go func(vm api.ServerDetails) {
 			defer func() {
 				wg.Done()
+				<-ch
 			}()
 			opts := &cloudprovider.MetricListOptions{
 				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_SERVER,
@@ -288,14 +296,18 @@ func (self *SCollectByResourceIdDriver) CollectServerMetrics(ctx context.Context
 }
 
 func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.HostDetails, start, end time.Time) error {
+	ch := make(chan struct{}, options.Options.CloudResourceCollectMetricsBatchCount)
+	defer close(ch)
 	metrics := []influxdb.SMetricData{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for i := range res {
+		ch <- struct{}{}
 		wg.Add(1)
 		go func(vm api.HostDetails) {
 			defer func() {
 				wg.Done()
+				<-ch
 			}()
 			opts := &cloudprovider.MetricListOptions{
 				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_HOST,
@@ -367,14 +379,18 @@ func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, 
 }
 
 func (self *SCollectByResourceIdDriver) CollectRedisMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ElasticcacheDetails, start, end time.Time) error {
+	ch := make(chan struct{}, options.Options.CloudResourceCollectMetricsBatchCount)
+	defer close(ch)
 	metrics := []influxdb.SMetricData{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for i := range res {
+		ch <- struct{}{}
 		wg.Add(1)
 		go func(vm api.ElasticcacheDetails) {
 			defer func() {
 				wg.Done()
+				<-ch
 			}()
 			opts := &cloudprovider.MetricListOptions{
 				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_REDIS,
@@ -446,14 +462,18 @@ func (self *SCollectByResourceIdDriver) CollectRedisMetrics(ctx context.Context,
 }
 
 func (self *SCollectByResourceIdDriver) CollectBucketMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.BucketDetails, start, end time.Time) error {
+	ch := make(chan struct{}, options.Options.CloudResourceCollectMetricsBatchCount)
+	defer close(ch)
 	metrics := []influxdb.SMetricData{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for i := range res {
+		ch <- struct{}{}
 		wg.Add(1)
 		go func(vm api.BucketDetails) {
 			defer func() {
 				wg.Done()
+				<-ch
 			}()
 			opts := &cloudprovider.MetricListOptions{
 				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_BUCKET,
@@ -524,15 +544,19 @@ func (self *SCollectByResourceIdDriver) CollectBucketMetrics(ctx context.Context
 }
 
 func (self *SCollectByResourceIdDriver) CollectK8sMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.KubeClusterDetails, start, end time.Time) error {
+	ch := make(chan struct{}, options.Options.CloudResourceCollectMetricsBatchCount)
+	defer close(ch)
 	metrics := []influxdb.SMetricData{}
 	s := auth.GetAdminSession(ctx, options.Options.Region)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for i := range res {
+		ch <- struct{}{}
 		wg.Add(1)
 		go func(vm api.KubeClusterDetails) {
 			defer func() {
 				wg.Done()
+				<-ch
 			}()
 			// 未同步到本地k8s集群
 			if len(vm.ExternalClusterId) == 0 {
