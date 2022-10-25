@@ -580,7 +580,10 @@ func (ms SecurityGroups) joinSecurityGroupRules(subEntries SecurityGroupRules) b
 		if !ok {
 			log.Warningf("secgrouprule %s: secgroup %s not found",
 				subEntry.Id, id)
-			correct = false
+			// secgroup onpremise filter may filter out secgroup without any guest or host
+			// https://github.com/yunionio/cloudpods/pull/11781
+			// so ignore this error case
+			// correct = false
 			continue
 		}
 		if _, ok := m.SecurityGroupRules[subId]; ok {
