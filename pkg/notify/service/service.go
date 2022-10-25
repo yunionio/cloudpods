@@ -76,6 +76,8 @@ func StartService() {
 
 	// wrapped func to resend notifications
 	cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Second, models.NotificationManager.ReSend)
+	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+
 	cron.Start()
 
 	app.ServeForever(applicaion, baseOpts)

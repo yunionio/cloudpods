@@ -72,6 +72,8 @@ func StartService() {
 	cron.AddJobEveryFewDays("DeleteRecordsOfThirtyDaysAgoRecords", 1, 0, 0, 0,
 		models.AlertRecordManager.DeleteRecordsOfThirtyDaysAgo, false)
 	//cron.AddJobAtIntervalsWithStartRun("MonitorResourceSync", time.Duration(opts.MonitorResourceSyncIntervalSeconds)*time.Minute*60, models.MonitorResourceManager.SyncResources, true)
+	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+
 	cron.Start()
 	defer cron.Stop()
 
