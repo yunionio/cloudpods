@@ -54,6 +54,8 @@ const (
 	GOOGLE_DBINSTANCE_API_VERSION = "v1beta4"
 	GOOGLE_IAM_API_VERSION        = "v1"
 
+	GOOGLE_BIGQUERY_API_VERSION = "v2"
+
 	GOOGLE_MANAGER_DOMAIN        = "https://cloudresourcemanager.googleapis.com"
 	GOOGLE_COMPUTE_DOMAIN        = "https://www.googleapis.com/compute"
 	GOOGLE_STORAGE_DOMAIN        = "https://storage.googleapis.com/storage"
@@ -63,6 +65,7 @@ const (
 	GOOGLE_MONITOR_DOMAIN        = "https://monitoring.googleapis.com"
 	GOOGLE_DBINSTANCE_DOMAIN     = "https://www.googleapis.com/sql"
 	GOOGLE_IAM_DOMAIN            = "https://iam.googleapis.com"
+	GOOGLE_BIGQUERY_DOMAIN       = "https://bigquery.googleapis.com/bigquery"
 
 	MAX_RETRY = 3
 )
