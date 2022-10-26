@@ -194,6 +194,9 @@ type ComputeOptions struct {
 
 	EnableTlsMigration bool `help:"Enable TLS migration" default:"false"`
 
+	KvmMonitorAgentUseMetadataService bool   `help:"Monitor agent report metrics to metadata service on host" default:"true"`
+	MonitorEndpointType               string `help:"specify monitor endpoint type" default:"public"`
+
 	esxi.EsxiOptions
 }
 

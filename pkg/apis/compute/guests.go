@@ -243,6 +243,9 @@ type ServerDetails struct {
 
 	// 伸缩组id
 	ScalingGroupId string `json:"scaling_group_id"`
+
+	// 监控上报URL
+	MonitorUrl string `json:"monitor_url"`
 }
 
 func (self ServerDetails) GetMetricTags() map[string]string {

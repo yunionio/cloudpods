@@ -38,7 +38,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	apiidentity "yunion.io/x/onecloud/pkg/apis/identity"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
@@ -2160,6 +2159,7 @@ func (self *SGuest) getExtBandwidth() int {
 }
 
 func (self *SGuest) moreExtraInfo(
+	ctx context.Context,
 	out api.ServerDetails,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
@@ -2224,6 +2224,8 @@ func (self *SGuest) moreExtraInfo(
 	}
 
 	out.CdromSupport, _ = self.GetDriver().IsSupportCdrom(self)
+
+	out.MonitorUrl = self.GetDriver().FetchMonitorUrl(ctx, self)
 
 	return out
 }
@@ -4307,11 +4309,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 	config.Add(jsonutils.NewString(onFinish), "on_finish")
 
 	if jsonutils.QueryBoolean(params, "deploy_telegraf", false) {
-		s := auth.GetAdminSessionWithPublic(nil, consts.GetRegion())
-		influxdbUrl, err := s.GetServiceURL("influxdb", apiidentity.EndpointInterfacePublic, "")
-		if err != nil {
-			return nil, errors.Wrap(err, "get influxdb url")
-		}
+		influxdbUrl := self.GetDriver().FetchMonitorUrl(ctx, self)
 		config.Add(jsonutils.JSONTrue, "deploy_telegraf")
 		serverDetails, err := self.getDetails(ctx, userCred)
 		if err != nil {
