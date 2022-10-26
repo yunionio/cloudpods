@@ -192,8 +192,12 @@ type ComputeOptions struct {
 
 	EnableAwsMonitorAgent bool `help:"enable aws monitor agent" default:"true"`
 
-	EnableTlsMigration   bool     `help:"Enable TLS migration" default:"false"`
+	EnableTlsMigration bool `help:"Enable TLS migration" default:"false"`
+
 	AliyunResourceGroups []string `help:"Only sync indicate resource group resource"`
+
+	KvmMonitorAgentUseMetadataService bool   `help:"Monitor agent report metrics to metadata service on host" default:"true"`
+	MonitorEndpointType               string `help:"specify monitor endpoint type" default:"public"`
 
 	esxi.EsxiOptions
 }

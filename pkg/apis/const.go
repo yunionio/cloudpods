@@ -58,6 +58,8 @@ const (
 
 	SKU_STATUS_AVAILABLE = "available"
 	SKU_STATUS_SOLDOUT   = "soldout"
+
+	MetaServiceMonitorAgentUrl = "http://169.254.169.254/monitor"
 )
 
 var (
