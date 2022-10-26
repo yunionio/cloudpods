@@ -586,7 +586,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 	resources := self.Cloudproviders.getResources("")
 	cloudproviders := map[string]api.CloudproviderDetails{}
 	jsonutils.Update(&cloudproviders, resources)
-	sh, _ := time.LoadLocation("Asia/Shanghai")
+	sh, _ := time.LoadLocation("UTC")
 	_endTime := taskStartTime.In(sh)
 	_startTime := _endTime.Add(-1 * time.Minute * time.Duration(options.Options.CollectMetricInterval))
 	var wg sync.WaitGroup

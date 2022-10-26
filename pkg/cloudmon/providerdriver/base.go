@@ -293,27 +293,27 @@ func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, 
 	var mu sync.Mutex
 	for i := range res {
 		wg.Add(1)
-		go func(vm api.HostDetails) {
+		go func(host api.HostDetails) {
 			defer func() {
 				wg.Done()
 			}()
 			opts := &cloudprovider.MetricListOptions{
 				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_HOST,
-				ResourceId:   vm.ExternalId,
-				RegionExtId:  vm.RegionExtId,
+				ResourceId:   host.AccessIp,
+				RegionExtId:  host.RegionExtId,
 				StartTime:    start,
 				EndTime:      end,
 			}
 
 			tags := []influxdb.SKeyValue{}
-			for k, v := range vm.GetMetricTags() {
+			for k, v := range host.GetMetricTags() {
 				tags = append(tags, influxdb.SKeyValue{
 					Key:   k,
 					Value: v,
 				})
 			}
 			pairs := []influxdb.SKeyValue{}
-			for k, v := range vm.GetMetricPairs() {
+			for k, v := range host.GetMetricPairs() {
 				pairs = append(pairs, influxdb.SKeyValue{
 					Key:   k,
 					Value: v,
@@ -322,7 +322,7 @@ func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, 
 			data, err := provider.GetMetrics(opts)
 			if err != nil {
 				if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-					log.Errorf("get host %s(%s) error: %v", vm.Name, vm.Id, err)
+					log.Errorf("get host %s(%s) error: %v", host.Name, host.Id, err)
 					return
 				}
 				return
@@ -335,7 +335,7 @@ func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, 
 						Tags:      []influxdb.SKeyValue{},
 						Metrics: []influxdb.SKeyValue{
 							{
-								Key:   values.MetricType.Name(),
+								Key:   values.MetricType.Key(),
 								Value: strconv.FormatFloat(value.Value, 'E', -1, 64),
 							},
 						},

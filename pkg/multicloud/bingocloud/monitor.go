@@ -114,14 +114,14 @@ func (self *SBingoCloudClient) GetEcsMetrics(opts *cloudprovider.MetricListOptio
 func (self *SBingoCloudClient) GetHostMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	ret := []cloudprovider.MetricValues{}
 	for metricType, metricName := range map[cloudprovider.TMetricType]string{
-		cloudprovider.VM_METRIC_TYPE_CPU_USAGE:          "CPUUtilization",
-		cloudprovider.VM_METRIC_TYPE_MEM_USAGE:          "MemeryUsage",
-		cloudprovider.VM_METRIC_TYPE_NET_BPS_RX:         "NetworkIn",
-		cloudprovider.VM_METRIC_TYPE_NET_BPS_TX:         "NetworkOut",
-		cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS:   "DiskReadBytes",
-		cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS:  "DiskWriteBytes",
-		cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS:  "DiskReadOps",
-		cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS: "DiskWriteOps",
+		cloudprovider.HOST_METRIC_TYPE_CPU_USAGE:          "CPUUtilization",
+		cloudprovider.HOST_METRIC_TYPE_MEM_USAGE:          "MemeryUsage",
+		cloudprovider.HOST_METRIC_TYPE_NET_BPS_RX:         "NetworkIn",
+		cloudprovider.VM_METRIC_TYPE_NET_BPS_TX:           "NetworkOut",
+		cloudprovider.HOST_METRIC_TYPE_DISK_IO_READ_BPS:   "DiskReadBytes",
+		cloudprovider.HOST_METRIC_TYPE_DISK_IO_WRITE_BPS:  "DiskWriteBytes",
+		cloudprovider.HOST_METRIC_TYPE_DISK_IO_READ_IOPS:  "DiskReadOps",
+		cloudprovider.HOST_METRIC_TYPE_DISK_IO_WRITE_IOPS: "DiskWriteOps",
 	} {
 		data, err := self.DescribeMetricList("AWS/HOST", metricName, "HostId", opts.ResourceId, opts.StartTime, opts.EndTime)
 		if err != nil {
