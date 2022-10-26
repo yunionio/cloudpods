@@ -317,14 +317,14 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 
 			groupDevAddrs := dev.GetIOMMUGroupRestAddrs()
 			for j := 0; j < len(groupDevAddrs); j++ {
-				gid := fmt.Sprintf("%s-%s", id, groupDevAddrs[i])
+				gid := fmt.Sprintf("%s-%s", id, strings.ReplaceAll(groupDevAddrs[i], ":", "-"))
 				vfioDev = &desc.VFIODevice{
 					PCIDevice: desc.NewPCIDevice(cont.CType, "vfio-pci", gid),
 				}
+				vfioDev.HostAddr = groupDevAddrs[i]
 				s.Desc.IsolatedDevices[i].VfioDevs = append(
 					s.Desc.IsolatedDevices[i].VfioDevs, vfioDev,
 				)
-				s.Desc.IsolatedDevices[i].VfioDevs[j].HostAddr = groupDevAddrs[i]
 			}
 		}
 	}
@@ -425,10 +425,8 @@ func (s *SKVMGuestInstance) initGuestVga(pciRoot *desc.PCIController) {
 		s.Desc.Vga = "none"
 	} else if isAarch64 {
 		s.Desc.Vga = "virtio-gpu"
-	} else {
-		if s.Desc.Vga == "" {
-			s.Desc.Vga = "std"
-		}
+	} else if s.Desc.Vga == "" {
+		s.Desc.Vga = "std"
 	}
 	s.Desc.VgaDevice = new(desc.SGuestVga)
 
@@ -648,7 +646,7 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 			if err != nil {
 				return errors.Wrapf(err, "ensure isolated device %s pci address", s.Desc.IsolatedDevices[i].VfioDevs[0].PCIAddr)
 			}
-			for j := 1; j < len(s.Desc.IsolatedDevices[i].VfioDevs); i++ {
+			for j := 1; j < len(s.Desc.IsolatedDevices[i].VfioDevs); j++ {
 				s.Desc.IsolatedDevices[i].VfioDevs[j].PCIAddr = s.Desc.IsolatedDevices[i].VfioDevs[0].PCIAddr.Copy()
 				err = s.ensureDevicePciAddress(s.Desc.IsolatedDevices[i].VfioDevs[j].PCIDevice, j, nil)
 				if err != nil {
