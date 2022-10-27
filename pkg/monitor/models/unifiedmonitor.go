@@ -539,8 +539,8 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 	if input.EndTime.Sub(input.StartTime).Hours() > 1 {
 		return nil, httperrors.NewInputParameterError("The query interval is greater than one hour")
 	}
-	st := input.StartTime.Format("2006-01-02T15:04:05Z")
-	et := input.EndTime.Format("2006-01-02T15:04:05Z")
+	st := input.StartTime.Format(time.RFC3339)
+	et := input.EndTime.Format(time.RFC3339)
 	conditions := []string{}
 	for k, v := range input.Tags {
 		conditions = append(conditions, fmt.Sprintf("%s = '%s'", k, v))
@@ -548,6 +548,7 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 	conditions = append(conditions, fmt.Sprintf("time >= '%s'", st))
 	conditions = append(conditions, fmt.Sprintf("time <= '%s'", et))
 	sqlstr += strings.Join(conditions, " and ")
+	sqlstr += " limit 2000"
 	dataSource, err := DataSourceManager.GetDefaultSource()
 	if err != nil {
 		return nil, errors.Wrap(err, "s.GetDefaultSource")
