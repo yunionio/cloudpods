@@ -35,6 +35,9 @@ type CloudMonOptions struct {
 	SkipMetricPullProviders string `help:"Skip indicate provider metric pull" default:""`
 
 	InfluxDatabase string `help:"influxdb database name, default telegraf" default:"telegraf"`
+
+	CloudAccountCollectMetricsBatchCount  int `help:"Cloud Account Collect Metrics Batch Count" default:"10"`
+	CloudResourceCollectMetricsBatchCount int `help:"Cloud Resource Collect Metrics BatchC ount" default:"40"`
 }
 
 type PingProbeOptions struct {
