@@ -19,11 +19,15 @@ import (
 )
 
 type CloudpodsCollect struct {
-	SBaseCollectDriver
+	SCollectByMetricTypeDriver
 }
 
 func (self *CloudpodsCollect) GetProvider() string {
 	return api.CLOUD_PROVIDER_CLOUDPODS
+}
+
+func (collect *CloudpodsCollect) IsSupportMetrics() bool {
+	return true
 }
 
 func init() {

@@ -154,3 +154,7 @@ func (self *SCloudpodsProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 func (self *SCloudpodsProvider) GetVersion() string {
 	return self.client.GetVersion()
 }
+
+func (provider *SCloudpodsProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return provider.client.GetMetrics(opts)
+}
