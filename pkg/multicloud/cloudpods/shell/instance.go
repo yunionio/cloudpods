@@ -15,6 +15,7 @@
 package shell
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/cloudpods"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -60,4 +61,12 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&cloudprovider.MetricListOptions{}, "instance-monitor-list", "Instance Monitor List", func(cli *cloudpods.SRegion, opts *cloudprovider.MetricListOptions) error {
+		metrics, err := cli.GetClient().GetMetrics(opts)
+		if err != nil {
+			return err
+		}
+		printList(metrics, len(metrics), 0, 0, []string{})
+		return nil
+	})
 }
