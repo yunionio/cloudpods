@@ -4,20 +4,10 @@ go 1.18
 
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
-	cloud.google.com/go/storage v1.10.0
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
-	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.9.6
-	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2
 	github.com/LeeEirc/terminalparser v0.0.0-20220328021224-de16b7643ea4
 	github.com/Masterminds/sprig v2.22.0+incompatible
-	github.com/Microsoft/azure-vhd-utils v0.0.0-20181115010904-44cbada2ece3
-	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
-	github.com/aliyun/aliyun-oss-go-sdk v2.0.4+incompatible
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
-	github.com/aokoli/goutils v1.0.1
-	github.com/aws/aws-sdk-go v1.39.0
-	github.com/basgys/goxml2json v1.1.1-0.20181031222924-996d9fc8d313
 	github.com/benbjohnson/clock v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/c-bata/go-prompt v0.2.4
@@ -25,7 +15,7 @@ require (
 	github.com/coredns/coredns v1.3.0
 	github.com/coreos/go-iptables v0.6.0
 	github.com/creack/pty v1.1.11
-	github.com/fatih/color v1.10.0
+	github.com/fatih/color v1.13.0
 	github.com/fernet/fernet-go v0.0.0-20180830025343-9eac43b88a5e
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
@@ -42,15 +32,12 @@ require (
 	github.com/gorilla/websocket v1.4.1
 	github.com/gosuri/uitable v0.0.0-20160404203958-36ee7e946282
 	github.com/hako/durafmt v0.0.0-20180520121703-7b7ae1e72ead
-	github.com/huaweicloud/huaweicloud-sdk-go v1.0.26
-	github.com/huaweicloud/huaweicloud-sdk-go-obs v3.21.12+incompatible
 	github.com/jaypipes/ghw v0.9.1
-	github.com/jdcloud-api/jdcloud-sdk-go v1.55.0
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/lestrrat-go/jwx v1.0.2
 	github.com/lestrrat/go-jwx v0.0.0-20180221005942-b7d4802280ae
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
-	github.com/ma314smith/signedxml v0.0.0-20200410192636-c342a2d0ae60
+	github.com/ma314smith/signedxml v0.0.0-20210628192057-abc5b481ae1c
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/mdlayher/arp v0.0.0-20190313224443-98a83c8a2717
 	github.com/mdlayher/ethernet v0.0.0-20190606142754-0394541c37b7
@@ -66,28 +53,23 @@ require (
 	github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
 	github.com/sevlyar/go-daemon v0.1.5
 	github.com/shirou/gopsutil v3.21.11+incompatible
-	github.com/sirupsen/logrus v1.9.0
 	github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/stretchr/testify v1.7.2
 	github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.413
-	github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 	github.com/tjfoc/gmsm v1.4.1
-	github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
-	github.com/vishvananda/netlink v1.0.0
+	github.com/tredoe/osutil v1.0.6
+	github.com/vishvananda/netlink v1.1.0
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
-	github.com/vmware/govmomi v0.20.1
 	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
 	golang.org/x/net v0.0.0-20220418201149-a630d4f3e7a2
-	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261
 	golang.org/x/text v0.3.7
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
+	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
 	google.golang.org/grpc v1.38.0
@@ -101,6 +83,7 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
+	yunion.io/x/cloudmux v0.3.10-0-alpha.0
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
 	yunion.io/x/jsonutils v1.0.1-0.20220819091305-3bab322ab4fd
 	yunion.io/x/log v1.0.0
@@ -113,7 +96,11 @@ require (
 
 require (
 	cloud.google.com/go v0.65.0 // indirect
+	cloud.google.com/go/storage v1.10.0 // indirect
+	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible // indirect
+	github.com/Azure/go-autorest/autorest v0.9.6 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.2 // indirect
+	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2 // indirect
 	github.com/Azure/go-autorest/autorest/azure/cli v0.3.1 // indirect
 	github.com/Azure/go-autorest/autorest/date v0.2.0 // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
@@ -124,11 +111,14 @@ require (
 	github.com/DataDog/zstd v1.3.4 // indirect
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
+	github.com/Microsoft/azure-vhd-utils v0.0.0-20181115010904-44cbada2ece3 // indirect
 	github.com/RoaringBitmap/roaring v0.4.16 // indirect
 	github.com/Shopify/sarama v1.20.0 // indirect
 	github.com/Shopify/toxiproxy v2.1.4+incompatible // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684 // indirect
+	github.com/aliyun/aliyun-oss-go-sdk v2.0.4+incompatible // indirect
 	github.com/anacrolix/dht v0.0.0-20181129074040-b09db78595aa // indirect
 	github.com/anacrolix/go-libutp v0.0.0-20180808010927-aebbeb60ea05 // indirect
 	github.com/anacrolix/log v0.0.0-20180808012509-286fcf906b48 // indirect
@@ -136,8 +126,11 @@ require (
 	github.com/anacrolix/mmsg v0.0.0-20180808012353-5adb2c1127c0 // indirect
 	github.com/anacrolix/sync v0.0.0-20180808010631-44578de4e778 // indirect
 	github.com/anacrolix/utp v0.0.0-20180219060659-9e0e1d1d0572 // indirect
+	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/apache/thrift v0.12.0 // indirect
+	github.com/aws/aws-sdk-go v1.39.0 // indirect
 	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
+	github.com/basgys/goxml2json v1.1.1-0.20181031222924-996d9fc8d313 // indirect
 	github.com/beevik/etree v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
@@ -185,7 +178,10 @@ require (
 	github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
+	github.com/huaweicloud/huaweicloud-sdk-go v1.0.26 // indirect
+	github.com/huaweicloud/huaweicloud-sdk-go-obs v3.21.12+incompatible // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
+	github.com/jdcloud-api/jdcloud-sdk-go v1.55.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
@@ -195,7 +191,7 @@ require (
 	github.com/lestrrat-go/iter v0.0.0-20200422075355-fc1769541911 // indirect
 	github.com/lestrrat-go/pdebug v0.0.0-20200204225717-4d6bd78da58d // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
-	github.com/mattn/go-colorable v0.1.8 // indirect
+	github.com/mattn/go-colorable v0.1.9 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f // indirect
@@ -226,15 +222,19 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
+	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.1.1 // indirect
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.413 // indirect
+	github.com/tencentyun/cos-go-sdk-v5 v0.7.24 // indirect
 	github.com/texttheater/golang-levenshtein v0.0.0-20180516184445-d188e65d659e // indirect
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
+	github.com/vmware/govmomi v0.20.1 // indirect
 	github.com/willf/bitset v1.1.9 // indirect
 	github.com/willf/bloom v2.0.3+incompatible // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
@@ -245,6 +245,7 @@ require (
 	go.uber.org/zap v1.17.0 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.4.2 // indirect
+	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/tools v0.1.2 // indirect
 	google.golang.org/api v0.30.0 // indirect

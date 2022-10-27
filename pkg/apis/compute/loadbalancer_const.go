@@ -20,10 +20,10 @@ import (
 
 // Load balancer status transition (for spec status)
 //
-//                      create          start           stop            delete
-//      init            running         -               -               -
-//      running		-		-		stopped		stopped
-//      stopped		-		running		-		-
+//	                create          start           stop            delete
+//	init            running         -               -               -
+//	running		-		-		stopped		stopped
+//	stopped		-		running		-		-
 //
 // Each entity will have spec and runtime version.  Spec version will increment
 // on entity attribute update.  Runtime version will be filled by the scheduler
@@ -35,7 +35,6 @@ import (
 // In the case of instance has PendingDeleted marked, it is also the
 // scheduler's duty to make the runtime status to stopped and finally the
 // entity in question
-//
 const (
 	LB_STATUS_ENABLED  = "enabled"
 	LB_STATUS_DISABLED = "disabled"
@@ -321,7 +320,7 @@ var LB_BOOL_VALUES = choices.NewChoices(
 	LB_BOOL_OFF,
 )
 
-//TODO
+// TODO
 //
 // - qch, quic connection id
 // - mh, maglev consistent hash

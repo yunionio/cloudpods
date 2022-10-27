@@ -17,13 +17,13 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SyncCloudIdResourcesTask struct {

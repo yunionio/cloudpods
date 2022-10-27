@@ -20,16 +20,16 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
-	"yunion.io/x/onecloud/pkg/multicloud/esxi"
-	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 )
 
 type SAgentImageCacheManager struct {

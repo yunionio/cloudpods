@@ -66,9 +66,8 @@ func init() {
 
 // TODO
 //
-//  - scrub stale backends: Guests with deleted=1
-//  - agent configuration params
-//
+//   - scrub stale backends: Guests with deleted=1
+//   - agent configuration params
 type SLoadbalancerAgent struct {
 	db.SStandaloneResourceBase
 	SLoadbalancerClusterResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`

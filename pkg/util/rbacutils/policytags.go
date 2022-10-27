@@ -108,8 +108,8 @@ func (policy SPolicy) Encode() jsonutils.JSONObject {
 }
 
 // policy1 contains policy2 means
-//   1. any action allow in policy2 is allowed in policy1
-//   2. policy tags of policy1 contains of policy tags of policy2
+//  1. any action allow in policy2 is allowed in policy1
+//  2. policy tags of policy1 contains of policy tags of policy2
 func (policy1 SPolicy) Contains(policy2 SPolicy) bool {
 	if !policy1.Rules.Contains(policy2.Rules) {
 		return false

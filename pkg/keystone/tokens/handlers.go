@@ -120,8 +120,8 @@ type VerifyTokenV2Param struct {
 //
 // keystone v2验证token API
 //
-//     Responses:
-//       200: tokens_AuthenticateV2Output
+//	Responses:
+//	  200: tokens_AuthenticateV2Output
 func verifyTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, _ := appsrv.FetchEnv(ctx, w, r)
 	tokenStr := params["<token>"]
@@ -169,8 +169,8 @@ type VerifyTokenV3Param struct {
 //
 // keystone v3验证token API
 //
-//     Responses:
-//       200: tokens_AuthenticateV3Output
+//	Responses:
+//	  200: tokens_AuthenticateV3Output
 func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	tokenStr := r.Header.Get(api.AUTH_SUBJECT_TOKEN_HEADER)
 	token, err := verifyCommon(ctx, w, tokenStr)

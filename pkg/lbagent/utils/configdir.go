@@ -42,7 +42,7 @@ type ConfigDirManager struct {
 
 // TODO
 //
-//  - set active
+//   - set active
 func NewConfigDirManager(baseDir string) *ConfigDirManager {
 	return &ConfigDirManager{
 		baseDir: baseDir,

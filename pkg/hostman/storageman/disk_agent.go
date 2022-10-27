@@ -17,14 +17,14 @@ package storageman
 import (
 	"context"
 
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/multicloud/esxi"
-	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 )
 
 type SAgentDisk struct {

@@ -16,3 +16,7 @@ Please keep the list sorted.
 ## Code
 
 * Jonas mg (https://github.com/tredoe)
+
+* DJ Gregor <dj@gregor.com>
+* Jeramey Crawford <jeramey@antihe.ro>
+* Misha Seltzer (https://github.com/mishas)

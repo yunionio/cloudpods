@@ -81,7 +81,7 @@ func (*X86) GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom) {
 	cdrom.Id = id
 }
 
-//-device floppy,drive=floppy0 -drive id=floppy0,if=none
+// -device floppy,drive=floppy0 -drive id=floppy0,if=none
 func (*X86) GenerateFloppyDesc(osName string, floppy *desc.SGuestFloppy) {
 	var id, devType string
 	var driveOpts map[string]string

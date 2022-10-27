@@ -15,8 +15,9 @@
 package options
 
 import (
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
+
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 )
 
 type EsxiOptions struct {

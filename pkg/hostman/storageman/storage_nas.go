@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"path"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )

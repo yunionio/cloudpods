@@ -306,12 +306,13 @@ func (ada *AdaptecRaidAdaptor) getCreateCmd(args ...string) string {
 }
 
 // setControllerMode change adapter controller's mode
-//   Controller Modes  : 0  - RAID: Expose RAW
-//                     : 1  - Auto Volume Mode
-//                     : 2  - HBA Mode
-//                     : 3  - RAID: Hide RAW
-//                     : 4  - Simple Volume Mode
-//                     : 5  - Mixed
+//
+//	Controller Modes  : 0  - RAID: Expose RAW
+//	                  : 1  - Auto Volume Mode
+//	                  : 2  - HBA Mode
+//	                  : 3  - RAID: Hide RAW
+//	                  : 4  - Simple Volume Mode
+//	                  : 5  - Mixed
 func (ada *AdaptecRaidAdaptor) setControllerMode(mode int) error {
 	cmd := GetCommand("SETCONTROLLERMODE", fmt.Sprintf("%d", ada.GetIndex()), fmt.Sprintf("%d", mode), "noprompt")
 	if _, err := ada.remoteRun(fmt.Sprintf("set controller mode to %d", mode), cmd); err != nil {

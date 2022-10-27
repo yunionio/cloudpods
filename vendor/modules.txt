@@ -386,7 +386,7 @@ github.com/elgatito/upnp
 # github.com/farsightsec/golang-framestream v0.0.0-20181102145529-8a0cb8ba8710
 ## explicit
 github.com/farsightsec/golang-framestream
-# github.com/fatih/color v1.10.0
+# github.com/fatih/color v1.13.0
 ## explicit; go 1.13
 github.com/fatih/color
 # github.com/fernet/fernet-go v0.0.0-20180830025343-9eac43b88a5e
@@ -651,10 +651,10 @@ github.com/lestrrat/go-pdebug
 # github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
 ## explicit
 github.com/libvirt/libvirt-go-xml
-# github.com/ma314smith/signedxml v0.0.0-20200410192636-c342a2d0ae60
+# github.com/ma314smith/signedxml v0.0.0-20210628192057-abc5b481ae1c
 ## explicit
 github.com/ma314smith/signedxml
-# github.com/mattn/go-colorable v0.1.8
+# github.com/mattn/go-colorable v0.1.9
 ## explicit; go 1.13
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.14
@@ -886,16 +886,16 @@ github.com/tklauser/go-sysconf
 # github.com/tklauser/numcpus v0.4.0
 ## explicit; go 1.11
 github.com/tklauser/numcpus
-# github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
-## explicit
+# github.com/tredoe/osutil v1.0.6
+## explicit; go 1.16
 github.com/tredoe/osutil/user/crypt
 github.com/tredoe/osutil/user/crypt/common
 github.com/tredoe/osutil/user/crypt/sha512_crypt
 # github.com/ugorji/go/codec v1.1.7
 ## explicit
 github.com/ugorji/go/codec
-# github.com/vishvananda/netlink v1.0.0
-## explicit
+# github.com/vishvananda/netlink v1.1.0
+## explicit; go 1.12
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74
@@ -1091,7 +1091,7 @@ golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# golang.org/x/time v0.0.0-20191024005414-555d28b269f0
+# golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 ## explicit
 golang.org/x/time/rate
 # golang.org/x/tools v0.1.2
@@ -1428,6 +1428,85 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
+# yunion.io/x/cloudmux v0.3.10-0-alpha.0
+## explicit; go 1.18
+yunion.io/x/cloudmux/pkg/apis
+yunion.io/x/cloudmux/pkg/apis/billing
+yunion.io/x/cloudmux/pkg/apis/cloudid
+yunion.io/x/cloudmux/pkg/apis/compute
+yunion.io/x/cloudmux/pkg/cloudprovider
+yunion.io/x/cloudmux/pkg/multicloud
+yunion.io/x/cloudmux/pkg/multicloud/aliyun
+yunion.io/x/cloudmux/pkg/multicloud/aliyun/provider
+yunion.io/x/cloudmux/pkg/multicloud/apsara
+yunion.io/x/cloudmux/pkg/multicloud/apsara/provider
+yunion.io/x/cloudmux/pkg/multicloud/aws
+yunion.io/x/cloudmux/pkg/multicloud/aws/provider
+yunion.io/x/cloudmux/pkg/multicloud/azure
+yunion.io/x/cloudmux/pkg/multicloud/azure/concurrent
+yunion.io/x/cloudmux/pkg/multicloud/azure/progress
+yunion.io/x/cloudmux/pkg/multicloud/azure/provider
+yunion.io/x/cloudmux/pkg/multicloud/bingocloud
+yunion.io/x/cloudmux/pkg/multicloud/bingocloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/cloudpods
+yunion.io/x/cloudmux/pkg/multicloud/cloudpods/provider
+yunion.io/x/cloudmux/pkg/multicloud/ctyun
+yunion.io/x/cloudmux/pkg/multicloud/ctyun/provider
+yunion.io/x/cloudmux/pkg/multicloud/ecloud
+yunion.io/x/cloudmux/pkg/multicloud/ecloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/esxi
+yunion.io/x/cloudmux/pkg/multicloud/esxi/provider
+yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter
+yunion.io/x/cloudmux/pkg/multicloud/google
+yunion.io/x/cloudmux/pkg/multicloud/google/provider
+yunion.io/x/cloudmux/pkg/multicloud/hcs
+yunion.io/x/cloudmux/pkg/multicloud/hcs/provider
+yunion.io/x/cloudmux/pkg/multicloud/hcso
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/auth
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/auth/credentials
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/auth/signers
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/manager
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/modules
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/requests
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/responses
+yunion.io/x/cloudmux/pkg/multicloud/hcso/provider
+yunion.io/x/cloudmux/pkg/multicloud/huawei
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth/credentials
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth/signers
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/manager
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/modules
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/requests
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/responses
+yunion.io/x/cloudmux/pkg/multicloud/huawei/obs
+yunion.io/x/cloudmux/pkg/multicloud/huawei/provider
+yunion.io/x/cloudmux/pkg/multicloud/incloudsphere
+yunion.io/x/cloudmux/pkg/multicloud/incloudsphere/provider
+yunion.io/x/cloudmux/pkg/multicloud/jdcloud
+yunion.io/x/cloudmux/pkg/multicloud/jdcloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/loader
+yunion.io/x/cloudmux/pkg/multicloud/nutanix
+yunion.io/x/cloudmux/pkg/multicloud/nutanix/provider
+yunion.io/x/cloudmux/pkg/multicloud/objectstore
+yunion.io/x/cloudmux/pkg/multicloud/objectstore/ceph
+yunion.io/x/cloudmux/pkg/multicloud/objectstore/ceph/provider
+yunion.io/x/cloudmux/pkg/multicloud/objectstore/provider
+yunion.io/x/cloudmux/pkg/multicloud/objectstore/xsky
+yunion.io/x/cloudmux/pkg/multicloud/objectstore/xsky/provider
+yunion.io/x/cloudmux/pkg/multicloud/openstack
+yunion.io/x/cloudmux/pkg/multicloud/openstack/provider
+yunion.io/x/cloudmux/pkg/multicloud/proxmox
+yunion.io/x/cloudmux/pkg/multicloud/proxmox/provider
+yunion.io/x/cloudmux/pkg/multicloud/qcloud
+yunion.io/x/cloudmux/pkg/multicloud/qcloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/remotefile
+yunion.io/x/cloudmux/pkg/multicloud/remotefile/provider
+yunion.io/x/cloudmux/pkg/multicloud/ucloud
+yunion.io/x/cloudmux/pkg/multicloud/ucloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/zstack
+yunion.io/x/cloudmux/pkg/multicloud/zstack/provider
 # yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
 ## explicit; go 1.12
 yunion.io/x/executor/apis

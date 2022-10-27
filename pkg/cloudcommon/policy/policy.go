@@ -390,10 +390,8 @@ func (manager *SPolicyManager) allowWithoutCache(policies rbacutils.TPolicySet, 
 	return result
 }
 
-//
 // result: allow/deny for the named policy
 // userResult: allow/deny for the matched policies of userCred
-//
 func explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject, policyData *sPolicyData) ([]string, rbacutils.SPolicyResult, rbacutils.SPolicyResult, error) {
 	_, request, result, userResult, err := explainPolicyInternal(userCred, policyReq, policyData)
 	return request, result, userResult, err

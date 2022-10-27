@@ -20,10 +20,9 @@ import (
 	"sort"
 	"testing"
 
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
-
-	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 )
 
 func TestParseAndSuggest(t *testing.T) {

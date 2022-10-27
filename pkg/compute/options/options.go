@@ -15,11 +15,11 @@
 package options
 
 import (
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
 	"yunion.io/x/log"
 
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/pending_delete"
-	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 )
 
 type ComputeOptions struct {

@@ -93,8 +93,9 @@ func (policy TPolicy) Explain(request [][]string) [][]string {
 }
 
 // Contains of TPolicy
-//    TPolicy p1 contains p2 means any action allowed by p2 is also allowed by p1
-//    and any action denied by p1 is also denied by p2
+//
+//	TPolicy p1 contains p2 means any action allowed by p2 is also allowed by p1
+//	and any action denied by p1 is also denied by p2
 func (policy1 TPolicy) Contains(policy2 TPolicy) bool {
 	for _, rule := range policy2 {
 		if rule.Result == Allow {

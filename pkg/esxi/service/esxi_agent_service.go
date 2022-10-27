@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 
+	mcesxi "yunion.io/x/cloudmux/pkg/multicloud/esxi"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -31,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
-	mcesxi "yunion.io/x/onecloud/pkg/multicloud/esxi"
 )
 
 type SExsiAgentService struct {

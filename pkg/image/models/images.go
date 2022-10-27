@@ -519,7 +519,7 @@ func (self *SImage) saveSize(newSize, totalSize int64) error {
 	return nil
 }
 
-//Image always do probe and customize after save from stream
+// Image always do probe and customize after save from stream
 func (self *SImage) SaveImageFromStream(reader io.Reader, totalSize int64, calChecksum bool) error {
 	localPath := self.GetLocalPath("")
 

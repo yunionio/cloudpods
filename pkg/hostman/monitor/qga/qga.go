@@ -315,9 +315,10 @@ func (qga *QemuGuestAgent) GuestExecCommand(
 # Since: 2.5
 ##
 { 'struct': 'GuestExecStatus',
-  'data': { 'exited': 'bool', '*exitcode': 'int', '*signal': 'int',
-            '*out-data': 'str', '*err-data': 'str',
-            '*out-truncated': 'bool', '*err-truncated': 'bool' }}
+
+	'data': { 'exited': 'bool', '*exitcode': 'int', '*signal': 'int',
+	          '*out-data': 'str', '*err-data': 'str',
+	          '*out-truncated': 'bool', '*err-truncated': 'bool' }}
 */
 type GuestExecStatus struct {
 	Exited       bool

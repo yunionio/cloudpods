@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
+	_ "yunion.io/x/cloudmux/pkg/multicloud/loader"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	_ "yunion.io/x/sqlchemy/backends"
@@ -46,8 +48,6 @@ import (
 	"yunion.io/x/onecloud/pkg/controller/autoscaling"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/multicloud/esxi"
-	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
 func StartService() {

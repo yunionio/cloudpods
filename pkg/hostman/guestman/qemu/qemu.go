@@ -212,8 +212,8 @@ func (o baseOptions) Nodefconfig() string {
 /*
 @subsection -no-kvm-pit-reinjection (since 1.3.0)
 
-The ``-no-kvm-pit-reinjection'' argument is now a
-synonym for setting ``-global kvm-pit.lost_tick_policy=discard''.
+The “-no-kvm-pit-reinjection” argument is now a
+synonym for setting “-global kvm-pit.lost_tick_policy=discard”.
 */
 func (o baseOptions) Global() string {
 	return "-global kvm-pit.lost_tick_policy=discard"

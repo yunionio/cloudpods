@@ -59,7 +59,8 @@ func (policies TPolicySet) Encode() jsonutils.JSONObject {
 }
 
 // Contains of TPolicySet
-//    TPolicySet ps1 contains ps2 means any member of ps2 is contained by one of the members of ps1
+//
+//	TPolicySet ps1 contains ps2 means any member of ps2 is contained by one of the members of ps1
 func (policies1 TPolicySet) Contains(policies2 TPolicySet) bool {
 	for _, ps2 := range policies2 {
 		contained := false

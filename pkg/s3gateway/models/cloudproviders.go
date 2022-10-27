@@ -22,12 +22,12 @@ import (
 
 	"golang.org/x/net/http/httpproxy"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
 	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/s3gateway/session"

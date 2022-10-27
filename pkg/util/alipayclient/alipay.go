@@ -158,8 +158,9 @@ type SAlipaySystemOAuthTokenResponse struct {
 }
 
 // {"alipay_system_oauth_token_response":{"access_token":"authusrB9ee9ecc8105e4fc4869b41e8a470dX90","alipay_user_id":"20881023391875409149385062614990","expires_in":1296000,
-//  "re_expires_in":2592000,"refresh_token":"authusrBe1a9c0bdf8d344e786ee57f2df9d6E90","user_id":"2088002723447908"},
-//  "sign":"rXGE/YX12UrmkEae9jw9WD7B2dS13Hs0r+EnqWwKdERGsUiFmP..."}
+//
+//	"re_expires_in":2592000,"refresh_token":"authusrBe1a9c0bdf8d344e786ee57f2df9d6E90","user_id":"2088002723447908"},
+//	"sign":"rXGE/YX12UrmkEae9jw9WD7B2dS13Hs0r+EnqWwKdERGsUiFmP..."}
 func (c *SAlipayClient) GetOAuthToken(ctx context.Context, code string) (*SAlipaySystemOAuthTokenResponse, error) {
 	resp, err := c.execute(ctx, "alipay.system.oauth.token", map[string]string{
 		"code":       code,
@@ -177,7 +178,8 @@ func (c *SAlipayClient) GetOAuthToken(ctx context.Context, code string) (*SAlipa
 }
 
 // {"alipay_user_info_share_response":{"code":"10000","msg":"Success","city":"北京市","gender":"m","nick_name":"剑","province":"北京","user_id":"2088002723447908"},
-//  "sign":"WZ+uBloiHvQYOOxq02aS/Y4MEoZf5+ANBnt1OKQ9Z8hOPmQsw=="}
+//
+//	"sign":"WZ+uBloiHvQYOOxq02aS/Y4MEoZf5+ANBnt1OKQ9Z8hOPmQsw=="}
 func (c *SAlipayClient) GetUserInfo(ctx context.Context, authToken string) (map[string]string, error) {
 	resp, err := c.execute(ctx, "alipay.user.info.share", map[string]string{
 		"auth_token": authToken,
