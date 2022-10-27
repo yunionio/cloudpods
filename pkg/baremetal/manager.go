@@ -1551,8 +1551,8 @@ func (b *SBaremetalInstance) GetServerSSHClient() (*ssh.Client, error) {
 	}
 	nics := s.GetNics()
 	var errs []error
-	for _, nic := range nics {
-		if nic.LinkUp && nic.Ip != "" {
+	for idx, nic := range nics {
+		if nic.Ip != "" {
 			for _, user := range []string{"cloudroot", "root"} {
 				sshCli, err := ssh.NewClient(nic.Ip, 22, user, "", privateKey)
 				if err != nil {
@@ -1562,6 +1562,8 @@ func (b *SBaremetalInstance) GetServerSSHClient() (*ssh.Client, error) {
 					return sshCli, nil
 				}
 			}
+		} else {
+			errs = append(errs, errors.Errorf("nic %d link_up: %v, ip: %q", idx, nic.LinkUp, nic.Ip))
 		}
 	}
 
