@@ -82,3 +82,7 @@ func (self *SInstanceBase) GetThroughput() int {
 func (self *SInstanceBase) GetInternetMaxBandwidthOut() int {
 	return 0
 }
+
+func (self *SInstanceBase) GetPowerStates() string {
+	return ""
+}

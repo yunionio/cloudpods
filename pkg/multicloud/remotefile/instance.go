@@ -262,3 +262,10 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	}
 	return ret, nil
 }
+
+func (self *SInstance) GetPowerStates() string {
+	if self.Status == "running" {
+		return api.VM_POWER_STATES_ON
+	}
+	return api.VM_POWER_STATES_OFF
+}
