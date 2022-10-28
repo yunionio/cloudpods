@@ -19,10 +19,10 @@ import (
 	"net/http"
 	"sort"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
 
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/s3gateway/models"
 )

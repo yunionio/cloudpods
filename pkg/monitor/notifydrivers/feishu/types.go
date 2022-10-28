@@ -95,7 +95,7 @@ const (
 	MsgTypeInteractive = "interactive"
 )
 
-//定义参照: https://open.feishu.cn/open-apis/message/v4/send/
+// 定义参照: https://open.feishu.cn/open-apis/message/v4/send/
 type MsgReq struct {
 	OpenId      string `json:"open_id,omitempty"`
 	UserId      string `json:"user_id,omitempty"`
@@ -158,7 +158,7 @@ type MsgPostContentImage struct {
 	Height   float64 `json:"height"`
 }
 
-//机器人消息Card字段数据格式定义
+// 机器人消息Card字段数据格式定义
 type Card struct {
 	Config       *CardConfig     `json:"config,omitempty"`
 	CardLink     *CardElementUrl `json:"card_link,omitempty"`

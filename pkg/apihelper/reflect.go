@@ -226,8 +226,8 @@ type ModelSetUpdateResult struct {
 
 // ModelSetApplyUpdates applies bSet to aSet.
 //
-//  - PendingDeleted in bSet are removed from aSet
-//  - Newer models in bSet are updated in aSet
+//   - PendingDeleted in bSet are removed from aSet
+//   - Newer models in bSet are updated in aSet
 func ModelSetApplyUpdates(aSet, bSet IModelSet) *ModelSetUpdateResult {
 	r := &ModelSetUpdateResult{
 		Changed: false,

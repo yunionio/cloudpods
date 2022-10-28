@@ -18,6 +18,7 @@ import (
 	"os"
 	"time"
 
+	_ "yunion.io/x/cloudmux/pkg/multicloud/loader"
 	"yunion.io/x/log"
 	_ "yunion.io/x/sqlchemy/backends"
 
@@ -32,7 +33,6 @@ import (
 	_ "yunion.io/x/onecloud/pkg/cloudid/policy"
 	"yunion.io/x/onecloud/pkg/cloudid/saml"
 	_ "yunion.io/x/onecloud/pkg/cloudid/tasks"
-	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
 func StartService() {

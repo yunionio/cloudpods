@@ -97,8 +97,8 @@ func (man *SDynamicschedtagManager) InitializeData() error {
 
 // dynamic schedtag is called before scan host candidates, dynamically adding additional schedtag to hosts
 // condition examples:
-//  host.sys_load > 1.5 || host.mem_used_percent > 0.7 => "high_load"
 //
+//	host.sys_load > 1.5 || host.mem_used_percent > 0.7 => "high_load"
 type SDynamicschedtag struct {
 	db.SStandaloneResourceBase
 	SSchedtagResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`

@@ -46,8 +46,9 @@ func (t1 TTagSetList) Contains(t2 TTagSet) bool {
 }
 
 // Contains of TTagSetList
-//    tagsetlist t1 contains tagsetlist t2 means any tag set of t2 is
-//    contained by one of the tag set of t1
+//
+//	tagsetlist t1 contains tagsetlist t2 means any tag set of t2 is
+//	contained by one of the tag set of t1
 func (t1 TTagSetList) ContainsAll(t2 TTagSetList) bool {
 	if len(t2) == 0 {
 		return true

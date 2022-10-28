@@ -17,6 +17,7 @@ package service
 import (
 	"os"
 
+	_ "yunion.io/x/cloudmux/pkg/multicloud/loader"
 	"yunion.io/x/log"
 	_ "yunion.io/x/sqlchemy/backends"
 
@@ -24,7 +25,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 	"yunion.io/x/onecloud/pkg/s3gateway/handlers"
 	"yunion.io/x/onecloud/pkg/s3gateway/options"
 )

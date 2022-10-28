@@ -20,6 +20,7 @@ import (
 	"os"
 	"strings"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -28,7 +29,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -124,7 +124,7 @@ func (s *SRbdStorage) GetImgsaveBackupPath() string {
 	return ""
 }
 
-//Tip Configuration values containing :, @, or = can be escaped with a leading \ character.
+// Tip Configuration values containing :, @, or = can be escaped with a leading \ character.
 func (s *SRbdStorage) getStorageConfString() string {
 	conf := []string{}
 	conf = append(conf, "mon_host="+strings.ReplaceAll(s.MonHost, ",", `\;`))

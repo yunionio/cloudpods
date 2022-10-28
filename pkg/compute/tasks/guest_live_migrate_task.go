@@ -668,7 +668,7 @@ func (self *GuestMigrateTask) markFailed(ctx context.Context, guest *models.SGue
 	})
 }
 
-//ManagedGuestMigrateTask
+// ManagedGuestMigrateTask
 func (self *ManagedGuestMigrateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, nil, self.UserCred)
@@ -720,7 +720,7 @@ func (self *ManagedGuestMigrateTask) OnMigrateCompleteFailed(ctx context.Context
 	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_MIGRATE_FAILED, data.String())
 }
 
-//ManagedGuestLiveMigrateTask
+// ManagedGuestLiveMigrateTask
 func (self *ManagedGuestLiveMigrateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, nil, self.UserCred)

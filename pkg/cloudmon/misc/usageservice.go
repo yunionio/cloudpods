@@ -101,7 +101,7 @@ func UsegReport(ctx context.Context, userCred mcclient.TokenCredential, isStart 
 	}
 }
 
-//根据capabilities中的hypevisors和brands中的对应属性，组装Metric
+// 根据capabilities中的hypevisors和brands中的对应属性，组装Metric
 func packMetricList(session *mcclient.ClientSession, dataList []influxdb.SMetricData,
 	imageUsageFieldsDict *jsonutils.JSONDict, paramKey string,
 	paramValue string, nowTime time.Time) (rtnList []influxdb.SMetricData, err error) {
@@ -141,7 +141,7 @@ func packMetricList(session *mcclient.ClientSession, dataList []influxdb.SMetric
 	return dataList, nil
 }
 
-//获得镜像使用量
+// 获得镜像使用量
 func getImageUsageFields(session *mcclient.ClientSession) (jsonutils.JSONObject, error) {
 	respObj, e := (&image.ImageUsages).GetUsage(session, nil)
 	if e != nil {
@@ -154,7 +154,7 @@ func getImageUsageFields(session *mcclient.ClientSession) (jsonutils.JSONObject,
 	return respDict, nil
 }
 
-//将JSONDict的信息放置到SMetricData中
+// 将JSONDict的信息放置到SMetricData中
 func jsonTometricData(obj *jsonutils.JSONDict, metric *influxdb.SMetricData,
 	metricDataType string) (*influxdb.SMetricData, error) {
 

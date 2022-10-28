@@ -58,8 +58,9 @@ func ErrorLoggerT(typ gin.ErrorType) gin.HandlerFunc {
 // http://godoc.org/github.com/gin-gonic/gin#Logger does.
 //
 // Example:
-//        router := gin.New()
-//        router.Use(ginglog.Logger())
+//
+//	router := gin.New()
+//	router.Use(ginglog.Logger())
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		t := time.Now()

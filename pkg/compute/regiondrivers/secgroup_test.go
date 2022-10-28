@@ -19,10 +19,9 @@ import (
 	"sort"
 	"testing"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/stringutils"
-
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type TestData struct {

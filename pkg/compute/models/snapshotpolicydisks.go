@@ -390,7 +390,6 @@ func (m *SSnapshotPolicyDiskManager) SyncAttachDisk(ctx context.Context, userCre
 	return errors.Error(buf.String())
 }
 
-//
 func (m *SSnapshotPolicyDiskManager) SyncAttachDiskExt(ctx context.Context, userCred mcclient.TokenCredential,
 	extSnapshotpolicies []string, syncOwnerID mcclient.IIdentityProvider, disk *SDisk, storage *SStorage) error {
 

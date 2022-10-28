@@ -20,11 +20,11 @@ import (
 
 	"github.com/pkg/errors"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/s3cli"
 
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -45,46 +45,46 @@ func init() {
 }
 
 /*
-{
-	"access_urls":[{"description":"bucket domain","primary":true,"url":"https://yunion-billing-reports.s3.cn-northwest-1.amazonaws.com.cn"},{"description":"s3 domain","primary":false,"url":"https://s3.cn-northwest-1.amazonaws.com.cn/yunion-billing-reports"}],
-	"account":"aws-cn",
-	"account_id":"edc90a61-7f8a-4be7-84f1-8f3ac70ef5e6",
-	"acl":"private",
-	"brand":"Aws",
-	"can_delete":false,
-	"can_update":true,
-	"cloud_env":"public",
-	"cloudregion_id":"4cbf92a5-337b-4cc6-82c7-86e5427b69e3",
-	"created_at":"2019-03-11T10:31:26.000000Z",
-	"domain_id":"default",
-	"external_id":"yunion-billing-reports",
-	"id":"056bb8c6-527d-4554-8939-12eb6aa803bd",
-	"is_emulated":false,
-	"is_system":false,
-	"location":"cn-northwest-1",
-	"manager":"aws-cn",
-	"manager_domain":"Default",
-	"manager_domain_id":"default",
-	"manager_id":"d8df39fa-b212-43c1-8d44-aeef897e216d",
-	"manager_project":"system",
-	"manager_project_id":"5d65667d112e47249ae66dbd7bc07030",
-	"name":"yunion-billing-reports",
-	"object_cnt":44,
-	"object_cnt_limit":0,
-	"project_domain":"Default",
-	"project_src":"cloud",
-	"provider":"Aws",
-	"region":"AWS 中国(宁夏)",
-	"region_ext_id":"cn-northwest-1",
-	"region_id":"4cbf92a5-337b-4cc6-82c7-86e5427b69e3",
-	"size_bytes":3332448,
-	"size_bytes_limit":0,
-	"status":"ready",
-	"tenant":"system",
-	"tenant_id":"5d65667d112e47249ae66dbd7bc07030",
-	"update_version":1,
-	"updated_at":"2019-08-18T15:52:42.000000Z",
-}
+	{
+		"access_urls":[{"description":"bucket domain","primary":true,"url":"https://yunion-billing-reports.s3.cn-northwest-1.amazonaws.com.cn"},{"description":"s3 domain","primary":false,"url":"https://s3.cn-northwest-1.amazonaws.com.cn/yunion-billing-reports"}],
+		"account":"aws-cn",
+		"account_id":"edc90a61-7f8a-4be7-84f1-8f3ac70ef5e6",
+		"acl":"private",
+		"brand":"Aws",
+		"can_delete":false,
+		"can_update":true,
+		"cloud_env":"public",
+		"cloudregion_id":"4cbf92a5-337b-4cc6-82c7-86e5427b69e3",
+		"created_at":"2019-03-11T10:31:26.000000Z",
+		"domain_id":"default",
+		"external_id":"yunion-billing-reports",
+		"id":"056bb8c6-527d-4554-8939-12eb6aa803bd",
+		"is_emulated":false,
+		"is_system":false,
+		"location":"cn-northwest-1",
+		"manager":"aws-cn",
+		"manager_domain":"Default",
+		"manager_domain_id":"default",
+		"manager_id":"d8df39fa-b212-43c1-8d44-aeef897e216d",
+		"manager_project":"system",
+		"manager_project_id":"5d65667d112e47249ae66dbd7bc07030",
+		"name":"yunion-billing-reports",
+		"object_cnt":44,
+		"object_cnt_limit":0,
+		"project_domain":"Default",
+		"project_src":"cloud",
+		"provider":"Aws",
+		"region":"AWS 中国(宁夏)",
+		"region_ext_id":"cn-northwest-1",
+		"region_id":"4cbf92a5-337b-4cc6-82c7-86e5427b69e3",
+		"size_bytes":3332448,
+		"size_bytes_limit":0,
+		"status":"ready",
+		"tenant":"system",
+		"tenant_id":"5d65667d112e47249ae66dbd7bc07030",
+		"update_version":1,
+		"updated_at":"2019-08-18T15:52:42.000000Z",
+	}
 */
 type SBucketDelegate struct {
 	SBaseModelDelegate

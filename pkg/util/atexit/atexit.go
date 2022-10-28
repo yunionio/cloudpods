@@ -26,7 +26,7 @@ type ExitHandlerFunc func(ExitHandler)
 
 // ExitHandler defines the spec of handler
 //
-// Reason and Func are mandatory and must not be empty or nil
+// # Reason and Func are mandatory and must not be empty or nil
 //
 // Handlers with smaller Prio will be executed earlier than those with bigger
 // Prio at exit time.  Handler func will receive a copy of the ExitHandler

@@ -19,6 +19,7 @@ import (
 	"io"
 	"os"
 
+	"yunion.io/x/cloudmux/pkg/multicloud/objectstore"
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -26,7 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
-	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
 )
 
 func init() {

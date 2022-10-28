@@ -33,8 +33,8 @@ type ARM struct {
 	archBase
 }
 
-//  -device scsi-cd,drive=cd0,share-rw=true
-//  if=none,file=%s,id=cd0,media=cdrom
+// -device scsi-cd,drive=cd0,share-rw=true
+// if=none,file=%s,id=cd0,media=cdrom
 func (*ARM) GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom) {
 	scsiDev := desc.NewScsiDevice("", "scsi-cd", "scsi0-cd0")
 	scsiDev.Options = map[string]string{"share-rw": "true"}

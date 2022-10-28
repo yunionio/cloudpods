@@ -17,7 +17,7 @@ package regiondrivers
 import (
 	"testing"
 
-	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
 func TestOpenStackRuleSync(t *testing.T) {

@@ -263,9 +263,9 @@ func (s *SKVMGuestInstance) GetPid() int {
 }
 
 /*
- pid -> running qemu's pid
- -1 -> pid file does not exists
- -2 -> pid file ok but content does not match any qemu process
+pid -> running qemu's pid
+-1 -> pid file does not exists
+-2 -> pid file ok but content does not match any qemu process
 */
 func (s *SKVMGuestInstance) getPid(pidFile, uuid string) int {
 	if !fileutils2.Exists(pidFile) {

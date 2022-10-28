@@ -68,41 +68,41 @@ func getStringToSignV4(t time.Time, location, canonicalRequest string) string {
 	return stringToSign
 }
 
-///
-/// Excerpts from @lsegal -
-/// https://github.com/aws/aws-sdk-js/issues/659#issuecomment-120477258.
-///
-///  User-Agent:
-///
-///      This is ignored from signing because signing this causes
-///      problems with generating pre-signed URLs (that are executed
-///      by other agents) or when customers pass requests through
-///      proxies, which may modify the user-agent.
-///
-///  Content-Length:
-///
-///      This is ignored from signing because generating a pre-signed
-///      URL should not provide a content-length constraint,
-///      specifically when vending a S3 pre-signed PUT URL. The
-///      corollary to this is that when sending regular requests
-///      (non-pre-signed), the signature contains a checksum of the
-///      body, which implicitly validates the payload length (since
-///      changing the number of bytes would change the checksum)
-///      and therefore this header is not valuable in the signature.
-///
-///  Content-Type:
-///
-///      Signing this header causes quite a number of problems in
-///      browser environments, where browsers like to modify and
-///      normalize the content-type header in different ways. There is
-///      more information on this in https://goo.gl/2E9gyy. Avoiding
-///      this field simplifies logic and reduces the possibility of
-///      future bugs.
-///
-///  Authorization:
-///
-///      Is skipped for obvious reasons
-///
+// /
+// / Excerpts from @lsegal -
+// / https://github.com/aws/aws-sdk-js/issues/659#issuecomment-120477258.
+// /
+// /  User-Agent:
+// /
+// /      This is ignored from signing because signing this causes
+// /      problems with generating pre-signed URLs (that are executed
+// /      by other agents) or when customers pass requests through
+// /      proxies, which may modify the user-agent.
+// /
+// /  Content-Length:
+// /
+// /      This is ignored from signing because generating a pre-signed
+// /      URL should not provide a content-length constraint,
+// /      specifically when vending a S3 pre-signed PUT URL. The
+// /      corollary to this is that when sending regular requests
+// /      (non-pre-signed), the signature contains a checksum of the
+// /      body, which implicitly validates the payload length (since
+// /      changing the number of bytes would change the checksum)
+// /      and therefore this header is not valuable in the signature.
+// /
+// /  Content-Type:
+// /
+// /      Signing this header causes quite a number of problems in
+// /      browser environments, where browsers like to modify and
+// /      normalize the content-type header in different ways. There is
+// /      more information on this in https://goo.gl/2E9gyy. Avoiding
+// /      this field simplifies logic and reduces the possibility of
+// /      future bugs.
+// /
+// /  Authorization:
+// /
+// /      Is skipped for obvious reasons
+// /
 var v4IgnoredHeaders = map[string]bool{
 	"Authorization":  true,
 	"Content-Type":   true,
@@ -134,12 +134,13 @@ func getSignature(signingKey []byte, stringToSign string) string {
 // getCanonicalRequest generate a canonical request of style.
 //
 // canonicalRequest =
-//  <HTTPMethod>\n
-//  <CanonicalURI>\n
-//  <CanonicalQueryString>\n
-//  <CanonicalHeaders>\n
-//  <SignedHeaders>\n
-//  <HashedPayload>
+//
+//	<HTTPMethod>\n
+//	<CanonicalURI>\n
+//	<CanonicalQueryString>\n
+//	<CanonicalHeaders>\n
+//	<SignedHeaders>\n
+//	<HashedPayload>
 func getCanonicalRequest(req http.Request, signedHeaders []string) string {
 	req.URL.RawQuery = strings.Replace(req.URL.Query().Encode(), "+", "%20", -1)
 	canonicalRequest := strings.Join([]string{

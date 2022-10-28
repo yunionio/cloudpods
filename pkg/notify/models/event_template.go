@@ -52,7 +52,7 @@ type sEvenWebhookMsg struct {
 	ResourceDetails map[string]interface{} `json:"resource_details"`
 }
 
-//templateDir = "/opt/yunion/share/local-templates"
+// templateDir = "/opt/yunion/share/local-templates"
 type SLocalTemplateManager struct {
 	templateDir    string
 	templatesTable *sync.Map
