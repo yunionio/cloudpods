@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package hcso
+package hcs
 
 import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,7 +35,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/multicloud/hcso/client/modules"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
@@ -50,7 +50,7 @@ type IpAddress struct {
 	Version            string `json:"version"`
 	Addr               string `json:"addr"`
 	OSEXTIPSMACMACAddr string `json:"OS-EXT-IPS-MAC:mac_addr"`
-	OSEXTIPSPortID     string `json:"OS-EXT-IPS:port_id"`
+	OSEXTIPSPortId     string `json:"OS-EXT-IPS:port_id"`
 	OSEXTIPSType       string `json:"OS-EXT-IPS:type"`
 }
 
@@ -58,21 +58,22 @@ type Flavor struct {
 	Disk  string `json:"disk"`
 	Vcpus string `json:"vcpus"`
 	RAM   string `json:"ram"`
-	ID    string `json:"id"`
+	Id    string `json:"id"`
 	Name  string `json:"name"`
 }
 
 type Image struct {
-	ID string `json:"id"`
+	Id string `json:"id"`
 }
 
 type VMMetadata struct {
-	MeteringImageID           string `json:"metering.image_id"`
+	MeteringImageId           string `json:"metering.image_id"`
 	MeteringImagetype         string `json:"metering.imagetype"`
+	MeteringOrderId           string `json:"metering.order_id"`
 	MeteringResourcespeccode  string `json:"metering.resourcespeccode"`
 	ImageName                 string `json:"image_name"`
 	OSBit                     string `json:"os_bit"`
-	VpcID                     string `json:"vpc_id"`
+	VpcId                     string `json:"vpc_id"`
 	MeteringResourcetype      string `json:"metering.resourcetype"`
 	CascadedInstanceExtrainfo string `json:"cascaded.instance_extrainfo"`
 	OSType                    string `json:"os_type"`
@@ -82,7 +83,7 @@ type VMMetadata struct {
 type OSExtendedVolumesVolumesAttached struct {
 	Device              string `json:"device"`
 	BootIndex           string `json:"bootIndex"`
-	ID                  string `json:"id"`
+	Id                  string `json:"id"`
 	DeleteOnTermination string `json:"delete_on_termination"`
 }
 
@@ -108,7 +109,7 @@ type SInstance struct {
 
 	osInfo *imagetools.ImageInfo
 
-	ID          string                 `json:"id"`
+	Id          string                 `json:"id"`
 	Name        string                 `json:"name"`
 	Addresses   map[string][]IpAddress `json:"addresses"`
 	Flavor      Flavor                 `json:"flavor"`
@@ -116,15 +117,16 @@ type SInstance struct {
 	AccessIPv6  string                 `json:"accessIPv6"`
 	Status      string                 `json:"status"`
 	Progress    string                 `json:"progress"`
-	HostID      string                 `json:"hostId"`
+	HostId      string                 `json:"hostId"`
+	Image       Image                  `json:"image"`
 	Updated     string                 `json:"updated"`
 	Created     time.Time              `json:"created"`
 	Metadata    VMMetadata             `json:"metadata"`
 	Description string                 `json:"description"`
 	Locked      bool                   `json:"locked"`
 	ConfigDrive string                 `json:"config_drive"`
-	TenantID    string                 `json:"tenant_id"`
-	UserID      string                 `json:"user_id"`
+	TenantId    string                 `json:"tenant_id"`
+	UserId      string                 `json:"user_id"`
 	KeyName     string                 `json:"key_name"`
 
 	OSExtendedVolumesVolumesAttached []OSExtendedVolumesVolumesAttached `json:"os-extended-volumes:volumes_attached"`
@@ -138,19 +140,18 @@ type SInstance struct {
 	OSEXTAZAvailabilityZone          string                             `json:"OS-EXT-AZ:availability_zone"`
 	OSSchedulerHints                 OSSchedulerHints                   `json:"os:scheduler_hints"`
 	OSEXTSRVATTRRootDeviceName       string                             `json:"OS-EXT-SRV-ATTR:root_device_name"`
-	OSEXTSRVATTRRamdiskID            string                             `json:"OS-EXT-SRV-ATTR:ramdisk_id"`
-	EnterpriseProjectID              string                             `json:"enterprise_project_id"`
+	OSEXTSRVATTRRamdiskId            string                             `json:"OS-EXT-SRV-ATTR:ramdisk_id"`
+	EnterpriseProjectId              string                             `json:"enterprise_project_id"`
 	OSEXTSRVATTRUserData             string                             `json:"OS-EXT-SRV-ATTR:user_data"`
 	OSSRVUSGLaunchedAt               time.Time                          `json:"OS-SRV-USG:launched_at"`
-	OSEXTSRVATTRKernelID             string                             `json:"OS-EXT-SRV-ATTR:kernel_id"`
+	OSEXTSRVATTRKernelId             string                             `json:"OS-EXT-SRV-ATTR:kernel_id"`
 	OSEXTSRVATTRLaunchIndex          int64                              `json:"OS-EXT-SRV-ATTR:launch_index"`
 	HostStatus                       string                             `json:"host_status"`
-	OSEXTSRVATTRReservationID        string                             `json:"OS-EXT-SRV-ATTR:reservation_id"`
+	OSEXTSRVATTRReservationId        string                             `json:"OS-EXT-SRV-ATTR:reservation_id"`
 	OSEXTSRVATTRHostname             string                             `json:"OS-EXT-SRV-ATTR:hostname"`
 	OSSRVUSGTerminatedAt             time.Time                          `json:"OS-SRV-USG:terminated_at"`
 	SysTags                          []SysTag                           `json:"sys_tags"`
 	SecurityGroups                   []SecurityGroup                    `json:"security_groups"`
-	EnterpriseProjectId              string
 }
 
 func compareSet(currentSet []string, newSet []string) (add []string, remove []string, keep []string) {
@@ -190,7 +191,7 @@ func isBootDisk(server *SInstance, disk *SDisk) bool {
 	}
 
 	for _, attachment := range disk.Attachments {
-		if attachment.ServerID == server.GetId() && attachment.Device == server.OSEXTSRVATTRRootDeviceName {
+		if attachment.ServerId == server.GetId() && attachment.Device == server.OSEXTSRVATTRRootDeviceName {
 			return true
 		}
 	}
@@ -199,19 +200,19 @@ func isBootDisk(server *SInstance, disk *SDisk) bool {
 }
 
 func (self *SInstance) GetId() string {
-	return self.ID
-}
-
-func (self *SInstance) GetName() string {
-	return self.Name
+	return self.Id
 }
 
 func (self *SInstance) GetHostname() string {
 	return self.OSEXTSRVATTRHostname
 }
 
+func (self *SInstance) GetName() string {
+	return self.Name
+}
+
 func (self *SInstance) GetGlobalId() string {
-	return self.ID
+	return self.Id
 }
 
 func (self *SInstance) GetStatus() string {
@@ -239,34 +240,27 @@ func (ins *SInstance) GetPowerStates() string {
 }
 
 func (self *SInstance) Refresh() error {
-	new, err := self.host.zone.region.GetInstanceByID(self.GetId())
-	new.host = self.host
+	ret, err := self.host.zone.region.GetInstance(self.GetId())
 	if err != nil {
 		return err
 	}
-
-	if new.Status == InstanceStatusTerminated {
-		log.Debugf("Instance already terminated.")
-		return cloudprovider.ErrNotFound
-	}
-
-	err = jsonutils.Update(self, new)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (self *SInstance) IsEmulated() bool {
-	return false
+	return jsonutils.Update(self, ret)
 }
 
 func (self *SInstance) GetInstanceType() string {
-	return self.Flavor.ID
+	return self.Flavor.Id
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
-	return self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
+	secgroups, err := self.host.zone.region.GetInstanceSecrityGroups(self.Id)
+	if err != nil {
+		return nil, err
+	}
+	ret := []string{}
+	for i := range secgroups {
+		ret = append(ret, secgroups[i].Id)
+	}
+	return ret, nil
 }
 
 // https://support.huaweicloud.com/api-ecs/ecs_02_1002.html
@@ -282,8 +276,8 @@ func (self *SRegion) CreateServerTags(instanceId string, tags map[string]string)
 	}
 	params["tags"] = tagsObj
 
-	_, err := self.ecsClient.Servers.PerformAction2("tags/action", instanceId, jsonutils.Marshal(params), "")
-	return err
+	res := fmt.Sprintf("cloudservers/%s", instanceId)
+	return self.perform("ecs", "v1", res, "tags/action", params, nil)
 }
 
 // https://support.huaweicloud.com/api-ecs/ecs_02_1003.html
@@ -296,9 +290,8 @@ func (self *SRegion) DeleteServerTags(instanceId string, tagsKey []string) error
 		tagsObj = append(tagsObj, map[string]string{"key": k})
 	}
 	params["tags"] = tagsObj
-
-	_, err := self.ecsClient.Servers.PerformAction2("tags/action", instanceId, jsonutils.Marshal(params), "")
-	return err
+	res := fmt.Sprintf("cloudservers/%s", instanceId)
+	return self.perform("ecs", "v1", res, "tags/action", params, nil)
 }
 
 func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
@@ -336,9 +329,8 @@ func (self *SInstance) GetBillingType() string {
 	// charging_mode “0”：按需计费    “1”：按包年包月计费
 	if self.Metadata.ChargingMode == "1" {
 		return billing_api.BILLING_TYPE_PREPAID
-	} else {
-		return billing_api.BILLING_TYPE_POSTPAID
 	}
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SInstance) GetCreatedAt() time.Time {
@@ -347,28 +339,18 @@ func (self *SInstance) GetCreatedAt() time.Time {
 
 // charging_mode “0”：按需计费  “1”：按包年包月计费
 func (self *SInstance) GetExpiredAt() time.Time {
-	var expiredTime time.Time
-	return expiredTime
+	return time.Time{}
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }
 
-func (self *SInstance) GetIHostId() string {
-	return self.host.GetGlobalId()
-}
-
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	err := self.Refresh()
-	if err != nil {
-		return nil, err
-	}
-
 	attached := self.OSExtendedVolumesVolumesAttached
 	disks := make([]SDisk, 0)
 	for _, vol := range attached {
-		disk, err := self.host.zone.region.GetDisk(vol.ID)
+		disk, err := self.host.zone.region.GetDisk(vol.Id)
 		if err != nil {
 			return nil, err
 		}
@@ -376,30 +358,20 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		disks = append(disks, *disk)
 	}
 
-	idisks := make([]cloudprovider.ICloudDisk, len(disks))
+	ret := []cloudprovider.ICloudDisk{}
 	for i := 0; i < len(disks); i += 1 {
-		storage, err := self.host.zone.getStorageByCategory(disks[i].VolumeType)
-		if err != nil {
-			return nil, err
-		}
-		disks[i].storage = storage
-		idisks[i] = &disks[i]
-		// 将系统盘放到第0个位置
+		disks[i].region = self.host.zone.region
 		if isBootDisk(self, &disks[i]) {
-			_temp := idisks[0]
-			idisks[0] = &disks[i]
-			idisks[i] = _temp
+			ret = append([]cloudprovider.ICloudDisk{&disks[i]}, ret...)
+		} else {
+			ret = append(ret, &disks[i])
 		}
 	}
-	return idisks, nil
+	return ret, nil
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	nics := make([]cloudprovider.ICloudNic, 0)
-
-	// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0094148849.html
-	// OS-EXT-IPS.type
-	// todo: 这里没有区分是IPv4 还是 IPv6。统一当IPv4处理了.可能会引发错误
 	for _, ipAddresses := range self.Addresses {
 		for _, ipAddress := range ipAddresses {
 			if ipAddress.OSEXTIPSType == "fixed" {
@@ -429,17 +401,14 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		return nil, nil
 	}
 
-	eips, err := self.host.zone.region.GetEips()
+	eips, err := self.host.zone.region.GetEips("", ips)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, eip := range eips {
-		if eip.PublicIPAddress == ips[0] {
-			return &eip, nil
-		}
+	if len(eips) > 0 {
+		eips[0].region = self.host.zone.region
+		return &eips[0], nil
 	}
-
 	return nil, nil
 }
 
@@ -465,11 +434,14 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) GetOsArch() string {
-	if flavor, err := self.host.zone.region.GetICloudSku(self.Flavor.ID); err == nil {
-		return flavor.GetCpuArch()
-	} else {
-		log.Debugf("GetOSArch.GetICloudSku %s: %s", self.Flavor.ID, err)
+func (self *SInstance) GetOSArch() string {
+	if len(self.Image.Id) > 0 {
+		image, err := self.host.zone.region.GetImage(self.Image.Id)
+		if err == nil {
+			return image.GetOsArch()
+		}
+
+		log.Debugf("GetOSArch.GetImage %s: %s", self.Image.Id, err)
 	}
 
 	t := self.GetInstanceType()
@@ -486,7 +458,7 @@ func (self *SInstance) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.Metadata.OSType))
 }
 
-func (self *SInstance) GetFullOsName() string {
+func (self *SInstance) GetOSName() string {
 	return self.Metadata.ImageName
 }
 
@@ -498,8 +470,8 @@ func (i *SInstance) getNormalizedOsInfo() *imagetools.ImageInfo {
 	return i.osInfo
 }
 
-func (i *SInstance) GetBios() cloudprovider.TBiosType {
-	return cloudprovider.ToBiosType(i.getNormalizedOsInfo().OsBios)
+func (self *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.BIOS
 }
 
 func (i *SInstance) GetOsDist() string {
@@ -514,8 +486,29 @@ func (i *SInstance) GetOsLang() string {
 	return i.getNormalizedOsInfo().OsLang
 }
 
+func (self *SInstance) GetFullOsName() string {
+	return self.Metadata.ImageName
+}
+
 func (self *SInstance) GetMachine() string {
 	return "pc"
+}
+
+func (self *SInstance) GetOsArch() string {
+	if flavor, err := self.host.zone.region.GetICloudSku(self.Flavor.Id); err == nil {
+		return flavor.GetCpuArch()
+	} else {
+		log.Debugf("GetOSArch.GetICloudSku %s: %s", self.Flavor.Id, err)
+	}
+
+	t := self.GetInstanceType()
+	if len(t) > 0 {
+		if strings.HasPrefix(t, "k") {
+			return apis.OS_ARCH_AARCH64
+		}
+	}
+
+	return apis.OS_ARCH_X86
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
@@ -523,22 +516,21 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
-	currentSecgroups, err := self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
+	currentSecgroups, err := self.GetSecurityGroupIds()
 	if err != nil {
 		return err
 	}
 
 	add, remove, _ := compareSet(currentSecgroups, secgroupIds)
-	err = self.host.zone.region.assignSecurityGroups(add, self.GetId())
+	err = self.host.zone.region.AssignSecurityGroups(add, self.GetId())
 	if err != nil {
 		return err
 	}
-
-	return self.host.zone.region.unassignSecurityGroups(remove, self.GetId())
+	return self.host.zone.region.UnassignSecurityGroups(remove, self.GetId())
 }
 
 func (self *SInstance) GetHypervisor() string {
-	return api.HYPERVISOR_HCSO
+	return api.HYPERVISOR_HCS
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
@@ -587,21 +579,7 @@ func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerSto
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	if self.Status == InstanceStatusTerminated {
-		return nil
-	}
-
-	for {
-		err := self.host.zone.region.DeleteVM(self.GetId())
-		if err != nil && self.Status != InstanceStatusTerminated {
-			log.Errorf("DeleteVM fail: %s", err)
-			return err
-		} else {
-			break
-		}
-	}
-
-	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
+	return self.host.zone.region.DeleteVM(self.GetId())
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
@@ -620,10 +598,8 @@ func (self *SInstance) UpdateUserData(userData string) error {
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876971.html 更换系统盘操作系统
 // 不支持调整系统盘大小
 func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
-	var err error
-	var jobId string
-
 	publicKeyName := ""
+	var err error
 	if len(desc.PublicKey) > 0 {
 		publicKeyName, err = self.host.zone.region.syncKeypair(desc.PublicKey)
 		if err != nil {
@@ -646,27 +622,16 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 		return "", errors.Wrap(err, "SInstance.RebuildRoot.updateUserData")
 	}
 
-	if self.Metadata.MeteringImageID == desc.ImageId {
-		jobId, err = self.host.zone.region.RebuildRoot(ctx, self.UserID, self.GetId(), desc.Password, publicKeyName, userData)
+	if self.Metadata.MeteringImageId == desc.ImageId {
+		err = self.host.zone.region.RebuildRoot(ctx, self.UserId, self.GetId(), desc.Password, publicKeyName, userData)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		jobId, err = self.host.zone.region.ChangeRoot(ctx, self.UserID, self.GetId(), desc.ImageId, desc.Password, publicKeyName, userData)
+		err = self.host.zone.region.ChangeRoot(ctx, self.UserId, self.GetId(), desc.ImageId, desc.Password, publicKeyName, userData)
 		if err != nil {
 			return "", err
 		}
-	}
-
-	err = self.host.zone.region.waitTaskStatus(self.host.zone.region.ecsClient.Servers.ServiceType(), jobId, TASK_SUCCESS, 15*time.Second, 900*time.Second)
-	if err != nil {
-		log.Errorf("RebuildRoot task error %s", err)
-		return "", err
-	}
-
-	err = self.Refresh()
-	if err != nil {
-		return "", err
 	}
 
 	idisks, err := self.GetIDisks()
@@ -695,7 +660,7 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 			return errors.Wrapf(err, "GetMatchInstanceTypes")
 		}
 		for _, flavor := range flavors {
-			instanceTypes = append(instanceTypes, flavor.ID)
+			instanceTypes = append(instanceTypes, flavor.Id)
 		}
 	}
 	var err error
@@ -786,440 +751,206 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	})
 }
 
-func (self *SInstance) Renew(bc billing.SBillingCycle) error {
-	return cloudprovider.ErrNotSupported
-}
-
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0094148850.html
-func (self *SRegion) GetInstances() ([]SInstance, error) {
-	queries := make(map[string]string)
+func (self *SRegion) GetInstances(ip string) ([]SInstance, error) {
+	params := url.Values{}
+	if len(ip) > 0 {
+		params.Set("ip", ip)
+	}
+	params.Set("offset", "1")
+	ret := []SInstance{}
+	return ret, self.list("ecs", "v1", "cloudservers/detail", params, &ret)
+}
 
-	if len(self.client.projectId) > 0 {
-		queries["project_id"] = self.client.projectId
+func (self *SRegion) GetInstance(id string) (*SInstance, error) {
+	ret := &SInstance{}
+	res := fmt.Sprintf("cloudservers/%s", id)
+	return ret, self.get("ecs", "v1", res, ret)
+}
+func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, subnetId string,
+	securityGroupId string, vpcId string, zoneId string, desc string, sysDisk cloudprovider.SDiskInfo, dataDisks []cloudprovider.SDiskInfo, ipAddr string,
+	keypair string, passwd string, userData string, bc *billing.SBillingCycle, projectId string, tags map[string]string) (*SInstance, error) {
+	diskParams := []map[string]interface{}{}
+	for _, disk := range dataDisks {
+		diskParams = append(diskParams, map[string]interface{}{
+			"volumetype": disk.StorageType,
+			"size":       disk.SizeGB,
+		})
+	}
+	params := map[string]interface{}{
+		"availability_zone": zoneId,
+		"name":              name,
+		"flavorRef":         instanceType,
+		"imageRef":          imageId,
+		"description":       desc,
+		"count":             1,
+		"tenancy":           "0",
+		"region_id":         self.Id,
+		"operate_type":      "apply",
+		"service_type":      "ecs",
+		"tenantId":          self.client.projectId,
+		"project_id":        self.client.projectId,
+		"nics": []map[string]interface{}{
+			{
+				"subnet_id":  subnetId,
+				"ip_address": ipAddr,
+				"binding:profile": map[string]interface{}{
+					"disable_security_groups": false,
+				},
+			},
+		},
+		"security_groups": []map[string]interface{}{
+			{
+				"id": securityGroupId,
+			},
+		},
+		"vpcid":    vpcId,
+		"metadata": map[string]string{},
+		"root_volume": map[string]interface{}{
+			"volumetype": sysDisk.StorageType,
+			"size":       sysDisk.SizeGB,
+		},
+		"data_volumes": diskParams,
+		"extendparam": map[string]interface{}{
+			"enterprise_project_id": projectId,
+			"regionID":              self.Id,
+		},
 	}
 
-	instances := make([]SInstance, 0)
-	err := doListAllWithPagerOffset(self.ecsClient.Servers.List, queries, &instances)
-	return instances, err
-}
-
-func (self *SRegion) GetInstanceByID(instanceId string) (SInstance, error) {
-	instance := SInstance{}
-	err := DoGet(self.ecsClient.Servers.Get, instanceId, nil, &instance)
-	if instance.Status == "DELETED" {
-		return instance, errors.Wrap(cloudprovider.ErrNotFound, "GetInstanceByID")
-	}
-	return instance, err
-}
-
-func (self *SRegion) GetInstanceByIds(ids []string) ([]SInstance, int, error) {
-	instances := make([]SInstance, 0)
-	for _, instanceId := range ids {
-		instance, err := self.GetInstanceByID(instanceId)
-		if err != nil {
-			return nil, 0, err
-		}
-		instances = append(instances, instance)
-	}
-
-	return instances, len(instances), nil
-}
-
-/*
-系统盘大小取值范围：1-1024 GB，且必须不小于镜像min_disk.
-*/
-type SServerCreate struct {
-	AvailabilityZone string            `json:"availability_zone"`
-	Name             string            `json:"name"`
-	ImageRef         string            `json:"imageRef"`
-	RootVolume       RootVolume        `json:"root_volume"`
-	DataVolumes      []DataVolume      `json:"data_volumes"`
-	FlavorRef        string            `json:"flavorRef"`
-	UserData         string            `json:"user_data"`
-	Vpcid            string            `json:"vpcid"`
-	SecurityGroups   []SecGroup        `json:"security_groups"`
-	Nics             []NIC             `json:"nics"`
-	KeyName          string            `json:"key_name"`
-	AdminPass        string            `json:"adminPass"`
-	Count            int64             `json:"count"`
-	Extendparam      ServerExtendparam `json:"extendparam"`
-	ServerTags       []ServerTag       `json:"server_tags"`
-	Description      string            `json:"description"`
-}
-
-type DataVolume struct {
-	Volumetype    string                 `json:"volumetype"`
-	SizeGB        int                    `json:"size"`
-	Extendparam   *DataVolumeExtendparam `json:"extendparam,omitempty"`
-	Multiattach   *bool                  `json:"multiattach,omitempty"`
-	HwPassthrough *string                `json:"hw:passthrough,omitempty"`
-}
-
-type DataVolumeExtendparam struct {
-	SnapshotID string `json:"snapshotId"`
-}
-
-type ServerExtendparam struct {
-	ChargingMode        string `json:"chargingMode"` // 计费模式 prePaid|postPaid
-	PeriodType          string `json:"periodType"`   // 周期类型：month|year
-	PeriodNum           string `json:"periodNum"`    // 订购周期数：periodType=month（周期类型为月）时，取值为[1，9]。periodType=year（周期类型为年）时，取值为1。
-	IsAutoRenew         string `json:"isAutoRenew"`  // 是否自动续订  true|false
-	IsAutoPay           string `json:"isAutoPay"`    // 是否自动从客户的账户中支付 true|false
-	RegionID            string `json:"regionID"`
-	EnterpriseProjectId string `json:"enterprise_project_id,omitempty"`
-}
-
-type NIC struct {
-	SubnetID  string `json:"subnet_id"` // 网络ID. 与 SNetwork里的ID对应。统一使用这个ID
-	IpAddress string `json:"ip_address"`
-}
-
-type RootVolume struct {
-	Volumetype string `json:"volumetype"`
-	SizeGB     int    `json:"size"`
-}
-
-type SecGroup struct {
-	ID string `json:"id"`
-}
-
-type ServerTag struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
-/*
-包月机器退订规则： https://support.huaweicloud.com/usermanual-billing/zh-cn_topic_0083138805.html
-5天无理由全额退订：新购资源（不包含续费资源）在开通的五天内且退订次数不超过10次（每账号每年10次）的符合5天无理由全额退订。
-非5天无理由退订：不符合5天无理由全额退订条件的退订，都属于非5天无理由退订。非5天无理由退订，不限制退订次数，但需要收取退订手续费。
-
-退订资源的方法： https://support.huaweicloud.com/usermanual-billing/zh-cn_topic_0072297197.html
-*/
-func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string,
-	securityGroupId string, vpcId string, zoneId string, desc string, disks []SDisk, ipAddr string,
-	keypair string, publicKey string, passwd string, userData string, bc *billing.SBillingCycle, projectId string, tags map[string]string) (string, error) {
-	params := SServerCreate{}
-	params.AvailabilityZone = zoneId
-	params.Name = name
-	params.FlavorRef = instanceType
-	params.ImageRef = imageId
-	params.Description = desc
-	params.Count = 1
-	params.Nics = []NIC{{SubnetID: SubnetId, IpAddress: ipAddr}}
-	params.SecurityGroups = []SecGroup{{ID: securityGroupId}}
-	params.Vpcid = vpcId
-
-	for i, disk := range disks {
-		if i == 0 {
-			params.RootVolume.Volumetype = disk.VolumeType
-			params.RootVolume.SizeGB = disk.SizeGB
-		} else {
-			dataVolume := DataVolume{}
-			dataVolume.Volumetype = disk.VolumeType
-			dataVolume.SizeGB = disk.SizeGB
-			params.DataVolumes = append(params.DataVolumes, dataVolume)
-		}
-	}
-
-	if len(projectId) > 0 {
-		params.Extendparam.EnterpriseProjectId = projectId
-	}
-
-	// billing type
-	if bc != nil {
-		params.Extendparam.ChargingMode = PRE_PAID
-		if bc.GetMonths() <= 9 {
-			params.Extendparam.PeriodNum = strconv.Itoa(bc.GetMonths())
-			params.Extendparam.PeriodType = "month"
-		} else {
-			params.Extendparam.PeriodNum = strconv.Itoa(bc.GetYears())
-			params.Extendparam.PeriodType = "year"
-		}
-
-		params.Extendparam.RegionID = self.GetId()
-		if bc.AutoRenew {
-			params.Extendparam.IsAutoRenew = "true"
-		} else {
-			params.Extendparam.IsAutoRenew = "false"
-		}
-		params.Extendparam.IsAutoPay = "true"
-	} else {
-		params.Extendparam.ChargingMode = POST_PAID
-	}
-
-	// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212668.html#ZH-CN_TOPIC_0020212668__table761103195216
 	if len(keypair) > 0 {
-		params.KeyName = keypair
+		params["key_name"] = keypair
 	} else {
-		params.AdminPass = passwd
+		params["adminPass"] = passwd
 	}
 
 	if len(userData) > 0 {
-		params.UserData = userData
+		params["user_data"] = userData
 	}
-
-	if len(tags) > 0 {
-		serverTags := []ServerTag{}
-		for k, v := range tags {
-			serverTags = append(serverTags, ServerTag{Key: k, Value: v})
+	tagParams := []map[string]interface{}{}
+	for k, v := range tags {
+		tagParams = append(tagParams, map[string]interface{}{
+			"key":   k,
+			"value": v,
+		})
+	}
+	params["server_tags"] = tagParams
+	body := map[string]interface{}{
+		"server": params,
+	}
+	job := &SJob{}
+	err := self.client.create("ecs", "v1.1", self.Id, "cloudservers", body, job)
+	if err != nil {
+		return nil, err
+	}
+	for _, sub := range job.Entities.SubJobs {
+		if len(sub.Entities.ServerId) > 0 {
+			return self.GetInstance(sub.Entities.ServerId)
 		}
-		params.ServerTags = serverTags
 	}
-
-	serverObj := jsonutils.Marshal(params)
-	createParams := jsonutils.NewDict()
-	createParams.Add(serverObj, "server")
-	_id, err := self.ecsClient.Servers.AsyncCreate(createParams)
-	if err != nil {
-		return "", err
-	}
-
-	var ids []string
-	if params.Extendparam.ChargingMode == POST_PAID {
-		// 按需计费
-		ids, err = self.GetAllSubTaskEntityIDs(self.ecsClient.Servers.ServiceType(), _id, "server_id")
-	} else {
-		// 包年包月
-		return "", errors.Wrap(cloudprovider.ErrNotSupported, "CreateInstance")
-	}
-
-	if err != nil {
-		return "", err
-	} else if len(ids) == 0 {
-		return "", fmt.Errorf("CreateInstance job %s result is emtpy", _id)
-	} else if len(ids) == 1 {
-		return ids[0], nil
-	} else {
-		return "", fmt.Errorf("CreateInstance job %s mutliple instance id returned. %s", _id, ids)
-	}
+	return nil, fmt.Errorf("no server id returned with job %s", jsonutils.Marshal(job))
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067161469.html
-// 添加多个安全组时，建议最多为弹性云服务器添加5个安全组。
-// todo: 确认是否需要先删除，再进行添加操作
-func (self *SRegion) assignSecurityGroups(secgroupIds []string, instanceId string) error {
-	_, err := self.GetInstanceByID(instanceId)
-	if err != nil {
-		return err
-	}
-
-	for i := range secgroupIds {
-		secId := secgroupIds[i]
-		params := jsonutils.NewDict()
-		secgroupObj := jsonutils.NewDict()
-		secgroupObj.Add(jsonutils.NewString(secId), "name")
-		params.Add(secgroupObj, "addSecurityGroup")
-
-		_, err := self.ecsClient.NovaServers.PerformAction("action", instanceId, params)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (self *SRegion) AssignSecurityGroups(secgroupIds []string, instanceId string) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067161717.html
-func (self *SRegion) unassignSecurityGroups(secgroupIds []string, instanceId string) error {
-	for i := range secgroupIds {
-		secId := secgroupIds[i]
-		params := jsonutils.NewDict()
-		secgroupObj := jsonutils.NewDict()
-		secgroupObj.Add(jsonutils.NewString(secId), "name")
-		params.Add(secgroupObj, "removeSecurityGroup")
-
-		_, err := self.ecsClient.NovaServers.PerformAction("action", instanceId, params)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
-	instance, err := self.GetInstanceByID(instanceId)
-	if err != nil {
-		return "", err
-	}
-	return instance.Status, nil
-}
-
-func (self *SRegion) instanceStatusChecking(instanceId, status string) error {
-	remoteStatus, err := self.GetInstanceStatus(instanceId)
-	if err != nil {
-		log.Errorf("Fail to get instance status: %s", err)
-		return err
-	}
-	if status != remoteStatus {
-		log.Errorf("instanceStatusChecking: vm status is %s expect %s", remoteStatus, status)
-		return cloudprovider.ErrInvalidStatus
-	}
-
-	return nil
+func (self *SRegion) UnassignSecurityGroups(secgroupIds []string, instanceId string) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212207.html
-func (self *SRegion) StartVM(instanceId string) error {
-	rstatus, err := self.GetInstanceStatus(instanceId)
-	if err != nil {
-		return err
+func (self *SRegion) StartVM(id string) error {
+	params := map[string]interface{}{
+		"os-start": map[string]string{},
 	}
-
-	if rstatus == InstanceStatusRunning {
-		return nil
-	}
-
-	if rstatus != InstanceStatusStopped {
-		log.Errorf("instanceStatusChecking: vm status is %s expect %s", rstatus, InstanceStatusStopped)
-		return cloudprovider.ErrInvalidStatus
-	}
-
-	params := jsonutils.NewDict()
-	startObj := jsonutils.NewDict()
-	serversObj := jsonutils.NewArray()
-	serverObj := jsonutils.NewDict()
-	serverObj.Add(jsonutils.NewString(instanceId), "id")
-	serversObj.Add(serverObj)
-	startObj.Add(serversObj, "servers")
-	params.Add(startObj, "os-start")
-	_, err = self.ecsClient.Servers.PerformAction2("action", "", params, "")
-	return err
+	res := fmt.Sprintf("servers/%s", id)
+	return self.ecsPerform(res, "action", params, nil)
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212651.html
-func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	rstatus, err := self.GetInstanceStatus(instanceId)
-	if err != nil {
-		return err
+func (self *SRegion) StopVM(id string, isForce bool) error {
+	params := map[string]interface{}{
+		"os-stop": map[string]string{},
 	}
-
-	if rstatus == InstanceStatusStopped {
-		return nil
-	}
-
-	if rstatus != InstanceStatusRunning {
-		log.Errorf("instanceStatusChecking: vm status is %s expect %s", rstatus, InstanceStatusRunning)
-		return cloudprovider.ErrInvalidStatus
-	}
-
-	params := jsonutils.NewDict()
-	stopObj := jsonutils.NewDict()
-	serversObj := jsonutils.NewArray()
-	serverObj := jsonutils.NewDict()
-	serverObj.Add(jsonutils.NewString(instanceId), "id")
-	serversObj.Add(serverObj)
-	stopObj.Add(serversObj, "servers")
-	if isForce {
-		stopObj.Add(jsonutils.NewString("HARD"), "type")
-	} else {
-		stopObj.Add(jsonutils.NewString("SOFT"), "type")
-	}
-	params.Add(stopObj, "os-stop")
-	_, err = self.ecsClient.Servers.PerformAction2("action", "", params, "")
-	return err
+	res := fmt.Sprintf("servers/%s", id)
+	return self.ecsPerform(res, "action", params, nil)
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212679.html
 // 只删除主机。弹性IP和数据盘需要单独删除
-func (self *SRegion) DeleteVM(instanceId string) error {
-	remoteStatus, err := self.GetInstanceStatus(instanceId)
-	if err != nil {
-		return err
+func (self *SRegion) DeleteVM(id string) error {
+	params := map[string]interface{}{
+		"delete_publicip": false,
+		"delete_volume":   false,
+		"servers": []struct {
+			Id string
+		}{
+			{Id: id},
+		},
 	}
-
-	if remoteStatus != InstanceStatusStopped {
-		log.Errorf("DeleteVM vm status is %s expect %s", remoteStatus, InstanceStatusStopped)
-		return cloudprovider.ErrInvalidStatus
-	}
-
-	params := jsonutils.NewDict()
-	serversObj := jsonutils.NewArray()
-	serverObj := jsonutils.NewDict()
-	serverObj.Add(jsonutils.NewString(instanceId), "id")
-	serversObj.Add(serverObj)
-	params.Add(serversObj, "servers")
-	params.Add(jsonutils.NewBool(false), "delete_publicip")
-	params.Add(jsonutils.NewBool(false), "delete_volume")
-
-	_, err = self.ecsClient.Servers.PerformAction2("delete", "", params, "")
-	return err
+	return self.perform("ecs", "v1", "cloudservers", "delete", params, nil)
 }
 
 func (self *SRegion) UpdateVM(instanceId, name string) error {
-	params := jsonutils.NewDict()
-	serverObj := jsonutils.NewDict()
-	serverObj.Add(jsonutils.NewString(name), "name")
-	params.Add(serverObj, "server")
-
-	_, err := self.ecsClient.Servers.Update(instanceId, params)
-	return err
+	params := map[string]interface{}{
+		"server": map[string]string{
+			"name": name,
+		},
+	}
+	return self.update("ecs", "v2.1", "servers/"+instanceId, params)
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876349.html
 // 返回job id
-func (self *SRegion) RebuildRoot(ctx context.Context, userId, instanceId, passwd, publicKeyName, userData string) (string, error) {
-	params := jsonutils.NewDict()
-	reinstallObj := jsonutils.NewDict()
-
+func (self *SRegion) RebuildRoot(ctx context.Context, userId, instanceId, passwd, publicKeyName, userData string) error {
+	reInstall := map[string]interface{}{}
 	if len(publicKeyName) > 0 {
-		reinstallObj.Add(jsonutils.NewString(publicKeyName), "keyname")
+		reInstall["keyname"] = publicKeyName
 	} else if len(passwd) > 0 {
-		reinstallObj.Add(jsonutils.NewString(passwd), "adminpass")
+		reInstall["adminpass"] = passwd
 	} else {
-		return "", fmt.Errorf("both password and publicKey are empty.")
+		return fmt.Errorf("both password and publicKey are empty.")
 	}
-
-	if len(userData) > 0 {
-		meta := jsonutils.NewDict()
-		meta.Add(jsonutils.NewString(userData), "user_data")
-		reinstallObj.Add(meta, "metadata")
-	}
-
 	if len(userId) > 0 {
-		reinstallObj.Add(jsonutils.NewString(userId), "userid")
+		reInstall["userid"] = userId
 	}
-
-	params.Add(reinstallObj, "os-reinstall")
-	ret, err := self.ecsClient.ServersV2.PerformAction2("reinstallos", instanceId, params, "")
-	if err != nil {
-		return "", err
+	metadata := map[string]interface{}{}
+	if len(userData) > 0 {
+		metadata["user_data"] = userData
 	}
+	reInstall["metadata"] = metadata
 
-	return ret.GetString("job_id")
+	params := map[string]interface{}{
+		"os-reinstall": reInstall,
+	}
+	return self.ecsPerform("cloudservers/"+instanceId, "reinstallos", params, nil)
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876971.html
 // 返回job id
-func (self *SRegion) ChangeRoot(ctx context.Context, userId, instanceId, imageId, passwd, publicKeyName, userData string) (string, error) {
-	params := jsonutils.NewDict()
-	changeOsObj := jsonutils.NewDict()
-
+func (self *SRegion) ChangeRoot(ctx context.Context, userId, instanceId, imageId, passwd, publicKeyName, userData string) error {
+	osChange := map[string]interface{}{}
 	if len(publicKeyName) > 0 {
-		changeOsObj.Add(jsonutils.NewString(publicKeyName), "keyname")
+		osChange["keyname"] = publicKeyName
 	} else if len(passwd) > 0 {
-		changeOsObj.Add(jsonutils.NewString(passwd), "adminpass")
+		osChange["adminpass"] = passwd
 	} else {
-		return "", fmt.Errorf("both password and publicKey are empty.")
+		return fmt.Errorf("both password and publicKey are empty.")
 	}
-
-	if len(userData) > 0 {
-		meta := jsonutils.NewDict()
-		meta.Add(jsonutils.NewString(userData), "user_data")
-		changeOsObj.Add(meta, "metadata")
-	}
-
 	if len(userId) > 0 {
-		changeOsObj.Add(jsonutils.NewString(userId), "userid")
+		osChange["userid"] = userId
 	}
-
-	changeOsObj.Add(jsonutils.NewString(imageId), "imageid")
-	params.Add(changeOsObj, "os-change")
-
-	ret, err := self.ecsClient.ServersV2.PerformAction2("changeos", instanceId, params, "")
-	if err != nil {
-		return "", err
+	metadata := map[string]interface{}{}
+	if len(userData) > 0 {
+		metadata["user_data"] = userData
 	}
-
-	return ret.GetString("job_id")
+	osChange["metadata"] = metadata
+	osChange["imageid"] = imageId
+	params := map[string]interface{}{
+		"os-change": osChange,
+	}
+	return self.ecsPerform("cloudservers/"+instanceId, "changeos", params, nil)
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212692.html
@@ -1227,122 +958,57 @@ func (self *SRegion) ChangeRoot(ctx context.Context, userId, instanceId, imageId
 // 一键式重置密码 需要安装安装一键式重置密码插件 https://support.huaweicloud.com/usermanual-ecs/zh-cn_topic_0068095385.html
 // 目前不支持直接重置密钥
 func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
-	serverObj := jsonutils.NewDict()
 	if len(name) > 0 {
-		serverObj.Add(jsonutils.NewString(name), "name")
-	}
-
-	// if len(description) > 0 {
-	// 	serverObj.Add(jsonutils.NewString(description), "description")
-	// }
-
-	if serverObj.Size() > 0 {
-		params := jsonutils.NewDict()
-		params.Add(serverObj, "server")
-		// 这里华为返回的image字段是字符串。和SInstance的定义的image是字典结构不一致。
-		err := DoUpdate(self.ecsClient.NovaServers.Update, instanceId, params, nil)
+		err := self.UpdateVM(instanceId, name)
 		if err != nil {
 			return err
 		}
 	}
 
 	if len(password) > 0 {
-		params := jsonutils.NewDict()
-		passwdObj := jsonutils.NewDict()
-		passwdObj.Add(jsonutils.NewString(password), "new_password")
-		params.Add(passwdObj, "reset-password")
-
-		err := DoUpdateWithSpec(self.ecsClient.NovaServers.UpdateInContextWithSpec, instanceId, "os-reset-password", params)
-		if err != nil {
-			return err
+		params := map[string]interface{}{
+			"reset-password": map[string]interface{}{
+				"new_password": password,
+			},
 		}
+		return self.perform("ecs", "v1", "cloudservers/"+instanceId, "os-reset-password", params, nil)
 	}
-
 	return nil
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212653.html
 func (self *SRegion) ChangeVMConfig(instanceId string, instanceType string) error {
-	self.ecsClient.Servers.SetVersion("v1.1")
-	defer self.ecsClient.Servers.SetVersion("v1")
-
-	params := jsonutils.NewDict()
-	resizeObj := jsonutils.NewDict()
-	resizeObj.Add(jsonutils.NewString(instanceType), "flavorRef")
-	params.Add(resizeObj, "resize")
-	_, err := self.ecsClient.Servers.PerformAction2("resize", instanceId, params, "")
-	return errors.Wrapf(err, "PerformAction2(resize)")
+	params := map[string]interface{}{
+		"resize": map[string]interface{}{
+			"flavorRef": instanceType,
+		},
+	}
+	return self.perform("ecs", "v1.1", "cloudservers/"+instanceId, "resize", params, nil)
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0142763126.html 微版本2.6及以上?
 // https://support.huaweicloud.com/api-ecs/ecs_02_0208.html
 func (self *SRegion) GetInstanceVNCUrl(instanceId string) (*cloudprovider.ServerVncOutput, error) {
-	params := jsonutils.NewDict()
-	vncObj := jsonutils.NewDict()
-	vncObj.Add(jsonutils.NewString("novnc"), "type")
-	vncObj.Add(jsonutils.NewString("vnc"), "protocol")
-	params.Add(vncObj, "remote_console")
-
-	resp, err := self.ecsClient.Servers.PerformAction2("remote_console", instanceId, params, "remote_console")
+	params := map[string]interface{}{
+		"remote_console": map[string]interface{}{
+			"type":     "novnc",
+			"protocol": "vnc",
+		},
+	}
+	ret := &cloudprovider.ServerVncOutput{}
+	err := self.perform("ecs", "v1", "cloudservers/"+instanceId, "remote_console", params, ret)
 	if err != nil {
 		return nil, err
 	}
-
-	ret := &cloudprovider.ServerVncOutput{
-		Hypervisor: api.HYPERVISOR_HCSO,
-	}
-	resp.Unmarshal(ret)
+	ret.Hypervisor = api.HYPERVISOR_HUAWEI
 	ret.Protocol = "huawei"
 	return ret, nil
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0022472987.html
-// XEN平台虚拟机device为必选参数。
-func (self *SRegion) AttachDisk(instanceId string, diskId string, device string) error {
-	params := jsonutils.NewDict()
-	volumeObj := jsonutils.NewDict()
-	volumeObj.Add(jsonutils.NewString(diskId), "volumeId")
-	if len(device) > 0 {
-		volumeObj.Add(jsonutils.NewString(device), "device")
-	}
-
-	params.Add(volumeObj, "volumeAttachment")
-
-	_, err := self.ecsClient.Servers.PerformAction2("attachvolume", instanceId, params, "")
-	return err
-}
-
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0022472988.html
-// 默认非强制卸载。delete_flag=0
-func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
-	path := fmt.Sprintf("detachvolume/%s", diskId)
-	err := DoDeleteWithSpec(self.ecsClient.Servers.DeleteInContextWithSpec, nil, instanceId, path, nil, nil)
-	//volume a2091934-2669-4fca-8eb4-a950c1836b3c is not in server 49b053d2-f798-432f-af55-76eb6ef2c769 attach volume list => 磁盘已经被卸载了
-	if err != nil && strings.Contains(err.Error(), fmt.Sprintf("is not in server")) && strings.Contains(err.Error(), fmt.Sprintf("attach volume list")) {
-		return nil
-	}
-	return err
-}
-
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0065817702.html
-func (self *SRegion) GetInstanceSecrityGroupIds(instanceId string) ([]string, error) {
-	if len(instanceId) == 0 {
-		return nil, fmt.Errorf("GetInstanceSecrityGroups instanceId is empty")
-	}
-
-	securitygroups := make([]SSecurityGroup, 0)
-	ctx := &modules.SManagerContext{InstanceManager: self.ecsClient.NovaServers, InstanceId: instanceId}
-	err := DoListInContext(self.ecsClient.NovaSecurityGroups.ListInContext, ctx, nil, &securitygroups)
-	if err != nil {
-		return nil, err
-	}
-
-	securitygroupIds := []string{}
-	for _, secgroup := range securitygroups {
-		securitygroupIds = append(securitygroupIds, secgroup.GetId())
-	}
-
-	return securitygroupIds, nil
+func (self *SRegion) GetInstanceSecrityGroups(instanceId string) ([]SSecurityGroup, error) {
+	ret := []SSecurityGroup{}
+	return ret, self.get("ecs", "v2.1", "servers/"+instanceId+"/os-security-groups", &ret)
 }
 
 func (self *SInstance) GetProjectId() string {
@@ -1357,17 +1023,19 @@ func updateUserData(userData, osVersion, username, password, publicKey string) (
 	winOS := strings.ToLower(osprofile.OS_TYPE_WINDOWS)
 	osVersion = strings.ToLower(osVersion)
 	config := &cloudinit.SCloudConfig{}
-	if strings.Contains(osVersion, winOS) {
-		if _config, err := cloudinit.ParseUserDataBase64(userData); err == nil {
-			config = _config
+	if len(userData) > 0 {
+		if strings.Contains(osVersion, winOS) {
+			if _config, err := cloudinit.ParseUserDataBase64(userData); err == nil {
+				config = _config
+			} else {
+				log.Debugf("updateWindowsUserData invalid userdata %s", userData)
+			}
 		} else {
-			log.Debugf("updateWindowsUserData invalid userdata %s", userData)
-		}
-	} else {
-		if _config, err := cloudinit.ParseUserDataBase64(userData); err == nil {
-			config = _config
-		} else {
-			return "", fmt.Errorf("updateLinuxUserData invalid userdata %s", userData)
+			if _config, err := cloudinit.ParseUserDataBase64(userData); err == nil {
+				config = _config
+			} else {
+				return "", fmt.Errorf("updateLinuxUserData invalid userdata %s", userData)
+			}
 		}
 	}
 
@@ -1427,7 +1095,7 @@ func updateWindowsUserData(userData string, osVersion string, username, password
 }
 
 func (self *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"name":        opts.Name,
 		"instance_id": instanceId,
 	}
@@ -1442,32 +1110,12 @@ func (self *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImageO
 			return opts.Notes
 		}()
 	}
-	resp, err := self.ecsClient.Images.CreateInContextWithSpec(nil, "action", jsonutils.Marshal(params), "")
-	if err != nil {
-		return nil, errors.Wrapf(err, "Images.Create")
-	}
-	jobId, err := resp.GetString("job_id")
-	if err != nil {
-		return nil, errors.Wrapf(err, "resp.GetString(job_id)")
-	}
-	err = self.waitTaskStatus(self.ecsClient.Images.ServiceType(), jobId, TASK_SUCCESS, 15*time.Second, 10*time.Minute)
-	if err != nil {
-		return nil, errors.Wrapf(err, "waitTaskStatus")
-	}
-	imageId, err := self.GetTaskEntityID(self.ecsClient.Images.ServiceType(), jobId, "image_id")
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetTaskEntityID")
-	}
-	image, err := self.GetImage(imageId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetImage(%s)", imageId)
-	}
-	image.storageCache = self.getStoragecache()
-	return image, nil
+	ret := &SImage{cache: &SStoragecache{region: self}}
+	return ret, self.perform("ims", "v2", "cloudimages", "action", params, ret)
 }
 
 func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
-	image, err := self.host.zone.region.SaveImage(self.ID, opts)
+	image, err := self.host.zone.region.SaveImage(self.Id, opts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "SaveImage")
 	}

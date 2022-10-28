@@ -2739,6 +2739,15 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		}
 		if !self.IsFailureStatus() && syncStatus {
 			self.Status = extVM.GetStatus()
+			self.PowerStates = extVM.GetPowerStates()
+			if len(self.PowerStates) == 0 {
+				switch self.Status {
+				case api.VM_UNKNOWN:
+					self.PowerStates = api.VM_POWER_STATES_OFF
+				default:
+					self.PowerStates = api.VM_POWER_STATES_ON
+				}
+			}
 		}
 
 		self.VcpuCount = extVM.GetVcpuCount()
@@ -2837,6 +2846,15 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.SetModelManager(manager, &guest)
 
 	guest.Status = extVM.GetStatus()
+	guest.PowerStates = extVM.GetPowerStates()
+	if len(guest.PowerStates) == 0 {
+		switch guest.Status {
+		case api.VM_UNKNOWN:
+			guest.PowerStates = api.VM_POWER_STATES_OFF
+		default:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		}
+	}
 	guest.ExternalId = extVM.GetGlobalId()
 	guest.VcpuCount = extVM.GetVcpuCount()
 	guest.BootOrder = extVM.GetBootOrder()
