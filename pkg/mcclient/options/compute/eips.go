@@ -27,6 +27,8 @@ type ElasticipListOptions struct {
 	UsableEipForAssociateType string `help:"With associate id filter which eip can associate" choices:"server|natgateway|loadbalancer"`
 	UsableEipForAssociateId   string `help:"With associate type filter which eip can associate"`
 
+	OrderByIp string `help:"Order by ip" choices:"asc|desc"`
+
 	options.BaseListOptions
 }
 
