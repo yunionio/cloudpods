@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -241,6 +242,62 @@ func (manager *SAssignmentManager) fetchProjectUserIdsQuery(projId string) *sqlc
 
 	union := sqlchemy.Union(q1, q2)
 	return union.Query().Distinct()
+}
+
+func (manager *SAssignmentManager) fetchUserAndGroups(projIds []string) (map[string][]string, map[string][]string, error) {
+	q1 := manager.Query().In("type", []string{api.AssignmentGroupProject, api.AssignmentUserProject}).IsFalse("inherited").In("target_id", projIds)
+	groupCnt, userCnt := map[string][]string{}, map[string][]string{}
+	assignments := []SAssignment{}
+	err := q1.All(&assignments)
+	if err != nil {
+		return groupCnt, userCnt, errors.Wrapf(err, "q1.All")
+	}
+	for i := range assignments {
+		switch assignments[i].Type {
+		case api.AssignmentGroupProject:
+			_, ok := groupCnt[assignments[i].TargetId]
+			if !ok {
+				groupCnt[assignments[i].TargetId] = []string{}
+			}
+			if !utils.IsInStringArray(assignments[i].ActorId, groupCnt[assignments[i].TargetId]) {
+				groupCnt[assignments[i].TargetId] = append(groupCnt[assignments[i].TargetId], assignments[i].ActorId)
+			}
+		case api.AssignmentUserProject:
+			_, ok := userCnt[assignments[i].TargetId]
+			if !ok {
+				userCnt[assignments[i].TargetId] = []string{}
+			}
+			if !utils.IsInStringArray(assignments[i].ActorId, userCnt[assignments[i].TargetId]) {
+				userCnt[assignments[i].TargetId] = append(userCnt[assignments[i].TargetId], assignments[i].ActorId)
+			}
+		}
+	}
+
+	assigns := AssignmentManager.Query().SubQuery()
+	usergroups := UsergroupManager.Query().SubQuery()
+
+	q2 := usergroups.Query(usergroups.Field("user_id", "actor_id"))
+	q2 = q2.Join(assigns, sqlchemy.Equals(
+		usergroups.Field("group_id"), assigns.Field("actor_id"),
+	))
+	q2 = q2.Filter(sqlchemy.Equals(assigns.Field("type"), api.AssignmentGroupProject))
+	q2 = q2.Filter(sqlchemy.In(assigns.Field("target_id"), projIds))
+	q2 = q2.Filter(sqlchemy.IsFalse(assigns.Field("inherited")))
+
+	err = q2.All(&assignments)
+	if err != nil {
+		return groupCnt, userCnt, errors.Wrapf(err, "q2.All")
+	}
+	for i := range assignments {
+		_, ok := userCnt[assignments[i].TargetId]
+		if !ok {
+			userCnt[assignments[i].TargetId] = []string{}
+		}
+		if !utils.IsInStringArray(assignments[i].ActorId, userCnt[assignments[i].TargetId]) {
+			userCnt[assignments[i].TargetId] = append(userCnt[assignments[i].TargetId], assignments[i].ActorId)
+		}
+	}
+	return groupCnt, userCnt, nil
 }
 
 func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {

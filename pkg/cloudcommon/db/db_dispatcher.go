@@ -1770,7 +1770,12 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 }
 
 func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := ValidateDeleteCondition(model, ctx, nil)
+	details, err := getItemDetails(manager, model, ctx, userCred, query)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "getItemDetails"))
+	}
+
+	err = ValidateDeleteCondition(model, ctx, details)
 	if err != nil {
 		return nil, err
 	}
@@ -1778,11 +1783,6 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	err = CustomizeDelete(model, ctx, userCred, query, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "CustomizeDelete"))
-	}
-
-	details, err := getItemDetails(manager, model, ctx, userCred, query)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "getItemDetails"))
 	}
 
 	model.PreDelete(ctx, userCred)
