@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
@@ -97,12 +98,9 @@ func (dev *sUSBDevice) GetKernelDriver() (string, error) {
 	return "", nil
 }
 
-func (dev *sUSBDevice) GetQemuId() (string, error) {
+func (dev *sUSBDevice) GetQemuId() string {
 	addrParts := strings.Split(dev.dev.Addr, ":")
-	if len(addrParts) != 2 {
-		return "", errors.Errorf("Invalid addr %q", dev.dev.Addr)
-	}
-	return GetUSBDevId(dev.dev.VendorId, dev.dev.DeviceId, addrParts[0], addrParts[1]), nil
+	return GetUSBDevId(dev.dev.VendorId, dev.dev.DeviceId, addrParts[0], addrParts[1])
 }
 
 func (dev *sUSBDevice) GetPassthroughOptions() map[string]string {
@@ -120,7 +118,7 @@ func (dev *sUSBDevice) GetPassthroughCmd(index int) string {
 	return opt
 }
 
-func (dev *sUSBDevice) GetHotPlugOptions() ([]*HotPlugOption, error) {
+func (dev *sUSBDevice) GetHotPlugOptions(*desc.SGuestIsolatedDevice) ([]*HotPlugOption, error) {
 	opts, err := GetUSBDevQemuOptions(dev.dev.GetVendorDeviceId(), dev.dev.Addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetUSBDevQemuOptions")
@@ -133,13 +131,9 @@ func (dev *sUSBDevice) GetHotPlugOptions() ([]*HotPlugOption, error) {
 	}, nil
 }
 
-func (dev *sUSBDevice) GetHotUnplugOptions() ([]*HotUnplugOption, error) {
-	id, err := dev.GetQemuId()
-	if err != nil {
-		return nil, err
-	}
+func (dev *sUSBDevice) GetHotUnplugOptions(*desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error) {
 	return []*HotUnplugOption{
-		{Id: id},
+		{Id: dev.GetQemuId()},
 	}, nil
 }
 

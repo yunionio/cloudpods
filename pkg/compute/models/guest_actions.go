@@ -2136,7 +2136,7 @@ func (self *SGuest) startDetachIsolateDevice(ctx context.Context, userCred mccli
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
-	if dev.IsGPU() && self.GetStatus() != api.VM_READY {
+	if dev.IsGPU() && !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
 		return httperrors.NewInvalidStatusError("Can't detach GPU when status is %q", self.GetStatus())
 	}
 	host, _ := self.GetHost()
@@ -2243,7 +2243,7 @@ func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mccl
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
-	if dev.IsGPU() && self.GetStatus() != api.VM_READY {
+	if dev.IsGPU() && !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
 		return httperrors.NewInvalidStatusError("Can't attach GPU when status is %q", self.GetStatus())
 	}
 	host, _ := self.GetHost()

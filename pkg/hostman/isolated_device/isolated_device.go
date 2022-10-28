@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -79,9 +80,10 @@ type IDevice interface {
 	GetIOMMUGroupRestAddrs() []string
 	GetVGACmd() string
 	GetCPUCmd() string
+	GetQemuId() string
 
-	GetHotPlugOptions() ([]*HotPlugOption, error)
-	GetHotUnplugOptions() ([]*HotUnplugOption, error)
+	GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error)
+	GetHotUnplugOptions(dev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error)
 }
 
 type IsolatedDeviceManager interface {

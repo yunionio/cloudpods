@@ -24,10 +24,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	o "yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -197,12 +199,55 @@ func (dev *sGPUBaseDevice) CustomProbe() error {
 	return nil
 }
 
-func (dev *sGPUBaseDevice) GetHotPlugOptions() ([]*HotPlugOption, error) {
-	return nil, fmt.Errorf("Not implemented")
+func (dev *sGPUBaseDevice) GetQemuId() string {
+	return fmt.Sprintf("dev_%s", strings.ReplaceAll(dev.GetAddr(), ":", "_"))
 }
 
-func (dev *sGPUBaseDevice) GetHotUnplugOptions() ([]*HotUnplugOption, error) {
-	return nil, fmt.Errorf("Not implemented")
+func (dev *sGPUBaseDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error) {
+	ret := make([]*HotPlugOption, 0)
+
+	var masterDevOpt *HotPlugOption
+	for i := 0; i < len(isolatedDev.VfioDevs); i++ {
+		cmd := isolatedDev.VfioDevs[i].HostAddr
+		if optCmd := isolatedDev.VfioDevs[i].OptionsStr(); len(optCmd) > 0 {
+			cmd += fmt.Sprintf(",%s", optCmd)
+		}
+		opts := map[string]string{
+			"host": cmd,
+			"id":   isolatedDev.VfioDevs[i].Id,
+		}
+		if isolatedDev.VfioDevs[i].XVga {
+			opts["x-vga"] = "on"
+		}
+		devOpt := &HotPlugOption{
+			Device:  isolatedDev.VfioDevs[i].DevType,
+			Options: opts,
+		}
+		if isolatedDev.VfioDevs[i].Function == 0 {
+			masterDevOpt = devOpt
+		} else {
+			ret = append(ret, devOpt)
+		}
+	}
+	// if PCI slot function 0 already assigned, qemu will reject hotplug function
+	// so put function 0 at the enda
+	if masterDevOpt == nil {
+		return nil, errors.Errorf("GPU Device no function 0 found")
+	}
+	ret = append(ret, masterDevOpt)
+	return ret, nil
+}
+
+func (dev *sGPUBaseDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error) {
+	if len(isolatedDev.VfioDevs) == 0 {
+		return nil, errors.Errorf("device %s no pci ids", isolatedDev.Id)
+	}
+
+	return []*HotUnplugOption{
+		{
+			Id: isolatedDev.VfioDevs[0].Id,
+		},
+	}, nil
 }
 
 type sGPUVGADevice struct {

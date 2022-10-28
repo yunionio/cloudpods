@@ -299,10 +299,10 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
 		if s.Desc.IsolatedDevices[i].DevType == api.USB_TYPE {
-			s.Desc.IsolatedDevices[i].Usb = desc.NewUsbDevice("usb-host", fmt.Sprintf("usb%d", i))
+			s.Desc.IsolatedDevices[i].Usb = desc.NewUsbDevice("usb-host", dev.GetQemuId())
 			s.Desc.IsolatedDevices[i].Usb.Options = dev.GetPassthroughOptions()
 		} else {
-			id := fmt.Sprintf("vfio-%d", i)
+			id := dev.GetQemuId()
 			s.Desc.IsolatedDevices[i].VfioDevs = make([]*desc.VFIODevice, 0)
 			vfioDev := &desc.VFIODevice{
 				PCIDevice: desc.NewPCIDevice(cont.CType, "vfio-pci", id),
@@ -317,11 +317,11 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 
 			groupDevAddrs := dev.GetIOMMUGroupRestAddrs()
 			for j := 0; j < len(groupDevAddrs); j++ {
-				gid := fmt.Sprintf("%s-%s", id, strings.ReplaceAll(groupDevAddrs[i], ":", "-"))
+				gid := fmt.Sprintf("%s-%d", id, j+1)
 				vfioDev = &desc.VFIODevice{
 					PCIDevice: desc.NewPCIDevice(cont.CType, "vfio-pci", gid),
 				}
-				vfioDev.HostAddr = groupDevAddrs[i]
+				vfioDev.HostAddr = groupDevAddrs[j]
 				s.Desc.IsolatedDevices[i].VfioDevs = append(
 					s.Desc.IsolatedDevices[i].VfioDevs, vfioDev,
 				)
