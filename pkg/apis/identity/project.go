@@ -16,13 +16,11 @@ package identity
 
 import (
 	"time"
-
-	"yunion.io/x/jsonutils"
 )
 
 type ExternalResourceInfo struct {
 	// 外部资源统计信息（资源类别：数量）
-	ExtResource jsonutils.JSONObject `json:"ext_resource"`
+	ExtResource map[string]int `json:"ext_resource"`
 	// 外部资源统计信息上次更新时间
 	ExtResourcesLastUpdate time.Time `json:"ext_resources_last_update"`
 	// 外部资源统计信息下次更新时间

@@ -385,7 +385,7 @@ func (manager *SDomainManager) FetchCustomizeColumns(
 
 		external, update, _ := domain.getExternalResources()
 		if len(external) > 0 {
-			rows[i].ExtResource = jsonutils.Marshal(external)
+			rows[i].ExtResource = external
 			rows[i].ExtResourcesLastUpdate = update
 			if update.IsZero() {
 				update = time.Now()
