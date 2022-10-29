@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -28,10 +29,14 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
+	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/proxy"
 )
 
 func Start(app *appsrv.Application, s *Service) {
@@ -67,6 +72,10 @@ func (s *Service) getGuestDesc(r *http.Request) (guestDesc *desc.SGuestDesc) {
 	return
 }
 
+func (s *Service) monitorPrefix() string {
+	return "/monitor"
+}
+
 func (s *Service) addHandler(app *appsrv.Application) {
 	prefix := ""
 
@@ -81,6 +90,8 @@ func (s *Service) addHandler(app *appsrv.Application) {
 		app.AddHandler(method, fmt.Sprintf("%s/<version:%s>/meta-data",
 			prefix, `(latest|\d{4}-\d{2}-\d{2})`), s.metaData)
 	}
+
+	app.AddReverseProxyHandler(s.monitorPrefix(), s.monitorReverseEndpoint(), s.requestManipulator)
 }
 
 func (s *Service) versionOnly(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -293,4 +304,26 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 		}
 	}
 	hostutils.Response(ctx, w, httperrors.NewNotFoundError("Resource not handled"))
+}
+
+func (s *Service) monitorReverseEndpoint() *proxy.SEndpointFactory {
+	f := func(ctx context.Context, r *http.Request) (string, error) {
+		guestDesc := s.getGuestDesc(r)
+		if guestDesc == nil {
+			return "", httperrors.NewNotFoundError("vm not found")
+		}
+		return auth.GetServiceURL("influxdb", options.HostOptions.Region, guestDesc.Zone, identity_api.EndpointInterfaceInternal)
+	}
+	return proxy.NewEndpointFactory(f, "monitorService")
+}
+
+func (s *Service) requestManipulator(ctx context.Context, r *http.Request) (*http.Request, error) {
+	path := r.URL.Path[len(s.monitorPrefix()):]
+	log.Debugf("Path: %s => %s", r.URL.Path, path)
+	r.URL = &url.URL{
+		Path:     path,
+		RawQuery: r.URL.RawQuery,
+		Fragment: r.URL.Fragment,
+	}
+	return r, nil
 }

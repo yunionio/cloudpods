@@ -19,6 +19,8 @@ import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 type DevToolOptions struct {
 	common_options.CommonOptions
 	common_options.DBOptions
+
+	MonitorAgentUseMetadataService bool `help:"Monitor agent report metrics to metadata service on host" default:"true"`
 }
 
 var (
