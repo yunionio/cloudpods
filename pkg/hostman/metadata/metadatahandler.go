@@ -318,11 +318,12 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 
 func (s *Service) monitorReverseEndpoint() *proxy.SEndpointFactory {
 	f := func(ctx context.Context, r *http.Request) (string, error) {
-		guestDesc := s.getGuestDesc(r)
+		guestDesc := s.getGuestNicDesc(r)
 		if guestDesc == nil {
 			return "", httperrors.NewNotFoundError("vm not found")
 		}
-		return auth.GetServiceURL("influxdb", options.HostOptions.Region, guestDesc.Zone, identity_api.EndpointInterfaceInternal)
+		guestZone, _ := guestDesc.GetString("zone")
+		return auth.GetServiceURL("influxdb", options.HostOptions.Region, guestZone, identity_api.EndpointInterfaceInternal)
 	}
 	return proxy.NewEndpointFactory(f, "monitorService")
 }
