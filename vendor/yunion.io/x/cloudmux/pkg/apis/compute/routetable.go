@@ -15,8 +15,5 @@
 package compute
 
 const (
-	ROUTE_TABLE_UPDATING     = "updating"
-	ROUTE_TABLE_UPDATEFAILED = "update_falied"
-	ROUTE_TABLE_AVAILABLE    = "available"
-	ROUTE_TABLE_UNKNOWN      = "unknown"
+	ROUTE_TABLE_AVAILABLE = "available"
 )

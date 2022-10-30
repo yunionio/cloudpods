@@ -14,14 +14,18 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
-	INTER_VPC_NETWORK_STATUS_AVAILABLE          = "available"
-	INTER_VPC_NETWORK_STATUS_CREATING           = "creating"
+	INTER_VPC_NETWORK_STATUS_AVAILABLE          = compute.INTER_VPC_NETWORK_STATUS_AVAILABLE
+	INTER_VPC_NETWORK_STATUS_CREATING           = compute.INTER_VPC_NETWORK_STATUS_CREATING
 	INTER_VPC_NETWORK_STATUS_CREATE_FAILED      = "create_failed"
 	INTER_VPC_NETWORK_STATUS_DELETE_FAILED      = "delete_failed"
-	INTER_VPC_NETWORK_STATUS_DELETING           = "deleting"
+	INTER_VPC_NETWORK_STATUS_DELETING           = compute.INTER_VPC_NETWORK_STATUS_DELETING
 	INTER_VPC_NETWORK_STATUS_ACTIVE             = "active"
 	INTER_VPC_NETWORK_STATUS_ADDVPC             = "add_vpc"
 	INTER_VPC_NETWORK_STATUS_ADDVPC_FAILED      = "add_vpc_failed"
@@ -29,7 +33,7 @@ const (
 	INTER_VPC_NETWORK_STATUS_REMOVEVPC_FAILED   = "remove_vpc_failed"
 	INTER_VPC_NETWORK_STATUS_UPDATEROUTE        = "update_route"
 	INTER_VPC_NETWORK_STATUS_UPDATEROUTE_FAILED = "update_route_failed"
-	INTER_VPC_NETWORK_STATUS_UNKNOWN            = "unknown"
+	INTER_VPC_NETWORK_STATUS_UNKNOWN            = compute.INTER_VPC_NETWORK_STATUS_UNKNOWN
 )
 
 type InterVpcNetworkListInput struct {

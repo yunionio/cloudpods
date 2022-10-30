@@ -987,14 +987,16 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (*cloudprovider.Server
 			"protocol": "vnc",
 		},
 	}
-	ret := &cloudprovider.ServerVncOutput{}
-	err := self.perform("ecs", "v1", "cloudservers/"+instanceId, "remote_console", params, ret)
+	ret := struct {
+		RemoteConsole cloudprovider.ServerVncOutput
+	}{}
+	err := self.perform("ecs", "v1", "cloudservers/"+instanceId, "remote_console", params, &ret)
 	if err != nil {
 		return nil, err
 	}
-	ret.Hypervisor = api.HYPERVISOR_HUAWEI
-	ret.Protocol = "huawei"
-	return ret, nil
+	ret.RemoteConsole.Hypervisor = api.HYPERVISOR_HCS
+	ret.RemoteConsole.Protocol = "hcs"
+	return &ret.RemoteConsole, nil
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0065817702.html

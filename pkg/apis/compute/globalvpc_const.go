@@ -14,7 +14,9 @@
 
 package compute
 
+import "yunion.io/x/cloudmux/pkg/apis/compute"
+
 const (
-	GLOBAL_VPC_STATUS_AVAILABLE = "available"
-	GLOBAL_VPC_STATUS_UNKNOWN   = "unknown"
+	GLOBAL_VPC_STATUS_AVAILABLE = compute.GLOBAL_VPC_STATUS_AVAILABLE
+	GLOBAL_VPC_STATUS_UNKNOWN   = compute.GLOBAL_VPC_STATUS_UNKNOWN
 )

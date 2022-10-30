@@ -14,8 +14,10 @@
 
 package compute
 
+import "yunion.io/x/cloudmux/pkg/apis/compute"
+
 const (
-	SECGROUP_STATUS_READY      = "ready"
+	SECGROUP_STATUS_READY      = compute.SECGROUP_STATUS_READY
 	SECGROUP_STATUS_DELETING   = "deleting"   // 删除中
 	SECGROUP_STATUS_SYNC_RULES = "sync_rules" // 同步规则中
 

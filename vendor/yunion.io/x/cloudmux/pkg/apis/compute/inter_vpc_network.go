@@ -15,17 +15,8 @@
 package compute
 
 const (
-	INTER_VPC_NETWORK_STATUS_AVAILABLE          = "available"
-	INTER_VPC_NETWORK_STATUS_CREATING           = "creating"
-	INTER_VPC_NETWORK_STATUS_CREATE_FAILED      = "create_failed"
-	INTER_VPC_NETWORK_STATUS_DELETE_FAILED      = "delete_failed"
-	INTER_VPC_NETWORK_STATUS_DELETING           = "deleting"
-	INTER_VPC_NETWORK_STATUS_ACTIVE             = "active"
-	INTER_VPC_NETWORK_STATUS_ADDVPC             = "add_vpc"
-	INTER_VPC_NETWORK_STATUS_ADDVPC_FAILED      = "add_vpc_failed"
-	INTER_VPC_NETWORK_STATUS_REMOVEVPC          = "remove_vpc"
-	INTER_VPC_NETWORK_STATUS_REMOVEVPC_FAILED   = "remove_vpc_failed"
-	INTER_VPC_NETWORK_STATUS_UPDATEROUTE        = "update_route"
-	INTER_VPC_NETWORK_STATUS_UPDATEROUTE_FAILED = "update_route_failed"
-	INTER_VPC_NETWORK_STATUS_UNKNOWN            = "unknown"
+	INTER_VPC_NETWORK_STATUS_AVAILABLE = "available"
+	INTER_VPC_NETWORK_STATUS_CREATING  = "creating"
+	INTER_VPC_NETWORK_STATUS_DELETING  = "deleting"
+	INTER_VPC_NETWORK_STATUS_UNKNOWN   = "unknown"
 )

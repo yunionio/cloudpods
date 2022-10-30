@@ -15,10 +15,10 @@
 package cloudpods
 
 import (
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 
-	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )

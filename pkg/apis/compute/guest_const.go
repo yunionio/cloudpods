@@ -14,28 +14,30 @@
 
 package compute
 
+import "yunion.io/x/cloudmux/pkg/apis/compute"
+
 const (
-	VM_INIT            = "init"
-	VM_UNKNOWN         = "unknown"
+	VM_INIT            = compute.VM_INIT
+	VM_UNKNOWN         = compute.VM_UNKNOWN
 	VM_SCHEDULE        = "schedule"
 	VM_SCHEDULE_FAILED = "sched_fail"
 	VM_CREATE_NETWORK  = "network"
 	VM_NETWORK_FAILED  = "net_fail"
 	VM_DEVICE_FAILED   = "dev_fail"
-	VM_CREATE_FAILED   = "create_fail"
+	VM_CREATE_FAILED   = compute.VM_CREATE_FAILED
 	VM_CREATE_DISK     = "disk"
 	VM_DISK_FAILED     = "disk_fail"
 	VM_IMAGE_CACHING   = "image_caching" // 缓存镜像中
 	VM_START_DEPLOY    = "start_deploy"
-	VM_DEPLOYING       = "deploying"
-	VM_DEPLOY_FAILED   = "deploy_fail"
-	VM_READY           = "ready"
-	VM_START_START     = "start_start"
-	VM_STARTING        = "starting"
+	VM_DEPLOYING       = compute.VM_DEPLOYING
+	VM_DEPLOY_FAILED   = compute.VM_DEPLOY_FAILED
+	VM_READY           = compute.VM_READY
+	VM_START_START     = compute.VM_START_START
+	VM_STARTING        = compute.VM_STARTING
 	VM_START_FAILED    = "start_fail" // # = ready
-	VM_RUNNING         = "running"
-	VM_START_STOP      = "start_stop"
-	VM_STOPPING        = "stopping"
+	VM_RUNNING         = compute.VM_RUNNING
+	VM_START_STOP      = compute.VM_START_STOP
+	VM_STOPPING        = compute.VM_STOPPING
 	VM_STOP_FAILED     = "stop_fail" // # = running
 	VM_RENEWING        = "renewing"
 	VM_RENEW_FAILED    = "renew_failed"
@@ -43,7 +45,7 @@ const (
 	VM_DETACH_DISK     = "detach_disk"
 
 	VM_BACKUP_STARTING         = "backup_starting"
-	VM_BACKUP_CREATING         = "backup_creating"
+	VM_BACKUP_CREATING         = compute.VM_BACKUP_CREATING
 	VM_BACKUP_CREATE_FAILED    = "backup_create_fail"
 	VM_DEPLOYING_BACKUP        = "deploying_backup"
 	VM_DEPLOYING_BACKUP_FAILED = "deploging_backup_fail"
@@ -56,27 +58,27 @@ const (
 	VM_DETACH_DISK_FAILED = "detach_disk_fail"
 
 	VM_START_SUSPEND  = "start_suspend"
-	VM_SUSPENDING     = "suspending"
-	VM_SUSPEND        = "suspend"
+	VM_SUSPENDING     = compute.VM_SUSPENDING
+	VM_SUSPEND        = compute.VM_SUSPEND
 	VM_SUSPEND_FAILED = "suspend_failed"
 
-	VM_RESUMING      = "resuming"
+	VM_RESUMING      = compute.VM_RESUMING
 	VM_RESUME_FAILED = "resume_failed"
 
 	VM_START_DELETE = "start_delete"
 	VM_DELETE_FAIL  = "delete_fail"
-	VM_DELETING     = "deleting"
+	VM_DELETING     = compute.VM_DELETING
 
-	VM_DEALLOCATED = "deallocated"
+	VM_DEALLOCATED = compute.VM_DEALLOCATED
 
 	VM_START_MIGRATE  = "start_migrate"
-	VM_MIGRATING      = "migrating"
+	VM_MIGRATING      = compute.VM_MIGRATING
 	VM_LIVE_MIGRATING = "live_migrating"
 	VM_MIGRATE_FAILED = "migrate_failed"
 
-	VM_CHANGE_FLAVOR      = "change_flavor"
+	VM_CHANGE_FLAVOR      = compute.VM_CHANGE_FLAVOR
 	VM_CHANGE_FLAVOR_FAIL = "change_flavor_fail"
-	VM_REBUILD_ROOT       = "rebuild_root"
+	VM_REBUILD_ROOT       = compute.VM_REBUILD_ROOT
 	VM_REBUILD_ROOT_FAIL  = "rebuild_root_fail"
 
 	VM_START_SNAPSHOT           = "snapshot_start"
@@ -100,7 +102,7 @@ const (
 	VM_START_INSTANCE_BACKUP  = "start_instance_backup"
 	VM_INSTANCE_BACKUP_FAILED = "instance_backup_failed"
 
-	VM_SYNC_CONFIG = "sync_config"
+	VM_SYNC_CONFIG = compute.VM_SYNC_CONFIG
 	VM_SYNC_FAIL   = "sync_fail"
 
 	VM_START_RESIZE_DISK  = "start_resize_disk"
@@ -164,31 +166,31 @@ const (
 	HYPERVISOR_KVM       = "kvm"
 	HYPERVISOR_CONTAINER = "container"
 	HYPERVISOR_BAREMETAL = "baremetal"
-	HYPERVISOR_ESXI      = "esxi"
+	HYPERVISOR_ESXI      = compute.HYPERVISOR_ESXI
 	HYPERVISOR_HYPERV    = "hyperv"
 	HYPERVISOR_XEN       = "xen"
 
-	HYPERVISOR_ALIYUN         = "aliyun"
-	HYPERVISOR_APSARA         = "apsara"
-	HYPERVISOR_QCLOUD         = "qcloud"
-	HYPERVISOR_AZURE          = "azure"
-	HYPERVISOR_AWS            = "aws"
-	HYPERVISOR_HUAWEI         = "huawei"
-	HYPERVISOR_HCS            = "hcs"
-	HYPERVISOR_HCSO           = "hcso"
-	HYPERVISOR_OPENSTACK      = "openstack"
-	HYPERVISOR_UCLOUD         = "ucloud"
-	HYPERVISOR_ZSTACK         = "zstack"
-	HYPERVISOR_GOOGLE         = "google"
-	HYPERVISOR_CTYUN          = "ctyun"
-	HYPERVISOR_ECLOUD         = "ecloud"
-	HYPERVISOR_JDCLOUD        = "jdcloud"
-	HYPERVISOR_CLOUDPODS      = "cloudpods"
-	HYPERVISOR_NUTANIX        = "nutanix"
-	HYPERVISOR_BINGO_CLOUD    = "bingocloud"
-	HYPERVISOR_INCLOUD_SPHERE = "incloudsphere"
-	HYPERVISOR_PROXMOX        = "proxmox"
-	HYPERVISOR_REMOTEFILE     = "remotefile"
+	HYPERVISOR_ALIYUN         = compute.HYPERVISOR_ALIYUN
+	HYPERVISOR_APSARA         = compute.HYPERVISOR_APSARA
+	HYPERVISOR_QCLOUD         = compute.HYPERVISOR_QCLOUD
+	HYPERVISOR_AZURE          = compute.HYPERVISOR_AZURE
+	HYPERVISOR_AWS            = compute.HYPERVISOR_AWS
+	HYPERVISOR_HUAWEI         = compute.HYPERVISOR_HUAWEI
+	HYPERVISOR_HCS            = compute.HYPERVISOR_HCS
+	HYPERVISOR_HCSO           = compute.HYPERVISOR_HCSO
+	HYPERVISOR_OPENSTACK      = compute.HYPERVISOR_OPENSTACK
+	HYPERVISOR_UCLOUD         = compute.HYPERVISOR_UCLOUD
+	HYPERVISOR_ZSTACK         = compute.HYPERVISOR_ZSTACK
+	HYPERVISOR_GOOGLE         = compute.HYPERVISOR_GOOGLE
+	HYPERVISOR_CTYUN          = compute.HYPERVISOR_CTYUN
+	HYPERVISOR_ECLOUD         = compute.HYPERVISOR_ECLOUD
+	HYPERVISOR_JDCLOUD        = compute.HYPERVISOR_JDCLOUD
+	HYPERVISOR_CLOUDPODS      = compute.HYPERVISOR_CLOUDPODS
+	HYPERVISOR_NUTANIX        = compute.HYPERVISOR_NUTANIX
+	HYPERVISOR_BINGO_CLOUD    = compute.HYPERVISOR_BINGO_CLOUD
+	HYPERVISOR_INCLOUD_SPHERE = compute.HYPERVISOR_INCLOUD_SPHERE
+	HYPERVISOR_PROXMOX        = compute.HYPERVISOR_PROXMOX
+	HYPERVISOR_REMOTEFILE     = compute.HYPERVISOR_REMOTEFILE
 
 	//	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
 	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
@@ -349,13 +351,13 @@ var HOSTTYPE_HYPERVISOR = map[string]string{
 }
 
 const (
-	VM_DEFAULT_WINDOWS_LOGIN_USER         = "Administrator"
-	VM_DEFAULT_LINUX_LOGIN_USER           = "root"
-	VM_AWS_DEFAULT_LOGIN_USER             = "ec2user"
-	VM_AWS_DEFAULT_WINDOWS_LOGIN_USER     = "Administrator"
-	VM_JDCLOUD_DEFAULT_WINDOWS_LOGIN_USER = "administrator"
-	VM_AZURE_DEFAULT_LOGIN_USER           = "azureuser"
-	VM_ZSTACK_DEFAULT_LOGIN_USER          = "root"
+	VM_DEFAULT_WINDOWS_LOGIN_USER         = compute.VM_DEFAULT_WINDOWS_LOGIN_USER
+	VM_DEFAULT_LINUX_LOGIN_USER           = compute.VM_DEFAULT_LINUX_LOGIN_USER
+	VM_AWS_DEFAULT_LOGIN_USER             = compute.VM_AWS_DEFAULT_LOGIN_USER
+	VM_AWS_DEFAULT_WINDOWS_LOGIN_USER     = compute.VM_AWS_DEFAULT_WINDOWS_LOGIN_USER
+	VM_JDCLOUD_DEFAULT_WINDOWS_LOGIN_USER = compute.VM_JDCLOUD_DEFAULT_WINDOWS_LOGIN_USER
+	VM_AZURE_DEFAULT_LOGIN_USER           = compute.VM_AZURE_DEFAULT_LOGIN_USER
+	VM_ZSTACK_DEFAULT_LOGIN_USER          = compute.VM_ZSTACK_DEFAULT_LOGIN_USER
 
 	VM_METADATA_APP_TAGS            = "app_tags"
 	VM_METADATA_CREATE_PARAMS       = "create_params"

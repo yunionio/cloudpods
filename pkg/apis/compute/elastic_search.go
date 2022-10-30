@@ -14,13 +14,17 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
-	ELASTIC_SEARCH_STATUS_AVAILABLE     = "available"
-	ELASTIC_SEARCH_STATUS_UNAVAILABLE   = "unavailable"
-	ELASITC_SEARCH_STATUS_CREATING      = "creating"
-	ELASTIC_SEARCH_STATUS_DELETING      = "deleting"
+	ELASTIC_SEARCH_STATUS_AVAILABLE     = compute.ELASTIC_SEARCH_STATUS_AVAILABLE
+	ELASTIC_SEARCH_STATUS_UNAVAILABLE   = compute.ELASTIC_SEARCH_STATUS_UNAVAILABLE
+	ELASITC_SEARCH_STATUS_CREATING      = compute.ELASITC_SEARCH_STATUS_CREATING
+	ELASTIC_SEARCH_STATUS_DELETING      = compute.ELASTIC_SEARCH_STATUS_DELETING
 	ELASTIC_SEARCH_STATUS_DELETE_FAILED = "delete_failed"
 	ELASTIC_SEARCH_STATUS_UNKNOWN       = "unknown"
 )

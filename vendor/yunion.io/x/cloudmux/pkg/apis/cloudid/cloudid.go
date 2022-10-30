@@ -14,10 +14,6 @@
 
 package cloudid
 
-import "yunion.io/x/cloudmux/pkg/apis"
-
 const (
-	SERVICE_TYPE    = apis.SERVICE_TYPE_CLOUDID
 	SAML_IDP_PREFIX = "/api/saml/idp"
-	SERVICE_VERSION = ""
 )

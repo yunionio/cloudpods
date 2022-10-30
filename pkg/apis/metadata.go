@@ -14,8 +14,10 @@
 
 package apis
 
+import "yunion.io/x/cloudmux/pkg/apis"
+
 const (
-	IS_SYSTEM = "IsSystem"
+	IS_SYSTEM = apis.IS_SYSTEM
 )
 
 type MetadataListInput struct {

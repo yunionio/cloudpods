@@ -17,33 +17,25 @@ package compute
 import (
 	"time"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
 const (
-	NAT_STAUTS_AVAILABLE             = "available"             // 可用
-	NAT_STATUS_ALLOCATE              = "allocate"              // 创建中
-	NAT_STATUS_DEPLOYING             = "deploying"             // 配置中
-	NAT_STATUS_UNKNOWN               = "unknown"               // 未知状态
-	NAT_STATUS_CREATE_FAILED         = "create_failed"         // 创建失败
-	NAT_STATUS_DELETED               = "deleted"               // 删除
-	NAT_STATUS_DELETING              = "deleting"              // 删除中
-	NAT_STATUS_DELETE_FAILED         = "delete_failed"         // 删除失败
-	NAT_STATUS_SET_AUTO_RENEW        = "set_auto_renew"        // 设置自动续费中
-	NAT_STATUS_SET_AUTO_RENEW_FAILED = "set_auto_renew_failed" // 设置自动续费失败
-	NAT_STATUS_RENEWING              = "renewing"              // 续费中
-	NAT_STATUS_RENEW_FAILED          = "renew_failed"          // 续费失败
-
-	NAT_SPEC_SMALL  = "small"  //小型
-	NAT_SPEC_MIDDLE = "middle" //中型
-	NAT_SPEC_LARGE  = "large"  //大型
-	NAT_SPEC_XLARGE = "xlarge" //超大型
-
-	QCLOUD_NAT_SPEC_SMALL  = "small"
-	QCLOUD_NAT_SPEC_MIDDLE = "middle"
-	QCLOUD_NAT_SPEC_LARGE  = "large"
+	NAT_STAUTS_AVAILABLE             = compute.NAT_STAUTS_AVAILABLE     // 可用
+	NAT_STATUS_ALLOCATE              = compute.NAT_STATUS_ALLOCATE      // 创建中
+	NAT_STATUS_DEPLOYING             = compute.NAT_STATUS_DEPLOYING     // 配置中
+	NAT_STATUS_UNKNOWN               = compute.NAT_STATUS_UNKNOWN       // 未知状态
+	NAT_STATUS_CREATE_FAILED         = compute.NAT_STATUS_CREATE_FAILED // 创建失败
+	NAT_STATUS_DELETED               = "deleted"                        // 删除
+	NAT_STATUS_DELETING              = compute.NAT_STATUS_DELETING      // 删除中
+	NAT_STATUS_DELETE_FAILED         = "delete_failed"                  // 删除失败
+	NAT_STATUS_SET_AUTO_RENEW        = "set_auto_renew"                 // 设置自动续费中
+	NAT_STATUS_SET_AUTO_RENEW_FAILED = "set_auto_renew_failed"          // 设置自动续费失败
+	NAT_STATUS_RENEWING              = "renewing"                       // 续费中
+	NAT_STATUS_RENEW_FAILED          = "renew_failed"                   // 续费失败
 )
 
 type NatGetewayListInput struct {

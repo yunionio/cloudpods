@@ -20,16 +20,10 @@ const (
 	MONGO_DB_STATUS_DEPLOY        = "deploy"
 	MONGO_DB_STATUS_CHANGE_CONFIG = "change_config"
 	MONGO_DB_STATUS_DELETING      = "deleting"
-	MONGO_DB_STATUS_DELETE_FAILED = "delete_failed"
 	MONGO_DB_STATUS_REBOOTING     = "rebooting"
-	MONGO_DB_STATUS_UNKNOWN       = "unknown"
 
 	MONGO_DB_ENGINE_WIRED_TIGER = "WiredTiger"
 	MONGO_DB_ENGINE_ROCKS       = "Rocks"
-
-	MONGO_DB_ENGINE_VERSION_40 = "4.0"
-	MONGO_DB_ENGINE_VERSION_36 = "3.6"
-	MONGO_DB_ENGINE_VERSION_32 = "3.2"
 
 	// 分片
 	MONGO_DB_CATEGORY_SHARDING = "sharding"

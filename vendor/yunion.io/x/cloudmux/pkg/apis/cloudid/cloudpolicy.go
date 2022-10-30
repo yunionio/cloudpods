@@ -15,11 +15,7 @@
 package cloudid
 
 const (
-	CLOUD_POLICY_STATUS_AVAILABLE     = "available"
-	CLOUD_POLICY_STATUS_SYNCING       = "syncing"
-	CLOUD_POLICY_STATUS_SYNC_FAILE    = "sync_failed"
-	CLOUD_POLICY_STATUS_DELETING      = "deleting"
-	CLOUD_POLICY_STATUS_DELETE_FAILED = "delete_failed"
+	CLOUD_POLICY_STATUS_AVAILABLE = "available"
 
 	CLOUD_POLICY_TYPE_SYSTEM = "system"
 	CLOUD_POLICY_TYPE_CUSTOM = "custom"

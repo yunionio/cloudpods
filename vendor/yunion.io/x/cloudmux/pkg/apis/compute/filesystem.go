@@ -28,9 +28,5 @@ const (
 	// 未知
 	NAS_STATUS_UNKNOWN = "unknown"
 	// 删除中
-	NAS_STATUS_DELETING      = "deleting"
-	NAS_STATUS_DELETE_FAILED = "delete_failed"
-
-	NAS_UPDATE_TAGS        = "update_tags"
-	NAS_UPDATE_TAGS_FAILED = "update_tags_fail"
+	NAS_STATUS_DELETING = "deleting"
 )

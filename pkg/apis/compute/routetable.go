@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"strings"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
@@ -30,7 +31,7 @@ import (
 const (
 	ROUTE_TABLE_UPDATING     = "updating"
 	ROUTE_TABLE_UPDATEFAILED = "update_falied"
-	ROUTE_TABLE_AVAILABLE    = "available"
+	ROUTE_TABLE_AVAILABLE    = compute.ROUTE_TABLE_AVAILABLE
 	ROUTE_TABLE_UNKNOWN      = "unknown"
 )
 

@@ -14,7 +14,9 @@
 
 package compute
 
+import "yunion.io/x/cloudmux/pkg/apis/compute"
+
 const (
-	DBINSTANCE_SKU_AVAILABLE = "available"
-	DBINSTANCE_SKU_SOLDOUT   = "soldout"
+	DBINSTANCE_SKU_AVAILABLE = compute.DBINSTANCE_SKU_AVAILABLE
+	DBINSTANCE_SKU_SOLDOUT   = compute.DBINSTANCE_SKU_SOLDOUT
 )

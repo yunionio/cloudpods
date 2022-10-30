@@ -17,6 +17,7 @@ package compute
 import (
 	"net/http"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
@@ -31,7 +32,7 @@ const (
 
 	BUCKET_STATUS_START_CREATE = "start_create"
 	BUCKET_STATUS_CREATING     = "creating"
-	BUCKET_STATUS_READY        = "ready"
+	BUCKET_STATUS_READY        = compute.BUCKET_STATUS_READY
 	BUCKET_STATUS_CREATE_FAIL  = "create_fail"
 	BUCKET_STATUS_START_DELETE = "start_delete"
 	BUCKET_STATUS_DELETING     = "deleting"

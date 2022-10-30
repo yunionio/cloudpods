@@ -15,26 +15,27 @@
 package compute
 
 import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
 const (
-	CDN_DOMAIN_STATUS_ONLINE        = "online"
-	CDN_DOMAIN_STATUS_OFFLINE       = "offline"
+	CDN_DOMAIN_STATUS_ONLINE        = compute.CDN_DOMAIN_STATUS_ONLINE
+	CDN_DOMAIN_STATUS_OFFLINE       = compute.CDN_DOMAIN_STATUS_OFFLINE
 	CDN_DOMAIN_STATUS_DELETING      = "deleting"
 	CDN_DOMAIN_STATUS_DELETE_FAILED = "delete_failed"
-	CDN_DOMAIN_STATUS_PROCESSING    = "processing"
-	CDN_DOMAIN_STATUS_REJECTED      = "rejected"
+	CDN_DOMAIN_STATUS_PROCESSING    = compute.CDN_DOMAIN_STATUS_PROCESSING
+	CDN_DOMAIN_STATUS_REJECTED      = compute.CDN_DOMAIN_STATUS_REJECTED
 	CDN_DOMAIN_STATUS_UNKNOWN       = "unknown"
 
-	CDN_DOMAIN_AREA_MAINLAND       = "mainland"
-	CDN_DOMAIN_AREA_OVERSEAS       = "overseas"
-	CDN_DOMAIN_AREA_GLOBAL         = "global"
+	CDN_DOMAIN_AREA_MAINLAND       = compute.CDN_DOMAIN_AREA_MAINLAND
+	CDN_DOMAIN_AREA_OVERSEAS       = compute.CDN_DOMAIN_AREA_OVERSEAS
+	CDN_DOMAIN_AREA_GLOBAL         = compute.CDN_DOMAIN_AREA_GLOBAL
 	CDN_DOMAIN_ORIGIN_TYPE_DOMAIN  = "domain"
 	CDN_DOMAIN_ORIGIN_TYPE_IP      = "ip"
-	CDN_DOMAIN_ORIGIN_TYPE_BUCKET  = "bucket"
+	CDN_DOMAIN_ORIGIN_TYPE_BUCKET  = compute.CDN_DOMAIN_ORIGIN_TYPE_BUCKET
 	CDN_DOMAIN_ORIGIN_THIRED_PARTY = "third_party"
 
 	// Qcloud

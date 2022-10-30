@@ -15,113 +15,115 @@
 package compute
 
 import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
 const (
-	STORAGE_LOCAL     = "local"
+	STORAGE_LOCAL     = compute.STORAGE_LOCAL
 	STORAGE_BAREMETAL = "baremetal"
 	STORAGE_SHEEPDOG  = "sheepdog"
-	STORAGE_RBD       = "rbd"
+	STORAGE_RBD       = compute.STORAGE_RBD
 	STORAGE_DOCKER    = "docker"
-	STORAGE_NAS       = "nas"
+	STORAGE_NAS       = compute.STORAGE_NAS
 	STORAGE_VSAN      = "vsan"
-	STORAGE_NFS       = "nfs"
+	STORAGE_NFS       = compute.STORAGE_NFS
 	STORAGE_GPFS      = "gpfs"
-	STORAGE_CIFS      = "cifs"
+	STORAGE_CIFS      = compute.STORAGE_CIFS
 
-	STORAGE_PUBLIC_CLOUD     = "cloud"
-	STORAGE_CLOUD_EFFICIENCY = "cloud_efficiency"
-	STORAGE_CLOUD_SSD        = "cloud_ssd"
-	STORAGE_CLOUD_ESSD       = "cloud_essd"     // 增强型(Enhanced)SSD 云盘, 单盘最高随机读写IOPS 5万
-	STORAGE_CLOUD_ESSD_PL2   = "cloud_essd_pl2" // 单盘最高随机读写IOPS 10万
-	STORAGE_CLOUD_ESSD_PL3   = "cloud_essd_pl3" // 单盘最高随机读写IOPS 100万
-	STORAGE_EPHEMERAL_SSD    = "ephemeral_ssd"  // 单块本地SSD盘, 容量最大不能超过800 GiB
-	STORAGE_LOCAL_HDD_PRO    = "local_hdd_pro"  // 实例规格族d1ne和d1搭载的SATA HDD本地盘
-	STORAGE_LOCAL_SSD_PRO    = "local_ssd_pro"  // 实例规格族i2、i2g、i1、ga1和gn5等搭载的NVMe
+	STORAGE_PUBLIC_CLOUD     = compute.STORAGE_PUBLIC_CLOUD
+	STORAGE_CLOUD_EFFICIENCY = compute.STORAGE_CLOUD_EFFICIENCY
+	STORAGE_CLOUD_SSD        = compute.STORAGE_CLOUD_SSD
+	STORAGE_CLOUD_ESSD       = compute.STORAGE_CLOUD_ESSD     // 增强型(Enhanced)SSD 云盘, 单盘最高随机读写IOPS 5万
+	STORAGE_CLOUD_ESSD_PL2   = compute.STORAGE_CLOUD_ESSD_PL2 // 单盘最高随机读写IOPS 10万
+	STORAGE_CLOUD_ESSD_PL3   = compute.STORAGE_CLOUD_ESSD_PL3 // 单盘最高随机读写IOPS 100万
+	STORAGE_EPHEMERAL_SSD    = compute.STORAGE_EPHEMERAL_SSD  // 单块本地SSD盘, 容量最大不能超过800 GiB
+	STORAGE_LOCAL_HDD_PRO    = compute.STORAGE_LOCAL_HDD_PRO  // 实例规格族d1ne和d1搭载的SATA HDD本地盘
+	STORAGE_LOCAL_SSD_PRO    = compute.STORAGE_LOCAL_SSD_PRO  // 实例规格族i2、i2g、i1、ga1和gn5等搭载的NVMe
 
 	//Azure hdd and ssd storagetype
-	STORAGE_STANDARD_LRS          = "standard_lrs"
-	STORAGE_STANDARDSSD_LRS       = "standardssd_lrs"
-	STORAGE_PREMIUM_LRS           = "premium_lrs"
-	STORAGE_AZURE_BASIC           = "basic_storage"
-	STORAGE_AZURE_GENERAL_PURPOSE = "general_purpose_storage"
+	STORAGE_STANDARD_LRS          = compute.STORAGE_STANDARD_LRS
+	STORAGE_STANDARDSSD_LRS       = compute.STORAGE_STANDARDSSD_LRS
+	STORAGE_PREMIUM_LRS           = compute.STORAGE_PREMIUM_LRS
+	STORAGE_AZURE_BASIC           = compute.STORAGE_AZURE_BASIC
+	STORAGE_AZURE_GENERAL_PURPOSE = compute.STORAGE_AZURE_GENERAL_PURPOSE
 
 	// aws storage type
-	STORAGE_GP2_SSD      = "gp2"      // aws general purpose ssd
-	STORAGE_GP3_SSD      = "gp3"      // aws General Purpose SSD (gp3)
-	STORAGE_IO1_SSD      = "io1"      // aws Provisioned IOPS SSD
-	STORAGE_IO2_SSD      = "io2"      // aws Provisioned IOPS 2 SSD
-	STORAGE_ST1_HDD      = "st1"      // aws Throughput Optimized HDD
-	STORAGE_SC1_HDD      = "sc1"      // aws Cold HDD
-	STORAGE_STANDARD_HDD = "standard" // aws Magnetic volumes
+	STORAGE_GP2_SSD      = compute.STORAGE_GP2_SSD      // aws general purpose ssd
+	STORAGE_GP3_SSD      = compute.STORAGE_GP3_SSD      // aws General Purpose SSD (gp3)
+	STORAGE_IO1_SSD      = compute.STORAGE_IO1_SSD      // aws Provisioned IOPS SSD
+	STORAGE_IO2_SSD      = compute.STORAGE_IO2_SSD      // aws Provisioned IOPS 2 SSD
+	STORAGE_ST1_HDD      = compute.STORAGE_ST1_HDD      // aws Throughput Optimized HDD
+	STORAGE_SC1_HDD      = compute.STORAGE_SC1_HDD      // aws Cold HDD
+	STORAGE_STANDARD_HDD = compute.STORAGE_STANDARD_HDD // aws Magnetic volumes
 
 	// qcloud storage type
 	// STORAGE_CLOUD_SSD ="cloud_ssd"
-	STORAGE_LOCAL_BASIC   = "local_basic"
-	STORAGE_LOCAL_SSD     = "local_ssd"
-	STORAGE_LOCAL_PRO     = "local_pro"
-	STORAGE_CLOUD_BASIC   = "cloud_basic"
-	STORAGE_CLOUD_PREMIUM = "cloud_premium" //高性能云硬盘
-	STORAGE_CLOUD_HSSD    = "cloud_hssd"    //增强型SSD云硬盘
+	STORAGE_LOCAL_BASIC   = compute.STORAGE_LOCAL_BASIC
+	STORAGE_LOCAL_SSD     = compute.STORAGE_LOCAL_SSD
+	STORAGE_LOCAL_PRO     = compute.STORAGE_LOCAL_PRO
+	STORAGE_CLOUD_BASIC   = compute.STORAGE_CLOUD_BASIC
+	STORAGE_CLOUD_PREMIUM = compute.STORAGE_CLOUD_PREMIUM //高性能云硬盘
+	STORAGE_CLOUD_HSSD    = compute.STORAGE_CLOUD_HSSD    //增强型SSD云硬盘
 
 	// huawei storage type
-	STORAGE_HUAWEI_SSD   = "SSD"   // 超高IO云硬盘
-	STORAGE_HUAWEI_SAS   = "SAS"   // 高IO云硬盘
-	STORAGE_HUAWEI_SATA  = "SATA"  // 普通IO云硬盘
-	STORAGE_HUAWEI_GPSSD = "GPSSD" // 通用型SSD
-	STORAGE_HUAWEI_ESSD  = "ESSD"  // 急速型SSD
+	STORAGE_HUAWEI_SSD   = compute.STORAGE_HUAWEI_SSD   // 超高IO云硬盘
+	STORAGE_HUAWEI_SAS   = compute.STORAGE_HUAWEI_SAS   // 高IO云硬盘
+	STORAGE_HUAWEI_SATA  = compute.STORAGE_HUAWEI_SATA  // 普通IO云硬盘
+	STORAGE_HUAWEI_GPSSD = compute.STORAGE_HUAWEI_GPSSD // 通用型SSD
+	STORAGE_HUAWEI_ESSD  = compute.STORAGE_HUAWEI_ESSD  // 急速型SSD
 
 	// openstack
-	STORAGE_OPENSTACK_ISCSI = "iscsi"
-	STORAGE_OPENSTACK_NOVA  = "nova"
+	STORAGE_OPENSTACK_ISCSI = compute.STORAGE_OPENSTACK_ISCSI
+	STORAGE_OPENSTACK_NOVA  = compute.STORAGE_OPENSTACK_NOVA
 
 	// Ucloud storage type
-	STORAGE_UCLOUD_CLOUD_NORMAL         = "CLOUD_NORMAL"         // 普通云盘
-	STORAGE_UCLOUD_CLOUD_SSD            = "CLOUD_SSD"            // SSD云盘
-	STORAGE_UCLOUD_LOCAL_NORMAL         = "LOCAL_NORMAL"         // 普通本地盘
-	STORAGE_UCLOUD_LOCAL_SSD            = "LOCAL_SSD"            // SSD本地盘
-	STORAGE_UCLOUD_EXCLUSIVE_LOCAL_DISK = "EXCLUSIVE_LOCAL_DISK" // 独享本地盘
+	STORAGE_UCLOUD_CLOUD_NORMAL         = compute.STORAGE_UCLOUD_CLOUD_NORMAL         // 普通云盘
+	STORAGE_UCLOUD_CLOUD_SSD            = compute.STORAGE_UCLOUD_CLOUD_SSD            // SSD云盘
+	STORAGE_UCLOUD_LOCAL_NORMAL         = compute.STORAGE_UCLOUD_LOCAL_NORMAL         // 普通本地盘
+	STORAGE_UCLOUD_LOCAL_SSD            = compute.STORAGE_UCLOUD_LOCAL_SSD            // SSD本地盘
+	STORAGE_UCLOUD_EXCLUSIVE_LOCAL_DISK = compute.STORAGE_UCLOUD_EXCLUSIVE_LOCAL_DISK // 独享本地盘
 
 	// Zstack storage type
-	STORAGE_ZSTACK_LOCAL_STORAGE = "localstorage"
-	STORAGE_ZSTACK_CEPH          = "ceph"
+	STORAGE_ZSTACK_LOCAL_STORAGE = compute.STORAGE_ZSTACK_LOCAL_STORAGE
+	STORAGE_ZSTACK_CEPH          = compute.STORAGE_ZSTACK_CEPH
 
 	// Google storage type
-	STORAGE_GOOGLE_LOCAL_SSD   = "local-ssd"   //本地SSD暂存盘 (最多8个)
-	STORAGE_GOOGLE_PD_STANDARD = "pd-standard" //标准永久性磁盘
-	STORAGE_GOOGLE_PD_SSD      = "pd-ssd"      //SSD永久性磁盘
-	STORAGE_GOOGLE_PD_BALANCED = "pd-balanced" //平衡永久性磁盘
+	STORAGE_GOOGLE_LOCAL_SSD   = compute.STORAGE_GOOGLE_LOCAL_SSD   //本地SSD暂存盘 (最多8个)
+	STORAGE_GOOGLE_PD_STANDARD = compute.STORAGE_GOOGLE_PD_STANDARD //标准永久性磁盘
+	STORAGE_GOOGLE_PD_SSD      = compute.STORAGE_GOOGLE_PD_SSD      //SSD永久性磁盘
+	STORAGE_GOOGLE_PD_BALANCED = compute.STORAGE_GOOGLE_PD_BALANCED //平衡永久性磁盘
 
 	// ctyun storage type
-	STORAGE_CTYUN_SSD  = "SSD"  // 超高IO云硬盘
-	STORAGE_CTYUN_SAS  = "SAS"  // 高IO云硬盘
-	STORAGE_CTYUN_SATA = "SATA" // 普通IO云硬盘
+	STORAGE_CTYUN_SSD  = compute.STORAGE_CTYUN_SSD  // 超高IO云硬盘
+	STORAGE_CTYUN_SAS  = compute.STORAGE_CTYUN_SAS  // 高IO云硬盘
+	STORAGE_CTYUN_SATA = compute.STORAGE_CTYUN_SATA // 普通IO云硬盘
 
 	// jd cloud storage type
-	STORAGE_JDCLOUD_GP1 = "ssd.gp1"     // 通用型SSD云硬盘
-	STORAGE_JDCLOUD_IO1 = "ssd.io1"     // 性能型SSD云硬盘
-	STORAGE_JDCLOUD_STD = "hdd.std1"    // 容量型HDD云硬盘
-	STORAGE_JDCLOUD_SSD = "ssd"         // SSD云硬盘
-	STORAGE_JDCLOUD_PHD = "premium-hdd" // HDD云硬盘
+	STORAGE_JDCLOUD_GP1 = compute.STORAGE_JDCLOUD_GP1 // 通用型SSD云硬盘
+	STORAGE_JDCLOUD_IO1 = compute.STORAGE_JDCLOUD_IO1 // 性能型SSD云硬盘
+	STORAGE_JDCLOUD_STD = compute.STORAGE_JDCLOUD_STD // 容量型HDD云硬盘
+	STORAGE_JDCLOUD_SSD = compute.STORAGE_JDCLOUD_SSD // SSD云硬盘
+	STORAGE_JDCLOUD_PHD = compute.STORAGE_JDCLOUD_PHD // HDD云硬盘
 
-	STORAGE_ECLOUD_CAPEBS = "capebs" // 容量盘
-	STORAGE_ECLOUD_EBS    = "ebs"    // 性能盘
-	STORAGE_ECLOUD_SSD    = "ssd"    // 高性能盘
-	STORAGE_ECLOUD_SSDEBS = "ssdebs" // 性能优化盘
-	STORAGE_ECLOUD_SYSTEM = "system" // 系统盘
+	STORAGE_ECLOUD_CAPEBS = compute.STORAGE_ECLOUD_CAPEBS // 容量盘
+	STORAGE_ECLOUD_EBS    = compute.STORAGE_ECLOUD_EBS    // 性能盘
+	STORAGE_ECLOUD_SSD    = compute.STORAGE_ECLOUD_SSD    // 高性能盘
+	STORAGE_ECLOUD_SSDEBS = compute.STORAGE_ECLOUD_SSDEBS // 性能优化盘
+	STORAGE_ECLOUD_SYSTEM = compute.STORAGE_ECLOUD_SYSTEM // 系统盘
 )
 
 const (
 	STORAGE_ENABLED = "enabled"
 	// STORAGE_DISABLED = "disabled"
-	STORAGE_OFFLINE = "offline" // 离线
-	STORAGE_ONLINE  = "online"  // 在线
-	STORAGE_UNMOUNT = "unmount" // 待挂载
+	STORAGE_OFFLINE = compute.STORAGE_OFFLINE // 离线
+	STORAGE_ONLINE  = compute.STORAGE_ONLINE  // 在线
+	STORAGE_UNMOUNT = "unmount"               // 待挂载
 
-	DISK_TYPE_ROTATE = "rotate"
-	DISK_TYPE_SSD    = "ssd"
-	DISK_TYPE_HYBRID = "hybrid"
+	DISK_TYPE_ROTATE = compute.DISK_TYPE_ROTATE
+	DISK_TYPE_SSD    = compute.DISK_TYPE_SSD
+	DISK_TYPE_HYBRID = compute.DISK_TYPE_HYBRID
 )
 
 const (

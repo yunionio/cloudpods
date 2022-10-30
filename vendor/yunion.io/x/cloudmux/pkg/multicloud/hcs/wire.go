@@ -45,6 +45,10 @@ func (self *SWire) GetGlobalId() string {
 	return fmt.Sprintf("%s-%s", self.vpc.GetGlobalId(), self.region.GetGlobalId())
 }
 
+func (self *SWire) IsEmulated() bool {
+	return true
+}
+
 func (self *SWire) GetStatus() string {
 	return api.WIRE_STATUS_AVAILABLE
 }
