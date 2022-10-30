@@ -55,6 +55,8 @@ const (
 	SYS_CLOUD_TAG_PREFIX = "sys:"
 	// Such tags have inherited and isolated properties
 	CLASS_TAT_PREFIX = "cls:"
+
+	MetaServiceMonitorAgentUrl = "http://169.254.169.254/monitor"
 )
 
 var (

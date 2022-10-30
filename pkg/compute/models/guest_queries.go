@@ -241,7 +241,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 	}
 
 	for i := range rows {
-		rows[i] = objs[i].(*SGuest).moreExtraInfo(rows[i], userCred, query, fields, isList)
+		rows[i] = objs[i].(*SGuest).moreExtraInfo(ctx, rows[i], userCred, query, fields, isList)
 	}
 
 	return rows
