@@ -3395,9 +3395,13 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 		result.Update()
 	}
 
+	syncIps := make([]string, 0)
 	for i := 0; i < len(added); i += 1 {
 		localNet, err := getCloudNicNetwork(ctx, added[i], host, ipList, i)
 		if err != nil {
+			if ip := added[i].GetIP(); len(ip) > 0 {
+				syncIps = append(syncIps, ip)
+			}
 			result.AddError(err)
 			continue
 		}
@@ -3437,6 +3441,12 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 				result.AddError(err)
 			}
 		}
+	}
+
+	if len(syncIps) > 0 {
+		self.SetMetadata(ctx, "sync_ips", strings.Join(syncIps, ","), userCred)
+	} else {
+		self.SetMetadata(ctx, "sync_ips", "None", userCred)
 	}
 
 	return result
