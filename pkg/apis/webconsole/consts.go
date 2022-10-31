@@ -30,6 +30,7 @@ const (
 	ZSTACK    = "zstack"
 	CTYUN     = "ctyun"
 	HUAWEI    = "huawei"
+	HCS       = "hcs"
 	APSARA    = "apsara"
 	JDCLOUD   = "jdcloud"
 	CLOUDPODS = "cloudpods"

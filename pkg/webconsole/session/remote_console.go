@@ -40,6 +40,7 @@ const (
 	ZSTACK    = api.ZSTACK
 	CTYUN     = api.CTYUN
 	HUAWEI    = api.HUAWEI
+	HCS       = api.HCS
 	APSARA    = api.APSARA
 	JDCLOUD   = api.JDCLOUD
 	CLOUDPODS = api.CLOUDPODS
@@ -131,7 +132,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getQcloudURL()
 	case CLOUDPODS:
 		return info.getCloudpodsURL()
-	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, JDCLOUD:
+	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD:
 		return info.Url, nil
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
