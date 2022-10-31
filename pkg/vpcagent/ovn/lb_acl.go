@@ -40,7 +40,7 @@ func lblistenerToAcls(lport string, lblistener *agentmodels.LoadbalancerListener
 	if lbacl != nil || lbacl.AclEntries != nil {
 		aclEntries := *lbacl.AclEntries
 		for _, aclEntry := range aclEntries {
-			if aclEntry != nil && aclEntry.Cidr != "" {
+			if aclEntry.Cidr != "" {
 				cidrs = append(cidrs, aclEntry.Cidr)
 			}
 		}

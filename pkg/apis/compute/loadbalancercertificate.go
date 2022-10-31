@@ -14,7 +14,11 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type LoadbalancerCertificateDetails struct {
 	apis.SharableVirtualResourceDetails
@@ -44,4 +48,43 @@ type LoadbalancerCertificateFilterListInput struct {
 
 	// 以证书名称排序
 	OrderByCertificate string `json:"order_by_certificate"`
+}
+
+type LoadbalancerCertificateUpdateInput struct {
+	apis.SharableVirtualResourceBaseUpdateInput
+}
+
+type LoadbalancerCertificateListInput struct {
+	apis.SharableVirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
+	UsableResourceListInput
+	RegionalFilterListInput
+	ManagedResourceListInput
+
+	CommonName              []string `json:"common_name"`
+	SubjectAlternativeNames []string `json:"subject_alternative_names"`
+}
+
+type LoadbalancerCertificateCreateInput struct {
+	apis.SharableVirtualResourceCreateInput
+
+	Certificate string `json:"certificate"`
+	PrivateKey  string `json:"private_key"`
+	// swagger: ignore
+	Fingerprint string `json:"fingerprint"`
+	// swagger: ignore
+	PublicKeyAlgorithm string `json:"public_key_algorithm"`
+	// swagger: ignore
+	PublicKeyBitLen int `json:"public_key_bit_len"`
+	// swagger: ignore
+	SignatureAlgorithm string `json:"signature_algorithm"`
+	// swagger: ignore
+	NotBefore time.Time `json:"not_before"`
+	// swagger: ignore
+	NotAfter time.Time `json:"not_after"`
+	// swagger: ignore
+	CommonName string `json:"common_name"`
+	// swagger: ignore
+	SubjectAlternativeNames string `json:"subject_alternative_names"`
 }

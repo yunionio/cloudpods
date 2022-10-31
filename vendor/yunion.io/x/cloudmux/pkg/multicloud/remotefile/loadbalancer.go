@@ -109,7 +109,7 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

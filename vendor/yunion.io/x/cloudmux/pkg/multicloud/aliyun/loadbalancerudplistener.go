@@ -237,7 +237,7 @@ func (region *SRegion) GetLoadbalancerUDPListener(loadbalancerId string, listene
 	return &listener, body.Unmarshal(&listener)
 }
 
-func (region *SRegion) CreateLoadbalancerUDPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (region *SRegion) CreateLoadbalancerUDPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
 	params := region.constructBaseCreateListenerParams(lb, listener)
 	_, err := region.lbRequest("CreateLoadBalancerUDPListener", params)
 	if err != nil {
@@ -271,13 +271,13 @@ func (listerner *SLoadbalancerUDPListener) Stop() error {
 	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
 }
 
-func (region *SRegion) SyncLoadbalancerUDPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) error {
+func (region *SRegion) SyncLoadbalancerUDPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	params := region.constructBaseCreateListenerParams(lb, listener)
 	_, err := region.lbRequest("SetLoadBalancerUDPListenerAttribute", params)
 	return err
 }
 
-func (listerner *SLoadbalancerUDPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListener) error {
+func (listerner *SLoadbalancerUDPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	return listerner.lb.region.SyncLoadbalancerUDPListener(listerner.lb, lblis)
 }
 

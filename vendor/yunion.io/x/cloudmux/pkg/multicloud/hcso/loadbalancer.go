@@ -308,8 +308,8 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 	return ret, nil
 }
 
-func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
-	ret, err := self.region.CreateLoadBalancerListener(listener)
+func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
+	ret, err := self.region.CreateLoadBalancerListener(self.ID, listener)
 	if err != nil {
 		return nil, err
 	}
@@ -358,21 +358,21 @@ func (self *SRegion) GetLoadBalancerListeners(lbId string) ([]SElbListener, erro
 	return ret, nil
 }
 
-func (self *SRegion) CreateLoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (SElbListener, error) {
+func (self *SRegion) CreateLoadBalancerListener(lbId string, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (SElbListener, error) {
 	params := jsonutils.NewDict()
 	listenerObj := jsonutils.NewDict()
 	listenerObj.Set("name", jsonutils.NewString(listener.Name))
 	listenerObj.Set("description", jsonutils.NewString(listener.Description))
 	listenerObj.Set("protocol", jsonutils.NewString(LB_PROTOCOL_MAP[listener.ListenerType]))
 	listenerObj.Set("protocol_port", jsonutils.NewInt(int64(listener.ListenerPort)))
-	listenerObj.Set("loadbalancer_id", jsonutils.NewString(listener.LoadbalancerID))
+	listenerObj.Set("loadbalancer_id", jsonutils.NewString(lbId))
 	listenerObj.Set("http2_enable", jsonutils.NewBool(listener.EnableHTTP2))
-	if len(listener.BackendGroupID) > 0 {
-		listenerObj.Set("default_pool_id", jsonutils.NewString(listener.BackendGroupID))
+	if len(listener.BackendGroupId) > 0 {
+		listenerObj.Set("default_pool_id", jsonutils.NewString(listener.BackendGroupId))
 	}
 
 	if listener.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
-		listenerObj.Set("default_tls_container_ref", jsonutils.NewString(listener.CertificateID))
+		listenerObj.Set("default_tls_container_ref", jsonutils.NewString(listener.CertificateId))
 	}
 
 	if listener.XForwardedFor {

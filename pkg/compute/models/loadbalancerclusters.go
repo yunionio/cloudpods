@@ -55,7 +55,6 @@ type SLoadbalancerCluster struct {
 	db.SStandaloneResourceBase
 	SZoneResourceBase
 	SWireResourceBase `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
-	//WireId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
 }
 
 // 负载均衡集群列表
@@ -209,10 +208,8 @@ func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context, in
 	lbcId := lbc.Id
 	for _, man := range men {
 		t := man.TableSpec().Instance()
-		pdF := t.Field("pending_deleted")
 		n, err := t.Query().
 			Equals("cluster_id", lbcId).
-			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
 			CountWithError()
 		if err != nil {
 			return httperrors.NewInternalServerError("get lbcluster refcount fail %v", err)

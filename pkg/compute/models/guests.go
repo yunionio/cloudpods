@@ -4334,10 +4334,26 @@ func (self *SGuest) CleanTapRecords(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
+func (self *SGuest) GetLoadbalancerBackends() ([]SLoadbalancerBackend, error) {
+	q := LoadbalancerBackendManager.Query().Equals("backend_id", self.Id)
+	ret := []SLoadbalancerBackend{}
+	return ret, db.FetchModelObjects(LoadbalancerBackendManager, q, &ret)
+}
+
 func (self *SGuest) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	err := self.CleanTapRecords(ctx, userCred)
 	if err != nil {
 		return errors.Wrap(err, "CleanTapRecords")
+	}
+	backends, err := self.GetLoadbalancerBackends()
+	if err != nil {
+		return errors.Wrapf(err, "GetLoadbalancerBackends")
+	}
+	for i := range backends {
+		err := backends[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "backend real delete %s", backends[i].Id)
+		}
 	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
@@ -6291,4 +6307,17 @@ func (guest *SGuest) OnMetadataUpdated(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
+}
+
+func (self *SGuest) GetAddress() (string, error) {
+	gns, err := self.GetNetworks("")
+	if err != nil {
+		return "", errors.Wrapf(err, "GetNetworks")
+	}
+	for _, gn := range gns {
+		if !gn.IsExit() {
+			return gn.IpAddr, nil
+		}
+	}
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, "guest %s address", self.Name)
 }

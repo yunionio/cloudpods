@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,34 +36,35 @@ func init() {
 	taskman.RegisterTask(LoadbalancerAclDeleteTask{})
 }
 
-func (self *LoadbalancerAclDeleteTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
-	db.OpsLog.LogEvent(lbacl, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerAclDeleteTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, err error) {
+	lbacl.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
+	db.OpsLog.LogEvent(lbacl, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_DELOCATE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_STATUS_DELETE_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerAclDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbacl := obj.(*models.SCachedLoadbalancerAcl)
-	region := lbacl.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbacl, jsonutils.NewString(fmt.Sprintf("failed to find region for lbacl %s", lbacl.Name)))
+	region, err := lbacl.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbacl, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnLoadbalancerAclDeleteComplete", nil)
-	if err := region.GetDriver().RequestDeleteLoadbalancerAcl(ctx, self.GetUserCred(), lbacl, self); err != nil {
-		self.taskFail(ctx, lbacl, jsonutils.NewString(err.Error()))
+	err = region.GetDriver().RequestDeleteLoadbalancerAcl(ctx, self.GetUserCred(), lbacl, self)
+	if err != nil {
+		self.taskFail(ctx, lbacl, errors.Wrapf(err, "RequestDeleteLoadbalancerAcl"))
 	}
 }
 
 func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteComplete(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbacl, db.ACT_DELETE, lbacl.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	lbacl.DoPendingDelete(ctx, self.GetUserCred())
+	lbacl.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteCompleteFailed(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbacl, reason)
+	self.taskFail(ctx, lbacl, errors.Errorf(reason.String()))
 }

@@ -14,19 +14,18 @@
 
 package cloudprovider
 
-type SLoadbalancerListener struct {
+type SLoadbalancerListenerCreateOptions struct {
 	Name                    string
-	LoadbalancerID          string
 	ListenerType            string
 	ListenerPort            int
 	BackendGroupType        string
-	BackendGroupID          string
+	BackendGroupId          string
 	Scheduler               string
 	AccessControlListStatus string
 	AccessControlListType   string
-	AccessControlListID     string
+	AccessControlListId     string
 	EnableHTTP2             bool
-	CertificateID           string
+	CertificateId           string
 	EgressMbps              int
 	Description             string
 	EstablishedTimeout      int
@@ -66,7 +65,7 @@ type SLoadbalancerListenerRule struct {
 	Name             string
 	Domain           string
 	Path             string
-	BackendGroupID   string
+	BackendGroupId   string
 	BackendGroupType string
 
 	Condition string // for aws only
@@ -84,11 +83,4 @@ type SLoadbalancerListenerRule struct {
 	HealthCheckFail int // for qcloud only
 
 	StickySessionCookieTimeout int // for qcloud only
-
-	// openstack redirect
-	Redirect       string `width:"16" nullable:"true" list:"user" create:"optional" update:"user" default:"off"` // 跳转类型
-	RedirectCode   int    `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转HTTP code
-	RedirectScheme string `width:"16" nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转uri scheme
-	RedirectHost   string `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转时变更Host
-	RedirectPath   string `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转时变更Path
 }

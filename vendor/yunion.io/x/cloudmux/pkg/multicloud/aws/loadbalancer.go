@@ -264,8 +264,8 @@ func (self *SElb) GetILoadBalancerBackendGroupById(groupId string) (cloudprovide
 	return self.region.GetElbBackendgroup(groupId)
 }
 
-func (self *SElb) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
-	ret, err := self.region.CreateElbListener(listener)
+func (self *SElb) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
+	ret, err := self.region.CreateElbListener(self.LoadBalancerArn, listener)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateElbListener")
 	}

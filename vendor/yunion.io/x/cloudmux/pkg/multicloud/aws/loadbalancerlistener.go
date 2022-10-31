@@ -459,7 +459,7 @@ func (self *SElbListener) Stop() error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) error {
+func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	return self.region.SyncElbListener(self, listener)
 }
 
@@ -546,7 +546,7 @@ func (self *SRegion) GetElbListener(listenerId string) (*SElbListener, error) {
 	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetElbListener")
 }
 
-func (self *SRegion) CreateElbListener(listener *cloudprovider.SLoadbalancerListener) (*SElbListener, error) {
+func (self *SRegion) CreateElbListener(lbId string, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (*SElbListener, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetElbV2Client")
@@ -554,16 +554,16 @@ func (self *SRegion) CreateElbListener(listener *cloudprovider.SLoadbalancerList
 
 	listenerType := strings.ToUpper(listener.ListenerType)
 	params := &elbv2.CreateListenerInput{}
-	params.SetLoadBalancerArn(listener.LoadbalancerID)
+	params.SetLoadBalancerArn(lbId)
 	params.SetPort(int64(listener.ListenerPort))
 	params.SetProtocol(listenerType)
 	action := &elbv2.Action{}
 	action.SetType("forward")
-	action.SetTargetGroupArn(listener.BackendGroupID)
+	action.SetTargetGroupArn(listener.BackendGroupId)
 	params.SetDefaultActions([]*elbv2.Action{action})
 	if listenerType == "HTTPS" {
 		cert := &elbv2.Certificate{
-			CertificateArn: &listener.CertificateID,
+			CertificateArn: &listener.CertificateId,
 		}
 
 		params.SetCertificates([]*elbv2.Certificate{cert})
@@ -678,7 +678,7 @@ func (self *SRegion) DeleteElbListener(listenerId string) error {
 	return nil
 }
 
-func (self *SRegion) SyncElbListener(listener *SElbListener, config *cloudprovider.SLoadbalancerListener) error {
+func (self *SRegion) SyncElbListener(listener *SElbListener, config *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	client, err := self.GetElbV2Client()
 	if err != nil {
 		return err
@@ -690,12 +690,12 @@ func (self *SRegion) SyncElbListener(listener *SElbListener, config *cloudprovid
 	params.SetProtocol(strings.ToUpper(config.ListenerType))
 	action := &elbv2.Action{}
 	action.SetType("forward")
-	action.SetTargetGroupArn(config.BackendGroupID)
+	action.SetTargetGroupArn(config.BackendGroupId)
 	params.SetDefaultActions([]*elbv2.Action{action})
 
 	if config.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
 		cert := &elbv2.Certificate{}
-		cert.SetCertificateArn(config.CertificateID)
+		cert.SetCertificateArn(config.CertificateId)
 		params.SetCertificates([]*elbv2.Certificate{cert})
 	}
 
@@ -726,7 +726,7 @@ func (self *SRegion) SyncElbListener(listener *SElbListener, config *cloudprovid
 		HealthCheckRise:     config.HealthCheckRise,
 		HealthCheckFail:     config.HealthCheckFail,
 	}
-	err = self.modifyELbBackendGroup(config.BackendGroupID, hc)
+	err = self.modifyELbBackendGroup(config.BackendGroupId, hc)
 	if err != nil {
 		return errors.Wrap(err, "region.SyncElbListener.updateELbBackendGroup")
 	}

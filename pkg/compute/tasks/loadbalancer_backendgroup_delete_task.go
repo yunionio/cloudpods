@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,31 +36,32 @@ func init() {
 	taskman.RegisterTask(LoadbalancerBackendGroupDeleteTask{})
 }
 
-func (self *LoadbalancerBackendGroupDeleteTask) taskFail(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, reason jsonutils.JSONObject) {
-	lbbg.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
-	db.OpsLog.LogEvent(lbbg, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lbbg.Id, lbbg.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerBackendGroupDeleteTask) taskFail(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, err error) {
+	lbbg.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
+	db.OpsLog.LogEvent(lbbg, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_DELOCATE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbbg.Id, lbbg.Name, api.LB_STATUS_DELETE_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerBackendGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbbg := obj.(*models.SLoadbalancerBackendGroup)
 	region, err := lbbg.GetRegion()
 	if err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lbbg, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnLoadbalancerBackendGroupDeleteComplete", nil)
-	if err := region.GetDriver().RequestDeleteLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, self); err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
+	err = region.GetDriver().RequestDeleteLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, self)
+	if err != nil {
+		self.taskFail(ctx, lbbg, errors.Wrapf(err, "RequestDeleteLoadbalancerBackendGroup"))
 	}
 }
 
 func (self *LoadbalancerBackendGroupDeleteTask) OnLoadbalancerBackendGroupDeleteComplete(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbbg, db.ACT_DELETE, lbbg.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	lbbg.LBPendingDelete(ctx, self.GetUserCred())
+	lbbg.RealDelete(ctx, self.GetUserCred())
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    lbbg,
 		Action: notifyclient.ActionDelete,
@@ -68,5 +70,5 @@ func (self *LoadbalancerBackendGroupDeleteTask) OnLoadbalancerBackendGroupDelete
 }
 
 func (self *LoadbalancerBackendGroupDeleteTask) OnLoadbalancerBackendGroupDeleteCompleteFailed(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbbg, reason)
+	self.taskFail(ctx, lbbg, errors.Errorf(reason.String()))
 }

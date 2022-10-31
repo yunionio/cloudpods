@@ -36,6 +36,10 @@ func (lblis *SLoadbalancerListener) GetDetailsBackendStatus(ctx context.Context,
 	if lblis.BackendGroupId == "" {
 		return jsonutils.NewArray(), nil
 	}
+	lb, err := lblis.GetLoadbalancer()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetLoadbalancer")
+	}
 	var pxname string
 	switch lblis.ListenerType {
 	case api.LB_LISTENER_TYPE_TCP:
@@ -43,7 +47,7 @@ func (lblis *SLoadbalancerListener) GetDetailsBackendStatus(ctx context.Context,
 	case api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS:
 		pxname = fmt.Sprintf("backends_listener_default-%s", lblis.Id)
 	}
-	return lbGetBackendGroupCheckStatus(ctx, userCred, lblis.LoadbalancerId, pxname, lblis.BackendGroupId)
+	return lb.GetBackendGroupCheckStatus(ctx, userCred, pxname, lblis.BackendGroupId)
 }
 
 func (lbr *SLoadbalancerListenerRule) GetDetailsBackendStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -55,15 +59,15 @@ func (lbr *SLoadbalancerListenerRule) GetDetailsBackendStatus(ctx context.Contex
 	if err != nil {
 		return nil, err
 	}
+	lb, err := lblis.GetLoadbalancer()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetLoadbalancer")
+	}
 	pxname := fmt.Sprintf("backends_rule-%s", lbr.Id)
-	return lbGetBackendGroupCheckStatus(ctx, userCred, lblis.LoadbalancerId, pxname, lbr.BackendGroupId)
+	return lb.GetBackendGroupCheckStatus(ctx, userCred, pxname, lbr.BackendGroupId)
 }
 
-func lbGetInfluxdbByLbId(lbId string) (*influxdb.SInfluxdb, string, error) {
-	lb, err := LoadbalancerManager.getLoadbalancer(lbId)
-	if err != nil {
-		return nil, "", err
-	}
+func (lb *SLoadbalancer) GetInfluxdbByLbId() (*influxdb.SInfluxdb, string, error) {
 	lbagents, err := LoadbalancerAgentManager.getByClusterId(lb.ClusterId)
 	if err != nil {
 		return nil, "", err
@@ -98,14 +102,14 @@ func lbGetInfluxdbByLbId(lbId string) (*influxdb.SInfluxdb, string, error) {
 	return dbinst, dbName, nil
 }
 
-func lbGetBackendGroupCheckStatus(ctx context.Context, userCred mcclient.TokenCredential, lbId string, pxname string, groupId string) (*jsonutils.JSONArray, error) {
+func (lb *SLoadbalancer) GetBackendGroupCheckStatus(ctx context.Context, userCred mcclient.TokenCredential, pxname string, groupId string) (*jsonutils.JSONArray, error) {
 	var (
 		backendJsons []jsonutils.JSONObject
 		backendIds   []string
 	)
 	{
 		var err error
-		q := LoadbalancerBackendManager.Query().Equals("backend_group_id", groupId).IsFalse("pending_deleted")
+		q := LoadbalancerBackendManager.Query().Equals("backend_group_id", groupId)
 		backendJsons, err = db.Query2List(LoadbalancerBackendManager, ctx, userCred, q, jsonutils.NewDict(), false)
 		if err != nil {
 			return nil, errors.Wrapf(err, "query backends of backend group %s", groupId)
@@ -125,9 +129,9 @@ func lbGetBackendGroupCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 
-	dbinst, dbName, err := lbGetInfluxdbByLbId(lbId)
+	dbinst, dbName, err := lb.GetInfluxdbByLbId()
 	if err != nil {
-		return nil, errors.Wrapf(err, "find influxdb for loadbalancer %s", lbId)
+		return nil, errors.Wrapf(err, "find influxdb for loadbalancer %s", lb.Id)
 	}
 
 	queryFmt := "select check_status, check_code from %s..haproxy where pxname = '%s' and svname =~ /........-....-....-....-............/ group by pxname, svname order by time desc limit 1"

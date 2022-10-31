@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,24 +36,25 @@ func init() {
 	taskman.RegisterTask(LoadbalancerAclSyncTask{})
 }
 
-func (self *LoadbalancerAclSyncTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
-	db.OpsLog.LogEvent(lbacl, db.ACT_SYNC_CONF, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_SYNC_CONF_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerAclSyncTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, err error) {
+	lbacl.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, err.Error())
+	db.OpsLog.LogEvent(lbacl, db.ACT_SYNC_CONF, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_SYNC_CONF_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerAclSyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbacl := obj.(*models.SCachedLoadbalancerAcl)
-	region := lbacl.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbacl, jsonutils.NewString(fmt.Sprintf("failed to find region for lbacl %s", lbacl.Name)))
+	region, err := lbacl.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbacl, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnLoadbalancerAclSyncComplete", nil)
-	if err := region.GetDriver().RequestSyncLoadbalancerAcl(ctx, self.GetUserCred(), lbacl, self); err != nil {
-		self.taskFail(ctx, lbacl, jsonutils.NewString(err.Error()))
+	err = region.GetDriver().RequestSyncLoadbalancerAcl(ctx, self.GetUserCred(), lbacl, self)
+	if err != nil {
+		self.taskFail(ctx, lbacl, errors.Wrapf(err, "RequestSyncLoadbalancerAcl"))
 	}
 }
 
@@ -65,5 +66,5 @@ func (self *LoadbalancerAclSyncTask) OnLoadbalancerAclSyncComplete(ctx context.C
 }
 
 func (self *LoadbalancerAclSyncTask) OnLoadbalancerAclSyncCompleteFailed(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbacl, reason)
+	self.taskFail(ctx, lbacl, errors.Errorf(reason.String()))
 }

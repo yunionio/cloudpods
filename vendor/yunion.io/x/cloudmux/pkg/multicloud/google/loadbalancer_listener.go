@@ -458,7 +458,7 @@ func (self *SLoadbalancerListener) Stop() error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SLoadbalancerListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) error {
+func (self *SLoadbalancerListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	return cloudprovider.ErrNotSupported
 }
 

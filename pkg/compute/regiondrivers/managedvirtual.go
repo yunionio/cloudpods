@@ -79,67 +79,34 @@ func (self *SManagedVirtualizationRegionDriver) ValidateManagerId(ctx context.Co
 	return data, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerAclData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return self.ValidateManagerId(ctx, userCred, data)
-}
-
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return self.ValidateManagerId(ctx, userCred, data)
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential,
+	lb *models.SLoadbalancer, lbbg *models.SLoadbalancerBackendGroup,
+	input *api.LoadbalancerBackendCreateInput) (*api.LoadbalancerBackendCreateInput, error) {
+	if input.BackendType != api.LB_BACKEND_GUEST {
+		return nil, httperrors.NewUnsupportOperationError("internal error: unexpected backend type %s", input.BackendType)
+	}
+	return input, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendType string, lb *models.SLoadbalancer, backendGroup *models.SLoadbalancerBackendGroup, backend db.IModel) (*jsonutils.JSONDict, error) {
-	if backendType != api.LB_BACKEND_GUEST {
-		return nil, httperrors.NewUnsupportOperationError("internal error: unexpected backend type %s", backendType)
-	}
-	guest := backend.(*models.SGuest)
-	host, _ := guest.GetHost()
-	if host == nil {
-		return nil, fmt.Errorf("error getting host of guest %s", guest.GetId())
-	}
-	if lb == nil {
-		return nil, fmt.Errorf("error loadbalancer of backend group %s", backendGroup.GetId())
-	}
-	hostRegion, _ := host.GetRegion()
-	lbRegion, _ := lb.GetRegion()
-	if hostRegion.Id != lbRegion.Id {
-		return nil, httperrors.NewInputParameterError("region of host %q (%s) != region of loadbalancer %q (%s))",
-			host.Name, host.ZoneId, lb.Name, lb.ZoneId)
-	}
-	address, err := models.LoadbalancerBackendManager.GetGuestAddress(guest)
-	if err != nil {
-		return nil, err
-	}
-	data.Set("address", jsonutils.NewString(address))
-	return data, nil
+func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, input *api.LoadbalancerBackendUpdateInput) (*api.LoadbalancerBackendUpdateInput, error) {
+	return input, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lbbg *models.SLoadbalancerBackendGroup) (*jsonutils.JSONDict, error) {
-	return data, nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
-	for _, backend := range backends {
-		if len(backend.ExternalID) == 0 {
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, input *api.LoadbalancerBackendGroupCreateInput) (*api.LoadbalancerBackendGroupCreateInput, error) {
+	for _, backend := range input.Backends {
+		if len(backend.ExternalId) == 0 {
 			return nil, httperrors.NewInputParameterError("invalid guest %s", backend.Name)
 		}
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) IsSupportLoadbalancerListenerRuleRedirect() bool {
 	return false
-}
-
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	return data, nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	return data, nil
 }
 
 func validateUniqueById(ctx context.Context, userCred mcclient.TokenCredential, man db.IResourceModelManager, id string) error {
@@ -160,61 +127,9 @@ func validateUniqueById(ctx context.Context, userCred mcclient.TokenCredential, 
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	if aclStatus, _ := data.GetString("acl_status"); aclStatus == api.LB_BOOL_ON {
-		aclId, _ := data.GetString("acl_id")
-		if len(aclId) == 0 {
-			return nil, httperrors.NewMissingParameterError("acl")
-		}
-
-		err := validateUniqueById(ctx, userCred, models.LoadbalancerAclManager, aclId)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if lt, _ := data.GetString("listener_type"); lt == api.LB_LISTENER_TYPE_HTTPS {
-		certId, _ := data.GetString("certificate_id")
-		if len(certId) == 0 {
-			return nil, httperrors.NewMissingParameterError("certificate_id")
-		}
-
-		err := validateUniqueById(ctx, userCred, models.LoadbalancerCertificateManager, certId)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return data, nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lblis *models.SLoadbalancerListener, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	if listenerType, _ := data.GetString("listener_type"); len(listenerType) > 0 && lblis.ListenerType != listenerType {
-		return nil, httperrors.NewInputParameterError("cannot change loadbalancer listener listener_type")
-	}
-	if listenerPort, _ := data.Int("listener_port"); listenerPort != 0 && listenerPort != int64(lblis.ListenerPort) {
-		return nil, httperrors.NewInputParameterError("cannot change loadbalancer listener listener_port")
-	}
-
-	aclId, _ := data.GetString("acl_id")
-	if len(aclId) > 0 && lblis.AclId != aclId {
-		err := validateUniqueById(ctx, userCred, models.LoadbalancerAclManager, aclId)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if certId, _ := data.GetString("certificate_id"); len(certId) > 0 {
-		err := validateUniqueById(ctx, userCred, models.LoadbalancerCertificateManager, certId)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return data, nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) ValidateDeleteLoadbalancerCondition(ctx context.Context, lb *models.SLoadbalancer) error {
-	return nil
+func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential,
+	lblis *models.SLoadbalancerListener, input *api.LoadbalancerListenerUpdateInput) (*api.LoadbalancerListenerUpdateInput, error) {
+	return input, nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateDeleteLoadbalancerBackendCondition(ctx context.Context, lbb *models.SLoadbalancerBackend) error {
@@ -254,7 +169,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerInstanc
 			}
 			iZone, err := iRegion.GetIZoneById(zone.ExternalId)
 			if err != nil {
-				return nil, errors.Wrap(err, "GetIZoneById")
+				return nil, errors.Wrapf(err, "GetIZoneById(%s)", zone.ExternalId)
 			}
 			params.ZoneId = iZone.GetId()
 		}
@@ -314,29 +229,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerInstanc
 			return nil, errors.Wrap(err, "cloudprovider.WaitMultiStatus")
 		}
 
-		region, _ := lb.GetRegion()
-		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), region); err != nil {
-			return nil, err
-		}
-		//公网lb,需要同步public ip
-		if lb.AddressType == api.LB_ADDR_TYPE_INTERNET {
-			publicIp, err := iLoadbalancer.GetIEIP()
-			if err != nil {
-				return nil, errors.Wrap(err, "iLoadbalancer.GetIEIP()")
-			}
-			lb.SyncLoadbalancerEip(ctx, userCred, lb.GetCloudprovider(), publicIp)
-		}
-
-		lbbgs, err := iLoadbalancer.GetILoadBalancerBackendGroups()
+		err = lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, lb.GetCloudprovider())
 		if err != nil {
-			return nil, err
-		}
-		if len(lbbgs) > 0 {
-			provider := lb.GetCloudprovider()
-			if provider == nil {
-				return nil, fmt.Errorf("failed to find cloudprovider for lb %s", lb.Name)
-			}
-			models.LoadbalancerBackendGroupManager.SyncLoadbalancerBackendgroups(ctx, userCred, provider, lb, lbbgs, &models.SSyncRange{})
+			return nil, errors.Wrapf(err, "SyncWithCloudLoadbalancer")
 		}
 		return nil, nil
 	})
@@ -379,12 +274,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancer(ct
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetILoadbalancer")
 		}
-		models.SyncVirtualResourceMetadata(ctx, userCred, lb, iLb)
-		status := iLb.GetStatus()
-		if utils.IsInStringArray(status, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
-			return nil, lb.SetStatus(userCred, status, "")
-		}
-		return nil, fmt.Errorf("Unknown loadbalancer status %s", status)
+		provider := lb.GetCloudprovider()
+		return nil, lb.SyncWithCloudLoadbalancer(ctx, userCred, iLb, provider)
 	})
 	return nil
 }
@@ -423,26 +314,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
-			return nil, nil
-		}
-
-		if len(lb.ExternalId) == 0 {
-			return nil, nil
-		}
-
-		iRegion, err := lb.GetIRegion(ctx)
-		if err != nil {
-			return nil, err
-		}
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
+		iLb, err := lb.GetILoadbalancer(ctx)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
-			return nil, err
 		}
-		return nil, iLoadbalancer.Delete(ctx)
+		return nil, iLb.Delete(ctx)
 	})
 	return nil
 }
@@ -595,7 +473,7 @@ func (self *SManagedVirtualizationRegionDriver) createLoadbalancerCertificate(ct
 		return nil, errors.Wrap(err, "iRegion.createLoadbalancerCertificate.WaitCreated")
 	}
 
-	return nil, lbcert.SyncWithCloudLoadbalancerCertificate(ctx, userCred, iLoadbalancerCert, lbcert.GetOwnerId())
+	return nil, lbcert.SyncWithCloudLoadbalancerCertificate(ctx, userCred, iLoadbalancerCert)
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SCachedLoadbalancerCertificate, task taskman.ITask) error {
@@ -626,42 +504,27 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerCertifi
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend, task taskman.ITask) error {
+func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lbbg.GetIRegion(ctx)
+		lb, err := lbbg.GetLoadbalancer()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetLoadbalancer")
 		}
-		loadbalancer, err := lbbg.GetLoadbalancer()
+		iLb, err := lb.GetILoadbalancer(ctx)
 		if err != nil {
-			return nil, err
-		}
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
-		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetILoadBalancer(%s)", lb.ExternalId)
 		}
 		group := &cloudprovider.SLoadbalancerBackendGroup{
 			Name:      lbbg.Name,
 			GroupType: lbbg.Type,
-			Backends:  backends,
 		}
-		iLoadbalancerBackendGroup, err := iLoadbalancer.CreateILoadBalancerBackendGroup(group)
+		iLbbg, err := iLb.CreateILoadBalancerBackendGroup(group)
 		if err != nil {
 			return nil, err
 		}
-		if err := db.SetExternalId(lbbg, userCred, iLoadbalancerBackendGroup.GetGlobalId()); err != nil {
-			return nil, err
-		}
-		iBackends, err := iLoadbalancerBackendGroup.GetILoadbalancerBackends()
+		err = db.SetExternalId(lbbg, userCred, iLbbg.GetGlobalId())
 		if err != nil {
-			return nil, err
-		}
-		if len(iBackends) > 0 {
-			provider := loadbalancer.GetCloudprovider()
-			if provider == nil {
-				return nil, fmt.Errorf("failed to find cloudprovider for lb %s", loadbalancer.Name)
-			}
-			models.LoadbalancerBackendManager.SyncLoadbalancerBackends(ctx, userCred, provider, lbbg, iBackends, &models.SSyncRange{})
+			return nil, errors.Wrapf(err, "db.SetExternalId")
 		}
 		return nil, nil
 	})
@@ -716,15 +579,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackendGr
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestPullRegionLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) error {
-	return nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) RequestPullLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) error {
-	models.SyncLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, localLoadbalancer, remoteLoadbalancer, syncRange)
-	return nil
-}
-
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		lbbg, err := lbb.GetLoadbalancerBackendGroup()
@@ -758,7 +612,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		if err := db.SetExternalId(lbb, userCred, iLoadbalancerBackend.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iLoadbalancerBackend, lbbg.GetOwnerId(), lb.GetCloudprovider())
+		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iLoadbalancerBackend, lb.GetCloudprovider())
 	})
 	return nil
 }
@@ -843,7 +697,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 		}
 
-		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, lbbg.GetOwnerId(), lb.GetCloudprovider())
+		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, lb.GetCloudprovider())
 	})
 	return nil
 }
@@ -851,16 +705,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		{
-			certId, _ := task.GetParams().GetString("certificate_id")
-			if len(certId) > 0 {
+			if len(lblis.CertificateId) > 0 {
 				provider := lblis.GetCloudprovider()
-				if provider == nil {
-					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
-				}
-
-				cert, err := models.LoadbalancerCertificateManager.FetchById(certId)
+				cert, err := models.LoadbalancerCertificateManager.FetchById(lblis.CertificateId)
 				if err != nil {
-					return nil, errors.Wrapf(err, "LoadbalancerCertificateManager.FetchById(%s)", certId)
+					return nil, errors.Wrapf(err, "LoadbalancerCertificateManager.FetchById(%s)", lblis.CertificateId)
 				}
 
 				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert.(*models.SLoadbalancerCertificate))
@@ -874,14 +723,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 						return nil, errors.Wrap(err, "createLoadbalancerCertificate")
 					}
 				}
-
-				_, err = db.Update(lblis, func() error {
-					lblis.CachedCertificateId = lbcert.GetId()
-					return nil
-				})
-				if err != nil {
-					return nil, errors.Wrap(err, "regionDriver.RequestCreateLoadbalancerListener.UpdateCachedCertificateId")
-				}
+				return nil, nil
 			}
 		}
 
@@ -909,14 +751,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 						return nil, errors.Wrap(err, "createLoadbalancerAcl")
 					}
 				}
-
-				_, err = db.Update(lblis, func() error {
-					lblis.CachedAclId = lbacl.GetId()
-					return nil
-				})
-				if err != nil {
-					return nil, errors.Wrap(err, "regionDriver.RequestCreateLoadbalancerListener.UpdateCachedAclId")
-				}
+				return nil, nil
 			}
 		}
 
@@ -950,38 +785,25 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
+		if len(lblis.ExternalId) == 0 {
 			return nil, nil
 		}
-		loadbalancer, err := lblis.GetLoadbalancer()
+		lb, err := lblis.GetLoadbalancer()
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion(ctx)
+		iLb, err := lb.GetILoadbalancer(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "RegionDriver.RequestDeleteLoadbalancerListener.GetIRegion")
+			return nil, errors.Wrapf(err, "GetILoadbalancer")
 		}
 
-		if len(loadbalancer.ExternalId) == 0 {
-			return nil, nil
-		}
-
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
+		iListener, err := iLb.GetILoadBalancerListenerById(lblis.ExternalId)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
-			return nil, errors.Wrap(err, "RegionDriver.RequestDeleteLoadbalancerListener.GetILoadBalancerById")
+			return nil, errors.Wrapf(err, "GetILoadBalancerListenerById(%s)", lblis.ExternalId)
 		}
-
-		iListener, err := iLoadbalancer.GetILoadBalancerListenerById(lblis.ExternalId)
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				return nil, nil
-			}
-			return nil, errors.Wrap(err, "RegionDriver.RequestDeleteLoadbalancerListener.GetILoadBalancerListenerById")
-		}
-
 		return nil, iListener.Delete(ctx)
 	})
 	return nil
@@ -1036,14 +858,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 						return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.CreateCert")
 					}
 				}
-
-				_, err = db.Update(lblis, func() error {
-					lblis.CachedCertificateId = lbcert.GetId()
-					return nil
-				})
-				if err != nil {
-					return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.UpdateCachedCertificateId")
-				}
+				return nil, nil
 			}
 		}
 
@@ -1077,14 +892,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 						return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.CreateAcl")
 					}
 				}
-
-				_, err := db.Update(lblis, func() error {
-					lblis.CachedAclId = lbacl.GetId()
-					return nil
-				})
-				if err != nil {
-					return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.UpdateCachedAclId")
-				}
+				return nil, nil
 			}
 		}
 
@@ -1204,7 +1012,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 			if group == nil {
 				return nil, fmt.Errorf("failed to find backend group for listener rule %s", lbr.Name)
 			}
-			rule.BackendGroupID = group.ExternalId
+			rule.BackendGroupId = group.ExternalId
 			rule.BackendGroupType = group.Type
 		}
 		iListenerRule, err := iListener.CreateILoadBalancerListenerRule(rule)

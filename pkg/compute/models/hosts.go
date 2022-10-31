@@ -780,9 +780,8 @@ func (self *SHost) Delete(ctx context.Context, userCred mcclient.TokenCredential
 func (self *SHost) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if self.IsBaremetal {
 		return self.StartDeleteBaremetalTask(ctx, userCred, "")
-	} else {
-		return self.RealDelete(ctx, userCred)
 	}
+	return self.RealDelete(ctx, userCred)
 }
 
 func (self *SHost) StartDeleteBaremetalTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -844,7 +843,23 @@ func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 			store.Delete(ctx, userCred)
 		}
 	}
+	backends, err := self.GetLoadbalancerBackends()
+	if err != nil {
+		return errors.Wrapf(err, "GetLoadbalancerBackends")
+	}
+	for i := range backends {
+		err := backends[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "backend real delete %s", backends[i].Id)
+		}
+	}
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SHost) GetLoadbalancerBackends() ([]SLoadbalancerBackend, error) {
+	q := LoadbalancerBackendManager.Query().Equals("backend_id", self.Id)
+	ret := []SLoadbalancerBackend{}
+	return ret, db.FetchModelObjects(LoadbalancerBackendManager, q, &ret)
 }
 
 func (self *SHost) GetHoststoragesQuery() *sqlchemy.SQuery {

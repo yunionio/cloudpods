@@ -26,12 +26,10 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -41,7 +39,7 @@ import (
 // +onecloud:swagger-gen-ignore
 type SCachedLoadbalancerAclManager struct {
 	SLoadbalancerLogSkipper
-	db.SVirtualResourceBaseManager
+	db.SStatusStandaloneResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 	SLoadbalancerAclResourceBaseManager
@@ -51,7 +49,7 @@ var CachedLoadbalancerAclManager *SCachedLoadbalancerAclManager
 
 func init() {
 	CachedLoadbalancerAclManager = &SCachedLoadbalancerAclManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SCachedLoadbalancerAcl{},
 			"cachedloadbalanceracls_tbl",
 			"cachedloadbalanceracl",
@@ -63,161 +61,99 @@ func init() {
 }
 
 type SCachedLoadbalancerAcl struct {
-	db.SVirtualResourceBase
+	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 	SCloudregionResourceBase
 	SLoadbalancerAclResourceBase
-
-	ListenerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // huawei only
 }
 
-func (manager *SCachedLoadbalancerAclManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
-	virts := manager.Query().IsFalse("pending_deleted")
-	return db.CalculateResourceCount(virts, "tenant_id")
+func (manager *SCachedLoadbalancerAclManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
 }
 
-func (lbacl *SCachedLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := loadbalancerAclsValidateAclEntries(data, true)
+func (self *SCachedLoadbalancerAcl) GetOwnerId() mcclient.IIdentityProvider {
+	acl, err := self.GetAcl()
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	input := apis.VirtualResourceBaseUpdateInput{}
-	err = data.Unmarshal(&input)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
-	}
-	input, err = lbacl.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
-	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
-	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return acl.GetOwnerId()
 }
 
-func (lbacl *SCachedLoadbalancerAcl) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lbacl.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
-	lbacl.SetStatus(userCred, api.LB_SYNC_CONF, "")
-	lbacl.StartLoadBalancerAclSyncTask(ctx, userCred, "")
+func (manager *SCachedLoadbalancerAclManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	aclId, _ := data.GetString("acl_id")
+	if len(aclId) > 0 {
+		cert, err := db.FetchById(LoadbalancerAclManager, aclId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchById(LoadbalancerAclManager, %s)", aclId)
+		}
+		return cert.(*SLoadbalancerAcl).GetOwnerId(), nil
+	}
+	return db.FetchProjectInfo(ctx, data)
+}
+
+func (manager *SCachedLoadbalancerAclManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil {
+		sq := LoadbalancerAclManager.Query("id")
+		switch scope {
+		case rbacutils.ScopeProject:
+			sq = sq.Equals("tenant_id", userCred.GetProjectId())
+			return q.In("acl_id", sq.SubQuery())
+		case rbacutils.ScopeDomain:
+			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+			return q.In("acl_id", sq.SubQuery())
+		}
+	}
+	return q
+}
+
+func (lbacl *SCachedLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.CachedLoadbalancerAclUpdateInput) (*api.CachedLoadbalancerAclUpdateInput, error) {
+	var err error
+	input.StatusStandaloneResourceBaseUpdateInput, err = lbacl.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
 func (lbacl *SCachedLoadbalancerAcl) StartLoadBalancerAclSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerAclSyncTask", lbacl, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (man *SCachedLoadbalancerAclManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
-	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
-	providerV := validators.NewModelIdOrNameValidator("cloudprovider", "cloudprovider", ownerId)
-	keyV := map[string]validators.IValidator{
-		"acl":           aclV,
-		"cloudregion":   regionV,
-		"cloudprovider": providerV,
-	}
-
-	for _, v := range keyV {
-		if err := v.Validate(data); err != nil {
-			return nil, err
-		}
-	}
-
-	if utils.IsInStringArray(providerV.Model.(*SCloudprovider).Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
-		listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
-		if err := listenerV.Validate(data); err != nil {
-			return nil, err
-		}
-	} else {
-		data.Remove("listener_id")
-	}
-
-	q := man.Query().Equals("acl_id", aclV.Model.GetId()).Equals("cloudregion_id", regionV.Model.GetId()).IsFalse("deleted")
-	if listener, _ := data.GetString("listener_id"); len(listener) > 0 {
-		q.Equals("listener_id", listener)
-	}
-
-	count, err := q.CountWithError()
-	if err != nil {
-		return nil, err
-	}
-
-	if count > 0 {
-		return nil, httperrors.NewDuplicateResourceError("the acl cache in region %s aready exists.", regionV.Model.GetId())
-	}
-
-	provider := providerV.Model.(*SCloudprovider)
-	data.Set("manager_id", jsonutils.NewString(provider.Id))
-	name, _ := db.GenerateName(ctx, man, ownerId, aclV.Model.GetName())
-	data.Set("name", jsonutils.NewString(name))
-
-	input := apis.VirtualResourceCreateInput{}
-	err = data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
-	}
-	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-	data.Update(jsonutils.Marshal(input))
-
-	return data, nil
-}
-
-func (lbacl *SCachedLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lbacl.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
-
-	lbacl.SetStatus(userCred, api.LB_CREATING, "")
-	if err := lbacl.StartLoadBalancerAclCreateTask(ctx, userCred, ""); err != nil {
-		log.Errorf("Failed to create loadbalanceracl error: %v", err)
-	}
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (lbacl *SCachedLoadbalancerAcl) StartLoadBalancerAclCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerAclCreateTask", lbacl, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
-func (lbacl *SCachedLoadbalancerAcl) GetRegion() *SCloudregion {
+func (lbacl *SCachedLoadbalancerAcl) GetRegion() (*SCloudregion, error) {
 	region, err := CloudregionManager.FetchById(lbacl.CloudregionId)
 	if err != nil {
-		log.Errorf("failed to find region for loadbalancer acl %s", lbacl.Name)
-		return nil
+		return nil, errors.Wrapf(err, "GetRegion.FetchById(%s)", lbacl.CloudregionId)
 	}
-	return region.(*SCloudregion)
+	return region.(*SCloudregion), nil
 }
 
 func (lbacl *SCachedLoadbalancerAcl) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	provider, err := lbacl.GetDriver(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovider for lb %s: %s", lbacl.Name, err)
+		return nil, errors.Wrapf(err, "GetDriver")
 	}
-	region := lbacl.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to find region for lb %s", lbacl.Name)
+	region, err := lbacl.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
 	}
 	return provider.GetIRegionById(region.ExternalId)
-}
-
-func (lbacl *SCachedLoadbalancerAcl) GetListener() (*SLoadbalancerListener, error) {
-	if len(lbacl.ListenerId) == 0 {
-		return nil, fmt.Errorf("acl %s has no listener", lbacl.Id)
-	}
-
-	listener, err := LoadbalancerListenerManager.FetchById(lbacl.ListenerId)
-	if err != nil {
-		return nil, err
-	}
-
-	return listener.(*SLoadbalancerListener), nil
 }
 
 func (man *SCachedLoadbalancerAclManager) FetchCustomizeColumns(
@@ -230,41 +166,19 @@ func (man *SCachedLoadbalancerAclManager) FetchCustomizeColumns(
 ) []api.CachedLoadbalancerAclDetails {
 	rows := make([]api.CachedLoadbalancerAclDetails, len(objs))
 
-	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := man.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := man.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := man.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.CachedLoadbalancerAclDetails{
-			VirtualResourceDetails:  virtRows[i],
-			ManagedResourceInfo:     manRows[i],
-			CloudregionResourceInfo: regionRows[i],
+			StatusStandaloneResourceDetails: stdRows[i],
+			ManagedResourceInfo:             manRows[i],
+			CloudregionResourceInfo:         regionRows[i],
 		}
 	}
 
 	return rows
-}
-
-func (lbacl *SCachedLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	man := LoadbalancerListenerManager
-	t := man.TableSpec().Instance()
-	pdF := t.Field("pending_deleted")
-	lbaclId := lbacl.Id
-	n, err := t.Query().
-		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-		Equals("domain_id", lbacl.DomainId).
-		Equals("acl_id", lbaclId).
-		Equals("cached_acl_id", lbaclId).
-		CountWithError()
-	if err != nil {
-		return httperrors.NewInternalServerError("get acl count fail %s", err)
-	}
-	if n > 0 {
-		// return fmt.Errorf("acl %s is still referred to by %d %s",
-		// 	lbaclId, n, man.KeywordPlural())
-		return httperrors.NewResourceBusyError("acl %s is still referred to by %d %s", lbaclId, n, man.KeywordPlural())
-	}
-	return nil
 }
 
 func (lbacl *SCachedLoadbalancerAcl) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -281,27 +195,24 @@ func (lbacl *SCachedLoadbalancerAcl) CustomizeDelete(ctx context.Context, userCr
 func (lbacl *SCachedLoadbalancerAcl) StartLoadBalancerAclDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerAclDeleteTask", lbacl, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (lbacl *SCachedLoadbalancerAcl) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
 }
 
+func (lbacl *SCachedLoadbalancerAcl) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return lbacl.SStatusStandaloneResourceBase.Delete(ctx, userCred)
+}
+
 func (self *SCachedLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx, nil)
-	if err != nil { // cannot delete
-		err = self.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
-	} else {
-		self.DoPendingDelete(ctx, userCred)
-	}
-	return errors.Wrap(err, "cachedLoadbalancerAcl.remove.Delete")
+	return self.RealDelete(ctx, userCred)
 }
 
 func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId mcclient.IIdentityProvider) error {
@@ -309,30 +220,13 @@ func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Cont
 		// todo: 华为云acl没有name字段应此不需要同步名称
 		if !utils.IsInStringArray(acl.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
 			acl.Name = extAcl.GetName()
-		} else {
-			ext_listener_id := extAcl.GetAclListenerID()
-			if len(ext_listener_id) > 0 {
-				ilistener, err := db.FetchByExternalIdAndManagerId(LoadbalancerListenerManager, ext_listener_id, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-					sq := LoadbalancerManager.Query().SubQuery()
-					return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("loadbalancer_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), acl.ManagerId))
-				})
-				if err != nil {
-					return errors.Wrap(err, "cacheLoadbalancerAcl.sync.FetchByExternalId")
-				}
-
-				acl.ListenerId = ilistener.(*SLoadbalancerListener).GetId()
-			}
 		}
-
 		return nil
 	})
 	if err != nil {
 		return errors.Wrap(err, "cacheLoadbalancerAcl.sync.Update")
 	}
 	db.OpsLog.LogSyncUpdate(acl, diff, userCred)
-
-	SyncCloudProject(userCred, acl, projectId, extAcl, acl.ManagerId)
-
 	return nil
 }
 
@@ -377,11 +271,8 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 	lbacl = SCachedLoadbalancerAcl{}
 	lbacl.ManagerId = provider.Id
 	lbacl.CloudregionId = region.Id
-	lbacl.ProjectId = lblis.ProjectId
-	lbacl.ProjectSrc = lblis.ProjectSrc
 	lbacl.Name = acl.Name
 	lbacl.AclId = acl.Id
-	lbacl.ListenerId = listenerId
 
 	err = man.TableSpec().Insert(ctx, &lbacl)
 	if err != nil {
@@ -393,7 +284,7 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 
 func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SCachedLoadbalancerAcl, error) {
 	acls := []SCachedLoadbalancerAcl{}
-	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).IsFalse("pending_deleted")
+	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
 	if err := db.FetchModelObjects(man, q, &acls); err != nil {
 		log.Errorf("failed to get acls for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err
@@ -403,7 +294,7 @@ func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SC
 
 func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclByRegion(provider *SCloudprovider, regionId string, aclId string, listenerId string) (SCachedLoadbalancerAcl, error) {
 	acls := []SCachedLoadbalancerAcl{}
-	q := man.Query().Equals("cloudregion_id", regionId).Equals("manager_id", provider.Id).IsFalse("pending_deleted")
+	q := man.Query().Equals("cloudregion_id", regionId).Equals("manager_id", provider.Id)
 	// used by huawei only
 	if len(listenerId) > 0 {
 		q.Equals("listener_id", listenerId)
@@ -485,12 +376,12 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 	acl.ManagerId = provider.Id
 	acl.CloudregionId = region.Id
 
-	aclEntites := SLoadbalancerAclEntries{}
+	aclEntites := api.SAclEntries{}
 	for _, entry := range extAcl.GetAclEntries() {
-		aclEntites = append(aclEntites, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
+		aclEntites = append(aclEntites, api.SAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
 	}
 
-	f := aclEntites.Fingerprint()
+	f := aclEntites.GetFingerprint()
 	if LoadbalancerAclManager.CountByFingerPrint(provider.ProjectId, f) == 0 {
 		localAcl := &SLoadbalancerAcl{}
 		localAcl.SetModelManager(LoadbalancerAclManager, localAcl)
@@ -532,16 +423,8 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 		return nil, errors.Wrap(err, "Insert")
 	}
 
-	SyncCloudProject(userCred, &acl, projectId, extAcl, acl.ManagerId)
-
 	db.OpsLog.LogEvent(&acl, db.ACT_CREATE, acl.GetShortDesc(ctx), userCred)
-
 	return &acl, nil
-}
-
-func (manager *SCachedLoadbalancerAclManager) InitializeData() error {
-	// todo: sync old data from acls
-	return nil
 }
 
 func (manager *SCachedLoadbalancerAclManager) ListItemFilter(
@@ -552,9 +435,9 @@ func (manager *SCachedLoadbalancerAclManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -581,9 +464,9 @@ func (manager *SCachedLoadbalancerAclManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -604,7 +487,7 @@ func (manager *SCachedLoadbalancerAclManager) OrderByExtraFields(
 func (manager *SCachedLoadbalancerAclManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -631,9 +514,9 @@ func (manager *SCachedLoadbalancerAclManager) ListItemExportKeys(ctx context.Con
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
 	}
 	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
 		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
@@ -655,4 +538,8 @@ func (manager *SCachedLoadbalancerAclManager) ListItemExportKeys(ctx context.Con
 	}
 
 	return q, nil
+}
+
+func (manager *SCachedLoadbalancerAclManager) InitializeData() error {
+	return nil
 }

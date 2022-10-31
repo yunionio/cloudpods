@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,24 +36,25 @@ func init() {
 	taskman.RegisterTask(LoadbalancerListenerRuleDeleteTask{})
 }
 
-func (self *LoadbalancerListenerRuleDeleteTask) taskFail(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason jsonutils.JSONObject) {
-	lbr.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
-	db.OpsLog.LogEvent(lbr, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lbr.Id, lbr.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerListenerRuleDeleteTask) taskFail(ctx context.Context, lbr *models.SLoadbalancerListenerRule, err error) {
+	lbr.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
+	db.OpsLog.LogEvent(lbr, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_DELOCATE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbr.Id, lbr.Name, api.LB_STATUS_DELETE_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerListenerRuleDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbr := obj.(*models.SLoadbalancerListenerRule)
 	region, err := lbr.GetRegion()
 	if err != nil {
-		self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lbr, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerRuleDeleteComplete", nil)
-	if err := region.GetDriver().RequestDeleteLoadbalancerListenerRule(ctx, self.GetUserCred(), lbr, self); err != nil {
-		self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
+	err = region.GetDriver().RequestDeleteLoadbalancerListenerRule(ctx, self.GetUserCred(), lbr, self)
+	if err != nil {
+		self.taskFail(ctx, lbr, errors.Wrapf(err, "RequestDeleteLoadbalancerListenerRule"))
 	}
 }
 
@@ -67,10 +69,10 @@ func (self *LoadbalancerListenerRuleDeleteTask) OnLoadbalancerListenerRuleDelete
 	if lblis != nil {
 		logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_LB_REMOVE_LISTENER_RULE, nil, self.UserCred, true)
 	}
-	lbr.DoPendingDelete(ctx, self.GetUserCred())
+	lbr.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *LoadbalancerListenerRuleDeleteTask) OnLoadbalancerListenerRuleDeleteCompleteFailed(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbr, reason)
+	self.taskFail(ctx, lbr, errors.Errorf(reason.String()))
 }

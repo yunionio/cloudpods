@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,28 +36,26 @@ func init() {
 	taskman.RegisterTask(LoadbalancerListenerSyncTask{})
 }
 
-func (self *LoadbalancerListenerSyncTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
-	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_CONF, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lblis.Id, lblis.Name, api.LB_SYNC_CONF_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerListenerSyncTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, err error) {
+	lblis.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, err.Error())
+	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_CONF, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_SYNC_CONF, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lblis.Id, lblis.Name, api.LB_SYNC_CONF_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lblis := obj.(*models.SLoadbalancerListener)
 	region, err := lblis.GetRegion()
 	if err != nil {
-		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lblis, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 
 	self.SetStage("OnLoadbalancerBackendgroupSyncComplete", nil)
-	driver := region.GetDriver()
-	userCred := self.GetUserCred()
-	err = driver.RequestSyncLoadbalancerBackendGroup(ctx, userCred, lblis, self)
+	err = region.GetDriver().RequestSyncLoadbalancerBackendGroup(ctx, self.GetUserCred(), lblis, self)
 	if err != nil {
-		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lblis, errors.Wrapf(err, "RequestSyncLoadbalancerBackendGroup"))
 		return
 	}
 }
@@ -64,18 +63,19 @@ func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.ISt
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
 	region, err := lblis.GetRegion()
 	if err != nil {
-		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lblis, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerSyncComplete", nil)
-	if err := region.GetDriver().RequestSyncLoadbalancerListener(ctx, self.GetUserCred(), lblis, self); err != nil {
-		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+	err = region.GetDriver().RequestSyncLoadbalancerListener(ctx, self.GetUserCred(), lblis, self)
+	if err != nil {
+		self.taskFail(ctx, lblis, errors.Wrapf(err, "RequestSyncLoadbalancerListener"))
 	}
 }
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
 	lblis.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
-	self.taskFail(ctx, lblis, reason)
+	self.taskFail(ctx, lblis, errors.Errorf(reason.String()))
 }
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
@@ -86,7 +86,7 @@ func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncComplete(ctx
 }
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lblis, reason)
+	self.taskFail(ctx, lblis, errors.Errorf(reason.String()))
 }
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncStatusComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {

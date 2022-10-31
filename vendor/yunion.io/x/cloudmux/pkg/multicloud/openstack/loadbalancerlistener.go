@@ -233,14 +233,14 @@ func (region *SRegion) GetLoadbalancerListenerbyId(listenerId string) (*SLoadbal
 	return &listener, nil
 }
 
-func (region *SRegion) CreateLoadbalancerListener(loadbalancerId string, listenerParams *cloudprovider.SLoadbalancerListener) (*SLoadbalancerListener, error) {
+func (region *SRegion) CreateLoadbalancerListener(loadbalancerId string, listenerParams *cloudprovider.SLoadbalancerListenerCreateOptions) (*SLoadbalancerListener, error) {
 	type CreateParams struct {
 		Listener SLoadbalancerListenerCreateParams `json:"listener"`
 	}
 	params := CreateParams{}
 	params.Listener.AdminStateUp = true
 	params.Listener.LoadbalancerID = loadbalancerId
-	params.Listener.DefaultPoolId = listenerParams.BackendGroupID
+	params.Listener.DefaultPoolId = listenerParams.BackendGroupId
 	params.Listener.Protocol = LB_PROTOCOL_MAP[listenerParams.ListenerType]
 	params.Listener.ProtocolPort = strconv.Itoa(listenerParams.ListenerPort)
 	if listenerParams.ClientIdleTimeout != 0 {
@@ -678,13 +678,13 @@ func (region *SRegion) UpdateLoadBalancerListenerAdminStateUp(AdminStateUp bool,
 	return nil
 }
 
-func (region *SRegion) UpdateLoadBalancerListener(loadbalancerListenerId string, lblis *cloudprovider.SLoadbalancerListener) error {
+func (region *SRegion) UpdateLoadBalancerListener(loadbalancerListenerId string, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	type UpdateParams struct {
 		Listener SLoadbalancerListenerUpdateParams `json:"listener"`
 	}
 	params := UpdateParams{}
 	params.Listener.AdminStateUp = true
-	params.Listener.DefaultPoolId = lblis.BackendGroupID
+	params.Listener.DefaultPoolId = lblis.BackendGroupId
 
 	if lblis.ClientIdleTimeout != 0 {
 		// 毫秒单位
@@ -744,7 +744,7 @@ func (listener *SLoadbalancerListener) Stop() error {
 	return nil
 }
 
-func (listener *SLoadbalancerListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListener) error {
+func (listener *SLoadbalancerListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	// ensure listener status
 	err := waitLbResStatus(listener, 10*time.Second, 8*time.Minute)
 	if err != nil {

@@ -70,7 +70,7 @@ func (self *LoadbalancerDeleteTask) OnLoadbalancerDeleteComplete(ctx context.Con
 	})
 	deleteEip := jsonutils.QueryBoolean(self.Params, "delete_eip", false)
 	lb.DeleteEip(ctx, self.UserCred, deleteEip)
-	lb.LBPendingDelete(ctx, self.GetUserCred())
+	lb.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 

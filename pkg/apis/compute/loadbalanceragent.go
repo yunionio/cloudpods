@@ -22,3 +22,12 @@ type LoadbalancerAgentDetails struct {
 
 	SLoadbalancerAgent
 }
+
+type LoadbalancerAgentListInput struct {
+	apis.StandaloneResourceListInput
+	LoadbalancerClusterFilterListInput
+
+	Version []string `json:"version"`
+	IP      []string `json:"ip"`
+	HaState []string `json:"ha_state"`
+}

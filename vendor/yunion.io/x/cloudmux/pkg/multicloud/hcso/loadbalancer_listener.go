@@ -552,7 +552,7 @@ default_pool_id对应的后端云服务器组的protocol和监听器的protocol�
 监听器的protocol为UDP时，后端云服务器组的protocol必须为UDP。
 监听器的protocol为HTTP或TERMINATED_HTTPS时，后端云服务器组的protocol必须为HTTP。
 */
-func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) error {
+func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	return self.lb.region.UpdateLoadBalancerListener(self.GetId(), listener)
 }
 
@@ -565,20 +565,20 @@ func (self *SElbListener) Delete(ctx context.Context) error {
 	return nil
 }
 
-func (self *SRegion) UpdateLoadBalancerListener(listenerId string, listener *cloudprovider.SLoadbalancerListener) error {
+func (self *SRegion) UpdateLoadBalancerListener(listenerId string, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	params := jsonutils.NewDict()
 	listenerObj := jsonutils.NewDict()
 	listenerObj.Set("name", jsonutils.NewString(listener.Name))
 	listenerObj.Set("description", jsonutils.NewString(listener.Description))
 	listenerObj.Set("http2_enable", jsonutils.NewBool(listener.EnableHTTP2))
-	if len(listener.BackendGroupID) > 0 {
-		listenerObj.Set("default_pool_id", jsonutils.NewString(listener.BackendGroupID))
+	if len(listener.BackendGroupId) > 0 {
+		listenerObj.Set("default_pool_id", jsonutils.NewString(listener.BackendGroupId))
 	} else {
 		listenerObj.Set("default_pool_id", jsonutils.JSONNull)
 	}
 
 	if listener.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
-		listenerObj.Set("default_tls_container_ref", jsonutils.NewString(listener.CertificateID))
+		listenerObj.Set("default_tls_container_ref", jsonutils.NewString(listener.CertificateId))
 	}
 
 	if listener.XForwardedFor {
@@ -646,7 +646,7 @@ func (self *SRegion) CreateLoadBalancerPolicy(listenerID string, rule *cloudprov
 	policyObj.Set("listener_id", jsonutils.NewString(listenerID))
 	// todo: REDIRECT_TO_LISTENER?
 	policyObj.Set("action", jsonutils.NewString("REDIRECT_TO_POOL"))
-	policyObj.Set("redirect_pool_id", jsonutils.NewString(rule.BackendGroupID))
+	policyObj.Set("redirect_pool_id", jsonutils.NewString(rule.BackendGroupId))
 	params.Set("l7policy", policyObj)
 
 	err := DoCreate(self.ecsClient.ElbL7policies.Create, params, &l7policy)

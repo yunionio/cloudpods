@@ -31,9 +31,10 @@ type SModelartsPoolSku struct {
 	huawei.HuaweiTags
 	region *SRegion
 
-	Kind   string                          `json:"kind"`
-	Spec   SModelartsResourceflavorsSpec   `json:"spec"`
-	Status SModelartsResourceflavorsStatus `json:"status"`
+	Kind     string                            `json:"kind"`
+	Spec     SModelartsResourceflavorsSpec     `json:"spec"`
+	Status   SModelartsResourceflavorsStatus   `json:"status"`
+	Metadata SModelartsResourceflavorsMetadata `json:"metadata"`
 }
 
 type SModelartsResourceflavorsSpec struct {
@@ -45,6 +46,10 @@ type SModelartsResourceflavorsSpec struct {
 	Npu          SModelartsResourceflavorsGpuSpec `json:"npu"`
 	Memory       string                           `json:"memory"`
 	Type         string                           `json:"type"`
+}
+
+type SModelartsResourceflavorsMetadata struct {
+	Name string `json:"name"`
 }
 
 type SModelartsResourceflavorsGpuSpec struct {
@@ -77,7 +82,7 @@ func (self *SModelartsPoolSku) GetCreatedAt() time.Time {
 }
 
 func (self *SModelartsPoolSku) GetGlobalId() string {
-	return self.Spec.BillingCode
+	return self.Metadata.Name
 }
 
 func (self *SModelartsPoolSku) GetId() string {

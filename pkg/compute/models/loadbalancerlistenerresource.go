@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -26,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -38,19 +38,6 @@ type SLoadbalancerListenerResourceBase struct {
 
 type SLoadbalancerListenerResourceBaseManager struct {
 	SLoadbalancerResourceBaseManager
-}
-
-func ValidateLoadbalancerListenerResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerListenerResourceInput) (*SLoadbalancerListener, api.LoadbalancerListenerResourceInput, error) {
-	listenerObj, err := LoadbalancerListenerManager.FetchByIdOrName(userCred, input.ListenerId)
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerListenerManager.Keyword(), input.ListenerId)
-		} else {
-			return nil, input, errors.Wrap(err, "LoadbalancerListenerManager.FetchByIdOrName")
-		}
-	}
-	input.ListenerId = listenerObj.GetId()
-	return listenerObj.(*SLoadbalancerListener), input, nil
 }
 
 func (self *SLoadbalancerListenerResourceBase) GetLoadbalancerListener() (*SLoadbalancerListener, error) {
@@ -136,11 +123,11 @@ func (manager *SLoadbalancerListenerResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerListenerFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.ListenerId) > 0 {
-		listenerObj, _, err := ValidateLoadbalancerListenerResourceInput(userCred, query.LoadbalancerListenerResourceInput)
+		_, err := validators.ValidateModel(userCred, LoadbalancerListenerManager, &query.ListenerId)
 		if err != nil {
-			return nil, errors.Wrap(err, "ValidateLoadbalancerListenerResourceInput")
+			return nil, err
 		}
-		q = q.Equals("listener_id", listenerObj.GetId())
+		q = q.Equals("listener_id", query.ListenerId)
 	}
 	subq := LoadbalancerListenerManager.Query("id").Snapshot()
 	subq, err := manager.SLoadbalancerResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.LoadbalancerFilterListInput)

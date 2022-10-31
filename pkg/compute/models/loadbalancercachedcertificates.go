@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -26,22 +25,21 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 // +onecloud:swagger-gen-ignore
 type SCachedLoadbalancerCertificateManager struct {
 	SLoadbalancerLogSkipper
-	db.SVirtualResourceBaseManager
+	db.SStatusStandaloneResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 	SLoadbalancerCertificateResourceBaseManager
@@ -51,7 +49,7 @@ var CachedLoadbalancerCertificateManager *SCachedLoadbalancerCertificateManager
 
 func init() {
 	CachedLoadbalancerCertificateManager = &SCachedLoadbalancerCertificateManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SCachedLoadbalancerCertificate{},
 			"cachedloadbalancercertificates_tbl",
 			"cachedloadbalancercertificate",
@@ -63,51 +61,59 @@ func init() {
 }
 
 type SCachedLoadbalancerCertificate struct {
-	db.SVirtualResourceBase
+	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase     // 云账号ID
 	SCloudregionResourceBase // Region ID
 
 	SLoadbalancerCertificateResourceBase `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user"`
-	// CertificateId string `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user" json:"certificate_id"` // 本地证书ID
 }
 
-func (manager *SCachedLoadbalancerCertificateManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
-	virts := manager.Query().IsFalse("pending_deleted")
-	return db.CalculateResourceCount(virts, "tenant_id")
+func (manager *SCachedLoadbalancerCertificateManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
 }
 
-func (self *SCachedLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	men := []db.IModelManager{
-		LoadbalancerListenerManager,
+func (self *SCachedLoadbalancerCertificate) GetOwnerId() mcclient.IIdentityProvider {
+	cert, err := self.GetCertificate()
+	if err != nil {
+		return nil
 	}
-	lbcertId := self.CertificateId
-	for _, man := range men {
-		t := man.TableSpec().Instance()
-		pdF := t.Field("pending_deleted")
-		n, err := t.Query().
-			Equals("domain_id", self.DomainId).
-			Equals("certificate_id", lbcertId).
-			Equals("cached_certificate_id", self.GetId()).
-			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-			CountWithError()
+	return cert.GetOwnerId()
+}
+
+func (manager *SCachedLoadbalancerCertificateManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	certId, _ := data.GetString("certificate_id")
+	if len(certId) > 0 {
+		cert, err := db.FetchById(LoadbalancerCertificateManager, certId)
 		if err != nil {
-			return httperrors.NewInternalServerError("get certificate refcount fail %s", err)
+			return nil, errors.Wrapf(err, "db.FetchById(LoadbalancerCertificateManager, %s)", certId)
 		}
-		if n > 0 {
-			return httperrors.NewResourceBusyError("certificate %s is still referred to by %d %s",
-				lbcertId, n, man.KeywordPlural())
-		}
+		return cert.(*SLoadbalancerCertificate).GetOwnerId(), nil
 	}
-	return nil
+	return db.FetchProjectInfo(ctx, data)
 }
 
-func (self *SCachedLoadbalancerCertificate) ValidatePurgeCondition(ctx context.Context) error {
-	return nil
+func (manager *SCachedLoadbalancerCertificateManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil {
+		sq := LoadbalancerCertificateManager.Query("id")
+		switch scope {
+		case rbacutils.ScopeProject:
+			sq = sq.Equals("tenant_id", userCred.GetProjectId())
+			return q.In("certificate_id", sq.SubQuery())
+		case rbacutils.ScopeDomain:
+			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+			return q.In("certificate_id", sq.SubQuery())
+		}
+	}
+	return q
 }
 
 func (self *SCachedLoadbalancerCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
+}
+
+func (self *SCachedLoadbalancerCertificate) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return self.SStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SCachedLoadbalancerCertificate) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -116,75 +122,17 @@ func (self *SCachedLoadbalancerCertificate) CustomizeDelete(ctx context.Context,
 }
 
 func (lbcert *SCachedLoadbalancerCertificate) StartLoadBalancerCertificateDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerCertificateDeleteTask", lbcert, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (man *SCachedLoadbalancerCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	certificateV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
-	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
-	providerV := validators.NewModelIdOrNameValidator("cloudprovider", "cloudprovider", ownerId)
-	keyV := map[string]validators.IValidator{
-		"certificate":   certificateV,
-		"cloudregion":   regionV,
-		"cloudprovider": providerV,
-	}
-
-	for _, v := range keyV {
-		if err := v.Validate(data); err != nil {
-			return nil, err
+	err := func() error {
+		task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerCertificateDeleteTask", lbcert, userCred, params, parentTaskId, "", nil)
+		if err != nil {
+			return errors.Wrapf(err, "NewTask")
 		}
-	}
-
-	// validate local cert
-	cert := certificateV.Model.(*SLoadbalancerCertificate)
-	if len(cert.PrivateKey) == 0 {
-		return nil, httperrors.NewResourceNotReadyError("invalid local certificate, private key is empty.")
-	} else if len(cert.Certificate) == 0 {
-		return nil, httperrors.NewResourceNotReadyError("invalid local certificate, certificate is empty.")
-	} else {
-		data.Set("certificate", jsonutils.NewString(cert.Certificate))
-		data.Set("private_key", jsonutils.NewString(cert.PrivateKey))
-	}
-
-	count, err := man.Query().Equals("certificate_id", certificateV.Model.GetId()).Equals("cloudregion_id", regionV.Model.GetId()).IsFalse("deleted").CountWithError()
+		return task.ScheduleRun(nil)
+	}()
 	if err != nil {
-		return nil, err
+		lbcert.SetStatus(userCred, api.LB_STATUS_DELETE_FAILED, err.Error())
 	}
-
-	if count > 0 {
-		return nil, httperrors.NewDuplicateResourceError("the certificate cache in region %s aready exists.", regionV.Model.GetId())
-	}
-
-	provider := providerV.Model.(*SCloudprovider)
-	data.Set("manager_id", jsonutils.NewString(provider.Id))
-	name, _ := db.GenerateName(ctx, man, ownerId, certificateV.Model.GetName())
-	data.Set("name", jsonutils.NewString(name))
-
-	input := apis.VirtualResourceCreateInput{}
-	err = data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
-	}
-	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-	data.Update(jsonutils.Marshal(input))
-
-	return data, nil
-}
-
-func (self *SCachedLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SetStatus(userCred, api.LB_CREATING, "")
-	if err := self.StartLoadbalancerCertificateCreateTask(ctx, userCred, ""); err != nil {
-		log.Errorf("CachedLoadbalancerCertificate.PostCreate %s", err)
-	}
-	return
+	return err
 }
 
 func (man *SCachedLoadbalancerCertificateManager) FetchCustomizeColumns(
@@ -197,14 +145,14 @@ func (man *SCachedLoadbalancerCertificateManager) FetchCustomizeColumns(
 ) []api.CachedLoadbalancerCertificateDetails {
 	rows := make([]api.CachedLoadbalancerCertificateDetails, len(objs))
 
-	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := man.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := man.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := man.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	certRows := man.SLoadbalancerCertificateResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.CachedLoadbalancerCertificateDetails{
-			VirtualResourceDetails:              virtRows[i],
+			StatusStandaloneResourceDetails:     stdRows[i],
 			ManagedResourceInfo:                 manRows[i],
 			CloudregionResourceInfo:             regionRows[i],
 			LoadbalancerCertificateResourceInfo: certRows[i],
@@ -217,22 +165,17 @@ func (man *SCachedLoadbalancerCertificateManager) FetchCustomizeColumns(
 func (lbcert *SCachedLoadbalancerCertificate) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	provider, err := lbcert.GetDriver(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovider for lbcert %s: %s", lbcert.Name, err)
+		return nil, errors.Wrapf(err, "GetDriver")
 	}
-	region := lbcert.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to find region for lbcert %s", lbcert.Name)
+	region, err := lbcert.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
 	}
 	return provider.GetIRegionById(region.ExternalId)
 }
 
-func (lbcert *SCachedLoadbalancerCertificate) GetRegion() *SCloudregion {
-	region, err := CloudregionManager.FetchById(lbcert.CloudregionId)
-	if err != nil {
-		log.Errorf("failed to find region for loadbalancer certificate %s", lbcert.Name)
-		return nil
-	}
-	return region.(*SCloudregion)
+func (lbcert *SCachedLoadbalancerCertificate) GetRegion() (*SCloudregion, error) {
+	return lbcert.SCloudregionResourceBase.GetRegion()
 }
 
 func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lblis *SLoadbalancerListener, cert *SLoadbalancerCertificate) (*SCachedLoadbalancerCertificate, error) {
@@ -257,11 +200,8 @@ func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(c
 	lbcert = SCachedLoadbalancerCertificate{}
 	lbcert.ManagerId = provider.Id
 	lbcert.CloudregionId = region.Id
-	lbcert.ProjectId = lblis.ProjectId
-	lbcert.ProjectSrc = lblis.ProjectSrc
 	lbcert.Name = cert.Name
 	lbcert.Description = cert.Description
-	lbcert.IsSystem = cert.IsSystem
 	lbcert.CertificateId = cert.Id
 
 	err = man.TableSpec().Insert(ctx, &lbcert)
@@ -275,90 +215,88 @@ func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(c
 func (lbcert *SCachedLoadbalancerCertificate) StartLoadbalancerCertificateCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerCertificateCreateTask", lbcert, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
-func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extCertificate cloudprovider.ICloudLoadbalancerCertificate, region *SCloudregion, projectId mcclient.IIdentityProvider) (*SCachedLoadbalancerCertificate, error) {
-	lbcert := SCachedLoadbalancerCertificate{}
-	lbcert.SetModelManager(man, &lbcert)
+func (self *SCloudprovider) newFromCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudLoadbalancerCertificate, region *SCloudregion) error {
+	lbcert := &SCachedLoadbalancerCertificate{}
+	lbcert.SetModelManager(CachedLoadbalancerCertificateManager, lbcert)
 
-	lbcert.ExternalId = extCertificate.GetGlobalId()
-	lbcert.ManagerId = provider.Id
-	lbcert.CloudregionId = region.Id
-
-	c, err := LoadbalancerCertificateManager.GetLbCertByFingerprint(provider.ProjectId, extCertificate.GetFingerprint())
-	if err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			localcert, err := LoadbalancerCertificateManager.CreateCertificate(ctx, userCred, provider, extCertificate.GetName(), extCertificate)
-			if err != nil {
-				return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
-			}
-
-			lbcert.CertificateId = localcert.Id
-		default:
-			return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate.QueryCachedLoadbalancerCertificate %s", err)
-		}
-	} else {
-		lbcert.CertificateId = c.Id
+	lbcert.ExternalId = ext.GetGlobalId()
+	lbcert.ManagerId = self.Id
+	if region.GetDriver().IsCertificateBelongToRegion() {
+		lbcert.CloudregionId = region.Id
 	}
 
-	err = func() error {
-		lockman.LockRawObject(ctx, man.Keyword(), "name")
-		defer lockman.ReleaseRawObject(ctx, man.Keyword(), "name")
-
-		newName, err := db.GenerateName(ctx, man, projectId, extCertificate.GetName())
+	tenantIds := []string{self.GetOwnerId().GetProjectDomainId()}
+	c := &SLoadbalancerCertificate{}
+	c.SetModelManager(LoadbalancerCertificateManager, c)
+	for _, tenantId := range tenantIds {
+		q1 := LoadbalancerCertificateManager.Query()
+		q1 = q1.Equals("fingerprint", ext.GetFingerprint())
+		q1 = q1.Equals("tenant_id", tenantId)
+		cnt, err := q1.CountWithError()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "CountWithError")
 		}
-		lbcert.Name = newName
+		if cnt > 0 {
+			err = q1.First(c)
+			if err != nil {
+				return errors.Wrapf(err, "q1.First")
+			}
+			break
+		}
+	}
+	if len(c.Id) == 0 {
+		// other information's
+		c.Name = ext.GetName()
+		c.Certificate = ext.GetPublickKey()
+		c.PrivateKey = ext.GetPrivateKey()
+		c.Fingerprint = ext.GetFingerprint()
+		c.ProjectId = tenantIds[0]
+		c.CommonName = ext.GetCommonName()
+		c.SubjectAlternativeNames = ext.GetSubjectAlternativeNames()
+		c.NotAfter = ext.GetExpireTime()
+		c.PublicScope = string(rbacutils.ScopeDomain)
+		c.IsPublic = true
 
-		return man.TableSpec().Insert(ctx, &lbcert)
-	}()
+		err := LoadbalancerCertificateManager.TableSpec().Insert(ctx, c)
+		if err != nil {
+			return errors.Wrapf(err, "Insert lbcert")
+		}
+
+		SyncCloudProject(userCred, c, self.GetOwnerId(), ext, self.GetId())
+	}
+	lbcert.CertificateId = c.Id
+	lbcert.Name = ext.GetName()
+
+	err := CachedLoadbalancerCertificateManager.TableSpec().Insert(ctx, &lbcert)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Insert")
+		return errors.Wrapf(err, "Insert cache lbert")
 	}
 
-	SyncCloudProject(userCred, &lbcert, projectId, extCertificate, lbcert.ManagerId)
-
-	db.OpsLog.LogEvent(&lbcert, db.ACT_CREATE, lbcert.GetShortDesc(ctx), userCred)
+	syncMetadata(ctx, userCred, lbcert, ext)
+	db.OpsLog.LogEvent(lbcert, db.ACT_CREATE, lbcert.GetShortDesc(ctx), userCred)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-		Obj:    &lbcert,
+		Obj:    lbcert,
 		Action: notifyclient.ActionSyncCreate,
 	})
 
-	return &lbcert, nil
+	return nil
 }
 
-func (lbcert *SCachedLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, projectId mcclient.IIdentityProvider) error {
-	diff, err := db.UpdateWithLock(ctx, lbcert, func() error {
-		lbcert.ExternalId = extCertificate.GetGlobalId()
-		lbcert.Name = extCertificate.GetName()
+func (lbcert *SCachedLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudLoadbalancerCertificate) error {
+	diff, err := db.Update(lbcert, func() error {
+		lbcert.Name = ext.GetName()
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "db.Update")
 	}
 
-	// update local lb cert
-	localCert, err := LoadbalancerCertificateManager.GetLbCertByFingerprint(projectId.GetProjectId(), extCertificate.GetFingerprint())
-	if err == nil && !localCert.IsComplete() {
-		pkey := extCertificate.GetPrivateKey()
-		cert := extCertificate.GetPublickKey()
-		if len(pkey) > 0 && len(cert) > 0 {
-			_, err = db.UpdateWithLock(ctx, localCert, func() error {
-				localCert.Certificate = cert
-				localCert.PrivateKey = pkey
-				return nil
-			})
-			if err != nil {
-				log.Errorf("SyncWithCloudLoadbalancerCertificate.Update.localcert %s %s", localCert.Id, err)
-			}
-		}
-	}
+	syncMetadata(ctx, userCred, lbcert, ext)
 	db.OpsLog.LogSyncUpdate(lbcert, diff, userCred)
 	if len(diff) > 0 {
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
@@ -366,9 +304,6 @@ func (lbcert *SCachedLoadbalancerCertificate) SyncWithCloudLoadbalancerCertifica
 			Action: notifyclient.ActionSyncUpdate,
 		})
 	}
-
-	SyncCloudProject(userCred, lbcert, projectId, extCertificate, lbcert.ManagerId)
-
 	return nil
 }
 
@@ -376,22 +311,20 @@ func (lbcert *SCachedLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertifi
 	lockman.LockObject(ctx, lbcert)
 	defer lockman.ReleaseObject(ctx, lbcert)
 
-	err := lbcert.ValidateDeleteCondition(ctx, nil)
-	if err != nil { // cannot delete
-		err = lbcert.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
-	} else {
-		err = lbcert.DoPendingDelete(ctx, userCred)
-		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-			Obj:    lbcert,
-			Action: notifyclient.ActionSyncDelete,
-		})
+	err := lbcert.RealDelete(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "lbcert.RealDelete")
 	}
-	return err
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    lbcert,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificateByRegion(provider *SCloudprovider, regionId string, localCertificateId string) (SCachedLoadbalancerCertificate, error) {
 	certificates := []SCachedLoadbalancerCertificate{}
-	q := man.Query().Equals("manager_id", provider.Id).Equals("certificate_id", localCertificateId).IsFalse("pending_deleted")
+	q := man.Query().Equals("manager_id", provider.Id).Equals("certificate_id", localCertificateId)
 	regionDriver, err := provider.GetRegionDriver()
 	if err != nil {
 		return SCachedLoadbalancerCertificate{}, errors.Wrap(err, "GetRegionDriver")
@@ -413,29 +346,29 @@ func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificateByRe
 	}
 }
 
-func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificatesByRegion(region *SCloudregion, provider *SCloudprovider) ([]SCachedLoadbalancerCertificate, error) {
-	certificates := []SCachedLoadbalancerCertificate{}
-	q := man.Query().Equals("manager_id", provider.Id).IsFalse("pending_deleted")
+func (self *SCloudprovider) getLoadbalancerCertificatesByRegion(region *SCloudregion) ([]SCachedLoadbalancerCertificate, error) {
+	q := CachedLoadbalancerCertificateManager.Query().Equals("manager_id", self.Id)
 	if region.GetDriver().IsCertificateBelongToRegion() {
 		q = q.Equals("cloudregion_id", region.Id)
 	}
 
-	if err := db.FetchModelObjects(man, q, &certificates); err != nil {
-		log.Errorf("failed to get lb certificates for region: %v provider: %v error: %v", region, provider, err)
-		return nil, err
+	ret := []SCachedLoadbalancerCertificate{}
+	err := db.FetchModelObjects(CachedLoadbalancerCertificateManager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
-	return certificates, nil
+	return ret, nil
 }
 
-func (man *SCachedLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, certificates []cloudprovider.ICloudLoadbalancerCertificate, syncRange *SSyncRange) compare.SyncResult {
-	lockman.LockRawObject(ctx, "certificates", fmt.Sprintf("%s-%s", provider.Id, region.Id))
-	defer lockman.ReleaseRawObject(ctx, "certificates", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+func (self *SCloudprovider) SyncLoadbalancerCertificates(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, certificates []cloudprovider.ICloudLoadbalancerCertificate) compare.SyncResult {
+	lockman.LockRawObject(ctx, CachedLoadbalancerCertificateManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, CachedLoadbalancerCertificateManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, region.Id))
 
 	syncResult := compare.SyncResult{}
 
-	dbCertificates, err := man.getLoadbalancerCertificatesByRegion(region, provider)
+	dbCertificates, err := self.getLoadbalancerCertificatesByRegion(region)
 	if err != nil {
-		syncResult.Error(err)
+		syncResult.Error(errors.Wrapf(err, "getLoadbalancerCertificatesByRegion"))
 		return syncResult
 	}
 
@@ -446,7 +379,7 @@ func (man *SCachedLoadbalancerCertificateManager) SyncLoadbalancerCertificates(c
 
 	err = compare.CompareSets(dbCertificates, certificates, &removed, &commondb, &commonext, &added)
 	if err != nil {
-		syncResult.Error(err)
+		syncResult.Error(errors.Wrapf(err, "compare.CompareSets"))
 		return syncResult
 	}
 
@@ -454,27 +387,25 @@ func (man *SCachedLoadbalancerCertificateManager) SyncLoadbalancerCertificates(c
 		err = removed[i].syncRemoveCloudLoadbalancerCertificate(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
-		} else {
-			syncResult.Delete()
+			continue
 		}
+		syncResult.Delete()
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerCertificate(ctx, userCred, commonext[i], provider.GetOwnerId())
+		err = commondb[i].SyncWithCloudLoadbalancerCertificate(ctx, userCred, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
-		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-			syncResult.Update()
+			continue
 		}
+		syncResult.Update()
 	}
 	for i := 0; i < len(added); i++ {
-		local, err := man.newFromCloudLoadbalancerCertificate(ctx, userCred, provider, added[i], region, provider.GetOwnerId())
+		err := self.newFromCloudLoadbalancerCertificate(ctx, userCred, added[i], region)
 		if err != nil {
 			syncResult.AddError(err)
-		} else {
-			syncMetadata(ctx, userCred, local, added[i])
-			syncResult.Add()
+			continue
 		}
+		syncResult.Add()
 	}
 	return syncResult
 }
@@ -487,9 +418,9 @@ func (man *SCachedLoadbalancerCertificateManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	q, err = man.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 	q, err = man.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -515,9 +446,9 @@ func (man *SCachedLoadbalancerCertificateManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	q, err = man.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = man.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -538,7 +469,7 @@ func (man *SCachedLoadbalancerCertificateManager) OrderByExtraFields(
 func (man *SCachedLoadbalancerCertificateManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = man.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -565,9 +496,9 @@ func (manager *SCachedLoadbalancerCertificateManager) ListItemExportKeys(ctx con
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
 	}
 	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
 		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
@@ -591,29 +522,5 @@ func (manager *SCachedLoadbalancerCertificateManager) ListItemExportKeys(ctx con
 }
 
 func (man *SCachedLoadbalancerCertificateManager) InitializeData() error {
-	certs := man.Query().IsFalse("pending_deleted").SubQuery()
-	sq := certs.Query(certs.Field("id"), certs.Field("external_id"), sqlchemy.COUNT("external_id").Label("total"))
-	sq2 := sq.GroupBy("external_id").SubQuery()
-	sq3 := sq2.Query(sq2.Field("external_id")).GT("total", 1).SubQuery()
-
-	duplicates := []SCachedLoadbalancerCertificate{}
-	q := man.Query().In("external_id", sq3)
-	err := db.FetchModelObjects(man, q, &duplicates)
-	if err != nil {
-		return errors.Wrap(err, "clean duplicated cached loadbalancer certificates")
-	}
-
-	for i := range duplicates {
-		cache := duplicates[i]
-		_, err := db.Update(&cache, func() error {
-			cache.MarkDelete()
-			return nil
-		})
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("clean duplicated cached loadbalancer certificate %s", cache.GetId()))
-		}
-	}
-
-	log.Infof("%d duplicated cached loadbalancer certificate cleaned", len(duplicates))
 	return nil
 }

@@ -237,7 +237,7 @@ func (lb *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SL
 	}
 }
 
-func (lb *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (lb *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
 	switch listener.ListenerType {
 	case api.LB_LISTENER_TYPE_TCP:
 		return lb.region.CreateLoadbalancerTCPListener(lb, listener)

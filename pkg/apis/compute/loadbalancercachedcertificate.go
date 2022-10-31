@@ -16,17 +16,18 @@ package compute
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-type CachedLoadbalancerAclDetails struct {
-	apis.VirtualResourceDetails
-	CloudregionResourceInfo
+type CachedLoadbalancerCertificateDetails struct {
+	apis.StatusStandaloneResourceDetails
 	ManagedResourceInfo
+	CloudregionResourceInfo
+	LoadbalancerCertificateResourceInfo
 
-	SCachedLoadbalancerAcl
+	SCachedLoadbalancerCertificate
 }
 
-type CachedLoadbalancerAclListInput struct {
-	apis.VirtualResourceListInput
-	RegionalFilterListInput
+type CachedLoadbalancerCertificateListInput struct {
+	apis.StatusStandaloneResourceListInput
 	ManagedResourceListInput
-	LoadbalancerAclFilterListInput
+	RegionalFilterListInput
+	LoadbalancerCertificateFilterListInput
 }

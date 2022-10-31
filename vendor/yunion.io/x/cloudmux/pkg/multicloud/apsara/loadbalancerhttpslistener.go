@@ -271,7 +271,7 @@ func (region *SRegion) GetLoadbalancerHTTPSListener(loadbalancerId string, liste
 	return &listener, body.Unmarshal(&listener)
 }
 
-func (region *SRegion) constructHTTPCreateListenerParams(params map[string]string, listener *cloudprovider.SLoadbalancerListener) map[string]string {
+func (region *SRegion) constructHTTPCreateListenerParams(params map[string]string, listener *cloudprovider.SLoadbalancerListenerCreateOptions) map[string]string {
 	params["HealthCheck"] = listener.HealthCheck
 	if listener.HealthCheck == "on" {
 		if len(listener.HealthCheckURI) == 0 {
@@ -313,10 +313,10 @@ func (region *SRegion) constructHTTPCreateListenerParams(params map[string]strin
 	return params
 }
 
-func (region *SRegion) CreateLoadbalancerHTTPSListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (region *SRegion) CreateLoadbalancerHTTPSListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
 	params := region.constructBaseCreateListenerParams(lb, listener)
 	params = region.constructHTTPCreateListenerParams(params, listener)
-	params["ServerCertificateId"] = listener.CertificateID
+	params["ServerCertificateId"] = listener.CertificateId
 	if listener.EnableHTTP2 {
 		params["EnableHttp2"] = "on"
 	} else {
@@ -348,8 +348,8 @@ func (listerner *SLoadbalancerHTTPSListener) CreateILoadBalancerListenerRule(rul
 		Url:      rule.Path,
 		RuleName: rule.Name,
 	}
-	if len(rule.BackendGroupID) > 0 { //&& rule.BackendGroupType == api.LB_BACKENDGROUP_TYPE_NORMAL {
-		_rule.VServerGroupId = rule.BackendGroupID
+	if len(rule.BackendGroupId) > 0 { //&& rule.BackendGroupType == api.LB_BACKENDGROUP_TYPE_NORMAL {
+		_rule.VServerGroupId = rule.BackendGroupId
 	}
 	listenerRule, err := listerner.lb.region.CreateLoadbalancerListenerRule(listerner.ListenerPort, listerner.lb.LoadBalancerId, _rule)
 	if err != nil {
@@ -376,10 +376,10 @@ func (listerner *SLoadbalancerHTTPSListener) Stop() error {
 	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
 }
 
-func (region *SRegion) SyncLoadbalancerHTTPSListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) error {
+func (region *SRegion) SyncLoadbalancerHTTPSListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	params := region.constructBaseCreateListenerParams(lb, listener)
 	params = region.constructHTTPCreateListenerParams(params, listener)
-	params["ServerCertificateId"] = listener.CertificateID
+	params["ServerCertificateId"] = listener.CertificateId
 	if listener.EnableHTTP2 {
 		params["EnableHttp2"] = "on"
 	} else {
@@ -393,7 +393,7 @@ func (region *SRegion) SyncLoadbalancerHTTPSListener(lb *SLoadbalancer, listener
 	return err
 }
 
-func (listerner *SLoadbalancerHTTPSListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListener) error {
+func (listerner *SLoadbalancerHTTPSListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	return listerner.lb.region.SyncLoadbalancerHTTPSListener(listerner.lb, lblis)
 }
 

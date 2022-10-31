@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -31,9 +30,6 @@ type SLoadbalancerStatus struct {
 
 type ILoadbalancerSubResourceManager interface {
 	db.IModelManager
-
-	// pendingDeleteSubs applies pending delete to sub resources
-	pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery)
 }
 
 // TODO

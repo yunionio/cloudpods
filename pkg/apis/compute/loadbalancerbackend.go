@@ -14,11 +14,88 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
 
 type LoadbalancerBackendDetails struct {
-	apis.VirtualResourceDetails
+	apis.StatusStandaloneResourceDetails
 	LoadbalancerBackendGroupResourceInfo
 
 	SLoadbalancerBackend
+}
+
+type LoadbalancerBackendListInput struct {
+	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
+	LoadbalancerBackendGroupFilterListInput
+
+	// filter by backend server
+	Backend string `json:"backend"`
+
+	// filter by backend group
+	// BackendGroup string `json:"backend_group"`
+
+	BackendType []string `json:"backend_type"`
+	BackendRole []string `json:"backend_role"`
+	Address     []string `json:"address"`
+
+	SendProxy []string `json:"send_proxy"`
+	Ssl       []string `json:"ssl"`
+}
+
+type LoadbalancerBackendCreateInput struct {
+	apis.StatusStandaloneResourceCreateInput
+
+	//swagger: ignore
+	BackendGroup   string `json:"backend_group" yunion-deprecated-by:"backend_group_id"`
+	BackendGroupId string `json:"backend_group_id"`
+
+	//swagger: ignore
+	Backend   string `json:"backend" yunion-deprecated-by:"backend_id"`
+	BackendId string `json:"backend_id"`
+
+	BackendType string `json:"backend_type"`
+	Weight      int    `json:"weight"`
+	Port        int    `json:"port"`
+	SendProxy   string `json:"send_proxy"`
+	Address     string `json:"address"`
+	Ssl         string `json:"ssl"`
+}
+
+type LoadbalancerBackendUpdateInput struct {
+	apis.StatusStandaloneResourceBaseUpdateInput
+
+	Weight    *int    `json:"weight"`
+	Port      *int    `json:"port"`
+	SendPorxy *string `json:"send_proxy"`
+	Ssl       *string `json:"ssl"`
+}
+
+func (self *LoadbalancerBackendUpdateInput) Validate() error {
+	if self.Weight != nil {
+		if *self.Weight < 1 || *self.Weight > 100 {
+			return httperrors.NewOutOfRangeError("weight out of range 1-100")
+		}
+	}
+	if self.Port != nil {
+		if *self.Port < 1 || *self.Port > 65535 {
+			return httperrors.NewOutOfRangeError("port out of range 1-65535")
+		}
+	}
+	if self.SendPorxy != nil {
+		if !utils.IsInStringArray(*self.SendPorxy, LB_SENDPROXY_CHOICES) {
+			return httperrors.NewInputParameterError("invalid send_proxy %v", self.SendPorxy)
+		}
+	}
+	if self.Ssl != nil {
+		if !utils.IsInStringArray(*self.Ssl, []string{LB_BOOL_ON, LB_BOOL_OFF}) {
+			return httperrors.NewInputParameterError("invalid ssl %v", self.Ssl)
+		}
+	}
+	return nil
 }
