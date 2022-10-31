@@ -31,30 +31,10 @@ type Monitor struct {
 	Mode string
 }
 
-func optionsToString(options map[string]string) string {
-	var cmd string
-	for key, value := range options {
-		if value != "" {
-			cmd += fmt.Sprintf(",%s=%s", key, value)
-		} else {
-			cmd += fmt.Sprintf(",%s", key)
-		}
-	}
-	return cmd
-}
-
 func generatePCIDeviceOption(dev *desc.PCIDevice) string {
 	cmd := fmt.Sprintf(
-		"-device %s,id=%s", dev.DevType, dev.Id,
+		"-device %s,id=%s,%s", dev.DevType, dev.Id, dev.OptionsStr(),
 	)
-	if dev.PCIAddr != nil {
-		cmd += fmt.Sprintf(",bus=%s,addr=%s", dev.BusStr(), dev.SlotFunc())
-		if dev.Multi != nil {
-			cmd += fmt.Sprintf(",%s", dev.MultiFunction())
-		}
-	}
-
-	cmd += optionsToString(dev.Options)
 	return cmd
 }
 
@@ -63,7 +43,7 @@ func chardevOption(c *desc.CharDev) string {
 	if c.Name != "" {
 		cmd += fmt.Sprintf(",name=%s", c.Name)
 	}
-	cmd += optionsToString(c.Options)
+	cmd += desc.OptionsToString(c.Options)
 	return cmd
 }
 
@@ -72,7 +52,7 @@ func virtSerialPortOption(p *desc.VirtSerialPort, bus string) string {
 		"-device virtserialport,bus=%s.0,chardev=%s,name=%s",
 		bus, p.Chardev, p.Name,
 	)
-	cmd += optionsToString(p.Options)
+	cmd += desc.OptionsToString(p.Options)
 	return cmd
 }
 
@@ -106,7 +86,7 @@ func generateSpiceOptions(port uint, spice *desc.SSpiceDesc) []string {
 
 	// spice
 	spiceCmd := fmt.Sprintf("-spice port=%d", port)
-	spiceCmd += optionsToString(spice.Options)
+	spiceCmd += desc.OptionsToString(spice.Options)
 	opts = append(opts, spiceCmd)
 
 	// intel-hda and codec hda-duplex
@@ -314,7 +294,7 @@ func generateCdromOptions(optDrv QemuOptions, cdroms []*desc.SGuestCdrom) []stri
 	for _, cdrom := range cdroms {
 		//cdromDriveId := cdrom
 		driveOpt := fmt.Sprintf("id=%s", cdrom.Id)
-		driveOpt += optionsToString(cdrom.DriveOptions)
+		driveOpt += desc.OptionsToString(cdrom.DriveOptions)
 
 		var cdromPath = cdrom.Path
 		if len(cdromPath) > 0 {
@@ -333,7 +313,7 @@ func generateCdromOptions(optDrv QemuOptions, cdroms []*desc.SGuestCdrom) []stri
 				opts = append(opts, optDrv.Drive(driveOpt))
 
 				devOpt := fmt.Sprintf("%s,drive=%s", cdrom.Scsi.DevType, cdrom.Id)
-				devOpt += optionsToString(cdrom.Scsi.Options)
+				devOpt += desc.OptionsToString(cdrom.Scsi.Options)
 
 				opts = append(opts, optDrv.Device(devOpt))
 			}
@@ -347,7 +327,7 @@ func generateFloppyOptions(optDrv QemuOptions, floppys []*desc.SGuestFloppy) []s
 
 	for _, floppy := range floppys {
 		driveOpt := fmt.Sprintf("id=%s", floppy.Id)
-		driveOpt += optionsToString(floppy.DriveOptions)
+		driveOpt += desc.OptionsToString(floppy.DriveOptions)
 
 		var floppyPath = floppy.Path
 		if len(floppyPath) > 0 {
@@ -459,7 +439,7 @@ func GetNicDeviceModel(name string) string {
 
 func generateUsbDeviceOption(usbControllerId string, usb *desc.UsbDevice) string {
 	cmd := fmt.Sprintf("-device %s,bus=%s.0", usb.DevType, usbControllerId)
-	cmd += optionsToString(usb.Options)
+	cmd += desc.OptionsToString(usb.Options)
 	return cmd
 }
 
@@ -495,7 +475,7 @@ func generateIsolatedDeviceOptions(guestDesc *desc.SGuestDesc) []string {
 
 func generateObjectOption(o *desc.Object) string {
 	cmd := fmt.Sprintf("-object %s,id=%s", o.ObjType, o.Id)
-	cmd += optionsToString(o.Options)
+	cmd += desc.OptionsToString(o.Options)
 	return cmd
 }
 

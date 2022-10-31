@@ -787,8 +787,13 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *desc.SGuestIsolatedDevi
 			var i = 0
 			for ; i < len(t.guest.Desc.IsolatedDevices); i++ {
 				if t.guest.Desc.IsolatedDevices[i].Id == dev.Id {
-					if len(t.guest.Desc.IsolatedDevices[i].VfioDevs) > 0 {
-						//TODO: vfio dev hutplug
+					for j := 0; j < len(t.guest.Desc.IsolatedDevices[i].VfioDevs); j++ {
+						pciaddr := t.guest.Desc.IsolatedDevices[i].VfioDevs[j].PCIAddr
+						if pciaddr != nil {
+							if e := t.guest.pciAddrs.ReleasePCIAddress(pciaddr); e != nil {
+								log.Errorf("failed release vfio pci address %s", pciaddr)
+							}
+						}
 					}
 					break
 				}
@@ -807,7 +812,7 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *desc.SGuestIsolatedDevi
 		return
 	}
 
-	opts, err := devObj.GetHotUnplugOptions()
+	opts, err := devObj.GetHotUnplugOptions(dev)
 	if err != nil {
 		cb(errors.Wrap(err, "GetHotPlugOptions").Error())
 		return
@@ -826,29 +831,86 @@ func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *desc.SGuestIsolatedDevice)
 		return
 	}
 
-	cb := func(res string) {
-		if len(res) > 0 {
-			t.errors = append(t.errors, fmt.Errorf("device add failed: %s", res))
-		} else {
-			if dev.DevType == api.USB_TYPE {
-				dev.Usb = desc.NewUsbDevice("usb-host",
-					fmt.Sprintf("usb%d", len(t.guest.Desc.IsolatedDevices)))
-				dev.Usb.Options = devObj.GetPassthroughOptions()
-			} else {
-				// TODO: vfio dev hotplug
+	onFail := func(err error) {
+		for i := 0; i < len(dev.VfioDevs); i++ {
+			if dev.VfioDevs[i].PCIAddr != nil {
+				if eRelease := t.guest.pciAddrs.ReleasePCIAddress(dev.VfioDevs[i].PCIAddr); eRelease != nil {
+					log.Errorf("failed release pci pci address %s: %s", dev.VfioDevs[i].PCIAddr, eRelease)
+				}
 			}
-			t.guest.Desc.IsolatedDevices = append(t.guest.Desc.IsolatedDevices, dev)
 		}
+		log.Errorln(err)
+		t.errors = append(t.errors, err)
 		t.syncDevice()
+		return
 	}
 
-	opts, err := devObj.GetHotPlugOptions()
+	if dev.DevType == api.USB_TYPE {
+		dev.Usb = desc.NewUsbDevice("usb-host", devObj.GetQemuId())
+		dev.Usb.Options = devObj.GetPassthroughOptions()
+	} else {
+		pciRoot := t.guest.getHotPlugPciController()
+		if pciRoot == nil {
+			log.Errorf("no hotplugable pci controller found")
+			t.errors = append(t.errors, errors.Errorf("no hotplugable pci controller found"))
+			t.syncDevice()
+			return
+		}
+		id := devObj.GetQemuId()
+		dev.VfioDevs = make([]*desc.VFIODevice, 0)
+		vfioDev := &desc.VFIODevice{
+			PCIDevice: desc.NewPCIDevice(pciRoot.CType, "vfio-pci", id),
+		}
+		dev.VfioDevs = append(dev.VfioDevs, vfioDev)
+		dev.VfioDevs[0].HostAddr = devObj.GetAddr()
+		if devObj.GetDeviceType() == api.GPU_VGA_TYPE {
+			dev.VfioDevs[0].XVga = true
+		}
+
+		groupDevAddrs := devObj.GetIOMMUGroupRestAddrs()
+		for j := 0; j < len(groupDevAddrs); j++ {
+			gid := fmt.Sprintf("%s-%d", id, j+1)
+			vfioDev = &desc.VFIODevice{
+				PCIDevice: desc.NewPCIDevice(pciRoot.CType, "vfio-pci", gid),
+			}
+			vfioDev.HostAddr = groupDevAddrs[j]
+			dev.VfioDevs = append(dev.VfioDevs, vfioDev)
+		}
+		multiFunc := true
+		err := t.guest.ensureDevicePciAddress(dev.VfioDevs[0].PCIDevice, 0, &multiFunc)
+		if err != nil {
+			err = errors.Wrapf(err, "ensure isolated device %s pci address", dev.VfioDevs[0].PCIAddr)
+		} else {
+			for j := 1; j < len(dev.VfioDevs); j++ {
+				dev.VfioDevs[j].PCIAddr = dev.VfioDevs[0].PCIAddr.Copy()
+				err = t.guest.ensureDevicePciAddress(dev.VfioDevs[j].PCIDevice, j, nil)
+				if err != nil {
+					err = errors.Wrapf(err, "ensure isolated device %s pci address", dev.VfioDevs[j].PCIAddr)
+					break
+				}
+			}
+		}
+		if err != nil {
+			onFail(err)
+			return
+		}
+	}
+
+	cb := func(res string) {
+		if len(res) > 0 {
+			onFail(fmt.Errorf("device add failed: %s", res))
+		} else {
+			t.guest.Desc.IsolatedDevices = append(t.guest.Desc.IsolatedDevices, dev)
+			t.syncDevice()
+		}
+	}
+
+	opts, err := devObj.GetHotPlugOptions(dev)
 	if err != nil {
 		cb(errors.Wrap(err, "GetHotPlugOptions").Error())
 		return
 	}
 
-	// TODO: support GPU
 	t.addDeviceCallBack(opts, 0, cb)
 }
 
