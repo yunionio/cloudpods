@@ -14,11 +14,15 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
-	TABLESTORE_STATUS_RUNNING = "running"
-	TABLESTORE_STATUS_UNKNOWN = "unknown"
+	TABLESTORE_STATUS_RUNNING = compute.TABLESTORE_STATUS_RUNNING
+	TABLESTORE_STATUS_UNKNOWN = compute.TABLESTORE_STATUS_UNKNOWN
 )
 
 type TablestoreCreateInput struct {

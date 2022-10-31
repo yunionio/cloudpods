@@ -14,24 +14,7 @@
 
 package compute
 
-// IP: 20
-// UDP: 8
-// GENEVE HDR: 8 + 4x
-// total: 36 + 4x
-const VPC_OVN_ENCAP_COST = 60
-
 const (
-	VPC_EXTERNAL_ACCESS_MODE_DISTGW     = "distgw"     // distgw only
-	VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW = "eip-distgw" // eip when available, distgw otherwise
-	VPC_EXTERNAL_ACCESS_MODE_EIP        = "eip"        // eip only
-	VPC_EXTERNAL_ACCESS_MODE_NONE       = "none"       // no external access
-)
-
-var (
-	VPC_EXTERNAL_ACCESS_MODES = []string{
-		VPC_EXTERNAL_ACCESS_MODE_DISTGW,
-		VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW,
-		VPC_EXTERNAL_ACCESS_MODE_EIP,
-		VPC_EXTERNAL_ACCESS_MODE_NONE,
-	}
+	VPC_EXTERNAL_ACCESS_MODE_EIP  = "eip"  // eip only
+	VPC_EXTERNAL_ACCESS_MODE_NONE = "none" // no external access
 )

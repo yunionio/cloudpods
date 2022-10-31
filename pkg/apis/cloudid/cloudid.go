@@ -14,10 +14,14 @@
 
 package cloudid
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/cloudid"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
 	SERVICE_TYPE    = apis.SERVICE_TYPE_CLOUDID
-	SAML_IDP_PREFIX = "/api/saml/idp"
+	SAML_IDP_PREFIX = cloudid.SAML_IDP_PREFIX
 	SERVICE_VERSION = ""
 )

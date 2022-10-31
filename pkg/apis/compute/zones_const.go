@@ -14,10 +14,12 @@
 
 package compute
 
+import "yunion.io/x/cloudmux/pkg/apis/compute"
+
 const (
 	ZONE_INIT    = "init"
-	ZONE_ENABLE  = "enable"
-	ZONE_DISABLE = "disable"
-	ZONE_SOLDOUT = "soldout"
+	ZONE_ENABLE  = compute.ZONE_ENABLE
+	ZONE_DISABLE = compute.ZONE_DISABLE
+	ZONE_SOLDOUT = compute.ZONE_SOLDOUT
 	// ZONE_LACK    = "lack"
 )

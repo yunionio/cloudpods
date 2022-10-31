@@ -14,61 +14,63 @@
 
 package compute
 
+import "yunion.io/x/cloudmux/pkg/apis/compute"
+
 const (
 	HOST_TYPE_BAREMETAL  = "baremetal"
 	HOST_TYPE_HYPERVISOR = "hypervisor" // KVM
 	HOST_TYPE_KVM        = "kvm"
-	HOST_TYPE_ESXI       = "esxi"    // # VMWare vSphere ESXi
-	HOST_TYPE_KUBELET    = "kubelet" // # Kubernetes Kubelet
-	HOST_TYPE_HYPERV     = "hyperv"  // # Microsoft Hyper-V
-	HOST_TYPE_XEN        = "xen"     // # XenServer
+	HOST_TYPE_ESXI       = compute.HOST_TYPE_ESXI // # VMWare vSphere ESXi
+	HOST_TYPE_KUBELET    = "kubelet"              // # Kubernetes Kubelet
+	HOST_TYPE_HYPERV     = "hyperv"               // # Microsoft Hyper-V
+	HOST_TYPE_XEN        = "xen"                  // # XenServer
 
-	HOST_TYPE_ALIYUN         = "aliyun"
-	HOST_TYPE_APSARA         = "apsara"
-	HOST_TYPE_AWS            = "aws"
-	HOST_TYPE_QCLOUD         = "qcloud"
-	HOST_TYPE_AZURE          = "azure"
-	HOST_TYPE_HUAWEI         = "huawei"
-	HOST_TYPE_HCSO           = "hcso"
-	HOST_TYPE_HCS            = "hcs"
-	HOST_TYPE_OPENSTACK      = "openstack"
-	HOST_TYPE_UCLOUD         = "ucloud"
-	HOST_TYPE_ZSTACK         = "zstack"
-	HOST_TYPE_GOOGLE         = "google"
-	HOST_TYPE_CTYUN          = "ctyun"
-	HOST_TYPE_ECLOUD         = "ecloud"
-	HOST_TYPE_JDCLOUD        = "jdcloud"
-	HOST_TYPE_CLOUDPODS      = "cloudpods"
-	HOST_TYPE_NUTANIX        = "nutanix"
-	HOST_TYPE_BINGO_CLOUD    = "bingocloud"
-	HOST_TYPE_INCLOUD_SPHERE = "incloudsphere"
-	HOST_TYPE_PROXMOX        = "proxmox"
-	HOST_TYPE_REMOTEFILE     = "remotefile"
+	HOST_TYPE_ALIYUN         = compute.HOST_TYPE_ALIYUN
+	HOST_TYPE_APSARA         = compute.HOST_TYPE_APSARA
+	HOST_TYPE_AWS            = compute.HOST_TYPE_AWS
+	HOST_TYPE_QCLOUD         = compute.HOST_TYPE_QCLOUD
+	HOST_TYPE_AZURE          = compute.HOST_TYPE_AZURE
+	HOST_TYPE_HUAWEI         = compute.HOST_TYPE_HUAWEI
+	HOST_TYPE_HCSO           = compute.HOST_TYPE_HCSO
+	HOST_TYPE_HCS            = compute.HOST_TYPE_HCS
+	HOST_TYPE_OPENSTACK      = compute.HOST_TYPE_OPENSTACK
+	HOST_TYPE_UCLOUD         = compute.HOST_TYPE_UCLOUD
+	HOST_TYPE_ZSTACK         = compute.HOST_TYPE_ZSTACK
+	HOST_TYPE_GOOGLE         = compute.HOST_TYPE_GOOGLE
+	HOST_TYPE_CTYUN          = compute.HOST_TYPE_CTYUN
+	HOST_TYPE_ECLOUD         = compute.HOST_TYPE_ECLOUD
+	HOST_TYPE_JDCLOUD        = compute.HOST_TYPE_JDCLOUD
+	HOST_TYPE_CLOUDPODS      = compute.HOST_TYPE_CLOUDPODS
+	HOST_TYPE_NUTANIX        = compute.HOST_TYPE_NUTANIX
+	HOST_TYPE_BINGO_CLOUD    = compute.HOST_TYPE_BINGO_CLOUD
+	HOST_TYPE_INCLOUD_SPHERE = compute.HOST_TYPE_INCLOUD_SPHERE
+	HOST_TYPE_PROXMOX        = compute.HOST_TYPE_PROXMOX
+	HOST_TYPE_REMOTEFILE     = compute.HOST_TYPE_REMOTEFILE
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 
 	// # possible status
-	HOST_ONLINE   = "online"
+	HOST_ONLINE   = compute.HOST_ONLINE
 	HOST_ENABLED  = "online"
-	HOST_OFFLINE  = "offline"
+	HOST_OFFLINE  = compute.HOST_OFFLINE
 	HOST_DISABLED = "offline"
 
-	NIC_TYPE_IPMI  = "ipmi"
-	NIC_TYPE_ADMIN = "admin"
+	NIC_TYPE_IPMI  = compute.NIC_TYPE_IPMI
+	NIC_TYPE_ADMIN = compute.NIC_TYPE_ADMIN
 	// #NIC_TYPE_NORMAL = 'normal'
 
 	BAREMETAL_INIT           = "init"
 	BAREMETAL_PREPARE        = "prepare"
 	BAREMETAL_PREPARE_FAIL   = "prepare_fail"
-	BAREMETAL_READY          = "ready"
-	BAREMETAL_RUNNING        = "running"
+	BAREMETAL_READY          = compute.BAREMETAL_READY
+	BAREMETAL_RUNNING        = compute.BAREMETAL_RUNNING
 	BAREMETAL_MAINTAINING    = "maintaining"
 	BAREMETAL_START_MAINTAIN = "start_maintain"
 	BAREMETAL_MAINTAIN_FAIL  = "maintain_fail"
 	BAREMETAL_DELETING       = "deleting"
 	BAREMETAL_DELETE         = "delete"
 	BAREMETAL_DELETE_FAIL    = "delete_fail"
-	BAREMETAL_UNKNOWN        = "unknown"
+	BAREMETAL_UNKNOWN        = compute.BAREMETAL_UNKNOWN
 	BAREMETAL_SYNCING_STATUS = "syncing_status"
 	BAREMETAL_SYNC           = "sync"
 	BAREMETAL_SYNC_FAIL      = "sync_fail"

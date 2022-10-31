@@ -15,12 +15,14 @@
 package compute
 
 import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
 const (
-	NETWORK_TYPE_VPC     = "vpc"
-	NETWORK_TYPE_CLASSIC = "classic"
+	NETWORK_TYPE_VPC     = compute.NETWORK_TYPE_VPC
+	NETWORK_TYPE_CLASSIC = compute.NETWORK_TYPE_CLASSIC
 )
 
 type WireResourceInput struct {

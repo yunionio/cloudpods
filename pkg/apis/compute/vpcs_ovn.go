@@ -17,6 +17,7 @@ package compute
 import (
 	"fmt"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/pkg/util/netutils"
 )
 
@@ -27,10 +28,10 @@ import (
 const VPC_OVN_ENCAP_COST = 60
 
 const (
-	VPC_EXTERNAL_ACCESS_MODE_DISTGW     = "distgw"     // distgw only
-	VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW = "eip-distgw" // eip when available, distgw otherwise
-	VPC_EXTERNAL_ACCESS_MODE_EIP        = "eip"        // eip only
-	VPC_EXTERNAL_ACCESS_MODE_NONE       = "none"       // no external access
+	VPC_EXTERNAL_ACCESS_MODE_DISTGW     = "distgw"                              // distgw only
+	VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW = "eip-distgw"                          // eip when available, distgw otherwise
+	VPC_EXTERNAL_ACCESS_MODE_EIP        = compute.VPC_EXTERNAL_ACCESS_MODE_EIP  // eip only
+	VPC_EXTERNAL_ACCESS_MODE_NONE       = compute.VPC_EXTERNAL_ACCESS_MODE_NONE // no external access
 )
 
 var (

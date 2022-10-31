@@ -21,9 +21,3 @@ const (
 	EXTERNAL_PROJECT_STATUS_DELETING    = "deleting"    // 删除中
 	EXTERNAL_PROJECT_STATUS_UNKNOWN     = "unknown"     // 未知
 )
-
-var (
-	MANGER_EXTERNAL_PROJECT_PROVIDERS = []string{
-		CLOUD_PROVIDER_AZURE,
-	}
-)

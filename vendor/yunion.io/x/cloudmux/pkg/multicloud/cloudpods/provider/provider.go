@@ -79,7 +79,7 @@ func (self *SCloudpodsProviderFactory) GetProvider(cfg cloudprovider.ProviderCon
 			cfg.URL,
 			cfg.Account,
 			cfg.Secret,
-		).CloudproviderConfig(cfg),
+		).Debug(cfg.Debug).CloudproviderConfig(cfg),
 	)
 	if err != nil {
 		return nil, err

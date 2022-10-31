@@ -15,20 +15,21 @@
 package cloudid
 
 import (
+	"yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
 const (
-	CLOUD_POLICY_STATUS_AVAILABLE     = "available"
+	CLOUD_POLICY_STATUS_AVAILABLE     = cloudid.CLOUD_POLICY_STATUS_AVAILABLE
 	CLOUD_POLICY_STATUS_SYNCING       = "syncing"
 	CLOUD_POLICY_STATUS_SYNC_FAILE    = "sync_failed"
 	CLOUD_POLICY_STATUS_DELETING      = "deleting"
 	CLOUD_POLICY_STATUS_DELETE_FAILED = "delete_failed"
 
-	CLOUD_POLICY_TYPE_SYSTEM = "system"
-	CLOUD_POLICY_TYPE_CUSTOM = "custom"
+	CLOUD_POLICY_TYPE_SYSTEM = cloudid.CLOUD_POLICY_TYPE_SYSTEM
+	CLOUD_POLICY_TYPE_CUSTOM = cloudid.CLOUD_POLICY_TYPE_CUSTOM
 )
 
 type CloudpolicyListInput struct {

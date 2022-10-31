@@ -17,6 +17,7 @@ package compute
 import (
 	"regexp"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/regutils"
@@ -26,7 +27,7 @@ import (
 )
 
 const (
-	DNS_RECORDSET_STATUS_AVAILABLE = "available"
+	DNS_RECORDSET_STATUS_AVAILABLE = compute.DNS_RECORDSET_STATUS_AVAILABLE
 )
 
 type DnsRecordPolicy struct {

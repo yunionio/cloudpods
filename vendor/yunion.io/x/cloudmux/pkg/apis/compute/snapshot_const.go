@@ -15,10 +15,6 @@
 package compute
 
 const (
-	// create by
-	SNAPSHOT_MANUAL = "manual"
-	SNAPSHOT_AUTO   = "auto"
-
 	SNAPSHOT_CREATING      = "creating"
 	SNAPSHOT_ROLLBACKING   = "rollbacking"
 	SNAPSHOT_FAILED        = "create_failed"
@@ -29,33 +25,8 @@ const (
 
 	SNAPSHOT_POLICY_CREATING = "creating"
 
-	SNAPSHOT_POLICY_READY         = "ready"
-	SNAPSHOT_POLICY_UPDATING      = "updating"
-	SNAPSHOT_POLICY_UNKNOWN       = "unknown"
-	SNAPSHOT_POLICY_DELETING      = "deleting"
-	SNAPSHOT_POLICY_DELETE_FAILED = "delete_failed"
+	SNAPSHOT_POLICY_READY   = "ready"
+	SNAPSHOT_POLICY_UNKNOWN = "unknown"
 
-	SNAPSHOT_POLICY_APPLY         = "applying"
-	SNAPSHOT_POLICY_APPLY_FAILED  = "apply_failed"
-	SNAPSHOT_POLICY_CANCEL        = "canceling"
-	SNAPSHOT_POLICY_CANCEL_FAILED = "cancel_failed"
-
-	SNAPSHOT_POLICY_DISK_INIT          = "init"
-	SNAPSHOT_POLICY_DISK_READY         = "ready"
-	SNAPSHOT_POLICY_DISK_DELETING      = "deleting"
-	SNAPSHOT_POLICY_DISK_DELETE_FAILED = "delete_failed"
-
-	INSTANCE_SNAPSHOT_READY         = "ready"
-	INSTANCE_SNAPSHOT_UNKNOWN       = "unknown"
-	INSTANCE_SNAPSHOT_FAILED        = "instance_snapshot_create_failed"
-	INSTANCE_SNAPSHOT_START_DELETE  = "instance_snapshot_start_delete"
-	INSTANCE_SNAPSHOT_DELETE_FAILED = "instance_snapshot_delete_failed"
-	INSTANCE_SNAPSHOT_RESET         = "instance_snapshot_reset"
-
-	SNAPSHOT_POLICY_CACHE_STATUS_READY         = "ready"
-	SNAPSHOT_POLICY_CACHE_STATUS_DELETING      = "deleting"
-	SNAPSHOT_POLICY_CACHE_STATUS_DELETE_FAILED = "delete_failed"
-
-	SNAPSHOT_EXIST     = "exist"
-	SNAPSHOT_NOT_EXIST = "not_exist"
+	INSTANCE_SNAPSHOT_READY = "ready"
 )

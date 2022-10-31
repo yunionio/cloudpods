@@ -14,13 +14,17 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
-	NAT_SKU_AVAILABLE = "available"
-	NAT_SKU_SOLDOUT   = "soldout"
+	NAT_SKU_AVAILABLE = compute.NAT_SKU_AVAILABLE
+	NAT_SKU_SOLDOUT   = compute.NAT_SKU_SOLDOUT
 
-	ALIYUN_NAT_SKU_DEFAULT = "Default"
+	ALIYUN_NAT_SKU_DEFAULT = compute.ALIYUN_NAT_SKU_DEFAULT
 )
 
 type NatSkuListInput struct {

@@ -18,8 +18,6 @@ const (
 	CLOUD_REGION_STATUS_INSERVER     = "inservice"
 	CLOUD_REGION_STATUS_OUTOFSERVICE = "outofservice"
 
-	DEFAULT_REGION_ID = "default"
-
 	// 中国
 	CITY_QING_DAO       = "Qingdao"      //青岛
 	CITY_BEI_JING       = "Beijing"      //北京

@@ -14,14 +14,18 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
-	MOUNT_TARGET_STATUS_AVAILABLE     = "available"
-	MOUNT_TARGET_STATUS_UNAVAILABLE   = "unavailable"
-	MOUNT_TARGET_STATUS_CREATING      = "creating"
+	MOUNT_TARGET_STATUS_AVAILABLE     = compute.MOUNT_TARGET_STATUS_AVAILABLE
+	MOUNT_TARGET_STATUS_UNAVAILABLE   = compute.MOUNT_TARGET_STATUS_UNAVAILABLE
+	MOUNT_TARGET_STATUS_CREATING      = compute.MOUNT_TARGET_STATUS_CREATING
 	MOUNT_TARGET_STATUS_CREATE_FAILED = "create_failed"
-	MOUNT_TARGET_STATUS_DELETING      = "deleting"
+	MOUNT_TARGET_STATUS_DELETING      = compute.MOUNT_TARGET_STATUS_DELETING
 	MOUNT_TARGET_STATUS_DELETE_FAILED = "delete_failed"
 	MOUNT_TARGET_STATUS_UNKNOWN       = "unknown"
 )

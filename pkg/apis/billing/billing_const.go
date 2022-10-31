@@ -14,7 +14,9 @@
 
 package billing
 
+import "yunion.io/x/cloudmux/pkg/apis/billing"
+
 const (
-	BILLING_TYPE_POSTPAID = "postpaid"
-	BILLING_TYPE_PREPAID  = "prepaid"
+	BILLING_TYPE_POSTPAID = billing.BILLING_TYPE_POSTPAID
+	BILLING_TYPE_PREPAID  = billing.BILLING_TYPE_PREPAID
 )

@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+
 	"yunion.io/x/onecloud/pkg/util/choices"
 )
 
@@ -36,28 +38,28 @@ import (
 // scheduler's duty to make the runtime status to stopped and finally the
 // entity in question
 const (
-	LB_STATUS_ENABLED  = "enabled"
-	LB_STATUS_DISABLED = "disabled"
+	LB_STATUS_ENABLED  = compute.LB_STATUS_ENABLED
+	LB_STATUS_DISABLED = compute.LB_STATUS_DISABLED
 
-	LB_STATUS_INIT = "init"
+	LB_STATUS_INIT = compute.LB_STATUS_INIT
 
-	LB_CREATING      = "creating"
+	LB_CREATING      = compute.LB_CREATING
 	LB_CREATE_FAILED = "create_failed"
 
-	LB_SYNC_CONF        = "sync_conf"
+	LB_SYNC_CONF        = compute.LB_SYNC_CONF
 	LB_SYNC_CONF_FAILED = "sync_conf_failed"
 
-	LB_STATUS_DELETING      = "deleting"
+	LB_STATUS_DELETING      = compute.LB_STATUS_DELETING
 	LB_STATUS_DELETE_FAILED = "delete_failed"
-	LB_STATUS_DELETED       = "deleted"
+	LB_STATUS_DELETED       = compute.LB_STATUS_DELETED
 
-	LB_STATUS_START_FAILED = "start_failed"
+	LB_STATUS_START_FAILED = compute.LB_STATUS_START_FAILED
 	LB_STATUS_STOP_FAILED  = "stop_failed"
 
 	LB_UPDATE_TAGS        = "update_tags"
 	LB_UPDATE_TAGS_FAILED = "update_tags_fail"
 
-	LB_STATUS_UNKNOWN = "unknown"
+	LB_STATUS_UNKNOWN = compute.LB_STATUS_UNKNOWN
 )
 
 var LB_STATUS_SPEC = choices.NewChoices(
@@ -67,11 +69,11 @@ var LB_STATUS_SPEC = choices.NewChoices(
 
 const (
 	//默认后端服务器组
-	LB_BACKENDGROUP_TYPE_DEFAULT = "default"
+	LB_BACKENDGROUP_TYPE_DEFAULT = compute.LB_BACKENDGROUP_TYPE_DEFAULT
 	//普通后端服务器组
-	LB_BACKENDGROUP_TYPE_NORMAL = "normal"
+	LB_BACKENDGROUP_TYPE_NORMAL = compute.LB_BACKENDGROUP_TYPE_NORMAL
 	//主备后端服务器组
-	LB_BACKENDGROUP_TYPE_MASTER_SLAVE = "master_slave"
+	LB_BACKENDGROUP_TYPE_MASTER_SLAVE = compute.LB_BACKENDGROUP_TYPE_MASTER_SLAVE
 )
 
 var LB_BACKENDGROUP_TYPE = choices.NewChoices(
@@ -121,8 +123,8 @@ var LB_AWS_SPECS = choices.NewChoices(
 // it will only be accessible from the specified network.  If it's internet,
 // then it's public and can be accessed from outside the cloud region
 const (
-	LB_ADDR_TYPE_INTRANET = "intranet"
-	LB_ADDR_TYPE_INTERNET = "internet"
+	LB_ADDR_TYPE_INTRANET = compute.LB_ADDR_TYPE_INTRANET
+	LB_ADDR_TYPE_INTERNET = compute.LB_ADDR_TYPE_INTERNET
 )
 
 var LB_ADDR_TYPES = choices.NewChoices(
@@ -131,8 +133,8 @@ var LB_ADDR_TYPES = choices.NewChoices(
 )
 
 const (
-	LB_NETWORK_TYPE_CLASSIC = "classic"
-	LB_NETWORK_TYPE_VPC     = "vpc"
+	LB_NETWORK_TYPE_CLASSIC = compute.LB_NETWORK_TYPE_CLASSIC
+	LB_NETWORK_TYPE_VPC     = compute.LB_NETWORK_TYPE_VPC
 )
 
 var LB_NETWORK_TYPES = choices.NewChoices(
@@ -142,12 +144,12 @@ var LB_NETWORK_TYPES = choices.NewChoices(
 
 // TODO https_direct sni
 const (
-	LB_LISTENER_TYPE_TCP              = "tcp"
-	LB_LISTENER_TYPE_UDP              = "udp"
-	LB_LISTENER_TYPE_TCP_UDP          = "tcp_udp"
-	LB_LISTENER_TYPE_HTTP             = "http"
-	LB_LISTENER_TYPE_HTTPS            = "https"
-	LB_LISTENER_TYPE_TERMINATED_HTTPS = "terminated_https"
+	LB_LISTENER_TYPE_TCP              = compute.LB_LISTENER_TYPE_TCP
+	LB_LISTENER_TYPE_UDP              = compute.LB_LISTENER_TYPE_UDP
+	LB_LISTENER_TYPE_TCP_UDP          = compute.LB_LISTENER_TYPE_TCP_UDP
+	LB_LISTENER_TYPE_HTTP             = compute.LB_LISTENER_TYPE_HTTP
+	LB_LISTENER_TYPE_HTTPS            = compute.LB_LISTENER_TYPE_HTTPS
+	LB_LISTENER_TYPE_TERMINATED_HTTPS = compute.LB_LISTENER_TYPE_TERMINATED_HTTPS
 )
 
 var LB_LISTENER_TYPES = choices.NewChoices(
@@ -184,8 +186,8 @@ var HUAWEI_LBBG_SCHDULERS = choices.NewChoices(
 )
 
 const (
-	LB_ACL_TYPE_BLACK = "black"
-	LB_ACL_TYPE_WHITE = "white"
+	LB_ACL_TYPE_BLACK = compute.LB_ACL_TYPE_BLACK
+	LB_ACL_TYPE_WHITE = compute.LB_ACL_TYPE_WHITE
 )
 
 var LB_ACL_TYPES = choices.NewChoices(
@@ -194,8 +196,8 @@ var LB_ACL_TYPES = choices.NewChoices(
 )
 
 const (
-	LB_TLS_CERT_FINGERPRINT_ALGO_SHA1   = "sha1"
-	LB_TLS_CERT_FINGERPRINT_ALGO_SHA256 = "sha256"
+	LB_TLS_CERT_FINGERPRINT_ALGO_SHA1   = compute.LB_TLS_CERT_FINGERPRINT_ALGO_SHA1
+	LB_TLS_CERT_FINGERPRINT_ALGO_SHA256 = compute.LB_TLS_CERT_FINGERPRINT_ALGO_SHA256
 )
 
 const (
@@ -226,8 +228,8 @@ var LB_TLS_CIPHER_POLICIES = choices.NewChoices(
 )
 
 const (
-	LB_STICKY_SESSION_TYPE_INSERT = "insert"
-	LB_STICKY_SESSION_TYPE_SERVER = "server"
+	LB_STICKY_SESSION_TYPE_INSERT = compute.LB_STICKY_SESSION_TYPE_INSERT
+	LB_STICKY_SESSION_TYPE_SERVER = compute.LB_STICKY_SESSION_TYPE_SERVER
 )
 
 var LB_STICKY_SESSION_TYPES = choices.NewChoices(
@@ -237,11 +239,11 @@ var LB_STICKY_SESSION_TYPES = choices.NewChoices(
 
 // TODO maybe https check when field need comes ;)
 const (
-	LB_HEALTH_CHECK_PING  = "ping"
-	LB_HEALTH_CHECK_TCP   = "tcp"
-	LB_HEALTH_CHECK_UDP   = "udp"
-	LB_HEALTH_CHECK_HTTP  = "http"
-	LB_HEALTH_CHECK_HTTPS = "https"
+	LB_HEALTH_CHECK_PING  = compute.LB_HEALTH_CHECK_PING
+	LB_HEALTH_CHECK_TCP   = compute.LB_HEALTH_CHECK_TCP
+	LB_HEALTH_CHECK_UDP   = compute.LB_HEALTH_CHECK_UDP
+	LB_HEALTH_CHECK_HTTP  = compute.LB_HEALTH_CHECK_HTTP
+	LB_HEALTH_CHECK_HTTPS = compute.LB_HEALTH_CHECK_HTTPS
 )
 
 var LB_HEALTH_CHECK_TYPES = choices.NewChoices(
@@ -260,12 +262,12 @@ var LB_HEALTH_CHECK_TYPES_UDP = choices.NewChoices(
 )
 
 const (
-	LB_HEALTH_CHECK_HTTP_CODE_1xx     = "http_1xx"
-	LB_HEALTH_CHECK_HTTP_CODE_2xx     = "http_2xx"
-	LB_HEALTH_CHECK_HTTP_CODE_3xx     = "http_3xx"
-	LB_HEALTH_CHECK_HTTP_CODE_4xx     = "http_4xx"
-	LB_HEALTH_CHECK_HTTP_CODE_5xx     = "http_5xx"
-	LB_HEALTH_CHECK_HTTP_CODE_DEFAULT = "http_2xx,http_3xx"
+	LB_HEALTH_CHECK_HTTP_CODE_1xx     = compute.LB_HEALTH_CHECK_HTTP_CODE_1xx
+	LB_HEALTH_CHECK_HTTP_CODE_2xx     = compute.LB_HEALTH_CHECK_HTTP_CODE_2xx
+	LB_HEALTH_CHECK_HTTP_CODE_3xx     = compute.LB_HEALTH_CHECK_HTTP_CODE_3xx
+	LB_HEALTH_CHECK_HTTP_CODE_4xx     = compute.LB_HEALTH_CHECK_HTTP_CODE_4xx
+	LB_HEALTH_CHECK_HTTP_CODE_5xx     = compute.LB_HEALTH_CHECK_HTTP_CODE_5xx
+	LB_HEALTH_CHECK_HTTP_CODE_DEFAULT = compute.LB_HEALTH_CHECK_HTTP_CODE_DEFAULT
 )
 
 var LB_HEALTH_CHECK_HTTP_CODES = choices.NewChoices(
@@ -277,8 +279,8 @@ var LB_HEALTH_CHECK_HTTP_CODES = choices.NewChoices(
 )
 
 const (
-	LB_REDIRECT_OFF = "off"
-	LB_REDIRECT_RAW = "raw"
+	LB_REDIRECT_OFF = compute.LB_REDIRECT_OFF
+	LB_REDIRECT_RAW = compute.LB_REDIRECT_RAW
 )
 
 var LB_REDIRECT_TYPES = choices.NewChoices(
@@ -287,9 +289,9 @@ var LB_REDIRECT_TYPES = choices.NewChoices(
 )
 
 const (
-	LB_REDIRECT_CODE_301 = int64(301) // Moved Permanently
-	LB_REDIRECT_CODE_302 = int64(302) // Found
-	LB_REDIRECT_CODE_307 = int64(307) // Temporary Redirect
+	LB_REDIRECT_CODE_301 = compute.LB_REDIRECT_CODE_301 // Moved Permanently
+	LB_REDIRECT_CODE_302 = compute.LB_REDIRECT_CODE_302 // Found
+	LB_REDIRECT_CODE_307 = compute.LB_REDIRECT_CODE_307 // Temporary Redirect
 )
 
 var LB_REDIRECT_CODES = []int64{
@@ -311,8 +313,8 @@ var LB_REDIRECT_SCHEMES = choices.NewChoices(
 )
 
 const (
-	LB_BOOL_ON  = "on"
-	LB_BOOL_OFF = "off"
+	LB_BOOL_ON  = compute.LB_BOOL_ON
+	LB_BOOL_OFF = compute.LB_BOOL_OFF
 )
 
 var LB_BOOL_VALUES = choices.NewChoices(
@@ -325,13 +327,13 @@ var LB_BOOL_VALUES = choices.NewChoices(
 // - qch, quic connection id
 // - mh, maglev consistent hash
 const (
-	LB_SCHEDULER_RR  = "rr"  // round robin
-	LB_SCHEDULER_WRR = "wrr" // weighted round robin
-	LB_SCHEDULER_WLC = "wlc" // weighted least connection
-	LB_SCHEDULER_SCH = "sch" // source-ip-based consistent hash
-	LB_SCHEDULER_TCH = "tch" // 4-tuple-based consistent hash
-	LB_SCHEDULER_QCH = "qch"
-	LB_SCHEDULER_MH  = "mh" // maglev consistent hash
+	LB_SCHEDULER_RR  = compute.LB_SCHEDULER_RR  // round robin
+	LB_SCHEDULER_WRR = compute.LB_SCHEDULER_WRR // weighted round robin
+	LB_SCHEDULER_WLC = compute.LB_SCHEDULER_WLC // weighted least connection
+	LB_SCHEDULER_SCH = compute.LB_SCHEDULER_SCH // source-ip-based consistent hash
+	LB_SCHEDULER_TCH = compute.LB_SCHEDULER_TCH // 4-tuple-based consistent hash
+	LB_SCHEDULER_QCH = compute.LB_SCHEDULER_QCH
+	LB_SCHEDULER_MH  = compute.LB_SCHEDULER_MH // maglev consistent hash
 )
 
 var LB_SCHEDULER_TYPES = choices.NewChoices(
@@ -375,9 +377,9 @@ var LB_ALIYUN_COMMON_SCHEDULER_TYPES = choices.NewChoices(
 
 // TODO raw type
 const (
-	LB_BACKEND_GUEST = "guest"
-	LB_BACKEND_HOST  = "host"
-	LB_BACKEND_IP    = "ip"
+	LB_BACKEND_GUEST = compute.LB_BACKEND_GUEST
+	LB_BACKEND_HOST  = compute.LB_BACKEND_HOST
+	LB_BACKEND_IP    = compute.LB_BACKEND_IP
 )
 
 var LB_BACKEND_TYPES = choices.NewChoices(
@@ -387,9 +389,9 @@ var LB_BACKEND_TYPES = choices.NewChoices(
 )
 
 const (
-	LB_BACKEND_ROLE_DEFAULT = "default"
-	LB_BACKEND_ROLE_MASTER  = "master"
-	LB_BACKEND_ROLE_SLAVE   = "slave"
+	LB_BACKEND_ROLE_DEFAULT = compute.LB_BACKEND_ROLE_DEFAULT
+	LB_BACKEND_ROLE_MASTER  = compute.LB_BACKEND_ROLE_MASTER
+	LB_BACKEND_ROLE_SLAVE   = compute.LB_BACKEND_ROLE_SLAVE
 )
 
 var LB_BACKEND_ROLES = choices.NewChoices(
@@ -399,8 +401,8 @@ var LB_BACKEND_ROLES = choices.NewChoices(
 )
 
 const (
-	LB_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
-	LB_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
+	LB_CHARGE_TYPE_BY_TRAFFIC   = compute.LB_CHARGE_TYPE_BY_TRAFFIC
+	LB_CHARGE_TYPE_BY_BANDWIDTH = compute.LB_CHARGE_TYPE_BY_BANDWIDTH
 )
 
 var LB_CHARGE_TYPES = choices.NewChoices(

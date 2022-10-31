@@ -310,3 +310,7 @@ func (self *SVpc) getVpcPeeringConnectionById(id string) (*SVpcPeering, error) {
 	svpcPC.vpc = self
 	return svpcPC, nil
 }
+
+func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
+	return self.CreateVpc(opts.NAME, opts.CIDR, opts.Desc)
+}

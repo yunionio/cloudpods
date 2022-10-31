@@ -26,14 +26,9 @@ const (
 )
 
 const (
-	SkuStatusAvailable    = "available"
-	SkuStatusSoldout      = "soldout"
-	SkuStatusCreating     = "creating"
-	SkuStatusCreatFailed  = "create_failed"
-	SkuStatusDeleting     = "deleting"
-	SkuStatusDeleteFailed = "delete_failed"
-	SkuStatusUnknown      = "unknown"
-	SkuStatusReady        = "ready"
+	SkuStatusAvailable = "available"
+	SkuStatusSoldout   = "soldout"
+	SkuStatusReady     = "ready"
 )
 
 var InstanceFamilies = map[string]string{
@@ -45,15 +40,4 @@ var InstanceFamilies = map[string]string{
 	SkuCategoryHardwareAccelerated: "",
 	SkuCategoryHighStorage:         "hc1",
 	SkuCategoryHighMemory:          "hr1",
-}
-
-var SKU_FAMILIES = []string{
-	SkuCategoryGeneralPurpose,
-	SkuCategoryBurstable,
-	SkuCategoryComputeOptimized,
-	SkuCategoryMemoryOptimized,
-	SkuCategoryStorageIOOptimized,
-	SkuCategoryHardwareAccelerated,
-	SkuCategoryHighStorage,
-	SkuCategoryHighMemory,
 }

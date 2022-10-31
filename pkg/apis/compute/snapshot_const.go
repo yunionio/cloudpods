@@ -14,24 +14,26 @@
 
 package compute
 
+import "yunion.io/x/cloudmux/pkg/apis/compute"
+
 const (
 	// create by
 	SNAPSHOT_MANUAL = "manual"
 	SNAPSHOT_AUTO   = "auto"
 
-	SNAPSHOT_CREATING      = "creating"
-	SNAPSHOT_ROLLBACKING   = "rollbacking"
-	SNAPSHOT_FAILED        = "create_failed"
-	SNAPSHOT_READY         = "ready"
-	SNAPSHOT_DELETE_FAILED = "delete_failed"
-	SNAPSHOT_DELETING      = "deleting"
-	SNAPSHOT_UNKNOWN       = "unknown"
+	SNAPSHOT_CREATING      = compute.SNAPSHOT_CREATING
+	SNAPSHOT_ROLLBACKING   = compute.SNAPSHOT_ROLLBACKING
+	SNAPSHOT_FAILED        = compute.SNAPSHOT_FAILED
+	SNAPSHOT_READY         = compute.SNAPSHOT_READY
+	SNAPSHOT_DELETE_FAILED = compute.SNAPSHOT_DELETE_FAILED
+	SNAPSHOT_DELETING      = compute.SNAPSHOT_DELETING
+	SNAPSHOT_UNKNOWN       = compute.SNAPSHOT_UNKNOWN
 
-	SNAPSHOT_POLICY_CREATING = "creating"
+	SNAPSHOT_POLICY_CREATING = compute.SNAPSHOT_POLICY_CREATING
 
-	SNAPSHOT_POLICY_READY         = "ready"
+	SNAPSHOT_POLICY_READY         = compute.SNAPSHOT_POLICY_READY
 	SNAPSHOT_POLICY_UPDATING      = "updating"
-	SNAPSHOT_POLICY_UNKNOWN       = "unknown"
+	SNAPSHOT_POLICY_UNKNOWN       = compute.SNAPSHOT_POLICY_UNKNOWN
 	SNAPSHOT_POLICY_DELETING      = "deleting"
 	SNAPSHOT_POLICY_DELETE_FAILED = "delete_failed"
 
@@ -45,7 +47,7 @@ const (
 	SNAPSHOT_POLICY_DISK_DELETING      = "deleting"
 	SNAPSHOT_POLICY_DISK_DELETE_FAILED = "delete_failed"
 
-	INSTANCE_SNAPSHOT_READY         = "ready"
+	INSTANCE_SNAPSHOT_READY         = compute.INSTANCE_SNAPSHOT_READY
 	INSTANCE_SNAPSHOT_UNKNOWN       = "unknown"
 	INSTANCE_SNAPSHOT_FAILED        = "instance_snapshot_create_failed"
 	INSTANCE_SNAPSHOT_START_DELETE  = "instance_snapshot_start_delete"

@@ -14,7 +14,11 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type ModelartsPoolSkuDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
@@ -23,8 +27,8 @@ type ModelartsPoolSkuDetails struct {
 }
 
 const (
-	MODELARTS_POOL_SKU_AVAILABLE = "available"
-	MODELARTS_POOL_SKU_SOLDOUT   = "soldout"
+	MODELARTS_POOL_SKU_AVAILABLE = compute.MODELARTS_POOL_SKU_AVAILABLE
+	MODELARTS_POOL_SKU_SOLDOUT   = compute.MODELARTS_POOL_SKU_SOLDOUT
 )
 
 type ModelartsPoolSkuListInput struct {

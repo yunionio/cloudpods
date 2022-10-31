@@ -15,6 +15,7 @@
 package compute
 
 import (
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -73,20 +74,20 @@ Architecture For DnsZone
 */
 
 const (
-	DNS_ZONE_STATUS_AVAILABLE               = "available"               // 可用
-	DNS_ZONE_STATUS_CREATING                = "creating"                // 创建中
-	DNS_ZONE_STATUS_CREATE_FAILE            = "create_failed"           // 创建失败
-	DNS_ZONE_STATUS_UNCACHING               = "uncaching"               // 云上资源删除中
-	DNS_ZONE_STATUS_UNCACHE_FAILED          = "uncache_failed"          // 云上资源删除失败
-	DNS_ZONE_STATUS_CACHING                 = "caching"                 // 云上资源创建中
-	DNS_ZONE_STATUS_CACHE_FAILED            = "cache_failed"            // 云上资源创建失败
-	DNS_ZONE_STATUS_SYNC_VPCS               = "sync_vpcs"               // 同步VPC中
-	DNS_ZONE_STATUS_SYNC_VPCS_FAILED        = "sync_vpcs_failed"        // 同步VPC失败
-	DNS_ZONE_STATUS_SYNC_RECORD_SETS        = "sync_record_sets"        // 同步解析列表中
-	DNS_ZONE_STATUS_SYNC_RECORD_SETS_FAILED = "sync_record_sets_failed" // 同步解析列表失败
-	DNS_ZONE_STATUS_DELETING                = "deleting"                // 删除中
-	DNS_ZONE_STATUS_DELETE_FAILED           = "delete_failed"           // 删除失败
-	DNS_ZONE_STATUS_UNKNOWN                 = "unknown"                 // 未知
+	DNS_ZONE_STATUS_AVAILABLE               = compute.DNS_ZONE_STATUS_AVAILABLE // 可用
+	DNS_ZONE_STATUS_CREATING                = "creating"                        // 创建中
+	DNS_ZONE_STATUS_CREATE_FAILE            = "create_failed"                   // 创建失败
+	DNS_ZONE_STATUS_UNCACHING               = "uncaching"                       // 云上资源删除中
+	DNS_ZONE_STATUS_UNCACHE_FAILED          = "uncache_failed"                  // 云上资源删除失败
+	DNS_ZONE_STATUS_CACHING                 = "caching"                         // 云上资源创建中
+	DNS_ZONE_STATUS_CACHE_FAILED            = "cache_failed"                    // 云上资源创建失败
+	DNS_ZONE_STATUS_SYNC_VPCS               = "sync_vpcs"                       // 同步VPC中
+	DNS_ZONE_STATUS_SYNC_VPCS_FAILED        = "sync_vpcs_failed"                // 同步VPC失败
+	DNS_ZONE_STATUS_SYNC_RECORD_SETS        = "sync_record_sets"                // 同步解析列表中
+	DNS_ZONE_STATUS_SYNC_RECORD_SETS_FAILED = "sync_record_sets_failed"         // 同步解析列表失败
+	DNS_ZONE_STATUS_DELETING                = "deleting"                        // 删除中
+	DNS_ZONE_STATUS_DELETE_FAILED           = "delete_failed"                   // 删除失败
+	DNS_ZONE_STATUS_UNKNOWN                 = compute.DNS_ZONE_STATUS_UNKNOWN   // 未知
 )
 
 type DnsZoneFilterListBase struct {

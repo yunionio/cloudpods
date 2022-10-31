@@ -14,8 +14,10 @@
 
 package compute
 
+import "yunion.io/x/cloudmux/pkg/apis/compute"
+
 const (
-	WIRE_STATUS_AVAILABLE            = "available"
+	WIRE_STATUS_AVAILABLE            = compute.WIRE_STATUS_AVAILABLE
 	WIRE_STATUS_READY_DEPRECATED     = "ready"
 	WIRE_STATUS_MERGE_NETWORK        = "merge_network"
 	WIRE_STATUS_MERGE_NETWORK_FAILED = "merge_network_failed"

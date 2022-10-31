@@ -15,11 +15,6 @@
 package compute
 
 const (
-	MODELARTS_POOL_STATUS_RUNNING       = "running"
-	MODELARTS_POOL_STATUS_ABNORMAL      = "abnormal"
-	MODELARTS_POOL_STATUS_CREATING      = "creating"
-	MODELARTS_POOL_STATUS_DELETING      = "deleting"
-	MODELARTS_POOL_STATUS_CHANGE_CONFIG = "change_config"
-	MODELARTS_POOL_STATUS_ERROR         = "error"
-	MODELARTS_POOL_STATUS_UNKNOWN       = "unknown"
+	MODELARTS_POOL_STATUS_RUNNING  = "running"
+	MODELARTS_POOL_STATUS_CREATING = "creating"
 )

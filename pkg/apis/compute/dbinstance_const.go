@@ -14,40 +14,42 @@
 
 package compute
 
+import "yunion.io/x/cloudmux/pkg/apis/compute"
+
 const (
 	//实例状态
-	DBINSTANCE_INIT                  = "init"              //初始化
-	DBINSTANCE_DEPLOYING             = "deploying"         //部署中
-	DBINSTANCE_RUNNING               = "running"           //运行中
-	DBINSTANCE_REBOOTING             = "rebooting"         //重启中
-	DBINSTANCE_MIGRATING             = "migrating"         //迁移中
-	DBINSTANCE_BACKING_UP            = "backing_up"        //备份中
-	DBINSTANCE_BACKING_UP_FAILED     = "backing_up_failed" //备份失败
-	DBINSTANCE_RESTORING             = "restoring"         //备份恢复中
+	DBINSTANCE_INIT                  = compute.DBINSTANCE_INIT       //初始化
+	DBINSTANCE_DEPLOYING             = compute.DBINSTANCE_DEPLOYING  //部署中
+	DBINSTANCE_RUNNING               = compute.DBINSTANCE_RUNNING    //运行中
+	DBINSTANCE_REBOOTING             = compute.DBINSTANCE_REBOOTING  //重启中
+	DBINSTANCE_MIGRATING             = compute.DBINSTANCE_MIGRATING  //迁移中
+	DBINSTANCE_BACKING_UP            = compute.DBINSTANCE_BACKING_UP //备份中
+	DBINSTANCE_BACKING_UP_FAILED     = "backing_up_failed"           //备份失败
+	DBINSTANCE_RESTORING             = compute.DBINSTANCE_RESTORING  //备份恢复中
 	DBINSTANCE_RESTORE_FAILED        = "restore_failed"
-	DBINSTANCE_IMPORTING             = "importing"             //数据导入中
-	DBINSTANCE_CLONING               = "cloning"               //克隆中
-	DBINSTANCE_DELETING              = "deleting"              //删除中
-	DBINSTANCE_DELETE_FAILED         = "delete_failed"         //删除失败
-	DBINSTANCE_MAINTENANCE           = "maintenance"           //维护中
-	DBINSTANCE_ISOLATING             = "isolating"             //隔离中
-	DBINSTANCE_ISOLATE               = "isolate"               //已隔离
-	DBINSTANCE_UPGRADING             = "upgrading"             //升级中
-	DBINSTANCE_SET_AUTO_RENEW        = "set_auto_renew"        //设置自动续费中
-	DBINSTANCE_SET_AUTO_RENEW_FAILED = "set_auto_renew_failed" //设置自动续费失败
-	DBINSTANCE_UNKNOWN               = "unknown"
+	DBINSTANCE_IMPORTING             = compute.DBINSTANCE_IMPORTING   //数据导入中
+	DBINSTANCE_CLONING               = compute.DBINSTANCE_CLONING     //克隆中
+	DBINSTANCE_DELETING              = compute.DBINSTANCE_DELETING    //删除中
+	DBINSTANCE_DELETE_FAILED         = "delete_failed"                //删除失败
+	DBINSTANCE_MAINTENANCE           = compute.DBINSTANCE_MAINTENANCE //维护中
+	DBINSTANCE_ISOLATING             = compute.DBINSTANCE_ISOLATING   //隔离中
+	DBINSTANCE_ISOLATE               = compute.DBINSTANCE_ISOLATE     //已隔离
+	DBINSTANCE_UPGRADING             = compute.DBINSTANCE_UPGRADING   //升级中
+	DBINSTANCE_SET_AUTO_RENEW        = "set_auto_renew"               //设置自动续费中
+	DBINSTANCE_SET_AUTO_RENEW_FAILED = "set_auto_renew_failed"        //设置自动续费失败
+	DBINSTANCE_UNKNOWN               = compute.DBINSTANCE_UNKNOWN
 	DBINSTANCE_SYNC_SECGROUP_FAILED  = "sync_secgroup_failed" // 同步安全组失败
 
-	DBINSTANCE_CHANGE_CONFIG        = "change_config"        //调整配置
-	DBINSTANCE_CHANGE_CONFIG_FAILED = "change_config_failed" //调整配置失败
+	DBINSTANCE_CHANGE_CONFIG        = compute.DBINSTANCE_CHANGE_CONFIG //调整配置
+	DBINSTANCE_CHANGE_CONFIG_FAILED = "change_config_failed"           //调整配置失败
 
 	DBINSTANCE_RENEWING     = "renewing"     //续费中
 	DBINSTANCE_RENEW_FAILED = "renew_failed" //续费失败
 
 	DBINSTANCE_SYNC_CONFIG = "sync_config" //同步配置
 
-	DBINSTANCE_REBOOT_FAILED = "reboot_failed" //重启失败
-	DBINSTANCE_CREATE_FAILED = "create_failed" //创建失败
+	DBINSTANCE_REBOOT_FAILED = "reboot_failed"                  //重启失败
+	DBINSTANCE_CREATE_FAILED = compute.DBINSTANCE_CREATE_FAILED //创建失败
 
 	DBINSTANCE_FAILE = "failed" //操作失败
 
@@ -55,109 +57,85 @@ const (
 	DBINSTANCE_UPDATE_TAGS_FAILED = "update_tags_fail"
 
 	//备份状态
-	DBINSTANCE_BACKUP_READY         = "ready"         //正常
-	DBINSTANCE_BACKUP_CREATING      = "creating"      //创建中
-	DBINSTANCE_BACKUP_CREATE_FAILED = "create_failed" //创建失败
-	DBINSTANCE_BACKUP_DELETING      = "deleting"      //删除中
-	DBINSTANCE_BACKUP_DELETE_FAILED = "delete_failed" //删除失败
-	DBINSTANCE_BACKUP_FAILED        = "failed"        //异常
-	DBINSTANCE_BACKUP_UNKNOWN       = "unknown"       //未知
+	DBINSTANCE_BACKUP_READY         = compute.DBINSTANCE_BACKUP_READY         //正常
+	DBINSTANCE_BACKUP_CREATING      = compute.DBINSTANCE_BACKUP_CREATING      //创建中
+	DBINSTANCE_BACKUP_CREATE_FAILED = compute.DBINSTANCE_BACKUP_CREATE_FAILED //创建失败
+	DBINSTANCE_BACKUP_DELETING      = compute.DBINSTANCE_BACKUP_DELETING      //删除中
+	DBINSTANCE_BACKUP_DELETE_FAILED = "delete_failed"                         //删除失败
+	DBINSTANCE_BACKUP_FAILED        = compute.DBINSTANCE_BACKUP_FAILED        //异常
+	DBINSTANCE_BACKUP_UNKNOWN       = compute.DBINSTANCE_BACKUP_UNKNOWN       //未知
 
 	//备份模式
-	BACKUP_MODE_AUTOMATED = "automated" //自动
-	BACKUP_MODE_MANUAL    = "manual"    //手动
+	BACKUP_MODE_AUTOMATED = compute.BACKUP_MODE_AUTOMATED //自动
+	BACKUP_MODE_MANUAL    = compute.BACKUP_MODE_MANUAL    //手动
 
 	//实例数据库状态
-	DBINSTANCE_DATABASE_CREATING        = "creating"        //创建中
-	DBINSTANCE_DATABASE_CREATE_FAILE    = "create_failed"   //创建失败
-	DBINSTANCE_DATABASE_RUNNING         = "running"         //正常
-	DBINSTANCE_DATABASE_GRANT_PRIVILEGE = "grant_privilege" //赋予权限中
-	DBINSTANCE_DATABASE_DELETING        = "deleting"        //删除中
-	DBINSTANCE_DATABASE_DELETE_FAILED   = "delete_failed"   //删除失败
+	DBINSTANCE_DATABASE_CREATING        = compute.DBINSTANCE_DATABASE_CREATING //创建中
+	DBINSTANCE_DATABASE_CREATE_FAILE    = "create_failed"                      //创建失败
+	DBINSTANCE_DATABASE_RUNNING         = compute.DBINSTANCE_DATABASE_RUNNING  //正常
+	DBINSTANCE_DATABASE_GRANT_PRIVILEGE = "grant_privilege"                    //赋予权限中
+	DBINSTANCE_DATABASE_DELETING        = compute.DBINSTANCE_DATABASE_DELETING //删除中
+	DBINSTANCE_DATABASE_DELETE_FAILED   = "delete_failed"                      //删除失败
 
 	//实例用户状态
-	DBINSTANCE_USER_UNAVAILABLE         = "unavailable"         //不可用
-	DBINSTANCE_USER_AVAILABLE           = "available"           //正常
-	DBINSTANCE_USER_CREATING            = "creating"            //创建中
-	DBINSTANCE_USER_CREATE_FAILED       = "create_failed"       //创建失败
-	DBINSTANCE_USER_DELETING            = "deleting"            //删除中
-	DBINSTANCE_USER_DELETE_FAILED       = "delete_failed"       //删除失败
-	DBINSTANCE_USER_RESET_PASSWD        = "reset_passwd"        //重置密码中
-	DBINSTANCE_USER_GRANT_PRIVILEGE     = "grant_privilege"     //赋予权限中
-	DBINSTANCE_USER_SET_PRIVILEGE       = "set_privilege"       //设置权限中
-	DBINSTANCE_USER_REVOKE_PRIVILEGE    = "revoke_privilege"    //解除权限中
-	DBINSTANCE_USER_RESET_PASSWD_FAILED = "reset_passwd_failed" //重置密码失败
+	DBINSTANCE_USER_UNAVAILABLE         = compute.DBINSTANCE_USER_UNAVAILABLE //不可用
+	DBINSTANCE_USER_AVAILABLE           = compute.DBINSTANCE_USER_AVAILABLE   //正常
+	DBINSTANCE_USER_CREATING            = compute.DBINSTANCE_USER_CREATING    //创建中
+	DBINSTANCE_USER_CREATE_FAILED       = "create_failed"                     //创建失败
+	DBINSTANCE_USER_DELETING            = compute.DBINSTANCE_USER_DELETING    //删除中
+	DBINSTANCE_USER_DELETE_FAILED       = "delete_failed"                     //删除失败
+	DBINSTANCE_USER_RESET_PASSWD        = "reset_passwd"                      //重置密码中
+	DBINSTANCE_USER_GRANT_PRIVILEGE     = "grant_privilege"                   //赋予权限中
+	DBINSTANCE_USER_SET_PRIVILEGE       = "set_privilege"                     //设置权限中
+	DBINSTANCE_USER_REVOKE_PRIVILEGE    = "revoke_privilege"                  //解除权限中
+	DBINSTANCE_USER_RESET_PASSWD_FAILED = "reset_passwd_failed"               //重置密码失败
 
 	//数据库权限
-	DATABASE_PRIVILEGE_RW     = "rw" //读写
-	DATABASE_PRIVILEGE_R      = "r"  //只读
-	DATABASE_PRIVILEGE_DDL    = "ddl"
-	DATABASE_PRIVILEGE_DML    = "dml"
-	DATABASE_PRIVILEGE_OWNER  = "owner"
-	DATABASE_PRIVILEGE_CUSTOM = "custom" //自定义
+	DATABASE_PRIVILEGE_RW     = compute.DATABASE_PRIVILEGE_RW //读写
+	DATABASE_PRIVILEGE_R      = compute.DATABASE_PRIVILEGE_R  //只读
+	DATABASE_PRIVILEGE_DDL    = compute.DATABASE_PRIVILEGE_DDL
+	DATABASE_PRIVILEGE_DML    = compute.DATABASE_PRIVILEGE_DML
+	DATABASE_PRIVILEGE_OWNER  = compute.DATABASE_PRIVILEGE_OWNER
+	DATABASE_PRIVILEGE_CUSTOM = compute.DATABASE_PRIVILEGE_CUSTOM //自定义
 
-	DBINSTANCE_TYPE_MYSQL      = "MySQL"
-	DBINSTANCE_TYPE_SQLSERVER  = "SQLServer"
-	DBINSTANCE_TYPE_POSTGRESQL = "PostgreSQL"
-	DBINSTANCE_TYPE_MARIADB    = "MariaDB"
-	DBINSTANCE_TYPE_ORACLE     = "Oracle"
-	DBINSTANCE_TYPE_PPAS       = "PPAS"
-	DBINSTANCE_TYPE_PERCONA    = "Percona"
-	DBINSTANCE_TYPE_AURORA     = "Aurora"
+	DBINSTANCE_TYPE_MYSQL      = compute.DBINSTANCE_TYPE_MYSQL
+	DBINSTANCE_TYPE_SQLSERVER  = compute.DBINSTANCE_TYPE_SQLSERVER
+	DBINSTANCE_TYPE_POSTGRESQL = compute.DBINSTANCE_TYPE_POSTGRESQL
+	DBINSTANCE_TYPE_MARIADB    = compute.DBINSTANCE_TYPE_MARIADB
+	DBINSTANCE_TYPE_ORACLE     = compute.DBINSTANCE_TYPE_ORACLE
+	DBINSTANCE_TYPE_PPAS       = compute.DBINSTANCE_TYPE_PPAS
+	DBINSTANCE_TYPE_PERCONA    = compute.DBINSTANCE_TYPE_PERCONA
+	DBINSTANCE_TYPE_AURORA     = compute.DBINSTANCE_TYPE_AURORA
 
 	//阿里云实例类型
-	ALIYUN_DBINSTANCE_CATEGORY_BASIC    = "basic"             //基础版
-	ALIYUN_DBINSTANCE_CATEGORY_HA       = "high_availability" //高可用
-	ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON = "always_on"         //集群版
-	ALIYUN_DBINSTANCE_CATEGORY_FINANCE  = "finance"           //金融版
+	ALIYUN_DBINSTANCE_CATEGORY_BASIC    = compute.ALIYUN_DBINSTANCE_CATEGORY_BASIC    //基础版
+	ALIYUN_DBINSTANCE_CATEGORY_HA       = compute.ALIYUN_DBINSTANCE_CATEGORY_HA       //高可用
+	ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON = compute.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON //集群版
+	ALIYUN_DBINSTANCE_CATEGORY_FINANCE  = compute.ALIYUN_DBINSTANCE_CATEGORY_FINANCE  //金融版
 
 	//腾讯云实例类型
-	QCLOUD_DBINSTANCE_CATEGORY_BASIC   = "basic" //基础版
-	QCLOUD_DBINSTANCE_CATEGORY_HA      = "ha"    //高可用
-	QCLOUD_DBINSTANCE_CATEGORY_FINANCE = "fe"    //金融版
-	QCLOUD_DBINSTANCE_CATEGORY_TDSQL   = "tdsql" //TDSQL
-
-	//华为云实例类型
-	HUAWEI_DBINSTANCE_CATEGORY_HA      = "ha"      //主备
-	HUAWEI_DBINSTANCE_CATEGORY_SINGLE  = "single"  //单机
-	HUAWEI_DBINSTANCE_CATEGORY_REPLICA = "replica" //只读
-
-	//谷歌云实例类型
-	GOOGLE_DBINSTANCE_CATEGORY_REGIONAL = "Regional" // 高可用性（区域级）
-	GOOGLE_DBINSTANCE_CATEGORY_ZONAL    = "Zonal"    // 单个地区
-
-	// Azure
-	AZURE_DBINSTANCE_CATEGORY_BASIC = "basic"
-
-	// Aws
-	// SQLServer
-	AWS_DBINSTANCE_CATEGORY_ENTERPRISE_EDITION = "Enterprise Edition"
-	AWS_DBINSTANCE_CATEGORY_EXPRESS_EDITION    = "Express Edition"
-	AWS_DBINSTANCE_CATEGORY_STANDARD_EDITION   = "Standard Edition"
-	AWS_DBINSTANCE_CATEGORY_WEB_EDITION        = "Web Edition"
-	// Oracle
-	AWS_DBINSTANCE_CATEGORY_STANDARD_EDITION_TWO = "Standard Edition Two"
-
-	AWS_DBINSTANCE_CATEGORY_GENERAL_PURPOSE  = "General Purpose"
-	AWS_DBINSTANCE_CATEGORY_MEMORY_OPTIMIZED = "Memory Optimized"
+	QCLOUD_DBINSTANCE_CATEGORY_BASIC   = compute.QCLOUD_DBINSTANCE_CATEGORY_BASIC   //基础版
+	QCLOUD_DBINSTANCE_CATEGORY_HA      = compute.QCLOUD_DBINSTANCE_CATEGORY_HA      //高可用
+	QCLOUD_DBINSTANCE_CATEGORY_FINANCE = compute.QCLOUD_DBINSTANCE_CATEGORY_FINANCE //金融版
+	QCLOUD_DBINSTANCE_CATEGORY_TDSQL   = compute.QCLOUD_DBINSTANCE_CATEGORY_TDSQL   //TDSQL
 
 	//阿里云存储类型
-	ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD  = "local_ssd"  //本地盘SSD盘
-	ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_ESSD = "cloud_essd" //ESSD云盘
-	ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD  = "cloud_ssd"  //SSD云盘
+	ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD  = compute.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD  //本地盘SSD盘
+	ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_ESSD = compute.ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_ESSD //ESSD云盘
+	ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD  = compute.ALIYUN_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD  //SSD云盘
 
 	//华为云存储类型
-	HUAWEI_DBINSTANCE_STORAGE_TYPE_ULTRAHIGH    = "ULTRAHIGH" //超高IO云硬盘
-	HUAWEI_DBINSTANCE_STORAGE_TYPE_ULTRAHIGHPRO = "ULTRAHIGHPRO"
-	HUAWEI_DBINSTANCE_STORAGE_TYPE_COMMON       = "COMMON"
-	HUAWEI_DBINSTANCE_STORAGE_TYPE_HIGH         = "HIGH"
+	HUAWEI_DBINSTANCE_STORAGE_TYPE_ULTRAHIGH    = compute.HUAWEI_DBINSTANCE_STORAGE_TYPE_ULTRAHIGH //超高IO云硬盘
+	HUAWEI_DBINSTANCE_STORAGE_TYPE_ULTRAHIGHPRO = compute.HUAWEI_DBINSTANCE_STORAGE_TYPE_ULTRAHIGHPRO
+	HUAWEI_DBINSTANCE_STORAGE_TYPE_COMMON       = compute.HUAWEI_DBINSTANCE_STORAGE_TYPE_COMMON
+	HUAWEI_DBINSTANCE_STORAGE_TYPE_HIGH         = compute.HUAWEI_DBINSTANCE_STORAGE_TYPE_HIGH
 
 	//腾讯云
-	QCLOUD_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD = "local_ssd" //本地盘SSD盘
-	QCLOUD_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD = "cloud_ssd" //SSD云盘
+	QCLOUD_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD = compute.QCLOUD_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD //本地盘SSD盘
+	QCLOUD_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD = compute.QCLOUD_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD //SSD云盘
 
 	// Azure
-	AZURE_DBINSTANCE_STORAGE_TYPE_DEFAULT = "default"
+	AZURE_DBINSTANCE_STORAGE_TYPE_DEFAULT = compute.AZURE_DBINSTANCE_STORAGE_TYPE_DEFAULT
 )
 
 var (
@@ -176,12 +154,5 @@ var (
 		"ALTER ROUTINE", "EVENT", "TRIGGER", "PROCESS", "REPLICATION SLAVE",
 		"REPLICATION CLIENT",
 	}
-	R_PRIVILEGE_SET         = []string{"SELECT", "LOCK TABLES", "SHOW VIEW", "PROCESS", "REPLICATION SLAVE", "REPLICATION CLIENT"}
-	QCLOUD_RW_PRIVILEGE_SET = []string{
-		"SELECT", "INSERT", "UPDATE", "DELETE", "CREATE",
-		"DROP", "REFERENCES", "INDEX", "ALTER", "CREATE TEMPORARY TABLES",
-		"LOCK TABLES", "EXECUTE", "CREATE VIEW", "SHOW VIEW", "CREATE ROUTINE",
-		"ALTER ROUTINE", "EVENT", "TRIGGER",
-	}
-	QCLOUD_R_PRIVILEGE_SET = []string{"SELECT", "LOCK TABLES", "SHOW VIEW"}
+	R_PRIVILEGE_SET = []string{"SELECT", "LOCK TABLES", "SHOW VIEW", "PROCESS", "REPLICATION SLAVE", "REPLICATION CLIENT"}
 )
