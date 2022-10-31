@@ -83,8 +83,15 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 	}
 	name, _ := data.GetString("name")
 	path, _ := data.GetString("path")
+	var bootIndex *int8
+	if self.Params.Contains("boot_index") {
+		bd, _ := self.Params.Int("boot_index")
+		bd8 := int8(bd)
+		bootIndex = &bd8
+	}
+
 	guest := obj.(*models.SGuest)
-	if guest.InsertIsoSucc(cdromOrdinal, imageId, path, size, name) {
+	if guest.InsertIsoSucc(cdromOrdinal, imageId, path, size, name, bootIndex) {
 		db.OpsLog.LogEvent(guest, db.ACT_ISO_ATTACH, guest.GetDetailsIso(cdromOrdinal, self.UserCred), self.UserCred)
 		if guest.GetDriver().NeedRequestGuestHotAddIso(ctx, guest) {
 			self.SetStage("OnConfigSyncComplete", nil)

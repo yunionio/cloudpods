@@ -15,9 +15,10 @@
 package compute
 
 type GuestcdromJsonDesc struct {
-	Ordinal int    `json:"ordinal"`
-	ImageId string `json:"image_id"`
-	Path    string `json:"path"`
-	Name    string `json:"name"`
-	Size    int64  `json:"size"`
+	Ordinal   int    `json:"ordinal"`
+	ImageId   string `json:"image_id"`
+	Path      string `json:"path"`
+	Name      string `json:"name"`
+	Size      int64  `json:"size"`
+	BootIndex int8   `json:"boot_index"`
 }

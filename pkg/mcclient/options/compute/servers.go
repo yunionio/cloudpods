@@ -399,6 +399,7 @@ type ServerCreateOptionalOptions struct {
 	Password         string   `help:"Default user password"`
 	LoginAccount     string   `help:"Guest login account"`
 	Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom"`
+	IsoBootIndex     *int8    `help:"Iso bootindex" metavar:"IMAGE_BOOT_INDEX" json:"cdrom_boot_index"`
 	VcpuCount        int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
 	InstanceType     string   `help:"instance flavor"`
 	Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl|virtio"`
@@ -508,6 +509,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		Password:           opts.Password,
 		LoginAccount:       opts.LoginAccount,
 		Cdrom:              opts.Iso,
+		CdromBootIndex:     opts.IsoBootIndex,
 		Vga:                opts.Vga,
 		Vdi:                opts.Vdi,
 		Bios:               opts.Bios,

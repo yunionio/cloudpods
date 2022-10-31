@@ -51,6 +51,9 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		self.Params.Add(jsonutils.NewString(guestdisk.Driver), "driver")
 		self.Params.Add(jsonutils.NewString(guestdisk.CacheMode), "cache")
 		self.Params.Add(jsonutils.NewString(guestdisk.Mountpoint), "mountpoint")
+		if guestdisk.BootIndex >= 0 {
+			self.Params.Add(jsonutils.NewInt(int64(guestdisk.BootIndex)), "boot_index")
+		}
 	}
 
 	guest.DetachDisk(ctx, disk, self.UserCred)
@@ -108,6 +111,12 @@ func (self *GuestDetachDiskTask) OnDetachDiskCompleteFailed(ctx context.Context,
 	cache, _ := self.Params.GetString("cache")
 	mountpoint, _ := self.Params.GetString("mountpoint")
 	diskId, _ := self.Params.GetString("disk_id")
+	var bootIndex *int8
+	if self.Params.Contains("boot_index") {
+		bd, _ := self.Params.Int("boot_index")
+		bd8 := int8(bd)
+		bootIndex = &bd8
+	}
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
 		log.Warningf("failed to fetch disk by id %s error: %v", diskId, err)
@@ -117,7 +126,7 @@ func (self *GuestDetachDiskTask) OnDetachDiskCompleteFailed(ctx context.Context,
 	disk := objDisk.(*models.SDisk)
 	db.OpsLog.LogEvent(disk, db.ACT_DETACH, reason.String(), self.UserCred)
 	models.StartResourceSyncStatusTask(ctx, self.GetUserCred(), disk, "DiskSyncstatusTask", "")
-	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
+	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint, bootIndex)
 	if err != nil {
 		log.Warningf("recover attach disk %s(%s) for guest %s(%s) error: %v", disk.Name, disk.Id, guest.Name, guest.Id, err)
 	}

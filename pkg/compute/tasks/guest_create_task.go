@@ -85,9 +85,16 @@ func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IS
 func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	cdrom, _ := self.Params.GetString("cdrom")
+	var bootIndex *int8
+	if self.Params.Contains("cdrom_boot_index") {
+		bd, _ := self.Params.Int("cdrom_boot_index")
+		bd8 := int8(bd)
+		bootIndex = &bd8
+	}
+
 	if len(cdrom) > 0 {
 		self.SetStage("OnCdromPrepared", nil)
-		guest.GetDriver().RequestGuestCreateInsertIso(ctx, cdrom, guest, self)
+		guest.GetDriver().RequestGuestCreateInsertIso(ctx, cdrom, bootIndex, self, guest)
 	} else {
 		self.OnCdromPrepared(ctx, obj, data)
 	}

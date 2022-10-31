@@ -259,8 +259,9 @@ type Floppy struct {
 }
 
 type Cdrom struct {
-	Ordinal int    `json:"ordinal"`
-	Detail  string `json:"detail"`
+	Ordinal   int    `json:"ordinal"`
+	Detail    string `json:"detail"`
+	BootIndex int8   `json:"boot_index"`
 }
 
 func (self ServerDetails) GetMetricTags() map[string]string {
@@ -310,6 +311,7 @@ type GuestDiskInfo struct {
 	FsFormat    string `json:"fs,omitempty"`
 	DiskType    string `json:"disk_type"`
 	Index       int8   `json:"index"`
+	BootIndex   int8   `json:"boot_index"`
 	SizeMb      int    `json:"size"`
 	DiskFormat  string `json:"disk_format"`
 	Driver      string `json:"driver"`
@@ -694,6 +696,8 @@ type ServerUserDataInput struct {
 
 type ServerAttachDiskInput struct {
 	DiskId string `json:"disk_id"`
+
+	BootIndex *int8 `json:"boot_index"`
 }
 
 type ServerDetachDiskInput struct {

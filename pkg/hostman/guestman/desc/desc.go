@@ -168,9 +168,10 @@ type SGuestDisk struct {
 // -drive id=MacDVD,if=none,snapshot=on,file=%s
 
 type SGuestCdrom struct {
-	Id      string
-	Path    string
-	Ordinal int64
+	Id        string
+	Path      string
+	Ordinal   int64
+	BootIndex *int8
 
 	Ide          *IDEDevice        `json:",omitempty"`
 	Scsi         *SCSIDevice       `json:",omitempty"`
