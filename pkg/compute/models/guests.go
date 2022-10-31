@@ -3279,7 +3279,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 		ExtFunc: "GetMAC",
 		ExtSet:  vnics,
 	}
-	err = compare.CompareSetsFunc(set, &removed, &commondb, &commonext, &added)
+	err = compare.CompareSetsFunc(set, &removed, &commondb, &commonext, &added, nil)
 	if err != nil {
 		result.Error(errors.Wrapf(err, "compare.CompareSets"))
 		return result

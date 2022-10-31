@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SSyncableBaseResource struct {
@@ -905,12 +906,14 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 	msg := result.Result()
 	notes := fmt.Sprintf("SyncHostVMs for host %s result: %s", localHost.Name, msg)
 	log.Infof(notes)
-	if result.IsError() {
+	/*if result.IsError() {
 		return
-	}
+	}*/
 
 	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
-	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	if result.IsError() {
+		logclient.AddSimpleActionLog(provider, logclient.ACT_CLOUD_SYNC, notes, userCred, false)
+	}
 	for i := 0; i < len(syncVMPairs); i += 1 {
 		if !syncVMPairs[i].IsNew && !syncRange.DeepSync {
 			continue
