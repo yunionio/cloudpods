@@ -276,16 +276,16 @@ func (region *SRegion) GetLoadbalancerbyId(loadbalancerId string) (*SLoadbalance
 	return &loadbalancer, nil
 }
 
-func (region *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (*SLoadbalancer, error) {
+func (region *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (*SLoadbalancer, error) {
 	type CreateParams struct {
 		Loadbalancer SLoadbalancerCreateParams `json:"loadbalancer"`
 	}
 	params := CreateParams{}
 	params.Loadbalancer.AdminStateUp = true
-	params.Loadbalancer.AvailabilityZone = loadbalancer.ZoneID
+	params.Loadbalancer.AvailabilityZone = loadbalancer.ZoneId
 	params.Loadbalancer.Name = loadbalancer.Name
 	params.Loadbalancer.ProjectID = loadbalancer.ProjectId
-	params.Loadbalancer.VipSubnetID = loadbalancer.NetworkIDs[0]
+	params.Loadbalancer.VipSubnetID = loadbalancer.NetworkIds[0]
 	params.Loadbalancer.VipAddress = loadbalancer.Address
 
 	body, err := region.lbPost("/v2/lbaas/loadbalancers", jsonutils.Marshal(params))
@@ -298,10 +298,10 @@ func (region *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalan
 		return nil, errors.Wrap(err, "body.Unmarshal(sloadbalancer, loadbalancer)")
 	}
 	sloadbalancer.region = region
-	if len(loadbalancer.EipID) > 0 {
-		err = region.AssociateEipWithPortId(sloadbalancer.VipPortID, loadbalancer.EipID)
+	if len(loadbalancer.EipId) > 0 {
+		err = region.AssociateEipWithPortId(sloadbalancer.VipPortID, loadbalancer.EipId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "region.AssociateEipWithPortId(%s, %s)", sloadbalancer.VipPortID, loadbalancer.EipID)
+			return nil, errors.Wrapf(err, "region.AssociateEipWithPortId(%s, %s)", sloadbalancer.VipPortID, loadbalancer.EipId)
 		}
 	}
 	return &sloadbalancer, nil

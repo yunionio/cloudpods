@@ -130,10 +130,10 @@ func (self *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloud
 // https://cloud.tencent.com/document/api/214/30692
 // todo: 1. 支持跨地域绑定负载均衡 及 https://cloud.tencent.com/document/product/214/12014
 // todo: 2. 支持指定Project。 ProjectId可以通过 DescribeProject 接口获取。不填则属于默认项目。
-func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
 	params := map[string]string{
 		"LoadBalancerName": loadbalancer.Name,
-		"VpcId":            loadbalancer.VpcID,
+		"VpcId":            loadbalancer.VpcId,
 	}
 
 	LoadBalancerType := "INTERNAL"
@@ -182,14 +182,14 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 	}
 
 	if loadbalancer.AddressType != api.LB_ADDR_TYPE_INTERNET {
-		params["SubnetId"] = loadbalancer.NetworkIDs[0]
+		params["SubnetId"] = loadbalancer.NetworkIds[0]
 	} else {
 		// 公网类型ELB可支持多可用区
-		if len(loadbalancer.ZoneID) > 0 {
-			if len(loadbalancer.SlaveZoneID) > 0 {
-				params["MasterZoneId"] = loadbalancer.ZoneID
+		if len(loadbalancer.ZoneId) > 0 {
+			if len(loadbalancer.SlaveZoneId) > 0 {
+				params["MasterZoneId"] = loadbalancer.ZoneId
 			} else {
-				params["ZoneId"] = loadbalancer.ZoneID
+				params["ZoneId"] = loadbalancer.ZoneId
 			}
 		}
 	}

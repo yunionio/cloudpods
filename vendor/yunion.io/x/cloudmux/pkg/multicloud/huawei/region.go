@@ -673,7 +673,7 @@ func (self *SRegion) addSecurityGroupRule(secGrpId, direction, portStart, portEn
 	return DoCreate(self.ecsClient.SecurityGroupRules.Create, params, &rule)
 }
 
-func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
 	ret, err := self.CreateLoadBalancer(loadbalancer)
 	if err != nil {
 		return nil, err

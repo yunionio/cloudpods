@@ -82,23 +82,21 @@ func (self *SKVMRegionDriver) GenerateSecurityGroupName(name string) string {
 	return name
 }
 
-func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
-	networkV.Optional(true)
-	if err := networkV.Validate(data); err != nil {
-		return nil, err
-	}
-
-	var network *models.SNetwork
-	if networkV.Model != nil {
-		network = networkV.Model.(*models.SNetwork)
-	} else {
-		vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", ownerId)
-		if err := vpcV.Validate(data); err != nil {
+func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
+	// find available networks
+	var network *models.SNetwork = nil
+	if len(input.NetworkId) > 0 {
+		netObj, err := validators.ValidateModel(userCred, models.NetworkManager, &input.NetworkId)
+		if err != nil {
 			return nil, err
 		}
-		// find available networks
-		vpc := vpcV.Model.(*models.SVpc)
+		network = netObj.(*models.SNetwork)
+	} else if len(input.VpcId) > 0 {
+		vpcObj, err := validators.ValidateModel(userCred, models.VpcManager, &input.VpcId)
+		if err != nil {
+			return nil, err
+		}
+		vpc := vpcObj.(*models.SVpc)
 		networks, err := vpc.GetNetworks()
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
@@ -127,34 +125,32 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 		if network == nil {
 			return nil, httperrors.NewBadRequestError("no usable network in vpc %s(%s)", vpc.Name, vpc.Id)
 		}
+	} else {
+		return nil, httperrors.NewMissingParameterError("network_id")
 	}
+
 	if network.ServerType != api.NETWORK_TYPE_GUEST {
 		return nil, httperrors.NewBadRequestError("only network type %q is allowed", api.NETWORK_TYPE_GUEST)
 	}
 
-	addressV := validators.NewIPv4AddrValidator("address")
-	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
-	keyV := map[string]validators.IValidator{
-		"status":  validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
-		"address": addressV.Optional(true),
-		"cluster": clusterV.Optional(true),
-	}
-	if err := RunValidators(keyV, data, false); err != nil {
-		return nil, err
-	}
-
-	region, zone, vpc, _, err := network.ValidateElbNetwork(addressV.IP)
-	if err != nil {
-		return nil, err
-	}
-	if zone == nil {
-		return nil, httperrors.NewInputParameterError("zone info missing")
-	}
-
-	if clusterV.Model == nil {
-		clusters := models.LoadbalancerClusterManager.FindByZoneId(zone.Id)
+	if len(input.ClusterId) > 0 {
+		clusterObj, err := validators.ValidateModel(userCred, models.LoadbalancerClusterManager, &input.ClusterId)
+		if err != nil {
+			return nil, err
+		}
+		cluster := clusterObj.(*models.SLoadbalancerCluster)
+		input.ZoneId = cluster.ZoneId
+		if cluster.WireId != "" && cluster.WireId != network.WireId {
+			return nil, httperrors.NewInputParameterError("cluster wire affiliation does not match network's: %s != %s",
+				cluster.WireId, network.WireId)
+		}
+	} else {
+		if len(input.ZoneId) == 0 {
+			return nil, httperrors.NewMissingParameterError("zone_id")
+		}
+		clusters := models.LoadbalancerClusterManager.FindByZoneId(input.ZoneId)
 		if len(clusters) == 0 {
-			return nil, httperrors.NewInputParameterError("zone %s(%s) has no lbcluster", zone.Name, zone.Id)
+			return nil, httperrors.NewInputParameterError("zone %s has no lbcluster", input.ZoneId)
 		}
 		var (
 			wireMatched []*models.SLoadbalancerCluster
@@ -179,50 +175,14 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 			return nil, httperrors.NewInputParameterError("no viable lbcluster")
 		}
 		i := randutil.Intn(len(choices))
-		data.Set("cluster_id", jsonutils.NewString(choices[i].Id))
-	} else {
-		cluster := clusterV.Model.(*models.SLoadbalancerCluster)
-		if cluster.ZoneId != zone.Id {
-			return nil, httperrors.NewInputParameterError("cluster zone %s does not match network zone %s ",
-				cluster.ZoneId, zone.Id)
-		}
-		if cluster.WireId != "" && cluster.WireId != network.WireId {
-			return nil, httperrors.NewInputParameterError("cluster wire affiliation does not match network's: %s != %s",
-				cluster.WireId, network.WireId)
-		}
+		input.ClusterId = choices[i].Id
 	}
 
-	lbNetworkType := api.LB_NETWORK_TYPE_VPC
-	if vpc.Id == api.DEFAULT_VPC_ID {
-		lbNetworkType = api.LB_NETWORK_TYPE_CLASSIC
+	input.NetworkType = api.LB_NETWORK_TYPE_VPC
+	if input.VpcId == api.DEFAULT_VPC_ID {
+		input.NetworkType = api.LB_NETWORK_TYPE_CLASSIC
 	}
-	eipId, _ := data.GetString("eip")
-	if len(eipId) > 0 {
-		_eip, err := validators.ValidateModel(userCred, models.ElasticipManager, &eipId)
-		if err != nil {
-			return nil, err
-		}
-		eip := _eip.(*models.SElasticip)
-		if eip.CloudregionId != region.GetId() {
-			return nil, httperrors.NewInputParameterError("lb region %s does not match eip region %s ",
-				region.GetId(), eip.CloudregionId)
-		}
-		if eip.Status != api.EIP_STATUS_READY {
-			return nil, httperrors.NewInvalidStatusError("eip %s status not ready", eip.Name)
-		}
-		if len(eip.AssociateType) > 0 {
-			return nil, httperrors.NewInvalidStatusError("eip %s alread associate %s", eip.Name, eip.AssociateType)
-		}
-		data.Set("eip_id", jsonutils.NewString(eip.Id))
-	}
-
-	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
-	data.Set("zone_id", jsonutils.NewString(zone.GetId()))
-	data.Set("vpc_id", jsonutils.NewString(vpc.GetId()))
-	data.Set("network_id", jsonutils.NewString(network.Id))
-	data.Set("network_type", jsonutils.NewString(lbNetworkType))
-	data.Set("address_type", jsonutils.NewString(api.LB_ADDR_TYPE_INTRANET))
-	return data, nil
+	return input, nil
 }
 
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerAclData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -774,7 +734,7 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 	return data, nil
 }
 
-func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
+func (self *SKVMRegionDriver) RequestCreateLoadbalancerInstance(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, input *api.LoadbalancerCreateInput, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		_, err := db.Update(lb, func() error {
 			// TODO support use reserved ip address
@@ -798,21 +758,15 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, use
 		}
 		// bind eip
 		eipAddr := ""
-		eipId, _ := task.GetParams().GetString("eip_id")
-		eipBw, _ := task.GetParams().Int("eip_bw")
-		if eipBw > 0 && len(eipId) == 0 {
+		if input.EipBw > 0 && len(input.EipId) == 0 {
 			// create eip first
-			bgpType, _ := task.GetParams().GetString("eip_bgp_type")
-			chargeType, _ := task.GetParams().GetString("eip_charge_type")
-			autoDellocate := jsonutils.QueryBoolean(task.GetParams(), "eip_auto_dellocate", false)
-
 			eipPendingUsage := &models.SRegionQuota{Eip: 1}
 			eipPendingUsage.SetKeys(lb.GetQuotaKeys())
 			eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, userCred, &models.NewEipForVMOnHostArgs{
-				Bandwidth:     int(eipBw),
-				BgpType:       bgpType,
-				ChargeType:    chargeType,
-				AutoDellocate: autoDellocate,
+				Bandwidth:     input.EipBw,
+				BgpType:       input.EipBgpType,
+				ChargeType:    input.EipChargeType,
+				AutoDellocate: input.EipAutoDellocate,
 
 				Loadbalancer: lb,
 				PendingUsage: eipPendingUsage,
@@ -833,10 +787,10 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, use
 					return nil, errors.Wrap(err, "AllocateAndAssociateInstance")
 				}
 			}
-		} else if len(eipId) > 0 {
-			_eip, err := models.ElasticipManager.FetchById(eipId)
+		} else if len(input.EipId) > 0 {
+			_eip, err := models.ElasticipManager.FetchById(input.EipId)
 			if err != nil {
-				return nil, errors.Wrapf(err, "ElasticipManager.FetchById(%s)", eipId)
+				return nil, errors.Wrapf(err, "ElasticipManager.FetchById(%s)", input.EipId)
 			}
 			eip := _eip.(*models.SElasticip)
 			err = eip.AssociateLoadbalancer(ctx, userCred, lb)

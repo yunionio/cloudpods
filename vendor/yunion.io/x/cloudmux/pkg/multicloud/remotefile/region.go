@@ -237,7 +237,7 @@ func (self *SRegion) GetILoadBalancerById(id string) (cloudprovider.ICloudLoadba
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

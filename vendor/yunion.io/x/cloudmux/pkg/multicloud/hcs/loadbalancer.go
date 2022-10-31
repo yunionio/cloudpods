@@ -533,8 +533,8 @@ func (self *SRegion) lbUpdate(resource string, params map[string]interface{}) er
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561535.html
-func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (*SLoadbalancer, error) {
-	subnet, err := self.GetNetwork(loadbalancer.NetworkIDs[0])
+func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (*SLoadbalancer, error) {
+	subnet, err := self.GetNetwork(loadbalancer.NetworkIds[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.CreateLoadBalancer.getNetwork")
 	}
@@ -554,8 +554,8 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 	}
 
 	// 创建公网类型ELB
-	if len(loadbalancer.EipID) > 0 {
-		err := self.AssociateEipWithPortId(loadbalancer.EipID, ret.VipPortId)
+	if len(loadbalancer.EipId) > 0 {
+		err := self.AssociateEipWithPortId(loadbalancer.EipId, ret.VipPortId)
 		if err != nil {
 			return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.AssociateEipWithPortId")
 		}
@@ -592,8 +592,8 @@ func (self *SRegion) GetILoadBalancerById(id string) (cloudprovider.ICloudLoadba
 	return elb, nil
 }
 
-func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	ret, err := self.CreateLoadBalancer(loadbalancer)
+func (self *SRegion) CreateILoadBalancer(opts *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
+	ret, err := self.CreateLoadBalancer(opts)
 	if err != nil {
 		return nil, err
 	}

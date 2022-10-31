@@ -841,20 +841,20 @@ func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoa
 	return iCertificates, nil
 }
 
-func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	params["LoadBalancerName"] = loadbalancer.Name
-	if len(loadbalancer.ZoneID) > 0 {
-		params["MasterZoneId"] = loadbalancer.ZoneID
+	if len(loadbalancer.ZoneId) > 0 {
+		params["MasterZoneId"] = loadbalancer.ZoneId
 	}
 
-	if len(loadbalancer.VpcID) > 0 {
-		params["VpcId"] = loadbalancer.VpcID
+	if len(loadbalancer.VpcId) > 0 {
+		params["VpcId"] = loadbalancer.VpcId
 	}
 
-	if len(loadbalancer.NetworkIDs) > 0 {
-		params["VSwitchId"] = loadbalancer.NetworkIDs[0]
+	if len(loadbalancer.NetworkIds) > 0 {
+		params["VSwitchId"] = loadbalancer.NetworkIds[0]
 	}
 
 	if len(loadbalancer.Address) > 0 {

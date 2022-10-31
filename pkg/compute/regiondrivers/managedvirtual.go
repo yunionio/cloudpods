@@ -65,8 +65,11 @@ func (self *SManagedVirtualizationRegionDriver) GetMaxElasticcacheSecurityGroupC
 	return 0
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, owerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return self.ValidateManagerId(ctx, userCred, data)
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, owerId mcclient.IIdentityProvider, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
+	if len(input.ManagerId) == 0 {
+		return nil, httperrors.NewMissingParameterError("manager_id")
+	}
+	return input, nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateManagerId(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -226,31 +229,91 @@ func (self *SManagedVirtualizationRegionDriver) GetBackendStatusForAdd() []strin
 	return []string{api.VM_RUNNING}
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
+func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerInstance(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, input *api.LoadbalancerCreateInput, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := lb.GetIRegion(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetIRegion")
 		}
 
-		params, err := lb.GetCreateLoadbalancerParams(ctx, iRegion)
+		params := &cloudprovider.SLoadbalancerCreateOptions{
+			Name:             lb.Name,
+			Desc:             lb.Description,
+			Address:          lb.Address,
+			AddressType:      lb.AddressType,
+			ChargeType:       lb.ChargeType,
+			EgressMbps:       lb.EgressMbps,
+			LoadbalancerSpec: lb.LoadbalancerSpec,
+		}
+		params.Tags, _ = lb.GetAllUserMetadata()
+
+		if len(lb.ZoneId) > 0 {
+			zone, err := lb.GetZone()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetZone")
+			}
+			iZone, err := iRegion.GetIZoneById(zone.ExternalId)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetIZoneById")
+			}
+			params.ZoneId = iZone.GetId()
+		}
+
+		if len(lb.Zone1) > 0 {
+			z1 := models.ZoneManager.FetchZoneById(lb.Zone1)
+			if z1 == nil {
+				return nil, fmt.Errorf("failed to find zone 1 for lb %s", lb.Name)
+			}
+			iZone, err := iRegion.GetIZoneById(z1.ExternalId)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetIZoneById")
+			}
+			params.SlaveZoneId = iZone.GetId()
+		}
+		if len(lb.VpcId) > 0 {
+			vpc, err := lb.GetVpc()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetVpc")
+			}
+			params.VpcId = vpc.ExternalId
+		}
+		networks := []string{input.NetworkId}
+		networks = append(networks, input.Networks...)
+		for i := range networks {
+			if len(networks[i]) > 0 {
+				netObj, err := validators.ValidateModel(userCred, models.NetworkManager, &networks[i])
+				if err != nil {
+					return nil, err
+				}
+				network := netObj.(*models.SNetwork)
+				if !utils.IsInStringArray(network.ExternalId, params.NetworkIds) {
+					params.NetworkIds = append(params.NetworkIds, network.ExternalId)
+				}
+			}
+		}
+
+		manager := lb.GetCloudprovider()
+		params.ProjectId, err = manager.SyncProject(ctx, userCred, lb.ProjectId)
 		if err != nil {
-			return nil, err
+			log.Errorf("failed to sync project %s for create %s lb %s error: %v", lb.ProjectId, manager.Provider, lb.Name, err)
 		}
 
-		_cloudprovider := lb.GetCloudprovider()
-		params.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, lb.ProjectId)
-		if err != nil {
-			log.Errorf("failed to sync project %s for create %s lb %s error: %v", lb.ProjectId, _cloudprovider.Provider, lb.Name, err)
-		}
-
+		log.Debugf("create lb with params: %s", jsonutils.Marshal(params).String())
 		iLoadbalancer, err := iRegion.CreateILoadBalancer(params)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "CreateILoadBalancer")
 		}
-		if err := db.SetExternalId(lb, userCred, iLoadbalancer.GetGlobalId()); err != nil {
-			return nil, err
+		err = db.SetExternalId(lb, userCred, iLoadbalancer.GetGlobalId())
+		if err != nil {
+			return nil, errors.Wrapf(err, "SetExternalId")
 		}
+
+		//wait async create result
+		err = cloudprovider.WaitMultiStatus(iLoadbalancer, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_UNKNOWN}, 10*time.Second, 8*time.Minute)
+		if err != nil {
+			return nil, errors.Wrap(err, "cloudprovider.WaitMultiStatus")
+		}
+
 		region, _ := lb.GetRegion()
 		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), region); err != nil {
 			return nil, err

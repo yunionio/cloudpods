@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -85,68 +84,12 @@ func (self *SHuaWeiRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_HUAWEI
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
-	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
-	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
-
-	keyV := map[string]validators.IValidator{
-		"status":       validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
-		"address_type": addressTypeV.Default(api.LB_ADDR_TYPE_INTRANET),
-		"network":      networkV,
-		"zone":         zoneV,
-		"manager":      managerIdV,
-	}
-
-	if err := RunValidators(keyV, data, false); err != nil {
-		return nil, err
-	}
-
-	//  检查网络可用
-	network := networkV.Model.(*models.SNetwork)
-	_, _, vpc, _, err := network.ValidateElbNetwork(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	if managerIdV.Model.GetId() != vpc.ManagerId {
-		return nil, httperrors.NewInputParameterError("Loadbalancer's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)", managerIdV.Model.GetName(), managerIdV.Model.GetId(), vpc.GetName(), vpc.GetId(), vpc.ManagerId)
-	}
-
+func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
 	// 公网ELB需要指定EIP
-	if addressTypeV.Value == api.LB_ADDR_TYPE_INTERNET {
-		eipV := validators.NewModelIdOrNameValidator("eip", "eip", nil)
-		if err := eipV.Validate(data); err != nil {
-			return nil, err
-		}
-
-		eip := eipV.Model.(*models.SElasticip)
-		if eip.Status != api.EIP_STATUS_READY {
-			return nil, fmt.Errorf("eip status not ready")
-		}
-
-		if len(eip.ExternalId) == 0 {
-			return nil, fmt.Errorf("eip external id is empty")
-		}
-
-		if eip.ManagerId != vpc.ManagerId {
-			return nil, httperrors.NewInputParameterError("eip's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)", eip.GetName(), eip.GetId(), vpc.GetName(), vpc.GetId(), vpc.ManagerId)
-		}
-
-		data.Set("eip_id", jsonutils.NewString(eip.ExternalId))
+	if input.AddressType == api.LB_ADDR_TYPE_INTERNET && len(input.EipId) == 0 {
+		return nil, httperrors.NewMissingParameterError("eip_id")
 	}
-
-	region, _ := zoneV.Model.(*models.SZone).GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("getting region failed")
-	}
-
-	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
-	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
-	data.Set("vpc_id", jsonutils.NewString(vpc.GetId()))
-	data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, input)
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0143878053.html
@@ -1873,84 +1816,6 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 			}
 		}
 
-		return nil, nil
-	})
-	return nil
-}
-
-func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lb.GetIRegion(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetIRegion")
-		}
-		params, err := lb.GetCreateLoadbalancerParams(ctx, iRegion)
-		if err != nil {
-			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetCreateLoadbalancerParams")
-		}
-		iLoadbalancer, err := iRegion.CreateILoadBalancer(params)
-		if err != nil {
-			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.CreateILoadBalancer")
-		}
-
-		lb.SetModelManager(models.LoadbalancerManager, lb)
-		if err := db.SetExternalId(lb, userCred, iLoadbalancer.GetGlobalId()); err != nil {
-			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SetExternalId")
-		}
-
-		{
-			// bind eip
-			eipId, _ := task.GetParams().GetString("eip_id")
-			if len(eipId) > 0 {
-				ieip, err := iRegion.GetIEipById(eipId)
-				if err != nil {
-					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetIEipById")
-				}
-
-				conf := &cloudprovider.AssociateConfig{
-					InstanceId:    iLoadbalancer.GetGlobalId(),
-					AssociateType: api.EIP_ASSOCIATE_TYPE_LOADBALANCER,
-				}
-
-				err = ieip.Associate(conf)
-				if err != nil {
-					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.Associate")
-				}
-
-				_eip, err := db.FetchByExternalIdAndManagerId(models.ElasticipManager, ieip.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-					return q.Equals("manager_id", lb.ManagerId)
-				})
-				if err != nil {
-					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.FetchByExternalId")
-				}
-				eip := _eip.(*models.SElasticip)
-
-				err = eip.SyncWithCloudEip(ctx, userCred, lb.GetCloudprovider(), ieip, lb.GetOwnerId())
-				if err != nil {
-					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SyncWithCloudEip")
-				}
-				err = eip.SyncInstanceWithCloudEip(ctx, userCred, ieip)
-				if err != nil {
-					return nil, errors.Wrapf(err, "SyncInstanceWithCloudEip")
-				}
-			}
-		}
-
-		region, _ := lb.GetRegion()
-		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), region); err != nil {
-			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SyncWithCloudLoadbalancer")
-		}
-		lbbgs, err := iLoadbalancer.GetILoadBalancerBackendGroups()
-		if err != nil {
-			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetILoadBalancerBackendGroups")
-		}
-		if len(lbbgs) > 0 {
-			provider := lb.GetCloudprovider()
-			if provider == nil {
-				return nil, fmt.Errorf("failed to find cloudprovider for lb %s", lb.Name)
-			}
-			models.LoadbalancerBackendGroupManager.SyncLoadbalancerBackendgroups(ctx, userCred, provider, lb, lbbgs, &models.SSyncRange{})
-		}
 		return nil, nil
 	})
 	return nil

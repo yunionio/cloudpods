@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -41,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rand"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -84,19 +82,6 @@ func (self *SAwsRegionDriver) IsOnlySupportAllowRules() bool {
 
 func (self *SAwsRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_AWS
-}
-
-func networkCheck(network *models.SNetwork) error {
-	free, err := network.GetFreeAddressCount()
-	if err != nil {
-		return errors.Wrapf(err, "GetFreeAddressCount")
-	}
-
-	if free < 8 {
-		return fmt.Errorf("network %s free ip is less than 8", network.GetId())
-	}
-
-	return nil
 }
 
 func (self *SAwsRegionDriver) IsSupportedDBInstance() bool {
@@ -160,161 +145,14 @@ func (self *SAwsRegionDriver) InitDBInstanceUser(ctx context.Context, instance *
 	return account.SetPassword(desc.Password)
 }
 
-func validateAwsLbNetwork(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, requiredMin int) (*jsonutils.JSONDict, error) {
-	var networkIds []string
-	if ns, err := data.GetString("network"); err != nil {
-		return nil, httperrors.NewMissingParameterError("network")
-	} else {
-		networkIds = strings.Split(ns, ",")
+func (self *SAwsRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
+	if len(input.LoadbalancerSpec) == 0 {
+		input.LoadbalancerSpec = api.LB_AWS_SPEC_APPLICATION
 	}
-
-	var regionId string
-	var vpcId string
-	secondNet := &models.SNetwork{}
-	zones := []string{}
-	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
-	for _, networkId := range networkIds {
-		networkObj := jsonutils.NewDict()
-		networkObj.Set("network", jsonutils.NewString(networkId))
-		if err := networkV.Validate(networkObj); err != nil {
-			return nil, err
-		}
-
-		network := networkV.Model.(*models.SNetwork)
-		err := networkCheck(network)
-		if err != nil {
-			return nil, errors.Wrap(err, "validateAwsLbNetwork.networkCheck")
-		}
-
-		region, zone, vpc, _, err := network.ValidateElbNetwork(nil)
-		if err != nil {
-			return nil, err
-		} else {
-			//随机选择一个子网
-			if requiredMin == 2 && len(networkIds) == 1 {
-				var nets []models.SNetwork
-				wires := models.WireManager.Query().SubQuery()
-				q := models.NetworkManager.Query().IsFalse("pending_deleted")
-				q = models.NetworkManager.FilterByOwner(q, ownerId, rbacutils.ScopeProject)
-				q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
-				q = q.Filter(sqlchemy.Equals(wires.Field("vpc_id"), vpc.GetId()))
-				q = q.Filter(sqlchemy.NotEquals(wires.Field("zone_id"), zone.GetId()))
-				err := q.All(&nets)
-				if err != nil {
-					return nil, httperrors.NewInputParameterError("required at least %d subnet.", requiredMin)
-				}
-
-				secondNetFound := false
-				for i := range nets {
-					net := nets[i]
-					err := networkCheck(&net)
-					if err != nil {
-						continue
-					}
-
-					secondNet = &net
-					secondNetFound = true
-					break
-				}
-
-				if !secondNetFound {
-					return nil, httperrors.NewInputParameterError("required at least %d subnet with at least 8 free ip.", requiredMin)
-				}
-			}
-		}
-
-		if vpcId == "" {
-			vpcId = vpc.GetId()
-			regionId = region.GetId()
-			// 检查manager id 和 VPC manager id 是否匹配
-			managerId, _ := data.GetString("manager_id")
-			if managerId != vpc.ManagerId {
-				return nil, httperrors.NewInputParameterError("Loadbalancer's manager %s does not match vpc's(%s(%s)) (%s)", managerId, vpc.GetName(), vpc.GetId(), vpc.ManagerId)
-			}
-		}
-
-		if vpcId != vpc.GetId() {
-			return nil, httperrors.NewInputParameterError("all networks should in the same vpc. (%s).", network.GetId())
-		}
-
-		if utils.IsInStringArray(zone.GetId(), zones) {
-			return nil, httperrors.NewInputParameterError("already has one network in the zone %s. (%s).", zone.GetName(), network.GetId())
-		}
+	if !utils.IsInStringArray(input.LoadbalancerSpec, api.LB_AWS_SPECS) {
+		return nil, httperrors.NewInputParameterError("invalid loadbalancer_spec %s", input.LoadbalancerSpec)
 	}
-
-	if len(secondNet.Id) > 0 {
-		networkIds = append(networkIds, secondNet.Id)
-	}
-
-	if len(networkIds) < requiredMin {
-		return nil, httperrors.NewInputParameterError("required at least %d subnet.", requiredMin)
-	}
-
-	data.Set("vpc_id", jsonutils.NewString(vpcId))
-	data.Set("network_id", jsonutils.NewString(strings.Join(networkIds, ",")))
-	data.Set("cloudregion_id", jsonutils.NewString(regionId))
-	return data, nil
-}
-
-func (self *SAwsRegionDriver) validateCreateLBCommonData(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*validators.ValidatorModelIdOrName, *jsonutils.JSONDict, error) {
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
-	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
-	loadbalancerSpecV := validators.NewStringChoicesValidator("loadbalancer_spec", api.LB_AWS_SPECS)
-
-	keyV := map[string]validators.IValidator{
-		"status":            validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
-		"address_type":      addressTypeV.Default(api.LB_ADDR_TYPE_INTRANET),
-		"manager":           managerIdV,
-		"loadbalancer_spec": loadbalancerSpecV,
-	}
-
-	if err := RunValidators(keyV, data, false); err != nil {
-		return nil, nil, err
-	}
-
-	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
-	return managerIdV, data, nil
-}
-
-func (self *SAwsRegionDriver) validateCreateApplicationLBData(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	_, data, err := self.validateCreateLBCommonData(ownerId, data)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := validateAwsLbNetwork(ownerId, data, 2); err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (self *SAwsRegionDriver) validateCreateNetworkLBData(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	_, data, err := self.validateCreateLBCommonData(ownerId, data)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := validateAwsLbNetwork(ownerId, data, 1); err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func (self *SAwsRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if spec, _ := data.GetString("loadbalancer_spec"); spec == api.LB_AWS_SPEC_APPLICATION {
-		if _, err := self.validateCreateApplicationLBData(ownerId, data); err != nil {
-			return nil, err
-		}
-	} else if spec == api.LB_AWS_SPEC_NETWORK {
-		if _, err := self.validateCreateNetworkLBData(ownerId, data); err != nil {
-			return nil, err
-		}
-	} else {
-		return nil, httperrors.NewInputParameterError("invalid parameter loadbalancer_spec %s", spec)
-	}
-
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, input)
 }
 
 func (self *SAwsRegionDriver) validateCreateApplicationListenerData(ctx context.Context, ownerId mcclient.IIdentityProvider, lb *models.SLoadbalancer, backendGroup *models.SLoadbalancerBackendGroup, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

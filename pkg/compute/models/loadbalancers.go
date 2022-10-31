@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -359,19 +360,8 @@ func (man *SLoadbalancerManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SLoadbalancerManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input := api.LoadbalancerCreateInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return nil, err
-	}
-
-	newData, err := man.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-
-	return newData, nil
+func (man *SLoadbalancerManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
+	return man.ValidateCreateData(ctx, userCred, ownerId, query, input)
 }
 
 func (man *SLoadbalancerManager) ValidateCreateData(
@@ -379,54 +369,158 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
-	input api.LoadbalancerCreateInput,
-) (*jsonutils.JSONDict, error) {
-	var err error
-
-	var region *SCloudregion
-	if len(input.VpcId) > 0 {
+	input *api.LoadbalancerCreateInput,
+) (*api.LoadbalancerCreateInput, error) {
+	if len(input.NetworkId) > 0 {
+		networks := strings.Split(input.NetworkId, ",")
+		if len(networks) > 1 {
+			input.Networks = networks[1:]
+		}
+		input.NetworkId = networks[0]
+		networkObj, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+		if err != nil {
+			return nil, err
+		}
+		network := networkObj.(*SNetwork)
+		wire, err := network.GetWire()
+		if err != nil {
+			return nil, err
+		}
+		if len(wire.ZoneId) > 0 {
+			input.ZoneId = wire.ZoneId
+		}
+		vpc, err := network.GetVpc()
+		if err != nil {
+			return nil, err
+		}
+		input.VpcId = vpc.Id
+		input.ManagerId = vpc.ManagerId
+		input.CloudproviderId = vpc.ManagerId
+		input.CloudregionId = vpc.CloudregionId
+		for i := range input.Networks {
+			netObj, err := validators.ValidateModel(userCred, NetworkManager, &input.Networks[i])
+			if err != nil {
+				return nil, err
+			}
+			network := netObj.(*SNetwork)
+			vpc, err := network.GetVpc()
+			if err != nil {
+				return nil, err
+			}
+			if vpc.Id != input.VpcId {
+				return nil, httperrors.NewInputParameterError("all networks should in the same vpc.")
+			}
+		}
+		if len(input.Address) > 0 {
+			addr, err := netutils.NewIPV4Addr(input.Address)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalidate address %s", input.Address)
+			}
+			if !network.IsAddressInRange(addr) {
+				return nil, httperrors.NewInputParameterError("address %s not in network %s", input.Address, network.Name)
+			}
+		}
+	} else if len(input.VpcId) > 0 {
 		_vpc, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
 		if err != nil {
 			return nil, err
 		}
 		vpc := _vpc.(*SVpc)
-		region, _ = vpc.GetRegion()
 		input.ManagerId = vpc.ManagerId
+		input.CloudregionId = vpc.CloudregionId
 		input.CloudproviderId = vpc.ManagerId
 	} else if len(input.ZoneId) > 0 {
-		var zone *SZone
-		zone, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
+		zoneObj, err := validators.ValidateModel(userCred, ZoneManager, &input.ZoneId)
 		if err != nil {
-			return nil, errors.Wrap(err, "ValidateZoneResourceInput")
+			return nil, err
 		}
-		region, _ = zone.GetRegion()
-	} else if len(input.NetworkId) > 0 {
-		if strings.IndexByte(input.NetworkId, ',') >= 0 {
-			input.NetworkId = strings.Split(input.NetworkId, ",")[0]
-		}
-		var network *SNetwork
-		network, input.NetworkResourceInput, err = ValidateNetworkResourceInput(userCred, input.NetworkResourceInput)
-		if err != nil {
-			return nil, errors.Wrap(err, "ValidateNetworkResourceInput")
-		}
-		region, _ = network.GetRegion()
+		zone := zoneObj.(*SZone)
+		input.CloudregionId = zone.CloudregionId
 	}
 
-	if region == nil {
-		return nil, httperrors.NewBadRequestError("cannot find region info")
-	}
-
-	input.CloudregionId = region.GetId()
-
-	var cloudprovider *SCloudprovider
+	var cloudprovider *SCloudprovider = nil
 	if len(input.CloudproviderId) > 0 {
-		cloudprovider, input.CloudproviderResourceInput, err = ValidateCloudproviderResourceInput(userCred, input.CloudproviderResourceInput)
+		managerObj, err := validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
 		if err != nil {
-			return nil, errors.Wrap(err, "ValidateCloudproviderResourceInput")
+			return nil, err
+		}
+		input.ManagerId = input.CloudproviderId
+		cloudprovider = managerObj.(*SCloudprovider)
+	}
+
+	if len(input.Zone1) > 0 {
+		_, err := validators.ValidateModel(userCred, ZoneManager, &input.Zone1)
+		if err != nil {
+			return nil, err
 		}
 	}
+	if len(input.AddressType) == 0 {
+		input.AddressType = api.LB_ADDR_TYPE_INTRANET
+	}
+
+	if len(input.NetworkType) == 0 {
+		input.NetworkType = api.LB_NETWORK_TYPE_VPC
+	}
+
+	if len(input.EipId) > 0 {
+		eipObj, err := validators.ValidateModel(userCred, ElasticipManager, &input.EipId)
+		if err != nil {
+			return nil, err
+		}
+		eip := eipObj.(*SElasticip)
+		if eip.CloudregionId != input.CloudregionId {
+			return nil, httperrors.NewInputParameterError("lb region %s does not match eip region %s", input.CloudregionId, eip.CloudregionId)
+		}
+		if eip.Status != api.EIP_STATUS_READY {
+			return nil, httperrors.NewInvalidStatusError("eip %s status not ready", eip.Name)
+		}
+		if len(eip.AssociateType) > 0 {
+			return nil, httperrors.NewInvalidStatusError("eip %s alread associate %s", eip.Name, eip.AssociateType)
+		}
+		if eip.ManagerId != input.ManagerId {
+			return nil, httperrors.NewInputParameterError("lb manager %s does not match eip manager %s", input.ManagerId, eip.ManagerId)
+		}
+	}
+	if len(input.Status) == 0 {
+		input.Status = api.LB_STATUS_ENABLED
+	}
+
+	if len(input.AddressType) == 0 {
+		input.AddressType = api.LB_ADDR_TYPE_INTRANET
+	}
+
+	if !utils.IsInStringArray(input.AddressType, []string{api.LB_ADDR_TYPE_INTRANET, api.LB_ADDR_TYPE_INTERNET}) {
+		return nil, httperrors.NewInputParameterError("invalid address_type %s", input.AddressType)
+	}
+
+	if input.AddressType == api.LB_ADDR_TYPE_INTRANET && len(input.NetworkId) == 0 {
+		return nil, httperrors.NewMissingParameterError("network_id")
+	}
+
+	if len(input.ChargeType) == 0 {
+		input.ChargeType = api.LB_CHARGE_TYPE_BY_TRAFFIC
+	}
+
+	if !utils.IsInStringArray(input.ChargeType, []string{api.LB_CHARGE_TYPE_BY_BANDWIDTH, api.LB_CHARGE_TYPE_BY_TRAFFIC}) {
+		return nil, httperrors.NewInputParameterError("invalid charge_type %s", input.ChargeType)
+	}
+
+	if len(input.CloudregionId) == 0 {
+		return nil, httperrors.NewMissingParameterError("cloudregion_id")
+	}
+
+	regionObj, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+	if err != nil {
+		return nil, err
+	}
+	region := regionObj.(*SCloudregion)
 
 	input.VirtualResourceCreateInput, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	input, err = region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, ownerId, input)
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +535,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
 
-	return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, ownerId, input.JSON(input))
+	return input, nil
 }
 
 func (lb *SLoadbalancer) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
@@ -493,9 +587,12 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 		log.Errorf("CancelPendingUsage error %s", err)
 	}
 
+	input := &api.LoadbalancerCreateInput{}
+	data.Unmarshal(input)
 	lb.SetStatus(userCred, api.LB_CREATING, "")
-	if err := lb.StartLoadBalancerCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), ""); err != nil {
-		log.Errorf("Failed to create loadbalancer error: %v", err)
+	err = lb.StartLoadBalancerCreateTask(ctx, userCred, input)
+	if err != nil {
+		lb.SetStatus(userCred, api.LB_CREATE_FAILED, err.Error())
 	}
 }
 
@@ -558,74 +655,6 @@ func (lb *SLoadbalancer) GetILoadbalancer(ctx context.Context) (cloudprovider.IC
 	return iRegion.GetILoadBalancerById(lb.ExternalId)
 }
 
-func (lb *SLoadbalancer) GetCreateLoadbalancerParams(ctx context.Context, iRegion cloudprovider.ICloudRegion) (*cloudprovider.SLoadbalancer, error) {
-	params := &cloudprovider.SLoadbalancer{
-		Name:             lb.Name,
-		Address:          lb.Address,
-		AddressType:      lb.AddressType,
-		ChargeType:       lb.ChargeType,
-		LoadbalancerSpec: lb.LoadbalancerSpec,
-	}
-	params.Tags, _ = lb.GetAllUserMetadata()
-
-	if len(lb.ZoneId) > 0 {
-		zone, err := lb.GetZone()
-		if err != nil {
-			return nil, err
-		}
-		iZone, err := iRegion.GetIZoneById(zone.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetIZoneById")
-		}
-		params.ZoneID = iZone.GetId()
-	}
-
-	if len(lb.Zone1) > 0 {
-		z1 := ZoneManager.FetchZoneById(lb.Zone1)
-		if z1 == nil {
-			return nil, fmt.Errorf("failed to find zone 1 for lb %s", lb.Name)
-		}
-		iZone, err := iRegion.GetIZoneById(z1.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetIZoneById")
-		}
-		params.SlaveZoneID = iZone.GetId()
-	}
-
-	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
-		params.EgressMbps = lb.EgressMbps
-	}
-
-	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || utils.IsInStringArray(lb.SManagedResourceBase.GetProviderName(), []string{api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCS, api.CLOUD_PROVIDER_AWS, api.CLOUD_PROVIDER_QCLOUD}) {
-		vpc, err := lb.GetVpc()
-		if err != nil {
-			return nil, err
-		}
-		iVpc, err := iRegion.GetIVpcById(vpc.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetIVpcById")
-		}
-		params.VpcID = iVpc.GetId()
-	}
-
-	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || utils.IsInStringArray(lb.SManagedResourceBase.GetProviderName(), []string{api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS, api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_AWS}) {
-		networks, err := lb.GetNetworks()
-		if err != nil {
-			return nil, fmt.Errorf("failed to find network for lb %s: %s", lb.Name, err)
-		}
-
-		for i := range networks {
-			iNetwork, err := networks[i].GetINetwork(ctx)
-			if err != nil {
-				return nil, errors.Wrap(err, "GetINetwork")
-			}
-			params.NetworkIDs = append(params.NetworkIDs, iNetwork.GetId())
-		}
-
-	}
-	return params, nil
-}
-
 func (lb *SLoadbalancer) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.JSONTrue, "purge")
@@ -641,20 +670,13 @@ func (lb *SLoadbalancer) StartLoadBalancerDeleteTask(ctx context.Context, userCr
 	return nil
 }
 
-func (lb *SLoadbalancer) StartLoadBalancerCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	taskData := data.CopyIncludes(
-		"eip_id", // for huawei internet elb
-		"eip_bw",
-		"eip_bgp_type",
-		"eip_charge_type",
-		"eip_auto_dellocate",
-	)
-	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerCreateTask", lb, userCred, taskData, parentTaskId, "", nil)
+func (lb *SLoadbalancer) StartLoadBalancerCreateTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.LoadbalancerCreateInput) error {
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerCreateTask", lb, userCred, params, "", "", nil)
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

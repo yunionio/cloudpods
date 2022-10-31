@@ -809,7 +809,7 @@ func (self *SRegion) addSecurityGroupRule(secGrpId, direction, portStart, portEn
 	return DoCreate(self.ecsClient.SecurityGroupRules.Create, params, &rule)
 }
 
-func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
 	ret, err := self.CreateLoadBalancer(loadbalancer)
 	if err != nil {
 		return nil, err
@@ -819,9 +819,9 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561535.html
-func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (SLoadbalancer, error) {
+func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (SLoadbalancer, error) {
 	ret := SLoadbalancer{}
-	subnet, err := self.getNetwork(loadbalancer.NetworkIDs[0])
+	subnet, err := self.getNetwork(loadbalancer.NetworkIds[0])
 	if err != nil {
 		return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.getNetwork")
 	}
@@ -844,8 +844,8 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 	ret.region = self
 
 	// 创建公网类型ELB
-	if len(loadbalancer.EipID) > 0 {
-		err := self.AssociateEipWithPortId(loadbalancer.EipID, ret.VipPortID)
+	if len(loadbalancer.EipId) > 0 {
+		err := self.AssociateEipWithPortId(loadbalancer.EipId, ret.VipPortID)
 		if err != nil {
 			return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.AssociateEipWithPortId")
 		}
