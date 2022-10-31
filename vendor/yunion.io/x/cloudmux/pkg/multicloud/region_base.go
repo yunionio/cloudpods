@@ -339,8 +339,8 @@ func (self *SRegionLbBase) GetILoadBalancerCertificateById(certId string) (cloud
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerCertificateById")
 }
 
-func (self *SRegionLbBase) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateLoadBalancer")
+func (self *SRegionLbBase) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateILoadBalancer")
 }
 
 func (self *SRegionLbBase) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {

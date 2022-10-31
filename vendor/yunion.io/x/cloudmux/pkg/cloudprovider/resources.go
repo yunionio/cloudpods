@@ -123,7 +123,7 @@ type ICloudRegion interface {
 	GetILoadBalancerAclById(aclId string) (ICloudLoadbalancerAcl, error)
 	GetILoadBalancerCertificateById(certId string) (ICloudLoadbalancerCertificate, error)
 
-	CreateILoadBalancer(loadbalancer *SLoadbalancer) (ICloudLoadbalancer, error)
+	CreateILoadBalancer(loadbalancer *SLoadbalancerCreateOptions) (ICloudLoadbalancer, error)
 	CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error)
 	CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error)
 

@@ -38,7 +38,11 @@ import (
 type SBaseRegionDriver struct {
 }
 
-func (self *SBaseRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
+func (self *SBaseRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, owerId mcclient.IIdentityProvider, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateLoadbalancerData")
+}
+
+func (self *SBaseRegionDriver) RequestCreateLoadbalancerInstance(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, input *api.LoadbalancerCreateInput, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestCreateLoadbalancer")
 }
 

@@ -818,7 +818,7 @@ func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadb
 	return icerts, nil
 }
 
-func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetElbV2Client")
@@ -835,7 +835,7 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 	}
 
 	// params.SetSecurityGroups()
-	params.SetSubnets(ConvertedList(loadbalancer.NetworkIDs))
+	params.SetSubnets(ConvertedList(loadbalancer.NetworkIds))
 
 	tagInput := []*elbv2.Tag{}
 	keys := []string{}

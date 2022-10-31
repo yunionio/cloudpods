@@ -552,8 +552,8 @@ func (region *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalance
 	return nil, errors.Wrap(cloudprovider.ErrNotSupported, "GetILoadBalancerAcls")
 }
 
-func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, errors.Wrap(cloudprovider.ErrNotImplemented, "GetILoadBalancerCertificates")
+func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
+	return nil, errors.Wrap(cloudprovider.ErrNotImplemented, "CreateILoadBalancer")
 }
 
 func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {

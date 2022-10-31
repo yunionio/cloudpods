@@ -100,7 +100,7 @@ const (
 	LB_MbpsMax = 10000
 )
 
-var LB_ALIYUN_SPECS = choices.NewChoices(
+var LB_ALIYUN_SPECS = []string{
 	LB_ALIYUN_SPEC_SHAREABLE,
 	LB_ALIYUN_SPEC_S1_SMALL,
 	LB_ALIYUN_SPEC_S2_SMALL,
@@ -108,12 +108,12 @@ var LB_ALIYUN_SPECS = choices.NewChoices(
 	LB_ALIYUN_SPEC_S2_MEDIUM,
 	LB_ALIYUN_SPEC_S3_MEDIUM,
 	LB_ALIYUN_SPEC_S3_LARGE,
-)
+}
 
-var LB_AWS_SPECS = choices.NewChoices(
+var LB_AWS_SPECS = []string{
 	LB_AWS_SPEC_APPLICATION,
 	LB_AWS_SPEC_NETWORK,
-)
+}
 
 // Load Balancer network type (vpc or classic) determines viable backend
 // servers (they should be from the same network type as the load balancer).

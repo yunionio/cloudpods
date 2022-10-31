@@ -590,8 +590,8 @@ func (self *SRegion) lbUpdate(resource string, params map[string]interface{}) (j
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561535.html
-func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (*SLoadbalancer, error) {
-	subnet, err := self.getNetwork(loadbalancer.NetworkIDs[0])
+func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (*SLoadbalancer, error) {
+	subnet, err := self.getNetwork(loadbalancer.NetworkIds[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.CreateLoadBalancer.getNetwork")
 	}
@@ -615,8 +615,8 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 	}
 
 	// 创建公网类型ELB
-	if len(loadbalancer.EipID) > 0 {
-		err := self.AssociateEipWithPortId(loadbalancer.EipID, ret.VipPortID)
+	if len(loadbalancer.EipId) > 0 {
+		err := self.AssociateEipWithPortId(loadbalancer.EipId, ret.VipPortID)
 		if err != nil {
 			return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.AssociateEipWithPortId")
 		}

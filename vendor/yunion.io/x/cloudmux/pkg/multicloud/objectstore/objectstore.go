@@ -26,9 +26,9 @@ import (
 	"yunion.io/x/s3cli"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -342,7 +342,7 @@ func (cli *SObjectStoreClient) GetILoadBalancerCertificateById(certId string) (c
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (cli *SObjectStoreClient) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+func (cli *SObjectStoreClient) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

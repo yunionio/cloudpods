@@ -84,110 +84,25 @@ func (self *SAliyunRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ALIYUN
 }
 
-func (self *SAliyunRegionDriver) validateCreateLBCommonData(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*validators.ValidatorModelIdOrName, *jsonutils.JSONDict, error) {
-	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
-	chargeTypeV := validators.NewStringChoicesValidator("charge_type", choices.NewChoices(api.LB_CHARGE_TYPE_BY_BANDWIDTH, api.LB_CHARGE_TYPE_BY_TRAFFIC))
-	chargeTypeV.Default(api.LB_CHARGE_TYPE_BY_TRAFFIC)
-	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
-	loadbalancerSpecV := validators.NewStringChoicesValidator("loadbalancer_spec", api.LB_ALIYUN_SPECS)
-	loadbalancerSpecV.Default(api.LB_ALIYUN_SPEC_SHAREABLE)
-
-	keyV := map[string]validators.IValidator{
-		"status":            validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
-		"charge_type":       chargeTypeV,
-		"address_type":      addressTypeV.Default(api.LB_ADDR_TYPE_INTRANET),
-		"zone":              zoneV,
-		"manager":           managerIdV,
-		"loadbalancer_spec": loadbalancerSpecV,
+func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
+	if len(input.LoadbalancerSpec) == 0 {
+		input.LoadbalancerSpec = api.LB_ALIYUN_SPEC_SHAREABLE
+	}
+	if !utils.IsInStringArray(input.LoadbalancerSpec, api.LB_ALIYUN_SPECS) {
+		return nil, httperrors.NewInputParameterError("invalid loadbalancer_spec %s", input.LoadbalancerSpec)
 	}
 
-	if err := RunValidators(keyV, data, false); err != nil {
-		return nil, nil, err
-	}
-
-	if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
-		egressMbps := validators.NewRangeValidator("egress_mbps", 1, 5000)
-		if err := egressMbps.Validate(data); err != nil {
-			return nil, nil, err
+	if input.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+		if input.EgressMbps < 1 || input.EgressMbps > 5000 {
+			return nil, httperrors.NewInputParameterError("egress_mbps shoud be 1-5000 mbps")
 		}
 	}
 
-	region, _ := zoneV.Model.(*models.SZone).GetRegion()
-	if region == nil {
-		return nil, nil, fmt.Errorf("getting region failed")
-	}
-
-	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
-	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
-	return managerIdV, data, nil
-}
-
-func (self *SAliyunRegionDriver) validateCreateIntranetLBData(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	managerIdV, data, err := self.validateCreateLBCommonData(ownerId, data)
-	if err != nil {
-		return nil, err
-	}
-
-	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
-	if err := networkV.Validate(data); err != nil {
-		return nil, err
-	}
-
-	network := networkV.Model.(*models.SNetwork)
-	region, zone, vpc, _, err := network.ValidateElbNetwork(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	chargeType, _ := data.GetString("charge_type")
-	if chargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+	if input.AddressType == api.LB_ADDR_TYPE_INTRANET && input.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
 		return nil, httperrors.NewUnsupportOperationError("intranet loadbalancer not support bandwidth charge type")
 	}
 
-	managerId, _ := data.GetString("manager_id")
-	if managerId != vpc.ManagerId {
-		return nil, httperrors.NewInputParameterError("Loadbalancer's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)", managerIdV.Model.GetName(), managerIdV.Model.GetId(), vpc.GetName(), vpc.GetId(), vpc.ManagerId)
-	}
-
-	data.Set("vpc_id", jsonutils.NewString(vpc.Id))
-	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
-	data.Set("zone_id", jsonutils.NewString(zone.GetId()))
-	data.Set("address_type", jsonutils.NewString(api.LB_ADDR_TYPE_INTRANET))
-	return data, nil
-}
-
-func (self *SAliyunRegionDriver) validateCreateInternetLBData(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	_, data, err := self.validateCreateLBCommonData(ownerId, data)
-	if err != nil {
-		return nil, err
-	}
-
-	// 公网 lb 实例和vpc、network无关联
-	data.Set("vpc_id", jsonutils.NewString(""))
-	data.Set("address", jsonutils.NewString(""))
-	data.Set("network_id", jsonutils.NewString(""))
-	data.Set("address_type", jsonutils.NewString(api.LB_ADDR_TYPE_INTERNET))
-	return data, nil
-}
-
-func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
-	if err := addressTypeV.Validate(data); err != nil {
-		return nil, err
-	}
-
-	var validator func(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
-	if addressTypeV.Value == api.LB_ADDR_TYPE_INTRANET {
-		validator = self.validateCreateIntranetLBData
-	} else {
-		validator = self.validateCreateInternetLBData
-	}
-
-	if _, err := validator(ownerId, data); err != nil {
-		return nil, err
-	}
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, input)
 }
 
 func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

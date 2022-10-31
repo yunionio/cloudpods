@@ -46,7 +46,7 @@ func (self *SNoLbRegion) GetILoadBalancerCertificateById(certId string) (cloudpr
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SNoLbRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+func (self *SNoLbRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

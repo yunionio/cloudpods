@@ -28,6 +28,7 @@ import (
 
 type SRegion struct {
 	multicloud.SRegion
+	multicloud.SNoLbRegion
 	client *SUcloudClient
 
 	RegionID string
@@ -40,10 +41,6 @@ type SRegion struct {
 	latitude      float64
 	longitude     float64
 	fetchLocation bool
-}
-
-func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) GetId() string {
@@ -376,42 +373,6 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 		return storageCache, nil
 	}
 	return nil, cloudprovider.ErrNotFound
-}
-
-func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {

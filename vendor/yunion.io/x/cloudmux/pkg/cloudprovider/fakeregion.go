@@ -139,7 +139,7 @@ func (region *SFakeOnPremiseRegion) GetILoadBalancerCertificates() ([]ICloudLoad
 	return nil, ErrNotSupported
 }
 
-func (region *SFakeOnPremiseRegion) CreateILoadBalancer(loadbalancer *SLoadbalancer) (ICloudLoadbalancer, error) {
+func (region *SFakeOnPremiseRegion) CreateILoadBalancer(loadbalancer *SLoadbalancerCreateOptions) (ICloudLoadbalancer, error) {
 	return nil, ErrNotSupported
 }
 

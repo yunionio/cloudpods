@@ -499,7 +499,7 @@ func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoa
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
 	sloadbalancer, err := region.CreateLoadBalancer(loadbalancer)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.CreateLoadBalancer")

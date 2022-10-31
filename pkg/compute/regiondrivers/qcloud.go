@@ -88,55 +88,8 @@ func (self *SQcloudRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_QCLOUD
 }
 
-func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
-	zone1V := validators.NewModelIdOrNameValidator("zone_1", "zone", ownerId)
-	vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", ownerId)
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
-	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
-
-	keyV := map[string]validators.IValidator{
-		"status":       validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
-		"address_type": addressTypeV.Default(api.LB_ADDR_TYPE_INTRANET),
-		"vpc":          vpcV,
-		"zone":         zoneV,
-		"zone_1":       zone1V.Optional(true),
-		"manager":      managerIdV,
-	}
-
-	if err := RunValidators(keyV, data, false); err != nil {
-		return nil, err
-	}
-
-	// 内网ELB需要增加network
-	if addressTypeV.Value == api.LB_ADDR_TYPE_INTRANET {
-		networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
-		if err := networkV.Validate(data); err != nil {
-			return nil, err
-		}
-
-		network := networkV.Model.(*models.SNetwork)
-		_, _, vpc, _, err := network.ValidateElbNetwork(nil)
-		if err != nil {
-			return nil, err
-		}
-
-		if managerIdV.Model.GetId() != vpc.ManagerId {
-			return nil, httperrors.NewInputParameterError("Loadbalancer's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)", managerIdV.Model.GetName(), managerIdV.Model.GetId(), vpc.GetName(), vpc.GetId(), vpc.ManagerId)
-		}
-	}
-
-	region, _ := zoneV.Model.(*models.SZone).GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("getting region failed")
-	}
-
-	if zone1V.Model != nil && len(zone1V.Model.GetId()) > 0 && addressTypeV.Value == api.LB_ADDR_TYPE_INTERNET {
-		data.Set("zone_1", jsonutils.NewString(zone1V.Model.GetId()))
-	}
-	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
-	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
+func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, input)
 }
 
 func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
