@@ -2477,8 +2477,9 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	commondb := make([]SGuest, 0)
 	commonext := make([]cloudprovider.ICloudVM, 0)
 	added := make([]cloudprovider.ICloudVM, 0)
+	duplicated := make(map[string][]cloudprovider.ICloudVM)
 
-	err = compare.CompareSets(dbVMs, vms, &removed, &commondb, &commonext, &added)
+	err = compare.CompareSets2(dbVMs, vms, &removed, &commondb, &commonext, &added, &duplicated)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, syncResult
@@ -2579,6 +2580,14 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 			syncVMPairs = append(syncVMPairs, syncVMPair)
 			syncResult.Add()
 		}
+	}
+
+	if len(duplicated) > 0 {
+		errs := make([]error, 0)
+		for k, vms := range duplicated {
+			errs = append(errs, errors.Wrapf(errors.ErrDuplicateId, "Duplicate Id %s (%d)", k, len(vms)))
+		}
+		syncResult.AddError(errors.NewAggregate(errs))
 	}
 
 	return syncVMPairs, syncResult
