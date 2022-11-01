@@ -190,7 +190,7 @@ func (self *SCloudregion) GetNatSkus() ([]SNatSku, error) {
 func (self *SCloudregion) GetElasticcacheSkus() ([]SElasticcacheSku, error) {
 	skus := []SElasticcacheSku{}
 	q := ElasticcacheSkuManager.Query().Equals("cloudregion_id", self.Id)
-	err := db.FetchModelObjects(NatSkuManager, q, &skus)
+	err := db.FetchModelObjects(ElasticcacheSkuManager, q, &skus)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}

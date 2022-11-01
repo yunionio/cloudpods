@@ -313,6 +313,9 @@ func (self *SHcsClient) fetchRegions() error {
 	}
 	for i := range self.regions {
 		self.defaultRegion = self.regions[i].Id
+		if self.projectName == self.regions[i].Id {
+			self.isMainProject = true
+		}
 	}
 	return nil
 }
@@ -724,7 +727,7 @@ func (self *SHcsClient) GetCapabilities() []string {
 }
 
 func (self *SHcsClient) getOBSEndpoint(regionId string) string {
-	return fmt.Sprintf("obs.%s.%s", regionId, self.authUrl)
+	return fmt.Sprintf("obsv3.%s.%s", regionId, self.authUrl)
 }
 
 func (self *SHcsClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
