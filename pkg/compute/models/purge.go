@@ -1232,6 +1232,36 @@ func (self *SCloudregion) purgeSkus(ctx context.Context, userCred mcclient.Token
 			return err
 		}
 	}
+	natSkus, err := self.GetNatSkus()
+	if err != nil {
+		return errors.Wrapf(err, "GetNatSkus")
+	}
+	for i := range natSkus {
+		err = natSkus[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete nat sku %s", natSkus[i].Id)
+		}
+	}
+	rdsSkus, err := self.GetDBInstanceSkus()
+	if err != nil {
+		return errors.Wrapf(err, "GetDBInstanceSkus")
+	}
+	for i := range rdsSkus {
+		err = rdsSkus[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete rds sku %s", rdsSkus[i].Id)
+		}
+	}
+	cacheSkus, err := self.GetElasticcacheSkus()
+	if err != nil {
+		return errors.Wrapf(err, "GetElasticcacheSkus")
+	}
+	for i := range cacheSkus {
+		err = cacheSkus[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete cache sku %s", cacheSkus[i].Id)
+		}
+	}
 	return nil
 }
 
