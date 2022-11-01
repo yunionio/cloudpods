@@ -3524,7 +3524,7 @@ func (manager *SHostManager) ValidateCreateData(
 		input.ZoneId = zoneObj.GetId()
 		// data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 	}
-	if !noProbe {
+	if !noProbe || input.NoBMC {
 		var accessNet *SNetwork
 		accessIpAddr := input.AccessIp // tString("access_ip")
 		if len(accessIpAddr) > 0 {
