@@ -413,6 +413,7 @@ func init() {
 		AccessWire string `help:"Access wire"`
 
 		NoProbe   bool `help:"just save the record, do not probe"`
+		NoBMC     bool `help:"No BMC hardware"`
 		NoPrepare bool `help:"just probe, do not reboot baremetal to prepare"`
 
 		DisablePxeBoot bool `help:"set enable_pxe_boot to false, which is true by default"`
@@ -453,6 +454,9 @@ func init() {
 		}
 		if args.NoPrepare {
 			params.Add(jsonutils.JSONTrue, "no_prepare")
+		}
+		if args.NoBMC {
+			params.Add(jsonutils.JSONTrue, "no_bmc")
 		}
 		if args.DisablePxeBoot {
 			params.Add(jsonutils.JSONFalse, "enable_pxe_boot")
