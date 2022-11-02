@@ -150,9 +150,24 @@ func (app *Application) getRoot(method string) *RadixNode {
 }
 
 func (app *Application) AddReverseProxyHandler(prefix string, ef *proxy.SEndpointFactory, m proxy.RequestManipulator) {
+	app.AddReverseProxyHandlerWithCallbackConfig(prefix, ef, m,
+		func(method string, hi *SHandlerInfo) *SHandlerInfo {
+			return hi
+		},
+	)
+}
+
+func (app *Application) AddReverseProxyHandlerWithCallbackConfig(prefix string, ef *proxy.SEndpointFactory, m proxy.RequestManipulator, confCb func(string, *SHandlerInfo) *SHandlerInfo) {
 	handler := proxy.NewHTTPReverseProxy(ef, m).ServeHTTP
 	for _, method := range []string{"GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"} {
-		app.AddHandler(method, prefix, handler)
+		hi := &SHandlerInfo{}
+		hi = confCb(method, hi)
+		if hi != nil {
+			hi.SetMethod(method)
+			hi.SetPath(prefix)
+			hi.SetHandler(handler)
+			app.AddHandler3(hi)
+		}
 	}
 }
 

@@ -370,7 +370,7 @@ func (catalog KeystoneServiceCatalogV3) getEndpoints(region string, endpointType
 }
 
 func RegionID(region, zone string) string {
-	if len(zone) > 0 {
+	if len(region) > 0 && len(zone) > 0 {
 		return fmt.Sprintf("%s%c%s", region, REGION_ZONE_SEP, zone)
 	} else {
 		return region
@@ -415,9 +415,10 @@ func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, en
 			}
 			for j := 0; j < len(catalog[i].Endpoints); j++ {
 				ep := catalog[i].Endpoints[j]
-				if strings.HasPrefix(endpointType, ep.Interface) && (ep.RegionId == region ||
-					ep.RegionId == regionzone ||
-					len(region) == 0) {
+				if strings.HasPrefix(endpointType, ep.Interface) &&
+					(ep.RegionId == region ||
+						ep.RegionId == regionzone ||
+						len(region) == 0) {
 					_, ok := regeps[ep.RegionId]
 					if !ok {
 						regeps[ep.RegionId] = make([]string, 0)
@@ -432,7 +433,7 @@ func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, en
 						break
 					}
 				} else {
-					return nil, fmt.Errorf("No default region")
+					return nil, fmt.Errorf("No default region for region(%s) zone(%s)", region, zone)
 				}
 			} else {
 				_, ok := regeps[regionzone]
