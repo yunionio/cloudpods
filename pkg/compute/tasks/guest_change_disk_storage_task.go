@@ -136,6 +136,14 @@ func (t *GuestChangeDiskStorageTask) OnDiskLiveChangeStorageReady(
 	}
 }
 
+func (t *GuestChangeDiskStorageTask) OnDiskLiveChangeStorageReadyFailed(
+	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
+) {
+	targetDisk, _ := t.GetTargetDisk()
+	targetDisk.SetStatus(t.GetUserCred(), api.DISK_CLONE_FAIL, data.String())
+	t.TaskFailed(ctx, guest, data)
+}
+
 func (t *GuestChangeDiskStorageTask) OnDiskChangeStorageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	srcDisk, err := t.GetSourceDisk()
 	if err != nil {
