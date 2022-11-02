@@ -63,15 +63,15 @@ type IHost interface {
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {
-	return auth.GetAdminSessionWithInternal(ctx, options.HostOptions.Region)
+	return auth.GetAdminSession(ctx, options.HostOptions.Region)
 }
 
 func GetK8sSession(ctx context.Context) *mcclient.ClientSession {
-	return auth.GetAdminSessionWithInternal(ctx, options.HostOptions.Region)
+	return auth.GetAdminSession(ctx, options.HostOptions.Region)
 }
 
 func GetImageSession(ctx context.Context, zone string) *mcclient.ClientSession {
-	return auth.AdminSessionWithInternal(ctx, options.HostOptions.Region, "")
+	return auth.AdminSession(ctx, options.HostOptions.Region, zone, "")
 }
 
 func TaskFailed(ctx context.Context, reason string) {
