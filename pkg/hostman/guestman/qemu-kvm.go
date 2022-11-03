@@ -556,7 +556,6 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 		if err != nil {
 			log.Errorf("failed parse cmdline from start script: %s", err)
 		} else {
-			log.Errorf("new cmd: %s", cmdline)
 			s.SyncQemuCmdline(cmdline)
 		}
 	}
