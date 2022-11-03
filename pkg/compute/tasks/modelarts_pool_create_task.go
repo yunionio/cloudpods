@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *ModelartsPoolCreateTask) taskFailed(ctx context.Context, pool *models.SModelartsPool, err error) {
-	pool.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_UNKNOWN, err.Error())
+	pool.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_CREATE_FAILED, err.Error())
 	logclient.AddActionLogWithStartable(self, pool, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
