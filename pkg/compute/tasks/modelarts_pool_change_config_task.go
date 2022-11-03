@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *ModelartsPoolChangeConfigTask) taskFailed(ctx context.Context, mp *models.SModelartsPool, err error) {
-	mp.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_UNKNOWN, err.Error())
+	mp.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED, err.Error())
 	db.OpsLog.LogEvent(mp, db.ACT_CHANGE_CONFIG, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, mp, logclient.ACT_CHANGE_CONFIG, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

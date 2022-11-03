@@ -22,7 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
-	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -288,8 +288,12 @@ func (self *SModelartsPool) GetName() string {
 func (self *SModelartsPool) GetStatus() string {
 	res := strings.ToLower(self.Status.Phase)
 	switch {
-	case res == compute.MODELARTS_POOL_STATUS_RUNNING && len(self.Status.Resource.Creating) != 0:
-		res = compute.MODELARTS_POOL_STATUS_CREATING
+	case res == api.MODELARTS_POOL_STATUS_RUNNING && len(self.Status.Resource.Creating) != 0:
+		res = api.MODELARTS_POOL_STATUS_CREATING
+	case self.Status.Phase == "CreationFailed":
+		res = api.MODELARTS_POOL_STATUS_CREATE_FAILED
+	case self.Status.Phase == "SeclingFailed":
+		res = api.MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED
 	}
 	return res
 }
