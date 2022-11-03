@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	apis "yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *ModelartsPoolDeleteTask) taskFailed(ctx context.Context, mp *models.SModelartsPool, err error) {
-	mp.SetStatus(self.UserCred, apis.STATUS_DELETE_FAILED, err.Error())
+	mp.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(mp, db.ACT_DELETE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, mp, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
