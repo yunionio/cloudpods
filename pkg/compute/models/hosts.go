@@ -3960,7 +3960,6 @@ func (self *SHost) StartSyncstatus(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.HostOfflineInput) (jsonutils.JSONObject, error) {
-	log.Errorf("input %v", *input.UpdateHealthStatus)
 	if self.HostStatus != api.HOST_OFFLINE {
 		_, err := self.SaveUpdates(func() error {
 			self.HostStatus = api.HOST_OFFLINE
