@@ -658,7 +658,7 @@ func (d *sLinuxRootFs) DeployTelegraf(config string) (bool, error) {
 		fmt.Sprintf("(crontab -l 2>/dev/null; echo '%s') |crontab -", cronJob),
 	).Output()
 	if err != nil {
-		return false, errors.Wrapf(err, "add crontab")
+		return false, errors.Wrapf(err, "add crontab %s", output)
 	}
 	return true, nil
 }
