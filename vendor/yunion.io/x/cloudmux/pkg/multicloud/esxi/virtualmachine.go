@@ -37,17 +37,17 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
-	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	cloudtypes "yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/version"
+
+	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
 var (
@@ -440,9 +440,6 @@ func (self *SVirtualMachine) startVM(ctx context.Context) error {
 	if ihost == nil {
 		return errors.Wrap(httperrors.ErrInvalidStatus, "no valid host")
 	}
-
-	lockman.LockRawObject(ctx, "host", ihost.GetGlobalId())
-	defer lockman.ReleaseRawObject(ctx, "host", ihost.GetGlobalId())
 
 	err := self.makeNicsStartConnected(ctx)
 	if err != nil {

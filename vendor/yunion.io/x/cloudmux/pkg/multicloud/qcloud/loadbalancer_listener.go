@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -151,9 +150,6 @@ func (self *SLBListener) Stop() error {
 
 // https://cloud.tencent.com/document/product/214/30677
 func (self *SLBListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) error {
-	lockman.LockRawObject(ctx, "qcloud.SLBListener.Sync", self.lb.region.client.ownerId)
-	defer lockman.ReleaseRawObject(ctx, "qcloud.SLBListener.Sync", self.lb.region.client.ownerId)
-
 	hc := getHealthCheck(listener)
 	cert := getCertificate(listener)
 	requestId, err := self.lb.region.UpdateLoadbalancerListener(
@@ -173,9 +169,6 @@ func (self *SLBListener) Sync(ctx context.Context, listener *cloudprovider.SLoad
 }
 
 func (self *SLBListener) Delete(ctx context.Context) error {
-	lockman.LockRawObject(ctx, "qcloud.SLBListener.Delete", self.lb.region.client.ownerId)
-	defer lockman.ReleaseRawObject(ctx, "qcloud.SLBListener.Delete", self.lb.region.client.ownerId)
-
 	requestId, err := self.lb.region.DeleteLoadbalancerListener(self.lb.Forward, self.lb.GetId(), self.GetId())
 	if err != nil {
 		return err
@@ -524,7 +517,7 @@ func (self *SRegion) GetLoadbalancerListeners(lbid string, t LB_TYPE, protocol s
 	return listeners, nil
 }
 
-//  返回requestID
+// 返回requestID
 func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId string, domain string, url string, scheduler string, sessionExpireTime int, hc *healthCheck) (string, error) {
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("loadbalancer id should not be empty")
@@ -560,7 +553,7 @@ func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId stri
 	return resp.GetString("RequestId")
 }
 
-//  返回requestID
+// 返回requestID
 func (self *SRegion) deleteLoadbalancerListener(lbid string, listenerId string) (string, error) {
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("loadbalancer id should not be empty")
@@ -579,7 +572,7 @@ func (self *SRegion) deleteLoadbalancerListener(lbid string, listenerId string) 
 	return resp.GetString("RequestId")
 }
 
-//  返回requestID
+// 返回requestID
 func (self *SRegion) deleteClassicLoadbalancerListener(lbid string, listenerId string) (string, error) {
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("classic loadbalancer id should not be empty")
@@ -603,12 +596,8 @@ func (self *SRegion) deleteClassicLoadbalancerListener(lbid string, listenerId s
 	return fmt.Sprintf("%.f", _requestId), nil
 }
 
-//  返回requestID
+// 返回requestID
 func (self *SRegion) DeleteLoadbalancerListener(t LB_TYPE, lbid string, listenerId string) (string, error) {
-	ctx := context.Background()
-	lockman.LockRawObject(ctx, "qcloud.SRegion.DeleteLoadbalancerListener", self.client.ownerId)
-	defer lockman.ReleaseRawObject(ctx, "qcloud.SRegion.DeleteLoadbalancerListener", self.client.ownerId)
-
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("loadbalancer id should not be empty")
 	}

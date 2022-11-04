@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -195,9 +194,6 @@ func (self *SLBBackend) GetProjectId() string {
 }
 
 func (self *SLBBackend) SyncConf(ctx context.Context, port, weight int) error {
-	lockman.LockRawObject(ctx, "qcloud.SLBBackend.SyncConf", self.group.lb.region.client.ownerId)
-	defer lockman.ReleaseRawObject(ctx, "qcloud.SLBBackend.SyncConf", self.group.lb.region.client.ownerId)
-
 	err := self.group.UpdateBackendServer(self.InstanceID, self.Weight, self.Port, weight, port)
 	if err != nil {
 		return err

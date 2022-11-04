@@ -17,6 +17,7 @@ package remotefile
 import (
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/utils"
 )
 
 type SEip struct {
@@ -25,6 +26,7 @@ type SEip struct {
 	IpAddr      string
 	RegionId    string
 	AssociateId string
+	Mode        string
 	Bandwidth   int
 }
 
@@ -33,6 +35,9 @@ func (self *SEip) GetIpAddr() string {
 }
 
 func (self *SEip) GetMode() string {
+	if utils.IsInStringArray(self.Mode, []string{api.EIP_MODE_STANDALONE_EIP, api.EIP_MODE_INSTANCE_PUBLICIP}) {
+		return self.Mode
+	}
 	return api.EIP_MODE_STANDALONE_EIP
 }
 
