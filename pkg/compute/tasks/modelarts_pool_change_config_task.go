@@ -61,7 +61,9 @@ func (self *ModelartsPoolChangeConfigTask) OnInit(ctx context.Context, obj db.IS
 		self.taskFailed(ctx, pool, errors.Wrapf(err, "iMp.ChangeConfig"))
 		return
 	}
-	err = cloudprovider.WaitStatusWithDelay(iMp, api.MODELARTS_POOL_STATUS_RUNNING, 30*time.Second, 15*time.Second, 30*time.Minute)
+	// withDelay
+	time.Sleep(30 * time.Second)
+	err = cloudprovider.WaitMultiStatus(iMp, []string{api.MODELARTS_POOL_STATUS_RUNNING, api.MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED}, 15*time.Second, 2*time.Hour)
 	if err != nil {
 		self.taskFailed(ctx, pool, errors.Wrapf(err, "WaitStatusWithDelay"))
 		return
