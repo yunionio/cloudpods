@@ -16,6 +16,7 @@ package aliyun
 
 import (
 	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -260,6 +261,27 @@ func (self *SDomainRecord) GetPolicyType() cloudprovider.TDnsPolicyType {
 	case "oversea":
 		return cloudprovider.DnsPolicyTypeByGeoLocation
 	default:
+		for _, prefix := range []string{
+			"cn_telecom",
+			"cn_unicom",
+			"cn_mobile",
+			"cn_edu",
+			"cn_drpeng",
+			"cn_btvn",
+		} {
+			if strings.HasPrefix(self.Line, prefix) {
+				return cloudprovider.DnsPolicyTypeByCarrier
+			}
+		}
+		for _, prefix := range []string{
+			"cn_region",
+			"os_",
+			"aliyun_",
+		} {
+			if strings.HasPrefix(self.Line, prefix) {
+				return cloudprovider.DnsPolicyTypeByGeoLocation
+			}
+		}
 		return cloudprovider.DnsPolicyTypeSimple
 	}
 }
@@ -276,7 +298,6 @@ func (self *SDomainRecord) GetPolicyValue() cloudprovider.TDnsPolicyValue {
 		return cloudprovider.DnsPolicyValueOversea
 	case "edu":
 		return cloudprovider.DnsPolicyValueCernet
-
 	case "drpeng":
 		return cloudprovider.DnsPolicyValueDrPeng
 	case "btvn":
@@ -289,9 +310,8 @@ func (self *SDomainRecord) GetPolicyValue() cloudprovider.TDnsPolicyValue {
 		return cloudprovider.DnsPolicyValueBing
 	case "youdao":
 		return cloudprovider.DnsPolicyValueYoudao
-
 	}
-	return ""
+	return cloudprovider.TDnsPolicyValue(self.Line)
 }
 
 func (self *SDomainRecord) GetPolicyOptions() *jsonutils.JSONDict {
