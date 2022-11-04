@@ -20,16 +20,12 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -98,13 +94,10 @@ func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.T
 }
 
 func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-
-	meta, reader, size, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
+	reader, size, err := image.GetReader(image.ImageId, string(qemuimg.QCOW2))
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetReader")
 	}
-	log.Infof("meta data %s", meta)
 
 	imageBaseName := image.ImageName
 	imageName := imageBaseName
@@ -123,10 +116,10 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 		nameIdx++
 	}
 
-	minDiskSizeMb, _ := meta.Int("min_disk")
-	minRamMb, _ := meta.Int("min_ram")
-	osType, _ := meta.GetString("properties", "os_type")
-	osDist, _ := meta.GetString("properties", "os_distribution")
+	minDiskSizeMb := image.MinDiskMb
+	minRamMb := image.MinRamMb
+	osType := image.OsType
+	osDist := image.OsDistribution
 	minDiskSizeGB := minDiskSizeMb / 1024
 	if minDiskSizeMb%1024 > 0 {
 		minDiskSizeGB += 1

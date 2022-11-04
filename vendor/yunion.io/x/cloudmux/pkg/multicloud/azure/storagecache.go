@@ -28,11 +28,8 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -105,11 +102,11 @@ func (self *SStoragecache) GetPath() string {
 }
 
 func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	err := os.MkdirAll(options.Options.TempPath, os.ModePerm)
+	err := os.MkdirAll(image.TmpPath, os.ModePerm)
 	if err != nil {
-		log.Warningf("failed to create tmp path %s error: %v", options.Options.TempPath, err)
+		log.Warningf("failed to create tmp path %s error: %v", image.TmpPath, err)
 	}
-	return self.uploadImage(ctx, userCred, image, options.Options.TempPath, callback)
+	return self.uploadImage(ctx, userCred, image, image.TmpPath, callback)
 }
 
 func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
@@ -143,37 +140,12 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, tmpPath string, callback func(progress float32)) (string, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	meta, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VHD), false)
+	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimg.VHD))
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetReader")
 	}
-	// {
-	// 	"checksum":"d0ab0450979977c6ada8d85066a6e484",
-	// 	"container_format":"bare",
-	// 	"created_at":"2018-08-10T04:18:07",
-	// 	"deleted":"False",
-	// 	"disk_format":"vhd",
-	// 	"id":"64189033-3ad4-413c-b074-6bf0b6be8508",
-	// 	"is_public":"False",
-	// 	"min_disk":"0",
-	// 	"min_ram":"0",
-	// 	"name":"centos-7.3.1611-20180104.vhd",
-	// 	"owner":"5124d80475434da8b41fee48d5be94df",
-	// 	"properties":{
-	// 		"os_arch":"x86_64",
-	// 		"os_distribution":"CentOS",
-	// 		"os_type":"Linux",
-	// 		"os_version":"7.3.1611-VHD"
-	// 	},
-	// 	"protected":"False",
-	// 	"size":"2028505088",
-	// 	"status":"active",
-	// 	"updated_at":"2018-08-10T04:20:59"
-	// }
-	log.Infof("meta data %s", meta)
 
-	imageNameOnBlob, _ := meta.GetString("name")
+	imageNameOnBlob := image.ImageName
 	if !strings.HasSuffix(imageNameOnBlob, ".vhd") {
 		imageNameOnBlob = fmt.Sprintf("%s.vhd", imageNameOnBlob)
 	}
@@ -273,14 +245,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		if _, err := tmpImageFile.Seek(0, os.SEEK_SET); err != nil {
 			return nil, errors.Wrap(err, "seek")
 		}
-		s := auth.GetAdminSession(context.Background(), options.Options.Region)
-		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-		if result, err := modules.Images.Upload(s, params, tmpImageFile, resp.ContentLength); err != nil {
-			return nil, err
-		} else {
-			return result, nil
-		}
-
+		return nil, cloudprovider.ErrNotSupported
 	}
 }
 

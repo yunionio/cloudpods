@@ -29,11 +29,8 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -122,14 +119,10 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
-	// first upload image to oss
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-
-	meta, reader, sizeByte, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
+	reader, sizeByte, err := image.GetReader(image.ImageId, string(qemuimg.QCOW2))
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetReader")
 	}
-	log.Infof("meta data %s", meta)
 
 	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), image.ImageId))
 	exist, err := self.region.IBucketExist(bucketName)
@@ -331,13 +324,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	} else if err := bucket.DownloadFile(imageList.Objects[0].Key, tmpImageFile.Name(), 12*1024*1024, oss.Routines(3), oss.Progress(&OssProgressListener{})); err != nil {
 		return nil, err
 	} else {
-		s := auth.GetAdminSession(context.Background(), options.Options.Region)
-		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-		if result, err := modules.Images.Upload(s, params, tmpImageFile, imageList.Objects[0].Size); err != nil {
-			return nil, err
-		} else {
-			return result, nil
-		}
+		return nil, cloudprovider.ErrNotSupported
 	}
 }
 

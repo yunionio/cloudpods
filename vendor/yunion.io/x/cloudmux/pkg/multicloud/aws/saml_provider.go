@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/apis/cloudid"
 	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	compute_api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -67,7 +66,7 @@ func (self *SAMLProvider) Delete() error {
 	return self.client.DeleteSAMLProvider(self.Arn)
 }
 
-func (self *SAMLProvider) GetAuthUrl() string {
+func (self *SAMLProvider) GetAuthUrl(apiServer string) string {
 	input := samlutils.SIdpInitiatedLoginInput{
 		EntityID: cloudprovider.SAML_ENTITY_ID_AWS_CN,
 		IdpId:    self.client.cpcfg.AccountId,
@@ -75,7 +74,7 @@ func (self *SAMLProvider) GetAuthUrl() string {
 	if self.client.GetAccessEnv() == compute_api.CLOUD_ACCESS_ENV_AWS_GLOBAL {
 		input.EntityID = cloudprovider.SAML_ENTITY_ID_AWS
 	}
-	return httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, fmt.Sprintf("sso?%s", jsonutils.Marshal(input).QueryString()))
+	return httputils.JoinPath(apiServer, cloudid.SAML_IDP_PREFIX, fmt.Sprintf("sso?%s", jsonutils.Marshal(input).QueryString()))
 }
 
 func (self *SAMLProvider) GetMetadataDocument() (*samlutils.EntityDescriptor, error) {

@@ -1317,7 +1317,7 @@ type ICloudSAMLProvider interface {
 	GetMetadataDocument() (*samlutils.EntityDescriptor, error)
 	UpdateMetadata(samlutils.EntityDescriptor) error
 
-	GetAuthUrl() string
+	GetAuthUrl(apiServer string) string
 	Delete() error
 }
 

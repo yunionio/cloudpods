@@ -60,7 +60,7 @@ func (self *SAMLProvider) Delete() error {
 	return self.client.DeleteSAMLProvider(self.Name)
 }
 
-func (self *SAMLProvider) GetAuthUrl() string {
+func (self *SAMLProvider) GetAuthUrl(apiServer string) string {
 	return fmt.Sprintf("https://cloud.tencent.com/login/forwardIdp/%s/%s", self.client.ownerName, self.Name)
 }
 

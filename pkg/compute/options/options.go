@@ -190,7 +190,7 @@ type ComputeOptions struct {
 	SkipServerBySysTagKeys  string `help:"skip server,disk sync and create with system tags" default:"acs:autoscaling:scalingGroupId"`
 	SkipServerByUserTagKeys string `help:"skip server,disk sync and create with user tags" default:""`
 
-	EnableAwsMonitorAgent bool `help:"enable aws monitor agent" default:"true"`
+	EnableMonitorAgent bool `help:"enable public cloud vm monitor agent" default:"false"`
 
 	EnableTlsMigration bool `help:"Enable TLS migration" default:"false"`
 

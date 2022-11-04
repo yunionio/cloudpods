@@ -29,11 +29,8 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -154,14 +151,10 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	defer self.region.DeleteIBucket(bucketName)
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	meta, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
+	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimg.VMDK))
 	if err != nil {
-		return "", errors.Wrap(err, "Images.Download")
+		return "", errors.Wrapf(err, "GetReader")
 	}
-	log.Debugf("Images meta data %s", meta)
-
-	diskFormat, _ := meta.GetString("disk_format")
 
 	bucket, err := self.region.GetIBucketByName(bucketName)
 	if err != nil {
@@ -198,7 +191,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("uploadImage Match remote name %s", imageName)
 	}
 
-	task, err := self.region.ImportImage(imageName, image.OsArch, image.OsType, image.OsDistribution, diskFormat, bucketName, image.ImageId)
+	task, err := self.region.ImportImage(imageName, image.OsArch, image.OsType, image.OsDistribution, string(qemuimg.VMDK), bucketName, image.ImageId)
 
 	if err != nil {
 		log.Errorf("ImportImage error %s %s %s", image.ImageId, bucketName, err)
@@ -261,27 +254,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, errors.Wrap(err, "WaitUntilExportTaskCompleted")
 	}
 
-	s3Client, err := self.region.GetS3Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetS3Client")
-	}
-
-	i := &s3.GetObjectInput{}
-	i.SetBucket(bucketName)
-	i.SetKey(fmt.Sprintf("%s.%s", task.TaskId, "ova"))
-	ret, err := s3Client.GetObject(i)
-	if err != nil {
-		log.Errorf("GetObject %#v: %s", i, err)
-		return nil, errors.Wrap(err, "GetObject")
-	}
-
-	s := auth.GetAdminSession(context.Background(), options.Options.Region)
-	params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-	if result, err := modules.Images.Upload(s, params, ret.Body, IntVal(ret.ContentLength)); err != nil {
-		return nil, errors.Wrap(err, "Images.Images")
-	} else {
-		return result, nil
-	}
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) CheckBucket(bucketName string) error {

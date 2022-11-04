@@ -19,13 +19,10 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
-	"yunion.io/x/onecloud/pkg/esxi/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -193,13 +190,10 @@ func (self *SRegion) GetImage(id string) (*SImage, error) {
 }
 
 func (self *SRegion) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-
-	meta, reader, sizeByte, err := modules.Images.Download(s, opts.ImageId, string(qemuimg.QCOW2), false)
+	reader, sizeByte, err := opts.GetReader(opts.ImageId, string(qemuimg.QCOW2))
 	if err != nil {
 		return "", err
 	}
-	log.Infof("meta data %s", meta)
 
 	params := map[string]interface{}{
 		"name": opts.ImageName,

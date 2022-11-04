@@ -17,6 +17,7 @@ package hostdrivers
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -35,6 +36,8 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 )
 
 type SManagedVirtualizationHostDriver struct {
@@ -113,7 +116,23 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 					if err != nil {
 						log.Warningf("delete image %s(%s) error: %v", iImg.GetName(), iImg.GetGlobalId(), err)
 					}
-					return iStorageCache.UploadImage(ctx, userCred, image, callback)
+				}
+				s := auth.GetAdminSession(ctx, options.Options.Region)
+				info, err := modules.Images.Get(s, image.ImageId, nil)
+				if err != nil {
+					return "", errors.Wrapf(err, "Images.Get(%s)", image.ImageId)
+				}
+				image.Description, _ = info.GetString("description")
+				image.Checksum, _ = info.GetString("checksum")
+				minDiskMb, _ := info.Int("min_disk")
+				image.MinDiskMb = int(minDiskMb)
+				minRamMb, _ := info.Int("min_ram")
+				image.MinRamMb = int(minRamMb)
+				image.TmpPath = options.Options.TempPath
+
+				image.GetReader = func(imageId, format string) (io.Reader, int64, error) {
+					_, reader, sizeByte, err := modules.Images.Download(s, imageId, format, false)
+					return reader, sizeByte, err
 				}
 				log.Debugf("UploadImage: no external ID")
 				return iStorageCache.UploadImage(ctx, userCred, image, callback)

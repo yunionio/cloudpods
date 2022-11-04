@@ -26,11 +26,8 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/image/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -115,23 +112,12 @@ func (region *SRegion) checkAndCreateBucket(bucketName string) (*SBucket, error)
 }
 
 func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-
-	meta, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
+	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimg.QCOW2))
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetReader")
 	}
-	log.Infof("meta data %s", meta)
 
-	info := struct {
-		Id          string
-		Name        string
-		Size        int64
-		Description string
-	}{}
-	meta.Unmarshal(&info)
-
-	bucketName := fmt.Sprintf("imagecache-%s", info.Id)
+	bucketName := fmt.Sprintf("imagecache-%s", image.ImageId)
 	bucket, err := cache.region.checkAndCreateBucket(bucketName)
 	if err != nil {
 		return "", errors.Wrapf(err, "checkAndCreateBucket(%s)", bucketName)
@@ -156,7 +142,7 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 	}
 
 	imageName := "img-"
-	for _, s := range strings.ToLower(info.Name) {
+	for _, s := range strings.ToLower(image.ImageName) {
 		if unicode.IsDigit(s) || unicode.IsLetter(s) || s == '-' {
 			imageName = fmt.Sprintf("%s%c", imageName, s)
 		} else {
@@ -172,7 +158,7 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 		imageName = fmt.Sprintf("%s-%d", baseName, i)
 	}
 
-	_image, err := cache.region.CreateImage(imageName, info.Description, bucketName, info.Name)
+	_image, err := cache.region.CreateImage(imageName, image.Description, bucketName, image.ImageName)
 	if err != nil {
 		return "", errors.Wrap(err, "region.CreateImage")
 	}

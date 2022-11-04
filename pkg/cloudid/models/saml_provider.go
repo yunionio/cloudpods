@@ -206,7 +206,7 @@ func (self *SSAMLProvider) syncRemove(ctx context.Context, userCred mcclient.Tok
 func (self *SSAMLProvider) SyncWithCloudSAMLProvider(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSAMLProvider) error {
 	_, err := db.Update(self, func() error {
 		self.ExternalId = ext.GetGlobalId()
-		self.AuthUrl = ext.GetAuthUrl()
+		self.AuthUrl = ext.GetAuthUrl(options.Options.ApiServer)
 		self.Status = ext.GetStatus()
 		metadata, err := ext.GetMetadataDocument()
 		if err != nil {
