@@ -317,5 +317,6 @@ type DiskAllocateFromBackupInput struct {
 }
 
 type DiskDeleteInput struct {
-	SkipRecycle *bool
+	SkipRecycle      *bool
+	EsxiFlatFilePath string
 }

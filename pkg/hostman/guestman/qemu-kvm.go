@@ -1374,9 +1374,6 @@ func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
 		return errors.Wrap(err, "delTmpDisks")
 	}
-	if err := s.delFlatFiles(ctx); err != nil {
-		return errors.Wrap(err, "delFlatFiles")
-	}
 	if fileutils2.Exists(s.getQemuLogPath()) {
 		procutils.NewRemoteCommandAsFarAsPossible("mv", s.getQemuLogPath(), fmt.Sprintf("/tmp/%s-qemu.log", s.GetId())).Run()
 	}
