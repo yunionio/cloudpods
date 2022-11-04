@@ -16,6 +16,7 @@ package cloudpods
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -58,10 +59,11 @@ type ModelManager interface {
 type CloudpodsClientConfig struct {
 	cpcfg cloudprovider.ProviderConfig
 
-	authURL      string
-	region       string
-	accessKey    string
-	accessSecret string
+	authURL        string
+	region         string
+	accessKey      string
+	accessSecret   string
+	adminProjectId string
 
 	debug bool
 }
@@ -77,6 +79,11 @@ func NewCloudpodsClientConfig(authURL, accessKey, accessSecret string) *Cloudpod
 
 func (cfg *CloudpodsClientConfig) Debug(debug bool) *CloudpodsClientConfig {
 	cfg.debug = debug
+	return cfg
+}
+
+func (cfg *CloudpodsClientConfig) AdminProjectId(id string) *CloudpodsClientConfig {
+	cfg.adminProjectId = id
 	return cfg
 }
 
@@ -122,6 +129,12 @@ func (self *SCloudpodsClient) auth() error {
 		}
 	}
 	self.s = client.NewSession(context.Background(), serviceRegion, "", "publicURL", token)
+	if !self.s.GetToken().HasSystemAdminPrivilege() {
+		return fmt.Errorf("no system admin privilege")
+	}
+	if self.s.GetProjectDomainId() == self.adminProjectId {
+		return fmt.Errorf("You can't manage yourself environment")
+	}
 	return nil
 }
 
