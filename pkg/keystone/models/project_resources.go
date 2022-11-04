@@ -58,6 +58,7 @@ type SScopeResource struct {
 type sScopeResourceCount struct {
 	Resource   string
 	ResCount   int
+	ProjectId  string
 	LastUpdate time.Time
 }
 
@@ -92,6 +93,40 @@ func (manager *SScopeResourceManager) getScopeResource(domainId, projId, ownerId
 		ret[resCnts[i].Resource] = resCnts[i].ResCount
 		if lastUpdate.IsZero() || lastUpdate.Before(resCnts[i].LastUpdate) {
 			lastUpdate = resCnts[i].LastUpdate
+		}
+	}
+	return ret, lastUpdate, nil
+}
+
+func (manager *SScopeResourceManager) FetchProjectsScopeResources(projIds []string) (map[string]map[string]int, map[string]time.Time, error) {
+	resources := manager.Query().SubQuery()
+	q := resources.Query(
+		resources.Field("resource"),
+		resources.Field("project_id"),
+		sqlchemy.SUM("res_count", resources.Field("count")),
+		sqlchemy.MAX("last_update", resources.Field("updated_at")),
+	).Filter(sqlchemy.In(resources.Field("project_id"), projIds))
+	q = q.GroupBy(resources.Field("resource"))
+	resCnts := make([]sScopeResourceCount, 0)
+	err := q.All(&resCnts)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, nil, errors.Wrap(err, "query.All")
+	}
+	ret := make(map[string]map[string]int)
+	lastUpdate := map[string]time.Time{}
+	for i := range resCnts {
+		_, ok := ret[resCnts[i].ProjectId]
+		if !ok {
+			ret[resCnts[i].ProjectId] = map[string]int{}
+			lastUpdate[resCnts[i].ProjectId] = resCnts[i].LastUpdate
+		}
+		if resCnts[i].ResCount == 0 {
+			continue
+		}
+		last := lastUpdate[resCnts[i].ProjectId]
+		ret[resCnts[i].ProjectId][resCnts[i].Resource] = resCnts[i].ResCount
+		if last.IsZero() || last.Before(resCnts[i].LastUpdate) {
+			lastUpdate[resCnts[i].ProjectId] = resCnts[i].LastUpdate
 		}
 	}
 	return ret, lastUpdate, nil

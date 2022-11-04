@@ -322,20 +322,17 @@ func (proj *SProject) GetGroupCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (proj *SProject) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+func (proj *SProject) ValidateDeleteCondition(ctx context.Context, info *api.ProjectDetails) error {
 	if proj.IsAdminProject() {
 		return httperrors.NewForbiddenError("cannot delete system project")
 	}
-	external, _, _ := proj.getExternalResources()
-	if len(external) > 0 {
+	if len(info.ExtResource) > 0 {
 		return httperrors.NewNotEmptyError("project contains external resources")
 	}
-	usrCnt, _ := proj.GetUserCount()
-	if usrCnt > 0 {
+	if info.UserCount > 0 {
 		return httperrors.NewNotEmptyError("project contains user")
 	}
-	grpCnt, _ := proj.GetGroupCount()
-	if grpCnt > 0 {
+	if info.GroupCount > 0 {
 		return httperrors.NewNotEmptyError("project contains group")
 	}
 	return proj.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
@@ -371,35 +368,43 @@ func (manager *SProjectManager) FetchCustomizeColumns(
 	rows := make([]api.ProjectDetails, len(objs))
 
 	identRows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-
+	projIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.ProjectDetails{
 			IdentityBaseResourceDetails: identRows[i],
 		}
-		rows[i] = projectExtra(objs[i].(*SProject), rows[i])
+		proj := objs[i].(*SProject)
+		projIds[i] = proj.Id
+	}
+
+	extResource, extLastUpdate, err := ScopeResourceManager.FetchProjectsScopeResources(projIds)
+	if err != nil {
+		return rows
+	}
+
+	groupCnt, userCnt, err := AssignmentManager.fetchUserAndGroups(projIds)
+	if err != nil {
+		return rows
+	}
+	for i := range rows {
+		groups, _ := groupCnt[projIds[i]]
+		users, _ := userCnt[projIds[i]]
+		rows[i].GroupCount = len(groups)
+		rows[i].UserCount = len(users)
+
+		rows[i].ExtResource, _ = extResource[projIds[i]]
+		rows[i].ExtResourcesLastUpdate, _ = extLastUpdate[projIds[i]]
+		if len(rows[i].ExtResource) == 0 {
+			if rows[i].ExtResourcesLastUpdate.IsZero() {
+				rows[i].ExtResourcesLastUpdate = time.Now()
+			}
+			nextUpdate := rows[i].ExtResourcesLastUpdate.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second)
+			rows[i].ExtResourcesNextUpdate = nextUpdate
+		}
+
 	}
 
 	return rows
-}
-
-func projectExtra(proj *SProject, out api.ProjectDetails) api.ProjectDetails {
-	out.GroupCount, _ = proj.GetGroupCount()
-	out.UserCount, _ = proj.GetUserCount()
-	external, update, _ := proj.getExternalResources()
-	if len(external) > 0 {
-		out.ExtResource = jsonutils.Marshal(external)
-		out.ExtResourcesLastUpdate = update
-		if update.IsZero() {
-			update = time.Now()
-		}
-		nextUpdate := update.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second)
-		out.ExtResourcesNextUpdate = nextUpdate
-	}
-	return out
-}
-
-func (proj *SProject) getExternalResources() (map[string]int, time.Time, error) {
-	return ScopeResourceManager.getScopeResource("", proj.Id, "")
 }
 
 func NormalizeProjectName(name string) string {

@@ -666,7 +666,7 @@ func userExtra(ctx context.Context, userCred mcclient.TokenCredential, user *SUs
 
 	external, update, _ := user.getExternalResources()
 	if len(external) > 0 {
-		out.ExtResource = jsonutils.Marshal(external)
+		out.ExtResource = external
 		out.ExtResourcesLastUpdate = update
 		if update.IsZero() {
 			update = time.Now()
