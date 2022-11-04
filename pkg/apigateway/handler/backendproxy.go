@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"yunion.io/x/log"
 
@@ -84,7 +85,25 @@ func (h *SBackendServiceProxyHandler) requestManipulator(ctx context.Context, r 
 }
 
 func (h *SBackendServiceProxyHandler) Bind(app *appsrv.Application) {
-	app.AddReverseProxyHandler(h.prefix, h.fetchReverseEndpoint(), h.requestManipulator)
+	app.AddReverseProxyHandlerWithCallbackConfig(
+		h.prefix, h.fetchReverseEndpoint(), h.requestManipulator,
+		func(method string, hi *appsrv.SHandlerInfo) *appsrv.SHandlerInfo {
+			if method == "OPTIONS" {
+				return nil
+			}
+			if method == "GET" || method == "PUT" || method == "POST" {
+				hi.SetProcessTimeout(6 * time.Hour)
+			}
+			var worker *appsrv.SWorkerManager
+			if method == "GET" || method == "HEAD" {
+				worker = appsrv.NewWorkerManager("apigateway-backend-api-read", 8, appsrv.DEFAULT_BACKLOG, false)
+			} else {
+				worker = appsrv.NewWorkerManager("apigateway-backend-api-write", 4, appsrv.DEFAULT_BACKLOG, false)
+			}
+			hi.SetWorkerManager(worker)
+			return hi
+		},
+	)
 }
 
 func (h *SBackendServiceProxyHandler) fetchReverseEndpoint() *proxy.SEndpointFactory {
