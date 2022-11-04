@@ -1506,9 +1506,6 @@ func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
 		return errors.Wrap(err, "delTmpDisks")
 	}
-	if err := s.delFlatFiles(ctx); err != nil {
-		return errors.Wrap(err, "delFlatFiles")
-	}
 	output, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Output()
 	if err != nil {
 		return errors.Wrapf(err, "rm %s failed: %s", s.HomeDir(), output)
