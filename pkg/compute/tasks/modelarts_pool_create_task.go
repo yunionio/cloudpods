@@ -69,7 +69,10 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 		self.taskFailed(ctx, pool, errors.Wrapf(err, "db.SetExternalId"))
 		return
 	}
-	err = cloudprovider.WaitStatusWithDelay(ipool, api.MODELARTS_POOL_STATUS_RUNNING, 30*time.Second, 15*time.Second, 30*time.Minute)
+
+	// withDelay
+	time.Sleep(30 * time.Second)
+	err = cloudprovider.WaitMultiStatus(ipool, []string{api.MODELARTS_POOL_STATUS_RUNNING, api.MODELARTS_POOL_STATUS_CREATE_FAILED}, 15*time.Second, 2*time.Hour)
 	if err != nil {
 		self.taskFailed(ctx, pool, errors.Wrapf(err, "db.WaitStatusWithDelay"))
 		return
