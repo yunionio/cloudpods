@@ -40,6 +40,7 @@ func init() {
 
 func (self *ModelartsPoolCreateTask) taskFailed(ctx context.Context, pool *models.SModelartsPool, err error) {
 	pool.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_CREATE_FAILED, err.Error())
+	db.OpsLog.LogEvent(pool, db.ACT_ALLOCATE, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, pool, logclient.ACT_ALLOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
@@ -74,7 +75,10 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 	time.Sleep(30 * time.Second)
 	err = cloudprovider.WaitMultiStatus(ipool, []string{api.MODELARTS_POOL_STATUS_RUNNING, api.MODELARTS_POOL_STATUS_CREATE_FAILED}, 15*time.Second, 2*time.Hour)
 	if err != nil {
-		self.taskFailed(ctx, pool, errors.Wrapf(err, "db.WaitStatusWithDelay"))
+		pool.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_TIMEOUT, err.Error())
+		db.OpsLog.LogEvent(pool, db.ACT_ALLOCATE, err, self.UserCred)
+		logclient.AddActionLogWithStartable(self, pool, logclient.ACT_ALLOCATE, err, self.UserCred, false)
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 	pool.SetStatus(self.GetUserCred(), api.MODELARTS_POOL_STATUS_RUNNING, "")
