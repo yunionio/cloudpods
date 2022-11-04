@@ -27,6 +27,6 @@ func (o *MonitorResourceJointAlertOptions) Params() (jsonutils.JSONObject, error
 	return options.ListStructToParams(o)
 }
 
-func (o *MonitorResourceJointAlertOptions) GetId() string {
+func (o *MonitorResourceJointAlertOptions) Property() string {
 	return "alert"
 }

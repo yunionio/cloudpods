@@ -190,13 +190,18 @@ type EvalMatch struct {
 type AlertTestRunOutput struct {
 	apis.Meta
 
-	Firing         bool              `json:"firing"`
-	EvalMatches    []*EvalMatch      `json:"eval_matches"`
-	Logs           []*ResultLogEntry `json:"logs"`
-	Error          error             `json:"error"`
-	ConditionEvals string            `json:"condition_evals"`
-	StartTime      time.Time         `json:"start_time"`
-	EndTime        time.Time         `json:"end_time"`
+	Firing             bool              `json:"firing"`
+	IsTestRun          bool              `json:"is_test_run"`
+	IsDebug            bool              `json:"is_debug"`
+	EvalMatches        []*EvalMatch      `json:"eval_matches"`
+	AlertOKEvalMatches []*EvalMatch      `json:"alert_ok_eval_matches"`
+	Logs               []*ResultLogEntry `json:"logs"`
+	Error              error             `json:"error"`
+	ConditionEvals     string            `json:"condition_evals"`
+	StartTime          time.Time         `json:"start_time"`
+	EndTime            time.Time         `json:"end_time"`
+	NoDataFound        bool              `json:"no_data_found"`
+	PrevAlertState     string            `json:"prev_alert_state"`
 }
 
 type AlertPauseInput struct {
