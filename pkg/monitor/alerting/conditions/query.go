@@ -566,7 +566,8 @@ func (c *QueryCondition) getOnecloudResources() ([]jsonutils.JSONObject, error) 
 	switch c.ResType {
 	case monitor.METRIC_RES_TYPE_HOST:
 		query := jsonutils.NewDict()
-		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
+		query.Set("host_type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
+		query.Set("enabled", jsonutils.NewInt(1))
 		allResources, err = ListAllResources(&mc_mds.Hosts, query)
 	case monitor.METRIC_RES_TYPE_GUEST:
 		allResources, err = ListAllResources(&mc_mds.Servers, query)

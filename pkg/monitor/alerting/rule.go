@@ -254,13 +254,18 @@ func (_ AlertRuleTester) DoTest(ruleDef *models.SAlert, userCred mcclient.TokenC
 
 func (ctx *EvalContext) ToTestRunResult() *monitor.AlertTestRunOutput {
 	return &monitor.AlertTestRunOutput{
-		Firing:         ctx.Firing,
-		EvalMatches:    ctx.EvalMatches,
-		Logs:           ctx.Logs,
-		Error:          ctx.Error,
-		ConditionEvals: ctx.ConditionEvals,
-		StartTime:      ctx.StartTime,
-		EndTime:        ctx.EndTime,
+		Firing:             ctx.Firing,
+		IsTestRun:          ctx.IsTestRun,
+		IsDebug:            ctx.IsDebug,
+		EvalMatches:        ctx.EvalMatches,
+		AlertOKEvalMatches: ctx.AlertOkEvalMatches,
+		Logs:               ctx.Logs,
+		Error:              ctx.Error,
+		ConditionEvals:     ctx.ConditionEvals,
+		StartTime:          ctx.StartTime,
+		EndTime:            ctx.EndTime,
+		NoDataFound:        ctx.NoDataFound,
+		PrevAlertState:     string(ctx.PrevAlertState),
 	}
 }
 
