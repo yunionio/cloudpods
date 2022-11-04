@@ -29,6 +29,7 @@ const (
 	MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED = "change_config_failed"
 	MODELARTS_POOL_STATUS_ERROR                = "error"
 	MODELARTS_POOL_STATUS_UNKNOWN              = "unknown"
+	MODELARTS_POOL_STATUS_TIMEOUT              = "timeout"
 )
 
 type ModelartsPoolCreateInput struct {
