@@ -337,6 +337,14 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*ty
 			return errors.Wrapf(err, "write %s fail", dockerDaemonConfPath)
 		}
 	}
+	// deploy ssh host key
+	{
+		err := rootFs.GenerateSshHostKeys()
+		if err != nil {
+			// ignore error
+			log.Errorf("rootFs.GenerateSshHostKeys fail %s", err)
+		}
+	}
 	return nil
 }
 

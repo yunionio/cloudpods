@@ -610,3 +610,9 @@ func MountSSHRootfs(tool *disktool.SSHPartitionTool, term *ssh.Client, layouts [
 	}
 	return nil, nil, fmt.Errorf("Fail to find rootfs")
 }
+
+func (p *SSHPartition) GenerateSshHostKeys() error {
+	cmd := fmt.Sprintf("/usr/sbin/chroot %s /usr/bin/ssh-keygen -A", p.mountPath)
+	_, err := p.term.Run(cmd)
+	return errors.Wrap(err, "GenerateSshHostKeys")
+}
