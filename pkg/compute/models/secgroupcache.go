@@ -183,6 +183,11 @@ func (self *SSecurityGroupCache) GetIRegion(ctx context.Context) (cloudprovider.
 	return provider.GetIRegionById(region.ExternalId)
 }
 
+func (sgc *SSecurityGroupCache) IsSupportPeerSecgroup() bool {
+	driver := GetRegionDriver(sgc.GetProviderName())
+	return driver.IsSupportPeerSecgroup()
+}
+
 func (manager *SSecurityGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := SecurityGroupManager.Query("id")
@@ -770,7 +775,7 @@ func (self *SSecurityGroupCache) CreateISecurityGroup(ctx context.Context) (clou
 	return iSecgroup, nil
 }
 
-func (self *SSecurityGroupCache) GetSecuritRuleSet(ctx context.Context) (cloudprovider.SecurityRuleSet, []SSecurityGroupCache, error) {
+func (self *SSecurityGroupCache) getSecurityRuleSet(ctx context.Context) (cloudprovider.SecurityRuleSet, []SSecurityGroupCache, error) {
 	secgroup, err := self.GetSecgroup()
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "GetSecgroup")
@@ -807,7 +812,7 @@ func (self *SSecurityGroupCache) convertRules(ctx context.Context, rules []SSecu
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "toRule")
 		}
-		peerId := ""
+		peerExtId := ""
 		if len(rules[i].PeerSecgroupId) > 0 {
 			_peerSecgroup, err := SecurityGroupManager.FetchById(rules[i].PeerSecgroupId)
 			if err != nil {
@@ -821,13 +826,13 @@ func (self *SSecurityGroupCache) convertRules(ctx context.Context, rules []SSecu
 
 			for _, cache := range peerCaches {
 				if cache.ManagerId == self.ManagerId && cache.VpcId == self.VpcId && len(cache.ExternalId) > 0 && (!driver.IsPeerSecgroupWithSameProject() || cache.ExternalProjectId == self.ExternalProjectId) {
-					peerId = cache.ExternalId
+					peerExtId = cache.ExternalId
 					break
 				}
 			}
 
-			if len(peerId) == 0 {
-				cache, err := SecurityGroupCacheManager.newCache(context.TODO(), peerSecgroup.Id, peerSecgroup.Name, self.VpcId, self.CloudregionId, self.ManagerId, self.ExternalProjectId)
+			if len(peerExtId) == 0 {
+				cache, err := SecurityGroupCacheManager.newCache(ctx, peerSecgroup.Id, peerSecgroup.Name, self.VpcId, self.CloudregionId, self.ManagerId, self.ExternalProjectId)
 				if err != nil {
 					return nil, nil, errors.Wrapf(err, "SecurityGroupCacheManager.newCache")
 				}
@@ -835,11 +840,15 @@ func (self *SSecurityGroupCache) convertRules(ctx context.Context, rules []SSecu
 				if err != nil {
 					return nil, nil, errors.Wrapf(err, "cache.CreateISecurityGroup")
 				}
-				peerId = iSecgroup.GetGlobalId()
+				peerExtId = iSecgroup.GetGlobalId()
 				caches = append(caches, *cache)
 			}
 		}
-		ruleSet = append(ruleSet, cloudprovider.SecurityRule{SecurityRule: *rule, ExternalId: rules[i].Id, PeerSecgroupId: peerId})
+		ruleSet = append(ruleSet, cloudprovider.SecurityRule{
+			SecurityRule:   *rule,
+			ExternalId:     rules[i].Id,
+			PeerSecgroupId: peerExtId,
+		})
 	}
 	return ruleSet, caches, nil
 }
@@ -862,9 +871,9 @@ func (self *SSecurityGroupCache) SyncRules(ctx context.Context, skipSyncRule boo
 		return errors.Wrapf(err, "iSecgroup.GetRules")
 	}
 
-	localRules, caches, err := self.GetSecuritRuleSet(ctx)
+	localRules, caches, err := self.getSecurityRuleSet(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "GetSecuritRuleSet")
+		return errors.Wrapf(err, "getSecurityRuleSet")
 	}
 
 	src := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))

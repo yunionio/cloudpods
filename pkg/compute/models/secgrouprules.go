@@ -335,6 +335,17 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 		if input.PeerSecgroupId == self.Id {
 			return input, httperrors.NewInputParameterError("peer_secgroup_id can not point to secgroup self")
 		}
+		// verify whether cache support peer secgroup
+		sg := self.GetSecGroup()
+		caches, err := sg.GetSecurityGroupCaches()
+		if err != nil {
+			return input, errors.Wrap(err, "sg.GetSecurityGroupCaches")
+		}
+		for _, c := range caches {
+			if !c.IsSupportPeerSecgroup() {
+				return input, errors.Wrapf(httperrors.ErrConflict, "the security group has been assigned to a provider not support peer security group")
+			}
+		}
 	}
 
 	err := input.Check()
