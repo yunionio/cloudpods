@@ -811,7 +811,7 @@ func (self *SKVMGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred
 }
 
 func (self *SKVMGuestDriver) ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInput) error {
-	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_DISK_CHANGE_STORAGE}) {
 		return httperrors.NewBadRequestError("Cannot change disk storage in status %s", guest.Status)
 	}
 

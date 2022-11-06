@@ -1527,8 +1527,28 @@ func (manager *SStorageManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
+	if len(query.ServerId) > 0 {
+		guest, err := GuestManager.FetchByIdOrName(userCred, query.ServerId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", GuestManager.Keyword(), query.ServerId)
+			} else {
+				return nil, errors.Wrapf(err, "GuestManager.FetchByIdOrName %s", query.ServerId)
+			}
+		}
+		query.HostId = guest.(*SGuest).HostId
+	}
+
 	if len(query.HostId) > 0 {
-		sq := HoststorageManager.Query("storage_id").Equals("host_id", query.HostId)
+		host, err := HostManager.FetchByIdOrName(userCred, query.HostId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", HostManager.Keyword(), query.HostId)
+			} else {
+				return nil, errors.Wrapf(err, "HostManager.FetchByIdOrName %s", query.HostId)
+			}
+		}
+		sq := HoststorageManager.Query("storage_id").Equals("host_id", host.GetId())
 		q = q.In("id", sq.SubQuery())
 	}
 
