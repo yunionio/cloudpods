@@ -3092,6 +3092,10 @@ func (self *SGuest) SetStatus(userCred mcclient.TokenCredential, status, reason 
 		if err := self.SetPowerStates(api.VM_POWER_STATES_ON); err != nil {
 			return err
 		}
+	} else if status == api.VM_READY {
+		if err := self.SetPowerStates(api.VM_POWER_STATES_OFF); err != nil {
+			return err
+		}
 	}
 
 	return self.SVirtualResourceBase.SetStatus(userCred, status, reason)
