@@ -33,18 +33,18 @@ type BaseManager struct {
 	serviceType  string
 	endpointType string
 	version      string
-	apiVersion   string
+	// apiVersion   string
 
 	columns      []string
 	adminColumns []string
 }
 
-func NewBaseManager(serviceType, endpointType, version string, columns, adminColumns []string, apiVersion string) *BaseManager {
+func NewBaseManager(serviceType, endpointType, version string, columns, adminColumns []string) *BaseManager {
 	return &BaseManager{
 		serviceType:  serviceType,
 		endpointType: endpointType,
 		version:      version,
-		apiVersion:   apiVersion,
+		// apiVersion:   apiVersion,
 		columns:      columns,
 		adminColumns: adminColumns,
 	}
@@ -62,9 +62,9 @@ func (this *BaseManager) SetVersion(v string) {
 	this.version = v
 }
 
-func (this *BaseManager) GetApiVersion() string {
+/*func (this *BaseManager) GetApiVersion() string {
 	return this.apiVersion
-}
+}*/
 
 func (this *BaseManager) versionedURL(path string) string {
 	offset := 0
@@ -85,7 +85,7 @@ func (this *BaseManager) jsonRequest(session *mcclient.ClientSession,
 	header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	hdr, resp, err := session.JSONVersionRequest(this.serviceType, this.endpointType,
 		method, this.versionedURL(path),
-		header, body, this.GetApiVersion())
+		header, body)
 	if err != nil {
 		if e, ok := err.(*httputils.JSONClientError); ok {
 			switch e.Class {
@@ -109,7 +109,7 @@ func (this *BaseManager) rawRequest(session *mcclient.ClientSession,
 	header http.Header, body io.Reader) (*http.Response, error) {
 	return session.RawVersionRequest(this.serviceType, this.endpointType,
 		method, this.versionedURL(path),
-		header, body, this.GetApiVersion())
+		header, body)
 }
 
 func (this *BaseManager) rawBaseUrlRequest(s *mcclient.ClientSession,
@@ -123,7 +123,7 @@ func (this *BaseManager) rawBaseUrlRequest(s *mcclient.ClientSession,
 	return s.RawBaseUrlRequest(
 		this.serviceType, this.endpointType,
 		method, this.versionedURL(path),
-		header, body, this.GetApiVersion(), baseUrlF)
+		header, body, baseUrlF)
 }
 
 type ListResult struct {

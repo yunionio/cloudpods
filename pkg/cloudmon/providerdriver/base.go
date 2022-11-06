@@ -81,12 +81,16 @@ func (self *SBaseCollectDriver) CollectStorageMetrics(ctx context.Context, manag
 		}
 		metrics = append(metrics, metric)
 	}
+	return self.sendMetrics(ctx, manager, "storage", len(res), metrics)
+}
+
+func (self *SBaseCollectDriver) sendMetrics(ctx context.Context, manager api.CloudproviderDetails, resName string, resCnt int, metrics []influxdb.SMetricData) error {
 	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
+	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType)
 	if err != nil {
 		return errors.Wrap(err, "GetServiceURLs")
 	}
-	log.Infof("send %d storage with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
+	log.Infof("send %d %s with %d metrics for %s(%s)", resCnt, resName, len(metrics), manager.Name, manager.Id)
 	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
 }
 
@@ -179,13 +183,7 @@ func (self *SCollectByResourceIdDriver) CollectDBInstanceMetrics(ctx context.Con
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d rds with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "rds", len(res), metrics)
 }
 
 func (self *SCollectByResourceIdDriver) CollectServerMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ServerDetails, start, end time.Time) error {
@@ -264,13 +262,7 @@ func (self *SCollectByResourceIdDriver) CollectServerMetrics(ctx context.Context
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d server with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "server", len(res), metrics)
 }
 
 func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.HostDetails, start, end time.Time) error {
@@ -347,13 +339,7 @@ func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, 
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d host with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "host", len(res), metrics)
 }
 
 func (self *SCollectByResourceIdDriver) CollectRedisMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ElasticcacheDetails, start, end time.Time) error {
@@ -430,13 +416,7 @@ func (self *SCollectByResourceIdDriver) CollectRedisMetrics(ctx context.Context,
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d redis with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "redis", len(res), metrics)
 }
 
 func (self *SCollectByResourceIdDriver) CollectBucketMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.BucketDetails, start, end time.Time) error {
@@ -512,20 +492,13 @@ func (self *SCollectByResourceIdDriver) CollectBucketMetrics(ctx context.Context
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d bucket with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "bucket", len(res), metrics)
 }
 
 func (self *SCollectByResourceIdDriver) CollectK8sMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.KubeClusterDetails, start, end time.Time) error {
 	ch := make(chan struct{}, options.Options.CloudResourceCollectMetricsBatchCount)
 	defer close(ch)
 	metrics := []influxdb.SMetricData{}
-	s := auth.GetAdminSession(ctx, options.Options.Region)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for i := range res {
@@ -599,12 +572,7 @@ func (self *SCollectByResourceIdDriver) CollectK8sMetrics(ctx context.Context, m
 	}
 	wg.Wait()
 
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d k8s with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "k8s", len(res), metrics)
 }
 
 type SCollectByMetricTypeDriver struct {
@@ -675,13 +643,7 @@ func (self *SCollectByMetricTypeDriver) CollectDBInstanceMetrics(ctx context.Con
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d rds with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "rds", len(res), metrics)
 }
 
 func (self *SCollectByMetricTypeDriver) CollectServerMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ServerDetails, start, end time.Time) error {
@@ -759,13 +721,7 @@ func (self *SCollectByMetricTypeDriver) CollectServerMetrics(ctx context.Context
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d server with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "server", len(res), metrics)
 }
 
 func (self *SCollectByMetricTypeDriver) CollectHostMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.HostDetails, start, end time.Time) error {
@@ -842,13 +798,7 @@ func (self *SCollectByMetricTypeDriver) CollectHostMetrics(ctx context.Context, 
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d host with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "host", len(res), metrics)
 }
 
 func (self *SCollectByMetricTypeDriver) CollectRedisMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ElasticcacheDetails, start, end time.Time) error {
@@ -924,13 +874,7 @@ func (self *SCollectByMetricTypeDriver) CollectRedisMetrics(ctx context.Context,
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d redis with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "redis", len(res), metrics)
 }
 
 func (self *SCollectByMetricTypeDriver) CollectBucketMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.BucketDetails, start, end time.Time) error {
@@ -1006,13 +950,7 @@ func (self *SCollectByMetricTypeDriver) CollectBucketMetrics(ctx context.Context
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d bucket with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "bucket", len(res), metrics)
 }
 
 func (self *SCollectByMetricTypeDriver) CollectK8sMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.KubeClusterDetails, start, end time.Time) error {
@@ -1080,11 +1018,5 @@ func (self *SCollectByMetricTypeDriver) CollectK8sMetrics(ctx context.Context, m
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d k8s with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "k8s", len(res), metrics)
 }

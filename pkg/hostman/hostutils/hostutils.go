@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
@@ -62,15 +63,15 @@ type IHost interface {
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {
-	return auth.GetAdminSession(ctx, options.HostOptions.Region)
+	return auth.GetAdminSession(ctx, consts.GetRegion())
 }
 
 func GetK8sSession(ctx context.Context) *mcclient.ClientSession {
-	return auth.GetAdminSession(ctx, options.HostOptions.Region)
+	return auth.GetAdminSession(ctx, consts.GetRegion())
 }
 
-func GetImageSession(ctx context.Context, zone string) *mcclient.ClientSession {
-	return auth.AdminSession(ctx, options.HostOptions.Region, zone, "")
+func GetImageSession(ctx context.Context) *mcclient.ClientSession {
+	return auth.AdminSession(ctx, consts.GetRegion(), consts.GetZone(), "")
 }
 
 func TaskFailed(ctx context.Context, reason string) {

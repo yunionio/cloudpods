@@ -30,8 +30,8 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/multicloud/openstack/oscli"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
@@ -101,7 +101,7 @@ func (cfg *OpenstackClientConfig) Debug(debug bool) *OpenstackClientConfig {
 type SOpenStackClient struct {
 	*OpenstackClientConfig
 
-	tokenCredential mcclient.TokenCredential
+	tokenCredential oscli.TokenCredential
 	iregions        []cloudprovider.ICloudRegion
 
 	defaultRegionName string
@@ -124,7 +124,7 @@ func (cli *SOpenStackClient) getDefaultRegionName() string {
 	return cli.defaultRegionName
 }
 
-func (cli *SOpenStackClient) getProjectToken(projectId, projectName string) (mcclient.TokenCredential, error) {
+func (cli *SOpenStackClient) getProjectToken(projectId, projectName string) (oscli.TokenCredential, error) {
 	client := cli.getDefaultClient()
 	tokenCredential, err := client.Authenticate(cli.username, cli.password, cli.domainName, projectName, cli.projectDomain)
 	if err != nil {
@@ -210,7 +210,7 @@ func (v *sApiVersions) GetMaxVersion() string {
 	return maxVersion
 }
 
-func (cli *SOpenStackClient) getApiVerion(token mcclient.TokenCredential, url string, debug bool) (string, error) {
+func (cli *SOpenStackClient) getApiVerion(token oscli.TokenCredential, url string, debug bool) (string, error) {
 	client := httputils.NewJsonClient(cli.getDefaultClient().HttpClient())
 	req := httputils.NewJsonRequest(httputils.THttpMethod("GET"), strings.TrimSuffix(url, token.GetTenantId()), nil)
 	header := http.Header{}
@@ -236,7 +236,7 @@ func (cli *SOpenStackClient) GetMaxVersion(region, service string) (string, erro
 	return cli.getApiVerion(cli.tokenCredential, serviceUrl, cli.debug)
 }
 
-func (cli *SOpenStackClient) jsonReuest(token mcclient.TokenCredential, service, region, endpointType string, method httputils.THttpMethod, resource string, query url.Values, body interface{}, debug bool) (jsonutils.JSONObject, error) {
+func (cli *SOpenStackClient) jsonReuest(token oscli.TokenCredential, service, region, endpointType string, method httputils.THttpMethod, resource string, query url.Values, body interface{}, debug bool) (jsonutils.JSONObject, error) {
 	serviceUrl, err := token.GetServiceURL(service, region, "", endpointType)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetServiceURL(%s, %s, %s)", service, region, endpointType)
@@ -412,7 +412,7 @@ func (cli *SOpenStackClient) checkEndpointType() error {
 	return errors.Errorf("failed to find right endpoint type for compute service")
 }
 
-func (cli *SOpenStackClient) getDefaultSession(regionName string) *mcclient.ClientSession {
+func (cli *SOpenStackClient) getDefaultSession(regionName string) *oscli.ClientSession {
 	if len(regionName) == 0 {
 		regionName = cli.getDefaultRegionName()
 	}
@@ -420,8 +420,8 @@ func (cli *SOpenStackClient) getDefaultSession(regionName string) *mcclient.Clie
 	return client.NewSession(context.Background(), regionName, "", cli.endpointType, cli.tokenCredential)
 }
 
-func (cli *SOpenStackClient) getDefaultClient() *mcclient.Client {
-	client := mcclient.NewClient(cli.authURL, 5, cli.debug, false, "", "")
+func (cli *SOpenStackClient) getDefaultClient() *oscli.Client {
+	client := oscli.NewClient(cli.authURL, 5, cli.debug, false, "", "")
 	client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
 	_client := client.GetClient()
 	ts, _ := _client.Transport.(*http.Transport)
@@ -442,7 +442,7 @@ func (cli *SOpenStackClient) getDefaultClient() *mcclient.Client {
 	return client
 }
 
-func (cli *SOpenStackClient) getDefaultToken() (mcclient.TokenCredential, error) {
+func (cli *SOpenStackClient) getDefaultToken() (oscli.TokenCredential, error) {
 	client := cli.getDefaultClient()
 	token, err := client.Authenticate(cli.username, cli.password, cli.domainName, cli.project, cli.projectDomain)
 	if err != nil {
@@ -456,7 +456,7 @@ func (cli *SOpenStackClient) getDefaultToken() (mcclient.TokenCredential, error)
 	return token, nil
 }
 
-func (cli *SOpenStackClient) getProjectTokenCredential(projectId string) (mcclient.TokenCredential, error) {
+func (cli *SOpenStackClient) getProjectTokenCredential(projectId string) (oscli.TokenCredential, error) {
 	project, err := cli.GetProject(projectId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetProject(%s)", projectId)

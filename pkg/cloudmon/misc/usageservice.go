@@ -90,7 +90,7 @@ func UsegReport(ctx context.Context, userCred mcclient.TokenCredential, isStart 
 		}
 		dataList = append(dataList, data...)
 		//写入influDb
-		urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
+		urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType)
 		if err != nil {
 			return errors.Wrap(err, "GetServiceURLs")
 		}

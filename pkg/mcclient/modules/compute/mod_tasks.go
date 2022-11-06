@@ -86,13 +86,13 @@ func (self *TasksManager) getManager(session *mcclient.ClientSession, params jso
 		version = "v1"
 	}
 
-	_, err := session.GetServiceURL(serviceType, "", "")
+	_, err := session.GetServiceURL(serviceType, "")
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("service %s not found error: %v", serviceType, err)
 	}
 
 	return &modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(serviceType, "", version, []string{}, []string{}, ""),
+		BaseManager: *modulebase.NewBaseManager(serviceType, "", version, []string{}, []string{}),
 		Keyword:     "task", KeywordPlural: "tasks",
 	}, nil
 }

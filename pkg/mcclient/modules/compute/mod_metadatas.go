@@ -92,13 +92,13 @@ func (this *MetadataManager) getModule(session *mcclient.ClientSession, params j
 		}
 	}
 
-	_, err := session.GetServiceURL(service, "", "")
+	_, err := session.GetServiceURL(service, "")
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("service %s not found error: %v", service, err)
 	}
 
 	return &modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(service, "", "", []string{}, []string{}, ""),
+		BaseManager: *modulebase.NewBaseManager(service, "", "", []string{}, []string{}),
 		Keyword:     "metadata", KeywordPlural: "metadatas",
 	}, nil
 }
