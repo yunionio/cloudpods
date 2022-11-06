@@ -55,6 +55,8 @@ type IDiskPartition interface {
 	IsReadonly() bool
 	GetPhysicalPartitionType() string
 	Zerofree()
+
+	GenerateSshHostKeys() error
 }
 
 type IRootFsDriver interface {
