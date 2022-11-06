@@ -310,3 +310,13 @@ func (f *SLocalGuestFS) FilePutContents(sPath, content string, modAppend, caseIn
 		return fmt.Errorf("Cann't put content")
 	}
 }
+
+func (f *SLocalGuestFS) GenerateSshHostKeys() error {
+	cmd := []string{"chroot", f.mountPath, "ssh-keygen", "-A"}
+	output, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
+	if err != nil {
+		log.Errorf("ssh-keygen host keys fail: %s, %s", err, output)
+		return fmt.Errorf("%s", output)
+	}
+	return nil
+}
