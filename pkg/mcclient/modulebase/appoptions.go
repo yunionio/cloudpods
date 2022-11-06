@@ -22,7 +22,7 @@ import (
 )
 
 func GetAppOptions(s *mcclient.ClientSession, serviceType string) (jsonutils.JSONObject, error) {
-	man := NewBaseManager(serviceType, "", "", nil, nil, "")
+	man := NewBaseManager(serviceType, "", "", nil, nil)
 	_, resp, err := man.jsonRequest(s, "GET", "/app-options", nil, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "rawBaseUrlRequest")

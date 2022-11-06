@@ -485,7 +485,7 @@ func (self *SBaseGuestDriver) RequestQgaCommand(ctx context.Context, userCred mc
 
 func (self *SBaseGuestDriver) FetchMonitorUrl(ctx context.Context, guest *models.SGuest) string {
 	s := auth.GetAdminSessionWithPublic(ctx, consts.GetRegion())
-	influxdbUrl, err := s.GetServiceURL(apis.SERVICE_TYPE_INFLUXDB, options.Options.MonitorEndpointType, "")
+	influxdbUrl, err := s.GetServiceURL(apis.SERVICE_TYPE_INFLUXDB, options.Options.MonitorEndpointType)
 	if err != nil {
 		log.Errorf("FetchMonitorUrl fail %s", err)
 	}

@@ -310,10 +310,9 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred m
 		if !token.HasSystemAdminPrivilege() {
 			return nil, httperrors.NewBadRequestError("user must have system admin privileges")
 		}
-		authURL, err = token.GetServiceURL(
+		s := cli.NewSession(ctx, options.Options.Region, "", identity_apis.EndpointInterfacePublic, token)
+		authURL, err = s.GetServiceURL(
 			identity_apis.SERVICE_TYPE,
-			options.Options.Region,
-			"",
 			identity_apis.EndpointInterfacePublic)
 		if err != nil {
 			return nil, httperrors.NewClientError("get %s service %s url: %v",

@@ -58,7 +58,7 @@ func init() {
 			svcUrl string
 		)
 		if len(opts.Service) > 0 {
-			svcUrl, err = s.GetServiceURL(opts.Service, "", "")
+			svcUrl, err = s.GetServiceURL(opts.Service, "")
 			if err != nil {
 				return errors.Wrapf(err, "get service %s url", opts.Service)
 			}

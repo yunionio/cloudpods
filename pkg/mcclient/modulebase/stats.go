@@ -25,7 +25,7 @@ import (
 
 // path: stats, db_stats, worker_stats
 func GetStats(s *mcclient.ClientSession, path string, serviceType string) (jsonutils.JSONObject, error) {
-	man := NewBaseManager(serviceType, "", "", nil, nil, "")
+	man := NewBaseManager(serviceType, "", "", nil, nil)
 	resp, err := man.rawBaseUrlRequest(s, "GET", "/"+path, nil, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "man.rawBaseUrlRequest")

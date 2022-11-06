@@ -57,7 +57,7 @@ func RawRequest(manager ResourceManager, session *mcclient.ClientSession,
 	header http.Header, body io.Reader) (*http.Response, error) {
 	return session.RawVersionRequest(manager.serviceType, manager.endpointType,
 		method, manager.versionedURL(path),
-		header, body, manager.GetApiVersion())
+		header, body)
 }
 
 func JsonRequest(manager ResourceManager, session *mcclient.ClientSession,
@@ -65,5 +65,5 @@ func JsonRequest(manager ResourceManager, session *mcclient.ClientSession,
 	header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	return session.JSONVersionRequest(manager.serviceType, manager.endpointType,
 		method, manager.versionedURL(path),
-		header, body, manager.GetApiVersion())
+		header, body)
 }

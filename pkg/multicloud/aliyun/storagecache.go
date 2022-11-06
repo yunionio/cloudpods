@@ -317,19 +317,19 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	defer os.Remove(tmpImageFile.Name())
 	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
 	if bucket, err := self.region.checkBucket(bucketName); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "region.checkBucket")
 	} else if _, err := self.region.GetImage(extId); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "region.GetImage")
 	} else if task, err := self.region.ExportImage(extId, bucket); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "region.ExportImage")
 	} else if err := self.region.waitTaskStatus(ExportImageTask, task.TaskId, TaskStatusFinished, 15*time.Second, 3600*time.Second); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "region.waitTaskStatus")
 	} else if imageList, err := bucket.ListObjects(oss.Prefix(fmt.Sprintf("%sexport", strings.Replace(extId, "-", "", -1)))); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "bucket.ListObjects")
 	} else if len(imageList.Objects) != 1 {
 		return nil, fmt.Errorf("exported image not find")
 	} else if err := bucket.DownloadFile(imageList.Objects[0].Key, tmpImageFile.Name(), 12*1024*1024, oss.Routines(3), oss.Progress(&OssProgressListener{})); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "bucket.DownloadFile")
 	} else {
 		s := auth.GetAdminSession(context.Background(), options.Options.Region)
 		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})

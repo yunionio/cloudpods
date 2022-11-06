@@ -22,8 +22,8 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/multicloud/openstack/oscli"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -61,7 +61,7 @@ func (p *SProject) GetStatus() string {
 	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
 }
 
-func (p *SProject) getToken() (mcclient.TokenCredential, error) {
+func (p *SProject) getToken() (oscli.TokenCredential, error) {
 	return p.client.getProjectToken(p.Id, p.Name)
 }
 

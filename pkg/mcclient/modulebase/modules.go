@@ -28,7 +28,7 @@ import (
 
 type IBaseManager interface {
 	Version() string
-	GetApiVersion() string
+	// GetApiVersion() string
 	GetKeyword() string
 	KeyString() string
 	ServiceType() string
@@ -246,7 +246,7 @@ func _getModule(session *mcclient.ClientSession, name string) (IBaseManager, err
 	}
 
 	for _, mod := range mods {
-		url, e := session.GetServiceURL(mod.ServiceType(), mod.EndpointType(), mod.GetApiVersion())
+		url, e := session.GetServiceURL(mod.ServiceType(), mod.EndpointType())
 		if e != nil {
 			return nil, errors.Wrap(e, "session.GetServiceURL")
 		}
@@ -293,7 +293,7 @@ func GetJointModule2(session *mcclient.ClientSession, mod1 Manager, mod2 Manager
 		return nil, fmt.Errorf("No such joint module: %s", key)
 	}
 	for _, mod := range mods {
-		url, e := session.GetServiceVersionURL(mod.ServiceType(), mod.EndpointType(), mod.GetApiVersion())
+		url, e := session.GetServiceVersionURL(mod.ServiceType(), mod.EndpointType())
 		if e != nil {
 			return nil, e
 		}

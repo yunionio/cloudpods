@@ -221,17 +221,11 @@ func (a *authManager) reAuth() {
 }
 
 func (a *authManager) GetServiceURL(service, region, zone, endpointType string) (string, error) {
-	if endpointType == "" && globalEndpointType != "" {
-		endpointType = globalEndpointType
-	}
-	return a.adminCredential.GetServiceURL(service, region, zone, endpointType)
+	return a.getAdminSession(context.Background(), region, zone, endpointType).GetServiceURL(service, endpointType)
 }
 
 func (a *authManager) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	if endpointType == "" && globalEndpointType != "" {
-		endpointType = globalEndpointType
-	}
-	return a.adminCredential.GetServiceURLs(service, region, zone, endpointType)
+	return a.getAdminSession(context.Background(), region, zone, endpointType).GetServiceURLs(service, endpointType)
 }
 
 func (a *authManager) getServiceIPs(service, region, zone, endpointType string, needResolve bool) ([]string, error) {
@@ -275,6 +269,21 @@ func (a *authManager) isAuthed() bool {
 		return false
 	}
 	return true
+}
+
+func (a *authManager) getAdminSession(ctx context.Context, region, zone, endpointType string) *mcclient.ClientSession {
+	return a.getSession(ctx, manager.adminCredential, region, zone, endpointType)
+}
+
+func (a *authManager) getSession(ctx context.Context, token mcclient.TokenCredential, region, zone, endpointType string) *mcclient.ClientSession {
+	cli := Client()
+	if cli == nil {
+		return nil
+	}
+	if endpointType == "" && globalEndpointType != "" {
+		endpointType = globalEndpointType
+	}
+	return cli.NewSession(ctx, region, zone, endpointType, token)
 }
 
 func GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
@@ -327,24 +336,17 @@ func AdminCredential() mcclient.TokenCredential {
 
 // Deprecated
 func AdminSession(ctx context.Context, region, zone, endpointType string) *mcclient.ClientSession {
-	cli := Client()
-	if cli == nil {
-		return nil
-	}
-	if endpointType == "" && globalEndpointType != "" {
-		endpointType = globalEndpointType
-	}
-	return cli.NewSession(ctx, region, zone, endpointType, AdminCredential())
+	return manager.getAdminSession(ctx, region, zone, endpointType)
 }
 
 // Deprecated
 func AdminSessionWithInternal(ctx context.Context, region, zone string) *mcclient.ClientSession {
-	return AdminSession(ctx, region, zone, "internal")
+	return AdminSession(ctx, region, zone, identity.EndpointInterfaceInternal)
 }
 
 // Deprecated
 func AdminSessionWithPublic(ctx context.Context, region, zone string) *mcclient.ClientSession {
-	return AdminSession(ctx, region, zone, "public")
+	return AdminSession(ctx, region, zone, identity.EndpointInterfacePublic)
 }
 
 type AuthCompletedCallback func()
@@ -382,21 +384,17 @@ func GetAdminSessionWithInternal(ctx context.Context, region string) *mcclient.C
 
 func GetSession(ctx context.Context, token mcclient.TokenCredential, region string) *mcclient.ClientSession {
 	if len(globalEndpointType) != 0 {
-		return getSessionByType(ctx, token, region, globalEndpointType)
+		return manager.getSession(ctx, token, region, "", globalEndpointType)
 	}
 	return GetSessionWithInternal(ctx, token, region)
 }
 
 func GetSessionWithInternal(ctx context.Context, token mcclient.TokenCredential, region string) *mcclient.ClientSession {
-	return getSessionByType(ctx, token, region, identity.EndpointInterfaceInternal)
+	return manager.getSession(ctx, token, region, "", identity.EndpointInterfaceInternal)
 }
 
 func GetSessionWithPublic(ctx context.Context, token mcclient.TokenCredential, region string) *mcclient.ClientSession {
-	return getSessionByType(ctx, token, region, identity.EndpointInterfacePublic)
-}
-
-func getSessionByType(ctx context.Context, token mcclient.TokenCredential, region string, epType string) *mcclient.ClientSession {
-	return manager.client.NewSession(ctx, region, "", epType, token)
+	return manager.getSession(ctx, token, region, "", identity.EndpointInterfacePublic)
 }
 
 // use for climc test only

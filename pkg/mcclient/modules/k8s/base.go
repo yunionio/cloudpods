@@ -28,7 +28,7 @@ type ResourceManager struct {
 
 func NewResourceManager(keyword, keywordPlural string, columns, adminColumns *Columns) *ResourceManager {
 	man := &modulebase.ResourceManager{
-		BaseManager:   *modulebase.NewBaseManager("k8s", "", "", columns.Array(), adminColumns.Array(), ""),
+		BaseManager:   *modulebase.NewBaseManager("k8s", "", "", columns.Array(), adminColumns.Array()),
 		Keyword:       keyword,
 		KeywordPlural: keywordPlural,
 	}

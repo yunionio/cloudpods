@@ -20,7 +20,7 @@ import (
 
 func NewCloudProxyManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("cloudproxy", "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager("cloudproxy", "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 

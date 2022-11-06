@@ -1072,7 +1072,7 @@ func (b *SBaremetalInstance) getTftpFileUrl(filename string) string {
 
 func (b *SBaremetalInstance) GetImageUrl(disableImageCache bool) string {
 	if disableImageCache {
-		url, err := b.GetPublicClientSession().GetServiceURL(apis.SERVICE_TYPE_IMAGE, apiidenty.EndpointInterfacePublic, "")
+		url, err := b.GetPublicClientSession().GetServiceURL(apis.SERVICE_TYPE_IMAGE, apiidenty.EndpointInterfacePublic)
 		if err != nil {
 			log.Errorf("Get image public url: %v", err)
 			return ""

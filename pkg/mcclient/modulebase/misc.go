@@ -23,7 +23,7 @@ import (
 )
 
 func GetVersion(s *mcclient.ClientSession, serviceType string) (string, error) {
-	man := NewBaseManager(serviceType, "", "", nil, nil, "")
+	man := NewBaseManager(serviceType, "", "", nil, nil)
 	resp, err := man.rawBaseUrlRequest(s, "GET", "/version", nil, nil)
 	if err != nil {
 		return "", err
@@ -37,7 +37,7 @@ func GetVersion(s *mcclient.ClientSession, serviceType string) (string, error) {
 }
 
 func ListWorkers(s *mcclient.ClientSession, serviceType string) (*ListResult, error) {
-	man := NewBaseManager(serviceType, "", "", nil, nil, "")
+	man := NewBaseManager(serviceType, "", "", nil, nil)
 	resp, err := man.rawBaseUrlRequest(s, "GET", "/worker_stats", nil, nil)
 	if err != nil {
 		return nil, err
