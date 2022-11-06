@@ -21,5 +21,5 @@ import (
 
 func init() {
 	cmd := NewResourceCmd(modules.MonitorResourceManager)
-	cmd.Get("", new(options.MonitorResourceJointAlertOptions))
+	cmd.GetProperty(new(options.MonitorResourceJointAlertOptions))
 }
