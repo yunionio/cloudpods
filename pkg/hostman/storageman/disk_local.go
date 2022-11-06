@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -134,16 +135,14 @@ func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.
 		return nil, err
 	}
 	d.UmountFuseImage()
-
-	/* ????????????????
-	   files = os.listdir(self.storage.path)
-	   for f in files:
-	       if f.startswith(self.id):
-	           if not re.match(r'[a-z0-9\-]*\.\d{14}', f):
-	               path = os.path.join(self.storage.path, f)
-	               print 'delete backing-file:', path
-	               self.storage.delete_diskfile(path)
-	*/
+	if p.EsxiFlatFilePath != "" {
+		connections := &deployapi.EsxiDisksConnectionInfo{Disks: []*deployapi.EsxiDiskInfo{{DiskPath: p.EsxiFlatFilePath}}}
+		_, err := deployclient.GetDeployClient().DisconnectEsxiDisks(ctx, connections)
+		if err != nil {
+			log.Errorf("Disconnect %s esxi disks failed %s", p.EsxiFlatFilePath, err)
+			return nil, err
+		}
+	}
 
 	d.Storage.RemoveDisk(d)
 	return nil, nil

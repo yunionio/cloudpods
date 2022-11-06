@@ -280,8 +280,9 @@ func diskCreate(ctx context.Context, userCred mcclient.TokenCredential, storage 
 }
 
 func diskDelete(ctx context.Context, userCred mcclient.TokenCredential, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
+	flatPath, _ := body.GetString("esxi_flat_file_path")
 	if disk != nil {
-		hostutils.DelayTask(ctx, disk.Delete, compute.DiskDeleteInput{})
+		hostutils.DelayTask(ctx, disk.Delete, compute.DiskDeleteInput{EsxiFlatFilePath: flatPath})
 	} else {
 		hostutils.DelayTask(ctx, nil, nil)
 	}
