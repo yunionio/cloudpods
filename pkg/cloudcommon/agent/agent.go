@@ -26,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent/iagent"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -191,6 +192,7 @@ func (agent *SBaseAgent) fetchZone(session *mcclient.ClientSession) error {
 		return err
 	}
 	agent.Zone = &zone
+	consts.SetZone(zone.Name)
 	return nil
 }
 

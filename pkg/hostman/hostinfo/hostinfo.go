@@ -41,6 +41,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	napi "yunion.io/x/onecloud/pkg/apis/notify"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
@@ -58,6 +59,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
@@ -1158,6 +1160,7 @@ func (h *SHostInfo) getZoneInfo(zoneId string) {
 		h.onFail(fmt.Errorf("failed to found zone with id %s", zoneId))
 		return
 	}
+	consts.SetZone(zone.Name)
 
 	h.getHostInfo(h.ZoneId)
 }
@@ -2037,9 +2040,13 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	if len(defaultEndpointType) == 0 {
 		defaultEndpointType = identityapi.EndpointInterfacePublic
 	}
+	s := auth.AdminSession(context.Background(), options.HostOptions.Region, h.Zone, defaultEndpointType)
+	// replace session catalog
+	s.SetServiceCatalog(catalog)
+
 	if options.HostOptions.ManageNtpConfiguration {
 		ntpd := system_service.GetService("ntpd")
-		urls, _ := catalog.GetServiceURLs("ntp", options.HostOptions.Region, h.Zone, defaultEndpointType)
+		urls, _ := s.GetServiceURLs("ntp", defaultEndpointType)
 		if len(urls) > 0 {
 			log.Infof("Get Ntp urls: %v", urls)
 		} else {
@@ -2073,11 +2080,11 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE: hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST,
 	}
 	conf["nics"] = h.getNicsTelegrafConf()
-	urls, _ := catalog.GetServiceURLs("kafka", options.HostOptions.Region, "", defaultEndpointType)
+	urls, _ := s.GetServiceURLs("kafka", defaultEndpointType)
 	if len(urls) > 0 {
 		conf["kafka"] = map[string]interface{}{"brokers": urls, "topic": "telegraf"}
 	}
-	urls, _ = catalog.GetServiceURLs("influxdb", options.HostOptions.Region, "", defaultEndpointType)
+	urls, _ = s.GetServiceURLs("influxdb", defaultEndpointType)
 	if len(urls) > 0 {
 		conf["influxdb"] = map[string]interface{}{"url": urls, "database": "telegraf"}
 	}
@@ -2091,7 +2098,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		}
 	}
 
-	urls, _ = catalog.GetServiceURLs("elasticsearch",
+	/*urls, _ = catalog.GetServiceURLs("elasticsearch",
 		options.HostOptions.Region, "zone", defaultEndpointType)
 	if len(urls) > 0 {
 		conf["elasticsearch"] = map[string]interface{}{"url": urls[0]}
@@ -2100,7 +2107,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 			fluentbit.SetConf(conf)
 			fluentbit.BgReload(conf)
 		}
-	}
+	}*/
 }
 
 func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {

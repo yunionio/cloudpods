@@ -21,10 +21,11 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/cloudmux/pkg/multicloud/openstack/oscli"
 )
 
 type SProject struct {
@@ -61,7 +62,7 @@ func (p *SProject) GetStatus() string {
 	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
 }
 
-func (p *SProject) getToken() (mcclient.TokenCredential, error) {
+func (p *SProject) getToken() (oscli.TokenCredential, error) {
 	return p.client.getProjectToken(p.Id, p.Name)
 }
 

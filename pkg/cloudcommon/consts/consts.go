@@ -25,6 +25,8 @@ var (
 
 	globalRegion = ""
 
+	globalZone = ""
+
 	globalServiceType = ""
 
 	tenantCacheExpireSeconds = 900
@@ -51,6 +53,14 @@ func SetRegion(region string) {
 
 func GetRegion() string {
 	return globalRegion
+}
+
+func SetZone(zone string) {
+	globalZone = zone
+}
+
+func GetZone() string {
+	return globalZone
 }
 
 func SetDataResp(enable bool) {

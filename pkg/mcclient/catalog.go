@@ -16,8 +16,8 @@ package mcclient
 
 type IServiceCatalog interface {
 	Len() int
-	GetServiceURL(service, region, zone, endpointType string) (string, error)
-	GetServiceURLs(service, region, zone, endpointType string) ([]string, error)
+	getServiceURL(service, region, zone, endpointType string) (string, error)
+	getServiceURLs(service, region, zone, endpointType string) ([]string, error)
 	GetInternalServices(region string) []string
 	GetExternalServices(region string) []ExternalService
 	GetServicesByInterface(region string, infType string) []ExternalService
@@ -75,4 +75,12 @@ func (cli *Client) SetServiceCatalog(catalog IServiceCatalog) {
 
 func (this *Client) GetServiceCatalog() IServiceCatalog {
 	return this._serviceCatalog
+}
+
+func CatalogGetServiceURL(catalog IServiceCatalog, service, region, zone, endpointType string) (string, error) {
+	return catalog.getServiceURL(service, region, zone, endpointType)
+}
+
+func CatalogGetServiceURLs(catalog IServiceCatalog, service, region, zone, endpointType string) ([]string, error) {
+	return catalog.getServiceURLs(service, region, zone, endpointType)
 }

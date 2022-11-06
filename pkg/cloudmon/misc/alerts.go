@@ -101,7 +101,7 @@ func AlertHistoryReport(ctx context.Context, userCred mcclient.TokenCredential, 
 			}
 			metrics = append(metrics, metric)
 		}
-		urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
+		urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType)
 		if err != nil {
 			return errors.Wrap(err, "GetServiceURLs")
 		}

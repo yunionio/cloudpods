@@ -476,7 +476,7 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 	}
 	params.Set("image_id", jsonutils.NewString(imageId))
 
-	_, err = image.Images.Upload(hostutils.GetImageSession(ctx, s.GetZoneId()),
+	_, err = image.Images.Upload(hostutils.GetImageSession(ctx),
 		params, f, size)
 	return err
 }
@@ -486,7 +486,7 @@ func (s *SLocalStorage) onSaveToGlanceFailed(ctx context.Context, imageId string
 	params.Set("status", jsonutils.NewString("killed"))
 	params.Set("reason", jsonutils.NewString(reason))
 	_, err := image.Images.PerformAction(
-		hostutils.GetImageSession(ctx, ""),
+		hostutils.GetImageSession(ctx),
 		imageId, "update-status", params,
 	)
 	if err != nil {

@@ -43,7 +43,7 @@ type WebConsoleManager struct {
 }
 
 func NewWebConsoleManager() modulebase.ResourceManager {
-	return modulebase.ResourceManager{BaseManager: *modulebase.NewBaseManager("webconsole", "", "", nil, nil, ""),
+	return modulebase.ResourceManager{BaseManager: *modulebase.NewBaseManager("webconsole", "", "", nil, nil),
 		Keyword: "webconsole", KeywordPlural: "webconsole"}
 }
 
@@ -110,7 +110,7 @@ func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.J
 	req.Container = "climc"
 	req.Command = "/bin/bash"
 	endpointType := "internal"
-	authUrl, _ := s.GetServiceURL("identity", endpointType, "")
+	authUrl, _ := s.GetServiceURL("identity", endpointType)
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("auth_url not found")
 	}

@@ -29,7 +29,6 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -101,12 +100,12 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+func (self *SStoragecache) UploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	err := os.MkdirAll(image.TmpPath, os.ModePerm)
 	if err != nil {
 		log.Warningf("failed to create tmp path %s error: %v", image.TmpPath, err)
 	}
-	return self.uploadImage(ctx, userCred, image, image.TmpPath, callback)
+	return self.uploadImage(ctx, image, image.TmpPath, callback)
 }
 
 func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
@@ -139,7 +138,7 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 	return storageaccount, nil
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, tmpPath string, callback func(progress float32)) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, tmpPath string, callback func(progress float32)) (string, error) {
 	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimg.VHD))
 	if err != nil {
 		return "", errors.Wrapf(err, "GetReader")
@@ -194,11 +193,11 @@ func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc
 	}
 }
 
-func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	return self.downloadImage(userCred, imageId, extId, path)
+func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+	return self.downloadImage(imageId, extId, path)
 }
 
-func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+func (self *SStoragecache) downloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	// TODO: need to fix scenarios where image is a public image
 	// XXX Qiu Jian
 	if image, err := self.region.getPrivateImage(extId); err != nil {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mcclient
+package oscli
 
 import (
 	"fmt"
@@ -130,16 +130,6 @@ type KeystoneTokenV3 struct {
 	User KeystoneUserV3 `json:"user"`
 	// 服务目录
 	Catalog KeystoneServiceCatalogV3 `json:"catalog"`
-	// 认证上下文
-	Context SAuthContext `json:"context"`
-
-	// 当用户认证时未指定scope时，会返回该用户所有的项目
-	Projects []KeystoneProjectV3 `json:"projects"`
-	// 返回用户在所有项目的所有角色信息
-	RoleAssignments []api.SRoleAssignment `json:"role_assignments"`
-
-	// 如果时AK/SK认证，返回用户的AccessKey/Secret信息，用于客户端后续的AK/SK认证，避免频繁访问keystone进行AK/SK认证
-	AccessKey api.SAccessKeySecretInfo `json:"access_key"`
 }
 
 type TokenCredentialV3 struct {
@@ -259,12 +249,12 @@ func (this *TokenCredentialV3) Len() int {
 	return this.Token.Catalog.Len()
 }
 
-func (this *TokenCredentialV3) getServiceURL(service, region, zone, endpointType string) (string, error) {
-	return this.Token.Catalog.getServiceURL(service, region, zone, endpointType)
+func (this *TokenCredentialV3) GetServiceURL(service, region, zone, endpointType string) (string, error) {
+	return this.Token.Catalog.GetServiceURL(service, region, zone, endpointType)
 }
 
-func (this *TokenCredentialV3) getServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	return this.Token.Catalog.getServiceURLs(service, region, zone, endpointType)
+func (this *TokenCredentialV3) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	return this.Token.Catalog.GetServiceURLs(service, region, zone, endpointType)
 }
 
 func (this *TokenCredentialV3) GetInternalServices(region string) []string {
@@ -285,14 +275,6 @@ func (this *TokenCredentialV3) GetEndpoints(region string, endpointType string) 
 
 func (this *TokenCredentialV3) GetServiceCatalog() IServiceCatalog {
 	return this.Token.Catalog
-}
-
-func (this *TokenCredentialV3) GetLoginSource() string {
-	return this.Token.Context.Source
-}
-
-func (this *TokenCredentialV3) GetLoginIp() string {
-	return this.Token.Context.Ip
 }
 
 func (catalog KeystoneServiceCatalogV3) GetInternalServices(region string) []string {
@@ -390,15 +372,15 @@ func (catalog KeystoneServiceCatalogV3) Len() int {
 	return len(catalog)
 }
 
-func (catalog KeystoneServiceCatalogV3) getServiceURL(service, region, zone, endpointType string) (string, error) {
-	urls, err := catalog.getServiceURLs(service, region, zone, endpointType)
+func (catalog KeystoneServiceCatalogV3) GetServiceURL(service, region, zone, endpointType string) (string, error) {
+	urls, err := catalog.GetServiceURLs(service, region, zone, endpointType)
 	if err != nil {
 		return "", err
 	}
 	return urls[rand.Intn(len(urls))], nil
 }
 
-func (catalog KeystoneServiceCatalogV3) getServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
 	if endpointType == "" {
 		endpointType = "internalURL"
 	}

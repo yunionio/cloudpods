@@ -24,10 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudmon/options"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
@@ -133,11 +130,6 @@ func (self *HuaweiCollect) CollectModelartsPoolMetrics(ctx context.Context, mana
 		}(res[i])
 	}
 	wg.Wait()
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d modelarts_pool with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+
+	return self.sendMetrics(ctx, manager, "modelarts_pool", len(res), metrics)
 }
