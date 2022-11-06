@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -87,11 +86,11 @@ func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
+func (self *SStoragecache) UploadImage(ctx context.Context, opts *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
 	reader, size, err := opts.GetReader(opts.ImageId, string(qemuimg.QCOW2))
 	if err != nil {
 		return "", errors.Wrapf(err, "GetReader")

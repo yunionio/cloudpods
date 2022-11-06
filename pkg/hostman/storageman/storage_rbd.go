@@ -495,7 +495,7 @@ func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jso
 func (s *SRbdStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) {
 	params := jsonutils.NewDict()
 	params.Set("status", jsonutils.NewString("killed"))
-	_, err := image.Images.Update(hostutils.GetImageSession(ctx, ""),
+	_, err := image.Images.Update(hostutils.GetImageSession(ctx),
 		imageId, params)
 	if err != nil {
 		log.Errorln(err)
@@ -555,7 +555,7 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 	}
 	params.Set("image_id", jsonutils.NewString(imageId))
 
-	_, err = image.Images.Upload(hostutils.GetImageSession(ctx, ""),
+	_, err = image.Images.Upload(hostutils.GetImageSession(ctx),
 		params, f, size)
 	return err
 }

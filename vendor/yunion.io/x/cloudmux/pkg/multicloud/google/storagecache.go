@@ -27,7 +27,6 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -92,8 +91,8 @@ func (cache *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	return cache.uploadImage(ctx, userCred, image, callback)
+func (cache *SStoragecache) UploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+	return cache.uploadImage(ctx, image, callback)
 }
 
 func (region *SRegion) checkAndCreateBucket(bucketName string) (*SBucket, error) {
@@ -111,7 +110,7 @@ func (region *SRegion) checkAndCreateBucket(bucketName string) (*SBucket, error)
 	return bucket, nil
 }
 
-func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+func (cache *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimg.QCOW2))
 	if err != nil {
 		return "", errors.Wrapf(err, "GetReader")
@@ -174,7 +173,7 @@ func (cache *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDe
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (cache *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+func (cache *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 

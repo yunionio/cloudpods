@@ -30,7 +30,6 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -101,7 +100,7 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
+func (self *SStoragecache) UploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
 	if len(image.ExternalId) > 0 {
 		status, err := self.region.GetImageStatus(image.ExternalId)
 		if err != nil {
@@ -115,10 +114,10 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 			}
 		}
 	}
-	return self.uploadImage(ctx, userCred, image, callback)
+	return self.uploadImage(ctx, image, callback)
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
 	reader, sizeByte, err := image.GetReader(image.ImageId, string(qemuimg.QCOW2))
 	if err != nil {
 		return "", errors.Wrapf(err, "GetReader")
@@ -268,8 +267,8 @@ func (self *SRegion) createIImage(snapshoutId, imageName, imageDesc string) (str
 	}
 }
 
-func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	return self.downloadImage(userCred, imageId, extId, path)
+func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+	return self.downloadImage(imageId, extId, path)
 }
 
 // 定义进度条监听器。
@@ -295,7 +294,7 @@ func (listener *OssProgressListener) ProgressChanged(event *oss.ProgressEvent) {
 	}
 }
 
-func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+func (self *SStoragecache) downloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	err := self.region.GetClient().EnableImageExport()
 	if err != nil {
 		log.Errorf("fail to enable export privileges: %s", err)
@@ -310,19 +309,19 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	defer os.Remove(tmpImageFile.Name())
 	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
 	if bucket, err := self.region.checkBucket(bucketName); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "region.checkBucket")
 	} else if _, err := self.region.GetImage(extId); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "region.GetImage")
 	} else if task, err := self.region.ExportImage(extId, bucket); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "region.ExportImage")
 	} else if err := self.region.waitTaskStatus(ExportImageTask, task.TaskId, TaskStatusFinished, 15*time.Second, 3600*time.Second); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "region.waitTaskStatus")
 	} else if imageList, err := bucket.ListObjects(oss.Prefix(fmt.Sprintf("%sexport", strings.Replace(extId, "-", "", -1)))); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "bucket.ListObjects")
 	} else if len(imageList.Objects) != 1 {
 		return nil, fmt.Errorf("exported image not find")
 	} else if err := bucket.DownloadFile(imageList.Objects[0].Key, tmpImageFile.Name(), 12*1024*1024, oss.Routines(3), oss.Progress(&OssProgressListener{})); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "bucket.DownloadFile")
 	} else {
 		return nil, cloudprovider.ErrNotSupported
 	}

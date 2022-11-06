@@ -59,7 +59,6 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 		image.OsVersion = input.OsFullVersion
 	}
 
-	userCred := task.GetUserCred()
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
 		lockman.LockRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, image.ImageId))
@@ -106,7 +105,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 						if errors.Cause(err) != cloudprovider.ErrNotFound {
 							return "", errors.Wrapf(err, "GetIImageById(%s)", image.ExternalId)
 						}
-						return iStorageCache.UploadImage(ctx, userCred, image, callback)
+						return iStorageCache.UploadImage(ctx, image, callback)
 					}
 					if iImg.GetImageStatus() == cloudprovider.IMAGE_STATUS_ACTIVE && !input.IsForce {
 						return image.ExternalId, nil
@@ -135,7 +134,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 					return reader, sizeByte, err
 				}
 				log.Debugf("UploadImage: no external ID")
-				return iStorageCache.UploadImage(ctx, userCred, image, callback)
+				return iStorageCache.UploadImage(ctx, image, callback)
 			}()
 		} else {
 			_, err = iStorageCache.GetIImageById(cachedImage.ExternalId)
@@ -245,7 +244,7 @@ func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx c
 				return nil, err
 			}
 		}
-		result, err := iStoragecache.DownloadImage(task.GetUserCred(), imageId, iImage.GetId(), options.Options.TempPath)
+		result, err := iStoragecache.DownloadImage(imageId, iImage.GetId(), options.Options.TempPath)
 		if err != nil {
 			scimg.SetStatus(task.GetUserCred(), api.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
 			return nil, err

@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -283,10 +282,10 @@ func (self *SDatastoreImageCache) CreateIImage(snapshotId, imageName, osType, im
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SDatastoreImageCache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+func (self *SDatastoreImageCache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SDatastoreImageCache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+func (self *SDatastoreImageCache) UploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }

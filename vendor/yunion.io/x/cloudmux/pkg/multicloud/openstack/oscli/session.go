@@ -12,24 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mcclient
+package oscli
 
 import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/i18n"
@@ -37,10 +34,8 @@ import (
 )
 
 const (
-	TASK_ID         = "X-Task-Id"
-	TASK_NOTIFY_URL = "X-Task-Notify-Url"
-	AUTH_TOKEN      = api.AUTH_TOKEN_HEADER //  "X-Auth-Token"
-	REGION_VERSION  = "X-Region-Version"
+	AUTH_TOKEN     = "X-Auth-Token"
+	REGION_VERSION = "X-Region-Version"
 
 	DEFAULT_API_VERSION = "v1"
 	V2_API_VERSION      = "v2"
@@ -95,12 +90,6 @@ func SplitVersionedURL(url string) (string, string) {
 	return url[0 : endidx+1], ""
 }
 
-/* func stripURLVersion(url string) string {
-	base, _ := SplitVersionedURL(url)
-	log.Debugf("stripURLVersion %s => %s", url, base)
-	return base
-}*/
-
 func (this *ClientSession) GetEndpointType() string {
 	return this.endpointType
 }
@@ -111,22 +100,6 @@ func (this *ClientSession) GetClient() *Client {
 
 func (this *ClientSession) SetZone(zone string) {
 	this.zone = zone
-}
-
-func getApiVersionByServiceType(serviceType string) string {
-	switch serviceType {
-	case "compute":
-		return "v2"
-	}
-	return ""
-}
-
-func (this *ClientSession) getServiceName(service string) string {
-	apiVersion := getApiVersionByServiceType(service)
-	if len(apiVersion) > 0 && apiVersion != DEFAULT_API_VERSION {
-		service = fmt.Sprintf("%s_%s", service, apiVersion)
-	}
-	return service
 }
 
 func (this *ClientSession) GetServiceURL(service, endpointType string) (string, error) {
@@ -161,49 +134,7 @@ func (this *ClientSession) GetServiceVersionURLs(service, endpointType string) (
 		// session specific endpoint type should override the input endpointType, which is supplied by manager
 		endpointType = this.endpointType
 	}
-	service = this.getServiceName(service)
-	if endpointType == api.EndpointInterfaceApigateway {
-		return this.getApigatewayServiceURLs(service, this.region, this.zone, endpointType)
-	} else {
-		return this.getServiceVersionURLs(service, this.region, this.zone, endpointType)
-	}
-}
-
-func (this *ClientSession) getApigatewayServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	urls, err := this.getServiceVersionURLs(service, region, zone, "")
-	if err != nil {
-		return nil, errors.Wrap(err, "getServiceVersionURLs")
-	}
-	// replace URLs with authUrl prefix
-	// find the common prefix
-	prefix := this.client.authUrl
-	lastSlashPos := strings.LastIndex(prefix, "/api/s/identity")
-	if lastSlashPos <= 0 {
-		return nil, errors.Wrapf(err, "invalue auth_url %s", prefix)
-	}
-	prefix = httputils.JoinPath(prefix[:lastSlashPos], "api/s", service)
-	if len(region) > 0 {
-		prefix = httputils.JoinPath(prefix, "r", region)
-		if len(zone) > 0 {
-			prefix = httputils.JoinPath(prefix, "z", zone)
-		}
-	}
-	rets := make([]string, len(urls))
-	for i, url := range urls {
-		if len(url) < 9 {
-			// len("https://") == 8
-			log.Errorf("invalid url %s: shorter than 9 bytes", url)
-			continue
-		}
-		slashPos := strings.IndexByte(url[9:], '/')
-		if slashPos > 0 {
-			url = url[9+slashPos:]
-			rets[i] = httputils.JoinPath(prefix, url)
-		} else {
-			rets[i] = prefix
-		}
-	}
-	return rets, nil
+	return this.getServiceVersionURLs(service, this.region, this.zone, endpointType)
 }
 
 func (this *ClientSession) getServiceVersionURLs(service, region, zone, endpointType string) ([]string, error) {
@@ -211,7 +142,7 @@ func (this *ClientSession) getServiceVersionURLs(service, region, zone, endpoint
 	if gotypes.IsNil(catalog) {
 		return []string{this.client.authUrl}, nil
 	}
-	urls, err := catalog.getServiceURLs(service, region, zone, endpointType)
+	urls, err := catalog.GetServiceURLs(service, region, zone, endpointType)
 	// HACK! in case of fail to get kestone url or schema of keystone changed, always trust authUrl
 	if service == api.SERVICE_TYPE && (err != nil || len(urls) == 0 || (len(this.client.authUrl) != 0 && this.client.authUrl[:5] != urls[0][:5])) {
 		var msg string
@@ -359,69 +290,9 @@ func (this *ClientSession) GetDomainName() string {
 	return this.token.GetDomainName()
 }
 
-func (this *ClientSession) SetTaskNotifyUrl(url string) {
-	this.Header.Add(TASK_NOTIFY_URL, url)
-}
-
-func (this *ClientSession) RemoveTaskNotifyUrl() {
-	this.Header.Del(TASK_NOTIFY_URL)
-}
-
 func (this *ClientSession) SetServiceUrl(service, url string) {
 	this.customizeServiceUrl[service] = url
 }
-
-func (this *ClientSession) PrepareTask() {
-	// start a random htttp server
-	this.notifyChannel = make(chan string)
-
-	s1 := rand.NewSource(time.Now().UnixNano())
-	r1 := rand.New(s1)
-	port := 55000 + r1.Intn(1000)
-	ip := utils.GetOutboundIP()
-	addr := fmt.Sprintf("%s:%d", ip.String(), port)
-	url := fmt.Sprintf("http://%s", addr)
-	this.SetTaskNotifyUrl(url)
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "ok")
-		body, err := ioutil.ReadAll(r.Body)
-		var msg string
-		if err != nil {
-			msg = fmt.Sprintf("Read request data error: %s", err)
-		} else {
-			msg = string(body)
-		}
-		this.notifyChannel <- msg
-	})
-
-	go func() {
-		fmt.Println("List on address: ", url)
-		if err := http.ListenAndServe(addr, nil); err != nil {
-			fmt.Printf("Task notify server error: %s\n", err)
-		}
-	}()
-}
-
-func (this *ClientSession) WaitTaskNotify() {
-	if this.notifyChannel != nil {
-		msg := <-this.notifyChannel
-		fmt.Println("---------------Task complete -------------")
-		fmt.Println(msg)
-	}
-}
-
-/*func (this *ClientSession) SetApiVersion(version string) {
-	this.defaultApiVersion = version
-}
-
-func (this *ClientSession) GetApiVersion() string {
-	apiVersion := this.getApiVersion("")
-	if len(apiVersion) == 0 {
-		return DEFAULT_API_VERSION
-	}
-	return apiVersion
-}*/
 
 func (this *ClientSession) ToJson() jsonutils.JSONObject {
 	params := jsonutils.NewDict()
@@ -455,8 +326,4 @@ func (cs *ClientSession) GetContext() context.Context {
 		return context.Background()
 	}
 	return cs.ctx
-}
-
-func (cs *ClientSession) GetCommonEtcdEndpoint() (*api.EndpointDetails, error) {
-	return cs.GetClient().GetCommonEtcdEndpoint(cs.GetToken(), cs.region, cs.endpointType)
 }

@@ -147,7 +147,7 @@ func (h *SBackendServiceProxyHandler) fetchReverseEndpoint() *proxy.SEndpointFac
 		if len(zone) > 0 {
 			session.SetZone(zone)
 		}
-		ep, err := session.GetServiceURL(serviceName, endpointType, "")
+		ep, err := session.GetServiceURL(serviceName, endpointType)
 		if err != nil {
 			return "", httperrors.NewBadRequestError("invalid service %s: %s", serviceName, err)
 		}

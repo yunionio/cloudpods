@@ -30,7 +30,6 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -120,16 +119,16 @@ func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc
 	return iimage[0], nil
 }
 
-func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	return self.downloadImage(userCred, imageId, extId)
+func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+	return self.downloadImage(imageId, extId)
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	return self.uploadImage(ctx, userCred, image, callback)
+func (self *SStoragecache) UploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+	return self.uploadImage(ctx, image, callback)
 
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	err := self.region.initVmimport()
 	if err != nil {
 		return "", errors.Wrap(err, "initVmimport")
@@ -222,7 +221,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	return task.ImageId, nil
 }
 
-func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
+func (self *SStoragecache) downloadImage(imageId string, extId string) (jsonutils.JSONObject, error) {
 	// aws 导出镜像限制比较多。https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmexport.html
 	bucketName := GetBucketName(self.region.GetId(), imageId)
 	if err := self.region.checkBucket(bucketName); err != nil {

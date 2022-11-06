@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
@@ -250,9 +249,9 @@ type ICloudStoragecache interface {
 
 	CreateIImage(snapshotId, imageName, osType, imageDesc string) (ICloudImage, error)
 
-	DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error)
+	DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error)
 
-	UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *SImageCreateOption, callback func(float32)) (string, error)
+	UploadImage(ctx context.Context, image *SImageCreateOption, callback func(float32)) (string, error)
 }
 
 type ICloudStorage interface {

@@ -92,7 +92,7 @@ func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId
 }
 
 func (self *OfflineCloudmetaManager) GetSkuSourcesMeta(s *mcclient.ClientSession, client *http.Client) (jsonutils.JSONObject, error) {
-	baseUrl, err := s.GetServiceVersionURL(self.ServiceType(), self.EndpointType(), self.GetApiVersion())
+	baseUrl, err := s.GetServiceVersionURL(self.ServiceType(), self.EndpointType())
 	if err != nil {
 		return nil, err
 	}

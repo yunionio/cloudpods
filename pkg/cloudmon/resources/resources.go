@@ -756,7 +756,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 		}
 		metrics = append(metrics, metric)
 	}
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
+	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType)
 	if err != nil {
 		return
 	}

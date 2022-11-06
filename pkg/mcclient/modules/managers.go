@@ -27,25 +27,25 @@ import (
 func NewResourceManager(serviceType string, keyword, keywordPlural string,
 	columns, adminColumns []string, apiVersion string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(serviceType, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(serviceType, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewComputeManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_REGION, "", "", columns, adminColumns, "v2"),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_REGION, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewActionManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_LOG, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_LOG, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewMonitorV2Manager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_MONITOR, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_MONITOR, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
@@ -66,13 +66,13 @@ func NewCloudwatcherManager(keyword, keywordPlural string, columns, adminColumns
 
 func NewNotifyManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_NOTIFY, "", "v1", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_NOTIFY, "", "v1", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewNotifyv2Manager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager:   *modulebase.NewBaseManager(apis.SERVICE_TYPE_NOTIFY, "", "v2", columns, adminColumns, ""),
+		BaseManager:   *modulebase.NewBaseManager(apis.SERVICE_TYPE_NOTIFY, "", "v2", columns, adminColumns),
 		Keyword:       keyword,
 		KeywordPlural: keywordPlural,
 	}
@@ -103,25 +103,25 @@ func NewJointServiceTreeManager(keyword, keywordPlural string, columns, adminCol
 
 func NewIdentityManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_KEYSTONE, "", "v2.0", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_KEYSTONE, "", "v2.0", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewIdentityV3Manager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_KEYSTONE, "", "v3", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_KEYSTONE, "", "v3", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewImageManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_IMAGE, "", "v1", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_IMAGE, "", "v1", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewVNCProxyManager() modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager:   *modulebase.NewBaseManager(apis.SERVICE_TYPE_VNCPROXY, "", "", nil, nil, ""),
+		BaseManager:   *modulebase.NewBaseManager(apis.SERVICE_TYPE_VNCPROXY, "", "", nil, nil),
 		Keyword:       "vncproxy",
 		KeywordPlural: "vncproxy",
 	}
@@ -129,48 +129,48 @@ func NewVNCProxyManager() modulebase.ResourceManager {
 
 func NewSchedulerManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_SCHEDULER, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_SCHEDULER, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewYunionConfManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_YUNIONCONF, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_YUNIONCONF, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewOfflineCloudmetaManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_OFFLINE_CLOUDMETA, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_OFFLINE_CLOUDMETA, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewAnsibleManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_ANSIBLE, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_ANSIBLE, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewDevtoolManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_DEVTOOL, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_DEVTOOL, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewCloudeventManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_CLOUDEVENT, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_CLOUDEVENT, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewCloudIdManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_CLOUDID, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_CLOUDID, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewScheduledtaskManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_SCHEDULEDTASK, "", "", columns, adminColumns, ""),
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_SCHEDULEDTASK, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }

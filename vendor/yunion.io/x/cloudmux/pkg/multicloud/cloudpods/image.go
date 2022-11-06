@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -189,7 +188,7 @@ func (self *SRegion) GetImage(id string) (*SImage, error) {
 	return image, resp.Unmarshal(image)
 }
 
-func (self *SRegion) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+func (self *SRegion) UploadImage(ctx context.Context, opts *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	reader, sizeByte, err := opts.GetReader(opts.ImageId, string(qemuimg.QCOW2))
 	if err != nil {
 		return "", err

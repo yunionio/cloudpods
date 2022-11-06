@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mcclient
+package oscli
 
 import (
 	"fmt"
@@ -42,8 +42,6 @@ type SSimpleToken struct {
 	Roles   string
 	RoleIds string
 	Expires time.Time
-
-	Context SAuthContext
 }
 
 func (self *SSimpleToken) GetTokenString() string {
@@ -154,11 +152,11 @@ func (self *SSimpleToken) Len() int {
 	return 0
 }
 
-func (self *SSimpleToken) getServiceURL(service, region, zone, endpointType string) (string, error) {
+func (self *SSimpleToken) GetServiceURL(service, region, zone, endpointType string) (string, error) {
 	return "", fmt.Errorf("Not available")
 }
 
-func (self *SSimpleToken) getServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+func (self *SSimpleToken) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
 	return nil, fmt.Errorf("Not available")
 }
 
@@ -182,14 +180,6 @@ func (this *SSimpleToken) GetServiceCatalog() IServiceCatalog {
 	return nil
 }
 
-func (this *SSimpleToken) GetLoginSource() string {
-	return this.Context.Source
-}
-
-func (this *SSimpleToken) GetLoginIp() string {
-	return this.Context.Ip
-}
-
 func SimplifyToken(token TokenCredential) TokenCredential {
 	simToken, ok := token.(*SSimpleToken)
 	if ok {
@@ -209,10 +199,6 @@ func SimplifyToken(token TokenCredential) TokenCredential {
 		Roles:   strings.Join(token.GetRoles(), ","),
 		RoleIds: strings.Join(token.GetRoleIds(), ","),
 		Expires: token.GetExpires(),
-		Context: SAuthContext{
-			Source: token.GetLoginSource(),
-			Ip:     token.GetLoginIp(),
-		},
 	}
 }
 

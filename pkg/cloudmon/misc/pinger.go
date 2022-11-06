@@ -78,7 +78,7 @@ func PingProbe(ctx context.Context, userCred mcclient.TokenCredential, isStart b
 			}
 			metrics = append(metrics, m...)
 		}
-		urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
+		urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType)
 		if err != nil {
 			return errors.Wrap(err, "GetServiceURLs")
 		}

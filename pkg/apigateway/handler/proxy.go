@@ -69,7 +69,7 @@ func fetchReverseEndpoint(serviceName string) *proxy.SEndpointFactory {
 	f := func(ctx context.Context, r *http.Request) (string, error) {
 		endpointType := "internalURL"
 		session := auth.GetAdminSession(ctx, FetchRegion(r))
-		ep, err := session.GetServiceURL(serviceName, endpointType, "")
+		ep, err := session.GetServiceURL(serviceName, endpointType)
 		if err != nil {
 			return "", err
 		}

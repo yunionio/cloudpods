@@ -25,10 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudmon/options"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
@@ -166,13 +163,7 @@ func (self *QcloudCollect) CollectServerMetrics(ctx context.Context, manager api
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d server with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "server", len(res), metrics)
 }
 
 func (self *QcloudCollect) CollectDBInstanceMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.DBInstanceDetails, start, end time.Time) error {
@@ -268,13 +259,7 @@ func (self *QcloudCollect) CollectDBInstanceMetrics(ctx context.Context, manager
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d rds with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "rds", len(res), metrics)
 }
 
 func (self *QcloudCollect) CollectRedisMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ElasticcacheDetails, start, end time.Time) error {
@@ -370,13 +355,7 @@ func (self *QcloudCollect) CollectRedisMetrics(ctx context.Context, manager api.
 	}
 	wg.Wait()
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	urls, err := s.GetServiceURLs(apis.SERVICE_TYPE_INFLUXDB, options.Options.SessionEndpointType, "")
-	if err != nil {
-		return errors.Wrap(err, "GetServiceURLs")
-	}
-	log.Infof("send %d redis with %d metrics for %s(%s)", len(res), len(metrics), manager.Name, manager.Id)
-	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
+	return self.sendMetrics(ctx, manager, "redis", len(res), metrics)
 }
 
 func (self *QcloudCollect) CollectK8sMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.KubeClusterDetails, start, end time.Time) error {

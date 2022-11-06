@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -74,12 +73,12 @@ func (self *SStoragecache) CreateIImage(snapshotId, name, osType, desc string) (
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	id, err := self.region.UploadImage(ctx, userCred, opts, callback)
+func (self *SStoragecache) UploadImage(ctx context.Context, opts *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+	id, err := self.region.UploadImage(ctx, opts, callback)
 	if err != nil {
 		return "", errors.Wrapf(err, "UploadImage")
 	}

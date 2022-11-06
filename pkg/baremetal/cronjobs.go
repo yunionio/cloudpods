@@ -217,7 +217,7 @@ func (job *SSendMetricsJob) Name() string {
 
 func (job *SSendMetricsJob) Do(ctx context.Context, now time.Time) error {
 	s := auth.GetAdminSession(ctx, consts.GetRegion())
-	urls, err := s.GetServiceURLs("influxdb", o.Options.SessionEndpointType, "")
+	urls, err := s.GetServiceURLs("influxdb", o.Options.SessionEndpointType)
 	if err != nil {
 		return errors.Wrap(err, "s.GetServiceURLs")
 	}
