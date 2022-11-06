@@ -35,7 +35,6 @@ import (
 	v "yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 
@@ -769,7 +768,7 @@ func (self *SAliyunClient) SetResourceGropuId(params map[string]string) map[stri
 	if params == nil {
 		params = map[string]string{}
 	}
-	for _, groupId := range options.Options.AliyunResourceGroups {
+	for _, groupId := range self.cpcfg.AliyunResourceGroupIds {
 		if utils.IsInStringArray(groupId, self.GetResourceGroupIds()) {
 			params["ResourceGroupId"] = groupId
 		}

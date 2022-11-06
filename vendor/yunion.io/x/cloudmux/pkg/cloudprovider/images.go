@@ -16,6 +16,7 @@ package cloudprovider
 
 import (
 	"fmt"
+	"io"
 	"time"
 )
 
@@ -108,9 +109,18 @@ type SImageCreateOption struct {
 	ImageId        string
 	ExternalId     string
 	ImageName      string
+	Description    string
+	MinDiskMb      int
+	MinRamMb       int
+	Checksum       string
 	OsType         string
 	OsArch         string
 	OsDistribution string
 	OsVersion      string
 	OsFullVersion  string
+
+	GetReader func(imageId, format string) (io.Reader, int64, error)
+
+	// 镜像临时存储位置
+	TmpPath string
 }

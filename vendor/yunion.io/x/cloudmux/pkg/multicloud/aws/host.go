@@ -174,7 +174,7 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
 	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.InstanceType,
 		desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks,
-		desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.Tags)
+		desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.Tags, desc.EnableMonitorAgent)
 	if err != nil {
 		return nil, errors.Wrap(err, "_createVM")
 	}
@@ -191,7 +191,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo, instanceType string,
 	networkId, ipAddr, desc, passwd string,
 	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupId string, userData string,
-	tags map[string]string,
+	tags map[string]string, enableMonitorAgent bool,
 ) (string, error) {
 	// 网络配置及安全组绑定
 	net := self.zone.getNetworkById(networkId)
@@ -263,7 +263,7 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 	// 创建实例
 	if len(instanceType) > 0 {
 		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, img, instanceType, networkId, secgroupId, self.zone.ZoneId, desc, disks, ipAddr, keypair, userData, tags)
+		vmId, err := self.zone.region.CreateInstance(name, img, instanceType, networkId, secgroupId, self.zone.ZoneId, desc, disks, ipAddr, keypair, userData, tags, enableMonitorAgent)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceType, err)
 			return "", fmt.Errorf("Failed to create specification %s.%s", instanceType, err.Error())

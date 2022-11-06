@@ -27,11 +27,8 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -147,14 +144,10 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	// first upload image to oss
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-
-	meta, reader, sizeByte, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
+	reader, sizeByte, err := image.GetReader(image.ImageId, string(qemuimg.QCOW2))
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetReader")
 	}
-	log.Infof("meta data %s", meta)
 
 	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), image.ImageId))
 	exist, err := self.region.IBucketExist(bucketName)

@@ -308,7 +308,10 @@ func (self *SCloudaccount) ValidateUpdateData(
 				Secret:        secret,
 				DefaultRegion: defaultRegion,
 				ProxyFunc:     proxyFunc,
-				Options:       input.Options,
+
+				AliyunResourceGroupIds: options.Options.AliyunResourceGroups,
+
+				Options: input.Options,
 			})
 			if err != nil {
 				return input, httperrors.NewInputParameterError("invalid proxy setting %s", err)
@@ -484,6 +487,9 @@ func (manager *SCloudaccountManager) validateCreateData(
 		DefaultRegion: input.DefaultRegion,
 		ProxyFunc:     proxyFunc,
 
+		AdminProjectId:         auth.GetAdminSession(ctx, options.Options.Region).GetProjectDomainId(),
+		AliyunResourceGroupIds: options.Options.AliyunResourceGroups,
+
 		Options: input.Options,
 	})
 	if err != nil {
@@ -639,6 +645,8 @@ func (self *SCloudaccount) PerformTestConnectivity(ctx context.Context, userCred
 
 		DefaultRegion: defaultRegion,
 
+		AliyunResourceGroupIds: options.Options.AliyunResourceGroups,
+
 		ReadOnly: self.ReadOnly,
 
 		ProxyFunc: self.proxyFunc(),
@@ -719,6 +727,8 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		Secret:        account.Secret,
 		Options:       self.Options,
 		DefaultRegion: defaultRegion,
+
+		AliyunResourceGroupIds: options.Options.AliyunResourceGroups,
 
 		ReadOnly: self.ReadOnly,
 
@@ -952,7 +962,8 @@ func (self *SCloudaccount) getProviderInternal(ctx context.Context) (cloudprovid
 		DefaultRegion: defaultRegion,
 		ProxyFunc:     self.proxyFunc(),
 
-		ReadOnly: self.ReadOnly,
+		ReadOnly:               self.ReadOnly,
+		AliyunResourceGroupIds: options.Options.AliyunResourceGroups,
 
 		UpdatePermission: self.UpdatePermission(ctx),
 	})

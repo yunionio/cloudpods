@@ -70,6 +70,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	config.MemoryMB = guest.VmemSize
 	config.UserData = guest.GetUserData(ctx, userCred)
 	config.Description = guest.Description
+	config.EnableMonitorAgent = options.Options.EnableMonitorAgent
 	if params != nil {
 		params.Unmarshal(&config.SPublicIpInfo)
 	}

@@ -83,11 +83,6 @@ func (cfg *CloudpodsClientConfig) Debug(debug bool) *CloudpodsClientConfig {
 	return cfg
 }
 
-func (cfg *CloudpodsClientConfig) AdminProjectId(id string) *CloudpodsClientConfig {
-	cfg.adminProjectId = id
-	return cfg
-}
-
 func (cfg *CloudpodsClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *CloudpodsClientConfig {
 	cfg.cpcfg = cpcfg
 	return cfg

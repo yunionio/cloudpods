@@ -27,11 +27,8 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -134,24 +131,20 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		}
 	}()
 
-	// upload to  ucloud
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-	meta, reader, size, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
+	reader, size, err := image.GetReader(image.ImageId, string(qemuimg.VMDK))
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetReader")
 	}
-	log.Debugf("Images meta data %s", meta)
-	minDiskMB, _ := meta.Int("min_disk")
-	minDiskGB := int64(math.Ceil(float64(minDiskMB) / 1024))
+
+	minDiskGB := int64(math.Ceil(float64(image.MinDiskMb) / 1024))
 
 	if minDiskGB < 40 {
 		minDiskGB = 40
 	} else if minDiskGB > 1024 {
 		minDiskGB = 1024
 	}
-	// size, _ := meta.Int("size")
-	md5, _ := meta.GetString("checksum")
-	diskFormat, _ := meta.GetString("disk_format")
+	md5 := image.Checksum
+	diskFormat := string(qemuimg.QCOW2)
 	// upload to ucloud
 	bucket, err := self.region.GetIBucketById(bucketName)
 	if err != nil {

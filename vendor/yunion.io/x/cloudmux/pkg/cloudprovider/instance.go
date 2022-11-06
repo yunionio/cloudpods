@@ -154,6 +154,7 @@ type SManagedVMCreateConfig struct {
 	Password            string
 	UserData            string
 	ProjectId           string
+	EnableMonitorAgent  bool
 
 	SPublicIpInfo
 

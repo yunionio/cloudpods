@@ -19,10 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -76,15 +74,13 @@ func (self *SCloudpodsProviderFactory) ValidateUpdateCloudaccountCredential(ctx 
 }
 
 func (self *SCloudpodsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
-	adminProjectId := auth.GetAdminSession(context.TODO(), options.Options.Region).GetProjectDomainId()
 	client, err := cloudpods.NewCloudpodsClient(
 		cloudpods.NewCloudpodsClientConfig(
 			cfg.URL,
 			cfg.Account,
 			cfg.Secret,
 		).Debug(cfg.Debug).
-			CloudproviderConfig(cfg).
-			AdminProjectId(adminProjectId),
+			CloudproviderConfig(cfg),
 	)
 	if err != nil {
 		return nil, err

@@ -172,6 +172,8 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		Name:          input.Name,
 		DefaultRegion: input.DefaultRegion,
 
+		AliyunResourceGroupIds: options.Options.AliyunResourceGroups,
+
 		Options: input.Options,
 	})
 	if err != nil {

@@ -16,7 +16,6 @@ package azure
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -25,7 +24,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/apis/cloudid"
 	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	compute_api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -46,11 +44,11 @@ func (self *SAMLProvider) Delete() error {
 }
 
 func (self *SAMLProvider) GetGlobalId() string {
-	return strings.TrimPrefix(options.Options.ApiServer, "https://")
+	return self.client.cpcfg.Id
 }
 
 func (self *SAMLProvider) GetId() string {
-	return options.Options.ApiServer
+	return self.client.cpcfg.Id
 }
 
 func (self *SAMLProvider) GetName() string {
@@ -69,7 +67,7 @@ func (self *SAMLProvider) GetMetadataDocument() (*samlutils.EntityDescriptor, er
 	return &self.Metadata, nil
 }
 
-func (self *SAMLProvider) GetAuthUrl() string {
+func (self *SAMLProvider) GetAuthUrl(apiServer string) string {
 	input := samlutils.SIdpInitiatedLoginInput{
 		EntityID: cloudprovider.SAML_ENTITY_ID_AZURE,
 		IdpId:    self.client.cpcfg.AccountId,
@@ -77,7 +75,7 @@ func (self *SAMLProvider) GetAuthUrl() string {
 	if self.client.GetAccessEnv() != compute_api.CLOUD_ACCESS_ENV_AZURE_GLOBAL {
 		return ""
 	}
-	return httputils.JoinPath(options.Options.ApiServer, cloudid.SAML_IDP_PREFIX, fmt.Sprintf("sso?%s", jsonutils.Marshal(input).QueryString()))
+	return httputils.JoinPath(apiServer, cloudid.SAML_IDP_PREFIX, fmt.Sprintf("sso?%s", jsonutils.Marshal(input).QueryString()))
 }
 
 func (self *SAzureClient) ListSAMLProviders() ([]SAMLProvider, error) {

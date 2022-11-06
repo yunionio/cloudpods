@@ -176,6 +176,11 @@ type ProviderConfig struct {
 	ProxyFunc     httputils.TransportProxyFunc
 	Debug         bool
 
+	// 仅用来检测cloudpods是否纳管自身环境(system项目id)
+	AdminProjectId string
+
+	AliyunResourceGroupIds []string
+
 	UpdatePermission func(service, permission string)
 }
 

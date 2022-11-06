@@ -867,6 +867,8 @@ func (self *SCloudprovider) GetProvider(ctx context.Context) (cloudprovider.IClo
 		Secret:    passwd,
 		ProxyFunc: account.proxyFunc(),
 
+		AliyunResourceGroupIds: options.Options.AliyunResourceGroups,
+
 		ReadOnly: account.ReadOnly,
 
 		DefaultRegion: defaultRegion,

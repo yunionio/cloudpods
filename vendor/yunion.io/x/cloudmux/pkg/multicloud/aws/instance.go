@@ -33,7 +33,6 @@ import (
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
@@ -802,7 +801,7 @@ func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
 
 func (self *SRegion) CreateInstance(name string, image *SImage, instanceType string, SubnetId string, securityGroupId string,
 	zoneId string, desc string, disks []SDisk, ipAddr string,
-	keypair string, userData string, ntags map[string]string,
+	keypair string, userData string, ntags map[string]string, enableMonitorAgent bool,
 ) (string, error) {
 	var count int64 = 1
 	// disk
@@ -886,7 +885,7 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 		TagSpecifications:   []*ec2.TagSpecification{ec2TagSpec},
 	}
 	params.Monitoring = &ec2.RunInstancesMonitoringEnabled{
-		Enabled: &options.Options.EnableAwsMonitorAgent,
+		Enabled: &enableMonitorAgent,
 	}
 
 	// keypair
@@ -1079,6 +1078,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 		keypair,
 		userdata,
 		nil,
+		false,
 	)
 	if err == nil {
 		defer self.DeleteVM(_id)

@@ -18,15 +18,11 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/esxi/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -96,13 +92,11 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 }
 
 func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
-	s := auth.GetAdminSession(ctx, options.Options.Region)
-
-	meta, reader, size, err := modules.Images.Download(s, opts.ImageId, string(qemuimg.QCOW2), false)
+	reader, size, err := opts.GetReader(opts.ImageId, string(qemuimg.QCOW2))
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetReader")
 	}
-	log.Infof("meta data %s", meta)
+
 	image, err := self.region.CreateImage(self.storage.StorageContainerUUID, opts, size, reader, callback)
 	if err != nil {
 		return "", err

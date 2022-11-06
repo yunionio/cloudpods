@@ -66,7 +66,7 @@ func (self *SAMLProvider) GetStatus() string {
 	return api.SAML_PROVIDER_STATUS_UNVALIABLE
 }
 
-func (self *SAMLProvider) GetAuthUrl() string {
+func (self *SAMLProvider) GetAuthUrl(apiServer string) string {
 	return fmt.Sprintf("https://auth.%s/authui/federation/websso?domain_id=%s&idp=%s&protocol=saml", self.client.endpoints.EndpointDomain, self.client.ownerId, self.Id)
 }
 
