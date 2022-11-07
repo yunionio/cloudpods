@@ -14,12 +14,6 @@
 
 package cloudprovider
 
-import (
-	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/httperrors"
-)
-
 const (
 	CloudVMStatusRunning      = "running"
 	CloudVMStatusStopping     = "stopping"
@@ -28,17 +22,6 @@ const (
 	CloudVMStatusChangeFlavor = "change_flavor"
 	CloudVMStatusDeploying    = "deploying"
 	CloudVMStatusOther        = "other"
-
-	ErrNotFound        = errors.ErrNotFound
-	ErrDuplicateId     = errors.ErrDuplicateId
-	ErrInvalidStatus   = errors.ErrInvalidStatus
-	ErrTimeout         = errors.ErrTimeout
-	ErrNotImplemented  = errors.ErrNotImplemented
-	ErrNotSupported    = errors.ErrNotSupported
-	ErrAccountReadOnly = errors.ErrAccountReadOnly
-
-	ErrInvalidProvider     = httperrors.ErrInvalidProvider
-	ErrNoBalancePermission = httperrors.ErrNoBalancePermission
 )
 
 const (

@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -158,7 +157,7 @@ func parseUcloudResponse(params SParams, resp jsonutils.JSONObject) (jsonutils.J
 
 	if err.RetCode > 0 {
 		if err.RetCode == 171 {
-			return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
+			return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
 		}
 		return nil, err
 	}

@@ -22,8 +22,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/cloudmux/pkg/multicloud/zstack"
 )
 
@@ -43,10 +41,10 @@ func (self *SZStackProviderFactory) GetSupportedBrands() []string {
 	return []string{api.ZSTACK_BRAND_DSTACK}
 }
 
-func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AuthUrl) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "auth_url")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "auth_url")
 	}
 	output.AccessUrl = input.AuthUrl
 	//为了兼容以前用username的参数，2.12之后尽可能的使用access_key_id参数
@@ -57,12 +55,12 @@ func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 		output.Account = input.Username
 		output.Secret = input.Password
 	} else {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id or access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id or access_key_secret")
 	}
 	return output, nil
 }
 
-func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) > 0 && len(input.AccessKeySecret) > 0 {
 		output.Account = input.AccessKeyId
@@ -71,7 +69,7 @@ func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 		output.Account = input.Username
 		output.Secret = input.Password
 	} else {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id or access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id or access_key_secret")
 	}
 	return output, nil
 }

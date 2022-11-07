@@ -35,7 +35,6 @@ import (
 	v "yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -177,7 +176,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 				switch code {
 				case "InternalError":
 					if apiName == "QueryAccountBalance" {
-						return nil, errors.Wrapf(httperrors.ErrNoPermission, err.Error())
+						return nil, errors.Wrapf(cloudprovider.ErrNoPermission, err.Error())
 					}
 					return nil, err
 				case "InvalidAccessKeyId.NotFound",
@@ -186,7 +185,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 					"InvalidAccessKeyId.Inactive",
 					"Forbidden.AccessKeyDisabled",
 					"Forbidden.AccessKey":
-					return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
+					return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
 				case "404 Not Found", "InstanceNotFound":
 					return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 				case "OperationDenied.NoStock":

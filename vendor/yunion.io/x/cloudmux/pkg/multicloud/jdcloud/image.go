@@ -29,7 +29,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
@@ -200,7 +199,7 @@ func (r *SRegion) GetImages(imageIds []string, imageSource string, pageNumber, p
 	}
 	if resp.Error.Code >= 400 {
 		if strings.Contains(resp.Error.Message, "secret key is nul") || strings.Contains(resp.Error.Message, "sign result is not same") {
-			return nil, 0, errors.Wrapf(httperrors.ErrInvalidAccessKey, resp.Error.Message)
+			return nil, 0, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, resp.Error.Message)
 		}
 		err = fmt.Errorf(resp.Error.Message)
 		return nil, 0, err

@@ -25,8 +25,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/cloudmux/pkg/multicloud/qcloud"
 )
 
@@ -84,7 +82,7 @@ func (self *SQcloudProviderFactory) ValidateCrossRegionVpcPeeringBandWidth(bandw
 	if ok {
 		return nil
 	}
-	return httperrors.NewInputParameterError("require validated qcloud cross region vpcPeering bandwidth values:[10, 20, 50, 100, 200, 500, 1000],unit Mbps")
+	return errors.Wrapf(cloudprovider.ErrInputParameter, "require validated qcloud cross region vpcPeering bandwidth values:[10, 20, 50, 100, 200, 500, 1000],unit Mbps")
 }
 
 func (self *SQcloudProviderFactory) GetSupportedDnsZoneTypes() []cloudprovider.TDnsZoneType {
@@ -172,36 +170,36 @@ func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, b
 	return nil
 }
 
-func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AppId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "app_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "app_id")
 	}
 	if len(input.SecretId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "secret_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "secret_id")
 	}
 	if len(input.SecretKey) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "secret_key")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "secret_key")
 	}
 	output.Account = fmt.Sprintf("%s/%s", input.SecretId, input.AppId)
 	output.Secret = input.SecretKey
 	return output, nil
 }
 
-func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AppId) == 0 {
 		accountInfo := strings.Split(cloudaccount, "/")
 		if len(accountInfo) < 2 {
-			return output, errors.Wrap(httperrors.ErrMissingParameter, "app_id")
+			return output, errors.Wrap(cloudprovider.ErrMissingParameter, "app_id")
 		}
 		input.AppId = accountInfo[1]
 	}
 	if len(input.SecretId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "secret_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "secret_id")
 	}
 	if len(input.SecretKey) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "secret_key")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "secret_key")
 	}
 	output = cloudprovider.SCloudaccount{
 		Account: fmt.Sprintf("%s/%s", input.SecretId, input.AppId),

@@ -25,8 +25,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/cloudmux/pkg/multicloud/azure"
 )
 
@@ -74,19 +72,19 @@ func (self *SAzureProviderFactory) IsSupportCreateCloudgroup() bool {
 	return true
 }
 
-func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.DirectoryId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "directory_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "directory_id")
 	}
 	if len(input.ClientId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "client_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "client_id")
 	}
 	if len(input.ClientSecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "client_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "client_secret")
 	}
 	if len(input.Environment) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "environment")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "environment")
 	}
 	output.Account = input.DirectoryId
 	output.Secret = fmt.Sprintf("%s/%s", input.ClientId, input.ClientSecret)
@@ -94,13 +92,13 @@ func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Co
 	return output, nil
 }
 
-func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.ClientId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "client_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "client_id")
 	}
 	if len(input.ClientSecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "client_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "client_secret")
 	}
 	output = cloudprovider.SCloudaccount{
 		Account: cloudaccount,

@@ -17,10 +17,8 @@ package provider
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -43,31 +41,31 @@ func (self *SCloudpodsProviderFactory) IsNeedForceAutoCreateProject() bool {
 	return true
 }
 
-func (self *SCloudpodsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SCloudpodsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	ret := cloudprovider.SCloudaccount{}
 	if len(input.AuthUrl) == 0 {
-		return ret, httperrors.NewMissingParameterError("auth_url")
+		return ret, errors.Wrapf(cloudprovider.ErrMissingParameter, "auth_url")
 	}
 	ret.AccessUrl = input.AuthUrl
 	if len(input.AccessKeyId) == 0 {
-		return ret, httperrors.NewMissingParameterError("access_key_id")
+		return ret, errors.Wrapf(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	ret.Account = input.AccessKeyId
 	if len(input.AccessKeySecret) == 0 {
-		return ret, httperrors.NewMissingParameterError("access_key_secret")
+		return ret, errors.Wrapf(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 	ret.Secret = input.AccessKeySecret
 	return ret, nil
 }
 
-func (self *SCloudpodsProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SCloudpodsProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	ret := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return ret, httperrors.NewMissingParameterError("access_key_id")
+		return ret, errors.Wrapf(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	ret.Account = input.AccessKeyId
 	if len(input.AccessKeySecret) == 0 {
-		return ret, httperrors.NewMissingParameterError("access_key_secret")
+		return ret, errors.Wrapf(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 	ret.Secret = input.AccessKeySecret
 	return ret, nil

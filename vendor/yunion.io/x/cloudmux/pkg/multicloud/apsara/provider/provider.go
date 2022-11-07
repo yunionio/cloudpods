@@ -23,8 +23,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/cloudmux/pkg/multicloud/apsara"
 )
 
@@ -48,13 +46,13 @@ func (self *SApsaraProviderFactory) IsNeedForceAutoCreateProject() bool {
 	return true
 }
 
-func (self *SApsaraProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SApsaraProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 	output.Account = input.AccessKeyId
 	if input.OrganizationId > 0 {
@@ -62,22 +60,22 @@ func (self *SApsaraProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 	}
 	output.Secret = input.AccessKeySecret
 	if len(input.Endpoint) == 0 {
-		return output, httperrors.NewMissingParameterError("endpoint")
+		return output, errors.Wrapf(cloudprovider.ErrMissingParameter, "endpoint")
 	}
 	output.AccessUrl = input.Endpoint
 	if len(input.DefaultRegion) == 0 {
-		return output, httperrors.NewMissingParameterError("default_region")
+		return output, errors.Wrapf(cloudprovider.ErrMissingParameter, "default_region")
 	}
 	return output, nil
 }
 
-func (self *SApsaraProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SApsaraProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 	account := input.AccessKeyId
 	if input.OrganizationId > 0 {

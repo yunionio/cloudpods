@@ -16,8 +16,9 @@ package modules
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client/requests"
 )
@@ -73,7 +74,7 @@ func (self *SImageManager) Get(id string, querys map[string]string) (jsonutils.J
 	}
 
 	if ret.Data == nil || len(ret.Data) == 0 {
-		return nil, httperrors.NewNotFoundError("image %s not found", id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "image %s not found", id)
 	}
 
 	return ret.Data[0], nil

@@ -23,13 +23,13 @@ import (
 	"regexp"
 	"strings"
 
+	"golang.org/x/text/language"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -176,6 +176,12 @@ func (this *ClientSession) getBaseUrl(service, endpointType string) (string, err
 	}
 }
 
+type ctxLang uintptr
+
+const (
+	ctxLangKey = ctxLang(0)
+)
+
 func (this *ClientSession) RawBaseUrlRequest(
 	service, endpointType string,
 	method httputils.THttpMethod, url string,
@@ -194,7 +200,11 @@ func (this *ClientSession) RawBaseUrlRequest(
 		populateHeader(&tmpHeader, headers)
 	}
 	populateHeader(&tmpHeader, this.Header)
-	i18n.SetHTTPLangHeader(this.ctx, tmpHeader)
+	langv := this.ctx.Value(ctxLangKey)
+	langTag, ok := langv.(language.Tag)
+	if ok {
+		tmpHeader.Set("X-Yunion-Lang", langTag.String())
+	}
 	ctx := this.ctx
 	if this.ctx == nil {
 		ctx = context.Background()
@@ -228,7 +238,11 @@ func (this *ClientSession) JSONVersionRequest(
 		populateHeader(&tmpHeader, headers)
 	}
 	populateHeader(&tmpHeader, this.Header)
-	i18n.SetHTTPLangHeader(this.ctx, tmpHeader)
+	langv := this.ctx.Value(ctxLangKey)
+	langTag, ok := langv.(language.Tag)
+	if ok {
+		tmpHeader.Set("X-Yunion-Lang", langTag.String())
+	}
 	ctx := this.ctx
 	if this.ctx == nil {
 		ctx = context.Background()

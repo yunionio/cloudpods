@@ -19,7 +19,6 @@ import (
 	"strconv"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/cloudmux/pkg/multicloud/objectstore"
 )
 
@@ -63,5 +62,5 @@ func (b *SCephRadosBucket) SetLimit(limit cloudprovider.SBucketStats) error {
 		return errors.Wrap(err, "cephCli.adminApi.SetBucketQuota")
 	}
 	return b.SBucket.SetLimit(limit)*/
-	return httperrors.ErrNotSupported
+	return cloudprovider.ErrNotSupported
 }

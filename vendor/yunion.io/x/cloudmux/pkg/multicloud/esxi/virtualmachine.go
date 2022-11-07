@@ -38,7 +38,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	cloudtypes "yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -438,7 +437,7 @@ func (self *SVirtualMachine) StartVM(ctx context.Context) error {
 func (self *SVirtualMachine) startVM(ctx context.Context) error {
 	ihost := self.GetIHost()
 	if ihost == nil {
-		return errors.Wrap(httperrors.ErrInvalidStatus, "no valid host")
+		return errors.Wrap(cloudprovider.ErrInvalidStatus, "no valid host")
 	}
 
 	err := self.makeNicsStartConnected(ctx)

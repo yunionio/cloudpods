@@ -49,7 +49,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -781,7 +780,7 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 	header, body, err := cli.Send(context.TODO(), req, &ae, debug)
 	if err != nil {
 		if strings.Contains(err.Error(), "azure.BearerAuthorizer#WithAuthorization") {
-			return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
+			return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
 		}
 		return nil, err
 	}

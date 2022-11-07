@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -291,7 +290,7 @@ func (api *SXskyAdminApi) findUserByAccessKey(ctx context.Context, accessKey str
 			}
 		}
 	}
-	return nil, nil, httperrors.ErrNotFound
+	return nil, nil, cloudprovider.ErrNotFound
 }
 
 func (api *SXskyAdminApi) findFirstUserWithAccessKey(ctx context.Context) (*sUser, *sKey, error) {
@@ -304,7 +303,7 @@ func (api *SXskyAdminApi) findFirstUserWithAccessKey(ctx context.Context) (*sUse
 			return &usrs[i], &usrs[i].Keys[0], nil
 		}
 	}
-	return nil, nil, httperrors.ErrNotFound
+	return nil, nil, cloudprovider.ErrNotFound
 }
 
 type sBucket struct {
@@ -521,7 +520,7 @@ func (api *SXskyAdminApi) getS3GatewayEndpoint(ctx context.Context) (string, err
 		lbs = append(lbs, s3LbGrps[i].S3LoadBalancers...)
 	}
 	if len(lbs) == 0 {
-		return "", errors.Wrap(httperrors.ErrNotFound, "empty S3 Lb group")
+		return "", errors.Wrap(cloudprovider.ErrNotFound, "empty S3 Lb group")
 	}
 	lb := lbs[rand.Intn(len(lbs))]
 	return lb.GetGatewayEndpoint(), nil

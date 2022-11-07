@@ -39,7 +39,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
@@ -210,7 +209,7 @@ func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
 		result, err := svc.DescribeRegions(input)
 		if err != nil {
 			if e, ok := err.(awserr.Error); ok && e.Code() == "AuthFailure" {
-				return nil, errors.Wrap(httperrors.ErrInvalidAccessKey, err.Error())
+				return nil, errors.Wrap(cloudprovider.ErrInvalidAccessKey, err.Error())
 			}
 			return nil, errors.Wrap(err, "DescribeRegions")
 		}

@@ -24,8 +24,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/cloudmux/pkg/multicloud/google"
 )
 
@@ -85,7 +83,7 @@ func (self *SGoogleProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
 
-func (self *SGoogleProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SGoogleProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	for key, value := range map[string]string{
 		"client_email":   input.GCPClientEmail,
@@ -94,7 +92,7 @@ func (self *SGoogleProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 		"private_key":    input.GCPPrivateKey,
 	} {
 		if len(value) == 0 {
-			return output, errors.Wrap(httperrors.ErrMissingParameter, key)
+			return output, errors.Wrap(cloudprovider.ErrMissingParameter, key)
 		}
 	}
 	output.Account = fmt.Sprintf("%s/%s", input.GCPProjectId, input.GCPClientEmail)
@@ -102,7 +100,7 @@ func (self *SGoogleProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 	return output, nil
 }
 
-func (self *SGoogleProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SGoogleProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	projectID, clientEmail := "", ""
 	accountInfo := strings.Split(cloudaccount, "/")
@@ -115,7 +113,7 @@ func (self *SGoogleProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 		"private_key":    input.GCPPrivateKey,
 	} {
 		if len(value) == 0 {
-			return output, errors.Wrap(httperrors.ErrMissingParameter, key)
+			return output, errors.Wrap(cloudprovider.ErrMissingParameter, key)
 		}
 	}
 	if len(input.GCPClientEmail) == 0 {

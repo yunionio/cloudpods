@@ -22,8 +22,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/cloudmux/pkg/multicloud/objectstore"
 )
 
@@ -39,16 +37,16 @@ func (self *SObjectStoreProviderFactory) GetName() string {
 	return api.CLOUD_PROVIDER_GENERICS3
 }
 
-func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 	if len(input.Endpoint) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "endpoint")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "endpoint")
 	}
 	output.Account = input.AccessKeyId
 	output.Secret = input.AccessKeySecret
@@ -56,13 +54,13 @@ func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx cont
 	return output, nil
 }
 
-func (self *SObjectStoreProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SObjectStoreProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 	output = cloudprovider.SCloudaccount{
 		Account: input.AccessKeyId,

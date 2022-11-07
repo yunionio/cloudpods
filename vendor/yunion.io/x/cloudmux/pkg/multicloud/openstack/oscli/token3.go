@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -431,7 +430,7 @@ func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, en
 			return selected, nil
 		}
 	}
-	return nil, errors.Wrapf(httperrors.ErrNotFound, "No such service %s", service)
+	return nil, errors.Wrapf(errors.ErrNotFound, "No such service %s", service)
 }
 
 func (self *TokenCredentialV3) GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {

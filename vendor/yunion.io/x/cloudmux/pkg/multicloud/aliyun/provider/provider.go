@@ -25,9 +25,6 @@ import (
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud/aliyun"
-
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SAliyunProviderFactory struct {
@@ -152,13 +149,13 @@ func (self *SAliyunProviderFactory) GetTTLRange(zoneType cloudprovider.TDnsZoneT
 	return cloudprovider.TTlRange{}
 }
 
-func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 	output.AccessUrl = input.Environment
 	output.Account = input.AccessKeyId
@@ -166,13 +163,13 @@ func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 	return output, nil
 }
 
-func (self *SAliyunProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SAliyunProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 	output = cloudprovider.SCloudaccount{
 		Account: input.AccessKeyId,
@@ -197,11 +194,11 @@ func validateClientCloudenv(client *aliyun.SAliyunClient) error {
 
 	if isFinanceAccount {
 		if regions[0].GetCloudEnv() != "FinanceCloud" {
-			return errors.Wrap(httperrors.ErrInvalidCredential, "aksk is aliyun finance account")
+			return errors.Wrap(cloudprovider.ErrInvalidCredential, "aksk is aliyun finance account")
 		}
 	} else {
 		if regions[0].GetCloudEnv() == "FinanceCloud" {
-			return errors.Wrap(httperrors.ErrInvalidCredential, "aksk is not aliyun finance account")
+			return errors.Wrap(cloudprovider.ErrInvalidCredential, "aksk is not aliyun finance account")
 		}
 	}
 

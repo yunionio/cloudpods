@@ -20,7 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud/hcso/client/manager"
 	"yunion.io/x/cloudmux/pkg/multicloud/hcso/client/requests"
 	hw_mod "yunion.io/x/cloudmux/pkg/multicloud/huawei/client/modules"
@@ -90,7 +90,7 @@ type SBatchQueryMetricDataInput struct {
 
 func (ces *SCloudEyeManager) GetMetricsData(metrics []hw_mod.SMetricMeta, since time.Time, until time.Time) ([]hw_mod.SMetricData, error) {
 	if len(metrics) > 10 {
-		return nil, errors.Wrap(httperrors.ErrTooLarge, "request more than 10 metrics")
+		return nil, errors.Wrap(cloudprovider.ErrTooLarge, "request more than 10 metrics")
 	}
 	metricReq := make([]hw_mod.SMetric, len(metrics))
 	for i := range metrics {

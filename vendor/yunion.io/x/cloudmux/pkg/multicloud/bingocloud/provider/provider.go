@@ -23,8 +23,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/cloudmux/pkg/multicloud/bingocloud"
 )
 
@@ -44,16 +42,16 @@ func (self *SBingoCloudProviderFactory) ValidateChangeBandwidth(instanceId strin
 	return fmt.Errorf("Changing %s bandwidth is not supported", bingocloud.CLOUD_PROVIDER_BINGO_CLOUD)
 }
 
-func (self *SBingoCloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SBingoCloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 	if len(input.Endpoint) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "endpoint")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "endpoint")
 	}
 	output.AccessUrl = input.Endpoint
 	output.Account = input.AccessKeyId
@@ -61,13 +59,13 @@ func (self *SBingoCloudProviderFactory) ValidateCreateCloudaccountData(ctx conte
 	return output, nil
 }
 
-func (self *SBingoCloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SBingoCloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 	output = cloudprovider.SCloudaccount{
 		Account: input.AccessKeyId,
