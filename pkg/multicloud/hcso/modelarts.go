@@ -344,6 +344,7 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 }
 
 func (self *SModelartsPool) Refresh() error {
+	self.Status.Resource = SNodeStatus{}
 	pool, err := self.region.client.modelartsPoolById(self.GetId())
 	if err != nil {
 		return errors.Wrapf(err, "GetModelartsPool(%s)", self.GetId())
