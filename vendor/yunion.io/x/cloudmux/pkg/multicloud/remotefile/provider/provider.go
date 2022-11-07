@@ -22,8 +22,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/cloudmux/pkg/multicloud/remotefile"
 )
 
@@ -39,10 +37,10 @@ func (self *SRemoteFileProviderFactory) GetName() string {
 	return remotefile.CLOUD_PROVIDER_REMOTEFILE
 }
 
-func (self *SRemoteFileProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SRemoteFileProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AuthUrl) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "auth_url")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "auth_url")
 	}
 	if len(input.Username) == 0 {
 		input.Username = "root"
@@ -56,7 +54,7 @@ func (self *SRemoteFileProviderFactory) ValidateCreateCloudaccountData(ctx conte
 	return output, nil
 }
 
-func (self *SRemoteFileProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SRemoteFileProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	return output, cloudprovider.ErrNotSupported
 }

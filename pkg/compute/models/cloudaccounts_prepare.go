@@ -147,7 +147,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 	if err != nil {
 		return output, errors.Wrap(err, "cloudprovider.GetProviderFactory")
 	}
-	input.SCloudaccount, err = factory.ValidateCreateCloudaccountData(ctx, userCred, input.SCloudaccountCredential)
+	input.SCloudaccount, err = factory.ValidateCreateCloudaccountData(ctx, input.SCloudaccountCredential)
 	if err != nil {
 		return output, errors.Wrap(err, "providerDriver.ValidateCreateCloudaccountData")
 	}

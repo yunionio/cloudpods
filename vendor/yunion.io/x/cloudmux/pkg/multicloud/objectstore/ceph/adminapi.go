@@ -21,12 +21,12 @@ import (
 	"net/http"
 	"strings"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/s3auth"
 )
@@ -132,7 +132,7 @@ func (api *SCephAdminApi) GetUserInfo(ctx context.Context, uid string) (*SUserIn
 	if err != nil {
 		if httputils.ErrorCode(err) == 403 {
 			msg := `add users read cap by: radosgw-admin caps add --uid %s --caps="users=read"`
-			return nil, errors.Wrapf(httperrors.ErrForbidden, msg, uid)
+			return nil, errors.Wrapf(cloudprovider.ErrForbidden, msg, uid)
 		}
 		return nil, errors.Wrap(err, "api.jsonRequest")
 	}
@@ -207,12 +207,12 @@ func (api *SCephAdminApi) getQuota(ctx context.Context, uid string, level string
 			} else {
 				msg = `add users read cap by: radosgw-admin caps add --uid %s --caps="users=read"`
 			}
-			return nil, errors.Wrapf(httperrors.ErrForbidden, msg, uid)
+			return nil, errors.Wrapf(cloudprovider.ErrForbidden, msg, uid)
 		}
 		return nil, errors.Wrap(err, "api.jsonRequest")
 	}
 	if resp == nil {
-		return nil, httperrors.ErrNotSupported
+		return nil, cloudprovider.ErrNotSupported
 	}
 	quota := SQuota{}
 	err = resp.Unmarshal(&quota)
@@ -279,7 +279,7 @@ func (api *SCephAdminApi) setQuota(ctx context.Context, uid string, level string
 			} else {
 				msg = `add users write cap by: radosgw-admin caps add --uid %s --caps="users=write"`
 			}
-			return nil, errors.Wrapf(httperrors.ErrForbidden, msg, uid)
+			return nil, errors.Wrapf(cloudprovider.ErrForbidden, msg, uid)
 		}
 		return nil, errors.Wrap(err, "api.jsonRequest")
 	}

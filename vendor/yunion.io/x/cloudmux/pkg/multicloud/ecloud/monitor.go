@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
@@ -96,7 +95,7 @@ func (br *SMonitorRequest) ForMateResponseBody(jrbody jsonutils.JSONObject) (jso
 	code, _ := jrbody.GetString("code")
 	if code != REQUEST_SUCCESS_CODE {
 		message, _ := jrbody.(*jsonutils.JSONDict).GetString("message")
-		return nil, httperrors.NewBadRequestError("rep body code is :%s, message:%s,body:%v", code, message, jrbody)
+		return nil, errors.Errorf("rep body code is :%s, message:%s,body:%v", code, message, jrbody)
 	}
 	if jrbody == nil || !jrbody.Contains("entity") {
 		return nil, ErrMissKey{

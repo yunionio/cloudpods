@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -113,8 +112,8 @@ func (self *SCloudpodsClient) auth() error {
 	}))
 	token, err := client.AuthenticateByAccessKey(self.accessKey, self.accessSecret, "cli")
 	if err != nil {
-		if errors.Cause(err) == httperrors.ErrUnauthorized {
-			return errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
+		if errors.Cause(err) == cloudprovider.ErrUnauthorized {
+			return errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
 		}
 		return err
 	}

@@ -28,8 +28,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
 )
 
@@ -49,19 +47,19 @@ func (self *SESXiProviderFactory) ValidateChangeBandwidth(instanceId string, ban
 	return fmt.Errorf("Changing %s bandwidth is not supported", esxi.CLOUD_PROVIDER_VMWARE)
 }
 
-func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.Username) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "username")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "username")
 	}
 	if len(input.Password) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "password")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "password")
 	}
 	if len(input.Host) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "host")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "host")
 	}
 	if !regutils.MatchIPAddr(input.Host) && !regutils.MatchDomainName(input.Host) {
-		return output, errors.Wrap(httperrors.ErrInputParameter, "host should be ip or domain name")
+		return output, errors.Wrap(cloudprovider.ErrInputParameter, "host should be ip or domain name")
 	}
 	output.AccessUrl = fmt.Sprintf("https://%s:%d/sdk", input.Host, input.Port)
 	if input.Port == 0 || input.Port == 443 {
@@ -72,13 +70,13 @@ func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Con
 	return output, nil
 }
 
-func (self *SESXiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SESXiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.Username) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "username")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "username")
 	}
 	if len(input.Password) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "password")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "password")
 	}
 	output = cloudprovider.SCloudaccount{
 		Account: input.Username,

@@ -429,7 +429,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 		input.Options.Add(jsonutils.NewString(input.DefaultRegion), "default_region")
 	}
 
-	input.SCloudaccount, err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, input.SCloudaccountCredential)
+	input.SCloudaccount, err = providerDriver.ValidateCreateCloudaccountData(ctx, input.SCloudaccountCredential)
 	if err != nil {
 		return input, err
 	}
@@ -631,7 +631,7 @@ func (self *SCloudaccount) PerformTestConnectivity(ctx context.Context, userCred
 		return nil, httperrors.NewBadRequestError("failed to found provider factory error: %v", err)
 	}
 
-	account, err := providerDriver.ValidateUpdateCloudaccountCredential(ctx, userCred, input, self.Account)
+	account, err := providerDriver.ValidateUpdateCloudaccountCredential(ctx, input, self.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -674,7 +674,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		return nil, httperrors.NewInputParameterError("failed to unmarshal input params: %v", err)
 	}
 
-	account, err := providerDriver.ValidateUpdateCloudaccountCredential(ctx, userCred, input, self.Account)
+	account, err := providerDriver.ValidateUpdateCloudaccountCredential(ctx, input, self.Account)
 	if err != nil {
 		return nil, err
 	}

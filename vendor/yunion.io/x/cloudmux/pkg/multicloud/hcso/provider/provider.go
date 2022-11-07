@@ -23,8 +23,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	huawei "yunion.io/x/cloudmux/pkg/multicloud/hcso"
 )
 
@@ -84,25 +82,25 @@ func (factory *SHCSOProviderFactory) IsSupportSAMLAuth() bool {
 	return true
 }
 
-func (self *SHCSOProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (self *SHCSOProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 
 	if input.SHCSOEndpoints == nil {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "cloud_stack_endpoints")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "cloud_stack_endpoints")
 	}
 
 	if len(input.DefaultRegion) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "default_region")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "default_region")
 	}
 
 	if len(input.SHCSOEndpoints.EndpointDomain) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "endpoint_domain")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "endpoint_domain")
 	}
 
 	output.Account = input.AccessKeyId
@@ -110,22 +108,22 @@ func (self *SHCSOProviderFactory) ValidateCreateCloudaccountData(ctx context.Con
 	return output, nil
 }
 
-func (self *SHCSOProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (self *SHCSOProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
+		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_secret")
 	}
 
 	if input.SHCSOEndpoints != nil {
 		if len(input.DefaultRegion) == 0 {
-			return output, errors.Wrap(httperrors.ErrMissingParameter, "default_region")
+			return output, errors.Wrap(cloudprovider.ErrMissingParameter, "default_region")
 		}
 
 		if len(input.SHCSOEndpoints.EndpointDomain) == 0 {
-			return output, errors.Wrap(httperrors.ErrMissingParameter, "endpoint_domain")
+			return output, errors.Wrap(cloudprovider.ErrMissingParameter, "endpoint_domain")
 		}
 	}
 

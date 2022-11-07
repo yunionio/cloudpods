@@ -41,7 +41,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -459,7 +458,7 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	}
 	ret, err := _baseJsonRequest(client, req, resp, apiName, debug, retry)
 	if err != nil {
-		if errors.Cause(err) == httperrors.ErrNoPermission && updateFun != nil {
+		if errors.Cause(err) == cloudprovider.ErrNoPermission && updateFun != nil {
 			updateFun(service, apiName)
 		}
 		return nil, err
@@ -487,7 +486,7 @@ func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, 
 
 	ret, err := _baseJsonRequest(client, req, resp, apiName, debug, true)
 	if err != nil {
-		if errors.Cause(err) == httperrors.ErrNoPermission && updateFunc != nil {
+		if errors.Cause(err) == cloudprovider.ErrNoPermission && updateFunc != nil {
 			updateFunc(service, apiName)
 		}
 		return nil, err
@@ -517,13 +516,13 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 					"InvalidParameter.PermissionDenied",
 					"AuthFailure",
 				}) {
-				return nil, errors.Wrapf(httperrors.ErrNoPermission, err.Error())
+				return nil, errors.Wrapf(cloudprovider.ErrNoPermission, err.Error())
 			}
 			if utils.IsInStringArray(e.Code, []string{
 				"AuthFailure.SecretIdNotFound",
 				"AuthFailure.SignatureFailure",
 			}) {
-				return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
+				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
 			}
 			if utils.IsInStringArray(e.Code, []string{
 				"InvalidParameter.RoleNotExist",

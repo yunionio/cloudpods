@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -330,7 +329,7 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 
 func (self *SRegion) getSecurityGroupById(vpcId, secgroupId string) (*SSecurityGroup, error) {
 	if len(secgroupId) == 0 {
-		return nil, httperrors.NewInputParameterError("security group id should not be empty")
+		return nil, errors.Wrapf(cloudprovider.ErrInputParameter, "security group id should not be empty")
 	}
 
 	secgroups, total, err := self.GetSecurityGroups(vpcId, "", secgroupId, 0, 0)
@@ -341,7 +340,7 @@ func (self *SRegion) getSecurityGroupById(vpcId, secgroupId string) (*SSecurityG
 
 	if total != 1 {
 		log.Debugf("failed to find  SecurityGroup %s: %d found", secgroupId, total)
-		return nil, httperrors.NewNotFoundError("failed to find SecurityGroup %s", secgroupId)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "failed to find SecurityGroup %s", secgroupId)
 	}
 	return &secgroups[0], nil
 }

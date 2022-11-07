@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -164,7 +163,7 @@ func (secgrouprule *SSecurityGroupRule) toRules() ([]cloudprovider.SecurityRule,
 	} else if utils.IsInStringArray(secgrouprule.Protocol, []string{"1", "icmp"}) {
 		rule.Protocol = secrules.PROTO_ICMP
 	} else {
-		return rules, errors.Wrap(httperrors.ErrUnsupportedProtocol, secgrouprule.Protocol)
+		return rules, errors.Wrap(cloudprovider.ErrUnsupportedProtocol, secgrouprule.Protocol)
 	}
 	if secgrouprule.Direction == "egress" {
 		rule.Direction = secrules.DIR_OUT

@@ -38,7 +38,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -975,7 +974,7 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 func splitKey(key string) (string, string, error) {
 	slashPos := strings.IndexByte(key, '/')
 	if slashPos <= 0 {
-		return "", "", errors.Wrap(httperrors.ErrForbidden, "cannot put object to root")
+		return "", "", errors.Wrap(cloudprovider.ErrForbidden, "cannot put object to root")
 	}
 	containerName := key[:slashPos]
 	key = key[slashPos+1:]
@@ -1007,7 +1006,7 @@ func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.R
 	} else {
 		// create container
 		if sizeBytes > 0 {
-			return errors.Wrap(httperrors.ErrForbidden, "not allow to create blob outsize of container")
+			return errors.Wrap(cloudprovider.ErrForbidden, "not allow to create blob outsize of container")
 		}
 		_, err = b.getOrCreateContainer(containerName, true)
 		if err != nil {

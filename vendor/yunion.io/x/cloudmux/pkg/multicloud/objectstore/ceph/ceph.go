@@ -24,7 +24,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/cloudmux/pkg/multicloud/objectstore"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -67,7 +66,7 @@ func NewCephRados(cfg *objectstore.ObjectStoreClientConfig) (*SCephRadosClient, 
 
 	userQuota, bucketQuota, err := adminApi.GetUserQuota(context.Background(), s3store.GetAccountId())
 	if err != nil {
-		if errors.Cause(err) != httperrors.ErrForbidden {
+		if errors.Cause(err) != cloudprovider.ErrForbidden {
 			return nil, errors.Wrap(err, "adminApi.GetUserQuota")
 		} else {
 			// skip the error
@@ -76,7 +75,7 @@ func NewCephRados(cfg *objectstore.ObjectStoreClientConfig) (*SCephRadosClient, 
 	}
 	userInfo, err := adminApi.GetUserInfo(context.Background(), s3store.GetAccountId())
 	if err != nil {
-		if errors.Cause(err) != httperrors.ErrForbidden {
+		if errors.Cause(err) != cloudprovider.ErrForbidden {
 			return nil, errors.Wrap(err, "adminApi.GetUserInfo")
 		} else {
 			// skip the error
