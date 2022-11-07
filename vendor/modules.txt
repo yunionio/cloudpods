@@ -1413,6 +1413,89 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
+<<<<<<< HEAD
+=======
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20221107065816-1f0d5fecf55a
+## explicit; go 1.18
+yunion.io/x/cloudmux/pkg/apis
+yunion.io/x/cloudmux/pkg/apis/billing
+yunion.io/x/cloudmux/pkg/apis/cloudid
+yunion.io/x/cloudmux/pkg/apis/compute
+yunion.io/x/cloudmux/pkg/cloudprovider
+yunion.io/x/cloudmux/pkg/multicloud
+yunion.io/x/cloudmux/pkg/multicloud/aliyun
+yunion.io/x/cloudmux/pkg/multicloud/aliyun/provider
+yunion.io/x/cloudmux/pkg/multicloud/apsara
+yunion.io/x/cloudmux/pkg/multicloud/apsara/provider
+yunion.io/x/cloudmux/pkg/multicloud/aws
+yunion.io/x/cloudmux/pkg/multicloud/aws/provider
+yunion.io/x/cloudmux/pkg/multicloud/azure
+yunion.io/x/cloudmux/pkg/multicloud/azure/concurrent
+yunion.io/x/cloudmux/pkg/multicloud/azure/progress
+yunion.io/x/cloudmux/pkg/multicloud/azure/provider
+yunion.io/x/cloudmux/pkg/multicloud/bingocloud
+yunion.io/x/cloudmux/pkg/multicloud/bingocloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/cloudpods
+yunion.io/x/cloudmux/pkg/multicloud/cloudpods/provider
+yunion.io/x/cloudmux/pkg/multicloud/ctyun
+yunion.io/x/cloudmux/pkg/multicloud/ctyun/provider
+yunion.io/x/cloudmux/pkg/multicloud/ecloud
+yunion.io/x/cloudmux/pkg/multicloud/ecloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/esxi
+yunion.io/x/cloudmux/pkg/multicloud/esxi/provider
+yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter
+yunion.io/x/cloudmux/pkg/multicloud/google
+yunion.io/x/cloudmux/pkg/multicloud/google/provider
+yunion.io/x/cloudmux/pkg/multicloud/hcs
+yunion.io/x/cloudmux/pkg/multicloud/hcs/provider
+yunion.io/x/cloudmux/pkg/multicloud/hcso
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/auth
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/auth/credentials
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/auth/signers
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/manager
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/modules
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/requests
+yunion.io/x/cloudmux/pkg/multicloud/hcso/client/responses
+yunion.io/x/cloudmux/pkg/multicloud/hcso/provider
+yunion.io/x/cloudmux/pkg/multicloud/huawei
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth/credentials
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/auth/signers
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/manager
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/modules
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/requests
+yunion.io/x/cloudmux/pkg/multicloud/huawei/client/responses
+yunion.io/x/cloudmux/pkg/multicloud/huawei/obs
+yunion.io/x/cloudmux/pkg/multicloud/huawei/provider
+yunion.io/x/cloudmux/pkg/multicloud/incloudsphere
+yunion.io/x/cloudmux/pkg/multicloud/incloudsphere/provider
+yunion.io/x/cloudmux/pkg/multicloud/jdcloud
+yunion.io/x/cloudmux/pkg/multicloud/jdcloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/loader
+yunion.io/x/cloudmux/pkg/multicloud/nutanix
+yunion.io/x/cloudmux/pkg/multicloud/nutanix/provider
+yunion.io/x/cloudmux/pkg/multicloud/objectstore
+yunion.io/x/cloudmux/pkg/multicloud/objectstore/ceph
+yunion.io/x/cloudmux/pkg/multicloud/objectstore/ceph/provider
+yunion.io/x/cloudmux/pkg/multicloud/objectstore/provider
+yunion.io/x/cloudmux/pkg/multicloud/objectstore/xsky
+yunion.io/x/cloudmux/pkg/multicloud/objectstore/xsky/provider
+yunion.io/x/cloudmux/pkg/multicloud/openstack
+yunion.io/x/cloudmux/pkg/multicloud/openstack/oscli
+yunion.io/x/cloudmux/pkg/multicloud/openstack/provider
+yunion.io/x/cloudmux/pkg/multicloud/proxmox
+yunion.io/x/cloudmux/pkg/multicloud/proxmox/provider
+yunion.io/x/cloudmux/pkg/multicloud/qcloud
+yunion.io/x/cloudmux/pkg/multicloud/qcloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/remotefile
+yunion.io/x/cloudmux/pkg/multicloud/remotefile/provider
+yunion.io/x/cloudmux/pkg/multicloud/ucloud
+yunion.io/x/cloudmux/pkg/multicloud/ucloud/provider
+yunion.io/x/cloudmux/pkg/multicloud/zstack
+yunion.io/x/cloudmux/pkg/multicloud/zstack/provider
+>>>>>>> fix(cloudmux): modelarts refresh status
 # yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
 ## explicit; go 1.12
 yunion.io/x/executor/apis
