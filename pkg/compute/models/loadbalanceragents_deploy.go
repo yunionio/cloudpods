@@ -138,11 +138,13 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 	case compute_apis.DeployMethodCopy:
 		// glob for rpms
 		basenames := []string{
-			"packages/telegraf",
-			"packages/gobetween",
-			"packages/keepalived",
-			"packages/haproxy",
-			"updates/yunion-lbagent",
+			"telegraf",
+			"gobetween",
+			"keepalived",
+			"haproxy",
+			"openvswitch",
+			"openvswitch-ovn-host",
+			"yunion-lbagent",
 		}
 		mods := []ansible.Module{}
 		for _, basename := range basenames {
@@ -287,11 +289,12 @@ func (lbagent *SLoadbalancerAgent) validateHost(ctx context.Context, userCred mc
 	return nil
 }
 
-func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input := &compute_apis.LoadbalancerAgentDeployInput{}
-	if err := data.Unmarshal(input); err != nil {
-		return nil, httperrors.NewBadRequestError("unmarshal input: %v", err)
-	}
+func (lbagent *SLoadbalancerAgent) PerformDeploy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *compute_apis.LoadbalancerAgentDeployInput,
+) (*compute_apis.LoadbalancerAgentDeployInput, error) {
 	host := input.Host
 	for _, k := range []string{"user", "pass", "proj"} {
 		if v, ok := host.GetVar(k); !ok {
@@ -423,15 +426,7 @@ api_list_batch_size = 2048
 	yunionRepoTmpl = `
 [yunion]
 name=Packages for Yunion- $basearch
-baseurl={{ repo_base_url }}/updates
-failovermethod=priority
-enabled=1
-gpgcheck=0
-sslverify={{ repo_sslverify }}
-
-[yunion-extra]
-name=Extra Packages for Yunion - $basearch
-baseurl={{ repo_base_url }}/packages
+baseurl={{ repo_base_url }}
 failovermethod=priority
 enabled=1
 gpgcheck=0

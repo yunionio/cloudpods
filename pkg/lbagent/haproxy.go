@@ -502,6 +502,10 @@ func (h *HaproxyHelper) reloadKeepalived(ctx context.Context) error {
 		"--vrrp_pid", vrrpPidFile.Path,
 		"--checkers_pid", checkersPidFile.Path,
 		"--use-file", h.keepalivedConf(),
+		"-D",
+		"-d",
+		"-S",
+		"0",
 	}
 	return h.runCmd(args)
 }
