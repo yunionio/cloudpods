@@ -1787,7 +1787,6 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 
 	model.PreDelete(ctx, userCred)
 
-	// err = DeleteModel(ctx, userCred, model)
 	err = model.Delete(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Delete")
@@ -1795,6 +1794,8 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 
 	model.PostDelete(ctx, userCred)
 
+	// 避免设置删除状态没有正常返回
+	jsonutils.Update(details, model)
 	return details, nil
 }
 
