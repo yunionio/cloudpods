@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -454,30 +453,15 @@ func (self *SCloudregion) syncRemoveCloudRegion(ctx context.Context, userCred mc
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.RemoveI18ns(ctx, userCred, self)
-	if err != nil {
-		return err
-	}
-
-	// err := self.ValidateDeleteCondition(ctx)
-	// if err == nil {
-	// 	err = self.Delete(ctx, userCred)
-	// }
-
-	err = self.SetStatus(userCred, api.CLOUD_REGION_STATUS_OUTOFSERVICE, "Out of sync")
-	if err == nil {
-		_, err = self.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
-	}
-
+	// 不要设置region状态不可用, 同一个公有云，不同账号可能获取的region数量不一样
 	cpr := CloudproviderRegionManager.FetchByIds(cloudProvider.Id, self.Id)
 	if cpr != nil {
-		err = cpr.Detach(ctx, userCred)
+		err := cpr.Detach(ctx, userCred)
 		if err == nil {
-			err = cpr.removeCapabilities(ctx, userCred)
+			cpr.removeCapabilities(ctx, userCred)
 		}
 	}
-
-	return err
+	return nil
 }
 
 func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mcclient.TokenCredential, cloudRegion cloudprovider.ICloudRegion, provider *SCloudprovider) error {
