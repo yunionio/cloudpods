@@ -70,7 +70,8 @@ import (
 
 func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	ret := &cloudprovider.ServerVncOutput{}
-	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_MIGRATING}) {
+	if self.PowerStates == api.VM_POWER_STATES_ON ||
+		utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_MIGRATING}) {
 		host, err := self.GetHost()
 		if err != nil {
 			return nil, httperrors.NewInternalServerError(errors.Wrapf(err, "GetHost").Error())
@@ -116,7 +117,8 @@ func (self *SGuest) PerformMonitor(
 	query jsonutils.JSONObject,
 	input *api.ServerMonitorInput,
 ) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_MIGRATING}) {
+	if self.PowerStates == api.VM_POWER_STATES_ON ||
+		utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_MIGRATING}) {
 		if input.COMMAND == "" {
 			return nil, httperrors.NewMissingParameterError("command")
 		}
