@@ -246,18 +246,12 @@ func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.To
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.RemoveI18ns(ctx, userCred, self)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
-
-	err = self.ValidateDeleteCondition(ctx, nil)
-	if err != nil { // cannot delete
-		err = self.SetStatus(userCred, api.ZONE_DISABLE, "sync to delete")
-	} else {
-		err = self.Delete(ctx, userCred)
-	}
-	return err
+	self.RemoveI18ns(ctx, userCred, self)
+	return self.Delete(ctx, userCred)
 }
 
 func (self *SZone) syncWithCloudZone(ctx context.Context, userCred mcclient.TokenCredential, extZone cloudprovider.ICloudZone, region *SCloudregion) error {
