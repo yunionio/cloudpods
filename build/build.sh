@@ -44,7 +44,12 @@ echo "Build root ${BUILDROOT}"
 if [ -z "$VERSION" ]; then
 	TAG=$(git describe --abbrev=0 --tags || echo testing)
 	VERSION=${TAG/\//-}
-	VERSION=${VERSION/v/}
+	if [[ "$VERSION" =~ ^v0. ]]; then
+		VERSION=${VERSION/v0./}
+	elif [[ "$VERSION" =~ ^v ]]; then
+		VERSION=${VERSION/v/}
+	fi
+	VERSION=${VERSION//-/.}
 fi
 RELEASE=`date +"%y%m%d%H"`
 
