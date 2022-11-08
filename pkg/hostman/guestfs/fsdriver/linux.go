@@ -758,6 +758,13 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 	if err := d.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
+	if !rootFs.Exists("/etc/network", false) {
+		if err := rootFs.Mkdir("/etc/network",
+			syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR, false); err != nil {
+			return errors.Wrap(err, "mkdir /etc/network")
+		}
+	}
+
 	fn := "/etc/network/interfaces"
 	var cmds strings.Builder
 	cmds.WriteString("auto lo\n")
