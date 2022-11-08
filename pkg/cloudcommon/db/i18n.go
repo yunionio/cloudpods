@@ -17,7 +17,6 @@ package db
 import (
 	"context"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 
@@ -190,9 +189,6 @@ func (manager *SI18nManager) RemoveI18ns(ctx context.Context, userCred mcclient.
 
 func (manager *SI18nManager) SyncI18ns(ctx context.Context, userCred mcclient.TokenCredential, model IModel, table IModelI18nTable) ([]SI18n, []IModelI18nEntry, compare.SyncResult) {
 	//// No need to lock SI18nManager, the resources has been lock in the upper layer - QIU Jian, 20210405
-	// lockman.LockClass(ctx, manager, "")
-	// defer lockman.ReleaseClass(ctx, manager, "")
-
 	syncResult := compare.SyncResult{}
 
 	extItems := manager.getExternalI18nItems(ctx, table)
@@ -263,8 +259,7 @@ func (manager *SI18nManager) newFromI18n(ctx context.Context, userCred mcclient.
 
 	err := manager.TableSpec().Insert(ctx, &in)
 	if err != nil {
-		log.Infof("newFromI18n fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "newFromI18n.Insert")
 	}
 
 	return &in, nil
@@ -273,7 +268,6 @@ func (manager *SI18nManager) newFromI18n(ctx context.Context, userCred mcclient.
 func (self *SI18n) updateFromI18n(ctx context.Context, userCred mcclient.TokenCredential, entry IModelI18nEntry) error {
 	zh := entry.Lookup(i18n.I18N_TAG_CHINESE)
 	en := entry.Lookup(i18n.I18N_TAG_ENGLISH)
-	log.Debugf("updateFromI18n %#v %s %s", self, zh, en)
 	if self.Cn != zh || self.En != en {
 		_, err := Update(self, func() error {
 			self.KeyValue = entry.GetKeyValue()
@@ -282,8 +276,7 @@ func (self *SI18n) updateFromI18n(ctx context.Context, userCred mcclient.TokenCr
 			return nil
 		})
 		if err != nil {
-			log.Infof("updateFromI18n error %s", err)
-			return err
+			return errors.Wrapf(err, "updateFromI18n.Update")
 		}
 	}
 
