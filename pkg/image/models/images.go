@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
@@ -1694,7 +1695,7 @@ func (image *SImage) updateImageInfo(
 	userCred mcclient.TokenCredential,
 	imageInfo *deployapi.ImageInfo,
 ) error {
-	if imageInfo.OsInfo == nil {
+	if imageInfo.OsInfo == nil || gotypes.IsNil(imageInfo.OsInfo) {
 		log.Warningln("imageInfo.OsInfo is empty!")
 		return nil
 	}
