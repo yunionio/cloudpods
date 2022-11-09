@@ -175,7 +175,7 @@ func (s *SKVMGuestInstance) initMachineDefaultDevices() error {
 func (s *SKVMGuestInstance) initGuestPciControllers() (*desc.PCIController, *desc.PCIController) {
 	var isPcie = s.isPcie()
 	var pciRoot, pciBridge *desc.PCIController
-	if isPcie && s.hasPcieExtendBus() {
+	if isPcie {
 		pciRoot = s.addPCIController(desc.CONTROLLER_TYPE_PCIE_ROOT, "")
 		s.addPCIController(desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_ROOT)
 		pciBridge = s.addPCIController(desc.CONTROLLER_TYPE_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE)
