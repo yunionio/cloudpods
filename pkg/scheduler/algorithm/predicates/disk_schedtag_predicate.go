@@ -150,13 +150,18 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.
 
 	if u.GetHypervisorDriver().DoScheduleStorageFilter() {
 		// free capacity check
-		if storage.FreeCapacity < int64(d.SizeMb) {
-			return &FailReason{
-				Reason: fmt.Sprintf("Storage %s free capacity %d < %d(request)", storage.Name, storage.FreeCapacity, d.SizeMb),
-				Type:   StorageCapacity,
+		isMigrate := len(u.SchedData().HostId) > 0
+		if !isMigrate || !utils.IsInStringArray(storage.StorageType, computeapi.SHARED_STORAGE) {
+			if storage.FreeCapacity < int64(d.SizeMb) {
+				return &FailReason{
+					Reason: fmt.Sprintf("Storage %s free capacity %d < %d(request)", storage.Name, storage.FreeCapacity, d.SizeMb),
+					Type:   StorageCapacity,
+				}
 			}
+
 		}
-		if storage.ActualFreeCapacity < int64(d.SizeMb) {
+		// only check ActualFreeCapacity when storage_type is local
+		if storage.StorageType == computeapi.STORAGE_LOCAL && storage.ActualFreeCapacity < int64(d.SizeMb) {
 			return &FailReason{
 				Reason: fmt.Sprintf("Storage %s actual free capacity %d < %d(request)", storage.Name, storage.ActualFreeCapacity, d.SizeMb),
 				Type:   StorageCapacity,
