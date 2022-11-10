@@ -676,18 +676,9 @@ func (self *SRegion) auditRequest(apiName string, params map[string]string) (jso
 	return self.client.auditRequest(apiName, params)
 }
 
-func (self *SRegion) vpc2017Request(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	params["Region"] = self.Region
-	return self.client.vpc2017Request(apiName, params)
-}
-
 func (self *SRegion) cvmRequest(apiName string, params map[string]string, retry bool) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.jsonRequest(apiName, params, retry)
-}
-
-func (self *SRegion) accountRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	return self.client.accountRequestRequest(apiName, params)
 }
 
 func (self *SRegion) cbsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -698,11 +689,6 @@ func (self *SRegion) cbsRequest(apiName string, params map[string]string) (jsonu
 func (self *SRegion) clbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.clbRequest(apiName, params)
-}
-
-func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	params["Region"] = self.Region
-	return self.client.lbRequest(apiName, params)
 }
 
 func (self *SRegion) cdbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -723,11 +709,6 @@ func (self *SRegion) postgresRequest(apiName string, params map[string]string) (
 func (self *SRegion) sqlserverRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.sqlserverRequest(apiName, params)
-}
-
-// deprecated
-func (self *SRegion) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	return self.client.wssRequest(apiName, params)
 }
 
 func (self *SRegion) sslRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {

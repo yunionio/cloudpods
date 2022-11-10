@@ -102,18 +102,10 @@ func (self *SLoadbalancer) GetEgressMbps() int {
 
 // https://cloud.tencent.com/document/product/214/30689
 func (self *SLoadbalancer) Delete(ctx context.Context) error {
-	if self.Forward == LB_TYPE_APPLICATION {
-		_, err := self.region.DeleteLoadbalancer(self.GetId())
-		if err != nil {
-			return err
-		}
-	} else {
-		_, err := self.region.DeleteClassicLoadbalancer(self.GetId())
-		if err != nil {
-			return err
-		}
+	_, err := self.region.DeleteLoadbalancer(self.GetId())
+	if err != nil {
+		return err
 	}
-
 	return cloudprovider.WaitDeleted(self, 5*time.Second, 60*time.Second)
 }
 
@@ -527,23 +519,6 @@ func (self *SRegion) DeleteLoadbalancer(lbid string) (string, error) {
 }
 
 /*
-返回requstid 用于异步任务查询
-https://cloud.tencent.com/document/product/214/30689
-*/
-func (self *SRegion) DeleteClassicLoadbalancer(lbid string) (string, error) {
-	if len(lbid) == 0 {
-		return "", fmt.Errorf("loadbalancer id should not be empty")
-	}
-
-	params := map[string]string{"loadBalancerIds.n": lbid}
-	resp, err := self.lbRequest("DeleteLoadBalancers", params)
-	if err != nil {
-		return "", err
-	}
-
-	return resp.GetString("requestId")
-}
-
 /*
 https://cloud.tencent.com/document/product/214/30693
 SNI 特性是什么？？
@@ -611,7 +586,7 @@ func (self *SRegion) CreateClassicLoadbalancerListener(lbid, name string, protoc
 	// 负载均衡实例监听器协议类型 1：HTTP，2：TCP，3：UDP，4：HTTPS。
 	// todo: 待测试 。 这里没有判断是否为公网负载均衡，可能存在问题.内网传统型负载均衡监听协议只支持TCP、UDP，并且不能指定调度算法
 	params := map[string]string{
-		"loadBalancerId":               lbid,
+		"LoadBalancerId":               lbid,
 		"listeners.0.loadBalancerPort": strconv.Itoa(port),
 		"listeners.0.instancePort":     strconv.Itoa(backendServerPort),
 		"listeners.0.protocol":         strconv.Itoa(protocol),
@@ -636,7 +611,7 @@ func (self *SRegion) CreateClassicLoadbalancerListener(lbid, name string, protoc
 	params = healthCheckParams(LB_TYPE_CLASSIC, params, healthCheck, "listeners.0.")
 	params = certificateParams(LB_TYPE_CLASSIC, params, cert, "listeners.0.")
 
-	resp, err := self.lbRequest("CreateLoadBalancerListeners", params)
+	resp, err := self.clbRequest("CreateListener", params)
 	if err != nil {
 		return "", err
 	}

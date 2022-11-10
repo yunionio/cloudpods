@@ -16,7 +16,6 @@ package qcloud
 
 import (
 	"fmt"
-	"time"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -28,30 +27,26 @@ type SDTable struct {
 	QcloudTags
 	nat *SNatGateway
 
-	Eip         string
-	NatId       string
-	Description string
-	UniqVpcId   string
-	Proto       string
-	Pport       int
-	Eport       int
-	Owner       string
-	VpcId       int
-	PipType     int
-	Pip         string
-	UniqNatId   string
-	CreateTime  time.Time
+	CreatedTime      string `json:"CreatedTime"`
+	Description      string `json:"Description"`
+	IpProtocol       string `json:"IpProtocol"`
+	NatGatewayId     string `json:"NatGatewayId"`
+	PrivateIpAddress string `json:"PrivateIpAddress"`
+	PrivatePort      int    `json:"PrivatePort"`
+	PublicIpAddress  string `json:"PublicIpAddress"`
+	PublicPort       int    `json:"PublicPort"`
+	VpcId            string `json:"VpcId"`
 }
 
 func (table *SDTable) GetName() string {
 	if len(table.Description) > 0 {
 		return table.Description
 	}
-	return fmt.Sprintf("%s/%s/%d", table.Eip, table.Proto, table.Eport)
+	return fmt.Sprintf("%s/%s/%d", table.PublicIpAddress, table.IpProtocol, table.PublicPort)
 }
 
 func (table *SDTable) GetId() string {
-	return fmt.Sprintf("%s/%s/%d", table.NatId, table.Eip, table.Eport)
+	return fmt.Sprintf("%s/%s/%d", table.NatGatewayId, table.PublicIpAddress, table.PublicPort)
 }
 
 func (table *SDTable) GetGlobalId() string {
@@ -63,42 +58,46 @@ func (table *SDTable) GetStatus() string {
 }
 
 func (table *SDTable) GetExternalIp() string {
-	return table.Eip
+	return table.PublicIpAddress
 }
 
 func (table *SDTable) GetExternalPort() int {
-	return table.Eport
+	return table.PublicPort
 }
 
 func (table *SDTable) GetInternalIp() string {
-	return table.Pip
+	return table.PrivateIpAddress
 }
 
 func (table *SDTable) GetInternalPort() int {
-	return table.Pport
+	return table.PrivatePort
 }
 
 func (table *SDTable) GetIpProtocol() string {
-	return table.Proto
+	return table.IpProtocol
 }
 
 func (table *SDTable) Delete() error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) GetDTables(natId, vpcId string) ([]SDTable, error) {
-	param := map[string]string{}
-	param["vpcId"] = vpcId
-	param["natId"] = natId
-
-	body, err := region.vpc2017Request("GetDnaptRule", param)
+func (region *SRegion) GetDTables(natId string, offset, limit int) ([]SDTable, int, error) {
+	params := map[string]string{}
+	if limit < 1 || limit > 50 {
+		limit = 50
+	}
+	params["Limit"] = fmt.Sprintf("%d", limit)
+	params["Offset"] = fmt.Sprintf("%d", offset)
+	params["NatGatewayIds.0"] = natId
+	body, err := region.vpcRequest("DescribeNatGatewayDestinationIpPortTranslationNatRules", params)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	tables := []SDTable{}
-	err = body.Unmarshal(&tables, "data", "detail")
+	err = body.Unmarshal(&tables, "NatGatewayDestinationIpPortTranslationNatRuleSet")
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return tables, nil
+	total, _ := body.Float("TotalCount")
+	return tables, int(total), nil
 }

@@ -480,7 +480,10 @@ func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mccl
 			self.Name = cloudRegion.GetName()
 		}
 		self.Status = cloudRegion.GetStatus()
-		self.SGeographicInfo = cloudRegion.GetGeographicInfo()
+		geoInfo := cloudRegion.GetGeographicInfo()
+		if !self.SGeographicInfo.IsEquals(geoInfo) {
+			self.SGeographicInfo = geoInfo
+		}
 		self.Provider = cloudRegion.GetProvider()
 		self.Environment = cloudRegion.GetCloudEnv()
 		self.SetEnabled(true)

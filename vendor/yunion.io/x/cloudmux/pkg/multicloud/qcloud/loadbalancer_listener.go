@@ -573,40 +573,12 @@ func (self *SRegion) deleteLoadbalancerListener(lbid string, listenerId string) 
 }
 
 // 返回requestID
-func (self *SRegion) deleteClassicLoadbalancerListener(lbid string, listenerId string) (string, error) {
-	if len(lbid) == 0 {
-		return "", fmt.Errorf("classic loadbalancer id should not be empty")
-	}
-
-	params := map[string]string{
-		"loadBalancerId": lbid,
-		"listenerIds.0":  listenerId,
-	}
-
-	resp, err := self.lbRequest("DeleteLoadBalancerListeners", params)
-	if err != nil {
-		return "", err
-	}
-
-	_requestId, err := resp.Float("requestId")
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%.f", _requestId), nil
-}
-
-// 返回requestID
 func (self *SRegion) DeleteLoadbalancerListener(t LB_TYPE, lbid string, listenerId string) (string, error) {
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("loadbalancer id should not be empty")
 	}
 
-	if t == LB_TYPE_APPLICATION {
-		return self.deleteLoadbalancerListener(lbid, listenerId)
-	} else {
-		return self.deleteClassicLoadbalancerListener(lbid, listenerId)
-	}
+	return self.deleteLoadbalancerListener(lbid, listenerId)
 }
 
 // https://cloud.tencent.com/document/product/214/30681
@@ -661,7 +633,7 @@ func (self *SRegion) updateClassicLoadbalancerListener(lbid string, listenerId s
 	params = healthCheckParams(LB_TYPE_APPLICATION, params, healthCheck, "listeners.0.")
 	params = certificateParams(LB_TYPE_APPLICATION, params, cert, "listeners.0.")
 
-	resp, err := self.lbRequest("ModifyLoadBalancerListener", params)
+	resp, err := self.clbRequest("ModifyLoadBalancerListener", params)
 	if err != nil {
 		return "", err
 	}
@@ -678,11 +650,7 @@ func (self *SRegion) UpdateLoadbalancerListener(t LB_TYPE, lbid string, listener
 		return "", fmt.Errorf("loadbalancer listener id should not be empty")
 	}
 
-	if t == LB_TYPE_APPLICATION {
-		return self.updateLoadbalancerListener(lbid, listenerId, listenerName, scheduler, sessionExpireTime, healthCheck, cert)
-	} else {
-		return self.updateClassicLoadbalancerListener(lbid, listenerId, listenerName, scheduler, sessionExpireTime, healthCheck, cert)
-	}
+	return self.updateLoadbalancerListener(lbid, listenerId, listenerName, scheduler, sessionExpireTime, healthCheck, cert)
 }
 
 func getHealthCheck(listener *cloudprovider.SLoadbalancerListener) *healthCheck {

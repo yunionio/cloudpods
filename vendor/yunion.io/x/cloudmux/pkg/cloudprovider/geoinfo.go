@@ -30,3 +30,8 @@ type SGeographicInfo struct {
 	// example: CN
 	CountryCode string `list:"user" width:"4" update:"admin" create:"admin_optional"`
 }
+
+func (self SGeographicInfo) IsEquals(geo SGeographicInfo) bool {
+	return self.City == geo.City && self.CountryCode == geo.CountryCode &&
+		self.Latitude-geo.Latitude < 0.01 && self.Longitude-geo.Longitude < 0.01
+}
