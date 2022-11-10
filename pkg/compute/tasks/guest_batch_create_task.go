@@ -174,7 +174,8 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	pendingRegionUsage := models.SRegionQuota{}
 	self.GetPendingUsage(&pendingRegionUsage, 1)
 	// allocate networks
-	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingRegionUsage, candidate.Nets)
+	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingRegionUsage, &pendingUsage, candidate.Nets)
+	self.SetPendingUsage(&pendingUsage, 0)
 	self.SetPendingUsage(&pendingRegionUsage, 1)
 	if err != nil {
 		log.Errorf("Network failed: %s", err)

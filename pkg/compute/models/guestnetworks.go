@@ -270,7 +270,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	gn.Index = index
 	gn.Virtual = virtual
 	if len(driver) == 0 {
-		driver = "virtio"
+		driver = api.NETWORK_DRIVER_VIRTIO
 	}
 	gn.Driver = driver
 	gn.NumQueues = numQueues
@@ -639,6 +639,10 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCr
 			return errors.Wrapf(httperrors.ErrInvalidStatus, "eip associate with %s", gn.IpAddr)
 		}
 		guest := gn.GetGuest()
+		dev, err := guest.GetIsolatedDeviceByNetworkIndex(gn.Index)
+		if err != nil {
+			return errors.Wrap(err, "GetIsolatedDeviceByNetworkIndex")
+		}
 		net := gn.GetNetwork()
 		if regutils.MatchIP4Addr(gn.IpAddr) || regutils.MatchIP6Addr(gn.Ip6Addr) {
 			net.updateDnsRecord(&gn, false)
@@ -647,13 +651,18 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCr
 				// netman.get_manager().netmap_remove_node(gn.ip_addr)
 			}
 		}
-		// ??
-		// gn.Delete(ctx, userCred)
-		err := gn.Delete(ctx, userCred)
+		err = gn.Delete(ctx, userCred)
 		if err != nil {
 			log.Errorf("%s", err)
 		}
 		gn.LogDetachEvent(ctx, userCred, guest, net)
+		if dev != nil {
+			err = guest.detachIsolateDevice(ctx, userCred, dev)
+			if err != nil {
+				return err
+			}
+		}
+
 		if reserve && regutils.MatchIP4Addr(gn.IpAddr) {
 			ReservedipManager.ReserveIP(userCred, net, gn.IpAddr, "Delete to reserve")
 		}

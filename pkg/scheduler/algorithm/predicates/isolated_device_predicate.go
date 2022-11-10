@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -46,6 +47,15 @@ func (f *IsolatedDevicePredicate) PreExecute(ctx context.Context, u *core.Unit, 
 func (f *IsolatedDevicePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(f, u, c)
 	reqIsoDevs := u.SchedData().IsolatedDevices
+	if reqIsoDevs == nil {
+		reqIsoDevs = []*compute.IsolatedDeviceConfig{}
+	}
+	networks := u.SchedData().Networks
+	for i := 0; i < len(networks); i++ {
+		if networks[i].SriovDevice != nil {
+			reqIsoDevs = append(reqIsoDevs, networks[i].SriovDevice)
+		}
+	}
 	getter := c.Getter()
 	minCapacity := int64(0xFFFFFFFF)
 

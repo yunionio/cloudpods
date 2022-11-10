@@ -1625,6 +1625,22 @@ func (manager *SGuestManager) validateCreateData(
 		if len(netConfig.Driver) == 0 {
 			netConfig.Driver = osProf.NetDriver
 		}
+		if netConfig.SriovDevice != nil {
+			if input.Backup {
+				return nil, httperrors.NewBadRequestError("Cannot create backup with isolated device")
+			}
+			devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, netConfig.SriovDevice)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("parse isolated device description error %s", err)
+			}
+			err = IsolatedDeviceManager.isValidNicDeviceinfo(devConfig)
+			if err != nil {
+				return nil, err
+			}
+			netConfig.SriovDevice = devConfig
+			netConfig.Driver = api.NETWORK_DRIVER_VFIO
+		}
+
 		netConfig.Project = ownerId.GetProjectId()
 		netConfig.Domain = ownerId.GetProjectDomainId()
 		input.Networks[idx] = netConfig
@@ -1990,6 +2006,9 @@ func getGuestResourceRequirements(
 		} else {
 			iNicCnt += 1
 			iBw += netConfig.BwLimit
+		}
+		if netConfig.SriovDevice != nil {
+			devCount += 1
 		}
 	}
 	if hasBackup {
@@ -3809,7 +3828,7 @@ func (self *SGuest) CreateNetworksOnHost(
 	userCred mcclient.TokenCredential,
 	host *SHost,
 	netArray []*api.NetworkConfig,
-	pendingUsage quotas.IQuota,
+	pendingUsage, pendingUsageZone quotas.IQuota,
 	candidateNets []*schedapi.CandidateNet,
 ) error {
 	if len(netArray) == 0 {
@@ -3837,10 +3856,20 @@ func (self *SGuest) CreateNetworksOnHost(
 			}
 			netConfig.NumQueues = numQueues
 		}
-		_, err = self.attach2NetworkDesc(ctx, userCred, host, netConfig, pendingUsage, networkIds)
+		gns, err := self.attach2NetworkDesc(ctx, userCred, host, netConfig, pendingUsage, networkIds)
 		if err != nil {
 			return errors.Wrap(err, "self.attach2NetworkDesc")
 		}
+		net := gns[0].GetNetwork()
+		if netConfig.SriovDevice != nil {
+			netConfig.SriovDevice.NetworkIndex = &gns[0].Index
+			netConfig.SriovDevice.WireId = net.WireId
+			err = self.createIsolatedDeviceOnHost(ctx, userCred, host, netConfig.SriovDevice, pendingUsageZone)
+			if err != nil {
+				return errors.Wrap(err, "self.createIsolatedDeviceOnHost")
+			}
+		}
+
 	}
 	return nil
 }
@@ -3894,8 +3923,29 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 	}
 	if net != nil {
 		if len(nicConfs) == 0 {
-			return nil, fmt.Errorf("no avaialble network interface?")
+			return nil, fmt.Errorf("no available network interface?")
 		}
+		var sriovWires []string
+		if netConfig.SriovDevice != nil {
+			if netConfig.SriovDevice.Id != "" {
+				idev, err := IsolatedDeviceManager.FetchById(netConfig.SriovDevice.Id)
+				if err != nil {
+					return nil, errors.Wrap(err, "fetch isolated device")
+				}
+				dev, _ := idev.(*SIsolatedDevice)
+				sriovWires = []string{dev.WireId}
+			} else {
+				wires, err := IsolatedDeviceManager.FindUnusedNicWiresByModel(netConfig.SriovDevice.Model)
+				if err != nil {
+					return nil, errors.Wrap(err, "FindUnusedNicWiresByModel")
+				}
+				sriovWires = wires
+			}
+			if !utils.IsInStringArray(net.WireId, sriovWires) {
+				return nil, fmt.Errorf("no available sriov nic for wire %s", net.WireId)
+			}
+		}
+
 		gn, err := self.Attach2Network(ctx, userCred, Attach2NetworkArgs{
 			Network:             net,
 			PendingUsage:        pendingUsage,
@@ -4086,6 +4136,9 @@ func (self *SGuest) createDiskOnHost(
 
 func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, devs []*api.IsolatedDeviceConfig, pendingUsage quotas.IQuota) error {
 	for _, devConfig := range devs {
+		if devConfig.DevType == api.NIC_TYPE {
+			continue
+		}
 		err := self.createIsolatedDeviceOnHost(ctx, userCred, host, devConfig, pendingUsage)
 		if err != nil {
 			return err
@@ -4534,6 +4587,22 @@ func (self *SGuest) GetIsolatedDevices() ([]SIsolatedDevice, error) {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	return devs, nil
+}
+
+func (self *SGuest) GetIsolatedDeviceByNetworkIndex(index int8) (*SIsolatedDevice, error) {
+	dev := SIsolatedDevice{}
+	q := IsolatedDeviceManager.Query().Equals("guest_id", self.Id).Equals("network_index", index)
+	if cnt, err := q.CountWithError(); err != nil {
+		return nil, err
+	} else if cnt == 0 {
+		return nil, nil
+	}
+	err := q.First(&dev)
+	if err != nil {
+		return nil, err
+	}
+	dev.SetModelManager(IsolatedDeviceManager, &dev)
+	return &dev, nil
 }
 
 func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *api.GuestJsonDesc {

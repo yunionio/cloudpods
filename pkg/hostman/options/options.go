@@ -170,8 +170,9 @@ type SHostOptions struct {
 
 	DisableKVM bool `help:"force disable KVM" default:"false" json:"disable_kvm"`
 
-	DisableGPU bool `help:"force disable GPU detect" default:"false" json:"disable_gpu"`
-	DisableUSB bool `help:"force disable USB detect" default:"true" json:"disable_usb"`
+	DisableGPU      bool `help:"force disable GPU detect" default:"false" json:"disable_gpu"`
+	DisableUSB      bool `help:"force disable USB detect" default:"true" json:"disable_usb"`
+	DisableSRIOVNic bool `help:"force disable USB detect" default:"true" json:"disable_sriov_nic"`
 
 	EthtoolEnableGso bool `help:"use ethtool to turn on or off GSO(generic segment offloading)" default:"false" json:"ethtool_enable_gso"`
 

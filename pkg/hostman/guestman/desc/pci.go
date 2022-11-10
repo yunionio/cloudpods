@@ -323,6 +323,14 @@ func NewPCIDevice(controller PCI_CONTROLLER_TYPE, deviceType, id string) *PCIDev
 	}
 }
 
+func NewVfioDevice(controller PCI_CONTROLLER_TYPE, deviceType, id, hostAddr string, hasXVga bool) *VFIODevice {
+	return &VFIODevice{
+		PCIDevice: NewPCIDevice(controller, deviceType, id),
+		HostAddr:  hostAddr,
+		XVga:      hasXVga,
+	}
+}
+
 func NewScsiDevice(controller, deviceType, id string) *SCSIDevice {
 	return &SCSIDevice{
 		ControllerId: controller,

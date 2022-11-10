@@ -151,6 +151,24 @@ func IsNetworksAvailable(ctx context.Context, c core.Candidater, data *api.Sched
 	return freeCnt, nil
 }
 
+func checkSriovNic(
+	c core.Candidater, netWireId string, dev *computeapi.IsolatedDeviceConfig,
+) error {
+	if dev.WireId != "" {
+		if dev.WireId != netWireId {
+			return fmt.Errorf("Network wire not matched sriov nic wire %s != %s", netWireId, dev.WireId)
+		} else {
+			return nil
+		}
+	}
+	getter := c.Getter()
+	devs := getter.UnusedIsolatedDevicesByModelAndWire(dev.Model, netWireId)
+	if len(devs) == 0 {
+		return fmt.Errorf("Network wire no sriov nic available")
+	}
+	return nil
+}
+
 func IsNetworkAvailable(
 	ctx context.Context,
 	c core.Candidater, data *api.SchedInfo,
@@ -192,6 +210,16 @@ func IsNetworkAvailable(
 		if !utils.HasPrefix(wire, _wire.GetName()) {
 			return FailReason{
 				Reason: fmt.Sprintf("Wire %s != %s", wire, n.WireId),
+				Type:   NetworkWire,
+			}
+		}
+	}
+
+	if req.SriovDevice != nil {
+		err := checkSriovNic(c, n.WireId, req.SriovDevice)
+		if err != nil {
+			return FailReason{
+				Reason: err.Error(),
 				Type:   NetworkWire,
 			}
 		}

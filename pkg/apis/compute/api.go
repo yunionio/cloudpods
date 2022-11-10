@@ -69,6 +69,9 @@ type NetworkConfig struct {
 	NetType   string `json:"net_type"`
 	NumQueues int    `json:"num_queues"`
 
+	// sriov nic
+	SriovDevice *IsolatedDeviceConfig `json:"srive_device"`
+
 	RequireDesignatedIP bool `json:"require_designated_ip"`
 
 	RequireTeaming bool `json:"require_teaming"`
@@ -219,11 +222,13 @@ type DiskConfig struct {
 }
 
 type IsolatedDeviceConfig struct {
-	Index   int    `json:"index"`
-	Id      string `json:"id"`
-	DevType string `json:"dev_type"`
-	Model   string `json:"model"`
-	Vendor  string `json:"vendor"`
+	Index        int    `json:"index"`
+	Id           string `json:"id"`
+	DevType      string `json:"dev_type"`
+	Model        string `json:"model"`
+	Vendor       string `json:"vendor"`
+	NetworkIndex *int8  `json:"network_index"`
+	WireId       string `json:"wire_id"`
 }
 
 type BaremetalDiskConfig struct {

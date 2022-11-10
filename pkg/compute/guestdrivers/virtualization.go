@@ -109,6 +109,25 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	if len(netConfig.NetType) > 0 {
 		netTypes = []string{netConfig.NetType}
 	}
+
+	var sriovWires []string
+	if netConfig.SriovDevice != nil {
+		if netConfig.SriovDevice.Id != "" {
+			idev, err := models.IsolatedDeviceManager.FetchById(netConfig.SriovDevice.Id)
+			if err != nil {
+				return nil, errors.Wrap(err, "fetch isolated device")
+			}
+			dev, _ := idev.(*models.SIsolatedDevice)
+			sriovWires = []string{dev.WireId}
+		} else {
+			wires, err := models.IsolatedDeviceManager.FindUnusedNicWiresByModel(netConfig.SriovDevice.Model)
+			if err != nil {
+				return nil, errors.Wrap(err, "FindUnusedNicWiresByModel")
+			}
+			sriovWires = wires
+		}
+	}
+
 	for i := 0; i < len(hostwires); i += 1 {
 		hostwire := hostwires[i]
 		wire := hostwire.GetWire()
@@ -120,6 +139,10 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 
 		if wire == nil {
 			log.Errorf("host wire is nil?????")
+			continue
+		}
+
+		if netConfig.SriovDevice != nil && !utils.IsInStringArray(wire.Id, sriovWires) {
 			continue
 		}
 

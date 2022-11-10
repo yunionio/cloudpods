@@ -1827,7 +1827,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
 			return nil, httperrors.NewBadRequestError(msg)
 		}
-		err = self.startDetachIsolateDevice(ctx, userCred, device)
+		err = self.startDetachIsolateDeviceWithoutNic(ctx, userCred, device)
 		if err != nil {
 			return nil, err
 		}
@@ -1837,6 +1837,9 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		lockman.LockObject(ctx, host)
 		defer lockman.ReleaseObject(ctx, host)
 		for i := 0; i < len(devs); i++ {
+			if devs[i].DevType == api.NIC_TYPE {
+				continue
+			}
 			err := self.detachIsolateDevice(ctx, userCred, &devs[i])
 			if err != nil {
 				return nil, err
@@ -1846,7 +1849,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 	return nil, self.startIsolatedDevicesSyncTask(ctx, userCred, jsonutils.QueryBoolean(data, "auto_start", false), "")
 }
 
-func (self *SGuest) startDetachIsolateDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
+func (self *SGuest) startDetachIsolateDeviceWithoutNic(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
 	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
 	if err != nil {
 		msgFmt := "Isolated device %s not found"
@@ -1855,6 +1858,9 @@ func (self *SGuest) startDetachIsolateDevice(ctx context.Context, userCred mccli
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
+	if dev.DevType == api.NIC_TYPE {
+		return httperrors.NewBadRequestError("Can't separately detach dev type %s", api.NIC_TYPE)
+	}
 	if dev.IsGPU() && !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
 		return httperrors.NewInvalidStatusError("Can't detach GPU when status is %q", self.GetStatus())
 	}
@@ -1873,6 +1879,7 @@ func (self *SGuest) detachIsolateDevice(ctx context.Context, userCred mcclient.T
 	}
 	_, err := db.Update(dev, func() error {
 		dev.GuestId = ""
+		dev.NetworkIndex = -1
 		return nil
 	})
 	if err != nil {
@@ -1895,7 +1902,7 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
 	if data.Contains("device") {
 		device, _ := data.GetString("device")
-		err = self.StartAttachIsolatedDevice(ctx, userCred, device, autoStart)
+		err = self.StartAttachIsolatedDeviceWithoutNic(ctx, userCred, device, autoStart)
 	} else if data.Contains("model") {
 		vmodel, _ := data.GetString("model")
 		var count int64 = 1
@@ -1937,7 +1944,7 @@ func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcc
 	}
 	defer func() { go host.ClearSchedDescCache() }()
 	for i := 0; i < len(devs); i++ {
-		err = self.attachIsolatedDevice(ctx, userCred, &devs[i])
+		err = self.attachIsolatedDevice(ctx, userCred, &devs[i], nil)
 		if err != nil {
 			return err
 		}
@@ -1945,15 +1952,15 @@ func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SGuest) StartAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, device string, autoStart bool) error {
-	if err := self.startAttachIsolatedDevice(ctx, userCred, device); err != nil {
+func (self *SGuest) StartAttachIsolatedDeviceWithoutNic(ctx context.Context, userCred mcclient.TokenCredential, device string, autoStart bool) error {
+	if err := self.startAttachIsolatedDeviceWithoutNic(ctx, userCred, device); err != nil {
 		return err
 	}
 	// perform post attach task
 	return self.startIsolatedDevicesSyncTask(ctx, userCred, autoStart, "")
 }
 
-func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
+func (self *SGuest) startAttachIsolatedDeviceWithoutNic(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
 	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
 	if err != nil {
 		msgFmt := "Isolated device %s not found"
@@ -1962,13 +1969,16 @@ func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mccl
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
+	if dev.DevType == api.NIC_TYPE {
+		return httperrors.NewBadRequestError("Can't separately attach dev type %s", api.NIC_TYPE)
+	}
 	if dev.IsGPU() && !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
 		return httperrors.NewInvalidStatusError("Can't attach GPU when status is %q", self.GetStatus())
 	}
 	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
-	err = self.attachIsolatedDevice(ctx, userCred, dev)
+	err = self.attachIsolatedDevice(ctx, userCred, dev, nil)
 	var msg string
 	if err != nil {
 		msg = err.Error()
@@ -1979,7 +1989,7 @@ func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mccl
 	return err
 }
 
-func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, dev *SIsolatedDevice) error {
+func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, dev *SIsolatedDevice, networkIndex *int8) error {
 	if len(dev.GuestId) > 0 {
 		return fmt.Errorf("Isolated device already attached to another guest: %s", dev.GuestId)
 	}
@@ -1989,6 +1999,11 @@ func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.
 	}
 	_, err := db.Update(dev, func() error {
 		dev.GuestId = self.Id
+		if networkIndex != nil {
+			dev.NetworkIndex = *networkIndex
+		} else {
+			dev.NetworkIndex = -1
+		}
 		return nil
 	})
 	if err != nil {
@@ -2033,13 +2048,13 @@ func (self *SGuest) PerformSetIsolatedDevice(ctx context.Context, userCred mccli
 
 	// detach first
 	for i := 0; i < len(delDevs); i++ {
-		err := self.startDetachIsolateDevice(ctx, userCred, delDevs[i])
+		err := self.startDetachIsolateDeviceWithoutNic(ctx, userCred, delDevs[i])
 		if err != nil {
 			return nil, err
 		}
 	}
 	for i := 0; i < len(addDevs); i++ {
-		err := self.startAttachIsolatedDevice(ctx, userCred, addDevs[i])
+		err := self.startAttachIsolatedDeviceWithoutNic(ctx, userCred, addDevs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -2292,7 +2307,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 	if count == 0 {
 		return nil, httperrors.NewMissingParameterError("nets")
 	}
-	var inicCnt, enicCnt int
+	var inicCnt, enicCnt, isolatedDevCount int
 	for i := 0; i < count; i++ {
 		err := isValidNetworkInfo(ctx, userCred, input.Nets[i], "")
 		if err != nil {
@@ -2305,6 +2320,22 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			inicCnt = count
 			// ibw = input.BwLimit
 		}
+		if input.Nets[i].SriovDevice != nil {
+			if self.BackupHostId != "" {
+				return nil, httperrors.NewBadRequestError("Cannot create backup with isolated device")
+			}
+			devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, input.Nets[i].SriovDevice)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("parse isolated device description error %s", err)
+			}
+			err = IsolatedDeviceManager.isValidNicDeviceinfo(devConfig)
+			if err != nil {
+				return nil, err
+			}
+			input.Nets[i].SriovDevice = devConfig
+			input.Nets[i].Driver = api.NETWORK_DRIVER_VFIO
+			isolatedDevCount += 1
+		}
 	}
 
 	pendingUsage := &SRegionQuota{
@@ -2313,23 +2344,43 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 		//Bw:    ibw,
 		//Ebw:   ebw,
 	}
+	pendingUsageHost := &SQuota{IsolatedDevice: isolatedDevCount}
 	keys, err := self.GetRegionalQuotaKeys()
 	if err != nil {
 		return nil, err
 	}
+	quotakeys, err := self.GetQuotaKeys()
+	if err != nil {
+		return nil, err
+	}
+	pendingUsageHost.SetKeys(quotakeys)
 	pendingUsage.SetKeys(keys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
+	if err != nil {
+		return nil, httperrors.NewOutOfQuotaError("%v", err)
+	}
+	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsageHost)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%v", err)
 	}
 	host, _ := self.GetHost()
 	defer host.ClearSchedDescCache()
 	for i := 0; i < count; i++ {
-		_, err = self.attach2NetworkDesc(ctx, userCred, host, input.Nets[i], pendingUsage, nil)
+		gns, err := self.attach2NetworkDesc(ctx, userCred, host, input.Nets[i], pendingUsage, nil)
 		logclient.AddSimpleActionLog(self, logclient.ACT_ATTACH_NETWORK, input.Nets[i], userCred, err == nil)
 		if err != nil {
 			quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, false)
 			return nil, httperrors.NewBadRequestError("%v", err)
+		}
+		net := gns[0].GetNetwork()
+		if input.Nets[i].SriovDevice != nil {
+			input.Nets[i].SriovDevice.NetworkIndex = &gns[0].Index
+			input.Nets[i].SriovDevice.WireId = net.WireId
+			err = self.createIsolatedDeviceOnHost(ctx, userCred, host, input.Nets[i].SriovDevice, pendingUsageHost)
+			if err != nil {
+				quotas.CancelPendingUsage(ctx, userCred, pendingUsageHost, pendingUsageHost, false)
+				return nil, errors.Wrap(err, "self.createIsolatedDeviceOnHost")
+			}
 		}
 	}
 
@@ -2340,6 +2391,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 	}
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, false)
+		quotas.CancelPendingUsage(ctx, userCred, pendingUsageHost, pendingUsageHost, false)
 	}
 	return nil, err
 }
@@ -2767,7 +2819,7 @@ func (self *SGuest) isNotRunningStatus(status string) bool {
 }
 
 func (self *SGuest) SetStatus(userCred mcclient.TokenCredential, status, reason string) error {
-	if utils.IsInStringArray(status, api.VM_RUNNING_STATUS) {
+	if status == api.VM_RUNNING {
 		if err := self.SetPowerStates(api.VM_POWER_STATES_ON); err != nil {
 			return err
 		}

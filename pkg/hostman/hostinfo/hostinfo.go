@@ -1510,6 +1510,10 @@ func (h *SHostInfo) getNetworkInfo() {
 	h.uploadNetworkInfo()
 }
 
+func (h *SHostInfo) isVirtualFunction(nic string) bool {
+	return fileutils2.Exists(path.Join("/sys/class/net", nic, "device", "physfn"))
+}
+
 func (h *SHostInfo) uploadNetworkInfo() {
 	phyNics, err := sysutils.Nics()
 	if err != nil {
@@ -1517,6 +1521,9 @@ func (h *SHostInfo) uploadNetworkInfo() {
 		return
 	}
 	for _, pnic := range phyNics {
+		if h.isVirtualFunction(pnic.Dev) {
+			continue
+		}
 		err := h.doSendPhysicalNicInfo(pnic)
 		if err != nil {
 			h.onFail(errors.Wrapf(err, "doSendPhysicalNicInfo %s", pnic.Dev))
@@ -1828,8 +1835,19 @@ func (h *SHostInfo) probeSyncIsolatedDevicesStep() {
 	h.deployAdminAuthorizedKeys()
 }
 
+func (h *SHostInfo) getNicsInterfaces() [][2]string {
+	res := [][2]string{}
+	for i := 0; i < len(h.Nics); i++ {
+		res = append(res, [2]string{h.Nics[i].Inter, h.Nics[i].WireId})
+	}
+	return res
+}
+
 func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
-	if err := h.IsolatedDeviceMan.ProbePCIDevices(options.HostOptions.DisableGPU, options.HostOptions.DisableUSB); err != nil {
+	if err := h.IsolatedDeviceMan.ProbePCIDevices(
+		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB,
+		options.HostOptions.DisableSRIOVNic, h.getNicsInterfaces(),
+	); err != nil {
 		return nil, errors.Wrap(err, "ProbePCIDevices")
 	}
 

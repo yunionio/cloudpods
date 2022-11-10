@@ -65,11 +65,12 @@ type IDevice interface {
 	GetHostId() string
 	SetHostId(hId string)
 	GetGuestId() string
+	GetWireId() string
 	GetVendorDeviceId() string
 	GetAddr() string
 	GetDeviceType() string
 	GetModelName() string
-	CustomProbe() error
+	CustomProbe(idx int) error
 	SetDeviceInfo(info CloudDeviceInfo)
 	SetDetectedOnHost(isDetected bool)
 	DetectByAddr() error
@@ -82,15 +83,19 @@ type IDevice interface {
 	GetCPUCmd() string
 	GetQemuId() string
 
+	// sriov nic
+	GetPfName() string
+	GetVirtfn() int
+
 	GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error)
-	GetHotUnplugOptions(dev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error)
+	GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error)
 }
 
 type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId string, addr string) IDevice
 	GetDeviceByAddr(addr string) IDevice
-	ProbePCIDevices(skipGPUs, skipUSBs bool) error
+	ProbePCIDevices(skipGPUs, skipUSBs, skipSRIOVNics bool, nics [][2]string) error
 	StartDetachTask()
 	BatchCustomProbe() error
 	AppendDetachedDevice(dev *CloudDeviceInfo)
@@ -117,7 +122,7 @@ func (man *isolatedDeviceManager) GetDevices() []IDevice {
 	return man.devices
 }
 
-func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool) error {
+func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipSRIOVNics bool, nics [][2]string) error {
 	man.devices = make([]IDevice, 0)
 	if !skipGPUs {
 		gpus, err := getPassthroughGPUS()
@@ -141,6 +146,18 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool) error
 		for idx, usb := range usbs {
 			man.devices = append(man.devices, usb)
 			log.Infof("Add USB device: %d => %#v", idx, usb)
+		}
+	}
+
+	if !skipSRIOVNics {
+		nics, err := getSRIOVNics(nics)
+		if err != nil {
+			log.Errorf("getSRIOVNics: %v", err)
+			return nil
+		}
+		for idx, nic := range nics {
+			man.devices = append(man.devices, nic)
+			log.Infof("Add sriov nic: %d => %#v", idx, nic)
 		}
 	}
 
@@ -179,8 +196,8 @@ func (man *isolatedDeviceManager) GetDeviceByAddr(addr string) IDevice {
 }
 
 func (man *isolatedDeviceManager) BatchCustomProbe() error {
-	for _, dev := range man.devices {
-		if err := dev.CustomProbe(); err != nil {
+	for i, dev := range man.devices {
+		if err := dev.CustomProbe(i); err != nil {
 			return err
 		}
 	}
@@ -250,6 +267,10 @@ func (dev *sBaseDevice) String() string {
 	return dev.dev.String()
 }
 
+func (dev *sBaseDevice) GetWireId() string {
+	return ""
+}
+
 func (dev *sBaseDevice) SetDeviceInfo(info CloudDeviceInfo) {
 	if len(info.Id) != 0 {
 		dev.cloudId = info.Id
@@ -298,8 +319,20 @@ func (dev *sBaseDevice) GetDeviceType() string {
 	return dev.devType
 }
 
+func (dev *sBaseDevice) GetPfName() string {
+	return ""
+}
+
+func (dev *sBaseDevice) GetVirtfn() int {
+	return -1
+}
+
 func (dev *sBaseDevice) GetModelName() string {
-	return dev.dev.ModelName
+	if dev.dev.ModelName != "" {
+		return dev.dev.ModelName
+	} else {
+		return dev.dev.DeviceName
+	}
 }
 
 func (dev *sBaseDevice) GetGuestId() string {
@@ -326,6 +359,9 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	}
 	if len(dev.GetGuestId()) != 0 {
 		data["guest_id"] = dev.GetGuestId()
+	}
+	if len(dev.GetWireId()) != 0 {
+		data["wire_id"] = dev.GetWireId()
 	}
 	return jsonutils.Marshal(data).(*jsonutils.JSONDict)
 }

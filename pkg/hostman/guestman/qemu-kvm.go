@@ -49,6 +49,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/monitor/qga"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -1753,6 +1754,9 @@ func (s *SKVMGuestInstance) compareDescFloppys(newDesc *desc.SGuestDesc) []*desc
 func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 ) ([]*desc.SGuestNetwork, []*desc.SGuestNetwork, [][2]*desc.SGuestNetwork) {
 	var isValid = func(net *desc.SGuestNetwork) bool {
+		return net.Driver == "virtio" || net.Driver == "vfio-pci"
+	}
+	var isChangeNetworkValid = func(net *desc.SGuestNetwork) bool {
 		return net.Driver == "virtio"
 	}
 
@@ -1779,11 +1783,14 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 		if isValid(n) {
 			idx := findNet(addNics, n)
 			if idx >= 0 {
-				// check if bridge changed
-				changedNics = append(changedNics, [2]*desc.SGuestNetwork{
-					n,            // old
-					addNics[idx], // new
-				})
+				if isChangeNetworkValid(n) {
+					// check if bridge changed
+					changedNics = append(changedNics, [2]*desc.SGuestNetwork{
+						n,            // old
+						addNics[idx], // new
+					})
+				}
+
 				// remove existing nic from new
 				addNics = append(addNics[:idx], addNics[idx+1:]...)
 			} else {
@@ -1916,15 +1923,16 @@ func (s *SKVMGuestInstance) SyncConfig(
 		tasks = append(tasks, task)
 	}
 
-	if len(delNetworks)+len(addNetworks) > 0 {
-		task := NewGuestNetworkSyncTask(s, delNetworks, addNetworks)
-		runTaskNames = append(runTaskNames, jsonutils.NewString("networksync"))
-		tasks = append(tasks, task)
-	}
-
 	if len(delDevs)+len(addDevs) > 0 {
 		task := NewGuestIsolatedDeviceSyncTask(s, delDevs, addDevs)
 		runTaskNames = append(runTaskNames, jsonutils.NewString("isolated_device_sync"))
+		tasks = append(tasks, task)
+	}
+
+	// make sure network sync before isolated device
+	if len(delNetworks)+len(addNetworks) > 0 {
+		task := NewGuestNetworkSyncTask(s, delNetworks, addNetworks)
+		runTaskNames = append(runTaskNames, jsonutils.NewString("networksync"))
 		tasks = append(tasks, task)
 	}
 
@@ -2516,6 +2524,79 @@ func (s *SKVMGuestInstance) generateDiskSetupScripts(disks []*desc.SGuestDisk) (
 		diskIndex := disks[i].Index
 		cmd += d.GetDiskSetupScripts(int(diskIndex))
 	}
+	return cmd, nil
+}
+
+func (s *SKVMGuestInstance) getSriovDeviceByNetworkIndex(networkIndex int8) (isolated_device.IDevice, error) {
+	manager := s.manager.GetHost().GetIsolatedDeviceManager()
+	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
+		if s.Desc.IsolatedDevices[i].DevType == api.NIC_TYPE &&
+			s.Desc.IsolatedDevices[i].NetworkIndex == networkIndex {
+			if dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr); dev == nil {
+				return nil, errors.Errorf("get device by addr failed")
+			} else {
+				return dev, nil
+			}
+		}
+	}
+	return nil, errors.Errorf("network index %d no sriov device found", networkIndex)
+}
+
+var sriovInitFunc = `
+function sriov_vf_init() {
+	ip link set dev $1 vf $2 mac $3 vlan $4
+	ip link set dev $1 vf $2 spoofchk $5
+	ip link set dev $1 vf $2 max_tx_rate $6
+}`
+
+func srcMacCheckFunc(srcMacCheck bool) string {
+	if srcMacCheck {
+		return "on"
+	}
+	return "off"
+}
+
+func getVfVlan(vlan int) int {
+	if vlan == 1 {
+		return 0
+	}
+	return vlan
+}
+
+func (s *SKVMGuestInstance) sriovNicAttachInitScript(networkIndex int8, dev isolated_device.IDevice) (string, error) {
+	for i := range s.Desc.Nics {
+		if s.Desc.Nics[i].Driver == "vfio-pci" && s.Desc.Nics[i].Index == networkIndex {
+			cmd := fmt.Sprintf(
+				"sriov_vf_init %s %d %s %d %s %d\n",
+				dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac,
+				getVfVlan(s.Desc.Nics[i].Vlan), srcMacCheckFunc(s.Desc.SrcMacCheck), s.Desc.Nics[i].Bw,
+			)
+			return sriovInitFunc + " && " + cmd, nil
+		}
+	}
+	return "", errors.Errorf("no nic found for index %d", networkIndex)
+}
+
+func (s *SKVMGuestInstance) generateSRIOVInitScripts() (string, error) {
+	var cmd = ""
+
+	for i := range s.Desc.Nics {
+		if s.Desc.Nics[i].Driver == "vfio-pci" {
+			dev, err := s.getSriovDeviceByNetworkIndex(s.Desc.Nics[i].Index)
+			if err != nil {
+				return "", err
+			}
+			cmd += fmt.Sprintf(
+				"sriov_vf_init %s %d %s %d %s %d\n",
+				dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac,
+				getVfVlan(s.Desc.Nics[i].Vlan), srcMacCheckFunc(s.Desc.SrcMacCheck), s.Desc.Nics[i].Bw,
+			)
+		}
+	}
+	if len(cmd) > 0 {
+		cmd = sriovInitFunc + "\n" + cmd
+	}
+
 	return cmd, nil
 }
 
