@@ -744,11 +744,12 @@ func (s *SKVMGuestInstance) gpusHasVga() bool {
 }
 
 func (s *SKVMGuestInstance) initCpuDesc() error {
-	cpudesc, err := s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), s)
+	s.fixGuestMachineType()
+	cpuDesc, err := s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), s)
 	if err != nil {
 		return err
 	}
-	s.Desc.CpuDesc = cpudesc
+	s.Desc.CpuDesc = cpuDesc
 	return nil
 }
 
@@ -809,7 +810,7 @@ func (s *SKVMGuestInstance) initMemDescFromMemoryInfo(memoryDevicesInfoList []mo
 	return nil
 }
 
-func (s *SKVMGuestInstance) initMachineDesc() {
+func (s *SKVMGuestInstance) fixGuestMachineType() {
 	if s.GetOsName() == OS_NAME_MACOS {
 		s.Desc.Machine = api.VM_MACHINE_TYPE_Q35
 		s.Desc.Bios = qemu.BIOS_UEFI
@@ -822,6 +823,9 @@ func (s *SKVMGuestInstance) initMachineDesc() {
 		}
 		s.Desc.Bios = qemu.BIOS_UEFI
 	}
+}
+
+func (s *SKVMGuestInstance) initMachineDesc() {
 	s.Desc.MachineDesc = s.archMan.GenerateMachineDesc(s.Desc.CpuDesc.Accel)
 }
 
