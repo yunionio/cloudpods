@@ -17,7 +17,6 @@ package qcloud
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -71,6 +70,7 @@ const (
 	QCLOUD_TKE_API_VERSION       = "2018-05-25"
 	QCLOUD_DNS_API_VERSION       = "2021-03-23"
 	QCLOUD_STS_API_VERSION       = "2018-08-13"
+	QCLOUD_TAG_API_VERSION       = "2018-08-13"
 )
 
 type QcloudClientConfig struct {
@@ -167,11 +167,6 @@ func cbsRequest(client *common.Client, apiName string, params map[string]string,
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
-func accountRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
-	domain := "account.api.qcloud.com"
-	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, updateFunc, debug)
-}
-
 // es
 func esRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("es", params)
@@ -214,12 +209,6 @@ func clbRequest(client *common.Client, apiName string, params map[string]string,
 	return _jsonRequest(client, domain, QCLOUD_CLB_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
-// loadbalancer服务 api 2017
-func lbRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
-	domain := "lb.api.qcloud.com"
-	return _phpJsonRequest(client, &lbJsonResponse{}, domain, "/v2/index.php", "", apiName, params, updateFunc, debug)
-}
-
 // cdb
 func cdbRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("cdb", params)
@@ -244,12 +233,6 @@ func sqlserverRequest(client *common.Client, apiName string, params map[string]s
 	return _jsonRequest(client, domain, QCLOUD_SQLSERVER_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
-// deprecated: ssl 证书服务
-func wssRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
-	domain := "wss.api.qcloud.com"
-	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, updateFunc, debug)
-}
-
 // ssl 证书服务
 func sslRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "ssl.tencentcloudapi.com"
@@ -260,12 +243,6 @@ func sslRequest(client *common.Client, apiName string, params map[string]string,
 func dnsRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
 	domain := "dnspod.tencentcloudapi.com"
 	return _jsonRequest(client, domain, QCLOUD_DNS_API_VERSION, apiName, params, updateFunc, debug, true)
-}
-
-// 2017版API
-func vpc2017Request(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
-	domain := "vpc.api.qcloud.com"
-	return _phpJsonRequest(client, &vpc2017JsonResponse{}, domain, "/v2/index.php", "", apiName, params, updateFunc, debug)
 }
 
 func billingRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
@@ -296,135 +273,9 @@ func stsRequest(client *common.Client, apiName string, params map[string]string,
 	return _jsonRequest(client, domain, QCLOUD_STS_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
-// ============phpJsonRequest============
 type qcloudResponse interface {
 	tchttp.Response
 	GetResponse() *interface{}
-}
-
-type phpJsonRequest struct {
-	tchttp.BaseRequest
-	Path string
-}
-
-func (r *phpJsonRequest) GetUrl() string {
-	url := r.BaseRequest.GetUrl()
-	if url == "" {
-		return url
-	}
-
-	index := strings.Index(url, "?")
-	if index == -1 {
-		// POST request
-		return strings.TrimSuffix(url, "/") + r.Path
-	}
-
-	p1, p2 := url[:index], url[index:]
-	p1 = strings.TrimSuffix(p1, "/")
-	return p1 + r.Path + p2
-}
-
-func (r *phpJsonRequest) GetPath() string {
-	return r.Path
-}
-
-// 2017vpc专用response
-type vpc2017JsonResponse struct {
-	Code                int          `json:"code"`
-	CodeDesc            string       `json:"codeDesc"`
-	Message             string       `json:"message"`
-	TotalCount          int          `json:"totalCount"`
-	TaskId              int64        `json:"taskId"`
-	PeeringConnectionId string       `json:"peeringConnectionId"`
-	Response            *interface{} `json:"data"`
-}
-
-func (r *vpc2017JsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
-	resp := &vpc2017JsonResponse{}
-	err = json.Unmarshal(body, resp)
-	if err != nil {
-		return
-	}
-	if resp.Code != 0 {
-		return sdkerrors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
-	}
-
-	return nil
-}
-
-func (r *vpc2017JsonResponse) GetResponse() *interface{} {
-	if r.Response == nil {
-		result, _ := jsonutils.Parse([]byte(`{"data":[],"totalCount":0}`))
-		resultMap := result.(*jsonutils.JSONDict)
-		resultMap.Update(jsonutils.Marshal(r))
-		return func(resp interface{}) *interface{} {
-			return &resp
-		}(resultMap)
-	}
-	return func(resp interface{}) *interface{} {
-		return &resp
-	}(jsonutils.Marshal(r))
-}
-
-// SSL证书专用response
-type wssJsonResponse struct {
-	Code      int          `json:"code"`
-	CodeDesc  string       `json:"codeDesc"`
-	ProjectId int          `json:"projectId"`
-	Message   string       `json:"message"`
-	Response  *interface{} `json:"data"`
-}
-
-func (r *wssJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
-	resp := &wssJsonResponse{}
-	err = json.Unmarshal(body, resp)
-	if err != nil {
-		return
-	}
-	if resp.Code != 0 {
-		return sdkerrors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
-	}
-
-	return nil
-}
-
-func (r *wssJsonResponse) GetResponse() *interface{} {
-	if r.Response == nil {
-		return func(resp interface{}) *interface{} {
-			return &resp
-		}(jsonutils.Marshal(r))
-	}
-	return r.Response
-}
-
-// 2017版负载均衡API专用response
-type lbJsonResponse struct {
-	Response map[string]interface{}
-}
-
-func (r *lbJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
-	resp := &wssJsonResponse{}
-	err = json.Unmarshal(body, resp)
-	if err != nil {
-		return
-	}
-	if resp.Code != 0 {
-		return sdkerrors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
-	}
-
-	// hook 由于目前只能从这个方法中拿到原始的body.这里将原始body hook 到 Response
-	err = json.Unmarshal(body, &r.Response)
-	if err != nil {
-		return
-	}
-
-	return nil
-}
-
-func (r *lbJsonResponse) GetResponse() *interface{} {
-	return func(resp interface{}) *interface{} {
-		return &resp
-	}(r.Response)
 }
 
 // 3.0版本通用response
@@ -460,34 +311,6 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNoPermission && updateFun != nil {
 			updateFun(service, apiName)
-		}
-		return nil, err
-	}
-	return ret, nil
-}
-
-// 老版本腾讯云api。 适用于类似 https://cvm.api.qcloud.com/v2/index.php 这样的带/v2/index.php路径的接口
-// todo: 添加自定义response参数
-func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, path string, version string, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
-	req := &phpJsonRequest{Path: path}
-	_profile := profile.NewClientProfile()
-	_profile.SignMethod = common.SHA256
-	client.WithProfile(_profile)
-	service := strings.Split(domain, ".")[0]
-	req.Init().WithApiInfo(service, version, apiName)
-	req.SetDomain(domain)
-
-	for k, v := range params {
-		if strings.HasSuffix(k, "Ids.0") && len(v) == 0 {
-			return nil, cloudprovider.ErrNotFound
-		}
-		req.GetParams()[k] = v
-	}
-
-	ret, err := _baseJsonRequest(client, req, resp, apiName, debug, true)
-	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNoPermission && updateFunc != nil {
-			updateFunc(service, apiName)
 		}
 		return nil, err
 	}
@@ -674,12 +497,17 @@ func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string
 	return cbsRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
-func (client *SQcloudClient) accountRequestRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (client *SQcloudClient) tagRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient(params)
 	if err != nil {
 		return nil, err
 	}
-	return accountRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
+	return tagRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
+}
+
+func tagRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
+	domain := "tag.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_TAG_API_VERSION, apiName, params, updateFunc, debug, true)
 }
 
 func (client *SQcloudClient) clbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -688,14 +516,6 @@ func (client *SQcloudClient) clbRequest(apiName string, params map[string]string
 		return nil, err
 	}
 	return clbRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
-}
-
-func (client *SQcloudClient) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient(params)
-	if err != nil {
-		return nil, err
-	}
-	return lbRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) cdbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -784,15 +604,6 @@ func (client *SQcloudClient) sqlserverRequest(apiName string, params map[string]
 	return sqlserverRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
-// deprecated
-func (client *SQcloudClient) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient(params)
-	if err != nil {
-		return nil, err
-	}
-	return wssRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
-}
-
 func (client *SQcloudClient) sslRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient(params)
 	if err != nil {
@@ -807,14 +618,6 @@ func (client *SQcloudClient) dnsRequest(apiName string, params map[string]string
 		return nil, err
 	}
 	return dnsRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
-}
-
-func (client *SQcloudClient) vpc2017Request(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient(params)
-	if err != nil {
-		return nil, err
-	}
-	return vpc2017Request(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
 }
 
 func (client *SQcloudClient) billingRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -1150,9 +953,16 @@ func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
 }
 
 func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	projects, err := client.GetProjects()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetProjects")
+	projects := []SProject{}
+	for {
+		part, total, err := client.GetProjects(len(projects), 1000)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetProjects")
+		}
+		projects = append(projects, part...)
+		if len(projects) >= total || len(part) == 0 {
+			break
+		}
 	}
 	projects = append(projects, SProject{ProjectId: "0", ProjectName: "默认项目"})
 	iprojects := []cloudprovider.ICloudProject{}
@@ -1177,7 +987,6 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
 		cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP,
-		cloudprovider.CLOUD_CAPABILITY_INTERVPCNETWORK,
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_MONGO_DB + cloudprovider.READ_ONLY_SUFFIX,

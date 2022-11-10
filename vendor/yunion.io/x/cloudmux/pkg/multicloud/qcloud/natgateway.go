@@ -111,9 +111,16 @@ func (nat *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error)
 }
 
 func (nat *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {
-	tables, err := nat.vpc.region.GetDTables(nat.NatId, nat.vpc.VpcId)
-	if err != nil {
-		return nil, err
+	tables := []SDTable{}
+	for {
+		part, total, err := nat.vpc.region.GetDTables(nat.NatId, len(tables), 50)
+		if err != nil {
+			return nil, err
+		}
+		tables = append(tables, part...)
+		if len(tables) >= total || len(part) == 0 {
+			break
+		}
 	}
 	itables := []cloudprovider.ICloudNatDEntry{}
 	for i := 0; i < len(tables); i++ {
@@ -143,22 +150,22 @@ func (region *SRegion) GetNatGateways(vpcId string, offset int, limit int) ([]SN
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
-
 	params := make(map[string]string)
 	params["Limit"] = fmt.Sprintf("%d", limit)
 	params["Offset"] = fmt.Sprintf("%d", offset)
 	if len(vpcId) > 0 {
-		params["vpcId"] = vpcId
+		params["Filters.0.Name"] = "vpc-id"
+		params["Filters.0.Values.0"] = vpcId
 	}
-	body, err := region.vpc2017Request("DescribeNatGateway", params)
+	body, err := region.vpcRequest("DescribeNatGateways", params)
 	if err != nil {
 		return nil, 0, err
 	}
 	nats := []SNatGateway{}
-	err = body.Unmarshal(&nats, "data")
+	err = body.Unmarshal(&nats, "NatGatewaySet")
 	if err != nil {
 		return nil, 0, err
 	}
-	total, _ := body.Float("totalCount")
+	total, _ := body.Float("TotalCount")
 	return nats, int(total), nil
 }

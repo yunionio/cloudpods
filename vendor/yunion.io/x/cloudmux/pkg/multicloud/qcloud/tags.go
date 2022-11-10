@@ -18,30 +18,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 )
-
-const (
-	QCLOUD_API_VERSION_TAGS = "2018-08-13"
-)
-
-func tagRequest(client *common.Client, apiName string, params map[string]string, updateFunc func(string, string), debug bool) (jsonutils.JSONObject, error) {
-	domain := "tag.tencentcloudapi.com"
-	return _jsonRequest(client, domain, QCLOUD_API_VERSION_TAGS, apiName, params, updateFunc, debug, true)
-}
-
-func (client *SQcloudClient) tagRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := client.getDefaultClient(params)
-	if err != nil {
-		return nil, err
-	}
-	return tagRequest(cli, apiName, params, client.cpcfg.UpdatePermission, client.debug)
-}
 
 type SFetchTagRow struct {
 	ServiceType string `json:"ServiceType"`

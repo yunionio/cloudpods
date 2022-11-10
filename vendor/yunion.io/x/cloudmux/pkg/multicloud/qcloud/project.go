@@ -73,43 +73,46 @@ func (client *SQcloudClient) CreateIProject(name string) (cloudprovider.ICloudPr
 	return client.CreateProject(name, "")
 }
 
-func (client *SQcloudClient) GetProjects() ([]SProject, error) {
+func (client *SQcloudClient) GetProjects(offset, limit int) ([]SProject, int, error) {
+	if limit < 1 || limit > 1000 {
+		limit = 1000
+	}
+	params := map[string]string{"AllList": "1"}
+	params["Limit"] = fmt.Sprintf("%d", limit)
+	params["Offset"] = fmt.Sprintf("%d", offset)
+
+	resp, err := client.tagRequest("DescribeProjects", params)
+	if err != nil {
+		return nil, 0, errors.Wrapf(err, "DescribeProjects")
+	}
 	projects := []SProject{}
-	params := map[string]string{"allList": "1"}
-	resp, err := client.accountRequestRequest("DescribeProject", params)
+	err = resp.Unmarshal(&projects, "Projects")
 	if err != nil {
-		return nil, errors.Wrapf(err, "DescribeProject")
+		return nil, 0, errors.Wrap(err, "resp.Unmarshal")
 	}
-	err = resp.Unmarshal(&projects)
-	if err != nil {
-		return nil, errors.Wrap(err, "resp.Unmarshal")
-	}
-	return projects, nil
+	total, _ := resp.Float("Total")
+	return projects, int(total), nil
 }
 
 func (client *SQcloudClient) CreateProject(name, desc string) (*SProject, error) {
 	params := map[string]string{
-		"projectName": name,
+		"ProjectName": name,
 	}
 	if len(desc) > 0 {
-		params["projectDesc"] = desc
+		params["Info"] = desc
 	}
-	body, err := client.accountRequestRequest("AddProject", params)
+	body, err := client.tagRequest("AddProject", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "AddProject")
 	}
-	projectId, _ := body.GetString("projectId")
+	projectId, _ := body.GetString("ProjectId")
 	if len(projectId) == 0 {
 		return nil, fmt.Errorf("empty project reture")
 	}
-	projects, err := client.GetProjects()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetProjects")
-	}
-	for i := range projects {
-		if projects[i].GetId() == projectId {
-			return &projects[i], nil
-		}
-	}
-	return nil, fmt.Errorf("failedd to found created project")
+	return &SProject{
+		client:      client,
+		ProjectName: name,
+		ProjectId:   projectId,
+		ProjectInfo: desc,
+	}, nil
 }
