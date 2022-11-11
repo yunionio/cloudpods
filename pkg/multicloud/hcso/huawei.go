@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/log"
@@ -46,7 +47,7 @@ const (
 	HUAWEI_API_VERSION = ""
 )
 
-var HUAWEI_REGION_CACHES = map[string]userRegionsCache{}
+var HUAWEI_REGION_CACHES sync.Map
 
 type userRegionsCache struct {
 	UserId   string
@@ -202,17 +203,19 @@ func (self *SHuaweiClient) fetchRegions() error {
 			return errors.Wrap(err, "GetUserId")
 		}
 
-		if regionsCache, ok := HUAWEI_REGION_CACHES[userId]; !ok || regionsCache.ExpireAt.Sub(time.Now()).Seconds() > 0 {
+		if regionsCache, ok := HUAWEI_REGION_CACHES.Load(userId); !ok || regionsCache.(*userRegionsCache).ExpireAt.Sub(time.Now()).Seconds() > 0 {
 			regions := make([]SRegion, 0)
 			err := doListAll(huawei.Regions.List, nil, &regions)
 			if err != nil {
 				return errors.Wrap(err, "Regions.List")
 			}
 
-			HUAWEI_REGION_CACHES[userId] = userRegionsCache{ExpireAt: time.Now().Add(24 * time.Hour), UserId: userId, Regions: regions}
+			HUAWEI_REGION_CACHES.Store(userId, &userRegionsCache{ExpireAt: time.Now().Add(24 * time.Hour), UserId: userId, Regions: regions})
 		}
 
-		self.regions = HUAWEI_REGION_CACHES[userId].Regions
+		if regionsCache, ok := HUAWEI_REGION_CACHES.Load(userId); ok {
+			self.regions = regionsCache.(*userRegionsCache).Regions
+		}
 	}
 
 	filtedRegions := make([]SRegion, 0)
