@@ -141,6 +141,8 @@ func (m *SGuestManager) InitQemuMaxCpus(machineCaps []monitor.MachineInfo, kvmMa
 					// You can add an IOMMU using: -device intel-iommu,intremap=on,eim=on
 					// Set x86 machine max cpu 240 for now.
 					m.qemuMachineCpuMax[machine] = minFunc(cpuMax, m.qemuMachineCpuMax[machine])
+				} else {
+					m.qemuMachineCpuMax[machine] = cpuMax
 				}
 				log.Infof("Machine type %s max cpus: %d", machine, m.qemuMachineCpuMax[machine])
 			}

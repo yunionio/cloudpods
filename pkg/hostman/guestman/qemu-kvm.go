@@ -2163,7 +2163,9 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	} else {
 		meta.Set("__cpu_mode", jsonutils.NewString(api.CPU_MODE_HOST))
 	}
-	meta.Set("__pcie_extend_bus", jsonutils.JSONTrue)
+	if s.hasPcieExtendBus() {
+		meta.Set("__pcie_extend_bus", jsonutils.JSONTrue)
+	}
 	cmdline, err := s.getQemuCmdline()
 	if err != nil {
 		log.Errorf("Get qemu process cmdline error: %v", err)
