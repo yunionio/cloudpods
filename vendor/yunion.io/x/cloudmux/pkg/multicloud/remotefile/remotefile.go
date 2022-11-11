@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 
@@ -55,7 +56,7 @@ type RemoteFileClientConfig struct {
 	lbs       []SLoadbalancer
 	misc      []SMisc
 	secgroups []SSecurityGroup
-	metrics   map[string]interface{}
+	metrics   []map[cloudprovider.TMetricType]map[string]interface{}
 
 	debug bool
 }
@@ -81,6 +82,7 @@ func (cfg *RemoteFileClientConfig) Debug(debug bool) *RemoteFileClientConfig {
 
 type SRemoteFileClient struct {
 	*RemoteFileClientConfig
+	lock sync.Mutex
 }
 
 func NewRemoteFileClient(cfg *RemoteFileClientConfig) (*SRemoteFileClient, error) {
@@ -286,22 +288,29 @@ func (self *SRemoteFileClient) GetStorages() ([]SStorage, error) {
 
 func (self *SRemoteFileClient) getMetrics(resourceType cloudprovider.TResourceType, metricType cloudprovider.TMetricType) ([]cloudprovider.MetricValues, error) {
 	ret := []cloudprovider.MetricValues{}
-	res := fmt.Sprintf("%s/%s", resourceType, metricType)
 	if self.metrics == nil {
-		self.metrics = map[string]interface{}{}
+		self.lock.Lock()
+		defer self.lock.Unlock()
+		self.metrics = []map[cloudprovider.TMetricType]map[string]interface{}{}
 		resp, err := self.get("metrics")
 		if err != nil {
 			return nil, err
 		}
-		err = resp.Unmarshal(self.metrics)
+		err = resp.Unmarshal(&self.metrics)
 		if err != nil {
 			return nil, err
 		}
 	}
-	values, ok := self.metrics[res]
-	if ok {
-		jsonutils.Update(&ret, values)
+
+	for _, metric := range self.metrics {
+		values, ok := metric[metricType]
+		if ok {
+			mid := cloudprovider.MetricValues{}
+			jsonutils.Update(&mid, values)
+			ret = append(ret, mid)
+		}
 	}
+
 	return ret, nil
 }
 

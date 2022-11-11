@@ -23,12 +23,14 @@ import (
 func (self *SRemoteFileClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	switch opts.ResourceType {
 	case cloudprovider.METRIC_RESOURCE_TYPE_SERVER:
-		return self.GetEcsMetrics(opts)
+		return self.GetRemoteMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_RDS:
+		return self.GetRemoteMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
 	}
 }
 
-func (self *SRemoteFileClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+func (self *SRemoteFileClient) GetRemoteMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	return self.getMetrics(opts.ResourceType, opts.MetricType)
 }
