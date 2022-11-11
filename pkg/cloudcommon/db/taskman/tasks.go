@@ -32,9 +32,11 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -43,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -549,9 +552,25 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 			SetStageFailedFuncValue.Call(
 				[]reflect.Value{
 					reflect.ValueOf(ctx),
-					reflect.ValueOf(fmt.Sprintf("%v", r)),
+					reflect.ValueOf(jsonutils.NewString(fmt.Sprintf("%v", r))),
 				},
 			)
+			obj, err := objResManager.FetchById(task.ObjId)
+			if err != nil {
+				return
+			}
+			statusObj, ok := obj.(db.IStatusStandaloneModel)
+			if ok {
+				db.StatusBaseSetStatus(statusObj, task.GetUserCred(), apis.STATUS_UNKNOWN, fmt.Sprintf("%v", r))
+			}
+			notes := map[string]interface{}{
+				"Stack":   string(debug.Stack()),
+				"Version": version.GetShortString(),
+				"Task":    task.TaskName,
+				"Stage":   stageName,
+				"Message": fmt.Sprintf("%v", r),
+			}
+			logclient.AddSimpleActionLog(obj, logclient.ACT_PANIC, notes, task.GetUserCred(), false)
 		}
 	}()
 
