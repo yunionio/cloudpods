@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -106,7 +107,7 @@ func (w *SWindowsRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
 	if tool.CheckPath() {
 		distro := tool.GetProductName()
 		version := tool.GetVersion()
-		arch := tool.GetArch(hostCpuArch)
+		arch := w.GetArch(hostCpuArch)
 		lan := tool.GetInstallLanguage()
 		return &deployapi.ReleaseInfo{
 			Distro:   distro,
@@ -152,6 +153,20 @@ func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, de
 		tool.UnlockUser(selUsr)
 	}
 	return selUsr, nil
+}
+
+func (w *SWindowsRootFs) GetArch(hostCpuArch string) string {
+	if w.rootFs.Exists("/program files (x86)", true) {
+		return apis.OS_ARCH_X86_64
+	} else if w.rootFs.Exists("/program files (arm)", true) {
+		return apis.OS_ARCH_AARCH64
+
+	}
+	if hostCpuArch == apis.OS_ARCH_AARCH32 {
+		return apis.OS_ARCH_AARCH32
+	} else {
+		return apis.OS_ARCH_X86_32
+	}
 }
 
 func (w *SWindowsRootFs) IsWindows10() bool {
