@@ -259,7 +259,8 @@ func (self *SHuaweiClient) CreatePoolNetworks() (jsonutils.JSONObject, error) {
 			},
 		},
 		"spec": map[string]interface{}{
-			"cidr": "192.168.20.0/24",
+			// "cidr": "192.168.20.0/24",
+			"cidr": "192.168.128.0/17",
 		},
 	}
 	return self.modelartsPoolNetworkCreate(params)
