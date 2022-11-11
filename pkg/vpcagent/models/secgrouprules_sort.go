@@ -16,15 +16,38 @@ package models
 
 import (
 	"sort"
+
+	"yunion.io/x/pkg/util/secrules"
+
+	compute_models "yunion.io/x/onecloud/pkg/compute/models"
 )
 
 func (el *Guest) OrderedSecurityGroupRules() []*SecurityGroupRule {
-	rs := []*SecurityGroupRule{}
+	// deny any incoming traffic and allow ARP
+	rs := []*SecurityGroupRule{
+		{
+			// deny all in-bound traffic
+			SSecurityGroupRule: compute_models.SSecurityGroupRule{
+				Priority:  1,
+				Direction: string(secrules.SecurityRuleIngress),
+				Action:    string(secrules.SecurityRuleDeny),
+			},
+		},
+		{
+			// allow in-bound arp traffic
+			SSecurityGroupRule: compute_models.SSecurityGroupRule{
+				Priority:  2,
+				Direction: string(secrules.SecurityRuleIngress),
+				Protocol:  "arp",
+				Action:    string(secrules.SecurityRuleAllow),
+			},
+		},
+	}
 	for _, secgroup := range el.SecurityGroups {
-		rs = append(rs, secgroup.securityGroupRules(0)...)
+		rs = append(rs, secgroup.securityGroupRules(100)...)
 	}
 	if el.AdminSecurityGroup != nil {
-		rs = append(rs, el.AdminSecurityGroup.securityGroupRules(100)...)
+		rs = append(rs, el.AdminSecurityGroup.securityGroupRules(1000)...)
 	}
 	sort.Slice(rs, SecurityGroupRuleLessFunc(rs))
 	return rs
