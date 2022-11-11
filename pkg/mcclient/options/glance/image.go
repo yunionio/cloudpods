@@ -23,15 +23,17 @@ import (
 type ImageListOptions struct {
 	options.BaseListOptions
 
-	IsPublic     string   `help:"filter images public or not(True, False or None)" choices:"true|false"`
-	IsStandard   string   `help:"filter images standard or non-standard" choices:"true|false"`
-	Protected    string   `help:"filter images by protected" choices:"true|false"`
-	IsUefi       bool     `help:"list uefi image"`
-	Format       []string `help:"Disk formats"`
-	SubFormats   []string `help:"Sub formats"`
-	Name         string   `help:"Name filter"`
-	OsType       []string `help:"Type of OS filter e.g. 'Windows, Linux, Freebsd, Android, macOS, VMWare'"`
-	Distribution []string `help:"Distribution filter, e.g. 'CentOS, Ubuntu, Debian, Windows'"`
+	IsPublic                 string   `help:"filter images public or not(True, False or None)" choices:"true|false"`
+	IsStandard               string   `help:"filter images standard or non-standard" choices:"true|false"`
+	Protected                string   `help:"filter images by protected" choices:"true|false"`
+	IsUefi                   bool     `help:"list uefi image"`
+	Format                   []string `help:"Disk formats"`
+	SubFormats               []string `help:"Sub formats"`
+	Name                     string   `help:"Name filter"`
+	OsType                   []string `help:"Type of OS filter e.g. 'Windows, Linux, Freebsd, Android, macOS, VMWare'"`
+	OsTypePreciseMatch       bool     `help:"OS precise match"`
+	Distribution             []string `help:"Distribution filter, e.g. 'CentOS, Ubuntu, Debian, Windows'"`
+	DistributionPreciseMatch bool     `help:"Distribution precise match"`
 }
 
 func (o *ImageListOptions) Params() (jsonutils.JSONObject, error) {
@@ -70,8 +72,14 @@ func (o *ImageListOptions) Params() (jsonutils.JSONObject, error) {
 	if len(o.OsType) > 0 {
 		params.Add(jsonutils.NewStringArray(o.OsType), "os_types")
 	}
+	if o.OsTypePreciseMatch {
+		params.Add(jsonutils.JSONTrue, "os_type_precise_match")
+	}
 	if len(o.Distribution) > 0 {
 		params.Add(jsonutils.NewStringArray(o.Distribution), "distributions")
+	}
+	if o.DistributionPreciseMatch {
+		params.Add(jsonutils.JSONTrue, "distribution_precise_match")
 	}
 	return params, nil
 }

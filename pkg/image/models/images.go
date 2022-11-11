@@ -1300,7 +1300,7 @@ func (manager *SImageManager) ListItemFilter(
 		}
 	}
 
-	propFilter := func(nameKeys []string, vals []string) {
+	propFilter := func(nameKeys []string, vals []string, presiceMatch bool) {
 		if len(vals) == 0 {
 			return
 		}
@@ -1308,16 +1308,20 @@ func (manager *SImageManager) ListItemFilter(
 		conds := make([]sqlchemy.ICondition, 0)
 		for _, val := range vals {
 			field := propQ.Field("value")
-			conds = append(conds,
-				sqlchemy.Like(field, val),
-				sqlchemy.Contains(field, val))
+			if presiceMatch {
+				conds = append(conds, sqlchemy.Equals(field, val))
+			} else {
+				conds = append(conds,
+					sqlchemy.Like(field, val),
+					sqlchemy.Contains(field, val))
+			}
 		}
 		propQ.Filter(sqlchemy.OR(conds...))
 		propSq := propQ.SubQuery()
 		q = q.Join(propSq, sqlchemy.Equals(q.Field("id"), propSq.Field("image_id"))).Distinct()
 	}
-	propFilter([]string{api.IMAGE_OS_TYPE}, query.OsTypes)
-	propFilter([]string{api.IMAGE_OS_DISTRO, "distro"}, query.Distributions)
+	propFilter([]string{api.IMAGE_OS_TYPE}, query.OsTypes, query.OsTypePreciseMatch)
+	propFilter([]string{api.IMAGE_OS_DISTRO, "distro"}, query.Distributions, query.DistributionPreciseMatch)
 
 	return q, nil
 }
