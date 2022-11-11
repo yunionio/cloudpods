@@ -24,6 +24,8 @@ import (
 	"github.com/360EntSecGroup-Skylar/excelize"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -92,7 +94,13 @@ func exportRow(xlsx *excelize.File, data jsonutils.JSONObject, keys []string, ro
 			val, _ = data.GetIgnoreCases(keys[i])
 		}
 		if val != nil {
-			valStr, _ = val.GetString()
+			// hack, make floating point number prettier
+			if fval, ok := val.(*jsonutils.JSONFloat); ok {
+				f, _ := fval.Float()
+				valStr = stringutils2.PrettyFloat(f, 2)
+			} else {
+				valStr, _ = val.GetString()
+			}
 		}
 		cell := fmt.Sprintf("%s%d", decimal2Alphabet(i), rowIndex)
 		xlsx.SetCellValue(DEFAULT_SHEET, cell, valStr)
