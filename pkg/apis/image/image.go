@@ -46,9 +46,13 @@ type ImageListInput struct {
 
 	// 操作系统类型，可能值为: Linux, Windows, FreeBSD 等
 	OsTypes []string `json:"os_types"`
+	// 操作系统精确匹配
+	OsTypePreciseMatch bool `json:"os_type_precise_match"`
 
 	// 发行版本，可能值为: CentOS, Ubuntu, Debian, ArchLinux,  OpenEuler 等
 	Distributions []string `json:"distributions"`
+	// 发行版精确匹配
+	DistributionPreciseMatch bool `json:"distribution_precise_match`
 }
 
 type GuestImageListInput struct {
