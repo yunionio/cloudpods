@@ -624,6 +624,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		for _, sgr := range sgrs {
 			// kvm not support peer secgroup
 			if len(sgr.PeerSecgroupId) > 0 {
+				log.Warningf("security group with peer secgroup Id")
 				continue
 			}
 			acl, err := ruleToAcl(lportName, sgr)
