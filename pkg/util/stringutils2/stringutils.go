@@ -19,6 +19,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -184,6 +185,52 @@ func FilterEmpty(input []string) []string {
 		if len(input[i]) > 0 {
 			ret = append(ret, input[i])
 		}
+	}
+	return ret
+}
+
+func PrettyFloat(f float64, precision int) string {
+	fstr := strconv.FormatFloat(f, 'f', -1, 64)
+	dotPos := strings.Index(fstr, ".")
+	if dotPos < 0 {
+		return fstr
+	}
+	neg := false
+	if fstr[0] == '-' {
+		neg = true
+		fstr = fstr[1:]
+		dotPos -= 1
+	}
+	numPart, _ := strconv.ParseInt(fstr[:dotPos], 10, 64)
+	prePartStr := fstr[dotPos+1:]
+	if numPart == 0 {
+		nonZeroPos := 0
+		for prePartStr[nonZeroPos] == '0' {
+			nonZeroPos += 1
+		}
+		precision += nonZeroPos
+	}
+	if precision < len(prePartStr) {
+		prePart, _ := strconv.ParseInt(prePartStr[:precision], 10, 64)
+		if prePartStr[precision] > '4' {
+			// rounding up
+			prePart += 1
+		}
+		prePartStr = fmt.Sprintf(fmt.Sprintf("%%.%dd", precision), prePart)
+		if len(prePartStr) > precision {
+			prePartStr = prePartStr[1:]
+			numPart += 1
+		}
+	}
+	for len(prePartStr) > 0 && prePartStr[len(prePartStr)-1] == '0' {
+		prePartStr = prePartStr[0 : len(prePartStr)-1]
+	}
+	ret := strconv.FormatInt(numPart, 10)
+	if len(prePartStr) > 0 {
+		ret += "." + prePartStr
+	}
+	if neg {
+		ret = "-" + ret
 	}
 	return ret
 }
