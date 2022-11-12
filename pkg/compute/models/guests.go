@@ -3399,6 +3399,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 	for i := 0; i < len(added); i += 1 {
 		localNet, err := getCloudNicNetwork(ctx, added[i], host, ipList, i)
 		if err != nil {
+			log.Errorf("SyncVMNics getCloudNicNetwork add fail: %s", err)
 			if ip := added[i].GetIP(); len(ip) > 0 {
 				syncIps = append(syncIps, ip)
 			}

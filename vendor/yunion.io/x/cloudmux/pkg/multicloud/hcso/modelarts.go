@@ -290,6 +290,10 @@ func (self *SModelartsPool) GetStatus() string {
 	switch {
 	case res == compute.MODELARTS_POOL_STATUS_RUNNING && len(self.Status.Resource.Creating) != 0:
 		res = compute.MODELARTS_POOL_STATUS_CREATING
+	case self.Status.Phase == "CreationFailed":
+		res = compute.MODELARTS_POOL_STATUS_CREATE_FAILED
+	case self.Status.Phase == "SeclingFailed":
+		res = compute.MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED
 	}
 	return res
 }

@@ -577,7 +577,7 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	if self.Enabled.IsTrue() {
 		if self.Provider == api.CLOUD_PROVIDER_VMWARE {
 			zone, _ := data.GetString("zone")
-			self.StartSyncVmwareNetworkTask(ctx, userCred, "", zone)
+			self.StartSyncVMwareNetworkTask(ctx, userCred, "", zone)
 		} else {
 			self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
 		}
@@ -786,19 +786,6 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	}
 
 	return nil, nil
-}
-
-func (self *SCloudaccount) StartSyncVmwareNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, zone string) error {
-	params := jsonutils.NewDict()
-	if len(zone) != 0 {
-		params.Set("zone", jsonutils.NewString(zone))
-	}
-	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncVMwareNetworkTask", self, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "unable to create task CloudAccountSyncVMwareNetworkTask")
-	}
-	task.ScheduleRun(nil)
-	return nil
 }
 
 func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
