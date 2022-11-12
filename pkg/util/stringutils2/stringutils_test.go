@@ -16,6 +16,7 @@ package stringutils2
 
 import (
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -208,6 +209,76 @@ func TestFilterEmpty(t *testing.T) {
 		got := FilterEmpty(c.input)
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("want: %#v got: %#v", c.want, got)
+		}
+	}
+}
+
+func TestPrettyFloat(t *testing.T) {
+	cases := []struct {
+		in   float64
+		prec int
+		want string
+	}{
+		{
+			in:   3.1415926,
+			prec: 2,
+			want: "3.14",
+		},
+		{
+			in:   3.1415926,
+			prec: 3,
+			want: "3.142",
+		},
+		{
+			in:   3.89999999,
+			prec: 2,
+			want: "3.9",
+		},
+		{
+			in:   3.88999999,
+			prec: 2,
+			want: "3.89",
+		},
+		{
+			in:   3.99999999,
+			prec: 2,
+			want: "4",
+		},
+		{
+			in:   0.000020000001,
+			prec: 2,
+			want: "0.00002",
+		},
+		{
+			in:   0.000021000001,
+			prec: 2,
+			want: "0.000021",
+		},
+		{
+			in:   0.000021100001,
+			prec: 2,
+			want: "0.000021",
+		},
+		{
+			in:   -3.15,
+			prec: 1,
+			want: "-3.2",
+		},
+		{
+			in:   3.5,
+			prec: 0,
+			want: "4",
+		},
+		{
+			in:   0.999999999999,
+			prec: 2,
+			want: "1",
+		},
+	}
+	for _, c := range cases {
+		got := PrettyFloat(c.in, c.prec)
+		if got != c.want {
+			t.Errorf("%s precision %d want %s got %s", strconv.FormatFloat(c.in, 'f', -1, 64), c.prec, c.want, got)
 		}
 	}
 }
