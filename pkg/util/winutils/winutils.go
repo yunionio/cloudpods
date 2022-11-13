@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
@@ -603,24 +602,6 @@ func (w *SWinRegTool) GetInstallLanguage() string {
 		return xval
 	} else {
 		return val
-	}
-}
-
-func (w *SWinRegTool) GetArch(hostCpuArch string) string {
-	prodKey := `HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows NT\CurrentVersion\CurrentVersion`
-	ver := w.GetRegistry(prodKey)
-	if len(ver) > 0 {
-		if hostCpuArch == apis.OS_ARCH_AARCH64 {
-			return apis.OS_ARCH_AARCH64
-		} else {
-			return apis.OS_ARCH_X86_64
-		}
-	} else {
-		if hostCpuArch == apis.OS_ARCH_AARCH32 {
-			return apis.OS_ARCH_AARCH32
-		} else {
-			return apis.OS_ARCH_X86_32
-		}
 	}
 }
 
