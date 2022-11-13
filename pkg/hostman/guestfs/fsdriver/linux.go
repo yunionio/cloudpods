@@ -372,29 +372,53 @@ func (l *sLinuxRootFs) GetOs() string {
 }
 
 func (l *sLinuxRootFs) GetArch(rootFs IDiskPartition) string {
-	if rootFs.Exists("/lib64", false) && rootFs.Exists("/usr/lib64", false) {
-		files := rootFs.ListDir("/lib64", false)
+	getOsArch64 := func(dir string) string {
+		files := rootFs.ListDir(dir, false)
 		for i := 0; i < len(files); i++ {
 			if strings.HasPrefix(files[i], "ld-") {
 				if strings.Contains(files[i], apis.OS_ARCH_AARCH64) {
 					return apis.OS_ARCH_AARCH64
-				} else if strings.Contains(files[i], "x86") {
+				} else if strings.Contains(files[i], apis.OS_ARCH_X86) {
 					return apis.OS_ARCH_X86_64
 				}
 			}
 		}
-		return apis.OS_ARCH_X86_64
-	} else {
-		files := rootFs.ListDir("/lib", false)
+		return ""
+	}
+	getOsArch32 := func(dir string) string {
+		files := rootFs.ListDir(dir, false)
 		for i := 0; i < len(files); i++ {
 			if strings.HasPrefix(files[i], "ld-") {
-				if strings.Contains(files[i], "arm") {
+				if strings.Contains(files[i], apis.OS_ARCH_ARM) {
 					return apis.OS_ARCH_AARCH32
 				}
 			}
 		}
 		return apis.OS_ARCH_X86_32
 	}
+
+	if rootFs.Exists("/lib64", false) {
+		if osArch := getOsArch64("/lib64"); osArch != "" {
+			return osArch
+		}
+	}
+	if rootFs.Exists("/usr/lib64", false) {
+		if osArch := getOsArch64("/usr/lib64"); osArch != "" {
+			return osArch
+		}
+	}
+	if rootFs.Exists("/lib", false) {
+		if osArch := getOsArch32("/lib"); osArch != "" {
+			return osArch
+		}
+	}
+	if rootFs.Exists("/usr/lib", false) {
+		if osArch := getOsArch32("/usr/lib"); osArch != "" {
+			return osArch
+		}
+	}
+
+	return apis.OS_ARCH_X86_64
 }
 
 func (l *sLinuxRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
@@ -582,32 +606,13 @@ func (l *sLinuxRootFs) dirWalk(part IDiskPartition, sPath string, wF func(path s
 }
 
 func (l *sLinuxRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
-	// ref: https://wiki.archlinux.org/title/EFI_system_partition#Check_for_an_existing_partition
-	// To confirm this is the ESP, mount it and check whether it contains a directory named EFI,
-	// if it does this is definitely the ESP.
-	efiDir := "/EFI"
-	exits := part.Exists(efiDir, false)
-	if !exits {
+	partDev := part.GetPartDev()
+	output, err := procutils.NewCommand("efibootmgr", part.GetPartDev()).Output()
+	if err != nil {
+		log.Infof("part is not efi partition %s: %s, %s", partDev, output, err)
 		return false
 	}
-
-	hasEFIFirmware := false
-
-	l.dirWalk(part, efiDir, func(path string, isDir bool) bool {
-		if isDir {
-			return false
-		}
-		// check file is UEFI firmware
-		if strings.HasSuffix(path, ".efi") {
-			log.Infof("EFI firmware %s found", path)
-			hasEFIFirmware = true
-			return true
-		}
-		// continue walk
-		return false
-	})
-
-	return hasEFIFirmware
+	return true
 }
 
 func (l *sLinuxRootFs) IsCloudinitInstall() bool {
