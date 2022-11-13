@@ -53,6 +53,13 @@ const (
 	NETWORK_STATUS_DELETE_FAILED = "delete_failed"
 )
 
+const (
+	NETWORK_DRIVER_VIRTIO  = "virtio"
+	NETWORK_DRIVER_E1000   = "e1000"
+	NETWORK_DRIVER_VMXNET3 = "vmxnet3"
+	NETWORK_DRIVER_VFIO    = "vfio-pci"
+)
+
 var (
 	ALL_NETWORK_TYPES = []string{
 		NETWORK_TYPE_GUEST,

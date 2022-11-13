@@ -706,6 +706,20 @@ func (mr *MockCandidatePropertyGetterMockRecorder) UnusedIsolatedDevicesByModel(
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnusedIsolatedDevicesByModel", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).UnusedIsolatedDevicesByModel), arg0)
 }
 
+// UnusedIsolatedDevicesByModelAndWire mocks base method
+func (m *MockCandidatePropertyGetter) UnusedIsolatedDevicesByModelAndWire(arg0, arg1 string) []*core.IsolatedDeviceDesc {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnusedIsolatedDevicesByModelAndWire", arg0, arg1)
+	ret0, _ := ret[0].([]*core.IsolatedDeviceDesc)
+	return ret0
+}
+
+// UnusedIsolatedDevicesByModelAndWire indicates an expected call of UnusedIsolatedDevicesByModelAndWire
+func (mr *MockCandidatePropertyGetterMockRecorder) UnusedIsolatedDevicesByModelAndWire(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnusedIsolatedDevicesByModelAndWire", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).UnusedIsolatedDevicesByModel), arg0, arg1)
+}
+
 // UnusedIsolatedDevicesByType mocks base method
 func (m *MockCandidatePropertyGetter) UnusedIsolatedDevicesByType(arg0 string) []*core.IsolatedDeviceDesc {
 	m.ctrl.T.Helper()

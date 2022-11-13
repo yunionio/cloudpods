@@ -122,6 +122,7 @@ type CandidatePropertyGetter interface {
 	UnusedIsolatedDevicesByType(devType string) []*IsolatedDeviceDesc
 	UnusedIsolatedDevicesByVendorModel(vendorModel string) []*IsolatedDeviceDesc
 	UnusedIsolatedDevicesByModel(model string) []*IsolatedDeviceDesc
+	UnusedIsolatedDevicesByModelAndWire(model, wire string) []*IsolatedDeviceDesc
 	GetIsolatedDevice(devID string) *IsolatedDeviceDesc
 	UnusedGpuDevices() []*IsolatedDeviceDesc
 	GetIsolatedDevices() []*IsolatedDeviceDesc
@@ -242,6 +243,7 @@ type IsolatedDeviceDesc struct {
 	Model          string
 	Addr           string
 	VendorDeviceID string
+	WireId         string
 }
 
 func (i *IsolatedDeviceDesc) VendorID() string {

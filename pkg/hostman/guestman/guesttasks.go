@@ -642,6 +642,12 @@ func (n *SGuestNetworkSyncTask) delNicDevice(nic *desc.SGuestNetwork) {
 }
 
 func (n *SGuestNetworkSyncTask) addNic(nic *desc.SGuestNetwork) {
+	if nic.Driver == "vfio-pci" {
+		// vfio device will add on isolated devices sync task
+		n.onDeviceAdd(nic)
+		return
+	}
+
 	if err := n.guest.generateNicScripts(nic); err != nil {
 		log.Errorln(err)
 		n.errors = append(n.errors, err)
@@ -822,13 +828,26 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev *desc.SGuestIsolatedDevi
 }
 
 func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *desc.SGuestIsolatedDevice) {
+	var err error
 	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(dev.VendorDeviceId, dev.Addr)
 	if devObj == nil {
-		err := errors.Errorf("Not found host isolated_device by %s %s", dev.VendorDeviceId, dev.Addr)
+		err = errors.Errorf("Not found host isolated_device by %s %s", dev.VendorDeviceId, dev.Addr)
 		log.Errorln(err)
 		t.errors = append(t.errors, err)
 		t.syncDevice()
 		return
+	}
+
+	var setupScript string
+	if dev.DevType == api.NIC_TYPE {
+		setupScript, err = t.guest.sriovNicAttachInitScript(dev.NetworkIndex, devObj)
+		if err != nil {
+			err = errors.Errorf("sriovNicAttachInitScript %s", err)
+			log.Errorln(err)
+			t.errors = append(t.errors, err)
+			t.syncDevice()
+			return
+		}
 	}
 
 	onFail := func(err error) {
@@ -858,22 +877,15 @@ func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *desc.SGuestIsolatedDevice)
 		}
 		id := devObj.GetQemuId()
 		dev.VfioDevs = make([]*desc.VFIODevice, 0)
-		vfioDev := &desc.VFIODevice{
-			PCIDevice: desc.NewPCIDevice(pciRoot.CType, "vfio-pci", id),
-		}
+		vfioDev := desc.NewVfioDevice(
+			pciRoot.CType, "vfio-pci", id, devObj.GetAddr(), devObj.GetDeviceType() == api.GPU_VGA_TYPE,
+		)
 		dev.VfioDevs = append(dev.VfioDevs, vfioDev)
-		dev.VfioDevs[0].HostAddr = devObj.GetAddr()
-		if devObj.GetDeviceType() == api.GPU_VGA_TYPE {
-			dev.VfioDevs[0].XVga = true
-		}
 
 		groupDevAddrs := devObj.GetIOMMUGroupRestAddrs()
 		for j := 0; j < len(groupDevAddrs); j++ {
 			gid := fmt.Sprintf("%s-%d", id, j+1)
-			vfioDev = &desc.VFIODevice{
-				PCIDevice: desc.NewPCIDevice(pciRoot.CType, "vfio-pci", gid),
-			}
-			vfioDev.HostAddr = groupDevAddrs[j]
+			vfioDev = desc.NewVfioDevice(pciRoot.CType, "vfio-pci", gid, groupDevAddrs[j], false)
 			dev.VfioDevs = append(dev.VfioDevs, vfioDev)
 		}
 		multiFunc := true
@@ -902,6 +914,13 @@ func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *desc.SGuestIsolatedDevice)
 		} else {
 			t.guest.Desc.IsolatedDevices = append(t.guest.Desc.IsolatedDevices, dev)
 			t.syncDevice()
+		}
+	}
+
+	if len(setupScript) > 0 {
+		output, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", setupScript).Output()
+		if err != nil {
+			log.Errorf("isolated device setup error %s, %s", output, err)
 		}
 	}
 

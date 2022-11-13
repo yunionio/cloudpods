@@ -766,7 +766,9 @@ func (m *SGuestManager) StatusWithBlockJobsCount(ctx context.Context, params int
 		return nil, nil
 	}
 	body := jsonutils.NewDict()
-	body.Set("power_status", jsonutils.NewString(guest.GetPowerStates()))
+	if guest != nil {
+		body.Set("power_status", jsonutils.NewString(guest.GetPowerStates()))
+	}
 	body.Set("status", jsonutils.NewString(status))
 	hostutils.TaskComplete(ctx, body)
 	return nil, nil

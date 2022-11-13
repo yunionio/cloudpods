@@ -271,6 +271,10 @@ func (b baseHostGetter) UnusedIsolatedDevicesByModel(model string) []*core.Isola
 	return b.h.UnusedIsolatedDevicesByModel(model)
 }
 
+func (b baseHostGetter) UnusedIsolatedDevicesByModelAndWire(model, wire string) []*core.IsolatedDeviceDesc {
+	return b.h.UnusedIsolatedDevicesByModelAndWire(model, wire)
+}
+
 func (b baseHostGetter) GetIsolatedDevice(devID string) *core.IsolatedDeviceDesc {
 	return b.h.GetIsolatedDevice(devID)
 }
@@ -443,6 +447,17 @@ func (h *BaseHostDesc) UnusedIsolatedDevicesByModel(model string) []*core.Isolat
 	return ret
 }
 
+func (h *BaseHostDesc) UnusedIsolatedDevicesByModelAndWire(model, wire string) []*core.IsolatedDeviceDesc {
+	ret := make([]*core.IsolatedDeviceDesc, 0)
+	for _, dev := range h.UnusedIsolatedDevices() {
+		log.Errorf("dev wire is %s, dev model is %s, request model is %s, request wire is %s", dev.Model, dev.WireId, model, wire)
+		if strings.Contains(dev.Model, model) && dev.WireId == wire {
+			ret = append(ret, dev)
+		}
+	}
+	return ret
+}
+
 func (h *BaseHostDesc) GetIsolatedDevice(devID string) *core.IsolatedDeviceDesc {
 	for _, dev := range h.IsolatedDevices {
 		if dev.ID == devID {
@@ -482,6 +497,7 @@ func (h *BaseHostDesc) fillIsolatedDevices(b *baseBuilder, host *computemodels.S
 			Model:          devModel.Model,
 			Addr:           devModel.Addr,
 			VendorDeviceID: devModel.VendorDeviceId,
+			WireId:         devModel.WireId,
 		}
 		devs[index] = dev
 	}

@@ -107,4 +107,5 @@ type IsolatedDeviceJsonDesc struct {
 	Addr           string `json:"addr"`
 	VendorDeviceId string `json:"vendor_device_id"`
 	Vendor         string `json:"vendor"`
+	NetworkIndex   int8   `json:"network_index"`
 }

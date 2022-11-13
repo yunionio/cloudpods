@@ -342,6 +342,9 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	}
 
 	for _, nic := range s.Desc.Nics {
+		if nic.Driver == api.NETWORK_DRIVER_VFIO {
+			continue
+		}
 		downscript := s.getNicDownScriptPath(nic)
 		cmd += fmt.Sprintf("%s %s\n", downscript, nic.Ifname)
 	}
@@ -360,6 +363,12 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		return "", errors.Wrap(err, "generateDiskSetupScripts")
 	}
 	cmd += diskScripts
+
+	sriovInitScripts, err := s.generateSRIOVInitScripts()
+	if err != nil {
+		return "", errors.Wrap(err, "generateSRIOVInitScripts")
+	}
+	cmd += sriovInitScripts
 
 	cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
 	cmd += fmt.Sprintf("PID_FILE=%s\n", input.PidFilePath)
@@ -616,6 +625,9 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += fmt.Sprintf("done\n")
 
 	for _, nic := range nics {
+		if nic.Driver == api.NETWORK_DRIVER_VFIO {
+			continue
+		}
 		downscript := s.getNicDownScriptPath(nic)
 		cmd += fmt.Sprintf("%s %s\n", downscript, nic.Ifname)
 	}

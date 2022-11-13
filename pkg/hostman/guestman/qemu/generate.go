@@ -373,6 +373,10 @@ func generateNicOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) ([
 	nics := input.GuestDesc.Nics
 
 	for idx := range nics {
+		if nics[idx].Driver == api.NETWORK_DRIVER_VFIO {
+			continue
+		}
+
 		netDevOpt, err := getNicNetdevOption(drvOpt, nics[idx], input.IsKVMSupport)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getNicNetdevOption %v", nics[idx])

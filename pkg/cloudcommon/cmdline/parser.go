@@ -261,6 +261,14 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.BwLimit = bw
 		} else if p == "[vip]" {
 			netConfig.Vip = true
+		} else if strings.HasPrefix(p, "sriov-nic-id=") {
+			netConfig.SriovDevice = &compute.IsolatedDeviceConfig{
+				Id: p[len("sriov-nic-id="):],
+			}
+		} else if strings.HasPrefix(p, "sriov-nic-model=") {
+			netConfig.SriovDevice = &compute.IsolatedDeviceConfig{
+				Model: p[len("sriov-nic-model="):],
+			}
 		} else if utils.IsInStringArray(p, compute.ALL_NETWORK_TYPES) {
 			netConfig.NetType = p
 		} else {

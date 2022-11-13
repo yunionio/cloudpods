@@ -323,6 +323,8 @@ type SGuestControlDesc struct {
 	ScalingGroupId     string
 	SecurityRules      string
 	AdminSecurityRules string
+	SrcIpCheck         bool
+	SrcMacCheck        bool
 
 	EncryptKeyId string
 }

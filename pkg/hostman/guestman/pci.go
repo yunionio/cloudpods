@@ -257,34 +257,35 @@ func (s *SKVMGuestInstance) initGuestNetworks(pciRoot, pciBridge *desc.PCIContro
 	}
 
 	for i := 0; i < len(s.Desc.Nics); i++ {
-		switch s.GetOsName() {
-		case OS_NAME_MACOS:
-			vectors := 0
-			s.Desc.Nics[i].Vectors = &vectors
-			s.Desc.Nics[i].Driver = "e1000"
-		case OS_NAME_VMWARE:
-			s.Desc.Nics[i].Driver = "vmxnet3"
-		}
+		if s.Desc.Nics[i].Driver != "vfio-pci" {
+			switch s.GetOsName() {
+			case OS_NAME_MACOS:
+				vectors := 0
+				s.Desc.Nics[i].Vectors = &vectors
+				s.Desc.Nics[i].Driver = "e1000"
+			case OS_NAME_VMWARE:
+				s.Desc.Nics[i].Driver = "vmxnet3"
+			}
+			if s.Desc.Nics[i].NumQueues > 1 {
+				vectors := s.Desc.Nics[i].NumQueues * 2
+				s.Desc.Nics[i].Vectors = &vectors
+			}
 
-		if s.Desc.Nics[i].NumQueues > 1 {
-			vectors := s.Desc.Nics[i].NumQueues * 2
-			s.Desc.Nics[i].Vectors = &vectors
-		}
+			if err := s.generateNicScripts(s.Desc.Nics[i]); err != nil {
+				return errors.Wrapf(err, "generateNicScripts for nic: %v", s.Desc.Nics[i])
+			}
+			s.Desc.Nics[i].UpscriptPath = s.getNicUpScriptPath(s.Desc.Nics[i])
+			s.Desc.Nics[i].DownscriptPath = s.getNicDownScriptPath(s.Desc.Nics[i])
 
-		if err := s.generateNicScripts(s.Desc.Nics[i]); err != nil {
-			return errors.Wrapf(err, "generateNicScripts for nic: %v", s.Desc.Nics[i])
-		}
-		s.Desc.Nics[i].UpscriptPath = s.getNicUpScriptPath(s.Desc.Nics[i])
-		s.Desc.Nics[i].DownscriptPath = s.getNicDownScriptPath(s.Desc.Nics[i])
-
-		id := fmt.Sprintf("netdev-%s", s.Desc.Nics[i].Ifname)
-		switch s.Desc.Nics[i].Driver {
-		case "virtio":
-			s.Desc.Nics[i].Pci = desc.NewPCIDevice(cont.CType, "virtio-net-pci", id)
-		case "e1000":
-			s.Desc.Nics[i].Pci = desc.NewPCIDevice(cont.CType, "e1000-82545em", id)
-		case "vmxnet3":
-			s.Desc.Nics[i].Pci = desc.NewPCIDevice(cont.CType, "vmxnet3", id)
+			id := fmt.Sprintf("netdev-%s", s.Desc.Nics[i].Ifname)
+			switch s.Desc.Nics[i].Driver {
+			case "virtio":
+				s.Desc.Nics[i].Pci = desc.NewPCIDevice(cont.CType, "virtio-net-pci", id)
+			case "e1000":
+				s.Desc.Nics[i].Pci = desc.NewPCIDevice(cont.CType, "e1000-82545em", id)
+			case "vmxnet3":
+				s.Desc.Nics[i].Pci = desc.NewPCIDevice(cont.CType, "vmxnet3", id)
+			}
 		}
 	}
 	return nil
@@ -304,24 +305,15 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 		} else {
 			id := dev.GetQemuId()
 			s.Desc.IsolatedDevices[i].VfioDevs = make([]*desc.VFIODevice, 0)
-			vfioDev := &desc.VFIODevice{
-				PCIDevice: desc.NewPCIDevice(cont.CType, "vfio-pci", id),
-			}
-			s.Desc.IsolatedDevices[i].VfioDevs = append(
-				s.Desc.IsolatedDevices[i].VfioDevs, vfioDev,
+			vfioDev := desc.NewVfioDevice(
+				cont.CType, "vfio-pci", id, dev.GetAddr(), dev.GetDeviceType() == api.GPU_VGA_TYPE,
 			)
-			s.Desc.IsolatedDevices[i].VfioDevs[0].HostAddr = dev.GetAddr()
-			if dev.GetDeviceType() == api.GPU_VGA_TYPE {
-				s.Desc.IsolatedDevices[i].VfioDevs[0].XVga = true
-			}
+			s.Desc.IsolatedDevices[i].VfioDevs = append(s.Desc.IsolatedDevices[i].VfioDevs, vfioDev)
 
 			groupDevAddrs := dev.GetIOMMUGroupRestAddrs()
 			for j := 0; j < len(groupDevAddrs); j++ {
 				gid := fmt.Sprintf("%s-%d", id, j+1)
-				vfioDev = &desc.VFIODevice{
-					PCIDevice: desc.NewPCIDevice(cont.CType, "vfio-pci", gid),
-				}
-				vfioDev.HostAddr = groupDevAddrs[j]
+				vfioDev = desc.NewVfioDevice(cont.CType, "vfio-pci", gid, groupDevAddrs[j], false)
 				s.Desc.IsolatedDevices[i].VfioDevs = append(
 					s.Desc.IsolatedDevices[i].VfioDevs, vfioDev,
 				)
@@ -641,7 +633,7 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		if len(s.Desc.IsolatedDevices[i].VfioDevs) > 0 {
-			multiFunc := true
+			multiFunc := len(s.Desc.IsolatedDevices[i].VfioDevs) > 1
 			err = s.ensureDevicePciAddress(s.Desc.IsolatedDevices[i].VfioDevs[0].PCIDevice, 0, &multiFunc)
 			if err != nil {
 				return errors.Wrapf(err, "ensure isolated device %s pci address", s.Desc.IsolatedDevices[i].VfioDevs[0].PCIAddr)

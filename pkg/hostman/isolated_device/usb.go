@@ -47,7 +47,7 @@ func (dev *sUSBDevice) GetVGACmd() string {
 	return ""
 }
 
-func (dev *sUSBDevice) CustomProbe() error {
+func (dev *sUSBDevice) CustomProbe(int) error {
 	// do nothing
 	return nil
 }

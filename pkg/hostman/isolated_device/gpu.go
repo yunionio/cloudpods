@@ -158,31 +158,34 @@ func (dev *sGPUBaseDevice) DetectByAddr() error {
 	return err
 }
 
-func (dev *sGPUBaseDevice) CustomProbe() error {
-	// vfio kernel driver check
-	for _, driver := range []string{"vfio", "vfio_iommu_type1", "vfio-pci"} {
-		if err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", driver).Run(); err != nil {
-			return fmt.Errorf("modprobe %s: %v", driver, err)
+func (dev *sGPUBaseDevice) CustomProbe(idx int) error {
+	// check environments on first probe
+	if idx == 0 {
+		// vfio kernel driver check
+		for _, driver := range []string{"vfio", "vfio_iommu_type1", "vfio-pci"} {
+			if err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", driver).Run(); err != nil {
+				return fmt.Errorf("modprobe %s: %v", driver, err)
+			}
 		}
-	}
-	// grub check
-	grubCmdline, err := fileutils2.FileGetContents("/proc/cmdline")
-	if err != nil {
-		return err
-	}
-	grubCmdline = strings.TrimSpace(grubCmdline)
-	params := sets.NewString(strings.Split(grubCmdline, " ")...)
-	if !params.IsSuperset(sets.NewString("intel_iommu=on",
-		"vfio_iommu_type1.allow_unsafe_interrupts=1")) {
-		return fmt.Errorf("Some GRUB_CMDLINE iommu parameters are missing")
-	}
-	isNouveauBlacklisted := false
-	if params.IsSuperset(sets.NewString("rdblacklist=nouveau", "nouveau.modeset=0")) ||
-		params.IsSuperset(sets.NewString("rd.driver.blacklist=nouveau", "nouveau.modeset=0")) {
-		isNouveauBlacklisted = true
-	}
-	if !isNouveauBlacklisted {
-		return fmt.Errorf("Some GRUB_CMDLINE nouveau_blacklisted parameters are missing")
+		// grub check
+		grubCmdline, err := fileutils2.FileGetContents("/proc/cmdline")
+		if err != nil {
+			return err
+		}
+		grubCmdline = strings.TrimSpace(grubCmdline)
+		params := sets.NewString(strings.Split(grubCmdline, " ")...)
+		if !params.IsSuperset(sets.NewString("intel_iommu=on",
+			"vfio_iommu_type1.allow_unsafe_interrupts=1")) {
+			return fmt.Errorf("Some GRUB_CMDLINE iommu parameters are missing")
+		}
+		isNouveauBlacklisted := false
+		if params.IsSuperset(sets.NewString("rdblacklist=nouveau", "nouveau.modeset=0")) ||
+			params.IsSuperset(sets.NewString("rd.driver.blacklist=nouveau", "nouveau.modeset=0")) {
+			isNouveauBlacklisted = true
+		}
+		if !isNouveauBlacklisted {
+			return fmt.Errorf("Some GRUB_CMDLINE nouveau_blacklisted parameters are missing")
+		}
 	}
 	driver, err := dev.GetKernelDriver()
 	if err != nil {
@@ -250,34 +253,9 @@ func (dev *sGPUBaseDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedD
 	}, nil
 }
 
-type sGPUVGADevice struct {
-	*sGPUBaseDevice
-}
-
-func (gpu *sGPUVGADevice) GetDeviceType() string {
-	return api.GPU_VGA_TYPE
-}
-
-func (gpu *sGPUVGADevice) GetVGACmd() string {
-	return " -vga none"
-}
-
 func getGuestAddr(index int) string {
 	vAddr := fmt.Sprintf("0x%x", 21+index) // from 0x15 above
 	return vAddr
-}
-
-func (gpu *sGPUVGADevice) GetPassthroughCmd(index int) string {
-	// vAddr := getGuestAddr(index)
-	return fmt.Sprintf(" -device vfio-pci,host=%s,multifunction=on,x-vga=on", gpu.GetAddr())
-}
-
-func (gpu *sGPUVGADevice) CustomProbe() error {
-	_, err := bashOutput(`cat /boot/cfg-$(uname -r) | grep -E "^CONFIG_VFIO_PCI_VGA=y"`)
-	if err != nil {
-		return fmt.Errorf("CONFIG_VFIO_PCI_VGA=y needs to be set in kernel compiling parameters")
-	}
-	return nil
 }
 
 type sGPUHPCDevice struct {
