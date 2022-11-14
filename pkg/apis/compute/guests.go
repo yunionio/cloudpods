@@ -824,6 +824,13 @@ type GuestJsonDesc struct {
 	IsDaemon bool `json:"is_daemon"`
 }
 
+type ServerSetBootIndexInput struct {
+	// key index, value boot_index
+	Disks map[string]int8 `json:"disks"`
+	// key ordinal, value boot_index
+	Cdroms map[string]int8 `json:"cdroms"`
+}
+
 type ServerChangeDiskStorageInput struct {
 	DiskId          string `json:"disk_id"`
 	TargetStorageId string `json:"target_storage_id"`

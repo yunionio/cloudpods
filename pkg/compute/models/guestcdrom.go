@@ -133,6 +133,14 @@ func (self *SGuestcdrom) GetDetails() string {
 	}
 }
 
+func (self *SGuestcdrom) SetBootIndex(bootIndex int8) error {
+	_, err := db.Update(self, func() error {
+		self.BootIndex = bootIndex
+		return nil
+	})
+	return err
+}
+
 func (self *SGuestcdrom) getJsonDesc() *api.GuestcdromJsonDesc {
 	if len(self.ImageId) > 0 && len(self.Path) > 0 {
 		return &api.GuestcdromJsonDesc{

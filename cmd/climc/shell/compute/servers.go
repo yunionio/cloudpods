@@ -112,6 +112,7 @@ func init() {
 	cmd.Perform("qga-set-password", &options.ServerQgaSetPassword{})
 	cmd.Perform("qga-command", &options.ServerQgaCommand{})
 	cmd.Perform("set-password", &options.ServerSetPasswordOptions{})
+	cmd.Perform("set-boot-index", &options.ServerSetBootIndexOptions{})
 
 	cmd.Get("vnc", new(options.ServerVncOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))

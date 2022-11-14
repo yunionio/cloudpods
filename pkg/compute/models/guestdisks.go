@@ -206,7 +206,8 @@ func (self *SGuestdisk) GetJsonDescAtHost(ctx context.Context, host *SHost) *api
 	}
 	desc.Format = disk.DiskFormat
 	desc.Index = self.Index
-	desc.BootIndex = &self.BootIndex
+	bootIndex := self.BootIndex
+	desc.BootIndex = &bootIndex
 
 	if len(disk.SnapshotId) > 0 {
 		needMerge := disk.GetMetadata(ctx, "merge_snapshot", nil)
@@ -261,6 +262,14 @@ func (self *SGuestdisk) ToDiskConfig() *api.DiskConfig {
 	conf.Index = int(self.Index)
 	conf.Mountpoint = self.Mountpoint
 	return conf
+}
+
+func (self *SGuestdisk) SetBootIndex(bootIndex int8) error {
+	_, err := db.Update(self, func() error {
+		self.BootIndex = bootIndex
+		return nil
+	})
+	return err
 }
 
 func (manager *SGuestdiskManager) ListItemFilter(
