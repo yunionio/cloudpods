@@ -4358,49 +4358,32 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 	if len(guests) != len(params.GuestIds) {
 		return nil, httperrors.NewBadRequestError("Check input guests is exist")
 	}
+	errs := []error{}
 	for i := 0; i < len(guests); i++ {
-		lockman.LockObject(ctx, &guests[i])
-		defer lockman.ReleaseObject(ctx, &guests[i])
-		guest, err := guests[i].validateForBatchMigrate(ctx, false)
-		if err != nil {
-			return nil, err
-		}
-		guests[i] = *guest
-	}
+		func() {
+			lockman.LockObject(ctx, &guests[i])
+			defer lockman.ReleaseObject(ctx, &guests[i])
+			_, err = guests[i].validateForBatchMigrate(ctx, false)
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "Guest %s", guests[i].Name))
+				return
+			}
+			if guests[i].Status == api.VM_RUNNING {
+				err = guests[i].StartGuestLiveMigrateTask(ctx, userCred,
+					guests[i].Status, preferHostId, &params.SkipCpuCheck, &params.SkipKernelCheck,
+					params.EnableTLS, params.QuciklyFinish, params.MaxBandwidthMb, nil, "",
+				)
+			} else {
+				err = guests[i].StartMigrateTask(ctx, userCred, guests[i].Status == api.VM_UNKNOWN,
+					false, guests[i].Status, preferHostId, "")
+			}
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "Guest %s", guests[i].Name))
+			}
+		}()
 
-	var hostGuests = map[string][]*SGuest{}
-	var hostGuestParams = map[string][]*api.GuestBatchMigrateParams{}
-	for i := 0; i < len(guests); i++ {
-		bmp := &api.GuestBatchMigrateParams{
-			Id:              guests[i].Id,
-			LiveMigrate:     guests[i].Status == api.VM_RUNNING,
-			RescueMode:      guests[i].Status == api.VM_UNKNOWN,
-			OldStatus:       guests[i].Status,
-			SkipCpuCheck:    params.SkipCpuCheck,
-			SkipKernelCheck: params.SkipKernelCheck,
-			EnableTLS:       params.EnableTLS,
-			MaxBandwidthMb:  params.MaxBandwidthMb,
-			QuciklyFinish:   params.QuciklyFinish,
-		}
-		guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "batch migrate")
-		if _, ok := hostGuests[guests[i].HostId]; ok {
-			hostGuests[guests[i].HostId] = append(hostGuests[guests[i].HostId], &guests[i])
-			hostGuestParams[guests[i].HostId] = append(hostGuestParams[guests[i].HostId], bmp)
-		} else {
-			hostGuests[guests[i].HostId] = []*SGuest{&guests[i]}
-			hostGuestParams[guests[i].HostId] = []*api.GuestBatchMigrateParams{bmp}
-		}
 	}
-	for hostId, guests := range hostGuests {
-		params := hostGuestParams[hostId]
-		kwargs := jsonutils.NewDict()
-		kwargs.Set("guests", jsonutils.Marshal(params))
-		if len(preferHostId) > 0 {
-			kwargs.Set("prefer_host_id", jsonutils.NewString(preferHostId))
-		}
-		manager.StartHostGuestsMigrateTask(ctx, userCred, guests, kwargs, "")
-	}
-	return nil, nil
+	return nil, errors.NewAggregate(errs)
 }
 
 func (manager *SGuestManager) StartHostGuestsMigrateTask(
