@@ -232,9 +232,9 @@ func (s *SBaseStorage) GetUsedSizeMb() int {
 	return size
 }
 
-func (s *SBaseStorage) GetMediumType() string {
+/*func (s *SBaseStorage) GetMediumType() string {
 	return s.Manager.GetMediumType()
-}
+}*/
 
 func (s *SBaseStorage) GetFreeSizeMb() int {
 	size, err := storageutils.GetFreeSizeMb(s.Path)

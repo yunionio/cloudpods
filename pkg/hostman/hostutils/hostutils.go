@@ -40,7 +40,6 @@ import (
 type IHost interface {
 	GetZoneId() string
 	GetHostId() string
-	GetMediumType() string
 	GetMasterIp() string
 	GetCpuArchitecture() string
 	IsAarch64() bool
