@@ -1254,6 +1254,12 @@ func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *a
 	disk.DomainId = ownerId.GetProjectDomainId()
 	disk.IsSystem = isSystem
 
+	if self.MediumType == api.DISK_TYPE_SSD {
+		disk.IsSsd = true
+	} else {
+		disk.IsSsd = false
+	}
+
 	disk.BillingType = billingType
 	disk.BillingCycle = billingCycle
 
@@ -1263,7 +1269,7 @@ func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *a
 	if err != nil {
 		return nil, err
 	}
-	db.OpsLog.LogEvent(&disk, db.ACT_CREATE, nil, userCred)
+	db.OpsLog.LogEvent(&disk, db.ACT_CREATE, disk.GetShortDesc(ctx), userCred)
 	return &disk, nil
 }
 

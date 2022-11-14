@@ -680,6 +680,7 @@ func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *api.DiskConfig, s
 	}
 	_, err = db.Update(disk, func() error {
 		disk.StorageId = storage.Id
+		disk.IsSsd = (storage.MediumType == api.DISK_TYPE_SSD)
 		return nil
 	})
 	return err
@@ -2553,6 +2554,10 @@ func (self *SDisk) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 
 	if len(self.ExternalId) > 0 {
 		desc.Add(jsonutils.NewString(self.ExternalId), "externalId")
+	}
+
+	if self.IsSsd {
+		desc.Add(jsonutils.JSONTrue, "is_ssd")
 	}
 
 	fs := self.GetFsFormat()

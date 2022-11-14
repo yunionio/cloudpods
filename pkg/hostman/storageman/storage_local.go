@@ -229,7 +229,7 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
 	content.Set("actual_capacity_used", jsonutils.NewInt(int64(s.GetUsedSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
-	content.Set("medium_type", jsonutils.NewString(s.GetMediumType()))
+	// content.Set("medium_type", jsonutils.NewString(s.GetMediumType()))
 	content.Set("zone", jsonutils.NewString(s.GetZoneId()))
 	if len(s.Manager.LocalStorageImagecacheManager.GetId()) > 0 {
 		content.Set("storagecache_id",

@@ -101,7 +101,6 @@ type SHostOptions struct {
 	CheckSystemServices bool `help:"Check system services (ntpd, telegraf) on startup" default:"true"`
 
 	DhcpServerPort     int    `help:"Host dhcp server bind port" default:"67"`
-	DiskIsSsd          bool   `default:"false"`
 	FetcherfsPath      string `default:"/opt/yunion/fetchclient/bin/fetcherfs" help:"Fuse fetcherfs path"`
 	FetcherfsBlockSize int    `default:"16" help:"Fuse fetcherfs fetch chunk_size MB"`
 
