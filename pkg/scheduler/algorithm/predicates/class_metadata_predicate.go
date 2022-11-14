@@ -95,24 +95,23 @@ func (p *ClassMetadataPredicate) PreExecute(ctx context.Context, u *core.Unit, c
 		}
 		stand = obj.(db.IStandaloneModel)
 	case len(disks) == 0:
+		break
 	case disks[0].ImageId != "":
 		obj, err := models.CachedimageManager.GetCachedimageById(ctx, auth.AdminCredential(), disks[0].ImageId, false)
-		if err != nil {
-			return false, errors.Wrapf(err, "unable to fetch cachedimage %s", disks[0].ImageId)
-		}
-		// no check if image if system public image
-		public := jsonutils.QueryBoolean(obj.Info, "is_public", false)
-		publicScope, _ := obj.Info.GetString("public_scope")
-		if !public || publicScope != string(rbacutils.ScopeSystem) {
-			stand = obj
-			guestSource.keyword = "image"
+		if err == nil {
+			// no check if image if system public image
+			public := jsonutils.QueryBoolean(obj.Info, "is_public", false)
+			publicScope, _ := obj.Info.GetString("public_scope")
+			if !public || publicScope != string(rbacutils.ScopeSystem) {
+				stand = obj
+				guestSource.keyword = "image"
+			}
 		}
 	case disks[0].SnapshotId != "":
 		obj, err := models.SnapshotManager.FetchById(disks[0].SnapshotId)
-		if err != nil {
-			return false, errors.Wrapf(err, "unable to fetch snapshot %s", disks[0].SnapshotId)
+		if err == nil {
+			stand = obj.(db.IStandaloneModel)
 		}
-		stand = obj.(db.IStandaloneModel)
 	case disks[0].BackupId != "":
 		obj, err := models.DiskBackupManager.FetchById(disks[0].BackupId)
 		if err != nil {
