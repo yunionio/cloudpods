@@ -345,6 +345,22 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 }
 
 func (self *SModelartsPool) Refresh() error {
+	pools := make([]SModelartsPool, 0)
+	resObj, err := self.region.client.modelartsPoolListWithStatus("pools", "failed", nil)
+	if err != nil {
+		return errors.Wrap(err, "modelartsPoolListWithStatus")
+	}
+	err = resObj.Unmarshal(&pools, "items")
+	if err != nil {
+		return errors.Wrap(err, "resObj unmarshal")
+	}
+	for _, pool := range pools {
+		if pool.GetId() == self.GetId() {
+			self.Status.Phase = "CreationFailed"
+			return nil
+		}
+	}
+
 	self.Status.Resource = SNodeStatus{}
 	pool, err := self.region.client.modelartsPoolById(self.GetId())
 	if err != nil {
