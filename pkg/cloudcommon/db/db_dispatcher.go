@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/filterclause"
+	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -1583,8 +1584,8 @@ func reflectDispatcherInternal(
 	if !funcValue.IsValid() || funcValue.IsNil() {
 		funcValue = modelValue.MethodByName(generalFuncName)
 		if !funcValue.IsValid() || funcValue.IsNil() {
-			return nil, httperrors.NewActionNotFoundError("%s %s %s not found",
-				manager.Keyword(), operator, spec)
+			return nil, httperrors.NewActionNotFoundError("%s %s %s not found, please check service version, current version: %s",
+				manager.Keyword(), operator, spec, version.GetShortString())
 		} else {
 			isGeneral = true
 			funcName = generalFuncName
