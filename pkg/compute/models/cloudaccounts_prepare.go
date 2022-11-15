@@ -260,7 +260,7 @@ func (cam *SCloudaccountManager) prepareNets(ctx context.Context, userCred mccli
 			IPNets: ipNets,
 		})
 	}
-	output.Guests = cam.parseSimpleVms(nInfo.VMs, existedIpPool)
+	// output.Guests = cam.parseSimpleVms(nInfo.VMs, existedIpPool)
 
 	vsList := nInfo.VsMap.List()
 	for i := range vsList {
@@ -296,7 +296,7 @@ func (cam *SCloudaccountManager) prepareNets(ctx context.Context, userCred mccli
 					ipWithSameNet = append(ipWithSameNet, ips[k])
 				}
 				ipLimitLow, ipLimitUp := ips[0], ips[len(ips)-1]
-				simNetConfs := cam.expandIPRnage(ips, ipLimitLow, ipLimitUp, func(proc esxi.SIPProc) bool {
+				simNetConfs := cam.expandIPRange(ips, ipLimitLow, ipLimitUp, func(proc esxi.SIPProc) bool {
 					return proc.IsHost
 				}, nInfo.IPPool, existedIpPool)
 				for k := range simNetConfs {
@@ -307,8 +307,8 @@ func (cam *SCloudaccountManager) prepareNets(ctx context.Context, userCred mccli
 				}
 			}
 		}
-		for vlan, ips := range vs.Vlans {
-			simNetConfs := cam.expandIPRnage(ips, 0, 0, func(proc esxi.SIPProc) bool {
+		/*for vlan, ips := range vs.Vlans {
+			simNetConfs := cam.expandIPRange(ips, 0, 0, func(proc esxi.SIPProc) bool {
 				return proc.VlanId == vlan
 			}, nInfo.IPPool, existedIpPool)
 			for j := range simNetConfs {
@@ -318,7 +318,7 @@ func (cam *SCloudaccountManager) prepareNets(ctx context.Context, userCred mccli
 					CASimpleNetConf: simNetConfs[j],
 				})
 			}
-		}
+		}*/
 		output.Wires = append(output.Wires, wire)
 	}
 
@@ -345,7 +345,7 @@ func (cam *SCloudaccountManager) parseSimpleVms(vms []esxi.SSimpleVM, existedIpP
 	return guests
 }
 
-func (cam *SCloudaccountManager) expandIPRnage(ips []netutils.IPV4Addr, limitLow, limitUp netutils.IPV4Addr,
+func (cam *SCloudaccountManager) expandIPRange(ips []netutils.IPV4Addr, limitLow, limitUp netutils.IPV4Addr,
 	expand func(esxi.SIPProc) bool, ipPool esxi.SIPPool, existedIpPool *sIPPool) []api.CASimpleNetConf {
 	ret := make([]api.CASimpleNetConf, 0)
 	for i := 0; i < len(ips); i++ {
@@ -560,10 +560,10 @@ func (scm *SCloudaccountManager) parseAndSuggestSingleWire(params sParseAndSugge
 			})
 		}
 
-		wireNet.Guests = scm.parseSimpleVms(ni.VMs, params.ExistedIpPool)
+		/* wireNet.Guests = scm.parseSimpleVms(ni.VMs, params.ExistedIpPool)
 
 		for vlan, ips := range ni.VlanIps {
-			simNetConfs := scm.expandIPRnage(ips, 0, 0, func(proc esxi.SIPProc) bool {
+			simNetConfs := scm.expandIPRange(ips, 0, 0, func(proc esxi.SIPProc) bool {
 				return proc.VlanId == vlan
 			}, ni.IPPool, params.ExistedIpPool)
 			for i := range simNetConfs {
@@ -573,7 +573,7 @@ func (scm *SCloudaccountManager) parseAndSuggestSingleWire(params sParseAndSugge
 					CASimpleNetConf: simNetConfs[i],
 				})
 			}
-		}
+		}*/
 		output.CAWireNets = append(output.CAWireNets, wireNet)
 	}
 	return output
@@ -671,17 +671,19 @@ func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr
 	return ret
 }
 
-func (self *SCloudaccount) StartSyncVMwareNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, networkZone string) error {
-	if self.Provider != api.CLOUD_PROVIDER_VMWARE {
+func (ca *SCloudaccount) StartSyncVMwareNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, networkZone string) error {
+	if ca.Provider != api.CLOUD_PROVIDER_VMWARE {
 		return errors.ErrNotSupported
 	}
 	params := jsonutils.NewDict()
-	params.Set("zone", jsonutils.NewString(networkZone))
-	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncVMwareNetworkTask", self, userCred, params, parentTaskId, "", nil)
+	if len(networkZone) != 0 {
+		params.Set("zone", jsonutils.NewString(networkZone))
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncVMwareNetworkTask", ca, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
-	self.SetStatus(userCred, api.CLOUD_PROVIDER_SYNC_NETWORK, "StartSyncVMwareNetworkTask")
+	ca.SetStatus(userCred, api.CLOUD_PROVIDER_SYNC_NETWORK, "StartSyncVMwareNetworkTask")
 	task.ScheduleRun(nil)
 	return nil
 }

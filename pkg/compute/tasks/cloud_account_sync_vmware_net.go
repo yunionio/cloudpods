@@ -166,7 +166,7 @@ func (self *CloudAccountSyncVMwareNetworkTask) OnInit(ctx context.Context, obj d
 				}
 			}
 		}
-		for vlan, ips := range vs.Vlans {
+		/* for vlan, ips := range vs.Vlans {
 			simNetConfs := self.expandIPRnage(ips, 0, 0, func(proc esxi.SIPProc) bool {
 				return proc.VlanId == vlan && proc.VSId == vs.Id && !proc.IsHost
 			}, nInfo.IPPool, excludedIPPool, func(net sSimpleNet) {
@@ -180,7 +180,7 @@ func (self *CloudAccountSyncVMwareNetworkTask) OnInit(ctx context.Context, obj d
 					CASimpleNetConf: simNetConfs[j],
 				})
 			}
-		}
+		}*/
 		// make sure wire
 		suitableWire := ""
 		maxScore := 1
@@ -230,7 +230,8 @@ func (self *CloudAccountSyncVMwareNetworkTask) createNetworks(ctx context.Contex
 	var err error
 	ret := make(map[string][]models.SVs2Wire)
 	for i := range capWires {
-		if len(capWires[i].GuestNetworks)+len(capWires[i].HostNetworks) == 0 {
+		// if len(capWires[i].GuestNetworks)+len(capWires[i].HostNetworks) == 0 {
+		if len(capWires[i].HostNetworks) == 0 {
 			continue
 		}
 		var wireId = capWires[i].WireId
@@ -247,12 +248,12 @@ func (self *CloudAccountSyncVMwareNetworkTask) createNetworks(ctx context.Contex
 				return nil, errors.Wrapf(err, "can't create network %v", net)
 			}
 		}
-		for _, net := range capWires[i].GuestNetworks {
+		/* for _, net := range capWires[i].GuestNetworks {
 			err := self.createNetwork(ctx, cloudaccount, wireId, api.NETWORK_TYPE_GUEST, net)
 			if err != nil {
 				return nil, errors.Wrapf(err, "can't create network %v", net)
 			}
-		}
+		}*/
 		for _, host := range capWires[i].Hosts {
 			ret[host.Id] = append(ret[host.Id], models.SVs2Wire{
 				VsId:        capWires[i].VsId,
@@ -529,14 +530,14 @@ func (pl *sIPPool) Get(ip netutils.IPV4Addr) (sSimpleNet, bool) {
 }
 
 type CAPWire struct {
-	VsId          string
-	WireId        string
-	Name          string
-	Distributed   bool
-	Description   string
-	Hosts         []esxi.SSimpleHostDev
-	HostNetworks  []CANetConf
-	GuestNetworks []CANetConf
+	VsId         string
+	WireId       string
+	Name         string
+	Distributed  bool
+	Description  string
+	Hosts        []esxi.SSimpleHostDev
+	HostNetworks []CANetConf
+	// GuestNetworks []CANetConf
 }
 
 type CASimpleNetConf struct {
