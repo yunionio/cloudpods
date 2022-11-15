@@ -458,8 +458,48 @@ func getClientErrorClass(err error) error {
 	return errors.ErrClient
 }
 
+func isHTTPReqErrorRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	switch e := err.(type) {
+	case *url.Error:
+		switch e.Err.(type) {
+		case *net.DNSError, *net.OpError, net.UnknownNetworkError:
+			return true
+		}
+		if strings.Contains(err.Error(), "Connection closed by foreign host") {
+			return true
+		} else if strings.Contains(err.Error(), "net/http: TLS handshake timeout") {
+			// If error is - tlsHandshakeTimeoutError, retry.
+			return true
+		} else if strings.Contains(err.Error(), "i/o timeout") {
+			// If error is - tcp timeoutError, retry.
+			return true
+		} else if strings.Contains(err.Error(), "connection timed out") {
+			// If err is a net.Dial timeout, retry.
+			return true
+		} else if strings.Contains(err.Error(), "net/http: HTTP/1.x transport connection broken") {
+			// If error is transport connection broken, retry.
+			return true
+		} else if strings.Contains(err.Error(), "net/http: timeout awaiting response headers") {
+			// Retry errors due to server not sending the response before timeout
+			return true
+		}
+	}
+	return false
+}
+
 func Request(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
-	req, resp, err := requestInternal(client, ctx, method, urlStr, header, body, debug)
+	return request(client, ctx, method, urlStr, header, body, false, debug)
+}
+
+func RequestWithRetry(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
+	return request(client, ctx, method, urlStr, header, body, true, debug)
+}
+
+func request(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, retry, debug bool) (*http.Response, error) {
+	req, resp, err := requestInternal(client, ctx, method, urlStr, header, body, retry, debug)
 	if err != nil {
 		var reqBody string
 		if bodySeeker, ok := body.(io.ReadSeeker); ok {
@@ -485,7 +525,7 @@ func Request(client sClient, ctx context.Context, method THttpMethod, urlStr str
 	return resp, nil
 }
 
-func requestInternal(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Request, *http.Response, error) {
+func requestInternal(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, retry, debug bool) (*http.Request, *http.Response, error) {
 	if client == nil {
 		client = defaultHttpClient
 	}
@@ -547,7 +587,17 @@ func requestInternal(client sClient, ctx context.Context, method THttpMethod, ur
 			cyan("CURL:", curlCmd, "\n")
 		}
 	}
-	resp, err := client.Do(req)
+	resp, err := func() (*http.Response, error) {
+		var resp *http.Response
+		for i := 0; i < 3; i++ {
+			resp, err = client.Do(req)
+			if err == nil || !retry || !isHTTPReqErrorRetryable(err) {
+				return resp, err
+			}
+			time.Sleep(time.Second * 5)
+		}
+		return resp, err
+	}()
 	if err != nil {
 		red(err.Error())
 		return req, nil, err
@@ -574,7 +624,15 @@ func requestInternal(client sClient, ctx context.Context, method THttpMethod, ur
 	return req, resp, nil
 }
 
+func JSONRequestWithRetry(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {
+	return jsonRequest(client, ctx, method, urlStr, header, body, true, debug)
+}
+
 func JSONRequest(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {
+	return jsonRequest(client, ctx, method, urlStr, header, body, false, debug)
+}
+
+func jsonRequest(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject, retry, debug bool) (http.Header, jsonutils.JSONObject, error) {
 	var bodystr string
 	if !gotypes.IsNil(body) {
 		bodystr = body.String()
@@ -585,7 +643,7 @@ func JSONRequest(client sClient, ctx context.Context, method THttpMethod, urlStr
 	}
 	header.Set("Content-Length", strconv.FormatInt(int64(len(bodystr)), 10))
 	header.Set("Content-Type", "application/json")
-	resp, err := Request(client, ctx, method, urlStr, header, jbody, debug)
+	resp, err := request(client, ctx, method, urlStr, header, jbody, retry, debug)
 	return ParseJSONResponse(bodystr, resp, err, debug)
 }
 
