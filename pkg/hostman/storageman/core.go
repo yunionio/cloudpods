@@ -122,9 +122,9 @@ func (s *SStorageManager) GetHostId() string {
 	return s.host.GetHostId()
 }
 
-func (s *SStorageManager) GetMediumType() string {
+/*func (s *SStorageManager) GetMediumType() string {
 	return s.host.GetMediumType()
-}
+}*/
 
 func (s *SStorageManager) GetKubeletConfig() kubelet.KubeletConfig {
 	return s.host.GetKubeletConfig()
