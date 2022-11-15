@@ -158,6 +158,14 @@ func (self *SHuaweiClient) modelartsPoolById(poolName string) (jsonutils.JSONObj
 	return self.request(httputils.GET, uri, url.Values{}, nil)
 }
 
+func (cli *SHuaweiClient) modelartsPoolListWithStatus(resource, status string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	endpoint := cli.resetEndpoint(cli.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://%s/v2/%s/pools", endpoint, cli.projectId)
+	value := url.Values{}
+	value.Add("status", status)
+	return cli.request(httputils.GET, uri, value, params)
+}
+
 func (self *SHuaweiClient) modelartsPoolList(params map[string]interface{}) (jsonutils.JSONObject, error) {
 	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
 	uri := fmt.Sprintf("https://%s/v2/%s/pools", endpoint, self.projectId)

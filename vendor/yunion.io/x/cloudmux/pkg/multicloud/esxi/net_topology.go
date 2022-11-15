@@ -16,14 +16,11 @@ package esxi
 
 import (
 	"context"
-	"sort"
 
 	"github.com/vmware/govmomi/vim25/mo"
-	"golang.org/x/sync/errgroup"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
-	"yunion.io/x/pkg/util/regutils"
 )
 
 func (cli *SESXiClient) HostVmIPsInDc(ctx context.Context, dc *SDatacenter) (SNetworkInfo, error) {
@@ -58,7 +55,7 @@ func (s *SNetworkInfo) Insert(proc SIPProc, ip netutils.IPV4Addr) {
 
 func (cli *SESXiClient) hostVMIPs(ctx context.Context, hosts []mo.HostSystem) (SNetworkInfo, error) {
 	ret := SNetworkInfo{}
-	dvpgMap, err := cli.getDVPGMap()
+	/*dvpgMap, err := cli.getDVPGMap()
 	if err != nil {
 		return ret, errors.Wrap(err, "unable to get dvpgKeyVlanMap")
 	}
@@ -75,6 +72,10 @@ func (cli *SESXiClient) hostVMIPs(ctx context.Context, hosts []mo.HostSystem) (S
 			return nil
 		})
 	}
+	err = group.Wait()
+	if err != nil {
+		return ret, err
+	}*/
 
 	hostIps := make(map[string]netutils.IPV4Addr, len(hosts))
 	for i := range hosts {
@@ -87,22 +88,22 @@ func (cli *SESXiClient) hostVMIPs(ctx context.Context, hosts []mo.HostSystem) (S
 		}
 		hostIps[host.GetName()] = ip
 	}
-	err = group.Wait()
-	if err != nil {
-		return ret, err
-	}
+
 	// length
-	if len(collection) == 0 {
+	/* if len(collection) == 0 {
 		ret.HostIps = hostIps
 		return ret, nil
 	}
 	ni := cli.mergeNetworInfo(collection)
 	ni.HostIps = hostIps
-	return ni, nil
+	return ni, nil*/
+
+	ret.HostIps = hostIps
+	return ret, nil
 }
 
-func (cli *SESXiClient) mergeNetworInfo(nInfos []*SNetworkInfo) SNetworkInfo {
-	var vmsLen, vlanIpLen, ipPoolLen int
+/* func (cli *SESXiClient) mergeNetworInfo(nInfos []*SNetworkInfo) SNetworkInfo {
+	var vlanIpLen, ipPoolLen int
 	for i := range nInfos {
 		vmsLen += len(nInfos[i].VMs)
 		vlanIpLen += len(nInfos[i].VlanIps)
@@ -128,7 +129,7 @@ func (cli *SESXiClient) mergeNetworInfo(nInfos []*SNetworkInfo) SNetworkInfo {
 		})
 	}
 	return ret
-}
+} */
 
 func (cli *SESXiClient) HostVmIPs(ctx context.Context) (SNetworkInfo, error) {
 	var hosts []mo.HostSystem
@@ -139,7 +140,7 @@ func (cli *SESXiClient) HostVmIPs(ctx context.Context) (SNetworkInfo, error) {
 	return cli.hostVMIPs(ctx, hosts)
 }
 
-func (cli *SESXiClient) vmIPs(host *mo.HostSystem, vpgMap sVPGMap) (INetworkInfo, error) {
+/*func (cli *SESXiClient) vmIPs(host *mo.HostSystem, vpgMap sVPGMap) (INetworkInfo, error) {
 	nInfo := NewNetworkInfo(false, len(host.Vm))
 	if len(host.Vm) == 0 {
 		return nInfo, nil
@@ -190,4 +191,4 @@ func (cli *SESXiClient) vmIPs(host *mo.HostSystem, vpgMap sVPGMap) (INetworkInfo
 		nInfo.AppendVMs(vm.Name, guestIps)
 	}
 	return nInfo, nil
-}
+}*/

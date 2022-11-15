@@ -262,7 +262,6 @@ func (cam *SCloudaccountManager) prepareNets(ctx context.Context, userCred mccli
 			IPNets: ipNets,
 		})
 	}
-	output.Guests = cam.parseSimpleVms(nInfo.VMs, existedIpPool)
 
 	vsList := nInfo.VsMap.List()
 	for i := range vsList {
@@ -309,42 +308,10 @@ func (cam *SCloudaccountManager) prepareNets(ctx context.Context, userCred mccli
 				}
 			}
 		}
-		for vlan, ips := range vs.Vlans {
-			simNetConfs := cam.expandIPRnage(ips, 0, 0, func(proc esxi.SIPProc) bool {
-				return proc.VlanId == vlan
-			}, nInfo.IPPool, existedIpPool)
-			for j := range simNetConfs {
-				simNetConfs[j].VlanID = vlan
-				wire.GuestNetworks = append(wire.GuestNetworks, api.CANetConf{
-					Name:            fmt.Sprintf("guest-network-%d", len(wire.GuestNetworks)+1),
-					CASimpleNetConf: simNetConfs[j],
-				})
-			}
-		}
 		output.Wires = append(output.Wires, wire)
 	}
 
 	return output, nil
-}
-
-func (cam *SCloudaccountManager) parseSimpleVms(vms []esxi.SSimpleVM, existedIpPool *sIPPool) []api.CAGuestNet {
-	guests := make([]api.CAGuestNet, len(vms))
-	for i := range guests {
-		guests[i].Name = vms[i].Name
-		for _, ipVlan := range vms[i].IPVlans {
-			var suitableNetwork string
-			p, ok := existedIpPool.Get(ipVlan.IP)
-			if ok {
-				suitableNetwork = p.Id
-			}
-			guests[i].IPNets = append(guests[i].IPNets, api.CAIPNet{
-				IP:              ipVlan.IP.String(),
-				VlanID:          ipVlan.VlanId,
-				SuitableNetwork: suitableNetwork,
-			})
-		}
-	}
-	return guests
 }
 
 func (cam *SCloudaccountManager) expandIPRnage(ips []netutils.IPV4Addr, limitLow, limitUp netutils.IPV4Addr,
@@ -561,8 +528,6 @@ func (scm *SCloudaccountManager) parseAndSuggestSingleWire(params sParseAndSugge
 				Diff: ipEnd - ipStart,
 			})
 		}
-
-		wireNet.Guests = scm.parseSimpleVms(ni.VMs, params.ExistedIpPool)
 
 		for vlan, ips := range ni.VlanIps {
 			simNetConfs := scm.expandIPRnage(ips, 0, 0, func(proc esxi.SIPProc) bool {

@@ -45,6 +45,9 @@ const (
 
 	VM_SYNC_CONFIG = "sync_config"
 
+	VM_POWER_STATES_OFF = "off"
+	VM_POWER_STATES_ON  = "on"
+
 	HYPERVISOR_ESXI = "esxi"
 
 	HYPERVISOR_ALIYUN         = "aliyun"

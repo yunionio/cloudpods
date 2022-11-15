@@ -372,6 +372,18 @@ func (self *SInstance) GetStatus() string {
 	return api.VM_UNKNOWN
 }
 
+func (ins *SInstance) GetPowerStates() string {
+	status := ins.GetStatus()
+	switch status {
+	case api.VM_READY:
+		return api.VM_POWER_STATES_OFF
+	case api.VM_UNKNOWN:
+		return api.VM_POWER_STATES_OFF
+	default:
+		return api.VM_POWER_STATES_ON
+	}
+}
+
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }

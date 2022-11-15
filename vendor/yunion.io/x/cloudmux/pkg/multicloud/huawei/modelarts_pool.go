@@ -258,7 +258,8 @@ func (self *SHuaweiClient) CreatePoolNetworks() (jsonutils.JSONObject, error) {
 			},
 		},
 		"spec": map[string]interface{}{
-			"cidr": "192.168.20.0/24",
+			// "cidr": "192.168.20.0/24",
+			"cidr": "192.168.128.0/17",
 		},
 	}
 	return self.modelartsPoolNetworkCreate(params)
@@ -289,6 +290,10 @@ func (self *SModelartsPool) GetStatus() string {
 	switch {
 	case res == compute.MODELARTS_POOL_STATUS_RUNNING && len(self.Status.Resource.Creating) != 0:
 		res = compute.MODELARTS_POOL_STATUS_CREATING
+	case self.Status.Phase == "CreationFailed":
+		res = compute.MODELARTS_POOL_STATUS_CREATE_FAILED
+	case self.Status.Phase == "SeclingFailed":
+		res = compute.MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED
 	}
 	return res
 }
@@ -339,6 +344,20 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 }
 
 func (self *SModelartsPool) Refresh() error {
+	pools := make([]SModelartsPool, 0)
+	resObj, err := self.region.client.modelartsPoolListWithStatus("pools", "failed", nil)
+	if err != nil {
+		return errors.Wrap(err, "modelartsPoolListWithStatus")
+	}
+	err = resObj.Unmarshal(&pools, "items")
+	if err != nil {
+		return errors.Wrap(err, "resObj unmarshal")
+	}
+	for _, pool := range pools {
+		if pool.GetId() == self.GetId() {
+			self.Status.Phase = "CreationFailed"
+		}
+	}
 	self.Status.Resource = SNodeStatus{}
 	pool, err := self.region.client.modelartsPoolById(self.GetId())
 	if err != nil {

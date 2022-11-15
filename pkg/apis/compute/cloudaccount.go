@@ -376,7 +376,6 @@ type CloudaccountPerformPrepareNetsInput struct {
 type CloudaccountPerformPrepareNetsOutput struct {
 	CAWireNets []CAWireNet  `json:"wire_networks"`
 	Hosts      []CAGuestNet `json:"hosts"`
-	Guests     []CAGuestNet `json:"guests"`
 	Wires      []CAPWire    `json:"wires"`
 	VSwitchs   []VSwitch    `json:"vswitchs"`
 }
@@ -386,12 +385,11 @@ type CloudaccountSyncVMwareNetworkInput struct {
 }
 
 type CAPWire struct {
-	Id            string       `json:"id"`
-	Name          string       `json:"name"`
-	Distributed   bool         `json:"distributed"`
-	Hosts         []SimpleHost `json:"hosts"`
-	HostNetworks  []CANetConf  `json:"host_networks"`
-	GuestNetworks []CANetConf  `json:"guest_networks"`
+	Id           string       `json:"id"`
+	Name         string       `json:"name"`
+	Distributed  bool         `json:"distributed"`
+	Hosts        []SimpleHost `json:"hosts"`
+	HostNetworks []CANetConf  `json:"host_networks"`
 }
 
 type VSwitch struct {

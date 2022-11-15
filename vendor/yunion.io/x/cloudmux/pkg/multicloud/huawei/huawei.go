@@ -251,6 +251,13 @@ func (self *SHuaweiClient) modelartsPoolList(resource string, params map[string]
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
+func (cli *SHuaweiClient) modelartsPoolListWithStatus(resource, status string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/%s", cli.clientRegion, cli.projectId, resource)
+	value := url.Values{}
+	value.Add("status", status)
+	return cli.request(httputils.GET, uri, value, params)
+}
+
 func (self *SHuaweiClient) modelartsPoolCreate(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	uri := fmt.Sprintf("https://modelarts.%s.myhuaweicloud.com/v2/%s/%s", self.clientRegion, self.projectId, resource)
 	return self.request(httputils.POST, uri, url.Values{}, params)
