@@ -39,7 +39,8 @@ type ModelartsPoolCreateInput struct {
 	CloudregionResourceInput
 	CloudproviderResourceInput
 
-	NodeCount int
+	NodeCount int    `json:"node_count"`
+	Cidr      string `json:"cidr"`
 }
 
 type ModelartsPoolUpdateInput struct {
