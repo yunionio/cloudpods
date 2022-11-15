@@ -22,9 +22,7 @@ import (
 
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/sync/errgroup"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
@@ -98,7 +96,7 @@ func (cli *SESXiClient) networkName(refV string) (string, error) {
 func (cli *SESXiClient) hostVMIPsPro(ctx context.Context, hosts []mo.HostSystem) (SNetworkInfoPro, error) {
 	ret := SNetworkInfoPro{
 		SNetworkInfoBase: SNetworkInfoBase{
-			VMs:    []SSimpleVM{},
+			// VMs:    []SSimpleVM{},
 			IPPool: SIPPool{},
 		},
 		HostIps: make(map[string][]netutils.IPV4Addr),
@@ -108,7 +106,7 @@ func (cli *SESXiClient) hostVMIPsPro(ctx context.Context, hosts []mo.HostSystem)
 		return ret, errors.Wrap(err, "unable to getVirtualSwitchs")
 	}
 	ret.VsMap = vsMap
-	dvpgMap, err := cli.getDVPGMap()
+	/* dvpgMap, err := cli.getDVPGMap()
 	if err != nil {
 		return ret, errors.Wrap(err, "unable to get dvpgKeyVlanMap")
 	}
@@ -131,6 +129,8 @@ func (cli *SESXiClient) hostVMIPsPro(ctx context.Context, hosts []mo.HostSystem)
 		return ret, err
 	}
 	cli.mergeNetworInfoPro(&ret, collection)
+	*/
+	ret.IPPool = NewIPPool(0)
 	vsList := vsMap.List()
 	for i := range vsList {
 		vs := vsList[i]
@@ -151,7 +151,7 @@ func (cli *SESXiClient) hostVMIPsPro(ctx context.Context, hosts []mo.HostSystem)
 	return ret, nil
 }
 
-func (cli *SESXiClient) mergeNetworInfoPro(ret *SNetworkInfoPro, nInfos []*SNetworkInfoPro) {
+/*func (cli *SESXiClient) mergeNetworInfoPro(ret *SNetworkInfoPro, nInfos []*SNetworkInfoPro) {
 	log.Infof("nInfos before mergeNetworInfoPro: %s", jsonutils.Marshal(nInfos))
 	var vmsLen, ipPoolLen int
 	for i := range nInfos {
@@ -165,7 +165,7 @@ func (cli *SESXiClient) mergeNetworInfoPro(ret *SNetworkInfoPro, nInfos []*SNetw
 		ret.IPPool.Merge(&nInfos[i].IPPool)
 		ret.VsMap.Merge(&nInfos[i].VsMap)
 	}
-}
+}*/
 
 func (cli *SESXiClient) HostVmIPsPro(ctx context.Context) (SNetworkInfoPro, error) {
 	var hosts []mo.HostSystem
@@ -233,13 +233,13 @@ type SNetworkInfoPro struct {
 	VsMap   SVirtualSwitchMap
 }
 
-func (s *SNetworkInfoPro) Insert(proc SIPProc, ip netutils.IPV4Addr) {
+/*func (s *SNetworkInfoPro) Insert(proc SIPProc, ip netutils.IPV4Addr) {
 	s.SNetworkInfoBase.Insert(proc, ip)
 	s.VsMap.AddVlanIp(proc.VSId, proc.VlanId, ip)
-}
+}*/
 
 type SNetworkInfoBase struct {
-	VMs    []SSimpleVM
+	// VMs    []SSimpleVM
 	IPPool SIPPool
 }
 
@@ -247,18 +247,18 @@ func (s *SNetworkInfoBase) Insert(proc SIPProc, ip netutils.IPV4Addr) {
 	s.IPPool.Insert(ip, proc)
 }
 
-func (s *SNetworkInfoBase) AppendVMs(name string, IpVlans []SIPVlan) {
+/* func (s *SNetworkInfoBase) AppendVMs(name string, IpVlans []SIPVlan) {
 	s.VMs = append(s.VMs, SSimpleVM{name, IpVlans})
-}
+}*/
 
 type INetworkInfo interface {
 	Insert(SIPProc, netutils.IPV4Addr)
-	AppendVMs(name string, IpVlans []SIPVlan)
+	// AppendVMs(name string, IpVlans []SIPVlan)
 }
 
 func NewNetworkInfo(dvs bool, size int) INetworkInfo {
 	base := SNetworkInfoBase{
-		VMs:    make([]SSimpleVM, 0, size),
+		// VMs:    make([]SSimpleVM, 0, size),
 		IPPool: NewIPPool(int(size)),
 	}
 	if dvs {
@@ -268,14 +268,14 @@ func NewNetworkInfo(dvs bool, size int) INetworkInfo {
 		}
 	}
 	return &SNetworkInfo{
-		SNetworkInfoBase: base,
-		HostIps:          make(map[string]netutils.IPV4Addr),
-		VlanIps:          make(map[int32][]netutils.IPV4Addr),
+		// SNetworkInfoBase: base,
+		HostIps: make(map[string]netutils.IPV4Addr),
+		VlanIps: make(map[int32][]netutils.IPV4Addr),
 	}
 }
 
-func (cli *SESXiClient) vmIPsPro(host *mo.HostSystem, vpgMap sVPGMap) (INetworkInfo, error) {
-	nInfo := NewNetworkInfo(true, len(host.Vm))
+/*func (cli *SESXiClient) vmIPsPro(host *mo.HostSystem, vpgMap sVPGMap) (INetworkInfo, error) {
+	nInfo := NewNetworkInfo(true, 0)
 	if len(host.Vm) == 0 {
 		return nInfo, nil
 	}
@@ -325,7 +325,7 @@ func (cli *SESXiClient) vmIPsPro(host *mo.HostSystem, vpgMap sVPGMap) (INetworkI
 		nInfo.AppendVMs(vm.Name, guestIps)
 	}
 	return nInfo, nil
-}
+}*/
 
 type SVirtualSwitchSpec struct {
 	Name        string
@@ -333,21 +333,21 @@ type SVirtualSwitchSpec struct {
 	Distributed bool
 	Hosts       []SSimpleHostDev
 	HostIps     map[string][]netutils.IPV4Addr
-	Vlans       map[int32][]netutils.IPV4Addr
+	// Vlans       map[int32][]netutils.IPV4Addr
 }
 
 func NewVirtualSwitch() *SVirtualSwitchSpec {
 	return &SVirtualSwitchSpec{
 		HostIps: make(map[string][]netutils.IPV4Addr),
-		Vlans:   make(map[int32][]netutils.IPV4Addr),
+		// Vlans:   make(map[int32][]netutils.IPV4Addr),
 	}
 }
 
-func (vs *SVirtualSwitchSpec) Merge(vsc *SVirtualSwitchSpec) {
+/*func (vs *SVirtualSwitchSpec) Merge(vsc *SVirtualSwitchSpec) {
 	for vlan, ips := range vsc.Vlans {
 		vs.Vlans[vlan] = insert(vs.Vlans[vlan], ips)
 	}
-}
+}*/
 
 func insert(base []netutils.IPV4Addr, add []netutils.IPV4Addr) []netutils.IPV4Addr {
 	for _, ip := range add {
@@ -378,9 +378,9 @@ func NewVirtualSwitchMap(length ...int) SVirtualSwitchMap {
 }
 
 func (vsm *SVirtualSwitchMap) Insert(id string, vs SVirtualSwitchSpec) {
-	ovs, ok := vsm.vsMap[id]
+	_, ok := vsm.vsMap[id]
 	if ok {
-		ovs.Merge(&vs)
+		// ovs.Merge(&vs)
 		return
 	}
 	vsm.vsList = append(vsm.vsList, vs)
@@ -394,7 +394,7 @@ func (vms *SVirtualSwitchMap) Merge(ovsm *SVirtualSwitchMap) {
 	}
 }
 
-func (vsm *SVirtualSwitchMap) AddVlanIp(id string, vlanId int32, ip netutils.IPV4Addr) bool {
+/*func (vsm *SVirtualSwitchMap) AddVlanIp(id string, vlanId int32, ip netutils.IPV4Addr) bool {
 	vs, ok := vsm.vsMap[id]
 	if !ok {
 		vs = NewVirtualSwitch()
@@ -404,7 +404,7 @@ func (vsm *SVirtualSwitchMap) AddVlanIp(id string, vlanId int32, ip netutils.IPV
 	}
 	vs.Vlans[vlanId] = append(vs.Vlans[vlanId], ip)
 	return true
-}
+}*/
 
 func (vsm *SVirtualSwitchMap) List() []SVirtualSwitchSpec {
 	return vsm.vsList
@@ -511,7 +511,7 @@ func (cli *SESXiClient) getVirtualSwitchs(hss []mo.HostSystem) (SVirtualSwitchMa
 			Id:          vsId,
 			Distributed: true,
 			HostIps:     make(map[string][]netutils.IPV4Addr, len(hosts)),
-			Vlans:       make(map[int32][]netutils.IPV4Addr),
+			// Vlans:       make(map[int32][]netutils.IPV4Addr),
 		}
 		for _, host := range hosts {
 			hostName := value2name[host.Config.Host.Value]
@@ -552,7 +552,7 @@ func (cli *SESXiClient) getVirtualSwitchs(hss []mo.HostSystem) (SVirtualSwitchMa
 				Id:          vsId,
 				Distributed: false,
 				HostIps:     make(map[string][]netutils.IPV4Addr),
-				Vlans:       make(map[int32][]netutils.IPV4Addr),
+				// Vlans:       make(map[int32][]netutils.IPV4Addr),
 			}
 			hostDev := SSimpleHostDev{
 				Id:   hs.Self.Value,

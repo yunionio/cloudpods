@@ -376,9 +376,9 @@ type CloudaccountPerformPrepareNetsInput struct {
 type CloudaccountPerformPrepareNetsOutput struct {
 	CAWireNets []CAWireNet  `json:"wire_networks"`
 	Hosts      []CAGuestNet `json:"hosts"`
-	Guests     []CAGuestNet `json:"guests"`
-	Wires      []CAPWire    `json:"wires"`
-	VSwitchs   []VSwitch    `json:"vswitchs"`
+	// Guests     []CAGuestNet `json:"guests"`
+	Wires    []CAPWire `json:"wires"`
+	VSwitchs []VSwitch `json:"vswitchs"`
 }
 
 type CloudaccountSyncVMwareNetworkInput struct {
@@ -413,10 +413,10 @@ type CAWireNet struct {
 	SuitableWire  string      `json:"suitable_wire,allowempty"`
 	Hosts         []CAHostNet `json:"hosts"`
 	// description: 没有合适的已有网络，推荐的网络配置
-	HostSuggestedNetworks []CANetConf  `json:"host_suggested_networks"`
-	Guests                []CAGuestNet `json:"guests"`
+	HostSuggestedNetworks []CANetConf `json:"host_suggested_networks"`
+	// Guests                []CAGuestNet `json:"guests"`
 	// description: 没有合适的已有网络，推荐的网络配置
-	GuestSuggestedNetworks []CANetConf `json:"guest_suggested_networks"`
+	// GuestSuggestedNetworks []CANetConf `json:"guest_suggested_networks"`
 }
 
 type CAWireConf struct {

@@ -231,6 +231,15 @@ func (self *SInstance) GetStatus() string {
 	}
 }
 
+func (ins *SInstance) GetPowerStates() string {
+	switch ins.OSEXTSTSPowerState {
+	case 1:
+		return api.VM_POWER_STATES_ON
+	default:
+		return api.VM_POWER_STATES_OFF
+	}
+}
+
 func (self *SInstance) Refresh() error {
 	ret, err := self.host.zone.region.GetInstance(self.GetId())
 	if err != nil {
