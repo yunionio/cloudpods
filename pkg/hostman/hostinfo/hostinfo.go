@@ -153,12 +153,12 @@ func (h *SHostInfo) GetZoneId() string {
 	return h.ZoneId
 }
 
-func (h *SHostInfo) GetMediumType() string {
+/*func (h *SHostInfo) GetMediumType() string {
 	if h.sysinfo != nil {
 		return h.sysinfo.StorageType
 	}
 	return ""
-}
+}*/
 
 func (h *SHostInfo) IsKvmSupport() bool {
 	return sysutils.IsKvmSupport()
@@ -532,9 +532,16 @@ func (h *SHostInfo) checkSystemServices() error {
 }
 
 func (h *SHostInfo) detectStorageSystem() {
-	var stype = api.DISK_TYPE_ROTATE
-	if options.HostOptions.DiskIsSsd {
+	stype, _ := sysutils.DetectStorageType()
+	switch stype {
+	case "hdd":
+		stype = api.DISK_TYPE_ROTATE
+	case "ssd":
 		stype = api.DISK_TYPE_SSD
+	case "hybird":
+		stype = api.DISK_TYPE_HYBRID
+	default:
+		stype = ""
 	}
 	h.sysinfo.StorageType = stype
 }
