@@ -268,7 +268,7 @@ func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk) string {
 	if diskDriver == DISK_DRIVER_VIRTIO {
 		// virtio-blk
 		if disk.Pci != nil {
-			opt += fmt.Sprintf(",bus=%s,addr=0x%s", disk.Pci.BusStr(), disk.Pci.SlotFunc())
+			opt += fmt.Sprintf(",bus=%s,addr=%s", disk.Pci.BusStr(), disk.Pci.SlotFunc())
 		}
 		// opt += fmt.Sprintf(",num-queues=%d,vectors=%d,iothread=iothread0", numQueues, numQueues+1)
 		opt += ",iothread=iothread0"
