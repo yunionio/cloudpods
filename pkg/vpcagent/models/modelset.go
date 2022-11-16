@@ -455,9 +455,8 @@ func (set Guestnetworks) joinGuests(subEntries Guests) bool {
 		if !ok {
 			if gn.Network != nil && gn.Network.Vpc != nil {
 				// Only log info instead of error because the
-				// guest could be in pending_deleted state
-				log.Infof("guestnetwork (net:%s,ip:%s) guest id %s not found",
-					gn.NetworkId, gn.IpAddr, gId)
+				// guest could be in pending_deleted state or guest is not a KVM
+				// log.Infof("guestnetwork (net:%s,ip:%s) guest id %s not found", gn.NetworkId, gn.IpAddr, gId)
 			}
 			continue
 		}
@@ -578,8 +577,8 @@ func (ms SecurityGroups) joinSecurityGroupRules(subEntries SecurityGroupRules) b
 		id := subEntry.SecgroupId
 		m, ok := ms[id]
 		if !ok {
-			log.Warningf("secgrouprule %s: secgroup %s not found",
-				subEntry.Id, id)
+			// log.Warningf("secgrouprule %s: secgroup %s not found",
+			// 	subEntry.Id, id)
 			// secgroup onpremise filter may filter out secgroup without any guest or host
 			// https://github.com/yunionio/cloudpods/pull/11781
 			// so ignore this error case
@@ -863,16 +862,12 @@ func (set Groups) Copy() apihelper.IModelSet {
 func (set Groups) joinGroupnetworks(subEntries Groupnetworks, networks Networks) bool {
 	for _, gn := range subEntries {
 		if network, ok := networks[gn.NetworkId]; ok {
-			gn.Network = network
-			gn.Network.Groupnetworks.AddModel(gn)
-		} else {
-			log.Errorf("Network %s not found for vip %s", gn.NetworkId, gn.IpAddr)
-		}
-		if group, ok := set[gn.GroupId]; ok {
-			gn.Group = group
-			group.Groupnetworks.AddModel(gn)
-		} else {
-			log.Errorf("Network %s not found for vip %s", gn.GroupId, gn.IpAddr)
+			if group, ok := set[gn.GroupId]; ok {
+				gn.Group = group
+				gn.Network = network
+				gn.Network.Groupnetworks.AddModel(gn)
+				group.Groupnetworks.AddModel(gn)
+			}
 		}
 	}
 	return true
