@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -109,7 +110,7 @@ func callObject(modelVal reflect.Value, fName string, inputs ...interface{}) ([]
 
 func callFunc(funcVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {
 	if !funcVal.IsValid() || funcVal.IsNil() {
-		return nil, httperrors.NewActionNotFoundError("%s method not found", fName)
+		return nil, httperrors.NewActionNotFoundError("%s method not found, please check service version, current version: %s", fName, version.GetShortString())
 	}
 	funcType := funcVal.Type()
 	paramLen := funcType.NumIn()

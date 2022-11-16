@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -277,7 +278,7 @@ func (manager *SModelBaseManager) AllowPerformAction(ctx context.Context, userCr
 }
 
 func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return nil, httperrors.NewActionNotFoundError("Action %s not found", action)
+	return nil, httperrors.NewActionNotFoundError("Action %s not found, please check service version, current version: %s", action, version.GetShortString())
 }
 
 func (manager *SModelBaseManager) InitializeData() error {
@@ -612,7 +613,7 @@ func (model *SModelBase) AllowPerformAction(ctx context.Context, userCred mcclie
 }
 
 func (model *SModelBase) PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return nil, httperrors.NewActionNotFoundError("Action %s not found", action)
+	return nil, httperrors.NewActionNotFoundError("Action %s not found, please check service version, current version: %s", action, version.GetShortString())
 }
 
 func (model *SModelBase) PreCheckPerformAction(

@@ -130,7 +130,7 @@ func (manager *SActionlogManager) GetMutableInstance(ctx context.Context, userCr
 }
 
 func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	log.Infof("action: %s", data)
+	log.Debugf("action: %s", data)
 	now := time.Now().UTC()
 	action.OpsTime = now
 	if action.StartTime.IsZero() {
