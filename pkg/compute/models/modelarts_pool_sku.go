@@ -37,7 +37,6 @@ type SModelartsPoolSkuManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 
 	SCloudregionResourceBaseManager
-	SManagedResourceBaseManager
 }
 
 var ModelartsPoolSkuManager *SModelartsPoolSkuManager
@@ -56,7 +55,6 @@ func init() {
 }
 
 type SModelartsPoolSku struct {
-	SManagedResourceBase
 	db.SEnabledStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 	SCloudregionResourceBase
@@ -76,6 +74,8 @@ type SModelartsPoolSku struct {
 	NpuSize int `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	// 内存
 	Memory int `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	// 处理器类型
+	ProcessorType string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 }
 
 func (manager *SModelartsPoolSkuManager) GetContextManagers() [][]db.IModelManager {
@@ -96,10 +96,6 @@ func (man *SModelartsPoolSkuManager) ListItemFilter(
 	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
-	}
-	q, err = man.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
@@ -123,10 +119,6 @@ func (man *SModelartsPoolSkuManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
-	q, err = man.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
-	}
 	q, err = man.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
@@ -139,7 +131,7 @@ func (man *SModelartsPoolSkuManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 	if err == nil {
 		return q, nil
 	}
-	q, err = man.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = man.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -156,13 +148,11 @@ func (manager *SModelartsPoolSkuManager) FetchCustomizeColumns(
 ) []api.ModelartsPoolSkuDetails {
 	rows := make([]api.ModelartsPoolSkuDetails, len(objs))
 	enabledRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.ModelartsPoolSkuDetails{
 			EnabledStatusStandaloneResourceDetails: enabledRows[i],
-			ManagedResourceInfo:                    manRows[i],
 			CloudregionResourceInfo:                regRows[i],
 		}
 	}
@@ -180,14 +170,10 @@ func (manager *SModelartsPoolSkuManager) ListItemExportKeys(ctx context.Context,
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
 	}
-
-	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
-		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
-		if err != nil {
-			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
-		}
+	q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
 	}
-
 	return q, nil
 }
 func (self *SCloudregion) GetModelartsPoolSkus(managerId string) ([]SModelartsPoolSku, error) {
@@ -271,6 +257,7 @@ func (self *SModelartsPoolSku) syncWithCloudSku(ctx context.Context, userCred mc
 		self.NpuType = isku.GetNpuType()
 		self.NpuSize = isku.GetNpuSize()
 		self.ExternalId = isku.GetGlobalId()
+		self.ProcessorType = isku.GetProcessorType()
 		return nil
 	})
 	return err
@@ -283,6 +270,7 @@ func (self *SCloudregion) newFromCloudModelartsPoolSku(ctx context.Context, user
 	sku.Name = isku.GetName()
 	sku.CpuCount = isku.GetCpuCoreCount()
 	sku.CpuArch = isku.GetCpuArch()
+	sku.ProcessorType = isku.GetProcessorType()
 	sku.Status = isku.GetStatus()
 	sku.Type = isku.GetPoolType()
 	sku.CreatedAt = isku.GetCreatedAt()
@@ -292,6 +280,5 @@ func (self *SCloudregion) newFromCloudModelartsPoolSku(ctx context.Context, user
 	sku.NpuType = isku.GetNpuType()
 	sku.NpuSize = isku.GetNpuSize()
 	sku.ExternalId = isku.GetGlobalId()
-	sku.ManagerId = provider.Id
 	return ModelartsPoolSkuManager.TableSpec().Insert(ctx, &sku)
 }
