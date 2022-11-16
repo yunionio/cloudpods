@@ -955,4 +955,5 @@ type ICloudModelartsPoolSku interface {
 	GetGpuType() string
 	GetNpuSize() int
 	GetNpuType() string
+	GetProcessorType() string
 }

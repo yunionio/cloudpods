@@ -25,6 +25,13 @@ type ModelartsPoolSkuDetails struct {
 const (
 	MODELARTS_POOL_SKU_AVAILABLE = "available"
 	MODELARTS_POOL_SKU_SOLDOUT   = "soldout"
+
+	MODELARTS_POOL_SKU_X86 = "x86"
+	MODELARTS_POOL_SKU_ARM = "arm64"
+
+	MODELARTS_POOL_SKU_CPU    = "CPU"
+	MODELARTS_POOL_SKU_GPU    = "GPU"
+	MODELARTS_POOL_SKU_ASCEND = "ASCEND"
 )
 
 type ModelartsPoolSkuListInput struct {
@@ -33,4 +40,6 @@ type ModelartsPoolSkuListInput struct {
 
 	RegionalFilterListInput
 	ManagedResourceListInput
+	CpuArch       string
+	ProcessorType string
 }
