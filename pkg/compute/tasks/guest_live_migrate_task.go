@@ -249,6 +249,9 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 	if !self.isRescueMode() && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		body.Set("live_migrate", jsonutils.JSONTrue)
 	}
+	if jsonutils.QueryBoolean(data, "no_memdev", false) {
+		body.Set("no_memdev", jsonutils.JSONTrue)
+	}
 
 	headers := self.GetTaskRequestHeader()
 

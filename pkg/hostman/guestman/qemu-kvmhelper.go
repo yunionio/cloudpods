@@ -583,7 +583,7 @@ eval $CMD`
 	return cmd, nil
 }
 
-func (s *SKVMGuestInstance) parseCmdline(input string) (*qemutils.Cmdline, []qemutils.Option, error) {
+func (s *SKVMGuestInstance) parseCmdline(input string, noMemdev bool) (*qemutils.Cmdline, []qemutils.Option, error) {
 	cl, err := qemutils.NewCmdline(input)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "NewCmdline %q", input)
@@ -616,6 +616,16 @@ func (s *SKVMGuestInstance) parseCmdline(input string) (*qemutils.Cmdline, []qem
 					return true
 				}
 			}
+		case "object":
+			if noMemdev && strings.HasPrefix(o.Value, "memory-backend-ram") {
+				filterOpts = append(filterOpts, o)
+				return true
+			}
+		case "numa":
+			if noMemdev {
+				filterOpts = append(filterOpts, o)
+				return true
+			}
 		}
 		return false
 	})
@@ -636,17 +646,17 @@ func (s *SKVMGuestInstance) _unifyMigrateQemuCmdline(cur string, src string) str
 	return newStr
 }
 
-func (s *SKVMGuestInstance) unifyMigrateQemuCmdline(cur string, src string) (string, error) {
-	curCl, curFilterOpts, err := s.parseCmdline(cur)
+func (s *SKVMGuestInstance) unifyMigrateQemuCmdline(cur string, src string, noMemdev bool) (string, error) {
+	curCl, curFilterOpts, err := s.parseCmdline(cur, false)
 	if err != nil {
 		return "", errors.Wrapf(err, "parseCmdline current %q", cur)
 	}
-	srcCl, _, err := s.parseCmdline(src)
+	srcCl, _, err := s.parseCmdline(src, noMemdev)
 	if err != nil {
 		return "", errors.Wrapf(err, "parseCmdline source %q", src)
 	}
 	unifyStr := s._unifyMigrateQemuCmdline(curCl.ToString(), srcCl.ToString())
-	unifyCl, _, err := s.parseCmdline(unifyStr)
+	unifyCl, _, err := s.parseCmdline(unifyStr, noMemdev)
 	if err != nil {
 		return "", errors.Wrapf(err, "parseCmdline unitfy %q", unifyStr)
 	}

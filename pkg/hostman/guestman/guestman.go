@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -829,6 +830,22 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 		ret.Set("disks_back", disksPrepare)
 	}
 
+	if migParams.LiveMigrate && guest.Monitor != nil {
+		errChan := make(chan string)
+		guest.Monitor.GetMemdevList(func(memdevList []monitor.Memdev, errStr string) {
+			if len(errStr) > 0 {
+				errChan <- errStr
+				return
+			} else if len(memdevList) == 0 {
+				ret.Set("no_memdev", jsonutils.JSONTrue)
+			}
+			errChan <- ""
+		})
+		if errStr := <-errChan; errStr != "" {
+			return nil, errors.Errorf("get memdev list failed %s", errStr)
+		}
+	}
+
 	if migParams.LiveMigrate && migParams.LiveMigrateUseTLS {
 		certs, err := guest.PrepareMigrateCerts()
 		if err != nil {
@@ -897,6 +914,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
 		startParams.Set("need_migrate", jsonutils.JSONTrue)
 		startParams.Set("source_qemu_cmdline", jsonutils.NewString(migParams.SourceQemuCmdline))
+		startParams.Set("no_memdev", jsonutils.NewBool(migParams.NoMemDev))
 		startParams.Set("live_migrate_use_tls", jsonutils.NewBool(migParams.EnableTLS))
 		if len(migParams.MigrateCerts) > 0 {
 			if err := guest.WriteMigrateCerts(migParams.MigrateCerts); err != nil {

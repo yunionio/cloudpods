@@ -452,7 +452,7 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 		if err != nil {
 			return errors.Wrapf(err, "Get qemu cmdline from %q", startScript)
 		}
-		unifyCmd, err := s.unifyMigrateQemuCmdline(currentCmd, srcCmdline)
+		unifyCmd, err := s.unifyMigrateQemuCmdline(currentCmd, srcCmdline, jsonutils.QueryBoolean(data, "no_memdev", false))
 		if err != nil {
 			return errors.Wrap(err, "Unify migrate qemu cmdline")
 		}

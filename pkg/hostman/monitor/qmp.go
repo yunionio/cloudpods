@@ -1076,3 +1076,26 @@ func (m *QmpMonitor) SaveState(stateFilePath string, callback StringCallback) {
 	)
 	m.Query(cmd, cb)
 }
+
+func (m *QmpMonitor) GetMemdevList(callback MemdevListCallback) {
+	var (
+		cb = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(nil, res.ErrorVal.Error())
+			} else {
+				memdevList := make([]Memdev, 0)
+				err := json.Unmarshal(res.Return, &memdevList)
+				if err != nil {
+					callback(nil, err.Error())
+				} else {
+					callback(memdevList, "")
+				}
+
+			}
+		}
+		cmd = &Command{
+			Execute: "query-memdev",
+		}
+	)
+	m.Query(cmd, cb)
+}

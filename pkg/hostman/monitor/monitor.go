@@ -184,6 +184,21 @@ func (self *BlockJob) PreOffset(preOffset int64) {
 	return
 }
 
+// Memdev -> Memdev (struct)
+
+// Memdev implements the "Memdev" QMP API type.
+type Memdev struct {
+	ID        *string  `json:"id,omitempty"`
+	Size      uint64   `json:"size"`
+	Merge     bool     `json:"merge"`
+	Dump      bool     `json:"dump"`
+	Prealloc  bool     `json:"prealloc"`
+	HostNodes []uint16 `json:"host-nodes"`
+	Policy    string   `json:"policy"`
+}
+
+type MemdevListCallback func(res []Memdev, err string)
+
 type Monitor interface {
 	Connect(host string, port int) error
 	ConnectWithSocket(address string) error
@@ -203,6 +218,7 @@ type Monitor interface {
 	GetCpuCount(func(count int))
 	AddCpu(cpuIndex int, callback StringCallback)
 	GeMemtSlotIndex(func(index int))
+	GetMemdevList(MemdevListCallback)
 
 	GetBlocks(callback func([]QemuBlock))
 	EjectCdrom(dev string, callback StringCallback)
