@@ -284,6 +284,19 @@ func (o ClusterSyncOptions) Params() (jsonutils.JSONObject, error) {
 	return param, nil
 }
 
+type ClusterDeployOptions struct {
+	IdentOptions
+	Force bool `help:"force deploy"`
+}
+
+func (o ClusterDeployOptions) Params() (jsonutils.JSONObject, error) {
+	param := jsonutils.NewDict()
+	if o.Force {
+		param.Add(jsonutils.JSONTrue, "force")
+	}
+	return param, nil
+}
+
 type ClusterK8sVersions struct {
 	PROVIDER string `help:"cluster provider" choices:"system|onecloud"`
 }
