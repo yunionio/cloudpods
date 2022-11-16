@@ -1388,8 +1388,11 @@ func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userC
 		}
 		db.OpsLog.LogEvent(provider, db.ACT_UPDATE, diff, userCred)
 	}
-	provider.SetStatus(userCred, api.CLOUD_PROVIDER_CONNECTED, "")
-	return provider.ClearSchedDescCache()
+	if provider.Status != api.CLOUD_PROVIDER_CONNECTED {
+		provider.SetStatus(userCred, api.CLOUD_PROVIDER_CONNECTED, "")
+		return provider.ClearSchedDescCache()
+	}
+	return nil
 }
 
 func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudproviderregion, error) {
