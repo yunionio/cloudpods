@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -74,6 +75,7 @@ type SModelartsPool struct {
 	WorkType     string `width:"72" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	// CPU 架构 x86|xarm
 	CpuArch string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	Cidr    string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 }
 
 func (manager *SModelartsPoolManager) GetContextManagers() [][]db.IModelManager {
@@ -155,6 +157,13 @@ func (man *SModelartsPoolManager) ValidateCreateData(ctx context.Context, userCr
 	}
 	if input.NodeCount > 200 {
 		return input, errors.Wrap(errors.ErrNotSupported, "node count must between 1 and 200")
+	}
+	if len(input.Cidr) == 0 {
+		input.Cidr = "192.168.128.0/17"
+	}
+	_, err = netutils.NewIPV4Prefix(input.Cidr)
+	if err != nil {
+		return input, httperrors.NewInputParameterError("invalid cidr: %s", input.Cidr)
 	}
 	_, err = validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
 	if err != nil {
