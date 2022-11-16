@@ -43,7 +43,7 @@ func initKubeCluster() {
 	cmd.Create(new(o.K8SClusterCreateOptions))
 	cmd.Perform("sync", new(o.ClusterSyncOptions))
 	cmd.Perform("syncstatus", new(o.IdentOptions))
-	cmd.Perform("deploy", new(o.IdentOptions))
+	cmd.Perform("deploy", new(o.ClusterDeployOptions))
 	cmd.Get("components-status", new(o.IdentOptions))
 	cmd.Get("api-resources", new(o.IdentOptions))
 	cmd.Get("cluster-users", new(o.IdentOptions))
