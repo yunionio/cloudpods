@@ -22,6 +22,8 @@ import (
 
 type ModelartsPoolSkuListOptions struct {
 	options.BaseListOptions
+	ProcessorType string
+	CpuArch       string
 }
 
 func (opts *ModelartsPoolSkuListOptions) Params() (jsonutils.JSONObject, error) {
