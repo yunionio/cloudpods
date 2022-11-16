@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
-	_ "yunion.io/x/cloudmux/pkg/multicloud/loader"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	_ "yunion.io/x/sqlchemy/backends"

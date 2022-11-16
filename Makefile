@@ -282,10 +282,12 @@ dep:
 	@echo "$$depDeprecated"
 	@$(MAKE) mod
 
+RELEASE_BRANCH:=master
 GOPROXY ?= direct
 
 mod:
-	GOPROXY=$(GOPROXY) go get -d $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -e 's|.*\(yunion.io/x/[a-z].*\) v.*|\1|p'))
+	GOPROXY=$(GOPROXY) go get -d yunion.io/x/cloudmux@$(RELEASE_BRANCH)
+	GOPROXY=$(GOPROXY) go get -d $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -e 's|.*\(yunion.io/x/[a-z].*\) v.*|\1|p' | grep -v '/cloudmux$$'))
 	go mod tidy
 	go mod vendor -v
 

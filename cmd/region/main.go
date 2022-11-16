@@ -15,6 +15,8 @@
 package main
 
 import (
+	_ "yunion.io/x/cloudmux/pkg/multicloud/loader"
+
 	"yunion.io/x/onecloud/pkg/compute/service"
 	"yunion.io/x/onecloud/pkg/util/atexit"
 )
