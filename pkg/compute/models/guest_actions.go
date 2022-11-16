@@ -62,6 +62,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/bitmap"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
@@ -5455,6 +5456,91 @@ func (self *SGuest) startSwitchToClonedDisk(ctx context.Context, userCred mcclie
 		return params, nil
 	})
 	return nil
+}
+
+func (self *SGuest) PerformSetBootIndex(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerSetBootIndexInput) (jsonutils.JSONObject, error) {
+	gds, err := self.GetGuestDisks()
+	if err != nil {
+		return nil, err
+	}
+	diskBootIndexes := map[int8]int8{}
+	for i := 0; i < len(gds); i++ {
+		diskBootIndexes[gds[i].Index] = gds[i].BootIndex
+	}
+
+	gcs, err := self.getCdroms()
+	if err != nil {
+		return nil, err
+	}
+	cdromBootIndexes := map[int]int8{}
+	for i := 0; i < len(gcs); i++ {
+		cdromBootIndexes[gcs[i].Ordinal] = gcs[i].BootIndex
+	}
+
+	for sDiskIndex, bootIndex := range input.Disks {
+		iDiskIndex, err := strconv.Atoi(sDiskIndex)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("failed parse disk index %s", sDiskIndex)
+		} else if iDiskIndex > 127 {
+			return nil, httperrors.NewInputParameterError("disk inex %s is exceed 127", sDiskIndex)
+		}
+		diskIndex := int8(iDiskIndex)
+		if _, ok := diskBootIndexes[diskIndex]; !ok {
+			return nil, httperrors.NewBadRequestError("disk has no index %d", diskIndex)
+		}
+		diskBootIndexes[diskIndex] = bootIndex
+	}
+	for sCdromOrdinal, bootIndex := range input.Cdroms {
+		cdromOrdinal, err := strconv.Atoi(sCdromOrdinal)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("failed parse cdrom ordinal %s", sCdromOrdinal)
+		}
+		if _, ok := cdromBootIndexes[cdromOrdinal]; !ok {
+			return nil, httperrors.NewBadRequestError("cdrom has no ordinal %d", cdromOrdinal)
+		}
+		cdromBootIndexes[cdromOrdinal] = bootIndex
+	}
+	bm := bitmap.NewBitMap(128)
+	for diskIndex, bootIndex := range diskBootIndexes {
+		if bootIndex < 0 {
+			continue
+		}
+		if bm.Has(int64(bootIndex)) {
+			return nil, httperrors.NewBadRequestError("disk index %d boot index %d is duplicated", diskIndex, bootIndex)
+		} else {
+			bm.Set(int64(bootIndex))
+		}
+	}
+	for cdromOrdinal, bootIndex := range cdromBootIndexes {
+		if bootIndex < 0 {
+			continue
+		}
+		if bm.Has(int64(bootIndex)) {
+			return nil, httperrors.NewBadRequestError("cdrom ordianl %d boot index %d is duplicated", cdromOrdinal, bootIndex)
+		} else {
+			bm.Set(int64(bootIndex))
+		}
+	}
+
+	for i := 0; i < len(gds); i++ {
+		if gds[i].BootIndex != diskBootIndexes[gds[i].Index] {
+			if err := gds[i].SetBootIndex(diskBootIndexes[gds[i].Index]); err != nil {
+				log.Errorf("gds[i].SetBootIndex: %s", err)
+				return nil, err
+			}
+		}
+	}
+
+	for i := 0; i < len(gcs); i++ {
+		if gcs[i].BootIndex != cdromBootIndexes[gcs[i].Ordinal] {
+			if err := gcs[i].SetBootIndex(cdromBootIndexes[gcs[i].Ordinal]); err != nil {
+				log.Errorf("gcs[i].SetBootIndex: %s", err)
+				return nil, err
+			}
+		}
+	}
+
+	return nil, nil
 }
 
 func (self *SGuest) PerformProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

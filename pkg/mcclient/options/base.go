@@ -139,6 +139,8 @@ func optionsStructRvToParams(rv reflect.Value) (*jsonutils.JSONDict, error) {
 			// TODO
 			msg := fmt.Sprintf("do not know what to do with non-anonymous struct field: %s", ft.Name)
 			panic(msg)
+		case reflect.Map:
+			p.Set(name, jsonutils.Marshal(f.Interface()))
 		case reflect.Slice, reflect.Array:
 			l := f.Len()
 			for i := 0; i < l; i++ {

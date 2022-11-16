@@ -835,6 +835,29 @@ func (o *ServerSetPasswordOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
 
+type ServerSetBootIndexOptions struct {
+	ServerIdOptions
+	Disks  map[string]int8 `help:"Disk index and boot index" json:"disks"`
+	Cdroms map[string]int8 `help:"Cdrom ordinal and boot index" json:"cdroms"`
+}
+
+func (o *ServerSetBootIndexOptions) Params() (jsonutils.JSONObject, error) {
+	for k, _ := range o.Disks {
+		if i, e := strconv.Atoi(k); e != nil {
+			return nil, e
+		} else if i > 127 {
+			return nil, fmt.Errorf("disk index grate than 127")
+		}
+	}
+	for k, _ := range o.Cdroms {
+		if _, e := strconv.Atoi(k); e != nil {
+			return nil, e
+		}
+	}
+
+	return options.StructToParams(o)
+}
+
 type ServerSaveImageOptions struct {
 	ServerIdOptions
 	IMAGE     string `help:"Image name" json:"name"`
