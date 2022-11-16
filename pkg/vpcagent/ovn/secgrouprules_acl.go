@@ -143,6 +143,10 @@ func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule) (*ovn_nb.ACL, 
 		}
 	}
 	switch rule.Protocol {
+	case "":
+		// noop
+	case "arp":
+		matches = append(matches, "arp")
 	case secrules.PROTO_ANY:
 		addL3Match()
 	case secrules.PROTO_TCP:
