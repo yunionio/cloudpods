@@ -751,22 +751,23 @@ type ServerUpdateInput struct {
 }
 
 type GuestJsonDesc struct {
-	Name        string `json:"name"`
-	Hostname    string `json:"hostname"`
-	Description string `json:"description"`
-	UUID        string `json:"uuid"`
-	Mem         int    `json:"mem"`
-	Cpu         int    `json:"cpu"`
-	Vga         string `json:"vga"`
-	Vdi         string `json:"vdi"`
-	Machine     string `json:"machine"`
-	Bios        string `json:"bios"`
-	BootOrder   string `json:"boot_order"`
-	SrcIpCheck  bool   `json:"src_ip_check"`
-	SrcMacCheck bool   `json:"src_mac_check"`
-	IsMaster    *bool  `json:"is_master"`
-	IsSlave     *bool  `json:"is_slave"`
-	HostId      string `json:"host_id"`
+	Name           string `json:"name"`
+	Hostname       string `json:"hostname"`
+	Description    string `json:"description"`
+	UUID           string `json:"uuid"`
+	Mem            int    `json:"mem"`
+	Cpu            int    `json:"cpu"`
+	Vga            string `json:"vga"`
+	Vdi            string `json:"vdi"`
+	Machine        string `json:"machine"`
+	Bios           string `json:"bios"`
+	BootOrder      string `json:"boot_order"`
+	SrcIpCheck     bool   `json:"src_ip_check"`
+	SrcMacCheck    bool   `json:"src_mac_check"`
+	IsMaster       *bool  `json:"is_master"`
+	IsSlave        *bool  `json:"is_slave"`
+	IsVolatileHost bool   `json:"is_volatile_host"`
+	HostId         string `json:"host_id"`
 
 	IsolatedDevices []*IsolatedDeviceJsonDesc `json:"isolated_devices"`
 
