@@ -54,6 +54,8 @@ func StartService() {
 
 		cron.AddJobEveryFewDays("UsageMetricCollect", 1, 23, 10, 10, misc.UsegReport, false)
 		cron.AddJobEveryFewDays("AlertHistoryMetricCollect", 1, 23, 59, 59, misc.AlertHistoryReport, false)
+
+		cron.AddJobAtIntervals("CollectServiceMetrics", time.Duration(opts.CollectServiceMetricIntervalMinute)*time.Minute, misc.CollectServiceMetrics)
 		go cron.Start()
 	}
 
