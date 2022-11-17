@@ -791,3 +791,13 @@ func (o ClusterGetAddonsOpt) Params() (jsonutils.JSONObject, error) {
 
 	return params, nil
 }
+
+type ClusterSetExtraConfigOpt struct {
+	IdentOptions
+	DockerRegistryMirrors    []string `json:"docker_registry_mirrors"`
+	DockerInsecureRegistries []string `json:"docker_insecure_registries"`
+}
+
+func (o ClusterSetExtraConfigOpt) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
