@@ -25,8 +25,8 @@ import (
 	"unicode"
 
 	"github.com/shirou/gopsutil/host"
-	psnet "github.com/shirou/gopsutil/net"
-	"github.com/shirou/gopsutil/process"
+	psnet "github.com/shirou/gopsutil/v3/net"
+	"github.com/shirou/gopsutil/v3/process"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"

@@ -420,6 +420,7 @@ func (app *Application) addDefaultHandlers() {
 	app.AddDefaultHandler("POST", "/ping", PingHandler, "ping")
 	app.AddDefaultHandler("GET", "/ping", PingHandler, "ping")
 	app.AddDefaultHandler("GET", "/worker_stats", WorkerStatsHandler, "worker_stats")
+	app.AddDefaultHandler("GET", "/process_stats", ProcessStatsHandler, "process_stats")
 }
 
 func timeoutHandle(h http.Handler) http.HandlerFunc {
