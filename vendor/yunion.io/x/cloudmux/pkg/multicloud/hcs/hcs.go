@@ -486,6 +486,7 @@ func (self *SHcsClient) _url(product, version, regionId string, resource string)
 		"images", "cloudimages", "nat_gateways",
 		"lbaas", "products", "snat_rules",
 		"dnat_rules", "vpc/peerings",
+		"ports",
 	} {
 		if strings.HasPrefix(resource, prefix) {
 			url = fmt.Sprintf("%s.%s.%s/%s/%s", product, regionId, self.authUrl, version, resource)

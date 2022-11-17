@@ -92,9 +92,9 @@ type VolumeImageMetadata struct {
 type SDisk struct {
 	multicloud.SDisk
 	huawei.HuaweiDiskTags
-	//details *SResourceDetail
 
-	region *SRegion
+	region  *SRegion
+	storage *SStorage
 
 	Id                  string              `json:"id"`
 	Name                string              `json:"name"`
@@ -192,8 +192,10 @@ func (self *SDisk) GetCreatedAt() time.Time {
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-	//	return self.storage, nil
+	if self.storage != nil {
+		return self.storage, nil
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SDisk) GetDiskFormat() string {
