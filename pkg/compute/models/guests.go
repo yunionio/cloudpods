@@ -4427,6 +4427,10 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		}
 	}
 
+	if self.HostId != host.Id {
+		desc.IsVolatileHost = true
+	}
+
 	// isolated devices
 	isolatedDevs, _ := self.GetIsolatedDevices()
 	for _, dev := range isolatedDevs {
