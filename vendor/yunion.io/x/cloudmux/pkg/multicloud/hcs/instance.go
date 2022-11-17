@@ -355,7 +355,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		if err != nil {
 			return nil, err
 		}
-
+		disk.storage = &SStorage{zone: self.host.zone, storageType: disk.VolumeType}
 		disks = append(disks, *disk)
 	}
 
@@ -496,10 +496,13 @@ func (self *SInstance) GetMachine() string {
 }
 
 func (self *SInstance) GetOsArch() string {
-	if flavor, err := self.host.zone.region.GetICloudSku(self.Flavor.Id); err == nil {
+	image, err := self.host.zone.region.GetImage(self.Image.Id)
+	if err == nil {
+		return image.GetOsArch()
+	}
+	flavor, err := self.host.zone.region.GetICloudSku(self.Flavor.Id)
+	if err == nil {
 		return flavor.GetCpuArch()
-	} else {
-		log.Debugf("GetOSArch.GetICloudSku %s: %s", self.Flavor.Id, err)
 	}
 
 	t := self.GetInstanceType()
@@ -517,17 +520,14 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
-	currentSecgroups, err := self.GetSecurityGroupIds()
+	ports, err := self.host.zone.region.GetPorts(self.Id)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetPorts")
 	}
-
-	add, remove, _ := compareSet(currentSecgroups, secgroupIds)
-	err = self.host.zone.region.AssignSecurityGroups(add, self.GetId())
-	if err != nil {
-		return err
+	for i := range ports {
+		return self.host.zone.region.SetSecurityGroups(secgroupIds, ports[i].Id)
 	}
-	return self.host.zone.region.UnassignSecurityGroups(remove, self.GetId())
+	return nil
 }
 
 func (self *SInstance) GetHypervisor() string {
@@ -851,13 +851,15 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	return nil, fmt.Errorf("no server id returned with job %s", jsonutils.Marshal(job))
 }
 
-func (self *SRegion) AssignSecurityGroups(secgroupIds []string, instanceId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067161717.html
-func (self *SRegion) UnassignSecurityGroups(secgroupIds []string, instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+func (self *SRegion) SetSecurityGroups(secgroupIds []string, portId string) error {
+	res := fmt.Sprintf("ports/%s", portId)
+	params := map[string]interface{}{
+		"port": map[string]interface{}{
+			"security_groups": secgroupIds,
+		},
+	}
+	return self.update("vpc", "v2.0", res, params)
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212207.html
@@ -972,7 +974,8 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 				"new_password": password,
 			},
 		}
-		return self.perform("ecs", "v1", "cloudservers/"+instanceId, "os-reset-password", params, nil)
+		res := fmt.Sprintf("cloudservers/%s/os-reset-password", instanceId)
+		return self.update("ecs", "v1", res, params)
 	}
 	return nil
 }

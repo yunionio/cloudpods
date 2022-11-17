@@ -92,6 +92,16 @@ func (self *SModelartsPoolSku) GetCpuArch() string {
 	return self.Spec.CpuArch
 }
 
+func (sku *SModelartsPoolSku) GetProcessorType() string {
+	if len(sku.GetNpuType()) != 0 {
+		return compute.MODELARTS_POOL_SKU_ASCEND
+	}
+	if len(sku.GetGpuType()) != 0 {
+		return compute.MODELARTS_POOL_SKU_GPU
+	}
+	return compute.MODELARTS_POOL_SKU_CPU
+}
+
 func (self *SModelartsPoolSku) GetCpuCoreCount() int {
 	return self.Spec.Cpu
 }

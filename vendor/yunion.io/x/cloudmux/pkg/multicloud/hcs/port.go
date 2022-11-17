@@ -148,7 +148,7 @@ func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInt
 func (self *SRegion) GetPort(id string) (*Port, error) {
 	port := &Port{}
 	res := fmt.Sprintf("ports/%s", id)
-	return port, self.vpcGet(res, port)
+	return port, self.get("vpc", "v2.0", res, port)
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0133195888.html
@@ -158,5 +158,5 @@ func (self *SRegion) GetPorts(instanceId string) ([]Port, error) {
 	if len(instanceId) > 0 {
 		params.Set("device_id", instanceId)
 	}
-	return ports, self.vpcList("ports", params, &ports)
+	return ports, self.list("vpc", "v2.0", "ports", params, &ports)
 }
