@@ -23,6 +23,7 @@ type ModelartsPoolCreateOption struct {
 	InstanceType string
 	NodeCount    int
 	NetworkId    string
+	Cidr         string
 
 	WorkType string
 }

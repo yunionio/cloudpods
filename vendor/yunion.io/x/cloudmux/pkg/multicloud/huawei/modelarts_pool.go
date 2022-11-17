@@ -93,11 +93,21 @@ type SModelartsPoolStatus struct {
 
 type SModelartsPoolNetwork struct {
 	Metadata SModelartsPoolNetworkMetadata `json:"metadata"`
+	Spec     SModelartsNetworkSpce         `json:"spec"`
+	Status   SModelartsNetworkStatus       `json:"status"`
 }
 
 type SModelartsPoolNetworkMetadata struct {
 	Name              string `json:"name"`
 	CreationTimestamp string `json:"creationTimestamp"`
+}
+
+type SModelartsNetworkSpce struct {
+	Cidr string `json:"cidr"`
+}
+
+type SModelartsNetworkStatus struct {
+	Phase string `json:"phase"`
 }
 
 func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, error) {
@@ -127,14 +137,30 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 	netRes := make([]SModelartsPoolNetwork, 0)
 	netObj.Unmarshal(&netRes, "items")
 	netId := ""
-	if len(netRes) != 0 {
-		netId = netRes[0].Metadata.Name
-	} else {
-		createNetObj, err := self.client.CreatePoolNetworks()
+	for _, net := range netRes {
+		if net.Spec.Cidr == args.Cidr {
+			netId = net.Metadata.Name
+		}
+	}
+
+	if len(netId) == 0 {
+		createNetObj, err := self.client.CreatePoolNetworks(args.Cidr)
 		if err != nil {
 			return nil, errors.Wrap(err, "SHuaweiClient.CreatePoolNetworks")
 		}
 		netId, _ = createNetObj.GetString("metadata", "name")
+		for i := 0; i < 10; i++ {
+			netDetailObj, err := self.client.modelartsPoolNetworkDetail(netId)
+			if err != nil {
+				return nil, errors.Wrap(err, "SHuaweiClient.NetworkDetail")
+			}
+			netStatus, _ := netDetailObj.GetString("status", "phase")
+			if netStatus == "Creating" {
+				time.Sleep(10 * time.Second)
+			} else {
+				break
+			}
+		}
 	}
 
 	scopeArr := strings.Split(args.WorkType, ",")
@@ -247,7 +273,7 @@ func (self *SHuaweiClient) GetPoolNetworks(poolName string) (jsonutils.JSONObjec
 	return self.modelartsPoolNetworkList(poolName, nil)
 }
 
-func (self *SHuaweiClient) CreatePoolNetworks() (jsonutils.JSONObject, error) {
+func (self *SHuaweiClient) CreatePoolNetworks(cidr string) (jsonutils.JSONObject, error) {
 	params := map[string]interface{}{
 		"apiVersion": "v1",
 		"kind":       "Network",
@@ -258,7 +284,7 @@ func (self *SHuaweiClient) CreatePoolNetworks() (jsonutils.JSONObject, error) {
 			},
 		},
 		"spec": map[string]interface{}{
-			"cidr": "192.168.20.0/24",
+			"cidr": cidr,
 		},
 	}
 	return self.modelartsPoolNetworkCreate(params)
@@ -343,6 +369,20 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 }
 
 func (self *SModelartsPool) Refresh() error {
+	pools := make([]SModelartsPool, 0)
+	resObj, err := self.region.client.modelartsPoolListWithStatus("pools", "failed", nil)
+	if err != nil {
+		return errors.Wrap(err, "modelartsPoolListWithStatus")
+	}
+	err = resObj.Unmarshal(&pools, "items")
+	if err != nil {
+		return errors.Wrap(err, "resObj unmarshal")
+	}
+	for _, pool := range pools {
+		if pool.GetId() == self.GetId() {
+			self.Status.Phase = "CreationFailed"
+		}
+	}
 	self.Status.Resource = SNodeStatus{}
 	pool, err := self.region.client.modelartsPoolById(self.GetId())
 	if err != nil {
