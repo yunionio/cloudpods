@@ -457,7 +457,8 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 			scsiNumQueues, _ = data.Int("scsi_num_queues")
 		}
 		unifyCmd, err := s.unifyMigrateQemuCmdline(
-			currentCmd, srcCmdline, jsonutils.QueryBoolean(data, "no_memdev", false), scsiNumQueues,
+			currentCmd, srcCmdline, jsonutils.QueryBoolean(data, "no_memdev", false),
+			scsiNumQueues, data.Contains("nics_pci_slot"),
 		)
 		if err != nil {
 			return errors.Wrap(err, "Unify migrate qemu cmdline")

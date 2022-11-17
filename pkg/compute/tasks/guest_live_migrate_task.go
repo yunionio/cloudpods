@@ -255,6 +255,9 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 	if numqueues, err := data.Int("scsi_num_queues"); err == nil {
 		body.Set("scsi_num_queues", jsonutils.NewInt(numqueues))
 	}
+	if nics, err := data.Get("nics_pci_slot"); err == nil {
+		body.Set("nics_pci_slot", nics)
+	}
 
 	headers := self.GetTaskRequestHeader()
 

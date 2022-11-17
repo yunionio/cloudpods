@@ -76,6 +76,16 @@ func (cl *Cmdline) FilterOption(filter OptionFilter) {
 	cl.options = opts
 }
 
+type OptionFinder func(Option) bool
+
+func (cl *Cmdline) FindOption(filter OptionFinder) {
+	for _, op := range cl.options {
+		if filter(op) {
+			return
+		}
+	}
+}
+
 type OptionChanger func(*Option)
 
 func (cl *Cmdline) ChangeOption(changer OptionChanger) {

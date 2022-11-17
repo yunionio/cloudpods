@@ -317,10 +317,17 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	isolatedDevsParams := s.manager.GetHost().GetIsolatedDeviceManager().GetQemuParams(devAddrs)
 	input.IsolatedDevicesParams = isolatedDevsParams
 
-	for _, nic := range input.Nics {
+	nicsPciSlot, _ := data.GetMap("nics_pci_slot")
+	for i, nic := range input.Nics {
 		downscript := s.getNicDownScriptPath(nic)
-		ifname, _ := nic.GetString("ifnam")
+		ifname, _ := nic.GetString("ifname")
 		cmd += fmt.Sprintf("%s %s\n", downscript, ifname)
+		if nicsPciSlot != nil {
+			if slot, ok := nicsPciSlot[ifname]; ok {
+				input.Nics[i].(*jsonutils.JSONDict).Set("pci_slot", slot)
+				log.Infof("ifname %s slot %s", ifname, slot)
+			}
+		}
 	}
 
 	if input.HugepagesEnabled {
@@ -660,15 +667,43 @@ func (s *SKVMGuestInstance) _unifyMigrateQemuCmdline(cur string, src string) str
 	return newStr
 }
 
-func (s *SKVMGuestInstance) unifyMigrateQemuCmdline(cur string, src string, noMemdev bool, scsiNumQueues int64) (string, error) {
+func (s *SKVMGuestInstance) unifyMigrateQemuCmdline(cur string, src string, noMemdev bool, scsiNumQueues int64, hasNicsPciSlot bool) (string, error) {
 	curCl, curFilterOpts, err := s.parseCmdline(cur, false, -1)
 	if err != nil {
 		return "", errors.Wrapf(err, "parseCmdline current %q", cur)
 	}
+
 	srcCl, _, err := s.parseCmdline(src, noMemdev, scsiNumQueues)
 	if err != nil {
 		return "", errors.Wrapf(err, "parseCmdline source %q", src)
 	}
+
+	if hasNicsPciSlot {
+		nics, _ := s.Desc.GetArray("nics")
+		for i := 0; i < len(nics); i++ {
+			driver, _ := nics[i].GetString("driver")
+			ifname, _ := nics[i].GetString("ifname")
+			key := "device"
+			prefix := fmt.Sprintf("%s,id=netdev-%s", qemu.GetNicDeviceModel(driver), ifname)
+			value := ""
+			curCl.FindOption(func(opt qemutils.Option) bool {
+				log.Infof("find replace val %s", opt.Value)
+				if opt.Key == key && strings.HasPrefix(opt.Value, prefix) {
+					value = opt.Value
+					return true
+				}
+				return false
+			})
+			if value != "" {
+				srcCl.ChangeOption(func(opt *qemutils.Option) {
+					if opt.Key == key && strings.HasPrefix(opt.Value, prefix) {
+						opt.Value = value
+					}
+				})
+			}
+		}
+	}
+
 	unifyStr := s._unifyMigrateQemuCmdline(curCl.ToString(), srcCl.ToString())
 	unifyCl, _, err := s.parseCmdline(unifyStr, noMemdev, -1)
 	if err != nil {

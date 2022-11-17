@@ -49,6 +49,7 @@ type SDestPrepareMigrate struct {
 	SourceQemuCmdline string
 	NoMemDev          bool
 	ScsiNumQueues     int64
+	NicsPciSlot       *jsonutils.JSONDict
 	MigrateCerts      map[string]string
 	EnableTLS         bool
 	SnapshotsUri      string

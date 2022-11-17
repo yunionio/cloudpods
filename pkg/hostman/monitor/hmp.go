@@ -556,3 +556,7 @@ func (m *HmpMonitor) GetScsiNumQueues(callback func(int64)) {
 	}
 	m.Query("info qtree", cb)
 }
+
+func (m *HmpMonitor) QueryPci(callback QueryPciCallback) {
+	go callback(nil, "unsupported query pci for hmp")
+}
