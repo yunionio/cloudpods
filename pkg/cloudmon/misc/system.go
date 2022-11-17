@@ -37,18 +37,21 @@ import (
 )
 
 const (
+	SYSTEM_METRIC_DATABASE = "system"
+
 	METIRCY_TYPE_HTTP_REQUST = "http_request"
 	METIRCY_TYPE_WORKER      = "worker"
 	METIRCY_TYPE_DB_STATS    = "db_stats"
+	METIRCY_TYPE_PROCESS     = "process"
 )
 
 func getEndpoints(ctx context.Context, s *mcclient.ClientSession) ([]api.EndpointDetails, error) {
 	resp, err := identity.EndpointsV3.List(s, jsonutils.Marshal(map[string]string{
-		"scope":      "system",
-		"enable":     "true",
-		"details":    "true",
-		"interfacel": "internal",
-		"limit":      "50",
+		"scope":     "system",
+		"enable":    "true",
+		"details":   "true",
+		"interface": "internal",
+		"limit":     "50",
 	}))
 	if err != nil {
 		return nil, errors.Wrapf(err, "Endpoints.List")
@@ -100,7 +103,7 @@ func CollectServiceMetrics(ctx context.Context, userCred mcclient.TokenCredentia
 		if err != nil {
 			return errors.Wrap(err, "GetServiceURLs")
 		}
-		return influxdb.SendMetrics(urls, "system", metrics, false)
+		return influxdb.SendMetrics(urls, SYSTEM_METRIC_DATABASE, metrics, false)
 	}()
 	if err != nil {
 		log.Errorf("collect service metric error: %v", err)
@@ -396,6 +399,58 @@ func collectDatabaseMetrics(ctx context.Context, ep api.EndpointDetails, version
 	return []influxdb.SMetricData{metric}, nil
 }
 
+func collectProcessMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
+	statsUrl := httputils.JoinPath(ep.Url, "process_stats")
+	hdr := http.Header{}
+	hdr.Set("X-Auth-Token", token)
+	_, ret, err := httputils.JSONRequest(
+		httputils.GetDefaultClient(),
+		ctx, "GET",
+		statsUrl, hdr, nil, false,
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "request")
+	}
+	process := apis.ProcessStats{}
+	err = ret.Unmarshal(&process, "process_stats")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	metric := influxdb.SMetricData{
+		Name:      METIRCY_TYPE_PROCESS,
+		Timestamp: time.Now(),
+		Tags: []influxdb.SKeyValue{
+			{
+				Key:   "version",
+				Value: version,
+			},
+			{
+				Key:   "service",
+				Value: ep.ServiceName,
+			},
+		},
+		Metrics: []influxdb.SKeyValue{
+			{
+				Key:   "cpu_percent",
+				Value: fmt.Sprintf("%.2f", process.CpuPercent),
+			},
+			{
+				Key:   "mem_percent",
+				Value: fmt.Sprintf("%.2f", process.MemPercent),
+			},
+			{
+				Key:   "mem_size",
+				Value: fmt.Sprintf("%d", process.MemSize),
+			},
+			{
+				Key:   "goroutine_num",
+				Value: fmt.Sprintf("%d", process.GoroutineNum),
+			},
+		},
+	}
+	return []influxdb.SMetricData{metric}, nil
+}
+
 func collectServiceMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
 	ret, errs := []influxdb.SMetricData{}, []error{}
 	stats, err := collectStatsMetrics(ctx, ep, version, token)
@@ -413,5 +468,10 @@ func collectServiceMetrics(ctx context.Context, ep api.EndpointDetails, version,
 		errs = append(errs, err)
 	}
 	ret = append(ret, db...)
+	process, err := collectProcessMetrics(ctx, ep, version, token)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	ret = append(ret, process...)
 	return ret, errors.NewAggregate(errs)
 }
