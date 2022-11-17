@@ -626,13 +626,23 @@ func (s *SKVMGuestInstance) parseCmdline(input string, noMemdev bool, scsiNumQue
 				filterOpts = append(filterOpts, o)
 				return true
 			}
-		case "virtio-scsi-pci":
+		}
+		return false
+	})
+
+	cl.ChangeOption(func(o *qemutils.Option) {
+		switch o.Key {
+		case "device":
+			if !strings.HasPrefix(o.Value, "virtio-scsi-pci") {
+				return
+			}
+			log.Infof("scsi num queues %d", scsiNumQueues)
 			if scsiNumQueues > 0 && !strings.Contains(o.Value, "num_queues") {
 				o.Value = o.Value + fmt.Sprintf(",num_queues=%d,vectors=%d", scsiNumQueues, scsiNumQueues+1)
 			}
 		}
-		return false
 	})
+
 	return cl, filterOpts, nil
 }
 

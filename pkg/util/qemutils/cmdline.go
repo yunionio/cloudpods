@@ -76,6 +76,14 @@ func (cl *Cmdline) FilterOption(filter OptionFilter) {
 	cl.options = opts
 }
 
+type OptionChanger func(*Option)
+
+func (cl *Cmdline) ChangeOption(changer OptionChanger) {
+	for i, _ := range cl.options {
+		changer(&cl.options[i])
+	}
+}
+
 func (cl *Cmdline) AddOption(opts ...Option) *Cmdline {
 	cl.options = append(cl.options, opts...)
 	return cl
