@@ -102,6 +102,13 @@ func (man *SModelartsPoolSkuManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 
+	if len(query.CpuArch) > 0 {
+		q = q.Equals("cpu_arch", query.CpuArch)
+	}
+	if len(query.ProcessorType) > 0 {
+		q = q.Equals("processor_type", query.ProcessorType)
+	}
+
 	return q, nil
 }
 
