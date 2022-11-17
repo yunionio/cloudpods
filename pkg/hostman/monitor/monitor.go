@@ -219,6 +219,7 @@ type Monitor interface {
 	AddCpu(cpuIndex int, callback StringCallback)
 	GeMemtSlotIndex(func(index int))
 	GetMemdevList(MemdevListCallback)
+	GetScsiNumQueues(func(int64))
 
 	GetBlocks(callback func([]QemuBlock))
 	EjectCdrom(dev string, callback StringCallback)

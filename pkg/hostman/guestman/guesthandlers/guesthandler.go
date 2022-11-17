@@ -342,6 +342,11 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 	params.QemuVersion = qemuVersion
 	params.LiveMigrate = liveMigrate
 	params.SourceQemuCmdline = qemuCmdline
+	params.ScsiNumQueues = -1
+	if body.Contains("scsi_num_queues") {
+		params.ScsiNumQueues, _ = body.Int("scsi_num_queues")
+	}
+
 	params.NoMemDev = jsonutils.QueryBoolean(body, "no_memdev", false)
 	params.EnableTLS = jsonutils.QueryBoolean(body, "enable_tls", false)
 	if params.EnableTLS {

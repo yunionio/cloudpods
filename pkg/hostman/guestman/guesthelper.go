@@ -48,6 +48,7 @@ type SDestPrepareMigrate struct {
 	QemuVersion       string
 	SourceQemuCmdline string
 	NoMemDev          bool
+	ScsiNumQueues     int64
 	MigrateCerts      map[string]string
 	EnableTLS         bool
 	SnapshotsUri      string

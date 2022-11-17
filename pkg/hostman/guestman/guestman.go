@@ -844,6 +844,14 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 		if errStr := <-errChan; errStr != "" {
 			return nil, errors.Errorf("get memdev list failed %s", errStr)
 		}
+
+		guest.Monitor.GetScsiNumQueues(func(numQueues int64) {
+			if numQueues > 1 {
+				ret.Set("scsi_num_queues", jsonutils.NewInt(numQueues))
+			}
+			errChan <- ""
+		})
+		_ = <-errChan
 	}
 
 	if migParams.LiveMigrate && migParams.LiveMigrateUseTLS {
@@ -914,6 +922,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
 		startParams.Set("need_migrate", jsonutils.JSONTrue)
 		startParams.Set("source_qemu_cmdline", jsonutils.NewString(migParams.SourceQemuCmdline))
+		startParams.Set("scsi_num_queues", jsonutils.NewInt(migParams.ScsiNumQueues))
 		startParams.Set("no_memdev", jsonutils.NewBool(migParams.NoMemDev))
 		startParams.Set("live_migrate_use_tls", jsonutils.NewBool(migParams.EnableTLS))
 		if len(migParams.MigrateCerts) > 0 {

@@ -252,6 +252,9 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 	if jsonutils.QueryBoolean(data, "no_memdev", false) {
 		body.Set("no_memdev", jsonutils.JSONTrue)
 	}
+	if numqueues, err := data.Int("scsi_num_queues"); err == nil {
+		body.Set("scsi_num_queues", jsonutils.NewInt(numqueues))
+	}
 
 	headers := self.GetTaskRequestHeader()
 

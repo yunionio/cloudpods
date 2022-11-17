@@ -583,7 +583,7 @@ eval $CMD`
 	return cmd, nil
 }
 
-func (s *SKVMGuestInstance) parseCmdline(input string, noMemdev bool) (*qemutils.Cmdline, []qemutils.Option, error) {
+func (s *SKVMGuestInstance) parseCmdline(input string, noMemdev bool, scsiNumQueues int64) (*qemutils.Cmdline, []qemutils.Option, error) {
 	cl, err := qemutils.NewCmdline(input)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "NewCmdline %q", input)
@@ -626,6 +626,10 @@ func (s *SKVMGuestInstance) parseCmdline(input string, noMemdev bool) (*qemutils
 				filterOpts = append(filterOpts, o)
 				return true
 			}
+		case "virtio-scsi-pci":
+			if scsiNumQueues > 0 && !strings.Contains(o.Value, "num_queues") {
+				o.Value = o.Value + fmt.Sprintf(",num_queues=%d,vectors=%d", scsiNumQueues, scsiNumQueues+1)
+			}
 		}
 		return false
 	})
@@ -646,17 +650,17 @@ func (s *SKVMGuestInstance) _unifyMigrateQemuCmdline(cur string, src string) str
 	return newStr
 }
 
-func (s *SKVMGuestInstance) unifyMigrateQemuCmdline(cur string, src string, noMemdev bool) (string, error) {
-	curCl, curFilterOpts, err := s.parseCmdline(cur, false)
+func (s *SKVMGuestInstance) unifyMigrateQemuCmdline(cur string, src string, noMemdev bool, scsiNumQueues int64) (string, error) {
+	curCl, curFilterOpts, err := s.parseCmdline(cur, false, -1)
 	if err != nil {
 		return "", errors.Wrapf(err, "parseCmdline current %q", cur)
 	}
-	srcCl, _, err := s.parseCmdline(src, noMemdev)
+	srcCl, _, err := s.parseCmdline(src, noMemdev, scsiNumQueues)
 	if err != nil {
 		return "", errors.Wrapf(err, "parseCmdline source %q", src)
 	}
 	unifyStr := s._unifyMigrateQemuCmdline(curCl.ToString(), srcCl.ToString())
-	unifyCl, _, err := s.parseCmdline(unifyStr, noMemdev)
+	unifyCl, _, err := s.parseCmdline(unifyStr, noMemdev, -1)
 	if err != nil {
 		return "", errors.Wrapf(err, "parseCmdline unitfy %q", unifyStr)
 	}
