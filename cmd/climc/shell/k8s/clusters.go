@@ -52,6 +52,8 @@ func initKubeCluster() {
 	cmd.Perform("delete-machines", new(o.KubeClusterDeleteMachinesOptions))
 	cmd.Perform("add-machines", new(o.KubeClusterAddMachinesOptions))
 	cmd.PerformClass("gc", new(o.ClusterGCOpts))
+	cmd.Perform("set-extra-config", new(o.ClusterSetExtraConfigOpt))
+	cmd.Get("extra-config", new(o.IdentOptions))
 
 	R(&o.KubeClusterImportOptions{}, cmdN("import"), "Import k8s cluster", func(s *mcclient.ClientSession, args *o.KubeClusterImportOptions) error {
 		params, err := args.Params()
