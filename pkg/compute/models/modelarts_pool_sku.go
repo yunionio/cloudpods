@@ -183,11 +183,9 @@ func (manager *SModelartsPoolSkuManager) ListItemExportKeys(ctx context.Context,
 	}
 	return q, nil
 }
-func (self *SCloudregion) GetModelartsPoolSkus(managerId string) ([]SModelartsPoolSku, error) {
+
+func (self *SCloudregion) GetModelartsPoolSkus() ([]SModelartsPoolSku, error) {
 	q := ModelartsPoolSkuManager.Query().Equals("cloudregion_id", self.Id)
-	if len(managerId) > 0 {
-		q = q.Equals("manager_id", managerId)
-	}
 	ret := []SModelartsPoolSku{}
 	err := db.FetchModelObjects(ModelartsPoolSkuManager, q, &ret)
 	if err != nil {
@@ -201,7 +199,7 @@ func (self *SCloudregion) SyncModelartsPoolSkus(ctx context.Context, userCred mc
 	lockman.LockRawObject(ctx, self.Provider, "modelarts-pool-sku")
 	defer lockman.ReleaseRawObject(ctx, self.Provider, "modelarts-pool-sku")
 	result := compare.SyncResult{}
-	dbPoolSku, err := self.GetModelartsPoolSkus(provider.Id)
+	dbPoolSku, err := self.GetModelartsPoolSkus()
 	if err != nil {
 		result.Error(err)
 		return result
