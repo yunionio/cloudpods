@@ -2945,7 +2945,7 @@ func (s *SBaremetalServer) reIndexDescNics(term *ssh.Client, desc *deployapi.Gue
 	}
 	reIndexNics := func(nics []*deployapi.Nic) ([]*deployapi.Nic, error) {
 		for idx, nic := range nics {
-			if nic.GetNicType() == api.NIC_TYPE_IPMI {
+			if nic.GetNicType() == api.NIC_TYPE_IPMI || nic.GetIndex() >= 0 {
 				continue
 			}
 			rIdx, rNic := findRemoteNic(nic.GetMac())
