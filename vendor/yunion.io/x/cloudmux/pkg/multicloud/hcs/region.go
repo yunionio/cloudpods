@@ -318,15 +318,3 @@ func (self *SRegion) GetBuckets() ([]SBucket, error) {
 	}
 	return ret, nil
 }
-
-func (self *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	buckets, err := self.GetBuckets()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetBuckets")
-	}
-	ret := make([]cloudprovider.ICloudBucket, 0)
-	for i := range buckets {
-		ret = append(ret, &buckets[i])
-	}
-	return ret, nil
-}

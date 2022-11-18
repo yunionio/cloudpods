@@ -802,3 +802,19 @@ func (self *SRegion) CreateBucket(name string, storageClassStr string, aclStr st
 	}
 	return nil
 }
+
+func (self *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	buckets, err := self.GetBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetBuckets")
+	}
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for i := range buckets {
+		ret = append(ret, &buckets[i])
+	}
+	return ret, nil
+}
+
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketById(region, name)
+}
