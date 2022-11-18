@@ -75,7 +75,7 @@ func (self *SCloudpodsProviderFactory) ValidateUpdateCloudaccountCredential(ctx 
 }
 
 func (self *SCloudpodsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
-	adminProjectId := auth.GetAdminSession(context.TODO(), options.Options.Region).GetProjectDomainId()
+	adminProjectId := auth.GetAdminSession(context.TODO(), options.Options.Region).GetProjectId()
 	client, err := cloudpods.NewCloudpodsClient(
 		cloudpods.NewCloudpodsClientConfig(
 			cfg.URL,
