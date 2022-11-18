@@ -152,6 +152,12 @@ func (cli *SHuaweiClient) modelartsPoolNetworkDetail(networkName string) (jsonut
 	return cli.request(httputils.GET, uri, url.Values{}, nil)
 }
 
+func (cli *SHuaweiClient) modelartsPoolNetworkDelete(networkName string) (jsonutils.JSONObject, error) {
+	endpoint := cli.resetEndpoint(cli.endpoints.Modelarts, "modelarts")
+	uri := fmt.Sprintf("https://%s/v1/%s/networks/%s", endpoint, cli.projectId, networkName)
+	return cli.request(httputils.DELETE, uri, url.Values{}, nil)
+}
+
 func (self *SHuaweiClient) modelartsPoolNetworkCreate(params map[string]interface{}) (jsonutils.JSONObject, error) {
 	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
 	uri := fmt.Sprintf("https://%s/v1/%s/networks", endpoint, self.projectId)
