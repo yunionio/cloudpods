@@ -132,7 +132,7 @@ func (self *SCloudpodsClient) auth() error {
 	if !self.s.GetToken().HasSystemAdminPrivilege() {
 		return fmt.Errorf("no system admin privilege")
 	}
-	if self.s.GetProjectDomainId() == self.adminProjectId {
+	if self.s.GetProjectId() == self.adminProjectId {
 		return fmt.Errorf("You can't manage yourself environment")
 	}
 	return nil
