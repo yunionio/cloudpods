@@ -81,7 +81,7 @@ type SStorage struct {
 	Reserved int64 `nullable:"true" default:"0" list:"domain" update:"domain"`
 	// 存储类型
 	// example: local
-	StorageType string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"domain_required"`
+	StorageType string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"domain_required"`
 	// 介质类型
 	// example: ssd
 	MediumType string `width:"32" charset:"ascii" nullable:"false" list:"user" update:"domain" create:"domain_required"`
