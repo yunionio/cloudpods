@@ -487,7 +487,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 		DefaultRegion: input.DefaultRegion,
 		ProxyFunc:     proxyFunc,
 
-		AdminProjectId:         auth.GetAdminSession(ctx, options.Options.Region).GetProjectDomainId(),
+		AdminProjectId:         auth.GetAdminSession(ctx, options.Options.Region).GetProjectId(),
 		AliyunResourceGroupIds: options.Options.AliyunResourceGroups,
 
 		Options: input.Options,
