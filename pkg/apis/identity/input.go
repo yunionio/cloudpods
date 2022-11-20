@@ -157,6 +157,9 @@ type ProjectListInput struct {
 	UserFilterListInput
 	GroupFilterListInput
 
+	// filter projects by Identity Provider
+	IdpId string `json:"idp_id"`
+
 	// 过滤出指定用户或者组可以加入的项目
 	Jointable *bool `json:"jointable"`
 
