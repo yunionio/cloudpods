@@ -38,6 +38,8 @@ type CephClient struct {
 	pool     string
 	cephConf string
 	keyConf  string
+
+	timeout int
 }
 
 func (self *CephClient) Close() error {
@@ -94,8 +96,12 @@ func (self *CephClient) Output(name string, opts []string) (jsonutils.JSONObject
 }
 
 func (self *CephClient) output(name string, opts []string) (jsonutils.JSONObject, error) {
-	opts = append([]string{"--format", "json"}, opts...)
-	proc := procutils.NewRemoteCommandAsFarAsPossible(name, opts...)
+	cmds := []string{name, "--format", "json"}
+	cmds = append(cmds, opts...)
+	if self.timeout > 0 {
+		cmds = append([]string{"timeout", "--signal=KILL", fmt.Sprintf("%ds", self.timeout)}, cmds...)
+	}
+	proc := procutils.NewRemoteCommandAsFarAsPossible(cmds[0], cmds[1:]...)
 	outb, err := proc.StdoutPipe()
 	if err != nil {
 		return nil, errors.Wrap(err, "stdout pipe")
@@ -128,7 +134,11 @@ func (self *CephClient) output(name string, opts []string) (jsonutils.JSONObject
 }
 
 func (self *CephClient) run(name string, opts []string) error {
-	output, err := procutils.NewRemoteCommandAsFarAsPossible(name, opts...).Output()
+	cmds := append([]string{name}, opts...)
+	if self.timeout > 0 {
+		cmds = append([]string{"timeout", "--signal=KILL", fmt.Sprintf("%ds", self.timeout)}, cmds...)
+	}
+	output, err := procutils.NewRemoteCommandAsFarAsPossible(cmds[0], cmds[1:]...).Output()
 	if err != nil {
 		return errors.Wrapf(err, "%s %s", name, string(output))
 	}
@@ -209,11 +219,18 @@ func (cli *CephClient) ShowConf() error {
 	return nil
 }
 
+func (cli *CephClient) SetTimeout(timeout int) {
+	cli.timeout = timeout
+}
+
+const DEFAULT_TIMTOUT_SECOND = 15
+
 func NewClient(monHost, key, pool string) (*CephClient, error) {
 	client := &CephClient{
 		monHost: monHost,
 		key:     key,
 		pool:    pool,
+		timeout: DEFAULT_TIMTOUT_SECOND,
 	}
 	var err error
 	if len(client.key) > 0 {
