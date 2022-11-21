@@ -358,22 +358,34 @@ func (dev *sBaseDevice) DetectByAddr() error {
 	return nil
 }
 
-func ParseOutput(output []byte) []string {
+func ParseOutput(output []byte, doTrim bool) []string {
 	lines := make([]string, 0)
 	for _, line := range strings.Split(string(output), "\n") {
-		lines = append(lines, strings.TrimSpace(line))
+		if doTrim {
+			lines = append(lines, strings.TrimSpace(line))
+		} else {
+			lines = append(lines, line)
+		}
 	}
 	return lines
 }
 
-func bashOutput(cmd string) ([]string, error) {
+func bashCmdOutput(cmd string, doTrim bool) ([]string, error) {
 	args := []string{"-c", cmd}
 	output, err := procutils.NewRemoteCommandAsFarAsPossible("bash", args...).Output()
 	if err != nil {
 		return nil, err
 	} else {
-		return ParseOutput(output), nil
+		return ParseOutput(output, doTrim), nil
 	}
+}
+
+func bashOutput(cmd string) ([]string, error) {
+	return bashCmdOutput(cmd, true)
+}
+
+func bashRawOutput(cmd string) ([]string, error) {
+	return bashCmdOutput(cmd, false)
 }
 
 type QemuParams struct {
