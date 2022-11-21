@@ -327,7 +327,7 @@ func (d *PCIDevice) IsBootVGA() (bool, error) {
 			return false, err
 		}
 	}
-	paths := ParseOutput(output)
+	paths := ParseOutput(output, true)
 	for _, p := range paths {
 		if strings.Contains(p, addr) && !strings.Contains(p, "No such file or directory") {
 			if content, err := fileutils2.FileGetContents(p); err != nil {
