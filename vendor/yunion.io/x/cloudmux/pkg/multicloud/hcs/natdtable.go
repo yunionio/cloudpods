@@ -130,11 +130,25 @@ func (nat *SNatDEntry) Refresh() error {
 func (self *SRegion) CreateNatDEntry(rule cloudprovider.SNatDRule, gatewayId string) (*SNatDEntry, error) {
 	params := make(map[string]interface{})
 	params["nat_gateway_id"] = gatewayId
-	params["private_ip"] = rule.InternalIP
 	params["internal_service_port"] = rule.InternalPort
 	params["floating_ip_id"] = rule.ExternalIPID
 	params["external_service_port"] = rule.ExternalPort
 	params["protocol"] = rule.Protocol
+	ports, err := self.GetPorts("")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetPorts")
+	}
+	portId := ""
+	for i := range ports {
+		if ports[i].GetIpAddr() == rule.InternalIP {
+			portId = ports[i].Id
+			break
+		}
+	}
+	if len(portId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "no port found for ip %s", rule.InternalIP)
+	}
+	params["port_id"] = portId
 
 	packParams := map[string]interface{}{
 		"dnat_rule": params,

@@ -82,6 +82,15 @@ func (port *Port) GetGlobalId() string {
 	return port.Id
 }
 
+func (port *Port) GetIpAddr() string {
+	for _, ip := range port.FixedIps {
+		if len(ip.IpAddress) > 0 {
+			return ip.IpAddress
+		}
+	}
+	return ""
+}
+
 func (port *Port) GetMacAddress() string {
 	return port.MACAddress
 }
