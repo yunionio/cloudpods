@@ -487,8 +487,10 @@ func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 }
 
 func (self *GuestLiveMigrateTask) OnStartDestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	targetHostId, _ := self.Params.GetString("target_host_id")
-	guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
+	if !jsonutils.QueryBoolean(self.Params, "keep_dest_guest_on_failed", false) {
+		targetHostId, _ := self.Params.GetString("target_host_id")
+		guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
+	}
 	self.TaskFailed(ctx, guest, data)
 }
 
@@ -554,11 +556,12 @@ func (self *GuestLiveMigrateTask) OnLiveMigrateComplete(ctx context.Context, gue
 
 func (self *GuestLiveMigrateTask) OnResumeDestGuestCompleteFailed(ctx context.Context,
 	guest *models.SGuest, data jsonutils.JSONObject) {
-	targetHostId, _ := self.Params.GetString("target_host_id")
 
 	self.markFailed(ctx, guest, data)
-
-	guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
+	if !jsonutils.QueryBoolean(self.Params, "keep_dest_guest_on_failed", false) {
+		targetHostId, _ := self.Params.GetString("target_host_id")
+		guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
+	}
 
 	self.SetStage("OnResumeSourceGuestComplete", nil)
 	sourceHost := models.HostManager.FetchHostById(guest.HostId)
