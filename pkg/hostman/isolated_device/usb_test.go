@@ -16,7 +16,10 @@ package isolated_device
 
 import (
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_parseLsusbLine(t *testing.T) {
@@ -80,7 +83,9 @@ func Test_parseLsusbLine(t *testing.T) {
 					t.Errorf("parseLsusb() error = %v, wantErr %v", err, tt.wantErr)
 					return
 				}
-				t.Logf("line result: %#v", got)
+				busNum, _ := got.GetBusNumber()
+				devNum, _ := got.GetDeviceNumber()
+				t.Logf("line result: %#v, busNum: %d, devNum: %d", got, busNum, devNum)
 
 				if !reflect.DeepEqual(got, tt.want[i]) {
 					t.Errorf("parseLsusb() = %v, want %v", got, tt.want[i])
@@ -178,4 +183,75 @@ func Test_getUSBDevQemuOptions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_newLsusbRootBusTreeByLine(t *testing.T) {
+	assert := assert.New(t)
+	tree, _ := newLsusbTreeByLine("/:  Bus 04.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/2p, 10000M")
+	assert.Equal(4, tree.Bus)
+	assert.Equal(1, tree.Port)
+	assert.Equal(1, tree.Dev)
+	assert.Equal(true, tree.IsRootBus)
+	assert.Equal("xhci_hcd/2p", tree.Driver)
+
+	tree, _ = newLsusbTreeByLine("    |__ Port 3: Dev 2, If 0, Class=Vendor Specific Class, Driver=, 12M")
+	assert.Equal(false, tree.IsRootBus)
+	assert.Equal("", tree.Driver)
+	assert.Equal("Vendor Specific Class", tree.Class)
+	assert.Equal(3, tree.Port)
+	assert.Equal(2, tree.Dev)
+	assert.Equal(0, tree.If)
+}
+
+func Test_parseLsusbTrees(t *testing.T) {
+	assert := assert.New(t)
+	input := `
+/:  Bus 04.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/2p, 10000M
+/:  Bus 03.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/4p, 480M
+    |__ Port 3: Dev 2, If 0, Class=Vendor Specific Class, Driver=, 12M
+    |__ Port 4: Dev 3, If 0, Class=Wireless, Driver=btusb, 480M
+    |__ Port 4: Dev 3, If 1, Class=Wireless, Driver=btusb, 480M
+    |__ Port 4: Dev 3, If 2, Class=Wireless, Driver=, 480M
+/:  Bus 02.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/2p, 10000M
+/:  Bus 01.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/4p, 480M
+    |__ Port 3: Dev 2, If 0, Class=Human Interface Device, Driver=usbhid, 12M
+    |__ Port 3: Dev 2, If 1, Class=Human Interface Device, Driver=usbhid, 12M
+    |__ Port 3: Dev 2, If 2, Class=Human Interface Device, Driver=usbhid, 12M
+    |__ Port 4: Dev 3, If 0, Class=Human Interface Device, Driver=usbfs, 12M
+	`
+	ts, err := parseLsusbTrees(strings.Split(input, "\n"))
+	assert.Equal(nil, err)
+	assert.Equal(
+		`/:  Bus 01.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/4p, 480M
+    |__ Port 3: Dev 2, If 0, Class=Human Interface Device, Driver=usbhid, 12M
+    |__ Port 3: Dev 2, If 1, Class=Human Interface Device, Driver=usbhid, 12M
+    |__ Port 3: Dev 2, If 2, Class=Human Interface Device, Driver=usbhid, 12M
+    |__ Port 4: Dev 3, If 0, Class=Human Interface Device, Driver=usbfs, 12M
+/:  Bus 02.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/2p, 10000M
+/:  Bus 03.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/4p, 480M
+    |__ Port 3: Dev 2, If 0, Class=Vendor Specific Class, Driver=, 12M
+    |__ Port 4: Dev 3, If 0, Class=Wireless, Driver=btusb, 480M
+    |__ Port 4: Dev 3, If 1, Class=Wireless, Driver=btusb, 480M
+    |__ Port 4: Dev 3, If 2, Class=Wireless, Driver=, 480M
+/:  Bus 04.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/2p, 10000M`, ts.GetContent())
+
+	bus, ok := ts.GetBus(3)
+	assert.Equal(true, ok)
+	dt := bus.GetDevice(1)
+	assert.Equal("root_hub", dt.Class)
+	dt = bus.GetDevice(2)
+	assert.Equal("Vendor Specific Class", dt.Class)
+
+	input2 := `
+/:  Bus 02.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/10p, 5000M
+/:  Bus 01.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/16p, 480M
+    |__ Port 1: Dev 2, If 0, Class=Hub, Driver=hub/7p, 480M
+    |__ Port 10: Dev 6, If 0, Class=Human Interface Device, Driver=usbfs, 12M
+`
+	ts, err = parseLsusbTrees(strings.Split(input2, "\n"))
+	assert.Equal(nil, err)
+	bus, ok = ts.GetBus(1)
+	assert.Equal(true, ok)
+	dt = bus.GetDevice(6)
+	assert.Equal("Human Interface Device", dt.Class)
 }
