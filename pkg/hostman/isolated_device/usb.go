@@ -16,6 +16,7 @@ package isolated_device
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -30,12 +31,14 @@ import (
 
 type sUSBDevice struct {
 	*sBaseDevice
+	lsusbLine *sLsusbLine
 }
 
 // TODO: rename PCIDevice
-func newUSBDevice(dev *PCIDevice) *sUSBDevice {
+func newUSBDevice(dev *PCIDevice, lsusbLine *sLsusbLine) *sUSBDevice {
 	return &sUSBDevice{
 		sBaseDevice: newBaseDevice(dev, api.USB_TYPE),
+		lsusbLine:   lsusbLine,
 	}
 }
 
@@ -154,6 +157,15 @@ func getPassthroughUSBs() ([]*sUSBDevice, error) {
 		return nil, errors.Wrap(err, "parseLsusb")
 	}
 
+	treeRet, err := bashRawOutput("lsusb -t")
+	if err != nil {
+		return nil, errors.Wrap(err, "execute `lsusb -t`")
+	}
+	trees, err := parseLsusbTrees(treeRet)
+	if err != nil {
+		return nil, errors.Wrap(err, "parseLsusbTrees")
+	}
+
 	// fitler linux root hub
 	retDev := make([]*sUSBDevice, 0)
 	for _, dev := range devs {
@@ -161,6 +173,16 @@ func getPassthroughUSBs() ([]*sUSBDevice, error) {
 		if isUSBLinuxRootHub(dev.dev.VendorId, dev.dev.DeviceId) {
 			continue
 		}
+
+		// check by trees
+		isHubClass, err := isUSBHubClass(dev, trees)
+		if err != nil {
+			return nil, errors.Wrap(err, "check isUSBHubClass")
+		}
+		if isHubClass {
+			continue
+		}
+
 		retDev = append(retDev, dev)
 	}
 	return retDev, nil
@@ -173,6 +195,27 @@ func isUSBLinuxRootHub(vendorId string, deviceId string) bool {
 	return false
 }
 
+func isUSBHubClass(dev *sUSBDevice, trees *sLsusbTrees) (bool, error) {
+	busNum, err := dev.lsusbLine.GetBusNumber()
+	if err != nil {
+		return false, errors.Wrapf(err, "GetBusNumber of dev %#v", dev.lsusbLine)
+	}
+	devNum, err := dev.lsusbLine.GetDeviceNumber()
+	if err != nil {
+		return false, errors.Wrapf(err, "GetDeviceNumber of dev %#v", dev.lsusbLine)
+	}
+	tree, ok := trees.GetBus(busNum)
+	if !ok {
+		return false, errors.Errorf("not found dev %#v by bus %d", dev.lsusbLine, busNum)
+	}
+	treeDev := tree.GetDevice(devNum)
+	if treeDev == nil {
+		return false, errors.Errorf("not found dev %#v by bus %d, dev %d", dev.lsusbLine, busNum, devNum)
+	}
+
+	return utils.IsInStringArray(treeDev.Class, []string{"root_hub", "Hub"}), nil
+}
+
 func parseLsusb(lines []string) ([]*sUSBDevice, error) {
 	devs := make([]*sUSBDevice, 0)
 	for _, line := range lines {
@@ -183,7 +226,7 @@ func parseLsusb(lines []string) ([]*sUSBDevice, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "parseLsusbLine %q", line)
 		}
-		usbDev := newUSBDevice(dev.ToPCIDevice())
+		usbDev := newUSBDevice(dev.ToPCIDevice(), dev)
 		devs = append(devs, usbDev)
 	}
 	return devs, nil
@@ -217,4 +260,271 @@ func (dev *sLsusbLine) ToPCIDevice() *PCIDevice {
 		DeviceId:  dev.DeviceId,
 		ModelName: dev.Name,
 	}
+}
+
+func (dev *sLsusbLine) GetBusNumber() (int, error) {
+	return strconv.Atoi(dev.BusId)
+}
+
+func (dev *sLsusbLine) GetDeviceNumber() (int, error) {
+	return strconv.Atoi(dev.Device)
+}
+
+type sLsusbTrees struct {
+	Trees       map[int]*sLsusbTree
+	sorted      bool
+	sortedTrees sortLsusbTree
+}
+
+type sortLsusbTree []*sLsusbTree
+
+func (t sortLsusbTree) Len() int {
+	return len(t)
+}
+
+func (t sortLsusbTree) Swap(i, j int) {
+	t[i], t[j] = t[j], t[i]
+}
+
+func (t sortLsusbTree) Less(i, j int) bool {
+	it := t[i]
+	jt := t[j]
+	return it.Bus < jt.Bus
+}
+
+func newLsusbTrees() *sLsusbTrees {
+	return &sLsusbTrees{
+		Trees:       make(map[int]*sLsusbTree),
+		sorted:      false,
+		sortedTrees: sortLsusbTree([]*sLsusbTree{}),
+	}
+}
+
+func (ts *sLsusbTrees) Add(bus int, tree *sLsusbTree) *sLsusbTrees {
+	ts.Trees[bus] = tree
+	return ts
+}
+
+func (ts *sLsusbTrees) sortTrees() *sLsusbTrees {
+	if ts.sorted {
+		return ts
+	}
+	for _, t := range ts.Trees {
+		ts.sortedTrees = append(ts.sortedTrees, t)
+	}
+	sort.Sort(ts.sortedTrees)
+	return ts
+}
+
+func (ts *sLsusbTrees) GetContent() string {
+	ts.sortTrees()
+	ret := []string{}
+	for _, t := range ts.sortedTrees {
+		ret = append(ret, t.GetContents()...)
+	}
+	return strings.Join(ret, "\n")
+}
+
+func (ts *sLsusbTrees) GetBus(bus int) (*sLsusbTree, bool) {
+	t, ok := ts.Trees[bus]
+	return t, ok
+}
+
+// parseLsusbTrees parses `lsusb -t` output
+func parseLsusbTrees(lines []string) (*sLsusbTrees, error) {
+	return _parseLsusbTrees(lines)
+}
+
+func _parseLsusbTrees(lines []string) (*sLsusbTrees, error) {
+	trees := newLsusbTrees()
+	var (
+		prevTree *sLsusbTree
+	)
+	for idx, line := range lines {
+		if len(strings.TrimSpace(line)) == 0 {
+			continue
+		}
+		tree, err := newLsusbTreeByLine(line)
+		if err != nil {
+			return nil, errors.Wrapf(err, "by line %q, index %d", line, idx)
+		}
+		if tree.IsRootBus {
+			tree.parentNode = nil
+			trees.Add(tree.Bus, tree)
+			prevTree = tree
+		} else {
+			if len(tree.LinePrefix) > len(prevTree.LinePrefix) {
+				// child node should be added to previous node
+				tree.parentNode = prevTree
+				tree.parentNode.AddNode(tree)
+			} else if len(tree.LinePrefix) == len(prevTree.LinePrefix) {
+				// sibling node should be added to parent
+				prevTree.parentNode.AddNode(tree)
+			} else if len(tree.LinePrefix) < len(prevTree.LinePrefix) {
+				// find current node's sibling node and added to it's parent
+				parent := prevTree.FindParentByTree(tree)
+				if parent == nil {
+					return nil, errors.Errorf("can't found parent by tree %s, current line %q, prevTree %s", jsonutils.Marshal(tree), line, jsonutils.Marshal(prevTree))
+				}
+				parent.AddNode(tree)
+			}
+			prevTree = tree
+		}
+	}
+	return trees, nil
+}
+
+const (
+	busRootPrefix = "/:  Bus"
+)
+
+var (
+	lsusbTreeRootBusRegex     = `(?P<prefix>(.*))Bus (?P<bus_id>([0-9]{2}))\.`
+	lsusbTreeBusSuffixRegex   = `Port (?P<port_id>([0-9]{1,2})): Dev (?P<device>([0-9]{1,2})), Class=(?P<class>(.*)), Driver=(?P<driver>(.*)),\s{0,1}(?P<speed>(.*))`
+	lsusbTreeSuffixRegex      = `Port (?P<port_id>([0-9]{1,2})): Dev (?P<device>([0-9]{1,2})), If (?P<interface>([0-9]{1,2})), Class=(?P<class>(.*)), Driver=(?P<driver>(.*)),\s{0,1}(?P<speed>(.*))`
+	lsusbTreeRootBusLineRegex = lsusbTreeRootBusRegex + lsusbTreeBusSuffixRegex
+	lsusbTreeLineRegex        = `(?P<prefix>(.*))` + lsusbTreeSuffixRegex
+)
+
+type sLsusbTree struct {
+	parentNode *sLsusbTree
+
+	IsRootBus  bool   `json:"is_root_bus"`
+	LinePrefix string `json:"line_prefix"`
+	Bus        int    `json:"bus"`
+	Port       int    `json:"port"`
+	Dev        int    `json:"dev"`
+	// If maybe nil
+	If      int           `json:"if"`
+	Class   string        `json:"class"`
+	Driver  string        `json:"driver"`
+	Content string        `json:"content`
+	Nodes   []*sLsusbTree `json:"nodes"`
+}
+
+func newLsusbTreeByLine(line string) (*sLsusbTree, error) {
+	var (
+		isRootBus = false
+		regExp    = lsusbTreeLineRegex
+	)
+	if strings.HasPrefix(line, busRootPrefix) {
+		isRootBus = true
+	}
+	if isRootBus {
+		regExp = lsusbTreeRootBusLineRegex
+	}
+	ret := regutils2.SubGroupMatch(regExp, line)
+	linePrefix := ret["prefix"]
+	if linePrefix == "" {
+		return nil, errors.Errorf("not found prefix of line %q", line)
+	}
+	t := &sLsusbTree{
+		IsRootBus:  isRootBus,
+		Content:    line,
+		LinePrefix: linePrefix,
+		Nodes:      make([]*sLsusbTree, 0),
+	}
+
+	if isRootBus {
+		// parse bus
+		busIdStr, ok := ret["bus_id"]
+		if !ok {
+			return nil, errors.Errorf("not found 'Bus' in %q", line)
+		}
+		busId, err := strconv.Atoi(busIdStr)
+		if err != nil {
+			return nil, errors.Errorf("invalid Bus string %q", busIdStr)
+		}
+		t.Bus = busId
+	}
+
+	// parse port
+	portIdStr, ok := ret["port_id"]
+	if !ok {
+		return nil, errors.Errorf("not found 'Port' in %q", line)
+	}
+	portId, err := strconv.Atoi(portIdStr)
+	if err != nil {
+		return nil, errors.Errorf("invalid Port string %q", portIdStr)
+	}
+	t.Port = portId
+
+	// parse dev
+	devStr, ok := ret["device"]
+	if !ok {
+		return nil, errors.Errorf("not found 'Dev' in %q", line)
+	}
+	dev, err := strconv.Atoi(devStr)
+	if err != nil {
+		return nil, errors.Errorf("invalid Dev string %q", devStr)
+	}
+	t.Dev = dev
+
+	// parse if when not root bus
+	if !isRootBus {
+		ifStr, ok := ret["interface"]
+		if !ok {
+			return nil, errors.Errorf("not found 'If' in %q", line)
+		}
+		ifN, err := strconv.Atoi(ifStr)
+		if err != nil {
+			return nil, errors.Errorf("invalid ifStr string %q", ifStr)
+		}
+		t.If = ifN
+	}
+
+	// parse class
+	class, ok := ret["class"]
+	if !ok {
+		return nil, errors.Errorf("not found 'Class' in %q", line)
+	}
+	t.Class = class
+
+	// parse driver
+	driver := ret["driver"]
+	t.Driver = driver
+
+	return t, nil
+}
+
+func (t *sLsusbTree) AddNode(child *sLsusbTree) *sLsusbTree {
+	child.Bus = t.Bus
+	child.parentNode = t
+	t.Nodes = append(t.Nodes, child)
+	return t
+}
+
+func (t *sLsusbTree) FindParentByTree(it *sLsusbTree) *sLsusbTree {
+	tl := len(t.LinePrefix)
+	itl := len(it.LinePrefix)
+	if tl == itl {
+		return t.parentNode
+	} else if tl > itl {
+		return t
+	} else {
+		return t.parentNode.FindParentByTree(it)
+	}
+}
+
+func (t *sLsusbTree) GetContents() []string {
+	ret := []string{t.Content}
+	for _, n := range t.Nodes {
+		ret = append(ret, n.GetContents()...)
+	}
+	return ret
+}
+
+func (t *sLsusbTree) GetDevice(devNum int) *sLsusbTree {
+	// should check self firstly
+	if t.Dev == devNum {
+		return t
+	}
+	// then check children
+	for _, node := range t.Nodes {
+		dev := node.GetDevice(devNum)
+		if dev != nil {
+			return dev
+		}
+	}
+	return nil
 }
