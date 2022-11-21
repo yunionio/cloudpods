@@ -169,6 +169,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	if err != nil {
 		return nil, err
 	}
+	vm.host = self
 	return vm, err
 }
 
