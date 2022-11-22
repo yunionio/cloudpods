@@ -1098,6 +1098,11 @@ func (s *SGuestResumeTask) SetGetTaskData(f func() (jsonutils.JSONObject, error)
 }
 
 func (s *SGuestResumeTask) onStartRunning() {
+	if jsonutils.QueryBoolean(s.Desc, "is_volatile_host", false) {
+		s.Desc.Set("is_volatile_host", jsonutils.JSONFalse)
+		s.SaveDesc(s.Desc)
+	}
+
 	s.setCgroupPid()
 	s.removeStatefile()
 	if s.ctx != nil && len(appctx.AppContextTaskId(s.ctx)) > 0 {
