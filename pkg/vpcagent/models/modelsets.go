@@ -46,6 +46,8 @@ type ModelSetsMaxUpdatedAt struct {
 	LoadbalancerNetworks  time.Time
 	LoadbalancerListeners time.Time
 	LoadbalancerAcls      time.Time
+
+	VpcPeers time.Time
 }
 
 func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
@@ -72,6 +74,8 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 		LoadbalancerNetworks:  apihelper.PseudoZeroTime,
 		LoadbalancerListeners: apihelper.PseudoZeroTime,
 		LoadbalancerAcls:      apihelper.PseudoZeroTime,
+
+		VpcPeers: apihelper.PseudoZeroTime,
 	}
 }
 
@@ -99,6 +103,8 @@ type ModelSets struct {
 	LoadbalancerNetworks  LoadbalancerNetworks
 	LoadbalancerListeners LoadbalancerListeners
 	LoadbalancerAcls      LoadbalancerAcls
+
+	VpcPeers VpcPeers
 }
 
 func NewModelSets() *ModelSets {
@@ -126,6 +132,7 @@ func NewModelSets() *ModelSets {
 		LoadbalancerNetworks:  LoadbalancerNetworks{},
 		LoadbalancerListeners: LoadbalancerListeners{},
 		LoadbalancerAcls:      LoadbalancerAcls{},
+		VpcPeers:              VpcPeers{},
 	}
 }
 
@@ -154,6 +161,8 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 		mss.LoadbalancerNetworks,
 		mss.LoadbalancerListeners,
 		mss.LoadbalancerAcls,
+
+		mss.VpcPeers,
 	}
 }
 
@@ -185,6 +194,8 @@ func (mss *ModelSets) copy_() *ModelSets {
 		LoadbalancerNetworks:  mss.LoadbalancerNetworks.Copy().(LoadbalancerNetworks),
 		LoadbalancerListeners: mss.LoadbalancerListeners.Copy().(LoadbalancerListeners),
 		LoadbalancerAcls:      mss.LoadbalancerAcls.Copy().(LoadbalancerAcls),
+
+		VpcPeers: mss.VpcPeers.Copy().(VpcPeers),
 	}
 	return mssCopy
 }

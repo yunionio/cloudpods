@@ -152,6 +152,14 @@ func InitHandlers(app *appsrv.Application) {
 		models.LoadbalancerClusterManager,
 		models.CachedLoadbalancerAclManager,
 		models.CachedLoadbalancerCertificateManager,
+		models.HuaweiCachedLbManager,
+		models.HuaweiCachedLbbgManager,
+		models.AwsCachedLbManager,
+		models.AwsCachedLbbgManager,
+		models.QcloudCachedLbManager,
+		models.QcloudCachedLbbgManager,
+		models.OpenstackCachedLbManager,
+		models.OpenstackCachedLbbgManager,
 		models.RouteTableManager,
 		models.RouteTableAssociationManager,
 		models.RouteTableRouteSetManager,
@@ -195,6 +203,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.DnsTrafficPolicyManager,
 
 		models.VpcPeeringConnectionManager,
+		models.VpcPeerInwardManager,
 		models.InterVpcNetworkManager,
 
 		models.NatSkuManager,

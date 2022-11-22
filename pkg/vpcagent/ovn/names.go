@@ -114,3 +114,16 @@ func vipName(netId string, groupId string, ipaddr string) string {
 func lbpName(lbId string) string {
 	return fmt.Sprintf("iface/lb/%s", lbId)
 }
+
+// vpc peer
+func vpcpeerlswname(connectvpcId string) string {
+	return fmt.Sprintf("peerlsw/%s", connectvpcId)
+}
+
+func vpcpeerlspname(connectvpcId string, portid int32) string {
+	return fmt.Sprintf("peerlsp/%s/%d", connectvpcId, portid)
+}
+
+func vpcpeerportname(localvpcId string, peervpcId string) string {
+	return fmt.Sprintf("peer/%s/%s", localvpcId, peervpcId)
+}

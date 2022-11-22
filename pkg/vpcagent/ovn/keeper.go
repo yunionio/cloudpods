@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/log"
@@ -1115,6 +1116,24 @@ func (keeper *OVNNorthboundKeeper) Sweep(ctx context.Context) error {
 			_, ok := irow.GetExternalId(externalKeyOcVersion)
 			if !ok {
 				irows = append(irows, irow)
+
+				if itbl.OvsdbTableName() == "Logical_Router_Port" {
+					cur_metadata := irow.(*ovn_nb.LogicalRouterPort)
+					if cur_metadata == nil {
+						continue
+					}
+					for _, subnet := range cur_metadata.Networks {
+						desstring := strings.Split(subnet, ".")
+						if desstring[0] == "1" && desstring[1] == "0" && desstring[2] == "0" {
+							tableids := strings.Split(desstring[3], "/")
+							idx, err := strconv.ParseInt(tableids[0], 10, 64)
+							if err == nil {
+								MyPeerTable.PeerIpFree[idx] = true
+								MyPeerTable.peerconnectname[idx] = ""
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -1165,5 +1184,241 @@ func (keeper *OVNNorthboundKeeper) Sweep(ctx context.Context) error {
 			keeper.cli.Must(ctx, "Sweep qos", args)
 		}
 	}
+	return nil
+}
+
+type PeerIpTable struct {
+	PeerIpTableInit bool
+	PeerIpFree      [255]bool /* 1.0.0.idxstart --> 1.0.0.idxend,ee:ee:ee:ee:idxstart:ee --> ee:ee:ee:ee:idxend:ee */
+	peerconnectname [255]string
+	LocalAdder      [255]string
+	LocalMacAdder   [255]string
+	PeerAdder       [255]string
+	PeerMacAdder    [255]string
+}
+
+var MyPeerTable PeerIpTable
+
+func foundCanUseIpMac() int64 {
+
+	var i int64
+	if !MyPeerTable.PeerIpTableInit {
+		for i = 1; i < 255; i++ {
+			MyPeerTable.PeerIpFree[i] = true
+			MyPeerTable.peerconnectname[i] = ""
+		}
+		MyPeerTable.PeerIpTableInit = true
+	}
+
+	for i = 0; i < 255; i++ {
+		if MyPeerTable.PeerIpFree[i] {
+			return i
+		}
+	}
+
+	return 0
+}
+
+func foundSameAddrNode(nodename string) int64 {
+	var i int64
+	for i = 0; i < 255; i++ {
+		if nodename == MyPeerTable.peerconnectname[i] {
+			return i
+		}
+	}
+	return -1
+}
+
+func (keeper *OVNNorthboundKeeper) ClaimVpcPeerConnect(ctx context.Context, vpcpeerct *agentmodels.VpcPeerConnect) error {
+
+	log.Infof("Start create route entry for vpcpeerconnect\n")
+
+	var LocalAdder string
+	var LocalMacAdder string
+	var PeerAdder string
+	var PeerMacAdder string
+
+	var CanUseAdderIdx1 int64
+	var CanUseAdderIdx2 int64
+
+	local_lr_name := vpcLrName(vpcpeerct.VpcLocalId)
+	local_pr_name := vpcLrName(vpcpeerct.VpcPeerId)
+
+	curname := fmt.Sprintf("%s/%s", local_lr_name, local_pr_name)
+	freenode := foundSameAddrNode(curname)
+
+	if freenode >= 0 {
+		LocalAdder = MyPeerTable.LocalAdder[freenode]
+		LocalMacAdder = MyPeerTable.LocalMacAdder[freenode]
+		PeerAdder = MyPeerTable.PeerAdder[freenode]
+		PeerMacAdder = MyPeerTable.PeerMacAdder[freenode]
+	} else {
+		CanUseAdderIdx1 = foundCanUseIpMac()
+		if CanUseAdderIdx1 == 0 {
+			log.Infof("No found ip addr for CanUseAdderIdx1\n")
+			return nil
+		}
+		MyPeerTable.PeerIpFree[CanUseAdderIdx1] = false
+		CanUseAdderIdx2 = foundCanUseIpMac()
+		if CanUseAdderIdx2 == 0 {
+			log.Infof("No found ip addr for CanUseAdderIdx2\n")
+			return nil
+		}
+		MyPeerTable.PeerIpFree[CanUseAdderIdx2] = false
+
+		LocalAdder = fmt.Sprintf("1.0.0.%d", CanUseAdderIdx1)
+		LocalMacAdder = fmt.Sprintf("ee:ee:ee:ee:%x:ee", CanUseAdderIdx1)
+		PeerAdder = fmt.Sprintf("1.0.0.%d", CanUseAdderIdx2)
+		PeerMacAdder = fmt.Sprintf("ee:ee:ee:ee:%x:ee", CanUseAdderIdx2)
+	}
+
+	irows := []types.IRow{}
+	/* local router <--sw1--> vpc peer connect router <--sw2-->  peer router */
+	RtoLocalSw := &ovn_nb.LogicalSwitch{
+		Name: vpcpeerlswname(vpcpeerct.VpcLocalId),
+	}
+
+	RtoLocalSwPort := &ovn_nb.LogicalSwitchPort{
+		Name:      vpcpeerlspname(vpcpeerct.VpcLocalId, 1),
+		Type:      "router",
+		Addresses: []string{"router"},
+		Options: map[string]string{
+			"router-port": vpcpeerportname(vpcpeerct.VpcLocalId, vpcpeerct.VpcPeerId),
+		},
+	}
+
+	LocaltoRSwPort := &ovn_nb.LogicalSwitchPort{
+		Name:      vpcpeerlspname(vpcpeerct.VpcLocalId, 2),
+		Type:      "router",
+		Addresses: []string{"router"},
+		Options: map[string]string{
+			"router-port": vpcpeerportname(vpcpeerct.VpcPeerId, vpcpeerct.VpcLocalId),
+		},
+	}
+
+	LocalRP := &ovn_nb.LogicalRouterPort{
+		Name:     vpcpeerportname(vpcpeerct.VpcLocalId, vpcpeerct.VpcPeerId), // "peer/vpc_Id/Peer_VpcPeer_Id"
+		Mac:      LocalMacAdder,                                              // "ee:ee:ee:ee:CanUseAdderIdx:ee"
+		Networks: []string{fmt.Sprintf("%s/%d", LocalAdder, 24)},
+	}
+
+	PeerRP := &ovn_nb.LogicalRouterPort{
+		Name:     vpcpeerportname(vpcpeerct.VpcPeerId, vpcpeerct.VpcLocalId), // "peer/vpc_Id/Peer_VpcPeer_Id"
+		Mac:      PeerMacAdder,                                               // "ee:ee:ee:ee:CanUseAdderIdx:ee"
+		Networks: []string{fmt.Sprintf("%s/%d", PeerAdder, 24)},
+	}
+
+	var (
+		LocalVpcRoute []*ovn_nb.LogicalRouterStaticRoute
+		PeerVpcRoute  []*ovn_nb.LogicalRouterStaticRoute
+	)
+
+	/* parse route entry */
+	log.Infof("iNPUT LocalVpcRouteentry == %s\n", vpcpeerct.LocalVpcNetwork)
+	LocalVpcRouteentry := strings.Split(vpcpeerct.LocalVpcNetwork, ",")
+	log.Infof("iNPUT LocalVpcRouteentry AFTER Split == %s\n", LocalVpcRouteentry)
+
+	for _, routeentry1 := range LocalVpcRouteentry {
+		log.Infof("Create a route for vpc agent routeentry1 %s\n", routeentry1)
+		PeerVpcRoute_t := &ovn_nb.LogicalRouterStaticRoute{
+			Policy:     ptr("dst-ip"),
+			IpPrefix:   routeentry1,
+			Nexthop:    LocalAdder,
+			OutputPort: ptr(PeerRP.Name),
+		}
+		LocalVpcRoute = append(PeerVpcRoute, PeerVpcRoute_t)
+	}
+
+	log.Infof("iNPUT PeerVpcNetwork == %s\n", vpcpeerct.PeerVpcNetwork)
+	PeerVpcRouteentry := strings.Split(vpcpeerct.PeerVpcNetwork, ",")
+	log.Infof("iNPUT PeerVpcNetwork AFTER Split == %s\n", PeerVpcRouteentry)
+	for _, routeentry2 := range PeerVpcRouteentry {
+		log.Infof("Create a route for vpc agent routeentry2 %s\n", routeentry2)
+		LocalVpcRoute_t := &ovn_nb.LogicalRouterStaticRoute{
+			Policy:     ptr("dst-ip"),
+			IpPrefix:   routeentry2,
+			Nexthop:    PeerAdder,
+			OutputPort: ptr(LocalRP.Name),
+		}
+		LocalVpcRoute = append(LocalVpcRoute, LocalVpcRoute_t)
+	}
+
+	irows = append(irows,
+		RtoLocalSw,
+		RtoLocalSwPort,
+		LocaltoRSwPort,
+		LocalRP,
+		PeerRP,
+	)
+
+	for i, route_entry1 := range LocalVpcRoute {
+		log.Infof("Create a route LocalVpcRoute  %d\n", i)
+		irows = append(irows, route_entry1)
+	}
+
+	for i, route_entry2 := range PeerVpcRoute {
+		log.Infof("Create a route PeerVpcRoute   %d\n", i)
+		irows = append(irows, route_entry2)
+	}
+
+	var args []string
+	var allFound bool
+	ocVersion := fmt.Sprintf("%s.%d", vpcpeerct.UpdatedAt, vpcpeerct.UpdateVersion)
+	log.Infof("vpcpeerconnect ocVersion == %s\n", ocVersion)
+	allFound, args = cmp(&keeper.DB, ocVersion, irows...)
+	if allFound {
+		log.Infof("vpcpeerconnect args allFound!!!!!!!!!!!!\n")
+		return nil
+	}
+
+	args = append(args, ovnCreateArgs(RtoLocalSw, RtoLocalSw.Name)...)
+	args = append(args, ovnCreateArgs(RtoLocalSwPort, RtoLocalSwPort.Name)...)
+	args = append(args, ovnCreateArgs(LocaltoRSwPort, LocaltoRSwPort.Name)...)
+
+	args = append(args, ovnCreateArgs(LocalRP, LocalRP.Name)...)
+	args = append(args, ovnCreateArgs(PeerRP, PeerRP.Name)...)
+
+	for i, route_entry1 := range LocalVpcRoute {
+		ref := fmt.Sprintf("LocalVpcRoute_%s_%d", vpcpeerct.VpcLocalId, i)
+		args = append(args, ovnCreateArgs(route_entry1, ref)...)
+		args = append(args, "--", "add", "Logical_Router", local_lr_name, "static_routes", "@"+ref)
+	}
+	for i, route_entry1 := range PeerVpcRoute {
+		ref := fmt.Sprintf("PeerVpcRoutee_%s_%d", vpcpeerct.PeerVpcNetwork, i)
+		args = append(args, ovnCreateArgs(route_entry1, ref)...)
+		args = append(args, "--", "add", "Logical_Router", local_pr_name, "static_routes", "@"+ref)
+	}
+
+	args = append(args, "--", "add", "Logical_Router", local_lr_name, "ports", "@"+LocalRP.Name)
+	args = append(args, "--", "add", "Logical_Router", local_pr_name, "ports", "@"+PeerRP.Name)
+
+	args = append(args, "--", "add", "Logical_Switch", RtoLocalSw.Name, "ports", "@"+RtoLocalSwPort.Name)
+	args = append(args, "--", "add", "Logical_Switch", RtoLocalSw.Name, "ports", "@"+LocaltoRSwPort.Name)
+
+	log.Infof("ClaimVpcPeerConnect test arg %s\n", args)
+
+	if len(args) > 0 {
+		log.Infof("ClaimVpcPeerConnect starting\n")
+		err_must := keeper.cli.Must(ctx, "ClaimVpcPeerConnect", args)
+		if err_must.Err == nil {
+			log.Infof("ClaimVpcPeerConnect start successful\n")
+			MyPeerTable.peerconnectname[CanUseAdderIdx1] = curname
+			MyPeerTable.LocalAdder[CanUseAdderIdx1] = LocalAdder
+			MyPeerTable.LocalMacAdder[CanUseAdderIdx1] = LocalMacAdder
+			MyPeerTable.PeerAdder[CanUseAdderIdx1] = PeerAdder
+			MyPeerTable.PeerMacAdder[CanUseAdderIdx1] = PeerMacAdder
+
+			MyPeerTable.peerconnectname[CanUseAdderIdx2] = curname
+			MyPeerTable.LocalAdder[CanUseAdderIdx2] = LocalAdder
+			MyPeerTable.LocalMacAdder[CanUseAdderIdx2] = LocalMacAdder
+			MyPeerTable.PeerAdder[CanUseAdderIdx2] = PeerAdder
+			MyPeerTable.PeerMacAdder[CanUseAdderIdx2] = PeerMacAdder
+
+		} else {
+			MyPeerTable.PeerIpFree[CanUseAdderIdx1] = true
+			MyPeerTable.PeerIpFree[CanUseAdderIdx2] = true
+		}
+	}
+
 	return nil
 }

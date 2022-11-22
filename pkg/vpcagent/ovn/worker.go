@@ -182,6 +182,16 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 		}
 		ovndb.ClaimVpcGuestDnsRecords(ctx, vpc)
 	}
+
+	for _, vpcpeer := range mss.VpcPeers {
+		//log.Infof("Found a new VpcPeers node!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
+		//log.Infof("Found data VpcPeerId == %s\n", vpcpeer.VpcPeerId)
+		//log.Infof("Found data VpcLocalId == %s\n", vpcpeer.VpcLocalId)
+		//log.Infof("Found data PeerVpcNetwork == %s\n", vpcpeer.PeerVpcNetwork)
+		//log.Infof("Found data LocalVpcNetwork == %s\n", vpcpeer.LocalVpcNetwork)
+		ovndb.ClaimVpcPeerConnect(ctx, vpcpeer)
+	}
+
 	ovndb.ClaimDnsRecords(ctx, mss.Vpcs, mss.DnsRecords)
 	ovndb.Sweep(ctx)
 	return nil
