@@ -47,6 +47,7 @@ type ModelartsPoolCreateOption struct {
 	WorkType     string `help:"Work Type"`
 	CpuArch      string `help:"Cpu Arch"`
 	NodeCount    int    `help:"Node Count"`
+	Cidr         string `help:"Network Cidr"`
 
 	CloudregionId string `help:"Cloud Region ID"`
 }

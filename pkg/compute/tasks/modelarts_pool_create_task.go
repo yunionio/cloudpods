@@ -58,6 +58,7 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 		InstanceType: pool.InstanceType,
 		WorkType:     pool.WorkType,
 		NodeCount:    pool.NodeCount,
+		Cidr:         pool.Cidr,
 	}
 
 	ipool, err := iRegion.CreateIModelartsPool(opts)
@@ -72,7 +73,7 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 	}
 
 	// withDelay
-	time.Sleep(30 * time.Second)
+	time.Sleep(2 * time.Minute)
 	err = cloudprovider.WaitMultiStatus(ipool, []string{api.MODELARTS_POOL_STATUS_RUNNING, api.MODELARTS_POOL_STATUS_CREATE_FAILED}, 15*time.Second, 2*time.Hour)
 	if err != nil {
 		pool.SetStatus(self.UserCred, api.MODELARTS_POOL_STATUS_TIMEOUT, err.Error())

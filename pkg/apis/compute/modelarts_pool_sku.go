@@ -36,5 +36,6 @@ type ModelartsPoolSkuListInput struct {
 	apis.ExternalizedResourceBaseListInput
 
 	RegionalFilterListInput
-	ManagedResourceListInput
+	ProcessorType string
+	CpuArch       string
 }
