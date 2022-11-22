@@ -552,7 +552,11 @@ func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoa
 }
 
 func (self *SElbListener) Delete(ctx context.Context) error {
-	return self.lb.region.lbDelete("lbaas/listeners/" + self.GetId())
+	return self.lb.region.DeleteElbListener(self.Id)
+}
+
+func (self *SRegion) DeleteElbListener(id string) error {
+	return self.lbDelete("lbaas/listeners/" + id)
 }
 
 func (self *SRegion) UpdateLoadBalancerListener(listenerId string, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {

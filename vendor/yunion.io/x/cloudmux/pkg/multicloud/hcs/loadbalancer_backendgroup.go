@@ -195,7 +195,7 @@ func (self *SElbBackendGroup) GetStatus() string {
 }
 
 func (self *SElbBackendGroup) Refresh() error {
-	ret, err := self.lb.region.GetLoadBalancerBackendGroupId(self.GetId())
+	ret, err := self.lb.region.GetLoadBalancerBackendGroup(self.GetId())
 	if err != nil {
 		return err
 	}
@@ -339,88 +339,13 @@ func (self *SElbBackendGroup) Delete(ctx context.Context) error {
 }
 
 func (self *SElbBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
-	if group == nil {
-		return nil
-	}
-
-	_, err := self.region.UpdateLoadBalancerBackendGroup(self.GetId(), group)
-	return err
+	return nil
 }
 
-func (self *SRegion) GetLoadBalancerBackendGroupId(backendGroupId string) (*SElbBackendGroup, error) {
+func (self *SRegion) GetLoadBalancerBackendGroup(backendGroupId string) (*SElbBackendGroup, error) {
 	ret := &SElbBackendGroup{region: self}
 	res := fmt.Sprintf("lbaas/pools/" + backendGroupId)
 	return ret, self.lbGet(res, ret)
-}
-
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561550.html
-func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupId string, group *cloudprovider.SLoadbalancerBackendGroup) (*SElbBackendGroup, error) {
-	params := map[string]interface{}{
-		"name": group.Name,
-	}
-	var scheduler string
-	if s, ok := LB_ALGORITHM_MAP[group.Scheduler]; !ok {
-		return nil, fmt.Errorf("UpdateLoadBalancerBackendGroup unsupported scheduler %s", group.Scheduler)
-	} else {
-		scheduler = s
-	}
-	params["lb_algorithm"] = scheduler
-
-	if group.StickySession == nil || group.StickySession.StickySession == api.LB_BOOL_OFF {
-		params["session_persistence"] = jsonutils.JSONNull
-	} else {
-		s := map[string]interface{}{}
-		timeout := int64(group.StickySession.StickySessionCookieTimeout / 60)
-		if group.ListenType == api.LB_LISTENER_TYPE_UDP || group.ListenType == api.LB_LISTENER_TYPE_TCP {
-			s["type"] = "SOURCE_IP"
-			if timeout > 0 {
-				s["persistence_timeout"] = timeout
-			}
-		} else {
-			s["type"] = LB_STICKY_SESSION_MAP[group.StickySession.StickySessionType]
-			if len(group.StickySession.StickySessionCookie) > 0 {
-				s["cookie_name"] = group.StickySession.StickySessionCookie
-			} else {
-				if timeout > 0 {
-					s["persistence_timeout"] = timeout
-				}
-			}
-		}
-		params["session_persistence"] = s
-	}
-	err := self.lbUpdate("lbaas/pools/"+backendGroupId, map[string]interface{}{"pool": params})
-	if err != nil {
-		return nil, err
-	}
-
-	ret, err := self.GetLoadBalancerBackendGroupId(backendGroupId)
-	if err != nil {
-		return nil, err
-	}
-
-	if group.HealthCheck == nil && len(ret.HealthMonitorId) > 0 {
-		err := self.DeleteLoadbalancerHealthCheck(ret.HealthMonitorId)
-		if err != nil {
-			return ret, errors.Wrap(err, "DeleteLoadbalancerHealthCheck")
-		}
-	}
-
-	if group.HealthCheck != nil {
-		if len(ret.HealthMonitorId) == 0 {
-			_, err := self.CreateLoadBalancerHealthCheck(ret.GetId(), group.HealthCheck)
-			if err != nil {
-				return ret, errors.Wrap(err, "CreateLoadBalancerHealthCheck")
-			}
-		} else {
-			_, err := self.UpdateLoadBalancerHealthCheck(ret.HealthMonitorId, group.HealthCheck)
-			if err != nil {
-				return ret, errors.Wrap(err, "UpdateLoadBalancerHealthCheck")
-			}
-		}
-	}
-
-	ret.region = self
-	return ret, nil
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561551.html

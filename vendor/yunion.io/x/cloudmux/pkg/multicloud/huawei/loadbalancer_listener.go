@@ -555,7 +555,11 @@ func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoa
 }
 
 func (self *SElbListener) Delete(ctx context.Context) error {
-	_, err := self.lb.region.lbDelete("elb/listeners/" + self.GetId())
+	return self.lb.region.DeleteElbListener(self.ID)
+}
+
+func (self *SRegion) DeleteElbListener(id string) error {
+	_, err := self.lbDelete("elb/listeners/" + id)
 	return err
 }
 

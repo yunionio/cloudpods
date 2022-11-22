@@ -227,7 +227,7 @@ func (self *SElbBackendGroup) Delete(ctx context.Context) error {
 }
 
 func (self *SElbBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
-	return self.region.SyncELbBackendGroup(self.GetId(), group)
+	return nil
 }
 
 func (self *SRegion) GetELbBackends(backendgroupId string) ([]SElbBackend, error) {
@@ -375,21 +375,6 @@ func (self *SRegion) DeleteElbBackendGroup(backendgroupId string) error {
 	}
 
 	return nil
-}
-
-func (self *SRegion) SyncELbBackendGroup(backendgroupId string, group *cloudprovider.SLoadbalancerBackendGroup) error {
-	err := self.modifyELbBackendGroup(backendgroupId, group.HealthCheck)
-	if err != nil {
-		return errors.Wrap(err, "modifyELbBackendGroup")
-	}
-
-	err = self.RemoveElbBackends(backendgroupId)
-	if err != nil {
-		log.Errorf("RemoveElbBackends %s: %s", backendgroupId, err)
-		return errors.Wrap(err, "RemoveElbBackends")
-	}
-
-	return self.AddElbBackends(backendgroupId, group.Backends)
 }
 
 func (self *SRegion) modifyELbBackendGroup(backendgroupId string, healthCheck *cloudprovider.SLoadbalancerHealthCheck) error {

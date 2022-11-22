@@ -320,27 +320,18 @@ func (region *SRegion) GetLoadbalancerPoolById(poolId string) (*SLoadbalancerPoo
 	return &pool, nil
 }
 
-func (region *SRegion) CreateLoadbalancerPool(group *cloudprovider.SLoadbalancerBackendGroup) (*SLoadbalancerPool, error) {
+func (region *SRegion) CreateLoadbalancerPool(lbId string, opts *cloudprovider.SLoadbalancerBackendGroup) (*SLoadbalancerPool, error) {
 	type CreateParams struct {
 		Pool SLoadbalancerPoolCreateParams `json:"pool"`
 	}
 	params := CreateParams{}
 	params.Pool.AdminStateUp = true
-	params.Pool.LbAlgorithm = LB_ALGORITHM_MAP[group.Scheduler]
-	params.Pool.Name = group.Name
-	params.Pool.LoadbalancerID = group.LoadbalancerID
+	params.Pool.LbAlgorithm = opts.Scheduler
+	params.Pool.Name = opts.Name
+	params.Pool.LoadbalancerID = lbId
 	// 绑定规则时不能指定listener
-	params.Pool.ListenerID = group.ListenerID
-	params.Pool.Protocol = LB_PROTOCOL_MAP[group.ListenType]
+	params.Pool.Protocol = opts.Protocol
 	params.Pool.SessionPersistence = nil
-	if group.StickySession != nil {
-		session := SSessionPersistence{}
-		session.Type = LB_STICKY_SESSION_MAP[group.StickySession.StickySessionType]
-		if session.Type == "APP_COOKIE" {
-			session.CookieName = group.StickySession.StickySessionCookie
-		}
-		params.Pool.SessionPersistence = &session
-	}
 	body, err := region.lbPost("/v2/lbaas/pools", jsonutils.Marshal(params))
 	if err != nil {
 		return nil, errors.Wrap(err, "region.lbPost(/v2/lbaas/pools)")
@@ -403,123 +394,7 @@ func (pool *SLoadbalancerPool) GetILoadbalancerBackendById(memberId string) (clo
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetILoadbalancerBackendById(%s)", memberId)
 }
 
-func (region *SRegion) UpdateLoadBalancerPool(poolId string, group *cloudprovider.SLoadbalancerBackendGroup) error {
-	type UpdateParams struct {
-		Pool SLoadbalancerPoolUpdateParams `json:"pool"`
-	}
-	params := UpdateParams{}
-	params.Pool.AdminStateUp = true
-	params.Pool.LbAlgorithm = LB_ALGORITHM_MAP[group.Scheduler]
-	params.Pool.Name = group.Name
-	if group.StickySession != nil {
-		session := SSessionPersistence{}
-		session.Type = LB_STICKY_SESSION_MAP[group.StickySession.StickySessionType]
-		if session.Type == "APP_COOKIE" {
-			session.CookieName = group.StickySession.StickySessionCookie
-		}
-		params.Pool.SessionPersistence = &session
-	}
-	_, err := region.lbUpdate(fmt.Sprintf("/v2/lbaas/pools/%s", poolId), jsonutils.Marshal(params))
-	if err != nil {
-		return errors.Wrapf(err, `region.lbUpdate("/v2/lbaas/pools/%s", jsonutils.Marshal(params))`, poolId)
-	}
-	return nil
-}
-
-func (pool *SLoadbalancerPool) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
-	lb, err := pool.region.GetLoadbalancerbyId(pool.GetLoadbalancerId())
-	if err != nil {
-		return errors.Wrap(err, "pool.region.GetLoadbalancerbyId(pool.GetLoadbalancerId())")
-	}
-	// ensure loadbalancer status
-	err = waitLbResStatus(lb, 10*time.Second, 8*time.Minute)
-	if err != nil {
-		return errors.Wrap(err, `waitLbResStatus(lb, 10*time.Second, 8*time.Minute)`)
-	}
-	// ensure pool status
-	err = waitLbResStatus(pool, 10*time.Second, 8*time.Minute)
-	if err != nil {
-		return errors.Wrap(err, `waitLbResStatus(pool, 10*time.Second, 8*time.Minute)`)
-	}
-	// sync healthmonitor
-	healthmonitor := SLoadbalancerHealthmonitor{}
-	if len(pool.HealthmonitorID) > 0 {
-		oldhealthmonitor, err := pool.region.GetLoadbalancerHealthmonitorById(pool.HealthmonitorID)
-		if err != nil {
-			return errors.Wrap(err, "pool.region.GetLoadbalancerHealthmonitorById(pool.HealthmonitorID)")
-		}
-		// 不能更新健康检查类型，需要删除重建
-		var sHealthCheckType string
-		switch oldhealthmonitor.Type {
-		case "HTTP":
-			sHealthCheckType = api.LB_HEALTH_CHECK_HTTP
-		case "HTTPS":
-			sHealthCheckType = api.LB_HEALTH_CHECK_HTTPS
-		case "TCP":
-			sHealthCheckType = api.LB_HEALTH_CHECK_TCP
-		case "UDP-CONNECT":
-			sHealthCheckType = api.LB_HEALTH_CHECK_UDP
-		default:
-			sHealthCheckType = ""
-		}
-
-		if sHealthCheckType != group.HealthCheck.HealthCheckType {
-			err := pool.region.DeleteLoadbalancerHealthmonitor(pool.HealthmonitorID)
-			if err != nil {
-				return errors.Wrapf(err, "pool.region.DeleteLoadbalancerHealthmonitor(%s)", pool.HealthmonitorID)
-			}
-			// 等待删除结束
-			err = waitLbResStatus(lb, 10*time.Second, 8*time.Minute)
-			if err != nil {
-				return errors.Wrap(err, `waitLbResStatus(lb, 10*time.Second, 8*time.Minute)`)
-			}
-
-			newhealthmonitor, err := pool.region.CreateLoadbalancerHealthmonitor(pool.ID, group.HealthCheck)
-			if err != nil {
-				return errors.Wrapf(err, "pool.region.CreateLoadbalancerHealthmonitor(%s,group.HealthCheck)", pool.ID)
-			}
-			healthmonitor = *newhealthmonitor
-		} else {
-			// ensure healthmonitor status
-			err = waitLbResStatus(oldhealthmonitor, 10*time.Second, 8*time.Minute)
-			if err != nil {
-				return errors.Wrap(err, `waitLbResStatus(oldhealthmonitor, 10*time.Second, 8*time.Minute)`)
-			}
-			oldhealthmonitor, err = pool.region.UpdateLoadbalancerHealthmonitor(pool.HealthmonitorID, group.HealthCheck)
-			if err != nil {
-				return errors.Wrapf(err, `pool.region.UpdateLoadbalancerHealthmonitor(%s, group.HealthCheck)`, pool.HealthmonitorID)
-			}
-			healthmonitor = *oldhealthmonitor
-		}
-	} else {
-		newhealthmonitor, err := pool.region.CreateLoadbalancerHealthmonitor(pool.ID, group.HealthCheck)
-		if err != nil {
-			return errors.Wrapf(err, "pool.region.CreateLoadbalancerHealthmonitor(%s, group.HealthCheck)", pool.ID)
-		}
-		healthmonitor = *newhealthmonitor
-	}
-
-	// ensure pool status
-	err = waitLbResStatus(pool, 10*time.Second, 8*time.Minute)
-	if err != nil {
-		return errors.Wrap(err, `waitLbResStatus(pool, 10*time.Second, 8*time.Minute)`)
-	}
-	// sync pool
-	err = pool.region.UpdateLoadBalancerPool(pool.ID, group)
-	if err != nil {
-		return errors.Wrapf(err, `pool.region.UpdateLoadBalancerPool(%s, group)`, pool.ID)
-	}
-
-	// wait healthmonitor status
-	err = waitLbResStatus(&healthmonitor, 10*time.Second, 8*time.Minute)
-	if err != nil {
-		return errors.Wrap(err, `waitLbResStatus(&healthmonitor, 10*time.Second, 8*time.Minute)`)
-	}
-	// wait pool status
-	err = waitLbResStatus(pool, 10*time.Second, 8*time.Minute)
-	if err != nil {
-		return errors.Wrap(err, `waitLbResStatus(pool,  10*time.Second, 8*time.Minute)`)
-	}
+func (pool *SLoadbalancerPool) Sync(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
 	return nil
 }
 

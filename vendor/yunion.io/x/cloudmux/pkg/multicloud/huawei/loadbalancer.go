@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -33,13 +34,6 @@ var LB_ALGORITHM_MAP = map[string]string{
 	api.LB_SCHEDULER_WRR: "ROUND_ROBIN",
 	api.LB_SCHEDULER_WLC: "LEAST_CONNECTIONS",
 	api.LB_SCHEDULER_SCH: "SOURCE_IP",
-}
-
-var LB_PROTOCOL_MAP = map[string]string{
-	api.LB_LISTENER_TYPE_HTTP:  "HTTP",
-	api.LB_LISTENER_TYPE_HTTPS: "TERMINATED_HTTPS",
-	api.LB_LISTENER_TYPE_UDP:   "UDP",
-	api.LB_LISTENER_TYPE_TCP:   "TCP",
 }
 
 var LBBG_PROTOCOL_MAP = map[string]string{
@@ -69,28 +63,28 @@ type SLoadbalancer struct {
 
 	Description        string     `json:"description"`
 	ProvisioningStatus string     `json:"provisioning_status"`
-	TenantID           string     `json:"tenant_id"`
-	ProjectID          string     `json:"project_id"`
+	TenantId           string     `json:"tenant_id"`
+	ProjectId          string     `json:"project_id"`
 	AdminStateUp       bool       `json:"admin_state_up"`
 	Provider           string     `json:"provider"`
 	Pools              []Pool     `json:"pools"`
 	Listeners          []Listener `json:"listeners"`
-	VipPortID          string     `json:"vip_port_id"`
+	VipPortId          string     `json:"vip_port_id"`
 	OperatingStatus    string     `json:"operating_status"`
 	VipAddress         string     `json:"vip_address"`
-	VipSubnetID        string     `json:"vip_subnet_id"`
-	ID                 string     `json:"id"`
+	VipSubnetId        string     `json:"vip_subnet_id"`
+	Id                 string     `json:"id"`
 	Name               string     `json:"name"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 type Listener struct {
-	ID string `json:"id"`
+	Id string `json:"id"`
 }
 
 type Pool struct {
-	ID string `json:"id"`
+	Id string `json:"id"`
 }
 
 func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
@@ -102,7 +96,7 @@ func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
 }
 
 func (self *SLoadbalancer) GetId() string {
-	return self.ID
+	return self.Id
 }
 
 func (self *SLoadbalancer) GetName() string {
@@ -110,7 +104,7 @@ func (self *SLoadbalancer) GetName() string {
 }
 
 func (self *SLoadbalancer) GetGlobalId() string {
-	return self.ID
+	return self.Id
 }
 
 func (self *SLoadbalancer) GetStatus() string {
@@ -131,7 +125,7 @@ func (self *SLoadbalancer) IsEmulated() bool {
 }
 
 func (self *SLoadbalancer) GetProjectId() string {
-	return self.ProjectID
+	return self.ProjectId
 }
 
 func (self *SLoadbalancer) GetAddress() string {
@@ -158,7 +152,7 @@ func (self *SLoadbalancer) GetNetworkIds() []string {
 
 func (self *SLoadbalancer) GetNetwork() *SNetwork {
 	if self.subnet == nil {
-		port, err := self.region.GetPort(self.VipPortID)
+		port, err := self.region.GetPort(self.VipPortId)
 		if err == nil {
 			net, err := self.region.getNetwork(port.NetworkID)
 			if err == nil {
@@ -176,7 +170,7 @@ func (self *SLoadbalancer) GetNetwork() *SNetwork {
 
 func (self *SLoadbalancer) GetEip() *SEipAddress {
 	if self.eip == nil {
-		eips, _ := self.region.GetEips(self.VipPortID, nil)
+		eips, _ := self.region.GetEips(self.VipPortId, nil)
 		for i := range eips {
 			self.eip = &eips[i]
 		}
@@ -236,6 +230,38 @@ func (self *SLoadbalancer) GetEgressMbps() int {
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0141008275.html
 func (self *SLoadbalancer) Delete(ctx context.Context) error {
+	for _, res := range self.Pools {
+		backends, err := self.region.getLoadBalancerBackends(res.Id)
+		if err != nil {
+			return errors.Wrapf(err, "get backend group %s backends", res.Id)
+		}
+		for _, backend := range backends {
+			err := self.region.RemoveLoadBalancerBackend(res.Id, backend.ID)
+			if err != nil {
+				return errors.Wrapf(err, "RemoveLoadBalancerBackend")
+			}
+		}
+		pool, err := self.region.GetLoadBalancerBackendGroup(res.Id)
+		if err != nil {
+			return errors.Wrapf(err, "GetLoadBalancerBackendGroup")
+		}
+		if len(pool.HealthMonitorID) > 0 {
+			err = self.region.DeleteLoadbalancerHealthCheck(pool.HealthMonitorID)
+			if err != nil {
+				return errors.Wrapf(err, "delete health check")
+			}
+		}
+		err = self.region.DeleteLoadBalancerBackendGroup(res.Id)
+		if err != nil {
+			return errors.Wrapf(err, "delete backend group %s", res.Id)
+		}
+	}
+	for _, lis := range self.Listeners {
+		err := self.region.DeleteElbListener(lis.Id)
+		if err != nil {
+			return errors.Wrapf(err, "delete listener %s", lis.Id)
+		}
+	}
 	return self.region.DeleteLoadBalancer(self.GetId())
 }
 
@@ -281,10 +307,13 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561549.html
-func (self *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SLoadbalancerBackendGroup) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	ret, err := self.region.CreateLoadBalancerBackendGroup(group)
+func (self *SLoadbalancer) CreateILoadBalancerBackendGroup(opts *cloudprovider.SLoadbalancerBackendGroup) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	ret, err := self.region.CreateLoadBalancerBackendGroup(self.Id, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateLoadBalancerBackendGroup")
+	}
 	ret.lb = self
-	return &ret, err
+	return ret, err
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561563.html
@@ -304,13 +333,12 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 }
 
 func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
-	ret, err := self.region.CreateLoadBalancerListener(listener, self.ID)
+	ret, err := self.region.CreateLoadBalancerListener(listener, self.Id)
 	if err != nil {
 		return nil, err
 	}
-
 	ret.lb = self
-	return &ret, nil
+	return ret, nil
 }
 
 func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {
@@ -346,14 +374,21 @@ func (self *SRegion) GetLoadBalancerListeners(lbId string) ([]SElbListener, erro
 	return ret, self.lbListAll("elb/listeners", params, "listeners", &ret)
 }
 
-func (self *SRegion) CreateLoadBalancerListener(listener *cloudprovider.SLoadbalancerListenerCreateOptions, lbId string) (SElbListener, error) {
+func (self *SRegion) CreateLoadBalancerListener(listener *cloudprovider.SLoadbalancerListenerCreateOptions, lbId string) (*SElbListener, error) {
 	params := map[string]interface{}{
 		"name":            listener.Name,
 		"description":     listener.Description,
-		"protocol":        LB_PROTOCOL_MAP[listener.ListenerType],
 		"protocol_port":   listener.ListenerPort,
 		"loadbalancer_id": lbId,
 		"http2_enable":    listener.EnableHTTP2,
+	}
+	switch listener.ListenerType {
+	case api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP, api.LB_LISTENER_TYPE_HTTP:
+		params["protocol"] = strings.ToUpper(listener.ListenerType)
+	case api.LB_LISTENER_TYPE_HTTPS:
+		params["protocol"] = "TERMINATED_HTTPS"
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "protocol %s", listener.ListenerType)
 	}
 	if len(listener.BackendGroupId) > 0 {
 		params["default_pool_id"] = listener.BackendGroupId
@@ -369,10 +404,10 @@ func (self *SRegion) CreateLoadBalancerListener(listener *cloudprovider.SLoadbal
 		}
 	}
 
-	ret := SElbListener{}
-	resp, err := self.lbCreate("lb/listeners", map[string]interface{}{"listener": params})
+	ret := &SElbListener{}
+	resp, err := self.lbCreate("elb/listeners", map[string]interface{}{"listener": params})
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
 	return ret, resp.Unmarshal(&ret, "listener")
 }
@@ -388,81 +423,47 @@ func (self *SRegion) GetLoadBalancerBackendGroups(elbId string) ([]SElbBackendGr
 	return ret, self.lbListAll("elb/pools", query, "pools", &ret)
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561547.html
-func (self *SRegion) CreateLoadBalancerBackendGroup(group *cloudprovider.SLoadbalancerBackendGroup) (SElbBackendGroup, error) {
-	ret := SElbBackendGroup{region: self}
-	var protocol, scheduler string
-	if s, ok := LB_ALGORITHM_MAP[group.Scheduler]; !ok {
-		return ret, fmt.Errorf("CreateILoadBalancerBackendGroup unsupported scheduler %s", group.Scheduler)
-	} else {
-		scheduler = s
-	}
-
-	if t, ok := LBBG_PROTOCOL_MAP[group.ListenType]; !ok {
-		return ret, fmt.Errorf("CreateILoadBalancerBackendGroup unsupported listener type %s", group.ListenType)
-	} else {
-		protocol = t
-	}
-
+func (self *SRegion) CreateLoadBalancerBackendGroup(lbId string, opts *cloudprovider.SLoadbalancerBackendGroup) (*SElbBackendGroup, error) {
 	params := map[string]interface{}{
-		"project_id":   self.client.projectId,
-		"name":         group.Name,
-		"protocol":     protocol,
-		"lb_algorithm": scheduler,
+		"name":            opts.Name,
+		"loadbalancer_id": lbId,
+	}
+	switch opts.Scheduler {
+	case api.LB_SCHEDULER_WRR:
+		params["lb_algorithm"] = "ROUND_ROBIN"
+	case api.LB_SCHEDULER_WLC:
+		params["lb_algorithm"] = "LEAST_CONNECTIONS"
+	case api.LB_SCHEDULER_SCH:
+		params["lb_algorithm"] = "SOURCE_IP"
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "invalid scheduler %s", opts.Scheduler)
+	}
+	switch opts.Protocol {
+	case api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP:
+		params["protocol"] = strings.ToUpper(opts.Protocol)
+	case api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS:
+		params["protocol"] = "HTTP"
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "invalid protocol %s", opts.Protocol)
 	}
 
-	if len(group.ListenerID) > 0 {
-		params["listener_id"] = group.ListenerID
-	} else if len(group.LoadbalancerID) > 0 {
-		params["loadbalancer_id"] = group.LoadbalancerID
-	} else {
-		return ret, fmt.Errorf("CreateLoadBalancerBackendGroup one of listener id / loadbalancer id must be specified")
-	}
-
-	if group.StickySession != nil {
-		s := map[string]interface{}{}
-		timeout := int64(group.StickySession.StickySessionCookieTimeout / 60)
-		if group.ListenType == api.LB_LISTENER_TYPE_UDP || group.ListenType == api.LB_LISTENER_TYPE_TCP {
-			s["type"] = "SOURCE_IP"
-			if timeout > 0 {
-				s["persistence_timeout"] = timeout
-			}
-		} else {
-			s["type"] = LB_STICKY_SESSION_MAP[group.StickySession.StickySessionType]
-			if len(group.StickySession.StickySessionCookie) > 0 {
-				s["cookie_name"] = group.StickySession.StickySessionCookie
-			} else {
-				if timeout > 0 {
-					s["persistence_timeout"] = timeout
-				}
-			}
-		}
-		params["session_persistence"] = s
-	}
 	resp, err := self.lbCreate("elb/pools", map[string]interface{}{"pool": params})
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
-	err = resp.Unmarshal(&ret, "pool")
+	ret := &SElbBackendGroup{region: self}
+	err = resp.Unmarshal(ret, "pool")
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
-
-	if group.HealthCheck != nil {
-		_, err := self.CreateLoadBalancerHealthCheck(ret.GetId(), group.HealthCheck)
-		if err != nil {
-			return ret, err
-		}
-	}
-
 	return ret, nil
 }
 
-func (self *SRegion) CreateLoadBalancerHealthCheck(backendGroupID string, healthCheck *cloudprovider.SLoadbalancerHealthCheck) (SElbHealthCheck, error) {
+func (self *SRegion) CreateLoadBalancerHealthCheck(backendGroupId string, healthCheck *cloudprovider.SLoadbalancerHealthCheck) (SElbHealthCheck, error) {
 	params := map[string]interface{}{
 		"delay":       healthCheck.HealthCheckInterval,
 		"max_retries": healthCheck.HealthCheckRise,
-		"pool_id":     backendGroupID,
+		"pool_id":     backendGroupId,
 		"timeout":     healthCheck.HealthCheckTimeout,
 		"type":        LB_HEALTHCHECK_TYPE_MAP[healthCheck.HealthCheckType],
 	}
@@ -490,7 +491,7 @@ func (self *SRegion) CreateLoadBalancerHealthCheck(backendGroupID string, health
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561564.html
-func (self *SRegion) UpdateLoadBalancerHealthCheck(healthCheckID string, healthCheck *cloudprovider.SLoadbalancerHealthCheck) (SElbHealthCheck, error) {
+func (self *SRegion) UpdateLoadBalancerHealthCheck(healthCheckId string, healthCheck *cloudprovider.SLoadbalancerHealthCheck) (SElbHealthCheck, error) {
 	params := map[string]interface{}{
 		"delay":       healthCheck.HealthCheckInterval,
 		"max_retries": healthCheck.HealthCheckRise,
@@ -511,7 +512,7 @@ func (self *SRegion) UpdateLoadBalancerHealthCheck(healthCheckID string, healthC
 	}
 
 	ret := SElbHealthCheck{region: self}
-	resp, err := self.lbUpdate("elb/healthmonitors/"+healthCheckID, map[string]interface{}{"healthmonitor": params})
+	resp, err := self.lbUpdate("elb/healthmonitors/"+healthCheckId, map[string]interface{}{"healthmonitor": params})
 	if err != nil {
 		return ret, err
 	}
@@ -519,8 +520,8 @@ func (self *SRegion) UpdateLoadBalancerHealthCheck(healthCheckID string, healthC
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561565.html
-func (self *SRegion) DeleteLoadbalancerHealthCheck(healthCheckID string) error {
-	_, err := self.lbDelete("elb/healthmonitors/" + healthCheckID)
+func (self *SRegion) DeleteLoadbalancerHealthCheck(healthCheckId string) error {
+	_, err := self.lbDelete("elb/healthmonitors/" + healthCheckId)
 	return err
 }
 
@@ -616,7 +617,7 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 
 	// 创建公网类型ELB
 	if len(loadbalancer.EipId) > 0 {
-		err := self.AssociateEipWithPortId(loadbalancer.EipId, ret.VipPortID)
+		err := self.AssociateEipWithPortId(loadbalancer.EipId, ret.VipPortId)
 		if err != nil {
 			return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.AssociateEipWithPortId")
 		}
