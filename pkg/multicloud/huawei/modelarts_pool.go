@@ -155,10 +155,10 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 				return nil, errors.Wrap(err, "SHuaweiClient.NetworkDetail")
 			}
 			netStatus, _ := netDetailObj.GetString("status", "phase")
-			if netStatus == "Creating" {
-				time.Sleep(10 * time.Second)
-			} else {
+			if netStatus == "Active" {
 				break
+			} else {
+				time.Sleep(10 * time.Second)
 			}
 		}
 	}
