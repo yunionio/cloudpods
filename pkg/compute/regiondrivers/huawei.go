@@ -87,6 +87,14 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, input)
 }
 
+func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, input *api.LoadbalancerBackendGroupCreateInput) (*api.LoadbalancerBackendGroupCreateInput, error) {
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerBackendGroupData(ctx, userCred, lb, input)
+}
+
+func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
+	return task.ScheduleRun(nil)
+}
+
 func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential,
 	lb *models.SLoadbalancer, lbbg *models.SLoadbalancerBackendGroup,
 	input *api.LoadbalancerBackendCreateInput) (*api.LoadbalancerBackendCreateInput, error) {
@@ -96,7 +104,162 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, input *api.LoadbalancerListenerCreateInput,
 	lb *models.SLoadbalancer, lbbg *models.SLoadbalancerBackendGroup) (*api.LoadbalancerListenerCreateInput, error) {
+	if len(lbbg.ExternalId) > 0 {
+		return input, httperrors.NewResourceBusyError("loadbalancer backend group %s has aleady used by other listener", lbbg.Name)
+	}
 	return input, nil
+}
+
+func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		lbbg, err := lblis.GetLoadbalancerBackendGroup()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetLoadbalancerBackendGroup")
+		}
+		lb, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetLoadbalancer")
+		}
+		iLb, err := lb.GetILoadbalancer(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetILoadbalancer")
+		}
+
+		if len(lbbg.ExternalId) == 0 {
+			lbbgOpts := &cloudprovider.SLoadbalancerBackendGroup{
+				Name:      lbbg.Name,
+				Scheduler: lblis.Scheduler,
+				Protocol:  lblis.ListenerType,
+			}
+
+			iLbbg, err := iLb.CreateILoadBalancerBackendGroup(lbbgOpts)
+			if err != nil {
+				return nil, errors.Wrapf(err, "CreateILoadBalancerBackendGroup")
+			}
+			err = db.SetExternalId(lbbg, userCred, iLbbg.GetGlobalId())
+			if err != nil {
+				return nil, errors.Wrapf(err, "db.SetExternalId")
+			}
+		}
+
+		opts := &cloudprovider.SLoadbalancerListenerCreateOptions{
+			Name:                    lblis.Name,
+			Description:             lblis.Description,
+			ListenerType:            lblis.ListenerType,
+			ListenerPort:            lblis.ListenerPort,
+			Scheduler:               lblis.Scheduler,
+			EnableHTTP2:             lblis.EnableHttp2,
+			EgressMbps:              lblis.EgressMbps,
+			EstablishedTimeout:      lblis.BackendConnectTimeout,
+			AccessControlListStatus: lblis.AclStatus,
+			BackendGroupId:          lbbg.ExternalId,
+
+			ClientRequestTimeout:  lblis.ClientRequestTimeout,
+			ClientIdleTimeout:     lblis.ClientIdleTimeout,
+			BackendIdleTimeout:    lblis.BackendIdleTimeout,
+			BackendConnectTimeout: lblis.BackendConnectTimeout,
+
+			HealthCheckReq: lblis.HealthCheckReq,
+			HealthCheckExp: lblis.HealthCheckExp,
+
+			HealthCheck:         lblis.HealthCheck,
+			HealthCheckType:     lblis.HealthCheckType,
+			HealthCheckTimeout:  lblis.HealthCheckTimeout,
+			HealthCheckDomain:   lblis.HealthCheckDomain,
+			HealthCheckHttpCode: lblis.HealthCheckHttpCode,
+			HealthCheckURI:      lblis.HealthCheckURI,
+			HealthCheckInterval: lblis.HealthCheckInterval,
+
+			HealthCheckRise: lblis.HealthCheckRise,
+			HealthCheckFail: lblis.HealthCheckFall,
+
+			StickySession:              lblis.StickySession,
+			StickySessionType:          lblis.StickySessionType,
+			StickySessionCookie:        lblis.StickySessionCookie,
+			StickySessionCookieTimeout: lblis.StickySessionCookieTimeout,
+
+			BackendServerPort: lblis.BackendServerPort,
+			XForwardedFor:     lblis.XForwardedFor,
+			TLSCipherPolicy:   lblis.TLSCipherPolicy,
+			Gzip:              lblis.Gzip,
+		}
+		iLis, err := iLb.CreateILoadBalancerListener(ctx, opts)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CreateILoadBalancerListener")
+		}
+		err = db.SetExternalId(lbbg, userCred, iLis.GetGlobalId())
+		if err != nil {
+			return nil, errors.Wrapf(err, "lbbg.SetExternalId")
+		}
+		err = db.SetExternalId(lblis, userCred, iLis.GetGlobalId())
+		if err != nil {
+			return nil, errors.Wrapf(err, "lblis.SetExternalId")
+		}
+		backends, err := lbbg.GetBackends()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetBackends")
+		}
+		if len(backends) == 0 {
+			return nil, nil
+		}
+		iLbbg, err := lbbg.GetICloudLoadbalancerBackendGroup(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetICloudLoadbalancerBackendGroup")
+		}
+		for i := range backends {
+			_, err := iLbbg.AddBackendServer(backends[i].ExternalId, backends[i].Port, backends[i].Weight)
+			if err != nil {
+				return nil, errors.Wrapf(err, "AddBackendServer")
+			}
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		lbbg, err := lblis.GetLoadbalancerBackendGroup()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetLoadbalancerBackendGroup")
+		}
+		if len(lbbg.ExternalId) > 0 {
+			iLbbg, err := lbbg.GetICloudLoadbalancerBackendGroup(ctx)
+			if err != nil {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
+					return nil, db.SetExternalId(lbbg, userCred, "")
+				}
+				return nil, errors.Wrapf(err, "GetICloudLoadbalancerBackendGroup")
+			}
+			err = iLbbg.Delete(ctx)
+			if err != nil {
+				return nil, errors.Wrapf(err, "iLbbg.Delete")
+			}
+			return nil, db.SetExternalId(lbbg, userCred, "")
+		}
+
+		if len(lblis.ExternalId) == 0 {
+			return nil, nil
+		}
+		lb, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
+		}
+		iLb, err := lb.GetILoadbalancer(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetILoadbalancer")
+		}
+
+		iListener, err := iLb.GetILoadBalancerListenerById(lblis.ExternalId)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+			return nil, errors.Wrapf(err, "GetILoadBalancerListenerById(%s)", lblis.ExternalId)
+		}
+		return nil, iListener.Delete(ctx)
+	})
+	return nil
 }
 
 func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerListenerRuleCreateInput) (*api.LoadbalancerListenerRuleCreateInput, error) {
@@ -117,7 +280,7 @@ func (self *SHuaWeiRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition
 		return err
 	}
 
-	if count != 0 {
+	if count >= 0 {
 		return fmt.Errorf("backendgroup is binding with loadbalancer/listener/listenerrule.")
 	}
 
@@ -151,21 +314,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 	return nil
 }
 
-func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
 func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
-func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		return nil, cloudprovider.ErrNotImplemented
 	})

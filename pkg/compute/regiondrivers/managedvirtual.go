@@ -162,6 +162,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerInstanc
 		}
 		params.Tags, _ = lb.GetAllUserMetadata()
 
+		if len(input.EipId) > 0 {
+			eipObj, err := models.ElasticipManager.FetchById(input.EipId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "eip.FetchById(%s)", input.EipId)
+			}
+			eip := eipObj.(*models.SElasticip)
+			params.EipId = eip.ExternalId
+		}
+
 		if len(lb.ZoneId) > 0 {
 			zone, err := lb.GetZone()
 			if err != nil {

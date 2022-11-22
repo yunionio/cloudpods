@@ -355,14 +355,12 @@ func (lbbg *SLoadbalancerBackendGroup) RefCount() (int, error) {
 }
 
 func (lbbg *SLoadbalancerBackendGroup) refCount(man db.IModelManager) (int, error) {
-	t := man.TableSpec().Instance()
-	return t.Query().Equals("backend_group_id", lbbg.Id).CountWithError()
+	return man.Query().Equals("backend_group_id", lbbg.Id).CountWithError()
 }
 
 func lbbgRefManagers() []db.IModelManager {
 	return []db.IModelManager{
 		LoadbalancerListenerManager,
-		LoadbalancerListenerRuleManager,
 	}
 }
 
@@ -549,34 +547,6 @@ func (lbbg *SLoadbalancerBackendGroup) GetListener() *SLoadbalancerListener {
 		return nil
 	}
 	return ret
-}
-
-func (lbbg *SLoadbalancerBackendGroup) GetBackendGroupParams() (*cloudprovider.SLoadbalancerBackendGroup, error) {
-	backends, err := lbbg.GetBackendsParams()
-	if err != nil {
-		return &cloudprovider.SLoadbalancerBackendGroup{}, err
-	}
-
-	listener := lbbg.GetListener()
-	listenerId := ""
-	if listener != nil {
-		listenerId = listener.ExternalId
-	}
-
-	ret := &cloudprovider.SLoadbalancerBackendGroup{
-		Name:       lbbg.Name,
-		GroupType:  lbbg.Type,
-		Backends:   backends,
-		ListenerID: listenerId,
-	}
-
-	loadbalancer, _ := lbbg.GetLoadbalancer()
-	if loadbalancer != nil {
-		ret.VpcId = loadbalancer.VpcId
-		ret.LoadbalancerID = loadbalancer.ExternalId
-	}
-
-	return ret, nil
 }
 
 func (lbbg *SLoadbalancerBackendGroup) GetBackendsParams() ([]cloudprovider.SLoadbalancerBackend, error) {

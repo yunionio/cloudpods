@@ -421,38 +421,13 @@ func ToOnecloudHealthCode(s string) string {
 }
 
 // 目前只支持target type ：instance
-func (self *SRegion) CreateElbBackendgroup(group *cloudprovider.SLoadbalancerBackendGroup) (*SElbBackendGroup, error) {
+func (self *SRegion) CreateElbBackendgroup(opts *cloudprovider.SLoadbalancerBackendGroup) (*SElbBackendGroup, error) {
 	params := &elbv2.CreateTargetGroupInput{}
-	params.SetProtocol(strings.ToUpper(group.ListenType))
-	params.SetPort(int64(group.ListenPort))
-	params.SetVpcId(group.VpcId)
-	params.SetName(group.Name)
+	params.SetProtocol(strings.ToUpper(opts.Protocol))
+	params.SetPort(int64(opts.ListenPort))
+	params.SetVpcId(opts.VpcId)
+	params.SetName(opts.Name)
 	params.SetTargetType("instance")
-	if group.HealthCheck != nil {
-		params.SetHealthCheckPort("traffic-port")
-		params.SetHealthCheckProtocol(strings.ToUpper(group.HealthCheck.HealthCheckType))
-		params.SetHealthCheckIntervalSeconds(int64(group.HealthCheck.HealthCheckInterval))
-		params.SetHealthyThresholdCount(int64(group.HealthCheck.HealthCheckRise))
-
-		if len(group.HealthCheck.HealthCheckURI) > 0 {
-			params.SetHealthCheckPath(group.HealthCheck.HealthCheckURI)
-		}
-
-		if utils.IsInStringArray(group.ListenType, []string{api.LB_HEALTH_CHECK_HTTP, api.LB_HEALTH_CHECK_HTTPS}) {
-			params.SetHealthCheckTimeoutSeconds(int64(group.HealthCheck.HealthCheckTimeout))
-			params.SetUnhealthyThresholdCount(int64(group.HealthCheck.HealthCheckFail))
-
-			codes := ToAwsHealthCode(group.HealthCheck.HealthCheckHttpCode)
-			if len(codes) > 0 {
-				matcher := &elbv2.Matcher{}
-				matcher.SetHttpCode(codes)
-				params.SetMatcher(matcher)
-			}
-		} else {
-			// tcp & udp 健康检查阈值与不健康阈值需相同
-			params.SetUnhealthyThresholdCount(int64(group.HealthCheck.HealthCheckRise))
-		}
-	}
 
 	client, err := self.GetElbV2Client()
 	if err != nil {

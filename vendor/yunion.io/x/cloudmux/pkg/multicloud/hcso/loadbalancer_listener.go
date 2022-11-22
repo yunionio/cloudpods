@@ -557,12 +557,11 @@ func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoa
 }
 
 func (self *SElbListener) Delete(ctx context.Context) error {
-	err := DoDelete(self.lb.region.ecsClient.ElbListeners.Delete, self.GetId(), nil, nil)
-	if err != nil {
-		return err
-	}
+	return self.lb.region.DeleteElbListener(self.ID)
+}
 
-	return nil
+func (self *SRegion) DeleteElbListener(id string) error {
+	return DoDelete(self.ecsClient.ElbListeners.Delete, id, nil, nil)
 }
 
 func (self *SRegion) UpdateLoadBalancerListener(listenerId string, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {

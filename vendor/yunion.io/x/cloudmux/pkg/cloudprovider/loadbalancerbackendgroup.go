@@ -19,13 +19,10 @@ type SLoadbalancerBackendGroup struct {
 	GroupType string
 	Backends  []SLoadbalancerBackend
 
-	// huawei only
-	LoadbalancerID string // 负载均衡ID
-	ListenerID     string // 监听器ID
-	ListenType     string // 后端服务器组监听类型
-	Scheduler      string
-	StickySession  *SLoadbalancerStickySession
-	HealthCheck    *SLoadbalancerHealthCheck
+	// huawei
+	Scheduler string
+	Protocol  string
+
 	// aws
 	ListenPort int    // 后端端口
 	VpcId      string // vpc id

@@ -338,7 +338,7 @@ func (lb *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SL
 		return nil, errors.Wrap(err, "waitLbResStatus(lb, api.LB_STATUS_ENABLED, 10*time.Second, 8*time.Minute)")
 	}
 	// create pool
-	spool, err := lb.region.CreateLoadbalancerPool(group)
+	spool, err := lb.region.CreateLoadbalancerPool(lb.ID, group)
 	if err != nil {
 		return nil, errors.Wrap(err, "lb.region.CreateLoadbalancerPool")
 	}
@@ -346,22 +346,6 @@ func (lb *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SL
 	err = waitLbResStatus(spool, 10*time.Second, 8*time.Minute)
 	if err != nil {
 		return nil, errors.Wrap(err, "waitLbResStatus(spool,  10*time.Second, 8*time.Minute)")
-	}
-	// create healthmonitor
-	if group.HealthCheck != nil {
-
-		healthmonitor, err := lb.region.CreateLoadbalancerHealthmonitor(spool.ID, group.HealthCheck)
-		if err != nil {
-			return nil, errors.Wrapf(err, "region.CreateLoadbalancerHealthmonitor(%s, group.HealthCheck)", spool.ID)
-		}
-		spool.healthmonitor = healthmonitor
-	}
-	// wait health monitor
-	if spool.healthmonitor != nil {
-		err = waitLbResStatus(spool.healthmonitor, 10*time.Second, 8*time.Minute)
-		if err != nil {
-			return nil, errors.Wrap(err, "waitLbResStatus(spool.healthmonitor,  10*time.Second, 8*time.Minute)")
-		}
 	}
 	return spool, nil
 }
