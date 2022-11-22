@@ -157,7 +157,16 @@ func (self *GuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IS
 	log.Debugf("OnDiskDetachComplete")
 	guest := obj.(*models.SGuest)
 
-	guestdisks, _ := guest.GetGuestDisks()
+	guestdisksOrigin, _ := guest.GetGuestDisks()
+	var guestdisks []models.SGuestdisk
+	// clean dirty data
+	for i := range guestdisksOrigin {
+		if guestdisksOrigin[i].GetDisk() == nil {
+			guestdisksOrigin[i].Detach(ctx, self.UserCred)
+		} else {
+			guestdisks = append(guestdisks, guestdisksOrigin[i])
+		}
+	}
 	if len(guestdisks) == 0 {
 		// on guest disks detached
 		self.doClearSecurityGroupComplete(ctx, guest)
