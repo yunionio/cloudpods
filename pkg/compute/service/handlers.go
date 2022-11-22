@@ -195,6 +195,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.DnsTrafficPolicyManager,
 
 		models.VpcPeeringConnectionManager,
+		models.VpcPeerInwardManager,
 		models.InterVpcNetworkManager,
 
 		models.NatSkuManager,

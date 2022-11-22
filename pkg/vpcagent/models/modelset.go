@@ -51,7 +51,32 @@ type (
 	LoadbalancerNetworks  map[string]*LoadbalancerNetwork // key: networkId/loadbalancerId
 	LoadbalancerListeners map[string]*LoadbalancerListener
 	LoadbalancerAcls      map[string]*LoadbalancerAcl
+
+	VpcPeers map[string]*VpcPeerConnect
 )
+
+func (set VpcPeers) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.VpcPeerInwards
+}
+
+func (set VpcPeers) NewModel() db.IModel {
+	return &VpcPeerConnect{}
+}
+
+func (set VpcPeers) AddModel(i db.IModel) {
+	m := i.(*VpcPeerConnect)
+	set[m.Id] = m
+}
+
+func (set VpcPeers) Copy() apihelper.IModelSet {
+	setCopy := VpcPeers{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+//==========
 
 func (set Vpcs) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Vpcs

@@ -23,6 +23,16 @@ import (
 	compute_models "yunion.io/x/onecloud/pkg/compute/models"
 )
 
+type VpcPeerConnect struct {
+	compute_models.SVpcPeerInward
+}
+
+func (el *VpcPeerConnect) Copy() *VpcPeerConnect {
+	return &VpcPeerConnect{
+		SVpcPeerInward: el.SVpcPeerInward,
+	}
+}
+
 type Vpc struct {
 	compute_models.SVpc
 
