@@ -982,6 +982,7 @@ type SGuestLiveMigrateTask struct {
 	doTimeoutMigrate bool
 
 	expectDowntime int64
+	dirtySyncCount int64
 }
 
 func NewGuestLiveMigrateTask(
@@ -1012,6 +1013,7 @@ func (s *SGuestLiveMigrateTask) onSetAutoConverge(res string) {
 		s.migrateFailed(fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
 		return
 	}
+
 	if version.LT(s.QemuVersion, "4.0.0") {
 		s.startMigrate()
 		return
@@ -1168,14 +1170,29 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo)
 		}
 		progress := (1 - float64(diskRemain+ramRemain)/float64(diskTotal+ramTotal)) * 100.0
 		hostutils.UpdateServerProgress(context.Background(), s.Id, progress, mbps)
-		if stats.Disk != nil && stats.Disk.Remaining > 0 {
-			// process disk copy
-			// do nothing, simply wait
-		} else if stats.RAM != nil && stats.RAM.Remaining > 0 {
-			if s.params.QuicklyFinish &&
-				stats.RAM.DirtySyncCount > 50 &&
-				stats.RAM.DirtyPagesRate > 0 &&
-				s.expectDowntime < *stats.ExpectedDowntime {
+
+		if s.params.QuicklyFinish && stats.RAM != nil && stats.RAM.Remaining > 0 {
+			if stats.CPUThrottlePercentage == nil {
+				// qemu do not enable cpu throttle, don't need set downtime
+				return
+			}
+
+			if *stats.CPUThrottlePercentage < 99 {
+				// TODO: configureable tolerate cpu throttle percentage
+				return
+			}
+
+			if stats.ExpectedDowntime != nil && *stats.ExpectedDowntime > s.expectDowntime {
+				if s.dirtySyncCount == 0 {
+					// record dirty sync count
+					s.dirtySyncCount = stats.RAM.DirtySyncCount
+					return
+				}
+				// run more than one round dirty ram sync after cpu throttle 99%
+				if stats.RAM.DirtySyncCount <= s.dirtySyncCount+1 {
+					return
+				}
+
 				cb := func(res string) {
 					if len(res) == 0 {
 						s.expectDowntime = *stats.ExpectedDowntime
@@ -1184,16 +1201,7 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo)
 						log.Errorf("failed set migrate downtime %s", res)
 					}
 				}
-				s.Monitor.MigrateSetDowntime(float32(*stats.ExpectedDowntime), cb)
-			} else if !s.doTimeoutMigrate &&
-				s.params.QuicklyFinish &&
-				stats.RAM.DirtySyncCount > 100 &&
-				stats.RAM.DirtyPagesRate > 0 {
-				log.Warningf("migrate timeout, force stop to finish migrate")
-				// timeout, start memory postcopy
-				// https://wiki.qemu.org/Features/PostCopyLiveMigration
-				s.Monitor.SimpleCommand("stop", s.onMigrateStartPostcopy)
-				s.doTimeoutMigrate = true
+				s.Monitor.MigrateSetDowntime(float32(*stats.ExpectedDowntime/1000.0), cb)
 			}
 		}
 	}
