@@ -1385,6 +1385,11 @@ func (s *SGuestResumeTask) SetGetTaskData(f func() (jsonutils.JSONObject, error)
 }
 
 func (s *SGuestResumeTask) onStartRunning() {
+	if s.Desc.IsVolatileHost {
+		s.Desc.IsVolatileHost = false
+		s.SaveLiveDesc(s.Desc)
+	}
+
 	s.setCgroupPid()
 	s.removeStatefile()
 	if s.ctx != nil && len(appctx.AppContextTaskId(s.ctx)) > 0 {

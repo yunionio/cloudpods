@@ -759,6 +759,13 @@ func (self *SKVMGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGu
 		return httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", guest.Status)
 	}
 	if input.IsRescueMode {
+		host, err := guest.GetHost()
+		if err != nil {
+			return err
+		}
+		if host.HostStatus != api.HOST_OFFLINE {
+			return httperrors.NewBadRequestError("Host status %s, can't do rescue mode migration", host.HostStatus)
+		}
 		disks, err := guest.GetDisks()
 		if err != nil {
 			return errors.Wrapf(err, "GetDisks")

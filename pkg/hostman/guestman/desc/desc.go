@@ -320,6 +320,9 @@ type SGuestControlDesc struct {
 	IsMaster bool
 	IsSlave  bool
 
+	// is volatile host meaning guest not running on this host right now
+	IsVolatileHost bool
+
 	ScalingGroupId     string
 	SecurityRules      string
 	AdminSecurityRules string
