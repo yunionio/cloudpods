@@ -91,8 +91,8 @@ func (self *SBaseRegionDriver) RequestDeleteLoadbalancerCertificate(ctx context.
 	return fmt.Errorf("Not Implement RequestDeleteLoadbalancerCertificate")
 }
 
-func (self *SBaseRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend, task taskman.ITask) error {
-	return fmt.Errorf("Not Implement RequestCreateLoadbalancerBackendGroup")
+func (self *SBaseRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateLoadbalancerBackendGroup")
 }
 
 func (self *SBaseRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
@@ -101,14 +101,6 @@ func (self *SBaseRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context
 
 func (self *SBaseRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestSyncLoadbalancerBackendGroup")
-}
-
-func (self *SBaseRegionDriver) RequestPullRegionLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) error {
-	return fmt.Errorf("Not Implement RequestPullRegionLoadbalancerBackendGroup")
-}
-
-func (self *SBaseRegionDriver) RequestPullLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) error {
-	return fmt.Errorf("Not Implement RequestPullLoadbalancerBackendGroup")
 }
 
 func (self *SBaseRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
@@ -123,12 +115,18 @@ func (self *SBaseRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Contex
 	return fmt.Errorf("Not Implement RequestSyncLoadbalancerBackend")
 }
 
+func (self *SBaseRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider, input *api.LoadbalancerListenerCreateInput,
+	lb *models.SLoadbalancer, lbbg *models.SLoadbalancerBackendGroup) (*api.LoadbalancerListenerCreateInput, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateLoadbalancerListenerData")
+}
+
 func (self *SBaseRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	return fmt.Errorf("Not Implement RequestCreateLoadbalancerListener")
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateLoadbalancerListener")
 }
 
 func (self *SBaseRegionDriver) RequestDeleteLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	return fmt.Errorf("Not Implement RequestDeleteLoadbalancerListener")
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestDeleteLoadbalancerListener")
 }
 
 func (self *SBaseRegionDriver) RequestStartLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
@@ -145,6 +143,14 @@ func (self *SBaseRegionDriver) RequestSyncstatusLoadbalancerListener(ctx context
 
 func (self *SBaseRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestSyncLoadbalancerListener")
+}
+
+func (self *SBaseRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerListenerRuleCreateInput) (*api.LoadbalancerListenerRuleCreateInput, error) {
+	return input, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateLoadbalancerListenerRuleData")
+}
+
+func (self *SBaseRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LoadbalancerListenerRuleUpdateInput) (*api.LoadbalancerListenerRuleUpdateInput, error) {
+	return input, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateUpdateLoadbalancerListenerRuleData")
 }
 
 func (self *SBaseRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {

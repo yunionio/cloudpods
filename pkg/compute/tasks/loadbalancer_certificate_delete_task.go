@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,34 +36,35 @@ func init() {
 	taskman.RegisterTask(LoadbalancerCertificateDeleteTask{})
 }
 
-func (self *LoadbalancerCertificateDeleteTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason jsonutils.JSONObject) {
-	lbcert.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
-	db.OpsLog.LogEvent(lbcert, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lbcert.Id, lbcert.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerCertificateDeleteTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, err error) {
+	lbcert.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, err.Error())
+	db.OpsLog.LogEvent(lbcert, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELOCATE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbcert.Id, lbcert.Name, api.LB_STATUS_DELETE_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerCertificateDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbcert := obj.(*models.SCachedLoadbalancerCertificate)
-	region := lbcert.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbcert, jsonutils.NewString(fmt.Sprintf("failed to find region for lbcert %s", lbcert.Name)))
+	region, err := lbcert.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbcert, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnLoadbalancerCertificateDeleteComplete", nil)
-	if err := region.GetDriver().RequestDeleteLoadbalancerCertificate(ctx, self.GetUserCred(), lbcert, self); err != nil {
-		self.taskFail(ctx, lbcert, jsonutils.NewString(err.Error()))
+	err = region.GetDriver().RequestDeleteLoadbalancerCertificate(ctx, self.GetUserCred(), lbcert, self)
+	if err != nil {
+		self.taskFail(ctx, lbcert, errors.Wrapf(err, "RequestDeleteLoadbalancerCertificate"))
 	}
 }
 
 func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteComplete(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbcert, db.ACT_DELETE, lbcert.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	lbcert.DoPendingDelete(ctx, self.GetUserCred())
+	lbcert.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteCompleteFailed(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbcert, reason)
+	self.taskFail(ctx, lbcert, errors.Errorf(reason.String()))
 }

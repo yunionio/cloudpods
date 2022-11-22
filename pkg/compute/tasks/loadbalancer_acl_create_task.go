@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,24 +36,25 @@ func init() {
 	taskman.RegisterTask(LoadbalancerAclCreateTask{})
 }
 
-func (self *LoadbalancerAclCreateTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
-	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_CREATE_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerAclCreateTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, err error) {
+	lbacl.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
+	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_CREATE_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerAclCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbacl := obj.(*models.SCachedLoadbalancerAcl)
-	region := lbacl.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbacl, jsonutils.NewString(fmt.Sprintf("failed to find region for lbacl %s", lbacl.Name)))
+	region, err := lbacl.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbacl, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnLoadbalancerAclCreateComplete", nil)
-	if err := region.GetDriver().RequestCreateLoadbalancerAcl(ctx, self.GetUserCred(), lbacl, self); err != nil {
-		self.taskFail(ctx, lbacl, jsonutils.NewString(err.Error()))
+	err = region.GetDriver().RequestCreateLoadbalancerAcl(ctx, self.GetUserCred(), lbacl, self)
+	if err != nil {
+		self.taskFail(ctx, lbacl, errors.Wrapf(err, "RequestCreateLoadbalancerAcl"))
 	}
 }
 
@@ -65,5 +66,5 @@ func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateComplete(ctx conte
 }
 
 func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateCompleteFailed(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbacl, reason)
+	self.taskFail(ctx, lbacl, errors.Errorf(reason.String()))
 }

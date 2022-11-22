@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -39,7 +40,7 @@ func syncRegionLoadbalancerCertificates(ctx context.Context, userCred mcclient.T
 	}
 	result := func() compare.SyncResult {
 		defer syncResults.AddSqlCost(LoadbalancerCertificateManager)()
-		return CachedLoadbalancerCertificateManager.SyncLoadbalancerCertificates(ctx, userCred, provider, localRegion, certificates, syncRange)
+		return provider.SyncLoadbalancerCertificates(ctx, userCred, localRegion, certificates)
 	}()
 
 	syncResults.Add(CachedLoadbalancerCertificateManager, result)
@@ -88,7 +89,7 @@ func syncRegionLoadbalancers(ctx context.Context, userCred mcclient.TokenCredent
 	func() {
 		defer syncResults.AddSqlCost(LoadbalancerManager)()
 
-		localLbs, remoteLbs, result := LoadbalancerManager.SyncLoadbalancers(ctx, userCred, provider, localRegion, lbs, syncRange)
+		localLbs, remoteLbs, result := LoadbalancerManager.SyncLoadbalancers(ctx, userCred, provider, localRegion, lbs)
 
 		syncResults.Add(LoadbalancerManager, result)
 
@@ -98,79 +99,80 @@ func syncRegionLoadbalancers(ctx context.Context, userCred mcclient.TokenCredent
 			return
 		}
 		db.OpsLog.LogEvent(provider, db.ACT_SYNC_LB_COMPLETE, msg, userCred)
-		// 同步未关联负载均衡的后端服务器组
-		regionDriver := localRegion.GetDriver()
-		if regionDriver == nil {
-			msg := fmt.Sprintf("GetRegionDriver %s failed", localRegion.GetName())
-			log.Errorln(msg)
-			return
-		}
-
-		regionDriver.RequestPullRegionLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 		for i := 0; i < len(localLbs); i++ {
 			func() {
 				lockman.LockObject(ctx, &localLbs[i])
 				defer lockman.ReleaseObject(ctx, &localLbs[i])
 
-				syncLoadbalancerEip(ctx, userCred, provider, &localLbs[i], remoteLbs[i])
-				regionDriver.RequestPullLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
-				syncLoadbalancerListeners(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
+				syncLbPeripherals(ctx, userCred, provider, &localLbs[i], remoteLbs[i])
 			}()
 		}
 	}()
 }
 
-func syncLoadbalancerEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localLb *SLoadbalancer, remoteLb cloudprovider.ICloudLoadbalancer) {
+func syncLbPeripherals(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, local *SLoadbalancer, remote cloudprovider.ICloudLoadbalancer) {
+	err := syncLoadbalancerEip(ctx, userCred, provider, local, remote)
+	if err != nil {
+		log.Errorf("syncLoadbalancerEip error %s", err)
+	}
+	err = syncLoadbalancerBackendgroups(ctx, userCred, SSyncResultSet{}, provider, local, remote)
+	if err != nil {
+		log.Errorf("syncLoadbalancerBackendgroups error: %v", err)
+	}
+	err = syncLoadbalancerListeners(ctx, userCred, SSyncResultSet{}, provider, local, remote)
+	if err != nil {
+		log.Errorf("syncLoadbalancerListeners error: %v", err)
+	}
+}
+
+func syncLoadbalancerEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localLb *SLoadbalancer, remoteLb cloudprovider.ICloudLoadbalancer) error {
 	eip, err := remoteLb.GetIEIP()
 	if err != nil {
-		msg := fmt.Sprintf("GetIEIP for Loadbalancer %s failed %s", remoteLb.GetName(), err)
-		log.Errorf(msg)
-		return
+		return errors.Wrapf(err, "GetIEIP")
 	}
 	result := localLb.SyncLoadbalancerEip(ctx, userCred, provider, eip)
 	msg := result.Result()
 	log.Infof("SyncEip for Loadbalancer %s result: %s", localLb.Name, msg)
 	if result.IsError() {
-		return
+		return result.AllError()
 	}
+	return nil
 }
 
-func syncLoadbalancerListeners(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) {
+func syncLoadbalancerListeners(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer) error {
 	remoteListeners, err := remoteLoadbalancer.GetILoadBalancerListeners()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancerListeners for loadbalancer %s failed %s", localLoadbalancer.Name, err)
-		log.Errorln(msg)
-		return
+		return errors.Wrapf(err, "GetILoadBalancerListeners")
 	}
-	localListeners, remoteListeners, result := LoadbalancerListenerManager.SyncLoadbalancerListeners(ctx, userCred, provider, localLoadbalancer, remoteListeners, syncRange)
+	localListeners, remoteListeners, result := LoadbalancerListenerManager.SyncLoadbalancerListeners(ctx, userCred, provider, localLoadbalancer, remoteListeners)
 
 	syncResults.Add(LoadbalancerListenerManager, result)
 
 	msg := result.Result()
 	log.Infof("SyncLoadbalancerListeners for loadbalancer %s result: %s", localLoadbalancer.Name, msg)
 	if result.IsError() {
-		return
+		return result.AllError()
 	}
 	for i := 0; i < len(localListeners); i++ {
 		func() {
 			lockman.LockObject(ctx, &localListeners[i])
 			defer lockman.ReleaseObject(ctx, &localListeners[i])
 
-			syncLoadbalancerListenerRules(ctx, userCred, syncResults, provider, &localListeners[i], remoteListeners[i], syncRange)
-
+			syncLoadbalancerListenerRules(ctx, userCred, syncResults, provider, &localListeners[i], remoteListeners[i])
 		}()
 	}
+	return nil
 }
 
-func syncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localListener *SLoadbalancerListener, remoteListener cloudprovider.ICloudLoadbalancerListener, syncRange *SSyncRange) {
+func syncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localListener *SLoadbalancerListener, remoteListener cloudprovider.ICloudLoadbalancerListener) {
 	remoteRules, err := remoteListener.GetILoadbalancerListenerRules()
 	if err != nil {
 		msg := fmt.Sprintf("GetILoadbalancerListenerRules for listener %s failed %s", localListener.Name, err)
 		log.Errorln(msg)
 		return
 	}
-	result := LoadbalancerListenerRuleManager.SyncLoadbalancerListenerRules(ctx, userCred, provider, localListener, remoteRules, syncRange)
+	result := LoadbalancerListenerRuleManager.SyncLoadbalancerListenerRules(ctx, userCred, provider, localListener, remoteRules)
 
 	syncResults.Add(LoadbalancerListenerRuleManager, result)
 
@@ -181,225 +183,42 @@ func syncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenC
 	}
 }
 
-func SyncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) {
-	remoteBackendgroups, err := remoteLoadbalancer.GetILoadBalancerBackendGroups()
+func syncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, local *SLoadbalancer, remote cloudprovider.ICloudLoadbalancer) error {
+	exts, err := remote.GetILoadBalancerBackendGroups()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
-		log.Errorln(msg)
-		return
+		return errors.Wrapf(err, "GetILoadBalancerBackendGroups")
 	}
-	localLbbgs, remoteLbbgs, result := LoadbalancerBackendGroupManager.SyncLoadbalancerBackendgroups(ctx, userCred, provider, localLoadbalancer, remoteBackendgroups, syncRange)
-
+	localLbbgs, remoteLbbgs, result := local.SyncLoadbalancerBackendgroups(ctx, userCred, provider, exts)
 	syncResults.Add(LoadbalancerBackendGroupManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackendgroups for loadbalancer %s result: %s", localLoadbalancer.Name, msg)
+	log.Infof("SyncLoadbalancerBackendgroups for loadbalancer %s result: %s", local.Name, msg)
 	if result.IsError() {
-		return
+		return result.AllError()
 	}
 	for i := 0; i < len(localLbbgs); i++ {
 		func() {
 			lockman.LockObject(ctx, &localLbbgs[i])
 			defer lockman.ReleaseObject(ctx, &localLbbgs[i])
 
-			syncLoadbalancerBackends(ctx, userCred, syncResults, provider, &localLbbgs[i], remoteLbbgs[i], syncRange)
+			syncLoadbalancerBackends(ctx, userCred, syncResults, provider, &localLbbgs[i], remoteLbbgs[i])
 		}()
 	}
+	return nil
 }
 
-func syncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLbbg *SLoadbalancerBackendGroup, remoteLbbg cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) {
-	remoteLbbs, err := remoteLbbg.GetILoadbalancerBackends()
+func syncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, local *SLoadbalancerBackendGroup, remote cloudprovider.ICloudLoadbalancerBackendGroup) {
+	exts, err := remote.GetILoadbalancerBackends()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerBackends for lbbg %s failed %s", localLbbg.Name, err)
+		msg := fmt.Sprintf("GetILoadbalancerBackends for lbbg %s failed %s", local.Name, err)
 		log.Errorln(msg)
 		return
 	}
-	result := LoadbalancerBackendManager.SyncLoadbalancerBackends(ctx, userCred, provider, localLbbg, remoteLbbs, syncRange)
-
+	result := local.SyncLoadbalancerBackends(ctx, userCred, provider, exts)
 	syncResults.Add(LoadbalancerBackendManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackends for LoadbalancerBackendgroup %s result: %s", localLbbg.Name, msg)
-	if result.IsError() {
-		return
-	}
-}
-
-/*huawei elb sync*/
-func SyncHuaweiLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) {
-	remoteBackendgroups, err := remoteLoadbalancer.GetILoadBalancerBackendGroups()
-	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
-		log.Errorln(msg)
-		return
-	}
-	localLbbgs, remoteLbbgs, result := HuaweiCachedLbbgManager.SyncLoadbalancerBackendgroups(ctx, userCred, provider, localLoadbalancer, remoteBackendgroups, syncRange)
-
-	syncResults.Add(HuaweiCachedLbbgManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackendgroups for loadbalancer %s result: %s", localLoadbalancer.Name, msg)
-	if result.IsError() {
-		return
-	}
-	for i := 0; i < len(localLbbgs); i++ {
-		func() {
-			lockman.LockObject(ctx, &localLbbgs[i])
-			defer lockman.ReleaseObject(ctx, &localLbbgs[i])
-
-			syncHuaweiLoadbalancerBackends(ctx, userCred, syncResults, provider, &localLbbgs[i], remoteLbbgs[i], syncRange)
-		}()
-	}
-}
-
-func syncHuaweiLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLbbg *SHuaweiCachedLbbg, remoteLbbg cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) {
-	remoteLbbs, err := remoteLbbg.GetILoadbalancerBackends()
-	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerBackends for lbbg %s failed %s", localLbbg.Name, err)
-		log.Errorln(msg)
-		return
-	}
-	result := HuaweiCachedLbManager.SyncLoadbalancerBackends(ctx, userCred, provider, localLbbg, remoteLbbs, syncRange)
-
-	syncResults.Add(LoadbalancerBackendManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackends for LoadbalancerBackendgroup %s result: %s", localLbbg.Name, msg)
-	if result.IsError() {
-		return
-	}
-}
-
-/*aws elb sync*/
-func SyncAwsLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
-	remoteBackendgroups, err := remoteRegion.GetILoadBalancerBackendGroups()
-	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancerBackendGroups for region %s failed %s", localRegion.Name, err)
-		log.Errorln(msg)
-		return
-	}
-	localLbbgs, remoteLbbgs, result := AwsCachedLbbgManager.SyncLoadbalancerBackendgroups(ctx, userCred, provider, localRegion, remoteBackendgroups, syncRange)
-
-	syncResults.Add(LoadbalancerBackendGroupManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackendgroups for region %s result: %s", localRegion.Name, msg)
-	if result.IsError() {
-		return
-	}
-	for i := 0; i < len(localLbbgs); i++ {
-		func() {
-			lockman.LockObject(ctx, &localLbbgs[i])
-			defer lockman.ReleaseObject(ctx, &localLbbgs[i])
-
-			syncAwsLoadbalancerBackends(ctx, userCred, syncResults, provider, &localLbbgs[i], remoteLbbgs[i], syncRange)
-		}()
-	}
-}
-
-func syncAwsLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLbbg *SAwsCachedLbbg, remoteLbbg cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) {
-	remoteLbbs, err := remoteLbbg.GetILoadbalancerBackends()
-	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerBackends for lbbg %s failed %s", localLbbg.Name, err)
-		log.Errorln(msg)
-		return
-	}
-	result := AwsCachedLbManager.SyncLoadbalancerBackends(ctx, userCred, provider, localLbbg, remoteLbbs, syncRange)
-
-	syncResults.Add(LoadbalancerBackendManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackends for LoadbalancerBackendgroup %s result: %s", localLbbg.Name, msg)
-	if result.IsError() {
-		return
-	}
-}
-
-/*qcloud elb sync*/
-func SyncQcloudLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) {
-	remoteBackendgroups, err := remoteLoadbalancer.GetILoadBalancerBackendGroups()
-	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
-		log.Errorln(msg)
-		return
-	}
-	localLbbgs, remoteLbbgs, result := QcloudCachedLbbgManager.SyncLoadbalancerBackendgroups(ctx, userCred, provider, localLoadbalancer, remoteBackendgroups, syncRange)
-
-	syncResults.Add(QcloudCachedLbbgManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackendgroups for loadbalancer %s result: %s", localLoadbalancer.Name, msg)
-	if result.IsError() {
-		return
-	}
-	for i := 0; i < len(localLbbgs); i++ {
-		func() {
-			lockman.LockObject(ctx, &localLbbgs[i])
-			defer lockman.ReleaseObject(ctx, &localLbbgs[i])
-
-			syncQcloudLoadbalancerBackends(ctx, userCred, syncResults, provider, &localLbbgs[i], remoteLbbgs[i], syncRange)
-		}()
-	}
-}
-
-func syncQcloudLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLbbg *SQcloudCachedLbbg, remoteLbbg cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) {
-	remoteLbbs, err := remoteLbbg.GetILoadbalancerBackends()
-	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerBackends for lbbg %s failed %s", localLbbg.Name, err)
-		log.Errorln(msg)
-		return
-	}
-	result := QcloudCachedLbManager.SyncLoadbalancerBackends(ctx, userCred, provider, localLbbg, remoteLbbs, syncRange)
-
-	syncResults.Add(LoadbalancerBackendManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackends for LoadbalancerBackendgroup %s result: %s", localLbbg.Name, msg)
-	if result.IsError() {
-		return
-	}
-}
-
-// openstack elb sync
-func SyncOpenstackLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) {
-	remoteBackendgroups, err := remoteLoadbalancer.GetILoadBalancerBackendGroups()
-	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
-		log.Errorln(msg)
-		return
-	}
-	localLbbgs, remoteLbbgs, result := OpenstackCachedLbbgManager.SyncLoadbalancerBackendgroups(ctx, userCred, provider, localLoadbalancer, remoteBackendgroups, syncRange)
-
-	syncResults.Add(HuaweiCachedLbbgManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackendgroups for loadbalancer %s result: %s", localLoadbalancer.Name, msg)
-	if result.IsError() {
-		return
-	}
-	for i := 0; i < len(localLbbgs); i++ {
-		func() {
-			lockman.LockObject(ctx, &localLbbgs[i])
-			defer lockman.ReleaseObject(ctx, &localLbbgs[i])
-
-			syncOpenstackLoadbalancerBackends(ctx, userCred, syncResults, provider, &localLbbgs[i], remoteLbbgs[i], syncRange)
-		}()
-	}
-}
-
-func syncOpenstackLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLbbg *SOpenstackCachedLbbg, remoteLbbg cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) {
-	remoteLbbs, err := remoteLbbg.GetILoadbalancerBackends()
-	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerBackends for lbbg %s failed %s", localLbbg.Name, err)
-		log.Errorln(msg)
-		return
-	}
-	result := OpenstackCachedLbManager.SyncLoadbalancerBackends(ctx, userCred, provider, localLbbg, remoteLbbs, syncRange)
-
-	syncResults.Add(LoadbalancerBackendManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackends for LoadbalancerBackendgroup %s result: %s", localLbbg.Name, msg)
+	log.Infof("SyncLoadbalancerBackends for LoadbalancerBackendgroup %s result: %s", local.Name, msg)
 	if result.IsError() {
 		return
 	}

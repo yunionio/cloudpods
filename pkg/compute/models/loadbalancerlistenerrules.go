@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -27,7 +26,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -35,12 +33,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancerListenerRuleManager struct {
 	SLoadbalancerLogSkipper
-	db.SVirtualResourceBaseManager
+	db.SStatusStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SLoadbalancerListenerResourceBaseManager
 }
@@ -49,7 +48,7 @@ var LoadbalancerListenerRuleManager *SLoadbalancerListenerRuleManager
 
 func init() {
 	LoadbalancerListenerRuleManager = &SLoadbalancerListenerRuleManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SLoadbalancerListenerRule{},
 			"loadbalancerlistenerrules_tbl",
 			"loadbalancerlistenerrule",
@@ -60,15 +59,13 @@ func init() {
 }
 
 type SLoadbalancerListenerRule struct {
-	db.SVirtualResourceBase
+	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
 	SLoadbalancerListenerResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 默认转发策略，目前只有aws用到其它云都是false
 	IsDefault bool `default:"false" nullable:"true" list:"user" create:"optional"`
-
-	// ListenerId     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
@@ -79,6 +76,47 @@ type SLoadbalancerListenerRule struct {
 	SLoadbalancerHealthCheck // 目前只有腾讯云HTTP、HTTPS类型的健康检查是和规则绑定的。
 	SLoadbalancerHTTPRateLimiter
 	SLoadbalancerHTTPRedirect
+}
+
+func (manager *SLoadbalancerListenerRuleManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (self *SLoadbalancerListenerRule) GetOwnerId() mcclient.IIdentityProvider {
+	lis, err := self.GetLoadbalancerListener()
+	if err != nil {
+		return nil
+	}
+	return lis.GetOwnerId()
+}
+
+func (manager *SLoadbalancerListenerRuleManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	lisId, _ := data.GetString("listener_id")
+	if len(lisId) > 0 {
+		lis, err := db.FetchById(LoadbalancerListenerManager, lisId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchById(LoadbalancerListenerManager, %s)", lisId)
+		}
+		return lis.(*SLoadbalancerListener).GetOwnerId(), nil
+	}
+	return db.FetchProjectInfo(ctx, data)
+}
+
+func (man *SLoadbalancerListenerRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil {
+		sq := LoadbalancerListenerManager.Query("id")
+		lb := LoadbalancerManager.Query().SubQuery()
+		sq = sq.Join(lb, sqlchemy.Equals(lb.Field("id"), sq.Field("loadbalancer_id")))
+		switch scope {
+		case rbacutils.ScopeProject:
+			sq = sq.Filter(sqlchemy.Equals(lb.Field("tenant_id"), userCred.GetProjectId()))
+			return q.In("listener_id", sq.SubQuery())
+		case rbacutils.ScopeDomain:
+			sq = sq.Filter(sqlchemy.Equals(lb.Field("domain_id"), userCred.GetProjectDomainId()))
+			return q.In("listener_id", sq.SubQuery())
+		}
+	}
+	return q
 }
 
 func ValidateListenerRuleConditions(condition string) error {
@@ -364,28 +402,6 @@ func parseConditionDictArrayValues(values jsonutils.JSONObject, limitations *map
 	return nil
 }
 
-func LoadbalancerListenerRuleCheckUniqueness(ctx context.Context, lbls *SLoadbalancerListener, domain, path string) error {
-	q := LoadbalancerListenerRuleManager.Query().
-		IsFalse("pending_deleted").
-		Equals("listener_id", lbls.Id).
-		Equals("domain", domain).
-		Equals("path", path)
-	var lblsr SLoadbalancerListenerRule
-	q.First(&lblsr)
-	if len(lblsr.Id) > 0 {
-		return httperrors.NewConflictError("rule %s/%s already occupied by rule %s(%s)", domain, path, lblsr.Name, lblsr.Id)
-	}
-	return nil
-}
-
-func (man *SLoadbalancerListenerRuleManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
-	subs := []SLoadbalancerListenerRule{}
-	db.FetchModelObjects(man, q, &subs)
-	for _, sub := range subs {
-		sub.DoPendingDelete(ctx, userCred)
-	}
-}
-
 // 负载均衡监听器规则列表
 func (man *SLoadbalancerListenerRuleManager) ListItemFilter(
 	ctx context.Context,
@@ -393,9 +409,9 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.LoadbalancerListenerRuleListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	q, err := man.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
@@ -441,9 +457,9 @@ func (man *SLoadbalancerListenerRuleManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	q, err = man.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = man.SLoadbalancerListenerResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.LoadbalancerListenerFilterListInput)
 	if err != nil {
@@ -456,7 +472,7 @@ func (man *SLoadbalancerListenerRuleManager) OrderByExtraFields(
 func (man *SLoadbalancerListenerRuleManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = man.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -468,51 +484,67 @@ func (man *SLoadbalancerListenerRuleManager) QueryDistinctExtraField(q *sqlchemy
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SLoadbalancerListenerRuleManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", nil)
-	if err := listenerV.Validate(data.(*jsonutils.JSONDict)); err == nil {
-		return listenerV.Model.GetOwnerId(), nil
-	}
-	return man.SVirtualResourceBaseManager.FetchOwnerId(ctx, data)
+type sListenerRule struct {
+	Name       string
+	ListenerId string
 }
 
-func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input := apis.VirtualResourceCreateInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+func (self *SLoadbalancerListenerRule) GetUniqValues() jsonutils.JSONObject {
+	return jsonutils.Marshal(sListenerRule{Name: self.Name, ListenerId: self.ListenerId})
+}
+
+func (manager *SLoadbalancerListenerRuleManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
+	info := sListenerRule{}
+	data.Unmarshal(&info)
+	return jsonutils.Marshal(info)
+}
+
+func (manager *SLoadbalancerListenerRuleManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	info := sListenerRule{}
+	values.Unmarshal(&info)
+	if len(info.ListenerId) > 0 {
+		q = q.Equals("listener_id", info.ListenerId)
 	}
-	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if len(info.Name) > 0 {
+		q = q.Equals("name", info.Name)
+	}
+	return q
+}
+
+func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject,
+	input *api.LoadbalancerListenerRuleCreateInput) (*api.LoadbalancerListenerRuleCreateInput, error) {
+	var err error
+	input.StatusStandaloneResourceCreateInput, err = man.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
-	data.Update(jsonutils.Marshal(input))
-
-	listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
-	if err := listenerV.Validate(data); err != nil {
+	if len(input.Status) == 0 {
+		input.Status = api.LB_STATUS_ENABLED
+	}
+	listenerObj, err := validators.ValidateModel(userCred, LoadbalancerListenerManager, &input.ListenerId)
+	if err != nil {
 		return nil, err
 	}
-
-	listener := listenerV.Model.(*SLoadbalancerListener)
+	listener := listenerObj.(*SLoadbalancerListener)
+	if listener.ListenerType != api.LB_LISTENER_TYPE_HTTP && listener.ListenerType != api.LB_LISTENER_TYPE_HTTPS {
+		return nil, httperrors.NewInputParameterError("listener type must be http/https, got %s", listener.ListenerType)
+	}
 	region, err := listener.GetRegion()
 	if err != nil {
 		return nil, err
 	}
-
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
 	if region.GetDriver().IsSupportLoadbalancerListenerRuleRedirect() {
-		// backend group can be empty if you support redirect in rule
-		backendGroupV.Optional(true)
+		_, err := validators.ValidateModel(userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
+		if err != nil {
+			return nil, err
+		}
 	}
-	if err := backendGroupV.Validate(data); err != nil {
-		return nil, err
-	}
-
-	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, ownerId, data, backendGroupV.Model)
+	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, ownerId, input)
 }
 
 func (lbr *SLoadbalancerListenerRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lbr.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	lbr.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	lbr.SetStatus(userCred, api.LB_CREATING, "")
 	if err := lbr.StartLoadBalancerListenerRuleCreateTask(ctx, userCred, ""); err != nil {
@@ -549,35 +581,17 @@ func (lbr *SLoadbalancerListenerRule) StartLoadBalancerListenerRuleDeleteTask(ct
 	return nil
 }
 
-func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lbr.GetOwnerId())
-	if lbr.BackendGroupId != "" {
-		backendGroupV.Default(lbr.BackendGroupId)
-	} else {
-		backendGroupV.Optional(true)
-	}
-	if err := backendGroupV.Validate(data); err != nil {
-		return nil, err
-	}
-
-	input := apis.VirtualResourceBaseUpdateInput{}
-	err := data.Unmarshal(&input)
+func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LoadbalancerListenerRuleUpdateInput) (*api.LoadbalancerListenerRuleUpdateInput, error) {
+	var err error
+	input.StatusStandaloneResourceBaseUpdateInput, err = lbr.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
 	}
-	input, err = lbr.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
-	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
-	}
-	data.Update(jsonutils.Marshal(input))
-
 	region, err := lbr.GetRegion()
 	if err != nil {
 		return nil, err
 	}
-
-	ctx = context.WithValue(ctx, "lbr", lbr)
-	return region.GetDriver().ValidateUpdateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroupV.Model)
+	return region.GetDriver().ValidateUpdateLoadbalancerListenerRuleData(ctx, userCred, input)
 }
 
 func (lbr *SLoadbalancerListenerRule) getMoreDetails(out api.LoadbalancerListenerRuleDetails) (api.LoadbalancerListenerRuleDetails, error) {
@@ -606,12 +620,12 @@ func (man *SLoadbalancerListenerRuleManager) FetchCustomizeColumns(
 ) []api.LoadbalancerListenerRuleDetails {
 	rows := make([]api.LoadbalancerListenerRuleDetails, len(objs))
 
-	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := man.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	listenerRows := man.SLoadbalancerListenerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.LoadbalancerListenerRuleDetails{
-			VirtualResourceDetails:           virtRows[i],
+			StatusStandaloneResourceDetails:  stdRows[i],
 			LoadbalancerListenerResourceInfo: listenerRows[i],
 		}
 		rows[i], _ = objs[i].(*SLoadbalancerListenerRule).getMoreDetails(rows[i])
@@ -640,11 +654,15 @@ func (lbr *SLoadbalancerListenerRule) Delete(ctx context.Context, userCred mccli
 	return nil
 }
 
+func (self *SLoadbalancerListenerRule) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return self.SStatusStandaloneResourceBase.Delete(ctx, userCred)
+}
+
 // Delete, Update
 
 func (man *SLoadbalancerListenerRuleManager) getLoadbalancerListenerRulesByListener(listener *SLoadbalancerListener) ([]SLoadbalancerListenerRule, error) {
 	rules := []SLoadbalancerListenerRule{}
-	q := man.Query().Equals("listener_id", listener.Id).IsFalse("pending_deleted")
+	q := man.Query().Equals("listener_id", listener.Id)
 	if err := db.FetchModelObjects(man, q, &rules); err != nil {
 		log.Errorf("failed to get lb listener rules for listener %s error: %v", listener.Name, err)
 		return nil, err
@@ -652,7 +670,7 @@ func (man *SLoadbalancerListenerRuleManager) getLoadbalancerListenerRulesByListe
 	return rules, nil
 }
 
-func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, listener *SLoadbalancerListener, rules []cloudprovider.ICloudLoadbalancerListenerRule, syncRange *SSyncRange) compare.SyncResult {
+func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, listener *SLoadbalancerListener, rules []cloudprovider.ICloudLoadbalancerListenerRule) compare.SyncResult {
 	syncOwnerId := provider.GetOwnerId()
 
 	lockman.LockRawObject(ctx, "listener-rules", listener.Id)
@@ -723,43 +741,45 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 		lbr.RedirectPath = extRule.GetRedirectPath()
 	}
 
-	if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
-		if utils.IsInStringArray(lbr.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
-			group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					lbr.BackendGroupId = ""
-				}
-				log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
-			} else {
-				lbr.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
-			}
-
-		} else if lbr.GetProviderName() == api.CLOUD_PROVIDER_AWS {
-			if len(groupId) > 0 {
-				group, err := db.FetchByExternalId(AwsCachedLbbgManager, groupId)
+	/*
+		if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
+			if utils.IsInStringArray(lbr.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
+				group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
 				if err != nil {
-					log.Errorf("Fetch aws loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+					if err == sql.ErrNoRows {
+						lbr.BackendGroupId = ""
+					}
+					log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
 				} else {
-					lbr.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
+					lbr.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
 				}
 
-			}
-		} else if lbr.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
-			group, err := db.FetchByExternalId(QcloudCachedLbbgManager, groupId)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					lbr.BackendGroupId = ""
-				}
-				log.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", groupId, err)
-			} else {
-				lbr.BackendGroupId = group.(*SQcloudCachedLbbg).BackendGroupId
-			}
+			} else if lbr.GetProviderName() == api.CLOUD_PROVIDER_AWS {
+				if len(groupId) > 0 {
+					group, err := db.FetchByExternalId(AwsCachedLbbgManager, groupId)
+					if err != nil {
+						log.Errorf("Fetch aws loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+					} else {
+						lbr.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
+					}
 
-		} else if backendgroup, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
-			lbr.BackendGroupId = backendgroup.GetId()
+				}
+			} else if lbr.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
+				group, err := db.FetchByExternalId(QcloudCachedLbbgManager, groupId)
+				if err != nil {
+					if err == sql.ErrNoRows {
+						lbr.BackendGroupId = ""
+					}
+					log.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+				} else {
+					lbr.BackendGroupId = group.(*SQcloudCachedLbbg).BackendGroupId
+				}
+
+			} else if backendgroup, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
+				lbr.BackendGroupId = backendgroup.GetId()
+			}
 		}
-	}
+	*/
 }
 
 func (lbr *SLoadbalancerListenerRule) updateCachedLoadbalancerBackendGroupAssociate(ctx context.Context, extRule cloudprovider.ICloudLoadbalancerListenerRule) error {
@@ -768,76 +788,78 @@ func (lbr *SLoadbalancerListenerRule) updateCachedLoadbalancerBackendGroupAssoci
 		return nil
 	}
 
-	switch lbr.GetProviderName() {
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS:
-		_group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, exteralLbbgId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				lbr.BackendGroupId = ""
+	/*
+		switch lbr.GetProviderName() {
+		case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS:
+			_group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, exteralLbbgId)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					lbr.BackendGroupId = ""
+				}
+				return fmt.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
 			}
-			return fmt.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
-		}
 
-		if _group != nil {
-			group := _group.(*SHuaweiCachedLbbg)
-			if group.AssociatedId != lbr.Id {
-				_, err := db.UpdateWithLock(ctx, group, func() error {
-					group.AssociatedId = lbr.Id
-					group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
-					return nil
-				})
-				if err != nil {
-					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.huawei")
+			if _group != nil {
+				group := _group.(*SHuaweiCachedLbbg)
+				if group.AssociatedId != lbr.Id {
+					_, err := db.UpdateWithLock(ctx, group, func() error {
+						group.AssociatedId = lbr.Id
+						group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+						return nil
+					})
+					if err != nil {
+						return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.huawei")
+					}
 				}
 			}
-		}
-	case api.CLOUD_PROVIDER_QCLOUD:
-		_group, err := db.FetchByExternalId(QcloudCachedLbbgManager, exteralLbbgId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				lbr.BackendGroupId = ""
+		case api.CLOUD_PROVIDER_QCLOUD:
+			_group, err := db.FetchByExternalId(QcloudCachedLbbgManager, exteralLbbgId)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					lbr.BackendGroupId = ""
+				}
+				return fmt.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
 			}
-			return fmt.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
-		}
 
-		if _group != nil {
-			group := _group.(*SQcloudCachedLbbg)
-			if group.AssociatedId != lbr.Id {
-				_, err := db.UpdateWithLock(ctx, group, func() error {
-					group.AssociatedId = lbr.Id
-					group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
-					return nil
-				})
-				if err != nil {
-					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.qcloud")
+			if _group != nil {
+				group := _group.(*SQcloudCachedLbbg)
+				if group.AssociatedId != lbr.Id {
+					_, err := db.UpdateWithLock(ctx, group, func() error {
+						group.AssociatedId = lbr.Id
+						group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+						return nil
+					})
+					if err != nil {
+						return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.qcloud")
+					}
 				}
 			}
-		}
-	case api.CLOUD_PROVIDER_OPENSTACK:
-		_group, err := db.FetchByExternalId(OpenstackCachedLbbgManager, exteralLbbgId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				lbr.BackendGroupId = ""
+		case api.CLOUD_PROVIDER_OPENSTACK:
+			_group, err := db.FetchByExternalId(OpenstackCachedLbbgManager, exteralLbbgId)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					lbr.BackendGroupId = ""
+				}
+				return fmt.Errorf("Fetch openstack loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
 			}
-			return fmt.Errorf("Fetch openstack loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
-		}
 
-		if _group != nil {
-			group := _group.(*SOpenstackCachedLbbg)
-			if group.AssociatedId != lbr.Id {
-				_, err := db.UpdateWithLock(ctx, group, func() error {
-					group.AssociatedId = lbr.Id
-					group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
-					return nil
-				})
-				if err != nil {
-					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.openstack")
+			if _group != nil {
+				group := _group.(*SOpenstackCachedLbbg)
+				if group.AssociatedId != lbr.Id {
+					_, err := db.UpdateWithLock(ctx, group, func() error {
+						group.AssociatedId = lbr.Id
+						group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+						return nil
+					})
+					if err != nil {
+						return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.openstack")
+					}
 				}
 			}
+		default:
+			return nil
 		}
-	default:
-		return nil
-	}
+	*/
 
 	return nil
 }
@@ -880,8 +902,6 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 		return nil, errors.Wrap(err, "LoadbalancerListenerRuleManager.newFromCloudLoadbalancerListenerRule")
 	}
 
-	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, provider.Id)
-
 	db.OpsLog.LogEvent(lbr, db.ACT_CREATE, lbr.GetShortDesc(ctx), userCred)
 
 	return lbr, nil
@@ -893,11 +913,10 @@ func (lbr *SLoadbalancerListenerRule) syncRemoveCloudLoadbalancerListenerRule(ct
 
 	err := lbr.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
-		err = lbr.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
-	} else {
-		err = lbr.DoPendingDelete(ctx, userCred)
+		lbr.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
+		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
-	return err
+	return lbr.RealDelete(ctx, userCred)
 }
 
 func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(
@@ -925,37 +944,7 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(
 
 	db.OpsLog.LogSyncUpdate(lbr, diff, userCred)
 
-	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, provider.Id)
-
 	return nil
-}
-
-/*func (manager *SLoadbalancerListenerRuleManager) InitializeData() error {
-	rules := []SLoadbalancerListenerRule{}
-	q := manager.Query()
-	q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")))
-	if err := db.FetchModelObjects(manager, q, &rules); err != nil {
-		return err
-	}
-	for i := 0; i < len(rules); i++ {
-		rule := &rules[i]
-		if listener := rule.GetLoadbalancerListener(); listener != nil && len(listener.CloudregionId) > 0 {
-			_, err := db.Update(rule, func() error {
-				rule.CloudregionId = listener.CloudregionId
-				rule.ManagerId = listener.ManagerId
-				return nil
-			})
-			if err != nil {
-				log.Errorf("failed to update loadbalancer listener rule %s cloudregion_id", rule.Name)
-			}
-		}
-	}
-	return nil
-}*/
-
-func (manager *SLoadbalancerListenerRuleManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
-	virts := manager.Query().IsFalse("pending_deleted")
-	return db.CalculateResourceCount(virts, "tenant_id")
 }
 
 func (manager *SLoadbalancerListenerRuleManager) ListItemExportKeys(ctx context.Context,
@@ -964,9 +953,9 @@ func (manager *SLoadbalancerListenerRuleManager) ListItemExportKeys(ctx context.
 	keys stringutils2.SSortedStrings,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
 	}
 	if keys.ContainsAny(manager.SLoadbalancerListenerResourceBaseManager.GetExportKeys()...) {
 		q, err = manager.SLoadbalancerListenerResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)

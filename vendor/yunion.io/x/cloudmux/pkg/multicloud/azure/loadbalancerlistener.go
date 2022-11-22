@@ -501,7 +501,7 @@ func (self *SLoadBalancerListener) Stop() error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "Stop")
 }
 
-func (self *SLoadBalancerListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) error {
+func (self *SLoadBalancerListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "Sync")
 }
 

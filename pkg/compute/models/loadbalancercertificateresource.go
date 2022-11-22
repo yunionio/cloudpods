@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -26,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -38,26 +38,12 @@ type SLoadbalancerCertificateResourceBase struct {
 
 type SLoadbalancerCertificateResourceBaseManager struct{}
 
-func ValidateLoadbalancerCertificateResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerCertificateResourceInput) (*SLoadbalancerCertificate, api.LoadbalancerCertificateResourceInput, error) {
-	lbcertObj, err := LoadbalancerCertificateManager.FetchByIdOrName(userCred, input.CertificateId)
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerCertificateManager.Keyword(), input.CertificateId)
-		} else {
-			return nil, input, errors.Wrap(err, "LoadbalancerCertificateManager.FetchByIdOrName")
-		}
-	}
-	input.CertificateId = lbcertObj.GetId()
-	return lbcertObj.(*SLoadbalancerCertificate), input, nil
-}
-
-func (self *SLoadbalancerCertificateResourceBase) GetCertificate() *SLoadbalancerCertificate {
+func (self *SLoadbalancerCertificateResourceBase) GetCertificate() (*SLoadbalancerCertificate, error) {
 	cert, err := LoadbalancerCertificateManager.FetchById(self.CertificateId)
 	if err != nil {
-		log.Errorf("failed to find certificate %s error: %v", self.CertificateId, err)
-		return nil
+		return nil, errors.Wrapf(err, "FetchById(%s)", self.CertificateId)
 	}
-	return cert.(*SLoadbalancerCertificate)
+	return cert.(*SLoadbalancerCertificate), nil
 }
 
 func (manager *SLoadbalancerCertificateResourceBaseManager) FetchCustomizeColumns(
@@ -101,11 +87,11 @@ func (manager *SLoadbalancerCertificateResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerCertificateFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.CertificateId) > 0 {
-		certObj, _, err := ValidateLoadbalancerCertificateResourceInput(userCred, query.LoadbalancerCertificateResourceInput)
+		_, err := validators.ValidateModel(userCred, LoadbalancerCertificateManager, &query.CertificateId)
 		if err != nil {
-			return nil, errors.Wrap(err, "ValidateLoadbalancerCertificateResourceInput")
+			return q, err
 		}
-		q = q.Equals("certificate_id", certObj.GetId())
+		q = q.Equals("certificate_id", query.CertificateId)
 	}
 	return q, nil
 }

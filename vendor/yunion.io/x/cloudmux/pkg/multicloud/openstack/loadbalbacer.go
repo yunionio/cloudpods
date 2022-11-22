@@ -366,7 +366,7 @@ func (lb *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SL
 	return spool, nil
 }
 
-func (lb *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (lb *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
 	// ensure lb status
 	err := waitLbResStatus(lb, 10*time.Second, 8*time.Minute)
 	if err != nil {

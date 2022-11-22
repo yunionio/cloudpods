@@ -75,14 +75,6 @@ func init() {
 		printObject(lbcert)
 		return nil
 	})
-	R(&options.LoadbalancerCertificateDeleteOptions{}, "lbcert-purge", "Purge lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateDeleteOptions) error {
-		lbcert, err := modules.LoadbalancerCertificates.PerformAction(s, opts.ID, "purge", nil)
-		if err != nil {
-			return err
-		}
-		printObject(lbcert)
-		return nil
-	})
 	R(&options.LoadbalancerCertificatePublicOptions{}, "lbcert-public", "Public lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificatePublicOptions) error {
 		params := jsonutils.Marshal(opts)
 		lbcert, err := modules.LoadbalancerCertificates.PerformAction(s, opts.ID, "public", params)

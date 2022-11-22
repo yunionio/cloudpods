@@ -116,7 +116,6 @@ type ICloudRegion interface {
 	GetILoadBalancers() ([]ICloudLoadbalancer, error)
 	GetILoadBalancerAcls() ([]ICloudLoadbalancerAcl, error)
 	GetILoadBalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
-	GetILoadBalancerBackendGroups() ([]ICloudLoadbalancerBackendGroup, error) // for aws only
 
 	GetILoadBalancerById(loadbalancerId string) (ICloudLoadbalancer, error)
 	GetILoadBalancerAclById(aclId string) (ICloudLoadbalancerAcl, error)
@@ -687,7 +686,7 @@ type ICloudLoadbalancer interface {
 	CreateILoadBalancerBackendGroup(group *SLoadbalancerBackendGroup) (ICloudLoadbalancerBackendGroup, error)
 	GetILoadBalancerBackendGroupById(groupId string) (ICloudLoadbalancerBackendGroup, error)
 
-	CreateILoadBalancerListener(ctx context.Context, listener *SLoadbalancerListener) (ICloudLoadbalancerListener, error)
+	CreateILoadBalancerListener(ctx context.Context, listener *SLoadbalancerListenerCreateOptions) (ICloudLoadbalancerListener, error)
 	GetILoadBalancerListenerById(listenerId string) (ICloudLoadbalancerListener, error)
 }
 
@@ -717,7 +716,7 @@ type ICloudloadbalancerHealthCheck interface {
 }
 
 type ICloudLoadbalancerListener interface {
-	IVirtualResource
+	ICloudResource
 
 	GetListenerType() string
 	GetListenerPort() int
@@ -755,13 +754,13 @@ type ICloudLoadbalancerListener interface {
 
 	Start() error
 	Stop() error
-	Sync(ctx context.Context, listener *SLoadbalancerListener) error
+	Sync(ctx context.Context, listener *SLoadbalancerListenerCreateOptions) error
 
 	Delete(ctx context.Context) error
 }
 
 type ICloudLoadbalancerListenerRule interface {
-	IVirtualResource
+	ICloudResource
 	// http redirect
 	ICloudLoadbalancerRedirect
 
@@ -775,17 +774,12 @@ type ICloudLoadbalancerListenerRule interface {
 }
 
 type ICloudLoadbalancerBackendGroup interface {
-	IVirtualResource
+	ICloudResource
 
 	IsDefault() bool
 	GetType() string
-	GetLoadbalancerId() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
 	GetILoadbalancerBackendById(backendId string) (ICloudLoadbalancerBackend, error)
-	GetProtocolType() string                                // huawei only .后端云服务器组的后端协议。
-	GetScheduler() string                                   // huawei only
-	GetHealthCheck() (*SLoadbalancerHealthCheck, error)     // huawei only
-	GetStickySession() (*SLoadbalancerStickySession, error) // huawei only
 	AddBackendServer(serverId string, weight int, port int) (ICloudLoadbalancerBackend, error)
 	RemoveBackendServer(serverId string, weight int, port int) error
 
@@ -794,7 +788,7 @@ type ICloudLoadbalancerBackendGroup interface {
 }
 
 type ICloudLoadbalancerBackend interface {
-	IVirtualResource
+	ICloudResource
 
 	GetWeight() int
 	GetPort() int

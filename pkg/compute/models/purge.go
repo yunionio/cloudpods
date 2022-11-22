@@ -223,12 +223,12 @@ func (lbcert *SCachedLoadbalancerCertificate) purge(ctx context.Context, userCre
 	lockman.LockObject(ctx, lbcert)
 	defer lockman.ReleaseObject(ctx, lbcert)
 
-	err := lbcert.ValidatePurgeCondition(ctx)
+	err := lbcert.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	return lbcert.DoPendingDelete(ctx, userCred)
+	return lbcert.RealDelete(ctx, userCred)
 }
 
 func (manager *SLoadbalancerCertificateManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
@@ -299,7 +299,7 @@ func (lbacl *SCachedLoadbalancerAcl) purge(ctx context.Context, userCred mcclien
 		return err
 	}
 
-	return lbacl.DoPendingDelete(ctx, userCred)
+	return lbacl.RealDelete(ctx, userCred)
 }
 
 func (manager *SLoadbalancerBackendGroupManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
@@ -430,7 +430,7 @@ func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCrede
 		return err
 	}
 
-	lb.LBPendingDelete(ctx, userCred)
+	lb.RealDelete(ctx, userCred)
 	return nil
 }
 
@@ -463,7 +463,7 @@ func (lbl *SLoadbalancerListener) purge(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	lbl.LBPendingDelete(ctx, userCred)
+	lbl.RealDelete(ctx, userCred)
 	return nil
 }
 
@@ -475,7 +475,7 @@ func (lblr *SLoadbalancerListenerRule) purge(ctx context.Context, userCred mccli
 	if err != nil {
 		return err
 	}
-	return lblr.DoPendingDelete(ctx, userCred)
+	return lblr.RealDelete(ctx, userCred)
 }
 
 func (lbbg *SLoadbalancerBackendGroup) purgeBackends(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -539,164 +539,24 @@ func (lbbg *SLoadbalancerBackendGroup) purge(ctx context.Context, userCred mccli
 		return err
 	}
 
-	err = lbbg.purgeCachedlbbg(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
 	err = lbbg.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}
 
-	lbbg.LBPendingDelete(ctx, userCred)
+	lbbg.RealDelete(ctx, userCred)
 	return nil
-}
-
-func (lbbg *SLoadbalancerBackendGroup) purgeCachedlbbg(ctx context.Context, userCred mcclient.TokenCredential) error {
-	switch lbbg.GetProviderName() {
-	case api.CLOUD_PROVIDER_AWS:
-		return lbbg.purgeAwsCachedlbbg(ctx, userCred)
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS:
-		return lbbg.purgeHuaweiCachedlbbg(ctx, userCred)
-	}
-
-	return nil
-}
-
-func (lbbg *SLoadbalancerBackendGroup) purgeAwsCachedlbbg(ctx context.Context, userCred mcclient.TokenCredential) error {
-	caches, err := lbbg.GetAwsCachedlbbg()
-	if err != nil {
-		return err
-	}
-
-	for i := range caches {
-		if err := caches[i].purge(ctx, userCred); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (lbbg *SAwsCachedLbbg) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lbbg)
-	defer lockman.ReleaseObject(ctx, lbbg)
-
-	err := lbbg.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return lbbg.SVirtualResourceBase.Delete(ctx, userCred)
-}
-
-func (lbbg *SLoadbalancerBackendGroup) purgeHuaweiCachedlbbg(ctx context.Context, userCred mcclient.TokenCredential) error {
-	caches, err := lbbg.GetHuaweiCachedlbbg()
-	if err != nil {
-		return err
-	}
-
-	for i := range caches {
-		if err := caches[i].purge(ctx, userCred); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (lbbg *SHuaweiCachedLbbg) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lbbg)
-	defer lockman.ReleaseObject(ctx, lbbg)
-
-	err := lbbg.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return lbbg.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (lbb *SLoadbalancerBackend) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, lbb)
 	defer lockman.ReleaseObject(ctx, lbb)
 
-	err := lbb.purgeCachedlbb(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = lbb.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-	return lbb.DoPendingDelete(ctx, userCred)
-}
-
-func (lbb *SLoadbalancerBackend) purgeCachedlbb(ctx context.Context, userCred mcclient.TokenCredential) error {
-	switch lbb.GetProviderName() {
-	case api.CLOUD_PROVIDER_AWS:
-		return lbb.purgeAwsCachedlbb(ctx, userCred)
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO:
-		return lbb.purgeHuaweiCachedlbb(ctx, userCred)
-	}
-
-	return nil
-}
-
-func (lbb *SLoadbalancerBackend) purgeAwsCachedlbb(ctx context.Context, userCred mcclient.TokenCredential) error {
-	caches, err := lbb.GetAwsCachedlbb()
-	if err != nil {
-		return err
-	}
-
-	for i := range caches {
-		if err := caches[i].purge(ctx, userCred); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (lbb *SAwsCachedLb) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lbb)
-	defer lockman.ReleaseObject(ctx, lbb)
-
 	err := lbb.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
-
-	return lbb.SVirtualResourceBase.Delete(ctx, userCred)
-}
-
-func (lbb *SLoadbalancerBackend) purgeHuaweiCachedlbb(ctx context.Context, userCred mcclient.TokenCredential) error {
-	caches, err := lbb.GetHuaweiCachedlbb()
-	if err != nil {
-		return err
-	}
-
-	for i := range caches {
-		if err := caches[i].purge(ctx, userCred); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (lbb *SHuaweiCachedLb) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, lbb)
-	defer lockman.ReleaseObject(ctx, lbb)
-
-	err := lbb.ValidateDeleteCondition(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	return lbb.SVirtualResourceBase.Delete(ctx, userCred)
+	return lbb.RealDelete(ctx, userCred)
 }
 
 func (manager *SSnapshotManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {

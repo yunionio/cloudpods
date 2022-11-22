@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -26,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -38,26 +38,12 @@ type SLoadbalancerAclResourceBase struct {
 
 type SLoadbalancerAclResourceBaseManager struct{}
 
-func ValidateLoadbalancerAclResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerAclResourceInput) (*SLoadbalancerAcl, api.LoadbalancerAclResourceInput, error) {
-	lbaclObj, err := LoadbalancerAclManager.FetchByIdOrName(userCred, input.AclId)
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerAclManager.Keyword(), input.AclId)
-		} else {
-			return nil, input, errors.Wrap(err, "LoadbalancerAclManager.FetchByIdOrName")
-		}
-	}
-	input.AclId = lbaclObj.GetId()
-	return lbaclObj.(*SLoadbalancerAcl), input, nil
-}
-
-func (self *SLoadbalancerAclResourceBase) GetAcl() *SLoadbalancerAcl {
+func (self *SLoadbalancerAclResourceBase) GetAcl() (*SLoadbalancerAcl, error) {
 	acl, err := LoadbalancerAclManager.FetchById(self.AclId)
 	if err != nil {
-		log.Errorf("failed to find acl %s error: %v", self.AclId, err)
-		return nil
+		return nil, errors.Wrapf(err, "GetAcl.FetchById(%s)", self.AclId)
 	}
-	return acl.(*SLoadbalancerAcl)
+	return acl.(*SLoadbalancerAcl), nil
 }
 
 func (manager *SLoadbalancerAclResourceBaseManager) FetchCustomizeColumns(
@@ -101,11 +87,11 @@ func (manager *SLoadbalancerAclResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerAclFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.AclId) > 0 {
-		aclObj, _, err := ValidateLoadbalancerAclResourceInput(userCred, query.LoadbalancerAclResourceInput)
+		_, err := validators.ValidateModel(userCred, LoadbalancerAclManager, &query.AclId)
 		if err != nil {
-			return nil, errors.Wrap(err, "ValidateLoadbalancerAclResourceInput")
+			return nil, err
 		}
-		q = q.Equals("acl_id", aclObj.GetId())
+		q = q.Equals("acl_id", query.AclId)
 	}
 	return q, nil
 }

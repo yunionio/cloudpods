@@ -275,7 +275,6 @@ func totalLBNicCount(
 	lbnics := LoadbalancernetworkManager.Query().SubQuery()
 	q := lbnics.Query()
 	q = q.Join(lbs, sqlchemy.Equals(lbs.Field("id"), lbnics.Field("loadbalancer_id")))
-	q = q.Filter(sqlchemy.IsFalse(lbs.Field("pending_deleted")))
 
 	switch scope {
 	case rbacutils.ScopeSystem:

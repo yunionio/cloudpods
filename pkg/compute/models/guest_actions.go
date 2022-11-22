@@ -2726,15 +2726,6 @@ func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 			self.DetachDisk(ctx, &disks[i], userCred)
 		}
 	}
-	backends := []SLoadbalancerBackend{}
-	q := LoadbalancerBackendManager.Query().Equals("backend_id", self.Id).IsFalse("pending_deleted")
-	err := db.FetchModelObjects(LoadbalancerBackendManager, q, &backends)
-	if err != nil {
-		log.Errorf("failed to get backends for guest %s(%s)", self.Name, self.Id)
-	}
-	for i := 0; i < len(backends); i++ {
-		backends[i].DoPendingDelete(ctx, userCred)
-	}
 	self.SVirtualResourceBase.DoPendingDelete(ctx, userCred)
 }
 

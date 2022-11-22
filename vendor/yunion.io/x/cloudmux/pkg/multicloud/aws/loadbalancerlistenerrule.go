@@ -190,7 +190,7 @@ func (self *SRegion) CreateElbListenerRule(listenerId string, config *cloudprovi
 
 	forward := "forward"
 	action := &elbv2.Action{
-		TargetGroupArn: &config.BackendGroupID,
+		TargetGroupArn: &config.BackendGroupId,
 		Type:           &forward,
 	}
 

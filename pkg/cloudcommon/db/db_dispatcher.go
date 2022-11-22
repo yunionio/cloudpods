@@ -1217,7 +1217,7 @@ func _doCreateItem(
 
 	dataDict, err = ValidateCreateData(funcName, manager, ctx, userCred, ownerId, query, dataDict)
 	if err != nil {
-		return nil, errors.Wrap(err, "ValidateCreateData")
+		return nil, err
 	}
 
 	if manager.HasName() {

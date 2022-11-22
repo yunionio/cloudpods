@@ -15,6 +15,7 @@
 package compute
 
 import (
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 
 	"yunion.io/x/onecloud/pkg/util/choices"
@@ -43,14 +44,14 @@ const (
 
 	LB_STATUS_INIT = compute.LB_STATUS_INIT
 
-	LB_CREATING      = compute.LB_CREATING
-	LB_CREATE_FAILED = "create_failed"
+	LB_CREATING      = apis.STATUS_CREATING
+	LB_CREATE_FAILED = apis.STATUS_CREATE_FAILED
 
 	LB_SYNC_CONF        = compute.LB_SYNC_CONF
 	LB_SYNC_CONF_FAILED = "sync_conf_failed"
 
-	LB_STATUS_DELETING      = compute.LB_STATUS_DELETING
-	LB_STATUS_DELETE_FAILED = "delete_failed"
+	LB_STATUS_DELETING      = apis.STATUS_DELETING
+	LB_STATUS_DELETE_FAILED = apis.STATUS_DELETE_FAILED
 	LB_STATUS_DELETED       = compute.LB_STATUS_DELETED
 
 	LB_STATUS_START_FAILED = compute.LB_STATUS_START_FAILED
@@ -152,12 +153,12 @@ const (
 	LB_LISTENER_TYPE_TERMINATED_HTTPS = compute.LB_LISTENER_TYPE_TERMINATED_HTTPS
 )
 
-var LB_LISTENER_TYPES = choices.NewChoices(
+var LB_LISTENER_TYPES = []string{
 	LB_LISTENER_TYPE_TCP,
 	LB_LISTENER_TYPE_UDP,
 	LB_LISTENER_TYPE_HTTP,
 	LB_LISTENER_TYPE_HTTPS,
-)
+}
 
 // aws_network_lb_listener
 var AWS_NETWORK_LB_LISTENER_TYPES = choices.NewChoices(
@@ -190,10 +191,10 @@ const (
 	LB_ACL_TYPE_WHITE = compute.LB_ACL_TYPE_WHITE
 )
 
-var LB_ACL_TYPES = choices.NewChoices(
+var LB_ACL_TYPES = []string{
 	LB_ACL_TYPE_BLACK,
 	LB_ACL_TYPE_WHITE,
-)
+}
 
 const (
 	LB_TLS_CERT_FINGERPRINT_ALGO_SHA1   = compute.LB_TLS_CERT_FINGERPRINT_ALGO_SHA1
@@ -219,23 +220,23 @@ const (
 	LB_TLS_CIPHER_POLICY_deault     = ""
 )
 
-var LB_TLS_CIPHER_POLICIES = choices.NewChoices(
+var LB_TLS_CIPHER_POLICIES = []string{
 	LB_TLS_CIPHER_POLICY_1_0,
 	LB_TLS_CIPHER_POLICY_1_1,
 	LB_TLS_CIPHER_POLICY_1_2,
 	LB_TLS_CIPHER_POLICY_1_2_strict,
 	LB_TLS_CIPHER_POLICY_deault,
-)
+}
 
 const (
 	LB_STICKY_SESSION_TYPE_INSERT = compute.LB_STICKY_SESSION_TYPE_INSERT
 	LB_STICKY_SESSION_TYPE_SERVER = compute.LB_STICKY_SESSION_TYPE_SERVER
 )
 
-var LB_STICKY_SESSION_TYPES = choices.NewChoices(
+var LB_STICKY_SESSION_TYPES = []string{
 	LB_STICKY_SESSION_TYPE_INSERT,
 	LB_STICKY_SESSION_TYPE_SERVER,
-)
+}
 
 // TODO maybe https check when field need comes ;)
 const (
@@ -246,11 +247,11 @@ const (
 	LB_HEALTH_CHECK_HTTPS = compute.LB_HEALTH_CHECK_HTTPS
 )
 
-var LB_HEALTH_CHECK_TYPES = choices.NewChoices(
+var LB_HEALTH_CHECK_TYPES = []string{
 	LB_HEALTH_CHECK_TCP,
 	LB_HEALTH_CHECK_UDP,
 	LB_HEALTH_CHECK_HTTP,
-)
+}
 
 var LB_HEALTH_CHECK_TYPES_TCP = choices.NewChoices(
 	LB_HEALTH_CHECK_TCP,
@@ -270,23 +271,23 @@ const (
 	LB_HEALTH_CHECK_HTTP_CODE_DEFAULT = compute.LB_HEALTH_CHECK_HTTP_CODE_DEFAULT
 )
 
-var LB_HEALTH_CHECK_HTTP_CODES = choices.NewChoices(
+var LB_HEALTH_CHECK_HTTP_CODES = []string{
 	LB_HEALTH_CHECK_HTTP_CODE_1xx,
 	LB_HEALTH_CHECK_HTTP_CODE_2xx,
 	LB_HEALTH_CHECK_HTTP_CODE_3xx,
 	LB_HEALTH_CHECK_HTTP_CODE_4xx,
 	LB_HEALTH_CHECK_HTTP_CODE_5xx,
-)
+}
 
 const (
 	LB_REDIRECT_OFF = compute.LB_REDIRECT_OFF
 	LB_REDIRECT_RAW = compute.LB_REDIRECT_RAW
 )
 
-var LB_REDIRECT_TYPES = choices.NewChoices(
+var LB_REDIRECT_TYPES = []string{
 	LB_REDIRECT_OFF,
 	LB_REDIRECT_RAW,
-)
+}
 
 const (
 	LB_REDIRECT_CODE_301 = compute.LB_REDIRECT_CODE_301 // Moved Permanently
@@ -306,11 +307,11 @@ const (
 	LB_REDIRECT_SCHEME_HTTPS    = "https"
 )
 
-var LB_REDIRECT_SCHEMES = choices.NewChoices(
+var LB_REDIRECT_SCHEMES = []string{
 	LB_REDIRECT_SCHEME_IDENTITY,
 	LB_REDIRECT_SCHEME_HTTP,
 	LB_REDIRECT_SCHEME_HTTPS,
-)
+}
 
 const (
 	LB_BOOL_ON  = compute.LB_BOOL_ON
@@ -336,13 +337,13 @@ const (
 	LB_SCHEDULER_MH  = compute.LB_SCHEDULER_MH // maglev consistent hash
 )
 
-var LB_SCHEDULER_TYPES = choices.NewChoices(
+var LB_SCHEDULER_TYPES = []string{
 	LB_SCHEDULER_RR,
 	LB_SCHEDULER_WRR,
 	LB_SCHEDULER_WLC,
 	LB_SCHEDULER_SCH,
 	LB_SCHEDULER_TCH,
-)
+}
 
 const (
 	LB_SENDPROXY_OFF       = "off"
@@ -352,13 +353,13 @@ const (
 	LB_SENDPROXY_V2_SSL_CN = "v2-ssl-cn"
 )
 
-var LB_SENDPROXY_CHOICES = choices.NewChoices(
+var LB_SENDPROXY_CHOICES = []string{
 	LB_SENDPROXY_OFF,
 	LB_SENDPROXY_V1,
 	LB_SENDPROXY_V2,
 	LB_SENDPROXY_V2_SSL,
 	LB_SENDPROXY_V2_SSL_CN,
-)
+}
 
 var LB_ALIYUN_UDP_SCHEDULER_TYPES = choices.NewChoices(
 	LB_SCHEDULER_RR,
@@ -382,11 +383,11 @@ const (
 	LB_BACKEND_IP    = compute.LB_BACKEND_IP
 )
 
-var LB_BACKEND_TYPES = choices.NewChoices(
+var LB_BACKEND_TYPES = []string{
 	LB_BACKEND_GUEST,
 	LB_BACKEND_HOST,
 	LB_BACKEND_IP,
-)
+}
 
 const (
 	LB_BACKEND_ROLE_DEFAULT = compute.LB_BACKEND_ROLE_DEFAULT

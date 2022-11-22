@@ -21,10 +21,10 @@ import (
 	"strings"
 	"time"
 
+	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -43,12 +43,6 @@ const (
 	LB_TYPE_APPLICATION = LB_TYPE(1)
 )
 
-/*
-todo:
-1.统一LB 证书fingerprint算法.另外缺少一个回写指纹算法到数据库的方法。
-2.需要同步腾讯云LB 所在的project
-*/
-
 // https://cloud.tencent.com/document/api/214/30694#LoadBalancer
 type SLoadbalancer struct {
 	multicloud.SLoadbalancerBase
@@ -57,11 +51,11 @@ type SLoadbalancer struct {
 
 	Status            int64     `json:"Status"` // 0：创建中，1：正常运行
 	Domain            string    `json:"Domain"`
-	VpcID             string    `json:"VpcId"`
+	VpcId             string    `json:"VpcId"`
 	Log               string    `json:"Log"`
-	ProjectID         int64     `json:"ProjectId"`
+	ProjectId         int64     `json:"ProjectId"`
 	Snat              bool      `json:"Snat"`
-	LoadBalancerID    string    `json:"LoadBalancerId"`
+	LoadBalancerId    string    `json:"LoadBalancerId"`
 	LoadBalancerVips  []string  `json:"LoadBalancerVips"`
 	LoadBalancerType  string    `json:"LoadBalancerType"` // 负载均衡实例的网络类型： OPEN：公网属性， INTERNAL：内网属性。
 	LoadBalancerName  string    `json:"LoadBalancerName"`
@@ -81,7 +75,7 @@ type SLoadbalancer struct {
 
 type ZoneSet struct {
 	Zone     string `json:"Zone"`
-	ZoneID   int64  `json:"ZoneId"`
+	ZoneId   int64  `json:"ZoneId"`
 	ZoneName string `json:"ZoneName"`
 }
 
@@ -90,7 +84,7 @@ func (self *SLoadbalancer) GetLoadbalancerSpec() string {
 }
 
 func (self *SLoadbalancer) GetChargeType() string {
-	if len(self.NetworkAttributes.InternetChargeType) > 0 && self.NetworkAttributes.InternetChargeType != "TRAFFIC_POSTPAID_BY_HOUR" {
+	if len(self.NetworkAttributes.InternetChargeType) > 0 && self.NetworkAttributes.InternetChargeType != "TRAFFIC_POSTPAId_BY_HOUR" {
 		return api.LB_CHARGE_TYPE_BY_BANDWIDTH
 	}
 	return api.LB_CHARGE_TYPE_BY_TRAFFIC
@@ -119,7 +113,6 @@ func (self *SLoadbalancer) Stop() error {
 }
 
 // 腾讯云无后端服务器组
-// todo: 是否返回一个fake的后端服务器组
 func (self *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SLoadbalancerBackendGroup) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
@@ -154,91 +147,47 @@ func onecloudHealthCodeToQcloud(codes string) int {
 // https://cloud.tencent.com/document/product/214/30693
 // todo:  1.限制比较多必须加参数校验 2.Onecloud 不支持双向证书可能存在兼容性问题
 // 应用型负载均衡 传统型不支持设置SNI
-func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
-	sniSwitch := 0
-	hc := getHealthCheck(listener)
-	cert := getCertificate(listener)
-
-	var listenId string
-	var err error
-	if self.Forward == LB_TYPE_APPLICATION {
-		listenId, err = self.region.CreateLoadbalancerListener(self.GetId(),
-			listener.Name,
-			getProtocol(listener),
-			listener.ListenerPort,
-			getScheduler(listener),
-			&listener.StickySessionCookieTimeout,
-			&sniSwitch,
-			hc,
-			cert)
-	} else {
-		// 传统型内网属性负载均衡不支持指定scheduler
-		var scheduler *string
-		if self.LoadBalancerType == "OPEN" {
-			scheduler = getScheduler(listener)
-		}
-
-		listenId, err = self.region.CreateClassicLoadbalancerListener(self.GetId(),
-			listener.Name,
-			getClassicLBProtocol(listener),
-			listener.ListenerPort,
-			listener.BackendServerPort,
-			scheduler,
-			&listener.StickySessionCookieTimeout,
-			&sniSwitch,
-			hc,
-			cert)
-	}
+func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
+	listenId, err := self.region.CreateLoadbalancerListener(self.LoadBalancerId, opts)
 	if err != nil {
 		return nil, err
 	}
-
 	var lblis cloudprovider.ICloudLoadbalancerListener
 	err = cloudprovider.Wait(3*time.Second, 30*time.Second, func() (bool, error) {
 		lblis, err = self.GetILoadBalancerListenerById(listenId)
 		if err != nil {
 			if errors.Cause(err) != cloudprovider.ErrNotFound {
 				return false, err
-			} else {
-				return false, nil
 			}
+			return false, nil
 		}
-
 		return true, nil
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "GetILoadBalancerListenerById.Wait")
+		return nil, errors.Wrap(err, "Wait.Listener.Created")
 	}
-
 	return lblis, nil
 }
 
 func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {
-	listeners, err := self.GetLoadbalancerListeners("")
+	ret, err := self.region.GetLoadbalancerListener(self.LoadBalancerId, listenerId)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, listener := range listeners {
-		if listener.GetId() == listenerId {
-			return &listener, nil
-		}
-	}
-
-	return nil, cloudprovider.ErrNotFound
+	ret.lb = self
+	return ret, nil
 }
 
 func (self *SLoadbalancer) GetId() string {
-	return self.LoadBalancerID
+	return self.LoadBalancerId
 }
 
 func (self *SLoadbalancer) GetName() string {
 	return self.LoadBalancerName
 }
 
-// add region?
 func (self *SLoadbalancer) GetGlobalId() string {
-	return self.LoadBalancerID
+	return self.LoadBalancerId
 }
 
 func (self *SLoadbalancer) GetStatus() string {
@@ -261,19 +210,6 @@ func (self *SLoadbalancer) Refresh() error {
 	return jsonutils.Update(self, lb)
 }
 
-func (self *SLoadbalancer) IsEmulated() bool {
-	return false
-}
-
-func (self *SLoadbalancer) GetSysTags() map[string]string {
-	meta := map[string]string{}
-	meta["Forward"] = strconv.FormatInt(int64(self.Forward), 10)
-	meta["OpenBGP"] = strconv.FormatInt(self.OpenBGP, 10)
-	meta["Domain"] = self.Domain
-	meta["ProjectID"] = strconv.FormatInt(self.ProjectID, 10)
-	return meta
-}
-
 // 腾讯云当前不支持一个LB绑定多个ip，每个LB只支持绑定一个ip
 func (self *SLoadbalancer) GetAddress() string {
 	return self.LoadBalancerVips[0]
@@ -291,11 +227,10 @@ func (self *SLoadbalancer) GetAddressType() string {
 }
 
 func (self *SLoadbalancer) GetNetworkType() string {
-	if len(self.VpcID) > 0 {
+	if len(self.VpcId) > 0 {
 		return api.LB_NETWORK_TYPE_VPC
-	} else {
-		return api.LB_NETWORK_TYPE_CLASSIC
 	}
+	return api.LB_NETWORK_TYPE_CLASSIC
 }
 
 func (self *SLoadbalancer) GetNetworkIds() []string {
@@ -307,197 +242,112 @@ func (self *SLoadbalancer) GetNetworkIds() []string {
 }
 
 func (self *SLoadbalancer) GetVpcId() string {
-	return self.VpcID
+	return self.VpcId
 }
 
 func (self *SLoadbalancer) GetZoneId() string {
-	zoneId := ""
 	if len(self.MasterZone.Zone) > 0 {
-		zoneId = self.MasterZone.Zone
-	} else if len(self.SubnetId) > 0 {
-		net, err := self.region.GetNetwork(self.SubnetId)
-		if err != nil {
-			log.Warningf("GetNetwork %s %s", self.SubnetId, err)
-			return ""
-		}
-
-		zoneId = net.Zone
+		return self.MasterZone.Zone
 	}
-
-	if len(zoneId) > 0 {
-		z, err := self.region.getZoneById(zoneId)
-		if err != nil {
-			log.Warningf("getZoneById %s %s", zoneId, err)
-			return ""
+	if len(self.SubnetId) > 0 {
+		net, _ := self.region.GetNetwork(self.SubnetId)
+		if net != nil {
+			return net.Zone
 		}
-
-		return z.GetGlobalId()
 	}
-
 	return ""
 }
 
 func (self *SLoadbalancer) GetZone1Id() string {
-	if self.BackupZoneSet == nil {
-		return ""
-	}
-
 	if len(self.BackupZoneSet) > 0 {
-		z, err := self.region.getZoneById(self.BackupZoneSet[0].Zone)
-		if err != nil {
-			log.Warningf("getZoneById %s %s", self.BackupZoneSet[0].Zone, err)
-			return ""
-		}
-
-		return z.GetGlobalId()
+		return self.BackupZoneSet[0].Zone
 	}
-
 	return ""
 }
 
-func (self *SLoadbalancer) GetLoadbalancerListeners(protocal string) ([]SLBListener, error) {
-	listeners, err := self.region.GetLoadbalancerListeners(self.GetId(), self.Forward, protocal)
+func (self *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {
+	listeners, err := self.region.GetLoadbalancerListeners(self.LoadBalancerId, nil, "")
 	if err != nil {
 		return nil, err
 	}
-
+	ret := []cloudprovider.ICloudLoadbalancerListener{}
 	for i := range listeners {
 		listeners[i].lb = self
+		ret = append(ret, &listeners[i])
 	}
-
-	return listeners, nil
-}
-
-func (self *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {
-	listeners, err := self.GetLoadbalancerListeners("")
-	if err != nil {
-		return nil, err
-	}
-
-	ilisteners := make([]cloudprovider.ICloudLoadbalancerListener, len(listeners))
-	for i := range listeners {
-		l := listeners[i]
-		ilisteners[i] = &l
-	}
-
-	return ilisteners, nil
+	return ret, nil
 }
 
 func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	if self.Forward == LB_TYPE_CLASSIC {
-		bg := SLBBackendGroup{lb: self}
-		return []cloudprovider.ICloudLoadbalancerBackendGroup{&bg}, nil
-	}
-
-	listeners, err := self.GetLoadbalancerListeners("")
+	listeners, err := self.region.GetLoadbalancerListeners(self.LoadBalancerId, nil, "")
 	if err != nil {
 		return nil, err
 	}
-
-	bgs := []cloudprovider.ICloudLoadbalancerBackendGroup{}
+	lbbgs := []SLBBackendGroup{}
 	for i := range listeners {
-		listener := listeners[i]
-		t := listener.GetListenerType()
-		if t == api.LB_LISTENER_TYPE_HTTP || t == api.LB_LISTENER_TYPE_HTTPS {
-			rules := listener.Rules
-			for i := range rules {
-				rule := rules[i]
-				rule.listener = &listener
-				bg := rule.GetBackendGroup()
-				bgs = append(bgs, bg)
-			}
-		} else {
-			bg := listener.GetBackendGroup()
-			bgs = append(bgs, bg)
-		}
+		lbbgs = append(lbbgs, SLBBackendGroup{
+			lb:       self,
+			listener: &listeners[i],
+		})
 	}
 
-	ibgs := make([]cloudprovider.ICloudLoadbalancerBackendGroup, len(bgs))
-	for i := range bgs {
-		ibgs[i] = bgs[i]
+	ret := []cloudprovider.ICloudLoadbalancerBackendGroup{}
+	for i := range lbbgs {
+		ret = append(ret, &lbbgs[i])
 	}
 
-	return ibgs, nil
+	return ret, nil
 }
 
 func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	if self.LoadBalancerType == "OPEN" && len(self.LoadBalancerVips) > 0 {
 		return &SEipAddress{
 			region:      self.region,
-			AddressId:   self.LoadBalancerID,
+			AddressId:   self.LoadBalancerId,
 			AddressIp:   self.LoadBalancerVips[0],
 			AddressType: EIP_STATUS_BIND,
-			InstanceId:  self.LoadBalancerID,
+			InstanceId:  self.LoadBalancerId,
 			CreatedTime: self.CreateTime,
 		}, nil
 	}
 	return nil, nil
 }
 
-func (self *SRegion) GetLoadbalancers(ids []string) ([]SLoadbalancer, error) {
+func (self *SRegion) GetLoadbalancers(ids []string, limit, offset int) ([]SLoadbalancer, int, error) {
 	params := map[string]string{}
 	for i, id := range ids {
 		params[fmt.Sprintf("LoadBalancerIds.%d", i)] = id
 	}
 
-	offset := 0
-	limit := 100
-	lbs := make([]SLoadbalancer, 0)
-	for {
-		params["Limit"] = strconv.Itoa(limit)
-		params["Offset"] = strconv.Itoa(offset)
-
-		resp, err := self.clbRequest("DescribeLoadBalancers", params)
-		if err != nil {
-			return nil, err
-		}
-
-		parts := make([]SLoadbalancer, 0)
-		err = resp.Unmarshal(&parts, "LoadBalancerSet")
-		if err != nil {
-			return nil, err
-		}
-
-		_total, err := resp.Float("TotalCount")
-		if err != nil {
-			return nil, err
-		}
-
-		total := int(_total)
-		if err != nil {
-			return nil, err
-		}
-
-		lbs = append(lbs, parts...)
-		offset += len(parts)
-		if offset >= total {
-			for i := range lbs {
-				lbs[i].region = self
-			}
-
-			return lbs, err
-		}
+	params["Limit"] = fmt.Sprintf("%d", limit)
+	params["Offset"] = fmt.Sprintf("%d", offset)
+	resp, err := self.clbRequest("DescribeLoadBalancers", params)
+	if err != nil {
+		return nil, 0, errors.Wrapf(err, "DescribeLoadBalancers")
 	}
+
+	ret := []SLoadbalancer{}
+	err = resp.Unmarshal(&ret, "LoadBalancerSet")
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, _ := resp.Float("TotalCount")
+	return ret, int(total), nil
 }
 
 func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
-	if len(id) == 0 {
-		return nil, fmt.Errorf("GetILoadbalancer id should not empty")
-	}
-
-	lbs, err := self.GetLoadbalancers([]string{id})
+	lbs, _, err := self.GetLoadbalancers([]string{id}, 1, 0)
 	if err != nil {
 		return nil, err
 	}
-
-	switch len(lbs) {
-	case 0:
-		return nil, cloudprovider.ErrNotFound
-	case 1:
-		return &lbs[0], nil
-	default:
-		return nil, fmt.Errorf("GetILoadbalancer %s found %d", id, len(lbs))
+	for i := range lbs {
+		if lbs[i].LoadBalancerId == id {
+			lbs[i].region = self
+			return &lbs[i], nil
+		}
 	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 /*
@@ -505,16 +355,11 @@ func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
 https://cloud.tencent.com/document/product/214/30689
 */
 func (self *SRegion) DeleteLoadbalancer(lbid string) (string, error) {
-	if len(lbid) == 0 {
-		return "", fmt.Errorf("loadbalancer id should not be empty")
-	}
-
 	params := map[string]string{"LoadBalancerIds.0": lbid}
 	resp, err := self.clbRequest("DeleteLoadBalancer", params)
 	if err != nil {
 		return "", err
 	}
-
 	return resp.GetString("RequestId")
 }
 
@@ -523,120 +368,59 @@ func (self *SRegion) DeleteLoadbalancer(lbid string) (string, error) {
 https://cloud.tencent.com/document/product/214/30693
 SNI 特性是什么？？
 */
-func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, port int, scheduler *string, sessionExpireTime, sniSwitch *int, healthCheck *healthCheck, cert *certificate) (string, error) {
-	if len(lbid) == 0 {
-		return "", fmt.Errorf("loadbalancer id should not be empty")
-	}
-
+func (self *SRegion) CreateLoadbalancerListener(lbId string, opts *cloudprovider.SLoadbalancerListenerCreateOptions) (string, error) {
 	params := map[string]string{
-		"LoadBalancerId": lbid,
-		"Ports.0":        strconv.Itoa(port),
-		"Protocol":       protocol,
+		"LoadBalancerId":  lbId,
+		"Ports.0":         fmt.Sprintf("%d", opts.ListenerPort),
+		"Protocol":        opts.ListenerType,
+		"ListenerNames.0": opts.Name,
 	}
 
-	if len(name) > 0 {
-		params["ListenerNames.0"] = name
+	switch opts.Scheduler {
+	case api.LB_SCHEDULER_WRR:
+		params["Scheduler"] = "WRR"
+	case api.LB_SCHEDULER_WLC:
+		params["Scheduler"] = "LEAST_CONN"
+	case api.LB_SCHEDULER_SCH:
+		params["Scheduler"] = "IP_HASH"
 	}
 
-	if utils.IsInStringArray(protocol, []string{PROTOCOL_TCP, PROTOCOL_UDP, PROTOCOL_TCP_SSL}) {
-		params = healthCheckParams(LB_TYPE_APPLICATION, params, healthCheck, "HealthCheck.")
-
-		if scheduler != nil && len(*scheduler) > 0 {
-			params["Scheduler"] = *scheduler
+	switch opts.ListenerType {
+	case api.LB_LISTENER_TYPE_TCP:
+		if opts.StickySession == api.LB_STICKY_SESSION_TYPE_SERVER && opts.StickySessionCookieTimeout > 0 {
+			params["SessionExpireTime"] = fmt.Sprintf("%d", opts.StickySessionCookieTimeout)
 		}
-
-		if sessionExpireTime != nil {
-			params["SessionExpireTime"] = strconv.Itoa(*sessionExpireTime)
+	case api.LB_LISTENER_TYPE_UDP:
+		if opts.StickySession == api.LB_STICKY_SESSION_TYPE_SERVER && opts.StickySessionCookieTimeout > 0 {
+			params["SessionExpireTime"] = fmt.Sprintf("%d", opts.StickySessionCookieTimeout)
 		}
-	} else {
-		if protocol == PROTOCOL_HTTPS && sniSwitch != nil {
-			params["SniSwitch"] = strconv.Itoa(*sniSwitch)
+	case api.LB_LISTENER_TYPE_HTTP:
+	case api.LB_LISTENER_TYPE_HTTPS:
+		if opts.EnableHTTP2 {
+			params["KeepaliveEnable"] = "1"
 		}
 	}
-
-	params = certificateParams(LB_TYPE_APPLICATION, params, cert, "Certificate.")
 
 	resp, err := self.clbRequest("CreateListener", params)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "CreateListener")
 	}
 
-	listeners, err := resp.GetArray("ListenerIds")
+	ret := []string{}
+	err = resp.Unmarshal(&ret, "ListenerIds")
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "resp.Unmarshal")
 	}
 
-	if len(listeners) == 0 {
-		return "", fmt.Errorf("CreateLoadbalancerListener no listener id returned: %s", resp.String())
-	} else if len(listeners) == 1 {
-		return listeners[0].GetString()
-	} else {
-		return "", fmt.Errorf("CreateLoadbalancerListener mutliple listener id returned: %s", resp.String())
+	for i := range ret {
+		return ret[i], nil
 	}
-}
-
-// https://cloud.tencent.com/document/api/214/1255
-// 不支持sniSwitch
-// todo: 待测试
-func (self *SRegion) CreateClassicLoadbalancerListener(lbid, name string, protocol, port, backendServerPort int, scheduler *string, sessionExpireTime, sniSwitch *int, healthCheck *healthCheck, cert *certificate) (string, error) {
-	if len(lbid) == 0 {
-		return "", fmt.Errorf("loadbalancer id should not be empty")
-	}
-
-	// 负载均衡实例监听器协议类型 1：HTTP，2：TCP，3：UDP，4：HTTPS。
-	// todo: 待测试 。 这里没有判断是否为公网负载均衡，可能存在问题.内网传统型负载均衡监听协议只支持TCP、UDP，并且不能指定调度算法
-	params := map[string]string{
-		"LoadBalancerId":               lbid,
-		"listeners.0.loadBalancerPort": strconv.Itoa(port),
-		"listeners.0.instancePort":     strconv.Itoa(backendServerPort),
-		"listeners.0.protocol":         strconv.Itoa(protocol),
-	}
-
-	if len(name) > 0 {
-		params["listeners.0.listenerName"] = name
-	}
-
-	if sessionExpireTime != nil {
-		params["listeners.0.sessionExpire"] = strconv.Itoa(*sessionExpireTime)
-	}
-
-	if scheduler != nil && len(*scheduler) > 0 && (protocol == 2 || protocol == 3) {
-		params["listeners.0.scheduler"] = strings.ToLower(*scheduler)
-	}
-
-	if scheduler != nil && len(*scheduler) > 0 && (protocol == 1 || protocol == 4) {
-		params["listeners.0.httpHash"] = strings.ToLower(*scheduler)
-	}
-
-	params = healthCheckParams(LB_TYPE_CLASSIC, params, healthCheck, "listeners.0.")
-	params = certificateParams(LB_TYPE_CLASSIC, params, cert, "listeners.0.")
-
-	resp, err := self.clbRequest("CreateListener", params)
-	if err != nil {
-		return "", err
-	}
-
-	listeners, err := resp.GetArray("listenerIds")
-	if err != nil {
-		return "", err
-	}
-
-	if len(listeners) == 0 {
-		return "", fmt.Errorf("CreateLoadbalancerListener no listener id returned: %s", resp.String())
-	} else if len(listeners) == 1 {
-		return listeners[0].GetString()
-	} else {
-		return "", fmt.Errorf("CreateLoadbalancerListener mutliple listener id returned: %s", resp.String())
-	}
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, resp.String())
 }
 
 // https://cloud.tencent.com/document/product/214/30683
 // 任务的当前状态。 0：成功，1：失败，2：进行中
 func (self *SRegion) GetLBTaskStatus(requestId string) (string, error) {
-	if len(requestId) == 0 {
-		return "", fmt.Errorf("WaitTaskSuccess requestId should not be emtpy")
-	}
-
 	params := map[string]string{"TaskId": requestId}
 	resp, err := self.clbRequest("DescribeTaskStatus", params)
 	if err != nil {
@@ -675,9 +459,142 @@ func (self *SRegion) WaitLBTaskSuccess(requestId string, interval time.Duration,
 }
 
 func (self *SLoadbalancer) GetProjectId() string {
-	return strconv.Itoa(int(self.ProjectID))
+	return strconv.Itoa(int(self.ProjectId))
 }
 
 func (self *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
-	return self.region.SetResourceTags("clb", "clb", []string{self.LoadBalancerID}, tags, replace)
+	return self.region.SetResourceTags("clb", "clb", []string{self.LoadBalancerId}, tags, replace)
+}
+
+// https://cloud.tencent.com/document/api/214/30692
+func (self *SRegion) CreateILoadBalancer(opts *cloudprovider.SLoadbalancerCreateOptions) (cloudprovider.ICloudLoadbalancer, error) {
+	params := map[string]string{
+		"LoadBalancerName": opts.Name,
+		"VpcId":            opts.VpcId,
+	}
+
+	LoadBalancerType := "INTERNAL"
+	if opts.AddressType == api.LB_ADDR_TYPE_INTERNET {
+		LoadBalancerType = "OPEN"
+		switch opts.ChargeType {
+		case api.LB_CHARGE_TYPE_BY_BANDWIDTH:
+			pkgs, _, err := self.GetBandwidthPackages([]string{}, 0, 50)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetBandwidthPackages")
+			}
+			bps := opts.EgressMbps
+			if bps == 0 {
+				bps = 200
+			}
+			if len(pkgs) > 0 {
+				pkgId := pkgs[0].BandwidthPackageId
+				for _, pkg := range pkgs {
+					if len(pkg.ResourceSet) < 100 {
+						pkgId = pkg.BandwidthPackageId
+						break
+					}
+				}
+				params["BandwidthPackageId"] = pkgId
+				params["InternetAccessible.InternetChargeType"] = "BANDWIDTH_PACKAGE"
+				params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bps)
+			} else {
+				params["InternetAccessible.InternetChargeType"] = "BANDWIDTH_POSTPAID_BY_HOUR"
+				params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bps)
+			}
+		default:
+			bps := opts.EgressMbps
+			if bps == 0 {
+				bps = 200
+			}
+			params["InternetAccessible.InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
+			params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bps)
+
+		}
+	}
+
+	params["LoadBalancerType"] = LoadBalancerType
+
+	if len(opts.ProjectId) > 0 {
+		params["ProjectId"] = opts.ProjectId
+	}
+
+	if opts.AddressType != api.LB_ADDR_TYPE_INTERNET {
+		params["SubnetId"] = opts.NetworkIds[0]
+	} else {
+		// 公网类型ELB可支持多可用区
+		if len(opts.ZoneId) > 0 {
+			if len(opts.SlaveZoneId) > 0 {
+				params["MasterZoneId"] = opts.ZoneId
+			} else {
+				params["ZoneId"] = opts.ZoneId
+			}
+		}
+	}
+	i := 0
+	for k, v := range opts.Tags {
+		params[fmt.Sprintf("Tags.%d.TagKey", i)] = k
+		params[fmt.Sprintf("Tags.%d.TagValue", i)] = v
+		i++
+	}
+
+	resp, err := func() (jsonutils.JSONObject, error) {
+		_resp, err := self.clbRequest("CreateLoadBalancer", params)
+		if err != nil {
+			// 兼容不支持指定zone的账号
+			if e, ok := err.(*sdkerrors.TencentCloudSDKError); ok && e.Code == "InvalidParameterValue" {
+				delete(params, "ZoneId")
+				delete(params, "MasterZoneId")
+				return self.clbRequest("CreateLoadBalancer", params)
+			}
+		}
+		return _resp, err
+	}()
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateLoadBalancer")
+	}
+
+	ret := struct {
+		RequestId       string
+		LoadBalancerIds []string
+	}{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	if len(ret.RequestId) == 0 || len(ret.LoadBalancerIds) != 1 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, resp.String())
+	}
+	err = self.WaitLBTaskSuccess(ret.RequestId, 5*time.Second, time.Minute*1)
+	if err != nil {
+		return nil, errors.Wrapf(err, "WaitLBTaskSuccess")
+	}
+	return self.GetLoadbalancer(ret.LoadBalancerIds[0])
+}
+
+func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
+	lbs := []SLoadbalancer{}
+	for {
+		part, total, err := self.GetLoadbalancers(nil, len(lbs), 100)
+		if err != nil {
+			return nil, err
+		}
+		lbs = append(lbs, part...)
+		if len(lbs) >= total || len(part) == 0 {
+			break
+		}
+	}
+	ret := []cloudprovider.ICloudLoadbalancer{}
+	for i := range lbs {
+		lbs[i].region = self
+		ret = append(ret, &lbs[i])
+	}
+	return ret, nil
+}
+
+func (self *SRegion) GetILoadBalancerById(id string) (cloudprovider.ICloudLoadbalancer, error) {
+	lb, err := self.GetLoadbalancer(id)
+	if err != nil {
+		return nil, err
+	}
+	return lb, nil
 }

@@ -16,28 +16,27 @@ package models
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"strings"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -69,15 +68,12 @@ type SLoadbalancerCertificate struct {
 	db.SSharableVirtualResourceBase
 	db.SExternalizedResourceBase
 
-	// SManagedResourceBase
-	// SCloudregionResourceBase
-
 	db.SCertificateResourceBase
 }
 
 func (lbcert *SLoadbalancerCertificate) GetCachedCerts() ([]SCachedLoadbalancerCertificate, error) {
 	ret := []SCachedLoadbalancerCertificate{}
-	q := CachedLoadbalancerCertificateManager.Query().Equals("certificate_id", lbcert.Id).IsFalse("pending_deleted")
+	q := CachedLoadbalancerCertificateManager.Query().Equals("certificate_id", lbcert.Id)
 	err := db.FetchModelObjects(CachedLoadbalancerCertificateManager, q, &ret)
 	if err != nil {
 		return nil, err
@@ -85,37 +81,13 @@ func (lbcert *SLoadbalancerCertificate) GetCachedCerts() ([]SCachedLoadbalancerC
 	return ret, nil
 }
 
-func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("certificate") || data.Contains("private_key") {
-		return nil, httperrors.NewForbiddenError("not allowed update content of certificate")
-	}
-
-	updateData := jsonutils.NewDict()
-	if name, err := data.GetString("name"); err == nil {
-		updateData.Set("name", jsonutils.NewString(name))
-	}
-
-	if desc, err := data.GetString("description"); err == nil {
-		updateData.Set("description", jsonutils.NewString(desc))
-	}
-
-	input := apis.SharableVirtualResourceBaseUpdateInput{}
-	err := updateData.Unmarshal(&input)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
-	}
-	input, err = lbcert.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LoadbalancerCertificateUpdateInput) (*api.LoadbalancerCertificateUpdateInput, error) {
+	var err error
+	input.SharableVirtualResourceBaseUpdateInput, err = lbcert.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
 	}
-	updateData.Update(jsonutils.Marshal(input))
-
-	return updateData, nil
-}
-
-func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lbcert.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
-	lbcert.SetStatus(userCred, api.LB_STATUS_ENABLED, "")
+	return input, nil
 }
 
 func (lbcert *SLoadbalancerCertificate) IsComplete() bool {
@@ -142,7 +114,7 @@ func (manager *SLoadbalancerCertificateManager) FetchCustomizeColumns(
 	}
 
 	for i := range objs {
-		q := LoadbalancerListenerManager.Query().IsFalse("pending_deleted").Equals("certificate_id", objs[i].(*SLoadbalancerCertificate).GetId())
+		q := LoadbalancerListenerManager.Query().Equals("certificate_id", objs[i].(*SLoadbalancerCertificate).GetId())
 		ownerId, queryScope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
 		if err != nil {
 			log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
@@ -150,76 +122,32 @@ func (manager *SLoadbalancerCertificateManager) FetchCustomizeColumns(
 		}
 
 		q = LoadbalancerListenerManager.FilterByOwner(q, ownerId, queryScope)
-		count, err := q.CountWithError()
-		if err != nil {
-			log.Errorf("db.CountWithError error: %v", err)
-		}
-
-		rows[i].LbListenerCount = count
+		rows[i].LbListenerCount, _ = q.CountWithError()
 	}
 
 	return rows
 }
 
-func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	men := []db.IModelManager{
-		LoadbalancerListenerManager,
+func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context, info *api.LoadbalancerCertificateDetails) error {
+	if info != nil && info.LbListenerCount > 0 {
+		return httperrors.NewNotEmptyError("cert %s with %d listeners", lbcert.Name, info.LbListenerCount)
 	}
-	lbcertId := lbcert.Id
-	for _, man := range men {
-		t := man.TableSpec().Instance()
-		pdF := t.Field("pending_deleted")
-		n, err := t.Query().
-			Equals("certificate_id", lbcertId).
-			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-			CountWithError()
-		if err != nil {
-			return httperrors.NewInternalServerError("get certificate refcount fail %s", err)
-		}
-		if n > 0 {
-			return httperrors.NewResourceBusyError("certificate %s is still referred to by %d %s",
-				lbcertId, n, man.KeywordPlural())
-		}
-	}
+	return lbcert.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, jsonutils.Marshal(info))
+}
 
-	// cache delete condition
+func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	caches, err := lbcert.GetCachedCerts()
 	if err != nil {
 		return errors.Wrap(err, "GetCachedCerts")
 	}
 
 	for i := range caches {
-		err := caches[i].ValidateDeleteCondition(ctx, nil)
+		err := caches[i].Delete(ctx, userCred)
 		if err != nil {
-			return errors.Wrap(err, "ValidateDeleteCondition")
+			return errors.Wrapf(err, "Delete cache %s", caches[i].Id)
 		}
 	}
-
-	return nil
-}
-
-func (lbcert *SLoadbalancerCertificate) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return nil, lbcert.CustomizeDelete(ctx, userCred, query, data)
-}
-
-func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if !lbcert.PendingDeleted {
-		caches, err := lbcert.GetCachedCerts()
-		if err != nil {
-			return errors.Wrap(err, "GetCachedCerts")
-		}
-
-		for i := range caches {
-			err := caches[i].MarkPendingDelete(userCred)
-			if err != nil {
-				return errors.Wrap(err, "MarkPendingDelete")
-			}
-		}
-
-		return lbcert.DoPendingDelete(ctx, userCred)
-	}
-
-	return nil
+	return lbcert.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (man *SLoadbalancerCertificateManager) ListItemFilter(
@@ -243,7 +171,7 @@ func (man *SLoadbalancerCertificateManager) ListItemFilter(
 
 		// 证书可用包含两类：1.本地证书内容不为空 2.公有云中已经存在，但是证书内容不完整的证书
 		if len(region) > 0 || len(manager) > 0 {
-			q2 := CachedLoadbalancerCertificateManager.Query("certificate_id").IsFalse("pending_deleted")
+			q2 := CachedLoadbalancerCertificateManager.Query("certificate_id")
 			if len(region) > 0 {
 				q2 = q2.Equals("cloudregion_id", region)
 			}
@@ -306,171 +234,50 @@ func (man *SLoadbalancerCertificateManager) QueryDistinctExtraField(q *sqlchemy.
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	v := validators.NewCertKeyValidator("certificate", "private_key")
-	if err := v.Validate(data); err != nil {
-		return nil, err
+func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LoadbalancerCertificateCreateInput) (*api.LoadbalancerCertificateCreateInput, error) {
+	if len(input.Certificate) == 0 {
+		return nil, httperrors.NewMissingParameterError("certificate")
 	}
-	data = v.UpdateCertKeyInfo(ctx, data)
-
-	input := apis.SharableVirtualResourceCreateInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
+	if len(input.PrivateKey) == 0 {
+		return nil, httperrors.NewMissingParameterError("private_key")
 	}
-	input, err = man.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	_, err := tls.X509KeyPair([]byte(input.Certificate), []byte(input.PrivateKey))
 	if err != nil {
 		return nil, err
 	}
-	data.Update(jsonutils.Marshal(input))
-
-	data.Remove("cloudregion_id")
-	data.Remove("manager_id")
-	return data, nil
-}
-
-func (lbcert *SLoadbalancerCertificate) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if !data.Contains("public_scope") {
-		if db.IsAdminAllowPerform(ctx, userCred, lbcert, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
-			lbcert.SetShare(rbacutils.ScopeSystem)
-		} else if db.IsDomainAllowPerform(ctx, userCred, lbcert, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
-			// only if non_default_domain_projects turned on, share to domain
-			lbcert.SetShare(rbacutils.ScopeDomain)
-		} else {
-			lbcert.SetShare(rbacutils.ScopeNone)
-		}
-
-		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(lbcert.PublicScope))
+	p, _ := pem.Decode([]byte(input.Certificate))
+	c, err := x509.ParseCertificate(p.Bytes)
+	if err != nil {
+		return nil, err
 	}
-
-	return lbcert.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	input.SubjectAlternativeNames = strings.Join(c.DNSNames, " ")
+	input.SignatureAlgorithm = c.SignatureAlgorithm.String()
+	d := sha256.Sum256(c.Raw)
+	input.Fingerprint = api.LB_TLS_CERT_FINGERPRINT_ALGO_SHA256 + ":" + hex.EncodeToString(d[:])
+	input.CommonName = c.Subject.CommonName
+	input.NotBefore = c.NotBefore
+	input.NotAfter = c.NotAfter
+	switch pub := c.PublicKey.(type) {
+	case *rsa.PublicKey:
+		input.PublicKeyBitLen = pub.N.BitLen()
+	case *ecdsa.PublicKey:
+		input.PublicKeyBitLen = pub.X.BitLen()
+	}
+	input.SharableVirtualResourceCreateInput, err = man.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
+	if err != nil {
+		return nil, err
+	}
+	input.Status = api.LB_STATUS_ENABLED
+	return input, nil
 }
 
 func (man *SLoadbalancerCertificateManager) InitializeData() error {
-	// initialize newly added null certificate fingerprint column
-	q := man.Query().IsNull("fingerprint")
-	lbcerts := []SLoadbalancerCertificate{}
-	if err := q.All(&lbcerts); err != nil {
-		return err
-	}
-	for i := range lbcerts {
-		lbcert := &lbcerts[i]
-		fp := lbcert.Fingerprint
-		if fp != "" {
-			continue
-		}
-		if lbcert.Certificate == "" {
-			continue
-		}
-		{
-			p, _ := pem.Decode([]byte(lbcert.Certificate))
-			c, err := x509.ParseCertificate(p.Bytes)
-			if err != nil {
-				log.Errorf("parsing certificate %s(%s): %s", lbcert.Name, lbcert.Id, err)
-				continue
-			}
-			d := sha256.Sum256(c.Raw)
-			fp = api.LB_TLS_CERT_FINGERPRINT_ALGO_SHA256 + ":" + hex.EncodeToString(d[:])
-		}
-		_, err := db.Update(lbcert, func() error {
-			lbcert.Fingerprint = fp
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	// sync certificate to  certificate cache
-	/*lbcerts = []SLoadbalancerCertificate{}
-	cachedCerts := CachedLoadbalancerCertificateManager.Query("certificate_id").SubQuery()
-	q2 := man.Query().IsNotEmpty("external_id").IsNotEmpty("cloudregion_id").NotIn("id", cachedCerts)
-	if err := q2.All(&lbcerts); err != nil {
-		return err
-	}
-
-	for i := range lbcerts {
-		cert := lbcerts[i]
-		certObj := jsonutils.Marshal(cert)
-		cachedCert := &SCachedLoadbalancerCertificate{}
-		err := certObj.Unmarshal(cachedCert)
-		if err != nil {
-			return err
-		}
-		cachedCert.Id = ""
-		cachedCert.CertificateId = cert.Id
-		err = CachedLoadbalancerCertificateManager.TableSpec().Insert(cachedCert)
-		if err != nil {
-			return err
-		}
-	}*/
-
-	return nil
-}
-
-func (man *SLoadbalancerCertificateManager) CreateCertificate(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, name string, extCert cloudprovider.ICloudLoadbalancerCertificate) (*SLoadbalancerCertificate, error) {
-	fingerprint := extCert.GetFingerprint()
-	if len(fingerprint) == 0 {
-		return nil, fmt.Errorf("CreateCertificate fingerprint can not be empty")
-	}
-
-	data := jsonutils.NewDict()
-	data.Set("certificate", jsonutils.NewString(extCert.GetPublickKey()))
-	data.Set("private_key", jsonutils.NewString(extCert.GetPrivateKey()))
-	data.Set("name", jsonutils.NewString(name))
-	data.Set("fingerprint", jsonutils.NewString(fingerprint))
-	q := man.Query().Equals("fingerprint", fingerprint).Asc("created_at").IsFalse("pending_deleted")
-	count, err := q.CountWithError()
-	if err != nil && err != sql.ErrNoRows {
-		return nil, err
-	}
-
-	if count == 0 {
-		cert := &SLoadbalancerCertificate{}
-		cert.SetModelManager(man, cert)
-		err := data.Unmarshal(cert)
-		if err != nil {
-			return nil, err
-		}
-
-		// other information's
-		cert.CommonName = extCert.GetCommonName()
-		cert.SubjectAlternativeNames = extCert.GetSubjectAlternativeNames()
-		cert.NotAfter = extCert.GetExpireTime()
-		cert.PublicScope = string(rbacutils.ScopeDomain)
-		cert.IsPublic = true
-
-		err = man.TableSpec().Insert(ctx, cert)
-		if err != nil {
-			return nil, err
-		}
-
-		SyncCloudProject(userCred, cert, provider.GetOwnerId(), extCert, provider.GetId())
-	}
-
-	ret := &SLoadbalancerCertificate{}
-	err = q.First(ret)
-	if err != nil {
-		return nil, err
-	}
-
-	return ret, nil
-}
-
-func (manager *SLoadbalancerCertificateManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
-	virts := manager.Query().IsFalse("pending_deleted")
-	return db.CalculateResourceCount(virts, "tenant_id")
-}
-
-func (manager *SLoadbalancerCertificateManager) GetLbCertByFingerprint(tenantId, fingerprint string) (*SLoadbalancerCertificate, error) {
-	c := SLoadbalancerCertificate{}
-	c.SetModelManager(manager, &c)
-	q1 := LoadbalancerCertificateManager.Query().IsFalse("pending_deleted")
-	q1 = q1.Equals("fingerprint", fingerprint)
-	q1 = q1.Equals("tenant_id", tenantId)
-	if err := q1.First(&c); err != nil {
-		return nil, err
-	}
-
-	return &c, nil
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"update %s set deleted = true where pending_deleted = true",
+			man.TableSpec().Name(),
+		),
+	)
+	return err
 }

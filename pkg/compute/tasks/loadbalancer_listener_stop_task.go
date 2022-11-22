@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,24 +36,25 @@ func init() {
 	taskman.RegisterTask(LoadbalancerListenerStopTask{})
 }
 
-func (self *LoadbalancerListenerStopTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, reason.String())
-	db.OpsLog.LogEvent(lblis, db.ACT_DISABLE, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_DISABLE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lblis.Id, lblis.Name, api.LB_STATUS_ENABLED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerListenerStopTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, err error) {
+	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, err.Error())
+	db.OpsLog.LogEvent(lblis, db.ACT_DISABLE, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_DISABLE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lblis.Id, lblis.Name, api.LB_STATUS_ENABLED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerListenerStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lblis := obj.(*models.SLoadbalancerListener)
 	region, err := lblis.GetRegion()
 	if err != nil {
-		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lblis, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerStopComplete", nil)
-	if err := region.GetDriver().RequestStopLoadbalancerListener(ctx, self.GetUserCred(), lblis, self); err != nil {
-		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+	err = region.GetDriver().RequestStopLoadbalancerListener(ctx, self.GetUserCred(), lblis, self)
+	if err != nil {
+		self.taskFail(ctx, lblis, errors.Wrapf(err, "RequestStopLoadbalancerListener"))
 	}
 }
 
@@ -64,5 +66,5 @@ func (self *LoadbalancerListenerStopTask) OnLoadbalancerListenerStopComplete(ctx
 }
 
 func (self *LoadbalancerListenerStopTask) OnLoadbalancerListenerStopCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lblis, reason)
+	self.taskFail(ctx, lblis, errors.Errorf(reason.String()))
 }

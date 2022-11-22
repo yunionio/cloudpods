@@ -237,7 +237,7 @@ func (region *SRegion) GetLoadbalancerTCPListener(loadbalancerId string, listene
 	return &listener, body.Unmarshal(&listener)
 }
 
-func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) map[string]string {
+func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListenerCreateOptions) map[string]string {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	if listener.EgressMbps < 1 {
@@ -246,8 +246,8 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 	params["Bandwidth"] = fmt.Sprintf("%d", listener.EgressMbps)
 	params["ListenerPort"] = fmt.Sprintf("%d", listener.ListenerPort)
 	params["LoadBalancerId"] = lb.LoadBalancerId
-	if len(listener.AccessControlListID) > 0 {
-		params["AclId"] = listener.AccessControlListID
+	if len(listener.AccessControlListId) > 0 {
+		params["AclId"] = listener.AccessControlListId
 	}
 	if utils.IsInStringArray(listener.AccessControlListStatus, []string{"on", "off"}) {
 		params["AclStatus"] = listener.AccessControlListStatus
@@ -257,10 +257,10 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 	}
 	switch listener.BackendGroupType {
 	case api.LB_BACKENDGROUP_TYPE_NORMAL:
-		params["VServerGroupId"] = listener.BackendGroupID
+		params["VServerGroupId"] = listener.BackendGroupId
 		params["VServerGroup"] = "on"
 	case api.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
-		params["MasterSlaveServerGroupId"] = listener.BackendGroupID
+		params["MasterSlaveServerGroupId"] = listener.BackendGroupId
 		params["MasterSlaveServerGroup"] = "on"
 	case api.LB_BACKENDGROUP_TYPE_DEFAULT:
 		params["BackendServerPort"] = fmt.Sprintf("%d", listener.BackendServerPort)
@@ -312,7 +312,7 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 	return params
 }
 
-func (region *SRegion) CreateLoadbalancerTCPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (region *SRegion) CreateLoadbalancerTCPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
 	params := region.constructBaseCreateListenerParams(lb, listener)
 	_, err := region.lbRequest("CreateLoadBalancerTCPListener", params)
 	if err != nil {
@@ -346,13 +346,13 @@ func (listerner *SLoadbalancerTCPListener) Stop() error {
 	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
 }
 
-func (region *SRegion) SyncLoadbalancerTCPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) error {
+func (region *SRegion) SyncLoadbalancerTCPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	params := region.constructBaseCreateListenerParams(lb, listener)
 	_, err := region.lbRequest("SetLoadBalancerTCPListenerAttribute", params)
 	return err
 }
 
-func (listerner *SLoadbalancerTCPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListener) error {
+func (listerner *SLoadbalancerTCPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	return listerner.lb.region.SyncLoadbalancerTCPListener(listerner.lb, lblis)
 }
 

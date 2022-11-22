@@ -279,3 +279,42 @@ func (self *SRegion) DeleteCertificate(id string) error {
 		return fmt.Errorf("DeleteCertificate %s", resp)
 	}
 }
+
+func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certs, err := self.GetCertificates("", "", "")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCertificates")
+	}
+
+	icerts := make([]cloudprovider.ICloudLoadbalancerCertificate, len(certs))
+	for i := range certs {
+		icerts[i] = &certs[i]
+	}
+
+	return icerts, nil
+}
+
+func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	cert, err := self.GetCertificate(certId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCertificate")
+	}
+
+	return cert, nil
+}
+
+// todo:目前onecloud端只能指定服务器端证书。需要兼容客户端证书？
+// todo:支持指定Project。
+// todo: 已过期的证书不能上传也不能关联资源
+func (self *SRegion) CreateILoadBalancerCertificate(input *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certId, err := self.CreateCertificate("", input.Certificate, input.PrivateKey, "SVR", input.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	cert, err := self.GetCertificate(certId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetCertificate")
+	}
+	return cert, nil
+}

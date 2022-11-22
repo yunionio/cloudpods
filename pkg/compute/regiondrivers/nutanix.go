@@ -39,10 +39,6 @@ func (self *SNutanixRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_NUTANIX
 }
 
-func (self *SNutanixRegionDriver) ValidateCreateLoadbalancerAclData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewNotImplementedError("%s does not support creating loadbalancer acl", self.GetProvider())
-}
-
 func (self *SNutanixRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("%s does not support creating loadbalancer certificate", self.GetProvider())
 }

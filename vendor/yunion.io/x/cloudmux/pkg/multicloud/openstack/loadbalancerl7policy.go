@@ -92,20 +92,6 @@ func (region *SRegion) CreateLoadbalancerL7Policy(listenerId string, rule *cloud
 	l7policyParams.L7policy.ListenerID = listenerId
 	l7policyParams.L7policy.Name = rule.Name
 
-	if rule.Redirect == api.LB_REDIRECT_RAW {
-		l7policyParams.L7policy.RedirectHTTPCode = &rule.RedirectCode
-		if len(rule.RedirectPath) < 1 {
-			l7policyParams.L7policy.Action = "REDIRECT_PREFIX"
-			l7policyParams.L7policy.RedirectPrefix = rule.RedirectScheme + "://" + rule.RedirectHost
-		} else {
-			l7policyParams.L7policy.Action = "REDIRECT_TO_URL"
-			l7policyParams.L7policy.RedirectURL = rule.RedirectScheme + "://" + rule.RedirectHost + rule.RedirectPath
-		}
-	} else {
-		l7policyParams.L7policy.Action = "REDIRECT_TO_POOL"
-		l7policyParams.L7policy.RedirectPoolID = rule.BackendGroupID
-	}
-
 	body, err := region.lbPost("/v2/lbaas/l7policies", jsonutils.Marshal(l7policyParams))
 	if err != nil {
 		return nil, errors.Wrap(err, `region.lbPost("/v2/lbaas/l7policies", jsonutils.Marshal(l7policyParams))`)

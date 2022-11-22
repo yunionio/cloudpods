@@ -16,10 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -33,46 +32,29 @@ type LoadbalancerLoadbalancerBackendGroupCreateTask struct {
 	taskman.STask
 }
 
-type HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask struct {
-	LoadbalancerLoadbalancerBackendGroupCreateTask
-}
-
-type AwsLoadbalancerLoadbalancerBackendGroupCreateTask struct {
-	LoadbalancerLoadbalancerBackendGroupCreateTask
-}
-
-type OpenstackLoadbalancerLoadbalancerBackendGroupCreateTask struct {
-	LoadbalancerLoadbalancerBackendGroupCreateTask
-}
-
 func init() {
 	taskman.RegisterTask(LoadbalancerLoadbalancerBackendGroupCreateTask{})
-	taskman.RegisterTask(HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask{})
-	taskman.RegisterTask(AwsLoadbalancerLoadbalancerBackendGroupCreateTask{})
-	taskman.RegisterTask(OpenstackLoadbalancerLoadbalancerBackendGroupCreateTask{})
 }
 
-func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerBackendGroup, reason jsonutils.JSONObject) {
-	lbacl.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
-	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_CREATE_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerBackendGroup, err error) {
+	lbacl.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
+	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbacl.Id, lbacl.Name, api.LB_CREATE_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbbg := obj.(*models.SLoadbalancerBackendGroup)
 	region, err := lbbg.GetRegion()
 	if err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lbbg, errors.Wrapf(err, "GetRegion"))
 		return
 	}
-	backends := []cloudprovider.SLoadbalancerBackend{}
-	self.GetParams().Unmarshal(&backends, "backends")
 	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
-
-	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
+	err = region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, self)
+	if err != nil {
+		self.taskFail(ctx, lbbg, errors.Wrapf(err, "RequestCreateLoadbalancerBackendGroup"))
 	}
 }
 
@@ -88,88 +70,5 @@ func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnLoadbalancerBacken
 }
 
 func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnLoadbalancerBackendGroupCreateCompleteFailed(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbbg, reason)
-}
-
-func (self *HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbbg := obj.(*models.SLoadbalancerBackendGroup)
-	region, err := lbbg.GetRegion()
-	if err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
-		return
-	}
-
-	backends, err := lbbg.GetBackendsParams()
-	if err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
-		return
-	}
-
-	// 必须指定listenerId或ruleId
-	listenerId, _ := self.GetParams().GetString("listenerId")
-	ruleId, _ := self.GetParams().GetString("ruleId")
-	if len(listenerId) == 0 && len(ruleId) == 0 {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("CreateLoadbalancerBackendGroup listener/rule id should not be emtpy")))
-		return
-	}
-
-	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
-	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
-	}
-}
-
-func (self *AwsLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbbg := obj.(*models.SLoadbalancerBackendGroup)
-	region, err := lbbg.GetRegion()
-	if err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
-		return
-	}
-
-	backends, err := lbbg.GetBackendsParams()
-	if err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
-		return
-	}
-
-	// 必须指定listenerId
-	listenerId, _ := self.GetParams().GetString("listener_id")
-	if len(listenerId) == 0 {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("CreateLoadbalancerBackendGroup listener id should not be emtpy")))
-		return
-	}
-
-	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
-	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
-	}
-}
-
-func (self *OpenstackLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbbg := obj.(*models.SLoadbalancerBackendGroup)
-	region, err := lbbg.GetRegion()
-	if err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
-		return
-	}
-
-	backends, err := lbbg.GetBackendsParams()
-	if err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
-		return
-	}
-
-	// 必须指定listenerId或ruleId
-	listenerId, _ := self.GetParams().GetString("listenerId")
-	ruleId, _ := self.GetParams().GetString("ruleId")
-	if len(listenerId) == 0 && len(ruleId) == 0 {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("CreateLoadbalancerBackendGroup listener/rule id should not be emtpy")))
-		return
-	}
-
-	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
-	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
-	}
+	self.taskFail(ctx, lbbg, errors.Errorf(reason.String()))
 }

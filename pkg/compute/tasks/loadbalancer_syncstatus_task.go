@@ -52,7 +52,8 @@ func (self *LoadbalancerSyncstatusTask) OnInit(ctx context.Context, obj db.IStan
 		return
 	}
 	self.SetStage("OnLoadbalancerSyncstatusComplete", nil)
-	if err := region.GetDriver().RequestSyncstatusLoadbalancer(ctx, self.GetUserCred(), lb, self); err != nil {
+	err = region.GetDriver().RequestSyncstatusLoadbalancer(ctx, self.GetUserCred(), lb, self)
+	if err != nil {
 		self.taskFail(ctx, lb, errors.Wrapf(err, "RequestSyncstatusLoadbalancer"))
 		return
 	}

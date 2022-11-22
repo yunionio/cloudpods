@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,24 +36,25 @@ func init() {
 	taskman.RegisterTask(LoadbalancerCertificateCreateTask{})
 }
 
-func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason jsonutils.JSONObject) {
-	lbcert.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
-	db.OpsLog.LogEvent(lbcert, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lbcert.Id, lbcert.Name, api.LB_CREATE_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, err error) {
+	lbcert.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
+	db.OpsLog.LogEvent(lbcert, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_CREATE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbcert.Id, lbcert.Name, api.LB_CREATE_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerCertificateCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbcert := obj.(*models.SCachedLoadbalancerCertificate)
-	region := lbcert.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbcert, jsonutils.NewString(fmt.Sprintf("failed to find region for lbcert %s", lbcert.Name)))
+	region, err := lbcert.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbcert, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnLoadbalancerCertificateCreateComplete", nil)
-	if err := region.GetDriver().RequestCreateLoadbalancerCertificate(ctx, self.GetUserCred(), lbcert, self); err != nil {
-		self.taskFail(ctx, lbcert, jsonutils.NewString(err.Error()))
+	err = region.GetDriver().RequestCreateLoadbalancerCertificate(ctx, self.GetUserCred(), lbcert, self)
+	if err != nil {
+		self.taskFail(ctx, lbcert, errors.Wrapf(err, "RequestCreateLoadbalancerCertificate"))
 	}
 }
 
@@ -65,5 +66,5 @@ func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateCo
 }
 
 func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateCompleteFailed(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbcert, reason)
+	self.taskFail(ctx, lbcert, errors.Errorf(reason.String()))
 }

@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -26,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -38,19 +38,6 @@ type SLoadbalancerBackendgroupResourceBase struct {
 
 type SLoadbalancerBackendgroupResourceBaseManager struct {
 	SLoadbalancerResourceBaseManager
-}
-
-func ValidateLoadbalancerBackendgroupResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerBackendGroupResourceInput) (*SLoadbalancerBackendGroup, api.LoadbalancerBackendGroupResourceInput, error) {
-	lbbgObj, err := LoadbalancerBackendGroupManager.FetchByIdOrName(userCred, input.BackendGroupId)
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerBackendGroupManager.Keyword(), input.BackendGroupId)
-		} else {
-			return nil, input, errors.Wrap(err, "LoadbalancerBackendGroupManager.FetchByIdOrName")
-		}
-	}
-	input.BackendGroupId = lbbgObj.GetId()
-	return lbbgObj.(*SLoadbalancerBackendGroup), input, nil
 }
 
 func (self *SLoadbalancerBackendgroupResourceBase) GetLoadbalancerBackendGroup() (*SLoadbalancerBackendGroup, error) {
@@ -160,11 +147,11 @@ func (manager *SLoadbalancerBackendgroupResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerBackendGroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.BackendGroupId) > 0 {
-		lbbgObj, _, err := ValidateLoadbalancerBackendgroupResourceInput(userCred, query.LoadbalancerBackendGroupResourceInput)
+		_, err := validators.ValidateModel(userCred, LoadbalancerBackendGroupManager, &query.BackendGroupId)
 		if err != nil {
-			return nil, errors.Wrap(err, "ValidateLoadbalancerBackendgroupResourceInput")
+			return nil, err
 		}
-		q = q.Equals("backend_group_id", lbbgObj.GetId())
+		q = q.Equals("backend_group_id", query.BackendGroupId)
 	}
 
 	lbbgQ := LoadbalancerBackendGroupManager.Query("id").Snapshot()

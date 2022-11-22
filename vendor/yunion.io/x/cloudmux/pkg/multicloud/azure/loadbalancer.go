@@ -679,7 +679,7 @@ func (self *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.
 	return nil, errors.Wrap(cloudprovider.ErrNotImplemented, "CreateILoadBalancerBackendGroup")
 }
 
-func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
 	return nil, errors.Wrap(cloudprovider.ErrNotImplemented, "CreateILoadBalancerListener")
 }
 
