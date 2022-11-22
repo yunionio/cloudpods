@@ -23,6 +23,11 @@ import (
 
 type ProjectListOptions struct {
 	options.BaseListOptions
+
+	UserId  string `help:"filter by user id"`
+	GroupId string `help:"filter by group id"`
+	IdpId   string `help:"filter by idp id"`
+
 	OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
 }
 

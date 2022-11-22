@@ -278,6 +278,19 @@ func (manager *SProjectManager) ListItemFilter(
 		}
 	}
 
+	if len(query.IdpId) > 0 {
+		idpObj, err := IdentityProviderManager.FetchByIdOrName(userCred, query.IdpId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(IdentityProviderManager.Keyword(), query.IdpId)
+			} else {
+				return nil, errors.Wrap(err, "IdentityProviderManager.FetchByIdOrName")
+			}
+		}
+		subq := IdmappingManager.FetchPublicIdsExcludesQuery(idpObj.GetId(), api.IdMappingEntityDomain, nil)
+		q = q.In("domain_id", subq.SubQuery())
+	}
+
 	return q, nil
 }
 
