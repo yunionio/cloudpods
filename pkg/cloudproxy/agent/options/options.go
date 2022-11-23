@@ -24,7 +24,8 @@ type Options struct {
 	ProxyAgentInitWait         string `help:"duration to try and wait for init" default:"15s"`
 	proxyAgentInitWaitDuration time.Duration
 
-	APISyncInterval  int `default:"10"`
+	APISyncIntervalSeconds int `default:"10"`
+
 	APIListBatchSize int `default:"1024"`
 }
 
@@ -46,8 +47,8 @@ func (opts *Options) ValidateThenInit() error {
 	if opts.APIListBatchSize <= 20 {
 		opts.APIListBatchSize = 20
 	}
-	if opts.APISyncInterval <= 10 {
-		opts.APISyncInterval = 10
+	if opts.APISyncIntervalSeconds <= 10 {
+		opts.APISyncIntervalSeconds = 10
 	}
 
 	return nil

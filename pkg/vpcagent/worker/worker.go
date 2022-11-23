@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
 )
 
@@ -26,7 +27,7 @@ var workers = map[string]NewWorkerFunc{}
 type NewWorkerFunc func(opts *options.Options) IWorker
 
 type IWorker interface {
-	Start(ctx context.Context)
+	Start(ctx context.Context, app *appsrv.Application, prefix string)
 }
 
 func NewWorker(opts *options.Options) IWorker {

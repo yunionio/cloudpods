@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apihelper"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/vpcagent/worker"
@@ -39,7 +40,8 @@ func NewWorker(opts *options.AlerterOptions) (worker.IWorker, error) {
 	modelSets := man.GetModelSets()
 	apiOpts := &apihelper.Options{
 		CommonOptions:        opts.CommonOptions,
-		SyncInterval:         opts.APISyncInterval,
+		SyncIntervalSeconds:  opts.APISyncIntervalSeconds,
+		RunDelayMilliseconds: opts.APIRunDelayMilliseconds,
 		ListBatchSize:        opts.APIListBatchSize,
 		IncludeDetails:       true,
 		IncludeOtherCloudEnv: true,
@@ -56,13 +58,13 @@ func NewWorker(opts *options.AlerterOptions) (worker.IWorker, error) {
 	return w, nil
 }
 
-func (w *Worker) Start(ctx context.Context) {
+func (w *Worker) Start(ctx context.Context, app *appsrv.Application, prefix string) {
 	defer func() {
 		log.Infoln("monitor resource: worker bye")
 	}()
 
 	log.Infoln("start to get api Resource")
-	go w.apih.Start(ctx)
+	go w.apih.Start(ctx, nil, "")
 
 	var mss *models.MonitorResModelSets
 	for {
