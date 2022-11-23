@@ -19,9 +19,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -117,8 +119,17 @@ func (this *BaseManager) rawBaseUrlRequest(s *mcclient.ClientSession,
 	header http.Header, body io.Reader) (*http.Response, error) {
 	baseUrlF := func(baseurl string) string {
 		obj, _ := url.Parse(baseurl)
-		obj.Path = ""
-		return obj.String()
+		lastSlashPos := strings.LastIndex(obj.Path, "/")
+		if lastSlashPos >= 0 {
+			lastSeg := obj.Path[lastSlashPos+1:]
+			verReg := regexp.MustCompile(`^v\d+`)
+			if verReg.MatchString(lastSeg) {
+				obj.Path = obj.Path[:lastSlashPos]
+			}
+		}
+		ret := obj.String()
+		log.Debugf("baseurl %s ret %s", baseurl, ret)
+		return ret
 	}
 	return s.RawBaseUrlRequest(
 		this.serviceType, this.endpointType,
