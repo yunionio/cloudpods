@@ -386,6 +386,15 @@ func (self *SRegion) CreateElasticcache(opts *cloudprovider.SCloudElasticCacheIn
 	}
 	if len(opts.SecurityGroupIds) > 0 {
 		params["security_group_id"] = opts.SecurityGroupIds[0]
+	} else {
+		secgroups, err := self.GetSecurityGroups(opts.VpcId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSecurityGroups")
+		}
+		for _, secgroup := range secgroups {
+			params["security_group_id"] = secgroup.Id
+			break
+		}
 	}
 
 	if len(opts.ProjectId) > 0 {
