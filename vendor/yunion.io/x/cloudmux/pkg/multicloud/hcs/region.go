@@ -72,10 +72,6 @@ func (self *SRegion) GetStatus() string {
 	return api.CLOUD_REGION_STATUS_INSERVER
 }
 
-func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
 	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_HCS_EN, self.Locales.EnUS)
 	table := cloudprovider.SModelI18nTable{}
