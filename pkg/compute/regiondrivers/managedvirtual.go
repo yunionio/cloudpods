@@ -1790,6 +1790,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 			MaintainBegin:    ec.MaintainStartTime,
 			MaintainEnd:      ec.MaintainEndTime,
 		}
+		params.Password, _ = task.GetParams().GetString("password")
 		if ec.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			bc, err := billing.ParseBillingCycle(ec.BillingCycle)
 			if err != nil {
@@ -1822,7 +1823,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 			}
 		}
 
-		params.Password, _ = data.GetString("password")
 		data.Unmarshal(&params.SecurityGroupIds, "ext_secgroup_ids")
 
 		provider := iprovider.(*models.SCloudprovider)
@@ -1841,7 +1841,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 			return nil, errors.Wrap(err, "SetExternalId")
 		}
 
-		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 30*time.Second, 15*time.Second, 10*time.Minute)
+		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 30*time.Second, 15*time.Second, 30*time.Minute)
 		if err != nil {
 			return nil, errors.Wrap(err, "WaitStatusWithDelay")
 		}

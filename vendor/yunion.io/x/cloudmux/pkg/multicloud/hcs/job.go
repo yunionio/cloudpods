@@ -59,6 +59,9 @@ func (self *SJob) GetIds() []string {
 		if len(sub.Entities.ServerId) > 0 {
 			ret = append(ret, sub.Entities.ServerId)
 		}
+		if len(sub.Entities.ImageId) > 0 {
+			ret = append(ret, sub.Entities.ImageId)
+		}
 	}
 	return ret
 }

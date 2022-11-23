@@ -41,7 +41,7 @@ func (self *SHCSRegionDriver) IsSecurityGroupBelongVpc() bool {
 }
 
 func (self *SHCSRegionDriver) IsSupportedElasticcacheSecgroup() bool {
-	return true
+	return false
 }
 
 func (self *SHCSRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {

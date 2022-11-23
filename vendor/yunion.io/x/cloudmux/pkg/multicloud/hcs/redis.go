@@ -168,7 +168,7 @@ func (self *SElasticcache) GetArchType() string {
 	if strings.Contains(self.ResourceSpecCode, "single") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_SINGLE
 	}
-	if strings.Contains(self.ResourceSpecCode, "ha") {
+	if strings.Contains(self.ResourceSpecCode, "ha") || strings.Contains(self.ResourceSpecCode, "master") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_MASTER
 	}
 	if strings.Contains(self.ResourceSpecCode, "cluster") {
@@ -177,7 +177,7 @@ func (self *SElasticcache) GetArchType() string {
 	if strings.Contains(self.ResourceSpecCode, "proxy") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
 	}
-	return ""
+	return self.ResourceSpecCode
 }
 
 func (self *SElasticcache) GetNodeType() string {
@@ -447,7 +447,7 @@ func (self *SRegion) DeleteElasticcache(id string) error {
 }
 
 func (self *SElasticcache) ChangeInstanceSpec(spec string) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 // https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423021.html
