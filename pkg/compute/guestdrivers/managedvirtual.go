@@ -718,8 +718,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx 
 		}
 		if len(idisks) < len(desc.DataDisks)+1 {
 			if waited > maxWaitSecs {
-				log.Errorf("inconsistent disk number, wait timeout, must be something wrong on remote")
-				return nil, cloudprovider.ErrTimeout
+				return nil, errors.Wrapf(cloudprovider.ErrTimeout, "inconsistent disk number %d < %d, wait timeout, must be something wrong on remote", len(idisks), len(desc.DataDisks)+1)
 			}
 			log.Debugf("inconsistent disk number???? %d != %d", len(idisks), len(desc.DataDisks)+1)
 			time.Sleep(time.Second * 5)
