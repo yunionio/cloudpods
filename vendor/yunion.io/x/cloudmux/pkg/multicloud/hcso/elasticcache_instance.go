@@ -111,12 +111,7 @@ func (self *SElasticcache) Refresh() error {
 		return errors.Wrap(err, "Elasticcache.Refresh.GetElasticCache")
 	}
 
-	err = jsonutils.Update(self, cache)
-	if err != nil {
-		return errors.Wrap(err, "Elasticcache.Refresh.Update")
-	}
-
-	return nil
+	return jsonutils.Update(self, cache)
 }
 
 func (self *SElasticcache) GetStatus() string {
@@ -186,15 +181,14 @@ func (self *SElasticcache) GetArchType() string {
 	*/
 	if strings.Contains(self.ResourceSpecCode, "single") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_SINGLE
-	} else if strings.Contains(self.ResourceSpecCode, "ha") {
+	} else if strings.Contains(self.ResourceSpecCode, "ha") || strings.Contains(self.ResourceSpecCode, "master") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_MASTER
 	} else if strings.Contains(self.ResourceSpecCode, "cluster") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
 	} else if strings.Contains(self.ResourceSpecCode, "proxy") {
 		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
 	}
-
-	return ""
+	return self.ResourceSpecCode
 }
 
 func (self *SElasticcache) GetNodeType() string {

@@ -260,7 +260,7 @@ func (self *SEip) Dissociate() error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	return cloudprovider.WaitStatusWithDelay(self, api.EIP_STATUS_READY, time.Second*10, 10*time.Second, 3*time.Minute)
 }
 
 func (self *SEip) ChangeBandwidth(bw int) error {
