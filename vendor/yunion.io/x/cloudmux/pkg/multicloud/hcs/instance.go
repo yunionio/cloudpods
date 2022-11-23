@@ -635,9 +635,14 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 		}
 	}
 
+	err = self.Refresh()
+	if err != nil {
+		return "", errors.Wrapf(err, "Refresh")
+	}
+
 	idisks, err := self.GetIDisks()
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetIDisks")
 	}
 
 	if len(idisks) == 0 {
@@ -930,8 +935,6 @@ func (self *SRegion) RebuildRoot(ctx context.Context, userId, instanceId, passwd
 	return self.ecsPerform("cloudservers/"+instanceId, "reinstallos", params, nil)
 }
 
-// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876971.html
-// 返回job id
 func (self *SRegion) ChangeRoot(ctx context.Context, userId, instanceId, imageId, passwd, publicKeyName, userData string) error {
 	osChange := map[string]interface{}{}
 	if len(publicKeyName) > 0 {
@@ -1116,8 +1119,20 @@ func (self *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImageO
 			return opts.Notes
 		}()
 	}
-	ret := &SImage{cache: &SStoragecache{region: self}}
-	return ret, self.perform("ims", "v2", "cloudimages", "action", params, ret)
+	job := &SJob{}
+	err := self.perform("ims", "v2", "cloudimages", "action", params, job)
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range job.GetIds() {
+		image, err := self.GetImage(id)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetImage(%s)", id)
+		}
+		image.cache = &SStoragecache{region: self}
+		return image, nil
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(job).String())
 }
 
 func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {

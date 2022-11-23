@@ -565,6 +565,9 @@ func (self *SHcsClient) get(product, version, regionId string, resource string, 
 }
 
 func (self *SHcsClient) _getJob(product, regionId string, jobId string) (jsonutils.JSONObject, error) {
+	if product == "ims" { // 保存镜像时，使用ecs查询job
+		product = "ecs"
+	}
 	url := self._url(product, "v1", regionId, fmt.Sprintf("jobs/%s", jobId))
 	resp, err := self.request(httputils.GET, url, nil, nil)
 	if err != nil {

@@ -389,7 +389,9 @@ func (self *SRegion) ResizeDisk(id string, sizeGb int64) error {
 
 func (self *SRegion) ResetDisk(diskId, snapshotId string) error {
 	params := map[string]interface{}{
-		"volume_id": diskId,
+		"rollback": map[string]interface{}{
+			"volume_id": diskId,
+		},
 	}
 	res := fmt.Sprintf("os-vendor-snapshots/%s", snapshotId)
 	return self.evsPerform(res, "rollback", params)
