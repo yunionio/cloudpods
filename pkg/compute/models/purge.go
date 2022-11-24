@@ -1122,6 +1122,16 @@ func (self *SCloudregion) purgeSkus(ctx context.Context, userCred mcclient.Token
 			return errors.Wrapf(err, "delete cache sku %s", cacheSkus[i].Id)
 		}
 	}
+	modelartsSku, err := self.GetModelartsPoolSkus()
+	if err != nil {
+		return errors.Wrapf(err, "GetModelartsPoolSkus")
+	}
+	for i := range modelartsSku {
+		err = modelartsSku[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete modelarts sku %s", modelartsSku[i].Id)
+		}
+	}
 	return nil
 }
 
