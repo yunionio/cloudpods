@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
@@ -227,7 +226,6 @@ func (self *SCloudregion) SyncModelartsPoolSkus(ctx context.Context, userCred mc
 
 	// 和云上资源属性进行同步
 	for i := 0; i < len(commondb); i++ {
-		log.Errorln("this is commonext", commonext[i])
 		err := commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
 		if err != nil {
 			result.UpdateError(err)
