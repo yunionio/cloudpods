@@ -379,7 +379,7 @@ func (self *SRegion) DeleteDisk(id string) error {
 
 func (self *SRegion) ResizeDisk(id string, sizeGb int64) error {
 	params := map[string]interface{}{
-		"os_extend": map[string]interface{}{
+		"os-extend": map[string]interface{}{
 			"new_size": sizeGb,
 		},
 	}

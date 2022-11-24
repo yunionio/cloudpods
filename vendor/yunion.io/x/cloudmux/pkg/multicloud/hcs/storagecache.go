@@ -172,17 +172,16 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				break
-			} else {
-				return "", err
 			}
+			return "", err
 		}
 
 		imageName = fmt.Sprintf("%s-%d", imageBaseName, nameIdx)
 		nameIdx += 1
-		log.Debugf("uploadImage Match remote name %s", imageName)
+		log.Infof("uploadImage Match remote name %s", imageName)
 	}
 
-	err = self.region.ImportImageJob(imageName, image.OsDistribution, image.OsVersion, image.OsArch, bucketName, image.ImageId, int64(minDiskGB))
+	imageInfo, err := self.region.ImportImageJob(imageName, image.OsDistribution, image.OsVersion, image.OsArch, bucketName, image.ImageId, int64(minDiskGB))
 	if err != nil {
 		return "", errors.Wrapf(err, "ImportImageJob")
 	}
@@ -190,7 +189,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 	if callback != nil {
 		callback(100)
 	}
-	return "", cloudprovider.ErrNotImplemented
+	return imageInfo.Id, nil
 }
 
 func (self *SRegion) getStoragecache() *SStoragecache {
