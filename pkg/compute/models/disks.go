@@ -1035,13 +1035,17 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	if storage == nil {
 		return httperrors.NewInternalServerError("disk has no valid storage")
 	}
+	var guestdriver IGuestDriver
 	if host, _ := storage.GetMasterHost(); host != nil {
 		if err := host.GetHostDriver().ValidateDiskSize(storage, sizeMb>>10); err != nil {
 			return httperrors.NewInputParameterError("%v", err)
 		}
+		guestdriver = GetDriver(api.HOSTTYPE_HYPERVISOR[host.HostType])
 	}
-	if int64(addDisk) > storage.GetFreeCapacity() && !storage.IsEmulated {
-		return httperrors.NewOutOfResourceError("Not enough free space")
+	if guestdriver == nil || guestdriver.DoScheduleStorageFilter() {
+		if int64(addDisk) > storage.GetFreeCapacity() && !storage.IsEmulated {
+			return httperrors.NewOutOfResourceError("Not enough free space")
+		}
 	}
 	if guest != nil {
 		if err := guest.ValidateResizeDisk(disk, storage); err != nil {

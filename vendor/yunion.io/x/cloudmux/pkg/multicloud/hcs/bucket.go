@@ -818,3 +818,32 @@ func (self *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
 	return cloudprovider.GetIBucketById(region, name)
 }
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return region.GetIBucketById(name)
+}
+
+func obsHttpCode(err error) int {
+	switch httpErr := err.(type) {
+	case obs.ObsError:
+		return httpErr.StatusCode
+	case *obs.ObsError:
+		return httpErr.StatusCode
+	}
+	return -1
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	obsClient, err := region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "region.getOBSClient")
+	}
+	_, err = obsClient.DeleteBucket(name)
+	if err != nil {
+		if obsHttpCode(err) == 404 {
+			return nil
+		}
+		return errors.Wrap(err, "DeleteBucket")
+	}
+	return nil
+}

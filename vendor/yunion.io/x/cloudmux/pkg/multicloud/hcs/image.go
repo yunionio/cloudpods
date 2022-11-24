@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/apis"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -333,22 +334,15 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 	return &images[0], nil
 }
 
-/*
-https://support.huaweicloud.com/api-ims/zh-cn_topic_0020092109.html
-
-	os version 取值范围： https://support.huaweicloud.com/api-ims/zh-cn_topic_0031617666.html
-	用于创建私有镜像的源云服务器系统盘大小大于等于40GB且不超过1024GB。
-	目前支持vhd，zvhd、raw，qcow2
-	todo: 考虑使用镜像快速导入。 https://support.huaweicloud.com/api-ims/zh-cn_topic_0133188204.html
-	使用OBS文件创建镜像
-
-	* openstack原生接口支持的格式：https://support.huaweicloud.com/api-ims/zh-cn_topic_0031615566.html
-*/
-func (self *SRegion) ImportImageJob(name string, osDist string, osVersion string, osArch string, bucket string, key string, minDiskGB int64) error {
+func (self *SRegion) ImportImageJob(name string, osDist string, osVersion string, osArch string, bucket string, key string, minDiskGB int64) (*SImage, error) {
 	os_version, err := stdVersion(osDist, osVersion, osArch)
 	log.Debugf("%s %s %s: %s.min_disk %d GB", osDist, osVersion, osArch, os_version, minDiskGB)
 	if err != nil {
 		log.Debugln(err)
+	}
+	arch := "x86_64"
+	if strings.Contains(osArch, "arm") || strings.Contains(osArch, "aarch") {
+		arch = "aarch64"
 	}
 
 	image_url := fmt.Sprintf("%s:%s", bucket, key)
@@ -359,8 +353,17 @@ func (self *SRegion) ImportImageJob(name string, osDist string, osVersion string
 		"is_config_init": true,
 		"is_config":      true,
 		"min_disk":       minDiskGB,
+		"architecture":   arch,
 	}
-	return self.imsPerform("cloudimage", "action", params, nil)
+	job := &SJob{}
+	err = self.imsPerform("cloudimages", "action", params, job)
+	if err != nil {
+		return nil, errors.Wrapf(err, "import image")
+	}
+	for _, id := range job.GetIds() {
+		return self.GetImage(id)
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(job).String())
 }
 
 func formatVersion(osDist string, osVersion string) (string, error) {
