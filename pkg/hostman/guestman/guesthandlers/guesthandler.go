@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -342,6 +343,20 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 	params.QemuVersion = qemuVersion
 	params.LiveMigrate = liveMigrate
 	params.SourceQemuCmdline = qemuCmdline
+	params.ScsiNumQueues = -1
+	if body.Contains("scsi_num_queues") {
+		params.ScsiNumQueues, _ = body.Int("scsi_num_queues")
+	}
+	if onics, err := body.Get("nics_pci_slot"); err == nil {
+		jnics, ok := onics.(*jsonutils.JSONDict)
+		if !ok {
+			return httperrors.NewInputParameterError("nics_pci_slot is not dict")
+		}
+		params.NicsPciSlot = jnics
+		log.Infof("nics_pci_slot %s", params.NicsPciSlot)
+	}
+
+	params.NoMemDev = jsonutils.QueryBoolean(body, "no_memdev", false)
 	params.EnableTLS = jsonutils.QueryBoolean(body, "enable_tls", false)
 	if params.EnableTLS {
 		certsObj, err := body.Get("migrate_certs")

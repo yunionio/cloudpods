@@ -184,6 +184,102 @@ func (self *BlockJob) PreOffset(preOffset int64) {
 	return
 }
 
+// Memdev -> Memdev (struct)
+
+// Memdev implements the "Memdev" QMP API type.
+type Memdev struct {
+	ID        *string  `json:"id,omitempty"`
+	Size      uint64   `json:"size"`
+	Merge     bool     `json:"merge"`
+	Dump      bool     `json:"dump"`
+	Prealloc  bool     `json:"prealloc"`
+	HostNodes []uint16 `json:"host-nodes"`
+	Policy    string   `json:"policy"`
+}
+
+type MemdevListCallback func(res []Memdev, err string)
+
+// PciBridgeInfo -> PCIBridgeInfo (struct)
+
+// PCIBridgeInfo implements the "PciBridgeInfo" QMP API type.
+type PCIBridgeInfo struct {
+	Bus     PCIBusInfo      `json:"bus"`
+	Devices []PCIDeviceInfo `json:"devices,omitempty"`
+}
+
+// PciBusInfo -> PCIBusInfo (struct)
+
+// PCIBusInfo implements the "PciBusInfo" QMP API type.
+type PCIBusInfo struct {
+	Number            int64          `json:"number"`
+	Secondary         int64          `json:"secondary"`
+	Subordinate       int64          `json:"subordinate"`
+	IORange           PCIMemoryRange `json:"io_range"`
+	MemoryRange       PCIMemoryRange `json:"memory_range"`
+	PrefetchableRange PCIMemoryRange `json:"prefetchable_range"`
+}
+
+// PciDeviceClass -> PCIDeviceClass (struct)
+
+// PCIDeviceClass implements the "PciDeviceClass" QMP API type.
+type PCIDeviceClass struct {
+	Desc  *string `json:"desc,omitempty"`
+	Class int64   `json:"class"`
+}
+
+// PciDeviceId -> PCIDeviceID (struct)
+
+// PCIDeviceID implements the "PciDeviceId" QMP API type.
+type PCIDeviceID struct {
+	Device int64 `json:"device"`
+	Vendor int64 `json:"vendor"`
+}
+
+// PciDeviceInfo -> PCIDeviceInfo (struct)
+
+// PCIDeviceInfo implements the "PciDeviceInfo" QMP API type.
+type PCIDeviceInfo struct {
+	Bus       int64             `json:"bus"`
+	Slot      int64             `json:"slot"`
+	Function  int64             `json:"function"`
+	ClassInfo PCIDeviceClass    `json:"class_info"`
+	ID        PCIDeviceID       `json:"id"`
+	Irq       *int64            `json:"irq,omitempty"`
+	QdevID    string            `json:"qdev_id"`
+	PCIBridge *PCIBridgeInfo    `json:"pci_bridge,omitempty"`
+	Regions   []PCIMemoryRegion `json:"regions"`
+}
+
+// PciInfo -> PCIInfo (struct)
+
+// PCIInfo implements the "PciInfo" QMP API type.
+type PCIInfo struct {
+	Bus     int64           `json:"bus"`
+	Devices []PCIDeviceInfo `json:"devices"`
+}
+
+// PciMemoryRange -> PCIMemoryRange (struct)
+
+// PCIMemoryRange implements the "PciMemoryRange" QMP API type.
+type PCIMemoryRange struct {
+	Base  int64 `json:"base"`
+	Limit int64 `json:"limit"`
+}
+
+// PciMemoryRegion -> PCIMemoryRegion (struct)
+
+// PCIMemoryRegion implements the "PciMemoryRegion" QMP API type.
+type PCIMemoryRegion struct {
+	Bar       int64  `json:"bar"`
+	Type      string `json:"type"`
+	Address   int64  `json:"address"`
+	Size      int64  `json:"size"`
+	Prefetch  *bool  `json:"prefetch,omitempty"`
+	MemType64 *bool  `json:"mem_type_64,omitempty"`
+}
+
+type QueryPciCallback func(pciInfoList []PCIInfo, err string)
+
 type Monitor interface {
 	Connect(host string, port int) error
 	ConnectWithSocket(address string) error
@@ -203,6 +299,9 @@ type Monitor interface {
 	GetCpuCount(func(count int))
 	AddCpu(cpuIndex int, callback StringCallback)
 	GeMemtSlotIndex(func(index int))
+	GetMemdevList(MemdevListCallback)
+	GetScsiNumQueues(func(int64))
+	QueryPci(callback QueryPciCallback)
 
 	GetBlocks(callback func([]QemuBlock))
 	EjectCdrom(dev string, callback StringCallback)

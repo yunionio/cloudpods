@@ -474,7 +474,9 @@ func getNicDeviceOption(drvOpt QemuOptions, nic jsonutils.JSONObject, input *Gen
 	cmd += fmt.Sprintf(",netdev=%s", ifname)
 	cmd += fmt.Sprintf(",mac=%s", mac)
 
-	if withAddr {
+	if slot, err := nic.Int("pci_slot"); err == nil {
+		cmd += fmt.Sprintf(",addr=0x%x", slot)
+	} else if withAddr {
 		disksLen := len(input.Disks)
 		isoDevsLen := 0
 		if input.IsolatedDevicesParams != nil {

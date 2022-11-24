@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -829,6 +830,56 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 		ret.Set("disks_back", disksPrepare)
 	}
 
+	if migParams.LiveMigrate && guest.Monitor != nil {
+		errChan := make(chan string)
+		guest.Monitor.GetMemdevList(func(memdevList []monitor.Memdev, errStr string) {
+			if len(errStr) > 0 {
+				errChan <- errStr
+				return
+			} else if len(memdevList) == 0 {
+				ret.Set("no_memdev", jsonutils.JSONTrue)
+			}
+			errChan <- ""
+		})
+		if errStr := <-errChan; errStr != "" {
+			return nil, errors.Errorf("get memdev list failed %s", errStr)
+		}
+
+		guest.Monitor.GetScsiNumQueues(func(numQueues int64) {
+			if numQueues > 1 {
+				ret.Set("scsi_num_queues", jsonutils.NewInt(numQueues))
+			}
+			errChan <- ""
+		})
+		_ = <-errChan
+
+		guest.Monitor.QueryPci(func(pciInfoList []monitor.PCIInfo, err string) {
+			if err != "" {
+				errChan <- err
+			}
+			nicsPciSlot := jsonutils.NewDict()
+			for i := 0; i < len(pciInfoList); i++ {
+				if pciInfoList[i].Bus == 0 {
+					for j := 0; j < len(pciInfoList[i].Devices); j++ {
+						if strings.HasPrefix(pciInfoList[i].Devices[j].QdevID, "netdev-") {
+							nicsPciSlot.Set(
+								pciInfoList[i].Devices[j].QdevID[len("netdev-"):], // ifname
+								jsonutils.NewInt(pciInfoList[i].Devices[j].Slot),  // slot
+							)
+						}
+					}
+				}
+				if nicsPciSlot.Length() > 0 {
+					ret.Set("nics_pci_slot", nicsPciSlot)
+				}
+			}
+			errChan <- ""
+		})
+		if errStr := <-errChan; errStr != "" {
+			return nil, errors.Errorf("get pci info list failed %s", errStr)
+		}
+	}
+
 	if migParams.LiveMigrate && migParams.LiveMigrateUseTLS {
 		certs, err := guest.PrepareMigrateCerts()
 		if err != nil {
@@ -897,7 +948,12 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
 		startParams.Set("need_migrate", jsonutils.JSONTrue)
 		startParams.Set("source_qemu_cmdline", jsonutils.NewString(migParams.SourceQemuCmdline))
+		startParams.Set("scsi_num_queues", jsonutils.NewInt(migParams.ScsiNumQueues))
+		startParams.Set("no_memdev", jsonutils.NewBool(migParams.NoMemDev))
 		startParams.Set("live_migrate_use_tls", jsonutils.NewBool(migParams.EnableTLS))
+		if migParams.NicsPciSlot != nil {
+			startParams.Set("nics_pci_slot", migParams.NicsPciSlot)
+		}
 		if len(migParams.MigrateCerts) > 0 {
 			if err := guest.WriteMigrateCerts(migParams.MigrateCerts); err != nil {
 				return nil, errors.Wrap(err, "write migrate certs")
