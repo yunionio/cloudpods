@@ -324,6 +324,18 @@ var (
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "modelarts_skus",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "modelarts_skus",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{
