@@ -82,7 +82,8 @@ func (self *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandal
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
-	pool.SetStatus(self.GetUserCred(), api.MODELARTS_POOL_STATUS_RUNNING, "")
+
+	pool.SetStatus(self.GetUserCred(), ipool.GetStatus(), "")
 	self.taskComplete(ctx, pool)
 }
 
