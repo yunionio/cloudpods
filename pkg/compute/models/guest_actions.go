@@ -4014,6 +4014,18 @@ func (self *SGuest) PerformConvertToKvm(
 	if self.Status != api.VM_READY {
 		return nil, httperrors.NewBadRequestError("guest status must be ready")
 	}
+
+	nets, err := self.GetNetworks("")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetNetworks")
+	}
+	if len(nets) == 0 {
+		syncIps := self.GetMetadata(ctx, "sync_ips", userCred)
+		if len(syncIps) > 0 {
+			return nil, errors.Wrap(httperrors.ErrInvalidStatus, "VMware network not configured properly")
+		}
+	}
+
 	newGuest, createInput, err := self.createConvertedServer(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "create converted server")
