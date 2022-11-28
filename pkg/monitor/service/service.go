@@ -84,7 +84,7 @@ func StartService() {
 	if err != nil {
 		log.Fatalf("new worker failed: %v", err)
 	}
-	go worker.Start(context.Background())
+	go worker.Start(context.Background(), app, "")
 
 	//common_app.ServeForever(app, baseOpts)
 	InitInfluxDBSubscriptionHandlers(app, baseOpts)

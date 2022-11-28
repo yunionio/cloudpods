@@ -34,8 +34,9 @@ const (
 type VpcAgentOptions struct {
 	VpcProvider string `default:"ovn"`
 
-	APISyncInterval  int `default:"10"`
-	APIListBatchSize int `default:"1024"`
+	APISyncIntervalSeconds  int `default:"10"`
+	APIRunDelayMilliseconds int `default:"100"`
+	APIListBatchSize        int `default:"1024"`
 
 	OvnWorkerCheckInterval int    `default:"180"`
 	OvnNorthDatabase       string `help:"address for accessing ovn north database.  Default to local unix socket"`
@@ -59,9 +60,6 @@ func (opts *Options) ValidateThenInit() error {
 
 	if opts.APIListBatchSize <= 20 {
 		opts.APIListBatchSize = 20
-	}
-	if opts.APISyncInterval <= 10 {
-		opts.APISyncInterval = 10
 	}
 
 	if opts.OvnWorkerCheckInterval <= 60 {

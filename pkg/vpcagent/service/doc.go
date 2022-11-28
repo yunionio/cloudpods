@@ -12,21 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
-
-import (
-	"context"
-
-	"yunion.io/x/onecloud/pkg/util/atexit"
-	"yunion.io/x/onecloud/pkg/util/procutils"
-	_ "yunion.io/x/onecloud/pkg/vpcagent/ovn"
-	"yunion.io/x/onecloud/pkg/vpcagent/service"
-)
-
-func main() {
-	defer atexit.Handle()
-
-	go procutils.WaitZombieLoop(context.TODO())
-
-	service.StartService()
-}
+package service // import "yunion.io/x/onecloud/pkg/vpcagent/service"
