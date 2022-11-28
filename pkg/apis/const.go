@@ -34,6 +34,7 @@ const (
 	SERVICE_TYPE_LOG               = "log"
 	SERVICE_TYPE_REGION            = "compute"
 	SERVICE_TYPE_CLOUDMON          = "cloudmon"
+	SERVICE_TYPE_VPCAGENT          = "vpcagent"
 
 	SERVICE_TYPE_ETCD     = "etcd"
 	SERVICE_TYPE_INFLUXDB = "influxdb"

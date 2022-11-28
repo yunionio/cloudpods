@@ -26,8 +26,10 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apihelper"
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
 	"yunion.io/x/onecloud/pkg/vpcagent/ovnutil"
@@ -43,10 +45,11 @@ type Worker struct {
 func NewWorker(opts *options.Options) worker.IWorker {
 	modelSets := agentmodels.NewModelSets()
 	apiOpts := &apihelper.Options{
-		CommonOptions:  opts.CommonOptions,
-		SyncInterval:   opts.APISyncInterval,
-		ListBatchSize:  opts.APIListBatchSize,
-		IncludeDetails: false,
+		CommonOptions:        opts.CommonOptions,
+		SyncIntervalSeconds:  opts.APISyncIntervalSeconds,
+		RunDelayMilliseconds: opts.APIRunDelayMilliseconds,
+		ListBatchSize:        opts.APIListBatchSize,
+		IncludeDetails:       false,
 
 		IncludeOtherCloudEnv: false,
 	}
@@ -61,7 +64,7 @@ func NewWorker(opts *options.Options) worker.IWorker {
 	return w
 }
 
-func (w *Worker) Start(ctx context.Context) {
+func (w *Worker) Start(ctx context.Context, app *appsrv.Application, prefix string) {
 	wg := ctx.Value("wg").(*sync.WaitGroup)
 	defer func() {
 		log.Infoln("ovn: worker bye")
@@ -69,7 +72,7 @@ func (w *Worker) Start(ctx context.Context) {
 	}()
 
 	wg.Add(1)
-	go w.apih.Start(ctx)
+	go w.apih.Start(ctx, app, httputils.JoinPath(prefix, "api"))
 
 	tickDuration := time.Duration(w.opts.OvnWorkerCheckInterval) * time.Second
 	tick := time.NewTimer(tickDuration)

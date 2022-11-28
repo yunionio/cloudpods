@@ -54,9 +54,9 @@ type Worker struct {
 func NewWorker(commonOpts *common_options.CommonOptions, opts *agentoptions.Options) *Worker {
 	modelSets := agentmodels.NewModelSets()
 	apiOpts := &apihelper.Options{
-		CommonOptions: *commonOpts,
-		SyncInterval:  opts.APISyncInterval,
-		ListBatchSize: opts.APIListBatchSize,
+		CommonOptions:       *commonOpts,
+		SyncIntervalSeconds: opts.APISyncIntervalSeconds,
+		ListBatchSize:       opts.APIListBatchSize,
 	}
 	apih, err := apihelper.NewAPIHelper(apiOpts, modelSets)
 	if err != nil {
@@ -177,7 +177,7 @@ func (w *Worker) Start(ctx context.Context) {
 		log.Errorf("init proxy agent: %v", err)
 		return
 	}
-	go w.apih.Start(ctx)
+	go w.apih.Start(ctx, nil, "")
 
 	const tickDur = 11 * time.Second
 	var (

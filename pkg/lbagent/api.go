@@ -57,9 +57,10 @@ type ApiHelper struct {
 func NewApiHelper(opts *Options) (*ApiHelper, error) {
 	corpus := agentmodels.NewEmptyLoadbalancerCorpus()
 	apiOpts := &apihelper.Options{
-		CommonOptions: opts.CommonOptions,
-		SyncInterval:  opts.ApiSyncInterval,
-		ListBatchSize: opts.ApiListBatchSize,
+		CommonOptions:        opts.CommonOptions,
+		SyncIntervalSeconds:  opts.ApiSyncIntervalSeconds,
+		RunDelayMilliseconds: opts.ApiRunDelayMilliseconds,
+		ListBatchSize:        opts.ApiListBatchSize,
 	}
 	apih, err := apihelper.NewAPIHelper(apiOpts, corpus.ModelSets)
 	if err != nil {
@@ -87,10 +88,10 @@ func (h *ApiHelper) Run(ctx context.Context) {
 	defer h.stopOvnWorker()
 
 	wg.Add(1)
-	go h.apih.Start(ctx)
+	go h.apih.Start(ctx, nil, "")
 
 	hbTicker := time.NewTicker(time.Duration(h.opts.ApiLbagentHbInterval) * time.Second)
-	agentParamsSyncTicker := time.NewTicker(time.Duration(h.opts.ApiSyncInterval) * time.Second)
+	agentParamsSyncTicker := time.NewTicker(time.Duration(h.opts.ApiSyncIntervalSeconds) * time.Second)
 	defer hbTicker.Stop()
 	defer agentParamsSyncTicker.Stop()
 

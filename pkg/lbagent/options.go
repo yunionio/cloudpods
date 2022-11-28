@@ -28,7 +28,9 @@ type LbagentOptions struct {
 	ApiLbagentHbInterval          int    `default:"10"`
 	ApiLbagentHbTimeoutRelaxation int    `default:"120" help:"If agent is to stale out in specified seconds in the future, consider it staled to avoid race condition when doing incremental api data fetch"`
 
-	ApiSyncInterval  int
+	ApiSyncIntervalSeconds  int `default:"10"`
+	ApiRunDelayMilliseconds int `default:"10"`
+
 	ApiListBatchSize int `default:"1024"`
 
 	DataPreserveN int `default:"8" help:"number of recent data to preserve on disk"`

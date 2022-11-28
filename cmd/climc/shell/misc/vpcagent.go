@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package misc
 
 import (
-	"context"
-
-	"yunion.io/x/onecloud/pkg/util/atexit"
-	"yunion.io/x/onecloud/pkg/util/procutils"
-	_ "yunion.io/x/onecloud/pkg/vpcagent/ovn"
-	"yunion.io/x/onecloud/pkg/vpcagent/service"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/vpcagent"
 )
 
-func main() {
-	defer atexit.Handle()
-
-	go procutils.WaitZombieLoop(context.TODO())
-
-	service.StartService()
+func init() {
+	type VpcAgentSyncOptions struct {
+	}
+	R(&VpcAgentSyncOptions{}, "vpcagent-sync", "Invoke sync of vpcagent", func(s *mcclient.ClientSession, args *VpcAgentSyncOptions) error {
+		err := vpcagent.VpcAgent.DoSync(s)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
