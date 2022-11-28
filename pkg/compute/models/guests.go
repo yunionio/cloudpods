@@ -2726,6 +2726,8 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 				_, err = db.Update(self, func() error {
 					self.HostId = host.GetId()
 					self.Status = iVM.GetStatus()
+					self.PowerStates = iVM.GetPowerStates()
+					self.getPowerStates()
 					return nil
 				})
 				return err
@@ -2830,6 +2832,8 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		}
 		if !self.IsFailureStatus() && syncStatus {
 			self.Status = extVM.GetStatus()
+			self.PowerStates = extVM.GetPowerStates()
+			self.getPowerStates()
 		}
 
 		self.VcpuCount = extVM.GetVcpuCount()
@@ -2928,6 +2932,8 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.SetModelManager(manager, &guest)
 
 	guest.Status = extVM.GetStatus()
+	guest.PowerStates = extVM.GetPowerStates()
+	guest.getPowerStates()
 	guest.ExternalId = extVM.GetGlobalId()
 	guest.VcpuCount = extVM.GetVcpuCount()
 	guest.BootOrder = extVM.GetBootOrder()
@@ -6324,4 +6330,63 @@ func (self *SGuest) GetAddress() (string, error) {
 		}
 	}
 	return "", errors.Wrapf(cloudprovider.ErrNotFound, "guest %s address", self.Name)
+}
+
+func (guest *SGuest) getPowerStates() {
+	if len(guest.PowerStates) == 0 {
+		switch {
+		case guest.Status == api.VM_READY:
+			guest.PowerStates = api.VM_POWER_STATES_OFF
+		case guest.Status == api.VM_UNKNOWN:
+			guest.PowerStates = api.VM_POWER_STATES_UNKNOWN
+		case guest.Status == api.VM_INIT:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_SCHEDULE:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_SCHEDULE_FAILED:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_CREATE_NETWORK:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_NETWORK_FAILED:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_DEVICE_FAILED:
+			guest.PowerStates = api.VM_POWER_STATES_UNKNOWN
+		case guest.Status == api.VM_CREATE_FAILED:
+			guest.PowerStates = api.VM_POWER_STATES_OFF
+		case guest.Status == api.VM_CREATE_DISK:
+			guest.PowerStates = api.VM_POWER_STATES_OFF
+		case guest.Status == api.VM_DISK_FAILED:
+			guest.PowerStates = api.VM_POWER_STATES_OFF
+		case guest.Status == api.VM_IMAGE_CACHING:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_START_DEPLOY:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_DEPLOYING:
+			guest.PowerStates = api.VM_POWER_STATES_OFF
+		case guest.Status == api.VM_START_START:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_STARTING:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_START_FAILED:
+			guest.PowerStates = api.VM_POWER_STATES_OFF
+		case guest.Status == api.VM_RUNNING:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_START_STOP:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_STOPPING:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_STOP_FAILED:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_RENEWING:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_RENEW_FAILED:
+			guest.PowerStates = api.VM_POWER_STATES_ON
+		case guest.Status == api.VM_ATTACH_DISK:
+			guest.PowerStates = api.VM_POWER_STATES_UNKNOWN
+		case guest.Status == api.VM_DETACH_DISK:
+			guest.PowerStates = api.VM_POWER_STATES_UNKNOWN
+		default:
+			guest.PowerStates = api.VM_POWER_STATES_UNKNOWN
+		}
+	}
 }
