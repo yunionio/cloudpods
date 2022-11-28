@@ -400,6 +400,7 @@ type ICloudVM interface {
 	SaveImage(opts *SaveImageOptions) (ICloudImage, error)
 
 	AllocatePublicIpAddress() (string, error)
+	GetPowerStates() string
 }
 
 type ICloudNic interface {

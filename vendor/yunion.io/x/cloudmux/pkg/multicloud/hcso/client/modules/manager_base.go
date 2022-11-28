@@ -17,7 +17,9 @@ package modules
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -187,6 +189,39 @@ func (ce *HuaweiClientError) ParseErrorFromJsonResponse(statusCode int, body jso
 	return ce
 }
 
+func isHTTPReqErrorRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	ce := errors.Cause(err)
+	switch e := ce.(type) {
+	case *url.Error:
+		switch e.Err.(type) {
+		case *net.DNSError, *net.OpError, net.UnknownNetworkError:
+			return true
+		}
+		if strings.Contains(err.Error(), "Connection closed by foreign host") {
+			return true
+		} else if strings.Contains(err.Error(), "net/http: TLS handshake timeout") {
+			// If error is - tlsHandshakeTimeoutError, retry.
+			return true
+		} else if strings.Contains(err.Error(), "i/o timeout") {
+			// If error is - tcp timeoutError, retry.
+			return true
+		} else if strings.Contains(err.Error(), "connection timed out") {
+			// If err is a net.Dial timeout, retry.
+			return true
+		} else if strings.Contains(err.Error(), "net/http: HTTP/1.x transport connection broken") {
+			// If error is transport connection broken, retry.
+			return true
+		} else if strings.Contains(err.Error(), "net/http: timeout awaiting response headers") {
+			// Retry errors due to server not sending the response before timeout
+			return true
+		}
+	}
+	return false
+}
+
 func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, jsonutils.JSONObject, error) {
 	ThrottlingLock.CheckingLock()
 	ctx := context.Background()
@@ -223,6 +258,11 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 		h, b, e := client.Send(ctx, req, resp, self.debug)
 		if e == nil {
 			return h, b, nil
+		}
+		if isHTTPReqErrorRetryable(e) && retry > 0 {
+			retry -= 1
+			time.Sleep(3 * time.Second * time.Duration(MAX_RETRY-retry))
+			continue
 		}
 
 		log.Errorf("[%s] %s body: %v error: %v", req.GetHttpMethod(), req.GetUrl(), jsonBody, e)
