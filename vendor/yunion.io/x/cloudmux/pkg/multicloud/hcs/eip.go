@@ -283,7 +283,15 @@ func (self *SRegion) GetInstancePortId(instanceId string) (string, error) {
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
-func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, bgpType string, projectId string) (*SEip, error) {
+func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, bgpType, subnetId string, projectId string) (*SEip, error) {
+	publicip := map[string]interface{}{
+		"type":       bgpType,
+		"ip_version": 4,
+		"alias":      name,
+	}
+	if len(subnetId) > 0 {
+		publicip["subnet_id"] = subnetId
+	}
 	params := map[string]interface{}{
 		"bandwidth": map[string]interface{}{
 			"name":        name,
@@ -291,11 +299,7 @@ func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetCh
 			"share_type":  "PER",
 			"charge_mode": chargeType,
 		},
-		"publicip": map[string]interface{}{
-			"type":       bgpType,
-			"ip_version": 4,
-			"alias":      name,
-		},
+		"publicip": publicip,
 	}
 	if len(projectId) > 0 {
 		params["enterprise_project_id"] = projectId
@@ -407,6 +411,24 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 		ctype = InternetChargeByBandwidth
 	}
 
+	if len(eip.NetworkExternalId) > 0 {
+		net, err := self.GetExternalNetwork(eip.NetworkExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetExternalNetwork(%s)", eip.NetworkExternalId)
+		}
+		exts, err := self.GetExternalVpcs()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetExternalVpcs")
+		}
+		for i := range exts {
+			if exts[i].Id == net.NetworkId {
+				eip.BGPType = exts[i].Name
+				break
+			}
+		}
+
+	}
+
 	// todo: 如何避免hardcode。集成到cloudmeta服务中？
 	if len(eip.BGPType) == 0 {
 		types, err := self.GetEipTypes()
@@ -423,7 +445,7 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 		eip.Name = eip.Name[:64]
 	}
 
-	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType, eip.ProjectId)
+	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType, eip.NetworkExternalId, eip.ProjectId)
 	ieip.region = self
 	if err != nil {
 		return nil, err

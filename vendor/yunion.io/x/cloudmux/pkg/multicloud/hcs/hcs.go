@@ -261,8 +261,8 @@ func (self *SHcsClient) request(method httputils.THttpMethod, url string, query 
 	if len(self.projectId) > 0 && !strings.Contains(url, "v3/regions") {
 		header.Set("X-Project-Id", self.projectId)
 	}
-	if len(self.domainId) > 0 {
-		//header.Set("X-Domain-Id", self.domainId)
+	if len(self.domainId) > 0 && strings.Contains(url, "/peering") {
+		header.Set("X-Domain-Id", self.domainId)
 	}
 	cli := httputils.NewJsonClient(client)
 	req := httputils.NewJsonRequest(method, url, body)
@@ -485,13 +485,16 @@ func (self *SHcsClient) _url(product, version, regionId string, resource string)
 	for _, prefix := range []string{
 		"images", "cloudimages", "nat_gateways",
 		"lbaas", "products", "snat_rules",
-		"dnat_rules", "vpc/peerings",
+		"dnat_rules", "networks",
 		"ports",
 	} {
 		if strings.HasPrefix(resource, prefix) {
 			url = fmt.Sprintf("%s.%s.%s/%s/%s", product, regionId, self.authUrl, version, resource)
 			break
 		}
+	}
+	if version == "v2.0" && strings.HasPrefix(resource, "subnets") {
+		url = fmt.Sprintf("%s.%s.%s/%s/%s", product, regionId, self.authUrl, version, resource)
 	}
 	return url
 }
@@ -532,6 +535,7 @@ func (self *SHcsClient) _list(product, version, regionId string, resource string
 				strings.Contains(strings.ReplaceAll(resource, "-", "_"), k) ||
 				utils.IsInStringArray(k, []string{
 					"availabilityZoneInfo",
+					"vpc_peering_connections",
 				}) {
 				objs, err := v.GetArray()
 				if err != nil {
