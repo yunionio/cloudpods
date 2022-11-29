@@ -80,6 +80,9 @@ type VpcListInput struct {
 	// example: 192.168.222.0/24
 	CidrBlock []string `json:"cidr_block"`
 
+	// enmu: eip, none
+	ExternalAccessMode string `json:"external_access_mode"`
+
 	OrderByNetworkCount string `json:"order_by_network_count"`
 }
 
