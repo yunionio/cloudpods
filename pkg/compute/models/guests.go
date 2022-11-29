@@ -2747,7 +2747,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.BootOrder = extVM.GetBootOrder()
 		self.Vga = extVM.GetVga()
 		self.Vdi = extVM.GetVdi()
-		if len(self.OsArch) == 0 {
+		if len(extVM.GetOsArch()) > 0 {
 			self.OsArch = extVM.GetOsArch()
 		}
 		if len(self.OsType) == 0 {
