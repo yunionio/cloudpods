@@ -84,8 +84,14 @@ func (h *ApiHelper) Run(ctx context.Context) {
 		wg.Done()
 		log.Infof("api helper bye")
 	}()
-	h.startOvnWorker(ctx)
-	defer h.stopOvnWorker()
+
+	h.haState = <-h.haStateProvider.StateChannel()
+	log.Infof("initial haState: %s", h.haState)
+	switch h.haState {
+	case api.LB_HA_STATE_BACKUP:
+	default:
+		h.startOvnWorker(ctx)
+	}
 
 	wg.Add(1)
 	go h.apih.Start(ctx, nil, "")
@@ -95,7 +101,6 @@ func (h *ApiHelper) Run(ctx context.Context) {
 	defer hbTicker.Stop()
 	defer agentParamsSyncTicker.Stop()
 
-	h.haState = <-h.haStateProvider.StateChannel()
 	for {
 		select {
 		case <-hbTicker.C:
@@ -125,6 +130,7 @@ func (h *ApiHelper) Run(ctx context.Context) {
 				h.doUseCorpus(ctx)
 			}
 		case state := <-h.haStateProvider.StateChannel():
+			log.Infof("current state: %s ha_state: %s", h.haState, state)
 			switch state {
 			case api.LB_HA_STATE_BACKUP:
 				h.stopOvnWorker()
@@ -388,8 +394,10 @@ func (h *ApiHelper) doUseCorpus(ctx context.Context) {
 		log.Warningf("agent params nil")
 		return
 	}
-	if err := h.ovn.Refresh(ctx, h.corpus.ModelSets.Loadbalancers); err != nil {
-		log.Errorf("ovn refresh: %v", err)
+	if h.ovn != nil {
+		if err := h.ovn.Refresh(ctx, h.corpus.ModelSets.Loadbalancers); err != nil {
+			log.Errorf("ovn refresh: %v", err)
+		}
 	}
 	log.Infof("make effect new corpus and params")
 	cmdData := &LbagentCmdUseCorpusData{

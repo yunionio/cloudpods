@@ -40,7 +40,7 @@ type LbagentOptions struct {
 	haproxyConfigDir string
 	haproxyRunDir    string
 	haproxyShareDir  string
-	haStateChan      chan string
+	// haStateChan      chan string
 
 	KeepalivedBin string `default:"keepalived"`
 	HaproxyBin    string `default:"haproxy"`

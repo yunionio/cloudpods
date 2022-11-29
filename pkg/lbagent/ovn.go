@@ -558,6 +558,9 @@ func (ovnHost *OvnHost) Refresh(ctx context.Context, lb *agentmodels.Loadbalance
 func (ovnHost *OvnHost) refresh(ctx context.Context, lb *agentmodels.Loadbalancer) error {
 	// We may allow detch/attach network for loadbalancer in the future
 	lbnet := lb.LoadbalancerNetwork
+	if len(lbnet.MacAddr) == 0 {
+		return errors.Errorf("empty LoadbalancerNetwork MacAddr for lb %s(%s)? mismatch region version???", lb.Name, lb.Id)
+	}
 	lb.ListenAddress = ovnHost.vethAddrOuter
 	ovnHost.lb = lb
 	ovnHost.macaddr = lbnet.MacAddr
@@ -640,6 +643,7 @@ func NewOvnWorker() *OvnWorker {
 }
 
 func (ovn *OvnWorker) Start(ctx context.Context) {
+	log.Infof("ovn worker started")
 	ovn.Bar.Init()
 	defer ovn.Bar.Done()
 	defer log.Infof("ovn worker bye!")
@@ -649,6 +653,7 @@ func (ovn *OvnWorker) Start(ctx context.Context) {
 			err := ovn.refresh(ctx, cmd.lbs)
 			cmd.done <- err
 		case <-ovn.Bar.Cancelled():
+			log.Infof("ovn worker stop on cancel signal")
 			ovn.stop()
 			return
 		case <-ctx.Done():
@@ -658,8 +663,8 @@ func (ovn *OvnWorker) Start(ctx context.Context) {
 }
 
 func (ovn *OvnWorker) stop() {
-	for _, ovn := range ovn.lbMap {
-		ovn.Stop()
+	for _, o := range ovn.lbMap {
+		o.Stop()
 	}
 }
 
@@ -763,6 +768,10 @@ func (ovn *OvnWorker) refresh(ctx context.Context, lbs agentmodels.Loadbalancers
 	// allocate
 	for _, lb := range lbs {
 		if lb.NetworkType != computeapis.LB_NETWORK_TYPE_VPC {
+			continue
+		}
+		if len(lb.LoadbalancerNetwork.MacAddr) == 0 {
+			log.Errorf("empty LoadbalancerNetwork MacAddr for lb %s(%s)? mismatch region version???", lb.Name, lb.Id)
 			continue
 		}
 		ovnHost, ok := m[lb.Id]
