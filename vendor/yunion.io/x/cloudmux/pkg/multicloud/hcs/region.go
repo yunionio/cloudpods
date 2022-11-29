@@ -50,6 +50,8 @@ type SRegion struct {
 		ZhCN string `json:"zh-cn"`
 	}
 	ParentRegionId string
+
+	peers []SVpcPeering
 }
 
 func (self *SRegion) GetClient() *SHcsClient {
