@@ -1039,6 +1039,10 @@ func (manager *SVpcManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SGlobalVpcResourceBaseManager.ListItemFilter")
 	}
 
+	if len(query.ExternalAccessMode) > 0 {
+		q = q.Equals("external_access_mode", query.ExternalAccessMode)
+	}
+
 	if len(query.DnsZoneId) > 0 {
 		dnsZone, err := DnsZoneManager.FetchByIdOrName(userCred, query.DnsZoneId)
 		if err != nil {

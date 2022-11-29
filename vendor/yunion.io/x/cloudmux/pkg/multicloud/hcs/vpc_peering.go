@@ -42,54 +42,52 @@ type SVpcPeering struct {
 	huawei.HuaweiTags
 	vpc *SVpc
 
-	RequestVpcInfo RequestVpcInfo `json:"request_vpc_info"`
-	AcceptVpcInfo  AcceptVpcInfo  `json:"accept_vpc_info"`
+	RequestVpcInfo RequestVpcInfo `json:"requesterVpcInfo"`
+	AcceptVpcInfo  AcceptVpcInfo  `json:"accepterVpcInfo"`
 	Name           string         `json:"name"`
 	Id             string         `json:"id"`
 	Status         string         `json:"status"`
 }
 
-func (self *SRegion) GetVpcPeerings(vpcId string) ([]SVpcPeering, error) {
-	params := url.Values{}
-	if len(vpcId) > 0 {
-		params.Set("vpc_id", vpcId)
-	}
+func (self *SRegion) GetVpcPeerings() ([]SVpcPeering, error) {
 	ret := []SVpcPeering{}
-	return ret, self.list("vpc", "v2.0", "vpc/peerings", params, &ret)
+	return ret, self.list("vpc", "v1", "vpcpeering", nil, &ret)
 }
 
 func (self *SRegion) GetVpcPeering(id string) (*SVpcPeering, error) {
-	ret := SVpcPeering{}
-	resource := fmt.Sprintf("vpc/peerings/%s", id)
-	return &ret, self.get("vpc", "v2.0", resource, &ret)
+	ret := []SVpcPeering{}
+	params := url.Values{}
+	params.Set("peering_id", id)
+	err := self.list("vpc", "v1", "vpcpeering", params, &ret)
+	if err != nil {
+		return nil, err
+	}
+	for i := range ret {
+		if ret[i].Id == id {
+			return &ret[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) CreateVpcPeering(vpcId string, opts *cloudprovider.VpcPeeringConnectionCreateOptions) (*SVpcPeering, error) {
 	params := map[string]interface{}{
-		"peering": map[string]interface{}{
-			"name": opts.Name,
-			"request_vpc_info": map[string]interface{}{
-				"vpc_id":    vpcId,
-				"tenant_id": self.client.projectId,
-			},
-			"accept_vpc_info": map[string]interface{}{
-				"vpc_id":    opts.PeerVpcId,
-				"tenant_id": opts.PeerAccountId,
-			},
-		},
+		"name":         opts.Name,
+		"local_vpc_id": vpcId,
+		"peer_vpc_id":  opts.PeerVpcId,
 	}
 	ret := &SVpcPeering{}
-	return ret, self.create("vpc", "v2.0", "vpc/peerings", params, ret)
+	return ret, self.create("vpc", "v1", "vpcpeering", params, ret)
 }
 
 func (self *SRegion) AcceptVpcPeering(id string) error {
-	res := fmt.Sprintf("vpc/peerings/%s/accept", id)
-	return self.update("vpc", "v2.0", res, nil)
+	res := fmt.Sprintf("vpcpeering/%s/accept", id)
+	return self.update("vpc", "v1", res, nil)
 }
 
 func (self *SRegion) DeleteVpcPeering(id string) error {
-	res := fmt.Sprintf("vpc/peerings/%s", id)
-	return self.delete("vpc", "v2.0", res)
+	res := fmt.Sprintf("vpcpeering/%s", id)
+	return self.delete("vpc", "v1", res)
 }
 
 func (self *SVpcPeering) GetId() string {
@@ -106,9 +104,9 @@ func (self *SVpcPeering) GetGlobalId() string {
 
 func (self *SVpcPeering) GetStatus() string {
 	switch self.Status {
-	case "PENDING_ACCEPTANCE":
+	case "pending_acceptance":
 		return api.VPC_PEERING_CONNECTION_STATUS_PENDING_ACCEPT
-	case "ACTIVE":
+	case "active":
 		return api.VPC_PEERING_CONNECTION_STATUS_ACTIVE
 	default:
 		return api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN
@@ -141,4 +139,80 @@ func (self *SVpcPeering) GetEnabled() bool {
 
 func (self *SVpcPeering) Delete() error {
 	return self.vpc.region.DeleteVpcPeering(self.Id)
+}
+
+func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
+	peers, err := self.region.GetVpcPeeringConnections()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetVpcPeeringConnections")
+	}
+	ret := []cloudprovider.ICloudVpcPeeringConnection{}
+	for i := range peers {
+		if peers[i].RequestVpcInfo.VpcId != self.Id {
+			continue
+		}
+		peers[i].vpc = self
+		ret = append(ret, &peers[i])
+	}
+	return ret, nil
+}
+
+func (self *SVpc) GetICloudAccepterVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
+	peers, err := self.region.GetVpcPeeringConnections()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetVpcPeeringConnections")
+	}
+	ret := []cloudprovider.ICloudVpcPeeringConnection{}
+	for i := range peers {
+		if peers[i].AcceptVpcInfo.VpcId != self.Id {
+			continue
+		}
+		peers[i].vpc = self
+		ret = append(ret, &peers[i])
+	}
+	return ret, nil
+}
+
+func (self *SVpc) GetICloudVpcPeeringConnectionById(id string) (cloudprovider.ICloudVpcPeeringConnection, error) {
+	ret, err := self.region.GetVpcPeering(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpcPeering(%s)", id)
+	}
+	ret.vpc = self
+	return ret, nil
+}
+
+func (self *SVpc) CreateICloudVpcPeeringConnection(opts *cloudprovider.VpcPeeringConnectionCreateOptions) (cloudprovider.ICloudVpcPeeringConnection, error) {
+	ret, err := self.region.CreateVpcPeering(self.GetId(), opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.region.CreateVpcPeering(%s,%s)", self.GetId(), jsonutils.Marshal(opts).String())
+	}
+	ret.vpc = self
+	return ret, nil
+}
+
+func (self *SVpc) AcceptICloudVpcPeeringConnection(id string) error {
+	peer, err := self.region.GetVpcPeering(id)
+	if err != nil {
+		return errors.Wrapf(err, "GetVpcPeering%s)", id)
+	}
+	if peer.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_ACTIVE {
+		return nil
+	}
+	if peer.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN {
+		return errors.Wrapf(cloudprovider.ErrInvalidStatus, "vpcPC: %s", jsonutils.Marshal(peer).String())
+	}
+	return self.region.AcceptVpcPeering(id)
+}
+
+func (self *SRegion) GetVpcPeeringConnections() ([]SVpcPeering, error) {
+	if len(self.peers) > 0 {
+		return self.peers, nil
+	}
+	var err error
+	self.peers, err = self.GetVpcPeerings()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpcPeerings()")
+	}
+	return self.peers, nil
 }
