@@ -5519,6 +5519,10 @@ func (self *SHost) MarkGuestUnknown(userCred mcclient.TokenCredential) {
 	for _, guest := range guests {
 		guest.SetStatus(userCred, api.VM_UNKNOWN, "host offline")
 	}
+	guests2 := self.GetGuestsBackupOnThisHost()
+	for _, guest := range guests2 {
+		guest.SetBackupGuestStatus(userCred, api.VM_UNKNOWN, "host offline")
+	}
 }
 
 func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
@@ -5724,12 +5728,7 @@ func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCreden
 func (host *SHost) switchWithBackup(ctx context.Context, userCred mcclient.TokenCredential) {
 	guests := host.GetGuestsMasterOnThisHost()
 	for i := 0; i < len(guests); i++ {
-		if guests[i].isInReconcile(userCred) {
-			log.Warningf("guest %s is in reconcile", guests[i].GetName())
-			continue
-		}
 		data := jsonutils.NewDict()
-		data.Set("purge_backup", jsonutils.JSONTrue)
 		_, err := guests[i].PerformSwitchToBackup(ctx, userCred, nil, data)
 		if err != nil {
 			db.OpsLog.LogEvent(
@@ -5739,17 +5738,11 @@ func (host *SHost) switchWithBackup(ctx context.Context, userCred mcclient.Token
 				&guests[i], logclient.ACT_SWITCH_TO_BACKUP,
 				fmt.Sprintf("PerformSwitchToBackup on host down: %s", err), userCred, false,
 			)
-		} else {
-			guests[i].SetMetadata(ctx, "origin_status", guests[i].Status, userCred)
 		}
 	}
 
 	guests2 := host.GetGuestsBackupOnThisHost()
 	for i := 0; i < len(guests2); i++ {
-		if guests2[i].isInReconcile(userCred) {
-			log.Warningf("guest %s is in reconcile", guests2[i].GetName())
-			continue
-		}
 		data := jsonutils.NewDict()
 		data.Set("purge", jsonutils.JSONTrue)
 		data.Set("create", jsonutils.JSONTrue)

@@ -742,20 +742,23 @@ func (m *SGuestManager) StatusWithBlockJobsCount(ctx context.Context, params int
 	guest, _ := m.GetServer(sid)
 	if status == GUEST_RUNNING {
 		var runCb = func() {
+			body := jsonutils.NewDict()
 			if guest.IsMaster() {
 				mirrorStatus := guest.MirrorJobStatus()
 				if mirrorStatus.InProcess() {
 					status = GUEST_BLOCK_STREAM
 				} else if mirrorStatus.IsFailed() {
 					timeutils2.AddTimeout(1*time.Second,
-						func() { guest.SyncMirrorJobFailed("Block job missing") })
+						func() { guest.SyncMirrorJobFailed("drive-mirror job failed") })
 					status = GUEST_BLOCK_STREAM_FAIL
 				}
+				body.Set("block_jobs_count", jsonutils.NewInt(int64(mirrorStatus.blockJobsCount)))
+			} else {
+				blockJobsCount := guest.BlockJobsCount()
+				body.Set("block_jobs_count", jsonutils.NewInt(int64(blockJobsCount)))
 			}
-			blockJobsCount := guest.BlockJobsCount()
-			body := jsonutils.NewDict()
+
 			body.Set("status", jsonutils.NewString(status))
-			body.Set("block_jobs_count", jsonutils.NewInt(int64(blockJobsCount)))
 			hostutils.TaskComplete(ctx, body)
 		}
 		if guest.Monitor == nil && !guest.IsStopping() {
@@ -1220,17 +1223,29 @@ func (m *SGuestManager) OnlineResizeDisk(ctx context.Context, sid string, diskId
 
 // }
 
-func (m *SGuestManager) StartDriveMirror(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+func (m *SGuestManager) StartBlockReplication(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	mirrorParams, ok := params.(*SDriverMirror)
 	if !ok {
 		return nil, hostutils.ParamsError
+	}
+
+	nbdOpts := strings.Split(mirrorParams.NbdServerUri, ":")
+	if len(nbdOpts) != 3 {
+		return nil, fmt.Errorf("Nbd url is not vaild %s", mirrorParams.NbdServerUri)
 	}
 	guest, _ := m.GetServer(mirrorParams.Sid)
 	// TODO: check desc
 	if err := guest.SaveSourceDesc(mirrorParams.Desc); err != nil {
 		return nil, err
 	}
-	task := NewDriveMirrorTask(ctx, guest, mirrorParams.NbdServerUri, "top", true, nil)
+	onSucc := func() {
+		if err := guest.updateChildIndex(); err != nil {
+			hostutils.TaskFailed(ctx, err.Error())
+			return
+		}
+		hostutils.TaskComplete(ctx, nil)
+	}
+	task := NewGuestBlockReplicationTask(ctx, guest, nbdOpts[1], nbdOpts[2], "top", onSucc, nil)
 	task.Start()
 	return nil, nil
 }
@@ -1253,6 +1268,27 @@ func (m *SGuestManager) CancelBlockJobs(ctx context.Context, params interface{})
 	}()
 	guest, _ := m.GetServer(sid)
 	NewCancelBlockJobsTask(ctx, guest).Start()
+	return nil, nil
+}
+
+func (m *SGuestManager) CancelBlockReplication(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	sid, ok := params.(string)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	status := m.getStatus(sid)
+	if status == GUSET_STOPPED {
+		hostutils.TaskComplete(ctx, nil)
+		return nil, nil
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("STACK: %v \n %s", r, debug.Stack())
+			hostutils.TaskFailed(ctx, fmt.Sprintf("recover: %v", r))
+		}
+	}()
+	guest, _ := m.GetServer(sid)
+	NewCancelBlockReplicationTask(ctx, guest).Start()
 	return nil, nil
 }
 
