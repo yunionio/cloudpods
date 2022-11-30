@@ -312,9 +312,10 @@ type Monitor interface {
 	ObjectDel(idstr string, callback StringCallback)
 
 	ObjectAdd(objectType string, params map[string]string, callback StringCallback)
-	DriveAdd(bus string, params map[string]string, callback StringCallback)
+	DriveAdd(bus, node string, params map[string]string, callback StringCallback)
 	DeviceAdd(dev string, params map[string]interface{}, callback StringCallback)
 
+	XBlockdevChange(parent, node, child string, callback StringCallback)
 	BlockStream(drive string, idx, blkCnt int, callback StringCallback)
 	DriveMirror(callback StringCallback, drive, target, syncMode, format string, unmap, blockReplication bool)
 	BlockJobComplete(drive string, cb StringCallback)

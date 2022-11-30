@@ -43,7 +43,9 @@ const (
 	VM_DETACH_DISK     = "detach_disk"
 
 	VM_BACKUP_STARTING         = "backup_starting"
+	VM_BACKUP_STOPING          = "backup_stopping"
 	VM_BACKUP_CREATING         = "backup_creating"
+	VM_BACKUP_START_FAILED     = "backup_start_failed"
 	VM_BACKUP_CREATE_FAILED    = "backup_create_fail"
 	VM_DEPLOYING_BACKUP        = "deploying_backup"
 	VM_DEPLOYING_BACKUP_FAILED = "deploging_backup_fail"

@@ -134,7 +134,8 @@ type SGuest struct {
 	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 备份机所在宿主机Id
-	BackupHostId string `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user"`
+	BackupHostId      string `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user"`
+	BackupGuestStatus string `width:"36" charset:"ascii" nullable:"false" default:"init" list:"user" create:"optional" json:"backup_guest_status"`
 
 	// 迁移或克隆的速度
 	ProgressMbps float64 `nullable:"false" default:"0" list:"user" create:"optional" update:"user" log:"skip"`
@@ -2214,6 +2215,7 @@ func (self *SGuest) moreExtraInfo(
 		if len(fields) == 0 || fields.Contains("backup_host_status") {
 			out.BackupHostStatus = backupHost.HostStatus
 		}
+		out.BackupGuestSyncStatus = self.GetGuestBackupMirrorJobStatus(ctx, userCred)
 	}
 
 	if len(fields) == 0 || fields.Contains("can_recycle") {
@@ -5114,115 +5116,6 @@ func (manager *SGuestManager) DeleteExpiredPostpaidServers(ctx context.Context, 
 	}
 }
 
-func (self *SGuestManager) ReconcileBackupGuests(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	self.switchBackupGuests(ctx, userCred)
-	self.createBackupGuests(ctx, userCred)
-}
-
-func (self *SGuestManager) switchBackupGuests(ctx context.Context, userCred mcclient.TokenCredential) {
-	q := self.Query()
-	metaDataQuery := db.Metadata.Query().Startswith("id", "server::").
-		Equals("key", "switch_backup").IsNotEmpty("value").GroupBy("id")
-	metaDataQuery.AppendField(sqlchemy.SubStr("guest_id", metaDataQuery.Field("id"), len("server::")+1, 0))
-	subQ := metaDataQuery.SubQuery()
-	q = q.Join(subQ, sqlchemy.Equals(q.Field("id"), subQ.Field("guest_id")))
-
-	guests := make([]SGuest, 0)
-	err := db.FetchModelObjects(GuestManager, q, &guests)
-	if err != nil {
-		log.Errorf("ReconcileBackupGuests failed fetch guests %s", err)
-		return
-	}
-	log.Debugf("Guests count %d need reconcile with switch backup", len(guests))
-	for i := 0; i < len(guests); i++ {
-		val := guests[i].GetMetadataJson(ctx, "switch_backup", userCred)
-		t, err := val.GetTime()
-		if err != nil {
-			log.Errorf("failed get time from metadata switch_backup %s", err)
-			continue
-		}
-		if time.Now().After(t) {
-			data := jsonutils.NewDict()
-			data.Set("purge_backup", jsonutils.JSONTrue)
-			_, err := guests[i].PerformSwitchToBackup(ctx, userCred, nil, data)
-			if err != nil {
-				db.OpsLog.LogEvent(
-					&guests[i], db.ACT_SWITCH_FAILED, fmt.Sprintf("switchBackupGuests on reconcile_backup: %s", err), userCred,
-				)
-				logclient.AddSimpleActionLog(
-					&guests[i], logclient.ACT_SWITCH_TO_BACKUP,
-					fmt.Sprintf("switchBackupGuests on reconcile_backup: %s", err), userCred, false,
-				)
-			}
-		}
-	}
-}
-
-func (self *SGuestManager) createBackupGuests(ctx context.Context, userCred mcclient.TokenCredential) {
-	q := self.Query()
-	metaDataQuery := db.Metadata.Query().Startswith("id", "server::").
-		Equals("key", "create_backup").IsNotEmpty("value").GroupBy("id")
-	metaDataQuery.AppendField(sqlchemy.SubStr("guest_id", metaDataQuery.Field("id"), len("server::")+1, 0))
-	subQ := metaDataQuery.SubQuery()
-	q = q.Join(subQ, sqlchemy.Equals(q.Field("id"), subQ.Field("guest_id")))
-
-	guests := make([]SGuest, 0)
-	err := db.FetchModelObjects(GuestManager, q, &guests)
-	if err != nil {
-		log.Errorf("ReconcileBackupGuests failed fetch guests %s", err)
-		return
-	}
-	log.Infof("Guests count %d need reconcile with create bakcup", len(guests))
-	for i := 0; i < len(guests); i++ {
-		val := guests[i].GetMetadataJson(ctx, "create_backup", userCred)
-		t, err := val.GetTime()
-		if err != nil {
-			log.Errorf("failed get time from metadata create_backup %s", err)
-			continue
-		}
-		if time.Now().After(t) {
-			if len(guests[i].BackupHostId) > 0 {
-				data := jsonutils.NewDict()
-				data.Set("purge", jsonutils.JSONTrue)
-				data.Set("create", jsonutils.JSONTrue)
-				_, err := guests[i].PerformDeleteBackup(ctx, userCred, nil, data)
-				if err != nil {
-					db.OpsLog.LogEvent(
-						&guests[i], db.ACT_DELETE_BACKUP_FAILED,
-						fmt.Sprintf("PerformDeleteBackup on ReconcileBackupGuests: %s", err), userCred,
-					)
-					logclient.AddSimpleActionLog(
-						&guests[i], logclient.ACT_DELETE_BACKUP,
-						fmt.Sprintf("PerformDeleteBackup on ReconcileBackupGuests: %s", err), userCred, false,
-					)
-				}
-			} else {
-				params := jsonutils.NewDict()
-				params.Set("reconcile_backup", jsonutils.JSONTrue)
-				if _, err := guests[i].StartGuestCreateBackupTask(ctx, userCred, "", params); err != nil {
-					db.OpsLog.LogEvent(
-						&guests[i], db.ACT_CREATE_BACKUP_FAILED,
-						fmt.Sprintf("StartGuestCreateBackupTask on ReconcileBackupGuests: %s", err), userCred,
-					)
-					logclient.AddSimpleActionLog(
-						&guests[i], logclient.ACT_CREATE_BACKUP,
-						fmt.Sprintf("StartGuestCreateBackupTask on ReconcileBackupGuests: %s", err), userCred, false,
-					)
-				}
-			}
-		}
-	}
-}
-
-func (self *SGuest) isInReconcile(userCred mcclient.TokenCredential) bool {
-	switchBackup := self.GetMetadata(context.Background(), "switch_backup", userCred)
-	createBackup := self.GetMetadata(context.Background(), "create_backup", userCred)
-	if len(switchBackup) > 0 || len(createBackup) > 0 {
-		return true
-	}
-	return false
-}
-
 func (self *SGuest) IsEipAssociable() error {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return errors.Wrapf(httperrors.ErrInvalidStatus, "cannot associate eip in status %s", self.Status)
@@ -6081,4 +5974,44 @@ func (guest *SGuest) OnMetadataUpdated(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
+}
+
+func (guest *SGuest) HasBackupGuest() bool {
+	return guest.BackupHostId != ""
+}
+
+func (guest *SGuest) SetGuestBackupMirrorJobInProgress(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return guest.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_INPROGRESS, userCred)
+}
+
+func (guest *SGuest) SetGuestBackupMirrorJobNotReady(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return guest.SetMetadata(ctx, api.MIRROR_JOB, "", userCred)
+}
+
+func (guest *SGuest) TrySetGuestBackupMirrorJobReady(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if guest.IsGuestBackupMirrorJobFailed(ctx, userCred) {
+		// can't update guest backup mirror job status from failed to ready
+		return nil
+	}
+	return guest.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_READY, userCred)
+}
+
+func (guest *SGuest) SetGuestBackupMirrorJobFailed(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return guest.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_FAILED, userCred)
+}
+
+func (guest *SGuest) IsGuestBackupMirrorJobFailed(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return guest.GetMetadata(ctx, api.MIRROR_JOB, userCred) == api.MIRROR_JOB_FAILED
+}
+
+func (guest *SGuest) IsGuestBackupMirrorJobReady(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return guest.GetMetadata(ctx, api.MIRROR_JOB, userCred) == api.MIRROR_JOB_READY
+}
+
+func (guest *SGuest) GetGuestBackupMirrorJobStatus(ctx context.Context, userCred mcclient.TokenCredential) string {
+	return guest.GetMetadata(ctx, api.MIRROR_JOB, userCred)
+}
+
+func (guest *SGuest) ResetGuestQuorumChildIndex(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return guest.SetMetadata(ctx, api.QUORUM_CHILD_INDEX, "", userCred)
 }

@@ -311,8 +311,45 @@ func (s *SLocalStorage) Detach() error {
 	return nil
 }
 
+func (s *SLocalStorage) deleteBackendFile(diskpath string, skipRecycle bool) error {
+	backendPath := diskpath + ".backend"
+	if !fileutils2.Exists(backendPath) {
+		return nil
+	}
+	disk, err := qemuimg.NewQemuImage(diskpath)
+	if err != nil {
+		return errors.Wrapf(err, "qemuimg.NewQemuImage(%s)", diskpath)
+	}
+	if disk.BackFilePath != backendPath {
+		return nil
+	}
+
+	destDir := s.getRecyclePath()
+	if options.HostOptions.RecycleDiskfile && (!skipRecycle || options.HostOptions.AlwaysRecycleDiskfile) {
+		if err := procutils.NewCommand("mkdir", "-p", destDir).Run(); err != nil {
+			log.Errorf("Fail to mkdir %s for recycle: %s", destDir, err)
+			return err
+		}
+		backendDestFile := fmt.Sprintf("%s.%d", path.Base(backendPath), time.Now().Unix())
+		log.Infof("Move deleted disk file %s to recycle %s", backendPath, destDir)
+		return procutils.NewCommand("mv", "-f", backendPath, path.Join(destDir, backendDestFile)).Run()
+	} else {
+		log.Infof("Delete disk file %s immediately", backendPath)
+		if options.HostOptions.ZeroCleanDiskData {
+			// try to zero clean files in subdir
+			zeroclean.ZeroDir(backendPath)
+		}
+		return procutils.NewCommand("rm", "-rf", backendPath).Run()
+	}
+}
+
 func (s *SLocalStorage) DeleteDiskfile(diskpath string, skipRecycle bool) error {
 	log.Infof("Start Delete %s", diskpath)
+
+	if err := s.deleteBackendFile(diskpath, skipRecycle); err != nil {
+		return err
+	}
+
 	if options.HostOptions.RecycleDiskfile && (!skipRecycle || options.HostOptions.AlwaysRecycleDiskfile) {
 		var (
 			destDir  = s.getRecyclePath()
@@ -322,6 +359,7 @@ func (s *SLocalStorage) DeleteDiskfile(diskpath string, skipRecycle bool) error 
 			log.Errorf("Fail to mkdir %s for recycle: %s", destDir, err)
 			return err
 		}
+
 		log.Infof("Move deleted disk file %s to recycle %s", diskpath, destDir)
 		return procutils.NewCommand("mv", "-f", diskpath, path.Join(destDir, destFile)).Run()
 	} else {

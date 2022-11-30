@@ -155,9 +155,8 @@ func (o *ServerDeleteBackupOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerSwitchToBackupOptions struct {
-	ID           string `help:"ID of the server" json:"-"`
-	PurgeBackup  *bool  `help:"Purge Guest Backup" json:"purge_backup"`
-	DeleteBackup *bool  `help:"Delete Guest Backup" json:"delete_backup"`
+	ID        string `help:"ID of the server" json:"-"`
+	AutoStart bool   `help:"Start guest after switch to backup" json:"auto_start"`
 }
 
 func (o *ServerSwitchToBackupOptions) GetId() string {
@@ -170,6 +169,19 @@ func (o *ServerSwitchToBackupOptions) Params() (jsonutils.JSONObject, error) {
 
 func (o *ServerSwitchToBackupOptions) Description() string {
 	return "Switch geust master to backup host"
+}
+
+type ServerCreateBackupOptions struct {
+	ID        string `help:"ID of the server" json:"-"`
+	AutoStart bool   `help:"Start guest after create backup guest" json:"auto_start"`
+}
+
+func (o *ServerCreateBackupOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerCreateBackupOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
 }
 
 type ServerShowOptions struct {
