@@ -100,7 +100,7 @@ type CandidatePropertyGetter interface {
 	FreeMemorySize(useRsvd bool) int64
 
 	StorageInfo() []*baremetal.BaremetalStorage
-	GetFreeStorageSizeOfType(storageType string, useRsvd bool) (int64, int64)
+	GetFreeStorageSizeOfType(storageType string, mediumType string, useRsvd bool, reqMaxSize int64) (int64, int64, error)
 
 	GetFreePort(netId string) int
 
