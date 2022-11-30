@@ -55,7 +55,16 @@ type HcsConfig struct {
 	accessKey    string
 	accessSecret string
 
+	account  string
+	password string
+
+	token string
+
 	debug bool
+}
+
+func (self *HcsConfig) isAccountValid() bool {
+	return len(self.account) > 0 && len(self.password) > 0
 }
 
 func NewHcsConfig(accessKey, accessSecret, projectId, url string) *HcsConfig {
@@ -79,6 +88,12 @@ func (cfg *HcsConfig) Debug(debug bool) *HcsConfig {
 	return cfg
 }
 
+func (cfg *HcsConfig) WithAccount(account, password string) *HcsConfig {
+	cfg.account = account
+	cfg.password = password
+	return cfg
+}
+
 type SHcsClient struct {
 	*HcsConfig
 
@@ -96,6 +111,7 @@ type SHcsClient struct {
 	defaultRegion string
 
 	httpClient *http.Client
+	token      string
 	lock       sThrottlingThreshold
 }
 

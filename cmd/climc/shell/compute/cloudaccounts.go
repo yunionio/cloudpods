@@ -64,7 +64,7 @@ func init() {
 	cmd.UpdateWithKeyword("update-openstack", &options.SOpenStackCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-huawei", &options.SHuaweiCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-hcso", &options.SHCSOAccountUpdateOptions{})
-	cmd.UpdateWithKeyword("update-hcs", &options.SHCSOAccountUpdateOptions{})
+	cmd.UpdateWithKeyword("update-hcs", &options.SHCSAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-ucloud", &options.SUcloudCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-zstack", &options.SZStackCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-s3", &options.SS3CloudAccountUpdateOptions{})
