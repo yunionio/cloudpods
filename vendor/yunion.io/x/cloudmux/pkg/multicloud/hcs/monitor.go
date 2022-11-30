@@ -15,479 +15,193 @@
 package hcs
 
 import (
+	"context"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
-
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
+
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
-type MetricData struct {
-	Namespace  string
-	MetricName string
-	Dimensions []struct {
-		Name  string
-		Value string
-	}
-	Datapoints []struct {
-		Average   float64
-		Timestamp int64
-	}
-	Unit string
+type SCloudVM struct {
+	NativeId string
+	ResId    string
 }
 
-func (self *SHcsClient) monitorPost(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	url := self._url("ces", "V1.0", self.defaultRegion, resource)
-	return self.request(httputils.POST, url, nil, params)
+var vmMetric = map[string]cloudprovider.TMetricType{
+	"562958543421441": cloudprovider.VM_METRIC_TYPE_CPU_USAGE,
+	"562958543486979": cloudprovider.VM_METRIC_TYPE_MEM_USAGE,
+	"562958543552537": cloudprovider.VM_METRIC_TYPE_NET_BPS_RX, //kb
+	"562958543552538": cloudprovider.VM_METRIC_TYPE_NET_BPS_TX, //kb
+	"562958543618052": cloudprovider.VM_METRIC_TYPE_DISK_USAGE,
+	"562958543618072": cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS,
+	"562958543618073": cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS,
+	"562958543618061": cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS,
+	"562958543618062": cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS,
 }
 
 func (self *SHcsClient) getServerMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	params := map[string]interface{}{
-		"from":   fmt.Sprintf("%d", opts.StartTime.UnixMilli()),
-		"to":     fmt.Sprintf("%d", opts.EndTime.UnixMilli()),
-		"period": "1",
-		"filter": "average",
-	}
-	metrics := []interface{}{}
-	namespace, dimesionName, metricNames := "SYS.ECS", "instance_id", []string{
-		"cpu_util",
-		"network_incoming_bytes_aggregate_rate",
-		"network_outgoing_bytes_aggregate_rate",
-		"disk_read_bytes_rate",
-		"disk_write_bytes_rate",
-		"disk_read_requests_rate",
-		"disk_write_requests_rate",
-	}
-	for _, metricName := range metricNames {
-		metrics = append(metrics, map[string]interface{}{
-			"namespace":   namespace,
-			"metric_name": metricName,
-			"dimensions": []map[string]string{
-				{
-					"name":  dimesionName,
-					"value": opts.ResourceId,
+	params := url.Values{}
+	params.Set("pageNo", "1")
+	params.Set("pageSize", "1")
+	params.Set("condition", jsonutils.Marshal(map[string]interface{}{
+		"constraint": []map[string]interface{}{
+			{
+				"simple": map[string]interface{}{
+					"name":     "nativeId",
+					"operator": "equal",
+					"value":    opts.ResourceId,
 				},
 			},
-		})
-	}
-	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
+		},
+	}).String())
+	resp, err := self.ocRequest(httputils.GET, "rest/tenant-resource/v1/instances/CLOUD_VM", params, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "ocRequest")
 	}
-	metricData := []MetricData{}
-	err = resp.Unmarshal(&metricData, "metrics")
-	if err != nil {
-		return nil, errors.Wrapf(err, "resp.Unmarshal")
-	}
+	vms := []SCloudVM{}
+	resp.Unmarshal(&vms, "objList")
 	result := []cloudprovider.MetricValues{}
-	for i := range metricData {
-		ret := cloudprovider.MetricValues{
-			Id:     opts.ResourceId,
-			Unit:   metricData[i].Unit,
-			Values: []cloudprovider.MetricValue{},
-		}
-		tags := map[string]string{}
-		switch metricData[i].MetricName {
-		case "cpu_util":
-			ret.MetricType = cloudprovider.VM_METRIC_TYPE_CPU_USAGE
-		case "network_incoming_bytes_aggregate_rate":
-			ret.MetricType = cloudprovider.VM_METRIC_TYPE_NET_BPS_RX
-			tags = map[string]string{"net_type": "internet"}
-		case "network_outgoing_bytes_aggregate_rate":
-			ret.MetricType = cloudprovider.VM_METRIC_TYPE_NET_BPS_TX
-			tags = map[string]string{"net_type": "internet"}
-		case "disk_read_bytes_rate":
-			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS
-		case "disk_write_bytes_rate":
-			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS
-		case "disk_read_requests_rate":
-			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS
-		case "disk_write_requests_rate":
-			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS
-		default:
-			log.Warningf("invalid metricName %s for %s %s", metricData[i].MetricName, opts.ResourceType, opts.ResourceId)
+	for i := range vms {
+		if vms[i].NativeId != opts.ResourceId {
 			continue
 		}
-		for _, value := range metricData[i].Datapoints {
-			metricValue := cloudprovider.MetricValue{
-				Value:     value.Average,
-				Timestamp: time.UnixMilli(value.Timestamp),
-				Tags:      tags,
-			}
-			ret.Values = append(ret.Values, metricValue)
+		metricIds := []string{}
+		for m := range vmMetric {
+			metricIds = append(metricIds, m)
 		}
-		result = append(result, ret)
+		body := map[string]interface{}{
+			"obj_type_id":   "562958543355904",
+			"indicator_ids": metricIds,
+			"obj_ids":       []string{vms[i].ResId},
+			"interval":      "MINUTE",
+			"range":         "BEGIN_END_TIME",
+			"begin_time":    opts.StartTime.Unix() * 1000,
+			"end_time":      opts.EndTime.Unix() * 1000,
+		}
+		resp, err := self.ocRequest(httputils.POST, "rest/performance/v1/data-svc/history-data/action/query", nil, body)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ocRequest")
+		}
+		if gotypes.IsNil(resp) || !resp.Contains("data") {
+			break
+		}
+		for m, metricType := range vmMetric {
+			series := []map[string]string{}
+			resp.Unmarshal(&series, "data", vms[i].ResId, m, "series")
+			if len(series) == 0 {
+				continue
+			}
+			ret := cloudprovider.MetricValues{
+				Id:         opts.ResourceId,
+				Values:     []cloudprovider.MetricValue{},
+				MetricType: metricType,
+			}
+			for i := range series {
+				for _date, _value := range series[i] {
+					date, _ := strconv.Atoi(_date)
+					value, _ := strconv.ParseFloat(_value, 32)
+					if metricType == cloudprovider.VM_METRIC_TYPE_NET_BPS_RX || metricType == cloudprovider.VM_METRIC_TYPE_NET_BPS_TX {
+						value *= 1024
+					}
+					ret.Values = append(ret.Values, cloudprovider.MetricValue{
+						Value:     value,
+						Timestamp: time.UnixMilli(int64(date)),
+					})
+				}
+			}
+			result = append(result, ret)
+		}
 	}
 	return result, nil
 }
 
-func (self *SHcsClient) getRedisMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+func (self *SHcsClient) ocAuth() error {
+	url := fmt.Sprintf("https://oc.%s.%s/rest/plat/smapp/v1/oauth/token", self.defaultRegion, self.authUrl)
+	client := self.getDefaultClient()
+	cli := httputils.NewJsonClient(client)
 	params := map[string]interface{}{
-		"from":   fmt.Sprintf("%d", opts.StartTime.UnixMilli()),
-		"to":     fmt.Sprintf("%d", opts.EndTime.UnixMilli()),
-		"period": "1",
-		"filter": "average",
+		"grantType": "password",
+		"userName":  self.account,
+		"value":     self.password,
 	}
-	metrics := []interface{}{}
-	namespace, dimesionName, metricNames := "SYS.DCS", "dcs_instance_id", []string{
-		"cpu_usage",
-		"memory_usage",
-		"instantaneous_input_kbps",
-		"instantaneous_output_kbps",
-		"connected_clients",
-		"instantaneous_ops",
-		"keys",
-		"expires",
-		"used_memory_dataset",
-	}
-	for _, metricName := range metricNames {
-		metrics = append(metrics, map[string]interface{}{
-			"namespace":   namespace,
-			"metric_name": metricName,
-			"dimensions": []map[string]string{
-				{
-					"name":  dimesionName,
-					"value": opts.ResourceId,
-				},
-			},
-		})
-	}
-	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
+	req := httputils.NewJsonRequest(httputils.PUT, url, jsonutils.Marshal(params))
+	_, resp, err := cli.Send(context.Background(), req, &hcsError{Url: url}, self.debug)
 	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "Send")
 	}
-	metricData := []MetricData{}
-	err = resp.Unmarshal(&metricData, "metrics")
-	if err != nil {
-		return nil, errors.Wrapf(err, "resp.Unmarshal")
-	}
-	result := []cloudprovider.MetricValues{}
-	for i := range metricData {
-		ret := cloudprovider.MetricValues{
-			Id:     opts.ResourceId,
-			Unit:   metricData[i].Unit,
-			Values: []cloudprovider.MetricValue{},
-		}
-		tags := map[string]string{}
-		switch metricData[i].MetricName {
-		case "cpu_usage":
-			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_CPU_USAGE
-		case "memory_usage":
-			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_MEM_USAGE
-		case "instantaneous_input_kbps":
-			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_NET_BPS_RX
-		case "instantaneous_output_kbps":
-			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_NET_BPS_TX
-		case "connected_clients":
-			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_USED_CONN
-		case "instantaneous_ops":
-			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_OPT_SES
-		case "keys":
-			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_CACHE_KEYS
-		case "expires":
-			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_CACHE_EXP_KEYS
-		case "used_memory_dataset":
-			ret.MetricType = cloudprovider.REDIS_METRIC_TYPE_DATA_MEM_USAGE
-		default:
-			log.Warningf("invalid metricName %s for %s %s", metricData[i].MetricName, opts.ResourceType, opts.ResourceId)
-			continue
-		}
-		for _, value := range metricData[i].Datapoints {
-			metricValue := cloudprovider.MetricValue{
-				Value:     value.Average,
-				Timestamp: time.UnixMilli(value.Timestamp),
-				Tags:      tags,
-			}
-			ret.Values = append(ret.Values, metricValue)
-		}
-		result = append(result, ret)
-	}
-	return result, nil
+	self.token, err = resp.GetString("accessSession")
+	return errors.Wrapf(err, "resp.accessSession")
 }
 
-func (self *SHcsClient) getRdsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	params := map[string]interface{}{
-		"from":   fmt.Sprintf("%d", opts.StartTime.UnixMilli()),
-		"to":     fmt.Sprintf("%d", opts.EndTime.UnixMilli()),
-		"period": "1",
-		"filter": "average",
-	}
-	metrics := []interface{}{}
-	namespace, dimesionName, metricNames := "SYS.RDS", "rds_cluster_id", []string{
-		"rds001_cpu_util",
-		"rds002_mem_util",
-		"rds004_bytes_in",
-		"rds004_bytes_in",
-		"rds005_bytes_out",
-		"rds039_disk_util",
-		"rds049_disk_read_throughput",
-		"rds050_disk_write_throughput",
-		"rds006_conn_count",
-		"rds008_qps",
-		"rds009_tps",
-		"rds013_innodb_reads",
-		"rds014_innodb_writes",
-	}
-	switch opts.Engine {
-	case api.DBINSTANCE_TYPE_POSTGRESQL:
-		dimesionName = "postgresql_cluster_id"
-	case api.DBINSTANCE_TYPE_SQLSERVER:
-		dimesionName = "rds_cluster_sqlserver_id"
-	}
-
-	for _, metricName := range metricNames {
-		metrics = append(metrics, map[string]interface{}{
-			"namespace":   namespace,
-			"metric_name": metricName,
-			"dimensions": []map[string]string{
-				{
-					"name":  dimesionName,
-					"value": opts.ResourceId,
-				},
-			},
-		})
-	}
-	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
-	if err != nil {
-		return nil, err
-	}
-	metricData := []MetricData{}
-	err = resp.Unmarshal(&metricData, "metrics")
-	if err != nil {
-		return nil, errors.Wrapf(err, "resp.Unmarshal")
-	}
-	result := []cloudprovider.MetricValues{}
-	for i := range metricData {
-		ret := cloudprovider.MetricValues{
-			Id:     opts.ResourceId,
-			Unit:   metricData[i].Unit,
-			Values: []cloudprovider.MetricValue{},
+func (self *SHcsClient) ocRequest(method httputils.THttpMethod, resource string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	self.lock.CheckingLock()
+	if len(self.token) == 0 {
+		err := self.ocAuth()
+		if err != nil {
+			return nil, errors.Wrapf(err, "ocAuth")
 		}
-		tags := map[string]string{}
-		switch metricData[i].MetricName {
-		case "rds001_cpu_util":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_CPU_USAGE
-		case "rds002_mem_util":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_MEM_USAGE
-		case "rds004_bytes_in":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_NET_BPS_RX
-		case "rds005_bytes_out":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_NET_BPS_TX
-		case "rds039_disk_util":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_DISK_USAGE
-		case "rds049_disk_read_throughput":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_DISK_READ_BPS
-		case "rds050_disk_write_throughput":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_DISK_WRITE_BPS
-		case "rds006_conn_count":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_CONN_COUNT
-		case "rds008_qps":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_QPS
-		case "rds009_tps":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_TPS
-		case "rds013_innodb_reads":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_INNODB_READ_BPS
-		case "rds014_innodb_writes":
-			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_INNODB_WRITE_BPS
-		default:
-			log.Warningf("invalid metricName %s for %s %s", metricData[i].MetricName, opts.ResourceType, opts.ResourceId)
-			continue
+	}
+	client := self.getDefaultClient()
+	url := fmt.Sprintf("oc.%s.%s/%s", self.defaultRegion, self.authUrl, resource)
+	if len(query) > 0 {
+		url = fmt.Sprintf("%s?%s", url, query.Encode())
+	}
+	url = strings.TrimPrefix(url, "http://")
+	if !strings.HasPrefix(url, "https://") {
+		url = fmt.Sprintf("https://%s", url)
+	}
+	var body jsonutils.JSONObject = nil
+	if len(params) > 0 {
+		body = jsonutils.Marshal(params)
+	}
+	header := http.Header{}
+	header.Set("X-Auth-Token", self.token)
+	cli := httputils.NewJsonClient(client)
+	req := httputils.NewJsonRequest(method, url, body)
+	req.SetHeader(header)
+	var resp jsonutils.JSONObject
+	var err error
+	for i := 0; i < 4; i++ {
+		_, resp, err = cli.Send(context.Background(), req, &hcsError{Url: url, Params: params}, self.debug)
+		if err == nil {
+			break
 		}
-		for _, value := range metricData[i].Datapoints {
-			metricValue := cloudprovider.MetricValue{
-				Value:     value.Average,
-				Timestamp: time.UnixMilli(value.Timestamp),
-				Tags:      tags,
+		if err != nil {
+			e, ok := err.(*hcsError)
+			if ok {
+				if e.Code == 404 {
+					return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+				}
+				if e.Code == 429 {
+					log.Errorf("request %s %v try later", url, err)
+					self.lock.Lock()
+					time.Sleep(time.Second * 15)
+					continue
+				}
 			}
-			ret.Values = append(ret.Values, metricValue)
+			return nil, err
 		}
-		result = append(result, ret)
 	}
-	return result, nil
-}
-
-func (self *SHcsClient) getBucketMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	params := map[string]interface{}{
-		"from":   opts.StartTime.UnixMilli(),
-		"to":     opts.EndTime.UnixMilli(),
-		"period": "1",
-		"filter": "average",
-	}
-	metrics := []interface{}{}
-	namespace, dimesionName, metricNames := "SYS.OBS", "bucket_name", []string{
-		"download_bytes",
-		"upload_bytes",
-		"first_byte_latency",
-		"get_request_count",
-		"request_count_4xx",
-		"request_count_5xx",
-	}
-
-	for _, metricName := range metricNames {
-		metrics = append(metrics, map[string]interface{}{
-			"namespace":   namespace,
-			"metric_name": metricName,
-			"dimensions": []map[string]string{
-				{
-					"name":  dimesionName,
-					"value": opts.ResourceId,
-				},
-			},
-		})
-	}
-	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
-	if err != nil {
-		return nil, err
-	}
-	metricData := []MetricData{}
-	err = resp.Unmarshal(&metricData, "metrics")
-	if err != nil {
-		return nil, errors.Wrapf(err, "resp.Unmarshal")
-	}
-	result := []cloudprovider.MetricValues{}
-	for i := range metricData {
-		ret := cloudprovider.MetricValues{
-			Id:     opts.ResourceId,
-			Unit:   metricData[i].Unit,
-			Values: []cloudprovider.MetricValue{},
-		}
-		tags := map[string]string{}
-		switch metricData[i].MetricName {
-		case "download_bytes":
-			ret.MetricType = cloudprovider.BUCKET_METRIC_TYPE_NET_BPS_TX
-		case "upload_bytes":
-			ret.MetricType = cloudprovider.BUCKET_METRIC_TYPE_NET_BPS_RX
-		case "first_byte_latency":
-			ret.MetricType = cloudprovider.BUCKET_METRIC_TYPE_LATECY
-			tags = map[string]string{"request": "get"}
-		case "get_request_count":
-			ret.MetricType = cloudprovider.BUCKET_METRYC_TYPE_REQ_COUNT
-			tags = map[string]string{"request": "get"}
-		case "request_count_4xx":
-			ret.MetricType = cloudprovider.BUCKET_METRYC_TYPE_REQ_COUNT
-			tags = map[string]string{"request": "4xx"}
-		case "request_count_5xx":
-			ret.MetricType = cloudprovider.BUCKET_METRYC_TYPE_REQ_COUNT
-			tags = map[string]string{"request": "5xx"}
-		default:
-			log.Warningf("invalid metricName %s for %s %s", metricData[i].MetricName, opts.ResourceType, opts.ResourceId)
-			continue
-		}
-		for _, value := range metricData[i].Datapoints {
-			metricValue := cloudprovider.MetricValue{
-				Value:     value.Average,
-				Timestamp: time.UnixMilli(value.Timestamp),
-				Tags:      tags,
-			}
-			ret.Values = append(ret.Values, metricValue)
-		}
-		result = append(result, ret)
-	}
-	return result, nil
-}
-
-func (self *SHcsClient) getLoadbalancerMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	params := map[string]interface{}{
-		"from":   fmt.Sprintf("%d", opts.StartTime.UnixMilli()),
-		"to":     fmt.Sprintf("%d", opts.EndTime.UnixMilli()),
-		"period": "1",
-		"filter": "average",
-	}
-	metrics := []interface{}{}
-	namespace, dimesionName, metricNames := "SYS.ELB", "lb_instance_id", []string{
-		"m7_in_Bps",
-		"m8_out_Bps",
-		"mc_l7_http_2xx",
-		"md_l7_http_3xx",
-		"me_l7_http_4xx",
-		"mf_l7_http_5xx",
-	}
-
-	for _, metricName := range metricNames {
-		metrics = append(metrics, map[string]interface{}{
-			"namespace":   namespace,
-			"metric_name": metricName,
-			"dimensions": []map[string]string{
-				{
-					"name":  dimesionName,
-					"value": opts.ResourceId,
-				},
-			},
-		})
-	}
-	params["metrics"] = metrics
-	resp, err := self.monitorPost("batch-query-metric-data", params)
-	if err != nil {
-		return nil, err
-	}
-	metricData := []MetricData{}
-	err = resp.Unmarshal(&metricData, "metrics")
-	if err != nil {
-		return nil, errors.Wrapf(err, "resp.Unmarshal")
-	}
-	result := []cloudprovider.MetricValues{}
-	for i := range metricData {
-		ret := cloudprovider.MetricValues{
-			Id:     opts.ResourceId,
-			Unit:   metricData[i].Unit,
-			Values: []cloudprovider.MetricValue{},
-		}
-		tags := map[string]string{}
-		switch metricData[i].MetricName {
-		case "m7_in_Bps":
-			ret.MetricType = cloudprovider.LB_METRIC_TYPE_NET_BPS_RX
-		case "m8_out_Bps":
-			ret.MetricType = cloudprovider.LB_METRIC_TYPE_NET_BPS_TX
-		case "mc_l7_http_2xx":
-			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
-			tags = map[string]string{"request": "2xx"}
-		case "md_l7_http_3xx":
-			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
-			tags = map[string]string{"request": "3xx"}
-		case "md_l7_http_4xx":
-			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
-			tags = map[string]string{"request": "4xx"}
-		case "md_l7_http_5xx":
-			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
-			tags = map[string]string{"request": "5xx"}
-		default:
-			log.Warningf("invalid metricName %s for %s %s", metricData[i].MetricName, opts.ResourceType, opts.ResourceId)
-			continue
-		}
-		for _, value := range metricData[i].Datapoints {
-			metricValue := cloudprovider.MetricValue{
-				Value:     value.Average,
-				Timestamp: time.UnixMilli(value.Timestamp),
-				Tags:      tags,
-			}
-			ret.Values = append(ret.Values, metricValue)
-		}
-		result = append(result, ret)
-	}
-	return result, nil
+	return resp, err
 }
 
 func (self *SHcsClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	if !self.isAccountValid() {
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "missing account info")
+	}
 	switch opts.ResourceType {
 	case cloudprovider.METRIC_RESOURCE_TYPE_SERVER:
 		return self.getServerMetrics(opts)
-	case cloudprovider.METRIC_RESOURCE_TYPE_REDIS:
-		return self.getRedisMetrics(opts)
-	case cloudprovider.METRIC_RESOURCE_TYPE_RDS:
-		return self.getRdsMetrics(opts)
-	case cloudprovider.METRIC_RESOURCE_TYPE_BUCKET:
-		return self.getBucketMetrics(opts)
-	case cloudprovider.METRIC_RESOURCE_TYPE_LB:
-		return self.getLoadbalancerMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", opts.ResourceType)
 	}

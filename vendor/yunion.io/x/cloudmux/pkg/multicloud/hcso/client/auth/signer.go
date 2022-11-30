@@ -15,7 +15,6 @@
 package auth
 
 import (
-	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -185,21 +184,11 @@ func canonicalHeaderNames(request requests.IRequest) string {
 	return strings.ToLower(ret)
 }
 
-var SigningKeyCache = map[string][]byte{}
-
 func getSigningKey(secretKey, date, regionId, service string) string {
-	joinedKey := strings.Join([]string{secretKey, date, regionId, service}, "")
-	cacheKey := fmt.Sprintf("%x", md5.Sum([]byte(joinedKey)))
-	if v, ok := SigningKeyCache[cacheKey]; ok {
-		return string(v)
-	}
-
 	ret := []byte("SDK" + secretKey)
 	for _, k := range []string{date, regionId, service, "sdk_request"} {
 		ret = signers.HmacSha256(k, ret)
 	}
-
-	SigningKeyCache[cacheKey] = ret
 	return string(ret)
 }
 
