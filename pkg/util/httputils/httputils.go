@@ -299,11 +299,11 @@ func GetAddrPort(urlStr string) (string, int, error) {
 }
 
 func GetTransport(insecure bool) *http.Transport {
-	return getTransport(insecure, false)
+	return getTransport(insecure, false, 0)
 }
 
 func GetAdaptiveTransport(insecure bool) *http.Transport {
-	return getTransport(insecure, true)
+	return getTransport(insecure, true, 0)
 }
 
 func adptiveDial(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -314,7 +314,7 @@ func adptiveDial(ctx context.Context, network, addr string) (net.Conn, error) {
 	return getConnDelegate(conn, 10*time.Second, 20*time.Second), nil
 }
 
-func getTransport(insecure bool, adaptive bool) *http.Transport {
+func getTransport(insecure bool, adaptive bool, timeout time.Duration) *http.Transport {
 	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		// 一个空闲连接保持连接的时间
@@ -347,6 +347,9 @@ func getTransport(insecure bool, adaptive bool) *http.Transport {
 	if adaptive {
 		tr.DialContext = adptiveDial
 	} else {
+		tr.IdleConnTimeout = timeout
+		tr.TLSHandshakeTimeout = timeout
+		tr.ResponseHeaderTimeout = timeout
 		tr.DialContext = (&net.Dialer{
 			// 建立TCP连接超时时间
 			// Timeout is the maximum amount of time a dial will wait for
@@ -381,7 +384,7 @@ func GetClient(insecure bool, timeout time.Duration) *http.Client {
 	if timeout == 0 {
 		adaptive = true
 	}
-	tr := getTransport(insecure, adaptive)
+	tr := getTransport(insecure, adaptive, timeout)
 	return &http.Client{
 		Transport: tr,
 		// 一个完整http request的超时时间
