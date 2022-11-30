@@ -39,7 +39,12 @@ type HAGuestDeployTask struct {
 func (self *HAGuestDeployTask) OnDeployWaitServerStop(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
-	self.DeployBackup(ctx, guest, nil)
+	host := models.HostManager.FetchHostById(guest.BackupHostId)
+	if host.HostStatus != api.HOST_ONLINE {
+		self.GuestDeployTask.OnDeployWaitServerStop(ctx, guest, data)
+	} else {
+		self.DeployBackup(ctx, guest, nil)
+	}
 }
 
 func (self *HAGuestDeployTask) DeployBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -57,6 +62,7 @@ func (self *HAGuestDeployTask) DeployBackup(ctx context.Context, guest *models.S
 func (self *HAGuestDeployTask) OnDeploySlaveGuestComplete(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
+	guest.SetGuestBackupMirrorJobNotReady(ctx, self.UserCred)
 	host, _ := guest.GetHost()
 	self.SetStage("OnDeployGuestComplete", nil)
 	self.DeployOnHost(ctx, guest, host)
@@ -65,6 +71,7 @@ func (self *HAGuestDeployTask) OnDeploySlaveGuestComplete(
 func (self *HAGuestDeployTask) OnDeploySlaveGuestCompleteFailed(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
+	guest.SetGuestBackupMirrorJobNotReady(ctx, self.UserCred)
 	self.OnDeployGuestFail(ctx, guest, fmt.Errorf("deploy backup failed %s", data))
 }
 
@@ -88,10 +95,12 @@ func (self *GuestDeployBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 }
 
 func (self *GuestDeployBackupTask) OnDeployGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetGuestBackupMirrorJobNotReady(ctx, self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *GuestDeployBackupTask) OnDeployGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetGuestBackupMirrorJobNotReady(ctx, self.UserCred)
 	guest.SetStatus(self.UserCred, api.VM_DEPLOYING_BACKUP_FAILED, data.String())
 	self.SetStageComplete(ctx, nil)
 }

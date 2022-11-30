@@ -62,39 +62,40 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			auth.Authenticate(deleteGuest))
 
 		for action, f := range map[string]actionFunc{
-			"create":                guestCreate,
-			"deploy":                guestDeploy,
-			"rebuild":               guestRebuild,
-			"start":                 guestStart,
-			"stop":                  guestStop,
-			"monitor":               guestMonitor,
-			"sync":                  guestSync,
-			"suspend":               guestSuspend,
-			"io-throttle":           guestIoThrottle,
-			"snapshot":              guestSnapshot,
-			"delete-snapshot":       guestDeleteSnapshot,
-			"reload-disk-snapshot":  guestReloadDiskSnapshot,
-			"src-prepare-migrate":   guestSrcPrepareMigrate,
-			"dest-prepare-migrate":  guestDestPrepareMigrate,
-			"live-migrate":          guestLiveMigrate,
-			"resume":                guestResume,
-			"drive-mirror":          guestDriveMirror,
-			"hotplug-cpu-mem":       guestHotplugCpuMem,
-			"cancel-block-jobs":     guestCancelBlockJobs,
-			"create-from-libvirt":   guestCreateFromLibvirt,
-			"create-form-esxi":      guestCreateFromEsxi,
-			"open-forward":          guestOpenForward,
-			"list-forward":          guestListForward,
-			"close-forward":         guestCloseForward,
-			"storage-clone-disk":    guestStorageCloneDisk,
-			"live-change-disk":      guestLiveChangeDisk,
-			"cpuset":                guestCPUSet,
-			"cpuset-remove":         guestCPUSetRemove,
-			"memory-snapshot":       guestMemorySnapshot,
-			"memory-snapshot-reset": guestMemorySnapshotReset,
-			"qga-set-password":      qgaGuestSetPassword,
-			"qga-guest-ping":        qgaGuestPing,
-			"qga-command":           qgaCommand,
+			"create":                   guestCreate,
+			"deploy":                   guestDeploy,
+			"rebuild":                  guestRebuild,
+			"start":                    guestStart,
+			"stop":                     guestStop,
+			"monitor":                  guestMonitor,
+			"sync":                     guestSync,
+			"suspend":                  guestSuspend,
+			"io-throttle":              guestIoThrottle,
+			"snapshot":                 guestSnapshot,
+			"delete-snapshot":          guestDeleteSnapshot,
+			"reload-disk-snapshot":     guestReloadDiskSnapshot,
+			"src-prepare-migrate":      guestSrcPrepareMigrate,
+			"dest-prepare-migrate":     guestDestPrepareMigrate,
+			"live-migrate":             guestLiveMigrate,
+			"resume":                   guestResume,
+			"block-replication":        guestBlockReplication,
+			"hotplug-cpu-mem":          guestHotplugCpuMem,
+			"cancel-block-jobs":        guestCancelBlockJobs,
+			"cancel-block-replication": guestCancelBlockReplication,
+			"create-from-libvirt":      guestCreateFromLibvirt,
+			"create-form-esxi":         guestCreateFromEsxi,
+			"open-forward":             guestOpenForward,
+			"list-forward":             guestListForward,
+			"close-forward":            guestCloseForward,
+			"storage-clone-disk":       guestStorageCloneDisk,
+			"live-change-disk":         guestLiveChangeDisk,
+			"cpuset":                   guestCPUSet,
+			"cpuset-remove":            guestCPUSetRemove,
+			"memory-snapshot":          guestMemorySnapshot,
+			"memory-snapshot-reset":    guestMemorySnapshotReset,
+			"qga-set-password":         qgaGuestSetPassword,
+			"qga-guest-ping":           qgaGuestPing,
+			"qga-command":              qgaCommand,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -474,7 +475,7 @@ func guestResume(ctx context.Context, userCred mcclient.TokenCredential, sid str
 // 	return nil, nil
 // }
 
-func guestDriveMirror(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestBlockReplication(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
@@ -487,8 +488,7 @@ func guestDriveMirror(ctx context.Context, userCred mcclient.TokenCredential, si
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("failed unmarshal desc %s", err)
 	}
-
-	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StartDriveMirror,
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StartBlockReplication,
 		&guestman.SDriverMirror{
 			Sid:          sid,
 			NbdServerUri: backupNbdServerUri,
@@ -502,6 +502,16 @@ func guestCancelBlockJobs(ctx context.Context, userCred mcclient.TokenCredential
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().CancelBlockJobs, sid)
+	return nil, nil
+}
+
+func guestCancelBlockReplication(
+	ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject,
+) (interface{}, error) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().CancelBlockReplication, sid)
 	return nil, nil
 }
 

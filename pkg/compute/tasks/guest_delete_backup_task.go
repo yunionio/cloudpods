@@ -57,8 +57,8 @@ func (self *GuestDeleteBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 		return
 	}
 
-	self.SetStage("OnCancelBlockJobs", nil)
-	url := fmt.Sprintf("%s/servers/%s/cancel-block-jobs", host.ManagerUri, guest.Id)
+	self.SetStage("OnCancelBlockReplication", nil)
+	url := fmt.Sprintf("%s/servers/%s/cancel-block-replication", host.ManagerUri, guest.Id)
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, self.GetTaskRequestHeader(), nil, false)
 	if err != nil {
@@ -67,7 +67,7 @@ func (self *GuestDeleteBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 	}
 }
 
-func (self *GuestDeleteBackupTask) OnCancelBlockJobs(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *GuestDeleteBackupTask) OnCancelBlockReplication(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.StartDeleteBackupOnHost(ctx, guest)
 }
 
@@ -87,17 +87,17 @@ func (self *GuestDeleteBackupTask) StartDeleteBackupOnHost(ctx context.Context, 
 	}
 }
 
-func (self *GuestDeleteBackupTask) OnCancelBlockJobsFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *GuestDeleteBackupTask) OnCancelBlockReplicationFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.OnFail(ctx, guest, data)
 }
 
 func (self *GuestDeleteBackupTask) OnDeleteOnHost(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetGuestBackupMirrorJobNotReady(ctx, self.UserCred)
 	if jsonutils.QueryBoolean(self.Params, "create", false) {
 		self.OnDeleteBackupComplete(ctx, guest, data)
 		self.SetStage("OnCreateNewBackup", nil)
 
 		params := jsonutils.NewDict()
-		params.Set("reconcile_backup", jsonutils.JSONTrue)
 		_, err := guest.StartGuestCreateBackupTask(ctx, self.UserCred, self.GetId(), params)
 		if err != nil {
 			self.onCreateNewBackupFailed(ctx, guest, jsonutils.NewString(err.Error()))
@@ -133,10 +133,6 @@ func (self *GuestDeleteBackupTask) OnDeleteBackupComplete(ctx context.Context, g
 }
 
 func (self *GuestDeleteBackupTask) TaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.RemoveMetadata(ctx, "switch_backup", self.UserCred)
-	guest.RemoveMetadata(ctx, "switch_backup_count", self.UserCred)
-	guest.RemoveMetadata(ctx, "create_backup", self.UserCred)
-	guest.RemoveMetadata(ctx, "create_backup_count", self.UserCred)
 	self.OnDeleteBackupComplete(ctx, guest, data)
 	self.SetStageComplete(ctx, nil)
 }

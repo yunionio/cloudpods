@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -76,6 +77,7 @@ func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *m
 	if guest.BackupHostId == hostId {
 		_, err := db.Update(guest, func() error {
 			guest.BackupHostId = ""
+			guest.BackupGuestStatus = compute.VM_INIT
 			return nil
 		})
 		if err != nil {
