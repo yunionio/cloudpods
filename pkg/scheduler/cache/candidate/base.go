@@ -223,16 +223,48 @@ func (b baseHostGetter) TotalMemorySize(_ bool) int64 {
 	return int64(b.h.MemSize)
 }
 
-func (b baseHostGetter) GetFreeStorageSizeOfType(storageType string, useRsvd bool) (int64, int64) {
+func checkStorageSize(s *api.CandidateStorage, reqMaxSize int64, useRsvd bool) error {
+	storageSize := s.FreeCapacity
+	if useRsvd {
+		storageSize += s.GetReserved()
+	}
+	minSize := utils.Min(storageSize, s.ActualFreeCapacity)
+	if minSize >= reqMaxSize {
+		return nil
+	}
+	return errors.Errorf("storage %q free size %d less than max request %d, use reserverd %v, free_capacity(%d), actual_free_capacity(%d)", s.GetName(), minSize, reqMaxSize, useRsvd, storageSize, s.ActualFreeCapacity)
+}
+
+func IsStorageBackendMediumMatch(s *api.CandidateStorage, backend string, mediumType string) bool {
+	if s.StorageType != backend {
+		return false
+	}
+	if mediumType == "" {
+		return true
+	}
+	return s.MediumType == mediumType
+}
+
+func (b baseHostGetter) GetFreeStorageSizeOfType(storageType string, mediumType string, useRsvd bool, reqMaxSize int64) (int64, int64, error) {
 	var size int64
 	var actualSize int64
+	foundLEReqStore := false
+	errs := make([]error, 0)
 	for _, s := range b.Storages() {
-		if s.StorageType == storageType {
-			size += int64(float32(s.Capacity) * s.Cmtbound)
-			actualSize += s.Capacity - s.ActualCapacityUsed
+		if IsStorageBackendMediumMatch(s, storageType, mediumType) {
+			size += s.FreeCapacity
+			actualSize += s.ActualFreeCapacity
+			if err := checkStorageSize(s, reqMaxSize, false); err != nil {
+				errs = append(errs, err)
+			} else {
+				foundLEReqStore = true
+			}
 		}
 	}
-	return size, actualSize
+	if foundLEReqStore {
+		return size, actualSize, nil
+	}
+	return size, actualSize, errors.NewAggregate(errs)
 }
 
 func (b baseHostGetter) GetFreePort(netId string) int {

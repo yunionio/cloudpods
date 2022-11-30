@@ -180,17 +180,17 @@ func (mr *MockCandidatePropertyGetterMockRecorder) GetFreePort(arg0 interface{})
 }
 
 // GetFreeStorageSizeOfType mocks base method
-func (m *MockCandidatePropertyGetter) GetFreeStorageSizeOfType(arg0 string, arg1 bool) (int64, int64) {
+func (m *MockCandidatePropertyGetter) GetFreeStorageSizeOfType(arg0 string, arg1 string, arg2 bool, arg3 int64) (int64, int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFreeStorageSizeOfType", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetFreeStorageSizeOfType", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(int64)
-	return ret0, math.MaxInt64
+	return ret0, math.MaxInt64, nil
 }
 
 // GetFreeStorageSizeOfType indicates an expected call of GetFreeStorageSizeOfType
-func (mr *MockCandidatePropertyGetterMockRecorder) GetFreeStorageSizeOfType(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockCandidatePropertyGetterMockRecorder) GetFreeStorageSizeOfType(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFreeStorageSizeOfType", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).GetFreeStorageSizeOfType), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFreeStorageSizeOfType", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).GetFreeStorageSizeOfType), arg0, arg1, arg2, arg3)
 }
 
 // GetIpmiInfo mocks base method
