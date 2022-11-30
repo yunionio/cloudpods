@@ -101,6 +101,7 @@ type SInstance struct {
 	Description             string
 	InternetMaxBandwidthOut int
 	Throughput              int
+	OsArch                  *string
 
 	TagSpec TagSpec
 
@@ -342,6 +343,18 @@ func (self *SInstance) GetBios() cloudprovider.TBiosType {
 }
 
 func (self *SInstance) GetOsArch() string {
+	if self.OsArch != nil && len(*self.OsArch) > 0 {
+		switch *self.OsArch {
+		case ec2.ArchitectureValuesArm64:
+			return apis.OS_ARCH_AARCH64
+		case ec2.ArchitectureValuesI386:
+			return apis.OS_ARCH_X86
+		case ec2.ArchitectureValuesX8664:
+			return apis.OS_ARCH_X86_64
+		default:
+			return apis.OS_ARCH_X86_64
+		}
+	}
 	img, err := self.GetImage()
 	if err != nil {
 		log.Errorf("GetImage fail %s", err)
@@ -747,6 +760,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				ProductCodes:      productCodes,
 				OSName:            osType, // todo: 这里在model层回写OSName信息
 				OSType:            osType,
+				OsArch:            instance.Architecture,
 
 				TagSpec: tagspec,
 				// ExpiredTime:
