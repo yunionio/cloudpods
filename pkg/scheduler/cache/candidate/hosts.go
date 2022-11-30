@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/errors"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/util/workqueue"
 	"yunion.io/x/pkg/utils"
@@ -85,8 +85,8 @@ func (h *hostGetter) StorageInfo() []*baremetal.BaremetalStorage {
 	return nil
 }
 
-func (h *hostGetter) GetFreeStorageSizeOfType(storageType string, useRsvd bool) (int64, int64) {
-	return h.h.GetFreeStorageSizeOfType(storageType, useRsvd)
+func (h *hostGetter) GetFreeStorageSizeOfType(storageType string, mediumType string, useRsvd bool, reqMaxSize int64) (int64, int64, error) {
+	return h.h.GetFreeStorageSizeOfType(storageType, mediumType, useRsvd, reqMaxSize)
 }
 
 func (h *hostGetter) GetFreePort(netId string) int {
@@ -317,18 +317,25 @@ func (h *HostDesc) freeStorageSize(onlyLocal, useRsvd bool) int64 {
 	return total
 }
 
-func (h *HostDesc) GetFreeStorageSizeOfType(sType string, useRsvd bool) (int64, int64) {
-	return h.freeStorageSizeOfType(sType, useRsvd)
+func (h *HostDesc) GetFreeStorageSizeOfType(sType string, mediumType string, useRsvd bool, reqMaxSize int64) (int64, int64, error) {
+	return h.freeStorageSizeOfType(sType, mediumType, useRsvd, reqMaxSize)
 }
 
-func (h *HostDesc) freeStorageSizeOfType(storageType string, useRsvd bool) (int64, int64) {
+func (h *HostDesc) freeStorageSizeOfType(storageType string, mediumType string, useRsvd bool, reqMaxSize int64) (int64, int64, error) {
 	var total int64
 	var actualTotal int64
+	foundLEReqStore := false
+	errs := make([]error, 0)
 
 	for _, storage := range h.Storages {
-		if storage.StorageType == storageType {
+		if IsStorageBackendMediumMatch(storage, storageType, mediumType) {
 			total += int64(storage.FreeCapacity)
 			actualTotal += int64(storage.ActualFreeCapacity)
+			if err := checkStorageSize(storage, reqMaxSize, useRsvd); err != nil {
+				errs = append(errs, err)
+			} else {
+				foundLEReqStore = true
+			}
 		}
 	}
 	if utils.IsLocalStorage(storageType) {
@@ -338,11 +345,15 @@ func (h *HostDesc) freeStorageSizeOfType(storageType string, useRsvd bool) (int6
 			total += sizeSub
 		}
 	}
-	if useRsvd {
-		return reservedResourceAddCal(total, h.GuestReservedStorageSizeFree(), useRsvd), actualTotal
+	if !foundLEReqStore {
+		return 0, 0, errors.NewAggregate(errs)
 	}
 
-	return total - int64(h.GetPendingUsage().DiskUsage.Get(storageType)), actualTotal
+	if useRsvd {
+		return reservedResourceAddCal(total, h.GuestReservedStorageSizeFree(), useRsvd), actualTotal, nil
+	}
+
+	return total - int64(h.GetPendingUsage().DiskUsage.Get(storageType)), actualTotal, nil
 }
 
 func (h *HostDesc) GetFreePort(netId string) int {
