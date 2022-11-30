@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -103,11 +104,20 @@ func parseAccount(account string) (accessKey string, projectId string) {
 }
 
 func (self *SHcsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	account, password := "", ""
 	accessKey, projectId := parseAccount(cfg.Account)
+	if cfg.Options != nil {
+		account, _ = cfg.Options.GetString("account")
+		_password, _ := cfg.Options.GetString("password")
+		if len(account) > 0 && len(_password) > 0 {
+			password, _ = utils.DescryptAESBase64(cfg.Secret, _password)
+		}
+	}
 	client, err := hcs.NewHcsClient(
 		hcs.NewHcsConfig(
 			accessKey, cfg.Secret, projectId, cfg.URL,
-		).CloudproviderConfig(cfg),
+		).CloudproviderConfig(cfg).
+			WithAccount(account, password),
 	)
 	if err != nil {
 		return nil, err
@@ -212,4 +222,12 @@ func (self *SHcsProvider) GetObjectCannedAcls(regionId string) []string {
 
 func (self *SHcsProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
+}
+
+func (self *SHcsProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	metrics, err := self.client.GetMetrics(opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetMetrics")
+	}
+	return metrics, nil
 }

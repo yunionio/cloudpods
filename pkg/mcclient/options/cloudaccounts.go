@@ -877,10 +877,23 @@ func (opts *SHCSOAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
 
 type SHCSAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+	Account  string
+	Password string
 }
 
 func (opts *SHCSAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(opts), nil
+	params := jsonutils.Marshal(opts.SCloudAccountUpdateBaseOptions).(*jsonutils.JSONDict)
+	options := jsonutils.NewDict()
+	if len(opts.Account) > 0 {
+		options.Set("account", jsonutils.NewString(opts.Account))
+	}
+	if len(opts.Password) > 0 {
+		options.Set("password", jsonutils.NewString(opts.Password))
+	}
+	if options.Length() > 0 {
+		params.Set("options", options)
+	}
+	return params, nil
 }
 
 type SUcloudCloudAccountUpdateOptions struct {

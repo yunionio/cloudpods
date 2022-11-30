@@ -35,4 +35,18 @@ func init() {
 		fmt.Println(text)
 		return nil
 	})
+
+	type EncryptSecretOptions struct {
+		KEY    string `help:"secret key"`
+		SECRET string `help:"secret to enscrypt"`
+	}
+	shellutils.R(&EncryptSecretOptions{}, "encrypt", "Encrypt", func(args *EncryptSecretOptions) error {
+		text, err := utils.EncryptAESBase64(args.KEY, args.SECRET)
+		if err != nil {
+			return err
+		}
+		fmt.Println(text)
+		return nil
+	})
+
 }

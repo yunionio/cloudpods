@@ -77,6 +77,8 @@ type SCloudDelegate struct {
 
 	Options struct {
 		cloudprovider.SHCSOEndpoints
+		Account  string
+		Password string
 	}
 	ProxySetting proxyapi.SProxySetting
 }
