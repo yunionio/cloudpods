@@ -64,7 +64,7 @@ type SLoadbalancerNetwork struct {
 	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 	NetworkId      string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 	IpAddr         string `width:"16" charset:"ascii" list:"user"`
-	MacAddr        string `width:"32" charset:"ascii" nullable:"false" list:"user"`
+	MacAddr        string `width:"32" charset:"ascii" nullable:"true" list:"user"`
 }
 
 func (manager *SLoadbalancernetworkManager) GetMasterFieldName() string {
