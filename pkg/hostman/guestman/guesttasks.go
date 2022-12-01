@@ -914,7 +914,7 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo)
 						log.Errorf("failed set migrate downtime %s", res)
 					}
 				}
-				s.Monitor.MigrateSetDowntime(float32(*stats.ExpectedDowntime/1000.0), cb)
+				s.Monitor.MigrateSetDowntime(float64(*stats.ExpectedDowntime)/1000.0, cb)
 			}
 		}
 	}
