@@ -224,7 +224,7 @@ type Monitor interface {
 	BlockReopenImage(drive, newImagePath, format string, cb StringCallback)
 	SnapshotBlkdev(drive, newImagePath, format string, reuse bool, cb StringCallback)
 
-	MigrateSetDowntime(dtSec float32, callback StringCallback)
+	MigrateSetDowntime(dtSec float64, callback StringCallback)
 	MigrateSetCapability(capability, state string, callback StringCallback)
 	MigrateSetParameter(key string, val interface{}, callback StringCallback)
 	MigrateIncoming(address string, callback StringCallback)
