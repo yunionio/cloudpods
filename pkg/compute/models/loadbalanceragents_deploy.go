@@ -138,11 +138,11 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 	case compute_apis.DeployMethodCopy:
 		// glob for rpms
 		basenames := []string{
-			"packages/telegraf",
-			"packages/gobetween",
-			"packages/keepalived",
-			"packages/haproxy",
-			"updates/yunion-lbagent",
+			"telegraf",
+			"gobetween",
+			"keepalived",
+			"haproxy",
+			"yunion-lbagent",
 		}
 		mods := []ansible.Module{}
 		for _, basename := range basenames {
@@ -423,15 +423,7 @@ api_list_batch_size = 2048
 	yunionRepoTmpl = `
 [yunion]
 name=Packages for Yunion- $basearch
-baseurl={{ repo_base_url }}/updates
-failovermethod=priority
-enabled=1
-gpgcheck=0
-sslverify={{ repo_sslverify }}
-
-[yunion-extra]
-name=Extra Packages for Yunion - $basearch
-baseurl={{ repo_base_url }}/packages
+baseurl={{ repo_base_url }}
 failovermethod=priority
 enabled=1
 gpgcheck=0
