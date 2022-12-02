@@ -28,7 +28,8 @@ type SHostBaseOptions struct {
 
 	DisableSecurityGroup bool `help:"disable security group" default:"false"`
 
-	HostCpuPassthrough bool `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
+	HostCpuPassthrough        bool  `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
+	LiveMigrateCpuThrottleMax int64 `default:"99" help:"live migrate auto converge cpu throttle max"`
 
 	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
 }

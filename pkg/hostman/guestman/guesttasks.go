@@ -843,6 +843,7 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 func (s *SGuestLiveMigrateTask) onGetMigrateStats(stats *monitor.MigrationInfo, err error) {
 	if err != nil {
 		log.Errorf("%s get migrate stats failed %s", s.GetName(), err)
+		s.migrateFailed(fmt.Sprintf("%s get migrate stats failed %s", s.GetName(), err))
 		return
 	}
 	s.onGetMigrateStatus(stats)
@@ -890,8 +891,7 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo)
 				return
 			}
 
-			if *stats.CPUThrottlePercentage < 99 {
-				// TODO: configureable tolerate cpu throttle percentage
+			if *stats.CPUThrottlePercentage < options.HostOptions.LiveMigrateCpuThrottleMax {
 				return
 			}
 
@@ -929,6 +929,25 @@ func (s *SGuestLiveMigrateTask) onMigrateStartPostcopy(res string) {
 	}
 }
 
+func (s *SGuestLiveMigrateTask) onMigrateReceivedStopEvent() {
+	s.Monitor.GetMigrateStats(func(stats *monitor.MigrationInfo, err error) {
+		if err != nil {
+			log.Errorf("%s get migrate stats failed %s", s.GetName(), err)
+			return
+		}
+
+		switch *stats.Status {
+		case "completed":
+			s.migrateComplete(jsonutils.Marshal(stats))
+		case "failed", "cancelled":
+			s.migrateFailed(fmt.Sprintf("Query migrate got status: %s", *stats.Status))
+		case "active":
+			time.Sleep(10 * time.Millisecond)
+			s.onMigrateReceivedStopEvent()
+		}
+	})
+}
+
 func (s *SGuestLiveMigrateTask) migrateComplete(stats jsonutils.JSONObject) {
 	s.migrateTask = nil
 	if s.c != nil {
@@ -942,6 +961,7 @@ func (s *SGuestLiveMigrateTask) migrateComplete(stats jsonutils.JSONObject) {
 		res.Set("migration_info", stats)
 	}
 	hostutils.TaskComplete(s.ctx, res)
+	hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
 }
 
 func (s *SGuestLiveMigrateTask) migrateFailed(msg string) {

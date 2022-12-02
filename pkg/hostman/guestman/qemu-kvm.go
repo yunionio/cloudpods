@@ -690,10 +690,8 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 		s.eventGuestPaniced(event)
 	case event.Event == `"STOP"`:
 		if s.migrateTask != nil {
-			// migrating complete
-			s.migrateTask.migrateComplete(nil)
+			s.migrateTask.onMigrateReceivedStopEvent()
 		}
-		hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
 	}
 }
 
