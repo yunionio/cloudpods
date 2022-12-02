@@ -58,6 +58,10 @@ func (self *SExternalVpc) Refresh() error {
 	return nil
 }
 
+func (self *SExternalVpc) IsEmulated() bool {
+	return true
+}
+
 func (self *SExternalVpc) GetRegion() cloudprovider.ICloudRegion {
 	return self.region
 }

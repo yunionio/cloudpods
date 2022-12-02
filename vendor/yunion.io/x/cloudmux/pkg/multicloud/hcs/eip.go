@@ -283,7 +283,7 @@ func (self *SRegion) GetInstancePortId(instanceId string) (string, error) {
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
-func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, bgpType, subnetId string, projectId string) (*SEip, error) {
+func (self *SRegion) AllocateEIP(name, ip string, bwMbps int, chargeType TInternetChargeType, bgpType, subnetId string, projectId string) (*SEip, error) {
 	publicip := map[string]interface{}{
 		"type":       bgpType,
 		"ip_version": 4,
@@ -291,6 +291,9 @@ func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetCh
 	}
 	if len(subnetId) > 0 {
 		publicip["subnet_id"] = subnetId
+	}
+	if len(ip) > 0 {
+		publicip["ip_address"] = ip
 	}
 	params := map[string]interface{}{
 		"bandwidth": map[string]interface{}{
@@ -445,7 +448,7 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 		eip.Name = eip.Name[:64]
 	}
 
-	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType, eip.NetworkExternalId, eip.ProjectId)
+	ieip, err := self.AllocateEIP(eip.Name, eip.IP, eip.BandwidthMbps, ctype, eip.BGPType, eip.NetworkExternalId, eip.ProjectId)
 	ieip.region = self
 	if err != nil {
 		return nil, err
