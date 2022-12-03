@@ -18,11 +18,15 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/vpcagent"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -52,11 +56,21 @@ func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGue
 	}
 }
 
-func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (task *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, guest.GetShortDesc(ctx), self.UserCred, true)
-	self.taskComplete(ctx, guest)
+	isVpc, err := guest.IsOneCloudVpcNetwork()
+	if err != nil {
+		log.Errorf("IsOneCloudVpcNetwork fail: %s", err)
+	} else if isVpc {
+		// force update VPC topo
+		err := vpcagent.VpcAgent.DoSync(auth.GetAdminSession(ctx, options.Options.Region))
+		if err != nil {
+			log.Errorf("vpcagent.VpcAgent.DoSync fail %s", err)
+		}
+	}
+	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(ctx), task.UserCred)
+	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_VM_START, guest.GetShortDesc(ctx), task.UserCred, true)
+	task.taskComplete(ctx, guest)
 }
 
 func (self *GuestStartTask) OnStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
