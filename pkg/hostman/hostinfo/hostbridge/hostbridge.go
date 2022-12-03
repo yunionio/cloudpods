@@ -80,7 +80,25 @@ func NewBaseBridgeDriver(bridge, inter, ip string) (*SBaseBridgeDriver, error) {
 			return nil, fmt.Errorf("%s not exists", inter)
 		}
 		bd.ip = ip
-		bd.inter.SetupGso(options.HostOptions.EthtoolEnableGso)
+		var enableGso bool
+		if len(options.HostOptions.EthtoolEnableGsoInterfaces) > 0 {
+			if utils.IsInStringArray(bridge, options.HostOptions.EthtoolEnableGsoInterfaces) ||
+				utils.IsInStringArray(inter, options.HostOptions.EthtoolEnableGsoInterfaces) {
+				enableGso = true
+			} else {
+				enableGso = false
+			}
+		} else if len(options.HostOptions.EthtoolDisableGsoInterfaces) > 0 {
+			if utils.IsInStringArray(bridge, options.HostOptions.EthtoolDisableGsoInterfaces) ||
+				utils.IsInStringArray(inter, options.HostOptions.EthtoolDisableGsoInterfaces) {
+				enableGso = false
+			} else {
+				enableGso = true
+			}
+		} else {
+			enableGso = options.HostOptions.EthtoolEnableGso
+		}
+		bd.inter.SetupGso(enableGso)
 	} else if len(ip) > 0 {
 		return nil, fmt.Errorf("A bridge without interface must have no IP")
 	}
