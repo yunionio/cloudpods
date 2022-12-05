@@ -26,7 +26,7 @@ import (
 )
 
 type SHostnameResourceBase struct {
-	Hostname string `width:"60" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	Hostname string `width:"60" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 type SHostnameResourceBaseManager struct {
@@ -59,7 +59,7 @@ func (manager *SHostnameResourceBaseManager) ValidateHostname(name string, osTyp
 	if len(input.Hostname) > 60 {
 		input.Hostname = input.Hostname[:60]
 	}
-	if strings.ToLower(osType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+	if strings.EqualFold(osType, osprofile.OS_TYPE_WINDOWS) {
 		if num, err := strconv.Atoi(input.Hostname); err == nil && num > 0 {
 			return input, httperrors.NewInputParameterError("hostname cannot be number %d", num)
 		}
