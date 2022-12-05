@@ -3651,6 +3651,13 @@ func (manager *SHostManager) ValidateCreateData(
 }
 
 func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.HostUpdateInput) (api.HostUpdateInput, error) {
+	// validate Hostname
+	if len(input.Hostname) > 0 {
+		if !regutils.MatchDomainName(input.Hostname) {
+			return input, httperrors.NewInputParameterError("hostname should be a legal domain name")
+		}
+	}
+
 	var err error
 	input.HostAccessAttributes, err = HostManager.inputUniquenessCheck(input.HostAccessAttributes, self.ZoneId, self.Id)
 	if err != nil {

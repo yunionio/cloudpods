@@ -455,6 +455,7 @@ type HostUpdateInput struct {
 	HostAccessAttributes
 	HostSizeAttributes
 	HostIpmiAttributes
+	HostnameInput
 
 	// IPMI info
 	IpmiInfo jsonutils.JSONObject `json:"ipmi_info"`

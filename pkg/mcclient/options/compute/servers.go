@@ -639,6 +639,8 @@ type ServerUpdateOptions struct {
 	IsDaemon *bool `help:"Daemon server" negative:"no-daemon"`
 
 	PendingDeletedAt string `help:"change pending deleted time"`
+
+	Hostname string `help:"host name of server"`
 }
 
 func (opts *ServerUpdateOptions) Params() (jsonutils.JSONObject, error) {
