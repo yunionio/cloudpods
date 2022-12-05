@@ -950,6 +950,20 @@ func (guest *SGuest) GetVpc() (*SVpc, error) {
 	return vpc, nil
 }
 
+func (guest *SGuest) IsOneCloudVpcNetwork() (bool, error) {
+	gns, err := guest.GetNetworks("")
+	if err != nil {
+		return false, errors.Wrap(err, "GetNetworks")
+	}
+	for _, gn := range gns {
+		n := gn.GetNetwork()
+		if n != nil && n.isOneCloudVpcNetwork() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
 	guestnics := make([]SGuestnetwork, 0)
 	q := guest.GetNetworksQuery(netId).Asc("index")
