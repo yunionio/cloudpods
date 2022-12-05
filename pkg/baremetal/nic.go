@@ -93,6 +93,9 @@ func GetNicDHCPConfig(
 
 	if isPxe {
 		conf.BootServer = serverIP
+		if len(o.Options.TftpBootServer) > 0 {
+			conf.BootServer = o.Options.TftpBootServer
+		}
 		switch arch {
 		case dhcp.CLIENT_ARCH_EFI_BC, dhcp.CLIENT_ARCH_EFI_X86_64:
 			if o.Options.BootLoader == o.BOOT_LOADER_SYSLINUX {
@@ -116,21 +119,31 @@ func GetNicDHCPConfig(
 				conf.BootFile = "grub_booti386"
 			}
 		}
-		pxePath := filepath.Join(o.Options.TftpRoot, conf.BootFile)
-		if f, err := os.Open(pxePath); err != nil {
-			return nil, err
+		if len(o.Options.TftpBootFilename) > 0 {
+			conf.BootFile = o.Options.TftpBootFilename
+		}
+		if len(o.Options.TftpBootServer) > 0 {
+			conf.BootBlock = getPxeBlockSize(o.Options.TftpBootFilesize)
 		} else {
-			if info, err := f.Stat(); err != nil {
+			pxePath := filepath.Join(o.Options.TftpRoot, conf.BootFile)
+			if f, err := os.Open(pxePath); err != nil {
 				return nil, err
 			} else {
-				pxeSize := info.Size()
-				pxeBlk := pxeSize / 512
-				if pxeSize > pxeBlk*512 {
-					pxeBlk += 1
+				if info, err := f.Stat(); err != nil {
+					return nil, err
+				} else {
+					conf.BootBlock = getPxeBlockSize(info.Size())
 				}
-				conf.BootBlock = uint16(pxeBlk)
 			}
 		}
 	}
 	return conf, nil
+}
+
+func getPxeBlockSize(pxeSize int64) uint16 {
+	pxeBlk := pxeSize / 512
+	if pxeSize > pxeBlk*512 {
+		pxeBlk += 1
+	}
+	return uint16(pxeBlk)
 }

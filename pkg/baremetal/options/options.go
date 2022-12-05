@@ -57,6 +57,10 @@ type BaremetalOptions struct {
 	UseMegaRaidPerccli bool              `help:"Use MegaRAID perccli" default:"false"`
 
 	NfsBootRootfs string `help:"nfs root fs URL"`
+
+	TftpBootServer   string `help:"customized tftp boot server"`
+	TftpBootFilename string `help:"filename of tftp boot loader"`
+	TftpBootFilesize int64  `help:"file size of tftp boot loader"`
 }
 
 const (
