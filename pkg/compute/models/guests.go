@@ -1137,6 +1137,13 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, httperrors.NewInputParameterError("name is too short")
 	}
 
+	// validate Hostname
+	if len(input.Hostname) > 0 {
+		if !regutils.MatchDomainName(input.Hostname) {
+			return input, httperrors.NewInputParameterError("hostname should be a legal domain name")
+		}
+	}
+
 	var err error
 	input, err = self.GetDriver().ValidateUpdateData(ctx, self, userCred, input)
 	if err != nil {
