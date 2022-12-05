@@ -710,6 +710,8 @@ type ServerChangeConfigInput struct {
 type ServerUpdateInput struct {
 	apis.VirtualResourceBaseUpdateInput
 
+	HostnameInput
+
 	// 删除保护开关
 	DisableDelete *bool `json:"disable_delete"`
 	// 启动顺序

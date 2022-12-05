@@ -168,6 +168,8 @@ func init() {
 		IpmiIpAddr   string `help:"IPMI ip_addr"`
 
 		Sn string `help:"serial number"`
+
+		Hostname string `help:"update host name"`
 	}
 	R(&HostUpdateOptions{}, "host-update", "Update information of a host", func(s *mcclient.ClientSession, args *HostUpdateOptions) error {
 		params := jsonutils.NewDict()
