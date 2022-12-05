@@ -1520,10 +1520,9 @@ func (h *SHostInfo) doSyncNicInfo(nic *SNIC) error {
 	content := jsonutils.NewDict()
 	content.Set("bridge", jsonutils.NewString(nic.Bridge))
 	content.Set("interface", jsonutils.NewString(nic.Inter))
-	query := jsonutils.NewDict()
-	query.Set("mac_addr", jsonutils.NewString(nic.BridgeDev.GetMac()))
+	content.Set("mac_addr", jsonutils.NewString(nic.BridgeDev.GetMac()))
 	_, err := modules.Hostwires.Update(h.GetSession(),
-		h.HostId, nic.WireId, query, content)
+		h.HostId, nic.WireId, nil, content)
 	if err != nil {
 		return errors.Wrap(err, "modules.Hostwires.Update")
 	}
@@ -2025,6 +2024,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 
 func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {
 	var ret = make([]map[string]interface{}, 0)
+	existing := make(map[string]struct{})
 	for i, n := range h.Nics {
 		ret = append(ret, map[string]interface{}{
 			"name":  n.Inter,
@@ -2036,6 +2036,16 @@ func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {
 			"alias": fmt.Sprintf("br%d", i),
 			"speed": n.Bandwidth,
 		})
+		existing[n.Inter] = struct{}{}
+	}
+	phyNics, _ := sysutils.Nics()
+	for _, pnic := range phyNics {
+		if _, ok := existing[pnic.Dev]; !ok {
+			ret = append(ret, map[string]interface{}{
+				"name":  pnic.Dev,
+				"speed": pnic.Speed,
+			})
+		}
 	}
 	return ret
 }
