@@ -26,6 +26,7 @@ const (
 	CLOUD_PROVIDER_HUAWEI         = "Huawei"
 	CLOUD_PROVIDER_HCSO           = "HCSO"
 	CLOUD_PROVIDER_HCS            = "HCS"
+	CLOUD_PROVIDER_HCSOP          = "HCSOP"
 	CLOUD_PROVIDER_OPENSTACK      = "OpenStack"
 	CLOUD_PROVIDER_UCLOUD         = "Ucloud"
 	CLOUD_PROVIDER_ZSTACK         = "ZStack"

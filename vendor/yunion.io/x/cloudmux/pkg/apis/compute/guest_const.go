@@ -57,6 +57,7 @@ const (
 	HYPERVISOR_AWS            = "aws"
 	HYPERVISOR_HUAWEI         = "huawei"
 	HYPERVISOR_HCS            = "hcs"
+	HYPERVISOR_HCSOP          = "hcsop"
 	HYPERVISOR_HCSO           = "hcso"
 	HYPERVISOR_OPENSTACK      = "openstack"
 	HYPERVISOR_UCLOUD         = "ucloud"
