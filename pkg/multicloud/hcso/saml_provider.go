@@ -245,12 +245,12 @@ func (self *SHuaweiClient) CreateSAMLProvider(opts *cloudprovider.SAMLProviderCr
 	if err != nil {
 		return nil, errors.Wrapf(err, "saml provider create")
 	}
-	ret := SAMLProvider{client: self, Id: opts.Name}
-	err = self.UpdateSAMLProviderMetadata(opts.Name, opts.Metadata.String())
+	ret := SAMLProvider{client: self, Id: samlName}
+	err = self.UpdateSAMLProviderMetadata(samlName, opts.Metadata.String())
 	if err != nil {
 		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
-	err = self.InitSAMLProviderMapping(opts.Name)
+	err = self.InitSAMLProviderMapping(samlName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "InitSAMLProviderMapping")
 	}
