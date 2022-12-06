@@ -43,6 +43,7 @@ type SHost struct {
 	StorageType   string
 
 	AttachStorageTypes []string
+	Wires              []SWire
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
@@ -189,5 +190,9 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	wires := make([]cloudprovider.ICloudWire, len(self.Wires))
+	for i := 0; i < len(self.Wires); i++ {
+		wires[i] = &self.Wires[i]
+	}
+	return wires, nil
 }
