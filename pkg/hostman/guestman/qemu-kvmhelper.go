@@ -269,11 +269,11 @@ func (s *SKVMGuestInstance) generateNicScripts(nic *desc.SGuestNetwork) error {
 	if dev == nil {
 		return fmt.Errorf("Can't find bridge %s", bridge)
 	}
-	isSlave := s.IsSlave()
-	if err := dev.GenerateIfupScripts(s.getNicUpScriptPath(nic), nic, isSlave); err != nil {
+	isVolatileHost := s.IsSlave() || s.IsMigratingDestGuest()
+	if err := dev.GenerateIfupScripts(s.getNicUpScriptPath(nic), nic, isVolatileHost); err != nil {
 		return errors.Wrap(err, "GenerateIfupScripts")
 	}
-	if err := dev.GenerateIfdownScripts(s.getNicDownScriptPath(nic), nic, isSlave); err != nil {
+	if err := dev.GenerateIfdownScripts(s.getNicDownScriptPath(nic), nic, isVolatileHost); err != nil {
 		return errors.Wrap(err, "GenerateIfdownScripts")
 	}
 	return nil
@@ -487,17 +487,15 @@ function nic_mtu() {
 	input.IsKVMSupport = s.IsKvmSupport()
 	input.ExtraOptions = append(input.ExtraOptions, s.extraOptions())
 
-	liveMigratePort, _ := data.Int("live_migrate_port")
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		input.NeedMigrate = true
-		input.LiveMigratePort = uint(liveMigratePort)
-		s.LiveMigrateDestPort = &liveMigratePort
+		input.LiveMigratePort = uint(*s.LiveMigrateDestPort)
 		if jsonutils.QueryBoolean(data, "live_migrate_use_tls", false) {
 			s.LiveMigrateUseTls = true
 			input.LiveMigrateUseTLS = true
 		}
 	} else if s.Desc.IsSlave {
-		input.LiveMigratePort = uint(liveMigratePort)
+		input.LiveMigratePort = uint(*s.LiveMigrateDestPort)
 	}
 
 	qemuOpts, err := qemu.GenerateStartOptions(input)

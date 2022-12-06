@@ -479,10 +479,12 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		}
 
 		// get live migrate listen port
-		if jsonutils.QueryBoolean(data, "need_migrate", false) || s.Desc.IsSlave {
+		if s.LiveMigrateDestPort == nil &&
+			(jsonutils.QueryBoolean(data, "need_migrate", false) || s.Desc.IsSlave) {
 			migratePort := s.manager.GetLiveMigrateFreePort()
 			defer s.manager.unsetPort(migratePort)
-			data.Set("live_migrate_port", jsonutils.NewInt(int64(migratePort)))
+			migratePortInt64 := int64(migratePort)
+			s.LiveMigrateDestPort = &migratePortInt64
 		}
 
 		err = s.saveScripts(data)
@@ -1097,6 +1099,10 @@ func (s *SKVMGuestInstance) IsMaster() bool {
 
 func (s *SKVMGuestInstance) IsSlave() bool {
 	return s.Desc.IsSlave
+}
+
+func (s *SKVMGuestInstance) IsMigratingDestGuest() bool {
+	return s.LiveMigrateDestPort != nil
 }
 
 func (s *SKVMGuestInstance) DiskCount() int {
@@ -2483,6 +2489,20 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrage bool) (*jsonutils.JS
 		}
 	}
 	return disksBackFile, nil
+}
+
+func (s *SKVMGuestInstance) prepareNicsForVolatileGuestResume() error {
+	for _, nic := range s.Desc.Nics {
+		bridge := nic.Bridge
+		dev := s.manager.GetHost().GetBridgeDev(bridge)
+		if dev == nil {
+			return fmt.Errorf("Can't find bridge %s", bridge)
+		}
+		if err := dev.OnVolatileGuestResume(nic); err != nil {
+			return errors.Wrap(err, "dev.OnVolatileGuestResume")
+		}
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) onlineResizeDisk(ctx context.Context, diskId string, sizeMB int64) {
