@@ -1520,9 +1520,10 @@ func (h *SHostInfo) doSyncNicInfo(nic *SNIC) error {
 	content := jsonutils.NewDict()
 	content.Set("bridge", jsonutils.NewString(nic.Bridge))
 	content.Set("interface", jsonutils.NewString(nic.Inter))
-	content.Set("mac_addr", jsonutils.NewString(nic.BridgeDev.GetMac()))
+	query := jsonutils.NewDict()
+	query.Set("mac_addr", jsonutils.NewString(nic.BridgeDev.GetMac()))
 	_, err := modules.Hostwires.Update(h.GetSession(),
-		h.HostId, nic.WireId, nil, content)
+		h.HostId, nic.WireId, query, content)
 	if err != nil {
 		return errors.Wrap(err, "modules.Hostwires.Update")
 	}
