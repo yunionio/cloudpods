@@ -25,6 +25,7 @@ const (
 	HOST_TYPE_HUAWEI         = "huawei"
 	HOST_TYPE_HCSO           = "hcso"
 	HOST_TYPE_HCS            = "hcs"
+	HOST_TYPE_HCSOP          = "hcsop"
 	HOST_TYPE_OPENSTACK      = "openstack"
 	HOST_TYPE_UCLOUD         = "ucloud"
 	HOST_TYPE_ZSTACK         = "zstack"
