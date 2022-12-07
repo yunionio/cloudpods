@@ -23,7 +23,6 @@ require (
 	github.com/golang-plus/errors v1.0.0
 	github.com/golang-plus/uuid v1.0.0
 	github.com/golang/mock v1.4.4
-	github.com/golang/protobuf v1.5.2
 	github.com/google/gopacket v1.1.17
 	github.com/google/uuid v1.3.0
 	github.com/googollee/go-socket.io v0.0.0-20181214084611-0ad7206c347a
@@ -31,6 +30,7 @@ require (
 	github.com/gorilla/websocket v1.4.1
 	github.com/gosuri/uitable v0.0.0-20160404203958-36ee7e946282
 	github.com/hako/durafmt v0.0.0-20180520121703-7b7ae1e72ead
+	github.com/hugozhu/godingtalk v1.0.6
 	github.com/jaypipes/ghw v0.9.1
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/lestrrat-go/jwx v1.0.2
@@ -46,6 +46,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.15
 	github.com/pkg/errors v0.9.1
 	github.com/pquerna/otp v1.2.0
+	github.com/satori/go.uuid v1.2.0
 	github.com/sergi/go-diff v1.2.0
 	github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
 	github.com/sevlyar/go-daemon v0.1.5
@@ -164,6 +165,7 @@ require (
 	github.com/gofrs/uuid v4.1.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
@@ -221,7 +223,6 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
-	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect

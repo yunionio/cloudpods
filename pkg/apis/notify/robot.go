@@ -18,6 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type RobotCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
+	apis.EnabledBaseResourceCreateInput
 	// description: robot type
 	// enum: feishu,dingtalk,workwx,webhook
 	// example: webhook

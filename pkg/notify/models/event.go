@@ -41,18 +41,22 @@ type SEvent struct {
 	// 资源创建时间
 	CreatedAt time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user" json:"created_at"`
 
-	Message     string
-	Event       string `width:"64" nullable:"true"`
-	AdvanceDays int
-	TopicId     string `width:"128" nullable:"true" index:"true"`
+	Message      string
+	Event        string `width:"64" nullable:"true"`
+	ResourceType string `width:"64" nullable:"true"`
+	Action       string `width:"64" nullable:"true"`
+	AdvanceDays  int
+	TopicId      string `width:"128" nullable:"true" index:"true"`
 }
 
-func (e *SEventManager) CreateEvent(ctx context.Context, event, topicId, message string, advanceDays int) (*SEvent, error) {
+func (e *SEventManager) CreateEvent(ctx context.Context, event, topicId, message, action, resourceType string, advanceDays int) (*SEvent, error) {
 	eve := &SEvent{
-		Message:     message,
-		Event:       event,
-		AdvanceDays: advanceDays,
-		TopicId:     topicId,
+		Message:      message,
+		Event:        event,
+		AdvanceDays:  advanceDays,
+		TopicId:      topicId,
+		Action:       action,
+		ResourceType: resourceType,
 	}
 	err := e.TableSpec().Insert(ctx, eve)
 	if err != nil {

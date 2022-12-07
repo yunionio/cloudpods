@@ -40,9 +40,10 @@ var (
 	ActionCreateBackupServer SAction = "add_backup_server"
 	ActionDelBackupServer    SAction = "delete_backup_server"
 
-	ActionSyncCreate SAction = "sync_create"
-	ActionSyncUpdate SAction = "sync_update"
-	ActionSyncDelete SAction = "sync_delete"
+	ActionSyncCreate        SAction = "sync_create"
+	ActionSyncUpdate        SAction = "sync_update"
+	ActionSyncDelete        SAction = "sync_delete"
+	ActionSyncAccountStatus SAction = "sync_account_status"
 
 	ActionOffline         SAction = "offline"
 	ActionSystemPanic     SAction = "panic"
@@ -53,7 +54,6 @@ var (
 	ActionLock SAction = "lock"
 
 	ActionExceedCount        SAction = "exceed_count"
-	ActionSyncAccountStatus  SAction = "sync_account_status"
 	ActionPasswordExpireSoon SAction = "password_expire_soon"
 	ActionWorkerBlock        SAction = "woker_block"
 	ActionNetOutOfSync       SAction = "net_out_of_sync"

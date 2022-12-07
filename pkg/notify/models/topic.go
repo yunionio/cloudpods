@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/notify"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
@@ -68,6 +69,7 @@ func init() {
 	TopicManager.SetVirtualObject(TopicManager)
 }
 
+// 消息订阅
 type STopic struct {
 	db.SEnabledStatusStandaloneResourceBase
 
@@ -197,6 +199,7 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.addAction(notify.ActionChangeConfig)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Results = tristate.True
 		case DefaultResourceUpdate:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
@@ -251,6 +254,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addResources(notify.TOPIC_RESOURCE_SCHEDULEDTASK)
 			t.addAction(notify.ActionExecute)
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Results = tristate.True
 		case DefaultScalingPolicyExecute:
 			t.addResources(notify.TOPIC_RESOURCE_SCALINGPOLICY)
 			t.addAction(notify.ActionExecute)
@@ -423,6 +427,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.Results = tristate.False
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 		}
+
 		if topic == nil {
 			err := sm.TableSpec().Insert(ctx, t)
 			if err != nil {
@@ -542,18 +547,42 @@ func (s *STopic) getActions() []notify.SAction {
 	return actions
 }
 
-func (sm *STopicManager) TopicByEvent(eventStr string, advanceDays int) (*STopic, error) {
-	topics, err := sm.TopicsByEvent(eventStr, advanceDays)
+func (sm *STopicManager) GetTopicByEvent(resourceType string, action notify.SAction, isFailed notify.SResult, advanceDays int) (*STopic, error) {
+	topics, err := sm.GetTopicsByEvent(resourceType, action, isFailed, advanceDays)
 	if err != nil {
-		return nil, err
-	}
-	if len(topics) == 1 {
-		return &topics[0], nil
+		return nil, errors.Wrapf(err, "GetTopicsByEvent")
 	}
 	if len(topics) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "eventStr:%s,advanceDays:%d", eventStr, advanceDays)
+		return nil, httperrors.NewResourceNotFoundError("no available topic found by %s %s", action, resourceType)
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "eventStr:%s,advanceDays:%d", eventStr, advanceDays)
+	// free memory in time
+	if len(topics) > 1 {
+		return nil, httperrors.NewResourceNotFoundError("duplicates %d topics found by %s %s", len(topics), action, resourceType)
+	}
+	return &topics[0], nil
+}
+
+func (sm *STopicManager) GetTopicsByEvent(resourceType string, action notify.SAction, isFailed notify.SResult, advanceDays int) ([]STopic, error) {
+	resourceV := converter.resourceValue(resourceType)
+	if resourceV < 0 {
+		return nil, fmt.Errorf("unknow resource type %s", resourceType)
+	}
+	actionV := converter.actionValue(action)
+	if actionV < 0 {
+		return nil, fmt.Errorf("unkonwn action %s", action)
+	}
+	q := sm.Query().Equals("advance_days", advanceDays)
+	if isFailed == api.ResultSucceed {
+		q = q.Equals("results", true)
+	} else {
+		q = q.Equals("results", false)
+	}
+	q = q.Equals("enabled", true)
+	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("resources"), 1<<resourceV), 0))
+	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("actions"), 1<<actionV), 0))
+	topics := []STopic{}
+	err := db.FetchModelObjects(sm, q, &topics)
+	return topics, err
 }
 
 func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STopic, error) {
@@ -561,7 +590,6 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to parse event %q", event)
 	}
-	log.Infof("event: %s", event.String())
 	resourceV := converter.resourceValue(event.ResourceType())
 	if resourceV < 0 {
 		log.Warningf("unknown resource type: %s", event.ResourceType())
@@ -767,4 +795,56 @@ func (rc *sConverter) action(actionValue int) notify.SAction {
 		return notify.SAction("")
 	}
 	return a.(notify.SAction)
+}
+
+func (self *STopic) StartMessageSendTask(ctx context.Context, userCred mcclient.TokenCredential, input api.NotificationManagerEventNotifyInput) error {
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	task, err := taskman.TaskManager.NewTask(ctx, "TopicMessageSendTask", self, userCred, params, "", "")
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (self *STopic) CreateEvent(ctx context.Context, resType, action, message string) (*SEvent, error) {
+	eve := &SEvent{
+		Message:      message,
+		ResourceType: resType,
+		Action:       action,
+		AdvanceDays:  self.AdvanceDays,
+		TopicId:      self.Id,
+	}
+	return eve, EventManager.TableSpec().Insert(ctx, eve)
+}
+
+func (self *STopic) GetEnabledSubscribers(domainId, projectId string) ([]SSubscriber, error) {
+	q := SubscriberManager.Query().Equals("topic_id", self.Id).IsTrue("enabled")
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_PROJECT),
+			sqlchemy.Equals(q.Field("resource_attribution_id"), projectId),
+		),
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_DOMAIN),
+			sqlchemy.Equals(q.Field("resource_attribution_id"), domainId),
+		),
+		sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_SYSTEM),
+	))
+	ret := []SSubscriber{}
+	err := db.FetchModelObjects(SubscriberManager, q, &ret)
+	return ret, err
+}
+
+func (sm *STopicManager) TopicByEvent(eventStr string, advanceDays int) (*STopic, error) {
+	topics, err := sm.TopicsByEvent(eventStr, advanceDays)
+	if err != nil {
+		return nil, err
+	}
+	if len(topics) == 1 {
+		return &topics[0], nil
+	}
+	if len(topics) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "eventStr:%s,advanceDays:%d", eventStr, advanceDays)
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "eventStr:%s,advanceDays:%d", eventStr, advanceDays)
 }

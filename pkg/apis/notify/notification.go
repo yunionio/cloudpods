@@ -54,9 +54,8 @@ type NotificationCreateInput struct {
 	// description: notification tag
 	// required: false
 	// example: alert
-	Tag                       string                 `json:"tag"`
-	Metadata                  map[string]interface{} `json:"metadata"`
-	IgnoreNonexistentReceiver bool                   `json:"ignore_nonexistent_receiver"`
+	Tag                       string `json:"tag"`
+	IgnoreNonexistentReceiver bool   `json:"ignore_nonexistent_receiver"`
 }
 
 type ReceiveDetail struct {
@@ -118,7 +117,13 @@ type NotificationManagerEventNotifyInput struct {
 	// description: event trigger sending notification
 	// required: true
 	// example: SERVER_DELETE
-	Event string `json:"event"`
+	Event        string
+	ResourceType string
+
+	CloudAccountName string
+	Action           SAction
+	// failed,succeed
+	Result SResult
 	// description: day left before the event
 	// required: false
 	// example: 0
@@ -131,6 +136,7 @@ type NotificationManagerEventNotifyInput struct {
 	// required: false
 	// example: f627e09f038645f08ce6880c8d9cb8fd
 	ProjectId string `json:"project_id"`
+	IsFailed  SResult
 }
 
 type NotificationManagerEventNotifyOutput struct {

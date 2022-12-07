@@ -215,7 +215,6 @@ func (manager *SGuestManager) ListItemFilter(
 	query api.ServerListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-
 	q, err = manager.SHostResourceBaseManager.ListItemFilter(ctx, q, userCred, query.HostFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
