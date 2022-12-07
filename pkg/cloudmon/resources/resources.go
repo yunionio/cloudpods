@@ -345,6 +345,7 @@ type SResources struct {
 	KubeClusters   TResource
 	Storages       TResource
 	ModelartsPool  TResource
+	Wires          TResource
 }
 
 func NewResources() *SResources {
@@ -360,6 +361,7 @@ func NewResources() *SResources {
 		Buckets:        NewBaseResources(&compute.Buckets),
 		KubeClusters:   NewBaseResources(&compute.KubeClusters),
 		ModelartsPool:  NewBaseResources(&compute.ModelartsPools),
+		Wires:          NewBaseResources(&compute.Wires),
 	}
 }
 
@@ -410,6 +412,10 @@ func (self *SResources) Init(ctx context.Context, userCred mcclient.TokenCredent
 			err = self.ModelartsPool.init()
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "ModelartsPool.init"))
+			}
+			err = self.Wires.init()
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "Wires.init"))
 			}
 			return errors.NewAggregate(errs)
 		}()
@@ -469,6 +475,10 @@ func (self *SResources) IncrementSync(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ModelartsPool.increment"))
 		}
+		err = self.Wires.increment()
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "Wires.increment"))
+		}
 		return errors.NewAggregate(errs)
 	}()
 	if err != nil {
@@ -523,6 +533,10 @@ func (self *SResources) DecrementSync(ctx context.Context, userCred mcclient.Tok
 			errs = append(errs, errors.Wrapf(err, "KubeClusters.decrement"))
 		}
 		err = self.ModelartsPool.decrement()
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "ModelartsPool.decrement"))
+		}
+		err = self.Wires.decrement()
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ModelartsPool.decrement"))
 		}
@@ -730,6 +744,19 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectModelartsPoolMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
+
+			resources = self.Wires.getResources(manager.Id)
+			wires := map[string]api.WireDetails{}
+			err = jsonutils.Update(&wires, resources)
+			if err != nil {
+				log.Errorf("unmarsha wires resources error: %v", err)
+			}
+
+			err = driver.CollectWireMetrics(ctx, manager, provider, wires, startTime, endTime)
+			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+				log.Errorf("CollectWireMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			}
+
 		}(cloudproviders[i])
 	}
 	wg.Wait()

@@ -58,6 +58,10 @@ func (self *SBaseCollectDriver) CollectHostMetrics(ctx context.Context, manager 
 	return cloudprovider.ErrNotImplemented
 }
 
+func (self *SBaseCollectDriver) CollectWireMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.WireDetails, start, end time.Time) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SBaseCollectDriver) CollectStorageMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.StorageDetails, start, end time.Time) error {
 	metrics := []influxdb.SMetricData{}
 	for _, storage := range res {
@@ -317,7 +321,7 @@ func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, 
 						Tags:      []influxdb.SKeyValue{},
 						Metrics: []influxdb.SKeyValue{
 							{
-								Key:   values.MetricType.Name(),
+								Key:   values.MetricType.Key(),
 								Value: strconv.FormatFloat(value.Value, 'E', -1, 64),
 							},
 						},
