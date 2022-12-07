@@ -389,7 +389,7 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 			params.DisksBackingFile = disksBack
 		}
 		disks := guestDesc.Disks
-		if err != nil {
+		if disks == nil {
 			return httperrors.NewInputParameterError("Get desc disks error")
 		} else {
 			targetStorageIds := []string{}
@@ -666,12 +666,13 @@ func formatCloneDiskParams(sid string, body jsonutils.JSONObject) (*guestman.SSt
 	}
 
 	params := &guestman.SStorageCloneDisk{
-		ServerId:      sid,
-		SourceStorage: srcStorage,
-		SourceDisk:    srcDisk,
-		TargetStorage: targetStorage,
-		TargetDiskId:  input.TargetDiskId,
-		DiskFormat:    input.DiskFormat,
+		ServerId:       sid,
+		SourceStorage:  srcStorage,
+		SourceDisk:     srcDisk,
+		TargetStorage:  targetStorage,
+		TargetDiskId:   input.TargetDiskId,
+		DiskFormat:     input.DiskFormat,
+		TargetDiskDesc: input.TargetDiskDesc,
 	}
 	return params, nil
 }

@@ -1278,12 +1278,13 @@ func (m *SGuestManager) ExitGuestCleanup() {
 }
 
 type SStorageCloneDisk struct {
-	ServerId      string
-	SourceStorage storageman.IStorage
-	SourceDisk    storageman.IDisk
-	TargetStorage storageman.IStorage
-	TargetDiskId  string
-	DiskFormat    string
+	ServerId       string
+	SourceStorage  storageman.IStorage
+	SourceDisk     storageman.IDisk
+	TargetStorage  storageman.IStorage
+	TargetDiskId   string
+	DiskFormat     string
+	TargetDiskDesc *compute.GuestdiskJsonDesc
 }
 
 func (m *SGuestManager) StorageCloneDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
