@@ -1874,51 +1874,52 @@ func (self *SCloudaccount) SyncCloudroles(ctx context.Context, userCred mcclient
 	return result
 }
 
-func (self *SCloudaccount) GetUserCloudgroups(userCred mcclient.TokenCredential) ([]string, error) {
-	ret := []string{}
+func (self *SCloudaccount) GetUserCloudgroups(userCred mcclient.TokenCredential) ([]string, []string, error) {
+	userNames, groupNames := []string{}, []string{}
 	q := SamluserManager.Query().Equals("owner_id", userCred.GetUserId()).Equals("cloudaccount_id", self.Id)
 	users := []SSamluser{}
 	err := db.FetchModelObjects(SamluserManager, q, &users)
 	if err != nil {
-		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+		return nil, nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	if len(users) == 0 {
-		return nil, fmt.Errorf("no available saml user for %s %s", userCred.GetUserName(), userCred.GetUserId())
+		return nil, nil, fmt.Errorf("no available saml user for %s %s", userCred.GetUserName(), userCred.GetUserId())
 	}
 	groupIds := []string{}
 	for i := range users {
+		userNames = append(userNames, users[i].Name)
 		groupIds = append(groupIds, users[i].CloudgroupId)
 	}
 	q = CloudgroupManager.Query().In("id", groupIds)
 	groups := []SCloudgroup{}
 	err = db.FetchModelObjects(CloudgroupManager, q, &groups)
 	if err != nil {
-		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+		return nil, nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	if len(groups) == 0 {
-		return ret, fmt.Errorf("no available cloudgroup for %s %s", userCred.GetUserName(), userCred.GetUserId())
+		return userNames, groupNames, fmt.Errorf("no available cloudgroup for %s %s", userCred.GetUserName(), userCred.GetUserId())
 	}
 	for i := range groups {
 		cache, err := CloudgroupcacheManager.Register(&groups[i], self)
 		if err != nil {
-			return []string{}, errors.Wrapf(err, "group cache Register")
+			return userNames, groupNames, errors.Wrapf(err, "group cache Register")
 		}
 		if len(cache.ExternalId) > 0 {
-			ret = append(ret, cache.Name)
+			groupNames = append(groupNames, cache.Name)
 		} else {
 			s := auth.GetAdminSession(context.TODO(), options.Options.Region)
 			_, err = cache.GetOrCreateICloudgroup(context.TODO(), s.GetToken())
 			if err != nil {
-				return []string{}, errors.Wrapf(err, "GetOrCreateICloudgroup")
+				return userNames, groupNames, errors.Wrapf(err, "GetOrCreateICloudgroup")
 			}
 			cache, err := CloudgroupcacheManager.Register(&groups[i], self)
 			if err != nil {
-				return []string{}, errors.Wrapf(err, "group cache Register")
+				return userNames, groupNames, errors.Wrapf(err, "group cache Register")
 			}
-			ret = append(ret, cache.Name)
+			groupNames = append(groupNames, cache.Name)
 		}
 	}
-	return ret, nil
+	return userNames, groupNames, nil
 }
 
 func (self *SCloudaccount) InviteAzureUser(ctx context.Context, userCred mcclient.TokenCredential, domain string) (string, error) {
