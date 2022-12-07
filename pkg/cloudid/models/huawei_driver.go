@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
 
@@ -68,7 +69,7 @@ func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 	if len(idpId) == 0 {
 		return data, httperrors.NewInputParameterError("saml auth url %s missing idp", uri)
 	}
-	groups, err := account.GetUserCloudgroups(userCred)
+	users, groups, err := account.GetUserCloudgroups(userCred)
 	if err != nil {
 		return data, httperrors.NewGeneralError(errors.Wrapf(err, "GetUserCloudgroups"))
 	}
@@ -77,7 +78,7 @@ func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
 	data.AudienceRestriction = sp.GetEntityId()
 	for k, v := range map[string][]string{
-		"User":   {userCred.GetUserName()},
+		"User":   {strings.Join(users, ",")},
 		"Groups": groups,
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
@@ -126,7 +127,7 @@ func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCre
 		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
 	}
 
-	groups, err := account.GetUserCloudgroups(userCred)
+	users, groups, err := account.GetUserCloudgroups(userCred)
 	if err != nil {
 		return data, httperrors.NewGeneralError(errors.Wrapf(err, "GetUserCloudgroups"))
 	}
@@ -135,7 +136,7 @@ func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCre
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
 	data.AudienceRestriction = sp.GetEntityId()
 	for k, v := range map[string][]string{
-		"User":   {userCred.GetUserName()},
+		"User":   {strings.Join(users, ",")},
 		"Groups": groups,
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
