@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/notify/sender"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -134,7 +133,7 @@ func (eq *SEmailQueue) PostCreate(
 }
 
 func (eq *SEmailQueue) doSendAsync() {
-	sender.Worker.Run(eq, nil, nil)
+	Worker.Run(eq, nil, nil)
 }
 
 func (eq *SEmailQueue) Dump() string {
@@ -147,26 +146,21 @@ func (eq *SEmailQueue) Run() {
 }
 
 func (eq *SEmailQueue) doSend(ctx context.Context) {
-	conf, err := ConfigManager.getEmailConfig()
-	if err != nil {
-		eq.setStatus(ctx, api.EmailFail, err)
-		return
-	}
-	log.Debugf("conf: %s", jsonutils.Marshal(conf))
 	msg, err := eq.getMessage()
 	if err != nil {
 		eq.setStatus(ctx, api.EmailFail, err)
 		return
 	}
-	log.Debugf("msg: %s", jsonutils.Marshal(msg))
 	eq.setStatus(ctx, api.EmailSending, nil)
-	err = sender.SendEmail(conf, msg)
+	driver := GetDriver(api.EMAIL)
+	driver.Send(api.SendParams{
+		EmailMsg: msg,
+	})
 	if err != nil {
 		eq.setStatus(ctx, api.EmailFail, err)
 		return
 	}
 	eq.setStatus(ctx, api.EmailSuccess, nil)
-	return
 }
 
 func (eq *SEmailQueue) getMessage() (*api.SEmailMessage, error) {

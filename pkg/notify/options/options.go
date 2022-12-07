@@ -22,6 +22,7 @@ type NotifyOption struct {
 	common_options.CommonOptions
 	common_options.DBOptions
 
+	DebugRequest   bool   `help:"Debug Send request"`
 	SocketFileDir  string `help:"Socket file directory" default:"/etc/yunion/socket"`
 	UpdateInterval int    `help:"Update send services interval(unit:min)" default:"30"`
 
@@ -34,7 +35,8 @@ type NotifyOption struct {
 	VerifyExpireInterval int `help:"expire interval of verify message; minutes" default:"2"`
 	VerifyValidInterval  int `help:"valid interval of verify message; miniutes" default:"20"`
 
-	SyncReceiverIntervalMinutes int `help:"interval to sync receivers from keystone, in minutes" default:"30"`
+	SyncReceiverIntervalMinutes int  `help:"interval to sync receivers from keystone, in minutes" default:"30"`
+	EnableWatchUser             bool `help:"use etcd to watch user" default:"false"`
 }
 
 var Options NotifyOption

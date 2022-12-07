@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"time"
 
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -71,6 +73,14 @@ func (self *SReceiverNotificationManager) InitializeData() error {
 	return dataCleaning(self.TableSpec().Name())
 }
 
+func (self *SReceiverNotification) GetReceiver() (*SReceiver, error) {
+	recv, err := ReceiverManager.FetchById(self.ReceiverID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "with id %s", self.ReceiverID)
+	}
+	return recv.(*SReceiver), nil
+}
+
 func (rnm *SReceiverNotificationManager) Create(ctx context.Context, userCred mcclient.TokenCredential, receiverID, notificationID string) (*SReceiverNotification, error) {
 	rn := &SReceiverNotification{
 		ReceiverID:     receiverID,
@@ -119,16 +129,22 @@ func (rnm *SReceiverNotificationManager) SetHandlerProcessTimeout(info *appsrv.S
 	return -time.Second
 }
 
-// func (rn *SReceiverNotification) Receiver() (*SReceiver, error) {
-// 	q := ReceiverManager.Query().Equals("id", rn.ReceiverID)
-// 	var receiver SReceiver
-// 	err := q.First(&receiver)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	receiver.SetModelManager(ReceiverManager, &receiver)
-// 	return &receiver, nil
-// }
+func (rn *SReceiverNotification) Receiver() (IReceiver, error) {
+	switch rn.ReceiverType {
+	case api.RECEIVER_TYPE_USER:
+		return rn.receiver()
+	case api.RECEIVER_TYPE_CONTACT:
+		return &SContact{contact: rn.Contact}, nil
+	case api.RECEIVER_TYPE_ROBOT:
+		return rn.robot()
+	default:
+		// compatible
+		if rn.ReceiverID != "" && rn.ReceiverID != ReceiverIdDefault {
+			return rn.receiver()
+		}
+		return &SContact{contact: rn.Contact}, nil
+	}
+}
 
 func (rn *SReceiverNotification) receiver() (*SReceiver, error) {
 	q := ReceiverManager.Query().Equals("id", rn.ReceiverID)
@@ -152,6 +168,7 @@ func (rn *SReceiverNotification) robot() (*SRobot, error) {
 	return &robot, nil
 }
 
+/*
 func (rn *SReceiverNotification) Receiver() (IReceiver, error) {
 	switch rn.ReceiverType {
 	case api.RECEIVER_TYPE_USER:
@@ -168,6 +185,7 @@ func (rn *SReceiverNotification) Receiver() (IReceiver, error) {
 		return &SContact{contact: rn.Contact}, nil
 	}
 }
+*/
 
 func (rn *SReceiverNotification) BeforeSend(ctx context.Context, sendTime time.Time) error {
 	if sendTime.IsZero() {
@@ -195,6 +213,8 @@ func (rn *SReceiverNotification) AfterSend(ctx context.Context, success bool, re
 }
 
 type IReceiver interface {
+	IsRobot() bool
+	IsReceiver() bool
 	IsEnabled() bool
 	GetDomainId() string
 	IsEnabledContactType(string) (bool, error)
@@ -233,4 +253,12 @@ type SContact struct {
 
 func (s *SContact) GetContact(_ string) (string, error) {
 	return s.contact, nil
+}
+
+func (s *SContact) IsRobot() bool {
+	return false
+}
+
+func (s *SContact) IsReceiver() bool {
+	return false
 }

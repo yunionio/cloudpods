@@ -22,13 +22,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	apis "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/options"
-	rpcapi "yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -70,10 +70,20 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	rns, err := notification.ReceiverNotificationsNotOK()
 	if err != nil {
-		self.taskFailed(ctx, notification, "fail to fetch ReceiverNotifications", true)
+		self.taskFailed(ctx, notification, errors.Wrapf(err, "ReceiverNotificationsNotOK").Error(), true)
+		return
+	}
+	event, err := models.EventManager.GetEvent(notification.EventId)
+	if err != nil {
+		self.taskFailed(ctx, notification, errors.Wrapf(err, "GetEvent").Error(), true)
 		return
 	}
 	notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_SENDING, "")
+
+	// build contactMap
+	receivers := make([]ReceiverSpec, 0)
+	receiversEn := make([]ReceiverSpec, 0, len(rns)/2)
+	receiversCn := make([]ReceiverSpec, 0, len(rns)/2)
 
 	failedRecord := make([]string, 0)
 	sendFail := func(rn *models.SReceiverNotification, reason string) {
@@ -81,10 +91,6 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		failedRecord = append(failedRecord, fmt.Sprintf("%s: %s", rn.ReceiverID, reason))
 	}
 
-	// build contactMap
-	receivers := make([]ReceiverSpec, 0, 0)
-	receiversEn := make([]ReceiverSpec, 0, len(rns)/2)
-	receiversCn := make([]ReceiverSpec, 0, len(rns)/2)
 	for i := range rns {
 		receiver, err := rns[i].Receiver()
 		if err != nil {
@@ -99,10 +105,18 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		// check contact enabled
 		enabled, err := receiver.IsEnabledContactType(notification.ContactType)
 		if err != nil {
-			sendFail(&rns[i], fmt.Sprintf("IsEnabledContactType error for receiver: %s", err.Error()))
+			logclient.AddSimpleActionLog(notification, logclient.ACT_SEND_NOTIFICATION, errors.Wrapf(err, "GetEnabledContactTypes"), self.GetUserCred(), false)
 			continue
 		}
-		if !enabled {
+		if notification.ContactType == apis.WEBHOOK {
+			notification.ContactType = apis.WEBHOOK_ROBOT
+		}
+		if receiver.IsRobot() {
+			robot := receiver.(*models.SRobot)
+			notification.ContactType = fmt.Sprintf("%s-robot", robot.Type)
+		}
+		driver := models.GetDriver(notification.ContactType)
+		if driver == nil || !enabled {
 			sendFail(&rns[i], fmt.Sprintf("disabled contactType %q", notification.ContactType))
 			continue
 		}
@@ -120,10 +134,32 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 
 		// contact, err := receiver.GetContact(notification.ContactType)
 		// if err != nil {
-		// 	reason := fmt.Sprintf("fail to fetch contact: %s", err.Error())
+		// 	logclient.AddSimpleActionLog(notification, logclient.ACT_SEND_NOTIFICATION, errors.Wrapf(err, "GetContact(%s)", notification.ContactType), self.GetUserCred(), false)
+		// 	continue
+		// }
+
+		// notifyRecv := receiver.GetNotifyReceiver()
+		// notifyRecv.Lang, _ = receiver.GetTemplateLang(ctx)
+		// notifyRecv.Contact = contact
+		// cv := ReceiverSpec{
+		// 	receiver:     notifyRecv,
+		// 	rNotificaion: &rns[i],
+		// }
+		// switch notifyRecv.Lang {
+		// case "":
+		// 	receivers = append(receivers, cv)
+		// case apis.TEMPLATE_LANG_EN:
+		// 	receiversEn = append(receiversEn, cv)
+		// case apis.TEMPLATE_LANG_CN:
+		// 	receiversCn = append(receiversCn, cv)
+		// }
+		// lang, err := receiver.GetTemplateLang(ctx)
+		// if err != nil {
+		// 	reason := fmt.Sprintf("fail to GetTemplateLang: %s", err.Error())
 		// 	sendFail(&rns[i], reason)
 		// 	continue
 		// }
+
 		lang, err := receiver.GetTemplateLang(ctx)
 		if err != nil {
 			reason := fmt.Sprintf("fail to GetTemplateLang: %s", err.Error())
@@ -148,7 +184,12 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			})
 		}
 	}
-	var contactLen int
+
+	nn, err := notification.Notification()
+	if err != nil {
+		self.taskFailed(ctx, notification, errors.Wrapf(err, "Notification").Error(), true)
+		return
+	}
 	for lang, receivers := range map[string][]ReceiverSpec{
 		"":                    receivers,
 		apis.TEMPLATE_LANG_CN: receiversCn,
@@ -158,17 +199,13 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			log.Warningf("no receiver to send, skip ...")
 			continue
 		}
-
 		// send
-		nn, err := notification.Notification()
+		p, err := notification.FillWithTemplate(ctx, lang, nn)
 		if err != nil {
-			self.taskFailed(ctx, notification, err.Error(), false)
+			logclient.AddSimpleActionLog(notification, logclient.ACT_SEND_NOTIFICATION, errors.Wrapf(err, "FillWithTemplate(%s)", lang), self.GetUserCred(), false)
+			continue
 		}
-		p, err := notification.TemplateStore().FillWithTemplate(ctx, lang, nn)
-		if err != nil {
-			self.taskFailed(ctx, notification, err.Error(), false)
-		}
-
+		p.Event = event.Event
 		switch lang {
 		case apis.TEMPLATE_LANG_CN:
 			p.Message += "\n来自 " + options.Options.ApiServer
@@ -181,11 +218,8 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		for _, rn := range receivers {
 			rn.rNotificaion.BeforeSend(ctx, now)
 		}
-
-		contactLen += len(receivers)
-
 		// send
-		fds, err := self.batchSend(ctx, notification.ContactType, receivers, p)
+		fds, err := self.batchSend(ctx, notification, receivers, p)
 		if err != nil {
 			for _, r := range receivers {
 				sendFail(r.rNotificaion, err.Error())
@@ -224,77 +258,44 @@ type FailedReceiverSpec struct {
 	Reason string
 }
 
-func (self *NotificationSendTask) batchSend(ctx context.Context, contactType string, receivers []ReceiverSpec, params rpcapi.SendParams) (fails []FailedReceiverSpec, err error) {
-	log.Debugf("contactType: %s, receivers: %s, params: %s", contactType, jsonutils.Marshal(receivers), jsonutils.Marshal(params))
-	if contactType != apis.ROBOT && contactType != apis.WEBHOOK {
-		return self._batchSend(ctx, contactType, receivers, func(res []*rpcapi.SReceiver) ([]*rpcapi.FailedRecord, error) {
-			return models.NotifyService.BatchSend(ctx, contactType, rpcapi.BatchSendParams{
-				Receivers:      res,
-				Title:          params.Title,
-				Message:        params.Message,
-				Priority:       params.Priority,
-				RemoteTemplate: params.RemoteTemplate,
-			})
-		})
-	}
-	robots := make(map[string][]ReceiverSpec)
+func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context, notification *models.SNotification, receivers []ReceiverSpec, params apis.SendParams) (fails []FailedReceiverSpec, err error) {
 	for i := range receivers {
-		robot := receivers[i].receiver.(*models.SRobot)
-		robots[robot.Type] = append(robots[robot.Type], receivers[i])
-	}
-	for rType, robots := range robots {
-		_fails, err := self._batchSend(ctx, contactType, robots, func(res []*rpcapi.SReceiver) ([]*rpcapi.FailedRecord, error) {
-			return models.NotifyService.SendRobotMessage(ctx, rType, res, params.Title, params.Message)
-		})
-		if err != nil {
-			for i := range robots {
-				fails = append(fails, FailedReceiverSpec{
-					ReceiverSpec: robots[i],
-					Reason:       err.Error(),
-				})
+		if receivers[i].receiver.IsRobot() {
+			robot := receivers[i].receiver.(*models.SRobot)
+			driver := models.GetDriver(fmt.Sprintf("%s-robot", robot.Type))
+			params.Receivers.Contact = robot.Address
+			err = driver.Send(params)
+			if err != nil {
+				fails = append(fails, FailedReceiverSpec{ReceiverSpec: receivers[i], Reason: err.Error()})
+			}
+		} else if receivers[i].receiver.IsReceiver() {
+			receiver := receivers[i].receiver.(*models.SReceiver)
+			params.Receivers.Contact, _ = receiver.GetContact(notification.ContactType)
+			driver := models.GetDriver(notification.ContactType)
+			if notification.ContactType == apis.EMAIL {
+				params.EmailMsg = &apis.SEmailMessage{
+					To:      []string{receiver.Email},
+					Subject: params.Title,
+					Body:    params.Message,
+				}
+			}
+			if notification.ContactType == apis.MOBILE {
+				params.Receivers.Contact = receiver.Mobile
+			}
+			err = driver.Send(params)
+			if err != nil {
+				fails = append(fails, FailedReceiverSpec{ReceiverSpec: receivers[i], Reason: err.Error()})
+			}
+		} else {
+			receiver := receivers[i].receiver.(*models.SContact)
+			params.Receivers.Contact, _ = receiver.GetContact(notification.ContactType)
+			driver := models.GetDriver(notification.ContactType)
+			err = driver.Send(params)
+			if err != nil {
+				fails = append(fails, FailedReceiverSpec{ReceiverSpec: receivers[i], Reason: err.Error()})
 			}
 		}
-		fails = append(fails, _fails...)
 	}
-	return fails, nil
-}
 
-func (self *NotificationSendTask) _batchSend(ctx context.Context, contactType string, receivers []ReceiverSpec, send func([]*rpcapi.SReceiver) ([]*rpcapi.FailedRecord, error)) (fails []FailedReceiverSpec, err error) {
-	rpcReceivers := make([]*rpcapi.SReceiver, len(receivers))
-	rpc2Receiver := make(map[DomainContact]ReceiverSpec, len(receivers))
-	for i := range receivers {
-		contact, err := receivers[i].receiver.GetContact(contactType)
-		if err != nil {
-			fails = append(fails, FailedReceiverSpec{
-				ReceiverSpec: receivers[i],
-				Reason:       fmt.Sprintf("fail to fetch contact: %s", err.Error()),
-			})
-			continue
-		}
-		rpcReceivers[i] = &rpcapi.SReceiver{
-			DomainId: receivers[i].receiver.GetDomainId(),
-			Contact:  contact,
-		}
-		rpc2Receiver[DomainContact{
-			DomainId: receivers[i].receiver.GetDomainId(),
-			Contact:  contact,
-		}] = receivers[i]
-	}
-	fds, err := send(rpcReceivers)
-	if err != nil {
-		return nil, err
-	}
-	// check result
-	for _, fd := range fds {
-		dc := DomainContact{
-			DomainId: fd.Receiver.DomainId,
-			Contact:  fd.Receiver.Contact,
-		}
-		receiver := rpc2Receiver[dc]
-		fails = append(fails, FailedReceiverSpec{
-			ReceiverSpec: receiver,
-			Reason:       fd.Reason,
-		})
-	}
-	return
+	return fails, nil
 }

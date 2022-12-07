@@ -75,6 +75,7 @@ type SSubscriberManager struct {
 	db.SEnabledResourceBaseManager
 }
 
+// 消息订阅接收人
 type SSubscriber struct {
 	db.SStandaloneAnonResourceBase
 	db.SEnabledResourceBase
@@ -106,6 +107,22 @@ func (sm *SSubscriberManager) validateReceivers(ctx context.Context, receivers [
 		return nil, httperrors.NewInputParameterError("receivers %q not found", strings.Join(reSet.UnsortedList(), ", "))
 	}
 	return reIds, nil
+}
+
+func (self *SSubscriber) GetEnabledReceivers() ([]SReceiver, error) {
+	q := ReceiverManager.Query().IsTrue("enabled")
+	sq := SubscriberReceiverManager.Query().SubQuery()
+	q = q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("receiver_id"))).Filter(sqlchemy.Equals(sq.Field("subscriber_id"), self.Id))
+	ret := []SReceiver{}
+	return ret, db.FetchModelObjects(ReceiverManager, q, &ret)
+}
+
+func (self *SSubscriber) GetRobot() (*SRobot, error) {
+	robot, err := RobotManager.FetchById(self.Identification)
+	if err != nil {
+		return nil, errors.Wrapf(err, "RobotManager.FetchById(%s)", self.Identification)
+	}
+	return robot.(*SRobot), nil
 }
 
 func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SubscriberCreateInput) (api.SubscriberCreateInput, error) {

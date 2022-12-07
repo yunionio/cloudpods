@@ -16,7 +16,7 @@ package models
 
 import (
 	"context"
-	"strings"
+	"fmt"
 
 	"golang.org/x/text/language"
 
@@ -24,18 +24,15 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	idenapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/apis/notify"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	rpcapi "yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -67,135 +64,7 @@ type SRobot struct {
 	Lang    string `width:"16" nullable:"false" create:"required" update:"user" get:"user" list:"user"`
 }
 
-func (rm *SRobotManager) fetchSystemProjectId(ctx context.Context) (string, error) {
-	tenant, err := db.TenantCacheManager.FetchTenantByNameInDomain(ctx, "system", idenapi.DEFAULT_DOMAIN_ID)
-	if err != nil {
-		return "", err
-	}
-	return tenant.Id, nil
-}
-
-func (rm *SRobotManager) InitializeData() error {
-	log.Infof("start to init data for notify robot")
-	// init empty projectId robot
-	ctx := context.WithValue(context.Background(), "from", "init")
-	systemId, err := rm.fetchSystemProjectId(ctx)
-	if err != nil {
-		return errors.Wrap(err, "unable to fetch system project id")
-	}
-	rq := RobotManager.Query()
-	rq = rq.Filter(sqlchemy.OR(sqlchemy.IsEmpty(rq.Field("tenant_id")), sqlchemy.Equals(rq.Field("tenant_id"), "system")))
-	npRobots := make([]SRobot, 0)
-	err = db.FetchModelObjects(RobotManager, rq, &npRobots)
-	if err != nil {
-		return errors.Wrap(err, "unable to fetch robots without project")
-	}
-	for i := range npRobots {
-		robot := &npRobots[i]
-		_, err := db.Update(robot, func() error {
-			robot.ProjectId = systemId
-			robot.ProjectSrc = "local"
-			return nil
-		})
-		if err != nil {
-			return errors.Wrapf(err, "unable to update robot %s", robot.Id)
-		}
-	}
-	// convert robot config
-	q := ConfigManager.Query().In("type", append(RobotContactTypes, api.WEBHOOK))
-	var configs []SConfig
-	err = db.FetchModelObjects(ConfigManager, q, &configs)
-	if err != nil {
-		return err
-	}
-	if len(configs) == 0 {
-		return nil
-	}
-	robots := make([]SRobot, 0, len(configs))
-	for i := range configs {
-		webhook, _ := configs[i].Content.GetString("webhook")
-		robot := SRobot{
-			Address: webhook,
-			Lang:    "zh_CN",
-		}
-		robot.IsPublic = true
-		robot.PublicScope = string(rbacscope.ScopeSystem)
-		robot.DomainId = idenapi.DEFAULT_DOMAIN_ID
-		robot.ProjectId = systemId
-		robot.ProjectSrc = "local"
-		robot.Status = api.RECEIVER_STATUS_READY
-		switch configs[i].Type {
-		case api.FEISHU_ROBOT:
-			robot.Type = api.ROBOT_TYPE_FEISHU
-			robot.Name = "Feishu Robot"
-		case api.DINGTALK_ROBOT:
-			robot.Type = api.ROBOT_TYPE_DINGTALK
-			robot.Name = "Dingtalk Robot"
-		case api.WORKWX_ROBOT:
-			robot.Type = api.ROBOT_TYPE_WORKWX
-			robot.Name = "Workwx Robot"
-		case api.WEBHOOK:
-			robot.Type = api.ROBOT_TYPE_WEBHOOK
-			robot.Name = "Webhook"
-			addresses := strings.Split(robot.Address, ",")
-			for i := 1; i < len(addresses); i++ {
-				robotn := robot
-				robotn.Address = strings.TrimSpace(addresses[i])
-				robots = append(robots, robotn)
-			}
-			robot.Address = addresses[0]
-		default:
-			continue
-		}
-		robots = append(robots, robot)
-	}
-	var webhookRobotId string
-	// insert new robot
-	for i := range robots {
-		err := rm.TableSpec().Insert(ctx, &robots[i])
-		if err != nil {
-			return err
-		}
-		if robots[i].Type == api.ROBOT_TYPE_WEBHOOK {
-			webhookRobotId = robots[i].Id
-		}
-	}
-	// delete old configs
-	for i := range configs {
-		config := &configs[i]
-		_, err := db.Update(config, func() error {
-			return config.MarkDelete()
-		})
-		if err != nil {
-			return err
-		}
-	}
-	// add webhook Robot to subscriber
-	if len(webhookRobotId) > 0 {
-		topics := make([]STopic, 0, 3)
-		q = TopicManager.Query().In("name", []string{DefaultResourceCreateDelete, DefaultResourceChangeConfig, DefaultResourceUpdate})
-		err := db.FetchModelObjects(TopicManager, q, &topics)
-		if err != nil {
-			return errors.Wrap(err, "unable to fetch topics")
-		}
-		// create subscribers
-		for i := range topics {
-			subscriber := SSubscriber{
-				TopicID:        topics[i].Id,
-				Type:           api.SUBSCRIBER_TYPE_ROBOT,
-				Identification: webhookRobotId,
-				ResourceScope:  "system",
-				Scope:          "system",
-			}
-			subscriber.Enabled = tristate.True
-			err := SubscriberManager.TableSpec().Insert(ctx, &subscriber)
-			if err != nil {
-				return errors.Wrapf(err, "unable to create subscriber %s", jsonutils.Marshal(subscriber))
-			}
-		}
-	}
-	return nil
-}
+var RobotList = []string{api.FEISHU_ROBOT, api.DINGTALK_ROBOT, api.WORKWX_ROBOT, api.WEBHOOK, api.WEBHOOK_ROBOT}
 
 func (rm *SRobotManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.RobotCreateInput) (api.RobotCreateInput, error) {
 	var err error
@@ -204,39 +73,33 @@ func (rm *SRobotManager) ValidateCreateData(ctx context.Context, userCred mcclie
 		return input, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ValidateCreateData")
 	}
 	// check type
-	if !utils.IsInStringArray(input.Type, []string{api.ROBOT_TYPE_FEISHU, api.ROBOT_TYPE_WORKWX, api.ROBOT_TYPE_DINGTALK, api.ROBOT_TYPE_WEBHOOK}) {
-		return input, httperrors.NewInputParameterError("unkown type %q", input.Type)
+	if !utils.IsInStringArray(fmt.Sprintf("%s-robot", input.Type), GetRobotTypes()) {
+		return input, httperrors.NewInputParameterError("unkown type %s support: %s", input.Type, GetRobotTypes())
 	}
 	// check lang
 	if input.Lang == "" {
 		input.Lang = "zh_CN"
-	} else {
-		_, err = language.Parse(input.Lang)
-		if err != nil {
-			return input, httperrors.NewInputParameterError("invalid lang %q: %s", input.Lang, err.Error())
-		}
 	}
 	// check Address
-	records, err := NotifyService.SendRobotMessage(ctx, input.Type, []*rpcapi.SReceiver{
-		{
-			Contact:  input.Address,
-			DomainId: input.ProjectDomainId,
-		},
-	}, "Validate", "This is a verification message, please ignore.")
+	_, err = language.Parse(input.Lang)
 	if err != nil {
 		return input, errors.Wrap(err, "unable to validate address")
 	}
-	if len(records) > 0 {
-		return input, httperrors.NewInputParameterError("invalid address: %s", records[0].Reason)
+	input.SetEnabled()
+	input.Status = api.ROBOT_STATUS_READY
+	driver := GetDriver(fmt.Sprintf("%s-robot", input.Type))
+	err = driver.Send(api.SendParams{
+		Receivers: api.SNotifyReceiver{
+			Contact:  input.Address,
+			DomainId: input.ProjectDomainId,
+		},
+		Title:   "Validate",
+		Message: "This is a verification message, please ignore.",
+	})
+	if err != nil {
+		return input, err
 	}
 	return input, nil
-}
-
-func (r *SRobot) Receiver() *rpcapi.SReceiver {
-	return &rpcapi.SReceiver{
-		Contact:  r.Address,
-		DomainId: r.DomainId,
-	}
 }
 
 func (rm *SRobotManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.RobotDetails {
@@ -281,17 +144,10 @@ func (r *SRobot) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 	}
 	if len(input.Address) > 0 {
 		// check Address
-		records, err := NotifyService.SendRobotMessage(ctx, r.Type, []*rpcapi.SReceiver{
-			{
-				Contact:  input.Address,
-				DomainId: r.DomainId,
-			},
-		}, "Validate", "This is a verification message, please ignore.")
+		dirver := GetDriver(r.Type)
+		err := dirver.Send(api.SendParams{})
 		if err != nil {
 			return input, errors.Wrap(err, "unable to validate address")
-		}
-		if len(records) > 0 {
-			return input, httperrors.NewInputParameterError("invalid address: %s", records[0].Reason)
 		}
 	}
 	return input, nil
@@ -330,7 +186,15 @@ func (r *SRobot) IsEnabledContactType(ctype string) (bool, error) {
 }
 
 func (r *SRobot) IsVerifiedContactType(ctype string) (bool, error) {
-	return ctype == api.ROBOT || ctype == api.WEBHOOK, nil
+	return utils.IsInStringArray(ctype, RobotList), nil
+}
+
+func (r *SRobot) IsRobot() bool {
+	return true
+}
+
+func (r *SRobot) IsReceiver() bool {
+	return false
 }
 
 func (r *SRobot) GetContact(ctype string) (string, error) {
@@ -383,4 +247,14 @@ func (r *SRobot) PostDelete(ctx context.Context, userCred mcclient.TokenCredenti
 			log.Errorf("unable to delete subscriber %q because of deleting of robot %q", subscribers[i].GetId(), r.GetId())
 		}
 	}
+}
+
+func GetRobotTypeById(id string) (string, error) {
+	imode, err := RobotManager.FetchById(id)
+	if err != nil {
+		return "", errors.Wrap(err, "FetchById")
+	}
+	log.Infoln("this is robot:", jsonutils.Marshal(imode))
+	robot := imode.(*SRobot)
+	return robot.Type, nil
 }

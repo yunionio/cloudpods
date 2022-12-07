@@ -313,6 +313,8 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 		Priority:        string(npk.NotifyPriorityNormal),
 		ProjectId:       projectId,
 		ProjectDomainId: projectDomainId,
+		ResourceType:    ep.ResourceType,
+		Action:          ep.Action,
 	}
 	t := eventTask{
 		params: params,
@@ -336,6 +338,8 @@ func EventNotifyServiceAbnormal(ctx context.Context, userCred mcclient.TokenCred
 		Event:           event.String(),
 		AdvanceDays:     0,
 		Priority:        string(npk.NotifyPriorityNormal),
+		ResourceType:    api.TOPIC_RESOURCE_SERVICE,
+		Action:          api.ActionServiceAbnormal,
 	}
 	t := eventTask{
 		params: params,
