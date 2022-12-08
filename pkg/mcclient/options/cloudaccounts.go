@@ -341,6 +341,18 @@ func (opts *SZStackCloudAccountCreateOptions) Params() (jsonutils.JSONObject, er
 	return params, nil
 }
 
+type SHcsOpCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SUserPasswordCredential
+	AuthURL string `help:"HcsOp auth_url" positional:"true" json:"auth_url"`
+}
+
+func (opts *SHcsOpCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("HCSOP"), "provider")
+	return params, nil
+}
+
 type SS3CloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredential

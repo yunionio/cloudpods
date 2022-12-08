@@ -39,6 +39,7 @@ func init() {
 	cmd.CreateWithKeyword("create-huawei", &options.SHuaweiCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-hcso", &options.SHCSOAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-hcs", &options.SHCSAccountCreateOptions{})
+	cmd.CreateWithKeyword("create-hcsop", &options.SHcsOpCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-ucloud", &options.SUcloudCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-zstack", &options.SZStackCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-s3", &options.SS3CloudAccountCreateOptions{})
