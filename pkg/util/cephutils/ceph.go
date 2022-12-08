@@ -92,13 +92,13 @@ type SCapacity struct {
 }
 
 func (self *CephClient) Output(name string, opts []string) (jsonutils.JSONObject, error) {
-	return self.output(name, opts)
+	return self.output(name, opts, false)
 }
 
-func (self *CephClient) output(name string, opts []string) (jsonutils.JSONObject, error) {
+func (self *CephClient) output(name string, opts []string, timeout bool) (jsonutils.JSONObject, error) {
 	cmds := []string{name, "--format", "json"}
 	cmds = append(cmds, opts...)
-	if self.timeout > 0 {
+	if timeout {
 		cmds = append([]string{"timeout", "--signal=KILL", fmt.Sprintf("%ds", self.timeout)}, cmds...)
 	}
 	proc := procutils.NewRemoteCommandAsFarAsPossible(cmds[0], cmds[1:]...)
@@ -133,9 +133,9 @@ func (self *CephClient) output(name string, opts []string) (jsonutils.JSONObject
 	return jsonutils.Parse(stdoutPut)
 }
 
-func (self *CephClient) run(name string, opts []string) error {
+func (self *CephClient) run(name string, opts []string, timeout bool) error {
 	cmds := append([]string{name}, opts...)
-	if self.timeout > 0 {
+	if timeout {
 		cmds = append([]string{"timeout", "--signal=KILL", fmt.Sprintf("%ds", self.timeout)}, cmds...)
 	}
 	output, err := procutils.NewRemoteCommandAsFarAsPossible(cmds[0], cmds[1:]...).Output()
@@ -157,14 +157,14 @@ func (self *CephClient) CreateImage(name string, sizeMb int64) (*SImage, error) 
 	opts := self.options()
 	image := &SImage{name: name, client: self}
 	opts = append(opts, []string{"create", image.GetName(), "--size", fmt.Sprintf("%dM", sizeMb)}...)
-	return image, self.run("rbd", opts)
+	return image, self.run("rbd", opts, false)
 }
 
 func (self *CephClient) GetCapacity() (*SCapacity, error) {
 	result := &SCapacity{}
 	opts := self.options()
 	opts = append(opts, "df")
-	resp, err := self.output("ceph", opts)
+	resp, err := self.output("ceph", opts, true)
 	if err != nil {
 		return nil, errors.Wrapf(err, "output")
 	}
@@ -283,7 +283,7 @@ func (self *CephClient) ListImages() ([]string, error) {
 	result := []string{}
 	opts := self.options()
 	opts = append(opts, []string{"ls", self.pool}...)
-	resp, err := self.output("rbd", opts)
+	resp, err := self.output("rbd", opts, true)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +330,7 @@ func (self *SImage) options() []string {
 func (self *SImage) GetInfo() (*SImageInfo, error) {
 	opts := self.options()
 	opts = append(opts, []string{"info", self.GetName()}...)
-	resp, err := self.client.output("rbd", opts)
+	resp, err := self.client.output("rbd", opts, true)
 	if err != nil {
 		return nil, err
 	}
@@ -341,7 +341,7 @@ func (self *SImage) GetInfo() (*SImageInfo, error) {
 func (self *SImage) ListSnapshots() ([]SSnapshot, error) {
 	opts := self.options()
 	opts = append(opts, []string{"snap", "ls", self.GetName()}...)
-	resp, err := self.client.output("rbd", opts)
+	resp, err := self.client.output("rbd", opts, true)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +393,7 @@ type SSnapshot struct {
 func (self *SSnapshot) Rollback() error {
 	opts := self.options()
 	opts = append(opts, []string{"snap", "rollback", self.GetName()}...)
-	return self.image.client.run("rbd", opts)
+	return self.image.client.run("rbd", opts, false)
 }
 
 func (self *SSnapshot) options() []string {
@@ -407,7 +407,7 @@ func (self *SSnapshot) GetName() string {
 func (self *SSnapshot) Unprotect() error {
 	opts := self.options()
 	opts = append(opts, []string{"snap", "unprotect", self.GetName()}...)
-	err := self.image.client.run("rbd", opts)
+	err := self.image.client.run("rbd", opts, true)
 	if err != nil {
 		if strings.Contains(err.Error(), "snap is already unprotected") {
 			return nil
@@ -424,7 +424,7 @@ func (self *SSnapshot) Protect() error {
 	}
 	opts := self.options()
 	opts = append(opts, []string{"snap", "protect", self.GetName()}...)
-	err := self.image.client.run("rbd", opts)
+	err := self.image.client.run("rbd", opts, true)
 	if err == nil {
 		self.Protected = true
 	}
@@ -434,7 +434,7 @@ func (self *SSnapshot) Protect() error {
 func (self *SSnapshot) Remove() error {
 	opts := self.options()
 	opts = append(opts, []string{"snap", "rm", self.GetName()}...)
-	return self.image.client.run("rbd", opts)
+	return self.image.client.run("rbd", opts, false)
 }
 
 func (self *SSnapshot) Delete() error {
@@ -475,7 +475,7 @@ type SChildren struct {
 func (self *SSnapshot) ListChildren() ([]SChildren, error) {
 	opts := self.options()
 	opts = append(opts, []string{"children", self.GetName()}...)
-	resp, err := self.image.client.output("rbd", opts)
+	resp, err := self.image.client.output("rbd", opts, true)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListChildren")
 	}
@@ -486,19 +486,19 @@ func (self *SSnapshot) ListChildren() ([]SChildren, error) {
 func (self *SImage) Resize(sizeMb int64) error {
 	opts := self.options()
 	opts = append(opts, []string{"resize", self.GetName(), "--size", fmt.Sprintf("%dM", sizeMb)}...)
-	return self.client.run("rbd", opts)
+	return self.client.run("rbd", opts, false)
 }
 
 func (self *SImage) Remove() error {
 	opts := self.options()
 	opts = append(opts, []string{"rm", self.GetName()}...)
-	return self.client.run("rbd", opts)
+	return self.client.run("rbd", opts, false)
 }
 
 func (self *SImage) Flatten() error {
 	opts := self.options()
 	opts = append(opts, []string{"flatten", self.GetName()}...)
-	return self.client.run("rbd", opts)
+	return self.client.run("rbd", opts, false)
 }
 
 func (self *SImage) Delete() error {
@@ -518,14 +518,14 @@ func (self *SImage) Delete() error {
 func (self *SImage) Rename(name string) error {
 	opts := self.options()
 	opts = append(opts, []string{"rename", self.GetName(), fmt.Sprintf("%s/%s", self.client.pool, name)}...)
-	return self.client.run("rbd", opts)
+	return self.client.run("rbd", opts, false)
 }
 
 func (self *SImage) CreateSnapshot(name string) (*SSnapshot, error) {
 	snap := &SSnapshot{Name: name, image: self}
 	opts := self.options()
 	opts = append(opts, []string{"snap", "create", snap.GetName()}...)
-	if err := self.client.run("rbd", opts); err != nil {
+	if err := self.client.run("rbd", opts, false); err != nil {
 		return nil, errors.Wrap(err, "snap create")
 	}
 	if err := snap.Protect(); err != nil {
@@ -584,5 +584,5 @@ func (self *SSnapshot) Clone(pool, name string) error {
 	}
 	opts := self.options()
 	opts = append(opts, []string{"clone", self.GetName(), fmt.Sprintf("%s/%s", pool, name)}...)
-	return self.image.client.run("rbd", opts)
+	return self.image.client.run("rbd", opts, false)
 }
