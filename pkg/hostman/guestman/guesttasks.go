@@ -1335,7 +1335,6 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 			return
 		}
 		if err := s.onGuestPrelaunch(); err != nil {
-			s.ForceStop()
 			s.taskFailed(err.Error())
 			return
 		}
@@ -1379,6 +1378,20 @@ func (s *SGuestResumeTask) onGetBlockInfo(blocks []monitor.QemuBlock) {
 }
 
 func (s *SGuestResumeTask) resumeGuest() {
+	if s.resumed {
+		s.taskFailed("resume guest twice")
+		return
+	}
+
+	if s.Desc.IsVolatileHost {
+		if err := s.prepareNicsForVolatileGuestResume(); err != nil {
+			s.taskFailed(err.Error())
+			return
+		}
+		s.Desc.IsVolatileHost = false
+		s.SaveLiveDesc(s.Desc)
+	}
+
 	s.startTime = time.Now()
 	s.Monitor.SimpleCommand("cont", s.onResumeSucc)
 }
