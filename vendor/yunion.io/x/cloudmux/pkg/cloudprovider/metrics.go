@@ -52,6 +52,7 @@ const (
 	METRIC_RESOURCE_TYPE_BUCKET         TResourceType = "bucket"
 	METRIC_RESOURCE_TYPE_K8S            TResourceType = "k8s"
 	METRIC_RESOURCE_TYPE_STORAGE        TResourceType = "storage"
+	METRIC_RESOURCE_TYPE_WIRE           TResourceType = "wire"
 	METRIC_RESOURCE_TYPE_CLOUD_ACCOUNT  TResourceType = "cloudaccount_balance"
 	METRIC_RESOURCE_TYPE_MODELARTS_POOL TResourceType = "modelarts"
 )
@@ -266,6 +267,10 @@ const (
 	MODELARTS_POOL_METRIC_TYPE_DISK_AVAILABLE_CAPACITY TMetricType = "modelarts_pool_disk.available_capacity"
 	MODELARTS_POOL_METRIC_TYPE_DISK_CAPACITY           TMetricType = "modelarts_pool_disk.capacity"
 	MODELARTS_POOL_METRIC_TYPE_DISK_USAGE              TMetricType = "modelarts_pool_disk.usage_percent"
+
+	WIRE_METRIC_TYPE_CPU_USAGE TMetricType = "wire_cpu.usage_percent"
+	WIRE_METRIC_TYPE_MEM_USAGE TMetricType = "wire_mem.usage_percent"
+	WIRE_METRIC_TYPE_NET_RT    TMetricType = "wire_net.rt" // 响应时间ms
 )
 
 var (
