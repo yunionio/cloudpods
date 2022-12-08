@@ -1092,6 +1092,20 @@ func (s *SGuestResumeTask) onGetBlockInfo(blocks []monitor.QemuBlock) {
 }
 
 func (s *SGuestResumeTask) resumeGuest() {
+	if s.resumed {
+		s.taskFailed("resume guest twice")
+		return
+	}
+
+	if jsonutils.QueryBoolean(s.Desc, "is_volatile_host", false) {
+		if err := s.prepareNicsForVolatileGuestResume(); err != nil {
+			s.taskFailed(err.Error())
+			return
+		}
+		s.Desc.Set("is_volatile_host", jsonutils.JSONFalse)
+		s.SaveDesc(s.Desc)
+	}
+
 	s.startTime = time.Now()
 	s.Monitor.SimpleCommand("cont", s.onResumeSucc)
 }

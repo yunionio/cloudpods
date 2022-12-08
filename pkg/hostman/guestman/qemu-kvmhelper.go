@@ -201,11 +201,11 @@ func (s *SKVMGuestInstance) generateNicScripts(nic jsonutils.JSONObject) error {
 	if dev == nil {
 		return fmt.Errorf("Can't find bridge %s", bridge)
 	}
-	isSlave := s.IsSlave()
-	if err := dev.GenerateIfupScripts(s.getNicUpScriptPath(nic), nic, isSlave); err != nil {
+	isVolatileHost := s.IsSlave() || s.IsMigratingDestGuest()
+	if err := dev.GenerateIfupScripts(s.getNicUpScriptPath(nic), nic, isVolatileHost); err != nil {
 		return errors.Wrap(err, "GenerateIfupScripts")
 	}
-	if err := dev.GenerateIfdownScripts(s.getNicDownScriptPath(nic), nic, isSlave); err != nil {
+	if err := dev.GenerateIfdownScripts(s.getNicDownScriptPath(nic), nic, isVolatileHost); err != nil {
 		return errors.Wrap(err, "GenerateIfdownScripts")
 	}
 	return nil
@@ -552,10 +552,9 @@ function nic_mtu() {
 		input.EnableSerialDevice = true
 	}
 
-	liveMigratePort, _ := data.Int("live_migrate_port")
+	liveMigratePort, _ := s.Desc.Int("live_migrate_dest_port")
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		input.NeedMigrate = true
-		s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(liveMigratePort)))
 		input.LiveMigratePort = uint(liveMigratePort)
 		if jsonutils.QueryBoolean(data, "live_migrate_use_tls", false) {
 			input.LiveMigrateUseTLS = true

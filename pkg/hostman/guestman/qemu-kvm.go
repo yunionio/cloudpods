@@ -392,11 +392,13 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		}
 
 		// get live migrate listen port
-		if jsonutils.QueryBoolean(data, "need_migrate", false) ||
-			jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
-			migratePort := s.manager.GetLiveMigrateFreePort()
-			defer s.manager.unsetPort(migratePort)
-			data.Set("live_migrate_port", jsonutils.NewInt(int64(migratePort)))
+		if !s.Desc.Contains("live_migrate_dest_port") {
+			if jsonutils.QueryBoolean(data, "need_migrate", false) ||
+				jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
+				migratePort := s.manager.GetLiveMigrateFreePort()
+				defer s.manager.unsetPort(migratePort)
+				s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(migratePort)))
+			}
 		}
 
 		err = s.saveScripts(data)
@@ -993,6 +995,10 @@ func (s *SKVMGuestInstance) IsMaster() bool {
 
 func (s *SKVMGuestInstance) IsSlave() bool {
 	return jsonutils.QueryBoolean(s.Desc, "is_slave", false)
+}
+
+func (s *SKVMGuestInstance) IsMigratingDestGuest() bool {
+	return s.Desc.Contains("live_migrate_dest_port")
 }
 
 func (s *SKVMGuestInstance) DiskCount() int {
@@ -1991,6 +1997,10 @@ func (s *SKVMGuestInstance) doBlockIoThrottle() {
 }
 
 func (s *SKVMGuestInstance) onGuestPrelaunch() error {
+	if s.Desc.Contains("live_migrate_dest_port") {
+		s.Desc.Remove("live_migrate_dest_port")
+		s.SaveDesc(s.Desc)
+	}
 	if options.HostOptions.SetVncPassword {
 		s.SetVncPassword()
 	}
@@ -2277,6 +2287,21 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrage bool) (*jsonutils.JS
 		}
 	}
 	return disksBackFile, nil
+}
+
+func (s *SKVMGuestInstance) prepareNicsForVolatileGuestResume() error {
+	nics, _ := s.Desc.GetArray("nics")
+	for _, nic := range nics {
+		bridge, _ := nic.GetString("bridge")
+		dev := s.manager.GetHost().GetBridgeDev(bridge)
+		if dev == nil {
+			return fmt.Errorf("Can't find bridge %s", bridge)
+		}
+		if err := dev.OnVolatileGuestResume(nic); err != nil {
+			return errors.Wrap(err, "dev.OnVolatileGuestResume")
+		}
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) onlineResizeDisk(ctx context.Context, diskId string, sizeMB int64) {

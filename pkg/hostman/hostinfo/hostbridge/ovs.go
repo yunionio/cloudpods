@@ -118,15 +118,29 @@ func (d *SOVSBridgeDriver) PersistentConfig() error {
 	return nil
 }
 
-func (o *SOVSBridgeDriver) GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
-	return o.generateIfdownScripts(o, scriptPath, nic, isSlave)
+func (o *SOVSBridgeDriver) GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject, isVolatileHost bool) error {
+	return o.generateIfdownScripts(o, scriptPath, nic, isVolatileHost)
 }
 
-func (o *SOVSBridgeDriver) GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
-	return o.generateIfupScripts(o, scriptPath, nic, isSlave)
+func (o *SOVSBridgeDriver) GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject, isVolatileHost bool) error {
+	return o.generateIfupScripts(o, scriptPath, nic, isVolatileHost)
 }
 
-func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isSlave bool) (string, error) {
+func (o *SOVSBridgeDriver) OnVolatileGuestResume(nic jsonutils.JSONObject) error {
+	ifname, _ := nic.GetString("ifname")
+	netId, _ := nic.GetString("net_id")
+	cmd := []string{"ovs-vsctl", "set", "Interface", ifname,
+		fmt.Sprintf("external_ids:iface-id=iface-%s-%s", netId, ifname),
+	}
+	output, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
+	if err != nil {
+		log.Errorf("failed exec %v: %s %s", cmd, err, output)
+		return errors.Wrapf(err, "set interface external_ids failed: %s", output)
+	}
+	return nil
+}
+
+func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isVolatileHost bool) (string, error) {
 	var (
 		bridge         = o.bridge.String()
 		ifname, _      = nic.GetString("ifname")
@@ -173,10 +187,8 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isSlave bool) 
 	s += "    TAG=\"tag=$VLAN_ID\"\n"
 	s += "fi\n"
 	s += "ovs-vsctl add-port $SWITCH $IF $TAG\n"
-	if vpcProvider == compute.VPC_PROVIDER_OVN {
-		if !isSlave {
-			s += "ovs-vsctl set Interface $IF external_ids:iface-id=iface-$NET_ID-$IF\n"
-		}
+	if vpcProvider == compute.VPC_PROVIDER_OVN && !isVolatileHost {
+		s += "ovs-vsctl set Interface $IF external_ids:iface-id=iface-$NET_ID-$IF\n"
 	}
 	s += "PORT=$(ovs-ofctl show $SWITCH | grep -w $IF)\n"
 	s += "PORT=$(echo $PORT | awk 'BEGIN{FS=\"(\"}{print $1}')\n"
@@ -196,7 +208,7 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isSlave bool) 
 	return s, nil
 }
 
-func (o *SOVSBridgeDriver) getDownScripts(nic jsonutils.JSONObject, isSlave bool) (string, error) {
+func (o *SOVSBridgeDriver) getDownScripts(nic jsonutils.JSONObject, isVolatileHost bool) (string, error) {
 	var (
 		bridge    = o.bridge.String()
 		ifname, _ = nic.GetString("ifname")
