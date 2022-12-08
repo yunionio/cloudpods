@@ -47,6 +47,7 @@ func init() {
 		"apsara",
 		"cloudpods",
 		"hcso",
+		"hcsop",
 		"hcs",
 		"nutanix",
 		"s3",

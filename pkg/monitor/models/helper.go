@@ -36,7 +36,7 @@ func FetchAllRemoteDomainProjects(ctx context.Context) ([]*db.STenant, []*db.STe
 	for {
 		listParam := jsonutils.NewDict()
 		listParam.Add(jsonutils.NewString("system"), "scope")
-		listParam.Add(jsonutils.NewInt(0), "limit")
+		listParam.Add(jsonutils.NewInt(20), "limit")
 		listParam.Add(jsonutils.NewInt(int64(count)), "offset")
 		listParam.Add(jsonutils.JSONTrue, "details")
 		result, err := identity.Projects.List(s, listParam)
