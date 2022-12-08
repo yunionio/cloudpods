@@ -15,6 +15,8 @@
 package providerdriver
 
 import (
+	"time"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
@@ -32,4 +34,8 @@ func (collect *CloudpodsCollect) IsSupportMetrics() bool {
 
 func init() {
 	Register(&CloudpodsCollect{})
+}
+
+func (self *CloudpodsCollect) GetDelayDuration() time.Duration {
+	return time.Minute * 9
 }
