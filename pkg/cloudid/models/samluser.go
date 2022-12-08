@@ -128,10 +128,14 @@ func (manager *SSamluserManager) ValidateCreateData(ctx context.Context, userCre
 			return input, errors.Wrapf(err, "FetchUserById")
 		}
 		input.OwnerId = user.Id
-		input.Name = user.Name
+		if len(input.Name) == 0 {
+			input.Name = user.Name
+		}
 	} else {
 		input.OwnerId = userCred.GetUserId()
-		input.Name = userCred.GetUserName()
+		if len(input.Name) == 0 {
+			input.Name = userCred.GetUserName()
+		}
 	}
 	_group, err := validators.ValidateModel(userCred, CloudgroupManager, &input.CloudgroupId)
 	if err != nil {
