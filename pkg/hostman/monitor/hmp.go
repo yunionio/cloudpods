@@ -293,7 +293,7 @@ func (m *HmpMonitor) DeviceAdd(dev string, params map[string]string, callback St
 	m.Query(fmt.Sprintf("device_add %s,%s", dev, strings.Join(paramsKvs, ",")), callback)
 }
 
-func (m *HmpMonitor) MigrateSetDowntime(dtSec float32, callback StringCallback) {
+func (m *HmpMonitor) MigrateSetDowntime(dtSec float64, callback StringCallback) {
 	m.Query(fmt.Sprintf("migrate_set_downtime %f", dtSec), callback)
 }
 
