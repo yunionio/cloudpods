@@ -611,7 +611,7 @@ func (m *QmpMonitor) DeviceAdd(dev string, params map[string]string, callback St
 	// m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) MigrateSetDowntime(dtSec float32, callback StringCallback) {
+func (m *QmpMonitor) MigrateSetDowntime(dtSec float64, callback StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("migrate_set_downtime %f", dtSec), callback)
 }
 
