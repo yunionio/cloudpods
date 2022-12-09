@@ -608,7 +608,7 @@ func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([
 		params = jsonutils.NewDict()
 	}
 	params.Add(jsonutils.NewString("system"), "scope")
-	params.Add(jsonutils.NewInt(0), "limit")
+	params.Add(jsonutils.NewInt(20), "limit")
 	params.Add(jsonutils.NewBool(true), "details")
 	var count int
 	session := auth.GetAdminSession(context.Background(), "")

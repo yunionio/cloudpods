@@ -94,7 +94,7 @@ func (manager *SCloudaccountManager) GetICloudaccounts() ([]SCloudaccount, error
 	offset := int64(0)
 	params := jsonutils.NewDict()
 	params.Set("scope", jsonutils.NewString("system"))
-	params.Set("limit", jsonutils.NewInt(1024))
+	params.Set("limit", jsonutils.NewInt(20))
 	for {
 		params.Set("offset", jsonutils.NewInt(offset))
 		result, err := modules.Cloudaccounts.List(s, params)
@@ -102,10 +102,10 @@ func (manager *SCloudaccountManager) GetICloudaccounts() ([]SCloudaccount, error
 			return nil, errors.Wrap(err, "modules.Cloudaccounts.List")
 		}
 		data = append(data, result.Data...)
-		if len(data) >= result.Total {
+		if len(data) >= result.Total || len(result.Data) == 0 {
 			break
 		}
-		offset += 1024
+		offset += 20
 	}
 
 	accounts := []SCloudaccount{}
