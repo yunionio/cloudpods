@@ -118,6 +118,26 @@ func (t *GuestChangeDiskStorageTask) OnDiskLiveChangeStorageReady(
 ) {
 	if !jsonutils.QueryBoolean(data, "block_jobs_ready", false) {
 		log.Infof("OnDiskLiveChangeStorageReady block jobs not ready")
+		resp := new(hostapi.ServerCloneDiskFromStorageResponse)
+		if err := data.Unmarshal(resp); err != nil {
+			t.TaskFailed(ctx, guest,
+				jsonutils.NewString(fmt.Sprintf("unmarshal OnDiskLiveChangeStorageReady resp failed %s", err)),
+			)
+			return
+		}
+		targetDisk, err := t.GetTargetDisk()
+		if err != nil {
+			t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed get target disk %s", err)))
+			return
+		}
+		if _, err := db.UpdateWithLock(ctx, targetDisk, func() error {
+			targetDisk.AccessPath = resp.TargetAccessPath
+			targetDisk.DiskFormat = resp.TargetFormat
+			return nil
+		}); err != nil {
+			t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Update target disk attributes error: %v", err)))
+			return
+		}
 		return
 	}
 
@@ -126,6 +146,22 @@ func (t *GuestChangeDiskStorageTask) OnDiskLiveChangeStorageReady(
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetInputParams error: %v", err)))
 		return
 	}
+	guestdisk := guest.GetGuestDisk(input.DiskId)
+	if guestdisk == nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString("failed get guest disk"))
+		return
+	}
+	host, err := guest.GetHost()
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed get host %s", err)))
+		return
+	}
+	targetDisk, err := t.GetTargetDisk()
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed get target disk %s", err)))
+		return
+	}
+	input.TargetDiskDesc = guestdisk.GetDiskJsonDescAtHost(ctx, host, targetDisk)
 
 	t.SetStage("OnDiskChangeStorageComplete", nil)
 	// block job ready, start switch to target storage disk
@@ -157,29 +193,36 @@ func (t *GuestChangeDiskStorageTask) OnDiskChangeStorageComplete(ctx context.Con
 		return
 	}
 
-	// update target disk attributes by response
-	resp := new(hostapi.ServerCloneDiskFromStorageResponse)
-	if err := data.Unmarshal(resp); err != nil {
-		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Unmarshal response: %v", err)))
-		return
-	}
-
-	if len(resp.TargetFormat) == 0 {
-		resp.TargetFormat = srcDisk.DiskFormat
-	}
-
-	targetDisk, err := t.GetTargetDisk()
+	input, err := t.GetInputParams()
 	if err != nil {
-		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetTargetDisk error: %v", err)))
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetInputParams error: %v", err)))
 		return
 	}
-	if _, err := db.UpdateWithLock(ctx, targetDisk, func() error {
-		targetDisk.AccessPath = resp.TargetAccessPath
-		targetDisk.DiskFormat = resp.TargetFormat
-		return nil
-	}); err != nil {
-		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Update target disk attributes error: %v", err)))
-		return
+
+	if !input.GuestRunning {
+		resp := new(hostapi.ServerCloneDiskFromStorageResponse)
+		err = data.Unmarshal(resp)
+		if err != nil {
+			t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Unmarshal response: %v", err)))
+			return
+		}
+		if len(resp.TargetFormat) == 0 {
+			resp.TargetFormat = srcDisk.DiskFormat
+		}
+
+		targetDisk, err := t.GetTargetDisk()
+		if err != nil {
+			t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetTargetDisk error: %v", err)))
+			return
+		}
+		if _, err := db.UpdateWithLock(ctx, targetDisk, func() error {
+			targetDisk.AccessPath = resp.TargetAccessPath
+			targetDisk.DiskFormat = resp.TargetFormat
+			return nil
+		}); err != nil {
+			t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Update target disk attributes error: %v", err)))
+			return
+		}
 	}
 
 	guestSrcDisk := guest.GetGuestDisk(srcDisk.GetId())
@@ -248,7 +291,18 @@ func (t *GuestChangeDiskStorageTask) attachTargetDisk(ctx context.Context, guest
 }
 
 func (t *GuestChangeDiskStorageTask) OnTargetDiskAttachComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	t.SetStage("OnGuestSyncStatus", nil)
+	if err := guest.StartSyncstatus(ctx, t.UserCred, t.Id); err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+	}
+}
+
+func (t *GuestChangeDiskStorageTask) OnGuestSyncStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	t.TaskComplete(ctx, guest, nil)
+}
+
+func (t *GuestChangeDiskStorageTask) OnGuestSyncStatusFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	t.TaskFailed(ctx, guest, data)
 }
 
 func (t *GuestChangeDiskStorageTask) OnTargetDiskAttachCompleteFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
