@@ -106,7 +106,7 @@ func (man *SMeterAlertManager) getAllBillAccounts(ctx context.Context) ([]jsonut
 		q := jsonutils.NewDict()
 		q.Add(jsonutils.NewString("system"), "scope")
 		q.Add(jsonutils.NewInt(int64(len(results))), "offset")
-		q.Add(jsonutils.NewInt(2048), "limit")
+		q.Add(jsonutils.NewInt(20), "limit")
 		ret, err := compute.Cloudaccounts.List(s, q)
 		if err != nil {
 			return nil, err
