@@ -165,7 +165,7 @@ func (self StorageDetails) GetMetricTags() map[string]string {
 func (self StorageDetails) GetMetricPairs() map[string]string {
 	usageActive := "0"
 	if self.Capacity > 0 {
-		usageActive = strconv.FormatFloat(float64(self.ActualCapacityUsed/self.Capacity*100.0), 'f', -1, 64)
+		usageActive = strconv.FormatFloat(float64(self.ActualCapacityUsed)/float64(self.Capacity)*100.0, 'f', -1, 64)
 	}
 	ret := map[string]string{
 		"free":         strconv.FormatFloat(float64(self.Capacity-self.ActualCapacityUsed), 'f', 2, 64),
