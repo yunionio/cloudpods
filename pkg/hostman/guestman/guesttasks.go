@@ -2023,6 +2023,8 @@ func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
 	for diskIndex = 0; diskIndex < len(disks); diskIndex++ {
 		diskId, _ := disks[diskIndex].GetString("disk_id")
 		if diskId == t.params.SourceDisk.GetId() {
+			index, _ := disks[diskIndex].Int("index")
+			diskIndex = int(index)
 			break
 		}
 	}
@@ -2109,6 +2111,8 @@ func NewGuestLiveChangeDiskTask(ctx context.Context, guest *SKVMGuestInstance, p
 	for diskIndex = 0; diskIndex < len(disks); diskIndex++ {
 		diskId, _ := disks[diskIndex].GetString("disk_id")
 		if diskId == params.SourceDisk.GetId() {
+			index, _ := disks[diskIndex].Int("index")
+			diskIndex = int(index)
 			break
 		}
 	}
@@ -2159,6 +2163,19 @@ func (t *SGuestLiveChangeDisk) onReopenImageSuccess(res string) {
 	if len(res) > 0 {
 		hostutils.TaskFailed(t.ctx, fmt.Sprintf("reopen image failed: %s", res))
 		return
+	}
+	if t.params.TargetDiskDesc != nil {
+		disks, _ := t.Desc.GetArray("disks")
+		for diskIndex := 0; diskIndex < len(disks); diskIndex++ {
+			index, _ := disks[diskIndex].Int("index")
+			if int(index) == t.diskIndex {
+				log.Debugf("update guest disk %d desc", index)
+				disks[diskIndex] = jsonutils.Marshal(t.params.TargetDiskDesc)
+				t.Desc.Set("disks", jsonutils.NewArray(disks...))
+				t.SaveDesc(t.Desc)
+				break
+			}
+		}
 	}
 
 	resp := &hostapi.ServerCloneDiskFromStorageResponse{
