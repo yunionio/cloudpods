@@ -287,61 +287,51 @@ func (manager *SMetadataManager) metaDataQuery2List(ctx context.Context, q *sqlc
 	if err != nil {
 		return nil, errors.Wrap(err, "Query.All")
 	}
-	// ciMap := map[string]string{}
 
 	ret := make([]jsonutils.JSONObject, len(metadatas))
+	keys := []string{}
 	for i := range metadatas {
-		/* if k, ok := ciMap[strings.ToLower(metadatas[i].Key)]; !ok {
-			ciMap[strings.ToLower(metadatas[i].Key)] = metadatas[i].Key
-		} else {
-			metadatas[i].Key = k
-		}*/
-		if input.Details != nil && *input.Details {
-			ret[i], err = manager.getKeyValueObjectCount(ctx, userCred, input, metadatas[i].Key, metadatas[i].Value, metadatas[i].Count)
-			if err != nil {
-				return nil, errors.Wrap(err, "getKeyValueObjectCount")
-			}
-		} else {
-			ret[i] = jsonutils.Marshal(metadatas[i])
+		if !utils.IsInStringArray(metadatas[i].Key, keys) {
+			keys = append(keys, metadatas[i].Key)
 		}
+		ret[i] = jsonutils.Marshal(metadatas[i])
 	}
 
-	return ret, nil
-}
-
-func (manager *SMetadataManager) getKeyValueObjectCount(ctx context.Context, userCred mcclient.TokenCredential, input apis.MetadataListInput, key string, value string, count int64) (jsonutils.JSONObject, error) {
-	metadatas := manager.Query().SubQuery()
-	q := metadatas.Query(metadatas.Field("obj_type"), sqlchemy.COUNT("obj_count"))
-	q, err := manager.ListItemFilter(ctx, q, userCred, input)
+	if input.Details == nil || !*input.Details {
+		return ret, nil
+	}
+	mQ, err := manager.ListItemFilter(ctx, manager.Query(), userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListItemFilter")
 	}
-	q = q.Equals("key", key)
-	if len(value) > 0 {
-		q = q.Equals("value", value)
-	} else {
-		q = q.IsNullOrEmpty("value")
-	}
-	q = q.GroupBy("key", "value", "obj_type")
-
-	objectCount := make([]struct {
-		ObjType  string
-		ObjCount int64
-	}, 0)
-	err = q.All(&objectCount)
+	metas := []SMetadata{}
+	err = mQ.In("key", keys).All(&metas)
 	if err != nil {
-		return nil, errors.Wrap(err, "query.All")
+		return ret, errors.Wrapf(err, "q.All")
+	}
+	count := map[string]map[string]map[string]int64{}
+	for i := range metas {
+		meta := metas[i]
+		_, ok := count[meta.Key]
+		if !ok {
+			count[meta.Key] = map[string]map[string]int64{}
+		}
+		_, ok = count[meta.Key][meta.Value]
+		if !ok {
+			count[meta.Key][meta.Value] = map[string]int64{}
+		}
+		k := fmt.Sprintf("%s_count", meta.ObjType)
+		_, ok = count[meta.Key][meta.Value][k]
+		if !ok {
+			count[meta.Key][meta.Value][k] = 0
+		}
+		count[meta.Key][meta.Value][k] += 1
+	}
+	for i, meta := range metadatas {
+		jsonutils.Update(ret[i], count[meta.Key][meta.Value])
 	}
 
-	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(key), "key")
-	data.Add(jsonutils.NewString(value), "value")
-	data.Add(jsonutils.NewInt(count), "count")
-	for _, oc := range objectCount {
-		data.Add(jsonutils.NewInt(oc.ObjCount), fmt.Sprintf("%s_count", oc.ObjType))
-	}
-
-	return data, nil
+	return ret, nil
 }
 
 func (manager *SMetadataManager) metadataBaseFilter(q *sqlchemy.SQuery, input apis.MetadataBaseFilterInput) *sqlchemy.SQuery {
@@ -393,35 +383,37 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		))
 	}
 
-	resources := input.Resources
-	if len(resources) == 0 {
-		for resource := range globalTables {
-			resources = append(resources, resource)
+	if !(input.Scope == string(rbacutils.ScopeSystem) && userCred.HasSystemAdminPrivilege()) {
+		resources := input.Resources
+		if len(resources) == 0 {
+			for resource := range globalTables {
+				resources = append(resources, resource)
+			}
 		}
-	}
-	conditions := []sqlchemy.ICondition{}
-	for _, resource := range resources {
-		man, ok := globalTables[resource]
-		if !ok {
-			return nil, httperrors.NewNotFoundError("Not support resource %s tag filter", resource)
+		conditions := []sqlchemy.ICondition{}
+		for _, resource := range resources {
+			man, ok := globalTables[resource]
+			if !ok {
+				return nil, httperrors.NewNotFoundError("Not support resource %s tag filter", resource)
+			}
+			if !man.IsStandaloneManager() {
+				continue
+			}
+			sq := man.Query("id")
+			query := jsonutils.Marshal(input)
+			ownerId, queryScope, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
+			if err != nil {
+				log.Warningf("FetchCheckQueryOwnerScope.%s error: %v", man.Keyword(), err)
+				continue
+			}
+			sq = man.FilterByOwner(sq, ownerId, queryScope)
+			sq = man.FilterBySystemAttributes(sq, userCred, query, queryScope)
+			sq = man.FilterByHiddenSystemAttributes(sq, userCred, query, queryScope)
+			conditions = append(conditions, sqlchemy.In(q.Field("obj_id"), sq))
 		}
-		if !man.IsStandaloneManager() {
-			continue
+		if len(conditions) > 0 {
+			q = q.Filter(sqlchemy.OR(conditions...))
 		}
-		sq := man.Query("id")
-		query := jsonutils.Marshal(input)
-		ownerId, queryScope, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
-		if err != nil {
-			log.Warningf("FetchCheckQueryOwnerScope.%s error: %v", man.Keyword(), err)
-			continue
-		}
-		sq = man.FilterByOwner(sq, ownerId, queryScope)
-		sq = man.FilterBySystemAttributes(sq, userCred, query, queryScope)
-		sq = man.FilterByHiddenSystemAttributes(sq, userCred, query, queryScope)
-		conditions = append(conditions, sqlchemy.In(q.Field("obj_id"), sq))
-	}
-	if len(conditions) > 0 {
-		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 
 	/*for args, prefix := range map[string]string{"sys_meta": SYS_TAG_PREFIX, "cloud_meta": CLOUD_TAG_PREFIX, "user_meta": USER_TAG_PREFIX} {
