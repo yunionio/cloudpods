@@ -44,7 +44,7 @@ type ServerListOptions struct {
 	Gpu                *bool  `help:"Show gpu servers"`
 	Secgroup           string `help:"Secgroup ID or Name"`
 	AdminSecgroup      string `help:"AdminSecgroup ID or Name"`
-	Hypervisor         string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud|zstack|openstack|google|ctyun|incloudsphere|nutanix|bingocloud"`
+	Hypervisor         string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud|zstack|openstack|google|ctyun|incloudsphere|nutanix|bingocloud|cloudpods|ecloud|jdcloud|remotefile"`
 	Region             string `help:"Show servers in cloudregion"`
 	WithEip            *bool  `help:"Show Servers with EIP"`
 	WithoutEip         *bool  `help:"Show Servers without EIP"`
@@ -236,7 +236,7 @@ type ServerConfigs struct {
 	Host       string `help:"Preferred host where virtual server should be created" json:"prefer_host"`
 	BackupHost string `help:"Perfered host where virtual backup server should be created"`
 
-	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|zstack|google|ctyun|incloudsphere|bingocloud"`
+	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|zstack|google|ctyun|incloudsphere|bingocloud|cloudpods|ecloud|jdcloud|remotefile"`
 	ResourceType                 string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 	Backup                       bool   `help:"Create server with backup server"`
 	AutoSwitchToBackupOnHostDown bool   `help:"Auto switch to backup server on host down"`
