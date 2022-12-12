@@ -86,6 +86,11 @@ func (host *SHostService) RunService() {
 	cronManager := cronman.InitCronJobManager(false, options.HostOptions.CronJobWorkerCount)
 	hostutils.Init()
 
+	hostInstance := hostinfo.Instance()
+	if err := hostInstance.Init(); err != nil {
+		log.Fatalf("Host instance init error: %v", err)
+	}
+
 	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
 
@@ -100,11 +105,6 @@ func (host *SHostService) RunService() {
 			}
 		}
 	})
-
-	hostInstance := hostinfo.Instance()
-	if err := hostInstance.Init(); err != nil {
-		log.Fatalf("Host instance init error: %v", err)
-	}
 
 	deployclient.Init(options.HostOptions.DeployServerSocketPath)
 	if err := storageman.Init(hostInstance); err != nil {
