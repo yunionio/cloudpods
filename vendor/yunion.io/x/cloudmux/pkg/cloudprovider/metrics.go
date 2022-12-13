@@ -268,9 +268,10 @@ const (
 	MODELARTS_POOL_METRIC_TYPE_DISK_CAPACITY           TMetricType = "modelarts_pool_disk.capacity"
 	MODELARTS_POOL_METRIC_TYPE_DISK_USAGE              TMetricType = "modelarts_pool_disk.usage_percent"
 
-	WIRE_METRIC_TYPE_CPU_USAGE TMetricType = "wire_cpu.usage_percent"
-	WIRE_METRIC_TYPE_MEM_USAGE TMetricType = "wire_mem.usage_percent"
-	WIRE_METRIC_TYPE_NET_RT    TMetricType = "wire_net.rt" // 响应时间ms
+	WIRE_METRIC_TYPE_CPU_USAGE            TMetricType = "wire_cpu.usage_percent"
+	WIRE_METRIC_TYPE_MEM_USAGE            TMetricType = "wire_mem.usage_percent"
+	WIRE_METRIC_TYPE_NET_RT               TMetricType = "wire_net.rt"               // 响应时间ms
+	WIRE_METRIC_TYPE_NET_UNREACHABLE_RATE TMetricType = "wire_net.unreachable_rate" // 不可达率
 )
 
 var (
