@@ -46,7 +46,7 @@ func (self *DiskCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		self.SetStage("OnStorageCacheImageComplete", nil)
 		input := api.CacheImageInput{
 			ImageId:      imageId,
-			Format:       disk.DiskFormat,
+			Format:       disk.GetCacheImageFormat(),
 			ParentTaskId: self.GetTaskId(),
 		}
 		guest := disk.GetGuest()
