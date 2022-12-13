@@ -1399,6 +1399,13 @@ func (self *SDisk) GetFsFormat() string {
 	return self.FsFormat
 }
 
+func (self *SDisk) GetCacheImageFormat() string {
+	if self.DiskFormat == "raw" {
+		return "qcow2"
+	}
+	return self.DiskFormat
+}
+
 func (manager *SDiskManager) getDisksByStorage(storage *SStorage) ([]SDisk, error) {
 	disks := make([]SDisk, 0)
 	q := manager.Query().Equals("storage_id", storage.Id)
