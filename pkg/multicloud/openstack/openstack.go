@@ -193,6 +193,8 @@ func (ce *OpenstackError) ParseErrorFromJsonResponse(statusCode int, body jsonut
 type sApiVersion struct {
 	MinVersion string
 	Version    string
+	Id         string
+	Status     string
 }
 
 type sApiVersions struct {
@@ -201,6 +203,9 @@ type sApiVersions struct {
 }
 
 func (v *sApiVersions) GetMaxVersion() string {
+	if v.Version.Status == "CURRENT" && len(v.Version.Id) > 0 {
+		return v.Version.Id
+	}
 	maxVersion := v.Version.Version
 	for _, _version := range v.Versions {
 		if version.GT(_version.Version, maxVersion) {
