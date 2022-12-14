@@ -14,6 +14,14 @@
 
 package stringutils2
 
+import (
+	"bytes"
+	"io/ioutil"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
+)
+
 func IsUtf8(str string) bool {
 	for _, runeVal := range str {
 		if runeVal > 0x7f {
@@ -47,4 +55,13 @@ func IsPrintableAsciiString(str string) bool {
 		}
 	}
 	return true
+}
+
+func UTF82GB18030(s []byte) ([]byte, error) {
+	reader := transform.NewReader(bytes.NewReader(s), simplifiedchinese.GB18030.NewEncoder())
+	d, e := ioutil.ReadAll(reader)
+	if e != nil {
+		return nil, e
+	}
+	return d, nil
 }
