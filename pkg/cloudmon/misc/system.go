@@ -123,6 +123,10 @@ func collectStatsMetrics(ctx context.Context, ep api.EndpointDetails, version, t
 		return nil, errors.Wrapf(err, "request")
 	}
 
+	if ret == nil {
+		return nil, errors.Wrap(errors.Errorf("ret is nil") ,"ret is nil")
+	}
+
 	stats := struct {
 		HttpCode2xx    float64 `json:"duration.2XX"`
 		HttpCode4xx    float64 `json:"duration.4XX"`
