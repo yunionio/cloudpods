@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -370,6 +369,7 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode []int) boo
 	case err := <-done:
 		if err != nil {
 			if exitStatus, ok := proc.GetExitStatus(err); ok {
+				log.Errorf("exit status: %d", exitStatus)
 				if in, _ := utils.InArray(exitStatus, retcode); in {
 					return true
 				}
@@ -384,8 +384,28 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode []int) boo
 }
 
 func (w *SWinRegTool) setRegistry(spath string, keySeg []string, value string) bool {
-	keyPath := strings.Join(keySeg, "\\")
-	return w.cmdRegistry(spath, []string{fmt.Sprintf("ed %s", keyPath), value}, []int{0})
+	cmds := make([]string, 0)
+	for i := range keySeg {
+		if i < len(keySeg)-1 {
+			cmds = append(cmds, fmt.Sprintf("cd %s", keySeg[i]))
+		} else {
+			cmds = append(cmds, fmt.Sprintf("ed %s", keySeg[i]))
+		}
+	}
+	cmds = append(cmds, value)
+	return w.cmdRegistry(spath, cmds, []int{0})
+}
+
+func (w *SWinRegTool) delRegistry(spath string, keySeg []string) bool {
+	cmds := make([]string, 0)
+	for i := range keySeg {
+		if i < len(keySeg)-1 {
+			cmds = append(cmds, fmt.Sprintf("cd %s", keySeg[i]))
+		} else {
+			cmds = append(cmds, fmt.Sprintf("rdel %s", keySeg[i]))
+		}
+	}
+	return w.cmdRegistry(spath, cmds, []int{0})
 }
 
 func (w *SWinRegTool) mkdir(spath string, keySeg []string) bool {
@@ -511,6 +531,20 @@ func (w *SWinRegTool) SetRegistry(keyPath, value, regtype string) bool {
 	}
 }
 
+func (w *SWinRegTool) DelRegistry(keyPath string) bool {
+	p1, p2s := w.GetRegFile(keyPath)
+	if len(p1) == 0 && len(p2s) == 0 {
+		return false
+	} else {
+		if w.keyExists(p1, p2s) {
+			ret := w.delRegistry(p1, p2s)
+			log.Debugf("delete %s %s %v", p1, p2s, ret)
+			return ret
+		}
+		return false
+	}
+}
+
 func (w *SWinRegTool) KeyExists(keyPath string) bool {
 	p1, p2s := w.GetRegFile(keyPath)
 	if len(p1) == 0 && len(p2s) == 0 {
@@ -531,8 +565,8 @@ func (w *SWinRegTool) MkdirP(keyPath string) bool {
 
 func (w *SWinRegTool) GetCcsKey() string {
 	ver := w.GetRegistry(`HKLM\SYSTEM\Select\Current`)
-	iv, _ := strconv.ParseInt(ver, 16, 0)
-	return fmt.Sprintf("ControlSet%03d", iv)
+	log.Debugf("Current Control set %s", ver)
+	return fmt.Sprintf("ControlSet%s", ver[len(ver)-3:])
 }
 
 func (w *SWinRegTool) GetCcsKeyPath() string {
@@ -707,4 +741,20 @@ func (w *SWinRegTool) EnableRdp() {
 	w.SetRegistry(key, "0", `REG_DWORD`)
 	key = w.GetCcsKeyPath() + `\Services\MpsSvc\Start`
 	w.SetRegistry(key, "3", `REG_DWORD`)
+	// turn off Windows Firewall completely
+	for _, prof := range []string{
+		"StandardProfile", "PublicProfile", "DomainProfile",
+	} {
+		key = w.GetCcsKeyPath() + `\Services\SharedAccess\Parameters\FirewallPolicy\` + prof + `\EnableFirewall`
+		w.SetRegistry(key, "0", `REG_DWORD`)
+	}
+}
+
+func (w *SWinRegTool) ResetUSBProfile() {
+	// https://www.kraxel.org/blog/2014/03/qemu-and-usb-tablet-cpu-consumtion/
+	// reset USB registry
+	key := w.GetCcsKeyPath() + `\Control\usbflags`
+	w.DelRegistry(key)
+	key = w.GetCcsKeyPath() + `\Enum\USB`
+	w.DelRegistry(key)
 }
