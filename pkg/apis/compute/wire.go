@@ -52,6 +52,18 @@ type WireDetails struct {
 	HostCount int `json:"host_count"`
 }
 
+func (self WireDetails) GetMetricTags() map[string]string {
+	ret := map[string]string{
+		"id":             self.Id,
+		"wire_name":      self.Name,
+		"brand":          self.Brand,
+		"domain_id":      self.DomainId,
+		"project_domain": self.ProjectDomain,
+		"external_id":    self.ExternalId,
+	}
+	return ret
+}
+
 type WireResourceInfoBase struct {
 	// 二层网络(WIRE)的名称
 	Wire string `json:"wire"`

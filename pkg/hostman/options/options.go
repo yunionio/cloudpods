@@ -28,7 +28,8 @@ type SHostBaseOptions struct {
 
 	DisableSecurityGroup bool `help:"disable security group" default:"false"`
 
-	HostCpuPassthrough bool `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
+	HostCpuPassthrough        bool  `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
+	LiveMigrateCpuThrottleMax int64 `default:"99" help:"live migrate auto converge cpu throttle max"`
 
 	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
 
@@ -174,6 +175,9 @@ type SHostOptions struct {
 	DisableSRIOVNic bool `help:"force disable USB detect" default:"true" json:"disable_sriov_nic"`
 
 	EthtoolEnableGso bool `help:"use ethtool to turn on or off GSO(generic segment offloading)" default:"false" json:"ethtool_enable_gso"`
+
+	EthtoolEnableGsoInterfaces  []string `help:"use ethtool to turn on GSO for the specific interfaces" json:"ethtool_enable_gso_interfaces"`
+	EthtoolDisableGsoInterfaces []string `help:"use ethtool to turn off GSO for the specific interfaces" json:"ethtool_disable_gso_interfaces"`
 
 	EnableVmUuid bool `help:"enable vm UUID" default:"true" json:"enable_vm_uuid"`
 

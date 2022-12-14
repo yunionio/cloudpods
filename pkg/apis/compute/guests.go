@@ -58,7 +58,7 @@ type ServerListInput struct {
 	// 列出管理安全组为指定安全组的主机
 	AdminSecgroup string `json:"admin_security"`
 	// 列出Hypervisor为指定值的主机
-	// enum: kvm,esxi,baremetal,aliyun,azure,aws,huawei,ucloud,zstack,openstack,google,ctyun"`
+	// enum: kvm,esxi,baremetal,aliyun,azure,aws,huawei,ucloud,zstack,openstack,google,ctyun,cloudpods,ecloud,jdcloud,remotefile`
 	Hypervisor []string `json:"hypervisor"`
 	// 列出绑定了弹性IP（EIP）的主机
 	WithEip *bool `json:"with_eip"`
@@ -730,6 +730,8 @@ type ServerChangeConfigInput struct {
 type ServerUpdateInput struct {
 	apis.VirtualResourceBaseUpdateInput
 
+	HostnameInput
+
 	// 删除保护开关
 	DisableDelete *bool `json:"disable_delete"`
 	// 启动顺序
@@ -840,10 +842,11 @@ type ServerChangeDiskStorageInput struct {
 
 type ServerChangeDiskStorageInternalInput struct {
 	ServerChangeDiskStorageInput
-	StorageId    string `json:"storage_id"`
-	TargetDiskId string `json:"target_disk_id"`
-	DiskFormat   string `json:"disk_format"`
-	GuestRunning bool   `josn:"guest_running"`
+	StorageId      string             `json:"storage_id"`
+	TargetDiskId   string             `json:"target_disk_id"`
+	DiskFormat     string             `json:"disk_format"`
+	GuestRunning   bool               `josn:"guest_running"`
+	TargetDiskDesc *GuestdiskJsonDesc `json:"target_disk_desc"`
 }
 
 type ServerSetExtraOptionInput struct {

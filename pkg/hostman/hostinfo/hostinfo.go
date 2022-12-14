@@ -2137,6 +2137,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 
 func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {
 	var ret = make([]map[string]interface{}, 0)
+	existing := make(map[string]struct{})
 	for i, n := range h.Nics {
 		ret = append(ret, map[string]interface{}{
 			"name":  n.Inter,
@@ -2148,6 +2149,16 @@ func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {
 			"alias": fmt.Sprintf("br%d", i),
 			"speed": n.Bandwidth,
 		})
+		existing[n.Inter] = struct{}{}
+	}
+	phyNics, _ := sysutils.Nics()
+	for _, pnic := range phyNics {
+		if _, ok := existing[pnic.Dev]; !ok {
+			ret = append(ret, map[string]interface{}{
+				"name":  pnic.Dev,
+				"speed": pnic.Speed,
+			})
+		}
 	}
 	return ret
 }

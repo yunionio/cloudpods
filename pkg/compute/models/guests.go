@@ -950,6 +950,20 @@ func (guest *SGuest) GetVpc() (*SVpc, error) {
 	return vpc, nil
 }
 
+func (guest *SGuest) IsOneCloudVpcNetwork() (bool, error) {
+	gns, err := guest.GetNetworks("")
+	if err != nil {
+		return false, errors.Wrap(err, "GetNetworks")
+	}
+	for _, gn := range gns {
+		n := gn.GetNetwork()
+		if n != nil && n.isOneCloudVpcNetwork() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
 	guestnics := make([]SGuestnetwork, 0)
 	q := guest.GetNetworksQuery(netId).Asc("index")
@@ -1135,6 +1149,13 @@ func ValidateMemCpuData(vmemSize, vcpuCount int, hypervisor string) (int, int, e
 func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerUpdateInput) (api.ServerUpdateInput, error) {
 	if len(input.Name) > 0 && len(input.Name) < 2 {
 		return input, httperrors.NewInputParameterError("name is too short")
+	}
+
+	// validate Hostname
+	if len(input.Hostname) > 0 {
+		if !regutils.MatchDomainName(input.Hostname) {
+			return input, httperrors.NewInputParameterError("hostname should be a legal domain name")
+		}
 	}
 
 	var err error

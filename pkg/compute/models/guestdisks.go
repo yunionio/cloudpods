@@ -175,8 +175,12 @@ func (self *SGuestdisk) GetDisk() *SDisk {
 
 func (self *SGuestdisk) GetJsonDescAtHost(ctx context.Context, host *SHost) *api.GuestdiskJsonDesc {
 	disk := self.GetDisk()
+	return self.GetDiskJsonDescAtHost(ctx, host, disk)
+}
+
+func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, disk *SDisk) *api.GuestdiskJsonDesc {
 	desc := &api.GuestdiskJsonDesc{
-		DiskId:    self.DiskId,
+		DiskId:    disk.Id,
 		Driver:    self.Driver,
 		CacheMode: self.CacheMode,
 		AioMode:   self.AioMode,
@@ -185,9 +189,9 @@ func (self *SGuestdisk) GetJsonDescAtHost(ctx context.Context, host *SHost) *api
 		Size:      disk.DiskSize,
 	}
 	desc.TemplateId = disk.GetTemplateId()
+	storage, _ := disk.GetStorage()
+	desc.StorageType = storage.StorageType
 	if len(desc.TemplateId) > 0 {
-		storage, _ := disk.GetStorage()
-		desc.StorageType = storage.StorageType
 		storagecacheimg := StoragecachedimageManager.GetStoragecachedimage(storage.StoragecacheId, desc.TemplateId)
 		if storagecacheimg != nil {
 			desc.ImagePath = storagecacheimg.Path

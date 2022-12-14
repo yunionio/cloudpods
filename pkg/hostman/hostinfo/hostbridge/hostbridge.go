@@ -53,12 +53,14 @@ type IBridgeDriver interface {
 	PersistentConfig() error
 	DisableDHCPClient() (bool, error)
 
-	GenerateIfupScripts(scriptPath string, nic *desc.SGuestNetwork, isSlave bool) error
-	GenerateIfdownScripts(scriptPath string, nic *desc.SGuestNetwork, isSlave bool) error
+	GenerateIfupScripts(scriptPath string, nic *desc.SGuestNetwork, isVolatileHost bool) error
+	GenerateIfdownScripts(scriptPath string, nic *desc.SGuestNetwork, isVolatileHost bool) error
 	RegisterHostlocalServer(mac, ip string) error
 
-	getUpScripts(nic *desc.SGuestNetwork, isSlave bool) (string, error)
-	getDownScripts(nic *desc.SGuestNetwork, isSlave bool) (string, error)
+	getUpScripts(nic *desc.SGuestNetwork, isVolatileHost bool) (string, error)
+	getDownScripts(nic *desc.SGuestNetwork, isVolatileHost bool) (string, error)
+
+	OnVolatileGuestResume(nic *desc.SGuestNetwork) error
 
 	Bridge() string
 }
@@ -80,7 +82,25 @@ func NewBaseBridgeDriver(bridge, inter, ip string) (*SBaseBridgeDriver, error) {
 			return nil, fmt.Errorf("%s not exists", inter)
 		}
 		bd.ip = ip
-		bd.inter.SetupGso(options.HostOptions.EthtoolEnableGso)
+		var enableGso bool
+		if len(options.HostOptions.EthtoolEnableGsoInterfaces) > 0 {
+			if utils.IsInStringArray(bridge, options.HostOptions.EthtoolEnableGsoInterfaces) ||
+				utils.IsInStringArray(inter, options.HostOptions.EthtoolEnableGsoInterfaces) {
+				enableGso = true
+			} else {
+				enableGso = false
+			}
+		} else if len(options.HostOptions.EthtoolDisableGsoInterfaces) > 0 {
+			if utils.IsInStringArray(bridge, options.HostOptions.EthtoolDisableGsoInterfaces) ||
+				utils.IsInStringArray(inter, options.HostOptions.EthtoolDisableGsoInterfaces) {
+				enableGso = false
+			} else {
+				enableGso = true
+			}
+		} else {
+			enableGso = options.HostOptions.EthtoolEnableGso
+		}
+		bd.inter.SetupGso(enableGso)
 	} else if len(ip) > 0 {
 		return nil, fmt.Errorf("A bridge without interface must have no IP")
 	}
@@ -340,16 +360,16 @@ func (d *SBaseBridgeDriver) saveFileExecutable(scriptPath, script string) error 
 	return os.Chmod(scriptPath, syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR)
 }
 
-func (d *SBaseBridgeDriver) generateIfdownScripts(driver IBridgeDriver, scriptPath string, nic *desc.SGuestNetwork, isSlave bool) error {
-	script, err := driver.getDownScripts(nic, isSlave)
+func (d *SBaseBridgeDriver) generateIfdownScripts(driver IBridgeDriver, scriptPath string, nic *desc.SGuestNetwork, isVolatileHost bool) error {
+	script, err := driver.getDownScripts(nic, isVolatileHost)
 	if err != nil {
 		return errors.Wrap(err, "getDownScripts")
 	}
 	return d.saveFileExecutable(scriptPath, script)
 }
 
-func (d *SBaseBridgeDriver) generateIfupScripts(driver IBridgeDriver, scriptPath string, nic *desc.SGuestNetwork, isSlave bool) error {
-	script, err := driver.getUpScripts(nic, isSlave)
+func (d *SBaseBridgeDriver) generateIfupScripts(driver IBridgeDriver, scriptPath string, nic *desc.SGuestNetwork, isVolatileHost bool) error {
+	script, err := driver.getUpScripts(nic, isVolatileHost)
 	if err != nil {
 		log.Errorln(err)
 		return err

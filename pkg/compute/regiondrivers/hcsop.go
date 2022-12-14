@@ -12,30 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package providerdriver
+package regiondrivers
 
 import (
-	"time"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type CloudpodsCollect struct {
-	SCollectByMetricTypeDriver
-}
-
-func (self *CloudpodsCollect) GetProvider() string {
-	return api.CLOUD_PROVIDER_CLOUDPODS
-}
-
-func (collect *CloudpodsCollect) IsSupportMetrics() bool {
-	return true
+type SHCSOPRegionDriver struct {
+	SHuaWeiRegionDriver
 }
 
 func init() {
-	Register(&CloudpodsCollect{})
+	driver := SHCSOPRegionDriver{}
+	models.RegisterRegionDriver(&driver)
 }
 
-func (self *CloudpodsCollect) GetDelayDuration() time.Duration {
-	return time.Minute * 9
+func (self *SHCSOPRegionDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_HCSOP
+}
+
+func (self *SHCSOPRegionDriver) IsSupportedElasticcache() bool {
+	return true
+}
+
+func (self *SHCSOPRegionDriver) IsSecurityGroupBelongVpc() bool {
+	return true
+}
+
+func (self *SHCSOPRegionDriver) IsSupportedElasticcacheSecgroup() bool {
+	return false
+}
+
+func (self *SHCSOPRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
+	return 1
 }

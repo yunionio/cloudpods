@@ -65,7 +65,8 @@ func SendEmail(conf *api.SEmailConfig, msg *api.SEmailMessage) error {
 		gmsg.SetHeader("Subject", msg.Subject)
 		gmsg.SetBody("text/html", msg.Body)
 
-		for _, attach := range msg.Attachments {
+		for i := range msg.Attachments {
+			attach := msg.Attachments[i]
 			gmsg.Attach(attach.Filename,
 				mail.SetCopyFunc(func(w io.Writer) error {
 					mime := attach.Mime

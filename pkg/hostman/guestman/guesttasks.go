@@ -1130,6 +1130,7 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 func (s *SGuestLiveMigrateTask) onGetMigrateStats(stats *monitor.MigrationInfo, err error) {
 	if err != nil {
 		log.Errorf("%s get migrate stats failed %s", s.GetName(), err)
+		s.migrateFailed(fmt.Sprintf("%s get migrate stats failed %s", s.GetName(), err))
 		return
 	}
 	s.onGetMigrateStatus(stats)
@@ -1177,8 +1178,7 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo)
 				return
 			}
 
-			if *stats.CPUThrottlePercentage < 99 {
-				// TODO: configureable tolerate cpu throttle percentage
+			if *stats.CPUThrottlePercentage < options.HostOptions.LiveMigrateCpuThrottleMax {
 				return
 			}
 
@@ -1201,7 +1201,7 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo)
 						log.Errorf("failed set migrate downtime %s", res)
 					}
 				}
-				s.Monitor.MigrateSetDowntime(float32(*stats.ExpectedDowntime/1000.0), cb)
+				s.Monitor.MigrateSetDowntime(float64(*stats.ExpectedDowntime)/1000.0, cb)
 			}
 		}
 	}
@@ -1214,6 +1214,25 @@ func (s *SGuestLiveMigrateTask) onMigrateStartPostcopy(res string) {
 	} else {
 		log.Infof("onMigrateStartPostcopy success")
 	}
+}
+
+func (s *SGuestLiveMigrateTask) onMigrateReceivedStopEvent() {
+	s.Monitor.GetMigrateStats(func(stats *monitor.MigrationInfo, err error) {
+		if err != nil {
+			log.Errorf("%s get migrate stats failed %s", s.GetName(), err)
+			return
+		}
+
+		switch *stats.Status {
+		case "completed":
+			s.migrateComplete(jsonutils.Marshal(stats))
+		case "failed", "cancelled":
+			s.migrateFailed(fmt.Sprintf("Query migrate got status: %s", *stats.Status))
+		case "active":
+			time.Sleep(10 * time.Millisecond)
+			s.onMigrateReceivedStopEvent()
+		}
+	})
 }
 
 func (s *SGuestLiveMigrateTask) migrateComplete(stats jsonutils.JSONObject) {
@@ -1229,6 +1248,7 @@ func (s *SGuestLiveMigrateTask) migrateComplete(stats jsonutils.JSONObject) {
 		res.Set("migration_info", stats)
 	}
 	hostutils.TaskComplete(s.ctx, res)
+	hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
 }
 
 func (s *SGuestLiveMigrateTask) migrateFailed(msg string) {
@@ -1335,7 +1355,6 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 			return
 		}
 		if err := s.onGuestPrelaunch(); err != nil {
-			s.ForceStop()
 			s.taskFailed(err.Error())
 			return
 		}
@@ -1379,6 +1398,20 @@ func (s *SGuestResumeTask) onGetBlockInfo(blocks []monitor.QemuBlock) {
 }
 
 func (s *SGuestResumeTask) resumeGuest() {
+	if s.resumed {
+		s.taskFailed("resume guest twice")
+		return
+	}
+
+	if s.Desc.IsVolatileHost {
+		if err := s.prepareNicsForVolatileGuestResume(); err != nil {
+			s.taskFailed(err.Error())
+			return
+		}
+		s.Desc.IsVolatileHost = false
+		s.SaveLiveDesc(s.Desc)
+	}
+
 	s.startTime = time.Now()
 	s.Monitor.SimpleCommand("cont", s.onResumeSucc)
 }
@@ -2326,6 +2359,7 @@ func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
 	disks := t.Desc.Disks
 	for diskIndex = 0; diskIndex < len(disks); diskIndex++ {
 		if disks[diskIndex].DiskId == t.params.SourceDisk.GetId() {
+			diskIndex = int(disks[diskIndex].Index)
 			break
 		}
 	}
@@ -2411,6 +2445,7 @@ func NewGuestLiveChangeDiskTask(ctx context.Context, guest *SKVMGuestInstance, p
 	disks := guest.Desc.Disks
 	for diskIndex = 0; diskIndex < len(disks); diskIndex++ {
 		if disks[diskIndex].DiskId == params.SourceDisk.GetId() {
+			diskIndex = int(disks[diskIndex].Index)
 			break
 		}
 	}
@@ -2461,6 +2496,16 @@ func (t *SGuestLiveChangeDisk) onReopenImageSuccess(res string) {
 	if len(res) > 0 {
 		hostutils.TaskFailed(t.ctx, fmt.Sprintf("reopen image failed: %s", res))
 		return
+	}
+	if t.params.TargetDiskDesc != nil {
+		for i := 0; i < len(t.Desc.Disks); i++ {
+			if t.Desc.Disks[i].Index == int8(t.diskIndex) {
+				log.Debugf("update guest disk %s desc", t.Desc.Disks[i].DiskId)
+				t.Desc.Disks[i].GuestdiskJsonDesc = *t.params.TargetDiskDesc
+				t.SaveLiveDesc(t.Desc)
+				break
+			}
+		}
 	}
 
 	resp := &hostapi.ServerCloneDiskFromStorageResponse{
