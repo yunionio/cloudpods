@@ -127,9 +127,9 @@ func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, de
 	users := tool.GetUsers()
 	admin := "Administrator"
 	selUsr := ""
-	isWin10 := w.IsWindows10()
-	// Win10 try not to use Administrator users
-	if _, ok := users[admin]; ok && windowsDefaultAdminUser && !isWin10 {
+	isWin10NonPro := w.IsWindows10NonPro()
+	// Win10 try not to use Administrator users // Win 10 professional can use Adminsitrator
+	if _, ok := users[admin]; ok && windowsDefaultAdminUser && !isWin10NonPro {
 		selUsr = admin
 	} else {
 		// Looking for an unlocked user who is not an Administrator
@@ -169,9 +169,9 @@ func (w *SWindowsRootFs) GetArch(hostCpuArch string) string {
 	}
 }
 
-func (w *SWindowsRootFs) IsWindows10() bool {
+func (w *SWindowsRootFs) IsWindows10NonPro() bool {
 	info := w.GetReleaseInfo(nil)
-	if info != nil && strings.HasPrefix(info.Distro, "Windows 10 ") {
+	if info != nil && strings.HasPrefix(info.Distro, "Windows 10 ") && !strings.HasPrefix(info.Distro, "Windows 10 Pro") {
 		return true
 	}
 	return false
@@ -346,7 +346,7 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 	lines = append(lines, `  )`)
 	lines = append(lines, `)`)
 	lines = append(lines, w.MakeGuestDebugCmd("netcfg step 2"))
-	lines = append(lines, `netsh advfirewall firewall set rule group=\"remote desktop\" new enable=yes`)
+	// lines = append(lines, `netsh advfirewall firewall set rule group=\"remote desktop\" new enable=yes`)
 	netScript := strings.Join(lines, "\r\n")
 	return w.putGuestScriptContents("/windows/netcfg.bat", netScript)
 }
@@ -375,6 +375,7 @@ func (w *SWindowsRootFs) CommitChanges(part IDiskPartition) error {
 	tool := winutils.NewWinRegTool(confPath)
 	tool.CheckPath()
 	tool.EnableRdp()
+	tool.ResetUSBProfile()
 
 	if w.IsOldWindows() {
 		// windows prior to windows 2003 should not try to commit changes
