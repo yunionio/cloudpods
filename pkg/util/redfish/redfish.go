@@ -445,18 +445,11 @@ func (r *SBaseRedfishClient) GetSystemInfo(ctx context.Context) (string, SSystem
 				if err != nil {
 					return path, sysInfo, errors.Wrapf(err, "Get EthernetInterface[%d] error", i)
 				}
-				var macAddr string
-				for _, key := range []string{
-					"MacAddress",
-					"MACAddress",
-					"PermanentMACAddress",
-				} {
-					macAddr, _ = nicInfo.GetString(key)
-					if len(macAddr) > 0 {
-						break
-					}
+				macAddr, err := r.parseMAC(nicInfo)
+				if err != nil {
+					log.Warningf("GetSystemInfo parseMAC error: %v", err)
 				}
-				sysInfo.EthernetNICs[i] = netutils.FormatMacAddr(macAddr)
+				sysInfo.EthernetNICs[i] = netutils.FormatMacAddr(macAddr.String())
 			}
 		}
 	}
@@ -791,6 +784,24 @@ func (r *SBaseRedfishClient) GetConsoleJNLP(ctx context.Context) (string, error)
 	return "", httperrors.ErrNotImplemented
 }
 
+func (r *SBaseRedfishClient) parseMAC(ethJson jsonutils.JSONObject) (net.HardwareAddr, error) {
+	for _, key := range []string{
+		"MacAddress",
+		"MACAddress",
+		"PermanentMACAddress",
+	} {
+		mac, _ := ethJson.GetString(key)
+		if len(mac) > 0 {
+			macAddr, err := net.ParseMAC(mac)
+			if err != nil {
+				return nil, errors.Wrapf(err, "ParseMAC %q", mac)
+			}
+			return macAddr, nil
+		}
+	}
+	return nil, errors.Errorf("Not found mac address from %s", ethJson.PrettyString())
+}
+
 func (r *SBaseRedfishClient) GetLanConfigs(ctx context.Context) ([]types.SIPMILanConfig, error) {
 	_, ethIfsJson, err := r.GetResource(ctx, "Managers", "0", "EthernetInterfaces")
 	if err != nil {
@@ -835,8 +846,11 @@ func (r *SBaseRedfishClient) GetLanConfigs(ctx context.Context) ([]types.SIPMILa
 					src = "static"
 				}
 				conf.IPSrc = strings.ToLower(src)
-				mac, _ := ethJson.GetString("MACAddress")
-				conf.Mac, _ = net.ParseMAC(mac)
+				macAddr, err := r.parseMAC(ethJson)
+				if err != nil {
+					log.Warningf("parseMAC error: %v", err)
+				}
+				conf.Mac = macAddr
 				var vlanId int64
 				if ethJson.Contains("VLAN") {
 					vlanId, _ = ethJson.Int("VLAN", "VLANId")
