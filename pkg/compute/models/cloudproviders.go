@@ -509,6 +509,10 @@ func (sr *SSyncRange) GetRegionIds() ([]string, error) {
 }
 
 func (sr *SSyncRange) NeedSyncResource(res string) bool {
+	if sr.FullSync {
+		return true
+	}
+
 	if len(sr.Resources) == 0 {
 		return true
 	}
