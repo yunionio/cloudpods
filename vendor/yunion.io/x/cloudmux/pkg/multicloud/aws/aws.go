@@ -280,6 +280,10 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 				}
 				return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
 			}
+			// organization
+			if service == "organizations" {
+				return respCheck, nil
+			}
 			// s3
 			if req.Method == "GET" || req.Method == "HEAD" {
 				return respCheck, nil
