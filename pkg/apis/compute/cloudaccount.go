@@ -517,8 +517,8 @@ type SyncRangeInput struct {
 	Host   []string `json:"host"`
 
 	// 按资源类型同步，可输入多个
-	// enmu: compute, network, loadbalancer, objectstore, rds, cache, nat, nas, waf, mongodb, es, kafka, app, container
-	Resources []string `json:"resources" choices:"compute|network|loadbalancer|objectstore|rds|cache|nat|nas|waf|mongodb|es|kafka|app|container|eip|tablestore"`
+	// enmu: project, compute, network, eip, loadbalancer, objectstore, rds, cache, event, cloudid, dnszone, public_ip, intervpcnetwork, saml_auth, quota, nat, nas, waf, mongodb, es, kafka, app, cdn, container, ipv6_gateway, tablestore, modelarts, vpcpeer, misc
+	Resources []string `json:"resources" choices:"project|compute|network|eip|loadbalancer|objectstore|rds|cache|event|cloudid|dnszone|public_ip|intervpcnetwork|saml_auth|quota|nat|nas|waf|mongodb|es|kafka|app|cdn|container|ipv6_gateway|tablestore|modelarts|vpcpeer|misc"`
 }
 
 type SAccountPermission struct {
