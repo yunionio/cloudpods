@@ -54,6 +54,14 @@ func init() {
 	taskman.RegisterTask(ManagedGuestLiveMigrateTask{})
 }
 
+func (self *GuestMigrateTask) isLiveMigrate() bool {
+	guestStatus, _ := self.Params.GetString("guest_status")
+	if !self.isRescueMode() && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
+		return true
+	}
+	return false
+}
+
 func (self *GuestMigrateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	StartScheduleObjects(ctx, self, []db.IStandaloneModel{obj})
 }
@@ -66,8 +74,7 @@ func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 		preferHostId, _ := self.Params.GetString("prefer_host_id")
 		input.PreferHostId = preferHostId
 	}
-	guestStatus, _ := self.Params.GetString("guest_status")
-	if !self.isRescueMode() && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
+	if self.isLiveMigrate() {
 		input.LiveMigrate = true
 		skipCpuCheck := jsonutils.QueryBoolean(self.Params, "skip_cpu_check", false)
 		skipKernelCheck := jsonutils.QueryBoolean(self.Params, "skip_kernel_check", false)
@@ -189,8 +196,7 @@ func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *
 func (self *GuestMigrateTask) OnCachedCdromComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	header := self.GetTaskRequestHeader()
 	body := jsonutils.NewDict()
-	guestStatus, _ := self.Params.GetString("guest_status")
-	if !self.isRescueMode() && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
+	if self.isLiveMigrate() {
 		body.Set("live_migrate", jsonutils.JSONTrue)
 		body.Set("enable_tls", jsonutils.NewBool(jsonutils.QueryBoolean(self.GetParams(), "enable_tls", false)))
 	}
@@ -232,6 +238,15 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 	} else {
 		body, err = self.sharedStorageMigrateConf(ctx, guest, targetHost)
 	}
+	if self.isLiveMigrate() {
+		srcDesc, err := data.Get("src_desc")
+		if err != nil {
+			self.TaskFailed(ctx, guest, jsonutils.NewString(errors.Wrap(err, "get src_desc from data").Error()))
+			return
+		}
+		body.Set("src_desc", srcDesc)
+		body.Set("live_migrate", jsonutils.JSONTrue)
+	}
 	if jsonutils.QueryBoolean(self.GetParams(), "enable_tls", false) {
 		body.Set("enable_tls", jsonutils.JSONTrue)
 		certsObj, err := data.Get("migrate_certs")
@@ -245,15 +260,10 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
-	guestStatus, _ := self.Params.GetString("guest_status")
-	if !self.isRescueMode() && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
-		body.Set("live_migrate", jsonutils.JSONTrue)
-	}
 
 	headers := self.GetTaskRequestHeader()
-
 	url := fmt.Sprintf("%s/servers/%s/dest-prepare-migrate", targetHost.ManagerUri, guest.Id)
-	self.SetStage("OnMigrateConfAndDiskComplete", body)
+	self.SetStage("OnMigrateConfAndDiskComplete", nil)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
@@ -288,8 +298,7 @@ func (self *GuestMigrateTask) OnMigrateConfAndDiskComplete(ctx context.Context, 
 		msData, _ := data.Get("dest_prepared_memory_snapshots")
 		self.Params.Set("dest_prepared_memory_snapshots", msData)
 	}
-	guestStatus, _ := self.Params.GetString("guest_status")
-	if !self.isRescueMode() && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
+	if self.isLiveMigrate() {
 		// Live migrate
 		self.SetStage("OnStartDestComplete", nil)
 	} else {
@@ -388,7 +397,6 @@ func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, gues
 	body := jsonutils.NewDict()
 	body.Set("is_local_storage", jsonutils.JSONFalse)
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
-	body.Set("qemu_cmdline", jsonutils.NewString(guest.GetQemuCmdline(self.UserCred)))
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
 	body.Set("desc", jsonutils.Marshal(targetDesc))
 
@@ -426,7 +434,6 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	body.Set("disks_uri", jsonutils.NewString(disksUri))
 	body.Set("server_url", jsonutils.NewString(serverUrl))
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
-	body.Set("qemu_cmdline", jsonutils.NewString(guest.GetQemuCmdline(self.UserCred)))
 
 	if err := self.setBodyMemorySnapshotParams(guest, sourceHost, body); err != nil {
 		return nil, errors.Wrap(err, "setBodyMemorySnapshotParams")

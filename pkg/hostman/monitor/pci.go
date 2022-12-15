@@ -123,3 +123,40 @@ type MachineInfo struct {
 }
 
 type QueryMachinesCallback func(machineInfoList []MachineInfo, err string)
+
+// Memdev -> Memdev (struct)
+
+// Memdev implements the "Memdev" QMP API type.
+type Memdev struct {
+	ID        *string  `json:"id,omitempty"`
+	Size      uint64   `json:"size"`
+	Merge     bool     `json:"merge"`
+	Dump      bool     `json:"dump"`
+	Prealloc  bool     `json:"prealloc"`
+	HostNodes []uint16 `json:"host-nodes"`
+	Policy    string   `json:"policy"`
+}
+
+type MemdevListCallback func(res []Memdev, err string)
+
+// CpuInstanceProperties -> CPUInstanceProperties (struct)
+
+// CPUInstanceProperties implements the "CpuInstanceProperties" QMP API type.
+type CPUInstanceProperties struct {
+	NodeID   *int64 `json:"node-id,omitempty"`
+	SocketID *int64 `json:"socket-id,omitempty"`
+	CoreID   *int64 `json:"core-id,omitempty"`
+	ThreadID *int64 `json:"thread-id,omitempty"`
+}
+
+// HotpluggableCPU -> HotpluggableCPU (struct)
+
+// HotpluggableCPU implements the "HotpluggableCPU" QMP API type.
+type HotpluggableCPU struct {
+	Type       string                `json:"type"`
+	VcpusCount int64                 `json:"vcpus-count"`
+	Props      CPUInstanceProperties `json:"props"`
+	QomPath    *string               `json:"qom-path,omitempty"`
+}
+
+type HotpluggableCPUListCallback func(res []HotpluggableCPU, err string)

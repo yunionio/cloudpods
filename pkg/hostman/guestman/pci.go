@@ -50,7 +50,7 @@ func (s *SKVMGuestInstance) pciControllerFind(cont desc.PCI_CONTROLLER_TYPE) *de
 }
 
 func (s *SKVMGuestInstance) initGuestDesc() error {
-	err := s.initCpuDesc()
+	err := s.initCpuDesc(0)
 	if err != nil {
 		return err
 	}
@@ -62,10 +62,19 @@ func (s *SKVMGuestInstance) initGuestDesc() error {
 	if err != nil {
 		return errors.Wrap(err, "init guest pci addresses")
 	}
-	if err := s.initMachineDefaultDevices(); err != nil {
-		return errors.Wrap(err, "init machine default devices")
+
+	err = s.initGuestDevicesDesc(pciRoot, pciBridge)
+	if err != nil {
+		return err
 	}
 
+	if err := s.initMachineDefaultAddresses(); err != nil {
+		return errors.Wrap(err, "init machine default devices")
+	}
+	return s.ensurePciAddresses()
+}
+
+func (s *SKVMGuestInstance) initGuestDevicesDesc(pciRoot, pciBridge *desc.PCIController) error {
 	// vdi device for spice
 	s.Desc.VdiDevice = new(desc.SGuestVdi)
 	if s.IsVdiSpice() {
@@ -77,7 +86,7 @@ func (s *SKVMGuestInstance) initGuestDesc() error {
 	s.initCdromDesc()
 	s.initFloppyDesc()
 	s.initGuestDisks(pciRoot, pciBridge)
-	if err = s.initGuestNetworks(pciRoot, pciBridge); err != nil {
+	if err := s.initGuestNetworks(pciRoot, pciBridge); err != nil {
 		return errors.Wrap(err, "init guest networks")
 	}
 
@@ -87,8 +96,7 @@ func (s *SKVMGuestInstance) initGuestDesc() error {
 	s.initQgaDesc()
 	s.initPvpanicDesc()
 	s.initIsaSerialDesc()
-
-	return s.ensurePciAddresses()
+	return nil
 }
 
 func (s *SKVMGuestInstance) loadGuestPciAddresses() error {
@@ -96,7 +104,7 @@ func (s *SKVMGuestInstance) loadGuestPciAddresses() error {
 	if err != nil {
 		return errors.Wrap(err, "init guest pci addresses")
 	}
-	if err := s.initMachineDefaultDevices(); err != nil {
+	if err := s.initMachineDefaultAddresses(); err != nil {
 		return errors.Wrap(err, "init machine default devices")
 	}
 	err = s.ensurePciAddresses()
@@ -106,7 +114,7 @@ func (s *SKVMGuestInstance) loadGuestPciAddresses() error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) initMachineDefaultDevices() error {
+func (s *SKVMGuestInstance) initMachineDefaultAddresses() error {
 	switch s.Desc.Machine {
 	case "pc":
 		I440FXSlot1 := &desc.PCIDevice{
@@ -170,6 +178,28 @@ func (s *SKVMGuestInstance) initMachineDefaultDevices() error {
 		// do nothing
 	}
 	return nil
+}
+
+func (s *SKVMGuestInstance) isMachineDefaultAddress(pciAddr *desc.PCIAddr) bool {
+	switch s.Desc.Machine {
+	case "pc":
+		if pciAddr.Bus == 0 && pciAddr.Slot == 1 && pciAddr.Function < 4 {
+			return true
+		}
+	case "q35":
+		if pciAddr.Bus == 0 && pciAddr.Slot == 29 {
+			switch pciAddr.Function {
+			case 0, 1, 2, 7:
+				return true
+			}
+		} else if pciAddr.Bus == 0 && pciAddr.Slot == 31 {
+			switch pciAddr.Function {
+			case 0, 2, 3:
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *SKVMGuestInstance) initGuestPciControllers() (*desc.PCIController, *desc.PCIController) {
@@ -237,12 +267,6 @@ func (s *SKVMGuestInstance) initUsbController(pciRoot *desc.PCIController) {
 	contType := s.getUsbControllerType()
 	s.Desc.Usb = &desc.UsbController{
 		PCIDevice: desc.NewPCIDevice(pciRoot.CType, contType, "usb"),
-	}
-	if contType == "qemu-xhci" {
-		s.Desc.Usb.Options = map[string]string{
-			"p2": "8", // usb2 port count
-			"p3": "8", // usb3 port count
-		}
 	}
 }
 
@@ -674,19 +698,20 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 // guests description no pci description before host-agent assign pci device address info
 // in this case wo need query pci address info by `query-pci` command. Also memory devices.
 func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
-	pciInfoList []monitor.PCIInfo, memoryDevicesInfoList []monitor.MemoryDeviceInfo,
+	cpuList []monitor.HotpluggableCPU, pciInfoList []monitor.PCIInfo,
+	memoryDevicesInfoList []monitor.MemoryDeviceInfo, memDevs []monitor.Memdev,
+	scsiNumQueues int64,
 ) error {
 	if len(pciInfoList) > 1 {
 		return errors.Errorf("unsupported pci info list with multi bus")
 	}
-
 	unknownDevices := make([]monitor.PCIDeviceInfo, 0)
 
-	err := s.initCpuDesc()
+	err := s.initCpuDesc(uint(len(cpuList)))
 	if err != nil {
 		return err
 	}
-	err = s.initMemDescFromMemoryInfo(memoryDevicesInfoList)
+	err = s.initMemDescFromMemoryInfo(memoryDevicesInfoList, memDevs)
 	if err != nil {
 		return errors.Wrap(err, "init guest memory devices")
 	}
@@ -698,26 +723,10 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 		return errors.Wrap(err, "init guest pci addresses")
 	}
 
-	// vdi device for spice
-	s.Desc.VdiDevice = new(desc.SGuestVdi)
-	if s.IsVdiSpice() {
-		s.initSpiceDevices(pciRoot)
+	err = s.initGuestDevicesDesc(pciRoot, nil)
+	if err != nil {
+		return err
 	}
-
-	s.initVirtioSerial(pciRoot)
-	s.initGuestVga(pciRoot)
-	s.initCdromDesc()
-	s.initGuestDisks(pciRoot, nil)
-	if err = s.initGuestNetworks(pciRoot, nil); err != nil {
-		return errors.Wrap(err, "init guest networks")
-	}
-
-	s.initIsolatedDevices(pciRoot, nil)
-	s.initUsbController(pciRoot)
-	s.initRandomDevice(pciRoot, options.HostOptions.EnableVirtioRngDevice)
-	s.initQgaDesc()
-	s.initPvpanicDesc()
-	s.initIsaSerialDesc()
 
 	for i := 0; i < len(pciInfoList[0].Devices); i++ {
 		pciAddr := &desc.PCIAddr{
@@ -732,6 +741,10 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 				err = s.ensureDevicePciAddress(s.Desc.VirtioScsi.PCIDevice, -1, nil)
 				if err != nil {
 					return errors.Wrap(err, "ensure virtio scsi pci address")
+				}
+				if scsiNumQueues > 1 {
+					numQueues := uint8(scsiNumQueues)
+					s.Desc.VirtioScsi.NumQueues = &numQueues
 				}
 			} else if s.Desc.PvScsi != nil {
 				s.Desc.PvScsi.PCIAddr = pciAddr
@@ -772,7 +785,7 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			if err != nil {
 				return errors.Wrap(err, "ensure vdi hda pci address")
 			}
-		case "virtio-serial0":
+		case "vdagent-serial0":
 			if s.Desc.VdiDevice.Spice == nil {
 				s.Desc.Vdi = "spice"
 				s.initSpiceDevices(pciRoot)
@@ -781,6 +794,12 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.VdagentSerial.PCIDevice, -1, nil)
 			if err != nil {
 				return errors.Wrap(err, "ensure vdagent serial pci address")
+			}
+		case "virtio-serial0":
+			s.Desc.VirtioSerial.PCIAddr = pciAddr
+			err = s.ensureDevicePciAddress(s.Desc.VirtioSerial.PCIDevice, -1, nil)
+			if err != nil {
+				return errors.Wrap(err, "ensure virtio serial address")
 			}
 		case "usbspice":
 			if s.Desc.VdiDevice.Spice == nil {
@@ -845,18 +864,48 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 					}
 				}
 			default:
-				unknownDevices = append(unknownDevices, pciInfoList[0].Devices[i])
+				class := pciInfoList[0].Devices[i].ClassInfo.Class
+				vendor := pciInfoList[0].Devices[i].ID.Vendor
+				device := pciInfoList[0].Devices[i].ID.Device
+				switch { // qemu: docs/specs/pci-ids.txt
+				case class == 3075 && vendor == 6966 && device == 13: // { 0x0c03, "USB controller", "usb"}, 1b36:000d PCI xhci usb host adapter
+					s.Desc.Usb.PCIAddr = pciAddr
+					err = s.ensureDevicePciAddress(s.Desc.Usb.PCIDevice, -1, nil)
+					if err != nil {
+						return errors.Wrap(err, "ensure usb controller pci address")
+					}
+				case class == 255 && vendor == 6900 && device == 4101: // 0x00ff, 1af4:1005  entropy generator device (legacy)
+					if s.Desc.Rng == nil {
+						// in case rng device disable by host options
+						s.initRandomDevice(pciRoot, true)
+					}
+					s.Desc.Rng.PCIAddr = pciAddr
+					err = s.ensureDevicePciAddress(s.Desc.Rng.PCIDevice, -1, nil)
+					if err != nil {
+						return errors.Wrap(err, "ensure random device pci address")
+					}
+				case class == 1920 && vendor == 6900 && device == 4099: // 0x0780, 1af4:1003  console device (legacy)
+					s.Desc.VirtioSerial.PCIAddr = pciAddr
+					err = s.ensureDevicePciAddress(s.Desc.VirtioSerial.PCIDevice, -1, nil)
+					if err != nil {
+						return errors.Wrap(err, "ensure virtio serial address")
+					}
+				case class == 768 && vendor == 4660 && device == 4369: // { 0x0300, "VGA controller", "display", 0x00ff}, PCI ID: 1234:1111
+					s.Desc.VgaDevice.PCIAddr = pciAddr
+					err = s.ensureDevicePciAddress(s.Desc.VgaDevice.PCIDevice, -1, nil)
+					if err != nil {
+						return errors.Wrap(err, "ensure vga pci address")
+					}
+				default:
+					unknownDevices = append(unknownDevices, pciInfoList[0].Devices[i])
+				}
 			}
 		}
 	}
 
-	if len(unknownDevices) > 0 {
-		s.Desc.AnonymousPCIDevs = make([]*desc.PCIDevice, len(unknownDevices))
-	}
 	for i := 0; i < len(unknownDevices); i++ {
 		if unknownDevices[i].Bus == 0 && unknownDevices[i].Slot == 0 {
-			// host bridge
-			continue
+			continue // host bridge
 		}
 		pciDev := desc.NewPCIDevice(pciRoot.CType, "", unknownDevices[i].QdevID)
 		pciDev.PCIAddr = &desc.PCIAddr{
@@ -867,6 +916,12 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 		err = s.ensureDevicePciAddress(pciDev, -1, nil)
 		if err != nil {
 			return errors.Wrap(err, "ensure anonymous pci dev address")
+		}
+		if s.isMachineDefaultAddress(pciDev.PCIAddr) {
+			continue
+		}
+		if s.Desc.AnonymousPCIDevs == nil {
+			s.Desc.AnonymousPCIDevs = make([]*desc.PCIDevice, 0)
 		}
 		s.Desc.AnonymousPCIDevs = append(s.Desc.AnonymousPCIDevs, pciDev)
 	}

@@ -804,9 +804,16 @@ func (s *SKVMGuestInstance) gpusHasVga() bool {
 	return false
 }
 
-func (s *SKVMGuestInstance) initCpuDesc() error {
+func (s *SKVMGuestInstance) initCpuDesc(cpuMax uint) error {
+	var err error
+	if cpuMax == 0 {
+		cpuMax, err = s.CpuMax()
+		if err != nil {
+			return err
+		}
+	}
 	s.fixGuestMachineType()
-	cpuDesc, err := s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), s)
+	cpuDesc, err := s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), cpuMax, s)
 	if err != nil {
 		return err
 	}
@@ -817,37 +824,51 @@ func (s *SKVMGuestInstance) initCpuDesc() error {
 func (s *SKVMGuestInstance) initMemDesc(memSizeMB int64) {
 	s.Desc.MemDesc = s.archMan.GenerateMemDesc()
 	s.Desc.MemDesc.SizeMB = memSizeMB
+	s.initDefaultMemObject(memSizeMB)
+}
+
+func (s *SKVMGuestInstance) memObjectType() string {
 	if s.manager.host.IsHugepagesEnabled() {
-		s.Desc.MemDesc.Mem = desc.NewObject("memory-backend-file", "mem")
+		return "memory-backend-file"
+	} else if s.isMemcleanEnabled() {
+		return "memory-backend-memfd"
+	} else {
+		return "memory-backend-ram"
+	}
+}
+
+func (s *SKVMGuestInstance) initDefaultMemObject(memSizeMB int64) {
+	s.Desc.MemDesc.Mem = desc.NewObject(s.memObjectType(), "mem")
+	if s.manager.host.IsHugepagesEnabled() {
 		s.Desc.MemDesc.Mem.Options = map[string]string{
 			"mem-path": fmt.Sprintf("/dev/hugepages/%s", s.Desc.Uuid),
 			"size":     fmt.Sprintf("%dM", memSizeMB),
 			"share":    "on", "prealloc": "on",
 		}
 	} else if s.isMemcleanEnabled() {
-		s.Desc.MemDesc.Mem = desc.NewObject("memory-backend-memfd", "mem")
 		s.Desc.MemDesc.Mem.Options = map[string]string{
 			"size":  fmt.Sprintf("%dM", memSizeMB),
 			"share": "on", "prealloc": "on",
 		}
 	} else {
-		s.Desc.MemDesc.Mem = desc.NewObject("memory-backend-ram", "mem")
 		s.Desc.MemDesc.Mem.Options = map[string]string{
 			"size": fmt.Sprintf("%dM", memSizeMB),
 		}
 	}
 }
 
-func (s *SKVMGuestInstance) initMemDescFromMemoryInfo(memoryDevicesInfoList []monitor.MemoryDeviceInfo) error {
-	var objType string
-	if s.manager.host.IsHugepagesEnabled() {
-		objType = "memory-backend-file"
-	} else if s.isMemcleanEnabled() {
-		objType = "memory-backend-memfd"
-	} else {
-		objType = "memory-backend-ram"
+func (s *SKVMGuestInstance) defaultMemNodeHasObject(memDevs []monitor.Memdev) bool {
+	for _, dev := range memDevs {
+		if dev.ID != nil && *dev.ID == "mem" {
+			return true
+		}
 	}
+	return false
+}
 
+func (s *SKVMGuestInstance) initMemDescFromMemoryInfo(
+	memoryDevicesInfoList []monitor.MemoryDeviceInfo, memDevs []monitor.Memdev,
+) error {
 	memSize := s.Desc.Mem
 	memSlots := make([]*desc.SMemSlot, 0)
 	for i := 0; i < len(memoryDevicesInfoList); i++ {
@@ -857,7 +878,7 @@ func (s *SKVMGuestInstance) initMemDescFromMemoryInfo(memoryDevicesInfoList []mo
 		memSize -= (memoryDevicesInfoList[i].Data.Size / 1024 / 1024)
 		memSlots = append(memSlots, &desc.SMemSlot{
 			SizeMB: memoryDevicesInfoList[i].Data.Size / 1024 / 1024,
-			MemObj: desc.NewObject(objType, path.Base(memoryDevicesInfoList[i].Data.Memdev)),
+			MemObj: desc.NewObject(s.memObjectType(), path.Base(memoryDevicesInfoList[i].Data.Memdev)),
 			MemDev: &desc.SMemDevice{
 				Type: "pc-dimm", Id: *memoryDevicesInfoList[i].Data.ID,
 			},
@@ -866,7 +887,11 @@ func (s *SKVMGuestInstance) initMemDescFromMemoryInfo(memoryDevicesInfoList []mo
 	if memSize <= 0 {
 		return errors.Errorf("wrong memsize %d", s.Desc.Mem)
 	}
-	s.initMemDesc(memSize)
+	s.Desc.MemDesc = s.archMan.GenerateMemDesc()
+	s.Desc.MemDesc.SizeMB = memSize
+	if s.defaultMemNodeHasObject(memDevs) {
+		s.initDefaultMemObject(memSize)
+	}
 	s.Desc.MemDesc.MemSlots = memSlots
 	return nil
 }

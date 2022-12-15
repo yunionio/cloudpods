@@ -21,6 +21,7 @@ import (
 	"io"
 	"regexp"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1046,6 +1047,29 @@ func (m *QmpMonitor) GetMemoryDevicesInfo(callback QueryMemoryDevicesCallback) {
 	m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) GetMemdevList(callback MemdevListCallback) {
+	var (
+		cb = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(nil, res.ErrorVal.Error())
+			} else {
+				memdevList := make([]Memdev, 0)
+				err := json.Unmarshal(res.Return, &memdevList)
+				if err != nil {
+					callback(nil, err.Error())
+				} else {
+					callback(memdevList, "")
+				}
+
+			}
+		}
+		cmd = &Command{
+			Execute: "query-memdev",
+		}
+	)
+	m.Query(cmd, cb)
+}
+
 func (m *QmpMonitor) BlockIoThrottle(driveName string, bps, iops int64, callback StringCallback) {
 	cmd := fmt.Sprintf("block_set_io_throttle %s %d 0 0 %d 0 0", driveName, bps, iops)
 	m.HumanMonitorCommand(cmd, callback)
@@ -1174,6 +1198,59 @@ func (m *QmpMonitor) Quit(callback StringCallback) {
 		}
 		cmd = &Command{
 			Execute: "quit",
+		}
+	)
+	m.Query(cmd, cb)
+}
+
+func getScsiNumQueuesQmp(output string) int64 {
+	var lines = strings.Split(strings.TrimSuffix(output, "\r\n"), "\\r\\n")
+	for i, line := range lines {
+		line := strings.TrimSpace(line)
+		if strings.HasPrefix(line, "dev: virtio-scsi-device") {
+			if len(lines) <= i+1 {
+				log.Errorf("failed parse num queues")
+				return -1
+			}
+			line = strings.TrimSpace(lines[i+1])
+			segs := strings.Split(line, " ")
+			numQueue, err := strconv.ParseInt(segs[2], 10, 0)
+			if err != nil {
+				log.Errorf("failed parse num queue %s", err)
+				return -1
+			} else {
+				return numQueue
+			}
+		}
+	}
+	return -1
+}
+
+func (m *QmpMonitor) GetScsiNumQueues(callback func(int64)) {
+	cb := func(output string) {
+		numQueues := getScsiNumQueuesQmp(output)
+		callback(numQueues)
+	}
+	m.HumanMonitorCommand("info qtree", cb)
+}
+
+func (m *QmpMonitor) GetHotPluggableCpus(callback HotpluggableCPUListCallback) {
+	var (
+		cb = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(nil, res.ErrorVal.Error())
+			} else {
+				cpuList := make([]HotpluggableCPU, 0)
+				err := json.Unmarshal(res.Return, &cpuList)
+				if err != nil {
+					callback(nil, err.Error())
+				} else {
+					callback(cpuList, "")
+				}
+			}
+		}
+		cmd = &Command{
+			Execute: "query-hotpluggable-cpus",
 		}
 	)
 	m.Query(cmd, cb)

@@ -43,6 +43,7 @@ const (
 	VM_RENEW_FAILED    = "renew_failed"
 	VM_ATTACH_DISK     = "attach_disk"
 	VM_DETACH_DISK     = "detach_disk"
+	VM_UNSYNC          = "unsync"
 
 	VM_BACKUP_STARTING         = "backup_starting"
 	VM_BACKUP_STOPING          = "backup_stopping"

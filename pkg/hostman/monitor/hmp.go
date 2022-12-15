@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -489,7 +490,11 @@ func (m *HmpMonitor) GeMemtSlotIndex(callback func(index int)) {
 }
 
 func (m *HmpMonitor) GetMemoryDevicesInfo(cb QueryMemoryDevicesCallback) {
-	go cb(nil, "not supported")
+	go cb(nil, "hmp unsupport get memory devices info")
+}
+
+func (m *HmpMonitor) GetMemdevList(callback MemdevListCallback) {
+	go callback(nil, "hmp unsupport get memdev list")
 }
 
 func (m *HmpMonitor) ObjectAdd(objectType string, params map[string]string, callback StringCallback) {
@@ -543,4 +548,39 @@ func (m *HmpMonitor) QueryMachines(callback QueryMachinesCallback) {
 
 func (m *HmpMonitor) Quit(cb StringCallback) {
 	m.Query("quit", cb)
+}
+
+func getScsiNumQueues(output string) int64 {
+	var lines = strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
+	for i, line := range lines {
+		line := strings.TrimSpace(line)
+		if strings.HasPrefix(line, "dev: virtio-scsi-device") {
+			if len(lines) <= i+1 {
+				log.Errorf("failed parse num queues")
+				return -1
+			}
+			line = strings.TrimSpace(lines[i+1])
+			segs := strings.Split(line, " ")
+			numQueue, err := strconv.ParseInt(segs[2], 10, 0)
+			if err != nil {
+				log.Errorf("failed parse num queue %s", err)
+				return -1
+			} else {
+				return numQueue
+			}
+		}
+	}
+	return -1
+}
+
+func (m *HmpMonitor) GetScsiNumQueues(callback func(int64)) {
+	cb := func(output string) {
+		numQueues := getScsiNumQueues(output)
+		callback(numQueues)
+	}
+	m.Query("info qtree", cb)
+}
+
+func (m *HmpMonitor) GetHotPluggableCpus(callback HotpluggableCPUListCallback) {
+	go callback(nil, "unsupported get hotpluggable cpu list for hmp")
 }
