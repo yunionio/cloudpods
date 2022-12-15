@@ -288,9 +288,10 @@ func (self *SRemoteFileClient) GetStorages() ([]SStorage, error) {
 
 func (self *SRemoteFileClient) getMetrics(resourceType cloudprovider.TResourceType, metricType cloudprovider.TMetricType) ([]cloudprovider.MetricValues, error) {
 	ret := []cloudprovider.MetricValues{}
+	self.lock.Lock()
+	defer self.lock.Unlock()
+
 	if self.metrics == nil {
-		self.lock.Lock()
-		defer self.lock.Unlock()
 		self.metrics = []map[cloudprovider.TMetricType]map[string]interface{}{}
 		resp, err := self.get("metrics")
 		if err != nil {
