@@ -107,7 +107,7 @@ func NewRedfishDriver(ctx context.Context, endpoint string, username, password s
 		drv := factory.NewApi(endpoint, username, password, debug)
 		err := drv.Probe(ctx)
 		if err == nil {
-			log.Infof("Found %s Redfish REST Api Driver", k)
+			log.Infof("Found %s Redfish REST Api Driver for endpoint %q", k, endpoint)
 			return drv
 		}
 	}
@@ -117,9 +117,9 @@ func NewRedfishDriver(ctx context.Context, endpoint string, username, password s
 	drv := defaultFactory.NewApi(endpoint, username, password, debug)
 	err := drv.Probe(ctx)
 	if err == nil {
-		log.Infof("Use generic Redfish REST Api Driver")
+		log.Infof("Use generic Redfish REST Api Driver for endpoint %q", endpoint)
 		return drv
 	}
-	log.Errorf("No Redfish driver found")
+	log.Errorf("No Redfish driver found of endpoint %q", endpoint)
 	return nil
 }
