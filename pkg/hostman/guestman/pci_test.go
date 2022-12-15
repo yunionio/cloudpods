@@ -163,7 +163,7 @@ func TestSKVMGuestInstance_initGuestDesc(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if err := s.initMachineDefaultDevices(); err != nil {
+	if err := s.initMachineDefaultAddresses(); err != nil {
 		t.Error(err)
 	}
 

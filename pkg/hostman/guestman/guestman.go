@@ -740,7 +740,14 @@ func (m *SGuestManager) StatusWithBlockJobsCount(ctx context.Context, params int
 	sid := params.(string)
 	status := m.getStatus(sid)
 	guest, _ := m.GetServer(sid)
-	if status == GUEST_RUNNING {
+	body := jsonutils.NewDict()
+	if guest != nil {
+		body.Set("power_status", jsonutils.NewString(guest.GetPowerStates()))
+	}
+
+	if status == GUEST_RUNNING && guest.pciUninitialized {
+		status = compute.VM_UNSYNC
+	} else if status == GUEST_RUNNING {
 		var runCb = func() {
 			body := jsonutils.NewDict()
 			if guest.IsMaster() {
@@ -757,20 +764,19 @@ func (m *SGuestManager) StatusWithBlockJobsCount(ctx context.Context, params int
 				blockJobsCount := guest.BlockJobsCount()
 				body.Set("block_jobs_count", jsonutils.NewInt(int64(blockJobsCount)))
 			}
-
 			body.Set("status", jsonutils.NewString(status))
 			hostutils.TaskComplete(ctx, body)
 		}
 		if guest.Monitor == nil && !guest.IsStopping() {
-			guest.StartMonitor(context.Background(), runCb)
+			if err := guest.StartMonitor(context.Background(), runCb); err != nil {
+				log.Errorf("guest %s failed start monitor %s", guest.GetName(), err)
+				body.Set("status", jsonutils.NewString(status))
+				hostutils.TaskComplete(ctx, body)
+			}
 		} else {
 			runCb()
 		}
 		return nil, nil
-	}
-	body := jsonutils.NewDict()
-	if guest != nil {
-		body.Set("power_status", jsonutils.NewString(guest.GetPowerStates()))
 	}
 	body.Set("status", jsonutils.NewString(status))
 	hostutils.TaskComplete(ctx, body)
@@ -910,6 +916,9 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 		}
 		ret.Set("migrate_certs", jsonutils.Marshal(certs))
 	}
+	if migParams.LiveMigrate {
+		ret.Set("src_desc", jsonutils.Marshal(guest.Desc))
+	}
 	return ret, nil
 }
 
@@ -970,8 +979,8 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		startParams := jsonutils.NewDict()
 		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
 		startParams.Set("need_migrate", jsonutils.JSONTrue)
-		startParams.Set("source_qemu_cmdline", jsonutils.NewString(migParams.SourceQemuCmdline))
 		startParams.Set("live_migrate_use_tls", jsonutils.NewBool(migParams.EnableTLS))
+		startParams.Set("src_desc", jsonutils.Marshal(migParams.SrcDesc))
 		if len(migParams.MigrateCerts) > 0 {
 			if err := guest.WriteMigrateCerts(migParams.MigrateCerts); err != nil {
 				return nil, errors.Wrap(err, "write migrate certs")

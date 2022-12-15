@@ -327,25 +327,30 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 		return httperrors.NewBadRequestError("Failed unmarshal guest desc %s", err)
 	}
 
+	var params = &guestman.SDestPrepareMigrate{}
 	qemuVersion, err := body.GetString("qemu_version")
 	if err != nil {
 		return httperrors.NewMissingParameterError("qemu_version")
 	}
 	liveMigrate := jsonutils.QueryBoolean(body, "live_migrate", false)
+	if liveMigrate {
+		var sourceDesc = new(desc.SGuestDesc)
+		err := body.Unmarshal(sourceDesc, "src_desc")
+		if err != nil {
+			return httperrors.NewBadRequestError("Failed unmarshal guest source desc %s", err)
+		}
+		params.SrcDesc = sourceDesc
+	}
+
 	isLocal, err := body.Bool("is_local_storage")
 	if err != nil {
 		return httperrors.NewMissingParameterError("is_local_storage")
 	}
-	qemuCmdline, err := body.GetString("qemu_cmdline")
-	if err != nil {
-		return httperrors.NewMissingParameterError("qemu_cmdline")
-	}
-	var params = &guestman.SDestPrepareMigrate{}
+
 	params.Sid = sid
 	params.Desc = guestDesc
 	params.QemuVersion = qemuVersion
 	params.LiveMigrate = liveMigrate
-	params.SourceQemuCmdline = qemuCmdline
 	params.EnableTLS = jsonutils.QueryBoolean(body, "enable_tls", false)
 	if params.EnableTLS {
 		certsObj, err := body.Get("migrate_certs")
@@ -400,7 +405,6 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 					return httperrors.NewMissingParameterError("target_storage_id")
 				}
 				targetStorageIds = append(targetStorageIds, targetStorageId)
-				// params.TargetStorageId = targetStorageId
 				params.TargetStorageIds = targetStorageIds
 			}
 

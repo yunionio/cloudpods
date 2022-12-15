@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
@@ -167,7 +168,15 @@ func GuestnetworksDescToDeployDesc(guestnetworks []*desc.SGuestNetwork) []*Nic {
 	return nics
 }
 
-func GuestDescToDeployDesc(guestDesc *desc.SGuestDesc) *GuestDesc {
+func GuestJsonDescToDeployDesc(guestDesc *jsonutils.JSONDict) (*GuestDesc, error) {
+	ret := new(GuestDesc)
+	if err := guestDesc.Unmarshal(ret); err != nil {
+		return nil, errors.Wrap(err, "GuestJsonDescToDeployDesc unmarshal")
+	}
+	return ret, nil
+}
+
+func GuestStructDescToDeployDesc(guestDesc *desc.SGuestDesc) *GuestDesc {
 	ret := new(GuestDesc)
 
 	ret.Name = guestDesc.Name
@@ -176,7 +185,6 @@ func GuestDescToDeployDesc(guestDesc *desc.SGuestDesc) *GuestDesc {
 	ret.Hostname = guestDesc.Hostname
 	ret.Nics = GuestnetworksDescToDeployDesc(guestDesc.Nics)
 	ret.Disks = GuestdisksDescToDeployDesc(guestDesc.Disks)
-	ret.NicsStandby = GuestnetworksDescToDeployDesc(guestDesc.NicsStandby)
 
 	return ret
 }

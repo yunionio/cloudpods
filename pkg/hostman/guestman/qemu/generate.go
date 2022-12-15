@@ -145,8 +145,10 @@ func generateMemoryOption(memDesc *desc.SGuestMem) string {
 		"-m %dM,slots=%d,maxmem=%dM",
 		memDesc.SizeMB, memDesc.Slots, memDesc.MaxMem,
 	))
-	cmds = append(cmds, generateObjectOption(memDesc.Mem))
-	cmds = append(cmds, generateNumaOption(memDesc.Mem.Id))
+	if memDesc.Mem != nil {
+		cmds = append(cmds, generateObjectOption(memDesc.Mem))
+		cmds = append(cmds, generateNumaOption(memDesc.Mem.Id))
+	}
 	for i := 0; i < len(memDesc.MemSlots); i++ {
 		memDev := memDesc.MemSlots[i].MemDev
 		memObj := memDesc.MemSlots[i].MemObj
@@ -200,6 +202,14 @@ func getMonitorOptions(drvOpt QemuOptions, input *Monitor) []string {
 		drvOpt.Mon(idDev, input.Id, input.Mode),
 	}
 	return opts
+}
+
+func generateScsiOptions(scsi *desc.SGuestVirtioScsi) string {
+	opt := generatePCIDeviceOption(scsi.PCIDevice)
+	if scsi.NumQueues != nil && *scsi.NumQueues > 0 {
+		opt += fmt.Sprintf(",num_queues=%d,vectors=%d", *scsi.NumQueues, *scsi.NumQueues+1)
+	}
+	return opt
 }
 
 func generateDisksOptions(drvOpt QemuOptions, disks []*desc.SGuestDisk, isEncrypt, isSlave, isMaster bool) []string {
@@ -712,7 +722,7 @@ func GenerateStartOptions(
 	opts = append(opts, generatePciControllerOptions(input.GuestDesc.PCIControllers)...)
 
 	if input.GuestDesc.VirtioScsi != nil {
-		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.VirtioScsi.PCIDevice))
+		opts = append(opts, generateScsiOptions(input.GuestDesc.VirtioScsi))
 	} else if input.GuestDesc.PvScsi != nil {
 		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.PvScsi.PCIDevice))
 	}
