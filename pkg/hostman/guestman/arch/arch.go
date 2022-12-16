@@ -33,13 +33,12 @@ type Arch interface {
 }
 
 type KVMGuestInstance interface {
-	HasGpu() bool
 	IsOldWindows() bool
 	GetOsName() string
 
 	GetKernelVersion() string
 	CpuMax() (uint, error)
-	IsEnabledNestedVirt() bool
+	IsNestedVirt() bool
 	IsKvmSupport() bool
 }
 
