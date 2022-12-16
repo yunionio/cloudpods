@@ -2744,7 +2744,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			}
 		}
 		if extVM.GetName() != extVM.GetHostname() {
-			self.Hostname = extVM.GetHostname()
+			self.Hostname = pinyinutils.Text2Pinyin(extVM.GetHostname())
 		}
 		if !self.IsFailureStatus() && syncStatus {
 			self.Status = extVM.GetStatus()
@@ -2856,7 +2856,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Bios = string(extVM.GetBios())
 	guest.Machine = extVM.GetMachine()
 	guest.Hypervisor = extVM.GetHypervisor()
-	guest.Hostname = extVM.GetHostname()
+	guest.Hostname = pinyinutils.Text2Pinyin(extVM.GetHostname())
 	guest.InternetMaxBandwidthOut = extVM.GetInternetMaxBandwidthOut()
 	guest.Throughput = extVM.GetThroughput()
 
