@@ -15,7 +15,6 @@
 package huawei
 
 import (
-	"fmt"
 	"time"
 
 	"yunion.io/x/log"
@@ -50,8 +49,8 @@ type MetricData struct {
 
 func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	params := map[string]interface{}{
-		"from":   fmt.Sprintf("%d", opts.StartTime.UnixMilli()),
-		"to":     fmt.Sprintf("%d", opts.EndTime.UnixMilli()),
+		"from":   opts.StartTime.UnixMilli(),
+		"to":     opts.EndTime.UnixMilli(),
 		"period": "1",
 		"filter": "average",
 	}
@@ -131,8 +130,8 @@ func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOption
 
 func (self *SHuaweiClient) getRedisMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	params := map[string]interface{}{
-		"from":   fmt.Sprintf("%d", opts.StartTime.UnixMilli()),
-		"to":     fmt.Sprintf("%d", opts.EndTime.UnixMilli()),
+		"from":   opts.StartTime.UnixMilli(),
+		"to":     opts.EndTime.UnixMilli(),
 		"period": "1",
 		"filter": "average",
 	}
@@ -216,8 +215,8 @@ func (self *SHuaweiClient) getRedisMetrics(opts *cloudprovider.MetricListOptions
 
 func (self *SHuaweiClient) getRdsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	params := map[string]interface{}{
-		"from":   fmt.Sprintf("%d", opts.StartTime.UnixMilli()),
-		"to":     fmt.Sprintf("%d", opts.EndTime.UnixMilli()),
+		"from":   opts.StartTime.UnixMilli(),
+		"to":     opts.EndTime.UnixMilli(),
 		"period": "1",
 		"filter": "average",
 	}
@@ -399,8 +398,8 @@ func (self *SHuaweiClient) getBucketMetrics(opts *cloudprovider.MetricListOption
 
 func (self *SHuaweiClient) getLoadbalancerMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	params := map[string]interface{}{
-		"from":   fmt.Sprintf("%d", opts.StartTime.UnixMilli()),
-		"to":     fmt.Sprintf("%d", opts.EndTime.UnixMilli()),
+		"from":   opts.StartTime.UnixMilli(),
+		"to":     opts.EndTime.UnixMilli(),
 		"period": "1",
 		"filter": "average",
 	}
