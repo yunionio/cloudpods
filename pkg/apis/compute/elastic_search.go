@@ -29,6 +29,11 @@ const (
 	ELASTIC_SEARCH_STATUS_UNKNOWN       = "unknown"
 )
 
+const (
+	ELASTIC_SEARCH_UPDATE_TAGS        = "update_tags"
+	ELASTIC_SEARCH_UPDATE_TAGS_FAILED = "update_tags_fail"
+)
+
 // 资源创建参数, 目前仅占位
 type ElasticSearchCreateInput struct {
 }

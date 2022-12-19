@@ -171,7 +171,7 @@ func (self *SElasticSearch) GetSysTags() map[string]string {
 }
 
 func (self *SElasticSearch) SetTags(tags map[string]string, replace bool) error {
-	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
+	return self.region.SetResourceTags(ALIYUN_SERVICE_ES, "INSTANCE", self.InstanceId, tags, replace)
 }
 
 func (self *SElasticSearch) GetId() string {

@@ -84,7 +84,7 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20221214123921-87b816428b1e
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20221219062801-7d65989751c3
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
 	yunion.io/x/jsonutils v1.0.1-0.20220819091305-3bab322ab4fd
 	yunion.io/x/log v1.0.0
@@ -269,3 +269,5 @@ replace (
 	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
 	github.com/jaypipes/ghw => github.com/zexi/ghw v0.9.1
 )
+
+replace yunion.io/x/cloudmux => /Users/kailun/GolandProjects/cloudmux

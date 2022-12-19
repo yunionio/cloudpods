@@ -3248,3 +3248,35 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateNetwork(ctx context
 
 	return net.SyncWithCloudNetwork(ctx, userCred, inet, nil, nil)
 }
+
+func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticSearch(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SElasticSearch, replaceTags bool, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		ies, err := instance.GetIElasticSearch(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "instance.GetIESInstance")
+		}
+		oldTags, err := ies.GetTags()
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
+			return nil, errors.Wrap(err, "ies.GetTags()")
+		}
+		tags, err := instance.GetAllUserMetadata()
+		if err != nil {
+			return nil, errors.Wrapf(err, "instance.GetAllUserMetadata")
+		}
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
+		err = cloudprovider.SetTags(ctx, ies, instance.ManagerId, tags, replaceTags)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
+			logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+			return nil, errors.Wrap(err, "ies.SetTags")
+		}
+		logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
+		return nil, nil
+	})
+	return nil
+}
