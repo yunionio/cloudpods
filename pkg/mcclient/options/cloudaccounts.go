@@ -130,6 +130,10 @@ type SCloudAccountCreateBaseOptions struct {
 	DryRun          bool   `help:"test create cloudaccount params"`
 	ShowSubAccounts bool   `help:"test and show subaccount info"`
 	ReadOnly        bool   `help:"Read only account"`
+
+	ProjectMappingId   string
+	EnableProjectSync  bool
+	EnableResourceSync bool
 }
 
 type SVMwareCloudAccountCreateOptions struct {
@@ -1116,7 +1120,9 @@ func (opts *SubscriptionCreateOptions) Params() (jsonutils.JSONObject, error) {
 
 type ClouaccountProjectMappingOptions struct {
 	SCloudAccountIdOptions
-	ProjectMappingId string `json:"project_mapping_id" help:"project mapping id"`
+	ProjectMappingId   string `json:"project_mapping_id" help:"project mapping id"`
+	EnableProjectSync  bool
+	EnableResourceSync bool
 }
 
 func (opts *ClouaccountProjectMappingOptions) Params() (jsonutils.JSONObject, error) {

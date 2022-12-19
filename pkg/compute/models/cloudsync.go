@@ -2156,7 +2156,7 @@ func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel,
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetCloudaccount")
 		}
-		if rm != nil && rm.Enabled.Bool() {
+		if rm != nil && rm.Enabled.Bool() && rm.IsNeedResourceSync() {
 			extTags, err := extModel.GetTags()
 			if err != nil {
 				return nil, errors.Wrapf(err, "extModel.GetTags")

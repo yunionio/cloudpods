@@ -206,6 +206,14 @@ type CloudaccountCreateInput struct {
 	SubAccounts *cloudprovider.SubAccounts
 
 	ReadOnly bool `json:"read_only"`
+
+	SProjectMappingResourceInput
+}
+
+type SProjectMappingResourceInput struct {
+	ProjectMappingId   string `json:"project_mapping_id"`
+	EnableProjectSync  bool   `json:"enable_project_sync"`
+	EnableResourceSync bool   `json:"enable_resource_sync"`
 }
 
 type CloudaccountShareModeInput struct {
@@ -505,6 +513,9 @@ type CloudaccountProjectMappingInput struct {
 	// 同步策略Id, 若不传此参数则解绑
 	// 绑定同步策略要求当前云账号此刻未绑定其他同步策略
 	ProjectMappingId string `json:"project_mapping_id"`
+
+	EnableProjectSync  *bool `json:"enable_project_sync"`
+	EnableResourceSync *bool `json:"enable_resource_sync"`
 }
 
 type SyncRangeInput struct {
