@@ -269,5 +269,3 @@ replace (
 	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
 	github.com/jaypipes/ghw => github.com/zexi/ghw v0.9.1
 )
-
-replace yunion.io/x/cloudmux => /Users/kailun/GolandProjects/cloudmux
