@@ -391,9 +391,32 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 			project.DomainId = domainId
 		}
 	}
+	pm, _ := account.GetProjectMapping()
 	if localProject != nil {
 		project.DomainId = localProject.DomainId
 		project.ProjectId = localProject.Id
+	} else if pm != nil && pm.Enabled.IsTrue() && pm.IsNeedProjectSync() {
+		extTags, err := extProject.GetTags()
+		if err != nil {
+			return nil, errors.Wrapf(err, "extModel.GetTags")
+		}
+		if pm.Rules != nil {
+			for _, rule := range *pm.Rules {
+				domainId, projectId, newProj, isMatch := rule.IsMatchTags(extTags)
+				if isMatch && len(newProj) > 0 {
+					domainId, projectId, err = account.getOrCreateTenant(context.TODO(), newProj, "", "", "auto create from tag")
+					if err != nil {
+						log.Errorf("getOrCreateTenant(%s) error: %v", newProj, err)
+						continue
+					}
+					if len(domainId) > 0 && len(projectId) > 0 {
+						project.DomainId = domainId
+						project.ProjectId = projectId
+						break
+					}
+				}
+			}
+		}
 	} else if account.AutoCreateProject {
 		desc := fmt.Sprintf("auto create from cloud project %s (%s)", project.Name, project.ExternalId)
 		domainId, projectId, err := account.getOrCreateTenant(ctx, project.Name, project.DomainId, "", desc)

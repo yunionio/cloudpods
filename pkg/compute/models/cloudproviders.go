@@ -119,20 +119,49 @@ type pmCache struct {
 	CloudaccountId          string
 	AccountProjectMappingId string
 	ManagerProjectMappingId string
+
+	AccountEnableProjectSync bool
+	ManagerEnableProjectSync bool
+
+	AccountEnableResourceSync bool
+	ManagerEnableResourceSync bool
 }
 
-func (self *pmCache) GetProjectMapping() (*SProjectMapping, error) {
+type sProjectMapping struct {
+	*SProjectMapping
+	EnableProjectSync  bool
+	EnableResourceSync bool
+}
+
+func (self *sProjectMapping) IsNeedResourceSync() bool {
+	return self.EnableResourceSync || !self.EnableProjectSync
+}
+
+func (self *sProjectMapping) IsNeedProjectSync() bool {
+	return self.EnableProjectSync
+}
+
+func (self *pmCache) GetProjectMapping() (*sProjectMapping, error) {
 	if len(self.ManagerProjectMappingId) > 0 {
 		pm, err := GetRuleMapping(self.ManagerProjectMappingId)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetRuleMapping(%s)", self.ManagerProjectMappingId)
 		}
-		if pm.Enabled.IsTrue() {
-			return pm, nil
+		ret := &sProjectMapping{
+			SProjectMapping:    pm,
+			EnableProjectSync:  self.ManagerEnableProjectSync,
+			EnableResourceSync: self.ManagerEnableResourceSync,
 		}
+		return ret, nil
 	}
 	if len(self.AccountProjectMappingId) > 0 {
-		return GetRuleMapping(self.AccountProjectMappingId)
+		ret := &sProjectMapping{
+			EnableProjectSync:  self.AccountEnableProjectSync,
+			EnableResourceSync: self.AccountEnableResourceSync,
+		}
+		var err error
+		ret.SProjectMapping, err = GetRuleMapping(self.AccountProjectMappingId)
+		return ret, err
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty project mapping id")
 }
@@ -141,9 +170,18 @@ var pmCaches map[string]*pmCache = map[string]*pmCache{}
 
 func refreshPmCaches() error {
 	q := CloudproviderManager.Query().SubQuery()
-	providers := q.Query(q.Field("cloudaccount_id"), q.Field("id"), q.Field("project_mapping_id").Label("manager_project_mapping_id"))
+	providers := q.Query(
+		q.Field("cloudaccount_id"),
+		q.Field("id"),
+		q.Field("project_mapping_id").Label("manager_project_mapping_id"),
+		q.Field("enable_project_sync").Label("manager_enable_project_sync"),
+		q.Field("enable_resource_sync").Label("manager_enable_resource_sync"),
+	)
 	sq := CloudaccountManager.Query().SubQuery()
-	mq := providers.LeftJoin(sq, sqlchemy.Equals(q.Field("cloudaccount_id"), sq.Field("id"))).AppendField(sq.Field("project_mapping_id").Label("account_project_mapping_id"))
+	mq := providers.LeftJoin(sq, sqlchemy.Equals(q.Field("cloudaccount_id"), sq.Field("id"))).
+		AppendField(sq.Field("project_mapping_id").Label("account_project_mapping_id")).
+		AppendField(sq.Field("enable_project_sync").Label("account_enable_project_sync")).
+		AppendField(sq.Field("enable_resource_sync").Label("account_enable_resource_sync"))
 	caches := []pmCache{}
 	err := mq.All(&caches)
 	if err != nil {
@@ -155,7 +193,31 @@ func refreshPmCaches() error {
 	return nil
 }
 
-func (self *SCloudprovider) GetProjectMapping() (*SProjectMapping, error) {
+func (self *SCloudaccount) GetProjectMapping() (*sProjectMapping, error) {
+	cache, err := func() (*pmCache, error) {
+		for id := range pmCaches {
+			if pmCaches[id].CloudaccountId == self.Id {
+				return pmCaches[id], nil
+			}
+		}
+		err := refreshPmCaches()
+		if err != nil {
+			return nil, errors.Wrapf(err, "refreshPmCaches")
+		}
+		for id := range pmCaches {
+			if pmCaches[id].CloudaccountId == self.Id {
+				return pmCaches[id], nil
+			}
+		}
+		return nil, cloudprovider.ErrNotFound
+	}()
+	if err != nil {
+		return nil, errors.Wrapf(err, "get project mapping cache")
+	}
+	return cache.GetProjectMapping()
+}
+
+func (self *SCloudprovider) GetProjectMapping() (*sProjectMapping, error) {
 	cache, err := func() (*pmCache, error) {
 		mp, ok := pmCaches[self.Id]
 		if ok {
@@ -1959,12 +2021,14 @@ func (self *SCloudprovider) PerformProjectMapping(ctx context.Context, userCred 
 			return nil, httperrors.NewInputParameterError("cloudprovider %s has aleady bind project mapping %s", self.Name, self.ProjectMappingId)
 		}
 	}
-	// no changes
-	if self.ProjectMappingId == input.ProjectMappingId {
-		return nil, nil
-	}
 	_, err := db.Update(self, func() error {
 		self.ProjectMappingId = input.ProjectMappingId
+		if input.EnableProjectSync != nil {
+			self.EnableProjectSync = tristate.NewFromBool(*input.EnableProjectSync)
+		}
+		if input.EnableResourceSync != nil {
+			self.EnableResourceSync = tristate.NewFromBool(*input.EnableResourceSync)
+		}
 		return nil
 	})
 	if err != nil {

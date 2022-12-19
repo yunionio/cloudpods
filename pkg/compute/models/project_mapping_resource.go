@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
@@ -32,10 +33,28 @@ import (
 )
 
 type SProjectMappingResourceBase struct {
-	ProjectMappingId string `width:"36" charset:"ascii" nullable:"false" create:"optional" index:"true" list:"user" json:"project_mapping_id"`
+	ProjectMappingId   string            `width:"36" charset:"ascii" nullable:"true" create:"optional" index:"true" list:"user" json:"project_mapping_id"`
+	EnableProjectSync  tristate.TriState `default:"false" list:"user" create:"optional"`
+	EnableResourceSync tristate.TriState `default:"true" list:"user" create:"optional"`
 }
 
 type SProjectMappingResourceBaseManager struct{}
+
+func (manager *SProjectMappingResourceBaseManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.SProjectMappingResourceInput,
+) (api.SProjectMappingResourceInput, error) {
+	if len(input.ProjectMappingId) > 0 {
+		_, err := validators.ValidateModel(userCred, ProjectMappingManager, &input.ProjectMappingId)
+		if err != nil {
+			return input, err
+		}
+	}
+	return input, nil
+}
 
 func (self *SProjectMappingResourceBase) GetProjectMapping() (*SProjectMapping, error) {
 	pm, err := ProjectMappingManager.FetchById(self.ProjectMappingId)
