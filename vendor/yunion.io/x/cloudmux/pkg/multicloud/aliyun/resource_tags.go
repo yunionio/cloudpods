@@ -33,6 +33,8 @@ func (self *SRegion) tagRequest(serviceType, action string, params map[string]st
 		return self.vpcRequest(action, params)
 	case ALIYUN_SERVICE_RDS:
 		return self.rdsRequest(action, params)
+	case ALIYUN_SERVICE_ES:
+		return self.esRequest(action, params)
 	case ALIYUN_SERVICE_SLB:
 		return self.lbRequest(action, params)
 	case ALIYUN_SERVICE_KVS:
@@ -56,6 +58,11 @@ func (self *SRegion) ListTags(serviceType string, resourceType string, resourceI
 	params["RegionId"] = self.RegionId
 	params["ResourceType"] = resourceType
 	params["ResourceId.1"] = resourceId
+
+	if serviceType == ALIYUN_SERVICE_ES {
+		params["PathPattern"] = fmt.Sprintf("/openapi/tags")
+	}
+
 	nextToken := ""
 	for {
 		if len(nextToken) > 0 {
@@ -89,6 +96,10 @@ func (self *SRegion) UntagResource(serviceType string, resourceType string, resI
 		"ResourceId.1": resId,
 		"ResourceType": resourceType,
 	}
+	if serviceType == ALIYUN_SERVICE_ES {
+		params["PathPattern"] = fmt.Sprintf("/openapi/tags")
+	}
+
 	for i, key := range keys {
 		params[fmt.Sprintf("TagKey.%d", i+1)] = key
 	}
@@ -147,6 +158,11 @@ func (self *SRegion) TagResource(serviceType string, resourceType string, resour
 	params["RegionId"] = self.RegionId
 	params["ResourceType"] = resourceType
 	params["ResourceId.1"] = resourceId
+
+	if serviceType == ALIYUN_SERVICE_ES {
+		params["PathPattern"] = fmt.Sprintf("/openapi/tags")
+	}
+
 	i := 0
 	for k, v := range tags {
 		if strings.HasPrefix(k, "aliyun") ||

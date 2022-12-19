@@ -80,6 +80,7 @@ const (
 	ALIYUN_SERVICE_ECS      = "ecs"
 	ALIYUN_SERVICE_VPC      = "vpc"
 	ALIYUN_SERVICE_RDS      = "rds"
+	ALIYUN_SERVICE_ES       = "es"
 	ALIYUN_SERVICE_SLB      = "slb"
 	ALIYUN_SERVICE_KVS      = "kvs"
 	ALIYUN_SERVICE_NAS      = "nas"
@@ -257,10 +258,11 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	req.GetHeaders()["User-Agent"] = "vendor/yunion-OneCloud@" + v.Get().GitVersion
 	method := requests.POST
 	for prefix, _method := range map[string]string{
-		"Get":      requests.GET,
-		"Describe": requests.GET,
-		"List":     requests.GET,
-		"Delete":   requests.DELETE,
+		"Get":            requests.GET,
+		"Describe":       requests.GET,
+		"List":           requests.GET,
+		"Delete":         requests.DELETE,
+		"UntagResources": requests.DELETE,
 	} {
 		if strings.HasPrefix(apiName, prefix) {
 			method = _method
@@ -277,6 +279,50 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		delete(params, "PathPattern")
 		req.PathPattern = pathPattern
 		req.Method = method
+
+		if method == requests.POST {
+			//`{"ResourceIds":["123"],"ResourceType":"type","Tags":[{"key":"1","value":"2"}]}`
+			body := map[string]interface{}{}
+			resourceIds := []string{}
+			tags := []map[string]string{}
+
+			for k, v := range params {
+				if strings.HasPrefix(k, "ResourceId") {
+					resourceIds = append(resourceIds, v)
+				} else if strings.HasPrefix(k, "Tag") && strings.Contains(k, "Key") {
+					valueKey := fmt.Sprintf("Tag.%s.Value", k[4:len(k)-4])
+					tags = append(tags, map[string]string{"key": v, "value": params[valueKey]})
+				}
+			}
+
+			if len(resourceIds) > 0 {
+				body["ResourceIds"] = resourceIds
+			}
+			if len(tags) > 0 {
+				body["Tags"] = tags
+			}
+			body["ResourceType"] = params["ResourceType"]
+
+			req.Content = []byte(jsonutils.Marshal(body).String())
+			req.GetHeaders()["Content-Type"] = "application/json"
+		} else {
+			resourceIds := []string{}
+			tagKeys := []string{}
+			for k, v := range params {
+				if strings.HasPrefix(k, "ResourceId") {
+					resourceIds = append(resourceIds, v)
+				} else if strings.HasPrefix(k, "TagKey") {
+					tagKeys = append(tagKeys, v)
+				}
+			}
+			if len(resourceIds) > 0 {
+				req.QueryParams["ResourceIds"] = jsonutils.Marshal(resourceIds).String()
+			}
+			if len(tagKeys) > 0 {
+				req.QueryParams["TagKeys"] = jsonutils.Marshal(tagKeys).String()
+			}
+		}
+
 	} else if strings.HasPrefix(domain, "alikafka") { //alikafka DeleteInstance必须显式指定Method
 		req.Method = requests.POST
 	} else if strings.HasPrefix(domain, "cs") { //容器
