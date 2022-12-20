@@ -192,18 +192,18 @@ func (bb *BaremetalBuilder) Do(ids []string) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	descs, err := bb.build()
+	netGetter := newNetworkGetter()
+	descs, err := bb.build(netGetter)
 	if err != nil {
 		return nil, err
 	}
 	return descs, nil
 }
 
-func (bb *BaremetalBuilder) build() ([]interface{}, error) {
+func (bb *BaremetalBuilder) build(netGetter *networkGetter) ([]interface{}, error) {
 	schedDescs := []interface{}{}
 	for _, bm := range bb.baremetals {
-		desc, err := bb.buildOne(&bm)
+		desc, err := bb.buildOne(&bm, netGetter)
 		if err != nil {
 			log.Errorf("BaremetalBuilder error: %v", err)
 			continue
@@ -213,8 +213,8 @@ func (bb *BaremetalBuilder) build() ([]interface{}, error) {
 	return schedDescs, nil
 }
 
-func (bb *BaremetalBuilder) buildOne(hostObj *computemodels.SHost) (interface{}, error) {
-	baseDesc, err := newBaseHostDesc(bb.baseBuilder, hostObj)
+func (bb *BaremetalBuilder) buildOne(hostObj *computemodels.SHost, netGetter *networkGetter) (interface{}, error) {
+	baseDesc, err := newBaseHostDesc(bb.baseBuilder, hostObj, netGetter)
 	if err != nil {
 		return nil, err
 	}
