@@ -653,7 +653,6 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 		params["ResourceGroupId"] = ec.ProjectId
 	}
 
-	params["NetworkType"] = ec.NetworkType
 	params["VpcId"] = ec.VpcId
 	params["VSwitchId"] = ec.NetworkId
 	params["ChargeType"] = "PostPaid"

@@ -94,6 +94,7 @@ type SHuaweiClient struct {
 
 	isMainProject bool // whether the project is the main project in the region
 
+	userId          string
 	ownerId         string
 	ownerName       string
 	ownerCreateTime time.Time
@@ -496,6 +497,9 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 }
 
 func (self *SHuaweiClient) GetUserId() (string, error) {
+	if len(self.userId) > 0 {
+		return self.userId, nil
+	}
 	client, err := self.newGeneralAPIClient()
 	if err != nil {
 		return "", errors.Wrap(err, "SHuaweiClient.GetUserId.newGeneralAPIClient")
@@ -510,12 +514,15 @@ func (self *SHuaweiClient) GetUserId() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "SHuaweiClient.GetUserId.DoGet")
 	}
-
-	return ret.UserId, nil
+	self.userId = ret.UserId
+	return self.userId, nil
 }
 
 // owner id == domain_id == account id
 func (self *SHuaweiClient) GetOwnerId() (string, error) {
+	if len(self.ownerId) > 0 {
+		return self.ownerId, nil
+	}
 	userId, err := self.GetUserId()
 	if err != nil {
 		return "", errors.Wrap(err, "SHuaweiClient.GetOwnerId.GetUserId")
@@ -540,7 +547,8 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 	self.ownerName = ret.Name
 	// 2021-02-02 02:43:28.0
 	self.ownerCreateTime, _ = timeutils.ParseTimeStr(strings.TrimSuffix(ret.CreateTime, ".0"))
-	return ret.DomainId, nil
+	self.ownerId = ret.DomainId
+	return self.ownerId, nil
 }
 
 func (self *SHuaweiClient) GetSamlEntityId() string {
@@ -548,11 +556,9 @@ func (self *SHuaweiClient) GetSamlEntityId() string {
 }
 
 func (self *SHuaweiClient) initOwner() error {
-	ownerId, err := self.GetOwnerId()
+	_, err := self.GetOwnerId()
 	if err != nil {
 		return errors.Wrap(err, "SHuaweiClient.initOwner")
 	}
-
-	self.ownerId = ownerId
 	return nil
 }
