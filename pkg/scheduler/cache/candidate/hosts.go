@@ -759,14 +759,15 @@ func (b *HostBuilder) Do(ids []string) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	descs, err := b.build()
+	netGetter := newNetworkGetter()
+	descs, err := b.build(netGetter)
 	if err != nil {
 		return nil, err
 	}
 	return descs, nil
 }
 
-func (b *HostBuilder) build() ([]interface{}, error) {
+func (b *HostBuilder) build(netGetter *networkGetter) ([]interface{}, error) {
 	schedDescs := make([]interface{}, len(b.hosts))
 	errs := []error{}
 	var descResultLock gosync.Mutex
@@ -774,11 +775,11 @@ func (b *HostBuilder) build() ([]interface{}, error) {
 
 	buildOne := func(i int) {
 		if i >= len(b.hosts) {
-			log.Errorf("invalid host index[%d] in b.hosts:%v\n", i, b.hosts)
+			log.Errorf("invalid host index[%d] in b.hosts: %v", i, b.hosts)
 			return
 		}
 		host := b.hosts[i]
-		desc, err := b.buildOne(&host)
+		desc, err := b.buildOne(&host, netGetter)
 		if err != nil {
 			descResultLock.Lock()
 			errs = append(errs, err)
@@ -801,8 +802,8 @@ func (b *HostBuilder) build() ([]interface{}, error) {
 	return schedDescs, nil
 }
 
-func (b *HostBuilder) buildOne(host *computemodels.SHost) (interface{}, error) {
-	baseDesc, err := newBaseHostDesc(b.baseBuilder, host)
+func (b *HostBuilder) buildOne(host *computemodels.SHost, netGetter *networkGetter) (interface{}, error) {
+	baseDesc, err := newBaseHostDesc(b.baseBuilder, host, netGetter)
 	if err != nil {
 		return nil, err
 	}
