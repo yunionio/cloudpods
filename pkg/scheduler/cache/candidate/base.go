@@ -17,6 +17,7 @@ package candidate
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -326,7 +327,33 @@ func reviseResourceType(resType string) string {
 	return resType
 }
 
-func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost) (*BaseHostDesc, error) {
+type networkGetter struct {
+	netFreeMap *sync.Map
+}
+
+func newNetworkGetter() *networkGetter {
+	return &networkGetter{
+		netFreeMap: new(sync.Map),
+	}
+}
+
+func (g *networkGetter) GetFreePort(host *computemodels.SHost, n *computemodels.SNetwork) (int, error) {
+	if host.IsEmulated {
+		// not calculate emulated host's network free address
+		return -1, nil
+	}
+	if val, ok := g.netFreeMap.Load(n.GetId()); ok {
+		return val.(int), nil
+	}
+	freePort, err := n.GetFreeAddressCount()
+	if err != nil {
+		return -1, errors.Wrapf(err, "GetFreeAddressCount for network %s(%s)", n.GetName(), n.GetId())
+	}
+	g.netFreeMap.Store(n.GetId(), freePort)
+	return freePort, nil
+}
+
+func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost, netGetter *networkGetter) (*BaseHostDesc, error) {
 	host.ResourceType = reviseResourceType(host.ResourceType)
 	desc := &BaseHostDesc{
 		SHost: host,
@@ -336,17 +363,17 @@ func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost) (*BaseHostDesc, 
 		return nil, fmt.Errorf("Fill cloudprovider info error: %v", err)
 	}
 
-	if err := desc.fillNetworks(host); err != nil {
+	if err := desc.fillNetworks(host, netGetter); err != nil {
 		return nil, fmt.Errorf("Fill networks error: %v", err)
 	}
 	// only onecloud host should fill onecloud vpc networks
 	if host.HostType == computeapi.HOST_TYPE_HYPERVISOR {
-		if err := desc.fillOnecloudVpcNetworks(); err != nil {
+		if err := desc.fillOnecloudVpcNetworks(netGetter); err != nil {
 			return nil, fmt.Errorf("Fill onecloud vpc networks error: %v", err)
 		}
 	}
 	if host.HostType == computeapi.HOST_TYPE_CLOUDPODS {
-		if err := desc.fillCloudpodsVpcNetworks(); err != nil {
+		if err := desc.fillCloudpodsVpcNetworks(netGetter); err != nil {
 			return nil, fmt.Errorf("Fill cloudpods vpc networks error: %v", err)
 		}
 	}
@@ -430,7 +457,10 @@ func (b *BaseHostDesc) GetFreePort(netId string) int {
 	if selNet == nil {
 		return 0
 	}
-	// freeCount, _ := selNet.GetFreeAddressCount()
+	if b.IsEmulated {
+		freeCount, _ := selNet.GetFreeAddressCount()
+		return freeCount
+	}
 	return selNet.FreePort
 }
 
@@ -583,7 +613,7 @@ func (b *BaseHostDesc) fillSharedDomains() error {
 	return nil
 }
 
-func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost) error {
+func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost, netGetter *networkGetter) error {
 	hostId := host.Id
 	hostwires := computemodels.HostwireManager.Query().SubQuery()
 	sq := hostwires.Query(sqlchemy.DISTINCT("wire_id", hostwires.Field("wire_id"))).Equals("host_id", hostId)
@@ -597,9 +627,9 @@ func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost) error {
 	}
 	b.Networks = make([]*api.CandidateNetwork, len(nets))
 	for idx, n := range nets {
-		freePort, err := n.GetFreeAddressCount()
+		freePort, err := netGetter.GetFreePort(host, &n)
 		if err != nil {
-			return errors.Wrapf(err, "GetFreeAddressCount for network %s(%s)", n.GetName(), n.GetId())
+			return errors.Wrapf(err, "GetFreePort for network %s(%s)", n.GetName(), n.GetId())
 		}
 		b.Networks[idx] = &api.CandidateNetwork{
 			SNetwork:  &nets[idx],
@@ -628,7 +658,7 @@ func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost) error {
 	return nil
 }
 
-func (b *BaseHostDesc) fillCloudpodsVpcNetworks() error {
+func (b *BaseHostDesc) fillCloudpodsVpcNetworks(netGetter *networkGetter) error {
 	nets := computemodels.NetworkManager.Query()
 	wires := computemodels.WireManager.Query().SubQuery()
 	vpcs := computemodels.VpcManager.Query().SubQuery()
@@ -659,7 +689,7 @@ func (b *BaseHostDesc) fillCloudpodsVpcNetworks() error {
 		row := &rows[i]
 		net := &row.SNetwork
 		net.SetModelManager(computemodels.NetworkManager, net)
-		freePort, err := net.GetFreeAddressCount()
+		freePort, err := netGetter.GetFreePort(b.SHost, net)
 		if err != nil {
 			return errors.Wrapf(err, "GetFreeAddressCount for network %s(%s)", net.GetName(), net.GetId())
 		}
@@ -674,7 +704,7 @@ func (b *BaseHostDesc) fillCloudpodsVpcNetworks() error {
 	return nil
 }
 
-func (b *BaseHostDesc) fillOnecloudVpcNetworks() error {
+func (b *BaseHostDesc) fillOnecloudVpcNetworks(netGetter *networkGetter) error {
 	nets := computemodels.NetworkManager.Query()
 	wires := computemodels.WireManager.Query().SubQuery()
 	vpcs := computemodels.VpcManager.Query().SubQuery()
@@ -705,7 +735,7 @@ func (b *BaseHostDesc) fillOnecloudVpcNetworks() error {
 		row := &rows[i]
 		net := &row.SNetwork
 		net.SetModelManager(computemodels.NetworkManager, net)
-		freePort, err := net.GetFreeAddressCount()
+		freePort, err := netGetter.GetFreePort(b.SHost, net)
 		if err != nil {
 			return errors.Wrapf(err, "GetFreeAddressCount for network %s(%s)", net.GetName(), net.GetId())
 		}
