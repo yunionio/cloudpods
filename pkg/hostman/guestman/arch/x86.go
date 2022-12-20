@@ -132,7 +132,10 @@ func (x86 *X86) GenerateCpuDesc(cpus uint, s KVMGuestInstance) (*desc.SGuestCpu,
 	if err != nil {
 		return nil, err
 	}
-	hideKVM := !s.IsEnabledNestedVirt() || s.HasGpu()
+	var hideKVM = true
+	if s.IsNestedVirt() {
+		hideKVM = false
+	}
 
 	var hostCPUPassthrough = options.HostOptions.HostCpuPassthrough
 	var isCPUIntel = sysutils.IsProcessorIntel()
@@ -171,7 +174,7 @@ func (x86 *X86) GenerateCpuDesc(cpus uint, s KVMGuestInstance) (*desc.SGuestCpu,
 			}
 		}
 
-		if !hideKVM {
+		if hideKVM {
 			features["kvm"] = false
 		}
 	} else {
