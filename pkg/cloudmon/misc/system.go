@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -123,8 +124,8 @@ func collectStatsMetrics(ctx context.Context, ep api.EndpointDetails, version, t
 		return nil, errors.Wrapf(err, "request")
 	}
 
-	if ret == nil {
-		return nil, errors.Wrap(errors.Errorf("ret is nil"), "ret is nil")
+	if gotypes.IsNil(ret) {
+		return []influxdb.SMetricData{}, nil
 	}
 
 	stats := struct {
@@ -262,6 +263,11 @@ func collectWorkerMetrics(ctx context.Context, ep api.EndpointDetails, version, 
 	if err != nil {
 		return nil, errors.Wrapf(err, "request")
 	}
+
+	if gotypes.IsNil(ret) {
+		return []influxdb.SMetricData{}, nil
+	}
+
 	workers := []struct {
 		ActiveWorkerCnt int    `json:"active_worker_cnt"`
 		AllowOverflow   bool   `json:"allow_overflow"`
@@ -333,6 +339,11 @@ func collectDatabaseMetrics(ctx context.Context, ep api.EndpointDetails, version
 	if err != nil {
 		return nil, errors.Wrapf(err, "request")
 	}
+
+	if gotypes.IsNil(ret) {
+		return []influxdb.SMetricData{}, nil
+	}
+
 	stats := struct {
 		Idle               int `json:"idle"`
 		InUse              int `json:"in_use"`
@@ -415,6 +426,11 @@ func collectProcessMetrics(ctx context.Context, ep api.EndpointDetails, version,
 	if err != nil {
 		return nil, errors.Wrapf(err, "request")
 	}
+
+	if gotypes.IsNil(ret) {
+		return []influxdb.SMetricData{}, nil
+	}
+
 	process := apis.ProcessStats{}
 	err = ret.Unmarshal(&process, "process_stats")
 	if err != nil {
