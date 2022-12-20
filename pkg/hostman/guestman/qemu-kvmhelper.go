@@ -115,7 +115,7 @@ func (s *SKVMGuestInstance) IsKvmSupport() bool {
 	return s.manager.GetHost().IsKvmSupport()
 }
 
-func (s *SKVMGuestInstance) IsEnabledNestedVirt() bool {
+func (s *SKVMGuestInstance) IsNestedVirt() bool {
 	return s.manager.GetHost().IsNestedVirtualization()
 }
 
@@ -731,15 +731,6 @@ func (s *SKVMGuestInstance) startMemCleaner() error {
 		return errors.Wrap(err, "start memclean")
 	}
 	return nil
-}
-
-func (s *SKVMGuestInstance) HasGpu() bool {
-	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
-		if s.Desc.IsolatedDevices[i].DevType != api.USB_TYPE {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *SKVMGuestInstance) gpusHasVga() bool {
