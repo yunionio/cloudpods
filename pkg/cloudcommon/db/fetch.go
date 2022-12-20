@@ -221,7 +221,10 @@ func fetchItem(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 }
 
 func FetchUserInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	userStr, key := jsonutils.GetAnyString2(data, []string{"user", "user_id"})
+	userStr, key := jsonutils.GetAnyString2(data, []string{
+		"user_id",
+		"user",
+	})
 	if len(userStr) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
 		u, err := DefaultUserFetcher(ctx, userStr)
@@ -243,7 +246,12 @@ func FetchUserInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IId
 }
 
 func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	tenantId, key := jsonutils.GetAnyString2(data, []string{"project", "project_id", "tenant", "tenant_id"})
+	tenantId, key := jsonutils.GetAnyString2(data, []string{
+		"project_id",
+		"tenant_id",
+		"project",
+		"tenant",
+	})
 	if len(tenantId) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
 		t, err := DefaultProjectFetcher(ctx, tenantId)
@@ -268,7 +276,11 @@ func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.
 }
 
 func FetchDomainInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	domainId, key := jsonutils.GetAnyString2(data, []string{"domain_id", "project_domain", "project_domain_id"})
+	domainId, key := jsonutils.GetAnyString2(data, []string{
+		"domain_id",
+		"project_domain_id",
+		"project_domain",
+	})
 	if len(domainId) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
 		domain, err := DefaultDomainFetcher(ctx, domainId)
