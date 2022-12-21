@@ -158,9 +158,6 @@ func (man *SModelartsPoolManager) ValidateCreateData(ctx context.Context, userCr
 	if input.NodeCount > 200 {
 		return input, errors.Wrap(errors.ErrNotSupported, "node count must between 1 and 200")
 	}
-	if len(input.Cidr) == 0 {
-		input.Cidr = "192.168.128.0/17"
-	}
 	_, err = netutils.NewIPV4Prefix(input.Cidr)
 	if err != nil {
 		return input, httperrors.NewInputParameterError("invalid cidr: %s", input.Cidr)
