@@ -131,6 +131,9 @@ func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, 
 }
 
 func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
+	if len(args.Cidr) == 0 {
+		args.Cidr = "192.168.128.0/17"
+	}
 	netObj, err := self.client.modelartsPoolNetworkList(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.GetPools")
