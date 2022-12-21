@@ -326,7 +326,7 @@ func (self *SRegion) GetElasticSearchs(size, page int) ([]SElasticSearch, int, e
 		"size":        fmt.Sprintf("%d", size),
 		"page":        fmt.Sprintf("%d", page),
 	}
-	resp, err := self.esRequest("ListInstance", params)
+	resp, err := self.esRequest("ListInstance", params, nil)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "ListInstance")
 	}
@@ -346,7 +346,7 @@ func (self *SRegion) GetElasitcSearch(id string) (*SElasticSearch, error) {
 	params := map[string]string{
 		"PathPattern": fmt.Sprintf("/openapi/instances/%s", id),
 	}
-	resp, err := self.esRequest("DescribeInstance", params)
+	resp, err := self.esRequest("DescribeInstance", params, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DescribeInstance")
 	}
@@ -368,6 +368,6 @@ func (self *SRegion) DeleteElasticSearch(id string) error {
 		"deleteType":  "immediate",
 		"PathPattern": fmt.Sprintf("/openapi/instances/%s", id),
 	}
-	_, err := self.esRequest("DeleteInstance", params)
+	_, err := self.esRequest("DeleteInstance", params, nil)
 	return errors.Wrapf(err, "DeleteInstance")
 }

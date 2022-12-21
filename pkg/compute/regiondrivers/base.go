@@ -525,3 +525,7 @@ func (self *SBaseRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, 
 func (self *SBaseRegionDriver) RequestRemoteUpdateElasticSearch(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticSearch, replaceTags bool, task taskman.ITask) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestRemoteUpdateElasticSearch")
 }
+
+func (self *SBaseRegionDriver)RequestRemoteUpdateKafka(ctx context.Context, userCred mcclient.TokenCredential, kafka *models.SKafka, replaceTags bool, task taskman.ITask) error{
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestRemoteUpdateElasticSearch")
+}

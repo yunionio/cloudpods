@@ -644,6 +644,10 @@ func (self *SKafka) PerformSyncstatus(ctx context.Context, userCred mcclient.Tok
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "KafkaSyncstatusTask", "")
 }
 
+func (self *SKafka) StartKafkaSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	return StartResourceSyncStatusTask(ctx, userCred, self, "KafkaSyncstatusTask", parentTaskId)
+}
+
 // 获取Kafka Topic列表
 func (self *SKafka) GetDetailsTopics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]cloudprovider.SKafkaTopic, error) {
 	iKafka, err := self.GetIKafka(ctx)
@@ -651,4 +655,29 @@ func (self *SKafka) GetDetailsTopics(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetIKafka"))
 	}
 	return iKafka.GetTopics()
+}
+
+
+func (self *SKafka) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	if replaceTags {
+		data.Add(jsonutils.JSONTrue, "replace_tags")
+	}
+	if task, err := taskman.TaskManager.NewTask(ctx, "KafkaRemoteUpdateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		return errors.Wrap(err, "Start ElasticSearchRemoteUpdateTask")
+	} else {
+		self.SetStatus(userCred, api.ELASTIC_SEARCH_UPDATE_TAGS, "StartRemoteUpdateTask")
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SKafka) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(self.ExternalId) == 0 {
+		return
+	}
+	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")
+	if err != nil {
+		log.Errorf("StartRemoteUpdateTask fail: %s", err)
+	}
 }
