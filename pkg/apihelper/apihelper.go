@@ -19,11 +19,15 @@ import (
 	"sync"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/notify"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 )
 
 const (
@@ -111,6 +115,11 @@ func (h *APIHelper) doSync(ctx context.Context) (changed bool, err error) {
 	}
 	h.modelSets = mss
 	if !r.Correct {
+		// 发送消息通知
+		err := sendSyncErrNotify(s)
+		if err != nil {
+			log.Errorf("unable to EventNotify: %s", err)
+		}
 		return false, errors.Wrap(ErrSync, "incorrect")
 	}
 	changed = r.Changed
@@ -130,4 +139,15 @@ func (h *APIHelper) adminClientSession(ctx context.Context) *mcclient.ClientSess
 	region := h.opts.CommonOptions.Region
 	h.mcclientSession = auth.GetAdminSession(ctx, region)
 	return h.mcclientSession
+}
+
+func sendSyncErrNotify(s *mcclient.ClientSession) error {
+	params := api.NotificationManagerEventNotifyInput{}
+	params.Event = api.Event.WithAction(api.ActionNetOutOfSync).WithResourceType(api.TOPIC_RESOURCE_NET).String()
+	params.AdvanceDays = 0
+	message := &jsonutils.JSONDict{}
+	message.Add(jsonutils.NewString(consts.GetServiceType()), "service_name")
+	params.ResourceDetails = message
+	_, err := npk.Notification.PerformClassAction(s, "event-notify", jsonutils.Marshal(params))
+	return err
 }
