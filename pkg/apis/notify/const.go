@@ -126,6 +126,9 @@ const (
 	TOPIC_RESOURCE_CLOUDPODS_COMPONENT      = "cloudpods_component"
 	TOPIC_RESOURCE_USER                     = "user"
 	TOPIC_RESOURCE_ACTION_LOG               = "action_log"
+	TOPIC_RESOURCE_ACCOUNT_STATUS           = "account"
+	TOPIC_RESOURCE_WORKER                   = "worker"
+	TOPIC_RESOURCE_NET                      = "net"
 
 	SUBSCRIBER_TYPE_ROLE     = "role"
 	SUBSCRIBER_TYPE_ROBOT    = "robot"
