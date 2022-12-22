@@ -95,6 +95,11 @@ const (
 	DefaultChecksumTestFailed      = "checksum test failed"
 	DefaultUserLock                = "user lock"
 	DefaultActionLogExceedCount    = "action log exceed count"
+	DefaultSyncAccountStatus       = "cloud account sync status"
+	DefaultPasswordExpireDue1Day   = "password expire due 1 day"
+	DefaultPasswordExpireDue7Day   = "password expire due 7 day"
+	DefaultNetOutOfSync            = "net out of sync"
+	DefaultMysqlOutOfSync          = "mysql out of sync"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -114,6 +119,11 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultChecksumTestFailed,
 		DefaultUserLock,
 		DefaultActionLogExceedCount,
+		DefaultSyncAccountStatus,
+		DefaultPasswordExpireDue1Day,
+		DefaultPasswordExpireDue7Day,
+		DefaultNetOutOfSync,
+		DefaultMysqlOutOfSync,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -328,6 +338,50 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionExceedCount,
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+		case DefaultSyncAccountStatus:
+			t.addResources(
+				notify.TOPIC_RESOURCE_ACCOUNT_STATUS,
+			)
+			t.addAction(
+				notify.ActionSyncAccountStatus,
+			)
+			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+		case DefaultPasswordExpireDue1Day:
+			t.addResources(
+				notify.TOPIC_RESOURCE_USER,
+			)
+			t.addAction(
+				notify.ActionPasswordExpireSoon,
+			)
+			t.Type = notify.TOPIC_TYPE_SECURITY
+			t.AdvanceDays = 1
+		case DefaultPasswordExpireDue7Day:
+			t.addResources(
+				notify.TOPIC_RESOURCE_USER,
+			)
+			t.addAction(
+				notify.ActionPasswordExpireSoon,
+			)
+			t.Type = notify.TOPIC_TYPE_SECURITY
+			t.AdvanceDays = 7
+		case DefaultNetOutOfSync:
+			t.addResources(
+				notify.TOPIC_RESOURCE_NET,
+			)
+			t.addAction(
+				notify.ActionNetOutOfSync,
+			)
+			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.AdvanceDays = 0
+		case DefaultMysqlOutOfSync:
+			t.addResources(
+				notify.TOPIC_RESOURCE_DBINSTANCE,
+			)
+			t.addAction(
+				notify.ActionMysqlOutOfSync,
+			)
+			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.AdvanceDays = 0
 		}
 		if topic == nil {
 			err := sm.TableSpec().Insert(ctx, t)
@@ -557,6 +611,8 @@ func init() {
 			notify.TOPIC_RESOURCE_DB_TABLE_RECORD:          35,
 			notify.TOPIC_RESOURCE_USER:                     36,
 			notify.TOPIC_RESOURCE_ACTION_LOG:               37,
+			notify.TOPIC_RESOURCE_ACCOUNT_STATUS:           38,
+			notify.TOPIC_RESOURCE_NET:                      39,
 		},
 	)
 	converter.registerAction(
@@ -585,6 +641,10 @@ func init() {
 			notify.ActionChecksumTest:       21,
 			notify.ActionLock:               22,
 			notify.ActionExceedCount:        23,
+			notify.ActionSyncAccountStatus:  24,
+			notify.ActionPasswordExpireSoon: 25,
+			notify.ActionNetOutOfSync:       26,
+			notify.ActionMysqlOutOfSync:     27,
 		},
 	)
 }

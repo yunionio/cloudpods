@@ -52,7 +52,12 @@ var (
 
 	ActionLock SAction = "lock"
 
-	ActionExceedCount SAction = "exceed_count"
+	ActionExceedCount        SAction = "exceed_count"
+	ActionSyncAccountStatus  SAction = "sync_account_status"
+	ActionPasswordExpireSoon SAction = "password_expire_soon"
+	ActionWorkerBlock        SAction = "woker_block"
+	ActionNetOutOfSync       SAction = "net_out_of_sync"
+	ActionMysqlOutOfSync     SAction = "mysql_out_of_sync"
 
 	ResultFailed  SResult = "failed"
 	ResultSucceed SResult = "succeed"

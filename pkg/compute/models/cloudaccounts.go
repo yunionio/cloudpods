@@ -40,11 +40,13 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -1348,7 +1350,7 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 
 		secret, err := cloudprovider.getPassword()
 		if err != nil {
-			account.markAccountDiscconected(context.Background(), auth.AdminCredential())
+			account.markAccountDisconected(context.Background(), auth.AdminCredential())
 			log.Errorf("Get password from provider %s error %v", cloudprovider.Name, err)
 		} else {
 			err = account.savePassword(secret)
@@ -1755,7 +1757,7 @@ func (manager *SCloudaccountManager) OrderByExtraFields(
 	return q, nil
 }
 
-func (account *SCloudaccount) markAccountDiscconected(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (account *SCloudaccount) markAccountDisconected(ctx context.Context, userCred mcclient.TokenCredential) error {
 	_, err := db.UpdateWithLock(ctx, account, func() error {
 		account.ErrorCount = account.ErrorCount + 1
 		account.HealthStatus = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
@@ -1764,10 +1766,13 @@ func (account *SCloudaccount) markAccountDiscconected(ctx context.Context, userC
 	if err != nil {
 		return err
 	}
+	if account.Status == api.CLOUD_PROVIDER_CONNECTED {
+		account.EventNotify(ctx, userCred, notify.ActionSyncAccountStatus)
+	}
 	return account.SetStatus(userCred, api.CLOUD_PROVIDER_DISCONNECTED, "")
 }
 
-func (account *SCloudaccount) markAllProvidersDicconnected(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (account *SCloudaccount) markAllProvidersDisconnected(ctx context.Context, userCred mcclient.TokenCredential) error {
 	providers := account.GetCloudproviders()
 	for i := 0; i < len(providers); i += 1 {
 		err := providers[i].markProviderDisconnected(ctx, userCred, "cloud account disconnected")
@@ -2037,8 +2042,8 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 	account.MarkSyncing(userCred, true)
 	subaccounts, err := account.probeAccountStatus(ctx, userCred)
 	if err != nil {
-		account.markAllProvidersDicconnected(ctx, userCred)
-		account.markAccountDiscconected(ctx, userCred)
+		account.markAllProvidersDisconnected(ctx, userCred)
+		account.markAccountDisconected(ctx, userCred)
 		return errors.Wrap(err, "account.probeAccountStatus")
 	}
 	account.markAccountConnected(ctx, userCred)
@@ -2860,4 +2865,17 @@ func (self *SCloudaccount) PerformProjectMapping(ctx context.Context, userCred m
 		return nil, err
 	}
 	return nil, refreshPmCaches()
+}
+
+// 同步云账号消息通知
+func (account *SCloudaccount) EventNotify(ctx context.Context, userCred mcclient.TokenCredential, action notify.SAction) {
+	var resourceType string
+	resourceType = notify.TOPIC_RESOURCE_ACCOUNT_STATUS
+
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:          account,
+		ResourceType: resourceType,
+		Action:       action,
+		AdvanceDays:  0,
+	})
 }
