@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -94,6 +95,7 @@ type SKVMInstanceRuntime struct {
 	stopping            bool
 	needSyncStreamDisks bool
 	blockJobTigger      map[string]chan struct{}
+	quorumFailed        int32
 
 	StartupTask *SGuestResumeTask
 	MigrateTask *SGuestLiveMigrateTask
@@ -486,6 +488,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 			migratePortInt64 := int64(migratePort)
 			s.LiveMigrateDestPort = &migratePortInt64
 		}
+		data.Set("script_start", jsonutils.JSONTrue)
 
 		err = s.saveScripts(data)
 		if err != nil {
@@ -613,9 +616,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 			action = "suspend"
 		}
 		log.Infof("%s is %s, pending_delete=%t", s.GetName(), action, pendingDelete)
-		if !s.IsSlave() {
-			s.SyncStatus("")
-		}
+		s.SyncStatus("")
 	}
 }
 
@@ -745,53 +746,58 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func()) error {
 }
 
 func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
-	switch {
-	case event.Event == `"BLOCK_JOB_READY"`:
+	switch event.Event {
+	case `"BLOCK_JOB_READY"`, `"BLOCK_JOB_COMPLETED"`:
 		s.eventBlockJobReady(event)
-	case event.Event == `"BLOCK_JOB_ERROR"`:
-		s.SyncMirrorJobFailed("BLOCK_JOB_ERROR")
-	case event.Event == `"BLOCK_JOB_COMPLETED"`:
-		s.eventBlockJobCompleted(event)
-	case event.Event == `"GUEST_PANICKED"`:
+	case `"BLOCK_JOB_ERROR"`:
+		s.eventBlockJobError(event)
+	case `"GUEST_PANICKED"`:
 		s.eventGuestPaniced(event)
-	case event.Event == `"STOP"`:
-		if s.MigrateTask != nil {
-			s.MigrateTask.onMigrateReceivedStopEvent()
-		}
+	case `"STOP"`:
+		s.eventGuestStop()
+	case `"QUORUM_REPORT_BAD"`:
+		s.eventQuorumReportBad(event)
 	}
 }
 
-func (s *SKVMGuestInstance) eventBlockJobCompleted(event *monitor.Event) {
-	itype, ok := event.Data["type"]
-	if !ok {
-		log.Errorf("BLOCK_JOB_COMPLETED missing event type")
-		return
+func (s *SKVMGuestInstance) eventBlockJobError(event *monitor.Event) {
+	s.SyncMirrorJobFailed(event.String())
+}
+
+func (s *SKVMGuestInstance) eventGuestStop() {
+	if s.MigrateTask != nil {
+		// migrating complete
+		s.MigrateTask.onMigrateReceivedStopEvent()
 	}
-	// only dealwith event type mirror
-	stype, _ := itype.(string)
-	if stype != "mirror" {
+	hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
+}
+
+func (s *SKVMGuestInstance) eventQuorumReportBad(event *monitor.Event) {
+	if !atomic.CompareAndSwapInt32(&s.quorumFailed, 0, 1) {
 		return
 	}
 
-	iDevice, ok := event.Data["device"]
-	if !ok {
-		return
-	}
-	device := iDevice.(string)
-	if !strings.HasPrefix(device, "drive_") {
-		return
-	}
 	disks := s.Desc.Disks
-	log.Infof("mirror job complete disk index %s", device[len("drive_"):])
-	diskIndex, err := strconv.Atoi(device[len("drive_"):])
-	if err != nil || diskIndex < 0 || diskIndex >= len(disks) {
-		log.Errorf("failed get disk from index %d", diskIndex)
-		return
+	for i := 0; i < len(disks); i++ {
+		diskIndex := disks[i].Index
+		drive := fmt.Sprintf("drive_%d", diskIndex)
+		node := fmt.Sprintf("node_%d", diskIndex)
+		child := fmt.Sprintf("children.%d", s.getQuorumChildIndex())
+		s.Monitor.XBlockdevChange(drive, "", child, func(res string) {
+			if len(res) > 0 {
+				log.Errorf("On QUORUM_REPORT_BAD failed remove child %s for parent %s: %s", drive, node, res)
+				return
+			}
+			s.Monitor.DriveDel(node, func(res string) {
+				if len(res) > 0 {
+					log.Errorf("On QUORUM_REPORT_BAD failed remove drive %s: %s", node, res)
+					return
+				}
+			})
+		})
 	}
-	diskId := disks[diskIndex].DiskId
-	if c, ok := s.blockJobTigger[diskId]; ok {
-		c <- struct{}{}
-	}
+
+	s.SyncMirrorJobFailed(event.String())
 }
 
 func (s *SKVMGuestInstance) eventGuestPaniced(event *monitor.Event) {
@@ -816,7 +822,7 @@ func (s *SKVMGuestInstance) eventGuestPaniced(event *monitor.Event) {
 func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 	itype, ok := event.Data["type"]
 	if !ok {
-		log.Errorf("BLOCK_JOB_READY missing event type")
+		log.Errorf("block job missing event type")
 		return
 	}
 	// only dealwith event type mirror
@@ -828,12 +834,23 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 	if s.IsMaster() { // has backup server
 		mirrorStatus := s.MirrorJobStatus()
 		if mirrorStatus.IsSucc() {
-			_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), api.VM_RUNNING, s.GetPowerStates(), "BLOCK_JOB_READY")
-			if err != nil {
-				log.Errorf("onReceiveQMPEvent update server status error: %s", err)
+			for {
+				statusInput := &apis.PerformStatusInput{
+					Status:         api.VM_RUNNING,
+					Reason:         "block job ready",
+					BlockJobsCount: mirrorStatus.BlockJobsCount(),
+					PowerStates:    s.GetPowerStates(),
+				}
+				_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), statusInput)
+				if err != nil {
+					log.Errorf("onReceiveQMPEvent update server status error: %s", err)
+					time.Sleep(3 * time.Second)
+				} else {
+					break
+				}
 			}
 		} else if mirrorStatus.IsFailed() {
-			s.SyncMirrorJobFailed("Block job missing")
+			s.SyncMirrorJobFailed("drive-mirror job failed")
 		}
 	} else {
 		iDevice, ok := event.Data["device"]
@@ -986,7 +1003,7 @@ func (s *SKVMGuestInstance) getMemoryDevices(ctx context.Context, pciInfoList []
 }
 
 func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
-	if s.LiveMigrateDestPort != nil && ctx != nil {
+	if s.LiveMigrateDestPort != nil && ctx != nil && !s.IsSlave() {
 		// dest migrate guest
 		body := jsonutils.NewDict()
 		body.Set("live_migrate_dest_port", jsonutils.NewInt(*s.LiveMigrateDestPort))
@@ -1005,14 +1022,6 @@ func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
 	} else {
 		if s.IsMaster() {
 			s.startDiskBackupMirror(ctx)
-			if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
-				s.DoResumeTask(ctx, false)
-			} else {
-				if options.HostOptions.SetVncPassword {
-					s.SetVncPassword()
-				}
-				s.OnResumeSyncMetadataInfo()
-			}
 		} else {
 			s.DoResumeTask(ctx, true)
 		}
@@ -1026,9 +1035,7 @@ func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 	log.Errorf("Guest %s on Monitor Disconnect reason: %v", s.Id, err)
 	s.CleanStartupTask()
 	s.scriptStop()
-	if !s.IsSlave() && s.LiveMigrateDestPort == nil {
-		s.SyncStatus(fmt.Sprintf("monitor disconnect %v", err))
-	}
+	s.SyncStatus(fmt.Sprintf("monitor disconnect %v", err))
 	if s.guestAgent != nil {
 		s.guestAgent.Close()
 		s.guestAgent = nil
@@ -1039,26 +1046,31 @@ func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 
 func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 	if ctx == nil || len(appctx.AppContextTaskId(ctx)) == 0 {
-		status := api.VM_RUNNING
-		mirrorStatus := s.MirrorJobStatus()
-		if mirrorStatus.InProcess() {
-			status = api.VM_BLOCK_STREAM
-		} else if mirrorStatus.IsFailed() {
-			status = api.VM_BLOCK_STREAM_FAIL
-			s.SyncMirrorJobFailed("mirror job missing")
-		}
-		hostutils.UpdateServerStatus(context.Background(), s.GetId(), status, s.GetPowerStates(), "")
+		s.DoResumeTask(ctx, true)
 	} else {
 		nbdUri, ok := s.Desc.Metadata["backup_nbd_server_uri"]
 		if !ok {
 			hostutils.TaskFailed(ctx, "Missing dest nbd location")
+			return
 		}
-
+		nbdOpts := strings.Split(nbdUri, ":")
+		if len(nbdOpts) != 3 {
+			hostutils.TaskFailed(ctx, fmt.Sprintf("Nbd uri is not vaild %s", nbdUri))
+			return
+		}
+		s.quorumFailed = 0
 		onSucc := func() {
-			cb := func(res string) { log.Infof("On backup mirror server(%s) resume start", s.Id) }
-			s.Monitor.SimpleCommand("cont", cb)
+			if err := s.updateChildIndex(); err != nil {
+				hostutils.TaskFailed(ctx, err.Error())
+				return
+			}
+			s.DoResumeTask(ctx, true)
 		}
-		NewDriveMirrorTask(ctx, s, nbdUri, "top", true, onSucc).Start()
+		onFail := func(res string) {
+			s.SyncMirrorJobFailed(res)
+			s.DoResumeTask(ctx, true)
+		}
+		NewGuestBlockReplicationTask(ctx, s, nbdOpts[1], nbdOpts[2], "top", onSucc, onFail).Start()
 	}
 }
 
@@ -1107,18 +1119,25 @@ func (s *SKVMGuestInstance) DiskCount() int {
 	return len(s.Desc.Disks)
 }
 
-type MirrorJob int
+type MirrorJob struct {
+	mirrorJobStatus int
+	blockJobsCount  int
+}
 
 func (ms MirrorJob) IsSucc() bool {
-	return ms == 1
+	return ms.mirrorJobStatus == 1
 }
 
 func (ms MirrorJob) IsFailed() bool {
-	return ms == -1
+	return ms.mirrorJobStatus == -1
 }
 
 func (ms MirrorJob) InProcess() bool {
-	return ms == 0
+	return ms.mirrorJobStatus == 0
+}
+
+func (ms MirrorJob) BlockJobsCount() int {
+	return ms.blockJobsCount
 }
 
 func (s *SKVMGuestInstance) MirrorJobStatus() MirrorJob {
@@ -1128,21 +1147,27 @@ func (s *SKVMGuestInstance) MirrorJobStatus() MirrorJob {
 	})
 	select {
 	case <-time.After(time.Second * 3):
-		return 0
+		return MirrorJob{0, -1}
 	case v := <-res:
-		if len(v) >= s.DiskCount() {
-			mirrorSuccCount := 0
-			for _, job := range v {
-				if job.Type == "mirror" && job.Status == "ready" {
-					mirrorSuccCount += 1
-				}
+		mirrorJobCount := 0
+		failedJobCount := 0
+		for _, job := range v {
+			if job.Type != "mirror" {
+				continue
 			}
-			if mirrorSuccCount == s.DiskCount() {
-				return 1
+			if job.IoStatus != "ok" {
+				failedJobCount += 1
 			}
-			return 0
+			mirrorJobCount += 1
 		}
-		return -1
+		if failedJobCount > 0 {
+			return MirrorJob{-1, len(v)}
+		}
+		if mirrorJobCount == 0 {
+			return MirrorJob{1, len(v)}
+		} else {
+			return MirrorJob{0, len(v)}
+		}
 	}
 }
 
@@ -1237,12 +1262,18 @@ func (s *SKVMGuestInstance) SyncStatus(reason string) {
 		s.Monitor.GetBlockJobCounts(s.CheckBlockOrRunning)
 		return
 	}
-	var status = "ready"
+	var status = api.VM_READY
 	if s.IsSuspend() {
-		status = "suspend"
+		status = api.VM_SUSPEND
+	}
+	statusInput := &apis.PerformStatusInput{
+		Status:      status,
+		Reason:      reason,
+		IsSlave:     s.IsSlave(),
+		PowerStates: s.GetPowerStates(),
 	}
 
-	if _, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status, s.GetPowerStates(), reason); err != nil {
+	if _, err := hostutils.UpdateServerStatus(context.Background(), s.Id, statusInput); err != nil {
 		log.Errorf("failed update guest status %s", err)
 	}
 }
@@ -1257,6 +1288,7 @@ func (s *SKVMGuestInstance) GetPowerStates() string {
 
 func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 	var status = api.VM_RUNNING
+
 	if jobs > 0 {
 		if s.IsMaster() {
 			mirrorStatus := s.MirrorJobStatus()
@@ -1264,14 +1296,19 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 				status = api.VM_BLOCK_STREAM
 			} else if mirrorStatus.IsFailed() {
 				status = api.VM_BLOCK_STREAM_FAIL
-				s.SyncMirrorJobFailed("Block job missing")
+				s.SyncMirrorJobFailed("drive-mirror job failed")
 			}
 		} else {
 			// TODO: check block jobs ready
 			status = api.VM_BLOCK_STREAM
 		}
 	}
-	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status, s.GetPowerStates(), "")
+	var statusInput = &apis.PerformStatusInput{
+		Status:         status,
+		BlockJobsCount: jobs,
+		PowerStates:    s.GetPowerStates(),
+	}
+	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, statusInput)
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -2142,6 +2179,15 @@ func (s *SKVMGuestInstance) SyncMetadata(meta *jsonutils.JSONDict) error {
 		return errors.Wrap(err, "set metadata")
 	}
 	return nil
+}
+
+func (s *SKVMGuestInstance) updateChildIndex() error {
+	idx := s.getQuorumChildIndex() + 1
+	s.Desc.Metadata[api.QUORUM_CHILD_INDEX] = strconv.Itoa(int(idx))
+	s.SaveLiveDesc(s.Desc)
+	meta := jsonutils.NewDict()
+	meta.Set(api.QUORUM_CHILD_INDEX, jsonutils.NewInt(idx))
+	return s.SyncMetadata(meta)
 }
 
 func (s *SKVMGuestInstance) SetVncPassword() {

@@ -38,8 +38,38 @@ func (self *HAGuestStartTask) OnInit(
 	ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject,
 ) {
 	guest := obj.(*models.SGuest)
+	host := models.HostManager.FetchHostById(guest.BackupHostId)
+	if host.HostStatus != api.HOST_ONLINE {
+		// request start master guest
+		self.GuestStartTask.OnInit(ctx, guest, nil)
+	} else {
+		self.RequestStopBackupGuest(ctx, guest)
+	}
+}
+
+func (self *HAGuestStartTask) RequestStopBackupGuest(ctx context.Context, guest *models.SGuest) {
+	host := models.HostManager.FetchHostById(guest.BackupHostId)
+	self.SetStage("OnBackupGuestStopComplete", nil)
+	guest.SetStatus(self.UserCred, api.VM_BACKUP_STOPING, "HAGuestStartTask")
+	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self, false)
+	if err != nil {
+		guest.SetStatus(self.UserCred, api.VM_BACKUP_START_FAILED, err.Error())
+		self.SetStageFailed(ctx, nil)
+	}
+}
+
+func (self *HAGuestStartTask) OnBackupGuestStopComplete(
+	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
+) {
 	db.OpsLog.LogEvent(guest, db.ACT_STARTING, nil, self.UserCred)
 	self.RequestStartBacking(ctx, guest)
+}
+
+func (self *HAGuestStartTask) OnBackupGuestStopCompleteFailed(
+	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
+) {
+	guest.SetStatus(self.UserCred, api.VM_BACKUP_START_FAILED, data.String())
+	self.SetStageFailed(ctx, data)
 }
 
 func (self *HAGuestStartTask) RequestStartBacking(ctx context.Context, guest *models.SGuest) {
@@ -57,7 +87,7 @@ func (self *HAGuestStartTask) RequestStartBacking(ctx context.Context, guest *mo
 func (self *HAGuestStartTask) OnStartBackupGuestComplete(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
-	if data != nil {
+	if data != nil && !jsonutils.QueryBoolean(data, "is_running", false) {
 		nbdServerPort, err := data.Int("nbd_server_port")
 		if err == nil {
 			backupHost := models.HostManager.FetchHostById(guest.BackupHostId)
@@ -69,12 +99,17 @@ func (self *HAGuestStartTask) OnStartBackupGuestComplete(
 			return
 		}
 	}
-
+	if err := guest.ResetGuestQuorumChildIndex(ctx, self.UserCred); err != nil {
+		self.OnStartBackupGuestCompleteFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed reset quorum child index: %s", err)))
+		return
+	}
+	guest.SetBackupGuestStatus(self.UserCred, api.VM_RUNNING, "on start backup guest complete")
 	self.RequestStart(ctx, guest)
 }
 
 func (self *HAGuestStartTask) OnStartBackupGuestCompleteFailed(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
+	guest.SetBackupGuestStatus(self.UserCred, api.VM_START_FAILED, data.String())
 	self.OnStartCompleteFailed(ctx, guest, data)
 }

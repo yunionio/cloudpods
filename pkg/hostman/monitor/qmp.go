@@ -554,12 +554,37 @@ func (m *QmpMonitor) ObjectDel(idstr string, callback StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("object_del %s", idstr), callback)
 }
 
-func (m *QmpMonitor) DriveAdd(bus string, params map[string]string, callback StringCallback) {
+func (m *QmpMonitor) XBlockdevChange(parent, node, child string, callback StringCallback) {
+	cb := func(res *Response) {
+		callback(m.actionResult(res))
+	}
+	cmd := &Command{
+		Execute: "x-blockdev-change",
+	}
+	args := map[string]interface{}{
+		"parent": parent,
+	}
+	if len(node) > 0 {
+		args["node"] = node
+	}
+	if len(child) > 0 {
+		args["child"] = child
+	}
+	cmd.Args = args
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) DriveAdd(bus, node string, params map[string]string, callback StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
 	}
-	cmd := fmt.Sprintf("drive_add %s %s", bus, strings.Join(paramsKvs, ","))
+	cmd := "drive_add"
+	if len(node) > 0 {
+		cmd = fmt.Sprintf("drive_add -n %s", node)
+	}
+
+	cmd = fmt.Sprintf("%s %s %s", cmd, bus, strings.Join(paramsKvs, ","))
 	m.HumanMonitorCommand(cmd, callback)
 	// XXX: 同下
 	// var (

@@ -15,9 +15,11 @@
 package compute
 
 const (
-	MIRROR_JOB        = "__mirror_job_status"
-	MIRROR_JOB_READY  = "ready"
-	MIRROR_JOB_FAILED = "failed"
+	MIRROR_JOB            = "__mirror_job_status"
+	MIRROR_JOB_READY      = "ready"
+	MIRROR_JOB_FAILED     = "failed"
+	MIRROR_JOB_INPROGRESS = "inprogress"
+	QUORUM_CHILD_INDEX    = "__quorum_child_index"
 
 	DISK_CLONE_TASK_ID = "__disk_clone_task_id"
 

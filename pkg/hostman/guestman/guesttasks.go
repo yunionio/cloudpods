@@ -503,7 +503,7 @@ func (d *SGuestDiskSyncTask) startAddDisk(disk *desc.SGuestDisk) {
 		bus = fmt.Sprintf("ide.%d", diskIndex)
 	}
 	// drive_add bus is a placeholder
-	d.guest.Monitor.DriveAdd(bus, params, func(result string) { d.onAddDiskSucc(disk, result, pciRoot) })
+	d.guest.Monitor.DriveAdd(bus, "", params, func(result string) { d.onAddDiskSucc(disk, result, pciRoot) })
 }
 
 func (d *SGuestDiskSyncTask) onAddDiskSucc(disk *desc.SGuestDisk, results string, pciRoot *desc.PCIController) {
@@ -1948,7 +1948,7 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 		log.Infof("mirror block replication supported")
 	}
 	if s.index < len(s.Desc.Disks) {
-		target := fmt.Sprintf("%s:exportname=drive_%d", s.nbdUri, s.index)
+		target := fmt.Sprintf("%s:exportname=drive_%d_backend", s.nbdUri, s.index)
 		s.Monitor.DriveMirror(s.startMirror, fmt.Sprintf("drive_%d", s.index),
 			target, s.syncMode, "", true, blockReplication)
 		s.index += 1
@@ -1959,6 +1959,85 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 			hostutils.TaskComplete(s.ctx, nil)
 		}
 	}
+}
+
+type SGuestBlockReplicationTask struct {
+	*SKVMGuestInstance
+
+	ctx      context.Context
+	nbdHost  string
+	nbdPort  string
+	onSucc   func()
+	onFail   func(string)
+	syncMode string
+	index    int
+}
+
+func NewGuestBlockReplicationTask(
+	ctx context.Context, s *SKVMGuestInstance,
+	nbdHost, nbdPort, syncMode string, onSucc func(), onFail func(string),
+) *SGuestBlockReplicationTask {
+	return &SGuestBlockReplicationTask{
+		SKVMGuestInstance: s,
+		ctx:               ctx,
+		nbdHost:           nbdHost,
+		nbdPort:           nbdPort,
+		syncMode:          syncMode,
+		onSucc:            onSucc,
+		onFail:            onFail,
+	}
+}
+
+func (s *SGuestBlockReplicationTask) Start() {
+	s.onXBlockdevChange("")
+}
+
+func (s *SGuestBlockReplicationTask) onXBlockdevChange(res string) {
+	if len(res) > 0 {
+		log.Errorf("SGuestBlockReplicationTask onXBlockdevChange %s", res)
+		if s.onFail != nil {
+			s.onFail(res)
+		} else {
+			hostutils.TaskFailed(s.ctx, res)
+		}
+		return
+	}
+
+	disks := s.Desc.Disks
+	if s.index < len(disks) {
+		diskIndex := disks[s.index].Index
+		drive := fmt.Sprintf("drive_%d", diskIndex)
+		node := fmt.Sprintf("node_%d", diskIndex)
+
+		s.Monitor.DriveAdd("", "buddy", map[string]string{
+			"file.driver": "nbd", "file.host": s.nbdHost, "file.port": s.nbdPort,
+			"file.export": drive, "node-name": node,
+		}, s.onNbdDriveAddSucc(drive, node))
+		s.index += 1
+	} else {
+		s.startDriveMirror()
+	}
+}
+
+func (s *SGuestBlockReplicationTask) onNbdDriveAddSucc(parent, node string) monitor.StringCallback {
+	return func(res string) {
+		if len(res) > 0 {
+			log.Errorf("SGuestBlockReplicationTask onNbdDriveAddSucc %s", res)
+			if s.onFail != nil {
+				s.onFail(res)
+			} else {
+				hostutils.TaskFailed(s.ctx, res)
+			}
+			return
+		}
+
+		s.Monitor.XBlockdevChange(parent, node, "", s.onXBlockdevChange)
+	}
+}
+
+func (s *SGuestBlockReplicationTask) startDriveMirror() {
+	NewDriveMirrorTask(s.ctx, s.SKVMGuestInstance,
+		fmt.Sprintf("nbd:%s:%s", s.nbdHost, s.nbdPort), s.syncMode, true, s.onSucc).Start()
 }
 
 /**
@@ -2289,6 +2368,38 @@ func (task *SGuestBlockIoThrottleTask) doIoThrottle(drivers []string) {
 	}
 }
 
+type CancelBlockReplication struct {
+	SCancelBlockJobs
+}
+
+func NewCancelBlockReplicationTask(ctx context.Context, guest *SKVMGuestInstance) *CancelBlockReplication {
+	return &CancelBlockReplication{SCancelBlockJobs{guest, ctx}}
+}
+
+func (task *CancelBlockReplication) Start() {
+	// start remove child node of block device
+	disks := task.Desc.Disks
+	for i := 0; i < len(disks); i++ {
+		diskIndex := disks[i].Index
+		drive := fmt.Sprintf("drive_%d", diskIndex)
+		node := fmt.Sprintf("node_%d", diskIndex)
+		child := fmt.Sprintf("children.%d", task.getQuorumChildIndex())
+		task.Monitor.XBlockdevChange(drive, "", child, func(res string) {
+			if len(res) > 0 {
+				log.Errorf("failed remove child %s for parent %s: %s", drive, node, res)
+				return
+			}
+			task.Monitor.DriveDel(node, func(res string) {
+				if len(res) > 0 {
+					log.Errorf("failed remove drive %s: %s", node, res)
+					return
+				}
+			})
+		})
+	}
+	task.SCancelBlockJobs.Start()
+}
+
 type SCancelBlockJobs struct {
 	*SKVMGuestInstance
 
@@ -2327,7 +2438,7 @@ func (task *SCancelBlockJobs) StartCancelBlockJobs(drivers []string) {
 			}
 			task.StartCancelBlockJobs(drivers)
 		}
-		task.Monitor.CancelBlockJob(driver, true, onCancelBlockJob)
+		task.Monitor.CancelBlockJob(driver, false, onCancelBlockJob)
 	} else {
 		task.taskComplete()
 	}
