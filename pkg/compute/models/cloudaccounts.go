@@ -354,6 +354,11 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 		return input, err
 	}
 
+	input.SProjectMappingResourceInput, err = manager.SProjectMappingResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SProjectMappingResourceInput)
+	if err != nil {
+		return input, err
+	}
+
 	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
@@ -2833,12 +2838,14 @@ func (self *SCloudaccount) PerformProjectMapping(ctx context.Context, userCred m
 			return nil, httperrors.NewInputParameterError("account %s has aleady bind project mapping %s", self.Name, self.ProjectMappingId)
 		}
 	}
-	// no changes
-	if self.ProjectMappingId == input.ProjectMappingId {
-		return nil, nil
-	}
 	_, err := db.Update(self, func() error {
 		self.ProjectMappingId = input.ProjectMappingId
+		if input.EnableProjectSync != nil {
+			self.EnableProjectSync = tristate.NewFromBool(*input.EnableProjectSync)
+		}
+		if input.EnableResourceSync != nil {
+			self.EnableResourceSync = tristate.NewFromBool(*input.EnableResourceSync)
+		}
 		return nil
 	})
 	if err != nil {
