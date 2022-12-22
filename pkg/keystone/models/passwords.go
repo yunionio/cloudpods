@@ -21,11 +21,16 @@ import (
 	"encoding/hex"
 	"time"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	o "yunion.io/x/onecloud/pkg/keystone/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -193,4 +198,71 @@ func (passwd *SPassword) IsExpired() bool {
 		return true
 	}
 	return false
+}
+
+// 定时任务判断用户是否需要密码过期通知
+func CheckAllUserPasswordIsExpired(ctx context.Context, userCred mcclient.TokenCredential, startRun bool) {
+	pwds := []SPassword{}
+	pwdQ := PasswordManager.Query()
+	pwdQ = pwdQ.Desc("created_at")
+	err := db.FetchModelObjects(PasswordManager, pwdQ, &pwds)
+	if err != nil {
+		log.Errorln("fetch Password error:", err)
+		return
+	}
+	hasCheckedPwd := make(map[int]struct{})
+	for _, pwd := range pwds {
+		if _, isExist := hasCheckedPwd[pwd.LocalUserId]; isExist {
+			continue
+		}
+		if pwd.ExpiresAt.IsZero() {
+			continue
+		}
+		hasCheckedPwd[pwd.LocalUserId] = struct{}{}
+		err = pwd.NeedSendNotify(ctx, userCred)
+		if err != nil {
+			log.Errorln(errors.Wrap(err, "pwd.NeedSendNotify"))
+		}
+	}
+}
+
+func (pwd *SPassword) NeedSendNotify(ctx context.Context, userCred mcclient.TokenCredential) error {
+	expireTime := time.Date(pwd.ExpiresAt.Year(), pwd.ExpiresAt.Month(), pwd.ExpiresAt.Day(), 0, 0, 0, 0, time.Local)
+	nowTime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Local)
+
+	sub := expireTime.Sub(nowTime)
+	subDay := sub.Hours() / 24
+	switch {
+	case subDay == 7:
+		localUser, err := LocalUserManager.fetchLocalUser("", "", pwd.LocalUserId)
+		if err != nil {
+			return errors.Wrap(err, "fetchLocalUser error:")
+		}
+		pwd.EventNotify(ctx, userCred, notify.ActionPasswordExpireSoon, localUser.Name, 7)
+	case subDay == 1:
+		localUser, err := LocalUserManager.fetchLocalUser("", "", pwd.LocalUserId)
+		if err != nil {
+			return errors.Wrap(err, "fetchLocalUser error:")
+		}
+		pwd.EventNotify(ctx, userCred, notify.ActionPasswordExpireSoon, localUser.Name, 1)
+	}
+	return nil
+}
+
+// 密码即将失效消息通知
+func (pwd *SPassword) EventNotify(ctx context.Context, userCred mcclient.TokenCredential, action notify.SAction, userName string, advanceDays int) {
+	resourceType := notify.TOPIC_RESOURCE_USER
+
+	detailsDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
+		details.Set("account", jsonutils.NewString(userName))
+	}
+	pwd.Password = ""
+
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:                 pwd,
+		ObjDetailsDecorator: detailsDecro,
+		ResourceType:        resourceType,
+		Action:              action,
+		AdvanceDays:         advanceDays,
+	})
 }
