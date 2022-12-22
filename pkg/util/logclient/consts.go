@@ -178,7 +178,8 @@ const (
 
 	ACT_FLUSH_INSTANCE = "flush_instance"
 
-	ACT_UPDATE_STATUS = "update_status"
+	ACT_UPDATE_STATUS              = "update_status"
+	ACT_UPDATE_BACKUP_GUEST_STATUS = "update_backup_guest_status"
 
 	ACT_UPDATE_PASSWORD = "update_password"
 

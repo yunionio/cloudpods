@@ -20,6 +20,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -36,6 +38,11 @@ func (self *HAGuestStopTask) OnGuestStopTaskComplete(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
+	if host.HostStatus != api.HOST_ONLINE {
+		self.GuestStopTask.OnGuestStopTaskComplete(ctx, guest, data)
+		return
+	}
+
 	self.SetStage("OnSlaveGuestStopTaskComplete", nil)
 	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self, true)
 	if err != nil {
@@ -54,5 +61,6 @@ func (self *HAGuestStopTask) OnSlaveGuestStopTaskComplete(
 func (self *HAGuestStopTask) OnSlaveGuestStopTaskCompleteFailed(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
+	guest.SetBackupGuestStatus(self.UserCred, compute.VM_STOP_FAILED, data.String())
 	self.OnGuestStopTaskCompleteFailed(ctx, guest, data)
 }

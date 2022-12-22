@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -142,14 +143,8 @@ func RemoteStoragecacheCacheImage(ctx context.Context, storagecacheId, imageId, 
 		storagecacheId, imageId, query, params)
 }
 
-func UpdateServerStatus(ctx context.Context, sid, status, powerStates, reason string) (jsonutils.JSONObject, error) {
-	var stats = jsonutils.NewDict()
-	stats.Set("status", jsonutils.NewString(status))
-	stats.Set("power_states", jsonutils.NewString(powerStates))
-	if len(reason) > 0 {
-		stats.Set("reason", jsonutils.NewString(reason))
-	}
-	return modules.Servers.PerformAction(GetComputeSession(ctx), sid, "status", stats)
+func UpdateServerStatus(ctx context.Context, sid string, statusInput *apis.PerformStatusInput) (jsonutils.JSONObject, error) {
+	return modules.Servers.PerformAction(GetComputeSession(ctx), sid, "status", jsonutils.Marshal(statusInput))
 }
 
 func UpdateServerProgress(ctx context.Context, sid string, progress, progressMbps float64) (jsonutils.JSONObject, error) {
