@@ -195,7 +195,7 @@ func GenerateStartOptions(
 	}
 
 	// genereate disk options
-	opts = append(opts, generateDisksOptions(drvOpt, input.Disks, input.PCIBus, input.IsVdiSpice, isEncrypt)...)
+	opts = append(opts, generateDisksOptions(drvOpt, input.Disks, input.PCIBus, input.IsVdiSpice, isEncrypt, input.IsSlave, input.IsMaster)...)
 
 	// cdrom
 	opts = append(opts, drvOpt.Cdrom(input.CdromPath, input.OsName, input.IsQ35, len(input.Disks))...)
@@ -258,7 +258,10 @@ func getMonitorOptions(drvOpt QemuOptions, input *Monitor) []string {
 	return opts
 }
 
-func generateDisksOptions(drvOpt QemuOptions, disks []api.GuestdiskJsonDesc, pciBus string, isVdiSpice bool, isEncrypt bool) []string {
+func generateDisksOptions(
+	drvOpt QemuOptions, disks []api.GuestdiskJsonDesc, pciBus string,
+	isVdiSpice, isEncrypt, isSlave, isMaster bool,
+) []string {
 	opts := []string{}
 	isArm := drvOpt.IsArm()
 	firstDriver := make(map[string]bool)
@@ -282,23 +285,60 @@ func generateDisksOptions(drvOpt QemuOptions, disks []api.GuestdiskJsonDesc, pci
 				firstDriver[driver] = true
 			}
 		}
-		opts = append(opts,
-			getDiskDriveOption(drvOpt, disk, isArm, isEncrypt),
-			getDiskDeviceOption(drvOpt, disk, isArm, pciBus, isVdiSpice),
-		)
+		if isMaster {
+			opts = append(opts, getMasterDiskDriveOption(drvOpt, disk, isArm, isEncrypt))
+		} else {
+			opts = append(opts, getDiskDriveOption(drvOpt, disk, isArm, isEncrypt, false))
+			if isSlave { // append slave backend disk
+				opts = append(opts, getDiskDriveOption(drvOpt, disk, isArm, isEncrypt, true))
+			}
+		}
+
+		opts = append(opts, getDiskDeviceOption(drvOpt, disk, isArm, pciBus, isVdiSpice))
 	}
 	return opts
 }
 
-func getDiskDriveOption(drvOpt QemuOptions, disk api.GuestdiskJsonDesc, isArm bool, isEncrypt bool) string {
+func getMasterDiskDriveOption(
+	drvOpt QemuOptions, disk api.GuestdiskJsonDesc, isArm, isEncrypt bool,
+) string {
+	format := disk.Format
+	diskIndex := disk.Index
+	cacheMode := disk.CacheMode
+	aioMode := disk.AioMode
+	opt := "if=none,driver=quorum,read-pattern=fifo,is-backup-mode=on,vote-threshold=1"
+	opt += fmt.Sprintf(",id=drive_%d", diskIndex)
+	opt += fmt.Sprintf(",cache=%s", cacheMode)
+	if isLocalStorage(disk) {
+		opt += fmt.Sprintf(",aio=%s", aioMode)
+	}
+	opt += fmt.Sprintf(",children.0.file.filename=$DISK_%d", diskIndex)
+	if format == "raw" {
+		opt += ",children.0.file.format=raw"
+	}
+	return drvOpt.Drive(opt)
+}
+
+func getDiskDriveOption(
+	drvOpt QemuOptions, disk api.GuestdiskJsonDesc,
+	isArm, isEncrypt, isSlave bool,
+) string {
 	format := disk.Format
 	diskIndex := disk.Index
 	cacheMode := disk.CacheMode
 	aioMode := disk.AioMode
 
-	opt := fmt.Sprintf("file=$DISK_%d", diskIndex)
-	opt += ",if=none"
-	opt += fmt.Sprintf(",id=drive_%d", diskIndex)
+	var opt string
+	if isSlave {
+		opt = fmt.Sprintf("file=$DISK_%d.backend", diskIndex)
+		opt += ",if=none"
+		opt += fmt.Sprintf(",id=drive_%d_backend", diskIndex)
+	} else {
+		opt = fmt.Sprintf("file=$DISK_%d", diskIndex)
+		opt += ",if=none"
+		opt += fmt.Sprintf(",id=drive_%d", diskIndex)
+	}
+
 	if len(format) == 0 || format == "qcow2" {
 		// pass    # qemu will automatically detect image format
 	} else if format == "raw" {

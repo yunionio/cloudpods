@@ -184,6 +184,8 @@ type ServerDetails struct {
 	BackupHostName string `json:"backup_host_name"`
 	// 备份主机所在宿主机状态
 	BackupHostStatus string `json:"backup_host_status"`
+	// 主备机同步状态
+	BackupGuestSyncStatus string `json:"backup_guest_sync_status"`
 
 	// 是否可以回收
 	CanRecycle bool `json:"can_recycle"`

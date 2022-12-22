@@ -278,12 +278,20 @@ func (m *HmpMonitor) ObjectDel(idstr string, callback StringCallback) {
 	m.Query(fmt.Sprintf("object_del %s", idstr), callback)
 }
 
-func (m *HmpMonitor) DriveAdd(bus string, params map[string]string, callback StringCallback) {
+func (m *HmpMonitor) XBlockdevChange(parent, node, child string, callback StringCallback) {
+	go callback("hmp not support command x-blockdev-change")
+}
+
+func (m *HmpMonitor) DriveAdd(bus, node string, params map[string]string, callback StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
 	}
-	m.Query(fmt.Sprintf("drive_add %s %s", bus, strings.Join(paramsKvs, ",")), callback)
+	cmd := "drive_add"
+	if len(node) > 0 {
+		cmd = fmt.Sprintf("drive_add -n %s", node)
+	}
+	m.Query(fmt.Sprintf("%s %s %s", cmd, bus, strings.Join(paramsKvs, ",")), callback)
 }
 
 func (m *HmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback StringCallback) {

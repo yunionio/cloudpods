@@ -2597,9 +2597,35 @@ func (self *SGuest) isNotRunningStatus(status string) bool {
 	return false
 }
 
-func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	preStatus := self.Status
+func (self *SGuest) SetBackupGuestStatus(userCred mcclient.TokenCredential, status string, reason string) error {
+	if self.BackupGuestStatus == status {
+		return nil
+	}
+	oldStatus := self.BackupGuestStatus
+	_, err := db.Update(self, func() error {
+		self.BackupGuestStatus = status
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update backup guest status")
+	}
+	if userCred != nil {
+		notes := fmt.Sprintf("%s=>%s", oldStatus, status)
+		if len(reason) > 0 {
+			notes = fmt.Sprintf("%s: %s", notes, reason)
+		}
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE_BACKUP_GUEST_STATUS, notes, userCred)
+		logclient.AddSimpleActionLog(self, logclient.ACT_UPDATE_BACKUP_GUEST_STATUS, notes, userCred, true)
+	}
+	return nil
+}
 
+func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
+	if input.IsSlave { // perform status called from slave guest
+		return nil, self.SetBackupGuestStatus(userCred, input.Status, input.Reason)
+	}
+
+	preStatus := self.Status
 	if len(self.BackupHostId) == 0 && input.Status == api.VM_RUNNING && input.BlockJobsCount > 0 {
 		input.Status = api.VM_BLOCK_STREAM
 	}
@@ -2608,9 +2634,23 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 		return nil, errors.Wrap(err, "SVirtualResourceBase.PerformStatus")
 	}
 
-	if len(self.BackupHostId) > 0 && input.Status == api.VM_RUNNING && input.BlockJobsCount > 0 {
-		self.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_READY, userCred)
-	} else if ispId := self.GetMetadata(ctx, api.BASE_INSTANCE_SNAPSHOT_ID, userCred); len(ispId) > 0 {
+	if self.HasBackupGuest() {
+		if input.Status == api.VM_RUNNING {
+			if err := self.TrySetGuestBackupMirrorJobReady(ctx, userCred); err != nil {
+				return nil, errors.Wrap(err, "set guest backup mirror job status ready")
+			}
+		} else if input.Status == api.VM_BLOCK_STREAM {
+			if err := self.SetGuestBackupMirrorJobInProgress(ctx, userCred); err != nil {
+				return nil, errors.Wrap(err, "set guest backup mirror job status inprogress")
+			}
+		} else if input.Status == api.VM_READY {
+			if err := self.ResetGuestQuorumChildIndex(ctx, userCred); err != nil {
+				return nil, errors.Wrap(err, "reset guest quorum child index")
+			}
+		}
+	}
+
+	if ispId := self.GetMetadata(ctx, api.BASE_INSTANCE_SNAPSHOT_ID, userCred); len(ispId) > 0 {
 		ispM, err := InstanceSnapshotManager.FetchById(ispId)
 		if err == nil {
 			isp := ispM.(*SInstanceSnapshot)
@@ -3006,27 +3046,31 @@ func (self *SGuest) SwitchToBackup(userCred mcclient.TokenCredential) error {
 	return nil
 }
 
-func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformSwitchToBackup(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
 	if self.Status == api.VM_BLOCK_STREAM {
 		return nil, httperrors.NewBadRequestError("Cannot swith to backup when guest in status %s", self.Status)
 	}
 	if len(self.BackupHostId) == 0 {
 		return nil, httperrors.NewBadRequestError("Guest no backup host")
 	}
+	backupHost := HostManager.FetchHostById(self.BackupHostId)
+	if backupHost.HostStatus != api.HOST_ONLINE {
+		return nil, httperrors.NewBadRequestError("Can't switch to backup host on host status %s", backupHost.HostStatus)
+	}
 
-	mirrorJobStatus := self.GetMetadata(ctx, api.MIRROR_JOB, userCred)
-	if mirrorJobStatus != api.MIRROR_JOB_READY {
+	if !self.IsGuestBackupMirrorJobReady(ctx, userCred) {
 		return nil, httperrors.NewBadRequestError("Guest can't switch to backup, mirror job not ready")
+	}
+	if !utils.IsInStringArray(self.BackupGuestStatus, []string{api.VM_RUNNING, api.VM_READY, api.VM_UNKNOWN}) {
+		return nil, httperrors.NewInvalidStatusError("Guest can't switch to backup with backup status %s", self.BackupGuestStatus)
 	}
 
 	oldStatus := self.Status
-	deleteBackup := jsonutils.QueryBoolean(data, "delete_backup", false)
-	purgeBackup := jsonutils.QueryBoolean(data, "purge_backup", false)
-
 	taskData := jsonutils.NewDict()
 	taskData.Set("old_status", jsonutils.NewString(oldStatus))
-	taskData.Set("delete_backup", jsonutils.NewBool(deleteBackup))
-	taskData.Set("purge_backup", jsonutils.NewBool(purgeBackup))
+	taskData.Set("auto_start", jsonutils.NewBool(jsonutils.QueryBoolean(data, "auto_start", false)))
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSwitchToBackupTask", self, userCred, taskData, "", "", nil); err != nil {
 		log.Errorln(err)
 		return nil, err
@@ -3122,7 +3166,9 @@ func (manager *SGuestManager) PerformBatchSetUserMetadata(ctx context.Context, u
 
 func (self *SGuest) PerformBlockStreamFailed(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if len(self.BackupHostId) > 0 {
-		self.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_FAILED, userCred)
+		if err := self.SetGuestBackupMirrorJobFailed(ctx, userCred); err != nil {
+			return nil, errors.Wrap(err, "set guest backup mirror job failed")
+		}
 	}
 	if self.Status == api.VM_BLOCK_STREAM || self.Status == api.VM_RUNNING {
 		reason, _ := data.GetString("reason")
@@ -3280,6 +3326,9 @@ func (self *SGuest) PerformCreateBackup(
 	if len(self.BackupHostId) > 0 {
 		return nil, httperrors.NewBadRequestError("Already have backup server")
 	}
+	if self.Status != api.VM_READY {
+		return nil, httperrors.NewBadRequestError("Can't create backup in guest status %s", self.Status)
+	}
 	if !self.guestDisksStorageTypeIsLocal() {
 		return nil, httperrors.NewBadRequestError("Cannot create backup with shared storage")
 	}
@@ -3316,6 +3365,7 @@ func (self *SGuest) StartGuestCreateBackupTask(
 
 	params := data.(*jsonutils.JSONDict)
 	params.Set("guest_status", jsonutils.NewString(self.Status))
+	self.SetStatus(userCred, api.VM_BACKUP_CREATING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, parentTaskId, "", &req)
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &req, &req, false)
@@ -3377,38 +3427,19 @@ func (self *SGuest) StartCreateBackup(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
-func (self *SGuest) PerformReconcileBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	switchBackup := self.GetMetadata(ctx, "switch_backup", userCred)
-	createBackup := self.GetMetadata(ctx, "create_backup", userCred)
-	if len(switchBackup) == 0 && len(createBackup) == 0 {
-		return nil, httperrors.NewBadRequestError("guest doesn't need reconcile backup")
+func (self *SGuest) PerformStartBackup(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	if !self.HasBackupGuest() {
+		return nil, httperrors.NewBadRequestError("guest has no backup guest")
 	}
-	if len(switchBackup) > 0 {
-		data := jsonutils.NewDict()
-		data.Set("purge_backup", jsonutils.JSONTrue)
-		return self.PerformSwitchToBackup(ctx, userCred, nil, data)
-	} else {
-		return nil, self.StartReconcileBackup(ctx, userCred)
+	if host := HostManager.FetchHostById(self.BackupHostId); host.HostStatus != api.HOST_ONLINE {
+		return nil, httperrors.NewBadRequestError("can't start backup guest on host status %s", host.HostStatus)
 	}
-}
-
-func (self *SGuest) StartReconcileBackup(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if len(self.BackupHostId) > 0 {
-		data := jsonutils.NewDict()
-		data.Set("purge", jsonutils.JSONTrue)
-		data.Set("create", jsonutils.JSONTrue)
-		_, err := self.PerformDeleteBackup(ctx, userCred, nil, data)
-		if err != nil {
-			return err
-		}
-	} else {
-		params := jsonutils.NewDict()
-		params.Set("reconcile_backup", jsonutils.JSONTrue)
-		if _, err := self.StartGuestCreateBackupTask(ctx, userCred, "", params); err != nil {
-			return err
-		}
+	if self.Status != api.VM_RUNNING || self.BackupGuestStatus == api.VM_RUNNING {
+		return nil, httperrors.NewBadRequestError("can't start backup guest on backup guest status %s", self.BackupGuestStatus)
 	}
-	return nil
+	return nil, self.GuestStartAndSyncToBackup(ctx, userCred, "", self.Status)
 }
 
 func (self *SGuest) PerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSetExtraOptionInput) (jsonutils.JSONObject, error) {

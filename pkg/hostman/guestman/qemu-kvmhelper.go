@@ -36,7 +36,10 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	qemucerts "yunion.io/x/onecloud/pkg/hostman/guestman/qemu/certs"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -175,6 +178,11 @@ func (s *SKVMGuestInstance) disableIsaSerialDev() bool {
 func (s *SKVMGuestInstance) disablePvpanicDev() bool {
 	val, _ := s.Desc.GetString("metadata", "disable_pvpanic")
 	return val == "true"
+}
+
+func (s *SKVMGuestInstance) getQuorumChildIndex() int64 {
+	idx, _ := s.Desc.Int("metadata", api.QUORUM_CHILD_INDEX)
+	return idx
 }
 
 func (s *SKVMGuestInstance) GetDiskAddr(idx int) int {
@@ -571,6 +579,12 @@ function nic_mtu() {
 		input.EnablePvpanic = true
 	}
 
+	if input.IsSlave && jsonutils.QueryBoolean(data, "script_start", false) {
+		if err := s.slaveDiskPrepare(input); err != nil {
+			return "", err
+		}
+	}
+
 	qemuOpts, err := qemu.GenerateStartOptions(input)
 	if err != nil {
 		return "", errors.Wrap(err, "GenerateStartCommand")
@@ -587,6 +601,49 @@ fi
 eval $CMD`
 
 	return cmd, nil
+}
+
+func (s *SKVMGuestInstance) slaveDiskPrepare(input *qemu.GenerateStartOptionsInput) error {
+	for i := 0; i < len(input.Disks); i++ {
+		diskPath := input.Disks[i].Path
+		d, err := storageman.GetManager().GetDiskByPath(diskPath)
+		if err != nil {
+			return errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
+		}
+		disk, err := qemuimg.NewQemuImage(d.GetPath())
+		if err != nil {
+			return errors.Wrapf(err, "qemuimg.NewQemuImage(%s)", diskPath)
+		}
+		backendPath := diskPath + ".backend"
+		if !fileutils2.Exists(backendPath) {
+			output, err := procutils.NewCommand("mv", "-f", diskPath, backendPath).Output()
+			if err != nil {
+				return errors.Wrapf(err, "mv %s to %s failed %s", diskPath, backendPath, output)
+			}
+			diskTop, err := qemuimg.NewQemuImage(diskPath)
+			if err != nil {
+				return errors.Wrap(err, "qemuimg.NewQemuImage")
+			}
+			if err = diskTop.CreateQcow2(0, false, backendPath, "", "", ""); err != nil {
+				return errors.Wrap(err, "create qcow2")
+			}
+		} else {
+			if disk.BackFilePath != backendPath {
+				return errors.Errorf("backend file %s exist but not a backing file", backendPath)
+			}
+			if output, err := procutils.NewCommand("rm", "-f", diskPath).Output(); err != nil {
+				return errors.Errorf("failed delete slave top disk file %s %s", output, err)
+			}
+			diskTop, err := qemuimg.NewQemuImage(diskPath)
+			if err != nil {
+				return errors.Wrap(err, "qemuimg.NewQemuImage")
+			}
+			if err = diskTop.CreateQcow2(0, false, backendPath, "", "", ""); err != nil {
+				return errors.Wrap(err, "create qcow2")
+			}
+		}
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) parseCmdline(input string, noMemdev bool, scsiNumQueues int64) (*qemutils.Cmdline, []qemutils.Option, error) {
