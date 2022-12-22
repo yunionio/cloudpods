@@ -70,7 +70,7 @@ type NetworkConfig struct {
 	NumQueues int    `json:"num_queues"`
 
 	// sriov nic
-	SriovDevice *IsolatedDeviceConfig `json:"srive_device"`
+	SriovDevice *IsolatedDeviceConfig `json:"sriov_device"`
 
 	RequireDesignatedIP bool `json:"require_designated_ip"`
 
