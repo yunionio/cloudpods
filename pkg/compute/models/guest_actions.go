@@ -3608,6 +3608,7 @@ func (self *SGuest) StartGuestCreateBackupTask(
 
 	params := data.(*jsonutils.JSONDict)
 	params.Set("guest_status", jsonutils.NewString(self.Status))
+	params.Set("auto_start", jsonutils.NewBool(jsonutils.QueryBoolean(data, "auto_start", false)))
 	self.SetStatus(userCred, api.VM_BACKUP_CREATING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, parentTaskId, "", &req)
 	if err != nil {
