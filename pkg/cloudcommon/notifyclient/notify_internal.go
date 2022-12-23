@@ -28,8 +28,8 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
@@ -102,7 +102,7 @@ type sTarget struct {
 }
 
 func langRobot(ctx context.Context, robots []string) (map[language.Tag]*sTarget, error) {
-	contextLang := i18n.Lang(ctx)
+	contextLang := appctx.Lang(ctx)
 	robotLang, err := getRobotLang(robots)
 	if err != nil {
 		return nil, err
@@ -125,7 +125,7 @@ func langRobot(ctx context.Context, robots []string) (map[language.Tag]*sTarget,
 }
 
 func lang(ctx context.Context, contactType npk.TNotifyChannel, reIds []string, contacts []string) (map[language.Tag]*sTarget, error) {
-	contextLang := i18n.Lang(ctx)
+	contextLang := appctx.Lang(ctx)
 	langMap := make(map[language.Tag]*sTarget)
 	insertReid := func(lang language.Tag, id string) {
 		t := langMap[lang]

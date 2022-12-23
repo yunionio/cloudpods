@@ -33,11 +33,11 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	notiapi "yunion.io/x/onecloud/pkg/apis/notify"
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
@@ -537,7 +537,7 @@ func GetGlobalSettingsDictionary(ctx context.Context, param string) (val string)
 		log.Errorf("can not get dictionary:%s", globalSettings.String())
 		return
 	}
-	lang := i18n.Lang(ctx)
+	lang := appctx.Lang(ctx)
 	switch lang {
 	case language.English:
 		val, _ = dictionary.GetString("en", param)
@@ -1503,7 +1503,7 @@ func GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
 	return getBrandFromInfoApi(ctx)
 	*/
 	return SCompanyInfo{
-		Name: options.Options.GetPlatformName(i18n.Lang(ctx)),
+		Name: options.Options.GetPlatformName(appctx.Lang(ctx)),
 	}, nil
 }
 

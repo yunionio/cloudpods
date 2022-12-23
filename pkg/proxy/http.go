@@ -23,8 +23,8 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/i18n"
 )
 
 type EndpointGenerator func(context.Context, *http.Request) (string, error)
@@ -55,7 +55,7 @@ func NewHTTPReverseProxy(ef *SEndpointFactory, m RequestManipulator) *SReversePr
 }
 
 func (p *SReverseProxy) ServeHTTP(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	ctx = i18n.WithRequestLang(ctx, r)
+	ctx = appctx.WithRequestLang(ctx, r)
 	endpoint, err := p.generator(ctx, r)
 	if err != nil {
 		httperrors.InternalServerError(ctx, w, "%v", err)
