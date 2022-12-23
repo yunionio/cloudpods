@@ -3045,6 +3045,10 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
 
+	if guest.Status == api.VM_RUNNING {
+		db.OpsLog.LogEvent(&guest, db.ACT_START, guest.GetShortDesc(ctx), userCred)
+	}
+
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    &guest,
 		Action: notifyclient.ActionSyncCreate,
@@ -4998,6 +5002,8 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
 	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
 	desc.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+
+	desc.Set("status", jsonutils.NewString(self.Status))
 
 	address := jsonutils.NewString(strings.Join(self.GetRealIPs(), ","))
 	desc.Set("ip_addr", address)
