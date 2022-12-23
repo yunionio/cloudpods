@@ -19,8 +19,6 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/trace"
-
-	"yunion.io/x/onecloud/pkg/i18n"
 )
 
 type AppContextKey string
@@ -58,7 +56,7 @@ func AppContextServiceName(ctx context.Context) string {
 }
 
 func AppContextLang(ctx context.Context) string {
-	return i18n.Lang(ctx).String()
+	return Lang(ctx).String()
 }
 
 func AppContextCurrentPath(ctx context.Context) []string {
@@ -233,7 +231,7 @@ func (self *AppContextData) GetContext() context.Context {
 		ctx = context.WithValue(ctx, APP_CONTEXT_KEY_APPNAME, self.ServiceName)
 	}
 	if len(self.Lang) > 0 {
-		ctx = i18n.WithLang(ctx, self.Lang)
+		ctx = WithLang(ctx, self.Lang)
 	}
 	return ctx
 }

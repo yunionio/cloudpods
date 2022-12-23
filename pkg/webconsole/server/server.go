@@ -22,8 +22,8 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/webconsole/session"
 )
 
@@ -36,7 +36,7 @@ func NewConnectionServer() *ConnectionServer {
 
 func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := context.Background()
-	ctx = i18n.WithRequestLang(ctx, req)
+	ctx = appctx.WithRequestLang(ctx, req)
 	query, err := jsonutils.ParseQueryString(req.URL.RawQuery)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)

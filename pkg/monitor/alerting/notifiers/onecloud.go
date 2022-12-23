@@ -29,6 +29,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	notiapi "yunion.io/x/onecloud/pkg/apis/notify"
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -209,7 +210,7 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 	}
 
 	if len(oc.Setting.RobotIds) != 0 {
-		withLangTag := i18n.WithLangTag(context.Background(), language.English)
+		withLangTag := appctx.WithLangTag(context.Background(), language.English)
 		langNotifyGroup.Go(func() error {
 			return oc.notifyByContextLang(withLangTag, ctx, []string{})
 		})
@@ -226,7 +227,7 @@ func (oc *OneCloudNotifier) notifyByUserIds(ctx *alerting.EvalContext, userIds [
 		ids := langIdsMap[lang]
 		langTag, _ := language.Parse(lang)
 		langStr := i18nTable.LookupByLang(langTag, SUFFIX)
-		langContext := i18n.WithLangTag(context.Background(), getLangBystr(langStr))
+		langContext := appctx.WithLangTag(context.Background(), getLangBystr(langStr))
 		errGrp.Go(func() error {
 			return oc.notifyByContextLang(langContext, ctx, ids)
 		})
@@ -282,7 +283,7 @@ func getLangBystr(str string) language.Tag {
 
 func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *alerting.EvalContext, uids []string) error {
 	var config monitor.NotificationTemplateConfig
-	lang := i18n.Lang(ctx)
+	lang := appctx.Lang(ctx)
 	switch lang {
 	case language.English:
 		config = GetNotifyTemplateConfigOfEN(evalCtx)
