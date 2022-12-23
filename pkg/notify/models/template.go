@@ -31,9 +31,9 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
@@ -146,7 +146,7 @@ func (tm *STemplateManager) GetCompanyInfo(ctx context.Context) (SCompanyInfo, e
 	return info, nil
 	*/
 	return SCompanyInfo{
-		Name: options.Options.GetPlatformName(i18n.Lang(ctx)),
+		Name: options.Options.GetPlatformName(appctx.Lang(ctx)),
 	}, nil
 }
 
