@@ -28,12 +28,12 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -352,7 +352,7 @@ func (manager *SQuotaBaseManager) setQuotaHandler(ctx context.Context, w http.Re
 	err := body.Unmarshal(quota, manager.KeywordPlural())
 	if err != nil {
 		log.Errorf("Fail to decode JSON request body: %s", err)
-		httperrors.InvalidInputError(i18n.WithRequestLang(ctx, r), w, "fail to decode body")
+		httperrors.InvalidInputError(appctx.WithRequestLang(ctx, r), w, "fail to decode body")
 		return
 	}
 

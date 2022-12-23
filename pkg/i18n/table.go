@@ -18,6 +18,8 @@ import (
 	"context"
 
 	"golang.org/x/text/language"
+
+	"yunion.io/x/onecloud/pkg/appctx"
 )
 
 type Tag = language.Tag
@@ -49,7 +51,7 @@ func (te TableEntry) EN(v string) TableEntry {
 }
 
 func (te TableEntry) Lookup(ctx context.Context) (string, bool) {
-	lang := Lang(ctx)
+	lang := appctx.Lang(ctx)
 	lang = tableLangMatch(lang)
 
 	v, ok := te[lang]
@@ -61,7 +63,7 @@ func (tbl Table) Set(k string, te TableEntry) {
 }
 
 func (tbl Table) Lookup(ctx context.Context, key string) string {
-	lang := Lang(ctx)
+	lang := appctx.Lang(ctx)
 	return tbl.LookupByLang(lang, key)
 }
 
