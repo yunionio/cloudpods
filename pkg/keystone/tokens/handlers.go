@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -30,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func AddHandler(app *appsrv.Application) {
@@ -220,7 +220,7 @@ func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (
 	if adminToken == nil || len(tokenStr) == 0 {
 		return nil, httperrors.NewForbiddenError("missing auth token")
 	}
-	if adminToken.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth").Result.IsDeny() {
+	if adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth").Result.IsDeny() {
 		return nil, httperrors.NewForbiddenError("%s not allow to auth", adminToken.GetUserName())
 	}
 	token := SAuthToken{}

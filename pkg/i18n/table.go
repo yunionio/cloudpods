@@ -19,7 +19,7 @@ import (
 
 	"golang.org/x/text/language"
 
-	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/pkg/appctx"
 )
 
 type Tag = language.Tag

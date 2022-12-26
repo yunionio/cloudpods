@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -31,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -81,8 +81,8 @@ func (man *SAlertManager) GetTester() AlertTestRunner {
 	return man.tester
 }
 
-func (manager *SAlertManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+func (manager *SAlertManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeSystem
 }
 
 func (manager *SAlertManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {

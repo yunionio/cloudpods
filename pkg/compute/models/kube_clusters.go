@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -36,7 +37,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -515,7 +515,7 @@ func (cluster *SKubeCluster) GetQuotaKeys() quotas.SDomainRegionalCloudResourceK
 	region, _ := cluster.GetRegion()
 	manager := cluster.GetCloudprovider()
 	ownerId := cluster.GetOwnerId()
-	regionKeys := fetchRegionalQuotaKeys(rbacutils.ScopeDomain, ownerId, region, manager)
+	regionKeys := fetchRegionalQuotaKeys(rbacscope.ScopeDomain, ownerId, region, manager)
 	keys := quotas.SDomainRegionalCloudResourceKeys{}
 	keys.SBaseDomainQuotaKeys = regionKeys.SBaseDomainQuotaKeys
 	keys.SRegionalBaseKeys = regionKeys.SRegionalBaseKeys

@@ -22,16 +22,16 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/object"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/version"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent/iagent"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SZoneInfo struct {

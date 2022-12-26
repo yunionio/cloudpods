@@ -25,9 +25,9 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 func (r *SBMCConsole) GetIdracConsoleJNLP(ctx context.Context, sku, model string) (string, error) {

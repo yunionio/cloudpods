@@ -15,9 +15,10 @@
 package regiondrivers
 
 import (
+	"yunion.io/x/pkg/util/pinyinutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 )
 
 type SEcloudRegionDriver struct {

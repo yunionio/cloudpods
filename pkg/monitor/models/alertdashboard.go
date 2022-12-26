@@ -21,13 +21,13 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -61,8 +61,8 @@ func init() {
 	AlertDashBoardManager.SetVirtualObject(AlertDashBoardManager)
 }
 
-func (manager *SAlertDashBoardManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+func (manager *SAlertDashBoardManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeSystem
 }
 
 func (manager *SAlertDashBoardManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
@@ -140,13 +140,13 @@ func (dash *SAlertDashBoard) PerformSetScope(ctx context.Context, userCred mccli
 	if len(domainId) == 0 && len(projectId) == 0 {
 		scope, _ := data.GetString("scope")
 		if len(scope) != 0 {
-			switch rbacutils.TRbacScope(scope) {
-			case rbacutils.ScopeSystem:
+			switch rbacscope.TRbacScope(scope) {
+			case rbacscope.ScopeSystem:
 
-			case rbacutils.ScopeDomain:
+			case rbacscope.ScopeDomain:
 				domainId = userCred.GetProjectDomainId()
 				data.(*jsonutils.JSONDict).Set("domain_id", jsonutils.NewString(domainId))
-			case rbacutils.ScopeProject:
+			case rbacscope.ScopeProject:
 				projectId = userCred.GetProjectId()
 				data.(*jsonutils.JSONDict).Set("project_id", jsonutils.NewString(projectId))
 			}

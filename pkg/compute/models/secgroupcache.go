@@ -24,6 +24,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rand"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -34,8 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rand"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -85,8 +85,8 @@ func (self *SSecurityGroupCache) GetOwnerId() mcclient.IIdentityProvider {
 	return &db.SOwnerId{DomainId: sec.DomainId, ProjectId: sec.ProjectId}
 }
 
-func (manager *SSecurityGroupCacheManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (manager *SSecurityGroupCacheManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
 // 安全组缓存列表
@@ -188,16 +188,16 @@ func (sgc *SSecurityGroupCache) IsSupportPeerSecgroup() bool {
 	return driver.IsSupportPeerSecgroup()
 }
 
-func (manager *SSecurityGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SSecurityGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := SecurityGroupManager.Query("id")
 		switch scope {
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			if len(userCred.GetProjectId()) > 0 {
 				sq = sq.Equals("tenant_id", userCred.GetProjectId())
 				return q.In("secgroup_id", sq)
 			}
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			if len(userCred.GetProjectDomainId()) > 0 {
 				sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
 				return q.In("secgroup_id", sq)

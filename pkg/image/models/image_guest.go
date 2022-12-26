@@ -27,6 +27,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/qemuimgfmt"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -41,7 +43,6 @@ import (
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -91,7 +92,7 @@ func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userC
 		return input, httperrors.NewMissingParameterError("images")
 	}
 
-	input.DiskFormat = string(qemuimg.QCOW2)
+	input.DiskFormat = string(qemuimgfmt.QCOW2)
 
 	pendingUsage := SQuota{Image: int(imageNum)}
 	keys := imageCreateInput2QuotaKeys("qcow2", ownerId)
@@ -632,17 +633,17 @@ func (manager *SGuestImageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SGuestImageManager) Usage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string, policyResult rbacutils.SPolicyResult) map[string]int64 {
+func (manager *SGuestImageManager) Usage(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string, policyResult rbacutils.SPolicyResult) map[string]int64 {
 	usages := make(map[string]int64)
 	count := ImageManager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false, tristate.True, policyResult)
 	expandUsageCount(usages, prefix, "guest_image", "", count)
 	sq := manager.Query()
 	switch scope {
-	case rbacutils.ScopeSystem:
+	case rbacscope.ScopeSystem:
 		// do nothing
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		sq = sq.Equals("domain_id", ownerId.GetProjectDomainId())
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		sq = sq.Equals("tenant_id", ownerId.GetProjectId())
 	}
 	cnt, _ := sq.CountWithError()

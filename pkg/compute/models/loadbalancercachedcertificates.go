@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -32,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -69,8 +69,8 @@ type SCachedLoadbalancerCertificate struct {
 	SLoadbalancerCertificateResourceBase `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user"`
 }
 
-func (manager *SCachedLoadbalancerCertificateManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (manager *SCachedLoadbalancerCertificateManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
 func (self *SCachedLoadbalancerCertificate) GetOwnerId() mcclient.IIdentityProvider {
@@ -93,14 +93,14 @@ func (manager *SCachedLoadbalancerCertificateManager) FetchOwnerId(ctx context.C
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SCachedLoadbalancerCertificateManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCachedLoadbalancerCertificateManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := LoadbalancerCertificateManager.Query("id")
 		switch scope {
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			sq = sq.Equals("tenant_id", userCred.GetProjectId())
 			return q.In("certificate_id", sq.SubQuery())
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
 			return q.In("certificate_id", sq.SubQuery())
 		}
@@ -259,7 +259,7 @@ func (self *SCloudprovider) newFromCloudLoadbalancerCertificate(ctx context.Cont
 		c.CommonName = ext.GetCommonName()
 		c.SubjectAlternativeNames = ext.GetSubjectAlternativeNames()
 		c.NotAfter = ext.GetExpireTime()
-		c.PublicScope = string(rbacutils.ScopeDomain)
+		c.PublicScope = string(rbacscope.ScopeDomain)
 		c.IsPublic = true
 
 		err := LoadbalancerCertificateManager.TableSpec().Insert(ctx, c)

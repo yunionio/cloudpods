@@ -32,6 +32,10 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/pinyinutils"
+	"yunion.io/x/pkg/util/qemuimgfmt"
+	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/streamutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -56,11 +60,9 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
-	"yunion.io/x/onecloud/pkg/util/streamutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -666,7 +668,7 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		if appParams != nil && appParams.Request.ContentLength > 0 {
 			return nil, httperrors.NewInvalidStatusError("cannot upload in status %s", self.Status)
 		}
-		if minDiskSize, err := data.Int("min_disk"); err == nil && self.DiskFormat != string(qemuimg.ISO) {
+		if minDiskSize, err := data.Int("min_disk"); err == nil && self.DiskFormat != string(qemuimgfmt.ISO) {
 			img, err := qemuimg.NewQemuImage(self.GetLocalLocation())
 			if err != nil {
 				return nil, errors.Wrap(err, "open image")
@@ -917,15 +919,15 @@ type SImageUsage struct {
 	Size  int64
 }
 
-func (manager *SImageManager) count(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, status string, isISO tristate.TriState, pendingDelete bool, guestImage tristate.TriState, policyResult rbacutils.SPolicyResult) map[string]SImageUsage {
+func (manager *SImageManager) count(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, status string, isISO tristate.TriState, pendingDelete bool, guestImage tristate.TriState, policyResult rbacutils.SPolicyResult) map[string]SImageUsage {
 	sq := manager.Query("id")
 	sq = db.ObjectIdQueryWithPolicyResult(sq, manager, policyResult)
 	switch scope {
-	case rbacutils.ScopeSystem:
+	case rbacscope.ScopeSystem:
 		// do nothing
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		sq = sq.Equals("domain_id", ownerId.GetProjectDomainId())
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		sq = sq.Equals("tenant_id", ownerId.GetProjectId())
 	}
 	// exclude GuestImage!!!
@@ -944,9 +946,9 @@ func (manager *SImageManager) count(scope rbacutils.TRbacScope, ownerId mcclient
 		sq = sq.IsFalse("pending_deleted")
 	}
 	if isISO.IsTrue() {
-		sq = sq.Equals("disk_format", string(qemuimg.ISO))
+		sq = sq.Equals("disk_format", string(qemuimgfmt.ISO))
 	} else if isISO.IsFalse() {
-		sq = sq.NotEquals("disk_format", string(qemuimg.ISO))
+		sq = sq.NotEquals("disk_format", string(qemuimgfmt.ISO))
 	}
 	cnt, _ := sq.CountWithError()
 
@@ -995,32 +997,32 @@ func expandUsageCount(usages map[string]int64, prefix, imgType, state string, co
 	}
 }
 
-func (manager *SImageManager) Usage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string, policyResult rbacutils.SPolicyResult) map[string]int64 {
+func (manager *SImageManager) Usage(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string, policyResult rbacutils.SPolicyResult) map[string]int64 {
 	usages := make(map[string]int64)
 	count := manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false, tristate.False, policyResult)
 	expandUsageCount(usages, prefix, "img", "", count)
 	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.True, false, tristate.False, policyResult)
-	expandUsageCount(usages, prefix, string(qemuimg.ISO), "", count)
+	expandUsageCount(usages, prefix, string(qemuimgfmt.ISO), "", count)
 	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.None, false, tristate.False, policyResult)
 	expandUsageCount(usages, prefix, "imgiso", "", count)
 	count = manager.count(scope, ownerId, "", tristate.False, true, tristate.False, policyResult)
 	expandUsageCount(usages, prefix, "img", "pending_delete", count)
 	count = manager.count(scope, ownerId, "", tristate.True, true, tristate.False, policyResult)
-	expandUsageCount(usages, prefix, string(qemuimg.ISO), "pending_delete", count)
+	expandUsageCount(usages, prefix, string(qemuimgfmt.ISO), "pending_delete", count)
 	count = manager.count(scope, ownerId, "", tristate.None, true, tristate.False, policyResult)
 	expandUsageCount(usages, prefix, "imgiso", "pending_delete", count)
 	return usages
 }
 
 func (self *SImage) GetImageType() api.TImageType {
-	if self.DiskFormat == string(qemuimg.ISO) {
+	if self.DiskFormat == string(qemuimgfmt.ISO) {
 		return api.ImageTypeISO
 	} else {
 		return api.ImageTypeTemplate
 	}
 }
 
-func (self *SImage) newSubformat(ctx context.Context, format qemuimg.TImageFormat, migrate bool) error {
+func (self *SImage) newSubformat(ctx context.Context, format qemuimgfmt.TImageFormat, migrate bool) error {
 	subformat := &SImageSubformat{}
 	subformat.SetModelManager(ImageSubformatManager, subformat)
 
@@ -1050,7 +1052,7 @@ func (self *SImage) newSubformat(ctx context.Context, format qemuimg.TImageForma
 
 func (self *SImage) migrateSubImage(ctx context.Context) error {
 	log.Debugf("migrateSubImage")
-	if !qemuimg.IsSupportedImageFormat(self.DiskFormat) {
+	if !qemuimgfmt.IsSupportedImageFormat(self.DiskFormat) {
 		log.Warningf("Unsupported image format %s, no need to migrate", self.DiskFormat)
 		return nil
 	}
@@ -1066,7 +1068,7 @@ func (self *SImage) migrateSubImage(ctx context.Context) error {
 	}
 	if self.GetImageType() != api.ImageTypeISO && imgInst.IsSparse() && utils.IsInStringArray(self.DiskFormat, options.Options.TargetImageFormats) {
 		// need to convert again
-		return self.newSubformat(ctx, qemuimg.String2ImageFormat(self.DiskFormat), false)
+		return self.newSubformat(ctx, qemuimgfmt.String2ImageFormat(self.DiskFormat), false)
 	} else {
 		localPath := self.GetLocalLocation()
 		if !strings.HasSuffix(localPath, fmt.Sprintf(".%s", self.DiskFormat)) {
@@ -1083,12 +1085,12 @@ func (self *SImage) migrateSubImage(ctx context.Context) error {
 				return err
 			}
 		}
-		return self.newSubformat(ctx, qemuimg.String2ImageFormat(self.DiskFormat), true)
+		return self.newSubformat(ctx, qemuimgfmt.String2ImageFormat(self.DiskFormat), true)
 	}
 }
 
 func (img *SImage) isEncrypted() bool {
-	return img.DiskFormat == string(qemuimg.QCOW2) && len(img.EncryptKeyId) > 0
+	return img.DiskFormat == string(qemuimgfmt.QCOW2) && len(img.EncryptKeyId) > 0
 }
 
 func (self *SImage) makeSubImages(ctx context.Context) error {
@@ -1102,14 +1104,14 @@ func (self *SImage) makeSubImages(ctx context.Context) error {
 	}
 	log.Debugf("[MakeSubImages] convert image to %#v", options.Options.TargetImageFormats)
 	for _, format := range options.Options.TargetImageFormats {
-		if !qemuimg.IsSupportedImageFormat(format) {
+		if !qemuimgfmt.IsSupportedImageFormat(format) {
 			continue
 		}
 		if format != self.DiskFormat {
 			// need to create a record
 			subformat := ImageSubformatManager.FetchSubImage(self.Id, format)
 			if subformat == nil {
-				err := self.newSubformat(ctx, qemuimg.String2ImageFormat(format), false)
+				err := self.newSubformat(ctx, qemuimgfmt.String2ImageFormat(format), false)
 				if err != nil {
 					return err
 				}
@@ -1525,7 +1527,7 @@ func (self *SImage) CanUpdate(data jsonutils.JSONObject) bool {
 
 func (img *SImage) GetQuotaKeys() quotas.IQuotaKeys {
 	keys := SImageQuotaKeys{}
-	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, img.GetOwnerId())
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(rbacscope.ScopeProject, img.GetOwnerId())
 	if img.GetImageType() == api.ImageTypeISO {
 		keys.Type = string(api.ImageTypeISO)
 	} else {
@@ -1536,7 +1538,7 @@ func (img *SImage) GetQuotaKeys() quotas.IQuotaKeys {
 
 func imageCreateInput2QuotaKeys(format string, ownerId mcclient.IIdentityProvider) quotas.IQuotaKeys {
 	keys := SImageQuotaKeys{}
-	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(rbacscope.ScopeProject, ownerId)
 	if format == string(api.ImageTypeISO) {
 		keys.Type = string(api.ImageTypeISO)
 	} else if len(format) > 0 {
@@ -1921,7 +1923,7 @@ func (img *SImage) doEncrypt(ctx context.Context, userCred mcclient.TokenCredent
 	if len(img.EncryptKeyId) == 0 {
 		return false, nil
 	}
-	if img.DiskFormat != string(qemuimg.QCOW2) {
+	if img.DiskFormat != string(qemuimgfmt.QCOW2) {
 		// only qcow2 support encryption
 		return false, nil
 	}

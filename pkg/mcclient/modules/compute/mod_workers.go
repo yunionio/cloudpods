@@ -16,6 +16,7 @@ package compute
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -39,7 +40,7 @@ func init() {
 	modules.RegisterCompute(&Workers)
 }
 
-func (this *WorkerManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*modulebase.ListResult, error) {
+func (this *WorkerManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*printutils.ListResult, error) {
 	serviceType := apis.SERVICE_TYPE_REGION + "_v2"
 	if params.Contains("service_type") {
 		serviceType, _ = params.GetString("service_type")

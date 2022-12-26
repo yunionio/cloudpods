@@ -21,8 +21,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
+	"yunion.io/x/pkg/util/printutils"
 
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -126,7 +127,7 @@ func jointListHandler(ctx context.Context, w http.ResponseWriter, r *http.Reques
 
 func jointListDescendentHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchJointEnv(ctx, w, r)
-	var listResult *modulebase.ListResult
+	var listResult *printutils.ListResult
 	var err error
 	if _, ok := params["<master_id>"]; ok {
 		listResult, err = manager.ListMasterDescendent(ctx, params["<master_id>"], mergeQueryParams(params, query, "<master_id>"))

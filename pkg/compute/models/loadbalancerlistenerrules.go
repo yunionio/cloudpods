@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -33,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -78,8 +78,8 @@ type SLoadbalancerListenerRule struct {
 	SLoadbalancerHTTPRedirect
 }
 
-func (manager *SLoadbalancerListenerRuleManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (manager *SLoadbalancerListenerRuleManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
 func (self *SLoadbalancerListenerRule) GetOwnerId() mcclient.IIdentityProvider {
@@ -102,16 +102,16 @@ func (manager *SLoadbalancerListenerRuleManager) FetchOwnerId(ctx context.Contex
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (man *SLoadbalancerListenerRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (man *SLoadbalancerListenerRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := LoadbalancerListenerManager.Query("id")
 		lb := LoadbalancerManager.Query().SubQuery()
 		sq = sq.Join(lb, sqlchemy.Equals(lb.Field("id"), sq.Field("loadbalancer_id")))
 		switch scope {
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			sq = sq.Filter(sqlchemy.Equals(lb.Field("tenant_id"), userCred.GetProjectId()))
 			return q.In("listener_id", sq.SubQuery())
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			sq = sq.Filter(sqlchemy.Equals(lb.Field("domain_id"), userCred.GetProjectDomainId()))
 			return q.In("listener_id", sq.SubQuery())
 		}

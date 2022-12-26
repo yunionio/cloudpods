@@ -18,8 +18,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/pkg/util/rbacscope"
 )
 
 var (
@@ -146,10 +145,10 @@ func GenerateAllPolicies() []SPolicyData {
 	ret := make([]SPolicyData, 0)
 	for i := range policyDefinitons {
 		def := policyDefinitons[i]
-		for _, scope := range []rbacutils.TRbacScope{
-			rbacutils.ScopeSystem,
-			rbacutils.ScopeDomain,
-			rbacutils.ScopeProject,
+		for _, scope := range []rbacscope.TRbacScope{
+			rbacscope.ScopeSystem,
+			rbacscope.ScopeDomain,
+			rbacscope.ScopeProject,
 		} {
 			if scope.HigherEqual(def.Scope) {
 				ps := generatePolicies(scope, def)
@@ -163,24 +162,24 @@ func GenerateAllPolicies() []SPolicyData {
 
 type SPolicyData struct {
 	Name   string
-	Scope  rbacutils.TRbacScope
+	Scope  rbacscope.TRbacScope
 	Policy jsonutils.JSONObject
 
 	Description   string
 	DescriptionCN string
 }
 
-func generatePolicies(scope rbacutils.TRbacScope, def sPolicyDefinition) []SPolicyData {
+func generatePolicies(scope rbacscope.TRbacScope, def sPolicyDefinition) []SPolicyData {
 	level := ""
 	switch scope {
-	case rbacutils.ScopeSystem:
+	case rbacscope.ScopeSystem:
 		level = "sys"
-		if def.Scope == rbacutils.ScopeSystem {
+		if def.Scope == rbacscope.ScopeSystem {
 			level = ""
 		}
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		level = "domain"
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		level = "project"
 	}
 
@@ -250,13 +249,13 @@ func generatePolicies(scope rbacutils.TRbacScope, def sPolicyDefinition) []SPoli
 		desc := ""
 		descCN := ""
 		switch scope {
-		case rbacutils.ScopeSystem:
+		case rbacscope.ScopeSystem:
 			descCN += "全局"
 			desc += "System-level"
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			descCN += "本域内"
 			desc += "Domain-level"
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			descCN += "本项目内"
 			desc += "Project-level"
 		}

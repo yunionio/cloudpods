@@ -23,10 +23,10 @@ import (
 	"github.com/cheggaaa/pb/v3"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -412,7 +412,7 @@ func init() {
 				continue
 			}
 			arrays, _ := result.(*jsonutils.JSONArray).GetArray()
-			listResult := modulebase.ListResult{Data: arrays}
+			listResult := printutils.ListResult{Data: arrays}
 			printList(&listResult, []string{})
 		}
 		return nil

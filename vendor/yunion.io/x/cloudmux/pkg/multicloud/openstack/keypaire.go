@@ -19,9 +19,9 @@ import (
 	"net/url"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rand"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SKeypair struct {

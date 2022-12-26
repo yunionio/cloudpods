@@ -15,11 +15,11 @@
 package models
 
 import (
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func RangeObjectsFilter(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, regionField sqlchemy.IQueryField, zoneField sqlchemy.IQueryField, managerField sqlchemy.IQueryField, hostField sqlchemy.IQueryField, storageField sqlchemy.IQueryField) *sqlchemy.SQuery {
@@ -160,13 +160,13 @@ func rangeObjFilter(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, regionFiel
 	return q
 }
 
-func scopeOwnerIdFilter(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func scopeOwnerIdFilter(q *sqlchemy.SQuery, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
 	switch scope {
-	case rbacutils.ScopeSystem:
+	case rbacscope.ScopeSystem:
 		// do nothing
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		q = q.Equals("tenant_id", ownerId.GetProjectId())
 	}
 	return q

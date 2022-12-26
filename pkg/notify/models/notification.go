@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -36,7 +37,6 @@ import (
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 	"yunion.io/x/onecloud/pkg/notify/options"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -83,7 +83,7 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 		return input, httperrors.NewInputParameterError("invalid tag")
 	}
 	if len(input.Contacts) > 0 {
-		if userCred.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, nm.KeywordPlural(), policy.PolicyActionPerform, SendByContact).Result.IsDeny() {
+		if userCred.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, nm.KeywordPlural(), policy.PolicyActionPerform, SendByContact).Result.IsDeny() {
 			return input, httperrors.NewForbiddenError("only admin can send notification by contact")
 		}
 		if len(input.Contacts) == 0 {
@@ -522,14 +522,14 @@ func (n *SNotification) ReceiverNotificationsNotOK() ([]SReceiverNotification, e
 func (n *SNotification) ReceiveDetails(userCred mcclient.TokenCredential, scope string) ([]api.ReceiveDetail, error) {
 	RQ := ReceiverManager.Query("id", "name")
 	q := ReceiverNotificationManager.Query("receiver_id", "notification_id", "receiver_type", "contact", "send_at", "send_by", "status", "failed_reason").Equals("notification_id", n.Id)
-	s := rbacutils.TRbacScope(scope)
+	s := rbacscope.TRbacScope(scope)
 
 	switch s {
-	case rbacutils.ScopeSystem:
+	case rbacscope.ScopeSystem:
 		subRQ := RQ.SubQuery()
 		q.AppendField(subRQ.Field("name", "receiver_name"))
 		q = q.LeftJoin(subRQ, sqlchemy.OR(sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")), sqlchemy.Equals(q.Field("contact"), subRQ.Field("id"))))
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		subRQ := RQ.Equals("domain_id", userCred.GetDomainId()).SubQuery()
 		q.AppendField(subRQ.Field("name", "receiver_name"))
 		q = q.Join(subRQ, sqlchemy.OR(sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")), sqlchemy.Equals(q.Field("contact"), subRQ.Field("id"))))
@@ -592,29 +592,29 @@ func (n *SNotification) Notification() (notifyv2.SNotification, error) {
 	}, nil
 }
 
-func (nm *SNotificationManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeUser
+func (nm *SNotificationManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeUser
 }
 
-func (nm *SNotificationManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+func (nm *SNotificationManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeSystem
 }
 
 func (nm *SNotificationManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	return db.FetchUserInfo(ctx, data)
 }
 
-func (nm *SNotificationManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (nm *SNotificationManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner == nil {
 		return q
 	}
 	switch scope {
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		subRq := ReceiverManager.Query("id").Equals("domain_id", owner.GetDomainId()).SubQuery()
 		RNq := ReceiverNotificationManager.Query("notification_id", "receiver_id")
 		subRNq := RNq.Join(subRq, sqlchemy.OR(sqlchemy.Equals(RNq.Field("receiver_id"), subRq.Field("id")), sqlchemy.Equals(RNq.Field("contact"), subRq.Field("id")))).SubQuery()
 		q = q.Join(subRNq, sqlchemy.Equals(q.Field("id"), subRNq.Field("notification_id")))
-	case rbacutils.ScopeProject, rbacutils.ScopeUser:
+	case rbacscope.ScopeProject, rbacscope.ScopeUser:
 		sq := ReceiverNotificationManager.Query("notification_id")
 		subq := sq.Filter(sqlchemy.OR(sqlchemy.Equals(sq.Field("receiver_id"), owner.GetUserId()), sqlchemy.Equals(sq.Field("contact"), owner.GetUserId()))).SubQuery()
 		q = q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("notification_id")))

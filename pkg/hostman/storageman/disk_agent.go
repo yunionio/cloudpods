@@ -23,6 +23,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -93,9 +96,33 @@ func (sd *SAgentDisk) Resize(ctx context.Context, diskInfo interface{}) (jsonuti
 	desc := jsonutils.NewDict()
 	desc.Add(jsonutils.NewInt(resize.SizeMb), "disk_size")
 	// try to resize partition
-	err = iDisk.(*esxi.SVirtualDisk).ResizePartition(ctx, resize.HostInfo)
+	err = resizeESXiPartition(ctx, vm, iDisk.(*esxi.SVirtualDisk), resize.HostInfo)
 	if err != nil {
 		log.Errorf("unable to ResizePartition: %v", err)
 	}
 	return desc, nil
+}
+
+func resizeESXiPartition(ctx context.Context, vm *esxi.SVirtualMachine, disk *esxi.SVirtualDisk, accessInfo vcenter.SVCenterAccessInfo) error {
+	diskPath := disk.GetFilename()
+	vmref := vm.GetMoid()
+	diskInfo := deployapi.DiskInfo{
+		Path: diskPath,
+	}
+	vddkInfo := deployapi.VDDKConInfo{
+		Host:   accessInfo.Host,
+		Port:   int32(accessInfo.Port),
+		User:   accessInfo.Account,
+		Passwd: accessInfo.Password,
+		Vmref:  vmref,
+	}
+	_, err := deployclient.GetDeployClient().ResizeFs(ctx, &deployapi.ResizeFsParams{
+		DiskInfo:   &diskInfo,
+		Hypervisor: compute.HYPERVISOR_ESXI,
+		VddkInfo:   &vddkInfo,
+	})
+	if err != nil {
+		return errors.Wrap(err, "unable to ResizeFs")
+	}
+	return nil
 }

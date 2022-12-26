@@ -16,6 +16,7 @@ package compute
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -97,7 +98,7 @@ func (self *TasksManager) getManager(session *mcclient.ClientSession, params jso
 	}, nil
 }
 
-func (this *TasksManager) List(session *mcclient.ClientSession, params jsonutils.JSONObject) (*modulebase.ListResult, error) {
+func (this *TasksManager) List(session *mcclient.ClientSession, params jsonutils.JSONObject) (*printutils.ListResult, error) {
 	man, err := this.getManager(session, params)
 	if err != nil {
 		return nil, err

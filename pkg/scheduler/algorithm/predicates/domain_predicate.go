@@ -17,10 +17,10 @@ package predicates
 import (
 	"context"
 
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type DomainPredicate struct {
@@ -39,8 +39,8 @@ func (p *DomainPredicate) Execute(ctx context.Context, u *core.Unit, c core.Cand
 	h := NewPredicateHelper(p, u, c)
 	getter := c.Getter()
 	if getter.DomainId() == u.SchedInfo.Domain {
-	} else if getter.IsPublic() && getter.PublicScope() == string(rbacutils.ScopeSystem) {
-	} else if getter.IsPublic() && getter.PublicScope() == string(rbacutils.ScopeDomain) && utils.IsInStringArray(u.SchedInfo.Domain, getter.SharedDomains()) {
+	} else if getter.IsPublic() && getter.PublicScope() == string(rbacscope.ScopeSystem) {
+	} else if getter.IsPublic() && getter.PublicScope() == string(rbacscope.ScopeDomain) && utils.IsInStringArray(u.SchedInfo.Domain, getter.SharedDomains()) {
 		// } else if db.IsAdminAllowGet(context.Background(), u.SchedInfo.UserCred, getter) {
 	} else {
 		h.Exclude("domain_ownership")

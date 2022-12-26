@@ -17,6 +17,7 @@ package modulebase
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -28,7 +29,7 @@ func (this *ResourceManager) filterSingleResult(session *mcclient.ClientSession,
 	return result, nil
 }
 
-func (this *ResourceManager) filterListResults(session *mcclient.ClientSession, results *ListResult, query jsonutils.JSONObject) (*ListResult, error) {
+func (this *ResourceManager) filterListResults(session *mcclient.ClientSession, results *printutils.ListResult, query jsonutils.JSONObject) (*printutils.ListResult, error) {
 	if this.enableFilter && this.readFilter != nil {
 		for i := 0; i < len(results.Data); i += 1 {
 			val, err := this.readFilter(session, results.Data[i], query)

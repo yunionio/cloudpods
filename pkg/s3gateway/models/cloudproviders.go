@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
 
 	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
@@ -32,7 +33,6 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/s3gateway/session"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SCloudproviderManagerDelegate struct {

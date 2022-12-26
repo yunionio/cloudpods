@@ -25,8 +25,10 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -42,7 +44,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -535,7 +536,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 		return nil, err
 	}
 
-	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, cloudprovider)
+	quotaKeys := fetchRegionalQuotaKeys(rbacscope.ScopeProject, ownerId, region, cloudprovider)
 	pendingUsage := SRegionQuota{Loadbalancer: 1}
 	if input.EipBw > 0 && len(input.Eip) == 0 {
 		pendingUsage.Eip = 1
@@ -1370,7 +1371,7 @@ func (manager *SLoadbalancerManager) GetLbDefaultBackendGroupIds() ([]string, er
 }
 
 func (man *SLoadbalancerManager) TotalCount(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	providers []string, brands []string, cloudEnv string,
@@ -1387,7 +1388,7 @@ func (man *SLoadbalancerManager) TotalCount(
 func (lb *SLoadbalancer) GetQuotaKeys() quotas.IQuotaKeys {
 	region, _ := lb.GetRegion()
 	return fetchRegionalQuotaKeys(
-		rbacutils.ScopeProject,
+		rbacscope.ScopeProject,
 		lb.GetOwnerId(),
 		region,
 		lb.GetCloudprovider(),

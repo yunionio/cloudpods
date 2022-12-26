@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"yunion.io/x/pkg/util/rbacscope"
+
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -30,7 +32,7 @@ var (
 	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
 		{
 			Auth:  true,
-			Scope: rbacutils.ScopeProject,
+			Scope: rbacscope.ScopeProject,
 			Rules: []rbacutils.SRbacRule{
 				{
 					Service:  api.SERVICE_TYPE,
@@ -74,7 +76,7 @@ var (
 		{
 			// for anonymous update torrent status
 			Auth:  false,
-			Scope: rbacutils.ScopeSystem,
+			Scope: rbacscope.ScopeSystem,
 			Rules: []rbacutils.SRbacRule{
 				{
 					Service:  api.SERVICE_TYPE,

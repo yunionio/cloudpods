@@ -18,8 +18,9 @@ import (
 	"encoding/xml"
 	"fmt"
 
+	"yunion.io/x/pkg/util/samlutils"
+
 	"yunion.io/x/onecloud/pkg/keystone/options"
-	"yunion.io/x/onecloud/pkg/util/samlutils"
 )
 
 func GetMetadata(idpName string, pretty bool) string {

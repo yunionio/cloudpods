@@ -22,10 +22,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
-
-	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const REGION_ZONE_SEP = '-'
@@ -65,9 +63,9 @@ type KeystoneServiceV3 struct {
 	Endpoints []KeystoneEndpointV3 `json:"endpoints,omitempty"`
 }
 
-type KeystoneDomainV3 api.SIdentityObject
+type KeystoneDomainV3 SIdentityObject
 
-type KeystoneRoleV3 api.SIdentityObject
+type KeystoneRoleV3 SIdentityObject
 
 type KeystoneProjectV3 struct {
 	// 项目ID
@@ -224,16 +222,8 @@ func (this *TokenCredentialV3) HasSystemAdminPrivilege() bool {
 	return this.IsAdmin() && this.GetTenantName() == "system"
 }
 
-func (this *TokenCredentialV3) IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
-	if this.isAllow(scope, service, resource, action, extra...) {
-		return rbacutils.PolicyAllow
-	} else {
-		return rbacutils.PolicyDeny
-	}
-}
-
-func (this *TokenCredentialV3) isAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
-	if scope == rbacutils.ScopeSystem || scope == rbacutils.ScopeDomain {
+func (this *TokenCredentialV3) isAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) bool {
+	if scope == rbacscope.ScopeSystem || scope == rbacscope.ScopeDomain {
 		return this.HasSystemAdminPrivilege()
 	} else {
 		return true

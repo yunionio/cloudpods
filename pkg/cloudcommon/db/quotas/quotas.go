@@ -21,14 +21,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-func (manager *SQuotaBaseManager) ResourceScope() rbacutils.TRbacScope {
+func (manager *SQuotaBaseManager) ResourceScope() rbacscope.TRbacScope {
 	return manager.scope
 }
 

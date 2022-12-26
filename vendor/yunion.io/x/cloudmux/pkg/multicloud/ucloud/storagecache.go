@@ -24,11 +24,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SStoragecache struct {
@@ -130,7 +130,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 		}
 	}()
 
-	reader, size, err := image.GetReader(image.ImageId, string(qemuimg.VMDK))
+	reader, size, err := image.GetReader(image.ImageId, string(qemuimgfmt.VMDK))
 	if err != nil {
 		return "", errors.Wrapf(err, "GetReader")
 	}
@@ -143,7 +143,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 		minDiskGB = 1024
 	}
 	md5 := image.Checksum
-	diskFormat := string(qemuimg.QCOW2)
+	diskFormat := string(qemuimgfmt.QCOW2)
 	// upload to ucloud
 	bucket, err := self.region.GetIBucketById(bucketName)
 	if err != nil {

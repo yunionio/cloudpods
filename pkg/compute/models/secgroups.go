@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
@@ -45,7 +46,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -134,7 +134,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		isAdmin := false
 		// admin := (input.Admin != nil && *input.Admin)
 		allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
-		if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {
+		if allowScope == rbacscope.ScopeSystem || allowScope == rbacscope.ScopeDomain {
 			isAdmin = true
 		}
 
@@ -616,7 +616,7 @@ func (manager *SSecurityGroupManager) ValidateCreateData(
 	}
 
 	pendingUsage := SProjectQuota{Secgroup: 1}
-	quotaKey := quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, ownerId)
+	quotaKey := quotas.OwnerIdProjectQuotaKeys(rbacscope.ScopeProject, ownerId)
 	pendingUsage.SetKeys(quotaKey)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
 	if err != nil {
@@ -729,15 +729,15 @@ func (self *SSecurityGroup) getSecurityRuleString() (string, error) {
 	return strings.Join(rules, SECURITY_GROUP_SEPARATOR), nil
 }
 
-func totalSecurityGroupCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) (int, error) {
+func totalSecurityGroupCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider) (int, error) {
 	q := SecurityGroupManager.Query()
 
 	switch scope {
-	case rbacutils.ScopeSystem:
+	case rbacscope.ScopeSystem:
 		// do nothing
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		q = q.Equals("tenant_id", ownerId.GetProjectId())
 	}
 
@@ -863,7 +863,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 		ProjectId: userCred.GetProjectId(),
 	}
 	pendingUsage := SProjectQuota{Secgroup: 1}
-	quotaKey := quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, ownerId)
+	quotaKey := quotas.OwnerIdProjectQuotaKeys(rbacscope.ScopeProject, ownerId)
 	pendingUsage.SetKeys(quotaKey)
 	err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
 	if err != nil {
@@ -1260,7 +1260,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		// secGrp.IsEmulated = false
 		secGrp.IsPublic = true
 		secGrp.Deleted = false
-		secGrp.PublicScope = string(rbacutils.ScopeSystem)
+		secGrp.PublicScope = string(rbacscope.ScopeSystem)
 		err = manager.TableSpec().InsertOrUpdate(context.TODO(), secGrp)
 		if err != nil {
 			return errors.Wrapf(err, "Insert default secgroup")
@@ -1454,7 +1454,7 @@ func (self *SSecurityGroup) RealDelete(ctx context.Context, userCred mcclient.To
 }
 
 func (sg *SSecurityGroup) GetQuotaKeys() quotas.IQuotaKeys {
-	return quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, sg.GetOwnerId())
+	return quotas.OwnerIdProjectQuotaKeys(rbacscope.ScopeProject, sg.GetOwnerId())
 }
 
 func (sg *SSecurityGroup) GetUsages() []db.IUsage {

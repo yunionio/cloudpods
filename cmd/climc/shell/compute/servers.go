@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/apis/compute"
@@ -162,7 +163,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		listResult := modulebase.ListResult{}
+		listResult := printutils.ListResult{}
 		listResult.Data = tasks
 		printList(&listResult, nil)
 		return nil
@@ -621,7 +622,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		listResult := modulebase.ListResult{}
+		listResult := printutils.ListResult{}
 		listResult.Data, _ = result.GetArray()
 		printList(&listResult, nil)
 		return nil

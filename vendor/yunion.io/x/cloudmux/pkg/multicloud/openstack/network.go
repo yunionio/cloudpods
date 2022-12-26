@@ -25,11 +25,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type AllocationPool struct {
@@ -228,11 +228,11 @@ func (network *SNetwork) GetIsPublic() bool {
 	return network.wire.vpc.Shared
 }
 
-func (network *SNetwork) GetPublicScope() rbacutils.TRbacScope {
+func (network *SNetwork) GetPublicScope() rbacscope.TRbacScope {
 	if network.wire.vpc.Shared {
-		return rbacutils.ScopeSystem
+		return rbacscope.ScopeSystem
 	}
-	return rbacutils.ScopeNone
+	return rbacscope.ScopeNone
 }
 
 func (network *SNetwork) GetServerType() string {

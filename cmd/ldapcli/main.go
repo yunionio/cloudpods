@@ -19,11 +19,11 @@ import (
 	"os"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/shellutils"
 	"yunion.io/x/structarg"
 
 	_ "yunion.io/x/onecloud/cmd/ldapcli/shell"
 	"yunion.io/x/onecloud/pkg/util/ldaputils"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type BaseOptions struct {

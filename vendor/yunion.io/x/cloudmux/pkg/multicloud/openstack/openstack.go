@@ -25,10 +25,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
-
-	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/util/version"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -204,12 +203,15 @@ type sApiVersions struct {
 
 func (v *sApiVersions) GetMaxVersion() string {
 	if v.Version.Status == "CURRENT" && len(v.Version.Id) > 0 {
-		return v.Version.Id
+		return strings.TrimPrefix(v.Version.Id, "v")
 	}
 	maxVersion := v.Version.Version
 	for _, _version := range v.Versions {
 		if version.GT(_version.Version, maxVersion) {
 			maxVersion = _version.Version
+		}
+		if v.Version.Status == "CURRENT" && len(v.Version.Id) > 0 {
+			return strings.TrimPrefix(v.Version.Id, "v")
 		}
 	}
 	return maxVersion
@@ -426,7 +428,7 @@ func (cli *SOpenStackClient) getDefaultSession(regionName string) *oscli.ClientS
 }
 
 func (cli *SOpenStackClient) getDefaultClient() *oscli.Client {
-	client := oscli.NewClient(cli.authURL, 5, cli.debug, false, "", "")
+	client := oscli.NewClient(cli.authURL, 5, cli.debug, false)
 	client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
 	_client := client.GetClient()
 	ts, _ := _client.Transport.(*http.Transport)

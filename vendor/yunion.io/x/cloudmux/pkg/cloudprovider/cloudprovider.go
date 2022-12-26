@@ -21,9 +21,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
-
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SCloudaccountCredential struct {

@@ -15,12 +15,13 @@
 package guestdrivers
 
 import (
+	"yunion.io/x/pkg/util/billing"
+	"yunion.io/x/pkg/util/rbacscope"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SApsaraGuestDriver struct {
@@ -42,7 +43,7 @@ func (self *SApsaraGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_APSARA
 }
 
-func (self *SApsaraGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
+func (self *SApsaraGuestDriver) GetComputeQuotaKeys(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
 	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PRIVATE_CLOUD

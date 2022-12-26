@@ -20,12 +20,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/billing"
+	"yunion.io/x/pkg/util/cloudinit"
 	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/util/seclib"
 
-	"yunion.io/x/onecloud/pkg/util/ansible"
-	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/cloudinit"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/cloudmux/pkg/apis"
 )
 
 type TOsType string
@@ -209,7 +209,7 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 	resetPassword := jsonutils.QueryBoolean(config, "reset_password", false)
 	vmConfig.Password, _ = config.GetString("password")
 	if resetPassword && len(vmConfig.Password) == 0 {
-		vmConfig.Password = seclib2.RandomPassword2(12)
+		vmConfig.Password = seclib.RandomPassword2(12)
 	}
 	if vmConfig.IsNeedInjectPasswordByCloudInit {
 		err = vmConfig.InjectPasswordByCloudInit()
@@ -227,7 +227,7 @@ func generateUserData(adminPublicKey, projectPublicKey, oUserData string) string
 		oCloudConfig, _ = cloudinit.ParseUserData(oUserData)
 	}
 
-	ansibleUser := cloudinit.NewUser(ansible.PUBLIC_CLOUD_ANSIBLE_USER)
+	ansibleUser := cloudinit.NewUser(apis.PUBLIC_CLOUD_ANSIBLE_USER)
 	ansibleUser.SshKey(adminPublicKey).SshKey(projectPublicKey).SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
 
 	cloudConfig := cloudinit.SCloudConfig{

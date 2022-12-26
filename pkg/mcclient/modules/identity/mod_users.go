@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -31,7 +32,7 @@ type UserManager struct {
 	modulebase.ResourceManager
 }
 
-func (this *UserManager) GetTenantRoles(session *mcclient.ClientSession, uid string, tenantId string) (*modulebase.ListResult, error) {
+func (this *UserManager) GetTenantRoles(session *mcclient.ClientSession, uid string, tenantId string) (*printutils.ListResult, error) {
 	url := fmt.Sprintf("/users/%s/roles", uid)
 	if len(tenantId) > 0 {
 		url = fmt.Sprintf("/tenants/%s/%s", tenantId, url)
@@ -56,12 +57,12 @@ type UserManagerV3 struct {
 	modulebase.ResourceManager
 }
 
-func (this *UserManagerV3) GetProjects(session *mcclient.ClientSession, uid string) (*modulebase.ListResult, error) {
+func (this *UserManagerV3) GetProjects(session *mcclient.ClientSession, uid string) (*printutils.ListResult, error) {
 	url := fmt.Sprintf("/users/%s/projects?admin=true", uid)
 	return modulebase.List(this.ResourceManager, session, url, "projects")
 }
 
-func (this *UserManagerV3) GetGroups(session *mcclient.ClientSession, uid string) (*modulebase.ListResult, error) {
+func (this *UserManagerV3) GetGroups(session *mcclient.ClientSession, uid string) (*printutils.ListResult, error) {
 	url := fmt.Sprintf("/users/%s/groups?admin=true", uid)
 	return modulebase.List(this.ResourceManager, session, url, "groups")
 }

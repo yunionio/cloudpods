@@ -20,13 +20,13 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/object"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/splitable"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -75,9 +75,9 @@ type IModelManager interface {
 	FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
 	FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
 	FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery
-	FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery
-	FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery
-	FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery
+	FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery
+	FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery
+	FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery
 	FilterByUniqValues(q *sqlchemy.SQuery, uniqValues jsonutils.JSONObject) *sqlchemy.SQuery
 
 	// GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider
@@ -125,8 +125,8 @@ type IModelManager interface {
 	FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject
 
 	/* name uniqueness scope, system/domain/project, default is system */
-	NamespaceScope() rbacutils.TRbacScope
-	ResourceScope() rbacutils.TRbacScope
+	NamespaceScope() rbacscope.TRbacScope
+	ResourceScope() rbacscope.TRbacScope
 
 	// 如果error为非空，说明没有匹配的field，如果为空，说明匹配上了
 	QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error)

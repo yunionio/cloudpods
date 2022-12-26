@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -29,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SOpenStackRegionDriver struct {
@@ -72,8 +72,8 @@ func (self *SOpenStackRegionDriver) IsOnlySupportAllowRules() bool {
 	return true
 }
 
-func (self *SOpenStackRegionDriver) GetSecurityGroupPublicScope(service string) rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (self *SOpenStackRegionDriver) GetSecurityGroupPublicScope(service string) rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
 func (self *SOpenStackRegionDriver) GetProvider() string {

@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/delayedwork"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -33,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -603,16 +603,16 @@ func (man *SNetworkAddressManager) FetchCustomizeColumns(
 	return ret
 }
 
-func (man *SNetworkAddressManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (man *SNetworkAddressManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q = db.ApplyFilterByOwner(q, owner, scope,
 		&man.SStandaloneAnonResourceBaseManager,
 	)
 	if owner != nil {
 		var condVar, condVal string
 		switch scope {
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			condVar, condVal = "tenant_id", owner.GetProjectId()
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			condVar, condVal = "domain_id", owner.GetProjectDomainId()
 		default:
 			return q

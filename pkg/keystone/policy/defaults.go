@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"yunion.io/x/pkg/util/rbacscope"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -33,7 +35,7 @@ var (
 	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
 		{
 			Auth:  true,
-			Scope: rbacutils.ScopeSystem,
+			Scope: rbacscope.ScopeSystem,
 			Rules: []rbacutils.SRbacRule{
 				{
 					Service:  api.SERVICE_TYPE,
@@ -51,7 +53,7 @@ var (
 		},
 		{
 			Auth:  true,
-			Scope: rbacutils.ScopeUser,
+			Scope: rbacscope.ScopeUser,
 			Rules: []rbacutils.SRbacRule{
 				{
 					Service:  api.SERVICE_TYPE,
@@ -87,7 +89,7 @@ var (
 		},
 		{
 			Auth:  true,
-			Scope: rbacutils.ScopeProject,
+			Scope: rbacscope.ScopeProject,
 			Rules: []rbacutils.SRbacRule{
 				{
 					Service:  api.SERVICE_TYPE,
@@ -106,7 +108,7 @@ var (
 		{
 			// for domain
 			Auth:  true,
-			Scope: rbacutils.ScopeDomain,
+			Scope: rbacscope.ScopeDomain,
 			Rules: []rbacutils.SRbacRule{
 				{
 					Service:  api.SERVICE_TYPE,
@@ -119,7 +121,7 @@ var (
 		{
 			// for policies administration
 			Auth:     true,
-			Scope:    rbacutils.ScopeSystem,
+			Scope:    rbacscope.ScopeSystem,
 			DomainId: api.DEFAULT_DOMAIN_ID,
 			Projects: []string{api.SystemAdminProject},
 			Roles:    []string{api.SystemAdminRole},

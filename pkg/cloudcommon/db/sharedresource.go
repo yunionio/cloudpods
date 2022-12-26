@@ -19,13 +19,13 @@ import (
 	"database/sql"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -69,7 +69,7 @@ func (manager *SSharedResourceManager) CleanModelShares(ctx context.Context, use
 	var err error
 	resScope := model.GetModelManager().ResourceScope()
 	switch resScope {
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		_, err = manager.shareToTarget(ctx, userCred, model, SharedTargetProject, nil, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "remove shared project")
@@ -78,7 +78,7 @@ func (manager *SSharedResourceManager) CleanModelShares(ctx context.Context, use
 		if err != nil {
 			return errors.Wrap(err, "remove shared domain")
 		}
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		_, err = manager.shareToTarget(ctx, userCred, model, SharedTargetDomain, nil, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "remove shared domain")
@@ -96,24 +96,24 @@ func (manager *SSharedResourceManager) shareToTarget(
 	candidateIds []string,
 	requireDomainIds []string,
 ) ([]string, error) {
-	var requireScope rbacutils.TRbacScope
+	var requireScope rbacscope.TRbacScope
 	resScope := model.GetModelManager().ResourceScope()
 	switch resScope {
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		switch targetType {
 		case SharedTargetProject:
 			// should have domain-level privileges
 			// cannot share to a project across domain
-			requireScope = rbacutils.ScopeDomain
+			requireScope = rbacscope.ScopeDomain
 		case SharedTargetDomain:
 			// should have system-level privileges
-			requireScope = rbacutils.ScopeSystem
+			requireScope = rbacscope.ScopeSystem
 		}
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		switch targetType {
 		case SharedTargetDomain:
 			// should have system-level privileges
-			requireScope = rbacutils.ScopeSystem
+			requireScope = rbacscope.ScopeSystem
 		case SharedTargetProject:
 			if len(targetIds) > 0 {
 				return nil, errors.Wrap(httperrors.ErrNotSupported, "cannot share a domain resource to specific project")

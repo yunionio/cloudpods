@@ -28,7 +28,11 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/pinyinutils"
+	"yunion.io/x/pkg/util/rand"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -48,10 +52,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
-	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/pinyinutils"
-	"yunion.io/x/onecloud/pkg/util/rand"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -463,7 +463,7 @@ func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclien
 	// input.Hypervisor must be set
 	brand := guessBrandForHypervisor(input.Hypervisor)
 	keys := GetDriver(input.Hypervisor).GetComputeQuotaKeys(
-		rbacutils.ScopeProject,
+		rbacscope.ScopeProject,
 		ownerId,
 		brand,
 	)
@@ -536,7 +536,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 
 		zone, _ := storage.getZone()
 		quotaKey = fetchComputeQuotaKeys(
-			rbacutils.ScopeProject,
+			rbacscope.ScopeProject,
 			ownerId,
 			zone,
 			provider,
@@ -696,7 +696,7 @@ func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCre
 		storage := storageObj.(*SStorage)
 		zone, _ := storage.getZone()
 		quotaKey = fetchComputeQuotaKeys(
-			rbacutils.ScopeProject,
+			rbacscope.ScopeProject,
 			ownerId,
 			zone,
 			storage.GetCloudprovider(),
@@ -1012,7 +1012,7 @@ func (disk *SDisk) GetQuotaKeys() (quotas.IQuotaKeys, error) {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid zone")
 	}
 	return fetchComputeQuotaKeys(
-		rbacutils.ScopeProject,
+		rbacscope.ScopeProject,
 		disk.GetOwnerId(),
 		zone,
 		provider,
@@ -1814,7 +1814,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 }
 
 func totalDiskSize(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	active tristate.TriState,
 	ready tristate.TriState,
@@ -1848,11 +1848,11 @@ func totalDiskSize(
 	}
 
 	switch scope {
-	case rbacutils.ScopeSystem:
+	case rbacscope.ScopeSystem:
 		// do nothing
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		q = q.Filter(sqlchemy.Equals(disks.Field("domain_id"), ownerId.GetProjectDomainId()))
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		q = q.Filter(sqlchemy.Equals(disks.Field("tenant_id"), ownerId.GetProjectId()))
 	}
 

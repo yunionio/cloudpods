@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -207,7 +208,7 @@ func (this *TokenCredentialV2) HasSystemAdminPrivilege() bool {
 	return this.IsAdmin() && this.GetTenantName() == "system"
 }
 
-func (this *TokenCredentialV2) IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
+func (this *TokenCredentialV2) IsAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
 	if this.isAllow(scope, service, resource, action, extra...) {
 		return rbacutils.PolicyAllow
 	} else {
@@ -215,8 +216,8 @@ func (this *TokenCredentialV2) IsAllow(scope rbacutils.TRbacScope, service strin
 	}
 }
 
-func (this *TokenCredentialV2) isAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
-	if scope == rbacutils.ScopeSystem || scope == rbacutils.ScopeDomain {
+func (this *TokenCredentialV2) isAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) bool {
+	if scope == rbacscope.ScopeSystem || scope == rbacscope.ScopeDomain {
 		return this.HasSystemAdminPrivilege()
 	} else {
 		return true

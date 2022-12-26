@@ -15,8 +15,9 @@
 package driver
 
 import (
+	"yunion.io/x/pkg/object"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 )
 
 var (

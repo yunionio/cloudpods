@@ -20,12 +20,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -182,18 +182,18 @@ func (sam *SScalingActivityManager) ListItemFilter(ctx context.Context, q *sqlch
 	return q, nil
 }
 
-func (sam *SScalingActivityManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (sam *SScalingActivityManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
-func (sam *SScalingActivityManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (sam *SScalingActivityManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
-func (sam *SScalingActivityManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (sam *SScalingActivityManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
-		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 			scalingGroupQ := ScalingGroupManager.Query("id", "domain_id").SubQuery()
 			q = q.Join(scalingGroupQ, sqlchemy.Equals(q.Field("scaling_group_id"), scalingGroupQ.Field("id")))
 			q = q.Filter(sqlchemy.Equals(scalingGroupQ.Field("domain_id"), owner.GetProjectDomainId()))

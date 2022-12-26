@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -50,7 +51,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -109,7 +109,7 @@ func (sm *SSubscriberManager) validateReceivers(ctx context.Context, receivers [
 func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SubscriberCreateInput) (api.SubscriberCreateInput, error) {
 	var err error
 	// permission check
-	sSystem, sDomain := string(rbacutils.ScopeSystem), string(rbacutils.ScopeDomain)
+	sSystem, sDomain := string(rbacscope.ScopeSystem), string(rbacscope.ScopeDomain)
 	switch input.Scope {
 	case sSystem:
 		allow := db.IsAdminAllowCreate(userCred, sm)
@@ -251,7 +251,7 @@ func (s *SSubscriber) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 }
 
 func (s *SSubscriber) PerformChange(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SubscriberChangeInput) (jsonutils.JSONObject, error) {
-	if s.Scope == string(rbacutils.ScopeSystem) {
+	if s.Scope == string(rbacscope.ScopeSystem) {
 		if !db.IsAdminAllowUpdate(ctx, userCred, s) {
 			return nil, httperrors.NewForbiddenError("")
 		}
@@ -302,7 +302,7 @@ func (sm *SSubscriberManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
 	}
-	sSystem, sDomain := string(rbacutils.ScopeSystem), string(rbacutils.ScopeDomain)
+	sSystem, sDomain := string(rbacscope.ScopeSystem), string(rbacscope.ScopeDomain)
 	if input.Scope == "" {
 		input.Scope = sSystem
 	}
@@ -366,7 +366,7 @@ func (s *SSubscriber) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return err
 	}
-	if s.Scope == string(rbacutils.ScopeSystem) {
+	if s.Scope == string(rbacscope.ScopeSystem) {
 		if !db.IsAdminAllowDelete(ctx, userCred, s) {
 			return httperrors.NewForbiddenError("")
 		}

@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -28,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
@@ -355,9 +355,9 @@ func (t *SAuthToken) getTokenV3(
 		}
 
 		policyNames, _, _ := models.RolePolicyManager.GetMatchPolicyGroup(&token, time.Time{}, true)
-		token.Token.Policies.Project, _ = policyNames[rbacutils.ScopeProject]
-		token.Token.Policies.Domain, _ = policyNames[rbacutils.ScopeDomain]
-		token.Token.Policies.System, _ = policyNames[rbacutils.ScopeSystem]
+		token.Token.Policies.Project, _ = policyNames[rbacscope.ScopeProject]
+		token.Token.Policies.Domain, _ = policyNames[rbacscope.ScopeDomain]
+		token.Token.Policies.System, _ = policyNames[rbacscope.ScopeSystem]
 
 		endpoints, err := models.EndpointManager.FetchAll()
 		if err != nil {

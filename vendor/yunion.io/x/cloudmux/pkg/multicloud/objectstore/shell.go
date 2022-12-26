@@ -26,12 +26,12 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/shellutils"
+	"yunion.io/x/pkg/util/streamutils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/util/printutils"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
-	"yunion.io/x/onecloud/pkg/util/streamutils"
 )
 
 type ObjectHeaderOptions struct {
@@ -313,12 +313,12 @@ func S3Shell() {
 
 				return nil
 			}
-			if fileutils2.IsFile(args.Path) {
+			if fileutils.IsFile(args.Path) {
 				err := uploadFile(args.KEY, args.Path)
 				if err != nil {
 					return errors.Wrap(err, "uploadFile")
 				}
-			} else if fileutils2.IsDir(args.Path) {
+			} else if fileutils.IsDir(args.Path) {
 				return filepath.Walk(args.Path, func(path string, info os.FileInfo, err error) error {
 					if err != nil {
 						return err

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/apis/cloudid"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -27,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	cloudid_modules "yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 func (account *SCloudaccount) GetDetailsSaml(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (api.GetCloudaccountSamlOutput, error) {

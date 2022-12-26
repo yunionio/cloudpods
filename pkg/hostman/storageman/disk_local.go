@@ -25,12 +25,13 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -439,7 +440,7 @@ func (d *SLocalDisk) DiskBackup(ctx context.Context, params interface{}) (jsonut
 	if len(encKey) > 0 {
 		img.SetPassword(encKey)
 	}
-	newImage, err := img.Clone(backupPath, qemuimg.QCOW2, true)
+	newImage, err := img.Clone(backupPath, qemuimgfmt.QCOW2, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to backup snapshot")
 	}

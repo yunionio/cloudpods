@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -31,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -346,7 +346,7 @@ func (manager *STablestoreManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (manager *STablestoreManager) AllowScope(userCred mcclient.TokenCredential) rbacutils.TRbacScope {
+func (manager *STablestoreManager) AllowScope(userCred mcclient.TokenCredential) rbacscope.TRbacScope {
 	scope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, TablestoreManager.KeywordPlural(), policy.PolicyActionGet)
 	return scope
 }

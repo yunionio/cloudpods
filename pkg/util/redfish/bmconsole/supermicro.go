@@ -22,8 +22,7 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/pkg/util/httputils"
 )
 
 func (r *SBMCConsole) GetSupermicroConsoleJNLP(ctx context.Context) (string, error) {

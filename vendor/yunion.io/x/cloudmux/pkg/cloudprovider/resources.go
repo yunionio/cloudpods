@@ -21,10 +21,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
-
-	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
-	"yunion.io/x/onecloud/pkg/util/samlutils"
+	"yunion.io/x/pkg/util/billing"
+	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/samlutils"
 )
 
 type ICloudResource interface {
@@ -231,7 +230,7 @@ type ICloudImage interface {
 	GetMinRamSizeMb() int
 	GetImageFormat() string
 
-	GetPublicScope() rbacutils.TRbacScope
+	GetPublicScope() rbacscope.TRbacScope
 	GetSubImages() []SSubImage
 }
 
@@ -641,7 +640,7 @@ type ICloudNetwork interface {
 	// 仅私有云有用，公有云无效
 	// 1. scope = none 非共享, network仅会属于一个项目,并且私有
 	// 2. scope = system 系统共享 云账号共享会跟随云账号共享，云账号非共享,会共享到network所在域
-	GetPublicScope() rbacutils.TRbacScope
+	GetPublicScope() rbacscope.TRbacScope
 
 	Delete() error
 

@@ -22,6 +22,9 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/billing"
+	"yunion.io/x/pkg/util/pinyinutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -30,9 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/pinyinutils"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SBaseRegionDriver struct {
@@ -265,8 +265,8 @@ func (self *SBaseRegionDriver) GetDefaultSecurityGroupVpcId() string {
 	return api.NORMAL_VPC_ID
 }
 
-func (self *SBaseRegionDriver) GetSecurityGroupPublicScope(service string) rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+func (self *SBaseRegionDriver) GetSecurityGroupPublicScope(service string) rbacscope.TRbacScope {
+	return rbacscope.ScopeSystem
 }
 
 func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) (string, error) {

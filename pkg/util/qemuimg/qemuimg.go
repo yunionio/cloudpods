@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -50,7 +51,7 @@ const (
 type SQemuImage struct {
 	Path            string
 	Password        string
-	Format          TImageFormat
+	Format          qemuimgfmt.TImageFormat
 	SizeBytes       int64
 	ActualSizeBytes int64
 	ClusterSize     int
@@ -190,7 +191,7 @@ func (img *SQemuImage) parse() error {
 	if err != nil {
 		return errors.Wrapf(err, "resp.Unmarshal")
 	}
-	img.Format = TImageFormat(info.Format)
+	img.Format = qemuimgfmt.TImageFormat(info.Format)
 	img.SizeBytes = info.VirtualSizeBytes
 	img.ClusterSize = info.ClusterSize
 	img.Compat = info.FormatSpecific.Data.Compat
@@ -209,11 +210,11 @@ func (img *SQemuImage) parse() error {
 		img.EncryptAlg = seclib2.TSymEncAlg(info.FormatSpecific.Data.Encrypt.CipherAlg)
 	}
 
-	if img.Format == RAW && fileutils2.IsFile(img.Path) {
+	if img.Format == qemuimgfmt.RAW && fileutils2.IsFile(img.Path) {
 		// test if it is an ISO
 		blkType := fileutils2.GetBlkidType(img.Path)
 		if utils.IsInStringArray(blkType, []string{"iso9660", "udf"}) {
-			img.Format = ISO
+			img.Format = qemuimgfmt.ISO
 		}
 	}
 	return nil
@@ -240,7 +241,7 @@ const (
 
 type SImageInfo struct {
 	Path     string
-	Format   TImageFormat
+	Format   qemuimgfmt.TImageFormat
 	IoLevel  TIONiceLevel
 	Password string
 
@@ -259,7 +260,7 @@ func (info SImageInfo) ImageOptions() string {
 	opts := make([]string, 0)
 	format := info.Format
 	if len(format) == 0 {
-		format = QCOW2
+		format = qemuimgfmt.QCOW2
 	}
 	opts = append(opts, fmt.Sprintf("driver=%s", format))
 	opts = append(opts, fmt.Sprintf("file.filename=%s", info.Path))
@@ -371,12 +372,12 @@ func convertEncrypt(srcInfo, destInfo SImageInfo, compact bool, workerOpions []s
 		cmdline = append(cmdline, workerOpions...)
 	}
 	if srcInfo.Encrypted() {
-		if srcInfo.Format != QCOW2 {
+		if srcInfo.Format != qemuimgfmt.QCOW2 {
 			return errors.Wrap(errors.ErrNotSupported, "source image not support encryption")
 		}
 	}
 	if destInfo.Encrypted() {
-		if destInfo.Format != QCOW2 {
+		if destInfo.Format != qemuimgfmt.QCOW2 {
 			return errors.Wrap(errors.ErrNotSupported, "target image not support encryption")
 		}
 	}
@@ -413,7 +414,7 @@ func convertEncrypt(srcInfo, destInfo SImageInfo, compact bool, workerOpions []s
 	return nil
 }
 
-func (img *SQemuImage) doConvert(targetPath string, format TImageFormat, compact bool, password string, encryptFormat TEncryptFormat, encryptAlg seclib2.TSymEncAlg) error {
+func (img *SQemuImage) doConvert(targetPath string, format qemuimgfmt.TImageFormat, compact bool, password string, encryptFormat TEncryptFormat, encryptAlg seclib2.TSymEncAlg) error {
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
@@ -435,22 +436,22 @@ func (img *SQemuImage) doConvert(targetPath string, format TImageFormat, compact
 	}, compact, nil)
 }
 
-func (img *SQemuImage) Clone(name string, format TImageFormat, compact bool) (*SQemuImage, error) {
+func (img *SQemuImage) Clone(name string, format qemuimgfmt.TImageFormat, compact bool) (*SQemuImage, error) {
 	switch format {
-	case QCOW2:
+	case qemuimgfmt.QCOW2:
 		return img.CloneQcow2(name, compact)
-	case VMDK:
+	case qemuimgfmt.VMDK:
 		return img.CloneVmdk(name, compact)
-	case RAW:
+	case qemuimgfmt.RAW:
 		return img.CloneRaw(name)
-	case VHD:
+	case qemuimgfmt.VHD:
 		return img.CloneVhd(name)
 	default:
 		return nil, ErrUnsupportedFormat
 	}
 }
 
-func (img *SQemuImage) clone(target string, format TImageFormat, compact bool, password string, encryptFormat TEncryptFormat, encryptAlg seclib2.TSymEncAlg) (*SQemuImage, error) {
+func (img *SQemuImage) clone(target string, format qemuimgfmt.TImageFormat, compact bool, password string, encryptFormat TEncryptFormat, encryptAlg seclib2.TSymEncAlg) (*SQemuImage, error) {
 	err := img.doConvert(target, format, compact, password, encryptFormat, encryptAlg)
 	if err != nil {
 		return nil, errors.Wrap(err, "doConvert")
@@ -458,7 +459,7 @@ func (img *SQemuImage) clone(target string, format TImageFormat, compact bool, p
 	return NewQemuImage(target)
 }
 
-func (img *SQemuImage) convert(format TImageFormat, compact bool, password string, encryptFormat TEncryptFormat, alg seclib2.TSymEncAlg) error {
+func (img *SQemuImage) convert(format qemuimgfmt.TImageFormat, compact bool, password string, encryptFormat TEncryptFormat, alg seclib2.TSymEncAlg) error {
 	tmpPath := fmt.Sprintf("%s.%s", img.Path, utils.GenRequestId(36))
 	err := img.doConvert(tmpPath, format, compact, password, encryptFormat, alg)
 	if err != nil {
@@ -477,7 +478,7 @@ func (img *SQemuImage) convert(format TImageFormat, compact bool, password strin
 }
 
 func (img *SQemuImage) convertTo(
-	format TImageFormat, compact bool, password string, output string, encFormat TEncryptFormat, encAlg seclib2.TSymEncAlg,
+	format qemuimgfmt.TImageFormat, compact bool, password string, output string, encFormat TEncryptFormat, encAlg seclib2.TSymEncAlg,
 ) error {
 	err := img.doConvert(output, format, compact, password, encFormat, encAlg)
 	if err != nil {
@@ -506,7 +507,7 @@ func (img *SQemuImage) Copy(name string) (*SQemuImage, error) {
 }
 
 func (img *SQemuImage) Convert2Qcow2To(output string, compact bool, password string, encFormat TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
-	return img.convertTo(QCOW2, compact, password, output, encFormat, encAlg)
+	return img.convertTo(qemuimgfmt.QCOW2, compact, password, output, encFormat, encAlg)
 }
 
 func (img *SQemuImage) Convert2Qcow2(compact bool, password string, encFormat TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
@@ -515,31 +516,31 @@ func (img *SQemuImage) Convert2Qcow2(compact bool, password string, encFormat TE
 		encFormat = img.EncryptFormat
 		encAlg = img.EncryptAlg
 	}
-	return img.convert(QCOW2, compact, password, encFormat, encAlg)
+	return img.convert(qemuimgfmt.QCOW2, compact, password, encFormat, encAlg)
 }
 
 func (img *SQemuImage) Convert2Vmdk(compact bool) error {
-	return img.convert(VMDK, compact, "", "", "")
+	return img.convert(qemuimgfmt.VMDK, compact, "", "", "")
 }
 
 func (img *SQemuImage) Convert2Vhd() error {
-	return img.convert(VHD, false, "", "", "")
+	return img.convert(qemuimgfmt.VHD, false, "", "", "")
 }
 
 func (img *SQemuImage) Convert2Raw() error {
-	return img.convert(RAW, false, "", "", "")
+	return img.convert(qemuimgfmt.RAW, false, "", "", "")
 }
 
 func (img *SQemuImage) IsRaw() bool {
-	return img.Format == RAW
+	return img.Format == qemuimgfmt.RAW
 }
 
 func (img *SQemuImage) IsSparseQcow2() bool {
-	return img.Format == QCOW2 && img.ClusterSize >= 1024*1024*2
+	return img.Format == qemuimgfmt.QCOW2 && img.ClusterSize >= 1024*1024*2
 }
 
 func (img *SQemuImage) IsSparseVmdk() bool {
-	return img.Format == VMDK && img.Subformat != "streamOptimized"
+	return img.Format == qemuimgfmt.VMDK && img.Subformat != "streamOptimized"
 }
 
 func (img *SQemuImage) IsSparse() bool {
@@ -554,7 +555,7 @@ func (img *SQemuImage) Expand() error {
 }
 
 func (img *SQemuImage) CloneQcow2(name string, compact bool) (*SQemuImage, error) {
-	return img.clone(name, QCOW2, compact, img.Password, img.EncryptFormat, img.EncryptAlg)
+	return img.clone(name, qemuimgfmt.QCOW2, compact, img.Password, img.EncryptFormat, img.EncryptAlg)
 }
 
 func vmdkOptions(compact bool) []string {
@@ -574,18 +575,18 @@ func vmdkOptions(compact bool) []string {
 // }
 
 func (img *SQemuImage) CloneVmdk(name string, compact bool) (*SQemuImage, error) {
-	return img.clone(name, VMDK, compact, "", "", "")
+	return img.clone(name, qemuimgfmt.VMDK, compact, "", "", "")
 }
 
 func (img *SQemuImage) CloneVhd(name string) (*SQemuImage, error) {
-	return img.clone(name, VHD, false, "", "", "")
+	return img.clone(name, qemuimgfmt.VHD, false, "", "", "")
 }
 
 func (img *SQemuImage) CloneRaw(name string) (*SQemuImage, error) {
-	return img.clone(name, RAW, false, "", "", "")
+	return img.clone(name, qemuimgfmt.RAW, false, "", "", "")
 }
 
-func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string, extraArgs []string) error {
+func (img *SQemuImage) create(sizeMB int, format qemuimgfmt.TImageFormat, options []string, extraArgs []string) error {
 	if img.IsValid() {
 		return fmt.Errorf("create: the image is valid??? %s", img.Format)
 	}
@@ -683,19 +684,19 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string, pa
 			options = append(options, fmt.Sprintf("encrypt.cipher-alg=%s", encAlg))
 		}
 	}
-	return img.create(sizeMB, QCOW2, options, extraArgs)
+	return img.create(sizeMB, qemuimgfmt.QCOW2, options, extraArgs)
 }
 
 func (img *SQemuImage) CreateVmdk(sizeMB int, compact bool) error {
-	return img.create(sizeMB, VMDK, vmdkOptions(compact), nil)
+	return img.create(sizeMB, qemuimgfmt.VMDK, vmdkOptions(compact), nil)
 }
 
 func (img *SQemuImage) CreateVhd(sizeMB int) error {
-	return img.create(sizeMB, VHD, nil, nil)
+	return img.create(sizeMB, qemuimgfmt.VHD, nil, nil)
 }
 
 func (img *SQemuImage) CreateRaw(sizeMB int) error {
-	return img.create(sizeMB, RAW, nil, nil)
+	return img.create(sizeMB, qemuimgfmt.RAW, nil, nil)
 }
 
 func (img *SQemuImage) GetSizeMB() int {

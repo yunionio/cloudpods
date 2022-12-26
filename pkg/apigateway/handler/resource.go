@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -326,7 +327,7 @@ func (f *ResourceHandlers) getSpecHandler(ctx context.Context, w http.ResponseWr
 		return
 	}
 	jmod, e := modulebase.GetJointModule2(session, module, module2)
-	var ret *modulebase.ListResult
+	var ret *printutils.ListResult
 	if e == nil { // joint module
 		ret, e = jmod.ListDescendent(session, req.ResID(), query)
 	} else {
@@ -553,7 +554,7 @@ func (f *ResourceHandlers) batchUpdateHandler(ctx context.Context, w http.Respon
 		return
 	}
 
-	var ret []modulebase.SubmitResult
+	var ret []printutils.SubmitResult
 	if jsonutils.QueryBoolean(query, "batch_params", false) {
 		bodys, err := body.GetArray()
 		if err != nil {
@@ -821,7 +822,7 @@ func (f *ResourceHandlers) batchDetachHandler(ctx context.Context, w http.Respon
 	module := req.Mod1()
 	module2 := req.Mod2()
 	jmod, e := modulebase.GetJointModule2(session, module, module2)
-	var ret []modulebase.SubmitResult
+	var ret []printutils.SubmitResult
 	if e == nil {
 		ret = jmod.BatchDetach(session, req.ResID(), idlist)
 	} else {

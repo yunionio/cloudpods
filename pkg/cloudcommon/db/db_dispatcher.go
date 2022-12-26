@@ -27,6 +27,8 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/filterclause"
+	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -39,7 +41,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -348,7 +349,7 @@ func mergeFields(metaFields, queryFields []string, isSysAdmin bool) stringutils2
 func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject, delayFetch bool) ([]jsonutils.JSONObject, error) {
 	metaFields, excludeFields := listFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
-	allowListResult := IsAllowList(rbacutils.ScopeSystem, userCred, manager)
+	allowListResult := IsAllowList(rbacscope.ScopeSystem, userCred, manager)
 	listF := mergeFields(metaFields, fieldFilter, allowListResult.Result.IsAllow())
 	listExcludes, _, _ := stringutils2.Split(stringutils2.NewSortedStrings(excludeFields), listF)
 
@@ -526,7 +527,7 @@ func fetchContextObject(manager IModelManager, ctx context.Context, userCred mcc
 	return nil, httperrors.NewInternalServerError("No such context %s(%s)", ctxId.Type, ctxId.Id)
 }
 
-func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modulebase.ListResult, error) {
+func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*printutils.ListResult, error) {
 	var err error
 	var maxLimit int64 = consts.GetMaxPagingLimit()
 	limit, _ := query.Int("limit")
@@ -626,7 +627,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		union, err := sqlchemy.UnionWithError(subqs...)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				emptyList := modulebase.ListResult{Data: []jsonutils.JSONObject{}}
+				emptyList := printutils.ListResult{Data: []jsonutils.JSONObject{}}
 				return &emptyList, nil
 			} else {
 				return nil, errors.Wrap(err, "sqlchemy.UnionWithError")
@@ -654,7 +655,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		}
 		//log.Debugf("total count %d", totalCnt)
 		if totalCnt == 0 {
-			emptyList := modulebase.ListResult{Data: []jsonutils.JSONObject{}}
+			emptyList := printutils.ListResult{Data: []jsonutils.JSONObject{}}
 			return &emptyList, nil
 		}
 	}
@@ -768,7 +769,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			retList = retList[:limit]
 		}
 		nextMarker := encodePagingMarker(nextMarkers)
-		retResult := modulebase.ListResult{
+		retResult := printutils.ListResult{
 			Data: retList, Limit: int(limit),
 			NextMarker:  nextMarker,
 			MarkerField: strings.Join(pagingConf.MarkerFields, ","),
@@ -820,7 +821,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	return calculateListResult(retList, int64(totalCnt), limit, offset, paginate), nil
 }
 
-func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64, paginate bool) *modulebase.ListResult {
+func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64, paginate bool) *printutils.ListResult {
 	if paginate {
 		// do offset first
 		if offset > 0 {
@@ -838,7 +839,7 @@ func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64
 		}
 	}
 
-	retResult := modulebase.ListResult{Data: data, Total: int(total), Limit: int(limit), Offset: int(offset)}
+	retResult := printutils.ListResult{Data: data, Total: int(total), Limit: int(limit), Offset: int(offset)}
 
 	return &retResult
 }
@@ -855,7 +856,7 @@ func getExportCols(query jsonutils.JSONObject, retList []jsonutils.JSONObject) [
 	return retList
 }
 
-func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modulebase.ListResult, error) {
+func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*printutils.ListResult, error) {
 	userCred := fetchUserCredential(ctx)
 	manager := dispatcher.manager.GetImmutableInstance(ctx, userCred, query)
 
@@ -913,7 +914,7 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 		return nil, errors.Wrap(err, "FetchCustomizeColumns")
 	}
 	if len(extraRows) == 1 {
-		getFields := mergeFields(metaFields, fieldFilter, IsAllowGet(ctx, rbacutils.ScopeSystem, userCred, item))
+		getFields := mergeFields(metaFields, fieldFilter, IsAllowGet(ctx, rbacscope.ScopeSystem, userCred, item))
 		excludes, _, _ := stringutils2.Split(stringutils2.NewSortedStrings(excludeFields), getFields)
 		return extraRows[0].CopyExcludes(excludes...), nil
 	}
@@ -1047,7 +1048,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 func fetchOwnerId(ctx context.Context, manager IModelManager, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	var ownerId mcclient.IIdentityProvider
 	var err error
-	if manager.ResourceScope() != rbacutils.ScopeSystem {
+	if manager.ResourceScope() != rbacscope.ScopeSystem {
 		ownerId, err = manager.FetchOwnerId(ctx, data)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
@@ -1370,7 +1371,7 @@ func expandMultiCreateParams(manager IModelManager, data jsonutils.JSONObject, c
 	return ret, nil
 }
 
-func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []dispatcher.SResourceContext) ([]modulebase.SubmitResult, error) {
+func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []dispatcher.SResourceContext) ([]printutils.SubmitResult, error) {
 	userCred := fetchUserCredential(ctx)
 	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
@@ -1461,10 +1462,10 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		return nil, httperrors.NewGeneralError(errors.Wrap(err, "createResults"))
 	}
 
-	results := make([]modulebase.SubmitResult, count)
+	results := make([]printutils.SubmitResult, count)
 	models := make([]IModel, 0)
 	for i, res := range createResults {
-		result := modulebase.SubmitResult{}
+		result := printutils.SubmitResult{}
 		if res.err != nil {
 			jsonErr := httperrors.NewGeneralError(res.err)
 			result.Status = jsonErr.Code

@@ -16,6 +16,8 @@ package shell
 
 import (
 	"errors"
+
+	"yunion.io/x/pkg/util/shellutils"
 )
 
 type CMD struct {
@@ -30,7 +32,8 @@ var CommandTable []CMD = make([]CMD, 0)
 var ErrEmtptyUpdate = errors.New("No valid update data")
 
 func R(options interface{}, command string, desc string, callback interface{}) {
-	CommandTable = append(CommandTable, CMD{options, command, desc, callback})
+	shellutils.R(options, command, desc, callback)
+	// CommandTable = append(CommandTable, CMD{options, command, desc, callback})
 }
 
 func InvalidUpdateError() error {

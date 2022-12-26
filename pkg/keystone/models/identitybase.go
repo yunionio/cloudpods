@@ -21,13 +21,13 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -407,9 +407,9 @@ func (model *SIdentityBaseResource) PostDelete(ctx context.Context, userCred mcc
 	model.SStandaloneResourceBase.PostDelete(ctx, userCred)
 }
 
-func (manager *SIdentityBaseResourceManager) totalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) int {
+func (manager *SIdentityBaseResourceManager) totalCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider) int {
 	q := manager.Query()
-	if scope != rbacutils.ScopeSystem {
+	if scope != rbacscope.ScopeSystem {
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 	}
 	cnt, _ := q.CountWithError()

@@ -22,6 +22,8 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/billing"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
@@ -32,9 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/choices"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -536,11 +536,11 @@ func (self *SQcloudRegionDriver) IsSupportedElasticcache() bool {
 	return true
 }
 
-func (self *SQcloudRegionDriver) GetSecurityGroupPublicScope(service string) rbacutils.TRbacScope {
+func (self *SQcloudRegionDriver) GetSecurityGroupPublicScope(service string) rbacscope.TRbacScope {
 	if service == "redis" {
-		return rbacutils.ScopeProject
+		return rbacscope.ScopeProject
 	}
-	return rbacutils.ScopeSystem
+	return rbacscope.ScopeSystem
 }
 
 func (self *SQcloudRegionDriver) ValidateCreateElasticcacheAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

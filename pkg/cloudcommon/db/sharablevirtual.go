@@ -19,12 +19,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -48,7 +48,7 @@ func (manager *SSharableVirtualResourceBaseManager) GetISharableVirtualModelMana
 	return manager.GetVirtualObject().(ISharableVirtualModelManager)
 }
 
-func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return SharableManagerFilterByOwner(manager.GetISharableVirtualModelManager(), q, owner, scope)
 }
 
@@ -204,20 +204,20 @@ func (model *SSharableVirtualResourceBase) Delete(ctx context.Context, userCred 
 func (model *SSharableVirtualResourceBase) GetSharedInfo() apis.SShareInfo {
 	ret := apis.SShareInfo{}
 	ret.IsPublic = model.IsPublic
-	ret.PublicScope = rbacutils.String2ScopeDefault(model.PublicScope, rbacutils.ScopeNone)
+	ret.PublicScope = rbacscope.String2ScopeDefault(model.PublicScope, rbacscope.ScopeNone)
 	ret.SharedDomains = model.GetSharedDomains()
 	ret.SharedProjects = model.GetSharedProjects()
 	// fix
 	if len(ret.SharedDomains) > 0 {
-		ret.PublicScope = rbacutils.ScopeDomain
+		ret.PublicScope = rbacscope.ScopeDomain
 		ret.SharedProjects = nil
 		ret.IsPublic = true
 	} else if len(ret.SharedProjects) > 0 {
-		ret.PublicScope = rbacutils.ScopeProject
+		ret.PublicScope = rbacscope.ScopeProject
 		ret.SharedDomains = nil
 		ret.IsPublic = true
 	} else if !ret.IsPublic {
-		ret.PublicScope = rbacutils.ScopeNone
+		ret.PublicScope = rbacscope.ScopeNone
 	}
 	return ret
 }

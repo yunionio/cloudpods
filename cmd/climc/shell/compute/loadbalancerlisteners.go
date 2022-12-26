@@ -18,9 +18,9 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
@@ -34,7 +34,7 @@ func printLbBackendStatus(backendStatus jsonutils.JSONObject) error {
 	if err != nil {
 		return err
 	}
-	listResult := &modulebase.ListResult{
+	listResult := &printutils.ListResult{
 		Data: objList,
 	}
 	columns := []string{

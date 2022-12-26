@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"os"
 
+	"yunion.io/x/pkg/util/shellutils"
 	"yunion.io/x/structarg"
 
 	_ "yunion.io/x/onecloud/cmd/cryptool/shell"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type BaseOptions struct {
