@@ -66,15 +66,7 @@ func (self *SKafka) GetTags() (map[string]string, error) {
 }
 
 func (self *SKafka) GetSysTags() map[string]string {
-	ret := map[string]string{}
-	for _, tag := range self.AliyunTags.Tags.Tag {
-		if strings.HasPrefix(tag.TagKey, "aliyun") || strings.HasPrefix(tag.TagKey, "acs:") {
-			if len(tag.TagKey) > 0 {
-				ret[tag.TagKey] = tag.TagValue
-			}
-		}
-	}
-	return ret
+	return self.AliyunTags.GetSysTags()
 }
 
 func (self *SKafka) SetTags(tags map[string]string, replace bool) error {

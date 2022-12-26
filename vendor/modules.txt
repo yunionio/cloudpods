@@ -1445,7 +1445,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20221223162153-4f7dbcd055fa => /Users/kailun/GolandProjects/cloudmux
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20221225173553-274ce65b6d5c => /Users/kailun/GolandProjects/cloudmux
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1542,7 +1542,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.0.1-0.20221223155549-5478754887c8
+# yunion.io/x/pkg v1.0.1-0.20221225165641-f7b3d3cbcd1c
 ## explicit; go 1.18
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
@@ -1590,3 +1590,4 @@ yunion.io/x/sqlchemy/backends/sqlite
 yunion.io/x/structarg
 # github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
 # github.com/jaypipes/ghw => github.com/zexi/ghw v0.9.1
+# yunion.io/x/cloudmux => /Users/kailun/GolandProjects/cloudmux

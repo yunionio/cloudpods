@@ -17,6 +17,7 @@ package aliyun
 import (
 	"fmt"
 	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -56,7 +57,6 @@ func (self *SRegion) tagRequest(serviceType, action string, params map[string]st
 func (self *SRegion) ListTags(serviceType string, resourceType string, resourceId string) ([]SAliyunTag, error) {
 	tags := []SAliyunTag{}
 	params := make(map[string]string)
-	fmt.Println(fmt.Sprintf("self.RegionId:%+v", self))
 	params["RegionId"] = self.RegionId
 	params["ResourceType"] = resourceType
 
