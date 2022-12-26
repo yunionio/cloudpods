@@ -18,9 +18,10 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/pkg/util/rbacscope"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SBaseDomainQuotaKeys struct {
@@ -328,23 +329,23 @@ func QuotaKeyWeight(k IQuotaKeys) uint64 {
 	return w
 }
 
-func (k SBaseDomainQuotaKeys) Scope() rbacutils.TRbacScope {
+func (k SBaseDomainQuotaKeys) Scope() rbacscope.TRbacScope {
 	if len(k.DomainId) > 0 {
-		return rbacutils.ScopeDomain
+		return rbacscope.ScopeDomain
 	} else {
-		return rbacutils.ScopeSystem
+		return rbacscope.ScopeSystem
 	}
 }
 
-func (k SBaseProjectQuotaKeys) Scope() rbacutils.TRbacScope {
+func (k SBaseProjectQuotaKeys) Scope() rbacscope.TRbacScope {
 	if len(k.DomainId) > 0 && len(k.ProjectId) > 0 {
-		return rbacutils.ScopeProject
+		return rbacscope.ScopeProject
 	} else if len(k.DomainId) > 0 && len(k.ProjectId) == 0 {
-		return rbacutils.ScopeDomain
+		return rbacscope.ScopeDomain
 	} else if len(k.DomainId) == 0 && len(k.ProjectId) == 0 {
-		return rbacutils.ScopeSystem
+		return rbacscope.ScopeSystem
 	} else {
-		return rbacutils.ScopeNone
+		return rbacscope.ScopeNone
 	}
 }
 
@@ -393,8 +394,8 @@ func IsBaseDomainQuotaKeys(k IQuotaKeys) bool {
 	return true
 }
 
-func OwnerIdProjectQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) SBaseProjectQuotaKeys {
-	if scope == rbacutils.ScopeDomain {
+func OwnerIdProjectQuotaKeys(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider) SBaseProjectQuotaKeys {
+	if scope == rbacscope.ScopeDomain {
 		return SBaseProjectQuotaKeys{
 			SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
 				DomainId: ownerId.GetProjectDomainId(),

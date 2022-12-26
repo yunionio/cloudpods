@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -330,9 +331,9 @@ func (s *SRbdStorage) createBackup(pool string, diskId string, snapshotId string
 	}
 	srcPath := fmt.Sprintf("rbd:%s/%s%s", pool, backupName, s.getStorageConfString())
 	// convert
-	sizeMb, err := backupStorage.ConvertFrom(srcPath, qemuimg.RAW, backupId)
+	sizeMb, err := backupStorage.ConvertFrom(srcPath, qemuimgfmt.RAW, backupId)
 	if err != nil {
-		return 0, errors.Wrapf(err, "unable to ConvertFrom with srcPath %s and format %s", srcPath, qemuimg.RAW.String())
+		return 0, errors.Wrapf(err, "unable to ConvertFrom with srcPath %s and format %s", srcPath, qemuimgfmt.RAW.String())
 	}
 	return sizeMb, nil
 }
@@ -589,9 +590,9 @@ func (s *SRbdStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, inpu
 	if err != nil {
 		return errors.Wrap(err, "unable to GetBackupStorage")
 	}
-	err = backupStorage.ConvertTo(destPath, qemuimg.RAW, backup.BackupId)
+	err = backupStorage.ConvertTo(destPath, qemuimgfmt.RAW, backup.BackupId)
 	if err != nil {
-		return errors.Wrapf(err, "unable to Convert to with destPath %s and format %s", destPath, qemuimg.RAW.String())
+		return errors.Wrapf(err, "unable to Convert to with destPath %s and format %s", destPath, qemuimgfmt.RAW.String())
 	}
 	return nil
 }
@@ -620,7 +621,7 @@ func (s *SRbdStorage) CloneDiskFromStorage(
 	}
 	accessPath := s.GetCloneTargetDiskPath(ctx, targetDiskId)
 	if fullCopy {
-		_, err = srcImg.Clone(accessPath, qemuimg.RAW, false)
+		_, err = srcImg.Clone(accessPath, qemuimgfmt.RAW, false)
 		if err != nil {
 			return nil, errors.Wrap(err, "Clone source disk to target rbd storage")
 		}
@@ -633,7 +634,7 @@ func (s *SRbdStorage) CloneDiskFromStorage(
 
 	return &hostapi.ServerCloneDiskFromStorageResponse{
 		TargetAccessPath: accessPath,
-		TargetFormat:     qemuimg.RAW.String(),
+		TargetFormat:     qemuimgfmt.RAW.String(),
 	}, nil
 }
 

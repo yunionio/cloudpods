@@ -16,13 +16,13 @@ package yunionconf
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/shellutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
@@ -44,7 +44,7 @@ func init() {
 			params.Add(jsonutils.NewString(args.Name), "name")
 		}
 
-		var result *modulebase.ListResult
+		var result *printutils.ListResult
 		if len(args.NamespaceId) > 0 {
 			params.Add(jsonutils.NewString(args.NamespaceId), "namespace_id")
 			params.Add(jsonutils.NewString("system"), "scope")

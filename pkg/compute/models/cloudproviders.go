@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -45,7 +46,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -490,8 +490,8 @@ func (self *SCloudaccount) getOrCreateTenant(ctx context.Context, name, domainId
 		return createTenant(ctx, name, domainId, desc)
 	}
 	share := self.GetSharedInfo()
-	if tenant.DomainId == self.DomainId || (share.PublicScope == rbacutils.ScopeSystem ||
-		(share.PublicScope == rbacutils.ScopeDomain && utils.IsInStringArray(tenant.DomainId, share.SharedDomains))) {
+	if tenant.DomainId == self.DomainId || (share.PublicScope == rbacscope.ScopeSystem ||
+		(share.PublicScope == rbacscope.ScopeDomain && utils.IsInStringArray(tenant.DomainId, share.SharedDomains))) {
 		return tenant.DomainId, tenant.Id, nil
 	}
 	return createTenant(ctx, name, domainId, desc)
@@ -749,7 +749,7 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 			return nil, httperrors.NewInvalidStatusError("cannot change to a different domain from a private cloud account")
 		}
 		// if account's public_scope=domain and share_mode=provider_domain, only allow to share to specific domains
-		if account.PublicScope == string(rbacutils.ScopeDomain) {
+		if account.PublicScope == string(rbacscope.ScopeDomain) {
 			sharedDomains := account.GetSharedDomains()
 			if !utils.IsInStringArray(tenant.DomainId, sharedDomains) && account.DomainId != tenant.DomainId {
 				return nil, errors.Wrap(httperrors.ErrForbidden, "cannot set to domain outside of the shared domains")
@@ -1628,17 +1628,17 @@ func (manager *SCloudproviderManager) filterByDomainId(q *sqlchemy.SQuery, domai
 			sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
 			sqlchemy.OR(
 				sqlchemy.AND(
-					sqlchemy.Equals(cloudaccounts.Field("public_scope"), rbacutils.ScopeNone),
+					sqlchemy.Equals(cloudaccounts.Field("public_scope"), rbacscope.ScopeNone),
 					sqlchemy.Equals(cloudaccounts.Field("domain_id"), domainId),
 				),
 				sqlchemy.AND(
-					sqlchemy.Equals(cloudaccounts.Field("public_scope"), rbacutils.ScopeDomain),
+					sqlchemy.Equals(cloudaccounts.Field("public_scope"), rbacscope.ScopeDomain),
 					sqlchemy.OR(
 						sqlchemy.Equals(cloudaccounts.Field("domain_id"), domainId),
 						sqlchemy.In(cloudaccounts.Field("id"), subq.SubQuery()),
 					),
 				),
-				sqlchemy.Equals(cloudaccounts.Field("public_scope"), rbacutils.ScopeSystem),
+				sqlchemy.Equals(cloudaccounts.Field("public_scope"), rbacscope.ScopeSystem),
 			),
 		),
 		sqlchemy.AND(
@@ -1649,10 +1649,10 @@ func (manager *SCloudproviderManager) filterByDomainId(q *sqlchemy.SQuery, domai
 	return q
 }
 
-func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
-		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 			if len(owner.GetProjectDomainId()) > 0 {
 				q = manager.filterByDomainId(q, owner.GetProjectDomainId())
 			}
@@ -1715,8 +1715,8 @@ func (provider *SCloudprovider) GetDetailsClirc(ctx context.Context, userCred mc
 	return jsonutils.Marshal(rc), nil
 }
 
-func (manager *SCloudproviderManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SCloudproviderManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
 func (provider *SCloudprovider) GetDetailsStorageClasses(
@@ -1797,7 +1797,7 @@ func (provider *SCloudprovider) GetChangeOwnerCandidateDomainIds() []string {
 		return []string{account.DomainId}
 	}
 	// if account's public_scope=domain and share_mode=provider_domain, only allow to share to specific domains
-	if account.PublicScope == string(rbacutils.ScopeDomain) {
+	if account.PublicScope == string(rbacscope.ScopeDomain) {
 		sharedDomains := account.GetSharedDomains()
 		return append(sharedDomains, account.DomainId)
 	}

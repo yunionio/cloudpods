@@ -23,11 +23,11 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/imagetools"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 type SImage struct {

@@ -22,18 +22,18 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -165,7 +165,7 @@ func (self *SManagedResourceBase) CanShareToDomain(domainId string) bool {
 			return false
 		}
 	case api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
-		if account.PublicScope == string(rbacutils.ScopeSystem) {
+		if account.PublicScope == string(rbacscope.ScopeSystem) {
 			return true
 		} else {
 			// public_scope = domain
@@ -359,7 +359,7 @@ func (model *SManagedResourceBase) GetChangeOwnerCandidateDomainIds() []string {
 	case api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
 		candidateIds = append(candidateIds, provider.DomainId)
 	case api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
-		if account.PublicScope != string(rbacutils.ScopeSystem) {
+		if account.PublicScope != string(rbacscope.ScopeSystem) {
 			candidateIds = account.GetSharedDomains()
 			candidateIds = append(candidateIds, account.DomainId)
 		}

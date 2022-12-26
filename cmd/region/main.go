@@ -18,6 +18,7 @@ import (
 	_ "yunion.io/x/cloudmux/pkg/multicloud/loader"
 
 	"yunion.io/x/onecloud/pkg/compute/service"
+	_ "yunion.io/x/onecloud/pkg/mcclient/cloudpods/provider"
 	"yunion.io/x/onecloud/pkg/util/atexit"
 )
 

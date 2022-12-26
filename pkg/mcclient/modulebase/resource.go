@@ -21,10 +21,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type TResourceFilter func(*mcclient.ClientSession, jsonutils.JSONObject, jsonutils.JSONObject) (jsonutils.JSONObject, error)
@@ -239,29 +240,29 @@ func (this *ResourceManager) GetSpecificInContexts(session *mcclient.ClientSessi
 	return this._get(session, path, this.Keyword)
 }
 
-func (this *ResourceManager) BatchGet(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []SubmitResult {
+func (this *ResourceManager) BatchGet(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []printutils.SubmitResult {
 	return this.BatchGetInContexts(session, idlist, params, nil)
 }
 
-func (this *ResourceManager) BatchGetInContext(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctx Manager, ctxid string) []SubmitResult {
+func (this *ResourceManager) BatchGetInContext(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctx Manager, ctxid string) []printutils.SubmitResult {
 	return this.BatchGetInContexts(session, idlist, params, []ManagerContext{{ctx, ctxid}})
 }
 
-func (this *ResourceManager) BatchGetInContexts(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+func (this *ResourceManager) BatchGetInContexts(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctxs []ManagerContext) []printutils.SubmitResult {
 	return BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
 		return this.GetInContexts(session, id, params, ctxs)
 	})
 }
 
-func (this *ResourceManager) List(session *mcclient.ClientSession, params jsonutils.JSONObject) (*ListResult, error) {
+func (this *ResourceManager) List(session *mcclient.ClientSession, params jsonutils.JSONObject) (*printutils.ListResult, error) {
 	return this.ListInContexts(session, params, nil)
 }
 
-func (this *ResourceManager) ListInContext(session *mcclient.ClientSession, params jsonutils.JSONObject, ctx Manager, ctxid string) (*ListResult, error) {
+func (this *ResourceManager) ListInContext(session *mcclient.ClientSession, params jsonutils.JSONObject, ctx Manager, ctxid string) (*printutils.ListResult, error) {
 	return this.ListInContexts(session, params, []ManagerContext{{ctx, ctxid}})
 }
 
-func (this *ResourceManager) ListInContexts(session *mcclient.ClientSession, params jsonutils.JSONObject, ctxs []ManagerContext) (*ListResult, error) {
+func (this *ResourceManager) ListInContexts(session *mcclient.ClientSession, params jsonutils.JSONObject, ctxs []ManagerContext) (*printutils.ListResult, error) {
 	path := fmt.Sprintf("/%s", this.ContextPath(ctxs))
 	if params != nil {
 		qs := params.QueryString()
@@ -332,29 +333,29 @@ func (this *ResourceManager) CreateInContexts(session *mcclient.ClientSession, p
 	return this.filterSingleResult(session, result, nil)
 }
 
-func (this *ResourceManager) BatchCreate(session *mcclient.ClientSession, params jsonutils.JSONObject, count int) []SubmitResult {
+func (this *ResourceManager) BatchCreate(session *mcclient.ClientSession, params jsonutils.JSONObject, count int) []printutils.SubmitResult {
 	return this.BatchCreateInContexts(session, params, count, nil)
 }
 
-func (this *ResourceManager) BatchCreateInContext(session *mcclient.ClientSession, params jsonutils.JSONObject, count int, ctx Manager, ctxid string) []SubmitResult {
+func (this *ResourceManager) BatchCreateInContext(session *mcclient.ClientSession, params jsonutils.JSONObject, count int, ctx Manager, ctxid string) []printutils.SubmitResult {
 	return this.BatchCreateInContexts(session, params, count, []ManagerContext{{ctx, ctxid}})
 }
 
-func (this *ResourceManager) BatchCreateInContexts(session *mcclient.ClientSession, params jsonutils.JSONObject, count int, ctxs []ManagerContext) []SubmitResult {
+func (this *ResourceManager) BatchCreateInContexts(session *mcclient.ClientSession, params jsonutils.JSONObject, count int, ctxs []ManagerContext) []printutils.SubmitResult {
 	path := fmt.Sprintf("/%s", this.ContextPath(ctxs))
 	body := this.params2Body(session, params, this.Keyword)
 	body.Add(jsonutils.NewInt(int64(count)), "count")
-	ret := make([]SubmitResult, count)
+	ret := make([]printutils.SubmitResult, count)
 	respbody, err := this._post(session, path, body, this.KeywordPlural)
 	if err != nil {
 		jsonErr, ok := err.(*httputils.JSONClientError)
 		if ok {
 			for i := 0; i < count; i++ {
-				ret[i] = SubmitResult{Status: jsonErr.Code, Data: jsonutils.Marshal(jsonErr)}
+				ret[i] = printutils.SubmitResult{Status: jsonErr.Code, Data: jsonutils.Marshal(jsonErr)}
 			}
 		} else {
 			for i := 0; i < count; i++ {
-				ret[i] = SubmitResult{Status: 500, Data: jsonutils.NewString(err.Error())}
+				ret[i] = printutils.SubmitResult{Status: 500, Data: jsonutils.NewString(err.Error())}
 			}
 		}
 		return ret
@@ -362,14 +363,14 @@ func (this *ResourceManager) BatchCreateInContexts(session *mcclient.ClientSessi
 	respArray, ok := respbody.(*jsonutils.JSONArray)
 	if !ok {
 		for i := 0; i < count; i++ {
-			ret[i] = SubmitResult{Status: 500, Data: jsonutils.NewString("Invalid response")}
+			ret[i] = printutils.SubmitResult{Status: 500, Data: jsonutils.NewString("Invalid response")}
 		}
 		return ret
 	}
 	for i := 0; i < respArray.Size(); i++ {
 		json, e := respArray.GetAt(i)
 		if e != nil {
-			ret[i] = SubmitResult{Status: 500, Data: jsonutils.NewString(e.Error())}
+			ret[i] = printutils.SubmitResult{Status: 500, Data: jsonutils.NewString(e.Error())}
 		} else {
 			code, _ := json.Int("status")
 			dat, _ := json.Get("body")
@@ -382,7 +383,7 @@ func (this *ResourceManager) BatchCreateInContexts(session *mcclient.ClientSessi
 				}
 			}
 			idstr, _ := dat.GetString(this.getIdFieldName())
-			ret[i] = SubmitResult{Status: int(code), Id: idstr, Data: dat}
+			ret[i] = printutils.SubmitResult{Status: int(code), Id: idstr, Data: dat}
 		}
 	}
 	return ret
@@ -435,29 +436,29 @@ func (this *ResourceManager) PutSpecificInContexts(session *mcclient.ClientSessi
 	return this.filterSingleResult(session, result, nil)
 }
 
-func (this *ResourceManager) BatchUpdate(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []SubmitResult {
+func (this *ResourceManager) BatchUpdate(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []printutils.SubmitResult {
 	return this.BatchPutInContexts(session, idlist, params, nil)
 }
 
-func (this *ResourceManager) BatchPut(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []SubmitResult {
+func (this *ResourceManager) BatchPut(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []printutils.SubmitResult {
 	return this.BatchPutInContexts(session, idlist, params, nil)
 }
 
-func (this *ResourceManager) BatchPutInContext(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctx Manager, ctxid string) []SubmitResult {
+func (this *ResourceManager) BatchPutInContext(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctx Manager, ctxid string) []printutils.SubmitResult {
 	return this.BatchPutInContexts(session, idlist, params, []ManagerContext{{ctx, ctxid}})
 }
 
-func (this *ResourceManager) BatchPutInContexts(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+func (this *ResourceManager) BatchPutInContexts(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctxs []ManagerContext) []printutils.SubmitResult {
 	return BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
 		return this.PutInContexts(session, id, params, ctxs)
 	})
 }
 
-func (this *ResourceManager) BatchParamsUpdate(session *mcclient.ClientSession, idlist []string, params []jsonutils.JSONObject) []SubmitResult {
+func (this *ResourceManager) BatchParamsUpdate(session *mcclient.ClientSession, idlist []string, params []jsonutils.JSONObject) []printutils.SubmitResult {
 	return this.BatchParamsPutInContexts(session, idlist, params, nil)
 }
 
-func (this *ResourceManager) BatchParamsPutInContexts(session *mcclient.ClientSession, idlist []string, params []jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+func (this *ResourceManager) BatchParamsPutInContexts(session *mcclient.ClientSession, idlist []string, params []jsonutils.JSONObject, ctxs []ManagerContext) []printutils.SubmitResult {
 	return BatchParamsDo(idlist, params, func(id string, param jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 		return this.PutInContexts(session, id, param, ctxs)
 	})
@@ -480,15 +481,15 @@ func (this *ResourceManager) PatchInContexts(session *mcclient.ClientSession, id
 	return this.filterSingleResult(session, result, nil)
 }
 
-func (this *ResourceManager) BatchPatch(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []SubmitResult {
+func (this *ResourceManager) BatchPatch(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []printutils.SubmitResult {
 	return this.BatchPatchInContexts(session, idlist, params, nil)
 }
 
-func (this *ResourceManager) BatchPatchInContext(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctx Manager, ctxid string) []SubmitResult {
+func (this *ResourceManager) BatchPatchInContext(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctx Manager, ctxid string) []printutils.SubmitResult {
 	return this.BatchPatchInContexts(session, idlist, params, []ManagerContext{{ctx, ctxid}})
 }
 
-func (this *ResourceManager) BatchPatchInContexts(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+func (this *ResourceManager) BatchPatchInContexts(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject, ctxs []ManagerContext) []printutils.SubmitResult {
 	return BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
 		return this.PatchInContexts(session, id, params, ctxs)
 	})
@@ -520,25 +521,25 @@ func (this *ResourceManager) PerformClassActionInContexts(session *mcclient.Clie
 	return this._post(session, path, this.params2Body(session, params, this.KeywordPlural), this.KeywordPlural)
 }
 
-func (this *ResourceManager) BatchPerformClassAction(session *mcclient.ClientSession, action string, batchParams []jsonutils.JSONObject) []SubmitResult {
+func (this *ResourceManager) BatchPerformClassAction(session *mcclient.ClientSession, action string, batchParams []jsonutils.JSONObject) []printutils.SubmitResult {
 	return this.BatchPerformClassActionInContexts(session, action, batchParams, nil)
 }
 
-func (this *ResourceManager) BatchPerformClassActionInContexts(session *mcclient.ClientSession, action string, batchParams []jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+func (this *ResourceManager) BatchPerformClassActionInContexts(session *mcclient.ClientSession, action string, batchParams []jsonutils.JSONObject, ctxs []ManagerContext) []printutils.SubmitResult {
 	return BatchDoClassAction(batchParams, func(params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 		return this.PerformClassActionInContexts(session, action, params, ctxs)
 	})
 }
 
-func (this *ResourceManager) BatchPerformAction(session *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject) []SubmitResult {
+func (this *ResourceManager) BatchPerformAction(session *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject) []printutils.SubmitResult {
 	return this.BatchPerformActionInContexts(session, idlist, action, params, nil)
 }
 
-func (this *ResourceManager) BatchPerformActionInContext(session *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject, ctx Manager, ctxid string) []SubmitResult {
+func (this *ResourceManager) BatchPerformActionInContext(session *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject, ctx Manager, ctxid string) []printutils.SubmitResult {
 	return this.BatchPerformActionInContexts(session, idlist, action, params, []ManagerContext{{ctx, ctxid}})
 }
 
-func (this *ResourceManager) BatchPerformActionInContexts(session *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+func (this *ResourceManager) BatchPerformActionInContexts(session *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject, ctxs []ManagerContext) []printutils.SubmitResult {
 	return BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
 		return this.PerformActionInContexts(session, id, action, params, ctxs)
 	})
@@ -586,29 +587,29 @@ func (this *ResourceManager) deleteInContexts(session *mcclient.ClientSession, i
 	return this.filterSingleResult(session, result, nil)
 }
 
-func (this *ResourceManager) BatchDelete(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject) []SubmitResult {
+func (this *ResourceManager) BatchDelete(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject) []printutils.SubmitResult {
 	return this.BatchDeleteInContexts(session, idlist, body, nil)
 }
 
-func (this *ResourceManager) BatchDeleteWithParam(session *mcclient.ClientSession, idlist []string, params, body jsonutils.JSONObject) []SubmitResult {
+func (this *ResourceManager) BatchDeleteWithParam(session *mcclient.ClientSession, idlist []string, params, body jsonutils.JSONObject) []printutils.SubmitResult {
 	return this.BatchDeleteInContextsWithParam(session, idlist, params, body, nil)
 }
 
-func (this *ResourceManager) BatchDeleteInContext(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject, ctx Manager, ctxid string) []SubmitResult {
+func (this *ResourceManager) BatchDeleteInContext(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject, ctx Manager, ctxid string) []printutils.SubmitResult {
 	return this.BatchDeleteInContexts(session, idlist, body, []ManagerContext{{ctx, ctxid}})
 }
 
-func (this *ResourceManager) BatchDeleteInContextWithParam(session *mcclient.ClientSession, idlist []string, params, body jsonutils.JSONObject, ctx Manager, ctxid string) []SubmitResult {
+func (this *ResourceManager) BatchDeleteInContextWithParam(session *mcclient.ClientSession, idlist []string, params, body jsonutils.JSONObject, ctx Manager, ctxid string) []printutils.SubmitResult {
 	return this.BatchDeleteInContextsWithParam(session, idlist, params, body, []ManagerContext{{ctx, ctxid}})
 }
 
-func (this *ResourceManager) BatchDeleteInContexts(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+func (this *ResourceManager) BatchDeleteInContexts(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject, ctxs []ManagerContext) []printutils.SubmitResult {
 	return BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
 		return this.DeleteInContexts(session, id, body, ctxs)
 	})
 }
 
-func (this *ResourceManager) BatchDeleteInContextsWithParam(session *mcclient.ClientSession, idlist []string, params, body jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+func (this *ResourceManager) BatchDeleteInContextsWithParam(session *mcclient.ClientSession, idlist []string, params, body jsonutils.JSONObject, ctxs []ManagerContext) []printutils.SubmitResult {
 	return BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
 		return this.deleteInContexts(session, id, params, body, ctxs)
 	})

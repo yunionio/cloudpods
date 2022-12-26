@@ -16,9 +16,9 @@ package compute
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
@@ -52,7 +52,7 @@ func init() {
 		}
 		printObject(jd)
 	}
-	printLbAclList := func(list *modulebase.ListResult, columns []string) {
+	printLbAclList := func(list *printutils.ListResult, columns []string) {
 		data := list.Data
 		for _, jsonObj := range data {
 			jd := jsonObj.(*jsonutils.JSONDict)

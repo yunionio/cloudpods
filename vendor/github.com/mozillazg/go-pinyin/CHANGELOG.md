@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.19.0] (2021-12-11)
+* **Changed** 使用 [pinyin-data][pinyin-data] v0.12.0 的拼音数据
+
+
+## [0.18.0] (2020-06-13)
+* **Changed** 使用 [pinyin-data][pinyin-data] v0.9.0 的拼音数据
+* **Bugfixed** 修复自定义的 Fallback 函数可能会导致结果乱码的问题 Fixes [#35]
+
+## [0.17.0] (2020-04-09)
+
+* **Changed** 因为依赖的 gojieba 经常出现安装异常，撤销 v0.16.0 的修改，撤销后 v0.17.0 的代码跟 v0.15.0 基本是一样的。
+  如果有需要使用 v0.16.0 新增的 ``func Paragraph(p string) string`` 功能的请使用 v0.16.0 版本或者通过 v0.16.0 中相关代码实现类似的需求。
+
+## [0.16.0] (2019-12-05)
+
+* **NEW** 增加 ``func Paragraph(p string) string`` 用于便捷处理大段文字
+(thanks [@huacnlee] via [#37][#37])
+
 ## [0.15.0] (2019-04-06)
 
 * **Changed** 使用 [pinyin-data][pinyin-data] v0.7.0 的拼音数据
@@ -193,9 +211,12 @@
 
 [pinyin-data]: https://github.com/mozillazg/pinyin-data
 [@wdscxsj]: https://github.com/wdscxsj
+[@huacnlee]: https://github.com/huacnlee
 [#19]: https://github.com/mozillazg/go-pinyin/pull/19
 [#20]: https://github.com/mozillazg/go-pinyin/pull/20
 [#30]: https://github.com/mozillazg/go-pinyin/pull/30
+[#37]: https://github.com/mozillazg/go-pinyin/pull/37
+[#35]: https://github.com/mozillazg/go-pinyin/issues/35
 
 [0.1.1]: https://github.com/mozillazg/go-pinyin/compare/v0.1.0...v0.1.1
 [0.2.0]: https://github.com/mozillazg/go-pinyin/compare/v0.1.1...v0.2.0
@@ -213,3 +234,7 @@
 [0.13.0]: https://github.com/mozillazg/go-pinyin/compare/v0.12.0...v0.13.0
 [0.14.0]: https://github.com/mozillazg/go-pinyin/compare/v0.13.0...v0.14.0
 [0.15.0]: https://github.com/mozillazg/go-pinyin/compare/v0.14.0...v0.15.0
+[0.16.0]: https://github.com/mozillazg/go-pinyin/compare/v0.15.0...v0.16.0
+[0.17.0]: https://github.com/mozillazg/go-pinyin/compare/v0.16.0...v0.17.0
+[0.18.0]: https://github.com/mozillazg/go-pinyin/compare/v0.17.0...v0.18.0
+[0.19.0]: https://github.com/mozillazg/go-pinyin/compare/v0.18.0...v0.19.0

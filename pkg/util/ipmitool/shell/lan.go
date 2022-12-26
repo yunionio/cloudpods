@@ -15,9 +15,10 @@
 package shell
 
 import (
+	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/shellutils"
+
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
-	"yunion.io/x/onecloud/pkg/util/printutils"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {

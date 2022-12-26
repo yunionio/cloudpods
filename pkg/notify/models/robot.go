@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -35,7 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	rpcapi "yunion.io/x/onecloud/pkg/notify/rpc/apis"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -120,7 +120,7 @@ func (rm *SRobotManager) InitializeData() error {
 			Lang:    "zh_CN",
 		}
 		robot.IsPublic = true
-		robot.PublicScope = string(rbacutils.ScopeSystem)
+		robot.PublicScope = string(rbacscope.ScopeSystem)
 		robot.DomainId = idenapi.DEFAULT_DOMAIN_ID
 		robot.ProjectId = systemId
 		robot.ProjectSrc = "local"

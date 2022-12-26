@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -29,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var LB_CERTS_TO_BE_PURGE = map[string][]string{}
@@ -929,7 +929,7 @@ func (net *SNetwork) purge(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func (wire *SWire) purgeNetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	nets, err := wire.getNetworks(nil, rbacutils.ScopeNone)
+	nets, err := wire.getNetworks(nil, rbacscope.ScopeNone)
 	if err != nil {
 		return err
 	}

@@ -20,9 +20,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/keystone/driver/oauth2"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SWechatOAuth2Driver struct {

@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -40,7 +41,6 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/sp"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -1279,7 +1279,7 @@ func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptio
 		projName := fetchAttribute(attrs, attrConf.ProjectAttribute)
 		if len(projName) > 0 {
 			projDomainId := ""
-			if ProjectManager.NamespaceScope() == rbacutils.ScopeDomain {
+			if ProjectManager.NamespaceScope() == rbacscope.ScopeDomain {
 				projDomainId = domainId
 			}
 			targetProject, err = ProjectManager.FetchProject("", projName, projDomainId, "")

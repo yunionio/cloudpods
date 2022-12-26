@@ -19,9 +19,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/devtool"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -55,7 +55,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		var result *modulebase.ListResult
+		var result *printutils.ListResult
 		result, err = modules.DevToolCronjobs.List(s, params)
 		printList(result, modules.DevToolCronjobs.GetColumns(s))
 		return nil

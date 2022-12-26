@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -34,7 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -402,7 +402,7 @@ func (manager *SCDNDomainManager) OrderByExtraFields(
 
 func (manager *SCDNDomainManager) totalCount(
 	ownerId mcclient.IIdentityProvider,
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	rangeObjs []db.IStandaloneModel,
 	providers []string,
 	brands []string,
@@ -410,7 +410,7 @@ func (manager *SCDNDomainManager) totalCount(
 ) int {
 	q := CDNDomainManager.Query()
 
-	if scope != rbacutils.ScopeSystem && ownerId != nil {
+	if scope != rbacscope.ScopeSystem && ownerId != nil {
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 	}
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)

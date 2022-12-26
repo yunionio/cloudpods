@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -459,7 +460,7 @@ func (manager *SBucketManager) ValidateCreateData(
 		}
 	}
 
-	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, cloudRegionV, managerV)
+	quotaKeys := fetchRegionalQuotaKeys(rbacscope.ScopeProject, ownerId, cloudRegionV, managerV)
 	pendingUsage := SRegionQuota{Bucket: 1}
 	pendingUsage.SetKeys(quotaKeys)
 	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
@@ -479,7 +480,7 @@ func (bucket *SBucket) GetQuotaKeys() (quotas.IQuotaKeys, error) {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid region")
 	}
 	return fetchRegionalQuotaKeys(
-		rbacutils.ScopeProject,
+		rbacscope.ScopeProject,
 		bucket.GetOwnerId(),
 		region,
 		bucket.GetCloudprovider(),
@@ -1707,7 +1708,7 @@ type SBucketUsages struct {
 	DiskUsedRate float64
 }
 
-func (manager *SBucketManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) SBucketUsages {
+func (manager *SBucketManager) TotalCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) SBucketUsages {
 	usage := SBucketUsages{}
 	bq := manager.Query()
 	bq = db.ObjectIdQueryWithPolicyResult(bq, manager, policyResult)

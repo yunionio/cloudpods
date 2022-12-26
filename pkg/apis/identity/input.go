@@ -17,9 +17,9 @@ package identity
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
@@ -440,7 +440,7 @@ type PolicyUpdateInput struct {
 	Blob jsonutils.JSONObject `json:"blob"`
 
 	// 生效范围，project|domain|system
-	Scope rbacutils.TRbacScope `json:"scope"`
+	Scope rbacscope.TRbacScope `json:"scope"`
 
 	// 是否为系统权限
 	IsSystem *bool `json:"is_system"`
@@ -542,7 +542,7 @@ type PolicyCreateInput struct {
 	Blob jsonutils.JSONObject `json:"blob"`
 
 	// 生效范围，project|domain|system
-	Scope rbacutils.TRbacScope `json:"scope"`
+	Scope rbacscope.TRbacScope `json:"scope"`
 
 	// 是否为系统权限
 	IsSystem *bool `json:"is_system"`

@@ -18,13 +18,13 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	commonOptions "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
@@ -39,7 +39,7 @@ func init() {
 
 	ProjectUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(ProjectQuota,
-			rbacutils.ScopeProject,
+			rbacscope.ScopeProject,
 			"project_quota_usage_tbl",
 			"project_quota_usage",
 			"project_quota_usages",
@@ -47,7 +47,7 @@ func init() {
 	}
 	ProjectPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(ProjectQuota,
-			rbacutils.ScopeProject,
+			rbacscope.ScopeProject,
 			"project_quota_pending_usage_tbl",
 			"project_quota_pending_usage",
 			"project_quota_pending_usages",
@@ -55,7 +55,7 @@ func init() {
 	}
 	ProjectQuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(ProjectQuota,
-			rbacutils.ScopeProject,
+			rbacscope.ScopeProject,
 			"project_quota_tbl",
 			ProjectPendingUsageManager,
 			ProjectUsageManager,
@@ -90,14 +90,14 @@ func (self *SProjectQuota) FetchSystemQuota() {
 		base = -1
 	case commonOptions.DefaultQuotaZero:
 		base = 0
-		if keys.Scope() == rbacutils.ScopeDomain { // domain level quota
+		if keys.Scope() == rbacscope.ScopeDomain { // domain level quota
 			base = 10
 		} else if keys.DomainId == identityapi.DEFAULT_DOMAIN_ID && keys.ProjectId == auth.AdminCredential().GetProjectId() {
 			base = 1
 		}
 	case commonOptions.DefaultQuotaDefault:
 		base = 1
-		if keys.Scope() == rbacutils.ScopeDomain {
+		if keys.Scope() == rbacscope.ScopeDomain {
 			base = 10
 		}
 	}

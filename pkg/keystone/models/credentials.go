@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -30,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -230,13 +230,13 @@ func (self *SCredential) GetAccessKeySecret() (*api.SAccessKeySecretBlob, error)
 	return nil, errors.Error("no an AK/SK credential")
 }
 
-func (manager *SCredentialManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeUser
+func (manager *SCredentialManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeUser
 }
 
-func (manager *SCredentialManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCredentialManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
-		if scope == rbacutils.ScopeUser {
+		if scope == rbacscope.ScopeUser {
 			if len(owner.GetUserId()) > 0 {
 				q = q.Equals("user_id", owner.GetUserId())
 			}

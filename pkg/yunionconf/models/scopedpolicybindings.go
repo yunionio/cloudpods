@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/yunionconf"
@@ -28,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -142,8 +142,8 @@ func (manager *SScopedPolicyBindingManager) unbind(ctx context.Context, category
 	return nil
 }
 
-func (manager *SScopedPolicyBindingManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (manager *SScopedPolicyBindingManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
 func (manager *SScopedPolicyBindingManager) getReferenceCount(policyId string) (int, error) {
@@ -199,39 +199,39 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 		query.DomainId = domainObj.Id
 	} else {
 		if len(query.Scope) == 0 {
-			query.Scope = rbacutils.ScopeProject
+			query.Scope = rbacscope.ScopeProject
 		}
 		switch query.Scope {
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			query.ProjectId = userCred.GetProjectId()
 			query.DomainId = userCred.GetProjectDomainId()
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			query.DomainId = userCred.GetProjectDomainId()
 		}
 	}
 
-	var requireScope rbacutils.TRbacScope
+	var requireScope rbacscope.TRbacScope
 	if len(query.ProjectId) > 0 {
 		if query.ProjectId == userCred.GetProjectId() {
 			// require project privileges
-			requireScope = rbacutils.ScopeProject
+			requireScope = rbacscope.ScopeProject
 		} else if query.DomainId == userCred.GetProjectDomainId() {
 			// require domain privileges
-			requireScope = rbacutils.ScopeDomain
+			requireScope = rbacscope.ScopeDomain
 		} else {
 			// require system privileges
-			requireScope = rbacutils.ScopeSystem
+			requireScope = rbacscope.ScopeSystem
 		}
 	} else if len(query.DomainId) > 0 {
 		if query.DomainId == userCred.GetProjectDomainId() {
 			// require domain privileges
-			requireScope = rbacutils.ScopeDomain
+			requireScope = rbacscope.ScopeDomain
 		} else {
 			// require system privileges
-			requireScope = rbacutils.ScopeSystem
+			requireScope = rbacscope.ScopeSystem
 		}
 	} else {
-		requireScope = rbacutils.ScopeSystem
+		requireScope = rbacscope.ScopeSystem
 	}
 
 	allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, manager.KeywordPlural(), policy.PolicyActionList)

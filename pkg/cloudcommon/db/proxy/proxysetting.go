@@ -27,13 +27,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SProxySettingManager struct {
@@ -198,10 +198,10 @@ func (man *SProxySettingManager) InitializeData() error {
 	psObj, err := man.FetchById(proxyapi.ProxySettingId_DIRECT)
 	if err == nil {
 		ps := psObj.(*SProxySetting)
-		if !ps.IsPublic || ps.PublicScope != string(rbacutils.ScopeSystem) {
+		if !ps.IsPublic || ps.PublicScope != string(rbacscope.ScopeSystem) {
 			_, err = db.Update(ps, func() error {
 				ps.IsPublic = true
-				ps.PublicScope = string(rbacutils.ScopeSystem)
+				ps.PublicScope = string(rbacscope.ScopeSystem)
 				return nil
 			})
 			if err != nil {
@@ -223,7 +223,7 @@ func (man *SProxySettingManager) InitializeData() error {
 	ps.Name = proxyapi.ProxySettingId_DIRECT
 	ps.Description = "Connect directly"
 	ps.IsPublic = true
-	ps.PublicScope = string(rbacutils.ScopeSystem)
+	ps.PublicScope = string(rbacscope.ScopeSystem)
 	if err := man.TableSpec().Insert(context.Background(), ps); err != nil {
 		return err
 	}

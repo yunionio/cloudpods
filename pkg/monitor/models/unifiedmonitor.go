@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,7 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -374,8 +374,8 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 		query.Model.Selects[i] = sel
 	}
 	var projectId, domainId string
-	switch rbacutils.TRbacScope(scope) {
-	case rbacutils.ScopeProject:
+	switch rbacscope.TRbacScope(scope) {
+	case rbacscope.ScopeProject:
 		projectId = ownerId.GetProjectId()
 		containId := false
 		for _, tagFilter := range query.Model.Tags {
@@ -392,7 +392,7 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 				Condition: "and",
 			})
 		}
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		domainId = ownerId.GetProjectDomainId()
 		containId := false
 		for _, tagFilter := range query.Model.Tags {

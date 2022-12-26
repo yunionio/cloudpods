@@ -15,6 +15,8 @@
 package modules
 
 import (
+	"yunion.io/x/pkg/util/printutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
@@ -23,6 +25,6 @@ func GetVersion(s *mcclient.ClientSession, serviceType string) (string, error) {
 	return modulebase.GetVersion(s, serviceType)
 }
 
-func ListWorkers(s *mcclient.ClientSession, serviceType string) (*modulebase.ListResult, error) {
+func ListWorkers(s *mcclient.ClientSession, serviceType string) (*printutils.ListResult, error) {
 	return modulebase.ListWorkers(s, serviceType)
 }

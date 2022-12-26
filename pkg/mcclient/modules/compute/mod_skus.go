@@ -21,11 +21,12 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SkusManager struct {
@@ -78,14 +79,14 @@ func init() {
 	modules.RegisterCompute(&ElasticcacheSkus)
 }
 
-func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId, zoneId string, limit, offset int) (*modulebase.ListResult, error) {
+func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId, zoneId string, limit, offset int) (*printutils.ListResult, error) {
 	p := strings.ToLower(providerId)
 	r := strings.ToLower(regionId)
 	z := strings.ToLower(zoneId)
 	url := fmt.Sprintf("/providers/%s/regions/%s/zones/%s/skus?limit=%d&offset=%d", p, r, z, limit, offset)
 	ret, err := modulebase.List(self.ResourceManager, s, url, self.KeywordPlural)
 	if err != nil {
-		return &modulebase.ListResult{}, err
+		return &printutils.ListResult{}, err
 	}
 
 	return ret, nil

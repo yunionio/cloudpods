@@ -23,11 +23,11 @@ import (
 	"github.com/jdcloud-api/jdcloud-sdk-go/services/vpc/models"
 
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SNetwork struct {
@@ -100,8 +100,8 @@ func (n *SNetwork) GetIsPublic() bool {
 	return true
 }
 
-func (n *SNetwork) GetPublicScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (n *SNetwork) GetPublicScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
 func (n *SNetwork) Delete() error {

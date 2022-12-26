@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -32,7 +33,7 @@ type SSshkeypairManager struct {
 	modulebase.ResourceManager
 }
 
-func (this *SSshkeypairManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*modulebase.ListResult, error) {
+func (this *SSshkeypairManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*printutils.ListResult, error) {
 	url := "/sshkeypairs"
 	if params != nil {
 		if queryStr := params.QueryString(); queryStr != "" {
@@ -43,7 +44,7 @@ func (this *SSshkeypairManager) List(s *mcclient.ClientSession, params jsonutils
 	if err != nil {
 		return nil, err
 	}
-	result := modulebase.ListResult{Data: []jsonutils.JSONObject{body}}
+	result := printutils.ListResult{Data: []jsonutils.JSONObject{body}}
 	return &result, nil
 }
 

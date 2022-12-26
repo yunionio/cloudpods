@@ -30,11 +30,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/s3cli"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SBucket struct {
@@ -225,7 +225,7 @@ func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, siz
 	input := &s3.PutObjectInput{}
 	input.SetBucket(b.Name)
 	input.SetKey(key)
-	seeker, err := fileutils2.NewReadSeeker(body, sizeBytes)
+	seeker, err := fileutils.NewReadSeeker(body, sizeBytes)
 	if err != nil {
 		return errors.Wrap(err, "newFakeSeeker")
 	}
@@ -330,7 +330,7 @@ func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, p
 	input.SetKey(key)
 	input.SetUploadId(uploadId)
 	input.SetPartNumber(int64(partIndex))
-	seeker, err := fileutils2.NewReadSeeker(part, partSize)
+	seeker, err := fileutils.NewReadSeeker(part, partSize)
 	if err != nil {
 		return "", errors.Wrap(err, "newFakeSeeker")
 	}

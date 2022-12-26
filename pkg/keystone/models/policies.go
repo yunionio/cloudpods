@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -85,7 +86,7 @@ type SPolicy struct {
 	Blob jsonutils.JSONObject `nullable:"false" list:"user" create:"domain_required" update:"domain"`
 
 	// 权限范围
-	Scope rbacutils.TRbacScope `nullable:"true" list:"user" create:"domain_required" update:"domain"`
+	Scope rbacscope.TRbacScope `nullable:"true" list:"user" create:"domain_required" update:"domain"`
 
 	// 是否为系统权限
 	IsSystem tristate.TriState `default:"false" list:"domain" update:"admin" create:"admin_optional"`
@@ -240,7 +241,7 @@ func (manager *SPolicyManager) FetchEnabledPolicies() ([]SPolicy, error) {
 	return policies, nil
 }
 
-func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policyScope rbacutils.TRbacScope, policy *rbacutils.SPolicy) error {
+func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policyScope rbacscope.TRbacScope, policy *rbacutils.SPolicy) error {
 	if options.Options.NoPolicyViolationCheck {
 		return nil
 	}
@@ -253,10 +254,10 @@ func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policySc
 	}
 	noViolate := false
 	assignPolicySet := rbacutils.TPolicySet{*policy}
-	for _, scope := range []rbacutils.TRbacScope{
-		rbacutils.ScopeSystem,
-		rbacutils.ScopeDomain,
-		rbacutils.ScopeProject,
+	for _, scope := range []rbacscope.TRbacScope{
+		rbacscope.ScopeSystem,
+		rbacscope.ScopeDomain,
+		rbacscope.ScopeProject,
 	} {
 		isViolate := false
 		policySet, ok := policyGroup[scope]
@@ -296,7 +297,7 @@ func (manager *SPolicyManager) ValidateCreateData(
 		return input, httperrors.NewInputParameterError("fail to decode policy data")
 	}
 
-	input.Scope = rbacutils.String2ScopeDefault(string(input.Scope), rbacutils.ScopeProject)
+	input.Scope = rbacscope.String2ScopeDefault(string(input.Scope), rbacscope.ScopeProject)
 
 	err = validatePolicyVioldatePrivilege(userCred, input.Scope, policy)
 	if err != nil {
@@ -327,7 +328,7 @@ func (manager *SPolicyManager) ValidateCreateData(
 
 	requireScope := input.Scope
 	if input.IsSystem != nil && *input.IsSystem {
-		requireScope = rbacutils.ScopeSystem
+		requireScope = rbacscope.ScopeSystem
 	}
 	allowScope, _ := policyman.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, manager.KeywordPlural(), policyman.PolicyActionCreate)
 	if requireScope.HigherThan(allowScope) {
@@ -338,14 +339,14 @@ func (manager *SPolicyManager) ValidateCreateData(
 }
 
 func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PolicyUpdateInput) (api.PolicyUpdateInput, error) {
-	var requireScope rbacutils.TRbacScope
+	var requireScope rbacscope.TRbacScope
 
 	if len(input.Scope) > 0 {
-		input.Scope = rbacutils.String2ScopeDefault(string(input.Scope), rbacutils.ScopeProject)
+		input.Scope = rbacscope.String2ScopeDefault(string(input.Scope), rbacscope.ScopeProject)
 		requireScope = input.Scope
 	}
 	if input.IsSystem != nil && *input.IsSystem {
-		requireScope = rbacutils.ScopeSystem
+		requireScope = rbacscope.ScopeSystem
 	}
 
 	if len(requireScope) > 0 {
@@ -518,10 +519,10 @@ func (manager *SPolicyManager) ListItemFilter(
 		query.Scope = string(allowScope)
 	}
 	switch query.Scope {
-	case string(rbacutils.ScopeProject):
-		q = q.Equals("scope", rbacutils.ScopeProject)
-	case string(rbacutils.ScopeDomain):
-		q = q.NotEquals("scope", rbacutils.ScopeSystem)
+	case string(rbacscope.ScopeProject):
+		q = q.Equals("scope", rbacscope.ScopeProject)
+	case string(rbacscope.ScopeDomain):
+		q = q.NotEquals("scope", rbacscope.ScopeSystem)
 	}
 	return q, nil
 }
@@ -584,7 +585,7 @@ func (policy *SPolicy) GetUsages() []db.IUsage {
 	}
 }
 
-func (manager *SPolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SPolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q = db.SharableManagerFilterByOwner(manager, q, owner, scope)
 	return q
 }

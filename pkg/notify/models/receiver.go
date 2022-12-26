@@ -26,6 +26,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
@@ -44,9 +46,7 @@ import (
 	notify_modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 	"yunion.io/x/onecloud/pkg/notify/options"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -547,8 +547,8 @@ func (rm *SReceiverManager) VerifiedContactFilter(contactType string, q *sqlchem
 	return q
 }
 
-func (rm *SReceiverManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeUser
+func (rm *SReceiverManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeUser
 }
 
 func (rm *SReceiverManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
@@ -574,20 +574,20 @@ func (rm *SReceiverManager) FetchOwnerId(ctx context.Context, data jsonutils.JSO
 	return db.FetchDomainInfo(ctx, data)
 }
 
-func (rm *SReceiverManager) filterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (rm *SReceiverManager) filterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner == nil {
 		return q
 	}
 	switch scope {
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		q = q.Equals("domain_id", owner.GetProjectDomainId())
-	case rbacutils.ScopeProject, rbacutils.ScopeUser:
+	case rbacscope.ScopeProject, rbacscope.ScopeUser:
 		q = q.Equals("id", owner.GetUserId())
 	}
 	return q
 }
 
-func (rm *SReceiverManager) filterByOwnerAndProjectDomain(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, scope rbacutils.TRbacScope) (*sqlchemy.SQuery, error) {
+func (rm *SReceiverManager) filterByOwnerAndProjectDomain(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, scope rbacscope.TRbacScope) (*sqlchemy.SQuery, error) {
 	if userCred == nil {
 		return q, nil
 	}
@@ -607,9 +607,9 @@ func (rm *SReceiverManager) filterByOwnerAndProjectDomain(ctx context.Context, u
 	}
 
 	switch scope {
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		ownerCondition = sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId())
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		ownerCondition = sqlchemy.Equals(q.Field("id"), userCred.GetUserId())
 	}
 
@@ -625,7 +625,7 @@ func (rm *SReceiverManager) filterByOwnerAndProjectDomain(ctx context.Context, u
 	return q, nil
 }
 
-func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return q
 }
 
@@ -851,7 +851,7 @@ func (r *SReceiver) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	// 方案：检查请求者对于创建联系人 是否具有system scope
 	if input.ForceVerified {
 		allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
-		if allowScope == rbacutils.ScopeSystem {
+		if allowScope == rbacscope.ScopeSystem {
 			if r.EnabledEmail.Bool() {
 				r.VerifiedEmail = tristate.True
 			}
@@ -922,7 +922,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	// 管理后台修改联系人，如果修改或者启用手机号和邮箱，无需进行校验
 	if input.ForceVerified {
 		allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
-		if allowScope == rbacutils.ScopeSystem {
+		if allowScope == rbacscope.ScopeSystem {
 			// 修改并启用
 			if len(input.Email) != 0 && input.Email != r.Email && r.EnabledEmail.Bool() {
 				r.VerifiedEmail = tristate.True

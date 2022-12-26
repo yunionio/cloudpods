@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -728,7 +729,7 @@ func (s *SLocalStorage) CloneDiskFromStorage(
 	// empty target disk with same size and format
 	accessPath := s.GetCloneTargetDiskPath(ctx, targetDiskId)
 	if fullCopy {
-		_, err = srcImg.Clone(s.GetCloneTargetDiskPath(ctx, targetDiskId), qemuimg.QCOW2, false)
+		_, err = srcImg.Clone(s.GetCloneTargetDiskPath(ctx, targetDiskId), qemuimgfmt.QCOW2, false)
 	} else {
 		newImg, err := qemuimg.NewQemuImage(accessPath)
 		if err != nil {
@@ -742,6 +743,6 @@ func (s *SLocalStorage) CloneDiskFromStorage(
 	}
 	return &hostapi.ServerCloneDiskFromStorageResponse{
 		TargetAccessPath: accessPath,
-		TargetFormat:     qemuimg.QCOW2.String(),
+		TargetFormat:     qemuimgfmt.QCOW2.String(),
 	}, nil
 }

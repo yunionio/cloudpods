@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/samlutils"
 	"yunion.io/x/pkg/util/stringutils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
@@ -28,7 +29,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/cloudmux/pkg/multicloud/hcso/client/modules"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei"
-	"yunion.io/x/onecloud/pkg/util/samlutils"
 )
 
 type SAMLProviderLinks struct {

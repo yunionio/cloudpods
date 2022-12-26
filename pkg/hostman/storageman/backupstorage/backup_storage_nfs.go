@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -419,7 +420,7 @@ func (s *SNFSBackupStorage) InstanceUnpack(ctx context.Context, packageName stri
 	return backupIds, metadata, nil
 }
 
-func (s *SNFSBackupStorage) ConvertFrom(srcPath string, format qemuimg.TImageFormat, backupId string) (int, error) {
+func (s *SNFSBackupStorage) ConvertFrom(srcPath string, format qemuimgfmt.TImageFormat, backupId string) (int, error) {
 	err := s.checkAndMount()
 	if err != nil {
 		return 0, errors.Wrap(err, "unable to checkAndMount")
@@ -435,7 +436,7 @@ func (s *SNFSBackupStorage) ConvertFrom(srcPath string, format qemuimg.TImageFor
 	}
 	destInfo := qemuimg.SImageInfo{
 		Path:     destPath,
-		Format:   qemuimg.QCOW2,
+		Format:   qemuimgfmt.QCOW2,
 		IoLevel:  qemuimg.IONiceNone,
 		Password: "",
 	}
@@ -450,7 +451,7 @@ func (s *SNFSBackupStorage) ConvertFrom(srcPath string, format qemuimg.TImageFor
 	return newImage.GetActualSizeMB(), nil
 }
 
-func (s *SNFSBackupStorage) ConvertTo(destPath string, format qemuimg.TImageFormat, backupId string) error {
+func (s *SNFSBackupStorage) ConvertTo(destPath string, format qemuimgfmt.TImageFormat, backupId string) error {
 	err := s.checkAndMount()
 	if err != nil {
 		return errors.Wrap(err, "unable to checkAndMount")
@@ -460,7 +461,7 @@ func (s *SNFSBackupStorage) ConvertTo(destPath string, format qemuimg.TImageForm
 	srcPath := path.Join(backupDir, backupId)
 	srcInfo := qemuimg.SImageInfo{
 		Path:     srcPath,
-		Format:   qemuimg.QCOW2,
+		Format:   qemuimgfmt.QCOW2,
 		IoLevel:  qemuimg.IONiceNone,
 		Password: "",
 	}

@@ -27,6 +27,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
@@ -38,8 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
-	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -558,7 +558,7 @@ func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mccli
 		self.ImageType = string(image.GetImageType())
 		self.PublicScope = string(image.GetPublicScope())
 		self.Status = image.GetStatus()
-		if image.GetPublicScope() == rbacutils.ScopeSystem {
+		if image.GetPublicScope() == rbacscope.ScopeSystem {
 			self.IsPublic = true
 		}
 		self.UEFI = tristate.NewFromBool(cloudprovider.IsUEFI(image))
@@ -587,7 +587,7 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 	cachedImage.Status = image.GetStatus()
 	cachedImage.PublicScope = string(image.GetPublicScope())
 	switch image.GetPublicScope() {
-	case rbacutils.ScopeNone:
+	case rbacscope.ScopeNone:
 	default:
 		cachedImage.IsPublic = true
 	}
@@ -908,7 +908,7 @@ func (manager *SCachedimageManager) InitializeData() error {
 	for i := range images {
 		_, err := db.Update(&images[i], func() error {
 			images[i].IsPublic = true
-			images[i].PublicScope = string(rbacutils.ScopeSystem)
+			images[i].PublicScope = string(rbacscope.ScopeSystem)
 			images[i].ProjectId = "system"
 			if len(images[i].ExternalId) > 0 {
 				images[i].Status = api.CACHED_IMAGE_STATUS_ACTIVE

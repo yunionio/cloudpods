@@ -33,7 +33,7 @@ const (
 
 	ErrServerStatus  = errors.Error("ServerStatusError")
 	ErrInvalidStatus = errors.ErrInvalidStatus
-	ErrInvalidFormat = errors.Error("InvalidFormatError")
+	ErrInvalidFormat = errors.ErrInvalidFormat
 
 	ErrInputParameter   = errors.Error("InputParameterError")
 	ErrWeakPassword     = errors.Error("WeakPasswordError")
@@ -83,7 +83,7 @@ const (
 	ErrTooManyAttempts = errors.Error("TooManyFailedAttempts")
 	ErrTooManyRequests = errors.Error("TooManyRequests")
 
-	ErrUnsupportedProtocol = errors.Error("UnsupportedProtocol")
+	ErrUnsupportedProtocol = errors.ErrUnsupportedProtocol
 
 	ErrPolicyDefinition = errors.Error("PolicyDefinitionError")
 

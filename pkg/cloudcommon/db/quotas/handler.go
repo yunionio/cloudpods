@@ -25,10 +25,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/reflectutils"
 
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,7 +37,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -101,7 +101,7 @@ func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Appl
 		fmt.Sprintf("%s/%s/domains/<domainid>/pending", prefix, manager.KeywordPlural()),
 		auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage_for_domain", nil)
 
-	if manager.scope == rbacutils.ScopeProject {
+	if manager.scope == rbacscope.ScopeProject {
 		app.AddHandler2("GET",
 			fmt.Sprintf("%s/%s/<tenantid>", prefix, manager.KeywordPlural()),
 			auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_project", nil)
@@ -177,7 +177,7 @@ func (manager *SQuotaBaseManager) getQuotaHandler(ctx context.Context, w http.Re
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
 	var ownerId mcclient.IIdentityProvider
-	var scope rbacutils.TRbacScope
+	var scope rbacscope.TRbacScope
 	var err error
 
 	projectId := params["<tenantid>"]
@@ -196,10 +196,10 @@ func (manager *SQuotaBaseManager) getQuotaHandler(ctx context.Context, w http.Re
 		}
 	} else {
 		scopeStr, _ := query.GetString("scope")
-		if scopeStr == "project" && manager.scope == rbacutils.ScopeProject {
-			scope = rbacutils.ScopeProject
+		if scopeStr == "project" && manager.scope == rbacscope.ScopeProject {
+			scope = rbacscope.ScopeProject
 		} else if scopeStr == "domain" {
-			scope = rbacutils.ScopeDomain
+			scope = rbacscope.ScopeDomain
 		} else {
 			scope = manager.scope
 		}
@@ -209,7 +209,7 @@ func (manager *SQuotaBaseManager) getQuotaHandler(ctx context.Context, w http.Re
 	keys := OwnerIdProjectQuotaKeys(scope, ownerId)
 	refresh := jsonutils.QueryBoolean(query, "refresh", false)
 	primary := jsonutils.QueryBoolean(query, "primary", false)
-	quotaList, err := manager.listQuotas(ctx, userCred, keys.DomainId, keys.ProjectId, scope == rbacutils.ScopeDomain, primary, refresh)
+	quotaList, err := manager.listQuotas(ctx, userCred, keys.DomainId, keys.ProjectId, scope == rbacscope.ScopeDomain, primary, refresh)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
@@ -217,7 +217,7 @@ func (manager *SQuotaBaseManager) getQuotaHandler(ctx context.Context, w http.Re
 	if len(quotaList) == 0 {
 		quota := manager.newQuota()
 		var baseKeys IQuotaKeys
-		if manager.scope == rbacutils.ScopeProject {
+		if manager.scope == rbacscope.ScopeProject {
 			baseKeys = OwnerIdProjectQuotaKeys(scope, ownerId)
 		} else {
 			baseKeys = OwnerIdDomainQuotaKeys(ownerId)
@@ -226,7 +226,7 @@ func (manager *SQuotaBaseManager) getQuotaHandler(ctx context.Context, w http.Re
 		quota.FetchSystemQuota()
 		manager.SetQuota(ctx, userCred, quota)
 
-		quotaList, err = manager.listQuotas(ctx, userCred, keys.DomainId, keys.ProjectId, scope == rbacutils.ScopeDomain, primary, refresh)
+		quotaList, err = manager.listQuotas(ctx, userCred, keys.DomainId, keys.ProjectId, scope == rbacscope.ScopeDomain, primary, refresh)
 		if err != nil {
 			httperrors.GeneralServerError(ctx, w, err)
 			return
@@ -242,45 +242,45 @@ func (manager *SQuotaBaseManager) fetchSetQuotaScope(
 	isBaseQuotaKeys bool,
 ) (
 	mcclient.IIdentityProvider,
-	rbacutils.TRbacScope,
-	rbacutils.TRbacScope,
+	rbacscope.TRbacScope,
+	rbacscope.TRbacScope,
 	error,
 ) {
-	var scope rbacutils.TRbacScope
+	var scope rbacscope.TRbacScope
 	ownerId, err := db.FetchProjectInfo(ctx, data)
 	if err != nil {
 		return nil, scope, scope, err
 	}
-	var requestScope rbacutils.TRbacScope
+	var requestScope rbacscope.TRbacScope
 	if ownerId != nil {
 		if len(ownerId.GetProjectId()) > 0 {
 			// project level
-			scope = rbacutils.ScopeProject
+			scope = rbacscope.ScopeProject
 			if ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
 				if isBaseQuotaKeys || ownerId.GetProjectId() != userCred.GetProjectId() {
-					requestScope = rbacutils.ScopeDomain
+					requestScope = rbacscope.ScopeDomain
 				} else {
-					requestScope = rbacutils.ScopeProject
+					requestScope = rbacscope.ScopeProject
 				}
 			} else {
-				requestScope = rbacutils.ScopeSystem
+				requestScope = rbacscope.ScopeSystem
 			}
 		} else {
 			// domain level if len(ownerId.GetProjectDomainId()) > 0 {
-			scope = rbacutils.ScopeDomain
+			scope = rbacscope.ScopeDomain
 			if isBaseQuotaKeys || ownerId.GetProjectDomainId() != userCred.GetProjectDomainId() {
-				requestScope = rbacutils.ScopeSystem
+				requestScope = rbacscope.ScopeSystem
 			} else {
-				requestScope = rbacutils.ScopeDomain
+				requestScope = rbacscope.ScopeDomain
 			}
 		}
 	} else {
 		ownerId = userCred
-		scope = rbacutils.ScopeProject
+		scope = rbacscope.ScopeProject
 		if isBaseQuotaKeys {
-			requestScope = rbacutils.ScopeDomain
+			requestScope = rbacscope.ScopeDomain
 		} else {
-			requestScope = rbacutils.ScopeProject
+			requestScope = rbacscope.ScopeProject
 		}
 	}
 
@@ -292,7 +292,7 @@ func (manager *SQuotaBaseManager) cleanPendingUsageHandler(ctx context.Context, 
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
 	var ownerId mcclient.IIdentityProvider
-	var scope rbacutils.TRbacScope
+	var scope rbacscope.TRbacScope
 	var err error
 
 	projectId := params["<tenantid>"]
@@ -312,16 +312,16 @@ func (manager *SQuotaBaseManager) cleanPendingUsageHandler(ctx context.Context, 
 	} else {
 		scopeStr, _ := query.GetString("scope")
 		if scopeStr == "project" {
-			scope = rbacutils.ScopeProject
+			scope = rbacscope.ScopeProject
 		} else if scopeStr == "domain" {
-			scope = rbacutils.ScopeDomain
+			scope = rbacscope.ScopeDomain
 		} else {
 			scope = manager.scope
 		}
 		ownerId = userCred
 	}
 	var keys IQuotaKeys
-	if manager.scope == rbacutils.ScopeProject {
+	if manager.scope == rbacscope.ScopeProject {
 		keys = OwnerIdProjectQuotaKeys(scope, ownerId)
 	} else {
 		keys = OwnerIdDomainQuotaKeys(ownerId)
@@ -358,7 +358,7 @@ func (manager *SQuotaBaseManager) setQuotaHandler(ctx context.Context, w http.Re
 
 	// check is there any nonempty key other than domain_id and project_id
 	isBaseQuota := false
-	if manager.scope == rbacutils.ScopeDomain {
+	if manager.scope == rbacscope.ScopeDomain {
 		isBaseQuota = IsBaseDomainQuotaKeys(quota.GetKeys())
 	} else {
 		isBaseQuota = IsBaseProjectQuotaKeys(quota.GetKeys())
@@ -371,7 +371,7 @@ func (manager *SQuotaBaseManager) setQuotaHandler(ctx context.Context, w http.Re
 
 	// fill project_id and domain_id
 	var baseKeys IQuotaKeys
-	if manager.scope == rbacutils.ScopeDomain {
+	if manager.scope == rbacscope.ScopeDomain {
 		baseKeys = OwnerIdDomainQuotaKeys(ownerId)
 	} else {
 		baseKeys = OwnerIdProjectQuotaKeys(scope, ownerId)
@@ -455,7 +455,7 @@ func (manager *SQuotaBaseManager) setQuotaHandler(ctx context.Context, w http.Re
 		}
 	}
 
-	quotaList, err := manager.listQuotas(ctx, userCred, baseKeys.OwnerId().GetProjectDomainId(), baseKeys.OwnerId().GetProjectId(), scope == rbacutils.ScopeDomain, false, true)
+	quotaList, err := manager.listQuotas(ctx, userCred, baseKeys.OwnerId().GetProjectDomainId(), baseKeys.OwnerId().GetProjectId(), scope == rbacscope.ScopeDomain, false, true)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
@@ -468,7 +468,7 @@ func (manager *SQuotaBaseManager) listDomainQuotaHandler(ctx context.Context, w 
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
 	allowScope, policyResult := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
-	if policyResult.Result.IsAllow() && allowScope != rbacutils.ScopeSystem {
+	if policyResult.Result.IsAllow() && allowScope != rbacscope.ScopeSystem {
 		httperrors.ForbiddenError(ctx, w, "not allow to list domain quotas")
 		return
 	}
@@ -502,7 +502,7 @@ func (manager *SQuotaBaseManager) listProjectQuotaHandler(ctx context.Context, w
 	}
 
 	allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
-	if (allowScope == rbacutils.ScopeDomain && userCred.GetProjectDomainId() == owner.GetProjectDomainId()) || allowScope == rbacutils.ScopeSystem {
+	if (allowScope == rbacscope.ScopeDomain && userCred.GetProjectDomainId() == owner.GetProjectDomainId()) || allowScope == rbacscope.ScopeSystem {
 	} else {
 		httperrors.ForbiddenError(ctx, w, "not allow to list project quotas")
 		return
@@ -524,7 +524,7 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, userCred mccli
 	if len(targetDomainId) > 0 {
 		q = q.Equals("domain_id", targetDomainId)
 		if domainOnly {
-			if manager.scope == rbacutils.ScopeProject {
+			if manager.scope == rbacscope.ScopeProject {
 				q = q.IsEmpty("tenant_id")
 			}
 		} else {
@@ -540,7 +540,7 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, userCred mccli
 	} else {
 		// domain only
 		q = q.IsNotEmpty("domain_id")
-		if manager.scope == rbacutils.ScopeProject {
+		if manager.scope == rbacscope.ScopeProject {
 			q = q.IsNullOrEmpty("tenant_id")
 		}
 	}

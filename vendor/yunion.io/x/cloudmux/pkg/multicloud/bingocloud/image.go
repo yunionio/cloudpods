@@ -19,12 +19,12 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/imagetools"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/imagetools"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SImage struct {
@@ -161,11 +161,11 @@ func (self *SImage) UEFI() bool {
 	return self.Bootloader == "uefi"
 }
 
-func (self *SImage) GetPublicScope() rbacutils.TRbacScope {
+func (self *SImage) GetPublicScope() rbacscope.TRbacScope {
 	if self.Shared == "true" {
-		return rbacutils.ScopeSystem
+		return rbacscope.ScopeSystem
 	}
-	return rbacutils.ScopeDomain
+	return rbacscope.ScopeDomain
 }
 
 func (self *SImage) GetSubImages() []cloudprovider.SSubImage {

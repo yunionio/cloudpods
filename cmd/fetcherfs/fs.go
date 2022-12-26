@@ -32,9 +32,9 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/util/bitmap"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 // FetcherFs implements the feteher file system.

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -39,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -251,8 +251,8 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 			self.ManagerId, _ = providerMaps[accountId]
 		}
 		share := account.GetSharedInfo()
-		if self.DomainId != account.DomainId && !(share.PublicScope == rbacutils.ScopeSystem ||
-			(share.PublicScope == rbacutils.ScopeDomain && utils.IsInStringArray(self.DomainId, share.SharedDomains))) {
+		if self.DomainId != account.DomainId && !(share.PublicScope == rbacscope.ScopeSystem ||
+			(share.PublicScope == rbacscope.ScopeDomain && utils.IsInStringArray(self.DomainId, share.SharedDomains))) {
 			self.ProjectId = account.ProjectId
 			self.DomainId = account.DomainId
 			if account.AutoCreateProject {
@@ -290,8 +290,8 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 					return errors.Wrapf(err, "FetchTenantByName(%s)", self.Name)
 				}
 				if proj.DomainId == account.DomainId ||
-					share.PublicScope == rbacutils.ScopeSystem ||
-					(share.PublicScope == rbacutils.ScopeDomain && utils.IsInStringArray(proj.DomainId, share.SharedDomains)) {
+					share.PublicScope == rbacscope.ScopeSystem ||
+					(share.PublicScope == rbacscope.ScopeDomain && utils.IsInStringArray(proj.DomainId, share.SharedDomains)) {
 					self.ProjectId = proj.Id
 					self.DomainId = proj.DomainId
 					return nil
@@ -343,13 +343,13 @@ func (self *SCloudaccount) getOrCreateDomain(ctx context.Context, userCred mccli
 	}
 
 	share := self.GetSharedInfo()
-	if share.PublicScope == rbacutils.ScopeSystem {
+	if share.PublicScope == rbacscope.ScopeSystem {
 		return domainId, nil
 	}
 	input := api.CloudaccountPerformPublicInput{}
-	input.ShareMode = string(rbacutils.ScopeSystem)
+	input.ShareMode = string(rbacscope.ScopeSystem)
 	input.PerformPublicDomainInput = apis.PerformPublicDomainInput{
-		Scope:           string(rbacutils.ScopeDomain),
+		Scope:           string(rbacscope.ScopeDomain),
 		SharedDomains:   append(share.SharedDomains, domainId),
 		SharedDomainIds: append(share.SharedDomains, domainId),
 	}
@@ -473,8 +473,8 @@ func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred
 	}
 	share := account.GetSharedInfo()
 
-	if self.DomainId != tenant.DomainId && !(tenant.DomainId == account.DomainId || share.PublicScope == rbacutils.ScopeSystem ||
-		(share.PublicScope == rbacutils.ScopeDomain && utils.IsInStringArray(tenant.DomainId, share.SharedDomains))) {
+	if self.DomainId != tenant.DomainId && !(tenant.DomainId == account.DomainId || share.PublicScope == rbacscope.ScopeSystem ||
+		(share.PublicScope == rbacscope.ScopeDomain && utils.IsInStringArray(tenant.DomainId, share.SharedDomains))) {
 		return nil, httperrors.NewForbiddenError("account %s not share for domain %s", account.Name, tenant.DomainId)
 	}
 

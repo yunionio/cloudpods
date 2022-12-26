@@ -36,7 +36,9 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
@@ -61,7 +63,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/k8s/tokens"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -2150,7 +2151,7 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 	host.Version = extHost.GetVersion()
 
 	host.IsPublic = false
-	host.PublicScope = string(rbacutils.ScopeNone)
+	host.PublicScope = string(rbacscope.ScopeNone)
 
 	var err = func() error {
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
@@ -2611,7 +2612,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
 	netInterfaces := self.GetNetInterfaces()
 	for _, netInterface := range netInterfaces {
-		network, err := netInterface.GetCandidateNetworkForIp(nil, rbacutils.ScopeNone, ipAddr)
+		network, err := netInterface.GetCandidateNetworkForIp(nil, rbacscope.ScopeNone, ipAddr)
 		if err == nil && network != nil {
 			return network, nil
 		}
@@ -2733,7 +2734,7 @@ func (manager *SHostManager) FetchHostByHostname(hostname string) *SHost {
 
 func (manager *SHostManager) totalCountQ(
 	userCred mcclient.IIdentityProvider,
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	rangeObjs []db.IStandaloneModel,
 	hostStatus, status string,
 	hostTypes []string,
@@ -2752,7 +2753,7 @@ func (manager *SHostManager) totalCountQ(
 		hosts.Field("cpu_cmtbound"),
 		hosts.Field("storage_size"),
 	)
-	if scope != rbacutils.ScopeSystem && userCred != nil {
+	if scope != rbacscope.ScopeSystem && userCred != nil {
 		q = q.Filter(sqlchemy.Equals(hosts.Field("domain_id"), userCred.GetProjectDomainId()))
 	}
 	if len(status) > 0 {
@@ -2905,7 +2906,7 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 
 func (manager *SHostManager) TotalCount(
 	userCred mcclient.IIdentityProvider,
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	rangeObjs []db.IStandaloneModel,
 	hostStatus, status string,
 	hostTypes []string,
@@ -6092,7 +6093,7 @@ func GetHostQuotaKeysFromCreateInput(owner mcclient.IIdentityProvider, input api
 	if len(input.ZoneId) > 0 {
 		zone = ZoneManager.FetchZoneById(input.ZoneId)
 	}
-	zoneKeys := fetchZonalQuotaKeys(rbacutils.ScopeDomain, ownerId, zone, nil)
+	zoneKeys := fetchZonalQuotaKeys(rbacscope.ScopeDomain, ownerId, zone, nil)
 	keys := quotas.SDomainRegionalCloudResourceKeys{}
 	keys.SBaseDomainQuotaKeys = zoneKeys.SBaseDomainQuotaKeys
 	keys.SRegionalBaseKeys = zoneKeys.SRegionalBaseKeys
@@ -6103,7 +6104,7 @@ func (model *SHost) GetQuotaKeys() quotas.SDomainRegionalCloudResourceKeys {
 	zone, _ := model.GetZone()
 	manager := model.GetCloudprovider()
 	ownerId := model.GetOwnerId()
-	zoneKeys := fetchZonalQuotaKeys(rbacutils.ScopeDomain, ownerId, zone, manager)
+	zoneKeys := fetchZonalQuotaKeys(rbacscope.ScopeDomain, ownerId, zone, manager)
 	keys := quotas.SDomainRegionalCloudResourceKeys{}
 	keys.SBaseDomainQuotaKeys = zoneKeys.SBaseDomainQuotaKeys
 	keys.SRegionalBaseKeys = zoneKeys.SRegionalBaseKeys
@@ -6241,8 +6242,8 @@ func (host *SHost) IsAssignable(ctx context.Context, userCred mcclient.TokenCred
 		return nil
 	} else if db.IsDomainAllowPerform(ctx, userCred, host, "assign-host") &&
 		(userCred.GetProjectDomainId() == host.DomainId ||
-			host.PublicScope == string(rbacutils.ScopeSystem) ||
-			(host.PublicScope == string(rbacutils.ScopeDomain) && utils.IsInStringArray(userCred.GetProjectDomainId(), host.GetSharedDomains()))) {
+			host.PublicScope == string(rbacscope.ScopeSystem) ||
+			(host.PublicScope == string(rbacscope.ScopeDomain) && utils.IsInStringArray(userCred.GetProjectDomainId(), host.GetSharedDomains()))) {
 		return nil
 	} else {
 		return httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")

@@ -19,11 +19,11 @@ import (
 	"net/url"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SBucketAllocationPools struct {
@@ -120,8 +120,8 @@ func (self *SExternalNetwork) GetIsPublic() bool {
 	return true
 }
 
-func (self *SExternalNetwork) GetPublicScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (self *SExternalNetwork) GetPublicScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
 func (self *SExternalNetwork) Delete() error {

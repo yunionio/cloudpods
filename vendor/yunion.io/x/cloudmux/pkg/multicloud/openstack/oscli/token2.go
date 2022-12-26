@@ -21,9 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-
-	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/pkg/util/rbacscope"
 )
 
 type KeystoneEndpointV2 struct {
@@ -121,11 +119,11 @@ func (token *TokenCredentialV2) GetTokenString() string {
 }
 
 func (token *TokenCredentialV2) GetDomainId() string {
-	return api.DEFAULT_DOMAIN_ID
+	return DEFAULT_DOMAIN_ID
 }
 
 func (token *TokenCredentialV2) GetDomainName() string {
-	return api.DEFAULT_DOMAIN_NAME
+	return DEFAULT_DOMAIN_NAME
 }
 
 func (token *TokenCredentialV2) GetTenantId() string {
@@ -145,11 +143,11 @@ func (token *TokenCredentialV2) GetProjectName() string {
 }
 
 func (token *TokenCredentialV2) GetProjectDomainId() string {
-	return api.DEFAULT_DOMAIN_ID
+	return DEFAULT_DOMAIN_ID
 }
 
 func (token *TokenCredentialV2) GetProjectDomain() string {
-	return api.DEFAULT_DOMAIN_NAME
+	return DEFAULT_DOMAIN_NAME
 }
 
 func (token *TokenCredentialV2) GetUserName() string {
@@ -205,16 +203,8 @@ func (this *TokenCredentialV2) HasSystemAdminPrivilege() bool {
 	return this.IsAdmin() && this.GetTenantName() == "system"
 }
 
-func (this *TokenCredentialV2) IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
-	if this.isAllow(scope, service, resource, action, extra...) {
-		return rbacutils.PolicyAllow
-	} else {
-		return rbacutils.PolicyDeny
-	}
-}
-
-func (this *TokenCredentialV2) isAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
-	if scope == rbacutils.ScopeSystem || scope == rbacutils.ScopeDomain {
+func (this *TokenCredentialV2) isAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) bool {
+	if scope == rbacscope.ScopeSystem || scope == rbacscope.ScopeDomain {
 		return this.HasSystemAdminPrivilege()
 	} else {
 		return true

@@ -18,10 +18,10 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func FetchQueryDomain(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (string, error) {
@@ -34,8 +34,8 @@ func FetchQueryDomain(ctx context.Context, userCred mcclient.TokenCredential, qu
 		domainId = domainInfo.GetProjectDomainId()
 	}
 	scopeStr, _ := query.GetString("scope")
-	queryScope := rbacutils.String2ScopeDefault(scopeStr, rbacutils.ScopeDomain)
-	if queryScope != rbacutils.ScopeSystem && len(domainId) == 0 {
+	queryScope := rbacscope.String2ScopeDefault(scopeStr, rbacscope.ScopeDomain)
+	if queryScope != rbacscope.ScopeSystem && len(domainId) == 0 {
 		domainId = userCred.GetProjectDomainId()
 	}
 	return domainId, nil

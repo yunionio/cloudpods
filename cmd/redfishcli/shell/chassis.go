@@ -18,9 +18,10 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/onecloud/pkg/util/printutils"
+	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/shellutils"
+
 	"yunion.io/x/onecloud/pkg/util/redfish"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {

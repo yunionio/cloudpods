@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -36,7 +37,6 @@ import (
 	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -465,7 +465,7 @@ func (manager *SUserManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field s
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q = manager.SEnabledIdentityBaseResourceManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)
 	isSystem := jsonutils.QueryBoolean(query, "system", false)
 	if isSystem {
@@ -960,8 +960,8 @@ func tokenV3LoginSession(token *mcclient.TokenCredentialV3) sLoginSession {
 	return s
 }
 
-func (manager *SUserManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SUserManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
 func (user *SUser) getIdmappings() ([]SIdmapping, error) {
@@ -1133,9 +1133,9 @@ func (manager *SUserManager) LockUser(uid string, reason string) error {
 	return nil
 }
 
-func (manager *SUserManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SUserManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	log.Debugf("owner: %s scope %s", jsonutils.Marshal(owner), scope)
-	if owner != nil && scope == rbacutils.ScopeProject {
+	if owner != nil && scope == rbacscope.ScopeProject {
 		// if user has project level privilege, returns all users in user's project
 		subq := AssignmentManager.fetchProjectUserIdsQuery(owner.GetProjectId())
 		q = q.In("id", subq.SubQuery())

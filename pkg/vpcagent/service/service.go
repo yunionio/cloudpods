@@ -22,8 +22,8 @@ import (
 	"syscall"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 
-	"yunion.io/x/onecloud/pkg/appctx"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"

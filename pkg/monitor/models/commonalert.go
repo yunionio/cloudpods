@@ -25,7 +25,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -33,7 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	notiapi "yunion.io/x/onecloud/pkg/apis/notify"
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -46,7 +47,6 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -118,8 +118,8 @@ func (man *SCommonAlertManager) DeleteSubscriptionAlert(alert *SCommonAlert) {
 	man.subscriptionManager.DeleteAlert(alert)
 }
 
-func (man *SCommonAlertManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+func (man *SCommonAlertManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeSystem
 }
 
 func (manager *SCommonAlertManager) Init() error {
@@ -1215,13 +1215,13 @@ func (alert *SCommonAlert) PerformSetScope(ctx context.Context, userCred mcclien
 	if len(domainId) == 0 && len(projectId) == 0 {
 		scope, _ := data.GetString("scope")
 		if len(scope) != 0 {
-			switch rbacutils.TRbacScope(scope) {
-			case rbacutils.ScopeSystem:
+			switch rbacscope.TRbacScope(scope) {
+			case rbacscope.ScopeSystem:
 
-			case rbacutils.ScopeDomain:
+			case rbacscope.ScopeDomain:
 				domainId = userCred.GetProjectDomainId()
 				data.(*jsonutils.JSONDict).Set("domain_id", jsonutils.NewString(domainId))
-			case rbacutils.ScopeProject:
+			case rbacscope.ScopeProject:
 				projectId = userCred.GetProjectId()
 				data.(*jsonutils.JSONDict).Set("project_id", jsonutils.NewString(projectId))
 			}

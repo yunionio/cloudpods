@@ -21,10 +21,10 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/multicloud/objectstore"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -142,7 +142,7 @@ func init() {
 			return err
 		}
 
-		listResult := modulebase.ListResult{}
+		listResult := printutils.ListResult{}
 		err = result.Unmarshal(&listResult)
 		if err != nil {
 			return err

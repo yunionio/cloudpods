@@ -18,11 +18,12 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type RolesManager struct {
@@ -62,11 +63,11 @@ func (this *RolesManager) DeleteInContexts(session *mcclient.ClientSession, id s
 	return this.ResourceManager.DeleteInContexts(session, id, body, ctxs)
 }
 
-func (this *RolesManager) BatchDelete(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject) []modulebase.SubmitResult {
+func (this *RolesManager) BatchDelete(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject) []printutils.SubmitResult {
 	return this.BatchDeleteInContexts(session, idlist, body, nil)
 }
 
-func (this *RolesManager) BatchDeleteInContexts(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject, ctxs []modulebase.ManagerContext) []modulebase.SubmitResult {
+func (this *RolesManager) BatchDeleteInContexts(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject, ctxs []modulebase.ManagerContext) []printutils.SubmitResult {
 	return modulebase.BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
 		return this.DeleteInContexts(session, id, body, ctxs)
 	})

@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/pinyinutils"
 	"yunion.io/x/pkg/util/secrules"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -33,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 )
 
 type SGoogleRegionDriver struct {

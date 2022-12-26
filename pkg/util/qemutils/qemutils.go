@@ -22,9 +22,9 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/version"
 
 	"yunion.io/x/onecloud/pkg/util/procutils"
-	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 const (

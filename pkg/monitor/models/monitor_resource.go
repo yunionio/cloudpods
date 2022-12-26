@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -33,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -351,7 +351,7 @@ func (manager *SMonitorResourceManager) GetPropertyAlert(ctx context.Context, us
 		if owner == nil {
 			owner = userCred
 		}
-		manager.FilterByOwner(query, owner, rbacutils.TRbacScope(scope))
+		manager.FilterByOwner(query, owner, rbacscope.TRbacScope(scope))
 		query.AppendField(sqlchemy.COUNT("count_id", query.Field("id")))
 		input := monitor.MonitorResourceListInput{ResType: resType}
 		query = manager.FieldListFilter(query, input)

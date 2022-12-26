@@ -16,9 +16,9 @@ package yunionconf
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type ParameterListInput struct {
@@ -89,7 +89,7 @@ type ScopedPolicyBindingListInput struct {
 
 	Effective *bool `json:"effective"`
 
-	Scope rbacutils.TRbacScope `json:"scope"`
+	Scope rbacscope.TRbacScope `json:"scope"`
 
 	OrderByScopedpolicy string `json:"order_by_scopedpolicy"`
 }
@@ -114,7 +114,7 @@ type ScopedPolicyBindingDetails struct {
 
 type ScopedPolicyBindInput struct {
 	// 绑定范围
-	Scope rbacutils.TRbacScope `json:"scope"`
+	Scope rbacscope.TRbacScope `json:"scope"`
 	// 绑定的目标ID（域或者项目ID)
 	TargetIds []string `json:"target_ids"`
 }

@@ -19,13 +19,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -54,7 +54,7 @@ func (manager *SInfrasResourceBaseManager) GetIInfrasModelManager() IInfrasModel
 	return manager.GetVirtualObject().(IInfrasModelManager)
 }
 
-func (manager *SInfrasResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SInfrasResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return SharableManagerFilterByOwner(manager.GetIInfrasModelManager(), q, owner, scope)
 }
 
@@ -215,16 +215,16 @@ func (model *SInfrasResourceBase) Delete(ctx context.Context, userCred mcclient.
 func (model *SInfrasResourceBase) GetSharedInfo() apis.SShareInfo {
 	ret := apis.SShareInfo{}
 	ret.IsPublic = model.IsPublic
-	ret.PublicScope = rbacutils.String2ScopeDefault(model.PublicScope, rbacutils.ScopeNone)
+	ret.PublicScope = rbacscope.String2ScopeDefault(model.PublicScope, rbacscope.ScopeNone)
 	ret.SharedDomains = model.GetSharedDomains()
 	ret.SharedProjects = nil
 	// fix
 	if len(ret.SharedDomains) > 0 {
-		ret.PublicScope = rbacutils.ScopeDomain
+		ret.PublicScope = rbacscope.ScopeDomain
 		ret.SharedProjects = nil
 		ret.IsPublic = true
 	} else if !ret.IsPublic {
-		ret.PublicScope = rbacutils.ScopeNone
+		ret.PublicScope = rbacscope.ScopeNone
 	}
 	return ret
 }
@@ -248,7 +248,7 @@ func (model *SInfrasResourceBase) SyncShareState(ctx context.Context, userCred m
 		if model.PublicSrc != string(apis.OWNER_SOURCE_LOCAL) {
 			model.SaveSharedInfo(apis.OWNER_SOURCE_CLOUD, ctx, userCred, apis.SShareInfo{
 				IsPublic:    true,
-				PublicScope: rbacutils.ScopeSystem,
+				PublicScope: rbacscope.ScopeSystem,
 			})
 		}
 		return

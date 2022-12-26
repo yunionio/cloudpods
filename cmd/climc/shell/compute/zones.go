@@ -16,9 +16,9 @@ package compute
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -36,7 +36,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		var result *modulebase.ListResult
+		var result *printutils.ListResult
 		if len(args.Region) > 0 {
 			result, err = modules.Zones.ListInContext(s, params, &modules.Cloudregions, args.Region)
 		} else {

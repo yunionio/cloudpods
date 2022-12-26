@@ -21,8 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
-
-	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/pkg/util/httputils"
 )
 
 type STelegraf struct {

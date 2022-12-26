@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
@@ -207,7 +207,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		result := modulebase.ListResult{}
+		result := printutils.ListResult{}
 		result.Data = make([]jsonutils.JSONObject, len(secrets))
 		for i := range secrets {
 			result.Data[i] = jsonutils.Marshal(secrets[i])
@@ -294,7 +294,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		result := modulebase.ListResult{}
+		result := printutils.ListResult{}
 		result.Data = make([]jsonutils.JSONObject, len(secrets))
 		for i := range secrets {
 			result.Data[i] = jsonutils.Marshal(secrets[i])

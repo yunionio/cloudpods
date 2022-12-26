@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -31,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type CloudAccountSyncVMwareNetworkTask struct {
@@ -285,7 +285,7 @@ func (self *CloudAccountSyncVMwareNetworkTask) createNetwork(ctx context.Context
 	network.ServerType = networkType
 	network.IsPublic = true
 	network.Status = api.NETWORK_STATUS_AVAILABLE
-	network.PublicScope = string(rbacutils.ScopeDomain)
+	network.PublicScope = string(rbacscope.ScopeDomain)
 	network.ProjectId = cloudaccount.ProjectId
 	network.DomainId = cloudaccount.DomainId
 	network.Description = net.Description
@@ -333,7 +333,7 @@ func (self *CloudAccountSyncVMwareNetworkTask) ipPool(cloudaccount *models.SClou
 		}
 	} else {
 		for _, wire := range wires {
-			nets, err := wire.GetNetworks(cloudaccount.GetOwnerId(), rbacutils.ScopeDomain)
+			nets, err := wire.GetNetworks(cloudaccount.GetOwnerId(), rbacscope.ScopeDomain)
 			if err != nil {
 				return nil, errors.Wrapf(err, "unable to fetch networks of wire %s", wire.GetId())
 			}
@@ -372,7 +372,7 @@ func (self *CloudAccountSyncVMwareNetworkTask) zoneId() (string, error) {
 
 func (self *CloudAccountSyncVMwareNetworkTask) fetchWires(cloudaccount *models.SCloudaccount, zoneId string) (map[string]*models.SWire, error) {
 	q := models.WireManager.Query().Equals("zone_id", zoneId)
-	q = models.WireManager.FilterByOwner(q, cloudaccount.GetOwnerId(), rbacutils.ScopeDomain)
+	q = models.WireManager.FilterByOwner(q, cloudaccount.GetOwnerId(), rbacscope.ScopeDomain)
 	wires := make([]models.SWire, 0, 1)
 	err := db.FetchModelObjects(models.WireManager, q, &wires)
 	if err != nil {

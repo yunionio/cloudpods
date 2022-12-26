@@ -7,7 +7,7 @@ import (
 
 // Meta
 const (
-	Version   = "0.15.0"
+	Version   = "0.19.0"
 	Author    = "mozillazg, 闲耘"
 	License   = "MIT"
 	Copyright = "Copyright (c) 2016 mozillazg, 闲耘"
@@ -19,7 +19,7 @@ const (
 	Tone        = 1 // 声调风格1，拼音声调在韵母第一个字母上。如： zhōng guó
 	Tone2       = 2 // 声调风格2，即拼音声调在各个韵母之后，用数字 [1-4] 进行表示。如： zho1ng guo2
 	Tone3       = 8 // 声调风格3，即拼音声调在各个拼音之后，用数字 [1-4] 进行表示。如： zhong1 guo2
-	Initials    = 3 // 声母风格，只返回各个拼音的声母部分。如： zh g
+	Initials    = 3 // 声母风格，只返回各个拼音的声母部分。如： zh g 。注意：不是所有的拼音都有声母
 	FirstLetter = 4 // 首字母风格，只返回拼音的首字母部分。如： z g
 	Finals      = 5 // 韵母风格，只返回各个拼音的韵母部分，不带声调。如： ong uo
 	FinalsTone  = 6 // 韵母风格1，带声调，声调在韵母第一个字母上。如： ōng uó
@@ -181,7 +181,7 @@ func toFixed(p string, a Args) string {
 	switch a.Style {
 	// 首字母
 	case FirstLetter:
-		py = py[:1]
+		py = string([]rune(py)[0])
 	// 韵母
 	case Finals, FinalsTone, FinalsTone2, FinalsTone3:
 		// 转换为 []rune unicode 编码用于获取第一个拼音字符
@@ -219,7 +219,7 @@ func SinglePinyin(r rune, a Args) []string {
 	}
 	if len(pys) > 0 {
 		if !a.Heteronym {
-			pys = pys[:1]
+			pys = []string{pys[0]}
 		}
 		return applyStyle(pys, a)
 	}

@@ -22,14 +22,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/object"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/s3cli"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/cloudcommon/object"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type ObjectStoreClientConfig struct {

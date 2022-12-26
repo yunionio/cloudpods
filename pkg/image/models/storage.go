@@ -22,13 +22,13 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 
 	"yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/image/drivers/s3"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 var local Storage = &LocalStorage{}
@@ -126,7 +126,7 @@ func (s *LocalStorage) ConvertImage(ctx context.Context, image *SImage, targetFo
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to image.getQemuImage")
 	}
-	nimg, err := img.Clone(location, qemuimg.String2ImageFormat(targetFormat), true)
+	nimg, err := img.Clone(location, qemuimgfmt.String2ImageFormat(targetFormat), true)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to img.Clone")
 	}
@@ -201,7 +201,7 @@ func (s *S3Storage) ConvertImage(ctx context.Context, image *SImage, targetForma
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to image.getQemuImage")
 	}
-	nimg, err := img.Clone(location, qemuimg.String2ImageFormat(targetFormat), true)
+	nimg, err := img.Clone(location, qemuimgfmt.String2ImageFormat(targetFormat), true)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to img.Clone")
 	}

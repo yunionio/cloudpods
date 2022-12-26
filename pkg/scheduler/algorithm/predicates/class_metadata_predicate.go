@@ -20,12 +20,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type ClassMetadataPredicate struct {
@@ -102,7 +102,7 @@ func (p *ClassMetadataPredicate) PreExecute(ctx context.Context, u *core.Unit, c
 			// no check if image if system public image
 			public := jsonutils.QueryBoolean(obj.Info, "is_public", false)
 			publicScope, _ := obj.Info.GetString("public_scope")
-			if !public || publicScope != string(rbacutils.ScopeSystem) {
+			if !public || publicScope != string(rbacscope.ScopeSystem) {
 				stand = obj
 				guestSource.keyword = "image"
 			}

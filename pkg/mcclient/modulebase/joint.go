@@ -19,6 +19,7 @@ import (
 	"net/url"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -67,7 +68,7 @@ func (this *JointResourceManager) List(s *mcclient.ClientSession, params jsonuti
 }
 */
 
-func (this *JointResourceManager) ListDescendent(s *mcclient.ClientSession, mid string, params jsonutils.JSONObject) (*ListResult, error) {
+func (this *JointResourceManager) ListDescendent(s *mcclient.ClientSession, mid string, params jsonutils.JSONObject) (*printutils.ListResult, error) {
 	path := fmt.Sprintf("/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString())
 	if params != nil {
 		qs := params.QueryString()
@@ -82,11 +83,11 @@ func (this *JointResourceManager) ListDescendent(s *mcclient.ClientSession, mid 
 	return this.filterListResults(s, results, params)
 }
 
-func (this *JointResourceManager) ListDescendent2(s *mcclient.ClientSession, sid string, params jsonutils.JSONObject) (*ListResult, error) {
+func (this *JointResourceManager) ListDescendent2(s *mcclient.ClientSession, sid string, params jsonutils.JSONObject) (*printutils.ListResult, error) {
 	return this.ListAscendent(s, sid, params)
 }
 
-func (this *JointResourceManager) ListAscendent(s *mcclient.ClientSession, mid string, params jsonutils.JSONObject) (*ListResult, error) {
+func (this *JointResourceManager) ListAscendent(s *mcclient.ClientSession, mid string, params jsonutils.JSONObject) (*printutils.ListResult, error) {
 	path := fmt.Sprintf("/%s/%s/%s", this.Slave.KeyString(), url.PathEscape(mid), this.Master.KeyString())
 	if params != nil {
 		qs := params.QueryString()
@@ -121,13 +122,13 @@ func (this *JointResourceManager) Attach(s *mcclient.ClientSession, mid, sid str
 	return this.filterSingleResult(s, result, nil)
 }
 
-func (this *JointResourceManager) BatchAttach(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []SubmitResult {
+func (this *JointResourceManager) BatchAttach(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []printutils.SubmitResult {
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
 		return this.Attach(s, mid, sid, params)
 	})
 }
 
-func (this *JointResourceManager) BatchAttach2(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []SubmitResult {
+func (this *JointResourceManager) BatchAttach2(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []printutils.SubmitResult {
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
 		return this.Attach(s, sid, mid, params)
 	})
@@ -148,13 +149,13 @@ func (this *JointResourceManager) Detach(s *mcclient.ClientSession, mid, sid str
 	return this.filterSingleResult(s, result, nil)
 }
 
-func (this *JointResourceManager) BatchDetach(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult {
+func (this *JointResourceManager) BatchDetach(s *mcclient.ClientSession, mid string, sids []string) []printutils.SubmitResult {
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
 		return this.Detach(s, mid, sid, nil)
 	})
 }
 
-func (this *JointResourceManager) BatchDetach2(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult {
+func (this *JointResourceManager) BatchDetach2(s *mcclient.ClientSession, mid string, sids []string) []printutils.SubmitResult {
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
 		return this.Detach(s, sid, mid, nil)
 	})
@@ -190,13 +191,13 @@ func (this *JointResourceManager) Patch(s *mcclient.ClientSession, mid, sid stri
 	return this.filterSingleResult(s, result, nil)
 }
 
-func (this *JointResourceManager) BatchUpdate(s *mcclient.ClientSession, mid string, sids []string, query jsonutils.JSONObject, params jsonutils.JSONObject) []SubmitResult {
+func (this *JointResourceManager) BatchUpdate(s *mcclient.ClientSession, mid string, sids []string, query jsonutils.JSONObject, params jsonutils.JSONObject) []printutils.SubmitResult {
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
 		return this.Update(s, mid, sid, query, params)
 	})
 }
 
-func (this *JointResourceManager) BatchPatch(s *mcclient.ClientSession, mid string, sids []string, query jsonutils.JSONObject, params jsonutils.JSONObject) []SubmitResult {
+func (this *JointResourceManager) BatchPatch(s *mcclient.ClientSession, mid string, sids []string, query jsonutils.JSONObject, params jsonutils.JSONObject) []printutils.SubmitResult {
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
 		return this.Patch(s, mid, sid, query, params)
 	})

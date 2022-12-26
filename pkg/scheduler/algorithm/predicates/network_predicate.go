@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
@@ -29,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 // NetworkPredicate will filter the current network information with
@@ -225,11 +225,11 @@ func IsNetworkAvailable(
 		}
 	}
 
-	if n.IsPublic && n.PublicScope == string(rbacutils.ScopeSystem) {
+	if n.IsPublic && n.PublicScope == string(rbacscope.ScopeSystem) {
 		// system-wide share
-	} else if n.IsPublic && n.PublicScope == string(rbacutils.ScopeDomain) && (n.DomainId == data.Domain || utils.IsInStringArray(data.Domain, n.GetSharedDomains())) {
+	} else if n.IsPublic && n.PublicScope == string(rbacscope.ScopeDomain) && (n.DomainId == data.Domain || utils.IsInStringArray(data.Domain, n.GetSharedDomains())) {
 		// domain-wide share
-	} else if n.PublicScope == string(rbacutils.ScopeProject) && utils.IsInStringArray(data.Project, n.GetSharedProjects()) {
+	} else if n.PublicScope == string(rbacscope.ScopeProject) && utils.IsInStringArray(data.Project, n.GetSharedProjects()) {
 		// project-wide share
 	} else if n.ProjectId == data.Project {
 		// owner

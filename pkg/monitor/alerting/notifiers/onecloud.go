@@ -24,12 +24,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	notiapi "yunion.io/x/onecloud/pkg/apis/notify"
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -43,7 +44,6 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/alerting/notifiers/templates"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/options"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -192,9 +192,9 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 		scope := alert.GetResourceScope()
 		scopeId := ""
 		switch scope {
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			scopeId = alert.GetDomainId()
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			scopeId = alert.GetProjectId()
 		}
 		roleUserIds, err := getUsersByRoles(oc.Setting.RoleIds, string(scope), scopeId)

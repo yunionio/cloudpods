@@ -21,6 +21,7 @@ import (
 	"os"
 	"strings"
 
+	"yunion.io/x/pkg/util/shellutils"
 	"yunion.io/x/structarg"
 
 	_ "yunion.io/x/onecloud/cmd/redfishcli/shell"
@@ -28,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/redfish"
 	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	_ "yunion.io/x/onecloud/pkg/util/redfish/loader"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type BaseOptions struct {

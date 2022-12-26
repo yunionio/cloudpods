@@ -21,13 +21,13 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
@@ -72,7 +72,7 @@ func syncDomains(ctx context.Context) error {
 	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewInt(1024), "limit")
-	query.Add(jsonutils.NewString(string(rbacutils.ScopeSystem)), "scope")
+	query.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
 	query.Add(jsonutils.JSONTrue, "details")
 	total := -1
 	offset := 0
@@ -101,7 +101,7 @@ func syncProjects(ctx context.Context) error {
 	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewInt(1024), "limit")
-	query.Add(jsonutils.NewString(string(rbacutils.ScopeSystem)), "scope")
+	query.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
 	query.Add(jsonutils.JSONTrue, "details")
 	total := -1
 	offset := 0

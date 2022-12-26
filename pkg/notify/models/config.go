@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -36,7 +37,6 @@ import (
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 	"yunion.io/x/onecloud/pkg/notify/options"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -88,7 +88,7 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 	}
 	if input.Attribution == api.CONFIG_ATTRIBUTION_SYSTEM {
 		allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), ConfigManager.KeywordPlural(), policy.PolicyActionCreate)
-		if allowScope != rbacutils.ScopeSystem {
+		if allowScope != rbacscope.ScopeSystem {
 			return input, httperrors.NewInputParameterError("No permission to set %q attribution", api.CONFIG_ATTRIBUTION_SYSTEM)
 		}
 	}
@@ -507,13 +507,13 @@ func (self *SConfigManager) InitializeData() error {
 	return nil
 }
 
-func (cm *SConfigManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (cm *SConfigManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
-func (cm *SConfigManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (cm *SConfigManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	switch scope {
-	case rbacutils.ScopeDomain, rbacutils.ScopeProject:
+	case rbacscope.ScopeDomain, rbacscope.ScopeProject:
 		q = q.Equals("attribution", api.CONFIG_ATTRIBUTION_DOMAIN)
 		if owner != nil {
 			q = q.Equals("domain_id", owner.GetProjectDomainId())

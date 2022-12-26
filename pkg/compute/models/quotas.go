@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
@@ -50,7 +51,7 @@ func init() {
 
 	QuotaUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota,
-			rbacutils.ScopeProject,
+			rbacscope.ScopeProject,
 			"quota_usage_tbl",
 			"quota_usage",
 			"quota_usages",
@@ -58,7 +59,7 @@ func init() {
 	}
 	QuotaPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota,
-			rbacutils.ScopeProject,
+			rbacscope.ScopeProject,
 			"quota_pending_usage_tbl",
 			"quota_pending_usage",
 			"quota_pending_usages",
@@ -66,7 +67,7 @@ func init() {
 	}
 	QuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(Quota,
-			rbacutils.ScopeProject,
+			rbacscope.ScopeProject,
 			"quota_tbl",
 			QuotaPendingUsageManager,
 			QuotaUsageManager,
@@ -113,14 +114,14 @@ func (self *SQuota) FetchSystemQuota() {
 		base = -1
 	case commonOptions.DefaultQuotaZero:
 		base = 0
-		if keys.Scope() == rbacutils.ScopeDomain { // domain level quota
+		if keys.Scope() == rbacscope.ScopeDomain { // domain level quota
 			base = 10
 		} else if keys.DomainId == identityapi.DEFAULT_DOMAIN_ID && keys.ProjectId == auth.AdminCredential().GetProjectId() {
 			base = 1
 		}
 	case commonOptions.DefaultQuotaDefault:
 		base = 1
-		if keys.Scope() == rbacutils.ScopeDomain {
+		if keys.Scope() == rbacscope.ScopeDomain {
 			base = 10
 		}
 	}
@@ -449,7 +450,7 @@ func (k1 SComputeResourceKeys) Compare(ik quotas.IQuotaKeys) int {
 	return 0
 }
 
-func fetchCloudQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, manager *SCloudprovider) quotas.SCloudResourceKeys {
+func fetchCloudQuotaKeys(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, manager *SCloudprovider) quotas.SCloudResourceKeys {
 	keys := quotas.SCloudResourceKeys{}
 	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	if manager != nil {
@@ -469,7 +470,7 @@ func fetchCloudQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityP
 	return keys
 }
 
-func fetchRegionalQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, region *SCloudregion, manager *SCloudprovider) quotas.SRegionalCloudResourceKeys {
+func fetchRegionalQuotaKeys(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, region *SCloudregion, manager *SCloudprovider) quotas.SRegionalCloudResourceKeys {
 	keys := quotas.SRegionalCloudResourceKeys{}
 	keys.SCloudResourceKeys = fetchCloudQuotaKeys(scope, ownerId, manager)
 	if region != nil {
@@ -478,7 +479,7 @@ func fetchRegionalQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdenti
 	return keys
 }
 
-func fetchZonalQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, zone *SZone, manager *SCloudprovider) quotas.SZonalCloudResourceKeys {
+func fetchZonalQuotaKeys(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, zone *SZone, manager *SCloudprovider) quotas.SZonalCloudResourceKeys {
 	keys := quotas.SZonalCloudResourceKeys{}
 	keys.SCloudResourceKeys = fetchCloudQuotaKeys(scope, ownerId, manager)
 	if zone != nil {
@@ -488,7 +489,7 @@ func fetchZonalQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityP
 	return keys
 }
 
-func fetchComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, zone *SZone, manager *SCloudprovider, hypervisor string) SComputeResourceKeys {
+func fetchComputeQuotaKeys(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, zone *SZone, manager *SCloudprovider, hypervisor string) SComputeResourceKeys {
 	keys := SComputeResourceKeys{}
 	keys.SZonalCloudResourceKeys = fetchZonalQuotaKeys(scope, ownerId, zone, manager)
 	keys.Hypervisor = hypervisor
