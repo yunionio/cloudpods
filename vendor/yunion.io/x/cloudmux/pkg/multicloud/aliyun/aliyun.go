@@ -32,10 +32,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/httputils"
 	v "yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
-
-	"yunion.io/x/onecloud/pkg/util/httputils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -157,10 +156,10 @@ func NewAliyunClient(cfg *AliyunClientConfig) (*SAliyunClient, error) {
 }
 
 func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
-	return jsonRequest1(client, domain, apiVersion, apiName, params, nil, debug)
+	return doRequest(client, domain, apiVersion, apiName, params, nil, debug)
 }
 
-func jsonRequest1(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, body interface{}, debug bool) (jsonutils.JSONObject, error) {
+func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, body interface{}, debug bool) (jsonutils.JSONObject, error) {
 	if debug {
 		log.Debugf("request %s %s %s %s", domain, apiVersion, apiName, params)
 	}

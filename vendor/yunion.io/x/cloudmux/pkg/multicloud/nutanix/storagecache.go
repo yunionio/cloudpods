@@ -19,10 +19,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SStoragecache struct {
@@ -91,7 +91,7 @@ func (self *SStoragecache) DownloadImage(imageId string, extId string, path stri
 }
 
 func (self *SStoragecache) UploadImage(ctx context.Context, opts *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
-	reader, size, err := opts.GetReader(opts.ImageId, string(qemuimg.QCOW2))
+	reader, size, err := opts.GetReader(opts.ImageId, string(qemuimgfmt.QCOW2))
 	if err != nil {
 		return "", errors.Wrapf(err, "GetReader")
 	}

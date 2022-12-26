@@ -27,10 +27,10 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SStoragecache struct {
@@ -150,7 +150,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 
 	defer self.region.DeleteIBucket(bucketName)
 
-	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimg.VMDK))
+	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimgfmt.VMDK))
 	if err != nil {
 		return "", errors.Wrapf(err, "GetReader")
 	}
@@ -190,7 +190,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 		log.Debugf("uploadImage Match remote name %s", imageName)
 	}
 
-	task, err := self.region.ImportImage(imageName, image.OsArch, image.OsType, image.OsDistribution, string(qemuimg.VMDK), bucketName, image.ImageId)
+	task, err := self.region.ImportImage(imageName, image.OsArch, image.OsType, image.OsDistribution, string(qemuimgfmt.VMDK), bucketName, image.ImageId)
 
 	if err != nil {
 		log.Errorf("ImportImage error %s %s %s", image.ImageId, bucketName, err)

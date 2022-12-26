@@ -21,14 +21,14 @@ import (
 	"net/http"
 	"strings"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/s3auth"
 
-	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/util/s3auth"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
 type SCephAdminApi struct {

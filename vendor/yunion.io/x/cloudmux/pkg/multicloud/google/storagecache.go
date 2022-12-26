@@ -23,11 +23,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SStoragecache struct {
@@ -111,7 +111,7 @@ func (region *SRegion) checkAndCreateBucket(bucketName string) (*SBucket, error)
 }
 
 func (cache *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
-	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimg.QCOW2))
+	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimgfmt.QCOW2))
 	if err != nil {
 		return "", errors.Wrapf(err, "GetReader")
 	}

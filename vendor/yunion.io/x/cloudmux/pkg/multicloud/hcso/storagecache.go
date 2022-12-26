@@ -24,12 +24,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SStoragecache struct {
@@ -162,7 +162,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 	}
 	defer self.region.DeleteIBucket(bucketName)
 
-	reader, sizeByte, err := image.GetReader(image.ImageId, string(qemuimg.VMDK))
+	reader, sizeByte, err := image.GetReader(image.ImageId, string(qemuimgfmt.VMDK))
 	if err != nil {
 		return "", errors.Wrapf(err, "GetReader")
 	}

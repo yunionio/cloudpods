@@ -14,7 +14,7 @@
 
 package cloudprovider
 
-import "yunion.io/x/onecloud/pkg/util/billing"
+import "yunion.io/x/pkg/util/billing"
 
 // These two structures are designed for modifying snat table and dnat table.
 // There is a so strange point that they have both field of ExternalIP and ExternalIPID.

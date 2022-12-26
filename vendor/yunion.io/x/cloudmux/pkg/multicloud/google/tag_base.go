@@ -18,9 +18,9 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/encode"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/util/encode"
 )
 
 type GoogleTags struct {

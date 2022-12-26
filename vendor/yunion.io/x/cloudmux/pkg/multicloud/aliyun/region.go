@@ -161,7 +161,7 @@ func (self *SRegion) esRequest(apiName string, params map[string]string, body in
 	}
 	params = self.client.SetResourceGropuId(params)
 	domain := fmt.Sprintf("elasticsearch.%s.aliyuncs.com", self.RegionId)
-	return jsonRequest1(client, domain, ALIYUN_ES_API_VERSION, apiName, params, body, self.client.debug)
+	return doRequest(client, domain, ALIYUN_ES_API_VERSION, apiName, params, body, self.client.debug)
 }
 
 func (self *SRegion) kafkaRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {

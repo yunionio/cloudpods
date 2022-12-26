@@ -78,6 +78,10 @@ func (self *SKafka) GetId() string {
 	return self.InstanceId
 }
 
+func (self *SKafka) SetTags(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags("ckafka", "instance", []string{self.InstanceId}, tags, replace)
+}
+
 func (self *SKafka) GetGlobalId() string {
 	return self.InstanceId
 }

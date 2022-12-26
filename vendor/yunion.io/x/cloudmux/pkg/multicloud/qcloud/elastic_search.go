@@ -159,6 +159,10 @@ func (self *SElasticSearch) GetGlobalId() string {
 	return self.InstanceId
 }
 
+func (self *SElasticSearch) SetTags(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags("es", "instance", []string{self.InstanceId}, tags, replace)
+}
+
 func (self *SElasticSearch) GetName() string {
 	if len(self.InstanceName) > 0 {
 		return self.InstanceName
