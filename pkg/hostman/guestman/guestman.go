@@ -1229,7 +1229,7 @@ func (m *SGuestManager) StartBlockReplication(ctx context.Context, params interf
 		}
 		hostutils.TaskComplete(ctx, nil)
 	}
-	task := NewGuestBlockReplicationTask(ctx, guest, nbdOpts[1], nbdOpts[2], "top", onSucc, nil)
+	task := NewGuestBlockReplicationTask(ctx, guest, nbdOpts[1], nbdOpts[2], "full", onSucc, nil)
 	task.Start()
 	return nil, nil
 }

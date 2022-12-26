@@ -759,9 +759,9 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 		log.Errorf("block job missing event type")
 		return
 	}
-	// only dealwith event type mirror
+	// only dealwith event type mirror, backup
 	stype, _ := itype.(string)
-	if stype != "mirror" {
+	if stype != "mirror" && stype != "backup" {
 		return
 	}
 
@@ -784,6 +784,8 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 			}
 		} else if mirrorStatus.IsFailed() {
 			s.SyncMirrorJobFailed("drive-mirror job failed")
+		} else {
+			log.Errorf("Guest %s block job is in progress", s.GetName())
 		}
 	} else {
 		iDevice, ok := event.Data["device"]
@@ -963,7 +965,7 @@ func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 			s.SyncMirrorJobFailed(res)
 			s.DoResumeTask(ctx, true)
 		}
-		NewGuestBlockReplicationTask(ctx, s, nbdOpts[1], nbdOpts[2], "top", onSucc, onFail).Start()
+		NewGuestBlockReplicationTask(ctx, s, nbdOpts[1], nbdOpts[2], "full", onSucc, onFail).Start()
 	}
 }
 
@@ -1046,7 +1048,7 @@ func (s *SKVMGuestInstance) MirrorJobStatus() MirrorJob {
 		mirrorJobCount := 0
 		failedJobCount := 0
 		for _, job := range v {
-			if job.Type != "mirror" {
+			if job.Type != "mirror" && job.Type != "backup" {
 				continue
 			}
 			if job.IoStatus != "ok" {

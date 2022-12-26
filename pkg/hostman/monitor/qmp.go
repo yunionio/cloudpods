@@ -914,6 +914,27 @@ func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 	m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) DriveBackup(callback StringCallback, drive, target, syncMode, format string) {
+	var (
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+		args = map[string]interface{}{
+			"device": drive,
+			"target": target,
+			"mode":   "existing",
+			"sync":   syncMode,
+			"format": format,
+		}
+	)
+	cmd := &Command{
+		Execute: "drive-backup",
+		Args:    args,
+	}
+
+	m.Query(cmd, cb)
+}
+
 func (m *QmpMonitor) BlockStream(drive string, idx, blkCnt int, callback StringCallback) {
 	var (
 		speed = 5 * 100 * 1024 * 1024 // limit 500 MB/s
