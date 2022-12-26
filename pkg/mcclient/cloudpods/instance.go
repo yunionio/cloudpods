@@ -306,15 +306,19 @@ func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SMa
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	s := self.host.zone.region.cli.s
-	resp, err := webconsole.WebConsole.DoServerConnect(s, self.Id, nil)
+	return self.host.zone.region.GetInstanceVnc(self.Id, self.Name)
+}
+
+func (self *SRegion) GetInstanceVnc(id, name string) (*cloudprovider.ServerVncOutput, error) {
+	s := self.cli.s
+	resp, err := webconsole.WebConsole.DoServerConnect(s, id, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DoServerConnect")
 	}
 	result := &cloudprovider.ServerVncOutput{
 		Protocol:     "cloudpods",
-		InstanceId:   self.Id,
-		InstanceName: self.Name,
+		InstanceId:   id,
+		InstanceName: name,
 		Hypervisor:   api.HYPERVISOR_CLOUDPODS,
 	}
 	err = resp.Unmarshal(&result)
