@@ -1961,6 +1961,52 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 	}
 }
 
+type SDriveBackupTask struct {
+	*SKVMGuestInstance
+
+	ctx      context.Context
+	nbdUri   string
+	onSucc   func()
+	syncMode string
+	index    int
+}
+
+func NewDriveBackupTask(
+	ctx context.Context, s *SKVMGuestInstance, nbdUri, syncMode string, onSucc func(),
+) *SDriveBackupTask {
+	return &SDriveBackupTask{
+		SKVMGuestInstance: s,
+		ctx:               ctx,
+		nbdUri:            nbdUri,
+		syncMode:          syncMode,
+		onSucc:            onSucc,
+	}
+}
+
+func (s *SDriveBackupTask) Start() {
+	s.startBackup("")
+}
+
+func (s *SDriveBackupTask) startBackup(res string) {
+	log.Infof("drive backup results:%s", res)
+	if len(res) > 0 {
+		hostutils.TaskFailed(s.ctx, res)
+		return
+	}
+	disks, _ := s.Desc.GetArray("disks")
+	if s.index < len(disks) {
+		target := fmt.Sprintf("%s:exportname=drive_%d_backend", s.nbdUri, s.index)
+		s.Monitor.DriveBackup(s.startBackup, fmt.Sprintf("drive_%d", s.index), target, s.syncMode, "raw")
+		s.index += 1
+	} else {
+		if s.onSucc != nil {
+			s.onSucc()
+		} else {
+			hostutils.TaskComplete(s.ctx, nil)
+		}
+	}
+}
+
 type SGuestBlockReplicationTask struct {
 	*SKVMGuestInstance
 
@@ -2036,8 +2082,8 @@ func (s *SGuestBlockReplicationTask) onNbdDriveAddSucc(parent, node string) moni
 }
 
 func (s *SGuestBlockReplicationTask) startDriveMirror() {
-	NewDriveMirrorTask(s.ctx, s.SKVMGuestInstance,
-		fmt.Sprintf("nbd:%s:%s", s.nbdHost, s.nbdPort), s.syncMode, true, s.onSucc).Start()
+	NewDriveBackupTask(s.ctx, s.SKVMGuestInstance,
+		fmt.Sprintf("nbd:%s:%s", s.nbdHost, s.nbdPort), s.syncMode, s.onSucc).Start()
 }
 
 /**
