@@ -857,7 +857,7 @@ func hostUsage(
 	count[fmt.Sprintf("%s.memory.reserved.isolated", prefix)] = result.IsolatedReservedMemory
 	count[fmt.Sprintf("%s.cpu.reserved.isolated", prefix)] = result.IsolatedReservedCpu
 	count[fmt.Sprintf("%s.storage.reserved.isolated", prefix)] = result.IsolatedReservedStorage
-
+	count[fmt.Sprintf("%s.storage_gb", prefix)] = result.StorageSize / 1024
 	return count
 }
 
