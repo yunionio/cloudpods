@@ -18,12 +18,12 @@ import (
 	"fmt"
 	"os"
 
+	"yunion.io/x/pkg/util/shellutils"
 	"yunion.io/x/structarg"
 
 	_ "yunion.io/x/onecloud/cmd/raidcli/shell"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -30,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -116,7 +116,7 @@ func (manager *SWafRuleManager) FetchOwnerId(ctx context.Context, data jsonutils
 	return db.FetchDomainInfo(ctx, data)
 }
 
-func (manager *SWafRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SWafRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	sq1 := WafInstanceManager.Query("id")
 	sq1 = db.SharableManagerFilterByOwner(WafInstanceManager, sq1, userCred, scope)
 	sq2 := WafRuleGroupManager.Query("id")
@@ -295,8 +295,8 @@ func (self *SWafRule) GetOwnerId() mcclient.IIdentityProvider {
 	return nil
 }
 
-func (manager *SWafRuleManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SWafRuleManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
 func (self *SWafInstance) GetWafRules() ([]SWafRule, error) {

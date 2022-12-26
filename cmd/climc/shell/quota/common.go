@@ -15,8 +15,9 @@
 package quota
 
 import (
+	"yunion.io/x/pkg/util/printutils"
+
 	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/util/printutils"
 )
 
 var (

@@ -20,40 +20,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
-func TestNetlen2Mask(t *testing.T) {
-	type args struct {
-		netmasklen int
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "mask 0",
-			args: args{0},
-			want: "0.0.0.0",
-		},
-		{
-			name: "mask 24",
-			args: args{24},
-			want: "255.255.255.0",
-		},
-		{
-			name: "mask 32",
-			args: args{32},
-			want: "255.255.255.255",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := Netlen2Mask(tt.args.netmasklen); got != tt.want {
-				t.Errorf("Netlen2Mask() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestNetBytes2Mask(t *testing.T) {
 	type args struct {
 		mask []byte

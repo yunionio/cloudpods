@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -33,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -74,8 +74,8 @@ func (manager *SDBInstanceAccountManager) GetContextManagers() [][]db.IModelMana
 	}
 }
 
-func (manager *SDBInstanceAccountManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (manager *SDBInstanceAccountManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
 func (self *SDBInstanceAccount) GetOwnerId() mcclient.IIdentityProvider {
@@ -99,14 +99,14 @@ func (manager *SDBInstanceAccountManager) FetchOwnerId(ctx context.Context, data
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SDBInstanceAccountManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SDBInstanceAccountManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := DBInstanceManager.Query("id")
 		switch scope {
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			sq = sq.Equals("tenant_id", userCred.GetProjectId())
 			return q.In("dbinstance_id", sq.SubQuery())
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
 			return q.In("dbinstance_id", sq.SubQuery())
 		}

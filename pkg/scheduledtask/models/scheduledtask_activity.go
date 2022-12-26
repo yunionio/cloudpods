@@ -19,13 +19,13 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/scheduledtask"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -114,18 +114,18 @@ func (sam *SScheduledTaskActivityManager) ListItemFilter(ctx context.Context, q 
 	return q, nil
 }
 
-func (sam *SScheduledTaskActivityManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (sam *SScheduledTaskActivityManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
-func (sam *SScheduledTaskActivityManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (sam *SScheduledTaskActivityManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
-func (sam *SScheduledTaskActivityManager) FileterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (sam *SScheduledTaskActivityManager) FileterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
-		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 			scheduledTaskQ := ScheduledTaskManager.Query("id", "domain_id").SubQuery()
 			q = q.Join(scheduledTaskQ, sqlchemy.Equals(q.Field("scheduled_task_id"), scheduledTaskQ.Field("id")))
 			q = q.Filter(sqlchemy.Equals(scheduledTaskQ.Field("domain_id"), owner.GetProjectDomainId()))

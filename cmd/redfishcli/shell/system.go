@@ -19,9 +19,9 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/shellutils"
 
 	"yunion.io/x/onecloud/pkg/util/redfish"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {

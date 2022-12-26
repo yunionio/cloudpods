@@ -19,10 +19,10 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/util/pinyinutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 )
 
 type SHostnameResourceBase struct {

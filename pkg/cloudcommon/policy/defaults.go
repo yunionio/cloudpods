@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"yunion.io/x/pkg/util/rbacscope"
+
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -22,7 +24,7 @@ var (
 	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
 		{
 			Auth:  true,
-			Scope: rbacutils.ScopeSystem,
+			Scope: rbacscope.ScopeSystem,
 			Rules: []rbacutils.SRbacRule{
 				{
 					Resource: "tasks",
@@ -38,7 +40,7 @@ var (
 		},
 		{
 			Auth:  true,
-			Scope: rbacutils.ScopeProject,
+			Scope: rbacscope.ScopeProject,
 			Rules: []rbacutils.SRbacRule{
 				{
 					Resource: "tasks",
@@ -56,7 +58,7 @@ var (
 		{
 			// for domain
 			Auth:  true,
-			Scope: rbacutils.ScopeDomain,
+			Scope: rbacscope.ScopeDomain,
 			Rules: []rbacutils.SRbacRule{
 				{
 					// usages for any services

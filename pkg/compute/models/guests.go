@@ -28,9 +28,12 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/util/pinyinutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
@@ -57,11 +60,9 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
-	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
-	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -331,7 +332,7 @@ func (manager *SGuestManager) ListItemFilter(
 		isAdmin := false
 		// admin := (query.VirtualResourceListInput.Admin != nil && *query.VirtualResourceListInput.Admin)
 		allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
-		if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {
+		if allowScope == rbacscope.ScopeSystem || allowScope == rbacscope.ScopeDomain {
 			isAdmin = true
 		}
 
@@ -1176,7 +1177,7 @@ func serverCreateInput2ComputeQuotaKeys(input api.ServerCreateInput, ownerId mcc
 	// input.Hypervisor must be set
 	brand := guessBrandForHypervisor(input.Hypervisor)
 	keys := GetDriver(input.Hypervisor).GetComputeQuotaKeys(
-		rbacutils.ScopeProject,
+		rbacscope.ScopeProject,
 		ownerId,
 		brand,
 	)
@@ -3069,7 +3070,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 }
 
 func (manager *SGuestManager) TotalCount(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	status []string, hypervisors []string,
@@ -3711,7 +3712,7 @@ type SGuestCountStat struct {
 }
 
 func usageTotalGuestResouceCount(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	status []string,
@@ -3746,7 +3747,7 @@ func usageTotalGuestResouceCount(
 }
 
 func _guestResourceCountQuery(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	status []string,
@@ -3794,10 +3795,10 @@ func _guestResourceCountQuery(
 	}
 
 	switch scope {
-	case rbacutils.ScopeSystem:
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeSystem:
+	case rbacscope.ScopeDomain:
 		gq = gq.Filter(sqlchemy.Equals(gq.Field("domain_id"), ownerId.GetProjectDomainId()))
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		gq = gq.Filter(sqlchemy.Equals(gq.Field("tenant_id"), ownerId.GetProjectId()))
 	}
 
@@ -6150,7 +6151,7 @@ func (guest *SGuest) GetRegionalQuotaKeys() (quotas.IQuotaKeys, error) {
 	if region == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid region")
 	}
-	return fetchRegionalQuotaKeys(rbacutils.ScopeProject, guest.GetOwnerId(), region, provider), nil
+	return fetchRegionalQuotaKeys(rbacscope.ScopeProject, guest.GetOwnerId(), region, provider), nil
 }
 
 func (guest *SGuest) GetQuotaKeys() (quotas.IQuotaKeys, error) {
@@ -6171,7 +6172,7 @@ func (guest *SGuest) GetQuotaKeys() (quotas.IQuotaKeys, error) {
 		hypervisor = ""
 	}
 	return fetchComputeQuotaKeys(
-		rbacutils.ScopeProject,
+		rbacscope.ScopeProject,
 		guest.GetOwnerId(),
 		zone,
 		provider,

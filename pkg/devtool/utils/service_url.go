@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/sets"
 
 	ansible_api "yunion.io/x/onecloud/pkg/apis/ansible"
@@ -36,7 +37,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/ansible"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type Service struct {

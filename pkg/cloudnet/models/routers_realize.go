@@ -21,13 +21,13 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rand"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	"yunion.io/x/onecloud/pkg/util/ansiblev2"
-	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 func (router *SRouter) realize(ctx context.Context, userCred mcclient.TokenCredential) error {

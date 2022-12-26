@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 	"yunion.io/x/sqlchemy/backends/clickhouse"
 
@@ -30,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -183,12 +183,12 @@ func (self *SCloudevent) CustomizeCreate(ctx context.Context, userCred mcclient.
 	return self.SModelBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (manager *SCloudeventManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SCloudeventManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
-func (manager *SCloudeventManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SCloudeventManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
 func (self *SCloudevent) GetOwnerId() mcclient.IIdentityProvider {
@@ -196,7 +196,7 @@ func (self *SCloudevent) GetOwnerId() mcclient.IIdentityProvider {
 	return &owner
 }
 
-func (manager *SCloudeventManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCloudeventManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return manager.SDomainizedResourceBaseManager.FilterByOwner(q, owner, scope)
 }
 

@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -67,7 +68,7 @@ func init() {
 			return err
 		}
 		data, _ := body.GetArray("workers")
-		printList(&modulebase.ListResult{Data: data}, nil)
+		printList(&printutils.ListResult{Data: data}, nil)
 		return nil
 	})
 

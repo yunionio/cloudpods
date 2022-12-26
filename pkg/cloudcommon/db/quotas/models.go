@@ -22,13 +22,13 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SQuotaBaseManager struct {
@@ -39,10 +39,10 @@ type SQuotaBaseManager struct {
 
 	nonNegative bool
 
-	scope rbacutils.TRbacScope
+	scope rbacscope.TRbacScope
 }
 
-func NewQuotaBaseManager(model interface{}, scope rbacutils.TRbacScope, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore, keyword, keywordPlural string) SQuotaBaseManager {
+func NewQuotaBaseManager(model interface{}, scope rbacscope.TRbacScope, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore, keyword, keywordPlural string) SQuotaBaseManager {
 	pendingStore.SetVirtualObject(pendingStore)
 	usageStore.SetVirtualObject(usageStore)
 	return SQuotaBaseManager{
@@ -54,7 +54,7 @@ func NewQuotaBaseManager(model interface{}, scope rbacutils.TRbacScope, tableNam
 	}
 }
 
-func NewQuotaUsageManager(model interface{}, scope rbacutils.TRbacScope, tableName string, keyword, keywordPlural string) SQuotaBaseManager {
+func NewQuotaUsageManager(model interface{}, scope rbacscope.TRbacScope, tableName string, keyword, keywordPlural string) SQuotaBaseManager {
 	return SQuotaBaseManager{
 		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, keyword, keywordPlural),
 		nonNegative:          true,
@@ -254,18 +254,18 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 
 	for i := range tenants {
 		obj := tenants[i]
-		var scope rbacutils.TRbacScope
+		var scope rbacscope.TRbacScope
 		var ownerId mcclient.IIdentityProvider
 		if obj.DomainId == identityapi.KeystoneDomainRoot {
 			// domain
-			scope = rbacutils.ScopeDomain
+			scope = rbacscope.ScopeDomain
 			ownerId = &db.SOwnerId{
 				DomainId: tenants[i].Id,
 				Domain:   tenants[i].Name,
 			}
 		} else {
 			// project
-			scope = rbacutils.ScopeProject
+			scope = rbacscope.ScopeProject
 			ownerId = &db.SOwnerId{
 				DomainId:  tenants[i].DomainId,
 				Domain:    tenants[i].Domain,
@@ -276,7 +276,7 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 
 		quota := manager.newQuota()
 		var baseKeys IQuotaKeys
-		if manager.scope == rbacutils.ScopeDomain {
+		if manager.scope == rbacscope.ScopeDomain {
 			baseKeys = OwnerIdDomainQuotaKeys(ownerId)
 		} else {
 			baseKeys = OwnerIdProjectQuotaKeys(scope, ownerId)

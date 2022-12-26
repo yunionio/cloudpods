@@ -17,6 +17,8 @@ package compute
 import (
 	"fmt"
 
+	"yunion.io/x/pkg/util/printutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -54,7 +56,7 @@ func (h *schedtagModelHelper) list(slave modulebase.Manager, kw string) {
 			if err != nil {
 				return err
 			}
-			var result *modulebase.ListResult
+			var result *printutils.ListResult
 			if len(args.Schedtag) > 0 {
 				result, err = mod.ListDescendent(s, args.Schedtag, params)
 			} else {

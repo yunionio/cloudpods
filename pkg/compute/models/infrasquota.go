@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -40,7 +41,7 @@ func init() {
 
 	InfrasUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(InfrasQuota,
-			rbacutils.ScopeDomain,
+			rbacscope.ScopeDomain,
 			"infras_quota_usage_tbl",
 			"infras_quota_usage",
 			"infras_quota_usages",
@@ -48,7 +49,7 @@ func init() {
 	}
 	InfrasPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(InfrasQuota,
-			rbacutils.ScopeDomain,
+			rbacscope.ScopeDomain,
 			"infras_quota_pending_usage_tbl",
 			"infras_quota_pending_usage",
 			"infras_quota_pending_usages",
@@ -56,7 +57,7 @@ func init() {
 	}
 	InfrasQuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(InfrasQuota,
-			rbacutils.ScopeDomain,
+			rbacscope.ScopeDomain,
 			"infras_quota_tbl",
 			InfrasPendingUsageManager,
 			InfrasUsageManager,

@@ -19,13 +19,13 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type DiskSchedtagPredicate struct {
@@ -139,8 +139,8 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.
 
 	// domain ownership filter
 	if storage.DomainId == u.SchedInfo.Domain {
-	} else if storage.IsPublic && storage.PublicScope == string(rbacutils.ScopeSystem) {
-	} else if storage.IsPublic && storage.PublicScope == string(rbacutils.ScopeDomain) && utils.IsInStringArray(u.SchedInfo.Domain, storage.GetSharedDomains()) {
+	} else if storage.IsPublic && storage.PublicScope == string(rbacscope.ScopeSystem) {
+	} else if storage.IsPublic && storage.PublicScope == string(rbacscope.ScopeDomain) && utils.IsInStringArray(u.SchedInfo.Domain, storage.GetSharedDomains()) {
 	} else {
 		return &FailReason{
 			Reason: fmt.Sprintf("Storage %s is not accessible due to domain ownership", storage.Name),

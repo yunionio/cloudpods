@@ -15,8 +15,9 @@
 package identity
 
 import (
+	"yunion.io/x/pkg/util/rbacscope"
+
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type RoleDetails struct {
@@ -36,5 +37,5 @@ type RoleDetails struct {
 	MatchPolicies []string `json:"match_policies"`
 
 	// 不同级别的权限的名称列表
-	Policies map[rbacutils.TRbacScope][]string `json:"policies"`
+	Policies map[rbacscope.TRbacScope][]string `json:"policies"`
 }

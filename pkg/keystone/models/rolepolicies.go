@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -171,11 +172,11 @@ func (rp *SRolePolicy) GetPolicy() *SPolicy {
 	return policy.(*SPolicy)
 }
 
-func (manager *SRolePolicyManager) NamespaceScope() rbacutils.TRbacScope {
+func (manager *SRolePolicyManager) NamespaceScope() rbacscope.TRbacScope {
 	return PolicyManager.NamespaceScope()
 }
 
-func (manager *SRolePolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SRolePolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	policyQ := PolicyManager.Query()
 	policyQ = PolicyManager.FilterByOwner(policyQ, owner, scope)
 	subq := policyQ.SubQuery()
@@ -395,7 +396,7 @@ func (manager *SRolePolicyManager) getMatchPolicyIds2(isGuest bool, roleIds []st
 	return policyIds, nil
 }
 
-func appendPolicy(names map[rbacutils.TRbacScope][]string, policies rbacutils.TPolicyGroup, scope rbacutils.TRbacScope, policyName string, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+func appendPolicy(names map[rbacscope.TRbacScope][]string, policies rbacutils.TPolicyGroup, scope rbacscope.TRbacScope, policyName string, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
 	if utils.IsInStringArray(policyName, names[scope]) {
 		return names, policies, nil
 	}
@@ -418,7 +419,7 @@ func appendPolicy(names map[rbacutils.TRbacScope][]string, policies rbacutils.TP
 	return names, policies, nil
 }
 
-func (manager *SRolePolicyManager) GetMatchPolicyGroup(userCred rbacutils.IRbacIdentity, tm time.Time, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+func (manager *SRolePolicyManager) GetMatchPolicyGroup(userCred rbacutils.IRbacIdentity, tm time.Time, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
 	policyIds, err := manager.getMatchPolicyIds(userCred, tm)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "getMatchPolicyIds")
@@ -426,7 +427,7 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroup(userCred rbacutils.IRbacI
 	return manager.GetPolicyGroupByIds(policyIds, nameOnly)
 }
 
-func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred mcclient.TokenCredential, tm time.Time, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred mcclient.TokenCredential, tm time.Time, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
 	names, policies, err := manager.GetMatchPolicyGroup(userCred, tm, nameOnly)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "GetMatchPolicyGroup")
@@ -446,11 +447,11 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred mcclient.T
 		for scope := range names {
 			consolePolicyName := ""
 			switch scope {
-			case rbacutils.ScopeSystem:
+			case rbacscope.ScopeSystem:
 				consolePolicyName = options.Options.SystemDashboardPolicy
-			case rbacutils.ScopeDomain:
+			case rbacscope.ScopeDomain:
 				consolePolicyName = options.Options.DomainDashboardPolicy
-			case rbacutils.ScopeProject:
+			case rbacscope.ScopeProject:
 				consolePolicyName = options.Options.ProjectDashboardPolicy
 			}
 			names, policies, err = appendPolicy(names, policies, scope, consolePolicyName, nameOnly)
@@ -462,7 +463,7 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred mcclient.T
 	return names, policies, nil
 }
 
-func (manager *SRolePolicyManager) GetMatchPolicyGroup2(isGuest bool, roleIds []string, pid string, loginIp string, tm time.Time, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+func (manager *SRolePolicyManager) GetMatchPolicyGroup2(isGuest bool, roleIds []string, pid string, loginIp string, tm time.Time, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
 	policyIds, err := manager.getMatchPolicyIds2(isGuest, roleIds, pid, loginIp, tm)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "getMatchPolicyIds")
@@ -470,8 +471,8 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroup2(isGuest bool, roleIds []
 	return manager.GetPolicyGroupByIds(policyIds, nameOnly)
 }
 
-func (manager *SRolePolicyManager) GetPolicyGroupByIds(policyIds []string, nameOnly bool) (map[rbacutils.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
-	names := make(map[rbacutils.TRbacScope][]string)
+func (manager *SRolePolicyManager) GetPolicyGroupByIds(policyIds []string, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+	names := make(map[rbacscope.TRbacScope][]string)
 	var group rbacutils.TPolicyGroup
 	if !nameOnly {
 		group = rbacutils.TPolicyGroup{}

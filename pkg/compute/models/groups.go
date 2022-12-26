@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/sqlchemy"
 
@@ -36,7 +37,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -504,7 +504,7 @@ func (net *SNetwork) GetRegionalQuotaKeys(ownerId mcclient.IIdentityProvider) (q
 	if region == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid region")
 	}
-	return fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, provider), nil
+	return fetchRegionalQuotaKeys(rbacscope.ScopeProject, ownerId, region, provider), nil
 }
 
 func (grp *SGroup) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.GroupDetachNetworkInput) (*api.SGroup, error) {

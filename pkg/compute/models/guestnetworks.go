@@ -25,6 +25,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	randutil "yunion.io/x/pkg/util/rand"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
@@ -34,8 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	randutil "yunion.io/x/onecloud/pkg/util/rand"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -706,7 +706,7 @@ func (self *SGuestnetwork) Detach(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func totalGuestNicCount(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	includeSystem bool,
@@ -728,11 +728,11 @@ func totalGuestNicCount(
 	q = RangeObjectsFilter(q, rangeObjs, nil, hosts.Field("zone_id"), hosts.Field("manager_id"), hosts.Field("id"), nil)
 
 	switch scope {
-	case rbacutils.ScopeSystem:
+	case rbacscope.ScopeSystem:
 		// do nothing
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		q = q.Filter(sqlchemy.Equals(guests.Field("domain_id"), ownerId.GetProjectDomainId()))
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		q = q.Filter(sqlchemy.Equals(guests.Field("tenant_id"), ownerId.GetProjectId()))
 	}
 

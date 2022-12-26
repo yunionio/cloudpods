@@ -15,9 +15,10 @@
 package compute
 
 import (
+	"yunion.io/x/pkg/util/printutils"
+
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
@@ -55,7 +56,7 @@ func init() {
 			return err
 		}
 
-		var result *modulebase.ListResult
+		var result *printutils.ListResult
 		if len(opts.DBInstance) > 0 {
 			result, err = modules.DBInstanceNetworks.ListDescendent(s, opts.DBInstance, params)
 		} else if len(opts.Network) > 0 {

@@ -17,9 +17,9 @@ package devtool
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/devtool"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -48,7 +48,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		var result *modulebase.ListResult
+		var result *printutils.ListResult
 		result, err = modules.DevToolTemplates.List(s, params)
 		printList(result, modules.DevToolTemplates.GetColumns(s))
 		return nil

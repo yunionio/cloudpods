@@ -22,12 +22,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 // +onecloud:swagger-gen-ignore
@@ -281,7 +281,7 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 	return errors.Wrap(err, "db.Update")
 }
 
-func (self *SNetInterface) GetCandidateNetworkForIp(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, ipAddr string) (*SNetwork, error) {
+func (self *SNetInterface) GetCandidateNetworkForIp(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, ipAddr string) (*SNetwork, error) {
 	wire := self.GetWire()
 	if wire == nil {
 		return nil, nil

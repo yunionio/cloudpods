@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"yunion.io/x/pkg/util/printutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -55,7 +57,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		listResult := modulebase.ListResult{}
+		listResult := printutils.ListResult{}
 		err = result.Unmarshal(&listResult)
 		if err != nil {
 			return err

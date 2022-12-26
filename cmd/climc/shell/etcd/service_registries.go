@@ -15,10 +15,11 @@
 package etcd
 
 import (
+	"yunion.io/x/pkg/util/printutils"
+
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/etcd"
-	"yunion.io/x/onecloud/pkg/util/printutils"
 )
 
 func init() {

@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -37,7 +38,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -515,7 +515,7 @@ func (gt *SGuestTemplate) PerformPublic(
 	}
 
 	targetScopeStr := data.Scope
-	targetScope := rbacutils.String2ScopeDefault(targetScopeStr, rbacutils.ScopeSystem)
+	targetScope := rbacscope.String2ScopeDefault(targetScopeStr, rbacscope.ScopeSystem)
 
 	// check if secgroup is public
 	if len(input.SecgroupId) > 0 {
@@ -525,7 +525,7 @@ func (gt *SGuestTemplate) PerformPublic(
 				input.SecgroupId)
 		}
 		secgroup := model.(*SSecurityGroup)
-		sgScope := rbacutils.String2Scope(secgroup.PublicScope)
+		sgScope := rbacscope.String2Scope(secgroup.PublicScope)
 		if !secgroup.IsPublic || !sgScope.HigherEqual(targetScope) {
 			return nil, gt.genForbiddenError("security group", input.SecgroupId, string(targetScope))
 		}
@@ -541,7 +541,7 @@ func (gt *SGuestTemplate) PerformPublic(
 					"there is no such secgroup %s descripted by guest template", str)
 			}
 			network := model.(*SNetwork)
-			netScope := rbacutils.String2Scope(network.PublicScope)
+			netScope := rbacscope.String2Scope(network.PublicScope)
 			if !network.IsPublic || !netScope.HigherEqual(targetScope) {
 				return nil, gt.genForbiddenError("network", str, string(targetScope))
 			}
@@ -571,7 +571,7 @@ func (gt *SGuestTemplate) PerformPublic(
 	default:
 		//no arrivals
 	}
-	igScope := rbacutils.String2Scope(publicScope)
+	igScope := rbacscope.String2Scope(publicScope)
 	if !isPublic || !igScope.HigherEqual(targetScope) {
 		return nil, gt.genForbiddenError("image", "", string(targetScope))
 	}

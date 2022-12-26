@@ -15,7 +15,8 @@
 package apis
 
 import (
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/pkg/util/rbacscope"
+
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -27,14 +28,14 @@ const (
 
 type SAccountShareInfo struct {
 	IsPublic      bool
-	PublicScope   rbacutils.TRbacScope
+	PublicScope   rbacscope.TRbacScope
 	ShareMode     string
 	SharedDomains []string
 }
 
 type SShareInfo struct {
 	IsPublic       bool
-	PublicScope    rbacutils.TRbacScope
+	PublicScope    rbacscope.TRbacScope
 	SharedDomains  []string
 	SharedProjects []string
 }
@@ -44,16 +45,16 @@ func (i SAccountShareInfo) GetProjectShareInfo() SShareInfo {
 	switch i.ShareMode {
 	case CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
 		ret.IsPublic = true
-		ret.PublicScope = rbacutils.ScopeDomain
+		ret.PublicScope = rbacscope.ScopeDomain
 	case CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
 		ret.IsPublic = true
-		ret.PublicScope = rbacutils.ScopeDomain
+		ret.PublicScope = rbacscope.ScopeDomain
 	case CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
 		ret.IsPublic = true
-		if i.IsPublic && i.PublicScope == rbacutils.ScopeSystem {
-			ret.PublicScope = rbacutils.ScopeSystem
+		if i.IsPublic && i.PublicScope == rbacscope.ScopeSystem {
+			ret.PublicScope = rbacscope.ScopeSystem
 		} else {
-			ret.PublicScope = rbacutils.ScopeDomain
+			ret.PublicScope = rbacscope.ScopeDomain
 			ret.SharedDomains = i.SharedDomains
 		}
 	}
@@ -65,21 +66,21 @@ func (i SAccountShareInfo) GetDomainShareInfo() SShareInfo {
 	switch i.ShareMode {
 	case CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
 		ret.IsPublic = false
-		ret.PublicScope = rbacutils.ScopeNone
+		ret.PublicScope = rbacscope.ScopeNone
 	case CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
 		ret.IsPublic = false
-		ret.PublicScope = rbacutils.ScopeNone
+		ret.PublicScope = rbacscope.ScopeNone
 	case CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
-		if i.IsPublic && i.PublicScope == rbacutils.ScopeSystem {
+		if i.IsPublic && i.PublicScope == rbacscope.ScopeSystem {
 			ret.IsPublic = true
-			ret.PublicScope = rbacutils.ScopeSystem
+			ret.PublicScope = rbacscope.ScopeSystem
 		} else if len(i.SharedDomains) > 0 {
 			ret.IsPublic = true
-			ret.PublicScope = rbacutils.ScopeDomain
+			ret.PublicScope = rbacscope.ScopeDomain
 			ret.SharedDomains = i.SharedDomains
 		} else {
 			ret.IsPublic = false
-			ret.PublicScope = rbacutils.ScopeNone
+			ret.PublicScope = rbacscope.ScopeNone
 		}
 	}
 	return ret
@@ -135,9 +136,9 @@ func (i SShareInfo) Intersect(i2 SShareInfo) SShareInfo {
 		SharedDomains:  domains,
 		SharedProjects: projs,
 	}
-	if ret.PublicScope == rbacutils.ScopeProject && len(ret.SharedProjects) == 0 {
+	if ret.PublicScope == rbacscope.ScopeProject && len(ret.SharedProjects) == 0 {
 		ret.IsPublic = false
-		ret.PublicScope = rbacutils.ScopeNone
+		ret.PublicScope = rbacscope.ScopeNone
 	}
 	return ret
 }
@@ -151,19 +152,19 @@ func (i SShareInfo) Equals(i2 SShareInfo) bool {
 }
 
 func (i *SShareInfo) FixProjectShare() {
-	if i.PublicScope == rbacutils.ScopeProject && len(i.SharedProjects) == 0 {
+	if i.PublicScope == rbacscope.ScopeProject && len(i.SharedProjects) == 0 {
 		i.IsPublic = false
-		i.PublicScope = rbacutils.ScopeNone
+		i.PublicScope = rbacscope.ScopeNone
 	}
 }
 
 func (i *SShareInfo) FixDomainShare() {
-	if i.PublicScope == rbacutils.ScopeProject {
+	if i.PublicScope == rbacscope.ScopeProject {
 		i.IsPublic = false
-		i.PublicScope = rbacutils.ScopeNone
+		i.PublicScope = rbacscope.ScopeNone
 		i.SharedProjects = nil
-	} else if i.PublicScope == rbacutils.ScopeDomain && len(i.SharedDomains) == 0 {
+	} else if i.PublicScope == rbacscope.ScopeDomain && len(i.SharedDomains) == 0 {
 		i.IsPublic = false
-		i.PublicScope = rbacutils.ScopeNone
+		i.PublicScope = rbacscope.ScopeNone
 	}
 }

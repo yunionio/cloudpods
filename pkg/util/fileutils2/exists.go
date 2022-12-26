@@ -14,7 +14,11 @@
 
 package fileutils2
 
-import "os"
+import (
+	"os"
+
+	"yunion.io/x/pkg/util/fileutils"
+)
 
 func Exists(filepath string) bool {
 	_, err := os.Lstat(filepath)
@@ -25,19 +29,9 @@ func Exists(filepath string) bool {
 }
 
 func IsFile(filepath string) bool {
-	fi, err := os.Lstat(filepath)
-	if err != nil {
-		return false
-	}
-	mode := fi.Mode()
-	return mode.IsRegular()
+	return fileutils.IsFile(filepath)
 }
 
 func IsDir(filepath string) bool {
-	fi, err := os.Lstat(filepath)
-	if err != nil {
-		return false
-	}
-	mode := fi.Mode()
-	return mode.IsDir()
+	return fileutils.IsDir(filepath)
 }

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 	"yunion.io/x/sqlchemy/backends/clickhouse"
 
@@ -27,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SBaremetalEventManager struct {
@@ -104,8 +104,8 @@ func (manager *SBaremetalEventManager) CreateByInsertOrUpdate() bool {
 	return false
 }
 
-func (manager *SBaremetalEventManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+func (manager *SBaremetalEventManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeSystem
 }
 
 func (manager *SBaremetalEventManager) GetPagingConfig() *db.SPagingConfig {

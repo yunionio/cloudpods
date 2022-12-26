@@ -17,8 +17,7 @@ package locale
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/pkg/util/rbacscope"
 )
 
 var opsAdminPolicy = `
@@ -226,49 +225,49 @@ func toJson(yamlDef string) jsonutils.JSONObject {
 var predefinedPolicyData = []SPolicyData{
 	{
 		Name:          "sys-opsadmin",
-		Scope:         rbacutils.ScopeSystem,
+		Scope:         rbacscope.ScopeSystem,
 		Policy:        toJson(opsAdminPolicy),
 		Description:   "System-wide operation manager",
 		DescriptionCN: "全局系统管理员权限",
 	},
 	{
 		Name:          "sys-secadmin",
-		Scope:         rbacutils.ScopeSystem,
+		Scope:         rbacscope.ScopeSystem,
 		Policy:        toJson(secAdminPolicy),
 		Description:   "System-wide security manager",
 		DescriptionCN: "全局安全管理员权限",
 	},
 	{
 		Name:          "sys-adtadmin",
-		Scope:         rbacutils.ScopeSystem,
+		Scope:         rbacscope.ScopeSystem,
 		Policy:        toJson(adtAdminPolicy),
 		Description:   "System-wide audit manager",
 		DescriptionCN: "全局审计管理员权限",
 	},
 	{
 		Name:          "domain-opsadmin",
-		Scope:         rbacutils.ScopeDomain,
+		Scope:         rbacscope.ScopeDomain,
 		Policy:        toJson(opsAdminPolicy),
 		Description:   "Domain-wide operation manager",
 		DescriptionCN: "组织系统管理员权限",
 	},
 	{
 		Name:          "domain-secadmin",
-		Scope:         rbacutils.ScopeDomain,
+		Scope:         rbacscope.ScopeDomain,
 		Policy:        toJson(secAdminPolicy),
 		Description:   "Domain-wide security manager",
 		DescriptionCN: "组织安全管理员权限",
 	},
 	{
 		Name:          "domain-adtadmin",
-		Scope:         rbacutils.ScopeDomain,
+		Scope:         rbacscope.ScopeDomain,
 		Policy:        toJson(adtAdminPolicy),
 		Description:   "Domain-wide audit manager",
 		DescriptionCN: "组织审计管理员权限",
 	},
 	{
 		Name:          "normal-user",
-		Scope:         rbacutils.ScopeProject,
+		Scope:         rbacscope.ScopeProject,
 		Policy:        toJson(normalUserPolicy),
 		Description:   "Default policy for normal user",
 		DescriptionCN: "普通用户默认权限",

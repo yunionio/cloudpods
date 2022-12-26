@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
@@ -29,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 

@@ -26,11 +26,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/version"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
@@ -43,7 +44,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
-	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 type IGuestTasks interface {

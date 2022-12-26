@@ -18,12 +18,13 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/pkg/util/rbacscope"
+
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SOutOfQuotaError struct {
-	scope   rbacutils.TRbacScope
+	scope   rbacscope.TRbacScope
 	name    string
 	limit   int
 	used    int

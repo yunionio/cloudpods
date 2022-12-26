@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -29,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type NetworksUnderWireMergeTask struct {
@@ -71,7 +71,7 @@ func (self *NetworksUnderWireMergeTask) OnInit(ctx context.Context, obj db.IStan
 
 	lockman.LockClass(ctx, models.NetworkManager, db.GetLockClassKey(models.NetworkManager, self.UserCred))
 	defer lockman.ReleaseClass(ctx, models.NetworkManager, db.GetLockClassKey(models.NetworkManager, self.UserCred))
-	networks, err := w.GetNetworks(self.UserCred, rbacutils.ScopeDomain)
+	networks, err := w.GetNetworks(self.UserCred, rbacscope.ScopeDomain)
 	if err != nil {
 		self.taskFailed(ctx, w, "unable to GetNetworks", err)
 		return

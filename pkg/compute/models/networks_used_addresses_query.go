@@ -17,16 +17,16 @@ package models
 import (
 	"time"
 
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type usedAddressQueryArgs struct {
 	network  *SNetwork
 	owner    mcclient.IIdentityProvider
-	scope    rbacutils.TRbacScope
+	scope    rbacscope.TRbacScope
 	addrOnly bool
 }
 

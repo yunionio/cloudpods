@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
@@ -28,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
@@ -41,22 +41,22 @@ type SDomainizedResourceBase struct {
 	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true" list:"user" json:"domain_id"`
 }
 
-func (manager *SDomainizedResourceBaseManager) NamespaceScope() rbacutils.TRbacScope {
+func (manager *SDomainizedResourceBaseManager) NamespaceScope() rbacscope.TRbacScope {
 	if consts.IsDomainizedNamespace() {
-		return rbacutils.ScopeDomain
+		return rbacscope.ScopeDomain
 	} else {
-		return rbacutils.ScopeSystem
+		return rbacscope.ScopeSystem
 	}
 }
 
-func (manager *SDomainizedResourceBaseManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SDomainizedResourceBaseManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
-func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
-		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 			q = q.Equals("domain_id", owner.GetProjectDomainId())
 		}
 	}

@@ -26,10 +26,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
-
-	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/util/httputils"
 )
 
 type Client struct {
@@ -41,16 +38,17 @@ type Client struct {
 	_serviceCatalog IServiceCatalog
 }
 
-func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile, keyFile string) *Client {
+func NewClient(authUrl string, timeout int, debug bool, insecure bool) *Client {
 	var tlsConf *tls.Config
 
-	if len(certFile) > 0 && len(keyFile) > 0 {
+	// do not support customized cert key file QIUJIAN
+	/*if len(certFile) > 0 && len(keyFile) > 0 {
 		var err error
 		tlsConf, err = seclib2.InitTLSConfig(certFile, keyFile)
 		if err != nil {
 			log.Errorf("load TLS failed %s", err)
 		}
-	}
+	}*/
 
 	if tlsConf == nil || gotypes.IsNil(tlsConf) {
 		tlsConf = &tls.Config{}
@@ -150,17 +148,17 @@ func (this *Client) jsonRequest(ctx context.Context, endpoint string, token stri
 func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, projectDomain, token string) (TokenCredential, error) {
 	input := SAuthenticationInputV3{}
 	if len(uname) > 0 && len(passwd) > 0 { // Password authentication
-		input.Auth.Identity.Methods = []string{api.AUTH_METHOD_PASSWORD}
+		input.Auth.Identity.Methods = []string{AUTH_METHOD_PASSWORD}
 		input.Auth.Identity.Password.User.Name = uname
 		input.Auth.Identity.Password.User.Password = passwd
 		if len(domainName) > 0 {
 			input.Auth.Identity.Password.User.Domain.Name = domainName
 		}
 		// else {
-		//	input.Auth.Identity.Password.User.Domain.Name = api.DEFAULT_DOMAIN_ID
+		//	input.Auth.Identity.Password.User.Domain.Name = DEFAULT_DOMAIN_ID
 		//}
 	} else if len(token) > 0 {
-		input.Auth.Identity.Methods = []string{api.AUTH_METHOD_TOKEN}
+		input.Auth.Identity.Methods = []string{AUTH_METHOD_TOKEN}
 		input.Auth.Identity.Token.Id = token
 	}
 	if len(projectId) > 0 {
@@ -172,7 +170,7 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, p
 			input.Auth.Scope.Project.Domain.Name = projectDomain
 		}
 		// else {
-		// 	input.Auth.Scope.Project.Domain.Id = api.DEFAULT_DOMAIN_ID
+		// 	input.Auth.Scope.Project.Domain.Id = DEFAULT_DOMAIN_ID
 		// }
 	}
 	return this._authV3Input(input)
@@ -256,8 +254,8 @@ func (this *Client) unmarshalV2Token(rbody jsonutils.JSONObject) (cred TokenCred
 
 func (this *Client) verifyV3(adminToken, token string) (TokenCredential, error) {
 	header := http.Header{}
-	header.Add(api.AUTH_TOKEN_HEADER, adminToken)
-	header.Add(api.AUTH_SUBJECT_TOKEN_HEADER, token)
+	header.Add(AUTH_TOKEN_HEADER, adminToken)
+	header.Add(AUTH_SUBJECT_TOKEN_HEADER, token)
 	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "GET", "/auth/tokens", header, nil)
 	if err != nil {
 		return nil, err
@@ -267,7 +265,7 @@ func (this *Client) verifyV3(adminToken, token string) (TokenCredential, error) 
 
 func (this *Client) verifyV2(adminToken, token string) (TokenCredential, error) {
 	header := http.Header{}
-	header.Add(api.AUTH_TOKEN_HEADER, adminToken)
+	header.Add(AUTH_TOKEN_HEADER, adminToken)
 	verifyUrl := fmt.Sprintf("/tokens/%s", token)
 	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "GET", verifyUrl, header, nil)
 	if err != nil {

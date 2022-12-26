@@ -17,8 +17,9 @@ package identity
 import (
 	"time"
 
+	"yunion.io/x/pkg/util/rbacscope"
+
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type RolePolicyListInput struct {
@@ -46,7 +47,7 @@ type RolePolicyDetails struct {
 
 	Policy string `json:"policy"`
 
-	Scope rbacutils.TRbacScope `json:"scope"`
+	Scope rbacscope.TRbacScope `json:"scope"`
 
 	Description string `json:"description"`
 

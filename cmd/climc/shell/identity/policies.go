@@ -23,6 +23,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/shellutils"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -35,7 +37,6 @@ import (
 	options "yunion.io/x/onecloud/pkg/mcclient/options/identity"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
@@ -420,12 +421,12 @@ func init() {
 
 		fmt.Println("Token", token)
 
-		for _, scope := range []rbacutils.TRbacScope{
-			rbacutils.ScopeSystem,
-			rbacutils.ScopeDomain,
-			rbacutils.ScopeProject,
-			rbacutils.ScopeUser,
-			rbacutils.ScopeNone,
+		for _, scope := range []rbacscope.TRbacScope{
+			rbacscope.ScopeSystem,
+			rbacscope.ScopeDomain,
+			rbacscope.ScopeProject,
+			rbacscope.ScopeUser,
+			rbacscope.ScopeNone,
 		} {
 			fmt.Printf("%s: ", scope)
 			capable := policy.PolicyManager.IsScopeCapable(token, scope)

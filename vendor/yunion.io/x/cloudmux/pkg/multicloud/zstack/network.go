@@ -20,11 +20,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SNetwork struct {
@@ -201,8 +201,8 @@ func (network *SNetwork) GetIsPublic() bool {
 	return true
 }
 
-func (self *SNetwork) GetPublicScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+func (self *SNetwork) GetPublicScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeSystem
 }
 
 func (network *SNetwork) GetServerType() string {

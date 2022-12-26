@@ -23,7 +23,9 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -33,8 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type sNetworkInfo struct {
@@ -219,7 +219,7 @@ func (cam *SCloudaccountManager) prepareNets(ctx context.Context, userCred mccli
 		// fetch networks
 		networks := make([][]SNetwork, len(wires))
 		for i := range networks {
-			nets, err := wires[i].getNetworks(userCred, rbacutils.ScopeSystem)
+			nets, err := wires[i].getNetworks(userCred, rbacscope.ScopeSystem)
 			if err != nil {
 				return output, errors.Wrap(err, "wire.getNetwork")
 			}
@@ -586,9 +586,9 @@ func (manager *SCloudaccountManager) fetchWires(userCred mcclient.TokenCredentia
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{}
 		ownerId.DomainId = domainId
-		q = WireManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
+		q = WireManager.FilterByOwner(q, ownerId, rbacscope.ScopeDomain)
 	} else {
-		q = WireManager.FilterByOwner(q, userCred, rbacutils.ScopeDomain)
+		q = WireManager.FilterByOwner(q, userCred, rbacscope.ScopeDomain)
 	}
 	wires := make([]SWire, 0, 1)
 	err := db.FetchModelObjects(WireManager, q, &wires)

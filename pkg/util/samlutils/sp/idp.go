@@ -18,9 +18,9 @@ import (
 	"net/url"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/samlutils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/util/samlutils"
 )
 
 type SSAMLIdentityProvider struct {

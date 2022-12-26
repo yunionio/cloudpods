@@ -17,11 +17,11 @@ package shell
 import (
 	"fmt"
 
+	"yunion.io/x/pkg/util/shellutils"
 	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/util/fernetool"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {

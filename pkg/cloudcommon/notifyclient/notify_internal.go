@@ -25,16 +25,16 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/sets"
 
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 func notifySystemWarning(ctx context.Context, idstr string, name string, event string, reason string) {

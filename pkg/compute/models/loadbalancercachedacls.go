@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -32,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -68,8 +68,8 @@ type SCachedLoadbalancerAcl struct {
 	SLoadbalancerAclResourceBase
 }
 
-func (manager *SCachedLoadbalancerAclManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (manager *SCachedLoadbalancerAclManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
 func (self *SCachedLoadbalancerAcl) GetOwnerId() mcclient.IIdentityProvider {
@@ -92,14 +92,14 @@ func (manager *SCachedLoadbalancerAclManager) FetchOwnerId(ctx context.Context, 
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SCachedLoadbalancerAclManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCachedLoadbalancerAclManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := LoadbalancerAclManager.Query("id")
 		switch scope {
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			sq = sq.Equals("tenant_id", userCred.GetProjectId())
 			return q.In("acl_id", sq.SubQuery())
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
 			return q.In("acl_id", sq.SubQuery())
 		}
@@ -390,7 +390,7 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 		localAcl.AclEntries = &aclEntites
 		localAcl.Fingerprint = f
 		localAcl.IsPublic = true
-		localAcl.PublicScope = string(rbacutils.ScopeDomain)
+		localAcl.PublicScope = string(rbacscope.ScopeDomain)
 		err := LoadbalancerAclManager.TableSpec().Insert(ctx, localAcl)
 		if err != nil {
 			return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.InsertAcl")

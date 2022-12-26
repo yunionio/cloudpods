@@ -23,7 +23,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -36,7 +38,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -662,7 +663,7 @@ type SMongoDBCountStat struct {
 }
 
 func (man *SMongoDBManager) TotalCount(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	providers []string, brands []string, cloudEnv string,
@@ -689,7 +690,7 @@ func (man *SMongoDBManager) TotalCount(
 func (self *SMongoDB) GetQuotaKeys() quotas.IQuotaKeys {
 	region, _ := self.GetRegion()
 	return fetchRegionalQuotaKeys(
-		rbacutils.ScopeProject,
+		rbacscope.ScopeProject,
 		self.GetOwnerId(),
 		region,
 		self.GetCloudprovider(),

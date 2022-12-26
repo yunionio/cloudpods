@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -35,7 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -242,10 +242,10 @@ func (self *SGlobalVpc) ValidateUpdateCondition(ctx context.Context) error {
 	return self.SEnabledStatusInfrasResourceBase.ValidateUpdateCondition(ctx)
 }
 
-func (manager *SGlobalVpcManager) totalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) int {
+func (manager *SGlobalVpcManager) totalCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider) int {
 	q := manager.Query()
 	switch scope {
-	case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+	case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 	}
 	cnt, _ := q.CountWithError()

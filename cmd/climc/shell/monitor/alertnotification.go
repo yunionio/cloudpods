@@ -15,9 +15,10 @@
 package monitor
 
 import (
+	"yunion.io/x/pkg/util/printutils"
+
 	monitorapi "yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/monitor"
 )
@@ -34,7 +35,7 @@ func initAlertNotification() {
 			if err != nil {
 				return err
 			}
-			var result *modulebase.ListResult
+			var result *printutils.ListResult
 			if len(args.Alert) > 0 {
 				result, err = monitor.Alertnotification.ListDescendent(s, args.Alert, params)
 			} else if len(args.Notification) > 0 {

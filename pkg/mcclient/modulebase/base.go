@@ -25,10 +25,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type BaseManager struct {
@@ -137,7 +138,7 @@ func (this *BaseManager) rawBaseUrlRequest(s *mcclient.ClientSession,
 		header, body, baseUrlF)
 }
 
-type ListResult struct {
+/*type ListResult struct {
 	Data   []jsonutils.JSONObject `json:"data,allowempty"`
 	Total  int
 	Limit  int
@@ -146,9 +147,9 @@ type ListResult struct {
 	NextMarker  string
 	MarkerField string
 	MarkerOrder string
-}
+}*/
 
-func ListResult2JSONWithKey(result *ListResult, key string) jsonutils.JSONObject {
+func ListResult2JSONWithKey(result *printutils.ListResult, key string) jsonutils.JSONObject {
 	obj := jsonutils.NewDict()
 	if result.Total > 0 {
 		obj.Add(jsonutils.NewInt(int64(result.Total)), "total")
@@ -173,11 +174,11 @@ func ListResult2JSONWithKey(result *ListResult, key string) jsonutils.JSONObject
 	return obj
 }
 
-func ListResult2JSON(result *ListResult) jsonutils.JSONObject {
+func ListResult2JSON(result *printutils.ListResult) jsonutils.JSONObject {
 	return ListResult2JSONWithKey(result, "data")
 }
 
-func JSON2ListResult(result jsonutils.JSONObject) *ListResult {
+func JSON2ListResult(result jsonutils.JSONObject) *printutils.ListResult {
 	total, _ := result.Int("total")
 	limit, _ := result.Int("limit")
 	offset, _ := result.Int("offset")
@@ -188,7 +189,7 @@ func JSON2ListResult(result jsonutils.JSONObject) *ListResult {
 	if len(markerField) == 0 && total == 0 {
 		total = int64(len(data))
 	}
-	return &ListResult{
+	return &printutils.ListResult{
 		Data:  data,
 		Total: int(total), Limit: int(limit), Offset: int(offset),
 		NextMarker:  nextMarker,
@@ -197,7 +198,7 @@ func JSON2ListResult(result jsonutils.JSONObject) *ListResult {
 	}
 }
 
-func (this *BaseManager) _list(session *mcclient.ClientSession, path, responseKey string) (*ListResult, error) {
+func (this *BaseManager) _list(session *mcclient.ClientSession, path, responseKey string) (*printutils.ListResult, error) {
 	_, body, err := this.jsonRequest(session, "GET", path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -218,7 +219,7 @@ func (this *BaseManager) _list(session *mcclient.ClientSession, path, responseKe
 	if len(nextMarker) == 0 && total == 0 {
 		total = int64(len(rets))
 	}
-	return &ListResult{
+	return &printutils.ListResult{
 		Data:  rets,
 		Total: int(total), Limit: int(limit), Offset: int(offset),
 		NextMarker:  nextMarker,
@@ -260,13 +261,15 @@ func (this *BaseManager) _submit(session *mcclient.ClientSession, method httputi
 	return ret, nil
 }
 
-type SubmitResult struct {
+/*type SubmitResult struct {
 	Status int
 	Id     interface{}
 	Data   jsonutils.JSONObject
-}
+}*/
 
-func SubmitResults2JSON(results []SubmitResult) jsonutils.JSONObject {
+//type SubmitResult printutils.SubmitResult
+
+func SubmitResults2JSON(results []printutils.SubmitResult) jsonutils.JSONObject {
 	arr := jsonutils.NewArray()
 	for _, r := range results {
 		obj := jsonutils.NewDict()
@@ -280,46 +283,46 @@ func SubmitResults2JSON(results []SubmitResult) jsonutils.JSONObject {
 	return body
 }
 
-func SubmitResults2ListResult(results []SubmitResult) *ListResult {
+func SubmitResults2ListResult(results []printutils.SubmitResult) *printutils.ListResult {
 	arr := make([]jsonutils.JSONObject, 0)
 	for _, r := range results {
 		if r.Status == 200 {
 			arr = append(arr, r.Data)
 		}
 	}
-	return &ListResult{Data: arr, Total: len(arr), Limit: 0, Offset: 0}
+	return &printutils.ListResult{Data: arr, Total: len(arr), Limit: 0, Offset: 0}
 }
 
-func (this *BaseManager) _batch(session *mcclient.ClientSession, method httputils.THttpMethod, path string, ids []string, body jsonutils.JSONObject, respKey string) []SubmitResult {
+func (this *BaseManager) _batch(session *mcclient.ClientSession, method httputils.THttpMethod, path string, ids []string, body jsonutils.JSONObject, respKey string) []printutils.SubmitResult {
 	return BatchDo(ids, func(id string) (jsonutils.JSONObject, error) {
 		u := fmt.Sprintf(path, url.PathEscape(id))
 		return this._submit(session, method, u, body, respKey)
 	})
 }
 
-func addResult(results chan SubmitResult, id interface{}, r jsonutils.JSONObject, e error) {
+func addResult(results chan printutils.SubmitResult, id interface{}, r jsonutils.JSONObject, e error) {
 	if e != nil {
 		ecls, ok := e.(*httputils.JSONClientError)
 		if ok {
-			results <- SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.Marshal(ecls)}
+			results <- printutils.SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.Marshal(ecls)}
 		} else {
-			results <- SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
+			results <- printutils.SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
 		}
 	} else {
-		results <- SubmitResult{Status: 200, Id: id, Data: r}
+		results <- printutils.SubmitResult{Status: 200, Id: id, Data: r}
 	}
 }
 
-func waitResults(results chan SubmitResult, length int) []SubmitResult {
-	ret := make([]SubmitResult, length)
+func waitResults(results chan printutils.SubmitResult, length int) []printutils.SubmitResult {
+	ret := make([]printutils.SubmitResult, length)
 	for i := 0; i < length; i++ {
 		ret[i] = <-results
 	}
 	return ret
 }
 
-func BatchDo(ids []string, do func(id string) (jsonutils.JSONObject, error)) []SubmitResult {
-	results := make(chan SubmitResult, len(ids))
+func BatchDo(ids []string, do func(id string) (jsonutils.JSONObject, error)) []printutils.SubmitResult {
+	results := make(chan printutils.SubmitResult, len(ids))
 	for i := 0; i < len(ids); i++ {
 		go func(id string) {
 			r, e := do(id)
@@ -332,8 +335,8 @@ func BatchDo(ids []string, do func(id string) (jsonutils.JSONObject, error)) []S
 func BatchParamsDo(
 	ids []string, params []jsonutils.JSONObject,
 	do func(id string, param jsonutils.JSONObject) (jsonutils.JSONObject, error),
-) []SubmitResult {
-	results := make(chan SubmitResult, len(ids))
+) []printutils.SubmitResult {
+	results := make(chan printutils.SubmitResult, len(ids))
 	for i := 0; i < len(ids); i++ {
 		go func(id string, param jsonutils.JSONObject) {
 			r, e := do(id, param)
@@ -345,8 +348,8 @@ func BatchParamsDo(
 
 func BatchDoClassAction(
 	batchParams []jsonutils.JSONObject, do func(jsonutils.JSONObject) (jsonutils.JSONObject, error),
-) []SubmitResult {
-	results := make(chan SubmitResult, len(batchParams))
+) []printutils.SubmitResult {
+	results := make(chan printutils.SubmitResult, len(batchParams))
 	for i := 0; i < len(batchParams); i++ {
 		go func(params jsonutils.JSONObject) {
 			r, e := do(params)

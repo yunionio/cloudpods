@@ -18,12 +18,12 @@ import (
 	"os"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/samlutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )

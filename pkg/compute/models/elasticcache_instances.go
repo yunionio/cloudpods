@@ -27,8 +27,11 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/billing"
+	bc "yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -45,8 +48,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/billing"
-	bc "yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -174,15 +175,15 @@ func elasticcacheSubResourceFetchOwnerId(ctx context.Context, data jsonutils.JSO
 }
 
 // elastic cache 子资源获取owner query
-func elasticcacheSubResourceFetchOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func elasticcacheSubResourceFetchOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		var subq *sqlchemy.SSubQuery
 
 		q1 := ElasticcacheManager.Query()
 		switch scope {
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			subq = q1.Equals("tenant_id", userCred.GetProjectId()).SubQuery()
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			subq = q1.Equals("domain_id", userCred.GetProjectDomainId()).SubQuery()
 		}
 
@@ -894,7 +895,7 @@ func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, use
 	}
 
 	cachePendingUsage := &SRegionQuota{Cache: 1}
-	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, provider)
+	quotaKeys := fetchRegionalQuotaKeys(rbacscope.ScopeProject, ownerId, region, provider)
 	cachePendingUsage.SetKeys(quotaKeys)
 	if err = quotas.CheckSetPendingQuota(ctx, userCred, cachePendingUsage); err != nil {
 		return nil, errors.Wrap(err, "quotas.CheckSetPendingQuota")
@@ -1450,7 +1451,7 @@ func (self *SElasticcache) DeleteSubResources(ctx context.Context, userCred mccl
 }
 
 func (man *SElasticcacheManager) TotalCount(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	providers []string, brands []string, cloudEnv string,
@@ -1469,7 +1470,7 @@ func (man *SElasticcacheManager) TotalCount(
 func (cache *SElasticcache) GetQuotaKeys() quotas.IQuotaKeys {
 	region, _ := cache.GetRegion()
 	return fetchRegionalQuotaKeys(
-		rbacutils.ScopeProject,
+		rbacscope.ScopeProject,
 		cache.GetOwnerId(),
 		region,
 		cache.GetCloudprovider(),

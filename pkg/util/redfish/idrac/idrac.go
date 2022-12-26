@@ -23,9 +23,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/redfish"
 	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	"yunion.io/x/onecloud/pkg/util/redfish/generic"

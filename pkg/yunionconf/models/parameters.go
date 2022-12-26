@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
@@ -32,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/yunionconf/options"
 )
 
@@ -151,7 +151,7 @@ func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JS
 
 func getNamespace(userCred mcclient.TokenCredential, resource string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (string, string, error) {
 	var namespace, namespace_id string
-	if userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), resource, policy.PolicyActionList).Result.IsAllow() {
+	if userCred.IsAllow(rbacscope.ScopeSystem, consts.GetServiceType(), resource, policy.PolicyActionList).Result.IsAllow() {
 		if name, nameId, e := getNamespaceInContext(userCred, query, data); e != nil {
 			return "", "", e
 		} else {
@@ -170,12 +170,12 @@ func (manager *SParameterManager) CreateByInsertOrUpdate() bool {
 	return false
 }
 
-func (manager *SParameterManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeUser
+func (manager *SParameterManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeUser
 }
 
-func (manager *SParameterManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeUser
+func (manager *SParameterManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeUser
 }
 
 func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -213,10 +213,10 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 	return data, nil
 }
 
-func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
-		case rbacutils.ScopeUser:
+		case rbacscope.ScopeUser:
 			if len(owner.GetUserId()) > 0 {
 				q = q.Equals("namespace_id", owner.GetUserId()).Equals("namespace", NAMESPACE_USER)
 			}

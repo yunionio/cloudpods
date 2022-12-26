@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -848,14 +849,14 @@ func (self *SSnapshotManager) DeleteDiskSnapshots(ctx context.Context, userCred 
 	return nil
 }
 
-func TotalSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) (int, error) {
+func TotalSnapshotCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) (int, error) {
 	q := SnapshotManager.Query()
 
 	switch scope {
-	case rbacutils.ScopeSystem:
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeSystem:
+	case rbacscope.ScopeDomain:
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		q = q.Equals("tenant_id", ownerId.GetProjectId())
 	}
 
@@ -1105,7 +1106,7 @@ func (manager *SSnapshotManager) StartSnapshotCleanupTask(
 func (self *SSnapshot) GetQuotaKeys() quotas.IQuotaKeys {
 	region, _ := self.GetRegion()
 	return fetchRegionalQuotaKeys(
-		rbacutils.ScopeProject,
+		rbacscope.ScopeProject,
 		self.GetOwnerId(),
 		region,
 		self.GetCloudprovider(),

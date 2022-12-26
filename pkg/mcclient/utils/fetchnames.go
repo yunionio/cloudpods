@@ -20,13 +20,13 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func MapKeys(idMap map[string]string) []string {
@@ -44,7 +44,7 @@ func FetchDomainNames(ctx context.Context, domainMap map[string]string) (map[str
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString(fmt.Sprintf("id.equals(%s)", strings.Join(MapKeys(domainMap), ","))), "filter.0")
 	query.Add(jsonutils.NewInt(int64(len(domainMap))), "limit")
-	query.Add(jsonutils.NewString(string(rbacutils.ScopeSystem)), "scope")
+	query.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
 	query.Add(jsonutils.JSONTrue, "details")
 	results, err := modules.Domains.List(s, query)
 	if err == nil {
@@ -73,7 +73,7 @@ func FetchTenantNames(ctx context.Context, tenantMap map[string]string) (map[str
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString(fmt.Sprintf("id.equals(%s)", strings.Join(MapKeys(tenantMap), ","))), "filter.0")
 	query.Add(jsonutils.NewInt(int64(len(tenantMap))), "limit")
-	query.Add(jsonutils.NewString(string(rbacutils.ScopeSystem)), "scope")
+	query.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
 	query.Add(jsonutils.JSONTrue, "details")
 	results, err := modules.Projects.List(s, query)
 	if err == nil {

@@ -20,9 +20,9 @@ import (
 	"sync"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type IBackupStorage interface {
@@ -30,8 +30,8 @@ type IBackupStorage interface {
 	CopyBackupTo(targetFilename string, backupId string) error
 	RemoveBackup(backupId string) error
 	IsExists(backupId string) (bool, error)
-	ConvertTo(destPath string, format qemuimg.TImageFormat, backupId string) error
-	ConvertFrom(srcPath string, format qemuimg.TImageFormat, backupId string) (int, error)
+	ConvertTo(destPath string, format qemuimgfmt.TImageFormat, backupId string) error
+	ConvertFrom(srcPath string, format qemuimgfmt.TImageFormat, backupId string) (int, error)
 	InstancePack(ctx context.Context, packageName string, backupIds []string, metadata *api.InstanceBackupPackMetadata) (string, error)
 	InstanceUnpack(ctx context.Context, packageName string, metadataOnly bool) ([]string, *api.InstanceBackupPackMetadata, error)
 	IsOnline() (bool, string, error)

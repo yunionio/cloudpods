@@ -20,12 +20,12 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/shellutils"
 	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/redfish"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {

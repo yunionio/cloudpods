@@ -23,8 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/pkg/util/httputils"
 )
 
 func (r *SBMCConsole) GetIloConsoleJNLP(ctx context.Context) (string, error) {

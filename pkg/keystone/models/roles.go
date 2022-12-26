@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -35,7 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/locale"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -152,7 +152,7 @@ func (manager *SRoleManager) initSysRole(ctx context.Context) error {
 	role := SRole{}
 	role.Name = api.SystemAdminRole
 	role.IsPublic = true
-	role.PublicScope = string(rbacutils.ScopeSystem)
+	role.PublicScope = string(rbacscope.ScopeSystem)
 	role.DomainId = api.DEFAULT_DOMAIN_ID
 	role.Description = "Boostrap system default admin role"
 	role.SetModelManager(manager, &role)
@@ -532,7 +532,7 @@ func (role *SRole) PostCreate(
 	}
 }
 
-func (manager *SRoleManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SRoleManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return db.SharableManagerFilterByOwner(manager, q, owner, scope)
 }
 

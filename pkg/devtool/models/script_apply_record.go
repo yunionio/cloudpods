@@ -20,12 +20,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/devtool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -128,18 +128,18 @@ func (sarm *SScriptApplyRecordManager) createRecordWithResult(ctx context.Contex
 	return sar, nil
 }
 
-func (sarm *SScriptApplyRecordManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (sarm *SScriptApplyRecordManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
-func (sarm *SScriptApplyRecordManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (sarm *SScriptApplyRecordManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
-func (sarm *SScriptApplyRecordManager) FileterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (sarm *SScriptApplyRecordManager) FileterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
-		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 			scriptQ := ScriptManager.Query("id", "domain_id").SubQuery()
 			q = q.Join(scriptQ, sqlchemy.Equals(q.Field("script_id"), scriptQ.Field("id")))
 			q = q.Filter(sqlchemy.Equals(scriptQ.Field("domain_id"), owner.GetProjectDomainId()))

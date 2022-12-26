@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -33,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -71,8 +71,8 @@ type SMountTarget struct {
 	FileSystemId string `width:"36" charset:"ascii" nullable:"false" create:"required" index:"true" list:"user"`
 }
 
-func (manager *SMountTargetManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SMountTargetManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
 func (self *SMountTarget) GetFileSystem() (*SFileSystem, error) {
@@ -264,10 +264,10 @@ func (self *SMountTarget) GetOwnerId() mcclient.IIdentityProvider {
 	return &db.SOwnerId{DomainId: fs.DomainId}
 }
 
-func (manager *SMountTargetManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SMountTargetManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := FileSystemManager.Query("id")
-		if scope == rbacutils.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
+		if scope == rbacscope.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
 			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
 			return q.In("file_system_id", sq)
 		}

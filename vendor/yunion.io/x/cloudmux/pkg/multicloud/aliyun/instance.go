@@ -24,6 +24,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/billing"
+	"yunion.io/x/pkg/util/imagetools"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
@@ -32,8 +34,6 @@ import (
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 const (

@@ -26,12 +26,13 @@ import (
 	ptem "text/template"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -39,7 +40,6 @@ import (
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type STemplateManager struct {

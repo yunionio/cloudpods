@@ -36,3 +36,7 @@ const (
 	OS_ARCH_AARCH32 = "aarch32"
 	OS_ARCH_AARCH64 = "aarch64"
 )
+
+const (
+	PUBLIC_CLOUD_ANSIBLE_USER = "cloudroot"
+)

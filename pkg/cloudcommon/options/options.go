@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/log/hooks"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
@@ -41,7 +42,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/atexit"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (

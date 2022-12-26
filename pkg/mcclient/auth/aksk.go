@@ -19,9 +19,9 @@ import (
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/cache"
+	"yunion.io/x/pkg/util/s3auth"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/s3auth"
 )
 
 type sAccessKeyCache struct {
