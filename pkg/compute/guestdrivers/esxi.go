@@ -547,16 +547,10 @@ func (self *SESXiGuestDriver) IsSupportLiveMigrate() bool {
 }
 
 func (self *SESXiGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
-	if len(input.PreferHost) == 0 {
-		return httperrors.NewBadRequestError("esxi guest migrate require prefer_host")
-	}
 	return nil
 }
 
 func (self *SESXiGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
-	if len(input.PreferHost) == 0 {
-		return httperrors.NewBadRequestError("esxi guest migrate require prefer_host")
-	}
 	return nil
 }
 
