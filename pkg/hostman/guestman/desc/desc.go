@@ -95,7 +95,6 @@ type SGuestHardwareDesc struct {
 	Floppys         []*SGuestFloppy         `json:",omitempty"`
 	Disks           []*SGuestDisk           `json:",omitempty"`
 	Nics            []*SGuestNetwork        `json:",omitempty"`
-	NicsStandby     []*SGuestNetwork        `json:",omitempty"`
 	IsolatedDevices []*SGuestIsolatedDevice `json:",omitempty"`
 
 	// Random Number Generator Device
@@ -295,6 +294,8 @@ type SGuestVirtioSerial struct {
 
 type SGuestVirtioScsi struct {
 	*PCIDevice
+
+	NumQueues *uint8 `json:"num_queues"`
 }
 
 type SGuestPvScsi struct {

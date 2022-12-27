@@ -157,6 +157,27 @@ func (s *SKVMGuestInstance) updateGuestDesc() error {
 	return s.SaveLiveDesc(s.Desc)
 }
 
+func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc) error {
+	srcDesc.SGuestProjectDesc = s.SourceDesc.SGuestProjectDesc
+	srcDesc.SGuestRegionDesc = s.SourceDesc.SGuestRegionDesc
+	srcDesc.SGuestControlDesc = s.SourceDesc.SGuestControlDesc
+	srcDesc.SGuestMetaDesc = s.SourceDesc.SGuestMetaDesc
+	for i := 0; i < len(s.SourceDesc.Cdroms); i++ {
+		srcDesc.Cdroms[i].Path = s.SourceDesc.Cdroms[i].Path
+	}
+	for i := 0; i < len(s.SourceDesc.Disks); i++ {
+		srcDesc.Disks[i].GuestdiskJsonDesc = s.SourceDesc.Disks[i].GuestdiskJsonDesc
+	}
+	for i := 0; i < len(s.SourceDesc.Nics); i++ {
+		if err := s.generateNicScripts(s.SourceDesc.Nics[i]); err != nil {
+			return errors.Wrapf(err, "generateNicScripts for nic: %v", s.SourceDesc.Nics[i])
+		}
+		srcDesc.Nics[i].UpscriptPath = s.getNicUpScriptPath(s.SourceDesc.Nics[i])
+		srcDesc.Nics[i].DownscriptPath = s.getNicDownScriptPath(s.SourceDesc.Nics[i])
+	}
+	return s.SaveLiveDesc(srcDesc)
+}
+
 func (s *SKVMGuestInstance) IsStopping() bool {
 	return s.stopping
 }
@@ -459,9 +480,18 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		return nil, errors.Wrap(err, "fuse mount")
 	}
 
-	err = s.updateGuestDesc()
+	if jsonutils.QueryBoolean(data, "need_migrate", false) {
+		var sourceDesc = new(desc.SGuestDesc)
+		err = data.Unmarshal(sourceDesc, "src_desc")
+		if err != nil {
+			return nil, errors.Wrap(err, "unmarshal src desc")
+		}
+		err = s.initLiveDescFromSourceGuest(sourceDesc)
+	} else {
+		err = s.updateGuestDesc()
+	}
 	if err != nil {
-		return nil, errors.Wrap(err, "generate desc")
+		return nil, errors.Wrap(err, "asyncScriptStart init desc")
 	}
 
 	hostbridge.CleanDeletedPorts(options.HostOptions.BridgeDriver)
@@ -534,23 +564,6 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 	startScript, err := s.generateStartScript(data)
 	if err != nil {
 		return err
-	}
-	// diff qemu command options when migrating
-	if jsonutils.QueryBoolean(data, "need_migrate", false) {
-		srcCmdline, err := data.GetString("source_qemu_cmdline")
-		if err != nil {
-			return errors.Wrap(err, "Get source_qemu_cmdline")
-		}
-		currentCmd, err := s.getQemuCmdlineFromContent(startScript)
-		if err != nil {
-			return errors.Wrapf(err, "Get qemu cmdline from %q", startScript)
-		}
-		unifyCmd, err := s.unifyMigrateQemuCmdline(currentCmd, srcCmdline)
-		if err != nil {
-			return errors.Wrap(err, "Unify migrate qemu cmdline")
-		}
-		// reinject cmd
-		startScript = strings.ReplaceAll(startScript, currentCmd, unifyCmd)
 	}
 
 	if err = fileutils2.FilePutContents(s.GetStartScriptPath(), startScript, false); err != nil {
@@ -717,23 +730,25 @@ func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Co
 func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func()) error {
 	if s.GetQmpMonitorPort(-1) > 0 {
 		var mon monitor.Monitor
+		var onMonitorTimeout = func(err error) { s.onMonitorTimeout(ctx, err) }
+		var onMonitorConnected = func() {
+			s.Monitor = mon
+			s.onMonitorConnected(ctx)
+			if cb != nil {
+				cb()
+			}
+		}
 		mon = monitor.NewQmpMonitor(
 			s.GetName(), s.Id,
-			s.onMonitorDisConnect,                            // on monitor disconnect
-			func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
-			func() {
-				s.Monitor = mon
-				s.onMonitorConnected(ctx)
-				if cb != nil {
-					cb()
-				}
-			}, // on monitor connected
-			s.onReceiveQMPEvent, // on receive qmp event
+			s.onMonitorDisConnect, // on monitor disconnect
+			onMonitorTimeout,      // on monitor timeout
+			onMonitorConnected,    // on monitor connected
+			s.onReceiveQMPEvent,   // on receive qmp event
 		)
 		err := mon.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
 		if err != nil {
 			mon = nil
-			log.Errorf("Guest %s hmp monitor connect failed %s, something wrong", s.GetName(), err)
+			log.Errorf("Guest %s qmp monitor connect failed %s, something wrong", s.GetName(), err)
 			return errors.Errorf("connect qmp monitor: %s", err)
 		}
 		return nil
@@ -962,44 +977,127 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 	s.QemuVersion = version
 	log.Infof("Guest(%s) qemu version %s", s.Id, s.QemuVersion)
 	if s.pciUninitialized {
-		s.getPciDevices(ctx)
-	} else {
-		s.guestRun(ctx)
+		if err := s.collectGuestDescription(); err != nil {
+			log.Errorf("failed init desc from existing guest: %s", err)
+			s.syncStatusUnsync(fmt.Sprintf("failed init desc from existing guest: %s", err))
+			return
+		}
+		s.pciUninitialized = false
+	}
+	s.guestRun(ctx)
+}
+
+func (s *SKVMGuestInstance) syncStatusUnsync(reason string) {
+	statusInput := &apis.PerformStatusInput{
+		Status:      api.VM_UNSYNC,
+		Reason:      reason,
+		PowerStates: s.GetPowerStates(),
+	}
+	if _, err := hostutils.UpdateServerStatus(context.Background(), s.Id, statusInput); err != nil {
+		log.Errorf("failed update guest status %s", err)
 	}
 }
 
-func (s *SKVMGuestInstance) getPciDevices(ctx context.Context) {
-	cb := func(pciInfoList []monitor.PCIInfo, err string) {
-		if err != "" && pciInfoList == nil {
-			log.Errorf("failed query pci %s", err)
-			s.guestRun(ctx)
+func (s *SKVMGuestInstance) collectGuestDescription() error {
+	cpuList, err := s.getHotpluggableCPUList()
+	if err != nil {
+		return errors.Wrap(err, "get hotpluggable cpus")
+	}
+
+	pciInfoList, err := s.getPciDevices()
+	if err != nil {
+		return errors.Wrap(err, "get pci devices")
+	}
+	memoryDevicesInfoList, err := s.getMemoryDevices()
+	if err != nil {
+		return errors.Wrap(err, "get memory devices")
+	}
+	memDevs, err := s.getMemoryDevs()
+	if err != nil {
+		return errors.Wrap(err, "query mem devs")
+	}
+	scsiNumQueues := s.getScsiNumQueues()
+	err = s.initGuestDescFromExistingGuest(cpuList, pciInfoList, memoryDevicesInfoList, memDevs, scsiNumQueues)
+	if err != nil {
+		return errors.Wrap(err, "failed init guest devices")
+	}
+	if err := s.SaveLiveDesc(s.Desc); err != nil {
+		return errors.Wrap(err, "failed save live desc")
+	}
+	return nil
+}
+
+func (s *SKVMGuestInstance) getHotpluggableCPUList() ([]monitor.HotpluggableCPU, error) {
+	var res []monitor.HotpluggableCPU
+	var errChan = make(chan error)
+	cb := func(cpuList []monitor.HotpluggableCPU, err string) {
+		if err != "" {
+			errChan <- errors.Errorf(err)
 		} else {
-			s.getMemoryDevices(ctx, pciInfoList)
+			res = cpuList
+			errChan <- nil
+		}
+	}
+	s.Monitor.GetHotPluggableCpus(cb)
+	err := <-errChan
+	return res, err
+}
+
+func (s *SKVMGuestInstance) getScsiNumQueues() int64 {
+	var numQueueChan = make(chan int64)
+	cb := func(numQueues int64) {
+		numQueueChan <- numQueues
+	}
+	s.Monitor.GetScsiNumQueues(cb)
+	return <-numQueueChan
+}
+
+func (s *SKVMGuestInstance) getPciDevices() ([]monitor.PCIInfo, error) {
+	var res []monitor.PCIInfo
+	var errChan = make(chan error)
+	cb := func(pciInfoList []monitor.PCIInfo, err string) {
+		if err != "" {
+			errChan <- errors.Errorf(err)
+		} else {
+			res = pciInfoList
+			errChan <- nil
 		}
 	}
 	s.Monitor.QueryPci(cb)
+	err := <-errChan
+	return res, err
 }
 
-func (s *SKVMGuestInstance) getMemoryDevices(ctx context.Context, pciInfoList []monitor.PCIInfo) {
-	cb := func(memoryDevicesInfoList []monitor.MemoryDeviceInfo, err string) {
-		if err != "" && memoryDevicesInfoList == nil {
-			log.Errorf("failed query memory device info: %s", err)
+func (s *SKVMGuestInstance) getMemoryDevs() ([]monitor.Memdev, error) {
+	var res []monitor.Memdev
+	var errChan = make(chan error)
+	cb := func(memDevs []monitor.Memdev, err string) {
+		if err != "" {
+			errChan <- errors.Errorf(err)
 		} else {
-			if err := s.initGuestDescFromExistingGuest(pciInfoList, memoryDevicesInfoList); err != nil {
-				log.Errorf("failed init guest devices: %s", err)
-			} else {
-				s.pciUninitialized = false
-				s.SaveLiveDesc(s.Desc)
-				vncPort := s.GetVncPort()
-				data := jsonutils.NewDict()
-				data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
-				data.Set("sync_qemu_cmdline", jsonutils.JSONTrue)
-				s.saveScripts(data)
-			}
+			res = memDevs
+			errChan <- nil
 		}
-		s.guestRun(ctx)
+	}
+	s.Monitor.GetMemdevList(cb)
+	err := <-errChan
+	return res, err
+}
+
+func (s *SKVMGuestInstance) getMemoryDevices() ([]monitor.MemoryDeviceInfo, error) {
+	var res []monitor.MemoryDeviceInfo
+	var errChan = make(chan error)
+	cb := func(memoryDevicesInfoList []monitor.MemoryDeviceInfo, err string) {
+		if err != "" {
+			errChan <- errors.Errorf(err)
+		} else {
+			res = memoryDevicesInfoList
+			errChan <- nil
+		}
 	}
 	s.Monitor.GetMemoryDevicesInfo(cb)
+	err := <-errChan
+	return res, err
 }
 
 func (s *SKVMGuestInstance) guestRun(ctx context.Context) {

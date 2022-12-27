@@ -22,7 +22,7 @@ const (
 )
 
 type Arch interface {
-	GenerateCpuDesc(cpus uint, s KVMGuestInstance) (*desc.SGuestCpu, error)
+	GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*desc.SGuestCpu, error)
 	GenerateMemDesc() *desc.SGuestMem
 	GenerateMachineDesc(accel string) *desc.SGuestMachine
 	GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom)

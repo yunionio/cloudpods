@@ -200,11 +200,14 @@ type Monitor interface {
 	GetBlockJobCounts(func(jobs int))
 	GetBlockJobs(func([]BlockJob))
 	QueryPci(callback QueryPciCallback)
+	GetScsiNumQueues(callback func(int64))
 
 	GetCpuCount(func(count int))
 	AddCpu(cpuIndex int, callback StringCallback)
+	GetHotPluggableCpus(HotpluggableCPUListCallback)
 	GeMemtSlotIndex(func(index int))
 	GetMemoryDevicesInfo(QueryMemoryDevicesCallback)
+	GetMemdevList(MemdevListCallback)
 
 	GetBlocks(callback func([]QemuBlock))
 	EjectCdrom(dev string, callback StringCallback)
