@@ -400,6 +400,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 		if err != nil {
 			return nil, errors.Wrapf(err, "extModel.GetTags")
 		}
+		find := false
 		if pm.Rules != nil {
 			for _, rule := range *pm.Rules {
 				domainId, projectId, newProj, isMatch := rule.IsMatchTags(extTags)
@@ -412,9 +413,20 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 					if len(domainId) > 0 && len(projectId) > 0 {
 						project.DomainId = domainId
 						project.ProjectId = projectId
+						find = true
 						break
 					}
 				}
+			}
+		}
+		if !find && account.AutoCreateProject {
+			desc := fmt.Sprintf("auto create from cloud project %s (%s)", project.Name, project.ExternalId)
+			domainId, projectId, err := account.getOrCreateTenant(ctx, project.Name, project.DomainId, "", desc)
+			if err != nil {
+				log.Errorf("failed to get or create tenant %s(%s) %v", project.Name, project.ExternalId, err)
+			} else {
+				project.DomainId = domainId
+				project.ProjectId = projectId
 			}
 		}
 	} else if account.AutoCreateProject {
