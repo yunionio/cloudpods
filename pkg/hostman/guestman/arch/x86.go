@@ -127,11 +127,7 @@ func (*X86) enableHypervFeatures(features map[string]bool) {
 	}
 }
 
-func (x86 *X86) GenerateCpuDesc(cpus uint, s KVMGuestInstance) (*desc.SGuestCpu, error) {
-	cpuMax, err := s.CpuMax()
-	if err != nil {
-		return nil, err
-	}
+func (x86 *X86) GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*desc.SGuestCpu, error) {
 	var hideKVM = true
 	if s.IsNestedVirt() {
 		hideKVM = false

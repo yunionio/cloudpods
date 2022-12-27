@@ -137,7 +137,7 @@ func (d *SBaseDisk) GetZoneId() string {
 
 func (d *SBaseDisk) DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
 	deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
-	deployGuestDesc := deployapi.GuestDescToDeployDesc(guestDesc)
+	deployGuestDesc := deployapi.GuestStructDescToDeployDesc(guestDesc)
 	ret, err := deployclient.GetDeployClient().DeployGuestFs(
 		context.Background(), &deployapi.DeployParams{
 			DiskInfo:   diskInfo,

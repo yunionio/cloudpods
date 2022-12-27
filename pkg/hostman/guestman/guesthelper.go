@@ -44,20 +44,20 @@ type SSrcPrepareMigrate struct {
 }
 
 type SDestPrepareMigrate struct {
-	Sid               string
-	ServerUrl         string
-	QemuVersion       string
-	SourceQemuCmdline string
-	MigrateCerts      map[string]string
-	EnableTLS         bool
-	SnapshotsUri      string
-	DisksUri          string
+	Sid          string
+	ServerUrl    string
+	QemuVersion  string
+	MigrateCerts map[string]string
+	EnableTLS    bool
+	SnapshotsUri string
+	DisksUri     string
 	// TargetStorageId string
 	TargetStorageIds []string
 	LiveMigrate      bool
 	RebaseDisks      bool
 
 	Desc             *desc.SGuestDesc
+	SrcDesc          *desc.SGuestDesc
 	DisksBackingFile jsonutils.JSONObject
 	SrcSnapshots     jsonutils.JSONObject
 
