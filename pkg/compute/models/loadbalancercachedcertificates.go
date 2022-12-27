@@ -272,7 +272,7 @@ func (self *SCloudprovider) newFromCloudLoadbalancerCertificate(ctx context.Cont
 	lbcert.CertificateId = c.Id
 	lbcert.Name = ext.GetName()
 
-	err := CachedLoadbalancerCertificateManager.TableSpec().Insert(ctx, &lbcert)
+	err := CachedLoadbalancerCertificateManager.TableSpec().Insert(ctx, lbcert)
 	if err != nil {
 		return errors.Wrapf(err, "Insert cache lbert")
 	}
