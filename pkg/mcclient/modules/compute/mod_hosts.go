@@ -20,13 +20,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const MACAddressPattern = `(([a-fA-F0-9]{2}[:-]){5}([a-fA-F0-9]{2}))`
@@ -117,7 +118,7 @@ func parseHosts(titles []string, data string) []*jsonutils.JSONDict {
 	return ret
 }
 
-func (this *HostManager) BatchRegister(s *mcclient.ClientSession, titles []string, params jsonutils.JSONObject) ([]modulebase.SubmitResult, error) {
+func (this *HostManager) BatchRegister(s *mcclient.ClientSession, titles []string, params jsonutils.JSONObject) ([]printutils.SubmitResult, error) {
 	data, err := params.GetString("hosts")
 	if err != nil {
 		return nil, err
@@ -127,7 +128,7 @@ func (this *HostManager) BatchRegister(s *mcclient.ClientSession, titles []strin
 
 	hosts := parseHosts(titles, data)
 
-	results := make(chan modulebase.SubmitResult, len(hosts))
+	results := make(chan printutils.SubmitResult, len(hosts))
 	for _, host := range hosts {
 		host.Update(input)
 		go func(data jsonutils.JSONObject) {
@@ -136,17 +137,17 @@ func (this *HostManager) BatchRegister(s *mcclient.ClientSession, titles []strin
 			if e != nil {
 				ecls, ok := e.(*httputils.JSONClientError)
 				if ok {
-					results <- modulebase.SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.Marshal(ecls)}
+					results <- printutils.SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.Marshal(ecls)}
 				} else {
-					results <- modulebase.SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
+					results <- printutils.SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
 				}
 			} else {
-				results <- modulebase.SubmitResult{Status: 200, Id: id, Data: ret}
+				results <- printutils.SubmitResult{Status: 200, Id: id, Data: ret}
 			}
 		}(host)
 	}
 
-	ret := make([]modulebase.SubmitResult, len(hosts))
+	ret := make([]printutils.SubmitResult, len(hosts))
 	for i := 0; i < len(hosts); i++ {
 		ret[i] = <-results
 	}
@@ -155,7 +156,7 @@ func (this *HostManager) BatchRegister(s *mcclient.ClientSession, titles []strin
 	return ret, nil
 }
 
-func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, params jsonutils.JSONObject) ([]modulebase.SubmitResult, error) {
+func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, params jsonutils.JSONObject) ([]printutils.SubmitResult, error) {
 	titles := []string{"access_mac", "name", "ipmi_ip_addr", "ipmi_username", "ipmi_password"}
 	return this.BatchRegister(s, titles, params)
 }

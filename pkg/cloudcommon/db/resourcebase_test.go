@@ -17,6 +17,7 @@ package db
 import (
 	"testing"
 
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -28,7 +29,7 @@ type omniToken struct {
 	mcclient.SSimpleToken
 }
 
-func (tk *omniToken) IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
+func (tk *omniToken) IsAllow(scope rbacscope.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
 	return rbacutils.PolicyAllow
 }
 

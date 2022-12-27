@@ -18,9 +18,9 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -45,7 +45,7 @@ func init() {
 		if args.Index >= 0 {
 			params.Add(jsonutils.NewInt(args.Index), "index")
 		}
-		var result *modulebase.ListResult
+		var result *printutils.ListResult
 		var err error
 		if len(args.Server) > 0 {
 			result, err = modules.Serverdisks.ListDescendent(s, args.Server, params)

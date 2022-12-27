@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -33,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -313,11 +313,11 @@ func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred 
 		// if project.DomainId != api.DEFAULT_DOMAIN_ID && !options.Options.AllowJoinProjectsAcrossDomains {
 		//	return httperrors.NewInputParameterError("join user into project of default domain or identical domain")
 		// } else
-		if !db.IsAllowPerform(ctx, rbacutils.ScopeSystem, userCred, user, "join-project") {
+		if !db.IsAllowPerform(ctx, rbacscope.ScopeSystem, userCred, user, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	} else {
-		if !db.IsAllowPerform(ctx, rbacutils.ScopeDomain, userCred, user, "join-project") {
+		if !db.IsAllowPerform(ctx, rbacscope.ScopeDomain, userCred, user, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
@@ -388,11 +388,11 @@ func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCr
 		// if project.DomainId != api.DEFAULT_DOMAIN_ID {
 		//    return httperrors.NewInputParameterError("join user into project of default domain or identical domain")
 		// } else
-		if !db.IsAllowPerform(ctx, rbacutils.ScopeSystem, userCred, user, "leave-project") {
+		if !db.IsAllowPerform(ctx, rbacscope.ScopeSystem, userCred, user, "leave-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	} else {
-		if !db.IsAllowPerform(ctx, rbacutils.ScopeDomain, userCred, user, "leave-project") {
+		if !db.IsAllowPerform(ctx, rbacscope.ScopeDomain, userCred, user, "leave-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
@@ -414,11 +414,11 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 		// if project.DomainId != api.DEFAULT_DOMAIN_ID && !options.Options.AllowJoinProjectsAcrossDomains {
 		// 	return httperrors.NewInputParameterError("join group into project of default domain or identical domain")
 		// } else
-		if !db.IsAllowPerform(ctx, rbacutils.ScopeSystem, userCred, group, "join-project") {
+		if !db.IsAllowPerform(ctx, rbacscope.ScopeSystem, userCred, group, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	} else {
-		if !db.IsAllowPerform(ctx, rbacutils.ScopeDomain, userCred, group, "join-project") {
+		if !db.IsAllowPerform(ctx, rbacscope.ScopeDomain, userCred, group, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
@@ -436,11 +436,11 @@ func (manager *SAssignmentManager) projectRemoveGroup(ctx context.Context, userC
 		// if project.DomainId != api.DEFAULT_DOMAIN_ID {
 		//    return httperrors.NewInputParameterError("join group into project of default domain or identical domain")
 		// } else
-		if !db.IsAllowPerform(ctx, rbacutils.ScopeSystem, userCred, group, "leave-project") {
+		if !db.IsAllowPerform(ctx, rbacscope.ScopeSystem, userCred, group, "leave-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	} else {
-		if !db.IsAllowPerform(ctx, rbacutils.ScopeDomain, userCred, group, "leave-project") {
+		if !db.IsAllowPerform(ctx, rbacscope.ScopeDomain, userCred, group, "leave-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
@@ -658,9 +658,9 @@ func (manager *SAssignmentManager) queryAll(
 
 func fetchRoleAssignmentPolicies(ra *api.SRoleAssignment) {
 	policyNames, _, _ := RolePolicyManager.GetMatchPolicyGroup(ra, time.Time{}, true)
-	ra.Policies.Project, _ = policyNames[rbacutils.ScopeProject]
-	ra.Policies.Domain, _ = policyNames[rbacutils.ScopeDomain]
-	ra.Policies.System, _ = policyNames[rbacutils.ScopeSystem]
+	ra.Policies.Project, _ = policyNames[rbacscope.ScopeProject]
+	ra.Policies.Domain, _ = policyNames[rbacscope.ScopeDomain]
+	ra.Policies.System, _ = policyNames[rbacscope.ScopeSystem]
 }
 
 type sAssignmentInternal struct {

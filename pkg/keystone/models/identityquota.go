@@ -19,13 +19,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	commonOptions "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SQuotaManager struct {
@@ -44,7 +44,7 @@ func init() {
 
 	IdentityUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(IdentityQuota,
-			rbacutils.ScopeDomain,
+			rbacscope.ScopeDomain,
 			"identity_quota_usage_tbl",
 			"identity_quota_usage",
 			"identity_quota_usages",
@@ -52,7 +52,7 @@ func init() {
 	}
 	IdentityPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(IdentityQuota,
-			rbacutils.ScopeDomain,
+			rbacscope.ScopeDomain,
 			"identity_quota_pending_usage_tbl",
 			"identity_quota_pending_usage",
 			"identity_quota_pending_usages",
@@ -60,7 +60,7 @@ func init() {
 	}
 	IdentityQuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(IdentityQuota,
-			rbacutils.ScopeDomain,
+			rbacscope.ScopeDomain,
 			"identity_quota_tbl",
 			IdentityPendingUsageManager,
 			IdentityUsageManager,

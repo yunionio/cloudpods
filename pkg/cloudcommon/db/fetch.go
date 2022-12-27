@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -309,21 +310,21 @@ func (m *sUsageManager) KeywordPlural() string {
 	return "usages"
 }
 
-func (m *sUsageManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (m *sUsageManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
 }
 
 func (m *sUsageManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	return FetchProjectInfo(ctx, data)
 }
 
-func FetchUsageOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error, rbacutils.SPolicyResult) {
+func FetchUsageOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacscope.TRbacScope, error, rbacutils.SPolicyResult) {
 	return FetchCheckQueryOwnerScope(ctx, userCred, data, &sUsageManager{}, policy.PolicyActionGet, true)
 }
 
 type IScopedResourceManager interface {
 	KeywordPlural() string
-	ResourceScope() rbacutils.TRbacScope
+	ResourceScope() rbacscope.TRbacScope
 	FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error)
 }
 
@@ -334,12 +335,12 @@ func FetchCheckQueryOwnerScope(
 	manager IScopedResourceManager,
 	action string,
 	doCheckRbac bool,
-) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error, rbacutils.SPolicyResult) {
-	var scope rbacutils.TRbacScope
+) (mcclient.IIdentityProvider, rbacscope.TRbacScope, error, rbacutils.SPolicyResult) {
+	var scope rbacscope.TRbacScope
 
-	var allowScope rbacutils.TRbacScope
-	var requireScope rbacutils.TRbacScope
-	var queryScope rbacutils.TRbacScope
+	var allowScope rbacscope.TRbacScope
+	var requireScope rbacscope.TRbacScope
+	var queryScope rbacscope.TRbacScope
 	var policyTagFilters rbacutils.SPolicyResult
 
 	resScope := manager.ResourceScope()
@@ -352,40 +353,40 @@ func FetchCheckQueryOwnerScope(
 	}
 	if ownerId != nil {
 		switch resScope {
-		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 			if len(ownerId.GetProjectId()) > 0 {
-				queryScope = rbacutils.ScopeProject
+				queryScope = rbacscope.ScopeProject
 				if ownerId.GetProjectId() == userCred.GetProjectId() {
-					requireScope = rbacutils.ScopeProject
+					requireScope = rbacscope.ScopeProject
 				} else if ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
-					requireScope = rbacutils.ScopeDomain
+					requireScope = rbacscope.ScopeDomain
 				} else {
-					requireScope = rbacutils.ScopeSystem
+					requireScope = rbacscope.ScopeSystem
 				}
 			} else if len(ownerId.GetProjectDomainId()) > 0 {
-				queryScope = rbacutils.ScopeDomain
+				queryScope = rbacscope.ScopeDomain
 				if ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
-					requireScope = rbacutils.ScopeDomain
+					requireScope = rbacscope.ScopeDomain
 				} else {
-					requireScope = rbacutils.ScopeSystem
+					requireScope = rbacscope.ScopeSystem
 				}
 			}
-		case rbacutils.ScopeUser:
-			queryScope = rbacutils.ScopeUser
+		case rbacscope.ScopeUser:
+			queryScope = rbacscope.ScopeUser
 			if ownerId.GetUserId() == userCred.GetUserId() {
-				requireScope = rbacutils.ScopeUser
+				requireScope = rbacscope.ScopeUser
 			} else {
-				requireScope = rbacutils.ScopeSystem
+				requireScope = rbacscope.ScopeSystem
 			}
 		}
 	} else {
 		ownerId = userCred
 		reqScopeStr, _ := data.GetString("scope")
 		if len(reqScopeStr) > 0 {
-			queryScope = rbacutils.String2Scope(reqScopeStr)
+			queryScope = rbacscope.String2Scope(reqScopeStr)
 		} else if data.Contains("admin") {
 			isAdmin := jsonutils.QueryBoolean(data, "admin", false)
-			if isAdmin && allowScope.HigherThan(rbacutils.ScopeProject) {
+			if isAdmin && allowScope.HigherThan(rbacscope.ScopeProject) {
 				queryScope = allowScope
 			}
 		} else if action == policy.PolicyActionGet {

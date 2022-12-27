@@ -20,11 +20,11 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/util/printutils"
 )
 
 type ResourceCmd struct {
@@ -142,7 +142,7 @@ func (cmd ResourceCmd) List(args IListOpt) {
 		if err != nil {
 			return err
 		}
-		var result *modulebase.ListResult
+		var result *printutils.ListResult
 		contextId := args.GetContextId()
 		if cmd.contextManager != nil && len(contextId) > 0 {
 			result, err = man.(modulebase.Manager).ListInContext(s, params, cmd.contextManager.(modulebase.Manager), contextId)
@@ -242,7 +242,7 @@ func (cmd ResourceCmd) GetProperty(args IPropertyOpt) {
 		}
 		if _, ok := ret.(*jsonutils.JSONArray); ok {
 			data, _ := ret.GetArray()
-			PrintList(&modulebase.ListResult{
+			PrintList(&printutils.ListResult{
 				Data: data,
 			}, nil)
 		} else {
@@ -634,7 +634,7 @@ func (cmd JointCmd) List(args IJointListOpt) {
 		if err != nil {
 			return err
 		}
-		var result *modulebase.ListResult
+		var result *printutils.ListResult
 		if len(args.GetMasterOpt()) > 0 {
 			result, err = man.ListDescendent(s, args.GetMasterOpt(), params)
 		} else if len(args.GetSlaveOpt()) > 0 {

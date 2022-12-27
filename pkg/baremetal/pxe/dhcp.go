@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -30,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
@@ -309,7 +309,7 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 	return &network, err
 }
 
-func (req *dhcpRequest) findBaremetalsByUuid(session *mcclient.ClientSession) (*modulebase.ListResult, error) {
+func (req *dhcpRequest) findBaremetalsByUuid(session *mcclient.ClientSession) (*printutils.ListResult, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(req.ClientGuid), "uuid")
 	params.Add(jsonutils.NewString("system"), "scope")
@@ -323,7 +323,7 @@ func (req *dhcpRequest) findBaremetalsByUuid(session *mcclient.ClientSession) (*
 	return ret, nil
 }
 
-func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, isBaremetal bool) (*modulebase.ListResult, error) {
+func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, isBaremetal bool) (*printutils.ListResult, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(req.ClientMac.String()), "any_mac")
 	params.Add(jsonutils.NewString("system"), "scope")

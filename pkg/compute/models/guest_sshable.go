@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/sqlchemy"
 
 	cloudproxy_api "yunion.io/x/onecloud/pkg/apis/cloudproxy"
@@ -37,7 +38,6 @@ import (
 	ansible_modules "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	cloudproxy_module "yunion.io/x/onecloud/pkg/mcclient/modules/cloudproxy"
 	"yunion.io/x/onecloud/pkg/util/ansible"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	ssh_util "yunion.io/x/onecloud/pkg/util/ssh"
 )
 

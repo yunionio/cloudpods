@@ -23,12 +23,12 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SHost struct {
@@ -83,7 +83,7 @@ func (self *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId
 
 	if len(desc.Password) == 0 {
 		//Azure创建必须要设置密码
-		desc.Password = seclib2.RandomPassword2(12)
+		desc.Password = seclib.RandomPassword2(12)
 	}
 
 	if image.Properties.ProvisioningState != ImageStatusAvailable {

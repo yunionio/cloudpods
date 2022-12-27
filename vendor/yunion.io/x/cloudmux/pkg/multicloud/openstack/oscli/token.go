@@ -19,8 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
-
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/pkg/util/rbacscope"
 )
 
 type ExternalService struct {
@@ -39,13 +38,13 @@ type Endpoint struct {
 	Interface   string
 }
 
-func OwnerIdString(owner IIdentityProvider, scope rbacutils.TRbacScope) string {
+func OwnerIdString(owner IIdentityProvider, scope rbacscope.TRbacScope) string {
 	switch scope {
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		return owner.GetProjectDomainId()
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		return owner.GetProjectId()
-	case rbacutils.ScopeUser:
+	case rbacscope.ScopeUser:
 		return owner.GetUserId()
 	default:
 		return ""
@@ -82,8 +81,6 @@ type TokenCredential interface {
 	ValidDuration() time.Duration
 	// IsAdmin() bool
 	HasSystemAdminPrivilege() bool
-
-	IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult
 
 	GetRegions() []string
 

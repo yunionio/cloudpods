@@ -15,7 +15,8 @@
 package shell
 
 import (
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/pkg/util/shellutils"
+
 	"yunion.io/x/onecloud/pkg/util/zeroclean"
 )
 

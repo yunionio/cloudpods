@@ -17,11 +17,12 @@ package rbacutils
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
-type TPolicyGroup map[TRbacScope]TPolicySet
+type TPolicyGroup map[rbacscope.TRbacScope]TPolicySet
 
 func DecodePolicyGroup(json jsonutils.JSONObject) (TPolicyGroup, error) {
 	jmap, err := json.GetMap()
@@ -30,7 +31,7 @@ func DecodePolicyGroup(json jsonutils.JSONObject) (TPolicyGroup, error) {
 	}
 	group := TPolicyGroup{}
 	for k := range jmap {
-		scope := TRbacScope(k)
+		scope := rbacscope.TRbacScope(k)
 		group[scope], err = DecodePolicySet(jmap[k])
 		if err != nil {
 			return nil, errors.Wrapf(err, "decode %s", k)
@@ -39,18 +40,18 @@ func DecodePolicyGroup(json jsonutils.JSONObject) (TPolicyGroup, error) {
 	return group, nil
 }
 
-func (sets TPolicyGroup) HighestScope() TRbacScope {
-	for _, s := range []TRbacScope{
-		ScopeSystem,
-		ScopeDomain,
-		ScopeProject,
-		ScopeUser,
+func (sets TPolicyGroup) HighestScope() rbacscope.TRbacScope {
+	for _, s := range []rbacscope.TRbacScope{
+		rbacscope.ScopeSystem,
+		rbacscope.ScopeDomain,
+		rbacscope.ScopeProject,
+		rbacscope.ScopeUser,
 	} {
 		if _, ok := sets[s]; ok {
 			return s
 		}
 	}
-	return ScopeNone
+	return rbacscope.ScopeNone
 }
 
 func (sets TPolicyGroup) Encode() jsonutils.JSONObject {

@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -31,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -51,7 +51,7 @@ func PingProbe(ctx context.Context, userCred mcclient.TokenCredential, isStart b
 				"offset":     len(networks),
 				"limit":      "10",
 				"cloud_env":  api.CLOUD_ENV_ON_PREMISE,
-				"scope":      rbacutils.ScopeSystem,
+				"scope":      rbacscope.ScopeSystem,
 				"is_classic": true,
 			}
 			resp, err := compute.Networks.List(s, jsonutils.Marshal(params))

@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -28,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
@@ -55,7 +55,7 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	result.ProjectTags = *projectTags
 
 	isAdmin := false
-	if policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(),
+	if policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(),
 		"usages", policy.PolicyActionGet).Result.IsAllow() {
 		isAdmin = true
 	}

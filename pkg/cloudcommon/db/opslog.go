@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/util/timeutils"
@@ -35,7 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -358,17 +358,17 @@ func (manager *SOpsLogManager) LogSyncUpdate(m IModel, uds sqlchemy.UpdateDiffs,
 	}
 }
 
-func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
 		switch scope {
-		case rbacutils.ScopeUser:
+		case rbacscope.ScopeUser:
 			if len(ownerId.GetUserId()) > 0 {
 				/*
 				 * 默认只能查看本人发起的操作
 				 */
 				q = q.Filter(sqlchemy.Equals(q.Field("user_id"), ownerId.GetUserId()))
 			}
-		case rbacutils.ScopeProject:
+		case rbacscope.ScopeProject:
 			if len(ownerId.GetProjectId()) > 0 {
 				/*
 				 * 项目视图可以查看本项目人员发起的操作，或者对本项目资源实施的操作, QIU Jian
@@ -378,7 +378,7 @@ func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.I
 					sqlchemy.Equals(q.Field("owner_tenant_id"), ownerId.GetProjectId()),
 				))
 			}
-		case rbacutils.ScopeDomain:
+		case rbacscope.ScopeDomain:
 			if len(ownerId.GetProjectDomainId()) > 0 {
 				/*
 				 * 域视图可以查看本域人员发起的操作，或者对本域资源实施的操作, QIU Jian
@@ -413,8 +413,8 @@ func (self *SOpsLog) IsSharable(reqCred mcclient.IIdentityProvider) bool {
 	return false
 }
 
-func (manager *SOpsLogManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeUser
+func (manager *SOpsLogManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeUser
 }
 
 func (manager *SOpsLogManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {

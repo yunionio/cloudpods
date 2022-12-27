@@ -18,10 +18,10 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -104,7 +104,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		listResult := modulebase.ListResult{}
+		listResult := printutils.ListResult{}
 		listResult.Data, err = results.GetArray()
 		if err != nil {
 			return err
@@ -122,7 +122,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		listResult := modulebase.ListResult{}
+		listResult := printutils.ListResult{}
 		listResult.Data, err = results.GetArray()
 		if err != nil {
 			return err
@@ -140,7 +140,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		listResult := modulebase.ListResult{}
+		listResult := printutils.ListResult{}
 		listResult.Data, err = results.GetArray()
 		if err != nil {
 			return err

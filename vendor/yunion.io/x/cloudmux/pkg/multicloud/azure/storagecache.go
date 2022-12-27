@@ -26,11 +26,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 const (
@@ -139,7 +139,7 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider.SImageCreateOption, tmpPath string, callback func(progress float32)) (string, error) {
-	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimg.VHD))
+	reader, sizeBytes, err := image.GetReader(image.ImageId, string(qemuimgfmt.VHD))
 	if err != nil {
 		return "", errors.Wrapf(err, "GetReader")
 	}
@@ -216,7 +216,7 @@ func (self *SStoragecache) downloadImage(imageId string, extId string, path stri
 		defer tmpImageFile.Close()
 		defer os.Remove(tmpImageFile.Name())
 		{
-			sf := fileutils2.NewSparseFileWriter(tmpImageFile)
+			sf := fileutils.NewSparseFileWriter(tmpImageFile)
 			data := make([]byte, DefaultReadBlockSize)
 			written := int64(0)
 			for {

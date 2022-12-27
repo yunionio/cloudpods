@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -459,7 +460,7 @@ func (s *SBaseStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, inp
 		log.Errorf("unable to new qemu image for %s: %s", backupPath, err.Error())
 		return errors.Wrapf(err, "unable to new qemu image for %s", backupPath)
 	}
-	_, err = img.Clone(disk.GetPath(), qemuimg.QCOW2, false)
+	_, err = img.Clone(disk.GetPath(), qemuimgfmt.QCOW2, false)
 	return err
 }
 

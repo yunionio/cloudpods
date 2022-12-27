@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -33,14 +34,14 @@ type SMetadataResourceBaseModelManager struct{}
 
 func ObjectIdQueryWithPolicyResult(q *sqlchemy.SQuery, manager IModelManager, result rbacutils.SPolicyResult) *sqlchemy.SQuery {
 	scope := manager.ResourceScope()
-	if scope == rbacutils.ScopeDomain || scope == rbacutils.ScopeProject {
+	if scope == rbacscope.ScopeDomain || scope == rbacscope.ScopeProject {
 		if !result.DomainTags.IsEmpty() {
 			tagFilters := tagutils.STagFilters{}
 			tagFilters.AddFilters(result.DomainTags)
 			q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", tagFilters)
 		}
 	}
-	if scope == rbacutils.ScopeProject {
+	if scope == rbacscope.ScopeProject {
 		if !result.ProjectTags.IsEmpty() {
 			tagFilters := tagutils.STagFilters{}
 			tagFilters.AddFilters(result.ProjectTags)

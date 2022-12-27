@@ -18,10 +18,10 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -35,12 +35,12 @@ func newDBQuotaStore() *SDBQuotaStore {
 	return &SDBQuotaStore{}
 }
 
-func (store *SDBQuotaStore) GetQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
+func (store *SDBQuotaStore) GetQuota(ctx context.Context, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
 	var tenant *db.STenant
 	var err error
 
 	switch scope {
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		tenant, err = db.TenantCacheManager.FetchDomainById(ctx, ownerId.GetProjectDomainId())
 	default:
 		tenant, err = db.TenantCacheManager.FetchTenantById(ctx, ownerId.GetProjectId())

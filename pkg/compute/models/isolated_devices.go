@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -578,14 +579,14 @@ func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(ctx context.Context
 }
 
 func (manager *SIsolatedDeviceManager) totalCountQ(
-	scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, devType []string, hostTypes []string,
+	scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, devType []string, hostTypes []string,
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
 	rangeObjs []db.IStandaloneModel,
 	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
 	hq := HostManager.Query()
-	if scope == rbacutils.ScopeDomain {
+	if scope == rbacscope.ScopeDomain {
 		hq = hq.Filter(sqlchemy.Equals(hq.Field("domain_id"), ownerId.GetProjectDomainId()))
 	}
 	hq = db.ObjectIdQueryWithPolicyResult(hq, HostManager, policyResult)
@@ -605,7 +606,7 @@ type IsolatedDeviceCountStat struct {
 }
 
 func (manager *SIsolatedDeviceManager) totalCount(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	devType,
 	hostTypes []string,
@@ -631,7 +632,7 @@ func (manager *SIsolatedDeviceManager) totalCount(
 }
 
 func (manager *SIsolatedDeviceManager) TotalCount(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	hostType []string,
 	resourceTypes []string,
@@ -856,22 +857,22 @@ func (manager *SIsolatedDeviceManager) FilterByUniqValues(q *sqlchemy.SQuery, va
 	return q
 }
 
-func (manager *SIsolatedDeviceManager) NamespaceScope() rbacutils.TRbacScope {
+func (manager *SIsolatedDeviceManager) NamespaceScope() rbacscope.TRbacScope {
 	if consts.IsDomainizedNamespace() {
-		return rbacutils.ScopeDomain
+		return rbacscope.ScopeDomain
 	} else {
-		return rbacutils.ScopeSystem
+		return rbacscope.ScopeSystem
 	}
 }
 
-func (manager *SIsolatedDeviceManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SIsolatedDeviceManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
-func (manager *SIsolatedDeviceManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SIsolatedDeviceManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
-		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 			hostsQ := HostManager.Query("id")
 			hostsQ = HostManager.FilterByOwner(hostsQ, owner, scope)
 			hosts := hostsQ.SubQuery()

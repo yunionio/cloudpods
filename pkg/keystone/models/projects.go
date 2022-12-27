@@ -25,6 +25,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/pinyinutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -34,8 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/pinyinutils"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
@@ -684,7 +684,7 @@ func (manager *SProjectManager) NewProject(ctx context.Context, projectName stri
 	project := &SProject{}
 	project.SetModelManager(ProjectManager, project)
 	ownerId := &db.SOwnerId{}
-	if manager.NamespaceScope() == rbacutils.ScopeDomain {
+	if manager.NamespaceScope() == rbacscope.ScopeDomain {
 		ownerId.DomainId = domainId
 	}
 	project.DomainId = domainId

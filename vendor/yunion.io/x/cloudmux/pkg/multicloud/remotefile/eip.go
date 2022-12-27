@@ -15,9 +15,10 @@
 package remotefile
 
 import (
+	"yunion.io/x/pkg/utils"
+
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/pkg/utils"
 )
 
 type SEip struct {

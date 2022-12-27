@@ -32,16 +32,13 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/billing"
+	"yunion.io/x/pkg/util/imagetools"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
-
-	cloudtypes "yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/imagetools"
-	"yunion.io/x/onecloud/pkg/util/netutils2"
-	"yunion.io/x/onecloud/pkg/util/version"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -1186,6 +1183,44 @@ func (self *SVirtualMachine) GetToolsVersion() string {
 	return self.getVirtualMachine().Guest.ToolsVersion
 }
 
+type SServerNic struct {
+	Name      string `json:"name"`
+	Index     int    `json:"index"`
+	Bridge    string `json:"bridge"`
+	Domain    string `json:"domain"`
+	Ip        string `json:"ip"`
+	Vlan      int    `json:"vlan"`
+	Driver    string `json:"driver"`
+	Masklen   int    `json:"masklen"`
+	Virtual   bool   `json:"virtual"`
+	Manual    bool   `json:"manual"`
+	WireId    string `json:"wire_id"`
+	NetId     string `json:"net_id"`
+	Mac       string `json:"mac"`
+	BandWidth int    `json:"bw"`
+	Mtu       int    `json:"mtu,omitempty"`
+	Dns       string `json:"dns"`
+	Ntp       string `json:"ntp"`
+	Net       string `json:"net"`
+	Interface string `json:"interface"`
+	Gateway   string `json:"gateway"`
+	Ifname    string `json:"ifname"`
+	NicType   string `json:"nic_type,omitempty"`
+	LinkUp    bool   `json:"link_up,omitempty"`
+	TeamWith  string `json:"team_with,omitempty"`
+
+	TeamingMaster *SServerNic   `json:"-"`
+	TeamingSlaves []*SServerNic `json:"-"`
+}
+
+func (nicdesc SServerNic) getNicDns() []string {
+	dnslist := []string{}
+	if len(nicdesc.Dns) > 0 {
+		dnslist = append(dnslist, nicdesc.Dns)
+	}
+	return dnslist
+}
+
 func (self *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.JSONObject) error {
 	spec := new(types.CustomizationSpec)
 
@@ -1197,24 +1232,22 @@ func (self *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.J
 	ipSettings.DnsSuffixList = []string{domain}
 
 	// deal nics
-	nics, _ := params.GetArray("nics")
-	serverNics := make([]cloudtypes.SServerNic, len(nics))
-	for i := range nics {
-		var nicType cloudtypes.SServerNic
-		nics[i].Unmarshal(&nicType)
-		serverNics[i] = nicType
+	serverNics := make([]SServerNic, 0)
+	err := params.Unmarshal(&serverNics, "nics")
+	if err != nil {
+		return errors.Wrap(err, "Unmarshal nics")
 	}
 
 	// find dnsServerList
 	for i := range serverNics {
-		dnsList := netutils2.GetNicDns(&serverNics[i])
+		dnsList := serverNics[i].getNicDns()
 		if len(dnsList) != 0 {
 			ipSettings.DnsServerList = dnsList
 		}
 	}
 	spec.GlobalIPSettings = *ipSettings
 
-	maps := make([]types.CustomizationAdapterMapping, 0, len(nics))
+	maps := make([]types.CustomizationAdapterMapping, 0, len(serverNics))
 	for _, nic := range serverNics {
 		conf := types.CustomizationAdapterMapping{}
 		conf.MacAddress = nic.Mac
@@ -1233,13 +1266,13 @@ func (self *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.J
 		if maskLen == 0 {
 			maskLen = 24
 		}
-		mask := netutils2.Netlen2Mask(maskLen)
+		mask := netutils.Netlen2Mask(maskLen)
 		conf.Adapter.SubnetMask = mask
 
 		if len(nic.Gateway) != 0 {
 			conf.Adapter.Gateway = []string{nic.Gateway}
 		}
-		dnsList := netutils2.GetNicDns(&nic)
+		dnsList := nic.getNicDns()
 		if len(dnsList) != 0 {
 			conf.Adapter.DnsServerList = dnsList
 			dns := nic.Domain

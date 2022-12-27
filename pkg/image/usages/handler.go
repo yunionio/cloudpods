@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -27,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
@@ -53,24 +53,24 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	result.ProjectTags = *projectTags
 
 	usages := jsonutils.NewDict()
-	if scope == rbacutils.ScopeSystem {
-		adminUsage := models.ImageManager.Usage(rbacutils.ScopeSystem, ownerId, "all", result)
+	if scope == rbacscope.ScopeSystem {
+		adminUsage := models.ImageManager.Usage(rbacscope.ScopeSystem, ownerId, "all", result)
 		usages.Update(jsonutils.Marshal(adminUsage))
-		adminUsage = models.GuestImageManager.Usage(rbacutils.ScopeSystem, ownerId, "all", result)
+		adminUsage = models.GuestImageManager.Usage(rbacscope.ScopeSystem, ownerId, "all", result)
 		usages.Update(jsonutils.Marshal(adminUsage))
 	}
 
-	if scope.HigherEqual(rbacutils.ScopeDomain) {
-		domainUsage := models.ImageManager.Usage(rbacutils.ScopeDomain, ownerId, "domain", result)
+	if scope.HigherEqual(rbacscope.ScopeDomain) {
+		domainUsage := models.ImageManager.Usage(rbacscope.ScopeDomain, ownerId, "domain", result)
 		usages.Update(jsonutils.Marshal(domainUsage))
-		domainUsage = models.GuestImageManager.Usage(rbacutils.ScopeDomain, ownerId, "domain", result)
+		domainUsage = models.GuestImageManager.Usage(rbacscope.ScopeDomain, ownerId, "domain", result)
 		usages.Update(jsonutils.Marshal(domainUsage))
 	}
 
-	if scope.HigherEqual(rbacutils.ScopeProject) {
-		projectUsage := models.ImageManager.Usage(rbacutils.ScopeProject, ownerId, "", result)
+	if scope.HigherEqual(rbacscope.ScopeProject) {
+		projectUsage := models.ImageManager.Usage(rbacscope.ScopeProject, ownerId, "", result)
 		usages.Update(jsonutils.Marshal(projectUsage))
-		projectUsage = models.GuestImageManager.Usage(rbacutils.ScopeProject, ownerId, "", result)
+		projectUsage = models.GuestImageManager.Usage(rbacscope.ScopeProject, ownerId, "", result)
 		usages.Update(jsonutils.Marshal(projectUsage))
 	}
 

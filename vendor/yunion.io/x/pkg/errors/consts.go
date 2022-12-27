@@ -21,4 +21,8 @@ const (
 	ErrAccountReadOnly = Error("AccountReadOnlyError")
 
 	ErrAggregate = Error("AggregateError")
+
+	ErrInvalidFormat = Error("InvalidFormatError")
+
+	ErrUnsupportedProtocol = Error("UnsupportedProtocol")
 )

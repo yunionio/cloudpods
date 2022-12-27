@@ -17,8 +17,8 @@ package google
 import (
 	"time"
 
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -104,6 +104,6 @@ func (network *SNetwork) GetIsPublic() bool {
 	return true
 }
 
-func (network *SNetwork) GetPublicScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (network *SNetwork) GetPublicScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }

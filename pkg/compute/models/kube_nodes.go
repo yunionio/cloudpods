@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -31,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -68,8 +68,8 @@ func (manager *SKubeNodeManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (manager *SKubeNodeManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SKubeNodeManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
 func (self *SKubeNode) GetCloudproviderId() string {
@@ -110,11 +110,11 @@ func (manager *SKubeNodeManager) FetchOwnerId(ctx context.Context, data jsonutil
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SKubeNodeManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SKubeNodeManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := KubeClusterManager.Query("id")
 		switch scope {
-		case rbacutils.ScopeDomain, rbacutils.ScopeProject:
+		case rbacscope.ScopeDomain, rbacscope.ScopeProject:
 			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
 			return q.In("cloud_kube_cluster_id", sq.SubQuery())
 		}

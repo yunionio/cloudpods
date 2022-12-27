@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -33,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -76,7 +76,7 @@ func (manager *SVirtualResourceBaseManager) GetIVirtualModelManager() IVirtualMo
 	return manager.GetVirtualObject().(IVirtualModelManager)
 }
 
-/*func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+/*func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q = manager.SProjectizedResourceBaseManager.FilterByOwner(q, owner, scope)
 	return q
 }
@@ -187,7 +187,7 @@ func (manager *SVirtualResourceBaseManager) GetPropertyDomainStatistics(ctx cont
 	return result, q.All(&result)
 }
 
-func (manager *SVirtualResourceBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SVirtualResourceBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q = manager.SStatusStandaloneResourceBaseManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)
 
 	isSystem := jsonutils.QueryBoolean(query, "system", false)
@@ -224,7 +224,7 @@ func (model *SVirtualResourceBase) SetProjectInfo(ctx context.Context, userCred 
 	return err
 }
 
-func (manager *SVirtualResourceBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SVirtualResourceBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q = manager.SStatusStandaloneResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
 
 	var pendingDelete string
@@ -394,16 +394,16 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		return nil, nil
 	}
 
-	var requireScope rbacutils.TRbacScope
+	var requireScope rbacscope.TRbacScope
 	if ownerId.GetProjectDomainId() != model.DomainId {
 		// change domain, do check
 		candidates := model.GetIVirtualModel().GetChangeOwnerCandidateDomainIds()
 		if len(candidates) > 0 && !utils.IsInStringArray(ownerId.GetProjectDomainId(), candidates) {
 			return nil, errors.Wrap(httperrors.ErrForbidden, "target domain not in change owner candidate list")
 		}
-		requireScope = rbacutils.ScopeSystem
+		requireScope = rbacscope.ScopeSystem
 	} else {
-		requireScope = rbacutils.ScopeDomain
+		requireScope = rbacscope.ScopeDomain
 	}
 
 	allowScope, policyTags := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.KeywordPlural(), policy.PolicyActionPerform, "change-owner")

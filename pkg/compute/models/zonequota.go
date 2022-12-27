@@ -18,9 +18,9 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
@@ -35,7 +35,7 @@ func init() {
 
 	ZoneUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(ZoneQuota,
-			rbacutils.ScopeDomain,
+			rbacscope.ScopeDomain,
 			"zone_quota_usage_tbl",
 			"zone_quota_usage",
 			"zone_quota_usages",
@@ -43,7 +43,7 @@ func init() {
 	}
 	ZonePendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(ZoneQuota,
-			rbacutils.ScopeDomain,
+			rbacscope.ScopeDomain,
 			"zone_quota_pending_usage_tbl",
 			"zone_quota_pending_usage",
 			"zone_quota_pending_usages",
@@ -51,7 +51,7 @@ func init() {
 	}
 	ZoneQuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(ZoneQuota,
-			rbacutils.ScopeDomain,
+			rbacscope.ScopeDomain,
 			"zone_quota_tbl",
 			ZonePendingUsageManager,
 			ZoneUsageManager,

@@ -16,9 +16,9 @@ package compute
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
@@ -30,7 +30,7 @@ func init() {
 	}
 	R(&NetworkinterfaceNetworkListOptions{}, "networkinterface-network-list", "List server network pairs", func(s *mcclient.ClientSession, args *NetworkinterfaceNetworkListOptions) error {
 		params := jsonutils.NewDict()
-		var result *modulebase.ListResult
+		var result *printutils.ListResult
 		var err error
 		if len(args.Networkinterface) > 0 {
 			result, err = modules.Networkinterfacenetworks.ListDescendent(s, args.Networkinterface, params)

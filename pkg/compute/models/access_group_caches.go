@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -30,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -70,8 +70,8 @@ type SAccessGroupCache struct {
 	NetworkType    string `width:"8" charset:"ascii" nullable:"false" index:"true" list:"user" default:"vpc"`
 }
 
-func (manager *SAccessGroupCacheManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SAccessGroupCacheManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
 func (manager *SAccessGroupCacheManager) ListItemFilter(
@@ -162,10 +162,10 @@ func (self *SAccessGroupCache) GetOwnerId() mcclient.IIdentityProvider {
 	return &db.SOwnerId{DomainId: ag.DomainId}
 }
 
-func (manager *SAccessGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SAccessGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := AccessGroupManager.Query("id")
-		if scope == rbacutils.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
+		if scope == rbacscope.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
 			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
 			return q.In("access_group_id", sq)
 		}

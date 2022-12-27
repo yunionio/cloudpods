@@ -21,12 +21,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -165,7 +165,7 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		if err != nil {
 			return q, errors.Wrap(err, "Get monitor in Query err")
 		}
-		m.SMonitorScopedResourceManager.FilterByOwner(resQ, userCred, rbacutils.TRbacScope(input.Scope))
+		m.SMonitorScopedResourceManager.FilterByOwner(resQ, userCred, rbacscope.TRbacScope(input.Scope))
 		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
 	}
 	if len(input.SendState) != 0 {
@@ -184,7 +184,7 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
 	}
 	alertQuery := CommonAlertManager.Query("id")
-	m.SMonitorScopedResourceManager.FilterByOwner(alertQuery, userCred, rbacutils.TRbacScope(input.Scope))
+	m.SMonitorScopedResourceManager.FilterByOwner(alertQuery, userCred, rbacscope.TRbacScope(input.Scope))
 	if len(input.AlertName) != 0 {
 		CommonAlertManager.FieldListFilter(alertQuery, monitor.CommonAlertListInput{Name: input.AlertName})
 		q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
@@ -261,7 +261,7 @@ func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJ
 	return detail
 }
 
-func (manager *SMonitorResourceAlertManager) ResourceScope() rbacutils.TRbacScope {
+func (manager *SMonitorResourceAlertManager) ResourceScope() rbacscope.TRbacScope {
 	return manager.SScopedResourceBaseManager.ResourceScope()
 }
 
@@ -273,6 +273,6 @@ func (manager *SMonitorResourceAlertManager) ListItemExportKeys(ctx context.Cont
 	return q, nil
 }
 
-func (m *SMonitorResourceAlertManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (m *SMonitorResourceAlertManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return q
 }

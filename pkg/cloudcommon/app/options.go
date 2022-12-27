@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -31,7 +32,7 @@ import (
 func ExportOptionsHandler(app *appsrv.Application, options interface{}) {
 	hf := func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
-		result := policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), "app-options", "list")
+		result := policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(), "app-options", "list")
 		if result.Result == rbacutils.Deny {
 			httperrors.ForbiddenError(ctx, w, "Not allow to access")
 			return

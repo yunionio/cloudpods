@@ -18,11 +18,11 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
@@ -31,7 +31,7 @@ var (
 )
 
 func getCacheKey(
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	userCred mcclient.IIdentityProvider,
 	isOwner bool,
 	rangeObjs []db.IStandaloneModel,
@@ -47,7 +47,7 @@ func getCacheKey(
 		Id       string `json:"id"`
 	}
 	type KeyStruct struct {
-		Scope       rbacutils.TRbacScope `json:"scope"`
+		Scope       rbacscope.TRbacScope `json:"scope"`
 		Domain      string               `json:"domain"`
 		Project     string               `json:"project"`
 		IsOwner     bool                 `json:"is_owner"`
@@ -62,10 +62,10 @@ func getCacheKey(
 	key := KeyStruct{}
 	key.Scope = scope
 	switch scope {
-	case rbacutils.ScopeSystem:
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeSystem:
+	case rbacscope.ScopeDomain:
 		key.Domain = userCred.GetProjectDomainId()
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		key.Project = userCred.GetProjectId()
 	}
 	if isOwner {

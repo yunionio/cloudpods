@@ -15,16 +15,17 @@
 package multicloud
 
 import (
+	"yunion.io/x/pkg/util/rbacscope"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SImageBase struct {
 	SVirtualResourceBase
 }
 
-func (self *SImageBase) GetPublicScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+func (self *SImageBase) GetPublicScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeSystem
 }
 
 func (self *SImageBase) GetSubImages() []cloudprovider.SSubImage {

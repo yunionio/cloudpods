@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/filterclause"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
@@ -31,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -73,8 +73,8 @@ func init() {
 	AlertRecordManager.SetVirtualObject(AlertRecordManager)
 }
 
-func (manager *SAlertRecordManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+func (manager *SAlertRecordManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeSystem
 }
 
 func (manager *SAlertRecordManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
@@ -413,7 +413,7 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 		ownerId = userCred
 	}
 	query := manager.Query()
-	query = manager.FilterByOwner(query, ownerId, rbacutils.String2Scope(input.Scope))
+	query = manager.FilterByOwner(query, ownerId, rbacscope.String2Scope(input.Scope))
 	//query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
 	query = query.Equals("state", monitor.AlertStateAlerting)
 	query = query.IsNotNull("res_type").IsNotEmpty("res_type").Desc("created_at")
@@ -424,7 +424,7 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 
 	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsTrue("enabled").
 		IsNull("used_by")
-	alertsQuery = CommonAlertManager.FilterByOwner(alertsQuery, userCred, rbacutils.String2Scope(input.Scope))
+	alertsQuery = CommonAlertManager.FilterByOwner(alertsQuery, userCred, rbacscope.String2Scope(input.Scope))
 	alerts := make([]SCommonAlert, 0)
 	records := make([]SAlertRecord, 0)
 	err = db.FetchModelObjects(CommonAlertManager, alertsQuery, &alerts)

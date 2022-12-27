@@ -18,11 +18,11 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/object"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type IQuotaKeys interface {
@@ -32,7 +32,7 @@ type IQuotaKeys interface {
 
 	OwnerId() mcclient.IIdentityProvider
 
-	Scope() rbacutils.TRbacScope
+	Scope() rbacscope.TRbacScope
 }
 
 type IQuota interface {

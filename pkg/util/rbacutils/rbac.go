@@ -15,14 +15,11 @@
 package rbacutils
 
 import (
-	"strings"
-
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 )
 
 type TRbacResult string
-type TRbacScope string
 
 const (
 	WILD_MATCH = "*"
@@ -37,12 +34,12 @@ const (
 	UserAllow  = TRbacResult("user")  // deprecated
 	GuestAllow = TRbacResult("guest") // deprecated
 
-	ScopeSystem  = TRbacScope("system")
-	ScopeDomain  = TRbacScope("domain")
-	ScopeProject = TRbacScope("project")
+	/*ScopeSystem  = rbacscope.ScopeSystem
+	ScopeDomain  = rbacscope.ScopeDomain
+	ScopeProject = rbacscope.ScopeProject
 	// ScopeObject  = "object"
-	ScopeUser = TRbacScope("user")
-	ScopeNone = TRbacScope("none")
+	ScopeUser = rbacscope.ScopeUser
+	ScopeNone = rbacscope.ScopeNone*/
 )
 
 func (r TRbacResult) IsAllow() bool {
@@ -62,14 +59,6 @@ var (
 		GuestAllow: 4,
 		Allow:      5,
 	}
-
-	scopeScore = map[TRbacScope]int{
-		ScopeNone:    0,
-		ScopeUser:    1,
-		ScopeProject: 2,
-		ScopeDomain:  3,
-		ScopeSystem:  4,
-	}
 )
 
 func (r TRbacResult) Strictness() int {
@@ -82,14 +71,6 @@ func (r1 TRbacResult) StricterThan(r2 TRbacResult) bool {
 
 func (r1 TRbacResult) LooserThan(r2 TRbacResult) bool {
 	return r1.Strictness() > r2.Strictness()
-}
-
-func (s1 TRbacScope) HigherEqual(s2 TRbacScope) bool {
-	return scopeScore[s1] >= scopeScore[s2]
-}
-
-func (s1 TRbacScope) HigherThan(s2 TRbacScope) bool {
-	return scopeScore[s1] > scopeScore[s2]
 }
 
 type SRbacRule struct {
@@ -334,26 +315,5 @@ func NewRbacIdentity(projectId string, roleIds []string, ip string) IRbacIdentit
 		projectId: projectId,
 		roleIds:   roleIds,
 		ip:        ip,
-	}
-}
-
-func String2Scope(str string) TRbacScope {
-	return String2ScopeDefault(str, ScopeProject)
-}
-
-func String2ScopeDefault(str string, defScope TRbacScope) TRbacScope {
-	switch strings.ToLower(str) {
-	case string(ScopeSystem):
-		return ScopeSystem
-	case string(ScopeDomain):
-		return ScopeDomain
-	case string(ScopeProject):
-		return ScopeProject
-	case string(ScopeUser):
-		return ScopeUser
-	case "true":
-		return ScopeSystem
-	default:
-		return defScope
 	}
 }

@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -414,7 +415,7 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SWire) markNetworkUnknown(userCred mcclient.TokenCredential) error {
-	nets, err := self.getNetworks(nil, rbacutils.ScopeNone)
+	nets, err := self.getNetworks(nil, rbacscope.ScopeNone)
 	if err != nil {
 		return err
 	}
@@ -480,12 +481,12 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	return &wire, nil
 }
 
-func filterByScopeOwnerId(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, domainResource bool) *sqlchemy.SQuery {
+func filterByScopeOwnerId(q *sqlchemy.SQuery, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, domainResource bool) *sqlchemy.SQuery {
 	switch scope {
-	case rbacutils.ScopeSystem:
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeSystem:
+	case rbacscope.ScopeDomain:
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		if domainResource {
 			q = q.Equals("domain_id", ownerId.GetProjectId())
 		} else {
@@ -519,7 +520,7 @@ func (manager *SWireManager) totalCountQ(
 	rangeObjs []db.IStandaloneModel,
 	hostTypes []string, hostProviders, hostBrands []string,
 	providers []string, brands []string, cloudEnv string,
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
@@ -689,7 +690,7 @@ func (manager *SWireManager) totalCountQ2(
 	rangeObjs []db.IStandaloneModel,
 	hostTypes []string,
 	providers []string, brands []string, cloudEnv string,
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
@@ -726,7 +727,7 @@ func (manager *SWireManager) totalCountQ3(
 	rangeObjs []db.IStandaloneModel,
 	hostTypes []string,
 	providers []string, brands []string, cloudEnv string,
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	policyResult rbacutils.SPolicyResult,
 ) *sqlchemy.SQuery {
@@ -787,7 +788,7 @@ func (manager *SWireManager) TotalCount(
 	rangeObjs []db.IStandaloneModel,
 	hostTypes []string,
 	providers []string, brands []string, cloudEnv string,
-	scope rbacutils.TRbacScope,
+	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 	policyResult rbacutils.SPolicyResult,
 ) WiresCountStat {
@@ -852,7 +853,7 @@ func (manager *SWireManager) TotalCount(
 	return stat
 }
 
-func (self *SWire) getNetworkQuery(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (self *SWire) getNetworkQuery(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q := NetworkManager.Query().Equals("wire_id", self.Id)
 	if ownerId != nil {
 		q = NetworkManager.FilterByOwner(q, ownerId, scope)
@@ -860,11 +861,11 @@ func (self *SWire) getNetworkQuery(ownerId mcclient.IIdentityProvider, scope rba
 	return q
 }
 
-func (self *SWire) GetNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
+func (self *SWire) GetNetworks(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) ([]SNetwork, error) {
 	return self.getNetworks(ownerId, scope)
 }
 
-func (self *SWire) getNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
+func (self *SWire) getNetworks(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) ([]SNetwork, error) {
 	q := self.getNetworkQuery(ownerId, scope)
 	nets := make([]SNetwork, 0)
 	err := db.FetchModelObjects(NetworkManager, q, &nets)
@@ -874,14 +875,14 @@ func (self *SWire) getNetworks(ownerId mcclient.IIdentityProvider, scope rbacuti
 	return nets, nil
 }
 
-func (self *SWire) getGatewayNetworkQuery(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (self *SWire) getGatewayNetworkQuery(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q := self.getNetworkQuery(ownerId, scope)
 	q = q.IsNotNull("guest_gateway").IsNotEmpty("guest_gateway")
 	q = q.Equals("status", api.NETWORK_STATUS_AVAILABLE)
 	return q
 }
 
-func (self *SWire) getAutoAllocNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
+func (self *SWire) getAutoAllocNetworks(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) ([]SNetwork, error) {
 	q := self.getGatewayNetworkQuery(ownerId, scope)
 	q = q.IsTrue("is_auto_alloc")
 	nets := make([]SNetwork, 0)
@@ -892,7 +893,7 @@ func (self *SWire) getAutoAllocNetworks(ownerId mcclient.IIdentityProvider, scop
 	return nets, nil
 }
 
-func (self *SWire) getPublicNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
+func (self *SWire) getPublicNetworks(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) ([]SNetwork, error) {
 	q := self.getGatewayNetworkQuery(ownerId, scope)
 	q = q.IsTrue("is_public")
 	nets := make([]SNetwork, 0)
@@ -903,7 +904,7 @@ func (self *SWire) getPublicNetworks(ownerId mcclient.IIdentityProvider, scope r
 	return nets, nil
 }
 
-func (self *SWire) getPrivateNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
+func (self *SWire) getPrivateNetworks(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) ([]SNetwork, error) {
 	q := self.getGatewayNetworkQuery(ownerId, scope)
 	q = q.IsFalse("is_public")
 	nets := make([]SNetwork, 0)
@@ -914,7 +915,7 @@ func (self *SWire) getPrivateNetworks(ownerId mcclient.IIdentityProvider, scope 
 	return nets, nil
 }
 
-func (self *SWire) GetCandidatePrivateNetwork(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, isExit bool, serverTypes []string) (*SNetwork, error) {
+func (self *SWire) GetCandidatePrivateNetwork(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, isExit bool, serverTypes []string) (*SNetwork, error) {
 	nets, err := self.getPrivateNetworks(ownerId, scope)
 	if err != nil {
 		return nil, err
@@ -922,7 +923,7 @@ func (self *SWire) GetCandidatePrivateNetwork(ownerId mcclient.IIdentityProvider
 	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
 
-func (self *SWire) GetCandidateAutoAllocNetwork(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, isExit bool, serverTypes []string) (*SNetwork, error) {
+func (self *SWire) GetCandidateAutoAllocNetwork(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, isExit bool, serverTypes []string) (*SNetwork, error) {
 	nets, err := self.getAutoAllocNetworks(ownerId, scope)
 	if err != nil {
 		return nil, err
@@ -930,7 +931,7 @@ func (self *SWire) GetCandidateAutoAllocNetwork(ownerId mcclient.IIdentityProvid
 	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
 
-func (self *SWire) GetCandidateNetworkForIp(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, ipAddr string) (*SNetwork, error) {
+func (self *SWire) GetCandidateNetworkForIp(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, ipAddr string) (*SNetwork, error) {
 	ip, err := netutils.NewIPV4Addr(ipAddr)
 	if err != nil {
 		return nil, err
@@ -1454,10 +1455,10 @@ func (self *SWire) IsManaged() bool {
 func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !data.Contains("public_scope") {
 		vpc, _ := model.GetVpc()
-		if !model.IsManaged() && db.IsAdminAllowPerform(ctx, userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && vpc != nil && vpc.IsPublic && vpc.PublicScope == string(rbacutils.ScopeSystem) {
-			model.SetShare(rbacutils.ScopeSystem)
+		if !model.IsManaged() && db.IsAdminAllowPerform(ctx, userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && vpc != nil && vpc.IsPublic && vpc.PublicScope == string(rbacscope.ScopeSystem) {
+			model.SetShare(rbacscope.ScopeSystem)
 		} else {
-			model.SetShare(rbacutils.ScopeNone)
+			model.SetShare(rbacscope.ScopeNone)
 		}
 		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(model.PublicScope))
 	}
@@ -1490,7 +1491,7 @@ func (wire *SWire) GetChangeOwnerCandidateDomainIds() []string {
 
 func (wire *SWire) GetChangeOwnerRequiredDomainIds() []string {
 	requires := stringutils2.SSortedStrings{}
-	networks, _ := wire.getNetworks(nil, rbacutils.ScopeNone)
+	networks, _ := wire.getNetworks(nil, rbacscope.ScopeNone)
 	for i := range networks {
 		requires = stringutils2.Append(requires, networks[i].DomainId)
 	}
@@ -1498,7 +1499,7 @@ func (wire *SWire) GetChangeOwnerRequiredDomainIds() []string {
 }
 
 func (wire *SWire) GetRequiredSharedDomainIds() []string {
-	networks, _ := wire.getNetworks(nil, rbacutils.ScopeNone)
+	networks, _ := wire.getNetworks(nil, rbacscope.ScopeNone)
 	if len(networks) == 0 {
 		return wire.SInfrasResourceBase.GetRequiredSharedDomainIds()
 	}
@@ -1582,7 +1583,7 @@ func (self *SWire) GetDetailsTopology(ctx context.Context, userCred mcclient.Tok
 		}
 		ret.Hosts = append(ret.Hosts, host)
 	}
-	networks, err := self.GetNetworks(nil, rbacutils.ScopeSystem)
+	networks, err := self.GetNetworks(nil, rbacscope.ScopeSystem)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetNetworks")
 	}
@@ -1600,7 +1601,7 @@ func (self *SWire) GetDetailsTopology(ctx context.Context, userCred mcclient.Tok
 
 		netAddrs := make([]api.SNetworkUsedAddress, 0)
 
-		q := networks[j].getUsedAddressQuery(userCred, rbacutils.ScopeSystem, false)
+		q := networks[j].getUsedAddressQuery(userCred, rbacscope.ScopeSystem, false)
 		err = q.All(&netAddrs)
 		if err != nil {
 			return nil, errors.Wrapf(err, "q.All")

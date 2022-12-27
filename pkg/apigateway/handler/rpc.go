@@ -22,14 +22,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type RPCHandlers struct {
@@ -120,7 +121,7 @@ func RpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		v2, ok := retobj.Interface().([]modulebase.SubmitResult)
+		v2, ok := retobj.Interface().([]printutils.SubmitResult)
 		if ok {
 			w.WriteHeader(207)
 			appsrv.SendJSON(w, modulebase.SubmitResults2JSON(v2))

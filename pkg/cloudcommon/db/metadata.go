@@ -24,6 +24,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -35,8 +37,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -223,7 +223,7 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	input apis.MetaGetPropertyTagValuePairsInput,
-) (*modulebase.ListResult, error) {
+) (*printutils.ListResult, error) {
 	q, err := manager.fetchKeyValueQuery(ctx, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchKeyValueQuery")
@@ -235,7 +235,7 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(
 	}
 
 	if totalCnt == 0 {
-		emptyList := modulebase.ListResult{Data: []jsonutils.JSONObject{}}
+		emptyList := printutils.ListResult{Data: []jsonutils.JSONObject{}}
 		return &emptyList, nil
 	}
 
@@ -268,7 +268,7 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(
 	if err != nil {
 		return nil, errors.Wrap(err, "metadataQuery2List")
 	}
-	emptyList := modulebase.ListResult{
+	emptyList := printutils.ListResult{
 		Data:   data,
 		Total:  totalCnt,
 		Limit:  int(limit),
@@ -383,7 +383,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		))
 	}
 
-	if !(input.Scope == string(rbacutils.ScopeSystem) && userCred.HasSystemAdminPrivilege()) {
+	if !(input.Scope == string(rbacscope.ScopeSystem) && userCred.HasSystemAdminPrivilege()) {
 		resources := input.Resources
 		if len(resources) == 0 {
 			for resource := range globalTables {
@@ -432,7 +432,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 }
 
 func (manager *SMetadataManager) GetStringValue(ctx context.Context, model IModel, key string, userCred mcclient.TokenCredential) string {
-	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacutils.ScopeSystem, userCred, model, "metadata")) {
+	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacscope.ScopeSystem, userCred, model, "metadata")) {
 		return ""
 	}
 	idStr := GetModelIdstr(model)
@@ -445,7 +445,7 @@ func (manager *SMetadataManager) GetStringValue(ctx context.Context, model IMode
 }
 
 func (manager *SMetadataManager) GetJsonValue(ctx context.Context, model IModel, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
-	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacutils.ScopeSystem, userCred, model, "metadata")) {
+	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacscope.ScopeSystem, userCred, model, "metadata")) {
 		return nil
 	}
 	idStr := GetModelIdstr(model)
@@ -645,7 +645,7 @@ func (manager *SMetadataManager) GetAll(ctx context.Context, obj IModel, keys []
 	}
 	ret := make(map[string]string)
 	for k, v := range meta {
-		if strings.HasPrefix(k, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacutils.ScopeSystem, userCred, obj, "metadata")) {
+		if strings.HasPrefix(k, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacscope.ScopeSystem, userCred, obj, "metadata")) {
 			continue
 		}
 		ret[k] = v

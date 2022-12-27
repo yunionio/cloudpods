@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -55,7 +56,7 @@ func GetModels(opts *GetModelsOptions) error {
 		tstr := timeutils.MysqlTime(time)
 		return fmt.Sprintf("updated_at.ge('%s')", tstr)
 	}
-	setNextListParams := func(params *jsonutils.JSONDict, lastUpdatedAt time.Time, lastResult *mcclient_modulebase.ListResult) (time.Time, error) {
+	setNextListParams := func(params *jsonutils.JSONDict, lastUpdatedAt time.Time, lastResult *printutils.ListResult) (time.Time, error) {
 		// NOTE: the updated_at field has second-level resolution.
 		// If they all have the same date...
 		var max time.Time

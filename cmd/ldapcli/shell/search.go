@@ -20,9 +20,10 @@ import (
 
 	"gopkg.in/ldap.v3"
 
+	"yunion.io/x/pkg/util/shellutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/ldaputils"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func queryScope(scope string) int {

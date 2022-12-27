@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/rbacscope"
 )
 
 type SRbacPolicy struct {
@@ -31,7 +32,7 @@ type SRbacPolicy struct {
 
 	IsPublic bool
 
-	PublicScope TRbacScope
+	PublicScope rbacscope.TRbacScope
 
 	SharedDomainIds []string
 
@@ -44,7 +45,7 @@ type SRbacPolicy struct {
 	Auth bool // whether needs authentication
 
 	// scope, the scope of the policy, system/domain/project
-	Scope TRbacScope
+	Scope rbacscope.TRbacScope
 	// Deprecated
 	// is_admin=true means scope=system, is_admin=false means scope=project
 	IsAdmin bool
@@ -118,14 +119,14 @@ func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 
 	scopeStr, _ := policyJson.GetString("scope")
 	if len(scopeStr) > 0 {
-		policy.Scope = TRbacScope(scopeStr)
+		policy.Scope = rbacscope.TRbacScope(scopeStr)
 	} else {
 		policy.IsAdmin = jsonutils.QueryBoolean(policyJson, "is_admin", false)
 		if len(policy.Scope) == 0 {
 			if policy.IsAdmin {
-				policy.Scope = ScopeSystem
+				policy.Scope = rbacscope.ScopeSystem
 			} else {
-				policy.Scope = ScopeProject
+				policy.Scope = rbacscope.ScopeProject
 			}
 		}
 	}
@@ -173,7 +174,7 @@ func (policy *SRbacPolicy) Encode() jsonutils.JSONObject {
 }
 
 func (policy *SRbacPolicy) IsSystemWidePolicy() bool {
-	return (len(policy.DomainId) == 0 || (policy.IsPublic && policy.PublicScope == ScopeSystem)) && len(policy.Roles) == 0 && len(policy.Projects) == 0
+	return (len(policy.DomainId) == 0 || (policy.IsPublic && policy.PublicScope == rbacscope.ScopeSystem)) && len(policy.Roles) == 0 && len(policy.Projects) == 0
 }
 
 func (policy *SRbacPolicy) MatchDomain(domainId string) bool {
@@ -184,7 +185,7 @@ func (policy *SRbacPolicy) MatchDomain(domainId string) bool {
 		return true
 	}
 	if policy.IsPublic {
-		if policy.PublicScope == ScopeSystem {
+		if policy.PublicScope == rbacscope.ScopeSystem {
 			return true
 		}
 		if contains(policy.SharedDomainIds, domainId) {

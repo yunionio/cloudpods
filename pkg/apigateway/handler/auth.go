@@ -25,6 +25,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apigateway/clientman"
 	"yunion.io/x/onecloud/pkg/apigateway/constants"
@@ -40,10 +43,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -404,14 +405,14 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 	if len(tenant) == 0 {
 		token3, ok := token.(*mcclient.TokenCredentialV3)
 		if ok {
-			targetLevel := rbacutils.ScopeProject
+			targetLevel := rbacscope.ScopeProject
 			targetProjId := ""
 			for _, r := range token3.Token.RoleAssignments {
-				level := rbacutils.ScopeProject
+				level := rbacscope.ScopeProject
 				if len(r.Policies.System) > 0 {
-					level = rbacutils.ScopeSystem
+					level = rbacscope.ScopeSystem
 				} else if len(r.Policies.Domain) > 0 {
-					level = rbacutils.ScopeDomain
+					level = rbacscope.ScopeDomain
 				}
 				if len(targetProjId) == 0 || level.HigherThan(targetLevel) {
 					targetProjId = r.Scope.Project.Id
@@ -603,15 +604,15 @@ func (h *AuthHandlers) doLogin(ctx context.Context, w http.ResponseWriter, req *
 	if len(token.GetProjectId()) > 0 {
 		if body.Contains("isadmin") {
 			adminVal := "false"
-			if policy.PolicyManager.IsScopeCapable(token, rbacutils.ScopeSystem) {
+			if policy.PolicyManager.IsScopeCapable(token, rbacscope.ScopeSystem) {
 				adminVal, _ = body.GetString("isadmin")
 			}
 			saveCookie(w, "isadmin", adminVal, "", token.GetExpires(), false)
 		}
 		if body.Contains("scope") {
 			scopeStr, _ := body.GetString("scope")
-			if !policy.PolicyManager.IsScopeCapable(token, rbacutils.TRbacScope(scopeStr)) {
-				scopeStr = string(rbacutils.ScopeProject)
+			if !policy.PolicyManager.IsScopeCapable(token, rbacscope.TRbacScope(scopeStr)) {
+				scopeStr = string(rbacscope.ScopeProject)
 			}
 			saveCookie(w, "scope", scopeStr, "", token.GetExpires(), false)
 		}
@@ -748,10 +749,10 @@ func (this *projectRoles) json(s *mcclient.ClientSession, user, userId, domain, 
 	obj.Add(roles, "roles")
 
 	policies, _ := modules.RolePolicies.FetchMatchedPolicies(s, roleIds, this.id, ip)
-	for _, scope := range []rbacutils.TRbacScope{
-		rbacutils.ScopeProject,
-		rbacutils.ScopeDomain,
-		rbacutils.ScopeSystem,
+	for _, scope := range []rbacscope.TRbacScope{
+		rbacscope.ScopeProject,
+		rbacscope.ScopeDomain,
+		rbacscope.ScopeSystem,
 	} {
 		if matches, ok := policies[string(scope)]; ok {
 			obj.Add(jsonutils.NewStringArray(matches), fmt.Sprintf("%s_policies", scope))
@@ -761,7 +762,7 @@ func (this *projectRoles) json(s *mcclient.ClientSession, user, userId, domain, 
 				obj.Add(jsonutils.JSONFalse, fmt.Sprintf("%s_capable", scope))
 			}
 			// backward compatible
-			if scope == rbacutils.ScopeSystem {
+			if scope == rbacscope.ScopeSystem {
 				if len(matches) > 0 {
 					obj.Add(jsonutils.JSONTrue, "admin_capable")
 				} else {
@@ -963,16 +964,16 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 	data.Add(projJson, "projects")
 
 	if len(pid) > 0 {
-		for _, scope := range []rbacutils.TRbacScope{
-			rbacutils.ScopeSystem,
-			rbacutils.ScopeDomain,
-			rbacutils.ScopeProject,
+		for _, scope := range []rbacscope.TRbacScope{
+			rbacscope.ScopeSystem,
+			rbacscope.ScopeDomain,
+			rbacscope.ScopeProject,
 		} {
 			if p, ok := policies[string(scope)]; ok {
 				data.Add(jsonutils.NewStringArray(p), fmt.Sprintf("%s_policies", scope))
-				if scope == rbacutils.ScopeSystem {
+				if scope == rbacscope.ScopeSystem {
 					data.Add(jsonutils.NewStringArray(p), "admin_policies")
-				} else if scope == rbacutils.ScopeProject {
+				} else if scope == rbacscope.ScopeProject {
 					data.Add(jsonutils.NewStringArray(p), "policies")
 				}
 			}
@@ -1163,17 +1164,17 @@ func (h *AuthHandlers) doDeletePolicies(ctx context.Context, w http.ResponseWrit
 		return
 	}
 	idStrList := jsonutils.JSONArray2StringArray(idlist)
-	ret := make([]modulebase.SubmitResult, len(idStrList))
+	ret := make([]printutils.SubmitResult, len(idStrList))
 	for i := range idStrList {
 		err := policytool.PolicyDelete(s, idStrList[i])
 		if err != nil {
-			ret[i] = modulebase.SubmitResult{
+			ret[i] = printutils.SubmitResult{
 				Status: 400,
 				Id:     idStrList[i],
 				Data:   jsonutils.NewString(err.Error()),
 			}
 		} else {
-			ret[i] = modulebase.SubmitResult{
+			ret[i] = printutils.SubmitResult{
 				Status: 200,
 				Id:     idStrList[i],
 				Data:   jsonutils.NewDict(),

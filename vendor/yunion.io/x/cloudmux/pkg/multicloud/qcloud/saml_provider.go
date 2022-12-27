@@ -21,11 +21,11 @@ import (
 	"unicode"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/samlutils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/samlutils"
 )
 
 type SAMLProvider struct {

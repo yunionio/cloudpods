@@ -19,13 +19,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/yunionconf"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -194,12 +194,12 @@ func (policy *SScopedPolicy) PerformBind(
 	input api.ScopedPolicyBindInput,
 ) (jsonutils.JSONObject, error) {
 	switch input.Scope {
-	case rbacutils.ScopeSystem:
+	case rbacscope.ScopeSystem:
 		err := ScopedPolicyBindingManager.bind(ctx, policy.Category, policy.Id, "", "")
 		if err != nil {
 			return nil, errors.Wrap(err, "bind system")
 		}
-	case rbacutils.ScopeDomain:
+	case rbacscope.ScopeDomain:
 		for i := range input.TargetIds {
 			if input.TargetIds[i] == api.ANY_DOMAIN_ID {
 				err := ScopedPolicyBindingManager.bind(ctx, policy.Category, policy.Id, api.ANY_DOMAIN_ID, "")
@@ -217,7 +217,7 @@ func (policy *SScopedPolicy) PerformBind(
 				}
 			}
 		}
-	case rbacutils.ScopeProject:
+	case rbacscope.ScopeProject:
 		for i := range input.TargetIds {
 			if input.TargetIds[i] == api.ANY_PROJECT_ID {
 				err := ScopedPolicyBindingManager.bind(ctx, policy.Category, policy.Id, api.ANY_DOMAIN_ID, api.ANY_PROJECT_ID)

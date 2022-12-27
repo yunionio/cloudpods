@@ -15,14 +15,15 @@
 package db
 
 import (
+	"yunion.io/x/pkg/util/rbacscope"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func GetLockClassKey(manager IModelManager, ownerId mcclient.IIdentityProvider) string {
-	if manager.NamespaceScope() == rbacutils.ScopeSystem {
+	if manager.NamespaceScope() == rbacscope.ScopeSystem {
 		return ""
-	} else if manager.NamespaceScope() == rbacutils.ScopeDomain {
+	} else if manager.NamespaceScope() == rbacscope.ScopeDomain {
 		return ownerId.GetProjectDomainId()
 	} else {
 		return ownerId.GetProjectId()

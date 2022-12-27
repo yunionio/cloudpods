@@ -27,12 +27,13 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
@@ -426,7 +427,7 @@ func (this *Client) NewSession(ctx context.Context, region, zone, endpointType s
 }
 
 type SFetchMatchPoliciesOutput struct {
-	Names    map[rbacutils.TRbacScope][]string `json:"names"`
+	Names    map[rbacscope.TRbacScope][]string `json:"names"`
 	Policies rbacutils.TPolicyGroup            `json:"policies"`
 }
 

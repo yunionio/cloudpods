@@ -31,6 +31,8 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -48,9 +50,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -550,7 +550,7 @@ func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclien
 	if !data.Contains("public_scope") {
 		self.ShareMode = api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN
 		self.IsPublic = false
-		self.PublicScope = string(rbacutils.ScopeNone)
+		self.PublicScope = string(rbacscope.ScopeNone)
 		// mark the public_scope has been set
 		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(self.PublicScope))
 	}
@@ -1426,13 +1426,13 @@ func (manager *SCloudaccountManager) initializePublicScope() error {
 		_, err = db.Update(account, func() error {
 			switch account.ShareMode {
 			case api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
-				account.PublicScope = string(rbacutils.ScopeNone)
+				account.PublicScope = string(rbacscope.ScopeNone)
 				account.IsPublic = false
 			case api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
-				account.PublicScope = string(rbacutils.ScopeSystem)
+				account.PublicScope = string(rbacscope.ScopeSystem)
 				account.IsPublic = true
 			case api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
-				account.PublicScope = string(rbacutils.ScopeSystem)
+				account.PublicScope = string(rbacscope.ScopeSystem)
 				account.IsPublic = true
 			}
 			return nil
@@ -2181,9 +2181,9 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 	switch input.ShareMode {
 	case api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
 		if len(input.SharedDomainIds) == 0 {
-			input.Scope = string(rbacutils.ScopeSystem)
+			input.Scope = string(rbacscope.ScopeSystem)
 		} else {
-			input.Scope = string(rbacutils.ScopeDomain)
+			input.Scope = string(rbacscope.ScopeDomain)
 			providers := account.GetCloudproviders()
 			for i := range providers {
 				if !utils.IsInStringArray(providers[i].DomainId, input.SharedDomainIds) && providers[i].DomainId != account.DomainId {
@@ -2194,9 +2194,9 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 		}
 	case api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
 		if len(input.SharedDomainIds) == 0 {
-			input.Scope = string(rbacutils.ScopeSystem)
+			input.Scope = string(rbacscope.ScopeSystem)
 		} else {
-			input.Scope = string(rbacutils.ScopeDomain)
+			input.Scope = string(rbacscope.ScopeDomain)
 		}
 	default:
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "share_mode cannot be account_domain")
@@ -2277,7 +2277,7 @@ func (account *SCloudaccount) PerformShareMode(ctx context.Context, userCred mcc
 		input2 := api.CloudaccountPerformPublicInput{
 			ShareMode: input.ShareMode,
 			PerformPublicDomainInput: apis.PerformPublicDomainInput{
-				Scope: string(rbacutils.ScopeSystem),
+				Scope: string(rbacscope.ScopeSystem),
 			},
 		}
 		return account.PerformPublic(ctx, userCred, query, input2)
@@ -2324,23 +2324,23 @@ func (manager *SCloudaccountManager) filterByDomainId(q *sqlchemy.SQuery, domain
 			// sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
 			sqlchemy.In(q.Field("id"), subq.SubQuery()),
 			sqlchemy.IsTrue(q.Field("is_public")),
-			sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
+			sqlchemy.Equals(q.Field("public_scope"), rbacscope.ScopeDomain),
 		),
 		// share_mode=system/public_scope=system
 		sqlchemy.AND(
 			// sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
 			sqlchemy.IsTrue(q.Field("is_public")),
-			sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
+			sqlchemy.Equals(q.Field("public_scope"), rbacscope.ScopeSystem),
 		),
 	))
 
 	return q
 }
 
-func (manager *SCloudaccountManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCloudaccountManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
-		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 			if len(owner.GetProjectDomainId()) > 0 {
 				q = manager.filterByDomainId(q, owner.GetProjectDomainId())
 				/*cloudproviders := CloudproviderManager.Query().SubQuery()
@@ -2553,15 +2553,15 @@ func (account *SCloudaccount) getAccountShareInfo() apis.SAccountShareInfo {
 	return apis.SAccountShareInfo{
 		ShareMode:     account.ShareMode,
 		IsPublic:      account.IsPublic,
-		PublicScope:   rbacutils.String2Scope(account.PublicScope),
+		PublicScope:   rbacscope.String2Scope(account.PublicScope),
 		SharedDomains: account.GetSharedDomains(),
 	}
 }
 
-func (manager *SCloudaccountManager) totalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) int {
+func (manager *SCloudaccountManager) totalCount(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider) int {
 	q := manager.Query()
 	switch scope {
-	case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+	case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 	}
 	cnt, _ := q.CountWithError()

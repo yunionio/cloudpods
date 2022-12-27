@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/util/timeutils"
 
@@ -528,7 +529,7 @@ func (as *SAgentStorage) saveToGlance(ctx context.Context, imageId, imagePath st
 		if len(format) == 0 {
 			format = options.HostOptions.DefaultImageSaveFormat
 		}
-		if format == string(qemuimg.QCOW2) {
+		if format == string(qemuimgfmt.QCOW2) {
 			// may be encrypted
 			if err := origin.Convert2Qcow2(true, "", "", ""); err != nil {
 				log.Errorln(err)

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -29,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -302,8 +302,8 @@ func (manager *SGroupManager) fetchGroupById(gid string) *SGroup {
 	return nil
 }
 
-func (manager *SGroupManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeDomain
+func (manager *SGroupManager) NamespaceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeDomain
 }
 
 func (group *SGroup) getIdmapping() (*SIdmapping, error) {
@@ -384,8 +384,8 @@ func (group *SGroup) PerformLeave(
 	return nil, nil
 }
 
-func (manager *SGroupManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	if owner != nil && scope == rbacutils.ScopeProject {
+func (manager *SGroupManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil && scope == rbacscope.ScopeProject {
 		// if user has project level privilege, returns all groups in user's project
 		subq := AssignmentManager.fetchProjectGroupIdsQuery(owner.GetProjectId())
 		q = q.In("id", subq.SubQuery())

@@ -25,13 +25,13 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/imagetools"
+	"yunion.io/x/pkg/util/qemuimgfmt"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/imagetools"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -194,12 +194,12 @@ func (image *SImage) GetImageType() cloudprovider.TImageType {
 	return cloudprovider.ImageTypeSystem
 }
 
-func (image *SImage) GetPublicScope() rbacutils.TRbacScope {
+func (image *SImage) GetPublicScope() rbacscope.TRbacScope {
 	switch image.Visibility {
 	case "private":
-		return rbacutils.ScopeNone
+		return rbacscope.ScopeNone
 	default:
-		return rbacutils.ScopeSystem
+		return rbacscope.ScopeSystem
 	}
 }
 
@@ -308,7 +308,7 @@ func (region *SRegion) GetImageByName(name string) (*SImage, error) {
 func (region *SRegion) CreateImage(imageName string, osType string, osDist string, minDiskGb int, minRam int, size int64, body io.Reader, callback func(progress float32)) (*SImage, error) {
 	params := map[string]interface{}{
 		"container_format":    "bare",
-		"disk_format":         string(qemuimg.QCOW2),
+		"disk_format":         string(qemuimgfmt.QCOW2),
 		"name":                imageName,
 		"min_disk":            minDiskGb,
 		"min_ram":             minRam,
