@@ -204,12 +204,15 @@ type sApiVersions struct {
 
 func (v *sApiVersions) GetMaxVersion() string {
 	if v.Version.Status == "CURRENT" && len(v.Version.Id) > 0 {
-		return v.Version.Id
+		return strings.TrimPrefix(v.Version.Id, "v")
 	}
 	maxVersion := v.Version.Version
 	for _, _version := range v.Versions {
 		if version.GT(_version.Version, maxVersion) {
 			maxVersion = _version.Version
+		}
+		if v.Version.Status == "CURRENT" && len(v.Version.Id) > 0 {
+			return strings.TrimPrefix(v.Version.Id, "v")
 		}
 	}
 	return maxVersion
