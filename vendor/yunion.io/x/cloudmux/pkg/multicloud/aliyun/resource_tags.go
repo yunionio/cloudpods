@@ -25,7 +25,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
-func (self *SRegion) tagRequest(serviceType, action string, params map[string]string) (jsonutils.JSONObject, error) {
+func (self *SRegion) tagRequest(serviceType, action string, params map[string]string, body interface{}) (jsonutils.JSONObject, error) {
 	switch serviceType {
 	case ALIYUN_SERVICE_ECS:
 		return self.ecsRequest(action, params)
@@ -33,6 +33,10 @@ func (self *SRegion) tagRequest(serviceType, action string, params map[string]st
 		return self.vpcRequest(action, params)
 	case ALIYUN_SERVICE_RDS:
 		return self.rdsRequest(action, params)
+	case ALIYUN_SERVICE_ES:
+		return self.esRequest(action, params, body)
+	case ALIYUN_SERVICE_KAFKA:
+		return self.kafkaRequest(action, params)
 	case ALIYUN_SERVICE_SLB:
 		return self.lbRequest(action, params)
 	case ALIYUN_SERVICE_KVS:
@@ -55,13 +59,20 @@ func (self *SRegion) ListTags(serviceType string, resourceType string, resourceI
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ResourceType"] = resourceType
-	params["ResourceId.1"] = resourceId
+
+	if serviceType == ALIYUN_SERVICE_ES {
+		params["PathPattern"] = fmt.Sprintf("/openapi/tags")
+		params["ResourceIds"] = jsonutils.Marshal([]string{resourceId}).String()
+	} else {
+		params["ResourceId.1"] = resourceId
+	}
+
 	nextToken := ""
 	for {
 		if len(nextToken) > 0 {
 			params["NextToken"] = nextToken
 		}
-		resp, err := self.tagRequest(serviceType, "ListTagResources", params)
+		resp, err := self.tagRequest(serviceType, "ListTagResources", params, nil)
 		if err != nil {
 			return nil, errors.Wrapf(err, "%s ListTagResources %s", serviceType, params)
 		}
@@ -79,21 +90,36 @@ func (self *SRegion) ListTags(serviceType string, resourceType string, resourceI
 	return tags, nil
 }
 
-func (self *SRegion) UntagResource(serviceType string, resourceType string, resId string, keys []string) error {
-	if len(resId) == 0 || len(keys) == 0 {
+func (self *SRegion) UntagResource(serviceType string, resourceType string, resId string, keys []string, removeAll bool) error {
+	if len(resId) == 0 || (len(keys) == 0 && !removeAll) {
 		return nil
 	}
 
 	params := map[string]string{
 		"RegionId":     self.RegionId,
-		"ResourceId.1": resId,
 		"ResourceType": resourceType,
 	}
-	for i, key := range keys {
-		params[fmt.Sprintf("TagKey.%d", i+1)] = key
+
+	if removeAll {
+		params["All"] = "true"
 	}
 
-	_, err := self.tagRequest(serviceType, "UntagResources", params)
+	if serviceType == ALIYUN_SERVICE_ES {
+		params["PathPattern"] = fmt.Sprintf("/openapi/tags")
+		params["ResourceIds"] = jsonutils.Marshal([]string{resId}).String()
+		if keys != nil && len(keys) > 0 {
+			params["TagKeys"] = jsonutils.Marshal(keys).String()
+		}
+	} else {
+		params["ResourceId.1"] = resId
+		if keys != nil && len(keys) > 0 {
+			for i, key := range keys {
+				params[fmt.Sprintf("TagKey.%d", i+1)] = key
+			}
+		}
+	}
+
+	_, err := self.tagRequest(serviceType, "UntagResources", params, nil)
 	return errors.Wrapf(err, "UntagResources %s", params)
 }
 
@@ -116,7 +142,7 @@ func (self *SRegion) SetResourceTags(serviceType string, resourceType string, re
 				}
 			}
 			if len(removeKeys) > 0 {
-				err := self.UntagResource(serviceType, resourceType, resId, removeKeys)
+				err := self.UntagResource(serviceType, resourceType, resId, removeKeys, false)
 				if err != nil {
 					return errors.Wrapf(err, "UntagResource")
 				}
@@ -130,7 +156,7 @@ func (self *SRegion) SetResourceTags(serviceType string, resourceType string, re
 			}
 		}
 		if len(removeKeys) > 0 {
-			err := self.UntagResource(serviceType, resourceType, resId, removeKeys)
+			err := self.UntagResource(serviceType, resourceType, resId, removeKeys, false)
 			if err != nil {
 				return errors.Wrapf(err, "UntagResource")
 			}
@@ -143,33 +169,62 @@ func (self *SRegion) TagResource(serviceType string, resourceType string, resour
 	if len(tags) > 20 {
 		return errors.Wrap(cloudprovider.ErrNotSupported, "tags count exceed 20 for one request")
 	}
-	params := make(map[string]string)
-	params["RegionId"] = self.RegionId
-	params["ResourceType"] = resourceType
-	params["ResourceId.1"] = resourceId
-	i := 0
-	for k, v := range tags {
-		if strings.HasPrefix(k, "aliyun") ||
-			strings.HasPrefix(k, "acs:") ||
-			strings.HasPrefix(k, "http://") ||
-			strings.HasPrefix(k, "https://") ||
-			strings.HasPrefix(v, "http://") ||
-			strings.HasPrefix(v, "https://") ||
-			strings.HasPrefix(v, "acs:") {
-			continue
-		}
-		params[fmt.Sprintf("Tag.%d.Key", i+1)] = k
-		params[fmt.Sprintf("Tag.%d.Value", i+1)] = v
-		i++
-	}
-	action := "TagResources"
+
 	if len(tags) == 0 {
-		action = "UntagResources"
-		params["All"] = "true"
+		return self.UntagResource(serviceType, resourceType, resourceId, nil, true)
 	}
-	_, err := self.tagRequest(serviceType, action, params)
+
+	params := make(map[string]string)
+
+	body := map[string]interface{}{}
+	if serviceType == ALIYUN_SERVICE_ES {
+		params["PathPattern"] = fmt.Sprintf("/openapi/tags")
+		body["ResourceIds"] = []string{resourceId}
+		body["ResourceType"] = resourceType
+	} else {
+		params["RegionId"] = self.RegionId
+		params["ResourceType"] = resourceType
+		params["ResourceId.1"] = resourceId
+	}
+
+	if serviceType == ALIYUN_SERVICE_ES {
+		var bodyTags []map[string]string
+		for k, v := range tags {
+			if strings.HasPrefix(k, "aliyun") ||
+				strings.HasPrefix(k, "acs:") ||
+				strings.HasPrefix(k, "http://") ||
+				strings.HasPrefix(k, "https://") ||
+				strings.HasPrefix(v, "http://") ||
+				strings.HasPrefix(v, "https://") ||
+				strings.HasPrefix(v, "acs:") {
+				continue
+			}
+			bodyTags = append(bodyTags, map[string]string{"key": k, "value": v})
+		}
+		if len(bodyTags) > 0 {
+			body["Tags"] = bodyTags
+		}
+	} else {
+		i := 0
+		for k, v := range tags {
+			if strings.HasPrefix(k, "aliyun") ||
+				strings.HasPrefix(k, "acs:") ||
+				strings.HasPrefix(k, "http://") ||
+				strings.HasPrefix(k, "https://") ||
+				strings.HasPrefix(v, "http://") ||
+				strings.HasPrefix(v, "https://") ||
+				strings.HasPrefix(v, "acs:") {
+				continue
+			}
+			params[fmt.Sprintf("Tag.%d.Key", i+1)] = k
+			params[fmt.Sprintf("Tag.%d.Value", i+1)] = v
+			i++
+		}
+	}
+
+	_, err := self.tagRequest(serviceType, "TagResources", params, body)
 	if err != nil {
-		return errors.Wrapf(err, "%s %s %s", action, resourceId, params)
+		return errors.Wrapf(err, "%s %s %s", "TagResources", resourceId, params)
 	}
 	return nil
 }

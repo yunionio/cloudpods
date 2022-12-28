@@ -83,8 +83,9 @@ func (self *SAliyunClient) GetResourceGroups(pageNumber int, pageSize int) ([]SR
 		pageNumber = 1
 	}
 	params := map[string]string{
-		"PageNumber": fmt.Sprintf("%d", pageNumber),
-		"PageSize":   fmt.Sprintf("%d", pageSize),
+		"PageNumber":  fmt.Sprintf("%d", pageNumber),
+		"PageSize":    fmt.Sprintf("%d", pageSize),
+		"IncludeTags": "true",
 	}
 	resp, err := self.rmRequest("ListResourceGroups", params)
 	if err != nil {

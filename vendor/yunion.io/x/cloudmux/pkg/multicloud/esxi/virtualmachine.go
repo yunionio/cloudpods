@@ -47,13 +47,13 @@ import (
 )
 
 var (
-	vmSummaryProps = []string{"summary.runtime.powerState", "summary.config.uuid", "summary.config.memorySizeMB", "summary.config.numCpu"}
+	vmSummaryProps = []string{"summary.runtime.powerState", "summary.config.uuid", "summary.config.memorySizeMB", "summary.config.numCpu", "summary.customValue"}
 	// vmConfigProps   = []string{"config.template", "config.alternateGuestName", "config.hardware", "config.guestId", "config.guestFullName", "config.firmware", "config.version", "config.createDate"}
 	vmGuestProps    = []string{"guest.net", "guest.guestState", "guest.toolsStatus", "guest.toolsRunningStatus", "guest.toolsVersion"}
 	vmLayoutExProps = []string{"layoutEx.file"}
 )
 
-var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "resourcePool", "snapshot", "config"}
+var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "resourcePool", "snapshot", "config", "availableField"}
 
 func init() {
 	VIRTUAL_MACHINE_PROPS = append(VIRTUAL_MACHINE_PROPS, vmSummaryProps...)
@@ -108,6 +108,33 @@ func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacen
 
 func (self *SVirtualMachine) GetSecurityGroupIds() ([]string, error) {
 	return []string{}, cloudprovider.ErrNotSupported
+}
+
+func (self *SVirtualMachine) GetTags() (map[string]string, error) {
+	ret := map[int32]string{}
+	for _, val := range self.object.Entity().ExtensibleManagedObject.AvailableField {
+		ret[val.Key] = val.Name
+	}
+	result := map[string]string{}
+	vm := self.getVirtualMachine()
+	for _, val := range vm.Summary.CustomValue {
+		value := struct {
+			Key   int32
+			Value string
+		}{}
+		jsonutils.Update(&value, val)
+		_, ok := ret[value.Key]
+		if ok {
+			result[ret[value.Key]] = value.Value
+		}
+	}
+	for _, key := range ret {
+		_, ok := result[key]
+		if !ok {
+			result[key] = ""
+		}
+	}
+	return result, nil
 }
 
 func (self *SVirtualMachine) GetSysTags() map[string]string {
