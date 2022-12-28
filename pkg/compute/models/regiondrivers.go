@@ -39,6 +39,7 @@ type IRegionDriver interface {
 	IElasticcacheBackup
 	IDBInstanceDriver
 	IElasticSearchDriver
+	IKafkaDrive
 
 	ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error)
 	RequestCreateLoadbalancerInstance(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, input *api.LoadbalancerCreateInput, task taskman.ITask) error
@@ -273,6 +274,10 @@ type IElasticIpDriver interface {
 
 type IElasticSearchDriver interface {
 	RequestRemoteUpdateElasticSearch(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticSearch, replaceTags bool, task taskman.ITask) error
+}
+
+type IKafkaDrive interface {
+	RequestRemoteUpdateKafka(ctx context.Context, userCred mcclient.TokenCredential, kafka *SKafka, replaceTags bool, task taskman.ITask) error
 }
 
 var regionDrivers map[string]IRegionDriver
