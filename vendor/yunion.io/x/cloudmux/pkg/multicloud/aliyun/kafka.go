@@ -61,6 +61,10 @@ type SKafka struct {
 	SecurityGroup string `json:"SecurityGroup"`
 }
 
+func (self *SKafka) SetTags(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags(ALIYUN_SERVICE_KAFKA, "INSTANCE", self.InstanceId, tags, replace)
+}
+
 func (self *SKafka) GetName() string {
 	return self.Name
 }
@@ -231,6 +235,11 @@ func (self *SRegion) GetKafkas(ids []string) ([]SKafka, error) {
 	if ret.Code != 200 {
 		return nil, errors.Errorf("message: %s requestId: %s", ret.Message, ret.RequestId)
 	}
+
+	for i := 0; i < len(ret.InstanceList.InstanceVO); i++ {
+		ret.InstanceList.InstanceVO[i].region = self
+	}
+
 	return ret.InstanceList.InstanceVO, nil
 }
 

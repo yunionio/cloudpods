@@ -405,7 +405,7 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 		if len(classicEips[i].GetIpAddr()) == 0 {
 			continue
 		}
-		_, err := netutils.NewIPV4Addr(eips[i].GetIpAddr())
+		_, err := netutils.NewIPV4Addr(classicEips[i].GetIpAddr())
 		if err != nil {
 			continue
 		}
