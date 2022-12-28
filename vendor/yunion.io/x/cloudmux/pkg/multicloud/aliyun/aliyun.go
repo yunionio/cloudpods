@@ -79,6 +79,8 @@ const (
 	ALIYUN_SERVICE_ECS      = "ecs"
 	ALIYUN_SERVICE_VPC      = "vpc"
 	ALIYUN_SERVICE_RDS      = "rds"
+	ALIYUN_SERVICE_ES       = "es"
+	ALIYUN_SERVICE_KAFKA    = "kafka"
 	ALIYUN_SERVICE_SLB      = "slb"
 	ALIYUN_SERVICE_KVS      = "kvs"
 	ALIYUN_SERVICE_NAS      = "nas"
@@ -154,13 +156,17 @@ func NewAliyunClient(cfg *AliyunClientConfig) (*SAliyunClient, error) {
 }
 
 func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	return doRequest(client, domain, apiVersion, apiName, params, nil, debug)
+}
+
+func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, body interface{}, debug bool) (jsonutils.JSONObject, error) {
 	if debug {
 		log.Debugf("request %s %s %s %s", domain, apiVersion, apiName, params)
 	}
 	var resp jsonutils.JSONObject
 	var err error
 	for i := 1; i < 4; i++ {
-		resp, err = _jsonRequest(client, domain, apiVersion, apiName, params)
+		resp, err = _jsonRequest(client, domain, apiVersion, apiName, params, body)
 		retry := false
 		if err != nil {
 			for _, code := range []string{
@@ -242,7 +248,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 	return resp, err
 }
 
-func _jsonRequest(client *sdk.Client, domain string, version string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func _jsonRequest(client *sdk.Client, domain string, version string, apiName string, params map[string]string, body interface{}) (jsonutils.JSONObject, error) {
 	req := requests.NewCommonRequest()
 	req.Domain = domain
 	req.Version = version
@@ -251,6 +257,10 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		for k, v := range params {
 			req.QueryParams[k] = v
 		}
+	}
+	if body != nil {
+		req.Content = []byte(jsonutils.Marshal(body).String())
+		req.GetHeaders()["Content-Type"] = "application/json"
 	}
 	req.Scheme = "https"
 	req.GetHeaders()["User-Agent"] = "vendor/yunion-OneCloud@" + v.Get().GitVersion
@@ -267,6 +277,9 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		}
 	}
 	if strings.HasPrefix(domain, "elasticsearch") {
+		if strings.HasPrefix(apiName, "UntagResources") {
+			method = requests.DELETE
+		}
 		req.Product = "elasticsearch"
 		req.ServiceCode = "elasticsearch"
 		pathPattern, ok := params["PathPattern"]
@@ -293,20 +306,20 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	if err != nil {
 		return nil, errors.Wrapf(err, "processCommonRequest with params %s", params)
 	}
-	body, err := jsonutils.Parse(resp.GetHttpContentBytes())
+	respBody, err := jsonutils.Parse(resp.GetHttpContentBytes())
 	if err != nil {
 		return nil, errors.Wrapf(err, "jsonutils.Parse")
 	}
 	//{"Code":"InvalidInstanceType.ValueNotSupported","HostId":"ecs.aliyuncs.com","Message":"The specified instanceType beyond the permitted range.","RequestId":"0042EE30-0EDF-48A7-A414-56229D4AD532"}
 	//{"Code":"200","Message":"successful","PageNumber":1,"PageSize":50,"RequestId":"BB4C970C-0E23-48DC-A3B0-EB21FFC70A29","RouterTableList":{"RouterTableListType":[{"CreationTime":"2017-03-19T13:37:40Z","Description":"","ResourceGroupId":"rg-acfmwie3cqoobmi","RouteTableId":"vtb-j6c60lectdi80rk5xz43g","RouteTableName":"","RouteTableType":"System","RouterId":"vrt-j6c00qrol733dg36iq4qj","RouterType":"VRouter","VSwitchIds":{"VSwitchId":["vsw-j6c3gig5ub4fmi2veyrus"]},"VpcId":"vpc-j6c86z3sh8ufhgsxwme0q"}]},"Success":true,"TotalCount":1}
 	//{"Code":"Success","Data":{"CashCoupon":[]},"Message":"Successful!","RequestId":"87AD7E9A-3F8F-460F-9934-FFFE502325EE","Success":true}
-	if body.Contains("Code") {
-		code, _ := body.GetString("Code")
+	if respBody.Contains("Code") {
+		code, _ := respBody.GetString("Code")
 		if len(code) > 0 && !utils.IsInStringArray(code, []string{"200", "Success"}) {
-			return nil, fmt.Errorf(body.String())
+			return nil, fmt.Errorf(respBody.String())
 		}
 	}
-	return body, nil
+	return respBody, nil
 }
 
 func (self *SAliyunClient) getNasEndpoint(regionId string) string {
