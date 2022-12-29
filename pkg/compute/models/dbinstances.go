@@ -1706,7 +1706,7 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		return err
 	}
 	syncVirtualResourceMetadata(ctx, userCred, self, ext)
-	SyncCloudProject(userCred, self, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	if len(diff) > 0 {
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
@@ -1802,7 +1802,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, &instance, extInstance)
-	SyncCloudProject(userCred, &instance, provider.GetOwnerId(), extInstance, provider.Id)
+	SyncCloudProject(ctx, userCred, &instance, provider.GetOwnerId(), extInstance, provider.Id)
 
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
 

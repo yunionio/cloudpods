@@ -560,7 +560,7 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 	if res := self.GetAssociateResource(); res != nil && len(res.GetOwnerId().GetProjectId()) > 0 {
 		self.SyncCloudProjectId(userCred, res.GetOwnerId())
 	} else {
-		SyncCloudProject(userCred, self, syncOwnerId, ext, self.ManagerId)
+		SyncCloudProject(ctx, userCred, self, syncOwnerId, ext, self.ManagerId)
 	}
 
 	return nil
@@ -625,7 +625,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	if res := eip.GetAssociateResource(); res != nil {
 		eip.SyncCloudProjectId(userCred, res.GetOwnerId())
 	} else {
-		SyncCloudProject(userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
+		SyncCloudProject(ctx, userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
 	}
 
 	db.OpsLog.LogEvent(&eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)

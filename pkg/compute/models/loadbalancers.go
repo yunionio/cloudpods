@@ -1122,7 +1122,7 @@ func (region *SCloudregion) newFromCloudLoadbalancer(ctx context.Context, userCr
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, &lb, ext)
-	SyncCloudProject(userCred, &lb, syncOwnerId, ext, provider.Id)
+	SyncCloudProject(ctx, userCred, &lb, syncOwnerId, ext, provider.Id)
 
 	db.OpsLog.LogEvent(&lb, db.ACT_CREATE, lb.GetShortDesc(ctx), userCred)
 
@@ -1329,7 +1329,7 @@ func (lb *SLoadbalancer) syncWithCloudLoadbalancer(ctx context.Context, userCred
 	networkIds := getExtLbNetworkIds(ext, lb.ManagerId)
 	syncVirtualResourceMetadata(ctx, userCred, lb, ext)
 	provider := lb.GetCloudprovider()
-	SyncCloudProject(userCred, lb, provider.GetOwnerId(), ext, lb.ManagerId)
+	SyncCloudProject(ctx, userCred, lb, provider.GetOwnerId(), ext, lb.ManagerId)
 	lb.syncLoadbalancerNetwork(ctx, userCred, networkIds)
 
 	return err

@@ -160,7 +160,7 @@ func (self *STablestore) SyncWithCloudTablestore(ctx context.Context, userCred m
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, self, ext)
-	SyncCloudProject(userCred, self, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, provider.Id)
 	return nil
 }
 
@@ -193,7 +193,7 @@ func (self *SCloudregion) newFromCloudTablestore(ctx context.Context, userCred m
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, ret, ext)
-	SyncCloudProject(userCred, ret, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, ret, provider.GetOwnerId(), ext, provider.Id)
 
 	db.OpsLog.LogEvent(ret, db.ACT_CREATE, ret.GetShortDesc(ctx), userCred)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
