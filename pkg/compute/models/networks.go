@@ -665,7 +665,7 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 	}
 
 	//syncVirtualResourceMetadata(ctx, userCred, self, extNet)
-	SyncCloudProject(userCred, self, syncOwnerId, extNet, vpc.ManagerId)
+	SyncCloudProject(ctx, userCred, self, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {
 		shareInfo := provider.getAccountShareInfo()
@@ -724,7 +724,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 
 	vpc, _ := wire.GetVpc()
 	syncVirtualResourceMetadata(ctx, userCred, &net, extNet)
-	SyncCloudProject(userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
+	SyncCloudProject(ctx, userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {
 		shareInfo := provider.getAccountShareInfo()

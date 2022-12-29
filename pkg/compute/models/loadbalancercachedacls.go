@@ -396,7 +396,7 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 			return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.InsertAcl")
 		}
 
-		SyncCloudProject(userCred, localAcl, provider.GetOwnerId(), extAcl, provider.GetId())
+		SyncCloudProject(ctx, userCred, localAcl, provider.GetOwnerId(), extAcl, provider.GetId())
 	}
 
 	{
