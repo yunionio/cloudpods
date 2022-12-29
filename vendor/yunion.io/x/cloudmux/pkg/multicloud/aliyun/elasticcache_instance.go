@@ -624,7 +624,12 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	params["RegionId"] = self.RegionId
 	params["InstanceClass"] = ec.InstanceType
 	params["InstanceName"] = ec.InstanceName
-	params["InstanceType"] = ec.Engine
+	switch ec.Engine {
+	case api.ELASTIC_CACHE_ENGINE_REDIS:
+		params["InstanceType"] = "Redis"
+	case api.ELASTIC_CACHE_ENGINE_MEMCACHED:
+		params["InstanceType"] = "Memcache"
+	}
 	params["EngineVersion"] = ec.EngineVersion
 
 	if len(ec.Password) > 0 {
