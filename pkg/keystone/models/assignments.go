@@ -132,6 +132,16 @@ func (manager *SAssignmentManager) initSysAssignment(ctx context.Context) error 
 	return nil
 }
 
+func (manager *SAssignmentManager) fetchUserProjectRoleCount(userId, projId string) (int, error) {
+	q := manager.fetchUserProjectRoleIdsQuery(userId, projId)
+	return q.CountWithError()
+}
+
+func (manager *SAssignmentManager) fetchGroupProjectRoleCount(grpId, projId string) (int, error) {
+	q := manager.fetchGroupProjectRoleIdsQuery(grpId, projId)
+	return q.CountWithError()
+}
+
 func (manager *SAssignmentManager) FetchUserProjectRoles(userId, projId string) ([]SRole, error) {
 	subq := manager.fetchUserProjectRoleIdsQuery(userId, projId)
 	q := RoleManager.Query().In("id", subq.SubQuery())
@@ -321,6 +331,13 @@ func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred 
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
+	roleCnt, err := manager.fetchUserProjectRoleCount(user.Id, project.Id)
+	if err != nil {
+		return errors.Wrap(err, "FetchUserProjectRoleCount")
+	}
+	if roleCnt >= api.MaxUserRolesInProject {
+		return errors.Wrapf(httperrors.ErrTooLarge, "user %s has joined project %s more than %d roles", user.Name, project.Name, roleCnt)
+	}
 	err = manager.add(ctx, api.AssignmentUserProject, user.Id, project.Id, role.Id)
 	if err != nil {
 		return errors.Wrap(err, "manager.add")
@@ -421,6 +438,13 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 		if !db.IsAllowPerform(ctx, rbacscope.ScopeDomain, userCred, group, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
+	}
+	roleCnt, err := manager.fetchGroupProjectRoleCount(group.Id, project.Id)
+	if err != nil {
+		return errors.Wrap(err, "fetchGroupProjectRoleCount")
+	}
+	if roleCnt >= api.MaxGroupRolesInProject {
+		return errors.Wrapf(httperrors.ErrTooLarge, "group %s has joined project %s more than %d roles", group.Name, project.Name, roleCnt)
 	}
 	err = manager.add(ctx, api.AssignmentGroupProject, group.Id, project.Id, role.Id)
 	if err != nil {
