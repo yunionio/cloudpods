@@ -79,6 +79,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"live-migrate":             guestLiveMigrate,
 			"resume":                   guestResume,
 			"block-replication":        guestBlockReplication,
+			"slave-block-stream-disks": slaveGuestBlockStreamDisks,
 			"hotplug-cpu-mem":          guestHotplugCpuMem,
 			"cancel-block-jobs":        guestCancelBlockJobs,
 			"cancel-block-replication": guestCancelBlockReplication,
@@ -499,6 +500,14 @@ func guestBlockReplication(ctx context.Context, userCred mcclient.TokenCredentia
 			Desc:         guestDesc,
 		})
 	return nil, nil
+}
+
+func slaveGuestBlockStreamDisks(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	return nil, guest.SlaveDisksBlockStream()
 }
 
 func guestCancelBlockJobs(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {

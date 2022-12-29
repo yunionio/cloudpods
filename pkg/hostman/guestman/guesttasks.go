@@ -1993,7 +1993,7 @@ func (s *SDriveBackupTask) startBackup(res string) {
 		hostutils.TaskFailed(s.ctx, res)
 		return
 	}
-	disks, _ := s.Desc.GetArray("disks")
+	disks := s.Desc.Disks
 	if s.index < len(disks) {
 		target := fmt.Sprintf("%s:exportname=drive_%d_backend", s.nbdUri, s.index)
 		s.Monitor.DriveBackup(s.startBackup, fmt.Sprintf("drive_%d", s.index), target, s.syncMode, "raw")
@@ -2061,7 +2061,11 @@ func (s *SGuestBlockReplicationTask) onXBlockdevChange(res string) {
 		}, s.onNbdDriveAddSucc(drive, node))
 		s.index += 1
 	} else {
-		s.startDriveMirror()
+		if s.onSucc != nil {
+			s.onSucc()
+		} else {
+			hostutils.TaskComplete(s.ctx, nil)
+		}
 	}
 }
 
@@ -2079,11 +2083,6 @@ func (s *SGuestBlockReplicationTask) onNbdDriveAddSucc(parent, node string) moni
 
 		s.Monitor.XBlockdevChange(parent, node, "", s.onXBlockdevChange)
 	}
-}
-
-func (s *SGuestBlockReplicationTask) startDriveMirror() {
-	NewDriveBackupTask(s.ctx, s.SKVMGuestInstance,
-		fmt.Sprintf("nbd:%s:%s", s.nbdHost, s.nbdPort), s.syncMode, s.onSucc).Start()
 }
 
 /**
@@ -2443,7 +2442,9 @@ func (task *CancelBlockReplication) Start() {
 			})
 		})
 	}
-	task.SCancelBlockJobs.Start()
+	if task.ctx != nil {
+		hostutils.TaskComplete(task.ctx, nil)
+	}
 }
 
 type SCancelBlockJobs struct {
