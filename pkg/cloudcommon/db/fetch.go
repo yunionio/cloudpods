@@ -252,16 +252,27 @@ func FetchUserInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IId
 	return FetchProjectInfo(ctx, data)
 }
 
-func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	tenantId, key := jsonutils.GetAnyString2(data, []string{
+var (
+	ProjectFetchKeys = []string{
 		"project_id",
 		"tenant_id",
 		"project",
 		"tenant",
-	})
+	}
+	DomainFetchKeys = []string{
+		"project_domain_id",
+		"domain_id",
+		"project_domain",
+		"domain",
+	}
+)
+
+func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	tenantId, key := jsonutils.GetAnyString2(data, ProjectFetchKeys)
 	if len(tenantId) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
-		t, err := DefaultProjectFetcher(ctx, tenantId)
+		domainId, _ := jsonutils.GetAnyString2(data, DomainFetchKeys)
+		t, err := DefaultProjectFetcher(ctx, tenantId, domainId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("project", tenantId)
@@ -283,11 +294,7 @@ func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.
 }
 
 func FetchDomainInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	domainId, key := jsonutils.GetAnyString2(data, []string{
-		"domain_id",
-		"project_domain_id",
-		"project_domain",
-	})
+	domainId, key := jsonutils.GetAnyString2(data, DomainFetchKeys)
 	if len(domainId) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
 		domain, err := DefaultDomainFetcher(ctx, domainId)

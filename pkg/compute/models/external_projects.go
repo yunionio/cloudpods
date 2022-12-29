@@ -308,7 +308,7 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 				return errors.Wrapf(err, "TenantCacheManager.FetchTenantById(%s)", self.ProjectId)
 			}
 			if tenant.Name != self.Name {
-				proj, err := db.TenantCacheManager.FetchTenantByName(ctx, self.Name)
+				proj, err := db.TenantCacheManager.FetchTenantByNameInDomain(ctx, self.Name, tenant.DomainId)
 				if err != nil {
 					if errors.Cause(err) == sql.ErrNoRows {
 						params := map[string]string{"name": self.Name}
@@ -505,7 +505,7 @@ func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred
 		return nil, httperrors.NewMissingParameterError("project_id")
 	}
 
-	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, input.ProjectId)
+	tenant, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, input.ProjectId, input.ProjectDomainId)
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("project %s not found", input.ProjectId)
 	}

@@ -76,7 +76,7 @@ func (self *InstanceBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStan
 		projectId, _ = ib.ServerConfig.GetString("tenant_id")
 	}
 	if projectId != "" {
-		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectId)
+		tenant, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, projectId, "")
 		if err != nil && errors.Cause(err) != sql.ErrNoRows {
 			self.taskFailed(ctx, ib, jsonutils.NewString(err.Error()))
 			return

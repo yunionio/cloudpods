@@ -446,7 +446,7 @@ func (self *SCloudprovider) getPassword() (string, error) {
 	return utils.DescryptAESBase64(self.Id, self.Secret)
 }
 
-func getTenant(ctx context.Context, projectId string, name string) (*db.STenant, error) {
+func getTenant(ctx context.Context, projectId string, name string, domainId string) (*db.STenant, error) {
 	if len(projectId) > 0 {
 		tenant, err := db.TenantCacheManager.FetchTenantById(ctx, projectId)
 		if err != nil {
@@ -457,7 +457,7 @@ func getTenant(ctx context.Context, projectId string, name string) (*db.STenant,
 	if len(name) == 0 {
 		return nil, errors.Error("cannot syncProject for empty name")
 	}
-	return db.TenantCacheManager.FetchTenantByName(ctx, name)
+	return db.TenantCacheManager.FetchTenantByNameInDomain(ctx, name, domainId)
 }
 
 func createTenant(ctx context.Context, name, domainId, desc string) (string, string, error) {
@@ -492,7 +492,7 @@ func (self *SCloudaccount) getOrCreateTenant(ctx context.Context, name, domainId
 	lockman.LockRawObject(ctx, domainId, fmt.Sprintf("%s-%s", uuid, name))
 	defer lockman.ReleaseRawObject(ctx, domainId, fmt.Sprintf("%s-%s", uuid, name))
 
-	tenant, err := getTenant(ctx, projectId, name)
+	tenant, err := getTenant(ctx, projectId, name, domainId)
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
 			return "", "", errors.Wrapf(err, "getTenan")
@@ -737,8 +737,12 @@ func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, 
 
 func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
 	project := input.ProjectId
+	domain := input.ProjectDomainId
+	if len(domain) == 0 {
+		domain = self.DomainId
+	}
 
-	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
+	tenant, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, project, domain)
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("project %s not found", project)
 	}

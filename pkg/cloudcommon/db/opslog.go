@@ -265,20 +265,6 @@ func (manager *SOpsLogManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	input apis.OpsLogListInput,
 ) (*sqlchemy.SQuery, error) {
-	for idx, projectId := range input.OwnerProjectIds {
-		projObj, err := DefaultProjectFetcher(ctx, projectId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("project", projectId)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		input.OwnerProjectIds[idx] = projObj.GetId()
-	}
-	if len(input.OwnerProjectIds) > 0 {
-		q = q.Filter(sqlchemy.In(q.Field("owner_tenant_id"), input.OwnerProjectIds))
-	}
 	for idx, domainId := range input.OwnerDomainIds {
 		domainObj, err := DefaultDomainFetcher(ctx, domainId)
 		if err != nil {
@@ -292,6 +278,24 @@ func (manager *SOpsLogManager) ListItemFilter(
 	}
 	if len(input.OwnerDomainIds) > 0 {
 		q = q.Filter(sqlchemy.In(q.Field("owner_domain_id"), input.OwnerDomainIds))
+	}
+	for idx, projectId := range input.OwnerProjectIds {
+		domainId := ""
+		if len(input.OwnerDomainIds) == 1 {
+			domainId = input.OwnerDomainIds[0]
+		}
+		projObj, err := DefaultProjectFetcher(ctx, projectId, domainId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("project", projectId)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		input.OwnerProjectIds[idx] = projObj.GetId()
+	}
+	if len(input.OwnerProjectIds) > 0 {
+		q = q.Filter(sqlchemy.In(q.Field("owner_tenant_id"), input.OwnerProjectIds))
 	}
 	if len(input.ObjTypes) > 0 {
 		if len(input.ObjTypes) == 1 {
