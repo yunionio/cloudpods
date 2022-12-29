@@ -35,7 +35,6 @@ type DomainizedResourceInput struct {
 }
 
 type ProjectizedResourceInput struct {
-	DomainizedResourceInput
 	// 指定项目的名称或ID
 	// required: false
 	ProjectId string `json:"project_id"`
@@ -266,6 +265,7 @@ type PerformPrivateInput struct {
 }
 
 type PerformChangeProjectOwnerInput struct {
+	DomainizedResourceInput
 	ProjectizedResourceInput
 }
 

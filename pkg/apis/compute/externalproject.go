@@ -42,6 +42,7 @@ type ExternalProjectDetails struct {
 }
 
 type ExternalProjectChangeProjectInput struct {
+	apis.DomainizedResourceInput
 	apis.ProjectizedResourceInput
 }
 
