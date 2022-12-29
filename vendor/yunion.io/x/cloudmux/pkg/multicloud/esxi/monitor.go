@@ -96,12 +96,12 @@ func (self *SESXiClient) getEcsMetrics(metricName string, metricType cloudprovid
 
 	sample, err := perfManager.Query(self.context, queries)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Query")
 	}
 
 	result, err := perfManager.ToMetricSeries(self.context, sample)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ToMetricSeries")
 	}
 
 	ret := []cloudprovider.MetricValues{}

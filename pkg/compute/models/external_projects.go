@@ -267,7 +267,42 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 			}
 			return nil
 		}
-		if account.AutoCreateProject && options.Options.EnableAutoRenameProject {
+		pm, _ := account.GetProjectMapping()
+		if pm != nil && pm.Enabled.IsTrue() && pm.IsNeedProjectSync() && self.ProjectSrc != string(apis.OWNER_SOURCE_LOCAL) {
+			extTags, err := ext.GetTags()
+			if err != nil {
+				return errors.Wrapf(err, "extModel.GetTags")
+			}
+			find := false
+			if pm.Rules != nil {
+				for _, rule := range *pm.Rules {
+					domainId, projectId, newProj, isMatch := rule.IsMatchTags(extTags)
+					if isMatch && len(newProj) > 0 {
+						domainId, projectId, err = account.getOrCreateTenant(context.TODO(), newProj, "", "", "auto create from tag")
+						if err != nil {
+							log.Errorf("getOrCreateTenant(%s) error: %v", newProj, err)
+							continue
+						}
+						if len(domainId) > 0 && len(projectId) > 0 {
+							self.DomainId = domainId
+							self.ProjectId = projectId
+							find = true
+							break
+						}
+					}
+				}
+			}
+			if !find && account.AutoCreateProject {
+				desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
+				domainId, projectId, err := account.getOrCreateTenant(ctx, self.Name, self.DomainId, "", desc)
+				if err != nil {
+					log.Errorf("failed to get or create tenant %s(%s) %v", self.Name, self.ExternalId, err)
+				} else {
+					self.DomainId = domainId
+					self.ProjectId = projectId
+				}
+			}
+		} else if account.AutoCreateProject && options.Options.EnableAutoRenameProject {
 			tenant, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
 			if err != nil {
 				return errors.Wrapf(err, "TenantCacheManager.FetchTenantById(%s)", self.ProjectId)

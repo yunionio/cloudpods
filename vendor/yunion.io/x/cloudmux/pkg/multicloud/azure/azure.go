@@ -977,8 +977,8 @@ func getResourceGroup(id string) string {
 			break
 		}
 	}
-	if idx > 0 && idx < len(info)-1 {
-		return fmt.Sprintf("%s/%s", info[1], info[idx])
+	if idx > 0 && idx < len(info)-2 {
+		return fmt.Sprintf("%s/%s", info[2], info[idx])
 	}
 	return ""
 }

@@ -53,7 +53,7 @@ var (
 	vmLayoutExProps = []string{"layoutEx.file"}
 )
 
-var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "resourcePool", "snapshot", "config", "availableField"}
+var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "resourcePool", "snapshot", "config", "availableField", "datastore"}
 
 func init() {
 	VIRTUAL_MACHINE_PROPS = append(VIRTUAL_MACHINE_PROPS, vmSummaryProps...)
@@ -1587,4 +1587,33 @@ func (self *SVirtualMachine) ResetToInstanceSnapshot(ctx context.Context, idStr 
 		return errors.Wrap(err, "RevertToSnapshot_Task")
 	}
 	return object.NewTask(self.manager.client.Client, res.Returnval).Wait(ctx)
+}
+
+func (vm *SVirtualMachine) GetDatastores() ([]*SDatastore, error) {
+	dsList := make([]*SDatastore, 0)
+	dss := vm.getVirtualMachine().Datastore
+	for i := range dss {
+		var moStore mo.Datastore
+		err := vm.manager.reference2Object(dss[i].Reference(), DATASTORE_PROPS, &moStore)
+		if err != nil {
+			log.Errorf("datastore reference2Object %s", err)
+			return nil, errors.Wrap(err, "reference2Object")
+		}
+		ds := NewDatastore(vm.manager, &moStore, vm.datacenter)
+		dsList = append(dsList, ds)
+	}
+	return dsList, nil
+}
+
+func (vm *SVirtualMachine) GetDatastoreNames() []string {
+	dss, err := vm.GetDatastores()
+	if err != nil {
+		log.Errorf("GetDatastores fail %s", err)
+		return nil
+	}
+	names := make([]string, 0, len(dss))
+	for i := range dss {
+		names = append(names, dss[i].GetName())
+	}
+	return names
 }
