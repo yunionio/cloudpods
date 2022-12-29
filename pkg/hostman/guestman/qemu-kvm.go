@@ -400,7 +400,6 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 				s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(migratePort)))
 			}
 		}
-		data.Set("script_start", jsonutils.JSONTrue)
 
 		err = s.saveScripts(data)
 		if err != nil {
@@ -759,51 +758,59 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 		log.Errorf("block job missing event type")
 		return
 	}
-	// only dealwith event type mirror, backup
 	stype, _ := itype.(string)
-	if stype != "mirror" && stype != "backup" {
+	if stype != "mirror" && stype != "stream" {
+		return
+	}
+	iDevice, ok := event.Data["device"]
+	if !ok {
+		return
+	}
+	device := iDevice.(string)
+	if !strings.HasPrefix(device, "drive_") {
+		return
+	}
+	disks, _ := s.Desc.GetArray("disks")
+	diskIndex, err := strconv.Atoi(device[len("drive_"):])
+	if err != nil || diskIndex < 0 || diskIndex >= len(disks) {
+		log.Errorf("failed get disk from index %d", diskIndex)
+		return
+	}
+	var diskId, diskPath string
+	for i := 0; i < len(disks); i++ {
+		index, _ := disks[i].Int("index")
+		if index == int64(diskIndex) {
+			diskId, _ = disks[i].GetString("disk_id")
+			diskPath, _ = disks[i].GetString("path")
+		}
+	}
+	if len(diskId) == 0 {
+		log.Errorf("failed find disk %s", device)
 		return
 	}
 
-	if s.IsMaster() { // has backup server
-		mirrorStatus := s.MirrorJobStatus()
-		if mirrorStatus.IsSucc() {
+	if s.IsSlave() { // is backup server
+		disk, err := storageman.GetManager().GetDiskByPath(diskPath)
+		if err != nil {
+			log.Errorf("eventBlockJobReady failed get disk %s", diskPath)
+			return
+		}
+		disk.PostCreateFromImageFuse()
+		blockJobCount := s.BlockJobsCount()
+		if blockJobCount == 0 {
 			for {
-				statusInput := &apis.PerformStatusInput{
-					Status:         api.VM_RUNNING,
-					Reason:         "block job ready",
-					BlockJobsCount: mirrorStatus.BlockJobsCount(),
-				}
-				_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), statusInput)
+				_, err := modules.Servers.PerformAction(
+					hostutils.GetComputeSession(context.Background()), s.GetId(), "slave-block-stream-ready", nil,
+				)
 				if err != nil {
-					log.Errorf("onReceiveQMPEvent update server status error: %s", err)
+					log.Errorf("onReceiveQMPEvent sync slave block stream ready error: %s", err)
 					time.Sleep(3 * time.Second)
 				} else {
 					break
 				}
 			}
-		} else if mirrorStatus.IsFailed() {
-			s.SyncMirrorJobFailed("drive-mirror job failed")
-		} else {
-			log.Errorf("Guest %s block job is in progress", s.GetName())
 		}
 	} else {
-		iDevice, ok := event.Data["device"]
-		if !ok {
-			return
-		}
-		device := iDevice.(string)
-		if !strings.HasPrefix(device, "drive_") {
-			return
-		}
-		disks, _ := s.Desc.GetArray("disks")
-		log.Infof("mirror job ready disk index %s", device[len("drive_"):])
-		diskIndex, err := strconv.Atoi(device[len("drive_"):])
-		if err != nil || diskIndex < 0 || diskIndex >= len(disks) {
-			log.Errorf("failed get disk from index %d", diskIndex)
-			return
-		}
-		diskId, _ := disks[diskIndex].GetString("disk_id")
 		params := jsonutils.NewDict()
 		params.Set("disk_id", jsonutils.NewString(diskId))
 		_, err = modules.Servers.PerformAction(
@@ -984,7 +991,25 @@ func (s *SKVMGuestInstance) startQemuBuiltInNbdServer(ctx context.Context) {
 			}
 		}
 		s.Monitor.StartNbdServer(nbdServerPort, true, true, onNbdServerStarted)
+	} else {
+		s.SyncStatus("")
 	}
+}
+
+func (s *SKVMGuestInstance) SlaveDisksBlockStream() error {
+	errChan := make(chan string, 1)
+	disks, _ := s.Desc.GetArray("disks")
+	for i := 0; i < len(disks); i++ {
+		diskIndex, _ := disks[i].Int("index")
+		drive := fmt.Sprintf("drive_%d", diskIndex)
+		s.Monitor.BlockStream(drive, 0, 0, func(res string) {
+			errChan <- res
+		})
+		if errStr := <-errChan; len(errStr) > 0 {
+			return fmt.Errorf("block stream disk %s: %s", drive, errStr)
+		}
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) clearCgroup(pid int) {
@@ -1013,58 +1038,6 @@ func (s *SKVMGuestInstance) IsMigratingDestGuest() bool {
 func (s *SKVMGuestInstance) DiskCount() int {
 	disks, _ := s.Desc.GetArray("disks")
 	return len(disks)
-}
-
-type MirrorJob struct {
-	mirrorJobStatus int
-	blockJobsCount  int
-}
-
-func (ms MirrorJob) IsSucc() bool {
-	return ms.mirrorJobStatus == 1
-}
-
-func (ms MirrorJob) IsFailed() bool {
-	return ms.mirrorJobStatus == -1
-}
-
-func (ms MirrorJob) InProcess() bool {
-	return ms.mirrorJobStatus == 0
-}
-
-func (ms MirrorJob) BlockJobsCount() int {
-	return ms.blockJobsCount
-}
-
-func (s *SKVMGuestInstance) MirrorJobStatus() MirrorJob {
-	res := make(chan []monitor.BlockJob)
-	s.Monitor.GetBlockJobs(func(jobs []monitor.BlockJob) {
-		res <- jobs
-	})
-	select {
-	case <-time.After(time.Second * 3):
-		return MirrorJob{0, -1}
-	case v := <-res:
-		mirrorJobCount := 0
-		failedJobCount := 0
-		for _, job := range v {
-			if job.Type != "mirror" && job.Type != "backup" {
-				continue
-			}
-			if job.IoStatus != "ok" {
-				failedJobCount += 1
-			}
-			mirrorJobCount += 1
-		}
-		if failedJobCount > 0 {
-			return MirrorJob{-1, len(v)}
-		}
-		if mirrorJobCount == 0 {
-			return MirrorJob{1, len(v)}
-		} else {
-			return MirrorJob{0, len(v)}
-		}
-	}
 }
 
 func (s *SKVMGuestInstance) BlockJobsCount() int {
@@ -1175,22 +1148,13 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 	var status = api.VM_RUNNING
 
 	if jobs > 0 {
-		if s.IsMaster() {
-			mirrorStatus := s.MirrorJobStatus()
-			if mirrorStatus.InProcess() {
-				status = api.VM_BLOCK_STREAM
-			} else if mirrorStatus.IsFailed() {
-				status = api.VM_BLOCK_STREAM_FAIL
-				s.SyncMirrorJobFailed("drive-mirror job failed")
-			}
-		} else {
-			// TODO: check block jobs ready
-			status = api.VM_BLOCK_STREAM
-		}
+		// TODO: check block jobs ready
+		status = api.VM_BLOCK_STREAM
 	}
 	var statusInput = &apis.PerformStatusInput{
 		Status:         status,
 		BlockJobsCount: jobs,
+		IsSlave:        s.IsSlave(),
 	}
 	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, statusInput)
 	if err != nil {

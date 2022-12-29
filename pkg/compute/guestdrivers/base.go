@@ -269,6 +269,10 @@ func (self *SBaseGuestDriver) RequestSyncToBackup(ctx context.Context, guest *mo
 	return fmt.Errorf("Not Implement")
 }
 
+func (self *SBaseGuestDriver) RequestSlaveBlockStreamDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
 func (self *SBaseGuestDriver) GetMaxSecurityGroupCount() int {
 	return 5
 }

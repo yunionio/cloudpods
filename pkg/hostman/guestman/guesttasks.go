@@ -1776,7 +1776,11 @@ func (s *SGuestBlockReplicationTask) onXBlockdevChange(res string) {
 		}, s.onNbdDriveAddSucc(drive, node))
 		s.index += 1
 	} else {
-		s.startDriveMirror()
+		if s.onSucc != nil {
+			s.onSucc()
+		} else {
+			hostutils.TaskComplete(s.ctx, nil)
+		}
 	}
 }
 
@@ -1794,11 +1798,6 @@ func (s *SGuestBlockReplicationTask) onNbdDriveAddSucc(parent, node string) moni
 
 		s.Monitor.XBlockdevChange(parent, node, "", s.onXBlockdevChange)
 	}
-}
-
-func (s *SGuestBlockReplicationTask) startDriveMirror() {
-	NewDriveBackupTask(s.ctx, s.SKVMGuestInstance,
-		fmt.Sprintf("nbd:%s:%s", s.nbdHost, s.nbdPort), s.syncMode, s.onSucc).Start()
 }
 
 /**
@@ -2106,7 +2105,9 @@ func (task *CancelBlockReplication) Start() {
 			})
 		})
 	}
-	task.SCancelBlockJobs.Start()
+	if task.ctx != nil {
+		hostutils.TaskComplete(task.ctx, nil)
+	}
 }
 
 type SCancelBlockJobs struct {

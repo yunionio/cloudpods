@@ -683,6 +683,15 @@ func (self *SKVMGuestDriver) RequestSyncToBackup(ctx context.Context, guest *mod
 	return nil
 }
 
+func (self *SKVMGuestDriver) RequestSlaveBlockStreamDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	host := models.HostManager.FetchHostById(guest.BackupHostId)
+	body := jsonutils.NewDict()
+	url := fmt.Sprintf("%s/servers/%s/slave-block-stream-disks", host.ManagerUri, guest.Id)
+	header := self.getTaskRequestHeader(task)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	return err
+}
+
 // kvm guest must add cpu first
 // if body has add_cpu_failed indicate dosen't exec add mem
 // 1. cpu added part of request --> add_cpu_failed: true && added_cpu: count
