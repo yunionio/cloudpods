@@ -595,7 +595,7 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 			return nil, errors.Wrapf(err, "Insert")
 		}
 		// sync project
-		SyncCloudProject(userCred, &snapshotPolicyTmp, syncOwnerId, ext, provider.GetId())
+		SyncCloudProject(ctx, userCred, &snapshotPolicyTmp, syncOwnerId, ext, provider.GetId())
 		// update snapshotpolicyCluster
 		if snapshotpolicyCluster != nil {
 			key := snapshotPolicyTmp.Key()

@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -475,6 +476,10 @@ func createTenant(ctx context.Context, name, domainId, desc string) (string, str
 	if err != nil {
 		return "", "", errors.Wrap(err, "resp.GetString")
 	}
+	_, err = db.TenantCacheManager.FetchTenantById(ctx, projectId)
+	if err != nil {
+		log.Errorf("fetch tenant %s error: %v", name, err)
+	}
 	return domainId, projectId, nil
 }
 
@@ -482,6 +487,11 @@ func (self *SCloudaccount) getOrCreateTenant(ctx context.Context, name, domainId
 	if len(domainId) == 0 {
 		domainId = self.DomainId
 	}
+	ctx = context.WithValue(ctx, time.Now().String(), utils.GenRequestId(20))
+	uuid := stringutils.UUID4()
+	lockman.LockRawObject(ctx, domainId, fmt.Sprintf("%s-%s", uuid, name))
+	defer lockman.ReleaseRawObject(ctx, domainId, fmt.Sprintf("%s-%s", uuid, name))
+
 	tenant, err := getTenant(ctx, projectId, name)
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
