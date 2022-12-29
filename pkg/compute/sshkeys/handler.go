@@ -50,7 +50,9 @@ func adminSshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 		httperrors.InputParameterError(ctx, w, "empty project_id/tenant_id")
 		return
 	}
-	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectId)
+	params, query, _ := appsrv.FetchEnv(ctx, w, r)
+	domainId, _ := jsonutils.GetAnyString2(query, db.DomainFetchKeys)
+	tenant, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, projectId, domainId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			httperrors.ResourceNotFoundError(ctx, w, "tenant/project %s not found", projectId)
@@ -60,11 +62,7 @@ func adminSshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 			return
 		}
 	}
-	query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
-	if err != nil {
-		httperrors.GeneralServerError(ctx, w, err)
-		return
-	}
+
 	isAdmin := jsonutils.QueryBoolean(query, "admin", false)
 
 	sendSshKey(ctx, w, userCred, tenant.Id, isAdmin, publicOnly)

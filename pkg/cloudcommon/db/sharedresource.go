@@ -145,7 +145,7 @@ func (manager *SSharedResourceManager) shareToTarget(
 	for i := 0; i < len(targetIds); i++ {
 		switch targetType {
 		case SharedTargetProject:
-			tenant, err := DefaultProjectFetcher(ctx, targetIds[i])
+			tenant, err := DefaultProjectFetcher(ctx, targetIds[i], "")
 			if err != nil {
 				return nil, errors.Wrapf(err, "fetch tenant %s error", targetIds[i])
 			}

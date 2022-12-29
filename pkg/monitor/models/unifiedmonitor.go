@@ -88,10 +88,10 @@ func getTagFilterByRequestQuery(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func filterByScope(ctx context.Context, userCred mcclient.TokenCredential, scope string, data jsonutils.JSONObject) (string, error) {
-	domainId := jsonutils.GetAnyString(data, []string{"domain_id", "domain", "project_domain_id", "project_domain"})
-	projectId := jsonutils.GetAnyString(data, []string{"project_id", "project"})
+	domainId := jsonutils.GetAnyString(data, db.DomainFetchKeys)
+	projectId := jsonutils.GetAnyString(data, db.ProjectFetchKeys)
 	if projectId != "" {
-		project, err := db.DefaultProjectFetcher(ctx, projectId)
+		project, err := db.DefaultProjectFetcher(ctx, projectId, domainId)
 		if err != nil {
 			return "", err
 		}
@@ -269,7 +269,8 @@ func (self *SUnifiedMonitorManager) handleDataPreSignature(ctx context.Context, 
 	default:
 		project, err := data.GetString("project")
 		if err == nil {
-			tenant, _ := db.DefaultProjectFetcher(ctx, project)
+			domain, _ := data.GetString("project_domain")
+			tenant, _ := db.DefaultProjectFetcher(ctx, project, domain)
 			if isIdentityName {
 				project = tenant.Name
 			}

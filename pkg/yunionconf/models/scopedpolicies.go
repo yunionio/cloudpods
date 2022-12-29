@@ -225,7 +225,7 @@ func (policy *SScopedPolicy) PerformBind(
 					return nil, errors.Wrap(err, "bind all project")
 				}
 			} else {
-				tenantObj, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, input.TargetIds[i])
+				tenantObj, err := db.TenantCacheManager.FetchTenantById(ctx, input.TargetIds[i])
 				if err != nil {
 					return nil, errors.Wrap(err, "FetchTenantByIdOrName")
 				}

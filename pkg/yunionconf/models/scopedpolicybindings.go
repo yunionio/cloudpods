@@ -185,7 +185,7 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 	}
 
 	if len(query.ProjectId) > 0 {
-		projObj, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, query.ProjectId)
+		projObj, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, query.ProjectId, query.DomainId)
 		if err != nil {
 			return nil, errors.Wrap(err, "TenantCacheManager.FetchTenantByIdOrName")
 		}
