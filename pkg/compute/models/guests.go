@@ -2937,7 +2937,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	self.SyncOsInfo(ctx, userCred, extVM)
 
 	syncVirtualResourceMetadata(ctx, userCred, self, extVM)
-	SyncCloudProject(userCred, self, syncOwnerId, extVM, host.ManagerId)
+	SyncCloudProject(ctx, userCred, self, syncOwnerId, extVM, host.ManagerId)
 
 	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
 		vhost, _ := self.GetHost()
@@ -3042,7 +3042,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.SyncOsInfo(ctx, userCred, extVM)
 
 	syncVirtualResourceMetadata(ctx, userCred, &guest, extVM)
-	SyncCloudProject(userCred, &guest, syncOwnerId, extVM, host.ManagerId)
+	SyncCloudProject(ctx, userCred, &guest, syncOwnerId, extVM, host.ManagerId)
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
 

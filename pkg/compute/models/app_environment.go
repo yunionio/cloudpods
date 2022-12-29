@@ -180,7 +180,7 @@ func (a *SApp) newFromCloudAppEnvironment(ctx context.Context, userCred mcclient
 		return nil, errors.Wrapf(err, "newFromCloudAppEnvironment.Insert")
 	}
 
-	SyncCloudProject(userCred, &appEnvironment, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, &appEnvironment, provider.GetOwnerId(), ext, provider.Id)
 	db.OpsLog.LogEvent(&appEnvironment, db.ACT_CREATE, appEnvironment.GetShortDesc(ctx), userCred)
 	return nil, nil
 }

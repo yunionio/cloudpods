@@ -569,7 +569,7 @@ func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mccli
 	})
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	SyncCloudProject(userCred, self, ownerId, image, managerId)
+	SyncCloudProject(ctx, userCred, self, ownerId, image, managerId)
 	return err
 }
 
@@ -607,7 +607,7 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, &cachedImage, ownerId, image, managerId)
+	SyncCloudProject(ctx, userCred, &cachedImage, ownerId, image, managerId)
 
 	return &cachedImage, nil
 }

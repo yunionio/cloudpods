@@ -286,7 +286,7 @@ func (self *SCloudregion) newFromCloudApp(ctx context.Context, userCred mcclient
 	if result.IsError() {
 		return &app, errors.Wrap(result.AllError(), "unable to SyncAppEnvironments")
 	}
-	SyncCloudProject(userCred, &app, provider.GetOwnerId(), ext, provider.Id)
+	SyncCloudProject(ctx, userCred, &app, provider.GetOwnerId(), ext, provider.Id)
 	syncVirtualResourceMetadata(ctx, userCred, &app, ext)
 
 	db.OpsLog.LogEvent(&app, db.ACT_CREATE, app.GetShortDesc(ctx), userCred)
