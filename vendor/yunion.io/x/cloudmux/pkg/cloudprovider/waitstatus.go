@@ -28,7 +28,7 @@ func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeo
 		if err != nil {
 			return err
 		}
-		log.Debugf("status %s expect %s", res.GetStatus(), expect)
+		log.Infof("%s status %s expect %s", res.GetName(), res.GetStatus(), expect)
 		if res.GetStatus() == expect {
 			return nil
 		}
@@ -44,7 +44,7 @@ func WaitMultiStatus(res ICloudResource, expects []string, interval time.Duratio
 		if err != nil {
 			return errors.Wrap(err, "resource.Refresh()")
 		}
-		log.Debugf("status %s expect %s", res.GetStatus(), expects)
+		log.Infof("%s status %s expect %s", res.GetName(), res.GetStatus(), expects)
 		for _, expect := range expects {
 			if res.GetStatus() == expect {
 				return nil
@@ -67,7 +67,7 @@ func WaitStatusWithInstanceErrorCheck(res ICloudResource, expect string, interva
 		if err != nil {
 			return err
 		}
-		log.Debugf("status %s expect %s", res.GetStatus(), expect)
+		log.Infof("%s status %s expect %s", res.GetName(), res.GetStatus(), expect)
 		if res.GetStatus() == expect {
 			return nil
 		}
