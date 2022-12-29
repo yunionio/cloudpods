@@ -1578,8 +1578,12 @@ func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mc
 	}
 
 	project := input.ProjectId
+	domain := input.ProjectDomainId
+	if len(domain) == 0 {
+		domain = self.DomainId
+	}
 
-	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
+	tenant, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, project, domain)
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("project %s not found", project)
 	}

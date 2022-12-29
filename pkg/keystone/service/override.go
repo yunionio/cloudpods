@@ -35,8 +35,8 @@ func keystoneUUIDGenerator() string {
 	return id.Format(uuid.StyleWithoutDash)
 }
 
-func keystoneProjectFetcher(ctx context.Context, idstr string) (*db.STenant, error) {
-	tenantObj, err := models.ProjectManager.FetchByIdOrName(nil, idstr)
+func keystoneProjectFetcher(ctx context.Context, idstr string, domainId string) (*db.STenant, error) {
+	tenantObj, err := models.ProjectManager.FetchProject(idstr, idstr, domainId, domainId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "tenant %s", idstr)
@@ -44,7 +44,7 @@ func keystoneProjectFetcher(ctx context.Context, idstr string) (*db.STenant, err
 			return nil, errors.Wrap(err, "models.ProjectManager.FetchByIdOrName")
 		}
 	}
-	ret := project2Tenant(tenantObj.(*models.SProject))
+	ret := project2Tenant(tenantObj)
 	return &ret, nil
 }
 

@@ -219,10 +219,10 @@ func PerformSetScope(
 	userCred mcclient.TokenCredential,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
-	domainId := jsonutils.GetAnyString(data, []string{"domain_id", "domain", "project_domain_id", "project_domain"})
-	projectId := jsonutils.GetAnyString(data, []string{"project_id", "project"})
+	domainId := jsonutils.GetAnyString(data, DomainFetchKeys) // []string{"domain_id", "domain", "project_domain_id", "project_domain"})
+	projectId := jsonutils.GetAnyString(data, ProjectFetchKeys)
 	if projectId != "" {
-		project, err := DefaultProjectFetcher(ctx, projectId)
+		project, err := DefaultProjectFetcher(ctx, projectId, domainId)
 		if err != nil {
 			return nil, err
 		}
@@ -347,7 +347,7 @@ func (manager *SScopedResourceBaseManager) FetchCustomizeColumns(
 		reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if base != nil {
 			if base.ProjectId != "" {
-				project, _ := DefaultProjectFetcher(ctx, base.ProjectId)
+				project, _ := DefaultProjectFetcher(ctx, base.ProjectId, base.DomainId)
 				if project != nil {
 					rows[i].Project = project.Name
 					rows[i].ProjectDomain = project.Domain
