@@ -155,7 +155,7 @@ func (self *SDatastoreImageCache) GetIImageInImagecache() ([]cloudprovider.IClou
 var ErrTimeConsuming = errors.Error("time consuming")
 
 func (self *SDatastoreImageCache) getTemplateVMsFromCache() ([]*SVirtualMachine, error) {
-	ihosts, err := self.datastore.datacenter.GetIHosts()
+	ihosts, err := self.datastore.getCachedAttachedHosts()
 	if err != nil {
 		return nil, err
 	}
