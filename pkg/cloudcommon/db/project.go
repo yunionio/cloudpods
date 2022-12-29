@@ -212,7 +212,7 @@ func fetchProjects(ctx context.Context, projectIds []string, isDomain bool) map[
 			if isDomain {
 				t, _ = TenantCacheManager.fetchDomainFromKeystone(ctx, pid)
 			} else {
-				t, _ = TenantCacheManager.fetchTenantFromKeystone(ctx, pid)
+				t, _ = TenantCacheManager.fetchTenantFromKeystone(ctx, pid, "")
 			}
 			if t != nil {
 				ret[t.Id] = *t
@@ -223,7 +223,7 @@ func fetchProjects(ctx context.Context, projectIds []string, isDomain bool) map[
 }
 
 func ValidateProjectizedResourceInput(ctx context.Context, input apis.ProjectizedResourceInput) (*STenant, apis.ProjectizedResourceInput, error) {
-	tenant, err := DefaultProjectFetcher(ctx, input.ProjectId)
+	tenant, err := DefaultProjectFetcher(ctx, input.ProjectId, input.ProjectDomainId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, input, httperrors.NewResourceNotFoundError2("project", input.ProjectId)

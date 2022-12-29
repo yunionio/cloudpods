@@ -68,7 +68,7 @@ type SRobot struct {
 }
 
 func (rm *SRobotManager) fetchSystemProjectId(ctx context.Context) (string, error) {
-	tenant, err := db.TenantCacheManager.FetchTenantByName(ctx, "system")
+	tenant, err := db.TenantCacheManager.FetchTenantByNameInDomain(ctx, "system", idenapi.DEFAULT_DOMAIN_ID)
 	if err != nil {
 		return "", err
 	}

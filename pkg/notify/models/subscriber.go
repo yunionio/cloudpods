@@ -144,7 +144,7 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 		input.ResourceAttributionId = ""
 		input.DomainId = ""
 	case api.SUBSCRIBER_SCOPE_PROJECT:
-		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, input.ResourceAttributionId)
+		tenant, err := db.TenantCacheManager.FetchTenantById(ctx, input.ResourceAttributionId)
 		if err != nil {
 			return input, errors.Wrapf(err, "unable to fetch project %s", input.ResourceAttributionId)
 		}
