@@ -57,7 +57,7 @@ var (
 	vmLayoutExProps = []string{"layoutEx.file"}
 )
 
-var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "resourcePool", "snapshot", "config"}
+var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "resourcePool", "snapshot", "config", "datastore"}
 
 func init() {
 	VIRTUAL_MACHINE_PROPS = append(VIRTUAL_MACHINE_PROPS, vmSummaryProps...)
