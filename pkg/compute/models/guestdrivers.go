@@ -177,6 +177,7 @@ type IGuestDriver interface {
 	RequestDeleteSnapshot(ctx context.Context, guest *SGuest, task taskman.ITask, params *jsonutils.JSONDict) error
 	RequestReloadDiskSnapshot(ctx context.Context, guest *SGuest, task taskman.ITask, params *jsonutils.JSONDict) error
 	RequestSyncToBackup(ctx context.Context, guest *SGuest, task taskman.ITask) error
+	RequestSlaveBlockStreamDisks(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
 	IsSupportEip() bool
 	IsSupportPublicIp() bool
