@@ -82,17 +82,6 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	podName := params["<podName>"]
 	adminSession := auth.GetAdminSession(ctx, o.Options.Region)
 
-	query := jsonutils.NewDict()
-	query.Add(jsonutils.NewString(k8sReq.Namespace), "namespace")
-	query.Add(jsonutils.NewString(k8sReq.Cluster), "cluster")
-	obj, err := k8s.Pods.Get(adminSession, podName, query)
-	if err != nil {
-		return nil, err
-	}
-	if obj == nil {
-		return nil, httperrors.NewNotFoundError("Not found pod %q", podName)
-	}
-
 	data := jsonutils.NewDict()
 	ret, err := k8s.KubeClusters.GetSpecific(adminSession, k8sReq.Cluster, "kubeconfig", data)
 	if err != nil {
