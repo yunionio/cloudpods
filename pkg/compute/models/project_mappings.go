@@ -99,8 +99,12 @@ func (manager *SProjectMappingManager) ValidateCreateData(
 	var tenant *db.STenant
 	for i := range input.Rules {
 		if len(input.Rules[i].ProjectId) > 0 {
-			projectInput := apis.ProjectizedResourceInput{ProjectId: input.Rules[i].ProjectId}
-			tenant, projectInput, err = db.ValidateProjectizedResourceInput(ctx, projectInput)
+			projectInput := apis.ProjectizedResourceCreateInput{
+				ProjectizedResourceInput: apis.ProjectizedResourceInput{
+					ProjectId: input.Rules[i].ProjectId,
+				},
+			}
+			tenant, _, err = db.ValidateProjectizedResourceInput(ctx, projectInput)
 			if err != nil {
 				return input, err
 			}
@@ -231,8 +235,12 @@ func (self *SProjectMapping) ValidateUpdateData(ctx context.Context, userCred mc
 	var tenant *db.STenant
 	for i := range input.Rules {
 		if len(input.Rules[i].ProjectId) > 0 {
-			projectInput := apis.ProjectizedResourceInput{ProjectId: input.Rules[i].ProjectId}
-			tenant, projectInput, err = db.ValidateProjectizedResourceInput(ctx, projectInput)
+			projectInput := apis.ProjectizedResourceCreateInput{
+				ProjectizedResourceInput: apis.ProjectizedResourceInput{
+					ProjectId: input.Rules[i].ProjectId,
+				},
+			}
+			tenant, _, err = db.ValidateProjectizedResourceInput(ctx, projectInput)
 			if err != nil {
 				return input, err
 			}

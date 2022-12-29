@@ -222,17 +222,17 @@ func fetchProjects(ctx context.Context, projectIds []string, isDomain bool) map[
 	return ret
 }
 
-func ValidateProjectizedResourceInput(ctx context.Context, input apis.ProjectizedResourceInput) (*STenant, apis.ProjectizedResourceInput, error) {
+func ValidateProjectizedResourceInput(ctx context.Context, input apis.ProjectizedResourceCreateInput) (*STenant, apis.ProjectizedResourceInput, error) {
 	tenant, err := DefaultProjectFetcher(ctx, input.ProjectId, input.ProjectDomainId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, httperrors.NewResourceNotFoundError2("project", input.ProjectId)
+			return nil, input.ProjectizedResourceInput, httperrors.NewResourceNotFoundError2("project", input.ProjectId)
 		} else {
-			return nil, input, errors.Wrap(err, "TenantCacheManager.FetchTenantByIdOrName")
+			return nil, input.ProjectizedResourceInput, errors.Wrap(err, "TenantCacheManager.FetchTenantByIdOrName")
 		}
 	}
 	input.ProjectId = tenant.GetId()
-	return tenant, input, nil
+	return tenant, input.ProjectizedResourceInput, nil
 }
 
 func (manager *SProjectizedResourceBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {

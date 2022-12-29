@@ -403,7 +403,11 @@ func (manager *SCloudaccountManager) validateCreateData(
 
 	if len(input.ProjectId) > 0 {
 		var proj *db.STenant
-		proj, input.ProjectizedResourceInput, err = db.ValidateProjectizedResourceInput(ctx, input.ProjectizedResourceInput)
+		projInput := apis.ProjectizedResourceCreateInput{
+			DomainizedResourceInput:  input.DomainizedResourceInput,
+			ProjectizedResourceInput: input.ProjectizedResourceInput,
+		}
+		proj, input.ProjectizedResourceInput, err = db.ValidateProjectizedResourceInput(ctx, projInput)
 		if err != nil {
 			return input, errors.Wrap(err, "db.ValidateProjectizedResourceInput")
 		}
