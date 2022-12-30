@@ -917,7 +917,7 @@ func (h *SHostInfo) detectQemuCapabilities(version string) error {
 		log.Errorf("failed start qemu caps cmdline: %s", qmpCmds)
 	}
 	segs := bytes.Split(out, []byte{'\n'})
-	if len(segs) != 6 {
+	if len(segs) < 6 {
 		return errors.Errorf("unexpect qmp res %s", out)
 	}
 	res, err := jsonutils.Parse(bytes.TrimSpace(segs[2]))
