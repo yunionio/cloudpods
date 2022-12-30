@@ -1439,11 +1439,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-<<<<<<< HEAD
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20221229070505-ae65734e2b17
-=======
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20221229085514-f638f0e0d34b
->>>>>>> fix(region): qcloud cdn create
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20221229085549-47587213fcd9
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
