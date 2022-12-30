@@ -28,6 +28,7 @@ import (
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/compute/models"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -750,16 +751,31 @@ func (b *BaseHostDesc) fillOnecloudVpcNetworks(netGetter *networkGetter) error {
 	return nil
 }
 
+func (b *BaseHostDesc) GetHypervisorDriver() models.IGuestDriver {
+	hypervisor := computeapi.HOSTTYPE_HYPERVISOR[b.HostType]
+	if hypervisor == "" {
+		return nil
+	}
+	return models.GetDriver(hypervisor)
+}
+
 func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 	ss := make([]*api.CandidateStorage, 0)
 	for _, s := range host.GetHoststorages() {
 		storage := s.GetStorage()
-		ss = append(ss, &api.CandidateStorage{
+		cs := &api.CandidateStorage{
 			SStorage:           storage,
-			FreeCapacity:       storage.GetFreeCapacity(),
 			ActualFreeCapacity: storage.Capacity - storage.ActualCapacityUsed,
 			Schedtags:          storage.GetSchedtags(),
-		})
+		}
+		if b.GetHypervisorDriver() == nil {
+			cs.FreeCapacity = storage.GetFreeCapacity()
+		} else {
+			if b.GetHypervisorDriver().DoScheduleStorageFilter() {
+				cs.FreeCapacity = storage.GetFreeCapacity()
+			}
+		}
+		ss = append(ss, cs)
 	}
 	b.Storages = ss
 	return nil
