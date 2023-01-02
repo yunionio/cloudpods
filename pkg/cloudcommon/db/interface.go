@@ -138,6 +138,8 @@ type IModelManager interface {
 	GetSplitTable() *splitable.SSplitTableSpec
 
 	CreateByInsertOrUpdate() bool
+
+	CustomizedTotalCount(totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error)
 }
 
 type IModel interface {
