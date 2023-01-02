@@ -19,10 +19,13 @@ import (
 )
 
 type ListResult struct {
-	Data   []jsonutils.JSONObject `json:"data,allowempty"`
-	Total  int
-	Limit  int
-	Offset int
+	Data []jsonutils.JSONObject `json:"data,allowempty"`
+
+	Total  int `json:"total"`
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+
+	Totals jsonutils.JSONObject `json:"totals"`
 
 	NextMarker  string
 	MarkerField string

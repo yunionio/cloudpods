@@ -382,3 +382,7 @@ type IdNameDetails struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
 }
+
+type TotalCountBase struct {
+	Count int `json:"count"`
+}

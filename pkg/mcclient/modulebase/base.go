@@ -154,6 +154,9 @@ func ListResult2JSONWithKey(result *printutils.ListResult, key string) jsonutils
 	if result.Total > 0 {
 		obj.Add(jsonutils.NewInt(int64(result.Total)), "total")
 	}
+	if result.Totals != nil {
+		obj.Add(result.Totals, "totals")
+	}
 	if result.Limit > 0 {
 		obj.Add(jsonutils.NewInt(int64(result.Limit)), "limit")
 	}
@@ -189,9 +192,11 @@ func JSON2ListResult(result jsonutils.JSONObject) *printutils.ListResult {
 	if len(markerField) == 0 && total == 0 {
 		total = int64(len(data))
 	}
+	totalJson, _ := result.Get("totals")
 	return &printutils.ListResult{
 		Data:  data,
 		Total: int(total), Limit: int(limit), Offset: int(offset),
+		Totals:      totalJson,
 		NextMarker:  nextMarker,
 		MarkerField: markerField,
 		MarkerOrder: markerOrder,
@@ -219,9 +224,11 @@ func (this *BaseManager) _list(session *mcclient.ClientSession, path, responseKe
 	if len(nextMarker) == 0 && total == 0 {
 		total = int64(len(rets))
 	}
+	totalJson, _ := body.Get("totals")
 	return &printutils.ListResult{
 		Data:  rets,
 		Total: int(total), Limit: int(limit), Offset: int(offset),
+		Totals:      totalJson,
 		NextMarker:  nextMarker,
 		MarkerField: markerField,
 		MarkerOrder: markerOrder,

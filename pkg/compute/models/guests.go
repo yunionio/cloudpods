@@ -6352,3 +6352,42 @@ func (guest *SGuest) GetGuestBackupMirrorJobStatus(ctx context.Context, userCred
 func (guest *SGuest) ResetGuestQuorumChildIndex(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return guest.SetMetadata(ctx, api.QUORUM_CHILD_INDEX, "", userCred)
 }
+
+type SGuestTotalCount struct {
+	apis.TotalCountBase
+	CpuCount  int
+	MemMb     int
+	DiskMb    int64
+	DiskCount int
+}
+
+func (manager *SGuestManager) CustomizedTotalCount(totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
+	results := SGuestTotalCount{}
+
+	totalQ = totalQ.AppendField(sqlchemy.SUM("cpu_count", totalQ.Field("vcpu_count")))
+	totalQ = totalQ.AppendField(sqlchemy.SUM("mem_mb", totalQ.Field("vmem_size")))
+
+	err := totalQ.First(&results)
+	if err != nil {
+		return -1, nil, errors.Wrap(err, "SGuestManager query total")
+	}
+
+	log.Debugf("CustomizedTotalCount %s", jsonutils.Marshal(results))
+
+	diskQ := DiskManager.Query()
+	diskGuestQ := GuestdiskManager.Query().SubQuery()
+	diskQ = diskQ.Join(diskGuestQ, sqlchemy.Equals(diskQ.Field("id"), diskGuestQ.Field("disk_id")))
+	totalSQ := totalQ.ResetFields().SubQuery()
+	diskQ = diskQ.Join(totalSQ, sqlchemy.Equals(diskGuestQ.Field("guest_id"), totalSQ.Field("id")))
+	diskQ = diskQ.AppendField(sqlchemy.COUNT("disk_count"))
+	diskQ = diskQ.AppendField(sqlchemy.SUM("disk_mb", diskQ.Field("disk_size")))
+
+	err = diskQ.First(&results)
+	if err != nil {
+		return -1, nil, errors.Wrap(err, "SGuestManager query total_disk")
+	}
+
+	log.Debugf("CustomizedTotalCount %s", jsonutils.Marshal(results))
+
+	return results.Count, jsonutils.Marshal(results), nil
+}
