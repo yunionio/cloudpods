@@ -2626,24 +2626,13 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	preStatus := self.Status
-	if len(self.BackupHostId) == 0 && input.Status == api.VM_RUNNING && input.BlockJobsCount > 0 {
-		input.Status = api.VM_BLOCK_STREAM
-	}
 	_, err := self.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBase.PerformStatus")
 	}
 
 	if self.HasBackupGuest() {
-		if input.Status == api.VM_RUNNING {
-			if err := self.TrySetGuestBackupMirrorJobReady(ctx, userCred); err != nil {
-				return nil, errors.Wrap(err, "set guest backup mirror job status ready")
-			}
-		} else if input.Status == api.VM_BLOCK_STREAM {
-			if err := self.SetGuestBackupMirrorJobInProgress(ctx, userCred); err != nil {
-				return nil, errors.Wrap(err, "set guest backup mirror job status inprogress")
-			}
-		} else if input.Status == api.VM_READY {
+		if input.Status == api.VM_READY {
 			if err := self.ResetGuestQuorumChildIndex(ctx, userCred); err != nil {
 				return nil, errors.Wrap(err, "reset guest quorum child index")
 			}
@@ -3174,6 +3163,16 @@ func (self *SGuest) PerformBlockStreamFailed(ctx context.Context, userCred mccli
 		reason, _ := data.GetString("reason")
 		logclient.AddSimpleActionLog(self, logclient.ACT_VM_BLOCK_STREAM, reason, userCred, false)
 		return nil, self.SetStatus(userCred, api.VM_BLOCK_STREAM_FAIL, reason)
+	}
+	return nil, nil
+}
+
+func (self *SGuest) PerformSlaveBlockStreamReady(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if len(self.BackupHostId) > 0 {
+		if err := self.TrySetGuestBackupMirrorJobReady(ctx, userCred); err != nil {
+			return nil, errors.Wrap(err, "set guest backup mirror job status ready")
+		}
+		self.SetBackupGuestStatus(userCred, api.VM_RUNNING, "perform slave block stream ready")
 	}
 	return nil, nil
 }
