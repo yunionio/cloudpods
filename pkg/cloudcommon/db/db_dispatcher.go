@@ -648,10 +648,13 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	}
 
 	var totalCnt int
+	var totalJson jsonutils.JSONObject
 	if pagingConf == nil {
-		totalCnt, err = q.CountWithError()
+		// calculate total
+		totalQ := q.CountQuery()
+		totalCnt, totalJson, err = manager.CustomizedTotalCount(totalQ)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "CustomizedTotalCount")
 		}
 		//log.Debugf("total count %d", totalCnt)
 		if totalCnt == 0 {
@@ -780,7 +783,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 
 	customizeFilters, err := manager.CustomizeFilterList(ctx, q, userCred, queryDict)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CustomizeFilterList")
 	}
 	delayFetch := false
 	if customizeFilters.IsEmpty() {
@@ -818,10 +821,10 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		// query not use Limit and Offset, do manual pagination
 		paginate = true
 	}
-	return calculateListResult(retList, int64(totalCnt), limit, offset, paginate), nil
+	return calculateListResult(retList, totalCnt, totalJson, int(limit), int(offset), paginate), nil
 }
 
-func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64, paginate bool) *printutils.ListResult {
+func calculateListResult(data []jsonutils.JSONObject, total int, totalJson jsonutils.JSONObject, limit, offset int, paginate bool) *printutils.ListResult {
 	if paginate {
 		// do offset first
 		if offset > 0 {
@@ -839,7 +842,13 @@ func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64
 		}
 	}
 
-	retResult := printutils.ListResult{Data: data, Total: int(total), Limit: int(limit), Offset: int(offset)}
+	retResult := printutils.ListResult{
+		Data:   data,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+		Totals: totalJson,
+	}
 
 	return &retResult
 }
