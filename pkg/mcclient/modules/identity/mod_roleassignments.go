@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -398,6 +399,42 @@ func (this *RoleAssignmentManagerV3) GetProjectRole(s *mcclient.ClientSession, i
 	data.Add(lineJson, "data")
 	data.Add(jsonutils.NewInt(int64(len(lines))), "total")
 	return data, nil
+}
+
+func (man *RoleAssignmentManagerV3) GetUserIdsByRolesInScope(s *mcclient.ClientSession, roleIds []string, roleScope rbacscope.TRbacScope, scopeId string) ([]string, error) {
+	query := jsonutils.NewDict()
+	query.Set("roles", jsonutils.Marshal(roleIds))
+	query.Set("effective", jsonutils.JSONTrue)
+	switch roleScope {
+	case rbacscope.ScopeSystem:
+	case rbacscope.ScopeDomain:
+		if scopeId == "" {
+			return nil, errors.Errorf("need projectDomainId")
+		}
+		query.Set("project_domain_id", jsonutils.NewString(scopeId))
+	case rbacscope.ScopeProject:
+		if scopeId == "" {
+			return nil, errors.Errorf("need projectId")
+		}
+		query.Add(jsonutils.NewString(scopeId), "scope", "project", "id")
+	}
+	ret, err := man.List(s, query)
+	if err != nil {
+		return nil, errors.Wrapf(err, "list RoleAssignments with query %s", query.String())
+	}
+	users := make([]string, 0)
+	for i := range ret.Data {
+		ras := ret.Data[i]
+		user, err := ras.Get("user")
+		if err == nil {
+			id, err := user.GetString("id")
+			if err != nil {
+				return nil, errors.Wrap(err, "unable to get user.id from result of RoleAssignments.List")
+			}
+			users = append(users, id)
+		}
+	}
+	return users, nil
 }
 
 func init() {

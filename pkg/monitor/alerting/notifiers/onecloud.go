@@ -30,7 +30,6 @@ import (
 	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
-	notiapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -236,40 +235,8 @@ func (oc *OneCloudNotifier) notifyByUserIds(ctx *alerting.EvalContext, userIds [
 }
 
 func getUsersByRoles(roleIds []string, roleScope string, scopeId string) ([]string, error) {
-	query := jsonutils.NewDict()
-	query.Set("roles", jsonutils.Marshal(roleIds))
-	query.Set("effective", jsonutils.JSONTrue)
-	switch roleScope {
-	case notiapi.SUBSCRIBER_SCOPE_SYSTEM:
-	case notiapi.SUBSCRIBER_SCOPE_DOMAIN:
-		if scopeId == "" {
-			return nil, errors.Errorf("need projectDomainId")
-		}
-		query.Set("project_domain_id", jsonutils.NewString(scopeId))
-	case notiapi.SUBSCRIBER_SCOPE_PROJECT:
-		if scopeId == "" {
-			return nil, errors.Errorf("need projectId")
-		}
-		query.Add(jsonutils.NewString(scopeId), "scope", "project", "id")
-	}
 	s := getAdminSession()
-	ret, err := modules.RoleAssignments.List(s, query)
-	if err != nil {
-		return nil, errors.Wrapf(err, "list RoleAssignments with query %s", query.String())
-	}
-	users := make([]string, 0)
-	for i := range ret.Data {
-		ras := ret.Data[i]
-		user, err := ras.Get("user")
-		if err == nil {
-			id, err := user.GetString("id")
-			if err != nil {
-				return nil, errors.Wrap(err, "unable to get user.id from result of RoleAssignments.List")
-			}
-			users = append(users, id)
-		}
-	}
-	return users, nil
+	return modules.RoleAssignments.GetUserIdsByRolesInScope(s, roleIds, rbacscope.String2Scope(roleScope), scopeId)
 }
 
 func getLangBystr(str string) language.Tag {
