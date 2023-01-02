@@ -574,7 +574,7 @@ func (self *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	desc.TeamWith = self.TeamWith
 
 	guest := self.getGuest()
-	if guest.GetHypervisor() != api.HYPERVISOR_KVM {
+	if guest.GetHypervisor() != api.HYPERVISOR_KVM || self.Driver == api.NETWORK_DRIVER_VFIO {
 		manual := true
 		desc.Manual = &manual
 	}
