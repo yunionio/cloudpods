@@ -15,6 +15,7 @@
 package guestman
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"path"
@@ -39,9 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
 
@@ -509,8 +508,12 @@ function nic_mtu() {
 		input.LiveMigratePort = uint(*s.LiveMigrateDestPort)
 	}
 
-	if s.Desc.IsSlave && jsonutils.QueryBoolean(data, "script_start", false) {
-		if err := s.slaveDiskPrepare(input); err != nil {
+	if s.Desc.IsSlave && !jsonutils.QueryBoolean(data, "block_ready", false) {
+		diskUri, err := data.GetString("disk_uri")
+		if err != nil {
+			return "", errors.Wrap(err, "guest start missing disk uri")
+		}
+		if err := s.slaveDiskPrepare(input, diskUri); err != nil {
 			return "", err
 		}
 	}
@@ -533,44 +536,19 @@ echo $CMD`
 	return cmd, nil
 }
 
-func (s *SKVMGuestInstance) slaveDiskPrepare(input *qemu.GenerateStartOptionsInput) error {
+func (s *SKVMGuestInstance) slaveDiskPrepare(input *qemu.GenerateStartOptionsInput, diskUri string) error {
 	for i := 0; i < len(input.GuestDesc.Disks); i++ {
 		diskPath := input.GuestDesc.Disks[i].Path
 		d, err := storageman.GetManager().GetDiskByPath(diskPath)
 		if err != nil {
 			return errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
-		disk, err := qemuimg.NewQemuImage(d.GetPath())
-		if err != nil {
-			return errors.Wrapf(err, "qemuimg.NewQemuImage(%s)", diskPath)
+		if output, err := procutils.NewCommand("rm", "-f", diskPath).Output(); err != nil {
+			return errors.Errorf("failed delete slave top disk file %s %s", output, err)
 		}
-		backendPath := diskPath + ".backend"
-		if !fileutils2.Exists(backendPath) {
-			output, err := procutils.NewCommand("mv", "-f", diskPath, backendPath).Output()
-			if err != nil {
-				return errors.Wrapf(err, "mv %s to %s failed %s", diskPath, backendPath, output)
-			}
-			diskTop, err := qemuimg.NewQemuImage(diskPath)
-			if err != nil {
-				return errors.Wrap(err, "qemuimg.NewQemuImage")
-			}
-			if err = diskTop.CreateQcow2(0, false, backendPath, "", "", ""); err != nil {
-				return errors.Wrap(err, "create qcow2")
-			}
-		} else {
-			if disk.BackFilePath != backendPath {
-				return errors.Errorf("backend file %s exist but not a backing file", backendPath)
-			}
-			if output, err := procutils.NewCommand("rm", "-f", diskPath).Output(); err != nil {
-				return errors.Errorf("failed delete slave top disk file %s %s", output, err)
-			}
-			diskTop, err := qemuimg.NewQemuImage(diskPath)
-			if err != nil {
-				return errors.Wrap(err, "qemuimg.NewQemuImage")
-			}
-			if err = diskTop.CreateQcow2(0, false, backendPath, "", "", ""); err != nil {
-				return errors.Wrap(err, "create qcow2")
-			}
+		diskUrl := fmt.Sprintf("%s/%s", diskUri, input.GuestDesc.Disks[i].DiskId)
+		if err := d.CreateFromImageFuse(context.Background(), diskUrl, 0, nil); err != nil {
+			return errors.Wrap(err, "failed create slave disk")
 		}
 	}
 	return nil

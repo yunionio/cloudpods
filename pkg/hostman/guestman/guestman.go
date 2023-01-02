@@ -750,20 +750,11 @@ func (m *SGuestManager) StatusWithBlockJobsCount(ctx context.Context, params int
 	} else if status == GUEST_RUNNING {
 		var runCb = func() {
 			body := jsonutils.NewDict()
-			if guest.IsMaster() {
-				mirrorStatus := guest.MirrorJobStatus()
-				if mirrorStatus.InProcess() {
-					status = GUEST_BLOCK_STREAM
-				} else if mirrorStatus.IsFailed() {
-					timeutils2.AddTimeout(1*time.Second,
-						func() { guest.SyncMirrorJobFailed("drive-mirror job failed") })
-					status = GUEST_BLOCK_STREAM_FAIL
-				}
-				body.Set("block_jobs_count", jsonutils.NewInt(int64(mirrorStatus.blockJobsCount)))
-			} else {
-				blockJobsCount := guest.BlockJobsCount()
-				body.Set("block_jobs_count", jsonutils.NewInt(int64(blockJobsCount)))
+			blockJobsCount := guest.BlockJobsCount()
+			if blockJobsCount > 0 {
+				status = GUEST_BLOCK_STREAM
 			}
+			body.Set("block_jobs_count", jsonutils.NewInt(int64(blockJobsCount)))
 			body.Set("status", jsonutils.NewString(status))
 			hostutils.TaskComplete(ctx, body)
 		}
@@ -1254,7 +1245,7 @@ func (m *SGuestManager) StartBlockReplication(ctx context.Context, params interf
 		}
 		hostutils.TaskComplete(ctx, nil)
 	}
-	task := NewGuestBlockReplicationTask(ctx, guest, nbdOpts[1], nbdOpts[2], "top", onSucc, nil)
+	task := NewGuestBlockReplicationTask(ctx, guest, nbdOpts[1], nbdOpts[2], "full", onSucc, nil)
 	task.Start()
 	return nil, nil
 }

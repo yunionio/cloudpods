@@ -86,10 +86,7 @@ func (self *GuestSwitchToBackupTask) OnBackupGuestStoped(ctx context.Context, gu
 		self.OnFail(ctx, guest, jsonutils.NewString(fmt.Sprintf("Switch to backup guest error: %s", err)))
 		return
 	}
-	if err := guest.SetGuestBackupMirrorJobNotReady(ctx, self.UserCred); err != nil {
-		self.OnFail(ctx, guest, jsonutils.NewString("guest set metadata failed"))
-		return
-	}
+
 	db.OpsLog.LogEvent(guest, db.ACT_SWITCHED, "Switch to backup", self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SWITCH_TO_BACKUP, "Switch to backup", self.UserCred, true)
 	oldStatus, _ := self.Params.GetString("old_status")
@@ -197,7 +194,16 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuestFailed(ctx context.
 
 func (self *GuestStartAndSyncToBackupTask) OnRequestSyncToBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetGuestBackupMirrorJobInProgress(ctx, self.UserCred)
-	guest.SetStatus(self.UserCred, api.VM_BLOCK_STREAM, "OnSyncToBackup")
+	err := guest.GetDriver().RequestSlaveBlockStreamDisks(ctx, guest, self)
+	if err != nil {
+		guest.SetGuestBackupMirrorJobFailed(ctx, self.UserCred)
+		guest.SetBackupGuestStatus(self.UserCred, api.VM_BLOCK_STREAM_FAIL, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	guest.SetGuestBackupMirrorJobInProgress(ctx, self.UserCred)
+	guest.SetBackupGuestStatus(self.UserCred, api.VM_BLOCK_STREAM, "OnSyncToBackup")
 	self.SetStageComplete(ctx, nil)
 }
 
