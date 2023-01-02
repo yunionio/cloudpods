@@ -132,6 +132,20 @@ func PrintJSONList(list *ListResult, columns []string) {
 		}
 	}
 	fmt.Println("*** ", title, " ***")
+	if list.Totals != nil {
+		if totalDict, ok := list.Totals.(*jsonutils.JSONDict); ok {
+			totalMap, err := totalDict.GetMap()
+			if err != nil {
+				fmt.Println("error to convert totals to JSONDict")
+			} else {
+				segs := make([]string, 0)
+				for k, v := range totalMap {
+					segs = append(segs, fmt.Sprintf("%s: %s", k, v.String()))
+				}
+				fmt.Printf("***%s***\n", strings.Join(segs, ", "))
+			}
+		}
+	}
 	if colTruncated {
 		fmt.Println(fmt.Sprintf("!!!Some text truncated, set env %s=-1 to show full text!!!", OS_MAX_COLUMN_TEXT_LENGTH))
 	}

@@ -81,6 +81,11 @@ func (tq *SQuery) AppendField(f ...IQueryField) *SQuery {
 	return tq
 }
 
+func (tq *SQuery) ResetFields() *SQuery {
+	tq.fields = nil
+	return tq
+}
+
 // Query of SSubQuery generates a new query from a subquery
 func (sq *SSubQuery) Query(f ...IQueryField) *SQuery {
 	return DoQuery(sq, f...)
