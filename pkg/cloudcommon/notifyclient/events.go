@@ -56,6 +56,8 @@ var (
 	ActionCreateBackupServer = api.ActionCreateBackupServer
 	ActionDelBackupServer    = api.ActionDelBackupServer
 	ActionSyncStatus         = api.ActionSyncStatus
+	ActionNetOutOfSync       = api.ActionNetOutOfSync
+	ActionMysqlOutOfSync     = api.ActionMysqlOutOfSync
 
 	ActionPendingDelete = api.ActionPendingDelete
 
