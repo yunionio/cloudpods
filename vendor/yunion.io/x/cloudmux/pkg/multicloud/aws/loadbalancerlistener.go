@@ -18,28 +18,28 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
+type SElbListeners struct {
+	NextMarker string
+	Listeners  []SElbListener `xml:"Listeners>member"`
+}
+
 type SElbListener struct {
 	multicloud.SResourceBase
 	multicloud.SLoadbalancerRedirectBase
 	AwsTags
-	region *SRegion
-	lb     *SElb
-	group  *SElbBackendGroup
+	lb    *SElb
+	group *SElbBackendGroup
 
 	Port            int             `json:"Port"`
 	Protocol        string          `json:"Protocol"`
@@ -77,7 +77,7 @@ func (self *SElbListener) GetStatus() string {
 }
 
 func (self *SElbListener) Refresh() error {
-	listener, err := self.region.GetElbListener(self.GetId())
+	listener, err := self.lb.region.GetElbListener(self.GetId())
 	if err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (self *SElbListener) getBackendGroup() (*SElbBackendGroup, error) {
 		return self.group, nil
 	}
 
-	lbbg, err := self.region.GetElbBackendgroup(self.DefaultActions[0].TargetGroupArn)
+	lbbg, err := self.lb.region.GetElbBackendgroup(self.DefaultActions[0].TargetGroupArn)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetElbBackendgroup")
 	}
@@ -323,44 +323,46 @@ func (self *SElbListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SL
 	if err != nil {
 		return nil, errors.Wrap(err, "GetILoadbalancerListenerRules")
 	} else {
-		if err := self.region.UpdateRulesPriority(rules); err != nil {
+		if err := self.lb.region.UpdateRulesPriority(rules); err != nil {
 			return nil, errors.Wrap(err, "UpdateRulesPriority")
 		}
 	}
 
-	ret, err := self.region.CreateElbListenerRule(self.GetId(), rule)
+	ret, err := self.lb.region.CreateElbListenerRule(self.GetId(), rule)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateElbListenerRule")
 	}
 
 	ret.listener = self
-	ret.region = self.region
 	return ret, nil
 }
 
 func (self *SElbListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
-	rule, err := self.region.GetElbListenerRuleById(ruleId)
+	rule, err := self.lb.region.GetElbListenerRule(ruleId)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetElbListenerRuleById")
+		return nil, errors.Wrap(err, "GetElbListenerRule")
 	}
-
 	rule.listener = self
 	return rule, nil
 }
 
 func (self *SElbListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
-	rules, err := self.region.GetElbListenerRules(self.GetId(), "")
-	if err != nil {
-		return nil, errors.Wrap(err, "GetElbListenerRules")
+	ret := []cloudprovider.ICloudLoadbalancerListenerRule{}
+	marker := ""
+	for {
+		part, marker, err := self.lb.region.GetElbListenerRules(self.ListenerArn, "", marker)
+		if err != nil {
+			return nil, err
+		}
+		for i := range part {
+			part[i].listener = self
+			ret = append(ret, &part[i])
+		}
+		if len(marker) == 0 || len(part) == 0 {
+			break
+		}
 	}
-
-	irules := make([]cloudprovider.ICloudLoadbalancerListenerRule, len(rules))
-	for i := range rules {
-		rules[i].listener = self
-		irules[i] = &rules[i]
-	}
-
-	return irules, nil
+	return ret, nil
 }
 
 func (self *SElbListener) GetStickySession() string {
@@ -460,37 +462,30 @@ func (self *SElbListener) Stop() error {
 }
 
 func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	return self.region.SyncElbListener(self, listener)
+	return self.lb.region.SyncElbListener(self, listener)
 }
 
 func (self *SElbListener) Delete(ctx context.Context) error {
-	return self.region.DeleteElbListener(self.GetId())
+	return self.lb.region.DeleteElbListener(self.GetId())
 }
 
-func (self *SRegion) GetElbListeners(elbId string) ([]SElbListener, error) {
-	client, err := self.GetElbV2Client()
+func (self *SRegion) GetElbListeners(elbId, lisId, marker string) ([]SElbListener, string, error) {
+	ret := &SElbListeners{}
+	params := map[string]string{}
+	if len(elbId) > 0 {
+		params["LoadBalancerArn"] = elbId
+	}
+	if len(lisId) > 0 {
+		params["ListenerArns.member.1"] = lisId
+	}
+	if len(marker) > 0 {
+		params["Marker"] = marker
+	}
+	err := self.elbRequest("DescribeListeners", params, ret)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+		return nil, "", err
 	}
-
-	params := &elbv2.DescribeListenersInput{}
-	params.SetLoadBalancerArn(elbId)
-	ret, err := client.DescribeListeners(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeListeners")
-	}
-
-	listeners := []SElbListener{}
-	err = unmarshalAwsOutput(ret, "Listeners", &listeners)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.Listeners")
-	}
-
-	for i := range listeners {
-		listeners[i].region = self
-	}
-
-	return listeners, nil
+	return ret.Listeners, ret.NextMarker, nil
 }
 
 func unmarshalAwsOutput(output interface{}, respKey string, result interface{}) error {
@@ -520,249 +515,95 @@ func unmarshalAwsOutput(output interface{}, respKey string, result interface{}) 
 }
 
 func (self *SRegion) GetElbListener(listenerId string) (*SElbListener, error) {
-	client, err := self.GetElbV2Client()
+	ret, _, err := self.GetElbListeners("", listenerId, "")
 	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+		return nil, errors.Wrapf(err, "GetElbListeners")
 	}
-
-	params := &elbv2.DescribeListenersInput{}
-	params.SetListenerArns([]*string{&listenerId})
-	ret, err := client.DescribeListeners(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeListeners")
+	for i := range ret {
+		if ret[i].ListenerArn == listenerId {
+			return &ret[i], nil
+		}
 	}
-
-	listeners := []SElbListener{}
-	err = unmarshalAwsOutput(ret, "Listeners", &listeners)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.Listeners")
-	}
-
-	if len(listeners) == 1 {
-		listeners[0].region = self
-		return &listeners[0], nil
-	}
-
-	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetElbListener")
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, listenerId)
 }
 
-func (self *SRegion) CreateElbListener(lbId string, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (*SElbListener, error) {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+func (self *SRegion) CreateElbListener(lbId string, opts *cloudprovider.SLoadbalancerListenerCreateOptions) (*SElbListener, error) {
+	params := map[string]string{
+		"LoadBalancerArn":                        lbId,
+		"Port":                                   fmt.Sprintf("%d", opts.ListenerPort),
+		"Protocol":                               strings.ToUpper(opts.ListenerType),
+		"DefaultActions.member.1.Type":           "forward",
+		"DefaultActions.member.1.TargetGroupArn": opts.BackendGroupId,
 	}
-
-	listenerType := strings.ToUpper(listener.ListenerType)
-	params := &elbv2.CreateListenerInput{}
-	params.SetLoadBalancerArn(lbId)
-	params.SetPort(int64(listener.ListenerPort))
-	params.SetProtocol(listenerType)
-	action := &elbv2.Action{}
-	action.SetType("forward")
-	action.SetTargetGroupArn(listener.BackendGroupId)
-	params.SetDefaultActions([]*elbv2.Action{action})
-	if listenerType == "HTTPS" {
-		cert := &elbv2.Certificate{
-			CertificateArn: &listener.CertificateId,
-		}
-
-		params.SetCertificates([]*elbv2.Certificate{cert})
-		params.SetSslPolicy("ELBSecurityPolicy-2016-08")
+	if opts.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
+		params["Certificates.member.1.CertificateArn"] = opts.CertificateId
+		params["SslPolicy"] = "ELBSecurityPolicy-2016-08"
 	}
-
-	ret, err := client.CreateListener(params)
+	ret := &SElbListeners{}
+	err := self.elbRequest("CreateListener", params, ret)
 	if err != nil {
-		// aws 比较诡异，证书能查询到，但是如果立即创建会报错，这里只能等待一会重试
-		time.Sleep(10 * time.Second)
-		if strings.Contains(err.Error(), "CertificateNotFound") {
-			ret, err = client.CreateListener(params)
-			if err != nil {
-				return nil, errors.Wrap(err, "Region.CreateElbListener.Retry")
+		return nil, errors.Wrapf(err, "CreateListener")
+	}
+	for i := range ret.Listeners {
+		return &ret.Listeners[i], nil
+	}
+	/*
+		if err != nil {
+			// aws 比较诡异，证书能查询到，但是如果立即创建会报错，这里只能等待一会重试
+			time.Sleep(10 * time.Second)
+			if strings.Contains(err.Error(), "CertificateNotFound") {
+				ret, err = client.CreateListener(params)
+				if err != nil {
+					return nil, errors.Wrap(err, "Region.CreateElbListener.Retry")
+				}
+			} else {
+				return nil, errors.Wrap(err, "Region.CreateElbListener")
 			}
-		} else {
-			return nil, errors.Wrap(err, "Region.CreateElbListener")
+		}
+	*/
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
+}
+
+func (self *SRegion) GetElbListenerRules(listenerId string, ruleId, marker string) ([]SElbListenerRule, string, error) {
+	params := map[string]string{}
+	if len(listenerId) > 0 {
+		params["ListenerArn"] = listenerId
+	}
+	if len(ruleId) > 0 {
+		params["RuleArns.member.1"] = ruleId
+	}
+	if len(marker) > 0 {
+		params["Marker"] = marker
+	}
+	ret := &SElbListenerRules{}
+	err := self.elbRequest("DescribeRules", params, ret)
+	if err != nil {
+		return nil, "", errors.Wrapf(err, "DescribeRules")
+	}
+	return ret.Rules, ret.NextMarker, nil
+}
+
+func (self *SRegion) GetElbListenerRule(id string) (*SElbListenerRule, error) {
+	rules, _, err := self.GetElbListenerRules("", id, "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetElbListenerRules")
+	}
+	for i := range rules {
+		if rules[i].RuleArn == id {
+			return &rules[i], nil
 		}
 	}
-
-	listeners := []SElbListener{}
-	err = unmarshalAwsOutput(ret, "Listeners", &listeners)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.Listeners")
-	}
-
-	if len(listeners) == 1 {
-		listeners[0].region = self
-		return &listeners[0], nil
-	}
-
-	return nil, fmt.Errorf("CreateElbListener err %#v", listeners)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SRegion) GetElbListenerRules(listenerId string, ruleId string) ([]SElbListenerRule, error) {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
-	}
-
-	params := &elbv2.DescribeRulesInput{}
-	if len(listenerId) > 0 {
-		params.SetListenerArn(listenerId)
-	}
-
-	if len(ruleId) > 0 {
-		params.SetRuleArns([]*string{&ruleId})
-	}
-
-	ret, err := client.DescribeRules(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeRules")
-	}
-
-	rules := []SElbListenerRule{}
-	err = unmarshalAwsOutput(ret, "Rules", &rules)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.Rules")
-	}
-
-	for i := range rules {
-		rules[i].region = self
-	}
-
-	return rules, nil
-}
-
-func (self *SRegion) GetElbListenerRuleById(ruleId string) (*SElbListenerRule, error) {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
-	}
-
-	params := &elbv2.DescribeRulesInput{}
-	if len(ruleId) > 0 {
-		params.SetRuleArns([]*string{&ruleId})
-	}
-
-	ret, err := client.DescribeRules(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeRules")
-	}
-
-	rules := []SElbListenerRule{}
-	err = unmarshalAwsOutput(ret, "Rules", &rules)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.Rules")
-	}
-
-	if len(rules) == 1 {
-		rules[0].region = self
-		return &rules[0], nil
-	} else {
-		log.Errorf("GetElbListenerRuleById %s %d found", ruleId, len(rules))
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetElbListenerRuleById")
-	}
-}
-
-func (self *SRegion) DeleteElbListener(listenerId string) error {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return err
-	}
-
-	params := &elbv2.DeleteListenerInput{}
-	params.SetListenerArn(listenerId)
-	_, err = client.DeleteListener(params)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (self *SRegion) DeleteElbListener(id string) error {
+	return self.elbRequest("DeleteListener", map[string]string{"ListenerArn": id}, nil)
 }
 
 func (self *SRegion) SyncElbListener(listener *SElbListener, config *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return err
-	}
-
-	params := &elbv2.ModifyListenerInput{}
-	params.SetListenerArn(listener.GetId())
-	params.SetPort(int64(config.ListenerPort))
-	params.SetProtocol(strings.ToUpper(config.ListenerType))
-	action := &elbv2.Action{}
-	action.SetType("forward")
-	action.SetTargetGroupArn(config.BackendGroupId)
-	params.SetDefaultActions([]*elbv2.Action{action})
-
-	if config.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
-		cert := &elbv2.Certificate{}
-		cert.SetCertificateArn(config.CertificateId)
-		params.SetCertificates([]*elbv2.Certificate{cert})
-	}
-
-	_, err = client.ModifyListener(params)
-	if err != nil {
-		if strings.Contains(err.Error(), "CertificateNotFound") {
-			// aws 比较诡异，证书能查询到，但是如果立即创建会报错，这里只能等待一会重试
-			time.Sleep(10 * time.Second)
-			_, err = client.ModifyListener(params)
-			if err != nil {
-				return errors.Wrap(err, "SRegion.SyncElbListener.ModifyListener.Retry")
-			}
-		}
-
-		return errors.Wrap(err, "SRegion.SyncElbListener.ModifyListener")
-	}
-
-	hc := &cloudprovider.SLoadbalancerHealthCheck{
-		HealthCheckType:     config.HealthCheckType,
-		HealthCheckReq:      config.HealthCheckReq,
-		HealthCheckExp:      config.HealthCheckExp,
-		HealthCheck:         config.HealthCheck,
-		HealthCheckTimeout:  config.HealthCheckTimeout,
-		HealthCheckDomain:   config.HealthCheckDomain,
-		HealthCheckHttpCode: config.HealthCheckHttpCode,
-		HealthCheckURI:      config.HealthCheckURI,
-		HealthCheckInterval: config.HealthCheckInterval,
-		HealthCheckRise:     config.HealthCheckRise,
-		HealthCheckFail:     config.HealthCheckFail,
-	}
-	err = self.modifyELbBackendGroup(config.BackendGroupId, hc)
-	if err != nil {
-		return errors.Wrap(err, "region.SyncElbListener.updateELbBackendGroup")
-	}
-
 	return nil
 }
 
 func (self *SRegion) UpdateRulesPriority(rules []cloudprovider.ICloudLoadbalancerListenerRule) error {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return err
-	}
-
-	ps := []*elbv2.RulePriorityPair{}
-	for i := range rules {
-		rule := rules[i].(*SElbListenerRule)
-		if !rule.IsDefaultRule {
-			v, _ := strconv.Atoi(rule.Priority)
-			p := &elbv2.RulePriorityPair{}
-			p.SetRuleArn(rules[i].GetId())
-			p.SetPriority(int64(v + 1))
-
-			ps = append(ps, p)
-		}
-	}
-
-	if len(ps) == 0 {
-		return nil
-	}
-
-	params := &elbv2.SetRulePrioritiesInput{}
-	params.SetRulePriorities(ps)
-	_, err = client.SetRulePriorities(params)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
