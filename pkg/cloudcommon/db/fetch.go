@@ -189,7 +189,11 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 		return nil, err
 	}
 	if count > 0 {
-		q = manager.FilterByOwner(q, userCred, manager.NamespaceScope())
+		ownerId, _, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, rbacutils.ActionGet, true)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
 		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 		count, err = q.CountWithError()
 		if err != nil {
