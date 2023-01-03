@@ -31,6 +31,11 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
+type SElbListenerRules struct {
+	Rules      []SElbListenerRule `xml:"Rules>member"`
+	NextMarker string
+}
+
 type SElbListenerRule struct {
 	multicloud.SResourceBase
 	multicloud.SLoadbalancerRedirectBase
@@ -97,17 +102,11 @@ func (self *SElbListenerRule) GetStatus() string {
 }
 
 func (self *SElbListenerRule) Refresh() error {
-	rule, err := self.region.GetElbListenerRuleById(self.GetId())
+	rule, err := self.region.GetElbListenerRule(self.RuleArn)
 	if err != nil {
 		return err
 	}
-
-	err = jsonutils.Update(self, rule)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return jsonutils.Update(self, rule)
 }
 
 func (self *SElbListenerRule) IsDefault() bool {
@@ -166,61 +165,34 @@ func (self *SElbListenerRule) Delete(ctx context.Context) error {
 	return self.region.DeleteElbListenerRule(self.GetId())
 }
 
-func (self *SRegion) DeleteElbListenerRule(ruleId string) error {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return err
-	}
-
-	params := &elbv2.DeleteRuleInput{}
-	params.SetRuleArn(ruleId)
-	_, err = client.DeleteRule(params)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (self *SRegion) DeleteElbListenerRule(id string) error {
+	return self.elbRequest("DeleteRule", map[string]string{"RuleArn": id}, nil)
 }
 
-func (self *SRegion) CreateElbListenerRule(listenerId string, config *cloudprovider.SLoadbalancerListenerRule) (*SElbListenerRule, error) {
-	client, err := self.GetElbV2Client()
+func (self *SRegion) CreateElbListenerRule(listenerId string, opts *cloudprovider.SLoadbalancerListenerRule) (*SElbListenerRule, error) {
+	params := map[string]string{
+		"ListenerArn":                     listenerId,
+		"Actions.member.1.Type":           "forward",
+		"Actions.member.1.TargetGroupArn": opts.BackendGroupId,
+		"Priority":                        "1",
+	}
+	// TODO
+	//condtions, err := parseConditions(config.Condition)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "parseConditions")
+	//}
+
+	//params.SetConditions(condtions)
+
+	ret := &SElbListenerRules{}
+	err := self.elbRequest("CreateRule", params, ret)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+		return nil, err
 	}
-
-	forward := "forward"
-	action := &elbv2.Action{
-		TargetGroupArn: &config.BackendGroupId,
-		Type:           &forward,
+	for i := range ret.Rules {
+		return &ret.Rules[i], nil
 	}
-
-	condtions, err := parseConditions(config.Condition)
-	if err != nil {
-		return nil, errors.Wrap(err, "parseConditions")
-	}
-
-	params := &elbv2.CreateRuleInput{}
-	params.SetListenerArn(listenerId)
-	params.SetActions([]*elbv2.Action{action})
-	params.SetConditions(condtions)
-	params.SetPriority(int64(1))
-	ret, err := client.CreateRule(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "CreateRule")
-	}
-
-	if len(ret.Rules) == 0 {
-		return nil, errors.Wrap(fmt.Errorf("empty rules"), "Region.CreateElbListenerRule.len")
-	}
-
-	rule := SElbListenerRule{}
-	err = unmarshalAwsOutput(ret.Rules[0], "", &rule)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.rule")
-	}
-
-	rule.region = self
-	return &rule, nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
 }
 
 func parseConditions(conditions string) ([]*elbv2.RuleCondition, error) {

@@ -50,10 +50,6 @@ func (self *SAzureRegionDriver) GenerateSecurityGroupName(name string) string {
 	return pinyinutils.Text2Pinyin(name)
 }
 
-func (self *SAzureRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer certificate", self.GetProvider())
-}
-
 func (self *SAzureRegionDriver) IsSupportClassicSecurityGroup() bool {
 	return true
 }
