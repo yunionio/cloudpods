@@ -30,6 +30,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/netutils"
 
@@ -37,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 const (
@@ -461,6 +463,46 @@ func (m *SGuestMonitor) UpdateCpuCount(vcpuCount int) {
 	m.CpuCnt = vcpuCount
 }
 
+func (m *SGuestMonitor) GetSriovNicStats(pfName string, virtfn int) (*psnet.IOCountersStat, error) {
+	statsPath := fmt.Sprintf("/sys/class/net/%s/device/sriov/%d/stats", pfName, virtfn)
+	if !fileutils2.Exists(statsPath) {
+		return nil, nil
+	}
+
+	stats, err := fileutils2.FileGetContents(statsPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "read file %s", statsPath)
+	}
+	res := new(psnet.IOCountersStat)
+	statsStr := string(stats)
+	for _, line := range strings.Split(statsStr, "\n") {
+		segs := strings.Split(line, ":")
+		if len(segs) != 2 {
+			continue
+		}
+		val, err := strconv.ParseInt(strings.TrimSpace(segs[1]), 10, 0)
+		if err != nil {
+			continue
+		}
+
+		switch strings.TrimSpace(segs[0]) {
+		case "tx_packets":
+			res.PacketsSent = uint64(val)
+		case "tx_bytes":
+			res.BytesSent = uint64(val)
+		case "tx_dropped":
+			res.Dropout = uint64(val)
+		case "rx_packets":
+			res.PacketsRecv = uint64(val)
+		case "rx_bytes":
+			res.BytesRecv = uint64(val)
+		case "rx_dropped":
+			res.Dropin = uint64(val)
+		}
+	}
+	return res, nil
+}
+
 func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 	if len(m.Nics) == 0 {
 		return nil
@@ -472,13 +514,32 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 
 	var res = jsonutils.NewArray()
 	for i, nic := range m.Nics {
-		ifname := nic.Ifname
+		var ifname = nic.Ifname
 		var nicStat *psnet.IOCountersStat
-		for j, netstat := range netstats {
-			if netstat.Name == ifname {
-				nicStat = &netstats[j]
+		if nic.Driver == "vfio-pci" {
+			if guest, ok := guestman.GetGuestManager().GetServer(m.Id); ok {
+				dev, err := guest.GetSriovDeviceByNetworkIndex(nic.Index)
+				if err != nil {
+					log.Errorf("failed get sriov deivce by network index %s", err)
+					continue
+				}
+				nicStat, err = m.GetSriovNicStats(dev.GetPfName(), dev.GetVirtfn())
+				if err != nil {
+					log.Errorf("failed get sriov nic stats: %s", err)
+					continue
+				}
+
+			} else {
+				continue
+			}
+		} else {
+			for j, netstat := range netstats {
+				if netstat.Name == ifname {
+					nicStat = &netstats[j]
+				}
 			}
 		}
+
 		if nicStat == nil {
 			continue
 		}

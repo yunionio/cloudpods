@@ -2655,7 +2655,7 @@ func (s *SKVMGuestInstance) generateDiskSetupScripts(disks []*desc.SGuestDisk) (
 	return cmd, nil
 }
 
-func (s *SKVMGuestInstance) getSriovDeviceByNetworkIndex(networkIndex int8) (isolated_device.IDevice, error) {
+func (s *SKVMGuestInstance) GetSriovDeviceByNetworkIndex(networkIndex int8) (isolated_device.IDevice, error) {
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		if s.Desc.IsolatedDevices[i].DevType == api.NIC_TYPE &&
@@ -2710,7 +2710,7 @@ func (s *SKVMGuestInstance) generateSRIOVInitScripts() (string, error) {
 
 	for i := range s.Desc.Nics {
 		if s.Desc.Nics[i].Driver == "vfio-pci" {
-			dev, err := s.getSriovDeviceByNetworkIndex(s.Desc.Nics[i].Index)
+			dev, err := s.GetSriovDeviceByNetworkIndex(s.Desc.Nics[i].Index)
 			if err != nil {
 				return "", err
 			}
