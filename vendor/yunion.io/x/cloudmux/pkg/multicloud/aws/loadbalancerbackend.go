@@ -22,11 +22,14 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
+type SElbBackends struct {
+	TargetHealthDescriptions []SElbBackend `xml:"TargetHealthDescriptions>member"`
+}
+
 type SElbBackend struct {
 	multicloud.SResourceBase
 	AwsTags
-	region *SRegion
-	group  *SElbBackendGroup
+	group *SElbBackendGroup
 
 	Target       Target       `json:"Target"`
 	TargetHealth TargetHealth `json:"TargetHealth"`
@@ -92,7 +95,7 @@ func (self *SElbBackend) GetBackendId() string {
 }
 
 func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
-	return self.region.SyncElbBackend(self.GetId(), self.GetBackendId(), self.Target.Port, port)
+	return self.group.lb.region.SyncElbBackend(self.GetId(), self.GetBackendId(), self.Target.Port, port)
 }
 
 func (self *SElbBackend) GetIpAddress() string {

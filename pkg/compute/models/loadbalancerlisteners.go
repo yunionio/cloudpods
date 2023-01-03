@@ -333,6 +333,13 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 	if lbbg.LoadbalancerId != lb.Id {
 		return nil, httperrors.NewConflictError("backendgroup_id not same with listener's loadbalancer")
 	}
+	region, err := lb.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	if region.Provider == api.CLOUD_PROVIDER_AWS {
+		input.Scheduler = api.LB_SCHEDULER_NOP
+	}
 	err = input.Validate()
 	if err != nil {
 		return nil, err
@@ -357,10 +364,6 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		if err != nil {
 			return nil, err
 		}
-	}
-	region, err := lb.GetRegion()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetRegion")
 	}
 	input, err = region.GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, input, lb, lbbg)
 	if err != nil {

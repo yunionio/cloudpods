@@ -293,12 +293,16 @@ func (self *SZone) getNetworkById(vswitchId string) *SVSwitch {
 }
 
 func (self *SZone) getSysDiskCategories() []string {
-	if len(self.AvailableResources.ResourcesInfo) > 0 {
-		if utils.IsInStringArray(api.STORAGE_CLOUD_ESSD, self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory) {
-			self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory = append(self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory, api.STORAGE_CLOUD_ESSD_PL2)
-			self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory = append(self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory, api.STORAGE_CLOUD_ESSD_PL3)
+	ret := []string{}
+	for _, res := range self.AvailableResources.ResourcesInfo {
+		for _, category := range res.SystemDiskCategories.SupportedSystemDiskCategory {
+			if !utils.IsInStringArray(category, ret) {
+				ret = append(ret, category)
+			}
 		}
-		return self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory
 	}
-	return nil
+	if utils.IsInStringArray(api.STORAGE_CLOUD_ESSD, ret) {
+		ret = append(ret, []string{api.STORAGE_CLOUD_ESSD_PL2, api.STORAGE_CLOUD_ESSD_PL3}...)
+	}
+	return ret
 }

@@ -58,6 +58,11 @@ const (
 	LB_BACKENDGROUP_TYPE_MASTER_SLAVE = "master_slave"
 )
 
+const (
+	LB_AWS_SPEC_APPLICATION = "application"
+	LB_AWS_SPEC_NETWORK     = "network"
+)
+
 // Load Balancer network type (vpc or classic) determines viable backend
 // servers (they should be from the same network type as the load balancer).
 //

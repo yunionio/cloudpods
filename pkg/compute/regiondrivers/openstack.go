@@ -99,10 +99,6 @@ func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerAcl(ctx context.Con
 	return nil
 }
 
-func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer certificate", self.GetProvider())
-}
-
 func (self *SOpenStackRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
 	if len(input.NetworkId) == 0 {
 		return httperrors.NewMissingParameterError("network_id")

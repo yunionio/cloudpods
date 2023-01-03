@@ -65,10 +65,6 @@ func (self *SUcloudRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_UCLOUD
 }
 
-func (self *SUcloudRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer certificate", self.GetProvider())
-}
-
 func (self *SUcloudRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
 	var cidrV = validators.NewIPv4PrefixValidator("cidr_block")
 	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
