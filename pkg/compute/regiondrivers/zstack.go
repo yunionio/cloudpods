@@ -19,7 +19,6 @@ import (
 	"database/sql"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -67,10 +66,6 @@ func (self *SZStackRegionDriver) IsOnlySupportAllowRules() bool {
 
 func (self *SZStackRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ZSTACK
-}
-
-func (self *SZStackRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer certificate", self.GetProvider())
 }
 
 func (self *SZStackRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {

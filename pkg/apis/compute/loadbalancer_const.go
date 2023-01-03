@@ -335,6 +335,7 @@ const (
 	LB_SCHEDULER_TCH = compute.LB_SCHEDULER_TCH // 4-tuple-based consistent hash
 	LB_SCHEDULER_QCH = compute.LB_SCHEDULER_QCH
 	LB_SCHEDULER_MH  = compute.LB_SCHEDULER_MH // maglev consistent hash
+	LB_SCHEDULER_NOP = "nop"                   // aws noop
 )
 
 var LB_SCHEDULER_TYPES = []string{
@@ -343,6 +344,7 @@ var LB_SCHEDULER_TYPES = []string{
 	LB_SCHEDULER_WLC,
 	LB_SCHEDULER_SCH,
 	LB_SCHEDULER_TCH,
+	LB_SCHEDULER_NOP,
 }
 
 const (

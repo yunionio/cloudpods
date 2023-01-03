@@ -191,7 +191,7 @@ func (self *LoadbalancerListenerCreateInput) Validate() error {
 		return httperrors.NewInputParameterError("invalid send_proxy %s", self.SendProxy)
 	}
 	if !utils.IsInStringArray(self.Scheduler, LB_SCHEDULER_TYPES) {
-		return httperrors.NewInputParameterError("invalid sechduler %s", self.Scheduler)
+		return httperrors.NewInputParameterError("invalid scheduler %s", self.Scheduler)
 	}
 	if len(self.StickySession) == 0 {
 		self.StickySession = LB_BOOL_OFF
