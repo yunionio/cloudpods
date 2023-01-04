@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
@@ -189,6 +190,9 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 		return nil, err
 	}
 	if count > 0 {
+		if gotypes.IsNil(query) {
+			query = jsonutils.NewDict()
+		}
 		ownerId, _, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, rbacutils.ActionGet, true)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
