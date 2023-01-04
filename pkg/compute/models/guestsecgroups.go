@@ -75,6 +75,10 @@ func (self *SGuestsecgroup) Delete(ctx context.Context, userCred mcclient.TokenC
 	return db.DeleteModel(ctx, userCred, self)
 }
 
+func (self *SGuestsecgroup) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.DetachJoint(ctx, userCred, self)
+}
+
 func (manager *SGuestsecgroupManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
