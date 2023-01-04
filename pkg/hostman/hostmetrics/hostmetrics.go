@@ -17,6 +17,7 @@ package hostmetrics
 import (
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 	"runtime/debug"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/netutils"
 
@@ -37,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 const (
@@ -386,11 +389,13 @@ func (s *SGuestMonitorCollector) reportIo(curInfo, prevInfo jsonutils.JSONObject
 
 	if diffTime > 0 {
 		for _, field := range fields {
-			cur, _ := curInfo.GetString(field)
-			prev, _ := prevInfo.GetString(field)
-			fcur, _ := strconv.ParseFloat(cur, 64)
-			fprev, _ := strconv.ParseFloat(prev, 64)
-			ioInfo.Set(s.GetIoFiledName(field), jsonutils.NewFloat64((fcur-fprev)/float64(diffTime)))
+			cur, _ := curInfo.Int(field)
+			prev, _ := prevInfo.Int(field)
+			diff := cur - prev
+			if diff < 0 { // if overflow int64
+				diff = math.MaxInt64 - prev + cur
+			}
+			ioInfo.Set(s.GetIoFiledName(field), jsonutils.NewFloat64(float64(diff)/float64(diffTime)))
 		}
 	}
 	return ioInfo
@@ -461,6 +466,47 @@ func (m *SGuestMonitor) UpdateCpuCount(vcpuCount int) {
 	m.CpuCnt = vcpuCount
 }
 
+func (m *SGuestMonitor) GetSriovNicStats(pfName string, virtfn int) (*psnet.IOCountersStat, error) {
+	statsPath := fmt.Sprintf("/sys/class/net/%s/device/sriov/%d/stats", pfName, virtfn)
+	if !fileutils2.Exists(statsPath) {
+		return nil, nil
+	}
+
+	stats, err := fileutils2.FileGetContents(statsPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "read file %s", statsPath)
+	}
+	res := new(psnet.IOCountersStat)
+	statsStr := string(stats)
+	for _, line := range strings.Split(statsStr, "\n") {
+		segs := strings.Split(line, ":")
+		if len(segs) != 2 {
+			continue
+		}
+		val, err := strconv.ParseUint(strings.TrimSpace(segs[1]), 10, 64)
+		if err != nil {
+			log.Errorf("failed parse %s", line)
+			continue
+		}
+
+		switch strings.TrimSpace(segs[0]) {
+		case "tx_packets":
+			res.PacketsSent = val
+		case "tx_bytes":
+			res.BytesSent = val
+		case "tx_dropped":
+			res.Dropout = val
+		case "rx_packets":
+			res.PacketsRecv = val
+		case "rx_bytes":
+			res.BytesRecv = val
+		case "rx_dropped":
+			res.Dropin = val
+		}
+	}
+	return res, nil
+}
+
 func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 	if len(m.Nics) == 0 {
 		return nil
@@ -472,18 +518,53 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 
 	var res = jsonutils.NewArray()
 	for i, nic := range m.Nics {
-		ifname := nic.Ifname
+		var ifname = nic.Ifname
 		var nicStat *psnet.IOCountersStat
-		for j, netstat := range netstats {
-			if netstat.Name == ifname {
-				nicStat = &netstats[j]
+		if nic.Driver == "vfio-pci" {
+			if guest, ok := guestman.GetGuestManager().GetServer(m.Id); ok {
+				dev, err := guest.GetSriovDeviceByNetworkIndex(nic.Index)
+				if err != nil {
+					log.Errorf("failed get sriov deivce by network index %s", err)
+					continue
+				}
+				nicStat, err = m.GetSriovNicStats(dev.GetPfName(), dev.GetVirtfn())
+				if err != nil {
+					log.Errorf("failed get sriov nic stats: %s", err)
+					continue
+				}
+
+			} else {
+				continue
+			}
+		} else {
+			for j, netstat := range netstats {
+				if netstat.Name == ifname {
+					nicStat = &netstats[j]
+				}
 			}
 		}
+
 		if nicStat == nil {
 			continue
 		}
 		data := jsonutils.NewDict()
 		meta := jsonutils.NewDict()
+
+		// if overflow int64
+		if nicStat.BytesSent > math.MaxInt64 {
+			nicStat.BytesSent -= math.MaxInt64
+		}
+		if nicStat.BytesRecv > math.MaxInt64 {
+			nicStat.BytesRecv -= math.MaxInt64
+		}
+		bitsRecv := nicStat.BytesRecv * 8
+		if bitsRecv > math.MaxInt64 {
+			bitsRecv -= math.MaxInt64
+		}
+		bitsSent := nicStat.BytesSent * 8
+		if bitsSent > math.MaxInt64 {
+			bitsSent -= math.MaxInt64
+		}
 
 		ip := nic.Ip
 		ipv4, _ := netutils.NewIPV4Addr(ip)
@@ -492,7 +573,6 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 		} else {
 			meta.Set("ip_type", jsonutils.NewString("internal"))
 		}
-
 		netId := nic.NetId
 		meta.Set("ip", jsonutils.NewString(ip))
 		meta.Set("index", jsonutils.NewInt(int64(i)))
@@ -501,8 +581,8 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 		uptime, _ := host.Uptime()
 		meta.Set("uptime", jsonutils.NewInt(int64(uptime)))
 		data.Set("meta", meta)
-		data.Set("bits_recv", jsonutils.NewInt(int64(nicStat.BytesSent*8)))
-		data.Set("bits_sent", jsonutils.NewInt(int64(nicStat.BytesRecv*8)))
+		data.Set("bits_recv", jsonutils.NewInt(int64(bitsSent)))
+		data.Set("bits_sent", jsonutils.NewInt(int64(bitsRecv)))
 		data.Set("packets_recv", jsonutils.NewInt(int64(nicStat.PacketsSent)))
 		data.Set("packets_sent", jsonutils.NewInt(int64(nicStat.PacketsRecv)))
 		data.Set("err_out", jsonutils.NewInt(int64(nicStat.Errin)))
@@ -540,13 +620,35 @@ func (m *SGuestMonitor) Diskio() jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
 	meta := jsonutils.NewDict()
 
+	// if overflow int64
+	if io.ReadBytes > math.MaxInt64 {
+		io.ReadBytes -= math.MaxInt64
+	}
+	if io.WriteBytes > math.MaxInt64 {
+		io.WriteBytes -= math.MaxInt64
+	}
+	readBits := io.ReadBytes * 8
+	if readBits > math.MaxInt64 {
+		readBits -= math.MaxInt64
+	}
+	writeBits := io.WriteBytes * 8
+	if writeBits > math.MaxInt64 {
+		writeBits -= math.MaxInt64
+	}
+	if io.ReadCount > math.MaxInt64 {
+		io.ReadCount -= math.MaxInt64
+	}
+	if io.WriteCount > math.MaxInt64 {
+		io.WriteCount -= math.MaxInt64
+	}
+
 	uptime, _ := host.Uptime()
 	meta.Set("uptime", jsonutils.NewInt(int64(uptime)))
 	ret.Set("meta", meta)
 	ret.Set("read_bytes", jsonutils.NewInt(int64(io.ReadBytes)))
 	ret.Set("write_bytes", jsonutils.NewInt(int64(io.WriteBytes)))
-	ret.Set("read_bits", jsonutils.NewInt(int64(io.ReadBytes)*8))
-	ret.Set("write_bits", jsonutils.NewInt(int64(io.WriteBytes)*8))
+	ret.Set("read_bits", jsonutils.NewInt(int64(readBits)))
+	ret.Set("write_bits", jsonutils.NewInt(int64(writeBits)))
 	ret.Set("read_count", jsonutils.NewInt(int64(io.ReadCount)))
 	ret.Set("write_count", jsonutils.NewInt(int64(io.WriteCount)))
 	return ret
