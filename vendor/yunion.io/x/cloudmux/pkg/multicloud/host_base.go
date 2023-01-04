@@ -14,6 +14,8 @@
 
 package multicloud
 
+import "yunion.io/x/cloudmux/pkg/apis"
+
 type SHostBase struct {
 	SResourceBase
 	STagBase
@@ -40,5 +42,5 @@ func (host *SHostBase) GetOvnVersion() string {
 }
 
 func (host *SHostBase) GetCpuArchitecture() string {
-	return ""
+	return apis.OS_ARCH_X86_64
 }

@@ -860,6 +860,9 @@ func (region *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, 
 	for {
 		part, total, err := region.GetMemcaches(nil, 100, offset)
 		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported {
+				return ret, nil
+			}
 			return nil, errors.Wrapf(err, "GetMemcaches")
 		}
 		mems = append(mems, part...)
