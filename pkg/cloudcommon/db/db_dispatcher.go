@@ -1309,7 +1309,9 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, errors.Wrap(err, "isClassRbacAllowed")
 	}
 
-	if InitPendingUsagesInContext != nil {
+	dryRun := jsonutils.QueryBoolean(data, "dry_run", false)
+
+	if !dryRun && InitPendingUsagesInContext != nil {
 		ctx = InitPendingUsagesInContext(ctx)
 	}
 
@@ -1317,7 +1319,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 
 	model, err := DoCreate(manager, ctx, userCred, query, data, ownerId)
 	if err != nil {
-		if CancelPendingUsagesInContext != nil {
+		if !dryRun && CancelPendingUsagesInContext != nil {
 			e := CancelPendingUsagesInContext(ctx, userCred)
 			if e != nil {
 				err = errors.Wrapf(err, e.Error())
@@ -1328,6 +1330,10 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 			err = errors.Wrapf(err, failErr.Error())
 		}
 		return nil, httperrors.NewGeneralError(err)
+	}
+
+	if dryRun {
+		return getItemDetails(manager, model, ctx, userCred, query)
 	}
 
 	func() {

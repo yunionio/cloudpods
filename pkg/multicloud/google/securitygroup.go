@@ -423,7 +423,12 @@ func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCre
 	if err != nil {
 		return nil, errors.Wrapf(err, "region.GetIVpcById(%s)", conf.VpcId)
 	}
-
 	secgroup := &SSecurityGroup{gvpc: gvpc, Tag: strings.ToLower(conf.Name)}
-	return secgroup, nil
+	r := *secrules.MustParseSecurityRule("out:allow any")
+	r.Priority = 1000
+	rule := cloudprovider.SecurityRule{
+		Name:         "default-rule",
+		SecurityRule: r,
+	}
+	return secgroup, secgroup.gvpc.client.CreateSecurityGroupRule(rule, secgroup.gvpc.SelfLink, secgroup.Tag, secgroup.ServiceAccount)
 }
