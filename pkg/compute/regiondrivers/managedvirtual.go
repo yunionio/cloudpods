@@ -1876,22 +1876,24 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 		{
 			iacls, err := iec.GetICloudElasticcacheAcls()
 			if err != nil {
-				return nil, errors.Wrap(err, "GetICloudElasticcacheAcls")
+				if !(errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented) {
+					return nil, errors.Wrap(err, "GetICloudElasticcacheAcls")
+				}
+				result := models.ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, ec, iacls)
+				log.Infof("SyncElasticcacheAcls %s", result.Result())
 			}
-
-			result := models.ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, ec, iacls)
-			log.Infof("SyncElasticcacheAcls %s", result.Result())
 		}
 
 		// sync parameters
 		{
 			iparams, err := iec.GetICloudElasticcacheParameters()
 			if err != nil {
-				return nil, errors.Wrap(err, "GetICloudElasticcacheParameters")
+				if !(errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotSupported) {
+					return nil, errors.Wrap(err, "GetICloudElasticcacheParameters")
+				}
+				result := models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, iparams)
+				log.Infof("SyncElasticcacheParameters %s", result.Result())
 			}
-
-			result := models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, iparams)
-			log.Infof("SyncElasticcacheParameters %s", result.Result())
 		}
 		return nil, nil
 	})
@@ -1935,22 +1937,17 @@ func (self *SManagedVirtualizationRegionDriver) RequestRestartElasticcache(ctx c
 func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
 	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetIRegion")
+		return errors.Wrap(err, "GetIRegion")
 	}
 
 	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
 	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			ec.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_UNKNOWN, "")
-			return nil
-		}
-
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetIElasticcacheById")
+		return errors.Wrap(err, "GetIElasticcacheById")
 	}
 
 	provider := ec.GetCloudprovider()
 	if provider == nil {
-		return errors.Wrap(fmt.Errorf("provider is nil"), "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetCloudprovider")
+		return errors.Wrap(fmt.Errorf("provider is nil"), "GetCloudprovider")
 	}
 
 	lockman.LockRawObject(ctx, "elastic-cache", ec.Id)
@@ -1958,7 +1955,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx cont
 
 	err = ec.SyncWithCloudElasticcache(ctx, userCred, provider, iec)
 	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetIElasticcacheById")
+		return errors.Wrap(err, "SyncWithCloudElasticcache")
 	}
 
 	if fullsync, _ := task.GetParams().Bool("full"); fullsync {
@@ -1967,38 +1964,42 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx cont
 
 		parameters, err := iec.GetICloudElasticcacheParameters()
 		if err != nil {
-			return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetICloudElasticcacheParameters")
+			if !(errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported) {
+				return errors.Wrapf(err, "GetICloudElasticcacheParameters")
+			}
+			result := models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, parameters)
+			log.Infof("SyncElasticcacheParameters %s", result.Result())
 		}
-
-		result := models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, parameters)
-		log.Debugf("managedVirtualizationRegionDriver.RequestSyncElasticcache.SyncElasticcacheParameters %s", result.Result())
 
 		// acl
 		acls, err := iec.GetICloudElasticcacheAcls()
 		if err != nil {
-			return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetICloudElasticcacheAcls")
+			if !(errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported) {
+				return errors.Wrapf(err, "GetICloudElasticcacheAcls")
+			}
+			result := models.ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, ec, acls)
+			log.Infof("SyncElasticcacheAcls %s", result.Result())
 		}
-
-		result = models.ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, ec, acls)
-		log.Debugf("managedVirtualizationRegionDriver.RequestSyncElasticcache.SyncElasticcacheAcls %s", result.Result())
 
 		// account
 		accounts, err := iec.GetICloudElasticcacheAccounts()
 		if err != nil {
-			return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetICloudElasticcacheAccounts")
+			if !(errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported) {
+				return errors.Wrapf(err, "GetICloudElasticcacheAccounts")
+			}
+			result := models.ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, ec, accounts)
+			log.Infof("SyncElasticcacheAccounts %s", result.Result())
 		}
-
-		result = models.ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, ec, accounts)
-		log.Debugf("managedVirtualizationRegionDriver.RequestSyncElasticcache.SyncElasticcacheAccounts %s", result.Result())
 
 		// backups
 		backups, err := iec.GetICloudElasticcacheBackups()
 		if err != nil {
-			return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetICloudElasticcacheBackups")
+			if !(errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported) {
+				return errors.Wrapf(err, "GetICloudElasticcacheAccounts")
+			}
+			result := models.ElasticcacheBackupManager.SyncElasticcacheBackups(ctx, userCred, ec, backups)
+			log.Infof("SyncElasticcacheBackups %s", result.Result())
 		}
-
-		result = models.ElasticcacheBackupManager.SyncElasticcacheBackups(ctx, userCred, ec, backups)
-		log.Debugf("managedVirtualizationRegionDriver.RequestSyncElasticcache.SyncElasticcacheBackups %s", result.Result())
 	}
 
 	return nil
