@@ -1,2 +1,19 @@
 {{- $d := .resource_details -}}
 数据库 {{$d.ip}} 的主从同步不一致，请及时检查。
+
+{{ range $status := $d.status }}
+数据库 {{$status.ip}} 状态:
+{{- if not $status.operator_error }}
+  - Slave_IO_Running: {{$status.slave_io_running}}
+  - Slave_SQL_Running: {{$status.slave_sql_running}}
+  {{- if $status.last_error }}
+  - Last_Error: {{$status.last_error}}
+  {{- end -}}
+  {{- if $status.last_io_error }}
+  - Last_IO_Error: {{$status.last_io_error}}
+  {{- end }}
+{{else}}
+  - Operator_Error: {{$status.operator_error}}
+{{- end}}
+
+{{end}}
