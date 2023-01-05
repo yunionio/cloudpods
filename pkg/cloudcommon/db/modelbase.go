@@ -539,7 +539,7 @@ func (manager *SModelBaseManager) PerformPurgeSplitable(ctx context.Context, use
 	return jsonutils.Marshal(map[string][]string{"tables": ret}), nil
 }
 
-func (manager *SModelBaseManager) CustomizedTotalCount(totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
+func (manager *SModelBaseManager) CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
 	ret := apis.TotalCountBase{}
 	err := totalQ.First(&ret)
 	if err != nil {

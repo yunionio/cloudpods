@@ -652,7 +652,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if pagingConf == nil {
 		// calculate total
 		totalQ := q.CountQuery()
-		totalCnt, totalJson, err = manager.CustomizedTotalCount(totalQ)
+		totalCnt, totalJson, err = manager.CustomizedTotalCount(ctx, userCred, query, totalQ)
 		if err != nil {
 			return nil, errors.Wrap(err, "CustomizedTotalCount")
 		}
