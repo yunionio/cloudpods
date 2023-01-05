@@ -815,13 +815,11 @@ func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential, sync
 	return nil
 }
 
-func (self *SCloudaccount) MarkSyncing(userCred mcclient.TokenCredential, probe bool) error {
+func (self *SCloudaccount) MarkSyncing(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
-		if !probe {
-			self.LastSync = timeutils.UtcNow()
-			self.LastSyncEndAt = time.Time{}
-		}
+		self.LastSync = timeutils.UtcNow()
+		self.LastSyncEndAt = time.Time{}
 		return nil
 	})
 	if err != nil {
@@ -846,15 +844,13 @@ func (self *SCloudaccount) MarkEndSyncWithLock(ctx context.Context, userCred mcc
 		return errors.Error("some cloud providers not idle")
 	}
 
-	return self.markEndSync(userCred, false)
+	return self.markEndSync(userCred)
 }
 
-func (self *SCloudaccount) markEndSync(userCred mcclient.TokenCredential, probe bool) error {
+func (self *SCloudaccount) markEndSync(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
-		if !probe {
-			self.LastSyncEndAt = timeutils.UtcNow()
-		}
+		self.LastSyncEndAt = timeutils.UtcNow()
 		return nil
 	})
 	if err != nil {
@@ -1858,7 +1854,6 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountStatusTask(ctx context.
 				if err != nil {
 					log.Errorf("unable to syncAccountStatus for cloudaccount %s: %s", account.Id, err.Error())
 				}
-				account.markEndSync(userCred, true)
 			})
 		}
 	}
@@ -2015,7 +2010,6 @@ func (self *SCloudaccount) setSubAccountStatus() error {
 }
 
 func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
-	account.MarkSyncing(userCred, true)
 	subaccounts, err := account.probeAccountStatus(ctx, userCred)
 	if err != nil {
 		account.markAllProvidersDisconnected(ctx, userCred)
