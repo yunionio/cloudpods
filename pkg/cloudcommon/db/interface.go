@@ -139,7 +139,7 @@ type IModelManager interface {
 
 	CreateByInsertOrUpdate() bool
 
-	CustomizedTotalCount(totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error)
+	CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error)
 }
 
 type IModel interface {
