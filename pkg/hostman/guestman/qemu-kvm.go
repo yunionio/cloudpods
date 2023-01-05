@@ -62,6 +62,7 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fuseutils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -1217,7 +1218,26 @@ func (s *SKVMGuestInstance) SlaveDisksBlockStream() error {
 	return nil
 }
 
+func (s *SKVMGuestInstance) releaseGuestCpuset() {
+	for _, vcpuPin := range s.Desc.VcpuPin {
+		pcpuSet, err := cpuset.Parse(vcpuPin.Pcpus)
+		if err != nil {
+			log.Errorf("failed parse %s pcpus: %s", s.GetName(), vcpuPin.Pcpus)
+			continue
+		}
+		vcpuSet, err := cpuset.Parse(vcpuPin.Vcpus)
+		if err != nil {
+			log.Errorf("failed parse %s vcpus: %s", s.GetName(), vcpuPin.Vcpus)
+			continue
+		}
+		s.manager.cpuSet.ReleaseCpus(pcpuSet.ToSlice(), vcpuSet.Size())
+	}
+	s.Desc.VcpuPin = nil
+	s.SaveLiveDesc(s.Desc)
+}
+
 func (s *SKVMGuestInstance) clearCgroup(pid int) {
+	s.releaseGuestCpuset()
 	if pid == 0 && s.cgroupPid > 0 {
 		pid = s.cgroupPid
 	}
@@ -1542,6 +1562,8 @@ func (s *SKVMGuestInstance) ExitCleanup(clear bool) {
 		pid := s.GetPid()
 		if pid > 0 {
 			s.clearCgroup(pid)
+		} else {
+			s.clearCgroup(0)
 		}
 	}
 	if s.Monitor != nil {
@@ -2102,7 +2124,7 @@ func (s *SKVMGuestInstance) GetCgroupName() string {
 	return ""
 }
 
-func (s *SKVMGuestInstance) SetCgroup() {
+func (s *SKVMGuestInstance) GuestPrelaunchSetCgroup() {
 	s.cgroupPid = s.GetPid()
 	s.setCgroupIo()
 	s.setCgroupCpu()
@@ -2142,24 +2164,43 @@ func (s *SKVMGuestInstance) setCgroupCpu() {
 }
 
 func (s *SKVMGuestInstance) setCgroupCPUSet() {
-	var input *api.ServerCPUSetInput
+	var cpus []int
 	if cpuset, ok := s.Desc.Metadata[api.VM_METADATA_CGROUP_CPUSET]; ok {
 		cpusetJson, err := jsonutils.ParseString(cpuset)
 		if err != nil {
 			log.Errorf("failed parse server %s cpuset %s: %s", s.Id, cpuset, err)
 			return
 		}
-		input = new(api.ServerCPUSetInput)
+		input := new(api.ServerCPUSetInput)
 		err = cpusetJson.Unmarshal(input)
 		if err != nil {
 			log.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
 			return
 		}
+		cpus = input.CPUS
+	} else {
+		cpus = s.allocGuestCpuset()
 	}
-	if _, err := s.CPUSet(context.Background(), input); err != nil {
+	if _, err := s.CPUSet(context.Background(), cpus); err != nil {
 		log.Errorf("Do CPUSet error: %v", err)
 		return
 	}
+	s.Desc.VcpuPin = []desc.CpuPin{
+		{
+			Vcpus: fmt.Sprintf("0-%d", s.Desc.Cpu-1),
+			Pcpus: cpuset.NewCPUSet(cpus...).String(),
+		},
+	}
+	s.SaveLiveDesc(s.Desc)
+}
+
+func (s *SKVMGuestInstance) allocGuestCpuset() []int {
+	var cpuset = []int{}
+	numaCpus := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu))
+	for _, cpus := range numaCpus {
+		cpuset = append(cpuset, cpus...)
+	}
+	return cpuset
 }
 
 func (s *SKVMGuestInstance) CreateFromDesc(desc *desc.SGuestDesc) error {
@@ -2236,6 +2277,10 @@ func (s *SKVMGuestInstance) optimizeOom() error {
 }
 
 func (s *SKVMGuestInstance) SyncMetadata(meta *jsonutils.JSONDict) error {
+	metaMap, _ := meta.GetMap()
+	for k, v := range metaMap {
+		s.Desc.Metadata[k] = v.String()
+	}
 	_, err := modules.Servers.SetMetadata(hostutils.GetComputeSession(context.Background()),
 		s.Id, meta)
 	if err != nil {
@@ -2328,7 +2373,7 @@ func (s *SKVMGuestInstance) onGuestPrelaunch() error {
 		}
 	}
 	s.OnResumeSyncMetadataInfo()
-	s.SetCgroup()
+	s.GuestPrelaunchSetCgroup()
 	s.optimizeOom()
 	s.doBlockIoThrottle()
 	return nil
@@ -2745,7 +2790,7 @@ func (s *SKVMGuestInstance) getQemuCmdlineFromContent(content string) (string, e
 	return cmdStr, nil
 }
 
-func (s *SKVMGuestInstance) CPUSet(ctx context.Context, input *api.ServerCPUSetInput) (*api.ServerCPUSetResp, error) {
+func (s *SKVMGuestInstance) CPUSet(ctx context.Context, input []int) (*api.ServerCPUSetResp, error) {
 	if !s.IsRunning() {
 		return nil, nil
 	}
@@ -2753,7 +2798,7 @@ func (s *SKVMGuestInstance) CPUSet(ctx context.Context, input *api.ServerCPUSetI
 	var cpusetStr string
 	if input != nil {
 		cpus := []string{}
-		for _, id := range input.CPUS {
+		for _, id := range input {
 			cpus = append(cpus, fmt.Sprintf("%d", id))
 		}
 		cpusetStr = strings.Join(cpus, ",")

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/appctx"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
@@ -36,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 )
 
 type IHost interface {
@@ -45,6 +47,8 @@ type IHost interface {
 	GetCpuArchitecture() string
 	GetKernelVersion() string
 	IsAarch64() bool
+	GetHostTopology() *hostapi.HostTopology
+	GetReservedCpusInfo() *cpuset.CPUSet
 
 	IsHugepagesEnabled() bool
 	HugepageSizeKb() int

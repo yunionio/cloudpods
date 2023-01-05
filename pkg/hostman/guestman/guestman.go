@@ -52,6 +52,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -94,6 +95,8 @@ type SGuestManager struct {
 
 	qemuMachineCpuMax map[string]uint
 	qemuMaxMem        int
+
+	cpuSet *CpuSetCounter
 }
 
 func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
@@ -106,6 +109,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.UnknownServers = new(sync.Map)
 	manager.ServersLock = &sync.Mutex{}
 	manager.GuestStartWorker = appsrv.NewWorkerManager("GuestStart", 1, appsrv.DEFAULT_BACKLOG, false)
+	manager.cpuSet = NewGuestCpuSetCounter(host.GetHostTopology(), host.GetReservedCpusInfo())
 	// manager.StartCpusetBalancer()
 	manager.LoadExistingGuests()
 	manager.host.StartDHCPServer()
@@ -326,7 +330,7 @@ func (m *SGuestManager) CPUSet(ctx context.Context, sid string, req *compute.Ser
 	if !ok {
 		return nil, httperrors.NewNotFoundError("Not found")
 	}
-	return guest.CPUSet(ctx, req)
+	return guest.CPUSet(ctx, req.CPUS)
 }
 
 func (m *SGuestManager) CPUSetRemove(ctx context.Context, sid string) error {
@@ -384,6 +388,25 @@ func (m *SGuestManager) LoadServer(sid string) {
 		go guest.sendStreamDisksComplete(context.Background())
 	}
 	m.CandidateServers[sid] = guest
+	m.loadGuestCpuset(guest)
+}
+
+func (m *SGuestManager) loadGuestCpuset(guest *SKVMGuestInstance) {
+	if guest.GetPid() > 0 {
+		for _, vcpuPin := range guest.Desc.VcpuPin {
+			pcpuSet, err := cpuset.Parse(vcpuPin.Pcpus)
+			if err != nil {
+				log.Errorf("failed parse %s pcpus: %s", guest.GetName(), vcpuPin.Pcpus)
+				continue
+			}
+			vcpuSet, err := cpuset.Parse(vcpuPin.Vcpus)
+			if err != nil {
+				log.Errorf("failed parse %s vcpus: %s", guest.GetName(), vcpuPin.Vcpus)
+				continue
+			}
+			m.cpuSet.LoadCpus(pcpuSet.ToSlice(), vcpuSet.Size())
+		}
+	}
 }
 
 func (m *SGuestManager) ShutdownServers() {
