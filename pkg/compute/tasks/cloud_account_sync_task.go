@@ -40,7 +40,6 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 	cloudaccount := obj.(*models.SCloudaccount)
 
 	db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNCING_HOST, "", self.UserCred)
-	// cloudaccount.MarkSyncing(self.UserCred)
 
 	self.SetStage("OnCloudaccountSyncReady", nil)
 
