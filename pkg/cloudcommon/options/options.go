@@ -64,6 +64,7 @@ type BaseOptions struct {
 
 	ApplicationID      string `help:"Application ID"`
 	RequestWorkerCount int    `default:"8" help:"Request worker thread count, default is 8"`
+	TaskWorkerCount    int    `default:"4" help:"Task manager worker thread count, default is 4"`
 
 	EnableSsl   bool   `help:"Enable https"`
 	SslCaCerts  string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
@@ -77,6 +78,7 @@ type BaseOptions struct {
 	RbacDebug                        bool `help:"turn on rbac debug log" default:"false"`
 	RbacPolicyRefreshIntervalSeconds int  `help:"policy refresh interval in seconds, default half a minute" default:"30"`
 	// RbacPolicySyncFailedRetrySeconds int  `help:"seconds to wait after a failed sync, default 30 seconds" default:"30"`
+	PolicyWorkerCount int `help:"Policy worker count" default:"1"`
 
 	ConfigSyncPeriodSeconds int `help:"service config sync interval in seconds, default 30 minutes" default:"1800"`
 

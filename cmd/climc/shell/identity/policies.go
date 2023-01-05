@@ -341,7 +341,7 @@ func init() {
 	}
 	R(&PolicyAdminCapableOptions{}, "policy-admin-capable", "Check admin capable", func(s *mcclient.ClientSession, args *PolicyAdminCapableOptions) error {
 		auth.InitFromClientSession(s)
-		policy.EnableGlobalRbac(15*time.Second, false)
+		policy.EnableGlobalRbac(15*time.Second, false, 1)
 
 		var token mcclient.TokenCredential
 		if len(args.User) > 0 {
@@ -395,7 +395,7 @@ func init() {
 			rbacutils.ShowMatchRuleDebug = true
 		}
 		auth.InitFromClientSession(s)
-		policy.EnableGlobalRbac(15*time.Second, false)
+		policy.EnableGlobalRbac(15*time.Second, false, 1)
 		if args.Debug {
 			consts.EnableRbacDebug()
 		}
