@@ -95,6 +95,13 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 	data := NewSchedInfo(input)
 	data.UserCred = userCred
 
+	if len(data.Domain) == 0 {
+		data.Domain = userCred.GetProjectDomainId()
+	}
+	if len(data.Project) == 0 {
+		data.Project = userCred.GetProjectId()
+	}
+
 	domainId := data.Domain
 	for _, net := range data.Networks {
 		if net.Domain == "" {
