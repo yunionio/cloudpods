@@ -6361,7 +6361,7 @@ type SGuestTotalCount struct {
 	DiskCount int
 }
 
-func (manager *SGuestManager) CustomizedTotalCount(totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
+func (manager *SGuestManager) CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
 	results := SGuestTotalCount{}
 
 	totalQ = totalQ.AppendField(sqlchemy.SUM("cpu_count", totalQ.Field("vcpu_count")))
