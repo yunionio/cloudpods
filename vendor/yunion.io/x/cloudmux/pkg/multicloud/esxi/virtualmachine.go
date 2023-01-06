@@ -1448,23 +1448,28 @@ func (self *SVirtualMachine) relocate(hostId string) error {
 	if err != nil {
 		return errors.Wrap(err, "self.manager.GetIHostById(hostId)")
 	}
-	targetHs = ihost.(*SHost).object.(*mo.HostSystem)
+	host := ihost.(*SHost)
+	targetHs = host.object.(*mo.HostSystem)
 	if len(targetHs.Datastore) < 1 {
 		return errors.Wrap(fmt.Errorf("target host has no datastore"), "relocate")
 	}
+	rp, err := host.GetResourcePool()
+	if err != nil {
+		return errors.Wrapf(err, "GetResourcePool")
+	}
+	pool := rp.Reference()
 	ctx := self.manager.context
 	config := types.VirtualMachineRelocateSpec{}
+	config.Pool = &pool
 	hrs := targetHs.Reference()
 	config.Host = &hrs
 	config.Datastore = &targetHs.Datastore[0]
 	task, err := self.getVmObj().Relocate(ctx, config, types.VirtualMachineMovePriorityDefaultPriority)
 	if err != nil {
-		log.Errorf("vm.Migrate %s", err)
-		return errors.Wrap(err, "SVirtualMachine Migrate")
+		return errors.Wrap(err, "Relocate")
 	}
 	err = task.Wait(ctx)
 	if err != nil {
-		log.Errorf("task.Wait %s", err)
 		return errors.Wrap(err, "task.wait")
 	}
 	return nil

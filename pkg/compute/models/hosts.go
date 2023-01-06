@@ -2940,9 +2940,21 @@ func (self *SHost) GetIHost(ctx context.Context) (cloudprovider.ICloudHost, erro
 }
 
 func (self *SHost) GetIHostAndProvider(ctx context.Context) (cloudprovider.ICloudHost, cloudprovider.ICloudProvider, error) {
+	iregion, provider, err := self.GetIRegionAndProvider(ctx)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "GetIRegionAndProvider")
+	}
+	ihost, err := iregion.GetIHostById(self.ExternalId)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "iregion.GetIHostById(%s)", self.ExternalId)
+	}
+	return ihost, provider, nil
+}
+
+func (self *SHost) GetIRegionAndProvider(ctx context.Context) (cloudprovider.ICloudRegion, cloudprovider.ICloudProvider, error) {
 	provider, err := self.GetDriver(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("No cloudprovider for host: %s", err)
+		return nil, nil, errors.Wrapf(err, "GetDriver")
 	}
 	var iregion cloudprovider.ICloudRegion
 	if provider.GetFactory().IsOnPremise() {
@@ -2960,27 +2972,12 @@ func (self *SHost) GetIHostAndProvider(ctx context.Context) (cloudprovider.IClou
 			return nil, nil, errors.Wrapf(err, "provider.GetIRegionById(%s)", region.ExternalId)
 		}
 	}
-	ihost, err := iregion.GetIHostById(self.ExternalId)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "iregion.GetIHostById(%s)", self.ExternalId)
-	}
-	return ihost, provider, nil
+	return iregion, provider, nil
 }
 
 func (self *SHost) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
-	provider, err := self.GetDriver(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetDriver")
-	}
-	region, err := self.GetRegion()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetRegion")
-	}
-	iregion, err := provider.GetIRegionById(region.ExternalId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetIRegionById(%s)", region.ExternalId)
-	}
-	return iregion, nil
+	region, _, err := self.GetIRegionAndProvider(ctx)
+	return region, err
 }
 
 func (self *SHost) getDiskConfig() jsonutils.JSONObject {
