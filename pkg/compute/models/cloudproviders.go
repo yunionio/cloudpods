@@ -656,7 +656,7 @@ func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, 
 		return errors.Wrapf(err, "NewTask")
 	}
 	if cloudaccount, _ := self.GetCloudaccount(); cloudaccount != nil {
-		cloudaccount.MarkSyncing(userCred, false)
+		cloudaccount.MarkSyncing(userCred)
 	}
 	self.markStartSync(userCred, syncRange)
 	db.OpsLog.LogEvent(self, db.ACT_SYNC_HOST_START, "", userCred)
