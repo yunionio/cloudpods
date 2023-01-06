@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/cloudmux/pkg/apis"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -313,6 +315,17 @@ func (self *SInstance) GetProjectId() string {
 	return ""
 }
 
+func (self *SInstance) Refresh() error {
+	new, _, err := self.node.cluster.region.GetInstances(self.InstancesSet.InstanceId, self.node.NodeId, MAX_RESULT, "")
+	if err != nil {
+		return err
+	}
+	if len(new) == 1 {
+		return jsonutils.Update(self, &new[0])
+	}
+	return nil
+}
+
 func (self *SInstance) GetStatus() string {
 	switch self.InstancesSet.InstanceState.Name {
 	case "stopped":
@@ -323,7 +336,26 @@ func (self *SInstance) GetStatus() string {
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	params := map[string]string{}
+	params["instanceId"] = self.InstancesSet.InstanceId
+
+	resp, err := self.node.cluster.region.invoke("GetVncInfo", params)
+	if err != nil {
+		return nil, err
+	}
+
+	result := struct {
+		GetVncInfoResult *cloudprovider.ServerVncOutput `json:"getVncInfoResult"`
+	}{}
+	err = resp.Unmarshal(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	result.GetVncInfoResult.InstanceId = self.InstancesSet.InstanceId
+	result.GetVncInfoResult.Hypervisor = self.GetHypervisor()
+
+	return result.GetVncInfoResult, nil
 }
 
 func (self *SInstance) RebuildRoot(ctx context.Context, config *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
@@ -331,11 +363,17 @@ func (self *SInstance) RebuildRoot(ctx context.Context, config *cloudprovider.SM
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{}
+	params["InstanceId.1"] = self.InstancesSet.InstanceId
+	_, err := self.node.cluster.region.invoke("StartInstances", params)
+	return err
 }
 
 func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{}
+	params["InstanceId.1"] = self.InstancesSet.InstanceId
+	_, err := self.node.cluster.region.invoke("StopInstances", params)
+	return err
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
