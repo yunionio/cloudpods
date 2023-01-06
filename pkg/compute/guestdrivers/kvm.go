@@ -799,8 +799,8 @@ func (self *SKVMGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGu
 	if len(devices) > 0 {
 		return httperrors.NewBadRequestError("Cannot migrate with isolated devices")
 	}
-	if len(input.PreferHost) > 0 {
-		err := checkAssignHost(ctx, userCred, input.PreferHost)
+	if len(input.PreferHostId) > 0 {
+		err := checkAssignHost(ctx, userCred, input.PreferHostId)
 		if err != nil {
 			return errors.Wrap(err, "checkAssignHost")
 		}
