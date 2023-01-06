@@ -455,6 +455,7 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 		Protocol:   "aliyun",
 		InstanceId: self.InstanceId,
 		Hypervisor: api.HYPERVISOR_ALIYUN,
+		OsName:     string(self.GetOsType()),
 	}
 	return ret, nil
 }
