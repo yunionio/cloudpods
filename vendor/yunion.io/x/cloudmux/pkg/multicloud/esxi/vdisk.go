@@ -364,6 +364,14 @@ func (disk *SVirtualDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 	return istorage, nil
 }
 
+func (disk *SVirtualDisk) GetIStorageId() string {
+	storage, err := disk.GetIStorage()
+	if err != nil {
+		return ""
+	}
+	return storage.GetGlobalId()
+}
+
 func (disk *SVirtualDisk) GetIsAutoDelete() bool {
 	return true
 }

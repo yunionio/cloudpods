@@ -575,7 +575,7 @@ func (self *SRegion) CreateILoadBalancer(opts *cloudprovider.SLoadbalancerCreate
 func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
 	lbs := []SLoadbalancer{}
 	for {
-		part, total, err := self.GetLoadbalancers(nil, len(lbs), 100)
+		part, total, err := self.GetLoadbalancers(nil, 100, len(lbs))
 		if err != nil {
 			return nil, err
 		}
