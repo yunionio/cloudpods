@@ -385,13 +385,13 @@ func (self *SGuest) validateMigrate(
 			return err
 		}
 		if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
-			if len(liveMigrateInput.PreferHost) > 0 {
-				iHost, _ := HostManager.FetchByIdOrName(userCred, liveMigrateInput.PreferHost)
+			if len(liveMigrateInput.PreferHostId) > 0 {
+				iHost, _ := HostManager.FetchByIdOrName(userCred, liveMigrateInput.PreferHostId)
 				if iHost == nil {
-					return httperrors.NewBadRequestError("Host %s not found", liveMigrateInput.PreferHost)
+					return httperrors.NewBadRequestError("Host %s not found", liveMigrateInput.PreferHostId)
 				}
 				host := iHost.(*SHost)
-				liveMigrateInput.PreferHost = host.Id
+				liveMigrateInput.PreferHostId = host.Id
 			}
 			return nil
 		}
@@ -407,13 +407,13 @@ func (self *SGuest) validateMigrate(
 		if err := self.GetDriver().CheckMigrate(ctx, self, userCred, *migrateInput); err != nil {
 			return err
 		}
-		if len(migrateInput.PreferHost) > 0 {
-			iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHost)
+		if len(migrateInput.PreferHostId) > 0 {
+			iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHostId)
 			if iHost == nil {
-				return httperrors.NewBadRequestError("Host %s not found", migrateInput.PreferHost)
+				return httperrors.NewBadRequestError("Host %s not found", migrateInput.PreferHostId)
 			}
 			host := iHost.(*SHost)
-			migrateInput.PreferHost = host.Id
+			migrateInput.PreferHostId = host.Id
 		}
 		return nil
 	}
@@ -424,13 +424,13 @@ func (self *SGuest) validateConvertToKvm(
 	userCred mcclient.TokenCredential,
 	migrateInput *api.GuestMigrateInput,
 ) error {
-	if len(migrateInput.PreferHost) > 0 {
-		iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHost)
+	if len(migrateInput.PreferHostId) > 0 {
+		iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHostId)
 		if iHost == nil {
-			return httperrors.NewBadRequestError("Host %s not found", migrateInput.PreferHost)
+			return httperrors.NewBadRequestError("Host %s not found", migrateInput.PreferHostId)
 		}
 		host := iHost.(*SHost)
-		migrateInput.PreferHost = host.Id
+		migrateInput.PreferHostId = host.Id
 	}
 	if self.Status != api.VM_READY {
 		return httperrors.NewServerStatusError("can't convert guest in status %s", self.Status)
@@ -445,30 +445,30 @@ func (self *SGuest) PerformMigrateForecast(ctx context.Context, userCred mcclien
 	)
 
 	if input.ConvertToKvm {
-		mInput = &api.GuestMigrateInput{PreferHost: input.PreferHostId}
+		mInput = &api.GuestMigrateInput{PreferHostId: input.PreferHostId}
 		if err := self.validateConvertToKvm(ctx, userCred, mInput); err != nil {
 			return nil, err
 		}
-		input.PreferHostId = mInput.PreferHost
+		input.PreferHostId = mInput.PreferHostId
 	} else {
 		if input.LiveMigrate {
 			lmInput = &api.GuestLiveMigrateInput{
-				PreferHost:   input.PreferHostId,
+				PreferHostId: input.PreferHostId,
 				SkipCpuCheck: &input.SkipCpuCheck,
 			}
 			if err := self.validateMigrate(ctx, userCred, nil, lmInput); err != nil {
 				return nil, err
 			}
-			input.PreferHostId = lmInput.PreferHost
+			input.PreferHostId = lmInput.PreferHostId
 		} else {
 			mInput = &api.GuestMigrateInput{
-				PreferHost:   input.PreferHostId,
+				PreferHostId: input.PreferHostId,
 				IsRescueMode: input.IsRescueMode,
 			}
 			if err := self.validateMigrate(ctx, userCred, mInput, nil); err != nil {
 				return nil, err
 			}
-			input.PreferHostId = mInput.PreferHost
+			input.PreferHostId = mInput.PreferHostId
 		}
 	}
 
@@ -521,7 +521,7 @@ func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenC
 		return nil, err
 	}
 
-	return nil, self.StartMigrateTask(ctx, userCred, input.IsRescueMode, input.AutoStart, self.Status, input.PreferHost, "")
+	return nil, self.StartMigrateTask(ctx, userCred, input.IsRescueMode, input.AutoStart, self.Status, input.PreferHostId, "")
 }
 
 func (self *SGuest) StartMigrateTask(
@@ -561,7 +561,7 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 		input.EnableTLS = &options.Options.EnableTlsMigration
 	}
 	return nil, self.StartGuestLiveMigrateTask(ctx, userCred,
-		self.Status, input.PreferHost, input.SkipCpuCheck,
+		self.Status, input.PreferHostId, input.SkipCpuCheck,
 		input.SkipKernelCheck, input.EnableTLS, input.QuicklyFinish, input.MaxBandwidthMb, input.KeepDestGuestOnFailed, "",
 	)
 }
