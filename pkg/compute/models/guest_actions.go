@@ -382,13 +382,13 @@ func (self *SGuest) validateMigrate(
 			return err
 		}
 		if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
-			if len(liveMigrateInput.PreferHost) > 0 {
-				iHost, _ := HostManager.FetchByIdOrName(userCred, liveMigrateInput.PreferHost)
+			if len(liveMigrateInput.PreferHostId) > 0 {
+				iHost, _ := HostManager.FetchByIdOrName(userCred, liveMigrateInput.PreferHostId)
 				if iHost == nil {
-					return httperrors.NewBadRequestError("Host %s not found", liveMigrateInput.PreferHost)
+					return httperrors.NewBadRequestError("Host %s not found", liveMigrateInput.PreferHostId)
 				}
 				host := iHost.(*SHost)
-				liveMigrateInput.PreferHost = host.Id
+				liveMigrateInput.PreferHostId = host.Id
 			}
 			return nil
 		}
@@ -404,13 +404,13 @@ func (self *SGuest) validateMigrate(
 		if err := self.GetDriver().CheckMigrate(ctx, self, userCred, *migrateInput); err != nil {
 			return err
 		}
-		if len(migrateInput.PreferHost) > 0 {
-			iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHost)
+		if len(migrateInput.PreferHostId) > 0 {
+			iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHostId)
 			if iHost == nil {
-				return httperrors.NewBadRequestError("Host %s not found", migrateInput.PreferHost)
+				return httperrors.NewBadRequestError("Host %s not found", migrateInput.PreferHostId)
 			}
 			host := iHost.(*SHost)
-			migrateInput.PreferHost = host.Id
+			migrateInput.PreferHostId = host.Id
 		}
 		return nil
 	}
@@ -424,6 +424,7 @@ func (self *SGuest) PerformMigrateForecast(ctx context.Context, userCred mcclien
 
 	if input.LiveMigrate {
 		lmInput = &api.GuestLiveMigrateInput{
+			PreferHostId: input.PreferHostId,
 			PreferHost:   input.PreferHostId,
 			SkipCpuCheck: &input.SkipCpuCheck,
 		}
@@ -433,6 +434,7 @@ func (self *SGuest) PerformMigrateForecast(ctx context.Context, userCred mcclien
 		input.PreferHostId = lmInput.PreferHost
 	} else {
 		mInput = &api.GuestMigrateInput{
+			PreferHostId: input.PreferHostId,
 			PreferHost:   input.PreferHostId,
 			IsRescueMode: input.IsRescueMode,
 		}
@@ -486,7 +488,7 @@ func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenC
 		return nil, err
 	}
 
-	return nil, self.StartMigrateTask(ctx, userCred, input.IsRescueMode, input.AutoStart, self.Status, input.PreferHost, "")
+	return nil, self.StartMigrateTask(ctx, userCred, input.IsRescueMode, input.AutoStart, self.Status, input.PreferHostId, "")
 }
 
 func (self *SGuest) StartMigrateTask(
@@ -526,7 +528,7 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 		input.EnableTLS = &options.Options.EnableTlsMigration
 	}
 	return nil, self.StartGuestLiveMigrateTask(ctx, userCred,
-		self.Status, input.PreferHost, input.SkipCpuCheck,
+		self.Status, input.PreferHostId, input.SkipCpuCheck,
 		input.SkipKernelCheck, input.EnableTLS, input.QuicklyFinish, input.MaxBandwidthMb, input.KeepDestGuestOnFailed, "",
 	)
 }
