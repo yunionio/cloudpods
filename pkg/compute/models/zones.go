@@ -79,8 +79,13 @@ func (manager *SZoneManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (zone *SZone) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	usage := zone.GeneralUsage()
+func (zone *SZone) ValidateDeleteCondition(ctx context.Context, info *api.ZoneDetails) error {
+	var usage api.ZoneGeneralUsage
+	if info != nil {
+		usage = info.ZoneGeneralUsage
+	} else {
+		usage = zone.GeneralUsage()
+	}
 	if !usage.IsEmpty() {
 		return httperrors.NewNotEmptyError("not empty zone: %s", zone.Id)
 	}
@@ -153,16 +158,108 @@ func (manager *SZoneManager) FetchCustomizeColumns(
 
 	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-
+	zoneIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.ZoneDetails{
 			StatusStandaloneResourceDetails: stdRows[i],
 			CloudregionResourceInfo:         regRows[i],
 		}
 		zone := objs[i].(*SZone)
-		rows[i].ZoneGeneralUsage = zone.GeneralUsage()
-		region, _ := zone.GetRegion()
-		rows[i].CloudenvResourceInfo = region.GetRegionCloudenvInfo()
+		zoneIds[i] = zone.Id
+	}
+	regions := []SCloudregion{}
+	zoneQ := ZoneManager.Query().SubQuery()
+	q := CloudregionManager.Query()
+	q = q.Join(zoneQ, sqlchemy.Equals(zoneQ.Field("cloudregion_id"), q.Field("id"))).Filter(sqlchemy.In(zoneQ.Field("id"), zoneIds))
+	err := db.FetchModelObjects(CloudregionManager, q, &regions)
+	if err != nil {
+		return rows
+	}
+	regionMap := map[string]SCloudregion{}
+	for i := range regions {
+		regionMap[regions[i].Id] = regions[i]
+	}
+	zoneUsages := map[string]*api.ZoneGeneralUsage{}
+	q = HostManager.Query().In("zone_id", zoneIds)
+	hosts := []SHost{}
+	err = db.FetchModelObjects(HostManager, q, &hosts)
+	if err != nil {
+		return rows
+	}
+	for i := range hosts {
+		_, ok := zoneUsages[hosts[i].ZoneId]
+		if !ok {
+			zoneUsages[hosts[i].ZoneId] = &api.ZoneGeneralUsage{}
+		}
+		zoneUsages[hosts[i].ZoneId].Hosts += 1
+		if hosts[i].GetEnabled() {
+			zoneUsages[hosts[i].ZoneId].HostsEnabled += 1
+		}
+		if hosts[i].IsBaremetal {
+			zoneUsages[hosts[i].ZoneId].Baremetals += 1
+			if hosts[i].GetEnabled() {
+				zoneUsages[hosts[i].ZoneId].BaremetalsEnabled += 1
+			}
+		}
+	}
+	wires := []SWire{}
+	q = WireManager.Query().In("zone_id", zoneIds)
+	err = db.FetchModelObjects(WireManager, q, &wires)
+	if err != nil {
+		return rows
+	}
+	wireMap := map[string]string{}
+	for i := range wires {
+		_, ok := zoneUsages[wires[i].ZoneId]
+		if !ok {
+			zoneUsages[wires[i].ZoneId] = &api.ZoneGeneralUsage{}
+		}
+		zoneUsages[wires[i].ZoneId].Wires += 1
+		wireMap[wires[i].Id] = wires[i].ZoneId
+	}
+	networks := []SNetwork{}
+	wireQ := WireManager.Query().SubQuery()
+	q = NetworkManager.Query()
+	q = q.Join(wireQ, sqlchemy.Equals(q.Field("wire_id"), wireQ.Field("id"))).Filter(sqlchemy.In(wireQ.Field("zone_id"), zoneIds))
+	err = db.FetchModelObjects(NetworkManager, q, &networks)
+	if err != nil {
+		return rows
+	}
+	for i := range networks {
+		zoneId, ok := wireMap[networks[i].WireId]
+		if !ok {
+			continue
+		}
+		_, ok = zoneUsages[zoneId]
+		if !ok {
+			zoneUsages[zoneId] = &api.ZoneGeneralUsage{}
+		}
+		zoneUsages[zoneId].Networks += 1
+	}
+
+	storages := []SStorage{}
+	q = StorageManager.Query().In("zone_id", zoneIds)
+	err = db.FetchModelObjects(StorageManager, q, &storages)
+	if err != nil {
+		return rows
+	}
+	for i := range storages {
+		_, ok := zoneUsages[storages[i].ZoneId]
+		if !ok {
+			zoneUsages[storages[i].ZoneId] = &api.ZoneGeneralUsage{}
+		}
+		zoneUsages[storages[i].ZoneId].Storages += 1
+	}
+	for i := range rows {
+		usage, ok := zoneUsages[zoneIds[i]]
+		if ok {
+			rows[i].ZoneGeneralUsage = *usage
+		}
+		zone := objs[i].(*SZone)
+		region, ok := regionMap[zone.CloudregionId]
+		if ok {
+			rows[i].CloudenvResourceInfo = region.GetRegionCloudenvInfo()
+		}
 	}
 	return rows
 }
