@@ -40,6 +40,7 @@ func init() {
 			),
 		}
 		ReceiverNotificationManager.SetVirtualObject(ReceiverNotificationManager)
+		ReceiverNotificationManager.TableSpec().AddIndex(true, "receiver_id", "contact", "notification_id")
 	})
 }
 
