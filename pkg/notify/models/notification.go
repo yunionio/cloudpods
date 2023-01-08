@@ -57,12 +57,13 @@ func init() {
 		),
 	}
 	NotificationManager.SetVirtualObject(NotificationManager)
+	NotificationManager.TableSpec().AddIndex(false, "deleted", "contact_type", "topic_type")
 }
 
 type SNotification struct {
 	db.SStatusStandaloneResourceBase
 
-	ContactType string `width:"16" nullable:"false" create:"required" list:"user" get:"user" index:"true"`
+	ContactType string `width:"16" nullable:"false" create:"required" list:"user" get:"user"`
 	// swagger:ignore
 	Topic    string `width:"128" nullable:"true" create:"required" search:"user"`
 	Priority string `width:"16" nullable:"true" create:"optional" list:"user" get:"user"`
@@ -70,8 +71,11 @@ type SNotification struct {
 	Message    string    `create:"required"`
 	ReceivedAt time.Time `nullable:"true" list:"user" get:"user"`
 	EventId    string    `width:"128" nullable:"true"`
-	SendTimes  int
-	Tag        string `width:"16" nullable:"true" index:"true" create:"optional"`
+
+	TopicType string `json:"topic_type" width:"20" nullable:"true" create:"required" update:"user" list:"user"`
+
+	SendTimes int
+	Tag       string `width:"16" nullable:"true" index:"true" create:"optional"`
 }
 
 const (
@@ -303,7 +307,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 
 	if nm.needWebconsole([]STopic{*topic}) {
 		// webconsole
-		err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts.UnsortedList(), input.Priority, event.GetId())
+		err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts.UnsortedList(), input.Priority, event.GetId(), topic.Type)
 		if err != nil {
 			output.FailedList = append(output.FailedList, api.FailedElem{
 				ContactType: api.WEBCONSOLE,
@@ -316,7 +320,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		if ct == api.MOBILE {
 			continue
 		}
-		err := nm.create(ctx, userCred, ct, receiverIds, nil, input.Priority, event.GetId())
+		err := nm.create(ctx, userCred, ct, receiverIds, nil, input.Priority, event.GetId(), topic.Type)
 		if err != nil {
 			output.FailedList = append(output.FailedList, api.FailedElem{
 				ContactType: ct,
@@ -324,7 +328,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 			})
 		}
 	}
-	err = nm.createWithWebhookRobots(ctx, userCred, webhookRobots, input.Priority, event.GetId())
+	err = nm.createWithWebhookRobots(ctx, userCred, webhookRobots, input.Priority, event.GetId(), topic.Type)
 	if err != nil {
 		output.FailedList = append(output.FailedList, api.FailedElem{
 			ContactType: api.WEBHOOK,
@@ -332,7 +336,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		})
 	}
 	// robot
-	err = nm.createWithRobots(ctx, userCred, robots, input.Priority, event.GetId())
+	err = nm.createWithRobots(ctx, userCred, robots, input.Priority, event.GetId(), topic.Type)
 	if err != nil {
 		output.FailedList = append(output.FailedList, api.FailedElem{
 			ContactType: api.ROBOT,
@@ -351,7 +355,7 @@ func (nm *SNotificationManager) needWebconsole(topics []STopic) bool {
 	return false
 }
 
-func (nm *SNotificationManager) createWithWebhookRobots(ctx context.Context, userCred mcclient.TokenCredential, webhookRobotIds []string, priority, eventId string) error {
+func (nm *SNotificationManager) createWithWebhookRobots(ctx context.Context, userCred mcclient.TokenCredential, webhookRobotIds []string, priority, eventId string, topicType string) error {
 	if len(webhookRobotIds) == 0 {
 		return nil
 	}
@@ -360,6 +364,7 @@ func (nm *SNotificationManager) createWithWebhookRobots(ctx context.Context, use
 		Priority:    priority,
 		ReceivedAt:  time.Now(),
 		EventId:     eventId,
+		TopicType:   topicType,
 	}
 	n.Id = db.DefaultUUIDGenerator()
 	for i := range webhookRobotIds {
@@ -382,7 +387,7 @@ func (nm *SNotificationManager) createWithWebhookRobots(ctx context.Context, use
 	return nil
 }
 
-func (nm *SNotificationManager) createWithRobots(ctx context.Context, userCred mcclient.TokenCredential, robotIds []string, priority, eventId string) error {
+func (nm *SNotificationManager) createWithRobots(ctx context.Context, userCred mcclient.TokenCredential, robotIds []string, priority, eventId string, topicType string) error {
 	if len(robotIds) == 0 {
 		return nil
 	}
@@ -391,6 +396,7 @@ func (nm *SNotificationManager) createWithRobots(ctx context.Context, userCred m
 		Priority:    priority,
 		ReceivedAt:  time.Now(),
 		EventId:     eventId,
+		TopicType:   topicType,
 	}
 	n.Id = db.DefaultUUIDGenerator()
 	for i := range robotIds {
@@ -413,7 +419,7 @@ func (nm *SNotificationManager) createWithRobots(ctx context.Context, userCred m
 	return nil
 }
 
-func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.TokenCredential, contactType string, receiverIds, contacts []string, priority, eventId string) error {
+func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.TokenCredential, contactType string, receiverIds, contacts []string, priority, eventId string, topicType string) error {
 	if len(receiverIds)+len(contacts) == 0 {
 		return nil
 	}
@@ -423,6 +429,7 @@ func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.To
 		Priority:    priority,
 		ReceivedAt:  time.Now(),
 		EventId:     eventId,
+		TopicType:   topicType,
 	}
 	n.Id = db.DefaultUUIDGenerator()
 	err := nm.TableSpec().Insert(ctx, n)
@@ -468,39 +475,12 @@ func (nm *SNotificationManager) FetchCustomizeColumns(
 	for i := range notifications {
 		notifications[i] = objs[i].(*SNotification)
 	}
-	// fetch topic_type
-	eventTopictypes := make(map[string]string)
-	for i := range notifications {
-		eventTopictypes[notifications[i].EventId] = ""
-	}
-	eventIds := make([]string, 0, len(eventTopictypes))
-	for eventId := range eventTopictypes {
-		eventIds = append(eventIds, eventId)
-	}
-	eventSubq := EventManager.Query("topic_id", "id").In("id", eventIds).SubQuery()
-	topicQ := TopicManager.Query("type")
-	topicQ = topicQ.Join(eventSubq, sqlchemy.Equals(topicQ.Field("id"), eventSubq.Field("topic_id")))
-	topicQ.AppendField(eventSubq.Field("id", "event_id"))
-	type eventTopictype struct {
-		EventId string
-		Type    string
-	}
-	ets := make([]eventTopictype, 0)
-	err = topicQ.All(&ets)
-	if err != nil {
-		log.Errorf("unable to fetch topic with eventId %s", eventIds)
-		return rows
-	}
-	for i := range ets {
-		eventTopictypes[ets[i].EventId] = ets[i].Type
-	}
 
 	for i := range rows {
 		rows[i], err = notifications[i].getMoreDetails(ctx, userCred, query, rows[i])
 		if err != nil {
 			log.Errorf("Notification.getMoreDetails: %v", err)
 		}
-		rows[i].TopicType = eventTopictypes[notifications[i].EventId]
 		rows[i].StatusStandaloneResourceDetails = resRows[i]
 	}
 	return rows
@@ -519,7 +499,7 @@ func (n *SNotification) ReceiverNotificationsNotOK() ([]SReceiverNotification, e
 	return rns, nil
 }
 
-func (n *SNotification) ReceiveDetails(userCred mcclient.TokenCredential, scope string) ([]api.ReceiveDetail, error) {
+func (n *SNotification) receiveDetails(userCred mcclient.TokenCredential, scope string) ([]api.ReceiveDetail, error) {
 	RQ := ReceiverManager.Query("id", "name")
 	q := ReceiverNotificationManager.Query("receiver_id", "notification_id", "receiver_type", "contact", "send_at", "send_by", "status", "failed_reason").Equals("notification_id", n.Id)
 	s := rbacscope.TRbacScope(scope)
@@ -556,16 +536,16 @@ func (n *SNotification) getMoreDetails(ctx context.Context, userCred mcclient.To
 	}
 	p, err := n.TemplateStore().FillWithTemplate(ctx, lang, nn)
 	if err != nil {
-		return out, err
+		return out, errors.Wrap(err, "TemplateStore().FillWithTemplate")
 	}
 	out.Title = p.Title
 	out.Content = p.Message
 
 	scope, _ := query.GetString("scope")
 	// get receive details
-	out.ReceiveDetails, err = n.ReceiveDetails(userCred, scope)
+	out.ReceiveDetails, err = n.receiveDetails(userCred, scope)
 	if err != nil {
-		return out, err
+		return out, errors.Wrap(err, "receiveDetails")
 	}
 	return out, nil
 }
@@ -612,11 +592,17 @@ func (nm *SNotificationManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient
 	case rbacscope.ScopeDomain:
 		subRq := ReceiverManager.Query("id").Equals("domain_id", owner.GetDomainId()).SubQuery()
 		RNq := ReceiverNotificationManager.Query("notification_id", "receiver_id")
-		subRNq := RNq.Join(subRq, sqlchemy.OR(sqlchemy.Equals(RNq.Field("receiver_id"), subRq.Field("id")), sqlchemy.Equals(RNq.Field("contact"), subRq.Field("id")))).SubQuery()
+		subRNq := RNq.Join(subRq, sqlchemy.OR(
+			sqlchemy.Equals(RNq.Field("receiver_id"), subRq.Field("id")),
+			sqlchemy.Equals(RNq.Field("contact"), subRq.Field("id")),
+		)).SubQuery()
 		q = q.Join(subRNq, sqlchemy.Equals(q.Field("id"), subRNq.Field("notification_id")))
 	case rbacscope.ScopeProject, rbacscope.ScopeUser:
 		sq := ReceiverNotificationManager.Query("notification_id")
-		subq := sq.Filter(sqlchemy.OR(sqlchemy.Equals(sq.Field("receiver_id"), owner.GetUserId()), sqlchemy.Equals(sq.Field("contact"), owner.GetUserId()))).SubQuery()
+		subq := sq.Filter(sqlchemy.OR(
+			sqlchemy.Equals(sq.Field("receiver_id"), owner.GetUserId()),
+			sqlchemy.Equals(sq.Field("contact"), owner.GetUserId()),
+		)).SubQuery()
 		q = q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("notification_id")))
 	}
 	return q
@@ -805,9 +791,7 @@ func (nm *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.Equals("tag", input.Tag)
 	}
 	if len(input.TopicType) > 0 {
-		topicq := TopicManager.Query("id").Equals("type", input.TopicType).SubQuery()
-		eventq := EventManager.Query("id").In("topic_id", topicq).SubQuery()
-		q = q.In("event_id", eventq)
+		q = q.Equals("topic_type", input.TopicType)
 	}
 	return q, nil
 }
