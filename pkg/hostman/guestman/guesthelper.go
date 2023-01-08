@@ -15,6 +15,9 @@
 package guestman
 
 import (
+	"container/heap"
+	"sync"
+
 	"yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/jsonutils"
 
@@ -22,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 )
 
 type SBaseParms struct {
@@ -168,4 +172,232 @@ type SEsxiAccessInfo struct {
 type SQgaGuestSetPassword struct {
 	*hostapi.GuestSetPasswordRequest
 	Sid string
+}
+
+type CpuSetCounter struct {
+	Nodes []*NumaNode
+	Lock  sync.Mutex
+}
+
+func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUSet) *CpuSetCounter {
+	cpuSetCounter := new(CpuSetCounter)
+	cpuSetCounter.Nodes = make([]*NumaNode, len(info.Nodes))
+	for i := 0; i < len(info.Nodes); i++ {
+		node := new(NumaNode)
+		node.LogicalProcessors = cpuset.NewCPUSet()
+		node.NodeId = info.Nodes[i].ID
+		cpuDies := make([]*CPUDie, 0)
+		for j := 0; j < len(info.Nodes[i].Caches); j++ {
+			if info.Nodes[i].Caches[j].Level != 3 {
+				continue
+			}
+			cpuDie := new(CPUDie)
+			dieBuilder := cpuset.NewBuilder()
+			for k := 0; k < len(info.Nodes[i].Caches[j].LogicalProcessors); k++ {
+				if reservedCpus != nil && reservedCpus.Contains(int(info.Nodes[i].Caches[j].LogicalProcessors[k])) {
+					continue
+				}
+				dieBuilder.Add(int(info.Nodes[i].Caches[j].LogicalProcessors[k]))
+			}
+			cpuDie.LogicalProcessors = dieBuilder.Result()
+			node.CpuCount += cpuDie.LogicalProcessors.Size()
+			node.LogicalProcessors = node.LogicalProcessors.Union(cpuDie.LogicalProcessors)
+			cpuDies = append(cpuDies, cpuDie)
+		}
+		node.CpuDies = cpuDies
+		cpuSetCounter.Nodes[i] = node
+	}
+	heap.Init(cpuSetCounter)
+	return cpuSetCounter
+}
+
+func (pq *CpuSetCounter) AllocCpuset(vcpuCount int) map[int][]int {
+	res := map[int][]int{}
+	sourceVcpuCount := vcpuCount
+	pq.Lock.Lock()
+	defer pq.Lock.Unlock()
+	for vcpuCount > 0 {
+		count := vcpuCount
+		if vcpuCount > pq.Nodes[0].CpuCount {
+			count = vcpuCount/2 + vcpuCount%2
+		}
+		res[pq.Nodes[0].NodeId] = pq.Nodes[0].AllocCpuset(count)
+		pq.Nodes[0].VcpuCount += sourceVcpuCount
+		heap.Fix(pq, 0)
+		vcpuCount -= count
+	}
+	return res
+}
+
+func (pq *CpuSetCounter) ReleaseCpus(cpus []int, vcpuCount int) {
+	pq.Lock.Lock()
+	defer pq.Lock.Unlock()
+	var numaCpuCount = map[int][]int{}
+	for i := 0; i < len(cpus); i++ {
+		for j := 0; j < len(pq.Nodes); j++ {
+			if pq.Nodes[j].LogicalProcessors.Contains(cpus[i]) {
+				if numaCpus, ok := numaCpuCount[pq.Nodes[j].NodeId]; !ok {
+					numaCpuCount[pq.Nodes[j].NodeId] = []int{cpus[i]}
+				} else {
+					numaCpuCount[pq.Nodes[j].NodeId] = append(numaCpus, cpus[i])
+				}
+				break
+			}
+		}
+	}
+	for i := 0; i < len(pq.Nodes); i++ {
+		if numaCpus, ok := numaCpuCount[pq.Nodes[i].NodeId]; ok {
+			pq.Nodes[i].CpuDies.ReleaseCpus(numaCpus, vcpuCount)
+			pq.Nodes[i].VcpuCount -= vcpuCount
+			heap.Fix(pq, i)
+		}
+	}
+}
+
+func (pq *CpuSetCounter) LoadCpus(cpus []int, vcpuCpunt int) {
+	pq.Lock.Lock()
+	defer pq.Lock.Unlock()
+	var numaCpuCount = map[int][]int{}
+	for i := 0; i < len(cpus); i++ {
+		for j := 0; j < len(pq.Nodes); j++ {
+			if pq.Nodes[j].LogicalProcessors.Contains(cpus[i]) {
+				if numaCpus, ok := numaCpuCount[pq.Nodes[j].NodeId]; !ok {
+					numaCpuCount[pq.Nodes[j].NodeId] = []int{cpus[i]}
+				} else {
+					numaCpuCount[pq.Nodes[j].NodeId] = append(numaCpus, cpus[i])
+				}
+				break
+			}
+		}
+	}
+	for i := 0; i < len(pq.Nodes); i++ {
+		if numaCpus, ok := numaCpuCount[pq.Nodes[i].NodeId]; ok {
+			pq.Nodes[i].CpuDies.LoadCpus(numaCpus, vcpuCpunt)
+			pq.Nodes[i].VcpuCount += vcpuCpunt
+			heap.Fix(pq, i)
+		}
+	}
+}
+
+func (pq CpuSetCounter) Len() int { return len(pq.Nodes) }
+
+func (pq CpuSetCounter) Less(i, j int) bool {
+	return pq.Nodes[i].VcpuCount < pq.Nodes[j].VcpuCount
+}
+
+func (pq CpuSetCounter) Swap(i, j int) {
+	pq.Nodes[i], pq.Nodes[j] = pq.Nodes[j], pq.Nodes[i]
+}
+
+func (pq *CpuSetCounter) Push(item interface{}) {
+	(*pq).Nodes = append((*pq).Nodes, item.(*NumaNode))
+}
+
+func (pq *CpuSetCounter) Pop() interface{} {
+	old := *pq
+	n := len(old.Nodes)
+	item := old.Nodes[n-1]
+	old.Nodes[n-1] = nil // avoid memory leak
+	(*pq).Nodes = old.Nodes[0 : n-1]
+	return item
+}
+
+type NumaNode struct {
+	CpuDies           SorttedCPUDie
+	LogicalProcessors cpuset.CPUSet
+	VcpuCount         int
+	CpuCount          int
+	NodeId            int
+}
+
+func (n *NumaNode) AllocCpuset(vcpuCount int) []int {
+	cpus := make([]int, 0)
+	for vcpuCount > 0 {
+		dies := n.CpuDies
+		count := vcpuCount
+		if vcpuCount > dies[0].LogicalProcessors.Size() {
+			count = dies[0].LogicalProcessors.Size()
+		}
+		dies[0].VcpuCount += count
+		heap.Fix(&n.CpuDies, 0)
+		vcpuCount -= count
+		cpus = append(cpus, dies[0].LogicalProcessors.ToSliceNoSort()...)
+	}
+	return cpus
+}
+
+type CPUDie struct {
+	LogicalProcessors cpuset.CPUSet
+	VcpuCount         int
+}
+
+type SorttedCPUDie []*CPUDie
+
+func (pq SorttedCPUDie) Len() int { return len(pq) }
+
+func (pq SorttedCPUDie) Less(i, j int) bool {
+	return pq[i].VcpuCount < pq[j].VcpuCount
+}
+
+func (pq SorttedCPUDie) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+}
+
+func (pq *SorttedCPUDie) Push(item interface{}) {
+	*pq = append(*pq, item.(*CPUDie))
+}
+
+func (pq *SorttedCPUDie) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil // avoid memory leak
+	*pq = old[0 : n-1]
+	return item
+}
+
+func (pq *SorttedCPUDie) ReleaseCpus(cpus []int, vcpuCount int) {
+	var cpuDies = map[int][]int{}
+	for i := 0; i < len(cpus); i++ {
+		for j := 0; j < len(*pq); j++ {
+			if (*pq)[j].LogicalProcessors.Contains(cpus[i]) {
+				if cpuDie, ok := cpuDies[j]; !ok {
+					cpuDies[j] = []int{cpus[i]}
+				} else {
+					cpuDies[j] = append(cpuDie, cpus[i])
+				}
+				break
+			}
+		}
+	}
+
+	for i := 0; i < len(*pq); i++ {
+		if _, ok := cpuDies[i]; ok {
+			(*pq)[i].VcpuCount -= vcpuCount
+			heap.Fix(pq, i)
+		}
+	}
+}
+
+func (pq *SorttedCPUDie) LoadCpus(cpus []int, vcpuCount int) {
+	var cpuDies = map[int][]int{}
+	for i := 0; i < len(cpus); i++ {
+		for j := 0; j < len(*pq); j++ {
+			if (*pq)[j].LogicalProcessors.Contains(cpus[i]) {
+				if cpuDie, ok := cpuDies[j]; !ok {
+					cpuDies[j] = []int{cpus[i]}
+				} else {
+					cpuDies[j] = append(cpuDie, cpus[i])
+				}
+				break
+			}
+		}
+	}
+
+	for i := 0; i < len(*pq); i++ {
+		if _, ok := cpuDies[i]; ok {
+			(*pq)[i].VcpuCount += vcpuCount
+			heap.Fix(pq, i)
+		}
+	}
 }

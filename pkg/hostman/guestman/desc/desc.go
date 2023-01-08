@@ -37,6 +37,11 @@ type SGuestCpu struct {
 	// CpuCacheMode string
 }
 
+type CpuPin struct {
+	Vcpus string
+	Pcpus string
+}
+
 type SMemObject struct {
 	*Object
 	SizeMB int64
@@ -67,6 +72,7 @@ type SGuestMem struct {
 type SGuestHardwareDesc struct {
 	Cpu     int64
 	CpuDesc *SGuestCpu `json:",omitempty"`
+	VcpuPin []CpuPin   `json:",omitempty"`
 	// Clock   *SGuestClock `json:",omitempty"`
 
 	Mem     int64

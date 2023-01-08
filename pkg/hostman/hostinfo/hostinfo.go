@@ -39,6 +39,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	napi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -2188,6 +2189,18 @@ func (h *SHostInfo) IsX8664() bool {
 
 func (h *SHostInfo) GetKubeletConfig() kubelet.KubeletConfig {
 	return h.kubeletConfig
+}
+
+func (h *SHostInfo) GetHostTopology() *hostapi.HostTopology {
+	return h.sysinfo.Topology
+}
+
+func (h *SHostInfo) GetReservedCpusInfo() *cpuset.CPUSet {
+	if h.reservedCpusInfo == nil {
+		return nil
+	}
+	cpus, _ := cpuset.Parse(h.reservedCpusInfo.Cpus)
+	return &cpus
 }
 
 func NewHostInfo() (*SHostInfo, error) {
