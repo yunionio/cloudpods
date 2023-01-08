@@ -80,7 +80,7 @@ func (s *SGuestStopTask) Start() {
 }
 
 func (s *SGuestStopTask) onPowerdownGuest(results string) {
-	s.ExitCleanup(true)
+	//s.ExitCleanup(true)
 	s.startPowerdown = time.Now()
 	s.checkGuestRunning()
 }
@@ -1461,6 +1461,7 @@ func (s *SGuestResumeTask) onStartRunning() {
 			func() { s.startStreamDisks(nil) })
 	} else {
 		s.SyncStatus("")
+		s.detachStartupTask()
 	}
 }
 
@@ -2323,6 +2324,10 @@ func (task *SGuestHotplugCpuMemTask) updateGuestDesc() {
 		}
 		task.Desc.MemDesc.MemSlots = append(task.Desc.MemDesc.MemSlots, task.memSlot)
 	}
+	if task.addedCpuCount > 0 && len(task.Desc.VcpuPin) == 1 {
+		task.Desc.VcpuPin[0].Vcpus = fmt.Sprintf("0-%d", task.Desc.Cpu-1)
+	}
+
 	if task.addedCpuCount > 0 || task.addedMemSize > 0 {
 		task.SaveLiveDesc(task.Desc)
 	}
