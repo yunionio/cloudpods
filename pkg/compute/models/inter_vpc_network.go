@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -414,7 +415,9 @@ func (self *SInterVpcNetwork) SyncWithCloudInterVpcNetwork(ctx context.Context, 
 	_, err := db.Update(self, func() error {
 		self.ExternalId = ext.GetGlobalId()
 		self.Status = ext.GetStatus()
-		self.Name = ext.GetName()
+		if options.Options.EnableSyncName {
+			self.Name = ext.GetName()
+		}
 		return nil
 	})
 	if err != nil {
