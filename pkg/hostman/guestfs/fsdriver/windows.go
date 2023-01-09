@@ -595,7 +595,7 @@ func (w *SWindowsRootFs) DeployTelegraf(config string) (bool, error) {
 		strings.Join([]string{
 			`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`,
 			` -executionpolicy bypass %SystemRoot%\telegraf.ps1`,
-			fmt.Sprintf(" '%s' '%s' %s", telegrafBinaryPath, telegrafConfPath, w.guestDebugLogPath),
+			fmt.Sprintf(" '%s' '%s' >> %s_telegraf", telegrafBinaryPath, telegrafConfPath, w.guestDebugLogPath),
 		}, ""),
 		`del %SystemRoot%\telegraf.ps1`,
 		w.MakeGuestDebugCmd("setup telegraf step 2"),
