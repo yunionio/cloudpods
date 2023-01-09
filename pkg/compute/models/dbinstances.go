@@ -1632,6 +1632,12 @@ func (self *SDBInstance) SyncAllWithCloudDBInstance(ctx context.Context, userCre
 
 func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudDBInstance) error {
 	diff, err := db.Update(self, func() error {
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, ext.GetName())
+			if len(newName) > 0 {
+				self.Name = newName
+			}
+		}
 		self.ExternalId = ext.GetGlobalId()
 		self.Engine = ext.GetEngine()
 		self.EngineVersion = ext.GetEngineVersion()

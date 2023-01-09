@@ -587,6 +587,13 @@ func (self *SElasticcache) syncRemoveCloudElasticcache(ctx context.Context, user
 
 func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extInstance cloudprovider.ICloudElasticcache) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, extInstance.GetName())
+			if len(newName) > 0 {
+				self.Name = newName
+			}
+		}
+
 		self.Status = extInstance.GetStatus()
 		self.InstanceType = extInstance.GetInstanceType()
 		self.CapacityMB = extInstance.GetCapacityMB()

@@ -478,6 +478,13 @@ func (self *SNatGateway) ValidateDeleteCondition(ctx context.Context, info jsonu
 
 func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extNat cloudprovider.ICloudNatGateway) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, extNat.GetName())
+			if len(newName) > 0 {
+				self.Name = newName
+			}
+		}
+
 		self.Status = extNat.GetStatus()
 		self.NatSpec = extNat.GetNatSpec()
 		self.BandwidthMb = extNat.GetBandwidthMb()

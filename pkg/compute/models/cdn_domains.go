@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -206,7 +207,9 @@ func (self *SCDNDomain) GetICloudCDNDomain(ctx context.Context) (cloudprovider.I
 
 func (self *SCDNDomain) SyncWithCloudCDNDomain(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudCDNDomain) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		self.Name = ext.GetName()
+		if options.Options.EnableSyncName {
+			self.Name = ext.GetName()
+		}
 		self.Status = ext.GetStatus()
 		self.Area = ext.GetArea()
 		self.ServiceType = ext.GetServiceType()

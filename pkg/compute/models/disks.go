@@ -1652,7 +1652,13 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	}
 
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		// self.Name = extDisk.GetName()
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, extDisk.GetName())
+			if len(newName) > 0 {
+				self.Name = newName
+			}
+		}
+
 		self.Status = extDisk.GetStatus()
 		self.DiskFormat = extDisk.GetDiskFormat()
 		self.DiskSize = extDisk.GetDiskSizeMB()

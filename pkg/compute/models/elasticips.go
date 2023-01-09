@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -509,6 +510,12 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 
 func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, ext.GetName())
+			if len(newName) > 0 {
+				self.Name = newName
+			}
+		}
 		if bandwidth := ext.GetBandwidth(); bandwidth != 0 {
 			self.Bandwidth = bandwidth
 		}
