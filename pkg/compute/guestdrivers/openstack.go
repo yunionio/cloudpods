@@ -396,18 +396,17 @@ func (self *SOpenStackGuestDriver) CheckLiveMigrate(ctx context.Context, guest *
 	return nil
 }
 
-func (self *SOpenStackGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+func (self *SOpenStackGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "guest.GetIVM")
 		}
-		hostID, _ := data.GetString("prefer_host_id")
 		hostExternalId := ""
-		if hostID != "" {
-			iHost, err := models.HostManager.FetchById(hostID)
+		if input.PreferHostId != "" {
+			iHost, err := models.HostManager.FetchById(input.PreferHostId)
 			if err != nil {
-				return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", hostID)
+				return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", input.PreferHostId)
 			}
 			host := iHost.(*models.SHost)
 			hostExternalId = host.ExternalId
@@ -441,18 +440,17 @@ func (self *SOpenStackGuestDriver) RequestMigrate(ctx context.Context, guest *mo
 	return nil
 }
 
-func (self *SOpenStackGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {
+func (self *SOpenStackGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iVM, err := guest.GetIVM(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "guest.GetIVM")
 		}
-		hostID, _ := data.GetString("prefer_host_id")
 		hostExternalId := ""
-		if hostID != "" {
-			iHost, err := models.HostManager.FetchById(hostID)
+		if input.PreferHostId != "" {
+			iHost, err := models.HostManager.FetchById(input.PreferHostId)
 			if err != nil {
-				return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", hostID)
+				return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", input.PreferHostId)
 			}
 			host := iHost.(*models.SHost)
 			hostExternalId = host.ExternalId

@@ -690,7 +690,9 @@ func (self *ManagedGuestMigrateTask) OnInit(ctx context.Context, obj db.IStandal
 func (self *ManagedGuestMigrateTask) MigrateStart(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnMigrateComplete", nil)
 	guest.SetStatus(self.UserCred, api.VM_MIGRATING, "")
-	if err := guest.GetDriver().RequestMigrate(ctx, guest, self.UserCred, self.GetParams(), self); err != nil {
+	input := api.GuestMigrateInput{}
+	self.GetParams().Unmarshal(&input)
+	if err := guest.GetDriver().RequestMigrate(ctx, guest, self.UserCred, input, self); err != nil {
 		self.OnMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
@@ -742,7 +744,9 @@ func (self *ManagedGuestLiveMigrateTask) OnInit(ctx context.Context, obj db.ISta
 func (self *ManagedGuestLiveMigrateTask) MigrateStart(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnMigrateComplete", nil)
 	guest.SetStatus(self.UserCred, api.VM_MIGRATING, "")
-	if err := guest.GetDriver().RequestLiveMigrate(ctx, guest, self.UserCred, self.GetParams(), self); err != nil {
+	input := api.GuestLiveMigrateInput{}
+	self.GetParams().Unmarshal(&input)
+	if err := guest.GetDriver().RequestLiveMigrate(ctx, guest, self.UserCred, input, self); err != nil {
 		self.OnMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
