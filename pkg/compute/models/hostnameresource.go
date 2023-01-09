@@ -33,7 +33,9 @@ type SHostnameResourceBaseManager struct {
 }
 
 func (manager *SHostnameResourceBaseManager) ValidateHostname(name string, osType string, input api.HostnameInput) (api.HostnameInput, error) {
+	inputHostname := true
 	if len(input.Hostname) == 0 {
+		inputHostname = false
 		if len(name) == 0 {
 			return input, httperrors.NewMissingParameterError("name")
 		}
@@ -65,8 +67,10 @@ func (manager *SHostnameResourceBaseManager) ValidateHostname(name string, osTyp
 		}
 		input.Hostname = strings.ReplaceAll(input.Hostname, ".", "")
 		if len(input.Hostname) > api.MAX_WINDOWS_COMPUTER_NAME_LENGTH {
-			return input, httperrors.NewInputParameterError("Windows hostname cannot be longer than %d characters", api.MAX_WINDOWS_COMPUTER_NAME_LENGTH)
-			// input.Hostname = input.Hostname[:15]
+			if inputHostname {
+				return input, httperrors.NewInputParameterError("Windows hostname cannot be longer than %d characters", api.MAX_WINDOWS_COMPUTER_NAME_LENGTH)
+			}
+			input.Hostname = input.Hostname[:15]
 		}
 	}
 	if len(input.Hostname) < 2 {
