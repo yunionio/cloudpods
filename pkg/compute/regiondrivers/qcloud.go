@@ -100,20 +100,6 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 	return task.ScheduleRun(nil)
 }
 
-func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
-func (self *SQcloudRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		opts := &cloudprovider.SLoadbalancerListenerCreateOptions{
