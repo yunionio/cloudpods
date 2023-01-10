@@ -644,8 +644,8 @@ func (self *SNatGateway) GetEips() ([]SElasticip, error) {
 }
 
 func (self *SNatGateway) SyncNatGatewayEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEips []cloudprovider.ICloudEIP) compare.SyncResult {
-	lockman.LockRawObject(ctx, "elasticip", self.Id)
-	defer lockman.ReleaseRawObject(ctx, "elasticip", self.Id)
+	lockman.LockRawObject(ctx, ElasticipManager.Keyword(), self.Id)
+	defer lockman.ReleaseRawObject(ctx, ElasticipManager.Keyword(), self.Id)
 
 	result := compare.SyncResult{}
 
@@ -672,6 +672,8 @@ func (self *SNatGateway) SyncNatGatewayEips(ctx context.Context, userCred mcclie
 		}
 		result.Delete()
 	}
+
+	result.UpdateCnt = len(commondb)
 
 	for i := 0; i < len(added); i += 1 {
 		region, _ := self.GetRegion()

@@ -906,12 +906,8 @@ func (self *SElasticip) AssociateNatGateway(ctx context.Context, userCred mcclie
 	if nat.Deleted {
 		return fmt.Errorf("nat gateway is deleted")
 	}
-	if len(self.AssociateType) > 0 && len(self.AssociateId) > 0 {
-		if self.AssociateType == api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY && self.AssociateId == nat.Id {
-			return nil
-		} else {
-			return fmt.Errorf("Eip has been associated!!")
-		}
+	if len(self.AssociateId) > 0 && self.AssociateType == api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY && self.AssociateId == nat.Id {
+		return nil
 	}
 	_, err := db.Update(self, func() error {
 		self.AssociateType = api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
