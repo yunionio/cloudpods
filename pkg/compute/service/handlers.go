@@ -124,6 +124,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.DiskManager,
 		models.NetworkManager,
 		models.NetworkAddressManager,
+		models.NetworkIpMacManager,
 		models.ReservedipManager,
 		models.KeypairManager,
 		models.IsolatedDeviceManager,
