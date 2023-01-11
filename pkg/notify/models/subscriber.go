@@ -497,12 +497,10 @@ func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string,
 				query.Add(jsonutils.NewString(projectId), "scope", "project", "id")
 			}
 			s := auth.GetAdminSession(ctx, "")
-			log.Debugf("query for role-assignments: %s", query.String())
 			listRet, err := modules.RoleAssignments.List(s, query)
 			if err != nil {
 				return errors.Wrap(err, "unable to list RoleAssignments")
 			}
-			log.Debugf("return value for role-assignments: %s", jsonutils.Marshal(listRet))
 			for i := range listRet.Data {
 				ras := listRet.Data[i]
 				user, err := ras.Get("user")
