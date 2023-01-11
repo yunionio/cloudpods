@@ -1136,9 +1136,9 @@ func (s *SKVMGuestInstance) SyncStatus(reason string) {
 		status = api.VM_SUSPEND
 	}
 	statusInput := &apis.PerformStatusInput{
-		Status:  status,
-		Reason:  reason,
-		IsSlave: s.IsSlave(),
+		Status: status,
+		Reason: reason,
+		HostId: hostinfo.Instance().HostId,
 	}
 
 	hostutils.UpdateServerStatus(context.Background(), s.Id, statusInput)
@@ -1154,7 +1154,7 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 	var statusInput = &apis.PerformStatusInput{
 		Status:         status,
 		BlockJobsCount: jobs,
-		IsSlave:        s.IsSlave(),
+		HostId:         hostinfo.Instance().HostId,
 	}
 	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, statusInput)
 	if err != nil {
