@@ -147,7 +147,9 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			})
 		}
 	}
-
+	if notification.ContactType == apis.WEBHOOK {
+		log.Infof("this is after receivers :%v ", jsonutils.Marshal(receivers))
+	}
 	var contactLen int
 	for lang, receivers := range map[string][]ReceiverSpec{
 		"":                    receivers,
