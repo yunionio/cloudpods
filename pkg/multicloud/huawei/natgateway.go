@@ -107,33 +107,19 @@ func (gateway *SNatGateway) GetExpiredAt() time.Time {
 }
 
 func (gateway *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	IEips, err := gateway.region.GetIEips()
+	ports, err := gateway.region.GetPorts(gateway.ID)
 	if err != nil {
-		return nil, errors.Wrapf(err, `get all Eips of region %q error`, gateway.region.GetId())
+		return nil, errors.Wrapf(err, "GetPorts(%s)", gateway.ID)
 	}
-	dNatTables, err := gateway.GetINatDTable()
-	if err != nil {
-		return nil, errors.Wrapf(err, `get all DNatTable of gateway %q error`, gateway.GetId())
-	}
-	sNatTables, err := gateway.GetINatSTable()
-	if err != nil {
-		return nil, errors.Wrapf(err, `get all SNatTable of gateway %q error`, gateway.GetId())
-	}
-
-	// Get natIPSet of nat rules
-	natIPSet := make(map[string]struct{})
-	for _, snat := range sNatTables {
-		natIPSet[snat.GetIP()] = struct{}{}
-	}
-	for _, dnat := range dNatTables {
-		natIPSet[dnat.GetExternalIp()] = struct{}{}
-	}
-
-	// Add Eip whose GetIpAddr() in natIPSet to ret
-	ret := make([]cloudprovider.ICloudEIP, 0, 2)
-	for i := range IEips {
-		if _, ok := natIPSet[IEips[i].GetIpAddr()]; ok {
-			ret = append(ret, IEips[i])
+	ret := []cloudprovider.ICloudEIP{}
+	for i := range ports {
+		eips, err := gateway.region.GetEips(ports[i].ID, nil)
+		if err != nil {
+			return nil, err
+		}
+		for i := range eips {
+			eips[i].region = gateway.region
+			ret = append(ret, &eips[i])
 		}
 	}
 	return ret, nil
