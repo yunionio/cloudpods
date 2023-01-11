@@ -16,6 +16,7 @@ package options
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 )
@@ -150,4 +151,62 @@ func (opts *NetworkIdOptions) GetId() string {
 
 func (opts *NetworkIdOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
+}
+
+type NetworkIpMacIdOptions struct {
+	ID string `help:"ID or Name of the network_ip_mac to show"`
+}
+
+func (opts *NetworkIpMacIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *NetworkIpMacIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+type NetworkIpMacListOptions struct {
+	BaseListOptions
+
+	Network string   `help:"search networks" json:"network_id"`
+	MacAddr []string `help:"search by mac addr"`
+	IpAddr  []string `help:"search by ip addr"`
+}
+
+func (opts *NetworkIpMacListOptions) Params() (jsonutils.JSONObject, error) {
+	return ListStructToParams(opts)
+}
+
+type NetworkIpMacUpdateOptions struct {
+	ID string `help:"ID or Name of resource to update"`
+
+	MacAddr string `help:"update mac addr"`
+	IpAddr  string `help:"update ip addr"`
+}
+
+func (opts *NetworkIpMacUpdateOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *NetworkIpMacUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return ListStructToParams(opts)
+}
+
+type NetworkIpMacCreateOptions struct {
+	NETWORK string `help:"network id" json:"network_id"`
+	MACADDR string `help:"mac address" json:"mac_addr"`
+	IPADDR  string `help:"ip address" json:"ip_addr"`
+}
+
+func (opts *NetworkIpMacCreateOptions) Params() (jsonutils.JSONObject, error) {
+	if opts.NETWORK == "" {
+		return nil, errors.Errorf("missing network params")
+	}
+	if opts.MACADDR == "" {
+		return nil, errors.Errorf("missing mac_addr params")
+	}
+	if opts.IPADDR == "" {
+		return nil, errors.Errorf("missing ip_addr params")
+	}
+	return ListStructToParams(opts)
 }
