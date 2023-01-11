@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,29 +36,29 @@ func init() {
 	taskman.RegisterTask(LoadbalancerBackendCreateTask{})
 }
 
-func (self *LoadbalancerBackendCreateTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason jsonutils.JSONObject) {
-	lbb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason.String())
-	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lbb.Id, lbb.Name, api.LB_CREATE_FAILED, reason.String())
+func (self *LoadbalancerBackendCreateTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, err error) {
+	lbb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, err.Error())
+	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_CREATE, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lbb.Id, lbb.Name, api.LB_CREATE_FAILED, err.Error())
 	lbbg, _ := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
-		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_ADD_BACKEND, reason, self.UserCred, false)
+		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_ADD_BACKEND, err, self.UserCred, false)
 	}
-	self.SetStageFailed(ctx, reason)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerBackendCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbb := obj.(*models.SLoadbalancerBackend)
 	region, err := lbb.GetRegion()
 	if err != nil {
-		self.taskFail(ctx, lbb, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lbb, errors.Wrapf(err, "lbb.GetRegion"))
 		return
 	}
 
 	self.SetStage("OnLoadbalancerBackendCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerBackend(ctx, self.GetUserCred(), lbb, self); err != nil {
-		self.taskFail(ctx, lbb, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lbb, errors.Wrapf(err, "RequestCreateLoadbalancerBackend"))
 	}
 }
 
@@ -77,5 +78,5 @@ func (self *LoadbalancerBackendCreateTask) OnLoadbalancerBackendCreateComplete(c
 }
 
 func (self *LoadbalancerBackendCreateTask) OnLoadbalancerBackendCreateCompleteFailed(ctx context.Context, lbb *models.SLoadbalancerBackend, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbb, reason)
+	self.taskFail(ctx, lbb, errors.Errorf(reason.String()))
 }
