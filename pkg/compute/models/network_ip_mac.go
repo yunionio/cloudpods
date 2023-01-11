@@ -49,9 +49,9 @@ type SNetworkIpMac struct {
 
 	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" index:"true" create:"required"`
 	// MAC地址
-	MacAddr string `width:"32" charset:"ascii" nullable:"false" list:"user" index:"true" create:"required"`
+	MacAddr string `width:"32" charset:"ascii" nullable:"false" list:"user" index:"true" update:"user" create:"required"`
 	// IPv4地址
-	IpAddr string `width:"16" charset:"ascii" nullable:"false" list:"user" index:"true" create:"required"`
+	IpAddr string `width:"16" charset:"ascii" nullable:"false" list:"user" index:"true" update:"user" create:"required"`
 }
 
 func (manager *SNetworkIpMacManager) NetworkMacAddrInUse(networkId, macAddr string) (bool, error) {
