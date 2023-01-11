@@ -69,6 +69,14 @@ type NetworkFilterListInput struct {
 	NetworkFilterListBase
 }
 
+type NetworkIpMacListInput struct {
+	apis.StandaloneAnonResourceListInput
+
+	NetworkId string   `json:"network_id"`
+	MacAddr   []string `json:"mac_addr"`
+	IpAddr    []string `json:"ip_addr"`
+}
+
 type NetworkListInput struct {
 	apis.SharableVirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
@@ -149,6 +157,14 @@ type NetworkResourceInfo struct {
 	WireId string `json:"wire_id"`
 
 	WireResourceInfo
+}
+
+type NetworkIpMacCreateInput struct {
+	apis.StandaloneAnonResourceCreateInput
+
+	NetworkId string `json:"network_id"`
+	MacAddr   string `json:"mac_addr"`
+	IpAddr    string `json:"ip_addr"`
 }
 
 type NetworkCreateInput struct {
@@ -280,6 +296,14 @@ type NetworkDetails struct {
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
 }
 
+type NetworkIpMacDetails struct {
+	apis.StandaloneAnonResourceDetails
+
+	NetworkId string `json:"network_id"`
+	IpAddr    string `json:"ip_addr"`
+	MacAddr   string `json:"mac_addr"`
+}
+
 type NetworkReserveIpInput struct {
 	apis.Meta
 
@@ -345,6 +369,13 @@ type NetworkSyncInput struct {
 	apis.Meta
 }
 
+type NetworkIpMacUpdateInput struct {
+	apis.StandaloneAnonResourceBaseUpdateInput
+
+	MacAddr string `json:"mac_addr"`
+	IpAddr  string `json:"ip_addr"`
+}
+
 type NetworkUpdateInput struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
@@ -391,4 +422,9 @@ type NetworkSetBgpTypeInput struct {
 	// required: true
 	// example: ChinaTelecom, BGP, etc.
 	BgpType string `json:"bgp_type"`
+}
+
+type NetworkIpMacBatchCreateInput struct {
+	NetworkId string            `json:"network_id"`
+	IpMac     map[string]string `json:"ip_mac"`
 }
