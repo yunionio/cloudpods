@@ -231,6 +231,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	}
 
 	// receiver
+
 	topic, err := TopicManager.TopicByEvent(input.Event, input.AdvanceDays)
 	if err != nil {
 		return output, errors.Wrapf(err, "unable fetch subscriptions by event %q", input.Event)
