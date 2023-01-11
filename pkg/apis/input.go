@@ -227,8 +227,9 @@ type PerformStatusInput struct {
 	BlockJobsCount int `json:"block_jobs_count"`
 	// 电源状态
 	PowerStates string `json:"power_states"`
-	// is call from slave guest
-	IsSlave bool `json:"is_slave"`
+	// call from host id
+	HostId string `json:"host_id"`
+
 	// 更改状态的原因描述
 	// required:false
 	Reason string `json:"reason"`
