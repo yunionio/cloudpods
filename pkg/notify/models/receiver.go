@@ -678,7 +678,6 @@ func (rm *SReceiverManager) findUserIdsWithProjectDomain(ctx context.Context, us
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list RoleAssignments")
 	}
-	log.Debugf("return value for role-assignments: %s", jsonutils.Marshal(listRet))
 	userIds := sets.NewString()
 	for i := range listRet.Data {
 		ras := listRet.Data[i]
