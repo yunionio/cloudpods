@@ -1362,8 +1362,8 @@ func (s *SKVMGuestInstance) SyncStatus(reason string) {
 	statusInput := &apis.PerformStatusInput{
 		Status:      status,
 		Reason:      reason,
-		IsSlave:     s.IsSlave(),
 		PowerStates: s.GetPowerStates(),
+		HostId:      hostinfo.Instance().HostId,
 	}
 
 	if _, err := hostutils.UpdateServerStatus(context.Background(), s.Id, statusInput); err != nil {
@@ -1390,7 +1390,7 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 		Status:         status,
 		BlockJobsCount: jobs,
 		PowerStates:    s.GetPowerStates(),
-		IsSlave:        s.IsSlave(),
+		HostId:         hostinfo.Instance().HostId,
 	}
 	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, statusInput)
 	if err != nil {
