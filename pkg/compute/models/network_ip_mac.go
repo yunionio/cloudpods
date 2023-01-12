@@ -112,7 +112,7 @@ func (self *SNetworkIpMac) ValidateUpdateData(
 		return input, httperrors.NewInputParameterError("missing update field")
 	}
 
-	if input.IpAddr != "" {
+	if input.IpAddr != "" && input.IpAddr != self.IpAddr {
 		iNetwork, err := NetworkManager.FetchByIdOrName(userCred, self.NetworkId)
 		if err != nil {
 			return input, errors.Wrap(err, "fetch network")
@@ -124,21 +124,21 @@ func (self *SNetworkIpMac) ValidateUpdateData(
 		if ipInUse, err := NetworkIpMacManager.NetworkIpAddrInUse(self.NetworkId, input.IpAddr); err != nil {
 			return input, errors.Wrap(err, "check ip addr in use")
 		} else if ipInUse {
-			return input, errors.Errorf("ip addr %s is in use", input.IpAddr)
+			return input, httperrors.NewBadRequestError("ip addr %s is in use", input.IpAddr)
 		}
 	} else {
 		input.IpAddr = self.IpAddr
 	}
 
-	if input.MacAddr != "" {
+	input.MacAddr = strings.ToLower(input.MacAddr)
+	if input.MacAddr != "" && input.MacAddr != self.MacAddr {
 		if !utils.IsMatchMacAddr(input.MacAddr) {
 			return input, errors.Errorf("mac address %s is not valid", input.MacAddr)
 		}
-		input.MacAddr = strings.ToLower(input.MacAddr)
 		if macInUse, err := NetworkIpMacManager.NetworkMacAddrInUse(self.NetworkId, input.MacAddr); err != nil {
 			return input, errors.Wrap(err, "check mac addr in use")
 		} else if macInUse {
-			return input, errors.Errorf("mac addr %s is in use", input.MacAddr)
+			return input, httperrors.NewBadRequestError("mac addr %s is in use", input.MacAddr)
 		}
 	} else {
 		input.MacAddr = self.MacAddr
