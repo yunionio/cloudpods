@@ -225,8 +225,8 @@ type PerformStatusInput struct {
 	Status string `json:"status"`
 	// swagger:ignore
 	BlockJobsCount int `json:"block_jobs_count"`
-	// is call from slave guest
-	IsSlave bool `json:"is_slave"`
+	// call from host id
+	HostId string `json:"host_id"`
 
 	// 更改状态的原因描述
 	// required:false
