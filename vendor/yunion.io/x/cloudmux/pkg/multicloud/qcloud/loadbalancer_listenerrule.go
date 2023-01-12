@@ -33,9 +33,9 @@ type SLBListenerRule struct {
 	listener *SLBListener
 
 	Domain            string      `json:"Domain"`
-	Certificate       certificate `json:"Certificate"`
+	Certificate       Certificate `json:"Certificate"`
 	URL               string      `json:"Url"`
-	HealthCheck       healthCheck `json:"HealthCheck"`
+	HealthCheck       HealthCheck `json:"HealthCheck"`
 	LocationID        string      `json:"LocationId"`
 	Scheduler         string      `json:"Scheduler"`
 	SessionExpireTime int64       `json:"SessionExpireTime"`

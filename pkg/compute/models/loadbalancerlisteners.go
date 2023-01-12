@@ -747,12 +747,12 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 
 	localListeners := []SLoadbalancerListener{}
 	remoteListeners := []cloudprovider.ICloudLoadbalancerListener{}
-	syncResult := compare.SyncResult{}
+	result := compare.SyncResult{}
 
 	dbListeners, err := man.getLoadbalancerListenersByLoadbalancer(lb)
 	if err != nil {
-		syncResult.Error(err)
-		return nil, nil, syncResult
+		result.Error(err)
+		return nil, nil, result
 	}
 
 	removed := []SLoadbalancerListener{}
@@ -762,41 +762,39 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 
 	err = compare.CompareSets(dbListeners, listeners, &removed, &commondb, &commonext, &added)
 	if err != nil {
-		syncResult.Error(err)
-		return nil, nil, syncResult
+		result.Error(err)
+		return nil, nil, result
 	}
 
 	for i := 0; i < len(removed); i++ {
 		err = removed[i].syncRemoveCloudLoadbalancerListener(ctx, userCred)
 		if err != nil {
-			syncResult.DeleteError(err)
+			result.DeleteError(err)
 		} else {
-			syncResult.Delete()
+			result.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
 		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, lb, commonext[i], syncOwnerId, provider)
 		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-			localListeners = append(localListeners, commondb[i])
-			remoteListeners = append(remoteListeners, commonext[i])
-			syncResult.Update()
+			result.UpdateError(err)
+			continue
 		}
+		localListeners = append(localListeners, commondb[i])
+		remoteListeners = append(remoteListeners, commonext[i])
+		result.Update()
 	}
 	for i := 0; i < len(added); i++ {
 		new, err := man.newFromCloudLoadbalancerListener(ctx, userCred, lb, added[i], syncOwnerId, provider)
 		if err != nil {
-			syncResult.AddError(err)
-		} else {
-			syncMetadata(ctx, userCred, new, added[i])
-			localListeners = append(localListeners, *new)
-			remoteListeners = append(remoteListeners, added[i])
-			syncResult.Add()
+			result.AddError(err)
+			continue
 		}
+		localListeners = append(localListeners, *new)
+		remoteListeners = append(remoteListeners, added[i])
+		result.Add()
 	}
-	return localListeners, remoteListeners, syncResult
+	return localListeners, remoteListeners, result
 }
 
 func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener) {
@@ -902,12 +900,24 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 
 }
 
-func (lblis *SLoadbalancerListener) updateCachedLoadbalancerBackendGroupAssociate(ctx context.Context, extListener cloudprovider.ICloudLoadbalancerListener, managerId string) error {
-	exteralLbbgId := extListener.GetBackendGroupId()
-	if len(exteralLbbgId) == 0 {
+func (lblis *SLoadbalancerListener) updateBackendGroupId(ctx context.Context, ext cloudprovider.ICloudLoadbalancerListener, managerId string) error {
+	extId := ext.GetBackendGroupId()
+	if len(extId) == 0 {
 		return nil
 	}
-
+	q := LoadbalancerBackendGroupManager.Query().Equals("external_id", extId).Equals("loadbalancer_id", lblis.LoadbalancerId)
+	groups := []SLoadbalancerBackendGroup{}
+	err := db.FetchModelObjects(LoadbalancerBackendGroupManager, q, &groups)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	if len(groups) == 1 {
+		_, err := db.Update(lblis, func() error {
+			lblis.BackendGroupId = groups[0].Id
+			return nil
+		})
+		return err
+	}
 	return nil
 }
 
@@ -934,6 +944,7 @@ func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx contex
 	if err != nil {
 		return err
 	}
+	syncMetadata(ctx, userCred, lblis, extListener)
 
 	if len(diff) > 0 {
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
@@ -942,9 +953,9 @@ func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx contex
 		})
 	}
 
-	err = lblis.updateCachedLoadbalancerBackendGroupAssociate(ctx, extListener, lb.ManagerId)
+	err = lblis.updateBackendGroupId(ctx, extListener, lb.ManagerId)
 	if err != nil {
-		return errors.Wrap(err, "LoadbalancerListener.SyncWithCloudLoadbalancerListener")
+		return errors.Wrap(err, "updateBackendGroupId")
 	}
 
 	db.OpsLog.LogSyncUpdate(lblis, diff, userCred)
@@ -976,10 +987,11 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")
 	}
+	syncMetadata(ctx, userCred, lblis, extListener)
 
-	err = lblis.updateCachedLoadbalancerBackendGroupAssociate(ctx, extListener, lb.ManagerId)
+	err = lblis.updateBackendGroupId(ctx, extListener, lb.ManagerId)
 	if err != nil {
-		return nil, errors.Wrap(err, "LoadbalancerListener.newFromCloudLoadbalancerListener")
+		return nil, errors.Wrap(err, "updateBackendGroupId")
 	}
 
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
