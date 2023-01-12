@@ -3,11 +3,13 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -15,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -52,6 +55,18 @@ type SNetworkIpMac struct {
 	MacAddr string `width:"32" charset:"ascii" nullable:"false" list:"user" index:"true" create:"required"`
 	// IPv4地址
 	IpAddr string `width:"16" charset:"ascii" nullable:"false" list:"user" index:"true" create:"required"`
+}
+
+func (manager *SNetworkIpMacManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
+}
+
+func (self *SNetworkIpMac) GetOwnerId() mcclient.IIdentityProvider {
+	iNetwork, _ := NetworkManager.FetchById(self.NetworkId)
+	if iNetwork != nil {
+		return iNetwork.GetOwnerId()
+	}
+	return nil
 }
 
 func (manager *SNetworkIpMacManager) NetworkMacAddrInUse(networkId, macAddr string) (bool, error) {
@@ -221,6 +236,27 @@ func (manager *SNetworkIpMacManager) validateIpMac(ip, mac string, network *SNet
 	return nil
 }
 
+func (self *SNetworkIpMac) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	iNetwork, _ := NetworkManager.FetchByIdOrName(userCred, self.NetworkId)
+	note := fmt.Sprintf("create ip %s mac %s bind", self.IpAddr, self.MacAddr)
+	db.OpsLog.LogEvent(iNetwork, db.ACT_IP_MAC_BIND, note, userCred)
+	logclient.AddActionLogWithContext(ctx, iNetwork, logclient.ACT_IP_MAC_BIND, note, userCred, true)
+}
+
+func (self *SNetworkIpMac) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query, data jsonutils.JSONObject) {
+	iNetwork, _ := NetworkManager.FetchByIdOrName(userCred, self.NetworkId)
+	note := fmt.Sprintf("update ip %s mac %s bind", self.IpAddr, self.MacAddr)
+	db.OpsLog.LogEvent(iNetwork, db.ACT_IP_MAC_BIND, note, userCred)
+	logclient.AddActionLogWithContext(ctx, iNetwork, logclient.ACT_IP_MAC_BIND, note, userCred, true)
+}
+
+func (self *SNetworkIpMac) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	iNetwork, _ := NetworkManager.FetchByIdOrName(userCred, self.NetworkId)
+	note := fmt.Sprintf("delete ip %s mac %s bind", self.IpAddr, self.MacAddr)
+	db.OpsLog.LogEvent(iNetwork, db.ACT_IP_MAC_BIND, note, userCred)
+	logclient.AddActionLogWithContext(ctx, iNetwork, logclient.ACT_IP_MAC_BIND, note, userCred, true)
+}
+
 func (manager *SNetworkIpMacManager) PerformBatchCreate(
 	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkIpMacBatchCreateInput,
 ) (jsonutils.JSONObject, error) {
@@ -235,6 +271,7 @@ func (manager *SNetworkIpMacManager) PerformBatchCreate(
 	input.NetworkId = network.Id
 
 	var errs = []error{}
+	var insertedIpMacs = map[string]string{}
 	for ip, mac := range input.IpMac {
 		if err := manager.validateIpMac(ip, mac, network); err != nil {
 			errs = append(errs, err)
@@ -249,7 +286,12 @@ func (manager *SNetworkIpMacManager) PerformBatchCreate(
 			errs = append(errs, err)
 			continue
 		}
+		insertedIpMacs[ip] = mac
 	}
+	note := fmt.Sprintf("create ip macs bind %v", insertedIpMacs)
+	db.OpsLog.LogEvent(iNetwork, db.ACT_IP_MAC_BIND, note, userCred)
+	logclient.AddActionLogWithContext(ctx, iNetwork, logclient.ACT_IP_MAC_BIND, note, userCred, true)
+
 	if len(errs) == 0 {
 		return nil, nil
 	}

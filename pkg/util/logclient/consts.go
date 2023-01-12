@@ -238,4 +238,6 @@ const (
 	ACT_SET_USER_PASSWORD = "set_user_password"
 
 	ACT_PANIC = "panic"
+
+	ACT_IP_MAC_BIND = "ip_mac_bind"
 )
