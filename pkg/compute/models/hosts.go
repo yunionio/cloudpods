@@ -5738,23 +5738,6 @@ func (host *SHost) switchWithBackup(ctx context.Context, userCred mcclient.Token
 			)
 		}
 	}
-
-	guests2 := host.GetGuestsBackupOnThisHost()
-	for i := 0; i < len(guests2); i++ {
-		data := jsonutils.NewDict()
-		data.Set("purge", jsonutils.JSONTrue)
-		data.Set("create", jsonutils.JSONTrue)
-		_, err := guests2[i].PerformDeleteBackup(ctx, userCred, nil, data)
-		if err != nil {
-			db.OpsLog.LogEvent(
-				&guests2[i], db.ACT_DELETE_BACKUP_FAILED, fmt.Sprintf("PerformDeleteBackup on host down: %s", err), userCred,
-			)
-			logclient.AddSimpleActionLog(
-				&guests2[i], logclient.ACT_DELETE_BACKUP,
-				fmt.Sprintf("PerformDeleteBackup on host down: %s", err), userCred, false,
-			)
-		}
-	}
 }
 
 func (host *SHost) migrateOnHostDown(ctx context.Context, userCred mcclient.TokenCredential) {

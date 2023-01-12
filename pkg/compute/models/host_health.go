@@ -68,7 +68,7 @@ func (h *SHostHealthChecker) load(hostname string) chan struct{} {
 }
 
 func (h *SHostHealthChecker) startHealthCheck(ctx context.Context) error {
-	q := HostManager.Query().IsTrue("enabled").IsTrue("enable_health_check").Equals("host_type", api.HOST_TYPE_HYPERVISOR)
+	q := HostManager.Query().IsTrue("enabled").Equals("host_type", api.HOST_TYPE_HYPERVISOR)
 	rows, err := q.Rows()
 	if err != nil {
 		log.Errorf("HostHealth check Query hosts %s", err)
