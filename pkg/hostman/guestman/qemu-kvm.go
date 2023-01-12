@@ -1807,9 +1807,11 @@ func (s *SKVMGuestInstance) compareDescIsolatedDevices(newDesc *desc.SGuestDesc,
 	for _, oldDev := range oldDevs {
 		var find = false
 		oVendorDevId := oldDev.VendorDeviceId
+		oAddr := oldDev.Addr
 		for idx, addDev := range addDevs {
 			nVendorDevId := addDev.VendorDeviceId
-			if oVendorDevId == nVendorDevId {
+			nAddr := addDev.Addr
+			if oVendorDevId == nVendorDevId && oAddr == nAddr {
 				addDevs = append(addDevs[:idx], addDevs[idx+1:]...)
 				find = true
 				break
