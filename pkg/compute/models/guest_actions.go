@@ -2859,7 +2859,7 @@ func (self *SGuest) SetBackupGuestStatus(userCred mcclient.TokenCredential, stat
 }
 
 func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	if input.IsSlave { // perform status called from slave guest
+	if input.HostId != "" && self.BackupHostId != "" && input.HostId == self.BackupHostId { // perform status called from slave guest
 		return nil, self.SetBackupGuestStatus(userCred, input.Status, input.Reason)
 	}
 	if input.PowerStates != "" {
