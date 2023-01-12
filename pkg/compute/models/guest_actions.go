@@ -1015,7 +1015,6 @@ func (self *SGuest) StartGuestDeployTask(
 }
 
 func (self *SGuest) EventNotify(ctx context.Context, userCred mcclient.TokenCredential, action noapi.SAction) {
-
 	detailsDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
 		if action != notifyclient.ActionCreate && action != notifyclient.ActionRebuildRoot && action != notifyclient.ActionResetPassword {
 			return
