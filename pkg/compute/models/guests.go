@@ -3194,9 +3194,6 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 
 		pendingUsage: args.PendingUsage,
 	}
-	if ipBindMac := NetworkIpMacManager.GetMacFromIp(r.network.Id, r.ipAddr); ipBindMac != "" {
-		r.nicConf.Mac = ipBindMac
-	}
 	if i > 0 {
 		r.ipAddr = ""
 		r.bwLimit = 0
