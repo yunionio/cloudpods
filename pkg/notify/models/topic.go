@@ -259,7 +259,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 			)
 			t.addAction(
-				notify.ActionCreate,
+				notify.ActionCreateFailed,
 				notify.ActionSyncStatus,
 				notify.ActionRebuildRoot,
 				notify.ActionChangeConfig,
@@ -645,6 +645,7 @@ func init() {
 			notify.ActionPasswordExpireSoon: 25,
 			notify.ActionNetOutOfSync:       26,
 			notify.ActionMysqlOutOfSync:     27,
+			notify.ActionCreateFailed:       28,
 		},
 	)
 }

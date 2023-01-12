@@ -147,7 +147,6 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			})
 		}
 	}
-
 	var contactLen int
 	for lang, receivers := range map[string][]ReceiverSpec{
 		"":                    receivers,
