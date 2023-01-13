@@ -45,7 +45,7 @@ const (
 	PROTOCOL_HTTPS   = "HTTPS"
 )
 
-type certificate struct {
+type Certificate struct {
 	SSLMode  string `json:"SSLMode"`
 	CERTCAId string `json:"CertCaId"`
 	CERTId   string `json:"CertId"`
@@ -56,7 +56,7 @@ type certificate struct {
 1 表示探测后返回值 1xx 表示健康，2 表示返回 2xx 表示健康，4 表示返回 3xx 表示健康，8 表示返回 4xx 表示健康，16 表示返回 5xx 表示健康。
 若希望多种码都表示健康，则将相应的值相加。
 */
-type healthCheck struct {
+type HealthCheck struct {
 	HTTPCheckDomain string `json:"HttpCheckDomain"`
 	HealthSwitch    int    `json:"HealthSwitch"`
 	HTTPCheckPath   string `json:"HttpCheckPath"`
@@ -66,6 +66,7 @@ type healthCheck struct {
 	HTTPCode        int    `json:"HttpCode"` // 健康检查状态码（仅适用于HTTP/HTTPS转发规则）。可选值：1~31，默认 31。
 	HealthNum       int    `json:"HealthNum"`
 	TimeOut         int    `json:"TimeOut"`
+	CheckType       string `json:"CheckType"`
 }
 
 type SLBListener struct {
@@ -75,9 +76,9 @@ type SLBListener struct {
 	lb *SLoadbalancer
 
 	Protocol          string            `json:"Protocol"` // 监听器协议类型，取值 TCP | UDP | HTTP | HTTPS | TCP_SSL
-	Certificate       certificate       `json:"Certificate"`
+	Certificate       Certificate       `json:"Certificate"`
 	SniSwitch         int64             `json:"SniSwitch"`   // 是否开启SNI特性（本参数仅对于HTTPS监听器有意义）
-	HealthCheck       healthCheck       `json:"HealthCheck"` // 仅适用于TCP/UDP/TCP_SSL监听器
+	HealthCheck       HealthCheck       `json:"HealthCheck"` // 仅适用于TCP/UDP/TCP_SSL监听器
 	ListenerId        string            `json:"ListenerId"`
 	ListenerName      string            `json:"ListenerName"`
 	Rules             []SLBListenerRule `json:"Rules"` // 监听器下的全部转发规则（本参数仅对于HTTP/HTTPS监听器有意义）
@@ -260,10 +261,7 @@ func (self *SLBListener) GetHealthCheck() string {
 }
 
 func (self *SLBListener) GetHealthCheckType() string {
-	if len(self.HealthCheck.HTTPCheckMethod) > 0 {
-		return api.LB_HEALTH_CHECK_HTTP
-	}
-	return api.LB_HEALTH_CHECK_TCP
+	return strings.ToLower(self.HealthCheck.CheckType)
 }
 
 func (self *SLBListener) GetHealthCheckTimeout() int {
@@ -434,7 +432,7 @@ func (self *SRegion) GetLoadbalancerListeners(lbId string, lblisIds []string, pr
 }
 
 // 返回requestId
-func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId string, domain string, url string, scheduler string, sessionExpireTime int, hc *healthCheck) (string, error) {
+func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId string, domain string, url string, scheduler string, sessionExpireTime int, hc *HealthCheck) (string, error) {
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("loadbalancer id should not be empty")
 	}
@@ -498,7 +496,7 @@ func (self *SRegion) DeleteLoadbalancerListener(t LB_TYPE, lbid string, listener
 }
 
 // https://cloud.tencent.com/document/product/214/30681
-func (self *SRegion) updateLoadbalancerListener(lbid string, listenerId string, listenerName *string, scheduler *string, sessionExpireTime *int, healthCheck *healthCheck, cert *certificate) (string, error) {
+func (self *SRegion) updateLoadbalancerListener(lbid string, listenerId string, listenerName *string, scheduler *string, sessionExpireTime *int, healthCheck *HealthCheck, cert *Certificate) (string, error) {
 	params := map[string]string{
 		"LoadBalancerId": lbid,
 		"ListenerId":     listenerId,
@@ -526,7 +524,7 @@ func (self *SRegion) updateLoadbalancerListener(lbid string, listenerId string, 
 	return resp.GetString("RequestId")
 }
 
-func (self *SRegion) UpdateLoadbalancerListener(t LB_TYPE, lbid string, listenerId string, listenerName *string, scheduler *string, sessionExpireTime *int, healthCheck *healthCheck, cert *certificate) (string, error) {
+func (self *SRegion) UpdateLoadbalancerListener(t LB_TYPE, lbid string, listenerId string, listenerName *string, scheduler *string, sessionExpireTime *int, healthCheck *HealthCheck, cert *Certificate) (string, error) {
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("loadbalancer id should not be empty")
 	}
@@ -538,10 +536,10 @@ func (self *SRegion) UpdateLoadbalancerListener(t LB_TYPE, lbid string, listener
 	return self.updateLoadbalancerListener(lbid, listenerId, listenerName, scheduler, sessionExpireTime, healthCheck, cert)
 }
 
-func getHealthCheck(listener *cloudprovider.SLoadbalancerListenerCreateOptions) *healthCheck {
-	var hc *healthCheck
+func getHealthCheck(listener *cloudprovider.SLoadbalancerListenerCreateOptions) *HealthCheck {
+	var hc *HealthCheck
 	if listener.HealthCheck == api.LB_BOOL_ON {
-		hc = &healthCheck{
+		hc = &HealthCheck{
 			HealthSwitch: 1,
 			UnHealthNum:  listener.HealthCheckFail,
 			IntervalTime: listener.HealthCheckInterval,
@@ -557,7 +555,7 @@ func getHealthCheck(listener *cloudprovider.SLoadbalancerListenerCreateOptions) 
 			hc.HTTPCheckPath = listener.HealthCheckURI
 		}
 	} else {
-		hc = &healthCheck{
+		hc = &HealthCheck{
 			HealthSwitch: 0,
 			UnHealthNum:  3,
 			IntervalTime: 5,
@@ -569,10 +567,10 @@ func getHealthCheck(listener *cloudprovider.SLoadbalancerListenerCreateOptions) 
 	return hc
 }
 
-func getListenerRuleHealthCheck(rule *cloudprovider.SLoadbalancerListenerRule) *healthCheck {
-	var hc *healthCheck
+func getListenerRuleHealthCheck(rule *cloudprovider.SLoadbalancerListenerRule) *HealthCheck {
+	var hc *HealthCheck
 	if rule.HealthCheck == api.LB_BOOL_ON {
-		hc = &healthCheck{
+		hc = &HealthCheck{
 			HealthSwitch: 1,
 			UnHealthNum:  rule.HealthCheckFail,
 			IntervalTime: rule.HealthCheckInterval,
@@ -588,7 +586,7 @@ func getListenerRuleHealthCheck(rule *cloudprovider.SLoadbalancerListenerRule) *
 			hc.HTTPCheckPath = rule.HealthCheckURI
 		}
 	} else {
-		hc = &healthCheck{
+		hc = &HealthCheck{
 			HealthSwitch: 0,
 			UnHealthNum:  3,
 			IntervalTime: 5,
@@ -600,10 +598,10 @@ func getListenerRuleHealthCheck(rule *cloudprovider.SLoadbalancerListenerRule) *
 	return hc
 }
 
-func getCertificate(listener *cloudprovider.SLoadbalancerListenerCreateOptions) *certificate {
-	var cert *certificate
+func getCertificate(listener *cloudprovider.SLoadbalancerListenerCreateOptions) *Certificate {
+	var cert *Certificate
 	if len(listener.CertificateId) > 0 {
-		cert = &certificate{
+		cert = &Certificate{
 			SSLMode:  "UNIdIRECTIONAL",
 			CERTCAId: "",
 			CERTId:   listener.CertificateId,
@@ -661,7 +659,7 @@ func getScheduler(listener *cloudprovider.SLoadbalancerListenerCreateOptions) *s
 	return &sch
 }
 
-func healthCheckParams(t LB_TYPE, params map[string]string, hc *healthCheck, paramPrefix string) map[string]string {
+func healthCheckParams(t LB_TYPE, params map[string]string, hc *HealthCheck, paramPrefix string) map[string]string {
 	if hc == nil {
 		return params
 	}
@@ -698,4 +696,102 @@ func (self *SLBListener) GetClientIdleTimeout() int {
 
 func (self *SLBListener) GetBackendConnectTimeout() int {
 	return 0
+}
+
+/*
+https://cloud.tencent.com/document/product/214/30693
+SNI 特性是什么？？
+*/
+func (self *SRegion) CreateLoadbalancerListener(lbId string, opts *cloudprovider.SLoadbalancerListenerCreateOptions) (string, error) {
+	params := map[string]string{
+		"LoadBalancerId":  lbId,
+		"Ports.0":         fmt.Sprintf("%d", opts.ListenerPort),
+		"Protocol":        opts.ListenerType,
+		"ListenerNames.0": opts.Name,
+	}
+
+	switch opts.Scheduler {
+	case api.LB_SCHEDULER_WRR:
+		params["Scheduler"] = "WRR"
+	case api.LB_SCHEDULER_WLC:
+		params["Scheduler"] = "LEAST_CONN"
+	case api.LB_SCHEDULER_SCH:
+		params["Scheduler"] = "IP_HASH"
+	}
+
+	switch opts.ListenerType {
+	case api.LB_LISTENER_TYPE_TCP:
+		if opts.StickySession == api.LB_STICKY_SESSION_TYPE_SERVER && opts.StickySessionCookieTimeout > 0 {
+			params["SessionExpireTime"] = fmt.Sprintf("%d", opts.StickySessionCookieTimeout)
+		}
+		if opts.HealthCheck == api.LB_BOOL_ON {
+			params["HealthCheck.HealthSwitch"] = "1"
+			params["HealthCheck.TimeOut"] = fmt.Sprintf("%d", opts.HealthCheckTimeout)
+			params["HealthCheck.IntervalTime"] = fmt.Sprintf("%d", opts.HealthCheckInterval)
+			params["HealthCheck.HealthNum"] = fmt.Sprintf("%d", opts.HealthCheckRise)
+			params["HealthCheck.UnHealthNum"] = fmt.Sprintf("%d", opts.HealthCheckFail)
+			switch opts.HealthCheck {
+			case api.LB_HEALTH_CHECK_TCP:
+				params["HealthCheck.CheckType"] = "TCP"
+			case api.LB_HEALTH_CHECK_HTTP:
+				params["HealthCheck.HttpVersion"] = "HTTP/1.1"
+				params["HealthCheck.CheckType"] = "HTTP"
+				httpCode := 0
+				for _, code := range strings.Split(opts.HealthCheckHttpCode, ",") {
+					switch code {
+					case api.LB_HEALTH_CHECK_HTTP_CODE_1xx:
+						httpCode += 1
+					case api.LB_HEALTH_CHECK_HTTP_CODE_2xx:
+						httpCode += 2
+					case api.LB_HEALTH_CHECK_HTTP_CODE_3xx:
+						httpCode += 4
+					case api.LB_HEALTH_CHECK_HTTP_CODE_4xx:
+						httpCode += 8
+					case api.LB_HEALTH_CHECK_HTTP_CODE_5xx:
+						httpCode += 16
+					}
+				}
+				params["HealthCheck.HttpCheckPath"] = opts.HealthCheckURI
+				params["HealthCheck.HttpCheckDomain"] = opts.HealthCheckDomain
+				params["HealthCheck.HttpCode"] = fmt.Sprintf("%d", httpCode)
+			}
+		}
+	case api.LB_LISTENER_TYPE_UDP:
+		if opts.StickySession == api.LB_STICKY_SESSION_TYPE_SERVER && opts.StickySessionCookieTimeout > 0 {
+			params["SessionExpireTime"] = fmt.Sprintf("%d", opts.StickySessionCookieTimeout)
+		}
+		if opts.HealthCheck == api.LB_BOOL_ON {
+			params["HealthCheck.HealthSwitch"] = "1"
+			params["HealthCheck.TimeOut"] = fmt.Sprintf("%d", opts.HealthCheckTimeout)
+			params["HealthCheck.IntervalTime"] = fmt.Sprintf("%d", opts.HealthCheckInterval)
+			params["HealthCheck.HealthNum"] = fmt.Sprintf("%d", opts.HealthCheckRise)
+			params["HealthCheck.UnHealthNum"] = fmt.Sprintf("%d", opts.HealthCheckFail)
+			switch opts.HealthCheck {
+			case api.LB_HEALTH_CHECK_PING:
+				params["HealthCheck.CheckType"] = "PING"
+				params["HealthCheck.CheckPort"] = "-1"
+			}
+		}
+	case api.LB_LISTENER_TYPE_HTTP:
+	case api.LB_LISTENER_TYPE_HTTPS:
+		if opts.EnableHTTP2 {
+			params["KeepaliveEnable"] = "1"
+		}
+	}
+
+	resp, err := self.clbRequest("CreateListener", params)
+	if err != nil {
+		return "", errors.Wrapf(err, "CreateListener")
+	}
+
+	ret := []string{}
+	err = resp.Unmarshal(&ret, "ListenerIds")
+	if err != nil {
+		return "", errors.Wrapf(err, "resp.Unmarshal")
+	}
+
+	for i := range ret {
+		return ret[i], nil
+	}
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, resp.String())
 }
