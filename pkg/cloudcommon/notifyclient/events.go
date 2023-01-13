@@ -42,7 +42,6 @@ const (
 var (
 	Event SEvent
 
-	ActionCreateFailed   = api.ActionCreateFailed
 	ActionCreate         = api.ActionCreate
 	ActionDelete         = api.ActionDelete
 	ActionUpdate         = api.ActionUpdate

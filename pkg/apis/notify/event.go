@@ -22,7 +22,6 @@ import (
 var (
 	Event SNotifyEvent
 
-	ActionCreateFailed   SAction = "create_failed"
 	ActionCreate         SAction = "create"
 	ActionDelete         SAction = "delete"
 	ActionPendingDelete  SAction = "pending_delete"

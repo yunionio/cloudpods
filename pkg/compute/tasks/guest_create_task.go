@@ -75,7 +75,7 @@ func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IS
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
 		Obj:    guest,
-		Action: notifyclient.ActionCreateFailed,
+		Action: notifyclient.ActionCreate,
 		IsFail: true,
 	})
 
@@ -188,7 +188,7 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
 		Obj:    guest,
-		Action: notifyclient.ActionCreateFailed,
+		Action: notifyclient.ActionCreate,
 		IsFail: true,
 	})
 	self.SetStageFailed(ctx, data)
