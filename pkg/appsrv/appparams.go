@@ -18,6 +18,8 @@ import (
 	"context"
 	"net/http"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/appctx"
 )
 
@@ -31,6 +33,7 @@ type SAppParams struct {
 	SkipTrace bool
 	Params    map[string]string
 	Path      []string
+	Body      jsonutils.JSONObject
 
 	Request  *http.Request
 	Response http.ResponseWriter
