@@ -34,6 +34,7 @@ func InitDB() error {
 		ReceiverNotificationManager,
 		TopicManager,
 		RobotManager,
+		SubscriberManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
