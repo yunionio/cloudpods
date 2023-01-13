@@ -15,7 +15,10 @@
 package main
 
 import (
+	_ "yunion.io/x/cloudmux/pkg/multicloud/loader"
+
 	"yunion.io/x/onecloud/pkg/cloudmon/service"
+	_ "yunion.io/x/onecloud/pkg/mcclient/cloudpods/provider"
 )
 
 func main() {
