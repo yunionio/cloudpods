@@ -364,61 +364,6 @@ func (self *SRegion) DeleteLoadbalancer(lbid string) (string, error) {
 	return resp.GetString("RequestId")
 }
 
-/*
-/*
-https://cloud.tencent.com/document/product/214/30693
-SNI 特性是什么？？
-*/
-func (self *SRegion) CreateLoadbalancerListener(lbId string, opts *cloudprovider.SLoadbalancerListenerCreateOptions) (string, error) {
-	params := map[string]string{
-		"LoadBalancerId":  lbId,
-		"Ports.0":         fmt.Sprintf("%d", opts.ListenerPort),
-		"Protocol":        opts.ListenerType,
-		"ListenerNames.0": opts.Name,
-	}
-
-	switch opts.Scheduler {
-	case api.LB_SCHEDULER_WRR:
-		params["Scheduler"] = "WRR"
-	case api.LB_SCHEDULER_WLC:
-		params["Scheduler"] = "LEAST_CONN"
-	case api.LB_SCHEDULER_SCH:
-		params["Scheduler"] = "IP_HASH"
-	}
-
-	switch opts.ListenerType {
-	case api.LB_LISTENER_TYPE_TCP:
-		if opts.StickySession == api.LB_STICKY_SESSION_TYPE_SERVER && opts.StickySessionCookieTimeout > 0 {
-			params["SessionExpireTime"] = fmt.Sprintf("%d", opts.StickySessionCookieTimeout)
-		}
-	case api.LB_LISTENER_TYPE_UDP:
-		if opts.StickySession == api.LB_STICKY_SESSION_TYPE_SERVER && opts.StickySessionCookieTimeout > 0 {
-			params["SessionExpireTime"] = fmt.Sprintf("%d", opts.StickySessionCookieTimeout)
-		}
-	case api.LB_LISTENER_TYPE_HTTP:
-	case api.LB_LISTENER_TYPE_HTTPS:
-		if opts.EnableHTTP2 {
-			params["KeepaliveEnable"] = "1"
-		}
-	}
-
-	resp, err := self.clbRequest("CreateListener", params)
-	if err != nil {
-		return "", errors.Wrapf(err, "CreateListener")
-	}
-
-	ret := []string{}
-	err = resp.Unmarshal(&ret, "ListenerIds")
-	if err != nil {
-		return "", errors.Wrapf(err, "resp.Unmarshal")
-	}
-
-	for i := range ret {
-		return ret[i], nil
-	}
-	return "", errors.Wrapf(cloudprovider.ErrNotFound, resp.String())
-}
-
 // https://cloud.tencent.com/document/product/214/30683
 // 任务的当前状态。 0：成功，1：失败，2：进行中
 func (self *SRegion) GetLBTaskStatus(requestId string) (string, error) {
