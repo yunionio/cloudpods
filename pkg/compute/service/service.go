@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	_ "yunion.io/x/sqlchemy/backends"
@@ -87,7 +88,10 @@ func StartService() {
 		log.Errorf("try to init etcd options error: %v", err)
 	}
 
-	app := app_common.InitApp(baseOpts, true)
+	app := app_common.InitApp(baseOpts, true).
+		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
+			// send notify exception
+		})
 
 	cloudcommon.InitDB(dbOpts)
 
