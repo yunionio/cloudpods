@@ -304,7 +304,7 @@ func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]
 	if zone != nil {
 		region, _ = zone.GetRegion()
 	}
-	if region == nil {
+	if region == nil || !region.GetDriver().IsSupportedDBInstance() {
 		return nil
 	}
 
