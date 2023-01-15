@@ -33,6 +33,8 @@ type NotifyOption struct {
 
 	VerifyExpireInterval int `help:"expire interval of verify message; minutes" default:"2"`
 	VerifyValidInterval  int `help:"valid interval of verify message; miniutes" default:"20"`
+
+	SyncReceiverIntervalMinutes int `help:"interval to sync receivers from keystone, in minutes" default:"30"`
 }
 
 var Options NotifyOption
