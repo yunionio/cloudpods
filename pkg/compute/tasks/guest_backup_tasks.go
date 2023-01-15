@@ -191,7 +191,7 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuest(ctx context.Contex
 			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		}
 	} else {
-		self.SetStageComplete(ctx, nil)
+		self.onComplete(ctx, guest)
 	}
 }
 
@@ -213,6 +213,12 @@ func (self *GuestStartAndSyncToBackupTask) OnRequestSyncToBackup(ctx context.Con
 
 	guest.SetGuestBackupMirrorJobInProgress(ctx, self.UserCred)
 	guest.SetBackupGuestStatus(self.UserCred, api.VM_BLOCK_STREAM, "OnSyncToBackup")
+	self.onComplete(ctx, guest)
+}
+
+func (self *GuestStartAndSyncToBackupTask) onComplete(ctx context.Context, guest *models.SGuest) {
+	guestStatus, _ := self.Params.GetString("guest_status")
+	guest.SetStatus(self.UserCred, guestStatus, "on GuestStartAndSyncToBackupTask completed")
 	self.SetStageComplete(ctx, nil)
 }
 
