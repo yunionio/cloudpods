@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -408,7 +409,13 @@ func (self *SKafka) syncRemoveCloudKafka(ctx context.Context, userCred mcclient.
 // 同步资源属性
 func (self *SKafka) SyncWithCloudKafka(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKafka) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		self.ExternalId = ext.GetGlobalId()
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, ext.GetName())
+			if len(newName) > 0 {
+				self.Name = newName
+			}
+		}
+
 		self.Status = ext.GetStatus()
 		self.InstanceType = ext.GetInstanceType()
 		self.Version = ext.GetVersion()

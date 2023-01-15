@@ -446,6 +446,13 @@ func (self *SFileSystem) SyncAllWithCloudFileSystem(ctx context.Context, userCre
 
 func (self *SFileSystem) SyncWithCloudFileSystem(ctx context.Context, userCred mcclient.TokenCredential, fs cloudprovider.ICloudFileSystem) error {
 	diff, err := db.Update(self, func() error {
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, fs.GetName())
+			if len(newName) > 0 {
+				self.Name = newName
+			}
+		}
+
 		self.Status = fs.GetStatus()
 		self.StorageType = fs.GetStorageType()
 		self.Protocol = fs.GetProtocol()

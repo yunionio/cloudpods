@@ -636,7 +636,13 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
 	vpc, _ := self.GetVpc()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		extNet.Refresh()
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, extNet.GetName())
+			if len(newName) > 0 {
+				self.Name = newName
+			}
+		}
+
 		self.Status = extNet.GetStatus()
 		self.GuestIpStart = extNet.GetIpStart()
 		self.GuestIpEnd = extNet.GetIpEnd()

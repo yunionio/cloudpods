@@ -2761,7 +2761,7 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 		return errors.Wrap(err, "GetIVMById")
 	}
 
-	if options.SyncPurgeRemovedResources.Contains(self.Keyword()) {
+	if options.Options.EnableSyncPurge {
 		log.Debugf("purge removed resource %s", self.Name)
 		err := self.purge(ctx, userCred)
 		if err != nil {
@@ -2845,7 +2845,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	}
 
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		if options.NameSyncResources.Contains(self.Keyword()) && !recycle {
+		if options.Options.EnableSyncName && !recycle {
 			newName, _ := db.GenerateAlterName(self, extVM.GetName())
 			if len(newName) > 0 && newName != self.Name {
 				self.Name = newName
@@ -3024,7 +3024,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
-		if options.NameSyncResources.Contains(manager.Keyword()) {
+		if options.Options.EnableSyncName {
 			guest.Name = extVM.GetName()
 		} else {
 			newName, err := db.GenerateName(ctx, manager, syncOwnerId, extVM.GetName())

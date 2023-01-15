@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -146,6 +147,13 @@ func (self *SIPv6Gateway) syncRemoveCloudIPv6Gateway(ctx context.Context, userCr
 
 func (self *SIPv6Gateway) SyncWithCloudIPv6Gateway(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudIPv6Gateway, provider *SCloudprovider) error {
 	diff, err := db.Update(self, func() error {
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, ext.GetName())
+			if len(newName) > 0 {
+				self.Name = newName
+			}
+		}
+
 		self.Status = ext.GetStatus()
 		self.InstanceType = ext.GetInstanceType()
 		return nil

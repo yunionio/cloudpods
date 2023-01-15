@@ -885,7 +885,12 @@ func (self *SSnapshot) syncRemoveCloudSnapshot(ctx context.Context, userCred mcc
 // Only sync snapshot status
 func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, syncOwnerId mcclient.IIdentityProvider, region *SCloudregion) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		// self.Name = ext.GetName()
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(self, ext.GetName())
+			if len(newName) > 0 {
+				self.Name = newName
+			}
+		}
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()
 		self.Size = int(ext.GetSizeMb())
