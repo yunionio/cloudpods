@@ -548,11 +548,13 @@ func (self *SCachedimage) canDeleteLastCache() bool {
 
 func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, managerId string) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		newName, err := db.GenerateAlterName(self, image.GetName())
-		if err != nil {
-			return errors.Wrap(err, "GenerateAlterName")
+		if options.Options.EnableSyncName {
+			newName, err := db.GenerateAlterName(self, image.GetName())
+			if err != nil {
+				return errors.Wrap(err, "GenerateAlterName")
+			}
+			self.Name = newName
 		}
-		self.Name = newName
 		self.Size = image.GetSizeByte()
 		self.ExternalId = image.GetGlobalId()
 		self.ImageType = string(image.GetImageType())
