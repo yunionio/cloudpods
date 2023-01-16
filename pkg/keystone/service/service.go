@@ -76,8 +76,8 @@ func StartService() {
 	app := common_app.InitApp(&opts.BaseOptions, true).
 		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
 			ctx := context.Background()
-			session := auth.GetAdminSession(ctx, opts.Region)
-			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
+			token := tokens.GetDefaultAdminCredToken()
+			notifyclient.EventNotifyServiceAbnormal(ctx, token, consts.GetServiceType(), method, path, body, err)
 		})
 
 	cloudcommon.InitDB(&opts.DBOptions)
