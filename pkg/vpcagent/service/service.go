@@ -21,11 +21,15 @@ import (
 	"sync"
 	"syscall"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
 
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
 	"yunion.io/x/onecloud/pkg/vpcagent/worker"
 )
@@ -43,7 +47,12 @@ func StartService() {
 		log.Fatalf("opts validate: %s", err)
 	}
 
-	app := app_common.InitApp(&opts.BaseOptions, false)
+	app := app_common.InitApp(&opts.BaseOptions, true).
+		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
+			ctx := context.Background()
+			session := auth.GetAdminSession(ctx, commonOpts.Region)
+			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
+		})
 
 	w := worker.NewWorker(opts)
 	if w == nil {
