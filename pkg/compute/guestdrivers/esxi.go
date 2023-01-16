@@ -161,6 +161,28 @@ func (self *SESXiGuestDriver) ChooseHostStorage(host *models.SHost, guest *model
 	}
 }
 
+func (self *SESXiGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
+	iRegion, err := host.GetIRegion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ihost, err := iRegion.GetIHostById(host.ExternalId)
+	if err != nil {
+		return nil, err
+	}
+	iVM, err := ihost.GetIVMById(guest.ExternalId)
+	if err != nil {
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+		iVM, err = iRegion.GetIVMById(guest.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return iVM.GetVNCInfo(input)
+}
+
 func (self *SESXiGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return options.Options.DefaultDiskSizeMB / 1024
 }
