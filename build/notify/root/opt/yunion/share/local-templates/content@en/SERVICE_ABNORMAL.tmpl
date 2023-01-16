@@ -1,0 +1,8 @@
+{{- $d := .resource_details -}}
+Service  {{ $d.service_name }} abnormal
+Method {{ $d.method }}
+Path {{ $d.path }} 
+{{- if $d.body }}
+Body {{ $d.body -}}
+{{ end }}
+Error {{ $d.error }}
