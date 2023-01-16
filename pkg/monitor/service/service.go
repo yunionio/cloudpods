@@ -21,13 +21,16 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	_ "yunion.io/x/onecloud/pkg/monitor/alerting"
@@ -56,7 +59,12 @@ func StartService() {
 	dbOpts := &opts.DBOptions
 	baseOpts := &opts.BaseOptions
 
-	app := common_app.InitApp(baseOpts, false)
+	app := common_app.InitApp(baseOpts, true).
+		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
+			ctx := context.Background()
+			session := auth.GetAdminSession(ctx, commonOpts.Region)
+			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
+		})
 
 	cloudcommon.InitDB(dbOpts)
 

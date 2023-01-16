@@ -15,17 +15,22 @@
 package service
 
 import (
+	"context"
 	"os"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
-	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudnet/models"
 	"yunion.io/x/onecloud/pkg/cloudnet/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 func StartService() {
@@ -33,14 +38,19 @@ func StartService() {
 	common_options.ParseOptions(opts, os.Args, "cloudnet.conf", "cloudnet")
 
 	commonOpts := &opts.CommonOptions
-	common_app.InitAuth(commonOpts, func() {
+	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete")
 	})
 
 	dbOpts := &opts.DBOptions
 	baseOpts := &opts.BaseOptions
 
-	app := common_app.InitApp(baseOpts, false)
+	app := app_common.InitApp(baseOpts, true).
+		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
+			ctx := context.Background()
+			session := auth.GetAdminSession(ctx, commonOpts.Region)
+			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
+		})
 
 	cloudcommon.InitDB(dbOpts)
 
@@ -49,5 +59,5 @@ func StartService() {
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	common_app.ServeForever(app, baseOpts)
+	app_common.ServeForever(app, baseOpts)
 }
