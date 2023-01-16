@@ -15,19 +15,24 @@
 package service
 
 import (
+	"context"
 	"os"
 	"time"
 
 	_ "yunion.io/x/cloudmux/pkg/multicloud/loader"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudmon/misc"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/cloudmon/resources"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 func StartService() {
@@ -59,6 +64,11 @@ func StartService() {
 		go cron.Start()
 	}
 
-	app := app_common.InitApp(baseOpts, true)
+	app := app_common.InitApp(baseOpts, true).
+		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
+			ctx := context.Background()
+			session := auth.GetAdminSession(ctx, commonOpts.Region)
+			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
+		})
 	app_common.ServeForever(app, baseOpts)
 }

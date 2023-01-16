@@ -15,24 +15,29 @@
 package service
 
 import (
+	"context"
 	"os"
 	"time"
 
 	_ "yunion.io/x/cloudmux/pkg/multicloud/loader"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
-	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
 	_ "yunion.io/x/onecloud/pkg/cloudid/policy"
 	"yunion.io/x/onecloud/pkg/cloudid/saml"
 	_ "yunion.io/x/onecloud/pkg/cloudid/tasks"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 func StartService() {
@@ -42,12 +47,17 @@ func StartService() {
 	commonOpts := &opts.CommonOptions
 	common_options.ParseOptions(opts, os.Args, "cloudid.conf", api.SERVICE_TYPE)
 
-	common_app.InitAuth(commonOpts, func() {
+	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
-	app := common_app.InitApp(baseOpts, false)
+	app := app_common.InitApp(baseOpts, true).
+		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
+			ctx := context.Background()
+			session := auth.GetAdminSession(ctx, commonOpts.Region)
+			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
+		})
 
 	cloudcommon.InitDB(dbOpts)
 
@@ -76,5 +86,5 @@ func StartService() {
 		defer cron.Stop()
 	}
 
-	common_app.ServeForever(app, baseOpts)
+	app_common.ServeForever(app, baseOpts)
 }

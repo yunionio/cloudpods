@@ -30,12 +30,14 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
-	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/elect"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
@@ -62,7 +64,7 @@ func StartService() {
 		commonOpts.Port = opts.PortV2
 	}
 
-	app_common.InitAuth(commonOpts, func() {
+	common_app.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
@@ -88,9 +90,11 @@ func StartService() {
 		log.Errorf("try to init etcd options error: %v", err)
 	}
 
-	app := app_common.InitApp(baseOpts, true).
+	app := common_app.InitApp(baseOpts, true).
 		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
-			// send notify exception
+			ctx := context.Background()
+			session := auth.GetAdminSession(ctx, commonOpts.Region)
+			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
 		})
 
 	cloudcommon.InitDB(dbOpts)
@@ -193,7 +197,7 @@ func StartService() {
 		autoscaling.ASController.Init(options.Options.SASControllerOptions, cron)
 	}
 
-	app_common.ServeForever(app, baseOpts)
+	common_app.ServeForever(app, baseOpts)
 }
 
 func initDefaultEtcdClient(opts *common_options.DBOptions) error {
@@ -228,7 +232,7 @@ func initDefaultEtcdClient(opts *common_options.DBOptions) error {
 }
 
 func initEtcdLockOpts(opts *options.ComputeOptions) error {
-	etcdEndpoint, err := app_common.FetchEtcdServiceInfo()
+	etcdEndpoint, err := common_app.FetchEtcdServiceInfo()
 	if err != nil {
 		if errors.Cause(err) == httperrors.ErrNotFound {
 			return nil
