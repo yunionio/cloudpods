@@ -49,7 +49,9 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -621,4 +623,47 @@ func (sm *SSubscriberManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field 
 		return sm.Query("type").Distinct(), nil
 	}
 	return q, nil
+}
+
+func (sm *SSubscriberManager) InitializeData() error {
+	ctx := context.Background()
+	session := auth.GetAdminSession(ctx, options.Options.Region)
+	// 获取系统管理员角色id
+	params := map[string]interface{}{
+		"project_domain": "default",
+	}
+	role, err := identity.RolesV3.Get(session, "admin", jsonutils.Marshal(params))
+	if err != nil {
+		return errors.Wrap(err, "identity.RolesV3.List")
+	}
+	roleId, _ := role.GetString("id")
+	q := TopicManager.Query()
+	topics := []STopic{}
+	err = db.FetchModelObjects(TopicManager, q, &topics)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects topic")
+	}
+	for _, topic := range topics {
+		q := sm.Query()
+		q = q.Equals("topic_id", topic.Id)
+		q = q.Equals("type", api.SUBSCRIBER_TYPE_ROLE)
+		q = q.Equals("identification", roleId)
+		count, err := q.CountWithError()
+		if err != nil {
+			return errors.Wrap(err, "CountWithError")
+		}
+		if count != 0 {
+			continue
+		}
+
+		subscriber := SSubscriber{}
+		subscriber.Type = api.SUBSCRIBER_TYPE_ROLE
+		subscriber.Identification = roleId
+		subscriber.TopicID = topic.Id
+		subscriber.Scope = api.SUBSCRIBER_SCOPE_SYSTEM
+		subscriber.ResourceScope = api.SUBSCRIBER_SCOPE_SYSTEM
+		subscriber.Enabled = tristate.True
+		sm.TableSpec().Insert(ctx, &subscriber)
+	}
+	return nil
 }
