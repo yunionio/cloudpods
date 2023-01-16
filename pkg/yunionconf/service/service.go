@@ -15,16 +15,21 @@
 package service
 
 import (
+	"context"
 	"os"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/yunionconf"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/yunionconf/models"
 	"yunion.io/x/onecloud/pkg/yunionconf/options"
 	_ "yunion.io/x/onecloud/pkg/yunionconf/policy"
@@ -43,7 +48,12 @@ func StartService() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	app := app_common.InitApp(baseOpts, true)
+	app := app_common.InitApp(baseOpts, true).
+		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
+			ctx := context.Background()
+			session := auth.GetAdminSession(ctx, baseOpts.Region)
+			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
+		})
 	InitHandlers(app)
 	db.AppDBInit(app)
 

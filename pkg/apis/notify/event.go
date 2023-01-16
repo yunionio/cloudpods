@@ -58,6 +58,7 @@ var (
 	ActionWorkerBlock        SAction = "woker_block"
 	ActionNetOutOfSync       SAction = "net_out_of_sync"
 	ActionMysqlOutOfSync     SAction = "mysql_out_of_sync"
+	ActionServiceAbnormal    SAction = "service_abnormal"
 
 	ResultFailed  SResult = "failed"
 	ResultSucceed SResult = "succeed"
