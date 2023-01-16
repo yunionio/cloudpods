@@ -320,6 +320,29 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 	notifyClientWorkerMan.Run(&t, nil, nil)
 }
 
+func EventNotifyServiceAbnormal(ctx context.Context, userCred mcclient.TokenCredential, service, method, path string, body jsonutils.JSONObject, err error) {
+	event := api.Event.WithAction(api.ActionServiceAbnormal).WithResourceType(api.TOPIC_RESOURCE_SERVICE)
+	obj := jsonutils.NewDict()
+	if body != nil {
+		obj.Set("body", jsonutils.NewString(body.PrettyString()))
+	}
+	obj.Set("methodStr", jsonutils.NewString(method))
+	obj.Set("path", jsonutils.NewString(path))
+	obj.Set("error", jsonutils.NewString(err.Error()))
+	obj.Set("service_name", jsonutils.NewString(service))
+	params := api.NotificationManagerEventNotifyInput{
+		ReceiverIds:     []string{userCred.GetUserId()},
+		ResourceDetails: obj,
+		Event:           event.String(),
+		AdvanceDays:     0,
+		Priority:        string(npk.NotifyPriorityNormal),
+	}
+	t := eventTask{
+		params: params,
+	}
+	notifyClientWorkerMan.Run(&t, nil, nil)
+}
+
 func systemEventNotify(ctx context.Context, action api.SAction, resType string, result api.SResult, priority string, obj *jsonutils.JSONDict) {
 	event := api.Event.WithAction(action).WithResourceType(resType).WithResult(result)
 	params := api.NotificationManagerEventNotifyInput{

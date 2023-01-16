@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"html"
 	"html/template"
 	"io/ioutil"
 	"os"
@@ -162,8 +163,8 @@ func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang stri
 		}
 	}
 
-	out.Title = title
-	out.Message = content
+	out.Title = html.UnescapeString(title)
+	out.Message = html.UnescapeString(content)
 	return out, nil
 }
 
