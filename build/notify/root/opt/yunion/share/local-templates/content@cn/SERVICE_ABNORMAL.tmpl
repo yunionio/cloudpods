@@ -1,0 +1,8 @@
+{{- $d := .resource_details -}}
+服务: {{ $d.service_name }} 异常。
+方法: {{ $d.method }}
+路径: {{ $d.path }} 
+{{- if $d.body }}
+请求: {{ $d.body -}}
+{{ end }}
+错误: {{ $d.error }}

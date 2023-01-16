@@ -102,6 +102,7 @@ const (
 	DefaultPasswordExpireDue7Day   = "password expire due 7 day"
 	DefaultNetOutOfSync            = "net out of sync"
 	DefaultMysqlOutOfSync          = "mysql out of sync"
+	DefaultServiceAbnormal         = "service abnormal"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -126,6 +127,7 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultPasswordExpireDue7Day,
 		DefaultNetOutOfSync,
 		DefaultMysqlOutOfSync,
+		DefaultServiceAbnormal,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -402,6 +404,15 @@ func (sm *STopicManager) InitializeData() error {
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.AdvanceDays = 0
 			t.Results = tristate.True
+		case DefaultServiceAbnormal:
+			t.addResources(
+				notify.TOPIC_RESOURCE_SERVICE,
+			)
+			t.addAction(
+				notify.ActionServiceAbnormal,
+			)
+			t.Results = tristate.True
+			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 		}
 		if topic == nil {
 			err := sm.TableSpec().Insert(ctx, t)
@@ -641,6 +652,7 @@ func init() {
 			notify.TOPIC_RESOURCE_ACTION_LOG:               37,
 			notify.TOPIC_RESOURCE_ACCOUNT_STATUS:           38,
 			notify.TOPIC_RESOURCE_NET:                      39,
+			notify.TOPIC_RESOURCE_SERVICE:                  40,
 		},
 	)
 	converter.registerAction(
@@ -673,6 +685,7 @@ func init() {
 			notify.ActionPasswordExpireSoon: 25,
 			notify.ActionNetOutOfSync:       26,
 			notify.ActionMysqlOutOfSync:     27,
+			notify.ActionServiceAbnormal:    28,
 		},
 	)
 }

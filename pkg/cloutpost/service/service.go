@@ -15,16 +15,21 @@
 package service
 
 import (
+	"context"
 	"os"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd/models"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloutpost/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 const (
@@ -47,7 +52,12 @@ func StartService() {
 	}
 	defer etcd.CloseDefaultEtcdClient()
 
-	app := app_common.InitApp(baseOpts, false)
+	app := app_common.InitApp(baseOpts, true).
+		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
+			ctx := context.Background()
+			session := auth.GetAdminSession(ctx, baseOpts.Region)
+			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
+		})
 	db.AppDBInit(app)
 	initHandlers(app)
 
