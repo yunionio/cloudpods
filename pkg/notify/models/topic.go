@@ -51,15 +51,14 @@ func parseEvent(es string) (notify.SNotifyEvent, error) {
 }
 
 type STopicManager struct {
-	db.SStandaloneResourceBaseManager
-	db.SEnabledResourceBaseManager
+	db.SEnabledStatusStandaloneResourceBaseManager
 }
 
 var TopicManager *STopicManager
 
 func init() {
 	TopicManager = &STopicManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
 			STopic{},
 			"topic_tbl",
 			"topic",
@@ -70,8 +69,7 @@ func init() {
 }
 
 type STopic struct {
-	db.SStandaloneResourceBase
-	db.SEnabledResourceBase
+	db.SEnabledStatusStandaloneResourceBase
 
 	Type              string            `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
 	Resources         uint64            `nullable:"false"`
@@ -569,7 +567,7 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 	} else {
 		q = q.Equals("results", false)
 	}
-
+	q = q.Equals("enabled", true)
 	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("resources"), 1<<resourceV), 0))
 	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("actions"), 1<<actionV), 0))
 	var topics []STopic
@@ -593,14 +591,6 @@ func (t *STopic) PreCheckPerformAction(
 		}
 	}
 	return nil
-}
-
-func (t *STopic) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input notify.PerformDisableInput) (jsonutils.JSONObject, error) {
-	err := db.EnabledPerformEnable(t, ctx, userCred, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "EnabledPerformEnable")
-	}
-	return nil, nil
 }
 
 func init() {
