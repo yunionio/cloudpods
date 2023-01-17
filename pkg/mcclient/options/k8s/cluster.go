@@ -286,13 +286,17 @@ func (o ClusterSyncOptions) Params() (jsonutils.JSONObject, error) {
 
 type ClusterDeployOptions struct {
 	IdentOptions
-	Force bool `help:"force deploy"`
+	Force  bool   `help:"force deploy"`
+	Action string `help:"deploy action" choices:"run|upgrade-master-config"`
 }
 
 func (o ClusterDeployOptions) Params() (jsonutils.JSONObject, error) {
 	param := jsonutils.NewDict()
 	if o.Force {
 		param.Add(jsonutils.JSONTrue, "force")
+	}
+	if o.Action != "" {
+		param.Add(jsonutils.NewString(o.Action), "action")
 	}
 	return param, nil
 }
