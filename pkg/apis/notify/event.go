@@ -59,6 +59,7 @@ var (
 	ActionNetOutOfSync       SAction = "net_out_of_sync"
 	ActionMysqlOutOfSync     SAction = "mysql_out_of_sync"
 	ActionServiceAbnormal    SAction = "service_abnormal"
+	ActionServerPanicked     SAction = "server_panicked"
 
 	ResultFailed  SResult = "failed"
 	ResultSucceed SResult = "succeed"
