@@ -85,7 +85,6 @@ func (rm *SRobotManager) InitializeData() error {
 	}
 	rq := RobotManager.Query()
 	rq = rq.Filter(sqlchemy.OR(sqlchemy.IsEmpty(rq.Field("tenant_id")), sqlchemy.Equals(rq.Field("tenant_id"), "system")))
-	rq.DebugQuery()
 	npRobots := make([]SRobot, 0)
 	err = db.FetchModelObjects(RobotManager, rq, &npRobots)
 	if err != nil {

@@ -140,13 +140,11 @@ func (self *SGuest) PerformEvent(ctx context.Context, userCred mcclient.TokenCre
 
 		db.OpsLog.LogEvent(self, db.ACT_GUEST_PANICKED, data.String(), userCred)
 		logclient.AddSimpleActionLog(self, logclient.ACT_GUEST_PANICKED, data.String(), userCred, true)
-		self.NotifyServerEvent(
-			ctx,
-			userCred,
-			notifyclient.SERVER_PANICKED,
-			notify.NotifyPriorityNormal,
-			false, kwargs, true,
-		)
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionServerPanicked,
+			IsFail: true,
+		})
 	}
 	return nil, nil
 }
