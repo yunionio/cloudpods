@@ -229,10 +229,9 @@ func (cli *SESXiClient) connect() error {
 			TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
 			IdleConnTimeout:       time.Minute * 1,
 			TLSHandshakeTimeout:   time.Minute * 1,
-			ResponseHeaderTimeout: time.Minute * 1,
 			DialContext: (&net.Dialer{
-				Timeout:   10 * time.Second,
-				KeepAlive: 5 * time.Second,
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
 			}).DialContext,
 		}
 		httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
