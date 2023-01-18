@@ -101,6 +101,7 @@ const (
 	DefaultNetOutOfSync            = "net out of sync"
 	DefaultMysqlOutOfSync          = "mysql out of sync"
 	DefaultServiceAbnormal         = "service abnormal"
+	DefaultServerPanicked          = "server panicked"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -126,6 +127,7 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultNetOutOfSync,
 		DefaultMysqlOutOfSync,
 		DefaultServiceAbnormal,
+		DefaultServerPanicked,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -411,6 +413,15 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.Results = tristate.True
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+		case DefaultServerPanicked:
+			t.addResources(
+				notify.TOPIC_RESOURCE_SERVER,
+			)
+			t.addAction(
+				notify.ActionServerPanicked,
+			)
+			t.Results = tristate.False
+			t.Type = notify.TOPIC_TYPE_RESOURCE
 		}
 		if topic == nil {
 			err := sm.TableSpec().Insert(ctx, t)
@@ -676,6 +687,7 @@ func init() {
 			notify.ActionNetOutOfSync:       26,
 			notify.ActionMysqlOutOfSync:     27,
 			notify.ActionServiceAbnormal:    28,
+			notify.ActionServerPanicked:     29,
 		},
 	)
 }
