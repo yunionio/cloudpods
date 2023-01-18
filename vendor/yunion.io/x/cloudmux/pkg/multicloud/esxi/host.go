@@ -770,6 +770,10 @@ func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreate
 	return self.DoCreateVM(ctx, ds, params)
 }
 
+func (self *SHost) SearchTemplateVM(id string) (*SVirtualMachine, error) {
+	return self.manager.SearchTemplateVM(id)
+}
+
 func (self *SHost) needScsi(disks []SDiskInfo) bool {
 	if len(disks) == 0 {
 		return false
