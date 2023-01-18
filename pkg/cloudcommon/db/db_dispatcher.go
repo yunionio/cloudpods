@@ -1309,20 +1309,22 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, errors.Wrap(err, "isClassRbacAllowed")
 	}
 
-	dryRun := jsonutils.QueryBoolean(data, "dry_run", false)
-
-	if !dryRun && InitPendingUsagesInContext != nil {
+	// initialize pending usage in context any way
+	if InitPendingUsagesInContext != nil {
 		ctx = InitPendingUsagesInContext(ctx)
 	}
+	dryRun := jsonutils.QueryBoolean(data, "dry_run", false)
 
+	// inject tag filters imposed by policy
 	data.(*jsonutils.JSONDict).Update(policyResult.Json())
 
 	model, err := DoCreate(manager, ctx, userCred, query, data, ownerId)
 	if err != nil {
-		if !dryRun && CancelPendingUsagesInContext != nil {
+		// validate failed, clean pending usage
+		if CancelPendingUsagesInContext != nil {
 			e := CancelPendingUsagesInContext(ctx, userCred)
 			if e != nil {
-				err = errors.Wrapf(err, e.Error())
+				err = errors.Wrapf(err, "CancelPendingUsagesInContext fail %s", e.Error())
 			}
 		}
 		failErr := manager.OnCreateFailed(ctx, userCred, ownerId, query, data)
@@ -1333,6 +1335,13 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 	}
 
 	if dryRun {
+		// dry run, clean pending usage
+		if CancelPendingUsagesInContext != nil {
+			err := CancelPendingUsagesInContext(ctx, userCred)
+			if err != nil {
+				return nil, errors.Wrap(err, "CancelPendingUsagesInContext")
+			}
+		}
 		return getItemDetails(manager, model, ctx, userCred, query)
 	}
 
