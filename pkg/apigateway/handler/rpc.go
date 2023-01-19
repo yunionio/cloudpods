@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
-	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/utils"
 
@@ -130,12 +129,12 @@ func RpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 
 		httperrors.BadGatewayError(ctx, w, "recv invalid data")
 	} else {
-		v, ok := reterr.Interface().(*httputils.JSONClientError)
+		ge, ok := reterr.Interface().(error)
 		if ok {
-			httperrors.JsonClientError(ctx, w, v)
+			je := httperrors.NewGeneralError(ge)
+			httperrors.GeneralServerError(ctx, w, je)
 			return
 		}
-
 		httperrors.BadGatewayError(ctx, w, fmt.Sprintf("%s", reterr.Interface()))
 	}
 }
