@@ -184,7 +184,7 @@ func (self *SNetwork) ValidateDeleteCondition(ctx context.Context, data *api.Net
 			data.SNetworkNics = cnt
 		}
 	}
-	if data.Total > 0 {
+	if data.Total-data.ReserveVnics-data.NetworkinterfaceVnics > 0 {
 		return httperrors.NewNotEmptyError("not an empty network %s", jsonutils.Marshal(data.SNetworkNics).String())
 	}
 
@@ -273,10 +273,15 @@ func (self *SNetwork) GetIPRange() netutils.IPV4AddrRange {
 	return self.getIPRange()
 }
 
-func (self *SNetwork) getIPRange() netutils.IPV4AddrRange {
-	start, _ := netutils.NewIPV4Addr(self.GuestIpStart)
-	end, _ := netutils.NewIPV4Addr(self.GuestIpEnd)
+func (net *SNetwork) getIPRange() netutils.IPV4AddrRange {
+	start, _ := netutils.NewIPV4Addr(net.GuestIpStart)
+	end, _ := netutils.NewIPV4Addr(net.GuestIpEnd)
 	return netutils.NewIPV4AddrRange(start, end)
+}
+
+func (net *SNetwork) getNetRange() netutils.IPV4AddrRange {
+	start, _ := netutils.NewIPV4Addr(net.GuestIpStart)
+	return netutils.NewIPV4AddrRange(start.NetAddr(net.GuestIpMask), start.BroadcastAddr(net.GuestIpMask))
 }
 
 func isIpUsed(ipstr string, addrTable map[string]bool, recentUsedAddrTable map[string]bool) bool {
@@ -752,8 +757,12 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	return &net, nil
 }
 
-func (self *SNetwork) IsAddressInRange(address netutils.IPV4Addr) bool {
-	return self.getIPRange().Contains(address)
+func (net *SNetwork) IsAddressInRange(address netutils.IPV4Addr) bool {
+	return net.getIPRange().Contains(address)
+}
+
+func (net *SNetwork) IsAddressInNet(address netutils.IPV4Addr) bool {
+	return net.getNetRange().Contains(address)
 }
 
 func (self *SNetwork) isAddressUsed(address string) (bool, error) {
@@ -770,17 +779,10 @@ func (self *SNetwork) isAddressUsed(address string) (bool, error) {
 	}
 }
 
-func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverType string, isPublic tristate.TriState) (*SNetwork, error) {
-	address, err := netutils.NewIPV4Addr(ipAddr)
-	if err != nil {
-		return nil, err
-	}
+func (manager *SNetworkManager) fetchAllOnpremiseNetworks(serverType string, isPublic tristate.TriState) ([]SNetwork, error) {
 	q := manager.Query()
 	wires := WireManager.Query().SubQuery()
-	// vpcs := VpcManager.Query().SubQuery()
 	q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
-	// q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
-	// q = q.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
 	q = q.Filter(sqlchemy.Equals(wires.Field("vpc_id"), api.DEFAULT_VPC_ID))
 	if len(serverType) > 0 {
 		q = q.Filter(sqlchemy.Equals(q.Field("server_type"), serverType))
@@ -790,11 +792,22 @@ func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverTyp
 	} else if isPublic.IsFalse() {
 		q = q.Filter(sqlchemy.IsFalse(q.Field("is_public")))
 	}
-
 	nets := make([]SNetwork, 0)
-	err = db.FetchModelObjects(manager, q, &nets)
+	err := db.FetchModelObjects(manager, q, &nets)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return nets, nil
+}
+
+func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverType string, isPublic tristate.TriState) (*SNetwork, error) {
+	address, err := netutils.NewIPV4Addr(ipAddr)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewIPV4Addr")
+	}
+	nets, err := manager.fetchAllOnpremiseNetworks(serverType, isPublic)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchAllOnpremiseNetworks")
 	}
 	for _, n := range nets {
 		if n.IsAddressInRange(address) {
@@ -2475,9 +2488,10 @@ func (self *SNetwork) CheckInvalidToMerge(ctx context.Context, net *SNetwork, al
 	if self.VlanId != net.VlanId {
 		failReason = append(failReason, "vlan_id")
 	}
-	if self.ServerType != net.ServerType {
+	// Qiujian: allow merge networks of different server_type
+	/*if self.ServerType != net.ServerType {
 		failReason = append(failReason, "server_type")
-	}
+	}*/
 
 	if len(failReason) > 0 {
 		err := httperrors.NewInputParameterError("Invalid Target Network %s: inconsist %s", net.GetId(), strings.Join(failReason, ","))

@@ -208,6 +208,9 @@ type CloudaccountCreateInput struct {
 	ReadOnly bool `json:"read_only"`
 
 	SProjectMappingResourceInput
+
+	// 是否立即开始同步资源
+	StartSync *bool `json:"start_sync"`
 }
 
 type SProjectMappingResourceInput struct {

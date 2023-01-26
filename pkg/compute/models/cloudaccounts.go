@@ -585,18 +585,11 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	self.savePassword(self.Secret)
 
-	if self.Enabled.IsTrue() {
-		if self.Provider == api.CLOUD_PROVIDER_VMWARE {
-			zone, _ := data.GetString("zone")
-			self.StartSyncVMwareNetworkTask(ctx, userCred, "", zone)
-		} else {
-			self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
-		}
+	if self.Enabled.IsTrue() && jsonutils.QueryBoolean(data, "start_sync", true) {
+		self.StartSyncCloudAccountInfoTask(ctx, userCred, nil, "")
+	} else {
+		self.SubmitSyncAccountTask(ctx, userCred, nil)
 	}
-}
-
-func (ca *SCloudaccount) PerformSyncVMwareNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountSyncVMwareNetworkInput) (jsonutils.JSONObject, error) {
-	return nil, ca.StartSyncVMwareNetworkTask(ctx, userCred, "", input.Zone)
 }
 
 func (self *SCloudaccount) savePassword(secret string) error {
@@ -630,7 +623,7 @@ func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 		syncRange.DeepSync = true
 	}
 	if self.CanSync() || syncRange.Force {
-		return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
+		return nil, self.StartSyncCloudAccountInfoTask(ctx, userCred, &syncRange, "")
 	}
 	return nil, httperrors.NewInvalidStatusError("Unable to synchronize frequently")
 }
@@ -793,13 +786,13 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE_CREDENTIAL, account.Account, userCred, true)
 
 		self.SetStatus(userCred, api.CLOUD_PROVIDER_INIT, "Change credential")
-		self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
+		self.StartSyncCloudAccountInfoTask(ctx, userCred, nil, "")
 	}
 
 	return nil, nil
 }
 
-func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
+func (self *SCloudaccount) StartSyncCloudAccountInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	if syncRange != nil {
 		params.Add(jsonutils.Marshal(syncRange), "sync_range")
@@ -863,10 +856,10 @@ func (self *SCloudaccount) MarkEndSyncWithLock(ctx context.Context, userCred mcc
 		return errors.Error("some cloud providers not idle")
 	}
 
-	return self.markEndSync(userCred)
+	return self.MarkEndSync(userCred)
 }
 
-func (self *SCloudaccount) markEndSync(userCred mcclient.TokenCredential) error {
+func (self *SCloudaccount) MarkEndSync(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
@@ -2228,7 +2221,7 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 			FullSync: true,
 		},
 	}
-	account.StartSyncCloudProviderInfoTask(ctx, userCred, syncRange, "")
+	account.StartSyncCloudAccountInfoTask(ctx, userCred, syncRange, "")
 	return nil, nil
 }
 
@@ -2262,7 +2255,7 @@ func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mccli
 			FullSync: true,
 		},
 	}
-	account.StartSyncCloudProviderInfoTask(ctx, userCred, syncRange, "")
+	account.StartSyncCloudAccountInfoTask(ctx, userCred, syncRange, "")
 
 	return nil, nil
 }
@@ -2711,7 +2704,7 @@ func (self *SCloudaccount) PerformCreateSubscription(ctx context.Context, userCr
 	}
 
 	syncRange := SSyncRange{}
-	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
+	return nil, self.StartSyncCloudAccountInfoTask(ctx, userCred, &syncRange, "")
 }
 
 func (self *SCloudaccount) GetDnsZoneCaches() ([]SDnsZoneCache, error) {
