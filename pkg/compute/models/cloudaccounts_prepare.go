@@ -31,7 +31,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -671,21 +670,4 @@ func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr
 		GuestGateway: gatewayIp.String(),
 	})
 	return ret
-}
-
-func (ca *SCloudaccount) StartSyncVMwareNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, networkZone string) error {
-	if ca.Provider != api.CLOUD_PROVIDER_VMWARE {
-		return errors.ErrNotSupported
-	}
-	params := jsonutils.NewDict()
-	if len(networkZone) != 0 {
-		params.Set("zone", jsonutils.NewString(networkZone))
-	}
-	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncVMwareNetworkTask", ca, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return err
-	}
-	ca.SetStatus(userCred, api.CLOUD_PROVIDER_SYNC_NETWORK, "StartSyncVMwareNetworkTask")
-	task.ScheduleRun(nil)
-	return nil
 }
