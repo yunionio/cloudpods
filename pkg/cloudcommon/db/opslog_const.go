@@ -75,8 +75,9 @@ const (
 	ACT_VM_CONVERTING   = "vm_converting"
 	ACT_VM_CONVERT_FAIL = "vm_convert_fail"
 
-	ACT_SPLIT = "net_split"
-	ACT_MERGE = "net_merge"
+	ACT_SPLIT       = "net_split"
+	ACT_MERGE       = "net_merge"
+	ACT_IP_MAC_BIND = "ip_mac_bind"
 
 	ACT_SAVING            = "saving"
 	ACT_SAVE              = "save"

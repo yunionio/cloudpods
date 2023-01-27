@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/notify"
+	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -49,15 +51,14 @@ func parseEvent(es string) (notify.SNotifyEvent, error) {
 }
 
 type STopicManager struct {
-	db.SStandaloneResourceBaseManager
-	db.SEnabledResourceBaseManager
+	db.SEnabledStatusStandaloneResourceBaseManager
 }
 
 var TopicManager *STopicManager
 
 func init() {
 	TopicManager = &STopicManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
 			STopic{},
 			"topic_tbl",
 			"topic",
@@ -68,14 +69,13 @@ func init() {
 }
 
 type STopic struct {
-	db.SStandaloneResourceBase
-	db.SEnabledResourceBase
+	db.SEnabledStatusStandaloneResourceBase
 
-	Type              string `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
-	Resources         uint64 `nullable:"false"`
-	Actions           uint32 `nullable:"false"`
-	Results           uint8  `nullable:"false"`
-	AdvanceDays       int    `nullable:"false"`
+	Type              string            `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
+	Resources         uint64            `nullable:"false"`
+	Actions           uint32            `nullable:"false"`
+	Results           tristate.TriState `default:"true"`
+	AdvanceDays       int               `nullable:"false"`
 	WebconsoleDisable tristate.TriState
 }
 
@@ -100,6 +100,8 @@ const (
 	DefaultPasswordExpireDue7Day   = "password expire due 7 day"
 	DefaultNetOutOfSync            = "net out of sync"
 	DefaultMysqlOutOfSync          = "mysql out of sync"
+	DefaultServiceAbnormal         = "service abnormal"
+	DefaultServerPanicked          = "server panicked"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -124,6 +126,8 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultPasswordExpireDue7Day,
 		DefaultNetOutOfSync,
 		DefaultMysqlOutOfSync,
+		DefaultServiceAbnormal,
+		DefaultServerPanicked,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -184,6 +188,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionPendingDelete,
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Results = tristate.True
 		case DefaultResourceChangeConfig:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
@@ -204,6 +209,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(notify.ActionResetPassword)
 			t.addAction(notify.ActionChangeIpaddr)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Results = tristate.True
 		case DefaultResourceReleaseDue1Day:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
@@ -216,6 +222,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(notify.ActionExpiredRelease)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.AdvanceDays = 1
+			t.Results = tristate.True
 		case DefaultResourceReleaseDue3Day:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
@@ -228,6 +235,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(notify.ActionExpiredRelease)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.AdvanceDays = 3
+			t.Results = tristate.True
 		case DefaultResourceReleaseDue30Day:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
@@ -238,6 +246,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(notify.ActionExpiredRelease)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.AdvanceDays = 30
+			t.Results = tristate.True
 		case DefaultScheduledTaskExecute:
 			t.addResources(notify.TOPIC_RESOURCE_SCHEDULEDTASK)
 			t.addAction(notify.ActionExecute)
@@ -246,10 +255,12 @@ func (sm *STopicManager) InitializeData() error {
 			t.addResources(notify.TOPIC_RESOURCE_SCALINGPOLICY)
 			t.addAction(notify.ActionExecute)
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Results = tristate.True
 		case DefaultSnapshotPolicyExecute:
 			t.addResources(notify.TOPIC_RESOURCE_SNAPSHOTPOLICY)
 			t.addAction(notify.ActionExecute)
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Results = tristate.True
 		case DefaultResourceOperationFailed:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
@@ -268,6 +279,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionMigrate,
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Results = tristate.False
 		case DefaultResourceSync:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
@@ -300,6 +312,7 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.WebconsoleDisable = tristate.True
+			t.Results = tristate.True
 		case DefaultSystemExceptionEvent:
 			t.addResources(
 				notify.TOPIC_RESOURCE_HOST,
@@ -311,6 +324,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionOffline,
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Results = tristate.True
 		case DefaultChecksumTestFailed:
 			t.addResources(
 				notify.TOPIC_RESOURCE_DB_TABLE_RECORD,
@@ -322,6 +336,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionChecksumTest,
 			)
 			t.Type = notify.TOPIC_TYPE_SECURITY
+			t.Results = tristate.True
 		case DefaultUserLock:
 			t.addResources(
 				notify.TOPIC_RESOURCE_USER,
@@ -330,6 +345,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionLock,
 			)
 			t.Type = notify.TOPIC_TYPE_SECURITY
+			t.Results = tristate.True
 		case DefaultActionLogExceedCount:
 			t.addResources(
 				notify.TOPIC_RESOURCE_ACTION_LOG,
@@ -338,6 +354,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionExceedCount,
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Results = tristate.True
 		case DefaultSyncAccountStatus:
 			t.addResources(
 				notify.TOPIC_RESOURCE_ACCOUNT_STATUS,
@@ -346,6 +363,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionSyncAccountStatus,
 			)
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+			t.Results = tristate.True
 		case DefaultPasswordExpireDue1Day:
 			t.addResources(
 				notify.TOPIC_RESOURCE_USER,
@@ -355,6 +373,7 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.Type = notify.TOPIC_TYPE_SECURITY
 			t.AdvanceDays = 1
+			t.Results = tristate.True
 		case DefaultPasswordExpireDue7Day:
 			t.addResources(
 				notify.TOPIC_RESOURCE_USER,
@@ -364,6 +383,7 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.Type = notify.TOPIC_TYPE_SECURITY
 			t.AdvanceDays = 7
+			t.Results = tristate.True
 		case DefaultNetOutOfSync:
 			t.addResources(
 				notify.TOPIC_RESOURCE_NET,
@@ -373,6 +393,7 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.AdvanceDays = 0
+			t.Results = tristate.True
 		case DefaultMysqlOutOfSync:
 			t.addResources(
 				notify.TOPIC_RESOURCE_DBINSTANCE,
@@ -382,6 +403,25 @@ func (sm *STopicManager) InitializeData() error {
 			)
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.AdvanceDays = 0
+			t.Results = tristate.True
+		case DefaultServiceAbnormal:
+			t.addResources(
+				notify.TOPIC_RESOURCE_SERVICE,
+			)
+			t.addAction(
+				notify.ActionServiceAbnormal,
+			)
+			t.Results = tristate.True
+			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+		case DefaultServerPanicked:
+			t.addResources(
+				notify.TOPIC_RESOURCE_SERVER,
+			)
+			t.addAction(
+				notify.ActionServerPanicked,
+			)
+			t.Results = tristate.False
+			t.Type = notify.TOPIC_TYPE_RESOURCE
 		}
 		if topic == nil {
 			err := sm.TableSpec().Insert(ctx, t)
@@ -393,6 +433,7 @@ func (sm *STopicManager) InitializeData() error {
 				topic.Resources = t.Resources
 				topic.Actions = t.Actions
 				topic.Type = t.Type
+				topic.Results = t.Results
 				topic.WebconsoleDisable = t.WebconsoleDisable
 				return nil
 			})
@@ -506,12 +547,13 @@ func (sm *STopicManager) TopicByEvent(eventStr string, advanceDays int) (*STopic
 	if err != nil {
 		return nil, err
 	}
-	if len(topics) == 0 {
-		return nil, nil
+	if len(topics) == 1 {
+		return &topics[0], nil
 	}
-	// free memory in time
-	topic := topics[0]
-	return &topic, nil
+	if len(topics) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "eventStr:%s,advanceDays:%d", eventStr, advanceDays)
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "eventStr:%s,advanceDays:%d", eventStr, advanceDays)
 }
 
 func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STopic, error) {
@@ -531,6 +573,12 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 		return nil, nil
 	}
 	q := sm.Query().Equals("advance_days", advanceDays)
+	if event.Result() == api.ResultSucceed {
+		q = q.Equals("results", true)
+	} else {
+		q = q.Equals("results", false)
+	}
+	q = q.Equals("enabled", true)
 	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("resources"), 1<<resourceV), 0))
 	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("actions"), 1<<actionV), 0))
 	var topics []STopic
@@ -554,14 +602,6 @@ func (t *STopic) PreCheckPerformAction(
 		}
 	}
 	return nil
-}
-
-func (t *STopic) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input notify.PerformDisableInput) (jsonutils.JSONObject, error) {
-	err := db.EnabledPerformEnable(t, ctx, userCred, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "EnabledPerformEnable")
-	}
-	return nil, nil
 }
 
 func init() {
@@ -613,6 +653,7 @@ func init() {
 			notify.TOPIC_RESOURCE_ACTION_LOG:               37,
 			notify.TOPIC_RESOURCE_ACCOUNT_STATUS:           38,
 			notify.TOPIC_RESOURCE_NET:                      39,
+			notify.TOPIC_RESOURCE_SERVICE:                  40,
 		},
 	)
 	converter.registerAction(
@@ -645,6 +686,8 @@ func init() {
 			notify.ActionPasswordExpireSoon: 25,
 			notify.ActionNetOutOfSync:       26,
 			notify.ActionMysqlOutOfSync:     27,
+			notify.ActionServiceAbnormal:    28,
+			notify.ActionServerPanicked:     29,
 		},
 	)
 }

@@ -140,13 +140,11 @@ func (self *SGuest) PerformEvent(ctx context.Context, userCred mcclient.TokenCre
 
 		db.OpsLog.LogEvent(self, db.ACT_GUEST_PANICKED, data.String(), userCred)
 		logclient.AddSimpleActionLog(self, logclient.ACT_GUEST_PANICKED, data.String(), userCred, true)
-		self.NotifyServerEvent(
-			ctx,
-			userCred,
-			notifyclient.SERVER_PANICKED,
-			notify.NotifyPriorityNormal,
-			false, kwargs, true,
-		)
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionServerPanicked,
+			IsFail: true,
+		})
 	}
 	return nil, nil
 }
@@ -1059,7 +1057,6 @@ func (self *SGuest) StartGuestDeployTask(
 }
 
 func (self *SGuest) EventNotify(ctx context.Context, userCred mcclient.TokenCredential, action noapi.SAction) {
-
 	detailsDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
 		if action != notifyclient.ActionCreate && action != notifyclient.ActionRebuildRoot && action != notifyclient.ActionResetPassword {
 			return
@@ -2859,7 +2856,7 @@ func (self *SGuest) SetBackupGuestStatus(userCred mcclient.TokenCredential, stat
 }
 
 func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	if input.IsSlave { // perform status called from slave guest
+	if input.HostId != "" && self.BackupHostId != "" && input.HostId == self.BackupHostId { // perform status called from slave guest
 		return nil, self.SetBackupGuestStatus(userCred, input.Status, input.Reason)
 	}
 	if input.PowerStates != "" {

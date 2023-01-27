@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"html"
 	"html/template"
 	"io/ioutil"
 	"os"
@@ -96,15 +97,19 @@ func (lt *SLocalTemplateManager) detailsDisplay(resourceType string, details *js
 func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang string, no notifyv2.SNotification) (params rpcapi.SendParams, err error) {
 	out, event := rpcapi.SendParams{}, no.Event
 	rtStr, aStr, resultStr := event.ResourceType(), string(event.Action()), string(event.Result())
-	dict, err := jsonutils.ParseString(no.Message)
+	msgObj, err := jsonutils.ParseString(no.Message)
 	if err != nil {
 		return out, errors.Wrapf(err, "unable to parse json from %q", no.Message)
+	}
+	msg := msgObj.(*jsonutils.JSONDict)
+	if info, _ := TemplateManager.GetCompanyInfo(ctx); len(info.Name) > 0 {
+		msg.Set("brand", jsonutils.NewString(info.Name))
 	}
 	webhookMsg := jsonutils.NewDict()
 	webhookMsg.Set("resource_type", jsonutils.NewString(rtStr))
 	webhookMsg.Set("action", jsonutils.NewString(aStr))
 	webhookMsg.Set("result", jsonutils.NewString(resultStr))
-	webhookMsg.Set("resource_details", dict)
+	webhookMsg.Set("resource_details", msg)
 	if no.ContactType == api.WEBHOOK {
 		return rpcapi.SendParams{
 			Title:   no.Event.StringWithDeli("_"),
@@ -130,7 +135,7 @@ func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang stri
 		resultDis = resultStr
 	}
 
-	lt.detailsDisplay(rtStr, dict.(*jsonutils.JSONDict), tag)
+	lt.detailsDisplay(rtStr, msg, tag)
 
 	templateParams := webhookMsg
 	templateParams.Set("advance_days", jsonutils.NewInt(int64(no.AdvanceDays)))
@@ -158,8 +163,8 @@ func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang stri
 		}
 	}
 
-	out.Title = title
-	out.Message = content
+	out.Title = html.UnescapeString(title)
+	out.Message = html.UnescapeString(content)
 	return out, nil
 }
 

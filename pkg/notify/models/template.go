@@ -132,19 +132,6 @@ type SCompanyInfo struct {
 }
 
 func (tm *STemplateManager) GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
-	// fetch copyright and logo
-	/*session := auth.GetAdminSession(ctx, "", "")
-	obj, err := yunionagent.Info.Get(session, "info", jsonutils.NewDict())
-	if err != nil {
-		return SCompanyInfo{}, err
-	}
-	var info SCompanyInfo
-	err = obj.Unmarshal(&info)
-	if err != nil {
-		return SCompanyInfo{}, err
-	}
-	return info, nil
-	*/
 	return SCompanyInfo{
 		Name: options.Options.GetPlatformName(appctx.Lang(ctx)),
 	}, nil

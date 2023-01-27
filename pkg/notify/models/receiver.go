@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -42,7 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/informer"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	notify_modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 	"yunion.io/x/onecloud/pkg/notify/options"
@@ -240,7 +241,7 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 	// check uid
 	session := auth.GetAdminSession(ctx, "")
 	if len(input.UID) > 0 {
-		userObj, err := modules.UsersV3.GetById(session, input.UID, nil)
+		userObj, err := identity_modules.UsersV3.GetById(session, input.UID, nil)
 		if err != nil {
 			if jErr, ok := err.(*httputils.JSONClientError); ok {
 				if jErr.Code == 404 {
@@ -259,7 +260,7 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 		if len(input.UName) == 0 {
 			return input, httperrors.NewMissingParameterError("uid or uname")
 		} else {
-			userObj, err := modules.UsersV3.GetByName(session, input.UName, nil)
+			userObj, err := identity_modules.UsersV3.GetByName(session, input.UName, nil)
 			if err != nil {
 				if jErr, ok := err.(*httputils.JSONClientError); ok {
 					if jErr.Code == 404 {
@@ -674,11 +675,10 @@ func (rm *SReceiverManager) findUserIdsWithProjectDomain(ctx context.Context, us
 	query := jsonutils.NewDict()
 	query.Set("effective", jsonutils.JSONTrue)
 	query.Set("project_domain_id", jsonutils.NewString(projectDomainId))
-	listRet, err := modules.RoleAssignments.List(session, query)
+	listRet, err := identity_modules.RoleAssignments.List(session, query)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list RoleAssignments")
 	}
-	log.Debugf("return value for role-assignments: %s", jsonutils.Marshal(listRet))
 	userIds := sets.NewString()
 	for i := range listRet.Data {
 		ras := listRet.Data[i]
@@ -1025,7 +1025,7 @@ func (rm *SReceiverManager) PerformIntellijGet(ctx context.Context, userCred mcc
 	}
 	// create one
 	adminSession := auth.GetAdminSession(ctx, "")
-	ret, err = modules.UsersV3.GetById(adminSession, input.UserId, getParam)
+	ret, err = identity_modules.UsersV3.GetById(adminSession, input.UserId, getParam)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable get user from keystone")
 	}
@@ -1132,7 +1132,7 @@ func (r *SReceiver) Sync(ctx context.Context) error {
 	params := jsonutils.NewDict()
 	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("system", jsonutils.JSONTrue)
-	data, err := modules.UsersV3.GetById(session, r.Id, params)
+	data, err := identity_modules.UsersV3.GetById(session, r.Id, params)
 	if err != nil {
 		jerr := err.(*httputils.JSONClientError)
 		if jerr.Code == 404 {
@@ -1230,7 +1230,7 @@ func (rm *SReceiverManager) StartWatchUserInKeystone() error {
 	if err != nil {
 		return err
 	}
-	resMan := &modules.UsersV3
+	resMan := &identity_modules.UsersV3
 	return watchMan.For(resMan).AddEventHandler(context.Background(), rm)
 }
 
@@ -1347,4 +1347,105 @@ func (r *SReceiver) PerformEnableContactType(ctx context.Context, userCred mccli
 		log.Errorf("unable to StartSubcontactPullTask: %v", err)
 	}
 	return nil, nil
+}
+
+func (manager *SReceiverManager) SyncUserFromKeystone(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	err := manager.syncUserFromKeystone(ctx, userCred, isStart)
+	if err != nil {
+		log.Errorf("syncUserFromKeystone error %s", err)
+	}
+}
+
+func (manager *SReceiverManager) syncUserFromKeystone(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) error {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(string(rbacscope.ScopeSystem)), "scope")
+	// params.Add(jsonutils.JSONTrue, "system")
+	params.Add(jsonutils.JSONTrue, "enabled")
+	params.Add(jsonutils.NewInt(100), "limit")
+	offset := 0
+	total := -1
+	for total < 0 || offset < total {
+		params.Set("offset", jsonutils.NewInt(int64(offset)))
+		results, err := identity_modules.UsersV3.List(auth.GetAdminSession(ctx, options.Options.Region), params)
+		if err != nil {
+			return errors.Wrap(err, "List user")
+		}
+		for i := range results.Data {
+			err := manager.syncUser(ctx, userCred, results.Data[i])
+			if err != nil {
+				return errors.Wrapf(err, "sync user %s", results.Data[i])
+			}
+		}
+		total = results.Total
+		offset += len(results.Data)
+	}
+	return nil
+}
+
+func (manager *SReceiverManager) syncUser(ctx context.Context, userCred mcclient.TokenCredential, usrData jsonutils.JSONObject) error {
+	usr := identity_api.UserDetails{}
+	err := usrData.Unmarshal(&usr)
+	if err != nil {
+		return errors.Wrap(err, "usrData.Unmarshal")
+	}
+	if len(usr.Id) == 0 {
+		log.Fatalf("sync user with empty id?")
+	}
+	if len(usr.Email) == 0 && len(usr.Mobile) == 0 {
+		// no need to sync
+		return nil
+	}
+	if usr.IsSystemAccount != nil && *usr.IsSystemAccount {
+		// no need to sync
+		return nil
+	}
+	recvObj, err := manager.FetchById(usr.Id)
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return errors.Wrap(err, "FetchById")
+		}
+		// new receiver
+		recver := SReceiver{}
+		recver.SetModelManager(manager, &recver)
+		recver.Id = usr.Id
+		recver.Name = usr.Name
+		recver.Status = api.RECEIVER_STATUS_READY
+		recver.DomainId = usr.DomainId
+		recver.Enabled = tristate.True
+		recver.Mobile = usr.Mobile
+		recver.Email = usr.Email
+		if len(recver.Mobile) > 0 {
+			recver.VerifiedMobile = tristate.True
+		}
+		if len(recver.Email) > 0 {
+			recver.VerifiedEmail = tristate.True
+		}
+		err := manager.TableSpec().InsertOrUpdate(ctx, &recver)
+		if err != nil {
+			return errors.Wrap(err, "Insert")
+		}
+		logclient.AddSimpleActionLog(&recver, logclient.ACT_CREATE, &recver, userCred, true)
+	} else {
+		// update receiver
+		recver := recvObj.(*SReceiver)
+		if (len(recver.Mobile) == 0 && len(usr.Mobile) > 0) || (len(recver.Email) == 0 && len(usr.Email) > 0) {
+			// need update
+			diff, err := db.Update(recver, func() error {
+				if len(recver.Mobile) == 0 && len(usr.Mobile) > 0 {
+					recver.Mobile = usr.Mobile
+					recver.VerifiedMobile = tristate.True
+				}
+				if len(recver.Email) == 0 && len(usr.Email) > 0 {
+					recver.Email = usr.Email
+					recver.VerifiedEmail = tristate.True
+				}
+				return nil
+			})
+			if err != nil {
+				return errors.Wrap(err, "Update")
+			}
+			logclient.AddSimpleActionLog(recver, logclient.ACT_UPDATE, diff, userCred, true)
+		}
+	}
+	return nil
 }

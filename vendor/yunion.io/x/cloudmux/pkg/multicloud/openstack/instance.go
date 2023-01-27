@@ -438,6 +438,10 @@ func (instance *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
+	instance.Addresses = nil
+	instance.VolumesAttached = nil
+	instance.SecurityGroups = nil
+	instance.Tags = nil
 	return jsonutils.Update(instance, _instance)
 }
 

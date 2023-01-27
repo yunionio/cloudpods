@@ -43,6 +43,7 @@ func InitDB() error {
 		SecurityGroupCacheManager,
 		NetworkManager,
 		NetworkAddressManager,
+		NetworkIpMacManager,
 		GuestManager,
 		HostManager,
 		LoadbalancerCertificateManager,

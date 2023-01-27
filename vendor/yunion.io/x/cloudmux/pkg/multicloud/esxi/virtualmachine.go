@@ -224,7 +224,7 @@ func (self *SVirtualMachine) RebuildRoot(ctx context.Context, desc *cloudprovide
 
 func (self *SVirtualMachine) DoRebuildRoot(ctx context.Context, imagePath string, uuid string) error {
 	if len(self.vdisks) == 0 {
-		return errors.ErrNotFound
+		return errors.Wrapf(errors.ErrNotFound, "empty vdisks")
 	}
 	return self.rebuildDisk(ctx, &self.vdisks[0], imagePath)
 }
@@ -623,14 +623,12 @@ func (self *SVirtualMachine) doDetachDisk(ctx context.Context, vdisk *SVirtualDi
 
 	task, err := vm.Reconfigure(ctx, spec)
 	if err != nil {
-		log.Errorf("vm.Reconfigure fail %s", err)
-		return err
+		return errors.Wrapf(err, "Reconfigure remove disk %s", vdisk.GetName())
 	}
 
 	err = task.Wait(ctx)
 	if err != nil {
-		log.Errorf("task.Wait(ctx) fail %s", err)
-		return err
+		return errors.Wrapf(err, "wait remove disk %s task", vdisk.GetName())
 	}
 
 	if !remove {
@@ -1053,17 +1051,17 @@ func (self *SVirtualMachine) createDriverAndDisk(ctx context.Context, ds *SDatas
 		}, true)
 }
 
-func (self *SVirtualMachine) copyRootDisk(ctx context.Context, imagePath string) (string, error) {
+func (self *SVirtualMachine) getDatastoreAndRootImagePath() (string, *SDatastore, error) {
 	layoutEx := self.getLayoutEx()
 	if layoutEx == nil || len(layoutEx.File) == 0 {
-		return "", fmt.Errorf("invalid LayoutEx")
+		return "", nil, fmt.Errorf("invalid LayoutEx")
 	}
 	file := layoutEx.File[0].Name
 	// find stroage
 	host := self.GetIHost()
 	storages, err := host.GetIStorages()
 	if err != nil {
-		return "", errors.Wrap(err, "host.GetIStorages")
+		return "", nil, errors.Wrap(err, "host.GetIStorages")
 	}
 	var datastore *SDatastore
 	for i := range storages {
@@ -1074,17 +1072,31 @@ func (self *SVirtualMachine) copyRootDisk(ctx context.Context, imagePath string)
 		}
 	}
 	if datastore == nil {
-		return "", fmt.Errorf("can't find storage associated with vm %q", self.GetName())
+		return "", nil, fmt.Errorf("can't find storage associated with vm %q", self.GetName())
 	}
 	path := datastore.cleanPath(file)
 	vmDir := strings.Split(path, "/")[0]
 	// TODO find a non-conflicting path
-	newImagePath := datastore.getPathString(fmt.Sprintf("%s/%s.vmdk", vmDir, vmDir))
+	return datastore.getPathString(fmt.Sprintf("%s/%s.vmdk", vmDir, vmDir)), datastore, nil
+}
 
+func (self *SVirtualMachine) GetRootImagePath() (string, error) {
+	path, _, err := self.getDatastoreAndRootImagePath()
+	if err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func (self *SVirtualMachine) CopyRootDisk(ctx context.Context, imagePath string) (string, error) {
+	newImagePath, datastore, err := self.getDatastoreAndRootImagePath()
+	if err != nil {
+		return "", errors.Wrapf(err, "GetRootImagePath")
+	}
 	fm := datastore.getDatastoreObj().NewFileManager(datastore.datacenter.getObjectDatacenter(), true)
 	err = fm.Copy(ctx, imagePath, newImagePath)
 	if err != nil {
-		return "", errors.Wrap(err, "unable to copy system disk")
+		return "", errors.Wrapf(err, "unable to copy system disk %s -> %s", imagePath, newImagePath)
 	}
 	return newImagePath, nil
 }
@@ -1094,7 +1106,7 @@ func (self *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context, dev
 	// copy disk
 	if len(config.ImagePath) > 0 {
 		config.IsRoot = true
-		config.ImagePath, err = self.copyRootDisk(ctx, config.ImagePath)
+		config.ImagePath, err = self.CopyRootDisk(ctx, config.ImagePath)
 		if err != nil {
 			return errors.Wrap(err, "unable to copyRootDisk")
 		}

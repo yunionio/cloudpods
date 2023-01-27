@@ -287,16 +287,6 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	}
 
 	provider := vpc.GetProviderName()
-
-	macAddr, err := manager.GenerateMac(mac)
-	if err != nil {
-		return nil, err
-	}
-	if len(macAddr) == 0 {
-		log.Errorf("Mac address generate fails")
-		return nil, fmt.Errorf("mac address generate fails")
-	}
-	gn.MacAddr = macAddr
 	if !virtual {
 		if len(address) > 0 && reUseAddr {
 			ipAddr, err := netutils.NewIPV4Addr(address)
@@ -332,6 +322,21 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 			}
 		}
 	}
+	var err error
+	if ipBindMac := NetworkIpMacManager.GetMacFromIp(network.Id, gn.IpAddr); ipBindMac != "" {
+		gn.MacAddr = ipBindMac
+	} else {
+		gn.MacAddr, err = manager.GenerateMac(mac)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(gn.MacAddr) == 0 {
+		log.Errorf("Mac address generate fails")
+		return nil, fmt.Errorf("mac address generate fails")
+	}
+
 	ifname, err = gn.checkOrAllocateIfname(network, ifname)
 	if err != nil {
 		return nil, err

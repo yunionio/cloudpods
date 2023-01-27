@@ -17,13 +17,16 @@ package esxi
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	xj "github.com/basgys/goxml2json"
 	"github.com/fatih/color"
@@ -42,7 +45,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -219,8 +221,19 @@ func (cli *SESXiClient) connect() error {
 		insecure := true
 		soapCli := soap.NewClient(u, insecure)
 		httpClient := &soapCli.Client
-		transport := httputils.GetAdaptiveTransport(true)
-		transport.Proxy = cli.cpcfg.ProxyFunc
+		transport := &http.Transport{
+			// 代理设置
+			Proxy: cli.cpcfg.ProxyFunc,
+
+			ExpectContinueTimeout: 5 * time.Second,
+			TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
+			IdleConnTimeout:       time.Minute * 1,
+			TLSHandshakeTimeout:   time.Minute * 1,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+		}
 		httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
 			if cli.debug {
 				dump, _ := httputil.DumpRequestOut(req, false)

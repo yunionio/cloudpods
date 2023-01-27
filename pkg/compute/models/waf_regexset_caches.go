@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -248,7 +249,9 @@ func (self *SWafRegexSetCache) GetICloudWafRegexSet(ctx context.Context) (cloudp
 func (self *SWafRegexSetCache) syncWithCloudRegexSet(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudWafRegexSet) error {
 	_, err := db.Update(self, func() error {
 		self.Status = api.WAF_IPSET_STATUS_AVAILABLE
-		self.Name = ext.GetName()
+		if options.Options.EnableSyncName {
+			self.Name = ext.GetName()
+		}
 		self.Description = ext.GetDesc()
 		return nil
 	})

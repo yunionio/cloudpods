@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -372,7 +373,9 @@ func (self *SSecurityGroupCache) GetSecgroup() (*SSecurityGroup, error) {
 func (self *SSecurityGroupCache) SyncBaseInfo(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSecurityGroup) error {
 	_, err := db.Update(self, func() error {
 		self.Status = api.SECGROUP_CACHE_STATUS_READY
-		self.Name = ext.GetName()
+		if options.Options.EnableSyncName {
+			self.Name = ext.GetName()
+		}
 		self.Description = ext.GetDescription()
 		self.ExternalProjectId = ext.GetProjectId()
 		references, err := ext.GetReferences()

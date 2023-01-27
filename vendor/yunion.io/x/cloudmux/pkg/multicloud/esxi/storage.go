@@ -810,7 +810,7 @@ func (self *SDatastore) Delete2(ctx context.Context, remotePath string, isNamesp
 		// Ignore error
 		return nil
 	}
-	return err
+	return errors.Wrapf(err, "remove %s", remotePath)
 }
 
 func (self *SDatastore) Delete(ctx context.Context, remotePath string) error {

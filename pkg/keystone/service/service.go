@@ -15,14 +15,17 @@
 package service
 
 import (
+	"context"
 	"os"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
-	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -70,7 +73,12 @@ func StartService() {
 	}
 	*/
 
-	app := app_common.InitApp(&opts.BaseOptions, true)
+	app := common_app.InitApp(&opts.BaseOptions, true).
+		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
+			ctx := context.Background()
+			token := tokens.GetDefaultAdminCredToken()
+			notifyclient.EventNotifyServiceAbnormal(ctx, token, consts.GetServiceType(), method, path, body, err)
+		})
 
 	cloudcommon.InitDB(&opts.DBOptions)
 
@@ -78,7 +86,7 @@ func StartService() {
 
 	db.EnsureAppSyncDB(app, &opts.DBOptions, models.InitDB)
 
-	app_common.InitBaseAuth(&opts.BaseOptions)
+	common_app.InitBaseAuth(&opts.BaseOptions)
 
 	common_options.StartOptionManagerWithSessionDriver(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, "", options.OnOptionsChange, models.NewServiceConfigSession())
 
@@ -105,10 +113,10 @@ func StartService() {
 	}
 
 	go func() {
-		app_common.ServeForeverExtended(app, &opts.BaseOptions, options.Options.AdminPort, nil, false)
+		common_app.ServeForeverExtended(app, &opts.BaseOptions, options.Options.AdminPort, nil, false)
 	}()
 
-	app_common.ServeForeverWithCleanup(app, &opts.BaseOptions, func() {
+	common_app.ServeForeverWithCleanup(app, &opts.BaseOptions, func() {
 		cloudcommon.CloseDB()
 		// cron.Stop()
 	})

@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -1297,10 +1298,16 @@ func (lb *SLoadbalancer) syncWithCloudLoadbalancer(ctx context.Context, userCred
 	defer lockman.ReleaseObject(ctx, lb)
 
 	diff, err := db.Update(lb, func() error {
+		if options.Options.EnableSyncName {
+			newName, _ := db.GenerateAlterName(lb, ext.GetName())
+			if len(newName) > 0 {
+				lb.Name = newName
+			}
+		}
+
 		lb.Address = ext.GetAddress()
 		lb.AddressType = ext.GetAddressType()
 		lb.Status = ext.GetStatus()
-		// lb.Name = ext.GetName()
 		lb.LoadbalancerSpec = ext.GetLoadbalancerSpec()
 		lb.EgressMbps = ext.GetEgressMbps()
 		lb.ChargeType = ext.GetChargeType()

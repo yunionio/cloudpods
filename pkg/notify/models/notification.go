@@ -235,6 +235,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	}
 
 	// receiver
+
 	topic, err := TopicManager.TopicByEvent(input.Event, input.AdvanceDays)
 	if err != nil {
 		return output, errors.Wrapf(err, "unable fetch subscriptions by event %q", input.Event)
@@ -649,7 +650,7 @@ func dataCleaning(tableName string) error {
 	now := time.Now()
 	monthsDaysAgo := now.AddDate(0, -1, 0).Format("2006-01-02 15:04:05")
 	sqlStr := fmt.Sprintf(
-		"update %s set deleted = 1 where deleted = 0 and created_at < '%s'",
+		"delete from %s where created_at < '%s'",
 		tableName,
 		monthsDaysAgo,
 	)

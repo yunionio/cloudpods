@@ -151,6 +151,15 @@ func (self *GuestStartAndSyncToBackupTask) checkTemplete(ctx context.Context, gu
 func (self *GuestStartAndSyncToBackupTask) OnCheckTemplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnStartBackupGuest", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
+
+	if !guest.IsGuestBackupMirrorJobReady(ctx, self.UserCred) {
+		hostMaster := models.HostManager.FetchHostById(guest.HostId)
+		self.Params.Set("block_ready", jsonutils.JSONFalse)
+		diskUri := fmt.Sprintf("%s/disks", hostMaster.GetFetchUrl(true))
+		self.Params.Set("disk_uri", jsonutils.NewString(diskUri))
+	} else {
+		self.Params.Set("block_ready", jsonutils.JSONTrue)
+	}
 	err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -182,7 +191,7 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuest(ctx context.Contex
 			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		}
 	} else {
-		self.SetStageComplete(ctx, nil)
+		self.onComplete(ctx, guest)
 	}
 }
 
@@ -204,6 +213,12 @@ func (self *GuestStartAndSyncToBackupTask) OnRequestSyncToBackup(ctx context.Con
 
 	guest.SetGuestBackupMirrorJobInProgress(ctx, self.UserCred)
 	guest.SetBackupGuestStatus(self.UserCred, api.VM_BLOCK_STREAM, "OnSyncToBackup")
+	self.onComplete(ctx, guest)
+}
+
+func (self *GuestStartAndSyncToBackupTask) onComplete(ctx context.Context, guest *models.SGuest) {
+	guestStatus, _ := self.Params.GetString("guest_status")
+	guest.SetStatus(self.UserCred, guestStatus, "on GuestStartAndSyncToBackupTask completed")
 	self.SetStageComplete(ctx, nil)
 }
 
