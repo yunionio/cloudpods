@@ -1425,6 +1425,14 @@ func (provider *SCloudprovider) GetCloudproviderRegions() []SCloudproviderregion
 	return CloudproviderRegionManager.fetchRecordsByQuery(q)
 }
 
+func (provider *SCloudprovider) GetRegions() ([]SCloudregion, error) {
+	q := CloudregionManager.Query()
+	crcp := CloudproviderRegionManager.Query().SubQuery()
+	q = q.Join(crcp, sqlchemy.Equals(q.Field("id"), crcp.Field("cloudregion_id"))).Filter(sqlchemy.Equals(crcp.Field("cloudprovider_id"), provider.Id))
+	ret := []SCloudregion{}
+	return ret, db.FetchModelObjects(CloudregionManager, q, &ret)
+}
+
 func (provider *SCloudprovider) resetAutoSync() {
 	cprs := provider.GetCloudproviderRegions()
 	for i := range cprs {
@@ -1721,8 +1729,21 @@ func (provider *SCloudprovider) GetDetailsClirc(ctx context.Context, userCred mc
 	if err != nil {
 		return nil, err
 	}
-
-	rc, err := cloudprovider.GetClientRC(provider.Name, accessUrl, provider.Account, passwd, provider.Provider, account.Options)
+	info := cloudprovider.SProviderInfo{
+		Name:    provider.Name,
+		Url:     accessUrl,
+		Account: provider.Account,
+		Secret:  passwd,
+		Options: account.Options,
+	}
+	regions, err := provider.GetRegions()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegions")
+	}
+	if len(regions) > 0 {
+		info.Region = fetchExternalId(regions[0].ExternalId)
+	}
+	rc, err := cloudprovider.GetClientRC(provider.Provider, info)
 	if err != nil {
 		return nil, err
 	}
