@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
+	alierr "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
@@ -63,10 +64,6 @@ type SRegion struct {
 	latitude      float64
 	longitude     float64
 	fetchLocation bool
-}
-
-func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) GetClient() *SAliyunClient {
@@ -1078,8 +1075,17 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	params["AclName"] = acl.Name
-	body, err := region.lbRequest("CreateAccessControlList", params)
-	if err != nil {
+	var body jsonutils.JSONObject
+	var err error
+	for i := 0; i < 20; i++ {
+		body, err = region.lbRequest("CreateAccessControlList", params)
+		if err == nil {
+			break
+		}
+		if e, ok := errors.Cause(err).(*alierr.ServerError); ok && e.ErrorCode() == "AclNameExist" {
+			params["AclName"] = fmt.Sprintf("%s-%d", acl.Name, i)
+			continue
+		}
 		return nil, err
 	}
 	aclId, err := body.GetString("AclId")

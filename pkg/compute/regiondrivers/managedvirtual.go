@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/pinyinutils"
-	"yunion.io/x/pkg/util/rand"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
@@ -130,14 +129,6 @@ func validateUniqueById(ctx context.Context, userCred mcclient.TokenCredential, 
 func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential,
 	lblis *models.SLoadbalancerListener, input *api.LoadbalancerListenerUpdateInput) (*api.LoadbalancerListenerUpdateInput, error) {
 	return input, nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) ValidateDeleteLoadbalancerBackendCondition(ctx context.Context, lbb *models.SLoadbalancerBackend) error {
-	return nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup) error {
-	return nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) GetBackendStatusForAdd() []string {
@@ -334,83 +325,16 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancer(ctx co
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) createLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl) (jsonutils.JSONObject, error) {
-	iRegion, err := lbacl.GetIRegion(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	acl := &cloudprovider.SLoadbalancerAccessControlList{
-		Name:   lbacl.Name,
-		Entrys: []cloudprovider.SLoadbalancerAccessControlListEntry{},
-	}
-
-	_originAcl, err := db.FetchById(models.LoadbalancerAclManager, lbacl.AclId)
-	if err != nil {
-		return nil, errors.Wrap(err, "regionDriver.FetchAcl")
-	}
-
-	originAcl := _originAcl.(*models.SLoadbalancerAcl)
-	if originAcl.AclEntries != nil {
-		for _, entry := range *originAcl.AclEntries {
-			acl.Entrys = append(acl.Entrys, cloudprovider.SLoadbalancerAccessControlListEntry{CIDR: entry.Cidr, Comment: entry.Comment})
-		}
-	}
-	iLoadbalancerAcl, err := iRegion.CreateILoadBalancerAcl(acl)
-	if err != nil {
-		return nil, err
-	}
-
-	lbacl.SetModelManager(models.CachedLoadbalancerAclManager, lbacl)
-	if err := db.SetExternalId(lbacl, userCred, iLoadbalancerAcl.GetGlobalId()); err != nil {
-		return nil, err
-	}
-	return nil, lbacl.SyncWithCloudLoadbalancerAcl(ctx, userCred, iLoadbalancerAcl, lbacl.GetOwnerId())
-}
-
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return self.createLoadbalancerAcl(ctx, userCred, lbacl)
+		return nil, lbacl.CreateIAcl(ctx)
 	})
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) syncLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl) (jsonutils.JSONObject, error) {
-	iRegion, err := lbacl.GetIRegion(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	acl := &cloudprovider.SLoadbalancerAccessControlList{
-		Name:   lbacl.Name,
-		Entrys: []cloudprovider.SLoadbalancerAccessControlListEntry{},
-	}
-
-	_localAcl, err := db.FetchById(models.LoadbalancerAclManager, lbacl.AclId)
-	if err != nil {
-		return nil, errors.Wrap(err, "regionDriver.FetchById.LoaclAcl")
-	}
-
-	localAcl := _localAcl.(*models.SLoadbalancerAcl)
-	if localAcl.AclEntries != nil {
-		for _, entry := range *localAcl.AclEntries {
-			acl.Entrys = append(acl.Entrys, cloudprovider.SLoadbalancerAccessControlListEntry{CIDR: entry.Cidr, Comment: entry.Comment})
-		}
-	}
-
-	lockman.LockRawObject(ctx, "acl", lbacl.Id)
-	defer lockman.ReleaseRawObject(ctx, "acl", lbacl.Id)
-
-	iLoadbalancerAcl, err := iRegion.GetILoadBalancerAclById(lbacl.ExternalId)
-	if err != nil {
-		return nil, err
-	}
-	return nil, iLoadbalancerAcl.Sync(acl)
-}
-
 func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return self.syncLoadbalancerAcl(ctx, userCred, lbacl)
+		return nil, lbacl.SyncIAcl(ctx)
 	})
 	return nil
 }
@@ -445,49 +369,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerAcl(ctx
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) createLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SCachedLoadbalancerCertificate) (jsonutils.JSONObject, error) {
-	iRegion, err := lbcert.GetIRegion(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "lbcert.GetIRegion")
-	}
-
-	_localCert, err := db.FetchById(models.LoadbalancerCertificateManager, lbcert.CertificateId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "regionDriver.FetchById.localcert")
-	}
-
-	localCert := _localCert.(*models.SLoadbalancerCertificate)
-	certificate := &cloudprovider.SLoadbalancerCertificate{
-		Name:        fmt.Sprintf("%s-%s", lbcert.Name, rand.String(4)),
-		PrivateKey:  localCert.PrivateKey,
-		Certificate: localCert.Certificate,
-	}
-	iLoadbalancerCert, err := iRegion.CreateILoadBalancerCertificate(certificate)
-	if err != nil {
-		return nil, errors.Wrap(err, "iRegion.CreateILoadBalancerCertificate")
-	}
-	lbcert.SetModelManager(models.CachedLoadbalancerCertificateManager, lbcert)
-	if err := db.SetExternalId(lbcert, userCred, iLoadbalancerCert.GetGlobalId()); err != nil {
-		return nil, errors.Wrap(err, "db.SetExternalId")
-	}
-
-	err = cloudprovider.WaitCreated(3*time.Second, 30*time.Second, func() bool {
-		err := iLoadbalancerCert.Refresh()
-		if err == nil {
-			return true
-		}
-		return false
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "iRegion.createLoadbalancerCertificate.WaitCreated")
-	}
-
-	return nil, lbcert.SyncWithCloudLoadbalancerCertificate(ctx, userCred, iLoadbalancerCert)
-}
-
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SCachedLoadbalancerCertificate, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return self.createLoadbalancerCertificate(ctx, userCred, lbcert)
+		return nil, lbcert.CreateICertificate(ctx)
 	})
 	return nil
 }
@@ -580,11 +464,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 
 		return nil, nil
 	})
-	return nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	task.ScheduleRun(nil)
 	return nil
 }
 
@@ -713,61 +592,48 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		{
-			if len(lblis.CertificateId) > 0 {
-				provider := lblis.GetCloudprovider()
-				cert, err := models.LoadbalancerCertificateManager.FetchById(lblis.CertificateId)
-				if err != nil {
-					return nil, errors.Wrapf(err, "LoadbalancerCertificateManager.FetchById(%s)", lblis.CertificateId)
-				}
-
-				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert.(*models.SLoadbalancerCertificate))
-				if err != nil {
-					return nil, errors.Wrap(err, "CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate")
-				}
-
-				if len(lbcert.ExternalId) == 0 {
-					_, err = self.createLoadbalancerCertificate(ctx, userCred, lbcert)
-					if err != nil {
-						return nil, errors.Wrap(err, "createLoadbalancerCertificate")
-					}
-				}
-				return nil, nil
-			}
-		}
-
-		{
-			aclId, _ := task.GetParams().GetString("acl_id")
-			if len(aclId) > 0 {
-				provider := lblis.GetCloudprovider()
-				if provider == nil {
-					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
-				}
-
-				acl, err := models.LoadbalancerAclManager.FetchById(aclId)
-				if err != nil {
-					return nil, errors.Wrap(err, "LoadbalancerAclManager.FetchById")
-				}
-
-				lbacl, err := models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl.(*models.SLoadbalancerAcl))
-				if err != nil {
-					return nil, errors.Wrap(err, "CachedLoadbalancerAclManager.GetOrCreateCachedAcl")
-				}
-
-				if len(lbacl.ExternalId) == 0 {
-					_, err = self.createLoadbalancerAcl(ctx, userCred, lbacl)
-					if err != nil {
-						return nil, errors.Wrap(err, "createLoadbalancerAcl")
-					}
-				}
-				return nil, nil
-			}
+		provider := lblis.GetCloudprovider()
+		if provider == nil {
+			return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 		}
 
 		params, err := lblis.GetLoadbalancerListenerParams()
 		if err != nil {
 			return nil, errors.Wrapf(err, "lblis.GetLoadbalancerListenerParams")
 		}
+
+		{
+			if lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS && len(lblis.CertificateId) > 0 {
+				cert, err := lblis.GetCertificate()
+				if err != nil {
+					return nil, errors.Wrapf(err, "GetCertificate")
+				}
+
+				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert)
+				if err != nil {
+					return nil, errors.Wrap(err, "CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate")
+				}
+				params.CertificateId = lbcert.ExternalId
+			}
+		}
+
+		{
+			if len(lblis.AclId) > 0 {
+				acl, err := lblis.GetAcl()
+				if err != nil {
+					return nil, errors.Wrap(err, "GetAcl")
+				}
+
+				lbacl, err := models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl)
+				if err != nil {
+					return nil, errors.Wrap(err, "CachedLoadbalancerAclManager.GetOrCreateCachedAcl")
+				}
+				params.AccessControlListId = lbacl.ExternalId
+				params.AccessControlListType = lblis.AclType
+				params.AccessControlListStatus = lblis.AclStatus
+			}
+		}
+
 		loadbalancer, err := lblis.GetLoadbalancer()
 		if err != nil {
 			return nil, err
@@ -841,100 +707,94 @@ func (self *SManagedVirtualizationRegionDriver) RequestStartLoadbalancerListener
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, input *api.LoadbalancerListenerUpdateInput, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iLis, err := lblis.GetILoadbalancerListener(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetILoadbalancerListener")
+		}
+
+		provider := lblis.GetCloudprovider()
+		if provider == nil {
+			return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
+		}
+
 		{
-			certId, _ := task.GetParams().GetString("certificate_id")
-			if len(certId) > 0 {
-				provider := lblis.GetCloudprovider()
-				if provider == nil {
-					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
-				}
-
-				cert, err := models.LoadbalancerCertificateManager.FetchById(certId)
+			if lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS && input.CertificateId != nil {
+				cert, err := lblis.GetCertificate()
 				if err != nil {
-					return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.FetchCert")
+					return nil, errors.Wrapf(err, "GetCertificate")
 				}
-
-				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert.(*models.SLoadbalancerCertificate))
+				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert)
 				if err != nil {
-					return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetCert")
+					return nil, errors.Wrap(err, "GetOrCreateCachedCertificate")
 				}
-
-				if len(lbcert.ExternalId) == 0 {
-					_, err = self.createLoadbalancerCertificate(ctx, userCred, lbcert)
-					if err != nil {
-						return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.CreateCert")
-					}
+				err = iLis.ChangeCertificate(ctx, &cloudprovider.ListenerCertificateOptions{
+					CertificateId: lbcert.ExternalId,
+				})
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+					return nil, errors.Wrapf(err, "ChangeCertificate")
 				}
-				return nil, nil
 			}
 		}
 
 		{
-			aclId, _ := task.GetParams().GetString("acl_id")
-			if len(aclId) > 0 {
-				provider := lblis.GetCloudprovider()
-				if provider == nil {
-					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
-				}
-
-				var lbacl *models.SCachedLoadbalancerAcl
-				// 先读取缓存，缓存不存在的情况下，从ACL表中取数据创建缓存
-				if _lbacl, err := models.CachedLoadbalancerAclManager.FetchById(aclId); err == nil && _lbacl != nil {
-					lbacl = _lbacl.(*models.SCachedLoadbalancerAcl)
-				} else {
-					acl, err := models.LoadbalancerAclManager.FetchById(aclId)
+			if input.AclStatus != nil {
+				opts := &cloudprovider.ListenerAclOptions{AclStatus: *input.AclStatus, AclType: lblis.AclType}
+				if *input.AclStatus == api.LB_BOOL_ON {
+					acl, err := lblis.GetAcl()
 					if err != nil {
-						return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.FetchAcl")
+						return nil, errors.Wrapf(err, "GetAcl")
 					}
 
-					lbacl, err = models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl.(*models.SLoadbalancerAcl))
+					lbacl, err := models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl)
 					if err != nil {
 						return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetAcl")
 					}
+					opts.AclId = lbacl.ExternalId
 				}
-
-				if len(lbacl.ExternalId) == 0 {
-					_, err := self.createLoadbalancerAcl(ctx, userCred, lbacl)
-					if err != nil {
-						return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.CreateAcl")
-					}
+				err := iLis.SetAcl(ctx, opts)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					return nil, errors.Wrapf(err, "SetAcl")
 				}
-				return nil, nil
 			}
 		}
 
-		params, err := lblis.GetLoadbalancerListenerParams()
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetParams")
+		if iLis.GetScheduler() != lblis.Scheduler {
+			err := iLis.ChangeScheduler(ctx, &cloudprovider.ChangeListenerSchedulerOptions{
+				Scheduler: lblis.Scheduler,
+				ListenerStickySessionOptions: cloudprovider.ListenerStickySessionOptions{
+					StickySession:              lblis.StickySession,
+					StickySessionCookie:        lblis.StickySessionCookie,
+					StickySessionType:          lblis.StickySessionType,
+					StickySessionCookieTimeout: lblis.StickySessionCookieTimeout,
+				},
+			})
+			if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				return nil, errors.Wrapf(err, "ChangeScheduler")
+			}
 		}
-		loadbalancer, err := lblis.GetLoadbalancer()
-		if err != nil {
-			return nil, err
+		if input.HealthCheck != nil {
+			err := iLis.SetHealthCheck(ctx, &cloudprovider.ListenerHealthCheckOptions{
+				HealthCheckReq: lblis.HealthCheckReq,
+				HealthCheckExp: lblis.HealthCheckExp,
+
+				HealthCheck:         lblis.HealthCheck,
+				HealthCheckType:     lblis.HealthCheckType,
+				HealthCheckTimeout:  lblis.HealthCheckTimeout,
+				HealthCheckDomain:   lblis.HealthCheckDomain,
+				HealthCheckHttpCode: lblis.HealthCheckHttpCode,
+				HealthCheckURI:      lblis.HealthCheckURI,
+				HealthCheckInterval: lblis.HealthCheckInterval,
+
+				HealthCheckRise: lblis.HealthCheckRise,
+				HealthCheckFail: lblis.HealthCheckFall,
+			})
+			if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				return nil, errors.Wrapf(err, "SetHealthCheck")
+			}
 		}
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
-		}
-		iRegion, err := loadbalancer.GetIRegion(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetIRegion")
-		}
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetILoadbalancer")
-		}
-		iListener, err := iLoadbalancer.GetILoadBalancerListenerById(lblis.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetIListener")
-		}
-		if err := iListener.Sync(ctx, params); err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.SyncListener")
-		}
-		if err := iListener.Refresh(); err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.RefreshListener")
-		}
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId(), lblis.GetCloudprovider())
+		return nil, nil
 	})
 	return nil
 }

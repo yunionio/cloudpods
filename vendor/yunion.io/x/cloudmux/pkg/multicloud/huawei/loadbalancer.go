@@ -332,8 +332,8 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 	return ret, resp.Unmarshal(ret, "pool")
 }
 
-func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
-	ret, err := self.region.CreateLoadBalancerListener(listener, self.Id)
+func (self *SLoadbalancer) CreateILoadBalancerListener(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerCreateOptions) (cloudprovider.ICloudLoadbalancerListener, error) {
+	ret, err := self.region.CreateLoadBalancerListener(opts, self.Id)
 	if err != nil {
 		return nil, err
 	}

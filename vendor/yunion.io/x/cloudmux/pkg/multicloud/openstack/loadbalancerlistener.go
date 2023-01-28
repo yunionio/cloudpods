@@ -155,12 +155,7 @@ func (listener *SLoadbalancerListener) GetStatus() string {
 	}
 }
 
-func (listener *SLoadbalancerListener) IsEmulated() bool {
-	return false
-}
-
 func (listener *SLoadbalancerListener) GetEgressMbps() int {
-
 	return 0
 }
 
@@ -325,6 +320,14 @@ func (listener *SLoadbalancerListener) GetScheduler() string {
 	default:
 		return ""
 	}
+}
+
+func (listerner *SLoadbalancerListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (listerner *SLoadbalancerListener) SetAcl(ctx context.Context, opts *cloudprovider.ListenerAclOptions) error {
+	return cloudprovider.ErrNotSupported
 }
 
 func (listener *SLoadbalancerListener) GetAclStatus() string {
@@ -744,6 +747,7 @@ func (listener *SLoadbalancerListener) Stop() error {
 	return nil
 }
 
+/*
 func (listener *SLoadbalancerListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	// ensure listener status
 	err := waitLbResStatus(listener, 10*time.Second, 8*time.Minute)
@@ -759,6 +763,15 @@ func (listener *SLoadbalancerListener) Sync(ctx context.Context, lblis *cloudpro
 		return errors.Wrap(err, `waitLbResStatus(listener, 10*time.Second, 8*time.Minute)`)
 	}
 	return nil
+}
+*/
+
+func (self *SLoadbalancerListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SLoadbalancerListener) SetHealthCheck(ctx context.Context, opts *cloudprovider.ListenerHealthCheckOptions) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (listener *SLoadbalancerListener) GetProjectId() string {

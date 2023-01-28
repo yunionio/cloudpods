@@ -205,6 +205,11 @@ func (self *SAwsRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.
 
 func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		provider := lblis.GetCloudprovider()
+		if provider == nil {
+			return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
+		}
+
 		lbbg, err := lblis.GetLoadbalancerBackendGroup()
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetLoadbalancerBackendGroup")
@@ -216,6 +221,26 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 		iLb, err := lb.GetILoadbalancer(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetILoadbalancer")
+		}
+
+		opts, err := lblis.GetLoadbalancerListenerParams()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetLoadbalancerListenerParams")
+		}
+
+		{
+			if lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS && len(lblis.CertificateId) > 0 {
+				cert, err := lblis.GetCertificate()
+				if err != nil {
+					return nil, errors.Wrapf(err, "GetCertificate")
+				}
+
+				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert)
+				if err != nil {
+					return nil, errors.Wrap(err, "CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate")
+				}
+				opts.CertificateId = lbcert.ExternalId
+			}
 		}
 
 		if len(lbbg.ExternalId) == 0 {
@@ -239,49 +264,9 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 			if err != nil {
 				return nil, errors.Wrapf(err, "db.SetExternalId")
 			}
+			opts.BackendGroupId = iLbbg.GetGlobalId()
 		}
 
-		opts := &cloudprovider.SLoadbalancerListenerCreateOptions{
-			Name:                    lblis.Name,
-			Description:             lblis.Description,
-			ListenerType:            lblis.ListenerType,
-			ListenerPort:            lblis.ListenerPort,
-			Scheduler:               lblis.Scheduler,
-			EnableHTTP2:             lblis.EnableHttp2,
-			EgressMbps:              lblis.EgressMbps,
-			EstablishedTimeout:      lblis.BackendConnectTimeout,
-			AccessControlListStatus: lblis.AclStatus,
-			BackendGroupId:          lbbg.ExternalId,
-
-			ClientRequestTimeout:  lblis.ClientRequestTimeout,
-			ClientIdleTimeout:     lblis.ClientIdleTimeout,
-			BackendIdleTimeout:    lblis.BackendIdleTimeout,
-			BackendConnectTimeout: lblis.BackendConnectTimeout,
-
-			HealthCheckReq: lblis.HealthCheckReq,
-			HealthCheckExp: lblis.HealthCheckExp,
-
-			HealthCheck:         lblis.HealthCheck,
-			HealthCheckType:     lblis.HealthCheckType,
-			HealthCheckTimeout:  lblis.HealthCheckTimeout,
-			HealthCheckDomain:   lblis.HealthCheckDomain,
-			HealthCheckHttpCode: lblis.HealthCheckHttpCode,
-			HealthCheckURI:      lblis.HealthCheckURI,
-			HealthCheckInterval: lblis.HealthCheckInterval,
-
-			HealthCheckRise: lblis.HealthCheckRise,
-			HealthCheckFail: lblis.HealthCheckFall,
-
-			StickySession:              lblis.StickySession,
-			StickySessionType:          lblis.StickySessionType,
-			StickySessionCookie:        lblis.StickySessionCookie,
-			StickySessionCookieTimeout: lblis.StickySessionCookieTimeout,
-
-			BackendServerPort: lblis.BackendServerPort,
-			XForwardedFor:     lblis.XForwardedFor,
-			TLSCipherPolicy:   lblis.TLSCipherPolicy,
-			Gzip:              lblis.Gzip,
-		}
 		iLis, err := iLb.CreateILoadBalancerListener(ctx, opts)
 		if err != nil {
 			return nil, errors.Wrapf(err, "CreateILoadBalancerListener")

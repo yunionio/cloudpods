@@ -62,10 +62,6 @@ func (acl *SLoadbalancerAcl) GetStatus() string {
 	return ""
 }
 
-func (acl *SLoadbalancerAcl) IsEmulated() bool {
-	return false
-}
-
 func (acl *SLoadbalancerAcl) Refresh() error {
 	loadbalancerAcl, err := acl.region.GetLoadbalancerAclDetail(acl.AclId)
 	if err != nil {

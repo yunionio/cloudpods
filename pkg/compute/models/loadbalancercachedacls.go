@@ -237,50 +237,127 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 	lockman.LockClass(ctx, man, ownerProjId)
 	defer lockman.ReleaseClass(ctx, man, ownerProjId)
 
-	listenerId := ""
-	if utils.IsInStringArray(lblis.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
-		listenerId = lblis.Id
-	}
-	if lblis.GetProviderName() == api.CLOUD_PROVIDER_OPENSTACK {
-		listenerId = lblis.Id
-	}
-
-	region, err := lblis.GetRegion()
-	if err != nil {
-		return nil, err
-	}
-	lbacl, err := man.getLoadbalancerAclByRegion(provider, region.Id, acl.Id, listenerId)
-	if err == nil {
-		if lbacl.Id != acl.Id {
-			_, err := man.TableSpec().Update(ctx, &lbacl, func() error {
-				lbacl.Name = acl.Name
-				lbacl.AclId = acl.Id
-				return nil
-			})
-
-			if err != nil {
-				return nil, err
-			}
+	cache, err := func() (*SCachedLoadbalancerAcl, error) {
+		listenerId := ""
+		if utils.IsInStringArray(lblis.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
+			listenerId = lblis.Id
 		}
-		return &lbacl, nil
-	}
+		if lblis.GetProviderName() == api.CLOUD_PROVIDER_OPENSTACK {
+			listenerId = lblis.Id
+		}
 
-	if err.Error() != "NotFound" {
-		return nil, err
-	}
+		region, err := lblis.GetRegion()
+		if err != nil {
+			return nil, err
+		}
+		lbacl, err := man.getLoadbalancerAclByRegion(provider, region.Id, acl.Id, listenerId)
+		if err == nil {
+			if lbacl.Id != acl.Id {
+				_, err := db.Update(lbacl, func() error {
+					lbacl.Name = acl.Name
+					lbacl.AclId = acl.Id
+					return nil
+				})
 
-	lbacl = SCachedLoadbalancerAcl{}
-	lbacl.ManagerId = provider.Id
-	lbacl.CloudregionId = region.Id
-	lbacl.Name = acl.Name
-	lbacl.AclId = acl.Id
+				if err != nil {
+					return nil, err
+				}
+			}
+			return lbacl, nil
+		}
 
-	err = man.TableSpec().Insert(ctx, &lbacl)
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+
+		lbacl = &SCachedLoadbalancerAcl{}
+		lbacl.SetModelManager(CachedLoadbalancerAclManager, lbacl)
+		lbacl.ManagerId = provider.Id
+		lbacl.CloudregionId = region.Id
+		lbacl.Name = acl.Name
+		lbacl.AclId = acl.Id
+
+		err = man.TableSpec().Insert(ctx, lbacl)
+		if err != nil {
+			return nil, err
+		}
+
+		return lbacl, err
+	}()
 	if err != nil {
 		return nil, err
 	}
+	if len(cache.ExternalId) > 0 {
+		return cache, nil
+	}
+	err = cache.CreateIAcl(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateIAcl")
+	}
+	return cache, nil
+}
 
-	return &lbacl, err
+func (lbacl *SCachedLoadbalancerAcl) SyncIAcl(ctx context.Context) error {
+	iRegion, err := lbacl.GetIRegion(ctx)
+	if err != nil {
+		return err
+	}
+
+	acl := &cloudprovider.SLoadbalancerAccessControlList{
+		Name:   lbacl.Name,
+		Entrys: []cloudprovider.SLoadbalancerAccessControlListEntry{},
+	}
+
+	localAcl, err := lbacl.GetAcl()
+	if err != nil {
+		return errors.Wrap(err, "GetAcl")
+	}
+
+	if localAcl.AclEntries != nil {
+		for _, entry := range *localAcl.AclEntries {
+			acl.Entrys = append(acl.Entrys, cloudprovider.SLoadbalancerAccessControlListEntry{CIDR: entry.Cidr, Comment: entry.Comment})
+		}
+	}
+
+	lockman.LockRawObject(ctx, "acl", lbacl.Id)
+	defer lockman.ReleaseRawObject(ctx, "acl", lbacl.Id)
+
+	iLoadbalancerAcl, err := iRegion.GetILoadBalancerAclById(lbacl.ExternalId)
+	if err != nil {
+		return err
+	}
+	return iLoadbalancerAcl.Sync(acl)
+}
+
+func (lbacl *SCachedLoadbalancerAcl) CreateIAcl(ctx context.Context) error {
+	iRegion, err := lbacl.GetIRegion(ctx)
+	if err != nil {
+		return err
+	}
+
+	acl := &cloudprovider.SLoadbalancerAccessControlList{
+		Name:   lbacl.Name,
+		Entrys: []cloudprovider.SLoadbalancerAccessControlListEntry{},
+	}
+
+	originAcl, err := lbacl.GetAcl()
+	if err != nil {
+		return errors.Wrapf(err, "GetAcl")
+	}
+	if originAcl.AclEntries != nil {
+		for _, entry := range *originAcl.AclEntries {
+			acl.Entrys = append(acl.Entrys, cloudprovider.SLoadbalancerAccessControlListEntry{CIDR: entry.Cidr, Comment: entry.Comment})
+		}
+	}
+	iLoadbalancerAcl, err := iRegion.CreateILoadBalancerAcl(acl)
+	if err != nil {
+		return err
+	}
+	_, err = db.Update(lbacl, func() error {
+		lbacl.ExternalId = iLoadbalancerAcl.GetGlobalId()
+		return nil
+	})
+	return err
 }
 
 func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SCachedLoadbalancerAcl, error) {
@@ -293,7 +370,7 @@ func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SC
 	return acls, nil
 }
 
-func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclByRegion(provider *SCloudprovider, regionId string, aclId string, listenerId string) (SCachedLoadbalancerAcl, error) {
+func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclByRegion(provider *SCloudprovider, regionId string, aclId string, listenerId string) (*SCachedLoadbalancerAcl, error) {
 	acls := []SCachedLoadbalancerAcl{}
 	q := man.Query().Equals("cloudregion_id", regionId).Equals("manager_id", provider.Id)
 	// used by huawei only
@@ -304,17 +381,13 @@ func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclByRegion(provider *S
 	}
 
 	if err := db.FetchModelObjects(man, q, &acls); err != nil {
-		log.Errorf("failed to get acl for region: %v provider: %v error: %v", regionId, provider, err)
-		return SCachedLoadbalancerAcl{}, err
+		return nil, err
 	}
 
-	if len(acls) == 1 {
-		return acls[0], nil
-	} else if len(acls) == 0 {
-		return SCachedLoadbalancerAcl{}, fmt.Errorf("NotFound")
-	} else {
-		return SCachedLoadbalancerAcl{}, fmt.Errorf("Duplicate acl %s found for region %s", aclId, regionId)
+	if len(acls) >= 1 {
+		return &acls[0], nil
 	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (man *SCachedLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, acls []cloudprovider.ICloudLoadbalancerAcl, syncRange *SSyncRange) compare.SyncResult {

@@ -150,23 +150,21 @@ func (self *SLBListener) Stop() error {
 }
 
 // https://cloud.tencent.com/document/product/214/30677
-func (self *SLBListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	hc := getHealthCheck(listener)
-	cert := getCertificate(listener)
-	requestId, err := self.lb.region.UpdateLoadbalancerListener(
-		self.lb.Forward,
-		self.lb.GetId(),
-		self.GetId(),
-		&listener.Name,
-		getScheduler(listener),
-		&listener.StickySessionCookieTimeout,
-		hc,
-		cert)
+func (self *SLBListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
+	requestId, err := self.lb.region.ModifyListener(self.lb.LoadBalancerId, self.ListenerId, self.GetListenerType(), opts.Scheduler, opts.StickySessionCookieTimeout, nil)
 	if err != nil {
 		return err
 	}
+	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 2*time.Minute)
+}
 
-	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
+func (self *SLBListener) SetHealthCheck(ctx context.Context, opts *cloudprovider.ListenerHealthCheckOptions) error {
+	requestId, err := self.lb.region.ModifyListener(self.lb.LoadBalancerId, self.ListenerId, self.GetListenerType(), "", 0, opts)
+	if err != nil {
+		return err
+	}
+	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 2*time.Minute)
+
 }
 
 func (self *SLBListener) Delete(ctx context.Context) error {
@@ -220,7 +218,7 @@ func (self *SLBListener) GetListenerType() string {
 	case PROTOCOL_TCP_SSL:
 		return api.LB_LISTENER_TYPE_TCP
 	default:
-		return ""
+		return self.Protocol
 	}
 }
 
@@ -394,6 +392,29 @@ func (self *SLBListener) HTTP2Enabled() bool {
 	return true
 }
 
+func (self *SLBListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
+	params := map[string]string{
+		"LoadBalancerId":      self.lb.LoadBalancerId,
+		"ListenerId":          self.ListenerId,
+		"Certificate.CertId":  opts.CertificateId,
+		"Certificate.SSLMode": "UNIDIRECTIONAL",
+	}
+	resp, err := self.lb.region.clbRequest("ModifyListener", params)
+	if err != nil {
+		return errors.Wrapf(err, "ModifyListener")
+	}
+	requestId, err := resp.GetString("RequestId")
+	if err != nil {
+		return errors.Wrapf(err, "get requestId")
+	}
+
+	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 2*time.Minute)
+}
+
+func (self *SLBListener) SetAcl(ctx context.Context, opts *cloudprovider.ListenerAclOptions) error {
+	return cloudprovider.ErrNotSupported
+}
+
 func (self *SRegion) GetLoadbalancerListener(lbId, lisId string) (*SLBListener, error) {
 	ret, err := self.GetLoadbalancerListeners(lbId, []string{lisId}, "")
 	if err != nil {
@@ -496,75 +517,25 @@ func (self *SRegion) DeleteLoadbalancerListener(t LB_TYPE, lbid string, listener
 }
 
 // https://cloud.tencent.com/document/product/214/30681
-func (self *SRegion) updateLoadbalancerListener(lbid string, listenerId string, listenerName *string, scheduler *string, sessionExpireTime *int, healthCheck *HealthCheck, cert *Certificate) (string, error) {
+func (self *SRegion) ModifyListener(lbid string, listenerId, listenerType string, scheduler string, sessionExpireTime int, hc *cloudprovider.ListenerHealthCheckOptions) (string, error) {
 	params := map[string]string{
 		"LoadBalancerId": lbid,
 		"ListenerId":     listenerId,
 	}
-
-	if listenerName != nil && len(*listenerName) > 0 {
-		params["ListenerName"] = *listenerName
+	if len(scheduler) > 0 {
+		params["Scheduler"] = scheduler
 	}
-
-	if scheduler != nil && len(*scheduler) > 0 {
-		params["Scheduler"] = *scheduler
+	if sessionExpireTime > 0 {
+		params["SessionExpireTime"] = fmt.Sprintf("%d", sessionExpireTime)
 	}
-
-	if sessionExpireTime != nil {
-		params["SessionExpireTime"] = strconv.Itoa(*sessionExpireTime)
+	if hc != nil {
+		params = healthCheck(params, listenerType, hc)
 	}
-
-	params = healthCheckParams(LB_TYPE_APPLICATION, params, healthCheck, "HealthCheck.")
-
 	resp, err := self.clbRequest("ModifyListener", params)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "ModifyListener")
 	}
-
 	return resp.GetString("RequestId")
-}
-
-func (self *SRegion) UpdateLoadbalancerListener(t LB_TYPE, lbid string, listenerId string, listenerName *string, scheduler *string, sessionExpireTime *int, healthCheck *HealthCheck, cert *Certificate) (string, error) {
-	if len(lbid) == 0 {
-		return "", fmt.Errorf("loadbalancer id should not be empty")
-	}
-
-	if len(listenerId) == 0 {
-		return "", fmt.Errorf("loadbalancer listener id should not be empty")
-	}
-
-	return self.updateLoadbalancerListener(lbid, listenerId, listenerName, scheduler, sessionExpireTime, healthCheck, cert)
-}
-
-func getHealthCheck(listener *cloudprovider.SLoadbalancerListenerCreateOptions) *HealthCheck {
-	var hc *HealthCheck
-	if listener.HealthCheck == api.LB_BOOL_ON {
-		hc = &HealthCheck{
-			HealthSwitch: 1,
-			UnHealthNum:  listener.HealthCheckFail,
-			IntervalTime: listener.HealthCheckInterval,
-			HealthNum:    listener.HealthCheckRise,
-			TimeOut:      listener.HealthCheckTimeout,
-		}
-
-		httpCode := onecloudHealthCodeToQcloud(listener.HealthCheckHttpCode)
-		if httpCode > 0 {
-			hc.HTTPCode = httpCode
-			hc.HTTPCheckMethod = "HEAD" // todo: add column HttpCheckMethod in model
-			hc.HTTPCheckDomain = listener.HealthCheckDomain
-			hc.HTTPCheckPath = listener.HealthCheckURI
-		}
-	} else {
-		hc = &HealthCheck{
-			HealthSwitch: 0,
-			UnHealthNum:  3,
-			IntervalTime: 5,
-			HealthNum:    3,
-			TimeOut:      2,
-		}
-	}
-
-	return hc
 }
 
 func getListenerRuleHealthCheck(rule *cloudprovider.SLoadbalancerListenerRule) *HealthCheck {
@@ -598,98 +569,6 @@ func getListenerRuleHealthCheck(rule *cloudprovider.SLoadbalancerListenerRule) *
 	return hc
 }
 
-func getCertificate(listener *cloudprovider.SLoadbalancerListenerCreateOptions) *Certificate {
-	var cert *Certificate
-	if len(listener.CertificateId) > 0 {
-		cert = &Certificate{
-			SSLMode:  "UNIdIRECTIONAL",
-			CERTCAId: "",
-			CERTId:   listener.CertificateId,
-		}
-	}
-
-	return cert
-}
-
-func getProtocol(listener *cloudprovider.SLoadbalancerListenerCreateOptions) string {
-	switch listener.ListenerType {
-	case api.LB_LISTENER_TYPE_HTTPS:
-		return PROTOCOL_HTTPS
-	case api.LB_LISTENER_TYPE_HTTP:
-		return PROTOCOL_HTTP
-	case api.LB_LISTENER_TYPE_TCP:
-		return PROTOCOL_TCP
-	case api.LB_LISTENER_TYPE_UDP:
-		return PROTOCOL_UDP
-	case "tcp_ssl":
-		return PROTOCOL_TCP_SSL
-	default:
-		return ""
-	}
-}
-
-func getClassicLBProtocol(listener *cloudprovider.SLoadbalancerListenerCreateOptions) int {
-	switch listener.ListenerType {
-	case api.LB_LISTENER_TYPE_HTTP:
-		return 1
-	case api.LB_LISTENER_TYPE_HTTPS:
-		return 4
-	case api.LB_LISTENER_TYPE_TCP:
-		return 2
-	case api.LB_LISTENER_TYPE_UDP:
-		return 3
-	default:
-		return 0 // 非法值
-	}
-}
-
-func getScheduler(listener *cloudprovider.SLoadbalancerListenerCreateOptions) *string {
-	var sch string
-	switch listener.Scheduler {
-	case api.LB_SCHEDULER_WRR:
-		sch = "WRR"
-	case api.LB_SCHEDULER_WLC:
-		sch = "LEAST_CONN"
-	case api.LB_SCHEDULER_SCH:
-		sch = "IP_HASH"
-	default:
-		return nil
-	}
-
-	return &sch
-}
-
-func healthCheckParams(t LB_TYPE, params map[string]string, hc *HealthCheck, paramPrefix string) map[string]string {
-	if hc == nil {
-		return params
-	}
-
-	if t == LB_TYPE_APPLICATION {
-		params[paramPrefix+"HealthSwitch"] = strconv.Itoa(hc.HealthSwitch)
-		params[paramPrefix+"TimeOut"] = strconv.Itoa(hc.TimeOut)
-		params[paramPrefix+"IntervalTime"] = strconv.Itoa(hc.IntervalTime)
-		params[paramPrefix+"HealthNum"] = strconv.Itoa(hc.HealthNum)
-		params[paramPrefix+"UnHealthNum"] = strconv.Itoa(hc.UnHealthNum)
-		if hc.HTTPCode > 0 {
-			params[paramPrefix+"HttpCode"] = strconv.Itoa(hc.HTTPCode)
-			params[paramPrefix+"HttpCheckPath"] = hc.HTTPCheckPath
-			params[paramPrefix+"HttpCheckDomain"] = hc.HTTPCheckDomain
-			params[paramPrefix+"HttpCheckMethod"] = hc.HTTPCheckMethod
-		}
-	} else {
-		params[paramPrefix+"healthSwitch"] = strconv.Itoa(hc.HealthSwitch)
-		params[paramPrefix+"timeOut"] = strconv.Itoa(hc.TimeOut)
-		params[paramPrefix+"intervalTime"] = strconv.Itoa(hc.IntervalTime)
-		params[paramPrefix+"healthNum"] = strconv.Itoa(hc.HealthNum)
-		params[paramPrefix+"unHealthNum"] = strconv.Itoa(hc.UnHealthNum)
-		if hc.HTTPCode > 0 {
-			params[paramPrefix+"httpCode"] = strconv.Itoa(hc.HTTPCode)
-			params[paramPrefix+"httpCheckPath"] = hc.HTTPCheckPath
-		}
-	}
-	return params
-}
-
 func (self *SLBListener) GetClientIdleTimeout() int {
 	return 0
 }
@@ -698,32 +577,10 @@ func (self *SLBListener) GetBackendConnectTimeout() int {
 	return 0
 }
 
-/*
-https://cloud.tencent.com/document/product/214/30693
-SNI 特性是什么？？
-*/
-func (self *SRegion) CreateLoadbalancerListener(lbId string, opts *cloudprovider.SLoadbalancerListenerCreateOptions) (string, error) {
-	params := map[string]string{
-		"LoadBalancerId":  lbId,
-		"Ports.0":         fmt.Sprintf("%d", opts.ListenerPort),
-		"Protocol":        opts.ListenerType,
-		"ListenerNames.0": opts.Name,
-	}
-
-	switch opts.Scheduler {
-	case api.LB_SCHEDULER_WRR:
-		params["Scheduler"] = "WRR"
-	case api.LB_SCHEDULER_WLC:
-		params["Scheduler"] = "LEAST_CONN"
-	case api.LB_SCHEDULER_SCH:
-		params["Scheduler"] = "IP_HASH"
-	}
-
-	switch opts.ListenerType {
+func healthCheck(params map[string]string, listenerType string, opts *cloudprovider.ListenerHealthCheckOptions) map[string]string {
+	params["HealthCheck.HealthSwitch"] = "0"
+	switch listenerType {
 	case api.LB_LISTENER_TYPE_TCP:
-		if opts.StickySession == api.LB_STICKY_SESSION_TYPE_SERVER && opts.StickySessionCookieTimeout > 0 {
-			params["SessionExpireTime"] = fmt.Sprintf("%d", opts.StickySessionCookieTimeout)
-		}
 		if opts.HealthCheck == api.LB_BOOL_ON {
 			params["HealthCheck.HealthSwitch"] = "1"
 			params["HealthCheck.TimeOut"] = fmt.Sprintf("%d", opts.HealthCheckTimeout)
@@ -757,9 +614,6 @@ func (self *SRegion) CreateLoadbalancerListener(lbId string, opts *cloudprovider
 			}
 		}
 	case api.LB_LISTENER_TYPE_UDP:
-		if opts.StickySession == api.LB_STICKY_SESSION_TYPE_SERVER && opts.StickySessionCookieTimeout > 0 {
-			params["SessionExpireTime"] = fmt.Sprintf("%d", opts.StickySessionCookieTimeout)
-		}
 		if opts.HealthCheck == api.LB_BOOL_ON {
 			params["HealthCheck.HealthSwitch"] = "1"
 			params["HealthCheck.TimeOut"] = fmt.Sprintf("%d", opts.HealthCheckTimeout)
@@ -772,11 +626,45 @@ func (self *SRegion) CreateLoadbalancerListener(lbId string, opts *cloudprovider
 				params["HealthCheck.CheckPort"] = "-1"
 			}
 		}
+	}
+	return params
+}
+
+/*
+https://cloud.tencent.com/document/product/214/30693
+SNI 特性是什么？？
+*/
+func (self *SRegion) CreateLoadbalancerListener(lbId string, opts *cloudprovider.SLoadbalancerListenerCreateOptions) (string, error) {
+	params := map[string]string{
+		"LoadBalancerId":  lbId,
+		"Ports.0":         fmt.Sprintf("%d", opts.ListenerPort),
+		"Protocol":        strings.ToUpper(opts.ListenerType),
+		"ListenerNames.0": opts.Name,
+	}
+
+	switch opts.Scheduler {
+	case api.LB_SCHEDULER_WRR:
+		params["Scheduler"] = "WRR"
+	case api.LB_SCHEDULER_WLC:
+		params["Scheduler"] = "LEAST_CONN"
+	case api.LB_SCHEDULER_SCH:
+		params["Scheduler"] = "IP_HASH"
+	}
+	params = healthCheck(params, opts.ListenerType, &opts.ListenerHealthCheckOptions)
+
+	switch opts.ListenerType {
+	case api.LB_LISTENER_TYPE_TCP:
+		if opts.StickySession == api.LB_STICKY_SESSION_TYPE_SERVER && opts.StickySessionCookieTimeout > 0 {
+			params["SessionExpireTime"] = fmt.Sprintf("%d", opts.StickySessionCookieTimeout)
+		}
+	case api.LB_LISTENER_TYPE_UDP:
+		if opts.StickySession == api.LB_STICKY_SESSION_TYPE_SERVER && opts.StickySessionCookieTimeout > 0 {
+			params["SessionExpireTime"] = fmt.Sprintf("%d", opts.StickySessionCookieTimeout)
+		}
 	case api.LB_LISTENER_TYPE_HTTP:
 	case api.LB_LISTENER_TYPE_HTTPS:
-		if opts.EnableHTTP2 {
-			params["KeepaliveEnable"] = "1"
-		}
+		params["Certificate.CertId"] = opts.CertificateId
+		params["Certificate.SSLMode"] = "UNIDIRECTIONAL"
 	}
 
 	resp, err := self.clbRequest("CreateListener", params)

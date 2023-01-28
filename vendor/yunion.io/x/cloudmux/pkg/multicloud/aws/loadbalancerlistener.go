@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -318,6 +319,30 @@ func (self *SElbListener) GetHealthCheckCode() string {
 	return health.HealthCheckHttpCode
 }
 
+func (self *SElbListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
+	params := map[string]string{
+		"ListenerArn":                          self.ListenerArn,
+		"Certificates.member.1.CertificateArn": opts.CertificateId,
+	}
+	var err error
+	for i := 0; i < 3; i++ {
+		err = self.lb.region.elbRequest("ModifyListener", params, nil)
+		if err == nil {
+			return nil
+		}
+		if strings.Contains(err.Error(), "CertificateNotFound") {
+			time.Sleep(time.Second * 10)
+			continue
+		}
+		return err
+	}
+	return err
+}
+
+func (listerner *SElbListener) SetAcl(ctx context.Context, opts *cloudprovider.ListenerAclOptions) error {
+	return cloudprovider.ErrNotSupported
+}
+
 func (self *SElbListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLoadbalancerListenerRule) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	rules, err := self.GetILoadbalancerListenerRules()
 	if err != nil {
@@ -461,8 +486,12 @@ func (self *SElbListener) Stop() error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	return self.lb.region.SyncElbListener(self, listener)
+func (self *SElbListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SElbListener) SetHealthCheck(ctx context.Context, opts *cloudprovider.ListenerHealthCheckOptions) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SElbListener) Delete(ctx context.Context) error {
@@ -540,27 +569,21 @@ func (self *SRegion) CreateElbListener(lbId string, opts *cloudprovider.SLoadbal
 		params["SslPolicy"] = "ELBSecurityPolicy-2016-08"
 	}
 	ret := &SElbListeners{}
-	err := self.elbRequest("CreateListener", params, ret)
-	if err != nil {
+	for i := 0; i < 4; i++ {
+		err := self.elbRequest("CreateListener", params, ret)
+		if err == nil {
+			break
+		}
+		// aws 比较诡异，证书能查询到，但是如果立即创建会报错，这里只能等待一会重试
+		if strings.Contains(err.Error(), "CertificateNotFound") {
+			time.Sleep(time.Second * 10)
+			continue
+		}
 		return nil, errors.Wrapf(err, "CreateListener")
 	}
 	for i := range ret.Listeners {
 		return &ret.Listeners[i], nil
 	}
-	/*
-		if err != nil {
-			// aws 比较诡异，证书能查询到，但是如果立即创建会报错，这里只能等待一会重试
-			time.Sleep(10 * time.Second)
-			if strings.Contains(err.Error(), "CertificateNotFound") {
-				ret, err = client.CreateListener(params)
-				if err != nil {
-					return nil, errors.Wrap(err, "Region.CreateElbListener.Retry")
-				}
-			} else {
-				return nil, errors.Wrap(err, "Region.CreateElbListener")
-			}
-		}
-	*/
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
 }
 
@@ -598,10 +621,6 @@ func (self *SRegion) GetElbListenerRule(id string) (*SElbListenerRule, error) {
 
 func (self *SRegion) DeleteElbListener(id string) error {
 	return self.elbRequest("DeleteListener", map[string]string{"ListenerArn": id}, nil)
-}
-
-func (self *SRegion) SyncElbListener(listener *SElbListener, config *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	return nil
 }
 
 func (self *SRegion) UpdateRulesPriority(rules []cloudprovider.ICloudLoadbalancerListenerRule) error {

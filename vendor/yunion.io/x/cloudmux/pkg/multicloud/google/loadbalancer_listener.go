@@ -105,6 +105,14 @@ func (self *SLoadbalancerListener) GetListenerPort() int {
 	return port
 }
 
+func (listerner *SLoadbalancerListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (listerner *SLoadbalancerListener) SetAcl(ctx context.Context, opts *cloudprovider.ListenerAclOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 /*
 在本地范围内使用的负载均衡算法。可能的值为：
 
@@ -458,8 +466,12 @@ func (self *SLoadbalancerListener) Stop() error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SLoadbalancerListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	return cloudprovider.ErrNotSupported
+func (self *SLoadbalancerListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SLoadbalancerListener) SetHealthCheck(ctx context.Context, opts *cloudprovider.ListenerHealthCheckOptions) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SLoadbalancerListener) Delete(ctx context.Context) error {
