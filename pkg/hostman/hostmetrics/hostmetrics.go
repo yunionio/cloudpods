@@ -17,13 +17,10 @@ package hostmetrics
 import (
 	"context"
 	"fmt"
-	"math"
-	"reflect"
 	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/shirou/gopsutil/host"
 	psnet "github.com/shirou/gopsutil/v3/net"
@@ -43,8 +40,7 @@ import (
 )
 
 const (
-	TelegrafServer     = "http://127.0.0.1:8087/write"
-	MeasurementsPrefix = "vm_"
+	TelegrafServer = "http://127.0.0.1:8087/write"
 )
 
 type SHostMetricsCollector struct {
@@ -155,14 +151,14 @@ func NewHostMetricsCollector() *SHostMetricsCollector {
 type SGuestMonitorCollector struct {
 	monitors       map[string]*SGuestMonitor
 	prevPids       map[string]int
-	prevReportData *jsonutils.JSONDict
+	prevReportData map[string]*GuestMetrics
 }
 
 func NewGuestMonitorCollector() *SGuestMonitorCollector {
 	return &SGuestMonitorCollector{
 		monitors:       make(map[string]*SGuestMonitor, 0),
 		prevPids:       make(map[string]int, 0),
-		prevReportData: jsonutils.NewDict(),
+		prevReportData: make(map[string]*GuestMetrics, 0),
 	}
 }
 
@@ -218,23 +214,21 @@ func (s *SGuestMonitorCollector) CollectReportData() (ret string) {
 	}()
 	gms := s.GetGuests()
 	s.cleanedPrevData(gms)
-	reportData := jsonutils.NewDict()
+	reportData := make(map[string]*GuestMetrics)
 	for _, gm := range gms {
-		prevUsage, _ := s.prevReportData.Get(gm.Id)
-		usage := s.collectGmReport(gm, prevUsage)
-		reportData.Set(gm.Id, usage)
+		prevUsage, _ := s.prevReportData[gm.Id]
+		reportData[gm.Id] = s.collectGmReport(gm, prevUsage)
 		s.prevPids[gm.Id] = gm.Pid
 	}
 
-	s.prevReportData = reportData.DeepCopy().(*jsonutils.JSONDict)
+	s.prevReportData = reportData
 	ret = s.toTelegrafReportData(reportData)
 	return
 }
 
-func (s *SGuestMonitorCollector) toTelegrafReportData(data *jsonutils.JSONDict) string {
+func (s *SGuestMonitorCollector) toTelegrafReportData(data map[string]*GuestMetrics) string {
 	ret := []string{}
-	vs, _ := data.GetMap()
-	for guestId, report := range vs {
+	for guestId, report := range data {
 		var vmName, vmIp, scalingGroupId, tenant, tenantId, domainId, projectDomain string
 		if gm, ok := s.monitors[guestId]; ok {
 			vmName = gm.Name
@@ -246,39 +240,27 @@ func (s *SGuestMonitorCollector) toTelegrafReportData(data *jsonutils.JSONDict) 
 			projectDomain = gm.ProjectDomain
 		}
 
-		rs, _ := report.(*jsonutils.JSONDict).GetMap()
-		for metrics, stat := range rs {
-			tags := map[string]string{
-				"id": guestId, "vm_id": guestId, "vm_name": vmName, "vm_ip": vmIp,
-				"is_vm": "true", hostconsts.TELEGRAF_TAG_KEY_BRAND: hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND,
-				hostconsts.TELEGRAF_TAG_KEY_RES_TYPE: "guest",
-			}
-			if len(scalingGroupId) > 0 {
-				tags["vm_scaling_group_id"] = scalingGroupId
-			}
-			if len(tenant) > 0 {
-				tags["tenant"] = tenant
-			}
-			if len(tenantId) > 0 {
-				tags["tenant_id"] = tenantId
-			}
-			if len(domainId) > 0 {
-				tags["domain_id"] = domainId
-			}
-			if len(projectDomain) > 0 {
-				tags["project_domain"] = projectDomain
-			}
-			if val, ok := stat.(*jsonutils.JSONDict); ok {
-				line := s.addTelegrafLine(metrics, tags, val)
-				ret = append(ret, line)
-			} else if val, ok := stat.(*jsonutils.JSONArray); ok {
-				ss, _ := val.GetArray()
-				for _, statItem := range ss {
-					line := s.addTelegrafLine(metrics, tags, statItem.(*jsonutils.JSONDict))
-					ret = append(ret, line)
-				}
-			}
+		tags := map[string]string{
+			"id": guestId, "vm_id": guestId, "vm_name": vmName, "vm_ip": vmIp,
+			"is_vm": "true", hostconsts.TELEGRAF_TAG_KEY_BRAND: hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND,
+			hostconsts.TELEGRAF_TAG_KEY_RES_TYPE: "guest",
 		}
+		if len(scalingGroupId) > 0 {
+			tags["vm_scaling_group_id"] = scalingGroupId
+		}
+		if len(tenant) > 0 {
+			tags["tenant"] = tenant
+		}
+		if len(tenantId) > 0 {
+			tags["tenant_id"] = tenantId
+		}
+		if len(domainId) > 0 {
+			tags["domain_id"] = domainId
+		}
+		if len(projectDomain) > 0 {
+			tags["project_domain"] = projectDomain
+		}
+		ret = append(ret, report.toTelegrafData(tags)...)
 	}
 	return strings.Join(ret, "\n")
 }
@@ -308,118 +290,112 @@ func (s *SGuestMonitorCollector) addTelegrafLine(
 }
 
 func (s *SGuestMonitorCollector) cleanedPrevData(gms map[string]*SGuestMonitor) {
-	rs, _ := s.prevReportData.GetMap()
-	for guestId := range rs {
+	for guestId := range s.prevReportData {
 		if gm, ok := gms[guestId]; !ok {
-			s.prevReportData.Remove(guestId)
+			delete(s.prevReportData, guestId)
 			delete(s.prevPids, guestId)
 		} else {
 			if s.prevPids[guestId] != gm.Pid {
-				s.prevReportData.Remove(guestId)
+				delete(s.prevReportData, guestId)
 				delete(s.prevPids, guestId)
 			}
 		}
 	}
 }
 
-func (s *SGuestMonitorCollector) collectGmReport(
-	gm *SGuestMonitor, prevUsage jsonutils.JSONObject,
-) *jsonutils.JSONDict {
-	if prevUsage == nil {
-		prevUsage = jsonutils.NewDict()
+type GuestMetrics struct {
+	VmCpu    *CpuMetric     `json:"vm_cpu"`
+	VmMem    *MemMetric     `json:"vm_mem"`
+	VmNetio  []*NetIOMetric `json:"vm_netio"`
+	VmDiskio *DiskIOMetric  `json:"vm_diskio"`
+}
+
+func (d *GuestMetrics) toTelegrafData(tags map[string]string) []string {
+	var tagArr = []string{}
+	for k, v := range tags {
+		tagArr = append(tagArr, fmt.Sprintf("%s=%s", k, strings.ReplaceAll(v, " ", "+")))
 	}
-	gmData := jsonutils.NewDict()
-	v := reflect.ValueOf(gm)
-	for _, k := range []string{"Netio", "Cpu", "Diskio", "Mem"} {
-		res := v.MethodByName(k).Call(nil)
-		if !res[0].IsNil() {
-			val := res[0].Interface()
-			in := []rune(k)
-			in[0] = unicode.ToLower(in[0])
-			key := MeasurementsPrefix + string(in)
-			gmData.Set(key, val.(jsonutils.JSONObject))
+	tagStr := strings.Join(tagArr, ",")
+
+	mapToStatStr := func(m map[string]interface{}) string {
+		var statArr = []string{}
+		for k, v := range m {
+			statArr = append(statArr, fmt.Sprintf("%s=%v", k, v))
 		}
-	}
-	gmNetio := MeasurementsPrefix + "netio"
-	netio1, err1 := gmData.Get(gmNetio)
-	netio2, err2 := prevUsage.Get(gmNetio)
-	if err1 == nil && err2 == nil {
-		s.addNetio(netio1, netio2,
-			[]string{"bits_recv", "bits_sent", "packets_sent", "packets_recv"})
+		return strings.Join(statArr, ",")
 	}
 
-	gmDiskio := MeasurementsPrefix + "diskio"
-	diskio1, err1 := gmData.Get(gmDiskio)
-	diskio2, err2 := prevUsage.Get(gmDiskio)
-	if err1 == nil && err2 == nil {
-		s.addDiskio(diskio1, diskio2, []string{"read_bytes", "write_bytes", "read_bits", "write_bits", "read_count",
-			"write_count"})
+	var res = []string{}
+	res = append(res, fmt.Sprintf("%s,%s %s", "vm_cpu", tagStr, mapToStatStr(d.VmCpu.ToMap())))
+	res = append(res, fmt.Sprintf("%s,%s %s", "vm_mem", tagStr, mapToStatStr(d.VmMem.ToMap())))
+	res = append(res, fmt.Sprintf("%s,%s %s", "vm_diskio", tagStr, mapToStatStr(d.VmDiskio.ToMap())))
+	for i := range d.VmNetio {
+		res = append(res, fmt.Sprintf("%s,%s %s", "vm_netio", tagStr, mapToStatStr(d.VmNetio[i].ToMap())))
 	}
+	return res
+}
+
+func (s *SGuestMonitorCollector) collectGmReport(
+	gm *SGuestMonitor, prevUsage *GuestMetrics,
+) *GuestMetrics {
+	if prevUsage == nil {
+		prevUsage = new(GuestMetrics)
+	}
+	gmData := new(GuestMetrics)
+	gmData.VmCpu = gm.Cpu()
+	gmData.VmMem = gm.Mem()
+	gmData.VmDiskio = gm.Diskio()
+	gmData.VmNetio = gm.Netio()
+
+	netio1 := gmData.VmNetio
+	netio2 := prevUsage.VmNetio
+	s.addNetio(netio1, netio2)
+
+	diskio1 := gmData.VmDiskio
+	diskio2 := prevUsage.VmDiskio
+	s.addDiskio(diskio1, diskio2)
 	return gmData
 }
 
-func (s *SGuestMonitorCollector) GetIoFiledName(field string) string {
-	kmap := map[string]string{
-		"bits": "bps", "bytes": "Bps", "packets": "pps", "count": "iops",
-	}
-	for k, v := range kmap {
-		if strings.Contains(field, k) {
-			return strings.Replace(field, k, v, -1)
-		}
-	}
-	return field + "_per_seconds"
+func (s *SGuestMonitorCollector) addDiskio(curInfo, prevInfo *DiskIOMetric) {
+	s.reportDiskIo(curInfo, prevInfo)
 }
 
-func (s *SGuestMonitorCollector) reportIo(curInfo, prevInfo jsonutils.JSONObject, fields []string,
-) *jsonutils.JSONDict {
-	ioInfo := jsonutils.NewDict()
-
-	var timeCur int64
-	uptime, err := curInfo.Get("meta")
-	if err == nil {
-		timeCur, _ = uptime.Int("uptime")
-	}
-
-	var timeOld int64
-	uptime, err = prevInfo.Get("meta")
-	if err == nil {
-		timeOld, _ = uptime.Int("uptime")
-	}
-	diffTime := timeCur - timeOld
+func (s *SGuestMonitorCollector) reportDiskIo(cur, prev *DiskIOMetric) {
+	timeCur := cur.Meta.Uptime
+	timeOld := prev.Meta.Uptime
+	diffTime := float64(timeCur - timeOld)
 
 	if diffTime > 0 {
-		for _, field := range fields {
-			cur, _ := curInfo.Int(field)
-			prev, _ := prevInfo.Int(field)
-			diff := cur - prev
-			if diff < 0 { // if overflow int64
-				diff = math.MaxInt64 - prev + cur
+		cur.ReadBPS = float64((cur.ReadBytes-prev.ReadBytes)*8) / diffTime
+		cur.WriteBPS = float64((cur.WriteBytes-prev.WriteBytes)*8) / diffTime
+		cur.ReadBps = float64(cur.ReadBytes-prev.ReadBytes) / diffTime
+		cur.WriteBps = float64(cur.WriteBytes-prev.WriteBytes) / diffTime
+		cur.ReadIOPS = float64(cur.ReadCount-prev.ReadCount) / diffTime
+		cur.WriteIOPS = float64(cur.WriteCount-prev.WriteCount) / diffTime
+	}
+}
+
+func (s *SGuestMonitorCollector) addNetio(curInfo, prevInfo []*NetIOMetric) {
+	for _, v1 := range curInfo {
+		for _, v2 := range prevInfo {
+			if v1.Meta.Ip == v2.Meta.Ip {
+				s.reportNetIo(v1, v2)
 			}
-			ioInfo.Set(s.GetIoFiledName(field), jsonutils.NewFloat64(float64(diff)/float64(diffTime)))
 		}
 	}
-	return ioInfo
 }
 
-func (s *SGuestMonitorCollector) addDiskio(curInfo, prevInfo jsonutils.JSONObject, fields []string) {
-	ioInfo := s.reportIo(curInfo, prevInfo, fields)
-	curInfo.(*jsonutils.JSONDict).Update(ioInfo)
-}
+func (s *SGuestMonitorCollector) reportNetIo(cur, prev *NetIOMetric) {
+	timeCur := cur.Meta.Uptime
+	timeOld := prev.Meta.Uptime
+	diffTime := float64(timeCur - timeOld)
 
-func (s *SGuestMonitorCollector) addNetio(curInfo, prevInfo jsonutils.JSONObject, fields []string) {
-	curArray, _ := curInfo.GetArray()
-	prevArray, _ := prevInfo.GetArray()
-	for _, v1 := range curArray {
-		for _, v2 := range prevArray {
-			if v1.Contains("meta", "ip") && v2.Contains("meta", "ip") {
-				ip1, _ := v1.GetString("meta", "ip")
-				ip2, _ := v2.GetString("meta", "ip")
-				if ip1 == ip2 {
-					ioInfo := s.reportIo(v1, v2, fields)
-					v1.(*jsonutils.JSONDict).Update(ioInfo)
-				}
-			}
-		}
+	if diffTime > 0 {
+		cur.BPSSent = float64((cur.BytesSent-prev.BytesSent)*8) / diffTime
+		cur.BPSRecv = float64((cur.BytesRecv-prev.BytesRecv)*8) / diffTime
+		cur.PPSSent = float64(cur.PacketsSent-prev.PacketsSent) / diffTime
+		cur.PPSRecv = float64(cur.PacketsRecv-prev.PacketsRecv) / diffTime
 	}
 }
 
@@ -507,7 +483,7 @@ func (m *SGuestMonitor) GetSriovNicStats(pfName string, virtfn int) (*psnet.IOCo
 	return res, nil
 }
 
-func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
+func (m *SGuestMonitor) Netio() []*NetIOMetric {
 	if len(m.Nics) == 0 {
 		return nil
 	}
@@ -516,7 +492,7 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 		return nil
 	}
 
-	var res = jsonutils.NewArray()
+	var res = []*NetIOMetric{}
 	for i, nic := range m.Nics {
 		var ifname = nic.Ifname
 		var nicStat *psnet.IOCountersStat
@@ -547,123 +523,193 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 		if nicStat == nil {
 			continue
 		}
-		data := jsonutils.NewDict()
-		meta := jsonutils.NewDict()
-
-		// if overflow int64
-		if nicStat.BytesSent > math.MaxInt64 {
-			nicStat.BytesSent -= math.MaxInt64
-		}
-		if nicStat.BytesRecv > math.MaxInt64 {
-			nicStat.BytesRecv -= math.MaxInt64
-		}
-		bitsRecv := nicStat.BytesRecv * 8
-		if bitsRecv > math.MaxInt64 {
-			bitsRecv -= math.MaxInt64
-		}
-		bitsSent := nicStat.BytesSent * 8
-		if bitsSent > math.MaxInt64 {
-			bitsSent -= math.MaxInt64
-		}
+		data := new(NetIOMetric)
 
 		ip := nic.Ip
 		ipv4, _ := netutils.NewIPV4Addr(ip)
 		if netutils.IsExitAddress(ipv4) {
-			meta.Set("ip_type", jsonutils.NewString("external"))
+			data.Meta.IpType = "external"
 		} else {
-			meta.Set("ip_type", jsonutils.NewString("internal"))
+			data.Meta.IpType = "internal"
 		}
-		netId := nic.NetId
-		meta.Set("ip", jsonutils.NewString(ip))
-		meta.Set("index", jsonutils.NewInt(int64(i)))
-		meta.Set("ifname", jsonutils.NewString(ifname))
-		meta.Set("net_id", jsonutils.NewString(netId))
-		uptime, _ := host.Uptime()
-		meta.Set("uptime", jsonutils.NewInt(int64(uptime)))
-		data.Set("meta", meta)
-		data.Set("bits_recv", jsonutils.NewInt(int64(bitsSent)))
-		data.Set("bits_sent", jsonutils.NewInt(int64(bitsRecv)))
-		data.Set("packets_recv", jsonutils.NewInt(int64(nicStat.PacketsSent)))
-		data.Set("packets_sent", jsonutils.NewInt(int64(nicStat.PacketsRecv)))
-		data.Set("err_out", jsonutils.NewInt(int64(nicStat.Errin)))
-		data.Set("err_in", jsonutils.NewInt(int64(nicStat.Errout)))
-		data.Set("drop_out", jsonutils.NewInt(int64(nicStat.Dropin)))
-		data.Set("drop_in", jsonutils.NewInt(int64(nicStat.Dropout)))
-		res.Add(data)
+		data.Meta.Ip = ip
+		data.Meta.Index = i
+		data.Meta.Ifname = ifname
+		data.Meta.NetId = nic.NetId
+		data.Meta.Uptime, _ = host.Uptime()
+
+		data.BytesSent = nicStat.BytesSent
+		data.BytesRecv = nicStat.BytesRecv
+		data.PacketsRecv = nicStat.PacketsRecv
+		data.PacketsSent = nicStat.PacketsSent
+		data.ErrIn = nicStat.Errin
+		data.ErrOut = nicStat.Errout
+		data.DropIn = nicStat.Dropin
+		data.DropOut = nicStat.Dropout
+		res = append(res, data)
 	}
 	return res
 }
 
-func (m *SGuestMonitor) Cpu() jsonutils.JSONObject {
-	percent, _ := m.Process.Percent(time.Millisecond * 100)
-	cpuTimes, _ := m.Process.Times()
-	ret := jsonutils.NewDict()
-	percent, _ = strconv.ParseFloat(fmt.Sprintf("%0.4f", percent/float64(m.CpuCnt)), 64)
-	ret.Set("usage_active", jsonutils.NewFloat64(percent))
-	ret.Set("cpu_usage_idle_pcore", jsonutils.NewFloat64(100-percent/float64(m.CpuCnt)))
-	ret.Set("cpu_usage_pcore", jsonutils.NewFloat64(percent/float64(m.CpuCnt)))
-	ret.Set("cpu_time_user", jsonutils.NewFloat64(cpuTimes.User))
-	ret.Set("cpu_time_system", jsonutils.NewFloat64(cpuTimes.System))
-	ret.Set("cpu_count", jsonutils.NewInt(int64(m.CpuCnt)))
+type NetIOMetric struct {
+	Meta NetMeta `json:"-"`
 
-	threadCnt, _ := m.Process.NumThreads()
-	ret.Set("thread_count", jsonutils.NewInt(int64(threadCnt)))
-	return ret
+	BytesSent   uint64 `json:"bytes_sent"`
+	BytesRecv   uint64 `json:"bytes_recv"`
+	PacketsSent uint64 `json:"packets_sent"`
+	PacketsRecv uint64 `json:"packets_recv"`
+	ErrIn       uint64 `json:"err_in"`
+	ErrOut      uint64 `json:"err_out"`
+	DropIn      uint64 `json:"drop_in"`
+	DropOut     uint64 `json:"drop_out"`
+
+	// calculated on guest metrics report
+	BPSRecv float64 `json:"bps_recv"`
+	BPSSent float64 `json:"bps_sent"`
+	PPSRecv float64 `json:"pps_recv"`
+	PPSSent float64 `json:"pps_sent"`
 }
 
-func (m *SGuestMonitor) Diskio() jsonutils.JSONObject {
+func (n *NetIOMetric) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"bytes_sent":   n.BytesSent,
+		"bytes_recv":   n.BytesRecv,
+		"packets_sent": n.PacketsSent,
+		"packets_recv": n.PacketsRecv,
+		"err_in":       n.ErrIn,
+		"err_out":      n.ErrOut,
+		"drop_in":      n.DropIn,
+		"drop_out":     n.DropOut,
+		"bps_recv":     n.BPSRecv,
+		"bps_sent":     n.BPSSent,
+		"pps_recv":     n.PPSRecv,
+		"pps_sent":     n.PPSSent,
+	}
+}
+
+type NetMeta struct {
+	IpType string `json:"ip_type"`
+	Ip     string `json:"ip"`
+	Index  int    `json:"index"`
+	Ifname string `json:"ifname"`
+	NetId  string `json:"net_id"`
+	Uptime uint64 `json:"uptime"`
+}
+
+func (m *SGuestMonitor) Cpu() *CpuMetric {
+	percent, _ := m.Process.Percent(time.Millisecond * 100)
+	cpuTimes, _ := m.Process.Times()
+	percent, _ = strconv.ParseFloat(fmt.Sprintf("%0.4f", percent/float64(m.CpuCnt)), 64)
+	threadCnt, _ := m.Process.NumThreads()
+	return &CpuMetric{
+		UsageActive:       percent,
+		CpuUsageIdlePcore: float64(100 - percent/float64(m.CpuCnt)),
+		CpuUsagePcore:     float64(percent / float64(m.CpuCnt)),
+		CpuTimeSystem:     cpuTimes.System,
+		CpuTimeUser:       cpuTimes.User,
+		CpuCount:          m.CpuCnt,
+		ThreadCount:       threadCnt,
+	}
+}
+
+type CpuMetric struct {
+	UsageActive       float64 `json:"usage_active"`
+	CpuUsageIdlePcore float64 `json:"cpu_usage_idle_pcore"`
+	CpuUsagePcore     float64 `json:"cpu_usage_pcore"`
+	CpuTimeUser       float64 `json:"cpu_time_user"`
+	CpuTimeSystem     float64 `json:"cpu_time_system"`
+	CpuCount          int     `json:"cpu_count"`
+	ThreadCount       int32   `json:"thread_count"`
+}
+
+func (c *CpuMetric) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"usage_active":         c.UsageActive,
+		"cpu_usage_idle_pcore": c.CpuUsageIdlePcore,
+		"cpu_usage_pcore":      c.CpuUsagePcore,
+		"cpu_time_user":        c.CpuTimeUser,
+		"cpu_time_system":      c.CpuTimeSystem,
+		"cpu_count":            c.CpuCount,
+		"thread_count":         c.ThreadCount,
+	}
+}
+
+func (m *SGuestMonitor) Diskio() *DiskIOMetric {
 	io, err := m.Process.IOCounters()
 	if err != nil {
 		log.Errorln(err)
 		return nil
 	}
-	ret := jsonutils.NewDict()
-	meta := jsonutils.NewDict()
+	ret := new(DiskIOMetric)
 
-	// if overflow int64
-	if io.ReadBytes > math.MaxInt64 {
-		io.ReadBytes -= math.MaxInt64
-	}
-	if io.WriteBytes > math.MaxInt64 {
-		io.WriteBytes -= math.MaxInt64
-	}
-	readBits := io.ReadBytes * 8
-	if readBits > math.MaxInt64 {
-		readBits -= math.MaxInt64
-	}
-	writeBits := io.WriteBytes * 8
-	if writeBits > math.MaxInt64 {
-		writeBits -= math.MaxInt64
-	}
-	if io.ReadCount > math.MaxInt64 {
-		io.ReadCount -= math.MaxInt64
-	}
-	if io.WriteCount > math.MaxInt64 {
-		io.WriteCount -= math.MaxInt64
-	}
-
-	uptime, _ := host.Uptime()
-	meta.Set("uptime", jsonutils.NewInt(int64(uptime)))
-	ret.Set("meta", meta)
-	ret.Set("read_bytes", jsonutils.NewInt(int64(io.ReadBytes)))
-	ret.Set("write_bytes", jsonutils.NewInt(int64(io.WriteBytes)))
-	ret.Set("read_bits", jsonutils.NewInt(int64(readBits)))
-	ret.Set("write_bits", jsonutils.NewInt(int64(writeBits)))
-	ret.Set("read_count", jsonutils.NewInt(int64(io.ReadCount)))
-	ret.Set("write_count", jsonutils.NewInt(int64(io.WriteCount)))
+	ret.Meta.Uptime, _ = host.Uptime()
+	ret.ReadCount = io.ReadCount
+	ret.ReadBytes = io.ReadBytes
+	ret.WriteBytes = io.WriteBytes
+	ret.WriteCount = io.WriteCount
 	return ret
 }
 
-func (m *SGuestMonitor) Mem() jsonutils.JSONObject {
+type DiskIOMetric struct {
+	Meta DiskIOMeta `json:"-"`
+
+	ReadBytes  uint64 `json:"read_bytes"`
+	WriteBytes uint64 `json:"write_bytes"`
+	ReadCount  uint64 `json:"read_count"`
+	WriteCount uint64 `json:"write_count"`
+
+	// calculated on guest metrics report
+	ReadBps   float64 `json:"read_Bps"`
+	WriteBps  float64 `json:"write_Bps"`
+	ReadBPS   float64 `json:"read_bps"`
+	WriteBPS  float64 `json:"write_bps"`
+	ReadIOPS  float64 `json:"read_iops"`
+	WriteIOPS float64 `json:"write_iops"`
+}
+
+func (d *DiskIOMetric) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"read_bytes":  d.ReadBytes,
+		"write_bytes": d.WriteBytes,
+		"read_count":  d.ReadCount,
+		"write_count": d.WriteCount,
+		"read_Bps":    d.ReadBps,
+		"write_Bps":   d.WriteBps,
+		"read_bps":    d.ReadBPS,
+		"write_bps":   d.WriteBPS,
+		"read_iops":   d.ReadIOPS,
+		"write_iops":  d.WriteIOPS,
+	}
+}
+
+type DiskIOMeta struct {
+	Uptime uint64 `json:"uptime"`
+}
+
+func (m *SGuestMonitor) Mem() *MemMetric {
 	mem, err := m.Process.MemoryInfo()
-	used_percent, _ := m.Process.MemoryPercent()
+	usedPercent, _ := m.Process.MemoryPercent()
 	if err != nil {
 		log.Errorln(err)
 		return nil
 	}
-	ret := jsonutils.NewDict()
-	ret.Set("rss", jsonutils.NewInt(int64(mem.RSS)))
-	ret.Set("vms", jsonutils.NewInt(int64(mem.VMS)))
-	ret.Set("used_percent", jsonutils.NewFloat64(float64(used_percent)))
+	ret := new(MemMetric)
+	ret.RSS = mem.RSS
+	ret.VMS = mem.VMS
+	ret.UsedPercent = usedPercent
 	return ret
+}
+
+type MemMetric struct {
+	RSS         uint64  `json:"rss"`
+	VMS         uint64  `json:"vms"`
+	UsedPercent float32 `json:"used_percent"`
+}
+
+func (m *MemMetric) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"rss":          m.RSS,
+		"vms":          m.VMS,
+		"used_percent": m.UsedPercent,
+	}
 }
