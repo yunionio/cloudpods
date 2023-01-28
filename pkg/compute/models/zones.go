@@ -939,3 +939,7 @@ func (self *SZone) ClearSchedDescCache() error {
 	}
 	return nil
 }
+
+func (manager *SZoneManager) getOnpremiseZoneIds() ([]string, error) {
+	return zoneRegionFilter([]string{api.DEFAULT_REGION_ID})
+}
