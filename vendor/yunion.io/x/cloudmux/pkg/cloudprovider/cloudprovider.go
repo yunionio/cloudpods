@@ -188,6 +188,7 @@ type SProviderInfo struct {
 	Url     string
 	Account string
 	Secret  string
+	Region  string
 	Options *jsonutils.JSONDict
 }
 
@@ -439,17 +440,10 @@ func GetProvider(cfg ProviderConfig) (ICloudProvider, error) {
 	return driver.GetProvider(cfg)
 }
 
-func GetClientRC(name, accessUrl, account, secret, provider string, options *jsonutils.JSONDict) (map[string]string, error) {
+func GetClientRC(provider string, info SProviderInfo) (map[string]string, error) {
 	driver, err := GetProviderFactory(provider)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetProviderFactory")
-	}
-	info := SProviderInfo{
-		Name:    name,
-		Url:     accessUrl,
-		Account: account,
-		Secret:  secret,
-		Options: options,
 	}
 	return driver.GetClientRC(info)
 }
