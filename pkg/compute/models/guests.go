@@ -6387,7 +6387,21 @@ func (manager *SGuestManager) CustomizedTotalCount(ctx context.Context, userCred
 		return -1, nil, errors.Wrap(err, "SGuestManager query total_disk")
 	}
 
-	log.Debugf("CustomizedTotalCount %s", jsonutils.Marshal(results))
+	// log.Debugf("CustomizedTotalCount %s", jsonutils.Marshal(results))
 
 	return results.Count, jsonutils.Marshal(results), nil
+}
+
+func (guest *SGuest) IsSriov() bool {
+	nics, err := guest.GetNetworks("")
+	if err != nil {
+		log.Errorf("guest.GetNetworks fail %s", err)
+		return false
+	}
+	for i := range nics {
+		if nics[i].Driver == api.NETWORK_DRIVER_VFIO {
+			return true
+		}
+	}
+	return false
 }
