@@ -344,16 +344,23 @@ func (s *SGuestMonitorCollector) collectGmReport(
 	netio1, err1 := gmData.Get(gmNetio)
 	netio2, err2 := prevUsage.Get(gmNetio)
 	if err1 == nil && err2 == nil {
-		s.addNetio(netio1, netio2,
-			[]string{"bits_recv", "bits_sent", "packets_sent", "packets_recv"})
+		s.addNetio(netio1, netio2, map[string]string{
+			"bits_recv":    "bytes_recv",
+			"bits_sent":    "bytes_sent",
+			"packets_sent": "", "packets_recv": "",
+		})
 	}
 
 	gmDiskio := MeasurementsPrefix + "diskio"
 	diskio1, err1 := gmData.Get(gmDiskio)
 	diskio2, err2 := prevUsage.Get(gmDiskio)
 	if err1 == nil && err2 == nil {
-		s.addDiskio(diskio1, diskio2, []string{"read_bytes", "write_bytes", "read_bits", "write_bits", "read_count",
-			"write_count"})
+		s.addDiskio(diskio1, diskio2, map[string]string{
+			"read_bytes": "", "write_bytes": "",
+			"read_bits":  "read_bytes",
+			"write_bits": "write_bytes",
+			"read_count": "", "write_count": "",
+		})
 	}
 	return gmData
 }
@@ -370,7 +377,7 @@ func (s *SGuestMonitorCollector) GetIoFiledName(field string) string {
 	return field + "_per_seconds"
 }
 
-func (s *SGuestMonitorCollector) reportIo(curInfo, prevInfo jsonutils.JSONObject, fields []string,
+func (s *SGuestMonitorCollector) reportIo(curInfo, prevInfo jsonutils.JSONObject, fields map[string]string,
 ) *jsonutils.JSONDict {
 	ioInfo := jsonutils.NewDict()
 
@@ -388,25 +395,32 @@ func (s *SGuestMonitorCollector) reportIo(curInfo, prevInfo jsonutils.JSONObject
 	diffTime := timeCur - timeOld
 
 	if diffTime > 0 {
-		for _, field := range fields {
-			cur, _ := curInfo.Int(field)
-			prev, _ := prevInfo.Int(field)
+		for field, cul := range fields {
+			if cul == "" {
+				cul = field
+			}
+			cur, _ := curInfo.Int(cul)
+			prev, _ := prevInfo.Int(cul)
 			diff := cur - prev
 			if diff < 0 { // if overflow int64
 				diff = math.MaxInt64 - prev + cur
 			}
+			if strings.Contains(field, "bits") {
+				diff = diff * 8
+			}
+
 			ioInfo.Set(s.GetIoFiledName(field), jsonutils.NewFloat64(float64(diff)/float64(diffTime)))
 		}
 	}
 	return ioInfo
 }
 
-func (s *SGuestMonitorCollector) addDiskio(curInfo, prevInfo jsonutils.JSONObject, fields []string) {
+func (s *SGuestMonitorCollector) addDiskio(curInfo, prevInfo jsonutils.JSONObject, fields map[string]string) {
 	ioInfo := s.reportIo(curInfo, prevInfo, fields)
 	curInfo.(*jsonutils.JSONDict).Update(ioInfo)
 }
 
-func (s *SGuestMonitorCollector) addNetio(curInfo, prevInfo jsonutils.JSONObject, fields []string) {
+func (s *SGuestMonitorCollector) addNetio(curInfo, prevInfo jsonutils.JSONObject, fields map[string]string) {
 	curArray, _ := curInfo.GetArray()
 	prevArray, _ := prevInfo.GetArray()
 	for _, v1 := range curArray {
@@ -557,14 +571,6 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 		if nicStat.BytesRecv > math.MaxInt64 {
 			nicStat.BytesRecv -= math.MaxInt64
 		}
-		bitsRecv := nicStat.BytesRecv * 8
-		if bitsRecv > math.MaxInt64 {
-			bitsRecv -= math.MaxInt64
-		}
-		bitsSent := nicStat.BytesSent * 8
-		if bitsSent > math.MaxInt64 {
-			bitsSent -= math.MaxInt64
-		}
 
 		ip := nic.Ip
 		ipv4, _ := netutils.NewIPV4Addr(ip)
@@ -581,8 +587,8 @@ func (m *SGuestMonitor) Netio() jsonutils.JSONObject {
 		uptime, _ := host.Uptime()
 		meta.Set("uptime", jsonutils.NewInt(int64(uptime)))
 		data.Set("meta", meta)
-		data.Set("bits_recv", jsonutils.NewInt(int64(bitsSent)))
-		data.Set("bits_sent", jsonutils.NewInt(int64(bitsRecv)))
+		data.Set("bytes_sent", jsonutils.NewInt(int64(nicStat.BytesSent)))
+		data.Set("bytes_recv", jsonutils.NewInt(int64(nicStat.BytesRecv)))
 		data.Set("packets_recv", jsonutils.NewInt(int64(nicStat.PacketsSent)))
 		data.Set("packets_sent", jsonutils.NewInt(int64(nicStat.PacketsRecv)))
 		data.Set("err_out", jsonutils.NewInt(int64(nicStat.Errin)))
@@ -627,14 +633,6 @@ func (m *SGuestMonitor) Diskio() jsonutils.JSONObject {
 	if io.WriteBytes > math.MaxInt64 {
 		io.WriteBytes -= math.MaxInt64
 	}
-	readBits := io.ReadBytes * 8
-	if readBits > math.MaxInt64 {
-		readBits -= math.MaxInt64
-	}
-	writeBits := io.WriteBytes * 8
-	if writeBits > math.MaxInt64 {
-		writeBits -= math.MaxInt64
-	}
 	if io.ReadCount > math.MaxInt64 {
 		io.ReadCount -= math.MaxInt64
 	}
@@ -647,8 +645,6 @@ func (m *SGuestMonitor) Diskio() jsonutils.JSONObject {
 	ret.Set("meta", meta)
 	ret.Set("read_bytes", jsonutils.NewInt(int64(io.ReadBytes)))
 	ret.Set("write_bytes", jsonutils.NewInt(int64(io.WriteBytes)))
-	ret.Set("read_bits", jsonutils.NewInt(int64(readBits)))
-	ret.Set("write_bits", jsonutils.NewInt(int64(writeBits)))
 	ret.Set("read_count", jsonutils.NewInt(int64(io.ReadCount)))
 	ret.Set("write_count", jsonutils.NewInt(int64(io.WriteCount)))
 	return ret
