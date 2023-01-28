@@ -37,12 +37,19 @@ import (
 	"yunion.io/x/onecloud/pkg/webconsole/recorder"
 )
 
+const (
+	CONN_STATE_USERNAME = "username"
+	CONN_STATE_PASSWORD = "password"
+	CONN_STATE_READY    = "ready"
+)
+
 type SSHtoolSol struct {
 	*BaseCommand
 	IP           string
 	Port         int
 	username     string
 	password     string
+	state        string
 	failed       int
 	showInfo     string
 	keyFile      string
@@ -158,6 +165,7 @@ func NewSSHtoolSolCommand(ctx context.Context, us *mcclient.ClientSession, ip st
 		IP:           ip,
 		Port:         port,
 		username:     "",
+		state:        CONN_STATE_USERNAME,
 		failed:       0,
 		showInfo:     fmt.Sprintf("%s login: ", ip),
 		keyFile:      keyFile,
@@ -222,25 +230,31 @@ func (c *SSHtoolSol) Scan(d byte, send func(msg string)) {
 	switch d {
 	case '\r': // 换行
 		send("\r\n")
-		if len(c.username) == 0 {
+		switch c.state {
+		case CONN_STATE_USERNAME:
 			c.username = string(c.buffer)
 			c.needShowInfo = true
-		} else if len(c.password) == 0 {
+			c.state = CONN_STATE_PASSWORD
+		case CONN_STATE_PASSWORD:
 			c.password = string(c.buffer)
+			c.state = CONN_STATE_READY
+		case CONN_STATE_READY:
 		}
 		c.buffer = []byte{}
 	case '\u007f': // 退格
-		if len(c.buffer) > 1 {
+		if len(c.buffer) > 0 {
 			c.buffer = c.buffer[:len(c.buffer)-1]
+			if c.state != CONN_STATE_PASSWORD {
+				send("\b \b")
+			}
 		}
-		send("\b \b")
 	default:
 		c.buffer = append(c.buffer, d)
-		if len(c.username) == 0 {
+		switch c.state {
+		case CONN_STATE_USERNAME:
 			send(string(d))
 		}
 	}
-	return
 }
 
 func (c *SSHtoolSol) Reconnect() {
