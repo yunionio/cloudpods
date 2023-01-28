@@ -1067,7 +1067,7 @@ func (self *SKVMGuestDriver) RequestQgaCommand(ctx context.Context, userCred mcc
 }
 
 func (self *SKVMGuestDriver) FetchMonitorUrl(ctx context.Context, guest *models.SGuest) string {
-	if options.Options.KvmMonitorAgentUseMetadataService {
+	if options.Options.KvmMonitorAgentUseMetadataService && !guest.IsSriov() {
 		return apis.MetaServiceMonitorAgentUrl
 	}
 	return self.SVirtualizedGuestDriver.FetchMonitorUrl(ctx, guest)
