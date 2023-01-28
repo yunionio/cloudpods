@@ -320,6 +320,8 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 		optionsRef.ApplicationID = serviceName
 	}
 
+	consts.SetServiceName(optionsRef.ApplicationID)
+
 	// log configuration
 	log.SetVerboseLevel(int32(optionsRef.LogVerboseLevel))
 	err = log.SetLogLevelByString(log.Logger(), optionsRef.LogLevel)

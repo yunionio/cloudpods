@@ -22,6 +22,7 @@ import (
 	"syscall"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
@@ -70,6 +71,7 @@ func StartService() {
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		ctx = context.WithValue(ctx, "wg", wg)
 		ctx = context.WithValue(ctx, "cmdChan", cmdChan)
+		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "lbagent")
 		wg.Add(3)
 		go haStateWatcher.Run(ctx)
 		go haproxyHelper.Run(ctx)
