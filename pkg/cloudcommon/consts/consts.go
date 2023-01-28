@@ -29,6 +29,8 @@ var (
 
 	globalServiceType = ""
 
+	globalServiceName = ""
+
 	tenantCacheExpireSeconds = 900
 
 	roleCacheExpireHours = 24
@@ -77,6 +79,14 @@ func SetServiceType(srvType string) {
 
 func GetServiceType() string {
 	return globalServiceType
+}
+
+func SetServiceName(srvName string) {
+	globalServiceName = srvName
+}
+
+func GetServiceName() string {
+	return globalServiceName
 }
 
 func SetTenantCacheExpireSeconds(sec int) {
