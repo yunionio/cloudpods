@@ -62,7 +62,7 @@ type SBaseResources struct {
 	ProviderResources map[string]map[string]jsonutils.JSONObject
 }
 
-func (self *SBaseResources) getResources(managerId string) map[string]jsonutils.JSONObject {
+func (self *SBaseResources) getResources(ctx context.Context, managerId string) map[string]jsonutils.JSONObject {
 	ret := map[string]jsonutils.JSONObject{}
 	if len(managerId) == 0 {
 		return self.Resources
@@ -74,8 +74,8 @@ func (self *SBaseResources) getResources(managerId string) map[string]jsonutils.
 	return ret
 }
 
-func (self *SBaseResources) init() error {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region)
+func (self *SBaseResources) init(ctx context.Context) error {
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	query := map[string]interface{}{
 		"limit":          20,
 		"scope":          "system",
@@ -142,8 +142,8 @@ func (self *SBaseResources) init() error {
 	return nil
 }
 
-func (self *SBaseResources) increment() error {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region)
+func (self *SBaseResources) increment(ctx context.Context) error {
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	timeFilter := fmt.Sprintf("imported_at.gt('%s')", self.importedAt)
 	if self.importedAt.IsZero() {
 		timeFilter = fmt.Sprintf("created_at.gt('%s')", self.createdAt)
@@ -206,8 +206,8 @@ func (self *SBaseResources) increment() error {
 	return nil
 }
 
-func (self *SBaseResources) decrement() error {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region)
+func (self *SBaseResources) decrement(ctx context.Context) error {
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	timeFilter := fmt.Sprintf("deleted_at.gt('%s')", self.deletedAt)
 	query := map[string]interface{}{
 		"limit":      20,
@@ -264,8 +264,8 @@ func (self *SBaseResources) decrement() error {
 	return nil
 }
 
-func (self *SBaseResources) update() error {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region)
+func (self *SBaseResources) update(ctx context.Context) error {
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	timeFilter := fmt.Sprintf("updated_at.gt('%s')", self.updatedAt)
 	query := map[string]interface{}{
 		"limit":          20,
@@ -326,11 +326,11 @@ func NewBaseResources(manager modulebase.Manager) *SBaseResources {
 }
 
 type TResource interface {
-	init() error
-	increment() error
-	decrement() error
-	update() error
-	getResources(managerId string) map[string]jsonutils.JSONObject
+	init(ctx context.Context) error
+	increment(ctx context.Context) error
+	decrement(ctx context.Context) error
+	update(ctx context.Context) error
+	getResources(ctx context.Context, managerId string) map[string]jsonutils.JSONObject
 }
 
 type SResources struct {
@@ -369,51 +369,51 @@ func (self *SResources) Init(ctx context.Context, userCred mcclient.TokenCredent
 	if isStart {
 		err := func() error {
 			errs := []error{}
-			err := self.Cloudaccounts.init()
+			err := self.Cloudaccounts.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "Cloudaccount.init"))
 			}
-			err = self.Cloudproviders.init()
+			err = self.Cloudproviders.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "Cloudproviders.init"))
 			}
-			err = self.DBInstances.init()
+			err = self.DBInstances.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "DBInstances.init"))
 			}
-			err = self.Servers.init()
+			err = self.Servers.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "Servers.init"))
 			}
-			err = self.Hosts.init()
+			err = self.Hosts.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "Hosts.init"))
 			}
-			err = self.Storages.init()
+			err = self.Storages.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "Storages.init"))
 			}
-			err = self.Redis.init()
+			err = self.Redis.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "Redis.init"))
 			}
-			err = self.Loadbalancers.init()
+			err = self.Loadbalancers.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "Loadbalancers.init"))
 			}
-			err = self.Buckets.init()
+			err = self.Buckets.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "Buckets.init"))
 			}
-			err = self.KubeClusters.init()
+			err = self.KubeClusters.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "KubeClusters.init"))
 			}
-			err = self.ModelartsPool.init()
+			err = self.ModelartsPool.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "ModelartsPool.init"))
 			}
-			err = self.Wires.init()
+			err = self.Wires.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "Wires.init"))
 			}
@@ -431,51 +431,51 @@ func (self *SResources) IncrementSync(ctx context.Context, userCred mcclient.Tok
 	}
 	err := func() error {
 		errs := []error{}
-		err := self.Cloudaccounts.increment()
+		err := self.Cloudaccounts.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Cloudaccounts.increment"))
 		}
-		err = self.Cloudproviders.increment()
+		err = self.Cloudproviders.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Cloudproviders.increment"))
 		}
-		err = self.DBInstances.increment()
+		err = self.DBInstances.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "DBInstances.increment"))
 		}
-		err = self.Servers.increment()
+		err = self.Servers.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Servers.increment"))
 		}
-		err = self.Hosts.increment()
+		err = self.Hosts.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Hosts.increment"))
 		}
-		err = self.Storages.increment()
+		err = self.Storages.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Storages.increment"))
 		}
-		err = self.Redis.increment()
+		err = self.Redis.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Redis.increment"))
 		}
-		err = self.Loadbalancers.increment()
+		err = self.Loadbalancers.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Loadbalancers.increment"))
 		}
-		err = self.Buckets.increment()
+		err = self.Buckets.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Buckets.increment"))
 		}
-		err = self.KubeClusters.increment()
+		err = self.KubeClusters.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "KubeClusters.increment"))
 		}
-		err = self.ModelartsPool.increment()
+		err = self.ModelartsPool.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ModelartsPool.increment"))
 		}
-		err = self.Wires.increment()
+		err = self.Wires.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Wires.increment"))
 		}
@@ -492,51 +492,51 @@ func (self *SResources) DecrementSync(ctx context.Context, userCred mcclient.Tok
 	}
 	err := func() error {
 		errs := []error{}
-		err := self.Cloudaccounts.decrement()
+		err := self.Cloudaccounts.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Cloudaccounts.decrement"))
 		}
-		err = self.Cloudproviders.decrement()
+		err = self.Cloudproviders.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Cloudproviders.decrement"))
 		}
-		err = self.DBInstances.decrement()
+		err = self.DBInstances.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "DBInstances.decrement"))
 		}
-		err = self.Servers.decrement()
+		err = self.Servers.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Servers.decrement"))
 		}
-		err = self.Hosts.decrement()
+		err = self.Hosts.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Hosts.decrement"))
 		}
-		err = self.Storages.decrement()
+		err = self.Storages.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Storages.decrement"))
 		}
-		err = self.Redis.decrement()
+		err = self.Redis.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Redis.decrement"))
 		}
-		err = self.Loadbalancers.decrement()
+		err = self.Loadbalancers.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Loadbalancers.decrement"))
 		}
-		err = self.Buckets.decrement()
+		err = self.Buckets.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Buckets.decrement"))
 		}
-		err = self.KubeClusters.decrement()
+		err = self.KubeClusters.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "KubeClusters.decrement"))
 		}
-		err = self.ModelartsPool.decrement()
+		err = self.ModelartsPool.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ModelartsPool.decrement"))
 		}
-		err = self.Wires.decrement()
+		err = self.Wires.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ModelartsPool.decrement"))
 		}
@@ -553,35 +553,35 @@ func (self *SResources) UpdateSync(ctx context.Context, userCred mcclient.TokenC
 	}
 	err := func() error {
 		errs := []error{}
-		err := self.Cloudaccounts.update()
+		err := self.Cloudaccounts.update(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Cloudacconts.update"))
 		}
-		err = self.DBInstances.update()
+		err = self.DBInstances.update(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "DBInstances.update"))
 		}
-		err = self.Servers.update()
+		err = self.Servers.update(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Servers.update"))
 		}
-		err = self.Hosts.update()
+		err = self.Hosts.update(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Hosts.update"))
 		}
-		err = self.Storages.update()
+		err = self.Storages.update(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Storages.update"))
 		}
-		err = self.Redis.update()
+		err = self.Redis.update(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Redis.update"))
 		}
-		err = self.Loadbalancers.update()
+		err = self.Loadbalancers.update(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Loadbalancers.update"))
 		}
-		err = self.ModelartsPool.update()
+		err = self.ModelartsPool.update(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ModelartsPool.update"))
 		}
@@ -599,7 +599,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 	ch := make(chan struct{}, options.Options.CloudAccountCollectMetricsBatchCount)
 	defer close(ch)
 	s := auth.GetAdminSession(context.Background(), options.Options.Region)
-	resources := self.Cloudproviders.getResources("")
+	resources := self.Cloudproviders.getResources(ctx, "")
 	cloudproviders := map[string]api.CloudproviderDetails{}
 	jsonutils.Update(&cloudproviders, resources)
 	sh, _ := time.LoadLocation("Asia/Shanghai")
@@ -640,7 +640,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 			endTime := _endTime.Add(-1 * duration)
 			startTime := _startTime.Add(-1 * duration).Add(time.Second * -59)
 
-			resources = self.DBInstances.getResources(manager.Id)
+			resources = self.DBInstances.getResources(ctx, manager.Id)
 			dbinstances := map[string]api.DBInstanceDetails{}
 			err = jsonutils.Update(&dbinstances, resources)
 			if err != nil {
@@ -651,7 +651,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("CollectDBInstanceMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 
-			resources = self.Servers.getResources(manager.Id)
+			resources = self.Servers.getResources(ctx, manager.Id)
 			servers := map[string]api.ServerDetails{}
 			err = jsonutils.Update(&servers, resources)
 			if err != nil {
@@ -662,7 +662,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("CollectServerMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 
-			resources = self.Hosts.getResources(manager.Id)
+			resources = self.Hosts.getResources(ctx, manager.Id)
 			hosts := map[string]api.HostDetails{}
 			err = jsonutils.Update(&hosts, resources)
 			if err != nil {
@@ -674,7 +674,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("CollectHostMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 
-			resources = self.Storages.getResources(manager.Id)
+			resources = self.Storages.getResources(ctx, manager.Id)
 			storages := map[string]api.StorageDetails{}
 			err = jsonutils.Update(&storages, resources)
 			if err != nil {
@@ -685,7 +685,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("CollectStorageMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 
-			resources = self.Redis.getResources(manager.Id)
+			resources = self.Redis.getResources(ctx, manager.Id)
 			caches := map[string]api.ElasticcacheDetails{}
 			err = jsonutils.Update(&caches, resources)
 			if err != nil {
@@ -697,7 +697,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("CollectRedisMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 
-			resources = self.Loadbalancers.getResources(manager.Id)
+			resources = self.Loadbalancers.getResources(ctx, manager.Id)
 			lbs := map[string]api.LoadbalancerDetails{}
 			err = jsonutils.Update(&lbs, resources)
 			if err != nil {
@@ -709,7 +709,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("CollectLoadbalancerMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 
-			resources = self.Buckets.getResources(manager.Id)
+			resources = self.Buckets.getResources(ctx, manager.Id)
 			buckets := map[string]api.BucketDetails{}
 			err = jsonutils.Update(&buckets, resources)
 			if err != nil {
@@ -721,7 +721,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("CollectBucketMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 
-			resources = self.KubeClusters.getResources(manager.Id)
+			resources = self.KubeClusters.getResources(ctx, manager.Id)
 			clusters := map[string]api.KubeClusterDetails{}
 			err = jsonutils.Update(&clusters, resources)
 			if err != nil {
@@ -733,7 +733,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("CollectK8sMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 
-			resources = self.ModelartsPool.getResources(manager.Id)
+			resources = self.ModelartsPool.getResources(ctx, manager.Id)
 			pools := map[string]api.ModelartsPoolDetails{}
 			err = jsonutils.Update(&pools, resources)
 			if err != nil {
@@ -745,7 +745,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("CollectModelartsPoolMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 
-			resources = self.Wires.getResources(manager.Id)
+			resources = self.Wires.getResources(ctx, manager.Id)
 			wires := map[string]api.WireDetails{}
 			err = jsonutils.Update(&wires, resources)
 			if err != nil {
@@ -761,7 +761,7 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 	}
 	wg.Wait()
 
-	resources = self.Cloudaccounts.getResources("")
+	resources = self.Cloudaccounts.getResources(ctx, "")
 	accounts := map[string]api.CloudaccountDetail{}
 	jsonutils.Update(&accounts, resources)
 
