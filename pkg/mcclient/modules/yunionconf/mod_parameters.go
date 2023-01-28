@@ -18,7 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -61,7 +61,16 @@ func (m *ParametersManager) getParametersRpc(s *mcclient.ClientSession, key stri
 		return nil, err
 	}
 	if parameters.Total == 0 {
-		return nil, errors.Wrap(errors.ErrNotFound, key)
+		// if no such setting, create one
+		empty := jsonutils.NewDict()
+		empty.Add(jsonutils.NewString(key), "name")
+		empty.Add(jsonutils.NewDict(), "value")
+		empty.Add(jsonutils.NewString("yunionagent"), "service_id")
+		_, err := m.Create(adminSession, empty)
+		if err != nil && httputils.ErrorCode(err) != 409 {
+			return nil, err
+		}
+		return m.getParametersRpc(s, key, params)
 	}
 	return parameters.Data[0], nil
 }
