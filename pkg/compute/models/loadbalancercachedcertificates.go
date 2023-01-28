@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/rand"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
@@ -184,32 +185,76 @@ func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(c
 	lockman.LockClass(ctx, man, ownerProjId)
 	defer lockman.ReleaseClass(ctx, man, ownerProjId)
 
-	region, err := lblis.GetRegion()
+	cache, err := func() (*SCachedLoadbalancerCertificate, error) {
+		region, err := lblis.GetRegion()
+		if err != nil {
+			return nil, err
+		}
+		lbcert, err := man.getLoadbalancerCertificateByRegion(provider, region.Id, cert.Id)
+		if err == nil {
+			return lbcert, nil
+		}
+
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, errors.Wrap(err, "getLoadbalancerCertificateByRegion")
+		}
+
+		lbcert = &SCachedLoadbalancerCertificate{}
+		lbcert.SetModelManager(CachedLoadbalancerCertificateManager, lbcert)
+		lbcert.ManagerId = provider.Id
+		lbcert.CloudregionId = region.Id
+		lbcert.Name = cert.Name
+		lbcert.Description = cert.Description
+		lbcert.CertificateId = cert.Id
+
+		err = man.TableSpec().Insert(ctx, lbcert)
+		if err != nil {
+			return nil, errors.Wrap(err, "Insert")
+		}
+
+		return lbcert, nil
+	}()
 	if err != nil {
 		return nil, err
 	}
-	lbcert, err := man.getLoadbalancerCertificateByRegion(provider, region.Id, cert.Id)
-	if err == nil {
-		return &lbcert, nil
+	if len(cache.ExternalId) > 0 {
+		return cache, nil
 	}
-
-	if err.Error() != "NotFound" {
-		return nil, errors.Wrap(err, "cachedLoadbalancerCertificateManager.getCert")
-	}
-
-	lbcert = SCachedLoadbalancerCertificate{}
-	lbcert.ManagerId = provider.Id
-	lbcert.CloudregionId = region.Id
-	lbcert.Name = cert.Name
-	lbcert.Description = cert.Description
-	lbcert.CertificateId = cert.Id
-
-	err = man.TableSpec().Insert(ctx, &lbcert)
+	err = cache.CreateICertificate(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "cachedLoadbalancerCertificateManager.create")
+		return nil, errors.Wrapf(err, "CreateICertificate")
+	}
+	return cache, nil
+}
+
+func (lbcert *SCachedLoadbalancerCertificate) CreateICertificate(ctx context.Context) error {
+	iRegion, err := lbcert.GetIRegion(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "lbcert.GetIRegion")
 	}
 
-	return &lbcert, nil
+	localCert, err := lbcert.GetCertificate()
+	if err != nil {
+		return errors.Wrapf(err, "GetCertificate")
+	}
+
+	certificate := &cloudprovider.SLoadbalancerCertificate{
+		Name:        fmt.Sprintf("%s-%s", lbcert.Name, rand.String(4)),
+		PrivateKey:  localCert.PrivateKey,
+		Certificate: localCert.Certificate,
+	}
+	iLoadbalancerCert, err := iRegion.CreateILoadBalancerCertificate(certificate)
+	if err != nil {
+		return errors.Wrap(err, "iRegion.CreateILoadBalancerCertificate")
+	}
+	_, err = db.Update(lbcert, func() error {
+		lbcert.ExternalId = iLoadbalancerCert.GetGlobalId()
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "db.SetExternalId")
+	}
+	return nil
 }
 
 func (lbcert *SCachedLoadbalancerCertificate) StartLoadbalancerCertificateCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -322,12 +367,12 @@ func (lbcert *SCachedLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertifi
 	return nil
 }
 
-func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificateByRegion(provider *SCloudprovider, regionId string, localCertificateId string) (SCachedLoadbalancerCertificate, error) {
+func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificateByRegion(provider *SCloudprovider, regionId string, localCertificateId string) (*SCachedLoadbalancerCertificate, error) {
 	certificates := []SCachedLoadbalancerCertificate{}
 	q := man.Query().Equals("manager_id", provider.Id).Equals("certificate_id", localCertificateId)
 	regionDriver, err := provider.GetRegionDriver()
 	if err != nil {
-		return SCachedLoadbalancerCertificate{}, errors.Wrap(err, "GetRegionDriver")
+		return nil, errors.Wrap(err, "GetRegionDriver")
 	}
 
 	if regionDriver.IsCertificateBelongToRegion() {
@@ -336,14 +381,13 @@ func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificateByRe
 
 	if err := db.FetchModelObjects(man, q, &certificates); err != nil {
 		log.Errorf("failed to get lb certificate for region: %v provider: %v error: %v", regionId, provider, err)
-		return SCachedLoadbalancerCertificate{}, err
+		return nil, err
 	}
 
 	if len(certificates) >= 1 {
-		return certificates[0], nil
-	} else {
-		return SCachedLoadbalancerCertificate{}, fmt.Errorf("NotFound")
+		return &certificates[0], nil
 	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SCloudprovider) getLoadbalancerCertificatesByRegion(region *SCloudregion) ([]SCachedLoadbalancerCertificate, error) {

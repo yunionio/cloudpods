@@ -70,8 +70,6 @@ type ICloudRegion interface {
 	ICloudResource
 	ICloudI18nResource
 
-	// GetLatitude() float32
-	// GetLongitude() float32
 	GetGeographicInfo() SGeographicInfo
 
 	GetIZones() ([]ICloudZone, error)
@@ -754,7 +752,10 @@ type ICloudLoadbalancerListener interface {
 
 	Start() error
 	Stop() error
-	Sync(ctx context.Context, listener *SLoadbalancerListenerCreateOptions) error
+	ChangeScheduler(ctx context.Context, opts *ChangeListenerSchedulerOptions) error
+	SetHealthCheck(ctx context.Context, opts *ListenerHealthCheckOptions) error
+	ChangeCertificate(ctx context.Context, opts *ListenerCertificateOptions) error
+	SetAcl(ctx context.Context, opts *ListenerAclOptions) error
 
 	Delete(ctx context.Context) error
 }

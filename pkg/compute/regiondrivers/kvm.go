@@ -425,10 +425,6 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerAcl(ctx context.Context, 
 	return task.ScheduleRun(nil)
 }
 
-func (self *SKVMRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	return task.ScheduleRun(nil)
-}
-
 func (self *SKVMRegionDriver) RequestCreateLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SCachedLoadbalancerCertificate, task taskman.ITask) error {
 	return task.ScheduleRun(nil)
 }
@@ -449,14 +445,6 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.
 
 func (self *SKVMRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	task.ScheduleRun(nil)
-	return nil
-}
-
-func (self *SKVMRegionDriver) ValidateDeleteLoadbalancerBackendCondition(ctx context.Context, lbb *models.SLoadbalancerBackend) error {
-	return nil
-}
-
-func (self *SKVMRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup) error {
 	return nil
 }
 
@@ -504,7 +492,7 @@ func (self *SKVMRegionDriver) RequestSyncstatusLoadbalancerListener(ctx context.
 	return nil
 }
 
-func (self *SKVMRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+func (self *SKVMRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, input *api.LoadbalancerListenerUpdateInput, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }

@@ -245,6 +245,14 @@ func (listerner *SLoadbalancerHTTPSListener) HTTP2Enabled() bool {
 	return false
 }
 
+func (listerner *SLoadbalancerHTTPSListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (listerner *SLoadbalancerHTTPSListener) SetAcl(ctx context.Context, opts *cloudprovider.ListenerAclOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (listerner *SLoadbalancerHTTPSListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	rules, err := listerner.lb.region.GetLoadbalancerListenerRules(listerner.lb.LoadBalancerId, listerner.ListenerPort)
 	if err != nil {
@@ -393,8 +401,18 @@ func (region *SRegion) SyncLoadbalancerHTTPSListener(lb *SLoadbalancer, listener
 	return err
 }
 
+/*
 func (listerner *SLoadbalancerHTTPSListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	return listerner.lb.region.SyncLoadbalancerHTTPSListener(listerner.lb, lblis)
+}
+*/
+
+func (self *SLoadbalancerHTTPSListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SLoadbalancerHTTPSListener) SetHealthCheck(ctx context.Context, opts *cloudprovider.ListenerHealthCheckOptions) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (listerner *SLoadbalancerHTTPSListener) GetClientIdleTimeout() int {

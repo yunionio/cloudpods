@@ -146,7 +146,3 @@ func (cli *SESXiClient) GetIStoragecacheById(idstr string) (cloudprovider.ICloud
 func (cli *SESXiClient) GetISkus() ([]cloudprovider.ICloudSku, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
-
-func (cli *SESXiClient) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}

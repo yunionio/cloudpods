@@ -30,10 +30,6 @@ func (self *SNoLbRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudL
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SNoLbRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
 func (self *SNoLbRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
 	return nil, cloudprovider.ErrNotSupported
 }

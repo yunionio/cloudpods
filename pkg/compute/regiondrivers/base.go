@@ -99,10 +99,6 @@ func (self *SBaseRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context
 	return fmt.Errorf("Not Implement RequestDeleteLoadbalancerBackendGroup")
 }
 
-func (self *SBaseRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
-	return fmt.Errorf("Not Implement RequestSyncLoadbalancerBackendGroup")
-}
-
 func (self *SBaseRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestCreateLoadbalancerBackend")
 }
@@ -141,8 +137,8 @@ func (self *SBaseRegionDriver) RequestSyncstatusLoadbalancerListener(ctx context
 	return fmt.Errorf("Not Implement RequestSyncstatusLoadbalancerListener")
 }
 
-func (self *SBaseRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	return fmt.Errorf("Not Implement RequestSyncLoadbalancerListener")
+func (self *SBaseRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, input *api.LoadbalancerListenerUpdateInput, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestSyncLoadbalancerListener")
 }
 
 func (self *SBaseRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerListenerRuleCreateInput) (*api.LoadbalancerListenerRuleCreateInput, error) {

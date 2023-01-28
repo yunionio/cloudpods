@@ -18,10 +18,12 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -380,6 +382,18 @@ func (self *SElbListener) GetHealthCheckURI() string {
 	return ""
 }
 
+func (self *SElbListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
+	params := map[string]interface{}{
+		"default_tls_container_ref": opts.CertificateId,
+	}
+	_, err := self.lb.region.lbUpdate("elb/listeners/"+self.ID, map[string]interface{}{"listener": params})
+	return err
+}
+
+func (listerner *SElbListener) SetAcl(ctx context.Context, opts *cloudprovider.ListenerAclOptions) error {
+	return cloudprovider.ErrNotSupported
+}
+
 func (self *SElbListener) GetHealthCheckCode() string {
 	return ""
 }
@@ -540,18 +554,84 @@ func (self *SElbListener) Stop() error {
 	return cloudprovider.ErrNotSupported
 }
 
-// https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561544.html
-/*
-default_pool_id有如下限制：
-不能更新为其他监听器的default_pool。
-不能更新为其他监听器的关联的转发策略所使用的pool。
-default_pool_id对应的后端云服务器组的protocol和监听器的protocol有如下关系：
-监听器的protocol为TCP时，后端云服务器组的protocol必须为TCP。
-监听器的protocol为UDP时，后端云服务器组的protocol必须为UDP。
-监听器的protocol为HTTP或TERMINATED_HTTPS时，后端云服务器组的protocol必须为HTTP。
-*/
-func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	return self.lb.region.UpdateLoadBalancerListener(self.GetId(), listener)
+func (self *SElbListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
+	lbbg, err := self.GetBackendGroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetBackendGroup")
+	}
+	pool := map[string]interface{}{
+		"session_persistence": jsonutils.JSONNull,
+	}
+	switch opts.Scheduler {
+	case api.LB_SCHEDULER_WRR:
+		pool["lb_algorithm"] = "ROUND_ROBIN"
+	case api.LB_SCHEDULER_WLC:
+		pool["lb_algorithm"] = "LEAST_CONNECTIONS"
+	case api.LB_SCHEDULER_SCH:
+		pool["lb_algorithm"] = "SOURCE_IP"
+	default:
+		return errors.Wrapf(cloudprovider.ErrNotSupported, "invalid scheduler %s", opts.Scheduler)
+	}
+	if opts.StickySession == api.LB_BOOL_ON {
+		sticky := map[string]interface{}{
+			"type":                "SOURCE_IP",
+			"persistence_timeout": opts.StickySessionCookieTimeout,
+		}
+		if opts.StickySessionType == api.LB_STICKY_SESSION_TYPE_SERVER {
+			sticky["type"] = "APP_COOKIE"
+			sticky["cookie_name"] = opts.StickySessionCookie
+		}
+		pool["session_persistence"] = sticky
+	}
+	params := map[string]interface{}{
+		"pool": pool,
+	}
+	_, err = self.lb.region.lbUpdate(fmt.Sprintf("elb/pools/%s", lbbg.ID), params)
+	return err
+}
+
+func (self *SElbListener) SetHealthCheck(ctx context.Context, opts *cloudprovider.ListenerHealthCheckOptions) error {
+	lbbg, err := self.GetBackendGroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetBackendGroup")
+	}
+	if opts.HealthCheck == api.LB_BOOL_OFF {
+		if len(lbbg.HealthMonitorID) > 0 {
+			return self.lb.region.DeleteLoadbalancerHealthCheck(lbbg.HealthMonitorID)
+		}
+		return nil
+	}
+	if opts.HealthCheckType == api.LB_HEALTH_CHECK_UDP {
+		opts.HealthCheckType = "UDP_CONNECT"
+	}
+	if opts.HealthCheckRise < 1 || opts.HealthCheckRise > 10 {
+		opts.HealthCheckRise = 3
+	}
+	heathmonitor := map[string]interface{}{
+		"delay":       opts.HealthCheckInterval,
+		"max_retries": opts.HealthCheckRise,
+		"timeout":     opts.HealthCheckTimeout,
+		"type":        strings.ToUpper(opts.HealthCheckType),
+	}
+	if opts.HealthCheckType == api.LB_HEALTH_CHECK_HTTP {
+		if len(opts.HealthCheckDomain) > 0 {
+			heathmonitor["domain_name"] = opts.HealthCheckDomain
+		}
+		heathmonitor["url_path"] = opts.HealthCheckURI
+	}
+	if len(lbbg.HealthMonitorID) == 0 {
+		heathmonitor["pool_id"] = lbbg.ID
+		params := map[string]interface{}{
+			"healthmonitor": heathmonitor,
+		}
+		_, err = self.lb.region.lbCreate("elb/healthmonitors", params)
+		return err
+	}
+	params := map[string]interface{}{
+		"healthmonitor": heathmonitor,
+	}
+	_, err = self.lb.region.lbUpdate(fmt.Sprintf("elb/healthmonitors/%s", lbbg.HealthMonitorID), params)
+	return err
 }
 
 func (self *SElbListener) Delete(ctx context.Context) error {

@@ -323,10 +323,6 @@ func (self *SRegionLbBase) GetILoadBalancerCertificates() ([]cloudprovider.IClou
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerCertificates")
 }
 
-func (self *SRegionLbBase) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerBackendGroups")
-}
-
 func (self *SRegionLbBase) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerById")
 }
