@@ -549,7 +549,8 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 
 	ret, expect, eipSync := 0, len(desc.DataDisks)+1, false
 	err = cloudprovider.RetryUntil(func() (bool, error) {
-		if desc.PublicIpBw > 0 {
+		// 虚拟机启动后才分配静态公网IP，否则取不到public ip
+		if desc.PublicIpBw > 0 && initialState == api.VM_RUNNING {
 			eip, _ := iVM.GetIEIP()
 			if eip == nil {
 				iVM.Refresh()
