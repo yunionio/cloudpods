@@ -26,7 +26,6 @@ import (
 	psnet "github.com/shirou/gopsutil/v3/net"
 	"github.com/shirou/gopsutil/v3/process"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
@@ -187,7 +186,7 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 				delete(s.monitors, guestId)
 				gm, err = NewGuestMonitor(guestName, guestId, pid, nicsDesc, int(vcpuCount))
 				if err != nil {
-					log.Errorf("NewGuestMonitor for %s(%s), pid: %d, nics: %s", guestName, guestId, pid, jsonutils.Marshal(nicsDesc).String())
+					log.Errorf("NewGuestMonitor for %s(%s), pid: %d, nics: %#v", guestName, guestId, pid, nicsDesc)
 					return true
 				}
 			}
@@ -265,30 +264,6 @@ func (s *SGuestMonitorCollector) toTelegrafReportData(data map[string]*GuestMetr
 	return strings.Join(ret, "\n")
 }
 
-func (s *SGuestMonitorCollector) addTelegrafLine(
-	metrics string, tags map[string]string, stat *jsonutils.JSONDict,
-) string {
-	meta, _ := stat.GetMap("meta")
-	stat.Remove("meta")
-	if meta != nil {
-		delete(meta, "uptime")
-	}
-
-	var tagArr = []string{}
-	for k, v := range tags {
-		tagArr = append(tagArr, fmt.Sprintf("%s=%s", k, strings.ReplaceAll(v, " ", "+")))
-	}
-	tagStr := strings.Join(tagArr, ",")
-
-	var statArr = []string{}
-	ss, _ := stat.GetMap()
-	for k, v := range ss {
-		statArr = append(statArr, fmt.Sprintf("%s=%s", k, v.String()))
-	}
-	statStr := strings.Join(statArr, ",")
-	return fmt.Sprintf("%s,%s %s", metrics, tagStr, statStr)
-}
-
 func (s *SGuestMonitorCollector) cleanedPrevData(gms map[string]*SGuestMonitor) {
 	for guestId := range s.prevReportData {
 		if gm, ok := gms[guestId]; !ok {
@@ -358,7 +333,9 @@ func (s *SGuestMonitorCollector) collectGmReport(
 }
 
 func (s *SGuestMonitorCollector) addDiskio(curInfo, prevInfo *DiskIOMetric) {
-	s.reportDiskIo(curInfo, prevInfo)
+	if prevInfo != nil {
+		s.reportDiskIo(curInfo, prevInfo)
+	}
 }
 
 func (s *SGuestMonitorCollector) reportDiskIo(cur, prev *DiskIOMetric) {
