@@ -47,7 +47,7 @@ func ObjectIdQueryWithPolicyResult(q *sqlchemy.SQuery, manager IModelManager, re
 			q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", tagFilters)
 		}
 	}
-	if !result.ProjectTags.IsEmpty() {
+	if !result.ObjectTags.IsEmpty() {
 		tagFilters := tagutils.STagFilters{}
 		tagFilters.AddFilters(result.ObjectTags)
 		q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), tagFilters)
