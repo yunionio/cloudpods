@@ -41,6 +41,8 @@ import (
 type ApiHelper struct {
 	opts *Options
 
+	lbagentId string
+
 	dataDirMan  *agentutils.ConfigDirManager
 	apih        *apihelper.APIHelper
 	corpus      *agentmodels.LoadbalancerCorpus
@@ -54,7 +56,7 @@ type ApiHelper struct {
 	ovn *OvnWorker
 }
 
-func NewApiHelper(opts *Options) (*ApiHelper, error) {
+func NewApiHelper(opts *Options, lbagentId string) (*ApiHelper, error) {
 	corpus := agentmodels.NewEmptyLoadbalancerCorpus()
 	apiOpts := &apihelper.Options{
 		CommonOptions:        opts.CommonOptions,
@@ -68,6 +70,8 @@ func NewApiHelper(opts *Options) (*ApiHelper, error) {
 	}
 	helper := &ApiHelper{
 		opts: opts,
+
+		lbagentId: lbagentId,
 
 		dataDirMan: agentutils.NewConfigDirManager(opts.apiDataStoreDir),
 		apih:       apih,
@@ -178,7 +182,6 @@ func (h *ApiHelper) adminClientSession(ctx context.Context) *mcclient.ClientSess
 	}
 
 	region := h.opts.CommonOptions.Region
-	// apiVersion := "v2"
 	h.mcclientSession = auth.GetAdminSession(ctx, region)
 	return h.mcclientSession
 }
@@ -187,7 +190,7 @@ func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*computemodels.SLoadbala
 	s := h.adminClientSession(ctx)
 	params := jsonutils.NewDict()
 	params.Set(api.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(api.LBAGENT_QUERY_ORIG_VAL))
-	data, err := modules.LoadbalancerAgents.Get(s, h.opts.ApiLbagentId, params)
+	data, err := modules.LoadbalancerAgents.Get(s, h.lbagentId, params)
 	if err != nil {
 		err := fmt.Errorf("agent get error: %s", err)
 		return nil, err
@@ -246,6 +249,7 @@ func (r *agentPeekResult) staleInFuture(s int) bool {
 	return false
 }
 
+/*
 func (h *ApiHelper) agentPeek(ctx context.Context) *agentPeekResult {
 	doPeekWithLog := func() *computemodels.SLoadbalancerAgent {
 		agent, err := h.agentPeekOnce(ctx)
@@ -273,11 +277,12 @@ func (h *ApiHelper) agentPeek(ctx context.Context) *agentPeekResult {
 	}
 	return (*agentPeekResult)(agent)
 }
+*/
 
 func (h *ApiHelper) agentUpdateSeen(ctx context.Context) *computemodels.SLoadbalancerAgent {
 	s := h.adminClientSession(ctx)
 	params := h.corpus.MaxSeenUpdatedAtParams()
-	data, err := modules.LoadbalancerAgents.Update(s, h.opts.ApiLbagentId, params)
+	data, err := modules.LoadbalancerAgents.Update(s, h.lbagentId, params)
 	if err != nil {
 		log.Errorf("agent get error: %s", err)
 		return nil
@@ -317,7 +322,7 @@ func (h *ApiHelper) doHb(ctx context.Context) (*computemodels.SLoadbalancerAgent
 	if err != nil {
 		return nil, fmt.Errorf("heartbeat: making params: %s", err)
 	}
-	data, err := modules.LoadbalancerAgents.PerformAction(s, h.opts.ApiLbagentId, "hb", params)
+	data, err := modules.LoadbalancerAgents.PerformAction(s, h.lbagentId, "hb", params)
 	if err != nil {
 		err := fmt.Errorf("heartbeat api error: %s", err)
 		return nil, err

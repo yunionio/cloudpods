@@ -171,6 +171,7 @@ func (h *HaproxyHelper) handleUseCorpusCmd(ctx context.Context, cmd *LbagentCmd)
 				LoadbalancersEnabled: genHaproxyConfigsResult.LoadbalancersEnabled,
 				AgentParams:          agentParams,
 			}
+			log.Infof("GenKeepalivedConfigs %s", dir)
 			err := corpus.GenKeepalivedConfigs(dir, opts)
 			if err != nil {
 				err = fmt.Errorf("generating keepalived config failed: %s", err)
@@ -511,6 +512,8 @@ func (h *HaproxyHelper) reloadKeepalived(ctx context.Context) error {
 }
 
 func (h *HaproxyHelper) runCmd(args []string) error {
+	log.Debugf("run command %s", args)
+
 	name := args[0]
 	args = args[1:]
 	cmd := exec.Command(name, args...)

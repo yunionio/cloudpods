@@ -183,8 +183,10 @@ func (ovnHost *OvnHost) cleanUpBridge() {
 		"ovs-vsctl",
 		"--", "--if-exists", "del-port", bridge, peer0,
 	}
+	var cancelFunc context.CancelFunc
 	ctx := context.Background()
-	ctx, _ = context.WithTimeout(ctx, time.Second*7)
+	ctx, cancelFunc = context.WithTimeout(ctx, time.Second*7)
+	defer cancelFunc()
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	_, err := cmd.Output()
 	if err != nil {
