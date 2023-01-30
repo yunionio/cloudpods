@@ -12,30 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package models
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/jsonutils"
+)
 
-type LoadbalancerAgentDetails struct {
-	apis.StandaloneResourceDetails
-	LoadbalancerClusterResourceInfo
-
-	SLoadbalancerAgent
+type SLoadbalancerClusterParams struct {
+	VirtualRouterId   int `json:",omitzero"`
+	Preempt           bool
+	AdvertInt         int `json:",omitzero"`
+	Pass              string
+	GarpMasterRefresh int `json:",omitzero"`
 }
 
-type LoadbalancerAgentListInput struct {
-	apis.StandaloneResourceListInput
-	LoadbalancerClusterFilterListInput
-
-	Version []string `json:"version"`
-	IP      []string `json:"ip"`
-	HaState []string `json:"ha_state"`
+func (p *SLoadbalancerClusterParams) String() string {
+	return jsonutils.Marshal(p).String()
 }
 
-type LoadbalancerAgentJoinClusterInput struct {
-	ClusterId string `json:"cluster_id"`
-	Priority  int    `json:"priority"`
-}
-
-type LoadbalancerAgentLeaveClusterInput struct {
+func (p *SLoadbalancerClusterParams) IsZero() bool {
+	if *p == (SLoadbalancerClusterParams{}) {
+		return true
+	}
+	return false
 }

@@ -26,6 +26,7 @@ import (
 
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 func StartService() {
@@ -33,6 +34,16 @@ func StartService() {
 	commonOpts := &opts.CommonOptions
 	{
 		common_options.ParseOptions(opts, os.Args, "lbagent.conf", "lbagent")
+		if len(opts.CommonConfigFile) > 0 && fileutils2.Exists(opts.CommonConfigFile) {
+			log.Infof("read common config file: %s", opts.CommonConfigFile)
+			commonCfg := &LbagentCommonOptions{}
+			commonCfg.Config = opts.CommonConfigFile
+			common_options.ParseOptions(commonCfg, []string{os.Args[0]}, "common.conf", "lbagent")
+			baseOpt := opts.BaseOptions.BaseOptions
+			opts.LbagentCommonOptions = *commonCfg
+			// keep base options
+			opts.BaseOptions.BaseOptions = baseOpt
+		}
 		app_common.InitAuth(commonOpts, func() {
 			log.Infof("auth finished ok")
 		})
@@ -41,10 +52,17 @@ func StartService() {
 		log.Fatalf("opts validate: %s", err)
 	}
 
+	// register lbagent
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "lbagent")
+	lbagentId, err := register(ctx, opts)
+	if err != nil {
+		log.Fatalf("register lbagent failed: %s", err)
+	}
+
 	var haproxyHelper *HaproxyHelper
 	var apiHelper *ApiHelper
 	var haStateWatcher *HaStateWatcher
-	var err error
 	{
 		haStateWatcher, err = NewHaStateWatcher(opts)
 		if err != nil {
@@ -58,7 +76,7 @@ func StartService() {
 		}
 	}
 	{
-		apiHelper, err = NewApiHelper(opts)
+		apiHelper, err = NewApiHelper(opts, lbagentId)
 		if err != nil {
 			log.Fatalf("init api helper failed: %s", err)
 		}
@@ -68,10 +86,10 @@ func StartService() {
 	{
 		wg := &sync.WaitGroup{}
 		cmdChan := make(chan *LbagentCmd) // internal
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		var cancelFunc context.CancelFunc
+		ctx, cancelFunc = context.WithCancel(ctx)
 		ctx = context.WithValue(ctx, "wg", wg)
 		ctx = context.WithValue(ctx, "cmdChan", cmdChan)
-		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "lbagent")
 		wg.Add(3)
 		go haStateWatcher.Run(ctx)
 		go haproxyHelper.Run(ctx)

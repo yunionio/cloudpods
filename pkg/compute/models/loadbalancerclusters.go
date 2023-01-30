@@ -16,10 +16,13 @@ package models
 
 import (
 	"context"
+	"reflect"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -28,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -40,6 +44,9 @@ type SLoadbalancerClusterManager struct {
 var LoadbalancerClusterManager *SLoadbalancerClusterManager
 
 func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&SLoadbalancerClusterParams{}), func() gotypes.ISerializable {
+		return &SLoadbalancerClusterParams{}
+	})
 	LoadbalancerClusterManager = &SLoadbalancerClusterManager{
 		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			SLoadbalancerCluster{},
@@ -55,6 +62,8 @@ type SLoadbalancerCluster struct {
 	db.SStandaloneResourceBase
 	SZoneResourceBase
 	SWireResourceBase `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
+
+	Params *SLoadbalancerClusterParams `nullable:"true" create:"optional" list:"admin" get:"admin"`
 }
 
 // 负载均衡集群列表
@@ -131,7 +140,13 @@ func (man *SLoadbalancerClusterManager) QueryDistinctExtraField(q *sqlchemy.SQue
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SLoadbalancerClusterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SLoadbalancerClusterManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data *jsonutils.JSONDict,
+) (*jsonutils.JSONDict, error) {
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
 	wireV := validators.NewModelIdOrNameValidator("wire", "wire", ownerId)
 	vs := []validators.IValidator{
@@ -168,7 +183,28 @@ func (man *SLoadbalancerClusterManager) ValidateCreateData(ctx context.Context, 
 	return data, nil
 }
 
-func (lbc *SLoadbalancerCluster) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (cluster *SLoadbalancerCluster) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	err := cluster.selfInitParams()
+	if err != nil {
+		log.Errorf("fail to generate cluster params: %s", err)
+		logclient.AddSimpleActionLog(cluster, logclient.ACT_CREATE, err, userCred, false)
+	} else {
+		logclient.AddSimpleActionLog(cluster, logclient.ACT_CREATE, cluster.Params, userCred, true)
+	}
+}
+
+func (lbc *SLoadbalancerCluster) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data *jsonutils.JSONDict,
+) (*jsonutils.JSONDict, error) {
 	wireV := validators.NewModelIdOrNameValidator("wire", "wire", lbc.GetOwnerId())
 	wireV.Optional(true)
 	if err := wireV.Validate(data); err != nil {
@@ -280,28 +316,55 @@ func (man *SLoadbalancerClusterManager) FindByZoneId(zoneId string) []SLoadbalan
 	return r
 }
 
-func (man *SLoadbalancerClusterManager) findByVrrpRouterIdInZone(zoneId string, routerId int) (*SLoadbalancerCluster, error) {
-	var r *SLoadbalancerCluster
+func (man *SLoadbalancerClusterManager) findByVrrpRouterIdInZone(zoneId string, routerId int) ([]*SLoadbalancerCluster, error) {
+	r := make([]*SLoadbalancerCluster, 0)
 
 	peerClusters := man.FindByZoneId(zoneId)
 	for i := range peerClusters {
 		peerCluster := &peerClusters[i]
-		peerClusterLbagents, err := man.getLoadbalancerAgents(peerCluster.Id)
-		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
-		}
-		for j := range peerClusterLbagents {
-			peerClusterLbagent := &peerClusterLbagents[j]
-			if peerClusterLbagent.Params.Vrrp.VirtualRouterId == routerId {
-				if r != nil {
-					return nil, httperrors.NewInternalServerError("lbclusters %s(%s) and %s(%s) has conflict virtual_router_id: %d ", r.Name, r.Id, peerCluster.Name, peerCluster.Id, routerId)
-				}
-				r = peerCluster
-				break
-			}
+		if peerCluster.Params.VirtualRouterId == routerId {
+			r = append(r, peerCluster)
 		}
 	}
 	return r, nil
+}
+
+func (man *SLoadbalancerClusterManager) getVrrpRouterIdsInZone(zoneId string) ([]int, error) {
+	q := man.Query().IsNotEmpty("params").Equals("zone_id", zoneId)
+	clusters := make([]SLoadbalancerCluster, 0)
+	err := db.FetchModelObjects(man, q, &clusters)
+	if err != nil {
+		return nil, errors.Wrap(err, "initParams.FetchModelObjects")
+	}
+	ret := make([]int, 0)
+	for i := range clusters {
+		if clusters[i].Params.VirtualRouterId > 0 {
+			ret = append(ret, clusters[i].Params.VirtualRouterId)
+		}
+	}
+	return ret, nil
+}
+
+func isInArray[K comparable](v K, arr []K) bool {
+	for i := range arr {
+		if arr[i] == v {
+			return true
+		}
+	}
+	return false
+}
+
+func (man *SLoadbalancerClusterManager) newVrrpRouterIdsInZone(zoneId string) (int, error) {
+	idList, err := man.getVrrpRouterIdsInZone(zoneId)
+	if err != nil {
+		return -1, errors.Wrap(err, "getVrrpRouterIdsInZone")
+	}
+	for i := 17; i < 250; i++ {
+		if !isInArray(i, idList) {
+			return i, nil
+		}
+	}
+	return -1, errors.Wrapf(httperrors.ErrNotFound, "no available vrrp router id in zone %s", zoneId)
 }
 
 func (man *SLoadbalancerClusterManager) getLoadbalancerAgents(clusterId string) ([]SLoadbalancerAgent, error) {
@@ -391,6 +454,65 @@ func (man *SLoadbalancerClusterManager) InitializeData() error {
 		}
 	}
 
+	man.initParams()
+
+	return nil
+}
+
+func (man *SLoadbalancerClusterManager) initParams() error {
+	q := man.Query().IsNullOrEmpty("params")
+	clusters := make([]SLoadbalancerCluster, 0)
+	err := db.FetchModelObjects(man, q, &clusters)
+	if err != nil {
+		return errors.Wrap(err, "initParams.FetchModelObjects")
+	}
+	for i := range clusters {
+		err := clusters[i].initParams()
+		if err != nil {
+			return errors.Wrap(err, "cluster initParams")
+		}
+	}
+	return nil
+}
+
+func (cluster *SLoadbalancerCluster) initParams() error {
+	lbagents, err := LoadbalancerClusterManager.getLoadbalancerAgents(cluster.Id)
+	if err != nil {
+		return errors.Wrap(err, "getLoadbalancerAgents")
+	}
+	if len(lbagents) == 0 {
+		// generate params
+		return cluster.selfInitParams()
+	}
+	_, err = db.Update(cluster, func() error {
+		cluster.Params = &lbagents[0].Params.Vrrp.SLoadbalancerClusterParams
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "UpdateWithLock")
+	}
+	return nil
+}
+
+func (cluster *SLoadbalancerCluster) selfInitParams() error {
+	newRouterId, err := LoadbalancerClusterManager.newVrrpRouterIdsInZone(cluster.ZoneId)
+	if err != nil {
+		return errors.Wrap(err, "newVrrpRouterIdsInZone")
+	}
+	params := SLoadbalancerClusterParams{
+		VirtualRouterId:   newRouterId,
+		Preempt:           false,
+		AdvertInt:         5,
+		Pass:              seclib.RandomPassword(6),
+		GarpMasterRefresh: 29,
+	}
+	_, err = db.Update(cluster, func() error {
+		cluster.Params = &params
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "UpdateWithLock")
+	}
 	return nil
 }
 
@@ -417,4 +539,56 @@ func (manager *SLoadbalancerClusterManager) ListItemExportKeys(ctx context.Conte
 		}
 	}
 	return q, nil
+}
+
+func (cluster *SLoadbalancerCluster) PerformParamsPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	oldParams := cluster.Params
+	params := gotypes.DeepCopy(*cluster.Params).(SLoadbalancerClusterParams)
+	d := jsonutils.NewDict()
+	d.Set("params", data)
+	paramsV := validators.NewStructValidator("params", &params)
+	if err := paramsV.Validate(d); err != nil {
+		return nil, err
+	}
+	// new vrrp virtual_router_id should be unique across clusters
+	if params.VirtualRouterId != oldParams.VirtualRouterId {
+		otherClusters, err := LoadbalancerClusterManager.findByVrrpRouterIdInZone(cluster.ZoneId, params.VirtualRouterId)
+		if err != nil {
+			return nil, errors.Wrap(err, "findByVrrpRouterIdInZone")
+		}
+		if len(otherClusters) > 0 {
+			return nil, httperrors.NewConflictError("lbcluster %s(%s) already has virtual_router_id %d",
+				otherClusters[0].Name, otherClusters[0].Id, params.VirtualRouterId)
+		}
+	}
+	{
+		diff, err := db.Update(cluster, func() error {
+			cluster.Params = &params
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "Update")
+		}
+		db.OpsLog.LogEvent(cluster, db.ACT_UPDATE, diff, userCred)
+	}
+	{
+		// populate changes to underlying lbagents
+		lbagents, err := LoadbalancerAgentManager.getByClusterId(cluster.Id)
+		if err != nil {
+			return nil, errors.Wrap(err, "getByClusterId")
+		}
+		for i := range lbagents {
+			lbagent := lbagents[i]
+			params := *lbagent.Params
+			params.Vrrp.SLoadbalancerClusterParams = *cluster.Params
+			_, err := db.Update(&lbagent, func() error {
+				lbagent.Params = &params
+				return nil
+			})
+			if err != nil {
+				return nil, errors.Wrap(err, "Update")
+			}
+		}
+	}
+	return nil, nil
 }

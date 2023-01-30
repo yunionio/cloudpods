@@ -182,3 +182,23 @@ type LoadbalancerAgentActionUndeployOptions struct {
 type LoadbalancerAgentDefaultParamsOptions struct {
 	Cluster string
 }
+
+type LoadbalancerAgentJoinClusterOptions struct {
+	ID string `json:"-"`
+
+	compute_apis.LoadbalancerAgentJoinClusterInput
+}
+
+func (opts *LoadbalancerAgentJoinClusterOptions) Params() (*jsonutils.JSONDict, error) {
+	return jsonutils.Marshal(opts).(*jsonutils.JSONDict), nil
+}
+
+type LoadbalancerAgentLeaveClusterOptions struct {
+	ID string `json:"-"`
+
+	compute_apis.LoadbalancerAgentLeaveClusterInput
+}
+
+func (opts *LoadbalancerAgentLeaveClusterOptions) Params() (*jsonutils.JSONDict, error) {
+	return jsonutils.Marshal(opts).(*jsonutils.JSONDict), nil
+}
