@@ -5835,6 +5835,7 @@ func (self *SGuest) ToCreateInput(ctx context.Context, userCred mcclient.TokenCr
 	// clean some of user input
 	userInput.GenerateName = ""
 	userInput.Description = ""
+	userInput.Hostname = ""
 	return userInput
 }
 
