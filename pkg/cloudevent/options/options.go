@@ -23,7 +23,7 @@ type CloudeventOptions struct {
 	CloudproviderSyncIntervalMinutes int `help:"frequency to sync region cloudprovider task" default:"15"`
 	CloudeventSyncIntervalHours      int `help:"frequency to sync cloud event task" default:"1"`
 
-	DisableSyncCloudEvent bool `help:"disable sync cloudevent" default:"false"`
+	DisableSyncCloudEvent bool `help:"disable sync cloudevent" default:"true"`
 
 	SyncWithReadEvent bool `help:"sync read operation events" default:"false"`
 	OneSyncForHours   int  `help:"Onece sync for hours" default:"1"`
