@@ -73,3 +73,23 @@ func (result SPolicyResult) Json() jsonutils.JSONObject {
 	ret.Add(jsonutils.Marshal(result.DomainTags), "policy_domain_tags")
 	return ret
 }
+
+func mergeTagList(t1, t2 tagutils.TTagSetList) tagutils.TTagSetList {
+	ret := tagutils.TTagSetList{}
+	for i := range t1 {
+		for j := range t2 {
+			ret = append(ret, t1[i].Append(t2[j]...))
+		}
+	}
+	return ret
+}
+
+func (r1 SPolicyResult) Merge(r2 SPolicyResult) SPolicyResult {
+	if r1.Result.IsDeny() || r2.Result.IsDeny() {
+		return SPolicyResult{Result: Deny}
+	}
+	r1.ProjectTags = mergeTagList(r1.ProjectTags, r2.ProjectTags)
+	r1.DomainTags = mergeTagList(r1.DomainTags, r2.DomainTags)
+	r1.ObjectTags = mergeTagList(r1.ObjectTags, r2.ObjectTags)
+	return r1
+}
