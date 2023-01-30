@@ -96,13 +96,6 @@ func (self SAclEntries) IsZero() bool {
 	return len(self) == 0
 }
 
-func (aclEntries *SLoadbalancerAclEntries) IsZero() bool {
-	if len([]*SLoadbalancerAclEntry(*aclEntries)) == 0 {
-		return true
-	}
-	return false
-}
-
 func (aclEntry *SAclEntry) Validate() error {
 	if strings.Index(aclEntry.Cidr, "/") > 0 {
 		_, ipNet, err := net.ParseCIDR(aclEntry.Cidr)
