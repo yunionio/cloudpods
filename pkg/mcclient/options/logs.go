@@ -18,7 +18,7 @@ import "yunion.io/x/jsonutils"
 
 type EventSplitableOptions struct {
 	ID      string `choices:"splitable|splitable-export"`
-	Service string `help:"service" choices:"compute|identity|image|log|cloudevent" default:"compute"`
+	Service string `help:"service" choices:"compute|identity|image|log|cloudevent|monitor|notify" default:"compute"`
 	Table   string `help:"when id is splitable-export table must be input"`
 }
 
@@ -31,7 +31,7 @@ func (self *EventSplitableOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type EventPurgeSplitableOptions struct {
-	Service string `help:"service" choices:"compute|identity|image|log|cloudevent" default:"compute"`
+	Service string `help:"service" choices:"compute|identity|image|log|cloudevent|monitor|notify" default:"compute"`
 	Tables  []string
 }
 
