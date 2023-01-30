@@ -2538,7 +2538,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			confs.Add(jsonutils.NewInt(int64(input.VcpuCount)), "vcpu_count")
 		}
 		if !regutils.MatchSize(input.VmemSize) {
-			return nil, httperrors.NewBadRequestError("Memory size must be number[+unit], like 256M, 1G or 256")
+			return nil, httperrors.NewBadRequestError("Memory size %q must be number[+unit], like 256M, 1G or 256", input.VmemSize)
 		}
 		nVmem, err := fileutils.GetSizeMb(input.VmemSize, 'M', 1024)
 		if err != nil {
