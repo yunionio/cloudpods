@@ -343,6 +343,14 @@ type IScopedResourceManager interface {
 	FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error)
 }
 
+func UsagePolicyCheck(userCred mcclient.TokenCredential, manager IScopedResourceManager, scope rbacscope.TRbacScope) rbacutils.SPolicyResult {
+	allowScope, policyTagFilters := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+	if scope.HigherThan(allowScope) {
+		return rbacutils.SPolicyResult{Result: rbacutils.Deny}
+	}
+	return policyTagFilters
+}
+
 func FetchCheckQueryOwnerScope(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

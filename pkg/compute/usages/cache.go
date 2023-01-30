@@ -23,7 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
-	"yunion.io/x/onecloud/pkg/util/tagutils"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
@@ -40,24 +40,25 @@ func getCacheKey(
 	brands []string,
 	cloudEnv string,
 	includeSystem bool,
-	projectTags tagutils.TTagSetList,
+	policyResult rbacutils.SPolicyResult,
 ) string {
 	type RangeObject struct {
 		Resource string `json:"resource"`
 		Id       string `json:"id"`
 	}
 	type KeyStruct struct {
-		Scope       rbacscope.TRbacScope `json:"scope"`
-		Domain      string               `json:"domain"`
-		Project     string               `json:"project"`
-		IsOwner     bool                 `json:"is_owner"`
-		Ranges      []RangeObject        `json:"ranges"`
-		HostTypes   []string             `json:"host_types"`
-		Providers   []string             `json:"providers"`
-		Brands      []string             `json:"brands"`
-		CloudEnv    string               `json:"cloud_env"`
-		System      bool                 `json:"system"`
-		ProjectTags tagutils.TTagSetList `json:"project_tags"`
+		Scope     rbacscope.TRbacScope `json:"scope"`
+		Domain    string               `json:"domain"`
+		Project   string               `json:"project"`
+		IsOwner   bool                 `json:"is_owner"`
+		Ranges    []RangeObject        `json:"ranges"`
+		HostTypes []string             `json:"host_types"`
+		Providers []string             `json:"providers"`
+		Brands    []string             `json:"brands"`
+		CloudEnv  string               `json:"cloud_env"`
+		System    bool                 `json:"system"`
+
+		PolicyResult rbacutils.SPolicyResult `json:"policy_result"`
 	}
 	key := KeyStruct{}
 	key.Scope = scope
@@ -83,7 +84,7 @@ func getCacheKey(
 	key.Brands = brands
 	key.CloudEnv = cloudEnv
 	key.System = includeSystem
-	key.ProjectTags = projectTags
+	key.PolicyResult = policyResult
 	jsonObj := jsonutils.Marshal(key)
 	return jsonObj.QueryString()
 }
