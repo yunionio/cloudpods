@@ -179,7 +179,7 @@ func (model *SStandaloneAnonResourceBase) StandaloneModelManager() IStandaloneMo
 	return model.GetModelManager().(IStandaloneModelManager)
 }
 
-func (model *SStandaloneAnonResourceBase) GetId() string {
+func (model SStandaloneAnonResourceBase) GetId() string {
 	return model.Id
 }
 
