@@ -15,12 +15,7 @@
 package candidate
 
 import (
-	"fmt"
-	"strings"
-	"time"
-
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -133,52 +128,17 @@ func (bd *BaremetalDesc) FreeStorageSize() int64 {
 }
 
 func newBaremetalBuilder() *BaremetalBuilder {
-	return &BaremetalBuilder{
-		baseBuilder: newBaseBuilder(BaremetalDescBuilder),
-	}
+	builder := new(BaremetalBuilder)
+	builder.baseBuilder = newBaseBuilder(BaremetalDescBuilder, builder)
+	return builder
 }
 
-func (bb *BaremetalBuilder) init(ids []string) error {
-	bms, err := FetchHostsByIds(ids)
-	if err != nil {
-		return err
-	}
-
-	//bb.baremetalAgents = agents
-	bb.baremetals = bms
-
-	wg := &WaitGroupWrapper{}
-	errMessageChannel := make(chan error, 2)
-	defer close(errMessageChannel)
-
-	setFuncs := []func(){
-		func() { bb.setIsolatedDevs(ids, errMessageChannel) },
-	}
-
-	for _, f := range setFuncs {
-		wg.Wrap(f)
-	}
-
-	if ok := waitTimeOut(wg, time.Duration(20*time.Second)); !ok {
-		log.Errorln("BaremetalBuilder waitgroup timeout.")
-	}
-
-	if len(errMessageChannel) != 0 {
-		errMessages := make([]string, 0)
-		lengthChan := len(errMessageChannel)
-		for ; lengthChan >= 0; lengthChan-- {
-			errMessages = append(errMessages, fmt.Sprintf("%s", <-errMessageChannel))
-		}
-		return fmt.Errorf("%s\n", strings.Join(errMessages, ";"))
-	}
-
-	return nil
+func (bb *BaremetalBuilder) FetchHosts(ids []string) ([]computemodels.SHost, error) {
+	return FetchHostsByIds(ids)
 }
 
 func (bb *BaremetalBuilder) Clone() BuildActor {
-	return &BaremetalBuilder{
-		baseBuilder: newBaseBuilder(BaremetalDescBuilder),
-	}
+	return newBaremetalBuilder()
 }
 
 func (bb *BaremetalBuilder) AllIDs() ([]string, error) {
@@ -187,37 +147,11 @@ func (bb *BaremetalBuilder) AllIDs() ([]string, error) {
 	return FetchModelIds(q)
 }
 
-func (bb *BaremetalBuilder) Do(ids []string) ([]interface{}, error) {
-	err := bb.init(ids)
-	if err != nil {
-		return nil, err
-	}
-	netGetter := newNetworkGetter()
-	descs, err := bb.build(netGetter)
-	if err != nil {
-		return nil, err
-	}
-	return descs, nil
+func (bb *BaremetalBuilder) InitFuncs() []InitFunc {
+	return nil
 }
 
-func (bb *BaremetalBuilder) build(netGetter *networkGetter) ([]interface{}, error) {
-	schedDescs := []interface{}{}
-	for _, bm := range bb.baremetals {
-		desc, err := bb.buildOne(&bm, netGetter)
-		if err != nil {
-			log.Errorf("BaremetalBuilder error: %v", err)
-			continue
-		}
-		schedDescs = append(schedDescs, desc)
-	}
-	return schedDescs, nil
-}
-
-func (bb *BaremetalBuilder) buildOne(hostObj *computemodels.SHost, netGetter *networkGetter) (interface{}, error) {
-	baseDesc, err := newBaseHostDesc(bb.baseBuilder, hostObj, netGetter)
-	if err != nil {
-		return nil, err
-	}
+func (bb *BaremetalBuilder) BuildOne(hostObj *computemodels.SHost, netGetter *networkGetter, baseDesc *BaseHostDesc) (interface{}, error) {
 	desc := &BaremetalDesc{
 		BaseHostDesc: baseDesc,
 	}
@@ -230,7 +164,7 @@ func (bb *BaremetalBuilder) buildOne(hostObj *computemodels.SHost, netGetter *ne
 	desc.StorageInfo = baremetalStorages
 	desc.Tenants = make(map[string]int64, 0)
 
-	err = bb.fillServerID(desc, hostObj)
+	err := bb.fillServerID(desc, hostObj)
 	if err != nil {
 		return nil, err
 	}

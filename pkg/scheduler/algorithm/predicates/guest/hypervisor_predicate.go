@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/schedtag"
 )
 
 const (
@@ -43,9 +44,9 @@ func (f *HypervisorPredicate) Clone() core.FitPredicate {
 }
 
 func hostHasContainerTag(c core.Candidater) bool {
-	aggs := c.Getter().HostSchedtags()
+	aggs := schedtag.GetCandidateSchedtags("hosts", c.Getter().Host().GetId())
 	for _, agg := range aggs {
-		if agg.Name == CONTAINER_ALLOWED_TAG {
+		if agg.GetName() == CONTAINER_ALLOWED_TAG {
 			return true
 		}
 	}
