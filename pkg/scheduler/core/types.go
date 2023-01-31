@@ -75,7 +75,6 @@ type CandidatePropertyGetter interface {
 	SharedDomains() []string
 	Region() *computemodels.SCloudregion
 	HostType() string
-	HostSchedtags() []computemodels.SSchedtag
 	Sku(string) *sku.ServerSku
 	Storages() []*api.CandidateStorage
 	Networks() []*api.CandidateNetwork

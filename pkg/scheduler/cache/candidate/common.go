@@ -15,12 +15,11 @@
 package candidate
 
 import (
-	//"yunion.io/x/log"
-
 	"yunion.io/x/pkg/util/sets"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -46,6 +45,14 @@ var (
 	)
 )
 
+func GetHostIds(hosts []models.SHost) []string {
+	ids := make([]string, len(hosts))
+	for i, host := range hosts {
+		ids[i] = host.GetId()
+	}
+	return ids
+}
+
 func FetchGuestByHostIDs(ids []string) ([]models.SGuest, error) {
 	gs := make([]models.SGuest, 0)
 	q := models.GuestManager.Query().In("host_id", ids)
@@ -63,4 +70,14 @@ func IsGuestCreating(g models.SGuest) bool {
 
 func IsGuestPendingDelete(g models.SGuest) bool {
 	return g.PendingDeleted
+}
+
+func ToDict[O lockman.ILockedObject](objs []O) map[string]*O {
+	ret := make(map[string]*O, 0)
+	for _, obj := range objs {
+		tmpObj := obj
+		objPtr := &tmpObj
+		ret[obj.GetId()] = objPtr
+	}
+	return ret
 }

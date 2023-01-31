@@ -538,19 +538,19 @@ func (manager *SModelBaseManager) PerformPurgeSplitable(ctx context.Context, use
 	return jsonutils.Marshal(map[string][]string{"tables": ret}), nil
 }
 
-func (model *SModelBase) GetId() string {
+func (model SModelBase) GetId() string {
 	return ""
 }
 
-func (model *SModelBase) Keyword() string {
+func (model SModelBase) Keyword() string {
 	return model.GetModelManager().Keyword()
 }
 
-func (model *SModelBase) KeywordPlural() string {
+func (model SModelBase) KeywordPlural() string {
 	return model.GetModelManager().KeywordPlural()
 }
 
-func (model *SModelBase) GetName() string {
+func (model SModelBase) GetName() string {
 	return ""
 }
 
