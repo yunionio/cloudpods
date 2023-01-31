@@ -38,8 +38,16 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	_ "yunion.io/x/onecloud/pkg/scheduler/algorithmprovider"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudaccount"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudprovider"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudregion"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/hostwire"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/netinterface"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/network"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/schedtag"
 	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/wire"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/zone"
 	schedhandler "yunion.io/x/onecloud/pkg/scheduler/handler"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
@@ -95,8 +103,25 @@ func StartService() error {
 
 	startSched := func() {
 		stopEverything := make(chan struct{})
+		ctx := context.Background()
 		go skuman.Start(utils.ToDuration(o.Options.SkuRefreshInterval))
-		go schedtag.Start(context.Background(), utils.ToDuration("30s"))
+		go schedtag.Start(ctx, utils.ToDuration("30s"))
+
+		for _, f := range []func(ctx context.Context){
+			cloudregion.Manager.Start,
+			zone.Manager.Start,
+			cloudprovider.Manager.Start,
+			cloudaccount.Manager.Start,
+			wire.Manager.Start,
+			network.Manager.Start,
+			hostwire.GetManager().Start,
+			netinterface.GetManager().Start,
+		} {
+			f(ctx)
+		}
+
+		time.Sleep(5 * time.Second)
+
 		schedman.InitAndStart(stopEverything)
 	}
 	startSched()

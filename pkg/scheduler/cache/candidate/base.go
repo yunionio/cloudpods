@@ -22,17 +22,21 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
-	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudregion"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/hostwire"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/netinterface"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/network"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/zone"
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
@@ -48,8 +52,7 @@ type BaseHostDesc struct {
 
 	IsolatedDevices []*core.IsolatedDeviceDesc `json:"isolated_devices"`
 
-	Tenants       map[string]int64          `json:"tenants"`
-	HostSchedtags []computemodels.SSchedtag `json:"schedtags"`
+	Tenants map[string]int64 `json:"tenants"`
 
 	InstanceGroups map[string]*api.CandidateGroup `json:"instance_groups"`
 	IpmiInfo       types.SIPMIInfo                `json:"ipmi_info"`
@@ -133,10 +136,6 @@ func (b baseHostGetter) Region() *computemodels.SCloudregion {
 
 func (b baseHostGetter) HostType() string {
 	return b.h.HostType
-}
-
-func (b baseHostGetter) HostSchedtags() []computemodels.SSchedtag {
-	return b.h.HostSchedtags
 }
 
 func (b baseHostGetter) Sku(instanceType string) *sku.ServerSku {
@@ -360,7 +359,7 @@ func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost, netGetter *netwo
 		SHost: host,
 	}
 
-	if err := desc.fillCloudProvider(host); err != nil {
+	if err := desc.fillCloudProvider(b, host); err != nil {
 		return nil, fmt.Errorf("Fill cloudprovider info error: %v", err)
 	}
 
@@ -393,10 +392,6 @@ func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost, netGetter *netwo
 
 	if err := desc.fillStorages(host); err != nil {
 		return nil, fmt.Errorf("Fill storage error: %v", err)
-	}
-
-	if err := desc.fillSchedtags(); err != nil {
-		return nil, fmt.Errorf("Fill schedtag error: %v", err)
 	}
 
 	if err := desc.fillInstanceGroups(host); err != nil {
@@ -569,26 +564,36 @@ func (h *BaseHostDesc) fillIsolatedDevices(b *baseBuilder, host *computemodels.S
 	return nil
 }
 
-func (b *BaseHostDesc) fillCloudProvider(host *computemodels.SHost) error {
-	b.Cloudprovider = host.GetCloudprovider()
-	if b.Cloudprovider != nil {
-		var err error
-		b.Cloudaccount, err = b.Cloudprovider.GetCloudaccount()
-		if err != nil {
-			return err
-		}
+func (b *BaseHostDesc) fillCloudProvider(builder *baseBuilder, host *computemodels.SHost) error {
+	provider, ok := builder.hostCloudproviers[host.GetId()]
+	if !ok {
+		return nil
 	}
+	b.Cloudprovider = provider
+	account, ok := builder.hostCloudaccounts[host.GetId()]
+	if !ok {
+		return nil
+	}
+	b.Cloudaccount = account
 	return nil
 }
 
 func (b *BaseHostDesc) fillRegion(host *computemodels.SHost) error {
-	b.Region, _ = host.GetRegion()
+	regionId := b.Zone.GetCloudRegionId()
+	obj, ok := cloudregion.Manager.GetResource(regionId)
+	if !ok {
+		return errors.Errorf("Not found cloudregion by host %q with id %q", host.GetName(), regionId)
+	}
+	b.Region = &obj
 	return nil
 }
 
 func (b *BaseHostDesc) fillZone(host *computemodels.SHost) error {
-	zone, _ := host.GetZone()
-	b.Zone = zone
+	obj, ok := zone.Manager.GetResource(host.ZoneId)
+	if !ok {
+		return errors.Errorf("Not found zone by host %q with id %q", host.GetName(), host.ZoneId)
+	}
+	b.Zone = &obj
 	b.ZoneId = host.ZoneId
 	return nil
 }
@@ -604,11 +609,6 @@ func (b *BaseHostDesc) fillResidentTenants(host *computemodels.SHost) error {
 	return nil
 }
 
-func (b *BaseHostDesc) fillSchedtags() error {
-	b.HostSchedtags = b.SHost.GetSchedtags()
-	return nil
-}
-
 func (b *BaseHostDesc) fillSharedDomains() error {
 	b.SharedDomains = b.SHost.GetSharedDomains()
 	return nil
@@ -616,15 +616,19 @@ func (b *BaseHostDesc) fillSharedDomains() error {
 
 func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost, netGetter *networkGetter) error {
 	hostId := host.Id
-	hostwires := computemodels.HostwireManager.Query().SubQuery()
-	sq := hostwires.Query(sqlchemy.DISTINCT("wire_id", hostwires.Field("wire_id"))).Equals("host_id", hostId)
-	networks := computemodels.NetworkManager.Query().SubQuery()
-	q := networks.Query().In("wire_id", sq)
+
+	hostwires := hostwire.GetByHost(hostId)
+	wireIds := sets.NewString()
+	for _, hw := range hostwires {
+		wireIds.Insert(hw.WireId)
+	}
 
 	nets := make([]computemodels.SNetwork, 0)
-	err := computedb.FetchModelObjects(computemodels.NetworkManager, q, &nets)
-	if err != nil {
-		return err
+	allNets := network.Manager.GetStore().GetAll()
+	for _, net := range allNets {
+		if wireIds.Has(net.WireId) {
+			nets = append(nets, net)
+		}
 	}
 	b.Networks = make([]*api.CandidateNetwork, len(nets))
 	for idx, n := range nets {
@@ -633,26 +637,26 @@ func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost, netGetter *networ
 			return errors.Wrapf(err, "GetFreePort for network %s(%s)", n.GetName(), n.GetId())
 		}
 		b.Networks[idx] = &api.CandidateNetwork{
-			SNetwork:  &nets[idx],
-			Schedtags: n.GetSchedtags(),
-			FreePort:  freePort,
+			SNetwork: &nets[idx],
+			FreePort: freePort,
 		}
 	}
 
-	netifs := host.GetNetInterfaces()
+	// netifs := host.GetNetInterfaces()
+	netifs := netinterface.GetByHost(hostId)
 	netifIndexs := make(map[string][]computemodels.SNetInterface, 0)
 	for _, netif := range netifs {
 		if !netif.IsUsableServernic() {
 			continue
 		}
-		wire := netif.GetWire()
-		if wire == nil {
+		wireId := netif.WireId
+		if wireId == "" {
 			continue
 		}
-		if _, exist := netifIndexs[wire.Id]; !exist {
-			netifIndexs[wire.Id] = make([]computemodels.SNetInterface, 0)
+		if _, exist := netifIndexs[wireId]; !exist {
+			netifIndexs[wireId] = make([]computemodels.SNetInterface, 0)
 		}
-		netifIndexs[wire.Id] = append(netifIndexs[wire.Id], netif)
+		netifIndexs[wireId] = append(netifIndexs[wireId], netif)
 	}
 	b.NetInterfaces = netifIndexs
 
@@ -751,12 +755,12 @@ func (b *BaseHostDesc) fillOnecloudVpcNetworks(netGetter *networkGetter) error {
 	return nil
 }
 
-func (b *BaseHostDesc) GetHypervisorDriver() models.IGuestDriver {
+func (b *BaseHostDesc) GetHypervisorDriver() computemodels.IGuestDriver {
 	hypervisor := computeapi.HOSTTYPE_HYPERVISOR[b.HostType]
 	if hypervisor == "" {
 		return nil
 	}
-	return models.GetDriver(hypervisor)
+	return computemodels.GetDriver(hypervisor)
 }
 
 func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
@@ -766,7 +770,6 @@ func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 		cs := &api.CandidateStorage{
 			SStorage:           storage,
 			ActualFreeCapacity: storage.Capacity - storage.ActualCapacityUsed,
-			Schedtags:          storage.GetSchedtags(),
 		}
 		if b.GetHypervisorDriver() == nil {
 			cs.FreeCapacity = storage.GetFreeCapacity()
