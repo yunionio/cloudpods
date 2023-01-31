@@ -16,16 +16,12 @@ package candidate
 
 import (
 	"encoding/json"
-	"fmt"
-	"strings"
 	gosync "sync"
-	"sync/atomic"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
-	"yunion.io/x/pkg/util/workqueue"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -209,51 +205,6 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.S
 	ret.MemorySize = usedF(mem, free.MemorySize)
 	ret.StorageSize = usedF(disk, free.StorageSize)
 	return
-}
-
-type HostBuilder struct {
-	*baseBuilder
-
-	residentTenantDict map[string]map[string]interface{}
-
-	hosts    []computemodels.SHost
-	hostDict map[string]interface{}
-
-	guests    []computemodels.SGuest
-	guestDict map[string]interface{}
-	guestIDs  []string
-
-	hostStorages []computemodels.SHoststorage
-	//hostStoragesDict      map[string][]*computemodels.SStorage
-	storages              []interface{}
-	storageStatesSizeDict map[string]map[string]interface{}
-
-	hostGuests       map[string][]interface{}
-	hostBackupGuests map[string][]interface{}
-
-	//groupGuests        []interface{}
-	//groups             []interface{}
-	//groupDict          map[string]interface{}
-	//hostGroupCountDict HostGroupCountDict
-
-	//hostMetadatas      []interface{}
-	//hostMetadatasDict  map[string][]interface{}
-	//guestMetadatas     []interface{}
-	//guestMetadatasDict map[string][]interface{}
-
-	//diskStats           []models.StorageCapacity
-	// isolatedDevicesDict map[string][]interface{}
-
-	cpuIOLoads map[string]map[string]float64
-
-	schedtags []computemodels.SSchedtag
-	zoneSkus  map[string][]computemodels.SServerSku
-}
-
-func newHostBuilder() *HostBuilder {
-	return &HostBuilder{
-		baseBuilder: newBaseBuilder(HostDescBuilder),
-	}
 }
 
 func (h *HostDesc) String() string {
@@ -454,77 +405,55 @@ func waitTimeOut(wg *WaitGroupWrapper, timeout time.Duration) bool {
 	}
 }
 
-func (b *HostBuilder) init(ids []string) error {
-	wg := &WaitGroupWrapper{}
-	errMessageChannel := make(chan error, 12)
-	defer close(errMessageChannel)
-	setFuncs := []func(){
-		func() { b.setHosts(ids, errMessageChannel) },
-		func() { b.setSchedtags(ids, errMessageChannel) },
-		func() {
-			b.setGuests(ids, errMessageChannel)
-			b.setIsolatedDevs(ids, errMessageChannel)
-		},
-	}
+type HostBuilder struct {
+	*baseBuilder
 
-	for _, f := range setFuncs {
-		wg.Wrap(f)
-	}
+	residentTenantDict map[string]map[string]interface{}
 
-	if ok := waitTimeOut(wg, time.Duration(20*time.Second)); !ok {
-		log.Errorln("HostBuilder waitgroup timeout.")
-	}
+	guests    []computemodels.SGuest
+	guestDict map[string]interface{}
+	guestIDs  []string
 
-	if len(errMessageChannel) != 0 {
-		errMessages := make([]string, 0)
-		lengthChan := len(errMessageChannel)
-		for ; lengthChan > 0; lengthChan-- {
-			msg := fmt.Sprintf("%s", <-errMessageChannel)
-			log.Errorf("Get error from chan: %s", msg)
-			errMessages = append(errMessages, msg)
-		}
-		return fmt.Errorf("%s\n", strings.Join(errMessages, ";"))
-	}
+	hostStorages []computemodels.SHoststorage
+	//hostStoragesDict      map[string][]*computemodels.SStorage
+	storages              []interface{}
+	storageStatesSizeDict map[string]map[string]interface{}
 
-	return nil
+	hostGuests       map[string][]interface{}
+	hostBackupGuests map[string][]interface{}
+
+	//groupGuests        []interface{}
+	//groups             []interface{}
+	//groupDict          map[string]interface{}
+	//hostGroupCountDict HostGroupCountDict
+
+	//hostMetadatas      []interface{}
+	//hostMetadatasDict  map[string][]interface{}
+	//guestMetadatas     []interface{}
+	//guestMetadatasDict map[string][]interface{}
+
+	//diskStats           []models.StorageCapacity
+	// isolatedDevicesDict map[string][]interface{}
+
+	cpuIOLoads map[string]map[string]float64
 }
 
-func (b *HostBuilder) setHosts(ids []string, errMessageChannel chan error) {
+func newHostBuilder() *HostBuilder {
+	builder := new(HostBuilder)
+	builder.baseBuilder = newBaseBuilder(HostDescBuilder, builder)
+	return builder
+}
+
+func (b *HostBuilder) FetchHosts(ids []string) ([]computemodels.SHost, error) {
 	hosts := computemodels.HostManager.Query()
 	q := hosts.In("id", ids).NotEquals("host_type", computeapi.HOST_TYPE_BAREMETAL)
 	hostObjs := make([]computemodels.SHost, 0)
 	err := computedb.FetchModelObjects(computemodels.HostManager, q, &hostObjs)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-
-	hostDict, err := utils.ToDict(hostObjs, func(obj interface{}) (string, error) {
-		host, ok := obj.(computemodels.SHost)
-		if !ok {
-			return "", utils.ConvertError(obj, "computemodels.Host")
-		}
-		return host.Id, nil
-	})
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	b.hosts = hostObjs
-	b.hostDict = hostDict
-	return
+	return hostObjs, err
 }
 
-func (b *HostBuilder) setSchedtags(ids []string, errMessageChannel chan error) {
-	tags := make([]computemodels.SSchedtag, 0)
-	if err := computemodels.SchedtagManager.Query().All(&tags); err != nil {
-		errMessageChannel <- err
-		return
-	}
-	b.schedtags = tags
-}
-
-func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
+func (b *HostBuilder) setGuests(hosts []computemodels.SHost, errMessageChannel chan error) {
+	ids := GetHostIds(hosts)
 	guests, err := FetchGuestByHostIDs(ids)
 	if err != nil {
 		errMessageChannel <- err
@@ -743,9 +672,7 @@ func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 }*/
 
 func (b *HostBuilder) Clone() BuildActor {
-	return &HostBuilder{
-		baseBuilder: newBaseBuilder(HostDescBuilder),
-	}
+	return newHostBuilder()
 }
 
 func (b *HostBuilder) AllIDs() ([]string, error) {
@@ -754,59 +681,14 @@ func (b *HostBuilder) AllIDs() ([]string, error) {
 	return FetchModelIds(q)
 }
 
-func (b *HostBuilder) Do(ids []string) ([]interface{}, error) {
-	err := b.init(ids)
-	if err != nil {
-		return nil, err
+func (b *HostBuilder) InitFuncs() []InitFunc {
+	return []InitFunc{
+		// b.setSchedtags,
+		b.setGuests,
 	}
-	netGetter := newNetworkGetter()
-	descs, err := b.build(netGetter)
-	if err != nil {
-		return nil, err
-	}
-	return descs, nil
 }
 
-func (b *HostBuilder) build(netGetter *networkGetter) ([]interface{}, error) {
-	schedDescs := make([]interface{}, len(b.hosts))
-	errs := []error{}
-	var descResultLock gosync.Mutex
-	var descedLen int32
-
-	buildOne := func(i int) {
-		if i >= len(b.hosts) {
-			log.Errorf("invalid host index[%d] in b.hosts: %v", i, b.hosts)
-			return
-		}
-		host := b.hosts[i]
-		desc, err := b.buildOne(&host, netGetter)
-		if err != nil {
-			descResultLock.Lock()
-			errs = append(errs, err)
-			descResultLock.Unlock()
-			return
-		}
-		descResultLock.Lock()
-		schedDescs[atomic.AddInt32(&descedLen, 1)-1] = desc
-		descResultLock.Unlock()
-	}
-
-	workqueue.Parallelize(o.Options.HostBuildParallelizeSize, len(b.hosts), buildOne)
-	schedDescs = schedDescs[:descedLen]
-	if len(errs) > 0 {
-		//return nil, errors.NewAggregate(errs)
-		err := errors.NewAggregate(errs)
-		log.V(4).Warningf("Build schedule descs error: %s", err)
-	}
-
-	return schedDescs, nil
-}
-
-func (b *HostBuilder) buildOne(host *computemodels.SHost, netGetter *networkGetter) (interface{}, error) {
-	baseDesc, err := newBaseHostDesc(b.baseBuilder, host, netGetter)
-	if err != nil {
-		return nil, err
-	}
+func (b *HostBuilder) BuildOne(host *computemodels.SHost, getter *networkGetter, baseDesc *BaseHostDesc) (interface{}, error) {
 	desc := &HostDesc{
 		BaseHostDesc: baseDesc,
 	}

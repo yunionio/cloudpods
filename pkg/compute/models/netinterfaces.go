@@ -63,7 +63,7 @@ func init() {
 	NetInterfaceManager.SetVirtualObject(NetInterfaceManager)
 }
 
-func (netif *SNetInterface) GetId() string {
+func (netif SNetInterface) GetId() string {
 	return netif.Mac
 }
 

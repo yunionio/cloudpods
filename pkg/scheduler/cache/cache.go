@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"yunion.io/x/log"
 	expirationcache "yunion.io/x/pkg/util/cache"
@@ -152,9 +153,10 @@ func (c *schedulerCache) updateAllObjects() {
 
 func (c *schedulerCache) loadObjects(ids []string) ([]interface{}, error) {
 	log.Infof("Start load %s, period: %v, ttl: %v", c.Name(), c.item.Period(), c.item.TTL())
+	startTime := time.Now()
 
 	defer func() {
-		log.Infof("End load %s", c.Name())
+		log.Infof("End load %s, elapsed %s", c.Name(), time.Since(startTime))
 	}()
 
 	var (

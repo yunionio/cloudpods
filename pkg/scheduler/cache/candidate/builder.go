@@ -15,30 +15,170 @@
 package candidate
 
 import (
+	"fmt"
+	"strings"
+	gosync "sync"
+	"sync/atomic"
 	"time"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/util/workqueue"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudaccount"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudprovider"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 type baseBuilder struct {
 	resourceType string
+	builder      IResourceBuilder
+
+	hosts    []computemodels.SHost
+	hostDict map[string]*computemodels.SHost
 
 	isolatedDevicesDict map[string][]interface{}
+
+	hostCloudproviers map[string]*computemodels.SCloudprovider
+	hostCloudaccounts map[string]*computemodels.SCloudaccount
 }
 
-func newBaseBuilder(resourceType string) *baseBuilder {
+type InitFunc func(ids []computemodels.SHost, errChan chan error)
+
+type IResourceBuilder interface {
+	FetchHosts(ids []string) ([]computemodels.SHost, error)
+	InitFuncs() []InitFunc
+	BuildOne(host *computemodels.SHost, getter *networkGetter, desc *BaseHostDesc) (interface{}, error)
+}
+
+func newBaseBuilder(resourceType string, builder IResourceBuilder) *baseBuilder {
 	return &baseBuilder{
 		resourceType: resourceType,
+		builder:      builder,
 	}
 }
 
 func (b *baseBuilder) Type() string {
 	return b.resourceType
+}
+
+func (b *baseBuilder) Do(ids []string) ([]interface{}, error) {
+	err := b.init(ids)
+	if err != nil {
+		return nil, err
+	}
+	netGetter := newNetworkGetter()
+	descs, err := b.build(netGetter)
+	if err != nil {
+		return nil, err
+	}
+	return descs, nil
+}
+
+func (b *baseBuilder) init(ids []string) error {
+	if err := b.setHosts(ids); err != nil {
+		return errors.Wrap(err, "set host objects")
+	}
+	wg := &WaitGroupWrapper{}
+	errMessageChannel := make(chan error, 12)
+	defer close(errMessageChannel)
+	setFuncs := []func(){
+		// func() { b.setHosts(ids, errMessageChannel) },
+		func() {
+			b.setIsolatedDevs(ids, errMessageChannel)
+		},
+		func() {
+			b.setCloudproviderAccounts(b.hosts, errMessageChannel)
+		},
+		func() {
+			for _, f := range b.builder.InitFuncs() {
+				f(b.hosts, errMessageChannel)
+			}
+		},
+	}
+
+	for _, f := range setFuncs {
+		wg.Wrap(f)
+	}
+
+	if ok := waitTimeOut(wg, time.Duration(20*time.Second)); !ok {
+		log.Errorln("HostBuilder waitgroup timeout.")
+	}
+
+	if len(errMessageChannel) != 0 {
+		errMessages := make([]string, 0)
+		lengthChan := len(errMessageChannel)
+		for ; lengthChan > 0; lengthChan-- {
+			msg := fmt.Sprintf("%s", <-errMessageChannel)
+			log.Errorf("Get error from chan: %s", msg)
+			errMessages = append(errMessages, msg)
+		}
+		return fmt.Errorf("%s\n", strings.Join(errMessages, ";"))
+	}
+
+	return nil
+}
+
+func (b *baseBuilder) build(netGetter *networkGetter) ([]interface{}, error) {
+	schedDescs := make([]interface{}, len(b.hosts))
+	errs := []error{}
+	var descResultLock gosync.Mutex
+	var descedLen int32
+
+	buildOne := func(i int) {
+		if i >= len(b.hosts) {
+			log.Errorf("invalid host index[%d] in b.hosts: %v", i, b.hosts)
+			return
+		}
+		host := b.hosts[i]
+		desc, err := b.buildOne(&host, netGetter)
+		if err != nil {
+			descResultLock.Lock()
+			errs = append(errs, err)
+			descResultLock.Unlock()
+			return
+		}
+		descResultLock.Lock()
+		schedDescs[atomic.AddInt32(&descedLen, 1)-1] = desc
+		descResultLock.Unlock()
+	}
+
+	workqueue.Parallelize(o.Options.HostBuildParallelizeSize, len(b.hosts), buildOne)
+	schedDescs = schedDescs[:descedLen]
+	if len(errs) > 0 {
+		//return nil, errors.NewAggregate(errs)
+		err := errors.NewAggregate(errs)
+		log.Errorf("Build schedule desc of %s error: %s", b.resourceType, err)
+	}
+
+	return schedDescs, nil
+}
+
+func (b *baseBuilder) buildOne(host *computemodels.SHost, netGetter *networkGetter) (interface{}, error) {
+	baseDesc, err := newBaseHostDesc(b, host, netGetter)
+	if err != nil {
+		return nil, err
+	}
+
+	return b.builder.BuildOne(host, netGetter, baseDesc)
+}
+
+func (b *baseBuilder) setHosts(ids []string) error {
+	hostObjs, err := b.builder.FetchHosts(ids)
+	if err != nil {
+		return errors.Wrap(err, "FetchHosts")
+	}
+
+	hostDict := ToDict(hostObjs)
+	b.hosts = hostObjs
+	b.hostDict = hostDict
+	return nil
 }
 
 func (b *baseBuilder) getIsolatedDevices(hostID string) (devs []computemodels.SIsolatedDevice) {
@@ -68,6 +208,58 @@ func (b *baseBuilder) setIsolatedDevs(ids []string, errMessageChannel chan error
 		return
 	}
 	b.isolatedDevicesDict = dict
+}
+
+func (b *baseBuilder) setCloudproviderAccounts(hosts []computemodels.SHost, errCh chan error) {
+	providerSets := sets.NewString()
+	for _, host := range hosts {
+		mId := host.ManagerId
+		if mId != "" {
+			providerSets.Insert(mId)
+		}
+	}
+	providerObjs := make([]computemodels.SCloudprovider, 0)
+	for _, pId := range providerSets.List() {
+		pObj, ok := cloudprovider.Manager.GetResource(pId)
+		if !ok {
+			errCh <- errors.Errorf("Not found cloudprovider by id: %q", pId)
+			return
+		}
+		providerObjs = append(providerObjs, pObj)
+	}
+	providerDict := ToDict(providerObjs)
+
+	accountSets := sets.NewString()
+	for _, provider := range providerObjs {
+		accountSets.Insert(provider.CloudaccountId)
+	}
+	accountObjs := make([]computemodels.SCloudaccount, 0)
+	for _, aId := range accountSets.List() {
+		aObj, ok := cloudaccount.Manager.GetResource(aId)
+		if !ok {
+			errCh <- errors.Errorf("Not found cloudaccount by id: %q", aId)
+			return
+		}
+		accountObjs = append(accountObjs, aObj)
+	}
+	accountDict := ToDict(accountObjs)
+
+	b.hostCloudproviers = make(map[string]*computemodels.SCloudprovider, 0)
+	b.hostCloudaccounts = make(map[string]*computemodels.SCloudaccount, 0)
+	for _, host := range hosts {
+		pId := host.ManagerId
+		provider, ok := providerDict[pId]
+		if !ok {
+			continue
+		}
+		b.hostCloudproviers[host.GetId()] = provider
+		aId := provider.CloudaccountId
+		account, ok := accountDict[aId]
+		if !ok {
+			continue
+		}
+		b.hostCloudaccounts[host.GetId()] = account
+	}
 }
 
 func FetchModelIds(q *sqlchemy.SQuery) ([]string, error) {

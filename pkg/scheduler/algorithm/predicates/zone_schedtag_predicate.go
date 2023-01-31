@@ -96,11 +96,6 @@ func (r zoneSchedtagResW) Keyword() string {
 	return r.zone.Keyword()
 }
 
-func (r zoneSchedtagResW) GetSchedtags() []computemodels.SSchedtag {
-	// TODO: not fetch schedtags from database, should get zone schedtags from r.c cache candidater
-	return r.zone.GetSchedtags()
-}
-
 func (r zoneSchedtagResW) GetSchedtagJointManager() computemodels.ISchedtagJointManager {
 	return r.zone.GetSchedtagJointManager()
 }
