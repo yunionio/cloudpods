@@ -28,7 +28,9 @@ type SKeyValue struct {
 }
 
 func (kv SKeyValue) String() string {
-	return fmt.Sprintf("%s=%s", strings.ReplaceAll(strings.Trim(kv.Key, " "), ",", ""), strings.ReplaceAll(strings.ReplaceAll(kv.Value, " ", "+"), ",", "+"))
+	k := strings.ReplaceAll(strings.ReplaceAll(strings.Trim(kv.Key, " "), ",", ""), " ", "+")
+	v := strings.ReplaceAll(strings.ReplaceAll(strings.Trim(kv.Value, ""), " ", "+"), ",", "+")
+	return fmt.Sprintf("%s=%s", k, v)
 }
 
 type TKeyValuePairs []SKeyValue
