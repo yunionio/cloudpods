@@ -16,6 +16,7 @@ package compute
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -23,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
+	"yunion.io/x/onecloud/pkg/apis/cloudcommon/db"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -277,6 +279,11 @@ func (self ServerDetails) GetMetricTags() map[string]string {
 		"account":             self.Account,
 		"account_id":          self.AccountId,
 		"external_id":         self.ExternalId,
+	}
+	for k, v := range self.Metadata {
+		if strings.HasPrefix(k, db.USER_TAG_PREFIX) {
+			ret[k] = v
+		}
 	}
 	return ret
 }
