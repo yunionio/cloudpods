@@ -28,12 +28,14 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/cloudmon/providerdriver"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
@@ -45,6 +47,33 @@ type sBaseInfo struct {
 	ImportedAt time.Time
 	DeletedAt  time.Time
 	UpdatedAt  time.Time
+	Metadata   map[string]string
+}
+
+type sProjectTag struct {
+	lock sync.Mutex
+	tags map[string]map[string]string
+}
+
+func (self *sProjectTag) SetTags(projectId string, tags map[string]string) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	self.tags[projectId] = tags
+}
+
+func (self *sProjectTag) GetTags(projectId string) map[string]string {
+	tags, _ := self.tags[projectId]
+	return tags
+}
+
+func (self *sProjectTag) RemoveTags(projectId string) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	delete(self.tags, projectId)
+}
+
+var projectTags = &sProjectTag{
+	tags: map[string]map[string]string{},
 }
 
 type SBaseResources struct {
@@ -98,17 +127,15 @@ func (self *SBaseResources) init(ctx context.Context) error {
 		}
 		offset += len(resp.Data)
 		for i := range resp.Data {
-			baseInfo := struct {
-				Id         string
-				ExternalId string
-				ManagerId  string
-				CreatedAt  time.Time
-				ImportedAt time.Time
-			}{}
+			baseInfo := sBaseInfo{}
 			resp.Data[i].Unmarshal(&baseInfo)
 			if len(baseInfo.ExternalId) == 0 && (self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() &&
-				self.manager.GetKeyword() != compute.Cloudaccounts.GetKeyword()) {
+				self.manager.GetKeyword() != compute.Cloudaccounts.GetKeyword() &&
+				self.manager.GetKeyword() != identity.Projects.GetKeyword()) {
 				continue
+			}
+			if self.manager.GetKeyword() == identity.Projects.GetKeyword() {
+				projectTags.SetTags(baseInfo.Id, baseInfo.Metadata)
 			}
 			key := baseInfo.ExternalId
 			if len(key) == 0 {
@@ -177,8 +204,12 @@ func (self *SBaseResources) increment(ctx context.Context) error {
 		baseInfo := sBaseInfo{}
 		ret[i].Unmarshal(&baseInfo)
 		if len(baseInfo.ExternalId) == 0 && (self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() &&
+			self.manager.GetKeyword() != identity.Projects.GetKeyword() &&
 			self.manager.GetKeyword() != compute.Cloudaccounts.GetKeyword()) {
 			continue
+		}
+		if self.manager.GetKeyword() == identity.Projects.GetKeyword() {
+			projectTags.SetTags(baseInfo.Id, baseInfo.Metadata)
 		}
 		key := baseInfo.ExternalId
 		if len(key) == 0 {
@@ -239,8 +270,12 @@ func (self *SBaseResources) decrement(ctx context.Context) error {
 	for i := range ret {
 		baseInfo := sBaseInfo{}
 		ret[i].Unmarshal(&baseInfo)
-		if len(baseInfo.ExternalId) == 0 && self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() {
+		if len(baseInfo.ExternalId) == 0 && self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() &&
+			self.manager.GetKeyword() != identity.Projects.GetKeyword() {
 			continue
+		}
+		if self.manager.GetKeyword() == identity.Projects.GetKeyword() {
+			projectTags.RemoveTags(baseInfo.Id)
 		}
 		key := baseInfo.ExternalId
 		if len(key) == 0 {
@@ -296,6 +331,9 @@ func (self *SBaseResources) update(ctx context.Context) error {
 	for i := range ret {
 		baseInfo := sBaseInfo{}
 		ret[i].Unmarshal(&baseInfo)
+		if self.manager.GetKeyword() == identity.Projects.GetKeyword() {
+			projectTags.SetTags(baseInfo.Id, baseInfo.Metadata)
+		}
 		if len(baseInfo.ExternalId) == 0 {
 			continue
 		}
@@ -346,6 +384,7 @@ type SResources struct {
 	Storages       TResource
 	ModelartsPool  TResource
 	Wires          TResource
+	Projects       TResource
 }
 
 func NewResources() *SResources {
@@ -362,6 +401,7 @@ func NewResources() *SResources {
 		KubeClusters:   NewBaseResources(&compute.KubeClusters),
 		ModelartsPool:  NewBaseResources(&compute.ModelartsPools),
 		Wires:          NewBaseResources(&compute.Wires),
+		Projects:       NewBaseResources(&identity.Projects),
 	}
 }
 
@@ -372,6 +412,10 @@ func (self *SResources) Init(ctx context.Context, userCred mcclient.TokenCredent
 			err := self.Cloudaccounts.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "Cloudaccount.init"))
+			}
+			err = self.Projects.init(ctx)
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "Projects.init"))
 			}
 			err = self.Cloudproviders.init(ctx)
 			if err != nil {
@@ -434,6 +478,10 @@ func (self *SResources) IncrementSync(ctx context.Context, userCred mcclient.Tok
 		err := self.Cloudaccounts.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Cloudaccounts.increment"))
+		}
+		err = self.Projects.increment(ctx)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "Projects.increment"))
 		}
 		err = self.Cloudproviders.increment(ctx)
 		if err != nil {
@@ -540,6 +588,10 @@ func (self *SResources) DecrementSync(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ModelartsPool.decrement"))
 		}
+		err = self.Projects.decrement(ctx)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "Projects.decrement"))
+		}
 		return errors.NewAggregate(errs)
 	}()
 	if err != nil {
@@ -556,6 +608,10 @@ func (self *SResources) UpdateSync(ctx context.Context, userCred mcclient.TokenC
 		err := self.Cloudaccounts.update(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Cloudacconts.update"))
+		}
+		err = self.Projects.update(ctx)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "Projects.update"))
 		}
 		err = self.DBInstances.update(ctx)
 		if err != nil {
@@ -656,6 +712,14 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 			err = jsonutils.Update(&servers, resources)
 			if err != nil {
 				log.Errorf("unmarsha server resources error: %v", err)
+			}
+			for t := range servers {
+				tags := projectTags.GetTags(servers[t].ProjectId)
+				for k, v := range tags {
+					if strings.HasPrefix(k, db.USER_TAG_PREFIX) {
+						servers[t].Metadata[k] = v
+					}
+				}
 			}
 			err = driver.CollectServerMetrics(ctx, manager, provider, servers, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
