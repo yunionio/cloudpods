@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"strings"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -22,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type GeneralUsageOptions struct {
@@ -34,6 +37,8 @@ type GeneralUsageOptions struct {
 
 	CloudEnv string `help:"show usage of specified cloudenv" choices:"public|private|onpremise"`
 	Scope    string `help:"show usage of specified privilege scope" choices:"system|domain|project"`
+
+	ProjectTags []string `help:"show usage of specified project tags"`
 
 	Refresh bool `help:"force refresh usage statistics"`
 }
@@ -51,6 +56,24 @@ func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
 	}
 	if len(args.CloudEnv) > 0 {
 		params.Add(jsonutils.NewString(args.CloudEnv), "cloud_env")
+	}
+	tags := tagutils.TTagSetList{}
+	for _, tag := range args.ProjectTags {
+		info := strings.Split(tag, "=")
+		key := info[0]
+		value := ""
+		if len(info) == 2 {
+			value = info[1]
+		}
+		tags = append(tags, []tagutils.STag{
+			{
+				Key:   key,
+				Value: value,
+			},
+		})
+	}
+	if len(tags) > 0 {
+		params.Set("project_tags", jsonutils.Marshal(tags))
 	}
 	if args.Refresh {
 		params.Add(jsonutils.JSONTrue, "refresh")

@@ -77,6 +77,9 @@ func (tsl TTagSetList) Append(t TTagSet) TTagSetList {
 		if t != nil && t.Contains(tsl[i]) {
 			// skip append
 		} else {
+			if tsl[i].IsZero() {
+				continue
+			}
 			if t != nil && tsl[i].Contains(t) {
 				t = nil
 			}

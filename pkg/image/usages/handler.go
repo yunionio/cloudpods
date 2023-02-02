@@ -45,12 +45,12 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	projectTags := &tagutils.TTagSetList{}
-	query.Unmarshal(projectTags, "project_tags")
+	projectTags := tagutils.TTagSetList{}
+	query.Unmarshal(&projectTags, "project_tags")
 	for i := range result.ProjectTags {
-		projectTags.Append(result.ProjectTags[i])
+		projectTags = projectTags.Append(result.ProjectTags[i])
 	}
-	result.ProjectTags = *projectTags
+	result.ProjectTags = projectTags
 
 	usages := jsonutils.NewDict()
 	if scope == rbacscope.ScopeSystem {
