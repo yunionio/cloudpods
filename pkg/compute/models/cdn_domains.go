@@ -74,6 +74,20 @@ type SCDNDomain struct {
 	ServiceType string `list:"user" width:"32" create:"domain_required"`
 	// 加速区域
 	Area string `list:"user" width:"32" update:"domain" create:"domain_required"`
+	// 是否忽略参数
+	CacheKeys *cloudprovider.SCDNCacheKeys `list:"user" create:"domain_optional"`
+	// 是否分片回源
+	RangeOriginPull *cloudprovider.SCDNRangeOriginPull `list:"user" create:"domain_optional"`
+	// 缓存配置
+	Cache *cloudprovider.SCDNCache `list:"user" create:"domain_optional"`
+	// https配置
+	HTTPS *cloudprovider.SCDNHttps `list:"user" create:"domain_optional"`
+	// 强制跳转
+	ForceRedirect *cloudprovider.SCDNForceRedirect `list:"user" create:"domain_optional"`
+	// 防盗链配置
+	Referer *cloudprovider.SCDNReferer `list:"user" create:"domain_optional"`
+	// 浏览器缓存配置
+	MaxAge *cloudprovider.SCDNMaxAge `list:"user" create:"domain_optional"`
 }
 
 func (manager *SCDNDomainManager) GetContextManagers() [][]db.IModelManager {
@@ -212,6 +226,28 @@ func (self *SCDNDomain) SyncWithCloudCDNDomain(ctx context.Context, userCred mcc
 		self.ServiceType = ext.GetServiceType()
 		self.Cname = ext.GetCname()
 		self.Origins = ext.GetOrigins()
+		cacheKeys, err := ext.GetCacheKeys()
+		if err == nil {
+			self.CacheKeys = cacheKeys
+		}
+		if rangeOrigin, err := ext.GetRangeOriginPull(); err == nil {
+			self.RangeOriginPull = rangeOrigin
+		}
+		if cache, err := ext.GetCache(); err == nil {
+			self.Cache = cache
+		}
+		if https, err := ext.GetHTTPS(); err == nil {
+			self.HTTPS = https
+		}
+		if fr, err := ext.GetForceRedirect(); err == nil {
+			self.ForceRedirect = fr
+		}
+		if referer, err := ext.GetReferer(); err == nil {
+			self.Referer = referer
+		}
+		if maxAge, err := ext.GetMaxAge(); err == nil {
+			self.MaxAge = maxAge
+		}
 		return nil
 	})
 	if err != nil {
@@ -246,6 +282,13 @@ func (self *SCloudprovider) newFromCloudCDNDomain(ctx context.Context, userCred 
 	domain.ServiceType = ext.GetServiceType()
 	domain.Cname = ext.GetCname()
 	domain.Origins = ext.GetOrigins()
+	domain.CacheKeys, _ = ext.GetCacheKeys()
+	domain.RangeOriginPull, _ = ext.GetRangeOriginPull()
+	domain.Cache, _ = ext.GetCache()
+	domain.HTTPS, _ = ext.GetHTTPS()
+	domain.ForceRedirect, _ = ext.GetForceRedirect()
+	domain.Referer, _ = ext.GetReferer()
+	domain.MaxAge, _ = ext.GetMaxAge()
 
 	err := CDNDomainManager.TableSpec().Insert(ctx, &domain)
 	if err != nil {
