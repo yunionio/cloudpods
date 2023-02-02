@@ -144,7 +144,7 @@ func (self *SInstance) GetName() string {
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
-	ret := []string{}
+	var ret []string
 	for _, sec := range self.GroupSet {
 		ret = append(ret, sec.GroupId)
 	}
@@ -152,19 +152,19 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return cloudprovider.ErrNotImplemented
+	return nil
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
-	return cloudprovider.ErrNotImplemented
+	return nil
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	return nil
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	return nil
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
@@ -176,7 +176,11 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{}
+	params["InstanceId.1"] = self.InstancesSet.InstanceId
+
+	_, err := self.node.cluster.region.invoke("TerminateInstances", params)
+	return err
 }
 
 func (self *SInstance) GetVcpuCount() int {
@@ -271,7 +275,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	for i := range storages {
 		storageMaps[storages[i].StorageId] = storages[i]
 	}
-	ret := []cloudprovider.ICloudDisk{}
+	var ret []cloudprovider.ICloudDisk
 	for _, _disk := range self.InstancesSet.BlockDeviceMapping {
 		disk, err := self.node.cluster.region.GetDisk(_disk.Ebs.VolumeId)
 		if err != nil {
@@ -292,7 +296,7 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []cloudprovider.ICloudNic{}
+	var ret []cloudprovider.ICloudNic
 	for i := range nics {
 		ret = append(ret, &nics[i])
 	}
@@ -316,14 +320,14 @@ func (self *SInstance) GetProjectId() string {
 }
 
 func (self *SInstance) Refresh() error {
-	new, _, err := self.node.cluster.region.GetInstances(self.InstancesSet.InstanceId, self.node.NodeId, MAX_RESULT, "")
+	newInstances, _, err := self.node.cluster.region.GetInstances(self.InstancesSet.InstanceId, self.node.NodeId, MAX_RESULT, "")
 	if err != nil {
 		return err
 	}
-	if len(new) == 1 {
-		return jsonutils.Update(self, &new[0])
+	if len(newInstances) == 1 {
+		return jsonutils.Update(self, &newInstances[0])
 	}
-	return nil
+	return cloudprovider.ErrNotFound
 }
 
 func (self *SInstance) GetStatus() string {
@@ -337,7 +341,7 @@ func (self *SInstance) GetStatus() string {
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	params := map[string]string{}
-	params["instanceId"] = self.InstancesSet.InstanceId
+	params["InstanceId"] = self.InstancesSet.InstanceId
 
 	resp, err := self.node.cluster.region.invoke("GetVncInfo", params)
 	if err != nil {
@@ -347,10 +351,7 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 	result := struct {
 		GetVncInfoResult *cloudprovider.ServerVncOutput `json:"getVncInfoResult"`
 	}{}
-	err = resp.Unmarshal(&result)
-	if err != nil {
-		return nil, err
-	}
+	_ = resp.Unmarshal(&result)
 
 	result.GetVncInfoResult.InstanceId = self.InstancesSet.InstanceId
 	result.GetVncInfoResult.Hypervisor = self.GetHypervisor()
@@ -384,13 +385,29 @@ func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
+func (self *SInstance) CreateInstanceSnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudInstanceSnapshot, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) GetInstanceSnapshot(id string) (cloudprovider.ICloudInstanceSnapshot, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SInstance) GetInstanceSnapshots() ([]cloudprovider.ICloudInstanceSnapshot, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstance) ResetToInstanceSnapshot(ctx context.Context, idStr string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SRegion) GetInstances(id, nodeId string, maxResult int, nextToken string) ([]SInstance, string, error) {
 	params := map[string]string{}
 	if maxResult > 0 {
-		params["maxRecords"] = fmt.Sprintf("%d", maxResult)
+		params["MaxRecords"] = fmt.Sprintf("%d", maxResult)
 	}
 	if len(nextToken) > 0 {
-		params["nextToken"] = nextToken
+		params["NextToken"] = nextToken
 	}
 
 	idx := 1
@@ -414,9 +431,7 @@ func (self *SRegion) GetInstances(id, nodeId string, maxResult int, nextToken st
 		NextToken      string
 		ReservationSet []SInstance
 	}{}
-	err = resp.Unmarshal(&result)
-	if err != nil {
-		return nil, "", err
-	}
+	_ = resp.Unmarshal(&result)
+
 	return result.ReservationSet, result.NextToken, nil
 }

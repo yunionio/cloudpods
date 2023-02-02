@@ -82,7 +82,7 @@ func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []cloudprovider.ICloudWire{}
+	var ret []cloudprovider.ICloudWire
 	for i := range clusters {
 		wire := &SWire{
 			vpc:     self,

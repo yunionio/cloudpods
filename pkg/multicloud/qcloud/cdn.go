@@ -55,6 +55,134 @@ type SCdnDomain struct {
 	ServiceType string     `json:"ServiceType"`
 	Status      string     `json:"Status"`
 	UpdateTime  string     `json:"UpdateTime"`
+
+	config *SCdnConfig
+}
+
+func (self *SCdnDomain) GetConfig() (*SCdnConfig, error) {
+	var err error = nil
+	if self.config == nil {
+		self.config, err = self.client.GetCdnConfig(self.ResourceID)
+	}
+	return self.config, err
+}
+
+type SCacheKey struct {
+	FullUrlCache string
+	IgnoreCase   string
+	KeyRules     []struct {
+		RulePaths    []string
+		RuleType     string
+		FullUrlCache string
+		IgnoreCase   string
+		QueryString  struct {
+			Switch string
+			Action string
+			Value  string
+		}
+		RuleTag string
+	}
+}
+
+type SCache struct {
+	RuleCache []CdnCache
+}
+
+type CdnCache struct {
+	CdnCacheCacheConfig CdnCacheCacheConfig `json:"CacheConfig"`
+	RulePaths           []string            `json:"RulePaths"`
+	RuleType            string              `json:"RuleType"`
+}
+
+type CdnCacheCacheConfig struct {
+	CdnCacheCacheConfigCache        CdnCacheCacheConfigCache        `json:"Cache"`
+	CdnCacheCacheConfigFollowOrigin CdnCacheCacheConfigFollowOrigin `json:"FollowOrigin"`
+	CdnCacheCacheConfigNoCache      CdnCacheCacheConfigNoCache      `json:"NoCache"`
+}
+
+type CdnCacheCacheConfigFollowOrigin struct {
+	CdnCacheCacheConfigFollowOriginHeuristicCache CdnCacheCacheConfigFollowOriginHeuristicCache `json:"HeuristicCache"`
+	Switch                                        string                                        `json:"Switch"`
+}
+
+type CdnCacheCacheConfigFollowOriginHeuristicCache struct {
+	CdnCacheCacheConfigFollowOriginHeuristicCacheCacheConfig CdnCacheCacheConfigFollowOriginHeuristicCacheCacheConfig `json:"CacheConfig"`
+	Switch                                                   string                                                   `json:"Switch"`
+}
+
+type CdnCacheCacheConfigFollowOriginHeuristicCacheCacheConfig struct {
+	HeuristicCacheTime       int    `json:"HeuristicCacheTime"`
+	HeuristicCacheTimeSwitch string `json:"HeuristicCacheTimeSwitch"`
+}
+
+type CdnCacheCacheConfigNoCache struct {
+	Revalidate string `json:"Revalidate"`
+	Switch     string `json:"Switch"`
+}
+
+type CdnCacheCacheConfigCache struct {
+	CacheTime          int    `json:"CacheTime"`
+	CompareMaxAge      string `json:"CompareMaxAge"`
+	IgnoreCacheControl string `json:"IgnoreCacheControl"`
+	IgnoreSetCookie    string `json:"IgnoreSetCookie"`
+	Switch             string `json:"Switch"`
+}
+
+type SRangeOriginPull struct {
+	Switch     string
+	RangeRules []struct {
+		Switch    string
+		RuleType  string
+		RulePaths []string
+	}
+	Cache *SCache
+}
+
+type SCdnHttps struct {
+	Switch string
+	Http2  string
+}
+
+type SForceRedirect struct {
+	Switch       string
+	RedirectType string
+}
+
+type SCdnReferer struct {
+	Switch       string
+	RefererRules []struct {
+		RuleType    string
+		RulePaths   []string
+		RefererType string
+		Referers    []string
+		AllowEmpty  bool
+	}
+}
+
+type SMaxAge struct {
+	Switch      string
+	MaxAgeRules []struct {
+		MaxAgeType     string
+		MaxAgeContents []string
+		MaxAgeTime     int
+		FollowOrigin   string
+	}
+}
+
+type SCdnConfig struct {
+	CacheKey *SCacheKey
+
+	RangeOriginPull *SRangeOriginPull
+
+	Cache *SCache
+
+	Https *SCdnHttps
+
+	ForceRedirect *SForceRedirect
+
+	Referer *SCdnReferer
+
+	MaxAge *SMaxAge
 }
 
 func (self *SCdnDomain) GetName() string {
@@ -318,4 +446,253 @@ func (self *SQcloudClient) CreateCDNDomain(opts *cloudprovider.CdnCreateOptions)
 		return nil, errors.Wrapf(err, "AddCdnDomain")
 	}
 	return self.GetCdnDomain(opts.Domain)
+}
+
+func (self *SQcloudClient) GetCdnConfig(resourceId string) (*SCdnConfig, error) {
+	params := map[string]string{
+		"Filters.0.Name":    "resourceId",
+		"Filters.0.Value.0": resourceId,
+		"Limit":             "1",
+	}
+	resp, err := self.cdnRequest("DescribeDomainsConfig", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeDomainsConfig")
+	}
+	result := struct {
+		Domains     []SCdnConfig
+		TotalNumber int
+	}{}
+	err = resp.Unmarshal(&result)
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	for i := range result.Domains {
+		return &result.Domains[i], nil
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, resourceId)
+}
+
+func (self *SCdnDomain) GetCacheKeys() (*cloudprovider.SCDNCacheKeys, error) {
+	config, err := self.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	if config.CacheKey == nil {
+		return nil, nil
+	}
+	enabled, ignoreCase := false, false
+	ret := &cloudprovider.SCDNCacheKeys{
+		KeyRules: []cloudprovider.CacheKeyRule{},
+	}
+	if config.CacheKey.FullUrlCache == "on" {
+		enabled = true
+	}
+	if config.CacheKey.IgnoreCase == "on" {
+		ignoreCase = true
+	}
+	ret.Enabled, ret.IgnoreCase = &enabled, &ignoreCase
+	for _, r := range config.CacheKey.KeyRules {
+		rule := cloudprovider.CacheKeyRule{
+			RulePaths:    r.RulePaths,
+			RuleType:     r.RuleType,
+			FullUrlCache: r.FullUrlCache == "on",
+			IgnoreCase:   r.IgnoreCase == "on",
+			RuleTag:      r.RuleTag,
+			QueryString: cloudprovider.CacheKeyRuleQueryString{
+				Enabled: r.QueryString.Switch == "on",
+				Action:  r.QueryString.Action,
+				Value:   r.QueryString.Value,
+			},
+		}
+		ret.KeyRules = append(ret.KeyRules, rule)
+	}
+	return ret, nil
+}
+
+func (self *SCdnDomain) GetRangeOriginPull() (*cloudprovider.SCDNRangeOriginPull, error) {
+	config, err := self.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	if config.RangeOriginPull == nil {
+		return nil, nil
+	}
+	ret := &cloudprovider.SCDNRangeOriginPull{RangeOriginPullRules: []cloudprovider.SRangeOriginPullRule{}}
+	enabled := false
+	if config.RangeOriginPull.Switch == "on" {
+		enabled = true
+	}
+	ret.Enabled = &enabled
+	for _, obj := range config.RangeOriginPull.RangeRules {
+		rule := cloudprovider.SRangeOriginPullRule{
+			Enabled:   false,
+			RuleType:  obj.RuleType,
+			RulePaths: obj.RulePaths,
+		}
+		if obj.Switch == "on" {
+			rule.Enabled = true
+		}
+		ret.RangeOriginPullRules = append(ret.RangeOriginPullRules, rule)
+	}
+	return ret, nil
+}
+
+func (self *SCdnDomain) GetCache() (*cloudprovider.SCDNCache, error) {
+	config, err := self.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	if config.Cache == nil {
+		return nil, nil
+	}
+	ret := &cloudprovider.SCDNCache{
+		RuleCache: []cloudprovider.SCacheRuleCache{},
+	}
+	for i, r := range config.Cache.RuleCache {
+		rule := cloudprovider.SCacheRuleCache{
+			Priority:    i + 1,
+			RulePaths:   r.RulePaths,
+			RuleType:    r.RuleType,
+			CacheConfig: &cloudprovider.RuleCacheConfig{},
+		}
+		if r.CdnCacheCacheConfig.CdnCacheCacheConfigCache.Switch == "on" {
+			rule.CacheConfig.Cache = &struct {
+				Enabled            bool
+				CacheTime          int
+				CompareMaxAge      bool
+				IgnoreCacheControl bool
+				IgnoreSetCookie    bool
+			}{
+				Enabled:            true,
+				CacheTime:          r.CdnCacheCacheConfig.CdnCacheCacheConfigCache.CacheTime,
+				CompareMaxAge:      r.CdnCacheCacheConfig.CdnCacheCacheConfigCache.CompareMaxAge == "on",
+				IgnoreCacheControl: r.CdnCacheCacheConfig.CdnCacheCacheConfigCache.IgnoreCacheControl == "on",
+				IgnoreSetCookie:    r.CdnCacheCacheConfig.CdnCacheCacheConfigCache.IgnoreSetCookie == "on",
+			}
+		} else if r.CdnCacheCacheConfig.CdnCacheCacheConfigNoCache.Switch == "on" {
+			rule.CacheConfig.NoCache = &struct {
+				Enabled    bool
+				Revalidate bool
+			}{
+				Enabled:    true,
+				Revalidate: r.CdnCacheCacheConfig.CdnCacheCacheConfigNoCache.Revalidate == "on",
+			}
+		} else if r.CdnCacheCacheConfig.CdnCacheCacheConfigFollowOrigin.Switch == "on" {
+			follow := r.CdnCacheCacheConfig.CdnCacheCacheConfigFollowOrigin
+			rule.CacheConfig.FollowOrigin = &struct {
+				Enabled        bool
+				HeuristicCache struct {
+					Enabled     bool
+					CacheConfig struct {
+						HeuristicCacheTimeSwitch bool
+						HeuristicCacheTime       int
+					}
+				}
+			}{
+				Enabled: true,
+			}
+			rule.CacheConfig.FollowOrigin.HeuristicCache.Enabled = follow.Switch == "on"
+			rule.CacheConfig.FollowOrigin.HeuristicCache.CacheConfig.HeuristicCacheTimeSwitch = follow.CdnCacheCacheConfigFollowOriginHeuristicCache.Switch == "on"
+			rule.CacheConfig.FollowOrigin.HeuristicCache.CacheConfig.HeuristicCacheTime = follow.CdnCacheCacheConfigFollowOriginHeuristicCache.CdnCacheCacheConfigFollowOriginHeuristicCacheCacheConfig.HeuristicCacheTime
+		}
+		ret.RuleCache = append(ret.RuleCache, rule)
+	}
+	return ret, nil
+}
+
+func (self *SCdnDomain) GetHTTPS() (*cloudprovider.SCDNHttps, error) {
+	config, err := self.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	if config.Https == nil {
+		return nil, nil
+	}
+	ret := &cloudprovider.SCDNHttps{}
+	enabled, enableHttp2 := false, false
+	if config.Https.Switch == "on" {
+		enabled = true
+	}
+	if config.Https.Http2 == "on" {
+		enableHttp2 = true
+	}
+	ret.Enabled, ret.Http2 = &enabled, &enableHttp2
+	return ret, nil
+}
+
+func (self *SCdnDomain) GetForceRedirect() (*cloudprovider.SCDNForceRedirect, error) {
+	config, err := self.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	if config.ForceRedirect == nil {
+		return nil, nil
+	}
+	ret := &cloudprovider.SCDNForceRedirect{
+		RedirectType: config.ForceRedirect.RedirectType,
+	}
+	enabled := false
+	if config.ForceRedirect.Switch == "on" {
+		enabled = true
+	}
+	ret.Enabled = &enabled
+	return ret, nil
+}
+
+func (self *SCdnDomain) GetReferer() (*cloudprovider.SCDNReferer, error) {
+	config, err := self.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	if config.Referer == nil {
+		return nil, nil
+	}
+	ret := &cloudprovider.SCDNReferer{
+		RefererRules: []cloudprovider.RefererRule{},
+	}
+	enabled := false
+	if config.Referer.Switch == "on" {
+		enabled = true
+	}
+	ret.Enabled = &enabled
+	for _, r := range config.Referer.RefererRules {
+		rule := cloudprovider.RefererRule{
+			RuleType:    r.RuleType,
+			RulePaths:   r.RulePaths,
+			RefererType: r.RuleType,
+			Referers:    r.Referers,
+			AllowEmpty:  &r.AllowEmpty,
+		}
+		ret.RefererRules = append(ret.RefererRules, rule)
+	}
+	return ret, nil
+}
+
+func (self *SCdnDomain) GetMaxAge() (*cloudprovider.SCDNMaxAge, error) {
+	config, err := self.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	if config.MaxAge == nil {
+		return nil, nil
+	}
+	ret := &cloudprovider.SCDNMaxAge{}
+	enabled := false
+	if config.MaxAge.Switch == "on" {
+		enabled = true
+	}
+	ret.Enabled = &enabled
+	for _, r := range config.MaxAge.MaxAgeRules {
+		rule := cloudprovider.SMaxAgeRule{
+			MaxAgeType:     r.MaxAgeType,
+			MaxAgeContents: r.MaxAgeContents,
+			MaxAgeTime:     r.MaxAgeTime,
+			FollowOrigin:   false,
+		}
+		if r.FollowOrigin == "on" {
+			rule.FollowOrigin = true
+		}
+		ret.MaxAgeRules = append(ret.MaxAgeRules, rule)
+	}
+	return ret, nil
 }

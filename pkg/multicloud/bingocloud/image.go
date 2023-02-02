@@ -94,6 +94,10 @@ func (self *SImage) GetSizeByte() int64 {
 	return self.ImageSize
 }
 
+func (self *SImage) GetSizeGB() int64 {
+	return self.ImageSize / 1073741824
+}
+
 func (self *SImage) GetImageType() cloudprovider.TImageType {
 	if self.IsPublic {
 		return cloudprovider.ImageTypeSystem
@@ -102,7 +106,7 @@ func (self *SImage) GetImageType() cloudprovider.TImageType {
 }
 
 func (self *SImage) GetImageStatus() string {
-	return ""
+	return "active"
 }
 
 func (i *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
@@ -142,11 +146,11 @@ func (i *SImage) GetBios() cloudprovider.TBiosType {
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
-	return 0
+	return 4
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
-	return 0
+	return 1024
 }
 
 func (self *SImage) GetImageFormat() string {
@@ -188,10 +192,10 @@ func (self *SImage) GetStatus() string {
 func (self *SRegion) GetImages(id, nextToken string) ([]SImage, string, error) {
 	params := map[string]string{}
 	if len(id) > 0 {
-		params["imageId"] = id
+		params["ImageId.1"] = id
 	}
 	if len(nextToken) > 0 {
-		params["nextToken"] = nextToken
+		params["NextToken"] = nextToken
 	}
 	resp, err := self.invoke("DescribeImages", params)
 	if err != nil {
@@ -201,8 +205,19 @@ func (self *SRegion) GetImages(id, nextToken string) ([]SImage, string, error) {
 		NextToken string
 		ImagesSet []SImage
 	}{}
-	resp.Unmarshal(&ret)
+	_ = resp.Unmarshal(&ret)
 	return ret.ImagesSet, ret.NextToken, nil
+}
+
+func (self *SRegion) GetImageById(id string) (*SImage, error) {
+	imgs, _, err := self.GetImages(id, "")
+	if err != nil {
+		return nil, err
+	}
+	if len(imgs) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	}
+	return &imgs[0], nil
 }
 
 func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
@@ -210,7 +225,7 @@ func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error
 	if err != nil {
 		return nil, err
 	}
-	images := []SImage{}
+	var images []SImage
 	images = append(images, part...)
 	for len(nextToken) > 0 {
 		part, nextToken, err = self.region.GetImages("", nextToken)
@@ -219,7 +234,7 @@ func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error
 		}
 		images = append(images, part...)
 	}
-	ret := []cloudprovider.ICloudImage{}
+	var ret []cloudprovider.ICloudImage
 	for i := range images {
 		if images[i].StorageId == self.storageId {
 			images[i].cache = self
@@ -240,6 +255,5 @@ func (self *SStoragecache) GetIImageById(id string) (cloudprovider.ICloudImage, 
 			return &images[i], nil
 		}
 	}
-
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }

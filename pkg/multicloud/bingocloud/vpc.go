@@ -81,7 +81,7 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 	if err != nil {
 		return nil, err
 	}
-	groups := []SSecurityGroup{}
+	var groups []SSecurityGroup
 	groups = append(groups, part...)
 	for len(nextToken) > 0 {
 		part, nextToken, err = self.region.GetSecurityGroups("", "", nextToken)
@@ -90,7 +90,7 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 		}
 		groups = append(groups, part...)
 	}
-	ret := []cloudprovider.ICloudSecurityGroup{}
+	var ret []cloudprovider.ICloudSecurityGroup
 	for i := range groups {
 		groups[i].region = self.region
 		ret = append(ret, &groups[i])
@@ -118,13 +118,15 @@ func (self *SVpc) GetStatus() string {
 func (self *SRegion) GetVpcs(id string) ([]SVpc, error) {
 	params := map[string]string{}
 	if len(id) > 0 {
-		params["vpcId"] = id
+		params["VpcId"] = id
 	}
+
 	resp, err := self.invoke("DescribeVpcs", params)
 	if err != nil {
 		return nil, err
 	}
-	vpcs := []SVpc{}
+	var vpcs []SVpc
+
 	return vpcs, resp.Unmarshal(&vpcs, "vpcSet")
 }
 
@@ -133,7 +135,7 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetVpcs")
 	}
-	ret := []cloudprovider.ICloudVpc{}
+	var ret []cloudprovider.ICloudVpc
 	for i := range vpcs {
 		vpcs[i].region = self
 		ret = append(ret, &vpcs[i])

@@ -28,19 +28,19 @@ type SSecurityGroup struct {
 	multicloud.BingoTags
 	region *SRegion
 
-	ComplexIPPermissions       string                `json:"complexIpPermissions"`
-	ComplexIPPermissionsEgress string                `json:"complexIpPermissionsEgress"`
-	DisplayName                string                `json:"displayName"`
-	GroupDescription           string                `json:"groupDescription"`
-	GroupId                    string                `json:"groupId"`
-	GroupName                  string                `json:"groupName"`
-	IPPermissionType           string                `json:"ipPermissionType"`
-	IPPermissions              string                `json:"ipPermissions"`
-	IPPermissionsEgress        []IPPermissionsEgress `json:"ipPermissionsEgress"`
-	OwnerId                    string                `json:"ownerId"`
+	ComplexIPPermissions       string          `json:"complexIpPermissions"`
+	ComplexIPPermissionsEgress string          `json:"complexIpPermissionsEgress"`
+	DisplayName                string          `json:"displayName"`
+	GroupDescription           string          `json:"groupDescription"`
+	GroupId                    string          `json:"groupId"`
+	GroupName                  string          `json:"groupName"`
+	IPPermissionType           string          `json:"ipPermissionType"`
+	IPPermissions              []IPPermissions `json:"ipPermissions"`
+	IPPermissionsEgress        []IPPermissions `json:"ipPermissionsEgress"`
+	OwnerId                    string          `json:"ownerId"`
 }
 
-type IPPermissionsEgress struct {
+type IPPermissions struct {
 	BoundType   string `json:"boundType"`
 	Description string `json:"description"`
 	FromPort    int    `json:"fromPort"`
@@ -70,10 +70,6 @@ func (self *SSecurityGroup) GetName() string {
 	return self.GroupName
 }
 
-func (self *SSecurityGroup) Delete() error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (self *SSecurityGroup) GetDescription() string {
 	return self.GroupDescription
 }
@@ -87,8 +83,8 @@ func (self *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupRefere
 }
 
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	ret := []cloudprovider.SecurityRule{}
-	for _, _rule := range self.IPPermissionsEgress {
+	var ret []cloudprovider.SecurityRule
+	for _, _rule := range append(self.IPPermissionsEgress, self.IPPermissions...) {
 		if len(_rule.Groups) > 0 {
 			continue
 		}
@@ -135,20 +131,26 @@ func (self *SSecurityGroup) GetStatus() string {
 }
 
 func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	return cloudprovider.ErrNotImplemented
+	return nil
+}
+
+func (self *SSecurityGroup) Delete() error {
+	return self.region.deleteSecurityGroup(self.GroupId)
 }
 
 func (self *SRegion) GetSecurityGroups(id, name, nextToken string) ([]SSecurityGroup, string, error) {
 	params := map[string]string{}
 	if len(id) > 0 {
-		params["groupId"] = id
+		params["GroupId.1"] = id
 	}
 	if len(name) > 0 {
-		params["groupName"] = name
+		params["Filter.1.Name"] = "group-name"
+		params["Filter.1.Value.1"] = name
 	}
 	if len(nextToken) > 0 {
-		params["nextToken"] = nextToken
+		params["NextToken"] = nextToken
 	}
+
 	resp, err := self.invoke("DescribeSecurityGroups", params)
 	if err != nil {
 		return nil, "", err
@@ -157,7 +159,7 @@ func (self *SRegion) GetSecurityGroups(id, name, nextToken string) ([]SSecurityG
 		SecurityGroupInfo []SSecurityGroup
 		NextToken         string
 	}{}
-	resp.Unmarshal(&ret)
+	_ = resp.Unmarshal(&ret)
 	return ret.SecurityGroupInfo, ret.NextToken, nil
 }
 
@@ -187,4 +189,16 @@ func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFi
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SRegion) deleteSecurityGroup(id string) error {
+	params := map[string]string{}
+	params["GroupId"] = id
+
+	_, err := self.invoke("DeleteSecurityGroup", params)
+	return err
+}
+
+func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
