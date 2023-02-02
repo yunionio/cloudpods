@@ -289,12 +289,14 @@ func (manager *SDnsRecordSetManager) FetchCustomizeColumns(
 	rows := make([]api.DnsRecordSetDetails, len(objs))
 	enRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	recordIds := make([]string, len(objs))
+	zoneIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.DnsRecordSetDetails{
 			EnabledStatusStandaloneResourceDetails: enRows[i],
 		}
 		record := objs[i].(*SDnsRecordSet)
 		recordIds[i] = record.Id
+		zoneIds[i] = record.DnsZoneId
 	}
 
 	q := DnsRecordSetTrafficPolicyManager.Query().In("dns_recordset_id", recordIds)
@@ -330,6 +332,8 @@ func (manager *SDnsRecordSetManager) FetchCustomizeColumns(
 			PolicyOptions: policies[i].Options,
 		}
 	}
+	zoneMap := map[string]SDnsZone{}
+	db.FetchModelObjectsByIds(DnsZoneManager, "id", zoneIds, &zoneMap)
 	for i := range rows {
 		rows[i].TrafficPolicies = []api.DnsRecordPolicy{}
 		policyIds, ok := recordMaps[recordIds[i]]
@@ -340,6 +344,9 @@ func (manager *SDnsRecordSetManager) FetchCustomizeColumns(
 					rows[i].TrafficPolicies = append(rows[i].TrafficPolicies, policy)
 				}
 			}
+		}
+		if zone, ok := zoneMap[zoneIds[i]]; ok {
+			rows[i].DnsZone = zone.Name
 		}
 	}
 

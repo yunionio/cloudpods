@@ -66,6 +66,8 @@ type DnsRecordSetDetails struct {
 	SDnsRecordSet
 
 	TrafficPolicies []DnsRecordPolicy
+
+	DnsZone string `json:"dns_zone"`
 }
 
 type DnsRecordSetListInput struct {
