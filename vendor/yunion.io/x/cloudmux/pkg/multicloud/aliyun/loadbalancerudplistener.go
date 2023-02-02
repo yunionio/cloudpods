@@ -220,6 +220,25 @@ func (listerner *SLoadbalancerUDPListener) HTTP2Enabled() bool {
 	return false
 }
 
+func (listerner *SLoadbalancerUDPListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SLoadbalancerUDPListener) SetAcl(ctx context.Context, opts *cloudprovider.ListenerAclOptions) error {
+	params := map[string]string{
+		"LoadBalancerId": self.lb.LoadBalancerId,
+		"ListenerPort":   fmt.Sprintf("%d", self.ListenerPort),
+		"AclStatus":      "off",
+	}
+	if opts.AclStatus == api.LB_BOOL_ON {
+		params["AclStatus"] = "on"
+		params["AclType"] = opts.AclType
+		params["AclId"] = opts.AclId
+	}
+	_, err := self.lb.region.lbRequest("SetLoadBalancerUDPListenerAttribute", params)
+	return err
+}
+
 func (listerner *SLoadbalancerUDPListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	return []cloudprovider.ICloudLoadbalancerListenerRule{}, nil
 }
@@ -271,14 +290,59 @@ func (listerner *SLoadbalancerUDPListener) Stop() error {
 	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
 }
 
-func (region *SRegion) SyncLoadbalancerUDPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	params := region.constructBaseCreateListenerParams(lb, listener)
-	_, err := region.lbRequest("SetLoadBalancerUDPListenerAttribute", params)
+func (self *SLoadbalancerUDPListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
+	params := map[string]string{
+		"LoadBalancerId": self.lb.LoadBalancerId,
+		"ListenerPort":   fmt.Sprintf("%d", self.ListenerPort),
+		"Scheduler":      opts.Scheduler,
+	}
+	_, err := self.lb.region.lbRequest("SetLoadBalancerUDPListenerAttribute", params)
 	return err
 }
 
-func (listerner *SLoadbalancerUDPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	return listerner.lb.region.SyncLoadbalancerUDPListener(listerner.lb, lblis)
+func (self *SLoadbalancerUDPListener) SetHealthCheck(ctx context.Context, opts *cloudprovider.ListenerHealthCheckOptions) error {
+	params := map[string]string{
+		"LoadBalancerId":    self.lb.LoadBalancerId,
+		"ListenerPort":      fmt.Sprintf("%d", self.ListenerPort),
+		"HealthCheckSwitch": "off",
+	}
+	if opts.HealthCheck == api.LB_BOOL_ON {
+		params["HealthCheckSwitch"] = "on"
+		if opts.HealthCheckTimeout >= 1 && opts.HealthCheckTimeout <= 300 {
+			params["HealthCheckConnectTimeout"] = fmt.Sprintf("%d", opts.HealthCheckTimeout)
+		}
+		if len(opts.HealthCheckReq) > 0 {
+			params["healthCheckReq"] = opts.HealthCheckReq
+		}
+		if len(opts.HealthCheckExp) > 0 {
+			params["healthCheckExp"] = opts.HealthCheckExp
+		}
+
+		if len(opts.HealthCheckDomain) > 0 {
+			params["HealthCheckDomain"] = opts.HealthCheckDomain
+		}
+
+		if len(opts.HealthCheckHttpCode) > 0 {
+			params["HealthCheckHttpCode"] = opts.HealthCheckHttpCode
+		}
+
+		if len(opts.HealthCheckURI) > 0 {
+			params["HealthCheckURI"] = opts.HealthCheckURI
+		}
+
+		if opts.HealthCheckRise >= 2 && opts.HealthCheckRise <= 10 {
+			params["HealthyThreshold"] = fmt.Sprintf("%d", opts.HealthCheckRise)
+		}
+
+		if opts.HealthCheckFail >= 2 && opts.HealthCheckFail <= 10 {
+			params["UnhealthyThreshold"] = fmt.Sprintf("%d", opts.HealthCheckFail)
+		}
+		if opts.HealthCheckInterval >= 1 && opts.HealthCheckInterval <= 50 {
+			params["healthCheckInterval"] = fmt.Sprintf("%d", opts.HealthCheckInterval)
+		}
+	}
+	_, err := self.lb.region.lbRequest("SetLoadBalancerUDPListenerAttribute", params)
+	return err
 }
 
 func (listerner *SLoadbalancerUDPListener) GetProjectId() string {

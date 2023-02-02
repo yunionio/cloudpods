@@ -38,6 +38,7 @@ import (
 */
 type SLoadBalancerListener struct {
 	multicloud.SResourceBase
+	AzureTags
 	multicloud.SLoadbalancerRedirectBase
 
 	lb   *SLoadbalancer
@@ -151,12 +152,12 @@ func (self *SLoadBalancerListener) Refresh() error {
 	return nil
 }
 
-func (self *SLoadBalancerListener) IsEmulated() bool {
-	return false
+func (listerner *SLoadBalancerListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
+	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SLoadBalancerListener) GetSysTags() map[string]string {
-	return nil
+func (listerner *SLoadBalancerListener) SetAcl(ctx context.Context, opts *cloudprovider.ListenerAclOptions) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SLoadBalancerListener) GetTags() (map[string]string, error) {
@@ -501,8 +502,12 @@ func (self *SLoadBalancerListener) Stop() error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "Stop")
 }
 
-func (self *SLoadBalancerListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	return errors.Wrap(cloudprovider.ErrNotImplemented, "Sync")
+func (self *SLoadBalancerListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SLoadBalancerListener) SetHealthCheck(ctx context.Context, opts *cloudprovider.ListenerHealthCheckOptions) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SLoadBalancerListener) Delete(ctx context.Context) error {

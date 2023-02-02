@@ -42,18 +42,6 @@ type SRegion struct {
 	routers      []SRouter
 }
 
-func (region *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	backendGroups := []cloudprovider.ICloudLoadbalancerBackendGroup{}
-	pools, err := region.GetLoadbalancerPools()
-	if err != nil {
-		return backendGroups, errors.Wrap(err, "region.GetLoadbalancerPools()")
-	}
-	for i := 0; i < len(pools); i++ {
-		backendGroups = append(backendGroups, &pools[i])
-	}
-	return backendGroups, nil
-}
-
 func (region *SRegion) GetClient() *SOpenStackClient {
 	return region.client
 }

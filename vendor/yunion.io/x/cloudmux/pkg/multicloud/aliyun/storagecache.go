@@ -84,6 +84,23 @@ func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudIm
 		images[i].storageCache = self
 		ret = append(ret, &images[i])
 	}
+	// 共享镜像
+	images = []SImage{}
+	for {
+		parts, total, err := self.region.GetImages(ImageStatusType(""), ImageOwnerOthers, nil, "", len(images), 50)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetImages")
+		}
+		images = append(images, parts...)
+		if len(images) >= total {
+			break
+		}
+	}
+	for i := range images {
+		images[i].storageCache = self
+		ret = append(ret, &images[i])
+	}
+
 	return ret, nil
 }
 

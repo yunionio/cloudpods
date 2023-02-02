@@ -208,10 +208,6 @@ func (self *SElbBackendGroup) Refresh() error {
 	return nil
 }
 
-func (self *SElbBackendGroup) IsEmulated() bool {
-	return false
-}
-
 func (self *SElbBackendGroup) GetProjectId() string {
 	return self.ProjectID
 }

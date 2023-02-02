@@ -155,12 +155,10 @@ func (self *SImage) GetImageType() cloudprovider.TImageType {
 	switch self.ImageOwnerAlias {
 	case ImageOwnerSystem:
 		return cloudprovider.ImageTypeSystem
-	case ImageOwnerSelf:
+	case ImageOwnerSelf, ImageOwnerOthers:
 		return cloudprovider.ImageTypeCustomized
 	case ImageOwnerMarketplace:
 		return cloudprovider.ImageTypeMarket
-	case ImageOwnerOthers:
-		return cloudprovider.ImageTypeShared
 	default:
 		return cloudprovider.ImageTypeCustomized
 	}

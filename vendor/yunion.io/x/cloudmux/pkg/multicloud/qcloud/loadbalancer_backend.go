@@ -42,14 +42,14 @@ type SLBBackend struct {
 
 // ==========================================================
 type SListenerBackend struct {
-	Rules      []rule       `json:"Rules"`
+	Rules      []Rule       `json:"Rules"`
 	Targets    []SLBBackend `json:"Targets"`
 	Protocol   string       `json:"Protocol"`
 	ListenerId string       `json:"ListenerId"`
 	Port       int64        `json:"Port"`
 }
 
-type rule struct {
+type Rule struct {
 	URL        string       `json:"Url"`
 	Domain     string       `json:"Domain"`
 	LocationId string       `json:"LocationId"`
@@ -115,7 +115,7 @@ func (self *SLBBackend) GetIpAddress() string {
 }
 
 // 应用型： https://cloud.tencent.com/document/product/214/30684
-func (self *SRegion) getBackends(lbId, listenerId, ruleId string) ([]SLBBackend, error) {
+func (self *SRegion) GetBackends(lbId, listenerId string) ([]SLBBackend, error) {
 	params := map[string]string{"LoadBalancerId": lbId}
 
 	if len(listenerId) > 0 {
@@ -132,30 +132,18 @@ func (self *SRegion) getBackends(lbId, listenerId, ruleId string) ([]SLBBackend,
 	if err != nil {
 		return nil, err
 	}
-
+	backends := []SLBBackend{}
 	for _, entry := range lbackends {
-		if (entry.Protocol == "HTTP" || entry.Protocol == "HTTPS") && len(ruleId) == 0 {
-			return nil, fmt.Errorf("GetBackends for http/https listener %s must specific rule id", listenerId)
+		if len(entry.Targets) > 0 {
+			backends = append(backends, entry.Targets...)
 		}
-
-		if len(ruleId) > 0 {
-			for _, r := range entry.Rules {
-				if r.LocationId == ruleId {
-					return r.Targets, nil
-				}
+		for _, r := range entry.Rules {
+			if len(r.Targets) > 0 {
+				backends = append(backends, r.Targets...)
 			}
-		} else {
-			return entry.Targets, nil
 		}
 	}
-
-	// todo： 这里是返回空列表还是404？
-	return []SLBBackend{}, nil
-}
-
-// 注意http、https监听器必须指定ruleId
-func (self *SRegion) GetLBBackends(t LB_TYPE, lbId, listenerId, ruleId string) ([]SLBBackend, error) {
-	return self.getBackends(lbId, listenerId, ruleId)
+	return backends, nil
 }
 
 func (self *SLBBackend) SyncConf(ctx context.Context, port, weight int) error {

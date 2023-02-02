@@ -317,6 +317,14 @@ func (self *SElbListener) GetHealthCheckRise() int {
 	}
 }
 
+func (listerner *SElbListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (listerner *SElbListener) SetAcl(ctx context.Context, opts *cloudprovider.ListenerAclOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SElbListener) GetHealthCheckFail() int {
 	return 0
 }
@@ -547,8 +555,18 @@ default_pool_id对应的后端云服务器组的protocol和监听器的protocol�
 监听器的protocol为UDP时，后端云服务器组的protocol必须为UDP。
 监听器的protocol为HTTP或TERMINATED_HTTPS时，后端云服务器组的protocol必须为HTTP。
 */
+/*
 func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	return self.lb.region.UpdateLoadBalancerListener(self.GetId(), listener)
+}
+*/
+
+func (self *SElbListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SElbListener) SetHealthCheck(ctx context.Context, opts *cloudprovider.ListenerHealthCheckOptions) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SElbListener) Delete(ctx context.Context) error {

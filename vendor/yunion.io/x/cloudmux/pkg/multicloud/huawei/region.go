@@ -57,10 +57,6 @@ type SRegion struct {
 	storageCache *SStoragecache
 }
 
-func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SRegion) GetClient() *SHuaweiClient {
 	return self.client
 }

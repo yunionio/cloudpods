@@ -17,7 +17,6 @@ package regiondrivers
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -92,13 +91,6 @@ func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerData(ctx context.C
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, input)
 }
 
-func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return self.createLoadbalancerAcl(ctx, userCred, lbacl)
-	})
-	return nil
-}
-
 func (self *SOpenStackRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
 	if len(input.NetworkId) == 0 {
 		return httperrors.NewMissingParameterError("network_id")
@@ -134,62 +126,12 @@ func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerListenerData(ctx c
 	return input, httperrors.NewNotImplementedError("ValidateCreateLoadbalancerListenerData")
 }
 
-func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
-func (self *SOpenStackRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
 func (self *SOpenStackRegionDriver) IsSupportLoadbalancerListenerRuleRedirect() bool {
 	return true
 }
 
 func (self *SOpenStackRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LoadbalancerListenerRuleUpdateInput) (*api.LoadbalancerListenerRuleUpdateInput, error) {
 	return input, nil
-}
-
-func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
-func (self *SOpenStackRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
-func (self *SOpenStackRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-
-	return nil
-}
-
-func (self *SOpenStackRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup) error {
-	// pool不能被l7policy关联，若要解除关联关系，可通过更新转发策略将转测策略的redirect_pool_id更新为null。
-	count, err := lbbg.RefCount()
-	if err != nil {
-		return err
-	}
-
-	if count != 0 {
-		return fmt.Errorf("backendgroup is binding with loadbalancer/listener/listenerrule.")
-	}
-
-	return nil
 }
 
 func (self *SOpenStackRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
