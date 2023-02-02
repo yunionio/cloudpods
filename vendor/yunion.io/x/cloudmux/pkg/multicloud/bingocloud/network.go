@@ -153,7 +153,7 @@ func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []cloudprovider.ICloudNetwork{}
+	var ret []cloudprovider.ICloudNetwork
 	for i := range networks {
 		networks[i].wire = self
 		ret = append(ret, &networks[i])
@@ -177,7 +177,7 @@ func (self *SWire) GetINetworkById(id string) (cloudprovider.ICloudNetwork, erro
 func (self *SRegion) GetNetworks(id, clusterId, vpcId string) ([]SNetwork, error) {
 	params := map[string]string{}
 	if len(id) > 0 {
-		params["subnetId"] = id
+		params["SubnetId"] = id
 	}
 	idx := 1
 	if len(clusterId) > 0 {
@@ -194,6 +194,6 @@ func (self *SRegion) GetNetworks(id, clusterId, vpcId string) ([]SNetwork, error
 	if err != nil {
 		return nil, err
 	}
-	networks := []SNetwork{}
+	var networks []SNetwork
 	return networks, resp.Unmarshal(&networks, "subnetSet")
 }

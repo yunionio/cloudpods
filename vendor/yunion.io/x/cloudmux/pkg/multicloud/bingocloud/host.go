@@ -55,7 +55,7 @@ type SHost struct {
 func (self *SRegion) GetHosts(nextToken string) ([]SHost, string, error) {
 	params := map[string]string{}
 	if len(nextToken) > 0 {
-		params["nextToken"] = nextToken
+		params["NextToken"] = nextToken
 	}
 	resp, err := self.invoke("DescribePhysicalHosts", params)
 	if err != nil {
@@ -67,6 +67,7 @@ func (self *SRegion) GetHosts(nextToken string) ([]SHost, string, error) {
 		}
 		NextToken string
 	}{}
-	resp.Unmarshal(&ret)
+	_ = resp.Unmarshal(&ret)
+
 	return ret.DescribePhysicalHostsResult.PhysicalHostSet, ret.NextToken, nil
 }

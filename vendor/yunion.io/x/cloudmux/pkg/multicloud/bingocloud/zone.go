@@ -25,6 +25,6 @@ func (self *SRegion) GetZones() ([]SZone, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []SZone{}
+	var ret []SZone
 	return ret, resp.Unmarshal(&ret, "availabilityZoneInfo")
 }

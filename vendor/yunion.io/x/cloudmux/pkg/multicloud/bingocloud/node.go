@@ -15,9 +15,12 @@
 package bingocloud
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -53,16 +56,16 @@ type SNode struct {
 func (self *SRegion) GetNodes(clusterId, nodeId string) ([]SNode, error) {
 	params := map[string]string{}
 	if len(clusterId) > 0 {
-		params["clusterId"] = clusterId
+		params["ClusterId"] = clusterId
 	}
 	if len(clusterId) > 0 {
-		params["nodeId"] = nodeId
+		params["NodeId"] = nodeId
 	}
 	resp, err := self.invoke("DescribeNodes", params)
 	if err != nil {
 		return nil, err
 	}
-	ret := []SNode{}
+	var ret []SNode
 	return ret, resp.Unmarshal(&ret, "nodeSet")
 }
 
@@ -151,10 +154,6 @@ func (self *SNode) GetNodeType() string {
 	return api.HOST_TYPE_BINGO_CLOUD
 }
 
-func (self *SNode) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SNode) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return self.cluster.GetIStorages()
 }
@@ -179,7 +178,7 @@ func (self *SNode) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 }
 
 func (self *SNode) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	vms := []SInstance{}
+	var vms []SInstance
 	part, nextToken, err := self.cluster.region.GetInstances("", self.NodeId, MAX_RESULT, "")
 	vms = append(vms, part...)
 	for len(nextToken) > 0 {
@@ -189,7 +188,7 @@ func (self *SNode) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 		}
 		vms = append(vms, part...)
 	}
-	ret := []cloudprovider.ICloudVM{}
+	var ret []cloudprovider.ICloudVM
 	for i := range vms {
 		vms[i].node = self
 		ret = append(ret, &vms[i])
@@ -212,7 +211,19 @@ func (self *SNode) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SNode) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vpcs, err := self.cluster.region.GetIVpcs()
+	if err != nil {
+		return nil, err
+	}
+	var ret []cloudprovider.ICloudWire
+	for _, vpc := range vpcs {
+		wires, err := vpc.GetIWires()
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, wires...)
+	}
+	return ret, nil
 }
 
 func (self *SNode) GetSchedtags() ([]string, error) {
@@ -261,10 +272,101 @@ func (self *SCluster) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []cloudprovider.ICloudHost{}
+	var ret []cloudprovider.ICloudHost
 	for i := range nodes {
 		nodes[i].cluster = self
 		ret = append(ret, &nodes[i])
 	}
 	return ret, nil
+}
+
+func (self *SNode) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	var err error
+	log.Debugf("Try instancetype : %s", desc.InstanceType)
+
+	img, err := self.cluster.region.GetImageById(desc.ExternalImageId)
+	if err != nil {
+		log.Errorf("get image %s fail %s", desc.ExternalImageId, err)
+		return nil, err
+	}
+
+	params := map[string]string{}
+	params["InstanceName"] = desc.Name
+	params["ImageId"] = desc.ExternalImageId
+	params["MinCount"] = "1"
+	params["MaxCount"] = "1"
+
+	if len(desc.ExternalSecgroupIds) > 0 {
+		for i := range desc.ExternalSecgroupIds {
+			secGroup, err := self.cluster.region.GetISecurityGroupById(desc.ExternalSecgroupIds[i])
+			if err != nil {
+				return nil, err
+			}
+			params[fmt.Sprintf("SecurityGroup.%v", i+1)] = secGroup.GetName()
+		}
+	}
+
+	disks := make([]SDisk, len(desc.DataDisks)+1)
+	disks[0].Size = int(img.GetSizeGB())
+	if desc.SysDisk.SizeGB > 0 && desc.SysDisk.SizeGB > int(img.GetSizeGB()) {
+		disks[0].Size = desc.SysDisk.SizeGB
+	}
+	for i, dataDisk := range desc.DataDisks {
+		disks[i+1].Size = dataDisk.SizeGB
+	}
+
+	for i, disk := range disks {
+		var deviceName string
+		var err error
+
+		if i == 0 {
+			params[fmt.Sprintf("BlockDeviceMapping.%v.Ebs.DeleteOnTermination", i+1)] = "true"
+			params[fmt.Sprintf("BlockDeviceMapping.%v.Ebs.VolumeSize", i+1)] = strconv.Itoa(disk.Size)
+			if len(img.RootDeviceName) > 0 {
+				deviceName = img.RootDeviceName
+			} else {
+				deviceName = fmt.Sprintf("/dev/vda")
+			}
+		} else {
+			params[fmt.Sprintf("BlockDeviceMapping.%v.Ebs.DeleteOnTermination", i+1)] = "true"
+			params[fmt.Sprintf("BlockDeviceMapping.%v.Ebs.VolumeSize", i+1)] = strconv.Itoa(disk.Size)
+			deviceName, err = nextDeviceName([]string{deviceName})
+			if err != nil {
+				return nil, errors.Wrap(err, "nextDeviceName")
+			}
+		}
+		params[fmt.Sprintf("BlockDeviceMapping.%v.DeviceName", i+1)] = deviceName
+	}
+
+	params["InstanceType"] = desc.InstanceType
+	params["Password"] = desc.Password
+	params["NetworkInterface.1.VpcId"] = desc.ExternalVpcId
+	params["NetworkInterface.1.SubnetId"] = desc.ExternalNetworkId
+	params["AllowNodes.1"] = self.NodeId
+
+	resp, err := self.cluster.region.invoke("RunInstances", params)
+	if err != nil {
+		return nil, err
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateVM")
+	}
+
+	var tmpInst = struct {
+		InstancesSet struct {
+			InstanceId string
+		}
+	}{}
+
+	_ = resp.Unmarshal(&tmpInst)
+	insets, _, err := self.cluster.region.GetInstances(tmpInst.InstancesSet.InstanceId, "", MAX_RESULT, "")
+	if err != nil {
+		log.Errorf("GetInstance %s: %s", "", err)
+		return nil, errors.Wrap(err, "CreateVM")
+	}
+	if len(insets) > 0 {
+		insets[0].node = self
+		return &insets[0], nil
+	}
+	return nil, errors.Wrap(cloudprovider.ErrUnknown, "CreateVM")
 }
