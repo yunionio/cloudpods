@@ -115,8 +115,9 @@ func (self *SStorage) IsSysDiskStore() bool {
 func (self *SRegion) GetStorages(nextToken string) ([]SStorage, string, error) {
 	params := map[string]string{}
 	if len(nextToken) > 0 {
-		params["nextToken"] = nextToken
+		params["NextToken"] = nextToken
 	}
+
 	resp, err := self.invoke("DescribeStorages", params)
 	if err != nil {
 		return nil, "", err
@@ -125,7 +126,8 @@ func (self *SRegion) GetStorages(nextToken string) ([]SStorage, string, error) {
 		NextToken  string
 		StorageSet []SStorage
 	}{}
-	resp.Unmarshal(&ret)
+	_ = resp.Unmarshal(&ret)
+
 	return ret.StorageSet, ret.NextToken, nil
 }
 
@@ -147,7 +149,7 @@ func (self *SCluster) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []cloudprovider.ICloudStorage{}
+	var ret []cloudprovider.ICloudStorage
 	for i := range storages {
 		storages[i].cluster = self
 		ret = append(ret, &storages[i])
@@ -156,7 +158,7 @@ func (self *SCluster) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 }
 
 func (self *SRegion) getStorages() ([]SStorage, error) {
-	storages := []SStorage{}
+	var storages []SStorage
 	part, nextToken, err := self.GetStorages("")
 	if err != nil {
 		return nil, err
