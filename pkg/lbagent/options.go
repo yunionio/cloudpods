@@ -23,10 +23,12 @@ import (
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 )
 
-type LbagentOptions struct {
-	ApiLbagentId                  string `require:"true"`
-	ApiLbagentHbInterval          int    `default:"10"`
-	ApiLbagentHbTimeoutRelaxation int    `default:"120" help:"If agent is to stale out in specified seconds in the future, consider it staled to avoid race condition when doing incremental api data fetch"`
+type LbagentCommonOptions struct {
+	common_options.CommonOptions
+
+	// ApiLbagentId                  string `require:"true"`
+	ApiLbagentHbInterval          int `default:"10"`
+	ApiLbagentHbTimeoutRelaxation int `default:"120" help:"If agent is to stale out in specified seconds in the future, consider it staled to avoid race condition when doing incremental api data fetch"`
 
 	ApiSyncIntervalSeconds  int `default:"10"`
 	ApiRunDelayMilliseconds int `default:"10"`
@@ -49,9 +51,12 @@ type LbagentOptions struct {
 }
 
 type Options struct {
-	common_options.CommonOptions
+	LbagentCommonOptions
 
-	LbagentOptions
+	CommonConfigFile string `help:"common config file for container"`
+
+	ListenInterface string `help:"listening interface of lbagent" default:"eth0"`
+	AccessIp        string `help:"access ip of lbagent, if there are multiple IPs on listen interface"`
 }
 
 func (opts *Options) ValidateThenInit() error {

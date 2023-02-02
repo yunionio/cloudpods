@@ -132,7 +132,7 @@ func init() {
 		printLbagent(lbagent)
 		return nil
 	})
-	R(&options.LoadbalancerAgentActionDeployOptions{}, "lbagent-deploy", "Deploy lbagent", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentActionDeployOptions) error {
+	/*R(&options.LoadbalancerAgentActionDeployOptions{}, "lbagent-deploy", "Deploy lbagent", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentActionDeployOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err
@@ -146,6 +146,24 @@ func init() {
 	})
 	R(&options.LoadbalancerAgentActionUndeployOptions{}, "lbagent-undeploy", "Undeploy lbagent", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentActionUndeployOptions) error {
 		lbagent, err := modules.LoadbalancerAgents.PerformAction(s, opts.ID, "undeploy", nil)
+		if err != nil {
+			return err
+		}
+		printLbagent(lbagent)
+		return nil
+	})*/
+	R(&options.LoadbalancerAgentJoinClusterOptions{}, "lbagent-join-cluster", "Agent join cluster", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentJoinClusterOptions) error {
+		params, _ := opts.Params()
+		lbagent, err := modules.LoadbalancerAgents.PerformAction(s, opts.ID, "join-cluster", params)
+		if err != nil {
+			return err
+		}
+		printLbagent(lbagent)
+		return nil
+	})
+	R(&options.LoadbalancerAgentLeaveClusterOptions{}, "lbagent-leave-cluster", "Agent leave cluster", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentLeaveClusterOptions) error {
+		params, _ := opts.Params()
+		lbagent, err := modules.LoadbalancerAgents.PerformAction(s, opts.ID, "leave-cluster", params)
 		if err != nil {
 			return err
 		}

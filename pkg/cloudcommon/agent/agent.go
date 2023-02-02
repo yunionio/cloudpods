@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 type SZoneInfo struct {
@@ -54,45 +55,14 @@ type SBaseAgent struct {
 	stop bool
 }
 
-func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
-	addrs, err := iface.Addrs()
-	if err != nil {
-		return nil, err
-	}
-	ips := make([]net.IP, 0)
-	for _, a := range addrs {
-		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				ips = append(ips, ipnet.IP)
-			}
-		}
-	}
-	return ips, nil
-}
-
 func (agent *SBaseAgent) IAgent() iagent.IAgent {
 	return agent.GetVirtualObject().(iagent.IAgent)
 }
 
 func (agent *SBaseAgent) Init(iagent iagent.IAgent, ifname string, cachePath string) error {
-	iface, err := net.InterfaceByName(ifname)
+	iface, ips, err := netutils2.WaitIfaceIps(ifname)
 	if err != nil {
-		return err
-	}
-	var ips []net.IP
-	MAX := 60
-	wait := 0
-	for wait < MAX {
-		ips, err = getIfaceIPs(iface)
-		if err != nil {
-			return err
-		}
-		if len(ips) == 0 {
-			time.Sleep(2 * time.Second)
-			wait += 2
-		} else {
-			break
-		}
+		return errors.Wrap(err, "WaitIfaceIps")
 	}
 	if len(ips) == 0 {
 		return fmt.Errorf("Interface %s ip address not found", ifname)
