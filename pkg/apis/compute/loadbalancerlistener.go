@@ -244,6 +244,9 @@ func (self *LoadbalancerListenerCreateInput) Validate() error {
 		return httperrors.NewInputParameterError("invalid health_check %s", self.HealthCheck)
 	}
 	if self.HealthCheck == LB_BOOL_ON {
+		if self.ListenerType == LB_LISTENER_TYPE_HTTPS && len(self.HealthCheckType) == 0 {
+			self.HealthCheckType = LB_HEALTH_CHECK_HTTP
+		}
 		if !utils.IsInStringArray(self.HealthCheckType, LB_HEALTH_CHECK_TYPES) {
 			return httperrors.NewInputParameterError("invalid health_check_type %s", self.HealthCheckType)
 		}
@@ -376,10 +379,10 @@ func (self *LoadbalancerListenerUpdateInput) Validate() error {
 		return httperrors.NewInputParameterError("invalid send_proxy %v", self.SendProxy)
 	}
 	if self.StickySession != nil {
-		if !utils.IsInStringArray(*self.StickySessionType, []string{LB_BOOL_ON, LB_BOOL_OFF}) {
+		if !utils.IsInStringArray(*self.StickySession, []string{LB_BOOL_ON, LB_BOOL_OFF}) {
 			return httperrors.NewInputParameterError("invalid sticky_session %v", self.StickySession)
 		}
-		if *self.StickySessionType == LB_BOOL_ON {
+		if *self.StickySession == LB_BOOL_ON {
 			if self.StickySessionType == nil {
 				return httperrors.NewMissingParameterError("sticky_session_type")
 			}

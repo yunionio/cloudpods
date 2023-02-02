@@ -202,8 +202,7 @@ func (self *SLBBackendGroup) GetILoadbalancerBackendById(backendId string) (clou
 }
 
 func (self *SLBBackendGroup) GetBackends() ([]SLBBackend, error) {
-	// http、https监听
-	backends, err := self.lb.region.GetLBBackends(self.lb.Forward, self.lb.GetId(), self.listener.ListenerId, "")
+	backends, err := self.lb.region.GetBackends(self.lb.GetId(), self.listener.ListenerId)
 	if err != nil {
 		return nil, err
 	}

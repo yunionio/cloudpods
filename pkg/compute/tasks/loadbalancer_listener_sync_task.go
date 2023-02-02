@@ -52,30 +52,14 @@ func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.ISt
 		return
 	}
 
-	self.SetStage("OnLoadbalancerBackendgroupSyncComplete", nil)
-	err = region.GetDriver().RequestSyncLoadbalancerBackendGroup(ctx, self.GetUserCred(), lblis, self)
-	if err != nil {
-		self.taskFail(ctx, lblis, errors.Wrapf(err, "RequestSyncLoadbalancerBackendGroup"))
-		return
-	}
-}
+	input := &api.LoadbalancerListenerUpdateInput{}
+	self.GetParams().Unmarshal(input)
 
-func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
-	region, err := lblis.GetRegion()
-	if err != nil {
-		self.taskFail(ctx, lblis, errors.Wrapf(err, "GetRegion"))
-		return
-	}
 	self.SetStage("OnLoadbalancerListenerSyncComplete", nil)
-	err = region.GetDriver().RequestSyncLoadbalancerListener(ctx, self.GetUserCred(), lblis, self)
+	err = region.GetDriver().RequestSyncLoadbalancerListener(ctx, self.GetUserCred(), lblis, input, self)
 	if err != nil {
 		self.taskFail(ctx, lblis, errors.Wrapf(err, "RequestSyncLoadbalancerListener"))
 	}
-}
-
-func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	lblis.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
-	self.taskFail(ctx, lblis, errors.Errorf(reason.String()))
 }
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {

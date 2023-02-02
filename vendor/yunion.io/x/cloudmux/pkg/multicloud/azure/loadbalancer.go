@@ -32,6 +32,7 @@ import (
 
 type SLoadbalancer struct {
 	multicloud.SResourceBase
+	AzureTags
 	region    *SRegion
 	eips      []cloudprovider.ICloudEIP
 	lbbgs     []cloudprovider.ICloudLoadbalancerBackendGroup
@@ -41,7 +42,6 @@ type SLoadbalancer struct {
 	ID         string                  `json:"id"`
 	Etag       string                  `json:"etag"`
 	Type       string                  `json:"type"`
-	Tags       map[string]string       `json:"tags"`
 	Location   string                  `json:"location"`
 	Properties SLoadbalancerProperties `json:"properties"`
 	Sku        Sku                     `json:"sku"`
@@ -114,14 +114,6 @@ func (self *SLoadbalancer) GetSysTags() map[string]string {
 	data["min_capacity"] = strconv.Itoa(self.Properties.AutoscaleConfiguration.MinCapacity)
 	data["properties"] = jsonutils.Marshal(self.Properties).String()
 	return data
-}
-
-func (self *SLoadbalancer) GetTags() (map[string]string, error) {
-	return self.Tags, nil
-}
-
-func (self *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
-	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
 }
 
 func (self *SLoadbalancer) GetProjectId() string {

@@ -112,6 +112,11 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 
 func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		provider := lblis.GetCloudprovider()
+		if provider == nil {
+			return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
+		}
+
 		lbbg, err := lblis.GetLoadbalancerBackendGroup()
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetLoadbalancerBackendGroup")
@@ -123,6 +128,26 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		iLb, err := lb.GetILoadbalancer(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetILoadbalancer")
+		}
+
+		opts, err := lblis.GetLoadbalancerListenerParams()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetLoadbalancerListenerParams")
+		}
+
+		{
+			if lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS && len(lblis.CertificateId) > 0 {
+				cert, err := lblis.GetCertificate()
+				if err != nil {
+					return nil, errors.Wrapf(err, "GetCertificate")
+				}
+
+				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert)
+				if err != nil {
+					return nil, errors.Wrap(err, "CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate")
+				}
+				opts.CertificateId = lbcert.ExternalId
+			}
 		}
 
 		if len(lbbg.ExternalId) == 0 {
@@ -140,49 +165,9 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 			if err != nil {
 				return nil, errors.Wrapf(err, "db.SetExternalId")
 			}
+			opts.BackendGroupId = iLbbg.GetGlobalId()
 		}
 
-		opts := &cloudprovider.SLoadbalancerListenerCreateOptions{
-			Name:                    lblis.Name,
-			Description:             lblis.Description,
-			ListenerType:            lblis.ListenerType,
-			ListenerPort:            lblis.ListenerPort,
-			Scheduler:               lblis.Scheduler,
-			EnableHTTP2:             lblis.EnableHttp2,
-			EgressMbps:              lblis.EgressMbps,
-			EstablishedTimeout:      lblis.BackendConnectTimeout,
-			AccessControlListStatus: lblis.AclStatus,
-			BackendGroupId:          lbbg.ExternalId,
-
-			ClientRequestTimeout:  lblis.ClientRequestTimeout,
-			ClientIdleTimeout:     lblis.ClientIdleTimeout,
-			BackendIdleTimeout:    lblis.BackendIdleTimeout,
-			BackendConnectTimeout: lblis.BackendConnectTimeout,
-
-			HealthCheckReq: lblis.HealthCheckReq,
-			HealthCheckExp: lblis.HealthCheckExp,
-
-			HealthCheck:         lblis.HealthCheck,
-			HealthCheckType:     lblis.HealthCheckType,
-			HealthCheckTimeout:  lblis.HealthCheckTimeout,
-			HealthCheckDomain:   lblis.HealthCheckDomain,
-			HealthCheckHttpCode: lblis.HealthCheckHttpCode,
-			HealthCheckURI:      lblis.HealthCheckURI,
-			HealthCheckInterval: lblis.HealthCheckInterval,
-
-			HealthCheckRise: lblis.HealthCheckRise,
-			HealthCheckFail: lblis.HealthCheckFall,
-
-			StickySession:              lblis.StickySession,
-			StickySessionType:          lblis.StickySessionType,
-			StickySessionCookie:        lblis.StickySessionCookie,
-			StickySessionCookieTimeout: lblis.StickySessionCookieTimeout,
-
-			BackendServerPort: lblis.BackendServerPort,
-			XForwardedFor:     lblis.XForwardedFor,
-			TLSCipherPolicy:   lblis.TLSCipherPolicy,
-			Gzip:              lblis.Gzip,
-		}
 		iLis, err := iLb.CreateILoadBalancerListener(ctx, opts)
 		if err != nil {
 			return nil, errors.Wrapf(err, "CreateILoadBalancerListener")
@@ -194,6 +179,12 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		err = db.SetExternalId(lblis, userCred, iLis.GetGlobalId())
 		if err != nil {
 			return nil, errors.Wrapf(err, "lblis.SetExternalId")
+		}
+		if lblis.HealthCheck == api.LB_BOOL_ON {
+			err := iLis.SetHealthCheck(ctx, &opts.ListenerHealthCheckOptions)
+			if err != nil {
+				return nil, err
+			}
 		}
 		backends, err := lbbg.GetBackends()
 		if err != nil {
@@ -273,20 +264,6 @@ func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx 
 	return input, nil
 }
 
-func (self *SHuaWeiRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup) error {
-	//删除pool之前必须删除pool上的所有member和healthmonitor，并且pool不能被l7policy关联，若要解除关联关系，可通过更新转发策略将转测策略的redirect_pool_id更新为null。
-	count, err := lbbg.RefCount()
-	if err != nil {
-		return err
-	}
-
-	if count >= 0 {
-		return fmt.Errorf("backendgroup is binding with loadbalancer/listener/listenerrule.")
-	}
-
-	return nil
-}
-
 func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, input *api.LoadbalancerBackendUpdateInput) (*api.LoadbalancerBackendUpdateInput, error) {
 	if input.Port != nil {
 		return input, fmt.Errorf("can not update backend port.")
@@ -297,56 +274,6 @@ func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx conte
 func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential,
 	lblis *models.SLoadbalancerListener, input *api.LoadbalancerListenerUpdateInput) (*api.LoadbalancerListenerUpdateInput, error) {
 	return input, nil
-}
-
-func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return self.createLoadbalancerAcl(ctx, userCred, lbacl)
-	})
-	return nil
-}
-
-func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-
-	return nil
-}
-
-func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
-func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
-func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotFound
-	})
-	return nil
-}
-
-func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
-}
-
-func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-	return nil
 }
 
 func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {

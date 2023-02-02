@@ -220,6 +220,14 @@ func (listerner *SLoadbalancerTCPListener) GetBackendServerPort() int {
 	return listerner.BackendServerPort
 }
 
+func (listerner *SLoadbalancerTCPListener) ChangeCertificate(ctx context.Context, opts *cloudprovider.ListenerCertificateOptions) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (listerner *SLoadbalancerTCPListener) SetAcl(ctx context.Context, opts *cloudprovider.ListenerAclOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (listerner *SLoadbalancerTCPListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	return []cloudprovider.ICloudLoadbalancerListenerRule{}, nil
 }
@@ -352,8 +360,18 @@ func (region *SRegion) SyncLoadbalancerTCPListener(lb *SLoadbalancer, listener *
 	return err
 }
 
+/*
 func (listerner *SLoadbalancerTCPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
 	return listerner.lb.region.SyncLoadbalancerTCPListener(listerner.lb, lblis)
+}
+*/
+
+func (self *SLoadbalancerTCPListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SLoadbalancerTCPListener) SetHealthCheck(ctx context.Context, opts *cloudprovider.ListenerHealthCheckOptions) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (listerner *SLoadbalancerTCPListener) GetClientIdleTimeout() int {

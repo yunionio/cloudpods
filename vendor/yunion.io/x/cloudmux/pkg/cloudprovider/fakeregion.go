@@ -19,10 +19,6 @@ import "yunion.io/x/pkg/errors"
 type SFakeOnPremiseRegion struct {
 }
 
-func (region *SFakeOnPremiseRegion) GetILoadBalancerBackendGroups() ([]ICloudLoadbalancerBackendGroup, error) {
-	return nil, ErrNotSupported
-}
-
 func (region *SFakeOnPremiseRegion) GetId() string {
 	return "default"
 }

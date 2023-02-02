@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/rbacscope"
@@ -448,6 +447,12 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 			return nil, err
 		}
 	}
+	if lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS && input.CertificateId != nil && len(*input.CertificateId) > 0 {
+		_, err = validators.ValidateModel(userCred, LoadbalancerCertificateManager, input.CertificateId)
+		if err != nil {
+			return nil, err
+		}
+	}
 	input.StatusStandaloneResourceBaseUpdateInput, err = lblis.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
@@ -468,51 +473,13 @@ func (lblis *SLoadbalancerListener) PostUpdate(ctx context.Context, userCred mcc
 }
 
 func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncTask(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	if utils.IsInStringArray(lblis.Status, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
-		params.Add(jsonutils.NewString(lblis.Status), "origin_status")
-	}
-
-	if data != nil {
-		if certId, err := data.GetString("certificate_id"); err == nil && len(certId) > 0 {
-			params.Add(jsonutils.NewString(certId), "certificate_id")
-		}
-
-		if aclId, err := data.GetString("acl_id"); err == nil && len(aclId) > 0 {
-			params.Add(jsonutils.NewString(aclId), "acl_id")
-		}
-	}
-
+	params := data.(*jsonutils.JSONDict)
 	lblis.SetStatus(userCred, api.LB_SYNC_CONF, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerSyncTask", lblis, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (lblis *SLoadbalancerListener) getMoreDetails(out api.LoadbalancerListenerDetails) (api.LoadbalancerListenerDetails, error) {
-	{
-		if lblis.BackendGroupId != "" {
-			lbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
-			if err != nil {
-				log.Errorf("loadbalancer listener %s(%s): fetch backend group (%s) error: %s",
-					lblis.Name, lblis.Id, lblis.BackendGroupId, err)
-				return out, err
-			}
-			out.BackendGroup = lbbg.GetName()
-		}
-	}
-
-	if len(lblis.CertificateId) > 0 {
-		//if cert, _ := lblis.GetLoadbalancerCertificate(); cert != nil {
-		//	out.CertificateName = cert.Name
-		//	out.OriginCertificateId = cert.CertificateId
-		//}
-	}
-
-	return out, nil
+	return task.ScheduleRun(nil)
 }
 
 func (manager *SLoadbalancerListenerManager) FetchCustomizeColumns(
@@ -529,7 +496,7 @@ func (manager *SLoadbalancerListenerManager) FetchCustomizeColumns(
 	lbRows := manager.SLoadbalancerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	lbaclRows := manager.SLoadbalancerAclResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	lbcertRows := manager.SLoadbalancerCertificateResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-
+	lbbgIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.LoadbalancerListenerDetails{
 			StatusStandaloneResourceDetails:     stdRows[i],
@@ -537,7 +504,18 @@ func (manager *SLoadbalancerListenerManager) FetchCustomizeColumns(
 			LoadbalancerAclResourceInfo:         lbaclRows[i],
 			LoadbalancerCertificateResourceInfo: lbcertRows[i],
 		}
-		rows[i], _ = objs[i].(*SLoadbalancerListener).getMoreDetails(rows[i])
+		lis := objs[i].(*SLoadbalancerListener)
+		lbbgIds[i] = lis.BackendGroupId
+	}
+	lbbgs := map[string]SLoadbalancerBackendGroup{}
+	err := db.FetchModelObjectsByIds(LoadbalancerBackendGroupManager, "id", lbbgIds, &lbbgs)
+	if err != nil {
+		return rows
+	}
+	for i := range rows {
+		if lbbg, ok := lbbgs[lbbgIds[i]]; ok {
+			rows[i].BackendGroup = lbbg.Name
+		}
 	}
 
 	return rows
@@ -624,24 +602,28 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 		BackendIdleTimeout:    lblis.BackendIdleTimeout,
 		BackendConnectTimeout: lblis.BackendConnectTimeout,
 
-		HealthCheckReq: lblis.HealthCheckReq,
-		HealthCheckExp: lblis.HealthCheckExp,
+		ListenerHealthCheckOptions: cloudprovider.ListenerHealthCheckOptions{
+			HealthCheckReq: lblis.HealthCheckReq,
+			HealthCheckExp: lblis.HealthCheckExp,
 
-		HealthCheck:         lblis.HealthCheck,
-		HealthCheckType:     lblis.HealthCheckType,
-		HealthCheckTimeout:  lblis.HealthCheckTimeout,
-		HealthCheckDomain:   lblis.HealthCheckDomain,
-		HealthCheckHttpCode: lblis.HealthCheckHttpCode,
-		HealthCheckURI:      lblis.HealthCheckURI,
-		HealthCheckInterval: lblis.HealthCheckInterval,
+			HealthCheck:         lblis.HealthCheck,
+			HealthCheckType:     lblis.HealthCheckType,
+			HealthCheckTimeout:  lblis.HealthCheckTimeout,
+			HealthCheckDomain:   lblis.HealthCheckDomain,
+			HealthCheckHttpCode: lblis.HealthCheckHttpCode,
+			HealthCheckURI:      lblis.HealthCheckURI,
+			HealthCheckInterval: lblis.HealthCheckInterval,
 
-		HealthCheckRise: lblis.HealthCheckRise,
-		HealthCheckFail: lblis.HealthCheckFall,
+			HealthCheckRise: lblis.HealthCheckRise,
+			HealthCheckFail: lblis.HealthCheckFall,
+		},
 
-		StickySession:              lblis.StickySession,
-		StickySessionType:          lblis.StickySessionType,
-		StickySessionCookie:        lblis.StickySessionCookie,
-		StickySessionCookieTimeout: lblis.StickySessionCookieTimeout,
+		ListenerStickySessionOptions: cloudprovider.ListenerStickySessionOptions{
+			StickySession:              lblis.StickySession,
+			StickySessionType:          lblis.StickySessionType,
+			StickySessionCookie:        lblis.StickySessionCookie,
+			StickySessionCookieTimeout: lblis.StickySessionCookieTimeout,
+		},
 
 		BackendServerPort: lblis.BackendServerPort,
 		XForwardedFor:     lblis.XForwardedFor,
@@ -728,6 +710,25 @@ func (lblis *SLoadbalancerListener) GetIRegion(ctx context.Context) (cloudprovid
 		return nil, err
 	}
 	return loadbalancer.GetIRegion(ctx)
+}
+
+func (lblis *SLoadbalancerListener) GetILoadbalancer(ctx context.Context) (cloudprovider.ICloudLoadbalancer, error) {
+	lb, err := lblis.GetLoadbalancer()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetLoadbalancer")
+	}
+	return lb.GetILoadbalancer(ctx)
+}
+
+func (lblis *SLoadbalancerListener) GetILoadbalancerListener(ctx context.Context) (cloudprovider.ICloudLoadbalancerListener, error) {
+	if len(lblis.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
+	iLb, err := lblis.GetILoadbalancer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return iLb.GetILoadBalancerListenerById(lblis.ExternalId)
 }
 
 func (man *SLoadbalancerListenerManager) getLoadbalancerListenersByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerListener, error) {

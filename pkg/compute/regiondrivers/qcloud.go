@@ -102,46 +102,31 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		opts := &cloudprovider.SLoadbalancerListenerCreateOptions{
-			Name:                    lblis.Name,
-			Description:             lblis.Description,
-			ListenerType:            lblis.ListenerType,
-			ListenerPort:            lblis.ListenerPort,
-			Scheduler:               lblis.Scheduler,
-			EnableHTTP2:             lblis.EnableHttp2,
-			EgressMbps:              lblis.EgressMbps,
-			EstablishedTimeout:      lblis.BackendConnectTimeout,
-			AccessControlListStatus: lblis.AclStatus,
-
-			ClientRequestTimeout:  lblis.ClientRequestTimeout,
-			ClientIdleTimeout:     lblis.ClientIdleTimeout,
-			BackendIdleTimeout:    lblis.BackendIdleTimeout,
-			BackendConnectTimeout: lblis.BackendConnectTimeout,
-
-			HealthCheckReq: lblis.HealthCheckReq,
-			HealthCheckExp: lblis.HealthCheckExp,
-
-			HealthCheck:         lblis.HealthCheck,
-			HealthCheckType:     lblis.HealthCheckType,
-			HealthCheckTimeout:  lblis.HealthCheckTimeout,
-			HealthCheckDomain:   lblis.HealthCheckDomain,
-			HealthCheckHttpCode: lblis.HealthCheckHttpCode,
-			HealthCheckURI:      lblis.HealthCheckURI,
-			HealthCheckInterval: lblis.HealthCheckInterval,
-
-			HealthCheckRise: lblis.HealthCheckRise,
-			HealthCheckFail: lblis.HealthCheckFall,
-
-			StickySession:              lblis.StickySession,
-			StickySessionType:          lblis.StickySessionType,
-			StickySessionCookie:        lblis.StickySessionCookie,
-			StickySessionCookieTimeout: lblis.StickySessionCookieTimeout,
-
-			BackendServerPort: lblis.BackendServerPort,
-			XForwardedFor:     lblis.XForwardedFor,
-			TLSCipherPolicy:   lblis.TLSCipherPolicy,
-			Gzip:              lblis.Gzip,
+		provider := lblis.GetCloudprovider()
+		if provider == nil {
+			return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 		}
+
+		opts, err := lblis.GetLoadbalancerListenerParams()
+		if err != nil {
+			return nil, errors.Wrapf(err, "lblis.GetLoadbalancerListenerParams")
+		}
+
+		{
+			if lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS && len(lblis.CertificateId) > 0 {
+				cert, err := lblis.GetCertificate()
+				if err != nil {
+					return nil, errors.Wrapf(err, "GetCertificate")
+				}
+
+				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert)
+				if err != nil {
+					return nil, errors.Wrap(err, "CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate")
+				}
+				opts.CertificateId = lbcert.ExternalId
+			}
+		}
+
 		lbbg, err := lblis.GetLoadbalancerBackendGroup()
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetLoadbalancerBackendGroup")
@@ -322,14 +307,6 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 	return nil
 }
 
-func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, cloudprovider.ErrNotImplemented
-	})
-
-	return nil
-}
-
 func (self *SQcloudRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context, userCred mcclient.
 	TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
 
@@ -354,73 +331,6 @@ func (self *SQcloudRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Conte
 			return nil, err
 		}
 		return data, nil
-	})
-	return nil
-}
-
-func (self *SQcloudRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		{
-			certId, _ := task.GetParams().GetString("certificate_id")
-			if len(certId) > 0 {
-				provider := lblis.GetCloudprovider()
-				if provider == nil {
-					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
-				}
-
-				cert, err := models.LoadbalancerCertificateManager.FetchById(certId)
-				if err != nil {
-					return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.FetchCert")
-				}
-
-				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert.(*models.SLoadbalancerCertificate))
-				if err != nil {
-					return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetCert")
-				}
-
-				if len(lbcert.ExternalId) == 0 {
-					_, err = self.createLoadbalancerCertificate(ctx, userCred, lbcert)
-					if err != nil {
-						return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.CreateCert")
-					}
-				}
-				return nil, nil
-			}
-		}
-
-		params, err := lblis.GetLoadbalancerListenerParams()
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetParams")
-		}
-		loadbalancer, err := lblis.GetLoadbalancer()
-		if err != nil {
-			return nil, err
-		}
-		iRegion, err := loadbalancer.GetIRegion(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetIRegion")
-		}
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetILoadbalancer")
-		}
-		iListener, err := iLoadbalancer.GetILoadBalancerListenerById(lblis.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetIListener")
-		}
-		if err := iListener.Sync(ctx, params); err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.SyncListener")
-		}
-		if err := iListener.Refresh(); err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.RefreshListener")
-		}
-
-		if utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_UDP, api.LB_LISTENER_TYPE_TCP}) {
-			return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId(), loadbalancer.GetCloudprovider())
-		} else {
-			// http&https listener 变更不会同步到监听规则
-			return nil, nil
-		}
 	})
 	return nil
 }
