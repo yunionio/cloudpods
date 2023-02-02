@@ -107,21 +107,22 @@ func rangeObjHandler(
 			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
+		query := getQuery(r)
 		for _, k := range []string{
 			"project_tags",
 			"domain_tags",
 			"object_tags",
 		} {
 			tags := tagutils.TTagSetList{}
-			getQuery(r).Unmarshal(&tags, k)
+			query.Unmarshal(&tags, k)
 			for i := range tags {
 				switch k {
 				case "project_tags":
-					result.ProjectTags.Append(tags[i])
+					result.ProjectTags = result.ProjectTags.Append(tags[i])
 				case "domain_tags":
-					result.DomainTags.Append(tags[i])
+					result.DomainTags = result.DomainTags.Append(tags[i])
 				case "object_tags":
-					result.ObjectTags.Append(tags[i])
+					result.ObjectTags = result.ObjectTags.Append(tags[i])
 				}
 			}
 		}
@@ -130,7 +131,6 @@ func rangeObjHandler(
 			isOwner = true
 		}
 		log.Debugf("ownerId: %s isOwner: %v scope: %s result: %s", ownerId, isOwner, scope, result.String())
-		query := getQuery(r)
 		hostTypes := json.GetQueryStringArray(query, "host_type")
 		// resourceTypes := json.GetQueryStringArray(query, "resource_type")
 		providers := json.GetQueryStringArray(query, "provider")
