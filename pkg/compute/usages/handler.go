@@ -38,7 +38,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
-	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type Usage map[string]interface{}
@@ -108,30 +107,15 @@ func rangeObjHandler(
 			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
-		for _, k := range []string{
-			"project_tags",
-			"domain_tags",
-			"object_tags",
-		} {
-			tags := tagutils.TTagSetList{}
-			getQuery(r).Unmarshal(&tags, k)
-			for i := range tags {
-				switch k {
-				case "project_tags":
-					result.ProjectTags.Append(tags[i])
-				case "domain_tags":
-					result.DomainTags.Append(tags[i])
-				case "object_tags":
-					result.ObjectTags.Append(tags[i])
-				}
-			}
-		}
+		query := getQuery(r)
+		tags := rbacutils.SPolicyResult{Result: rbacutils.Allow}
+		query.Unmarshal(&tags)
+		result = result.Merge(tags)
 		isOwner := false
 		if scope == rbacscope.ScopeDomain && obj != nil && db.IsObjectRbacAllowed(ctx, obj, userCred, policy.PolicyActionGet, "usage") == nil {
 			isOwner = true
 		}
 		log.Debugf("ownerId: %s isOwner: %v scope: %s result: %s", ownerId, isOwner, scope, result.String())
-		query := getQuery(r)
 		hostTypes := json.GetQueryStringArray(query, "host_type")
 		// resourceTypes := json.GetQueryStringArray(query, "resource_type")
 		providers := json.GetQueryStringArray(query, "provider")
