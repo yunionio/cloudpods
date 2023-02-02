@@ -662,7 +662,10 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 
 	for _, nic := range nics {
 		if nic.Driver == api.NETWORK_DRIVER_VFIO {
-			continue
+			dev, _ := s.GetSriovDeviceByNetworkIndex(nic.Index)
+			if dev != nil && dev.GetOvsOffloadInterfaceName() == "" {
+				continue
+			}
 		}
 		downscript := s.getNicDownScriptPath(nic)
 		cmd += fmt.Sprintf("%s %s\n", downscript, nic.Ifname)

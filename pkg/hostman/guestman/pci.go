@@ -281,6 +281,12 @@ func (s *SKVMGuestInstance) initGuestNetworks(pciRoot, pciBridge *desc.PCIContro
 	}
 
 	for i := 0; i < len(s.Desc.Nics); i++ {
+		if err := s.generateNicScripts(s.Desc.Nics[i]); err != nil {
+			return errors.Wrapf(err, "generateNicScripts for nic: %v", s.Desc.Nics[i])
+		}
+		s.Desc.Nics[i].UpscriptPath = s.getNicUpScriptPath(s.Desc.Nics[i])
+		s.Desc.Nics[i].DownscriptPath = s.getNicDownScriptPath(s.Desc.Nics[i])
+
 		if s.Desc.Nics[i].Driver != "vfio-pci" {
 			switch s.GetOsName() {
 			case OS_NAME_MACOS:
@@ -294,12 +300,6 @@ func (s *SKVMGuestInstance) initGuestNetworks(pciRoot, pciBridge *desc.PCIContro
 				vectors := s.Desc.Nics[i].NumQueues * 2
 				s.Desc.Nics[i].Vectors = &vectors
 			}
-
-			if err := s.generateNicScripts(s.Desc.Nics[i]); err != nil {
-				return errors.Wrapf(err, "generateNicScripts for nic: %v", s.Desc.Nics[i])
-			}
-			s.Desc.Nics[i].UpscriptPath = s.getNicUpScriptPath(s.Desc.Nics[i])
-			s.Desc.Nics[i].DownscriptPath = s.getNicDownScriptPath(s.Desc.Nics[i])
 
 			id := fmt.Sprintf("netdev-%s", s.Desc.Nics[i].Ifname)
 			switch s.Desc.Nics[i].Driver {

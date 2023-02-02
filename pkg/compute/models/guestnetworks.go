@@ -579,12 +579,22 @@ func (self *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	desc.TeamWith = self.TeamWith
 
 	guest := self.getGuest()
-	if guest.GetHypervisor() != api.HYPERVISOR_KVM || self.Driver == api.NETWORK_DRIVER_VFIO {
+	if guest.GetHypervisor() != api.HYPERVISOR_KVM || self.IsSriovWithoutOffload() {
 		manual := true
 		desc.Manual = &manual
 	}
 
 	return desc
+}
+
+func (self *SGuestnetwork) IsSriovWithoutOffload() bool {
+	if self.Driver != api.NETWORK_DRIVER_VFIO {
+		return false
+	}
+	if dev, _ := self.GetIsolatedDevice(); dev != nil && dev.OvsOffloadInterface != "" {
+		return false
+	}
+	return true
 }
 
 func (manager *SGuestnetworkManager) GetGuestByAddress(address string) *SGuest {
@@ -867,7 +877,28 @@ func (self *SGuestnetwork) GetVirtualIPs() []string {
 }
 
 func (self *SGuestnetwork) GetIfname() string {
+	if self.Driver == api.NETWORK_DRIVER_VFIO {
+		if dev, _ := self.GetIsolatedDevice(); dev != nil && dev.OvsOffloadInterface != "" {
+			return dev.OvsOffloadInterface
+		}
+	}
 	return self.Ifname
+}
+
+func (self *SGuestnetwork) GetIsolatedDevice() (*SIsolatedDevice, error) {
+	dev := SIsolatedDevice{}
+	q := IsolatedDeviceManager.Query().Equals("guest_id", self.GuestId).Equals("network_index", self.Index)
+	if cnt, err := q.CountWithError(); err != nil {
+		return nil, err
+	} else if cnt == 0 {
+		return nil, nil
+	}
+	err := q.First(&dev)
+	if err != nil {
+		return nil, err
+	}
+	dev.SetModelManager(IsolatedDeviceManager, &dev)
+	return &dev, nil
 }
 
 func (manager *SGuestnetworkManager) getRecentlyReleasedIPAddresses(networkId string, recentDuration time.Duration) map[string]bool {
