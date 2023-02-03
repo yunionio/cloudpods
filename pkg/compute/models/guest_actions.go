@@ -1439,7 +1439,55 @@ func (self *SGuest) GuestNonSchedStartTask(
 }
 
 func (self *SGuest) StartGuestCreateTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput, pendingUsage quotas.IQuota, parentTaskId string) error {
+	if input.FakeCreate {
+		self.fixFakeServerInfo(ctx, userCred)
+		return nil
+	}
 	return self.GetDriver().StartGuestCreateTask(self, ctx, userCred, input.JSON(input), pendingUsage, parentTaskId)
+}
+
+func (self *SGuest) fixFakeServerInfo(ctx context.Context, userCred mcclient.TokenCredential) {
+	status := []string{api.VM_READY, api.VM_RUNNING}
+	rand.Seed(time.Now().Unix())
+	db.Update(self, func() error {
+		self.Status = status[rand.Intn(len(status))]
+		self.PowerStates = api.VM_POWER_STATES_ON
+		if self.Status == api.VM_READY {
+			self.PowerStates = api.VM_POWER_STATES_OFF
+		}
+		return nil
+	})
+	disks, _ := self.GetDisks()
+	for i := range disks {
+		db.Update(&disks[i], func() error {
+			disks[i].Status = api.DISK_READY
+			return nil
+		})
+	}
+	networks, _ := self.GetNetworks("")
+	for i := range networks {
+		if len(networks[i].IpAddr) > 0 {
+			continue
+		}
+		network := networks[i].GetNetwork()
+		if network != nil {
+			db.Update(&networks[i], func() error {
+				networks[i].IpAddr, _ = network.GetFreeIP(ctx, userCred, nil, nil, "", api.IPAllocationRadnom, false)
+				return nil
+			})
+		}
+	}
+	if eip, _ := self.GetEipOrPublicIp(); eip != nil && len(eip.IpAddr) == 0 {
+		db.Update(eip, func() error {
+			if len(eip.NetworkId) > 0 {
+				if network, _ := eip.GetNetwork(); network != nil {
+					eip.IpAddr, _ = network.GetFreeIP(ctx, userCred, nil, nil, "", api.IPAllocationRadnom, false)
+					return nil
+				}
+			}
+			return nil
+		})
+	}
 }
 
 func (self *SGuest) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
