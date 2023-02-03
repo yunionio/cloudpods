@@ -428,6 +428,7 @@ type ServerCreateOptionalOptions struct {
 	Group            []string `help:"Group ID or Name of virtual server"`
 	System           bool     `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
 	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
+	FakeCreate       *bool    `help:"Fake create server"`
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
 	InstanceSnapshot string   `help:"instance snapshot" json:"instance_snapshot"`
@@ -539,6 +540,10 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		GuestImageID:       opts.GuestImageID,
 		Secgroups:          opts.Secgroups,
 		EnableMemclean:     opts.EnableMemclean,
+	}
+
+	if opts.FakeCreate != nil {
+		params.FakeCreate = *opts.FakeCreate
 	}
 
 	if len(opts.EncryptKey) > 0 {
