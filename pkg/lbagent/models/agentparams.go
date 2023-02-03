@@ -20,32 +20,21 @@ import (
 	"reflect"
 	"text/template"
 
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	compute_models "yunion.io/x/onecloud/pkg/compute/models"
 )
 
 func dataFromParams(p interface{}) map[string]interface{} {
-	rv := reflect.ValueOf(p)
-	if rv.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("unexpected kind: %#v", p))
+	data := jsonutils.Marshal(p)
+	ret := make(map[string]interface{})
+	err := data.Unmarshal(&ret)
+	if err != nil {
+		log.Errorf("unmarshal map[string]interface{} error %s", err)
+		return nil
 	}
-	rt := rv.Type()
-
-	r := map[string]interface{}{}
-	for i := 0; i < rv.NumField(); i++ {
-		f := rt.Field(i)
-		fn := utils.CamelSplit(f.Name, "_")
-		if fn == "" {
-			continue
-		}
-		v := rv.Field(i)
-		if !v.IsValid() {
-			continue
-		}
-		r[fn] = v.Interface()
-	}
-	return r
+	return ret
 }
 
 type AgentParams struct {
@@ -79,6 +68,8 @@ func NewAgentParams(agent *compute_models.SLoadbalancerAgent) (*AgentParams, err
 		"name": agent.Name,
 		"ip":   agent.IP,
 	}
+	agent.Params.Vrrp.Interface = agent.Interface
+	agent.Params.Vrrp.Priority = agent.Priority
 	data := map[string]map[string]interface{}{
 		"agent":    dataAgent,
 		"vrrp":     dataFromParams(agent.Params.Vrrp),

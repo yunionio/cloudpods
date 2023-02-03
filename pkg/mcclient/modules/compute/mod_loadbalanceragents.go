@@ -35,6 +35,8 @@ func init() {
 			[]string{
 				"id",
 				"name",
+				"cluster",
+				"cluster_id",
 
 				"hb_last_seen",
 				"hb_timeout",

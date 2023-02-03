@@ -28,9 +28,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	compute_apis "yunion.io/x/onecloud/pkg/apis/compute"
-	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -38,7 +36,6 @@ import (
 	ansible_modules "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/ansible"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SLoadbalancerAgentDeployment struct {
@@ -295,7 +292,7 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(
 	query jsonutils.JSONObject,
 	input *compute_apis.LoadbalancerAgentDeployInput,
 ) (*compute_apis.LoadbalancerAgentDeployInput, error) {
-	host := input.Host
+	/*host := input.Host
 	for _, k := range []string{"user", "pass", "proj"} {
 		if v, ok := host.GetVar(k); !ok {
 			return nil, httperrors.NewBadRequestError("host missing %s field", k)
@@ -356,7 +353,8 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(
 	}); err != nil {
 		return nil, err
 	}
-	return nil, err
+	return nil, err*/
+	return nil, errors.Wrap(httperrors.ErrNotSupported, "deprecated")
 }
 
 func (lbagent *SLoadbalancerAgent) updateOrCreatePbModel(ctx context.Context,
@@ -373,7 +371,7 @@ func (lbagent *SLoadbalancerAgent) updateOrCreatePbModel(ctx context.Context,
 }
 
 func (lbagent *SLoadbalancerAgent) PerformUndeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	deployment := lbagent.Deployment
+	/*deployment := lbagent.Deployment
 	if deployment == nil || deployment.Host == "" {
 		return nil, httperrors.NewConflictError("No previous deployment info available")
 	}
@@ -401,7 +399,8 @@ func (lbagent *SLoadbalancerAgent) PerformUndeploy(ctx context.Context, userCred
 	}); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return nil, nil*/
+	return nil, errors.Wrap(httperrors.ErrNotSupported, "deprecated")
 }
 
 const (

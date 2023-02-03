@@ -33,7 +33,7 @@ import (
 
 type SLoadbalancerClusterResourceBase struct {
 	// 归属LB集群
-	ClusterId string `width:"36" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional" json:"cluster_id"`
+	ClusterId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional" json:"cluster_id"`
 }
 
 type SLoadbalancerClusterResourceBaseManager struct {

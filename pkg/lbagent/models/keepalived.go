@@ -20,6 +20,9 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 )
@@ -57,6 +60,8 @@ func (b *LoadbalancerCorpus) GenKeepalivedConfigs(dir string, opts *GenKeepalive
 		if err != nil {
 			return err
 		}
+		log.Debugf("data: %s", jsonutils.Marshal(agentParams.Data))
+		log.Debugf("output: %s", buf.String())
 	}
 	{
 		// write keepalived.conf
