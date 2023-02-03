@@ -384,6 +384,10 @@ type ServerCreateInput struct {
 	// required: false
 	UserData string `json:"user_data"`
 
+	// swagger: ignore
+	// 创建测试数据，不实际创建资源
+	FakeCreate bool `json:"fake_create"`
+
 	// swagger:ignore
 	// Deprecated
 	Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`
