@@ -369,10 +369,26 @@ func (s *SGuestMonitorCollector) reportNetIo(cur, prev *NetIOMetric) {
 	diffTime := float64(timeCur - timeOld)
 
 	if diffTime > 0 {
-		cur.BPSSent = float64((cur.BytesSent-prev.BytesSent)*8) / diffTime
-		cur.BPSRecv = float64((cur.BytesRecv-prev.BytesRecv)*8) / diffTime
-		cur.PPSSent = float64(cur.PacketsSent-prev.PacketsSent) / diffTime
-		cur.PPSRecv = float64(cur.PacketsRecv-prev.PacketsRecv) / diffTime
+		if cur.BytesSent < prev.BytesSent {
+			cur.BPSSent = float64(cur.BytesSent*8) / diffTime
+		} else {
+			cur.BPSSent = float64((cur.BytesSent-prev.BytesSent)*8) / diffTime
+		}
+		if cur.BytesRecv < prev.BytesRecv {
+			cur.BPSRecv = float64(cur.BytesRecv*8) / diffTime
+		} else {
+			cur.BPSRecv = float64((cur.BytesRecv-prev.BytesRecv)*8) / diffTime
+		}
+		if cur.PacketsSent < prev.PacketsSent {
+			cur.PPSSent = float64(cur.PacketsSent) / diffTime
+		} else {
+			cur.PPSSent = float64(cur.PacketsSent-prev.PacketsSent) / diffTime
+		}
+		if cur.PacketsRecv < prev.PacketsRecv {
+			cur.PPSRecv = float64(cur.PacketsRecv) / diffTime
+		} else {
+			cur.PPSRecv = float64(cur.PacketsRecv-prev.PacketsRecv) / diffTime
+		}
 	}
 }
 
