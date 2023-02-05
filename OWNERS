@@ -1,9 +1,6 @@
 # See the OWNERS docs at https://go.k8s.io/owners
-reviewers:
-  - Zexi
-  - ioito
-  - swordqiu
-  - tb365
 approvers:
   - swordqiu
   - Zexi
+  - ioito
+  - wanyaoqi
