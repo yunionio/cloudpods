@@ -61,6 +61,10 @@ type SDisk struct {
 	VolumeName       string          `json:"volumeName"`
 }
 
+func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 type AttachmentSet struct {
 	AttachTime          string `json:"attachTime"`
 	Cache               string `json:"cache"`
@@ -142,14 +146,14 @@ func (self *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{}
+	params["VolumeId"] = self.VolumeId
+
+	_, err := self.storage.cluster.region.invoke("DeleteVolume", params)
+	return err
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
@@ -188,11 +192,12 @@ func (self *SRegion) GetDisks(id string, maxResult int, nextToken string) ([]SDi
 	}
 
 	if len(nextToken) > 0 {
-		params["nextToken"] = nextToken
+		params["NextToken"] = nextToken
 	}
 	if maxResult > 0 {
-		params["maxRecords"] = fmt.Sprintf("%d", maxResult)
+		params["MaxRecords"] = fmt.Sprintf("%d", maxResult)
 	}
+
 	resp, err := self.invoke("DescribeVolumes", params)
 	if err != nil {
 		return nil, "", err
@@ -201,7 +206,8 @@ func (self *SRegion) GetDisks(id string, maxResult int, nextToken string) ([]SDi
 		NextToken string
 		VolumeSet []SDisk
 	}{}
-	resp.Unmarshal(&ret)
+	_ = resp.Unmarshal(&ret)
+
 	return ret.VolumeSet, ret.NextToken, nil
 }
 
@@ -210,7 +216,7 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	if err != nil {
 		return nil, err
 	}
-	disks := []SDisk{}
+	var disks []SDisk
 	disks = append(disks, part...)
 	for len(nextToken) > 0 {
 		part, nextToken, err = self.cluster.region.GetDisks("", MAX_RESULT, nextToken)
@@ -219,7 +225,7 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		}
 		disks = append(disks, part...)
 	}
-	ret := []cloudprovider.ICloudDisk{}
+	var ret []cloudprovider.ICloudDisk
 	for i := range disks {
 		if disks[i].StorageId == self.StorageId {
 			disks[i].storage = self

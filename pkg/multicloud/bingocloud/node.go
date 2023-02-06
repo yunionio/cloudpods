@@ -53,16 +53,16 @@ type SNode struct {
 func (self *SRegion) GetNodes(clusterId, nodeId string) ([]SNode, error) {
 	params := map[string]string{}
 	if len(clusterId) > 0 {
-		params["clusterId"] = clusterId
+		params["ClusterId"] = clusterId
 	}
 	if len(clusterId) > 0 {
-		params["nodeId"] = nodeId
+		params["NodeId"] = nodeId
 	}
 	resp, err := self.invoke("DescribeNodes", params)
 	if err != nil {
 		return nil, err
 	}
-	ret := []SNode{}
+	var ret []SNode
 	return ret, resp.Unmarshal(&ret, "nodeSet")
 }
 
@@ -151,10 +151,6 @@ func (self *SNode) GetNodeType() string {
 	return api.HOST_TYPE_BINGO_CLOUD
 }
 
-func (self *SNode) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SNode) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return self.cluster.GetIStorages()
 }
@@ -179,7 +175,7 @@ func (self *SNode) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 }
 
 func (self *SNode) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	vms := []SInstance{}
+	var vms []SInstance
 	part, nextToken, err := self.cluster.region.GetInstances("", self.NodeId, MAX_RESULT, "")
 	vms = append(vms, part...)
 	for len(nextToken) > 0 {
@@ -189,7 +185,7 @@ func (self *SNode) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 		}
 		vms = append(vms, part...)
 	}
-	ret := []cloudprovider.ICloudVM{}
+	var ret []cloudprovider.ICloudVM
 	for i := range vms {
 		vms[i].node = self
 		ret = append(ret, &vms[i])
@@ -212,7 +208,19 @@ func (self *SNode) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SNode) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vpcs, err := self.cluster.region.GetIVpcs()
+	if err != nil {
+		return nil, err
+	}
+	var ret []cloudprovider.ICloudWire
+	for _, vpc := range vpcs {
+		wires, err := vpc.GetIWires()
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, wires...)
+	}
+	return ret, nil
 }
 
 func (self *SNode) GetSchedtags() ([]string, error) {
@@ -261,10 +269,14 @@ func (self *SCluster) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []cloudprovider.ICloudHost{}
+	var ret []cloudprovider.ICloudHost
 	for i := range nodes {
 		nodes[i].cluster = self
 		ret = append(ret, &nodes[i])
 	}
 	return ret, nil
+}
+
+func (self *SNode) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

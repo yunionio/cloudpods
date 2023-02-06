@@ -21,7 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
@@ -236,14 +236,14 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 	query += "&" + encode("SignatureVersion", "2")
 	query += "&" + encode("SignatureMethod", "HmacSHA256")
 	query += "&" + encode("Signature", self.sign(query))
-	client := self.getDefaultClient(0)
+	client := self.getDefaultClient(time.Minute * 5)
 	resp, err := httputils.Request(client, context.Background(), httputils.POST, self.endpoint, nil, strings.NewReader(query), self.debug)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 	}
 
 	be := &sBingoError{}
-	obj.Unmarshal(be)
+	_ = obj.Unmarshal(be)
 	if len(be.Response.Errors.Error.Code) > 0 {
 		return nil, be
 	}
@@ -293,7 +293,7 @@ func (self *SBingoCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, er
 }
 
 func (self *SBingoCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
-	ret := []cloudprovider.ICloudRegion{}
+	var ret []cloudprovider.ICloudRegion
 	for i := range self.regions {
 		self.regions[i].client = self
 		ret = append(ret, &self.regions[i])

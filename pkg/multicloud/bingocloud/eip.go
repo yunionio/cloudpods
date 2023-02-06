@@ -90,11 +90,20 @@ func (self *SEip) Delete() error {
 }
 
 func (self *SEip) Associate(conf *cloudprovider.AssociateConfig) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{}
+	params["PublicIp"] = self.PublicIp
+	params["InstanceId"] = conf.InstanceId
+
+	_, err := self.region.invoke("AssociateAddress", params)
+	return err
 }
 
 func (self *SEip) Dissociate() error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{}
+	params["PublicIp"] = self.PublicIp
+
+	_, err := self.region.invoke("DisassociateAddress", params)
+	return err
 }
 
 func (self *SEip) ChangeBandwidth(bw int) error {
@@ -112,10 +121,10 @@ func (self *SEip) GetStatus() string {
 func (self *SRegion) GetEips(ip, instanceId, nextToken string) ([]SEip, string, error) {
 	params := map[string]string{}
 	if len(ip) > 0 {
-		params["publicIp"] = ip
+		params["PublicIp"] = ip
 	}
 	if len(nextToken) > 0 {
-		params["nextToken"] = nextToken
+		params["NextToken"] = nextToken
 	}
 
 	idx := 1
@@ -133,7 +142,8 @@ func (self *SRegion) GetEips(ip, instanceId, nextToken string) ([]SEip, string, 
 		AddressesSet []SEip
 		NextToken    string
 	}{}
-	resp.Unmarshal(&ret)
+	_ = resp.Unmarshal(&ret)
+
 	return ret.AddressesSet, ret.NextToken, nil
 }
 
@@ -142,7 +152,7 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	if err != nil {
 		return nil, err
 	}
-	eips := []SEip{}
+	var eips []SEip
 	eips = append(eips, part...)
 	for len(nextToken) > 0 {
 		part, nextToken, err = self.GetEips("", "", nextToken)
@@ -151,7 +161,7 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 		}
 		eips = append(eips, part...)
 	}
-	ret := []cloudprovider.ICloudEIP{}
+	var ret []cloudprovider.ICloudEIP
 	for i := range eips {
 		eips[i].region = self
 		ret = append(ret, &eips[i])
