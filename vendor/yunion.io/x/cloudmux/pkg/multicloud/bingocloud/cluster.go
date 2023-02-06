@@ -74,7 +74,7 @@ func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetClusters")
 	}
-	ret := []cloudprovider.ICloudZone{}
+	var ret []cloudprovider.ICloudZone
 	for i := range clusters {
 		clusters[i].region = self
 		ret = append(ret, &clusters[i])
@@ -100,6 +100,6 @@ func (self *SRegion) GetClusters() ([]SCluster, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []SCluster{}
+	var ret []SCluster
 	return ret, resp.Unmarshal(&ret, "clusterSet")
 }

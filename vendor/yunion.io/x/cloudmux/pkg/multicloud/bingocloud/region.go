@@ -92,16 +92,26 @@ func (self *SBingoCloudClient) GetRegions() ([]SRegion, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []SRegion{}
-	err = resp.Unmarshal(&ret, "regionInfo")
+	var ret []SRegion
+	return ret, resp.Unmarshal(&ret, "regionInfo")
+}
+
+func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	storages, err := self.getStorages()
 	if err != nil {
 		return nil, err
 	}
-	return ret, nil
+	for i := range storages {
+		if storages[i].GetGlobalId() == id {
+			storages[i].cluster = &SCluster{region: self}
+			return &storages[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
-	storages := []SStorage{}
+	var storages []SStorage
 	part, nextToken, err := self.GetStorages("")
 	if err != nil {
 		return nil, err
@@ -114,7 +124,7 @@ func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, er
 		}
 		storages = append(storages, part...)
 	}
-	ret := []cloudprovider.ICloudStoragecache{}
+	var ret []cloudprovider.ICloudStoragecache
 	for i := range storages {
 		cache := SStoragecache{
 			region:      self,
@@ -144,7 +154,7 @@ func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []cloudprovider.ICloudHost{}
+	var ret []cloudprovider.ICloudHost
 	for i := range zones {
 		hosts, err := zones[i].GetIHosts()
 		if err != nil {
@@ -172,4 +182,31 @@ func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}
+
+func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+	snapshots, err := self.getSnapshots("", "")
+	if err != nil {
+		return nil, err
+	}
+	iSnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
+	for i := 0; i < len(snapshots); i++ {
+		snapshots[i].region = self
+		iSnapshots[i] = snapshots[i]
+	}
+	return iSnapshots, nil
+}
+
+func (self *SRegion) GetISnapshotById(id string) (cloudprovider.ICloudSnapshot, error) {
+	snapshots, err := self.getSnapshots(id, "")
+	if err != nil {
+		return nil, err
+	}
+	for i := range snapshots {
+		if snapshots[i].GetGlobalId() == id {
+			snapshots[i].region = self
+			return &snapshots[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }

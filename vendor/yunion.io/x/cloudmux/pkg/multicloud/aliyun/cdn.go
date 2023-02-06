@@ -65,7 +65,7 @@ type SCdnSources struct {
 }
 
 type SCdnDomain struct {
-	multicloud.SResourceBase
+	multicloud.SCDNDomainBase
 
 	client *SAliyunClient
 

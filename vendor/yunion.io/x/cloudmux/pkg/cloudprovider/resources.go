@@ -1585,6 +1585,21 @@ type ICloudCDNDomain interface {
 	GetCname() string
 	GetOrigins() *SCdnOrigins
 
+	// 是否忽略参数
+	GetCacheKeys() (*SCDNCacheKeys, error)
+	// 是否分片回源
+	GetRangeOriginPull() (*SCDNRangeOriginPull, error)
+	// 缓存配置
+	GetCache() (*SCDNCache, error)
+	// https配置
+	GetHTTPS() (*SCDNHttps, error)
+	// 强制跳转
+	GetForceRedirect() (*SCDNForceRedirect, error)
+	// 防盗链配置
+	GetReferer() (*SCDNReferer, error)
+	// 浏览器缓存配置
+	GetMaxAge() (*SCDNMaxAge, error)
+
 	Delete() error
 }
 
