@@ -37,4 +37,6 @@ const (
 	ErrNotImplemented  = errors.ErrNotImplemented
 	ErrNotSupported    = errors.ErrNotSupported
 	ErrAccountReadOnly = errors.ErrAccountReadOnly
+
+	ErrUnknown = errors.Error("UnknownError")
 )

@@ -75,7 +75,7 @@ func (self *SInstanceNic) GetINetworkId() string {
 }
 
 func (self *SInstanceNic) GetSubAddress() ([]string, error) {
-	ret := []string{}
+	var ret []string
 	for _, ip := range self.PrivateIPAddressesSet {
 		if ip.PrivateIPAddress != self.PrivateIPAddress {
 			ret = append(ret, ip.PrivateIPAddress)
@@ -99,15 +99,18 @@ func (self *SInstanceNic) UnassignAddress(ipAddrs []string) error {
 func (self *SRegion) GetInstanceNics(insId string) ([]SInstanceNic, error) {
 	params := map[string]string{}
 	if len(insId) > 0 {
-		params["instanceId"] = insId
+		params["InstanceId"] = insId
 	}
+
 	resp, err := self.invoke("DescribeNetworkInterfaces", params)
 	if err != nil {
 		return nil, err
 	}
+
 	ret := struct {
 		NetworkInterfaceSet []SInstanceNic
 	}{}
-	resp.Unmarshal(&ret)
+	_ = resp.Unmarshal(&ret)
+
 	return ret.NetworkInterfaceSet, nil
 }

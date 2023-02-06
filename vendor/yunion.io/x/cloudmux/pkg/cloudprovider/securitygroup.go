@@ -132,6 +132,11 @@ type SecurityGroupCreateInput struct {
 	Rules     []secrules.SecurityRule
 }
 
+type SecurityGroupCreateOutput struct {
+	Return  bool
+	GroupId string
+}
+
 type SecurityRule struct {
 	minPriority int
 	maxPriority int
