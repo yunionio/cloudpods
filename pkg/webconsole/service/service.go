@@ -62,7 +62,7 @@ func StartService() {
 		log.Fatalf("invalid --api-server %s", opts.ApiServer)
 	}
 
-	for _, binPath := range []string{opts.IpmitoolPath, opts.SshToolPath, opts.SshpassToolPath} {
+	for _, binPath := range []string{opts.IpmitoolPath} {
 		ensureBinExists(binPath)
 	}
 

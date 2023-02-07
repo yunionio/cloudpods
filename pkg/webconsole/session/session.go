@@ -100,6 +100,7 @@ func (man *SSessionManager) Get(accessToken string) (*SSession, bool) {
 
 type ISessionData interface {
 	command.ICommand
+	IsNeedLogin() (bool, error)
 	GetId() string
 }
 
@@ -117,6 +118,10 @@ func WrapCommandSession(cmd command.ICommand) *RandomSessionData {
 
 func (s *RandomSessionData) GetId() string {
 	return s.id
+}
+
+func (s *RandomSessionData) IsNeedLogin() (bool, error) {
+	return false, nil
 }
 
 type SSession struct {
@@ -149,6 +154,11 @@ func (s SSession) GetConnectParams(params url.Values) (string, error) {
 	params.Set("api_server", trimUrl)
 	params.Set("access_token", s.AccessToken)
 	params.Set("protocol", s.GetProtocol())
+	isNeedLogin, err := s.IsNeedLogin()
+	if err != nil {
+		params.Set("login_error_message", fmt.Sprintf("%v", err))
+	}
+	params.Set("is_need_login", fmt.Sprintf("%v", isNeedLogin))
 	return params.Encode(), nil
 }
 

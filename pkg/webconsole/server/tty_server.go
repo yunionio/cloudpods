@@ -74,12 +74,6 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 				data, err := p.Read()
 				if err != nil {
 					log.Errorf("[%s] read data error: %v", so.Id(), err)
-					/*err = p.Stop()
-					if err != nil {
-						log.Warningf("[%s] stop tty error: %v", so.Id(), err)
-					}
-					p.Session.Reconnect()
-					*/
 					cleanUp(so, p)
 				} else {
 					// log.Errorf("--p.Pty.output data: %q", data)
@@ -87,12 +81,6 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 					go p.Session.GetRecorder().Write("", string(data))
 				}
 				continue
-			}
-			if p.Session.IsNeedShowInfo() {
-				info := p.Session.ShowInfo()
-				if len(info) > 0 {
-					so.Emit(OUTPUT_EVENT, info)
-				}
 			}
 		}
 	}()
