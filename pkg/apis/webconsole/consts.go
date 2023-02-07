@@ -26,6 +26,7 @@ const (
 	OPENSTACK = "openstack"
 	SPICE     = "spice"
 	WMKS      = "wmks"
+	WS        = "websocket"
 	VMRC      = "vmrc"
 	ZSTACK    = "zstack"
 	CTYUN     = "ctyun"

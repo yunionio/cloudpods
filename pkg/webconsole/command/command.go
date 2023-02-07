@@ -32,9 +32,6 @@ type ICommand interface {
 	GetProtocol() string
 	GetCommand() *exec.Cmd
 	Cleanup() error
-	Reconnect()
-	IsNeedShowInfo() bool
-	ShowInfo() string
 	Scan(d byte, send func(msg string))
 	GetClientSession() *mcclient.ClientSession
 	GetRecordObject() *recorder.Object
@@ -70,17 +67,6 @@ func (c BaseCommand) GetCommand() *exec.Cmd {
 }
 
 func (c BaseCommand) Scan(byte, func(msg string)) {
-}
-
-func (c BaseCommand) IsNeedShowInfo() bool {
-	return false
-}
-
-func (c BaseCommand) ShowInfo() string {
-	return ""
-}
-
-func (c BaseCommand) Reconnect() {
 }
 
 func (c BaseCommand) Cleanup() error {
