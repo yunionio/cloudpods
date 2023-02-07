@@ -79,7 +79,7 @@ func (self *DiskBackupRecoveryTask) OnInit(ctx context.Context, obj db.IStandalo
 		return
 	}
 	disk := diskObj.(*models.SDisk)
-	err = backup.InheritTo(ctx, disk)
+	err = backup.InheritTo(ctx, self.UserCred, disk)
 	if err != nil {
 		self.taskFaild(ctx, backup, jsonutils.NewString(err.Error()))
 		return

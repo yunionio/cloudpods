@@ -14,6 +14,8 @@
 
 package compute
 
+type TNicType string
+
 const (
 	HOST_TYPE_ESXI = "esxi" // # VMWare vSphere ESXi
 
@@ -45,9 +47,9 @@ const (
 	HOST_ONLINE  = "online"
 	HOST_OFFLINE = "offline"
 
-	NIC_TYPE_IPMI  = "ipmi"
-	NIC_TYPE_ADMIN = "admin"
-	// #NIC_TYPE_NORMAL = 'normal'
+	NIC_TYPE_IPMI   = TNicType("ipmi")
+	NIC_TYPE_ADMIN  = TNicType("admin")
+	NIC_TYPE_NORMAL = TNicType("")
 
 	BAREMETAL_READY   = "ready"
 	BAREMETAL_RUNNING = "running"

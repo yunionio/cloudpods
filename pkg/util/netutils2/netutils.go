@@ -192,9 +192,15 @@ type SNetInterface struct {
 	name string
 	Addr string
 	Mask net.IPMask
-	Mac  string
+	mac  string
 
 	Mtu int
+
+	VlanId     int
+	VlanParent *SNetInterface
+
+	BondingMode   int
+	BondingSlaves []*SNetInterface
 }
 
 var (
@@ -243,7 +249,7 @@ func (n *SNetInterface) FetchConfig() {
 func (n *SNetInterface) fetchConfig(expectIp string) {
 	n.Addr = ""
 	n.Mask = nil
-	n.Mac = ""
+	n.mac = ""
 	// n.Mtu = 0
 	inter := n.FetchInter()
 	if inter == nil {
@@ -252,7 +258,7 @@ func (n *SNetInterface) fetchConfig(expectIp string) {
 
 	n.Mtu = inter.MTU
 
-	n.Mac = inter.HardwareAddr.String()
+	n.mac = inter.HardwareAddr.String()
 	addrs, err := inter.Addrs()
 	if err == nil {
 		for _, addr := range addrs {
@@ -270,6 +276,43 @@ func (n *SNetInterface) fetchConfig(expectIp string) {
 		}
 	}
 
+	// check vlanId
+	vlanConf := getVlanConfig(n.name)
+	if vlanConf != nil {
+		n.VlanId = vlanConf.VlanId
+		n.VlanParent = NewNetInterface(vlanConf.Parent)
+	} else {
+		n.VlanId = 1
+		n.VlanParent = nil
+	}
+
+	// check bonding
+	bondingConf := getBondingConfig(n.name)
+	if bondingConf != nil {
+		n.BondingMode = bondingConf.Mode
+		for _, slave := range bondingConf.Slaves {
+			n.BondingSlaves = append(n.BondingSlaves, NewNetInterface(slave))
+		}
+	}
+}
+
+func (n *SNetInterface) GetMac() string {
+	return n.mac
+}
+
+func (n *SNetInterface) GetAllMacs() []string {
+	macs := make([]string, 0, len(n.BondingSlaves)+1)
+	find := false
+	for _, inf := range n.BondingSlaves {
+		macs = append(macs, inf.GetMac())
+		if n.mac == inf.GetMac() {
+			find = true
+		}
+	}
+	if !find {
+		macs = append(macs, n.mac)
+	}
+	return macs
 }
 
 // https://kris.io/2015/10/01/kvm-network-performance-tso-and-gso-turn-it-off/

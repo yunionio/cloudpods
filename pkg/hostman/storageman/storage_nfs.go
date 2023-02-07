@@ -68,6 +68,10 @@ func (s *SNFSStorage) StorageType() string {
 	return api.STORAGE_NFS
 }
 
+func (s *SNFSStorage) IsLocal() bool {
+	return false
+}
+
 func (s *SNFSStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	if len(s.StorageId) == 0 {
 		return nil, fmt.Errorf("Sync nfs storage without storage id")

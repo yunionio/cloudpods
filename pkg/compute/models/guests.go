@@ -4349,7 +4349,7 @@ func (self *SGuest) createDiskOnHost(
 	if autoAttach {
 		err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint, diskConfig.BootIndex)
 	}
-	err = self.InheritTo(ctx, disk)
+	err = self.InheritTo(ctx, userCred, disk)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to inherit from guest %s to disk %s", self.GetId(), disk.GetId())
 	}
@@ -4999,7 +4999,7 @@ func (self *SGuest) GetJsonDescAtBaremetal(ctx context.Context, host *SHost) *ap
 
 	desc.DiskConfig = host.getDiskConfig()
 
-	netifs := host.GetNetInterfaces()
+	netifs := host.GetAllNetInterfaces()
 	desc.Domain = options.Options.DNSDomain
 
 	for _, nic := range netifs {

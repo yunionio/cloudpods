@@ -142,7 +142,7 @@ func GuestnetworksDescToDeployDesc(guestnetworks []*desc.SGuestNetwork) []*Nic {
 		if nic.Manual != nil {
 			nics[i].Manual = *nic.Manual
 		}
-		nics[i].NicType = nic.NicType
+		nics[i].NicType = string(nic.NicType)
 		nics[i].LinkUp = nic.LinkUp
 		nics[i].Mtu = int64(nic.Mtu)
 		//nics[i].Name = nic.Name

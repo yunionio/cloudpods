@@ -649,6 +649,7 @@ type ICloudHostNetInterface interface {
 	GetDevice() string
 	GetDriver() string
 	GetMac() string
+	GetVlanId() int
 	GetIndex() int8
 	IsLinkUp() tristate.TriState
 	GetIpAddr() string

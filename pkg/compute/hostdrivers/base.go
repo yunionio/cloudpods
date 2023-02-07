@@ -109,11 +109,12 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	} else {
 		log.Errorf("ERROR: baremetal has no valid baremetalstorage????")
 	}
-	adminNetif := host.GetAdminNetInterface()
-	if adminNetif == nil {
-		return fmt.Errorf("admin netif is nil")
+	adminNetifs := host.GetAdminNetInterfaces()
+	if len(adminNetifs) != 1 {
+		return fmt.Errorf("admin netif is nil or multiple %d", len(adminNetifs))
 	}
-	adminNic := adminNetif.GetBaremetalNetwork()
+	adminNetif := &adminNetifs[0]
+	adminNic := adminNetif.GetHostNetwork()
 	if adminNic == nil {
 		return fmt.Errorf("admin nic is nil")
 	}

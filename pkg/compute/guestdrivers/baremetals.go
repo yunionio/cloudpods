@@ -180,7 +180,7 @@ func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
 }
 
 func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
-	netifs := host.GetNetInterfaces()
+	netifs := host.GetHostNetInterfaces()
 	netsAvaiable := make([]models.SNetwork, 0)
 	netifIndexs := make(map[string][]models.SNetInterface, 0)
 

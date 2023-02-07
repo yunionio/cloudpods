@@ -17,6 +17,7 @@ package tasks
 import (
 	"net"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/baremetal/pxe"
@@ -60,7 +61,7 @@ type IBaremetal interface {
 	GetAccessIp() string
 	EnablePxeBoot() bool
 	GenerateBootISO() error
-	SendNicInfo(nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string, reserve bool) error
+	SendNicInfo(nic *types.SNicDevInfo, idx int, nicType compute.TNicType, reset bool, ipAddr string, reserve bool) error
 	DoNTPConfig() error
 	GetImageUrl(needImageCache bool) string
 

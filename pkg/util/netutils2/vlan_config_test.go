@@ -12,32 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package netutils2
 
-import "yunion.io/x/cloudmux/pkg/apis/compute"
+import (
+	"testing"
 
-type HostnetworkDetails struct {
-	HostJointResourceDetails
+	"yunion.io/x/jsonutils"
+)
 
-	SHostnetwork
-
-	// IP子网名称
-	Network string `json:"network"`
-
-	// 二层网络名称
-	Wire string `json:"wire"`
-	// 二层网络ID
-	WireId string `json:"wire_id"`
-
-	NicType compute.TNicType `json:"nic_type"`
-}
-
-type HostnetworkListInput struct {
-	HostJointsListInput
-	NetworkFilterListInput
-
-	// IP地址
-	IpAddr []string `json:"ip_addr"`
-	// MAC地址
-	MacAddr []string `json:"mac_addr"`
+func TestParseVlanConfig(t *testing.T) {
+	const content = `VLAN Dev name	 | VLAN ID
+	Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD
+	eth0.2048      | 2048  | eth0`
+	conf, err := parseVlanConfigContent(content)
+	if err != nil {
+		t.Errorf("parseVlanConfig error %s", err)
+	} else {
+		t.Logf("%s", jsonutils.Marshal(conf))
+	}
 }

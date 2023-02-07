@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -908,7 +909,7 @@ func (b *SBaremetalInstance) GetNics() []types.SNic {
 	return nics
 }
 
-func (b *SBaremetalInstance) getNicByType(nicType string) *types.SNic {
+func (b *SBaremetalInstance) getNicByType(nicType compute.TNicType) *types.SNic {
 	nics := b.GetNics()
 	if len(nics) == 0 {
 		return nil
@@ -1296,7 +1297,7 @@ func (b *SBaremetalInstance) SetTask(task tasks.ITask) {
 func (b *SBaremetalInstance) InitAdminNetif(
 	cliMac net.HardwareAddr,
 	wireId string,
-	nicType string,
+	nicType compute.TNicType,
 	netType string,
 	isDoImport bool,
 	importIpAddr string,
@@ -1328,7 +1329,7 @@ func (b *SBaremetalInstance) InitAdminNetif(
 }
 
 func (b *SBaremetalInstance) RegisterNetif(cliMac net.HardwareAddr, wireId string) error {
-	var nicType string
+	var nicType compute.TNicType
 	nic := b.GetNicByMac(cliMac)
 	if nic != nil {
 		nicType = nic.Type
@@ -1343,12 +1344,12 @@ func (b *SBaremetalInstance) RegisterNetif(cliMac net.HardwareAddr, wireId strin
 	return nil
 }
 
-func (b *SBaremetalInstance) attachWire(mac net.HardwareAddr, wireId string, nicType string) (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) attachWire(mac net.HardwareAddr, wireId string, nicType compute.TNicType) (jsonutils.JSONObject, error) {
 	session := b.manager.GetClientSession()
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(mac.String()), "mac")
 	if nicType != "" {
-		params.Add(jsonutils.NewString(nicType), "nic_type")
+		params.Add(jsonutils.NewString(string(nicType)), "nic_type")
 	}
 	params.Add(jsonutils.NewString(wireId), "wire")
 	params.Add(jsonutils.NewInt(-1), "index")
@@ -1356,7 +1357,7 @@ func (b *SBaremetalInstance) attachWire(mac net.HardwareAddr, wireId string, nic
 	return modules.Hosts.PerformAction(session, b.GetId(), "add-netif", params)
 }
 
-func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType string, netType string, ipAddr string) error {
+func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType compute.TNicType, netType string, ipAddr string) error {
 	if ipAddr == "" {
 		switch nicType {
 		case api.NIC_TYPE_IPMI:
@@ -1378,12 +1379,12 @@ func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType string
 	return b.SaveDesc(desc)
 }
 
-func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nicType string, netType string) (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nicType compute.TNicType, netType string) (jsonutils.JSONObject, error) {
 	session := b.manager.GetClientSession()
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(mac.String()), "mac")
 	if nicType != "" {
-		params.Add(jsonutils.NewString(nicType), "nic_type")
+		params.Add(jsonutils.NewString(string(nicType)), "nic_type")
 	}
 	if ipAddr != "" {
 		params.Add(jsonutils.NewString(ipAddr), "ip_addr")
@@ -2111,7 +2112,7 @@ func (b *SBaremetalInstance) DelayedServerStatus(data jsonutils.JSONObject) (jso
 	return resp, err
 }
 
-func (b *SBaremetalInstance) SendNicInfo(nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string, reserve bool) error {
+func (b *SBaremetalInstance) SendNicInfo(nic *types.SNicDevInfo, idx int, nicType compute.TNicType, reset bool, ipAddr string, reserve bool) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(nic.Mac.String()), "mac")
 	params.Add(jsonutils.NewInt(int64(nic.Speed)), "rate")
@@ -2119,7 +2120,7 @@ func (b *SBaremetalInstance) SendNicInfo(nic *types.SNicDevInfo, idx int, nicTyp
 		params.Add(jsonutils.NewInt(int64(idx)), "index")
 	}
 	if nicType != "" {
-		params.Add(jsonutils.NewString(nicType), "nic_type")
+		params.Add(jsonutils.NewString(string(nicType)), "nic_type")
 	}
 	params.Add(jsonutils.NewInt(int64(nic.Mtu)), "mtu")
 	if nic.Up != nil {
@@ -2956,7 +2957,7 @@ func (s *SBaremetalServer) reIndexDescNics(term *ssh.Client, desc *deployapi.Gue
 	}
 	reIndexNics := func(nics []*deployapi.Nic) ([]*deployapi.Nic, error) {
 		for idx, nic := range nics {
-			if nic.GetNicType() == api.NIC_TYPE_IPMI || nic.GetIndex() >= 0 {
+			if nic.GetNicType() == string(api.NIC_TYPE_IPMI) || nic.GetIndex() >= 0 {
 				continue
 			}
 			rIdx, rNic := findRemoteNic(nic.GetMac())

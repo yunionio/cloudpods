@@ -48,7 +48,7 @@ func newNetplanNetwork(allNics []*types.SServerNic, bondNics []*types.SServerNic
 			continue
 		}
 
-		var defaultMtu = 1442
+		var defaultMtu = int16(1442)
 
 		interfaces := make([]string, len(bondNic.TeamingSlaves))
 		for i, sn := range bondNic.TeamingSlaves {

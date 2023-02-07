@@ -12,32 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package models
 
-import "yunion.io/x/cloudmux/pkg/apis/compute"
+import "fmt"
 
-type HostnetworkDetails struct {
-	HostJointResourceDetails
-
-	SHostnetwork
-
-	// IP子网名称
-	Network string `json:"network"`
-
-	// 二层网络名称
-	Wire string `json:"wire"`
-	// 二层网络ID
-	WireId string `json:"wire_id"`
-
-	NicType compute.TNicType `json:"nic_type"`
+func (h *SHost) String() string {
+	return fmt.Sprintf("%s(%s,%s)", h.Name, h.AccessIp, h.Id)
 }
 
-type HostnetworkListInput struct {
-	HostJointsListInput
-	NetworkFilterListInput
+func (n *SNetwork) String() string {
+	return fmt.Sprintf("%s(%s/%d)", n.Name, n.GuestIpStart, n.GuestIpMask)
+}
 
-	// IP地址
-	IpAddr []string `json:"ip_addr"`
-	// MAC地址
-	MacAddr []string `json:"mac_addr"`
+func (netif *SNetInterface) String() string {
+	return fmt.Sprintf("%s(%d)", netif.Mac, netif.VlanId)
 }

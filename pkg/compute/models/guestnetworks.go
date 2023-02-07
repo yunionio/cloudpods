@@ -449,26 +449,24 @@ func (self *SGuestnetwork) GetTeamGuestnetwork() (*SGuestnetwork, error) {
 
 func (self *SGuestnetwork) getJsonDescAtBaremetal(host *SHost) *api.GuestnetworkJsonDesc {
 	net := self.GetNetwork()
-	hostwire := host.getHostwireOfIdAndMac(net.WireId, self.MacAddr)
-	return self.getJsonDescHostwire(hostwire)
+	netif := guestGetHostNetifFromNetwork(host, net)
+	if netif == nil {
+		log.Errorf("fail to find a valid net interface on baremetal %s for network %s", host.String(), net.String())
+	}
+	return self.getJsonDescHostwire(netif)
 }
 
-func guestGetHostWireFromNetwork(host *SHost, network *SNetwork) (*SHostwire, error) {
-	hostwires := host.getHostwiresOfId(network.WireId)
-	var hostWire *SHostwire
-	for i := 0; i < len(hostwires); i++ {
-		if netInter, _ := NetInterfaceManager.FetchByMac(hostwires[i].MacAddr); netInter != nil {
-			if netInter.NicType != api.NIC_TYPE_IPMI {
-				hostWire = &hostwires[i]
-				break
+func guestGetHostNetifFromNetwork(host *SHost, network *SNetwork) *SNetInterface {
+	netifs := host.getNetifsOnWire(network.WireId)
+	var netif *SNetInterface
+	for i := range netifs {
+		if netifs[i].NicType != api.NIC_TYPE_IPMI {
+			if netif == nil || netif.NicType != api.NIC_TYPE_ADMIN {
+				netif = &netifs[i]
 			}
 		}
 	}
-	if hostWire == nil {
-		return nil, fmt.Errorf("Host %s has no net interface on wire %s as guest network %s",
-			host.Name, network.WireId, api.NIC_TYPE_ADMIN)
-	}
-	return hostWire, nil
+	return netif
 }
 
 func (self *SGuestnetwork) getJsonDescAtHost(ctx context.Context, host *SHost) *api.GuestnetworkJsonDesc {
@@ -479,11 +477,19 @@ func (self *SGuestnetwork) getJsonDescAtHost(ctx context.Context, host *SHost) *
 	if network.isOneCloudVpcNetwork() {
 		ret = self.getJsonDescOneCloudVpc(network)
 	} else {
-		hostWire, err := guestGetHostWireFromNetwork(host, network)
-		if err != nil {
-			log.Errorln(err)
+		netifs := host.getNetifsOnWire(network.WireId)
+		var netif *SNetInterface
+		for i := range netifs {
+			if len(netifs[i].Bridge) > 0 {
+				netif = &netifs[i]
+				break
+			}
 		}
-		ret = self.getJsonDescHostwire(hostWire)
+		if netif == nil && len(netifs) > 0 {
+			log.Errorf("fail to find a bridged net_interface on host %s for network %s?????", host.String(), network.String())
+			netif = &netifs[0]
+		}
+		ret = self.getJsonDescHostwire(netif)
 	}
 	{
 		ipnets, err := NetworkAddressManager.fetchAddressesByGuestnetworkId(ctx, self.RowId)
@@ -497,12 +503,12 @@ func (self *SGuestnetwork) getJsonDescAtHost(ctx context.Context, host *SHost) *
 	return ret
 }
 
-func (self *SGuestnetwork) getJsonDescHostwire(hostwire *SHostwire) *api.GuestnetworkJsonDesc {
+func (self *SGuestnetwork) getJsonDescHostwire(netif *SNetInterface) *api.GuestnetworkJsonDesc {
 	desc := self.getJsonDesc()
-	if hostwire != nil {
-		desc.Bridge = hostwire.Bridge
-		desc.WireId = hostwire.WireId
-		desc.Interface = hostwire.Interface
+	if netif != nil {
+		desc.Bridge = netif.Bridge
+		desc.WireId = netif.WireId
+		desc.Interface = netif.Interface
 	}
 	return desc
 }
@@ -829,7 +835,7 @@ func (self *SGuestnetwork) getBandwidth() int {
 	}
 }
 
-func (self *SGuestnetwork) getMtu(net *SNetwork) int {
+func (self *SGuestnetwork) getMtu(net *SNetwork) int16 {
 	return net.getMtu()
 }
 

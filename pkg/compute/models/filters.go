@@ -53,15 +53,15 @@ func rangeObjFilter(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, regionFiel
 	case "wire":
 		wire := rangeObj.(*SWire)
 		if hostField != nil {
-			hostwires := HostwireManager.Query("host_id", "wire_id").SubQuery()
-			q = q.Join(hostwires, sqlchemy.Equals(hostwires.Field("host_id"), hostField))
-			q = q.Filter(sqlchemy.Equals(hostwires.Field("wire_id"), wire.Id))
+			netifs := NetInterfaceManager.Query("baremetal_id", "wire_id").SubQuery()
+			q = q.Join(netifs, sqlchemy.Equals(netifs.Field("baremetal_id"), hostField))
+			q = q.Filter(sqlchemy.Equals(netifs.Field("wire_id"), wire.Id))
 		} else if storageField != nil {
-			hostwires := HostwireManager.Query("host_id", "wire_id").SubQuery()
+			netifs := NetInterfaceManager.Query("baremetal_id", "wire_id").SubQuery()
 			hoststorages := HoststorageManager.Query("host_id", "storage_id").SubQuery()
 			q = q.Join(hoststorages, sqlchemy.Equals(hoststorages.Field("storage_id"), storageField))
-			q = q.Join(hostwires, sqlchemy.Equals(hoststorages.Field("host_id"), hostwires.Field("host_id")))
-			q = q.Filter(sqlchemy.Equals(hostwires.Field("wire_id"), wire.Id))
+			q = q.Join(netifs, sqlchemy.Equals(hoststorages.Field("host_id"), netifs.Field("baremetal_id")))
+			q = q.Filter(sqlchemy.Equals(netifs.Field("wire_id"), wire.Id))
 		} else if zoneField != nil {
 			q = q.Filter(sqlchemy.Equals(zoneField, wire.ZoneId))
 		} else if regionField != nil {

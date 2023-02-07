@@ -208,7 +208,11 @@ func (self *SHostNic) GetMtu() int32 {
 }
 
 func (self *SHostNic) GetNicType() string {
-	return self.NicType
+	return string(self.NicType)
+}
+
+func (self *SHostNic) GetVlanId() int {
+	return -1
 }
 
 func (self *SHostNic) GetBridge() string {

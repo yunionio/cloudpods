@@ -83,6 +83,10 @@ func (s *SLocalStorage) StorageType() string {
 	return api.STORAGE_LOCAL
 }
 
+func (s *SLocalStorage) IsLocal() bool {
+	return true
+}
+
 func (s *SLocalStorage) GetSnapshotDir() string {
 	return path.Join(s.Path, _SNAPSHOT_PATH_)
 }

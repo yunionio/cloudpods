@@ -20,7 +20,6 @@ import (
 	"regexp"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
@@ -90,11 +89,8 @@ func (self *SVirtualizedGuestDriver) wireAvaiableForGuest(guest *models.SGuest, 
 		return true, nil
 	} else {
 		backupHost := models.HostManager.FetchHostById(guest.BackupHostId)
-		count, err := backupHost.GetWiresQuery().Equals("wire_id", wire.Id).CountWithError()
-		if err != nil {
-			return false, errors.Wrap(err, "query host wire")
-		}
-		return count > 0, nil
+		attached := backupHost.IsAttach2Wire(wire.Id)
+		return attached, nil
 	}
 }
 
@@ -103,7 +99,7 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
 	}
-	hostwires := host.GetHostwires()
+	hostNetifs := host.GetHostNetInterfaces()
 	netsAvaiable := make([]models.SNetwork, 0)
 	netTypes := guest.GetDriver().GetRandomNetworkTypes()
 	if len(netConfig.NetType) > 0 {
@@ -128,17 +124,16 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 		}
 	}
 
-	for i := 0; i < len(hostwires); i += 1 {
-		hostwire := hostwires[i]
-		wire := hostwire.GetWire()
-		if ok, err := self.wireAvaiableForGuest(guest, wire); err != nil {
-			return nil, err
-		} else if !ok {
+	for i := 0; i < len(hostNetifs); i += 1 {
+		hostNetif := hostNetifs[i]
+		wire := hostNetif.GetWire()
+		if wire == nil {
 			continue
 		}
 
-		if wire == nil {
-			log.Errorf("host wire is nil?????")
+		if ok, err := self.wireAvaiableForGuest(guest, wire); err != nil {
+			return nil, err
+		} else if !ok {
 			continue
 		}
 

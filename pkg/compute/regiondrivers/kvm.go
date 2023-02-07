@@ -791,7 +791,7 @@ func (self *SKVMRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context,
 		return err
 	}
 
-	err = isp.InheritTo(ctx, snapshot)
+	err = isp.InheritTo(ctx, task.GetUserCred(), snapshot)
 	if err != nil {
 		return errors.Wrapf(err, "unable to inherit from instance snapshot %s to snapshot %s", isp.GetId(), snapshot.GetId())
 	}
@@ -952,7 +952,7 @@ func (self *SKVMRegionDriver) RequestCreateInstanceBackup(ctx context.Context, g
 		if err != nil {
 			return err
 		}
-		err = ib.InheritTo(ctx, backup)
+		err = ib.InheritTo(ctx, task.GetUserCred(), backup)
 		if err != nil {
 			return errors.Wrapf(err, "unable to inherit from instance backup %s to backup %s", ib.GetId(), backup.GetId())
 		}

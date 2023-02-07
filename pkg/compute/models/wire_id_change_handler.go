@@ -31,7 +31,7 @@ type wireIdChangeHandler interface {
 	handleWireIdChange(ctx context.Context, args *wireIdChangeArgs) error
 }
 
-func (manager *SHostwireManager) handleWireIdChange(ctx context.Context, args *wireIdChangeArgs) error {
+/*func (manager *SHostwireManager) handleWireIdChange(ctx context.Context, args *wireIdChangeArgs) error {
 	hws := make([]SHostwire, 0, 8)
 	err := db.FetchModelObjects(manager, manager.Query().Equals("wire_id", args.oldWire.Id), &hws)
 	if err != nil {
@@ -49,7 +49,7 @@ func (manager *SHostwireManager) handleWireIdChange(ctx context.Context, args *w
 
 	}
 	return nil
-}
+}*/
 
 func (manager *SLoadbalancerClusterManager) handleWireIdChange(ctx context.Context, args *wireIdChangeArgs) error {
 	lcs := make([]SLoadbalancerCluster, 0, 8)

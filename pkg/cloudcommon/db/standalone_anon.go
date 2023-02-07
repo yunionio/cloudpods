@@ -30,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
@@ -393,8 +392,8 @@ func (model *SStandaloneAnonResourceBase) SetClassMetadataAll(ctx context.Contex
 	return nil
 }
 
-func (model *SStandaloneAnonResourceBase) InheritTo(ctx context.Context, dest IClassMetadataSetter) error {
-	return InheritFromTo(ctx, model, dest)
+func (model *SStandaloneAnonResourceBase) InheritTo(ctx context.Context, userCred mcclient.TokenCredential, dest IClassMetadataSetter) error {
+	return InheritFromTo(ctx, userCred, model, dest)
 }
 
 type IClassMetadataSetter interface {
@@ -404,7 +403,7 @@ type IClassMetadataSetter interface {
 	SetClassMetadataAll(context.Context, map[string]string, mcclient.TokenCredential) error
 }
 
-func InheritFromTo(ctx context.Context, src IClassMetadataOwner, dest IClassMetadataSetter) error {
+func InheritFromTo(ctx context.Context, userCred mcclient.TokenCredential, src IClassMetadataOwner, dest IClassMetadataSetter) error {
 	metadata, err := src.GetAllClassMetadata()
 	if err != nil {
 		return errors.Wrap(err, "GetAllClassMetadata")
@@ -422,15 +421,17 @@ func InheritFromTo(ctx context.Context, src IClassMetadataOwner, dest IClassMeta
 			if sv, ok := metadata[k]; ok {
 				if sv != v {
 					// duplicate value for identical key
-					return errors.Wrapf(httperrors.ErrConflict, "destination has another value for class key %s", k)
+					// return errors.Wrapf(httperrors.ErrConflict, "destination has another value for class key %s", k)
+					log.Warningf("replace class metadata %s from %s to %s", k, v, sv)
 				}
 			} else {
 				// no such class key
-				return errors.Wrapf(httperrors.ErrConflict, "destination has extra class key %s", k)
+				metadata[k] = "None"
+				// return errors.Wrapf(httperrors.ErrConflict, "destination has extra class key %s", k)
 			}
 		}
 	}
-	userCred := auth.AdminCredential()
+	// userCred := auth.AdminCredential()
 	return dest.SetClassMetadataAll(ctx, metadata, userCred)
 }
 

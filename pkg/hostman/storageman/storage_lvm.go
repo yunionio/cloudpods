@@ -38,6 +38,10 @@ func (s *SLVMStorage) StorageType() string {
 	return api.STORAGE_LVM
 }
 
+func (s *SLVMStorage) IsLocal() bool {
+	return true
+}
+
 func (s *SLVMStorage) GetComposedName() string {
 	return fmt.Sprintf("host_%s_%s_storage_%d", s.Manager.host.GetMasterIp(), s.StorageType(), s.Index)
 }
