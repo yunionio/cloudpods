@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"syscall"
@@ -29,20 +30,27 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
+	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 type HaproxyHelper struct {
 	opts *Options
 
+	lbagentId string
+
 	configDirMan *agentutils.ConfigDirManager
 }
 
-func NewHaproxyHelper(opts *Options) (*HaproxyHelper, error) {
+func NewHaproxyHelper(opts *Options, lbagentId string) (*HaproxyHelper, error) {
 	helper := &HaproxyHelper{
 		opts:         opts,
+		lbagentId:    lbagentId,
 		configDirMan: agentutils.NewConfigDirManager(opts.haproxyConfigDir),
 	}
 	{
@@ -56,6 +64,9 @@ func NewHaproxyHelper(opts *Options) (*HaproxyHelper, error) {
 			return nil, fmt.Errorf("sysctl: %s", err)
 		}
 	}
+
+	system_service.Init()
+
 	return helper, nil
 }
 
@@ -189,7 +200,7 @@ func (h *HaproxyHelper) handleUseCorpusCmd(ctx context.Context, cmd *LbagentCmd)
 				p := filepath.Join(dir, "telegraf.conf")
 				err := ioutil.WriteFile(p, d, agentutils.FileModeFile)
 				if err == nil {
-					err := h.reloadTelegraf(ctx)
+					err := h.reloadTelegraf(ctx, agentParams)
 					if err != nil {
 						log.Errorf("reloading telegraf.conf failed: %s", err)
 					}
@@ -411,7 +422,82 @@ func (h *HaproxyHelper) telegrafPidFile() *agentutils.PidFile {
 	return pf
 }
 
-func (h *HaproxyHelper) reloadTelegraf(ctx context.Context) error {
+func (h *HaproxyHelper) reloadTelegraf(ctx context.Context, agentParams *agentmodels.AgentParams) error {
+	if h.opts.EnableRemoteExecutor {
+		return h.remoteReloadTelegraf(ctx, agentParams)
+	} else {
+		return h.localReloadTelegraf(ctx)
+	}
+}
+
+func (h *HaproxyHelper) remoteReloadTelegraf(ctx context.Context, agentParams *agentmodels.AgentParams) error {
+	telegraf := system_service.GetService("telegraf")
+	conf := map[string]interface{}{}
+	conf["hostname"] = h.getHostname()
+	conf["tags"] = map[string]string{
+		"id":                                  h.lbagentId,
+		"lbagent_id":                          h.lbagentId,
+		"region":                              h.opts.Region,
+		"lbagent_ip":                          h.opts.AccessIp,
+		hostconsts.TELEGRAF_TAG_KEY_BRAND:     hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND,
+		hostconsts.TELEGRAF_TAG_KEY_RES_TYPE:  hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE_LBAGENT,
+		hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE: hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_LBAGENT,
+	}
+	conf["nics"] = h.getNicsTelegrafConf()
+	if len(agentParams.AgentModel.Params.Telegraf.InfluxDbOutputUrl) > 0 {
+		conf["influxdb"] = map[string]interface{}{
+			"url": []string{
+				agentParams.AgentModel.Params.Telegraf.InfluxDbOutputUrl,
+			},
+			"database": agentParams.AgentModel.Params.Telegraf.InfluxDbOutputName,
+		}
+	}
+	conf["haproxy"] = map[string]interface{}{
+		"interval":          agentParams.AgentModel.Params.Telegraf.HaproxyInputInterval,
+		"stats_socket_path": h.haproxyStatsSocketFile(),
+	}
+	oldConf := telegraf.GetConf()
+	log.Debugf("old config: %s", oldConf)
+	log.Debugf("new config: %s", conf)
+	if gotypes.IsNil(oldConf) || !reflect.DeepEqual(oldConf, conf) {
+		log.Debugf("telegraf config: %s", conf)
+		telegraf.SetConf(conf)
+		telegraf.BgReloadConf(conf)
+	}
+	return nil
+}
+
+func (h *HaproxyHelper) getNicsTelegrafConf() []map[string]interface{} {
+	var ret = make([]map[string]interface{}, 0)
+	phyNics, _ := sysutils.Nics()
+	for _, pnic := range phyNics {
+		ret = append(ret, map[string]interface{}{
+			"name":  pnic.Dev,
+			"speed": pnic.Speed,
+		})
+	}
+	return ret
+}
+
+func (h *HaproxyHelper) getHostname() string {
+	hn, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("fail to get hostname %s", err)
+		return ""
+	}
+	dotIdx := strings.IndexByte(hn, '.')
+	if dotIdx >= 0 {
+		hn = hn[:dotIdx]
+	}
+	hn = strings.ToLower(hn)
+	if len(hn) == 0 {
+		hn = "host"
+	}
+	masterIp := h.opts.AccessIp
+	return hn + "-" + strings.Replace(masterIp, ".", "-", -1)
+}
+
+func (h *HaproxyHelper) localReloadTelegraf(ctx context.Context) error {
 	pidFile := h.telegrafPidFile()
 	{
 		proc, confirmed, err := pidFile.ConfirmOrUnlink()

@@ -47,7 +47,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/host_health"
-	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -1896,46 +1895,13 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 func (h *SHostInfo) deployAdminAuthorizedKeys() {
 	onErr := func(format string, args ...interface{}) {
 		h.onFail(fmt.Sprintf(format, args...))
+	}
+	err := fsdriver.DeployAdminAuthorizedKeys(h.GetSession())
+	if err != nil {
+		onErr("DeployAdminAuthorizedKeys fails: %s", err)
 		return
 	}
 
-	sshDir := path.Join("/root", ".ssh")
-	output, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", sshDir).Output()
-	if err != nil {
-		onErr("mkdir .ssh failed %s %s", output, err)
-	}
-
-	query := jsonutils.NewDict()
-	query.Set("admin", jsonutils.JSONTrue)
-	ret, err := modules.Sshkeypairs.List(h.GetSession(), query)
-	if err != nil {
-		onErr("Get admin sshkey: %v", err)
-	}
-	if len(ret.Data) == 0 {
-		onErr("Not found admin sshkey")
-	}
-	keys := ret.Data[0]
-	adminPublicKey, _ := keys.GetString("public_key")
-	pubKeys := &deployapi.SSHKeys{AdminPublicKey: adminPublicKey}
-
-	var oldKeys string
-	authFile := path.Join(sshDir, "authorized_keys")
-	if procutils.NewRemoteCommandAsFarAsPossible("test", "-f", authFile).Run() == nil {
-		output, err := procutils.NewRemoteCommandAsFarAsPossible("cat", authFile).Output()
-		if err != nil {
-			onErr("cat auth file %s %s", output, err)
-		}
-		oldKeys = string(output)
-	}
-	newKeys := fsdriver.MergeAuthorizedKeys(oldKeys, pubKeys)
-	if output, err := procutils.NewRemoteCommandAsFarAsPossible(
-		"sh", "-c", fmt.Sprintf("echo '%s' > %s", newKeys, authFile)).Output(); err != nil {
-		onErr("write public keys: %s %s", output, err)
-	}
-	if output, err := procutils.NewRemoteCommandAsFarAsPossible(
-		"chmod", "0644", authFile).Output(); err != nil {
-		onErr("chmod failed %s %s", output, err)
-	}
 	h.onSucc()
 }
 

@@ -48,7 +48,14 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	}
 	conf += "\n"
 	conf += "[agent]\n"
-	conf += "  interval = \"60s\"\n"
+	intVal := 60
+	if v, ok := kwargs["interval"]; ok {
+		intvalInt, _ := v.(int)
+		if intvalInt > 0 {
+			intVal = intvalInt
+		}
+	}
+	conf += fmt.Sprintf("  interval = \"%ds\"\n", intVal)
 	conf += "  round_interval = true\n"
 	conf += "  metric_batch_size = 1000\n"
 	conf += "  metric_buffer_limit = 10000\n"
@@ -81,28 +88,6 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		conf += fmt.Sprintf("  database = \"%s\"\n", tdb)
 		conf += "  insecure_skip_verify = true\n"
 		conf += "  timeout = \"30s\"\n"
-		conf += "\n"
-	}
-	if kafka, ok := kwargs["kafka"]; ok {
-		ka, _ := kafka.(map[string]interface{})
-		bks, _ := ka["brokers"]
-		tbk, _ := bks.([]string)
-		brokers := []string{}
-		for _, b := range tbk {
-			brokers = append(brokers, fmt.Sprintf("\"%s\"", b[len("kafka://\n"):]))
-		}
-		conf += "[[outputs.kafka]]\n"
-		conf += fmt.Sprintf("  brokers = [%s]\n", strings.Join(brokers, ", "))
-
-		topic, _ := ka["topic"]
-		itopic, _ := topic.(string)
-		conf += fmt.Sprintf("  topic = \"%s\"\n", itopic)
-		conf += "  compression_codec = 0\n"
-		conf += "  required_acks = -1\n"
-		conf += "  max_retry = 3\n"
-		conf += "  data_format = \"json\"\n"
-		conf += "  json_timestamp_units = \"1ms\"\n"
-		conf += "  routing_tag = \"host\"\n"
 		conf += "\n"
 	}
 	conf += "[[inputs.cpu]]\n"
@@ -146,12 +131,9 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		conf += fmt.Sprintf("  interfaces = [%s]\n", strings.Join(infs, ", "))
 		conf += "\n"
 		for _, n := range ns {
-			iname, _ := n["name"]
-			name, _ := iname.(string)
-			ialias, _ := n["alias"]
-			alias, _ := ialias.(string)
-			ispeed, _ := n["speed"]
-			speed, _ := ispeed.(int)
+			name, _ := n["name"].(string)
+			alias, _ := n["alias"].(string)
+			speed, _ := n["speed"].(int)
 
 			conf += "  [[inputs.net.interface_conf]]\n"
 			conf += fmt.Sprintf("    name = \"%s\"\n", name)
@@ -182,6 +164,16 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "  data_source = \"body\"\n"
 	conf += "  data_format = \"influx\"\n"
 	conf += "\n"
+	if haproxyConf, ok := kwargs["haproxy"]; ok {
+		haproxyConfMap, _ := haproxyConf.(map[string]interface{})
+		haIntVal, _ := haproxyConfMap["interval"].(int)
+		statsSocket, _ := haproxyConfMap["stats_socket_path"].(string)
+		conf += "[[inputs.haproxy]]\n"
+		conf += fmt.Sprintf("  interval = \"%ds\"\n", haIntVal)
+		conf += fmt.Sprintf("  servers = [\"%s\"]\n", statsSocket)
+		conf += "  keep_field_names = true\n"
+		conf += "\n"
+	}
 	return conf
 }
 
