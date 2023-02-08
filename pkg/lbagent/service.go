@@ -21,12 +21,14 @@ import (
 	"sync"
 	"syscall"
 
+	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
 
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 func StartService() {
@@ -52,6 +54,11 @@ func StartService() {
 		log.Fatalf("opts validate: %s", err)
 	}
 
+	if opts.EnableRemoteExecutor {
+		execlient.Init(opts.ExecutorSocketPath)
+		procutils.SetRemoteExecutor()
+	}
+
 	// register lbagent
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "lbagent")
@@ -70,7 +77,7 @@ func StartService() {
 		}
 	}
 	{
-		haproxyHelper, err = NewHaproxyHelper(opts)
+		haproxyHelper, err = NewHaproxyHelper(opts, lbagentId)
 		if err != nil {
 			log.Fatalf("init haproxy helper failed: %s", err)
 		}
