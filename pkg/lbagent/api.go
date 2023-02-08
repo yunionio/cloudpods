@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apihelper"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -82,7 +83,17 @@ func NewApiHelper(opts *Options, lbagentId string) (*ApiHelper, error) {
 	return helper, nil
 }
 
+func (h *ApiHelper) deployAdminAuthorizedKeys(ctx context.Context) {
+	err := fsdriver.DeployAdminAuthorizedKeys(h.adminClientSession(ctx))
+	if err != nil {
+		log.Errorf("DeployAdminAuthorizedKeys %s", err)
+	}
+}
+
 func (h *ApiHelper) Run(ctx context.Context) {
+	// deploy host admin key
+	h.deployAdminAuthorizedKeys(ctx)
+
 	wg := ctx.Value("wg").(*sync.WaitGroup)
 	defer func() {
 		wg.Done()

@@ -1,0 +1,8 @@
+FROM registry.cn-beijing.aliyuncs.com/swordqiu/lbagent-base:v0.0.3
+
+MAINTAINER "Yousong Zhou <zhouyousong@yunion.cn>"
+
+ENV TZ UTC
+
+RUN mkdir -p /opt/yunion/bin
+ADD ./_output/alpine-build/bin/lbagent /opt/yunion/bin/lbagent

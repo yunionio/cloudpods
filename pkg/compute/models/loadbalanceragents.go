@@ -784,6 +784,7 @@ func (lbagent *SLoadbalancerAgent) PerformLeaveCluster(
 	oldClusterId := lbagent.ClusterId
 	_, err := db.Update(lbagent, func() error {
 		lbagent.ClusterId = ""
+		lbagent.HaState = api.LB_HA_STATE_UNKNOWN
 		return nil
 	})
 	if err != nil {

@@ -24,7 +24,7 @@ import (
 )
 
 type LbagentCommonOptions struct {
-	common_options.CommonOptions
+	common_options.HostCommonOptions
 
 	// ApiLbagentId                  string `require:"true"`
 	ApiLbagentHbInterval          int `default:"10"`
