@@ -1,0 +1,33 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/openvswitch:2.10.5-1
+
+MAINTAINER "Jian QIU <qiujian@yunion.cn>"
+
+ENV TZ UTC
+
+ENV GOPATH=/root/go
+
+RUN sed -i 's!https://dl-cdn.alpinelinux.org/!https://mirrors.ustc.edu.cn/!g' /etc/apk/repositories
+
+RUN set -x \
+    && apk update \
+    && apk upgrade \
+    && apk add --no-cache bash haproxy keepalived iptables \
+    && apk add --no-cache --virtual .build-deps \
+        build-base \
+        make \
+       	go \
+        git \
+        gcc \
+        libc-dev \
+        libgcc \
+        linux-headers \
+    && mkdir -p $GOPATH/src/github.com/yyyar $GOPATH/bin \
+    && cd $GOPATH/src/github.com/yyyar \
+    && git clone --depth 1 https://github.com/yyyar/gobetween.git \
+    && cd gobetween \
+    && make deps \
+    && make build \
+    && cp bin/gobetween /bin/gobetween \
+    && rm -fr $GOPATH \
+    && apk del .build-deps \
+    && rm -rf /var/cache/apk/*
