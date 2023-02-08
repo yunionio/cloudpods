@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -201,13 +202,14 @@ func (self *SKubeCluster) syncRemoveCloudKubeCluster(ctx context.Context, userCr
 }
 
 func (self *SKubeCluster) ImportOrUpdate(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	if len(self.ExternalClusterId) == 0 {
-		return self.doRemoteImport(ctx, userCred, ext)
+		return self.doRemoteImport(ctx, s, userCred, ext)
 	}
-	return self.doRemoteUpdate(ctx, userCred, ext)
+	return self.doRemoteUpdate(ctx, s, userCred, ext)
 }
 
-func (self *SKubeCluster) doRemoteImport(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
+func (self *SKubeCluster) doRemoteImport(ctx context.Context, s *mcclient.ClientSession, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
 	config, err := ext.GetKubeConfig(false, 0)
 	if err != nil {
 		return errors.Wrapf(err, "GetKubeConfig")
@@ -224,7 +226,6 @@ func (self *SKubeCluster) doRemoteImport(ctx context.Context, userCred mcclient.
 			"kubeconfig": config.Config,
 		},
 	}
-	s := auth.GetAdminSession(ctx, options.Options.Region)
 	resp, err := k8s.KubeClusters.Create(s, jsonutils.Marshal(params))
 	if err != nil {
 		return errors.Wrapf(err, "Create")
@@ -242,8 +243,23 @@ func (self *SKubeCluster) doRemoteImport(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SKubeCluster) doRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
-	// TODO
+func (self *SKubeCluster) doRemoteUpdate(ctx context.Context, s *mcclient.ClientSession, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
+	// 1. check external cluster in kubeserver
+	_, err := k8s.KubeClusters.Get(s, self.ExternalClusterId, nil)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound || strings.Contains(err.Error(), "not found") {
+			// import again
+			if err := self.doRemoteImport(ctx, s, userCred, ext); err != nil {
+				return errors.Wrapf(err, "import cluster %s again when updating", self.GetName())
+			}
+			return nil
+		} else {
+			return errors.Wrapf(err, "get external cluster by id %s of local cluster %s", self.ExternalClusterId, self.GetName())
+		}
+	}
+
+	// TODO: update other attributes
+
 	return nil
 }
 
