@@ -44,6 +44,7 @@ type ITableSpec interface {
 	Fetch(dt interface{}) error
 	// FetchAll(dest interface{}) error
 	SyncSQL() []string
+	Sync() error
 	DropForeignKeySQL() []string
 	AddIndex(unique bool, cols ...string) bool
 	Increment(ctx context.Context, diff interface{}, target interface{}) error
