@@ -15,6 +15,8 @@
 package fileutils2
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -72,4 +74,58 @@ func TestGetDevId(t *testing.T) {
 func TestGetAllBlkdevsIoScheduler(t *testing.T) {
 	scheds, _ := GetAllBlkdevsIoSchedulers()
 	t.Logf("scheduler: %#v", scheds)
+}
+
+func TestFilePutContents(t *testing.T) {
+	cases := []struct {
+		isAppend bool
+		content  string
+		want     string
+	}{
+		{
+			isAppend: false,
+			content:  "123",
+			want:     "123",
+		},
+		{
+			isAppend: false,
+			content:  "abc",
+			want:     "abc",
+		},
+		{
+			isAppend: true,
+			content:  "123",
+			want:     "abc123",
+		},
+		{
+			isAppend: true,
+			content:  "abc",
+			want:     "abc123abc",
+		},
+		{
+			isAppend: false,
+			content:  "123",
+			want:     "123",
+		},
+	}
+	file, err := ioutil.TempFile("/tmp", "test*.tmp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(file.Name())
+
+	t.Log(file.Name())
+	for _, c := range cases {
+		err := FilePutContents(file.Name(), c.content, c.isAppend)
+		if err != nil {
+			t.Errorf("FilePutContents fail %s", err)
+		} else {
+			cont, err := FileGetContents(file.Name())
+			if err != nil {
+				t.Errorf("FileGetContents %s", err)
+			} else if cont != c.want {
+				t.Errorf("expect %s got %s", c.want, cont)
+			}
+		}
+	}
 }
