@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
@@ -32,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -238,10 +240,17 @@ func (manager *SAssignmentManager) fetchUserProjectIdsQuery(userId string) *sqlc
 }
 
 func (manager *SAssignmentManager) fetchProjectUserIdsQuery(projId string) *sqlchemy.SQuery {
+	return manager.fetchProjectRoleUserIdsQuery(projId, "")
+}
+
+func (manager *SAssignmentManager) fetchProjectRoleUserIdsQuery(projId, roleId string) *sqlchemy.SQuery {
 	q1 := manager.Query("actor_id")
 	q1 = q1.Equals("type", api.AssignmentUserProject)
 	q1 = q1.Equals("target_id", projId)
 	q1 = q1.IsFalse("inherited")
+	if len(roleId) > 0 {
+		q1 = q1.Equals("role_id", roleId)
+	}
 
 	assigns := AssignmentManager.Query().SubQuery()
 	usergroups := UsergroupManager.Query().SubQuery()
@@ -253,6 +262,9 @@ func (manager *SAssignmentManager) fetchProjectUserIdsQuery(projId string) *sqlc
 	q2 = q2.Filter(sqlchemy.Equals(assigns.Field("type"), api.AssignmentGroupProject))
 	q2 = q2.Filter(sqlchemy.Equals(assigns.Field("target_id"), projId))
 	q2 = q2.Filter(sqlchemy.IsFalse(assigns.Field("inherited")))
+	if len(roleId) > 0 {
+		q2 = q2.Equals("role_id", roleId)
+	}
 
 	union := sqlchemy.Union(q1, q2)
 	return union.Query().Distinct()
@@ -344,7 +356,31 @@ func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred 
 	}
 	db.OpsLog.LogEvent(user, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
 	db.OpsLog.LogEvent(project, db.ACT_ATTACH, user.GetShortDesc(ctx), userCred)
+	if len(project.AdminId) == 0 && role.Name == options.Options.ProjectAdminRole {
+		err := project.resetAdminUser()
+		if err != nil {
+			log.Errorf("rsetAdminUser fail: %s", err)
+		}
+	}
 	return nil
+}
+
+func (assign *SAssignment) getRole() (*SRole, error) {
+	return RoleManager.FetchRoleById(assign.RoleId)
+}
+
+func (assign *SAssignment) getProject() (*SProject, error) {
+	if assign.Type == api.AssignmentUserProject || assign.Type == api.AssignmentGroupProject {
+		return ProjectManager.FetchProjectById(assign.TargetId)
+	}
+	return nil, nil
+}
+
+func (assign *SAssignment) getDomain() (*SDomain, error) {
+	if assign.Type == api.AssignmentUserDomain || assign.Type == api.AssignmentGroupDomain {
+		return DomainManager.FetchDomainById(assign.TargetId)
+	}
+	return nil, nil
 }
 
 func (manager *SAssignmentManager) batchRemove(actorId string, typeStrs []string) error {
@@ -364,6 +400,17 @@ func (manager *SAssignmentManager) batchRemove(actorId string, typeStrs []string
 		})
 		if err != nil {
 			return errors.Wrap(err, "db.Update")
+		}
+		// clear project admin Id
+		role, _ := assigns[i].getRole()
+		if role.Name == options.Options.ProjectAdminRole {
+			project, _ := assigns[i].getProject()
+			if project != nil && project.AdminId == actorId {
+				err := project.resetAdminUser()
+				if err != nil {
+					log.Errorf("batchRemove project resetAdminUser fail %s", err)
+				}
+			}
 		}
 	}
 	return nil
@@ -419,6 +466,12 @@ func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCr
 	}
 	db.OpsLog.LogEvent(user, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
 	db.OpsLog.LogEvent(project, db.ACT_DETACH, user.GetShortDesc(ctx), userCred)
+	if project.AdminId == user.Id && role.Name == options.Options.ProjectAdminRole {
+		err := project.resetAdminUser()
+		if err != nil {
+			log.Errorf("resetAdminUser fail %s", err)
+		}
+	}
 	return nil
 }
 
@@ -452,6 +505,12 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 	}
 	db.OpsLog.LogEvent(group, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
 	db.OpsLog.LogEvent(project, db.ACT_ATTACH, group.GetShortDesc(ctx), userCred)
+	if len(project.AdminId) == 0 && role.Name == options.Options.ProjectAdminRole {
+		err := project.resetAdminUser()
+		if err != nil {
+			log.Errorf("rsetAdminUser fail: %s", err)
+		}
+	}
 	return nil
 }
 
@@ -474,6 +533,12 @@ func (manager *SAssignmentManager) projectRemoveGroup(ctx context.Context, userC
 	}
 	db.OpsLog.LogEvent(group, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
 	db.OpsLog.LogEvent(project, db.ACT_DETACH, group.GetShortDesc(ctx), userCred)
+	if len(project.AdminId) > 0 && role.Name == options.Options.ProjectAdminRole {
+		err := project.resetAdminUser()
+		if err != nil {
+			log.Errorf("rsetAdminUser fail: %s", err)
+		}
+	}
 	return nil
 }
 

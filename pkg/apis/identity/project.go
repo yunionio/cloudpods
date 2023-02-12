@@ -32,6 +32,13 @@ type ProjectDetails struct {
 
 	SProject
 
+	// 项目管理员名称
+	Admin string `json:"admin"`
+	// 项目管理员域ID
+	AdminDomainId string `json:"admin_domain_id"`
+	// 项目管理员域名称
+	AdminDomain string `json:"admin_domain"`
+
 	// 加入项目的用户组数量
 	GroupCount int `json:"group_count"`
 	// 加入项目的用户数量

@@ -71,6 +71,8 @@ type SDomain struct {
 
 	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true"`
 	ParentId string `width:"64" charset:"ascii"`
+
+	AdminId string `width:"64" charset:"ascii" nullable:"true"`
 }
 
 func (manager *SDomainManager) InitializeData() error {
@@ -110,8 +112,28 @@ func (manager *SDomainManager) InitializeData() error {
 	} else if err != nil {
 		return err
 	}
+	/*err = manager.initAdminUsers(context.TODO())
+	if err != nil {
+		return errors.Wrap(err, "initAdminUsers")
+	}*/
 	return nil
 }
+
+/*func (manager *SDomainManager) initAdminUsers(ctx context.Context) error {
+	q := manager.Query().IsNullOrEmpty("admin_id")
+	domains := make([]SDomain, 0)
+	err := db.FetchModelObjects(manager, q, &domains)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range domains {
+		err := domains[i].initAdminUser(ctx)
+		if err != nil {
+			return errors.Wrap(err, "domains initAdmin")
+		}
+	}
+	return nil
+}*/
 
 func (manager *SDomainManager) Query(fields ...string) *sqlchemy.SQuery {
 	return manager.SStandaloneResourceBaseManager.Query(fields...).IsTrue("is_domain")
