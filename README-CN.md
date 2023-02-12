@@ -300,7 +300,7 @@ $ git clone -b release/3.8 https://github.com/yunionio/ocboot && cd ./ocboot && 
 
 * [服务订阅](https://www.yunion.cn/subscription/index.html)
 
-* 哔哩哔哩: [Cloudpods](https://space.bilibili.com/623431553/)
+* 哔哩哔哩: [Cloudpods](https://space.bilibili.com/3493131737631540/)
 
 * 微信: 请扫描如下二维码联系我们
 
