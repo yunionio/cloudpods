@@ -367,6 +367,12 @@ func (h *SHostInfo) prepareEnv() error {
 		return errors.Wrap(err, "Execute 'ethtool -h'")
 	}
 
+	// setup tuned-adm
+	_, err = procutils.NewRemoteCommandAsFarAsPossible("tuned-adm", "profile", "virtual-host").Output()
+	if err != nil {
+		log.Errorf("tuned-adm profile virtual-host fail: %s", err)
+	}
+
 	supportedSchedulers, _ := fileutils2.GetAllBlkdevsIoSchedulers()
 	// IoScheduler default to none scheduler
 	ioParams := make(map[string]string, 0)
