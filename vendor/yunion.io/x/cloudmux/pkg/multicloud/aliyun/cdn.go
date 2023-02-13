@@ -313,3 +313,7 @@ func (self *SAliyunClient) GetCdnDomain(domainName string) (*SCdnDomain, error) 
 	}
 	return domain, nil
 }
+
+func (self *SCdnDomain) GetProjectId() string {
+	return self.ResourceGroupID
+}
