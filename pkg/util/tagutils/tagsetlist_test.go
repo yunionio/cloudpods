@@ -292,3 +292,138 @@ func TestTTagSetList_Flattern(t *testing.T) {
 		}
 	}
 }
+
+func TestIntersect(t *testing.T) {
+	cases := []struct {
+		tsl  TTagSetList
+		ts   TTagSet
+		want TTagSetList
+	}{
+		{
+			tsl: TTagSetList{
+				TTagSet{
+					{
+						Key:   "a",
+						Value: "1",
+					},
+				},
+			},
+			ts: TTagSet{
+				{
+					Key:   "b",
+					Value: "2",
+				},
+			},
+			want: TTagSetList{
+				TTagSet{
+					{
+						Key:   "a",
+						Value: "1",
+					},
+					{
+						Key:   "b",
+						Value: "2",
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		got := c.tsl.Intersect(c.ts)
+		if jsonutils.Marshal(got).String() != jsonutils.Marshal(c.want).String() {
+			t.Errorf("got %s want %s", jsonutils.Marshal(got).String(), jsonutils.Marshal(c.want).String())
+		}
+	}
+}
+
+func TestIntersects(t *testing.T) {
+	cases := []struct {
+		tsl  TTagSetList
+		ts2  TTagSetList
+		want TTagSetList
+	}{
+		{
+			tsl: TTagSetList{
+				TTagSet{
+					{
+						Key:   "a",
+						Value: "1",
+					},
+				},
+				TTagSet{
+					{
+						Key:   "b",
+						Value: "1",
+					},
+				},
+			},
+			ts2: TTagSetList{
+				TTagSet{
+					{
+						Key:   "c",
+						Value: "2",
+					},
+				},
+			},
+			want: TTagSetList{
+				TTagSet{
+					{
+						Key:   "a",
+						Value: "1",
+					},
+					{
+						Key:   "c",
+						Value: "2",
+					},
+				},
+				TTagSet{
+					{
+						Key:   "b",
+						Value: "1",
+					},
+					{
+						Key:   "c",
+						Value: "2",
+					},
+				},
+			},
+		},
+		{
+			tsl: TTagSetList{
+				TTagSet{
+					{
+						Key:   "a",
+						Value: "1",
+					},
+				},
+				TTagSet{
+					{
+						Key:   "b",
+						Value: "1",
+					},
+				},
+			},
+			ts2: TTagSetList{},
+			want: TTagSetList{
+				TTagSet{
+					{
+						Key:   "a",
+						Value: "1",
+					},
+				},
+				TTagSet{
+					{
+						Key:   "b",
+						Value: "1",
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		got := c.tsl.IntersectList(c.ts2)
+		if jsonutils.Marshal(got).String() != jsonutils.Marshal(c.want).String() {
+			t.Errorf("got %s want %s", jsonutils.Marshal(got).String(), jsonutils.Marshal(c.want).String())
+		}
+	}
+}

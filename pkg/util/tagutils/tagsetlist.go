@@ -88,6 +88,34 @@ func (tsl TTagSetList) Append(t TTagSet) TTagSetList {
 	return ret
 }
 
+func (tsl TTagSetList) Intersect(t TTagSet) TTagSetList {
+	ret := TTagSetList{}
+	for i := 0; i < len(tsl); i++ {
+		ret = ret.Append(tsl[i].Append(t...))
+	}
+	return ret
+}
+
+func (tsl TTagSetList) IntersectList(t TTagSetList) TTagSetList {
+	if len(tsl) == 0 && len(t) == 0 {
+		return TTagSetList{}
+	}
+	if len(tsl) == 0 && len(t) > 0 {
+		return t
+	}
+	if len(tsl) > 0 && len(t) == 0 {
+		return tsl
+	}
+	ret := TTagSetList{}
+	for i := 0; i < len(t); i++ {
+		tmp := tsl.Intersect(t[i])
+		for j := 0; j < len(tmp); j++ {
+			ret = ret.Append(tmp[j])
+		}
+	}
+	return ret
+}
+
 func (tsl TTagSetList) String() string {
 	tss := make([]string, len(tsl))
 	for i := 0; i < len(tss); i++ {
