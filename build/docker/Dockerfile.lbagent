@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/swordqiu/lbagent-base:v0.0.3
+FROM registry.cn-beijing.aliyuncs.com/yunionio/lbagent-base:v0.0.3
 
 MAINTAINER "Yousong Zhou <zhouyousong@yunion.cn>"
 
