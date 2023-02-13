@@ -57,23 +57,6 @@ func NewDeployInfo(
 	return depInfo
 }
 
-func JsonDeploysToStructs(jdeploys []jsonutils.JSONObject) []*DeployContent {
-	ret := []*DeployContent{}
-	for i := 0; i < len(jdeploys); i++ {
-		d := new(DeployContent)
-		path, err := jdeploys[i].GetString("path")
-		if err == nil {
-			d.Path = path
-		}
-		content, err := jdeploys[i].GetString("content")
-		if err == nil {
-			d.Content = content
-		}
-		ret = append(ret, d)
-	}
-	return ret
-}
-
 func GetKeys(data jsonutils.JSONObject) *SSHKeys {
 	var ret = new(SSHKeys)
 	ret.PublicKey, _ = data.GetString("public_key")
