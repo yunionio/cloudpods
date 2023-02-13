@@ -1713,7 +1713,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		CallUpdateNotifyHook(ctx, userCred, item)
 	}
 
-	item.PostUpdate(ctx, userCred, query, data)
+	item.PostUpdate(ctx, userCred, query, dataDict)
 
 	return getItemDetails(manager, item, ctx, userCred, query)
 }
