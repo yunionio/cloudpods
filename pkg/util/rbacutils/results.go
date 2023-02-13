@@ -75,13 +75,7 @@ func (result SPolicyResult) Json() jsonutils.JSONObject {
 }
 
 func mergeTagList(t1, t2 tagutils.TTagSetList) tagutils.TTagSetList {
-	ret := tagutils.TTagSetList{}
-	for i := range t1 {
-		for j := range t2 {
-			ret = append(ret, t1[i].Append(t2[j]...))
-		}
-	}
-	return ret
+	return t1.IntersectList(t2)
 }
 
 func (r1 SPolicyResult) Merge(r2 SPolicyResult) SPolicyResult {

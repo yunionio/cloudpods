@@ -950,12 +950,13 @@ func guestHypervisorsUsage(
 	count := make(map[string]interface{})
 
 	results := db.UsagePolicyCheck(userToken, models.GuestManager, scope)
+	log.Debugf("guestHypervisorsUsage origin %s", results.String())
 	results = results.Merge(policyResult)
 	if results.Result.IsDeny() {
 		// deny
 		return count
 	}
-	log.Debugf("guestHypervisorsUsage results %s", results.String())
+	log.Debugf("guestHypervisorsUsage policyResults %s results %s", policyResult.String(), results.String())
 	// temporarily hide system resources
 	// XXX needs more work later
 	guest := models.GuestManager.TotalCount(scope, ownerId, rangeObjs, status, hypervisors,
