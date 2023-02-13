@@ -434,3 +434,144 @@ func TestTagset2MapString(t *testing.T) {
 		}
 	}
 }
+
+func TestTagSetAppend(t *testing.T) {
+	cases := []struct {
+		set1 TTagSet
+		set2 TTagSet
+		want TTagSet
+	}{
+		{
+			set1: TTagSet{
+				{
+					Key:   "a",
+					Value: "1",
+				},
+			},
+			set2: TTagSet{
+				{
+					Key:   "b",
+					Value: "2",
+				},
+			},
+			want: TTagSet{
+				{
+					Key:   "a",
+					Value: "1",
+				},
+				{
+					Key:   "b",
+					Value: "2",
+				},
+			},
+		},
+		{
+			set1: TTagSet{
+				{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+			set2: TTagSet{
+				{
+					Key:   "a",
+					Value: "1",
+				},
+				{
+					Key:   "b",
+					Value: "2",
+				},
+			},
+			want: TTagSet{
+				{
+					Key:   "a",
+					Value: AnyValue,
+				},
+				{
+					Key:   "b",
+					Value: "2",
+				},
+			},
+		},
+		{
+			set1: TTagSet{
+				{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+			set2: TTagSet{
+				{
+					Key:   "a",
+					Value: NoValue,
+				},
+				{
+					Key:   "b",
+					Value: "2",
+				},
+			},
+			want: TTagSet{
+				{
+					Key:   "b",
+					Value: "2",
+				},
+			},
+		},
+		{
+			set1: TTagSet{
+				{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+			set2: TTagSet{
+				{
+					Key:   "a",
+					Value: NoValue,
+				},
+			},
+			want: TTagSet{},
+		},
+		{
+			set1: TTagSet{
+				{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+			set2: TTagSet{},
+			want: TTagSet{
+				{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+		},
+		{
+			set1: TTagSet{
+				{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+			set2: TTagSet{
+				{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+			want: TTagSet{
+				{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		got := c.set1.Append(c.set2...)
+		if jsonutils.Marshal(got).String() != jsonutils.Marshal(c.want).String() {
+			t.Errorf("got: %s want: %s", jsonutils.Marshal(got).String(), jsonutils.Marshal(c.want).String())
+		}
+	}
+}

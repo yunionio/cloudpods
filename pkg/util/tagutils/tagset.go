@@ -47,6 +47,19 @@ func (ts TTagSet) index(needle STag) (int, bool) {
 	return j + 1, false
 }
 
+/*
+ * TagSet Append
+ * 对相同的key，是并集
+ * 对不同的key，是交集
+ * 逻辑上有些问题，暂时这样
+ *
+ * TODO：
+ * type STag struct {
+ *     Key string
+ *     Values []string
+ * }
+ *
+ */
 func (ts TTagSet) Append(ele ...STag) TTagSet {
 	for _, e := range ele {
 		ts = ts.add(e)
@@ -65,24 +78,32 @@ func (ts TTagSet) add(e STag) TTagSet {
 	ts = append(ts, e)
 	copy(ts[pos+1:], ts[pos:])
 	ts[pos] = e
-	if e.Value == AnyValue {
-		for i := pos + 1; i < len(ts); i++ {
-			if ts[i].Key != e.Key {
-				if i > pos+1 {
-					copy(ts[pos+1:], ts[i:])
-					ts = ts[:len(ts)-i+pos+1]
-				}
-				break
-			} else if ts[i].Value == NoValue {
-				// remove this key completely
-				copy(ts[pos:], ts[i+1:])
-				ts = ts[:len(ts)-i+pos-1]
-				break
+	start := pos
+	for start > 0 && ts[start-1].Key == e.Key {
+		start--
+	}
+	end := pos
+	for end < len(ts)-1 && ts[end+1].Key == e.Key {
+		end++
+	}
+	if ts[start].Value == AnyValue {
+		if ts[end].Value == NoValue {
+			// remove start ... end
+			if end < len(ts)-1 {
+				copy(ts[start:], ts[end+1:])
+				ts = ts[0 : len(ts)-end+start-1]
+			} else {
+				ts = ts[0:start]
+			}
+		} else {
+			// remove start + 1 ... end
+			if end < len(ts)-1 {
+				copy(ts[start+1:], ts[end+1:])
+				ts = ts[0 : len(ts)-end+start]
+			} else {
+				ts = ts[0 : start+1]
 			}
 		}
-	} else if e.Value == NoValue && pos > 0 && ts[pos-1].Key == e.Key && ts[pos-1].Value == AnyValue {
-		copy(ts[pos-1:], ts[pos:])
-		ts = ts[:len(ts)-1]
 	}
 	return ts
 }
@@ -105,6 +126,13 @@ func (ts TTagSet) Remove(ele ...STag) TTagSet {
 		ts = ts[:len(ts)-1]
 	}
 	return ts
+}
+
+func (a TTagSet) Len() int      { return len(a) }
+func (a TTagSet) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a TTagSet) Less(i, j int) bool {
+	r := Compare(a[i], a[j])
+	return r < 0
 }
 
 func (a TTagSet) Compact() TTagSet {

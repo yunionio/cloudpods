@@ -59,6 +59,28 @@ func TestSTagCompare(t *testing.T) {
 			},
 			cmp: -1,
 		},
+		{
+			t1: STag{
+				Key:   "a",
+				Value: AnyValue,
+			},
+			t2: STag{
+				Key:   "a",
+				Value: NoValue,
+			},
+			cmp: -1,
+		},
+		{
+			t1: STag{
+				Key:   "a",
+				Value: NoValue,
+			},
+			t2: STag{
+				Key:   "a",
+				Value: AnyValue,
+			},
+			cmp: 1,
+		},
 	}
 	for _, c := range cases {
 		got := Compare(c.t1, c.t2)
