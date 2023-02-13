@@ -1578,7 +1578,8 @@ type ICloudNatSku interface {
 }
 
 type ICloudCDNDomain interface {
-	ICloudEnabledResource
+	IVirtualResource
+	GetEnabled() bool
 
 	GetArea() string
 	GetServiceType() string

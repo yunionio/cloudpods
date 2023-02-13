@@ -84,13 +84,14 @@ type CDNDomainCreateInput struct {
 }
 
 type CDNDomainDetails struct {
-	apis.EnabledStatusInfrasResourceBaseDetails
+	apis.VirtualResourceDetails
 	ManagedResourceInfo
 }
 
 type CDNDomainListInput struct {
-	apis.EnabledStatusInfrasResourceBaseListInput
+	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
+	apis.EnabledResourceBaseListInput
 
 	ManagedResourceListInput
 }

@@ -49,7 +49,7 @@ type SCdnDomain struct {
 	Disable     string     `json:"Disable"`
 	Domain      string     `json:"Domain"`
 	Origin      SCdnOrigin `json:"Origin"`
-	ProjectID   int        `json:"ProjectId"`
+	ProjectId   string     `json:"ProjectId"`
 	Readonly    string     `json:"Readonly"`
 	ResourceID  string     `json:"ResourceId"`
 	ServiceType string     `json:"ServiceType"`
@@ -695,4 +695,8 @@ func (self *SCdnDomain) GetMaxAge() (*cloudprovider.SCDNMaxAge, error) {
 		ret.MaxAgeRules = append(ret.MaxAgeRules, rule)
 	}
 	return ret, nil
+}
+
+func (self *SCdnDomain) GetProjectId() string {
+	return self.ProjectId
 }
