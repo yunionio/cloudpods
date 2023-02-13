@@ -40,8 +40,9 @@ import (
 )
 
 type SCDNDomainManager struct {
-	db.SEnabledStatusInfrasResourceBaseManager
+	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	db.SEnabledResourceBaseManager
 	SManagedResourceBaseManager
 	SDeletePreventableResourceBaseManager
 }
@@ -50,7 +51,7 @@ var CDNDomainManager *SCDNDomainManager
 
 func init() {
 	CDNDomainManager = &SCDNDomainManager{
-		SEnabledStatusInfrasResourceBaseManager: db.NewEnabledStatusInfrasResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SCDNDomain{},
 			"cdn_domains_tbl",
 			"cdn_domain",
@@ -61,7 +62,8 @@ func init() {
 }
 
 type SCDNDomain struct {
-	db.SEnabledStatusInfrasResourceBase
+	db.SVirtualResourceBase
+	db.SEnabledResourceBase
 	db.SExternalizedResourceBase
 
 	SDeletePreventableResourceBase
@@ -106,12 +108,12 @@ func (manager *SCDNDomainManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.CDNDomainDetails {
 	rows := make([]api.CDNDomainDetails, len(objs))
-	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.CDNDomainDetails{
-			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
-			ManagedResourceInfo:                    managerRows[i],
+			VirtualResourceDetails: virtRows[i],
+			ManagedResourceInfo:    managerRows[i],
 		}
 	}
 	return rows
@@ -178,6 +180,24 @@ func (self *SCloudprovider) SyncCDNDomains(ctx context.Context, userCred mcclien
 	return result
 }
 
+// 启用资源
+func (self *SCDNDomain) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(self, ctx, userCred, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
+}
+
+// 禁用资源
+func (self *SCDNDomain) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(self, ctx, userCred, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
+}
+
 func (self *SCDNDomain) syncRemoveCloudCDNDomain(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
@@ -204,7 +224,7 @@ func (self *SCDNDomain) ValidateDeleteCondition(ctx context.Context, info jsonut
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("CDN is locked, cannot delete")
 	}
-	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
+	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SCDNDomain) GetICloudCDNDomain(ctx context.Context) (cloudprovider.ICloudCDNDomain, error) {
@@ -263,11 +283,10 @@ func (self *SCDNDomain) SyncWithCloudCDNDomain(ctx context.Context, userCred mcc
 			Action: notifyclient.ActionSyncUpdate,
 		})
 	}
-	syncMetadata(ctx, userCred, self, ext)
 
+	syncVirtualResourceMetadata(ctx, userCred, self, ext)
 	if provider := self.GetCloudprovider(); provider != nil {
-		SyncCloudDomain(userCred, self, provider.GetOwnerId())
-		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+		SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), ext, self.ManagerId)
 	}
 
 	return nil
@@ -298,10 +317,8 @@ func (self *SCloudprovider) newFromCloudCDNDomain(ctx context.Context, userCred 
 		return nil, err
 	}
 
-	syncMetadata(ctx, userCred, &domain, ext)
-	SyncCloudDomain(userCred, &domain, self.GetOwnerId())
-
-	domain.SyncShareState(ctx, userCred, self.getAccountShareInfo())
+	syncVirtualResourceMetadata(ctx, userCred, &domain, ext)
+	SyncCloudProject(ctx, userCred, &domain, self.GetOwnerId(), ext, self.Id)
 
 	db.OpsLog.LogEvent(&domain, db.ACT_CREATE, domain.GetShortDesc(ctx), userCred)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
@@ -343,7 +360,7 @@ func (manager *SCDNDomainManager) ValidateCreateData(
 }
 
 func (self *SCDNDomain) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	self.StartCdnCreateTask(ctx, userCred, "")
 }
 
@@ -382,7 +399,7 @@ func (self *SCDNDomain) Delete(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (self *SCDNDomain) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 // 列出CDN域名
@@ -394,9 +411,14 @@ func (manager *SCDNDomainManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
@@ -416,7 +438,7 @@ func (manager *SCDNDomainManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	switch field {
 	default:
 		var err error
-		q, err = manager.SEnabledStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
+		q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 		if err == nil {
 			return q, nil
 		}
@@ -435,9 +457,9 @@ func (manager *SCDNDomainManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.CDNDomainListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
+	q, err := manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -472,9 +494,9 @@ func (manager *SCDNDomainManager) ListItemExportKeys(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	keys stringutils2.SSortedStrings,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusInfrasResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err := manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemExportKeys")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
 	}
 	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
 		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
