@@ -346,10 +346,31 @@ func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCre
 	return region.GetDriver().ValidateUpdateLoadbalancerBackendData(ctx, userCred, data, lbbg)
 }
 
+func (lbb *SLoadbalancerBackend) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	doSyncTask := false
+	if data.Contains("port") {
+		port, _ := data.Int("port")
+		if lbb.Port != int(port) {
+			doSyncTask = true
+		}
+	}
+
+	if data.Contains("weight") {
+		weight, _ := data.Int("weight")
+		if lbb.Weight != int(weight) {
+			doSyncTask = true
+		}
+	}
+	data.(*jsonutils.JSONDict).Set("do_sync_task", jsonutils.NewBool(doSyncTask))
+}
+
 func (lbb *SLoadbalancerBackend) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbb.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
 	if data.Contains("port") || data.Contains("weight") {
-		lbb.StartLoadBalancerBackendSyncTask(ctx, userCred, "")
+		doSyncTask, _ := data.Bool("do_sync_task")
+		if doSyncTask {
+			lbb.StartLoadBalancerBackendSyncTask(ctx, userCred, "")
+		}
 	}
 }
 
