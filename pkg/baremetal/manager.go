@@ -2872,13 +2872,19 @@ func (s *SBaremetalServer) SyncPartitionSize(term *ssh.Client, parts []*disktool
 
 func (s *SBaremetalServer) DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.Client, data jsonutils.JSONObject, isInit bool) (jsonutils.JSONObject, error) {
 	publicKey := deployapi.GetKeys(data)
-	deploys, _ := data.GetArray("deploys")
 	password, _ := data.GetString("password")
 	resetPassword := jsonutils.QueryBoolean(data, "reset_password", false)
 	if resetPassword && len(password) == 0 {
 		password = seclib.RandomPassword(12)
 	}
-	deployInfo := deployapi.NewDeployInfo(publicKey, deployapi.JsonDeploysToStructs(deploys),
+	deployArray := make([]*deployapi.DeployContent, 0)
+	if data.Contains("deploys") {
+		err := data.Unmarshal(&deployArray, "deploys")
+		if err != nil {
+			return nil, errors.Wrapf(err, "unmarshal to array of deployapi.DeployContent")
+		}
+	}
+	deployInfo := deployapi.NewDeployInfo(publicKey, deployArray,
 		password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false, "",
 		false, "",
 	)

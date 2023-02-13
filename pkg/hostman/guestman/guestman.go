@@ -615,7 +615,13 @@ func (m *SGuestManager) startDeploy(
 		return nil, nil
 	}
 	publicKey := deployapi.GetKeys(deployParams.Body)
-	deploys, _ := deployParams.Body.GetArray("deploys")
+	deployArray := make([]*deployapi.DeployContent, 0)
+	if deployParams.Body.Contains("deploys") {
+		err := deployParams.Body.Unmarshal(&deployArray, "deploys")
+		if err != nil {
+			return nil, errors.Wrapf(err, "unmarshal to array of deployapi.DeployContent")
+		}
+	}
 	password, _ := deployParams.Body.GetString("password")
 	resetPassword := jsonutils.QueryBoolean(deployParams.Body, "reset_password", false)
 	if resetPassword && len(password) == 0 {
@@ -631,7 +637,7 @@ func (m *SGuestManager) startDeploy(
 
 	guestInfo, err := guest.DeployFs(ctx, deployParams.UserCred,
 		deployapi.NewDeployInfo(
-			publicKey, deployapi.JsonDeploysToStructs(deploys),
+			publicKey, deployArray,
 			password, deployParams.IsInit, false,
 			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser,
 			enableCloudInit, loginAccount, deployTelegraf, telegrafConfig,
