@@ -20,7 +20,9 @@ RUN set -x \
         gcc \
         libc-dev \
         libgcc \
-        linux-headers \
+        linux-headers
+
+RUN set -x \
     && mkdir -p $GOPATH/src/github.com/yyyar $GOPATH/bin \
     && cd $GOPATH/src/github.com/yyyar \
     && git clone --depth 1 https://github.com/yyyar/gobetween.git \

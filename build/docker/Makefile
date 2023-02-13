@@ -60,3 +60,7 @@ host-image:
 	docker manifest annotate $(HOST_IMAGE_NAME) $(HOST_IMAGE_NAME)-amd64 --arch amd64
 	docker manifest annotate $(HOST_IMAGE_NAME) $(HOST_IMAGE_NAME)-arm64 --arch arm64
 	docker manifest push $(HOST_IMAGE_NAME)
+
+LBAGENT_BASE_VERSION = v0.0.3
+lbagent-base:
+	$(DOCKER_BUILDX)/lbagent-base:$(LBAGENT_BASE_VERSION) -f ./Dockerfile.lbagent-base .
