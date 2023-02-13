@@ -82,6 +82,8 @@ type SProject struct {
 
 	// 该项目是否为域（domain）
 	IsDomain tristate.TriState `default:"false"`
+
+	AdminId string `width:"64" charset:"ascii" nullable:"true" list:"domain"`
 }
 
 func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {
@@ -92,7 +94,16 @@ func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {
 }
 
 func (manager *SProjectManager) InitializeData() error {
-	return manager.initSysProject(context.TODO())
+	ctx := context.TODO()
+	err := manager.initSysProject(ctx)
+	if err != nil {
+		return errors.Wrap(err, "initSysProject")
+	}
+	err = manager.initAdminUsers(ctx)
+	if err != nil {
+		return errors.Wrap(err, "initAdminUsers")
+	}
+	return nil
 }
 
 func (manager *SProjectManager) initSysProject(ctx context.Context) error {
@@ -122,6 +133,45 @@ func (manager *SProjectManager) initSysProject(ctx context.Context) error {
 	err = manager.TableSpec().Insert(ctx, &project)
 	if err != nil {
 		return errors.Wrap(err, "insert")
+	}
+	return nil
+}
+
+func (manager *SProjectManager) initAdminUsers(ctx context.Context) error {
+	q := manager.Query().IsNullOrEmpty("admin_id")
+	projects := make([]SProject, 0)
+	err := db.FetchModelObjects(manager, q, &projects)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range projects {
+		err := projects[i].resetAdminUser()
+		if err != nil {
+			return errors.Wrap(err, "projects initAdmin")
+		}
+	}
+	return nil
+}
+
+func (project *SProject) resetAdminUser() error {
+	role, err := RoleManager.FetchRoleByName(options.Options.ProjectAdminRole, "", "")
+	if err != nil {
+		return errors.Wrapf(err, "FetchRoleByName %s", options.Options.ProjectAdminRole)
+	}
+	q := AssignmentManager.fetchProjectRoleUserIdsQuery(project.Id, role.Id)
+	userId := struct {
+		ActorId string
+	}{}
+	err = q.First(&userId)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return errors.Wrap(err, "query")
+	}
+	_, err = db.Update(project, func() error {
+		project.AdminId = userId.ActorId
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "update")
 	}
 	return nil
 }
@@ -384,12 +434,16 @@ func (manager *SProjectManager) FetchCustomizeColumns(
 
 	identRows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	projIds := make([]string, len(objs))
+	adminUserIds := make([]string, 0)
 	for i := range rows {
 		rows[i] = api.ProjectDetails{
 			IdentityBaseResourceDetails: identRows[i],
 		}
 		proj := objs[i].(*SProject)
 		projIds[i] = proj.Id
+		if len(proj.AdminId) > 0 {
+			adminUserIds = append(adminUserIds, proj.AdminId)
+		}
 	}
 
 	extResource, extLastUpdate, err := ScopeResourceManager.FetchProjectsScopeResources(projIds)
@@ -401,6 +455,13 @@ func (manager *SProjectManager) FetchCustomizeColumns(
 	if err != nil {
 		return rows
 	}
+
+	userMaps := make(map[string]SUser)
+	err = db.FetchModelObjectsByIds(UserManager, "id", adminUserIds, &userMaps)
+	if err != nil {
+		log.Errorf("FetchModelObjectsByIds fail %s", err)
+	}
+
 	for i := range rows {
 		groups, _ := groupCnt[projIds[i]]
 		users, _ := userCnt[projIds[i]]
@@ -416,7 +477,14 @@ func (manager *SProjectManager) FetchCustomizeColumns(
 			nextUpdate := rows[i].ExtResourcesLastUpdate.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second)
 			rows[i].ExtResourcesNextUpdate = nextUpdate
 		}
-
+		proj := objs[i].(*SProject)
+		if len(proj.AdminId) > 0 {
+			if user, ok := userMaps[proj.AdminId]; ok {
+				rows[i].Admin = user.Name
+				rows[i].AdminDomain = user.GetDomain().Name
+				rows[i].AdminDomainId = user.DomainId
+			}
+		}
 	}
 
 	return rows

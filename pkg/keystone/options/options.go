@@ -67,6 +67,8 @@ type SKeystoneOptions struct {
 	NoPolicyViolationCheck bool `help:"do not check policy violation when modify or assign policy" default:"false"`
 
 	LdapSearchPageSize uint32 `help:"pagination size for LDAP search" default:"100"`
+
+	ProjectAdminRole string `help:"name of role to be saved as admin user of project" default:"project_owner"`
 }
 
 var (
