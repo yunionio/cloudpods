@@ -244,7 +244,7 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 	transport, _ := httpClient.Transport.(*http.Transport)
 	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response), error) {
 		var action string
-		if req.ContentLength > 0 {
+		if req.ContentLength > 0 && !strings.Contains(req.URL.Host, ".s3.") {
 			body, err := ioutil.ReadAll(req.Body)
 			if err != nil {
 				return nil, errors.Wrapf(err, "ioutil.ReadAll")
