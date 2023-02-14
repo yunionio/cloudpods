@@ -671,6 +671,11 @@ func (image *SCachedimage) getValidStoragecache() []SStoragecache {
 	return caches
 }
 
+func (image *SCachedimage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	db.SharedResourceManager.CleanModelShares(ctx, userCred, image.GetISharableVirtualModel())
+	return db.RealDeleteModel(ctx, userCred, image)
+}
+
 func (image *SCachedimage) GetRegions() ([]SCloudregion, error) {
 	regions := []SCloudregion{}
 	caches := image.getValidStoragecache()

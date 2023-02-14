@@ -1795,6 +1795,32 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 	return nil
 }
 
+func RealDeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IModel) error {
+	if len(item.GetId()) == 0 {
+		return DeleteModel(ctx, userCred, item)
+	}
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"delete from %s where id = ?",
+			item.GetModelManager().TableSpec().Name(),
+		), item.GetId(),
+	)
+	if err != nil {
+		return httperrors.NewGeneralError(errors.Wrapf(err, "db.Update"))
+	}
+	if userCred != nil {
+		OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
+		logclient.AddSimpleActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
+	}
+	if _, ok := item.(IStandaloneModel); ok && len(item.GetId()) > 0 {
+		err := Metadata.RemoveAll(ctx, item, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "Metadata.RemoveAll")
+		}
+	}
+	return nil
+}
+
 func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	details, err := getItemDetails(manager, model, ctx, userCred, query)
 	if err != nil {

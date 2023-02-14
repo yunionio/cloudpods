@@ -174,7 +174,30 @@ func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredent
 		}
 	}
 	DeleteResourceJointSchedtags(self, ctx, userCred)
+	ok, err := self.IsNeedDeleteStoragecache()
+	if err != nil {
+		return err
+	}
+	if ok {
+		cache := self.GetStoragecache()
+		if cache != nil {
+			cache.Delete(ctx, userCred)
+		}
+	}
+	if len(self.ManagerId) > 0 {
+		db.SharedResourceManager.CleanModelShares(ctx, userCred, self.GetIInfrasModel())
+		return db.RealDeleteModel(ctx, userCred, self)
+	}
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SStorage) IsNeedDeleteStoragecache() (bool, error) {
+	q := StorageManager.Query().Equals("storagecache_id", self.StoragecacheId).NotEquals("id", self.Id)
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return false, err
+	}
+	return cnt == 0, nil
 }
 
 func (manager *SStorageManager) GetStorageTypesByHostType(hostType string) ([]string, error) {
