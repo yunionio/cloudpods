@@ -32,7 +32,7 @@ var baremetalTaskWorkerMan *appsrv.SWorkerManager
 
 func GetWorkManager() *appsrv.SWorkerManager {
 	if baremetalTaskWorkerMan == nil {
-		baremetalTaskWorkerMan = appsrv.NewWorkerManager("BaremetalTaskWorkerManager", options.Options.TaskWorkerCount, 1024, false)
+		baremetalTaskWorkerMan = appsrv.NewWorkerManager("BaremetalTaskWorkerManager", options.Options.BaremetalTaskWorkerCount, 1024, false)
 	}
 	return baremetalTaskWorkerMan
 }
