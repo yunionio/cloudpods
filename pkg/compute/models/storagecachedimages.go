@@ -232,7 +232,13 @@ func (manager *SStoragecachedimageManager) GetStoragecachedimage(cacheId string,
 }
 
 func (self *SStoragecachedimage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DeleteModel(ctx, userCred, self)
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"delete from %s where row_id = ?",
+			self.GetModelManager().TableSpec().Name(),
+		), self.RowId,
+	)
+	return err
 }
 
 func (self *SStoragecachedimage) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
