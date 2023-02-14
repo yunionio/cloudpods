@@ -183,7 +183,7 @@ func (self *SHuaweiClient) getDefaultClient() *http.Client {
 		}
 		if self.cpcfg.ReadOnly {
 			// get or metric skip read only check
-			if req.Method == "GET" || strings.HasPrefix(req.URL.Path, "https://ces") {
+			if req.Method == "GET" || strings.HasPrefix(req.URL.Host, "ces") {
 				return respCheck, nil
 			}
 			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
