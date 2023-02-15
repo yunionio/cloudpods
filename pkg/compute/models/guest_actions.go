@@ -4157,6 +4157,7 @@ func (self *SGuest) createConvertedServer(
 	// generate guest create params
 	createInput := self.ToCreateInput(ctx, userCred)
 	createInput.Hypervisor = api.HYPERVISOR_KVM
+	createInput.PreferHost = ""
 	createInput.Vdi = api.VM_VDI_PROTOCOL_VNC
 	createInput.GenerateName = fmt.Sprintf("%s-%s", self.Name, api.HYPERVISOR_KVM)
 	// change drivers so as to bootable in KVM
@@ -4164,6 +4165,9 @@ func (self *SGuest) createConvertedServer(
 		if createInput.Disks[i].Driver != "ide" {
 			createInput.Disks[i].Driver = "ide"
 		}
+		createInput.Disks[i].Format = ""
+		createInput.Disks[i].Backend = ""
+		createInput.Disks[i].Medium = ""
 	}
 	for i := range createInput.Networks {
 		if createInput.Networks[i].Driver != "e1000" && createInput.Networks[i].Driver != "vmxnet3" {
