@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	hostutils "yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -40,6 +41,12 @@ func (m *SGuestManager) GuestCreateFromEsxi(
 	if err := guest.SaveSourceDesc(createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
+	guest.Desc = new(desc.SGuestDesc)
+	jsonutils.Marshal(createConfig.GuestDesc).Unmarshal(guest.Desc)
+	if err := guest.SaveLiveDesc(guest.Desc); err != nil {
+		return nil, err
+	}
+
 	esxiCli, err := esxi.NewESXiClientFromAccessInfo(ctx, &createConfig.EsxiAccessInfo.Datastore)
 	if err != nil {
 		return nil, errors.Wrap(err, "new esxi client")
@@ -82,7 +89,7 @@ func (m *SGuestManager) GuestCreateFromEsxi(
 	log.Infof("Connection disks %v", connections.String())
 
 	var ret = jsonutils.NewDict()
-	disksDesc := guest.Desc.Disks
+	disksDesc := guest.SourceDesc.Disks
 	for i := 0; i < len(disksDesc); i++ {
 		storageId := disksDesc[i].StorageId
 		if storage := storageman.GetManager().GetStorage(storageId); storage == nil {

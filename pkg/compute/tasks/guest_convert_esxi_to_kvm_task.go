@@ -51,6 +51,10 @@ func (self *GuestConvertEsxiToKvmTask) GetSchedParams() (*schedapi.ScheduleInput
 		preferHostId, _ := self.Params.GetString("prefer_host_id")
 		schedDesc.ServerConfig.PreferHost = preferHostId
 	}
+	for i := range schedDesc.Disks {
+		schedDesc.Disks[i].Backend = ""
+		schedDesc.Disks[i].Medium = ""
+	}
 	schedDesc.Hypervisor = api.HYPERVISOR_KVM
 	return schedDesc, nil
 }
@@ -211,6 +215,12 @@ func (self *GuestConvertEsxiToKvmTask) TaskComplete(ctx context.Context, guest, 
 			}
 		}
 	}
+	for _, k := range []string{api.VM_METADATA_OS_ARCH, api.VM_METADATA_OS_DISTRO, api.VM_METADATA_OS_NAME, api.VM_METADATA_OS_VERSION} {
+		if v := guest.GetMetadata(ctx, k, self.UserCred); len(v) > 0 {
+			targetGuest.SetMetadata(ctx, k, v, self.UserCred)
+		}
+	}
+
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERT, "", self.UserCred)
 	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CONVERT, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
