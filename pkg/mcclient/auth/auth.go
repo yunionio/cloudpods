@@ -181,12 +181,24 @@ func (a *authManager) verify(ctx context.Context, token string) (mcclient.TokenC
 	return cred, nil
 }
 
+var (
+	defaultAuthSource = mcclient.AuthSourceSrv
+)
+
+func SetDefaultAuthSource(src string) {
+	defaultAuthSource = src
+}
+
+func GetDefaultAuthSource() string {
+	return defaultAuthSource
+}
+
 func (a *authManager) authAdmin() error {
 	var token mcclient.TokenCredential
 	var err error
 	token, err = a.client.AuthenticateWithSource(
 		a.info.Username, a.info.Passwd, a.info.Domain,
-		a.info.Project, a.info.ProjectDomain, mcclient.AuthSourceSrv)
+		a.info.Project, a.info.ProjectDomain, GetDefaultAuthSource())
 	if err != nil {
 		log.Errorf("Admin auth failed: %s", err)
 		return err
