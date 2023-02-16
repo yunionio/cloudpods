@@ -265,6 +265,8 @@ func (self *SGuestdisk) ToDiskConfig() *api.DiskConfig {
 	conf := disk.ToDiskConfig()
 	conf.Index = int(self.Index)
 	conf.Mountpoint = self.Mountpoint
+	conf.Driver = self.Driver
+	conf.Cache = self.CacheMode
 	return conf
 }
 

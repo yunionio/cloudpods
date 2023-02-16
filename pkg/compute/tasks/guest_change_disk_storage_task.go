@@ -232,7 +232,8 @@ func (t *GuestChangeDiskStorageTask) OnDiskChangeStorageComplete(ctx context.Con
 	}
 
 	conf := guestSrcDisk.ToDiskConfig()
-	t.SetStage("OnSourceDiskDetachComplete", jsonutils.Marshal(conf).(*jsonutils.JSONDict))
+	t.Params.Set("src_disk_conf", jsonutils.Marshal(conf))
+	t.SetStage("OnSourceDiskDetachComplete", nil)
 	if err := t.detachSourceDisk(ctx, guest, srcDisk); err != nil {
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("detachSourceDisk: %s", err)))
 		return
@@ -258,7 +259,7 @@ func (t *GuestChangeDiskStorageTask) detachSourceDisk(ctx context.Context, guest
 func (t *GuestChangeDiskStorageTask) OnSourceDiskDetachComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	t.SetStage("OnTargetDiskAttachComplete", data.(*jsonutils.JSONDict))
 	conf := new(api.DiskConfig)
-	if err := data.Unmarshal(conf); err != nil {
+	if err := t.Params.Unmarshal(conf, "src_disk_conf"); err != nil {
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("unmarshal %s to api.DiskConfig: %s", data, err)))
 		return
 	}
