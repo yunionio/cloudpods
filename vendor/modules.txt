@@ -382,7 +382,7 @@ github.com/elgatito/upnp
 # github.com/farsightsec/golang-framestream v0.0.0-20181102145529-8a0cb8ba8710
 ## explicit
 github.com/farsightsec/golang-framestream
-# github.com/fatih/color v1.10.0
+# github.com/fatih/color v1.13.0
 ## explicit; go 1.13
 github.com/fatih/color
 # github.com/fernet/fernet-go v0.0.0-20180830025343-9eac43b88a5e
@@ -645,7 +645,7 @@ github.com/libvirt/libvirt-go-xml
 # github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0
 ## explicit; go 1.16
 github.com/lufia/plan9stats
-# github.com/ma314smith/signedxml v0.0.0-20200410192636-c342a2d0ae60
+# github.com/ma314smith/signedxml v0.0.0-20210628192057-abc5b481ae1c
 ## explicit
 github.com/ma314smith/signedxml
 # github.com/mattn/go-colorable v0.1.9
@@ -718,8 +718,8 @@ github.com/mohae/deepcopy
 # github.com/mozillazg/go-httpheader v0.2.1
 ## explicit
 github.com/mozillazg/go-httpheader
-# github.com/mozillazg/go-pinyin v0.15.0
-## explicit
+# github.com/mozillazg/go-pinyin v0.19.0
+## explicit; go 1.11
 github.com/mozillazg/go-pinyin
 # github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae
 ## explicit
@@ -836,13 +836,14 @@ github.com/sirupsen/logrus
 github.com/skip2/go-qrcode
 github.com/skip2/go-qrcode/bitset
 github.com/skip2/go-qrcode/reedsolomon
-# github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d
-## explicit
+# github.com/smartystreets/assertions v1.2.0
+## explicit; go 1.13
 github.com/smartystreets/assertions
+github.com/smartystreets/assertions/internal/go-diff/diffmatchpatch
 github.com/smartystreets/assertions/internal/go-render/render
 github.com/smartystreets/assertions/internal/oglematchers
-# github.com/smartystreets/goconvey v1.6.4
-## explicit
+# github.com/smartystreets/goconvey v1.7.2
+## explicit; go 1.16
 github.com/smartystreets/goconvey/convey
 github.com/smartystreets/goconvey/convey/gotest
 github.com/smartystreets/goconvey/convey/reporting
@@ -895,6 +896,11 @@ github.com/tklauser/numcpus
 github.com/tredoe/osutil/user/crypt
 github.com/tredoe/osutil/user/crypt/common
 github.com/tredoe/osutil/user/crypt/sha512_crypt
+# github.com/tredoe/osutil/v2 v2.0.0-rc.16
+## explicit; go 1.16
+github.com/tredoe/osutil/v2/userutil/crypt
+github.com/tredoe/osutil/v2/userutil/crypt/common
+github.com/tredoe/osutil/v2/userutil/crypt/sha512_crypt
 # github.com/ugorji/go/codec v1.1.7
 ## explicit
 github.com/ugorji/go/codec
@@ -1248,7 +1254,7 @@ gopkg.in/fatih/set.v0
 # gopkg.in/inf.v0 v0.9.1
 ## explicit
 gopkg.in/inf.v0
-# gopkg.in/ini.v1 v1.44.0
+# gopkg.in/ini.v1 v1.62.0
 ## explicit
 gopkg.in/ini.v1
 # gopkg.in/ldap.v3 v3.0.3
@@ -1443,7 +1449,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.0.1-0.20221031045951-0b770b490c45
+# yunion.io/x/pkg v1.0.1-0.20230102060551-df05ccecb71c
 ## explicit; go 1.18
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
@@ -1479,7 +1485,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.2-0.20220923040147-ddd3e96868af
+# yunion.io/x/sqlchemy v1.1.2-0.20230209140205-3ee293d3963b
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends

@@ -69,8 +69,11 @@ type ITableSpec interface {
 	// AddIndex adds index to table
 	AddIndex(unique bool, cols ...string) bool
 
-	// SyncSQL forces synchronize the data definition and model definition of the table
+	// SyncSQL returns SQL strings to synchronize the data and model definition of the table
 	SyncSQL() []string
+
+	// Sync forces synchronize the data and model definition of the table
+	Sync() error
 
 	// Fetch query a struct
 	Fetch(dt interface{}) error
