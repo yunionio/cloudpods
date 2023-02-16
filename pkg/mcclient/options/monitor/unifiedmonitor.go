@@ -14,15 +14,28 @@
 
 package monitor
 
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
-	options "yunion.io/x/onecloud/pkg/mcclient/options/monitor"
-)
+import "yunion.io/x/jsonutils"
 
-func init() {
-	cmd := shell.NewResourceCmd(monitor.UnifiedMonitorManager).SetPrefix("monitor")
-	cmd.Show(&options.SimpleQueryOptions{})
-	cmd.GetProperty(&options.MeasurementsQueryOptions{})
-	cmd.GetProperty(&options.DatabasesQueryOptions{})
+type MeasurementsQueryOptions struct {
+	Scope           string `json:"scope"`
+	ProjectDomainId string `json:"project_domin_id"`
+	ProjectId       string `json:"project_id"`
+}
+
+func (o MeasurementsQueryOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
+func (o MeasurementsQueryOptions) Property() string {
+	return "measurements"
+}
+
+type DatabasesQueryOptions struct{}
+
+func (o DatabasesQueryOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (o DatabasesQueryOptions) Property() string {
+	return "databases"
 }
