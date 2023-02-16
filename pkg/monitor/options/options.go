@@ -37,7 +37,8 @@ type AlerterOptions struct {
 
 	WorkerCheckInterval int `default:"180"`
 
-	AutoMigrationMustPair bool `default:"false" help:"result of auto migration source guests and target hosts must be paired"`
+	AutoMigrationMustPair      bool `default:"false" help:"result of auto migration source guests and target hosts must be paired"`
+	DisableQuerySignatureCheck bool `default:"false" help:"disable query signature check"`
 }
 
 var (
