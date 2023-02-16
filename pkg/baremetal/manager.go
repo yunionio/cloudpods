@@ -530,9 +530,12 @@ func newBaremetalInstance(man *SBaremetalManager, desc jsonutils.JSONObject) (*S
 		serverLock: new(sync.Mutex),
 	}
 	bm.cronJobs = []IBaremetalCronJob{
-		NewStatusProbeJob(bm, time.Duration(o.Options.StatusProbeIntervalSeconds)*time.Second),
 		NewLogFetchJob(bm, time.Duration(o.Options.LogFetchIntervalSeconds)*time.Second),
 		NewSendMetricsJob(bm, time.Duration(o.Options.SendMetricsIntervalSeconds)*time.Second),
+	}
+	hostType, _ := bm.desc.GetString("host_type")
+	if !utils.IsInStringArray(hostType, []string{api.HOST_TYPE_KVM, api.HOST_TYPE_HYPERVISOR}) {
+		bm.cronJobs = append(bm.cronJobs, NewStatusProbeJob(bm, time.Duration(o.Options.StatusProbeIntervalSeconds)*time.Second))
 	}
 	err := os.MkdirAll(bm.GetDir(), 0755)
 	if err != nil {
