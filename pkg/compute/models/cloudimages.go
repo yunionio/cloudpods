@@ -121,7 +121,10 @@ func SyncPublicCloudImages(ctx context.Context, userCred mcclient.TokenCredentia
 func (self *SCloudimage) syncRemove(ctx context.Context, userCred mcclient.TokenCredential) error {
 	_image, err := db.FetchByExternalId(CachedimageManager, self.ExternalId)
 	if err != nil {
-		return errors.Wrapf(err, "db.FetchByExternalId")
+		if errors.Cause(err) == sql.ErrNoRows {
+			return self.Delete(ctx, userCred)
+		}
+		return errors.Wrapf(err, "db.FetchByExternalId(%s)", self.ExternalId)
 	}
 	image := _image.(*SCachedimage)
 
