@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/notify/models"
+	"yunion.io/x/onecloud/pkg/notify/options"
 	rpcapi "yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -167,6 +168,14 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		if err != nil {
 			self.taskFailed(ctx, notification, err.Error(), false)
 		}
+
+		switch lang {
+		case apis.TEMPLATE_LANG_CN:
+			p.Message += "\n来自 " + options.Options.ApiServer
+		case apis.TEMPLATE_LANG_EN:
+			p.Message += "\nfrom " + options.Options.ApiServer
+		}
+
 		// set status before send
 		now := time.Now()
 		for _, rn := range receivers {
