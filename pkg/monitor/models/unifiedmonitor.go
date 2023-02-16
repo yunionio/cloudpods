@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
+	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
@@ -188,8 +189,10 @@ func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Con
 func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	tmp := jsonutils.DeepCopy(data)
 	self.handleDataPreSignature(ctx, tmp)
-	if err := ValidateQuerySignature(tmp); err != nil {
-		return nil, errors.Wrap(err, "ValidateQuerySignature")
+	if !options.Options.DisableQuerySignatureCheck {
+		if err := ValidateQuerySignature(tmp); err != nil {
+			return nil, errors.Wrap(err, "ValidateQuerySignature")
+		}
 	}
 	inputQuery := new(monitor.MetricInputQuery)
 	err := data.Unmarshal(inputQuery)
