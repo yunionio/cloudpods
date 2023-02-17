@@ -16,6 +16,7 @@ package google
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -46,6 +47,10 @@ func (region *SRegion) GetStorages(zone string, maxResults int, pageToken string
 	resource := fmt.Sprintf("zones/%s/diskTypes", zone)
 	params := map[string]string{}
 	return storages, region.List(resource, params, maxResults, pageToken, &storages)
+}
+
+func (self *SStorage) GetGlobalId() string {
+	return strings.TrimPrefix(self.SelfLink, fmt.Sprintf("%s/%s/", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION))
 }
 
 func (region *SRegion) GetStorage(id string) (*SStorage, error) {
