@@ -315,11 +315,23 @@ var (
 		City:        CITY_ZURICH,
 		CountryCode: COUNTRY_CODE_CH,
 	}
+	RegionMilan = cloudprovider.SGeographicInfo{
+		Latitude:    45.4627124,
+		Longitude:   9.1076929,
+		City:        CITY_MILAN,
+		CountryCode: COUNTRY_CODE_IT,
+	}
 	RegionWarsaw = cloudprovider.SGeographicInfo{
 		Latitude:    52.233333,
 		Longitude:   21.016667,
 		City:        CITY_WARSAW,
 		CountryCode: COUNTRY_CODE_PL,
+	}
+	RegionMadrid = cloudprovider.SGeographicInfo{
+		Latitude:    40.4378698,
+		Longitude:   -3.8196188,
+		City:        CITY_MADRID,
+		CountryCode: COUNTRY_CODE_ES,
 	}
 	RegionIreland = cloudprovider.SGeographicInfo{
 		Latitude:    53.41291,
@@ -533,6 +545,18 @@ var (
 		Longitude:   -115.3150811,
 		City:        CITY_LAS_VEGAS,
 		CountryCode: COUNTRY_CODE_US,
+	}
+	RegionDallas = cloudprovider.SGeographicInfo{
+		Latitude:    32.7844251,
+		Longitude:   -96.8913045,
+		City:        CITY_DALLAS,
+		CountryCode: COUNTRY_CODE_US,
+	}
+	RegionColumbus = cloudprovider.SGeographicInfo{
+		Latitude:    32.0879267,
+		Longitude:   34.7622266,
+		City:        CITY_TEL_AVIV,
+		CountryCode: COUNTRY_CODE_IL,
 	}
 	RegionNorthCalifornia = cloudprovider.SGeographicInfo{
 		Latitude:    38.8375215,
