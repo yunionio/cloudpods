@@ -32,13 +32,16 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"australia-southeast1": api.RegionSydney,
 	"australia-southeast2": api.RegionMelbourne,
 
-	"europe-north1":   api.RegionFinland,
-	"europe-west1":    api.RegionBelgium,
-	"europe-west2":    api.RegionLondon,
-	"europe-west3":    api.RegionFrankfurt,
-	"europe-west4":    api.RegionHolland,
-	"europe-west6":    api.RegionZurich,
-	"europe-central2": api.RegionWarsaw,
+	"europe-north1":     api.RegionFinland,
+	"europe-west1":      api.RegionBelgium,
+	"europe-west2":      api.RegionLondon,
+	"europe-west3":      api.RegionFrankfurt,
+	"europe-west4":      api.RegionHolland,
+	"europe-west6":      api.RegionZurich,
+	"europe-west8":      api.RegionMilan,
+	"europe-west9":      api.RegionParis,
+	"europe-central2":   api.RegionWarsaw,
+	"europe-southwest1": api.RegionMadrid,
 
 	"northamerica-northeast1": api.RegionMontreal,
 	"northamerica-northeast2": api.RegionToronto,
@@ -46,11 +49,15 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"us-central1":             api.RegionIowa,
 	"us-east1":                api.RegionCarolina,
 	"us-east4":                api.RegionNothVirginia,
+	"us-east5":                api.RegionColumbus,
 	"us-west1":                api.RegionOregon,
 	"us-west2":                api.RegionLosAngeles,
 	"us-west3":                api.RegionSaltLakeCity,
 	"us-west4":                api.RegionLasVegas,
+	"us-south1":               api.RegionDallas,
 	"southamerica-west1":      api.RegionSantiago,
+
+	"me-west1": api.RegionColumbus,
 }
 
 var RegionNames = map[string]string{
@@ -66,13 +73,16 @@ var RegionNames = map[string]string{
 	"australia-southeast1": "悉尼",
 	"australia-southeast2": "墨尔本",
 
-	"europe-north1":   "芬兰",
-	"europe-west1":    "比利时",
-	"europe-west2":    "伦敦",
-	"europe-west3":    "法兰克福",
-	"europe-west4":    "荷兰",
-	"europe-west6":    "苏黎世",
-	"europe-central2": "华沙",
+	"europe-north1":     "芬兰",
+	"europe-west1":      "比利时",
+	"europe-west2":      "伦敦",
+	"europe-west3":      "法兰克福",
+	"europe-west4":      "荷兰",
+	"europe-west6":      "苏黎世",
+	"europe-west8":      "米兰",
+	"europe-west9":      "巴黎",
+	"europe-central2":   "华沙",
+	"europe-southwest1": "马德里",
 
 	"northamerica-northeast1": "蒙特利尔",
 	"northamerica-northeast2": "多伦多",
@@ -81,10 +91,14 @@ var RegionNames = map[string]string{
 	"us-central1":             "爱荷华",
 	"us-east1":                "南卡罗来纳州",
 	"us-east4":                "北弗吉尼亚",
+	"us-east5":                "哥伦布",
 	"us-west1":                "俄勒冈州",
 	"us-west2":                "洛杉矶",
 	"us-west3":                "盐湖城",
 	"us-west4":                "拉斯维加斯",
+	"us-south1":               "达拉斯",
+
+	"me-west1": "特拉维夫",
 
 	// Multi-region
 	"us":   "美国的多区域",
