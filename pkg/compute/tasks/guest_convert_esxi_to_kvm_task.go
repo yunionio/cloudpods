@@ -54,6 +54,7 @@ func (self *GuestConvertEsxiToKvmTask) GetSchedParams() (*schedapi.ScheduleInput
 	for i := range schedDesc.Disks {
 		schedDesc.Disks[i].Backend = ""
 		schedDesc.Disks[i].Medium = ""
+		schedDesc.Disks[i].Storage = ""
 	}
 	schedDesc.Hypervisor = api.HYPERVISOR_KVM
 	return schedDesc, nil
