@@ -174,7 +174,7 @@ github.com/anacrolix/utp
 # github.com/aokoli/goutils v1.0.1
 ## explicit
 github.com/aokoli/goutils
-# github.com/apache/thrift v0.12.0
+# github.com/apache/thrift v0.13.0
 ## explicit
 github.com/apache/thrift/lib/go/thrift
 # github.com/aws/aws-sdk-go v1.39.0
