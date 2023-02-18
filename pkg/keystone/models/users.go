@@ -1229,7 +1229,13 @@ func (user *SUser) PerformResetCredentials(
 ) (jsonutils.JSONObject, error) {
 	err := CredentialManager.DeleteAll(ctx, userCred, user.Id, input.Type)
 	if err != nil {
-		return nil, errors.Wrap(err, "DeleteAll")
+		return nil, errors.Wrapf(err, "DeleteAll %s", input.Type)
+	}
+	if input.Type == api.TOTP_TYPE {
+		err := CredentialManager.DeleteAll(ctx, userCred, user.Id, api.RECOVERY_SECRETS_TYPE)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DeleteAll %s", api.RECOVERY_SECRETS_TYPE)
+		}
 	}
 	return nil, nil
 }
