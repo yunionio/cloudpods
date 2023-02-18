@@ -67,7 +67,7 @@ github.com/DataDog/zstd
 # github.com/LeeEirc/terminalparser v0.0.0-20220328021224-de16b7643ea4
 ## explicit; go 1.15
 github.com/LeeEirc/terminalparser
-# github.com/Masterminds/goutils v1.1.0
+# github.com/Masterminds/goutils v1.1.1
 ## explicit
 github.com/Masterminds/goutils
 # github.com/Masterminds/semver v1.5.0
