@@ -191,10 +191,13 @@ func (o *SOVSBridgeDriver) getUpScripts(nic *desc.SGuestNetwork, isVolatileHost 
 	s += "PORT=$(ovs-ofctl show $SWITCH | grep -w $IF)\n"
 	s += "PORT=$(echo $PORT | awk 'BEGIN{FS=\"(\"}{print $1}')\n"
 	s += "OFCTL=$(ovs-vsctl get-controller $SWITCH)\n"
-	s += "if [ -z \"$OFCTL\" ]; then\n"
-	s += "    ovs-vsctl set Interface $IF ingress_policing_rate=$LIMIT\n"
-	s += "    ovs-vsctl set Interface $IF ingress_policing_burst=$BURST\n"
-	s += "fi\n"
+	if nic.Driver != compute.NETWORK_DRIVER_VFIO {
+		s += "if [ -z \"$OFCTL\" ]; then\n"
+		s += "    ovs-vsctl set Interface $IF ingress_policing_rate=$LIMIT\n"
+		s += "    ovs-vsctl set Interface $IF ingress_policing_burst=$BURST\n"
+		s += "fi\n"
+	}
+
 	s += "if [ $LIMIT_DOWNLOAD != \"0mbit\" ]; then\n"
 	s += "    tc qdisc del dev $IF root 2>/dev/null\n"
 	s += "    tc qdisc add dev $IF root handle 1: htb default 10\n"

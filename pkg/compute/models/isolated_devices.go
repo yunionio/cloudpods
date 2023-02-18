@@ -94,6 +94,8 @@ type SIsolatedDevice struct {
 	NetworkIndex int8 `nullable:"true" default:"-1" list:"user" update:"user"`
 	// Nic wire id
 	WireId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// Offload interface name
+	OvsOffloadInterface string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus.addr`
 	Addr string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
@@ -664,13 +666,14 @@ func (manager *SIsolatedDeviceManager) TotalCount(
 
 func (self *SIsolatedDevice) getDesc() *api.IsolatedDeviceJsonDesc {
 	return &api.IsolatedDeviceJsonDesc{
-		Id:             self.Id,
-		DevType:        self.DevType,
-		Model:          self.Model,
-		Addr:           self.Addr,
-		VendorDeviceId: self.VendorDeviceId,
-		Vendor:         self.getVendor(),
-		NetworkIndex:   self.NetworkIndex,
+		Id:                  self.Id,
+		DevType:             self.DevType,
+		Model:               self.Model,
+		Addr:                self.Addr,
+		VendorDeviceId:      self.VendorDeviceId,
+		Vendor:              self.getVendor(),
+		NetworkIndex:        self.NetworkIndex,
+		OvsOffloadInterface: self.OvsOffloadInterface,
 	}
 }
 

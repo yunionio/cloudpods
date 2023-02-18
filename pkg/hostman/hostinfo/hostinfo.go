@@ -1842,18 +1842,52 @@ func (h *SHostInfo) probeSyncIsolatedDevicesStep() {
 	h.deployAdminAuthorizedKeys()
 }
 
-func (h *SHostInfo) getNicsInterfaces() [][2]string {
-	res := [][2]string{}
+func (h *SHostInfo) getNicsInterfaces(nics []string) []isolated_device.HostNic {
+	if len(nics) == 0 {
+		return nil
+	}
+	res := []isolated_device.HostNic{}
 	for i := 0; i < len(h.Nics); i++ {
-		res = append(res, [2]string{h.Nics[i].Inter, h.Nics[i].WireId})
+		if utils.IsInStringArray(h.Nics[i].Inter, nics) {
+			res = append(res, isolated_device.HostNic{h.Nics[i].Bridge, h.Nics[i].Inter, h.Nics[i].WireId})
+		}
 	}
 	return res
 }
 
+func (h *SHostInfo) getNicsOvsOffloadInterfaces(nics []string) ([]isolated_device.HostNic, error) {
+	if len(nics) == 0 {
+		return nil, nil
+	}
+
+	res := []isolated_device.HostNic{}
+	for i := 0; i < len(h.Nics); i++ {
+		if utils.IsInStringArray(h.Nics[i].Inter, nics) {
+			if fileutils2.Exists(fmt.Sprintf("/sys/class/net/%s/bonding/slaves", h.Nics[i].Inter)) {
+				interStr, err := fileutils2.FileGetContents(fmt.Sprintf("/sys/class/net/%s/bonding/slaves", h.Nics[i].Inter))
+				if err != nil {
+					return nil, err
+				}
+				inters := strings.Split(strings.TrimSpace(interStr), " ")
+				for _, inter := range inters {
+					res = append(res, isolated_device.HostNic{h.Nics[i].Bridge, inter, h.Nics[i].WireId})
+				}
+			} else {
+				res = append(res, isolated_device.HostNic{h.Nics[i].Bridge, h.Nics[i].Inter, h.Nics[i].WireId})
+			}
+		}
+	}
+	return res, nil
+}
+
 func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
+	offloadNics, err := h.getNicsOvsOffloadInterfaces(options.HostOptions.OvsOffloadNics)
+	if err != nil {
+		return nil, err
+	}
+	sriovNics := h.getNicsInterfaces(options.HostOptions.SRIOVNics)
 	if err := h.IsolatedDeviceMan.ProbePCIDevices(
-		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB,
-		options.HostOptions.DisableSRIOVNic, h.getNicsInterfaces(),
+		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB, sriovNics, offloadNics,
 	); err != nil {
 		return nil, errors.Wrap(err, "ProbePCIDevices")
 	}

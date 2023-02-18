@@ -66,6 +66,7 @@ type IDevice interface {
 	SetHostId(hId string)
 	GetGuestId() string
 	GetWireId() string
+	GetOvsOffloadInterfaceName() string
 	GetVendorDeviceId() string
 	GetAddr() string
 	GetDeviceType() string
@@ -95,7 +96,7 @@ type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId string, addr string) IDevice
 	GetDeviceByAddr(addr string) IDevice
-	ProbePCIDevices(skipGPUs, skipUSBs, skipSRIOVNics bool, nics [][2]string) error
+	ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic) error
 	StartDetachTask()
 	BatchCustomProbe() error
 	AppendDetachedDevice(dev *CloudDeviceInfo)
@@ -122,7 +123,13 @@ func (man *isolatedDeviceManager) GetDevices() []IDevice {
 	return man.devices
 }
 
-func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipSRIOVNics bool, nics [][2]string) error {
+type HostNic struct {
+	Bridge    string
+	Interface string
+	Wire      string
+}
+
+func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic) error {
 	man.devices = make([]IDevice, 0)
 	if !skipGPUs {
 		gpus, err := getPassthroughGPUS()
@@ -149,10 +156,21 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipSRIOVN
 		}
 	}
 
-	if !skipSRIOVNics {
-		nics, err := getSRIOVNics(nics)
+	if len(sriovNics) > 0 {
+		nics, err := getSRIOVNics(sriovNics)
 		if err != nil {
 			log.Errorf("getSRIOVNics: %v", err)
+			return nil
+		}
+		for idx, nic := range nics {
+			man.devices = append(man.devices, nic)
+			log.Infof("Add sriov nic: %d => %#v", idx, nic)
+		}
+	}
+	if len(ovsOffloadNics) > 0 {
+		nics, err := getOvsOffloadNics(ovsOffloadNics)
+		if err != nil {
+			log.Errorf("getOvsOffloadNics: %v", err)
 			return nil
 		}
 		for idx, nic := range nics {
@@ -327,6 +345,10 @@ func (dev *sBaseDevice) GetVirtfn() int {
 	return -1
 }
 
+func (dev *sBaseDevice) GetOvsOffloadInterfaceName() string {
+	return ""
+}
+
 func (dev *sBaseDevice) GetModelName() string {
 	if dev.dev.ModelName != "" {
 		return dev.dev.ModelName
@@ -362,6 +384,9 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	}
 	if len(dev.GetWireId()) != 0 {
 		data["wire_id"] = dev.GetWireId()
+	}
+	if len(dev.GetOvsOffloadInterfaceName()) != 0 {
+		data["ovs_offload_interface"] = dev.GetOvsOffloadInterfaceName()
 	}
 	return jsonutils.Marshal(data).(*jsonutils.JSONDict)
 }

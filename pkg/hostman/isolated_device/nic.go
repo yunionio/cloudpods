@@ -27,16 +27,17 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
-func getSRIOVNics(hostNics [][2]string) ([]*sSRIOVNicDevice, error) {
+func getSRIOVNics(hostNics []HostNic) ([]*sSRIOVNicDevice, error) {
 	sysfsNetDir := "/sys/class/net"
 	files, err := ioutil.ReadDir(sysfsNetDir)
 	if err != nil {
 		return nil, err
 	}
-	nics := [][2]string{}
+	nics := []HostNic{}
 	for i := 0; i < len(files); i++ {
 		nicPath, err := filepath.EvalSymlinks(path.Join(sysfsNetDir, files[i].Name()))
 		if err != nil {
@@ -47,15 +48,20 @@ func getSRIOVNics(hostNics [][2]string) ([]*sSRIOVNicDevice, error) {
 		}
 		var idx int
 		for idx = range hostNics {
-			if hostNics[idx][0] == files[i].Name() {
+			if hostNics[idx].Interface == files[i].Name() {
 				nics = append(nics, hostNics[idx])
 			}
 		}
 	}
+
 	log.Infof("host nics %s detected support sriov nics %v", hostNics, nics)
 	sriovNics := make([]*sSRIOVNicDevice, 0)
 	for i := 0; i < len(nics); i++ {
-		nicDir := path.Join(sysfsNetDir, nics[i][0], "device")
+		nicDir := path.Join(sysfsNetDir, nics[i].Interface, "device")
+		err = ensureNumvfsEqualTotalvfs(nicDir)
+		if err != nil {
+			return nil, err
+		}
 		vfs, err := ioutil.ReadDir(nicDir)
 		if err != nil {
 			return nil, err
@@ -75,11 +81,29 @@ func getSRIOVNics(hostNics [][2]string) ([]*sSRIOVNicDevice, error) {
 				if err != nil {
 					return nil, err
 				}
-				sriovNics = append(sriovNics, NewSRIOVNicDevice(vfDev, api.NIC_TYPE, nics[i][1], nics[i][0], virtfn))
+				sriovNics = append(sriovNics, NewSRIOVNicDevice(vfDev, api.NIC_TYPE, nics[i].Wire, nics[i].Interface, virtfn))
 			}
 		}
 	}
 	return sriovNics, nil
+}
+
+func ensureNumvfsEqualTotalvfs(nicDir string) error {
+	sriovNumvfs := path.Join(nicDir, "sriov_numvfs")
+	sriovTotalvfs := path.Join(nicDir, "sriov_totalvfs")
+	numvfs, err := fileutils2.FileGetContents(sriovNumvfs)
+	if err != nil {
+		return err
+	}
+	totalvfs, err := fileutils2.FileGetContents(sriovTotalvfs)
+	if err != nil {
+		return err
+	}
+	log.Errorf("numvfs %s total vfs %s", numvfs, totalvfs)
+	if numvfs != totalvfs {
+		return fileutils2.FilePutContents(sriovNumvfs, fmt.Sprintf("%s", totalvfs), false)
+	}
+	return nil
 }
 
 func detectSRIOVNicDevice(vfBDF string) (*PCIDevice, error) {
@@ -205,4 +229,171 @@ func (dev *sSRIOVNicDevice) CustomProbe(idx int) error {
 		return fmt.Errorf("Nic %s is occupied by another driver: %s", dev.GetAddr(), driver)
 	}
 	return nil
+}
+
+func getOvsOffloadNics(hostNics []HostNic) ([]*sOvsOffloadNicDevice, error) {
+	sysfsNetDir := "/sys/class/net"
+	files, err := ioutil.ReadDir(sysfsNetDir)
+	if err != nil {
+		return nil, errors.Wrap(err, "ioutil.ReadDir(sysfsNetDir)")
+	}
+	nics := []HostNic{}
+	for i := 0; i < len(files); i++ {
+		nicPath, err := filepath.EvalSymlinks(path.Join(sysfsNetDir, files[i].Name()))
+		if err != nil {
+			return nil, errors.Wrap(err, "filepath.EvalSymlinks nicPath")
+		}
+		if !strings.HasPrefix(nicPath, "/sys/devices/pci0000:") {
+			continue
+		}
+		var idx int
+		for idx = range hostNics {
+			if hostNics[idx].Interface == files[i].Name() {
+				nics = append(nics, hostNics[idx])
+			}
+		}
+	}
+
+	sriovNics := make([]*sOvsOffloadNicDevice, 0)
+	for i := range nics {
+		nicDir := path.Join(sysfsNetDir, nics[i].Interface, "device")
+		err = ensureNumvfsEqualTotalvfs(nicDir)
+		if err != nil {
+			return nil, errors.Wrap(err, "ensureNumvfsEqualTotalvfs")
+		}
+
+		vfs, err := ioutil.ReadDir(nicDir)
+		if err != nil {
+			return nil, errors.Wrap(err, "ioutil.ReadDir")
+		}
+
+		pfPath, err := filepath.EvalSymlinks(nicDir)
+		if err != nil {
+			return nil, errors.Wrap(err, "filepath.EvalSymlinks pfPath")
+		}
+		pfBDF := path.Base(pfPath)
+
+		// /sys/class/net/ens1f0/compat/devlink/mode
+		devlinkPath := path.Join(sysfsNetDir, nics[i].Interface, "compat/devlink/mode")
+		linkMode, err := fileutils2.FileGetContents(devlinkPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "fileutils2.FileGetContents(devlinkPath)")
+		}
+		log.Infof("nic %s link mode %s", nics[i].Interface, linkMode)
+		if strings.TrimSpace(linkMode) != "switchdev" {
+			err = fileutils2.FilePutContents(devlinkPath, "switchdev\n", false)
+			if err != nil {
+				return nil, errors.Wrap(err, "fileutils2.FilePutContents linkMode")
+			}
+			for j := 0; j < len(vfs); j++ {
+				if strings.HasPrefix(vfs[j].Name(), "virtfn") {
+					vfPath, err := filepath.EvalSymlinks(path.Join(nicDir, vfs[j].Name()))
+					if err != nil {
+						return nil, errors.Wrap(err, "filepath.EvalSymlinks")
+					}
+					vfBDF := path.Base(vfPath)
+					dev, err := detectPCIDevByAddrWithoutIOMMUGroup(vfBDF)
+					if err != nil {
+						return nil, errors.Wrap(err, "detectPCIDevByAddrWithoutIOMMUGroup")
+					}
+					err = dev.unbindDriver()
+					if err != nil {
+						return nil, errors.Wrap(err, "unbindDriver")
+					}
+				}
+			}
+		}
+
+		// get interfaces
+		// grep -e 'PCI_SLOT_NAME=.*04:00.1'  /sys/class/net/*/device/uevent
+		outs, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c",
+			fmt.Sprintf("grep -e PCI_SLOT_NAME=.*%s /sys/class/net/*/device/uevent", pfBDF)).Output()
+		if err != nil {
+			return nil, errors.Wrap(err, "procutils.NewRemoteCommandAsFarAsPossible grep PCI_SLOT_NAME")
+		}
+		vfNames := map[int]string{}
+		for _, line := range strings.Split(string(outs), "\n") {
+			line = strings.TrimSpace(line)
+			segs := strings.Split(line, "/")
+			if len(segs) < 5 {
+				continue
+			}
+			vfName := segs[4]
+			if vfName == nics[i].Interface {
+				continue
+			}
+			// eg: pf0vf1
+			portname, err := fileutils2.FileGetContents(fmt.Sprintf("/sys/class/net/%s/phys_port_name", vfName))
+			if err != nil {
+				return nil, errors.Wrap(err, "fileutils2.FileGetContents portname")
+			}
+			sp := strings.Split(portname, "vf")
+			if len(sp) != 2 {
+				return nil, errors.Errorf("%s bad portname %s", vfName, portname)
+			}
+			virtfn, err := strconv.Atoi(strings.TrimSpace(sp[1]))
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed parse %s portname %s", vfName, portname)
+			}
+			vfNames[virtfn] = vfName
+		}
+		log.Infof("vfnames: %v", vfNames)
+
+		for j := 0; j < len(vfs); j++ {
+			if strings.HasPrefix(vfs[j].Name(), "virtfn") {
+				virtfn, err := strconv.Atoi(vfs[j].Name()[len("virtfn"):])
+				if err != nil {
+					return nil, errors.Wrap(err, "strconv.Atoi virtfn")
+				}
+				vfPath, err := filepath.EvalSymlinks(path.Join(nicDir, vfs[j].Name()))
+				if err != nil {
+					return nil, errors.Wrap(err, "filepath.EvalSymlinks vfpath")
+				}
+				vfBDF := path.Base(vfPath)
+				vfDev, err := detectSRIOVNicDevice(vfBDF)
+				if err != nil {
+					return nil, errors.Wrap(err, "detectSRIOVNicDevice")
+				}
+				// out, err := procutils.NewRemoteCommandAsFarAsPossible(
+				// 	"ovs-vsctl", "--may-exist", "add-port", nics[i].Bridge, vfNames[virtfn]).Output()
+				// if err != nil {
+				// 	return nil, errors.Wrapf(err, " ovs-vsctl add-port %s %s failed: %s", nics[i].Bridge, vfNames[virtfn], out)
+				// }
+
+				sriovNics = append(sriovNics, NewSRIOVOffloadNicDevice(
+					vfDev, api.NIC_TYPE, nics[i].Wire, nics[i].Interface, virtfn, vfNames[virtfn]),
+				)
+			}
+		}
+	}
+
+	// ovs-vsctl set Open_vSwitch . other_config:hw-offload=true
+	out, err := procutils.NewRemoteCommandAsFarAsPossible(
+		"ovs-vsctl", "set", "Open_vSwitch", ".", "other_config:hw-offload=true").Output()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ovs enable hw offload failed: %s", out)
+	}
+
+	return sriovNics, nil
+}
+
+type sOvsOffloadNicDevice struct {
+	*sSRIOVNicDevice
+
+	interfaceName string
+}
+
+func NewSRIOVOffloadNicDevice(dev *PCIDevice, devType, wireId, pfName string, virtfn int, ifname string) *sOvsOffloadNicDevice {
+	return &sOvsOffloadNicDevice{
+		sSRIOVNicDevice: NewSRIOVNicDevice(dev, devType, wireId, pfName, virtfn),
+		interfaceName:   ifname,
+	}
+}
+
+func (dev *sOvsOffloadNicDevice) setInterfaceName(ifname string) {
+	dev.interfaceName = ifname
+}
+
+func (dev *sOvsOffloadNicDevice) GetOvsOffloadInterfaceName() string {
+	return dev.interfaceName
 }
