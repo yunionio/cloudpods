@@ -355,6 +355,11 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 		//	return nil, errors.Wrap(err, "processSsoLoginData")
 		// }
 	} else if body.Contains("verify_code") { // verify by mobile
+		if h.preLoginHook != nil {
+			if err = h.preLoginHook(ctx, req, body); err != nil {
+				return nil, err
+			}
+		}
 		verifyCode, _ := body.GetString("verify_code")
 		uid, _ := body.GetString("uid")
 		contactType, _ := body.GetString("contact_type")
