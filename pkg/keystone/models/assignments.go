@@ -369,9 +369,10 @@ func (manager *SAssignmentManager) projectRemoveAllUser(ctx context.Context, use
 	if user.IsAdminUser() {
 		return httperrors.NewForbiddenError("sysadmin is protected")
 	}
-	if user.Id == userCred.GetUserId() {
-		return httperrors.NewForbiddenError("cannot remove current user from current project")
-	}
+	// allow remove current user from current project. user takes the consequence
+	// if user.Id == userCred.GetUserId() {
+	// 	return httperrors.NewForbiddenError("cannot remove current user from current project")
+	// }
 	err := manager.batchRemove(user.Id, []string{api.AssignmentUserProject, api.AssignmentUserDomain})
 	if err != nil {
 		return errors.Wrap(err, "manager.batchRemove")
@@ -393,10 +394,11 @@ func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCr
 	if project.IsAdminProject() && user.IsAdminUser() && role.IsSystemRole() {
 		return httperrors.NewForbiddenError("sysadmin is protected")
 	}
+	// allow remove current user from current project, user takes the consequence
 	// prevent remove current user from current project
-	if project.Id == userCred.GetProjectId() && user.Id == userCred.GetUserId() {
-		return httperrors.NewForbiddenError("cannot remove current user from current project")
-	}
+	// if project.Id == userCred.GetProjectId() && user.Id == userCred.GetUserId() {
+	//	return httperrors.NewForbiddenError("cannot remove current user from current project")
+	// }
 	if project.DomainId != user.DomainId {
 		// if project.DomainId != api.DEFAULT_DOMAIN_ID {
 		//    return httperrors.NewInputParameterError("join user into project of default domain or identical domain")
