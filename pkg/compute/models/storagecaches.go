@@ -739,6 +739,29 @@ func (self *SStoragecache) IsReachCapacityLimit(imageId string) bool {
 	return host.GetHostDriver().IsReachStoragecacheCapacityLimit(host, cachedImages)
 }
 
+func (self *SStoragecache) GetStoragecachedimages() ([]SStoragecachedimage, error) {
+	q := StoragecachedimageManager.Query().Equals("storagecache_id", self.Id)
+	ret := []SStoragecachedimage{}
+	return ret, db.FetchModelObjects(StoragecachedimageManager, q, &ret)
+}
+
+func (self *SStoragecache) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	scis, err := self.GetStoragecachedimages()
+	if err != nil {
+		return errors.Wrapf(err, "GetStoragecachedimages")
+	}
+	for i := range scis {
+		err := scis[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete storagecached images %d", scis[i].RowId)
+		}
+	}
+	if len(self.ManagerId) > 0 {
+		return db.RealDeleteModel(ctx, userCred, self)
+	}
+	return self.SStandaloneResourceBase.Delete(ctx, userCred)
+}
+
 func (self *SStoragecache) StartRelinquishLeastUsedCachedImageTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, parentTaskId string) error {
 	cachedImages := self.getCachedImageList([]string{imageId}, string(cloudprovider.ImageTypeCustomized), []string{api.CACHED_IMAGE_STATUS_ACTIVE})
 	leastUsedIdx := -1
