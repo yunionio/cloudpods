@@ -73,7 +73,7 @@ type SCloudproviderQuota struct {
 	MaxCount int `nullable:"false" default:"0" list:"user"`
 
 	// 配额类型
-	QuotaType string `width:"32" charset:"ascii" list:"user"`
+	QuotaType string `width:"64" charset:"ascii" list:"user"`
 }
 
 func (manager *SCloudproviderQuotaManager) GetContextManagers() [][]db.IModelManager {
