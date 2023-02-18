@@ -126,6 +126,8 @@ const (
 	CITY_SALT_LAKE_CITY = "Salt Lake City" //盐湖城
 	CITY_LAS_VEGAS      = "Las Vegas"      //拉斯维加斯
 	CITY_PHOENIX        = "Phoenix"        //菲尼克斯
+	CITY_DALLAS         = "Dallas"         //达拉斯
+	CITY_COLUMBUS       = "Columbus"       //哥伦布
 
 	// 英国
 	CITY_LONDON      = "London"      //伦敦
@@ -197,6 +199,15 @@ const (
 	// 越南
 	CITY_HO_CHI_MINH = "Ho Chi Minh" //???
 
+	// 以色列
+	CITY_TEL_AVIV = "Tel Aviv" // 拉斯维夫
+
+	// 意大利
+	CITY_MILAN = "Milan" // 米兰
+
+	// 西班牙
+	CITY_MADRID = "Madrid" // 马德里
+
 	COUNTRY_CODE_CN = "CN" //中国
 	COUNTRY_CODE_JP = "JP" //日本
 	COUNTRY_CODE_SG = "SG" //新加坡
@@ -228,4 +239,7 @@ const (
 	COUNTRY_CODE_PL = "PL" //波兰
 	COUNTRY_CODE_FI = "FI" //芬兰
 	COUNTRY_CODE_BE = "BE" //比利时
+	COUNTRY_CODE_IL = "IL" //以色列
+	COUNTRY_CODE_IT = "IT" //意大利
+	COUNTRY_CODE_ES = "ES" //西班牙
 )
