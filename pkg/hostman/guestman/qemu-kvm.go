@@ -2741,12 +2741,19 @@ func getVfVlan(vlan int) int {
 func (s *SKVMGuestInstance) sriovNicAttachInitScript(networkIndex int8, dev isolated_device.IDevice) (string, error) {
 	for i := range s.Desc.Nics {
 		if s.Desc.Nics[i].Driver == "vfio-pci" && s.Desc.Nics[i].Index == networkIndex {
-			cmd := fmt.Sprintf(
-				"sriov_vf_init %s %d %s %d %s %d\n",
-				dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac,
-				getVfVlan(s.Desc.Nics[i].Vlan), srcMacCheckFunc(s.Desc.SrcMacCheck), s.Desc.Nics[i].Bw,
-			)
-			return sriovInitFunc + " && " + cmd, nil
+			if dev.GetOvsOffloadInterfaceName() != "" {
+				cmd := fmt.Sprintf("ip link set dev %s vf %d mac %s\n",
+					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac)
+				cmd += s.getNicUpScriptPath(s.Desc.Nics[i]) + "\n"
+				return cmd, nil
+			} else {
+				cmd := fmt.Sprintf(
+					"sriov_vf_init %s %d %s %d %s %d\n",
+					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac,
+					getVfVlan(s.Desc.Nics[i].Vlan), srcMacCheckFunc(s.Desc.SrcMacCheck), s.Desc.Nics[i].Bw,
+				)
+				return sriovInitFunc + " && " + cmd, nil
+			}
 		}
 	}
 	return "", errors.Errorf("no nic found for index %d", networkIndex)
@@ -2761,11 +2768,17 @@ func (s *SKVMGuestInstance) generateSRIOVInitScripts() (string, error) {
 			if err != nil {
 				return "", err
 			}
-			cmd += fmt.Sprintf(
-				"sriov_vf_init %s %d %s %d %s %d\n",
-				dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac,
-				getVfVlan(s.Desc.Nics[i].Vlan), srcMacCheckFunc(s.Desc.SrcMacCheck), s.Desc.Nics[i].Bw,
-			)
+			if dev.GetOvsOffloadInterfaceName() != "" {
+				cmd += fmt.Sprintf("ip link set dev %s vf %d mac %s\n",
+					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac)
+				cmd += s.getNicUpScriptPath(s.Desc.Nics[i]) + "\n"
+			} else {
+				cmd += fmt.Sprintf(
+					"sriov_vf_init %s %d %s %d %s %d\n",
+					dev.GetPfName(), dev.GetVirtfn(), s.Desc.Nics[i].Mac,
+					getVfVlan(s.Desc.Nics[i].Vlan), srcMacCheckFunc(s.Desc.SrcMacCheck), s.Desc.Nics[i].Bw,
+				)
+			}
 		}
 	}
 	if len(cmd) > 0 {

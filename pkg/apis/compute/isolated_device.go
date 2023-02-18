@@ -101,11 +101,12 @@ type IsolatedDeviceUpdateInput struct {
 }
 
 type IsolatedDeviceJsonDesc struct {
-	Id             string `json:"id"`
-	DevType        string `json:"dev_type"`
-	Model          string `json:"model"`
-	Addr           string `json:"addr"`
-	VendorDeviceId string `json:"vendor_device_id"`
-	Vendor         string `json:"vendor"`
-	NetworkIndex   int8   `json:"network_index"`
+	Id                  string `json:"id"`
+	DevType             string `json:"dev_type"`
+	Model               string `json:"model"`
+	Addr                string `json:"addr"`
+	VendorDeviceId      string `json:"vendor_device_id"`
+	Vendor              string `json:"vendor"`
+	NetworkIndex        int8   `json:"network_index"`
+	OvsOffloadInterface string `json:"ovs_offload_interface"`
 }
