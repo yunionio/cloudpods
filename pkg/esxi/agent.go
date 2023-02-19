@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/esxi/options"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -111,6 +112,14 @@ func (ea *SEsxiAgent) Start() error {
 	ea.agentImageCache = storageman.NewAgentImageCacheManager(ea.CacheManager)
 	ea.AgentStorage = storageman.NewAgentStorage(&storageman.SStorageManager{LocalStorageImagecacheManager: ea.CacheManager},
 		ea, options.Options.AgentTempPath)
+
+	cronManager := cronman.InitCronJobManager(false, options.Options.CronJobWorkerCount)
+	err = cronManager.AddJobEveryFewDays(
+		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
+	if err != nil {
+		return err
+	}
+	cronManager.Start()
 	return nil
 }
 
