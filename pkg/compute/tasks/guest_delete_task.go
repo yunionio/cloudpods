@@ -115,7 +115,7 @@ func (self *GuestDeleteTask) OnStartEipDissociate(ctx context.Context, guest *mo
 		sourceGuest := models.GuestManager.FetchGuestById(sourceGuestId)
 		if sourceGuest != nil &&
 			sourceGuest.GetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, self.UserCred) == guest.Id {
-			err := guest.ConvertNetworks(sourceGuest)
+			err := guest.ConvertEsxiNetworks(sourceGuest)
 			if err != nil {
 				log.Errorf("Convert networks failed %s", err)
 				self.OnFailed(ctx, guest, jsonutils.NewString(err.Error()))

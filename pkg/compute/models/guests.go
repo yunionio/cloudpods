@@ -976,7 +976,7 @@ func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
 	return guestnics, nil
 }
 
-func (guest *SGuest) ConvertNetworks(targetGuest *SGuest) error {
+func (guest *SGuest) ConvertEsxiNetworks(targetGuest *SGuest) error {
 	gns, err := guest.GetNetworks("")
 	if err != nil {
 		return err
@@ -985,6 +985,9 @@ func (guest *SGuest) ConvertNetworks(targetGuest *SGuest) error {
 	for ; i < len(gns); i++ {
 		_, err = db.Update(&gns[i], func() error {
 			gns[i].GuestId = targetGuest.Id
+			if gns[i].Driver != "e1000" && gns[i].Driver != "vmxnet3" {
+				gns[i].Driver = "e1000"
+			}
 			return nil
 		})
 		if err != nil {
