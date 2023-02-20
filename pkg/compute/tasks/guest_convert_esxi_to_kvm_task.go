@@ -185,7 +185,7 @@ func (self *GuestConvertEsxiToKvmTask) OnHostCreateGuest(
 		}
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 	}
-	if err := guest.ConvertNetworks(targetGuest); err != nil {
+	if err := guest.ConvertEsxiNetworks(targetGuest); err != nil {
 		self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
