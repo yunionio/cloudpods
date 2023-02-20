@@ -16,11 +16,13 @@ package apsara
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
@@ -75,11 +77,48 @@ func (d MetricData) GetTags() map[string]string {
 	return ret
 }
 
+func (self *SApsaraClient) tryGetDepartments() []string {
+	if len(self.departments) > 0 {
+		return self.departments
+	}
+	ret := []string{}
+	if len(self.organizationId) > 0 {
+		ret = append(ret, self.organizationId)
+	}
+	tree, err := self.GetOrganizationTree("1")
+	if err != nil {
+		return ret
+	}
+	for _, child := range tree.Children {
+		if !utils.IsInStringArray(child.Id, ret) && child.Id != "1" {
+			ret = append(ret, child.Id)
+		}
+	}
+	self.departments = ret
+	return self.departments
+}
+
 func (self *SApsaraClient) ListMetrics(ns, metricName string, start, end time.Time) ([]MetricData, error) {
+	ret := []MetricData{}
+	departments := self.tryGetDepartments()
+	for i := range departments {
+		part, err := self.listMetrics(departments[i], ns, metricName, start, end)
+		if err != nil {
+			if strings.Contains(err.Error(), "NoPermission") {
+				continue
+			}
+			return nil, err
+		}
+		ret = append(ret, part...)
+	}
+	return ret, nil
+}
+
+func (self *SApsaraClient) listMetrics(departmentId, ns, metricName string, start, end time.Time) ([]MetricData, error) {
 	result := []MetricData{}
 	nextToken := ""
 	for {
-		part, next, err := self.listMetrics(ns, metricName, nextToken, start, end)
+		part, next, err := self._listMetrics(departmentId, ns, metricName, nextToken, start, end)
 		if err != nil {
 			return nil, errors.Wrap(err, "listMetrics")
 		}
@@ -92,7 +131,7 @@ func (self *SApsaraClient) ListMetrics(ns, metricName string, start, end time.Ti
 	return result, nil
 }
 
-func (self *SApsaraClient) listMetrics(ns, metricName, nextToken string, start, end time.Time) ([]MetricData, string, error) {
+func (self *SApsaraClient) _listMetrics(departmentId, ns, metricName, nextToken string, start, end time.Time) ([]MetricData, string, error) {
 	params := make(map[string]string)
 	params["MetricName"] = metricName
 	params["Namespace"] = ns
@@ -100,9 +139,7 @@ func (self *SApsaraClient) listMetrics(ns, metricName, nextToken string, start, 
 	if len(nextToken) > 0 {
 		params["NextToken"] = nextToken
 	}
-	if len(self.organizationId) > 0 {
-		params["Department"] = self.organizationId
-	}
+	params["Department"] = departmentId
 	params["StartTime"] = fmt.Sprintf("%d", start.UnixMilli())
 	params["EndTime"] = fmt.Sprintf("%d", end.UnixMilli())
 	resp, err := self.metricsRequest("DescribeMetricList", params)
