@@ -113,6 +113,8 @@ type SApsaraClient struct {
 	ownerId   string
 	ownerName string
 
+	departments []string
+
 	iregions []cloudprovider.ICloudRegion
 }
 
