@@ -29,7 +29,8 @@ var (
 
 func getAdminPolicy(services map[string][]string) jsonutils.JSONObject {
 	policy := jsonutils.NewDict()
-	for k, resList := range services {
+	for k := range services {
+		resList := services[k]
 		if len(resList) == 0 {
 			policy.Add(allowResult, k)
 		} else {
@@ -128,9 +129,21 @@ func getViewerPolicy(services map[string][]string) jsonutils.JSONObject {
 
 func addExtraPolicy(policy *jsonutils.JSONDict, extra map[string]map[string][]string) jsonutils.JSONObject {
 	for s, resources := range extra {
-		resourcePolicy := jsonutils.NewDict()
+		var resourcePolicy *jsonutils.JSONDict
+		resPolicy, _ := policy.Get(s)
+		if resPolicy != nil {
+			resourcePolicy = resPolicy.(*jsonutils.JSONDict)
+		} else {
+			resourcePolicy = jsonutils.NewDict()
+		}
 		for r, actions := range resources {
-			actionPolicy := jsonutils.NewDict()
+			var actionPolicy *jsonutils.JSONDict
+			actPolicy, _ := resourcePolicy.Get(r)
+			if actPolicy != nil {
+				actionPolicy = actPolicy.(*jsonutils.JSONDict)
+			} else {
+				actionPolicy = jsonutils.NewDict()
+			}
 			for i := range actions {
 				actionPolicy.Add(allowResult, actions[i])
 			}
