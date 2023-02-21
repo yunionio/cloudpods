@@ -1,7 +1,7 @@
 #FROM --platform=linux/amd64 registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-4 as build
 #RUN yum install -y https://iso.yunion.cn/vm-images/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
 #RUN yum install -y http://192.168.23.50:8083/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
-FROM registry.cn-beijing.aliyuncs.com/yunionio/yunionos:v0.1.7 as yunionos
+FROM registry.cn-beijing.aliyuncs.com/yunionio/yunionos:v0.1.8-20230221.2 as yunionos
 
 FROM centos:8 as grub-stage
 
