@@ -415,6 +415,11 @@ func (lb *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
 	return lb.region.SetResourceTags(ALIYUN_SERVICE_SLB, "instance", lb.LoadBalancerId, tags, replace)
 }
 
+func (lb *SLoadbalancer) GetTags() (map[string]string, error) {
+	_, tags, err := lb.region.ListSysAndUserTags("slb", "instance", lb.LoadBalancerId)
+	return tags, err
+}
+
 // mapping aliyun finance zoneId to aliyun finance ecs zoneId
 func transZoneIdToEcsZoneId(region *SRegion, service, zoneId string) string {
 	if region.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV {
