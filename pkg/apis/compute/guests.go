@@ -847,6 +847,17 @@ type ServerSetBootIndexInput struct {
 	Cdroms map[string]int8 `json:"cdroms"`
 }
 
+type ServerChangeStorageInput struct {
+	TargetStorageId string `json:"target_storage_id"`
+	KeepOriginDisk  bool   `json:"keep_origin_disk"`
+}
+
+type ServerChangeStorageInternalInput struct {
+	ServerChangeStorageInput
+	Disks        []string `json:"disks"`
+	GuestRunning bool     `json:"guest_running"`
+}
+
 type ServerChangeDiskStorageInput struct {
 	DiskId          string `json:"disk_id"`
 	TargetStorageId string `json:"target_storage_id"`
@@ -858,7 +869,7 @@ type ServerChangeDiskStorageInternalInput struct {
 	StorageId      string             `json:"storage_id"`
 	TargetDiskId   string             `json:"target_disk_id"`
 	DiskFormat     string             `json:"disk_format"`
-	GuestRunning   bool               `josn:"guest_running"`
+	GuestRunning   bool               `json:"guest_running"`
 	TargetDiskDesc *GuestdiskJsonDesc `json:"target_disk_desc"`
 }
 
