@@ -21,6 +21,7 @@ import (
 
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
+	"yunion.io/x/onecloud/pkg/util/ovnutils"
 )
 
 type LbagentCommonOptions struct {
@@ -48,6 +49,10 @@ type LbagentCommonOptions struct {
 	HaproxyBin    string `default:"haproxy"`
 	GobetweenBin  string `default:"gobetween"`
 	TelegrafBin   string `default:"telegraf"`
+
+	DisableLocalVpc bool `help:"disable local VPC support" default:"false"`
+
+	ovnutils.SOvnOptions
 }
 
 type Options struct {

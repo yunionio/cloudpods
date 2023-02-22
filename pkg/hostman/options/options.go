@@ -19,6 +19,7 @@ import (
 
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/ovnutils"
 )
 
 type SHostBaseOptions struct {
@@ -35,6 +36,8 @@ type SHostBaseOptions struct {
 
 	CdromCount  int `help:"cdrom count" default:"1"`
 	FloppyCount int `help:"floppy count" default:"1"`
+
+	DisableLocalVpc bool `help:"disable local VPC support" default:"false"`
 }
 
 type SHostOptions struct {
@@ -150,13 +153,14 @@ type SHostOptions struct {
 
 	SdnAllowConntrackInvalid bool `help:"allow packets marked by conntrack as INVALID to pass" default:"$SDN_ALLOW_CONNTRACK_INVALID|false"`
 
-	OvnSouthDatabase          string `help:"address for accessing ovn south database" default:"$HOST_OVN_SOUTH_DATABASE|unix:/var/run/openvswitch/ovnsb_db.sock"`
+	ovnutils.SOvnOptions
+	/* OvnSouthDatabase          string `help:"address for accessing ovn south database" default:"$HOST_OVN_SOUTH_DATABASE|unix:/var/run/openvswitch/ovnsb_db.sock"`
 	OvnEncapIpDetectionMethod string `help:"detection method for ovn_encap_ip" default:"$HOST_OVN_ENCAP_IP_DETECTION_METHOD"`
 	OvnEncapIp                string `help:"encap ip for ovn datapath.  Default to src address of default route" default:"$HOST_OVN_ENCAP_IP"`
 	OvnIntegrationBridge      string `help:"name of integration bridge for logical ports" default:"$HOST_OVN_INTEGRATION_BRIDGE|brvpc"`
 	OvnMappedBridge           string `help:"name of bridge for mapped traffic management" default:"$HOST_OVN_MAPPED_BRIDGE|brmapped"`
 	OvnEipBridge              string `help:"name of bridge for eip traffic management" default:"$HOST_OVN_EIP_BRIDGE|breip"`
-	OvnUnderlayMtu            int    `help:"mtu of ovn underlay network" default:"1500"`
+	OvnUnderlayMtu            int    `help:"mtu of ovn underlay network" default:"1500"` */
 
 	// EnableRemoteExecutor bool `help:"Enable remote executor" default:"false"`
 	HostHealthTimeout int `help:"host health timeout" default:"30"`
