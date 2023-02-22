@@ -169,8 +169,8 @@ func (h *ApiHelper) SetHaStateProvider(hsp HaStateProvider) {
 }
 
 func (h *ApiHelper) startOvnWorker(ctx context.Context) {
-	if h.ovn == nil {
-		h.ovn = NewOvnWorker()
+	if h.ovn == nil && !h.opts.DisableLocalVpc {
+		h.ovn = NewOvnWorker(h.opts)
 		go h.ovn.Start(ctx)
 	}
 }

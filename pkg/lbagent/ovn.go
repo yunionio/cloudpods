@@ -42,6 +42,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/iproute2"
 )
 
+const (
+	ErrOvnService = errors.Error("ovn controller")
+	ErrOvnConfig  = errors.Error("ovn controller configuration")
+)
+
 type empty struct{}
 
 type iptRule struct {
@@ -89,6 +94,8 @@ func (b *Bar) Cancel() {
 type OvnHost struct {
 	lb *agentmodels.Loadbalancer
 
+	ovnBridge string
+
 	macaddr string
 	ipaddr  string
 	masklen int
@@ -114,13 +121,15 @@ type ovnHostRefreshCmd struct {
 	done chan error
 }
 
-func newOvnHost() *OvnHost {
+func newOvnHost(bridge string) *OvnHost {
 	ovnHost := &OvnHost{
 		vethAddrInnerPortMap: map[string]int{},
 		portMap:              map[int]empty{},
 		Bar:                  NewBar(),
 		refreshCh:            make(chan *ovnHostRefreshCmd),
 		ns:                   -1,
+
+		ovnBridge: bridge,
 	}
 	return ovnHost
 }
@@ -177,7 +186,7 @@ func (ovnHost *OvnHost) cleanUpNetns() {
 }
 
 func (ovnHost *OvnHost) cleanUpBridge() {
-	bridge := "brvpc"
+	bridge := ovnHost.ovnBridge
 	_, peer0 := ovnHost.ovnPairName()
 	args := []string{
 		"ovs-vsctl",
@@ -340,7 +349,7 @@ func (ovnHost *OvnHost) run(ctx context.Context) {
 	}
 
 	{ // setup brvpc
-		bridge := "brvpc"
+		bridge := ovnHost.ovnBridge
 		lsp := ovnHost.lspName()
 		args := []string{
 			"ovs-vsctl",
@@ -620,6 +629,8 @@ func (ovnHost *OvnHost) refresh(ctx context.Context, lb *agentmodels.Loadbalance
 }
 
 type OvnWorker struct {
+	opts *Options
+
 	lbMap map[string]*OvnHost // key loadbalancerId
 
 	addrMap map[uint16]*OvnHost // key x.x in 169.254.x.x
@@ -634,8 +645,9 @@ type ovnRefreshCmd struct {
 	done chan error
 }
 
-func NewOvnWorker() *OvnWorker {
+func NewOvnWorker(opts *Options) *OvnWorker {
 	ovn := &OvnWorker{
+		opts:      opts,
 		lbMap:     map[string]*OvnHost{},
 		addrMap:   map[uint16]*OvnHost{},
 		Bar:       NewBar(),
@@ -782,7 +794,7 @@ func (ovn *OvnWorker) refresh(ctx context.Context, lbs agentmodels.Loadbalancers
 			if err != nil {
 				return errors.Wrapf(err, "find 169.254.x.x for lb %s(%s)", lb.Name, lb.Id)
 			}
-			ovnHost = newOvnHost()
+			ovnHost = newOvnHost(ovn.opts.OvnIntegrationBridge)
 			ovnHost.SetAddrIdx(inner, outer)
 			ovn.addrMap[inner] = ovnHost
 			ovn.addrMap[outer] = ovnHost
