@@ -67,6 +67,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/k8s/tokens"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/ovnutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
@@ -208,7 +209,7 @@ func (h *SHostInfo) Init() error {
 	if err := h.parseConfig(); err != nil {
 		return errors.Wrap(err, "parseConfig")
 	}
-	if HasOvnSupport() {
+	if ovnutils.HasOvnSupport() && !options.HostOptions.DisableLocalVpc {
 		if err := h.setupOvnChassis(); err != nil {
 			return errors.Wrap(err, "Setup OVN Chassis")
 		}
@@ -1347,7 +1348,10 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 		input.Metadata[k] = v.String()
 	}
 	input.Version = version.GetShortString()
-	input.OvnVersion = MustGetOvnVersion()
+
+	if !options.HostOptions.DisableLocalVpc {
+		input.OvnVersion = ovnutils.MustGetOvnVersion()
+	}
 
 	var (
 		res jsonutils.JSONObject

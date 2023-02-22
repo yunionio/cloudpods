@@ -183,6 +183,8 @@ var (
 			"splitable_max_keep_segments",
 			"ops_log_max_keep_months",
 
+			"disable_local_vpc",
+
 			// ############################
 			// keystone blacklist options
 			// ############################

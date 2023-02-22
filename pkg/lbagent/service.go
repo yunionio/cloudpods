@@ -28,6 +28,7 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/ovnutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -65,6 +66,13 @@ func StartService() {
 	lbagentId, err := register(ctx, opts)
 	if err != nil {
 		log.Fatalf("register lbagent failed: %s", err)
+	}
+
+	if !opts.DisableLocalVpc {
+		err := ovnutils.InitOvn(opts.SOvnOptions)
+		if err != nil {
+			log.Fatalf("ovn init fail: %s", err)
+		}
 	}
 
 	var haproxyHelper *HaproxyHelper
