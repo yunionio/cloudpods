@@ -1311,6 +1311,16 @@ func (o *ServerChangeDiskStorageOptions) Params() (jsonutils.JSONObject, error) 
 	return jsonutils.Marshal(o), nil
 }
 
+type ServerChangeStorageOptions struct {
+	options.BaseIdOptions
+	TARGETSTORAGE  string `json:"target_storage_id" help:"Target storage id or name"`
+	KeepOriginDisk bool   `json:"keep_origin_disk" help:"Keep origin disk when changed"`
+}
+
+func (o *ServerChangeStorageOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
 type ServerCPUSetOptions struct {
 	options.BaseIdOptions
 	SETS string `help:"Cgroup cpusets CPUs spec string, e.g. '0-2,16'"`
