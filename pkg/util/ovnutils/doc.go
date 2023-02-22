@@ -12,31 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package hostinfo
-
-import (
-	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/hostman/options"
-	"yunion.io/x/onecloud/pkg/util/ovnutils"
-)
-
-const (
-	ErrOvnService = errors.Error("ovn controller")
-	ErrOvnConfig  = errors.Error("ovn controller configuration")
-)
-
-type OvnHelper struct {
-	hi *SHostInfo
-}
-
-func NewOvnHelper(hi *SHostInfo) *OvnHelper {
-	oh := &OvnHelper{
-		hi: hi,
-	}
-	return oh
-}
-
-func (oh *OvnHelper) Init() (err error) {
-	return ovnutils.InitOvn(options.HostOptions.SOvnOptions)
-}
+package ovnutils // import "yunion.io/x/onecloud/pkg/util/ovnutils"

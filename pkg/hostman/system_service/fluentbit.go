@@ -20,8 +20,6 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
-
-	"yunion.io/x/onecloud/pkg/hostman/options"
 )
 
 type SFluentbit struct {
@@ -46,15 +44,17 @@ func (s *SFluentbit) GetConfig(kwargs map[string]interface{}) string {
 
 	conf += "[INPUT]\n"
 	conf += "    Name systemd\n"
-	for _, u := range options.HostOptions.LogSystemdUnits {
+	unitsInf := kwargs["units"]
+	units, _ := unitsInf.([]string)
+	for _, u := range units {
 		conf += fmt.Sprintf("    Systemd_Filter  _SYSTEMD_UNIT=%s.service\n", u)
 	}
 	conf += "    Tag host.*\n"
 	conf += "\n"
 
-	ielUrl, _ := kwargs["elasticsearch"]
+	ielUrl := kwargs["elasticsearch"]
 	mesUrl, _ := ielUrl.(map[string]string)
-	sesUrl, _ := mesUrl["url"]
+	sesUrl := mesUrl["url"]
 	esurl, err := url.Parse(sesUrl)
 	if err != nil {
 		log.Errorln(err)
