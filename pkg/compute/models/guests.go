@@ -1928,6 +1928,20 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 	return nil
 }
 
+func (guest *SGuest) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	name, _ := data.GetString("name")
+	if len(name) == 0 {
+		return
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    guest,
+		Action: notifyclient.ActionUpdate,
+		ObjDetailsDecorator: func(ctx context.Context, details *jsonutils.JSONDict) {
+			details.Set("new_name", jsonutils.NewString(name))
+		},
+	})
+}
+
 func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
 	if len(self.ExternalId) > 0 && (data.Contains("name") || data.Contains("__meta__")) {

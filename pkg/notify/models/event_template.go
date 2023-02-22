@@ -528,6 +528,11 @@ func init() {
 			"创建",
 		},
 		sI18nElme{
+			string(api.ActionUpdate),
+			"update",
+			"更新",
+		},
+		sI18nElme{
 			string(api.ActionDelete),
 			"deleted",
 			"删除",

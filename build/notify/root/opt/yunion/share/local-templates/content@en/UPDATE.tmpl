@@ -7,4 +7,8 @@ Your {{ if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type }} {{ $d.nam
 {{- if $d.password -}}
 , the password is {{ $d.password }}
 {{- end -}}
+
+{{- if $d.new_name -}}
+，the new name is {{ $d.new_name  }}
+{{- end -}}
 , and please go to the console to view more information
