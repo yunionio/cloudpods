@@ -98,6 +98,7 @@ func init() {
 	cmd.Perform("set-sshport", &options.ServerSetSshportOptions{})
 	cmd.Perform("have-agent", &options.ServerHaveAgentOptions{})
 	cmd.Perform("change-disk-storage", &options.ServerChangeDiskStorageOptions{})
+	cmd.Perform("change-storage", &options.ServerChangeStorageOptions{})
 	cmd.PerformClass("batch-user-metadata", &options.ServerBatchMetadataOptions{})
 	cmd.PerformClass("batch-set-user-metadata", &options.ServerBatchMetadataOptions{})
 	cmd.Perform("user-metadata", &baseoptions.ResourceMetadataOptions{})

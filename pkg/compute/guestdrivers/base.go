@@ -442,7 +442,7 @@ func (self *SBaseGuestDriver) ValidateDetachNetwork(ctx context.Context, userCre
 	return nil
 }
 
-func (self *SBaseGuestDriver) ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInput) error {
+func (self *SBaseGuestDriver) ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, targetStorageId string) error {
 	return cloudprovider.ErrNotImplemented
 }
 

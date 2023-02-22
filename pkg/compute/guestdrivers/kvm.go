@@ -831,7 +831,7 @@ func (self *SKVMGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred
 	return nil
 }
 
-func (self *SKVMGuestDriver) ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInput) error {
+func (self *SKVMGuestDriver) ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, targetStorageId string) error {
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_DISK_CHANGE_STORAGE}) {
 		return httperrors.NewBadRequestError("Cannot change disk storage in status %s", guest.Status)
 	}
@@ -849,12 +849,12 @@ func (self *SKVMGuestDriver) ValidateChangeDiskStorage(ctx context.Context, user
 	attachedStorages := host.GetAttachedEnabledHostStorages(nil)
 	foundStorage := false
 	for _, storage := range attachedStorages {
-		if storage.GetId() == input.TargetStorageId {
+		if storage.GetId() == targetStorageId {
 			foundStorage = true
 		}
 	}
 	if !foundStorage {
-		return httperrors.NewBadRequestError("Storage %s not attached or enabled on host %s", input.TargetStorageId, host.GetName())
+		return httperrors.NewBadRequestError("Storage %s not attached or enabled on host %s", targetStorageId, host.GetName())
 	}
 	return nil
 }

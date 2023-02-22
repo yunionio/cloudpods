@@ -213,7 +213,7 @@ type IGuestDriver interface {
 	RequestListForward(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, req *guestdriver_types.ListForwardRequest) (*guestdriver_types.ListForwardResponse, error)
 	RequestCloseForward(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, req *guestdriver_types.CloseForwardRequest) (*guestdriver_types.CloseForwardResponse, error)
 
-	ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input *api.ServerChangeDiskStorageInput) error
+	ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, targetStorageId string) error
 	StartChangeDiskStorageTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *api.ServerChangeDiskStorageInternalInput, parentTaskId string) error
 	RequestChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error
 	RequestSwitchToTargetStorageDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error
