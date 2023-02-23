@@ -15,10 +15,16 @@
 package guestdrivers
 
 import (
+	"context"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -33,6 +39,14 @@ func init() {
 	driver := SBingoCloudGuestDriver{}
 	models.RegisterGuestDriver(&driver)
 }
+
+func (self *SBingoCloudGuestDriver) DoScheduleCPUFilter() bool { return false }
+
+func (self *SBingoCloudGuestDriver) DoScheduleMemoryFilter() bool { return false }
+
+func (self *SBingoCloudGuestDriver) DoScheduleSKUFilter() bool { return false }
+
+func (self *SBingoCloudGuestDriver) DoScheduleStorageFilter() bool { return false }
 
 func (self *SBingoCloudGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_BINGO_CLOUD
@@ -73,6 +87,38 @@ func (self *SBingoCloudGuestDriver) GetComputeQuotaKeys(scope rbacscope.TRbacSco
 	return keys
 }
 
+func (self *SBingoCloudGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
 func (self *SBingoCloudGuestDriver) GetDefaultSysDiskBackend() string {
 	return ""
+}
+
+func (self *SBingoCloudGuestDriver) GetGuestInitialStateAfterCreate() string {
+	return api.VM_RUNNING
+}
+
+func (self *SBingoCloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
+	return api.VM_READY
+}
+
+func (self *SBingoCloudGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
+	return false
+}
+
+func (self *SBingoCloudGuestDriver) RemoteDeployGuestSyncHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM) (cloudprovider.ICloudHost, error) {
+	if hostId := iVM.GetIHostId(); len(hostId) > 0 {
+		nh, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", host.ManagerId)
+		})
+		if err != nil {
+			log.Warningf("failed to found new hostId(%s) for ivm %s(%s) error: %v", hostId, guest.Name, guest.Id, err)
+		} else if nh.GetId() != guest.HostId {
+			guest.OnScheduleToHost(ctx, userCred, nh.GetId())
+			host = nh.(*models.SHost)
+		}
+	}
+
+	return host.GetIHost(ctx)
 }
