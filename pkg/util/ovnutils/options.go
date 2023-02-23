@@ -20,4 +20,6 @@ type SOvnOptions struct {
 	OvnEncapIpDetectionMethod string `help:"detection method for ovn_encap_ip" default:"$HOST_OVN_ENCAP_IP_DETECTION_METHOD"`
 	OvnEncapIp                string `help:"encap ip for ovn datapath.  Default to src address of default route" default:"$HOST_OVN_ENCAP_IP"`
 	OvnUnderlayMtu            int    `help:"mtu of ovn underlay network" default:"1500"`
+	OvnMappedBridge           string `help:"name of bridge for mapped traffic management" default:"$HOST_OVN_MAPPED_BRIDGE|brmapped"`
+	OvnEipBridge              string `help:"name of bridge for eip traffic management" default:"$HOST_OVN_EIP_BRIDGE|breip"`
 }
