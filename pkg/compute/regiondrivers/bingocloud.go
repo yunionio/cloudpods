@@ -16,7 +16,6 @@ package regiondrivers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -46,7 +45,7 @@ func (self *SBingoCloudRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
 
 func (self *SBingoCloudRegionDriver) GenerateSecurityGroupName(name string) string {
 	if strings.ToLower(name) == "default" {
-		return "DefaultGroup"
+		return "default"
 	}
 	return name
 }
@@ -56,13 +55,13 @@ func (self *SBingoCloudRegionDriver) IsSecurityGroupBelongVpc() bool {
 }
 
 func (self *SBingoCloudRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:allow any")}
 }
 
 func (self *SBingoCloudRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:deny any")}
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
 }
 
 func (self *SBingoCloudRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
-	return fmt.Errorf("%s does not support creating snapshot", self.GetProvider())
+	return nil
 }
