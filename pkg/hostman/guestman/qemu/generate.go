@@ -686,12 +686,12 @@ func GenerateStartOptions(
 		opts = append(opts, drvOpt.Device("isa-applesmc,osk=ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"))
 	}
 
-	if input.GuestDesc.Vga != "none" {
+	if input.GuestDesc.Vga != "none" && input.GuestDesc.VgaDevice != nil {
 		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.VgaDevice.PCIDevice))
 	}
 
 	// vdi spice
-	if input.IsVdiSpice {
+	if input.IsVdiSpice && input.GuestDesc.VdiDevice != nil && input.GuestDesc.VdiDevice.Spice != nil {
 		opts = append(opts, generateSpiceOptions(input.SpicePort, input.GuestDesc.VdiDevice.Spice)...)
 	} else {
 		opts = append(opts, drvOpt.VNC(input.VNCPort, input.VNCPassword))
@@ -735,16 +735,20 @@ func GenerateStartOptions(
 	opts = append(opts, nicOpts...)
 
 	if input.QemuArch == Arch_aarch64 {
-		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
-		for _, device := range input.Devices {
-			opts = append(opts, drvOpt.Device(device))
+		if input.GuestDesc.Usb != nil {
+			opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
+			for _, device := range input.Devices {
+				opts = append(opts, drvOpt.Device(device))
+			}
 		}
 	} else {
 		opts = append(opts, drvOpt.USB())
 		for _, device := range input.Devices {
 			opts = append(opts, drvOpt.Device(device))
 		}
-		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
+		if input.GuestDesc.Usb != nil {
+			opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
+		}
 	}
 
 	// isolated devices

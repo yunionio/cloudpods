@@ -1009,9 +1009,13 @@ func (s *SKVMGuestInstance) syncStatusUnsync(reason string) {
 }
 
 func (s *SKVMGuestInstance) collectGuestDescription() error {
-	cpuList, err := s.getHotpluggableCPUList()
-	if err != nil {
-		return errors.Wrap(err, "get hotpluggable cpus")
+	var cpuList []monitor.HotpluggableCPU
+	var err error
+	if !s.manager.host.IsAarch64() {
+		cpuList, err = s.getHotpluggableCPUList()
+		if err != nil {
+			return errors.Wrap(err, "get hotpluggable cpus")
+		}
 	}
 
 	pciInfoList, err := s.getPciDevices()

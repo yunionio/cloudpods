@@ -57,7 +57,7 @@ func (s *SKVMGuestInstance) initGuestDesc() error {
 	s.initMemDesc(s.Desc.Mem)
 	s.initMachineDesc()
 
-	pciRoot, pciBridge := s.initGuestPciControllers()
+	pciRoot, pciBridge := s.initGuestPciControllers(true)
 	err = s.initGuestPciAddresses()
 	if err != nil {
 		return errors.Wrap(err, "init guest pci addresses")
@@ -85,7 +85,7 @@ func (s *SKVMGuestInstance) initGuestDevicesDesc(pciRoot, pciBridge *desc.PCICon
 	s.initGuestVga(pciRoot)
 	s.initCdromDesc()
 	s.initFloppyDesc()
-	s.initGuestDisks(pciRoot, pciBridge)
+	s.initGuestDisks(pciRoot, pciBridge, false)
 	if err := s.initGuestNetworks(pciRoot, pciBridge); err != nil {
 		return errors.Wrap(err, "init guest networks")
 	}
@@ -202,15 +202,23 @@ func (s *SKVMGuestInstance) isMachineDefaultAddress(pciAddr *desc.PCIAddr) bool 
 	return false
 }
 
-func (s *SKVMGuestInstance) initGuestPciControllers() (*desc.PCIController, *desc.PCIController) {
-	var isPcie = s.isPcie()
+func (s *SKVMGuestInstance) initGuestPciControllers(pciExtend bool) (*desc.PCIController, *desc.PCIController) {
 	var pciRoot, pciBridge *desc.PCIController
-	if isPcie {
+	if len(s.Desc.PCIControllers) > 0 {
+		pciRoot = s.Desc.PCIControllers[0]
+		if len(s.Desc.PCIControllers) > 1 {
+			pciBridge = s.Desc.PCIControllers[1]
+		}
+		return pciRoot, pciBridge
+	}
+	if s.isPcie() {
 		pciRoot = s.addPCIController(desc.CONTROLLER_TYPE_PCIE_ROOT, "")
 		s.addPCIController(desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_ROOT)
-		pciBridge = s.addPCIController(desc.CONTROLLER_TYPE_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE)
-		for i := 0; i < options.HostOptions.PcieRootPortCount; i++ {
-			s.addPCIController(desc.CONTROLLER_TYPE_PCIE_ROOT_PORT, desc.CONTROLLER_TYPE_PCIE_ROOT)
+		if pciExtend {
+			pciBridge = s.addPCIController(desc.CONTROLLER_TYPE_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE)
+			for i := 0; i < options.HostOptions.PcieRootPortCount; i++ {
+				s.addPCIController(desc.CONTROLLER_TYPE_PCIE_ROOT_PORT, desc.CONTROLLER_TYPE_PCIE_ROOT)
+			}
 		}
 	} else {
 		pciRoot = s.addPCIController(desc.CONTROLLER_TYPE_PCI_ROOT, "")
@@ -375,17 +383,20 @@ func (s *SKVMGuestInstance) initFloppyDesc() {
 	}
 }
 
-func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIController) {
-	hasVirtioScsi, hasPvScsi := s.fixDiskDriver()
-	if hasVirtioScsi && s.Desc.VirtioScsi == nil {
-		s.Desc.VirtioScsi = &desc.SGuestVirtioScsi{
-			PCIDevice: desc.NewPCIDevice(pciRoot.CType, "virtio-scsi-pci", "scsi"),
-		}
-	} else if hasPvScsi && s.Desc.PvScsi == nil {
-		s.Desc.PvScsi = &desc.SGuestPvScsi{
-			PCIDevice: desc.NewPCIDevice(pciRoot.CType, "pvscsi", "scsi"),
+func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIController, loadGuest bool) {
+	if !loadGuest {
+		hasVirtioScsi, hasPvScsi := s.fixDiskDriver()
+		if hasVirtioScsi && s.Desc.VirtioScsi == nil {
+			s.Desc.VirtioScsi = &desc.SGuestVirtioScsi{
+				PCIDevice: desc.NewPCIDevice(pciRoot.CType, "virtio-scsi-pci", "scsi"),
+			}
+		} else if hasPvScsi && s.Desc.PvScsi == nil {
+			s.Desc.PvScsi = &desc.SGuestPvScsi{
+				PCIDevice: desc.NewPCIDevice(pciRoot.CType, "pvscsi", "scsi"),
+			}
 		}
 	}
+
 	cont := pciRoot
 	if pciBridge != nil {
 		cont = pciBridge
@@ -717,16 +728,21 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 	}
 	s.initMachineDesc()
 
-	pciRoot, _ := s.initGuestPciControllers()
+	// TODO: pcie extend bus
+	pciRoot, _ := s.initGuestPciControllers(false)
 	err = s.initGuestPciAddresses()
 	if err != nil {
 		return errors.Wrap(err, "init guest pci addresses")
 	}
 
-	err = s.initGuestDevicesDesc(pciRoot, nil)
-	if err != nil {
-		return err
+	if err := s.initGuestNetworks(pciRoot, nil); err != nil {
+		return errors.Wrap(err, "init guest networks")
 	}
+	//s.initIsolatedDevices(pciRoot, nil)
+	s.initQgaDesc()
+	s.initPvpanicDesc()
+	s.initIsaSerialDesc()
+	s.Desc.VdiDevice = new(desc.SGuestVdi)
 
 	for i := 0; i < len(pciInfoList[0].Devices); i++ {
 		pciAddr := &desc.PCIAddr{
@@ -736,6 +752,17 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 		}
 		switch pciInfoList[0].Devices[i].QdevID {
 		case "scsi":
+			_, hasPvScsi := s.fixDiskDriver()
+			if hasPvScsi && s.Desc.PvScsi == nil {
+				s.Desc.PvScsi = &desc.SGuestPvScsi{
+					PCIDevice: desc.NewPCIDevice(pciRoot.CType, "pvscsi", "scsi"),
+				}
+			} else if s.Desc.VirtioScsi == nil {
+				s.Desc.VirtioScsi = &desc.SGuestVirtioScsi{
+					PCIDevice: desc.NewPCIDevice(pciRoot.CType, "virtio-scsi-pci", "scsi"),
+				}
+			}
+
 			if s.Desc.VirtioScsi != nil {
 				s.Desc.VirtioScsi.PCIAddr = pciAddr
 				err = s.ensureDevicePciAddress(s.Desc.VirtioScsi.PCIDevice, -1, nil)
@@ -754,6 +781,10 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 				}
 			}
 		case "video0":
+			if s.Desc.VgaDevice == nil {
+				s.initGuestVga(pciRoot)
+			}
+
 			s.Desc.VgaDevice.PCIAddr = pciAddr
 			err = s.ensureDevicePciAddress(s.Desc.VgaDevice.PCIDevice, -1, nil)
 			if err != nil {
@@ -770,6 +801,10 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 				return errors.Wrap(err, "ensure random device pci address")
 			}
 		case "usb":
+			if s.Desc.Usb == nil {
+				s.initUsbController(pciRoot)
+			}
+
 			s.Desc.Usb.PCIAddr = pciAddr
 			err = s.ensureDevicePciAddress(s.Desc.Usb.PCIDevice, -1, nil)
 			if err != nil {
@@ -796,6 +831,10 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 				return errors.Wrap(err, "ensure vdagent serial pci address")
 			}
 		case "virtio-serial0":
+			if s.Desc.VirtioSerial == nil {
+				s.initVirtioSerial(pciRoot)
+			}
+
 			s.Desc.VirtioSerial.PCIAddr = pciAddr
 			err = s.ensureDevicePciAddress(s.Desc.VirtioSerial.PCIDevice, -1, nil)
 			if err != nil {
@@ -808,24 +847,42 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			}
 			s.Desc.VdiDevice.Spice.UsbRedirct.EHCI1.PCIAddr = pciAddr
 			multiFunc := true
-			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.EHCI1.PCIDevice, 7, &multiFunc)
+			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.EHCI1.PCIDevice, -1, &multiFunc)
 			if err != nil {
 				return errors.Wrap(err, "ensure vdi usb ehci1 pci address")
 			}
-			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIAddr = s.Desc.VdiDevice.Spice.UsbRedirct.EHCI1.PCIAddr.Copy()
-			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIDevice, 0, &multiFunc)
-			if err != nil {
-				return errors.Wrap(err, "ensure vdi usb ehci1 pci address")
+		case "uhci1":
+			if s.Desc.VdiDevice.Spice == nil {
+				s.Desc.Vdi = "spice"
+				s.initSpiceDevices(pciRoot)
 			}
-			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI2.PCIAddr = s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIAddr.Copy()
-			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.UHCI2.PCIDevice, 1, &multiFunc)
+			multiFunc := true
+			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIAddr = pciAddr
+			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIDevice, -1, &multiFunc)
 			if err != nil {
-				return errors.Wrap(err, "ensure vdi usb ehci1 pci address")
+				return errors.Wrap(err, "ensure vdi usb uhci1 pci address")
 			}
-			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI3.PCIAddr = s.Desc.VdiDevice.Spice.UsbRedirct.UHCI1.PCIAddr.Copy()
-			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.UHCI3.PCIDevice, 2, &multiFunc)
+		case "uhci2":
+			if s.Desc.VdiDevice.Spice == nil {
+				s.Desc.Vdi = "spice"
+				s.initSpiceDevices(pciRoot)
+			}
+			multiFunc := true
+			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI2.PCIAddr = pciAddr
+			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.UHCI2.PCIDevice, -1, &multiFunc)
 			if err != nil {
-				return errors.Wrap(err, "ensure vdi usb ehci1 pci address")
+				return errors.Wrap(err, "ensure vdi usb uhci2 pci address")
+			}
+		case "uhci3":
+			if s.Desc.VdiDevice.Spice == nil {
+				s.Desc.Vdi = "spice"
+				s.initSpiceDevices(pciRoot)
+			}
+			multiFunc := true
+			s.Desc.VdiDevice.Spice.UsbRedirct.UHCI3.PCIAddr = pciAddr
+			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.UHCI3.PCIDevice, -1, &multiFunc)
+			if err != nil {
+				return errors.Wrap(err, "ensure vdi usb uhci3 pci address")
 			}
 		default:
 			switch {
@@ -844,6 +901,7 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 							s.Desc.Disks[i].Pci = desc.NewPCIDevice(pciRoot.CType, devType, pciInfoList[0].Devices[i].QdevID)
 							s.Desc.Disks[i].Scsi = nil
 							s.Desc.Disks[i].Ide = nil
+							s.Desc.Disks[i].Driver = DISK_DRIVER_VIRTIO
 						}
 						s.Desc.Disks[i].Pci.PCIAddr = pciAddr
 						err = s.ensureDevicePciAddress(s.Desc.Disks[i].Pci, -1, nil)
@@ -869,6 +927,10 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 				device := pciInfoList[0].Devices[i].ID.Device
 				switch { // qemu: docs/specs/pci-ids.txt
 				case class == 3075 && vendor == 6966 && device == 13: // { 0x0c03, "USB controller", "usb"}, 1b36:000d PCI xhci usb host adapter
+					if s.Desc.Usb == nil {
+						s.initUsbController(pciRoot)
+					}
+
 					s.Desc.Usb.PCIAddr = pciAddr
 					err = s.ensureDevicePciAddress(s.Desc.Usb.PCIDevice, -1, nil)
 					if err != nil {
@@ -879,18 +941,27 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 						// in case rng device disable by host options
 						s.initRandomDevice(pciRoot, true)
 					}
+
 					s.Desc.Rng.PCIAddr = pciAddr
 					err = s.ensureDevicePciAddress(s.Desc.Rng.PCIDevice, -1, nil)
 					if err != nil {
 						return errors.Wrap(err, "ensure random device pci address")
 					}
 				case class == 1920 && vendor == 6900 && device == 4099: // 0x0780, 1af4:1003  console device (legacy)
+					if s.Desc.VirtioSerial == nil {
+						s.initVirtioSerial(pciRoot)
+					}
+
 					s.Desc.VirtioSerial.PCIAddr = pciAddr
 					err = s.ensureDevicePciAddress(s.Desc.VirtioSerial.PCIDevice, -1, nil)
 					if err != nil {
 						return errors.Wrap(err, "ensure virtio serial address")
 					}
 				case class == 768 && vendor == 4660 && device == 4369: // { 0x0300, "VGA controller", "display", 0x00ff}, PCI ID: 1234:1111
+					if s.Desc.VgaDevice == nil {
+						s.initGuestVga(pciRoot)
+					}
+
 					s.Desc.VgaDevice.PCIAddr = pciAddr
 					err = s.ensureDevicePciAddress(s.Desc.VgaDevice.PCIDevice, -1, nil)
 					if err != nil {
@@ -902,6 +973,8 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			}
 		}
 	}
+
+	s.initGuestDisks(pciRoot, nil, true)
 
 	for i := 0; i < len(unknownDevices); i++ {
 		if unknownDevices[i].Bus == 0 && unknownDevices[i].Slot == 0 {
