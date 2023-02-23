@@ -158,7 +158,7 @@ func TestSKVMGuestInstance_initGuestDesc(t *testing.T) {
 	}
 	// s.initMachineDesc()
 
-	pciRoot, _ := s.initGuestPciControllers()
+	pciRoot, _ := s.initGuestPciControllers(true)
 	err = s.initGuestPciAddresses()
 	if err != nil {
 		t.Error(err)
