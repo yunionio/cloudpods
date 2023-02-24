@@ -2797,23 +2797,13 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.IsEmulated = extVM.IsEmulated()
 
-		if provider.GetFactory().IsSupportPrepaidResources() && !recycle &&
-			!extVM.GetExpiredAt().IsZero() {
-
+		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
 			self.BillingType = extVM.GetBillingType()
 			self.ExpiredAt = extVM.GetExpiredAt()
 			if self.GetDriver().IsSupportSetAutoRenew() {
 				self.AutoRenew = extVM.IsAutoRenew()
 			}
 		}
-
-		// no need to sync CreatedAt
-		// if !recycle {
-		//	if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
-		//		self.CreatedAt = createdAt
-		//	}
-		// }
-
 		return nil
 	})
 	if err != nil {
