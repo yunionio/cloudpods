@@ -360,7 +360,7 @@ func (s *SKVMGuestInstance) initCdromDesc() {
 }
 
 func (s *SKVMGuestInstance) initFloppyDesc() {
-	if s.GetOsName() != OS_NAME_WINDOWS {
+	if s.Desc.Machine != "pc" || s.GetOsName() != OS_NAME_WINDOWS {
 		return
 	}
 	if s.Desc.Floppys == nil {
