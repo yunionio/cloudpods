@@ -415,7 +415,8 @@ func (group *SGroup) ClearAllScheDescCache() error {
 
 func (group *SGroup) clearSchedDescCache(hostIds []string) error {
 	var g errgroup.Group
-	for _, hostId := range hostIds {
+	for i := range hostIds {
+		hostId := hostIds[i]
 		g.Go(func() error {
 			return HostManager.ClearSchedDescCache(hostId)
 		})
