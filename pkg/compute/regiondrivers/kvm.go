@@ -1588,7 +1588,7 @@ func (self *SKVMRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context,
 }
 
 func (self *SKVMRegionDriver) ValidateCacheSecgroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *models.SSecurityGroup, vpc *models.SVpc, classic bool) error {
-	return fmt.Errorf("No need to cache secgroup for onecloud region")
+	return errors.Wrap(httperrors.ErrNotSupported, "No need to cache secgroup for onecloud region")
 }
 
 func (self *SKVMRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask, data *jsonutils.JSONDict) error {
@@ -1797,6 +1797,9 @@ func (self *SKVMRegionDriver) RequestCreateBackup(ctx context.Context, backup *m
 
 func (self *SKVMRegionDriver) RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		if err := eip.AssociateInstance(ctx, userCred, input.InstanceType, obj); err != nil {
+			return nil, errors.Wrapf(err, "associate eip %s(%s) to %s %s(%s)", eip.Name, eip.Id, obj.Keyword(), obj.GetName(), obj.GetId())
+		}
 		if input.InstanceType == api.EIP_ASSOCIATE_TYPE_SERVER {
 			guest := obj.(*models.SGuest)
 
@@ -1875,12 +1878,8 @@ func (self *SKVMRegionDriver) RequestAssociatEip(ctx context.Context, userCred m
 		} else {
 			return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "instance type %s", input.InstanceType)
 		}
-
-		if err := eip.AssociateInstance(ctx, userCred, input.InstanceType, obj); err != nil {
-			return nil, errors.Wrapf(err, "associate eip %s(%s) to %s %s(%s)", eip.Name, eip.Id, obj.Keyword(), obj.GetName(), obj.GetId())
-		}
 		if err := eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE); err != nil {
-			return nil, errors.Wrapf(err, "set eip status to %s", api.EIP_STATUS_ALLOCATE)
+			return nil, errors.Wrapf(err, "set eip status to %s", api.EIP_STATUS_READY)
 		}
 		return nil, nil
 	})
