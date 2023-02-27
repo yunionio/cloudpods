@@ -77,6 +77,12 @@ with open(os.devnull, 'w')  as FNULL:
         sys.stderr.write('%%s' %% e)
         sys.exit(1)
 
+statePath = '%s'
+if os.path.exists(statePath):
+    cmd += ['--incoming', 'exec: cat %%s' %% statePath]
+elif os.path.exists('%%s/content' %% statePath):
+    cmd += ['--incoming', 'exec: cat %%s/content' %% statePath]
+
 pid = os.fork()
 if pid < 0:
     sys.stderr.write('failed fork child process')
@@ -380,7 +386,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	}
 	cmd += sriovInitScripts
 
-	cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
+	// cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
 	cmd += fmt.Sprintf("PID_FILE=%s\n", input.PidFilePath)
 
 	var qemuCmd = qemutils.GetQemu(string(input.QemuVersion))
@@ -523,15 +529,9 @@ function nic_mtu() {
 		return "", errors.Wrap(err, "GenerateStartCommand")
 	}
 	cmd = fmt.Sprintf("%s %s", cmd, qemuOpts)
-	cmd += "\"\n"
+	cmd += "\"\n\n"
 
-	cmd += `
-if [ ! -z "$STATE_FILE" ] && [ -d "$STATE_FILE" ] && [ -f "$STATE_FILE/content" ]; then
-    CMD="$CMD --incoming \"exec: cat $STATE_FILE/content\""
-elif [ ! -z "$STATE_FILE" ] && [ -f "$STATE_FILE" ]; then
-    CMD="$CMD --incoming \"exec: cat $STATE_FILE\""
-fi
-echo $CMD`
+	cmd += "echo $CMD\n"
 
 	return cmd, nil
 }
