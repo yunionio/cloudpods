@@ -81,8 +81,11 @@ func (opts *LoadbalancerAgentParamsOptions) Params() (*jsonutils.JSONDict, error
 
 type LoadbalancerAgentCreateOptions struct {
 	NAME      string
+	IP        string `help:"access ip of lbagent"`
+	INTERFACE string `help:"access interface of lbagent"`
+	VERSION   string `help:"version of lbagent"`
 	HbTimeout *int
-	Cluster   string `required:"true"`
+	// Cluster   string `required:"true"`
 
 	LoadbalancerAgentParamsOptions
 }
