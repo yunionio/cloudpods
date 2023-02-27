@@ -519,9 +519,9 @@ func (guest *SGuest) GetDetailsMakeSshableCmd(
 	}
 
 	varVals := [][2]string{
-		[2]string{"user", "cloudroot"},
-		[2]string{"adminpub", strings.TrimSpace(adminPublicKey)},
-		[2]string{"projpub", strings.TrimSpace(projectPublicKey)},
+		{"user", "cloudroot"},
+		{"adminpub", strings.TrimSpace(adminPublicKey)},
+		{"projpub", strings.TrimSpace(projectPublicKey)},
 	}
 	shellCmd := ""
 	for i := range varVals {
