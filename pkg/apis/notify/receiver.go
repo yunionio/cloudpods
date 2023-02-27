@@ -22,9 +22,7 @@ import (
 )
 
 type ReceiverCreateInput struct {
-	apis.StatusStandaloneResourceCreateInput
-	apis.DomainizedResourceCreateInput
-	apis.EnabledBaseResourceCreateInput
+	apis.EnabledStatusDomainLevelResourceCreateInput
 
 	// description: user id in keystone
 	// example: adfb720ccdd34c638346ea4fa7a713a8
@@ -84,8 +82,7 @@ func (im SInternationalMobile) String() string {
 }
 
 type ReceiverDetails struct {
-	apis.StatusStandaloneResourceDetails
-	apis.DomainizedResourceInfo
+	apis.EnabledStatusDomainLevelResourceDetails
 
 	SReceiver
 	InternationalMobile SInternationalMobile `json:"international_mobile"`
@@ -105,9 +102,7 @@ type VerifiedInfo struct {
 }
 
 type ReceiverListInput struct {
-	apis.StatusStandaloneResourceListInput
-	apis.DomainizedResourceListInput
-	apis.EnabledResourceBaseListInput
+	apis.EnabledStatusDomainLevelResourceListInput
 
 	UID string `json:"uid"`
 
@@ -121,7 +116,7 @@ type ReceiverListInput struct {
 }
 
 type ReceiverUpdateInput struct {
-	apis.StatusStandaloneResourceBaseUpdateInput
+	apis.EnabledStatusDomainLevelResourceBaseUpdateInput
 
 	// description: user email
 	// example: example@gmail.com

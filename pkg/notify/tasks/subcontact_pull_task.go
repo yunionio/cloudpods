@@ -22,14 +22,15 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	apis "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -84,35 +85,63 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	} else {
 		contactTypes, _ = receiver.GetEnabledContactTypes()
 	}
+
 	for _, cType := range contactTypes {
 		if !utils.IsInStringArray(cType, PullContactType) {
 			continue
 		}
-		userid, err := models.NotifyService.ContactByMobile(ctx, receiver.Mobile, cType, receiver.GetDomainId())
+		content := ""
+		switch cType {
+		case apis.EMAIL:
+			content = receiver.Email
+		default:
+			driver := models.GetDriver(cType)
+			content, err = driver.ContactByMobile(mobile, "")
+		}
 		if err != nil {
 			var reason string
-			if errors.Cause(err) == notify.ErrNoSuchMobile {
-				receiver.MarkContactTypeUnVerified(cType, notify.ErrNoSuchMobile.Error())
+			if errors.Cause(err) == apis.ErrNoSuchMobile {
+				receiver.MarkContactTypeUnVerified(ctx, cType, apis.ErrNoSuchMobile.Error())
 				reason = fmt.Sprintf("%q: no such mobile %s", cType, receiver.Mobile)
-			} else if errors.Cause(err) == notify.ErrIncompleteConfig {
-				receiver.MarkContactTypeUnVerified(cType, notify.ErrIncompleteConfig.Error())
+			} else if errors.Cause(err) == apis.ErrIncompleteConfig {
+				receiver.MarkContactTypeUnVerified(ctx, cType, apis.ErrIncompleteConfig.Error())
 				reason = fmt.Sprintf("%q: %v", cType, err)
 			} else {
-				receiver.MarkContactTypeUnVerified(cType, "service exceptions")
+				receiver.MarkContactTypeUnVerified(ctx, cType, "service exceptions")
 				reason = fmt.Sprintf("%q: %v", cType, err)
 			}
 			failedReasons = append(failedReasons, reason)
 			continue
+		} else {
+			q := models.SubContactManager.Query()
+			cond := sqlchemy.AND(sqlchemy.Equals(q.Field("receiver_id"), receiver.Id), sqlchemy.Equals(q.Field("type"), cType))
+			q.Filter(cond)
+			subcontact := []models.SSubContact{}
+			err := db.FetchModelObjects(models.SubContactManager, q, &subcontact)
+			if err != nil {
+				failedReasons = append(failedReasons, err.Error())
+				continue
+			}
+			subid := ""
+			if len(subcontact) > 0 {
+				subid = subcontact[0].Id
+			}
+			err = models.SubContactManager.TableSpec().InsertOrUpdate(ctx, &models.SSubContact{
+				SStandaloneResourceBase: db.SStandaloneResourceBase{
+					SStandaloneAnonResourceBase: db.SStandaloneAnonResourceBase{Id: subid},
+				},
+				ReceiverID:        receiver.Id,
+				Type:              cType,
+				Contact:           content,
+				ParentContactType: "mobile",
+				Enabled:           tristate.True,
+			})
+			if err != nil {
+				log.Errorln("this is err:", err)
+			}
 		}
-		receiver.SetContact(cType, userid)
-		receiver.MarkContactTypeVerified(cType)
-	}
-	// push cache
-	err = receiver.PushCache(ctx)
-	if err != nil {
-		reason := fmt.Sprintf("PushCache: %v", err)
-		self.taskFailed(ctx, receiver, reason)
-		return
+		receiver.SetContact(cType, content)
+		receiver.MarkContactTypeVerified(ctx, cType)
 	}
 	if len(failedReasons) > 0 {
 		reason := strings.Join(failedReasons, "; ")

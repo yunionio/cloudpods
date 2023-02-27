@@ -45,7 +45,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/informer"
 	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	notify_modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
-	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -72,16 +71,14 @@ var (
 )
 
 type SReceiverManager struct {
-	db.SStatusStandaloneResourceBaseManager
-	db.SDomainizedResourceBaseManager
-	db.SEnabledResourceBaseManager
+	db.SEnabledStatusDomainLevelResourceBaseManager
 }
 
 var ReceiverManager *SReceiverManager
 
 func init() {
 	ReceiverManager = &SReceiverManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SEnabledStatusDomainLevelResourceBaseManager: db.NewEnabledStatusDomainLevelResourceBaseManager(
 			SReceiver{},
 			"receivers_tbl",
 			"receiver",
@@ -91,10 +88,9 @@ func init() {
 	ReceiverManager.SetVirtualObject(ReceiverManager)
 }
 
+// 接收人
 type SReceiver struct {
-	db.SStatusStandaloneResourceBase
-	db.SDomainizedResourceBase
-	db.SEnabledResourceBase
+	db.SEnabledStatusDomainLevelResourceBase
 
 	Email string `width:"128" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
 	// swagger:ignore
@@ -112,120 +108,7 @@ type SReceiver struct {
 	VerifiedMobile tristate.TriState `default:"false" update:"user"`
 
 	// swagger:ignore
-	subContactCache map[string]*SSubContact `json:"-"`
-}
-
-func (rm *SReceiverManager) InitializeData() error {
-	ctx := context.Background()
-	userCred := auth.AdminCredential()
-	log.Infof("Init Receiver...")
-	// Fetch all old SContact
-	q := oldmodels.ContactManager.Query()
-	contacts := make([]oldmodels.SContact, 0, 50)
-	err := db.FetchModelObjects(oldmodels.ContactManager, q, &contacts)
-	if err != nil {
-		return errors.Wrap(err, "db.FetchModelObjects")
-	}
-	if len(contacts) == 0 {
-		return nil
-	}
-
-	// build uid map
-	uids := make([]string, 0, 10)
-	contactMap := make(map[string][]*oldmodels.SContact, 10)
-	for i := range contacts {
-		uid := contacts[i].UID
-		if _, ok := contactMap[uid]; !ok {
-			contactMap[uid] = make([]*oldmodels.SContact, 0, 4)
-			uids = append(uids, uid)
-		}
-		contactMap[uid] = append(contactMap[uid], &contacts[i])
-	}
-
-	// build uid->uname map
-	userMap, err := oldmodels.UserCacheManager.FetchUsersByIDs(context.Background(), uids)
-	if err != nil {
-		return errors.Wrap(err, "oldmodels.UserCacheManager.FetchUsersByIDs")
-	}
-
-	// build Receivers
-	for uid, contacts := range contactMap {
-		var receiver SReceiver
-		receiver.subContactCache = make(map[string]*SSubContact)
-		receiver.Enabled = tristate.True
-		receiver.Status = api.RECEIVER_STATUS_READY
-		receiver.Id = uid
-		user, ok := userMap[uid]
-		if !ok {
-			log.Errorf("no user %q in usercache", uid)
-		} else {
-			receiver.Name = user.Name
-			receiver.DomainId = user.DomainId
-		}
-		for _, contact := range contacts {
-			switch contact.ContactType {
-			case api.EMAIL:
-				receiver.Email = contact.Contact
-				if contact.Enabled == "1" {
-					receiver.EnabledEmail = tristate.True
-				} else {
-					receiver.EnabledEmail = tristate.False
-				}
-				if contact.Status == oldmodels.CONTACT_VERIFIED {
-					receiver.VerifiedEmail = tristate.True
-				} else {
-					receiver.VerifiedEmail = tristate.False
-				}
-			case api.MOBILE:
-				receiver.Mobile = contact.Contact
-				if contact.Enabled == "1" {
-					receiver.EnabledMobile = tristate.True
-				} else {
-					receiver.EnabledMobile = tristate.False
-				}
-				if contact.Status == oldmodels.CONTACT_VERIFIED {
-					receiver.VerifiedMobile = tristate.True
-				} else {
-					receiver.VerifiedMobile = tristate.False
-				}
-			case api.WEBCONSOLE:
-			default:
-				var subContact SSubContact
-				subContact.Type = contact.ContactType
-				subContact.ParentContactType = api.MOBILE
-				subContact.Contact = contact.Contact
-				subContact.ReceiverID = uid
-				subContact.ParentContactType = api.MOBILE
-				if contact.Enabled == "1" {
-					subContact.Enabled = tristate.True
-				} else {
-					subContact.Enabled = tristate.False
-				}
-				if contact.Status == oldmodels.CONTACT_VERIFIED && len(contact.Contact) > 0 {
-					subContact.Verified = tristate.True
-				} else {
-					subContact.Verified = tristate.False
-				}
-				receiver.subContactCache[contact.ContactType] = &subContact
-			}
-		}
-		err := rm.TableSpec().InsertOrUpdate(ctx, &receiver)
-		if err != nil {
-			return errors.Wrap(err, "InsertOrUpdate")
-		}
-		err = receiver.PushCache(ctx)
-		if err != nil {
-			return errors.Wrap(err, "PushCache")
-		}
-		//delete old one
-		for _, contact := range contacts {
-			err := contact.Delete(ctx, userCred)
-			if err != nil {
-				return errors.Wrap(err, "Delete")
-			}
-		}
-	}
-	return nil
+	// subContactCache map[string]*SSubContact `json:"-"`
 }
 
 func (rm *SReceiverManager) CreateByInsertOrUpdate() bool {
@@ -234,49 +117,25 @@ func (rm *SReceiverManager) CreateByInsertOrUpdate() bool {
 
 func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ReceiverCreateInput) (api.ReceiverCreateInput, error) {
 	var err error
-	input.StatusStandaloneResourceCreateInput, err = rm.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
+	log.Infoln("this is validate SReceiverManager")
+	input.EnabledStatusDomainLevelResourceCreateInput, err = rm.SEnabledStatusDomainLevelResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusDomainLevelResourceCreateInput)
 	if err != nil {
 		return input, err
 	}
-	// check uid
-	session := auth.GetAdminSession(ctx, "")
-	if len(input.UID) > 0 {
-		userObj, err := identity_modules.UsersV3.GetById(session, input.UID, nil)
-		if err != nil {
-			if jErr, ok := err.(*httputils.JSONClientError); ok {
-				if jErr.Code == 404 {
-					return input, httperrors.NewInputParameterError("no such user")
-				}
-			}
-			return input, err
-		}
-		uname, _ := userObj.GetString("name")
-		uid, _ := userObj.GetString("id")
-		input.UID = uid
-		input.UName = uname
-		domainId, _ := userObj.GetString("domain_id")
-		input.ProjectDomainId = domainId
-	} else {
-		if len(input.UName) == 0 {
-			return input, httperrors.NewMissingParameterError("uid or uname")
-		} else {
-			userObj, err := identity_modules.UsersV3.GetByName(session, input.UName, nil)
-			if err != nil {
-				if jErr, ok := err.(*httputils.JSONClientError); ok {
-					if jErr.Code == 404 {
-						return input, httperrors.NewInputParameterError("no such user")
-					}
-				}
-				return input, err
-			}
-			uid, _ := userObj.GetString("id")
-			uname, _ := userObj.GetString("name")
-			input.UID = uid
-			input.UName = uname
-			domainId, _ := userObj.GetString("domain_id")
-			input.ProjectDomainId = domainId
-		}
+	if len(input.UID) == 0 && len(input.UName) == 0 {
+		return input, httperrors.NewMissingParameterError("uid or uname")
 	}
+	uid := input.UID
+	if len(input.UID) == 0 {
+		uid = input.UName
+	}
+	user, err := db.UserCacheManager.FetchUserByIdOrName(ctx, uid)
+	if err != nil {
+		return input, err
+	}
+	input.UID = user.Id
+	input.UName = user.Name
+	input.ProjectDomainId = user.DomainId
 	// hack
 	input.Name = input.UName
 	// validate email
@@ -287,6 +146,13 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 	if ok := LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); len(input.InternationalMobile.Mobile) > 0 && !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
+	for _, cType := range input.EnabledContactTypes {
+		driver := GetDriver(cType)
+		if driver == nil {
+			return input, httperrors.NewInputParameterError("invalid enabled contact type %s", cType)
+		}
+	}
+
 	return input, nil
 }
 
@@ -319,9 +185,6 @@ func (r *SReceiver) IsVerifiedContactType(ct string) (bool, error) {
 }
 
 func (r *SReceiver) GetEnabledContactTypes() ([]string, error) {
-	if err := r.PullCache(false); err != nil {
-		return nil, err
-	}
 	ret := make([]string, 0, 1)
 	// for email and mobile
 	if r.EnabledEmail.IsTrue() {
@@ -330,144 +193,65 @@ func (r *SReceiver) GetEnabledContactTypes() ([]string, error) {
 	if r.EnabledMobile.IsTrue() {
 		ret = append(ret, api.MOBILE)
 	}
-	for subct, subc := range r.subContactCache {
-		if subc.Enabled.IsTrue() {
-			ret = append(ret, subct)
+	subs, _ := r.GetSubContacts()
+	for _, sub := range subs {
+		if sub.Enabled.IsTrue() {
+			ret = append(ret, sub.Type)
 		}
 	}
 	ret = append(ret, api.WEBCONSOLE)
 	return ret, nil
 }
 
-func (r *SReceiver) setEnabledContactType(contactType string, enabled bool) {
-	switch contactType {
-	case api.EMAIL:
-		r.EnabledEmail = tristate.NewFromBool(enabled)
-	case api.MOBILE:
-		r.EnabledMobile = tristate.NewFromBool(enabled)
-	default:
-		if sc, ok := r.subContactCache[contactType]; ok {
-			sc.Enabled = tristate.NewFromBool(enabled)
-		} else {
-			subContact := &SSubContact{
-				Type:       contactType,
-				ReceiverID: r.Id,
-				Enabled:    tristate.NewFromBool(enabled),
-			}
-			subContact.ParentContactType = api.MOBILE
-			r.subContactCache[contactType] = subContact
-		}
-	}
-}
-
-func (r *SReceiver) SetEnabledContactTypes(contactTypes []string) error {
-	if err := r.PullCache(false); err != nil {
-		return err
-	}
-	ctSet := sets.NewString(contactTypes...)
-	for _, ct := range PersonalConfigContactTypes {
-		if ctSet.Has(ct) {
-			r.setEnabledContactType(ct, true)
-		} else {
-			r.setEnabledContactType(ct, false)
-		}
-	}
-	return nil
-}
-
-func (r *SReceiver) MarkContactTypeVerified(contactType string) error {
-	if err := r.PullCache(false); err != nil {
-		return err
-	}
-	if sc, ok := r.subContactCache[contactType]; ok {
-		sc.Verified = tristate.True
-		sc.VerifiedNote = ""
-	} else {
-		subContact := &SSubContact{
-			Type:       contactType,
-			ReceiverID: r.Id,
-			Verified:   tristate.True,
-		}
-		subContact.ParentContactType = api.MOBILE
-		subContact.VerifiedNote = ""
-		r.subContactCache[contactType] = subContact
-	}
-	return nil
-}
-
-func (r *SReceiver) MarkContactTypeUnVerified(contactType string, note string) error {
-	if err := r.PullCache(false); err != nil {
-		return err
-	}
-	if sc, ok := r.subContactCache[contactType]; ok {
-		sc.Verified = tristate.False
-		sc.VerifiedNote = note
-	} else {
-		subContact := &SSubContact{
-			Type:         contactType,
-			ReceiverID:   r.Id,
-			VerifiedNote: note,
-			Verified:     tristate.False,
-		}
-		subContact.ParentContactType = api.MOBILE
-		r.subContactCache[contactType] = subContact
-	}
-	return nil
-}
-
-func (r *SReceiver) setVerifiedContactType(contactType string, enabled bool) {
-	switch contactType {
-	case api.EMAIL:
-		r.VerifiedEmail = tristate.NewFromBool(enabled)
-	case api.MOBILE:
-		r.VerifiedMobile = tristate.NewFromBool(enabled)
-	default:
-		if sc, ok := r.subContactCache[contactType]; ok {
-			sc.Verified = tristate.NewFromBool(enabled)
-		} else {
-			subContact := &SSubContact{
-				Type:       contactType,
-				ReceiverID: r.Id,
-				Verified:   tristate.NewFromBool(enabled),
-			}
-			subContact.ParentContactType = api.MOBILE
-			r.subContactCache[contactType] = subContact
-		}
-	}
-}
-
-func (r *SReceiver) getVerifiedInfos() ([]api.VerifiedInfo, error) {
-	if err := r.PullCache(false); err != nil {
-		return nil, err
-	}
-	infos := []api.VerifiedInfo{
-		{
-			ContactType: api.EMAIL,
-			Verified:    r.VerifiedEmail.Bool(),
-		},
-		{
-			ContactType: api.MOBILE,
-			Verified:    r.VerifiedMobile.Bool(),
-		},
-		{
-			ContactType: api.WEBCONSOLE,
-			Verified:    true,
-		},
-	}
-	for subct, subc := range r.subContactCache {
-		infos = append(infos, api.VerifiedInfo{
-			ContactType: subct,
-			Verified:    subc.Verified.Bool(),
-			Note:        subc.VerifiedNote,
+func (r *SReceiver) markContactType(ctx context.Context, contactType string, isVerified bool, note string) error {
+	if contactType == api.MOBILE {
+		_, err := db.Update(r, func() error {
+			r.VerifiedMobile = tristate.NewFromBool(isVerified)
+			return nil
 		})
+		return err
 	}
-	return infos, nil
+	if contactType == api.EMAIL {
+		_, err := db.Update(r, func() error {
+			r.VerifiedEmail = tristate.NewFromBool(isVerified)
+			return nil
+		})
+		return err
+	}
+	subs, err := r.GetSubContacts()
+	if err != nil {
+		return err
+	}
+	for i := range subs {
+		if subs[i].Type == contactType {
+			_, err := db.Update(&subs[i], func() error {
+				subs[i].Verified = tristate.NewFromBool(isVerified)
+				subs[i].VerifiedNote = note
+				return nil
+			})
+			return err
+		}
+	}
+	sub := &SSubContact{
+		Type:              contactType,
+		ReceiverID:        r.Id,
+		Verified:          tristate.NewFromBool(isVerified),
+		VerifiedNote:      note,
+		ParentContactType: api.MOBILE,
+	}
+	sub.SetModelManager(SubContactManager, sub)
+	return SubContactManager.TableSpec().Insert(ctx, sub)
+}
+
+func (r *SReceiver) MarkContactTypeVerified(ctx context.Context, contactType string) error {
+	return r.markContactType(ctx, contactType, true, "")
+}
+
+func (r *SReceiver) MarkContactTypeUnVerified(ctx context.Context, contactType string, note string) error {
+	return r.markContactType(ctx, contactType, false, note)
 }
 
 func (r *SReceiver) GetVerifiedContactTypes() ([]string, error) {
-	if err := r.PullCache(false); err != nil {
-		return nil, err
-	}
 	ret := make([]string, 0, 1)
 	// for email and mobile
 	if r.VerifiedEmail.IsTrue() {
@@ -476,76 +260,38 @@ func (r *SReceiver) GetVerifiedContactTypes() ([]string, error) {
 	if r.VerifiedMobile.IsTrue() {
 		ret = append(ret, api.MOBILE)
 	}
-	for subct, subc := range r.subContactCache {
-		if subc.Verified.IsTrue() {
-			ret = append(ret, subct)
+	subs, _ := r.GetSubContacts()
+	for _, sub := range subs {
+		if sub.Verified.IsTrue() {
+			ret = append(ret, sub.Type)
 		}
 	}
 	return ret, nil
 }
 
-func (r *SReceiver) SetVerifiedContactTypes(contactTypes []string) error {
-	if err := r.PullCache(false); err != nil {
-		return err
-	}
-	ctSet := sets.NewString(contactTypes...)
-	for _, ct := range PersonalConfigContactTypes {
-		if ctSet.Has(ct) {
-			r.setVerifiedContactType(ct, true)
-		} else {
-			r.setVerifiedContactType(ct, false)
-		}
-	}
-	return nil
+func (self *SReceiver) GetSubContacts() ([]SSubContact, error) {
+	ret := []SSubContact{}
+	q := SubContactManager.Query().Equals("receiver_id", self.Id)
+	err := db.FetchModelObjects(SubContactManager, q, &ret)
+	return ret, err
 }
 
-func (r *SReceiver) PullCache(force bool) error {
-	if !force && r.subContactCache != nil {
-		return nil
-	}
-	cache, err := SubContactManager.fetchMapByReceiverID(r.Id)
+func (rm *SReceiverManager) FetchSubContacts(ids []string) (map[string][]SSubContact, error) {
+	ret := map[string][]SSubContact{}
+	q := SubContactManager.Query().In("receiver_id", ids)
+	subContacts := []SSubContact{}
+	err := db.FetchModelObjects(SubContactManager, q, &subContacts)
 	if err != nil {
-		return err
+		return ret, err
 	}
-	r.subContactCache = cache
-	return nil
-}
-
-func (r *SReceiver) PushCache(ctx context.Context) error {
-	for subct, subc := range r.subContactCache {
-		err := SubContactManager.TableSpec().InsertOrUpdate(ctx, subc)
-		if err != nil {
-			return errors.Wrapf(err, "fail to save subcontact %q to db", subct)
+	for i := range subContacts {
+		_, ok := ret[subContacts[i].ReceiverID]
+		if !ok {
+			ret[subContacts[i].ReceiverID] = []SSubContact{}
 		}
+		ret[subContacts[i].ReceiverID] = append(ret[subContacts[i].ReceiverID], subContacts[i])
 	}
-	return nil
-}
-
-func (rm *SReceiverManager) EnabledContactFilter(contactType string, q *sqlchemy.SQuery) *sqlchemy.SQuery {
-	switch contactType {
-	case api.MOBILE:
-		q = q.IsTrue("enabled_mobile")
-	case api.EMAIL:
-		q = q.IsTrue("enabled_email")
-	default:
-		subQuery := SubContactManager.Query("receiver_id").Equals("type", contactType).IsTrue("enabled").SubQuery()
-		q = q.Join(subQuery, sqlchemy.Equals(subQuery.Field("receiver_id"), q.Field("id")))
-	}
-	return q
-}
-
-func (rm *SReceiverManager) VerifiedContactFilter(contactType string, q *sqlchemy.SQuery) *sqlchemy.SQuery {
-	switch contactType {
-	case api.MOBILE:
-		q = q.IsTrue("verified_mobile")
-	case api.EMAIL:
-		q = q.IsTrue("verified_email")
-	default:
-		subQuery := SubContactManager.Query("receiver_id").Equals("type", contactType).IsTrue("verified").SubQuery()
-		q = q.Join(subQuery, sqlchemy.Equals(subQuery.Field("receiver_id"), q.Field("id")))
-
-	}
-	return q
+	return ret, nil
 }
 
 func (rm *SReceiverManager) ResourceScope() rbacscope.TRbacScope {
@@ -631,15 +377,7 @@ func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IId
 }
 
 func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ReceiverListInput) (*sqlchemy.SQuery, error) {
-	q, err := rm.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
-	if err != nil {
-		return nil, err
-	}
-	q, err = rm.SDomainizedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.DomainizedResourceListInput)
-	if err != nil {
-		return nil, err
-	}
-	q, err = rm.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledResourceBaseListInput)
+	q, err := rm.SEnabledStatusDomainLevelResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledStatusDomainLevelResourceListInput)
 	if err != nil {
 		return nil, err
 	}
@@ -650,10 +388,26 @@ func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 		q = q.Equals("name", input.UName)
 	}
 	if len(input.EnabledContactType) > 0 {
-		q = rm.EnabledContactFilter(input.EnabledContactType, q)
+		switch input.EnabledContactType {
+		case api.MOBILE:
+			q = q.IsTrue("enabled_mobile")
+		case api.EMAIL:
+			q = q.IsTrue("enabled_email")
+		default:
+			sq := SubContactManager.Query("receiver_id").Equals("type", input.EnabledContactType).IsTrue("enabled").SubQuery()
+			q = q.Join(sq, sqlchemy.Equals(sq.Field("receiver_id"), q.Field("id")))
+		}
 	}
 	if len(input.VerifiedContactType) > 0 {
-		q = rm.VerifiedContactFilter(input.VerifiedContactType, q)
+		switch input.VerifiedContactType {
+		case api.MOBILE:
+			q = q.IsTrue("verified_mobile")
+		case api.EMAIL:
+			q = q.IsTrue("verified_email")
+		default:
+			sq := SubContactManager.Query("receiver_id").Equals("type", input.VerifiedContactType).IsTrue("verified").SubQuery()
+			q = q.Join(sq, sqlchemy.Equals(sq.Field("receiver_id"), q.Field("id")))
+		}
 	}
 	ownerId, queryScope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, jsonutils.Marshal(input), rm, policy.PolicyActionList, true)
 	if err != nil {
@@ -751,7 +505,6 @@ func (rm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclie
 		}
 	}
 	q := reduce(qs)
-	q.DebugQuery()
 	allTypes := make([]struct {
 		Type string
 	}, 0, 3)
@@ -768,33 +521,59 @@ func (rm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclie
 }
 
 func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.ReceiverDetails {
-	sRows := rm.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	dRows := rm.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	sRows := rm.SEnabledStatusDomainLevelResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	rows := make([]api.ReceiverDetails, len(objs))
-	var err error
+	recvIds := []string{}
 	for i := range rows {
-		rows[i].StatusStandaloneResourceDetails = sRows[i]
-		rows[i].DomainizedResourceInfo = dRows[i]
+		rows[i].EnabledStatusDomainLevelResourceDetails = sRows[i]
 		user := objs[i].(*SReceiver)
+		recvIds = append(recvIds, user.Id)
 		rows[i].InternationalMobile = api.ParseInternationalMobile(user.Mobile)
-		if enabledCTs, err := user.GetEnabledContactTypes(); err != nil {
-			log.Errorf("GetEnabledContactTypes: %v", err)
-		} else {
-			rows[i].EnabledContactTypes = sortContactType(enabledCTs)
+		rows[i].EnabledContactTypes = []string{}
+		if user.EnabledEmail.Bool() {
+			rows[i].EnabledContactTypes = append(rows[i].EnabledContactTypes, api.EMAIL)
 		}
-		if rows[i].VerifiedInfos, err = user.getVerifiedInfos(); err != nil {
-			log.Errorf("GetVerifiedContactTypes: %v", err)
+		if user.EnabledMobile.Bool() {
+			rows[i].EnabledContactTypes = append(rows[i].EnabledContactTypes, api.MOBILE)
+		}
+		rows[i].VerifiedInfos = []api.VerifiedInfo{
+			{
+				ContactType: api.EMAIL,
+				Verified:    user.VerifiedEmail.Bool(),
+			},
+			{
+				ContactType: api.MOBILE,
+				Verified:    user.VerifiedMobile.Bool(),
+			},
+			{
+				ContactType: api.WEBCONSOLE,
+				Verified:    true,
+			},
 		}
 	}
+	subContacts, err := rm.FetchSubContacts(recvIds)
+	if err != nil {
+		return rows
+	}
+	for i := range rows {
+		for _, contact := range subContacts[recvIds[i]] {
+			if contact.Enabled.Bool() {
+				rows[i].EnabledContactTypes = append(rows[i].EnabledContactTypes, contact.Type)
+			}
+			rows[i].VerifiedInfos = append(rows[i].VerifiedInfos, api.VerifiedInfo{
+				ContactType: contact.Type,
+				Verified:    contact.Verified.Bool(),
+				Note:        contact.VerifiedNote,
+			})
+		}
+		rows[i].EnabledContactTypes = sortContactType(rows[i].EnabledContactTypes)
+	}
+
 	return rows
 }
 
 func (rm *SReceiverManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
-	q, err := rm.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
-	if err == nil {
-		return q, nil
-	}
-	q, err = rm.SDomainizedResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err := rm.SEnabledStatusDomainLevelResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -802,27 +581,26 @@ func (rm *SReceiverManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field st
 }
 
 func (rm *SReceiverManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ReceiverListInput) (*sqlchemy.SQuery, error) {
-	q, err := rm.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err := rm.SEnabledStatusDomainLevelResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusDomainLevelResourceListInput)
 	if err != nil {
 		return nil, err
 	}
-	q, err = rm.SDomainizedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DomainizedResourceListInput)
 	return q, nil
 }
 
 func (r *SReceiver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	r.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	// set status
-	r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
-	logclient.AddActionLogWithContext(ctx, r, logclient.ACT_CREATE, nil, userCred, true)
-	err := r.StartSubcontactPullTask(ctx, userCred, nil, "")
+	r.SEnabledStatusDomainLevelResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	cTypes := jsonutils.GetQueryStringArray(data, "enabled_contact_types")
+	err := r.StartSubcontactPullTask(ctx, userCred, cTypes, "")
 	if err != nil {
-		log.Errorf("unable to StartSubcontactPullTask: %v", err)
+		logclient.AddActionLogWithContext(ctx, r, logclient.ACT_CREATE, err, userCred, false)
+		return
 	}
+	logclient.AddActionLogWithContext(ctx, r, logclient.ACT_CREATE, err, userCred, true)
 }
 
 func (r *SReceiver) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	err := r.SStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	err := r.SEnabledStatusDomainLevelResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return nil
 	}
@@ -831,41 +609,27 @@ func (r *SReceiver) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return err
 	}
-	// set id and name
 	r.Id = input.UID
-	r.Name = input.UName
-	r.DomainId = input.ProjectDomainId
-	if input.Enabled == nil {
-		r.Enabled = tristate.True
-	}
 	r.Mobile = input.InternationalMobile.String()
-	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
-	if err != nil {
-		return errors.Wrap(err, "SetEnabledContactTypes")
-	}
-	err = r.PushCache(ctx)
-	if err != nil {
-		return errors.Wrap(err, "PushCache")
-	}
+
 	// 需求：管理后台新建的联系人，手机号和邮箱无需进行校验
 	// 方案：检查请求者对于创建联系人 是否具有system scope
-	if input.ForceVerified {
-		allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
-		if allowScope == rbacscope.ScopeSystem {
-			if r.EnabledEmail.Bool() {
-				r.VerifiedEmail = tristate.True
-			}
-			if r.EnabledMobile.Bool() {
-				r.VerifiedMobile = tristate.True
-			}
+	allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
+	if allowScope == rbacscope.ScopeSystem {
+		if r.EnabledEmail.Bool() {
+			r.VerifiedEmail = tristate.True
+		}
+		if r.EnabledMobile.Bool() {
+			r.VerifiedMobile = tristate.True
 		}
 	}
+
 	return nil
 }
 
 func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverUpdateInput) (api.ReceiverUpdateInput, error) {
 	var err error
-	input.StatusStandaloneResourceBaseUpdateInput, err = r.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
+	input.EnabledStatusDomainLevelResourceBaseUpdateInput, err = r.SEnabledStatusDomainLevelResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusDomainLevelResourceBaseUpdateInput)
 	if err != nil {
 		return input, err
 	}
@@ -877,126 +641,134 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	if ok := len(input.InternationalMobile.Mobile) == 0 || LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
+
+	for _, cType := range input.EnabledContactTypes {
+		driver := GetDriver(cType)
+		if driver == nil {
+			return input, httperrors.NewInputParameterError("invalid enabled contact type %s", cType)
+		}
+	}
+
 	return input, nil
 }
 
 func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	r.SStatusStandaloneResourceBase.PreUpdate(ctx, userCred, query, data)
+	r.SEnabledStatusDomainLevelResourceBase.PreUpdate(ctx, userCred, query, data)
 	originEmailEnable, originMobileEnable := r.EnabledEmail, r.EnabledMobile
 	var input api.ReceiverUpdateInput
-	err := data.Unmarshal(&input)
-	if err != nil {
-		log.Errorf("fail to unmarshal to ContactUpdateInput: %v", err)
-	}
-	err = r.PullCache(false)
-	if err != nil {
-		log.Errorf("PullCache: %v", err)
-	}
-	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
-	if err != nil {
-		log.Errorf("unable to SetEnabledContactTypes")
-	}
+	data.Unmarshal(&input)
 	if len(input.Email) != 0 && input.Email != r.Email {
+		db.Update(r, func() error {
+			r.VerifiedEmail = tristate.False
+			return nil
+		})
 		r.VerifiedEmail = tristate.False
-		for _, c := range r.subContactCache {
-			if c.ParentContactType == api.EMAIL {
-				c.Verified = tristate.False
-				c.VerifiedNote = "email changed, re-verify"
+		subs, _ := r.GetSubContacts()
+		for i := range subs {
+			if subs[i].ParentContactType == api.EMAIL {
+				db.Update(&subs[i], func() error {
+					subs[i].Verified = tristate.False
+					subs[i].VerifiedNote = "email changed, re-verify"
+					return nil
+				})
 			}
 		}
 	}
 	mobile := input.InternationalMobile.String()
+	log.Infof("this is r.Mobile:%s,this is mobile:%s", r.Mobile, mobile)
 	if len(mobile) != 0 && mobile != r.Mobile {
-		r.VerifiedMobile = tristate.False
-		for _, c := range r.subContactCache {
-			if c.ParentContactType == api.MOBILE {
-				c.Verified = tristate.False
-				c.VerifiedNote = "mobile changed, re-verify"
+		log.Infoln("this is update v.VerifiedMobile")
+		db.Update(r, func() error {
+			r.VerifiedMobile = tristate.False
+			return nil
+		})
+		subs, _ := r.GetSubContacts()
+		log.Infoln("this is subs:", jsonutils.Marshal(subs))
+		for i := range subs {
+			if subs[i].ParentContactType == api.MOBILE {
+				db.Update(&subs[i], func() error {
+					subs[i].Verified = tristate.False
+					subs[i].VerifiedNote = "mobile changed, re-verify"
+					return nil
+				})
 			}
 		}
-	}
-	err = r.PushCache(ctx)
-	if err != nil {
-		log.Errorf("PushCache: %v", err)
 	}
 	// 管理后台修改联系人，如果修改或者启用手机号和邮箱，无需进行校验
 	if input.ForceVerified {
 		allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
 		if allowScope == rbacscope.ScopeSystem {
-			// 修改并启用
-			if len(input.Email) != 0 && input.Email != r.Email && r.EnabledEmail.Bool() {
-				r.VerifiedEmail = tristate.True
-			}
-			if len(mobile) != 0 && mobile != r.Mobile && r.EnabledMobile.Bool() {
-				r.VerifiedMobile = tristate.True
-			}
-			// 从禁用变启用
-			if !originEmailEnable.Bool() && r.EnabledEmail.Bool() {
-				r.VerifiedEmail = tristate.True
-			}
-			if !originMobileEnable.Bool() && r.EnabledMobile.Bool() {
-				r.VerifiedMobile = tristate.True
-			}
+			db.Update(r, func() error {
+				// 修改并启用
+				if len(input.Email) != 0 && input.Email != r.Email && r.EnabledEmail.Bool() {
+					r.VerifiedEmail = tristate.True
+				}
+				if len(mobile) != 0 && mobile != r.Mobile && r.EnabledMobile.Bool() {
+					r.VerifiedMobile = tristate.True
+				}
+				// 从禁用变启用
+				if !originEmailEnable.Bool() && r.EnabledEmail.Bool() {
+					r.VerifiedEmail = tristate.True
+				}
+				if !originMobileEnable.Bool() && r.EnabledMobile.Bool() {
+					r.VerifiedMobile = tristate.True
+				}
+				return nil
+			})
 		}
-	}
-	r.Mobile = mobile
-	err = ReceiverManager.TableSpec().InsertOrUpdate(ctx, r)
-	if err != nil {
-		log.Errorf("InsertOrUpdate: %v", err)
 	}
 }
 
 func (r *SReceiver) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	r.SStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
-	// set status
-	r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
-	logclient.AddActionLogWithContext(ctx, r, logclient.ACT_UPDATE, nil, userCred, true)
-	err := r.StartSubcontactPullTask(ctx, userCred, nil, "")
+	r.SEnabledStatusDomainLevelResourceBase.PostUpdate(ctx, userCred, query, data)
+	cTypes := jsonutils.GetQueryStringArray(data, "enabled_contact_types")
+	err := r.StartSubcontactPullTask(ctx, userCred, cTypes, "")
 	if err != nil {
-		log.Errorf("unable to StartSubcontactPullTask: %v", err)
+		logclient.AddActionLogWithContext(ctx, r, logclient.ACT_UPDATE, err, userCred, false)
+		return
 	}
+	logclient.AddActionLogWithContext(ctx, r, logclient.ACT_UPDATE, err, userCred, true)
 }
 
-func (r *SReceiver) StartSubcontactPullTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+func (r *SReceiver) StartSubcontactPullTask(ctx context.Context, userCred mcclient.TokenCredential, contactTypes []string, parentTaskId string) error {
+	if len(r.Mobile) == 0 {
+		return nil
+	}
+	r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
+	params := jsonutils.NewDict()
+	if len(contactTypes) > 0 {
+		params.Set("contact_types", jsonutils.NewStringArray(contactTypes))
+	}
 	task, err := taskman.TaskManager.NewTask(ctx, "SubcontactPullTask", r, userCred, params, parentTaskId, "")
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (r *SReceiver) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := r.PullCache(false)
-	if err != nil {
-		return err
-	}
-	for _, sc := range r.subContactCache {
+	subs, _ := r.GetSubContacts()
+	for _, sc := range subs {
 		err := sc.Delete(ctx, userCred)
 		if err != nil {
 			return err
 		}
 	}
 	r.deleteReceiverInSubscriber(ctx)
-	return r.SStatusStandaloneResourceBase.Delete(ctx, userCred)
+	return r.SEnabledStatusDomainLevelResourceBase.Delete(ctx, userCred)
 }
 
-func (r *SReceiver) deleteReceiverInSubscriber(ctx context.Context) {
+func (r *SReceiver) deleteReceiverInSubscriber(ctx context.Context) error {
 	q := SubscriberReceiverManager.Query().Equals("receiver_id", r.Id)
 	srs := make([]SSubscriberReceiver, 0, 2)
 	err := db.FetchModelObjects(SubscriberReceiverManager, q, &srs)
 	if err != nil {
-		log.Infof("unable to get SubscriberReceiver: %s", err.Error())
+		return errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	for i := range srs {
-		sr := &srs[i]
-		_, err := db.Update(sr, func() error {
-			return sr.MarkDelete()
-		})
-		if err != nil {
-			log.Errorf("unable to delete subscriber receiver for receiver %q", r.Id)
-		}
+		srs[i].Delete(ctx, nil)
 	}
+	return nil
 }
 
 func (r *SReceiver) IsOwner(userCred mcclient.TokenCredential) bool {
@@ -1056,11 +828,9 @@ func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.
 	if !utils.IsInStringArray(input.ContactType, []string{api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WORKWX}) {
 		return nil, httperrors.NewInputParameterError("not support such contact type %q", input.ContactType)
 	}
-	if utils.IsInStringArray(input.ContactType, []string{api.DINGTALK, api.FEISHU, api.WORKWX}) {
-		r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
-		params := jsonutils.NewDict()
-		params.Set("contact_types", jsonutils.NewArray(jsonutils.NewString(input.ContactType)))
-		return nil, r.StartSubcontactPullTask(ctx, userCred, params, "")
+	driver := GetDriver(input.ContactType)
+	if driver.IsPullType() {
+		return nil, r.StartSubcontactPullTask(ctx, userCred, []string{input.ContactType}, "")
 	}
 	_, err := VerificationManager.Create(ctx, r.Id, input.ContactType)
 	/*if err == ErrVerifyFrequently {
@@ -1073,11 +843,9 @@ func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.
 	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	task, err := taskman.TaskManager.NewTask(ctx, "VerificationSendTask", r, userCred, params, "", "")
 	if err != nil {
-		log.Errorf("ContactPullTask newTask error %v", err)
-	} else {
-		task.ScheduleRun(nil)
+		return nil, err
 	}
-	return nil, nil
+	return nil, task.ScheduleRun(nil)
 }
 
 func (r *SReceiver) PerformVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverVerifyInput) (jsonutils.JSONObject, error) {
@@ -1128,29 +896,16 @@ func (r *SReceiver) PerformDisable(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (r *SReceiver) Sync(ctx context.Context) error {
-	session := auth.GetAdminSessionWithInternal(ctx, "")
-	params := jsonutils.NewDict()
-	params.Set("scope", jsonutils.NewString("system"))
-	params.Set("system", jsonutils.JSONTrue)
-	data, err := identity_modules.UsersV3.GetById(session, r.Id, params)
+	user, err := db.UserCacheManager.FetchUserById(ctx, r.Id)
 	if err != nil {
-		jerr := err.(*httputils.JSONClientError)
-		if jerr.Code == 404 {
-			err := r.Delete(ctx, session.GetToken())
-			if err != nil {
-				return errors.Wrapf(err, "unable to delete receiver %s", r.Id)
-			}
-			return errors.Wrapf(errors.ErrNotFound, "no such receiver %s", r.Id)
-		}
 		return err
 	}
-	uname, _ := data.GetString("name")
-	domainId, _ := data.GetString("domain_id")
-	lang, _ := data.GetString("lang")
 	_, err = db.Update(r, func() error {
-		r.Name = uname
-		r.DomainId = domainId
-		r.Lang = lang
+		r.Name = user.Name
+		r.DomainId = user.DomainId
+		if len(user.Lang) > 0 {
+			r.Lang = user.Lang
+		}
 		return nil
 	})
 	return errors.Wrap(err, "unable to update")
@@ -1224,6 +979,7 @@ func (rm *SReceiverManager) OnDelete(obj *jsonutils.JSONDict) {
 	}
 }
 
+// 监听User变化
 func (rm *SReceiverManager) StartWatchUserInKeystone() error {
 	adminSession := auth.GetAdminSession(context.Background(), "")
 	watchMan, err := informer.NewWatchManagerBySession(adminSession)
@@ -1286,67 +1042,90 @@ func (rm *SReceiverManager) FetchByIdOrNames(ctx context.Context, idOrNames ...s
 	return receivers, nil
 }
 
-func (r *SReceiver) SetContact(cType string, contact string) error {
-	if err := r.PullCache(false); err != nil {
-		return err
+func (rm *SReceiverManager) FetchEnableReceiversByIdOrNames(ctx context.Context, idOrNames ...string) ([]SReceiver, error) {
+	if len(idOrNames) == 0 {
+		return nil, nil
 	}
+	var err error
+	q := idOrNameFilter(rm.Query(), idOrNames...)
+	q.Equals("enabled", true)
+	receivers := make([]SReceiver, 0, len(idOrNames))
+	err = db.FetchModelObjects(rm, q, &receivers)
+	if err != nil {
+		return nil, err
+	}
+	return receivers, nil
+}
+
+func (r *SReceiver) SetContact(cType string, contact string) error {
+	var err error
 	switch cType {
 	case api.EMAIL:
-		r.Email = contact
+		_, err = db.Update(r, func() error {
+			r.Email = contact
+			return nil
+		})
 	case api.MOBILE:
+		_, err = db.Update(r, func() error {
+			r.Mobile = contact
+			return nil
+		})
 		r.Mobile = contact
 	default:
-		if sc, ok := r.subContactCache[cType]; ok {
-			sc.Contact = contact
+		subs, _ := r.GetSubContacts()
+		for i := range subs {
+			if subs[i].Type == cType {
+				_, err = db.Update(&subs[i], func() error {
+					subs[i].Contact = contact
+					return nil
+				})
+			}
 		}
 	}
-	return nil
+	return err
 }
 
 func (r *SReceiver) GetContact(cType string) (string, error) {
-	if err := r.PullCache(false); err != nil {
-		return "", err
-	}
-	switch {
-	case cType == api.EMAIL:
+	switch cType {
+	case api.EMAIL:
 		return r.Email, nil
-	case cType == api.MOBILE:
+	case api.MOBILE:
 		return r.Mobile, nil
-	case cType == api.WEBCONSOLE:
+	case api.WEBCONSOLE:
 		return r.Id, nil
-	case utils.IsInStringArray(cType, RobotContactTypes):
+	case api.FEISHU_ROBOT, api.DINGTALK_ROBOT, api.WORKWX_ROBOT:
 		return r.Mobile, nil
 	default:
-		if sc, ok := r.subContactCache[cType]; ok {
-			return sc.Contact, nil
+		subs, _ := r.GetSubContacts()
+		for _, sub := range subs {
+			if sub.Type == cType {
+				return sub.Contact, nil
+			}
 		}
 	}
 	return "", nil
 }
 
-func (r *SReceiver) GetDomainId() string {
-	return r.DomainId
+func (r *SReceiver) PerformEnableContactType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverEnableContactTypeInput) (jsonutils.JSONObject, error) {
+	for _, cType := range input.EnabledContactTypes {
+		driver := GetDriver(cType)
+		if driver == nil {
+			return nil, httperrors.NewInputParameterError("invalid enabled contact type %s", cType)
+		}
+	}
+	return nil, r.StartSubcontactPullTask(ctx, userCred, input.EnabledContactTypes, "")
 }
 
-func (r *SReceiver) PerformEnableContactType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverEnableContactTypeInput) (jsonutils.JSONObject, error) {
-	err := r.PullCache(false)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to pull cache")
+func (rm *SReceiverManager) InitializeData() error {
+	return nil
+}
+
+func (self *SReceiver) GetNotifyReceiver() api.SNotifyReceiver {
+	ret := api.SNotifyReceiver{
+		DomainId: self.DomainId,
+		Enabled:  self.Enabled.Bool(),
 	}
-	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to set enabled contact types")
-	}
-	err = r.PushCache(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to push cache")
-	}
-	r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
-	err = r.StartSubcontactPullTask(ctx, userCred, nil, "")
-	if err != nil {
-		log.Errorf("unable to StartSubcontactPullTask: %v", err)
-	}
-	return nil, nil
+	return ret
 }
 
 func (manager *SReceiverManager) SyncUserFromKeystone(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
@@ -1448,4 +1227,16 @@ func (manager *SReceiverManager) syncUser(ctx context.Context, userCred mcclient
 		}
 	}
 	return nil
+}
+
+func (r *SReceiver) GetDomainId() string {
+	return r.DomainId
+}
+
+func (r *SReceiver) IsRobot() bool {
+	return false
+}
+
+func (r *SReceiver) IsReceiver() bool {
+	return true
 }

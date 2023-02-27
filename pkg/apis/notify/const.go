@@ -14,7 +14,11 @@
 
 package notify
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
 	SERVICE_TYPE    = apis.SERVICE_TYPE_NOTIFY
@@ -30,6 +34,8 @@ const (
 	DINGTALK_ROBOT = "dingtalk-robot"
 	WORKWX_ROBOT   = "workwx-robot"
 	WEBHOOK        = "webhook"
+	WEBHOOK_ROBOT  = "webhook-robot"
+	WEBSOCKET      = "websocket"
 
 	ROBOT = "robot"
 
@@ -138,4 +144,9 @@ const (
 	SUBSCRIBER_SCOPE_SYSTEM  = "system"
 	SUBSCRIBER_SCOPE_DOMAIN  = "domain"
 	SUBSCRIBER_SCOPE_PROJECT = "project"
+)
+
+var (
+	ErrNoSuchMobile     = errors.Error("no such mobile")
+	ErrIncompleteConfig = errors.Error("incomplete config")
 )

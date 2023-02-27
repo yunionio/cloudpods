@@ -104,9 +104,13 @@ func init() {
 		return nil
 	})
 	type NotificationEventInput struct {
-		Event    string
-		Priority string
-		MsgBody  string
+		Event        string
+		Priority     string
+		MsgBody      string
+		ResourceType string
+		Action       string
+		Contacts     string
+		IsFailed     string
 	}
 	R(&NotificationEventInput{}, "notify-event-send", "Send notify event message", func(s *mcclient.ClientSession, args *NotificationEventInput) error {
 		body, err := jsonutils.ParseString(args.MsgBody)
@@ -122,6 +126,9 @@ func init() {
 			ResourceDetails: dict,
 			Event:           args.Event,
 			Priority:        args.Priority,
+			ResourceType:    args.ResourceType,
+			Action:          api.SAction(args.Action),
+			IsFailed:        api.SResult(args.IsFailed),
 		}
 		_, err = modules.Notification.PerformClassAction(s, "event-notify", jsonutils.Marshal(params))
 		if err != nil {

@@ -63,9 +63,10 @@ var (
 
 	ActionPendingDelete = api.ActionPendingDelete
 
-	ActionSyncCreate = api.ActionSyncCreate
-	ActionSyncUpdate = api.ActionSyncUpdate
-	ActionSyncDelete = api.ActionSyncDelete
+	ActionSyncCreate        = api.ActionSyncCreate
+	ActionSyncUpdate        = api.ActionSyncUpdate
+	ActionSyncDelete        = api.ActionSyncDelete
+	ActionSyncAccountStatus = api.ActionSyncAccountStatus
 )
 
 type SEvent struct {
