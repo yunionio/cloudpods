@@ -104,25 +104,25 @@ func (self *RepullSuncontactTask) OnInit(ctx context.Context, obj db.IStandalone
 			ctSets := sets.NewString(cts...)
 			if ctSets.Has(config.Type) {
 				ctSets.Delete(config.Type)
-				err = r.SetVerifiedContactTypes(ctSets.UnsortedList())
-				if err != nil {
-					reasons = append(reasons, repullFailedReason{
-						ReceiverId: r.Id,
-						Reason:     fmt.Sprintf("unable to SetVerifiedContactTypes: %v", err),
-					}.String())
-					return
-				}
+				// err = r.SetVerifiedContactTypes(ctSets.UnsortedList())
+				// if err != nil {
+				// 	reasons = append(reasons, repullFailedReason{
+				// 		ReceiverId: r.Id,
+				// 		Reason:     fmt.Sprintf("unable to SetVerifiedContactTypes: %v", err),
+				// 	}.String())
+				// 	return
+				// }
 			}
 			// pull
 			params := jsonutils.NewDict()
 			params.Set("contact_types", jsonutils.NewArray(jsonutils.NewString(config.Type)))
-			err = r.StartSubcontactPullTask(ctx, self.UserCred, params, self.Id)
-			if err != nil {
-				reasons = append(reasons, repullFailedReason{
-					ReceiverId: r.Id,
-					Reason:     fmt.Sprintf("unable to StartSubcontactPullTask: %v", err),
-				}.String())
-			}
+			// err = r.StartSubcontactPullTask(ctx, self.UserCred, params, self.Id)
+			// if err != nil {
+			// 	reasons = append(reasons, repullFailedReason{
+			// 		ReceiverId: r.Id,
+			// 		Reason:     fmt.Sprintf("unable to StartSubcontactPullTask: %v", err),
+			// 	}.String())
+			// }
 		}()
 	}
 	if len(reasons) > 0 {

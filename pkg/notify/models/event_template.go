@@ -36,8 +36,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	schapi "yunion.io/x/onecloud/pkg/apis/scheduledtask"
 	"yunion.io/x/onecloud/pkg/i18n"
-	notifyv2 "yunion.io/x/onecloud/pkg/notify"
-	rpcapi "yunion.io/x/onecloud/pkg/notify/rpc/apis"
 )
 
 type SEventDisplay struct {
@@ -94,8 +92,9 @@ func (lt *SLocalTemplateManager) detailsDisplay(resourceType string, details *js
 	}
 }
 
-func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang string, no notifyv2.SNotification) (params rpcapi.SendParams, err error) {
-	out, event := rpcapi.SendParams{}, no.Event
+func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang string, no api.SsNotification) (params api.SendParams, err error) {
+	// return api.SendParams{}, nil
+	out, event := api.SendParams{}, no.Event
 	rtStr, aStr, resultStr := event.ResourceType(), string(event.Action()), string(event.Result())
 	msgObj, err := jsonutils.ParseString(no.Message)
 	if err != nil {
@@ -111,7 +110,7 @@ func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang stri
 	webhookMsg.Set("result", jsonutils.NewString(resultStr))
 	webhookMsg.Set("resource_details", msg)
 	if no.ContactType == api.WEBHOOK {
-		return rpcapi.SendParams{
+		return api.SendParams{
 			Title:   no.Event.StringWithDeli("_"),
 			Message: webhookMsg.String(),
 		}, nil
@@ -152,7 +151,6 @@ func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang stri
 			return out, err
 		}
 	}
-
 	// get content
 	content, err := lt.fillWithTemplate(ctx, "content", no.ContactType, lang, event, templateParams)
 	if err != nil {
@@ -259,7 +257,6 @@ func init() {
 
 func (lt *SLocalTemplateManager) getTemplate(ctx context.Context, titleOrContent string, contactType string, topic string, lang string) (*template.Template, error) {
 	key := fmt.Sprintf("%s.%s@%s", topic, titleOrContent, lang)
-
 	obj, ok := lt.templatesTable.Load(key)
 	var elem sTemplateElem
 	if !ok {
@@ -526,6 +523,11 @@ func init() {
 			string(api.ActionCreate),
 			"created",
 			"创建",
+		},
+		sI18nElme{
+			string(api.ActionUpdate),
+			"update",
+			"更新",
 		},
 		sI18nElme{
 			string(api.ActionDelete),
