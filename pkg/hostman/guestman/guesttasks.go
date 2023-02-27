@@ -1047,7 +1047,8 @@ func (s *SGuestResumeTask) confirmRunning() {
 
 func (s *SGuestResumeTask) onConfirmRunning(status string) {
 	log.Infof("[%s] onConfirmRunning status %s", s.GetId(), status)
-	if status == "paused (prelaunch)" {
+	switch status {
+	case "paused (prelaunch)":
 		/* ref: qemu/src/qapi/run-state.json
 		 * prelaunch: QEMU was started with -S and guest has not started.
 		 * we need resume guest at state prelaunch */
@@ -1057,37 +1058,44 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 			return
 		}
 		s.resumeGuest()
-	} else if status == "running" || status == "paused (suspended)" {
+	case "running", "paused (suspended)":
 		s.onStartRunning()
-	} else if strings.Contains(status, "error") {
-		// handle error first, results may be 'paused (internal-error)'
-		s.taskFailed(status)
-	} else if strings.Contains(status, "paused") {
-		if s.resumed {
-			s.taskFailed("resume guest twice")
-			return
-		}
-		if err := s.onGuestPrelaunch(); err != nil {
-			s.ForceStop()
-			s.taskFailed(err.Error())
-			return
-		}
-		s.Monitor.GetBlocks(s.onGetBlockInfo)
-	} else if status == "postmigrate" {
+	case "postmigrate":
 		s.resumeGuest()
-	} else {
-		memMb, _ := s.Desc.Int("mem")
-		migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
-		if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
-			migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
-		}
-		log.Infof("start guest timeout seconds: %d", migSeconds)
-		if s.isTimeout && time.Now().Sub(s.startTime) >= time.Second*time.Duration(migSeconds) {
-			s.taskFailed("Timeout")
-			return
-		} else {
-			time.Sleep(time.Second * 3)
-			s.confirmRunning()
+	case "paused (inmigrate)":
+		// guest is paused waiting for an incoming migration
+		time.Sleep(time.Second * 1)
+		s.confirmRunning()
+	default:
+		switch {
+		case strings.Contains(status, "error"):
+			// handle error first, results may be 'paused (internal-error)'
+			s.taskFailed(status)
+		case strings.Contains(status, "paused"):
+			if s.resumed {
+				s.taskFailed("resume guest twice")
+				return
+			}
+			if err := s.onGuestPrelaunch(); err != nil {
+				s.ForceStop()
+				s.taskFailed(err.Error())
+				return
+			}
+			s.Monitor.GetBlocks(s.onGetBlockInfo)
+		default:
+			memMb, _ := s.Desc.Int("mem")
+			migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
+			if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
+				migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
+			}
+			log.Infof("start guest timeout seconds: %d", migSeconds)
+			if s.isTimeout && time.Now().Sub(s.startTime) >= time.Second*time.Duration(migSeconds) {
+				s.taskFailed("Timeout")
+				return
+			} else {
+				time.Sleep(time.Second * 3)
+				s.confirmRunning()
+			}
 		}
 	}
 }
