@@ -860,17 +860,28 @@ func (set Groups) Copy() apihelper.IModelSet {
 }
 
 func (set Groups) joinGroupnetworks(subEntries Groupnetworks, networks Networks) bool {
+	ret := true
 	for _, gn := range subEntries {
 		if network, ok := networks[gn.NetworkId]; ok {
-			if group, ok := set[gn.GroupId]; ok {
-				gn.Group = group
-				gn.Network = network
-				gn.Network.Groupnetworks.AddModel(gn)
-				group.Groupnetworks.AddModel(gn)
-			}
+			gn.Network = network
+			gn.Network.Groupnetworks.AddModel(gn)
+		} else {
+			log.Errorf("Network %s not found for vip %s", gn.NetworkId, gn.IpAddr)
+			ret = false
 		}
+		if _, ok := set[gn.GroupId]; !ok {
+			// no group was found, create one
+			grp := &Group{}
+			grp.Id = gn.GroupId
+			grp.Groupguests = Groupguests{}
+			grp.Groupnetworks = Groupnetworks{}
+			set.AddModel(grp)
+		}
+		group := set[gn.GroupId]
+		gn.Group = group
+		group.Groupnetworks.AddModel(gn)
 	}
-	return true
+	return ret
 }
 
 func (set LoadbalancerNetworks) joinElasticips(subEntries Elasticips) bool {
