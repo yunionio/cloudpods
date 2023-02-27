@@ -579,7 +579,7 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 		}
 	}
 
-	launcher := fmt.Sprintf(guestLauncher, s.GetStartScriptPath(), s.LogFilePath())
+	launcher := fmt.Sprintf(guestLauncher, s.GetStartScriptPath(), s.GetStateFilePath(""), s.LogFilePath())
 	if err := fileutils2.FilePutContents(s.pyLauncherPath(), launcher, false); err != nil {
 		return errors.Wrap(err, "generate guest launcher")
 	}
