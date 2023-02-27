@@ -499,14 +499,14 @@ func (manager *SMonitorResourceManager) SyncManually(ctx context.Context) {
 func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *MonitorResModelSets) error {
 	userCred := auth.AdminCredential()
 	errs := make([]error, 0)
-	log.Infoln("start sync")
+	log.Infof("start sync monitorresource")
 	aliveIds := make([]string, 0)
 	for _, set := range mss.ModelSetList() {
 		setRv := reflect.ValueOf(set)
 		needSync, typ := manager.GetSetType(set)
-		log.Infof("Type: %s,length: %d", typ, len(setRv.MapKeys()))
+		log.Infof("Type: %s, length: %d", typ, len(setRv.MapKeys()))
 		if !needSync {
-			log.Infof("Type: %s don't sync", typ)
+			log.Infof("Type: %s don't need sync", typ)
 			continue
 		}
 		for _, kRv := range setRv.MapKeys() {
@@ -517,7 +517,7 @@ func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *
 			}
 			res, err := MonitorResourceManager.GetMonitorResources(input)
 			if err != nil {
-				return errors.Wrap(err, "GetMonitorResources err")
+				return errors.Wrapf(err, "GetMonitorResources by input: %s", jsonutils.Marshal(input).String())
 			}
 			if mRv.IsValid() {
 				aliveIds = append(aliveIds, kRv.String())
