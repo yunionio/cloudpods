@@ -30,3 +30,14 @@ func (o *MonitorResourceJointAlertOptions) Params() (jsonutils.JSONObject, error
 func (o *MonitorResourceJointAlertOptions) Property() string {
 	return "alert"
 }
+
+type MonitorResourceListOptions struct {
+	options.BaseListOptions
+	ResType string   `help:"filter by resource type" json:"res_type"`
+	ResId   []string `help:"filter by resource id" json:"res_id"`
+	ResName string   `help:"filter by resource name" json:"res_name"`
+}
+
+func (o *MonitorResourceListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(o)
+}
