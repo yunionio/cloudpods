@@ -307,7 +307,7 @@ func (self *SMonitorResource) RealDelete(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return err
 	}
-	return self.SVirtualResourceBase.Delete(ctx, nil)
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SMonitorResource) DetachJoint(ctx context.Context, userCred mcclient.TokenCredential) error {
