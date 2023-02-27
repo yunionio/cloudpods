@@ -75,9 +75,26 @@ func (tq *SQuery) IsGroupBy() bool {
 	return len(tq.groupBy) > 0
 }
 
+func (tq *SQuery) HasField(f IQueryField) bool {
+	if len(tq.fields) == 0 {
+		return false
+	}
+	for i := range tq.fields {
+		fi := tq.fields[i]
+		if fi.Name() == f.Name() {
+			return true
+		}
+	}
+	return false
+}
+
 // AppendField appends query field to a query
 func (tq *SQuery) AppendField(f ...IQueryField) *SQuery {
-	tq.fields = append(tq.fields, f...)
+	for i := range f {
+		if !tq.HasField(f[i]) {
+			tq.fields = append(tq.fields, f[i])
+		}
+	}
 	return tq
 }
 
