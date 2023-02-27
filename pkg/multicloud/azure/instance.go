@@ -709,6 +709,9 @@ func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int, memoryMb 
 	}
 
 	newInstance, err := region.CreateInstanceSimple(instance.Name+"-rebuild", imageId, osType, cpu, memoryMb, sysSizeGB, storageType, []int{}, nic.ID, passwd, publicKey)
+	if err != nil {
+		return "", errors.Wrapf(err, "CreateInstanceSimple")
+	}
 	newInstance.host = instance.host
 	cloudprovider.Wait(time.Second*10, time.Minute*5, func() (bool, error) {
 		err = newInstance.WaitVMAgentReady()
