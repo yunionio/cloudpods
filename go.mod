@@ -7,6 +7,7 @@ require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/LeeEirc/terminalparser v0.0.0-20220328021224-de16b7643ea4
 	github.com/Masterminds/sprig v2.22.0+incompatible
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
 	github.com/benbjohnson/clock v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
@@ -82,14 +83,14 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230222084633-b5df38d01e3a
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230224103420-017f96c88444
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
 	yunion.io/x/jsonutils v1.0.1-0.20220819091305-3bab322ab4fd
 	yunion.io/x/log v1.0.0
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v1.0.1-0.20230102060551-df05ccecb71c
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v1.1.2-0.20230209140205-3ee293d3963b
+	yunion.io/x/sqlchemy v1.1.2-0.20230223125758-76ea06389ac5
 	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
 )
 
@@ -116,7 +117,6 @@ require (
 	github.com/Shopify/toxiproxy v2.1.4+incompatible // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
-	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684 // indirect
 	github.com/aliyun/aliyun-oss-go-sdk v2.0.4+incompatible // indirect
 	github.com/anacrolix/dht v0.0.0-20181129074040-b09db78595aa // indirect
 	github.com/anacrolix/go-libutp v0.0.0-20180808010927-aebbeb60ea05 // indirect
