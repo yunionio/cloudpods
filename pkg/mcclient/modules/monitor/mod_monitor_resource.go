@@ -42,7 +42,7 @@ func init() {
 
 func NewMonitorResourceManager() *SMonitorResourceManager {
 	man := modules.NewMonitorV2Manager("monitorresource", "monitorresources",
-		[]string{"id", "name", "res_type", "res_id", "alert_state"},
+		[]string{"id", "name", "res_type", "res_id", "alert_state", "status"},
 		[]string{})
 	return &SMonitorResourceManager{
 		ResourceManager: &man,
