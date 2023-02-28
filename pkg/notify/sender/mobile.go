@@ -102,7 +102,7 @@ func (smsSender *SMobileSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (smsSender *SMobileSender) GetAccessToken() error {
+func (smsSender *SMobileSender) GetAccessToken(key string) error {
 	return nil
 }
 

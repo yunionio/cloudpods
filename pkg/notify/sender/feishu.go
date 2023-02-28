@@ -48,20 +48,23 @@ func (feishuSender *SFeishuSender) Send(args api.SendParams) error {
 		},
 	} // 添加bearer token请求头
 	header := http.Header{}
-	header.Add("Authorization", fmt.Sprintf("Bearer %s", models.ConfigMap[api.FEISHU].Content.AccessToken))
-	req, err := sendRequest(ApiSendMessageForFeishuByOpenId, httputils.POST, header, nil, jsonutils.Marshal(body))
+	header.Add("Authorization", fmt.Sprintf("Bearer %s", models.ConfigMap[fmt.Sprintf("%s-%s", api.FEISHU, args.DomainId)].Content.AccessToken))
+	rep, err := sendRequest(ApiSendMessageForFeishuByOpenId, httputils.POST, header, nil, jsonutils.Marshal(body))
 	if err == nil {
 		return nil
 	}
 	// 发送通知失败的情况
-	code, _ := req.GetString("code")
+	code, err := rep.GetString("code")
+	if err != nil {
+		return err
+	}
 	switch code {
 	case "99991663": //token过期
-		err = feishuSender.GetAccessToken()
+		err = feishuSender.GetAccessToken(fmt.Sprintf("%s-%s", api.FEISHU, args.DomainId))
 		if err != nil {
 			return errors.Wrap(err, "tenant token invalid && getToken err")
 		}
-		header.Set("Authorization", fmt.Sprintf("Bearer %s", models.ConfigMap[api.FEISHU].Content.AccessToken))
+		header.Set("Authorization", fmt.Sprintf("Bearer %s", models.ConfigMap[fmt.Sprintf("%s-%s", api.FEISHU, args.DomainId)].Content.AccessToken))
 		_, err = sendRequest(ApiSendMessageForFeishuByOpenId, httputils.POST, header, nil, jsonutils.Marshal(body))
 		if err == nil {
 			return nil
@@ -95,7 +98,7 @@ func (feishuSender *SFeishuSender) ContactByMobile(mobile, domainId string) (str
 	body.Set("mobiles", jsonutils.NewArray(jsonutils.NewString(mobile)))
 	header := http.Header{}
 	// 考虑到获取用户id需求较少，可通过直接更新token来避免token失效
-	err := feishuSender.GetAccessToken()
+	err := feishuSender.GetAccessToken(fmt.Sprintf("%s-%s", api.FEISHU, domainId))
 	if err != nil {
 		return "", errors.Wrap(err, "GetAccessToken")
 	}
@@ -103,7 +106,7 @@ func (feishuSender *SFeishuSender) ContactByMobile(mobile, domainId string) (str
 	params := url.Values{}
 	params.Set("mobiles", mobile)
 
-	header.Set("Authorization", fmt.Sprintf("Bearer %s", models.ConfigMap[api.FEISHU].Content.AccessToken))
+	header.Set("Authorization", fmt.Sprintf("Bearer %s", models.ConfigMap[fmt.Sprintf("%s-%s", api.FEISHU, domainId)].Content.AccessToken))
 	resp, err := sendRequest(ApiFetchUserID, httputils.GET, header, params, body)
 	if err != nil {
 		return "", err
@@ -141,10 +144,10 @@ func (feishuSender *SFeishuSender) IsSystemConfigContactType() bool {
 }
 
 // 获取token
-func (feishuSender *SFeishuSender) GetAccessToken() error {
-	appId, appSecret := models.ConfigMap[api.FEISHU].Content.AppId, models.ConfigMap[api.FEISHU].Content.AppSecret
+func (feishuSender *SFeishuSender) GetAccessToken(key string) error {
+	appId, appSecret := models.ConfigMap[key].Content.AppId, models.ConfigMap[key].Content.AppSecret
 	resp, err := feishuSender.getAccessToken(appId, appSecret)
-	models.ConfigMap[api.FEISHU].Content.AccessToken = resp.TenantAccessToken
+	models.ConfigMap[key].Content.AccessToken = resp.TenantAccessToken
 	return err
 }
 

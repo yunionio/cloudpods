@@ -101,7 +101,7 @@ func (feishuRobotSender *SFeishuRobotSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (feishuRobotSender *SFeishuRobotSender) GetAccessToken() error {
+func (feishuRobotSender *SFeishuRobotSender) GetAccessToken(key string) error {
 	return nil
 }
 
