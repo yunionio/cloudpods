@@ -77,13 +77,14 @@ type MetricInputQuery struct {
 	Slimit  string `json:"slimit"`
 	Soffset string `json:"soffset"`
 	//default group by
-	Unit        bool          `json:"unit"`
-	Interval    string        `json:"interval"`
-	DomainId    string        `json:"domain_id"`
-	ProjectId   string        `json:"project_id"`
-	MetricQuery []*AlertQuery `json:"metric_query"`
-	Signature   string        `json:"signature"`
-	ShowMeta    bool          `json:"show_meta"`
+	Unit             bool          `json:"unit"`
+	Interval         string        `json:"interval"`
+	DomainId         string        `json:"domain_id"`
+	ProjectId        string        `json:"project_id"`
+	MetricQuery      []*AlertQuery `json:"metric_query"`
+	Signature        string        `json:"signature"`
+	ShowMeta         bool          `json:"show_meta"`
+	ForceCheckSeries bool          `json:"force_check_series"`
 }
 
 type SimpleQueryInput struct {

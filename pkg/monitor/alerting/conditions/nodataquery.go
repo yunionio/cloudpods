@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
@@ -87,7 +88,7 @@ serLoop:
 			}
 		}
 	}
-	allResources, err := c.GetQueryResources()
+	allResources, err := c.GetQueryResources(auth.GetAdminSession(context.Ctx, ""), true)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetQueryResources err")
 	}

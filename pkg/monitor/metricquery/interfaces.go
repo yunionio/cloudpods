@@ -16,6 +16,7 @@ package metricquery
 
 import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 )
 
@@ -26,7 +27,7 @@ type Metrics struct {
 }
 
 type MetricQuery interface {
-	ExecuteQuery() (*Metrics, error)
+	ExecuteQuery(userCred mcclient.TokenCredential, forceCheckSeries bool) (*Metrics, error)
 }
 
 type QueryFactory func(model []*monitor.AlertCondition) (MetricQuery, error)
