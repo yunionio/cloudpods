@@ -180,7 +180,7 @@ func (drv *SBingoIAMOAuth2Driver) syncUsers(ctx context.Context, idp *models.SId
 			if domain == nil {
 				continue
 			}
-			_, err = idp.SyncOrCreateUser(ctx, user.Id, user.UserName, domain.Id, false, func(u *models.SUser) {
+			_, err = idp.SyncOrCreateUser(ctx, user.Id, user.UserName, domain.Id, true, func(u *models.SUser) {
 				u.Id = user.Id
 				u.Name = user.UserName
 				u.Displayname = user.Name

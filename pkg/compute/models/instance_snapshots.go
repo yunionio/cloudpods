@@ -418,10 +418,12 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 
 var HypervisorIndependentInstanceSnapshot = []string{
 	api.HYPERVISOR_KVM,
+	api.CLOUD_PROVIDER_BINGO_CLOUD,
 }
 
 var ProviderHasSubSnapshot = []string{
 	api.CLOUD_PROVIDER_ONECLOUD,
+	api.CLOUD_PROVIDER_BINGO_CLOUD,
 }
 
 func (self *SInstanceSnapshot) ToInstanceCreateInput(
@@ -486,6 +488,9 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		}
 		sourceInput.EncryptKeyId = &self.EncryptKeyId
 	}
+
+	sourceInput.Hypervisor = serverConfig.Hypervisor
+	sourceInput.GuestImageID = self.ImageId
 
 	return sourceInput, nil
 }

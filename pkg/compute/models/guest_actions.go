@@ -4837,7 +4837,7 @@ func (self *SGuest) validateCreateInstanceBackup(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
-	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM}) {
+	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BINGO_CLOUD}) {
 		return httperrors.NewBadRequestError("guest hypervisor %s can't create instance snapshot", self.Hypervisor)
 	}
 

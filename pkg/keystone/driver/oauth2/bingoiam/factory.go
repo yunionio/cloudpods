@@ -31,11 +31,13 @@ func (drv SBingoIAMDriverFactory) TemplateName() string {
 
 func (drv SBingoIAMDriverFactory) IdpAttributeOptions() api.SIdpAttributeOptions {
 	return api.SIdpAttributeOptions{
+		DomainNameAttribute:      "tenant_name",
+		DomainIdAttribute:        "tenant_id",
 		UserNameAttribute:        "name",
 		UserIdAttribute:          "user_id",
 		UserDisplaynameAttribtue: "display_name",
-		DomainIdAttribute:        "tenant_id",
-		DomainNameAttribute:      "tenant_name",
+		ProjectAttribute:         "",
+		DefaultProjectId:         "",
 	}
 }
 

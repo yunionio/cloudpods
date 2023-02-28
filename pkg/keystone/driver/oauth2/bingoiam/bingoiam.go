@@ -108,18 +108,18 @@ func (drv *SBingoIAMOAuth2Driver) Sync(ctx context.Context, idpId string) error 
 		return err
 	}
 
-	err = drv.syncTenants(ctx, drv.idp)
-	if err != nil {
-		return err
-	}
-	err = drv.syncProjects(ctx, drv.idp)
-	if err != nil {
-		return err
-	}
-	err = drv.syncUsers(ctx, drv.idp)
-	if err != nil {
-		return err
-	}
+	//err = drv.syncTenants(ctx, drv.idp)
+	//if err != nil {
+	//	return err
+	//}
+	//err = drv.syncProjects(ctx, drv.idp)
+	//if err != nil {
+	//	return err
+	//}
+	//err = drv.syncUsers(ctx, drv.idp)
+	//if err != nil {
+	//	return err
+	//}
 
 	return nil
 }

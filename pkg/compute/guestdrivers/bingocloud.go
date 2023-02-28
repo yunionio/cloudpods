@@ -18,7 +18,10 @@ import (
 	"context"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud/bingocloud"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
@@ -26,6 +29,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -88,7 +92,19 @@ func (self *SBingoCloudGuestDriver) GetComputeQuotaKeys(scope rbacscope.TRbacSco
 }
 
 func (self *SBingoCloudGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+	return []string{api.VM_RUNNING, api.VM_READY}, nil
+}
+
+func (self *SBingoCloudGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{api.VM_RUNNING, api.VM_READY}, nil
+}
+
+func (self *SBingoCloudGuestDriver) GetAttachDiskStatus() ([]string, error) {
+	return []string{api.VM_RUNNING, api.VM_READY}, nil
+}
+
+func (self *SBingoCloudGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{api.VM_RUNNING, api.VM_READY}, nil
 }
 
 func (self *SBingoCloudGuestDriver) GetDefaultSysDiskBackend() string {
@@ -100,7 +116,11 @@ func (self *SBingoCloudGuestDriver) GetGuestInitialStateAfterCreate() string {
 }
 
 func (self *SBingoCloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return api.VM_READY
+	return api.VM_RUNNING
+}
+
+func (self *SBingoCloudGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SBingoCloudGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
@@ -121,4 +141,76 @@ func (self *SBingoCloudGuestDriver) RemoteDeployGuestSyncHost(ctx context.Contex
 	}
 
 	return host.GetIHost(ctx)
+}
+
+func (self *SBingoCloudGuestDriver) RequestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		host, _ := guest.GetHost()
+		if host == nil {
+			return nil, errors.Error("fail to get host of guest")
+		}
+		ihost, err := host.GetIHost(ctx)
+		if err != nil {
+			return nil, err
+		}
+		ivm, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil {
+			return nil, err
+		}
+		vm := ivm.(*bingocloud.SInstance)
+		err = vm.SuspendVM(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "VM.SuspendVM for bingocloud")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SBingoCloudGuestDriver) RequestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		host, _ := guest.GetHost()
+		if host == nil {
+			return nil, errors.Error("fail to get host of guest")
+		}
+		ihost, err := host.GetIHost(ctx)
+		if err != nil {
+			return nil, err
+		}
+		ivm, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil {
+			return nil, err
+		}
+		vm := ivm.(*bingocloud.SInstance)
+		err = vm.ResumeVM(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "VM.ResumeVM for bingocloud")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SBingoCloudGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		host, _ := guest.GetHost()
+		if host == nil {
+			return nil, errors.Error("fail to get host of guest")
+		}
+		ihost, err := host.GetIHost(ctx)
+		if err != nil {
+			return nil, err
+		}
+		ivm, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil {
+			return nil, err
+		}
+		vm := ivm.(*bingocloud.SInstance)
+		err = vm.UpdateInstanceType(instanceType)
+		if err != nil {
+			return nil, errors.Wrap(err, "VM.UpdateInstanceType for bingocloud")
+		}
+		return nil, nil
+	})
+	return nil
 }
