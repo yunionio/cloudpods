@@ -112,11 +112,12 @@ type SCapabilities struct {
 	ReadOnlyVpcPeerBrands         []string `json:",allowempty"`
 	ReadOnlyDisabledVpcPeerBrands []string `json:",allowempty"`
 
-	ResourceTypes      []string `json:",allowempty"`
-	StorageTypes       []string `json:",allowempty"` // going to remove on 2.14
-	DataStorageTypes   []string `json:",allowempty"` // going to remove on 2.14
-	GPUModels          []string `json:",allowempty"`
-	HostCpuArchs       []string `json:",allowempty"` // x86_64 aarch64
+	ResourceTypes      []string        `json:",allowempty"`
+	StorageTypes       []string        `json:",allowempty"` // going to remove on 2.14
+	DataStorageTypes   []string        `json:",allowempty"` // going to remove on 2.14
+	GPUModels          []string        `json:",allowempty"` // Deprecated by GPUModelTypes
+	GPUModelTypes      []GpuModelTypes `json:",allowempty"`
+	HostCpuArchs       []string        `json:",allowempty"` // x86_64 aarch64
 	MinNicCount        int
 	MaxNicCount        int
 	MinDataDiskCount   int
@@ -195,7 +196,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	capa.StorageTypes, capa.DataStorageTypes = s1, d1
 	capa.StorageTypes2, capa.StorageTypes3 = s2, s3
 	capa.DataStorageTypes2, capa.DataStorageTypes3 = d2, d3
-	capa.GPUModels = getGPUs(region, zone, domainId)
+	capa.GPUModels, capa.GPUModelTypes = getGPUs(region, zone, domainId)
 	capa.SchedPolicySupport = isSchedPolicySupported(region, zone)
 	capa.MinNicCount = getMinNicCount(region, zone)
 	capa.MaxNicCount = getMaxNicCount(region, zone)
@@ -741,7 +742,12 @@ func getStorageTypes(
 		allHypervisorStorageTypes, allHypervisorStorageInfos
 }
 
-func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
+type GpuModelTypes struct {
+	Model   string
+	DevType string
+}
+
+func getGPUs(region *SCloudregion, zone *SZone, domainId string) ([]string, []GpuModelTypes) {
 	devices := IsolatedDeviceManager.Query().SubQuery()
 	hostQuery := HostManager.Query()
 	if len(domainId) > 0 {
@@ -750,7 +756,7 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 	}
 	hosts := hostQuery.SubQuery()
 
-	q := devices.Query(devices.Field("model"))
+	q := devices.Query(devices.Field("model"), devices.Field("dev_type"))
 	q = q.Startswith("dev_type", "GPU")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
@@ -768,22 +774,30 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
 		))
 	}*/
-	q = q.Distinct()
+	q = q.GroupBy(devices.Field("model"), devices.Field("dev_type"))
 
 	rows, err := q.Rows()
 	if err != nil {
-		return nil
+		log.Errorf("failed get gpu caps: %s", err)
+		return nil, nil
 	}
 	defer rows.Close()
-	gpus := make([]string, 0)
+	gpus := make([]GpuModelTypes, 0)
+	gpuModels := make([]string, 0)
 	for rows.Next() {
-		var model string
-		rows.Scan(&model)
-		if len(model) > 0 {
-			gpus = append(gpus, model)
+		var m, t string
+		rows.Scan(&m, &t)
+
+		if m == "" {
+			continue
+		}
+		gpus = append(gpus, GpuModelTypes{m, t})
+
+		if !utils.IsInStringArray(m, gpuModels) {
+			gpuModels = append(gpuModels, m)
 		}
 	}
-	return gpus
+	return gpuModels, gpus
 }
 
 func getHostCpuArchs(region *SCloudregion, zone *SZone, domainId string) []string {
