@@ -28,7 +28,7 @@ type ISenderDriver interface {
 	IsSystemConfigContactType() bool
 	IsValid() bool
 	IsPullType() bool
-	GetAccessToken() error
+	GetAccessToken(key string) error
 }
 
 var (

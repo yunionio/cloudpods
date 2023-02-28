@@ -105,7 +105,7 @@ func (websocket *SWebsocketSender) ContactByMobile(mobile, domainId string) (str
 	return "", nil
 }
 
-func (websocket *SWebsocketSender) GetAccessToken() error {
+func (websocket *SWebsocketSender) GetAccessToken(key string) error {
 	return nil
 }
 

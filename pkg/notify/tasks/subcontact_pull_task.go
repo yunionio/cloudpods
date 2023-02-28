@@ -41,6 +41,19 @@ var PullContactType = []string{
 	apis.WORKWX,
 }
 
+var UserContactType = []string{
+	apis.EMAIL,
+	apis.MOBILE,
+}
+
+var allContactTypes = []string{
+	apis.DINGTALK,
+	apis.FEISHU,
+	apis.WORKWX,
+	apis.EMAIL,
+	apis.MOBILE,
+}
+
 type SubcontactPullTask struct {
 	taskman.STask
 }
@@ -82,67 +95,123 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	if self.Params.Contains("contact_types") {
 		jArray, _ := self.Params.Get("contact_types")
 		contactTypes = jArray.(*jsonutils.JSONArray).GetStringArray()
-	} else {
-		contactTypes, _ = receiver.GetEnabledContactTypes()
 	}
 
-	for _, cType := range contactTypes {
-		if !utils.IsInStringArray(cType, PullContactType) {
-			continue
-		}
-		content := ""
-		switch cType {
-		case apis.EMAIL:
-			content = receiver.Email
-		default:
-			driver := models.GetDriver(cType)
-			content, err = driver.ContactByMobile(mobile, "")
-		}
-		if err != nil {
-			var reason string
-			if errors.Cause(err) == apis.ErrNoSuchMobile {
-				receiver.MarkContactTypeUnVerified(ctx, cType, apis.ErrNoSuchMobile.Error())
-				reason = fmt.Sprintf("%q: no such mobile %s", cType, receiver.Mobile)
-			} else if errors.Cause(err) == apis.ErrIncompleteConfig {
-				receiver.MarkContactTypeUnVerified(ctx, cType, apis.ErrIncompleteConfig.Error())
-				reason = fmt.Sprintf("%q: %v", cType, err)
+	// 遍历所有通知渠道
+	for _, contactType := range allContactTypes {
+		// 若该渠道在输入渠道内，则设为enable
+		if utils.IsInStringArray(contactType, contactTypes) {
+			// 常规渠道
+			if utils.IsInStringArray(contactType, PullContactType) {
+				content := ""
+				driver := models.GetDriver(contactType)
+				content, err = driver.ContactByMobile(mobile, self.UserCred.GetDomainId())
+				if err != nil {
+					var reason string
+					if errors.Cause(err) == apis.ErrNoSuchMobile {
+						receiver.MarkContactTypeUnVerified(ctx, contactType, apis.ErrNoSuchMobile.Error())
+						reason = fmt.Sprintf("%q: no such mobile %s", contactType, receiver.Mobile)
+					} else if errors.Cause(err) == apis.ErrIncompleteConfig {
+						receiver.MarkContactTypeUnVerified(ctx, contactType, apis.ErrIncompleteConfig.Error())
+						reason = fmt.Sprintf("%q: %v", contactType, err)
+					} else {
+						receiver.MarkContactTypeUnVerified(ctx, contactType, "service exceptions")
+						reason = fmt.Sprintf("%q: %v", contactType, err)
+					}
+					failedReasons = append(failedReasons, reason)
+					continue
+				}
+				subcontact := []models.SSubContact{}
+				q := models.SubContactManager.Query()
+				cond := sqlchemy.AND(sqlchemy.Equals(q.Field("receiver_id"), receiver.Id), sqlchemy.Equals(q.Field("type"), contactType))
+				q.Filter(cond)
+				err = db.FetchModelObjects(models.SubContactManager, q, &subcontact)
+				if err != nil {
+					failedReasons = append(failedReasons, err.Error())
+					continue
+				}
+				subid := ""
+				if len(subcontact) > 0 {
+					subid = subcontact[0].Id
+				}
+				err = models.SubContactManager.TableSpec().InsertOrUpdate(ctx, &models.SSubContact{
+					SStandaloneResourceBase: db.SStandaloneResourceBase{
+						SStandaloneAnonResourceBase: db.SStandaloneAnonResourceBase{Id: subid},
+					},
+					ReceiverID:        receiver.Id,
+					Type:              contactType,
+					Contact:           content,
+					ParentContactType: "mobile",
+					Enabled:           tristate.True,
+				})
+				if err != nil {
+					failedReasons = append(failedReasons, err.Error())
+					continue
+				}
+				receiver.SetContact(contactType, content)
+				receiver.MarkContactTypeVerified(ctx, contactType)
 			} else {
-				receiver.MarkContactTypeUnVerified(ctx, cType, "service exceptions")
-				reason = fmt.Sprintf("%q: %v", cType, err)
+				_, err := db.Update(receiver, func() error {
+					if contactType == apis.MOBILE {
+						receiver.EnabledMobile = tristate.True
+					}
+					if contactType == apis.EMAIL {
+						receiver.EnabledEmail = tristate.True
+					}
+					return nil
+				})
+				if err != nil {
+					failedReasons = append(failedReasons, err.Error())
+					continue
+				}
 			}
-			failedReasons = append(failedReasons, reason)
-			continue
 		} else {
-			q := models.SubContactManager.Query()
-			cond := sqlchemy.AND(sqlchemy.Equals(q.Field("receiver_id"), receiver.Id), sqlchemy.Equals(q.Field("type"), cType))
-			q.Filter(cond)
-			subcontact := []models.SSubContact{}
-			err := db.FetchModelObjects(models.SubContactManager, q, &subcontact)
-			if err != nil {
-				failedReasons = append(failedReasons, err.Error())
-				continue
-			}
-			subid := ""
-			if len(subcontact) > 0 {
-				subid = subcontact[0].Id
-			}
-			err = models.SubContactManager.TableSpec().InsertOrUpdate(ctx, &models.SSubContact{
-				SStandaloneResourceBase: db.SStandaloneResourceBase{
-					SStandaloneAnonResourceBase: db.SStandaloneAnonResourceBase{Id: subid},
-				},
-				ReceiverID:        receiver.Id,
-				Type:              cType,
-				Contact:           content,
-				ParentContactType: "mobile",
-				Enabled:           tristate.True,
-			})
-			if err != nil {
-				log.Errorln("this is err:", err)
+			// 若该渠道在输入渠道内，则设为disable
+			if utils.IsInStringArray(contactType, PullContactType) {
+				subcontact := []models.SSubContact{}
+				q := models.SubContactManager.Query()
+				cond := sqlchemy.AND(sqlchemy.Equals(q.Field("receiver_id"), receiver.Id), sqlchemy.Equals(q.Field("type"), contactType))
+				q.Filter(cond)
+				err = db.FetchModelObjects(models.SubContactManager, q, &subcontact)
+				if err != nil {
+					failedReasons = append(failedReasons, err.Error())
+					continue
+				}
+				subid := ""
+				if len(subcontact) > 0 {
+					subid = subcontact[0].Id
+				}
+				err = models.SubContactManager.TableSpec().InsertOrUpdate(ctx, &models.SSubContact{
+					SStandaloneResourceBase: db.SStandaloneResourceBase{
+						SStandaloneAnonResourceBase: db.SStandaloneAnonResourceBase{Id: subid},
+					},
+					ReceiverID:        receiver.Id,
+					Type:              contactType,
+					ParentContactType: "mobile",
+					Enabled:           tristate.False,
+				})
+				if err != nil {
+					failedReasons = append(failedReasons, err.Error())
+					continue
+				}
+			} else {
+				_, err := db.Update(receiver, func() error {
+					if contactType == apis.MOBILE {
+						receiver.EnabledMobile = tristate.False
+					}
+					if contactType == apis.EMAIL {
+						receiver.EnabledEmail = tristate.False
+					}
+					return nil
+				})
+				if err != nil {
+					failedReasons = append(failedReasons, err.Error())
+					continue
+				}
 			}
 		}
-		receiver.SetContact(cType, content)
-		receiver.MarkContactTypeVerified(ctx, cType)
 	}
+
 	if len(failedReasons) > 0 {
 		reason := strings.Join(failedReasons, "; ")
 		self.taskFailed(ctx, receiver, reason)
