@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/options"
@@ -497,7 +498,7 @@ func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryCha
 	rtnMeasurement := new(monitor.InfluxMeasurement)
 	var buffer bytes.Buffer
 	buffer.WriteString(fmt.Sprintf(`SELECT last(*) FROM %s WHERE %s`, measurement.Measurement,
-		self.renderTimeFilter(from, to)))
+		renderTimeFilter(from, to)))
 	if len(tagFilter) != 0 {
 		buffer.WriteString(" AND ")
 		buffer.WriteString(fmt.Sprintf(" %s", tagFilter))
@@ -548,7 +549,7 @@ func (self *SDataSourceManager) getFilterMeasurement(queryChan *influxdbQueryCha
 	return nil
 }
 
-func (self *SDataSourceManager) renderTimeFilter(from, to string) string {
+func renderTimeFilter(from, to string) string {
 	if strings.Contains(from, "now-") {
 		from = "now() - " + strings.Replace(from, "now-", "", 1)
 	} else {
@@ -564,7 +565,7 @@ func (self *SDataSourceManager) renderTimeFilter(from, to string) string {
 
 }
 
-func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject, tagFilter string) (jsonutils.JSONObject, error) {
+func (self *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredential, query jsonutils.JSONObject, tagFilter string) (jsonutils.JSONObject, error) {
 	database, _ := query.GetString("database")
 	if database == "" {
 		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("database")
@@ -588,7 +589,7 @@ func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject,
 
 	timeF, err := self.getFromAndToFromParam(query)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getFromAndToFromParam")
 	}
 
 	db := influxdb.NewInfluxdb(dataSource.Url)
@@ -598,44 +599,48 @@ func (self *SDataSourceManager) GetMetricMeasurement(query jsonutils.JSONObject,
 	output.Measurement = measurement
 	output.Database = database
 	output.TagValue = make(map[string][]string, 0)
-	for _, val := range monitor.METRIC_ATTRI {
-		err = getAttributesOnMeasurement(database, val, output, db)
-		if err != nil {
-			return jsonutils.JSONNull, errors.Wrap(err, "getAttributesOnMeasurement error")
-		}
-	}
+	// for _, val := range monitor.METRIC_ATTRI {
+	// 	if err := getAttributesOnMeasurement(database, val, output, db); err != nil {
+	// 		return jsonutils.JSONNull, errors.Wrap(err, "getAttributesOnMeasurement error")
+	// 	}
+	// }
 
 	output.FieldKey = []string{field}
 	//err = getTagValue(database, output, db)
 
-	tagValChan := influxdbTagValueChan{
-		rtnChan: make(chan map[string][]string, len(output.FieldKey)),
-		count:   len(output.FieldKey),
-		//count: 1,
+	// tagValChan := influxdbTagValueChan{
+	// 	rtnChan: make(chan map[string][]string, len(output.FieldKey)),
+	// 	count:   len(output.FieldKey),
+	// 	//count: 1,
+	// }
+
+	//** ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	// tagValGroup, _ := errgroup.WithContext(ctx)
+	// defer cancel()
+	// tagValGroup.Go(func() error {
+	// 	return self.filterTagValue(*output, timeF, db, &tagValChan, tagFilter)
+	// })
+	// tagValGroup.Go(func() error {
+	// 	for i := 0; i < tagValChan.count; i++ {
+	// 		select {
+	// 		case tagVal := <-tagValChan.rtnChan:
+	// 			if len(tagVal) != 0 {
+	// 				tagValUnion(output, tagVal)
+	// 			}
+	// 		case <-ctx.Done():
+	// 			return fmt.Errorf("filter Union TagValue time out")
+	// 		}
+	// 	}
+	// 	return nil
+	// })
+	// err = tagValGroup.Wait()
+	// if err != nil {
+	// 	return jsonutils.JSONNull, errors.Wrap(err, "getTagValue error")
+	//** }
+	if err := getTagValues(userCred, output, timeF, dataSource.GetId(), tagFilter); err != nil {
+		return jsonutils.JSONNull, errors.Wrap(err, "getTagValues error")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	tagValGroup, _ := errgroup.WithContext(ctx)
-	defer cancel()
-	tagValGroup.Go(func() error {
-		return self.filterTagValue(*output, timeF, db, &tagValChan, tagFilter)
-	})
-	tagValGroup.Go(func() error {
-		for i := 0; i < tagValChan.count; i++ {
-			select {
-			case tagVal := <-tagValChan.rtnChan:
-				if len(tagVal) != 0 {
-					tagValUnion(output, tagVal)
-				}
-			case <-ctx.Done():
-				return fmt.Errorf("filter Union TagValue time out")
-			}
-		}
-		return nil
-	})
-	err = tagValGroup.Wait()
-	if err != nil {
-		return jsonutils.JSONNull, errors.Wrap(err, "getTagValue error")
-	}
+
 	self.filterRtnTags(output)
 	return jsonutils.Marshal(output), nil
 
@@ -666,7 +671,7 @@ func (self *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement)
 
 func (self *SDataSourceManager) filterTagValue(measurement monitor.InfluxMeasurement, timeF timeFilter,
 	db *influxdb.SInfluxdb, tagValChan *influxdbTagValueChan, tagFilter string) error {
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*15)
 	tagValGroup2, _ := errgroup.WithContext(ctx)
 	tagValChan2 := influxdbTagValueChan{
 		rtnChan: make(chan map[string][]string, len(measurement.TagKey)),
@@ -795,9 +800,10 @@ func (self *SDataSourceManager) DropSubscription(subscription InfluxdbSubscripti
 }
 
 func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasurement, db *influxdb.SInfluxdb) error {
-	dbRtn, err := db.Query(fmt.Sprintf("SHOW %s KEYS ON %s FROM %s", tp, database, output.Measurement))
+	query := fmt.Sprintf("SHOW %s KEYS ON %s FROM %s", tp, database, output.Measurement)
+	dbRtn, err := db.Query(query)
 	if err != nil {
-		return errors.Wrap(err, "SHOW MEASUREMENTS")
+		return errors.Wrapf(err, "SHOW MEASUREMENTS: %s", query)
 	}
 	if len(dbRtn) == 0 || len(dbRtn[0]) == 0 {
 		return nil
@@ -817,6 +823,94 @@ func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasu
 	if err != nil {
 		return errors.Wrap(err, "measurement unmarshal error")
 	}
+	return nil
+}
+
+func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasurement, timeF timeFilter, dsId string, tagFilter string) error {
+	mq := monitor.MetricQuery{
+		Database:    output.Database,
+		Measurement: output.Measurement,
+		Selects: []monitor.MetricQuerySelect{
+			{
+				{
+					Type:   "field",
+					Params: []string{output.FieldKey[0]},
+				},
+				{
+					Type: "last",
+				},
+			},
+		},
+		GroupBy: []monitor.MetricQueryPart{
+			{
+				Type:   "field",
+				Params: []string{"*"},
+			},
+		},
+	}
+	if tagFilter != "" {
+		parts := strings.Split(tagFilter, " ")
+		mq.Tags = []monitor.MetricQueryTag{
+			{
+				Key:      parts[0],
+				Operator: parts[1],
+				Value:    parts[2],
+			},
+		}
+	}
+
+	aq := &monitor.AlertQuery{
+		Model:        mq,
+		From:         timeF.From,
+		To:           timeF.To,
+		DataSourceId: dsId,
+	}
+
+	q := monitor.MetricInputQuery{
+		From: timeF.From,
+		To:   timeF.To,
+		MetricQuery: []*monitor.AlertQuery{
+			aq,
+		},
+		ForceCheckSeries: true,
+	}
+
+	ret, err := doQuery(userCred, q)
+	if err != nil {
+		return errors.Wrapf(err, "getTagValues query error %s", jsonutils.Marshal(q))
+	}
+
+	// 2. group tag and values
+	tagValMap := make(map[string][]string)
+	tagKeys := make([]string, 0)
+	if len(ret.Series) == 0 {
+		return nil
+	}
+
+	for _, s := range ret.Series {
+		tagMap := s.Tags
+		for key, valStr := range tagMap {
+			valStr = renderTagVal(valStr)
+			if len(valStr) == 0 || valStr == "null" || filterTagValue(valStr) {
+				continue
+			}
+			if filterTagKey(key) {
+				continue
+			}
+			if valArr, ok := tagValMap[key]; ok {
+				if !utils.IsInStringArray(valStr, valArr) {
+					tagValMap[key] = append(valArr, valStr)
+				}
+				continue
+			}
+			tagValMap[key] = []string{valStr}
+			tagKeys = append(tagKeys, key)
+		}
+	}
+	output.TagValue = tagValMap
+	sort.Strings(tagKeys)
+	output.TagKey = tagKeys
+
 	return nil
 }
 
@@ -868,7 +962,7 @@ func (self *SDataSourceManager) getFilterMeasurementTagValue(tagValueChan *influ
 	measurement monitor.InfluxMeasurement, db *influxdb.SInfluxdb, tagFilter string) error {
 	var buffer bytes.Buffer
 	buffer.WriteString(fmt.Sprintf(`SELECT last("%s") FROM "%s" WHERE %s `, field, measurement.Measurement,
-		self.renderTimeFilter(from, to)))
+		renderTimeFilter(from, to)))
 	if len(tagFilter) != 0 {
 		buffer.WriteString(fmt.Sprintf(` AND %s `, tagFilter))
 	}
@@ -885,7 +979,7 @@ func (self *SDataSourceManager) getFilterMeasurementTagValue(tagValueChan *influ
 				tagMap, _ := rtn[rtnIndex][serieIndex].Tags.GetMap()
 				for key, valObj := range tagMap {
 					valStr, _ := valObj.GetString()
-					valStr = self._renderTagVal(valStr)
+					valStr = renderTagVal(valStr)
 					if len(valStr) == 0 || valStr == "null" || filterTagValue(valStr) {
 						continue
 					}
@@ -909,7 +1003,7 @@ func (self *SDataSourceManager) getFilterMeasurementTagValue(tagValueChan *influ
 	return nil
 }
 
-func (self *SDataSourceManager) _renderTagVal(val string) string {
+func renderTagVal(val string) string {
 	return strings.ReplaceAll(val, "+", " ")
 }
 func floatEquals(a, b float64) bool {
