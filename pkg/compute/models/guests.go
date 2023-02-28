@@ -3896,7 +3896,7 @@ func (self *SGuest) CreateDisksOnHost(
 	return nil
 }
 
-func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage,
+func (self *SGuest) CreateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage,
 	diskConfig *api.DiskConfig, pendingUsage quotas.IQuota, inheritBilling bool, isWithServerCreate bool) (*SDisk, error) {
 	lockman.LockObject(ctx, storage)
 	defer lockman.ReleaseObject(ctx, storage)
@@ -3983,7 +3983,7 @@ func (self *SGuest) createDiskOnHost(
 		return nil, fmt.Errorf("No storage on %s to create disk for %s", host.GetName(), diskConfig.Backend)
 	}
 	log.Debugf("Choose storage %s:%s for disk %#v", storage.Name, storage.Id, diskConfig)
-	disk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConfig, pendingUsage, inheritBilling, isWithServerCreate)
+	disk, err := self.CreateDiskOnStorage(ctx, userCred, storage, diskConfig, pendingUsage, inheritBilling, isWithServerCreate)
 	if err != nil {
 		return nil, err
 	}

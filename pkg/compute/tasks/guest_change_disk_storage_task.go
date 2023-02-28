@@ -32,6 +32,7 @@ import (
 
 func init() {
 	taskman.RegisterTask(GuestChangeDiskStorageTask{})
+	taskman.RegisterTask(GuestChangeDisksStorageTask{})
 }
 
 type GuestChangeDiskStorageTask struct {
@@ -100,6 +101,7 @@ func (t *GuestChangeDiskStorageTask) ChangeDiskStorage(ctx context.Context, gues
 		return
 	}
 
+	log.Infof("ChangeDiskStorage guest running is %v", input.GuestRunning)
 	if input.GuestRunning {
 		t.SetStage("OnDiskLiveChangeStorageReady", nil)
 	} else {
@@ -292,6 +294,10 @@ func (t *GuestChangeDiskStorageTask) attachTargetDisk(ctx context.Context, guest
 }
 
 func (t *GuestChangeDiskStorageTask) OnTargetDiskAttachComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if t.HasParentTask() {
+		t.TaskComplete(ctx, guest, data)
+		return
+	}
 	t.SetStage("OnGuestSyncStatus", nil)
 	if err := guest.StartSyncstatus(ctx, t.UserCred, t.Id); err != nil {
 		t.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
@@ -319,4 +325,108 @@ func (t *GuestChangeDiskStorageTask) TaskFailed(ctx context.Context, guest *mode
 	guest.SetStatus(t.GetUserCred(), api.VM_DISK_CHANGE_STORAGE_FAIL, reason.String())
 	logclient.AddActionLogWithStartable(t, guest, logclient.ACT_DISK_CHANGE_STORAGE, reason, t.GetUserCred(), false)
 	t.SetStageFailed(ctx, reason)
+}
+
+// --------------------- GuestChangeDisksStorageTask ----------------------------
+
+type GuestChangeDisksStorageTask struct {
+	SGuestBaseTask
+}
+
+func (t *GuestChangeDisksStorageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	t.ChangeDiskStorage(ctx, guest, nil)
+}
+
+func (t *GuestChangeDisksStorageTask) GetInputParams() (*api.ServerChangeStorageInternalInput, error) {
+	input := new(api.ServerChangeStorageInternalInput)
+	err := t.GetParams().Unmarshal(input)
+	return input, err
+}
+
+func (t *GuestChangeDisksStorageTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	guest.SetStatus(t.GetUserCred(), api.VM_DISK_CHANGE_STORAGE_FAIL, reason.String())
+	logclient.AddActionLogWithStartable(t, guest, logclient.ACT_DISK_CHANGE_STORAGE, reason, t.GetUserCred(), false)
+	t.SetStageFailed(ctx, reason)
+}
+
+func (t *GuestChangeDisksStorageTask) TaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithStartable(t, guest, logclient.ACT_DISK_CHANGE_STORAGE, nil, t.GetUserCred(), true)
+	t.SetStageComplete(ctx, nil)
+}
+
+func (t *GuestChangeDisksStorageTask) OnDiskChangeStorageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	t.SetStage("OnGuestSyncStatus", nil)
+	if err := guest.StartSyncstatus(ctx, t.UserCred, t.Id); err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+	}
+}
+
+func (t *GuestChangeDisksStorageTask) OnGuestSyncStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	t.TaskComplete(ctx, guest, nil)
+}
+
+func (t *GuestChangeDisksStorageTask) OnGuestSyncStatusFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	t.TaskFailed(ctx, guest, data)
+}
+
+func (t *GuestChangeDisksStorageTask) ChangeDiskStorage(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	input, err := t.GetInputParams()
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	if len(input.Disks) == 0 {
+		t.OnDiskChangeStorageComplete(ctx, guest, nil)
+		return
+	}
+
+	t.CreateTargetDisk(ctx, guest, input)
+}
+
+func (t *GuestChangeDisksStorageTask) ChangeDiskStorageFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	t.TaskFailed(ctx, guest, data)
+}
+
+func (t *GuestChangeDisksStorageTask) CreateTargetDisk(ctx context.Context, guest *models.SGuest, input *api.ServerChangeStorageInternalInput) {
+	storage := models.StorageManager.FetchStorageById(input.TargetStorageId)
+	srcDisk := models.DiskManager.FetchDiskById(input.Disks[0])
+
+	input.Disks = input.Disks[1:]
+	t.Params.Set("disks", jsonutils.Marshal(input.Disks))
+	if err := t.SetStage("ChangeDiskStorage", nil); err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	// create a disk on target storage from source disk
+	diskConf := &api.DiskConfig{
+		Index:    -1,
+		ImageId:  srcDisk.TemplateId,
+		SizeMb:   srcDisk.DiskSize,
+		Fs:       srcDisk.FsFormat,
+		DiskType: srcDisk.DiskType,
+	}
+
+	targetDisk, err := guest.CreateDiskOnStorage(ctx, t.UserCred, storage, diskConf, nil, true, true)
+	if err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Create target disk on storage %s: %s", storage.GetName(), err)))
+		return
+	}
+
+	internalInput := &api.ServerChangeDiskStorageInternalInput{
+		ServerChangeDiskStorageInput: api.ServerChangeDiskStorageInput{
+			DiskId:          srcDisk.Id,
+			TargetStorageId: storage.Id,
+			KeepOriginDisk:  input.KeepOriginDisk,
+		},
+		StorageId:    srcDisk.StorageId,
+		TargetDiskId: targetDisk.GetId(),
+		GuestRunning: input.GuestRunning,
+	}
+
+	if err := guest.StartChangeDiskStorageTask(ctx, t.UserCred, internalInput, t.Id); err != nil {
+		t.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
 }

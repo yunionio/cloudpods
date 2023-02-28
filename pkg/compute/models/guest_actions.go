@@ -3233,11 +3233,11 @@ func (self *SGuest) PerformBlockMirrorReady(ctx context.Context, userCred mcclie
 		if disk == nil {
 			return nil, httperrors.NewNotFoundError("disk %s not found", diskId)
 		}
-
-		taskId := disk.GetMetadata(ctx, api.DISK_CLONE_TASK_ID, userCred)
-		log.Infof("task_id %s", taskId)
-		if err := self.startSwitchToClonedDisk(ctx, userCred, taskId); err != nil {
-			return nil, errors.Wrap(err, "startSwitchToClonedDisk")
+		if taskId := disk.GetMetadata(ctx, api.DISK_CLONE_TASK_ID, userCred); len(taskId) > 0 {
+			log.Infof("task_id %s", taskId)
+			if err := self.startSwitchToClonedDisk(ctx, userCred, taskId); err != nil {
+				return nil, errors.Wrap(err, "startSwitchToClonedDisk")
+			}
 		}
 	}
 	return nil, nil
@@ -5205,6 +5205,58 @@ func (self *SGuest) PerformListForward(ctx context.Context, userCred mcclient.To
 	return resp.JSON(), nil
 }
 
+func (self *SGuest) PerformChangeStorage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerChangeStorageInput) (*api.ServerChangeStorageInput, error) {
+	// validate input
+	if input.TargetStorageId == "" {
+		return nil, httperrors.NewNotEmptyError("Storage id is empty")
+	}
+
+	// validate storage
+	storageObj, err := StorageManager.FetchByIdOrName(userCred, input.TargetStorageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Found storage by %s", input.TargetStorageId)
+	}
+	storage := storageObj.(*SStorage)
+	input.TargetStorageId = storage.GetId()
+
+	// validate disk
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get server %s disks", self.GetName())
+	}
+	var changeDisks = []string{}
+	for _, disk := range disks {
+		if disk.StorageId != input.TargetStorageId {
+			changeDisks = append(changeDisks, disk.Id)
+		}
+	}
+
+	// driver validate
+	drv := self.GetDriver()
+	if err := drv.ValidateChangeDiskStorage(ctx, userCred, self, input.TargetStorageId); err != nil {
+		return nil, err
+	}
+	return nil, self.StartGuestChangeStorageTask(ctx, userCred, input, changeDisks)
+}
+
+func (self *SGuest) StartGuestChangeStorageTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerChangeStorageInput, disks []string) error {
+	params := api.ServerChangeStorageInternalInput{
+		ServerChangeStorageInput: *input,
+		Disks:                    disks,
+		GuestRunning:             self.Status == api.VM_RUNNING,
+	}
+	reason := fmt.Sprintf("Change guest disks storage to %s", input.TargetStorageId)
+	self.SetStatus(userCred, api.VM_DISK_CHANGE_STORAGE, reason)
+	if task, err := taskman.TaskManager.NewTask(
+		ctx, "GuestChangeDisksStorageTask", self, userCred, jsonutils.Marshal(params).(*jsonutils.JSONDict),
+		"", "", nil); err != nil {
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
 func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerChangeDiskStorageInput) (*api.ServerChangeDiskStorageInput, error) {
 	// validate input
 	if input.DiskId == "" {
@@ -5241,7 +5293,7 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 
 	// driver validate
 	drv := self.GetDriver()
-	if err := drv.ValidateChangeDiskStorage(ctx, userCred, self, input); err != nil {
+	if err := drv.ValidateChangeDiskStorage(ctx, userCred, self, input.TargetStorageId); err != nil {
 		return nil, err
 	}
 
@@ -5254,7 +5306,7 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 		DiskType: srcDisk.DiskType,
 	}
 
-	targetDisk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConf, nil, true, true)
+	targetDisk, err := self.CreateDiskOnStorage(ctx, userCred, storage, diskConf, nil, true, true)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Create target disk on storage %s", storage.GetName())
 	}
@@ -5272,7 +5324,7 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 func (self *SGuest) StartChangeDiskStorageTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerChangeDiskStorageInternalInput, parentTaskId string) error {
 	reason := fmt.Sprintf("Change disk %s to storage %s", input.DiskId, input.TargetStorageId)
 	self.SetStatus(userCred, api.VM_DISK_CHANGE_STORAGE, reason)
-	return self.GetDriver().StartChangeDiskStorageTask(self, ctx, userCred, input, "")
+	return self.GetDriver().StartChangeDiskStorageTask(self, ctx, userCred, input, parentTaskId)
 }
 
 func (self *SGuest) startSwitchToClonedDisk(ctx context.Context, userCred mcclient.TokenCredential, taskId string) error {
