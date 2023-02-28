@@ -25,6 +25,8 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
 	"yunion.io/x/onecloud/pkg/monitor/models"
@@ -69,10 +71,12 @@ func NewMetricQueryCondition(models []*monitor.AlertCondition) (*MetricQueryCond
 	return cond, nil
 }
 
-func (query *MetricQueryCondition) ExecuteQuery() (*mq.Metrics, error) {
-	timeRange := tsdb.NewTimeRange(query.QueryCons[0].Query.From, query.QueryCons[0].Query.To)
+func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredential, forceCheckSeries bool) (*mq.Metrics, error) {
+	firstCond := query.QueryCons[0]
+	timeRange := tsdb.NewTimeRange(firstCond.Query.From, firstCond.Query.To)
+	ctx := gocontext.Background()
 	evalContext := alerting.EvalContext{
-		Ctx:       gocontext.Background(),
+		Ctx:       ctx,
 		IsDebug:   true,
 		IsTestRun: false,
 	}
@@ -84,17 +88,23 @@ func (query *MetricQueryCondition) ExecuteQuery() (*mq.Metrics, error) {
 		Series: make(tsdb.TimeSeriesSlice, 0),
 		Metas:  queryResult.metas,
 	}
-	if query.noCheckSeries() {
+	if query.noCheckSeries() && !forceCheckSeries {
 		metrics.Series = queryResult.series
 		return &metrics, nil
 	}
 
+	s := auth.GetSession(ctx, userCred, "")
+	ress, err := firstCond.getOnecloudResources(s, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "get resources from region")
+	}
+
 	for _, serie := range queryResult.series {
-		isLatestOfSerie, resource := query.QueryCons[0].serieIsLatestResource(nil, serie)
+		isLatestOfSerie, resource := firstCond.serieIsLatestResource(ress, serie)
 		if !isLatestOfSerie {
 			continue
 		}
-		query.QueryCons[0].FillSerieByResourceField(resource, serie)
+		firstCond.FillSerieByResourceField(resource, serie)
 		metrics.Series = append(metrics.Series, serie)
 	}
 	return &metrics, nil
