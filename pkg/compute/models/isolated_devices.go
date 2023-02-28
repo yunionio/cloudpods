@@ -346,17 +346,22 @@ func (manager *SIsolatedDeviceManager) findAttachedDevicesOfGuest(guest *SGuest)
 	return devs
 }
 
-func (manager *SIsolatedDeviceManager) fuzzyMatchModel(fuzzyStr string) *SIsolatedDevice {
+func (manager *SIsolatedDeviceManager) fuzzyMatchModel(fuzzyStr string, devType string) *SIsolatedDevice {
 	dev := SIsolatedDevice{}
 	dev.SetModelManager(manager, &dev)
 
-	q := manager.Query().Equals("model", fuzzyStr)
-	cnt, err := q.CountWithError()
-	if err != nil || cnt == 0 {
-		q = manager.Query().Contains("model", fuzzyStr)
+	q := manager.Query()
+	if devType != "" {
+		q = q.Equals("dev_type", devType)
 	}
 
-	err = q.First(&dev)
+	qe := q.Equals("model", fuzzyStr)
+	cnt, err := qe.CountWithError()
+	if err != nil || cnt == 0 {
+		qe = q.Contains("model", fuzzyStr)
+	}
+
+	err = qe.First(&dev)
 	if err == nil {
 		return &dev
 	}
@@ -387,7 +392,7 @@ func (manager *SIsolatedDeviceManager) parseDeviceInfo(userCred mcclient.TokenCr
 	var matchDev *SIsolatedDevice
 
 	devId = devConfig.Id
-	matchDev = manager.fuzzyMatchModel(devConfig.Model)
+	matchDev = manager.fuzzyMatchModel(devConfig.Model, devConfig.DevType)
 	devVendor = devConfig.Vendor
 	devType = devConfig.DevType
 
@@ -486,7 +491,7 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx contex
 		return fmt.Errorf("Not found model from info: %#v", devConfig)
 	}
 	// if dev type is not nic, wire is empty string
-	devs, err := manager.findHostUnusedByModelAndWire(devConfig.Model, host.Id, devConfig.WireId)
+	devs, err := manager.findHostUnusedByDevConfig(devConfig.Model, devConfig.DevType, host.Id, devConfig.WireId)
 	if err != nil || len(devs) == 0 {
 		return fmt.Errorf("Can't found model %s on host %s", devConfig.Model, host.Id)
 	}
@@ -549,10 +554,16 @@ func (manager *SIsolatedDeviceManager) FindUnusedGpusOnHost(hostId string) ([]SI
 	return devs, nil
 }
 
-func (manager *SIsolatedDeviceManager) findHostUnusedByModelAndWire(model, hostId, wireId string) ([]SIsolatedDevice, error) {
+func (manager *SIsolatedDeviceManager) findHostUnusedByDevConfig(model, devType, hostId, wireId string) ([]SIsolatedDevice, error) {
 	devs := make([]SIsolatedDevice, 0)
 	q := manager.findUnusedQuery()
-	q = q.Equals("model", model).Equals("host_id", hostId).Equals("wire_id", wireId)
+	q = q.Equals("model", model).Equals("host_id", hostId)
+	if devType != "" {
+		q.Equals("dev_type", devType)
+	}
+	if wireId != "" {
+		q = q.Equals("wire_id", wireId)
+	}
 	err := db.FetchModelObjects(manager, q, &devs)
 	if err != nil {
 		return nil, err

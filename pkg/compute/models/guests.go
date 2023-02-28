@@ -1416,10 +1416,6 @@ func (manager *SGuestManager) validateCreateData(
 			support := desc == "true"
 			imgSupportUEFI = &support
 		}
-		// imgIsWindows := imgProperties[imageapi.IMAGE_OS_TYPE] == "Windows"
-		// if imgSupportUEFI && imgIsWindows && len(input.IsolatedDevices) > 0 {
-		// 	input.Bios = "UEFI" // windows gpu passthrough
-		// }
 		if input.OsArch == apis.OS_ARCH_AARCH64 {
 			// arm image supports UEFI by default
 			support := true
@@ -1445,6 +1441,19 @@ func (manager *SGuestManager) validateCreateData(
 			imgProperties = map[string]string{"os_type": "Linux"}
 		}
 		input.DisableUsbKbd = imgProperties[imageapi.IMAGE_DISABLE_USB_KBD] == "true"
+		imgIsWindows := imgProperties[imageapi.IMAGE_OS_TYPE] == "Windows"
+
+		hasGpuVga := func() bool {
+			for i := 0; i < len(input.IsolatedDevices); i++ {
+				if input.IsolatedDevices[i].DevType == GPU_VGA_TYPE {
+					return true
+				}
+			}
+			return false
+		}()
+		if imgIsWindows && hasGpuVga && input.Bios != "UEFI" {
+			return nil, httperrors.NewInputParameterError("Windows use gpu vga requires UEFI image")
+		}
 
 		if vdi, ok := imgProperties[imageapi.IMAGE_VDI_PROTOCOL]; ok && len(vdi) > 0 && len(input.Vdi) == 0 {
 			input.Vdi = vdi
