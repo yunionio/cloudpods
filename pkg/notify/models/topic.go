@@ -334,7 +334,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionChecksumTest,
 			)
 			t.Type = notify.TOPIC_TYPE_SECURITY
-			t.Results = tristate.True
+			t.Results = tristate.False
 		case DefaultUserLock:
 			t.addResources(
 				notify.TOPIC_RESOURCE_USER,
