@@ -26,12 +26,13 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	mc_mds "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	"yunion.io/x/onecloud/pkg/monitor/models"
+	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 )
@@ -244,14 +245,20 @@ func (c *QueryCondition) serieIsLatestResource(resources []jsonutils.JSONObject,
 	if len(tagId) == 0 {
 		tagId = "host_id"
 	}
-	seriId := series.Tags[tagId]
-	//for _, resource := range resources {
-	//	id, _ := resource.GetString("id")
-	//	if seriId == id {
-	//		return true, resource
-	//	}
-	//}
-	return models.MonitorResourceManager.GetResourceObj(seriId)
+	resId := series.Tags[tagId]
+	if len(resources) != 0 {
+		for _, resource := range resources {
+			id, _ := resource.GetString("id")
+			if resId == id {
+				// return true, resource
+				return models.MonitorResourceManager.GetResourceObj(resId)
+			} else {
+				continue
+			}
+		}
+		return false, nil
+	}
+	return models.MonitorResourceManager.GetResourceObj(resId)
 }
 
 func (c *QueryCondition) FillSerieByResourceField(resource jsonutils.JSONObject,
@@ -541,22 +548,22 @@ func (c *QueryCondition) setResType() {
 	}
 }
 
-func (c *QueryCondition) GetQueryResources() ([]jsonutils.JSONObject, error) {
-	allHosts, err := c.getOnecloudResources()
+func (c *QueryCondition) GetQueryResources(s *mcclient.ClientSession, showDetails bool) ([]jsonutils.JSONObject, error) {
+	allRes, err := c.getOnecloudResources(s, showDetails)
 	if err != nil {
-		return nil, errors.Wrap(err, "getOnecloudHosts error")
+		return nil, errors.Wrap(err, "getOnecloudResources error")
 	}
-	allHosts = c.filterAllResources(allHosts)
-	return allHosts, nil
+	allRes = c.filterAllResources(allRes)
+	return allRes, nil
 }
 
-func (c *QueryCondition) getOnecloudResources() ([]jsonutils.JSONObject, error) {
+func (c *QueryCondition) getOnecloudResources(s *mcclient.ClientSession, showDetails bool) ([]jsonutils.JSONObject, error) {
 	var err error
 	allResources := make([]jsonutils.JSONObject, 0)
 
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewStringArray([]string{"running", "ready"}), "status")
-	query.Add(jsonutils.NewString("true"), "admin")
+	// query.Add(jsonutils.NewString("true"), "admin")
 	//if len(c.Query.Model.Tags) != 0 {
 	//	query, err = c.convertTagsQuery(evalContext, query)
 	//	if err != nil {
@@ -568,33 +575,33 @@ func (c *QueryCondition) getOnecloudResources() ([]jsonutils.JSONObject, error) 
 		query := jsonutils.NewDict()
 		query.Set("host_type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
 		query.Set("enabled", jsonutils.NewInt(1))
-		allResources, err = ListAllResources(&mc_mds.Hosts, query)
+		allResources, err = ListAllResources(s, &mc_mds.Hosts, query, showDetails)
 	case monitor.METRIC_RES_TYPE_GUEST:
-		allResources, err = ListAllResources(&mc_mds.Servers, query)
+		allResources, err = ListAllResources(s, &mc_mds.Servers, query, showDetails)
 	case monitor.METRIC_RES_TYPE_AGENT:
-		allResources, err = ListAllResources(&mc_mds.Servers, query)
+		allResources, err = ListAllResources(s, &mc_mds.Servers, query, showDetails)
 	case monitor.METRIC_RES_TYPE_RDS:
-		allResources, err = ListAllResources(&mc_mds.DBInstance, query)
+		allResources, err = ListAllResources(s, &mc_mds.DBInstance, query, showDetails)
 	case monitor.METRIC_RES_TYPE_REDIS:
-		allResources, err = ListAllResources(&mc_mds.ElasticCache, query)
+		allResources, err = ListAllResources(s, &mc_mds.ElasticCache, query, showDetails)
 	case monitor.METRIC_RES_TYPE_OSS:
-		allResources, err = ListAllResources(&mc_mds.Buckets, query)
+		allResources, err = ListAllResources(s, &mc_mds.Buckets, query, showDetails)
 	case monitor.METRIC_RES_TYPE_CLOUDACCOUNT:
 		query.Remove("status")
 		query.Add(jsonutils.NewBool(true), "enabled")
-		allResources, err = ListAllResources(&mc_mds.Cloudaccounts, query)
+		allResources, err = ListAllResources(s, &mc_mds.Cloudaccounts, query, showDetails)
 	case monitor.METRIC_RES_TYPE_TENANT:
-		allResources, err = ListAllResources(&identity.Projects, query)
+		allResources, err = ListAllResources(s, &identity.Projects, query, showDetails)
 	case monitor.METRIC_RES_TYPE_DOMAIN:
-		allResources, err = ListAllResources(&identity.Domains, query)
+		allResources, err = ListAllResources(s, &identity.Domains, query, showDetails)
 	case monitor.METRIC_RES_TYPE_STORAGE:
 		query.Remove("status")
-		allResources, err = ListAllResources(&mc_mds.Storages, query)
+		allResources, err = ListAllResources(s, &mc_mds.Storages, query, showDetails)
 	default:
 		query := jsonutils.NewDict()
 		query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
 		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
-		allResources, err = ListAllResources(&mc_mds.Hosts, query)
+		allResources, err = ListAllResources(s, &mc_mds.Hosts, query, showDetails)
 	}
 
 	if err != nil {
@@ -603,25 +610,24 @@ func (c *QueryCondition) getOnecloudResources() ([]jsonutils.JSONObject, error) 
 	return allResources, nil
 }
 
-func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
+func ListAllResources(s *mcclient.ClientSession, manager modulebase.Manager, params *jsonutils.JSONDict, showDetails bool) ([]jsonutils.JSONObject, error) {
 	if params == nil {
 		params = jsonutils.NewDict()
 	}
-	params.Add(jsonutils.NewString("system"), "scope")
-	params.Add(jsonutils.NewInt(20), "limit")
-	params.Add(jsonutils.NewBool(true), "details")
+	if s.GetToken().HasSystemAdminPrivilege() {
+		params.Add(jsonutils.NewString("system"), "scope")
+	}
+	params.Add(jsonutils.NewInt(int64(options.Options.APIListBatchSize)), "limit")
+	params.Add(jsonutils.NewBool(showDetails), "details")
 	var count int
-	session := auth.GetAdminSession(context.Background(), "")
 	objs := make([]jsonutils.JSONObject, 0)
 	for {
 		params.Set("offset", jsonutils.NewInt(int64(count)))
-		result, err := manager.List(session, params)
+		result, err := manager.List(s, params)
 		if err != nil {
 			return nil, errors.Wrapf(err, "list %s resources with params %s", manager.KeyString(), params.String())
 		}
-		for _, data := range result.Data {
-			objs = append(objs, data)
-		}
+		objs = append(objs, result.Data...)
 		total := result.Total
 		count = count + len(result.Data)
 		if count >= total {
