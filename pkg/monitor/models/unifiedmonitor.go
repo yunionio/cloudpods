@@ -166,8 +166,7 @@ func getProjectIdFilterByProject(projectId string) (string, error) {
 	return fmt.Sprintf(`"%s" =~ /%s/`, "tenant_id", projectId), nil
 }
 
-func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	metricFunc := monitor.MetricFunc{
 		FieldOptType:  monitor.UNIFIED_MONITOR_FIELD_OPT_TYPE,
 		FieldOptValue: monitor.UNIFIED_MONITOR_FIELD_OPT_VALUE,
@@ -176,11 +175,11 @@ func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Con
 	}
 	filter, err := getTagFilterByRequestQuery(ctx, userCred, query)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "getTagFilterByRequestQuery %s", query.String())
 	}
-	rtn, err := DataSourceManager.GetMetricMeasurement(query, filter)
+	rtn, err := DataSourceManager.GetMetricMeasurement(userCred, query, filter)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetMetricMeasurement by query %s, filter %s", query.String(), filter)
 	}
 	rtn.(*jsonutils.JSONDict).Add(jsonutils.Marshal(&metricFunc), "func")
 	return rtn, nil
@@ -209,9 +208,8 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 			ownId = userCred
 		}
 		setDefaultValue(q, inputQuery, scope, ownId)
-		err = self.ValidateInputQuery(q)
-		if err != nil {
-			return jsonutils.NewDict(), err
+		if err := self.ValidateInputQuery(q); err != nil {
+			return jsonutils.NewDict(), errors.Wrapf(err, "ValidateInputQuery")
 		}
 	}
 
@@ -224,13 +222,13 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 		}
 	}
 
-	rtn, err := doQuery(*inputQuery)
+	rtn, err := doQuery(userCred, *inputQuery)
 	if err != nil {
-		return jsonutils.NewDict(), err
+		return jsonutils.NewDict(), errors.Wrapf(err, "doQuery with input %s", data)
 	}
 
 	if len(inputQuery.Soffset) != 0 && len(inputQuery.Slimit) != 0 {
-		seriesTotal := self.fillSearchSeriesTotalQuery(*inputQuery.MetricQuery[0])
+		seriesTotal := self.fillSearchSeriesTotalQuery(userCred, *inputQuery.MetricQuery[0])
 		rtn.SeriesTotal = seriesTotal
 	}
 
@@ -239,18 +237,17 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 	return jsonutils.Marshal(rtn), nil
 }
 
-func (self *SUnifiedMonitorManager) fillSearchSeriesTotalQuery(fork monitor.AlertQuery) int64 {
+func (self *SUnifiedMonitorManager) fillSearchSeriesTotalQuery(userCred mcclient.TokenCredential, fork monitor.AlertQuery) int64 {
 	newGroupByPart := make([]monitor.MetricQueryPart, 0)
 	newGroupByPart = append(newGroupByPart, fork.Model.GroupBy[0])
 	fork.Model.GroupBy = newGroupByPart
 	forkInputQury := new(monitor.MetricInputQuery)
 	forkInputQury.MetricQuery = []*monitor.AlertQuery{&fork}
-	rtn, err := doQuery(*forkInputQury)
+	rtn, err := doQuery(userCred, *forkInputQury)
 	if err != nil {
 		log.Errorf("exec forkInputQury err:%v", err)
 		return 0
 	}
-	log.Errorf("series len:%d", len(rtn.Series))
 	return int64(len(rtn.Series))
 }
 
@@ -283,7 +280,7 @@ func (self *SUnifiedMonitorManager) handleDataPreSignature(ctx context.Context, 
 	}
 }
 
-func doQuery(query monitor.MetricInputQuery) (*mq.Metrics, error) {
+func doQuery(userCred mcclient.TokenCredential, query monitor.MetricInputQuery) (*mq.Metrics, error) {
 	conditions := make([]*monitor.AlertCondition, 0)
 	for _, q := range query.MetricQuery {
 		condition := monitor.AlertCondition{
@@ -297,7 +294,7 @@ func doQuery(query monitor.MetricInputQuery) (*mq.Metrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	metrics, err := metricQ.ExecuteQuery()
+	metrics, err := metricQ.ExecuteQuery(userCred, query.ForceCheckSeries)
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +438,7 @@ func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricInpu
 	if metricMeasurement != nil {
 		tagId = monitor.MEASUREMENT_TAG_ID[metricMeasurement.ResType]
 	}
-	if len(tagId) == 0 {
+	if len(tagId) == 0 || (len(inputQuery.Slimit) != 0 && len(inputQuery.Soffset) != 0) {
 		tagId = "*"
 	}
 	query.Model.GroupBy = append(query.Model.GroupBy,
@@ -452,13 +449,12 @@ func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricInpu
 }
 
 func setSerieRowName(series *tsdb.TimeSeriesSlice, groupTag []string) {
-	//Add rowname，The front end displays the curve according to rowname
+	// Add rowname，The front end displays the curve according to rowname
 	var index, unknownIndex = 1, 1
 	for i, serie := range *series {
-		//setRowName by groupTag
+		// setRowName by groupTag
 		if len(groupTag) != 0 {
 			for key, val := range serie.Tags {
-
 				if strings.Contains(strings.Join(groupTag, ","), key) {
 					serie.RawName = fmt.Sprintf("%s", val)
 					(*series)[i] = serie
@@ -468,7 +464,7 @@ func setSerieRowName(series *tsdb.TimeSeriesSlice, groupTag []string) {
 			continue
 		}
 		measurement := strings.Split(serie.Name, ".")[0]
-		//sep measurement set RowName by spe param
+		// sep measurement set RowName by spe param
 		measurements, _ := MetricMeasurementManager.getMeasurementByName(measurement)
 		if len(measurements) != 0 {
 			if key, ok := monitor.MEASUREMENT_TAG_KEYWORD[measurements[0].ResType]; ok {
@@ -478,7 +474,7 @@ func setSerieRowName(series *tsdb.TimeSeriesSlice, groupTag []string) {
 				continue
 			}
 		}
-		//other condition set RowName
+		// other condition set RowName
 		for key, val := range serie.Tags {
 			if strings.Contains(key, "id") {
 				serie.RawName = fmt.Sprintf("%d: %s", index, val)
