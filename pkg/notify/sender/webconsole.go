@@ -29,41 +29,6 @@ func (self *SWebconsoleSender) GetSenderType() string {
 }
 
 func (self *SWebconsoleSender) Send(args api.SendParams) error {
-	// var token string
-	// var errs []error
-	// title, msg := args.Title, args.Message
-	// // for _, recevier := range args.Receivers {
-	// webhook := args.Receivers.Contact
-	// switch {
-	// case strings.HasPrefix(webhook, ApiWebhookRobotV2SendMessage):
-	// 	token = webhook[len(ApiWebhookRobotV2SendMessage):]
-	// case strings.HasPrefix(webhook, feishu.ApiWebhookRobotSendMessage):
-	// 	token = webhook[len(feishu.ApiWebhookRobotSendMessage):]
-	// default:
-	// 	return errors.Wrap(InvalidWebhook, webhook)
-	// }
-	// req := feishu.WebhookRobotMsgReq{
-	// 	Title: title,
-	// 	Text:  msg,
-	// }
-	// rep, err := feishu.SendWebhookRobotMessage(token, req)
-	// if err != nil {
-	// 	return errors.Wrap(err, "SendWebhookRobotMessage")
-	// }
-	// if !rep.Ok {
-	// 	if strings.Contains(rep.Error, "token") {
-	// 		return ErrNoSuchWebhook
-	// 	} else {
-	// 		return fmt.Errorf("SendWebhookRobotMessage failed: %s", rep.Error)
-	// 	}
-	// }
-	// if err != nil {
-	// 	if errs == nil {
-	// 		errs = []error{}
-	// 	}
-	// 	errs = append(errs, err)
-	// }
-	// return errors.NewAggregate(errs)
 	return nil
 }
 
@@ -107,7 +72,7 @@ func (websender *SWebconsoleSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (websender *SWebconsoleSender) GetAccessToken() error {
+func (websender *SWebconsoleSender) GetAccessToken(key string) error {
 	return nil
 }
 

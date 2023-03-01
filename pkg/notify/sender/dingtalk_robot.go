@@ -99,7 +99,7 @@ func (dingRobotSender *SDingTalkRobotSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (dingRobotSender *SDingTalkRobotSender) GetAccessToken() error {
+func (dingRobotSender *SDingTalkRobotSender) GetAccessToken(key string) error {
 	return nil
 }
 
