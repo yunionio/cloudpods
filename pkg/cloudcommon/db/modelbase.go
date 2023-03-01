@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/splitable"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -517,6 +518,9 @@ func (manager *SModelBaseManager) GetPropertySplitableExport(ctx context.Context
 			if err != nil {
 				return nil, errors.Wrapf(err, "q.AllStringMap")
 			}
+			exportId := fmt.Sprintf("%s(%d-%d)", metas[i].Table, metas[i].Start, metas[i].End)
+			obj := logclient.NewSimpleObject(exportId, exportId, manager.Keyword())
+			logclient.AddActionLogWithContext(ctx, obj, logclient.ACT_EXPORT, nil, userCred, true)
 			return jsonutils.Marshal(resp), nil
 		}
 	}

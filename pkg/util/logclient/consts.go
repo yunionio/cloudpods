@@ -242,4 +242,6 @@ const (
 	ACT_IP_MAC_BIND = "ip_mac_bind"
 	// 程序内初始化notifyconfigmap错误
 	ACT_INIT_NOTIFY_CONFIGMAP = "init_notify_configmap"
+
+	ACT_EXPORT = "export"
 )
