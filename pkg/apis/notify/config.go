@@ -149,6 +149,7 @@ type SendParams struct {
 	Event          string
 	Receivers      SNotifyReceiver
 	EmailMsg       *SEmailMessage
+	DomainId       string
 }
 
 type SSMSSendParams struct {

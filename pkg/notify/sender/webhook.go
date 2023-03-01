@@ -92,7 +92,7 @@ func (websender *SWebhookSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (websender *SWebhookSender) GetAccessToken() error {
+func (websender *SWebhookSender) GetAccessToken(key string) error {
 	return nil
 }
 

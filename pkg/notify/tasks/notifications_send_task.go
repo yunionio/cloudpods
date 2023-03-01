@@ -213,6 +213,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			p.Message += "\nfrom " + options.Options.ApiServer
 		}
 
+		p.DomainId = self.UserCred.GetDomainId()
 		// set status before send
 		now := time.Now()
 		for _, rn := range receivers {

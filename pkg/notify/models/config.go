@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -110,7 +111,7 @@ func (c *SConfig) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 	if err != nil {
 		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
 	}
-	ConfigMap[c.Type] = *c
+	ConfigMap[fmt.Sprintf("%s-%s", c.Type, c.DomainId)] = *c
 }
 
 func (c *SConfig) GetNotifyConfig() api.NotifyConfig {
@@ -151,7 +152,7 @@ func (c *SConfig) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 func (c *SConfig) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	c.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 	config := c.GetNotifyConfig()
-	ConfigMap[c.Type] = SConfig{
+	ConfigMap[fmt.Sprintf("%s-%s", c.Type, c.DomainId)] = SConfig{
 		Content: &config.SNotifyConfigContent,
 	}
 	err := c.StartRepullSubcontactTask(ctx, userCred, false)
@@ -162,7 +163,7 @@ func (c *SConfig) PostUpdate(ctx context.Context, userCred mcclient.TokenCredent
 
 func (c *SConfig) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	c.SStandaloneResourceBase.PreDelete(ctx, userCred)
-	delete(ConfigMap, c.Type)
+	delete(ConfigMap, fmt.Sprintf("%s-%s", c.Type, c.DomainId))
 }
 
 func (c *SConfig) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -178,7 +179,7 @@ func (c *SConfig) Delete(ctx context.Context, userCred mcclient.TokenCredential)
 }
 
 func (c *SConfig) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	delete(ConfigMap, c.Type)
+	delete(ConfigMap, fmt.Sprintf("%s-%s", c.Type, c.DomainId))
 	return c.SDomainLevelResourceBase.Delete(ctx, userCred)
 }
 
@@ -352,12 +353,15 @@ func (confManager *SConfigManager) InitializeData() error {
 	}
 	ConfigMap = make(map[string]SConfig)
 	for _, config := range res {
-		ConfigMap[config.Type] = config
+		ConfigMap[fmt.Sprintf("%s-%s", config.Type, config.DomainId)] = config
+		if config.Type == api.EMAIL {
+			ConfigMap[config.Type] = config
+		}
 		driver := GetDriver(config.Type)
 		if config.Type == notify.EMAIL || config.Type == notify.MOBILE {
 			continue
 		}
-		err := driver.GetAccessToken()
+		err := driver.GetAccessToken(fmt.Sprintf("%s-%s", config.Type, config.DomainId))
 		if err != nil {
 			session := auth.GetAdminSession(context.Background(), options.Options.Region)
 			logclient.AddSimpleActionLog(&config, logclient.ACT_INIT_NOTIFY_CONFIGMAP, err, session.GetToken(), false)

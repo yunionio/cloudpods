@@ -84,7 +84,7 @@ func (workwxRobotSender *SWorkwxRobotSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (workwxRobotSender *SWorkwxRobotSender) GetAccessToken() error {
+func (workwxRobotSender *SWorkwxRobotSender) GetAccessToken(key string) error {
 	return nil
 }
 

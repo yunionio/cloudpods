@@ -187,26 +187,8 @@ func (emailSender *SEmailSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (emailSender *SEmailSender) GetAccessToken() error {
-	corpId, secret := models.ConfigMap[api.WORKWX].Content.CorpId, models.ConfigMap[api.WORKWX].Content.Secret
-	token, err := emailSender.getAccessToken(corpId, secret)
-	if err != nil {
-		return errors.Wrap(err, "workwx getAccessToken")
-	}
-	models.ConfigMap[api.WORKWX].Content.AccessToken = token
+func (emailSender *SEmailSender) GetAccessToken(key string) error {
 	return nil
-}
-
-func (emailSender *SEmailSender) getAccessToken(corpId, secret string) (string, error) {
-	// url := ApiWorkwxGetToken + fmt.Sprintf("?corpid=%s&corpsecret=%s", corpId, secret)
-	params := url.Values{}
-	params.Set("corpid", corpId)
-	params.Set("corpsecret", secret)
-	res, err := sendRequest(ApiWorkwxGetToken, httputils.GET, nil, params, nil)
-	if err != nil {
-		return "", errors.Wrap(err, "get workwx token")
-	}
-	return res.GetString("access_token")
 }
 
 func (emailSender *SEmailSender) sendMessageWithToken(uri string, method httputils.THttpMethod, header http.Header, params url.Values, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {

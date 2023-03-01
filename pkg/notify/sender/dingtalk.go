@@ -38,7 +38,7 @@ func (dingSender *SDingTalkSender) GetSenderType() string {
 
 func (dingSender *SDingTalkSender) Send(args api.SendParams) error {
 	body := map[string]interface{}{
-		"agent_id": models.ConfigMap[api.DINGTALK].Content.AgentId,
+		"agent_id": models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId)].Content.AgentId,
 		"msg": map[string]interface{}{
 			"msgtype": "markdown",
 			"markdown": map[string]interface{}{
@@ -49,7 +49,7 @@ func (dingSender *SDingTalkSender) Send(args api.SendParams) error {
 		"userid_list": args.Receivers.Contact,
 	}
 	params := url.Values{}
-	params.Set("access_token", models.ConfigMap[api.DINGTALK].Content.AccessToken)
+	params.Set("access_token", models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId)].Content.AccessToken)
 	req, err := sendRequest(ApiDingtalkSendMessage, httputils.POST, nil, params, jsonutils.Marshal(body))
 	if err != nil {
 		subCode, _ := req.GetString("sub_code")
@@ -57,13 +57,13 @@ func (dingSender *SDingTalkSender) Send(args api.SendParams) error {
 		// token失效或不合法
 		case "40014":
 			// 尝试重新获取token
-			err = dingSender.GetAccessToken()
+			err = dingSender.GetAccessToken(fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId))
 			if err != nil {
 				return errors.Wrap(err, "reset token")
 			}
 			// 重新发送通知
 			params = url.Values{}
-			params.Set("access_token", models.ConfigMap[api.DINGTALK].Content.AccessToken)
+			params.Set("access_token", models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId)].Content.AccessToken)
 			req, err = sendRequest(ApiDingtalkSendMessage, httputils.POST, nil, params, jsonutils.Marshal(body))
 			if err != nil {
 				return errors.Wrap(err, "dingtalk resend message")
@@ -77,7 +77,7 @@ func (dingSender *SDingTalkSender) Send(args api.SendParams) error {
 	// 获取消息通知发送结果
 	task_id, _ := req.GetString("task_id")
 	body = map[string]interface{}{
-		"agent_id": models.ConfigMap[api.DINGTALK].Content.AgentId,
+		"agent_id": models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, args.DomainId)].Content.AgentId,
 		"task_id":  task_id,
 	}
 	_, err = sendRequest(ApiDingtalkSendMessage, httputils.POST, nil, params, jsonutils.Marshal(body))
@@ -93,12 +93,12 @@ func (dingSender *SDingTalkSender) ValidateConfig(config api.NotifyConfig) (stri
 		}
 		return "", err
 	}
-	models.ConfigMap[api.DINGTALK].Content.AppKey, models.ConfigMap[api.DINGTALK].Content.AppSecret = config.AppKey, config.AppSecret
+	models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, config.DomainId)].Content.AppKey, models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, config.DomainId)].Content.AppSecret = config.AppKey, config.AppSecret
 	return "", nil
 }
 
 func (dingSender *SDingTalkSender) ContactByMobile(mobile, domainId string) (string, error) {
-	err := dingSender.GetAccessToken()
+	err := dingSender.GetAccessToken(fmt.Sprintf("%s-%s", api.DINGTALK, domainId))
 	if err != nil {
 		return "", err
 	}
@@ -106,7 +106,7 @@ func (dingSender *SDingTalkSender) ContactByMobile(mobile, domainId string) (str
 		"mobile": mobile,
 	})
 	params := url.Values{}
-	params.Set("access_token", models.ConfigMap[api.DINGTALK].Content.AccessToken)
+	params.Set("access_token", models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, domainId)].Content.AccessToken)
 	res, err := sendRequest(ApiDingtalkGetUserByMobile, httputils.POST, nil, params, body)
 	if err != nil {
 		return "", errors.Wrap(err, "get user by mobile")
@@ -134,13 +134,13 @@ func (dingSender *SDingTalkSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (dingSender *SDingTalkSender) GetAccessToken() error {
-	appKey, appSecret := models.ConfigMap[api.DINGTALK].Content.AppKey, models.ConfigMap[api.DINGTALK].Content.AppSecret
+func (dingSender *SDingTalkSender) GetAccessToken(key string) error {
+	appKey, appSecret := models.ConfigMap[key].Content.AppKey, models.ConfigMap[key].Content.AppSecret
 	token, err := dingSender.getAccessToken(appKey, appSecret)
 	if err != nil {
 		return errors.Wrap(err, "dingtalk getAccessToken")
 	}
-	models.ConfigMap[api.DINGTALK].Content.AccessToken = token
+	models.ConfigMap[key].Content.AccessToken = token
 	return nil
 }
 

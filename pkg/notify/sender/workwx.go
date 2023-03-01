@@ -38,14 +38,14 @@ func (workwxSender *SWorkwxSender) GetSenderType() string {
 
 func (workwxSender *SWorkwxSender) Send(args api.SendParams) error {
 	body := map[string]interface{}{
-		"agentid": models.ConfigMap[api.WORKWX].Content.AgentId,
+		"agentid": models.ConfigMap[fmt.Sprintf("%s-%s", api.WORKWX, args.DomainId)].Content.AgentId,
 		"msgtype": "markdown",
 		"markdown": map[string]interface{}{
 			"content": fmt.Sprintf("# %s\n\n%s", args.Title, args.Message),
 		},
 		"touser": args.Receivers.Contact,
 	}
-	_, err := workwxSender.sendMessageWithToken(ApiWorkwxSendMessage, httputils.POST, nil, nil, jsonutils.Marshal(body))
+	_, err := workwxSender.sendMessageWithToken(ApiWorkwxSendMessage, fmt.Sprintf("%s-%s", api.WORKWX, args.DomainId), httputils.POST, nil, nil, jsonutils.Marshal(body))
 	if err != nil {
 		return errors.Wrap(err, "workwx send message")
 	}
@@ -69,14 +69,14 @@ func (workwxSender *SWorkwxSender) ValidateConfig(config api.NotifyConfig) (stri
 }
 
 func (workwxSender *SWorkwxSender) ContactByMobile(mobile, domainId string) (string, error) {
-	err := workwxSender.GetAccessToken()
+	err := workwxSender.GetAccessToken(fmt.Sprintf("%s-%s", api.WORKWX, domainId))
 	if err != nil {
 		return "", err
 	}
 	body := jsonutils.Marshal(map[string]interface{}{
 		"mobile": mobile,
 	})
-	res, err := workwxSender.sendMessageWithToken(ApiWorkwxGetUserByMobile, httputils.POST, nil, nil, jsonutils.Marshal(body))
+	res, err := workwxSender.sendMessageWithToken(ApiWorkwxGetUserByMobile, fmt.Sprintf("%s-%s", api.WORKWX, domainId), httputils.POST, nil, nil, jsonutils.Marshal(body))
 	if err != nil {
 		return "", errors.Wrap(err, "get user by mobile")
 	}
@@ -103,13 +103,13 @@ func (workwxSender *SWorkwxSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (workwxSender *SWorkwxSender) GetAccessToken() error {
-	corpId, secret := models.ConfigMap[api.WORKWX].Content.CorpId, models.ConfigMap[api.WORKWX].Content.Secret
+func (workwxSender *SWorkwxSender) GetAccessToken(key string) error {
+	corpId, secret := models.ConfigMap[key].Content.CorpId, models.ConfigMap[key].Content.Secret
 	token, err := workwxSender.getAccessToken(corpId, secret)
 	if err != nil {
 		return errors.Wrap(err, "workwx getAccessToken")
 	}
-	models.ConfigMap[api.WORKWX].Content.AccessToken = token
+	models.ConfigMap[key].Content.AccessToken = token
 	return nil
 }
 
@@ -125,11 +125,11 @@ func (workwxSender *SWorkwxSender) getAccessToken(corpId, secret string) (string
 	return res.GetString("access_token")
 }
 
-func (workwxSender *SWorkwxSender) sendMessageWithToken(uri string, method httputils.THttpMethod, header http.Header, params url.Values, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (workwxSender *SWorkwxSender) sendMessageWithToken(uri, key string, method httputils.THttpMethod, header http.Header, params url.Values, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if params == nil {
 		params = url.Values{}
 	}
-	params.Set("access_token", models.ConfigMap[api.WORKWX].Content.AccessToken)
+	params.Set("access_token", models.ConfigMap[key].Content.AccessToken)
 	return sendRequest(uri, httputils.POST, nil, params, jsonutils.Marshal(body))
 }
 
