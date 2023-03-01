@@ -592,6 +592,8 @@ func (self *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCred
 		return nil, errors.Wrap(err, "getFromAndToFromParam")
 	}
 
+	skipCheckSeries := jsonutils.QueryBoolean(query, "skip_check_series", false)
+
 	db := influxdb.NewInfluxdb(dataSource.Url)
 	db.SetDatabase(database)
 
@@ -637,7 +639,7 @@ func (self *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCred
 	// if err != nil {
 	// 	return jsonutils.JSONNull, errors.Wrap(err, "getTagValue error")
 	//** }
-	if err := getTagValues(userCred, output, timeF, dataSource.GetId(), tagFilter); err != nil {
+	if err := getTagValues(userCred, output, timeF, dataSource.GetId(), tagFilter, skipCheckSeries); err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "getTagValues error")
 	}
 
@@ -826,7 +828,7 @@ func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasu
 	return nil
 }
 
-func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasurement, timeF timeFilter, dsId string, tagFilter string) error {
+func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasurement, timeF timeFilter, dsId string, tagFilter string, skipCheckSeries bool) error {
 	mq := monitor.MetricQuery{
 		Database:    output.Database,
 		Measurement: output.Measurement,
@@ -872,7 +874,7 @@ func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasu
 		MetricQuery: []*monitor.AlertQuery{
 			aq,
 		},
-		ForceCheckSeries: true,
+		SkipCheckSeries: skipCheckSeries,
 	}
 
 	ret, err := doQuery(userCred, q)
