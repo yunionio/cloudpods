@@ -163,18 +163,38 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 	srcDesc.SGuestRegionDesc = s.SourceDesc.SGuestRegionDesc
 	srcDesc.SGuestControlDesc = s.SourceDesc.SGuestControlDesc
 	srcDesc.SGuestMetaDesc = s.SourceDesc.SGuestMetaDesc
-	for i := 0; i < len(s.SourceDesc.Cdroms); i++ {
+	for i := 0; i < len(srcDesc.Cdroms); i++ {
+		if i == len(s.SourceDesc.Cdroms) {
+			break
+		}
 		srcDesc.Cdroms[i].Path = s.SourceDesc.Cdroms[i].Path
 	}
-	for i := 0; i < len(s.SourceDesc.Disks); i++ {
-		srcDesc.Disks[i].GuestdiskJsonDesc = s.SourceDesc.Disks[i].GuestdiskJsonDesc
-	}
-	for i := 0; i < len(s.SourceDesc.Nics); i++ {
-		if err := s.generateNicScripts(s.SourceDesc.Nics[i]); err != nil {
-			return errors.Wrapf(err, "generateNicScripts for nic: %v", s.SourceDesc.Nics[i])
+	for i := 0; i < len(srcDesc.Disks); i++ {
+		for j := 0; j < len(s.SourceDesc.Disks); j++ {
+			if srcDesc.Disks[i].Index == s.SourceDesc.Disks[j].Index {
+				srcDesc.Disks[i].GuestdiskJsonDesc = s.SourceDesc.Disks[j].GuestdiskJsonDesc
+			}
 		}
-		srcDesc.Nics[i].UpscriptPath = s.getNicUpScriptPath(s.SourceDesc.Nics[i])
-		srcDesc.Nics[i].DownscriptPath = s.getNicDownScriptPath(s.SourceDesc.Nics[i])
+	}
+	for i := 0; i < len(srcDesc.Nics); i++ {
+		for j := 0; j < len(s.SourceDesc.Nics); j++ {
+			if srcDesc.Nics[i].Index == s.SourceDesc.Nics[j].Index {
+				srcDesc.Nics[i].GuestnetworkJsonDesc = s.SourceDesc.Nics[j].GuestnetworkJsonDesc
+				break
+			}
+		}
+
+		if err := s.generateNicScripts(srcDesc.Nics[i]); err != nil {
+			return errors.Wrapf(err, "generateNicScripts for nic: %v", srcDesc.Nics[i])
+		}
+		srcDesc.Nics[i].UpscriptPath = s.getNicUpScriptPath(srcDesc.Nics[i])
+		srcDesc.Nics[i].DownscriptPath = s.getNicDownScriptPath(srcDesc.Nics[i])
+	}
+
+	s.Desc = srcDesc
+	err := s.loadGuestPciAddresses()
+	if err != nil {
+		return errors.Wrap(err, "initLiveDescFromSourceGuest")
 	}
 	return s.SaveLiveDesc(srcDesc)
 }
