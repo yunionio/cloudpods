@@ -237,4 +237,6 @@ const (
 	ACT_SET_USER_PASSWORD = "set_user_password"
 
 	ACT_PANIC = "panic"
+
+	ACT_EXPORT = "export"
 )
