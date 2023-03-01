@@ -306,7 +306,12 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 			return nil, httperrors.NewInputParameterError("region of host %q (%s) != region of loadbalancer %q (%s))",
 				host.Name, host.ZoneId, lb.Name, lb.ZoneId)
 		}
-		if host.ManagerId != lb.ManagerId {
+		if len(lb.ManagerId) == 0 {
+			if !utils.IsInStringArray(host.HostType, []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_ESXI}) {
+				return nil, httperrors.NewInputParameterError("host type of host %q (%s) should be either hypervisor or esxi",
+					host.Name, host.HostType)
+			}
+		} else if host.ManagerId != lb.ManagerId {
 			return nil, httperrors.NewInputParameterError("manager of host %q (%s) != manager of loadbalancer %q (%s))",
 				host.Name, host.ManagerId, lb.Name, lb.ManagerId)
 		}
