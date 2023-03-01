@@ -18,12 +18,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -89,21 +89,19 @@ func storageIsLocalMountPoint(ctx context.Context, w http.ResponseWriter, r *htt
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("mount_point"))
 		return
 	}
-	dev, err := procutils.NewRemoteCommandAsFarAsPossible(
+	fs, err := procutils.NewRemoteCommandAsFarAsPossible(
 		"sh", "-c",
-		fmt.Sprintf("df --output=source %s | grep -v Filesystem", mountPoint),
+		fmt.Sprintf("df -T %s | awk 'NR==2{print $2}'", mountPoint),
 	).Output()
 	if err != nil {
 		log.Errorf("failed get source of mountpoint %s: %s", mountPoint, err)
 		hostutils.Response(ctx, w, httperrors.NewInternalServerError("failed get source of mountpoint %s: %s", mountPoint, err))
 		return
 	}
-	devStr := strings.TrimSpace(string(dev))
-	err = procutils.NewRemoteCommandAsFarAsPossible(
-		"sh", "-c",
-		fmt.Sprintf("lsblk -o name | grep %s", path.Base(devStr)),
-	).Run()
-	if err == nil {
+	fsStr := strings.TrimSpace(string(fs))
+	log.Infof("check %s file system is %s", mountPoint, fsStr)
+	if utils.IsInStringArray(fsStr, []string{"ext", "ext2", "ext3", "ext4", "xfs", "btrfs", "jfs", "reiserfs", "ntfs", "fat32", "exfat", "zfs"}) {
+		// local file system
 		appsrv.SendStruct(w, map[string]interface{}{"is_local_mount_point": true})
 	} else {
 		appsrv.SendStruct(w, map[string]interface{}{"is_local_mount_point": false})
