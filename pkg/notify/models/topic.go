@@ -75,6 +75,7 @@ type STopic struct {
 
 	Type              string            `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
 	Resources         uint64            `nullable:"false"`
+	ChineseName       string            `width:"128" charset:"utf8" nullable:"false" create:"required" update:"user" list:"user"`
 	Actions           uint32            `nullable:"false"`
 	Results           tristate.TriState `default:"true"`
 	AdvanceDays       int               `nullable:"false"`
@@ -189,6 +190,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionDelete,
 				notify.ActionPendingDelete,
 			)
+			t.ChineseName = "资源创建、删除发送通知"
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 		case DefaultResourceChangeConfig:
@@ -198,6 +200,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 			)
 			t.addAction(notify.ActionChangeConfig)
+			t.ChineseName = "资源调整配置发送通知"
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 		case DefaultResourceUpdate:
@@ -211,6 +214,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(notify.ActionRebuildRoot)
 			t.addAction(notify.ActionResetPassword)
 			t.addAction(notify.ActionChangeIpaddr)
+			t.ChineseName = "资源属性变更（含密码变更）发送通知"
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 		case DefaultResourceReleaseDue1Day:
@@ -223,6 +227,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 			)
 			t.addAction(notify.ActionExpiredRelease)
+			t.ChineseName = "资源（含包年包月）到期释放前1天发送通知"
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.AdvanceDays = 1
 			t.Results = tristate.True
@@ -236,6 +241,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 			)
 			t.addAction(notify.ActionExpiredRelease)
+			t.ChineseName = "资源（含包年包月）到期释放前3天发送通知"
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.AdvanceDays = 3
 			t.Results = tristate.True
@@ -247,22 +253,26 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 			)
 			t.addAction(notify.ActionExpiredRelease)
+			t.ChineseName = "资源（含包年包月）到期释放前30天发送通知"
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.AdvanceDays = 30
 			t.Results = tristate.True
 		case DefaultScheduledTaskExecute:
 			t.addResources(notify.TOPIC_RESOURCE_SCHEDULEDTASK)
 			t.addAction(notify.ActionExecute)
+			t.ChineseName = "资源（含包年包月）到期释放前1天发送通知"
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.Results = tristate.True
 		case DefaultScalingPolicyExecute:
 			t.addResources(notify.TOPIC_RESOURCE_SCALINGPOLICY)
 			t.addAction(notify.ActionExecute)
+			t.ChineseName = "资源定时开关机、重启发送通知"
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.Results = tristate.True
 		case DefaultSnapshotPolicyExecute:
 			t.addResources(notify.TOPIC_RESOURCE_SNAPSHOTPOLICY)
 			t.addAction(notify.ActionExecute)
+			t.ChineseName = "伸缩策略生效发送通知"
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.Results = tristate.True
 		case DefaultResourceOperationFailed:
@@ -282,6 +292,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionDelBackupServer,
 				notify.ActionMigrate,
 			)
+			t.ChineseName = "资源操作失败发送通知"
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.False
 		case DefaultResourceSync:
@@ -314,6 +325,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionSyncUpdate,
 				notify.ActionSyncDelete,
 			)
+			t.ChineseName = "资源同步通知"
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.WebconsoleDisable = tristate.True
 			t.Results = tristate.True
@@ -327,6 +339,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionSystemException,
 				notify.ActionOffline,
 			)
+			t.ChineseName = "系统异常通知"
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 		case DefaultChecksumTestFailed:
@@ -339,6 +352,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionChecksumTest,
 			)
+			t.ChineseName = "完整性校验失败通知"
 			t.Type = notify.TOPIC_TYPE_SECURITY
 			t.Results = tristate.False
 		case DefaultUserLock:
@@ -348,6 +362,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionLock,
 			)
+			t.ChineseName = "用户锁定通知"
 			t.Type = notify.TOPIC_TYPE_SECURITY
 			t.Results = tristate.True
 		case DefaultActionLogExceedCount:
@@ -357,6 +372,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionExceedCount,
 			)
+			t.ChineseName = "操作日志容量预警通知"
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.Results = tristate.True
 		case DefaultSyncAccountStatus:
@@ -366,6 +382,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionSyncAccountStatus,
 			)
+			t.ChineseName = "云账号状态异常通知"
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.Results = tristate.True
 		case DefaultPasswordExpireDue1Day:
@@ -375,6 +392,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionPasswordExpireSoon,
 			)
+			t.ChineseName = "密码过期前1天通知"
 			t.Type = notify.TOPIC_TYPE_SECURITY
 			t.AdvanceDays = 1
 			t.Results = tristate.True
@@ -385,6 +403,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionPasswordExpireSoon,
 			)
+			t.ChineseName = "密码过期前7天通知"
 			t.Type = notify.TOPIC_TYPE_SECURITY
 			t.AdvanceDays = 7
 			t.Results = tristate.True
@@ -395,6 +414,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionNetOutOfSync,
 			)
+			t.ChineseName = "网络拓扑信息不同步通知"
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.AdvanceDays = 0
 			t.Results = tristate.True
@@ -405,6 +425,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionMysqlOutOfSync,
 			)
+			t.ChineseName = "数据库主备异常通知"
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 			t.AdvanceDays = 0
 			t.Results = tristate.True
@@ -415,6 +436,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionServiceAbnormal,
 			)
+			t.ChineseName = "组件服务异常通知"
 			t.Results = tristate.True
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
 		case DefaultServerPanicked:
@@ -424,6 +446,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(
 				notify.ActionServerPanicked,
 			)
+			t.ChineseName = "虚拟机崩溃通知"
 			t.Results = tristate.False
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 		}
