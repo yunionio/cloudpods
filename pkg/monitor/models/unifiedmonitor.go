@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -228,8 +229,28 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 	}
 
 	if len(inputQuery.Soffset) != 0 && len(inputQuery.Slimit) != 0 {
-		seriesTotal := self.fillSearchSeriesTotalQuery(userCred, *inputQuery.MetricQuery[0])
-		rtn.SeriesTotal = seriesTotal
+		// seriesTotal := self.fillSearchSeriesTotalQuery(userCred, *inputQuery.MetricQuery[0])
+		// do offset and limit
+		total := rtn.SeriesTotal
+		offset, err := strconv.Atoi(inputQuery.Soffset)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("soffset %q is not integer", inputQuery.Soffset)
+		}
+		limit, err := strconv.Atoi(inputQuery.Slimit)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("slimit %q is not integer", inputQuery.Slimit)
+		}
+		start := offset
+		end := start + limit
+		if end > int(total) {
+			end = int(total)
+		}
+		ss := rtn.Series
+		if start >= end {
+			rtn.Series = nil
+		} else {
+			rtn.Series = ss[start:end]
+		}
 	}
 
 	setSerieRowName(&rtn.Series, groupByTag)
@@ -301,6 +322,7 @@ func doQuery(userCred mcclient.TokenCredential, query monitor.MetricInputQuery) 
 	if !query.ShowMeta {
 		metrics.Metas = nil
 	}
+	metrics.SeriesTotal = int64(len(metrics.Series))
 	return metrics, nil
 }
 
@@ -342,12 +364,14 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 				Params: []string{"none"},
 			})
 	}
-	if len(inputQuery.Slimit) != 0 && len(inputQuery.Soffset) != 0 {
-		query.Model.GroupBy = append(query.Model.GroupBy,
-			monitor.MetricQueryPart{Type: "slimit", Params: []string{inputQuery.Slimit}},
-			monitor.MetricQueryPart{Type: "soffset", Params: []string{inputQuery.Soffset}},
-		)
-	}
+
+	// HACK: not set slimit and soffset, getting all series then do offset and limit
+	// if len(inputQuery.Slimit) != 0 && len(inputQuery.Soffset) != 0 {
+	// 	query.Model.GroupBy = append(query.Model.GroupBy,
+	// 		monitor.MetricQueryPart{Type: "slimit", Params: []string{inputQuery.Slimit}},
+	// 		monitor.MetricQueryPart{Type: "soffset", Params: []string{inputQuery.Soffset}},
+	// 	)
+	// }
 
 	if query.Model.Database == "" {
 		database := ""
