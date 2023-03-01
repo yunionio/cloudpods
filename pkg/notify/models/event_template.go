@@ -567,6 +567,27 @@ func init() {
 			"added to the recycle bin",
 			"加入回收站",
 		},
+
+		sI18nElme{
+			string(api.ActionSyncUpdate),
+			"sync_update",
+			"同步",
+		},
+		sI18nElme{
+			string(api.ActionMigrate),
+			"migrate",
+			"迁移",
+		},
+		sI18nElme{
+			string(api.ActionOffline),
+			"offline",
+			"离线",
+		},
+		sI18nElme{
+			string(api.ActionSystemException),
+			"exception",
+			"异常",
+		},
 		sI18nElme{
 			string(api.ResultFailed),
 			"failed",
