@@ -71,7 +71,7 @@ func NewMetricQueryCondition(models []*monitor.AlertCondition) (*MetricQueryCond
 	return cond, nil
 }
 
-func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredential, forceCheckSeries bool) (*mq.Metrics, error) {
+func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredential, skipCheckSeries bool) (*mq.Metrics, error) {
 	firstCond := query.QueryCons[0]
 	timeRange := tsdb.NewTimeRange(firstCond.Query.From, firstCond.Query.To)
 	ctx := gocontext.Background()
@@ -88,7 +88,7 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 		Series: make(tsdb.TimeSeriesSlice, 0),
 		Metas:  queryResult.metas,
 	}
-	if query.noCheckSeries() && !forceCheckSeries {
+	if query.noCheckSeries(skipCheckSeries) {
 		metrics.Series = queryResult.series
 		return &metrics, nil
 	}
@@ -110,22 +110,35 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 	return &metrics, nil
 }
 
-func (query *MetricQueryCondition) noCheckSeries() bool {
-	if len(query.QueryCons[0].ResType) == 0 ||
-		strings.HasPrefix(query.QueryCons[0].ResType, monitor.EXT_PREFIX) {
+func (query *MetricQueryCondition) noCheckSeries(skipCheckSeries bool) bool {
+	firstCond := query.QueryCons[0]
+	// always check series when resource type is "" or external resource
+	if len(firstCond.ResType) == 0 || strings.HasPrefix(firstCond.ResType, monitor.EXT_PREFIX) {
 		return true
 	}
-	if len(query.QueryCons[0].Query.Model.GroupBy) == 0 {
+	if len(firstCond.Query.Model.GroupBy) == 0 {
 		return true
 	}
+
+	if skipCheckSeries {
+		return true
+	}
+
 	groupBys := make([]string, 0)
-	for _, groupby := range query.QueryCons[0].Query.Model.GroupBy {
+	containGlob := false
+	for _, groupby := range firstCond.Query.Model.GroupBy {
+		if utils.IsInStringArray("*", groupby.Params) {
+			containGlob = true
+		}
 		groupBys = append(groupBys, groupby.Params...)
 	}
 	for _, supportId := range monitor.MEASUREMENT_TAG_ID {
 		if utils.IsInStringArray(supportId, groupBys) {
 			return false
 		}
+	}
+	if containGlob {
+		return false
 	}
 	return true
 }
