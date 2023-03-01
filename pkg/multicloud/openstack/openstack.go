@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -252,7 +251,11 @@ func (cli *SOpenStackClient) jsonReuest(token oscli.TokenCredential, service, re
 	header := http.Header{}
 	header.Set("X-Auth-Token", token.GetTokenString())
 	apiVersion := ""
-	if !utils.IsInStringArray(service, []string{OPENSTACK_SERVICE_IMAGE, OPENSTACK_SERVICE_IDENTITY}) {
+	switch service {
+	case OPENSTACK_SERVICE_IMAGE, OPENSTACK_SERVICE_IDENTITY:
+	case OPENSTACK_SERVICE_COMPUTE:
+		apiVersion = "2.1"
+	default:
 		apiVersion, err = cli.getApiVerion(token, serviceUrl, debug)
 		if err != nil {
 			log.Errorf("get service %s api version error: %v", service, err)
