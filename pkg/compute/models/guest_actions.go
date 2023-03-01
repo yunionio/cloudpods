@@ -2904,9 +2904,16 @@ func (self *SGuest) SetBackupGuestStatus(userCred mcclient.TokenCredential, stat
 }
 
 func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	if input.HostId != "" && self.BackupHostId != "" && input.HostId == self.BackupHostId { // perform status called from slave guest
+	if input.HostId != "" && self.BackupHostId != "" && input.HostId == self.BackupHostId {
+		// perform status called from slave guest
 		return nil, self.SetBackupGuestStatus(userCred, input.Status, input.Reason)
 	}
+
+	if input.HostId != "" && input.HostId != self.HostId {
+		// perform status called from volatile host, eg: migrate dest host
+		return nil, nil
+	}
+
 	if input.PowerStates != "" {
 		if err := self.SetPowerStates(input.PowerStates); err != nil {
 			return nil, errors.Wrap(err, "set power states")
