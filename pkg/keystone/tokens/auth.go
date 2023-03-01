@@ -175,11 +175,11 @@ func authUserByIdentityInternal(ctx context.Context, ident *mcclient.SAuthentica
 	idp := idpObj.(*models.SIdentityProvider)
 
 	if idp.Enabled.IsFalse() {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "idp disabled")
+		return nil, errors.Wrap(httperrors.ErrInvalidIdpStatus, "idp disabled")
 	}
 
 	if idp.Status != api.IdentityDriverStatusConnected && idp.Status != api.IdentityDriverStatusDisconnected {
-		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "invalid idp status %s", idp.Status)
+		return nil, errors.Wrapf(httperrors.ErrInvalidIdpStatus, "invalid idp status %s", idp.Status)
 	}
 
 	conf, err := models.GetConfigs(idp, true, nil, nil)
