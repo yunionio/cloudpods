@@ -77,6 +77,9 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 		if err != nil {
 			return nil, httperrors.NewInternalServerError(errors.Wrapf(err, "GetHost").Error())
 		}
+		if options.Options.ForceUseOriginVnc {
+			input.Origin = true
+		}
 		ret, err = self.GetDriver().GetGuestVncInfo(ctx, userCred, self, host, input)
 		if err != nil {
 			return nil, err
