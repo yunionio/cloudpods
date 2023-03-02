@@ -189,6 +189,9 @@ type UserListInput struct {
 	ProjectFilterListInput
 	RoleFilterListInput
 
+	// 角色生效所在的域
+	RoleAssignmentDomainId string `json:"role_assignment_domain_id"`
+
 	// email
 	Email string `json:"email"`
 	// mobile

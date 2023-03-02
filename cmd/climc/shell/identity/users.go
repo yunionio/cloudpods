@@ -27,11 +27,12 @@ import (
 func init() {
 	type UserListOptions struct {
 		options.BaseListOptions
-		Name          string `help:"Filter by name"`
-		OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
-		Role          string `help:"Filter by role"`
-		IdpId         string `help:"filter by idp_id"`
-		IdpEntityId   string `help:"filter by idp_entity_id"`
+		Name                   string `help:"Filter by name"`
+		OrderByDomain          string `help:"order by domain name" choices:"asc|desc"`
+		Role                   string `help:"Filter by role"`
+		RoleAssignmentDomainId string `help:"filter role assignment domain"`
+		IdpId                  string `help:"filter by idp_id"`
+		IdpEntityId            string `help:"filter by idp_entity_id"`
 	}
 	R(&UserListOptions{}, "user-list", "List users", func(s *mcclient.ClientSession, args *UserListOptions) error {
 		params, err := options.ListStructToParams(args)
