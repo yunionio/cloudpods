@@ -128,7 +128,10 @@ func AddActionLogWithStartable2(task IStartable, model IObject, action string, i
 // }
 
 func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, startTime time.Time, module IModule, severity api.TEventSeverity, kind api.TEventKind) {
-	if !consts.OpsLogEnabled() {
+	// avoid log loop
+	if !consts.OpsLogEnabled() && utils.IsInStringArray(action, []string{
+		ACT_CREATE,
+	}) {
 		return
 	}
 	if ok, _ := utils.InStringArray(model.Keyword(), BLACK_LIST_OBJ_TYPE); ok {

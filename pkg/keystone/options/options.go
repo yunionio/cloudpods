@@ -66,6 +66,10 @@ type SKeystoneOptions struct {
 
 	NoPolicyViolationCheck bool `help:"do not check policy violation when modify or assign policy" default:"false"`
 
+	ThreeAdminRoleSystem      bool     `help:"do not check policy violation when modify or assign policy" default:"false"`
+	SystemThreeAdminRoleNames []string `help:"Name of system three-admin roles" default:"sys_secadmin,sys_opsadmin,sys_adtadmin"`
+	DomainThreeAdminRoleNames []string `help:"Name of system three-admin roles" default:"domain_secadmin,domain_opsadmin,domain_adtadmin"`
+
 	LdapSearchPageSize uint32 `help:"pagination size for LDAP search" default:"100"`
 
 	ProjectAdminRole string `help:"name of role to be saved as admin user of project" default:"project_owner"`
