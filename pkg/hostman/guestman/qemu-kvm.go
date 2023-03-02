@@ -607,7 +607,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 	s.manager.SaveServer(s.Id, s)
 	s.manager.RemoveCandidateServer(s)
 
-	if (s.IsDirtyShotdown() || s.IsDaemon()) && !pendingDelete {
+	if s.IsDirtyShotdown() && !pendingDelete {
 		log.Infof("Server dirty shutdown or a daemon %s", s.GetName())
 
 		if s.Desc.IsMaster || s.Desc.IsSlave ||
@@ -623,6 +623,8 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 		if !pendingDelete {
 			s.StartMonitor(context.Background(), nil)
 		}
+	} else if s.IsDaemon() {
+		s.StartGuest(context.Background(), nil, jsonutils.NewDict())
 	} else {
 		var action = "stopped"
 		if s.IsSuspend() {
