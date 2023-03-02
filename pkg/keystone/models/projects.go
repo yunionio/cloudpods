@@ -498,9 +498,40 @@ func (self *SProject) PostCreate(
 	}
 }
 
+func threeMemberSystemValidateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleIds []string) error {
+	_, assignPolicies, _ := RolePolicyManager.GetMatchPolicyGroup2(false, roleIds, project.Id, "", time.Time{}, false)
+	assignScope := assignPolicies.HighestScope()
+	var checkRoles []string
+	if assignScope == rbacutils.ScopeSystem {
+		checkRoles = options.Options.SystemThreeAdminRoleNames
+	} else if assignScope == rbacutils.ScopeDomain {
+		checkRoles = options.Options.DomainThreeAdminRoleNames
+	} else {
+		return nil
+	}
+	var contains []string
+	for _, roleName := range checkRoles {
+		role, err := RoleManager.FetchRoleByName(roleName, "", "")
+		if err != nil {
+			return httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), roleName)
+		}
+		_, adminPolicies, _ := RolePolicyManager.GetMatchPolicyGroup2(false, []string{role.Id}, project.Id, "", time.Time{}, false)
+		if adminPolicies[assignScope].Contains(assignPolicies[assignScope]) {
+			contains = append(contains, roleName)
+		}
+	}
+	if len(contains) != 1 {
+		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "assigning roles violates three-member policy: %s", contains)
+	}
+	return nil
+}
+
 func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleIds []string) error {
 	if options.Options.NoPolicyViolationCheck {
 		return nil
+	}
+	if options.Options.ThreeAdminRoleSystem {
+		return threeMemberSystemValidateJoinProject(userCred, project, roleIds)
 	}
 	_, opsPolicies, _ := RolePolicyManager.GetMatchPolicyGroup(userCred, time.Time{}, false)
 	_, assignPolicies, _ := RolePolicyManager.GetMatchPolicyGroup2(false, roleIds, project.Id, "", time.Time{}, false)

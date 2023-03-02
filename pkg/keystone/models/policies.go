@@ -241,7 +241,7 @@ func (manager *SPolicyManager) FetchEnabledPolicies() ([]SPolicy, error) {
 }
 
 func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policyScope rbacutils.TRbacScope, policy *rbacutils.SPolicy) error {
-	if options.Options.NoPolicyViolationCheck {
+	if options.Options.NoPolicyViolationCheck || options.Options.ThreeAdminRoleSystem {
 		return nil
 	}
 	if userCred.GetUserName() == api.SystemAdminUser && userCred.GetDomainId() == api.DEFAULT_DOMAIN_ID {
