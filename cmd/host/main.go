@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/util/atexit"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -28,9 +27,5 @@ func main() {
 
 	go procutils.WaitZombieLoop(context.TODO())
 
-	var srv = &hostman.SHostService{}
-	srv.SServiceBase = &service.SServiceBase{
-		Service: srv,
-	}
-	srv.StartService()
+	hostman.StartService()
 }
