@@ -196,6 +196,7 @@ type ComputeOptions struct {
 
 	KvmMonitorAgentUseMetadataService bool   `help:"Monitor agent report metrics to metadata service on host" default:"true"`
 	MonitorEndpointType               string `help:"specify monitor endpoint type" default:"public"`
+	ForceUseOriginVnc                 bool   `help:"force openstack use origin vnc console" default:"true"`
 
 	esxi.EsxiOptions
 }
