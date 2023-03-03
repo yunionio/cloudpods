@@ -206,3 +206,11 @@ func writeFile(dir, file string, data []byte) (string, error) {
 	p := filepath.Join(dir, file)
 	return p, ioutil.WriteFile(p, data, 0600)
 }
+
+func StartService() {
+	var srv = &SHostService{}
+	srv.SServiceBase = &service.SServiceBase{
+		Service: srv,
+	}
+	srv.StartService()
+}
