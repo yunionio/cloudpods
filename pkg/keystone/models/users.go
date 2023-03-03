@@ -413,8 +413,21 @@ func (manager *SUserManager) ListItemFilter(
 				return nil, httperrors.NewGeneralError(err)
 			}
 		}
-		subq := AssignmentManager.fetchRoleUserIdsQuery(role.GetId())
-		q = q.In("id", subq.SubQuery())
+
+		subq := AssignmentManager.Query("actor_id").Equals("role_id", role.GetId()).Equals("type", api.AssignmentUserProject).Distinct()
+		if len(query.RoleAssignmentDomainId) > 0 {
+			domain, err := DomainManager.FetchByIdOrName(userCred, query.RoleAssignmentDomainId)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.RoleAssignmentDomainId)
+				} else {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+			projects := ProjectManager.Query("id").Equals("domain_id", domain.GetId()).SubQuery()
+			subq = subq.In("target_id", projects.Query())
+		}
+		q = q.In("id", subq.SubQuery().Query())
 	}
 
 	if len(query.IdpId) > 0 {
