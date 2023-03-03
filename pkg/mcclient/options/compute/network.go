@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type NetworkListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 
 	Ip         string   `help:"search networks that contain this IP"`
 	ZoneIds    []string `help:"search networks in zones"`
@@ -55,11 +57,11 @@ func (opts *NetworkListOptions) GetContextId() string {
 }
 
 func (opts *NetworkListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return options.ListStructToParams(opts)
 }
 
 type NetworkUpdateOptions struct {
-	BaseUpdateOptions
+	options.BaseUpdateOptions
 
 	StartIp     string `help:"Start ip"`
 	EndIp       string `help:"end ip"`
@@ -166,7 +168,7 @@ func (opts *NetworkIpMacIdOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type NetworkIpMacListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 
 	Network string   `help:"search networks" json:"network_id"`
 	MacAddr []string `help:"search by mac addr"`
@@ -174,7 +176,7 @@ type NetworkIpMacListOptions struct {
 }
 
 func (opts *NetworkIpMacListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return options.ListStructToParams(opts)
 }
 
 type NetworkIpMacUpdateOptions struct {
@@ -189,7 +191,7 @@ func (opts *NetworkIpMacUpdateOptions) GetId() string {
 }
 
 func (opts *NetworkIpMacUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(opts)
+	return options.ListStructToParams(opts)
 }
 
 type NetworkIpMacCreateOptions struct {
@@ -208,5 +210,19 @@ func (opts *NetworkIpMacCreateOptions) Params() (jsonutils.JSONObject, error) {
 	if opts.IPADDR == "" {
 		return nil, errors.Errorf("missing ip_addr params")
 	}
-	return ListStructToParams(opts)
+	return options.ListStructToParams(opts)
+}
+
+type NetworkSwitchWireOptions struct {
+	ID string `help:"ID or Name of resource to update"`
+
+	api.NetworkSwitchWireInput
+}
+
+func (opts *NetworkSwitchWireOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *NetworkSwitchWireOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
