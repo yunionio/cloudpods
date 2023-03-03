@@ -372,6 +372,7 @@ type TResource interface {
 }
 
 type SResources struct {
+	init           bool
 	Cloudaccounts  TResource
 	Cloudproviders TResource
 	DBInstances    TResource
@@ -385,6 +386,10 @@ type SResources struct {
 	ModelartsPool  TResource
 	Wires          TResource
 	Projects       TResource
+}
+
+func (self *SResources) IsInit() bool {
+	return self.init
 }
 
 func NewResources() *SResources {
@@ -466,6 +471,7 @@ func (self *SResources) Init(ctx context.Context, userCred mcclient.TokenCredent
 		if err != nil {
 			log.Errorf("Resource init error: %v", err)
 		}
+		self.init = true
 	}
 }
 
@@ -658,8 +664,8 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 	resources := self.Cloudproviders.getResources(ctx, "")
 	cloudproviders := map[string]api.CloudproviderDetails{}
 	jsonutils.Update(&cloudproviders, resources)
-	sh, _ := time.LoadLocation("Asia/Shanghai")
-	_endTime := taskStartTime.In(sh)
+	az, _ := time.LoadLocation(options.Options.TimeZone)
+	_endTime := taskStartTime.In(az)
 	_startTime := _endTime.Add(-1 * time.Minute * time.Duration(options.Options.CollectMetricInterval))
 	var wg sync.WaitGroup
 	for i := range cloudproviders {

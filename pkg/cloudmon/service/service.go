@@ -64,9 +64,27 @@ func StartService() {
 		go cron.Start()
 	}
 
+	ctx := context.Background()
+	if opts.HistoryMetricPullDays > 0 {
+		go func() {
+			for !res.IsInit() {
+				log.Infof("wait resources init...")
+				time.Sleep(time.Second * 10)
+			}
+			now := time.Now()
+			start := now.AddDate(0, 0, -1*opts.HistoryMetricPullDays)
+			s := auth.GetAdminSession(ctx, opts.BaseOptions.Region)
+			for start.Before(now) {
+				log.Infof("start collect history metric from %s", start.Format(time.RFC3339))
+				res.CollectMetrics(ctx, s.GetToken(), start, false)
+				start = start.Add(time.Duration(opts.CollectMetricInterval) * time.Minute)
+			}
+			log.Infof("collect history metric end")
+		}()
+	}
+
 	app := app_common.InitApp(baseOpts, true).
 		OnException(func(method, path string, body jsonutils.JSONObject, err error) {
-			ctx := context.Background()
 			session := auth.GetAdminSession(ctx, commonOpts.Region)
 			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
 		})
