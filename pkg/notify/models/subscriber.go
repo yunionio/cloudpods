@@ -642,6 +642,14 @@ func (sm *SSubscriberManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field 
 	return q, nil
 }
 
+var defaultNotifyTopics = []string{
+	DefaultServerPanicked,
+	DefaultServiceAbnormal,
+	DefaultNetOutOfSync,
+	DefaultMysqlOutOfSync,
+	DefaultActionLogExceedCount,
+}
+
 func (sm *SSubscriberManager) InitializeData() error {
 	ctx := context.Background()
 	session := auth.GetAdminSession(ctx, options.Options.Region)
@@ -655,6 +663,7 @@ func (sm *SSubscriberManager) InitializeData() error {
 	}
 	roleId, _ := role.GetString("id")
 	q := TopicManager.Query()
+	q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("name"), defaultNotifyTopics)))
 	topics := []STopic{}
 	err = db.FetchModelObjects(TopicManager, q, &topics)
 	if err != nil {
