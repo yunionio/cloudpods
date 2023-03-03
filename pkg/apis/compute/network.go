@@ -428,3 +428,12 @@ type NetworkIpMacBatchCreateInput struct {
 	NetworkId string            `json:"network_id"`
 	IpMac     map[string]string `json:"ip_mac"`
 }
+
+type NetworkSwitchWireInput struct {
+	apis.Meta
+
+	// description: new wire Id or name
+	// required: true
+	// example: bcast0
+	WireId string `json:"wire_id"`
+}
