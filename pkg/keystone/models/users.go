@@ -427,6 +427,17 @@ func (manager *SUserManager) ListItemFilter(
 			projects := ProjectManager.Query("id").Equals("domain_id", domain.GetId()).SubQuery()
 			subq = subq.In("target_id", projects.Query())
 		}
+		if len(query.RoleAssignmentProjectId) > 0 {
+			project, err := ProjectManager.FetchByIdOrName(userCred, query.RoleAssignmentProjectId)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), query.RoleAssignmentProjectId)
+				} else {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+			subq = subq.Equals("target_id", project.GetId())
+		}
 		q = q.In("id", subq.SubQuery().Query())
 	}
 
