@@ -53,6 +53,14 @@ func (this *SSshkeypairManager) FetchPrivateKey(ctx context.Context, userCred mc
 }
 
 func (this *SSshkeypairManager) FetchPrivateKeyBySession(ctx context.Context, s *mcclient.ClientSession) (string, error) {
+	kp, err := this.FetchKeypairBySession(ctx, s)
+	if err != nil {
+		return "", errors.Wrap(err, "FetchKeypairBySession")
+	}
+	return kp.PrivateKey, nil
+}
+
+func (this *SSshkeypairManager) FetchKeypairBySession(ctx context.Context, s *mcclient.ClientSession) (*models.SshKeypair, error) {
 	userCred := s.GetToken()
 	jd := jsonutils.NewDict()
 	var jr jsonutils.JSONObject
@@ -60,24 +68,21 @@ func (this *SSshkeypairManager) FetchPrivateKeyBySession(ctx context.Context, s 
 		jd.Set("admin", jsonutils.JSONTrue)
 		r, err := Sshkeypairs.List(s, jd)
 		if err != nil {
-			return "", errors.Wrap(err, "get admin ssh key")
+			return nil, errors.Wrap(err, "get admin ssh key")
 		}
 		jr = r.Data[0]
 	} else {
 		r, err := Sshkeypairs.GetById(s, userCred.GetProjectId(), jd)
 		if err != nil {
-			return "", errors.Wrap(err, "get project ssh key")
+			return nil, errors.Wrap(err, "get project ssh key")
 		}
 		jr = r
 	}
 	kp := &models.SshKeypair{}
 	if err := jr.Unmarshal(kp); err != nil {
-		return "", errors.Wrap(err, "unmarshal ssh key")
+		return nil, errors.Wrap(err, "unmarshal ssh key")
 	}
-	if kp.PrivateKey == "" {
-		return "", errors.Error("empty ssh key")
-	}
-	return kp.PrivateKey, nil
+	return kp, nil
 }
 
 var (
