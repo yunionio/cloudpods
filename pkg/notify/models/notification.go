@@ -69,7 +69,7 @@ type SNotification struct {
 	// swagger:ignore
 	Message string `create:"required"`
 	// swagger:ignore
-	TopicType  string    `json:"topic_type" width:"20" nullable:"true" create:"required" update:"user" list:"user"`
+	TopicType  string    `json:"topic_type" width:"20" nullable:"true" update:"user" list:"user"`
 	ReceivedAt time.Time `nullable:"true" list:"user" get:"user"`
 	EventId    string    `width:"128" nullable:"true"`
 
