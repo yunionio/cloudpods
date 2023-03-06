@@ -29,7 +29,7 @@ import (
 )
 
 type HuaweiStackCollect struct {
-	SBaseCollectDriver
+	SCollectByResourceIdDriver
 }
 
 func (self *HuaweiStackCollect) GetProvider() string {
