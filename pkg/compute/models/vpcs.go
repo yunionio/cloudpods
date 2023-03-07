@@ -523,8 +523,10 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 
 func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		extVPC.Refresh()
-		// self.Name = extVPC.GetName()
+		newName, _ := db.GenerateAlterName(self, extVPC.GetName())
+		if len(newName) > 0 {
+			self.Name = newName
+		}
 		self.Status = extVPC.GetStatus()
 		self.CidrBlock = extVPC.GetCidrBlock()
 		self.IsDefault = extVPC.GetIsDefault()
