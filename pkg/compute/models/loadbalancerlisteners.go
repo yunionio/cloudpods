@@ -497,6 +497,7 @@ func (manager *SLoadbalancerListenerManager) FetchCustomizeColumns(
 	lbaclRows := manager.SLoadbalancerAclResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	lbcertRows := manager.SLoadbalancerCertificateResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	lbbgIds := make([]string, len(objs))
+	lbIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.LoadbalancerListenerDetails{
 			StatusStandaloneResourceDetails:     stdRows[i],
@@ -505,10 +506,26 @@ func (manager *SLoadbalancerListenerManager) FetchCustomizeColumns(
 			LoadbalancerCertificateResourceInfo: lbcertRows[i],
 		}
 		lis := objs[i].(*SLoadbalancerListener)
+		lbIds[i] = lis.LoadbalancerId
 		lbbgIds[i] = lis.BackendGroupId
 	}
+
+	lbs := map[string]SLoadbalancer{}
+	err := db.FetchStandaloneObjectsByIds(LoadbalancerManager, lbIds, &lbs)
+	if err != nil {
+		return rows
+	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		if lb, ok := lbs[lbIds[i]]; ok {
+			virObjs[i] = &lb
+			rows[i].ProjectId = lb.ProjectId
+		}
+	}
+
 	lbbgs := map[string]SLoadbalancerBackendGroup{}
-	err := db.FetchModelObjectsByIds(LoadbalancerBackendGroupManager, "id", lbbgIds, &lbbgs)
+	err = db.FetchModelObjectsByIds(LoadbalancerBackendGroupManager, "id", lbbgIds, &lbbgs)
 	if err != nil {
 		return rows
 	}
