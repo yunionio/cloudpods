@@ -15,21 +15,39 @@
 package hcso
 
 import (
+	"fmt"
+	"strconv"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei/client/modules"
 )
+
+type MetricData struct {
+	Namespace  string
+	MetricName string
+	Dimensions []struct {
+		Name  string
+		Value string
+	}
+	Datapoints []struct {
+		Average   float64
+		Timestamp int64
+	}
+	Unit string
+}
 
 func (r *SRegion) GetMetrics() ([]modules.SMetricMeta, error) {
 	return r.ecsClient.CloudEye.ListMetrics()
 }
 
-func (r *SRegion) GetMetricsData(metrics []modules.SMetricMeta, since time.Time, until time.Time) ([]modules.SMetricData, error) {
-	return r.ecsClient.CloudEye.GetMetricsData(metrics, since, until)
+func (r *SRegion) GetMetricsData(metrics []modules.SMetricMeta, since time.Time, until time.Time) ([]cloudprovider.MetricValues, error) {
+	return r.client.getServerMetrics(&cloudprovider.MetricListOptions{ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_SERVER, MetricType: cloudprovider.VM_METRIC_TYPE_CPU_USAGE})
 }
 
 func (self *SHuaweiClient) getModelartsPoolMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
@@ -97,8 +115,246 @@ func (self *SHuaweiClient) getModelartsPoolMetrics(opts *cloudprovider.MetricLis
 	return result, nil
 }
 
+func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	result := []cloudprovider.MetricValues{}
+	namespace, dimesionName, metricNames := "SYS.ECS", "instance_id", []string{
+		"cpu_util",
+		"network_incoming_bytes_aggregate_rate",
+		"network_outgoing_bytes_aggregate_rate",
+		"disk_read_bytes_rate",
+		"disk_write_bytes_rate",
+		"disk_read_requests_rate",
+		"disk_write_requests_rate",
+	}
+	for _, metricName := range metricNames {
+		temp := make(map[string]string)
+		temp["namespace"] = namespace
+		temp["metric_name"] = metricName
+		temp["from"] = strconv.Itoa(int(opts.StartTime.UnixMilli()))
+		temp["to"] = strconv.Itoa(int(opts.EndTime.UnixMilli()))
+		temp["period"] = "1"
+		temp["filter"] = "average"
+		temp["dim.0"] = fmt.Sprintf("%s,%s", dimesionName, opts.ResourceId)
+		resp, err := self.commonMonitor(temp)
+		if err != nil {
+			log.Errorf("get monitor err:%s,input:%v", err.Error(), jsonutils.Marshal(temp))
+			continue
+		}
+		metricData := MetricData{}
+		err = resp.Unmarshal(&metricData)
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
+		}
+		ret := cloudprovider.MetricValues{
+			Id:     opts.ResourceId,
+			Unit:   metricData.Unit,
+			Values: []cloudprovider.MetricValue{},
+		}
+		tags := map[string]string{}
+		switch metricData.MetricName {
+		case "cpu_util":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_CPU_USAGE
+		case "network_incoming_bytes_aggregate_rate":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_NET_BPS_RX
+			tags = map[string]string{"net_type": "internet"}
+		case "network_outgoing_bytes_aggregate_rate":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_NET_BPS_TX
+			tags = map[string]string{"net_type": "internet"}
+		case "disk_read_bytes_rate":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS
+		case "disk_write_bytes_rate":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS
+		case "disk_read_requests_rate":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS
+		case "disk_write_requests_rate":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS
+		default:
+			log.Warningf("invalid metricName %s for %s %s", metricData.MetricName, opts.ResourceType, opts.ResourceId)
+			continue
+		}
+		for _, value := range metricData.Datapoints {
+			metricValue := cloudprovider.MetricValue{
+				Value:     value.Average,
+				Timestamp: time.UnixMilli(value.Timestamp),
+				Tags:      tags,
+			}
+			ret.Values = append(ret.Values, metricValue)
+		}
+		result = append(result, ret)
+	}
+	return result, nil
+}
+
+func (self *SHuaweiClient) getRdsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	result := []cloudprovider.MetricValues{}
+	namespace, dimesionName, metricNames := "SYS.RDS", "rds_cluster_id", []string{
+		"rds001_cpu_util",
+		"rds002_mem_util",
+		"rds004_bytes_in",
+		"rds004_bytes_in",
+		"rds005_bytes_out",
+		"rds039_disk_util",
+		"rds049_disk_read_throughput",
+		"rds050_disk_write_throughput",
+		"rds006_conn_count",
+		"rds008_qps",
+		"rds009_tps",
+		"rds013_innodb_reads",
+		"rds014_innodb_writes",
+	}
+	switch opts.Engine {
+	case api.DBINSTANCE_TYPE_POSTGRESQL:
+		dimesionName = "postgresql_cluster_id"
+	case api.DBINSTANCE_TYPE_SQLSERVER:
+		dimesionName = "rds_cluster_sqlserver_id"
+	}
+
+	for _, metricName := range metricNames {
+		temp := make(map[string]string)
+		temp["namespace"] = namespace
+		temp["metric_name"] = metricName
+		temp["from"] = strconv.Itoa(int(opts.StartTime.UnixMilli()))
+		temp["to"] = strconv.Itoa(int(opts.EndTime.UnixMilli()))
+		temp["period"] = "1"
+		temp["filter"] = "average"
+		temp["dim.0"] = fmt.Sprintf("%s,%s", dimesionName, opts.ResourceId)
+		resp, err := self.commonMonitor(temp)
+		if err != nil {
+			log.Errorf("get monitor err:%s,input:%v", err.Error(), jsonutils.Marshal(temp))
+			continue
+		}
+		metricData := MetricData{}
+		err = resp.Unmarshal(&metricData, "metrics")
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
+		}
+		ret := cloudprovider.MetricValues{
+			Id:     opts.ResourceId,
+			Unit:   metricData.Unit,
+			Values: []cloudprovider.MetricValue{},
+		}
+		tags := map[string]string{}
+		switch metricData.MetricName {
+		case "rds001_cpu_util":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_CPU_USAGE
+		case "rds002_mem_util":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_MEM_USAGE
+		case "rds004_bytes_in":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_NET_BPS_RX
+		case "rds005_bytes_out":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_NET_BPS_TX
+		case "rds039_disk_util":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_DISK_USAGE
+		case "rds049_disk_read_throughput":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_DISK_READ_BPS
+		case "rds050_disk_write_throughput":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_DISK_WRITE_BPS
+		case "rds006_conn_count":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_CONN_COUNT
+		case "rds008_qps":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_QPS
+		case "rds009_tps":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_TPS
+		case "rds013_innodb_reads":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_INNODB_READ_BPS
+		case "rds014_innodb_writes":
+			ret.MetricType = cloudprovider.RDS_METRIC_TYPE_INNODB_WRITE_BPS
+		default:
+			log.Warningf("invalid metricName %s for %s %s", metricData.MetricName, opts.ResourceType, opts.ResourceId)
+			continue
+		}
+		for _, value := range metricData.Datapoints {
+			metricValue := cloudprovider.MetricValue{
+				Value:     value.Average,
+				Timestamp: time.UnixMilli(value.Timestamp),
+				Tags:      tags,
+			}
+			ret.Values = append(ret.Values, metricValue)
+		}
+		result = append(result, ret)
+	}
+	return result, nil
+}
+
+func (self *SHuaweiClient) getBucketMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	result := []cloudprovider.MetricValues{}
+	namespace, dimesionName, metricNames := "SYS.OBS", "bucket_name", []string{
+		"download_bytes",
+		"upload_bytes",
+		"first_byte_latency",
+		"get_request_count",
+		"request_count_4xx",
+		"request_count_5xx",
+	}
+
+	for _, metricName := range metricNames {
+		temp := make(map[string]string)
+		temp["namespace"] = namespace
+		temp["metric_name"] = metricName
+		temp["from"] = strconv.Itoa(int(opts.StartTime.UnixMilli()))
+		temp["to"] = strconv.Itoa(int(opts.EndTime.UnixMilli()))
+		temp["period"] = "1"
+		temp["filter"] = "average"
+		temp["dim.0"] = fmt.Sprintf("%s,%s", dimesionName, opts.ResourceId)
+		resp, err := self.commonMonitor(temp)
+		if err != nil {
+			log.Errorf("get monitor err:%s,input:%v", err.Error(), jsonutils.Marshal(temp))
+			continue
+		}
+		metricData := MetricData{}
+		err = resp.Unmarshal(&metricData, "metrics")
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
+		}
+		ret := cloudprovider.MetricValues{
+			Id:     opts.ResourceId,
+			Unit:   metricData.Unit,
+			Values: []cloudprovider.MetricValue{},
+		}
+		tags := map[string]string{}
+		switch metricData.MetricName {
+		case "download_bytes":
+			ret.MetricType = cloudprovider.BUCKET_METRIC_TYPE_NET_BPS_TX
+		case "upload_bytes":
+			ret.MetricType = cloudprovider.BUCKET_METRIC_TYPE_NET_BPS_RX
+		case "first_byte_latency":
+			ret.MetricType = cloudprovider.BUCKET_METRIC_TYPE_LATECY
+			tags = map[string]string{"request": "get"}
+		case "get_request_count":
+			ret.MetricType = cloudprovider.BUCKET_METRYC_TYPE_REQ_COUNT
+			tags = map[string]string{"request": "get"}
+		case "request_count_4xx":
+			ret.MetricType = cloudprovider.BUCKET_METRYC_TYPE_REQ_COUNT
+			tags = map[string]string{"request": "4xx"}
+		case "request_count_5xx":
+			ret.MetricType = cloudprovider.BUCKET_METRYC_TYPE_REQ_COUNT
+			tags = map[string]string{"request": "5xx"}
+		default:
+			log.Warningf("invalid metricName %s for %s %s", metricData.MetricName, opts.ResourceType, opts.ResourceId)
+			continue
+		}
+		for _, value := range metricData.Datapoints {
+			metricValue := cloudprovider.MetricValue{
+				Value:     value.Average,
+				Timestamp: time.UnixMilli(value.Timestamp),
+				Tags:      tags,
+			}
+			ret.Values = append(ret.Values, metricValue)
+		}
+		result = append(result, ret)
+
+	}
+	return result, nil
+}
+
 func (self *SHuaweiClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	switch opts.ResourceType {
+	case cloudprovider.METRIC_RESOURCE_TYPE_SERVER:
+		return self.getServerMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_RDS:
+		return self.getRdsMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_BUCKET:
+		return self.getBucketMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_MODELARTS_POOL:
 		return self.getModelartsPoolMetrics(opts)
 	default:
