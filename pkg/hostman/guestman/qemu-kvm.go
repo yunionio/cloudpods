@@ -885,7 +885,7 @@ func (s *SKVMGuestInstance) setDestMigrateTLS(ctx context.Context, data *jsonuti
 }
 
 func (s *SKVMGuestInstance) migrateEnableMultifd() error {
-	if version.LT(s.QemuVersion, "4.0.0") {
+	if version.LT(s.QemuVersion, "4.0.0") || jsonutils.QueryBoolean(s.Desc, "live_migrate_use_tls", false) {
 		return nil
 	}
 	var err = make(chan error)

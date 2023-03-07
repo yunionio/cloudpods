@@ -739,6 +739,11 @@ func (s *SGuestLiveMigrateTask) onSetAutoConverge(res string) {
 		}
 		s.startMigrate()
 	}
+	if s.params.EnableTLS {
+		s.Monitor.MigrateSetCapability("multifd", "off", cb)
+		return
+	}
+
 	log.Infof("migrate src guest enable multifd")
 	s.Monitor.MigrateSetCapability("multifd", "on", cb)
 }
