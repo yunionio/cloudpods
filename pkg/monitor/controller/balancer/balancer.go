@@ -557,6 +557,7 @@ func pairMigratResult(gsts []ICandidate, target *TargetRule, cond ICondition, mu
 				return nil, err
 			} else {
 				errs = append(errs, err)
+				continue
 			}
 		}
 		host.Selected(gst)
