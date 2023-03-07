@@ -1014,7 +1014,7 @@ func (s *SGuestLiveMigrateTask) onSetAutoConverge(res string) {
 		return
 	}
 
-	if version.LT(s.QemuVersion, "4.0.0") {
+	if version.LT(s.QemuVersion, "4.0.0") || s.params.EnableTLS {
 		s.startMigrate()
 		return
 	}

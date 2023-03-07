@@ -357,7 +357,12 @@ func cleanDailyFiles(storagePath, subDir string, keepDay int) {
 			subDirPath := path.Join(recycleDir, file.Name())
 			if options.HostOptions.ZeroCleanDiskData {
 				// try to zero clean files in subdir
-				zeroclean.ZeroDir(subDirPath)
+				err := zeroclean.ZeroDir(subDirPath)
+				if err != nil {
+					log.Errorf("zeroclean disk %s fail %s", subDirPath, err)
+				} else {
+					log.Debugf("zeroclean disk %s success!", subDirPath)
+				}
 			}
 			if output, err := procutils.NewCommand("rm", "-rf", subDirPath).Output(); err != nil {
 				log.Errorf("clean recycle dir %s error: %s, %s", subDirPath, err, output)
