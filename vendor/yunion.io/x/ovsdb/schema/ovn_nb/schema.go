@@ -17,8 +17,11 @@ type OVNNorthbound struct {
 	DHCPOptions              DHCPOptionsTable
 	DNS                      DNSTable
 	GatewayChassis           GatewayChassisTable
+	HAChassis                HAChassisTable
+	HAChassisGroup           HAChassisGroupTable
 	LoadBalancer             LoadBalancerTable
 	LogicalRouter            LogicalRouterTable
+	LogicalRouterPolicy      LogicalRouterPolicyTable
 	LogicalRouterPort        LogicalRouterPortTable
 	LogicalRouterStaticRoute LogicalRouterStaticRouteTable
 	LogicalSwitch            LogicalSwitchTable
@@ -66,6 +69,16 @@ func (db OVNNorthbound) FindOneMatchNonZeros(irow types.IRow) types.IRow {
 			return r
 		}
 		return nil
+	case *HAChassis:
+		if r := db.HAChassis.FindOneMatchNonZeros(row); r != nil {
+			return r
+		}
+		return nil
+	case *HAChassisGroup:
+		if r := db.HAChassisGroup.FindOneMatchNonZeros(row); r != nil {
+			return r
+		}
+		return nil
 	case *LoadBalancer:
 		if r := db.LoadBalancer.FindOneMatchNonZeros(row); r != nil {
 			return r
@@ -73,6 +86,11 @@ func (db OVNNorthbound) FindOneMatchNonZeros(irow types.IRow) types.IRow {
 		return nil
 	case *LogicalRouter:
 		if r := db.LogicalRouter.FindOneMatchNonZeros(row); r != nil {
+			return r
+		}
+		return nil
+	case *LogicalRouterPolicy:
+		if r := db.LogicalRouterPolicy.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
@@ -167,6 +185,16 @@ func (db OVNNorthbound) FindOneMatchByAnyIndex(irow types.IRow) types.IRow {
 			return r
 		}
 		return nil
+	case *HAChassis:
+		if r := db.HAChassis.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *HAChassisGroup:
+		if r := db.HAChassisGroup.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
 	case *LoadBalancer:
 		if r := db.LoadBalancer.OvsdbGetByAnyIndex(row); r != nil {
 			return r
@@ -174,6 +202,11 @@ func (db OVNNorthbound) FindOneMatchByAnyIndex(irow types.IRow) types.IRow {
 		return nil
 	case *LogicalRouter:
 		if r := db.LogicalRouter.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *LogicalRouterPolicy:
+		if r := db.LogicalRouterPolicy.OvsdbGetByAnyIndex(row); r != nil {
 			return r
 		}
 		return nil
@@ -1276,6 +1309,339 @@ func (row *GatewayChassis) RemoveExternalId(k string) (string, bool) {
 	return r, ok
 }
 
+type HAChassisTable []HAChassis
+
+var _ types.ITable = &HAChassisTable{}
+
+func (tbl HAChassisTable) OvsdbTableName() string {
+	return "HA_Chassis"
+}
+
+func (tbl HAChassisTable) OvsdbIsRoot() bool {
+	return false
+}
+
+func (tbl HAChassisTable) Rows() []types.IRow {
+	r := make([]types.IRow, len(tbl))
+	for i := range tbl {
+		r[i] = &tbl[i]
+	}
+	return r
+}
+
+func (tbl HAChassisTable) NewRow() types.IRow {
+	return &HAChassis{}
+}
+
+func (tbl *HAChassisTable) AppendRow(irow types.IRow) {
+	row := irow.(*HAChassis)
+	*tbl = append(*tbl, *row)
+}
+
+func (tbl HAChassisTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl HAChassisTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
+}
+
+func (tbl HAChassisTable) FindOneMatchNonZeros(row1 *HAChassis) *HAChassis {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchNonZeros(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+type HAChassis struct {
+	Uuid        string            `json:"_uuid"`
+	Version     string            `json:"_version"`
+	ChassisName string            `json:"chassis_name"`
+	ExternalIds map[string]string `json:"external_ids"`
+	Priority    int64             `json:"priority"`
+}
+
+var _ types.IRow = &HAChassis{}
+
+func (row *HAChassis) OvsdbTableName() string {
+	return "HA_Chassis"
+}
+
+func (row *HAChassis) OvsdbIsRoot() bool {
+	return false
+}
+
+func (row *HAChassis) OvsdbUuid() string {
+	return row.Uuid
+}
+
+func (row *HAChassis) OvsdbCmdArgs() []string {
+	r := []string{}
+	r = append(r, types.OvsdbCmdArgsString("chassis_name", row.ChassisName)...)
+	r = append(r, types.OvsdbCmdArgsMapStringString("external_ids", row.ExternalIds)...)
+	r = append(r, types.OvsdbCmdArgsInteger("priority", row.Priority)...)
+	return r
+}
+
+func (row *HAChassis) SetColumn(name string, val interface{}) (err error) {
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			err = errors.Wrapf(panicErr.(error), "%s: %#v", name, fmt.Sprintf("%#v", val))
+		}
+	}()
+	switch name {
+	case "_uuid":
+		row.Uuid = types.EnsureUuid(val)
+	case "_version":
+		row.Version = types.EnsureUuid(val)
+	case "chassis_name":
+		row.ChassisName = types.EnsureString(val)
+	case "external_ids":
+		row.ExternalIds = types.EnsureMapStringString(val)
+	case "priority":
+		row.Priority = types.EnsureInteger(val)
+	default:
+		panic(types.ErrUnknownColumn)
+	}
+	return
+}
+
+func (row *HAChassis) MatchNonZeros(row1 *HAChassis) bool {
+	if !types.MatchUuidIfNonZero(row.Uuid, row1.Uuid) {
+		return false
+	}
+	if !types.MatchUuidIfNonZero(row.Version, row1.Version) {
+		return false
+	}
+	if !types.MatchStringIfNonZero(row.ChassisName, row1.ChassisName) {
+		return false
+	}
+	if !types.MatchMapStringStringIfNonZero(row.ExternalIds, row1.ExternalIds) {
+		return false
+	}
+	if !types.MatchIntegerIfNonZero(row.Priority, row1.Priority) {
+		return false
+	}
+	return true
+}
+
+func (row *HAChassis) HasExternalIds() bool {
+	return true
+}
+
+func (row *HAChassis) SetExternalId(k, v string) {
+	if row.ExternalIds == nil {
+		row.ExternalIds = map[string]string{}
+	}
+	row.ExternalIds[k] = v
+}
+
+func (row *HAChassis) GetExternalId(k string) (string, bool) {
+	if row.ExternalIds == nil {
+		return "", false
+	}
+	r, ok := row.ExternalIds[k]
+	return r, ok
+}
+
+func (row *HAChassis) RemoveExternalId(k string) (string, bool) {
+	if row.ExternalIds == nil {
+		return "", false
+	}
+	r, ok := row.ExternalIds[k]
+	if ok {
+		delete(row.ExternalIds, k)
+	}
+	return r, ok
+}
+
+type HAChassisGroupTable []HAChassisGroup
+
+var _ types.ITable = &HAChassisGroupTable{}
+
+func (tbl HAChassisGroupTable) OvsdbTableName() string {
+	return "HA_Chassis_Group"
+}
+
+func (tbl HAChassisGroupTable) OvsdbIsRoot() bool {
+	return true
+}
+
+func (tbl HAChassisGroupTable) Rows() []types.IRow {
+	r := make([]types.IRow, len(tbl))
+	for i := range tbl {
+		r[i] = &tbl[i]
+	}
+	return r
+}
+
+func (tbl HAChassisGroupTable) NewRow() types.IRow {
+	return &HAChassisGroup{}
+}
+
+func (tbl *HAChassisGroupTable) AppendRow(irow types.IRow) {
+	row := irow.(*HAChassisGroup)
+	*tbl = append(*tbl, *row)
+}
+
+func (tbl HAChassisGroupTable) OvsdbHasIndex() bool {
+	return true
+}
+
+func (row *HAChassisGroup) MatchByName(row1 *HAChassisGroup) bool {
+	if !types.MatchString(row.Name, row1.Name) {
+		return false
+	}
+	return true
+}
+
+func (tbl HAChassisGroupTable) GetByName(row1 *HAChassisGroup) *HAChassisGroup {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchByName(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl HAChassisGroupTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	row1 := irow1.(*HAChassisGroup)
+	if !(types.IsZeroString(row1.Name)) {
+		if row := tbl.GetByName(row1); row != nil {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl HAChassisGroupTable) FindOneMatchNonZeros(row1 *HAChassisGroup) *HAChassisGroup {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchNonZeros(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+type HAChassisGroup struct {
+	Uuid        string            `json:"_uuid"`
+	Version     string            `json:"_version"`
+	ExternalIds map[string]string `json:"external_ids"`
+	HaChassis   []string          `json:"ha_chassis"`
+	Name        string            `json:"name"`
+}
+
+var _ types.IRow = &HAChassisGroup{}
+
+func (row *HAChassisGroup) OvsdbTableName() string {
+	return "HA_Chassis_Group"
+}
+
+func (row *HAChassisGroup) OvsdbIsRoot() bool {
+	return true
+}
+
+func (row *HAChassisGroup) OvsdbUuid() string {
+	return row.Uuid
+}
+
+func (row *HAChassisGroup) OvsdbCmdArgs() []string {
+	r := []string{}
+	r = append(r, types.OvsdbCmdArgsMapStringString("external_ids", row.ExternalIds)...)
+	r = append(r, types.OvsdbCmdArgsUuidMultiples("ha_chassis", row.HaChassis)...)
+	r = append(r, types.OvsdbCmdArgsString("name", row.Name)...)
+	return r
+}
+
+func (row *HAChassisGroup) SetColumn(name string, val interface{}) (err error) {
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			err = errors.Wrapf(panicErr.(error), "%s: %#v", name, fmt.Sprintf("%#v", val))
+		}
+	}()
+	switch name {
+	case "_uuid":
+		row.Uuid = types.EnsureUuid(val)
+	case "_version":
+		row.Version = types.EnsureUuid(val)
+	case "external_ids":
+		row.ExternalIds = types.EnsureMapStringString(val)
+	case "ha_chassis":
+		row.HaChassis = types.EnsureUuidMultiples(val)
+	case "name":
+		row.Name = types.EnsureString(val)
+	default:
+		panic(types.ErrUnknownColumn)
+	}
+	return
+}
+
+func (row *HAChassisGroup) MatchNonZeros(row1 *HAChassisGroup) bool {
+	if !types.MatchUuidIfNonZero(row.Uuid, row1.Uuid) {
+		return false
+	}
+	if !types.MatchUuidIfNonZero(row.Version, row1.Version) {
+		return false
+	}
+	if !types.MatchMapStringStringIfNonZero(row.ExternalIds, row1.ExternalIds) {
+		return false
+	}
+	if !types.MatchUuidMultiplesIfNonZero(row.HaChassis, row1.HaChassis) {
+		return false
+	}
+	if !types.MatchStringIfNonZero(row.Name, row1.Name) {
+		return false
+	}
+	return true
+}
+
+func (tbl HAChassisGroupTable) FindHAChassisReferrer_ha_chassis(refUuid string) (r []*HAChassisGroup) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.HaChassis {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (row *HAChassisGroup) HasExternalIds() bool {
+	return true
+}
+
+func (row *HAChassisGroup) SetExternalId(k, v string) {
+	if row.ExternalIds == nil {
+		row.ExternalIds = map[string]string{}
+	}
+	row.ExternalIds[k] = v
+}
+
+func (row *HAChassisGroup) GetExternalId(k string) (string, bool) {
+	if row.ExternalIds == nil {
+		return "", false
+	}
+	r, ok := row.ExternalIds[k]
+	return r, ok
+}
+
+func (row *HAChassisGroup) RemoveExternalId(k string) (string, bool) {
+	if row.ExternalIds == nil {
+		return "", false
+	}
+	r, ok := row.ExternalIds[k]
+	if ok {
+		delete(row.ExternalIds, k)
+	}
+	return r, ok
+}
+
 type LoadBalancerTable []LoadBalancer
 
 var _ types.ITable = &LoadBalancerTable{}
@@ -1488,6 +1854,7 @@ type LogicalRouter struct {
 	Name         string            `json:"name"`
 	Nat          []string          `json:"nat"`
 	Options      map[string]string `json:"options"`
+	Policies     []string          `json:"policies"`
 	Ports        []string          `json:"ports"`
 	StaticRoutes []string          `json:"static_routes"`
 }
@@ -1514,6 +1881,7 @@ func (row *LogicalRouter) OvsdbCmdArgs() []string {
 	r = append(r, types.OvsdbCmdArgsString("name", row.Name)...)
 	r = append(r, types.OvsdbCmdArgsUuidMultiples("nat", row.Nat)...)
 	r = append(r, types.OvsdbCmdArgsMapStringString("options", row.Options)...)
+	r = append(r, types.OvsdbCmdArgsUuidMultiples("policies", row.Policies)...)
 	r = append(r, types.OvsdbCmdArgsUuidMultiples("ports", row.Ports)...)
 	r = append(r, types.OvsdbCmdArgsUuidMultiples("static_routes", row.StaticRoutes)...)
 	return r
@@ -1542,6 +1910,8 @@ func (row *LogicalRouter) SetColumn(name string, val interface{}) (err error) {
 		row.Nat = types.EnsureUuidMultiples(val)
 	case "options":
 		row.Options = types.EnsureMapStringString(val)
+	case "policies":
+		row.Policies = types.EnsureUuidMultiples(val)
 	case "ports":
 		row.Ports = types.EnsureUuidMultiples(val)
 	case "static_routes":
@@ -1577,6 +1947,9 @@ func (row *LogicalRouter) MatchNonZeros(row1 *LogicalRouter) bool {
 	if !types.MatchMapStringStringIfNonZero(row.Options, row1.Options) {
 		return false
 	}
+	if !types.MatchUuidMultiplesIfNonZero(row.Policies, row1.Policies) {
+		return false
+	}
 	if !types.MatchUuidMultiplesIfNonZero(row.Ports, row1.Ports) {
 		return false
 	}
@@ -1602,6 +1975,18 @@ func (tbl LogicalRouterTable) FindNATReferrer_nat(refUuid string) (r []*LogicalR
 	for i := range tbl {
 		row := &tbl[i]
 		for _, val := range row.Nat {
+			if val == refUuid {
+				r = append(r, row)
+			}
+		}
+	}
+	return r
+}
+
+func (tbl LogicalRouterTable) FindLogicalRouterPolicyReferrer_policies(refUuid string) (r []*LogicalRouter) {
+	for i := range tbl {
+		row := &tbl[i]
+		for _, val := range row.Policies {
 			if val == refUuid {
 				r = append(r, row)
 			}
@@ -1662,6 +2047,148 @@ func (row *LogicalRouter) RemoveExternalId(k string) (string, bool) {
 		delete(row.ExternalIds, k)
 	}
 	return r, ok
+}
+
+type LogicalRouterPolicyTable []LogicalRouterPolicy
+
+var _ types.ITable = &LogicalRouterPolicyTable{}
+
+func (tbl LogicalRouterPolicyTable) OvsdbTableName() string {
+	return "Logical_Router_Policy"
+}
+
+func (tbl LogicalRouterPolicyTable) OvsdbIsRoot() bool {
+	return false
+}
+
+func (tbl LogicalRouterPolicyTable) Rows() []types.IRow {
+	r := make([]types.IRow, len(tbl))
+	for i := range tbl {
+		r[i] = &tbl[i]
+	}
+	return r
+}
+
+func (tbl LogicalRouterPolicyTable) NewRow() types.IRow {
+	return &LogicalRouterPolicy{}
+}
+
+func (tbl *LogicalRouterPolicyTable) AppendRow(irow types.IRow) {
+	row := irow.(*LogicalRouterPolicy)
+	*tbl = append(*tbl, *row)
+}
+
+func (tbl LogicalRouterPolicyTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl LogicalRouterPolicyTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
+}
+
+func (tbl LogicalRouterPolicyTable) FindOneMatchNonZeros(row1 *LogicalRouterPolicy) *LogicalRouterPolicy {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchNonZeros(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+type LogicalRouterPolicy struct {
+	Uuid     string  `json:"_uuid"`
+	Version  string  `json:"_version"`
+	Action   string  `json:"action"`
+	Match    string  `json:"match"`
+	Nexthop  *string `json:"nexthop"`
+	Priority int64   `json:"priority"`
+}
+
+var _ types.IRow = &LogicalRouterPolicy{}
+
+func (row *LogicalRouterPolicy) OvsdbTableName() string {
+	return "Logical_Router_Policy"
+}
+
+func (row *LogicalRouterPolicy) OvsdbIsRoot() bool {
+	return false
+}
+
+func (row *LogicalRouterPolicy) OvsdbUuid() string {
+	return row.Uuid
+}
+
+func (row *LogicalRouterPolicy) OvsdbCmdArgs() []string {
+	r := []string{}
+	r = append(r, types.OvsdbCmdArgsString("action", row.Action)...)
+	r = append(r, types.OvsdbCmdArgsString("match", row.Match)...)
+	r = append(r, types.OvsdbCmdArgsStringOptional("nexthop", row.Nexthop)...)
+	r = append(r, types.OvsdbCmdArgsInteger("priority", row.Priority)...)
+	return r
+}
+
+func (row *LogicalRouterPolicy) SetColumn(name string, val interface{}) (err error) {
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			err = errors.Wrapf(panicErr.(error), "%s: %#v", name, fmt.Sprintf("%#v", val))
+		}
+	}()
+	switch name {
+	case "_uuid":
+		row.Uuid = types.EnsureUuid(val)
+	case "_version":
+		row.Version = types.EnsureUuid(val)
+	case "action":
+		row.Action = types.EnsureString(val)
+	case "match":
+		row.Match = types.EnsureString(val)
+	case "nexthop":
+		row.Nexthop = types.EnsureStringOptional(val)
+	case "priority":
+		row.Priority = types.EnsureInteger(val)
+	default:
+		panic(types.ErrUnknownColumn)
+	}
+	return
+}
+
+func (row *LogicalRouterPolicy) MatchNonZeros(row1 *LogicalRouterPolicy) bool {
+	if !types.MatchUuidIfNonZero(row.Uuid, row1.Uuid) {
+		return false
+	}
+	if !types.MatchUuidIfNonZero(row.Version, row1.Version) {
+		return false
+	}
+	if !types.MatchStringIfNonZero(row.Action, row1.Action) {
+		return false
+	}
+	if !types.MatchStringIfNonZero(row.Match, row1.Match) {
+		return false
+	}
+	if !types.MatchStringOptionalIfNonZero(row.Nexthop, row1.Nexthop) {
+		return false
+	}
+	if !types.MatchIntegerIfNonZero(row.Priority, row1.Priority) {
+		return false
+	}
+	return true
+}
+
+func (row *LogicalRouterPolicy) HasExternalIds() bool {
+	return false
+}
+
+func (row *LogicalRouterPolicy) SetExternalId(k, v string) {
+	panic(errors.Wrap(types.ErrUnknownColumn, "external_ids"))
+}
+
+func (row *LogicalRouterPolicy) GetExternalId(k string) (string, bool) {
+	panic(errors.Wrap(types.ErrUnknownColumn, "external_ids"))
+}
+
+func (row *LogicalRouterPolicy) RemoveExternalId(k string) (string, bool) {
+	panic(errors.Wrap(types.ErrUnknownColumn, "external_ids"))
 }
 
 type LogicalRouterPortTable []LogicalRouterPort
@@ -1740,6 +2267,7 @@ type LogicalRouterPort struct {
 	Enabled        *bool             `json:"enabled"`
 	ExternalIds    map[string]string `json:"external_ids"`
 	GatewayChassis []string          `json:"gateway_chassis"`
+	HaChassisGroup *string           `json:"ha_chassis_group"`
 	Ipv6RaConfigs  map[string]string `json:"ipv6_ra_configs"`
 	Mac            string            `json:"mac"`
 	Name           string            `json:"name"`
@@ -1767,6 +2295,7 @@ func (row *LogicalRouterPort) OvsdbCmdArgs() []string {
 	r = append(r, types.OvsdbCmdArgsBooleanOptional("enabled", row.Enabled)...)
 	r = append(r, types.OvsdbCmdArgsMapStringString("external_ids", row.ExternalIds)...)
 	r = append(r, types.OvsdbCmdArgsUuidMultiples("gateway_chassis", row.GatewayChassis)...)
+	r = append(r, types.OvsdbCmdArgsUuidOptional("ha_chassis_group", row.HaChassisGroup)...)
 	r = append(r, types.OvsdbCmdArgsMapStringString("ipv6_ra_configs", row.Ipv6RaConfigs)...)
 	r = append(r, types.OvsdbCmdArgsString("mac", row.Mac)...)
 	r = append(r, types.OvsdbCmdArgsString("name", row.Name)...)
@@ -1793,6 +2322,8 @@ func (row *LogicalRouterPort) SetColumn(name string, val interface{}) (err error
 		row.ExternalIds = types.EnsureMapStringString(val)
 	case "gateway_chassis":
 		row.GatewayChassis = types.EnsureUuidMultiples(val)
+	case "ha_chassis_group":
+		row.HaChassisGroup = types.EnsureUuidOptional(val)
 	case "ipv6_ra_configs":
 		row.Ipv6RaConfigs = types.EnsureMapStringString(val)
 	case "mac":
@@ -1827,6 +2358,9 @@ func (row *LogicalRouterPort) MatchNonZeros(row1 *LogicalRouterPort) bool {
 	if !types.MatchUuidMultiplesIfNonZero(row.GatewayChassis, row1.GatewayChassis) {
 		return false
 	}
+	if !types.MatchUuidOptionalIfNonZero(row.HaChassisGroup, row1.HaChassisGroup) {
+		return false
+	}
 	if !types.MatchMapStringStringIfNonZero(row.Ipv6RaConfigs, row1.Ipv6RaConfigs) {
 		return false
 	}
@@ -1855,6 +2389,16 @@ func (tbl LogicalRouterPortTable) FindGatewayChassisReferrer_gateway_chassis(ref
 			if val == refUuid {
 				r = append(r, row)
 			}
+		}
+	}
+	return r
+}
+
+func (tbl LogicalRouterPortTable) FindHAChassisGroupReferrer_ha_chassis_group(refUuid string) (r []*LogicalRouterPort) {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.HaChassisGroup != nil && *row.HaChassisGroup == refUuid {
+			r = append(r, row)
 		}
 	}
 	return r
@@ -2376,6 +2920,7 @@ type LogicalSwitchPort struct {
 	DynamicAddresses *string           `json:"dynamic_addresses"`
 	Enabled          *bool             `json:"enabled"`
 	ExternalIds      map[string]string `json:"external_ids"`
+	HaChassisGroup   *string           `json:"ha_chassis_group"`
 	Name             string            `json:"name"`
 	Options          map[string]string `json:"options"`
 	ParentName       *string           `json:"parent_name"`
@@ -2408,6 +2953,7 @@ func (row *LogicalSwitchPort) OvsdbCmdArgs() []string {
 	r = append(r, types.OvsdbCmdArgsStringOptional("dynamic_addresses", row.DynamicAddresses)...)
 	r = append(r, types.OvsdbCmdArgsBooleanOptional("enabled", row.Enabled)...)
 	r = append(r, types.OvsdbCmdArgsMapStringString("external_ids", row.ExternalIds)...)
+	r = append(r, types.OvsdbCmdArgsUuidOptional("ha_chassis_group", row.HaChassisGroup)...)
 	r = append(r, types.OvsdbCmdArgsString("name", row.Name)...)
 	r = append(r, types.OvsdbCmdArgsMapStringString("options", row.Options)...)
 	r = append(r, types.OvsdbCmdArgsStringOptional("parent_name", row.ParentName)...)
@@ -2442,6 +2988,8 @@ func (row *LogicalSwitchPort) SetColumn(name string, val interface{}) (err error
 		row.Enabled = types.EnsureBooleanOptional(val)
 	case "external_ids":
 		row.ExternalIds = types.EnsureMapStringString(val)
+	case "ha_chassis_group":
+		row.HaChassisGroup = types.EnsureUuidOptional(val)
 	case "name":
 		row.Name = types.EnsureString(val)
 	case "options":
@@ -2489,6 +3037,9 @@ func (row *LogicalSwitchPort) MatchNonZeros(row1 *LogicalSwitchPort) bool {
 	if !types.MatchMapStringStringIfNonZero(row.ExternalIds, row1.ExternalIds) {
 		return false
 	}
+	if !types.MatchUuidOptionalIfNonZero(row.HaChassisGroup, row1.HaChassisGroup) {
+		return false
+	}
 	if !types.MatchStringIfNonZero(row.Name, row1.Name) {
 		return false
 	}
@@ -2530,6 +3081,16 @@ func (tbl LogicalSwitchPortTable) FindDHCPOptionsReferrer_dhcpv6_options(refUuid
 	for i := range tbl {
 		row := &tbl[i]
 		if row.Dhcpv6Options != nil && *row.Dhcpv6Options == refUuid {
+			r = append(r, row)
+		}
+	}
+	return r
+}
+
+func (tbl LogicalSwitchPortTable) FindHAChassisGroupReferrer_ha_chassis_group(refUuid string) (r []*LogicalSwitchPort) {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.HaChassisGroup != nil && *row.HaChassisGroup == refUuid {
 			r = append(r, row)
 		}
 	}
@@ -3136,7 +3697,9 @@ type NBGlobal struct {
 	Connections []string          `json:"connections"`
 	ExternalIds map[string]string `json:"external_ids"`
 	HvCfg       int64             `json:"hv_cfg"`
+	Ipsec       bool              `json:"ipsec"`
 	NbCfg       int64             `json:"nb_cfg"`
+	Options     map[string]string `json:"options"`
 	SbCfg       int64             `json:"sb_cfg"`
 	Ssl         *string           `json:"ssl"`
 }
@@ -3160,7 +3723,9 @@ func (row *NBGlobal) OvsdbCmdArgs() []string {
 	r = append(r, types.OvsdbCmdArgsUuidMultiples("connections", row.Connections)...)
 	r = append(r, types.OvsdbCmdArgsMapStringString("external_ids", row.ExternalIds)...)
 	r = append(r, types.OvsdbCmdArgsInteger("hv_cfg", row.HvCfg)...)
+	r = append(r, types.OvsdbCmdArgsBoolean("ipsec", row.Ipsec)...)
 	r = append(r, types.OvsdbCmdArgsInteger("nb_cfg", row.NbCfg)...)
+	r = append(r, types.OvsdbCmdArgsMapStringString("options", row.Options)...)
 	r = append(r, types.OvsdbCmdArgsInteger("sb_cfg", row.SbCfg)...)
 	r = append(r, types.OvsdbCmdArgsUuidOptional("ssl", row.Ssl)...)
 	return r
@@ -3183,8 +3748,12 @@ func (row *NBGlobal) SetColumn(name string, val interface{}) (err error) {
 		row.ExternalIds = types.EnsureMapStringString(val)
 	case "hv_cfg":
 		row.HvCfg = types.EnsureInteger(val)
+	case "ipsec":
+		row.Ipsec = types.EnsureBoolean(val)
 	case "nb_cfg":
 		row.NbCfg = types.EnsureInteger(val)
+	case "options":
+		row.Options = types.EnsureMapStringString(val)
 	case "sb_cfg":
 		row.SbCfg = types.EnsureInteger(val)
 	case "ssl":
@@ -3211,7 +3780,13 @@ func (row *NBGlobal) MatchNonZeros(row1 *NBGlobal) bool {
 	if !types.MatchIntegerIfNonZero(row.HvCfg, row1.HvCfg) {
 		return false
 	}
+	if !types.MatchBooleanIfNonZero(row.Ipsec, row1.Ipsec) {
+		return false
+	}
 	if !types.MatchIntegerIfNonZero(row.NbCfg, row1.NbCfg) {
+		return false
+	}
+	if !types.MatchMapStringStringIfNonZero(row.Options, row1.Options) {
 		return false
 	}
 	if !types.MatchIntegerIfNonZero(row.SbCfg, row1.SbCfg) {
