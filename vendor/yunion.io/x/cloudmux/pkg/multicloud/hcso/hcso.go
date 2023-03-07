@@ -218,6 +218,16 @@ func (self *SHuaweiClient) modelartsResourceflavors(params map[string]interface{
 	return self.request(httputils.GET, uri, url.Values{}, params)
 }
 
+func (self *SHuaweiClient) commonMonitor(params map[string]string) (jsonutils.JSONObject, error) {
+	endpoint := self.resetEndpoint(self.endpoints.Ces, "ces")
+	uri := fmt.Sprintf("https://%s/V1.0/%s/metric-data", endpoint, self.projectId)
+	url := url.Values{}
+	for k, v := range params {
+		url.Set(k, v)
+	}
+	return self.request(httputils.GET, uri, url, nil)
+}
+
 func (self *SHuaweiClient) patchRequest(method httputils.THttpMethod, url string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	client := self.getAkClient()
 	if len(query) > 0 {
