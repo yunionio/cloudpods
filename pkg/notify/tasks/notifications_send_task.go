@@ -75,8 +75,10 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	event, err := models.EventManager.GetEvent(notification.EventId)
 	if err != nil {
-		self.taskFailed(ctx, notification, errors.Wrapf(err, "GetEvent").Error(), true)
-		return
+		if !strings.Contains(err.Error(), "no rows in result set") {
+			self.taskFailed(ctx, notification, errors.Wrapf(err, "GetEvent").Error(), true)
+			return
+		}
 	}
 	notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_SENDING, "")
 
@@ -205,12 +207,16 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			logclient.AddSimpleActionLog(notification, logclient.ACT_SEND_NOTIFICATION, errors.Wrapf(err, "FillWithTemplate(%s)", lang), self.GetUserCred(), false)
 			continue
 		}
-		p.Event = event.Event
-		switch lang {
-		case apis.TEMPLATE_LANG_CN:
-			p.Message += "\n来自 " + options.Options.ApiServer
-		case apis.TEMPLATE_LANG_EN:
-			p.Message += "\nfrom " + options.Options.ApiServer
+		if event != nil {
+			p.Event = event.Event
+		}
+		if notification.ContactType != apis.MOBILE {
+			switch lang {
+			case apis.TEMPLATE_LANG_CN:
+				p.Message += "\n来自 " + options.Options.ApiServer
+			case apis.TEMPLATE_LANG_EN:
+				p.Message += "\nfrom " + options.Options.ApiServer
+			}
 		}
 
 		p.DomainId = self.UserCred.GetDomainId()
@@ -281,7 +287,9 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 				}
 			}
 			if notification.ContactType == apis.MOBILE {
-				params.Receivers.Contact = receiver.Mobile
+				mobileArr := strings.Split(receiver.Mobile, " ")
+				mobile := strings.Join(mobileArr, "")
+				params.Receivers.Contact = mobile
 			}
 			err = driver.Send(params)
 			if err != nil {

@@ -143,8 +143,13 @@ func (feishuSender *SFeishuSender) IsSystemConfigContactType() bool {
 	return true
 }
 
+func (feishuSender *SFeishuSender) RegisterConfig(config models.SConfig) {
+	models.ConfigMap[fmt.Sprintf("%s-%s", config.Type, config.DomainId)] = config
+}
+
 // 获取token
-func (feishuSender *SFeishuSender) GetAccessToken(key string) error {
+func (feishuSender *SFeishuSender) GetAccessToken(domainId string) error {
+	key := fmt.Sprintf("%s-%s", api.FEISHU, domainId)
 	appId, appSecret := models.ConfigMap[key].Content.AppId, models.ConfigMap[key].Content.AppSecret
 	resp, err := feishuSender.getAccessToken(appId, appSecret)
 	models.ConfigMap[key].Content.AccessToken = resp.TenantAccessToken

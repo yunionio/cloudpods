@@ -206,6 +206,10 @@ func (emailSender *SEmailSender) sendMessageWithToken(uri string, method httputi
 	return sendRequest(uri, httputils.POST, nil, params, jsonutils.Marshal(body))
 }
 
+func (emailSender *SEmailSender) RegisterConfig(config models.SConfig) {
+	models.ConfigMap[config.Type] = config
+}
+
 func init() {
 	models.Register(&SEmailSender{
 		config: map[string]api.SNotifyConfigContent{},

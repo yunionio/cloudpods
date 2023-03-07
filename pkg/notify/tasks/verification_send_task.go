@@ -17,6 +17,7 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -55,6 +56,8 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 
+	emailMsg := &api.SEmailMessage{}
+	notifyReceiver := api.SNotifyReceiver{}
 	// build message
 	var message string
 	switch contactType {
@@ -74,8 +77,19 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			SCompanyInfo: info,
 		}
 		message = jsonutils.Marshal(data).String()
+		notifyReceiver = api.SNotifyReceiver{
+			Contact:  receiver.Email,
+			DomainId: receiver.DomainId,
+		}
+		emailMsg.To = append(emailMsg.To, receiver.Email)
 	case api.MOBILE:
 		message = fmt.Sprintf("[\"%s\"]", verification.Token)
+		mobileArr := strings.Split(receiver.Mobile, " ")
+		mobile := strings.Join(mobileArr, "")
+		notifyReceiver = api.SNotifyReceiver{
+			Contact:  mobile,
+			DomainId: receiver.DomainId,
+		}
 	default:
 		// no way
 	}
@@ -92,10 +106,8 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.taskFailed(ctx, receiver, err.Error())
 		return
 	}
-	param.Receivers = api.SNotifyReceiver{
-		Contact:  receiver.Mobile,
-		DomainId: receiver.DomainId,
-	}
+	param.Receivers = notifyReceiver
+	param.EmailMsg = emailMsg
 	driver := models.GetDriver(contactType)
 	err = driver.Send(param)
 	// err = models.NotifyService.Send(ctx, contactType, param)

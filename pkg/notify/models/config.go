@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis/notify"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -111,7 +110,8 @@ func (c *SConfig) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 	if err != nil {
 		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
 	}
-	ConfigMap[fmt.Sprintf("%s-%s", c.Type, c.DomainId)] = *c
+	driver := GetDriver(c.Type)
+	driver.RegisterConfig(*c)
 }
 
 func (c *SConfig) GetNotifyConfig() api.NotifyConfig {
@@ -335,6 +335,7 @@ func (cm *SConfigManager) PerformValidate(ctx context.Context, userCred mcclient
 	driver := GetDriver(input.Type)
 	message, err := driver.ValidateConfig(api.NotifyConfig{
 		SNotifyConfigContent: *input.Content,
+		DomainId:             userCred.GetDomainId(),
 	})
 	if err != nil {
 		return output, errors.Wrapf(err, message)
@@ -353,15 +354,9 @@ func (confManager *SConfigManager) InitializeData() error {
 	}
 	ConfigMap = make(map[string]SConfig)
 	for _, config := range res {
-		ConfigMap[fmt.Sprintf("%s-%s", config.Type, config.DomainId)] = config
-		if config.Type == api.EMAIL {
-			ConfigMap[config.Type] = config
-		}
 		driver := GetDriver(config.Type)
-		if config.Type == notify.EMAIL || config.Type == notify.MOBILE {
-			continue
-		}
-		err := driver.GetAccessToken(fmt.Sprintf("%s-%s", config.Type, config.DomainId))
+		driver.RegisterConfig(config)
+		err := driver.GetAccessToken(config.DomainId)
 		if err != nil {
 			session := auth.GetAdminSession(context.Background(), options.Options.Region)
 			logclient.AddSimpleActionLog(&config, logclient.ACT_INIT_NOTIFY_CONFIGMAP, err, session.GetToken(), false)

@@ -103,6 +103,9 @@ func (dingRobotSender *SDingTalkRobotSender) GetAccessToken(key string) error {
 	return nil
 }
 
+func (dingRobotSender *SDingTalkRobotSender) RegisterConfig(config models.SConfig) {
+}
+
 func init() {
 	models.Register(&SDingTalkRobotSender{
 		config: map[string]api.SNotifyConfigContent{},
