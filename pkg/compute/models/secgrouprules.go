@@ -75,6 +75,26 @@ type SSecurityGroupRule struct {
 	IsDirty bool `nullable:"false" default:"false"`
 }
 
+type SecurityGroupRuleSet []SSecurityGroupRule
+
+func (s SecurityGroupRuleSet) Len() int {
+	return len(s)
+}
+
+func (s SecurityGroupRuleSet) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s SecurityGroupRuleSet) Less(i, j int) bool {
+	if s[i].Priority < s[j].Priority {
+		return true
+	}
+	if s[i].Action < s[j].Action {
+		return true
+	}
+	return false
+}
+
 func (self *SSecurityGroupRule) GetId() string {
 	return self.Id
 }

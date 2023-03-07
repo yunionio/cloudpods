@@ -31,6 +31,13 @@ type GuestnetworkDetails struct {
 }
 
 type GuestnetworkShortDesc struct {
+	Index         int8   `json:"index"`
+	GuestIpMask   int8   `json:"guest_ip_mask"`
+	VlanId        int    `json:"vlan_id"`
+	NetworkName   string `json:"network_name"`
+	WireBandwidth int    `json:"wire_bandwidth"`
+	BwLimit       int    `json:"bw_limit"`
+	Driver        string `json:"driver"`
 	// IP地址
 	IpAddr string `json:"ip_addr"`
 	// 是否为外网网卡
