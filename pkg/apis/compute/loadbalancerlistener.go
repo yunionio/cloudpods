@@ -32,9 +32,10 @@ type LoadbalancerListenerDetails struct {
 
 	SLoadbalancerListener
 
-	BackendGroup        string `json:"backend_group"`
-	CertificateName     string `json:"certificate_name"`
-	OriginCertificateId string `json:"origin_certificate_id"`
+	BackendGroup    string `json:"backend_group"`
+	CertificateName string `json:"certificate_name"`
+
+	ProjectId string `json:"tenant_id"`
 }
 
 type LoadbalancerListenerResourceInfo struct {

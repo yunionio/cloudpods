@@ -26,6 +26,8 @@ type LoadbalancerBackendDetails struct {
 	LoadbalancerBackendGroupResourceInfo
 
 	SLoadbalancerBackend
+
+	ProjectId string `json:"tenant_id"`
 }
 
 type LoadbalancerBackendListInput struct {

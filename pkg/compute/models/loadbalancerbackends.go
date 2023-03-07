@@ -465,12 +465,29 @@ func (manager *SLoadbalancerBackendManager) FetchCustomizeColumns(
 	rows := make([]api.LoadbalancerBackendDetails, len(objs))
 	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	lbbgRows := manager.SLoadbalancerBackendgroupResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	lbIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.LoadbalancerBackendDetails{
 			StatusStandaloneResourceDetails:      stdRows[i],
 			LoadbalancerBackendGroupResourceInfo: lbbgRows[i],
 		}
+		lbIds[i] = rows[i].LoadbalancerId
 	}
+
+	lbs := map[string]SLoadbalancer{}
+	err := db.FetchStandaloneObjectsByIds(LoadbalancerManager, lbIds, &lbs)
+	if err != nil {
+		return rows
+	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		if lb, ok := lbs[lbIds[i]]; ok {
+			virObjs[i] = &lb
+			rows[i].ProjectId = lb.ProjectId
+		}
+	}
+
 	return rows
 }
 

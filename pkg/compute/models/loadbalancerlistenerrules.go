@@ -623,12 +623,28 @@ func (man *SLoadbalancerListenerRuleManager) FetchCustomizeColumns(
 	stdRows := man.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	listenerRows := man.SLoadbalancerListenerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
+	lbIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.LoadbalancerListenerRuleDetails{
 			StatusStandaloneResourceDetails:  stdRows[i],
 			LoadbalancerListenerResourceInfo: listenerRows[i],
 		}
 		rows[i], _ = objs[i].(*SLoadbalancerListenerRule).getMoreDetails(rows[i])
+		lbIds[i] = rows[i].LoadbalancerId
+	}
+
+	lbs := map[string]SLoadbalancer{}
+	err := db.FetchStandaloneObjectsByIds(LoadbalancerManager, lbIds, &lbs)
+	if err != nil {
+		return rows
+	}
+
+	virObjs := make([]interface{}, len(objs))
+	for i := range rows {
+		if lb, ok := lbs[lbIds[i]]; ok {
+			virObjs[i] = &lb
+			rows[i].ProjectId = lb.ProjectId
+		}
 	}
 
 	return rows
