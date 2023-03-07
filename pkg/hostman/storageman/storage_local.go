@@ -339,7 +339,12 @@ func (s *SLocalStorage) deleteBackendFile(diskpath string, skipRecycle bool) err
 		log.Infof("Delete disk file %s immediately", backendPath)
 		if options.HostOptions.ZeroCleanDiskData {
 			// try to zero clean files in subdir
-			zeroclean.ZeroDir(backendPath)
+			err := zeroclean.ZeroDir(backendPath)
+			if err != nil {
+				log.Errorf("zeroclean disk %s fail %s", backendPath, err)
+			} else {
+				log.Debugf("zeroclean disk %s success!", backendPath)
+			}
 		}
 		return procutils.NewCommand("rm", "-rf", backendPath).Run()
 	}
@@ -368,7 +373,12 @@ func (s *SLocalStorage) DeleteDiskfile(diskpath string, skipRecycle bool) error 
 		log.Infof("Delete disk file %s immediately", diskpath)
 		if options.HostOptions.ZeroCleanDiskData {
 			// try to zero clean files in subdir
-			zeroclean.ZeroDir(diskpath)
+			err := zeroclean.ZeroDir(diskpath)
+			if err != nil {
+				log.Errorf("zeroclean disk %s fail %s", diskpath, err)
+			} else {
+				log.Debugf("zeroclean disk %s success!", diskpath)
+			}
 		}
 		return procutils.NewCommand("rm", "-rf", diskpath).Run()
 	}
