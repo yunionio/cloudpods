@@ -1529,7 +1529,7 @@ yunion.io/x/jsonutils
 ## explicit; go 1.12
 yunion.io/x/log
 yunion.io/x/log/hooks
-# yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
+# yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 ## explicit; go 1.14
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
