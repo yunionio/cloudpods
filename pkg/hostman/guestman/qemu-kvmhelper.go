@@ -509,6 +509,8 @@ function nic_mtu() {
 		if jsonutils.QueryBoolean(data, "live_migrate_use_tls", false) {
 			s.LiveMigrateUseTls = true
 			input.LiveMigrateUseTLS = true
+		} else {
+			s.LiveMigrateUseTls = false
 		}
 	} else if s.Desc.IsSlave {
 		input.LiveMigratePort = uint(*s.LiveMigrateDestPort)
