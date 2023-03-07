@@ -103,7 +103,12 @@ func (workwxSender *SWorkwxSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (workwxSender *SWorkwxSender) GetAccessToken(key string) error {
+func (workwxSender *SWorkwxSender) RegisterConfig(config models.SConfig) {
+	models.ConfigMap[fmt.Sprintf("%s-%s", config.Type, config.DomainId)] = config
+}
+
+func (workwxSender *SWorkwxSender) GetAccessToken(domainId string) error {
+	key := fmt.Sprintf("%s-%s", api.WORKWX, domainId)
 	corpId, secret := models.ConfigMap[key].Content.CorpId, models.ConfigMap[key].Content.Secret
 	token, err := workwxSender.getAccessToken(corpId, secret)
 	if err != nil {

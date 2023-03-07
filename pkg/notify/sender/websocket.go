@@ -113,6 +113,9 @@ func (websocket *SWebsocketSender) ValidateConfig(config api.NotifyConfig) (stri
 	return "", cloudprovider.ErrNotImplemented
 }
 
+func (websocket *SWebsocketSender) RegisterConfig(config models.SConfig) {
+}
+
 func init() {
 	models.Register(&SWebsocketSender{
 		config: map[string]api.SNotifyConfigContent{},

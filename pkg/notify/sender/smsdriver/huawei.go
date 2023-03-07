@@ -78,9 +78,13 @@ func (d *SHuaweiSMSDriver) sendSms(args api.SSMSSendParams) error {
 	params.Set("templateId", args.TemplateId)
 	params.Set("templateParas", args.TemplateParas)
 	params.Set("signature", args.Signature)
-	_, err := sendRequest(uri, httputils.POST, header, params, nil)
+	resp, err := sendRequest(uri, httputils.POST, header, params, nil)
 	if err != nil {
 		return errors.Wrap(err, "huawei sendRequest")
+	}
+	code, _ := resp.GetString("code")
+	if code != "000000" {
+		return errors.Wrap(errors.ErrInvalidFormat, resp.PrettyString())
 	}
 	return nil
 }
