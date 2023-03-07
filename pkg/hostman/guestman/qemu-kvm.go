@@ -885,6 +885,8 @@ func (s *SKVMGuestInstance) setDestMigrateTLS(ctx context.Context, data *jsonuti
 }
 
 func (s *SKVMGuestInstance) migrateEnableMultifd() error {
+	// https://bugzilla.redhat.com/show_bug.cgi?id=1899442
+	// Migration fails if both multifd and tls are enabled
 	if version.LT(s.QemuVersion, "4.0.0") || jsonutils.QueryBoolean(s.Desc, "live_migrate_use_tls", false) {
 		return nil
 	}
