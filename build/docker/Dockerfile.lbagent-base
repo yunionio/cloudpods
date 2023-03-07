@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/openvswitch:2.10.5-1
+FROM registry.cn-beijing.aliyuncs.com/yunionio/openvswitch:2.12.4-2
 
 MAINTAINER "Jian QIU <qiujian@yunion.cn>"
 
