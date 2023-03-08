@@ -185,11 +185,19 @@ func (self *SProject) GetTags() (map[string]string, error) {
 }
 
 func (self *SApsaraClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	tree, err := self.GetOrganizationTree(self.organizationId)
+	ret := []cloudprovider.ICloudProject{}
+	tree, err := self.GetOrganizationTree("1")
+	if err == nil {
+		projects := tree.GetProject([]string{})
+		for i := range projects {
+			ret = append(ret, &projects[i])
+		}
+		return ret, nil
+	}
+	tree, err = self.GetOrganizationTree(self.organizationId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetOrganizationTree")
 	}
-	ret := []cloudprovider.ICloudProject{}
 	projects := tree.GetProject([]string{})
 	for i := range projects {
 		ret = append(ret, &projects[i])
