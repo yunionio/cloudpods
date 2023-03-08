@@ -92,6 +92,10 @@ func (job *SStatusProbeJob) Name() string {
 }
 
 func (job *SStatusProbeJob) Do(ctx context.Context, now time.Time) error {
+	if job.baremetal.IsHypervisorHost() {
+		log.Infof("baremetal %q is host, skipping status probe", job.baremetal.GetName())
+		return nil
+	}
 	bStatus := job.baremetal.GetStatus()
 	if bStatus == api.BAREMETAL_READY || bStatus == api.BAREMETAL_RUNNING || bStatus == api.BAREMETAL_UNKNOWN {
 		ps, err := job.baremetal.GetPowerStatus()
