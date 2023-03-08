@@ -272,12 +272,12 @@ func (p *StoragePredicate) Execute(ctx context.Context, u *core.Unit, c core.Can
 			req, err := sizeRequest.Get(be, medium)
 			if err != nil {
 				h.Exclude(fmt.Sprintf("get request size by backend %q, medium %q: %v", be, medium, err))
-				break
+				return h.GetResult()
 			}
 			capacity, actualCapacity, err := getStorageCapacity(be, medium, req.GetMax(), req.GetTotal(), useRsvd)
 			if err != nil {
 				h.Exclude(err.Error())
-				continue
+				return h.GetResult()
 			}
 			tmpCap := utils.Min(capacity.capacity, actualCapacity.capacity)
 			if capacity.capacity <= 0 {
