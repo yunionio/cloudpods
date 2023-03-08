@@ -17,7 +17,9 @@ package sender
 import (
 	"crypto/tls"
 	"encoding/base64"
+	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"time"
@@ -89,6 +91,11 @@ func (emailSender *SEmailSender) Send(args api.SendParams) error {
 						}
 						_, err := w.Write([]byte("Content-Type: " + attach.Mime))
 						return errors.Wrap(err, "WriteMime")
+					}),
+					gomail.SetHeader(map[string][]string{
+						"Content-Disposition": {
+							fmt.Sprintf(`attachment; filename="%s"`, mime.QEncoding.Encode("UTF-8", attach.Filename)),
+						},
 					}),
 					gomail.SetCopyFunc(func(w io.Writer) error {
 						contBytes, err := base64.StdEncoding.DecodeString(attach.Base64Content)
