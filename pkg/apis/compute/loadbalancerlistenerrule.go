@@ -31,6 +31,8 @@ type LoadbalancerListenerRuleDetails struct {
 	SLoadbalancerListenerRule
 
 	BackendGroup string `json:"backend_group"`
+
+	ProjectId string `json:"tenant_id"`
 }
 
 type LoadbalancerListenerRuleListInput struct {

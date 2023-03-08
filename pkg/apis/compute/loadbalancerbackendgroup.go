@@ -23,6 +23,8 @@ type LoadbalancerBackendGroupDetails struct {
 	SLoadbalancerBackendGroup
 
 	LbListenerCount int `json:"lb_listener_count"`
+
+	ProjectId string `json:"tenant_id"`
 }
 
 type LoadbalancerBackendGroupResourceInfo struct {
