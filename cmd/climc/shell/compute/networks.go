@@ -25,22 +25,24 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	compute_options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 
 	cmd := shell.NewResourceCmd(&modules.Networks).WithContextManager(&modules.Wires)
-	cmd.List(&options.NetworkListOptions{})
-	cmd.Update(&options.NetworkUpdateOptions{})
-	cmd.Show(&options.NetworkIdOptions{})
-	cmd.Delete(&options.NetworkIdOptions{})
-	cmd.GetMetadata(&options.NetworkIdOptions{})
-	cmd.Perform("private", &options.NetworkIdOptions{})
-	cmd.Perform("syncstatus", &options.NetworkIdOptions{})
-	cmd.Perform("sync", &options.NetworkIdOptions{})
-	cmd.Perform("purge", &options.NetworkIdOptions{})
-	cmd.Get("change-owner-candidate-domains", &options.NetworkIdOptions{})
+	cmd.List(&compute_options.NetworkListOptions{})
+	cmd.Update(&compute_options.NetworkUpdateOptions{})
+	cmd.Show(&compute_options.NetworkIdOptions{})
+	cmd.Delete(&compute_options.NetworkIdOptions{})
+	cmd.GetMetadata(&compute_options.NetworkIdOptions{})
+	cmd.Perform("private", &compute_options.NetworkIdOptions{})
+	cmd.Perform("syncstatus", &compute_options.NetworkIdOptions{})
+	cmd.Perform("sync", &compute_options.NetworkIdOptions{})
+	cmd.Perform("purge", &compute_options.NetworkIdOptions{})
+	cmd.Get("change-owner-candidate-domains", &compute_options.NetworkIdOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("switch-wire", &compute_options.NetworkSwitchWireOptions{})
 
 	type NetworkShareOptions struct {
 		ID             string   `help:"ID or Name of the zone to show"`

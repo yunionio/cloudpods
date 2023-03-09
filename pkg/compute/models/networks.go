@@ -2970,6 +2970,7 @@ func (self *SNetwork) PerformSetBgpType(ctx context.Context, userCred mcclient.T
 	}); err != nil {
 		return nil, err
 	} else {
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE, diff, userCred, true)
 		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil, nil
@@ -2981,4 +2982,45 @@ func (net *SNetwork) IsClassic() bool {
 		return true
 	}
 	return false
+}
+
+func (net *SNetwork) PerformSwitchWire(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.NetworkSwitchWireInput,
+) (jsonutils.JSONObject, error) {
+	err := net.ValidateDeleteCondition(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(httperrors.ErrResourceBusy, "network in use")
+	}
+
+	wireObj, err := WireManager.FetchByIdOrName(userCred, input.WireId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2(WireManager.Keyword(), input.WireId)
+		} else {
+			return nil, errors.Wrapf(err, "WireManager.FetchByIdOrName %s", input.WireId)
+		}
+	}
+	wire := wireObj.(*SWire)
+	if net.WireId == wire.Id {
+		return nil, nil
+	}
+	oldWire, _ := net.GetWire()
+	if oldWire.VpcId != wire.VpcId {
+		return nil, errors.Wrapf(httperrors.ErrConflict, "cannot switch wires of other vpc")
+	}
+	diff, err := db.Update(net, func() error {
+		net.WireId = wire.Id
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "update wire_id")
+	}
+
+	logclient.AddActionLogWithContext(ctx, net, logclient.ACT_UPDATE, diff, userCred, true)
+	db.OpsLog.LogEvent(net, db.ACT_UPDATE, diff, userCred)
+
+	return nil, nil
 }
