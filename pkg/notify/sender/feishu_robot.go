@@ -105,6 +105,9 @@ func (feishuRobotSender *SFeishuRobotSender) GetAccessToken(key string) error {
 	return nil
 }
 
+func (feishuRobotSender *SFeishuRobotSender) RegisterConfig(config models.SConfig) {
+}
+
 func init() {
 	models.Register(&SFeishuRobotSender{
 		config: map[string]api.SNotifyConfigContent{},

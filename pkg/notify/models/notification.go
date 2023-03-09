@@ -146,7 +146,11 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 	if len(topicRunes) < 10 {
 		length = len(topicRunes)
 	}
-	input.GenerateName = fmt.Sprintf("%s-%s-%s", string(topicRunes[:length]), input.ContactType, nowStr)
+	name := fmt.Sprintf("%s-%s-%s", string(topicRunes[:length]), input.ContactType, nowStr)
+	input.Name, err = db.GenerateName(ctx, nm, ownerId, name)
+	if err != nil {
+		return input, errors.Wrapf(err, "unable to generate name for %s", name)
+	}
 	return input, nil
 }
 
@@ -463,7 +467,6 @@ func (nm *SNotificationManager) FetchCustomizeColumns(
 	fields stringutils2.SSortedStrings,
 	isList bool,
 ) []api.NotificationDetails {
-	log.Infoln("this is objs:", objs)
 	rows := make([]api.NotificationDetails, len(objs))
 	resRows := nm.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
@@ -532,7 +535,7 @@ func (n *SNotification) getMoreDetails(ctx context.Context, userCred mcclient.To
 		return out, err
 	}
 	// p, err := n.TemplateStore().FillWithTemplate(ctx, lang, nn)
-	p, _ := LocalTemplateManager.FillWithTemplate(ctx, lang, nn)
+	p, _ := n.FillWithTemplate(ctx, lang, nn)
 	if err != nil {
 		return out, err
 	}

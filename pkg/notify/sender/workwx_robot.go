@@ -88,6 +88,9 @@ func (workwxRobotSender *SWorkwxRobotSender) GetAccessToken(key string) error {
 	return nil
 }
 
+func (workwxRobotSender *SWorkwxRobotSender) RegisterConfig(config models.SConfig) {
+}
+
 func init() {
 	models.Register(&SWorkwxRobotSender{
 		config: map[string]api.SNotifyConfigContent{},

@@ -675,15 +675,12 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		}
 	}
 	mobile := input.InternationalMobile.String()
-	log.Infof("this is r.Mobile:%s,this is mobile:%s", r.Mobile, mobile)
 	if len(mobile) != 0 && mobile != r.Mobile {
-		log.Infoln("this is update v.VerifiedMobile")
 		db.Update(r, func() error {
 			r.VerifiedMobile = tristate.False
 			return nil
 		})
 		subs, _ := r.GetSubContacts()
-		log.Infoln("this is subs:", jsonutils.Marshal(subs))
 		for i := range subs {
 			if subs[i].ParentContactType == api.MOBILE {
 				db.Update(&subs[i], func() error {
@@ -694,6 +691,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		}
 	}
+
 	// 管理后台修改联系人，如果修改或者启用手机号和邮箱，无需进行校验
 	if input.ForceVerified {
 		allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
@@ -716,6 +714,11 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 				return nil
 			})
 		}
+	}
+	r.Mobile = mobile
+	err := ReceiverManager.TableSpec().InsertOrUpdate(ctx, r)
+	if err != nil {
+		log.Errorf("InsertOrUpdate: %v", err)
 	}
 }
 
