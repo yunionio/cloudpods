@@ -17,22 +17,23 @@ package host_health
 import (
 	"context"
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
+	"io/ioutil"
+	"path"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
+	"yunion.io/x/onecloud/pkg/cloudmon/misc"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type SHostHealthManager struct {
@@ -41,24 +42,31 @@ type SHostHealthManager struct {
 	timeout       int
 	requestExpend int
 
-	hostId     string
-	status     string
-	onHostDown string
+	hostId string
+	status string
+
+	masterNodesIps []string
 }
 
 var (
-	manager         *SHostHealthManager
-	HostDownActions = []string{hostconsts.SHUTDOWN_SERVERS}
+	manager *SHostHealthManager
 )
 
-func InitHostHealthManager(hostId, onHostDown string) (*SHostHealthManager, error) {
+func InitHostHealthManager(hostId string) (*SHostHealthManager, error) {
 	if manager != nil {
 		return manager, nil
 	}
 
 	var m = SHostHealthManager{}
-	var dialTimeout, requestTimeout = 3, 2
+	masterNodesIps, err := m.masterNodesInternalIps()
+	if err != nil {
+		return nil, err
+	} else if len(masterNodesIps) == 0 {
+		return nil, errors.Errorf("failed get k8s master nodes")
+	}
+	m.masterNodesIps = masterNodesIps
 
+	var dialTimeout, requestTimeout = 3, 2
 	cfg, err := NewEtcdOptions(
 		&options.HostOptions.EtcdOptions,
 		options.HostOptions.HostLeaseTimeout,
@@ -73,7 +81,6 @@ func InitHostHealthManager(hostId, onHostDown string) (*SHostHealthManager, erro
 	}
 
 	m.cli = etcd.Default()
-	m.onHostDown = onHostDown
 	m.hostId = hostId
 	m.requestExpend = requestTimeout
 	m.timeout = options.HostOptions.HostHealthTimeout - options.HostOptions.HostLeaseTimeout
@@ -81,6 +88,7 @@ func InitHostHealthManager(hostId, onHostDown string) (*SHostHealthManager, erro
 	if err := m.StartHealthCheck(); err != nil {
 		return nil, err
 	}
+	log.Infof("put key %s success", m.GetKey())
 	m.status = api.HOST_HEALTH_STATUS_RUNNING
 	manager = &m
 	return manager, nil
@@ -105,32 +113,33 @@ func NewEtcdOptions(
 
 func (m *SHostHealthManager) StartHealthCheck() error {
 	return m.cli.PutSession(context.Background(),
-		fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, m.hostId),
-		api.HOST_HEALTH_STATUS_RUNNING,
+		m.GetKey(), api.HOST_HEALTH_STATUS_RUNNING,
 	)
+}
+
+func (m *SHostHealthManager) GetKey() string {
+	return fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, m.hostId)
 }
 
 func (m *SHostHealthManager) OnKeepaliveFailure() {
 	m.status = api.HOST_HEALTH_STATUS_RECONNECTING
-	nicRecord := m.recordNic()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(m.timeout))
 	defer cancel()
 	err := m.cli.RestartSessionWithContext(ctx)
 	if err == nil {
 		if err := m.cli.PutSession(context.Background(),
-			fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, m.hostId),
-			api.HOST_HEALTH_STATUS_RUNNING,
+			m.GetKey(), api.HOST_HEALTH_STATUS_RUNNING,
 		); err != nil {
 			log.Errorf("put host key failed %s", err)
 		} else {
 			m.status = api.HOST_HEALTH_STATUS_RUNNING
-			log.Infof("etcd client restart session success")
+			log.Infof("etcd client restart session put %s success", m.GetKey())
 			return
 		}
 	}
 	log.Errorf("keep etcd lease failed: %s", err)
 
-	if m.networkAvailable(nicRecord) {
+	if m.networkAvailable() {
 		log.Infof("network is available, try reconnect")
 		// may be etcd not work
 		m.Reconnect()
@@ -141,70 +150,45 @@ func (m *SHostHealthManager) OnKeepaliveFailure() {
 	}
 }
 
-func (m *SHostHealthManager) recordNic() map[string]int {
-	nicRecord := make(map[string]int)
-	for _, n := range options.HostOptions.Networks {
-		data := strings.Split(n, "/")
-		interf := data[0]
-		rx, err := fileutils2.FileGetContents(
-			fmt.Sprintf("/sys/class/net/%s/statistics/rx_bytes", interf),
-		)
-		if err != nil {
-			log.Errorf("failed get nic rx %s  statistics %s", interf, err)
-			continue
-		}
-		tx, err := fileutils2.FileGetContents(
-			fmt.Sprintf("/sys/class/net/%s/statistics/tx_bytes", interf),
-		)
-		if err != nil {
-			log.Errorf("failed get nic tx %s  statistics %s", interf, err)
-			continue
-		}
-		irx, err := strconv.Atoi(strings.TrimSpace(rx))
-		if err != nil {
-			log.Errorf("failed convert rx %s %s", rx, err)
-		}
-		itx, err := strconv.Atoi(strings.TrimSpace(tx))
-		if err != nil {
-			log.Errorf("failed convert tx %s %s", tx, err)
-		}
-		nicRecord[interf] = irx + itx
+func (m *SHostHealthManager) networkAvailable() bool {
+	res, err := misc.Ping(m.masterNodesIps, 3, 10, true)
+	if err != nil {
+		log.Errorf("failed ping master nodes %s", res)
+		return true
 	}
-	return nicRecord
-}
-
-func (m *SHostHealthManager) networkAvailable(oldRecord map[string]int) bool {
-	newRecord := m.recordNic()
-	for _, n := range options.HostOptions.Networks {
-		data := strings.Split(n, "/")
-		interf := data[0]
-
-		oldR, ok := oldRecord[interf]
-		if !ok {
-			continue
-		}
-		newR, ok := newRecord[interf]
-		if !ok {
-			log.Errorf("nic %s record not found", n)
-			continue
-		}
-
-		if newR != oldR {
+	for _, v := range res {
+		if v.Loss() < 100 {
 			return true
 		}
 	}
 	return false
 }
 
+func (m *SHostHealthManager) masterNodesInternalIps() ([]string, error) {
+	result, err := modules.Hosts.Get(hostutils.GetComputeSession(context.Background()), "k8s-master-node-ips", nil)
+	if err != nil {
+		return nil, err
+	}
+	ips := make([]string, 0)
+	err = result.Unmarshal(&ips, "ips")
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal master node ips")
+	}
+	return ips, nil
+}
+
 func (m *SHostHealthManager) OnUnhealth() {
-	if m.onHostDown == hostconsts.SHUTDOWN_SERVERS {
-		log.Errorf("Host unhealthy, going to shotdown servers")
-		m.shutdownServers()
+	p := path.Join(options.HostOptions.ServersPath, hostconsts.HOST_HEALTH_FILENAME)
+	if fileutils2.Exists(p) {
+		if act, err := fileutils2.FileGetContents(p); err != nil {
+			log.Errorf(" failed read file %s: %s", p, err)
+		} else if act == hostconsts.SHUTDOWN_SERVERS {
+			log.Errorf("Host unhealthy, going to shutdown servers")
+			m.shutdownServers()
+		}
 	}
 	// reconnect wait for network available
 	m.Reconnect()
-	utils.DumpAllGoroutineStack(log.Logger().Out)
-	os.Exit(1)
 }
 
 func (m *SHostHealthManager) Reconnect() {
@@ -223,32 +207,34 @@ func (m *SHostHealthManager) Reconnect() {
 	log.Infof("restart ression success")
 
 	if err := m.cli.PutSession(
-		context.Background(), fmt.Sprintf("%s/%s", api.HOST_HEALTH_PREFIX, m.hostId),
-		api.HOST_HEALTH_STATUS_RUNNING,
+		context.Background(), m.GetKey(), api.HOST_HEALTH_STATUS_RUNNING,
 	); err != nil {
 		log.Errorf("put host key failed %s", err)
 		go m.Reconnect()
 		return
 	}
-	log.Infof("put key %s/%s success", api.HOST_HEALTH_PREFIX, m.hostId)
+	log.Infof("put key %s success", m.GetKey())
 	m.status = api.HOST_HEALTH_STATUS_RUNNING
 }
 
-func (m *SHostHealthManager) SetOnHostDown(onHostDown string) {
-	m.onHostDown = onHostDown
-}
-
-// shutdown servers used shared storage
 func (m *SHostHealthManager) shutdownServers() {
-	types.HealthCheckReactor.ShutdownServers()
-}
-
-func SetOnHostDown(onHostDown string) error {
-	if manager != nil {
-		manager.SetOnHostDown(onHostDown)
-		return nil
+	files, err := ioutil.ReadDir(options.HostOptions.ServersPath)
+	if err != nil {
+		log.Errorf("failed walk dir %s: %s", options.HostOptions.ServersPath, err)
+		return
 	}
-	return fmt.Errorf("host health manager not init")
+	for i := range files {
+		if hostutils.IsGuestDir(files[i], options.HostOptions.ServersPath) {
+			stopvm := path.Join(options.HostOptions.ServersPath, files[i].Name(), "stopvm")
+			if fileutils2.Exists(stopvm) {
+				log.Infof("start exec stopvm script for guest %s", files[i].Name())
+				out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", stopvm, "--force").Output()
+				if err != nil {
+					log.Errorf("failed exec stopvm script for guest %s: %s %s", files[i].Name(), out, err)
+				}
+			}
+		}
+	}
 }
 
 func GetHealthStatus() string {

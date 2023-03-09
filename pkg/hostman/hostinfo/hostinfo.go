@@ -46,7 +46,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
-	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -1395,6 +1394,11 @@ func (h *SHostInfo) updateHostMetadata(hostname string) error {
 //	return err
 // }
 
+func (h *SHostInfo) SetOnHostDown(action string) error {
+	h.onHostDown = action
+	return fileutils2.FilePutContents(path.Join(options.HostOptions.ServersPath, hostconsts.HOST_HEALTH_FILENAME), h.onHostDown, false)
+}
+
 func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	h.HostId, _ = hostbody.GetString("id")
 	hostname, _ := hostbody.GetString("name")
@@ -1403,10 +1407,9 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 		return
 	}
 	if jsonutils.QueryBoolean(hostbody, "auto_migrate_on_host_down", false) {
-		h.onHostDown = hostconsts.SHUTDOWN_SERVERS
+		h.SetOnHostDown(hostconsts.SHUTDOWN_SERVERS)
 	}
-	log.Infof("on host down %s", h.onHostDown)
-	host_health.SetOnHostDown(h.onHostDown)
+	log.Infof("host health manager on host down %s", h.onHostDown)
 
 	// fetch host reserved cpus info
 	reservedCpusStr, _ := hostbody.GetString("metadata", api.HOSTMETA_RESERVED_CPUS_INFO)
@@ -2046,10 +2049,8 @@ func (h *SHostInfo) stop() {
 func (h *SHostInfo) unregister() {
 	isLog := false
 	for {
-		updateHealthStatus := true
 		input := api.HostOfflineInput{
-			UpdateHealthStatus: &updateHealthStatus,
-			Reason:             "host stop",
+			Reason: "host stop",
 		}
 		_, err := modules.Hosts.PerformAction(h.GetSession(), h.HostId, "offline", jsonutils.Marshal(input))
 		if err != nil {

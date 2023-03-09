@@ -15,13 +15,8 @@
 package hostman
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
@@ -31,7 +26,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/guesthandlers"
-	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hosthandler"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
@@ -43,7 +37,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -77,11 +70,6 @@ func (host *SHostService) InitService() {
 func (host *SHostService) OnExitService() {}
 
 func (host *SHostService) RunService() {
-	hn, err := os.Hostname()
-	if err != nil {
-		log.Fatalf("fail to get hostname %s", err)
-	}
-
 	app := app_common.InitApp(&options.HostOptions.BaseOptions, false)
 	cronManager := cronman.InitCronJobManager(false, options.HostOptions.CronJobWorkerCount)
 	hostutils.Init()
@@ -93,17 +81,6 @@ func (host *SHostService) RunService() {
 
 	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
-
-		if err := host.initEtcdConfig(); err != nil {
-			log.Fatalln("Init etcd config:", err)
-		}
-
-		if len(options.HostOptions.EtcdEndpoints) > 0 {
-			_, err := host_health.InitHostHealthManager(hn, "")
-			if err != nil {
-				log.Fatalf("Init host health manager failed %s", err)
-			}
-		}
 	})
 
 	deployclient.Init(options.HostOptions.DeployServerSocketPath)
@@ -164,47 +141,6 @@ func (host *SHostService) initHandlers(app *appsrv.Application) {
 	hosthandler.AddHostHandler("", app)
 
 	app_common.ExportOptionsHandler(app, &options.HostOptions)
-}
-
-func (host *SHostService) initEtcdConfig() error {
-	etcdEndpoint, err := app_common.FetchEtcdServiceInfo()
-	if err != nil {
-		if errors.Cause(err) == httperrors.ErrNotFound {
-			return nil
-		}
-		return errors.Wrap(err, "fetch etcd service info")
-	}
-	if etcdEndpoint == nil {
-		return nil
-	}
-	if len(options.HostOptions.EtcdEndpoints) == 0 {
-		options.HostOptions.EtcdEndpoints = []string{etcdEndpoint.Url}
-		if len(etcdEndpoint.CertId) > 0 {
-			dir, err := ioutil.TempDir("", "etcd-cluster-tls")
-			if err != nil {
-				return errors.Wrap(err, "create dir etcd cluster tls")
-			}
-			options.HostOptions.EtcdCert, err = writeFile(dir, "etcd.crt", []byte(etcdEndpoint.Certificate))
-			if err != nil {
-				return errors.Wrap(err, "write file certificate")
-			}
-			options.HostOptions.EtcdKey, err = writeFile(dir, "etcd.key", []byte(etcdEndpoint.PrivateKey))
-			if err != nil {
-				return errors.Wrap(err, "write file private key")
-			}
-			options.HostOptions.EtcdCacert, err = writeFile(dir, "etcd-ca.crt", []byte(etcdEndpoint.CaCertificate))
-			if err != nil {
-				return errors.Wrap(err, "write file  cacert")
-			}
-			options.HostOptions.EtcdUseTLS = true
-		}
-	}
-	return nil
-}
-
-func writeFile(dir, file string, data []byte) (string, error) {
-	p := filepath.Join(dir, file)
-	return p, ioutil.WriteFile(p, data, 0600)
 }
 
 func StartService() {

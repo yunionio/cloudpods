@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
@@ -53,7 +52,6 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
@@ -342,17 +340,7 @@ func (m *SGuestManager) CPUSetRemove(ctx context.Context, sid string) error {
 }
 
 func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
-	if !regutils.MatchUUID(f.Name()) {
-		return false
-	}
-	if !f.Mode().IsDir() && f.Mode()&os.ModeSymlink == 0 {
-		return false
-	}
-	descFile := path.Join(m.ServersPath, f.Name(), "desc")
-	if !fileutils2.Exists(descFile) {
-		return false
-	}
-	return true
+	return hostutils.IsGuestDir(f, m.ServersPath)
 }
 
 func (m *SGuestManager) IsGuestExist(sid string) bool {
