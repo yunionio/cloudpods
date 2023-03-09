@@ -224,7 +224,7 @@ func (self *SHuaweiClient) getRdsMetrics(opts *cloudprovider.MetricListOptions) 
 			continue
 		}
 		metricData := MetricData{}
-		err = resp.Unmarshal(&metricData, "metrics")
+		err = resp.Unmarshal(&metricData)
 		if err != nil {
 			return nil, errors.Wrapf(err, "resp.Unmarshal")
 		}
@@ -302,7 +302,7 @@ func (self *SHuaweiClient) getBucketMetrics(opts *cloudprovider.MetricListOption
 			continue
 		}
 		metricData := MetricData{}
-		err = resp.Unmarshal(&metricData, "metrics")
+		err = resp.Unmarshal(&metricData)
 		if err != nil {
 			return nil, errors.Wrapf(err, "resp.Unmarshal")
 		}
