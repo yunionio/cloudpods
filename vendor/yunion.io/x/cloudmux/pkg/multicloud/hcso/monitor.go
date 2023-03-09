@@ -119,6 +119,8 @@ func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOption
 	result := []cloudprovider.MetricValues{}
 	namespace, dimesionName, metricNames := "SYS.ECS", "instance_id", []string{
 		"cpu_util",
+		"mem_util",
+		"disk_util_inband",
 		"network_incoming_bytes_aggregate_rate",
 		"network_outgoing_bytes_aggregate_rate",
 		"disk_read_bytes_rate",
@@ -154,6 +156,10 @@ func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOption
 		switch metricData.MetricName {
 		case "cpu_util":
 			ret.MetricType = cloudprovider.VM_METRIC_TYPE_CPU_USAGE
+		case "mem_util":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_MEM_USAGE
+		case "disk_util_inband":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_USAGE
 		case "network_incoming_bytes_aggregate_rate":
 			ret.MetricType = cloudprovider.VM_METRIC_TYPE_NET_BPS_RX
 			tags = map[string]string{"net_type": "internet"}
@@ -224,7 +230,7 @@ func (self *SHuaweiClient) getRdsMetrics(opts *cloudprovider.MetricListOptions) 
 			continue
 		}
 		metricData := MetricData{}
-		err = resp.Unmarshal(&metricData, "metrics")
+		err = resp.Unmarshal(&metricData)
 		if err != nil {
 			return nil, errors.Wrapf(err, "resp.Unmarshal")
 		}
@@ -302,7 +308,7 @@ func (self *SHuaweiClient) getBucketMetrics(opts *cloudprovider.MetricListOption
 			continue
 		}
 		metricData := MetricData{}
-		err = resp.Unmarshal(&metricData, "metrics")
+		err = resp.Unmarshal(&metricData)
 		if err != nil {
 			return nil, errors.Wrapf(err, "resp.Unmarshal")
 		}
