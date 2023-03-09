@@ -6,17 +6,17 @@ import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	compute_options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 
 	cmd := shell.NewResourceCmd(&modules.NetworkIpMacs)
-	cmd.List(&options.NetworkIpMacListOptions{})
-	cmd.Update(&options.NetworkIpMacUpdateOptions{})
-	cmd.Show(&options.NetworkIpMacIdOptions{})
-	cmd.Delete(&options.NetworkIpMacIdOptions{})
-	cmd.Create(&options.NetworkIpMacCreateOptions{})
+	cmd.List(&compute_options.NetworkIpMacListOptions{})
+	cmd.Update(&compute_options.NetworkIpMacUpdateOptions{})
+	cmd.Show(&compute_options.NetworkIpMacIdOptions{})
+	cmd.Delete(&compute_options.NetworkIpMacIdOptions{})
+	cmd.Create(&compute_options.NetworkIpMacCreateOptions{})
 	type NetworkIpMacBatchCreateOptions struct {
 		NETWORK string            `help:"network id" json:"network_id"`
 		IpMac   map[string]string `help:"ip mac map" json:"ip_mac"`
