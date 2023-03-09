@@ -15,6 +15,8 @@
 package sender
 
 import (
+	"strings"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 
@@ -33,8 +35,10 @@ func (smsSender *SMobileSender) GetSenderType() string {
 
 func (smsSender *SMobileSender) Send(args api.SendParams) error {
 	smsSendParams := api.SSMSSendParams{
-		From: "",
-		To:   args.Receivers.Contact,
+		TemplateId:    strings.Split(args.RemoteTemplate, "/")[1],
+		TemplateParas: args.Message,
+		To:            args.Receivers.Contact,
+		From:          strings.Split(args.RemoteTemplate, "/")[0],
 	}
 	smsdriver := models.GetSMSDriver(models.ConfigMap[api.MOBILE].Content.SmsDriver)
 	return smsdriver.Send(smsSendParams, false, &api.NotifyConfig{
@@ -46,7 +50,10 @@ func (smsSender *SMobileSender) Send(args api.SendParams) error {
 
 func (smsSender *SMobileSender) ValidateConfig(config api.NotifyConfig) (string, error) {
 	driver := models.GetSMSDriver(config.SmsDriver)
-	return "", driver.Verify(&config)
+	if driver == nil {
+		return "", errors.Wrap(errors.ErrNotFound, "driver disabled")
+	}
+	return "", nil
 }
 
 func (smsSender *SMobileSender) UpdateConfig(config api.NotifyConfig) error {
@@ -104,6 +111,10 @@ func (smsSender *SMobileSender) IsSystemConfigContactType() bool {
 
 func (smsSender *SMobileSender) GetAccessToken(key string) error {
 	return nil
+}
+
+func (smsSender *SMobileSender) RegisterConfig(config models.SConfig) {
+	models.ConfigMap[config.Type] = config
 }
 
 func init() {

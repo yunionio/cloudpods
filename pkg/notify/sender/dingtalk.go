@@ -93,7 +93,6 @@ func (dingSender *SDingTalkSender) ValidateConfig(config api.NotifyConfig) (stri
 		}
 		return "", err
 	}
-	models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, config.DomainId)].Content.AppKey, models.ConfigMap[fmt.Sprintf("%s-%s", api.DINGTALK, config.DomainId)].Content.AppSecret = config.AppKey, config.AppSecret
 	return "", nil
 }
 
@@ -134,7 +133,12 @@ func (dingSender *SDingTalkSender) IsSystemConfigContactType() bool {
 	return true
 }
 
-func (dingSender *SDingTalkSender) GetAccessToken(key string) error {
+func (dingSender *SDingTalkSender) RegisterConfig(config models.SConfig) {
+	models.ConfigMap[fmt.Sprintf("%s-%s", config.Type, config.DomainId)] = config
+}
+
+func (dingSender *SDingTalkSender) GetAccessToken(domainId string) error {
+	key := fmt.Sprintf("%s-%s", api.DINGTALK, domainId)
 	appKey, appSecret := models.ConfigMap[key].Content.AppKey, models.ConfigMap[key].Content.AppSecret
 	token, err := dingSender.getAccessToken(appKey, appSecret)
 	if err != nil {

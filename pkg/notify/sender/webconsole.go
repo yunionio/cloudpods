@@ -76,6 +76,9 @@ func (websender *SWebconsoleSender) GetAccessToken(key string) error {
 	return nil
 }
 
+func (websender *SWebconsoleSender) RegisterConfig(config models.SConfig) {
+}
+
 func init() {
 	models.Register(&SWebconsoleSender{
 		config: map[string]api.SNotifyConfigContent{},

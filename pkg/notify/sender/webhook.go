@@ -96,6 +96,9 @@ func (websender *SWebhookSender) GetAccessToken(key string) error {
 	return nil
 }
 
+func (websender *SWebhookSender) RegisterConfig(config models.SConfig) {
+}
+
 func init() {
 	models.Register(&SWebhookSender{
 		config: map[string]api.SNotifyConfigContent{},
