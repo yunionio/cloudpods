@@ -275,6 +275,8 @@ type StorcliLogicalVolume struct {
 	PDs []*StorcliLogicalVolumePD
 	// Properties
 	Properties *StorcliLogicalVolumeProperties
+	// index
+	Index int
 }
 
 func (lvs *StorcliLogicalVolumes) GetLogicalVolumes(controller int) ([]*StorcliLogicalVolume, error) {
@@ -308,6 +310,7 @@ func (lvs *StorcliLogicalVolumes) GetLogicalVolumes(controller int) ([]*StorcliL
 			return nil, errors.Wrapf(err, "Unmarshal %s to StorcliLogicalVolume", lvObj)
 		}
 		lv := lvArr[0]
+		lv.Index = vIdx
 		lv.Name = keyIdx
 		pdObj, err := data.Get(pdKey)
 		if err != nil {
@@ -348,7 +351,12 @@ func (lv *StorcliLogicalVolume) IsSSD() bool {
 }
 
 func (lv *StorcliLogicalVolume) GetOSDevice() string {
-	return lv.Properties.DeviceName
+	dev := lv.Properties.DeviceName
+	if len(dev) == 0 {
+		// try to guest device name
+		dev = fmt.Sprintf("sd%c", 'a'+lv.Index)
+	}
+	return dev
 }
 
 func (lv *StorcliLogicalVolume) GetSysBlockRotationalPath() string {
