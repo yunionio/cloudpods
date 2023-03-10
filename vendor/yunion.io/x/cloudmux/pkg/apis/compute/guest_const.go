@@ -72,6 +72,7 @@ const (
 	HYPERVISOR_INCLOUD_SPHERE = "incloudsphere"
 	HYPERVISOR_PROXMOX        = "proxmox"
 	HYPERVISOR_REMOTEFILE     = "remotefile"
+	HYPERVISOR_H3C            = "h3c"
 )
 
 const (

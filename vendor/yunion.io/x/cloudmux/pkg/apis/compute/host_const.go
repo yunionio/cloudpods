@@ -39,6 +39,7 @@ const (
 	HOST_TYPE_INCLOUD_SPHERE = "incloudsphere"
 	HOST_TYPE_PROXMOX        = "proxmox"
 	HOST_TYPE_REMOTEFILE     = "remotefile"
+	HOST_TYPE_H3C            = "h3c"
 
 	// # possible status
 	HOST_ONLINE  = "online"
