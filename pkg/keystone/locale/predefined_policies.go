@@ -178,6 +178,12 @@ var (
 						"get",
 					},
 				},
+				"suggestion": {
+					"suggestsysalerts": {
+						"list",
+						"get",
+					},
+				},
 			},
 		},
 		{
