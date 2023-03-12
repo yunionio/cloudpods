@@ -28,6 +28,9 @@ const (
 	ACT_DETACH_FAIL = "detach_fail"
 	ACT_DELETE_FAIL = "delete_fail"
 
+	ACT_CANCEL = "cancel"
+	ACT_DONE   = "done"
+
 	ACT_PUBLIC  = "public"
 	ACT_PRIVATE = "private"
 
