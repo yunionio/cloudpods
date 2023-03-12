@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -26,9 +27,10 @@ import (
 func init() {
 
 	type GuestImageCreateOptions struct {
-		NAME        string `help:"Name of guest image"`
-		ImageNumber int    `help:"common image number of guest image"`
-		Protected   bool   `help:"if guest image is protected"`
+		NAME        string   `help:"Name of guest image"`
+		ImageNumber int      `help:"common image number of guest image"`
+		Protected   bool     `help:"if guest image is protected"`
+		Image       []string `help:"list of images"`
 	}
 
 	R(&GuestImageCreateOptions{}, "guest-image-create", "Create guest image's metadata", func(s *mcclient.ClientSession,
@@ -41,6 +43,15 @@ func init() {
 		}
 		if args.Protected {
 			params.Add(jsonutils.JSONTrue, "protected")
+		}
+		if len(args.Image) > 0 {
+			images := make([]api.GuestImageCreateInputSubimage, 0)
+			for _, img := range args.Image {
+				images = append(images, api.GuestImageCreateInputSubimage{
+					Id: img,
+				})
+			}
+			params.Add(jsonutils.Marshal(images), "images")
 		}
 		ret, err := modules.GuestImages.Create(s, params)
 		if err != nil {
