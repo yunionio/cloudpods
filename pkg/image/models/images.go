@@ -146,7 +146,7 @@ type SImage struct {
 	// 是否是主机镜像
 	IsGuestImage tristate.TriState `default:"false" create:"optional" list:"user"`
 	// 是否是数据盘镜像
-	IsData tristate.TriState `default:"false" create:"optional" list:"user"`
+	IsData tristate.TriState `default:"false" create:"optional" list:"user" update:"user"`
 
 	// image copy from url, save origin checksum before probe
 	// 从镜像时长导入的镜像校验和
@@ -753,20 +753,24 @@ func (self *SImage) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 	return self.IsOwner(userCred) || db.IsAdminAllowDelete(ctx, userCred, self)
 }
 
-func (self *SImage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	if self.Protected.IsTrue() {
+func (img *SImage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if img.Protected.IsTrue() {
 		return httperrors.NewForbiddenError("image is protected")
 	}
-	if self.IsGuestImage.IsTrue() {
-		return httperrors.NewForbiddenError("image is the part of guest image")
-	}
-	if self.IsStandard.IsTrue() {
+	if img.IsStandard.IsTrue() {
 		return httperrors.NewForbiddenError("image is standard")
+	}
+	guestImgCnt, err := img.getGuestImageCount()
+	if err != nil {
+		return errors.Wrap(err, "getGuestImageCount")
+	}
+	if img.IsGuestImage.IsTrue() || guestImgCnt > 0 {
+		return httperrors.NewForbiddenError("image is the part of guest image")
 	}
 	// if self.IsShared() {
 	// 	return httperrors.NewForbiddenError("image is shared")
 	// }
-	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
+	return img.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SImage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -2045,5 +2049,28 @@ func (img *SImage) Pipeline(ctx context.Context, userCred mcclient.TokenCredenti
 		notifyclient.SystemNotifyWithCtx(ctx, notify.NotifyPriorityNormal, notifyclient.IMAGE_ACTIVED, kwargs)
 		notifyclient.NotifyImportantWithCtx(ctx, []string{userCred.GetUserId()}, false, notifyclient.IMAGE_ACTIVED, kwargs)
 	}
+	return nil
+}
+
+func (img *SImage) getGuestImageCount() (int, error) {
+	gis, err := GuestImageJointManager.GetByImageId(img.Id)
+	if err != nil {
+		return -1, errors.Wrap(err, "GuestImageJointManager.GetByImageId")
+	}
+	return len(gis), nil
+}
+
+func (img *SImage) markDataImage(userCred mcclient.TokenCredential) error {
+	if img.IsData.IsTrue() {
+		return nil
+	}
+	diff, err := db.Update(img, func() error {
+		img.IsData = tristate.True
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "update")
+	}
+	db.OpsLog.LogEvent(img, db.ACT_UPDATE, diff, userCred)
 	return nil
 }
