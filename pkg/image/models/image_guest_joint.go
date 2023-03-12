@@ -63,17 +63,17 @@ func (gm *SGuestImageJointManager) GetByGuestImageId(guestImageId string) ([]SGu
 	return ret, nil
 }
 
-func (gm *SGuestImageJointManager) GetByImageId(imageId string) (*SGuestImageJoint, error) {
+func (gm *SGuestImageJointManager) GetByImageId(imageId string) ([]SGuestImageJoint, error) {
 	q := gm.Query().Equals("image_id", imageId)
-	ret := SGuestImageJoint{}
-	err := q.First(&ret)
+	ret := make([]SGuestImageJoint, 0, 1)
+	err := db.FetchModelObjects(gm, q, &ret)
 	if err != nil {
 		return nil, err
 	}
-	return &ret, nil
+	return ret, nil
 }
 
-func (gm *SGuestImageJointManager) GetGuestImageByImageId(imageId string) (*SGuestImage, error) {
+/*func (gm *SGuestImageJointManager) GetGuestImageByImageId(imageId string) (*SGuestImage, error) {
 	gits, err := gm.GetByImageId(imageId)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (gm *SGuestImageJointManager) GetGuestImageByImageId(imageId string) (*SGue
 		return nil, err
 	}
 	return model.(*SGuestImage), nil
-}
+}*/
 
 func (gm *SGuestImageJointManager) GetImagesByFilter(guestImageId string,
 	filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SImage, error) {
