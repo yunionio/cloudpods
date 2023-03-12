@@ -239,4 +239,8 @@ const (
 	ACT_PANIC = "panic"
 
 	ACT_EXPORT = "export"
+
+	ACT_CANCEL = "cancel"
+	ACT_START  = "start"
+	ACT_DONE   = "done"
 )
