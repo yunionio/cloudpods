@@ -244,4 +244,8 @@ const (
 	ACT_INIT_NOTIFY_CONFIGMAP = "init_notify_configmap"
 
 	ACT_EXPORT = "export"
+
+	ACT_CANCEL = "cancel"
+	ACT_START  = "start"
+	ACT_DONE   = "done"
 )

@@ -103,9 +103,15 @@ func mustCheckModelManager(modelMan IModelManager) {
 func CheckSync(autoSync bool, enableChecksumTables bool, skipInitChecksum bool) bool {
 	log.Infof("Start check database schema ...")
 	inSync := true
+
 	var err error
+	foreignProcessedTbl := make(map[string]bool)
 	for modelName, modelMan := range globalTables {
 		tableSpec := modelMan.TableSpec()
+		if _, ok := foreignProcessedTbl[tableSpec.Name()]; ok {
+			continue
+		}
+		foreignProcessedTbl[tableSpec.Name()] = true
 		dropFKSqls := tableSpec.DropForeignKeySQL()
 		if len(dropFKSqls) > 0 {
 			log.Infof("model %s drop foreign key constraints!!!", modelName)
@@ -127,8 +133,14 @@ func CheckSync(autoSync bool, enableChecksumTables bool, skipInitChecksum bool) 
 			}
 		}
 	}
+
+	processedTbl := make(map[string]bool)
 	for modelName, modelMan := range globalTables {
 		tableSpec := modelMan.TableSpec()
+		if _, ok := processedTbl[tableSpec.Name()]; ok {
+			continue
+		}
+		processedTbl[tableSpec.Name()] = true
 		sqls := tableSpec.SyncSQL()
 		if len(sqls) > 0 {
 			log.Infof("model %s is not in SYNC!!!", modelName)
