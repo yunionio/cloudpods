@@ -66,6 +66,8 @@ type GuestImageCreateInputBase struct {
 }
 
 type GuestImageCreateInputSubimage struct {
+	// Id
+	Id string `json:"id"`
 	// 磁盘格式
 	DiskFormat string `json:"disk_format"`
 	// 磁盘大小

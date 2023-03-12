@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -92,6 +93,38 @@ func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userC
 		return input, httperrors.NewMissingParameterError("images")
 	}
 
+	errs := make([]error, 0)
+	for i := range input.Images {
+		if len(input.Images[i].Id) > 0 {
+			imgObj, err := ImageManager.FetchByIdOrName(userCred, input.Images[i].Id)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					errs = append(errs, httperrors.NewResourceNotFoundError2(ImageManager.Keyword(), input.Images[i].Id))
+				} else {
+					errs = append(errs, errors.Wrap(err, "FetchByIdOrName"))
+				}
+				continue
+			}
+			image := imgObj.(*SImage)
+			if image.Status != api.IMAGE_STATUS_ACTIVE {
+				errs = append(errs, httperrors.NewInvalidStatusError("image %s status %s expect active", image.Name, image.Status))
+				continue
+			}
+			if !db.IsAllowGet(ctx, rbacscope.ScopeProject, userCred, image) {
+				errs = append(errs, httperrors.NewForbiddenError("not allow to access %s", image.Name))
+				continue
+			}
+			if i == 0 && image.IsData.IsTrue() {
+				errs = append(errs, httperrors.NewInvalidStatusError("first image %s should not be a data image", image.Name))
+				continue
+			}
+			input.Images[i].Id = image.Id
+		}
+	}
+	if len(errs) > 0 {
+		return input, errors.NewAggregate(errs)
+	}
+
 	input.DiskFormat = string(qemuimgfmt.QCOW2)
 
 	pendingUsage := SQuota{Image: int(imageNum)}
@@ -139,35 +172,66 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	appParams := appsrv.AppContextGetParams(ctx)
 	appParams.Request.ContentLength = 0
 
+	creating := false
+
 	for i := 0; i < len(images); i++ {
-		params := jsonutils.DeepCopy(kwargs).(*jsonutils.JSONDict)
-		image := images[i].(*jsonutils.JSONDict)
-		for _, key := range image.SortedKeys() {
-			tmp, _ := image.Get(key)
-			params.Add(tmp, key)
-		}
-		params.Add(jsonutils.JSONTrue, "is_guest_image")
-		if i == len(images)-1 {
-			params.Add(jsonutils.NewString(fmt.Sprintf("%s-%s", gi.Name, "root")), "generate_name")
-		} else {
-			params.Add(jsonutils.NewString(fmt.Sprintf("%s-%s-%d", gi.Name, "data", i)), "generate_name")
-			params.Add(jsonutils.JSONTrue, "is_data")
-		}
-		model, err := db.DoCreate(ImageManager, ctx, userCred, query, params, ownerId)
+		log.Debugf("process subimg %d %s", i, images[i])
+		subimg := api.GuestImageCreateInputSubimage{}
+		err := images[i].Unmarshal(&subimg)
 		if err != nil {
+			// unlikely
 			suc = false
+			log.Errorf("UNLIKELY!!!!unmarshal image %d error %s", i, err)
 			break
+		}
+		var image *SImage
+		if len(subimg.Id) > 0 {
+			// mark sub image as guest image
+			imgObj, err := ImageManager.FetchById(subimg.Id)
+			if err != nil {
+				log.Errorf("FetchById %s fail: %s", subimg.Id, err)
+				suc = false
+				break
+			}
+			image = imgObj.(*SImage)
+			if i > 0 {
+				// mark none first image as data image
+				err := image.markDataImage(userCred)
+				if err != nil {
+					log.Errorf("markDataImage %s fail: %s", image.Name, err)
+					suc = false
+					break
+				}
+			}
 		} else {
+			// create subimg
+			params := jsonutils.DeepCopy(kwargs).(*jsonutils.JSONDict)
+			params.Update(jsonutils.Marshal(subimg))
+			params.Add(jsonutils.JSONTrue, "is_guest_image")
+			if i == len(images)-1 {
+				params.Add(jsonutils.NewString(fmt.Sprintf("%s-%s", gi.Name, "root")), "generate_name")
+			} else {
+				params.Add(jsonutils.NewString(fmt.Sprintf("%s-%s-%d", gi.Name, "data", i)), "generate_name")
+				params.Add(jsonutils.JSONTrue, "is_data")
+			}
+			model, err := db.DoCreate(ImageManager, ctx, userCred, query, params, ownerId)
+			if err != nil {
+				suc = false
+				break
+			}
 			func() {
 				lockman.LockObject(ctx, model)
 				defer lockman.ReleaseObject(ctx, model)
 
 				model.PostCreate(ctx, userCred, ownerId, query, data)
 			}()
-			_, err := GuestImageJointManager.CreateGuestImageJoint(ctx, gi.Id, model.GetId())
-			if err != nil {
-				model.(*SImage).OnJointFailed(ctx, userCred)
-			}
+			creating = true
+			image = model.(*SImage)
+		}
+		_, err = GuestImageJointManager.CreateGuestImageJoint(ctx, gi.Id, image.Id)
+		if err != nil {
+			log.Errorf("join %s fail %s", image.Id, err)
+			image.OnJointFailed(ctx, userCred)
 		}
 	}
 
@@ -178,9 +242,11 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 
 	if !suc {
 		gi.SetStatus(userCred, api.IMAGE_STATUS_KILLED, "create subimage failed")
+	} else if creating {
+		gi.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "")
+	} else {
+		gi.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "")
 	}
-
-	gi.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "")
 }
 
 func (gi *SGuestImage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -269,6 +335,9 @@ func (gi *SGuestImage) PerformCancelDelete(ctx context.Context, userCred mcclien
 
 func (gi *SGuestImage) DoCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	subImages, err := GuestImageJointManager.GetImagesByGuestImageId(gi.Id)
+	if err != nil {
+		return errors.Wrap(err, "GetImagesByGuestImageId")
+	}
 	for i := range subImages {
 		err = subImages[i].DoCancelPendingDelete(ctx, userCred)
 		if err != nil {
@@ -303,12 +372,12 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 		return out
 	}
 	dataImages := make([]api.SubImageInfo, 0, len(images)-1)
-	var rootImage api.SubImageInfo
+	var rootImage *api.SubImageInfo
 	for i := range images {
 		image := images[i]
 		size += image.Size
-		if !image.IsData.IsTrue() {
-			rootImage = api.SubImageInfo{
+		if !image.IsData.IsTrue() && rootImage == nil {
+			rootImage = &api.SubImageInfo{
 				ID:         image.Id,
 				Name:       image.Name,
 				MinDiskMB:  image.MinDiskMB,
@@ -342,7 +411,7 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 		return dataImages[i].Name < dataImages[j].Name
 	})
 	out.Size = size
-	out.RootImage = rootImage
+	out.RootImage = *rootImage
 	out.DataImages = dataImages
 	// properties of root image
 	properties, err := ImagePropertyManager.GetProperties(rootImage.ID)
@@ -417,7 +486,9 @@ func (self *SGuestImage) UpdateSubImage(ctx context.Context, userCred mcclient.T
 
 func (self *SGuestImage) genUpdateImage(ctx context.Context, userCred mcclient.TokenCredential, image *SImage,
 	index int, dict *jsonutils.JSONDict) (func() error, bool) {
-
+	if image.IsGuestImage.IsFalse() {
+		return nil, false
+	}
 	if !dict.Contains("name") && image.IsData.IsTrue() {
 		return nil, false
 	}
