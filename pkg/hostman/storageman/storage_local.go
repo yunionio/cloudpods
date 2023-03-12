@@ -20,6 +20,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -223,6 +224,18 @@ func (s *SLocalStorage) GetAvailSizeMb() int {
 	return sizeMb
 }
 
+func (s *SLocalStorage) GetMediumType() (string, error) {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("lsblk -d -o name,rota $(df -P %s | awk 'NR==2{print $1}') |  awk 'NR==2{print $2}'", s.GetPath())).Output()
+	if err != nil {
+		return api.DISK_TYPE_ROTATE, errors.Wrapf(err, "failed get medium type %s", out)
+	}
+	if strings.TrimSpace(string(out)) == "0" {
+		return api.DISK_TYPE_SSD, nil
+	} else {
+		return api.DISK_TYPE_ROTATE, nil
+	}
+}
+
 func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
 	name := s.GetName(s.GetComposedName)
@@ -230,7 +243,6 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
 	content.Set("actual_capacity_used", jsonutils.NewInt(int64(s.GetUsedSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
-	// content.Set("medium_type", jsonutils.NewString(s.GetMediumType()))
 	content.Set("zone", jsonutils.NewString(s.GetZoneId()))
 	if len(s.Manager.LocalStorageImagecacheManager.GetId()) > 0 {
 		content.Set("storagecache_id",
@@ -248,6 +260,13 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 			hostutils.GetComputeSession(context.Background()),
 			s.StorageId, content)
 	} else {
+		mediumType, err := s.GetMediumType()
+		if err != nil {
+			log.Errorf("failed get medium type %s %s", s.GetPath(), err)
+		} else {
+			content.Set("medium_type", jsonutils.NewString(mediumType))
+		}
+
 		res, err = modules.Storages.Create(
 			hostutils.GetComputeSession(context.Background()), content)
 	}
