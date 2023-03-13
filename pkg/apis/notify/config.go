@@ -141,18 +141,30 @@ type SSendParams struct {
 }
 
 type SendParams struct {
-	Title          string
-	Message        string
-	Priority       string
-	RemoteTemplate string
-	Topic          string
-	Event          string
-	Receivers      SNotifyReceiver
-	EmailMsg       *SEmailMessage
-	DomainId       string
+	Title               string
+	Message             string
+	Priority            string
+	RemoteTemplate      string
+	Topic               string
+	Event               string
+	Receivers           SNotifyReceiver
+	EmailMsg            *SEmailMessage
+	DomainId            string
+	RemoteTemplateParam SRemoteTemplateParam
+}
+
+type SRemoteTemplateParam struct {
+	Code      string `json:"code"`
+	Domain    string `json:"domain"`
+	User      string `json:"user"`
+	Type      string `json:"type"`
+	AlertName string `json:"alert_name"`
 }
 
 type SSMSSendParams struct {
+	RemoteTemplate      string
+	RemoteTemplateParam SRemoteTemplateParam
+
 	AppKey        string
 	AppSecret     string
 	From          string

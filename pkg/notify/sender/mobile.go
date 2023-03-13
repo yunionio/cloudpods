@@ -15,8 +15,6 @@
 package sender
 
 import (
-	"strings"
-
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 
@@ -35,10 +33,10 @@ func (smsSender *SMobileSender) GetSenderType() string {
 
 func (smsSender *SMobileSender) Send(args api.SendParams) error {
 	smsSendParams := api.SSMSSendParams{
-		TemplateId:    strings.Split(args.RemoteTemplate, "/")[1],
-		TemplateParas: args.Message,
-		To:            args.Receivers.Contact,
-		From:          strings.Split(args.RemoteTemplate, "/")[0],
+		TemplateParas:       args.Message,
+		To:                  args.Receivers.Contact,
+		RemoteTemplate:      args.RemoteTemplate,
+		RemoteTemplateParam: args.RemoteTemplateParam,
 	}
 	smsdriver := models.GetSMSDriver(models.ConfigMap[api.MOBILE].Content.SmsDriver)
 	return smsdriver.Send(smsSendParams, false, &api.NotifyConfig{
