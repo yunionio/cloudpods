@@ -23,6 +23,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
@@ -55,6 +56,7 @@ func (d *SAliyunSMSDriver) Send(args api.SSMSSendParams, isVerify bool, config *
 		args.AppSecret = models.ConfigMap[api.MOBILE].Content.AccessKeySecret
 		args.Signature = models.ConfigMap[api.MOBILE].Content.Signature
 	}
+	args.TemplateId = args.RemoteTemplate
 	return d.sendSms(args)
 }
 
@@ -84,7 +86,7 @@ func (d *SAliyunSMSDriver) sendSms(args api.SSMSSendParams) error {
 	request.QueryParams["SignName"] = args.Signature
 
 	request.QueryParams["TemplateCode"] = args.TemplateId
-	request.QueryParams["TemplateParam"] = args.TemplateParas
+	request.QueryParams["TemplateParam"] = jsonutils.Marshal(args.RemoteTemplateParam).String()
 
 	return d.checkResponseAndError(client.ProcessCommonRequest(request))
 }

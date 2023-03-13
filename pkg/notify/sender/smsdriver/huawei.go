@@ -63,6 +63,8 @@ func (d *SHuaweiSMSDriver) Send(args api.SSMSSendParams, isVerify bool, config *
 		args.Signature = models.ConfigMap[api.MOBILE].Content.Signature
 	}
 
+	args.TemplateId = strings.Split(args.RemoteTemplate, "/")[1]
+	args.From = strings.Split(args.RemoteTemplate, "/")[0]
 	return d.sendSms(args)
 }
 
