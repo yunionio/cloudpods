@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -54,7 +55,7 @@ func (self *SHostedZone) GetId() string {
 }
 
 func (self *SHostedZone) GetName() string {
-	return self.Name
+	return strings.TrimSuffix(self.Name, ".")
 }
 
 func (self *SHostedZone) GetGlobalId() string {
