@@ -513,6 +513,11 @@ func init() {
 			"数据库记录",
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_VM_INTEGRITY_CHECK,
+			"vm server integrity check",
+			"虚拟主机完整性校验",
+		},
+		sI18nElme{
 			api.TOPIC_RESOURCE_ACTION_LOG,
 			"action log",
 			"操作日志",

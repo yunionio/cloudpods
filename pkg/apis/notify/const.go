@@ -130,6 +130,7 @@ const (
 	TOPIC_RESOURCE_WORKER                   = "worker"
 	TOPIC_RESOURCE_NET                      = "net"
 	TOPIC_RESOURCE_SERVICE                  = "service"
+	TOPIC_RESOURCE_VM_INTEGRITY_CHECK       = "vm_integrity"
 
 	SUBSCRIBER_TYPE_ROLE     = "role"
 	SUBSCRIBER_TYPE_ROBOT    = "robot"
