@@ -332,6 +332,7 @@ func (sm *STopicManager) InitializeData() error {
 		case DefaultChecksumTestFailed:
 			t.addResources(
 				notify.TOPIC_RESOURCE_DB_TABLE_RECORD,
+				notify.TOPIC_RESOURCE_VM_INTEGRITY_CHECK,
 				notify.TOPIC_RESOURCE_CLOUDPODS_COMPONENT,
 				notify.TOPIC_RESOURCE_SNAPSHOT,
 				notify.TOPIC_RESOURCE_IMAGE,
@@ -682,6 +683,7 @@ func init() {
 			notify.TOPIC_RESOURCE_ACCOUNT_STATUS:           38,
 			notify.TOPIC_RESOURCE_NET:                      39,
 			notify.TOPIC_RESOURCE_SERVICE:                  40,
+			notify.TOPIC_RESOURCE_VM_INTEGRITY_CHECK:       41,
 		},
 	)
 	converter.registerAction(
