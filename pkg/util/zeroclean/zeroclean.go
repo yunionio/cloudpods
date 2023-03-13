@@ -29,7 +29,10 @@ func ZeroFile(filename string) error {
 	if err != nil {
 		return errors.Wrap(err, "os.OpenFile")
 	}
-	defer f.Close()
+	defer func() {
+		f.Sync()
+		f.Close()
+	}()
 
 	info, err := f.Stat()
 	if err != nil {
