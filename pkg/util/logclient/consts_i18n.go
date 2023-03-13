@@ -1351,4 +1351,29 @@ func init() {
 		EN("WebSSH").
 		CN("WebSSH"),
 	)
+
+	o.Set(ACT_CLOUDACCOUNT_SYNC_NETWORK, i18n.NewTableEntry().
+		EN("Probe Network").
+		CN("探测网络配置"),
+	)
+
+	o.Set(ACT_EXPORT, i18n.NewTableEntry().
+		EN("Export").
+		CN("导出"),
+	)
+
+	o.Set(ACT_CANCEL, i18n.NewTableEntry().
+		EN("Cancel").
+		CN("取消"),
+	)
+
+	o.Set(ACT_START, i18n.NewTableEntry().
+		EN("Start").
+		CN("开始"),
+	)
+
+	o.Set(ACT_DONE, i18n.NewTableEntry().
+		EN("Done").
+		CN("完成"),
+	)
 }
