@@ -106,6 +106,7 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.taskFailed(ctx, receiver, err.Error())
 		return
 	}
+	param.RemoteTemplateParam = api.SRemoteTemplateParam{Code: verification.Token}
 	param.Receivers = notifyReceiver
 	param.EmailMsg = emailMsg
 	driver := models.GetDriver(contactType)
