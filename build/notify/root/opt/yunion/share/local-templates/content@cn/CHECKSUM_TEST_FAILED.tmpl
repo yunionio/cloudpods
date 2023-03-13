@@ -11,3 +11,6 @@
 {{- if eq .resource_type "image" }}
 镜像{{ $d.name }}完整性校验失败
 {{- end -}}
+{{- if eq .resource_type "vm_integrity" }}
+主机{{ $d.name }}完整性校验失败
+{{- end -}}

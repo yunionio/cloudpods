@@ -429,3 +429,9 @@ func FetchNotifyAdminRecipients(ctx context.Context, region string, users []stri
 		}
 	}
 }
+
+func NotifyVmIntegrity(ctx context.Context, name string) {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(name), "name")
+	SystemExceptionNotifyWithResult(ctx, api.ActionChecksumTest, api.TOPIC_RESOURCE_DB_TABLE_RECORD, api.ResultFailed, data)
+}
