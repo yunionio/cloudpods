@@ -132,7 +132,11 @@ func pingProbeNetwork(s *mcclient.ClientSession, net sNetwork) ([]influxdb.SMetr
 		addrStr := addr.String()
 		pingAddrs = append(pingAddrs, addrStr)
 	}
-	pingResults, err := Ping(pingAddrs)
+	pingResults, err := Ping(pingAddrs,
+		options.Options.PingProbeOptions.ProbeCount,
+		options.Options.PingProbeOptions.TimeoutSecond,
+		options.Options.PingProbeOptions.Debug,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "Ping")
 	}

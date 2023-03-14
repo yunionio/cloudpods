@@ -22,10 +22,10 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
@@ -37,14 +37,10 @@ var (
 
 func AddHostHandler(prefix string, app *appsrv.Application) {
 	for _, keyword := range keyWords {
-		app.AddHandler("POST", fmt.Sprintf("%s/%s/shutdown-servers-on-host-down", prefix, keyword),
-			auth.Authenticate(setOnHostDown))
-		app.AddHandler("GET", fmt.Sprintf("%s/%s/health-status", prefix, keyword),
-			auth.Authenticate(getHealthManagerStatus))
-
 		for action, f := range map[string]actionFunc{
-			"sync":                   hostSync,
-			"probe-isolated-devices": hostProbeIsolatedDevices,
+			"sync":                          hostSync,
+			"probe-isolated-devices":        hostProbeIsolatedDevices,
+			"shutdown-servers-on-host-down": setOnHostDown,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyword, action),
@@ -54,17 +50,17 @@ func AddHostHandler(prefix string, app *appsrv.Application) {
 	}
 }
 
-func setOnHostDown(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	if err := host_health.SetOnHostDown(hostconsts.SHUTDOWN_SERVERS); err != nil {
-		hostutils.Response(ctx, w, err)
-		return
+func setOnHostDown(ctx context.Context, hostId string, body jsonutils.JSONObject) (interface{}, error) {
+	if !body.Contains("shutdown_servers") {
+		return nil, httperrors.NewMissingParameterError("shutdown_servers")
 	}
-	hostutils.ResponseOk(ctx, w)
-}
 
-func getHealthManagerStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	status := host_health.GetHealthStatus()
-	hostutils.Response(ctx, w, map[string]string{"status": status})
+	if jsonutils.QueryBoolean(body, "shutdown_servers", false) {
+		hostinfo.Instance().SetOnHostDown(hostconsts.SHUTDOWN_SERVERS)
+	} else {
+		hostinfo.Instance().SetOnHostDown("")
+	}
+	return nil, nil
 }
 
 func hostActions(f actionFunc) appsrv.FilterHandler {

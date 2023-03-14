@@ -22,11 +22,11 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
+	"yunion.io/x/onecloud/pkg/cloudmon/misc"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
@@ -99,8 +99,8 @@ func (h *SHostHealthChecker) startWatcher(ctx context.Context, hostname string) 
 	}
 	if err := h.cli.Watch(
 		ctx, key,
-		h.onHostOnline(ctx, hostname),
-		h.onHostOffline(ctx, hostname),
+		h.onHostOnlineCreated(ctx, hostname),
+		h.onHostOnlineModified(ctx, hostname),
 		h.onHostOfflineDeleted(ctx, hostname),
 	); err != nil {
 		return err
@@ -131,15 +131,22 @@ func (h *SHostHealthChecker) onHostUnhealthy(ctx context.Context, hostname strin
 	lockman.LockRawObject(ctx, api.HOST_HEALTH_LOCK_PREFIX, hostname)
 	defer lockman.ReleaseRawObject(ctx, api.HOST_HEALTH_LOCK_PREFIX, hostname)
 	host := HostManager.FetchHostByHostname(hostname)
-	if host != nil && !utils.IsInStringArray(host.RemoteHealthStatus(ctx),
-		[]string{api.HOST_HEALTH_STATUS_RECONNECTING, api.HOST_HEALTH_STATUS_RUNNING},
-	) {
-		// in case hostagent health manager in status reconnecting
-		host.OnHostDown(ctx, auth.AdminCredential())
+	if host != nil {
+		pingRes, err := misc.Ping([]string{host.AccessIp}, 3, 10, true)
+		if err != nil {
+			log.Errorf("failed ping dest host %s", hostname)
+			return
+		}
+		if ps := pingRes[host.AccessIp]; ps.Loss() < 100 {
+			log.Infof("ping host %s access ip %s succeed %s, skip host down", hostname, host.AccessIp, ps)
+		} else {
+			log.Errorf("ping host %s access ip %s failed %s, host down", hostname, host.AccessIp, ps)
+			host.OnHostDown(ctx, auth.AdminCredential())
+		}
 	}
 }
 
-func (h *SHostHealthChecker) onHostOnline(ctx context.Context, hostname string) etcd.TEtcdCreateEventFunc {
+func (h *SHostHealthChecker) onHostOnlineCreated(ctx context.Context, hostname string) etcd.TEtcdCreateEventFunc {
 	return func(ctx context.Context, key, value []byte) {
 		log.Infof("Got host online %s", hostname)
 		if v, ok := h.hc.Load(hostname); ok {
@@ -163,10 +170,10 @@ func (h *SHostHealthChecker) processHostOffline(ctx context.Context, hostname st
 	}()
 }
 
-func (h *SHostHealthChecker) onHostOffline(ctx context.Context, hostname string) etcd.TEtcdModifyEventFunc {
+func (h *SHostHealthChecker) onHostOnlineModified(ctx context.Context, hostname string) etcd.TEtcdModifyEventFunc {
 	return func(ctx context.Context, key, oldvalue, value []byte) {
-		log.Errorf("watch host key modified %s %s %s", key, oldvalue, value)
-		h.processHostOffline(ctx, hostname)
+		log.Infof("watch host key modified %s %s %s", key, oldvalue, value)
+		h.onHostOnlineCreated(ctx, hostname)
 	}
 }
 
@@ -178,6 +185,7 @@ func (h *SHostHealthChecker) onHostOfflineDeleted(ctx context.Context, hostname 
 }
 
 func (h *SHostHealthChecker) WatchHost(ctx context.Context, hostname string) error {
+	h.onHostOnlineCreated(ctx, hostname)
 	h.cli.Unwatch(hostKey(hostname))
 	return h.startWatcher(ctx, hostname)
 }
