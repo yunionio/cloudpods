@@ -273,13 +273,13 @@ func (self *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	return ret, nil
 }
 
-func (self *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+func (self *SRegion) GetIBucketById(id string) (cloudprovider.ICloudBucket, error) {
 	buckets, err := self.GetIBuckets()
 	if err != nil {
 		return nil, err
 	}
 	for i := range buckets {
-		if buckets[i].GetName() == name {
+		if buckets[i].GetId() == id {
 			return buckets[i], nil
 		}
 	}

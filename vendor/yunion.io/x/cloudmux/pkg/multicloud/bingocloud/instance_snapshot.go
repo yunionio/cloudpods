@@ -119,14 +119,21 @@ func (self *SRegion) getInstanceSnapshots(instanceId, snapshotId string) ([]SIns
 
 func (self *SRegion) deleteInstanceSnapshot(id string) error {
 	params := map[string]string{}
-	params["InstanceSnapshotId"] = id
+	params["InstanceSnapshotId.1"] = id
 	_, err := self.client.invoke("DeleteInstanceSnapshots", params)
 	return err
 }
 
 func (self *SRegion) revertInstanceSnapshot(id string) error {
 	params := map[string]string{}
-	params["InstanceSnapshotId"] = id
+	params["InstanceSnapshotId.1"] = id
 	_, err := self.client.invoke("RevertInstanceSnapshot", params)
+	return err
+}
+
+func (self *SRegion) deleteInstanceBackup(id string) error {
+	params := map[string]string{}
+	params["BackupId"] = id
+	_, err := self.client.invoke("DeleteInstanceBackup", params)
 	return err
 }

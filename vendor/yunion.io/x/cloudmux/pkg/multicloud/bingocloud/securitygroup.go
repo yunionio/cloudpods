@@ -200,12 +200,15 @@ func (self *SRegion) addSecurityGroupRules(secGrpId string, rule cloudprovider.S
 
 func (self *SRegion) GetSecurityGroups(id, name, nextToken string) ([]SSecurityGroup, string, error) {
 	params := map[string]string{}
+	params["Filter.1.Name"] = "owner-id"
+	params["Filter.1.Value.1"] = self.getAccountUser()
+
 	if len(id) > 0 {
 		params["GroupId.1"] = id
 	}
 	if len(name) > 0 {
-		params["Filter.1.Name"] = "group-name"
-		params["Filter.1.Value.1"] = name
+		params["Filter.2.Name"] = "group-name"
+		params["Filter.2.Value.1"] = name
 	}
 	if len(nextToken) > 0 {
 		params["NextToken"] = nextToken
