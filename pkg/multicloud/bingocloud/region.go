@@ -79,6 +79,18 @@ func (self *SRegion) GetCloudEnv() string {
 	return ""
 }
 
+func (self *SRegion) getAccountUser() string {
+	quotas, err := self.GetQuotas()
+	if err != nil {
+		return ""
+	}
+	ownerId := ""
+	if len(quotas) > 0 {
+		ownerId = quotas[0].OwnerId
+	}
+	return ownerId
+}
+
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	return cloudprovider.SGeographicInfo{}
 }

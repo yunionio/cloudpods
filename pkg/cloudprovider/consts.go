@@ -39,6 +39,8 @@ const (
 
 	ErrInvalidProvider     = httperrors.ErrInvalidProvider
 	ErrNoBalancePermission = httperrors.ErrNoBalancePermission
+
+	ErrUnknown = errors.Error("UnknownError")
 )
 
 const (

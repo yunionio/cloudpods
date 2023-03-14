@@ -118,7 +118,16 @@ func (self *SBingoCloudProvider) GetVersion() string {
 }
 
 func (self *SBingoCloudProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+	self.GetAccountId()
 	return self.client.GetSubAccounts()
+}
+
+func (self *SBingoCloudProvider) CreateSubscription(cloudprovider.SubscriptionCreateInput) error {
+	return nil
+}
+
+func (self *SBingoCloudProvider) GetEnrollmentAccounts() ([]cloudprovider.SEnrollmentAccount, error) {
+	return self.client.GetEnrollmentAccounts()
 }
 
 func (self *SBingoCloudProvider) GetAccountId() string {

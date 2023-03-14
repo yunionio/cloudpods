@@ -355,7 +355,7 @@ func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	snapshots := make([]SSnapshot, 0)
 	for {
-		parts, total, err := self.storage.zone.region.GetSnapshots("", self.DiskId, "", []string{}, 0, 20)
+		parts, total, err := self.storage.zone.region.GetSnapshots("", self.DiskId, "", []string{}, len(snapshots), 20)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetSnapshots(%s)", self.DiskId)
 		}
