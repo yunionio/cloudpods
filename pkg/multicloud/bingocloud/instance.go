@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -156,7 +157,7 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
-	return nil
+	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, map[string]string{"GroupId": secgroupIds[0]})
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
@@ -172,7 +173,11 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
-	return cloudprovider.ErrNotImplemented
+	attrs := make(map[string]string)
+	if password != "" {
+		attrs["InstanceAction"] = "ResetPassword"
+	}
+	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, attrs)
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
@@ -360,13 +365,53 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 }
 
 func (self *SInstance) RebuildRoot(ctx context.Context, config *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	params := map[string]string{}
+	params["InstanceId"] = self.InstancesSet.InstanceId
+	params["ImageId"] = config.ImageId
+	params["InstanceType"] = self.InstancesSet.InstanceType
+	if config.PublicKey != "" {
+		params["KeyName"] = config.PublicKey
+	}
+
+	isOk := "false"
+	result, err := self.node.cluster.region.invoke("ReinstallInstance", params)
+	if err != nil {
+		return "", err
+	}
+	_ = result.Unmarshal(&isOk, "return")
+	if isOk != "true" {
+		return "", errors.Wrap(cloudprovider.ErrUnknown, "RebuildRoot")
+	}
+
+	iDisks, err := self.GetIDisks()
+	if err != nil {
+		return "", err
+	}
+	if len(iDisks) > 0 {
+		return iDisks[0].GetGlobalId(), nil
+	}
+
+	return "", errors.Wrap(cloudprovider.ErrUnknown, "RebuildRoot")
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
 	params := map[string]string{}
 	params["InstanceId.1"] = self.InstancesSet.InstanceId
 	_, err := self.node.cluster.region.invoke("StartInstances", params)
+	return err
+}
+
+func (self *SInstance) SuspendVM(ctx context.Context) error {
+	params := map[string]string{}
+	params["InstanceId.1"] = self.InstancesSet.InstanceId
+	_, err := self.node.cluster.region.invoke("SuspendInstances", params)
+	return err
+}
+
+func (self *SInstance) ResumeVM(ctx context.Context) error {
+	params := map[string]string{}
+	params["InstanceId.1"] = self.InstancesSet.InstanceId
+	_, err := self.node.cluster.region.invoke("ResumeInstances", params)
 	return err
 }
 
@@ -378,11 +423,15 @@ func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerSto
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
-	return cloudprovider.ErrNotImplemented
+	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, map[string]string{"UserData": userData})
+}
+
+func (self *SInstance) UpdateInstanceType(instanceType string) error {
+	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, map[string]string{"InstanceType": instanceType})
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return cloudprovider.ErrNotImplemented
+	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, map[string]string{"InstanceName": name})
 }
 
 func (self *SInstance) CreateInstanceSnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudInstanceSnapshot, error) {
@@ -399,6 +448,19 @@ func (self *SInstance) GetInstanceSnapshots() ([]cloudprovider.ICloudInstanceSna
 
 func (self *SInstance) ResetToInstanceSnapshot(ctx context.Context, idStr string) error {
 	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	vms, _, err := self.GetInstances(id, "", 1, "")
+	if err != nil {
+		return nil, err
+	}
+	for i := range vms {
+		if vms[i].GetGlobalId() == id {
+			return &vms[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetInstances(id, nodeId string, maxResult int, nextToken string) ([]SInstance, string, error) {
@@ -434,4 +496,18 @@ func (self *SRegion) GetInstances(id, nodeId string, maxResult int, nextToken st
 	_ = resp.Unmarshal(&result)
 
 	return result.ReservationSet, result.NextToken, nil
+}
+
+func (self *SRegion) modifyInstanceAttribute(instanceId string, attrs map[string]string) error {
+	params := map[string]string{}
+	params["InstanceId"] = instanceId
+	for key, value := range attrs {
+		params["Attribute"] = key
+		params["Value"] = value
+		_, err := self.client.invoke("ModifyInstanceAttribute", params)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

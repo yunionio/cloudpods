@@ -60,10 +60,6 @@ func (self *SStorage) GetGlobalId() string {
 	return self.GetId()
 }
 
-func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SStorage) DisableSync() bool {
 	return false
 }

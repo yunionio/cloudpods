@@ -108,13 +108,13 @@ func (self *SBingoCloudClient) GetRegion(id string) (*SRegion, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (cli *SBingoCloudClient) getDefaultClient(timeout time.Duration) *http.Client {
+func (self *SBingoCloudClient) getDefaultClient(timeout time.Duration) *http.Client {
 	client := httputils.GetDefaultClient()
 	if timeout > 0 {
 		client = httputils.GetTimeoutClient(timeout)
 	}
-	if cli.cpcfg.ProxyFunc != nil {
-		httputils.SetClientProxyFunc(client, cli.cpcfg.ProxyFunc)
+	if self.cpcfg.ProxyFunc != nil {
+		httputils.SetClientProxyFunc(client, self.cpcfg.ProxyFunc)
 	}
 	return client
 }
@@ -282,14 +282,70 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 }
 
 func (self *SBingoCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	subAccount := cloudprovider.SSubAccount{
-		Account: self.accessKey,
-		Name:    self.cpcfg.Name,
-
-		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	var tags []struct {
+		ResourceId string `json:"resourceId"`
+		Value      string `json:"value"`
 	}
-	return []cloudprovider.SSubAccount{subAccount}, nil
 
+	filter := map[string]string{}
+	filter["resource-type"] = "user"
+	filter["key"] = "ProjectID"
+	result, err := self.describeTags(filter)
+	if err != nil {
+		return nil, err
+	}
+	_ = result.Unmarshal(&tags, "tagSet")
+
+	var subAccounts []cloudprovider.SSubAccount
+	for i := range tags {
+		subAccount := cloudprovider.SSubAccount{
+			Account:          self.accessKey,
+			Name:             tags[i].ResourceId,
+			DefaultProjectId: tags[i].Value,
+			HealthStatus:     api.CLOUD_PROVIDER_HEALTH_NORMAL,
+		}
+		subAccounts = append(subAccounts, subAccount)
+	}
+	return subAccounts, nil
+}
+
+func (self *SBingoCloudClient) GetEnrollmentAccounts() ([]cloudprovider.SEnrollmentAccount, error) {
+	params := map[string]string{"Marker": "", "MaxItems": "1000", "AccountName": "paas_app"}
+	var result struct {
+		IsTruncated string
+		Marker      string `json:"marker,omitempty"`
+		Users       struct {
+			Member *SAccount `json:"member,omitempty"`
+		}
+	}
+	var eas []cloudprovider.SEnrollmentAccount
+	for {
+		resp, err := self.invoke("ListAccounts", params)
+		if err != nil {
+			return nil, err
+		}
+		err = resp.Unmarshal(&result, "ListAccountsResult")
+		if err != nil {
+			return nil, err
+		}
+		ea := cloudprovider.SEnrollmentAccount{
+			Id:   result.Users.Member.UserId,
+			Name: result.Users.Member.UserName,
+		}
+		eas = append(eas, ea)
+		//for _, user := range result.Users.Member {
+		//	ea := cloudprovider.SEnrollmentAccount{
+		//		Id:   user.UserId,
+		//		Name: user.UserName,
+		//	}
+		//	eas = append(eas, ea)
+		//}
+		if params["Marker"] == result.Marker {
+			break
+		}
+		params["Marker"] = result.Marker
+	}
+	return eas, nil
 }
 
 func (self *SBingoCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
@@ -299,6 +355,17 @@ func (self *SBingoCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
 		ret = append(ret, &self.regions[i])
 	}
 	return ret
+}
+
+func (self *SBingoCloudClient) describeTags(filter map[string]string) (jsonutils.JSONObject, error) {
+	params := map[string]string{"MaxResults": "10000"}
+	i := 1
+	for k, v := range filter {
+		params[fmt.Sprintf("Filter.%v.Name", i)] = k
+		params[fmt.Sprintf("Filter.%v.Value.1", i)] = v
+		i++
+	}
+	return self.invoke("DescribeTags", params)
 }
 
 func (self *SBingoCloudClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
@@ -313,8 +380,10 @@ func (self *SBingoCloudClient) GetIRegionById(id string) (cloudprovider.ICloudRe
 
 func (self *SBingoCloudClient) GetCapabilities() []string {
 	return []string{
-		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
-		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
-		cloudprovider.CLOUD_CAPABILITY_EIP + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_EIP,
+		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 	}
 }
