@@ -14,14 +14,16 @@
 
 package compute
 
-type sPair struct {
-	ID         string
+type SSubImage struct {
+	Id         string
 	Name       string
 	MinDiskMB  int32
 	DiskFormat string
 }
 
 type SImagesInGuest struct {
-	RootImage  sPair
-	DataImages []sPair
+	Id         string
+	Name       string
+	RootImage  SSubImage
+	DataImages []SSubImage
 }
