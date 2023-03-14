@@ -17,6 +17,7 @@ package bingocloud
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"yunion.io/x/pkg/errors"
 
@@ -271,4 +272,20 @@ func (self *SRegion) GetDisk(id string) (*SDisk, error) {
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}
+
+func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	params := map[string]string{}
+	params["VolumeName"] = conf.Name
+	params["AvailabilityZone"] = self.cluster.ClusterId
+	params["Size"] = strconv.Itoa(conf.SizeGb)
+
+	resp, err := self.cluster.region.invoke("CreateVolume", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SDisk{}
+	_ = resp.Unmarshal(&ret)
+
+	return ret, nil
 }
