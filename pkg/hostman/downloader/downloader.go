@@ -87,6 +87,7 @@ func (d *SDownloadProvider) Start(
 	reader = fi
 
 	size := stat.Size()
+	d.w.Header().Set("X-File-Size", fmt.Sprintf("%d", size))
 	if d.sparse {
 		sparse, err := sparsefile.NewSparseFileReader(fi)
 		if err != nil {
