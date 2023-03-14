@@ -1121,6 +1121,31 @@ func (self *SHostManager) IsNewNameUnique(name string, userCred mcclient.TokenCr
 	return cnt == 0, nil
 }
 
+func (self *SHostManager) GetPropertyK8sMasterNodeIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	cli, err := tokens.GetCoreClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "get k8s client")
+	}
+	nodes, err := cli.Nodes().List(context.Background(), metav1.ListOptions{
+		LabelSelector: "node-role.kubernetes.io/master",
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "list master nodes")
+	}
+	ips := make([]string, 0)
+	for i := range nodes.Items {
+		for j := range nodes.Items[i].Status.Addresses {
+			if nodes.Items[i].Status.Addresses[j].Type == v1.NodeInternalIP {
+				ips = append(ips, nodes.Items[i].Status.Addresses[j].Address)
+			}
+		}
+	}
+	log.Infof("k8s master nodes ips %v", ips)
+	res := jsonutils.NewDict()
+	res.Set("ips", jsonutils.Marshal(ips))
+	return res, nil
+}
+
 func (self *SHostManager) GetPropertyBmStartRegisterScript(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	regionUri, err := auth.GetPublicServiceURL("compute_v2", options.Options.Region, "")
 	if err != nil {
@@ -4068,15 +4093,18 @@ func (self *SHost) PerformAutoMigrateOnHostDown(
 		meta[api.HOSTMETA_AUTO_MIGRATE_ON_HOST_SHUTDOWN] = "disable"
 	}
 
+	data := jsonutils.NewDict()
 	if input.AutoMigrateOnHostDown == "enable" {
+		data.Set("shutdown_servers", jsonutils.JSONTrue)
 		meta[api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN] = "enable"
-		_, err := self.Request(ctx, userCred, "POST", "/hosts/shutdown-servers-on-host-down",
-			mcclient.GetTokenHeaders(userCred), nil)
-		if err != nil {
-			return nil, err
-		}
 	} else if input.AutoMigrateOnHostDown == "disable" {
 		meta[api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN] = "disable"
+		data.Set("shutdown_servers", jsonutils.JSONFalse)
+	}
+	_, err := self.Request(ctx, userCred, "POST", "/hosts/shutdown-servers-on-host-down",
+		mcclient.GetTokenHeaders(userCred), data)
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, self.SetAllMetadata(ctx, meta, userCred)

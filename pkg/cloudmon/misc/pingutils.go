@@ -22,8 +22,6 @@ import (
 	"github.com/tatsushid/go-fastping"
 
 	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/cloudmon/options"
 )
 
 type SPingResult struct {
@@ -72,13 +70,13 @@ func (pr SPingResult) String() string {
 	return fmt.Sprintf("%d packets transmitted, %d received, %d%% packet loss, rtt min/avg/max = %d/%d/%d ms", pr.count, len(pr.rtt), pr.Loss(), min/time.Millisecond, avg/time.Millisecond, max/time.Millisecond)
 }
 
-func Ping(addrList []string) (map[string]*SPingResult, error) {
+func Ping(addrList []string, probeCount, timeoutSecond int, debug bool) (map[string]*SPingResult, error) {
 	p := fastping.NewPinger()
-	count := options.Options.PingProbeOptions.ProbeCount
-	timeout := time.Second * time.Duration(options.Options.PingProbeOptions.TimeoutSecond)
+	count := probeCount
+	timeout := time.Second * time.Duration(timeoutSecond)
 	p.MaxRTT = timeout
 	p.Size = 64
-	p.Debug = options.Options.PingProbeOptions.Debug
+	p.Debug = debug
 	result := make(map[string]*SPingResult)
 	for _, addr := range addrList {
 		result[addr] = NewPingResult(addr, count)

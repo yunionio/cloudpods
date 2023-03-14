@@ -18,10 +18,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
+	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
@@ -38,6 +41,7 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type IHost interface {
@@ -157,6 +161,20 @@ func UpdateServerProgress(ctx context.Context, sid string, progress, progressMbp
 		"progress_mbps": progressMbps,
 	}
 	return modules.Servers.Update(GetComputeSession(ctx), sid, jsonutils.Marshal(params))
+}
+
+func IsGuestDir(f os.FileInfo, serversPath string) bool {
+	if !regutils.MatchUUID(f.Name()) {
+		return false
+	}
+	if !f.Mode().IsDir() && f.Mode()&os.ModeSymlink == 0 {
+		return false
+	}
+	descFile := path.Join(serversPath, f.Name(), "desc")
+	if !fileutils2.Exists(descFile) {
+		return false
+	}
+	return true
 }
 
 func ResponseOk(ctx context.Context, w http.ResponseWriter) {
