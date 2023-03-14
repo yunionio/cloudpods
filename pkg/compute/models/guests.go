@@ -6074,17 +6074,6 @@ func (self *SGuest) getGuestUsage(guestCount int) (SQuota, SRegionQuota, error) 
 }
 
 func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.ServerCreateInput) error {
-	// There is no need to check the availability of guest imag if input.Disks is empty
-	if len(input.Disks) == 0 {
-		return nil
-	}
-	// That data disks has image id show that these image is part of guest image
-	for _, config := range input.Disks[1:] {
-		if len(config.ImageId) != 0 && len(input.GuestImageID) == 0 {
-			return httperrors.NewMissingParameterError("guest_image_id")
-		}
-	}
-
 	if len(input.GuestImageID) == 0 {
 		return nil
 	}
@@ -6099,35 +6088,36 @@ func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.Serve
 		return errors.Wrap(err, "get guest image from glance error")
 	}
 
-	// input.GuestImageID maybe name of guestimage
-	if ret.Contains("id") {
-		id, _ := ret.GetString("id")
-		input.GuestImageID = id
-	}
-
 	images := &api.SImagesInGuest{}
 	err = ret.Unmarshal(images)
 	if err != nil {
-		return errors.Wrap(err, "get guest image from glance error")
+		return errors.Wrap(err, "unmarshal guest image")
 	}
-	imageIdMap := make(map[string]struct{})
-	for _, pair := range images.DataImages {
-		imageIdMap[pair.ID] = struct{}{}
-	}
-	imageIdMap[images.RootImage.ID] = struct{}{}
+	input.GuestImageID = images.Id
 
-	// check
-	for _, diskConfig := range input.Disks {
-		if len(diskConfig.ImageId) != 0 {
-			if _, ok := imageIdMap[diskConfig.ImageId]; !ok {
-				return httperrors.NewBadRequestError("image %s do not belong to guest image %s", diskConfig.ImageId, guestImageId)
-			}
-			delete(imageIdMap, diskConfig.ImageId)
+	log.Infof("usage guest image %s(%s)", images.Name, images.Id)
+
+	if len(input.Disks) > 0 {
+		input.Disks[0].ImageId = images.RootImage.Id
+	} else {
+		input.Disks = append(input.Disks,
+			&api.DiskConfig{
+				ImageId: images.RootImage.Id,
+			},
+		)
+	}
+	for i := range images.DataImages {
+		if len(input.Disks) > i+1 {
+			input.Disks[i+1].ImageId = images.DataImages[i].Id
+		} else {
+			input.Disks = append(input.Disks,
+				&api.DiskConfig{
+					ImageId: images.DataImages[i].Id,
+				},
+			)
 		}
 	}
-	if len(imageIdMap) != 0 {
-		return httperrors.NewBadRequestError("miss some subimage of guest image")
-	}
+
 	return nil
 }
 

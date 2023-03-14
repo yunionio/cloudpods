@@ -545,6 +545,8 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		EnableMemclean:     opts.EnableMemclean,
 	}
 
+	params.ProjectId = opts.Project
+
 	if opts.FakeCreate != nil {
 		params.FakeCreate = *opts.FakeCreate
 	}
