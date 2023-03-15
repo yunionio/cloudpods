@@ -244,6 +244,13 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback 
 
 			if sparseHeader > 0 {
 				writer = sparsefile.NewSparseFileWriter(fi, sparseHeader, totalSize)
+				fileSize, _ := strconv.ParseInt(resp.Header.Get("X-File-Size"), 10, 64)
+				if fileSize > 0 {
+					err = fi.Truncate(fileSize)
+					if err != nil {
+						return errors.Wrapf(err, "failed truncate file")
+					}
+				}
 			}
 
 			pb := pb.NewProxyReader(reader, totalSize)
