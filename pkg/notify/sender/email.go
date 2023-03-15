@@ -27,6 +27,7 @@ import (
 	gomail "gopkg.in/mail.v2"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 
@@ -106,23 +107,25 @@ func (emailSender *SEmailSender) Send(args api.SendParams) error {
 						return errors.Wrap(err, "WriteContent")
 					}),
 				)
-
-				errs := make([]error, 0)
-				for tryTime := 3; tryTime > 0; tryTime-- {
-					err = gomail.Send(sender, gmsg)
-					if err != nil {
-						errs = append(errs, err)
-						time.Sleep(time.Second * 10)
-						continue
-					}
-					errs = errs[0:0]
-					break
-				}
-
-				if len(errs) > 0 {
-					retErr[to] = errors.NewAggregate(errs)
-				}
 			}
+			errs := make([]error, 0)
+			for tryTime := 3; tryTime > 0; tryTime-- {
+				err = gomail.Send(sender, gmsg)
+				if err != nil {
+					errs = append(errs, err)
+					time.Sleep(time.Second * 10)
+					continue
+				}
+				errs = errs[0:0]
+				break
+			}
+
+			if len(errs) > 0 {
+				retErr[to] = errors.NewAggregate(errs)
+			}
+		}
+		if len(retErr) > 0 {
+			log.Errorf("send email error:%v", jsonutils.Marshal(retErr))
 		}
 	}
 
