@@ -275,7 +275,7 @@ apt install -y git ansible
 
 ```bash
 # Git clone the ocboot installation tool locally
-$ git clone -b release/3.8 https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168.26.216
+$ git clone -b release/3.9 https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168.26.216
 ```
 
 大概10-30分钟后，安装完成。访问 https://10.168.26.216 登入Cloudpods的Web控制台。初始的账号为 *admin* ，密码为 *admin@123*
