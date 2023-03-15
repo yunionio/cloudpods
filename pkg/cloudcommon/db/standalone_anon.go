@@ -45,7 +45,7 @@ type SStandaloneAnonResourceBase struct {
 	SResourceBase
 
 	// 资源UUID
-	Id string `width:"128" charset:"ascii" primary:"true" list:"user" json:"id"`
+	Id string `width:"128" charset:"ascii" primary:"true" list:"user" create:"optional" json:"id"`
 
 	// 资源描述信息
 	Description string `width:"256" charset:"utf8" get:"user" list:"user" update:"user" create:"optional" json:"description"`
