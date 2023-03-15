@@ -139,7 +139,7 @@ type SCloudaccount struct {
 	Brand string `width:"64" charset:"utf8" nullable:"true" list:"domain" create:"optional"`
 
 	// 额外信息
-	Options *jsonutils.JSONDict `get:"domain" create:"domain_optional" update:"domain"`
+	Options *jsonutils.JSONDict `get:"domain" list:"domain" create:"domain_optional" update:"domain"`
 
 	// for backward compatiblity, keep is_public field, but not usable
 	// IsPublic bool `default:"false" nullable:"false"`
