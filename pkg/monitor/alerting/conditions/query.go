@@ -529,7 +529,8 @@ func (c *QueryCondition) setResType() {
 		resType = metricMeasurement.ResType
 		c.ResType = resType
 	}
-	if len(resType) != 0 && c.Query.Model.GroupBy[0].Params[0] != monitor.
+	// NOTE: shouldn't set ResType when tenant_id and domain_id within GroupBy
+	/* if len(resType) != 0 && c.Query.Model.GroupBy[0].Params[0] != monitor.
 		MEASUREMENT_TAG_ID[resType] {
 		for _, groupBy := range c.Query.Model.GroupBy {
 			tag := groupBy.Params[0]
@@ -542,7 +543,7 @@ func (c *QueryCondition) setResType() {
 				break
 			}
 		}
-	}
+	} */
 	if c.Query.Model.Database == monitor.METRIC_DATABASE_TELE {
 		c.ResType = resType
 	}
