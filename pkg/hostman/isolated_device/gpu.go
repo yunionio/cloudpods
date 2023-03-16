@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 const (
@@ -170,9 +171,11 @@ func (dev *sGPUBaseDevice) CustomProbe() error {
 	}
 	grubCmdline = strings.TrimSpace(grubCmdline)
 	params := sets.NewString(strings.Split(grubCmdline, " ")...)
-	if !params.IsSuperset(sets.NewString("intel_iommu=on",
-		"vfio_iommu_type1.allow_unsafe_interrupts=1")) {
-		return fmt.Errorf("Some GRUB_CMDLINE iommu parameters are missing")
+	if !params.IsSuperset(sets.NewString("vfio_iommu_type1.allow_unsafe_interrupts=1")) {
+		return fmt.Errorf("GRUB_CMDLINE iommu parameters vfio_iommu_type1.allow_unsafe_interrupts=1 missing")
+	}
+	if sysutils.IsProcessorIntel() && !params.IsSuperset(sets.NewString("intel_iommu=on")) {
+		return fmt.Errorf("GRUB_CMDLINE iommu parameters intel_iommu=on missing")
 	}
 	isNouveauBlacklisted := false
 	if params.IsSuperset(sets.NewString("rdblacklist=nouveau", "nouveau.modeset=0")) ||

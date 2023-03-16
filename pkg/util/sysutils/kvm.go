@@ -82,18 +82,30 @@ func isDevKVMExists() bool {
 
 func detectKVMModuleSupport() string {
 	var km = KVM_MODULE_UNSUPPORT
-	if ModprobeKvmModule(KVM_MODULE_INTEL, false, false) {
-		km = KVM_MODULE_INTEL
-	} else if ModprobeKvmModule(KVM_MODULE_AMD, false, false) {
-		km = KVM_MODULE_AMD
-	} else if ModprobeKvmModule(KVM_MODULE, false, false) {
-		if isDevKVMExists() {
+	if isDevKVMExists() {
+		if IsKernelModuleLoaded(KVM_MODULE_INTEL) {
+			km = KVM_MODULE_INTEL
+		} else if IsKernelModuleLoaded(KVM_MODULE_AMD) {
+			km = KVM_MODULE_AMD
+		} else if IsKernelModuleLoaded(KVM_MODULE) {
 			km = KVM_MODULE
-		}
-	}
-	if km == KVM_MODULE_UNSUPPORT {
-		if isDevKVMExists() {
+		} else {
 			km = KVM_MODULE_BUILDIN
+		}
+	} else {
+		if ModprobeKvmModule(KVM_MODULE_INTEL, false, false) {
+			km = KVM_MODULE_INTEL
+		} else if ModprobeKvmModule(KVM_MODULE_AMD, false, false) {
+			km = KVM_MODULE_AMD
+		} else if ModprobeKvmModule(KVM_MODULE, false, false) {
+			if isDevKVMExists() {
+				km = KVM_MODULE
+			}
+		}
+		if km == KVM_MODULE_UNSUPPORT {
+			if isDevKVMExists() {
+				km = KVM_MODULE_BUILDIN
+			}
 		}
 	}
 	return km
