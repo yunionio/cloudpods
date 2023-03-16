@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -100,6 +101,16 @@ func mustCheckModelManager(modelMan IModelManager) {
 	}
 }
 
+func tableSpecId(tableSpec ITableSpec) string {
+	keys := []string{
+		tableSpec.Name(),
+	}
+	for _, c := range tableSpec.Columns() {
+		keys = append(keys, c.Name())
+	}
+	return strings.Join(keys, "-")
+}
+
 func CheckSync(autoSync bool, enableChecksumTables bool, skipInitChecksum bool) bool {
 	log.Infof("Start check database schema ...")
 	inSync := true
@@ -108,10 +119,11 @@ func CheckSync(autoSync bool, enableChecksumTables bool, skipInitChecksum bool) 
 	foreignProcessedTbl := make(map[string]bool)
 	for modelName, modelMan := range globalTables {
 		tableSpec := modelMan.TableSpec()
-		if _, ok := foreignProcessedTbl[tableSpec.Name()]; ok {
+		tableKey := tableSpecId(tableSpec)
+		if _, ok := foreignProcessedTbl[tableKey]; ok {
 			continue
 		}
-		foreignProcessedTbl[tableSpec.Name()] = true
+		foreignProcessedTbl[tableKey] = true
 		dropFKSqls := tableSpec.DropForeignKeySQL()
 		if len(dropFKSqls) > 0 {
 			log.Infof("model %s drop foreign key constraints!!!", modelName)
@@ -137,10 +149,11 @@ func CheckSync(autoSync bool, enableChecksumTables bool, skipInitChecksum bool) 
 	processedTbl := make(map[string]bool)
 	for modelName, modelMan := range globalTables {
 		tableSpec := modelMan.TableSpec()
-		if _, ok := processedTbl[tableSpec.Name()]; ok {
+		tableKey := tableSpecId(tableSpec)
+		if _, ok := processedTbl[tableKey]; ok {
 			continue
 		}
-		processedTbl[tableSpec.Name()] = true
+		processedTbl[tableKey] = true
 		sqls := tableSpec.SyncSQL()
 		if len(sqls) > 0 {
 			log.Infof("model %s is not in SYNC!!!", modelName)
