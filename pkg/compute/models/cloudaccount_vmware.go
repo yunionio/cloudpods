@@ -62,7 +62,7 @@ type CAPWire struct {
 
 var ipMaskLen int8 = 24
 
-func (account *SCloudaccount) PrepareEsxiHostNetwork(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (account *SCloudaccount) PrepareEsxiHostNetwork(ctx context.Context, userCred mcclient.TokenCredential, zoneId string) error {
 	cProvider, err := account.GetProvider(ctx)
 	if err != nil {
 		return errors.Wrap(err, "account.GetProvider")
@@ -92,9 +92,11 @@ func (account *SCloudaccount) PrepareEsxiHostNetwork(ctx context.Context, userCr
 		return errors.Wrap(err, "NetworkManager.fetchAllOnpremiseNetworks")
 	}
 
-	zoneId, err := guessEsxiZoneId(vsList, onPremiseNets)
-	if err != nil {
-		return errors.Wrap(err, "fail to find zone of esxi")
+	if zoneId == "" {
+		zoneId, err = guessEsxiZoneId(vsList, onPremiseNets)
+		if err != nil {
+			return errors.Wrap(err, "fail to find zone of esxi")
+		}
 	}
 
 	desc := fmt.Sprintf("Auto create for cloudaccount %q", account.Name)

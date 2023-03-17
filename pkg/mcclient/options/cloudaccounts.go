@@ -46,6 +46,8 @@ type SVMwareCredentialWithEnvironment struct {
 
 	Host string `help:"VMware VCenter/ESXi host" positional:"true"`
 	Port string `help:"VMware VCenter/ESXi host port" default:"443"`
+
+	Zone string `help:"zone for this account"`
 }
 
 type SNutanixCredentialWithEnvironment struct {
@@ -971,9 +973,10 @@ func (opts *SCloudpodsCloudAccountUpdateOptions) Params() (jsonutils.JSONObject,
 	return jsonutils.Marshal(opts), nil
 }
 
-type SVMwareCloudAccountPrepareNetsOptions struct {
+/*type SVMwareCloudAccountPrepareNetsOptions struct {
 	SVMwareCredentialWithEnvironment
 
+	Zone          string `help:"zone for this account"`
 	Project       string `help:"project for this account"`
 	ProjectDomain string `help:"domain for this account"`
 	WireLevel     string `help:"wire level for this account" choices:"vcenter|datacenter|cluster" json:"wire_level_for_vmware"`
@@ -985,7 +988,7 @@ func (opts *SVMwareCloudAccountPrepareNetsOptions) Params() (jsonutils.JSONObjec
 	params := jsonutils.Marshal(opts)
 	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("VMware"), "provider")
 	return params, nil
-}
+}*/
 
 type SApsaraCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
