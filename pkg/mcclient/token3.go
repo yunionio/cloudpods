@@ -462,7 +462,7 @@ func (self *TokenCredentialV3) GetCatalogData(serviceTypes []string, region stri
 		}
 		neps := make([]KeystoneEndpointV3, 0)
 		for j := 0; j < len(catalog[i].Endpoints); j++ {
-			if catalog[i].Endpoints[j].Region != region {
+			if catalog[i].Endpoints[j].RegionId != region && catalog[i].Endpoints[j].Region != region {
 				continue
 			}
 			neps = append(neps, catalog[i].Endpoints[j])
