@@ -586,7 +586,7 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	self.savePassword(self.Secret)
 
 	if self.Enabled.IsTrue() && jsonutils.QueryBoolean(data, "start_sync", true) {
-		self.StartSyncCloudAccountInfoTask(ctx, userCred, nil, "")
+		self.StartSyncCloudAccountInfoTask(ctx, userCred, nil, "", data)
 	} else {
 		self.SubmitSyncAccountTask(ctx, userCred, nil)
 	}
@@ -623,7 +623,7 @@ func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 		syncRange.DeepSync = true
 	}
 	if self.CanSync() || syncRange.Force {
-		return nil, self.StartSyncCloudAccountInfoTask(ctx, userCred, &syncRange, "")
+		return nil, self.StartSyncCloudAccountInfoTask(ctx, userCred, &syncRange, "", nil)
 	}
 	return nil, httperrors.NewInvalidStatusError("Unable to synchronize frequently")
 }
@@ -786,14 +786,17 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE_CREDENTIAL, account.Account, userCred, true)
 
 		self.SetStatus(userCred, api.CLOUD_PROVIDER_INIT, "Change credential")
-		self.StartSyncCloudAccountInfoTask(ctx, userCred, nil, "")
+		self.StartSyncCloudAccountInfoTask(ctx, userCred, nil, "", nil)
 	}
 
 	return nil, nil
 }
 
-func (self *SCloudaccount) StartSyncCloudAccountInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
+func (self *SCloudaccount) StartSyncCloudAccountInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string, data jsonutils.JSONObject) error {
 	params := jsonutils.NewDict()
+	if data != nil {
+		params.Update(data)
+	}
 	if syncRange != nil {
 		params.Add(jsonutils.Marshal(syncRange), "sync_range")
 	}
@@ -2221,7 +2224,7 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 			FullSync: true,
 		},
 	}
-	account.StartSyncCloudAccountInfoTask(ctx, userCred, syncRange, "")
+	account.StartSyncCloudAccountInfoTask(ctx, userCred, syncRange, "", nil)
 	return nil, nil
 }
 
@@ -2255,7 +2258,7 @@ func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mccli
 			FullSync: true,
 		},
 	}
-	account.StartSyncCloudAccountInfoTask(ctx, userCred, syncRange, "")
+	account.StartSyncCloudAccountInfoTask(ctx, userCred, syncRange, "", nil)
 
 	return nil, nil
 }
@@ -2704,7 +2707,7 @@ func (self *SCloudaccount) PerformCreateSubscription(ctx context.Context, userCr
 	}
 
 	syncRange := SSyncRange{}
-	return nil, self.StartSyncCloudAccountInfoTask(ctx, userCred, &syncRange, "")
+	return nil, self.StartSyncCloudAccountInfoTask(ctx, userCred, &syncRange, "", nil)
 }
 
 func (self *SCloudaccount) GetDnsZoneCaches() ([]SDnsZoneCache, error) {
