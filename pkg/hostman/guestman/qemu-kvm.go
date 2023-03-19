@@ -512,6 +512,9 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		err = s.updateGuestDesc()
 	}
 	if err != nil {
+		if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
+			hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
+		}
 		return nil, errors.Wrap(err, "asyncScriptStart init desc")
 	}
 
@@ -914,16 +917,6 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 				}
 			}
 		}
-	} else {
-		params := jsonutils.NewDict()
-		params.Set("disk_id", jsonutils.NewString(diskId))
-		_, err = modules.Servers.PerformAction(
-			hostutils.GetComputeSession(context.Background()),
-			s.GetId(), "block-mirror-ready", params,
-		)
-		if err != nil {
-			log.Errorf("Server %s perform block-mirror-ready got error %s", s.GetId(), err)
-		}
 	}
 }
 
@@ -1236,7 +1229,7 @@ func (s *SKVMGuestInstance) SlaveDisksBlockStream() error {
 	for i := 0; i < len(disks); i++ {
 		diskIndex := disks[i].Index
 		drive := fmt.Sprintf("drive_%d", diskIndex)
-		s.Monitor.BlockStream(drive, 0, 0, func(res string) {
+		s.Monitor.BlockStream(drive, func(res string) {
 			errChan <- res
 		})
 		if errStr := <-errChan; len(errStr) > 0 {
@@ -1482,7 +1475,9 @@ type guestStartTask struct {
 }
 
 func (t *guestStartTask) Run() {
-	t.s.asyncScriptStart(t.ctx, t.params)
+	if _, err := t.s.asyncScriptStart(t.ctx, t.params); err != nil {
+		log.Errorf("failed asyncScriptStart %s: %s", t.s.GetId(), err)
+	}
 }
 
 func (t *guestStartTask) Dump() string {

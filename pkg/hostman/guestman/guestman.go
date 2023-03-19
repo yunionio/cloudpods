@@ -1338,6 +1338,10 @@ type SStorageCloneDisk struct {
 	TargetDiskId   string
 	DiskFormat     string
 	TargetDiskDesc *compute.GuestdiskJsonDesc
+
+	// clone progress
+	CompletedDiskCount int
+	CloneDiskCount     int
 }
 
 func (m *SGuestManager) StorageCloneDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
