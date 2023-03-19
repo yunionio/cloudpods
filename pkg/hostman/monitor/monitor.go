@@ -44,10 +44,10 @@ type BlockJob struct {
 	Device   string
 	Speed    int64
 
-	start     time.Time
-	preOffset int64
-	now       time.Time
-	speedMbps float64
+	Start     time.Time
+	PreOffset int64
+	Now       time.Time
+	SpeedMbps float64
 }
 
 type QemuBlock struct {
@@ -165,22 +165,22 @@ func (self blockSizeByte) String() string {
 	return fmt.Sprintf("%d", int64(self))
 }
 
-func (self *BlockJob) PreOffset(preOffset int64) {
-	if self.start.IsZero() {
-		self.start = time.Now()
-		self.now = time.Now()
-		self.preOffset = preOffset
+func (self *BlockJob) CalcOffset(preOffset int64) {
+	if self.Start.IsZero() {
+		self.Start = time.Now()
+		self.Now = time.Now()
+		self.PreOffset = preOffset
 		return
 	}
-	second := time.Now().Sub(self.now).Seconds()
+	second := time.Now().Sub(self.Now).Seconds()
 	if second > 0 {
 		speed := float64(self.Offset-preOffset) / second
-		self.speedMbps = speed / 1024 / 1024
-		avgSpeed := float64(self.Offset) / time.Now().Sub(self.start).Seconds()
+		self.SpeedMbps = speed / 1024 / 1024
+		avgSpeed := float64(self.Offset) / time.Now().Sub(self.Start).Seconds()
 		log.Infof(`[%s / %s] server %s block job for %s speed: %s/s(avg: %s/s)`, blockSizeByte(self.Offset).String(), blockSizeByte(self.Len).String(), self.server, self.Device, blockSizeByte(speed).String(), blockSizeByte(avgSpeed).String())
 	}
-	self.preOffset = preOffset
-	self.now = time.Now()
+	self.PreOffset = preOffset
+	self.Now = time.Now()
 	return
 }
 
@@ -222,7 +222,7 @@ type Monitor interface {
 	DeviceAdd(dev string, params map[string]string, callback StringCallback)
 
 	XBlockdevChange(parent, node, child string, callback StringCallback)
-	BlockStream(drive string, idx, blkCnt int, callback StringCallback)
+	BlockStream(drive string, callback StringCallback)
 	DriveMirror(callback StringCallback, drive, target, syncMode, format string, unmap, blockReplication bool)
 	DriveBackup(callback StringCallback, drive, target, syncMode, format string)
 	BlockJobComplete(drive string, cb StringCallback)

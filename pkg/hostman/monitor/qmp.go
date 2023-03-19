@@ -112,11 +112,6 @@ type QmpMonitor struct {
 	commandQueue  []*Command
 	callbackQueue []qmpMonitorCallBack
 	jobs          map[string]BlockJob
-
-	blkStream struct {
-		idx    int
-		blkCnt int
-	}
 }
 
 func NewQmpMonitor(server, sid string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
@@ -819,41 +814,8 @@ func (m *QmpMonitor) blockJobs(res *Response) ([]BlockJob, error) {
 	}
 	log.Debugf("blockJobs response %s", ret)
 	jobs := []BlockJob{}
-	ret.Unmarshal(&jobs)
-	defer func() {
-		mbps, progress := 0.0, 0.0
-		totalSize, totalOffset := int64(1), int64(0)
-		for _, job := range m.jobs {
-			mbps += job.speedMbps
-			totalSize += job.Len
-			totalOffset += job.Offset
-		}
-		if len(m.jobs) == 0 && len(jobs) == 0 {
-			progress = 100.0
-		} else {
-			progress = float64(totalOffset) / float64(totalSize) * 100
-		}
-		if m.blkStream.blkCnt > 0 {
-			progress = float64(m.blkStream.idx-1)/float64(m.blkStream.blkCnt)*100.0 + 1.0/float64(m.blkStream.blkCnt)*progress
-		}
-		hostutils.UpdateServerProgress(context.Background(), m.sid, progress, mbps)
-	}()
-	for i := range jobs {
-		job := jobs[i]
-		job.server = m.server
-		_job, ok := m.jobs[job.Device]
-		if !ok {
-			job.PreOffset(0)
-			m.jobs[job.Device] = job
-			continue
-		}
-		if _job.Status == "ready" {
-			delete(m.jobs, _job.Device)
-			continue
-		}
-		job.start, job.now = _job.start, _job.now
-		job.PreOffset(_job.Offset)
-		m.jobs[job.Device] = job
+	if err = ret.Unmarshal(&jobs); err != nil {
+		return nil, err
 	}
 	return jobs, nil
 }
@@ -941,7 +903,7 @@ func (m *QmpMonitor) DriveBackup(callback StringCallback, drive, target, syncMod
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) BlockStream(drive string, idx, blkCnt int, callback StringCallback) {
+func (m *QmpMonitor) BlockStream(drive string, callback StringCallback) {
 	var (
 		speed = 5 * 100 * 1024 * 1024 // limit 500 MB/s
 		cb    = func(res *Response) {
@@ -955,8 +917,6 @@ func (m *QmpMonitor) BlockStream(drive string, idx, blkCnt int, callback StringC
 			},
 		}
 	)
-	m.blkStream.idx = idx
-	m.blkStream.blkCnt = blkCnt
 	m.Query(cmd, cb)
 }
 
