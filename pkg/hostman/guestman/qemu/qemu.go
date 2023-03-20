@@ -433,7 +433,11 @@ func (o baseOptions_x86_64) SMP(cpus uint) string {
 }
 
 func (o baseOptions_x86_64) Memory(sizeMB uint64) string {
-	return fmt.Sprintf("-m %dM,slots=4,maxmem=524288M", sizeMB)
+	maxMem := options.HostOptions.MaxMemorySizeMb
+	if maxMem == 0 {
+		maxMem = 524288
+	}
+	return fmt.Sprintf("-m %dM,slots=4,maxmem=%dM", sizeMB, maxMem)
 }
 
 func (o baseOptions_x86_64) Cdrom(cdromPath string, osName string, isQ35 bool, disksLen int) []string {
@@ -542,7 +546,11 @@ func (o baseOptions_aarch64) SMP(cpus uint) string {
 }
 
 func (o baseOptions_aarch64) Memory(sizeMB uint64) string {
-	return fmt.Sprintf("-m %dM,slots=4,maxmem=262144M", sizeMB)
+	maxMem := options.HostOptions.MaxMemorySizeMb
+	if maxMem == 0 {
+		maxMem = 262144
+	}
+	return fmt.Sprintf("-m %dM,slots=4,maxmem=%dM", sizeMB, maxMem)
 }
 
 func (o baseOptions_aarch64) Cdrom(cdromPath string, osName string, isQ35 bool, disksLen int) []string {

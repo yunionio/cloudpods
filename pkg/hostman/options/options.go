@@ -31,7 +31,9 @@ type SHostBaseOptions struct {
 	HostCpuPassthrough        bool  `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
 	LiveMigrateCpuThrottleMax int64 `default:"99" help:"live migrate auto converge cpu throttle max"`
 
-	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
+	DefaultQemuVersion  string `help:"Default qemu version" default:"4.2.0"`
+	MaxMemorySizeMb     int64  `help:"Max memory size mb"`
+	MaxHotplugVCpuCount int    `help:"maximal possible vCPU count that the platform kvm supports"`
 }
 
 type SHostOptions struct {
@@ -187,8 +189,6 @@ type SHostOptions struct {
 	LocalBackupTempPath    string `help:"the local temporary directory for backup" default:"/opt/cloud/workspace/run/backups"`
 
 	BinaryMemcleanPath string `help:"execute binary memclean path" default:"/opt/yunion/bin/memclean"`
-
-	MaxHotplugVCpuCount int `help:"maximal possible vCPU count that the platform kvm supports"`
 }
 
 var (
