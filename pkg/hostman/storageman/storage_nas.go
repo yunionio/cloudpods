@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"path"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -73,7 +73,7 @@ func (s *SNasStorage) GetDiskById(diskId string) (IDisk, error) {
 		s.Disks = append(s.Disks, disk)
 		return disk, nil
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, errors.ErrNotFound
 }
 
 func (s *SNasStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
