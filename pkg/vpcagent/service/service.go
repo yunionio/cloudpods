@@ -31,6 +31,7 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
+	_ "yunion.io/x/onecloud/pkg/vpcagent/ovn"
 	"yunion.io/x/onecloud/pkg/vpcagent/worker"
 )
 
