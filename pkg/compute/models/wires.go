@@ -1266,6 +1266,7 @@ func (wm *SWireManager) handleWireIdChange(ctx context.Context, args *wireIdChan
 		HostwireManager,
 		NetworkManager,
 		LoadbalancerClusterManager,
+		NetInterfaceManager,
 	}
 
 	errs := []error{}

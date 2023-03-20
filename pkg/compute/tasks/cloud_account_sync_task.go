@@ -42,7 +42,8 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 
 	if cloudaccount.Provider == api.CLOUD_PROVIDER_VMWARE {
 		cloudaccount.SetStatus(self.UserCred, api.CLOUD_PROVIDER_SYNC_NETWORK, "StartSyncVMwareNetworkTask")
-		err := cloudaccount.PrepareEsxiHostNetwork(ctx, self.UserCred)
+		zone, _ := self.Params.GetString("zone")
+		err := cloudaccount.PrepareEsxiHostNetwork(ctx, self.UserCred, zone)
 		if err != nil {
 			d := jsonutils.NewDict()
 			d.Set("error", jsonutils.NewString(err.Error()))
