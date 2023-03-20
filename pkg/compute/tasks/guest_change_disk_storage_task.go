@@ -86,21 +86,9 @@ func (t *GuestChangeDiskStorageTask) ChangeDiskStorage(ctx context.Context, gues
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetTargetDisk error: %v", err)))
 		return
 	}
-	sourceDisk, err := t.GetSourceDisk()
-	if err != nil {
-		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetSourceDisk error: %v", err)))
-		return
-	}
 
 	// set target disk's status to clone
 	targetDisk.SetStatus(t.GetUserCred(), api.DISK_CLONE, "")
-
-	err = sourceDisk.SetMetadata(ctx, api.DISK_CLONE_TASK_ID, t.GetId(), t.GetUserCred())
-	if err != nil {
-		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("SetMetadata clone task id: %v", err)))
-		return
-	}
-
 	log.Infof("ChangeDiskStorage guest running is %v", input.GuestRunning)
 	if input.GuestRunning {
 		t.SetStage("OnDiskLiveChangeStorageReady", nil)
@@ -186,12 +174,6 @@ func (t *GuestChangeDiskStorageTask) OnDiskChangeStorageComplete(ctx context.Con
 	srcDisk, err := t.GetSourceDisk()
 	if err != nil {
 		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("GetSourceDisk: %v", err)))
-		return
-	}
-
-	err = srcDisk.SetMetadata(ctx, api.DISK_CLONE_TASK_ID, "", t.GetUserCred())
-	if err != nil {
-		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("SetMetadata clone task id: %v", err)))
 		return
 	}
 
@@ -333,11 +315,6 @@ type GuestChangeDisksStorageTask struct {
 	SGuestBaseTask
 }
 
-func (t *GuestChangeDisksStorageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	t.ChangeDiskStorage(ctx, guest, nil)
-}
-
 func (t *GuestChangeDisksStorageTask) GetInputParams() (*api.ServerChangeStorageInternalInput, error) {
 	input := new(api.ServerChangeStorageInternalInput)
 	err := t.GetParams().Unmarshal(input)
@@ -368,6 +345,11 @@ func (t *GuestChangeDisksStorageTask) OnGuestSyncStatus(ctx context.Context, gue
 
 func (t *GuestChangeDisksStorageTask) OnGuestSyncStatusFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	t.TaskFailed(ctx, guest, data)
+}
+
+func (t *GuestChangeDisksStorageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	t.ChangeDiskStorage(ctx, guest, nil)
 }
 
 func (t *GuestChangeDisksStorageTask) ChangeDiskStorage(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -420,9 +402,11 @@ func (t *GuestChangeDisksStorageTask) CreateTargetDisk(ctx context.Context, gues
 			TargetStorageId: storage.Id,
 			KeepOriginDisk:  input.KeepOriginDisk,
 		},
-		StorageId:    srcDisk.StorageId,
-		TargetDiskId: targetDisk.GetId(),
-		GuestRunning: input.GuestRunning,
+		StorageId:          srcDisk.StorageId,
+		TargetDiskId:       targetDisk.GetId(),
+		GuestRunning:       input.GuestRunning,
+		CloneDiskCount:     input.DiskCount,
+		CompletedDiskCount: input.DiskCount - len(input.Disks) - 1,
 	}
 
 	if err := guest.StartChangeDiskStorageTask(ctx, t.UserCred, internalInput, t.Id); err != nil {
