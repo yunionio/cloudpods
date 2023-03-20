@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -289,7 +288,7 @@ func (s *SLocalStorage) GetDiskById(diskId string) (IDisk, error) {
 		s.Disks = append(s.Disks, disk)
 		return disk, nil
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, errors.ErrNotFound
 }
 
 func (s *SLocalStorage) CreateDisk(diskId string) IDisk {

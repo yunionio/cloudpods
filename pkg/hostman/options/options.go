@@ -171,6 +171,7 @@ type SHostOptions struct {
 	DisableUSB     bool     `help:"force disable USB detect" default:"true" json:"disable_usb"`
 	SRIOVNics      []string `help:"nics enable sriov" json:"sriov_nics"`
 	OvsOffloadNics []string `help:"nics enable ovs offload" json:"ovs_offload_nics"`
+	PTNVMEConfigs  []string `help:"passthrough nvme disk pci address and size"`
 
 	EthtoolEnableGso bool `help:"use ethtool to turn on or off GSO(generic segment offloading)" default:"false" json:"ethtool_enable_gso"`
 

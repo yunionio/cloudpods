@@ -212,9 +212,13 @@ func generateScsiOptions(scsi *desc.SGuestVirtioScsi) string {
 	return opt
 }
 
-func generateDisksOptions(drvOpt QemuOptions, disks []*desc.SGuestDisk, isEncrypt, isSlave, isMaster bool) []string {
+func generateDisksOptions(drvOpt QemuOptions, disks []*desc.SGuestDisk, isEncrypt, isMaster bool) []string {
 	opts := make([]string, 0)
 	for _, disk := range disks {
+		if disk.Driver == api.DISK_DRIVER_VFIO {
+			continue
+		}
+
 		if isMaster {
 			opts = append(opts, getMasterDiskDriveOption(drvOpt, disk, isEncrypt))
 		} else {
@@ -719,7 +723,7 @@ func GenerateStartOptions(
 	}
 	// generate disk options
 	opts = append(opts, generateDisksOptions(
-		drvOpt, input.GuestDesc.Disks, isEncrypt, input.GuestDesc.IsSlave, input.GuestDesc.IsMaster)...)
+		drvOpt, input.GuestDesc.Disks, isEncrypt, input.GuestDesc.IsMaster)...)
 
 	// cdrom
 	opts = append(opts, generateCdromOptions(drvOpt, input.GuestDesc.Cdroms)...)
