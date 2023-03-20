@@ -88,3 +88,22 @@ func (manager *SNetworkManager) handleWireIdChange(ctx context.Context, args *wi
 	}
 	return nil
 }
+
+func (manager *SNetInterfaceManager) handleWireIdChange(ctx context.Context, args *wireIdChangeArgs) error {
+	ns := make([]SNetInterface, 0, 8)
+	err := db.FetchModelObjects(manager, manager.Query().Equals("wire_id", args.oldWire.Id), &ns)
+	if err != nil {
+		return err
+	}
+	for i := range ns {
+		n := &ns[i]
+		_, err := db.Update(n, func() error {
+			n.WireId = args.newWire.Id
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "unable to update network %q", n.GetId())
+		}
+	}
+	return nil
+}
