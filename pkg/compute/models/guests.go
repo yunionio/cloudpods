@@ -1444,7 +1444,7 @@ func (manager *SGuestManager) validateCreateData(
 
 		hasGpuVga := func() bool {
 			for i := 0; i < len(input.IsolatedDevices); i++ {
-				if input.IsolatedDevices[i].DevType == GPU_VGA_TYPE {
+				if input.IsolatedDevices[i].DevType == api.GPU_VGA_TYPE {
 					return true
 				}
 			}
@@ -1559,33 +1559,38 @@ func (manager *SGuestManager) validateCreateData(
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err) // should no error
 		}
-		if input.ResourceType != api.HostResourceTypePrepaidRecycle {
-			if len(rootDiskConfig.Backend) == 0 {
-				defaultStorageType, _ := data.GetString("default_storage_type")
-				if len(defaultStorageType) > 0 {
-					rootDiskConfig.Backend = defaultStorageType
-				} else {
-					rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
+		// validate root disk config
+		{
+			if rootDiskConfig.NVMEDevice != nil {
+				return nil, httperrors.NewBadRequestError("NVMe device can't assign as root disk")
+			}
+			if input.ResourceType != api.HostResourceTypePrepaidRecycle {
+				if len(rootDiskConfig.Backend) == 0 {
+					defaultStorageType, _ := data.GetString("default_storage_type")
+					if len(defaultStorageType) > 0 {
+						rootDiskConfig.Backend = defaultStorageType
+					} else {
+						rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
+					}
+				}
+				sysMinDiskMB := GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
+				if rootDiskConfig.SizeMb != api.DISK_SIZE_AUTOEXTEND && rootDiskConfig.SizeMb < sysMinDiskMB {
+					rootDiskConfig.SizeMb = sysMinDiskMB
 				}
 			}
-			sysMinDiskMB := GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
-			if rootDiskConfig.SizeMb != api.DISK_SIZE_AUTOEXTEND && rootDiskConfig.SizeMb < sysMinDiskMB {
-				rootDiskConfig.SizeMb = sysMinDiskMB
+			if len(rootDiskConfig.Driver) == 0 {
+				rootDiskConfig.Driver = osProf.DiskDriver
 			}
-		}
-		if len(rootDiskConfig.Driver) == 0 {
-			rootDiskConfig.Driver = osProf.DiskDriver
-		}
-		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
-		input.Disks[0] = rootDiskConfig
-		if sku != nil {
-			if len(rootDiskConfig.OsArch) > 0 && len(sku.CpuArch) > 0 {
-				if !strings.Contains(rootDiskConfig.OsArch, sku.CpuArch) {
-					return nil, httperrors.NewConflictError("root disk image(%s) and sku(%s) architecture mismatch", rootDiskConfig.OsArch, sku.CpuArch)
+			log.Debugf("ROOT DISK: %#v", rootDiskConfig)
+			input.Disks[0] = rootDiskConfig
+			if sku != nil {
+				if len(rootDiskConfig.OsArch) > 0 && len(sku.CpuArch) > 0 {
+					if !strings.Contains(rootDiskConfig.OsArch, sku.CpuArch) {
+						return nil, httperrors.NewConflictError("root disk image(%s) and sku(%s) architecture mismatch", rootDiskConfig.OsArch, sku.CpuArch)
+					}
 				}
 			}
 		}
-		//data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
 
 		for i := 0; i < len(dataDiskDefs); i += 1 {
 			diskConfig, err := parseDiskInfo(ctx, userCred, dataDiskDefs[i])
@@ -1602,11 +1607,27 @@ func (manager *SGuestManager) validateCreateData(
 			if len(diskConfig.Driver) == 0 {
 				diskConfig.Driver = osProf.DiskDriver
 			}
+			if diskConfig.NVMEDevice != nil {
+				if input.Backup {
+					return nil, httperrors.NewBadRequestError("Cannot create backup with isolated device")
+				}
+				devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, diskConfig.NVMEDevice)
+				if err != nil {
+					return nil, httperrors.NewInputParameterError("parse isolated device description error %s", err)
+				}
+				err = IsolatedDeviceManager.isValidNVMEDeviceInfo(devConfig)
+				if err != nil {
+					return nil, err
+				}
+				diskConfig.NVMEDevice = devConfig
+				diskConfig.Driver = api.DISK_DRIVER_VFIO
+				diskConfig.Backend = api.STORAGE_NVME_PT
+			}
+
 			input.Disks[i+1] = diskConfig
 		}
 
 		if len(input.Duration) > 0 {
-
 			/*if !userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "renew") {
 				return nil, httperrors.NewForbiddenError("only admin can create prepaid resource")
 			}*/
@@ -1666,7 +1687,7 @@ func (manager *SGuestManager) validateCreateData(
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("parse isolated device description error %s", err)
 			}
-			err = IsolatedDeviceManager.isValidNicDeviceinfo(devConfig)
+			err = IsolatedDeviceManager.isValidNicDeviceInfo(devConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -1688,7 +1709,7 @@ func (manager *SGuestManager) validateCreateData(
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("parse isolated device description error %s", err)
 		}
-		err = IsolatedDeviceManager.isValidDeviceinfo(devConfig)
+		err = IsolatedDeviceManager.isValidDeviceInfo(devConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -4063,6 +4084,38 @@ func (self *SGuest) CreateDisksOnHost(
 		}
 		diskConfig.DiskId = disk.Id
 		disks[idx] = diskConfig
+		if diskConfig.NVMEDevice != nil {
+			err = self.attachNVMEDevice(ctx, userCred, host, pendingUsage, disk, diskConfig)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (self *SGuest) attachNVMEDevice(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	host *SHost, pendingUsage quotas.IQuota,
+	disk *SDisk, diskConfig *api.DiskConfig,
+) error {
+	gd := self.GetGuestDisk(disk.Id)
+	diskConfig.NVMEDevice.DiskIndex = &gd.Index
+	err := self.createIsolatedDeviceOnHost(ctx, userCred, host, diskConfig.NVMEDevice, pendingUsage)
+	if err != nil {
+		return errors.Wrap(err, "self.createIsolatedDeviceOnHost")
+	}
+	dev, err := self.GetIsolatedDeviceByDiskIndex(gd.Index)
+	if err != nil {
+		return errors.Wrap(err, "self.GetIsolatedDeviceByDiskIndex")
+	}
+	diskConfig.SizeMb = dev.NvmeSizeMB
+	_, err = db.Update(disk, func() error {
+		disk.DiskSize = dev.NvmeSizeMB
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "update nvme disk size")
 	}
 	return nil
 }
@@ -4662,6 +4715,22 @@ func (self *SGuest) GetIsolatedDevices() ([]SIsolatedDevice, error) {
 func (self *SGuest) GetIsolatedDeviceByNetworkIndex(index int8) (*SIsolatedDevice, error) {
 	dev := SIsolatedDevice{}
 	q := IsolatedDeviceManager.Query().Equals("guest_id", self.Id).Equals("network_index", index)
+	if cnt, err := q.CountWithError(); err != nil {
+		return nil, err
+	} else if cnt == 0 {
+		return nil, nil
+	}
+	err := q.First(&dev)
+	if err != nil {
+		return nil, err
+	}
+	dev.SetModelManager(IsolatedDeviceManager, &dev)
+	return &dev, nil
+}
+
+func (self *SGuest) GetIsolatedDeviceByDiskIndex(index int8) (*SIsolatedDevice, error) {
+	dev := SIsolatedDevice{}
+	q := IsolatedDeviceManager.Query().Equals("guest_id", self.Id).Equals("disk_index", index)
 	if cnt, err := q.CountWithError(); err != nil {
 		return nil, err
 	} else if cnt == 0 {

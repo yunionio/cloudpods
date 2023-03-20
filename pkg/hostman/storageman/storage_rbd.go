@@ -20,7 +20,6 @@ import (
 	"os"
 	"strings"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -215,7 +214,7 @@ func (s *SRbdStorage) deleteImage(pool string, name string, skipRecycle bool) er
 	client.SetPool(pool)
 	img, err := client.GetImage(name)
 	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == errors.ErrNotFound {
 			return nil
 		}
 		return errors.Wrapf(err, "GetImage")
@@ -432,7 +431,7 @@ func (s *SRbdStorage) GetDiskById(diskId string) (IDisk, error) {
 		s.Disks = append(s.Disks, disk)
 		return disk, nil
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, errors.ErrNotFound
 }
 
 func (s *SRbdStorage) CreateDisk(diskId string) IDisk {

@@ -1938,11 +1938,12 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			return nil, errors.Wrap(err, "invaild existing path")
 		}
 	}
+
 	// XXX: do not set default disk size here, set it by each hypervisor driver
 	// if len(diskConfig.ImageId) > 0 && diskConfig.SizeMb == 0 {
 	// 	diskConfig.SizeMb = options.Options.DefaultDiskSize // MB
 	// else
-	if len(info.ImageId) == 0 && info.SizeMb == 0 && info.ExistingPath == "" {
+	if len(info.ImageId) == 0 && info.SizeMb == 0 && info.ExistingPath == "" && info.NVMEDevice == nil {
 		return nil, httperrors.NewInputParameterError("Diskinfo index %d: both imageID and size are absent", info.Index)
 	}
 	return info, nil
@@ -2088,6 +2089,9 @@ func fillDiskConfigByStorage(userCred mcclient.TokenCredential,
 	}
 	if storage.Status != api.STORAGE_ONLINE {
 		return errors.Wrap(httperrors.ErrInvalidStatus, "storage not online")
+	}
+	if storage.StorageType == api.STORAGE_NVME_PT {
+		return httperrors.NewBadRequestError("storage type %s require assign isolated device", api.STORAGE_NVME_PT)
 	}
 	diskConfig.Storage = storage.Id
 	diskConfig.Backend = storage.StorageType

@@ -219,6 +219,9 @@ type DiskConfig struct {
 
 	//swagger:ignore
 	ExistingPath string `json:"existing_path"`
+
+	// NVNe device
+	NVMEDevice *IsolatedDeviceConfig `json:"nvme_device"`
 }
 
 type IsolatedDeviceConfig struct {
@@ -229,6 +232,7 @@ type IsolatedDeviceConfig struct {
 	Vendor       string `json:"vendor"`
 	NetworkIndex *int8  `json:"network_index"`
 	WireId       string `json:"wire_id"`
+	DiskIndex    *int8  `json:"disk_index"`
 }
 
 type BaremetalDiskConfig struct {
