@@ -856,6 +856,7 @@ type ServerChangeStorageInternalInput struct {
 	ServerChangeStorageInput
 	Disks        []string `json:"disks"`
 	GuestRunning bool     `json:"guest_running"`
+	DiskCount    int      `json:"disk_count"`
 }
 
 type ServerChangeDiskStorageInput struct {
@@ -871,6 +872,10 @@ type ServerChangeDiskStorageInternalInput struct {
 	DiskFormat     string             `json:"disk_format"`
 	GuestRunning   bool               `json:"guest_running"`
 	TargetDiskDesc *GuestdiskJsonDesc `json:"target_disk_desc"`
+
+	// clone progress
+	CompletedDiskCount int `json:"completed_disk_count"`
+	CloneDiskCount     int `json:"disk_count"`
 }
 
 type ServerSetExtraOptionInput struct {

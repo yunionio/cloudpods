@@ -1501,14 +1501,105 @@ func (s *SGuestResumeTask) removeStatefile() {
 	go s.CleanStatefiles()
 }
 
+type IGuestBlockProgressTask interface {
+	OnGetBlockJobs(jobs []monitor.BlockJob)
+	StreamingDiskCompletedCount() int
+	StreamingDiskCount() int
+}
+
+type SGuestBlockProgressBaseTask struct {
+	*SKVMGuestInstance
+
+	ctx context.Context
+
+	totalSizeMb     int
+	completedSizeMb int
+
+	c    chan struct{}
+	jobs map[string]monitor.BlockJob
+	task IGuestBlockProgressTask
+}
+
+func NewGuestBlockProgressBaseTask(
+	ctx context.Context, guest *SKVMGuestInstance, blkTask IGuestBlockProgressTask,
+) *SGuestBlockProgressBaseTask {
+	return &SGuestBlockProgressBaseTask{
+		SKVMGuestInstance: guest,
+		ctx:               ctx,
+		task:              blkTask,
+		jobs:              map[string]monitor.BlockJob{},
+	}
+}
+
+func (s *SGuestBlockProgressBaseTask) startWaitBlockJob(res string) {
+	s.c = make(chan struct{})
+	for {
+		select {
+		case <-s.c:
+			s.c = nil
+			return
+		case <-time.After(time.Second * 10):
+			s.Monitor.GetBlockJobs(s.onGetBlockJobs)
+		}
+	}
+}
+
+func (s *SGuestBlockProgressBaseTask) onGetBlockJobs(jobs []monitor.BlockJob) {
+	if len(jobs) == 0 && s.c != nil {
+		close(s.c)
+		s.c = nil
+	}
+	for i := range jobs {
+		job := jobs[i]
+		_job, ok := s.jobs[job.Device]
+		if !ok {
+			job.CalcOffset(0)
+			s.jobs[job.Device] = job
+			continue
+		}
+		if _job.Status == "ready" {
+			delete(s.jobs, _job.Device)
+			continue
+		}
+		job.Start, job.Now = _job.Start, _job.Now
+		job.CalcOffset(_job.Offset)
+		s.jobs[job.Device] = job
+	}
+	mbps, progress := 0.0, 0.0
+	totalSize, totalOffset := int64(1), int64(0)
+	for _, job := range s.jobs {
+		mbps += job.SpeedMbps
+		totalSize += job.Len
+		totalOffset += job.Offset
+	}
+	if len(s.jobs) == 0 && len(jobs) == 0 {
+		progress = 100.0
+	} else {
+		progress = float64(totalOffset) / float64(totalSize) * 100
+	}
+
+	diskCount := s.task.StreamingDiskCount()
+	if diskCount > 0 {
+		progress = float64(s.task.StreamingDiskCompletedCount())/float64(diskCount)*100.0 + 1.0/float64(diskCount)*progress
+	}
+	hostutils.UpdateServerProgress(context.Background(), s.GetId(), progress, mbps)
+	s.task.OnGetBlockJobs(jobs)
+}
+
+func (s *SGuestBlockProgressBaseTask) cancelWaitBlockJobs() {
+	if s.c != nil {
+		close(s.c)
+		s.c = nil
+	}
+}
+
 /**
  *  GuestStreamDisksTask
 **/
 
 type SGuestStreamDisksTask struct {
-	*SKVMGuestInstance
+	*SGuestBlockProgressBaseTask
 
-	ctx      context.Context
 	callback func()
 	disksIdx []int
 
@@ -1517,12 +1608,12 @@ type SGuestStreamDisksTask struct {
 }
 
 func NewGuestStreamDisksTask(ctx context.Context, guest *SKVMGuestInstance, callback func(), disksIdx []int) *SGuestStreamDisksTask {
-	return &SGuestStreamDisksTask{
-		SKVMGuestInstance: guest,
-		ctx:               ctx,
-		callback:          callback,
-		disksIdx:          disksIdx,
+	task := &SGuestStreamDisksTask{
+		callback: callback,
+		disksIdx: disksIdx,
 	}
+	task.SGuestBlockProgressBaseTask = NewGuestBlockProgressBaseTask(ctx, guest, task)
+	return task
 }
 
 func (s *SGuestStreamDisksTask) Start() {
@@ -1532,7 +1623,7 @@ func (s *SGuestStreamDisksTask) Start() {
 func (s *SGuestStreamDisksTask) onInitCheckStreamJobs(jobs int) {
 	if jobs > 0 {
 		log.Warningf("GuestStreamDisksTask: duplicate block streaming???")
-		s.startWaitBlockStream("")
+		s.startWaitBlockJob("")
 	} else if jobs == 0 {
 		s.startBlockStreaming()
 	}
@@ -1576,60 +1667,34 @@ func (s *SGuestStreamDisksTask) startDoBlockStream() {
 	if len(s.streamDevs) > 0 {
 		dev := s.streamDevs[0]
 		s.streamDevs = s.streamDevs[1:]
-		s.Monitor.BlockStream(dev, len(s.disksIdx)-len(s.streamDevs), len(s.disksIdx), s.startWaitBlockStream)
+		s.Monitor.BlockStream(dev, s.startWaitBlockJob)
 	} else {
 		s.taskComplete()
 	}
 }
 
-func (s *SGuestStreamDisksTask) startWaitBlockStream(res string) {
-	log.Infof("Block stream command res %s: %q", s.GetName(), res)
-	s.c = make(chan struct{})
-	for {
-		select {
-		case <-s.c:
-			s.c = nil
-			return
-		case <-time.After(time.Second * 10):
-			s.Monitor.GetBlockJobCounts(s.checkStreamJobs)
-		}
-	}
+func (s *SGuestStreamDisksTask) StreamingDiskCompletedCount() int {
+	return len(s.disksIdx) - len(s.streamDevs) - 1
 }
 
-func (s *SGuestStreamDisksTask) checkStreamJobs(jobs int) {
-	if jobs == 0 && s.c != nil {
-		close(s.c)
+func (s *SGuestStreamDisksTask) StreamingDiskCount() int {
+	return len(s.disksIdx)
+}
+
+func (s *SGuestStreamDisksTask) OnGetBlockJobs(jobs []monitor.BlockJob) {
+	if len(jobs) == 0 {
+		s.cancelWaitBlockJobs()
 		if s.streamDevs == nil {
 			s.checkBlockDrives()
 		} else {
 			s.startDoBlockStream()
 		}
-
 	}
 }
 
 func (s *SGuestStreamDisksTask) taskComplete() {
 	hostutils.UpdateServerProgress(context.Background(), s.Id, 100.0, 0.0)
 	s.SyncStatus("")
-
-	// XXX: region disk post-migrate not implement
-
-	// disks, _ := s.Desc.GetArray("disks")
-	// var needSync = fale
-	// for i, disk := range disks {
-	// 	if disk.Contains("url") && disk.Contains("path") {
-	// 		diskId, _ := disk.GetString("disk_id")
-	// 		targetStroageId, _ := disk.GetString("target_storage_id")
-	// 		params := jsonutils.NewDict()
-	// 		params.Set("storage_id", jsonutils.NewString(targetStroageId))
-	// 		modules.Disks.PerformAction(hostutils.GetComputeSession(context.Background()),
-	// 			diskId, "post-migrate", params)
-	// 		needSync = true
-	// 	}
-	// }
-	// if needSync {
-	// 	s.SaveLiveDesc(s.Desc)
-	// }
 
 	if s.callback != nil {
 		s.callback()
@@ -2518,18 +2583,20 @@ func (task *SCancelBlockJobs) taskComplete() {
 }
 
 type SGuestStorageCloneDiskTask struct {
-	*SKVMGuestInstance
+	*SGuestBlockProgressBaseTask
 
-	ctx    context.Context
-	params *SStorageCloneDisk
+	started   bool
+	diskIndex int
+	resp      *hostapi.ServerCloneDiskFromStorageResponse
+	params    *SStorageCloneDisk
 }
 
 func NewGuestStorageCloneDiskTask(ctx context.Context, guest *SKVMGuestInstance, params *SStorageCloneDisk) *SGuestStorageCloneDiskTask {
-	return &SGuestStorageCloneDiskTask{
-		SKVMGuestInstance: guest,
-		ctx:               ctx,
-		params:            params,
+	task := &SGuestStorageCloneDiskTask{
+		params: params,
 	}
+	task.SGuestBlockProgressBaseTask = NewGuestBlockProgressBaseTask(ctx, guest, task)
+	return task
 }
 
 func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
@@ -2576,24 +2643,13 @@ func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
 	if !guestRunning {
 		hostutils.TaskComplete(t.ctx, jsonutils.Marshal(resp))
 		return
-	}
-
-	onDriveMirror := func(res string) {
-		if len(res) > 0 {
-			hostutils.TaskFailed(
-				t.ctx, fmt.Sprintf("Clone disk %s to storage %s drive mirror failed %s",
-					t.params.SourceDisk.GetPath(), t.params.TargetStorage.GetId(), res),
-			)
-		} else {
-			hostutils.TaskComplete(t.ctx, jsonutils.Marshal(resp))
-			timeutils2.AddTimeout(time.Second*3, func() {
-				t.SyncStatus("drive mirror started")
-			})
-		}
+	} else {
+		t.resp = resp
+		t.diskIndex = diskIndex
 	}
 
 	t.Monitor.DriveMirror(
-		onDriveMirror,
+		t.onDriveMirror,
 		fmt.Sprintf("drive_%d", diskIndex),
 		targetDisk.GetPath(),
 		"full",
@@ -2601,6 +2657,73 @@ func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
 		true,
 		false,
 	)
+}
+
+func (t *SGuestStorageCloneDiskTask) onDriveMirror(res string) {
+	if len(res) > 0 {
+		hostutils.TaskFailed(
+			t.ctx, fmt.Sprintf("Clone disk %s to storage %s drive mirror failed %s",
+				t.params.SourceDisk.GetPath(), t.params.TargetStorage.GetId(), res),
+		)
+	} else {
+		t.started = true
+		hostutils.TaskComplete(t.ctx, jsonutils.Marshal(t.resp))
+		go t.startWaitBlockJob(res)
+		timeutils2.AddTimeout(time.Second*3, func() {
+			t.SyncStatus("drive mirror started")
+		})
+	}
+}
+
+func (t *SGuestStorageCloneDiskTask) OnGetBlockJobs(jobs []monitor.BlockJob) {
+	if len(jobs) == 0 {
+		if !t.started {
+			targetDisk, err := t.params.TargetStorage.GetDiskById(t.params.TargetDiskId)
+			if err != nil {
+				hostutils.TaskFailed(
+					t.ctx, fmt.Sprintf("Failed get target disk %s %s", t.params.TargetDiskId, err),
+				)
+				return
+			}
+			targetDiskFormat, err := targetDisk.GetFormat()
+			if err != nil {
+				hostutils.TaskFailed(
+					t.ctx, fmt.Sprintf("Failed get target disk format %s %s", t.params.TargetDiskId, err),
+				)
+				return
+			}
+			t.Monitor.DriveMirror(
+				t.onDriveMirror,
+				fmt.Sprintf("drive_%d", t.diskIndex),
+				targetDisk.GetPath(),
+				"full",
+				targetDiskFormat,
+				true,
+				false,
+			)
+		} else {
+			hostutils.TaskFailed(t.ctx, fmt.Sprintf("Disk %s Block job not found", t.params.SourceDisk.GetId()))
+		}
+		return
+	}
+	for i := range jobs {
+		if jobs[i].Status == "ready" && jobs[i].Device == fmt.Sprintf("drive_%d", t.diskIndex) {
+			t.cancelWaitBlockJobs()
+			params := jsonutils.NewDict()
+			params.Set("block_jobs_ready", jsonutils.JSONTrue)
+			hostutils.TaskComplete(t.ctx, params)
+			break
+		}
+	}
+
+}
+
+func (t *SGuestStorageCloneDiskTask) StreamingDiskCompletedCount() int {
+	return t.params.CompletedDiskCount
+}
+
+func (t *SGuestStorageCloneDiskTask) StreamingDiskCount() int {
+	return t.params.CloneDiskCount
 }
 
 type SGuestLiveChangeDisk struct {

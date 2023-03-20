@@ -5504,6 +5504,7 @@ func (self *SGuest) StartGuestChangeStorageTask(ctx context.Context, userCred mc
 	params := api.ServerChangeStorageInternalInput{
 		ServerChangeStorageInput: *input,
 		Disks:                    disks,
+		DiskCount:                len(disks),
 		GuestRunning:             self.Status == api.VM_RUNNING,
 	}
 	reason := fmt.Sprintf("Change guest disks storage to %s", input.TargetStorageId)
