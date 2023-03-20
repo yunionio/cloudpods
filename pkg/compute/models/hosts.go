@@ -3212,6 +3212,9 @@ func (self *SHost) GetDevsReservedResource(devs []SIsolatedDevice) *api.Isolated
 		ReservedCpu:     &reservedCpu,
 	}
 	for _, dev := range devs {
+		if !utils.IsInStringArray(dev.DevType, api.VALID_GPU_TYPES) {
+			continue
+		}
 		reservedCpu += dev.ReservedCpu
 		reservedMem += dev.ReservedMemory
 		reservedStorage += dev.ReservedStorage

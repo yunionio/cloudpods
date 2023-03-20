@@ -745,6 +745,7 @@ func getStorageTypes(
 type GpuModelTypes struct {
 	Model   string
 	DevType string
+	SizeMB  int
 }
 
 func getGPUs(region *SCloudregion, zone *SZone, domainId string) ([]string, []GpuModelTypes) {
@@ -756,7 +757,7 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) ([]string, []Gp
 	}
 	hosts := hostQuery.SubQuery()
 
-	q := devices.Query(devices.Field("model"), devices.Field("dev_type"))
+	q := devices.Query(devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
 	q = q.Startswith("dev_type", "GPU")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
@@ -774,7 +775,7 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) ([]string, []Gp
 			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
 		))
 	}*/
-	q = q.GroupBy(devices.Field("model"), devices.Field("dev_type"))
+	q = q.GroupBy(devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
 
 	rows, err := q.Rows()
 	if err != nil {
@@ -786,12 +787,13 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) ([]string, []Gp
 	gpuModels := make([]string, 0)
 	for rows.Next() {
 		var m, t string
+		var sizeMB int
 		rows.Scan(&m, &t)
 
 		if m == "" {
 			continue
 		}
-		gpus = append(gpus, GpuModelTypes{m, t})
+		gpus = append(gpus, GpuModelTypes{m, t, sizeMB})
 
 		if !utils.IsInStringArray(m, gpuModels) {
 			gpuModels = append(gpuModels, m)
