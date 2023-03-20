@@ -293,6 +293,9 @@ func (self *SModelartsPool) ValidateDeleteCondition(ctx context.Context, info js
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("ModelartsPool is locked, cannot delete")
 	}
+	if self.Status != api.MODELARTS_POOL_STATUS_RUNNING && self.Status != api.MODELARTS_POOL_STATUS_UNKNOWN {
+		return httperrors.NewInvalidStatusError("ModelartsPool status cannot support delete")
+	}
 	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
