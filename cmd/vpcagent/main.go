@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/util/atexit"
 	"yunion.io/x/onecloud/pkg/util/procutils"
-	_ "yunion.io/x/onecloud/pkg/vpcagent/ovn"
 	"yunion.io/x/onecloud/pkg/vpcagent/service"
 )
 
