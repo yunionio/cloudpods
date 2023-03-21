@@ -312,7 +312,7 @@ You may contact us by:
 
 * WeChat: please scan the following QRCode to contact us
 
-<img src="https://www.cloudpods.org/images/contact_me_qr_20210701.png" alt="WeChat QRCode">
+<img src="https://www.cloudpods.org/images/contact_me_qr_20230321.png" alt="WeChat QRCode">
 
 ## Changelog
 
