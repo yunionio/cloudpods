@@ -127,18 +127,19 @@ func (emailSender *SEmailSender) Send(args api.SendParams) error {
 		if len(retErr) > 0 {
 			log.Errorf("send email error:%v", jsonutils.Marshal(retErr))
 		}
+	} else {
+		// 构造email发送请求
+		gmsg := gomail.NewMessage()
+		gmsg.SetHeader("From", models.ConfigMap[api.EMAIL].Content.SenderAddress)
+		gmsg.SetHeader("To", args.Receivers.Contact)
+		gmsg.SetHeader("Subject", args.Title)
+		gmsg.SetBody("text/html", args.Message)
+		dialer.StartTLSPolicy = gomail.MandatoryStartTLS
+		if err := dialer.DialAndSend(gmsg); err != nil {
+			return errors.Wrap(err, "send email")
+		}
 	}
 
-	// 构造email发送请求
-	gmsg := gomail.NewMessage()
-	gmsg.SetHeader("From", models.ConfigMap[api.EMAIL].Content.SenderAddress)
-	gmsg.SetHeader("To", args.Receivers.Contact)
-	gmsg.SetHeader("Subject", args.Title)
-	gmsg.SetBody("text/html", args.Message)
-	dialer.StartTLSPolicy = gomail.MandatoryStartTLS
-	if err := dialer.DialAndSend(gmsg); err != nil {
-		return errors.Wrap(err, "send email")
-	}
 	return nil
 }
 
