@@ -287,7 +287,7 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 					return nil, cloudprovider.ErrNotFound
 				}
 
-				return nil, &httputils.JSONClientError{Code: 400, Details: jsonResp.String()}
+				return nil, errors.Errorf(jsonResp.String())
 			}
 
 			return jsonResp, nil
