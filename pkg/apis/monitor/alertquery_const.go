@@ -59,6 +59,13 @@ var (
 		"project_domain":   "project_domain",
 		"account":          "account",
 		"account_id":       "account_id",
+		"external_id":      "external_id",
+		"eip":              "eip",
+		"eip_mode":         "eip_mode",
+		"ips":              "ips",
+		"vips":             "vips",
+		"vip":              "vip",
+		"vip_eip":          "vip_eip",
 	}
 
 	HostTags = map[string]string{
