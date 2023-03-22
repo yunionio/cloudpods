@@ -221,7 +221,9 @@ func (ce *hcsError) Error() string {
 }
 
 func (ce *hcsError) ParseErrorFromJsonResponse(statusCode int, body jsonutils.JSONObject) error {
-	body.Unmarshal(ce)
+	if !gotypes.IsNil(body) {
+		body.Unmarshal(ce)
+	}
 	if ce.Code == 0 {
 		ce.Code = statusCode
 	}
@@ -497,7 +499,8 @@ func (self *SHcsClient) dcsUpdate(regionId string, resource string, body map[str
 }
 
 func (self *SHcsClient) _url(product, version, regionId string, resource string) string {
-	url := fmt.Sprintf("%s.%s.%s/%s/%s/%s", product, regionId, self.authUrl, version, self.projectId, resource)
+	authUrl := strings.TrimPrefix(self.authUrl, regionId+".")
+	url := fmt.Sprintf("%s.%s.%s/%s/%s/%s", product, regionId, authUrl, version, self.projectId, resource)
 	for _, prefix := range []string{
 		"images", "cloudimages", "nat_gateways",
 		"lbaas", "products", "snat_rules",
@@ -505,12 +508,12 @@ func (self *SHcsClient) _url(product, version, regionId string, resource string)
 		"ports",
 	} {
 		if strings.HasPrefix(resource, prefix) {
-			url = fmt.Sprintf("%s.%s.%s/%s/%s", product, regionId, self.authUrl, version, resource)
+			url = fmt.Sprintf("%s.%s.%s/%s/%s", product, regionId, authUrl, version, resource)
 			break
 		}
 	}
 	if version == "v2.0" && strings.HasPrefix(resource, "subnets") {
-		url = fmt.Sprintf("%s.%s.%s/%s/%s", product, regionId, self.authUrl, version, resource)
+		url = fmt.Sprintf("%s.%s.%s/%s/%s", product, regionId, authUrl, version, resource)
 	}
 	return url
 }
@@ -752,7 +755,8 @@ func (self *SHcsClient) GetCapabilities() []string {
 }
 
 func (self *SHcsClient) getOBSEndpoint(regionId string) string {
-	return fmt.Sprintf("obsv3.%s.%s", regionId, self.authUrl)
+	authUrl := strings.TrimPrefix(self.authUrl, regionId+".")
+	return fmt.Sprintf("obsv3.%s.%s", regionId, authUrl)
 }
 
 func (self *SHcsClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
