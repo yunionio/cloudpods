@@ -42,6 +42,10 @@ func (self *SLoadBalancerBackendGroup) GetName() string {
 	return self.Name
 }
 
+func (self *SLoadBalancerBackendGroup) GetDescription() string {
+	return ""
+}
+
 func (self *SLoadBalancerBackendGroup) GetGlobalId() string {
 	return self.backendService.GetGlobalId()
 }

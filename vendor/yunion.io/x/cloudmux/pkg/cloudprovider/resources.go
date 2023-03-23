@@ -31,6 +31,7 @@ type ICloudResource interface {
 	GetName() string
 	GetGlobalId() string
 	GetCreatedAt() time.Time
+	GetDescription() string
 
 	GetStatus() string
 
