@@ -386,6 +386,7 @@ type SResources struct {
 	ModelartsPool  TResource
 	Wires          TResource
 	Projects       TResource
+	ElasticIps     TResource
 }
 
 func (self *SResources) IsInit() bool {
@@ -407,6 +408,7 @@ func NewResources() *SResources {
 		ModelartsPool:  NewBaseResources(&compute.ModelartsPools),
 		Wires:          NewBaseResources(&compute.Wires),
 		Projects:       NewBaseResources(&identity.Projects),
+		ElasticIps:     NewBaseResources(&compute.Elasticips),
 	}
 }
 
@@ -461,6 +463,10 @@ func (self *SResources) Init(ctx context.Context, userCred mcclient.TokenCredent
 			err = self.ModelartsPool.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "ModelartsPool.init"))
+			}
+			err = self.ElasticIps.init(ctx)
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "ElasticIps.init"))
 			}
 			err = self.Wires.init(ctx)
 			if err != nil {
@@ -529,6 +535,10 @@ func (self *SResources) IncrementSync(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ModelartsPool.increment"))
 		}
+		err = self.ElasticIps.increment(ctx)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "Elasticips.increment"))
+		}
 		err = self.Wires.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Wires.increment"))
@@ -593,6 +603,10 @@ func (self *SResources) DecrementSync(ctx context.Context, userCred mcclient.Tok
 		err = self.Wires.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ModelartsPool.decrement"))
+		}
+		err = self.ElasticIps.decrement(ctx)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "ElasticIps.decrement"))
 		}
 		err = self.Projects.decrement(ctx)
 		if err != nil {
@@ -825,6 +839,18 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 			err = driver.CollectWireMetrics(ctx, manager, provider, wires, startTime, endTime)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 				log.Errorf("CollectWireMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			}
+
+			resources = self.ElasticIps.getResources(ctx, manager.Id)
+			eips := map[string]api.ElasticipDetails{}
+			err = jsonutils.Update(&eips, resources)
+			if err != nil {
+				log.Errorf("unmarsha eips resources error: %v", err)
+			}
+
+			err = driver.CollectEipMetrics(ctx, manager, provider, eips, startTime, endTime)
+			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+				log.Errorf("CollectEipMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 			}
 
 		}(cloudproviders[i])
