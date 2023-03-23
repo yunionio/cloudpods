@@ -54,6 +54,10 @@ func (self *SLoadbalancerBackend) GetGlobalId() string {
 	return self.GetId()
 }
 
+func (self *SLoadbalancerBackend) GetDescription() string {
+	return ""
+}
+
 func (self *SLoadbalancerBackend) GetStatus() string {
 	return api.LB_STATUS_ENABLED
 }

@@ -41,6 +41,10 @@ func (self *SNetwork) GetId() string {
 	return self.wire.vpc.GetId()
 }
 
+func (self *SNetwork) GetDescription() string {
+	return ""
+}
+
 func (self *SNetwork) GetGlobalId() string {
 	return self.wire.vpc.GetGlobalId()
 }

@@ -42,3 +42,7 @@ func (r *SResourceBase) GetGlobalId() string {
 func (r *SResourceBase) GetName() string {
 	return r.Name
 }
+
+func (r *SResourceBase) GetDescription() string {
+	return ""
+}
