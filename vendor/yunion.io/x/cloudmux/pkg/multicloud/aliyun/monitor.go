@@ -195,6 +195,9 @@ type MetricData struct {
 	Minimum    float64
 	Maximum    float64
 
+	State       string
+	ProcessName string
+
 	Diskname string
 	Device   string
 
@@ -224,6 +227,12 @@ func (d MetricData) GetTags() map[string]string {
 	ret := map[string]string{}
 	if len(d.Device) > 0 {
 		ret[cloudprovider.METRIC_TAG_DEVICE] = fmt.Sprintf("%s(%s)", d.Device, d.Diskname)
+	}
+	if len(d.ProcessName) > 0 {
+		ret[cloudprovider.METRIC_TAG_PROCESS_NAME] = d.ProcessName
+	}
+	if len(d.State) > 0 {
+		ret[cloudprovider.METRIC_TAG_STATE] = d.State
 	}
 	return ret
 }
@@ -310,6 +319,8 @@ func (self *SAliyunClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 		return self.GetElbMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_K8S:
 		return self.GetK8sMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_EIP:
+		return self.GetEipMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
 	}
@@ -358,6 +369,16 @@ func (self *SAliyunClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 		metricTags = map[string]string{
 			"diskusage_utilization": "",
 		}
+	case cloudprovider.VM_METRIC_TYPE_PROCESS_NUMBER:
+		metricTags = map[string]string{
+			"process.count_processname": "",
+		}
+		tagKey = cloudprovider.METRIC_TAG_PROCESS_NAME
+	case cloudprovider.VM_METRIC_TYPE_NET_TCP_CONNECTION:
+		metricTags = map[string]string{
+			"network.tcp.connection_state": "",
+		}
+		tagKey = cloudprovider.METRIC_TAG_STATE
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
@@ -407,7 +428,7 @@ func (self *SAliyunClient) GetOssMetrics(opts *cloudprovider.MetricListOptions) 
 			"InternetSend": cloudprovider.METRIC_TAG_NET_TYPE_INTERNET,
 			"IntranetSend": cloudprovider.METRIC_TAG_NET_TYPE_INTRANET,
 		}
-		tagKey = cloudprovider.METRIC_TAG_REQUST
+		tagKey = cloudprovider.METRIC_TAG_NET_TYPE
 	case cloudprovider.BUCKET_METRIC_TYPE_NET_BPS_RX:
 		metricTags = map[string]string{
 			"InternetRecv": cloudprovider.METRIC_TAG_NET_TYPE_INTERNET,
@@ -416,11 +437,31 @@ func (self *SAliyunClient) GetOssMetrics(opts *cloudprovider.MetricListOptions) 
 		tagKey = cloudprovider.METRIC_TAG_NET_TYPE
 	case cloudprovider.BUCKET_METRYC_TYPE_REQ_COUNT:
 		metricTags = map[string]string{
-			"GetObjectCount":   cloudprovider.METRIC_TAG_REQUST_GET,
-			"PostObjectCount":  cloudprovider.METRIC_TAG_REQUST_POST,
-			"ServerErrorCount": cloudprovider.METRIC_TAG_REQUST_5XX,
+			"TotalRequestCount": "",
+		}
+	case cloudprovider.BUCKET_METRIC_TYPE_REQ_5XX_COUNT:
+		metricTags = map[string]string{
+			"ServerErrorCount": "",
+		}
+	case cloudprovider.BUCKET_METRIC_TYPE_REQ_4XX_COUNT:
+		metricTags = map[string]string{
+			"AuthorizationErrorCount": "authorization",
+			"ClientOtherErrorCount":   "other",
+			"ClientTimeoutErrorCount": "timeout",
 		}
 		tagKey = cloudprovider.METRIC_TAG_REQUST
+	case cloudprovider.BUCKET_METRIC_TYPE_REQ_3XX_COUNT:
+		metricTags = map[string]string{
+			"RedirectCount": "",
+		}
+	case cloudprovider.BUCKET_METRIC_TYPE_REQ_2XX_COUNT:
+		metricTags = map[string]string{
+			"SuccessCount": "",
+		}
+	case cloudprovider.BUCKET_METRIC_TYPE_STORAGE_SIZE:
+		metricTags = map[string]string{
+			"MeteringStorageUtilization": "",
+		}
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
@@ -522,6 +563,10 @@ func (self *SAliyunClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) 
 		metricTags = map[string]string{
 			"ConnectionUsage": "",
 		}
+	case cloudprovider.RDS_METRIC_TYPE_QPS:
+		metricTags = map[string]string{
+			"MySQL_QPS": "",
+		}
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
@@ -567,6 +612,22 @@ func (self *SAliyunClient) GetElbMetrics(opts *cloudprovider.MetricListOptions) 
 			"InstanceStatusCode5xx": cloudprovider.METRIC_TAG_REQUST_5XX,
 		}
 		tagKey = cloudprovider.METRIC_TAG_REQUST
+	case cloudprovider.LB_METRIC_TYPE_DROP_PACKET_RX:
+		metricTags = map[string]string{
+			"InstanceDropPacketRX": "",
+		}
+	case cloudprovider.LB_METRIC_TYPE_DROP_PACKET_TX:
+		metricTags = map[string]string{
+			"InstanceDropPacketTX": "",
+		}
+	case cloudprovider.LB_METRIC_TYPE_DROP_TRAFFIC_RX:
+		metricTags = map[string]string{
+			"InstanceDropTrafficRX": "",
+		}
+	case cloudprovider.LB_METRIC_TYPE_DROP_TRAFFIC_TX:
+		metricTags = map[string]string{
+			"InstanceDropTrafficTX": "",
+		}
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
@@ -629,6 +690,52 @@ func (self *SAliyunClient) GetK8sMetrics(opts *cloudprovider.MetricListOptions) 
 				},
 			},
 		})
+	}
+	return ret, nil
+}
+
+func (self *SAliyunClient) GetEipMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	metricTags, tagKey := map[string]string{}, ""
+	switch opts.MetricType {
+	case cloudprovider.EIP_METRIC_TYPE_NET_BPS_RX:
+		metricTags = map[string]string{
+			"net.rx": "",
+		}
+	case cloudprovider.EIP_METRIC_TYPE_NET_BPS_TX:
+		metricTags = map[string]string{
+			"net.tx": "",
+		}
+	case cloudprovider.EIP_METRIC_TYPE_NET_DROP_SPEED_TX:
+		metricTags = map[string]string{
+			"out_ratelimit_drop_speed": "",
+		}
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
+	}
+	ret := []cloudprovider.MetricValues{}
+	for metric, tag := range metricTags {
+		result, err := self.ListMetrics("acs_vpc_eip", metric, opts.StartTime, opts.EndTime)
+		if err != nil {
+			log.Errorf("ListMetric(%s) error: %v", metric, err)
+			continue
+		}
+		tags := map[string]string{}
+		if len(tag) > 0 && len(tagKey) > 0 {
+			tags[tagKey] = tag
+		}
+		for i := range result {
+			ret = append(ret, cloudprovider.MetricValues{
+				Id:         result[i].InstanceId,
+				MetricType: opts.MetricType,
+				Values: []cloudprovider.MetricValue{
+					{
+						Timestamp: time.UnixMilli(result[i].Timestamp),
+						Value:     result[i].GetValue(),
+						Tags:      tags,
+					},
+				},
+			})
+		}
 	}
 	return ret, nil
 }
