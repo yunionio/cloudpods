@@ -2911,6 +2911,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.Hypervisor = extVM.GetHypervisor()
 
+		if len(self.Description) == 0 {
+			self.Description = extVM.GetDescription()
+		}
 		self.IsEmulated = extVM.IsEmulated()
 
 		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
@@ -2973,6 +2976,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Hostname = pinyinutils.Text2Pinyin(extVM.GetHostname())
 	guest.InternetMaxBandwidthOut = extVM.GetInternetMaxBandwidthOut()
 	guest.Throughput = extVM.GetThroughput()
+	guest.Description = extVM.GetDescription()
 
 	guest.IsEmulated = extVM.IsEmulated()
 

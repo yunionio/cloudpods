@@ -19,14 +19,18 @@ import "time"
 type SResourceBase struct {
 }
 
-func (self *SResourceBase) IsEmulated() bool {
+func (resource *SResourceBase) IsEmulated() bool {
 	return false
 }
 
-func (self *SResourceBase) Refresh() error {
+func (resource *SResourceBase) Refresh() error {
 	return nil
 }
 
-func (self *SResourceBase) GetCreatedAt() time.Time {
+func (resource *SResourceBase) GetCreatedAt() time.Time {
 	return time.Time{}
+}
+
+func (resource *SResourceBase) GetDescription() string {
+	return ""
 }

@@ -43,146 +43,150 @@ type SInstanceType struct {
 	Description  string
 }
 
-func (self *SInstanceType) GetCreatedAt() time.Time {
+func (insType *SInstanceType) GetCreatedAt() time.Time {
 	return time.Time{}
 }
 
-func (self *SInstanceType) GetId() string {
-	return self.InstanceType
+func (insType *SInstanceType) GetId() string {
+	return insType.InstanceType
 }
 
-func (self *SInstanceType) GetName() string {
-	return self.InstanceType
+func (insType *SInstanceType) GetName() string {
+	return insType.InstanceType
 }
 
-func (self *SInstanceType) GetGlobalId() string {
-	return self.InstanceType
-}
-
-func (self *SInstanceType) GetStatus() string {
+func (insType *SInstanceType) GetDescription() string {
 	return ""
 }
 
-func (self *SInstanceType) Refresh() error {
+func (insType *SInstanceType) GetGlobalId() string {
+	return insType.InstanceType
+}
+
+func (insType *SInstanceType) GetStatus() string {
+	return ""
+}
+
+func (insType *SInstanceType) Refresh() error {
 	return nil
 }
 
-func (self *SInstanceType) IsEmulated() bool {
+func (insType *SInstanceType) IsEmulated() bool {
 	return false
 }
 
-func (self *SInstanceType) GetSysTags() map[string]string {
+func (insType *SInstanceType) GetSysTags() map[string]string {
 	return nil
 }
 
-func (self *SInstanceType) GetTags() (map[string]string, error) {
+func (insType *SInstanceType) GetTags() (map[string]string, error) {
 	return nil, nil
 }
 
-func (self *SInstanceType) SetTags(tags map[string]string, replace bool) error {
+func (insType *SInstanceType) SetTags(tags map[string]string, replace bool) error {
 	return nil
 }
 
-func (self *SInstanceType) GetInstanceTypeFamily() string {
-	return strings.Split(self.InstanceType, ".")[0]
+func (insType *SInstanceType) GetInstanceTypeFamily() string {
+	return strings.Split(insType.InstanceType, ".")[0]
 }
 
-func (self *SInstanceType) GetInstanceTypeCategory() string {
-	return getInstanceCategory(self.GetInstanceTypeFamily())
+func (insType *SInstanceType) GetInstanceTypeCategory() string {
+	return getInstanceCategory(insType.GetInstanceTypeFamily())
 }
 
-func (self *SInstanceType) GetPrepaidStatus() string {
+func (insType *SInstanceType) GetPrepaidStatus() string {
 	return "available"
 }
 
-func (self *SInstanceType) GetPostpaidStatus() string {
+func (insType *SInstanceType) GetPostpaidStatus() string {
 	return "available"
 }
 
 // https://support.huaweicloud.com/productdesc-ecs/ecs_01_0066.html
 // https://support.huaweicloud.com/ecs_faq/ecs_faq_0105.html
-func (self *SInstanceType) GetCpuArch() string {
+func (insType *SInstanceType) GetCpuArch() string {
 	return apis.OS_ARCH_X86
 }
 
-func (self *SInstanceType) GetCpuCoreCount() int {
-	return self.Cpu
+func (insType *SInstanceType) GetCpuCoreCount() int {
+	return insType.Cpu
 }
 
-func (self *SInstanceType) GetMemorySizeMB() int {
-	return self.Ram
+func (insType *SInstanceType) GetMemorySizeMB() int {
+	return insType.Ram
 }
 
-func (self *SInstanceType) GetOsName() string {
+func (insType *SInstanceType) GetOsName() string {
 	return ""
 }
 
-func (self *SInstanceType) GetSysDiskResizable() bool {
+func (insType *SInstanceType) GetSysDiskResizable() bool {
 	return false
 }
 
-func (self *SInstanceType) GetSysDiskType() string {
+func (insType *SInstanceType) GetSysDiskType() string {
 	return ""
 }
 
-func (self *SInstanceType) GetSysDiskMinSizeGB() int {
+func (insType *SInstanceType) GetSysDiskMinSizeGB() int {
 	return 0
 }
 
-func (self *SInstanceType) GetSysDiskMaxSizeGB() int {
+func (insType *SInstanceType) GetSysDiskMaxSizeGB() int {
 	return 0
 }
 
-func (self *SInstanceType) GetAttachedDiskType() string {
+func (insType *SInstanceType) GetAttachedDiskType() string {
 	return ""
 }
 
-func (self *SInstanceType) GetAttachedDiskSizeGB() int {
+func (insType *SInstanceType) GetAttachedDiskSizeGB() int {
 	return 0
 }
 
-func (self *SInstanceType) GetAttachedDiskCount() int {
+func (insType *SInstanceType) GetAttachedDiskCount() int {
 	return 0
 }
 
-func (self *SInstanceType) GetDataDiskTypes() string {
+func (insType *SInstanceType) GetDataDiskTypes() string {
 	return ""
 }
 
-func (self *SInstanceType) GetDataDiskMaxCount() int {
+func (insType *SInstanceType) GetDataDiskMaxCount() int {
 	return 0
 }
 
-func (self *SInstanceType) GetNicType() string {
+func (insType *SInstanceType) GetNicType() string {
 	return ""
 }
 
-func (self *SInstanceType) GetNicMaxCount() int {
+func (insType *SInstanceType) GetNicMaxCount() int {
 	return 0
 }
 
-func (self *SInstanceType) GetGpuAttachable() bool {
+func (insType *SInstanceType) GetGpuAttachable() bool {
 	return false
 }
 
-func (self *SInstanceType) GetGpuSpec() string {
+func (insType *SInstanceType) GetGpuSpec() string {
 	return ""
 }
 
-func (self *SInstanceType) GetGpuCount() int {
+func (insType *SInstanceType) GetGpuCount() int {
 	return 0
 }
 
-func (self *SInstanceType) GetGpuMaxCount() int {
+func (insType *SInstanceType) GetGpuMaxCount() int {
 	return 0
 }
 
-func (self *SInstanceType) Delete() error {
+func (insType *SInstanceType) Delete() error {
 	return nil
 }
 
-func (self *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
-	resp, err := self.invoke("DescribeInstanceTypes", nil)
+func (insType *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
+	resp, err := insType.invoke("DescribeInstanceTypes", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -195,14 +199,14 @@ func (self *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
 	return result.InstanceTypeInfo, err
 }
 
-func (self *SRegion) GetISkus() ([]cloudprovider.ICloudSku, error) {
-	instanceTypes, err := self.GetInstanceTypes()
+func (insType *SRegion) GetISkus() ([]cloudprovider.ICloudSku, error) {
+	instanceTypes, err := insType.GetInstanceTypes()
 	if err != nil {
 		return nil, err
 	}
 	iskus := make([]cloudprovider.ICloudSku, len(instanceTypes))
 	for i := 0; i < len(instanceTypes); i++ {
-		instanceTypes[i].region = self
+		instanceTypes[i].region = insType
 		iskus[i] = &instanceTypes[i]
 	}
 	return iskus, nil
