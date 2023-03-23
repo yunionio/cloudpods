@@ -80,6 +80,10 @@ func (self *SInstance) GetThroughput() int {
 	return self.Throughput
 }
 
+func (self *SInstance) GetDescription() string {
+	return ""
+}
+
 func (self *SInstance) GetSerialOutput(port int) (string, error) {
 	return "", cloudprovider.ErrNotSupported
 }

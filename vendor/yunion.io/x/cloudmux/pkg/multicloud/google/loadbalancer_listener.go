@@ -59,6 +59,9 @@ func (self *SLoadbalancerListener) GetStatus() string {
 	return api.LB_STATUS_ENABLED
 }
 
+func (self *SLoadbalancerListener) GetDescription() string {
+	return ""
+}
 func (self *SLoadbalancerListener) Refresh() error {
 	return nil
 }
