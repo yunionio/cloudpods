@@ -14,7 +14,9 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type SElasticipCreateInput struct {
 	apis.VirtualResourceCreateInput
@@ -85,6 +87,26 @@ type ElasticipDetails struct {
 
 	// 绑定资源名称
 	AssociateName string `json:"associate_name"`
+}
+
+func (self ElasticipDetails) GetMetricTags() map[string]string {
+	ret := map[string]string{
+		"id":             self.Id,
+		"name":           self.Name,
+		"status":         self.Status,
+		"mode":           self.Mode,
+		"cloudregion":    self.Cloudregion,
+		"cloudregion_id": self.CloudregionId,
+		"region_ext_id":  self.RegionExtId,
+		"tenant":         self.Project,
+		"tenant_id":      self.ProjectId,
+		"brand":          self.Brand,
+		"domain_id":      self.DomainId,
+		"project_domain": self.ProjectDomain,
+		"ip_addr":        self.IpAddr,
+		"external_id":    self.ExternalId,
+	}
+	return ret
 }
 
 type ElasticipSyncstatusInput struct {

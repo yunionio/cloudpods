@@ -55,6 +55,7 @@ const (
 	METRIC_RESOURCE_TYPE_WIRE           TResourceType = "wire"
 	METRIC_RESOURCE_TYPE_CLOUD_ACCOUNT  TResourceType = "cloudaccount_balance"
 	METRIC_RESOURCE_TYPE_MODELARTS_POOL TResourceType = "modelarts"
+	METRIC_RESOURCE_TYPE_EIP            TResourceType = "eip"
 )
 
 const (
@@ -106,8 +107,8 @@ const (
 
 	METRIC_TAG_DATABASE = "database"
 
-	// RDS QPS
-	// 支持平台: huawei, qcloud
+	// RDS QPS(每秒查询数)
+	// 支持平台: huawei, qcloud, aliyun, apsara
 	RDS_METRIC_TYPE_QPS TMetricType = "rds_qps.query_qps"
 	// RDS TPS
 	// 支持平台: huawei, qcloud
@@ -149,6 +150,13 @@ const (
 	// 虚拟机网络出速率
 	// 支持平台: huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, qcloud
 	VM_METRIC_TYPE_NET_BPS_TX TMetricType = "vm_netio.bps_sent"
+
+	// 虚拟机TCP连接数
+	// 支持平台: aliyun, apsara
+	VM_METRIC_TYPE_NET_TCP_CONNECTION TMetricType = "vm_netio.tcp_connections"
+	// 虚拟机进程监控
+	// 支持平台: aliyun, apsara
+	VM_METRIC_TYPE_PROCESS_NUMBER = "vm_process.number"
 
 	// 宿主机CPU使用率
 	// 支持平台: esxi
@@ -201,15 +209,42 @@ const (
 	LB_METRIC_TYPE_SNAT_PORT TMetricType = "haproxy.used_snat_port"
 	// 支持平台: azure
 	LB_METRIC_TYPE_SNAT_CONN_COUNT TMetricType = "haproxy.snat_conn_count"
-	// 入速率
+	// 入带宽速率
 	// 支持平台: huawei, aliyun, apsara
 	LB_METRIC_TYPE_NET_BPS_RX TMetricType = "haproxy.bin"
-	// 出速率
+	// 出带宽速率
 	// 支持平台: huawei, aliyun, apsara
 	LB_METRIC_TYPE_NET_BPS_TX TMetricType = "haproxy.bout"
+	// 入包速率
+	// 支持平台: aliyun, apsara
+	LB_METRIC_TYPE_NET_PACKET_RX TMetricType = "haproxy.packet_rx"
+	// 出包速率
+	// 支持平台: aliyun, apsara
+	LB_METRIC_TYPE_NET_PACKET_TX TMetricType = "haproxy.packet_tx"
+	// 非活跃连接数
+	// 支持平台: apsara, aliyun
+	LB_METRIC_TYPE_NET_INACTIVE_CONNECTION = "haproxy.inactive_connection"
+	// 最大并发数
+	// 支持平台: apsara, aliyun
+	LB_METRIC_TYPE_MAX_CONNECTION = "haproxy.max_connection"
+	// 后端异常ECS实例个数
+	// 支持平台: apsara, aliyun
+	LB_METRIC_TYPE_UNHEALTHY_SERVER_COUNT = "haproxy.unhealthy_server_count"
 	// 状态码统计
 	// 支持平台: huawei, aliyun, apsara
 	LB_METRIC_TYPE_HRSP_COUNT TMetricType = "haproxy.hrsp_Nxx"
+	// 入方向丢弃流量
+	// 支持平台: aliyun
+	LB_METRIC_TYPE_DROP_TRAFFIC_TX = "haproxy.drop_traffic_tx"
+	// 出方向丢弃流量
+	// 支持平台: aliyun, apsara
+	LB_METRIC_TYPE_DROP_TRAFFIC_RX = "haproxy.drop_traffic_rx"
+	// 入方向丢弃包数
+	// 支持平台: aliyun
+	LB_METRIC_TYPE_DROP_PACKET_TX = "haproxy.drop_packet_tx"
+	// 出方向丢弃包数
+	// 支持平台: aliyun, apsara
+	LB_METRIC_TYPE_DROP_PACKET_RX = "haproxy.drop_packet_rx"
 
 	// 对象存储出速率
 	// 支持平台: huawei, aliyun, apsara
@@ -220,9 +255,24 @@ const (
 	// 请求延时
 	// 支持平台: huawei, aliyun, apsara
 	BUCKET_METRIC_TYPE_LATECY TMetricType = "oss_latency.req_late"
-	// 请求数量
+	// 总请求数量
 	// 支持平台: huawei, aliyun, apsara
 	BUCKET_METRYC_TYPE_REQ_COUNT TMetricType = "oss_req.req_count"
+	// 服务端请求错误数量
+	// 支持平台: aliyun, apsara
+	BUCKET_METRIC_TYPE_REQ_5XX_COUNT TMetricType = "oss_req.5xx_count"
+	// 服务端请求错误数量
+	// 支持平台: aliyun, apsara
+	BUCKET_METRIC_TYPE_REQ_4XX_COUNT TMetricType = "oss_req.4xx_count"
+	// 重定向数量
+	// 支持平台: aliyun, apsara
+	BUCKET_METRIC_TYPE_REQ_3XX_COUNT TMetricType = "oss_req.3xx_count"
+	// 正常请求数量
+	// 支持平台: aliyun, apsara
+	BUCKET_METRIC_TYPE_REQ_2XX_COUNT TMetricType = "oss_req.2xx_count"
+	// 存储总容量(bit)
+	// 支持平台: aliyun, apsara
+	BUCKET_METRIC_TYPE_STORAGE_SIZE = "oss_storage.size"
 
 	METRIC_TAG_REQUST      = "request"
 	METRIC_TAG_REQUST_GET  = "get"
@@ -241,6 +291,12 @@ const (
 
 	// 磁盘利用率
 	METRIC_TAG_DEVICE = "device"
+
+	// 进程名称
+	METRIC_TAG_PROCESS_NAME = "process_name"
+
+	// 状态
+	METRIC_TAG_STATE = "state"
 
 	METRIC_TAG_NODE = "node"
 
@@ -272,6 +328,14 @@ const (
 	WIRE_METRIC_TYPE_MEM_USAGE            TMetricType = "wire_mem.usage_percent"
 	WIRE_METRIC_TYPE_NET_RT               TMetricType = "wire_net.rt"               // 响应时间ms
 	WIRE_METRIC_TYPE_NET_UNREACHABLE_RATE TMetricType = "wire_net.unreachable_rate" // 不可达率
+
+	// EIP入带宽
+	EIP_METRIC_TYPE_NET_BPS_RX TMetricType = "eip_net.bps_recv"
+	// EIP出带宽
+	EIP_METRIC_TYPE_NET_BPS_TX TMetricType = "eip_net.bps_sent"
+
+	// EIP 出方向限速丢包率
+	EIP_METRIC_TYPE_NET_DROP_SPEED_TX TMetricType = "eip_net.drop_speed_rx"
 )
 
 var (
@@ -318,6 +382,9 @@ var (
 
 		VM_METRIC_TYPE_NET_BPS_RX,
 		VM_METRIC_TYPE_NET_BPS_TX,
+		VM_METRIC_TYPE_NET_TCP_CONNECTION,
+
+		VM_METRIC_TYPE_PROCESS_NUMBER,
 	}
 
 	ALL_REDIS_METRIC_TYPES = []TMetricType{
@@ -338,6 +405,19 @@ var (
 		LB_METRIC_TYPE_NET_BPS_RX,
 		LB_METRIC_TYPE_NET_BPS_TX,
 		LB_METRIC_TYPE_HRSP_COUNT,
+
+		LB_METRIC_TYPE_NET_PACKET_RX,
+		LB_METRIC_TYPE_NET_PACKET_TX,
+
+		LB_METRIC_TYPE_UNHEALTHY_SERVER_COUNT,
+		LB_METRIC_TYPE_NET_INACTIVE_CONNECTION,
+		LB_METRIC_TYPE_MAX_CONNECTION,
+
+		LB_METRIC_TYPE_DROP_PACKET_RX,
+		LB_METRIC_TYPE_DROP_PACKET_TX,
+
+		LB_METRIC_TYPE_DROP_TRAFFIC_RX,
+		LB_METRIC_TYPE_DROP_TRAFFIC_TX,
 	}
 
 	ALL_BUCKET_TYPES = []TMetricType{
@@ -345,11 +425,25 @@ var (
 		BUCKET_METRIC_TYPE_NET_BPS_RX,
 		BUCKET_METRIC_TYPE_LATECY,
 		BUCKET_METRYC_TYPE_REQ_COUNT,
+
+		BUCKET_METRIC_TYPE_REQ_5XX_COUNT,
+		BUCKET_METRIC_TYPE_REQ_4XX_COUNT,
+		BUCKET_METRIC_TYPE_REQ_3XX_COUNT,
+		BUCKET_METRIC_TYPE_REQ_2XX_COUNT,
+
+		BUCKET_METRIC_TYPE_STORAGE_SIZE,
 	}
 
 	ALL_K8S_NODE_TYPES = []TMetricType{
 		K8S_NODE_METRIC_TYPE_CPU_USAGE,
 		K8S_NODE_METRIC_TYPE_MEM_USAGE,
+	}
+
+	ALL_EIP_TYPES = []TMetricType{
+		EIP_METRIC_TYPE_NET_BPS_RX,
+		EIP_METRIC_TYPE_NET_BPS_TX,
+
+		EIP_METRIC_TYPE_NET_DROP_SPEED_TX,
 	}
 )
 
