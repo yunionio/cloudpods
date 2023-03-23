@@ -51,6 +51,9 @@ type MetricData struct {
 	Maximum    float64
 	Diskname   string
 	Device     string
+
+	State       string
+	ProcessName string
 }
 
 func (d MetricData) GetValue() float64 {
@@ -73,6 +76,12 @@ func (d MetricData) GetTags() map[string]string {
 	ret := map[string]string{}
 	if len(d.Device) > 0 {
 		ret[cloudprovider.METRIC_TAG_DEVICE] = fmt.Sprintf("%s(%s)", d.Device, d.Diskname)
+	}
+	if len(d.ProcessName) > 0 {
+		ret[cloudprovider.METRIC_TAG_PROCESS_NAME] = d.ProcessName
+	}
+	if len(d.State) > 0 {
+		ret[cloudprovider.METRIC_TAG_STATE] = d.State
 	}
 	return ret
 }
@@ -98,11 +107,11 @@ func (self *SApsaraClient) tryGetDepartments() []string {
 	return self.departments
 }
 
-func (self *SApsaraClient) ListMetrics(ns, metricName string, start, end time.Time) ([]MetricData, error) {
+func (self *SApsaraClient) ListMetrics(ns, metricName, dimensions string, start, end time.Time) ([]MetricData, error) {
 	ret := []MetricData{}
 	departments := self.tryGetDepartments()
 	for i := range departments {
-		part, err := self.listMetrics(departments[i], ns, metricName, start, end)
+		part, err := self.listMetrics(departments[i], ns, metricName, dimensions, start, end)
 		if err != nil {
 			if strings.Contains(err.Error(), "NoPermission") {
 				continue
@@ -114,11 +123,11 @@ func (self *SApsaraClient) ListMetrics(ns, metricName string, start, end time.Ti
 	return ret, nil
 }
 
-func (self *SApsaraClient) listMetrics(departmentId, ns, metricName string, start, end time.Time) ([]MetricData, error) {
+func (self *SApsaraClient) listMetrics(departmentId, ns, metricName, dimensions string, start, end time.Time) ([]MetricData, error) {
 	result := []MetricData{}
 	nextToken := ""
 	for {
-		part, next, err := self._listMetrics(departmentId, ns, metricName, nextToken, start, end)
+		part, next, err := self._listMetrics(departmentId, ns, metricName, dimensions, nextToken, start, end)
 		if err != nil {
 			return nil, errors.Wrap(err, "listMetrics")
 		}
@@ -131,13 +140,16 @@ func (self *SApsaraClient) listMetrics(departmentId, ns, metricName string, star
 	return result, nil
 }
 
-func (self *SApsaraClient) _listMetrics(departmentId, ns, metricName, nextToken string, start, end time.Time) ([]MetricData, string, error) {
+func (self *SApsaraClient) _listMetrics(departmentId, ns, metricName, dimensions string, nextToken string, start, end time.Time) ([]MetricData, string, error) {
 	params := make(map[string]string)
 	params["MetricName"] = metricName
 	params["Namespace"] = ns
 	params["Length"] = "2000"
 	if len(nextToken) > 0 {
 		params["NextToken"] = nextToken
+	}
+	if len(dimensions) > 0 {
+		params["Dimensions"] = dimensions
 	}
 	params["Department"] = departmentId
 	params["StartTime"] = fmt.Sprintf("%d", start.UnixMilli())
@@ -178,6 +190,8 @@ func (self *SApsaraClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 		return self.GetRdsMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_LB:
 		return self.GetElbMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_EIP:
+		return self.GetEipMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
 	}
@@ -226,12 +240,26 @@ func (self *SApsaraClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 		metricTags = map[string]string{
 			"diskusage_utilization": "",
 		}
+	case cloudprovider.VM_METRIC_TYPE_PROCESS_NUMBER:
+		metricTags = map[string]string{
+			"process.number": "",
+		}
+		tagKey = cloudprovider.METRIC_TAG_PROCESS_NAME
+	case cloudprovider.VM_METRIC_TYPE_NET_TCP_CONNECTION:
+		metricTags = map[string]string{
+			"net_tcpconnection": "",
+		}
+		tagKey = cloudprovider.METRIC_TAG_STATE
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
 	ret := []cloudprovider.MetricValues{}
 	for metric, tag := range metricTags {
-		result, err := self.ListMetrics("acs_ecs_dashboard", metric, opts.StartTime, opts.EndTime)
+		dimensions := ""
+		if opts.MetricType == cloudprovider.VM_METRIC_TYPE_PROCESS_NUMBER {
+			dimensions = jsonutils.Marshal(map[string]string{"instanceId": opts.ResourceId}).String()
+		}
+		result, err := self.ListMetrics("acs_ecs_dashboard", metric, dimensions, opts.StartTime, opts.EndTime)
 		if err != nil {
 			log.Errorf("ListMetric(%s) error: %v", metric, err)
 			continue
@@ -275,7 +303,7 @@ func (self *SApsaraClient) GetOssMetrics(opts *cloudprovider.MetricListOptions) 
 			"InternetSend": cloudprovider.METRIC_TAG_NET_TYPE_INTERNET,
 			"IntranetSend": cloudprovider.METRIC_TAG_NET_TYPE_INTRANET,
 		}
-		tagKey = cloudprovider.METRIC_TAG_REQUST
+		tagKey = cloudprovider.METRIC_TAG_NET_TYPE
 	case cloudprovider.BUCKET_METRIC_TYPE_NET_BPS_RX:
 		metricTags = map[string]string{
 			"InternetRecv": cloudprovider.METRIC_TAG_NET_TYPE_INTERNET,
@@ -284,17 +312,41 @@ func (self *SApsaraClient) GetOssMetrics(opts *cloudprovider.MetricListOptions) 
 		tagKey = cloudprovider.METRIC_TAG_NET_TYPE
 	case cloudprovider.BUCKET_METRYC_TYPE_REQ_COUNT:
 		metricTags = map[string]string{
-			"GetObjectCount":   cloudprovider.METRIC_TAG_REQUST_GET,
-			"PostObjectCount":  cloudprovider.METRIC_TAG_REQUST_POST,
-			"ServerErrorCount": cloudprovider.METRIC_TAG_REQUST_5XX,
+			"TotalRequestCount": "",
+		}
+	case cloudprovider.BUCKET_METRIC_TYPE_REQ_5XX_COUNT:
+		metricTags = map[string]string{
+			"ServerErrorCount": "",
+		}
+	case cloudprovider.BUCKET_METRIC_TYPE_REQ_4XX_COUNT:
+		metricTags = map[string]string{
+			"AuthorizationErrorCount": "authorization",
+			"ClientOtherErrorCount":   "other",
+			"ClientTimeoutErrorCount": "timeout",
 		}
 		tagKey = cloudprovider.METRIC_TAG_REQUST
+	case cloudprovider.BUCKET_METRIC_TYPE_REQ_3XX_COUNT:
+		metricTags = map[string]string{
+			"RedirectCount": "",
+		}
+	case cloudprovider.BUCKET_METRIC_TYPE_REQ_2XX_COUNT:
+		metricTags = map[string]string{
+			"SuccessCount": "",
+		}
+	case cloudprovider.BUCKET_METRIC_TYPE_STORAGE_SIZE:
+		metricTags = map[string]string{
+			"MeteringStorageUtilization": "",
+		}
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
 	ret := []cloudprovider.MetricValues{}
 	for metric, tag := range metricTags {
-		result, err := self.ListMetrics("acs_oss_dashboard", metric, opts.StartTime, opts.EndTime)
+		dimensions := ""
+		if opts.MetricType == cloudprovider.BUCKET_METRIC_TYPE_STORAGE_SIZE {
+			dimensions = jsonutils.Marshal(map[string]string{"BucketName": opts.ResourceId}).String()
+		}
+		result, err := self.ListMetrics("acs_oss_dashboard", metric, dimensions, opts.StartTime, opts.EndTime)
 		if err != nil {
 			log.Errorf("ListMetric(%s) error: %v", metric, err)
 			continue
@@ -362,7 +414,7 @@ func (self *SApsaraClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions
 	}
 	ret := []cloudprovider.MetricValues{}
 	for metric, tag := range metricTags {
-		result, err := self.ListMetrics("acs_kvstore", metric, opts.StartTime, opts.EndTime)
+		result, err := self.ListMetrics("acs_kvstore", metric, "", opts.StartTime, opts.EndTime)
 		if err != nil {
 			log.Errorf("ListMetric(%s) error: %v", metric, err)
 			continue
@@ -417,12 +469,16 @@ func (self *SApsaraClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) 
 		metrics = map[string]string{
 			"ConnectionUsage": "",
 		}
+	case cloudprovider.RDS_METRIC_TYPE_QPS:
+		metrics = map[string]string{
+			"MySQL_QPS": "",
+		}
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
 	ret := []cloudprovider.MetricValues{}
 	for metric := range metrics {
-		result, err := self.ListMetrics("acs_rds_dashboard", metric, opts.StartTime, opts.EndTime)
+		result, err := self.ListMetrics("acs_rds_dashboard", metric, "", opts.StartTime, opts.EndTime)
 		if err != nil {
 			log.Errorf("ListMetric(%s) error: %v", metric, err)
 			continue
@@ -448,26 +504,100 @@ func (self *SApsaraClient) GetElbMetrics(opts *cloudprovider.MetricListOptions) 
 	switch opts.MetricType {
 	case cloudprovider.LB_METRIC_TYPE_NET_BPS_RX:
 		metricTags = map[string]string{
-			"InstanceTrafficRX": "",
+			"TrafficRXNew": "",
 		}
 	case cloudprovider.LB_METRIC_TYPE_NET_BPS_TX:
 		metricTags = map[string]string{
-			"InstanceTrafficTX": "",
+			"TrafficTXNew": "",
 		}
-	case cloudprovider.LB_METRIC_TYPE_HRSP_COUNT:
+	case cloudprovider.LB_METRIC_TYPE_DROP_PACKET_RX:
 		metricTags = map[string]string{
-			"InstanceStatusCode2xx": cloudprovider.METRIC_TAG_REQUST_2XX,
-			"InstanceStatusCode3xx": cloudprovider.METRIC_TAG_REQUST_3XX,
-			"InstanceStatusCode4xx": cloudprovider.METRIC_TAG_REQUST_4XX,
-			"InstanceStatusCode5xx": cloudprovider.METRIC_TAG_REQUST_5XX,
+			"InstanceDropPacketRX": "",
 		}
-		tagKey = cloudprovider.METRIC_TAG_REQUST
+	case cloudprovider.LB_METRIC_TYPE_DROP_PACKET_TX:
+		metricTags = map[string]string{
+			"InstanceDropPacketTX": "",
+		}
+	case cloudprovider.LB_METRIC_TYPE_DROP_TRAFFIC_RX:
+		metricTags = map[string]string{
+			"InstanceDropTrafficRX": "",
+		}
+	case cloudprovider.LB_METRIC_TYPE_DROP_TRAFFIC_TX:
+		metricTags = map[string]string{
+			"InstanceDropTrafficTX": "",
+		}
+	case cloudprovider.LB_METRIC_TYPE_UNHEALTHY_SERVER_COUNT:
+		metricTags = map[string]string{
+			"UnhealthyServerCount": "",
+		}
+	case cloudprovider.LB_METRIC_TYPE_NET_INACTIVE_CONNECTION:
+		metricTags = map[string]string{
+			"InactiveConnection": "",
+		}
+	case cloudprovider.LB_METRIC_TYPE_MAX_CONNECTION:
+		metricTags = map[string]string{
+			"MaxConnection": "",
+		}
+	case cloudprovider.LB_METRIC_TYPE_NET_PACKET_RX:
+		metricTags = map[string]string{
+			"PacketRX": "",
+		}
+	case cloudprovider.LB_METRIC_TYPE_NET_PACKET_TX:
+		metricTags = map[string]string{
+			"PacketTX": "",
+		}
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 	}
 	ret := []cloudprovider.MetricValues{}
 	for metric, tag := range metricTags {
-		result, err := self.ListMetrics("acs_slb_dashboard", metric, opts.StartTime, opts.EndTime)
+		result, err := self.ListMetrics("acs_slb_dashboard", metric, "", opts.StartTime, opts.EndTime)
+		if err != nil {
+			log.Errorf("ListMetric(%s) error: %v", metric, err)
+			continue
+		}
+		tags := map[string]string{}
+		if len(tag) > 0 && len(tagKey) > 0 {
+			tags[tagKey] = tag
+		}
+		for i := range result {
+			ret = append(ret, cloudprovider.MetricValues{
+				Id:         result[i].InstanceId,
+				MetricType: opts.MetricType,
+				Values: []cloudprovider.MetricValue{
+					{
+						Timestamp: time.UnixMilli(result[i].Timestamp),
+						Value:     result[i].GetValue(),
+						Tags:      tags,
+					},
+				},
+			})
+		}
+	}
+	return ret, nil
+}
+
+func (self *SApsaraClient) GetEipMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	metricTags, tagKey := map[string]string{}, ""
+	switch opts.MetricType {
+	case cloudprovider.EIP_METRIC_TYPE_NET_BPS_RX:
+		metricTags = map[string]string{
+			"net_rx.rate": "",
+		}
+	case cloudprovider.EIP_METRIC_TYPE_NET_BPS_TX:
+		metricTags = map[string]string{
+			"net_tx.rate": "",
+		}
+	case cloudprovider.EIP_METRIC_TYPE_NET_DROP_SPEED_TX:
+		metricTags = map[string]string{
+			"out_ratelimit_drop_speed": "",
+		}
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
+	}
+	ret := []cloudprovider.MetricValues{}
+	for metric, tag := range metricTags {
+		result, err := self.ListMetrics("acs_vpc_eip", metric, "", opts.StartTime, opts.EndTime)
 		if err != nil {
 			log.Errorf("ListMetric(%s) error: %v", metric, err)
 			continue

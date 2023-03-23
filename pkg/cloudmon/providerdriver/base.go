@@ -62,6 +62,10 @@ func (self *SBaseCollectDriver) CollectWireMetrics(ctx context.Context, manager 
 	return cloudprovider.ErrNotImplemented
 }
 
+func (self *SBaseCollectDriver) CollectEipMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ElasticipDetails, start, end time.Time) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SBaseCollectDriver) CollectStorageMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.StorageDetails, start, end time.Time) error {
 	metrics := []influxdb.SMetricData{}
 	for _, storage := range res {
