@@ -32,6 +32,10 @@ type SResourceBase struct {
 	ProjectId string
 }
 
+func (self *SResourceBase) GetDescription() string {
+	return ""
+}
+
 func (self *SResourceBase) GetId() string {
 	return self.Id
 }

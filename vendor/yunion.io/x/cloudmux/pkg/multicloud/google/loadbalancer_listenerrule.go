@@ -49,6 +49,10 @@ func (self *SLoadbalancerListenerRule) GetGlobalId() string {
 	return self.GetId()
 }
 
+func (self *SLoadbalancerListenerRule) GetDescription() string {
+	return ""
+}
+
 func (self *SLoadbalancerListenerRule) GetStatus() string {
 	return api.LB_STATUS_ENABLED
 }

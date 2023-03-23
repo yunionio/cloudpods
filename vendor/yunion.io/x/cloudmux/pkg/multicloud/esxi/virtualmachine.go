@@ -764,6 +764,11 @@ func (self *SVirtualMachine) GetCreatedAt() time.Time {
 	}
 }
 
+func (self *SVirtualMachine) GetDescription() string {
+	moVM := self.getVirtualMachine()
+	return moVM.Config.Annotation
+}
+
 func (self *SVirtualMachine) GetExpiredAt() time.Time {
 	return time.Time{}
 }

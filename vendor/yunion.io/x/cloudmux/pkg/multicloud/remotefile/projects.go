@@ -27,22 +27,26 @@ type SProject struct {
 	Name string
 }
 
-func (self *SProject) GetGlobalId() string {
-	return self.Id
+func (project *SProject) GetGlobalId() string {
+	return project.Id
 }
 
-func (self *SProject) GetId() string {
-	return self.Id
+func (project *SProject) GetId() string {
+	return project.Id
 }
 
-func (self *SProject) GetName() string {
-	return self.Name
+func (project *SProject) GetName() string {
+	return project.Name
 }
 
-func (self *SProject) Refresh() error {
+func (project *SProject) Refresh() error {
 	return nil
 }
 
-func (self *SProject) GetStatus() string {
+func (project *SProject) GetDescription() string {
+	return ""
+}
+
+func (project *SProject) GetStatus() string {
 	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
 }

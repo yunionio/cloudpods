@@ -534,6 +534,9 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 		self.IsDefault = extVPC.GetIsDefault()
 		self.ExternalId = extVPC.GetGlobalId()
 
+		if len(self.Description) == 0 {
+			self.Description = extVPC.GetDescription()
+		}
 		self.IsEmulated = extVPC.IsEmulated()
 		self.ExternalAccessMode = extVPC.GetExternalAccessMode()
 
@@ -574,6 +577,7 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	vpc.SetModelManager(manager, &vpc)
 
 	vpc.Status = extVPC.GetStatus()
+	vpc.Description = extVPC.GetDescription()
 	vpc.ExternalId = extVPC.GetGlobalId()
 	vpc.IsDefault = extVPC.GetIsDefault()
 	vpc.CidrBlock = extVPC.GetCidrBlock()

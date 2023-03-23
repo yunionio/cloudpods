@@ -2898,6 +2898,10 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.InstanceType = instanceType
 		}
 
+		if len(self.Description) == 0 {
+			self.Description = extVM.GetDescription()
+		}
+
 		if extVM.GetHypervisor() == api.HYPERVISOR_AWS {
 			sku, err := ServerSkuManager.FetchSkuByNameAndProvider(instanceType, api.CLOUD_PROVIDER_AWS, false)
 			if err == nil {
@@ -2911,6 +2915,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.Hypervisor = extVM.GetHypervisor()
 
+		self.Description = extVM.GetDescription()
 		self.IsEmulated = extVM.IsEmulated()
 
 		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
@@ -2973,6 +2978,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Hostname = pinyinutils.Text2Pinyin(extVM.GetHostname())
 	guest.InternetMaxBandwidthOut = extVM.GetInternetMaxBandwidthOut()
 	guest.Throughput = extVM.GetThroughput()
+	guest.Description = extVM.GetDescription()
 
 	guest.IsEmulated = extVM.IsEmulated()
 
