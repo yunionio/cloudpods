@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -374,26 +375,36 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 }
 
 func (self *SModelartsPool) Refresh() error {
+	self.Status.Resource = SNodeStatus{}
+	log.Infoln("this is self:", jsonutils.Marshal(self))
+	pool, err := self.region.client.modelartsPoolById(self.GetId())
+	if err == nil {
+		log.Infoln("this is pool:", jsonutils.Marshal(pool))
+		pool.Unmarshal(self)
+		log.Infoln("this is after updateself:", jsonutils.Marshal(self))
+		return nil
+	}
+	if err != errors.ErrNotFound {
+		return errors.Wrap(err, "modelartsPoolById")
+	}
+
 	pools := make([]SModelartsPool, 0)
 	resObj, err := self.region.client.modelartsPoolListWithStatus("pools", "failed", nil)
 	if err != nil {
 		return errors.Wrap(err, "modelartsPoolListWithStatus")
 	}
+
 	err = resObj.Unmarshal(&pools, "items")
 	if err != nil {
 		return errors.Wrap(err, "resObj unmarshal")
 	}
+
 	for _, pool := range pools {
 		if pool.GetId() == self.GetId() {
 			self.Status.Phase = "CreationFailed"
-			return nil
+			log.Errorln("create_failed pool:", jsonutils.Marshal(pool))
+			break
 		}
-	}
-
-	self.Status.Resource = SNodeStatus{}
-	pool, err := self.region.client.modelartsPoolById(self.GetId())
-	if err != nil {
-		return errors.Wrapf(err, "GetModelartsPool(%s)", self.GetId())
 	}
 	return jsonutils.Update(self, pool)
 }
