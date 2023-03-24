@@ -17,8 +17,10 @@ package sqlchemy
 import (
 	"fmt"
 	"reflect"
+	"sort"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -141,8 +143,61 @@ func (ts *STableSpec) Expression() string {
 	return fmt.Sprintf("`%s`", ts.name)
 }
 
+func (ts *STableSpec) SyncColumnIndexes() error {
+	if !ts.Exists() {
+		return errors.Wrap(errors.ErrNotFound, "table not exists")
+	}
+
+	cols, err := ts.Database().backend.FetchTableColumnSpecs(ts)
+	if err != nil {
+		log.Errorf("fetchColumnDefs fail: %s", err)
+		return errors.Wrap(err, "FetchTableColumnSpecs")
+	}
+	if len(cols) != len(ts._columns) {
+		return errors.Wrapf(errors.ErrInvalidStatus, "ts col %d != actual col %d", len(ts._columns), len(cols))
+	}
+	for i := range cols {
+		cols[i].SetColIndex(i)
+	}
+	// sort colums
+	sort.Slice(cols, func(i, j int) bool {
+		return compareColumnSpec(cols[i], cols[j]) < 0
+	})
+	sort.Slice(ts._columns, func(i, j int) bool {
+		return compareColumnSpec(ts._columns[i], ts._columns[j]) < 0
+	})
+	// compare columns and assign colindex
+	for i := range ts._columns {
+		comp := compareColumnSpec(cols[i], ts._columns[i])
+		if comp != 0 {
+			return errors.Wrapf(errors.ErrInvalidStatus, "colname %s != %s", cols[i].Name(), ts._columns[i].Name())
+		}
+		ts._columns[i].SetColIndex(cols[i].GetColIndex())
+	}
+
+	// sort columns according to colindex
+	sort.Slice(ts._columns, func(i, j int) bool {
+		return compareColumnIndex(ts._columns[i], ts._columns[j]) < 0
+	})
+
+	return nil
+}
+
 // Clone makes a clone of a table, so we may create a new table of the same schema
 func (ts *STableSpec) Clone(name string, autoIncOffset int64) *STableSpec {
+	nts, _ := ts.CloneWithSyncColumnOrder(name, autoIncOffset, false)
+	return nts
+}
+
+// Clone makes a clone of a table, so we may create a new table of the same schema
+func (ts *STableSpec) CloneWithSyncColumnOrder(name string, autoIncOffset int64, syncColOrder bool) (*STableSpec, error) {
+	if ts.Exists() && syncColOrder {
+		// if table exists, sync column index
+		err := ts.SyncColumnIndexes()
+		if err != nil {
+			return nil, errors.Wrap(err, "SyncColumnIndexes")
+		}
+	}
 	columns := ts.Columns()
 	newCols := make([]IColumnSpec, len(columns))
 	for i := range newCols {
@@ -170,7 +225,7 @@ func (ts *STableSpec) Clone(name string, autoIncOffset int64) *STableSpec {
 		newIndexes[i] = ts._indexes[i].clone(nts)
 	}
 	nts._indexes = newIndexes
-	return nts
+	return nts, nil
 }
 
 // Columns implementation of STableSpec for ITableSpec

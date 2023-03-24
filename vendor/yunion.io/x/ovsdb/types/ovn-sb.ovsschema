@@ -1,7 +1,7 @@
 {
     "name": "OVN_Southbound",
-    "version": "1.16.0",
-    "cksum": "3046632234 14844",
+    "version": "2.5.0",
+    "cksum": "1257419092 20387",
     "tables": {
         "SB_Global": {
             "columns": {
@@ -17,7 +17,11 @@
                 "ssl": {
                     "type": {"key": {"type": "uuid",
                                      "refTable": "SSL"},
-                                     "min": 0, "max": 1}}},
+                                     "min": 0, "max": 1}},
+                "options": {
+                    "type": {"key": "string", "value": "string",
+                             "min": 0, "max": "unlimited"}},
+                "ipsec": {"type": "boolean"}},
             "maxRows": 1,
             "isRoot": true},
         "Chassis": {
@@ -33,7 +37,10 @@
                 "nb_cfg": {"type": {"key": "integer"}},
                 "external_ids": {
                     "type": {"key": "string", "value": "string",
-                             "min": 0, "max": "unlimited"}}},
+                             "min": 0, "max": "unlimited"}},
+                "transport_zones" : {"type": {"key": "string",
+                                              "min": 0,
+                                              "max": "unlimited"}}},
             "isRoot": true,
             "indexes": [["name"]]},
         "Encap": {
@@ -46,7 +53,8 @@
                                      "min": 0,
                                      "max": "unlimited"}},
                 "ip": {"type": "string"},
-                "chassis_name": {"type": "string"}}},
+                "chassis_name": {"type": "string"}},
+            "indexes": [["type", "ip"]]},
         "Address_Set": {
             "columns": {
                 "name": {"type": "string"},
@@ -142,6 +150,12 @@
                                      "refType": "strong"},
                              "min": 0,
                              "max": "unlimited"}},
+                "ha_chassis_group": {
+                    "type": {"key": {"type": "uuid",
+                                     "refTable": "HA_Chassis_Group",
+                                     "refType": "strong"},
+                             "min": 0,
+                             "max": 1}},
                 "options": {
                      "type": {"key": "string",
                               "value": "string",
@@ -159,10 +173,16 @@
                                       "minInteger": 1,
                                       "maxInteger": 4095},
                               "min": 0, "max": 1}},
+                "virtual_parent": {"type": {"key": "string", "min": 0,
+                                            "max": 1}},
                 "chassis": {"type": {"key": {"type": "uuid",
                                              "refTable": "Chassis",
                                              "refType": "weak"},
                                      "min": 0, "max": 1}},
+                "encap": {"type": {"key": {"type": "uuid",
+                                            "refTable": "Encap",
+                                             "refType": "weak"},
+                                    "min": 0, "max": 1}},
                 "mac": {"type": {"key": "string",
                                  "min": 0,
                                  "max": "unlimited"}},
@@ -300,4 +320,87 @@
                     "type": {"key": "string", "value": "string",
                              "min": 0, "max": "unlimited"}}},
             "indexes": [["name"]],
-            "isRoot": false}}}
+            "isRoot": false},
+        "HA_Chassis": {
+            "columns": {
+                "chassis": {"type": {"key": {"type": "uuid",
+                                             "refTable": "Chassis",
+                                             "refType": "weak"},
+                                     "min": 0, "max": 1}},
+                "priority": {"type": {"key": {"type": "integer",
+                                              "minInteger": 0,
+                                              "maxInteger": 32767}}},
+                "external_ids": {
+                    "type": {"key": "string", "value": "string",
+                             "min": 0, "max": "unlimited"}}},
+            "isRoot": false},
+        "HA_Chassis_Group": {
+            "columns": {
+                "name": {"type": "string"},
+                "ha_chassis": {
+                    "type": {"key": {"type": "uuid",
+                                     "refTable": "HA_Chassis",
+                                     "refType": "strong"},
+                             "min": 0,
+                             "max": "unlimited"}},
+                "ref_chassis": {"type": {"key": {"type": "uuid",
+                                                 "refTable": "Chassis",
+                                                 "refType": "weak"},
+                                         "min": 0, "max": "unlimited"}},
+                "external_ids": {
+                    "type": {"key": "string", "value": "string",
+                             "min": 0, "max": "unlimited"}}},
+            "indexes": [["name"]],
+            "isRoot": true},
+        "Controller_Event": {
+            "columns": {
+                "event_type": {"type": {"key": {"type": "string",
+                               "enum": ["set", ["empty_lb_backends"]]}}},
+                "event_info": {"type": {"key": "string", "value": "string",
+                               "min": 0, "max": "unlimited"}},
+                "chassis": {"type": {"key": {"type": "uuid",
+                                             "refTable": "Chassis",
+                                             "refType": "weak"},
+                                     "min": 0, "max": 1}},
+                "seq_num": {"type": {"key": "integer"}}
+            },
+            "isRoot": true},
+        "IP_Multicast": {
+            "columns": {
+                "datapath": {"type": {"key": {"type": "uuid",
+                                              "refTable": "Datapath_Binding",
+                                              "refType": "weak"}}},
+                "enabled": {"type": {"key": "boolean", "min": 0, "max": 1}},
+                "querier": {"type": {"key": "boolean", "min": 0, "max": 1}},
+                "eth_src": {"type": "string"},
+                "ip4_src": {"type": "string"},
+                "table_size": {"type": {"key": "integer",
+                                        "min": 0, "max": 1}},
+                "idle_timeout": {"type": {"key": "integer",
+                                          "min": 0, "max": 1}},
+                "query_interval": {"type": {"key": "integer",
+                                            "min": 0, "max": 1}},
+                "query_max_resp": {"type": {"key": "integer",
+                                            "min": 0, "max": 1}},
+                "seq_no": {"type": "integer"}},
+            "indexes": [["datapath"]],
+            "isRoot": true},
+        "IGMP_Group": {
+            "columns": {
+                "address": {"type": "string"},
+                "datapath": {"type": {"key": {"type": "uuid",
+                                              "refTable": "Datapath_Binding",
+                                              "refType": "weak"},
+                                      "min": 0,
+                                      "max": 1}},
+                "chassis": {"type": {"key": {"type": "uuid",
+                                             "refTable": "Chassis",
+                                             "refType": "weak"},
+                                     "min": 0,
+                                     "max": 1}},
+                "ports": {"type": {"key": {"type": "uuid",
+                                           "refTable": "Port_Binding",
+                                           "refType": "weak"},
+                                   "min": 0, "max": "unlimited"}}},
+            "indexes": [["address", "datapath", "chassis"]],
+            "isRoot": true}}}

@@ -49,7 +49,7 @@ func (sqf *SSubQueryField) Reference() string {
 
 // Label implementation of SSubQueryField for IQueryField
 func (sqf *SSubQueryField) Label(label string) IQueryField {
-	if len(label) > 0 && label != sqf.field.Name() {
+	if len(label) > 0 {
 		sqf.alias = label
 	}
 	return sqf

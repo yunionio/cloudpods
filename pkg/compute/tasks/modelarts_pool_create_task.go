@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -87,19 +86,15 @@ func (modelartsCreateTask *ModelartsPoolCreateTask) taskComplete(ctx context.Con
 }
 
 func (modelartsCreateTask *ModelartsPoolCreateTask) WaitStatus(ctx context.Context, ipool cloudprovider.ICloudModelartsPool, pool *models.SModelartsPool) error {
-	log.Infoln("************ Start  WaitStatus ****************")
 	taskman.LocalTaskRun(modelartsCreateTask, func() (jsonutils.JSONObject, error) {
 		time.Sleep(2 * time.Minute)
 		err := cloudprovider.WaitMultiStatus(ipool, []string{api.MODELARTS_POOL_STATUS_RUNNING, api.MODELARTS_POOL_STATUS_CREATE_FAILED}, 15*time.Second, 2*time.Hour)
 		if err != nil {
-			log.Infof("************ WaitMultiStatus ERRORL:%s ****************", err.Error())
 			return nil, err
 		}
 		if ipool.GetStatus() == api.MODELARTS_POOL_STATUS_CREATE_FAILED {
-			log.Infoln("************ MODELARTS_POOL_STATUS_CREATE_FAILED ****************")
 			return nil, errors.Wrap(err, "create_failed")
 		} else {
-			log.Infoln("************ MODELARTS_POOL_STATUS_RUNNING ****************")
 			return nil, nil
 		}
 	})
