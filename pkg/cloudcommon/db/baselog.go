@@ -38,7 +38,7 @@ type SLogBaseManager struct {
 type SLogBase struct {
 	SModelBase
 
-	Id int64 `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(divide(id,100000000000))"`
+	Id int64 `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(id/100000000000)"`
 }
 
 func NewLogBaseManager(model interface{}, table string, keyword, keywordPlural string, timeCol string, useClickHouse bool) SLogBaseManager {
