@@ -248,4 +248,7 @@ const (
 	ACT_CANCEL = "cancel"
 	ACT_START  = "start"
 	ACT_DONE   = "done"
+
+	ACT_ASSOCIATE  = "associate"
+	ACT_DISSOCIATE = "dissociate"
 )
