@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -376,12 +375,9 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 
 func (self *SModelartsPool) Refresh() error {
 	self.Status.Resource = SNodeStatus{}
-	log.Infoln("this is self:", jsonutils.Marshal(self))
 	pool, err := self.region.client.modelartsPoolById(self.GetId())
 	if err == nil {
-		log.Infoln("this is pool:", jsonutils.Marshal(pool))
 		pool.Unmarshal(self)
-		log.Infoln("this is after updateself:", jsonutils.Marshal(self))
 		return nil
 	}
 	if err != errors.ErrNotFound {
@@ -402,7 +398,6 @@ func (self *SModelartsPool) Refresh() error {
 	for _, pool := range pools {
 		if pool.GetId() == self.GetId() {
 			self.Status.Phase = "CreationFailed"
-			log.Errorln("create_failed pool:", jsonutils.Marshal(pool))
 			break
 		}
 	}

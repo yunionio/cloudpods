@@ -1444,17 +1444,18 @@ yunion.io/x/jsonutils
 ## explicit; go 1.12
 yunion.io/x/log
 yunion.io/x/log/hooks
-# yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
+# yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 ## explicit; go 1.14
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.0.1-0.20230102060551-df05ccecb71c
+# yunion.io/x/pkg v1.0.1-0.20230327034731-79f520e7d373
 ## explicit; go 1.18
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
 yunion.io/x/pkg/sortedmap
+yunion.io/x/pkg/sortedstring
 yunion.io/x/pkg/trace
 yunion.io/x/pkg/tristate
 yunion.io/x/pkg/util/cache
@@ -1485,7 +1486,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.2-0.20230223125758-76ea06389ac5
+# yunion.io/x/sqlchemy v1.1.2-0.20230326161357-912d44dd66d6
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends

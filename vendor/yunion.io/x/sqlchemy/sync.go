@@ -32,6 +32,12 @@ func compareColumnSpec(c1, c2 IColumnSpec) int {
 	return strings.Compare(c1.Name(), c2.Name())
 }
 
+func compareColumnIndex(c1, c2 IColumnSpec) int {
+	i1 := c1.GetColIndex()
+	i2 := c2.GetColIndex()
+	return i1 - i2
+}
+
 type SUpdateColumnSpec struct {
 	OldCol IColumnSpec
 	NewCol IColumnSpec
