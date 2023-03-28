@@ -49,12 +49,12 @@ func (self *H3CCollect) CollectServerMetrics(ctx context.Context, manager api.Cl
 		ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_SERVER,
 	}
 	data := []cloudprovider.MetricValues{}
-	for opts.StartTime.Before(opts.EndTime) {
+	for start.Before(end) {
 		part, err := provider.GetMetrics(opts)
 		if err != nil {
 			continue
 		}
-		opts.StartTime = opts.StartTime.Add(time.Minute)
+		start = start.Add(time.Minute)
 		time.Sleep(time.Minute)
 		data = append(data, part...)
 	}
