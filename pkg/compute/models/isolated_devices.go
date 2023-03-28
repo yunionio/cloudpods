@@ -571,6 +571,29 @@ func (manager *SIsolatedDeviceManager) findHostUnusedByDevConfig(model, devType,
 	return devs, nil
 }
 
+func (manager *SIsolatedDeviceManager) ReleaseGPUDevicesOfGuest(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential) error {
+	devs := manager.findAttachedDevicesOfGuest(guest)
+	if devs == nil {
+		return fmt.Errorf("fail to find attached devices")
+	}
+	for _, dev := range devs {
+		if !utils.IsInStringArray(dev.DevType, api.VALID_GPU_TYPES) {
+			continue
+		}
+		_, err := db.Update(&dev, func() error {
+			dev.GuestId = ""
+			dev.NetworkIndex = -1
+			return nil
+		})
+		if err != nil {
+			db.OpsLog.LogEvent(guest, db.ACT_GUEST_DETACH_ISOLATED_DEVICE_FAIL, dev.GetShortDesc(ctx), userCred)
+			return err
+		}
+		db.OpsLog.LogEvent(guest, db.ACT_GUEST_DETACH_ISOLATED_DEVICE, dev.GetShortDesc(ctx), userCred)
+	}
+	return nil
+}
+
 func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential) error {
 	devs := manager.findAttachedDevicesOfGuest(guest)
 	if devs == nil {

@@ -196,7 +196,7 @@ func (self *GuestDeleteTask) OnDiskDetachCompleteFailed(ctx context.Context, obj
 // revoke all secgroups
 func (self *GuestDeleteTask) doClearSecurityGroupComplete(ctx context.Context, guest *models.SGuest) {
 	log.Debugf("doClearSecurityGroupComplete")
-	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, self.UserCred)
+	models.IsolatedDeviceManager.ReleaseGPUDevicesOfGuest(ctx, guest, self.UserCred)
 	guest.RevokeAllSecgroups(ctx, self.UserCred)
 	// sync revoked secgroups to remote cloud
 	if jsonutils.QueryBoolean(self.Params, "purge", false) {
