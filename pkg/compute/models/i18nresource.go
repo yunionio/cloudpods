@@ -43,23 +43,23 @@ func (man *SI18nResourceBaseManager) getSModelI18nTable(model db.IModel, table c
 
 func (man *SI18nResourceBaseManager) SyncI18ns(ctx context.Context, userCred mcclient.TokenCredential, model db.IModel, table cloudprovider.SModelI18nTable) error {
 	itable := man.getSModelI18nTable(model, table)
-	_, _, r := db.I18nManager.SyncI18ns(ctx, userCred, model, itable)
-	if r.IsError() {
-		log.Errorf("SyncI18ns for %s %s result: %s", model.Keyword(), model.GetId(), r.Result())
-		return errors.Wrap(r.AllError(), "SyncI18ns")
+	err := db.I18nManager.SyncI18ns(ctx, userCred, model, itable)
+	if err != nil {
+		log.Errorf("SyncI18ns for %s %s result: %s", model.Keyword(), model.GetId(), err)
+		return errors.Wrap(err, "SyncI18ns")
 	}
-
 	return nil
 }
 
+/*
 func (self *SI18nResourceBase) RemoveI18ns(ctx context.Context, userCred mcclient.TokenCredential, model db.IModel) error {
 	err := db.I18nManager.RemoveI18ns(ctx, userCred, model)
 	if err != nil {
 		return errors.Wrap(err, "RemoveI18ns")
 	}
-
 	return nil
 }
+*/
 
 func (self *SI18nResourceBase) GetModelI18N(ctx context.Context, model db.IModel) *jsonutils.JSONDict {
 	entries, err := db.I18nManager.GetModelI18N(ctx, model)
