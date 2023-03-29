@@ -363,7 +363,7 @@ func (self *SAwsRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 			}
 		}
 
-		_, _, result := models.SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, []cloudprovider.ICloudSecurityGroup{}, vpc)
+		_, _, result := models.SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, []cloudprovider.ICloudSecurityGroup{}, vpc, true)
 		if result.IsError() {
 			return nil, fmt.Errorf("SyncSecurityGroupCaches %s", result.Result())
 		}

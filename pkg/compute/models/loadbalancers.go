@@ -965,7 +965,14 @@ func (man *SLoadbalancerManager) getLocalLoadbalancers(ctx context.Context, user
 	return ret, nil
 }
 
-func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer) ([]SLoadbalancer, []cloudprovider.ICloudLoadbalancer, compare.SyncResult) {
+func (man *SLoadbalancerManager) SyncLoadbalancers(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	region *SCloudregion,
+	lbs []cloudprovider.ICloudLoadbalancer,
+	xor bool,
+) ([]SLoadbalancer, []cloudprovider.ICloudLoadbalancer, compare.SyncResult) {
 	lockman.LockRawObject(ctx, man.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
 	defer lockman.ReleaseRawObject(ctx, man.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
@@ -1005,15 +1012,17 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 			syncResult.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].syncWithCloudLoadbalancer(ctx, userCred, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err = commondb[i].syncWithCloudLoadbalancer(ctx, userCred, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
+			localLbs = append(localLbs, commondb[i])
+			remoteLbs = append(remoteLbs, commonext[i])
+			syncResult.Update()
 		}
-		localLbs = append(localLbs, commondb[i])
-		remoteLbs = append(remoteLbs, commonext[i])
-		syncResult.Update()
 	}
 	for i := 0; i < len(added); i++ {
 		lb, err := region.newFromCloudLoadbalancer(ctx, userCred, provider, added[i])

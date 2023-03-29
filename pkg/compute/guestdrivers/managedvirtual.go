@@ -185,7 +185,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSaveImage(ctx context.Context
 				if err != nil {
 					return nil, errors.Wrapf(err, "iRegion.GetIStoragecacheById(%s)", caches[i].ExternalId)
 				}
-				result := caches[i].SyncCloudImages(ctx, userCred, iStoragecache, region)
+				result := caches[i].SyncCloudImages(ctx, userCred, iStoragecache, region, true)
 				log.Infof("sync cloud image for storagecache %s result: %s", caches[i].Name, result.Result())
 			}
 		}
