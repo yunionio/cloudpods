@@ -222,10 +222,13 @@ const (
 	// 支持平台: aliyun, apsara
 	LB_METRIC_TYPE_NET_PACKET_TX TMetricType = "haproxy.packet_tx"
 	// 非活跃连接数
-	// 支持平台: apsara, aliyun
+	// 支持平台: apsara, aliyun, huawei
 	LB_METRIC_TYPE_NET_INACTIVE_CONNECTION = "haproxy.inactive_connection"
+	// 活跃连接数
+	// 支持平台: apsara, aliyun, huawei
+	LB_METRIC_TYPE_NET_ACTIVE_CONNECTION = "haproxy.active_connection"
 	// 最大并发数
-	// 支持平台: apsara, aliyun
+	// 支持平台: apsara, aliyun, huawei
 	LB_METRIC_TYPE_MAX_CONNECTION = "haproxy.max_connection"
 	// 后端异常ECS实例个数
 	// 支持平台: apsara, aliyun

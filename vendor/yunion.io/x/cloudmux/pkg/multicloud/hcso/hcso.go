@@ -17,10 +17,12 @@ package hcso
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/huaweicloud/huaweicloud-sdk-go/auth/aksk"
 
@@ -98,14 +100,32 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, url string, que
 	if strings.Contains(url, "/OS-CREDENTIAL/credentials") && len(self.ownerId) > 0 {
 		header.Set("X-Domain-Id", self.ownerId)
 	}
-	_, resp, err := httputils.JSONRequest(client, context.Background(), method, url, header, body, self.debug)
-	if err != nil {
-		if e, ok := err.(*httputils.JSONClientError); ok && e.Code == 404 {
-			return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+	var resp jsonutils.JSONObject
+	var err error
+	for i := 0; i < 3; i++ {
+		_, resp, err = requestWithRetry(client, context.Background(), method, url, header, body, self.debug)
+		if method == httputils.GET && needRetry(err) {
+			time.Sleep(time.Second * 15)
+			continue
 		}
-		return nil, err
+		return resp, err
 	}
 	return resp, err
+}
+
+func requestWithRetry(client *akClient, ctx context.Context, method httputils.THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {
+	var bodystr string
+	if !gotypes.IsNil(body) {
+		bodystr = body.String()
+	}
+	jbody := strings.NewReader(bodystr)
+	if header == nil {
+		header = http.Header{}
+	}
+	header.Set("Content-Length", strconv.FormatInt(int64(len(bodystr)), 10))
+	header.Set("Content-Type", "application/json")
+	resp, err := httputils.RequestWithRetry(client, ctx, method, urlStr, header, jbody, debug)
+	return httputils.ParseJSONResponse(bodystr, resp, err, debug)
 }
 
 func (self *SHuaweiClient) resetEndpoint(endpoint, serviceName string) string {
@@ -257,4 +277,21 @@ func (self *SHuaweiClient) patchRequest(method httputils.THttpMethod, url string
 		return nil, err
 	}
 	return respValue, err
+}
+
+func needRetry(err error) bool {
+	if err == nil {
+		return false
+	}
+	switch e := err.(type) {
+	case *url.Error:
+		switch e.Err.(type) {
+		case *net.DNSError, *net.OpError, net.UnknownNetworkError:
+			return true
+		}
+		if strings.Contains(err.Error(), "The throttling threshold has been reached: policy ip over ratelimit") {
+			return true
+		}
+	}
+	return false
 }
