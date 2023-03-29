@@ -347,7 +347,7 @@ func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
-	self.RemoveI18ns(ctx, userCred, self)
+	// self.RemoveI18ns(ctx, userCred, self)
 	return self.Delete(ctx, userCred)
 }
 
