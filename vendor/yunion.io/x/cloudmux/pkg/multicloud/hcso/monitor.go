@@ -353,6 +353,87 @@ func (self *SHuaweiClient) getBucketMetrics(opts *cloudprovider.MetricListOption
 	return result, nil
 }
 
+func (self *SHuaweiClient) getLoadbalancerMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	namespace, dimesionName, metricNames := "SYS.ELB", "lbaas_instance_id", []string{
+		"m1_cps",
+		"m2_act_conn",
+		"m7_in_Bps",
+		"m8_out_Bps",
+		"mc_l7_http_2xx",
+		"md_l7_http_3xx",
+		"me_l7_http_4xx",
+		"mf_l7_http_5xx",
+	}
+	result := []cloudprovider.MetricValues{}
+
+	for _, metricName := range metricNames {
+		temp := make(map[string]string)
+		temp["namespace"] = namespace
+		temp["metric_name"] = metricName
+		temp["from"] = strconv.Itoa(int(opts.StartTime.UnixMilli()))
+		temp["to"] = strconv.Itoa(int(opts.EndTime.UnixMilli()))
+		temp["period"] = "1"
+		temp["filter"] = "average"
+		temp["dim.0"] = fmt.Sprintf("%s,%s", dimesionName, opts.ResourceId)
+		resp, err := self.commonMonitor(temp)
+		if err != nil {
+			return nil, err
+		}
+		metricData := MetricData{}
+		err = resp.Unmarshal(&metricData)
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
+		}
+		ret := cloudprovider.MetricValues{
+			Id:     opts.ResourceId,
+			Unit:   metricData.Unit,
+			Values: []cloudprovider.MetricValue{},
+		}
+		tags := map[string]string{}
+		switch metricData.MetricName {
+		case "m1_cps":
+			ret.MetricType = cloudprovider.LB_METRIC_TYPE_MAX_CONNECTION
+		case "m2_act_conn":
+			ret.MetricType = cloudprovider.LB_METRIC_TYPE_NET_ACTIVE_CONNECTION
+		case "m7_in_Bps":
+			ret.MetricType = cloudprovider.LB_METRIC_TYPE_NET_BPS_RX
+		case "m8_out_Bps":
+			ret.MetricType = cloudprovider.LB_METRIC_TYPE_NET_BPS_TX
+		case "mc_l7_http_2xx":
+			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
+			tags = map[string]string{"request": "2xx"}
+		case "md_l7_http_3xx":
+			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
+			tags = map[string]string{"request": "3xx"}
+		case "md_l7_http_4xx":
+			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
+			tags = map[string]string{"request": "4xx"}
+		case "md_l7_http_5xx":
+			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
+			tags = map[string]string{"request": "5xx"}
+		case "me_l7_http_4xx":
+			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
+			tags = map[string]string{"request": "4xx"}
+		case "mf_l7_http_5xx":
+			ret.MetricType = cloudprovider.LB_METRIC_TYPE_HRSP_COUNT
+			tags = map[string]string{"request": "5xx"}
+		default:
+			log.Warningf("invalid metricName %s for %s %s", metricData.MetricName, opts.ResourceType, opts.ResourceId)
+			continue
+		}
+		for _, value := range metricData.Datapoints {
+			metricValue := cloudprovider.MetricValue{
+				Value:     value.Average,
+				Timestamp: time.UnixMilli(value.Timestamp),
+				Tags:      tags,
+			}
+			ret.Values = append(ret.Values, metricValue)
+		}
+		result = append(result, ret)
+	}
+	return result, nil
+}
+
 func (self *SHuaweiClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	switch opts.ResourceType {
 	case cloudprovider.METRIC_RESOURCE_TYPE_SERVER:
@@ -363,6 +444,8 @@ func (self *SHuaweiClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 		return self.getBucketMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_MODELARTS_POOL:
 		return self.getModelartsPoolMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_LB:
+		return self.getLoadbalancerMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", opts.ResourceType)
 	}

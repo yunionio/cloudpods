@@ -16,6 +16,7 @@ package clickhouse
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 
 	"yunion.io/x/log"
@@ -140,6 +141,7 @@ func parseKeys(keyStr string) []string {
 		key = strings.TrimSpace(key)
 		ret = append(ret, key)
 	}
+	sort.Strings(ret)
 	return ret
 }
 
@@ -163,7 +165,27 @@ func findSegment(sqlStr string, prefix string) string {
 	return ""
 }
 
-func parseCreateTable(sqlStr string) (primaries []string, orderbys []string, partition string, ttl string) {
+func trimPartition(partStr string) string {
+	for {
+		partStr = strings.TrimSpace(partStr)
+		if partStr[0] == '(' {
+			partStr = partStr[1 : len(partStr)-1]
+		} else {
+			break
+		}
+	}
+	partStr = strings.ReplaceAll(partStr, " ", "")
+	return partStr
+}
+
+func parsePartitions(partStr string) []string {
+	partStr = trimPartition(partStr)
+	parts := strings.Split(partStr, ",")
+	sort.Strings(parts)
+	return parts
+}
+
+func parseCreateTable(sqlStr string) (primaries []string, orderbys []string, partitions []string, ttl string) {
 	matches := primaryKeyRegexp.FindAllStringSubmatch(sqlStr, -1)
 	if len(matches) > 0 {
 		primaries = parseKeys(matches[0][1])
@@ -172,7 +194,8 @@ func parseCreateTable(sqlStr string) (primaries []string, orderbys []string, par
 	if len(matches) > 0 {
 		orderbys = parseKeys(matches[0][1])
 	}
-	partition = findSegment(sqlStr, partitionByPrefix)
+	partitionStr := findSegment(sqlStr, partitionByPrefix)
+	partitions = parsePartitions(partitionStr)
 	ttl = findSegment(sqlStr, ttlPrefix)
 	return
 }
