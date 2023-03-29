@@ -118,9 +118,9 @@ func (manager *SBucketManager) fetchBuckets(provider *SCloudprovider, region *SC
 	return buckets, nil
 }
 
-func (manager *SBucketManager) syncBuckets(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, buckets []cloudprovider.ICloudBucket) compare.SyncResult {
-	lockman.LockRawObject(ctx, "buckets", fmt.Sprintf("%s-%s", provider.Id, region.Id))
-	defer lockman.ReleaseRawObject(ctx, "buckets", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+func (manager *SBucketManager) syncBuckets(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, buckets []cloudprovider.ICloudBucket, xor bool) compare.SyncResult {
+	lockman.LockRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	syncResult := compare.SyncResult{}
 
@@ -149,12 +149,14 @@ func (manager *SBucketManager) syncBuckets(ctx context.Context, userCred mcclien
 			syncResult.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudBucket(ctx, userCred, commonext[i], provider, false)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncResult.Update()
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].syncWithCloudBucket(ctx, userCred, commonext[i], provider, false)
+			if err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				syncResult.Update()
+			}
 		}
 	}
 	for i := 0; i < len(added); i += 1 {

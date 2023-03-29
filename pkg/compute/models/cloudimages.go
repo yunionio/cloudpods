@@ -99,7 +99,7 @@ func SyncPublicCloudImages(ctx context.Context, userCred mcclient.TokenCredentia
 			continue
 		}
 
-		err = regions[i].SyncCloudImages(ctx, userCred, !isStart)
+		err = regions[i].SyncCloudImages(ctx, userCred, !isStart, false)
 		if err != nil {
 			log.Errorf("SyncCloudImages for region %s(%s) error: %v", regions[i].Name, regions[i].Id, err)
 			continue

@@ -28,7 +28,15 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func syncRegionLoadbalancerCertificates(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+func syncRegionLoadbalancerCertificates(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncResults SSyncResultSet,
+	provider *SCloudprovider,
+	localRegion *SCloudregion,
+	remoteRegion cloudprovider.ICloudRegion,
+	syncRange *SSyncRange,
+) {
 	certificates, err := func() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
 		defer syncResults.AddRequestCost(LoadbalancerCertificateManager)()
 		return remoteRegion.GetILoadBalancerCertificates()
@@ -40,7 +48,7 @@ func syncRegionLoadbalancerCertificates(ctx context.Context, userCred mcclient.T
 	}
 	result := func() compare.SyncResult {
 		defer syncResults.AddSqlCost(LoadbalancerCertificateManager)()
-		return provider.SyncLoadbalancerCertificates(ctx, userCred, localRegion, certificates)
+		return provider.SyncLoadbalancerCertificates(ctx, userCred, localRegion, certificates, syncRange.Xor)
 	}()
 
 	syncResults.Add(CachedLoadbalancerCertificateManager, result)
@@ -52,7 +60,15 @@ func syncRegionLoadbalancerCertificates(ctx context.Context, userCred mcclient.T
 	}
 }
 
-func syncRegionLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+func syncRegionLoadbalancerAcls(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncResults SSyncResultSet,
+	provider *SCloudprovider,
+	localRegion *SCloudregion,
+	remoteRegion cloudprovider.ICloudRegion,
+	syncRange *SSyncRange,
+) {
 	acls, err := func() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
 		defer syncResults.AddRequestCost(LoadbalancerAclManager)()
 		return remoteRegion.GetILoadBalancerAcls()
@@ -76,7 +92,15 @@ func syncRegionLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCred
 	}
 }
 
-func syncRegionLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+func syncRegionLoadbalancers(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncResults SSyncResultSet,
+	provider *SCloudprovider,
+	localRegion *SCloudregion,
+	remoteRegion cloudprovider.ICloudRegion,
+	syncRange *SSyncRange,
+) {
 	lbs, err := func() ([]cloudprovider.ICloudLoadbalancer, error) {
 		defer syncResults.AddRequestCost(LoadbalancerManager)()
 		return remoteRegion.GetILoadBalancers()
@@ -89,7 +113,7 @@ func syncRegionLoadbalancers(ctx context.Context, userCred mcclient.TokenCredent
 	func() {
 		defer syncResults.AddSqlCost(LoadbalancerManager)()
 
-		localLbs, remoteLbs, result := LoadbalancerManager.SyncLoadbalancers(ctx, userCred, provider, localRegion, lbs)
+		localLbs, remoteLbs, result := LoadbalancerManager.SyncLoadbalancers(ctx, userCred, provider, localRegion, lbs, syncRange.Xor)
 
 		syncResults.Add(LoadbalancerManager, result)
 

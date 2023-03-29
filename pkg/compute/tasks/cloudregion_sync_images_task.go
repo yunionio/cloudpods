@@ -44,7 +44,7 @@ func (self *CloudregionSyncImagesTask) taskFailed(ctx context.Context, region *m
 func (self *CloudregionSyncImagesTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	region := obj.(*models.SCloudregion)
 
-	err := region.SyncCloudImages(ctx, self.GetUserCred(), true)
+	err := region.SyncCloudImages(ctx, self.GetUserCred(), true, false)
 	if err != nil {
 		self.taskFailed(ctx, region, errors.Wrapf(err, "SyncCloudImages"))
 		return

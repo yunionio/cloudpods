@@ -258,7 +258,13 @@ func (self *SCloudregion) GetKafkas(managerId string) ([]SKafka, error) {
 	return ret, nil
 }
 
-func (self *SCloudregion) SyncKafkas(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudKafka) compare.SyncResult {
+func (self *SCloudregion) SyncKafkas(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	exts []cloudprovider.ICloudKafka,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, KafkaManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 	defer lockman.ReleaseRawObject(ctx, KafkaManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 
@@ -291,14 +297,16 @@ func (self *SCloudregion) SyncKafkas(ctx context.Context, userCred mcclient.Toke
 		result.Delete()
 	}
 
-	// 和云上资源属性进行同步
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].SyncWithCloudKafka(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		// 和云上资源属性进行同步
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].SyncWithCloudKafka(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 
 	// 创建本地没有的云上资源

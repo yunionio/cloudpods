@@ -985,9 +985,17 @@ func (manager *SSnapshotManager) getProviderSnapshotsByRegion(region *SCloudregi
 	return snapshots, nil
 }
 
-func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
-	lockman.LockRawObject(ctx, "snapshots", fmt.Sprintf("%s-%s", provider.Id, region.Id))
-	defer lockman.ReleaseRawObject(ctx, "snapshots", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+func (manager *SSnapshotManager) SyncSnapshots(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	region *SCloudregion,
+	snapshots []cloudprovider.ICloudSnapshot,
+	syncOwnerId mcclient.IIdentityProvider,
+	xor bool,
+) compare.SyncResult {
+	lockman.LockRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	syncResult := compare.SyncResult{}
 	dbSnapshots, err := manager.getProviderSnapshotsByRegion(region, provider)
@@ -1009,15 +1017,17 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		err = removed[i].syncRemoveCloudSnapshot(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
-		} else {
-			syncResult.Delete()
+			continue
 		}
+		syncResult.Delete()
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudSnapshot(ctx, userCred, commonext[i], syncOwnerId, region)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithCloudSnapshot(ctx, userCred, commonext[i], syncOwnerId, region)
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
 			syncResult.Update()
 		}
 	}
@@ -1025,9 +1035,9 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		_, err := manager.newFromCloudSnapshot(ctx, userCred, added[i], region, syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
-		} else {
-			syncResult.Add()
+			continue
 		}
+		syncResult.Add()
 	}
 	return syncResult
 }

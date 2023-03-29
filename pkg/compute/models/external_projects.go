@@ -179,9 +179,9 @@ func (manager *SExternalProjectManager) GetProject(externalId string, providerId
 	return project, q.First(project)
 }
 
-func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, projects []cloudprovider.ICloudProject) compare.SyncResult {
-	lockman.LockRawObject(ctx, "external-projects", account.Id)
-	defer lockman.ReleaseRawObject(ctx, "external-projects", account.Id)
+func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, projects []cloudprovider.ICloudProject, xor bool) compare.SyncResult {
+	lockman.LockRawObject(ctx, manager.Keyword(), account.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), account.Id)
 
 	syncResult := compare.SyncResult{}
 
@@ -210,12 +210,14 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 			syncResult.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudProject(ctx, userCred, account, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncResult.Update()
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err = commondb[i].SyncWithCloudProject(ctx, userCred, account, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				syncResult.Update()
+			}
 		}
 	}
 	for i := 0; i < len(added); i++ {

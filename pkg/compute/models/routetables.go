@@ -356,9 +356,16 @@ func (manager *SRouteTableManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTables []cloudprovider.ICloudRouteTable, provider *SCloudprovider) ([]SRouteTable, []cloudprovider.ICloudRouteTable, compare.SyncResult) {
-	lockman.LockRawObject(ctx, "route-tables", vpc.Id)
-	defer lockman.ReleaseRawObject(ctx, "route-tables", vpc.Id)
+func (man *SRouteTableManager) SyncRouteTables(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	vpc *SVpc,
+	cloudRouteTables []cloudprovider.ICloudRouteTable,
+	provider *SCloudprovider,
+	xor bool,
+) ([]SRouteTable, []cloudprovider.ICloudRouteTable, compare.SyncResult) {
+	lockman.LockRawObject(ctx, man.Keyword(), vpc.Id)
+	defer lockman.ReleaseRawObject(ctx, man.Keyword(), vpc.Id)
 
 	localRouteTables := make([]SRouteTable, 0)
 	remoteRouteTables := make([]cloudprovider.ICloudRouteTable, 0)
@@ -387,16 +394,17 @@ func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcc
 		}
 	}
 
-	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].SyncWithCloudRouteTable(ctx, userCred, vpc, commonext[i], provider)
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err := commondb[i].SyncWithCloudRouteTable(ctx, userCred, vpc, commonext[i], provider)
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
+			localRouteTables = append(localRouteTables, commondb[i])
+			remoteRouteTables = append(remoteRouteTables, commonext[i])
+			syncResult.Update()
 		}
-		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-		localRouteTables = append(localRouteTables, commondb[i])
-		remoteRouteTables = append(remoteRouteTables, commonext[i])
-		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i += 1 {
@@ -522,12 +530,18 @@ func (self *SRouteTable) SyncWithCloudRouteTable(ctx context.Context, userCred m
 		SyncCloudDomain(userCred, self, provider.GetOwnerId())
 		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
-
+	syncMetadata(ctx, userCred, self, cloudRouteTable)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
 
-func (self *SRouteTable) SyncRouteTableRouteSets(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudRouteTable, provider *SCloudprovider) compare.SyncResult {
+func (self *SRouteTable) SyncRouteTableRouteSets(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ext cloudprovider.ICloudRouteTable,
+	provider *SCloudprovider,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-records", self.Id))
 	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-records", self.Id))
 
@@ -569,13 +583,15 @@ func (self *SRouteTable) SyncRouteTableRouteSets(ctx context.Context, userCred m
 		}
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].syncWithCloudRouteSet(ctx, userCred, provider, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].syncWithCloudRouteSet(ctx, userCred, provider, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
+			syncResult.Update()
 		}
-		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i++ {
@@ -600,7 +616,13 @@ func (self *SRouteTable) GetRouteTableRouteSets() ([]SRouteTableRouteSet, error)
 	return routes, nil
 }
 
-func (self *SRouteTable) SyncRouteTableAssociations(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudRouteTable, provider *SCloudprovider) compare.SyncResult {
+func (self *SRouteTable) SyncRouteTableAssociations(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ext cloudprovider.ICloudRouteTable,
+	provider *SCloudprovider,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-records", self.Id))
 	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-records", self.Id))
 
@@ -638,13 +660,15 @@ func (self *SRouteTable) SyncRouteTableAssociations(ctx context.Context, userCre
 		}
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].syncWithCloudAssociation(ctx, userCred, provider, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].syncWithCloudAssociation(ctx, userCred, provider, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
+			syncResult.Update()
 		}
-		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i++ {

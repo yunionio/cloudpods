@@ -129,7 +129,7 @@ func (self *SCloudprovider) GetCDNDomains() ([]SCDNDomain, error) {
 	return domains, nil
 }
 
-func (self *SCloudprovider) SyncCDNDomains(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudCDNDomain) compare.SyncResult {
+func (self *SCloudprovider) SyncCDNDomains(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudCDNDomain, xor bool) compare.SyncResult {
 	lockman.LockRawObject(ctx, CDNDomainManager.Keyword(), self.Id)
 	defer lockman.ReleaseRawObject(ctx, CDNDomainManager.Keyword(), self.Id)
 
@@ -160,13 +160,15 @@ func (self *SCloudprovider) SyncCDNDomains(ctx context.Context, userCred mcclien
 		}
 		result.Delete()
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudCDNDomain(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithCloudCDNDomain(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
 		_, err := self.newFromCloudCDNDomain(ctx, userCred, added[i])

@@ -108,7 +108,13 @@ func (self *SCloudregion) GetMiscResources() ([]SMiscResource, error) {
 	return misc, nil
 }
 
-func (self *SCloudregion) SyncMiscResources(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudMiscResource) compare.SyncResult {
+func (self *SCloudregion) SyncMiscResources(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	exts []cloudprovider.ICloudMiscResource,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 	defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 
@@ -139,13 +145,15 @@ func (self *SCloudregion) SyncMiscResources(ctx context.Context, userCred mcclie
 		}
 		result.Delete()
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudMiscResource(ctx, userCred, commonext[i], provider)
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithCloudMiscResource(ctx, userCred, commonext[i], provider)
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
 		_, err := self.newFromCloudMiscResource(ctx, userCred, added[i], provider)

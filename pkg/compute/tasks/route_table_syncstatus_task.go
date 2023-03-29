@@ -61,14 +61,14 @@ func (self *RouteTableSyncStatusTask) OnInit(ctx context.Context, obj db.IStanda
 		self.taskFailed(ctx, routeTable, errors.Wrapf(err, "SyncWithCloudRouteTable"))
 		return
 	}
-	result := routeTable.SyncRouteTableRouteSets(ctx, self.GetUserCred(), iRouteTable, nil)
+	result := routeTable.SyncRouteTableRouteSets(ctx, self.GetUserCred(), iRouteTable, nil, false)
 	if result.IsError() {
 		self.taskFailed(ctx, routeTable, errors.Wrapf(result.AllError(), "SyncRouteTableRouteSets"))
 		return
 	}
 	log.Infof("sync route table for %s result: %s", routeTable.GetName(), result.Result())
 
-	result = routeTable.SyncRouteTableAssociations(ctx, self.GetUserCred(), iRouteTable, nil)
+	result = routeTable.SyncRouteTableAssociations(ctx, self.GetUserCred(), iRouteTable, nil, false)
 	if result.IsError() {
 		self.taskFailed(ctx, routeTable, errors.Wrapf(result.AllError(), "routeTable.SyncRouteTableAssociations()"))
 		return
