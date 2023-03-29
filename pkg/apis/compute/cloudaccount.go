@@ -319,6 +319,9 @@ type CloudaccountDetail struct {
 	ProxySetting proxyapi.SProxySetting `json:"proxy_setting"`
 
 	ProjectMappingResourceInfo
+
+	// 上次同步耗时
+	LastSyncCost string
 }
 
 func (self CloudaccountDetail) GetMetricTags() map[string]string {
