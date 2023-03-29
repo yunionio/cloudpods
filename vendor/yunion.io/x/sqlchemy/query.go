@@ -81,6 +81,7 @@ func (tq *SQuery) HasField(f IQueryField) bool {
 	}
 	for i := range tq.fields {
 		fi := tq.fields[i]
+		// log.Debugf("field at %d: %s", i, fi.Name())
 		if fi.Name() == f.Name() {
 			return true
 		}
@@ -90,6 +91,7 @@ func (tq *SQuery) HasField(f IQueryField) bool {
 
 // AppendField appends query field to a query
 func (tq *SQuery) AppendField(f ...IQueryField) *SQuery {
+	// log.Debugf("AppendField tq has fields %d", len(tq.fields))
 	for i := range f {
 		if !tq.HasField(f[i]) {
 			tq.fields = append(tq.fields, f[i])

@@ -173,7 +173,7 @@ func (click *SClickhouseBackend) FetchTableColumnSpecs(ts sqlchemy.ITableSpec) (
 	if err != nil {
 		return nil, errors.Wrap(err, "show create table")
 	}
-	primaries, orderbys, partition, ttl := parseCreateTable(defStr)
+	primaries, orderbys, partitions, ttl := parseCreateTable(defStr)
 	var ttlCfg sColumnTTL
 	if len(ttl) > 0 {
 		ttlCfg, err = parseTTLExpression(ttl)
@@ -189,8 +189,10 @@ func (click *SClickhouseBackend) FetchTableColumnSpecs(ts sqlchemy.ITableSpec) (
 			if utils.IsInStringArray(clickSpec.Name(), orderbys) {
 				clickSpec.SetOrderBy(true)
 			}
-			if strings.Contains(partition, clickSpec.Name()) {
-				clickSpec.SetPartitionBy(partition)
+			for _, part := range partitions {
+				if strings.Contains(part, clickSpec.Name()) {
+					clickSpec.SetPartitionBy(part)
+				}
 			}
 			if ttlCfg.ColName == clickSpec.Name() {
 				clickSpec.SetTTL(ttlCfg.Count, ttlCfg.Unit)
