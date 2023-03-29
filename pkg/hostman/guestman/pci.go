@@ -305,7 +305,7 @@ func (s *SKVMGuestInstance) initGuestNetworks(pciRoot, pciBridge *desc.PCIContro
 				s.Desc.Nics[i].Driver = "vmxnet3"
 			}
 			if s.Desc.Nics[i].NumQueues > 1 {
-				vectors := s.Desc.Nics[i].NumQueues * 2
+				vectors := s.Desc.Nics[i].NumQueues*2 + 1
 				s.Desc.Nics[i].Vectors = &vectors
 			}
 
