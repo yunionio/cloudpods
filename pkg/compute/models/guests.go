@@ -3389,7 +3389,13 @@ func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host 
 	return localNet, nil
 }
 
-func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, vnics []cloudprovider.ICloudNic, ipList []string) compare.SyncResult {
+func (self *SGuest) SyncVMNics(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	host *SHost,
+	vnics []cloudprovider.ICloudNic,
+	ipList []string,
+) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	nics, err := self.GetNetworks("")
@@ -3599,7 +3605,14 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 	return err
 }
 
-func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, vdisks []cloudprovider.ICloudDisk, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
+func (self *SGuest) SyncVMDisks(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider cloudprovider.ICloudProvider,
+	host *SHost,
+	vdisks []cloudprovider.ICloudDisk,
+	syncOwnerId mcclient.IIdentityProvider,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, self.Id, DiskManager.Keyword())
 	defer lockman.ReleaseRawObject(ctx, self.Id, DiskManager.Keyword())
 

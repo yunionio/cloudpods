@@ -313,9 +313,15 @@ func (self *SCloudregion) GetFileSystems() ([]SFileSystem, error) {
 	return ret, nil
 }
 
-func (self *SCloudregion) SyncFileSystems(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, filesystems []cloudprovider.ICloudFileSystem) ([]SFileSystem, []cloudprovider.ICloudFileSystem, compare.SyncResult) {
-	lockman.LockRawObject(ctx, self.Id, "filesystems")
-	defer lockman.ReleaseRawObject(ctx, self.Id, "filesystems")
+func (self *SCloudregion) SyncFileSystems(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	filesystems []cloudprovider.ICloudFileSystem,
+	xor bool,
+) ([]SFileSystem, []cloudprovider.ICloudFileSystem, compare.SyncResult) {
+	lockman.LockRawObject(ctx, self.Id, FileSystemManager.Keyword())
+	defer lockman.ReleaseRawObject(ctx, self.Id, FileSystemManager.Keyword())
 
 	result := compare.SyncResult{}
 
@@ -347,10 +353,12 @@ func (self *SCloudregion) SyncFileSystems(ctx context.Context, userCred mcclient
 		result.Delete()
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudFileSystem(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+		if !xor {
+			err = commondb[i].SyncWithCloudFileSystem(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
 		}
 		localFSs = append(localFSs, commondb[i])
 		remoteFSs = append(remoteFSs, commonext[i])
@@ -440,7 +448,7 @@ func (self *SFileSystem) ValidateDeleteCondition(ctx context.Context, info jsonu
 }
 
 func (self *SFileSystem) SyncAllWithCloudFileSystem(ctx context.Context, userCred mcclient.TokenCredential, fs cloudprovider.ICloudFileSystem) error {
-	syncFileSystemMountTargets(ctx, userCred, self, fs)
+	syncFileSystemMountTargets(ctx, userCred, self, fs, false)
 	return self.SyncWithCloudFileSystem(ctx, userCred, fs)
 }
 

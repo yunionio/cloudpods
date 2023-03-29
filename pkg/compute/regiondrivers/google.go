@@ -231,7 +231,7 @@ func (self *SGoogleRegionDriver) RequestCreateDBInstanceBackup(ctx context.Conte
 
 		region, _ := backup.GetRegion()
 
-		result := models.DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, backup.GetCloudprovider(), instance, region, backups)
+		result := models.DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, backup.GetCloudprovider(), instance, region, backups, false)
 		log.Infof("SyncDBInstanceBackups for dbinstance %s(%s) result: %s", instance.Name, instance.Id, result.Result())
 		instance.SetStatus(userCred, api.DBINSTANCE_RUNNING, "")
 		return nil, nil

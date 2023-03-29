@@ -81,7 +81,13 @@ func (self *SCloudregion) GetTablestores() ([]STablestore, error) {
 	return ret, err
 }
 
-func (self *SCloudregion) SyncTablestores(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudTablestore, provider *SCloudprovider) compare.SyncResult {
+func (self *SCloudregion) SyncTablestores(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	exts []cloudprovider.ICloudTablestore,
+	provider *SCloudprovider,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, TablestoreManager.Keyword(), self.Id)
 	defer lockman.ReleaseRawObject(ctx, TablestoreManager.Keyword(), self.Id)
 
@@ -112,13 +118,15 @@ func (self *SCloudregion) SyncTablestores(ctx context.Context, userCred mcclient
 			result.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudTablestore(ctx, userCred, commonext[i], provider)
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithCloudTablestore(ctx, userCred, commonext[i], provider)
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
 		_, err := self.newFromCloudTablestore(ctx, userCred, added[i], provider)

@@ -1451,11 +1451,9 @@ func (manager *SDiskManager) findOrCreateDisk(ctx context.Context, userCred mccl
 	return diskObj.(*SDisk), nil
 }
 
-func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, storage *SStorage, disks []cloudprovider.ICloudDisk, syncOwnerId mcclient.IIdentityProvider) ([]SDisk, []cloudprovider.ICloudDisk, compare.SyncResult) {
-	// syncOwnerId := projectId
-
-	lockman.LockRawObject(ctx, "disks", storage.Id)
-	defer lockman.ReleaseRawObject(ctx, "disks", storage.Id)
+func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, storage *SStorage, disks []cloudprovider.ICloudDisk, syncOwnerId mcclient.IIdentityProvider, xor bool) ([]SDisk, []cloudprovider.ICloudDisk, compare.SyncResult) {
+	lockman.LockRawObject(ctx, manager.Keyword(), storage.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), storage.Id)
 
 	localDisks := make([]SDisk, 0)
 	remoteDisks := make([]cloudprovider.ICloudDisk, 0)
@@ -1499,10 +1497,12 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 			syncResult.Delete()
 			continue
 		}
-		err = commondb[i].syncWithCloudDisk(ctx, userCred, provider, commonext[i], -1, syncOwnerId, storage.ManagerId)
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+		if !xor {
+			err = commondb[i].syncWithCloudDisk(ctx, userCred, provider, commonext[i], -1, syncOwnerId, storage.ManagerId)
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
 		}
 		localDisks = append(localDisks, commondb[i])
 		remoteDisks = append(remoteDisks, commonext[i])

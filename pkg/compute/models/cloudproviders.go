@@ -1068,6 +1068,9 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 			SyncStatus2:                            provider.getSyncStatus2(),
 			ProjectMappingResourceInfo:             pmRows[i],
 		}
+		if !provider.LastSync.IsZero() && !provider.LastSyncEndAt.IsZero() {
+			rows[i].LastSyncCost = provider.LastSyncEndAt.Sub(provider.LastSync).Round(time.Second).String()
+		}
 		capabilities, _ := CloudproviderCapabilityManager.getCapabilities(provider.Id)
 		if len(capabilities) > 0 {
 			rows[i].Capabilities = capabilities
@@ -1966,7 +1969,7 @@ func (self *SCloudprovider) GetInterVpcNetworks() ([]SInterVpcNetwork, error) {
 
 }
 
-func (self *SCloudprovider) SyncInterVpcNetwork(ctx context.Context, userCred mcclient.TokenCredential, interVpcNetworks []cloudprovider.ICloudInterVpcNetwork) ([]SInterVpcNetwork, []cloudprovider.ICloudInterVpcNetwork, compare.SyncResult) {
+func (self *SCloudprovider) SyncInterVpcNetwork(ctx context.Context, userCred mcclient.TokenCredential, interVpcNetworks []cloudprovider.ICloudInterVpcNetwork, xor bool) ([]SInterVpcNetwork, []cloudprovider.ICloudInterVpcNetwork, compare.SyncResult) {
 	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-interVpcNetwork", self.Id))
 	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-interVpcNetwork", self.Id))
 
@@ -2002,10 +2005,12 @@ func (self *SCloudprovider) SyncInterVpcNetwork(ctx context.Context, userCred mc
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudInterVpcNetwork(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(errors.Wrapf(err, "SyncWithCloudInterVpcNetwork"))
-			continue
+		if !xor {
+			err = commondb[i].SyncWithCloudInterVpcNetwork(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(errors.Wrapf(err, "SyncWithCloudInterVpcNetwork"))
+				continue
+			}
 		}
 		localNetworks = append(localNetworks, commondb[i])
 		remoteNetworks = append(remoteNetworks, commonext[i])
