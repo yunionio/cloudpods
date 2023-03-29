@@ -213,7 +213,7 @@ func (this *BaseManager) _list(session *mcclient.ClientSession, path, responseKe
 	}
 	rets, err := body.GetArray(responseKey)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "key:%s", responseKey)
 	}
 	nextMarker, _ := body.GetString("next_marker")
 	markerField, _ := body.GetString("marker_field")
@@ -263,7 +263,7 @@ func (this *BaseManager) _submit(session *mcclient.ClientSession, method httputi
 	}
 	ret, e := resp.Get(respKey)
 	if e != nil {
-		return nil, e
+		return nil, errors.Wrapf(e, "key:%s", respKey)
 	}
 	return ret, nil
 }
