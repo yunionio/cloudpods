@@ -999,9 +999,9 @@ func (self *SCloudregion) GetSystemImageCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SCloudregion) SyncCloudImages(ctx context.Context, userCred mcclient.TokenCredential, refresh bool) error {
-	lockman.LockRawObject(ctx, "cloudimages", self.Id)
-	defer lockman.ReleaseRawObject(ctx, "cloudimages", self.Id)
+func (self *SCloudregion) SyncCloudImages(ctx context.Context, userCred mcclient.TokenCredential, refresh, xor bool) error {
+	lockman.LockRawObject(ctx, CloudimageManager.Keyword(), self.Id)
+	defer lockman.ReleaseRawObject(ctx, CloudimageManager.Keyword(), self.Id)
 
 	systemImageCount, err := self.GetSystemImageCount()
 	if err != nil {
@@ -1044,13 +1044,15 @@ func (self *SCloudregion) SyncCloudImages(ctx context.Context, userCred mcclient
 		result.Delete()
 	}
 
-	for i := 0; i < len(commonext); i++ {
-		err := commondb[i].syncWithImage(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(errors.Wrapf(err, "updateCachedImage"))
-			continue
+	if !xor {
+		for i := 0; i < len(commonext); i++ {
+			err := commondb[i].syncWithImage(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(errors.Wrapf(err, "updateCachedImage"))
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 
 	for i := 0; i < len(added); i++ {

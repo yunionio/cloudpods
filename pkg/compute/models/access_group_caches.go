@@ -254,9 +254,15 @@ func (self *SAccessGroupCache) RealDelete(ctx context.Context, userCred mcclient
 	return self.SStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SCloudregion) SyncAccessGroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, iAccessGroups []cloudprovider.ICloudAccessGroup) compare.SyncResult {
-	lockman.LockRawObject(ctx, self.Id, "access_groups")
-	defer lockman.ReleaseRawObject(ctx, self.Id, "access_groups")
+func (self *SCloudregion) SyncAccessGroups(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	iAccessGroups []cloudprovider.ICloudAccessGroup,
+	xor bool,
+) compare.SyncResult {
+	lockman.LockRawObject(ctx, self.Id, AccessGroupManager.Keyword())
+	defer lockman.ReleaseRawObject(ctx, self.Id, AccessGroupManager.Keyword())
 
 	result := compare.SyncResult{}
 
@@ -284,13 +290,15 @@ func (self *SCloudregion) SyncAccessGroups(ctx context.Context, userCred mcclien
 		}
 		result.Delete()
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithAccessGroup(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].syncWithAccessGroup(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
 		err := provider.newFromCloudAccessGroup(ctx, userCred, self, added[i])

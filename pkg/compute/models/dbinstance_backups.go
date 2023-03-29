@@ -386,9 +386,17 @@ func (backup *SDBInstanceBackup) GetIDBInstanceBackup(ctx context.Context) (clou
 	return iRegion.GetIDBInstanceBackupById(backup.ExternalId)
 }
 
-func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, instance *SDBInstance, region *SCloudregion, cloudBackups []cloudprovider.ICloudDBInstanceBackup) compare.SyncResult {
-	lockman.LockRawObject(ctx, "dbinstance-backups", fmt.Sprintf("%s-%s", provider.Id, region.Id))
-	defer lockman.ReleaseRawObject(ctx, "dbinstance-backups", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	instance *SDBInstance,
+	region *SCloudregion,
+	cloudBackups []cloudprovider.ICloudDBInstanceBackup,
+	xor bool,
+) compare.SyncResult {
+	lockman.LockRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	result := compare.SyncResult{}
 	dbBackups, err := region.GetDBInstanceBackups(provider, instance)
@@ -415,12 +423,14 @@ func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Conte
 		}
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].SyncWithCloudDBInstanceBackup(ctx, userCred, commonext[i], provider)
-		if err != nil {
-			result.UpdateError(err)
-		} else {
-			result.Update()
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].SyncWithCloudDBInstanceBackup(ctx, userCred, commonext[i], provider)
+			if err != nil {
+				result.UpdateError(err)
+			} else {
+				result.Update()
+			}
 		}
 	}
 

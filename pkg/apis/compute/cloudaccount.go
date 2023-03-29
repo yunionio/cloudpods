@@ -511,6 +511,8 @@ type SyncRangeInput struct {
 	Force    bool `json:"force"`
 	FullSync bool `json:"full_sync"`
 	DeepSync bool `json:"deep_sync"`
+	// 极速模式(差量更新)
+	Xor bool `json:"xor"`
 
 	Region []string `json:"region"`
 	Zone   []string `json:"zone"`

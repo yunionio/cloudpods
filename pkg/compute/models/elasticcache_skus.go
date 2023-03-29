@@ -411,9 +411,9 @@ func (manager *SElasticcacheSkuManager) FetchSkusByRegion(regionID string) ([]SE
 	return skus, nil
 }
 
-func (manager *SElasticcacheSkuManager) SyncElasticcacheSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
-	lockman.LockRawObject(ctx, "elastic-cache-skus", region.Id)
-	defer lockman.ReleaseRawObject(ctx, "elastic-cache-skus", region.Id)
+func (manager *SElasticcacheSkuManager) SyncElasticcacheSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta, xor bool) compare.SyncResult {
+	lockman.LockRawObject(ctx, manager.Keyword(), region.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), region.Id)
 
 	syncResult := compare.SyncResult{}
 
@@ -448,12 +448,14 @@ func (manager *SElasticcacheSkuManager) SyncElasticcacheSkus(ctx context.Context
 			syncResult.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncResult.Update()
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				syncResult.Update()
+			}
 		}
 	}
 	for i := 0; i < len(added); i += 1 {

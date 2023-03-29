@@ -294,7 +294,7 @@ func (self *SCloudprovider) GetGlobalVpcs() ([]SGlobalVpc, error) {
 	return vpcs, nil
 }
 
-func (self *SCloudprovider) SyncGlobalVpcs(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudGlobalVpc) compare.SyncResult {
+func (self *SCloudprovider) SyncGlobalVpcs(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudGlobalVpc, xor bool) compare.SyncResult {
 	lockman.LockRawObject(ctx, GlobalVpcManager.Keyword(), self.Id)
 	defer lockman.ReleaseRawObject(ctx, GlobalVpcManager.Keyword(), self.Id)
 
@@ -326,13 +326,15 @@ func (self *SCloudprovider) SyncGlobalVpcs(ctx context.Context, userCred mcclien
 		result.Delete()
 	}
 
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudGlobalVpc(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithCloudGlobalVpc(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 
 	for i := 0; i < len(added); i += 1 {

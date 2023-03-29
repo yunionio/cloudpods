@@ -386,7 +386,12 @@ func (self *SFileSystem) GetMountTargets() ([]SMountTarget, error) {
 	return mounts, nil
 }
 
-func (self *SFileSystem) SyncMountTargets(ctx context.Context, userCred mcclient.TokenCredential, extMounts []cloudprovider.ICloudMountTarget) compare.SyncResult {
+func (self *SFileSystem) SyncMountTargets(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	extMounts []cloudprovider.ICloudMountTarget,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, self.Id, MountTargetManager.KeywordPlural())
 	lockman.ReleaseRawObject(ctx, self.Id, MountTargetManager.KeywordPlural())
 
@@ -416,13 +421,15 @@ func (self *SFileSystem) SyncMountTargets(ctx context.Context, userCred mcclient
 		}
 		result.Delete()
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithMountTarget(ctx, userCred, self.ManagerId, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithMountTarget(ctx, userCred, self.ManagerId, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
 		err := self.newFromCloudMountTarget(ctx, userCred, added[i])

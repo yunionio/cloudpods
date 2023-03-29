@@ -197,7 +197,7 @@ func (self *SStoragecache) getHostId() (string, error) {
 	return ret, nil
 }
 
-func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache, provider *SCloudprovider) (*SStoragecache, bool, error) {
+func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache, provider *SCloudprovider, xor bool) (*SStoragecache, bool, error) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
@@ -217,7 +217,9 @@ func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Conte
 		}
 	} else {
 		localCache := localCacheObj.(*SStoragecache)
-		localCache.syncWithCloudStoragecache(ctx, userCred, cloudCache, provider)
+		if !xor {
+			localCache.syncWithCloudStoragecache(ctx, userCred, cloudCache, provider)
+		}
 		return localCache, false, nil
 	}
 }
@@ -600,12 +602,13 @@ func (self *SStoragecache) SyncCloudImages(
 	userCred mcclient.TokenCredential,
 	iStoragecache cloudprovider.ICloudStoragecache,
 	region *SCloudregion,
+	xor bool,
 ) compare.SyncResult {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	lockman.LockRawObject(ctx, "cachedimages", self.Id)
-	defer lockman.ReleaseRawObject(ctx, "cachedimages", self.Id)
+	lockman.LockRawObject(ctx, CachedimageManager.Keyword(), self.Id)
+	defer lockman.ReleaseRawObject(ctx, CachedimageManager.Keyword(), self.Id)
 
 	result := compare.SyncResult{}
 
@@ -616,7 +619,7 @@ func (self *SStoragecache) SyncCloudImages(
 	}
 	if driver.IsPublicCloud() {
 		err = func() error {
-			err := region.SyncCloudImages(ctx, userCred, false)
+			err := region.SyncCloudImages(ctx, userCred, false, xor)
 			if err != nil {
 				return errors.Wrapf(err, "SyncCloudImages")
 			}
@@ -642,7 +645,7 @@ func (self *SStoragecache) SyncCloudImages(
 			result.Error(errors.Wrapf(err, "GetICustomizedCloudImages"))
 			return result
 		}
-		result = self.syncCloudImages(ctx, userCred, localCachedImages, remoteImages)
+		result = self.syncCloudImages(ctx, userCred, localCachedImages, remoteImages, xor)
 	} else {
 		log.Debugln("localCachedImages started")
 		localCachedImages, err := self.getCachedImages()
@@ -656,7 +659,7 @@ func (self *SStoragecache) SyncCloudImages(
 			result.Error(errors.Wrapf(err, "GetICloudImages"))
 			return result
 		}
-		result = self.syncCloudImages(ctx, userCred, localCachedImages, remoteImages)
+		result = self.syncCloudImages(ctx, userCred, localCachedImages, remoteImages, xor)
 	}
 
 	return result
@@ -667,6 +670,7 @@ func (cache *SStoragecache) syncCloudImages(
 	userCred mcclient.TokenCredential,
 	localCachedImages []SStoragecachedimage,
 	remoteImages []cloudprovider.ICloudImage,
+	xor bool,
 ) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
@@ -695,12 +699,14 @@ func (cache *SStoragecache) syncCloudImages(
 			syncResult.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudImage(ctx, userCred, syncOwnerId, commonext[i], cache.ManagerId)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncResult.Update()
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].syncWithCloudImage(ctx, userCred, syncOwnerId, commonext[i], cache.ManagerId)
+			if err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				syncResult.Update()
+			}
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
@@ -853,8 +859,8 @@ func (self *SStoragecache) getSystemImageCount() (int, error) {
 }
 
 func (self *SStoragecache) CheckCloudimages(ctx context.Context, userCred mcclient.TokenCredential, regionName, regionId string) error {
-	lockman.LockRawObject(ctx, "cachedimages", regionId)
-	defer lockman.ReleaseRawObject(ctx, "cachedimages", regionId)
+	lockman.LockRawObject(ctx, CachedimageManager.Keyword(), regionId)
+	defer lockman.ReleaseRawObject(ctx, CachedimageManager.Keyword(), regionId)
 
 	result := compare.SyncResult{}
 

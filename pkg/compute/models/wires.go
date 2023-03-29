@@ -285,9 +285,16 @@ func (manager *SWireManager) getWiresByVpcAndZone(vpc *SVpc, zone *SZone) ([]SWi
 	return wires, nil
 }
 
-func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, wires []cloudprovider.ICloudWire, provider *SCloudprovider) ([]SWire, []cloudprovider.ICloudWire, compare.SyncResult) {
-	lockman.LockRawObject(ctx, "wires", vpc.Id)
-	defer lockman.ReleaseRawObject(ctx, "wires", vpc.Id)
+func (manager *SWireManager) SyncWires(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	vpc *SVpc,
+	wires []cloudprovider.ICloudWire,
+	provider *SCloudprovider,
+	xor bool,
+) ([]SWire, []cloudprovider.ICloudWire, compare.SyncResult) {
+	lockman.LockRawObject(ctx, manager.Keyword(), vpc.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), vpc.Id)
 
 	localWires := make([]SWire, 0)
 	remoteWires := make([]cloudprovider.ICloudWire, 0)
@@ -326,26 +333,25 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudWire(ctx, userCred, commonext[i], vpc, provider)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-			localWires = append(localWires, commondb[i])
-			remoteWires = append(remoteWires, commonext[i])
+		if !xor {
+			err = commondb[i].syncWithCloudWire(ctx, userCred, commonext[i], vpc, provider)
+			if err != nil {
+				syncResult.UpdateError(err)
+			}
 			syncResult.Update()
 		}
+		localWires = append(localWires, commondb[i])
+		remoteWires = append(remoteWires, commonext[i])
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudWire(ctx, userCred, added[i], vpc, provider)
+		wire, err := manager.newFromCloudWire(ctx, userCred, added[i], vpc, provider)
 		if err != nil {
 			syncResult.AddError(err)
-		} else {
-			syncMetadata(ctx, userCred, new, added[i])
-			localWires = append(localWires, *new)
-			remoteWires = append(remoteWires, added[i])
-			syncResult.Add()
+			continue
 		}
+		localWires = append(localWires, *wire)
+		remoteWires = append(remoteWires, added[i])
+		syncResult.Add()
 	}
 
 	return localWires, remoteWires, syncResult
@@ -408,6 +414,7 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 	} else if self.IsEmulated {
 		self.SaveSharedInfo(apis.TOwnerSource(vpc.PublicSrc), ctx, userCred, vpc.GetSharedInfo())
 	}
+	syncMetadata(ctx, userCred, self, extWire)
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return err
@@ -476,6 +483,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 		wire.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
 
+	syncMetadata(ctx, userCred, &wire, extWire)
 	db.OpsLog.LogEvent(&wire, db.ACT_CREATE, wire.GetShortDesc(ctx), userCred)
 	return &wire, nil
 }

@@ -257,7 +257,13 @@ func (self *SCloudregion) GetElasticSearchs(managerId string) ([]SElasticSearch,
 	return ret, nil
 }
 
-func (self *SCloudregion) SyncElasticSearchs(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudElasticSearch) compare.SyncResult {
+func (self *SCloudregion) SyncElasticSearchs(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	exts []cloudprovider.ICloudElasticSearch,
+	xor bool,
+) compare.SyncResult {
 	// 加锁防止重入
 	lockman.LockRawObject(ctx, ElasticSearchManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 	defer lockman.ReleaseRawObject(ctx, ElasticSearchManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
@@ -291,14 +297,16 @@ func (self *SCloudregion) SyncElasticSearchs(ctx context.Context, userCred mccli
 		result.Delete()
 	}
 
-	// 和云上资源属性进行同步
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].SyncWithCloudElasticSearch(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		// 和云上资源属性进行同步
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].SyncWithCloudElasticSearch(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 
 	// 创建本地没有的云上资源

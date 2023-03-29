@@ -351,7 +351,15 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return desc
 }
 
-func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
+func (manager *SElasticipManager) SyncEips(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	region *SCloudregion,
+	eips []cloudprovider.ICloudEIP,
+	syncOwnerId mcclient.IIdentityProvider,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, manager.KeywordPlural(), region.Id)
 	defer lockman.ReleaseRawObject(ctx, manager.KeywordPlural(), region.Id)
 
@@ -389,11 +397,13 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 			syncResult.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudEip(ctx, userCred, provider, commonext[i], syncOwnerId)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithCloudEip(ctx, userCred, provider, commonext[i], syncOwnerId)
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
 			syncResult.Update()
 		}
 	}

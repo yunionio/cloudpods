@@ -302,7 +302,13 @@ func (self *SCloudregion) newFromCloudWafRegexSet(ctx context.Context, userCred 
 	return WafRegexSetCacheManager.TableSpec().Insert(ctx, cache)
 }
 
-func (self *SCloudregion) SyncWafRegexSets(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudWafRegexSet) compare.SyncResult {
+func (self *SCloudregion) SyncWafRegexSets(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	exts []cloudprovider.ICloudWafRegexSet,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, WafRegexSetCacheManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, provider.Id))
 	defer lockman.ReleaseRawObject(ctx, WafRegexSetCacheManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, provider.Id))
 
@@ -333,13 +339,15 @@ func (self *SCloudregion) SyncWafRegexSets(ctx context.Context, userCred mcclien
 		result.Delete()
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].syncWithCloudRegexSet(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].syncWithCloudRegexSet(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 
 	for i := 0; i < len(added); i++ {

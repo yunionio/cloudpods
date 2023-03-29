@@ -81,7 +81,13 @@ func (self *SVpc) GetIPv6Gateways() ([]SIPv6Gateway, error) {
 	return ret, err
 }
 
-func (self *SVpc) SyncIPv6Gateways(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudIPv6Gateway, provider *SCloudprovider) compare.SyncResult {
+func (self *SVpc) SyncIPv6Gateways(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	exts []cloudprovider.ICloudIPv6Gateway,
+	provider *SCloudprovider,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, IPv6GatewayManager.Keyword(), self.Id)
 	defer lockman.ReleaseRawObject(ctx, IPv6GatewayManager.Keyword(), self.Id)
 
@@ -112,13 +118,15 @@ func (self *SVpc) SyncIPv6Gateways(ctx context.Context, userCred mcclient.TokenC
 			result.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudIPv6Gateway(ctx, userCred, commonext[i], provider)
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithCloudIPv6Gateway(ctx, userCred, commonext[i], provider)
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
 		_, err := self.newFromCloudIPv6Gateway(ctx, userCred, added[i], provider)

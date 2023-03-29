@@ -191,9 +191,9 @@ func (self SNatSku) GetGlobalId() string {
 	return self.ExternalId
 }
 
-func (self *SCloudregion) SyncNatSkus(ctx context.Context, userCred mcclient.TokenCredential, meta *SSkuResourcesMeta) compare.SyncResult {
-	lockman.LockRawObject(ctx, self.Id, "nat-sku")
-	defer lockman.ReleaseRawObject(ctx, self.Id, "nat-sku")
+func (self *SCloudregion) SyncNatSkus(ctx context.Context, userCred mcclient.TokenCredential, meta *SSkuResourcesMeta, xor bool) compare.SyncResult {
+	lockman.LockRawObject(ctx, self.Id, NatSkuManager.Keyword())
+	defer lockman.ReleaseRawObject(ctx, self.Id, NatSkuManager.Keyword())
 
 	syncResult := compare.SyncResult{}
 
@@ -228,13 +228,15 @@ func (self *SCloudregion) SyncNatSkus(ctx context.Context, userCred mcclient.Tok
 		}
 		syncResult.Delete()
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
+			syncResult.Update()
 		}
-		syncResult.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
 		err = self.newFromCloudNatSku(ctx, userCred, added[i])
@@ -267,13 +269,13 @@ func (self *SCloudregion) newFromCloudNatSku(ctx context.Context, userCred mccli
 }
 
 func SyncNatSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	err := SyncRegionNatSkus(ctx, userCred, "", isStart)
+	err := SyncRegionNatSkus(ctx, userCred, "", isStart, false)
 	if err != nil {
 		log.Errorf("SyncRegionNatSkus error: %v", err)
 	}
 }
 
-func SyncRegionNatSkus(ctx context.Context, userCred mcclient.TokenCredential, regionId string, isStart bool) error {
+func SyncRegionNatSkus(ctx context.Context, userCred mcclient.TokenCredential, regionId string, isStart, xor bool) error {
 	if isStart {
 		q := NatSkuManager.Query()
 		if len(regionId) > 0 {
@@ -310,7 +312,7 @@ func SyncRegionNatSkus(ctx context.Context, userCred mcclient.TokenCredential, r
 			log.Infof("region %s(%s) not support nat, skip sync", regions[i].Name, regions[i].Id)
 			continue
 		}
-		result := regions[i].SyncNatSkus(ctx, userCred, meta)
+		result := regions[i].SyncNatSkus(ctx, userCred, meta, xor)
 		msg := result.Result()
 		notes := fmt.Sprintf("SyncNatSkus for region %s result: %s", regions[i].Name, msg)
 		log.Infof(notes)

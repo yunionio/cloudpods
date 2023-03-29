@@ -669,7 +669,7 @@ func (manager *SStorageManager) scanLegacyStorages() error {
 	return nil
 }
 
-func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
+func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, storages []cloudprovider.ICloudStorage, xor bool) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
 	var resId string
 	if zone != nil {
 		resId = fmt.Sprintf("%s-%s", provider.Id, zone.Id)
@@ -719,15 +719,18 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudStorage(ctx, userCred, commonext[i], provider)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
+		if !xor {
+			err = commondb[i].syncWithCloudStorage(ctx, userCred, commonext[i], provider)
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
 			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-			localStorages = append(localStorages, commondb[i])
-			remoteStorages = append(remoteStorages, commonext[i])
-			syncResult.Update()
 		}
+
+		localStorages = append(localStorages, commondb[i])
+		remoteStorages = append(remoteStorages, commonext[i])
+		syncResult.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
 		new, err := manager.newFromCloudStorage(ctx, userCred, added[i], provider, zone)

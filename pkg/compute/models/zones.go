@@ -280,7 +280,13 @@ func (zone *SZone) GetI18N(ctx context.Context) *jsonutils.JSONDict {
 	return zone.GetModelI18N(ctx, zone)
 }
 
-func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zones []cloudprovider.ICloudZone) ([]SZone, []cloudprovider.ICloudZone, compare.SyncResult) {
+func (manager *SZoneManager) SyncZones(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	region *SCloudregion,
+	zones []cloudprovider.ICloudZone,
+	xor bool,
+) ([]SZone, []cloudprovider.ICloudZone, compare.SyncResult) {
 	lockman.LockRawObject(ctx, "zones", region.Id)
 	defer lockman.ReleaseRawObject(ctx, "zones", region.Id)
 
@@ -314,26 +320,25 @@ func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudZone(ctx, userCred, commonext[i], region)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-			localZones = append(localZones, commondb[i])
-			remoteZones = append(remoteZones, commonext[i])
-			syncResult.Update()
+		if !xor {
+			err = commondb[i].syncWithCloudZone(ctx, userCred, commonext[i], region)
+			if err != nil {
+				syncResult.UpdateError(err)
+			}
 		}
+		localZones = append(localZones, commondb[i])
+		remoteZones = append(remoteZones, commonext[i])
+		syncResult.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudZone(ctx, userCred, added[i], region)
+		zone, err := manager.newFromCloudZone(ctx, userCred, added[i], region)
 		if err != nil {
 			syncResult.AddError(err)
-		} else {
-			syncMetadata(ctx, userCred, new, added[i])
-			localZones = append(localZones, *new)
-			remoteZones = append(remoteZones, added[i])
-			syncResult.Add()
+			continue
 		}
+		localZones = append(localZones, *zone)
+		remoteZones = append(remoteZones, added[i])
+		syncResult.Add()
 	}
 
 	return localZones, remoteZones, syncResult
@@ -370,6 +375,7 @@ func (self *SZone) syncWithCloudZone(ctx context.Context, userCred mcclient.Toke
 		log.Errorf("syncWithCloudZone error %s", err)
 		return err
 	}
+	syncMetadata(ctx, userCred, self, extZone)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
@@ -405,6 +411,7 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 	if err != nil {
 		return nil, errors.Wrap(err, "SyncI18ns")
 	}
+	syncMetadata(ctx, userCred, &zone, extZone)
 
 	db.OpsLog.LogEvent(&zone, db.ACT_CREATE, zone.GetShortDesc(ctx), userCred)
 	return &zone, nil
