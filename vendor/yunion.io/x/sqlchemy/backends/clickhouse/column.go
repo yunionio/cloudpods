@@ -181,7 +181,7 @@ func (c *SBooleanColumn) IsZero(val interface{}) bool {
 		return bVal == nil
 	}
 	bVal := val.(bool)
-	return bVal == false
+	return !bVal
 }
 
 // NewBooleanColumn return an instance of SBooleanColumn
@@ -241,10 +241,10 @@ func (c *STristateColumn) IsZero(val interface{}) bool {
 
 // NewTristateColumn return an instance of STristateColumn
 func NewTristateColumn(name string, tagmap map[string]string, isPointer bool) STristateColumn {
-	if _, ok := tagmap[sqlchemy.TAG_NULLABLE]; ok {
-		// tristate always nullable
-		delete(tagmap, sqlchemy.TAG_NULLABLE)
-	}
+	//if _, ok := tagmap[sqlchemy.TAG_NULLABLE]; ok {
+	// tristate always nullable
+	delete(tagmap, sqlchemy.TAG_NULLABLE)
+	//}
 	bc := STristateColumn{SClickhouseBaseColumn: NewClickhouseBaseColumn(name, "UInt8", tagmap, isPointer)}
 	return bc
 }
@@ -298,7 +298,6 @@ func (c *SIntegerColumn) ConvertFromString(str string) interface{} {
 		default:
 			panic(fmt.Sprintf("unsupported type %s", ctype))
 		}
-		return val
 	} else {
 		val, _ := strconv.ParseInt(str, 10, 64)
 		switch ctype {
@@ -313,7 +312,6 @@ func (c *SIntegerColumn) ConvertFromString(str string) interface{} {
 		default:
 			panic(fmt.Sprintf("unsupported type %s", ctype))
 		}
-		return val
 	}
 }
 
@@ -359,16 +357,16 @@ func (c *SFloatColumn) IsZero(val interface{}) bool {
 	if c.IsPointer() {
 		switch val.(type) {
 		case *float32:
-			return val.(*float32) == nil
+			return val == nil
 		case *float64:
-			return val.(*float64) == nil
+			return val == nil
 		}
 	} else {
 		switch val.(type) {
 		case float32:
-			return val.(float32) == 0.0
+			return val == 0.0
 		case float64:
-			return val.(float64) == 0.0
+			return val == 0.0
 		}
 	}
 	return true
@@ -386,7 +384,6 @@ func (c *SFloatColumn) ConvertFromString(str string) interface{} {
 	default:
 		panic(fmt.Sprintf("unsupported type %s", ctype))
 	}
-	return val
 }
 
 // NewFloatColumn returns an instance of SFloatColumn
@@ -425,16 +422,16 @@ func (c *SDecimalColumn) IsZero(val interface{}) bool {
 	if c.IsPointer() {
 		switch val.(type) {
 		case *float32:
-			return val.(*float32) == nil
+			return val == nil
 		case *float64:
-			return val.(*float64) == nil
+			return val == nil
 		}
 	} else {
 		switch val.(type) {
 		case float32:
-			return val.(float32) == 0.0
+			return val == 0.0
 		case float64:
-			return val.(float64) == 0.0
+			return val == 0.0
 		}
 	}
 	return true
