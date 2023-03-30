@@ -177,8 +177,14 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 		}
 	}
 	for i := 0; i < len(srcDesc.Nics); i++ {
+		var numQueues, vectors int
 		for j := 0; j < len(s.SourceDesc.Nics); j++ {
 			if srcDesc.Nics[i].Index == s.SourceDesc.Nics[j].Index {
+				numQueues = srcDesc.Nics[i].NumQueues
+				if srcDesc.Nics[i].Vectors != nil {
+					vectors = *srcDesc.Nics[i].Vectors
+				}
+
 				srcDesc.Nics[i].GuestnetworkJsonDesc = s.SourceDesc.Nics[j].GuestnetworkJsonDesc
 				break
 			}
@@ -186,6 +192,10 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 
 		if err := s.generateNicScripts(srcDesc.Nics[i]); err != nil {
 			return errors.Wrapf(err, "generateNicScripts for nic: %v", srcDesc.Nics[i])
+		}
+		srcDesc.Nics[i].NumQueues = numQueues
+		if vectors > 0 {
+			srcDesc.Nics[i].Vectors = &vectors
 		}
 		srcDesc.Nics[i].UpscriptPath = s.getNicUpScriptPath(srcDesc.Nics[i])
 		srcDesc.Nics[i].DownscriptPath = s.getNicDownScriptPath(srcDesc.Nics[i])
