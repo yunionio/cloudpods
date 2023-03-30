@@ -227,6 +227,11 @@ var (
 			"deploy_server_socket_path",
 			"enable_remote_executor",
 			"executor_socket_path",
+
+			// ############################
+			// kubeserver blacklist options
+			// ############################
+			"running_mode",
 		},
 	}
 )
