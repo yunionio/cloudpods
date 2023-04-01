@@ -234,6 +234,7 @@ type LoadbalancerDissociateEipInput struct {
 func (self LoadbalancerDetails) GetMetricTags() map[string]string {
 	ret := map[string]string{
 		"id":             self.Id,
+		"elb_id":         self.Id,
 		"brand":          self.Brand,
 		"backend_group":  self.BackendGroup,
 		"cloudregion":    self.Cloudregion,
