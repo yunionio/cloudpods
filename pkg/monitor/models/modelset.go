@@ -18,7 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apihelper"
-	compute_apis "yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	compute_models "yunion.io/x/onecloud/pkg/compute/models"
@@ -76,13 +76,21 @@ type Details struct {
 	ProjectDomain string
 	Ips           string
 	Account       string
-	compute_apis.MetadataResourceInfo
+	apis.MetadataResourceInfo
 }
 
 // +onecloud:swagger-gen-ignore
 type Guest struct {
 	compute_models.SGuest
 	Details
+	// VIP
+	Vip string `json:"vip"`
+	// VIP's eip
+	VipEip string `json:"vip_eip"`
+	// 浮动IP
+	Eip string `json:"eip"`
+	// 浮动IP类型
+	EipMode string `json:"eip_mode"`
 }
 
 // +onecloud:swagger-gen-ignore
