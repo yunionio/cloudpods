@@ -22,7 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -317,13 +317,26 @@ func (self *SModelartsPool) GetName() string {
 
 func (self *SModelartsPool) GetStatus() string {
 	res := strings.ToLower(self.Status.Phase)
+	availableCount := 0
+	for _, node := range self.Status.Resource.Available {
+		availableCount += node.Count
+	}
+
 	switch {
-	case res == api.MODELARTS_POOL_STATUS_RUNNING && len(self.Status.Resource.Creating) != 0:
-		res = api.MODELARTS_POOL_STATUS_CREATING
+	case res == compute.MODELARTS_POOL_STATUS_RUNNING && availableCount == self.GetNodeCount():
+		res = compute.MODELARTS_POOL_STATUS_RUNNING
+	case res == compute.MODELARTS_POOL_STATUS_DELETING:
+		res = compute.MODELARTS_POOL_STATUS_DELETING
+	case res == compute.MODELARTS_POOL_STATUS_ERROR:
+		res = compute.MODELARTS_POOL_STATUS_ERROR
+	case (res == compute.MODELARTS_POOL_STATUS_RUNNING && len(self.Status.Resource.Creating) != 0) || res == compute.MODELARTS_POOL_STATUS_CREATING:
+		res = compute.MODELARTS_POOL_STATUS_CREATING
 	case self.Status.Phase == "CreationFailed":
-		res = api.MODELARTS_POOL_STATUS_CREATE_FAILED
+		res = compute.MODELARTS_POOL_STATUS_CREATE_FAILED
 	case self.Status.Phase == "SeclingFailed":
-		res = api.MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED
+		res = compute.MODELARTS_POOL_STATUS_CHANGE_CONFIG_FAILED
+	default:
+		res = compute.MODELARTS_POOL_STATUS_UNKNOWN
 	}
 	return res
 }
@@ -380,7 +393,7 @@ func (self *SModelartsPool) Refresh() error {
 		pool.Unmarshal(self)
 		return nil
 	}
-	if err != errors.ErrNotFound {
+	if !strings.Contains(err.Error(), "not found") {
 		return errors.Wrap(err, "modelartsPoolById")
 	}
 
@@ -398,10 +411,10 @@ func (self *SModelartsPool) Refresh() error {
 	for _, pool := range pools {
 		if pool.GetId() == self.GetId() {
 			self.Status.Phase = "CreationFailed"
-			break
+			return jsonutils.Update(self, pool)
 		}
 	}
-	return jsonutils.Update(self, pool)
+	return nil
 }
 
 func (self *SModelartsPool) SetTags(tags map[string]string, replace bool) error {
@@ -429,7 +442,11 @@ func (self *SModelartsPool) GetNodeCount() int {
 	if len(self.Spec.Resource) < 1 {
 		return 0
 	}
-	return self.Spec.Resource[0].Count
+	nodeCount := 0
+	for _, v := range self.Spec.Resource {
+		nodeCount += v.Count
+	}
+	return nodeCount
 }
 
 func (self *SModelartsPool) ChangeConfig(opts *cloudprovider.ModelartsPoolChangeConfigOptions) error {

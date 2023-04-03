@@ -40,6 +40,9 @@ type akClient struct {
 }
 
 func (self *akClient) Do(req *http.Request) (*http.Response, error) {
+	req.Header.Del("Host")
+	req.Header.Del("Authorization")
+	req.Header.Del("X-Sdk-Date")
 	req.Header.Del("Accept")
 	if req.Method == string(httputils.GET) || req.Method == string(httputils.DELETE) || req.Method == string(httputils.PATCH) {
 		req.Header.Del("Content-Length")
