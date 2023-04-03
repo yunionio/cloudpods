@@ -4793,12 +4793,6 @@ func (self *SHost) RemoveNetif(ctx context.Context, userCred mcclient.TokenCrede
 	if err != nil {
 		return errors.Wrap(err, "netif.Remove")
 	}
-	if nicType == api.NIC_TYPE_ADMIN && self.AccessMac == mac {
-		err := self.setAccessMac(userCred, "")
-		if err != nil {
-			return errors.Wrap(err, "self.setAccessMac")
-		}
-	}
 	if wire != nil {
 		others := self.GetNetifsOnWire(wire)
 		if len(others) == 0 {
@@ -4806,8 +4800,38 @@ func (self *SHost) RemoveNetif(ctx context.Context, userCred mcclient.TokenCrede
 			if hw != nil {
 				db.OpsLog.LogDetachEvent(ctx, self, wire, userCred, jsonutils.NewString(fmt.Sprintf("disable netif %s", self.AccessMac)))
 				log.Debugf("Detach host wire because of remove netif %s", netif.Mac)
-				return hw.Delete(ctx, userCred)
+				err := hw.Delete(ctx, userCred)
+				if err != nil {
+					return errors.Wrap(err, "remove host wire")
+				}
 			}
+		}
+	}
+	// is this a converted host?
+	if self.HostType == api.HOST_TYPE_HYPERVISOR && self.IsBaremetal {
+		guests, err := self.GetGuests()
+		if err != nil {
+			return errors.Wrap(err, "GetGuests")
+		}
+		for i := range guests {
+			guest := &guests[i]
+			if guest.Hypervisor == api.HYPERVISOR_BAREMETAL {
+				gn, err := guest.GetGuestnetworkByMac(netif.Mac)
+				if err != nil && errors.Cause(err) != sql.ErrNoRows {
+					return errors.Wrap(err, "GetGuestnetworkByMac")
+				} else if gn != nil {
+					err = gn.Detach(ctx, userCred)
+					if err != nil {
+						return errors.Wrap(err, "detach guest nic")
+					}
+				}
+			}
+		}
+	}
+	if nicType == api.NIC_TYPE_ADMIN && self.AccessMac == mac {
+		err := self.setAccessMac(userCred, "")
+		if err != nil {
+			return errors.Wrap(err, "setAccessMac")
 		}
 	}
 	self.ClearSchedDescCache()
