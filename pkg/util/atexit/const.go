@@ -18,5 +18,5 @@ type Prio int
 
 const (
 	PRIO_LOG_OTHER Prio = 20000
-	PRIO_LOG_CLOSE      = 40000
+	PRIO_LOG_CLOSE Prio = 40000
 )
