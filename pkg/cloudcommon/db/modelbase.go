@@ -401,7 +401,7 @@ func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, 
 	)
 	// query field
 	for i := 0; i < len(fields); i++ {
-		var nq = backupQuery
+		var nq = backupQuery.SubQuery().Query()
 		nq.AppendField(nq.Field(fields[i]))
 		of, err := nq.Distinct().AllStringMap()
 		if err == sql.ErrNoRows {
@@ -419,9 +419,9 @@ func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, 
 
 	// query extra field
 	for i := 0; i < len(efs); i++ {
-		nq := backupQuery
+		nq := backupQuery.SubQuery().Query()
 		fe, _ := efs[i].GetString()
-		nqp, err := im.QueryDistinctExtraField(&nq, fe)
+		nqp, err := im.QueryDistinctExtraField(nq, fe)
 		if err != nil {
 			continue
 		}
