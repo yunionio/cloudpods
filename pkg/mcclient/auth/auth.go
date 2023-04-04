@@ -24,10 +24,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/cache"
 
 	"yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/syncman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -294,6 +296,10 @@ func (a *authManager) getSession(ctx context.Context, token mcclient.TokenCreden
 	}
 	if endpointType == "" && globalEndpointType != "" {
 		endpointType = globalEndpointType
+	}
+	srvType := consts.GetServiceType()
+	if len(srvType) > 0 && len(appctx.AppContextServiceName(ctx)) == 0 {
+		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, srvType)
 	}
 	return cli.NewSession(ctx, region, zone, endpointType, token)
 }
