@@ -34,6 +34,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+const (
+	maxEmailDestCount = 256
+)
+
 type SEmailQueueManager struct {
 	db.SLogBaseManager
 }
@@ -45,6 +49,8 @@ type SEmailQueue struct {
 
 	Dest    string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 	Subject string `width:"256" charset:"utf8" nullable:"false" list:"user" create:"admin_required"`
+	DestCc  string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"admin_optional"`
+	DestBcc string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"admin_optional"`
 
 	SessionId string `width:"256" charset:"utf8" nullable:"false" list:"user" create:"admin_optional"`
 
@@ -92,15 +98,33 @@ func (manager *SEmailQueueManager) ValidateCreateData(
 		return input, errors.Wrap(httperrors.ErrInputParameter, "empty receiver")
 	}
 	invalidTos := make([]string, 0)
-	for _, to := range input.To {
-		if !regutils.MatchEmail(to) {
-			invalidTos = append(invalidTos, to)
+	for _, tos := range [][]string{
+		input.To,
+		input.Cc,
+		input.Bcc,
+	} {
+		for _, to := range tos {
+			if !regutils.MatchEmail(to) {
+				invalidTos = append(invalidTos, to)
+			}
 		}
 	}
+
 	if len(invalidTos) > 0 {
 		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid email %s", strings.Join(invalidTos, ","))
 	}
 	input.Dest = strings.Join(input.To, ",")
+	input.DestCc = strings.Join(input.Cc, ",")
+	input.DestBcc = strings.Join(input.Bcc, ",")
+	if len(input.Dest) > maxEmailDestCount {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "too many tos")
+	}
+	if len(input.DestCc) > maxEmailDestCount {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "too many ccs")
+	}
+	if len(input.DestBcc) > maxEmailDestCount {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "too many bccs")
+	}
 	msg := api.SEmailMessage{
 		Body:        input.Body,
 		Attachments: input.Attachments,
@@ -153,7 +177,7 @@ func (eq *SEmailQueue) doSend(ctx context.Context) {
 	}
 	eq.setStatus(ctx, api.EmailSending, nil)
 	driver := GetDriver(api.EMAIL)
-	driver.Send(api.SendParams{
+	err = driver.Send(api.SendParams{
 		EmailMsg: msg,
 	})
 	if err != nil {
@@ -169,7 +193,11 @@ func (eq *SEmailQueue) getMessage() (*api.SEmailMessage, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Unmarshal")
 	}
+
 	msg.To = strings.Split(eq.Dest, ",")
+	msg.Cc = strings.Split(eq.DestCc, ",")
+	msg.Bcc = strings.Split(eq.DestBcc, ",")
+
 	msg.Subject = eq.Subject
 	return &msg, nil
 }

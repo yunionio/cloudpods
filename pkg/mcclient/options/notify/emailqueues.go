@@ -44,6 +44,8 @@ type EmailQueueCreateOptions struct {
 	SUBJECT string   `help:"email subject"`
 	BODY    string   `help:"email body"`
 	TO      []string `json:"to" help:"receiver email"`
+	Cc      []string `json:"cc" help:"cc receivers"`
+	Bcc     []string `json:"bcc" help:"bcc receivers"`
 
 	SessionId string `help:"session id of sending email"`
 
@@ -53,6 +55,8 @@ type EmailQueueCreateOptions struct {
 func (rc *EmailQueueCreateOptions) Params() (jsonutils.JSONObject, error) {
 	input := api.EmailQueueCreateInput{}
 	input.To = rc.TO
+	input.Cc = rc.Cc
+	input.Bcc = rc.Bcc
 	input.Subject = rc.SUBJECT
 	body, err := ioutil.ReadFile(rc.BODY)
 	if err != nil {

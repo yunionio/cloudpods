@@ -22,6 +22,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	gomail "gopkg.in/mail.v2"
@@ -75,7 +76,23 @@ func (emailSender *SEmailSender) Send(args api.SendParams) error {
 			return errors.Wrap(err, "dialer.Dial")
 		}
 		retErr := errorMap{}
-		for _, to := range args.EmailMsg.To {
+
+		destMap := make(map[string]int)
+
+		for _, tos := range [][]string{
+			args.EmailMsg.To,
+			args.EmailMsg.Cc,
+			args.EmailMsg.Bcc,
+		} {
+			for _, to := range tos {
+				to = strings.ToLower(to)
+				if _, ok := destMap[to]; !ok {
+					destMap[to] = 1
+				}
+			}
+		}
+
+		for to := range destMap {
 			gmsg := gomail.NewMessage()
 			gmsg.SetHeader("From", models.ConfigMap[api.EMAIL].Content.SenderAddress)
 			gmsg.SetHeader("To", to)
@@ -126,6 +143,7 @@ func (emailSender *SEmailSender) Send(args api.SendParams) error {
 		}
 		if len(retErr) > 0 {
 			log.Errorf("send email error:%v", jsonutils.Marshal(retErr))
+			return errors.Wrap(retErr, "send email")
 		}
 	} else {
 		// 构造email发送请求
@@ -220,6 +238,7 @@ func init() {
 	})
 }
 
+/*
 func SendEmail(conf *api.SEmailConfig, msg *api.SEmailMessage) error {
 	dialer := gomail.NewDialer(conf.Hostname, conf.Hostport, conf.Username, conf.Password)
 
@@ -239,10 +258,26 @@ func SendEmail(conf *api.SEmailConfig, msg *api.SEmailMessage) error {
 
 	retErr := errorMap{}
 
-	for _, to := range msg.To {
+	destMap := make(map[string]int)
+	for _, tos := range [][]string{
+		msg.To,
+		msg.Cc,
+		msg.Bcc,
+	} {
+		for _, to := range tos {
+			to = strings.ToLower(to)
+			if _, ok := destMap[to]; !ok {
+				destMap[to] = 1
+			}
+		}
+	}
+
+	for to := range destMap {
+		log.Debugf("send to %s %s", to, msg.Subject)
 		gmsg := gomail.NewMessage()
 		gmsg.SetHeader("From", conf.SenderAddress)
 		gmsg.SetHeader("To", to)
+
 		gmsg.SetHeader("Subject", msg.Subject)
 		gmsg.SetBody("text/html", msg.Body)
 
@@ -289,3 +324,4 @@ func SendEmail(conf *api.SEmailConfig, msg *api.SEmailMessage) error {
 	}
 	return nil
 }
+*/
