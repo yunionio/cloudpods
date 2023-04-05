@@ -483,9 +483,9 @@ func createTenant(ctx context.Context, name, domainId, desc string) (string, str
 	return domainId, projectId, nil
 }
 
-func (self *SCloudaccount) getOrCreateTenant(ctx context.Context, name, domainId, projectId, desc string) (string, string, error) {
+func (account *SCloudaccount) getOrCreateTenant(ctx context.Context, name, domainId, projectId, desc string) (string, string, error) {
 	if len(domainId) == 0 {
-		domainId = self.DomainId
+		domainId = account.DomainId
 	}
 	ctx = context.WithValue(ctx, time.Now().String(), utils.GenRequestId(20))
 	uuid := stringutils.UUID4()
@@ -499,8 +499,8 @@ func (self *SCloudaccount) getOrCreateTenant(ctx context.Context, name, domainId
 		}
 		return createTenant(ctx, name, domainId, desc)
 	}
-	share := self.GetSharedInfo()
-	if tenant.DomainId == self.DomainId || (share.PublicScope == rbacscope.ScopeSystem ||
+	share := account.GetSharedInfo()
+	if tenant.DomainId == account.DomainId || (share.PublicScope == rbacscope.ScopeSystem ||
 		(share.PublicScope == rbacscope.ScopeDomain && utils.IsInStringArray(tenant.DomainId, share.SharedDomains))) {
 		return tenant.DomainId, tenant.Id, nil
 	}
@@ -1117,26 +1117,46 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (manager *SCloudproviderManager) InitializeData() error {
-	// fill empty projectId with system project ID
+func (manager *SCloudproviderManager) initializeDefaultTenantId() error {
+	// init accountid
+	q := manager.Query().IsNullOrEmpty("tenant_id")
 	providers := make([]SCloudprovider, 0)
-	q := CloudproviderManager.Query()
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("tenant_id")), sqlchemy.IsNull(q.Field("tenant_id"))))
-	err := db.FetchModelObjects(CloudproviderManager, q, &providers)
+	err := db.FetchModelObjects(manager, q, &providers)
 	if err != nil {
-		log.Errorf("query cloudproviders with empty tenant_id fail %s", err)
-		return err
+		return errors.Wrap(err, "fetch empty defaullt tenant_id fail")
 	}
-	for i := 0; i < len(providers); i += 1 {
-		_, err := db.Update(&providers[i], func() error {
-			providers[i].DomainId = auth.AdminCredential().GetProjectDomainId()
-			providers[i].ProjectId = auth.AdminCredential().GetProjectId()
+	for i := range providers {
+		provider := providers[i]
+		domainId := provider.DomainId
+		if len(domainId) == 0 {
+			account, err := provider.GetCloudaccount()
+			if err != nil {
+				log.Errorf("GetCloudaccount fail %s", err)
+				continue
+			}
+			domainId = account.DomainId
+		}
+		// auto fix accounts without default project
+		defaultTenant, err := db.TenantCacheManager.FindFirstProjectOfDomain(context.Background(), domainId)
+		if err != nil {
+			return errors.Wrapf(err, "FindFirstProjectOfDomain(%s)", provider.DomainId)
+		}
+		_, err = db.Update(&provider, func() error {
+			provider.ProjectId = defaultTenant.Id
+			provider.DomainId = defaultTenant.DomainId
 			return nil
 		})
 		if err != nil {
-			log.Errorf("update cloudprovider project fail %s", err)
-			return err
+			return errors.Wrap(err, "db.Update for account")
 		}
+	}
+	return nil
+}
+
+func (manager *SCloudproviderManager) InitializeData() error {
+	err := manager.initializeDefaultTenantId()
+	if err != nil {
+		log.Errorf("initializeDefaultTenantId %s", err)
 	}
 
 	return nil
