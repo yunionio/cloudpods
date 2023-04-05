@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -51,20 +53,36 @@ func (oh *OvnHelper) Init() (err error) {
 		}
 	}()
 	oh.mustPrepOvsdbConfig()
-	oh.mustConfigBridgeMtu()
+	oh.configBridgeMtu()
 	if _, ok := ovnContainerImageTag(); !ok {
 		oh.mustPrepService()
 	}
 	return nil
 }
 
-func (oh *OvnHelper) mustConfigBridgeMtu() {
+func (oh *OvnHelper) configBridgeMtu() {
+	timer := time.NewTimer(time.Minute)
+	go func() {
+		<-timer.C
+		err := oh.ensureConfigBridgeMtu()
+		if err != nil {
+			log.Errorf("configuring mtu fail: %s, retry...", err)
+			oh.configBridgeMtu()
+		} else {
+			opts := &options.HostOptions
+			log.Infof("set brvpc MTU to %d success!", opts.OvnUnderlayMtu)
+		}
+	}()
+}
+
+func (oh *OvnHelper) ensureConfigBridgeMtu() error {
 	opts := &options.HostOptions
 	args := []string{"set", "Interface", opts.OvnIntegrationBridge, fmt.Sprintf("mtu_request=%d", opts.OvnUnderlayMtu)}
 	output, err := procutils.NewCommand("ovs-vsctl", args...).Output()
 	if err != nil {
-		panic(errors.Wrapf(err, "configuring ovn-controller: %s", string(output)))
+		return errors.Wrapf(err, "ovs-vsctl %s", string(output))
 	}
+	return nil
 }
 
 func (oh *OvnHelper) mustPrepOvsdbConfig() {
@@ -111,6 +129,7 @@ func (oh *OvnHelper) mustPrepOvsdbConfig() {
 		args = append(args, fmt.Sprintf("external_ids:ovn-remote=%s",
 			opts.OvnSouthDatabase))
 	}
+	log.Debugf("exec %s", strings.Join(args, " "))
 	output, err := procutils.NewCommand("ovs-vsctl", args...).Output()
 	if err != nil {
 		panic(errors.Wrapf(err, "configuring ovn-controller: %s", string(output)))
