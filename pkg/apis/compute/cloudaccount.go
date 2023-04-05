@@ -513,6 +513,10 @@ type CloudaccountSyncSkusInput struct {
 }
 
 type CloudaccountProjectMappingInput struct {
+	AutoCreateProject bool `json:"auto_create_project"`
+
+	ProjectId string `json:"project_id"`
+
 	// 同步策略Id, 若不传此参数则解绑
 	// 绑定同步策略要求当前云账号此刻未绑定其他同步策略
 	ProjectMappingId string `json:"project_mapping_id"`

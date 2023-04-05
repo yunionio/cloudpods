@@ -410,7 +410,7 @@ func (tenant *STenant) GetDomainId() string {
 }*/
 
 func (manager *STenantCacheManager) findFirstProjectOfDomain(domainId string) (*STenant, error) {
-	q := manager.Query().Equals("domain_id", domainId)
+	q := manager.Query().Equals("domain_id", domainId).Asc("created_at")
 	tenant := STenant{}
 	tenant.SetModelManager(manager, &tenant)
 	err := q.First(&tenant)
