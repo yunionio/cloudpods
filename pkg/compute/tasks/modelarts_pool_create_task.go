@@ -93,7 +93,7 @@ func (modelartsCreateTask *ModelartsPoolCreateTask) WaitStatus(ctx context.Conte
 			return nil, err
 		}
 		if ipool.GetStatus() == api.MODELARTS_POOL_STATUS_CREATE_FAILED {
-			return nil, errors.Error("create_failed")
+			return nil, errors.Error(ipool.GetStatusMessage())
 		} else {
 			return nil, nil
 		}

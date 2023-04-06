@@ -66,7 +66,7 @@ func (modelartsDeleteTask *ModelartsPoolDeleteTask) OnInit(ctx context.Context, 
 		modelartsDeleteTask.taskFailed(ctx, pool, errors.Wrapf(err, "iMp.Delete"))
 		return
 	}
-	err = cloudprovider.WaitDeleted(iMp, time.Second*10, time.Minute*10)
+	err = cloudprovider.WaitDeleted(iMp, time.Second*15, time.Minute*20)
 	if err != nil {
 		modelartsDeleteTask.taskFailed(ctx, pool, errors.Wrapf(err, "iMp.WaitDeleted"))
 		return

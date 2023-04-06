@@ -414,11 +414,15 @@ func (self *SModelartsPool) Refresh() error {
 			return jsonutils.Update(self, pool)
 		}
 	}
-	return nil
+	return errors.ErrNotFound
 }
 
 func (self *SModelartsPool) SetTags(tags map[string]string, replace bool) error {
 	return nil
+}
+
+func (self *SModelartsPool) GetStatusMessage() string {
+	return self.Status.Message
 }
 
 func (self *SModelartsPool) Delete() error {
