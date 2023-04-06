@@ -32,8 +32,8 @@ func InitDB() error {
 
 		QuotaManager,
 
-		CloudproviderManager,
 		CloudaccountManager,
+		CloudproviderManager,
 		CloudregionManager,
 		ZoneManager,
 		VpcManager,
