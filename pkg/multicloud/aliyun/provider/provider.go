@@ -196,11 +196,11 @@ func validateClientCloudenv(client *aliyun.SAliyunClient) error {
 
 	if isFinanceAccount {
 		if regions[0].GetCloudEnv() != "FinanceCloud" {
-			return errors.Wrap(httperrors.ErrInvalidCredential, "aksk is aliyun finance account")
+			return errors.Wrap(httperrors.ErrInvalidAccessKey, "aksk is aliyun finance account")
 		}
 	} else {
 		if regions[0].GetCloudEnv() == "FinanceCloud" {
-			return errors.Wrap(httperrors.ErrInvalidCredential, "aksk is not aliyun finance account")
+			return errors.Wrap(httperrors.ErrInvalidAccessKey, "aksk is not aliyun finance account")
 		}
 	}
 
