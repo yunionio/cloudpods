@@ -990,6 +990,9 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 			SyncStatus2:                            provider.getSyncStatus2(),
 			ProjectMappingResourceInfo:             pmRows[i],
 		}
+		if !provider.LastSync.IsZero() && !provider.LastSyncEndAt.IsZero() {
+			rows[i].LastSyncCost = provider.LastSyncEndAt.Sub(provider.LastSync).Round(time.Second).String()
+		}
 		capabilities, _ := CloudproviderCapabilityManager.getCapabilities(provider.Id)
 		if len(capabilities) > 0 {
 			rows[i].Capabilities = capabilities
