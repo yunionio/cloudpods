@@ -997,9 +997,15 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 	return nil
 }
 
-func (manager *SServerSkuManager) SyncPrivateCloudSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, skus []cloudprovider.ICloudSku) compare.SyncResult {
-	lockman.LockRawObject(ctx, "serverskus", region.Id)
-	defer lockman.ReleaseRawObject(ctx, "serverskus", region.Id)
+func (manager *SServerSkuManager) SyncPrivateCloudSkus(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	region *SCloudregion,
+	skus []cloudprovider.ICloudSku,
+	xor bool,
+) compare.SyncResult {
+	lockman.LockRawObject(ctx, manager.Keyword(), region.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), region.Id)
 
 	result := compare.SyncResult{}
 
@@ -1029,12 +1035,14 @@ func (manager *SServerSkuManager) SyncPrivateCloudSkus(ctx context.Context, user
 		result.Delete()
 	}
 
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithPrivateCloudSku(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithPrivateCloudSku(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 
 	for i := 0; i < len(added); i += 1 {
@@ -1176,9 +1184,9 @@ func (manager *SServerSkuManager) FetchSkusByRegion(regionID string) ([]SServerS
 	return skus, nil
 }
 
-func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
-	lockman.LockRawObject(ctx, "serverskus", region.Id)
-	defer lockman.ReleaseRawObject(ctx, "serverskus", region.Id)
+func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta, xor bool) compare.SyncResult {
+	lockman.LockRawObject(ctx, manager.Keyword(), region.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), region.Id)
 
 	syncResult := compare.SyncResult{}
 
@@ -1213,12 +1221,14 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 			syncResult.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncResult.Update()
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				syncResult.Update()
+			}
 		}
 	}
 	for i := 0; i < len(added); i += 1 {

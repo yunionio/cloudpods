@@ -64,7 +64,7 @@ func (self *DnsZoneSyncstatusTask) OnInit(ctx context.Context, obj db.IStandalon
 			if len(caches) == 1 {
 				account, _ := caches[i].GetCloudaccount()
 				if account != nil {
-					dnsZone.SyncDnsRecordSets(ctx, self.GetUserCred(), account.Provider, iZone)
+					dnsZone.SyncDnsRecordSets(ctx, self.GetUserCred(), account.Provider, iZone, false)
 				}
 			}
 		}

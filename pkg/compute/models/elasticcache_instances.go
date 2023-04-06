@@ -498,9 +498,17 @@ func (manager *SElasticcacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SElasticcacheManager) SyncElasticcaches(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, cloudElasticcaches []cloudprovider.ICloudElasticcache) ([]SElasticcache, []cloudprovider.ICloudElasticcache, compare.SyncResult) {
-	lockman.LockRawObject(ctx, "elastic-cache", fmt.Sprintf("%s-%s", provider.Id, region.Id))
-	defer lockman.ReleaseRawObject(ctx, "elastic-cache", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+func (manager *SElasticcacheManager) SyncElasticcaches(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncOwnerId mcclient.IIdentityProvider,
+	provider *SCloudprovider,
+	region *SCloudregion,
+	cloudElasticcaches []cloudprovider.ICloudElasticcache,
+	xor bool,
+) ([]SElasticcache, []cloudprovider.ICloudElasticcache, compare.SyncResult) {
+	lockman.LockRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	localElasticcaches := []SElasticcache{}
 	remoteElasticcaches := []cloudprovider.ICloudElasticcache{}
@@ -537,15 +545,17 @@ func (manager *SElasticcacheManager) SyncElasticcaches(ctx context.Context, user
 		}
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].SyncWithCloudElasticcache(ctx, userCred, provider, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].SyncWithCloudElasticcache(ctx, userCred, provider, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
+			localElasticcaches = append(localElasticcaches, commondb[i])
+			remoteElasticcaches = append(remoteElasticcaches, commonext[i])
+			syncResult.Update()
 		}
-		localElasticcaches = append(localElasticcaches, commondb[i])
-		remoteElasticcaches = append(remoteElasticcaches, commonext[i])
-		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i++ {

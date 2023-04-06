@@ -1755,13 +1755,13 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 	return hosts, nil
 }
 
-func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
+func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost, xor bool) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
 	key := provider.Id
 	if zone != nil {
 		key = fmt.Sprintf("%s-%s", zone.Id, provider.Id)
 	}
-	lockman.LockRawObject(ctx, "hosts", key)
-	defer lockman.ReleaseRawObject(ctx, "hosts", key)
+	lockman.LockRawObject(ctx, manager.Keyword(), key)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), key)
 
 	localHosts := make([]SHost, 0)
 	remoteHosts := make([]cloudprovider.ICloudHost, 0)
@@ -1796,14 +1796,15 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], provider)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			localHosts = append(localHosts, commondb[i])
-			remoteHosts = append(remoteHosts, commonext[i])
-			syncResult.Update()
+		if !xor {
+			err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], provider)
+			if err != nil {
+				syncResult.UpdateError(err)
+			}
 		}
+		localHosts = append(localHosts, commondb[i])
+		remoteHosts = append(remoteHosts, commonext[i])
+		syncResult.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
 		new, err := manager.NewFromCloudHost(ctx, userCred, added[i], provider, zone)
@@ -1894,6 +1895,7 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 		SyncCloudDomain(userCred, self, provider.GetOwnerId())
 		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
+	syncMetadata(ctx, userCred, self, extHost)
 
 	if err := self.syncSchedtags(ctx, userCred, extHost); err != nil {
 		log.Errorf("syncSchedtags fail:  %v", err)
@@ -2164,7 +2166,7 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 	return &host, nil
 }
 
-func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage, provider *SCloudprovider) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
+func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage, provider *SCloudprovider, xor bool) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
 	lockman.LockRawObject(ctx, "storages", self.Id)
 	defer lockman.ReleaseRawObject(ctx, "storages", self.Id)
 
@@ -2213,15 +2215,16 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		log.Infof("host %s is still connected with %s, to update ...", self.Id, commondb[i].Id)
-		err := self.syncWithCloudHostStorage(ctx, userCred, &commondb[i], commonext[i], provider)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			localStorages = append(localStorages, commondb[i])
-			remoteStorages = append(remoteStorages, commonext[i])
-			syncResult.Update()
+		if !xor {
+			log.Infof("host %s is still connected with %s, to update ...", self.Id, commondb[i].Id)
+			err := self.syncWithCloudHostStorage(ctx, userCred, &commondb[i], commonext[i], provider)
+			if err != nil {
+				syncResult.UpdateError(err)
+			}
 		}
+		localStorages = append(localStorages, commondb[i])
+		remoteStorages = append(remoteStorages, commonext[i])
+		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i += 1 {
@@ -2444,9 +2447,9 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 	return false, ""
 }
 
-func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider) ([]SGuestSyncResult, compare.SyncResult) {
-	lockman.LockRawObject(ctx, "guests", self.Id)
-	defer lockman.ReleaseRawObject(ctx, "guests", self.Id)
+func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, xor bool) ([]SGuestSyncResult, compare.SyncResult) {
+	lockman.LockRawObject(ctx, GuestManager.Keyword(), self.Id)
+	defer lockman.ReleaseRawObject(ctx, GuestManager.Keyword(), self.Id)
 
 	syncVMPairs := make([]SGuestSyncResult, 0)
 	syncResult := compare.SyncResult{}
@@ -2485,30 +2488,32 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 		}
 	}
 
-	for i := 0; i < len(commondb); i += 1 {
-		skip, key := IsNeedSkipSync(commonext[i])
-		if skip {
-			log.Infof("delete server %s(%s) with system tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
-			err := commondb[i].purge(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			skip, key := IsNeedSkipSync(commonext[i])
+			if skip {
+				log.Infof("delete server %s(%s) with system tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
+				err := commondb[i].purge(ctx, userCred)
+				if err != nil {
+					syncResult.DeleteError(err)
+					continue
+				}
+				syncResult.Delete()
 				continue
 			}
-			syncResult.Delete()
-			continue
+			err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId, true)
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
+			syncVMPair := SGuestSyncResult{
+				Local:  &commondb[i],
+				Remote: commonext[i],
+				IsNew:  false,
+			}
+			syncVMPairs = append(syncVMPairs, syncVMPair)
+			syncResult.Update()
 		}
-		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId, true)
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
-		}
-		syncVMPair := SGuestSyncResult{
-			Local:  &commondb[i],
-			Remote: commonext[i],
-			IsNew:  false,
-		}
-		syncVMPairs = append(syncVMPairs, syncVMPair)
-		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i += 1 {

@@ -57,7 +57,7 @@ func (self *InterVpcNetworkSyncstatusTask) OnInit(ctx context.Context, obj db.IS
 		return
 	}
 
-	result := snetwork.SyncInterVpcNetworkRouteSets(ctx, self.UserCred, inetwork)
+	result := snetwork.SyncInterVpcNetworkRouteSets(ctx, self.UserCred, inetwork, false)
 	log.Infof("sync routes for %s result: %s", snetwork.GetName(), result.Result())
 
 	logclient.AddActionLogWithStartable(self, snetwork, logclient.ACT_SYNC_STATUS, nil, self.UserCred, true)

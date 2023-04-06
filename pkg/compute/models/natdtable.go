@@ -176,11 +176,18 @@ func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred m
 	return input, nil
 }
 
-func (manager *SNatDEntryManager) SyncNatDTable(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, nat *SNatGateway, extDTable []cloudprovider.ICloudNatDEntry) compare.SyncResult {
+func (manager *SNatDEntryManager) SyncNatDTable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	nat *SNatGateway,
+	extDTable []cloudprovider.ICloudNatDEntry,
+	xor bool,
+) compare.SyncResult {
 	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockRawObject(ctx, "dtable", nat.Id)
-	defer lockman.ReleaseRawObject(ctx, "dtable", nat.Id)
+	lockman.LockRawObject(ctx, manager.Keyword(), nat.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), nat.Id)
 
 	result := compare.SyncResult{}
 	dbNatDTables, err := nat.GetDTable()
@@ -207,23 +214,23 @@ func (manager *SNatDEntryManager) SyncNatDTable(ctx context.Context, userCred mc
 		}
 	}
 
-	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].SyncWithCloudNatDTable(ctx, userCred, commonext[i], syncOwnerId)
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err := commondb[i].SyncWithCloudNatDTable(ctx, userCred, commonext[i], syncOwnerId)
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-		result.Update()
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		routeTableNew, err := manager.newFromCloudNatDTable(ctx, userCred, syncOwnerId, nat, added[i])
+		_, err := manager.newFromCloudNatDTable(ctx, userCred, syncOwnerId, nat, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, routeTableNew, added[i])
 		result.Add()
 	}
 	return result
@@ -264,6 +271,7 @@ func (self *SNatDEntry) SyncWithCloudNatDTable(ctx context.Context, userCred mcc
 
 	SyncCloudDomain(userCred, self, syncOwnerId)
 
+	syncMetadata(ctx, userCred, self, extEntry)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
@@ -299,6 +307,7 @@ func (manager *SNatDEntryManager) newFromCloudNatDTable(ctx context.Context, use
 	}
 
 	SyncCloudDomain(userCred, &table, ownerId)
+	syncMetadata(ctx, userCred, &table, extEntry)
 
 	db.OpsLog.LogEvent(&table, db.ACT_CREATE, table.GetShortDesc(ctx), userCred)
 

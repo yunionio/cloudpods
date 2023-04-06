@@ -392,9 +392,17 @@ func (manager *SNatGatewayManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (manager *SNatGatewayManager) SyncNatGateways(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, cloudNatGateways []cloudprovider.ICloudNatGateway) ([]SNatGateway, []cloudprovider.ICloudNatGateway, compare.SyncResult) {
-	lockman.LockRawObject(ctx, "natgateways", vpc.Id)
-	defer lockman.ReleaseRawObject(ctx, "natgateways", vpc.Id)
+func (manager *SNatGatewayManager) SyncNatGateways(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncOwnerId mcclient.IIdentityProvider,
+	provider *SCloudprovider,
+	vpc *SVpc,
+	cloudNatGateways []cloudprovider.ICloudNatGateway,
+	xor bool,
+) ([]SNatGateway, []cloudprovider.ICloudNatGateway, compare.SyncResult) {
+	lockman.LockRawObject(ctx, manager.Keyword(), vpc.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), vpc.Id)
 
 	localNatGateways := make([]SNatGateway, 0)
 	remoteNatGateways := make([]cloudprovider.ICloudNatGateway, 0)
@@ -425,10 +433,12 @@ func (manager *SNatGatewayManager) SyncNatGateways(ctx context.Context, userCred
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].SyncWithCloudNatGateway(ctx, userCred, provider, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+		if !xor {
+			err := commondb[i].SyncWithCloudNatGateway(ctx, userCred, provider, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
 		}
 		localNatGateways = append(localNatGateways, commondb[i])
 		remoteNatGateways = append(remoteNatGateways, commonext[i])

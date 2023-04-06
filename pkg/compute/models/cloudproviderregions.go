@@ -436,7 +436,7 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 			syncRange.DeepSync = true
 		}
 	}
-	log.Debugf("need to do deep sync? ... %v", syncRange.DeepSync)
+	log.Debugf("need to do deep sync? ... %v, xor? ... %v", syncRange.DeepSync, syncRange.Xor)
 
 	if localRegion.isManaged() {
 		remoteRegion, err := driver.GetIRegionById(localRegion.ExternalId)

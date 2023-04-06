@@ -1418,7 +1418,15 @@ func (manager *SDBInstanceManager) SyncDBInstanceMasterId(ctx context.Context, u
 	}
 }
 
-func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, cloudDBInstances []cloudprovider.ICloudDBInstance) ([]SDBInstance, []cloudprovider.ICloudDBInstance, compare.SyncResult) {
+func (manager *SDBInstanceManager) SyncDBInstances(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncOwnerId mcclient.IIdentityProvider,
+	provider *SCloudprovider,
+	region *SCloudregion,
+	cloudDBInstances []cloudprovider.ICloudDBInstance,
+	xor bool,
+) ([]SDBInstance, []cloudprovider.ICloudDBInstance, compare.SyncResult) {
 	lockman.LockRawObject(ctx, "dbinstances", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 	defer lockman.ReleaseRawObject(ctx, "dbinstances", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
@@ -1457,15 +1465,17 @@ func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred
 		}
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].SyncWithCloudDBInstance(ctx, userCred, provider, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].SyncWithCloudDBInstance(ctx, userCred, provider, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
+			localDBInstances = append(localDBInstances, commondb[i])
+			remoteDBInstances = append(remoteDBInstances, commonext[i])
+			syncResult.Update()
 		}
-		localDBInstances = append(localDBInstances, commondb[i])
-		remoteDBInstances = append(remoteDBInstances, commonext[i])
-		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i++ {

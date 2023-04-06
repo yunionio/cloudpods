@@ -478,7 +478,7 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 		region := &cloudregions[i]
 
 		if region.GetDriver().IsSupportedElasticcache() {
-			result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, meta)
+			result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, meta, false)
 			notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
 			log.Infof(notes)
 		} else {
@@ -489,7 +489,7 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 }
 
 // 同步Region elasticcache sku列表.
-func SyncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) error {
+func SyncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, xor bool) error {
 	if !region.GetDriver().IsSupportedElasticcache() {
 		notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s not support elasticcache", region.Name)
 		log.Infof(notes)
@@ -501,7 +501,7 @@ func SyncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCr
 		return errors.Wrap(err, "SyncElasticCacheSkusByRegion.FetchSkuResourcesMeta")
 	}
 
-	result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, meta)
+	result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, meta, xor)
 	notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
 	log.Infof(notes)
 	return nil
@@ -552,7 +552,7 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 			continue
 		}
 
-		result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, meta)
+		result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, meta, false)
 		notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
 		log.Infof(notes)
 	}
@@ -563,7 +563,7 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 }
 
 // 同步指定region sku列表
-func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
+func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta, xor bool) compare.SyncResult {
 	result := compare.SyncResult{}
 	var err error
 	if extSkuMeta == nil {
@@ -574,7 +574,7 @@ func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 	}
 
-	result = ServerSkuManager.SyncServerSkus(ctx, userCred, region, extSkuMeta)
+	result = ServerSkuManager.SyncServerSkus(ctx, userCred, region, extSkuMeta, xor)
 	notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
 	log.Infof(notes)
 

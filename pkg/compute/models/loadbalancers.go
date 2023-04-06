@@ -856,11 +856,17 @@ func (man *SLoadbalancerManager) getLocalLoadbalancers(ctx context.Context, user
 	return ret, nil
 }
 
-func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) ([]SLoadbalancer, []cloudprovider.ICloudLoadbalancer, compare.SyncResult) {
+func (man *SLoadbalancerManager) SyncLoadbalancers(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	region *SCloudregion,
+	lbs []cloudprovider.ICloudLoadbalancer,
+	syncRange *SSyncRange,
+) ([]SLoadbalancer, []cloudprovider.ICloudLoadbalancer, compare.SyncResult) {
 	syncOwnerId := provider.GetOwnerId()
-
-	lockman.LockRawObject(ctx, "loadbalance", fmt.Sprintf("%s-%s", provider.Id, region.Id))
-	defer lockman.ReleaseRawObject(ctx, "loadbalance", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	lockman.LockRawObject(ctx, man.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, man.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	localLbs := []SLoadbalancer{}
 	remoteLbs := []cloudprovider.ICloudLoadbalancer{}
@@ -898,15 +904,17 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 			syncResult.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancer(ctx, userCred, commonext[i], syncOwnerId, provider, region)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
-			localLbs = append(localLbs, commondb[i])
-			remoteLbs = append(remoteLbs, commonext[i])
-			syncResult.Update()
+	if syncRange == nil || !syncRange.Xor {
+		for i := 0; i < len(commondb); i++ {
+			err = commondb[i].SyncWithCloudLoadbalancer(ctx, userCred, commonext[i], syncOwnerId, provider, region)
+			if err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
+				localLbs = append(localLbs, commondb[i])
+				remoteLbs = append(remoteLbs, commonext[i])
+				syncResult.Update()
+			}
 		}
 	}
 	for i := 0; i < len(added); i++ {
