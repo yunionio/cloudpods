@@ -26,7 +26,6 @@ const (
 	ErrUnsupportedProtocol = errors.Error("UnsupportedProtocol")
 	ErrInvalidAccessKey    = errors.Error("InvalidAccessKey")
 	ErrUnauthorized        = errors.Error("UnauthorizedError")
-	ErrInvalidCredential   = errors.Error("InvalidCredentialError")
 	ErrNoPermission        = errors.Error("NoPermission")
 	ErrNoSuchProvder       = errors.Error("no such provider")
 
