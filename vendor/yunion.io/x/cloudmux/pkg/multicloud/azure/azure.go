@@ -184,6 +184,10 @@ func (self *SAzureClient) getClient(resource TAzureResource) (*azureAuthClient, 
 	case GraphResource:
 		ret.domain = env.GraphEndpoint
 		conf.Resource = env.GraphEndpoint
+		if self.envName == "AzureChinaCloud" {
+			ret.domain = "https://graph.chinacloudapi.cn/"
+			conf.Resource = "https://graph.chinacloudapi.cn/"
+		}
 	case LoganalyticsResource:
 		ret.domain = env.ResourceIdentifiers.OperationalInsights
 		conf.Resource = env.ResourceIdentifiers.OperationalInsights
@@ -1107,12 +1111,19 @@ func (self *SAzureClient) msGraphClient() *http.Client {
 		TokenURL: fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", self.tenantId),
 		Scopes:   []string{"https://graph.microsoft.com/.default"},
 	}
+	if self.envName == "AzureChinaCloud" {
+		conf.TokenURL = fmt.Sprintf("https://login.partner.microsoftonline.cn/%s/oauth2/v2.0/token", self.tenantId)
+		conf.Scopes = []string{"https://microsoftgraph.chinacloudapi.cn/.default"}
+	}
 	return conf.Client(context.TODO())
 }
 
 func (self *SAzureClient) msGraphRequest(method string, resource string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	client := self.msGraphClient()
 	url := fmt.Sprintf("https://graph.microsoft.com/v1.0/%s", resource)
+	if self.envName == "AzureChinaCloud" {
+		url = fmt.Sprintf("https://microsoftgraph.chinacloudapi.cn/v1.0/%s", resource)
+	}
 	req := httputils.NewJsonRequest(httputils.THttpMethod(method), url, body)
 	ae := AzureResponseError{}
 	cli := httputils.NewJsonClient(client)
