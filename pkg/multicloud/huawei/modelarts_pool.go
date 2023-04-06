@@ -347,6 +347,10 @@ func (self *SModelartsPool) GetTags() (map[string]string, error) {
 	return nil, nil
 }
 
+func (self *SModelartsPool) GetStatusMessage() string {
+	return self.Status.Message
+}
+
 func (self *SModelartsPool) IsEmulated() bool {
 	return false
 }
