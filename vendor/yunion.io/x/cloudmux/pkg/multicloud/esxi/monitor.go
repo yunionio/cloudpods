@@ -23,7 +23,6 @@ import (
 	"github.com/vmware/govmomi/view"
 	"github.com/vmware/govmomi/vim25/types"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -50,6 +49,8 @@ func (self *SESXiClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([
 		metricName = "disk.read.average"
 	case cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS:
 		metricName = "disk.write.average"
+	case cloudprovider.VM_METRIC_TYPE_DISK_USAGE:
+		metricName = "disk.used.latest"
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", opts.MetricType)
 	}
@@ -91,6 +92,9 @@ func (self *SESXiClient) getEcsMetrics(metricName string, metricType cloudprovid
 			StartTime:  &start,
 			EndTime:    &end,
 		}
+		if metricType == cloudprovider.VM_METRIC_TYPE_DISK_USAGE {
+			query.IntervalId = 0
+		}
 		queries = append(queries, query)
 	}
 
@@ -124,7 +128,7 @@ func (self *SESXiClient) getEcsMetrics(metricName string, metricType cloudprovid
 			switch counter.UnitInfo.GetElementDescription().Key {
 			case "percent":
 				value = value / 100.0
-			case "kiloBytesPerSecond":
+			case "kiloBytesPerSecond", "kiloBytes":
 				value = value * 1024.0
 			default:
 				log.Errorf("unknow unit: %s", counter.UnitInfo.GetElementDescription().Key)
@@ -256,7 +260,7 @@ func (self *SESXiClient) getHostMetrics(metricName string, metricType cloudprovi
 			switch counter.UnitInfo.GetElementDescription().Key {
 			case "percent":
 				value = value / 100.0
-			case "kiloBytesPerSecond":
+			case "kiloBytesPerSecond", "kiloBytes":
 				value = value * 1024.0
 			default:
 				log.Errorf("unknow unit: %s", counter.UnitInfo.GetElementDescription().Key)
@@ -282,11 +286,29 @@ func (self *SESXiClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cl
 	}
 }
 
-func (self *SESXiClient) GetMetricTypes() (jsonutils.JSONObject, error) {
+type SEsxiMetricType struct {
+	Key     string
+	KeyId   int32
+	Summary string
+	Group   string
+	Unit    string
+}
+
+func (self *SESXiClient) GetMetricTypes() ([]SEsxiMetricType, error) {
 	perfManager := performance.NewManager(self.client.Client)
 	counterInfo, err := perfManager.CounterInfoByName(self.context)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CounterInfoByName")
 	}
-	return jsonutils.Marshal(counterInfo), nil
+	ret := []SEsxiMetricType{}
+	for k, v := range counterInfo {
+		ret = append(ret, SEsxiMetricType{
+			Key:     k,
+			KeyId:   v.Key,
+			Summary: v.NameInfo.GetElementDescription().Summary,
+			Group:   v.GroupInfo.GetElementDescription().Key,
+			Unit:    v.UnitInfo.GetElementDescription().Key,
+		})
+	}
+	return ret, nil
 }
