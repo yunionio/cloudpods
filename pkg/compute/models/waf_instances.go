@@ -293,7 +293,13 @@ func (self *SCloudregion) GetWafInstances(managerId string) ([]SWafInstance, err
 	return wafs, err
 }
 
-func (self *SCloudregion) SyncWafInstances(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudWafInstance) ([]SWafInstance, []cloudprovider.ICloudWafInstance, compare.SyncResult) {
+func (self *SCloudregion) SyncWafInstances(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	exts []cloudprovider.ICloudWafInstance,
+	xor bool,
+) ([]SWafInstance, []cloudprovider.ICloudWafInstance, compare.SyncResult) {
 	lockman.LockRawObject(ctx, WafInstanceManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, provider.Id))
 	defer lockman.ReleaseRawObject(ctx, WafInstanceManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, provider.Id))
 
@@ -326,15 +332,17 @@ func (self *SCloudregion) SyncWafInstances(ctx context.Context, userCred mcclien
 		result.Delete()
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].SyncWithCloudWafInstance(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].SyncWithCloudWafInstance(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			localWafs = append(localWafs, commondb[i])
+			remoteWafs = append(remoteWafs, commonext[i])
+			result.Update()
 		}
-		localWafs = append(localWafs, commondb[i])
-		remoteWafs = append(remoteWafs, commonext[i])
-		result.Update()
 	}
 
 	for i := 0; i < len(added); i++ {

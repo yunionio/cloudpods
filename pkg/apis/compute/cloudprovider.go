@@ -141,6 +141,9 @@ type CloudproviderDetails struct {
 	ReadOnly bool `json:"read_only"`
 
 	ProjectMappingResourceInfo
+
+	// 上次同步耗时
+	LastSyncCost string
 }
 
 // 云订阅输入参数

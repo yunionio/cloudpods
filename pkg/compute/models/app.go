@@ -206,7 +206,13 @@ func (self *SCloudregion) GetApps(managerId string) ([]SApp, error) {
 	return ret, nil
 }
 
-func (self *SCloudregion) SyncApps(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudApp) compare.SyncResult {
+func (self *SCloudregion) SyncApps(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	exts []cloudprovider.ICloudApp,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, AppManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 	defer lockman.ReleaseRawObject(ctx, AppManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 	result := compare.SyncResult{}
@@ -237,14 +243,16 @@ func (self *SCloudregion) SyncApps(ctx context.Context, userCred mcclient.TokenC
 		result.Delete()
 	}
 
-	// sync with cloud app
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].SyncWithCloudApp(ctx, userCred, provider, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		// sync with cloud app
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].SyncWithCloudApp(ctx, userCred, provider, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 
 	// new one

@@ -197,10 +197,16 @@ func (self *SCloudregion) GetModelartsPoolSkus() ([]SModelartsPoolSku, error) {
 	return ret, nil
 }
 
-func (self *SCloudregion) SyncModelartsPoolSkus(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudModelartsPoolSku) compare.SyncResult {
+func (self *SCloudregion) SyncModelartsPoolSkus(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	exts []cloudprovider.ICloudModelartsPoolSku,
+	xor bool,
+) compare.SyncResult {
 	// 加锁防止重入
-	lockman.LockRawObject(ctx, self.Provider, "modelarts-pool-sku")
-	defer lockman.ReleaseRawObject(ctx, self.Provider, "modelarts-pool-sku")
+	lockman.LockRawObject(ctx, self.Provider, ModelartsPoolSkuManager.Keyword())
+	defer lockman.ReleaseRawObject(ctx, self.Provider, ModelartsPoolSkuManager.Keyword())
 	result := compare.SyncResult{}
 	dbPoolSku, err := self.GetModelartsPoolSkus()
 	if err != nil {
@@ -228,14 +234,16 @@ func (self *SCloudregion) SyncModelartsPoolSkus(ctx context.Context, userCred mc
 		result.Delete()
 	}
 
-	// 和云上资源属性进行同步
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		// 和云上资源属性进行同步
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 
 	// 创建本地没有的云上资源

@@ -29,7 +29,15 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func syncElasticcaches(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+func syncElasticcaches(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncResults SSyncResultSet,
+	provider *SCloudprovider,
+	localRegion *SCloudregion,
+	remoteRegion cloudprovider.ICloudRegion,
+	syncRange *SSyncRange,
+) {
 	extCacheDBs, err := func() ([]cloudprovider.ICloudElasticcache, error) {
 		defer syncResults.AddRequestCost(ElasticcacheManager)()
 		return remoteRegion.GetIElasticcaches()
@@ -42,7 +50,7 @@ func syncElasticcaches(ctx context.Context, userCred mcclient.TokenCredential, s
 
 	localInstances, remoteInstances, result := func() ([]SElasticcache, []cloudprovider.ICloudElasticcache, compare.SyncResult) {
 		defer syncResults.AddSqlCost(ElasticcacheManager)()
-		return ElasticcacheManager.SyncElasticcaches(ctx, userCred, provider.GetOwnerId(), provider, localRegion, extCacheDBs)
+		return ElasticcacheManager.SyncElasticcaches(ctx, userCred, provider.GetOwnerId(), provider, localRegion, extCacheDBs, syncRange.Xor)
 	}()
 
 	syncResults.Add(ElasticcacheManager, result)

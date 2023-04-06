@@ -196,7 +196,7 @@ func (manager *SCloudproviderQuotaManager) GetQuotas(provider *SCloudprovider, r
 	return quotas, nil
 }
 
-func (manager *SCloudproviderQuotaManager) SyncQuotas(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, quotaRange string, iQuotas []cloudprovider.ICloudQuota) compare.SyncResult {
+func (manager *SCloudproviderQuotaManager) SyncQuotas(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, quotaRange string, iQuotas []cloudprovider.ICloudQuota, xor bool) compare.SyncResult {
 	key := provider.Id
 	if region != nil {
 		key = fmt.Sprintf("%s-%s", key, region.Id)
@@ -230,13 +230,15 @@ func (manager *SCloudproviderQuotaManager) SyncQuotas(ctx context.Context, userC
 		}
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].SyncWithCloudQuota(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].SyncWithCloudQuota(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 
 	for i := 0; i < len(added); i++ {

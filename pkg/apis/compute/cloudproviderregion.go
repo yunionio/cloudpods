@@ -38,6 +38,9 @@ type CloudproviderregionDetails struct {
 
 	// 支持服务列表
 	Capabilities []string `json:"capabilities"`
+
+	// 上次同步耗时
+	LastSyncCost string `json:"last_sync_cost"`
 }
 
 type CloudproviderregionListInput struct {

@@ -51,7 +51,7 @@ func (self *CloudRegionSyncSkusTask) OnInit(ctx context.Context, obj db.IStandal
 		return
 	}
 
-	type SyncFunc func(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, extSkuMeta *models.SSkuResourcesMeta) compare.SyncResult
+	type SyncFunc func(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, extSkuMeta *models.SSkuResourcesMeta, xor bool) compare.SyncResult
 	var syncFunc SyncFunc
 	switch res {
 	case models.ServerSkuManager.Keyword():
@@ -61,12 +61,12 @@ func (self *CloudRegionSyncSkusTask) OnInit(ctx context.Context, obj db.IStandal
 	case models.DBInstanceSkuManager.Keyword():
 		syncFunc = models.DBInstanceSkuManager.SyncDBInstanceSkus
 	case models.NatSkuManager.Keyword():
-		result := region.SyncNatSkus(ctx, self.GetUserCred(), meta)
+		result := region.SyncNatSkus(ctx, self.GetUserCred(), meta, false)
 		log.Infof("Sync %s %s skus for region %s result: %s", region.Provider, res, region.Name, result.Result())
 	}
 
 	if syncFunc != nil {
-		result := syncFunc(ctx, self.GetUserCred(), region, meta)
+		result := syncFunc(ctx, self.GetUserCred(), region, meta, false)
 		log.Infof("Sync %s %s skus for region %s result: %s", region.Provider, res, region.Name, result.Result())
 		if result.IsError() {
 			self.taskFailed(ctx, region, result.Result())

@@ -227,6 +227,7 @@ func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Cont
 	if err != nil {
 		return errors.Wrap(err, "cacheLoadbalancerAcl.sync.Update")
 	}
+	syncMetadata(ctx, userCred, acl, extAcl)
 	db.OpsLog.LogSyncUpdate(acl, diff, userCred)
 	return nil
 }
@@ -390,9 +391,16 @@ func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclByRegion(provider *S
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (man *SCachedLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, acls []cloudprovider.ICloudLoadbalancerAcl, syncRange *SSyncRange) compare.SyncResult {
-	lockman.LockRawObject(ctx, "acls", fmt.Sprintf("%s-%s", provider.Id, region.Id))
-	defer lockman.ReleaseRawObject(ctx, "acls", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+func (man *SCachedLoadbalancerAclManager) SyncLoadbalancerAcls(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	region *SCloudregion,
+	acls []cloudprovider.ICloudLoadbalancerAcl,
+	syncRange *SSyncRange,
+) compare.SyncResult {
+	lockman.LockRawObject(ctx, man.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, man.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	syncResult := compare.SyncResult{}
 
@@ -421,21 +429,21 @@ func (man *SCachedLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Conte
 			syncResult.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerAcl(ctx, userCred, commonext[i], provider.GetOwnerId())
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-			syncResult.Update()
+	if !syncRange.Xor {
+		for i := 0; i < len(commondb); i++ {
+			err = commondb[i].SyncWithCloudLoadbalancerAcl(ctx, userCred, commonext[i], provider.GetOwnerId())
+			if err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				syncResult.Update()
+			}
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		local, err := man.newFromCloudLoadbalancerAcl(ctx, userCred, provider, added[i], region, provider.GetOwnerId())
+		_, err := man.newFromCloudLoadbalancerAcl(ctx, userCred, provider, added[i], region, provider.GetOwnerId())
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, local, added[i])
 			syncResult.Add()
 		}
 	}
@@ -496,6 +504,7 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
+	syncMetadata(ctx, userCred, &acl, extAcl)
 
 	db.OpsLog.LogEvent(&acl, db.ACT_CREATE, acl.GetShortDesc(ctx), userCred)
 	return &acl, nil

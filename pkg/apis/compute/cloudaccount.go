@@ -330,6 +330,9 @@ type CloudaccountDetail struct {
 	ProxySetting proxyapi.SProxySetting `json:"proxy_setting"`
 
 	ProjectMappingResourceInfo
+
+	// 上次同步耗时
+	LastSyncCost string
 }
 
 func (self CloudaccountDetail) GetMetricTags() map[string]string {
@@ -529,6 +532,8 @@ type SyncRangeInput struct {
 	Force    bool `json:"force"`
 	FullSync bool `json:"full_sync"`
 	DeepSync bool `json:"deep_sync"`
+	// 极速模式(差量更新)
+	Xor bool `json:"xor"`
 
 	Region []string `json:"region"`
 	Zone   []string `json:"zone"`

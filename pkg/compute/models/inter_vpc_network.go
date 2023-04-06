@@ -492,7 +492,7 @@ func (self *SInterVpcNetwork) GetInterVpcNetworkRouteSets() ([]SInterVpcNetworkR
 	return routes, nil
 }
 
-func (self *SInterVpcNetwork) SyncInterVpcNetworkRouteSets(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudInterVpcNetwork) compare.SyncResult {
+func (self *SInterVpcNetwork) SyncInterVpcNetworkRouteSets(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudInterVpcNetwork, xor bool) compare.SyncResult {
 	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-records", self.Id))
 	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-records", self.Id))
 
@@ -528,13 +528,15 @@ func (self *SInterVpcNetwork) SyncInterVpcNetworkRouteSets(ctx context.Context, 
 		}
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].syncWithCloudRouteSet(ctx, userCred, self, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].syncWithCloudRouteSet(ctx, userCred, self, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
+			syncResult.Update()
 		}
-		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i++ {
