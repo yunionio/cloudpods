@@ -167,6 +167,12 @@ const (
 	// 宿主机网络出速率
 	// 支持平台: esxi
 	HOST_METRIC_TYPE_NET_BPS_TX TMetricType = "net.bps_sent"
+	//宿主机磁盘读IOPS
+	// 支持平台: bingocloud
+	HOST_METRIC_TYPE_DISK_IO_READ_IOPS TMetricType = "diskio.read_iops"
+	//宿主机磁盘写IOPS
+	// 支持平台: bingocloud
+	HOST_METRIC_TYPE_DISK_IO_WRITE_IOPS TMetricType = "diskio.write_iops"
 
 	// Redis CPU使用率
 	// 支持平台: huawei, aliyun, azure, apsara, aws, qcloud
