@@ -132,7 +132,13 @@ func (self *SCloudregion) GetKubeClusters(managerId string) ([]SKubeCluster, err
 	return clusters, nil
 }
 
-func (self *SCloudregion) SyncKubeClusters(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, clusters []cloudprovider.ICloudKubeCluster) ([]SKubeCluster, []cloudprovider.ICloudKubeCluster, compare.SyncResult) {
+func (self *SCloudregion) SyncKubeClusters(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	clusters []cloudprovider.ICloudKubeCluster,
+	xor bool,
+) ([]SKubeCluster, []cloudprovider.ICloudKubeCluster, compare.SyncResult) {
 	lockman.LockRawObject(ctx, KubeClusterManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 	defer lockman.ReleaseRawObject(ctx, KubeClusterManager.KeywordPlural(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 
@@ -165,15 +171,17 @@ func (self *SCloudregion) SyncKubeClusters(ctx context.Context, userCred mcclien
 			result.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudKubeCluster(ctx, userCred, commonext[i], provider)
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithCloudKubeCluster(ctx, userCred, commonext[i], provider)
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			localClusters = append(localClusters, commondb[i])
+			remoteClusters = append(remoteClusters, commonext[i])
+			result.Update()
 		}
-		localClusters = append(localClusters, commondb[i])
-		remoteClusters = append(remoteClusters, commonext[i])
-		result.Update()
 	}
 	for i := 0; i < len(added); i += 1 {
 		newKubeCluster, err := self.newFromCloudKubeCluster(ctx, userCred, added[i], provider)

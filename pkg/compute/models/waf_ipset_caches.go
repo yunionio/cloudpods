@@ -305,7 +305,13 @@ func (self *SCloudregion) newFromCloudWafIPSet(ctx context.Context, userCred mcc
 	return WafIPSetCacheManager.TableSpec().Insert(ctx, cache)
 }
 
-func (self *SCloudregion) SyncWafIPSets(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudWafIPSet) compare.SyncResult {
+func (self *SCloudregion) SyncWafIPSets(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	exts []cloudprovider.ICloudWafIPSet,
+	xor bool,
+) compare.SyncResult {
 	lockman.LockRawObject(ctx, WafIPSetCacheManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, provider.Id))
 	defer lockman.ReleaseRawObject(ctx, WafIPSetCacheManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, provider.Id))
 
@@ -336,13 +342,15 @@ func (self *SCloudregion) SyncWafIPSets(ctx context.Context, userCred mcclient.T
 		result.Delete()
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].syncWithCloudIPSet(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].syncWithCloudIPSet(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		result.Update()
 	}
 
 	for i := 0; i < len(added); i++ {

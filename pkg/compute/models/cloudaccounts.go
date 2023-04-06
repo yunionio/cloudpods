@@ -2752,7 +2752,7 @@ func (self *SCloudaccount) GetDnsZoneCaches() ([]SDnsZoneCache, error) {
 	return caches, nil
 }
 
-func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.TokenCredential, dnsZones []cloudprovider.ICloudDnsZone) ([]SDnsZone, []cloudprovider.ICloudDnsZone, compare.SyncResult) {
+func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.TokenCredential, dnsZones []cloudprovider.ICloudDnsZone, xor bool) ([]SDnsZone, []cloudprovider.ICloudDnsZone, compare.SyncResult) {
 	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-dnszone", self.Id))
 	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-dnszone", self.Id))
 
@@ -2790,10 +2790,12 @@ func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.T
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudDnsZone(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(errors.Wrapf(err, "SyncWithCloudDnsZone"))
-			continue
+		if !xor {
+			err = commondb[i].SyncWithCloudDnsZone(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(errors.Wrapf(err, "SyncWithCloudDnsZone"))
+				continue
+			}
 		}
 		zone, err := commondb[i].GetDnsZone()
 		if err != nil {

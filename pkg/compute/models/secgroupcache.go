@@ -418,9 +418,16 @@ func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context,
 	return rules, nil
 }
 
-func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
-	lockman.LockRawObject(ctx, "secgroups", vpc.Id)
-	defer lockman.ReleaseRawObject(ctx, "secgroups", vpc.Id)
+func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	secgroups []cloudprovider.ICloudSecurityGroup,
+	vpc *SVpc,
+	xor bool,
+) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+	lockman.LockRawObject(ctx, manager.Keyword(), vpc.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), vpc.Id)
 
 	localSecgroups := []SSecurityGroup{}
 	remoteSecgroups := []cloudprovider.ICloudSecurityGroup{}
@@ -483,14 +490,16 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 
 	rules := []SSecurityGroupRule{}
 
-	for i := 0; i < len(commondb); i++ {
-		_rules, err := commondb[i].syncWithCloudSecurityGroup(ctx, userCred, provider, commonext[i])
-		if err != nil {
-			syncResult.UpdateError(errors.Wrapf(err, "syncWithCloudSecurityGroup"))
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			_rules, err := commondb[i].syncWithCloudSecurityGroup(ctx, userCred, provider, commonext[i])
+			if err != nil {
+				syncResult.UpdateError(errors.Wrapf(err, "syncWithCloudSecurityGroup"))
+				continue
+			}
+			rules = append(rules, _rules...)
+			syncResult.Update()
 		}
-		rules = append(rules, _rules...)
-		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i++ {

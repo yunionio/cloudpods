@@ -549,11 +549,18 @@ func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, erro
 	return nets, nil */
 }
 
-func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, provider *SCloudprovider) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
+func (manager *SNetworkManager) SyncNetworks(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	wire *SWire,
+	nets []cloudprovider.ICloudNetwork,
+	provider *SCloudprovider,
+	xor bool,
+) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
 	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockRawObject(ctx, "networks", wire.Id)
-	defer lockman.ReleaseRawObject(ctx, "networks", wire.Id)
+	lockman.LockRawObject(ctx, manager.Keyword(), wire.Id)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), wire.Id)
 
 	localNets := make([]SNetwork, 0)
 	remoteNets := make([]cloudprovider.ICloudNetwork, 0)
@@ -591,11 +598,13 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 			syncResult.Delete()
 		}
 	}
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i], syncOwnerId, provider)
-		if err != nil {
-			syncResult.UpdateError(err)
-		} else {
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i], syncOwnerId, provider)
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
 			localNets = append(localNets, commondb[i])
 			remoteNets = append(remoteNets, commonext[i])
 			syncResult.Update()

@@ -430,9 +430,16 @@ func (self *SVpc) setDefault(def bool) error {
 	return err
 }
 
-func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, vpcs []cloudprovider.ICloudVpc) ([]SVpc, []cloudprovider.ICloudVpc, compare.SyncResult) {
-	lockman.LockRawObject(ctx, "vpcs", fmt.Sprintf("%s-%s", provider.Id, region.Id))
-	defer lockman.ReleaseRawObject(ctx, "vpcs", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+func (manager *SVpcManager) SyncVPCs(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	region *SCloudregion,
+	vpcs []cloudprovider.ICloudVpc,
+	xor bool,
+) ([]SVpc, []cloudprovider.ICloudVpc, compare.SyncResult) {
+	lockman.LockRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	localVPCs := make([]SVpc, 0)
 	remoteVPCs := make([]cloudprovider.ICloudVpc, 0)
@@ -471,10 +478,12 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudVpc(ctx, userCred, commonext[i], provider)
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
+		if !xor {
+			err = commondb[i].SyncWithCloudVpc(ctx, userCred, commonext[i], provider)
+			if err != nil {
+				syncResult.UpdateError(err)
+				continue
+			}
 		}
 		localVPCs = append(localVPCs, commondb[i])
 		remoteVPCs = append(remoteVPCs, commonext[i])
@@ -648,7 +657,7 @@ func (self *SVpc) SyncRouteTables(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return errors.Wrapf(err, "GetIRouteTables for vpc %s failed", ivpc.GetId())
 	}
-	_, _, result := RouteTableManager.SyncRouteTables(ctx, userCred, self, routeTables, self.GetCloudprovider())
+	_, _, result := RouteTableManager.SyncRouteTables(ctx, userCred, self, routeTables, self.GetCloudprovider(), false)
 	if result.IsError() {
 		return errors.Wrapf(result.AllError(), "RouteTableManager.SyncRouteTables(%s,%s)", jsonutils.Marshal(self).String(), jsonutils.Marshal(routeTables).String())
 	}
@@ -1634,7 +1643,12 @@ func (self *SVpc) BackSycVpcPeeringConnectionsVpc(exts []cloudprovider.ICloudVpc
 
 }
 
-func (self *SVpc) SyncVpcPeeringConnections(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudVpcPeeringConnection) compare.SyncResult {
+func (self *SVpc) SyncVpcPeeringConnections(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	exts []cloudprovider.ICloudVpcPeeringConnection,
+	xor bool,
+) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	dbPeers, err := self.GetVpcPeeringConnections()
@@ -1667,14 +1681,15 @@ func (self *SVpc) SyncVpcPeeringConnections(ctx context.Context, userCred mcclie
 		}
 	}
 
-	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudPeerConnection(ctx, userCred, commonext[i], provider)
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err = commondb[i].SyncWithCloudPeerConnection(ctx, userCred, commonext[i], provider)
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
 		}
-		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-		result.Update()
 	}
 
 	for i := 0; i < len(added); i += 1 {

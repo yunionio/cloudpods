@@ -1986,7 +1986,7 @@ func (self *SCloudprovider) GetInterVpcNetworks() ([]SInterVpcNetwork, error) {
 
 }
 
-func (self *SCloudprovider) SyncInterVpcNetwork(ctx context.Context, userCred mcclient.TokenCredential, interVpcNetworks []cloudprovider.ICloudInterVpcNetwork) ([]SInterVpcNetwork, []cloudprovider.ICloudInterVpcNetwork, compare.SyncResult) {
+func (self *SCloudprovider) SyncInterVpcNetwork(ctx context.Context, userCred mcclient.TokenCredential, interVpcNetworks []cloudprovider.ICloudInterVpcNetwork, xor bool) ([]SInterVpcNetwork, []cloudprovider.ICloudInterVpcNetwork, compare.SyncResult) {
 	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-interVpcNetwork", self.Id))
 	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-interVpcNetwork", self.Id))
 
@@ -2022,10 +2022,12 @@ func (self *SCloudprovider) SyncInterVpcNetwork(ctx context.Context, userCred mc
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudInterVpcNetwork(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(errors.Wrapf(err, "SyncWithCloudInterVpcNetwork"))
-			continue
+		if !xor {
+			err = commondb[i].SyncWithCloudInterVpcNetwork(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(errors.Wrapf(err, "SyncWithCloudInterVpcNetwork"))
+				continue
+			}
 		}
 		localNetworks = append(localNetworks, commondb[i])
 		remoteNetworks = append(remoteNetworks, commonext[i])

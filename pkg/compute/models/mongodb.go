@@ -405,9 +405,15 @@ func (self *SCloudregion) GetMongoDBs(managerId string) ([]SMongoDB, error) {
 	return dbs, nil
 }
 
-func (self *SCloudregion) SyncMongoDBs(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, cloudMongoDBs []cloudprovider.ICloudMongoDB) ([]SMongoDB, []cloudprovider.ICloudMongoDB, compare.SyncResult) {
-	lockman.LockRawObject(ctx, "mongodbs", fmt.Sprintf("%s-%s", provider.Id, self.Id))
-	defer lockman.ReleaseRawObject(ctx, "mongodbs", fmt.Sprintf("%s-%s", provider.Id, self.Id))
+func (self *SCloudregion) SyncMongoDBs(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	provider *SCloudprovider,
+	cloudMongoDBs []cloudprovider.ICloudMongoDB,
+	xor bool,
+) ([]SMongoDB, []cloudprovider.ICloudMongoDB, compare.SyncResult) {
+	lockman.LockRawObject(ctx, MongoDBManager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
+	defer lockman.ReleaseRawObject(ctx, MongoDBManager.Keyword(), fmt.Sprintf("%s-%s", provider.Id, self.Id))
 
 	localMongoDBs := []SMongoDB{}
 	remoteMongoDBs := []cloudprovider.ICloudMongoDB{}
@@ -438,15 +444,17 @@ func (self *SCloudregion) SyncMongoDBs(ctx context.Context, userCred mcclient.To
 		result.Delete()
 	}
 
-	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].SyncWithCloudMongoDB(ctx, userCred, commonext[i])
-		if err != nil {
-			result.UpdateError(err)
-			continue
+	if !xor {
+		for i := 0; i < len(commondb); i++ {
+			err := commondb[i].SyncWithCloudMongoDB(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			localMongoDBs = append(localMongoDBs, commondb[i])
+			remoteMongoDBs = append(remoteMongoDBs, commonext[i])
+			result.Update()
 		}
-		localMongoDBs = append(localMongoDBs, commondb[i])
-		remoteMongoDBs = append(remoteMongoDBs, commonext[i])
-		result.Update()
 	}
 
 	for i := 0; i < len(added); i++ {
