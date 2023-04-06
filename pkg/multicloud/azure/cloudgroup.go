@@ -239,6 +239,9 @@ func (self *SAzureClient) AddGroupUser(id, userName string) error {
 	params := map[string]string{
 		"@odata.id": fmt.Sprintf("https://graph.microsoft.com/v1.0/directoryObjects/%s", user.Id),
 	}
+	if self.envName == "AzureChinaCloud" {
+		params["@odata.id"] = fmt.Sprintf("https://microsoftgraph.chinacloudapi.cn/v1.0/directoryObjects/%s", user.Id)
+	}
 	err = self.gcreate(resource, jsonutils.Marshal(params), nil)
 	if err != nil && !strings.Contains(err.Error(), "One or more added object references already exist for the following modified properties") {
 		return err
