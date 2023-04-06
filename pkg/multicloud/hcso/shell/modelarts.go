@@ -45,7 +45,7 @@ func init() {
 	})
 
 	shellutils.R(&cloudprovider.ModelartsPoolCreateOption{}, "modelarts-pool-create", "Create Modelarts Pool", func(cli *huawei.SRegion, args *cloudprovider.ModelartsPoolCreateOption) error {
-		res, err := cli.CreateIModelartsPool(args)
+		res, err := cli.CreateIModelartsPool(args, nil)
 		if err != nil {
 			return err
 		}

@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/apis/compute"
@@ -130,7 +131,7 @@ func (self *SRegion) GetIModelartsPools() ([]cloudprovider.ICloudModelartsPool, 
 	return res, nil
 }
 
-func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
+func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreateOption, callback func(id string)) (cloudprovider.ICloudModelartsPool, error) {
 	if len(args.Cidr) == 0 {
 		args.Cidr = "192.168.128.0/17"
 	}
@@ -197,15 +198,28 @@ func (self *SRegion) CreateIModelartsPool(args *cloudprovider.ModelartsPoolCreat
 	if err != nil {
 		return nil, errors.Wrap(err, "SHuaweiClient.CreatePools")
 	}
-	pool := &SModelartsPool{}
-	obj.Unmarshal(&pool)
-	res := []cloudprovider.ICloudModelartsPool{}
-	for i := 0; i < 1; i++ {
-		pool.region = self
-		res = append(res, pool)
+	pool := &SModelartsPool{
+		region: self,
 	}
+	obj.Unmarshal(pool)
+	if callback != nil {
+		callback(pool.GetId())
+	}
+	// 对于新建后可能会存在一段时间list查不到
+	time.Sleep(2 * time.Minute)
+	return self.waitCreate(pool)
+}
 
-	return res[0], nil
+func (region *SRegion) waitCreate(pool *SModelartsPool) (cloudprovider.ICloudModelartsPool, error) {
+	startTime := time.Now()
+	for time.Since(startTime) < 2*time.Hour {
+		pool.RefreshForCreate()
+		if utils.IsInStringArray(pool.GetStatus(), []string{compute.MODELARTS_POOL_STATUS_RUNNING, compute.MODELARTS_POOL_STATUS_CREATE_FAILED}) {
+			return pool, nil
+		}
+		time.Sleep(15 * time.Second)
+	}
+	return nil, errors.ErrTimeout
 }
 
 func (self *SRegion) DeletePool(poolName string) (jsonutils.JSONObject, error) {
@@ -220,14 +234,11 @@ func (self *SRegion) GetIModelartsPoolById(poolId string) (cloudprovider.ICloudM
 		}
 		return nil, errors.Wrap(err, "region.modelartsPoolByName")
 	}
-	pool := &SModelartsPool{}
-	obj.Unmarshal(&pool)
-	res := []cloudprovider.ICloudModelartsPool{}
-	for i := 0; i < 1; i++ {
-		pool.region = self
-		res = append(res, pool)
+	pool := &SModelartsPool{
+		region: self,
 	}
-	return res[0], nil
+	obj.Unmarshal(pool)
+	return pool, nil
 }
 
 func (self *SRegion) MonitorPool(poolId string) (*SModelartsMetrics, error) {
@@ -386,15 +397,14 @@ func (self *SModelartsPool) SetAutoRenew(bc billing.SBillingCycle) error {
 	return nil
 }
 
-func (self *SModelartsPool) Refresh() error {
+func (self *SModelartsPool) RefreshForCreate() error {
 	self.Status.Resource = SNodeStatus{}
 	pool, err := self.region.client.modelartsPoolById(self.GetId())
 	if err == nil {
-		pool.Unmarshal(self)
-		return nil
+		return pool.Unmarshal(self)
 	}
-	if !strings.Contains(err.Error(), "not found") {
-		return errors.Wrap(err, "modelartsPoolById")
+	if errors.Cause(err) != errors.ErrNotFound {
+		return err
 	}
 
 	pools := make([]SModelartsPool, 0)
@@ -414,7 +424,16 @@ func (self *SModelartsPool) Refresh() error {
 			return jsonutils.Update(self, pool)
 		}
 	}
-	return errors.ErrNotFound
+	return err
+}
+
+func (self *SModelartsPool) Refresh() error {
+	self.Status.Resource = SNodeStatus{}
+	pool, err := self.region.client.modelartsPoolById(self.GetId())
+	if err != nil {
+		return err
+	}
+	return pool.Unmarshal(self)
 }
 
 func (self *SModelartsPool) SetTags(tags map[string]string, replace bool) error {

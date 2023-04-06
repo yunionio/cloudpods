@@ -385,7 +385,7 @@ func (self *SRegion) GetIModelartsPoolById(id string) (cloudprovider.ICloudModel
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIModelartsPoolDetail")
 }
 
-func (self *SRegion) CreateIModelartsPool(pool *cloudprovider.ModelartsPoolCreateOption) (cloudprovider.ICloudModelartsPool, error) {
+func (self *SRegion) CreateIModelartsPool(pool *cloudprovider.ModelartsPoolCreateOption, callback func(id string)) (cloudprovider.ICloudModelartsPool, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateIModelartsPool")
 }
 
