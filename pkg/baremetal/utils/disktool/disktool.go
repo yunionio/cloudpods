@@ -651,6 +651,11 @@ func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
 						break
 					}
 				}
+				if remoteDisk == nil {
+					// not found ssd disk
+					remoteDisk = disks[i-raidSsdDiskCnt]
+					log.Warningf("not found ssd driver disk for %#v, using remote disk %#v", driverDisk, remoteDisk)
+				}
 				driverDisk.SetInfo(remoteDisk)
 			} else {
 				driverDisk.SetInfo(disks[i-raidSsdDiskCnt])
