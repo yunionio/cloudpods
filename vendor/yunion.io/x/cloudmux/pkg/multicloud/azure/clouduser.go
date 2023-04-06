@@ -17,7 +17,6 @@ package azure
 import (
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -277,6 +276,7 @@ func (self *SAzureClient) CreateIClouduser(conf *cloudprovider.SClouduserCreateC
 
 type SDomain struct {
 	Name                             string
+	Id                               string
 	AuthenticationType               string
 	AvailabilityStatus               string
 	IsAdminManaged                   bool
@@ -301,14 +301,13 @@ func (self *SAzureClient) GetDomains() ([]SDomain, error) {
 }
 
 func (self *SAzureClient) GetDefaultDomain() (string, error) {
-	users, err := self.ListGraphUsers()
+	domains, err := self.GetDomains()
 	if err != nil {
 		return "", errors.Wrapf(err, "ListGraphUsers")
 	}
-	for i := range users {
-		idx := strings.Index(users[i].UserPrincipalName, "@")
-		if idx > -1 {
-			return users[i].UserPrincipalName[idx+1:], nil
+	for i := range domains {
+		if domains[i].IsDefault && domains[i].IsVerified && domains[i].IsRoot {
+			return domains[i].Id, nil
 		}
 	}
 	return "", cloudprovider.ErrNotFound
