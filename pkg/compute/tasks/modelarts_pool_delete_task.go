@@ -38,8 +38,8 @@ func init() {
 	taskman.RegisterTask(ModelartsPoolDeleteTask{})
 }
 
-func (modelartsDeleteTask *ModelartsPoolDeleteTask) taskFailed(ctx context.Context, mp *models.SModelartsPool, err error) {
-	mp.SetStatus(modelartsDeleteTask.UserCred, api.MODELARTS_POOL_STATUS_DELETE_FAILED, err.Error())
+func (modelartsDeleteTask *ModelartsPoolDeleteTask) taskFailed(ctx context.Context, status string, mp *models.SModelartsPool, err error) {
+	mp.SetStatus(modelartsDeleteTask.UserCred, status, err.Error())
 	db.OpsLog.LogEvent(mp, db.ACT_DELETE_FAIL, err, modelartsDeleteTask.UserCred)
 	logclient.AddActionLogWithStartable(modelartsDeleteTask, mp, logclient.ACT_DELOCATE, err, modelartsDeleteTask.UserCred, false)
 	modelartsDeleteTask.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -58,18 +58,26 @@ func (modelartsDeleteTask *ModelartsPoolDeleteTask) OnInit(ctx context.Context, 
 			modelartsDeleteTask.taskComplete(ctx, pool)
 			return
 		}
-		modelartsDeleteTask.taskFailed(ctx, pool, errors.Wrapf(err, "iMp.GetIModelartsPoolById"))
+		modelartsDeleteTask.taskFailed(ctx, api.MODELARTS_POOL_STATUS_DELETE_FAILED, pool, errors.Wrapf(err, "iMp.GetIModelartsPoolById"))
 		return
 	}
 	err = iMp.Delete()
 	if err != nil {
-		modelartsDeleteTask.taskFailed(ctx, pool, errors.Wrapf(err, "iMp.Delete"))
+		modelartsDeleteTask.taskFailed(ctx, api.MODELARTS_POOL_STATUS_DELETE_FAILED, pool, errors.Wrapf(err, "iMp.Delete"))
 		return
 	}
-	err = cloudprovider.WaitDeleted(iMp, time.Second*15, time.Minute*20)
+	err = cloudprovider.WaitStatus(iMp, api.MODELARTS_POOL_STATUS_UNKNOWN, time.Second*15, time.Minute*20)
 	if err != nil {
-		modelartsDeleteTask.taskFailed(ctx, pool, errors.Wrapf(err, "iMp.WaitDeleted"))
-		return
+		if errors.Cause(err) == errors.ErrTimeout {
+			modelartsDeleteTask.taskFailed(ctx, api.MODELARTS_POOL_STATUS_TIMEOUT, pool, errors.Wrapf(err, "ErrTimeout"))
+			return
+		} else if errors.Cause(err) == errors.ErrNotFound {
+			modelartsDeleteTask.taskComplete(ctx, pool)
+			return
+		} else {
+			modelartsDeleteTask.taskFailed(ctx, api.MODELARTS_POOL_STATUS_DELETE_FAILED, pool, errors.Wrapf(err, "default:"))
+			return
+		}
 	}
 	modelartsDeleteTask.taskComplete(ctx, pool)
 }

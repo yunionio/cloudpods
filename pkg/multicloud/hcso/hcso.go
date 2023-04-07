@@ -186,7 +186,15 @@ func (self *SHuaweiClient) modelartsPoolNetworkCreate(params map[string]interfac
 func (self *SHuaweiClient) modelartsPoolById(poolName string) (jsonutils.JSONObject, error) {
 	endpoint := self.resetEndpoint(self.endpoints.Modelarts, "modelarts")
 	uri := fmt.Sprintf("https://%s/v2/%s/pools/%s", endpoint, self.projectId, poolName)
-	return self.request(httputils.GET, uri, url.Values{}, nil)
+	res, err := self.request(httputils.GET, uri, url.Values{}, nil)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil, errors.ErrNotFound
+		} else {
+			return nil, err
+		}
+	}
+	return res, nil
 }
 
 func (self *SHuaweiClient) modelartsPoolList(params map[string]interface{}) (jsonutils.JSONObject, error) {
