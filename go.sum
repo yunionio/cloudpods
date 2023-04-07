@@ -418,8 +418,6 @@ github.com/huandu/xstrings v1.2.0 h1:yPeWdRnmynF7p+lLYz0H2tthW9lqhMJrQV/U7yy4wX0
 github.com/huandu/xstrings v1.2.0/go.mod h1:DvyZB1rfVYsBIigL8HwpZgxHwXozlTgGqn63UyNX5k4=
 github.com/huaweicloud/huaweicloud-sdk-go v1.0.26 h1:aWTl4Ng9lZUW1DupYyqYiqkTwuTKMmqUZBKLmX0iWxo=
 github.com/huaweicloud/huaweicloud-sdk-go v1.0.26/go.mod h1:YHXxw/bm7AohI4jTY8Z43JYw+DPCDLqjxoLTqmcyja4=
-github.com/huaweicloud/huaweicloud-sdk-go-obs v3.21.12+incompatible h1:tANYIteuFrosKbRYUk1Yo/OGJjbt4x3OVg211Qc60M0=
-github.com/huaweicloud/huaweicloud-sdk-go-obs v3.21.12+incompatible/go.mod h1:l7VUhRbTKCzdOacdT4oWCwATKyvZqUOlOqr0Ous3k4s=
 github.com/hugozhu/godingtalk v1.0.6 h1:K280OQGbYVS/UQuVWJz5cHhv/Wvfj1FHNo8lbbLGsNQ=
 github.com/hugozhu/godingtalk v1.0.6/go.mod h1:Je6PSjUH7IKCPpFq5ti2I9ak1szzSNgCIMlP0s+8pbQ=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
@@ -1164,8 +1162,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230407095611-39a9ba527094 h1:PqPoLi4z31X08y8hTtt+LyuXRigO1tezic3LRVv9Ml0=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230407095611-39a9ba527094/go.mod h1:VBAtfyGMDW11x5JmF0vUEmn/PmNpZ8CKBAQCiyz+cDY=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230407102918-dd668c09f13d h1:6UQnGSIqyux7wF9qJdEXwluos8Mb9zQoEzxq2U91ugs=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230407102918-dd668c09f13d/go.mod h1:VBAtfyGMDW11x5JmF0vUEmn/PmNpZ8CKBAQCiyz+cDY=
 yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656 h1:0zlZD5uhZoIHgLVAWCz2aHaYk2ZrNsACCYD7R6EIBII=
 yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
