@@ -111,7 +111,7 @@ func start() {
 	root.Handle(webconsole.WebsocketProxyPathPrefix, srv)
 
 	// misc handler
-	addMiscHandlers(root)
+	addMiscHandlers(app, root)
 
 	cron := cronman.InitCronJobManager(true, o.Options.CronJobWorkerCount)
 
@@ -138,10 +138,10 @@ func start() {
 	}
 }
 
-func addMiscHandlers(root *mux.Router) {
+func addMiscHandlers(app *appsrv.Application, root *mux.Router) {
 	adapterF := func(appHandleFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			appHandleFunc(context.TODO(), w, r)
+			appHandleFunc(app.GetContext(), w, r)
 		}
 	}
 
