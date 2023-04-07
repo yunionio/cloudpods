@@ -90,9 +90,18 @@ func (nic *SInstancePort) GetINetworkId() string {
 		if regutils.MatchIPAddr(nic.FixedIps[i].IpAddress) {
 			network, err := nic.region.GetNetwork(nic.FixedIps[i].SubnetId)
 			if err != nil {
-				return nic.FixedIps[i].SubnetId
+				continue
 			}
-			return network.GetGlobalId()
+			pools := network.AllocationPools
+			for j := range pools {
+				if !pools[j].IsValid() {
+					continue
+				}
+				network.AllocationPools = []AllocationPool{pools[j]}
+				if network.Contains(nic.FixedIps[i].IpAddress) {
+					return network.GetGlobalId()
+				}
+			}
 		}
 	}
 	return ""
