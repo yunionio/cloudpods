@@ -83,7 +83,7 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230407095611-39a9ba527094
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230407102918-dd668c09f13d
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
 	yunion.io/x/jsonutils v1.0.1-0.20220819091305-3bab322ab4fd
 	yunion.io/x/log v1.0.0
@@ -177,7 +177,6 @@ require (
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/huaweicloud/huaweicloud-sdk-go v1.0.26 // indirect
-	github.com/huaweicloud/huaweicloud-sdk-go-obs v3.21.12+incompatible // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/jdcloud-api/jdcloud-sdk-go v1.55.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
