@@ -22,17 +22,14 @@ import (
 	_ "yunion.io/x/cloudmux/pkg/multicloud/aws/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/azure/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/bingocloud/provider" // private clouds
-	// _ "yunion.io/x/cloudmux/pkg/multicloud/cloudpods/provider"  // private clouds
 	_ "yunion.io/x/cloudmux/pkg/multicloud/ctyun/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/ecloud/provider" // public clouds
 	_ "yunion.io/x/cloudmux/pkg/multicloud/esxi/provider"   // private clouds
 	_ "yunion.io/x/cloudmux/pkg/multicloud/google/provider" // public clouds
-	_ "yunion.io/x/cloudmux/pkg/multicloud/hcs/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/hcso/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/huawei/provider"
-	_ "yunion.io/x/cloudmux/pkg/multicloud/incloudsphere/provider" // private clouds
-	_ "yunion.io/x/cloudmux/pkg/multicloud/jdcloud/provider"       // public clouds
-	_ "yunion.io/x/cloudmux/pkg/multicloud/nutanix/provider"       // private clouds
+	_ "yunion.io/x/cloudmux/pkg/multicloud/jdcloud/provider" // public clouds
+	_ "yunion.io/x/cloudmux/pkg/multicloud/nutanix/provider" // private clouds
 	_ "yunion.io/x/cloudmux/pkg/multicloud/objectstore/ceph/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/objectstore/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/objectstore/xsky/provider"
