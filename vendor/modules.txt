@@ -539,9 +539,6 @@ github.com/huandu/xstrings
 # github.com/huaweicloud/huaweicloud-sdk-go v1.0.26
 ## explicit
 github.com/huaweicloud/huaweicloud-sdk-go/auth/aksk
-# github.com/huaweicloud/huaweicloud-sdk-go-obs v3.21.12+incompatible
-## explicit
-github.com/huaweicloud/huaweicloud-sdk-go-obs/obs
 # github.com/hugozhu/godingtalk v1.0.6
 ## explicit; go 1.13
 github.com/hugozhu/godingtalk
@@ -1442,7 +1439,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230407095611-39a9ba527094
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230407102918-dd668c09f13d
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1471,8 +1468,6 @@ yunion.io/x/cloudmux/pkg/multicloud/esxi/provider
 yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter
 yunion.io/x/cloudmux/pkg/multicloud/google
 yunion.io/x/cloudmux/pkg/multicloud/google/provider
-yunion.io/x/cloudmux/pkg/multicloud/hcs
-yunion.io/x/cloudmux/pkg/multicloud/hcs/provider
 yunion.io/x/cloudmux/pkg/multicloud/hcso
 yunion.io/x/cloudmux/pkg/multicloud/hcso/client
 yunion.io/x/cloudmux/pkg/multicloud/hcso/client/auth
@@ -1494,8 +1489,6 @@ yunion.io/x/cloudmux/pkg/multicloud/huawei/client/requests
 yunion.io/x/cloudmux/pkg/multicloud/huawei/client/responses
 yunion.io/x/cloudmux/pkg/multicloud/huawei/obs
 yunion.io/x/cloudmux/pkg/multicloud/huawei/provider
-yunion.io/x/cloudmux/pkg/multicloud/incloudsphere
-yunion.io/x/cloudmux/pkg/multicloud/incloudsphere/provider
 yunion.io/x/cloudmux/pkg/multicloud/jdcloud
 yunion.io/x/cloudmux/pkg/multicloud/jdcloud/provider
 yunion.io/x/cloudmux/pkg/multicloud/loader
