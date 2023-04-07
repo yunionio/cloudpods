@@ -254,6 +254,10 @@ func (cli *SOpenStackClient) jsonReuest(token oscli.TokenCredential, service, re
 	case OPENSTACK_SERVICE_IMAGE, OPENSTACK_SERVICE_IDENTITY:
 	case OPENSTACK_SERVICE_COMPUTE:
 		apiVersion = "2.1"
+		// https://bugs.launchpad.net/horizon/+bug/1493205
+		if strings.HasPrefix(resource, "/os-keypairs") {
+			apiVersion = "2.2"
+		}
 	default:
 		apiVersion, err = cli.getApiVerion(token, serviceUrl, debug)
 		if err != nil {
