@@ -459,6 +459,14 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	return input, nil
 }
 
+func (man *SDiskManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DiskCreateInput) (*jsonutils.JSONDict, error) {
+	input, err := man.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	return input.JSON(input), nil
+}
+
 func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclient.IIdentityProvider) SComputeResourceKeys {
 	// input.Hypervisor must be set
 	brand := guessBrandForHypervisor(input.Hypervisor)

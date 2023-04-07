@@ -226,11 +226,16 @@ func init() {
 		if args.TaskNotify {
 			s.PrepareTask()
 		}
-		disk, err := modules.Disks.Create(s, params.JSON(params))
-		if err != nil {
-			return err
+		if args.Count > 1 {
+			results := modules.Disks.BatchCreate(s, params.JSON(params), args.Count)
+			printBatchResults(results, modules.Disks.GetColumns(s))
+		} else {
+			disk, err := modules.Disks.Create(s, params.JSON(params))
+			if err != nil {
+				return err
+			}
+			printObject(disk)
 		}
-		printObject(disk)
 		if args.TaskNotify {
 			s.WaitTaskNotify()
 		}
