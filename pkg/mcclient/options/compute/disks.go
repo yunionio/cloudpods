@@ -25,6 +25,7 @@ type DiskCreateOptions struct {
 	Zone    string `help:"Preferred zone where virtual server should be created" json:"prefer_zone_id"`
 	Wire    string `help:"Preferred wire where virtual server should be created" json:"prefer_wire_id"`
 	Host    string `help:"Preferred host where virtual server should be created" json:"prefer_host_id"`
+	Count   int    `help:"Count to create" json:"count"`
 
 	NAME       string   `help:"Name of the disk"`
 	DISKDESC   string   `help:"Image size or size of virtual disk"`
@@ -35,9 +36,9 @@ type DiskCreateOptions struct {
 	Schedtag   []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
 	TaskNotify bool     `help:"Setup task notify"`
 	SnapshotId string   `help:"snapshot id"`
-	BackupId   string   `help:"backupid"`
+	BackupId   string   `help:"Backup id"`
 
-	Project string `help:"owner project"`
+	Project string `help:"Owner project"`
 }
 
 func (o DiskCreateOptions) Params() (*api.DiskCreateInput, error) {
