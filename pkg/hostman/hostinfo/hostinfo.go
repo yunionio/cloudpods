@@ -1325,6 +1325,9 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	if h.IsHugepagesEnabled() {
 		pageSizeKb := options.HostOptions.HugepageSizeMb * 1024
 		input.PageSizeKB = &pageSizeKb
+	} else {
+		pageSizeKb := 4
+		input.PageSizeKB = &pageSizeKb
 	}
 	input.StorageDriver = api.DISK_DRIVER_LINUX
 	input.StorageType = h.sysinfo.StorageType
