@@ -47,7 +47,6 @@ func ensureConfigBridgeMtu(opts SOvnOptions) error {
 	args := []string{"set", "Interface", opts.OvnIntegrationBridge, fmt.Sprintf("mtu_request=%d", opts.OvnUnderlayMtu)}
 	output, err := procutils.NewCommand("ovs-vsctl", args...).Output()
 	if err != nil {
-		// panic(errors.Wrapf(err, "configuring ovn-controller: %s", string(output)))
 		return errors.Wrapf(err, "ovs-vsctl %s", string(output))
 	}
 	return nil
