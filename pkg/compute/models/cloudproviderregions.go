@@ -130,9 +130,7 @@ func (manager *SCloudproviderregionManager) FetchCustomizeColumns(
 		rows[i].Capabilities, _ = objs[i].(*SCloudproviderregion).getCapabilities()
 		cpr := objs[i].(*SCloudproviderregion)
 		managerIds[i] = cpr.CloudproviderId
-		if !cpr.LastSync.IsZero() && !cpr.LastSyncEndAt.IsZero() {
-			rows[i].LastSyncCost = cpr.LastSyncEndAt.Sub(cpr.LastSync).Round(time.Second).String()
-		}
+		rows[i].LastSyncCost = cpr.GetLastSyncCost()
 	}
 
 	managers := make(map[string]SCloudprovider)
