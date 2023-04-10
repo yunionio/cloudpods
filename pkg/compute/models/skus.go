@@ -639,18 +639,36 @@ func (self *SServerSku) StartServerSkuDeleteTask(ctx context.Context, userCred m
 	return nil
 }
 
+func (self *SServerSku) GetGuestCount() (int, error) {
+	guestsQ := GuestManager.Query().SubQuery()
+	hostsQ := HostManager.Query().SubQuery()
+	zonesQ := ZoneManager.Query().SubQuery()
+	q := guestsQ.Query().
+		Join(hostsQ, sqlchemy.Equals(guestsQ.Field("host_id"), hostsQ.Field("id"))).
+		Join(zonesQ, sqlchemy.Equals(hostsQ.Field("zone_id"), zonesQ.Field("id"))).
+		Filter(sqlchemy.Equals(guestsQ.Field("instance_type"), self.Name))
+	if len(self.ZoneId) > 0 {
+		q = q.Filter(sqlchemy.Equals(hostsQ.Field("zone_id"), self.ZoneId))
+	} else {
+		q = q.Filter(sqlchemy.Equals(zonesQ.Field("cloudregion_id"), self.CloudregionId))
+	}
+	return q.CountWithError()
+}
+
 func (self *SServerSku) ValidateDeleteCondition(ctx context.Context, info *api.ServerSkuDetails) error {
-	if info.TotalGuestCount > 0 {
+	totalGuestCnt := 0
+	if info != nil {
+		totalGuestCnt = info.TotalGuestCount
+	} else {
+		totalGuestCnt, _ = self.GetGuestCount()
+	}
+	if totalGuestCnt > 0 {
 		return httperrors.NewNotEmptyError("now allow to delete inuse instance_type.please remove related servers first: %s", self.Name)
 	}
 
 	if !inWhiteList(self.Provider) {
 		return httperrors.NewForbiddenError("not allow to delete public cloud instance_type: %s", self.Name)
 	}
-	/*count := GuestManager.Query().Equals("instance_type", self.Id).Count()
-	if count > 0 {
-		return httperrors.NewNotEmptyError("instance_type used by servers")
-	}*/
 	return nil
 }
 
@@ -1214,7 +1232,12 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].MarkAsSoldout(ctx)
+		cnt, err := removed[i].GetGuestCount()
+		if err != nil || cnt > 0 {
+			err = removed[i].MarkAsSoldout(ctx)
+		} else {
+			err = removed[i].RealDelete(ctx, userCred)
+		}
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
