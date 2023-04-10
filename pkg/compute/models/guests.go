@@ -2898,15 +2898,16 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.InstanceType = instanceType
 		}
 
-		if extVM.GetHypervisor() == api.HYPERVISOR_AWS {
-			sku, err := ServerSkuManager.FetchSkuByNameAndProvider(instanceType, api.CLOUD_PROVIDER_AWS, false)
-			if err == nil {
-				self.VmemSize = sku.MemorySizeMB
+		memSizeMb := extVM.GetVmemSizeMB()
+		if self.VmemSize == 0 || self.VmemSize != memSizeMb {
+			if memSizeMb > 0 {
+				self.VmemSize = memSizeMb
 			} else {
-				self.VmemSize = extVM.GetVmemSizeMB()
+				sku, _ := ServerSkuManager.FetchSkuByNameAndProvider(instanceType, provider.GetFactory().GetName(), false)
+				if sku != nil && sku.MemorySizeMB > 0 {
+					self.VmemSize = sku.MemorySizeMB
+				}
 			}
-		} else {
-			self.VmemSize = extVM.GetVmemSizeMB()
 		}
 
 		self.Hypervisor = extVM.GetHypervisor()
