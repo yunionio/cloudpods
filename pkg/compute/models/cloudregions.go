@@ -678,6 +678,50 @@ func (manager *SCloudregionManager) OrderByExtraFields(ctx context.Context, q *s
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
 	}
+	if db.NeedOrderQuery([]string{query.OrderByZoneCount}) {
+		zQ := ZoneManager.Query()
+		zQ = zQ.AppendField(zQ.Field("cloudregion_id"), sqlchemy.COUNT("zone_count", zQ.Field("cloudregion_id")))
+		zQ = zQ.GroupBy(zQ.Field("cloudregion_id"))
+		zSQ := zQ.SubQuery()
+		q = q.LeftJoin(zSQ, sqlchemy.Equals(zSQ.Field("cloudregion_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(zSQ.Field("zone_count"))
+		q = db.OrderByFields(q, []string{query.OrderByZoneCount}, []sqlchemy.IQueryField{q.Field("zone_count")})
+	}
+	if db.NeedOrderQuery([]string{query.OrderByVpcCount}) {
+		vQ := VpcManager.Query()
+		vQ = vQ.AppendField(vQ.Field("cloudregion_id"), sqlchemy.COUNT("vpc_count", vQ.Field("cloudregion_id")))
+		vQ = vQ.GroupBy(vQ.Field("cloudregion_id"))
+		vSQ := vQ.SubQuery()
+		q = q.LeftJoin(vSQ, sqlchemy.Equals(vSQ.Field("cloudregion_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(vSQ.Field("vpc_count"))
+		q = db.OrderByFields(q, []string{query.OrderByZoneCount}, []sqlchemy.IQueryField{q.Field("vpc_count")})
+	}
+	if db.NeedOrderQuery([]string{query.OrderByGuestCount}) {
+		guestQ := GuestManager.Query()
+		guestQ = guestQ.AppendField(guestQ.Field("host_id"), sqlchemy.COUNT("guest_count"))
+		guestQ = guestQ.GroupBy(guestQ.Field("host_id"))
+		guestSQ := guestQ.SubQuery()
+
+		hostQ := HostManager.Query()
+		hostQ = hostQ.LeftJoin(guestSQ, sqlchemy.Equals(guestSQ.Field("host_id"), hostQ.Field("id")))
+		hostQ = hostQ.AppendField(hostQ.QueryFields()...)
+		hostQ = hostQ.AppendField(hostQ.Field("zone_id"), sqlchemy.COUNT("guest_count", guestSQ.Field("guest_count")))
+		hostQ = hostQ.GroupBy("zone_id")
+		hostSQ := hostQ.SubQuery()
+
+		zQ := ZoneManager.Query()
+		zQ = zQ.AppendField(zQ.Field("cloudregion_id"), sqlchemy.COUNT("guest_count", hostSQ.Field("guest_count")))
+		zQ = zQ.GroupBy(zQ.Field("cloudregion_id"))
+		zQ = zQ.LeftJoin(hostSQ, sqlchemy.Equals(zQ.Field("id"), hostSQ.Field("zone_id")))
+		zSQ := zQ.SubQuery()
+
+		q = q.LeftJoin(zSQ, sqlchemy.Equals(zSQ.Field("cloudregion_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(zSQ.Field("guest_count"))
+		q = db.OrderByFields(q, []string{query.OrderByGuestCount}, []sqlchemy.IQueryField{q.Field("guest_count")})
+	}
 	return q, nil
 }
 

@@ -25,10 +25,12 @@ import (
 type InstanceGroupListOptions struct {
 	options.BaseListOptions
 
-	ServiceType string `help:"Service Type"`
-	ParentId    string `help:"Parent ID"`
-	ZoneId      string `help:"Zone ID"`
-	Server      string `help:"Guest ID or Name"`
+	ServiceType       string `help:"Service Type"`
+	ParentId          string `help:"Parent ID"`
+	ZoneId            string `help:"Zone ID"`
+	Server            string `help:"Guest ID or Name"`
+	OrderByVips       string
+	OrderByGuestCount string
 }
 
 func (opts *InstanceGroupListOptions) Params() (jsonutils.JSONObject, error) {

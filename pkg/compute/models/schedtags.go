@@ -232,7 +232,6 @@ func (manager *SSchedtagManager) OrderByExtraFields(
 	query api.SchedtagListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-
 	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")

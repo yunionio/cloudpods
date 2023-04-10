@@ -25,6 +25,12 @@ type NetTapServiceListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 
 	HostId string `json:"host_id" help:"filter by host id or name"`
+	// 按目的ip地址排序
+	// pattern:asc|desc
+	OrderByIp string `json:"order_by_ip"`
+	// 按镜像源数量排序
+	// pattern:asc|desc
+	OrderByFlowCount string `json:"order_by_flow_count"`
 }
 
 type NetTapServiceDetails struct {

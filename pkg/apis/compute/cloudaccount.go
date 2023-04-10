@@ -254,6 +254,13 @@ type CloudaccountListInput struct {
 	ProxySetting string `json:"proxy_setting"`
 	// swagger:ignore
 	ProxySettingId string `json:"proxy_setting_id" yunion-deprecated-by:"proxy_setting"`
+
+	// 按宿主机数量排序
+	// pattern:asc|desc
+	OrderByHostCount string `json:"order_by_host_count"`
+	// 按虚拟机数量排序
+	// pattern:asc|desc
+	OrderByGuestCount string `json:"order_by_guest_count"`
 }
 
 type ProviderProject struct {

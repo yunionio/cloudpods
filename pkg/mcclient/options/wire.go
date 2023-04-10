@@ -26,6 +26,8 @@ type WireListOptions struct {
 	Vpc      string `help:"List wires in vpc"`
 	Host     string `help:"List wires attached to a host"`
 	HostType string `help:"List wires attached to host with HostType"`
+
+	OrderByNetworkCount string
 }
 
 func (wo *WireListOptions) GetContextId() string {

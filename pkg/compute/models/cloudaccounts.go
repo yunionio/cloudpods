@@ -1746,6 +1746,43 @@ func (manager *SCloudaccountManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
+	if db.NeedOrderQuery([]string{query.OrderByHostCount}) {
+		hostQ := HostManager.Query()
+		hostQ = hostQ.AppendField(hostQ.Field("manager_id"), sqlchemy.COUNT("host_count"))
+		hostQ = hostQ.GroupBy("manager_id")
+		hostSQ := hostQ.SubQuery()
+
+		providerQ := CloudproviderManager.Query()
+		providerQ = providerQ.Join(hostSQ, sqlchemy.Equals(providerQ.Field("id"), hostSQ.Field("manager_id")))
+		providerQ = providerQ.AppendField(providerQ.Field("cloudaccount_id"), sqlchemy.SUM("host_count", hostSQ.Field("host_count")))
+		providerQ = providerQ.GroupBy("cloudaccount_id")
+		providerSQ := providerQ.SubQuery()
+
+		q = q.Join(providerSQ, sqlchemy.Equals(providerSQ.Field("cloudaccount_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(providerSQ.Field("host_count"))
+		q = db.OrderByFields(q, []string{query.OrderByHostCount}, []sqlchemy.IQueryField{q.Field("host_count")})
+	}
+	if db.NeedOrderQuery([]string{query.OrderByGuestCount}) {
+		guestQ := GuestManager.Query()
+		guestQ = guestQ.AppendField(guestQ.Field("host_id"), sqlchemy.COUNT("guest_count"))
+		guestQ = guestQ.GroupBy("host_id")
+		guestSQ := guestQ.SubQuery()
+		hostQ := HostManager.Query()
+		hostQ = hostQ.Join(guestSQ, sqlchemy.Equals(hostQ.Field("id"), guestSQ.Field("host_id")))
+		hostQ = hostQ.AppendField(hostQ.Field("manager_id"), sqlchemy.SUM("guest_count", guestQ.Field("guest_count")))
+		hostQ = hostQ.GroupBy("manager_id")
+		hostSQ := hostQ.SubQuery()
+		providerQ := CloudproviderManager.Query()
+		providerQ = providerQ.Join(hostSQ, sqlchemy.Equals(providerQ.Field("id"), hostSQ.Field("manager_id")))
+		providerQ = providerQ.AppendField(providerQ.Field("cloudaccount_id"), sqlchemy.SUM("guest_count", hostSQ.Field("guest_count")))
+		providerQ = providerQ.GroupBy("cloudaccount_id")
+		providerSQ := providerQ.SubQuery()
+		q = q.Join(providerSQ, sqlchemy.Equals(providerSQ.Field("cloudaccount_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(providerSQ.Field("guest_count"))
+		q = db.OrderByFields(q, []string{query.OrderByGuestCount}, []sqlchemy.IQueryField{q.Field("guest_count")})
+	}
 	return q, nil
 }
 

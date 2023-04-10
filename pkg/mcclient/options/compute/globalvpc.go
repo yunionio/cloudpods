@@ -22,6 +22,8 @@ import (
 
 type GlobalVpcListOptions struct {
 	options.BaseListOptions
+
+	OrderByVpcCount string
 }
 
 func (opts *GlobalVpcListOptions) Params() (jsonutils.JSONObject, error) {

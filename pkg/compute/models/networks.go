@@ -2293,6 +2293,12 @@ func (manager *SNetworkManager) OrderByExtraFields(
 		return nil, errors.Wrap(err, "SWireResourceBaseManager.OrderByExtraFields")
 	}
 
+	if db.NeedOrderQuery([]string{input.OrderByIpStart}) {
+		q = db.OrderByFields(q, []string{input.OrderByIpStart}, []sqlchemy.IQueryField{sqlchemy.INET_ATON(q.Field("guest_ip_start"))})
+	}
+	if db.NeedOrderQuery([]string{input.OrderByIpEnd}) {
+		q = db.OrderByFields(q, []string{input.OrderByIpEnd}, []sqlchemy.IQueryField{sqlchemy.INET_ATON(q.Field("guest_ip_end"))})
+	}
 	return q, nil
 }
 

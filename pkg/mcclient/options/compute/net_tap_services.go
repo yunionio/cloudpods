@@ -32,7 +32,9 @@ func (o *NetTapServiceCreateOptions) Params() (jsonutils.JSONObject, error) {
 type NetTapServiceListOptions struct {
 	options.BaseListOptions
 
-	HostId string `json:"host_id" help:"Filter by host id or name"`
+	HostId           string `json:"host_id" help:"Filter by host id or name"`
+	OrderByIp        string
+	OrderByFlowCount string
 }
 
 func (o *NetTapServiceListOptions) Params() (jsonutils.JSONObject, error) {

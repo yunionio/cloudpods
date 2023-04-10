@@ -807,6 +807,60 @@ func (manager *SZoneManager) OrderByExtraFields(
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
 	}
 
+	if db.NeedOrderQuery([]string{query.OrderByWires}) {
+		wireQ := WireManager.Query()
+		wireQ = wireQ.AppendField(wireQ.Field("zone_id"), sqlchemy.COUNT("wire_count", wireQ.Field("zone_id")))
+		wireQ = wireQ.GroupBy(wireQ.Field("zone_id"))
+		wireSQ := wireQ.SubQuery()
+		q = q.LeftJoin(wireSQ, sqlchemy.Equals(wireSQ.Field("zone_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(wireSQ.Field("wire_count"))
+		q = db.OrderByFields(q, []string{query.OrderByWires}, []sqlchemy.IQueryField{q.Field("wire_count")})
+	}
+	if db.NeedOrderQuery([]string{query.OrderByHosts}) {
+		hostQ := HostManager.Query()
+		hostQ = hostQ.AppendField(hostQ.Field("zone_id"), sqlchemy.COUNT("host_count", hostQ.Field("zone_id")))
+		hostQ = hostQ.GroupBy(hostQ.Field("zone_id"))
+		hostSQ := hostQ.SubQuery()
+		q = q.LeftJoin(hostSQ, sqlchemy.Equals(hostSQ.Field("zone_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(hostSQ.Field("host_count"))
+		q = db.OrderByFields(q, []string{query.OrderByHosts}, []sqlchemy.IQueryField{q.Field("host_count")})
+	}
+	if db.NeedOrderQuery([]string{query.OrderByHostsEnabled}) {
+		hostQ := HostManager.Query()
+		hostQ = hostQ.Filter(sqlchemy.Equals(hostQ.Field("enabled"), true))
+		hostQ = hostQ.AppendField(hostQ.Field("zone_id"), sqlchemy.COUNT("host_count", hostQ.Field("zone_id")))
+		hostQ = hostQ.GroupBy(hostQ.Field("zone_id"))
+		hostSQ := hostQ.SubQuery()
+		q = q.LeftJoin(hostSQ, sqlchemy.Equals(hostSQ.Field("zone_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(hostSQ.Field("host_count"))
+		q = db.OrderByFields(q, []string{query.OrderByHostsEnabled}, []sqlchemy.IQueryField{q.Field("host_count")})
+	}
+	if db.NeedOrderQuery([]string{query.OrderByBaremetals}) {
+		hostQ := HostManager.Query()
+		hostQ = hostQ.Filter(sqlchemy.Equals(hostQ.Field("is_baremetal"), true))
+		hostQ = hostQ.AppendField(hostQ.Field("zone_id"), sqlchemy.COUNT("host_count", hostQ.Field("zone_id")))
+		hostQ = hostQ.GroupBy(hostQ.Field("zone_id"))
+		hostSQ := hostQ.SubQuery()
+		q = q.LeftJoin(hostSQ, sqlchemy.Equals(hostSQ.Field("zone_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(hostSQ.Field("host_count"))
+		q = db.OrderByFields(q, []string{query.OrderByBaremetals}, []sqlchemy.IQueryField{q.Field("host_count")})
+	}
+	if db.NeedOrderQuery([]string{query.OrderByBaremetalsEnabled}) {
+		hostQ := HostManager.Query()
+		hostQ = hostQ.Filter(sqlchemy.Equals(hostQ.Field("is_baremetal"), true))
+		hostQ = hostQ.Filter(sqlchemy.Equals(hostQ.Field("enabled"), true))
+		hostQ = hostQ.AppendField(hostQ.Field("zone_id"), sqlchemy.COUNT("host_count", hostQ.Field("zone_id")))
+		hostQ = hostQ.GroupBy(hostQ.Field("zone_id"))
+		hostSQ := hostQ.SubQuery()
+		q = q.LeftJoin(hostSQ, sqlchemy.Equals(hostSQ.Field("zone_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(hostSQ.Field("host_count"))
+		q = db.OrderByFields(q, []string{query.OrderByBaremetalsEnabled}, []sqlchemy.IQueryField{q.Field("host_count")})
+	}
 	return q, nil
 }
 

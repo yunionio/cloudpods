@@ -26,9 +26,11 @@ func init() {
 	type InstanceSnapshotsListOptions struct {
 		options.BaseListOptions
 
-		GuestId      string `help:"guest id" json:"guest_id"`
-		HasMemory    bool   `help:"contains memory snapshot" json:"-"`
-		NotHasMemory bool   `help:"not contains memory snapshot" json:"-"`
+		GuestId                  string `help:"guest id" json:"guest_id"`
+		HasMemory                bool   `help:"contains memory snapshot" json:"-"`
+		NotHasMemory             bool   `help:"not contains memory snapshot" json:"-"`
+		OrderByDiskSnapshotCount string
+		OrderByGuest             string
 	}
 	R(&InstanceSnapshotsListOptions{}, "instance-snapshot-list", "Show instance snapshots", func(s *mcclient.ClientSession, args *InstanceSnapshotsListOptions) error {
 		params, err := options.ListStructToParams(args)
