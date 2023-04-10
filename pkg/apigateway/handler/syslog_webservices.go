@@ -132,11 +132,11 @@ func handleSyslogWebServiceMessage(ctx context.Context, w http.ResponseWriter, r
 		httperrors.ForbiddenError(ctx, w, "syslog webservice not enabled")
 		return
 	}
-	resp := fetchSyslogMessage(r)
+	resp := fetchSyslogMessage(ctx, r)
 	appsrv.SendJSON(w, resp)
 }
 
-func fetchSyslogMessage(r *http.Request) jsonutils.JSONObject {
+func fetchSyslogMessage(ctx context.Context, r *http.Request) jsonutils.JSONObject {
 	token := r.FormValue("token")
 	date := r.FormValue("date")
 	eventId := r.FormValue("eventId")
@@ -170,7 +170,7 @@ func fetchSyslogMessage(r *http.Request) jsonutils.JSONObject {
 		params.Add(jsonutils.NewString(moduleType), "service")
 	}
 
-	sess := auth.GetAdminSession(nil, "")
+	sess := auth.GetAdminSession(ctx, "")
 	logs, err := modules.Actions.List(sess, params)
 	if err != nil {
 		ret.Code = 2
