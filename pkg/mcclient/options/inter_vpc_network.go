@@ -18,6 +18,8 @@ import "yunion.io/x/jsonutils"
 
 type InterVpcNetworkListOPtions struct {
 	BaseListOptions
+
+	OrderByVpcCount string
 }
 
 func (opts *InterVpcNetworkListOPtions) Params() (jsonutils.JSONObject, error) {

@@ -83,7 +83,12 @@ type VpcListInput struct {
 	// enmu: eip, none
 	ExternalAccessMode string `json:"external_access_mode"`
 
+	// 按子网数量排序
+	// pattern:asc|desc
 	OrderByNetworkCount string `json:"order_by_network_count"`
+	// 按二层网络数量排序
+	// pattern:asc|desc
+	OrderByWireCount string `json:""order_by_wire_count`
 }
 
 const (

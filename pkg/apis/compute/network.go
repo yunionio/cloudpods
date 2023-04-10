@@ -143,6 +143,13 @@ type NetworkListInput struct {
 	BgpType []string `json:"bgp_type"`
 
 	HostType string `json:"host_type"`
+
+	// 按起始ip地址排序
+	// pattern:asc|desc
+	OrderByIpStart string `json:"order_by_ip_start"`
+	// 按终止ip地址排序
+	// pattern:asc|desc
+	OrderByIpEnd string `json:"order_by_ip_end"`
 }
 
 type NetworkResourceInfoBase struct {

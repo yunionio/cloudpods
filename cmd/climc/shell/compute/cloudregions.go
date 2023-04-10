@@ -57,6 +57,10 @@ func init() {
 		Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
 
 		DistinctField string `help:"list the specified distinct field, e.g. city, region"`
+
+		OrderByZoneCount  string
+		OrderByVpcCount   string
+		OrderByGuestCount string
 	}
 	R(&CloudregionListOptions{}, "cloud-region-list", "List cloud regions", func(s *mcclient.ClientSession, opts *CloudregionListOptions) error {
 		params, err := options.ListStructToParams(opts)

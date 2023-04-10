@@ -107,6 +107,10 @@ type WireListInput struct {
 
 	Bandwidth *int   `json:"bandwidth"`
 	HostType  string `json:"host_type"`
+
+	// 按子网数量排序
+	// pattern:asc|desc
+	OrderByNetworkCount string `json:"order_by_network_count"`
 }
 
 type WireMergeInput struct {

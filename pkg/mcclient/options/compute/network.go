@@ -50,6 +50,9 @@ type NetworkListOptions struct {
 	BgpType      []string `help:"filter by bgp_type"`
 	HostType     string   `help:"filter by host_type"`
 	RouteTableId string   `help:"Filter by RouteTable"`
+
+	OrderByIpStart string
+	OrderByIpEnd   string
 }
 
 func (opts *NetworkListOptions) GetContextId() string {

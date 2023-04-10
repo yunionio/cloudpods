@@ -1268,6 +1268,16 @@ func (manager *SVpcManager) OrderByExtraFields(
 			},
 		)
 	}
+	if db.NeedOrderQuery([]string{query.OrderByWireCount}) {
+		wireQ := WireManager.Query()
+		wireQ = wireQ.AppendField(wireQ.Field("vpc_id"), sqlchemy.COUNT("wire_count"))
+		wireQ = wireQ.GroupBy(wireQ.Field("vpc_id"))
+		wireSQ := wireQ.SubQuery()
+		q = q.LeftJoin(wireSQ, sqlchemy.Equals(wireSQ.Field("vpc_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(wireSQ.Field("wire_count"))
+		q = db.OrderByFields(q, []string{query.OrderByWireCount}, []sqlchemy.IQueryField{q.Field("wire_count")})
+	}
 	return q, nil
 }
 

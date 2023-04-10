@@ -78,4 +78,8 @@ type InterVpcNetworkFilterListBase struct {
 type InterVpcNetworkManagerListInput struct {
 	apis.EnabledStatusInfrasResourceBaseListInput
 	ManagedResourceListInput
+
+	// 按关联的vpc数量排序
+	// pattern:asc|desc
+	OrderByVpcCount string `json:"order_by_vpc_count"`
 }

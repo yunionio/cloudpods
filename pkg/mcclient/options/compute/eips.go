@@ -26,6 +26,7 @@ type ElasticipListOptions struct {
 	Usable                    *bool  `help:"List all zones that is usable"`
 	UsableEipForAssociateType string `help:"With associate id filter which eip can associate" choices:"server|natgateway|loadbalancer"`
 	UsableEipForAssociateId   string `help:"With associate type filter which eip can associate"`
+	OrderByIp                 string
 
 	options.BaseListOptions
 }

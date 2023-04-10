@@ -79,4 +79,10 @@ type InstanceSnapshotListInput struct {
 
 	// 包含内存快照
 	WithMemory *bool `json:"with_memory"`
+	// 按磁盘快照数量排序
+	// pattern:asc|desc
+	OrderByDiskSnapshotCount string `json:"order_by_disk_snapshot_count"`
+	// 按虚拟机名称排序
+	// pattern:asc|desc
+	OrderByGuest string `json:"order_by_guest"`
 }
