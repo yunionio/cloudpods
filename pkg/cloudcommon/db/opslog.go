@@ -48,7 +48,7 @@ type SOpsLogManager struct {
 type SOpsLog struct {
 	SModelBase
 
-	Id      int64  `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(divide(id,100000000000))"`
+	Id      int64  `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(id/100000000000)"`
 	ObjType string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	ObjId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 	ObjName string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
