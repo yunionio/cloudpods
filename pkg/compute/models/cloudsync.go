@@ -41,6 +41,13 @@ type SSyncableBaseResource struct {
 	LastSyncEndAt time.Time `list:"domain"`
 }
 
+func (self SSyncableBaseResource) GetLastSyncCost() string {
+	if !self.LastSync.IsZero() && !self.LastSyncEndAt.IsZero() {
+		return self.LastSyncEndAt.Sub(self.LastSync).Round(time.Second).String()
+	}
+	return ""
+}
+
 type SSyncableBaseResourceManager struct{}
 
 func (self *SSyncableBaseResource) CanSync() bool {

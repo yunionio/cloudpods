@@ -117,6 +117,29 @@ func (manager *SCloudproviderCapabilityManager) getRegionCapabilities(cloudprovi
 	return capaStrs, nil
 }
 
+func (manager *SCloudproviderCapabilityManager) getProvidersCapabilities(providerIds []string) (map[string][]string, error) {
+	q := manager.Query().In("cloudprovider_id", providerIds).IsNullOrEmpty("cloudregion_id")
+	capabilities := make([]SCloudproviderCapability, 0)
+	err := db.FetchModelObjects(manager, q, &capabilities)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	ret := map[string][]string{}
+	for i := range capabilities {
+		_, ok := ret[capabilities[i].CloudproviderId]
+		if !ok {
+			ret[capabilities[i].CloudproviderId] = []string{}
+		}
+		ret[capabilities[i].CloudproviderId] = append(ret[capabilities[i].CloudproviderId], capabilities[i].Capability)
+	}
+	result := map[string][]string{}
+	for id, capas := range ret {
+		sort.Strings(capas)
+		result[id] = capas
+	}
+	return result, nil
+}
+
 func (manager *SCloudproviderCapabilityManager) removeCapabilities(ctx context.Context, userCred mcclient.TokenCredential, cloudproviderId string) error {
 	return manager.removeRegionCapabilities(ctx, userCred, cloudproviderId, "")
 }
