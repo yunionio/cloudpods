@@ -110,10 +110,10 @@ func AddOneCronjob(item *SCronjob, s *mcclient.ClientSession) error {
 	return nil
 }
 
-func InitializeCronjobs() error {
+func InitializeCronjobs(ctx context.Context) error {
 	DevToolCronManager = cronman.InitCronJobManager(true, 8)
 	DevToolCronManager.Start()
-	Session := auth.GetAdminSession(nil, "")
+	Session := auth.GetAdminSession(ctx, "")
 
 	go func() {
 		items := make([]SCronjob, 0)
@@ -131,7 +131,7 @@ func InitializeCronjobs() error {
 }
 
 func (job *SCronjob) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerID mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	Session := auth.GetAdminSession(nil, "")
+	Session := auth.GetAdminSession(ctx, "")
 	job.SStandaloneResourceBase.PostCreate(ctx, userCred, nil, query, data)
 	AddOneCronjob(job, Session)
 }
@@ -141,7 +141,7 @@ func (job *SCronjob) PostDelete(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (job *SCronjob) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	Session := auth.GetAdminSession(nil, "")
+	Session := auth.GetAdminSession(ctx, "")
 	job.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 	DevToolCronManager.Remove(job.Id)
 	AddOneCronjob(job, Session)
