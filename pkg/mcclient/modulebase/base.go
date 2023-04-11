@@ -251,7 +251,9 @@ func SubmitResults2JSON(results []SubmitResult) jsonutils.JSONObject {
 		obj.Add(jsonutils.NewInt(int64(r.Status)), "status")
 		obj.Add(jsonutils.Marshal(r.Id), "id")
 		obj.Add(r.Data, "data")
-		obj.Add(jsonutils.NewString(now.Format(time.RFC3339)), "data", "time")
+		if r.Status >= 400 {
+			obj.Add(jsonutils.NewString(now.Format(time.RFC3339)), "data", "time")
+		}
 		arr.Add(obj)
 	}
 	body := jsonutils.NewDict()
