@@ -51,12 +51,12 @@ type LbagentCommonOptions struct {
 	TelegrafBin   string `default:"telegraf"`
 
 	DisableLocalVpc bool `help:"disable local VPC support" default:"false"`
-
-	ovnutils.SOvnOptions
 }
 
 type Options struct {
 	LbagentCommonOptions
+
+	ovnutils.SOvnOptions
 
 	CommonConfigFile string `help:"common config file for container"`
 
