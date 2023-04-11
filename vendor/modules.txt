@@ -1521,7 +1521,7 @@ yunion.io/x/executor/server
 # yunion.io/x/jsonutils v1.0.1-0.20220819091305-3bab322ab4fd
 ## explicit; go 1.12
 yunion.io/x/jsonutils
-# yunion.io/x/log v1.0.0
+# yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
 ## explicit; go 1.12
 yunion.io/x/log
 yunion.io/x/log/hooks
