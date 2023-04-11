@@ -30,6 +30,12 @@ func init() {
 		City      string `help:"Filter zone by city of cloudregions"`
 		Usable    *bool  `help:"List all zones where networks are usable"`
 		UsableVpc *bool  `help:"List all zones where vpc are usable"`
+
+		OrderByWires             string
+		OrderByHosts             string
+		OrderByHostsEnabled      string
+		OrderByBaremetals        string
+		OrderByBaremetalsEnabled string
 	}
 	R(&ZoneListOptions{}, "zone-list", "List zones", func(s *mcclient.ClientSession, args *ZoneListOptions) error {
 		params, err := options.ListStructToParams(args)

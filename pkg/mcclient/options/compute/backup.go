@@ -25,6 +25,7 @@ type DiskBackupListOptions struct {
 	DiskId           string `help:"disk id" json:"disk_id"`
 	BackupStorageId  string `help:"backup storage id" json:"backup_storage_id"`
 	IsInstanceBackup *bool  `help:"if part of instance backup" json:"is_instance_backup"`
+	OrderByDiskName  string
 }
 
 func (opts *DiskBackupListOptions) Params() (jsonutils.JSONObject, error) {
@@ -123,6 +124,8 @@ func (opts *BackupStorageCreateOptions) Params() (jsonutils.JSONObject, error) {
 
 type InstanceBackupListOptions struct {
 	options.BaseListOptions
+
+	OrderByGuest string
 }
 
 func (opts *InstanceBackupListOptions) Params() (jsonutils.JSONObject, error) {

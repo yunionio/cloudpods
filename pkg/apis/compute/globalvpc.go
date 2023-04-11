@@ -53,6 +53,7 @@ type GlobalVpcResourceListInput struct {
 	GlobalVpcResourceInput
 
 	// 以GlobalVpc的名称排序
+	// pattern:asc|desc
 	OrderByGlobalvpc string `json:"order_by_globalvpc"`
 }
 
@@ -65,4 +66,7 @@ type GlobalVpcListInput struct {
 	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
+	// 以关联的vpc数量排序
+	// pattern:asc|desc
+	OrderByVpcCount string `json:"order_by_vpc_count"`
 }

@@ -153,7 +153,26 @@ func (sm *SGroupManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
 	}
-
+	if db.NeedOrderQuery([]string{input.OrderByVips}) {
+		gnQ := GroupnetworkManager.Query()
+		gnQ = gnQ.AppendField(gnQ.Field("group_id"), sqlchemy.COUNT("vips", gnQ.Field("ip_addr")))
+		gnQ = gnQ.GroupBy("group_id")
+		gnSQ := gnQ.SubQuery()
+		q = q.LeftJoin(gnSQ, sqlchemy.Equals(gnSQ.Field("group_id"), q.Field("id")))
+		q.AppendField(q.QueryFields()...)
+		q.AppendField(gnSQ.Field("vips"))
+		q = db.OrderByFields(q, []string{input.OrderByVips}, []sqlchemy.IQueryField{q.Field("vips")})
+	}
+	if db.NeedOrderQuery([]string{input.OrderByGuestCount}) {
+		ggQ := GroupguestManager.Query()
+		ggQ = ggQ.AppendField(ggQ.Field("group_id"), sqlchemy.COUNT("guest_count"))
+		ggQ = ggQ.GroupBy("group_id")
+		ggSQ := ggQ.SubQuery()
+		q = q.LeftJoin(ggSQ, sqlchemy.Equals(ggSQ.Field("group_id"), q.Field("id")))
+		q.AppendField(q.QueryFields()...)
+		q.AppendField(ggSQ.Field("guest_count"))
+		q = db.OrderByFields(q, []string{input.OrderByGuestCount}, []sqlchemy.IQueryField{q.Field("guest_count")})
+	}
 	return q, nil
 }
 

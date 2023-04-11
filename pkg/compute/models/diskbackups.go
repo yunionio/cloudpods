@@ -389,6 +389,15 @@ func (manager *SDiskBackupManager) OrderByExtraFields(ctx context.Context, q *sq
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
 	}
+
+	if db.NeedOrderQuery([]string{query.OrderByDiskName}) {
+		dQ := DiskManager.Query()
+		dSQ := dQ.AppendField(dQ.Field("name").Label("disk_name"), dQ.Field("id")).SubQuery()
+		q = q.LeftJoin(dSQ, sqlchemy.Equals(dSQ.Field("id"), q.Field("disk_id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(dSQ.Field("disk_name"))
+		q = db.OrderByFields(q, []string{query.OrderByDiskName}, []sqlchemy.IQueryField{q.Field("disk_name")})
+	}
 	return q, nil
 }
 

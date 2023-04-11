@@ -130,6 +130,23 @@ func (man *SNetTapServiceManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
+	if db.NeedOrderQuery([]string{query.OrderByIp}) {
+		hSQ := HostManager.Query("id", "access_ip").SubQuery()
+		q = q.LeftJoin(hSQ, sqlchemy.Equals(q.Field("target_id"), hSQ.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(hSQ.Field("access_ip"))
+		db.OrderByFields(q, []string{query.OrderByIp}, []sqlchemy.IQueryField{q.Field("access_ip")})
+	}
+	if db.NeedOrderQuery([]string{query.OrderByFlowCount}) {
+		ntfQ := NetTapFlowManager.Query()
+		ntfQ = ntfQ.AppendField(ntfQ.Field("tap_id"), sqlchemy.COUNT("flow_count", ntfQ.Field("tap_id")))
+		ntfQ = ntfQ.GroupBy("tap_id")
+		ntfSQ := ntfQ.SubQuery()
+		q = q.LeftJoin(ntfSQ, sqlchemy.Equals(q.Field("id"), ntfSQ.Field("tap_id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(ntfSQ.Field("flow_count"))
+		db.OrderByFields(q, []string{query.OrderByFlowCount}, []sqlchemy.IQueryField{q.Field("flow_count")})
+	}
 	return q, nil
 }
 

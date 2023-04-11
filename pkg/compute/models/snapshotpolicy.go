@@ -966,7 +966,14 @@ func (manager *SSnapshotPolicyManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
-
+	if db.NeedOrderQuery([]string{input.OrderByBindDiskCount}) {
+		sdQ := SnapshotPolicyDiskManager.Query()
+		sdSQ := sdQ.AppendField(sdQ.Field("snapshotpolicy_id"), sqlchemy.COUNT("disk_count")).GroupBy("snapshotpolicy_id").SubQuery()
+		q = q.LeftJoin(sdSQ, sqlchemy.Equals(sdSQ.Field("snapshotpolicy_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(sdSQ.Field("disk_count"))
+		q = db.OrderByFields(q, []string{input.OrderByBindDiskCount}, []sqlchemy.IQueryField{q.Field("disk_count")})
+	}
 	return q, nil
 }
 

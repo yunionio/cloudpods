@@ -178,6 +178,30 @@ func (manager *SInstanceSnapshotManager) OrderByExtraFields(
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
 	}
 
+	if db.NeedOrderQuery([]string{query.OrderByDiskSnapshotCount}) {
+		nQ := SnapshotManager.Query()
+		nQ = nQ.AppendField(nQ.Field("disk_id"), sqlchemy.COUNT("snapshot_count"))
+		nQ = nQ.GroupBy("disk_id")
+		nSQ := nQ.SubQuery()
+
+		guestdiskQ := GuestdiskManager.Query()
+		guestdiskQ = guestdiskQ.LeftJoin(nSQ, sqlchemy.Equals(nSQ.Field("disk_id"), guestdiskQ.Field("disk_id")))
+		guestdiskSQ := guestdiskQ.AppendField(guestdiskQ.Field("guest_id"), nSQ.Field("snapshot_count")).SubQuery()
+
+		q = q.LeftJoin(guestdiskSQ, sqlchemy.Equals(guestdiskSQ.Field("guest_id"), q.Field("guest_id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(guestdiskSQ.Field("snapshot_count"))
+		q = db.OrderByFields(q, []string{query.OrderByDiskSnapshotCount}, []sqlchemy.IQueryField{q.Field("snapshot_count")})
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByGuest}) {
+		guestQ := GuestManager.Query()
+		guestSQ := guestQ.AppendField(guestQ.Field("id"), guestQ.Field("name").Label("guest_name")).SubQuery()
+		q = q.LeftJoin(guestSQ, sqlchemy.Equals(guestSQ.Field("id"), q.Field("guest_id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(guestSQ.Field("guest_name"))
+		q = db.OrderByFields(q, []string{query.OrderByGuest}, []sqlchemy.IQueryField{q.Field("guest_name")})
+	}
 	return q, nil
 }
 

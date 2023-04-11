@@ -224,6 +224,16 @@ func (manager *SGlobalVpcManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
+	if db.NeedOrderQuery([]string{query.OrderByVpcCount}) {
+		vpcQ := VpcManager.Query()
+		vpcQ = vpcQ.AppendField(vpcQ.Field("globalvpc_id"), sqlchemy.COUNT("vpc_count"))
+		vpcQ = vpcQ.GroupBy(vpcQ.Field("globalvpc_id"))
+		vpcSQ := vpcQ.SubQuery()
+		q = q.LeftJoin(vpcSQ, sqlchemy.Equals(vpcSQ.Field("globalvpc_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(vpcSQ.Field("vpc_count"))
+		q = db.OrderByFields(q, []string{query.OrderByVpcCount}, []sqlchemy.IQueryField{q.Field("vpc_count")})
+	}
 	return q, nil
 }
 

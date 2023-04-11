@@ -106,6 +106,15 @@ type CloudregionListInput struct {
 
 	// 云环境
 	Environment []string `json:"environment"`
+	// 按可用区数量排序
+	// pattern:asc|desc
+	OrderByZoneCount string `json:"order_by_zone_count"`
+	// 按vpc数量排序
+	// pattern:asc|desc
+	OrderByVpcCount string `json:"order_by_vpc_count"`
+	// 按虚拟机数量排序
+	// pattern:asc|desc
+	OrderByGuestCount string `json:"order_by_guest_count"`
 }
 
 type ZoneListInput struct {
@@ -124,6 +133,12 @@ type ZoneListInput struct {
 
 	Location []string `json:"location"`
 	Contacts []string `json:"contacts"`
+
+	OrderByWires             string
+	OrderByHosts             string
+	OrderByHostsEnabled      string
+	OrderByBaremetals        string
+	OrderByBaremetalsEnabled string
 }
 
 type ZoneResourceInput struct {

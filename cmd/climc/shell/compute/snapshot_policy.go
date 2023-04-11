@@ -25,6 +25,8 @@ import (
 func init() {
 	type SnapshotPolicyListOptions struct {
 		options.BaseListOptions
+
+		OrderByBindDiskCount string
 	}
 	R(&SnapshotPolicyListOptions{}, "snapshot-policy-list", "List snapshot policy", func(s *mcclient.ClientSession, args *SnapshotPolicyListOptions) error {
 		params, err := options.ListStructToParams(args)
