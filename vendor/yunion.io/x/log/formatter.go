@@ -61,6 +61,8 @@ type TextFormatter struct {
 	// Timestamp format to use for display when a full timestamp is printed.
 	TimestampFormat string
 
+	TimeZone string
+
 	// The fields are sorted by default for a consistent output. For applications
 	// that log extremely frequently and don't use the JSON formatter this may not
 	// be desired.
@@ -189,7 +191,14 @@ func (f *TextFormatter) printNoColored(b *bytes.Buffer, entry *logrus.Entry, key
 	if f.ShortTimestamp {
 		fmt.Fprintf(b, "[%s %04d %s]%s"+messageFormat, levelText, miniTS(), caller, prefix, message)
 	} else {
-		fmt.Fprintf(b, "[%s %s %s]%s"+messageFormat, levelText, entry.Time.Format(timestampFormat), caller, prefix, message)
+		var tz *time.Location
+		if len(f.TimeZone) > 0 {
+			tz, _ = time.LoadLocation(f.TimeZone)
+		}
+		if tz == nil {
+			tz = time.Local
+		}
+		fmt.Fprintf(b, "[%s %s %s]%s"+messageFormat, levelText, entry.Time.In(tz).Format(timestampFormat), caller, prefix, message)
 	}
 	for _, k := range keys {
 		v := entry.Data[k]
