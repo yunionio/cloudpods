@@ -48,6 +48,10 @@ type InstanceBackupListInput struct {
 
 	ServerFilterListInput
 
+	// 按虚拟机名称排序
+	// pattern:asc|desc
+	OrderByGuest string `json:"order_by_guest"`
+
 	// 操作系统类型
 	OsType []string `json:"os_type"`
 }

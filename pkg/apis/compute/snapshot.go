@@ -95,6 +95,13 @@ type SnapshotListInput struct {
 
 	// list server snapshots
 	ServerId string `json:"server_id"`
+
+	// 按虚拟机名称排序
+	// pattern:asc|desc
+	OrderByGuest string `json:"order_by_guest"`
+	// 按磁盘名称排序
+	// pattern:asc|desc
+	OrderByDiskName string `json:"order_by_disk_name"`
 }
 
 type SnapshotDetails struct {

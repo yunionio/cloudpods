@@ -1386,6 +1386,16 @@ func (manager *SWireManager) OrderByExtraFields(
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
 	}
 
+	if db.NeedOrderQuery([]string{query.OrderByNetworkCount}) {
+		networkQ := NetworkManager.Query()
+		networkQ = networkQ.AppendField(networkQ.Field("wire_id"), sqlchemy.COUNT("network_count"))
+		networkQ = networkQ.GroupBy(networkQ.Field("wire_id"))
+		networkSQ := networkQ.SubQuery()
+		q = q.LeftJoin(networkSQ, sqlchemy.Equals(networkSQ.Field("wire_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(networkSQ.Field("network_count"))
+		q = db.OrderByFields(q, []string{query.OrderByNetworkCount}, []sqlchemy.IQueryField{q.Field("network_count")})
+	}
 	return q, nil
 }
 

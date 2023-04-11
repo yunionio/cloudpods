@@ -141,6 +141,14 @@ func (manager *SInstanceBackupManager) OrderByExtraFields(
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
 	}
 
+	if db.NeedOrderQuery([]string{query.OrderByGuest}) {
+		gQ := GuestManager.Query()
+		gSQ := gQ.AppendField(gQ.Field("name").Label("guest_name"), gQ.Field("id")).SubQuery()
+		q = q.LeftJoin(gSQ, sqlchemy.Equals(gSQ.Field("id"), q.Field("guest_id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(gSQ.Field("guest_name"))
+		q = db.OrderByFields(q, []string{query.OrderByGuest}, []sqlchemy.IQueryField{q.Field("guest_name")})
+	}
 	return q, nil
 }
 

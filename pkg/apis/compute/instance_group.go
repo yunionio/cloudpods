@@ -32,6 +32,12 @@ type InstanceGroupListInput struct {
 
 	// 调度策略
 	SchedStrategy string `json:"sched_strategy"`
+	// 按ip地址排序
+	// pattern:asc|desc
+	OrderByVips string `json:"order_by_vips"`
+	// 按关联的虚拟机数量排序
+	// pattern:asc|desc
+	OrderByGuestCount string `json:"order_by_guest_count"`
 }
 
 type InstanceGroupDetail struct {

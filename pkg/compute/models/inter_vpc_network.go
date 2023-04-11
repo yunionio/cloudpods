@@ -91,6 +91,16 @@ func (manager *SInterVpcNetworkManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
 	}
+	if db.NeedOrderQuery([]string{query.OrderByVpcCount}) {
+		vpcNetVpcQ := InterVpcNetworkVpcManager.Query()
+		vpcNetVpcQ = vpcNetVpcQ.AppendField(vpcNetVpcQ.Field("inter_vpc_network_id"), sqlchemy.COUNT("vpc_count", vpcNetVpcQ.Field("vpc_id")))
+		vpcNetVpcQ = vpcNetVpcQ.GroupBy(vpcNetVpcQ.Field("inter_vpc_network_id"))
+		vpcNetVpcSQ := vpcNetVpcQ.SubQuery()
+		q = q.LeftJoin(vpcNetVpcSQ, sqlchemy.Equals(vpcNetVpcSQ.Field("inter_vpc_network_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(vpcNetVpcSQ.Field("vpc_count"))
+		q = db.OrderByFields(q, []string{query.OrderByVpcCount}, []sqlchemy.IQueryField{q.Field("vpc_count")})
+	}
 	return q, nil
 }
 

@@ -686,7 +686,6 @@ func (manager *SGuestManager) OrderByExtraFields(ctx context.Context, q *sqlchem
 		q = q.LeftJoin(guestnet, sqlchemy.Equals(q.Field("id"), guestnet.Field("guest_id")))
 		db.OrderByFields(q, []string{query.OrderByIp}, []sqlchemy.IQueryField{sqlchemy.INET_ATON(q.Field("ip_addr"))})
 	}
-
 	return q, nil
 }
 

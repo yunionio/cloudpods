@@ -30,6 +30,10 @@ type CloudaccountListOptions struct {
 
 	//DistinctField string `help:"distinct field"`
 	ProxySetting string `help:"Proxy setting id or name"`
+	// 按宿主机数量排序
+	OrderByHostCount string
+	// 按虚拟机数量排序
+	OrderByGuestCount string
 }
 
 func (opts *CloudaccountListOptions) Params() (jsonutils.JSONObject, error) {

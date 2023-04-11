@@ -851,6 +851,16 @@ func (manager *SServerSkuManager) OrderByExtraFields(
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
 	}
 
+	if db.NeedOrderQuery([]string{query.OrderByTotalGuestCount}) {
+		guestQ := GuestManager.Query()
+		guestQ = guestQ.AppendField(guestQ.Field("instance_type"), sqlchemy.COUNT("total_guest_count"))
+		guestQ = guestQ.GroupBy(guestQ.Field("instance_type"))
+		guestSQ := guestQ.SubQuery()
+		q = q.Join(guestSQ, sqlchemy.Equals(guestSQ.Field("instance_type"), q.Field("name")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(guestSQ.Field("total_guest_count"))
+		q = db.OrderByFields(q, []string{query.OrderByTotalGuestCount}, []sqlchemy.IQueryField{q.Field("total_guest_count")})
+	}
 	return q, nil
 }
 
