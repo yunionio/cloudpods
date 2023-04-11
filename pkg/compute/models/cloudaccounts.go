@@ -1266,9 +1266,7 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 		detail := api.CloudaccountDetail{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ProjectMappingResourceInfo:             pmRows[i],
-		}
-		if !account.LastSyncEndAt.IsZero() && !account.LastSync.IsZero() {
-			detail.LastSyncCost = account.LastSyncEndAt.Sub(account.LastSync).Round(time.Second).String()
+			LastSyncCost:                           account.GetLastSyncCost(),
 		}
 		if proxySetting, ok := proxySettings[account.ProxySettingId]; ok {
 			detail.ProxySetting.Id = proxySetting.Id
