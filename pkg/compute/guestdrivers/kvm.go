@@ -85,6 +85,26 @@ func (self *SKVMGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapa
 				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
 			},
 		},
+		Storages: cloudprovider.Storage{
+			SysDisk: []cloudprovider.StorageInfo{
+				{
+					StorageType: api.STORAGE_LOCAL,
+					MinSizeGb:   30,
+					MaxSizeGb:   2048,
+					StepSizeGb:  1,
+					Resizable:   true,
+				},
+			},
+			DataDisk: []cloudprovider.StorageInfo{
+				{
+					StorageType: api.STORAGE_LOCAL,
+					MinSizeGb:   options.Options.LocalDataDiskMinSizeGB,
+					MaxSizeGb:   options.Options.LocalDataDiskMaxSizeGB,
+					StepSizeGb:  1,
+					Resizable:   true,
+				},
+			},
+		},
 	}
 }
 
