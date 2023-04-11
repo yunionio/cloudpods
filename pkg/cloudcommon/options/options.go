@@ -328,6 +328,7 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 	}
 	log.Infof("Set log level to %q", optionsRef.LogLevel)
 	log.Logger().Formatter = &log.TextFormatter{
+		TimeZone:        optionsRef.TimeZone,
 		TimestampFormat: "2006-01-02 15:04:05",
 	}
 	if optionsRef.LogFilePrefix != "" {
