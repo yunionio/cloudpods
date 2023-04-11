@@ -355,61 +355,6 @@ func (self *SCloudprovider) CleanSchedCache() {
 	}
 }
 
-func (self *SCloudprovider) GetGuestCount() (int, error) {
-	sq := HostManager.Query("id").Equals("manager_id", self.Id)
-	return GuestManager.Query().In("host_id", sq).CountWithError()
-}
-
-func (self *SCloudprovider) GetHostCount() (int, error) {
-	return HostManager.Query().Equals("manager_id", self.Id).IsFalse("is_emulated").CountWithError()
-}
-
-func (self *SCloudprovider) getVpcCount() (int, error) {
-	return VpcManager.Query().Equals("manager_id", self.Id).IsFalse("is_emulated").CountWithError()
-}
-
-func (self *SCloudprovider) getStorageCount() (int, error) {
-	return StorageManager.Query().Equals("manager_id", self.Id).IsFalse("is_emulated").CountWithError()
-}
-
-func (self *SCloudprovider) getStoragecacheCount() (int, error) {
-	return StoragecacheManager.Query().Equals("manager_id", self.Id).CountWithError()
-}
-
-func (self *SCloudprovider) getEipCount() (int, error) {
-	return ElasticipManager.Query().Equals("manager_id", self.Id).CountWithError()
-}
-
-func (self *SCloudprovider) getSnapshotCount() (int, error) {
-	return SnapshotManager.Query().Equals("manager_id", self.Id).CountWithError()
-}
-
-func (self *SCloudprovider) getLoadbalancerCount() (int, error) {
-	return LoadbalancerManager.Query().Equals("manager_id", self.Id).CountWithError()
-}
-
-func (self *SCloudprovider) getDBInstanceCount() (int, error) {
-	q := DBInstanceManager.Query()
-	q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), self.Id))
-	return q.CountWithError()
-}
-
-func (self *SCloudprovider) getElasticcacheCount() (int, error) {
-	vpcs := VpcManager.Query("id", "manager_id").SubQuery()
-	q := ElasticcacheManager.Query()
-	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
-	q = q.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), self.Id))
-	return q.CountWithError()
-}
-
-func (self *SCloudprovider) getExternalProjectCount() (int, error) {
-	return ExternalProjectManager.Query().Equals("manager_id", self.Id).CountWithError()
-}
-
-func (self *SCloudprovider) getSyncRegionCount() (int, error) {
-	return CloudproviderRegionManager.Query().Equals("cloudprovider_id", self.Id).CountWithError()
-}
-
 func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudproviderUpdateInput) (api.CloudproviderUpdateInput, error) {
 	var err error
 	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
@@ -1020,23 +965,120 @@ func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId st
 	return providerObj.(*SCloudprovider)
 }
 
-func (self *SCloudprovider) getUsage() api.SCloudproviderUsage {
-	usage := api.SCloudproviderUsage{}
+func (cm *SCloudproviderManager) query(manager db.IModelManager, field string, providerIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
 
-	usage.GuestCount, _ = self.GetGuestCount()
-	usage.HostCount, _ = self.GetHostCount()
-	usage.VpcCount, _ = self.getVpcCount()
-	usage.StorageCount, _ = self.getStorageCount()
-	usage.StorageCacheCount, _ = self.getStoragecacheCount()
-	usage.EipCount, _ = self.getEipCount()
-	usage.SnapshotCount, _ = self.getSnapshotCount()
-	usage.LoadbalancerCount, _ = self.getLoadbalancerCount()
-	usage.DBInstanceCount, _ = self.getDBInstanceCount()
-	usage.ElasticcacheCount, _ = self.getElasticcacheCount()
-	usage.ProjectCount, _ = self.getExternalProjectCount()
-	usage.SyncRegionCount, _ = self.getSyncRegionCount()
+	if filter != nil {
+		q = filter(q)
+	}
 
-	return usage
+	sq := q.SubQuery()
+
+	key := "manager_id"
+	if manager.Keyword() == CloudproviderRegionManager.Keyword() {
+		key = "cloudprovider_id"
+	}
+
+	return sq.Query(
+		sq.Field(key),
+		sqlchemy.COUNT(field),
+	).In(key, providerIds).GroupBy(sq.Field(key)).SubQuery()
+}
+
+type SCloudproviderUsageCount struct {
+	Id string
+	api.SCloudproviderUsage
+}
+
+func (cm *SCloudproviderManager) TotalResourceCount(providerIds []string) (map[string]api.SCloudproviderUsage, error) {
+	ret := map[string]api.SCloudproviderUsage{}
+
+	guestSQ := cm.query(GuestManager, "guest_cnt", providerIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		hosts := HostManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id").Label("guest_id"),
+			sq.Field("host_id").Label("host_id"),
+			hosts.Field("manager_id").Label("manager_id"),
+		).LeftJoin(hosts, sqlchemy.Equals(sq.Field("host_id"), hosts.Field("id")))
+	})
+
+	hostSQ := cm.query(HostManager, "host_cnt", providerIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsFalse("is_emulated")
+	})
+
+	vpcSQ := cm.query(VpcManager, "vpc_cnt", providerIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsFalse("is_emulated")
+	})
+
+	storageSQ := cm.query(StorageManager, "storage_cnt", providerIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsFalse("is_emulated")
+	})
+
+	storagecacheSQ := cm.query(StoragecacheManager, "storage_cache_cnt", providerIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsFalse("is_emulated")
+	})
+
+	redisSQ := cm.query(ElasticcacheManager, "elasticcache_cnt", providerIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		vpcs := VpcManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id").Label("redis_id"),
+			sq.Field("vpc_id").Label("vpc_id"),
+			vpcs.Field("manager_id").Label("manager_id"),
+		).LeftJoin(vpcs, sqlchemy.Equals(sq.Field("vpc_id"), vpcs.Field("id")))
+	})
+
+	eipSQ := cm.query(ElasticipManager, "eip_cnt", providerIds, nil)
+	snapshotSQ := cm.query(SnapshotManager, "snapshot_cnt", providerIds, nil)
+	lbSQ := cm.query(LoadbalancerManager, "loadbalancer_cnt", providerIds, nil)
+	rdsSQ := cm.query(DBInstanceManager, "dbinstance_cnt", providerIds, nil)
+	projectSQ := cm.query(ExternalProjectManager, "project_cnt", providerIds, nil)
+	sregionSQ := cm.query(CloudproviderRegionManager, "sync_region_cnt", providerIds, nil)
+
+	providers := cm.Query().SubQuery()
+	providerQ := providers.Query(
+		sqlchemy.SUM("guest_count", guestSQ.Field("guest_cnt")),
+		sqlchemy.SUM("host_count", hostSQ.Field("host_cnt")),
+		sqlchemy.SUM("vpc_count", vpcSQ.Field("vpc_cnt")),
+		sqlchemy.SUM("storage_count", storageSQ.Field("storage_cnt")),
+		sqlchemy.SUM("storage_cache_count", storagecacheSQ.Field("storage_cache_cnt")),
+		sqlchemy.SUM("eip_count", eipSQ.Field("eip_cnt")),
+		sqlchemy.SUM("snapshot_count", snapshotSQ.Field("snapshot_cnt")),
+		sqlchemy.SUM("loadbalancer_count", lbSQ.Field("loadbalancer_cnt")),
+		sqlchemy.SUM("dbinstance_count", rdsSQ.Field("dbinstance_cnt")),
+		sqlchemy.SUM("elasticcache_count", redisSQ.Field("elasticcache_cnt")),
+		sqlchemy.SUM("project_count", projectSQ.Field("project_cnt")),
+		sqlchemy.SUM("sync_region_count", sregionSQ.Field("sync_region_cnt")),
+	)
+
+	providerQ.AppendField(providerQ.Field("id"))
+
+	providerQ = providerQ.LeftJoin(guestSQ, sqlchemy.Equals(providerQ.Field("id"), guestSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(hostSQ, sqlchemy.Equals(providerQ.Field("id"), hostSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(vpcSQ, sqlchemy.Equals(providerQ.Field("id"), vpcSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(storageSQ, sqlchemy.Equals(providerQ.Field("id"), storageSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(storagecacheSQ, sqlchemy.Equals(providerQ.Field("id"), storagecacheSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(eipSQ, sqlchemy.Equals(providerQ.Field("id"), eipSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(snapshotSQ, sqlchemy.Equals(providerQ.Field("id"), snapshotSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(lbSQ, sqlchemy.Equals(providerQ.Field("id"), lbSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(rdsSQ, sqlchemy.Equals(providerQ.Field("id"), rdsSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(redisSQ, sqlchemy.Equals(providerQ.Field("id"), redisSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(projectSQ, sqlchemy.Equals(providerQ.Field("id"), projectSQ.Field("manager_id")))
+	providerQ = providerQ.LeftJoin(sregionSQ, sqlchemy.Equals(providerQ.Field("id"), sregionSQ.Field("cloudprovider_id")))
+
+	providerQ = providerQ.Filter(sqlchemy.In(providerQ.Field("id"), providerIds)).GroupBy(providerQ.Field("id"))
+
+	counts := []SCloudproviderUsageCount{}
+	err := providerQ.All(&counts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "providerQ.All")
+	}
+	for i := range counts {
+		ret[counts[i].Id] = counts[i].SCloudproviderUsage
+	}
+
+	return ret, nil
 }
 
 func (self *SCloudprovider) getProject(ctx context.Context) *db.STenant {
@@ -1058,27 +1100,38 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 	projRows := manager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	pmRows := manager.SProjectMappingResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	accountIds := make([]string, len(objs))
+	providerIds := make([]string, len(objs))
 	for i := range rows {
 		provider := objs[i].(*SCloudprovider)
 		accountIds[i] = provider.CloudaccountId
+		providerIds[i] = provider.Id
 		rows[i] = api.CloudproviderDetails{
 			EnabledStatusStandaloneResourceDetails: stdRows[i],
 			ProjectizedResourceInfo:                projRows[i],
-			SCloudproviderUsage:                    provider.getUsage(),
-			SyncStatus2:                            provider.getSyncStatus2(),
 			ProjectMappingResourceInfo:             pmRows[i],
-		}
-		if !provider.LastSync.IsZero() && !provider.LastSyncEndAt.IsZero() {
-			rows[i].LastSyncCost = provider.LastSyncEndAt.Sub(provider.LastSync).Round(time.Second).String()
-		}
-		capabilities, _ := CloudproviderCapabilityManager.getCapabilities(provider.Id)
-		if len(capabilities) > 0 {
-			rows[i].Capabilities = capabilities
+			LastSyncCost:                           provider.GetLastSyncCost(),
 		}
 	}
 
+	q := CloudproviderRegionManager.Query()
+	q = q.In("cloudprovider_id", providerIds)
+	q = q.NotEquals("sync_status", api.CLOUD_PROVIDER_SYNC_STATUS_IDLE)
+	cprs := []SCloudproviderregion{}
+	err := q.All(&cprs)
+	if err != nil {
+		return rows
+	}
+	cprsMap := map[string]int{}
+	for i := range cprs {
+		_, ok := cprsMap[cprs[i].CloudproviderId]
+		if !ok {
+			cprsMap[cprs[i].CloudproviderId] = 0
+		}
+		cprsMap[cprs[i].CloudproviderId] += 1
+	}
+
 	accounts := make(map[string]SCloudaccount)
-	err := db.FetchStandaloneObjectsByIds(CloudaccountManager, accountIds, &accounts)
+	err = db.FetchStandaloneObjectsByIds(CloudaccountManager, accountIds, &accounts)
 	if err != nil {
 		log.Errorf("FetchStandaloneObjectsByIds (%s) fail %s",
 			CloudaccountManager.KeywordPlural(), err)
@@ -1099,6 +1152,15 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 			proxy.ProxySettingManager.KeywordPlural(), err)
 		return rows
 	}
+	usages, err := manager.TotalResourceCount(providerIds)
+	if err != nil {
+		return rows
+	}
+
+	capabilities, err := CloudproviderCapabilityManager.getProvidersCapabilities(providerIds)
+	if err != nil {
+		return rows
+	}
 
 	for i := range rows {
 		if account, ok := accounts[accountIds[i]]; ok {
@@ -1114,6 +1176,16 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 				ps.HTTPSProxy = proxySetting.HTTPSProxy
 				ps.NoProxy = proxySetting.NoProxy
 			}
+		}
+		rows[i].SyncStatus2 = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+		if _, ok := cprsMap[providerIds[i]]; ok {
+			rows[i].SyncStatus2 = api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
+		}
+		if usage, ok := usages[providerIds[i]]; ok {
+			rows[i].SCloudproviderUsage = usage
+		}
+		if capas, ok := capabilities[providerIds[i]]; ok {
+			rows[i].Capabilities = capas
 		}
 	}
 
