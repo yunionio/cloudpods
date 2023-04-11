@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/360EntSecGroup-Skylar/excelize"
+	excelize "github.com/xuri/excelize/v2"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -184,7 +184,10 @@ func AddNewSheet(data []jsonutils.JSONObject, keys []string, texts []string, she
 
 func AddChartWithSheet(key, sheet string, chartType ExcelChartType, f *excelize.File) (*excelize.File, error) {
 	// 获取对应sheet中的所有header
-	keys := f.GetRows(sheet)
+	keys, err := f.GetRows(sheet)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetRows")
+	}
 	if len(keys) == 0 {
 		return nil, errors.Errorf("empty sheet")
 	}
@@ -212,7 +215,9 @@ func AddChartWithSheet(key, sheet string, chartType ExcelChartType, f *excelize.
 		},
 	}
 	paramObj := jsonutils.Marshal(params)
-	err := f.AddChart(sheet, "A1", paramObj.PrettyString())
+	excelChart := &excelize.Chart{}
+	paramObj.Unmarshal(excelChart)
+	err = f.AddChart(sheet, "A1", excelChart)
 	if err != nil {
 		return nil, err
 	}
@@ -222,4 +227,43 @@ func AddChartWithSheet(key, sheet string, chartType ExcelChartType, f *excelize.
 func CheckChartType(chartType string) bool {
 	_, isExist := ChartMap[ExcelChartType(chartType)]
 	return isExist
+}
+
+// 按列设置单元格格式
+func SetCellStyleWithColumnKey(keys []string, sheet, style string, f *excelize.File) (*excelize.File, error) {
+	styleID, err := f.NewStyle(&excelize.Style{CustomNumFmt: &style})
+	if err != nil {
+		return nil, errors.Wrap(err, "NewStyle")
+	}
+	// 优先按行获取所有数据
+	rows, err := f.GetRows(sheet)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetRows")
+	}
+	if len(rows) == 0 {
+		return nil, errors.Errorf("rows is empty")
+	}
+	// 所需设置key的索引
+	columnIndex := []int{}
+	// 遍历第一行的所有值
+	for index, value := range rows[0] {
+		for _, key := range keys {
+			// 若第一行的值与目标key相等
+			if key == value {
+				columnIndex = append(columnIndex, index)
+			}
+		}
+	}
+	// 遍历所需设置的索引
+	for _, index := range columnIndex {
+		// 根据索引获取excel的列名
+		colName, err := excelize.ColumnNumberToName(index + 1)
+		if err != nil {
+			return nil, errors.Wrap(err, "ColumnNumberToName")
+		}
+		if err := f.SetCellStyle(sheet, fmt.Sprintf("%s%d", colName, 2), fmt.Sprintf("%s%d", colName, len(rows)), styleID); err != nil {
+			return nil, errors.Wrap(err, "SetCellStyle")
+		}
+	}
+	return f, nil
 }
