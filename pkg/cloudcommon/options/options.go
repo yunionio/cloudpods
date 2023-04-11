@@ -58,9 +58,11 @@ type BaseOptions struct {
 
 	DebugClient bool `help:"Switch on/off mcclient debugs" default:"false"`
 
-	LogLevel        string `help:"log level" default:"info" choices:"debug|info|warn|error"`
-	LogVerboseLevel int    `help:"log verbosity level" default:"0"`
-	LogFilePrefix   string `help:"prefix of log files"`
+	LogLevel           string `help:"log level" default:"info" choices:"debug|info|warn|error"`
+	LogWithTimeZone    string `help:"log time zone" default:"UTC"`
+	LogTimestampFormat string `help:"log time format" default:"2006-01-02 15:04:05"`
+	LogVerboseLevel    int    `help:"log verbosity level" default:"0"`
+	LogFilePrefix      string `help:"prefix of log files"`
 
 	CorsHosts []string `help:"List of hostname that allow CORS"`
 	TempPath  string   `help:"Path for store temp file, at least 40G space" default:"/opt/yunion/tmp"`
@@ -320,6 +322,8 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 		optionsRef.ApplicationID = serviceName
 	}
 
+	httperrors.SetTimeZone(optionsRef.TimeZone)
+
 	// log configuration
 	log.SetVerboseLevel(int32(optionsRef.LogVerboseLevel))
 	err = log.SetLogLevelByString(log.Logger(), optionsRef.LogLevel)
@@ -328,8 +332,8 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 	}
 	log.Infof("Set log level to %q", optionsRef.LogLevel)
 	log.Logger().Formatter = &log.TextFormatter{
-		TimeZone:        optionsRef.TimeZone,
-		TimestampFormat: "2006-01-02 15:04:05",
+		TimeZone:        optionsRef.LogWithTimeZone,
+		TimestampFormat: optionsRef.LogTimestampFormat,
 	}
 	if optionsRef.LogFilePrefix != "" {
 		dir, name := filepath.Split(optionsRef.LogFilePrefix)

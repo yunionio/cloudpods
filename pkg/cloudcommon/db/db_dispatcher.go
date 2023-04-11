@@ -1226,7 +1226,7 @@ func _doCreateItem(
 		if len(name) > 0 {
 			err = NewNameValidator(manager, ownerId, name, uniqValues)
 			if err != nil {
-				return nil, errors.Wrap(err, "NewNameValidator")
+				return nil, err
 			}
 		}
 	}
