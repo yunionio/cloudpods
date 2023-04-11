@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -278,11 +279,13 @@ func (this *BaseManager) _submit(session *mcclient.ClientSession, method httputi
 
 func SubmitResults2JSON(results []printutils.SubmitResult) jsonutils.JSONObject {
 	arr := jsonutils.NewArray()
+	now := time.Now().In(httperrors.GetTimeZone())
 	for _, r := range results {
 		obj := jsonutils.NewDict()
 		obj.Add(jsonutils.NewInt(int64(r.Status)), "status")
 		obj.Add(jsonutils.Marshal(r.Id), "id")
 		obj.Add(r.Data, "data")
+		obj.Add(jsonutils.NewString(now.Format(time.RFC3339)), "data", "time")
 		arr.Add(obj)
 	}
 	body := jsonutils.NewDict()
