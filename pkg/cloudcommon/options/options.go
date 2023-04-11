@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/atexit"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -290,6 +291,8 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 	if len(optionsRef.ApplicationID) == 0 {
 		optionsRef.ApplicationID = serviceName
 	}
+
+	httperrors.SetTimeZone(optionsRef.TimeZone)
 
 	// log configuration
 	log.SetVerboseLevel(int32(optionsRef.LogVerboseLevel))

@@ -18,6 +18,7 @@ import (
 	"context"
 	"net/http"
 	"runtime/debug"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,6 +26,20 @@ import (
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
+
+var (
+	timeZone *time.Location
+)
+
+func init() {
+	timeZone = time.Local
+}
+
+func SetTimeZone(tzStr string) {
+	if tz, _ := time.LoadLocation(tzStr); tz != nil {
+		timeZone = tz
+	}
+}
 
 func SendHTTPErrorHeader(w http.ResponseWriter, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
@@ -36,9 +51,10 @@ func SetHTTPRedirectLocationHeader(w http.ResponseWriter, location string) {
 }
 
 type Error struct {
-	Code    int    `json:"code,omitzero"`
-	Class   string `json:"class,omitempty"`
-	Details string `json:"details,omitempty"`
+	Code    int       `json:"code,omitzero"`
+	Class   string    `json:"class,omitempty"`
+	Details string    `json:"details,omitempty"`
+	Time    time.Time `json:"time,omitempty"`
 }
 
 func NewErrorFromJCError(ctx context.Context, je *httputils.JSONClientError) Error {
@@ -83,6 +99,7 @@ func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCod
 		Code:    statusCode,
 		Class:   class,
 		Details: details,
+		Time:    time.Now().In(timeZone),
 	}
 	body := jsonutils.Marshal(err)
 	w.Write([]byte(body.String()))
