@@ -35,6 +35,10 @@ func init() {
 	timeZone = time.Local
 }
 
+func GetTimeZone() *time.Location {
+	return timeZone
+}
+
 func SetTimeZone(tzStr string) {
 	if tz, _ := time.LoadLocation(tzStr); tz != nil {
 		timeZone = tz
@@ -51,10 +55,9 @@ func SetHTTPRedirectLocationHeader(w http.ResponseWriter, location string) {
 }
 
 type Error struct {
-	Code    int       `json:"code,omitzero"`
-	Class   string    `json:"class,omitempty"`
-	Details string    `json:"details,omitempty"`
-	Time    time.Time `json:"time,omitempty"`
+	Code    int    `json:"code,omitzero"`
+	Class   string `json:"class,omitempty"`
+	Details string `json:"details,omitempty"`
 }
 
 func NewErrorFromJCError(ctx context.Context, je *httputils.JSONClientError) Error {
@@ -99,9 +102,9 @@ func HTTPError(ctx context.Context, w http.ResponseWriter, msg string, statusCod
 		Code:    statusCode,
 		Class:   class,
 		Details: details,
-		Time:    time.Now().In(timeZone),
 	}
-	body := jsonutils.Marshal(err)
+	body := jsonutils.Marshal(err).(*jsonutils.JSONDict)
+	body.Set("time", jsonutils.NewString(time.Now().In(timeZone).Format(time.RFC3339)))
 	w.Write([]byte(body.String()))
 	log.Errorf("Send error %s", details)
 	if statusCode >= 500 {
