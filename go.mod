@@ -104,7 +104,7 @@ require (
 	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
 	yunion.io/x/jsonutils v1.0.1-0.20220819091305-3bab322ab4fd
-	yunion.io/x/log v1.0.0
+	yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.0.1-0.20230327034731-79f520e7d373
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
