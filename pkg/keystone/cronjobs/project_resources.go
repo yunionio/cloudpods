@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -113,6 +114,9 @@ func refreshScopeResourceCount(ctx context.Context) error {
 			} else {
 				serviceBlackList[srvId] = time.Now().Add(time.Hour)
 			}
+			continue
+		}
+		if gotypes.IsNil(ret) {
 			continue
 		}
 		if _, ok := serviceBlackList[srvId]; ok {
