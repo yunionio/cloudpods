@@ -64,7 +64,6 @@ type Paths struct {
 	SysBlock               string
 	SysDevicesSystemNode   string
 	SysDevicesSystemMemory string
-	SysDevicesSystemCPU    string
 	SysBusPciDevices       string
 	SysClassDRM            string
 	SysClassDMI            string
@@ -85,7 +84,6 @@ func New(ctx *context.Context) *Paths {
 		SysBlock:               filepath.Join(ctx.Chroot, roots.Sys, "block"),
 		SysDevicesSystemNode:   filepath.Join(ctx.Chroot, roots.Sys, "devices", "system", "node"),
 		SysDevicesSystemMemory: filepath.Join(ctx.Chroot, roots.Sys, "devices", "system", "memory"),
-		SysDevicesSystemCPU:    filepath.Join(ctx.Chroot, roots.Sys, "devices", "system", "cpu"),
 		SysBusPciDevices:       filepath.Join(ctx.Chroot, roots.Sys, "bus", "pci", "devices"),
 		SysClassDRM:            filepath.Join(ctx.Chroot, roots.Sys, "class", "drm"),
 		SysClassDMI:            filepath.Join(ctx.Chroot, roots.Sys, "class", "dmi"),
