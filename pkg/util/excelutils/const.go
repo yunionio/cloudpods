@@ -35,3 +35,8 @@ var ChartMap = map[ExcelChartType]string{
 	CHART_TYPE_SCATTER: "散点图",
 	CHART_TYPE_COL:     "柱状图",
 }
+
+const (
+	// 千位分隔
+	CELL_STYLE_THOUSANDS_SEPARATOR string = `#,##0.00_);[Red]\( #,##0.00\)`
+)
