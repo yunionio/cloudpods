@@ -37,7 +37,7 @@ type SBaremetalEventManager struct {
 type SBaremetalEvent struct {
 	db.SModelBase
 
-	Id       int64     `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(divide(id,100000000000))"`
+	Id       int64     `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(id/100000000000)"`
 	HostId   string    `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 	HostName string    `width:"64" charset:"utf8" nullable:"false" list:"user" create:"required"`
 	IpmiIp   string    `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
