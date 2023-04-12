@@ -17,6 +17,7 @@ package qemuimg
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -337,6 +338,10 @@ func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 	cmdline = append(cmdline, srcInfo.Path, destInfo.Path)
 	log.Infof("XXXX qemu-img command: %s", cmdline)
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", cmdline...)
+	if runtime.GOOS == "darwin" {
+		cmdline = cmdline[2:]
+		cmd = procutils.NewRemoteCommandAsFarAsPossible(cmdline[0], cmdline[1:]...)
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		os.Remove(destInfo.Path)
@@ -405,6 +410,10 @@ func convertEncrypt(srcInfo, destInfo SImageInfo, compact bool, workerOpions []s
 	cmdline = append(cmdline, "--target-image-opts", destInfo.ImageOptions())
 	cmdline = append(cmdline, "-n")
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", cmdline...)
+	if runtime.GOOS == "darwin" {
+		cmdline = cmdline[2:]
+		cmd = procutils.NewRemoteCommandAsFarAsPossible(cmdline[0], cmdline[1:]...)
+	}
 	output, err := cmd.Output()
 	log.Infof("XXXX qemu-img convert command: %s output: %s", cmdline, output)
 	if err != nil {
@@ -603,6 +612,10 @@ func (img *SQemuImage) create(sizeMB int, format qemuimgfmt.TImageFormat, option
 		args = append(args, fmt.Sprintf("%dM", sizeMB))
 	}
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
+	if runtime.GOOS == "darwin" {
+		args = args[2:]
+		cmd = procutils.NewRemoteCommandAsFarAsPossible(args[0], args[1:]...)
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		return errors.Wrapf(err, "create image failed: %s", output)
@@ -728,6 +741,10 @@ func (img *SQemuImage) Resize(sizeMB int) error {
 	args = append(args, "--image-opts", encInfo.ImageOptions())
 	args = append(args, fmt.Sprintf("%dM", sizeMB))
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
+	if runtime.GOOS == "darwin" {
+		args = args[2:]
+		cmd = procutils.NewRemoteCommandAsFarAsPossible(args[0], args[1:]...)
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		return errors.Wrapf(err, "resize: %s", string(output))
@@ -759,6 +776,10 @@ func (img *SQemuImage) Rebase(backPath string, force bool) error {
 	}
 	args = append(args, "-b", backPath)
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
+	if runtime.GOOS == "darwin" {
+		args = args[2:]
+		cmd = procutils.NewRemoteCommandAsFarAsPossible(args[0], args[1:]...)
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		return errors.Wrapf(err, "rebase %s", string(output))
@@ -827,6 +848,10 @@ func (img *SQemuImage) Check() error {
 	}
 	args = append(args, "--image-opts", info.ImageOptions())
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
+	if runtime.GOOS == "darwin" {
+		args = args[2:]
+		cmd = procutils.NewRemoteCommandAsFarAsPossible(args[0], args[1:]...)
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		return errors.Wrapf(err, "check: %s", string(output))
