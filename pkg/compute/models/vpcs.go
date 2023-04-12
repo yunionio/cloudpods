@@ -519,7 +519,7 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 			err = self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
 		}
 	} else {
-		err = self.RealDelete(ctx, userCred)
+		err = self.Purge(ctx, userCred)
 		if err == nil {
 			notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 				Obj:    self,
