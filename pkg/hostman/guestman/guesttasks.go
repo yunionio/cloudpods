@@ -1101,11 +1101,12 @@ func (s *SGuestLiveMigrateTask) setMaxBandwidth(res string) {
 		return
 	}
 
+	var maxBandwidth int64 = 0
 	if s.params.MaxBandwidthMB != nil {
-		s.Monitor.MigrateSetParameter("max-bandwidth", *s.params.MaxBandwidthMB*1024*1024, s.startMigrateStatusCheck)
-	} else {
-		s.startMigrateStatusCheck("")
+		maxBandwidth = *s.params.MaxBandwidthMB * 1024 * 1024
 	}
+
+	s.Monitor.MigrateSetParameter("max-bandwidth", maxBandwidth, s.startMigrateStatusCheck)
 }
 
 func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
