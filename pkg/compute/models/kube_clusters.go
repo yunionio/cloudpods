@@ -218,37 +218,47 @@ func (self *SKubeCluster) ImportOrUpdate(ctx context.Context, userCred mcclient.
 }
 
 func (self *SKubeCluster) doRemoteImport(ctx context.Context, s *mcclient.ClientSession, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
-	config, err := ext.GetKubeConfig(false, 0)
-	if err != nil {
-		return errors.Wrapf(err, "GetKubeConfig")
-	}
+	var importFunc = func(isPrivate bool) error {
+		config, err := ext.GetKubeConfig(isPrivate, 0)
+		if err != nil {
+			return errors.Wrapf(err, "GetKubeConfig")
+		}
 
-	params := map[string]interface{}{
-		"name":                self.Name,
-		"project_domain_id":   self.DomainId,
-		"domain_id":           self.DomainId,
-		"mode":                "import",
-		"external_cluster_id": self.GetId(),
-		"resource_type":       "guest",
-		"import_data": map[string]interface{}{
-			"kubeconfig": config.Config,
-		},
-	}
-	resp, err := k8s.KubeClusters.Create(s, jsonutils.Marshal(params))
-	if err != nil {
-		return errors.Wrapf(err, "Create")
-	}
-	id, err := resp.GetString("id")
-	if err != nil {
-		return errors.Wrapf(err, "resp.GetId")
-	}
-	if _, err := db.Update(self, func() error {
-		self.ExternalClusterId = id
+		params := map[string]interface{}{
+			"name":                self.Name,
+			"project_domain_id":   self.DomainId,
+			"domain_id":           self.DomainId,
+			"mode":                "import",
+			"external_cluster_id": self.GetId(),
+			"resource_type":       "guest",
+			"import_data": map[string]interface{}{
+				"kubeconfig": config.Config,
+			},
+		}
+		resp, err := k8s.KubeClusters.Create(s, jsonutils.Marshal(params))
+		if err != nil {
+			return errors.Wrapf(err, "Create")
+		}
+		id, err := resp.GetString("id")
+		if err != nil {
+			return errors.Wrapf(err, "resp.GetId")
+		}
+		if _, err := db.Update(self, func() error {
+			self.ExternalClusterId = id
+			return nil
+		}); err != nil {
+			return errors.Wrapf(err, "db.Update")
+		}
 		return nil
-	}); err != nil {
-		return errors.Wrapf(err, "db.Update")
 	}
-	return nil
+	var err error
+	for _, isPrivate := range []bool{true, false} {
+		err = importFunc(isPrivate)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
 }
 
 func (self *SKubeCluster) doRemoteUpdate(ctx context.Context, s *mcclient.ClientSession, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
