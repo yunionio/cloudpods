@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -36,6 +37,7 @@ func split(line string) []string {
 func parseLsLine(line string) (os.FileInfo, error) {
 	// drwxr-xr-x.  7 1000   20       4096 2022-02-16 08:10:21.660000000 +0800 .vim
 	// -rw-------.  1    0    0      23658 2022-04-21 17:31:04.320995359 +0800 .viminfo
+	// lrwxr-xr-x    1 501  80      31 2022-11-02 21:01:10.000000000 +0800 zstdmt -> ../Cellar/zstd/1.5.2/bin/zstdmt
 	line = strings.TrimSpace(line)
 	if len(line) < 10 {
 		return nil, errors.Error("invalid ls line: too short")
@@ -79,7 +81,14 @@ func parseLsLine(line string) (os.FileInfo, error) {
 }
 
 func RemoteReadDir(dirname string) ([]os.FileInfo, error) {
-	output, err := NewRemoteCommandAsFarAsPossible("ls", "-la1n", "--full-time", dirname).Output()
+	args := []string{}
+	switch runtime.GOOS {
+	case "darwin":
+		args = []string{"-la1n", "-D", `%Y-%m-%d %H:%M:%S.000000000 %z`, dirname}
+	default:
+		args = []string{"-la1n", "--full-time", dirname}
+	}
+	output, err := NewRemoteCommandAsFarAsPossible("ls", args...).Output()
 	if err != nil {
 		if strings.Contains(strings.ToLower(string(output)), "no such file or directory") {
 			return nil, os.ErrNotExist
@@ -91,7 +100,7 @@ func RemoteReadDir(dirname string) ([]os.FileInfo, error) {
 	for _, line := range lines {
 		f, err := parseLsLine(line)
 		if err != nil {
-			// log.Errorf("parseLsLine %s fail %s", line, err)
+			//log.Errorf("parseLsLine %s fail %s", line, err)
 		} else {
 			files = append(files, f)
 		}

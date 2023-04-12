@@ -17,6 +17,23 @@
 
 package netutils2
 
+import (
+	"net"
+
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/util/iproute2"
+)
+
 func (n *SNetInterface) GetAddresses() [][]string {
 	return nil
+}
+
+func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {
+	return []iproute2.RouteSpec{}
+}
+
+func DefaultSrcIpDev() (srcIp net.IP, ifname string, err error) {
+	err = errors.ErrNotImplemented
+	return
 }
