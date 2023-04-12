@@ -77,7 +77,7 @@ type SCloudevent struct {
 	db.SModelBase
 	db.SDomainizedResourceBase
 
-	EventId      int64                `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(divide(event_id,100000000000))`
+	EventId      int64                `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(event_id/100000000000)`
 	Name         string               `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user"`
 	Service      string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
 	ResourceType string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
