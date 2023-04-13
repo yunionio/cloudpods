@@ -102,8 +102,6 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
-	yunion.io/x/jsonutils v1.0.1-0.20220819091305-3bab322ab4fd
 	yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.0.1-0.20230327034731-79f520e7d373
@@ -112,7 +110,11 @@ require (
 	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
 )
 
-require github.com/google/uuid v1.3.0
+require (
+	github.com/google/uuid v1.3.0
+	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
+	yunion.io/x/jsonutils v0.0.0-20220106020632-953b71a4c3a8
+)
 
 require (
 	cloud.google.com/go v0.65.0 // indirect
