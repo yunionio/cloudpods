@@ -17,7 +17,6 @@ package tasks
 import (
 	"context"
 	"strings"
-	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -48,11 +47,6 @@ func (modelartsCreateTask *ModelartsPoolCreateTask) taskFailed(ctx context.Conte
 
 func (modelartsCreateTask *ModelartsPoolCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	pool := obj.(*models.SModelartsPool)
-	iRegion, err := pool.GetIRegion()
-	if err != nil {
-		modelartsCreateTask.taskFailed(ctx, pool, api.MODELARTS_POOL_STATUS_CREATE_FAILED, errors.Wrapf(err, "pool.GetIRegion"))
-		return
-	}
 
 	opts := &cloudprovider.ModelartsPoolCreateOption{
 		Name:         pool.Name,
@@ -62,19 +56,9 @@ func (modelartsCreateTask *ModelartsPoolCreateTask) OnInit(ctx context.Context, 
 		Cidr:         pool.Cidr,
 	}
 
-	ipool, err := iRegion.CreateIModelartsPool(opts)
-	if err != nil {
-		modelartsCreateTask.taskFailed(ctx, pool, api.MODELARTS_POOL_STATUS_CREATE_FAILED, errors.Wrapf(err, "iRegion.CreateIModelartsPool"))
-		return
-	}
-	err = db.SetExternalId(pool, modelartsCreateTask.GetUserCred(), ipool.GetGlobalId())
-	if err != nil {
-		modelartsCreateTask.taskFailed(ctx, pool, api.MODELARTS_POOL_STATUS_CREATE_FAILED, errors.Wrapf(err, "db.SetExternalId"))
-		return
-	}
 	modelartsCreateTask.SetStage("OnModelartsPoolCreateComplete", nil)
 	// withDelay
-	modelartsCreateTask.WaitStatus(ctx, ipool, pool)
+	modelartsCreateTask.WaitStatus(ctx, opts, pool)
 }
 
 func (modelartsCreateTask *ModelartsPoolCreateTask) taskComplete(ctx context.Context, pool *models.SModelartsPool) {
@@ -85,17 +69,26 @@ func (modelartsCreateTask *ModelartsPoolCreateTask) taskComplete(ctx context.Con
 	})
 }
 
-func (modelartsCreateTask *ModelartsPoolCreateTask) WaitStatus(ctx context.Context, ipool cloudprovider.ICloudModelartsPool, pool *models.SModelartsPool) error {
+func (modelartsCreateTask *ModelartsPoolCreateTask) WaitStatus(ctx context.Context, opts *cloudprovider.ModelartsPoolCreateOption, pool *models.SModelartsPool) error {
 	taskman.LocalTaskRun(modelartsCreateTask, func() (jsonutils.JSONObject, error) {
-		time.Sleep(2 * time.Minute)
-		err := cloudprovider.WaitMultiStatus(ipool, []string{api.MODELARTS_POOL_STATUS_RUNNING, api.MODELARTS_POOL_STATUS_CREATE_FAILED}, 15*time.Second, 2*time.Hour)
+		iRegion, err := pool.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "pool.GetIRegion")
 		}
-		if ipool.GetStatus() == api.MODELARTS_POOL_STATUS_CREATE_FAILED {
-			return nil, errors.Error("create_failed")
-		} else {
+		callback := func(id string) {
+			db.SetExternalId(pool, modelartsCreateTask.GetUserCred(), id)
+		}
+		ipool, err := iRegion.CreateIModelartsPool(opts, callback)
+		if err != nil {
+			return nil, errors.Wrapf(err, "iRegion.CreateIModelartsPool")
+		}
+		switch ipool.GetStatus() {
+		case api.MODELARTS_POOL_STATUS_RUNNING:
 			return nil, nil
+		case api.MODELARTS_POOL_STATUS_CREATE_FAILED:
+			return nil, errors.Errorf(ipool.GetStatusMessage())
+		default:
+			return nil, errors.Errorf(ipool.GetStatus())
 		}
 	})
 	return nil
