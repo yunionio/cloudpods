@@ -121,7 +121,6 @@ func filterByScope(ctx context.Context, userCred mcclient.TokenCredential, scope
 			projectId = userCred.GetProjectId()
 		}
 		return getProjectIdFilterByProject(projectId)
-
 	}
 }
 
@@ -159,12 +158,11 @@ func getProjectIdsFilterByDomain(domainId string) (string, error) {
 	//}
 	//buffer.WriteString(" )")
 	//return buffer.String(), nil
-	return fmt.Sprintf(`"%s" =~ /%s/`, "domain_id", domainId), nil
-
+	return fmt.Sprintf(`%s =~ /%s/`, "domain_id", domainId), nil
 }
 
 func getProjectIdFilterByProject(projectId string) (string, error) {
-	return fmt.Sprintf(`"%s" =~ /%s/`, "tenant_id", projectId), nil
+	return fmt.Sprintf(`%s =~ /%s/`, "tenant_id", projectId), nil
 }
 
 func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
