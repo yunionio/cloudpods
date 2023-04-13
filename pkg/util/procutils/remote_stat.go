@@ -16,6 +16,7 @@ package procutils
 
 import (
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -58,7 +59,14 @@ func (s *sFileStat) Sys() interface{} {
 }
 
 func RemoteStat(filename string) (os.FileInfo, error) {
-	output, err := NewRemoteCommandAsFarAsPossible("stat", "-c", `{"file_size":%s,"file_name":"%n","file_type":"%F"}`, filename).Output()
+	args := []string{}
+	switch runtime.GOOS {
+	case "darwin":
+		args = []string{"-f", `{"file_size":%z,"file_name":"%N","file_type":"%T"}`, filename}
+	default:
+		args = []string{"-c", `{"file_size":%s,"file_name":"%n","file_type":"%F"}`, filename}
+	}
+	output, err := NewRemoteCommandAsFarAsPossible("stat", args...).Output()
 	if err != nil {
 		if strings.Contains(strings.ToLower(string(output)), "no such file or directory") {
 			return nil, os.ErrNotExist
