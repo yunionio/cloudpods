@@ -1075,14 +1075,14 @@ func stat(name string) (*info, error) {
 func (di *info) ovf() (string, error) {
 	var buf bytes.Buffer
 
-	tmpl, err := template.ParseFiles("/opt/yunion/share/vmware/ovf.xml")
+	tmpl, err := template.New("ovf").Parse(ovfTemplate)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "template.New")
 	}
 
 	err = tmpl.Execute(&buf, di)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "tmpl.Execute")
 	}
 
 	return buf.String(), nil
