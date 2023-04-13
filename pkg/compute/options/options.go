@@ -200,6 +200,9 @@ type ComputeOptions struct {
 	MonitorEndpointType               string `help:"specify monitor endpoint type" default:"public"`
 	ForceUseOriginVnc                 bool   `help:"force openstack use origin vnc console" default:"true"`
 
+	LocalDataDiskMinSizeGB int `help:"Data disk min size when using local storage" default:"10"`
+	LocalDataDiskMaxSizeGB int `help:"Data disk max size when using local storage" default:"40960"`
+
 	esxi.EsxiOptions
 }
 
