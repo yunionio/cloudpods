@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	USER_LOCAL_BIN = "/usr/local/bin"
-	USER_BIN       = "/usr/bin"
+	USR_LOCAL_BIN = "/usr/local/bin"
+	HOMEBREW_BIN  = "/opt/homebrew/bin/"
+	USR_BIN       = "/usr/bin"
 )
 
 var qemuSystemCmd = "qemu-system-x86_64"
@@ -66,13 +67,19 @@ func getQemuCmdByVersion(cmd, version string) string {
 		log.Errorf("stat %s: %s", p, err)
 	}
 	cmd = cmd + "_" + version
-	p = path.Join(USER_LOCAL_BIN, cmd)
+	p = path.Join(USR_LOCAL_BIN, cmd)
 	if _, err := procutils.RemoteStat(p); err == nil {
 		return p
 	} else {
 		log.Errorf("stat %s: %s", p, err)
 	}
-	p = path.Join(USER_BIN, cmd)
+	p = path.Join(USR_BIN, cmd)
+	if _, err := procutils.RemoteStat(p); err == nil {
+		return p
+	} else {
+		log.Errorf("stat %s: %s", p, err)
+	}
+	p = path.Join(HOMEBREW_BIN, cmd)
 	if _, err := procutils.RemoteStat(p); err == nil {
 		return p
 	} else {
@@ -120,7 +127,7 @@ func getQemuDefaultCmd(cmd string) string {
 	}
 
 	cmds := make([]string, 0)
-	for _, dir := range []string{USER_LOCAL_BIN, USER_BIN} {
+	for _, dir := range []string{USR_LOCAL_BIN, USR_BIN, HOMEBREW_BIN} {
 		if files, err := procutils.RemoteReadDir(dir); err == nil {
 			for i := 0; i < len(files); i++ {
 				if strings.HasPrefix(files[i].Name(), cmd) {
