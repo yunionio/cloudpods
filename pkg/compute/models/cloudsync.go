@@ -2079,6 +2079,7 @@ func getZoneForPremiseCloudRegion(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to GetIHosts")
 	}
+	ips := []string{}
 	for _, extHost := range extHosts {
 		// onpremise host
 		accessIp := extHost.GetAccessIp()
@@ -2087,6 +2088,7 @@ func getZoneForPremiseCloudRegion(ctx context.Context, userCred mcclient.TokenCr
 			log.Errorf(msg)
 			continue
 		}
+		ips = append(ips, accessIp)
 		wire, err := WireManager.GetOnPremiseWireOfIp(accessIp)
 		if err != nil {
 			msg := fmt.Sprintf("fail to find wire for host %s %s: %s", extHost.GetName(), accessIp, err)
@@ -2095,7 +2097,7 @@ func getZoneForPremiseCloudRegion(ctx context.Context, userCred mcclient.TokenCr
 		}
 		return wire.GetZone()
 	}
-	return nil, errors.Wrap(errors.ErrNotFound, "no suitable zone")
+	return nil, errors.Wrapf(errors.ErrNotFound, "no suitable zone with accessIp %s", ips)
 }
 
 func syncOnPremiseCloudProviderStorage(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, iregion cloudprovider.ICloudRegion, driver cloudprovider.ICloudProvider, syncRange *SSyncRange) []sStoragecacheSyncPair {
@@ -2107,7 +2109,7 @@ func syncOnPremiseCloudProviderStorage(ctx context.Context, userCred mcclient.To
 	}
 	zone, err := getZoneForPremiseCloudRegion(ctx, userCred, iregion)
 	if err != nil {
-		msg := fmt.Sprintf("Can't get zone for Premise cloud region %s", iregion.GetName())
+		msg := fmt.Sprintf("Can't get zone for Premise cloud region %s error: %v", iregion.GetName(), err)
 		log.Errorf(msg)
 		return nil
 	}
