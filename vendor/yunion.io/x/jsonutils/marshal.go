@@ -24,6 +24,7 @@ Convert any object to JSONObject
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"time"
 
 	"yunion.io/x/log"
@@ -33,7 +34,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 )
 
-func marshalSlice(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+func (s *sJsonMarshalSession) marshalSlice(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
 	if val.Kind() == reflect.Slice && val.IsNil() {
 		if !omitEmpty {
 			return JSONNull
@@ -46,7 +47,7 @@ func marshalSlice(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEm
 	}
 	objs := make([]JSONObject, 0)
 	for i := 0; i < val.Len(); i += 1 {
-		val := marshalValue(val.Index(i), nil, omitEmpty)
+		val := s.marshalValue(val.Index(i), nil, omitEmpty)
 		if val != nil {
 			objs = append(objs, val)
 		}
@@ -59,7 +60,13 @@ func marshalSlice(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEm
 	}
 }
 
-func marshalMap(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+type tMapKeys []reflect.Value
+
+func (a tMapKeys) Len() int           { return len(a) }
+func (a tMapKeys) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a tMapKeys) Less(i, j int) bool { return a[i].String() < a[j].String() }
+
+func (s *sJsonMarshalSession) marshalMap(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
 	if val.IsNil() {
 		if !omitEmpty {
 			return JSONNull
@@ -71,10 +78,12 @@ func marshalMap(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpt
 	if len(keys) == 0 && info != nil && info.OmitEmpty && omitEmpty {
 		return nil
 	}
+	// sort keys
+	sort.Sort(tMapKeys(keys))
 	objPairs := make([]JSONPair, 0)
 	for i := 0; i < len(keys); i += 1 {
 		key := keys[i]
-		val := marshalValue(val.MapIndex(key), nil, omitEmpty)
+		val := s.marshalValue(val.MapIndex(key), nil, omitEmpty)
 		if val != nil {
 			objPairs = append(objPairs, JSONPair{key: fmt.Sprintf("%s", key), val: val})
 		}
@@ -87,8 +96,8 @@ func marshalMap(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpt
 	}
 }
 
-func marshalStruct(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
-	objPairs := struct2JSONPairs(val, omitEmpty)
+func (s *sJsonMarshalSession) marshalStruct(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+	objPairs := s.struct2JSONPairs(val, omitEmpty)
 	if len(objPairs) == 0 && info != nil && info.OmitEmpty && omitEmpty {
 		return nil
 	}
@@ -109,7 +118,7 @@ func findValueByKey(pairs []JSONPair, key string) JSONObject {
 	return nil
 }
 
-func struct2JSONPairs(val reflect.Value, omitEmpty bool) []JSONPair {
+func (s *sJsonMarshalSession) struct2JSONPairs(val reflect.Value, omitEmpty bool) []JSONPair {
 	fields := reflectutils.FetchStructFieldValueSet(val)
 	objPairs := make([]JSONPair, 0, len(fields))
 	depFields := make(map[string]string)
@@ -123,7 +132,7 @@ func struct2JSONPairs(val reflect.Value, omitEmpty bool) []JSONPair {
 			depFields[key] = deprecatedBy
 			continue
 		}
-		val := marshalValue(fields[i].Value, jsonInfo, omitEmpty)
+		val := s.marshalValue(fields[i].Value, jsonInfo, omitEmpty)
 		if val != nil {
 			objPair := JSONPair{key: key, val: val}
 			objPairs = append(objPairs, objPair)
@@ -242,21 +251,40 @@ func Marshal(obj interface{}) JSONObject {
 	if kind := val.Kind(); val.IsZero() && kind == reflect.Ptr {
 		return JSONNull
 	}
-	objValue := reflect.Indirect(val)
-	mval := marshalValue(objValue, nil, true)
+	s := newJsonMarshalSession()
+	// objValue := reflect.Indirect(val)
+	mval := s.marshalValue(val, nil, true)
+	s.setAllNodeId()
 	if mval == nil {
 		return JSONNull
 	}
 	return mval
 }
 
-func marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+func (s *sJsonMarshalSession) marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
 	return tryStdMarshal(objValue, func(v reflect.Value) JSONObject {
-		return _marshalValue(v, info, omitEmpty)
+		return s.marshalValueWithObjectMap(v, info, omitEmpty)
 	})
 }
 
-func _marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+func (s *sJsonMarshalSession) marshalValueWithObjectMap(objValue reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+	var jsonPtr *sJSONPointer
+	if objValue.Kind() == reflect.Ptr {
+		inf := objValue.Interface()
+		if jsonPtr, ok := s.objectMap[inf]; ok {
+			s.addPointerReferer(jsonPtr)
+			return jsonPtr
+		}
+		jsonPtr = s.newJsonPointer(inf)
+	}
+	jsonObj := s._marshalValue(objValue, info, omitEmpty)
+	if jsonPtr != nil && jsonObj != nil {
+		s.setJsonObject(jsonPtr, jsonObj)
+	}
+	return jsonObj
+}
+
+func (s *sJsonMarshalSession) _marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
 	switch objValue.Type() {
 	case JSONDictPtrType, JSONArrayPtrType, JSONBoolPtrType, JSONIntPtrType, JSONFloatPtrType, JSONStringPtrType, JSONObjectType:
 		if objValue.IsNil() {
@@ -343,15 +371,15 @@ func _marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo, 
 	}
 	switch objValue.Kind() {
 	case reflect.Slice, reflect.Array:
-		return marshalSlice(objValue, info, omitEmpty)
+		return s.marshalSlice(objValue, info, omitEmpty)
 	case reflect.Struct:
 		if objValue.Type() == gotypes.TimeType {
 			return marshalTime(objValue.Interface().(time.Time), info, omitEmpty)
 		} else {
-			return marshalStruct(objValue, info, omitEmpty)
+			return s.marshalStruct(objValue, info, omitEmpty)
 		}
 	case reflect.Map:
-		return marshalMap(objValue, info, omitEmpty)
+		return s.marshalMap(objValue, info, omitEmpty)
 	case reflect.String:
 		strValue := objValue.Convert(gotypes.StringType)
 		return marshalString(strValue.Interface().(string), info, omitEmpty)
@@ -375,7 +403,7 @@ func _marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo, 
 				return JSONNull
 			}
 		}
-		return marshalValue(objValue.Elem(), info, omitEmpty)
+		return s.marshalValue(objValue.Elem(), info, omitEmpty)
 	default:
 		log.Errorf("unsupport object %s %s", objValue.Type(), objValue.Interface())
 		return JSONNull
@@ -390,8 +418,9 @@ func MarshalAll(obj interface{}) JSONObject {
 	if kind := val.Kind(); val.IsZero() && kind == reflect.Ptr {
 		return JSONNull
 	}
-	objValue := reflect.Indirect(val)
-	mval := marshalValue(objValue, nil, false)
+	s := newJsonMarshalSession()
+	mval := s.marshalValue(val, nil, false)
+	s.setAllNodeId()
 	if mval == nil {
 		return JSONNull
 	}
