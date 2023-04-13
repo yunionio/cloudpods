@@ -251,6 +251,12 @@ func Marshal(obj interface{}) JSONObject {
 }
 
 func marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+	return tryStdMarshal(objValue, func(v reflect.Value) JSONObject {
+		return _marshalValue(v, info, omitEmpty)
+	})
+}
+
+func _marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
 	switch objValue.Type() {
 	case JSONDictPtrType, JSONArrayPtrType, JSONBoolPtrType, JSONIntPtrType, JSONFloatPtrType, JSONStringPtrType, JSONObjectType:
 		if objValue.IsNil() {
