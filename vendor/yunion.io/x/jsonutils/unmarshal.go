@@ -50,6 +50,10 @@ func (this *JSONDict) Unmarshal(obj interface{}, keys ...string) error {
 	return jsonUnmarshal(this, obj, keys)
 }
 
+func (this *JSONString) Unmarshal(obj interface{}, keys ...string) error {
+	return jsonUnmarshal(this, obj, keys)
+}
+
 func jsonUnmarshal(jo JSONObject, o interface{}, keys []string) error {
 	if len(keys) > 0 {
 		var err error = nil
@@ -75,6 +79,10 @@ func (this *JSONValue) unmarshalValue(val reflect.Value) error {
 }
 
 func (this *JSONInt) unmarshalValue(val reflect.Value) error {
+	return tryStdUnmarshal(this, val, this._unmarshalValue)
+}
+
+func (this *JSONInt) _unmarshalValue(val reflect.Value) error {
 	switch val.Type() {
 	case JSONIntType:
 		json := val.Interface().(JSONInt)
@@ -137,6 +145,10 @@ func (this *JSONInt) unmarshalValue(val reflect.Value) error {
 }
 
 func (this *JSONBool) unmarshalValue(val reflect.Value) error {
+	return tryStdUnmarshal(this, val, this._unmarshalValue)
+}
+
+func (this *JSONBool) _unmarshalValue(val reflect.Value) error {
 	switch val.Type() {
 	case JSONBoolType:
 		json := val.Interface().(JSONBool)
@@ -204,6 +216,10 @@ func (this *JSONBool) unmarshalValue(val reflect.Value) error {
 }
 
 func (this *JSONFloat) unmarshalValue(val reflect.Value) error {
+	return tryStdUnmarshal(this, val, this._unmarshalValue)
+}
+
+func (this *JSONFloat) _unmarshalValue(val reflect.Value) error {
 	switch val.Type() {
 	case JSONFloatType:
 		json := val.Interface().(JSONFloat)
@@ -280,6 +296,13 @@ func (this *JSONFloat) unmarshalValue(val reflect.Value) error {
 }
 
 func (this *JSONString) unmarshalValue(val reflect.Value) error {
+	if val.Type() == gotypes.TimeType {
+		return this._unmarshalValue(val)
+	}
+	return tryStdUnmarshal(this, val, this._unmarshalValue)
+}
+
+func (this *JSONString) _unmarshalValue(val reflect.Value) error {
 	switch val.Type() {
 	case JSONStringType:
 		json := val.Interface().(JSONString)
@@ -390,6 +413,10 @@ func (this *JSONString) unmarshalValue(val reflect.Value) error {
 }
 
 func (this *JSONArray) unmarshalValue(val reflect.Value) error {
+	return tryStdUnmarshal(this, val, this._unmarshalValue)
+}
+
+func (this *JSONArray) _unmarshalValue(val reflect.Value) error {
 	switch val.Type() {
 	case JSONArrayType:
 		array := val.Interface().(JSONArray)
@@ -447,6 +474,10 @@ func (this *JSONArray) unmarshalValue(val reflect.Value) error {
 }
 
 func (this *JSONDict) unmarshalValue(val reflect.Value) error {
+	return tryStdUnmarshal(this, val, this._unmarshalValue)
+}
+
+func (this *JSONDict) _unmarshalValue(val reflect.Value) error {
 	switch val.Type() {
 	case JSONDictType:
 		dict := val.Interface().(JSONDict)
