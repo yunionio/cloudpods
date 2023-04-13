@@ -62,15 +62,16 @@ func jsonUnmarshal(jo JSONObject, o interface{}, keys []string) error {
 			return errors.Wrap(err, "Get")
 		}
 	}
+	s := newJsonUnmarshalSession()
 	value := reflect.ValueOf(o)
-	err := jo.unmarshalValue(reflect.Indirect(value))
+	err := jo.unmarshalValue(s, reflect.Indirect(value))
 	if err != nil {
 		return errors.Wrap(err, "jo.unmarshalValue")
 	}
 	return nil
 }
 
-func (this *JSONValue) unmarshalValue(val reflect.Value) error {
+func (this *JSONValue) unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
 	if val.CanSet() {
 		zeroVal := reflect.New(val.Type()).Elem()
 		val.Set(zeroVal)
@@ -78,11 +79,11 @@ func (this *JSONValue) unmarshalValue(val reflect.Value) error {
 	return nil
 }
 
-func (this *JSONInt) unmarshalValue(val reflect.Value) error {
-	return tryStdUnmarshal(this, val, this._unmarshalValue)
+func (this *JSONInt) unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
+	return tryStdUnmarshal(s, this, val, this._unmarshalValue)
 }
 
-func (this *JSONInt) _unmarshalValue(val reflect.Value) error {
+func (this *JSONInt) _unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
 	switch val.Type() {
 	case JSONIntType:
 		json := val.Interface().(JSONInt)
@@ -135,7 +136,7 @@ func (this *JSONInt) _unmarshalValue(val reflect.Value) error {
 		if val.IsNil() {
 			val.Set(reflect.New(val.Type().Elem()))
 		}
-		return this.unmarshalValue(val.Elem())
+		return this.unmarshalValue(s, val.Elem())
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	default:
@@ -144,11 +145,11 @@ func (this *JSONInt) _unmarshalValue(val reflect.Value) error {
 	return nil
 }
 
-func (this *JSONBool) unmarshalValue(val reflect.Value) error {
-	return tryStdUnmarshal(this, val, this._unmarshalValue)
+func (this *JSONBool) unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
+	return tryStdUnmarshal(s, this, val, this._unmarshalValue)
 }
 
-func (this *JSONBool) _unmarshalValue(val reflect.Value) error {
+func (this *JSONBool) _unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
 	switch val.Type() {
 	case JSONBoolType:
 		json := val.Interface().(JSONBool)
@@ -206,7 +207,7 @@ func (this *JSONBool) _unmarshalValue(val reflect.Value) error {
 		if val.IsNil() {
 			val.Set(reflect.New(val.Type().Elem()))
 		}
-		return this.unmarshalValue(val.Elem())
+		return this.unmarshalValue(s, val.Elem())
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	default:
@@ -215,11 +216,11 @@ func (this *JSONBool) _unmarshalValue(val reflect.Value) error {
 	return nil
 }
 
-func (this *JSONFloat) unmarshalValue(val reflect.Value) error {
-	return tryStdUnmarshal(this, val, this._unmarshalValue)
+func (this *JSONFloat) unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
+	return tryStdUnmarshal(s, this, val, this._unmarshalValue)
 }
 
-func (this *JSONFloat) _unmarshalValue(val reflect.Value) error {
+func (this *JSONFloat) _unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
 	switch val.Type() {
 	case JSONFloatType:
 		json := val.Interface().(JSONFloat)
@@ -286,7 +287,7 @@ func (this *JSONFloat) _unmarshalValue(val reflect.Value) error {
 		if val.IsNil() {
 			val.Set(reflect.New(val.Type().Elem()))
 		}
-		return this.unmarshalValue(val.Elem())
+		return this.unmarshalValue(s, val.Elem())
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	default:
@@ -295,14 +296,14 @@ func (this *JSONFloat) _unmarshalValue(val reflect.Value) error {
 	return nil
 }
 
-func (this *JSONString) unmarshalValue(val reflect.Value) error {
+func (this *JSONString) unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
 	if val.Type() == gotypes.TimeType {
-		return this._unmarshalValue(val)
+		return this._unmarshalValue(s, val)
 	}
-	return tryStdUnmarshal(this, val, this._unmarshalValue)
+	return tryStdUnmarshal(s, this, val, this._unmarshalValue)
 }
 
-func (this *JSONString) _unmarshalValue(val reflect.Value) error {
+func (this *JSONString) _unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
 	switch val.Type() {
 	case JSONStringType:
 		json := val.Interface().(JSONString)
@@ -394,7 +395,7 @@ func (this *JSONString) _unmarshalValue(val reflect.Value) error {
 		if val.IsNil() {
 			val.Set(reflect.New(val.Type().Elem()))
 		}
-		return this.unmarshalValue(val.Elem())
+		return this.unmarshalValue(s, val.Elem())
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	case reflect.Slice:
@@ -405,18 +406,18 @@ func (this *JSONString) _unmarshalValue(val reflect.Value) error {
 		} else if val.Len() != dataLen {
 			val.SetLen(dataLen)
 		}
-		return this.unmarshalValue(val.Index(0))
+		return this.unmarshalValue(s, val.Index(0))
 	default:
 		return errors.Wrapf(ErrTypeMismatch, "JSONString vs. %s", val.Type())
 	}
 	return nil
 }
 
-func (this *JSONArray) unmarshalValue(val reflect.Value) error {
-	return tryStdUnmarshal(this, val, this._unmarshalValue)
+func (this *JSONArray) unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
+	return tryStdUnmarshal(s, this, val, this._unmarshalValue)
 }
 
-func (this *JSONArray) _unmarshalValue(val reflect.Value) error {
+func (this *JSONArray) _unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
 	switch val.Type() {
 	case JSONArrayType:
 		array := val.Interface().(JSONArray)
@@ -442,7 +443,7 @@ func (this *JSONArray) _unmarshalValue(val reflect.Value) error {
 			if val.IsNil() {
 				val.Set(reflect.New(val.Type().Elem()))
 			}
-			return this.unmarshalValue(val.Elem())
+			return this.unmarshalValue(s, val.Elem())
 		}
 		return ErrTypeMismatch // fmt.Errorf("JSONArray type mismatch %s", val.Type())
 	case reflect.Interface:
@@ -462,7 +463,7 @@ func (this *JSONArray) _unmarshalValue(val reflect.Value) error {
 			}
 		}
 		for i, json := range this.data {
-			err := json.unmarshalValue(val.Index(i))
+			err := json.unmarshalValue(s, val.Index(i))
 			if err != nil {
 				return errors.Wrap(err, "unmarshalValue")
 			}
@@ -473,11 +474,14 @@ func (this *JSONArray) _unmarshalValue(val reflect.Value) error {
 	return nil
 }
 
-func (this *JSONDict) unmarshalValue(val reflect.Value) error {
-	return tryStdUnmarshal(this, val, this._unmarshalValue)
+func (this *JSONDict) unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
+	if this.nodeId > 0 && val.CanAddr() {
+		s.saveNodeValue(this.nodeId, val.Addr())
+	}
+	return tryStdUnmarshal(s, this, val, this._unmarshalValue)
 }
 
-func (this *JSONDict) _unmarshalValue(val reflect.Value) error {
+func (this *JSONDict) _unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error {
 	switch val.Type() {
 	case JSONDictType:
 		dict := val.Interface().(JSONDict)
@@ -496,9 +500,9 @@ func (this *JSONDict) _unmarshalValue(val reflect.Value) error {
 		val.SetString(this.String())
 		return nil
 	case reflect.Map:
-		return this.unmarshalMap(val)
+		return this.unmarshalMap(s, val)
 	case reflect.Struct:
-		return this.unmarshalStruct(val)
+		return this.unmarshalStruct(s, val)
 	case reflect.Interface:
 		if val.Type().Implements(gotypes.ISerializableType) {
 			objPtr, err := gotypes.NewSerializable(val.Type())
@@ -509,7 +513,7 @@ func (this *JSONDict) _unmarshalValue(val reflect.Value) error {
 				val.Set(reflect.ValueOf(this.data)) // ???
 				return nil
 			}
-			err = this.unmarshalValue(reflect.ValueOf(objPtr))
+			err = this.unmarshalValue(s, reflect.ValueOf(objPtr))
 			if err != nil {
 				return errors.Wrap(err, "unmarshalValue")
 			}
@@ -533,7 +537,7 @@ func (this *JSONDict) _unmarshalValue(val reflect.Value) error {
 				newVal := reflect.New(val.Type().Elem())
 				val.Set(newVal)
 			}
-			return this.unmarshalValue(val.Elem())
+			return this.unmarshalValue(s, val.Elem())
 		}
 		fallthrough
 	default:
@@ -542,7 +546,7 @@ func (this *JSONDict) _unmarshalValue(val reflect.Value) error {
 	return nil
 }
 
-func (this *JSONDict) unmarshalMap(val reflect.Value) error {
+func (this *JSONDict) unmarshalMap(s *sJsonUnmarshalSession, val reflect.Value) error {
 	if val.IsNil() {
 		mapVal := reflect.MakeMap(val.Type())
 		val.Set(mapVal)
@@ -561,7 +565,7 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 		}
 		valVal := reflect.New(valType.Elem()).Elem()
 
-		err := v.unmarshalValue(valVal)
+		err := v.unmarshalValue(s, valVal)
 		if err != nil {
 			return errors.Wrap(err, "JSONDict.unmarshalMap")
 		}
@@ -570,7 +574,7 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 	return nil
 }
 
-func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStructFieldValueSet, keyIndexMap map[string][]int, visited map[string]bool) error {
+func setStructFieldAt(s *sJsonUnmarshalSession, key string, v JSONObject, fieldValues reflectutils.SStructFieldValueSet, keyIndexMap map[string][]int, visited map[string]bool) error {
 	if visited == nil {
 		visited = make(map[string]bool)
 	}
@@ -592,13 +596,13 @@ func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStruct
 		if fieldValues[index].Parent != nil && fieldValues[index].Parent.Field.IsNil() {
 			fieldValues[index].Parent.Field.Set(fieldValues[index].Parent.Value)
 		}
-		err := v.unmarshalValue(fieldValues[index].Value)
+		err := v.unmarshalValue(s, fieldValues[index].Value)
 		if err != nil {
 			return errors.Wrap(err, "JSONDict.unmarshalStruct")
 		}
 		depInfo, ok := fieldValues[index].Info.Tags[TAG_DEPRECATED_BY]
 		if ok {
-			err := setStructFieldAt(depInfo, v, fieldValues, keyIndexMap, visited)
+			err := setStructFieldAt(s, depInfo, v, fieldValues, keyIndexMap, visited)
 			if err != nil {
 				return errors.Wrap(err, "setStructFieldAt")
 			}
@@ -607,14 +611,14 @@ func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStruct
 	return nil
 }
 
-func (this *JSONDict) unmarshalStruct(val reflect.Value) error {
+func (this *JSONDict) unmarshalStruct(s *sJsonUnmarshalSession, val reflect.Value) error {
 	fieldValues := reflectutils.FetchStructFieldValueSet(val)
 	keyIndexMap := fieldValues.GetStructFieldIndexesMap()
 	errs := make([]error, 0)
 	for iter := sortedmap.NewIterator(this.data); iter.HasMore(); iter.Next() {
 		k, vinf := iter.Get()
 		v := vinf.(JSONObject)
-		err := setStructFieldAt(k, v, fieldValues, keyIndexMap, nil)
+		err := setStructFieldAt(s, k, v, fieldValues, keyIndexMap, nil)
 		if err != nil {
 			// store error, not interrupt the process
 			errs = append(errs, errors.Wrapf(err, "setStructFieldAt %s: %s", k, v))

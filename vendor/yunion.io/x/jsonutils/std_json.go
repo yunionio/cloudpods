@@ -20,12 +20,12 @@ import (
 	"reflect"
 )
 
-func tryStdUnmarshal(jo JSONObject, v reflect.Value, unmarshalFunc func(value reflect.Value) error) error {
+func tryStdUnmarshal(s *sJsonUnmarshalSession, jo JSONObject, v reflect.Value, unmarshalFunc func(s *sJsonUnmarshalSession, value reflect.Value) error) error {
 	u := IsImplementStdUnmarshaler(v)
 	if u != nil {
 		return u.UnmarshalJSON([]byte(jo.String()))
 	}
-	return unmarshalFunc(v)
+	return unmarshalFunc(s, v)
 }
 
 func IsImplementStdUnmarshaler(v reflect.Value) json.Unmarshaler {

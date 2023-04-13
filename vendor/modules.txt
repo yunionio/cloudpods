@@ -1457,7 +1457,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230413051450-19d2c693bfa2
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230413115903-101c5155da6d
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1536,7 +1536,7 @@ yunion.io/x/cloudmux/pkg/multicloud/zstack/provider
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v1.0.1-0.20230412125709-357258302671
+# yunion.io/x/jsonutils v1.0.1-0.20230413140057-d91bfc944a24
 ## explicit; go 1.12
 yunion.io/x/jsonutils
 # yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
