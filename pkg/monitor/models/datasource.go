@@ -658,7 +658,7 @@ func (self *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement)
 	}
 	for _, tag := range []string{"source", "status", hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE,
 		hostconsts.TELEGRAF_TAG_KEY_RES_TYPE, "is_vm", "os_type", hostconsts.TELEGRAF_TAG_KEY_PLATFORM,
-		hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR, "domain_name", "region"} {
+		hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR, "domain_name", "region", "ips", "vip", "vip_eip", "eip", "eip_mode"} {
 		if _, ok := output.TagValue[tag]; ok {
 			delete(output.TagValue, tag)
 		}
