@@ -30,7 +30,7 @@ import (
 type JSONObject interface {
 	gotypes.ISerializable
 
-	parse(str []byte, offset int) (int, error)
+	parse(s *sJsonParseSession, str []byte, offset int) (int, error)
 	writeSource
 
 	// String() string
@@ -53,7 +53,7 @@ type JSONObject interface {
 	GetString(keys ...string) (string, error)
 	Unmarshal(obj interface{}, keys ...string) error
 	Equals(obj JSONObject) bool
-	unmarshalValue(val reflect.Value) error
+	unmarshalValue(s *sJsonUnmarshalSession, val reflect.Value) error
 	// IsZero() bool
 	Interface() interface{}
 	isCompond() bool
@@ -71,6 +71,8 @@ var (
 type JSONDict struct {
 	JSONValue
 	data sortedmap.SSortedMap
+
+	nodeId int
 }
 
 type JSONArray struct {
@@ -248,12 +250,25 @@ ret2:
 	return string(str[offset:i]), false, i, nil
 }
 
-func parseJSONValue(str []byte, offset int) (JSONObject, int, error) {
+func (s *sJsonParseSession) parseJSONValue(str []byte, offset int) (JSONObject, int, error) {
 	val, quote, i, e := parseString(str, offset)
 	if e != nil {
 		return nil, i, errors.Wrap(e, "parseString")
 	} else if quote {
 		return &JSONString{data: val}, i, nil
+	} else if val[0] == '<' && val[len(val)-1] == '>' {
+		// Pointer <nnnn>
+		val = val[1 : len(val)-1]
+		ival, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return nil, i, errors.Wrapf(errors.ErrInvalidStatus, "invalid node id %s", val)
+		}
+		nodeId := int(ival)
+		ptr := &sJSONPointer{
+			nodeId: nodeId,
+		}
+		s.saveReferer(nodeId, ptr)
+		return ptr, i, nil
 	} else {
 		lval := strings.ToLower(val)
 		if len(lval) == 0 || lval == "null" || lval == "none" {
@@ -362,7 +377,7 @@ func (this *JSONString) prettyString(level int) string {
 	return jsonPrettyString(this, level)
 }
 
-func (this *JSONValue) parse(str []byte, offset int) (int, error) {
+func (this *JSONValue) parse(s *sJsonParseSession, str []byte, offset int) (int, error) {
 	return 0, nil
 }
 
@@ -398,10 +413,11 @@ func (this *JSONBool) prettyString(level int) string {
 	return jsonPrettyString(this, level)
 }
 
-func parseDict(str []byte, offset int) (sortedmap.SSortedMap, int, error) {
+func (s *sJsonParseSession) parseDict(str []byte, offset int) (sortedmap.SSortedMap, int, int, error) {
+	var nodeId int
 	smap := sortedmap.NewSortedMap()
 	if str[offset] != '{' {
-		return smap, offset, NewJSONError(str, offset, "{ not found")
+		return smap, offset, nodeId, NewJSONError(str, offset, "{ not found")
 	}
 	var i = offset + 1
 	var e error = nil
@@ -410,7 +426,7 @@ func parseDict(str []byte, offset int) (sortedmap.SSortedMap, int, error) {
 	for !stop && i < len(str) {
 		i = skipEmpty(str, i)
 		if i >= len(str) {
-			return smap, i, NewJSONError(str, i, "Truncated")
+			return smap, i, nodeId, NewJSONError(str, i, "Truncated")
 		}
 		if str[i] == '}' {
 			stop = true
@@ -419,41 +435,46 @@ func parseDict(str []byte, offset int) (sortedmap.SSortedMap, int, error) {
 		}
 		key, _, i, e = parseString(str, i)
 		if e != nil {
-			return smap, i, errors.Wrap(e, "parseString")
+			return smap, i, nodeId, errors.Wrap(e, "parseString")
 		}
 		if i >= len(str) {
-			return smap, i, NewJSONError(str, i, "Truncated")
+			return smap, i, nodeId, NewJSONError(str, i, "Truncated")
 		}
 		i = skipEmpty(str, i)
 		if i >= len(str) {
-			return smap, i, NewJSONError(str, i, "Truncated")
+			return smap, i, nodeId, NewJSONError(str, i, "Truncated")
 		}
 		if str[i] != ':' {
-			return smap, i, NewJSONError(str, i, ": not found")
+			return smap, i, nodeId, NewJSONError(str, i, ": not found")
 		}
 		i++
 		i = skipEmpty(str, i)
 		if i >= len(str) {
-			return smap, i, NewJSONError(str, i, "Truncated")
+			return smap, i, nodeId, NewJSONError(str, i, "Truncated")
 		}
 		var val JSONObject = nil
 		switch str[i] {
 		case '[':
 			val = &JSONArray{}
-			i, e = val.parse(str, i)
+			i, e = val.parse(s, str, i)
 		case '{':
 			val = &JSONDict{}
-			i, e = val.parse(str, i)
+			i, e = val.parse(s, str, i)
 		default:
-			val, i, e = parseJSONValue(str, i)
+			val, i, e = s.parseJSONValue(str, i)
 		}
 		if e != nil {
-			return smap, i, errors.Wrap(e, "parse misc")
+			return smap, i, nodeId, errors.Wrap(e, "parse misc")
 		}
-		smap = sortedmap.Add(smap, key, val)
+		if key == jsonPointerKey {
+			// node id
+			nodeId = int(val.(*JSONInt).data)
+		} else {
+			smap = sortedmap.Add(smap, key, val)
+		}
 		i = skipEmpty(str, i)
 		if i >= len(str) {
-			return smap, i, NewJSONError(str, i, "Truncated")
+			return smap, i, nodeId, NewJSONError(str, i, "Truncated")
 		}
 		switch str[i] {
 		case ',':
@@ -462,13 +483,13 @@ func parseDict(str []byte, offset int) (sortedmap.SSortedMap, int, error) {
 			i++
 			stop = true
 		default:
-			return smap, i, NewJSONError(str, i, "Unexpected char")
+			return smap, i, nodeId, NewJSONError(str, i, "Unexpected char")
 		}
 	}
-	return smap, i, nil
+	return smap, i, nodeId, nil
 }
 
-func parseArray(str []byte, offset int) ([]JSONObject, int, error) {
+func (s *sJsonParseSession) parseArray(str []byte, offset int) ([]JSONObject, int, error) {
 	if str[offset] != '[' {
 		return nil, offset, NewJSONError(str, offset, "[ not found")
 	}
@@ -491,12 +512,12 @@ func parseArray(str []byte, offset int) ([]JSONObject, int, error) {
 			continue
 		case '[':
 			val = &JSONArray{}
-			i, e = val.parse(str, i)
+			i, e = val.parse(s, str, i)
 		case '{':
 			val = &JSONDict{}
-			i, e = val.parse(str, i)
+			i, e = val.parse(s, str, i)
 		default:
-			val, i, e = parseJSONValue(str, i)
+			val, i, e = s.parseJSONValue(str, i)
 		}
 		if e != nil {
 			return list, i, errors.Wrap(e, "parse misc")
@@ -522,10 +543,14 @@ func parseArray(str []byte, offset int) ([]JSONObject, int, error) {
 	return list, i, nil
 }
 
-func (this *JSONDict) parse(str []byte, offset int) (int, error) {
-	smap, i, e := parseDict(str, offset)
+func (this *JSONDict) parse(s *sJsonParseSession, str []byte, offset int) (int, error) {
+	smap, i, nodeId, e := s.parseDict(str, offset)
 	if e == nil {
+		this.nodeId = nodeId
 		this.data = smap
+		if this.nodeId > 0 {
+			s.saveNode(nodeId, this)
+		}
 		return i, nil
 	}
 	return i, errors.Wrap(e, "parseDict")
@@ -580,8 +605,8 @@ func (this *JSONDict) prettyString(level int) string {
 	return buffer.String()
 }
 
-func (this *JSONArray) parse(str []byte, offset int) (int, error) {
-	val, i, e := parseArray(str, offset)
+func (this *JSONArray) parse(s *sJsonParseSession, str []byte, offset int) (int, error) {
+	val, i, e := s.parseArray(str, offset)
 	if e == nil {
 		this.data = val
 	}
@@ -621,6 +646,7 @@ func ParseString(str string) (JSONObject, error) {
 }
 
 func Parse(str []byte) (JSONObject, error) {
+	s := newJsonParseSession()
 	var i = 0
 	i = skipEmpty(str, i)
 	var val JSONObject = nil
@@ -629,12 +655,12 @@ func Parse(str []byte) (JSONObject, error) {
 		switch str[i] {
 		case '{':
 			val = &JSONDict{}
-			i, e = val.parse(str, i)
+			i, e = val.parse(s, str, i)
 		case '[':
 			val = &JSONArray{}
-			i, e = val.parse(str, i)
+			i, e = val.parse(s, str, i)
 		default:
-			val, i, e = parseJSONValue(str, i)
+			val, i, e = s.parseJSONValue(str, i)
 			// return nil, NewJSONError(str, i, "Invalid JSON string")
 		}
 		if e != nil {
