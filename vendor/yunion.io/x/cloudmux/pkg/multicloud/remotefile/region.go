@@ -102,7 +102,20 @@ func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	storages, err := self.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	for i := range storages {
+		disk, err := storages[i].GetIDiskById(id)
+		if err == nil {
+			return disk, nil
+		}
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
@@ -135,19 +148,61 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 }
 
 func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	hosts, err := self.GetIHosts()
+	if err != nil {
+		return nil, err
+	}
+	for i := range hosts {
+		if hosts[i].GetGlobalId() == id {
+			return hosts[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	storages, err := self.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	for i := range storages {
+		if storages[i].GetGlobalId() == id {
+			return storages[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	zones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudHost{}
+	for i := range zones {
+		hosts, err := zones[i].GetIHosts()
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, hosts...)
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	zones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudStorage{}
+	for i := range zones {
+		storages, err := zones[i].GetIStorages()
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, storages...)
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
