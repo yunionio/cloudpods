@@ -194,7 +194,7 @@ type ICloudRegion interface {
 
 	GetIModelartsPools() ([]ICloudModelartsPool, error)
 	GetIModelartsPoolById(id string) (ICloudModelartsPool, error)
-	CreateIModelartsPool(pool *ModelartsPoolCreateOption) (ICloudModelartsPool, error)
+	CreateIModelartsPool(pool *ModelartsPoolCreateOption, callback func(externalId string)) (ICloudModelartsPool, error)
 	GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error)
 
 	GetIMiscResources() ([]ICloudMiscResource, error)
