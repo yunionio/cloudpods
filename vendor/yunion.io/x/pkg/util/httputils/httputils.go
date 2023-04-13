@@ -554,7 +554,6 @@ func requestInternal(client sClient, ctx context.Context, method THttpMethod, ur
 		header.Set("X-Request-Id", ctxData.RequestId)
 	}
 	req, err := http.NewRequest(string(method), urlStr, body)
-
 	if err != nil {
 		return nil, nil, err
 	}
