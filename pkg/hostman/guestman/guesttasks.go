@@ -2398,6 +2398,7 @@ func (task *SGuestHotplugCpuMemTask) onAddMemDevice(reason string) {
 
 func (task *SGuestHotplugCpuMemTask) updateGuestDesc() {
 	task.Desc.Cpu += int64(task.addedCpuCount)
+	task.Desc.CpuDesc.Cpus += uint(task.addedCpuCount)
 	task.Desc.Mem += int64(task.addedMemSize)
 	if task.addedMemSize > 0 {
 		if task.Desc.MemDesc.MemSlots == nil {
