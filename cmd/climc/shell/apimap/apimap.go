@@ -12,19 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apihelper
+package apimap
 
 import (
-	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"fmt"
+
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/apimap"
 )
 
-type Options struct {
-	common_options.CommonOptions
+func init() {
+	type GetOptions struct{}
+	shell.R(new(GetOptions), "apimap-vpcagent", "Show net map for vpcagent", func(s *mcclient.ClientSession, _ *GetOptions) error {
+		ret, err := apimap.APIMap.GetVPCAgentTopo(s)
+		if err != nil {
+			return err
+		}
+		fmt.Print(ret.YAMLString())
+		return nil
+	})
 
-	SyncIntervalSeconds     int
-	RunDelayMilliseconds    int
-	ListBatchSize           int
-	IncludeDetails          bool
-	IncludeOtherCloudEnv    bool
-	FetchFromComputeService bool
 }

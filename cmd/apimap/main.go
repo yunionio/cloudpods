@@ -12,19 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apihelper
+package main
 
-import (
-	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-)
+import "yunion.io/x/onecloud/pkg/apimap/service"
 
-type Options struct {
-	common_options.CommonOptions
-
-	SyncIntervalSeconds     int
-	RunDelayMilliseconds    int
-	ListBatchSize           int
-	IncludeDetails          bool
-	IncludeOtherCloudEnv    bool
-	FetchFromComputeService bool
+func main() {
+	service.StartService()
 }

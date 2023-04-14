@@ -19,8 +19,11 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apihelper"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/apimap"
 )
 
 type ModelSetsMaxUpdatedAt struct {
@@ -150,6 +153,7 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 
 		mss.Groupguests,
 		mss.Groupnetworks,
+		mss.Groups,
 
 		mss.LoadbalancerNetworks,
 		mss.LoadbalancerListeners,
@@ -181,6 +185,7 @@ func (mss *ModelSets) copy_() *ModelSets {
 
 		Groupguests:   mss.Groupguests.Copy().(Groupguests),
 		Groupnetworks: mss.Groupnetworks.Copy().(Groupnetworks),
+		Groups:        mss.Groups.Copy().(Groups),
 
 		LoadbalancerNetworks:  mss.LoadbalancerNetworks.Copy().(LoadbalancerNetworks),
 		LoadbalancerListeners: mss.LoadbalancerListeners.Copy().(LoadbalancerListeners),
@@ -217,6 +222,18 @@ func (mss *ModelSets) ApplyUpdates(mssNews apihelper.IModelSets) apihelper.Model
 		r.Correct = mss.join()
 	}
 	return r
+}
+
+func (mss *ModelSets) FetchFromAPIMap(s *mcclient.ClientSession) (apihelper.IModelSets, error) {
+	mssNews := mss.NewEmpty()
+	ret, err := apimap.APIMap.GetVPCAgentTopo(s)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetVPCAgentTopo")
+	}
+	if err := ret.Unmarshal(mssNews, "models"); err != nil {
+		return nil, errors.Wrap(err, "Unmarshal topo")
+	}
+	return mssNews, nil
 }
 
 func (mss *ModelSets) join() bool {

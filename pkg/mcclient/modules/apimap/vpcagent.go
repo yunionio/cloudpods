@@ -12,19 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apihelper
+package apimap
 
 import (
-	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-type Options struct {
-	common_options.CommonOptions
+var (
+	APIMap APIMapManager
+)
 
-	SyncIntervalSeconds     int
-	RunDelayMilliseconds    int
-	ListBatchSize           int
-	IncludeDetails          bool
-	IncludeOtherCloudEnv    bool
-	FetchFromComputeService bool
+func init() {
+	APIMap = APIMapManager{
+		ResourceManager: modules.NewAPIMapManager("", "", nil, nil),
+	}
+}
+
+type APIMapManager struct {
+	modulebase.ResourceManager
+}
+
+func (m APIMapManager) GetVPCAgentTopo(s *mcclient.ClientSession) (jsonutils.JSONObject, error) {
+	_, ret, err := modulebase.JsonRequest(m.ResourceManager, s, "GET", "/vpcagent", nil, nil)
+	return ret, err
 }
