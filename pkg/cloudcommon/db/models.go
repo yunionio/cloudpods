@@ -112,7 +112,7 @@ func tableSpecId(tableSpec ITableSpec) string {
 }
 
 func CheckSync(autoSync bool, enableChecksumTables bool, skipInitChecksum bool) bool {
-	log.Infof("Start check database schema ...")
+	log.Infof("Start check database schema: autoSync(%v), enableChecksumTables(%v), skipInitChecksum(%v)", autoSync, enableChecksumTables, skipInitChecksum)
 	inSync := true
 
 	var err error

@@ -45,11 +45,12 @@ type Worker struct {
 func NewWorker(opts *options.Options) worker.IWorker {
 	modelSets := agentmodels.NewModelSets()
 	apiOpts := &apihelper.Options{
-		CommonOptions:        opts.CommonOptions,
-		SyncIntervalSeconds:  opts.APISyncIntervalSeconds,
-		RunDelayMilliseconds: opts.APIRunDelayMilliseconds,
-		ListBatchSize:        opts.APIListBatchSize,
-		IncludeDetails:       false,
+		CommonOptions:           opts.CommonOptions,
+		SyncIntervalSeconds:     opts.APISyncIntervalSeconds,
+		RunDelayMilliseconds:    opts.APIRunDelayMilliseconds,
+		ListBatchSize:           opts.APIListBatchSize,
+		FetchFromComputeService: opts.FetchDataFromComputeService,
+		IncludeDetails:          false,
 
 		IncludeOtherCloudEnv: false,
 	}

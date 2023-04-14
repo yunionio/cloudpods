@@ -34,9 +34,10 @@ const (
 type VpcAgentOptions struct {
 	VpcProvider string `default:"ovn"`
 
-	APISyncIntervalSeconds  int `default:"10"`
-	APIRunDelayMilliseconds int `default:"100"`
-	APIListBatchSize        int `default:"1024"`
+	APISyncIntervalSeconds      int  `default:"10"`
+	APIRunDelayMilliseconds     int  `default:"100"`
+	APIListBatchSize            int  `default:"1024"`
+	FetchDataFromComputeService bool `default:"false"`
 
 	OvnWorkerCheckInterval int    `default:"180"`
 	OvnNorthDatabase       string `help:"address for accessing ovn north database.  Default to local unix socket"`

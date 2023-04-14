@@ -41,6 +41,8 @@ const (
 
 	SERVICE_TYPE_SCHEDULEDTASK = "scheduledtask"
 
+	SERVICE_TYPE_APIMAP = "apimap"
+
 	STATUS_UPDATE_TAGS        = "update_tags"
 	STATUS_UPDATE_TAGS_FAILED = "update_tags_fail"
 
