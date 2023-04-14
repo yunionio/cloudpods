@@ -1,15 +1,15 @@
 ---
 name: Bug report
-about: Create a report to help us improve
-title: ''
+about: 报告代码缺陷/Create a bug report to help us improve
+title: '[BUG]'
 labels: bug
 assignees: ''
 
 ---
 
-**What happened**:
+**问题描述/What happened**:
 
-**Environment**:
+**环境/Environment**:
 
 - OS (e.g. `cat /etc/os-release`):
 - Kernel (e.g. `uname -a`):
