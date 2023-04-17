@@ -545,7 +545,7 @@ github.com/hugozhu/godingtalk
 # github.com/imdario/mergo v0.3.6
 ## explicit
 github.com/imdario/mergo
-# github.com/jaypipes/ghw v0.10.0
+# github.com/jaypipes/ghw v0.10.1-0.20230329185050-227643e14380
 ## explicit; go 1.18
 github.com/jaypipes/ghw/pkg/context
 github.com/jaypipes/ghw/pkg/cpu
@@ -1536,7 +1536,7 @@ yunion.io/x/cloudmux/pkg/multicloud/zstack/provider
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v1.0.1-0.20230413140057-d91bfc944a24
+# yunion.io/x/jsonutils v1.0.1-0.20230417123225-5dcde3e4598b
 ## explicit; go 1.12
 yunion.io/x/jsonutils
 # yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
