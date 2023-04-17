@@ -60,7 +60,7 @@ func (self *SKVMHostDriver) GetHypervisor() string {
 }
 
 func (self *SKVMHostDriver) ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
-	if !utils.IsInStringArray(storage.StorageType, append([]string{api.STORAGE_LOCAL, api.STORAGE_NVME_PT, api.STORAGE_NVME}, api.SHARED_STORAGE...)) {
+	if !utils.IsInStringArray(storage.StorageType, append([]string{api.STORAGE_LOCAL, api.STORAGE_NVME_PT, api.STORAGE_NVME, api.STORAGE_LVM}, api.SHARED_STORAGE...)) {
 		return input, httperrors.NewUnsupportOperationError("Unsupport attach %s storage for %s host", storage.StorageType, host.HostType)
 	}
 	if storage.StorageType == api.STORAGE_RBD {
