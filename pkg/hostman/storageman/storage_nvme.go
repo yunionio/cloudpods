@@ -24,6 +24,10 @@ func (s *SNVMEStorage) GetAvailSizeMb() int {
 	return s.sizeMB
 }
 
+func (s *SNVMEStorage) GetCapacity() int {
+	return s.GetAvailSizeMb()
+}
+
 func (s *SNVMEStorage) SyncStorageSize() (api.SHostStorageStat, error) {
 	stat := api.SHostStorageStat{
 		StorageId: s.StorageId,
