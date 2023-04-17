@@ -175,7 +175,7 @@ func randomString(prefix string, length int) string {
 	return prefix + string(result)
 }
 
-func (self *SRegion) CreateDefaultSecurityGroup(name, description string) (string, error) {
+func (self *SRegion) CreateDefaultSecurityGroup(name, description string, rules []cloudprovider.SecurityRule) (string, error) {
 	// 减少安全组名称冲突
 	name = randomString(name, 4)
 	return self.CreateSecurityGroup(name, description, []string{"TCP|1-65535|0.0.0.0/0|ACCEPT|LOW", "UDP|1-65535|0.0.0.0/0|ACCEPT|LOW", "ICMP||0.0.0.0/0|ACCEPT|LOW"})

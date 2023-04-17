@@ -47,7 +47,7 @@ func (self *SRegion) delSecurityGroupRule(secGrpRuleId string) error {
 	return self.DeleteSecurityGroupRule(secGrpRuleId)
 }
 
-func (self *SRegion) AddSecurityGroupRules(secGrpId string, rule cloudprovider.SecurityRule) error {
+func (self *SRegion) AddSecurityGroupRules(secGrpId string, rule secrules.SecurityRule) error {
 	direction := ""
 	if rule.Direction == secrules.SecurityRuleIngress {
 		direction = "ingress"
@@ -82,22 +82,6 @@ func (self *SRegion) AddSecurityGroupRules(secGrpId string, rule cloudprovider.S
 		}
 	}
 
-	return nil
-}
-
-func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	for _, r := range append(inDels, outDels...) {
-		err := self.region.delSecurityGroupRule(r.ExternalId)
-		if err != nil {
-			return errors.Wrapf(err, "delSecurityGroupRule(%s)", r.ExternalId)
-		}
-	}
-	for _, r := range append(inAdds, outAdds...) {
-		err := self.region.AddSecurityGroupRules(self.ResSecurityGroupID, r)
-		if err != nil {
-			return errors.Wrapf(err, "addSecurityGroupRule(%d %s)", r.Priority, r.String())
-		}
-	}
 	return nil
 }
 
@@ -214,7 +198,6 @@ func (self *SSecurityGroup) GetSecurityRule(remoteRule SSecurityGroupRule) (clou
 	}
 
 	rule := cloudprovider.SecurityRule{
-		ExternalId: remoteRule.ID,
 		SecurityRule: secrules.SecurityRule{
 			Priority:    1,
 			Action:      secrules.SecurityRuleAllow,
@@ -247,13 +230,12 @@ func (self *SRegion) GetSecurityGroupDetails(groupId string) (*SSecurityGroup, e
 		return nil, errors.Wrap(err, "SRegion.GetSecurityGroupDetails")
 	}
 
-	ret := &SSecurityGroup{}
+	ret := &SSecurityGroup{region: self}
 	err = resp.Unmarshal(&ret, "returnObj")
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetSecurityGroupDetails.Unmarshal")
 	}
 
-	ret.region = self
 	return ret, nil
 }
 
@@ -284,14 +266,14 @@ func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
 	return ret, nil
 }
 
-func (self *SRegion) CreateSecurityGroup(vpcId, name string) (*SSecurityGroup, error) {
+func (self *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
 	params := map[string]jsonutils.JSONObject{
 		"regionId": jsonutils.NewString(self.GetId()),
-		"name":     jsonutils.NewString(name),
+		"name":     jsonutils.NewString(opts.Name),
 	}
 
-	if len(vpcId) > 0 && vpcId != apis.NORMAL_VPC_ID {
-		params["vpcId"] = jsonutils.NewString(vpcId)
+	if len(opts.VpcId) > 0 && opts.VpcId != apis.NORMAL_VPC_ID {
+		params["vpcId"] = jsonutils.NewString(opts.VpcId)
 	}
 
 	resp, err := self.client.DoPost("/apiproxy/v3/createSecurityGroup", params)
@@ -304,12 +286,34 @@ func (self *SRegion) CreateSecurityGroup(vpcId, name string) (*SSecurityGroup, e
 		return nil, errors.Wrap(err, "SRegion.CreateSecurityGroup.GetSecgroupId")
 	}
 
+	if opts.OnCreated != nil {
+		opts.OnCreated(secgroupId)
+	}
+
 	secgroup, err := self.GetSecurityGroupDetails(secgroupId)
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.CreateSecurityGroup.GetISecurityGroupById")
 	}
 
-	secgroup.region = self
+	secRules, _ := self.GetSecurityGroupRules(secgroup.GetId())
+	for _, rule := range secRules {
+		if len(rule.RemoteGroupId) > 0 || rule.Ethertype != "IPv4" {
+			continue
+		}
+		err := self.delSecurityGroupRule(rule.ID)
+		if err != nil {
+			return nil, errors.Wrapf(err, "delete rule %s", rule.ID)
+		}
+	}
+
+	rules := opts.InRules.AllowList()
+	rules = append(rules, opts.OutRules.AllowList()...)
+	for _, r := range rules {
+		err := self.AddSecurityGroupRules(secgroup.ResSecurityGroupID, r)
+		if err != nil {
+			return nil, errors.Wrapf(err, "addSecurityGroupRule(%d %s)", r.Priority, r.String())
+		}
+	}
 	return secgroup, nil
 }
 

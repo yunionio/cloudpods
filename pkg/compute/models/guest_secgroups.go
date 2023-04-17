@@ -67,12 +67,6 @@ func (self *SGuest) PerformAddSecgroup(
 		secgroupIds = append(secgroupIds, secgroup.Id)
 	}
 
-	reg, err := self.getRegion()
-	if err != nil {
-		return nil, errors.Wrap(err, "getRegion")
-	}
-	supportPeerSecgrp := reg.GetDriver().IsSupportPeerSecgroup()
-
 	secgroupNames := []string{}
 	for _, secgroupId := range input.SecgroupIds {
 		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
@@ -90,14 +84,6 @@ func (self *SGuest) PerformAddSecgroup(
 
 		if utils.IsInStringArray(secgrp.GetId(), secgroupIds) {
 			return nil, httperrors.NewInputParameterError("security group %s has already been assigned to guest %s", secgrp.GetName(), self.Name)
-		}
-
-		hasPeerSecgrp, err := secgrp.(*SSecurityGroup).HasPeerSecgroup()
-		if err != nil {
-			return nil, errors.Wrap(err, "secgrp.HasPeerSecgroup")
-		}
-		if hasPeerSecgrp && !supportPeerSecgrp {
-			return nil, errors.Wrap(httperrors.ErrNotSupported, "guest not support peer security group")
 		}
 
 		secgroupIds = append(secgroupIds, secgrp.GetId())
@@ -271,19 +257,6 @@ func (self *SGuest) performAssignSecgroup(
 		return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secObj.GetName())
 	}
 
-	reg, err := self.getRegion()
-	if err != nil {
-		return nil, errors.Wrap(err, "getRegion")
-	}
-	supportPeerSecgrp := reg.GetDriver().IsSupportPeerSecgroup()
-	hasPeerSecgrp, err := secObj.(*SSecurityGroup).HasPeerSecgroup()
-	if err != nil {
-		return nil, errors.Wrap(err, "secgrp.HasPeerSecgroup")
-	}
-	if hasPeerSecgrp && !supportPeerSecgrp {
-		return nil, errors.Wrap(httperrors.ErrNotSupported, "guest not support peer security group")
-	}
-
 	err = self.saveDefaultSecgroupId(userCred, input.SecgroupId, isAdmin)
 	if err != nil {
 		return nil, err
@@ -317,12 +290,6 @@ func (self *SGuest) PerformSetSecgroup(
 		return nil, httperrors.NewUnsupportOperationError("guest %s band to up to %d security groups", self.Name, maxCount)
 	}
 
-	reg, err := self.getRegion()
-	if err != nil {
-		return nil, errors.Wrap(err, "getRegion")
-	}
-	supportPeerSecgrp := reg.GetDriver().IsSupportPeerSecgroup()
-
 	secgroupIds := []string{}
 	secgroupNames := []string{}
 	for _, secgroupId := range input.SecgroupIds {
@@ -340,20 +307,12 @@ func (self *SGuest) PerformSetSecgroup(
 		}
 
 		if !utils.IsInStringArray(secgrp.GetId(), secgroupIds) {
-			hasPeerSecgrp, err := secgrp.(*SSecurityGroup).HasPeerSecgroup()
-			if err != nil {
-				return nil, errors.Wrap(err, "secgrp.HasPeerSecgroup")
-			}
-			if hasPeerSecgrp && !supportPeerSecgrp {
-				return nil, errors.Wrap(httperrors.ErrNotSupported, "guest not support peer security group")
-			}
-
 			secgroupIds = append(secgroupIds, secgrp.GetId())
 			secgroupNames = append(secgroupNames, secgrp.GetName())
 		}
 	}
 
-	err = self.saveSecgroups(ctx, userCred, secgroupIds)
+	err := self.saveSecgroups(ctx, userCred, secgroupIds)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "saveSecgroups"))
 	}

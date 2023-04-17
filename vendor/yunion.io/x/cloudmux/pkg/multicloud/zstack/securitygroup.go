@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -101,7 +100,6 @@ func (self *SSecurityGroup) GetDescription() string {
 
 func (rule *SSecurityGroupRule) toRule() (cloudprovider.SecurityRule, error) {
 	r := cloudprovider.SecurityRule{
-		ExternalId: rule.UUID,
 		SecurityRule: secrules.SecurityRule{
 			Direction: secrules.DIR_IN,
 			Action:    secrules.SecurityRuleAllow,
@@ -118,15 +116,12 @@ func (rule *SSecurityGroupRule) toRule() (cloudprovider.SecurityRule, error) {
 	if rule.Protocol != "ALL" {
 		r.Protocol = strings.ToLower(rule.Protocol)
 	}
-	err := r.ValidateRule()
-	if err != nil {
-		return r, errors.Wrap(err, "invalid rule")
-	}
 	return r, nil
 }
 
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	rules := []cloudprovider.SecurityRule{}
+	rules = append(rules, cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")})
 	for i := 0; i < len(self.Rules); i++ {
 		if self.Rules[i].IPVersion == 4 {
 			rule, err := self.Rules[i].toRule()
@@ -163,7 +158,7 @@ func (self *SSecurityGroup) GetProjectId() string {
 	return ""
 }
 
-func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []cloudprovider.SecurityRule) error {
+func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []secrules.SecurityRule) error {
 	ruleParam := []map[string]interface{}{}
 	for _, rule := range rules {
 		Type := "Ingress"
@@ -236,27 +231,24 @@ func (region *SRegion) DeleteSecurityGroupRules(ruleIds []string) error {
 	return nil
 }
 
-func (region *SRegion) CreateSecurityGroup(name, desc string) (*SSecurityGroup, error) {
+func (region *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
 	secgroup := &SSecurityGroup{region: region}
 	params := map[string]map[string]string{
 		"params": {
-			"name":        name,
-			"description": desc,
+			"name":        opts.Name,
+			"description": opts.Desc,
 		},
 	}
-	return secgroup, region.client.create("security-groups", jsonutils.Marshal(params), secgroup)
-}
-
-func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	deleteIds := []string{}
-	for _, r := range append(inDels, outDels...) {
-		deleteIds = append(deleteIds, r.ExternalId)
-	}
-	err := self.region.DeleteSecurityGroupRules(deleteIds)
+	err := region.client.create("security-groups", jsonutils.Marshal(params), secgroup)
 	if err != nil {
-		return errors.Wrapf(err, "DeleteSecurityGroupRules(%s)", deleteIds)
+		return nil, err
 	}
-	return self.region.AddSecurityGroupRule(self.UUID, append(inAdds, outAdds...))
+	if opts.OnCreated != nil {
+		opts.OnCreated(secgroup.UUID)
+	}
+	rules := opts.InRules.AllowList()
+	rules = append(rules, opts.OutRules.AllowList()...)
+	return secgroup, region.AddSecurityGroupRule(secgroup.UUID, rules)
 }
 
 func (self *SSecurityGroup) Delete() error {

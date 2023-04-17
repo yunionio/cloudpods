@@ -25,7 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
@@ -504,18 +504,10 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		return rows
 	}
 
-	peerSecgroupIds := []string{}
-	for _, rule := range rules {
-		if len(rule.PeerSecgroupId) > 0 {
-			peerSecgroupIds = append(peerSecgroupIds, rule.PeerSecgroupId)
-		}
-	}
-
-	peerMaps, err := db.FetchIdNameMap2(SecurityGroupManager, peerSecgroupIds)
+	totalCnt, err := manager.TotalCnt(secgroupIds)
 	if err != nil {
 		return rows
 	}
-
 	ruleMaps := map[string][]SSecurityGroupRule{}
 	for i := range rules {
 		if _, ok := ruleMaps[rules[i].SecgroupId]; !ok {
@@ -534,9 +526,6 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		for j := range rules {
 			rule := api.SecgroupRuleDetails{}
 			jsonutils.Update(&rule, rules[j])
-			if len(rules[j].PeerSecgroupId) > 0 {
-				rule.PeerSecgroup, _ = peerMaps[rules[j].PeerSecgroupId]
-			}
 			_rules = append(_rules, rule)
 			switch rule.Direction {
 			case secrules.DIR_IN:
@@ -552,19 +541,8 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		rows[i].GuestCnt, _ = normalGuestMaps[secgroupIds[i]]
 		rows[i].AdminGuestCnt, _ = adminGuestMaps[secgroupIds[i]]
 		rows[i].SystemGuestCnt, _ = systemGuestMaps[secgroupIds[i]]
-	}
-	withCache, _ := query.Bool("with_cache")
-	if withCache {
-		secgroupIds := make([]string, len(secgroups))
-		for i := range secgroups {
-			secgroupIds[i] = secgroups[i].Id
-		}
-		cacheDetails, err := manager.GetCacheDetails(ctx, userCred, secgroupIds)
-		if err != nil {
-			log.Errorf("unable to Get cacheDetails: %v", err)
-		}
-		for i := range rows {
-			rows[i].CloudCaches = cacheDetails[secgroupIds[i]]
+		if cnt, ok := totalCnt[secgroupIds[i]]; ok {
+			rows[i].TotalCnt = cnt.TotalCnt
 		}
 	}
 	return rows
@@ -678,44 +656,42 @@ func (self *SSecurityGroup) getSecurityRules() ([]SSecurityGroupRule, error) {
 	return rules, nil
 }
 
-func (self *SSecurityGroup) GetSecuritRuleSet() (cloudprovider.SecurityRuleSet, error) {
-	ruleSet := cloudprovider.SecurityRuleSet{}
+func (self *SSecurityGroup) GetSecuritRuleSet() ([]SSecurityGroupRule, secrules.SecurityRuleSet, secrules.SecurityRuleSet, error) {
 	rules, err := self.getSecurityRules()
 	if err != nil {
-		return ruleSet, errors.Wrapf(err, "getSecurityRules")
+		return nil, nil, nil, errors.Wrapf(err, "getSecurityRules")
 	}
+	in, out := secrules.SecurityRuleSet{}, secrules.SecurityRuleSet{}
 	for i := range rules {
-		//这里没必要拆分为单个单个的端口,到公有云那边适配
 		rule, err := rules[i].toRule()
 		if err != nil {
-			return nil, errors.Wrapf(err, "toRule")
+			return nil, nil, nil, errors.Wrapf(err, "toRule")
 		}
-		ruleSet = append(ruleSet, cloudprovider.SecurityRule{
-			SecurityRule: *rule,
-			ExternalId:   rules[i].Id,
-		})
-	}
-	return ruleSet, nil
-}
-
-/*
-func (self *SSecurityGroup) GetSecRules() ([]secrules.SecurityRule, error) {
-	rules := make([]secrules.SecurityRule, 0)
-	_rules, err := self.getSecurityRules()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getSecurityRules()")
-	}
-	for _, _rule := range _rules {
-		//这里没必要拆分为单个单个的端口,到公有云那边适配
-		rule, err := _rule.toRule()
-		if err != nil {
-			return nil, errors.Wrapf(err, "toRule")
+		if rule.Protocol != secrules.PROTO_ICMP && len(rule.Ports) > 0 {
+			ports := rule.Ports
+			rule.Ports = []int{}
+			for _, port := range ports {
+				rule.PortStart, rule.PortEnd = port, port
+				switch rule.Direction {
+				case secrules.DIR_IN:
+					in = append(in, *rule)
+				case secrules.DIR_OUT:
+					out = append(out, *rule)
+				}
+			}
+		} else {
+			switch rule.Direction {
+			case secrules.DIR_IN:
+				in = append(in, *rule)
+			case secrules.DIR_OUT:
+				out = append(out, *rule)
+			}
 		}
-		rules = append(rules, *rule)
 	}
-	return rules, nil
+	outAllowAny := secrules.MustParseSecurityRule("out:allow any")
+	out = append(out, *outAllowAny)
+	return rules, in, out, nil
 }
-*/
 
 func (self *SSecurityGroup) getSecurityRuleString() (string, error) {
 	secgrouprules, err := self.getSecurityRules()
@@ -762,60 +738,36 @@ func (self *SSecurityGroup) PerformUncacheSecgroup(ctx context.Context, userCred
 	return nil, cache.StartSecurityGroupCacheDeleteTask(ctx, userCred, "")
 }
 
-func (self *SSecurityGroup) PerformCacheSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", nil)
-	err := vpcV.Validate(data.(*jsonutils.JSONDict))
+func (self *SSecurityGroup) PerformCacheSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.SecurityGroupCacheInput) (jsonutils.JSONObject, error) {
+	vpcObj, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
 	if err != nil {
 		return nil, err
 	}
-	vpc := vpcV.Model.(*SVpc)
+	vpc := vpcObj.(*SVpc)
 	if len(vpc.ExternalId) == 0 {
 		return nil, httperrors.NewInputParameterError("vpc %s(%s) is not a managed resouce", vpc.Name, vpc.Id)
 	}
 
-	region, err := vpc.GetRegion()
-	if err != nil {
-		return nil, err
-	}
-	classic, _ := data.Bool("classic")
-	if classic && !region.GetDriver().IsSupportClassicSecurityGroup() {
-		return nil, httperrors.NewInputParameterError("Not support cache classic security group")
+	manager := vpc.GetCloudprovider()
+	if manager == nil {
+		return nil, httperrors.NewInputParameterError("vpc %s(%s) is not a managed resouce", vpc.Name, vpc.Id)
 	}
 
-	hasPeerSg, err := self.HasPeerSecgroup()
-	if err != nil {
-		return nil, errors.Wrap(err, "HasPeerSecgroup")
-	}
-	if hasPeerSg && !region.GetDriver().IsSupportPeerSecgroup() {
-		return nil, httperrors.NewConflictError("target region not support peer secgroup")
+	if !manager.IsAvailable() {
+		return nil, httperrors.NewInputParameterError("cloudprovider %s(%s) is not available", manager.Name, manager.Id)
 	}
 
-	return nil, self.StartSecurityGroupCacheTask(ctx, userCred, vpc.Id, classic, "")
+	return nil, self.StartSecurityGroupCacheTask(ctx, userCred, vpc.Id, "")
 }
 
-func (sg *SSecurityGroup) HasPeerSecgroup() (bool, error) {
-	rules, err := sg.getSecurityRules()
-	if err != nil {
-		return false, errors.Wrap(err, "GetSecRules")
-	}
-	for _, r := range rules {
-		if len(r.PeerSecgroupId) > 0 {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (self *SSecurityGroup) StartSecurityGroupCacheTask(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, classic bool, parentTaskId string) error {
+func (self *SSecurityGroup) StartSecurityGroupCacheTask(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(vpcId), "vpc_id")
-	params.Add(jsonutils.NewBool(classic), "classic")
 	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupCacheTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SSecurityGroup) PerformAddRule(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -979,8 +931,8 @@ func (self *SSecurityGroup) PerformMerge(ctx context.Context, userCred mcclient.
 }
 
 func (self *SSecurityGroup) GetAllowList() (secrules.SecurityRuleSet, secrules.SecurityRuleSet, error) {
-	in := secrules.SecurityRuleSet{*secrules.MustParseSecurityRule("in:deny any")}
-	out := secrules.SecurityRuleSet{*secrules.MustParseSecurityRule("out:allow any")}
+	in := secrules.SecurityRuleSet{}
+	out := secrules.SecurityRuleSet{}
 	rules, err := self.getSecurityRules()
 	if err != nil {
 		return in, out, errors.Wrapf(err, "GetSecRules")
@@ -993,6 +945,8 @@ func (self *SSecurityGroup) GetAllowList() (secrules.SecurityRuleSet, secrules.S
 			out = append(out, *r)
 		}
 	}
+	in = append(in, *secrules.MustParseSecurityRule("in:deny any"))
+	out = append(out, *secrules.MustParseSecurityRule("out:allow any"))
 	return in.AllowList(), out.AllowList(), nil
 }
 
@@ -1052,81 +1006,140 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 	}
 }
 
-func (self *SSecurityGroup) removeRules(ruleIds []string, result *compare.SyncResult) {
-	if len(ruleIds) == 0 {
-		return
-	}
-	rules := []SSecurityGroupRule{}
-	q := SecurityGroupRuleManager.Query().In("id", ruleIds)
-	err := db.FetchModelObjects(SecurityGroupRuleManager, q, &rules)
-	if err != nil {
-		result.DeleteError(errors.Wrapf(err, "db.FetchModelObjects"))
-		return
-	}
-	for i := range rules {
-		err = rules[i].Delete(context.TODO(), nil)
-		if err != nil {
-			result.DeleteError(errors.Wrapf(err, "delte rule %s", rules[i].Id))
-			continue
-		}
-		result.Delete()
-	}
+func (self *SSecurityGroup) clearRules() error {
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"delete from %s where secgroup_id = ?",
+			SecurityGroupRuleManager.TableSpec().Name(),
+		), self.Id,
+	)
+	return err
 }
 
-func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, src cloudprovider.SecRuleInfo) ([]SSecurityGroupRule, compare.SyncResult) {
-	result := compare.SyncResult{}
-	localRules, err := self.GetSecuritRuleSet()
+func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, cache *SSecurityGroupCache, provider *SCloudprovider, ext cloudprovider.ICloudSecurityGroup) error {
+	cacheCount, err := self.GetSecgroupCacheCount()
 	if err != nil {
-		result.Error(errors.Wrapf(err, "GetSecuritRuleSet"))
-		return nil, result
+		return errors.Wrapf(err, "GetSecgroupCacheCount")
 	}
 
-	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
-	dest.Rules = localRules
-
-	_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
-	if len(inAdds)+len(inDels)+len(outAdds)+len(outDels) == 0 {
-		return nil, result
+	kvmGuests, err := self.GetKvmGuests()
+	if err != nil {
+		return errors.Wrapf(err, "GetKvmGuests")
 	}
 
-	ruleIds := []string{}
-	for _, dels := range [][]cloudprovider.SecurityRule{inDels, outDels} {
-		for i := range dels {
-			if len(dels[i].ExternalId) > 0 {
-				ruleIds = append(ruleIds, dels[i].ExternalId)
-			}
-		}
+	if (cacheCount > 1 || len(kvmGuests) > 0) && !options.Options.EnableAutoSplitSecurityGroup {
+		return nil
 	}
 
-	self.removeRules(ruleIds, &result)
+	extRules, extInRules, extOutRules, err := cloudprovider.GetSecurityGroupRules(ext)
+	if err != nil {
+		return errors.Wrapf(err, "GetSecurityGroupRules")
+	}
 
-	rules := []SSecurityGroupRule{}
-	for _, adds := range [][]cloudprovider.SecurityRule{inAdds, outAdds} {
-		for i := range adds {
-			rule, isNeedFix, err := self.newFromCloudSecurityGroupRule(ctx, userCred, adds[i])
+	extInAllow := extInRules.AllowList()
+	extOutAllow := extOutRules.AllowList()
+
+	dbRules, in, out, err := self.GetSecuritRuleSet()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecuritRuleSet")
+	}
+	inAllow := in.AllowList()
+	outAllow := out.AllowList()
+	if extInAllow.Equals(inAllow) && extOutAllow.Equals(outAllow) {
+		return nil
+	}
+
+	if cacheCount > 1 || len(kvmGuests) > 0 {
+		if options.Options.EnableAutoSplitSecurityGroup {
+			secgroup, err := SecurityGroupManager.newFromCloudSecgroup(ctx, userCred, provider, ext)
 			if err != nil {
-				result.AddError(errors.Wrapf(err, "newFromCloudSecurityGroupRule"))
-				continue
+				return errors.Wrapf(err, "newFromCloudSecgroup")
 			}
-			if isNeedFix && rule != nil {
-				rules = append(rules, *rule)
+			notes := map[string]interface{}{
+				"old secgroup_id":     cache.SecgroupId,
+				"old in allow rules":  inAllow.String(),
+				"new in allow rules":  extInAllow.String(),
+				"ext in rules":        extInRules,
+				"old out allow rules": outAllow.String(),
+				"new out allow rules": extOutAllow.String(),
+				"ext out rules:":      extOutRules,
 			}
-			result.Add()
+			logclient.AddSimpleActionLog(secgroup, logclient.ACT_SYNC_CONF, notes, userCred, true)
+			_, err = db.Update(cache, func() error {
+				cache.SecgroupId = secgroup.Id
+				return nil
+			})
+			return err
 		}
+		return nil
 	}
 
-	log.Infof("Sync Rules for Secgroup %s(%s) result: %s", self.Name, self.Id, result.Result())
-	return rules, result
+	err = self.clearRules()
+	if err != nil {
+		return errors.Wrapf(err, "clearRules")
+	}
+
+	self.syncRules(ctx, extInRules)
+	self.syncRules(ctx, extOutRules)
+
+	notes := map[string]interface{}{
+		"old in allow rules":  inAllow.String(),
+		"new in allow rules":  extInAllow.String(),
+		"old out allow rules": outAllow.String(),
+		"new out allow rules": extOutAllow.String(),
+		"old rules":           dbRules,
+		"new rules":           extRules,
+	}
+	logclient.AddSimpleActionLog(self, logclient.ACT_SYNC_CONF, notes, userCred, true)
+	return nil
 }
 
-func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, []SSecurityGroupRule, error) {
-	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(provider.Provider))
-	var err error
-	dest.Rules, err = extSec.GetRules()
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "extSec.GetRules")
+func (self *SSecurityGroup) syncRules(ctx context.Context, rules secrules.SecurityRuleSet) error {
+	errs := []error{}
+	priority := 100
+	var action secrules.TSecurityRuleAction
+	for i := 0; i < len(rules); i++ {
+		if len(action) == 0 {
+			action = rules[i].Action
+		}
+		if action != rules[i].Action && priority > 1 {
+			action = rules[i].Action
+			priority--
+		}
+
+		lockman.LockObject(ctx, self)
+		defer lockman.ReleaseObject(ctx, self)
+
+		dbRule := &SSecurityGroupRule{}
+		dbRule.SetModelManager(SecurityGroupRuleManager, dbRule)
+		dbRule.Direction = string(rules[i].Direction)
+		dbRule.Protocol = rules[i].Protocol
+		dbRule.Priority = int64(priority)
+		dbRule.Ports = rules[i].GetPortsString()
+		dbRule.CIDR = "0.0.0.0/0"
+		if rules[i].IPNet != nil && rules[i].IPNet.String() != "<nil>" {
+			dbRule.CIDR = rules[i].IPNet.String()
+		}
+		dbRule.Action = string(rules[i].Action)
+		dbRule.SecgroupId = self.Id
+		dbRule.Description = rules[i].Description
+		err := SecurityGroupRuleManager.TableSpec().Insert(ctx, dbRule)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "insert"))
+		}
 	}
-	src := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
+	return errors.NewAggregate(errs)
+}
+
+func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+
+	_, extInRules, extOutRules, err := cloudprovider.GetSecurityGroupRules(extSec)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSecurityGroupRules")
+	}
+
+	extInAllow := extInRules.AllowList()
+	extOutAllow := extOutRules.AllowList()
 
 	if options.Options.EnableAutoMergeSecurityGroup {
 		// 查询与provider在同域的安全组，比对寻找一个与云上安全组规则相同的安全组
@@ -1134,17 +1147,18 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		q := manager.Query().Equals("domain_id", provider.DomainId)
 		err = db.FetchModelObjects(manager, q, &secgroups)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "db.FetchModelObjects")
+			return nil, errors.Wrap(err, "db.FetchModelObjects")
 		}
 		for i := range secgroups {
-			src.Rules, err = secgroups[i].GetSecuritRuleSet()
+			_, in, out, err := secgroups[i].GetSecuritRuleSet()
 			if err != nil {
 				log.Warningf("GetSecuritRuleSet %s(%s) error: %v", secgroups[i].Name, secgroups[i].Id, err)
 				continue
 			}
-			_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
-			if len(inAdds) == 0 && len(outAdds) == 0 && len(inDels) == 0 && len(outDels) == 0 {
-				return &secgroups[i], nil, nil
+			inAllow := in.AllowList()
+			outAllow := out.AllowList()
+			if extInAllow.Equals(inAllow) && extOutAllow.Equals(outAllow) {
+				return &secgroups[i], nil
 			}
 		}
 	}
@@ -1173,17 +1187,18 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		return manager.TableSpec().Insert(ctx, &secgroup)
 	}()
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "Insert")
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	rules, _ := secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
+	secgroup.syncRules(ctx, extInRules)
+	secgroup.syncRules(ctx, extOutRules)
 
 	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    &secgroup,
 		Action: notifyclient.ActionSyncCreate,
 	})
-	return &secgroup, rules, nil
+	return &secgroup, nil
 }
 
 func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mcclient.TokenCredential, idStr string) error {
@@ -1217,17 +1232,6 @@ func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mc
 			guest.StartSyncTask(ctx, userCred, true, "")
 		}
 	}
-	return secgrp.StartSecurityGroupSyncRulesTask(ctx, userCred, "")
-}
-
-func (self *SSecurityGroup) StartSecurityGroupSyncRulesTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupSyncRulesTask", self, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrapf(err, "NewTask")
-	}
-	self.SetStatus(userCred, api.SECGROUP_STATUS_SYNC_RULES, "")
-	task.ScheduleRun(nil)
 	return nil
 }
 
@@ -1244,7 +1248,7 @@ func (self *SSecurityGroup) DoSync(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (manager *SSecurityGroupManager) InitializeData() error {
-	_, err := manager.FetchById("default")
+	_, err := manager.FetchById(api.SECGROUP_DEFAULT_ID)
 	if err != nil && err != sql.ErrNoRows {
 		return errors.Wrapf(err, `manager.FetchById("default")`)
 	}
@@ -1280,9 +1284,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		}
 	}
 	guests := make([]SGuest, 0)
-	q := GuestManager.Query()
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("secgrp_id")), sqlchemy.IsNull(q.Field("secgrp_id"))))
-
+	q := GuestManager.Query().Equals("hypervisor", api.HYPERVISOR_KVM).IsNullOrEmpty("secgrp_id")
 	err = db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {
 		log.Errorf("fetch guests without secgroup fail %s", err)
@@ -1290,7 +1292,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 	}
 	for i := 0; i < len(guests); i += 1 {
 		db.Update(&guests[i], func() error {
-			guests[i].SecgrpId = "default"
+			guests[i].SecgrpId = api.SECGROUP_DEFAULT_ID
 			return nil
 		})
 	}
@@ -1310,17 +1312,6 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 	}
 
 	return nil
-}
-
-func (self *SSecurityGroup) GetSecurityGroupReferences() ([]SSecurityGroup, error) {
-	sq := SecurityGroupRuleManager.Query("secgroup_id").Equals("peer_secgroup_id", self.Id).Distinct().SubQuery()
-	q := SecurityGroupManager.Query().In("id", sq)
-	groups := []SSecurityGroup{}
-	err := db.FetchModelObjects(SecurityGroupManager, q, &groups)
-	if err != nil {
-		return nil, errors.Wrapf(err, "db.FetchModelObjects")
-	}
-	return groups, nil
 }
 
 func (sm *SSecurityGroupManager) query(manager db.IModelManager, field, label string, secIds []string) *sqlchemy.SSubQuery {
@@ -1386,19 +1377,19 @@ func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context, info js
 	if self.Id == options.Options.DefaultAdminSecurityGroupId {
 		return httperrors.NewProtectedResourceError("not allow to delete default admin security group")
 	}
-	cnts, err := SecurityGroupManager.TotalCnt([]string{self.Id})
-	if err != nil {
-		return errors.Wrapf(err, "SecurityGroupManager.TotalCnt")
-	}
-	if cnt, ok := cnts[self.Id]; ok && cnt.TotalCnt > 0 {
-		return httperrors.NewNotEmptyError("the security group %s is in use cnt: %s", self.Id, jsonutils.Marshal(cnt).String())
-	}
-	references, err := self.GetSecurityGroupReferences()
-	if err != nil {
-		return httperrors.NewGeneralError(err)
-	}
-	if len(references) > 0 {
-		return httperrors.NewNotEmptyError("the other security group is in use")
+	if !gotypes.IsNil(info) {
+		cnt, _ := info.Int("total_cnt")
+		if cnt > 0 {
+			return httperrors.NewNotEmptyError("the security group %s is in use cnt: %d", self.Id, cnt)
+		}
+	} else {
+		cnts, err := SecurityGroupManager.TotalCnt([]string{self.Id})
+		if err != nil {
+			return errors.Wrapf(err, "SecurityGroupManager.TotalCnt")
+		}
+		if cnt, ok := cnts[self.Id]; ok && cnt.TotalCnt > 0 {
+			return httperrors.NewNotEmptyError("the security group %s is in use cnt: %s", self.Id, jsonutils.Marshal(cnt).String())
+		}
 	}
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
@@ -1424,10 +1415,9 @@ func (self *SSecurityGroup) StartDeleteSecurityGroupTask(ctx context.Context, us
 	self.SetStatus(userCred, api.SECGROUP_STATUS_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "SecurityGroupDeleteTask")
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SSecurityGroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -1467,22 +1457,6 @@ func (sg *SSecurityGroup) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
-}
-
-// 获取引用信息
-func (self *SSecurityGroup) GetDetailsReferences(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]cloudprovider.SecurityGroupReference, error) {
-	groups, err := self.GetSecurityGroupReferences()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetSecurityGroupReferences")
-	}
-	ret := []cloudprovider.SecurityGroupReference{}
-	for i := range groups {
-		ret = append(ret, cloudprovider.SecurityGroupReference{
-			Id:   groups[i].Id,
-			Name: groups[i].Name,
-		})
-	}
-	return ret, nil
 }
 
 func (self *SSecurityGroup) PerformImportRules(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SecgroupImportRulesInput) (jsonutils.JSONObject, error) {

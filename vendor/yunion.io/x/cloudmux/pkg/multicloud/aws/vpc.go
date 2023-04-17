@@ -40,8 +40,7 @@ type SVpc struct {
 
 	region *SRegion
 
-	iwires    []cloudprovider.ICloudWire
-	secgroups []cloudprovider.ICloudSecurityGroup
+	iwires []cloudprovider.ICloudWire
 
 	RegionId                string
 	VpcId                   string
@@ -118,15 +117,17 @@ func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
 }
 
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	if self.secgroups == nil {
-		err := self.fetchSecurityGroups()
-		if err != nil {
-			return nil, errors.Wrap(err, "fetchSecurityGroups")
-		}
+	secgroups, err := self.region.GetSecurityGroups(self.VpcId, "", "")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetSecurityGroups")
 	}
-	return self.secgroups, nil
+	ret := []cloudprovider.ICloudSecurityGroup{}
+	for i := range secgroups {
+		secgroups[i].region = self.region
+		ret = append(ret, &secgroups[i])
+	}
+	return ret, nil
 }
-
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	tables, err := self.region.GetRouteTables(self.GetId(), false)
 	if err != nil {
@@ -241,24 +242,6 @@ func (self *SVpc) revokeSecurityGroup(secgroupId string, instanceId string, keep
 
 func (self *SVpc) assignSecurityGroup(secgroupId string, instanceId string) error {
 	return self.region.assignSecurityGroup(secgroupId, instanceId)
-}
-
-func (self *SVpc) fetchSecurityGroups() error {
-	if len(self.VpcId) == 0 {
-		return fmt.Errorf("fetchSecurityGroups vpc id is empty")
-	}
-
-	secgroups, _, err := self.region.GetSecurityGroups(self.VpcId, "", "", 0, 0)
-	if err != nil {
-		return errors.Wrap(err, "GetSecurityGroups")
-	}
-
-	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
-	for i := 0; i < len(secgroups); i++ {
-		secgroups[i].vpc = self
-		self.secgroups[i] = &secgroups[i]
-	}
-	return nil
 }
 
 func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {

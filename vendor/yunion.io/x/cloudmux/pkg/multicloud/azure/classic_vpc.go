@@ -88,16 +88,7 @@ func (self *SClassicVpc) Delete() error {
 }
 
 func (self *SClassicVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := self.region.ListSecgroups()
-	if err != nil {
-		return nil, errors.Wrapf(err, "ListSecgroups")
-	}
-	ret := []cloudprovider.ICloudSecurityGroup{}
-	for i := range secgroups {
-		secgroups[i].region = self.region
-		ret = append(ret, &secgroups[i])
-	}
-	return ret, nil
+	return []cloudprovider.ICloudSecurityGroup{}, nil
 }
 
 func (self *SClassicVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {

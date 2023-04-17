@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -56,26 +55,6 @@ func (self *SAliyunRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
 
 func (self *SAliyunRegionDriver) GenerateSecurityGroupName(name string) string {
 	return name
-}
-
-func (self *SAliyunRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
-}
-
-func (self *SAliyunRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
-}
-
-func (self *SAliyunRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 1
-}
-
-func (self *SAliyunRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 100
-}
-
-func (self *SAliyunRegionDriver) IsSupportPeerSecgroup() bool {
-	return true
 }
 
 func (self *SAliyunRegionDriver) GetProvider() string {

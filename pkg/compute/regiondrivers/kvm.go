@@ -69,10 +69,6 @@ func (self *SKVMRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
-func (self *SKVMRegionDriver) IsSupportPeerSecgroup() bool {
-	return true
-}
-
 func (self *SKVMRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
 	return false
 }

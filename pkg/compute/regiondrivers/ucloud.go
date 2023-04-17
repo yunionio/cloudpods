@@ -17,9 +17,7 @@ package regiondrivers
 import (
 	"context"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -43,22 +41,6 @@ func (self *SUcloudRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
 
 func (self *SUcloudRegionDriver) GenerateSecurityGroupName(name string) string {
 	return name
-}
-
-func (self *SUcloudRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
-}
-
-func (self *SUcloudRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
-}
-
-func (self *SUcloudRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 3
-}
-
-func (self *SUcloudRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 1
 }
 
 func (self *SUcloudRegionDriver) GetProvider() string {

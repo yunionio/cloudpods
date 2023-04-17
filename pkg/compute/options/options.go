@@ -170,6 +170,7 @@ type ComputeOptions struct {
 	common_options.DBOptions
 
 	EnableAutoMergeSecurityGroup bool `help:"Enable auto merge secgroup when sync security group from cloud, default False" default:"false"`
+	EnableAutoSplitSecurityGroup bool `help:"Enable auto split secgroup when sync security group with diffrent rules from cloud, default False" default:"true"`
 	DeleteSnapshotExpiredRelease bool `help:"Should the virtual machine be automatically deleted when the virtual machine expires?" default:"false"`
 	DeleteEipExpiredRelease      bool `help:"Should the EIP  be automatically deleted when the virtual machine expires?" default:"false"`
 	DeleteDisksExpiredRelease    bool `help:"Should the Disks be automatically deleted when the virtual machine expires?" default:"false"`

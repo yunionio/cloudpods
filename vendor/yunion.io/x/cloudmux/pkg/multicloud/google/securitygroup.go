@@ -90,11 +90,10 @@ func (firewall *SFirewall) _toRules(action secrules.TSecurityRuleAction) ([]clou
 	}
 	for _, allow := range list {
 		rule := cloudprovider.SecurityRule{
-			ExternalId: firewall.SelfLink,
 			SecurityRule: secrules.SecurityRule{
 				Action:    action,
 				Direction: secrules.DIR_IN,
-				Priority:  firewall.Priority,
+				Priority:  65535 - firewall.Priority,
 			},
 		}
 		if firewall.Direction == "EGRESS" {
@@ -117,7 +116,9 @@ func (firewall *SFirewall) _toRules(action secrules.TSecurityRuleAction) ([]clou
 			ports := []int{}
 			for _, port := range allow.Ports {
 				if strings.Index(port, "-") > 0 {
-					port = strings.Replace(port, "0-", "1-", 1)
+					if strings.HasPrefix(port, "0-") {
+						port = strings.Replace(port, "0-", "1-", 1)
+					}
 					err := rule.ParsePorts(port)
 					if err != nil {
 						return nil, errors.Wrapf(err, "Parse port %s", port)
@@ -203,15 +204,17 @@ func (secgroup *SSecurityGroup) Refresh() error {
 	return nil
 }
 
-func (secgroup *SSecurityGroup) Delete() error {
-	rules, err := secgroup.GetRules()
+func (self *SSecurityGroup) Delete() error {
+	firewalls, err := self.gvpc.client.GetFirewalls(self.gvpc.SelfLink, 0, "")
 	if err != nil {
-		return errors.Wrap(err, "GetRules")
+		return err
 	}
-	for _, rule := range rules {
-		err = secgroup.gvpc.client.DeleteSecgroupRule(rule)
-		if err != nil {
-			return errors.Wrapf(err, "DeleteSecgroupRule(%s)", rule.Description)
+	for _, firewall := range firewalls {
+		if len(self.Tag) > 0 && utils.IsInStringArray(self.Tag, firewall.TargetTags) || len(self.ServiceAccount) > 0 && utils.IsInStringArray(self.ServiceAccount, firewall.TargetServiceAccounts) {
+			err = self.gvpc.client.ecsDelete(firewall.SelfLink, nil)
+			if err != nil {
+				return errors.Wrapf(err, "delete rule %s", firewall.SelfLink)
+			}
 		}
 	}
 	return nil
@@ -244,9 +247,6 @@ func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	}
 	rules := []cloudprovider.SecurityRule{}
 	for _, firewall := range firewalls {
-		if firewall.Priority == 65535 { // skip 65535 rule, because it not work
-			continue
-		}
 		_rules, err := firewall.toRules()
 		if err != nil {
 			return nil, err
@@ -254,58 +254,6 @@ func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 		rules = append(rules, _rules...)
 	}
 	return rules, nil
-}
-
-func (self *SGoogleClient) DeleteSecgroupRule(rule cloudprovider.SecurityRule) error {
-	firwall, err := self.GetFirewall(rule.ExternalId)
-	if err != nil {
-		return errors.Wrap(err, "region.GetFirewall")
-	}
-	currentRule, err := firwall.toRules()
-	if err != nil {
-		return errors.Wrap(err, "firwall.toRules")
-	}
-	if len(currentRule) > 1 {
-		for _, _rule := range currentRule {
-			if _rule.String() != rule.String() {
-				for _, tag := range firwall.TargetTags {
-					err = self.CreateSecurityGroupRule(_rule, firwall.Network, tag, "")
-					if err != nil {
-						return errors.Wrap(err, "region.CreateSecurityGroupRule")
-					}
-				}
-				for _, serviceAccount := range firwall.TargetServiceAccounts {
-					err = self.CreateSecurityGroupRule(_rule, firwall.Network, "", serviceAccount)
-					if err != nil {
-						return errors.Wrap(err, "region.CreateSecurityGroupRule")
-					}
-				}
-				if len(firwall.TargetTags)+len(firwall.TargetServiceAccounts) == 0 {
-					err = self.CreateSecurityGroupRule(_rule, firwall.Network, "", "")
-					if err != nil {
-						return errors.Wrap(err, "region.CreateSecurityGroupRule")
-					}
-				}
-			}
-		}
-	}
-	return self.ecsDelete(firwall.SelfLink, nil)
-}
-
-func (secgroup *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	for _, r := range append(inDels, outDels...) {
-		err := secgroup.gvpc.client.DeleteSecgroupRule(r)
-		if err != nil {
-			return errors.Wrap(err, "DeleteSecgroupRule")
-		}
-	}
-	for _, r := range append(inAdds, outAdds...) {
-		err := secgroup.gvpc.client.CreateSecurityGroupRule(r, secgroup.gvpc.SelfLink, secgroup.Tag, secgroup.ServiceAccount)
-		if err != nil {
-			return errors.Wrapf(err, "CreateSecurityGroupRule(%s)", r.String())
-		}
-	}
-	return nil
 }
 
 func (region *SRegion) GetISecurityGroupById(id string) (cloudprovider.ICloudSecurityGroup, error) {
@@ -369,6 +317,7 @@ func (self *SGoogleClient) CreateSecurityGroupRule(rule cloudprovider.SecurityRu
 	}
 	if rule.Direction == secrules.DIR_OUT {
 		body["direction"] = "EGRESS"
+		body["destinationRanges"] = []string{rule.IPNet.String()}
 	} else {
 		body["sourceRanges"] = []string{rule.IPNet.String()}
 	}
@@ -418,17 +367,33 @@ func (self *SGoogleClient) CreateSecurityGroupRule(rule cloudprovider.SecurityRu
 	return nil
 }
 
-func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	gvpc, err := region.client.GetGlobalNetwork(conf.VpcId)
+func (region *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	gvpc, err := region.client.GetGlobalNetwork(opts.VpcId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "region.GetIVpcById(%s)", conf.VpcId)
+		return nil, errors.Wrapf(err, "region.GetIVpcById(%s)", opts.VpcId)
 	}
-	secgroup := &SSecurityGroup{gvpc: gvpc, Tag: strings.ToLower(conf.Name)}
-	r := *secrules.MustParseSecurityRule("out:allow any")
-	r.Priority = 1000
-	rule := cloudprovider.SecurityRule{
-		Name:         "default-rule",
-		SecurityRule: r,
+	secgroup := &SSecurityGroup{gvpc: gvpc, Tag: strings.ToLower(opts.Name)}
+	var syncRules = func(rules []cloudprovider.SecurityRule) error {
+		if len(rules) == 0 {
+			return nil
+		}
+		offset := 65534 / (len(rules) + 1)
+		for i := range rules {
+			rules[i].Priority = 65533 - i*offset
+			err := secgroup.gvpc.client.CreateSecurityGroupRule(rules[i], secgroup.gvpc.SelfLink, secgroup.Tag, secgroup.ServiceAccount)
+			if err != nil {
+				return errors.Wrapf(err, "CreateSecurityGroupRule")
+			}
+		}
+		return nil
 	}
-	return secgroup, secgroup.gvpc.client.CreateSecurityGroupRule(rule, secgroup.gvpc.SelfLink, secgroup.Tag, secgroup.ServiceAccount)
+	err = syncRules(opts.InRules)
+	if err != nil {
+		return nil, err
+	}
+	err = syncRules(opts.OutRules)
+	if err != nil {
+		return nil, err
+	}
+	return secgroup, nil
 }

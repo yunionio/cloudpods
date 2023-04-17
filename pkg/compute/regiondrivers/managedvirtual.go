@@ -1260,24 +1260,22 @@ func (self *SManagedVirtualizationRegionDriver) RequestPreSnapshotPolicyApply(ct
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) (string, error) {
+func (self *SManagedVirtualizationRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc) (string, error) {
 	if region.GetDriver().IsSecurityGroupBelongGlobalVpc() {
 		gvpc, err := vpc.GetGlobalVpc()
 		if err != nil {
 			return "", err
 		}
 		return gvpc.ExternalId, nil
-	} else if region.GetDriver().IsSupportClassicSecurityGroup() && (classic || (host != nil && strings.HasSuffix(host.Name, "-classic"))) {
-		return "classic", nil
 	} else if region.GetDriver().IsSecurityGroupBelongVpc() {
 		return vpc.ExternalId, nil
 	}
 	return region.GetDriver().GetDefaultSecurityGroupVpcId(), nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, remoteProjectId, service string, skipSyncRule bool) (string, error) {
-	lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s-%s", secgroup.Id, vpcId, vpc.ManagerId))
-	defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s-%s", secgroup.Id, vpcId, vpc.ManagerId))
+func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, remoteProjectId, service string) (string, error) {
+	lockman.LockRawObject(ctx, models.SecurityGroupCacheManager.Keyword(), fmt.Sprintf("%s-%s-%s", secgroup.Id, vpcId, vpc.ManagerId))
+	defer lockman.ReleaseRawObject(ctx, models.SecurityGroupCacheManager.Keyword(), fmt.Sprintf("%s-%s-%s", secgroup.Id, vpcId, vpc.ManagerId))
 
 	region, err := vpc.GetRegion()
 	if err != nil {
@@ -1293,25 +1291,21 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 		return "", errors.Wrap(err, "SSecurityGroupCache.Register")
 	}
 
-	_, isNew, err := cache.GetOrCreateISecurityGroup(ctx)
+	_, err = cache.GetOrCreateISecurityGroup(ctx)
 	if err != nil {
 		return "", errors.Wrapf(err, "GetOrCreateISecurityGroup")
 	}
 
-	if isNew {
-		skipSyncRule = false
-	}
-
-	return cache.ExternalId, cache.SyncRules(ctx, skipSyncRule)
+	return cache.ExternalId, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, classic bool, removeProjectId string, task taskman.ITask) error {
-	vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, classic)
+func (self *SManagedVirtualizationRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, removeProjectId string, task taskman.ITask) error {
+	vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc)
 	if err != nil {
 		return errors.Wrap(err, "GetSecurityGroupVpcId")
 	}
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		_, err := self.RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup, removeProjectId, "", false)
+		_, err := self.RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup, removeProjectId, "")
 		return nil, err
 	})
 	return nil
@@ -1385,11 +1379,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			return nil, errors.Wrapf(err, "GetSecgroups")
 		}
 		for i := range secgroups {
-			vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc)
 			if err != nil {
 				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
 			}
-			secId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, &secgroups[i], desc.ProjectId, "", true)
+			secId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, &secgroups[i], desc.ProjectId, "")
 			if err != nil {
 				return nil, errors.Wrap(err, "SyncSecurityGroup")
 			}
@@ -1547,11 +1541,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 			return nil, errors.Wrapf(err, "GetSecgroups")
 		}
 		for i := range secgroups {
-			vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc)
 			if err != nil {
 				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
 			}
-			secId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, &secgroups[i], desc.ProjectId, "", true)
+			secId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, &secgroups[i], desc.ProjectId, "")
 			if err != nil {
 				return nil, errors.Wrap(err, "SyncSecurityGroup")
 			}
@@ -2895,13 +2889,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecgroupsForElasticca
 			if err != nil {
 				return nil, errors.Wrapf(err, "GetRegion")
 			}
-			vpcId, err := self.GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			vpcId, err := self.GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc)
 			if err != nil {
 				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
 			}
 
 			for i := range ess {
-				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, ess[i].GetSecGroup(), "", "redis", true)
+				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, ess[i].GetSecGroup(), "", "redis")
 				if err != nil {
 					return nil, errors.Wrap(err, "RequestSyncSecurityGroup")
 				}
@@ -3013,7 +3007,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncRdsSecurityGroups(ctx
 		}
 		secgroupIds := []string{}
 		for i := range secgroups {
-			secgroupId, err := self.RequestSyncSecurityGroup(ctx, userCred, vpc.ExternalId, vpc, &secgroups[i], iRds.GetProjectId(), "rds", true)
+			secgroupId, err := self.RequestSyncSecurityGroup(ctx, userCred, vpc.ExternalId, vpc, &secgroups[i], iRds.GetProjectId(), "rds")
 			if err != nil {
 				return nil, errors.Wrapf(err, "RequestSyncSecurityGroup")
 			}
