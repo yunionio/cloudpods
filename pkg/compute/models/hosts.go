@@ -2068,16 +2068,16 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 		accessIp := extHost.GetAccessIp()
 		if len(accessIp) == 0 {
 			msg := fmt.Sprintf("fail to find wire for host %s: empty host access ip", extHost.GetName())
-			log.Errorf(msg)
 			return nil, fmt.Errorf(msg)
 		}
 		wire, err := WireManager.GetOnPremiseWireOfIp(accessIp)
 		if err != nil {
-			msg := fmt.Sprintf("fail to find wire for host %s %s: %s", extHost.GetName(), accessIp, err)
-			log.Errorf(msg)
-			return nil, fmt.Errorf(msg)
+			return nil, errors.Wrapf(err, "GetOnPremiseWireOfIp for host %s with ip %s", extHost.GetName(), accessIp)
 		}
-		izone, _ = wire.GetZone()
+		izone, err = wire.GetZone()
+		if err != nil {
+			return nil, errors.Wrapf(err, "get zone for wire %s", wire.Name)
+		}
 	}
 
 	host.ExternalId = extHost.GetGlobalId()
