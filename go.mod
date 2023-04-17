@@ -32,7 +32,7 @@ require (
 	github.com/gosuri/uitable v0.0.0-20160404203958-36ee7e946282
 	github.com/hako/durafmt v0.0.0-20180520121703-7b7ae1e72ead
 	github.com/hugozhu/godingtalk v1.0.6
-	github.com/jaypipes/ghw v0.10.0
+	github.com/jaypipes/ghw v0.10.1-0.20230329185050-227643e14380
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/lestrrat-go/jwx v1.0.2
 	github.com/lestrrat/go-jwx v0.0.0-20180221005942-b7d4802280ae
@@ -86,7 +86,7 @@ require (
 	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230413115903-101c5155da6d
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
-	yunion.io/x/jsonutils v1.0.1-0.20230413140057-d91bfc944a24
+	yunion.io/x/jsonutils v1.0.1-0.20230417123225-5dcde3e4598b
 	yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.0.1-0.20230327034731-79f520e7d373
