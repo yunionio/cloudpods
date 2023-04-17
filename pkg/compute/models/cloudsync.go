@@ -290,8 +290,7 @@ func syncRegionVPCs(
 
 			syncVpcWires(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			if localRegion.GetDriver().IsSecurityGroupBelongVpc() ||
-				(localRegion.GetDriver().IsSecurityGroupBelongGlobalVpc() && !utils.IsInStringArray(localVpcs[j].GlobalvpcId, globalVpcIds)) ||
-				localRegion.GetDriver().IsSupportClassicSecurityGroup() || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
+				(localRegion.GetDriver().IsSecurityGroupBelongGlobalVpc() && !utils.IsInStringArray(localVpcs[j].GlobalvpcId, globalVpcIds)) || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
 				if len(localVpcs[j].GlobalvpcId) > 0 {
 					globalVpcIds = append(globalVpcIds, localVpcs[j].GlobalvpcId)
 				}

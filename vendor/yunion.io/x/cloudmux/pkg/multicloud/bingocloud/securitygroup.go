@@ -262,6 +262,11 @@ func (self *SRegion) deleteSecurityGroup(id string) error {
 	return err
 }
 
+type SecurityGroupCreateOutput struct {
+	Return  bool
+	GroupId string
+}
+
 func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	params := map[string]string{}
 	if len(conf.Name) > 0 {
@@ -272,8 +277,12 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 		return nil, err
 	}
 
-	ret := &cloudprovider.SecurityGroupCreateOutput{}
+	ret := &SecurityGroupCreateOutput{}
 	_ = resp.Unmarshal(&ret)
+
+	if conf.OnCreated != nil {
+		conf.OnCreated(ret.GroupId)
+	}
 
 	if ret.Return {
 		//rule := cloudprovider.SecurityRule{

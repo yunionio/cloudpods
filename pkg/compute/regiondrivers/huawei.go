@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -53,26 +52,6 @@ func (self *SHuaWeiRegionDriver) GenerateSecurityGroupName(name string) string {
 		return "DefaultGroup"
 	}
 	return name
-}
-
-func (self *SHuaWeiRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
-}
-
-func (self *SHuaWeiRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
-}
-
-func (self *SHuaWeiRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 0
-}
-
-func (self *SHuaWeiRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 0
-}
-
-func (self *SHuaWeiRegionDriver) IsOnlySupportAllowRules() bool {
-	return true
 }
 
 func (self *SHuaWeiRegionDriver) GetProvider() string {

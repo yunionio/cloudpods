@@ -29,7 +29,6 @@ import (
 	"net"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
@@ -193,7 +192,6 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string) (cloudprovider.Securi
 	}
 
 	rule := cloudprovider.SecurityRule{
-		ExternalId: ruleId,
 		SecurityRule: secrules.SecurityRule{
 			Priority:    1,
 			Action:      secrules.SecurityRuleAllow,
@@ -257,20 +255,4 @@ func (self *SSecurityGroup) GetProjectId() string {
 
 func (self *SSecurityGroup) Delete() error {
 	return self.region.DeleteSecurityGroup(self.ID)
-}
-
-func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	for _, r := range append(inDels, outDels...) {
-		err := self.region.delSecurityGroupRule(r.ExternalId)
-		if err != nil {
-			return errors.Wrapf(err, "delSecurityGroupRule(%s %s)", r.ExternalId, r.String())
-		}
-	}
-	for _, r := range append(inAdds, outAdds...) {
-		err := self.region.addSecurityGroupRules(self.ID, r)
-		if err != nil {
-			return errors.Wrapf(err, "addSecurityGroupRule(%d %s)", r.Priority, r.String())
-		}
-	}
-	return nil
 }

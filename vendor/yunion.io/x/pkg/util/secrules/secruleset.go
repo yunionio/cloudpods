@@ -84,6 +84,7 @@ func (srs SecurityRuleSet) equals(srs1 SecurityRuleSet) bool {
 //  - same direction
 //
 func (srs SecurityRuleSet) AllowList() SecurityRuleSet {
+	srs = srs.uniq()
 	r := SecurityRuleSet{}
 	wq := make(SecurityRuleSet, len(srs))
 	copy(wq, srs)
@@ -118,6 +119,19 @@ func (srs SecurityRuleSet) cutOutFirst() SecurityRuleSet {
 		r = append(r, cut...)
 	}
 	return r
+}
+
+// remove duplicate rules
+func (srs SecurityRuleSet) uniq() SecurityRuleSet {
+	for i := len(srs) - 1; i > 0; i-- {
+		sr0 := &srs[i-1]
+		sr1 := &srs[i]
+		if sr0.String() != sr1.String() {
+			continue
+		}
+		srs = append(srs[:i], srs[i+1:]...)
+	}
+	return srs
 }
 
 // collapse result of AllowList
@@ -181,11 +195,18 @@ func (srs SecurityRuleSet) collapse() SecurityRuleSet {
 		if !sr0.netEquals(sr1) {
 			continue
 		}
-		if len(sr0.Ports) > 0 && len(sr1.Ports) > 0 {
+		if (len(sr0.Ports) > 0 || (sr0.PortStart == sr0.PortEnd && sr0.PortStart > 0)) && (len(sr1.Ports) > 0 || (sr1.PortStart == sr1.PortEnd && sr1.PortStart > 0)) {
 			ps := newPortsFromInts(sr0.Ports...)
 			ps = append(ps, newPortsFromInts(sr1.Ports...)...)
+			if sr0.PortStart == sr0.PortEnd && sr0.PortStart > 0 {
+				ps = append(ps, uint16(sr0.PortStart))
+			}
+			if sr1.PortStart == sr1.PortEnd && sr1.PortStart > 0 {
+				ps = append(ps, uint16(sr1.PortStart))
+			}
 			ps = ps.dedup()
 			sr0.Ports = ps.IntSlice()
+			sr0.PortStart, sr0.PortEnd = -1, -1
 			srs1 = append(srs1[:i], srs1[i+1:]...)
 		} else if sr0.PortStart > 0 && sr1.PortStart > 0 && sr0.PortEnd > 0 && sr1.PortEnd > 0 {
 			if sr0.PortEnd == sr1.PortStart-1 {
@@ -200,6 +221,7 @@ func (srs SecurityRuleSet) collapse() SecurityRuleSet {
 			// save that contains, intersects
 		}
 	}
+
 	for i := range srs1 {
 		sr := &srs1[i]
 		if sr.PortStart <= 1 && sr.PortEnd >= 65535 {
@@ -249,6 +271,12 @@ func (srs SecurityRuleSet) collapse() SecurityRuleSet {
 	result := SecurityRuleSet{}
 	for _, srs := range needMerged {
 		result = append(result, srs.mergeNet()...)
+	}
+
+	result = result.uniq()
+	for i := range result {
+		sr := &result[i]
+		sr.Priority = 1
 	}
 	return result
 }

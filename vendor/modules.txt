@@ -545,7 +545,7 @@ github.com/hugozhu/godingtalk
 # github.com/imdario/mergo v0.3.6
 ## explicit
 github.com/imdario/mergo
-# github.com/jaypipes/ghw v0.10.1-0.20230329185050-227643e14380 => github.com/wanyaoqi/ghw v0.10.1
+# github.com/jaypipes/ghw v0.10.1-0.20230329185050-227643e14380
 ## explicit; go 1.18
 github.com/jaypipes/ghw/pkg/context
 github.com/jaypipes/ghw/pkg/cpu
@@ -1457,7 +1457,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230420032540-1c19d25fb1fa
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230428051550-621cd3dd1771
 ## explicit; go 1.18
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1548,7 +1548,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.0.1-0.20230420104238-bbd084afbdfe
+# yunion.io/x/pkg v1.0.1-0.20230427104242-202edd119017
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
@@ -1613,4 +1613,3 @@ yunion.io/x/sqlchemy/backends/sqlite
 # yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
 ## explicit; go 1.12
 yunion.io/x/structarg
-# github.com/jaypipes/ghw => github.com/wanyaoqi/ghw v0.10.1

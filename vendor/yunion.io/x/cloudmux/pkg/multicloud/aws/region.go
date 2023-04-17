@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -927,38 +928,47 @@ func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, total, err := self.GetSecurityGroups("", "", secgroupId, 0, 1)
+func (self *SRegion) GetISecurityGroupById(id string) (cloudprovider.ICloudSecurityGroup, error) {
+	ret, err := self.GetSecurityGroup(id)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSecurityGroups")
 	}
-	if total == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	if total > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &secgroups[0], nil
+	return ret, nil
 }
 
 func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, total, err := self.GetSecurityGroups(opts.VpcId, opts.Name, "", 0, 1)
+	secgroups, err := self.GetSecurityGroups(opts.VpcId, opts.Name, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSecurityGroups")
 	}
-	if total == 0 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range secgroups {
+		if secgroups[i].GetName() == opts.Name {
+			secgroups[i].region = self
+			return &secgroups[i], nil
+		}
 	}
-	if total > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &secgroups[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, opts.Name)
 }
 
-func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	groupId, err := self.CreateSecurityGroup(conf.VpcId, conf.Name, "", conf.Desc)
+func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	groupId, err := self.CreateSecurityGroup(opts.VpcId, opts.Name, opts.Desc)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateSecurityGroup")
+	}
+	if opts.OnCreated != nil {
+		opts.OnCreated(groupId)
+	}
+	self.RemoveSecurityGroupRule(groupId, *secrules.MustParseSecurityRule("in:allow any"))
+	self.RemoveSecurityGroupRule(groupId, *secrules.MustParseSecurityRule("out:allow any"))
+	inRules := opts.InRules.AllowList()
+	outRules := opts.OutRules.AllowList()
+	err = self.AddSecurityGroupRule(groupId, secrules.DIR_IN, inRules)
+	if err != nil {
+		return nil, errors.Wrapf(err, "AddSecurityGroupRule")
+	}
+	err = self.AddSecurityGroupRule(groupId, secrules.DIR_OUT, outRules)
+	if err != nil {
+		return nil, errors.Wrapf(err, "AddSecurityGroupRule")
 	}
 	return self.GetISecurityGroupById(groupId)
 }

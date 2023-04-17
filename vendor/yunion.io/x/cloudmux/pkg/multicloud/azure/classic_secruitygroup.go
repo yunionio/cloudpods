@@ -152,7 +152,6 @@ func (self *SClassicSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, err
 			continue
 		}
 		rule.Name = secgrouprules[i].Name
-		rule.ExternalId = secgrouprules[i].ID
 		if err := rule.ValidateRule(); err != nil && err != secrules.ErrInvalidPriority {
 			return nil, errors.Wrap(err, "rule.ValidateRule")
 		}
@@ -300,34 +299,4 @@ func (self *SRegion) addClassicSecgroupRule(secgroupId string, rule SClassicSecu
 
 func (self *SClassicSecurityGroup) GetProjectId() string {
 	return getResourceGroup(self.ID)
-}
-
-func (self *SClassicSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	for _, r := range append(inDels, outDels...) {
-		err := self.region.del(r.ExternalId)
-		if err != nil {
-			return errors.Wrapf(err, "Delete(%s)", r.ExternalId)
-		}
-		for _, r := range append(inAdds, outAdds...) {
-			_rules, err := convertClassicSecurityGroupRules(r)
-			if err != nil {
-				return errors.Wrapf(err, "convertClassicSecurityGroupRules(%s)", r.String())
-			}
-			names := []string{}
-			for _, r := range _rules {
-				for {
-					if !utils.IsInStringArray(r.Name, names) {
-						names = append(names, r.Name)
-						break
-					}
-					r.Name = fmt.Sprintf("%s_", r.Name)
-				}
-				err = self.region.addClassicSecgroupRule(self.ID, r)
-				if err != nil {
-					return errors.Wrap(err, "addClassicSecgroupRule")
-				}
-			}
-		}
-	}
-	return nil
 }

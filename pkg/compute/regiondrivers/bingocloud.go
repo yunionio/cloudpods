@@ -18,9 +18,6 @@ import (
 	"context"
 	"strings"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/pkg/util/secrules"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -52,14 +49,6 @@ func (self *SBingoCloudRegionDriver) GenerateSecurityGroupName(name string) stri
 
 func (self *SBingoCloudRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return false
-}
-
-func (self *SBingoCloudRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:allow any")}
-}
-
-func (self *SBingoCloudRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
 }
 
 func (self *SBingoCloudRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
