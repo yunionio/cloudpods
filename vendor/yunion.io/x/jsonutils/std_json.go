@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+
+	"yunion.io/x/pkg/gotypes"
 )
 
 func tryStdUnmarshal(s *sJsonUnmarshalSession, jo JSONObject, v reflect.Value, unmarshalFunc func(s *sJsonUnmarshalSession, value reflect.Value) error) error {
@@ -103,17 +105,19 @@ func indirectStdMarshaler(v reflect.Value) json.Marshaler {
 }
 
 func tryStdMarshal(v reflect.Value, marshalFunc func(v reflect.Value) JSONObject) JSONObject {
-	m := IsImplementStdMarshaler(v)
-	if m != nil {
-		data, err := m.MarshalJSON()
-		if err != nil {
-			panic(fmt.Sprintf("MarshalJSON of %q error: %v", v.String(), err))
+	if v.Type() != gotypes.TimeType {
+		m := IsImplementStdMarshaler(v)
+		if m != nil {
+			data, err := m.MarshalJSON()
+			if err != nil {
+				panic(fmt.Sprintf("MarshalJSON of %q error: %v", v.String(), err))
+			}
+			jo, err := Parse(data)
+			if err != nil {
+				panic(fmt.Sprintf("Parse data %q to json of %q error: %v", data, v.String(), err))
+			}
+			return jo
 		}
-		jo, err := Parse(data)
-		if err != nil {
-			panic(fmt.Sprintf("Parse data %q to json of %q error: %v", data, v.String(), err))
-		}
-		return jo
 	}
 	return marshalFunc(v)
 }
