@@ -39,6 +39,21 @@ func (self *SLocalStorageDriver) ValidateCreateData(ctx context.Context, userCre
 func (self *SLocalStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {
 }
 
+type SLVMStorageDriver struct {
+	SBaseStorageDriver
+}
+
+func (self *SLVMStorageDriver) GetStorageType() string {
+	return api.STORAGE_LVM
+}
+
+func (self *SLVMStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.StorageCreateInput) error {
+	return nil
+}
+
+func (self *SLVMStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {
+}
+
 type SNVMEPassthroughStorageDriver struct {
 	SBaseStorageDriver
 }
@@ -57,6 +72,8 @@ func (self *SNVMEPassthroughStorageDriver) PostCreate(ctx context.Context, userC
 func init() {
 	driver := SLocalStorageDriver{}
 	nvmeDriver := SNVMEPassthroughStorageDriver{}
+	lvmDriver := SLVMStorageDriver{}
 	models.RegisterStorageDriver(&driver)
 	models.RegisterStorageDriver(&nvmeDriver)
+	models.RegisterStorageDriver(&lvmDriver)
 }

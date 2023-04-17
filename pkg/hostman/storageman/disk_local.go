@@ -539,10 +539,6 @@ func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingD
 }
 
 func (d *SLocalDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	// diskInfo, ok := params.(*jsonutils.JSONDict)
-	// if !ok {
-	// 	return nil, hostutils.ParamsError
-	// }
 	if err := d.Probe(); err != nil {
 		return nil, err
 	}
