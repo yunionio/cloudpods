@@ -471,6 +471,9 @@ type MetricListOptions struct {
 	Interval int
 	// rds
 	Engine string
+
+	// azure 内存,磁盘使用率监控需要查询table storage,会产生额外的存储费用，默认关闭
+	IsSupportAzureTableStorageMetric bool
 }
 
 type MetricValue struct {
