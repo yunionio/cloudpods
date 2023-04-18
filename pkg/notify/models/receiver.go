@@ -117,7 +117,6 @@ func (rm *SReceiverManager) CreateByInsertOrUpdate() bool {
 
 func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ReceiverCreateInput) (api.ReceiverCreateInput, error) {
 	var err error
-	log.Infoln("this is validate SReceiverManager")
 	input.EnabledStatusDomainLevelResourceCreateInput, err = rm.SEnabledStatusDomainLevelResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusDomainLevelResourceCreateInput)
 	if err != nil {
 		return input, err
@@ -146,13 +145,13 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 	if ok := LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); len(input.InternationalMobile.Mobile) > 0 && !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
+	input.Enabled = pTrue
 	for _, cType := range input.EnabledContactTypes {
 		driver := GetDriver(cType)
 		if driver == nil {
 			return input, httperrors.NewInputParameterError("invalid enabled contact type %s", cType)
 		}
 	}
-
 	return input, nil
 }
 
@@ -616,10 +615,10 @@ func (r *SReceiver) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	// 方案：检查请求者对于创建联系人 是否具有system scope
 	allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
 	if allowScope == rbacscope.ScopeSystem {
-		if r.EnabledEmail.Bool() {
+		if utils.IsInStringArray(api.EMAIL, input.EnabledContactTypes) {
 			r.VerifiedEmail = tristate.True
 		}
-		if r.EnabledMobile.Bool() {
+		if utils.IsInStringArray(api.MOBILE, input.EnabledContactTypes) {
 			r.VerifiedMobile = tristate.True
 		}
 	}
