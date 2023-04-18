@@ -177,104 +177,106 @@ func (self *SAzureClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) (
 		return nil, err
 	}
 
-	for metricType, names := range map[cloudprovider.TMetricType][]string{
-		cloudprovider.VM_METRIC_TYPE_MEM_USAGE:  {"/builtin/memory/percentusedmemory", "\\Memory\\% Committed Bytes In Use"},
-		cloudprovider.VM_METRIC_TYPE_DISK_USAGE: {"/builtin/filesystem/percentusedspace", "\\LogicalDisk(_Total)\\% Free Space"},
-	} {
-		filters := []string{}
-		for _, name := range names {
-			filter := fmt.Sprintf("name.value eq '%s'", name)
-			filters = append(filters, filter)
-		}
-		metricDefinitions, err := self.getMetricDefinitions(opts.ResourceId, strings.Join(filters, " or "))
-		if err != nil {
-			log.Errorf("getMetricDefinitions error: %v", err)
-			continue
-		}
-		metric := cloudprovider.MetricValues{}
-		metric.MetricType = metricType
-		header := http.Header{}
-		header.Set("accept", "application/json;odata=minimalmetadata")
-		for _, definition := range metricDefinitions.Value {
-			for _, tables := range definition.MetricAvailabilities {
-				if tables.TimeGrain != "PT1M" {
-					continue
-				}
-				for _, table := range tables.Location.TableInfo {
-					if table.EndTime.Before(opts.EndTime) {
+	if opts.IsSupportAzureTableStorageMetric {
+		for metricType, names := range map[cloudprovider.TMetricType][]string{
+			cloudprovider.VM_METRIC_TYPE_MEM_USAGE:  {"/builtin/memory/percentusedmemory", "\\Memory\\% Committed Bytes In Use"},
+			cloudprovider.VM_METRIC_TYPE_DISK_USAGE: {"/builtin/filesystem/percentusedspace", "\\LogicalDisk(_Total)\\% Free Space"},
+		} {
+			filters := []string{}
+			for _, name := range names {
+				filter := fmt.Sprintf("name.value eq '%s'", name)
+				filters = append(filters, filter)
+			}
+			metricDefinitions, err := self.getMetricDefinitions(opts.ResourceId, strings.Join(filters, " or "))
+			if err != nil {
+				log.Errorf("getMetricDefinitions error: %v", err)
+				continue
+			}
+			metric := cloudprovider.MetricValues{}
+			metric.MetricType = metricType
+			header := http.Header{}
+			header.Set("accept", "application/json;odata=minimalmetadata")
+			for _, definition := range metricDefinitions.Value {
+				for _, tables := range definition.MetricAvailabilities {
+					if tables.TimeGrain != "PT1M" {
 						continue
 					}
-					url := fmt.Sprintf("%s%s%s", tables.Location.TableEndpoint, table.TableName, table.SasToken)
-					_, resp, err := httputils.JSONRequest(httputils.GetDefaultClient(), context.Background(), httputils.GET, url, header, nil, self.debug)
-					if err != nil {
-						log.Errorf("request %s error: %v", url, err)
-						continue
-					}
-					values := &AzureTableMetricData{}
-					resp.Unmarshal(values)
-					for _, v := range values.Value {
-						name := strings.ReplaceAll(v.CounterName, `\\`, `\`)
-						if !utils.IsInStringArray(name, names) {
+					for _, table := range tables.Location.TableInfo {
+						if table.EndTime.Before(opts.EndTime) {
 							continue
 						}
-						if v.Timestamp.After(opts.StartTime) && v.Timestamp.Before(opts.EndTime) {
-							value := v.GetValue()
-							if metricType == cloudprovider.VM_METRIC_TYPE_DISK_USAGE && strings.Contains(strings.ToLower(name), "free") {
-								value = 100 - value
+						url := fmt.Sprintf("%s%s%s", tables.Location.TableEndpoint, table.TableName, table.SasToken)
+						_, resp, err := httputils.JSONRequest(httputils.GetDefaultClient(), context.Background(), httputils.GET, url, header, nil, self.debug)
+						if err != nil {
+							log.Errorf("request %s error: %v", url, err)
+							continue
+						}
+						values := &AzureTableMetricData{}
+						resp.Unmarshal(values)
+						for _, v := range values.Value {
+							name := strings.ReplaceAll(v.CounterName, `\\`, `\`)
+							if !utils.IsInStringArray(name, names) {
+								continue
 							}
-							metric.Values = append(metric.Values, cloudprovider.MetricValue{
-								Timestamp: v.Timestamp,
-								Value:     value,
+							if v.Timestamp.After(opts.StartTime) && v.Timestamp.Before(opts.EndTime) {
+								value := v.GetValue()
+								if metricType == cloudprovider.VM_METRIC_TYPE_DISK_USAGE && strings.Contains(strings.ToLower(name), "free") {
+									value = 100 - value
+								}
+								metric.Values = append(metric.Values, cloudprovider.MetricValue{
+									Timestamp: v.Timestamp,
+									Value:     value,
+								})
+							}
+						}
+					}
+				}
+			}
+			if len(metric.Values) > 0 {
+				ret = append(ret, metric)
+			}
+		}
+
+		if len(opts.OsType) == 0 || strings.Contains(strings.ToLower(opts.OsType), "win") {
+			workspaces, err := self.GetLoganalyticsWorkspaces()
+			if err != nil {
+				return ret, nil
+			}
+			winmetric := cloudprovider.MetricValues{}
+			winmetric.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_USAGE
+			winmetric.Values = []cloudprovider.MetricValue{}
+			for i := range workspaces {
+				data, err := self.GetInstanceDiskUsage(workspaces[i].SLoganalyticsWorkspaceProperties.CustomerId, opts.ResourceId, opts.StartTime, opts.EndTime)
+				if err != nil {
+					continue
+				}
+				for i := range data {
+					for j := range data[i].Rows {
+						if len(data[i].Rows[j]) == 5 {
+							date, device, free := data[i].Rows[j][0], data[i].Rows[j][1], data[i].Rows[j][2]
+							dataTime, err := timeutils.ParseTimeStr(date)
+							if err != nil {
+								continue
+							}
+							if dataTime.Second() > 15 {
+								continue
+							}
+							freeSize, err := strconv.ParseFloat(free, 64)
+							if err != nil {
+								continue
+							}
+							winmetric.Values = append(winmetric.Values, cloudprovider.MetricValue{
+								Timestamp: dataTime,
+								Value:     100 - freeSize,
+								Tags:      map[string]string{cloudprovider.METRIC_TAG_DEVICE: device},
 							})
 						}
 					}
 				}
 			}
-		}
-		if len(metric.Values) > 0 {
-			ret = append(ret, metric)
-		}
-	}
-
-	if len(opts.OsType) == 0 || strings.Contains(strings.ToLower(opts.OsType), "win") {
-		workspaces, err := self.GetLoganalyticsWorkspaces()
-		if err != nil {
-			return ret, nil
-		}
-		winmetric := cloudprovider.MetricValues{}
-		winmetric.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_USAGE
-		winmetric.Values = []cloudprovider.MetricValue{}
-		for i := range workspaces {
-			data, err := self.GetInstanceDiskUsage(workspaces[i].SLoganalyticsWorkspaceProperties.CustomerId, opts.ResourceId, opts.StartTime, opts.EndTime)
-			if err != nil {
-				continue
+			if len(winmetric.Values) > 0 {
+				ret = append(ret, winmetric)
 			}
-			for i := range data {
-				for j := range data[i].Rows {
-					if len(data[i].Rows[j]) == 5 {
-						date, device, free := data[i].Rows[j][0], data[i].Rows[j][1], data[i].Rows[j][2]
-						dataTime, err := timeutils.ParseTimeStr(date)
-						if err != nil {
-							continue
-						}
-						if dataTime.Second() > 15 {
-							continue
-						}
-						freeSize, err := strconv.ParseFloat(free, 64)
-						if err != nil {
-							continue
-						}
-						winmetric.Values = append(winmetric.Values, cloudprovider.MetricValue{
-							Timestamp: dataTime,
-							Value:     100 - freeSize,
-							Tags:      map[string]string{cloudprovider.METRIC_TAG_DEVICE: device},
-						})
-					}
-				}
-			}
-		}
-		if len(winmetric.Values) > 0 {
-			ret = append(ret, winmetric)
 		}
 	}
 
