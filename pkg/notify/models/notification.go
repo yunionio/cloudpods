@@ -18,6 +18,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"html"
+	"html/template"
 	"strings"
 	"time"
 
@@ -69,7 +71,9 @@ type SNotification struct {
 	// swagger:ignore
 	Message string `create:"required"`
 	// swagger:ignore
-	TopicType  string    `json:"topic_type" width:"20" nullable:"true" update:"user" list:"user"`
+	TopicType string `json:"topic_type" width:"20" nullable:"true" update:"user" list:"user"`
+	// swagger:ignore
+	TopicId    string    `width:"128" nullable:"true" list:"user" get:"user"`
 	ReceivedAt time.Time `nullable:"true" list:"user" get:"user"`
 	EventId    string    `width:"128" nullable:"true"`
 
@@ -279,7 +283,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 
 	if nm.needWebconsole([]STopic{*topic}) {
 		// webconsole
-		err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts.UnsortedList(), input.Priority, event.GetId(), topic.Type)
+		err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts.UnsortedList(), input.Priority, event.GetId(), topic.GetId(), topic.Type)
 		if err != nil {
 			output.FailedList = append(output.FailedList, api.FailedElem{
 				ContactType: api.WEBCONSOLE,
@@ -292,7 +296,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		if ct == api.MOBILE {
 			continue
 		}
-		err := nm.create(ctx, userCred, ct, receiverIds, nil, input.Priority, event.GetId(), topic.Type)
+		err := nm.create(ctx, userCred, ct, receiverIds, nil, input.Priority, event.GetId(), topic.GetId(), topic.Type)
 		if err != nil {
 			output.FailedList = append(output.FailedList, api.FailedElem{
 				ContactType: ct,
@@ -327,7 +331,7 @@ func (nm *SNotificationManager) needWebconsole(topics []STopic) bool {
 	return false
 }
 
-func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.TokenCredential, contactType string, receiverIds, contacts []string, priority, eventId string, topicType string) error {
+func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.TokenCredential, contactType string, receiverIds, contacts []string, priority, eventId, topicId string, topicType string) error {
 	if len(receiverIds)+len(contacts) == 0 {
 		return nil
 	}
@@ -338,6 +342,7 @@ func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.To
 		ReceivedAt:  time.Now(),
 		EventId:     eventId,
 		TopicType:   topicType,
+		TopicId:     topicId,
 	}
 	n.Id = db.DefaultUUIDGenerator()
 	err := nm.TableSpec().Insert(ctx, n)
@@ -534,8 +539,7 @@ func (n *SNotification) getMoreDetails(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return out, err
 	}
-	// p, err := n.TemplateStore().FillWithTemplate(ctx, lang, nn)
-	p, _ := n.FillWithTemplate(ctx, lang, nn)
+	p, err := n.GetTemplate(ctx, n.TopicId, lang, nn)
 	if err != nil {
 		return out, err
 	}
@@ -617,8 +621,8 @@ func (n *SNotification) AddOne() error {
 	return err
 }
 
-func (self *SNotificationManager) InitializeData() error {
-	return dataCleaning(self.TableSpec().Name())
+func (nm *SNotificationManager) InitializeData() error {
+	return dataCleaning(nm.TableSpec().Name())
 }
 
 func dataCleaning(tableName string) error {
@@ -681,13 +685,6 @@ func (nm *SNotificationManager) ReSend(ctx context.Context, userCred mcclient.To
 	}
 }
 
-func (n *SNotification) FillWithTemplate(ctx context.Context, lang string, no api.SsNotification) (api.SendParams, error) {
-	if len(n.EventId) == 0 || n.ContactType == api.MOBILE {
-		return TemplateManager.FillWithTemplate(ctx, lang, no)
-	}
-	return LocalTemplateManager.FillWithTemplate(ctx, lang, no)
-}
-
 func (n *SNotification) GetNotOKReceivers() ([]SReceiver, error) {
 	ret := []SReceiver{}
 	q := ReceiverManager.Query().IsTrue("enabled")
@@ -699,4 +696,119 @@ func (n *SNotification) GetNotOKReceivers() ([]SReceiver, error) {
 
 func (n *SNotification) TaskInsert() error {
 	return NotificationManager.TableSpec().Insert(context.Background(), n)
+}
+
+// 获取消息文案
+func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, no api.SsNotification) (api.SendParams, error) {
+	if len(n.EventId) == 0 || n.ContactType == api.MOBILE {
+		return TemplateManager.FillWithTemplate(ctx, lang, no)
+	}
+
+	out, event := api.SendParams{}, no.Event
+	topicModel, err := TopicManager.FetchById(topicId)
+	if err != nil {
+		return out, errors.Wrapf(err, "get topic by id")
+	}
+	topic := topicModel.(*STopic)
+	rtStr, aStr, resultStr := event.ResourceType(), string(event.Action()), string(event.Result())
+	msgObj, err := jsonutils.ParseString(no.Message)
+	if err != nil {
+		return out, errors.Wrapf(err, "unable to parse json from %q", no.Message)
+	}
+	msg := msgObj.(*jsonutils.JSONDict)
+	if info, _ := TemplateManager.GetCompanyInfo(ctx); len(info.Name) > 0 {
+		msg.Set("brand", jsonutils.NewString(info.Name))
+	}
+	webhookMsg := jsonutils.NewDict()
+	webhookMsg.Set("resource_type", jsonutils.NewString(rtStr))
+	webhookMsg.Set("action", jsonutils.NewString(aStr))
+	webhookMsg.Set("result", jsonutils.NewString(resultStr))
+	webhookMsg.Set("resource_details", msg)
+	if no.ContactType == api.WEBHOOK {
+		return api.SendParams{
+			Title:   no.Event.StringWithDeli("_"),
+			Message: webhookMsg.String(),
+		}, nil
+	}
+
+	if lang == "" {
+		lang = getLangSuffix(ctx)
+	}
+
+	// 文案关键字翻译
+	tag := languageTag(lang)
+	rtDis := notifyclientI18nTable.LookupByLang(tag, rtStr)
+	if len(rtDis) == 0 {
+		rtDis = rtStr
+	}
+	aDis := notifyclientI18nTable.LookupByLang(tag, aStr)
+	if len(aDis) == 0 {
+		aDis = aStr
+	}
+	resultDis := notifyclientI18nTable.LookupByLang(tag, resultStr)
+	if len(resultDis) == 0 {
+		resultDis = resultStr
+	}
+	templateParams := webhookMsg
+	templateParams.Set("advance_days", jsonutils.NewInt(int64(no.AdvanceDays)))
+	templateParams.Set("resource_type_display", jsonutils.NewString(rtDis))
+	templateParams.Set("action_display", jsonutils.NewString(aDis))
+	templateParams.Set("result_display", jsonutils.NewString(resultDis))
+
+	var stemplateTitle *template.Template
+	var stemplateContent *template.Template
+
+	failedReason := []error{}
+	switch lang {
+	case api.TEMPLATE_LANG_CN:
+		stemplateTitle, err = template.New("template").Parse(topic.TitleCn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse title_cn template:%s", err.Error()))
+		}
+		stemplateContent, err = template.New("template").Parse(topic.ContentCn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse content_cn template:%s", err.Error()))
+		}
+	case api.TEMPLATE_LANG_EN:
+		stemplateTitle, err = template.New("template").Parse(topic.TitleEn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_EN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse title_en template:%s", err.Error()))
+		}
+		stemplateContent, err = template.New("template").Parse(topic.ContentEn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse content_en template:%s", err.Error()))
+		}
+	default:
+		failedReason = append(failedReason, errors.Errorf("empty lang"))
+		stemplateTitle, err = template.New("template").Parse(topic.TitleEn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_EN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse title_en template:%s", err.Error()))
+		}
+		stemplateContent, err = template.New("template").Parse(topic.ContentEn)
+		if err != nil {
+			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
+			failedReason = append(failedReason, errors.Errorf("unable to parse content_en template:%s", err.Error()))
+		}
+	}
+	if len(failedReason) > 0 {
+		return out, errors.NewAggregate(failedReason)
+	}
+	tmpTitle := strings.Builder{}
+	tmpContent := strings.Builder{}
+	err = stemplateTitle.Execute(&tmpTitle, templateParams.Interface())
+	if err != nil {
+		failedReason = append(failedReason, errors.Errorf("unable to stemplateTitle.Execute:%s", err.Error()))
+	}
+	err = stemplateContent.Execute(&tmpContent, templateParams.Interface())
+	if err != nil {
+		failedReason = append(failedReason, errors.Errorf("unable to stemplateContent.Execute:%s", err.Error()))
+	}
+	out.Title = html.UnescapeString(tmpTitle.String())
+	out.Message = html.UnescapeString(tmpContent.String())
+	return out, errors.NewAggregate(failedReason)
 }

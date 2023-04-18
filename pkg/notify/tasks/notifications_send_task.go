@@ -202,7 +202,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			continue
 		}
 		// send
-		p, err := notification.FillWithTemplate(ctx, lang, nn)
+		p, err := notification.GetTemplate(ctx, event.TopicId, lang, nn)
 		if err != nil {
 			logclient.AddSimpleActionLog(notification, logclient.ACT_SEND_NOTIFICATION, errors.Wrapf(err, "FillWithTemplate(%s)", lang), self.GetUserCred(), false)
 			continue
