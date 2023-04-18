@@ -31,7 +31,8 @@ type CloudMonOptions struct {
 	DisableServiceMetric               bool  `help:"disable service metric collect"`
 	CollectServiceMetricIntervalMinute int64 `help:"Collect Service metirc Interval unit:minute" default:"5"`
 
-	HistoryMetricPullDays int `help:"pull history metrics" default:"-1"`
+	HistoryMetricPullDays          int  `help:"pull history metrics" default:"-1"`
+	SupportAzureTableStorageMetric bool `help:"support collect azure memory and disk usage metric, there may be additional charges" default:"false"`
 
 	CloudAccountCollectMetricsBatchCount  int `help:"Cloud Account Collect Metrics Batch Count" default:"10"`
 	CloudResourceCollectMetricsBatchCount int `help:"Cloud Resource Collect Metrics BatchC ount" default:"40"`

@@ -214,6 +214,8 @@ func (self *SCollectByResourceIdDriver) CollectServerMetrics(ctx context.Context
 				StartTime:    start,
 				EndTime:      end,
 				OsType:       vm.OsType,
+
+				IsSupportAzureTableStorageMetric: options.Options.SupportAzureTableStorageMetric,
 			}
 			opts.ResourceId = vm.ExternalId
 
