@@ -109,6 +109,19 @@ func (self *SHost) GetStatus() string {
 }
 
 func (self *SHost) GetAccessIp() string {
+	network := fmt.Sprintf("nodes/%s/network", self.Node)
+	ret := []struct {
+		Address string
+	}{}
+	err := self.zone.region.get(network, url.Values{}, &ret)
+	if err != nil {
+		return ""
+	}
+	for i := range ret {
+		if len(ret[i].Address) > 0 {
+			return ret[i].Address
+		}
+	}
 	return ""
 }
 
