@@ -261,22 +261,13 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		}
 		disk.VmId = id
 		disk.DiskDriver = v["type"].(string)
-		disk.DriverIdx = v["slot"].(int)
+		idx, _ := strconv.ParseInt(fmt.Sprintf("%d", v["slot"]), 10, 64)
+		disk.DriverIdx = int(idx)
 		if cache, ok := v["cache"].(string); ok {
 			disk.CacheMode = cache
 		}
 		ret = append(ret, disk)
 	}
-
-	// for k, v := range self.QemuUnusedDisks {
-	// 	disk, err := self.host.zone.region.GetDisk(k)
-	// 	if err != nil {
-	// 		continue
-	// 	}
-	// 	disk.VmId = self.VmID
-	// 	disk.DriverIdx = v["slot"].(int)
-	// 	ret = append(ret, disk)
-	// }
 
 	return ret, nil
 }
