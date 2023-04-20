@@ -103,11 +103,12 @@ const (
 
 	// 印度
 	CITY_DELHI       = "Delhi"       // 德里
-	CITY_MUMBAI      = "Mumbai"      //孟买
-	CITY_KANCHIPURAM = "Kanchipuram" //甘吉布勒姆
-	CITY_MAHARASHTRA = "Maharashtra" //马哈拉施特拉邦
-	CITY_JAMNAGAR    = "Jamnagar"    //贾姆讷格尔
-	CITY_NAGPUR      = "Nagpur"      //那格浦尔
+	CITY_MUMBAI      = "Mumbai"      // 孟买
+	CITY_KANCHIPURAM = "Kanchipuram" // 甘吉布勒姆
+	CITY_MAHARASHTRA = "Maharashtra" // 马哈拉施特拉邦
+	CITY_JAMNAGAR    = "Jamnagar"    // 贾姆讷格尔
+	CITY_NAGPUR      = "Nagpur"      // 那格浦尔
+	CITY_HYDERABAD   = "Hyderabad"   // 海得拉巴
 
 	// 美国
 	CITY_VIRGINIA       = "Virginia"       //弗吉尼亚
@@ -137,7 +138,8 @@ const (
 	CITY_WEST_SUSSEX = "West Sussex" //西苏塞克斯
 
 	// 阿拉伯联合酋长国
-	CITY_DUBAI = "Dubai" //迪拜
+	CITY_DUBAI     = "Dubai"     //迪拜
+	CITY_ABU_DHABI = "Abu Dhabi" // 阿布扎比
 
 	// 德国
 	CITY_FRANKFURT   = "Frankfurt"   // 法兰克福
