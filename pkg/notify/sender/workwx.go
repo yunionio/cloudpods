@@ -69,7 +69,7 @@ func (workwxSender *SWorkwxSender) ValidateConfig(config api.NotifyConfig) (stri
 }
 
 func (workwxSender *SWorkwxSender) ContactByMobile(mobile, domainId string) (string, error) {
-	err := workwxSender.GetAccessToken(fmt.Sprintf("%s-%s", api.WORKWX, domainId))
+	err := workwxSender.GetAccessToken(domainId)
 	if err != nil {
 		return "", err
 	}
@@ -80,7 +80,11 @@ func (workwxSender *SWorkwxSender) ContactByMobile(mobile, domainId string) (str
 	if err != nil {
 		return "", errors.Wrap(err, "get user by mobile")
 	}
-	return res.GetString("userid")
+	userId, err := res.GetString("userid")
+	if err != nil {
+		return "", errors.Wrapf(err, "user result:%v", res)
+	}
+	return userId, nil
 }
 
 func (workwxSender *SWorkwxSender) IsPersonal() bool {

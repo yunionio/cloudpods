@@ -97,7 +97,7 @@ func (dingSender *SDingTalkSender) ValidateConfig(config api.NotifyConfig) (stri
 }
 
 func (dingSender *SDingTalkSender) ContactByMobile(mobile, domainId string) (string, error) {
-	err := dingSender.GetAccessToken(fmt.Sprintf("%s-%s", api.DINGTALK, domainId))
+	err := dingSender.GetAccessToken(domainId)
 	if err != nil {
 		return "", err
 	}
@@ -110,7 +110,11 @@ func (dingSender *SDingTalkSender) ContactByMobile(mobile, domainId string) (str
 	if err != nil {
 		return "", errors.Wrap(err, "get user by mobile")
 	}
-	return res.GetString("result", "userid")
+	userId, err := res.GetString("result", "userid")
+	if err != nil {
+		return "", errors.Wrapf(err, "user result:%v", res)
+	}
+	return userId, err
 }
 
 func (dingSender *SDingTalkSender) IsPersonal() bool {
