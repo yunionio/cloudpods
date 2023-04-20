@@ -98,7 +98,7 @@ func (feishuSender *SFeishuSender) ContactByMobile(mobile, domainId string) (str
 	body.Set("mobiles", jsonutils.NewArray(jsonutils.NewString(mobile)))
 	header := http.Header{}
 	// 考虑到获取用户id需求较少，可通过直接更新token来避免token失效
-	err := feishuSender.GetAccessToken(fmt.Sprintf("%s-%s", api.FEISHU, domainId))
+	err := feishuSender.GetAccessToken(domainId)
 	if err != nil {
 		return "", errors.Wrap(err, "GetAccessToken")
 	}
@@ -120,7 +120,11 @@ func (feishuSender *SFeishuSender) ContactByMobile(mobile, domainId string) (str
 		return "", errors.Wrap(err, "jsonutils.JSONObject.GetArray")
 	}
 	// len(list) must be positive
-	return list[0].GetString("open_id")
+	userId, err := list[0].GetString("open_id")
+	if err != nil {
+		return "", errors.Wrapf(err, "user result:%v", resp)
+	}
+	return userId, nil
 }
 
 func (feishuSender *SFeishuSender) IsPersonal() bool {
