@@ -1343,8 +1343,7 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 
 		secret, err := cloudprovider.getPassword()
 		if err != nil {
-			account.markAccountDisconected(context.Background(), auth.AdminCredential())
-			log.Errorf("Get password from provider %s error %v", cloudprovider.Name, err)
+			account.markAccountDisconected(context.Background(), auth.AdminCredential(), errors.Wrapf(err, "getPassword for provider %s", cloudprovider.Name).Error())
 		} else {
 			err = account.savePassword(secret)
 			if err != nil {
@@ -1817,7 +1816,7 @@ func (manager *SCloudaccountManager) OrderByExtraFields(
 	return q, nil
 }
 
-func (account *SCloudaccount) markAccountDisconected(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (account *SCloudaccount) markAccountDisconected(ctx context.Context, userCred mcclient.TokenCredential, reason string) error {
 	_, err := db.UpdateWithLock(ctx, account, func() error {
 		account.ErrorCount = account.ErrorCount + 1
 		account.HealthStatus = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
@@ -1829,7 +1828,7 @@ func (account *SCloudaccount) markAccountDisconected(ctx context.Context, userCr
 	if account.Status == api.CLOUD_PROVIDER_CONNECTED {
 		account.EventNotify(ctx, userCred, notify.ActionSyncAccountStatus)
 	}
-	return account.SetStatus(userCred, api.CLOUD_PROVIDER_DISCONNECTED, "")
+	return account.SetStatus(userCred, api.CLOUD_PROVIDER_DISCONNECTED, reason)
 }
 
 func (account *SCloudaccount) markAllProvidersDisconnected(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -2103,7 +2102,7 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 	subaccounts, err := account.probeAccountStatus(ctx, userCred)
 	if err != nil {
 		account.markAllProvidersDisconnected(ctx, userCred)
-		account.markAccountDisconected(ctx, userCred)
+		account.markAccountDisconected(ctx, userCred, errors.Wrapf(err, "probeAccountStatus").Error())
 		return errors.Wrap(err, "account.probeAccountStatus")
 	}
 	account.markAccountConnected(ctx, userCred)
