@@ -789,13 +789,13 @@ func (s *SKVMGuestInstance) gpusHasVga() bool {
 
 func (s *SKVMGuestInstance) initCpuDesc(cpuMax uint) error {
 	var err error
+	s.fixGuestMachineType()
 	if cpuMax == 0 {
 		cpuMax, err = s.CpuMax()
 		if err != nil {
 			return err
 		}
 	}
-	s.fixGuestMachineType()
 	cpuDesc, err := s.archMan.GenerateCpuDesc(uint(s.Desc.Cpu), cpuMax, s)
 	if err != nil {
 		return err
