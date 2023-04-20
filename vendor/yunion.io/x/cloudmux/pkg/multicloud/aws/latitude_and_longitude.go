@@ -46,4 +46,11 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 
 	"af-south-1": api.RegionCapeTown,
 	"me-south-1": api.RegionBahrain,
+
+	"eu-south-1":     api.RegionMilan,
+	"ap-southeast-4": api.RegionMelbourne,
+	"ap-south-2":     api.RegionHyderabad,
+	"eu-south-2":     api.RegionMadrid,
+	"eu-central-2":   api.RegionAbuDhabi,
+	"ap-southeast-3": api.RegionJakarta,
 }

@@ -70,8 +70,16 @@ var RegionLocations = map[string]string{
 	"us-gov-east-1":  "AWS GovCloud(美国东部)",
 
 	"af-south-1": "非洲(开普敦)",
+
+	"ap-southeast-4": "亚太地区(墨尔本)",
+	"ap-south-2":     "亚太地区(德拉巴)",
+	"eu-south-2":     "欧洲(西班牙)",
+	"eu-central-2":   "欧洲(苏黎世)",
+	"me-central-1":   "中东(阿联酋)",
+	"ap-southeast-3": "亚太地区(雅加达)",
 }
 
+// https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html
 var RegionLocationsEN = map[string]string{
 	"us-east-1":      "US East (N. Virginia)",
 	"us-east-2":      "US East (Ohio)",
@@ -98,6 +106,13 @@ var RegionLocationsEN = map[string]string{
 	"cn-northwest-1": "China (Ninxia)",
 	"us-gov-west-1":  "AWS GovCloud(US West)",
 	"us-gov-east-1":  "AWS GovCloud(US East)",
+
+	"ap-southeast-4": "Asia Pacific (Melbourne)",
+	"ap-south-2":     "Asia Pacific (Hyderabad)",
+	"eu-south-2":     "Europe (Spain)",
+	"eu-central-2":   "Europe (Zurich)",
+	"me-central-1":   "Middle East (UAE)",
+	"ap-southeast-3": "Asia Pacific (Jakarta)",
 }
 
 const (
