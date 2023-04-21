@@ -545,7 +545,7 @@ github.com/hugozhu/godingtalk
 # github.com/imdario/mergo v0.3.6
 ## explicit
 github.com/imdario/mergo
-# github.com/jaypipes/ghw v0.10.1-0.20230329185050-227643e14380
+# github.com/jaypipes/ghw v0.10.1-0.20230329185050-227643e14380 => github.com/wanyaoqi/ghw v0.10.1
 ## explicit; go 1.18
 github.com/jaypipes/ghw/pkg/context
 github.com/jaypipes/ghw/pkg/cpu
@@ -1613,3 +1613,4 @@ yunion.io/x/sqlchemy/backends/sqlite
 # yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
 ## explicit; go 1.12
 yunion.io/x/structarg
+# github.com/jaypipes/ghw => github.com/wanyaoqi/ghw v0.10.1
