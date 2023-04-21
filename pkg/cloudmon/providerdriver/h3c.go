@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
@@ -104,4 +105,62 @@ func (self *H3CCollect) CollectServerMetrics(ctx context.Context, manager api.Cl
 	}
 
 	return self.sendMetrics(ctx, manager, "server", len(res), metrics)
+}
+
+func (self *H3CCollect) CollectDBInstanceMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.DBInstanceDetails, start, end time.Time) error {
+	metrics := []influxdb.SMetricData{}
+	var mu sync.Mutex
+	opts := &cloudprovider.MetricListOptions{
+		ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_RDS,
+	}
+	data, err := provider.GetMetrics(opts)
+	if err != nil {
+		return errors.Wrapf(err, "GetMetrics")
+	}
+	for _, value := range data {
+		vm, ok := res[value.Id]
+		if !ok {
+			continue
+		}
+		tags := []influxdb.SKeyValue{}
+		for k, v := range vm.GetMetricTags() {
+			tags = append(tags, influxdb.SKeyValue{
+				Key:   k,
+				Value: v,
+			})
+		}
+		pairs := []influxdb.SKeyValue{}
+		for k, v := range vm.GetMetricPairs() {
+			pairs = append(pairs, influxdb.SKeyValue{
+				Key:   k,
+				Value: v,
+			})
+		}
+		for _, v := range value.Values {
+			metric := influxdb.SMetricData{
+				Name:      value.MetricType.Name(),
+				Timestamp: v.Timestamp,
+				Tags:      []influxdb.SKeyValue{},
+				Metrics: []influxdb.SKeyValue{
+					{
+						Key:   value.MetricType.Key(),
+						Value: strconv.FormatFloat(v.Value, 'E', -1, 64),
+					},
+				},
+			}
+			for k, v := range v.Tags {
+				metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+					Key:   k,
+					Value: v,
+				})
+			}
+			metric.Metrics = append(metric.Metrics, pairs...)
+			metric.Tags = append(metric.Tags, tags...)
+			mu.Lock()
+			metrics = append(metrics, metric)
+			mu.Unlock()
+		}
+	}
+
+	return self.sendMetrics(ctx, manager, "rds", len(res), metrics)
 }
