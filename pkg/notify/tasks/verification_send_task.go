@@ -108,6 +108,12 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	param.RemoteTemplateParam = api.SRemoteTemplateParam{Code: verification.Token}
 	param.Receivers = notifyReceiver
+	if len(emailMsg.Subject) == 0 {
+		emailMsg.Subject = param.Title
+	}
+	if len(emailMsg.Body) == 0 {
+		emailMsg.Body = param.Message
+	}
 	param.EmailMsg = emailMsg
 	driver := models.GetDriver(contactType)
 	err = driver.Send(param)
