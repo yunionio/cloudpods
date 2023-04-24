@@ -99,7 +99,7 @@ func InitInfluxDBSubscriptionHandlers(app *appsrv.Application, options *common_o
 	root.UseEncodedPath()
 
 	addCommonAlertDispatcher("", app)
-	addMiscHandlers(root)
+	addMiscHandlers(app, root)
 	root.PathPrefix("").Handler(app)
 
 	addr := net.JoinHostPort(options.Address, strconv.Itoa(options.Port))
@@ -119,10 +119,10 @@ func InitInfluxDBSubscriptionHandlers(app *appsrv.Application, options *common_o
 	}
 }
 
-func addMiscHandlers(root *mux.Router) {
+func addMiscHandlers(app *appsrv.Application, root *mux.Router) {
 	adapterF := func(appHandleFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			appHandleFunc(context.TODO(), w, r)
+			appHandleFunc(app.GetContext(), w, r)
 		}
 	}
 	root.HandleFunc("/subscriptions/write", adapterF(performHandler))
