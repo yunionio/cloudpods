@@ -117,7 +117,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 	}
 
 	host, err := storage.GetMasterHost()
-	if err != nil {
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("storage.GetMasterHost"))
 		return
 	}
