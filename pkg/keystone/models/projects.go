@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
@@ -145,7 +146,7 @@ func (manager *SProjectManager) initAdminUsers(ctx context.Context) error {
 		return errors.Wrap(err, "FetchModelObjects")
 	}
 	for i := range projects {
-		err := projects[i].resetAdminUser()
+		err := projects[i].resetAdminUser(ctx, getDefaultAdminCred())
 		if err != nil {
 			return errors.Wrap(err, "projects initAdmin")
 		}
@@ -153,7 +154,7 @@ func (manager *SProjectManager) initAdminUsers(ctx context.Context) error {
 	return nil
 }
 
-func (project *SProject) resetAdminUser() error {
+func (project *SProject) resetAdminUser(ctx context.Context, userCred mcclient.TokenCredential) error {
 	role, err := RoleManager.FetchRoleByName(options.Options.ProjectAdminRole, "", "")
 	if err != nil {
 		return errors.Wrapf(err, "FetchRoleByName %s", options.Options.ProjectAdminRole)
@@ -166,12 +167,9 @@ func (project *SProject) resetAdminUser() error {
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return errors.Wrap(err, "query")
 	}
-	_, err = db.Update(project, func() error {
-		project.AdminId = userId.ActorId
-		return nil
-	})
+	err = project.setAdminId(ctx, userCred, userId.ActorId)
 	if err != nil {
-		return errors.Wrap(err, "update")
+		return errors.Wrap(err, "setAdminId")
 	}
 	return nil
 }
@@ -808,4 +806,72 @@ func (manager *SProjectManager) NewProject(ctx context.Context, projectName stri
 		return nil, errors.Wrap(err, "Insert")
 	}
 	return project, nil
+}
+
+func (project *SProject) PerformSetAdmin(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.SProjectSetAdminInput,
+) (jsonutils.JSONObject, error) {
+	var user *SUser
+	var role *SRole
+
+	{
+		obj, err := UserManager.FetchByIdOrName(userCred, input.UserId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), input.UserId)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		user = obj.(*SUser)
+	}
+
+	{
+		obj, err := RoleManager.FetchByIdOrName(userCred, options.Options.ProjectAdminRole)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), options.Options.ProjectAdminRole)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		role = obj.(*SRole)
+	}
+
+	inProject, err := AssignmentManager.isUserInProjectWithRole(user.Id, project.Id, role.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "isUserInProjectWithRole")
+	}
+
+	if !inProject {
+		err = AssignmentManager.ProjectAddUser(ctx, userCred, project, user, role)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
+
+	err = project.setAdminId(ctx, userCred, user.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "setAdminId")
+	}
+
+	return nil, nil
+}
+
+func (project *SProject) setAdminId(ctx context.Context, userCred mcclient.TokenCredential, userId string) error {
+	if project.AdminId != userId {
+		diff, err := db.Update(project, func() error {
+			project.AdminId = userId
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "update adminId")
+		}
+		db.OpsLog.LogEvent(project, db.ACT_UPDATE, diff, userCred)
+		logclient.AddSimpleActionLog(project, logclient.ACT_UPDATE, diff, userCred, true)
+	}
+	return nil
 }

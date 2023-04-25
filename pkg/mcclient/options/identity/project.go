@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -93,4 +94,22 @@ func (opts *ProjectGetPropertyDomainTagValueTreeOptions) Params() (jsonutils.JSO
 	tagParams, _ := opts.DomainTagValueTreeOptions.Params()
 	params.(*jsonutils.JSONDict).Update(tagParams)
 	return params, nil
+}
+
+type ProjectIdOptions struct {
+	ID string `help:"ID or name of project" json:"-"`
+}
+
+func (opts *ProjectIdOptions) GetId() string {
+	return opts.ID
+}
+
+type ProjectSetAdminOptions struct {
+	ProjectIdOptions
+
+	api.SProjectSetAdminInput
+}
+
+func (opts *ProjectSetAdminOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
