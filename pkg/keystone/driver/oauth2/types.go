@@ -32,6 +32,10 @@ type IOAuth2Driver interface {
 	GetSsoRedirectUri(ctx context.Context, callbackUrl, state string) (string, error)
 }
 
+type IOAuth2Synchronizer interface {
+	Sync(ctx context.Context, idpId string) error
+}
+
 type SOAuth2BaseDriver struct {
 	AppId  string
 	Secret string
