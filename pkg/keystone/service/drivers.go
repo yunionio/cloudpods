@@ -19,6 +19,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/ldap"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2/alipay"
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2/bingoiam"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2/dingtalk"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2/feishu"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/oauth2/qywechat"
