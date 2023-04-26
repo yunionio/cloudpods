@@ -588,3 +588,7 @@ type UserLinkIdpInput struct {
 }
 
 type UserUnlinkIdpInput UserLinkIdpInput
+
+type SProjectSetAdminInput struct {
+	UserId string
+}
