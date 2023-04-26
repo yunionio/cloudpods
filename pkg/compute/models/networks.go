@@ -600,7 +600,7 @@ func (manager *SNetworkManager) SyncNetworks(
 	}
 	if !xor {
 		for i := 0; i < len(commondb); i += 1 {
-			err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i], syncOwnerId, provider)
+			err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i], provider)
 			if err != nil {
 				syncResult.UpdateError(err)
 				continue
@@ -647,14 +647,15 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 	return err
 }
 
-func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
+func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, provider *SCloudprovider) error {
 	vpc, _ := self.GetVpc()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		if options.Options.EnableSyncName {
-			newName, _ := db.GenerateAlterName(self, extNet.GetName())
-			if len(newName) > 0 {
-				self.Name = newName
-			}
+			//newName, _ := db.GenerateAlterName(self, extNet.GetName())
+			//if len(newName) > 0 {
+			//	self.Name = newName
+			//}
+			self.Name = extNet.GetName()
 		}
 
 		self.Status = extNet.GetStatus()
@@ -685,7 +686,7 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 	}
 
 	//syncVirtualResourceMetadata(ctx, userCred, self, extNet)
-	SyncCloudProject(ctx, userCred, self, syncOwnerId, extNet, vpc.ManagerId)
+	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), extNet, vpc.ManagerId)
 
 	if provider != nil {
 		shareInfo := provider.getAccountShareInfo()
@@ -730,11 +731,12 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
-		newName, err := db.GenerateName(ctx, manager, syncOwnerId, extNet.GetName())
-		if err != nil {
-			return err
-		}
-		net.Name = newName
+		//newName, err := db.GenerateName(ctx, manager, syncOwnerId, extNet.GetName())
+		//if err != nil {
+		//	return err
+		//}
+		//net.Name = newName
+		net.Name = extNet.GetName()
 
 		return manager.TableSpec().Insert(ctx, &net)
 	}()
@@ -742,9 +744,8 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	vpc, _ := wire.GetVpc()
 	syncVirtualResourceMetadata(ctx, userCred, &net, extNet)
-	SyncCloudProject(ctx, userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
+	SyncCloudProject(ctx, userCred, &net, syncOwnerId, extNet, provider.Id)
 
 	if provider != nil {
 		shareInfo := provider.getAccountShareInfo()

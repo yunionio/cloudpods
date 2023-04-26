@@ -102,7 +102,7 @@ func (manager *SStorageResourceBaseManager) FetchCustomizeColumns(
 			rows[i].ZoneId = storage.ZoneId
 		}
 		zoneList[i] = &SZoneResourceBase{rows[i].ZoneId}
-		managerList[i] = &SManagedResourceBase{rows[i].ManagerId}
+		managerList[i] = &SManagedResourceBase{ManagerId: rows[i].ManagerId}
 	}
 
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, zoneList, fields, isList)
@@ -262,10 +262,10 @@ func (manager *SStorageResourceBaseManager) GetExportKeys() []string {
 	return keys
 }
 
-func (model *SStorageResourceBase) GetChangeOwnerCandidateDomainIds() []string {
-	storage := model.GetStorage()
-	if storage != nil {
-		return storage.GetChangeOwnerCandidateDomainIds()
-	}
-	return nil
-}
+//func (model *SStorageResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+//	storage := model.GetStorage()
+//	if storage != nil {
+//		return storage.GetChangeOwnerCandidateDomainIds()
+//	}
+//	return nil
+//}

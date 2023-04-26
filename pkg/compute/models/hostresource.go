@@ -111,7 +111,7 @@ func (manager *SHostResourceBaseManager) FetchCustomizeColumns(
 			rows[i].ZoneId = host.ZoneId
 		}
 		zoneList[i] = &SZoneResourceBase{rows[i].ZoneId}
-		managerList[i] = &SManagedResourceBase{rows[i].ManagerId}
+		managerList[i] = &SManagedResourceBase{ManagerId: rows[i].ManagerId}
 	}
 
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, zoneList, fields, isList)
@@ -277,10 +277,10 @@ func (manager *SHostResourceBaseManager) GetExportKeys() []string {
 	return keys
 }
 
-func (model *SHostResourceBase) GetChangeOwnerCandidateDomainIds() []string {
-	host := model.GetHost()
-	if host != nil {
-		return host.GetChangeOwnerCandidateDomainIds()
-	}
-	return nil
-}
+//func (model *SHostResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+//	host := model.GetHost()
+//	if host != nil {
+//		return host.GetChangeOwnerCandidateDomainIds()
+//	}
+//	return nil
+//}

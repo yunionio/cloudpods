@@ -287,7 +287,10 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource) {
 	var err error
 	hostId := candidate.HostId
+	managerId, _ := self.Params.GetString("prefer_manager_id")
 	guest := obj.(*models.SGuest)
+	guest.SetManagerId(self.UserCred, managerId)
+
 	if len(guest.HostId) == 0 {
 		guest.OnScheduleToHost(ctx, self.UserCred, hostId)
 	}

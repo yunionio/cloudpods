@@ -173,6 +173,8 @@ type ManagedResourceListInput struct {
 
 	// 列出关联指定云账号(ID或Name)的资源
 	CloudaccountId []string `json:"cloudaccount_id"`
+	// 仅列出主订阅的资源
+	OnlyPrimaryManager bool `json:"only_primary_manager"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0

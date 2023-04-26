@@ -379,7 +379,7 @@ func (self *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.To
 
 func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, vpc *SVpc, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		// self.Name = extWire.GetName()
+		self.Name = extWire.GetName()
 		self.Bandwidth = extWire.GetBandwidth() // 10G
 
 		self.IsEmulated = extWire.IsEmulated()
@@ -467,11 +467,12 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
-		newName, err := db.GenerateName(ctx, manager, userCred, extWire.GetName())
-		if err != nil {
-			return err
-		}
-		wire.Name = newName
+		//newName, err := db.GenerateName(ctx, manager, userCred, extWire.GetName())
+		//if err != nil {
+		//	return err
+		//}
+		//wire.Name = newName
+		wire.Name = extWire.GetName()
 
 		return manager.TableSpec().Insert(ctx, &wire)
 	}()

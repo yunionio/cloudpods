@@ -173,7 +173,7 @@ func (manager *SLoadbalancerResourceBaseManager) FetchCustomizeColumns(
 		}
 		vpcList[i] = &SVpcResourceBase{rows[i].VpcId}
 		zoneList[i] = &SZoneResourceBase{rows[i].ZoneId}
-		manList[i] = &SManagedResourceBase{rows[i].ManagerId}
+		manList[i] = &SManagedResourceBase{ManagerId: rows[i].ManagerId}
 	}
 
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, vpcList, fields, isList)

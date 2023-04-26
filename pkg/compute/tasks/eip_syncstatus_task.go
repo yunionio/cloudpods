@@ -57,7 +57,7 @@ func (self *EipSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
-	err = eip.SyncWithCloudEip(ctx, self.UserCred, eip.GetCloudprovider(), extEip, nil)
+	err = eip.SyncWithCloudEip(ctx, self.UserCred, eip.GetCloudprovider(), extEip)
 	if err != nil {
 		self.taskFail(ctx, eip, errors.Wrapf(err, "SyncWithCloudEip"))
 		return

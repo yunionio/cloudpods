@@ -202,7 +202,7 @@ func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Conte
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	localCacheObj, err := db.FetchByExternalIdAndManagerId(manager, cloudCache.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Equals("manager_id", provider.Id)
+		return q.Equals("manager_id", provider.getManagerProvider().Id)
 	})
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -231,7 +231,7 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 	local.ExternalId = cloudCache.GetGlobalId()
 
 	local.IsEmulated = cloudCache.IsEmulated()
-	local.ManagerId = provider.Id
+	local.ManagerId = provider.getManagerProvider().Id
 
 	local.Path = cloudCache.GetPath()
 
@@ -239,11 +239,12 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
-		newName, err := db.GenerateName(ctx, manager, userCred, cloudCache.GetName())
-		if err != nil {
-			return err
-		}
-		local.Name = newName
+		//newName, err := db.GenerateName(ctx, manager, userCred, cloudCache.GetName())
+		//if err != nil {
+		//	return err
+		//}
+		//local.Name = newName
+		local.Name = cloudCache.GetName()
 
 		return manager.TableSpec().Insert(ctx, &local)
 	}()
@@ -263,7 +264,7 @@ func (self *SStoragecache) syncWithCloudStoragecache(ctx context.Context, userCr
 		self.Path = cloudCache.GetPath()
 
 		self.IsEmulated = cloudCache.IsEmulated()
-		self.ManagerId = provider.Id
+		self.ManagerId = provider.getManagerProvider().Id
 
 		return nil
 	})
@@ -450,6 +451,7 @@ func (manager *SStoragecacheManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
+	query.ManagedResourceListInput.OnlyPrimaryManager = true
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
@@ -674,12 +676,7 @@ func (cache *SStoragecache) syncCloudImages(
 ) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
-	var syncOwnerId mcclient.IIdentityProvider
-
 	provider := cache.GetCloudprovider()
-	if provider != nil {
-		syncOwnerId = provider.GetOwnerId()
-	}
 
 	removed := make([]SStoragecachedimage, 0)
 	commondb := make([]SStoragecachedimage, 0)
@@ -701,7 +698,7 @@ func (cache *SStoragecache) syncCloudImages(
 	}
 	if !xor {
 		for i := 0; i < len(commondb); i += 1 {
-			err = commondb[i].syncWithCloudImage(ctx, userCred, syncOwnerId, commonext[i], cache.ManagerId)
+			err = commondb[i].syncWithCloudImage(ctx, userCred, provider, commonext[i])
 			if err != nil {
 				syncResult.UpdateError(err)
 			} else {
@@ -710,7 +707,7 @@ func (cache *SStoragecache) syncCloudImages(
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		err = StoragecachedimageManager.newFromCloudImage(ctx, userCred, syncOwnerId, added[i], cache)
+		err = StoragecachedimageManager.newFromCloudImage(ctx, userCred, provider, added[i], cache)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {

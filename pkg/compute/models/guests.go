@@ -84,6 +84,8 @@ type SGuestManager struct {
 	db.SRecordChecksumResourceBaseManager
 	SHostnameResourceBaseManager
 
+	SManagedResourceBaseManager
+
 	db.SEncryptedResourceManager
 }
 
@@ -117,6 +119,8 @@ type SGuest struct {
 
 	SHostnameResourceBase
 	SHostResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user" index:"true"`
+
+	SManagedResourceBase
 
 	db.SEncryptedResource
 
@@ -1076,9 +1080,24 @@ func (guest *SGuest) GetHost() (*SHost, error) {
 		if err != nil {
 			return nil, err
 		}
+		host.(*SHost).ManagerId = guest.ManagerId
 		return host.(*SHost), nil
 	}
 	return nil, fmt.Errorf("empty host id")
+}
+
+func (guest *SGuest) SetManagerId(userCred mcclient.TokenCredential, managerId string) error {
+	if guest.ManagerId != managerId {
+		diff, err := db.Update(guest, func() error {
+			guest.ManagerId = managerId
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		db.OpsLog.LogEvent(guest, db.ACT_UPDATE, diff, userCred)
+	}
+	return nil
 }
 
 func (guest *SGuest) SetHostId(userCred mcclient.TokenCredential, hostId string) error {
@@ -1495,7 +1514,7 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 
-	optionSystemHypervisor := []string{api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI}
+	optionSystemHypervisor := []string{api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI, api.HYPERVISOR_BINGO_CLOUD}
 
 	if !utils.IsInStringArray(input.Hypervisor, optionSystemHypervisor) && len(input.Disks[0].ImageId) == 0 && len(input.Disks[0].SnapshotId) == 0 && input.Cdrom == "" {
 		return nil, httperrors.NewBadRequestError("Miss operating system???")
@@ -2811,7 +2830,7 @@ func (guest *SGuest) SyncAllWithCloudVM(ctx context.Context, userCred mcclient.T
 		return errors.Wrap(err, "provider.GetProvider")
 	}
 
-	err = guest.syncWithCloudVM(ctx, userCred, driver, host, extVM, provider.GetOwnerId(), syncStatus)
+	err = guest.syncWithCloudVM(ctx, userCred, driver, host, extVM, provider, syncStatus)
 	if err != nil {
 		return errors.Wrap(err, "guest.syncWithCloudVM")
 	}
@@ -2847,14 +2866,15 @@ func (g *SGuest) SyncOsInfo(ctx context.Context, userCred mcclient.TokenCredenti
 	return nil
 }
 
-func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, syncStatus bool) error {
+func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, driver cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, provider *SCloudprovider, syncStatus bool) error {
 	recycle := false
 
-	if provider.GetFactory().IsSupportPrepaidResources() && self.IsPrepaidRecycle() {
+	if driver.GetFactory().IsSupportPrepaidResources() && self.IsPrepaidRecycle() {
 		recycle = true
 	}
 
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		self.ManagerId = provider.Id
 		if options.Options.EnableSyncName && !recycle {
 			newName, _ := db.GenerateAlterName(self, extVM.GetName())
 			if len(newName) > 0 && newName != self.Name {
@@ -2902,7 +2922,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			if memSizeMb > 0 {
 				self.VmemSize = memSizeMb
 			} else {
-				sku, _ := ServerSkuManager.FetchSkuByNameAndProvider(instanceType, provider.GetFactory().GetName(), false)
+				sku, _ := ServerSkuManager.FetchSkuByNameAndProvider(instanceType, driver.GetFactory().GetName(), false)
 				if sku != nil && sku.MemorySizeMB > 0 {
 					self.VmemSize = sku.MemorySizeMB
 				}
@@ -2916,7 +2936,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		}
 		self.IsEmulated = extVM.IsEmulated()
 
-		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
+		if driver.GetFactory().IsSupportPrepaidResources() && !recycle {
 			self.BillingType = extVM.GetBillingType()
 			self.ExpiredAt = extVM.GetExpiredAt()
 			if self.GetDriver().IsSupportSetAutoRenew() {
@@ -2942,9 +2962,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	self.SyncOsInfo(ctx, userCred, extVM)
 
 	syncVirtualResourceMetadata(ctx, userCred, self, extVM)
-	SyncCloudProject(ctx, userCred, self, syncOwnerId, extVM, host.ManagerId)
+	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), extVM, provider.Id)
 
-	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
+	if driver.GetFactory().IsSupportPrepaidResources() && recycle {
 		vhost, _ := self.GetHost()
 		err = vhost.syncWithCloudPrepaidVM(extVM, host)
 		if err != nil {
@@ -2955,7 +2975,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider) (*SGuest, error) {
+func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.TokenCredential, driver cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, provider *SCloudprovider) (*SGuest, error) {
 
 	guest := SGuest{}
 	guest.SetModelManager(manager, &guest)
@@ -2979,8 +2999,9 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Description = extVM.GetDescription()
 
 	guest.IsEmulated = extVM.IsEmulated()
+	guest.ManagerId = provider.Id
 
-	if provider.GetFactory().IsSupportPrepaidResources() {
+	if driver.GetFactory().IsSupportPrepaidResources() {
 		guest.BillingType = extVM.GetBillingType()
 		if expired := extVM.GetExpiredAt(); !expired.IsZero() {
 			guest.ExpiredAt = expired
@@ -3032,7 +3053,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		if options.Options.EnableSyncName {
 			guest.Name = extVM.GetName()
 		} else {
-			newName, err := db.GenerateName(ctx, manager, syncOwnerId, extVM.GetName())
+			newName, err := db.GenerateName(ctx, manager, provider.GetOwnerId(), extVM.GetName())
 			if err != nil {
 				return errors.Wrapf(err, "db.GenerateName")
 			}
@@ -3048,7 +3069,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.SyncOsInfo(ctx, userCred, extVM)
 
 	syncVirtualResourceMetadata(ctx, userCred, &guest, extVM)
-	SyncCloudProject(ctx, userCred, &guest, syncOwnerId, extVM, host.ManagerId)
+	SyncCloudProject(ctx, userCred, &guest, provider.GetOwnerId(), extVM, provider.Id)
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
 
@@ -3608,10 +3629,10 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 func (self *SGuest) SyncVMDisks(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	provider cloudprovider.ICloudProvider,
+	driver cloudprovider.ICloudProvider,
 	host *SHost,
 	vdisks []cloudprovider.ICloudDisk,
-	syncOwnerId mcclient.IIdentityProvider,
+	provider *SCloudprovider,
 ) compare.SyncResult {
 	lockman.LockRawObject(ctx, self.Id, DiskManager.Keyword())
 	defer lockman.ReleaseRawObject(ctx, self.Id, DiskManager.Keyword())
@@ -3651,7 +3672,7 @@ func (self *SGuest) SyncVMDisks(
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		disk, err := DiskManager.findOrCreateDisk(ctx, userCred, provider, added[i], -1, self.GetOwnerId(), host.ManagerId)
+		disk, err := DiskManager.findOrCreateDisk(ctx, userCred, driver, provider, added[i], -1)
 		if err != nil {
 			result.AddError(errors.Wrapf(err, "findOrCreateDisk(%s)", added[i].GetGlobalId()))
 			continue
@@ -4088,8 +4109,7 @@ func (self *SGuest) CreateDiskOnStorage(ctx context.Context, userCred mcclient.T
 	if storage.IsLocal() || billingType == billing_api.BILLING_TYPE_PREPAID || isWithServerCreate {
 		autoDelete = true
 	}
-	disk, err := storage.createDisk(ctx, diskName, diskConfig, userCred, self.GetOwnerId(), autoDelete, self.IsSystem,
-		billingType, billingCycle, self.EncryptKeyId)
+	disk, err := storage.createDisk(ctx, userCred, self, diskName, diskConfig, autoDelete, billingType, billingCycle)
 
 	if err != nil {
 		return nil, err
@@ -5441,7 +5461,7 @@ func (self *SGuest) GetPublicIp() (*SElasticip, error) {
 	return ElasticipManager.getEip(api.EIP_ASSOCIATE_TYPE_SERVER, self.Id, api.EIP_MODE_INSTANCE_PUBLICIP)
 }
 
-func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
+func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	eip, err := self.GetPublicIp()
@@ -5461,7 +5481,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 		// do nothing
 	} else if eip == nil && extEip != nil {
 		// add
-		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region, syncOwnerId)
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region)
 		if err != nil {
 			result.AddError(errors.Wrapf(err, "getEipByExtEip"))
 		} else {
@@ -5490,7 +5510,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 				result.DeleteError(err)
 			} else {
 				result.Delete()
-				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region, syncOwnerId)
+				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region)
 				if err != nil {
 					result.AddError(err)
 				} else {
@@ -5504,7 +5524,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		} else {
 			// do nothing
-			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, syncOwnerId)
+			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip)
 			if err != nil {
 				result.UpdateError(err)
 			} else {

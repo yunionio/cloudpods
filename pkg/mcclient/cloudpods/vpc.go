@@ -32,6 +32,10 @@ type SVpc struct {
 	api.VpcDetails
 }
 
+func (self *SVpc) IsPublic() bool {
+	return self.SSharableBaseResource.IsPublic
+}
+
 func (self *SVpc) GetName() string {
 	return self.Name
 }
@@ -98,7 +102,7 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 }
 
 func (self *SVpc) CreateIWire(opts *cloudprovider.SWireCreateOptions) (cloudprovider.ICloudWire, error) {
-	wire, err := self.region.CreateWire(opts, self.Id, self.DomainId, self.PublicScope, self.IsPublic)
+	wire, err := self.region.CreateWire(opts, self.Id, self.DomainId, self.PublicScope, self.IsPublic())
 	if err != nil {
 		return nil, err
 	}

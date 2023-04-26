@@ -499,11 +499,15 @@ func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQue
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
+		managerId := provider.GetId()
+		if input.OnlyPrimaryManager {
+			managerId = CloudproviderManager.FetchManagerCloudproviderById(managerId).Id
+		}
 		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.Equals(q.Field(managerIdFieldName), provider.GetId()))
+			q = q.Filter(sqlchemy.Equals(q.Field(managerIdFieldName), managerId))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.Equals(sq.Field(managerIdFieldName), provider.GetId()))
+			sq = sq.Filter(sqlchemy.Equals(sq.Field(managerIdFieldName), managerId))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	}

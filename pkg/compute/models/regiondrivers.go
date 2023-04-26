@@ -126,7 +126,7 @@ type IRegionDriver interface {
 	RequestUnpackInstanceBackup(ctx context.Context, ib *SInstanceBackup, task taskman.ITask, packageName string, metadataOnly bool) error
 
 	RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, vpc *SVpc, secgroup *SSecurityGroup, classic bool, removeProjectId string, task taskman.ITask) error
-	RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *SVpc, secgroup *SSecurityGroup, removeProjectId, service string, skipSyncRule bool) (string, error)
+	RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, managerId, vpcId string, vpc *SVpc, secgroup *SSecurityGroup, removeProjectId, service string, skipSyncRule bool) (string, error)
 	GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule
 	GenerateSecurityGroupName(name string) string
 	IsAllowSecurityGroupNameRepeat() bool

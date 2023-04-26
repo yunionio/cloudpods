@@ -50,6 +50,10 @@ func (self SSyncableBaseResource) GetLastSyncCost() string {
 
 type SSyncableBaseResourceManager struct{}
 
+func (self *SSyncableBaseResource) IsIdle() bool {
+	return self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+}
+
 func (self *SSyncableBaseResource) CanSync() bool {
 	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED || self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
 		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > time.Minute*30 {
@@ -91,6 +95,10 @@ func isInCache(pairs []sStoragecacheSyncPair, localCacheId string) bool {
 		}
 	}
 	return false
+}
+
+func syncRegionSecgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	syncRegionSecGroup(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 }
 
 func syncRegionQuotas(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, driver cloudprovider.ICloudProvider, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, xor bool) error {
@@ -244,6 +252,31 @@ func syncRegionBuckets(ctx context.Context, userCred mcclient.TokenCredential, s
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
+func syncRegionSecGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	secgroups, err := func() ([]cloudprovider.ICloudSecurityGroup, error) {
+		defer syncResults.AddRequestCost(SecurityGroupManager)()
+		return remoteRegion.GetISecurityGroups()
+	}()
+	if err != nil {
+		msg := fmt.Sprintf("GetISecurityGroups for region %s failed %s", remoteRegion.GetId(), err)
+		log.Errorf(msg)
+		return
+	}
+
+	_, _, result := func() ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+		defer syncResults.AddSqlCost(SecurityGroupManager)()
+		return SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, secgroups, localRegion, nil, syncRange.Xor)
+	}()
+	syncResults.Add(SecurityGroupCacheManager, result)
+
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncSecurityGroupCaches for Region %s result: %s", remoteRegion.GetName(), msg)
+	log.Infof(notes)
+	if result.IsError() {
+		return
+	}
+}
+
 func syncRegionVPCs(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -291,7 +324,7 @@ func syncRegionVPCs(
 			syncVpcWires(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			if localRegion.GetDriver().IsSecurityGroupBelongVpc() ||
 				(localRegion.GetDriver().IsSecurityGroupBelongGlobalVpc() && !utils.IsInStringArray(localVpcs[j].GlobalvpcId, globalVpcIds)) ||
-				localRegion.GetDriver().IsSupportClassicSecurityGroup() || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
+				localRegion.GetDriver().IsSupportClassicSecurityGroup() { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
 				if len(localVpcs[j].GlobalvpcId) > 0 {
 					globalVpcIds = append(globalVpcIds, localVpcs[j].GlobalvpcId)
 				}
@@ -451,7 +484,7 @@ func syncVpcSecGroup(ctx context.Context, userCred mcclient.TokenCredential, syn
 
 	_, _, result := func() ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
 		defer syncResults.AddSqlCost(SecurityGroupManager)()
-		return SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, secgroups, localVpc, syncRange.Xor)
+		return SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, secgroups, nil, localVpc, syncRange.Xor)
 	}()
 	syncResults.Add(SecurityGroupCacheManager, result)
 
@@ -807,7 +840,7 @@ func syncStorageDisks(ctx context.Context, userCred mcclient.TokenCredential, sy
 	}
 	_, _, result := func() ([]SDisk, []cloudprovider.ICloudDisk, compare.SyncResult) {
 		defer syncResults.AddSqlCost(DiskManager)()
-		return DiskManager.SyncDisks(ctx, userCred, driver, localStorage, disks, provider.GetOwnerId(), syncRange.Xor)
+		return DiskManager.SyncDisks(ctx, userCred, driver, provider, localStorage, disks, provider.GetOwnerId(), syncRange.Xor)
 	}()
 
 	syncResults.Add(DiskManager, result)
@@ -961,7 +994,7 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 
 	syncVMPairs, result := func() ([]SGuestSyncResult, compare.SyncResult) {
 		defer syncResults.AddSqlCost(GuestManager)()
-		return localHost.SyncHostVMs(ctx, userCred, driver, vms, provider.GetOwnerId(), syncRange.Xor)
+		return localHost.SyncHostVMs(ctx, userCred, driver, provider, vms, provider.GetOwnerId(), syncRange.Xor)
 	}()
 
 	syncResults.Add(GuestManager, result)
@@ -1057,7 +1090,7 @@ func syncVMDisks(
 	if err != nil {
 		return errors.Wrap(err, "remoteVM.GetIDisks")
 	}
-	result := localVM.SyncVMDisks(ctx, userCred, driver, host, disks, provider.GetOwnerId())
+	result := localVM.SyncVMDisks(ctx, userCred, driver, host, disks, provider)
 	msg := result.Result()
 	notes := fmt.Sprintf("syncVMDisks for VM %s result: %s", localVM.Name, msg)
 	log.Infof(notes)
@@ -1072,7 +1105,7 @@ func syncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider 
 	if err != nil {
 		return errors.Wrap(err, "remoteVM.GetIEIP")
 	}
-	result := localVM.SyncVMEip(ctx, userCred, provider, eip, provider.GetOwnerId())
+	result := localVM.SyncVMEip(ctx, userCred, provider, eip)
 	msg := result.Result()
 	log.Infof("syncVMEip for VM %s result: %s", localVM.Name, msg)
 	if result.IsError() {
@@ -1995,6 +2028,7 @@ func syncPublicCloudProviderInfo(
 			if !(driver.GetFactory().IsPublicCloud() && !syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK)) {
 				syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 			}
+			syncRegionSecgroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 			syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		}
 

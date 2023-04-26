@@ -78,11 +78,13 @@ type SCloudproviderregion struct {
 
 	Enabled bool `nullable:"false" list:"domain" update:"domain"`
 
+	// TODO 不从Region开始同步，改成了从Provider开始同步。
 	// SyncIntervalSeconds int `list:"domain"`
-	SyncResults jsonutils.JSONObject `list:"domain"`
+	//SyncResults jsonutils.JSONObject `list:"domain"`
+	//
+	//LastDeepSyncAt time.Time `list:"domain"`
+	//LastAutoSyncAt time.Time `list:"domain"`
 
-	LastDeepSyncAt time.Time `list:"domain"`
-	LastAutoSyncAt time.Time `list:"domain"`
 }
 
 func (manager *SCloudproviderregionManager) GetMasterFieldName() string {
@@ -236,6 +238,11 @@ func (manager *SCloudproviderregionManager) FetchByIds(providerId string, region
 }
 
 func (manager *SCloudproviderregionManager) FetchByIdsOrCreate(providerId string, regionId string) *SCloudproviderregion {
+	managerProvider := CloudproviderManager.FetchManagerCloudproviderById(providerId)
+	if managerProvider != nil {
+		providerId = managerProvider.Id
+	}
+
 	cpr := manager.FetchByIds(providerId, regionId)
 	if cpr != nil {
 		return cpr
@@ -330,10 +337,6 @@ func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCre
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
-		self.SyncResults = jsonutils.Marshal(syncResults)
-		if deepSync != nil && *deepSync {
-			self.LastDeepSyncAt = timeutils.UtcNow()
-		}
 		return nil
 	})
 	if err != nil {
@@ -403,85 +406,6 @@ func (set SSyncResultSet) Add(manager db.IModelManager, result compare.SyncResul
 	res.UpdateErrCnt += result.UpdateErrCnt
 	res.DelCnt += result.DelCnt
 	res.DelErrCnt += result.DelErrCnt
-}
-
-func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) error {
-	syncResults := SSyncResultSet{}
-
-	localRegion, err := self.GetRegion()
-	if err != nil {
-		return errors.Wrapf(err, "GetRegion")
-	}
-	provider, err := self.GetProvider()
-	if err != nil {
-		return errors.Wrapf(err, "GetProvider")
-	}
-
-	self.markSyncing(userCred)
-
-	defer func() {
-		err := self.markEndSync(ctx, userCred, syncResults, &syncRange.DeepSync)
-		if err != nil {
-			log.Errorf("markEndSync for %s(%s) : %v", localRegion.Name, provider.Name, err)
-		}
-	}()
-
-	driver, err := provider.GetProvider(ctx)
-	if err != nil {
-		log.Errorf("Failed to get driver, connection problem?")
-		return err
-	}
-
-	if !syncRange.DeepSync {
-		log.Debugf("no need to do deep sync, check...")
-		if self.LastDeepSyncAt.IsZero() || time.Now().Sub(self.LastDeepSyncAt) > time.Hour*24 {
-			syncRange.DeepSync = true
-		}
-	}
-	log.Debugf("need to do deep sync? ... %v, xor? ... %v", syncRange.DeepSync, syncRange.Xor)
-
-	if localRegion.isManaged() {
-		remoteRegion, err := driver.GetIRegionById(localRegion.ExternalId)
-		if err != nil {
-			return errors.Wrap(err, "GetIRegionById")
-		}
-		err = syncPublicCloudProviderInfo(ctx, userCred, syncResults, provider, driver, localRegion, remoteRegion, &syncRange)
-	} else {
-		err = syncOnPremiseCloudProviderInfo(ctx, userCred, syncResults, provider, driver, &syncRange)
-	}
-
-	if err != nil {
-		log.Errorf("dosync fail %s", err)
-	}
-
-	log.Debugf("dosync result: %s", jsonutils.Marshal(syncResults))
-
-	return err
-}
-
-func (self *SCloudproviderregion) getSyncTaskKey() string {
-	return fmt.Sprintf("%d", self.RowId)
-}
-
-func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) {
-	self.markStartSync(userCred)
-	RunSyncCloudproviderRegionTask(ctx, self.getSyncTaskKey(), func() {
-		ctx = context.WithValue(ctx, "provider-region", fmt.Sprintf("%d", self.RowId))
-		err := self.DoSync(ctx, userCred, syncRange)
-		if err != nil {
-			log.Errorf("DoSync faild %v", err)
-		}
-	})
-}
-
-func (cpr *SCloudproviderregion) resetAutoSync() {
-	_, err := db.Update(cpr, func() error {
-		cpr.LastAutoSyncAt = time.Time{}
-		return nil
-	})
-	if err != nil {
-		log.Errorf("reset LastAutoSyncAt fail %s", err)
-	}
 }
 
 func (cprm *SCloudproviderregionManager) fetchRecordsByCloudproviderId(providerId string) ([]SCloudproviderregion, error) {

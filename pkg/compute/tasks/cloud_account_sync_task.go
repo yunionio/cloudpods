@@ -50,7 +50,7 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 			db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_NETWORK_FAILED, d, self.UserCred)
 			cloudaccount.SetStatus(self.UserCred, api.CLOUD_PROVIDER_SYNC_NETWORK_FAILED, "sync network failed")
 			logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUDACCOUNT_SYNC_NETWORK, d, self.UserCred, false)
-			cloudaccount.MarkEndSync(self.UserCred)
+			cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
 			self.SetStageFailed(ctx, d)
 			return
 		} else {

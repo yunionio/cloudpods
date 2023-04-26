@@ -51,13 +51,19 @@ func (self *NetworkSyncstatusTask) OnInit(ctx context.Context, obj db.IStandalon
 		return
 	}
 
+	wire, err := net.GetWire()
+	if err != nil {
+		self.taskFail(ctx, net, errors.Wrapf(err, "net.GetWire"))
+		return
+	}
+
 	err = extNet.Refresh()
 	if err != nil {
 		self.taskFail(ctx, net, errors.Wrapf(err, "Refresh"))
 		return
 	}
 
-	err = net.SyncWithCloudNetwork(ctx, self.UserCred, extNet, nil, nil)
+	err = net.SyncWithCloudNetwork(ctx, self.UserCred, extNet, wire.GetCloudprovider())
 	if err != nil {
 		self.taskFail(ctx, net, errors.Wrapf(err, "SyncWithCloudNetwork"))
 		return

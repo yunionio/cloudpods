@@ -423,40 +423,51 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(
 	userCred mcclient.TokenCredential,
 	provider *SCloudprovider,
 	secgroups []cloudprovider.ICloudSecurityGroup,
+	region *SCloudregion,
 	vpc *SVpc,
 	xor bool,
 ) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
-	lockman.LockRawObject(ctx, manager.Keyword(), vpc.Id)
-	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), vpc.Id)
+	resId := ""
+	var err error
+
+	if region != nil {
+		resId = region.Id
+	}
+	if vpc != nil {
+		resId = vpc.Id
+	}
+	lockman.LockRawObject(ctx, "secgroups", resId)
+	defer lockman.ReleaseRawObject(ctx, "secgroups", resId)
 
 	localSecgroups := []SSecurityGroup{}
 	remoteSecgroups := []cloudprovider.ICloudSecurityGroup{}
 	syncResult := compare.SyncResult{}
 
-	region, err := vpc.GetRegion()
-	if err != nil {
-		syncResult.Error(err)
-		return localSecgroups, remoteSecgroups, syncResult
-	}
-
-	vpcId := ""
-	if region.GetDriver().IsSecurityGroupBelongGlobalVpc() {
-		vpcId, err = region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+	vpcId := api.NORMAL_VPC_ID
+	if vpc != nil {
+		region, err = vpc.GetRegion()
 		if err != nil {
-			syncResult.Error(errors.Wrap(err, "GetSecurityGroupVpcId"))
+			syncResult.Error(err)
 			return localSecgroups, remoteSecgroups, syncResult
 		}
-		region = nil
-	} else if region.GetDriver().IsSecurityGroupBelongVpc() {
-		vpcId = vpc.ExternalId
-	} else if region.GetDriver().IsSupportClassicSecurityGroup() && len(secgroups) > 0 {
-		vpcId, err = region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, secgroups[0].GetVpcId() == "classic")
-		if err != nil {
-			syncResult.Error(errors.Wrap(err, "GetSecurityGroupVpcId"))
-			return localSecgroups, remoteSecgroups, syncResult
+		if region.GetDriver().IsSecurityGroupBelongGlobalVpc() {
+			vpcId, err = region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			if err != nil {
+				syncResult.Error(errors.Wrap(err, "GetSecurityGroupVpcId"))
+				return localSecgroups, remoteSecgroups, syncResult
+			}
+			region = nil
+		} else if region.GetDriver().IsSecurityGroupBelongVpc() {
+			vpcId = vpc.ExternalId
+		} else if region.GetDriver().IsSupportClassicSecurityGroup() && len(secgroups) > 0 {
+			vpcId, err = region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, secgroups[0].GetVpcId() == "classic")
+			if err != nil {
+				syncResult.Error(errors.Wrap(err, "GetSecurityGroupVpcId"))
+				return localSecgroups, remoteSecgroups, syncResult
+			}
+		} else {
+			vpcId = region.GetDriver().GetDefaultSecurityGroupVpcId()
 		}
-	} else {
-		vpcId = region.GetDriver().GetDefaultSecurityGroupVpcId()
 	}
 
 	dbSecgroupcaches, err := manager.getSecgroupcachesByProvider(provider, region, vpcId)
@@ -521,7 +532,7 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(
 				log.Warningf("failed to set secgroup %s(%s) project sharable", secgroup.Name, secgroup.Id)
 			}
 		}
-		cache, err := manager.NewCache(ctx, userCred, secgroup.Id, vpcId, vpc.CloudregionId, provider.Id, added[i].GetProjectId())
+		cache, err := manager.NewCache(ctx, userCred, secgroup.Id, vpcId, region.Id, provider.Id, added[i].GetProjectId())
 		if err != nil {
 			syncResult.AddError(errors.Wrapf(err, "NewCache for secgroup %s provider %s", secgroup.Name, provider.Name))
 			continue

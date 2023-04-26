@@ -404,8 +404,9 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 		if err != nil {
 			return errors.Wrap(err, "GetSecgroups")
 		}
+		ctx = context.WithValue(ctx, "prefer_manager_id", host.ManagerId)
 		for i, secgroup := range secgroups {
-			externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup, desc.ProjectId, "", true)
+			externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), guest.ManagerId, vpcId, vpc, &secgroup, desc.ProjectId, "", true)
 			if err != nil {
 				return errors.Wrap(err, "RequestSyncSecurityGroup")
 			}
@@ -560,7 +561,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 			// 同步静态公网ip
 			if !eipSync {
 				provider := host.GetCloudprovider()
-				guest.SyncVMEip(ctx, userCred, provider, eip, provider.GetOwnerId())
+				guest.SyncVMEip(ctx, userCred, provider, eip)
 				eipSync = true
 			}
 		}
@@ -1099,13 +1100,10 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx conte
 		return errors.Wrap(err, "GetSecurityGroupVpcId")
 	}
 
-	remoteProjectId := ""
-	provider := host.GetCloudprovider()
-	if provider != nil {
-		remoteProjectId, err = provider.SyncProject(ctx, task.GetUserCred(), guest.ProjectId)
-		if err != nil {
-			log.Errorf("failed to sync project %s for guest %s error: %v", guest.ProjectId, guest.Name, err)
-		}
+	provider := models.CloudproviderManager.FetchCloudproviderById(guest.ManagerId)
+	remoteProjectId, err := provider.SyncProject(ctx, task.GetUserCred(), guest.ProjectId)
+	if err != nil {
+		log.Errorf("failed to sync project %s for guest %s error: %v", guest.ProjectId, guest.Name, err)
 	}
 
 	secgroups, err := guest.GetSecgroups()
@@ -1114,7 +1112,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx conte
 	}
 	externalIds := []string{}
 	for _, secgroup := range secgroups {
-		externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup, remoteProjectId, "", true)
+		externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), guest.ManagerId, vpcId, vpc, &secgroup, remoteProjectId, "", true)
 		if err != nil {
 			return errors.Wrap(err, "RequestSyncSecurityGroup")
 		}

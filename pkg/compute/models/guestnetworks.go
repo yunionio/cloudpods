@@ -659,7 +659,7 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCr
 			return errors.Wrap(err, "GetIsolatedDeviceByNetworkIndex")
 		}
 		net := gn.GetNetwork()
-		if regutils.MatchIP4Addr(gn.IpAddr) || regutils.MatchIP6Addr(gn.Ip6Addr) {
+		if net != nil && (regutils.MatchIP4Addr(gn.IpAddr) || regutils.MatchIP6Addr(gn.Ip6Addr)) {
 			net.updateDnsRecord(&gn, false)
 			if regutils.MatchIP4Addr(gn.IpAddr) {
 				// ??
@@ -703,7 +703,10 @@ func (manager *SGuestnetworkManager) getGuestNicByIP(ip string, networkId string
 
 func (self *SGuestnetwork) LogDetachEvent(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork) {
 	if network == nil {
-		netTmp, _ := NetworkManager.FetchById(self.NetworkId)
+		netTmp, err := NetworkManager.FetchById(self.NetworkId)
+		if err != nil {
+			return
+		}
 		network = netTmp.(*SNetwork)
 	}
 	db.OpsLog.LogDetachEvent(ctx, guest, network, userCred, nil)

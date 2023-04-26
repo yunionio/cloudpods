@@ -34,6 +34,10 @@ type SRegion struct {
 	api.CloudregionDetails
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) GetClient() *SCloudpodsClient {
 	return self.cli
 }

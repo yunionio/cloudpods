@@ -678,7 +678,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 			log.Errorf("disk.SetExternalId fail %s", err)
 			return err
 		}
-		err = disk.syncWithCloudDisk(ctx, userCred, iprovider, idisks[i], i, guest.GetOwnerId(), host.ManagerId)
+		err = disk.syncWithCloudDisk(ctx, userCred, iprovider, guest.GetCloudprovider(), idisks[i], i)
 		if err != nil {
 			log.Errorf("disk.syncWithCloudDisk fail %s", err)
 			return err

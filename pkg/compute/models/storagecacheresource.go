@@ -96,7 +96,7 @@ func (manager *SStoragecacheResourceBaseManager) FetchCustomizeColumns(
 			rows[i].Storagecache = storagecache.Name
 			rows[i].ManagerId = storagecache.ManagerId
 		}
-		managerList[i] = &SManagedResourceBase{rows[i].ManagerId}
+		managerList[i] = &SManagedResourceBase{ManagerId: rows[i].ManagerId}
 	}
 
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, managerList, fields, isList)

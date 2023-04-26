@@ -694,7 +694,7 @@ func (self *SNatGateway) SyncNatGatewayEips(ctx context.Context, userCred mcclie
 
 	for i := 0; i < len(added); i += 1 {
 		region, _ := self.GetRegion()
-		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, added[i], provider, region, provider.GetOwnerId())
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, added[i], provider, region)
 		if err != nil {
 			result.AddError(err)
 			continue

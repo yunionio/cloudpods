@@ -1608,6 +1608,17 @@ func (self *SHost) GetGuestsQuery() *sqlchemy.SQuery {
 	return GuestManager.Query().Equals("host_id", self.Id)
 }
 
+func (self *SHost) GetGuestsByProvider(provider *SCloudprovider) ([]SGuest, error) {
+	q := self.GetGuestsQuery()
+	q = q.Equals("manager_id", provider.Id)
+	guests := make([]SGuest, 0)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return guests, nil
+}
+
 func (self *SHost) GetGuests() ([]SGuest, error) {
 	q := self.GetGuestsQuery()
 	guests := make([]SGuest, 0)
@@ -1792,7 +1803,7 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 		q = q.Equals("zone_id", zone.Id)
 	}
 	if provider != nil {
-		q = q.Equals("manager_id", provider.Id)
+		q = q.Equals("manager_id", provider.getManagerProvider().Id)
 	}
 	// exclude prepaid_recycle fake hosts
 	q = q.NotEquals("resource_type", api.HostResourceTypePrepaidRecycle)
@@ -2171,7 +2182,7 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 		host.MemReserved = reservedMem
 	}
 
-	host.ManagerId = provider.Id
+	host.ManagerId = provider.getManagerProvider().Id
 	host.IsEmulated = extHost.IsEmulated()
 
 	host.IsMaintenance = extHost.GetIsMaintenance()
@@ -2497,14 +2508,14 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 	return false, ""
 }
 
-func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, xor bool) ([]SGuestSyncResult, compare.SyncResult) {
+func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, driver cloudprovider.ICloudProvider, provider *SCloudprovider, vms []cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, xor bool) ([]SGuestSyncResult, compare.SyncResult) {
 	lockman.LockRawObject(ctx, GuestManager.Keyword(), self.Id)
 	defer lockman.ReleaseRawObject(ctx, GuestManager.Keyword(), self.Id)
 
 	syncVMPairs := make([]SGuestSyncResult, 0)
 	syncResult := compare.SyncResult{}
 
-	dbVMs, err := self.GetGuests()
+	dbVMs, err := self.GetGuestsByProvider(provider)
 	if err != nil {
 		syncResult.Error(errors.Wrapf(err, "GetGuests"))
 		return nil, syncResult
@@ -2551,7 +2562,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 				syncResult.Delete()
 				continue
 			}
-			err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId, true)
+			err := commondb[i].syncWithCloudVM(ctx, userCred, driver, self, commonext[i], provider, true)
 			if err != nil {
 				syncResult.UpdateError(err)
 				continue
@@ -2574,7 +2585,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 		}
 		vm, err := db.FetchByExternalIdAndManagerId(GuestManager, added[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			sq := HostManager.Query().SubQuery()
-			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), self.ManagerId))
+			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), provider.Id))
 		})
 		if err != nil && err != sql.ErrNoRows {
 			log.Errorf("failed to found guest by externalId %s error: %v", added[i].GetGlobalId(), err)
@@ -2595,7 +2606,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 				continue
 			}
 			host := _host.(*SHost)
-			err = guest.syncWithCloudVM(ctx, userCred, iprovider, host, added[i], syncOwnerId, true)
+			err = guest.syncWithCloudVM(ctx, userCred, driver, host, added[i], provider, true)
 			if err != nil {
 				syncResult.UpdateError(err)
 			} else {
@@ -2614,7 +2625,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 				continue
 			}
 		}
-		new, err := GuestManager.newCloudVM(ctx, userCred, iprovider, self, added[i], syncOwnerId)
+		new, err := GuestManager.newCloudVM(ctx, userCred, driver, self, added[i], provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {

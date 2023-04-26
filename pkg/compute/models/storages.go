@@ -668,7 +668,7 @@ func (manager *SStorageManager) getStoragesByZone(zone *SZone, provider *SCloudp
 		q = q.Equals("zone_id", zone.Id)
 	}
 	if provider != nil {
-		q = q.Equals("manager_id", provider.Id)
+		q = q.Equals("manager_id", provider.getManagerProvider().Id)
 	}
 	err := db.FetchModelObjects(manager, q, &storages)
 	if err != nil {
@@ -696,9 +696,9 @@ func (manager *SStorageManager) scanLegacyStorages() error {
 func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, storages []cloudprovider.ICloudStorage, xor bool) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
 	var resId string
 	if zone != nil {
-		resId = fmt.Sprintf("%s-%s", provider.Id, zone.Id)
+		resId = fmt.Sprintf("%s-%s", provider.CloudaccountId, zone.Id)
 	} else {
-		resId = provider.Id
+		resId = provider.CloudaccountId
 	}
 	lockman.LockRawObject(ctx, "storages", resId)
 	defer lockman.ReleaseRawObject(ctx, "storages", resId)
@@ -896,7 +896,7 @@ func (s *SStorage) SyncCapacityUsed(ctx context.Context) error {
 
 func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		// self.Name = extStorage.GetName()
+		self.Name = extStorage.GetName()
 		self.Status = extStorage.GetStatus()
 		self.StorageType = extStorage.GetStorageType()
 		self.MediumType = extStorage.GetMediumType()
@@ -911,6 +911,7 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 		self.Enabled = tristate.NewFromBool(extStorage.GetEnabled())
 
 		self.IsEmulated = extStorage.IsEmulated()
+		self.ManagerId = provider.getManagerProvider().Id
 
 		self.IsSysDiskStore = tristate.NewFromBool(extStorage.IsSysDiskStore())
 
@@ -947,7 +948,7 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 	storage.Enabled = tristate.NewFromBool(extStorage.GetEnabled())
 
 	storage.IsEmulated = extStorage.IsEmulated()
-	storage.ManagerId = provider.Id
+	storage.ManagerId = provider.getManagerProvider().Id
 
 	storage.IsSysDiskStore = tristate.NewFromBool(extStorage.IsSysDiskStore())
 
@@ -955,11 +956,11 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
-		newName, err := db.GenerateName(ctx, manager, userCred, extStorage.GetName())
-		if err != nil {
-			return err
-		}
-		storage.Name = newName
+		//newName, err := db.GenerateName(ctx, manager, userCred, extStorage.GetName())
+		//if err != nil {
+		//	return err
+		//}
+		storage.Name = extStorage.GetName()
 
 		return manager.TableSpec().Insert(ctx, &storage)
 	}()
@@ -1263,11 +1264,7 @@ func (manager *SStorageManager) TotalCapacity(
 	return res1
 }
 
-func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *api.DiskConfig, userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider, autoDelete bool, isSystem bool,
-	billingType string, billingCycle string,
-	encryptKeyId string,
-) (*SDisk, error) {
+func (self *SStorage) createDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, name string, diskConfig *api.DiskConfig, autoDelete bool, billingType string, billingCycle string) (*SDisk, error) {
 	disk := SDisk{}
 	disk.SetModelManager(DiskManager, &disk)
 
@@ -1276,10 +1273,11 @@ func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *a
 
 	disk.StorageId = self.Id
 	disk.AutoDelete = autoDelete
-	disk.ProjectId = ownerId.GetProjectId()
+	disk.ProjectId = guest.GetOwnerId().GetProjectId()
 	disk.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
-	disk.DomainId = ownerId.GetProjectDomainId()
-	disk.IsSystem = isSystem
+	disk.DomainId = guest.GetOwnerId().GetProjectDomainId()
+	disk.IsSystem = guest.IsSystem
+	disk.ManagerId = guest.ManagerId
 
 	if self.MediumType == api.DISK_TYPE_SSD {
 		disk.IsSsd = true
@@ -1290,7 +1288,7 @@ func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *a
 	disk.BillingType = billingType
 	disk.BillingCycle = billingCycle
 
-	disk.EncryptKeyId = encryptKeyId
+	disk.EncryptKeyId = guest.EncryptKeyId
 
 	err := disk.GetModelManager().TableSpec().Insert(ctx, &disk)
 	if err != nil {
@@ -1471,6 +1469,7 @@ func (manager *SStorageManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
+	query.ManagedResourceListInput.OnlyPrimaryManager = true
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")

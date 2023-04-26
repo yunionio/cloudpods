@@ -1235,7 +1235,7 @@ func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcc
 	} else if eip == nil && extEip != nil {
 		// add
 		region, _ := self.GetRegion()
-		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region, provider.GetOwnerId())
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region)
 		if err != nil {
 			log.Errorf("getEipByExtEip error %v", err)
 			result.AddError(err)
@@ -1267,7 +1267,7 @@ func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcc
 			} else {
 				result.Delete()
 				region, _ := self.GetRegion()
-				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region, provider.GetOwnerId())
+				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region)
 				if err != nil {
 					result.AddError(err)
 				} else {
@@ -1281,7 +1281,7 @@ func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcc
 			}
 		} else {
 			// do nothing
-			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, provider.GetOwnerId())
+			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip)
 			if err != nil {
 				result.UpdateError(err)
 			} else {

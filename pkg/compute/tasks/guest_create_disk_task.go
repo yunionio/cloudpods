@@ -177,12 +177,13 @@ func (self *ManagedGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStan
 }
 
 func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+
 	disks, err := self.GetInputDisks()
 	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
-
 	for _, d := range disks {
 		diskId := d.DiskId
 		iDisk, err := models.DiskManager.FetchById(diskId)
@@ -201,8 +202,6 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			return
 		}
 	}
-
-	guest := obj.(*models.SGuest)
 
 	for _, d := range disks {
 		diskId := d.DiskId

@@ -269,7 +269,7 @@ func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCr
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, removeProjectId, service string, skipSyncRule bool) (string, error) {
+func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, regionId, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, removeProjectId, service string, skipSyncRule bool) (string, error) {
 	return "", fmt.Errorf("Not Implemented RequestSyncSecurityGroup")
 }
 

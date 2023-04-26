@@ -141,7 +141,7 @@ func (manager *SVpcResourceBaseManager) FetchCustomizeColumns(
 			rows[i].ManagerId = vpc.ManagerId
 		}
 		regionList[i] = &SCloudregionResourceBase{rows[i].CloudregionId}
-		managerList[i] = &SManagedResourceBase{rows[i].ManagerId}
+		managerList[i] = &SManagedResourceBase{ManagerId: rows[i].ManagerId}
 	}
 
 	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, regionList, fields, isList)

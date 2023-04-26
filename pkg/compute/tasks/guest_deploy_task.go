@@ -61,6 +61,8 @@ func (self *GuestDeployTask) OnDeployWaitServerStop(ctx context.Context, guest *
 		targetHostId = guest.HostId
 	}
 	host := models.HostManager.FetchHostById(targetHostId)
+	host.ManagerId = guest.ManagerId
+
 	self.DeployOnHost(ctx, guest, host)
 }
 

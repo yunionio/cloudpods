@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -103,9 +102,9 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context, info json
 
 func (self *SCloudregion) GetElasticIps(managerId, eipMode string) ([]SElasticip, error) {
 	q := ElasticipManager.Query().Equals("cloudregion_id", self.Id)
-	if len(managerId) > 0 {
-		q = q.Equals("manager_id", managerId)
-	}
+	//if len(managerId) > 0 {
+	//	q = q.Equals("manager_id", managerId)
+	//}
 	if len(eipMode) > 0 {
 		q = q.Equals("mode", eipMode)
 	}
@@ -275,7 +274,8 @@ func (self *SCloudregion) GetVpcs() ([]SVpc, error) {
 
 func (self *SCloudregion) GetCloudproviderVpcs(managerId string) ([]SVpc, error) {
 	vpcs := []SVpc{}
-	q := self.GetVpcQuery().Equals("manager_id", managerId)
+	q := self.GetVpcQuery()
+	q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), managerId))
 	err := db.FetchModelObjects(VpcManager, q, &vpcs)
 	if err != nil {
 		return nil, errors.Wrap(err, "db.FetchModelObjects")
@@ -336,16 +336,16 @@ func (self *SCloudregion) GetServerSkus() ([]SServerSku, error) {
 }
 
 func (self *SCloudprovider) GetRegionByExternalIdPrefix(prefix string) ([]SCloudregion, error) {
-	factory, err := self.GetProviderFactory()
-	if err != nil {
-		return nil, err
-	}
+	//factory, err := self.GetProviderFactory()
+	//if err != nil {
+	//	return nil, err
+	//}
 	regions := make([]SCloudregion, 0)
 	q := CloudregionManager.Query().Startswith("external_id", prefix)
-	if !factory.IsPublicCloud() && !strings.Contains(prefix, "/") {
-		q = CloudregionManager.Query().Equals("manager_id", self.Id)
-	}
-	err = db.FetchModelObjects(CloudregionManager, q, &regions)
+	//if !factory.IsPublicCloud() && !strings.Contains(prefix, "/") {
+	//	q = CloudregionManager.Query().Equals("manager_id", self.Id)
+	//}
+	err := db.FetchModelObjects(CloudregionManager, q, &regions)
 	if err != nil {
 		return nil, err
 	}
@@ -470,10 +470,10 @@ func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mccl
 		return errors.Wrap(err, "SyncI18ns")
 	}
 
-	factory, err := provider.GetProviderFactory()
-	if err != nil {
-		return err
-	}
+	//factory, err := provider.GetProviderFactory()
+	//if err != nil {
+	//	return err
+	//}
 
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		if !utils.IsInStringArray(self.Provider, api.PRIVATE_CLOUD_PROVIDERS) {
@@ -490,9 +490,9 @@ func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mccl
 
 		self.IsEmulated = cloudRegion.IsEmulated()
 
-		if !factory.IsPublicCloud() && !factory.IsOnPremise() && !factory.IsMultiTenant() {
-			self.ManagerId = provider.Id
-		}
+		//if !factory.IsPublicCloud() && !factory.IsOnPremise() && !factory.IsMultiTenant() {
+		//	self.ManagerId = provider.Id
+		//}
 
 		return nil
 	})

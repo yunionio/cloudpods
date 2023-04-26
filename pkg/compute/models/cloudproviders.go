@@ -105,12 +105,20 @@ type SCloudprovider struct {
 	// 归属云账号ID
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
+	IsSubAccount tristate.TriState `default:"false" list:"domain" create:"optional"`
+
 	// ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"domain"`
 
 	// LastSync time.Time `get:"domain" list:"domain"` // = Column(DateTime, nullable=True)
 
 	// 云账号的平台信息
 	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
+
+	// SyncIntervalSeconds int `list:"domain"`
+	SyncResults jsonutils.JSONObject `list:"domain"`
+
+	LastDeepSyncAt time.Time `list:"domain"`
+	LastAutoSyncAt time.Time `list:"domain"`
 
 	SProjectMappingResourceBase
 }
@@ -672,12 +680,20 @@ func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, 
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	if cloudaccount, _ := self.GetCloudaccount(); cloudaccount != nil {
-		cloudaccount.MarkSyncing(userCred)
-	}
-	self.markStartSync(userCred, syncRange)
+	//self.markStartSync(userCred, syncRange)
 	db.OpsLog.LogEvent(self, db.ACT_SYNC_HOST_START, "", userCred)
-	return task.ScheduleRun(nil)
+	err = task.ScheduleRun(nil)
+	if err != nil {
+		return err
+	}
+	for {
+		//TODO 为满足串行同步，在此阻塞任务直到当前同步完成。
+		//每次Task都是新的对象，暂时直接读数据库。
+		if CloudproviderManager.FetchCloudproviderById(self.Id).IsIdle() {
+			return nil
+		}
+		time.Sleep(time.Second * 5)
+	}
 }
 
 func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
@@ -754,15 +770,16 @@ func (self *SCloudprovider) markStartingSync(userCred mcclient.TokenCredential, 
 	if err != nil {
 		return errors.Wrap(err, "db.Update")
 	}
-	cprs := self.GetCloudproviderRegions()
-	for i := range cprs {
-		if cprs[i].Enabled {
-			err := cprs[i].markStartingSync(userCred, syncRange)
-			if err != nil {
-				return errors.Wrap(err, "cprs[i].markStartingSync")
-			}
-		}
-	}
+	//TODO 同步从订阅开始，所有的区域都会同步，暂时注释这段代码。
+	//cprs := self.GetCloudproviderRegions()
+	//for i := range cprs {
+	//	if cprs[i].Enabled {
+	//		err := cprs[i].markStartingSync(userCred, syncRange)
+	//		if err != nil {
+	//			return errors.Wrap(err, "cprs[i].markStartingSync")
+	//		}
+	//	}
+	//}
 	return nil
 }
 
@@ -774,15 +791,16 @@ func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential, syn
 	if err != nil {
 		return errors.Wrapf(err, "db.Update")
 	}
-	cprs := self.GetCloudproviderRegions()
-	for i := range cprs {
-		if cprs[i].Enabled {
-			err := cprs[i].markStartingSync(userCred, syncRange)
-			if err != nil {
-				return errors.Wrap(err, "cprs[i].markStartingSync")
-			}
-		}
-	}
+	//TODO 同步从订阅开始，所有的区域都会同步，暂时注释这段代码。
+	//cprs := self.GetCloudproviderRegions()
+	//for i := range cprs {
+	//	if cprs[i].Enabled {
+	//		err := cprs[i].markStartingSync(userCred, syncRange)
+	//		if err != nil {
+	//			return errors.Wrap(err, "cprs[i].markStartingSync")
+	//		}
+	//	}
+	//}
 	return nil
 }
 
@@ -813,52 +831,36 @@ func (self *SCloudprovider) markEndSyncWithLock(ctx context.Context, userCred mc
 			return nil
 		}
 
-		err := self.markEndSync(userCred)
+		err := self.cancelStartingSync(userCred)
 		if err != nil {
 			return err
 		}
 		return nil
 	}()
 
-	if err != nil {
-		return err
-	}
-
-	account, err := self.GetCloudaccount()
-	if err != nil {
-		return errors.Wrapf(err, "GetCloudaccount")
-	}
-	return account.MarkEndSyncWithLock(ctx, userCred)
-}
-
-func (self *SCloudprovider) markEndSync(userCred mcclient.TokenCredential) error {
-	_, err := db.Update(self, func() error {
-		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
-		self.LastSyncEndAt = timeutils.UtcNow()
-		return nil
-	})
-	if err != nil {
-		return errors.Wrapf(err, "markEndSync")
-	}
-	return nil
+	return err
+	//account, err := self.GetCloudaccount()
+	//if err != nil {
+	//	return errors.Wrapf(err, "GetCloudaccount")
+	//}
+	//return account.MarkEndSyncWithLock(ctx, userCred)
 }
 
 func (self *SCloudprovider) cancelStartingSync(userCred mcclient.TokenCredential) error {
-	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUING {
-		cprs := self.GetCloudproviderRegions()
-		for i := range cprs {
-			err := cprs[i].cancelStartingSync(userCred)
-			if err != nil {
-				return errors.Wrap(err, "cprs[i].cancelStartingSync")
-			}
-		}
-		_, err := db.Update(self, func() error {
-			self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
-			return nil
-		})
+	//if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUING {
+	cprs := self.GetCloudproviderRegions()
+	for i := range cprs {
+		err := cprs[i].cancelStartingSync(userCred)
 		if err != nil {
-			return errors.Wrap(err, "db.Update")
+			return errors.Wrap(err, "cprs[i].cancelStartingSync")
 		}
+	}
+	_, err := db.Update(self, func() error {
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "db.Update")
 	}
 	return nil
 }
@@ -883,7 +885,8 @@ func (self *SCloudprovider) GetProvider(ctx context.Context) (cloudprovider.IClo
 		return nil, errors.Wrapf(err, "GetCloudaccount")
 	}
 	defaultRegion, _ := jsonutils.Marshal(account.Options).GetString("default_region")
-	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
+
+	providerConfig := cloudprovider.ProviderConfig{
 		Id:        self.Id,
 		Name:      self.Name,
 		Vendor:    self.Provider,
@@ -900,7 +903,33 @@ func (self *SCloudprovider) GetProvider(ctx context.Context) (cloudprovider.IClo
 		Options:       account.Options,
 
 		UpdatePermission: account.UpdatePermission(ctx),
-	})
+	}
+
+	managerCloudprovider := CloudproviderManager.FetchManagerCloudproviderByAccount(self.CloudaccountId)
+	if managerCloudprovider != nil {
+		accessUrl = managerCloudprovider.getAccessUrl()
+		passwd, err = managerCloudprovider.getPassword()
+		if err != nil {
+			return nil, err
+		}
+		mProviderConfig := &cloudprovider.ProviderConfig{
+			Id:                     managerCloudprovider.Id,
+			Name:                   managerCloudprovider.Name,
+			Vendor:                 managerCloudprovider.Provider,
+			URL:                    accessUrl,
+			Account:                managerCloudprovider.Account,
+			Secret:                 passwd,
+			ProxyFunc:              account.proxyFunc(),
+			AliyunResourceGroupIds: options.Options.AliyunResourceGroups,
+			ReadOnly:               account.ReadOnly,
+			DefaultRegion:          defaultRegion,
+			Options:                account.Options,
+			UpdatePermission:       account.UpdatePermission(ctx),
+		}
+		providerConfig.ManagerProviderConfig = mProviderConfig
+	}
+
+	return cloudprovider.GetProvider(providerConfig)
 }
 
 func (self *SCloudprovider) savePassword(secret string) error {
@@ -1225,6 +1254,7 @@ func (manager *SCloudproviderManager) initializeDefaultTenantId() error {
 			return errors.Wrap(err, "db.Update for account")
 		}
 	}
+	//}
 	return nil
 }
 
@@ -1513,7 +1543,11 @@ func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context,
 
 func (provider *SCloudprovider) GetCloudproviderRegions() []SCloudproviderregion {
 	q := CloudproviderRegionManager.Query()
-	q = q.Equals("cloudprovider_id", provider.Id)
+	//q = q.Equals("cloudprovider_id", provider.Id)
+	managerCloudprovider := CloudproviderManager.FetchManagerCloudproviderByAccount(provider.CloudaccountId)
+	if managerCloudprovider != nil {
+		q = q.Equals("cloudprovider_id", managerCloudprovider.Id)
+	}
 	// q = q.IsTrue("enabled")
 	// q = q.Equals("sync_status", api.CLOUD_PROVIDER_SYNC_STATUS_IDLE)
 
@@ -1528,27 +1562,89 @@ func (provider *SCloudprovider) GetRegions() ([]SCloudregion, error) {
 	return ret, db.FetchModelObjects(CloudregionManager, q, &ret)
 }
 
-func (provider *SCloudprovider) resetAutoSync() {
-	cprs := provider.GetCloudproviderRegions()
-	for i := range cprs {
-		cprs[i].resetAutoSync()
+//func (provider *SCloudprovider) resetAutoSync() {
+//	cprs := provider.GetCloudproviderRegions()
+//	for i := range cprs {
+//		cprs[i].resetAutoSync()
+//	}
+//}
+
+func (provider *SCloudprovider) submitSyncTask(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, syncRange *SSyncRange) {
+	provider.markStartSync(userCred, syncRange)
+	RunSyncCloudproviderRegionTask(ctx, provider.getSyncTaskKey(), func() {
+		//ctx = context.WithValue(ctx, "provider-region", fmt.Sprintf("%d", self.RowId))
+		err := provider.DoSync(ctx, userCred, region, syncRange)
+		if err != nil {
+			log.Errorf("DoSync faild %v", err)
+		}
+	})
+}
+
+func (provider *SCloudprovider) DoSync(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, syncRange *SSyncRange) error {
+	syncResults := SSyncResultSet{}
+
+	provider.markSyncing(userCred)
+
+	defer func() {
+		err := provider.markEndSync(ctx, userCred, syncResults, &syncRange.DeepSync)
+		if err != nil {
+			log.Errorf("markEndSync for %s(%s) : %v", region.Name, provider.Name, err)
+		}
+	}()
+
+	driver, err := provider.GetProvider(ctx)
+	if err != nil {
+		log.Errorf("Failed to get driver, connection problem?")
+		return err
 	}
+
+	if !syncRange.DeepSync {
+		log.Debugf("no need to do deep sync, check...")
+		if provider.LastDeepSyncAt.IsZero() || time.Now().Sub(provider.LastDeepSyncAt) > time.Hour*24 {
+			syncRange.DeepSync = true
+		}
+	}
+	log.Debugf("need to do deep sync? ... %v", syncRange.DeepSync)
+
+	if region.isManaged() {
+		remoteRegion, err := driver.GetIRegionById(region.ExternalId)
+		if err != nil {
+			return errors.Wrap(err, "GetIRegionById")
+		}
+		err = syncPublicCloudProviderInfo(ctx, userCred, syncResults, provider, driver, region, remoteRegion, syncRange)
+	} else {
+		err = syncOnPremiseCloudProviderInfo(ctx, userCred, syncResults, provider, driver, syncRange)
+	}
+
+	if err != nil {
+		log.Errorf("dosync fail %s", err)
+	}
+
+	log.Debugf("dosync result: %s", jsonutils.Marshal(syncResults))
+
+	return err
+}
+
+func (provider *SCloudprovider) getSyncTaskKey() string {
+	return provider.Id
 }
 
 func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange, wg *sync.WaitGroup) {
-	provider.markSyncing(userCred)
 	cprs := provider.GetCloudproviderRegions()
 	regionIds, _ := syncRange.GetRegionIds()
 	syncCnt := 0
-	for i := range cprs {
-		if cprs[i].Enabled && cprs[i].CanSync() && (len(regionIds) == 0 || utils.IsInStringArray(cprs[i].CloudregionId, regionIds)) {
-			syncCnt += 1
-			if wg != nil {
-				wg.Add(1)
-			}
-			cprs[i].submitSyncTask(ctx, userCred, syncRange)
-			if wg != nil {
-				wg.Done()
+	if provider.Enabled.IsTrue() && provider.CanSync() {
+		for i := range cprs {
+			if len(regionIds) == 0 || utils.IsInStringArray(cprs[i].CloudregionId, regionIds) {
+				syncCnt += 1
+				if wg != nil {
+					wg.Add(1)
+				}
+				region, _ := cprs[i].GetRegion()
+				provider.submitSyncTask(ctx, userCred, region, &syncRange)
+				if wg != nil {
+					wg.Done()
+				}
 			}
 		}
 	}
@@ -1558,6 +1654,35 @@ func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, us
 			log.Errorf("markEndSyncWithLock for %s error: %v", provider.Name, err)
 		}
 	}
+}
+
+func (provider *SCloudprovider) markEndSync(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, deepSync *bool) error {
+	log.Debugf("markEndSync deepSync %v", *deepSync)
+	err := provider.markEndSyncInternal(userCred, syncResults, deepSync)
+	if err != nil {
+		return errors.Wrapf(err, "markEndSyncInternal")
+	}
+	err = provider.markEndSyncWithLock(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "markEndSyncWithLock")
+	}
+	return nil
+}
+
+func (provider *SCloudprovider) markEndSyncInternal(userCred mcclient.TokenCredential, syncResults SSyncResultSet, deepSync *bool) error {
+	_, err := db.Update(provider, func() error {
+		provider.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+		provider.LastSyncEndAt = timeutils.UtcNow()
+		provider.SyncResults = jsonutils.Marshal(syncResults)
+		if deepSync != nil && *deepSync {
+			provider.LastDeepSyncAt = timeutils.UtcNow()
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "db.Update")
+	}
+	return nil
 }
 
 func (provider *SCloudprovider) SyncCallSyncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) {
@@ -1778,6 +1903,10 @@ func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, owner mc
 	return q
 }
 
+func (self *SCloudprovider) getManagerProvider() *SCloudprovider {
+	return CloudproviderManager.FetchManagerCloudproviderByAccount(self.CloudaccountId)
+}
+
 func (self *SCloudprovider) getSyncStatus2() string {
 	q := CloudproviderRegionManager.Query()
 	q = q.Equals("cloudprovider_id", self.Id)
@@ -1801,6 +1930,25 @@ func (manager *SCloudproviderManager) fetchRecordsByQuery(q *sqlchemy.SQuery) []
 		return nil
 	}
 	return recs
+}
+
+func (manager *SCloudproviderManager) FetchManagerCloudproviderById(id string) *SCloudprovider {
+	provider := manager.FetchCloudproviderById(id)
+
+	if provider != nil {
+		return manager.FetchManagerCloudproviderByAccount(provider.CloudaccountId)
+	}
+	return nil
+}
+
+func (manager *SCloudproviderManager) FetchManagerCloudproviderByAccount(cloudAccountId string) *SCloudprovider {
+	providers := manager.fetchRecordsByQuery(CloudproviderManager.Query().Equals("cloudaccount_id", cloudAccountId).IsFalse("is_sub_account"))
+
+	//TODO 理论上主账号只有1个
+	if len(providers) == 1 {
+		return &providers[0]
+	}
+	return nil
 }
 
 func (manager *SCloudproviderManager) initAllRecords() {

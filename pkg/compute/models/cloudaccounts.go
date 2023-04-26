@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -199,6 +200,10 @@ func (self *SCloudaccount) getCloudprovidersInternal(enabled tristate.TriState) 
 		log.Errorf("getCloudproviders error: %v", err)
 		return nil
 	}
+	//优先同步主订阅
+	sort.Slice(cloudproviders, func(i, j int) bool {
+		return cloudproviders[i].IsSubAccount.IsFalse()
+	})
 	return cloudproviders
 }
 
@@ -1025,8 +1030,21 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 				return nil
 			})
 		}
+		db.Update(provider, func() error {
+			provider.Account = subAccount.Account
+			provider.IsSubAccount = tristate.NewFromBool(subAccount.IsSubAccount)
+			if subAccount.Secret != "" {
+				sec, err := utils.EncryptAESBase64(provider.Id, subAccount.Secret)
+				if err != nil {
+					return err
+				}
+				provider.Secret = sec
+			}
+			provider.Name = subAccount.Name
+			provider.Description = subAccount.Desc
+			return nil
+		})
 		provider.markProviderConnected(ctx, userCred, subAccount.HealthStatus)
-		provider.updateName(ctx, userCred, subAccount.Name, subAccount.Desc)
 		return provider, isNew, nil
 	}
 	// not found, create a new cloudprovider
@@ -1035,7 +1053,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 	newCloudprovider, err := func() (*SCloudprovider, error) {
 		newCloudprovider := SCloudprovider{}
 		newCloudprovider.Account = subAccount.Account
-		newCloudprovider.Secret = self.Secret
+		newCloudprovider.IsSubAccount = tristate.NewFromBool(subAccount.IsSubAccount)
 		newCloudprovider.CloudaccountId = self.Id
 		newCloudprovider.Provider = self.Provider
 		newCloudprovider.AccessUrl = self.AccessUrl
@@ -1085,9 +1103,18 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 
 	db.OpsLog.LogEvent(newCloudprovider, db.ACT_CREATE, newCloudprovider.GetShortDesc(ctx), userCred)
 
-	passwd, err := self.getPassword()
-	if err != nil {
-		return nil, isNew, err
+	passwd := ""
+	if subAccount.Secret == "" {
+		passwd, err = self.getPassword()
+		if err != nil {
+			return nil, isNew, err
+		}
+	} else {
+		sec, err := utils.EncryptAESBase64(newCloudprovider.Id, subAccount.Secret)
+		if err != nil {
+			return nil, isNew, err
+		}
+		passwd = sec
 	}
 
 	newCloudprovider.savePassword(passwd)
@@ -2108,7 +2135,8 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 	account.markAccountConnected(ctx, userCred)
 	providers := account.importAllSubaccounts(ctx, userCred, subaccounts)
 	for i := range providers {
-		if providers[i].GetEnabled() {
+		// 只同步主订阅区域
+		if providers[i].GetEnabled() && providers[i].IsSubAccount.IsFalse() {
 			_, err := providers[i].prepareCloudproviderRegions(ctx, userCred)
 			if err != nil {
 				return errors.Wrapf(err, "prepareCloudproviderRegions for provider %s", providers[i].Name)

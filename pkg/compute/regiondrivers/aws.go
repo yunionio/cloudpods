@@ -331,11 +331,11 @@ func (self *SAwsRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 			return nil, fmt.Errorf("vpc %s(%s) related provider not  found", vpc.GetName(), vpc.GetName())
 		}
 
-		region, err := vpc.GetIRegion(ctx)
+		iregion, err := vpc.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.GetIRegion")
 		}
-		ivpc, err := region.GetIVpcById(vpc.GetExternalId())
+		ivpc, err := iregion.GetIVpcById(vpc.GetExternalId())
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				// already deleted, do nothing
@@ -363,7 +363,7 @@ func (self *SAwsRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 			}
 		}
 
-		_, _, result := models.SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, []cloudprovider.ICloudSecurityGroup{}, vpc, true)
+		_, _, result := models.SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, []cloudprovider.ICloudSecurityGroup{}, region, vpc, true)
 		if result.IsError() {
 			return nil, fmt.Errorf("SyncSecurityGroupCaches %s", result.Result())
 		}

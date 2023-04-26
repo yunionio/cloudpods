@@ -305,7 +305,7 @@ func (m *SSnapshotPolicyDiskManager) SyncDetachBySnapshotpolicy(ctx context.Cont
 }
 
 func (m *SSnapshotPolicyDiskManager) SyncByDisk(ctx context.Context, userCred mcclient.TokenCredential,
-	extSnapshotpolicies []string, syncOwnerID mcclient.IIdentityProvider, disk *SDisk, storage *SStorage) error {
+	extSnapshotpolicies []string, provider *SCloudprovider, disk *SDisk, storage *SStorage) error {
 
 	sds, err := m.FetchAllByDiskID(ctx, userCred, disk.GetId())
 	if err != nil {
@@ -314,8 +314,7 @@ func (m *SSnapshotPolicyDiskManager) SyncByDisk(ctx context.Context, userCred mc
 
 	//fetch snapshotPolicy Cache to find the snapshotpolicyID corresponding to extSnapshotpolicyID
 	region, _ := storage.GetRegion()
-	spCaches, err := SnapshotPolicyCacheManager.FetchAllByExtIds(extSnapshotpolicies, region.GetId(),
-		storage.ManagerId)
+	spCaches, err := SnapshotPolicyCacheManager.FetchAllByExtIds(extSnapshotpolicies, region.GetId(), provider.Id)
 	if err != nil {
 		return errors.Wrapf(err, "fetachsnapshotpolicy caches failed")
 	}
@@ -339,7 +338,7 @@ func (m *SSnapshotPolicyDiskManager) SyncByDisk(ctx context.Context, userCred mc
 	if err != nil {
 		return err
 	}
-	err = m.SyncAttachDisk(ctx, userCred, added, syncOwnerID, disk)
+	err = m.SyncAttachDisk(ctx, userCred, added, provider.GetOwnerId(), disk)
 	if err != nil {
 		return err
 	}

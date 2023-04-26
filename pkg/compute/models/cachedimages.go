@@ -546,7 +546,7 @@ func (self *SCachedimage) canDeleteLastCache() bool {
 	return false
 }
 
-func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, managerId string) error {
+func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, image cloudprovider.ICloudImage) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		if options.Options.EnableSyncName {
 			newName, err := db.GenerateAlterName(self, image.GetName())
@@ -571,11 +571,11 @@ func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mccli
 	})
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	SyncCloudProject(ctx, userCred, self, ownerId, image, managerId)
+	SyncCloudProject(ctx, userCred, self, provider.GetOwnerId(), image, provider.Id)
 	return err
 }
 
-func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, managerId string) (*SCachedimage, error) {
+func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, image cloudprovider.ICloudImage) (*SCachedimage, error) {
 	cachedImage := SCachedimage{}
 	cachedImage.SetModelManager(manager, &cachedImage)
 
@@ -609,7 +609,7 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 		return nil, err
 	}
 
-	SyncCloudProject(ctx, userCred, &cachedImage, ownerId, image, managerId)
+	SyncCloudProject(ctx, userCred, &cachedImage, provider.GetOwnerId(), image, provider.Id)
 
 	return &cachedImage, nil
 }
@@ -643,7 +643,7 @@ func (image *SCachedimage) requestRefreshExternalImage(ctx context.Context, user
 		log.Errorf("iCache.GetIImageById fail %s", err)
 		return nil, err
 	}
-	err = image.syncWithCloudImage(ctx, userCred, nil, iImage, "")
+	err = image.syncWithCloudImage(ctx, userCred, nil, iImage)
 	if err != nil {
 		log.Errorf("image.syncWithCloudImage fail %s", err)
 		return nil, err
@@ -801,7 +801,7 @@ func (manager *SCachedimageManager) ListItemFilter(
 		subq = subq.Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_ACTIVE))
 
 		subq = subq.Snapshot()
-
+		query.ManagedResourceListInput.OnlyPrimaryManager = true
 		subq, err = managedResourceFilterByAccount(subq, query.ManagedResourceListInput, "", nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "managedResourceFilterByAccount")

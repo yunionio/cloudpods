@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
 	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudprovider"
 )
 
 type CandidateGetArgs struct {
@@ -232,12 +233,15 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 
 	matchCloudprovider := func(r core.Candidater, managerId string) bool {
 		if managerId != "" {
+			currentProvider, ok := cloudprovider.Manager.GetResource(managerId)
+			if !ok {
+				return false
+			}
 			cloudProvier := r.Getter().Cloudprovider()
 			// r who belongs to Provider Onecloud doesn't have cloudprovider
-			if cloudProvier != nil && cloudProvier.GetId() == managerId {
+			if cloudProvier != nil && cloudProvier.CloudaccountId == currentProvider.CloudaccountId {
 				return true
 			}
-			return false
 		}
 		return true
 	}
