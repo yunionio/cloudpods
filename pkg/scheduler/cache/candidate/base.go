@@ -337,8 +337,15 @@ func newNetworkGetter() *networkGetter {
 	}
 }
 
+func shouldSkipLoadNetFromCache(host *computemodels.SHost) bool {
+	if host.IsEmulated || host.HostType == computeapi.HOST_TYPE_ESXI {
+		return true
+	}
+	return false
+}
+
 func (g *networkGetter) GetFreePort(host *computemodels.SHost, n *computemodels.SNetwork) (int, error) {
-	if host.IsEmulated {
+	if shouldSkipLoadNetFromCache(host) {
 		// not calculate emulated host's network free address
 		return -1, nil
 	}
@@ -453,7 +460,7 @@ func (b *BaseHostDesc) GetFreePort(netId string) int {
 	if selNet == nil {
 		return 0
 	}
-	if b.IsEmulated {
+	if shouldSkipLoadNetFromCache(b.SHost) {
 		freeCount, _ := selNet.GetFreeAddressCount()
 		return freeCount
 	}
