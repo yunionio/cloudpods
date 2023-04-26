@@ -118,6 +118,10 @@ func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	vpcs, err := self.client.GetVpcs()
 	if err != nil {

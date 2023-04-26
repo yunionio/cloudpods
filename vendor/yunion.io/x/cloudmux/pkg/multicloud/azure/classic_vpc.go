@@ -76,6 +76,10 @@ func (self *SClassicVpc) GetIsDefault() bool {
 	return false
 }
 
+func (self *SClassicVpc) IsPublic() bool {
+	return false
+}
+
 func (self *SClassicVpc) GetCidrBlock() string {
 	if len(self.Properties.AddressSpace.AddressPrefixes) > 0 {
 		return self.Properties.AddressSpace.AddressPrefixes[0]

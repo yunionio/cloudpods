@@ -150,6 +150,10 @@ func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) 
 	return &eips[0], nil
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	eips, total, err := self.GetEips("", "", 0, 50)
 	if err != nil {

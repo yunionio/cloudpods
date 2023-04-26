@@ -165,6 +165,10 @@ func (region *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return iStorages, nil
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (region *SRegion) getStoragecache() *SStoragecache {
 	if region.storageCache == nil {
 		region.storageCache = &SStoragecache{region: region}

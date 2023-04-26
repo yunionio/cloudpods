@@ -125,6 +125,10 @@ func (self *SRegion) GetOssClient() (*oss.Client, error) {
 	return self.ossClient, nil
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()
 	if err != nil {
@@ -297,7 +301,7 @@ func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain strin
 	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params, self.client.debug)
 }
 
-/////////////////////////////////////////////////////////////////////////////
+// ///////////////////////////////////////////////////////////////////////////
 func (self *SRegion) GetId() string {
 	return self.RegionId
 }

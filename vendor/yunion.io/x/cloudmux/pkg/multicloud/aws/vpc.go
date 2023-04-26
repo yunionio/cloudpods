@@ -95,6 +95,10 @@ func (self *SVpc) IsEmulated() bool {
 	return false
 }
 
+func (self *SVpc) IsPublic() bool {
+	return false
+}
+
 func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
 	return self.region
 }

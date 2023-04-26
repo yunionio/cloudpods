@@ -180,6 +180,19 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 	return self.node.cluster.region.modifyInstanceAttribute(self.InstancesSet.InstanceId, attrs)
 }
 
+func (self *SInstance) LiveMigrateVM(hostid string) error {
+	return self.MigrateVM(hostid)
+}
+
+func (self *SInstance) MigrateVM(hostid string) error {
+	params := map[string]string{}
+	params["InstanceId"] = self.InstancesSet.InstanceId
+	params["ToNodeId"] = hostid
+
+	_, err := self.node.cluster.region.invoke("MigrateInstance", params)
+	return err
+}
+
 func (self *SInstance) DeleteVM(ctx context.Context) error {
 	params := map[string]string{}
 	params["InstanceId.1"] = self.InstancesSet.InstanceId
@@ -286,6 +299,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		if err != nil {
 			return nil, err
 		}
+		disk.ImageId = self.InstancesSet.ImageId
 		storage, ok := storageMaps[disk.StorageId]
 		if ok {
 			storage.cluster = self.node.cluster
@@ -496,7 +510,7 @@ func (self *SRegion) GetInstances(id, nodeId string, maxResult int, nextToken st
 	}
 
 	idx := 1
-	if len(nodeId) > 0 {
+	if len(nodeId) > 0 && len(id) == 0 {
 		params[fmt.Sprintf("Filter.%d.Name", idx)] = "node-id"
 		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = nodeId
 		idx++
@@ -505,6 +519,10 @@ func (self *SRegion) GetInstances(id, nodeId string, maxResult int, nextToken st
 	if len(id) > 0 {
 		params[fmt.Sprintf("Filter.%d.Name", idx)] = "instance-id"
 		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = id
+		idx++
+	} else {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "owner-id"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = self.client.user
 		idx++
 	}
 
@@ -527,7 +545,7 @@ func (self *SRegion) modifyInstanceAttribute(instanceId string, attrs map[string
 	for key, value := range attrs {
 		params["Attribute"] = key
 		params["Value"] = value
-		_, err := self.client.invoke("ModifyInstanceAttribute", params)
+		_, err := self.invoke("ModifyInstanceAttribute", params)
 		if err != nil {
 			return err
 		}

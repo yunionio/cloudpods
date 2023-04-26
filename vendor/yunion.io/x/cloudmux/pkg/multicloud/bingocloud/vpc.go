@@ -15,6 +15,8 @@
 package bingocloud
 
 import (
+	"fmt"
+
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -68,6 +70,10 @@ func (self *SVpc) GetCidrBlock() string {
 	return self.CidrBlock
 }
 
+func (self *SVpc) IsPublic() bool {
+	return self.Shared == "true"
+}
+
 func (self *SVpc) GetIRouteTableById(id string) (cloudprovider.ICloudRouteTable, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
@@ -115,19 +121,37 @@ func (self *SVpc) GetStatus() string {
 	}
 }
 
+func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	vpcs, err := self.GetIVpcs()
+	if err != nil {
+		return nil, err
+	}
+	for i := range vpcs {
+		if vpcs[i].GetGlobalId() == id {
+			return vpcs[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (self *SRegion) GetVpcs(id string) ([]SVpc, error) {
 	params := map[string]string{}
 	if len(id) > 0 {
 		params["VpcId"] = id
 	}
+	idx := 1
+	params[fmt.Sprintf("Filter.%d.Name", idx)] = "owner-id"
+	params[fmt.Sprintf("Filter.%d.Value.1", idx)] = self.client.user
+	idx++
 
 	resp, err := self.invoke("DescribeVpcs", params)
 	if err != nil {
 		return nil, err
 	}
 	var vpcs []SVpc
+	resp.Unmarshal(&vpcs, "vpcSet")
 
-	return vpcs, resp.Unmarshal(&vpcs, "vpcSet")
+	return vpcs, nil
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {

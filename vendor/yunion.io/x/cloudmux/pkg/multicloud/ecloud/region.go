@@ -159,6 +159,10 @@ func (r *SRegion) fetchVpcs() error {
 	return nil
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (r *SRegion) getVpcs() ([]SVpc, error) {
 	request := NewConsoleRequest(r.ID, "/api/v2/netcenter/vpc", nil, nil)
 	vpcs := make([]SVpc, 0)

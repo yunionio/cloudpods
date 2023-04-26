@@ -40,6 +40,10 @@ func (self *SVpc) GetCidrBlock() string {
 	return self.CidrBlock
 }
 
+func (self *SVpc) IsPublic() bool {
+	return false
+}
+
 func (self *SVpc) GetIRouteTableById(id string) (cloudprovider.ICloudRouteTable, error) {
 	return nil, cloudprovider.ErrNotSupported
 }

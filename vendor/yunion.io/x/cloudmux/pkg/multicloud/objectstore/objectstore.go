@@ -162,6 +162,10 @@ func (cli *SObjectStoreClient) GetIRegion() cloudprovider.ICloudRegion {
 	return cli.GetVirtualObject().(cloudprovider.ICloudRegion)
 }
 
+func (self *SObjectStoreClient) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (cli *SObjectStoreClient) GetIBucketProvider() IBucketProvider {
 	return cli.GetVirtualObject().(IBucketProvider)
 }

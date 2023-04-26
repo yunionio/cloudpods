@@ -110,6 +110,10 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 	return vpc, nil
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	vpcs, err := self.GetVpcs()
 	if err != nil {

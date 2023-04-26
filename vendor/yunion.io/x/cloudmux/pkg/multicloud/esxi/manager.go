@@ -323,6 +323,10 @@ func (cli *SESXiClient) GetVersion() string {
 	return cli.client.ServiceContent.About.Version
 }
 
+func (self *SESXiClient) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (cli *SESXiClient) About() jsonutils.JSONObject {
 	about := jsonutils.Marshal(&cli.client.ServiceContent.About)
 	aboutDict := about.(*jsonutils.JSONDict)

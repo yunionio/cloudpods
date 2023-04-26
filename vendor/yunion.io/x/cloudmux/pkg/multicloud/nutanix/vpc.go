@@ -62,6 +62,10 @@ func (self *SVpc) GetName() string {
 	return self.Name
 }
 
+func (self *SVpc) IsPublic() bool {
+	return false
+}
+
 func (self *SVpc) GetId() string {
 	return self.UUID
 }

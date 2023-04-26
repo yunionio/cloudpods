@@ -87,7 +87,7 @@ func (self *SRegion) createInstanceSnapshot(instanceId, name string, desc string
 	params["Description"] = desc
 	params["DiskOnly"] = "false"
 
-	resp, err := self.client.invoke("CreateInstanceSnapshot", params)
+	resp, err := self.invoke("CreateInstanceSnapshot", params)
 	if err != nil {
 		return "", err
 	}
@@ -106,7 +106,7 @@ func (self *SRegion) getInstanceSnapshots(instanceId, snapshotId string) ([]SIns
 		params["InstanceSnapshotId.1"] = snapshotId
 	}
 
-	resp, err := self.client.invoke("DescribeInstanceSnapshots", params)
+	resp, err := self.invoke("DescribeInstanceSnapshots", params)
 	if err != nil {
 		return nil, err
 	}
@@ -120,20 +120,20 @@ func (self *SRegion) getInstanceSnapshots(instanceId, snapshotId string) ([]SIns
 func (self *SRegion) deleteInstanceSnapshot(id string) error {
 	params := map[string]string{}
 	params["InstanceSnapshotId.1"] = id
-	_, err := self.client.invoke("DeleteInstanceSnapshots", params)
+	_, err := self.invoke("DeleteInstanceSnapshots", params)
 	return err
 }
 
 func (self *SRegion) revertInstanceSnapshot(id string) error {
 	params := map[string]string{}
 	params["InstanceSnapshotId.1"] = id
-	_, err := self.client.invoke("RevertInstanceSnapshot", params)
+	_, err := self.invoke("RevertInstanceSnapshot", params)
 	return err
 }
 
 func (self *SRegion) deleteInstanceBackup(id string) error {
 	params := map[string]string{}
 	params["BackupId"] = id
-	_, err := self.client.invoke("DeleteInstanceBackup", params)
+	_, err := self.invoke("DeleteInstanceBackup", params)
 	return err
 }

@@ -143,6 +143,10 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return ieips, nil
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 	ivpcs, err := self.GetIVpcs()
 	if err != nil {

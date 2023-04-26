@@ -149,6 +149,10 @@ func (self *SRegion) tagRequest(serviceType string, action string, params map[st
 	}
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()
 	if err != nil {
@@ -158,7 +162,7 @@ func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonut
 	return self.productRequest(client, APSARA_PRODUCT_SLB, domain, APSARA_API_VERSION_LB, apiName, params, self.client.debug)
 }
 
-/////////////////////////////////////////////////////////////////////////////
+// ///////////////////////////////////////////////////////////////////////////
 func (self *SRegion) GetId() string {
 	return self.RegionId
 }

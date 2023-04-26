@@ -174,6 +174,8 @@ type ProviderConfig struct {
 
 	AliyunResourceGroupIds []string
 
+	ManagerProviderConfig *ProviderConfig
+
 	UpdatePermission func(service, permission string)
 }
 

@@ -58,7 +58,7 @@ func (self *SBingoCloudClient) DescribeMetricList(ns, metricNm, dimensionName, d
 	params["EndTime"] = until.UTC().Format(time.RFC3339)
 	params["Statistics.member.1"] = "Average"
 	params["Period"] = "60"
-	resp, err := self.invoke("GetMetricStatistics", params)
+	resp, err := self.managerClient.invoke("GetMetricStatistics", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetMetricStatistics err")
 	}
@@ -84,15 +84,16 @@ func (self *SBingoCloudClient) GetEcsMetrics(opts *cloudprovider.MetricListOptio
 	var ret []cloudprovider.MetricValues
 	for metricType, metricName := range map[cloudprovider.TMetricType]string{
 		cloudprovider.VM_METRIC_TYPE_CPU_USAGE:          "CPUUtilization",
-		cloudprovider.VM_METRIC_TYPE_MEM_USAGE:          "MemoryUsage",
+		cloudprovider.VM_METRIC_TYPE_MEM_USAGE:          "MemeryUsage",
 		cloudprovider.VM_METRIC_TYPE_NET_BPS_RX:         "NetworkIn",
 		cloudprovider.VM_METRIC_TYPE_NET_BPS_TX:         "NetworkOut",
 		cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS:   "DiskReadBytes",
 		cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS:  "DiskWriteBytes",
 		cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS:  "DiskReadOps",
 		cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS: "DiskWriteOps",
+		cloudprovider.VM_METRIC_TYPE_DISK_USAGE:         "DiskUsage",
 	} {
-		data, err := self.DescribeMetricList("AWS/EC2", metricName, "InstanceId", opts.ResourceId, opts.StartTime, opts.EndTime)
+		data, err := self.managerClient.DescribeMetricList("AWS/EC2", metricName, "InstanceId", opts.ResourceId, opts.StartTime, opts.EndTime)
 		if err != nil {
 			log.Errorf("DescribeMetricList error: %v", err)
 			continue
@@ -123,7 +124,7 @@ func (self *SBingoCloudClient) GetHostMetrics(opts *cloudprovider.MetricListOpti
 		cloudprovider.HOST_METRIC_TYPE_DISK_IO_READ_IOPS:  "DiskReadOps",
 		cloudprovider.HOST_METRIC_TYPE_DISK_IO_WRITE_IOPS: "DiskWriteOps",
 	} {
-		data, err := self.DescribeMetricList("AWS/HOST", metricName, "HostId", opts.ResourceId, opts.StartTime, opts.EndTime)
+		data, err := self.managerClient.DescribeMetricList("AWS/HOST", metricName, "HostId", opts.ResourceId, opts.StartTime, opts.EndTime)
 		if err != nil {
 			log.Errorf("DescribeMetricList error: %v", err)
 			continue

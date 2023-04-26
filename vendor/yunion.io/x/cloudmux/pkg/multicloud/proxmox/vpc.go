@@ -47,6 +47,10 @@ func (self *SVpc) IsEmulated() bool {
 	return true
 }
 
+func (self *SVpc) IsPublic() bool {
+	return false
+}
+
 func (self *SVpc) GetCidrBlock() string {
 	return "0.0.0.0/0"
 }

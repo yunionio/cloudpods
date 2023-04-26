@@ -19,4 +19,5 @@ type DiskCreateConfig struct {
 	SizeGb    int
 	Desc      string
 	ProjectId string
+	ZoneId    string
 }

@@ -188,6 +188,10 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	return cloudprovider.SGeographicInfo{}
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
 	elbs, err := self.GetLoadBalancers()
 	if err != nil {

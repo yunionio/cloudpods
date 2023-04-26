@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -79,23 +80,14 @@ func (self *SRegion) GetCloudEnv() string {
 	return ""
 }
 
-func (self *SRegion) getAccountUser() string {
-	quotas, err := self.GetQuotas()
-	if err != nil {
-		return ""
-	}
-	ownerId := ""
-	if len(quotas) > 0 {
-		ownerId = quotas[0].OwnerId
-	}
-	return ownerId
-}
-
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	return cloudprovider.SGeographicInfo{}
 }
 
 func (self *SRegion) invoke(action string, params map[string]string) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(action, ManagerActions) {
+		return self.client.managerClient.invoke(action, params)
+	}
 	return self.client.invoke(action, params)
 }
 
@@ -106,6 +98,10 @@ func (self *SBingoCloudClient) GetRegions() ([]SRegion, error) {
 	}
 	var ret []SRegion
 	return ret, resp.Unmarshal(&ret, "regionInfo")
+}
+
+func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	return self.GetDisk(id)
 }
 
 func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -159,6 +155,28 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}
+
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	part, nextToken, err := self.GetSecurityGroups("", "", "")
+	if err != nil {
+		return nil, err
+	}
+	var groups []SSecurityGroup
+	groups = append(groups, part...)
+	for len(nextToken) > 0 {
+		part, nextToken, err = self.GetSecurityGroups("", "", nextToken)
+		if err != nil {
+			return nil, err
+		}
+		groups = append(groups, part...)
+	}
+	var ret []cloudprovider.ICloudSecurityGroup
+	for i := range groups {
+		groups[i].region = self
+		ret = append(ret, &groups[i])
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {

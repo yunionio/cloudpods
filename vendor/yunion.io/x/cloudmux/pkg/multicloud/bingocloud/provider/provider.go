@@ -78,11 +78,25 @@ func (self *SBingoCloudProviderFactory) GetProvider(cfg cloudprovider.ProviderCo
 	client, err := bingocloud.NewBingoCloudClient(
 		bingocloud.NewBingoCloudClientConfig(
 			cfg.URL, cfg.Account, cfg.Secret,
-		).CloudproviderConfig(cfg),
+		).SetCloudproviderConfig(cfg),
 	)
 	if err != nil {
 		return nil, err
 	}
+	client.SetManagerClient(client)
+
+	if cfg.ManagerProviderConfig != nil {
+		managerClient, err := bingocloud.NewBingoCloudClient(
+			bingocloud.NewBingoCloudClientConfig(
+				cfg.ManagerProviderConfig.URL, cfg.ManagerProviderConfig.Account, cfg.ManagerProviderConfig.Secret,
+			).SetCloudproviderConfig(*cfg.ManagerProviderConfig),
+		)
+		if err != nil {
+			return nil, err
+		}
+		client.SetManagerClient(managerClient)
+	}
+
 	return &SBingoCloudProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
 		client:        client,
@@ -105,6 +119,14 @@ func init() {
 type SBingoCloudProvider struct {
 	cloudprovider.SBaseProvider
 	client *bingocloud.SBingoCloudClient
+}
+
+func (self *SBingoCloudProvider) GetProviderConfig() cloudprovider.ProviderConfig {
+	return self.client.GetCloudproviderConfig()
+}
+
+func (self *SBingoCloudProvider) SetProviderConfig(cfg cloudprovider.ProviderConfig) {
+	self.client.SetCloudproviderConfig(cfg)
 }
 
 func (self *SBingoCloudProvider) GetSysInfo() (jsonutils.JSONObject, error) {

@@ -120,6 +120,10 @@ func (region *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, 
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (region *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	hosts, err := region.GetHosts("", "")
 	if err != nil {

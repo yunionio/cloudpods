@@ -45,6 +45,16 @@ const (
 	MAX_RESULT = 20
 )
 
+var (
+	ManagerActions = []string{
+		"DescribeNodes",
+		"DescribePhysicalHosts",
+		"DescribeClusters",
+		"DescribeAvailabilityZones",
+		"DescribeStorages",
+	}
+)
+
 type BingoCloudConfig struct {
 	cpcfg     cloudprovider.ProviderConfig
 	endpoint  string
@@ -63,9 +73,13 @@ func NewBingoCloudClientConfig(endpoint, accessKey, secretKey string) *BingoClou
 	return cfg
 }
 
-func (cfg *BingoCloudConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *BingoCloudConfig {
+func (cfg *BingoCloudConfig) SetCloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *BingoCloudConfig {
 	cfg.cpcfg = cpcfg
 	return cfg
+}
+
+func (cfg *BingoCloudConfig) GetCloudproviderConfig() cloudprovider.ProviderConfig {
+	return cfg.cpcfg
 }
 
 func (cfg *BingoCloudConfig) Debug(debug bool) *BingoCloudConfig {
@@ -77,23 +91,31 @@ type SBingoCloudClient struct {
 	*BingoCloudConfig
 
 	regions []SRegion
+
+	managerClient *SBingoCloudClient
+
+	user string
 }
 
 func NewBingoCloudClient(cfg *BingoCloudConfig) (*SBingoCloudClient, error) {
 	client := &SBingoCloudClient{BingoCloudConfig: cfg}
-	var err error
-	client.regions, err = client.GetRegions()
-	if err != nil {
-		return nil, err
+	client.regions, _ = client.GetRegions()
+	if client.regions != nil {
+		for i := range client.regions {
+			client.regions[i].client = client
+		}
 	}
-	for i := range client.regions {
-		client.regions[i].client = client
-	}
+	client.user = client.getAccountUser()
 	return client, nil
 }
 
+func (self *SBingoCloudClient) SetManagerClient(client *SBingoCloudClient) {
+	self.regions = client.regions
+	self.managerClient = client
+}
+
 func (self *SBingoCloudClient) GetAccountId() string {
-	return self.endpoint
+	return self.accessKey
 }
 
 func (self *SBingoCloudClient) GetRegion(id string) (*SRegion, error) {
@@ -296,13 +318,28 @@ func (self *SBingoCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, er
 	}
 	_ = result.Unmarshal(&tags, "tagSet")
 
-	var subAccounts []cloudprovider.SSubAccount
+	var subAccounts = []cloudprovider.SSubAccount{{
+		Id:           self.getAccountUser(),
+		Account:      self.accessKey,
+		Secret:       self.secretKey,
+		Name:         self.cpcfg.Name,
+		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
+	}}
+
 	for i := range tags {
+		account, err := self.listAccessKeys(tags[i].ResourceId)
+		if err != nil {
+			continue
+		}
+		ak, sk := account.decryptKeys(self.secretKey)
 		subAccount := cloudprovider.SSubAccount{
-			Account:          self.accessKey,
-			Name:             tags[i].ResourceId,
-			DefaultProjectId: tags[i].Value,
+			Id:               account.UserId,
+			Name:             account.UserName,
 			HealthStatus:     api.CLOUD_PROVIDER_HEALTH_NORMAL,
+			Account:          ak,
+			Secret:           sk,
+			IsSubAccount:     true,
+			DefaultProjectId: tags[i].Value,
 		}
 		subAccounts = append(subAccounts, subAccount)
 	}
@@ -310,42 +347,7 @@ func (self *SBingoCloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, er
 }
 
 func (self *SBingoCloudClient) GetEnrollmentAccounts() ([]cloudprovider.SEnrollmentAccount, error) {
-	params := map[string]string{"Marker": "", "MaxItems": "1000", "AccountName": "paas_app"}
-	var result struct {
-		IsTruncated string
-		Marker      string `json:"marker,omitempty"`
-		Users       struct {
-			Member *SAccount `json:"member,omitempty"`
-		}
-	}
-	var eas []cloudprovider.SEnrollmentAccount
-	for {
-		resp, err := self.invoke("ListAccounts", params)
-		if err != nil {
-			return nil, err
-		}
-		err = resp.Unmarshal(&result, "ListAccountsResult")
-		if err != nil {
-			return nil, err
-		}
-		ea := cloudprovider.SEnrollmentAccount{
-			Id:   result.Users.Member.UserId,
-			Name: result.Users.Member.UserName,
-		}
-		eas = append(eas, ea)
-		//for _, user := range result.Users.Member {
-		//	ea := cloudprovider.SEnrollmentAccount{
-		//		Id:   user.UserId,
-		//		Name: user.UserName,
-		//	}
-		//	eas = append(eas, ea)
-		//}
-		if params["Marker"] == result.Marker {
-			break
-		}
-		params["Marker"] = result.Marker
-	}
-	return eas, nil
+	return nil, nil
 }
 
 func (self *SBingoCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
@@ -355,6 +357,44 @@ func (self *SBingoCloudClient) GetIRegions() []cloudprovider.ICloudRegion {
 		ret = append(ret, &self.regions[i])
 	}
 	return ret
+}
+
+func (self *SBingoCloudClient) listAccessKeys(userName string) (*SAccount, error) {
+	params := map[string]string{"Marker": "", "MaxItems": "1000", "UserName": userName}
+
+	resp, err := self.managerClient.invoke("ListAccessKeys", params)
+	if err != nil {
+		return nil, err
+	}
+
+	var account *SAccount
+	err = resp.Unmarshal(&account, "ListAccessKeysResult", "AccessKeyMetadata", "member")
+	if err != nil {
+		return nil, err
+	}
+
+	return account, nil
+}
+
+func (self *SBingoCloudClient) getAccountUser() string {
+	quotas, err := self.getQuotas()
+	if err != nil {
+		return ""
+	}
+	ownerId := ""
+	if len(quotas) > 0 {
+		ownerId = quotas[0].OwnerId
+	}
+	return ownerId
+}
+
+func (self *SBingoCloudClient) getQuotas() ([]SQuotas, error) {
+	resp, err := self.invoke("DescribeQuotas", nil)
+	if err != nil {
+		return nil, err
+	}
+	var ret []SQuotas
+	return ret, resp.Unmarshal(&ret, "quotaSet")
 }
 
 func (self *SBingoCloudClient) describeTags(filter map[string]string) (jsonutils.JSONObject, error) {

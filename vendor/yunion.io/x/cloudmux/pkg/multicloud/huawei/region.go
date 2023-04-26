@@ -57,6 +57,10 @@ type SRegion struct {
 	storageCache *SStoragecache
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) GetClient() *SHuaweiClient {
 	return self.client
 }

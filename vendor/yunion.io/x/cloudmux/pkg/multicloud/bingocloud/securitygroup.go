@@ -16,6 +16,7 @@ package bingocloud
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/log"
@@ -200,19 +201,25 @@ func (self *SRegion) addSecurityGroupRules(secGrpId string, rule cloudprovider.S
 
 func (self *SRegion) GetSecurityGroups(id, name, nextToken string) ([]SSecurityGroup, string, error) {
 	params := map[string]string{}
-	params["Filter.1.Name"] = "owner-id"
-	params["Filter.1.Value.1"] = self.getAccountUser()
 
 	if len(id) > 0 {
 		params["GroupId.1"] = id
 	}
-	if len(name) > 0 {
-		params["Filter.2.Name"] = "group-name"
-		params["Filter.2.Value.1"] = name
-	}
+
 	if len(nextToken) > 0 {
 		params["NextToken"] = nextToken
 	}
+
+	idx := 1
+	if len(name) > 0 {
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "group-name"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = name
+		idx++
+	}
+
+	params[fmt.Sprintf("Filter.%d.Name", idx)] = "owner-id"
+	params[fmt.Sprintf("Filter.%d.Value.1", idx)] = self.client.user
+	idx++
 
 	resp, err := self.invoke("DescribeSecurityGroups", params)
 	if err != nil {
@@ -266,6 +273,10 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 	params := map[string]string{}
 	if len(conf.Name) > 0 {
 		params["GroupName"] = conf.Name
+		existSecgroups, _, _ := self.GetSecurityGroups("", conf.Name, "")
+		if len(existSecgroups) > 0 {
+			return &existSecgroups[0], nil
+		}
 	}
 	resp, err := self.invoke("CreateSecurityGroup", params)
 	if err != nil {
@@ -276,24 +287,6 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 	_ = resp.Unmarshal(&ret)
 
 	if ret.Return {
-		//rule := cloudprovider.SecurityRule{
-		//	ExternalId: ret.GroupId,
-		//	SecurityRule: secrules.SecurityRule{
-		//		Action:    secrules.SecurityRuleAllow,
-		//		Protocol:  secrules.PROTO_ANY,
-		//		Direction: secrules.DIR_IN,
-		//		Priority:  1,
-		//		Ports:     []int{},
-		//		PortStart: 1,
-		//		PortEnd:   65535,
-		//	},
-		//}
-		//rule.ParseCIDR("0.0.0.0/0")
-		//err = self.addSecurityGroupRules(ret.GroupId, rule)
-		//if err != nil {
-		//	_ = self.deleteSecurityGroup(ret.GroupId)
-		//	return nil, err
-		//}
 		return self.GetISecurityGroupById(ret.GroupId)
 	}
 

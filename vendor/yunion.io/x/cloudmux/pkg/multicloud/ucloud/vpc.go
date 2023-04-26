@@ -71,6 +71,10 @@ func (self *SVPC) GetGlobalId() string {
 	return self.GetId()
 }
 
+func (self *SVPC) IsPublic() bool {
+	return false
+}
+
 func (self *SVPC) GetStatus() string {
 	return api.VPC_STATUS_AVAILABLE
 }

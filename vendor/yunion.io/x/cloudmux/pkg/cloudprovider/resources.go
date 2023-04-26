@@ -86,6 +86,7 @@ type ICloudRegion interface {
 	GetISecurityGroupById(secgroupId string) (ICloudSecurityGroup, error)
 	GetISecurityGroupByName(opts *SecurityGroupFilterOptions) (ICloudSecurityGroup, error)
 	CreateISecurityGroup(conf *SecurityGroupCreateInput) (ICloudSecurityGroup, error)
+	GetISecurityGroups() ([]ICloudSecurityGroup, error)
 
 	CreateIVpc(opts *VpcCreateOptions) (ICloudVpc, error)
 	CreateInternetGateway() (ICloudInternetGateway, error)
@@ -607,6 +608,7 @@ type ICloudVpc interface {
 	ProposeJoinICloudInterVpcNetwork(opts *SVpcJointInterVpcNetworkOption) error
 
 	GetICloudIPv6Gateways() ([]ICloudIPv6Gateway, error)
+	IsPublic() bool
 }
 
 type ICloudInternetGateway interface {

@@ -47,6 +47,10 @@ func (vpc *SVpc) IsEmulated() bool {
 	return true
 }
 
+func (self *SVpc) IsPublic() bool {
+	return false
+}
+
 func (vpc *SVpc) GetIsDefault() bool {
 	return true
 }

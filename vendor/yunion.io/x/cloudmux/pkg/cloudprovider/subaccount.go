@@ -22,13 +22,16 @@ import (
 )
 
 type SSubAccount struct {
+	Id string // ID
 	// 若Account不为空，可不传
 	Name string
 	// 描述信息
 	Desc string
 	// 输入必填，若为空，需要指定子账号名称
 	Account          string
+	Secret           string // 子账号SK
 	HealthStatus     string // 云端服务健康状态。例如欠费、项目冻结都属于不健康状态。
+	IsSubAccount     bool   // 是否子账号
 	DefaultProjectId string // 默认云订阅项目Id
 }
 

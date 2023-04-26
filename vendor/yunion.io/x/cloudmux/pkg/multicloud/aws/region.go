@@ -264,7 +264,7 @@ func (self *SAwsClient) monitorRequest(regionId, apiName string, params map[stri
 	return self.request(regionId, CLOUDWATCH_SERVICE_NAME, CLOUDWATCH_SERVICE_ID, "2010-08-01", apiName, params, retval, true)
 }
 
-/////////////////////////////////////////////////////////////////////////////
+// ///////////////////////////////////////////////////////////////////////////
 func (self *SRegion) fetchZones() error {
 	ec2Client, err := self.getEc2Client()
 	if err != nil {
@@ -408,6 +408,10 @@ func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
 		}
 	}
 	return self.izones, nil
+}
+
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {

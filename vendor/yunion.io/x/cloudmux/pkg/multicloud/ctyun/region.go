@@ -408,6 +408,10 @@ func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return iStores, nil
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	izones, err := self.GetIZones()
 	if err != nil {

@@ -53,7 +53,7 @@ type SRegion struct {
 	Longitude   string
 }
 
-/////////////////////////////////////////////////////////////////////////////
+// ///////////////////////////////////////////////////////////////////////////
 func (self *SRegion) Refresh() error {
 	// do nothing
 	return nil
@@ -102,6 +102,10 @@ func (self *SRegion) GetId() string {
 
 func (self *SRegion) GetName() string {
 	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AZURE_CN, self.DisplayName)
+}
+
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
 }
 
 func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {

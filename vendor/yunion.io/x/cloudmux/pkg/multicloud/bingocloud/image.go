@@ -197,6 +197,11 @@ func (self *SRegion) GetImages(id, nextToken string) ([]SImage, string, error) {
 	if len(nextToken) > 0 {
 		params["NextToken"] = nextToken
 	}
+	//idx := 1
+	//params[fmt.Sprintf("Filter.%d.Name", idx)] = "owner-id"
+	//params[fmt.Sprintf("Filter.%d.Value.1", idx)] = self.client.user
+	//idx++
+
 	resp, err := self.invoke("DescribeImages", params)
 	if err != nil {
 		return nil, "", err
@@ -250,7 +255,8 @@ func (self *SStoragecache) GetIImageById(id string) (cloudprovider.ICloudImage, 
 		return nil, err
 	}
 	for i := range images {
-		if images[i].GetGlobalId() == id && images[i].StorageId == self.storageId {
+		// && images[i].StorageId == self.storageId
+		if images[i].GetGlobalId() == id {
 			images[i].cache = self
 			return &images[i], nil
 		}

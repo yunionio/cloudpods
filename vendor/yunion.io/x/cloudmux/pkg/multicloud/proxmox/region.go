@@ -77,6 +77,10 @@ func (self *SRegion) Refresh() error {
 	return nil
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
 	return nil, cloudprovider.ErrNotSupported
 }

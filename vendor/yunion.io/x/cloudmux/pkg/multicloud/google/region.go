@@ -87,6 +87,10 @@ func (region *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_GOOGLE
 }
 
+func (self *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
+	return nil, nil
+}
+
 func (region *SRegion) GetStatus() string {
 	if region.Status == "UP" || utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
 		return api.CLOUD_REGION_STATUS_INSERVER
