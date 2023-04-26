@@ -357,7 +357,7 @@ func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred 
 	db.OpsLog.LogEvent(user, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
 	db.OpsLog.LogEvent(project, db.ACT_ATTACH, user.GetShortDesc(ctx), userCred)
 	if len(project.AdminId) == 0 && role.Name == options.Options.ProjectAdminRole {
-		err := project.resetAdminUser()
+		err := project.resetAdminUser(ctx, userCred)
 		if err != nil {
 			log.Errorf("rsetAdminUser fail: %s", err)
 		}
@@ -383,7 +383,7 @@ func (assign *SAssignment) getDomain() (*SDomain, error) {
 	return nil, nil
 }
 
-func (manager *SAssignmentManager) batchRemove(actorId string, typeStrs []string) error {
+func (manager *SAssignmentManager) batchRemove(ctx context.Context, userCred mcclient.TokenCredential, actorId string, typeStrs []string) error {
 	q := manager.Query()
 	q = q.In("type", typeStrs)
 	q = q.Equals("actor_id", actorId)
@@ -406,7 +406,7 @@ func (manager *SAssignmentManager) batchRemove(actorId string, typeStrs []string
 		if role.Name == options.Options.ProjectAdminRole {
 			project, _ := assigns[i].getProject()
 			if project != nil && project.AdminId == actorId {
-				err := project.resetAdminUser()
+				err := project.resetAdminUser(ctx, userCred)
 				if err != nil {
 					log.Errorf("batchRemove project resetAdminUser fail %s", err)
 				}
@@ -424,7 +424,7 @@ func (manager *SAssignmentManager) projectRemoveAllUser(ctx context.Context, use
 	// if user.Id == userCred.GetUserId() {
 	// 	return httperrors.NewForbiddenError("cannot remove current user from current project")
 	// }
-	err := manager.batchRemove(user.Id, []string{api.AssignmentUserProject, api.AssignmentUserDomain})
+	err := manager.batchRemove(ctx, userCred, user.Id, []string{api.AssignmentUserProject, api.AssignmentUserDomain})
 	if err != nil {
 		return errors.Wrap(err, "manager.batchRemove")
 	}
@@ -433,7 +433,7 @@ func (manager *SAssignmentManager) projectRemoveAllUser(ctx context.Context, use
 }
 
 func (manager *SAssignmentManager) projectRemoveAllGroup(ctx context.Context, userCred mcclient.TokenCredential, group *SGroup) error {
-	err := manager.batchRemove(group.Id, []string{api.AssignmentGroupProject, api.AssignmentGroupDomain})
+	err := manager.batchRemove(ctx, userCred, group.Id, []string{api.AssignmentGroupProject, api.AssignmentGroupDomain})
 	if err != nil {
 		return errors.Wrap(err, "manager.batchRemove")
 	}
@@ -469,7 +469,7 @@ func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCr
 	db.OpsLog.LogEvent(user, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
 	db.OpsLog.LogEvent(project, db.ACT_DETACH, user.GetShortDesc(ctx), userCred)
 	if project.AdminId == user.Id && role.Name == options.Options.ProjectAdminRole {
-		err := project.resetAdminUser()
+		err := project.resetAdminUser(ctx, userCred)
 		if err != nil {
 			log.Errorf("resetAdminUser fail %s", err)
 		}
@@ -508,7 +508,7 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 	db.OpsLog.LogEvent(group, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
 	db.OpsLog.LogEvent(project, db.ACT_ATTACH, group.GetShortDesc(ctx), userCred)
 	if len(project.AdminId) == 0 && role.Name == options.Options.ProjectAdminRole {
-		err := project.resetAdminUser()
+		err := project.resetAdminUser(ctx, userCred)
 		if err != nil {
 			log.Errorf("rsetAdminUser fail: %s", err)
 		}
@@ -536,7 +536,7 @@ func (manager *SAssignmentManager) projectRemoveGroup(ctx context.Context, userC
 	db.OpsLog.LogEvent(group, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
 	db.OpsLog.LogEvent(project, db.ACT_DETACH, group.GetShortDesc(ctx), userCred)
 	if len(project.AdminId) > 0 && role.Name == options.Options.ProjectAdminRole {
-		err := project.resetAdminUser()
+		err := project.resetAdminUser(ctx, userCred)
 		if err != nil {
 			log.Errorf("rsetAdminUser fail: %s", err)
 		}
@@ -911,6 +911,21 @@ func (manager *SAssignmentManager) FetchAll(
 		results[i] = assigns[i].getRoleAssignment(domains, projects, groups, users, roles, includePolicies, projectMetadatas)
 	}
 	return results, int64(total), nil
+}
+
+func (manager *SAssignmentManager) isUserInProjectWithRole(userId, projectId, roleId string) (bool, error) {
+	q := manager.fetchUserProjectRoleIdsQuery(userId, projectId)
+	q = q.Equals("role_id", roleId)
+
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return false, errors.Wrap(err, "CountWithError")
+	}
+	if cnt > 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
 }
 
 func fetchProjectMetadatas(idList []string) map[string]map[string]string {
