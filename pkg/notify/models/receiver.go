@@ -142,6 +142,7 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
+	input.InternationalMobile.AcceptExtMobile()
 	if ok := LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); len(input.InternationalMobile.Mobile) > 0 && !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
@@ -637,6 +638,7 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
+	input.InternationalMobile.AcceptExtMobile()
 	if ok := len(input.InternationalMobile.Mobile) == 0 || LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
