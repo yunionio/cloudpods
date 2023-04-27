@@ -54,6 +54,10 @@ type IModelListParam interface {
 	ModelParamFilter() jsonutils.JSONObject
 }
 
+type IModelListSetParams interface {
+	SetModelListParams(params *jsonutils.JSONDict) *jsonutils.JSONDict
+}
+
 func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (r ModelSetsUpdateResult, err error) {
 	mss := mssOld.ModelSetList()
 	mssNews := mssOld.NewEmpty()
