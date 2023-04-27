@@ -246,12 +246,18 @@ func (c *QueryCondition) serieIsLatestResource(resources []jsonutils.JSONObject,
 		tagId = "host_id"
 	}
 	resId := series.Tags[tagId]
+	log.Debugf("serieIsLatestResource use tagId %q, found resId %q", tagId, resId)
 	if len(resources) != 0 {
 		for _, resource := range resources {
 			id, _ := resource.GetString("id")
 			if resId == id {
-				// return true, resource
-				return models.MonitorResourceManager.GetResourceObj(resId)
+				got, obj := models.MonitorResourceManager.GetResourceObj(resId)
+				if got {
+					return true, obj
+				} else {
+					log.Warningf("not found resource %s %s from cache, use list item directly", c.ResType, resId)
+					return true, resource
+				}
 			} else {
 				continue
 			}
