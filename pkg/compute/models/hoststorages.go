@@ -56,6 +56,7 @@ func init() {
 			),
 		}
 		HoststorageManager.SetVirtualObject(HoststorageManager)
+		HoststorageManager.TableSpec().AddIndex(false, "host_id", "storage_id")
 	})
 }
 
@@ -65,7 +66,7 @@ type SHoststorage struct {
 	// 宿主机Id
 	HostId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"required" json:"host_id"`
 	// 存储Id
-	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"required" json:"storage_id"`
+	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"required" json:"storage_id" index:"true"`
 
 	// 挂载点
 	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"required" json:"mount_point"`
