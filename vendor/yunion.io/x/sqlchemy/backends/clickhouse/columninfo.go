@@ -53,7 +53,7 @@ func (info *sSqlColumnInfo) getType() string {
 }
 
 func (info *sSqlColumnInfo) getDefault() string {
-	if len(info.DefaultExpression) > 0 {
+	if info.DefaultType == "DEFAULT" {
 		if strings.HasPrefix(info.DefaultExpression, "CAST(") {
 			defaultVals := strings.Split(info.DefaultExpression[len("CAST("):len(info.DefaultExpression)-1], ",")
 			defaultVal := defaultVals[0]
