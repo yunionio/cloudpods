@@ -203,6 +203,8 @@ type ComputeOptions struct {
 	LocalDataDiskMinSizeGB int `help:"Data disk min size when using local storage" default:"10"`
 	LocalDataDiskMaxSizeGB int `help:"Data disk max size when using local storage" default:"40960"`
 
+	PCIDeviceTypeModels map[string]string `help:"custom pci device types models"`
+
 	esxi.EsxiOptions
 }
 

@@ -2019,9 +2019,12 @@ func (self *SGuest) startAttachIsolatedDevGpuOrUsb(ctx context.Context, userCred
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
-	if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
-		return httperrors.NewBadRequestError("Can't separately attach dev type %s", dev.DevType)
+	if _, ok := options.Options.PCIDeviceTypeModels[dev.DevType]; !ok {
+		if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
+			return httperrors.NewBadRequestError("Can't separately attach dev type %s", dev.DevType)
+		}
 	}
+
 	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
 		return httperrors.NewInvalidStatusError("Can't attach GPU when status is %q", self.GetStatus())
 	}

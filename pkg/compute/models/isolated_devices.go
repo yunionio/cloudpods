@@ -30,30 +30,12 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
-
-const (
-//DIRECT_PCI_TYPE = api.DIRECT_PCI_TYPE
-//GPU_HPC_TYPE = api.GPU_HPC_TYPE // # for compute
-//GPU_VGA_TYPE = api.GPU_VGA_TYPE // # for display
-//USB_TYPE        = api.USB_TYPE
-//NIC_TYPE        = api.NIC_TYPE
-
-//NVIDIA_VENDOR_ID = api.NVIDIA_VENDOR_ID
-//AMD_VENDOR_ID    = api.AMD_VENDOR_ID
-)
-
-var VALID_GPU_TYPES = api.VALID_GPU_TYPES
-
-var VALID_PASSTHROUGH_TYPES = api.VALID_PASSTHROUGH_TYPES
-
-var ID_VENDOR_MAP = api.ID_VENDOR_MAP
-
-var VENDOR_ID_MAP = api.VENDOR_ID_MAP
 
 type SIsolatedDeviceManager struct {
 	db.SStandaloneResourceBaseManager
@@ -141,8 +123,13 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
 	if input.DevType == "" {
 		return input, httperrors.NewNotEmptyError("dev_type is empty")
 	}
+
 	if !utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
-		return input, httperrors.NewInputParameterError("device type %q not supported", input.DevType)
+		if devModel, ok := options.Options.PCIDeviceTypeModels[input.DevType]; !ok {
+			return input, httperrors.NewInputParameterError("device type %q not supported", input.DevType)
+		} else if strings.TrimSpace(devModel) != strings.TrimSpace(input.Model) {
+			return input, httperrors.NewInputParameterError("device type %q model %s not supported", input.DevType, input.Model)
+		}
 	}
 
 	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
@@ -379,7 +366,7 @@ func (self *SIsolatedDevice) getVendorId() string {
 
 func (self *SIsolatedDevice) getVendor() string {
 	vendorId := self.getVendorId()
-	vendor, ok := ID_VENDOR_MAP[vendorId]
+	vendor, ok := api.ID_VENDOR_MAP[vendorId]
 	if ok {
 		return vendor
 	} else {
@@ -406,7 +393,7 @@ func (manager *SIsolatedDeviceManager) parseDeviceInfo(userCred mcclient.TokenCr
 		}
 		devConfig.Model = matchDev.Model
 		if len(devVendor) > 0 {
-			vendorId, ok := VENDOR_ID_MAP[devVendor]
+			vendorId, ok := api.VENDOR_ID_MAP[devVendor]
 			if ok {
 				devConfig.Vendor = vendorId
 			} else {
@@ -428,7 +415,7 @@ func (manager *SIsolatedDeviceManager) parseDeviceInfo(userCred mcclient.TokenCr
 		devConfig.Vendor = dev.getVendor()
 		devConfig.WireId = dev.WireId
 		if dev.IsGPU() && len(devType) > 0 {
-			if !utils.IsInStringArray(devType, VALID_GPU_TYPES) {
+			if !utils.IsInStringArray(devType, api.VALID_GPU_TYPES) {
 				return nil, fmt.Errorf("%s not valid for GPU device", devType)
 			}
 		}
@@ -702,7 +689,7 @@ func (manager *SIsolatedDeviceManager) TotalCount(
 		return stat, err
 	}
 	gpuCnt, err := manager.totalCount(
-		scope, ownerId, VALID_GPU_TYPES, hostType, resourceTypes,
+		scope, ownerId, api.VALID_GPU_TYPES, hostType, resourceTypes,
 		providers, brands, cloudEnv,
 		rangeObjs, policyResult)
 	if err != nil {

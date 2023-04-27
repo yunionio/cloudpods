@@ -1906,6 +1906,7 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 	if err := h.IsolatedDeviceMan.ProbePCIDevices(
 		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB,
 		sriovNics, offloadNics, options.HostOptions.PTNVMEConfigs,
+		options.HostOptions.PassthroughPCIDevs,
 	); err != nil {
 		return nil, errors.Wrap(err, "ProbePCIDevices")
 	}

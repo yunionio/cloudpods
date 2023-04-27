@@ -99,7 +99,7 @@ type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId string, addr string) IDevice
 	GetDeviceByAddr(addr string) IDevice
-	ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error
+	ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, generalPCIDevs []string) error
 	StartDetachTask()
 	BatchCustomProbe() error
 	AppendDetachedDevice(dev *CloudDeviceInfo)
@@ -132,7 +132,7 @@ type HostNic struct {
 	Wire      string
 }
 
-func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error {
+func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, generalPCIDevs []string) error {
 	man.devices = make([]IDevice, 0)
 	if !skipGPUs {
 		gpus, err := getPassthroughGPUS()
@@ -190,6 +190,18 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool, sriov
 		}
 		for i := range nvmeDisks {
 			man.devices = append(man.devices, nvmeDisks[i])
+		}
+	}
+
+	if len(generalPCIDevs) > 0 {
+		devs, err := getPassthroughPCIDevs(generalPCIDevs)
+		if err != nil {
+			log.Errorf("getPassthroughPCIDevs: %s", err)
+			return nil
+		}
+		for idx, dev := range devs {
+			man.devices = append(man.devices, dev)
+			log.Infof("Add pci dev: %d => %#v", idx, dev)
 		}
 	}
 
@@ -447,6 +459,33 @@ func (dev *sBaseDevice) GetIOMMUGroupDeviceCmd() string {
 }
 
 func (dev *sBaseDevice) DetectByAddr() error {
+	return nil
+}
+
+func (dev *sBaseDevice) CustomProbe(idx int) error {
+	// check environments on first probe
+	if idx == 0 {
+		for _, driver := range []string{"vfio", "vfio_iommu_type1", "vfio-pci"} {
+			if err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", driver).Run(); err != nil {
+				return fmt.Errorf("modprobe %s: %v", driver, err)
+			}
+		}
+	}
+
+	driver, err := dev.GetKernelDriver()
+	if err != nil {
+		return fmt.Errorf("Nic %s is occupied by another driver: %s", dev.GetAddr(), driver)
+	}
+	if driver != VFIO_PCI_KERNEL_DRIVER {
+		if driver != "" {
+			if err = dev.dev.unbindDriver(); err != nil {
+				return errors.Wrap(err, "unbind driver")
+			}
+		}
+		if err = dev.dev.bindDriver(); err != nil {
+			return errors.Wrap(err, "bind driver")
+		}
+	}
 	return nil
 }
 

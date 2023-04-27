@@ -168,7 +168,9 @@ type SHostOptions struct {
 
 	DisableKVM bool `help:"force disable KVM" default:"false" json:"disable_kvm"`
 
-	DisableGPU     bool     `help:"force disable GPU detect" default:"false" json:"disable_gpu"`
+	DisableGPU         bool     `help:"force disable GPU detect" default:"false" json:"disable_gpu"`
+	PassthroughPCIDevs []string `help:"pci device addresses dev_type and model name, eg: 07:00.0 or 07:00.0/sound-card/Test Sound Card"`
+
 	DisableUSB     bool     `help:"force disable USB detect" default:"true" json:"disable_usb"`
 	SRIOVNics      []string `help:"nics enable sriov" json:"sriov_nics"`
 	OvsOffloadNics []string `help:"nics enable ovs offload" json:"ovs_offload_nics"`
