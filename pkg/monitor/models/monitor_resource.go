@@ -559,7 +559,7 @@ func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *
 			return err
 		}
 	}
-	log.Infoln("SMonitorResourceManager SyncResources End")
+	log.Infof("SMonitorResourceManager SyncResources End")
 	err := CommonAlertManager.Run(ctx)
 	if err != nil {
 		log.Errorf("CommonAlertManager UpdateMonitorResourceJoint err:%v", err)

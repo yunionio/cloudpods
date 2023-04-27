@@ -87,7 +87,7 @@ func (h *APIHelper) RunManually(ctx context.Context) {
 func (h *APIHelper) run(ctx context.Context) {
 	changed, err := h.doSync(ctx)
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("doSync error: %v", err)
 	}
 	if changed {
 		mssCopy := h.modelSets.CopyJoined()
@@ -111,7 +111,7 @@ func (h *APIHelper) doSync(ctx context.Context) (changed bool, err error) {
 	mss := h.modelSets.Copy()
 	r, err := SyncModelSets(mss, s, h.opts)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "SyncModelSets")
 	}
 	h.modelSets = mss
 	if !r.Correct {

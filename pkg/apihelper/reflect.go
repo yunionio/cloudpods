@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -139,6 +140,9 @@ func GetModels(opts *GetModelsOptions) error {
 		filter := inter.ModelParamFilter()
 		params.Update(filter)
 	}
+	if inter, ok := opts.ModelSet.(IModelListSetParams); ok {
+		params = inter.SetModelListParams(params)
+	}
 	//XXX
 	//params.Set(api.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(api.LBAGENT_QUERY_ORIG_VAL))
 
@@ -147,8 +151,8 @@ func GetModels(opts *GetModelsOptions) error {
 		var err error
 		listResult, err := opts.ModelManager.List(opts.ClientSession, params)
 		if err != nil {
-			return fmt.Errorf("%s: list failed with updated_at.gt('%s'): %s",
-				manKeyPlural, minUpdatedAt, err)
+			log.Errorf("%s: list failed with updated_at.gt('%s'): %s", manKeyPlural, minUpdatedAt, err)
+			return errors.Wrapf(err, "%s list failed with params: %s", manKeyPlural, params.QueryString())
 		}
 		entriesJson = append(entriesJson, listResult.Data...)
 		if listResult.Offset+len(listResult.Data) >= listResult.Total {
@@ -226,8 +230,8 @@ type ModelSetUpdateResult struct {
 
 // ModelSetApplyUpdates applies bSet to aSet.
 //
-//  - PendingDeleted in bSet are removed from aSet
-//  - Newer models in bSet are updated in aSet
+//   - PendingDeleted in bSet are removed from aSet
+//   - Newer models in bSet are updated in aSet
 func ModelSetApplyUpdates(aSet, bSet IModelSet) *ModelSetUpdateResult {
 	r := &ModelSetUpdateResult{
 		Changed: false,
