@@ -513,6 +513,7 @@ func handleDelete(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 	} else {
 		data = jsonutils.NewDict()
 	}
+	// doDelete
 	result, err := manager.Delete(ctx, resId, query, data, ctxIds)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
