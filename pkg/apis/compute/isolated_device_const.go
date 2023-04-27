@@ -19,7 +19,9 @@ const (
 	GPU_HPC_TYPE    = "GPU-HPC" // # for compute
 	GPU_VGA_TYPE    = "GPU-VGA" // # for display
 	USB_TYPE        = "USB"
-	NIC_TYPE        = "NIC"
+	NIC_TYPE        = "NIC"     // nic sriov
+	NVME_PT_TYPE    = "NVME-PT" // nvme passthrough
+	NVME_TYPE       = "NVME"    // nvme sriov
 
 	NVIDIA_VENDOR_ID = "10de"
 	AMD_VENDOR_ID    = "1002"
@@ -27,7 +29,7 @@ const (
 
 var VALID_GPU_TYPES = []string{GPU_HPC_TYPE, GPU_VGA_TYPE}
 
-var VALID_PASSTHROUGH_TYPES = []string{DIRECT_PCI_TYPE, USB_TYPE, NIC_TYPE, GPU_HPC_TYPE, GPU_VGA_TYPE}
+var VALID_PASSTHROUGH_TYPES = []string{DIRECT_PCI_TYPE, USB_TYPE, NIC_TYPE, GPU_HPC_TYPE, GPU_VGA_TYPE, NVME_PT_TYPE, NVME_TYPE}
 
 var ID_VENDOR_MAP = map[string]string{
 	NVIDIA_VENDOR_ID: "NVIDIA",

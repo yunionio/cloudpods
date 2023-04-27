@@ -61,7 +61,7 @@ type IDisk interface {
 	CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) error
 	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
 	CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error
-	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
+	CreateRaw(ctx context.Context, sizeMb int, diskFormat string, fsFormat string,
 		encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
 	PostCreateFromImageFuse()
 	CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error
@@ -103,32 +103,59 @@ func (d *SBaseDisk) GetFormat() (string, error) {
 	return "", nil
 }
 
-func (d *SBaseDisk) Probe() error {
-	return fmt.Errorf("Not implemented")
-}
-
-func (d *SBaseDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not implemented")
-}
-
 func (d *SBaseDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error {
-	return fmt.Errorf("Not implemented")
+	return errors.Errorf("unsupported operation")
 }
 
 func (d *SBaseDisk) CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
-	return fmt.Errorf("Not implemented")
+	return errors.Errorf("unsupported operation")
 }
 
 func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not implemented")
+	return nil, errors.Errorf("unsupported operation")
 }
 
 func (d *SBaseDisk) CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) error {
-	return fmt.Errorf("Not implemented")
+	return errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
+	return errors.Errorf("unsupported operation")
 }
 
 func (d *SBaseDisk) Resize(context.Context, interface{}) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not implemented")
+	return nil, errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error {
+	return errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error {
+	return errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) DeleteAllSnapshot(skipRecycle bool) error {
+	return errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) PrepareMigrate(liveMigrate bool) (string, error) {
+	return "", errors.Errorf("unsupported operation")
+}
+
+func (d *SBaseDisk) PostCreateFromImageFuse() {
 }
 
 func (d *SBaseDisk) GetZoneId() string {

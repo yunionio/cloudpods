@@ -194,6 +194,14 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 			}
 			bootIndex8 := int8(bootIndex)
 			diskConfig.BootIndex = &bootIndex8
+		case "nvme-device-id":
+			diskConfig.NVMEDevice = &compute.IsolatedDeviceConfig{
+				Id: str,
+			}
+		case "nvme-device-model":
+			diskConfig.NVMEDevice = &compute.IsolatedDeviceConfig{
+				Model: str,
+			}
 		default:
 			return nil, errors.Errorf("invalid disk description %s", p)
 		}

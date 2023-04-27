@@ -69,6 +69,7 @@ type SHoststorage struct {
 	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"required" json:"storage_id" index:"true"`
 
 	// 挂载点
+	// nvme pci address
 	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"required" json:"mount_point"`
 	// 是否是根分区
 	IsRootPartition bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"optional"`

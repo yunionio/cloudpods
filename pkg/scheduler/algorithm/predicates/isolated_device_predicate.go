@@ -56,6 +56,13 @@ func (f *IsolatedDevicePredicate) Execute(ctx context.Context, u *core.Unit, c c
 			reqIsoDevs = append(reqIsoDevs, networks[i].SriovDevice)
 		}
 	}
+	disks := u.SchedData().Disks
+	for i := 0; i < len(disks); i++ {
+		if disks[i].NVMEDevice != nil {
+			reqIsoDevs = append(reqIsoDevs, disks[i].NVMEDevice)
+		}
+	}
+
 	getter := c.Getter()
 	minCapacity := int64(0xFFFFFFFF)
 

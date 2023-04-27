@@ -74,4 +74,5 @@ const (
 	DISK_DRIVER_PVSCSI = "pvscsi"
 	DISK_DRIVER_IDE    = "ide"
 	DISK_DRIVER_SATA   = "sata"
+	DISK_DRIVER_VFIO   = "vfio-pci"
 )
