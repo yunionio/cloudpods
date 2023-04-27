@@ -168,12 +168,12 @@ func (c *STristateColumn) IsZero(val interface{}) bool {
 }
 
 // NewTristateColumn return an instance of STristateColumn
-func NewTristateColumn(name string, tagmap map[string]string, isPointer bool) STristateColumn {
+func NewTristateColumn(table, name string, tagmap map[string]string, isPointer bool) STristateColumn {
 	if _, ok := tagmap[sqlchemy.TAG_NULLABLE]; ok {
 		// simply warning, for backward compatiblity reason
 		// tristate always nullable
 		// delete(tagmap, sqlchemy.TAG_NULLABLE)
-		log.Warningf("TristateColumn %s should have no nullable tag", name)
+		log.Warningf("%s TristateColumn %s should have no nullable tag", table, name)
 	}
 	bc := STristateColumn{SBaseWidthColumn: sqlchemy.NewBaseWidthColumn(name, "TINYINT", tagmap, isPointer)}
 	return bc
