@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/sortedstring"
+	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 )
@@ -58,6 +59,15 @@ func findPartitions(cols []sqlchemy.IColumnSpec) []string {
 	}
 	sort.Strings(parts)
 	return parts
+}
+
+func arrayContainsWord(strs []string, word string) bool {
+	for _, str := range strs {
+		if stringutils.ContainsWord(str, word) {
+			return true
+		}
+	}
+	return false
 }
 
 func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, changes sqlchemy.STableChanges) []string {
@@ -119,9 +129,15 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 			log.Errorf("column %s is not nullable but no default, drop not nullable attribute", col.Name())
 		}
 	}
+
+	oldPartitions := findPartitions(changes.OldColumns)
 	for _, cols := range changes.UpdatedColumns {
-		sql := fmt.Sprintf("MODIFY COLUMN %s", cols.NewCol.DefinitionString())
-		alters = append(alters, sql)
+		if cols.OldCol.IsNullable() && !cols.NewCol.IsNullable() && arrayContainsWord(oldPartitions, cols.NewCol.Name()) {
+			needCopyTable = true
+		} else {
+			sql := fmt.Sprintf("MODIFY COLUMN %s", cols.NewCol.DefinitionString())
+			alters = append(alters, sql)
+		}
 	}
 	for _, col := range changes.AddColumns {
 		sql := fmt.Sprintf("ADD COLUMN %s", col.DefinitionString())
@@ -162,7 +178,6 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 	}
 
 	// check partitions
-	oldPartitions := findPartitions(changes.OldColumns)
 	newPartitions := findPartitions(ts.Columns())
 	if !sortedstring.Equals(oldPartitions, newPartitions) {
 		log.Infof("partition inconsistemt: old=%s new=%s", oldPartitions, newPartitions)
