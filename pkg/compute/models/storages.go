@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
@@ -248,28 +249,20 @@ func (self *SStorage) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	cnt, err := self.GetHostCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("GetHostCount fail %s", err)
+	usage := api.StorageUsage{}
+	if gotypes.IsNil(info) {
+		cnt, err := StorageManager.TotalResourceCount([]string{self.Id})
+		if err != nil {
+			return err
+		}
+		usage, _ = cnt[self.Id]
+	} else {
+		info.Unmarshal(&usage)
 	}
-	if cnt > 0 {
-		return httperrors.NewNotEmptyError("storage has associate hosts")
+	if !usage.IsZero() {
+		return httperrors.NewNotEmptyError("storage has resources with %s", jsonutils.Marshal(usage).String())
 	}
-	cnt, err = self.GetDiskCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("GetDiskCount fail %s", err)
-	}
-	if cnt > 0 {
-		return httperrors.NewNotEmptyError("storage has disks")
-	}
-	cnt, err = self.GetVisibleSnapshotCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("GetVisibleSnapshotCount fail %s", err)
-	}
-	if cnt > 0 {
-		return httperrors.NewNotEmptyError("storage has snapshots")
-	}
-	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, info)
 }
 
 func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -411,13 +404,98 @@ func (self *SStorage) getStorageCapacity() SStorageCapacity {
 	return capa
 }
 
-func (self *SStorage) getMoreDetails(ctx context.Context, out api.StorageDetails) api.StorageDetails {
-	capa := self.getStorageCapacity()
-	out.SStorageCapacityInfo = capa.toCapacityInfo()
-	out.CommitBound = self.GetOvercommitBound()
-	out.Schedtags = GetSchedtagsDetailsToResourceV2(self, ctx)
+type sStorageSchedtag struct {
+	Id              string
+	Name            string
+	StorageId       string
+	DefaultStrategy string
+}
 
-	return out
+func (self *sStorageSchedtag) GetShortDesc() api.SchedtagShortDescDetails {
+	return api.SchedtagShortDescDetails{
+		StandaloneResourceShortDescDetail: &apis.StandaloneResourceShortDescDetail{
+			StandaloneAnonResourceShortDescDetail: apis.StandaloneAnonResourceShortDescDetail{
+				Id: self.Id,
+			},
+			Name: self.Name,
+		},
+		Default: self.DefaultStrategy,
+	}
+}
+
+func (sm *SStorageManager) query(manager db.IModelManager, field string, storageIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+
+	if filter != nil {
+		q = filter(q)
+	}
+
+	sq := q.SubQuery()
+
+	return sq.Query(
+		sq.Field("storage_id"),
+		sqlchemy.COUNT(field),
+	).In("storage_id", storageIds).GroupBy(sq.Field("storage_id")).SubQuery()
+}
+
+type StorageUsageCount struct {
+	Id string
+	api.StorageUsage
+}
+
+func (manager *SStorageManager) TotalResourceCount(storageIds []string) (map[string]api.StorageUsage, error) {
+	ret := map[string]api.StorageUsage{}
+
+	hostSQ := manager.query(HoststorageManager, "host_cnt", storageIds, nil)
+	diskSQ := manager.query(DiskManager, "disk_cnt", storageIds, nil)
+
+	diskUsed := DiskManager.Query().Equals("status", api.DISK_READY)
+	_diskUsedSQ := diskUsed.SubQuery()
+	diskUsedSQ := _diskUsedSQ.Query(
+		_diskUsedSQ.Field("storage_id"),
+		sqlchemy.SUM("disk_used", _diskUsedSQ.Field("disk_size")),
+	).In("storage_id", storageIds).GroupBy(_diskUsedSQ.Field("storage_id")).SubQuery()
+
+	diskWasted := DiskManager.Query().NotEquals("status", api.DISK_READY)
+	_diskWastedSQ := diskWasted.SubQuery()
+	diskWastedSQ := _diskWastedSQ.Query(
+		_diskWastedSQ.Field("storage_id"),
+		sqlchemy.SUM("disk_wasted", _diskWastedSQ.Field("disk_size")),
+	).In("storage_id", storageIds).GroupBy(_diskWastedSQ.Field("storage_id")).SubQuery()
+
+	snapshotSQ := manager.query(SnapshotManager, "snapshot_cnt", storageIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsFalse("fake_deleted")
+	})
+
+	storages := manager.Query().SubQuery()
+	storageQ := storages.Query(
+		sqlchemy.SUM("host_count", hostSQ.Field("host_cnt")),
+		sqlchemy.SUM("disk_count", diskSQ.Field("disk_cnt")),
+		sqlchemy.SUM("snapshot_count", snapshotSQ.Field("snapshot_cnt")),
+		sqlchemy.SUM("used", diskUsedSQ.Field("disk_used")),
+		sqlchemy.SUM("wasted", diskWastedSQ.Field("disk_wasted")),
+	)
+
+	storageQ.AppendField(storageQ.Field("id"))
+
+	storageQ = storageQ.LeftJoin(hostSQ, sqlchemy.Equals(storageQ.Field("id"), hostSQ.Field("storage_id")))
+	storageQ = storageQ.LeftJoin(diskSQ, sqlchemy.Equals(storageQ.Field("id"), diskSQ.Field("storage_id")))
+	storageQ = storageQ.LeftJoin(snapshotSQ, sqlchemy.Equals(storageQ.Field("id"), snapshotSQ.Field("storage_id")))
+	storageQ = storageQ.LeftJoin(diskUsedSQ, sqlchemy.Equals(storageQ.Field("id"), diskUsedSQ.Field("storage_id")))
+	storageQ = storageQ.LeftJoin(diskWastedSQ, sqlchemy.Equals(storageQ.Field("id"), diskWastedSQ.Field("storage_id")))
+
+	storageQ = storageQ.Filter(sqlchemy.In(storageQ.Field("id"), storageIds)).GroupBy(storageQ.Field("id"))
+
+	counts := []StorageUsageCount{}
+	err := storageQ.All(&counts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "storageQ.All")
+	}
+	for i := range counts {
+		ret[counts[i].Id] = counts[i].StorageUsage
+	}
+
+	return ret, nil
 }
 
 func (manager *SStorageManager) FetchCustomizeColumns(
@@ -441,9 +519,45 @@ func (manager *SStorageManager) FetchCustomizeColumns(
 		}
 		storage := objs[i].(*SStorage)
 		storageIds[i] = storage.Id
-		rows[i] = storage.getMoreDetails(ctx, rows[i])
+		rows[i].Capacity = storage.GetCapacity()
+		rows[i].VCapacity = int64(float32(rows[i].Capacity) * storage.GetOvercommitBound())
+		rows[i].ActualUsed = storage.ActualCapacityUsed
+		rows[i].CommitBound = storage.GetOvercommitBound()
 	}
-	q := HoststorageManager.Query("storage_id", "host_id").In("storage_id", storageIds)
+
+	count, err := manager.TotalResourceCount(storageIds)
+	if err != nil {
+		log.Errorf("TotalResourceCount error: %v", err)
+		return rows
+	}
+
+	tags := make([]sStorageSchedtag, 0)
+	schedtags := SchedtagManager.Query().SubQuery()
+	storagetags := StorageschedtagManager.Query().IsFalse("deleted").In("storage_id", storageIds).SubQuery()
+	q := schedtags.Query(
+		schedtags.Field("id"),
+		schedtags.Field("name"),
+		schedtags.Field("default_strategy"),
+		storagetags.Field("storage_id"),
+	)
+	q = q.LeftJoin(storagetags, sqlchemy.Equals(storagetags.Field("schedtag_id"), schedtags.Field("id")))
+
+	err = q.All(&tags)
+	if err != nil {
+		log.Errorf("tagQ.All error: %v", err)
+		return rows
+	}
+	tagMap := map[string][]api.SchedtagShortDescDetails{}
+	for i := range tags {
+		desc := tags[i].GetShortDesc()
+		_, ok := tagMap[tags[i].StorageId]
+		if !ok {
+			tagMap[tags[i].StorageId] = []api.SchedtagShortDescDetails{}
+		}
+		tagMap[tags[i].StorageId] = append(tagMap[tags[i].StorageId], desc)
+	}
+
+	q = HoststorageManager.Query("storage_id", "host_id").In("storage_id", storageIds)
 	hoststorages, err := q.Rows()
 	if err != nil {
 		return rows
@@ -474,6 +588,22 @@ func (manager *SStorageManager) FetchCustomizeColumns(
 				}
 			}
 		}
+		tags, ok := tagMap[storageIds[i]]
+		if ok {
+			rows[i].Schedtags = tags
+		}
+		cnt, ok := count[storageIds[i]]
+		if ok {
+			rows[i].StorageUsage = cnt
+		}
+		capa := SStorageCapacity{
+			Capacity:   rows[i].Capacity,
+			VCapacity:  rows[i].VCapacity,
+			ActualUsed: rows[i].ActualUsed,
+			Used:       rows[i].Used,
+			Wasted:     rows[i].Wasted,
+		}
+		rows[i].SStorageCapacityInfo = capa.toCapacityInfo()
 	}
 	return rows
 }
