@@ -48,7 +48,7 @@ type SCloudimage struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	SCloudregionResourceBase
+	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" default:"default" create:"optional" json:"cloudregion_id" index:"true"`
 }
 
 func SyncPublicCloudImages(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
