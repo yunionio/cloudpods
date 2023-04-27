@@ -88,7 +88,6 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 		return input, err
 	}
 	driver := GetDriver(input.Type)
-
 	// validate
 	message, err := driver.ValidateConfig(api.NotifyConfig{
 		SNotifyConfigContent: *input.Content,

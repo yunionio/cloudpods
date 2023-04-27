@@ -89,7 +89,7 @@ func (dingSender *SDingTalkSender) ValidateConfig(config api.NotifyConfig) (stri
 	_, err := dingSender.getAccessToken(config.AppKey, config.AppSecret)
 	if err != nil {
 		if strings.Contains(err.Error(), "40089") {
-			return "invalid AppKey or AppSecret", nil
+			return "invalid AppKey or AppSecret", err
 		}
 		return "", err
 	}
