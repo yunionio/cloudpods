@@ -91,8 +91,8 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 	}
 
 	guest := obj.(*models.SGuest)
-	if guest.InsertIsoSucc(cdromOrdinal, imageId, path, size, name, bootIndex) {
-		db.OpsLog.LogEvent(guest, db.ACT_ISO_ATTACH, guest.GetDetailsIso(cdromOrdinal, self.UserCred), self.UserCred)
+	if cdrom, ok := guest.InsertIsoSucc(cdromOrdinal, imageId, path, size, name, bootIndex); ok {
+		db.OpsLog.LogEvent(guest, db.ACT_ISO_ATTACH, cdrom.GetDetails(), self.UserCred)
 		if guest.GetDriver().NeedRequestGuestHotAddIso(ctx, guest) {
 			self.SetStage("OnConfigSyncComplete", nil)
 			boot := jsonutils.QueryBoolean(self.Params, "boot", false)
