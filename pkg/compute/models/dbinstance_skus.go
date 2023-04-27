@@ -56,6 +56,7 @@ func init() {
 	}
 	DBInstanceSkuManager.SetVirtualObject(DBInstanceSkuManager)
 	DBInstanceSkuManager.NameRequireAscii = false
+	DBInstanceSkuManager.TableSpec().AddIndex(false, "cloudregion_id", "provider", "deleted")
 }
 
 type SDBInstanceSku struct {
