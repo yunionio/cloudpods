@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
@@ -87,6 +88,31 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 			ret.Storages = append(ret.Storages, s)
 			allFull = false
 		}
+	}
+
+	for i, d := range options.HostOptions.LVMVolumeGroups {
+		s := NewLVMStorage(ret, d, i)
+		if err := s.Accessible(); err == nil {
+			ret.Storages = append(ret.Storages, s)
+			if allFull && s.GetFreeSizeMb() > MINIMAL_FREE_SPACE {
+				allFull = false
+			}
+		} else {
+			log.Errorf("lvm storage %s not accessible error: %v", s.Path, err)
+		}
+	}
+
+	for _, conf := range options.HostOptions.PTNVMEConfigs {
+		diskConf := strings.Split(conf, "/")
+		if len(diskConf) != 2 {
+			return nil, fmt.Errorf("bad nvme config %s", conf)
+		}
+		var pciAddr, size = diskConf[0], diskConf[1]
+		sizeMb, err := fileutils.GetSizeMb(size, 'M', 1024)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed parse pci device %s size %s", pciAddr, size)
+		}
+		ret.Storages = append(ret.Storages, newNVMEStorage(ret, pciAddr, sizeMb))
 	}
 
 	if allFull {

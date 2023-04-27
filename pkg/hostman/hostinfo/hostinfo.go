@@ -1589,6 +1589,7 @@ func (h *SHostInfo) uploadNetworkInfo() {
 			}
 		}
 	}
+	h.probeSyncIsolatedDevicesStep()
 	h.getStoragecacheInfo()
 }
 
@@ -1807,11 +1808,13 @@ func (h *SHostInfo) uploadStorageInfo() {
 	// go storageman.StartSyncStorageSizeTask(
 	//	time.Duration(options.HostOptions.SyncStorageInfoDurationSecond) * time.Second,
 	// )
-	h.probeSyncIsolatedDevicesStep()
+	h.deployAdminAuthorizedKeys()
 }
 
 func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageInfo jsonutils.JSONObject) {
+	log.Infof("storage id %s", storage.GetId())
 	if len(storage.GetId()) == 0 {
+		log.Errorf("storage config %s", storageInfo)
 		id, _ := storageInfo.GetString("id")
 		name, _ := storageInfo.GetString("name")
 		storageConf, _ := storageInfo.Get("storage_conf")
@@ -1854,8 +1857,6 @@ func (h *SHostInfo) probeSyncIsolatedDevicesStep() {
 		h.onFail(errors.Wrap(err, "probeSyncIsolatedDevices"))
 		return
 	}
-
-	h.deployAdminAuthorizedKeys()
 }
 
 func (h *SHostInfo) getNicsInterfaces(nics []string) []isolated_device.HostNic {
@@ -1903,7 +1904,8 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 	}
 	sriovNics := h.getNicsInterfaces(options.HostOptions.SRIOVNics)
 	if err := h.IsolatedDeviceMan.ProbePCIDevices(
-		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB, sriovNics, offloadNics,
+		options.HostOptions.DisableGPU, options.HostOptions.DisableUSB,
+		sriovNics, offloadNics, options.HostOptions.PTNVMEConfigs,
 	); err != nil {
 		return nil, errors.Wrap(err, "ProbePCIDevices")
 	}

@@ -88,6 +88,9 @@ type IDevice interface {
 	GetPfName() string
 	GetVirtfn() int
 
+	// NVMe disk
+	GetNVMESizeMB() int
+
 	GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error)
 	GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error)
 }
@@ -96,7 +99,7 @@ type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId string, addr string) IDevice
 	GetDeviceByAddr(addr string) IDevice
-	ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic) error
+	ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error
 	StartDetachTask()
 	BatchCustomProbe() error
 	AppendDetachedDevice(dev *CloudDeviceInfo)
@@ -129,7 +132,7 @@ type HostNic struct {
 	Wire      string
 }
 
-func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic) error {
+func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error {
 	man.devices = make([]IDevice, 0)
 	if !skipGPUs {
 		gpus, err := getPassthroughGPUS()
@@ -176,6 +179,17 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool, sriov
 		for idx, nic := range nics {
 			man.devices = append(man.devices, nic)
 			log.Infof("Add sriov nic: %d => %#v", idx, nic)
+		}
+	}
+
+	if len(nvmePciDisks) > 0 {
+		nvmeDisks, err := getPassthroughNVMEDisks(nvmePciDisks)
+		if err != nil {
+			log.Errorf("getPassthroughNVMEDisks: %v", err)
+			return nil
+		}
+		for i := range nvmeDisks {
+			man.devices = append(man.devices, nvmeDisks[i])
 		}
 	}
 
@@ -349,6 +363,10 @@ func (dev *sBaseDevice) GetOvsOffloadInterfaceName() string {
 	return ""
 }
 
+func (dev *sBaseDevice) GetNVMESizeMB() int {
+	return -1
+}
+
 func (dev *sBaseDevice) GetModelName() string {
 	if dev.dev.ModelName != "" {
 		return dev.dev.ModelName
@@ -388,6 +406,10 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	if len(dev.GetOvsOffloadInterfaceName()) != 0 {
 		data["ovs_offload_interface"] = dev.GetOvsOffloadInterfaceName()
 	}
+	if dev.GetNVMESizeMB() > 0 {
+		data["nvme_size_mb"] = dev.GetNVMESizeMB()
+	}
+
 	return jsonutils.Marshal(data).(*jsonutils.JSONDict)
 }
 
