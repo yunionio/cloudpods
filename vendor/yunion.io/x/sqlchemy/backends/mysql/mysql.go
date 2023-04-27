@@ -156,7 +156,7 @@ func (mysql *SMySQLBackend) GetColumnSpecByFieldType(table *sqlchemy.STableSpec,
 	switch fieldType {
 	case tristate.TriStateType:
 		tagmap[sqlchemy.TAG_WIDTH] = "1"
-		col := NewTristateColumn(fieldname, tagmap, isPointer)
+		col := NewTristateColumn(table.Name(), fieldname, tagmap, isPointer)
 		return &col
 	case gotypes.TimeType:
 		col := NewDateTimeColumn(fieldname, tagmap, isPointer)

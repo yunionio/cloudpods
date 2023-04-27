@@ -16,6 +16,7 @@ package stringutils
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -88,4 +89,9 @@ func SplitKeyValueBySep(line string, sep string) (string, string) {
 		return key, val
 	}
 	return "", ""
+}
+
+func ContainsWord(str, w string) bool {
+	reg := regexp.MustCompile(fmt.Sprintf("\\b%s\\b", w))
+	return reg.MatchString(str)
 }

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/sqlchemy"
@@ -190,7 +191,7 @@ func (click *SClickhouseBackend) FetchTableColumnSpecs(ts sqlchemy.ITableSpec) (
 				clickSpec.SetOrderBy(true)
 			}
 			for _, part := range partitions {
-				if strings.Contains(part, clickSpec.Name()) {
+				if stringutils.ContainsWord(part, clickSpec.Name()) {
 					clickSpec.SetPartitionBy(part)
 				}
 			}
@@ -206,7 +207,7 @@ func (click *SClickhouseBackend) FetchTableColumnSpecs(ts sqlchemy.ITableSpec) (
 func (click *SClickhouseBackend) GetColumnSpecByFieldType(table *sqlchemy.STableSpec, fieldType reflect.Type, fieldname string, tagmap map[string]string, isPointer bool) sqlchemy.IColumnSpec {
 	switch fieldType {
 	case tristate.TriStateType:
-		col := NewTristateColumn(fieldname, tagmap, isPointer)
+		col := NewTristateColumn(table.Name(), fieldname, tagmap, isPointer)
 		return &col
 	case gotypes.TimeType:
 		col := NewDateTimeColumn(fieldname, tagmap, isPointer)
