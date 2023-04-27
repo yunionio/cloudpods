@@ -227,9 +227,11 @@ func (dispatcher *DBJointModelDispatcher) Attach(ctx context.Context, id1 string
 }
 
 func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	// 获取用户信息
 	userCred := fetchUserCredential(ctx)
 	manager := dispatcher.manager.GetMutableInstance(ctx, userCred, query, data)
 
+	// 获取对象与关联表（such as guestdisks_tbl)
 	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
 		if jsonutils.QueryBoolean(query, "auto_create", false) {
@@ -242,11 +244,13 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 		return nil, httperrors.NewGeneralError(err)
 	}
 
+	// 判断权限
 	err = isJointObjectRbacAllowed(ctx, item, userCred, policy.PolicyActionUpdate)
 	if err != nil {
 		return nil, err
 	}
 
+	// 锁住实例与关联表
 	lockman.LockJointObject(ctx, master, slave)
 	defer lockman.ReleaseJointObject(ctx, master, slave)
 	return updateItem(dispatcher.JointModelManager(), item, ctx, userCred, query, data)
