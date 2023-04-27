@@ -330,6 +330,12 @@ func (s Storages) NeedSync() bool {
 	return true
 }
 
+func (s Storages) SetModelListParams(params *jsonutils.JSONDict) *jsonutils.JSONDict {
+	// list storages with details is too long
+	params.Set("details", jsonutils.JSONFalse)
+	return params
+}
+
 func (d Domains) ModelManager() modulebase.IBaseManager {
 	return &identity.Domains
 }
