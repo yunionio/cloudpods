@@ -80,7 +80,7 @@ func (feishuSender *SFeishuSender) Send(args api.SendParams) error {
 func (feishuSender *SFeishuSender) ValidateConfig(config api.NotifyConfig) (string, error) {
 	rep, err := feishuSender.getAccessToken(config.AppId, config.AppSecret)
 	if err == nil {
-		return "", err
+		return "", nil
 	}
 	var msg string
 	switch rep.Code {
@@ -89,7 +89,7 @@ func (feishuSender *SFeishuSender) ValidateConfig(config api.NotifyConfig) (stri
 	case 10014:
 		msg = "invalid AppSecret"
 	}
-	return msg, nil
+	return msg, err
 }
 
 // 根据用户手机号获取用户的open_id
