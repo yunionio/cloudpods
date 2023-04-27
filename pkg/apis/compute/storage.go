@@ -22,6 +22,18 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+type StorageUsage struct {
+	HostCount     int
+	DiskCount     int
+	SnapshotCount int
+	Used          int64
+	Wasted        int64
+}
+
+func (self StorageUsage) IsZero() bool {
+	return self.HostCount+self.DiskCount+self.SnapshotCount == 0
+}
+
 type StorageCreateInput struct {
 	apis.EnabledStatusInfrasResourceBaseCreateInput
 
@@ -140,10 +152,14 @@ type StorageDetails struct {
 	SStorage
 
 	SStorageCapacityInfo
+	ActualUsed int64 `json:"real_time_used_capacity,omitzero"`
+	VCapacity  int64 `json:"virtual_capacity,omitzero"`
 
 	Hosts []StorageHost `json:"hosts"`
 
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
+
+	StorageUsage `json:"storage_usage"`
 
 	// 超分比
 	CommitBound float32 `json:"commit_bound"`
