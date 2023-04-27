@@ -63,8 +63,7 @@ const (
 	DISK_DRIVER_SATA   = qemu.DISK_DRIVER_SATA
 )
 
-const guestLauncher = `
-#!/usr/bin/env python
+const guestLauncher = `#!/usr/bin/env python
 import sys
 import os
 import time
@@ -111,7 +110,7 @@ else:
         logfd = os.open('%s', os.O_RDWR|os.O_CREAT|os.O_APPEND)
         os.dup2(logfd, 1)
         os.dup2(logfd, 2)
-        os.write(logfd, '%%s Run command: %%s\n' %% (time.strftime('%%Y-%%m-%%d %%H:%%M:%%S', time.localtime()), cmd))
+        os.write(logfd, str.encode('%%s Run command: %%s\n' %% (time.strftime('%%Y-%%m-%%d %%H:%%M:%%S', time.localtime()), cmd)))
         os.close(logfd)
 
         if os.execv(cmd[0], cmd) < 0:
