@@ -1712,7 +1712,7 @@ func (s *SKVMGuestInstance) pyLauncherPath() string {
 }
 
 func (s *SKVMGuestInstance) scriptStart(ctx context.Context) error {
-	output, err := procutils.NewRemoteCommandAsFarAsPossible("python2", s.pyLauncherPath()).Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("python", s.pyLauncherPath()).Output()
 	if err != nil {
 		return fmt.Errorf("Start VM Failed %s %s", output, err)
 	}

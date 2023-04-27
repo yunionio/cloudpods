@@ -380,10 +380,14 @@ func (c *CGroupTask) init() bool {
 	re := regexp.MustCompile(`\s+`)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
+		// #subsys_name    hierarchy       num_cgroups     enabled
 		line := scanner.Text()
 		if line[0] != '#' {
 			parts := re.Split(line, -1)
 			module := parts[0]
+			if parts[3] == "0" { // disabled
+				continue
+			}
 			if !ModuleIsMounted(module) {
 				moduleDir := path.Join(cgroupsPath, module)
 				if !fileutils2.Exists(moduleDir) {
