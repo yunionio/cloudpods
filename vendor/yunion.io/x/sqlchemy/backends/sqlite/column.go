@@ -171,7 +171,7 @@ func (c *STristateColumn) IsZero(val interface{}) bool {
 }
 
 // NewTristateColumn return an instance of STristateColumn
-func NewTristateColumn(name string, tagmap map[string]string, isPointer bool) STristateColumn {
+func NewTristateColumn(table, name string, tagmap map[string]string, isPointer bool) STristateColumn {
 	if _, ok := tagmap[sqlchemy.TAG_NULLABLE]; ok {
 		// tristate always nullable
 		delete(tagmap, sqlchemy.TAG_NULLABLE)

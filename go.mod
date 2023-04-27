@@ -89,9 +89,9 @@ require (
 	yunion.io/x/jsonutils v1.0.1-0.20230417123225-5dcde3e4598b
 	yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.0.1-0.20230327034731-79f520e7d373
+	yunion.io/x/pkg v1.0.1-0.20230420104238-bbd084afbdfe
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v1.1.2-0.20230326161357-912d44dd66d6
+	yunion.io/x/sqlchemy v1.1.2-0.20230422192549-7a9668176f46
 	yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6
 )
 
