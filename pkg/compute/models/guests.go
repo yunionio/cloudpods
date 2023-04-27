@@ -2409,6 +2409,10 @@ func (self *SGuest) GetCdrom() *SGuestcdrom {
 	return self.getCdrom(false, 0)
 }
 
+func (self *SGuest) GetCdromByOrdinal(ordinal int64) *SGuestcdrom {
+	return self.getCdrom(false, ordinal)
+}
+
 func (self *SGuest) getCdrom(create bool, ordinal int64) *SGuestcdrom {
 	cdrom := SGuestcdrom{}
 	cdrom.SetModelManager(GuestcdromManager, &cdrom)

@@ -1185,12 +1185,16 @@ func (self *SGuest) insertIso(imageId string, cdromOrdinal int64) bool {
 	return cdrom.insertIso(imageId)
 }
 
-func (self *SGuest) InsertIsoSucc(cdromOrdinal int64, imageId string, path string, size int64, name string, bootIndex *int8) bool {
+func (self *SGuest) InsertIsoSucc(cdromOrdinal int64, imageId string, path string, size int64, name string, bootIndex *int8) (*SGuestcdrom, bool) {
 	cdrom := self.getCdrom(false, cdromOrdinal)
-	return cdrom.insertIsoSucc(imageId, path, size, name, bootIndex)
+	return cdrom, cdrom.insertIsoSucc(imageId, path, size, name, bootIndex)
 }
 
-func (self *SGuest) GetDetailsIso(cdromOrdinal int64, userCred mcclient.TokenCredential) jsonutils.JSONObject {
+func (self *SGuest) GetDetailsIso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var cdromOrdinal int64 = 0
+	if query.Contains("ordinal") {
+		cdromOrdinal, _ = query.Int("ordinal")
+	}
 	cdrom := self.getCdrom(false, cdromOrdinal)
 	desc := jsonutils.NewDict()
 	if len(cdrom.ImageId) > 0 {
@@ -1202,7 +1206,7 @@ func (self *SGuest) GetDetailsIso(cdromOrdinal int64, userCred mcclient.TokenCre
 		desc.Set("size", jsonutils.NewInt(int64(cdrom.Size)))
 		desc.Set("status", jsonutils.NewString("ready"))
 	}
-	return desc
+	return desc, nil
 }
 
 func (self *SGuest) PerformInsertiso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
