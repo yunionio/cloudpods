@@ -238,11 +238,13 @@ func getStatsInfo(ctx context.Context, req *http.Request) (jsonutils.JSONObject,
 	}{}
 
 	accounts, err := compute_modules.Cloudaccounts.List(s, params)
-	if err != nil {
+	if err != nil && httputils.ErrorCode(err) != 403 {
 		return nil, err
 	}
 
-	ret.Cloudaccounts = accounts.Total
+	if accounts != nil {
+		ret.Cloudaccounts = accounts.Total
+	}
 
 	return jsonutils.Marshal(ret), nil
 }
@@ -250,7 +252,7 @@ func getStatsInfo(ctx context.Context, req *http.Request) (jsonutils.JSONObject,
 func (h *AuthHandlers) getStats(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	data, err := getStatsInfo(ctx, req)
 	if err != nil {
-		httperrors.NotFoundError(ctx, w, err.Error())
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	body := jsonutils.NewDict()
