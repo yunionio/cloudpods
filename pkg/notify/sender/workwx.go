@@ -45,12 +45,31 @@ func (workwxSender *SWorkwxSender) Send(args api.SendParams) error {
 		},
 		"touser": args.Receivers.Contact,
 	}
-	_, err := workwxSender.sendMessageWithToken(ApiWorkwxSendMessage, fmt.Sprintf("%s-%s", api.WORKWX, args.DomainId), httputils.POST, nil, nil, jsonutils.Marshal(body))
+	respObj, err := workwxSender.sendMessageWithToken(ApiWorkwxSendMessage, fmt.Sprintf("%s-%s", api.WORKWX, args.DomainId), httputils.POST, nil, nil, jsonutils.Marshal(body))
 	if err != nil {
 		return errors.Wrap(err, "workwx send message")
 	}
-
-	return err
+	resp := api.SWorkwxSendMessageResp{}
+	respObj.Unmarshal(&resp)
+	// errcode大于0时返回错误
+	if resp.ErrCode > 0 {
+		// 对于token过期情况，进行重新获取token，并重新发消息
+		if len(resp.UnlicensedUser) > 0 || resp.ErrCode == 42001 {
+			err = workwxSender.GetAccessToken(args.DomainId)
+			if err != nil {
+				return errors.Wrap(err, "retenant token invalid && getToken err")
+			}
+			secRespObj, err := workwxSender.sendMessageWithToken(ApiWorkwxSendMessage, fmt.Sprintf("%s-%s", api.WORKWX, args.DomainId), httputils.POST, nil, nil, jsonutils.Marshal(body))
+			secRespObj.Unmarshal(&resp)
+			if err == nil && resp.ErrCode == 0 {
+				return nil
+			} else {
+				return errors.Errorf(resp.ErrMsg)
+			}
+		}
+		return errors.Errorf(resp.ErrMsg)
+	}
+	return nil
 }
 
 func (workwxSender *SWorkwxSender) ValidateConfig(config api.NotifyConfig) (string, error) {
@@ -123,7 +142,6 @@ func (workwxSender *SWorkwxSender) GetAccessToken(domainId string) error {
 }
 
 func (workwxSender *SWorkwxSender) getAccessToken(corpId, secret string) (string, error) {
-	// url := ApiWorkwxGetToken + fmt.Sprintf("?corpid=%s&corpsecret=%s", corpId, secret)
 	params := url.Values{}
 	params.Set("corpid", corpId)
 	params.Set("corpsecret", secret)
