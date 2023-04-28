@@ -220,7 +220,7 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
   * Huawei HCSO (华为HCSO)
   * Nutanix
 * 本地基础设施资源:
-  * KVM
+  * 基于 KVM 实现的轻量级私有云
   * VMWare vSphere vCenter/ESXi
   * Baremetals (IPMI, Redfish API)
   * Object storages (Minio, Ceph, XSky)
@@ -237,52 +237,12 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
 * DNS: DNS zones, DNS records
 * VPC: VPCs, VPC peering, inter-VPC network, NAT gateway, DNAT/SNAT rules, route tables, route entries
 
-## 快速开始
+## 安装部署
 
-我们可以通过以下简单三步将Cloudpods安装在一台至少8GiB内存和100GB硬盘的Linux主机上（目前CentOS 7和Debian 10经过充分测试）
-
-(下面假设该主机的IP为 *10.168.26.216*)
-
-### 1. 准备SSH免密登录
-
-```bash
-# 生成ssh密钥对
-# (如果已经有~/.ssh/id_rsa和~/.ssh/id_rsa.pub,请跳过此步。请确保ssh密钥私钥未设置密码)
-$ ssh-keygen -t rsa -N ''
-# 将生成的ssh公钥~/.ssh/id_rsa.pub拷贝到待部署的目标主机
-$ ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.168.26.216
-# 测试SSH免密登录是否生效。免密登录到待部署主机执行hostname命令
-# 如果设置成功，执行下面命令能够回显待部署主机的主机名
-# 不需要输入待部署主机的密码
-$ ssh root@10.168.26.216 "hostname"
-```
-
-### 2. 安装git和相关工具
-
-#### CentOS 7安装git和epel源
-```bash
-yum install -y git epel-release ansible
-```
-
-#### Debian 10安装git
-```bash
-apt install -y git ansible
-```
-
-### 3. 安装Cloudpods
-
-通过以下命令开始安装Cloudpods：
-
-```bash
-# Git clone the ocboot installation tool locally
-$ git clone -b release/3.9 https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168.26.216
-```
-
-大概10-30分钟后，安装完成。访问 https://10.168.26.216 登入Cloudpods的Web控制台。初始的账号为 *admin* ，密码为 *admin@123*
-
-请参考文档 [快速开始](https://www.cloudpods.org/zh/docs/quickstart/allinone/) 获得更详细的安装指导。
-
-已经有 Kubernetes 集群？可以尝试 [使用 Helm 安装 Cloudpods](https://www.cloudpods.org/zh/docs/quickstart/k8s/)。
+- [All in One 安装](https://www.cloudpods.org/zh/docs/quickstart/allinone/)：在 CentOS 7 或 Debian 10 等发行版里搭建全功能 Cloudpods 服务，可以快速体验**内置私有云**和**多云管理**的功能。
+- [Kubernetes Helm 安装](https://www.cloudpods.org/zh/docs/quickstart/k8s/)：在已有 Kubernetes 集群上通过 Helm 部署一套 Cloudpods CMP 服务，可以体验**多云管理**的功能。
+- [Docker Compose 安装](https://www.cloudpods.org/zh/docs/quickstart/docker-compose/)：通过 Docker Compose 部署 Cloudpods CMP 服务，可以迅速体验**多云管理**的功能。
+- [高可用安装](https://www.cloudpods.org/zh/docs/setup/ha-ce/)：在生产环境中使用高可用的方式部署 Cloudpods 服务，包括**内置私有云**和**多云管理**的功能。
 
 ## 文档
 
