@@ -224,7 +224,7 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
   * Huawei HCSO
   * Nutanix
 * On-premise resources:
-  * KVM
+  * Lightweight private cloud built on KVM
   * VMWare vSphere vCenter/ESXi
   * Baremetals (IPMI, Redfish API)
   * Object storages (Minio, Ceph, XSky)
@@ -241,55 +241,12 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
 * DNS: DNS zones, DNS records
 * VPC: VPCs, VPC peering, inter-VPC network, NAT gateway, DNAT/SNAT rules, route tables, route entries
 
-## Quick start
+## Getting started
 
-You may install Cloudpods in a Linux box (currently CentOS 7 and Debian 10 are fully tested) with at least 8GiB RAM and 100GB storage by following three steps.
-
-(Assuming that you install Cloudpods on a Linux box with IP *10.168.26.216*):
-
-
-### 1. Prepare passwordless SSH login
-
-```bash
-# Generate a local ssh keypair
-# (SKIP this step if you already have ~/.ssh/id_rsa.pub locally. Make sure generating key WIHOUT passphrase)
-$ ssh-keygen -t rsa -N ''
-
-# Copy the generated ~/.ssh/id_rsa.pub public key to the machine to be deployed
-$ ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.168.26.216
-
-# Try to login to the machine to be deployed without password,
-# should be able to get the hostname of the deployed machine
-# without entering the login password
-$ ssh root@10.168.26.216 "hostname"
-```
-
-### 2. Install git and relevant tools
-
-#### For CentOS 7
-```bash
-yum install -y git epel-release ansible
-```
-
-#### For Debian 10
-```bash
-apt install -y git ansible
-```
-
-### 3. Install Cloudpods
-
-Run the following commands to start installing Cloudpods.
-
-```bash
-# Git clone the ocboot installation tool locally
-$ git clone -b release/3.9 https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168.26.216
-```
-
-It takes 10-30 minutes to finish the installation. You may visit the webconsole of Cloudpods at https://10.168.26.216. The initial login account is *admin* and password is *admin@123*.
-
-For more detailed instructions, please refers to [quick start](https://www.cloudpods.org/zh/docs/quickstart/allinone/).
-
-Already having a Kubernetes? Try [installing Cloudpods with Helm](https://www.cloudpods.org/zh/docs/quickstart/k8s/).
+- [All in One Installation](https://www.cloudpods.org/zh/docs/quickstart/allinone/)：Building a full-featured Cloudpods service on linux distributions such as CentOS 7 or Debian 10 allows for a quick experience of the **built-in private cloud** and **multi-cloud management** features.
+- [Kubernetes Helm Installation](https://www.cloudpods.org/zh/docs/quickstart/k8s/)：Deploying the Cloudpods CMP service on an existing Kubernetes cluster using Helm and experience the **multi-cloud management** feature.
+- [Docker Compose Installation](https://www.cloudpods.org/zh/docs/quickstart/docker-compose/)：Deploying the Cloudpods CMP service using Docker Compose and quickly experience the **multi-cloud management** feature.
+- [High availability installation](https://www.cloudpods.org/zh/docs/setup/ha-ce/)：Deploying Cloudpods services in a highly available manner for production environments, including **built-in private cloud** and **multi-cloud management** features.
 
 ## Documentations
 
