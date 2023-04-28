@@ -14,22 +14,16 @@
 
 package jsonutils
 
-type sJsonPointerRefCount struct {
-	node   *JSONDict
-	refCnt int
-}
-
 type sJsonMarshalSession struct {
-	nodeIndex int
-	objectMap map[interface{}]*sJSONPointer
-
-	nodeMap map[int]*sJsonPointerRefCount
+	nodeIndex   int
+	objectTrace *sJsonPointerTrace
+	nodeMap     map[int]*sJsonPointerNode
 }
 
 func newJsonMarshalSession() *sJsonMarshalSession {
 	return &sJsonMarshalSession{
-		nodeIndex: 0,
-		objectMap: make(map[interface{}]*sJSONPointer),
-		nodeMap:   make(map[int]*sJsonPointerRefCount),
+		nodeIndex:   0,
+		objectTrace: newJsonPointerTrace(),
+		nodeMap:     make(map[int]*sJsonPointerNode),
 	}
 }
