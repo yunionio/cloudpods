@@ -46,10 +46,6 @@ func (self *SCloudpodsRegionDriver) GenerateSecurityGroupName(name string) strin
 	return name
 }
 
-func (self *SCloudpodsRegionDriver) IsSupportPeerSecgroup() bool {
-	return false
-}
-
 func (self *SCloudpodsRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
 	if !utils.IsInStringArray(input.CidrBlock, []string{"192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"}) {
 		return input, httperrors.NewInputParameterError("Invalid cidr_block, want 192.168.0.0/16|10.0.0.0/8|172.16.0.0/12, got %s", input.CidrBlock)

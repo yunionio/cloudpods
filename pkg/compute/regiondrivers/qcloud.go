@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/rbacscope"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -53,30 +52,6 @@ func (self *SQcloudRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
 
 func (self *SQcloudRegionDriver) GenerateSecurityGroupName(name string) string {
 	return name
-}
-
-func (self *SQcloudRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
-}
-
-func (self *SQcloudRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:deny any")}
-}
-
-func (self *SQcloudRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 0
-}
-
-func (self *SQcloudRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 100
-}
-
-func (self *SQcloudRegionDriver) IsSupportPeerSecgroup() bool {
-	return true
-}
-
-func (self *SQcloudRegionDriver) IsPeerSecgroupWithSameProject() bool {
-	return true
 }
 
 func (self *SQcloudRegionDriver) GetProvider() string {

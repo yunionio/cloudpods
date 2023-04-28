@@ -22,6 +22,5 @@ type SecgroupRuleDetails struct {
 	SSecurityGroupRule
 	SecurityGroupResourceInfo
 
-	ProjectId    string `json:"tenant_id"`
-	PeerSecgroup string `json:"peer_secgroup"`
+	ProjectId string `json:"tenant_id"`
 }

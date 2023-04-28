@@ -17,7 +17,6 @@ package compute
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
@@ -82,10 +81,6 @@ type SSecgroupRuleResource struct {
 	// requried: false
 	// example: test to create rule
 	Description string `json:"description"`
-
-	// 对端安全组Id, 此参数和cidr参数互斥，并且优先级高于cidr, 同时peer_secgroup_id不能和它所在的安全组ID相同
-	// required: false
-	PeerSecgroupId string `json:"peer_secgroup_id"`
 }
 
 type SSecgroupRuleCreateInput struct {
@@ -246,6 +241,9 @@ type SecgroupDetails struct {
 	// admin_secgrp_id为此安全组的云主机数量, , 不包含回收站云主机
 	AdminGuestCnt int `json:"admin_guest_cnt,allowempty"`
 
+	// 所有关联的资源数量
+	TotalCnt int `json:"total_cnt,allowempty"`
+
 	// 安全组缓存数量
 	CacheCnt int `json:"cache_cnt,allowempty"`
 	// 规则信息
@@ -254,8 +252,6 @@ type SecgroupDetails struct {
 	InRules []SecgroupRuleDetails `json:"in_rules"`
 	// 出方向规则信息
 	OutRules []SecgroupRuleDetails `json:"out_rules"`
-
-	CloudCaches []jsonutils.JSONObject `json:"cloud_caches"`
 }
 
 type SecurityGroupResourceInfo struct {
@@ -332,4 +328,8 @@ type SSecurityGroupRef struct {
 
 func (self *SSecurityGroupRef) Sum() {
 	self.TotalCnt = self.GuestCnt + self.AdminGuestCnt + self.RdsCnt + self.RedisCnt
+}
+
+type SecurityGroupCacheInput struct {
+	VpcId string `json:"vpc_id"`
 }

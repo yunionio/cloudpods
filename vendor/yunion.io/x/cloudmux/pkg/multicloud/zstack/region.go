@@ -338,8 +338,8 @@ func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroup
 	return &secgroups[0], nil
 }
 
-func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	return region.CreateSecurityGroup(conf.Name, conf.Desc)
+func (region *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return region.CreateSecurityGroup(opts)
 }
 
 func (region *SRegion) GetCapabilities() []string {

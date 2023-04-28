@@ -20,7 +20,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/pinyinutils"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -48,26 +47,6 @@ func (self *SAzureRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
 
 func (self *SAzureRegionDriver) GenerateSecurityGroupName(name string) string {
 	return pinyinutils.Text2Pinyin(name)
-}
-
-func (self *SAzureRegionDriver) IsSupportClassicSecurityGroup() bool {
-	return true
-}
-
-func (self *SAzureRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
-}
-
-func (self *SAzureRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:deny any")}
-}
-
-func (self *SAzureRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 100
-}
-
-func (self *SAzureRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 4096
 }
 
 func (self *SAzureRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {

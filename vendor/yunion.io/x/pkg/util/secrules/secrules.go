@@ -432,11 +432,11 @@ func (rule *SecurityRule) cutOut(r *SecurityRule) SecurityRuleSet {
 	srcs := securityRuleCuts{securityRuleCut{r: *rule}}
 	//a := srcs
 	srcs = srcs.cutOutProtocol(r.Protocol)
-	srcs = srcs.cutOutIPNet(r.IPNet)
+	srcs = srcs.cutOutIPNet(r.Protocol, r.IPNet)
 	if len(r.Ports) > 0 {
-		srcs = srcs.cutOutPorts([]uint16(newPortsFromInts(r.Ports...)))
+		srcs = srcs.cutOutPorts(r.Protocol, []uint16(newPortsFromInts(r.Ports...)))
 	} else if r.PortStart > 0 && r.PortEnd > 0 {
-		srcs = srcs.cutOutPortRange(uint16(r.PortStart), uint16(r.PortEnd))
+		srcs = srcs.cutOutPortRange(r.Protocol, uint16(r.PortStart), uint16(r.PortEnd))
 	} else {
 		srcs = srcs.cutOutPortsAll()
 	}

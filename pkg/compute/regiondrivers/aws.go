@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/pinyinutils"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -53,26 +52,6 @@ func (self *SAwsRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
 
 func (self *SAwsRegionDriver) GenerateSecurityGroupName(name string) string {
 	return pinyinutils.Text2Pinyin(name)
-}
-
-func (self *SAwsRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
-}
-
-func (self *SAwsRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:deny any")}
-}
-
-func (self *SAwsRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 0
-}
-
-func (self *SAwsRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 0
-}
-
-func (self *SAwsRegionDriver) IsOnlySupportAllowRules() bool {
-	return true
 }
 
 func (self *SAwsRegionDriver) GetProvider() string {

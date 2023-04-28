@@ -94,7 +94,6 @@ func (sg *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 
 		sr := cloudprovider.SecurityRule{
 			Id:           rules[i].RuleId,
-			ExternalId:   rules[i].RuleId,
 			SecurityRule: rule,
 		}
 		srs = append(srs, sr)
