@@ -209,24 +209,6 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 		return "", fmt.Errorf("wire's vpc is empty")
 	}
 
-	if len(secgroupId) == 0 {
-		secgroups, err := net.wire.vpc.GetISecurityGroups()
-		if err != nil {
-			return "", fmt.Errorf("get security group error %s", err)
-		}
-
-		if len(secgroups) == 0 {
-			// aws 默认就已经创建好了一个默认安全组。正常情况下并不需要手动创建
-			secId, err := self.zone.region.createDefaultSecurityGroup(net.wire.vpc.VpcId)
-			if err != nil {
-				return "", fmt.Errorf("no secgroup for vpc and failed to create a default One!!")
-			} else {
-				secgroupId = secId
-			}
-		} else {
-			secgroupId = secgroups[0].GetId()
-		}
-	}
 	// 同步keypair
 	var err error
 	keypair := ""

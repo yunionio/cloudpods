@@ -887,11 +887,6 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	if err != nil {
 		return nil, err
 	}
-	vpc, err := region.getVpc(secgroup.VpcId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "region.getVpc(%s)", secgroup.VpcId)
-	}
-	secgroup.vpc = vpc
 	return secgroup, nil
 }
 
@@ -906,13 +901,29 @@ func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroup
 	if total > 1 {
 		return nil, cloudprovider.ErrDuplicateId
 	}
+	secgroups[0].region = region
 	return &secgroups[0], nil
 }
 
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	externalId, err := region.CreateSecurityGroup(conf.VpcId, conf.Name, conf.Desc)
+	externalId, err := region.CreateSecurityGroup(conf.VpcId, conf.Name, conf.Desc, conf.ProjectId)
 	if err != nil {
 		return nil, err
+	}
+	if conf.OnCreated != nil {
+		conf.OnCreated(externalId)
+	}
+	outRules := conf.OutRules
+	if len(outRules) > 0 && outRules[0].String() == "out:allow any" {
+		outRules = outRules[1:]
+	}
+	rules := append(conf.InRules, outRules...)
+	for _, rule := range rules {
+		rule.Priority = 101 - rule.Priority
+		err = region.addSecurityGroupRule(externalId, rule)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return region.GetISecurityGroupById(externalId)
 }

@@ -15,7 +15,6 @@
 package openstack
 
 import (
-	"fmt"
 	"net/url"
 	"time"
 
@@ -142,12 +141,7 @@ func (secgroup *SSecurityGroup) GetName() string {
 
 func (secgrouprule *SSecurityGroupRule) toRules() ([]cloudprovider.SecurityRule, error) {
 	rules := []cloudprovider.SecurityRule{}
-	// 暂时忽略IPv6安全组规则,忽略远端也是安全组的规则
-	if secgrouprule.Ethertype != "IPv4" || len(secgrouprule.RemoteGroupId) > 0 {
-		return rules, fmt.Errorf("ethertype: %s remoteGroupId: %s", secgrouprule.Ethertype, secgrouprule.RemoteGroupId)
-	}
 	rule := cloudprovider.SecurityRule{
-		ExternalId: secgrouprule.Id,
 		SecurityRule: secrules.SecurityRule{
 			Direction:   secrules.DIR_IN,
 			Action:      secrules.SecurityRuleAllow,
@@ -181,16 +175,15 @@ func (secgrouprule *SSecurityGroupRule) toRules() ([]cloudprovider.SecurityRule,
 			rule.PortEnd = secgrouprule.PortRangeMax
 		}
 	}
-	err := rule.ValidateRule()
-	if err != nil && err != secrules.ErrInvalidPriority {
-		return rules, errors.Wrap(err, "rule.ValidateRule")
-	}
 	return []cloudprovider.SecurityRule{rule}, nil
 }
 
 func (secgroup *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	rules := []cloudprovider.SecurityRule{}
 	for _, rule := range secgroup.SecurityGroupRules {
+		if rule.Ethertype != "IPv4" || len(rule.RemoteGroupId) > 0 {
+			continue
+		}
 		subRules, err := rule.toRules()
 		if err != nil {
 			log.Errorf("failed to convert rule %s for secgroup %s(%s) error: %v", rule.Id, secgroup.Name, secgroup.Id, err)
@@ -223,7 +216,7 @@ func (region *SRegion) delSecurityGroupRule(ruleId string) error {
 	return err
 }
 
-func (region *SRegion) addSecurityGroupRules(secgroupId string, rule cloudprovider.SecurityRule) error {
+func (region *SRegion) addSecurityGroupRules(secgroupId string, rule secrules.SecurityRule) error {
 	direction := "ingress"
 	if rule.Direction == secrules.SecurityRuleEgress {
 		direction = "egress"
@@ -275,15 +268,15 @@ func (secgroup *SSecurityGroup) Delete() error {
 	return secgroup.region.DeleteSecurityGroup(secgroup.Id)
 }
 
-func (region *SRegion) CreateSecurityGroup(projectId, name, description string) (*SSecurityGroup, error) {
+func (region *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
 	params := map[string]map[string]interface{}{
 		"security_group": {
-			"name":        name,
-			"description": description,
+			"name":        opts.Name,
+			"description": opts.Desc,
 		},
 	}
-	if len(projectId) > 0 {
-		params["security_group"]["project_id"] = projectId
+	if len(opts.ProjectId) > 0 {
+		params["security_group"]["project_id"] = opts.ProjectId
 	}
 	resp, err := region.vpcPost("/v2.0/security-groups", params)
 	if err != nil {
@@ -294,30 +287,28 @@ func (region *SRegion) CreateSecurityGroup(projectId, name, description string) 
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
-	return secgroup, nil
-}
-
-func (secgroup *SSecurityGroup) GetProjectId() string {
-	return secgroup.TenantId
-}
-
-func (secgroup *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	for _, r := range append(inDels, outDels...) {
-		err := secgroup.region.delSecurityGroupRule(r.ExternalId)
-		if err != nil {
-			return errors.Wrapf(err, "delSecurityGroupRule(%s)", r.ExternalId)
-		}
+	if opts.OnCreated != nil {
+		opts.OnCreated(secgroup.Id)
 	}
-	for _, r := range append(inAdds, outAdds...) {
-		err := secgroup.region.addSecurityGroupRules(secgroup.Id, r)
+	for _, rule := range secgroup.SecurityGroupRules {
+		region.delSecurityGroupRule(rule.Id)
+	}
+	rules := opts.InRules.AllowList()
+	rules = append(rules, opts.OutRules.AllowList()...)
+	for i := range rules {
+		err := secgroup.region.addSecurityGroupRules(secgroup.Id, rules[i])
 		if err != nil {
 			if jsonError, ok := err.(*httputils.JSONClientError); ok {
 				if jsonError.Class == "SecurityGroupRuleExists" {
 					continue
 				}
 			}
-			return errors.Wrapf(err, "addSecgroupRules(%s)", r.String())
+			return nil, errors.Wrapf(err, "addSecgroupRules(%s)", rules[i].String())
 		}
 	}
-	return nil
+	return secgroup, nil
+}
+
+func (secgroup *SSecurityGroup) GetProjectId() string {
+	return secgroup.TenantId
 }

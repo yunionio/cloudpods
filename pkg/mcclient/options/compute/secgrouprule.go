@@ -39,11 +39,10 @@ func (opts *SecGroupRulesListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SecGroupRulesCreateOptions struct {
-	SECGROUP       string `help:"Secgroup ID or Name" metavar:"Secgroup"`
-	RULE           string `json:"-"`
-	Priority       int64  `help:"priority of Rule" default:"50"`
-	Desc           string `help:"Description" json:"description"`
-	PeerSecgroupId string `help:"Peer Secgroup Id" json:"peer_secgroup_id"`
+	SECGROUP string `help:"Secgroup ID or Name" metavar:"Secgroup"`
+	RULE     string `json:"-"`
+	Priority int64  `help:"priority of Rule" default:"50"`
+	Desc     string `help:"Description" json:"description"`
 }
 
 func (opts *SecGroupRulesCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -52,28 +51,26 @@ func (opts *SecGroupRulesCreateOptions) Params() (jsonutils.JSONObject, error) {
 		return nil, errors.Wrapf(err, "invalid rule %s", opts.RULE)
 	}
 	return jsonutils.Marshal(map[string]interface{}{
-		"direction":        rule.Direction,
-		"action":           rule.Action,
-		"protocol":         rule.Protocol,
-		"cidr":             rule.IPNet.String(),
-		"ports":            rule.GetPortsString(),
-		"priority":         opts.Priority,
-		"description":      opts.Desc,
-		"secgroup_id":      opts.SECGROUP,
-		"peer_secgroup_id": opts.PeerSecgroupId,
+		"direction":   rule.Direction,
+		"action":      rule.Action,
+		"protocol":    rule.Protocol,
+		"cidr":        rule.IPNet.String(),
+		"ports":       rule.GetPortsString(),
+		"priority":    opts.Priority,
+		"description": opts.Desc,
+		"secgroup_id": opts.SECGROUP,
 	}), nil
 }
 
 type SecGroupRulesUpdateOptions struct {
 	options.BaseIdOptions
-	Name           string `help:"New name of rule"`
-	Priority       int64  `help:"priority of Rule"`
-	Protocol       string `help:"Protocol of rule" choices:"any|tcp|udp|icmp"`
-	Ports          string `help:"Ports of rule"`
-	Cidr           string `help:"Cidr of rule"`
-	Action         string `help:"filter Actin of rule" choices:"allow|deny"`
-	Desc           string `help:"Description" metavar:"Description"`
-	PeerSecgroupId string `help:"Peer Secgroup Id" json:"peer_secgroup_id"`
+	Name     string `help:"New name of rule"`
+	Priority int64  `help:"priority of Rule"`
+	Protocol string `help:"Protocol of rule" choices:"any|tcp|udp|icmp"`
+	Ports    string `help:"Ports of rule"`
+	Cidr     string `help:"Cidr of rule"`
+	Action   string `help:"filter Actin of rule" choices:"allow|deny"`
+	Desc     string `help:"Description" metavar:"Description"`
 }
 
 func (opts *SecGroupRulesUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -98,9 +95,6 @@ func (opts *SecGroupRulesUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if len(opts.Action) > 0 {
 		params.Add(jsonutils.NewString(opts.Action), "action")
-	}
-	if len(opts.PeerSecgroupId) > 0 {
-		params.Add(jsonutils.NewString(opts.PeerSecgroupId), "peer_secgroup_id")
 	}
 	return params, nil
 }

@@ -16,8 +16,6 @@ package qcloud
 
 import (
 	"fmt"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -32,7 +30,6 @@ import (
 )
 
 type SecurityGroupPolicy struct {
-	region            *SRegion
 	PolicyIndex       int                          // 安全组规则索引号。
 	Protocol          string                       // 协议, 取值: TCP,UDP, ICMP。
 	Port              string                       // 端口(all, 离散port, range)。
@@ -42,7 +39,16 @@ type SecurityGroupPolicy struct {
 	AddressTemplate   AddressTemplateSpecification // IP地址ID或者ID地址组ID。
 	Action            string                       // ACCEPT 或 DROP。
 	PolicyDescription string                       // 安全组规则描述。
-	direction         string
+}
+
+func (self *SecurityGroupPolicy) IsNeedSkip() bool {
+	if len(self.SecurityGroupId) > 0 || len(self.AddressTemplate.AddressGroupId) > 0 || len(self.AddressTemplate.AddressId) > 0 {
+		return true
+	}
+	if len(self.ServiceTemplate.ServiceId) > 0 || len(self.ServiceTemplate.ServiceGroupId) > 0 {
+		return true
+	}
+	return false
 }
 
 type ServiceTemplateSpecification struct {
@@ -129,15 +135,6 @@ func (self *SSecurityGroup) GetName() string {
 	return self.SecurityGroupId
 }
 
-func (self *SecurityGroupPolicy) String() string {
-	rules := self.toRules()
-	result := []string{}
-	for _, rule := range rules {
-		result = append(result, rule.String())
-	}
-	return strings.Join(result, ";")
-}
-
 type ReferredSecurityGroup struct {
 	SecurityGroupId          string
 	ReferredSecurityGroupIds []string
@@ -178,23 +175,18 @@ func (self *SRegion) DescribeSecurityGroupReferences(id string) ([]ReferredSecur
 	return ret, nil
 }
 
-func (self *SecurityGroupPolicy) toRules() []cloudprovider.SecurityRule {
-	result := []cloudprovider.SecurityRule{}
+func (self *SecurityGroupPolicy) toRule(direction secrules.TSecurityRuleDirection) cloudprovider.SecurityRule {
 	rule := cloudprovider.SecurityRule{
-		ExternalId: fmt.Sprintf("%d", self.PolicyIndex),
 		SecurityRule: secrules.SecurityRule{
-			Action:    secrules.SecurityRuleAllow,
-			Protocol:  secrules.PROTO_ANY,
-			Direction: secrules.TSecurityRuleDirection(self.direction),
-			Priority:  self.PolicyIndex,
-			Ports:     []int{},
-			PortStart: -1,
-			PortEnd:   -1,
+			Action:      secrules.SecurityRuleAllow,
+			Protocol:    secrules.PROTO_ANY,
+			Direction:   direction,
+			Priority:    100000 - self.PolicyIndex,
+			Description: self.PolicyDescription,
+			Ports:       []int{},
+			PortStart:   -1,
+			PortEnd:     -1,
 		},
-	}
-	if len(self.SecurityGroupId) != 0 {
-		rule.ParseCIDR("0.0.0.0/0")
-		rule.PeerSecgroupId = self.SecurityGroupId
 	}
 	if strings.ToLower(self.Action) == "drop" {
 		rule.Action = secrules.SecurityRuleDeny
@@ -202,107 +194,33 @@ func (self *SecurityGroupPolicy) toRules() []cloudprovider.SecurityRule {
 	if utils.IsInStringArray(strings.ToLower(self.Protocol), []string{"tcp", "udp", "icmp"}) {
 		rule.Protocol = strings.ToLower(self.Protocol)
 	}
-	if strings.Index(self.Port, ",") > 0 {
-		for _, _port := range strings.Split(self.Port, ",") {
-			port, err := strconv.Atoi(_port)
-			if err != nil {
-				log.Errorf("parse secgroup port %s %s error %v", self.Port, _port, err)
-				continue
-			}
-			rule.Ports = append(rule.Ports, port)
-		}
-	} else if strings.Index(self.Port, "-") > 0 {
-		ports := strings.Split(self.Port, "-")
-		if len(ports) == 2 {
-			portStart, err := strconv.Atoi(ports[0])
-			if err != nil {
-				return nil
-			}
-			portEnd, err := strconv.Atoi(ports[1])
-			if err != nil {
-				return nil
-			}
-			rule.PortStart, rule.PortEnd = portStart, portEnd
-		}
-	} else if strings.ToLower(self.Port) != "all" {
-		port, err := strconv.Atoi(self.Port)
-		if err != nil {
-			return nil
-		}
-		rule.PortStart, rule.PortEnd = port, port
+	if strings.ToLower(self.Port) != "all" {
+		rule.ParsePorts(self.Port)
 	}
-
-	if len(self.AddressTemplate.AddressGroupId) > 0 {
-		addressGroup, total, err := self.region.AddressGroupList(self.AddressTemplate.AddressGroupId, "", 0, 1)
-		if err != nil {
-			log.Errorf("Get AddressList %s failed %v", self.AddressTemplate.AddressId, err)
-			return nil
-		}
-		if total != 1 {
-			return nil
-		}
-		for i := 0; i < len(addressGroup[0].AddressTemplateIdSet); i++ {
-			rules, err := self.getAddressRules(rule, addressGroup[0].AddressTemplateIdSet[i])
-			if err != nil {
-				return nil
-			}
-			result = append(result, rules...)
-		}
-	} else if len(self.AddressTemplate.AddressId) > 0 {
-		rules, err := self.getAddressRules(rule, self.AddressTemplate.AddressId)
-		if err != nil {
-			return nil
-		}
-		result = append(result, rules...)
-	} else if len(self.SecurityGroupId) > 0 {
-		rule.PeerSecgroupId = self.SecurityGroupId
-		result = append(result, rule)
-	} else if len(self.CidrBlock) > 0 {
-		rule.ParseCIDR(self.CidrBlock)
-		result = append(result, rule)
-	}
-	return result
-}
-
-func (self *SecurityGroupPolicy) getAddressRules(rule cloudprovider.SecurityRule, addressId string) ([]cloudprovider.SecurityRule, error) {
-	result := []cloudprovider.SecurityRule{}
-	address, total, err := self.region.AddressList(addressId, "", 0, 1)
-	if err != nil {
-		log.Errorf("Get AddressList %s failed %v", self.AddressTemplate.AddressId, err)
-		return nil, err
-	}
-	if total != 1 {
-		return nil, fmt.Errorf("failed to find address %s", addressId)
-	}
-	for _, ip := range address[0].AddressSet {
-		rule.ParseCIDR(ip)
-		result = append(result, rule)
-	}
-	return result, nil
+	rule.ParseCIDR(self.CidrBlock)
+	return rule
 }
 
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	policySet, err := self.region.DescribeSecurityGroupPolicies(self.SecurityGroupId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "DescribeSecurityGroupPolicies")
 	}
-	for i := 0; i < len(policySet.Egress); i++ {
-		policySet.Egress[i].direction = "out"
-	}
-	for i := 0; i < len(policySet.Ingress); i++ {
-		policySet.Ingress[i].direction = "in"
-	}
-	originRules := []SecurityGroupPolicy{}
-	originRules = append(originRules, policySet.Egress...)
-	originRules = append(originRules, policySet.Ingress...)
-	for i := 0; i < len(originRules); i++ {
-		originRules[i].region = self.region
+	var toRules = func(policy []SecurityGroupPolicy, direction secrules.TSecurityRuleDirection) []cloudprovider.SecurityRule {
+		ret := []cloudprovider.SecurityRule{}
+		for i := 0; i < len(policy); i++ {
+			rule := policy[i]
+			if rule.IsNeedSkip() {
+				continue
+			}
+			subRule := rule.toRule(direction)
+			ret = append(ret, subRule)
+		}
+		return ret
 	}
 	rules := []cloudprovider.SecurityRule{}
-	for _, rule := range originRules {
-		subRules := rule.toRules()
-		rules = append(rules, subRules...)
-	}
+	rules = append(rules, toRules(policySet.Egress, secrules.DIR_OUT)...)
+	rules = append(rules, toRules(policySet.Ingress, secrules.DIR_IN)...)
 	return rules, nil
 }
 
@@ -315,66 +233,45 @@ func (self *SSecurityGroup) IsEmulated() bool {
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	groups, total, err := self.region.GetSecurityGroups([]string{self.SecurityGroupId}, "", "", 0, 0)
+	group, err := self.region.GetSecurityGroup(self.SecurityGroupId)
 	if err != nil {
 		return err
 	}
-	if total < 1 {
-		return cloudprovider.ErrNotFound
+	return jsonutils.Update(self, group)
+}
+
+func (self *SRegion) GetSecurityGroup(id string) (*SSecurityGroup, error) {
+	groups, _, err := self.GetSecurityGroups([]string{id}, "", "", 0, 1)
+	if err != nil {
+		return nil, err
 	}
-	return jsonutils.Update(self, groups[0])
+	for i := range groups {
+		if groups[i].SecurityGroupId == id {
+			groups[i].region = self
+			return &groups[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	rules := append(common, append(inAdds, outAdds...)...)
-	sort.Sort(cloudprovider.SecurityRuleSet(rules))
-	return self.region.syncSecgroupRules(self.SecurityGroupId, rules)
-}
-
-func (self *SRegion) syncSecgroupRules(secgroupId string, rules []cloudprovider.SecurityRule) error {
+func (self *SRegion) addSecgroupRules(secgroupId string, in, out []cloudprovider.SecurityRule) error {
+	if len(in)+len(out) == 0 {
+		return nil
+	}
 	params := map[string]string{
 		"SecurityGroupId": secgroupId,
 		"SortPolicys":     "True",
 	}
-	egressIndex, ingressIndex := 0, 0
-	for _, rule := range rules {
-		switch rule.Direction {
-		case secrules.DIR_IN:
-			params = convertSecgroupRule(ingressIndex, rule, params)
-			ingressIndex++
-		case secrules.DIR_OUT:
-			params = convertSecgroupRule(egressIndex, rule, params)
-			egressIndex++
+	var addParams = func(direction secrules.TSecurityRuleDirection, rules []cloudprovider.SecurityRule) {
+		for idx := 0; idx < len(rules); idx++ {
+			params = convertSecgroupRule(idx, rules[len(rules)-1-idx], params)
 		}
 	}
+	addParams(secrules.DIR_IN, in)
+	addParams(secrules.DIR_OUT, out)
 	_, err := self.vpcRequest("ModifySecurityGroupPolicies", params)
 	if err != nil {
 		return errors.Wrapf(err, "ModifySecurityGroupPolicies")
-	}
-	if egressIndex == 0 || ingressIndex == 0 {
-		ruleSet, err := self.DescribeSecurityGroupPolicies(secgroupId)
-		if err != nil {
-			return errors.Wrapf(err, "DescribeSecurityGroupPolicies")
-		}
-		params = map[string]string{
-			"SecurityGroupId": secgroupId,
-		}
-		if egressIndex == 0 && len(ruleSet.Egress) > 0 {
-			for idx, rule := range ruleSet.Egress {
-				params[fmt.Sprintf("SecurityGroupPolicySet.Egress.%d.PolicyIndex", idx)] = fmt.Sprintf("%d", rule.PolicyIndex)
-			}
-		}
-		if ingressIndex == 0 && len(ruleSet.Ingress) > 0 {
-			for idx, rule := range ruleSet.Ingress {
-				params[fmt.Sprintf("SecurityGroupPolicySet.Ingress.%d.PolicyIndex", idx)] = fmt.Sprintf("%d", rule.PolicyIndex)
-			}
-		}
-		if len(params) > 1 {
-			_, err = self.vpcRequest("DeleteSecurityGroupPolicies", params)
-			if err != nil {
-				return errors.Wrapf(err, "DeleteSecurityGroupPolicies")
-			}
-		}
 	}
 	return nil
 }
@@ -395,11 +292,7 @@ func convertSecgroupRule(policyIndex int, rule cloudprovider.SecurityRule, param
 	params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.Action", direction, policyIndex)] = action
 	params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.PolicyDescription", direction, policyIndex)] = rule.Description
 	params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.Protocol", direction, policyIndex)] = protocol
-	if len(rule.PeerSecgroupId) > 0 {
-		params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.SecurityGroupId", direction, policyIndex)] = rule.PeerSecgroupId
-	} else {
-		params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.CidrBlock", direction, policyIndex)] = rule.IPNet.String()
-	}
+	params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.CidrBlock", direction, policyIndex)] = rule.IPNet.String()
 	if rule.Protocol == secrules.PROTO_TCP || rule.Protocol == secrules.PROTO_UDP {
 		port := "ALL"
 		if rule.PortEnd > 0 && rule.PortStart > 0 {
@@ -537,16 +430,16 @@ func (self *SRegion) DeleteSecgroupRule(secId string, direction string, index in
 	return errors.Wrapf(err, "DeleteSecurityGroupPolicies")
 }
 
-func (self *SRegion) CreateSecurityGroup(name, projectId, description string) (*SSecurityGroup, error) {
+func (self *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
-	params["GroupName"] = name
-	params["GroupDescription"] = description
-	if len(projectId) > 0 {
-		params["ProjectId"] = projectId
+	params["GroupName"] = opts.Name
+	params["GroupDescription"] = opts.Desc
+	if len(opts.ProjectId) > 0 {
+		params["ProjectId"] = opts.ProjectId
 	}
 
-	if len(description) == 0 {
+	if len(opts.Desc) == 0 {
 		params["GroupDescription"] = "Customize Create"
 	}
 	secgroup := SSecurityGroup{region: self}
@@ -558,7 +451,10 @@ func (self *SRegion) CreateSecurityGroup(name, projectId, description string) (*
 	if err != nil {
 		return nil, errors.Wrap(err, "body.Unmarshal")
 	}
-	return &secgroup, nil
+	if opts.OnCreated != nil {
+		opts.OnCreated(secgroup.SecurityGroupId)
+	}
+	return &secgroup, self.addSecgroupRules(secgroup.SecurityGroupId, opts.InRules, opts.OutRules)
 }
 
 func (self *SSecurityGroup) GetProjectId() string {

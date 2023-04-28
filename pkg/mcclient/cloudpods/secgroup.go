@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -61,11 +60,9 @@ func (self *SSecurityGroup) GetProjectId() string {
 
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	ret := []cloudprovider.SecurityRule{}
+	ret = append(ret, cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")})
 	for _, r := range self.Rules {
-		if len(r.PeerSecgroupId) > 0 {
-			continue
-		}
-		rule := cloudprovider.SecurityRule{ExternalId: r.Id}
+		rule := cloudprovider.SecurityRule{}
 		rule.Action = secrules.TSecurityRuleAction(r.Action)
 		rule.Priority = int(r.Priority)
 		rule.Protocol = r.Protocol
@@ -130,22 +127,6 @@ func (self *SRegion) CreateSecRule(secId string, rule cloudprovider.SecurityRule
 	return self.create(&modules.SecGroupRules, input, &ret)
 }
 
-func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	for _, r := range append(inDels, outDels...) {
-		err := self.region.DeleteSecRule(r.Id)
-		if err != nil {
-			return errors.Wrapf(err, "delete rule %s", r.Id)
-		}
-	}
-	for _, r := range append(inAdds, outAdds...) {
-		err := self.region.CreateSecRule(self.Id, r)
-		if err != nil {
-			return errors.Wrapf(err, "create rule %s", r)
-		}
-	}
-	return nil
-}
-
 func (self *SSecurityGroup) Delete() error {
 	return self.region.cli.delete(&modules.SecGroups, self.Id)
 }
@@ -164,10 +145,14 @@ func (self *SRegion) GetSecurityGroup(id string) (*SSecurityGroup, error) {
 }
 
 func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	outRules := opts.OutRules
+	if len(outRules) > 0 && outRules[0].String() == "out:allow any" {
+		outRules = outRules[1:]
+	}
 	params := map[string]interface{}{
 		"name":        opts.Name,
 		"description": opts.Desc,
-		"rules":       opts.Rules,
+		"rules":       append(opts.InRules, opts.OutRules...),
 	}
 	if len(opts.ProjectId) > 0 {
 		params["project_id"] = opts.ProjectId

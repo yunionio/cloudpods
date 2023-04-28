@@ -190,7 +190,7 @@ func (self *SecurityRulePropertiesFormat) toRules() ([]cloudprovider.SecurityRul
 			Action:      secrules.TSecurityRuleAction(strings.ToLower(self.Access)),
 			Direction:   secrules.TSecurityRuleDirection(strings.Replace(strings.ToLower(self.Direction), "bound", "", -1)),
 			Protocol:    strings.ToLower(self.Protocol),
-			Priority:    int(self.Priority),
+			Priority:    4096 - int(self.Priority),
 			Description: self.Description,
 		}}
 
@@ -224,10 +224,6 @@ func (self *SecurityRulePropertiesFormat) toRules() ([]cloudprovider.SecurityRul
 			rule.Ports = ports[j].ports
 			rule.PortStart = ports[j].portStart
 			rule.PortEnd = ports[j].portEnd
-			err := rule.ValidateRule()
-			if err != nil && err != secrules.ErrInvalidPriority {
-				return nil, err
-			}
 			result = append(result, rule)
 		}
 	}
@@ -266,6 +262,8 @@ func (self *SSecurityGroup) GetName() string {
 
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	rules := make([]cloudprovider.SecurityRule, 0)
+	outAllow := secrules.MustParseSecurityRule("out:allow any")
+	rules = append(rules, cloudprovider.SecurityRule{SecurityRule: *outAllow})
 	if self.Properties == nil || self.Properties.SecurityRules == nil {
 		return rules, nil
 	}
@@ -294,17 +292,51 @@ func (self *SSecurityGroup) GetVpcId() string {
 	return "normal"
 }
 
-func (region *SRegion) CreateSecurityGroup(secName string) (*SSecurityGroup, error) {
-	if secName == "Default" {
-		secName = "Default-copy"
-	}
+func (region *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
 	secgroup := &SSecurityGroup{region: region}
-	params := map[string]string{
-		"Name":     secName,
+	params := map[string]interface{}{
+		"Name":     opts.Name,
 		"Type":     "Microsoft.Network/networkSecurityGroups",
 		"Location": region.Name,
 	}
-	return secgroup, region.create("", jsonutils.Marshal(params), secgroup)
+
+	outRules := opts.OutRules
+	if len(outRules) > 0 && outRules[0].String() == "out:allow any" {
+		outRules = outRules[1:]
+	}
+
+	sortRules := func(rules []cloudprovider.SecurityRule) []SecurityRules {
+		names := []string{}
+		securityRules := []SecurityRules{}
+		offset := (4096-100)/len(rules) - 1
+		for i := 0; i < len(rules); i++ {
+			rules[i].Priority = 4096 - offset*i
+			rule := convertSecurityGroupRule(rules[i])
+			if rule != nil {
+				for {
+					if !utils.IsInStringArray(rule.Name, names) {
+						names = append(names, rule.Name)
+						break
+					}
+					rule.Name = fmt.Sprintf("%s_", rule.Name)
+				}
+				securityRules = append(securityRules, *rule)
+			}
+		}
+		return securityRules
+	}
+
+	rules := sortRules(opts.InRules)
+	rules = append(rules, sortRules(outRules)...)
+	params["properties"] = map[string]interface{}{
+		"securityRules": rules,
+	}
+
+	err := region.create("", jsonutils.Marshal(params), secgroup)
+	if err != nil {
+		return nil, errors.Wrapf(err, "create")
+	}
+	return secgroup, nil
 }
 
 func (region *SRegion) ListSecgroups() ([]SSecurityGroup, error) {
@@ -444,46 +476,4 @@ func (self *SSecurityGroup) Delete() error {
 		}
 	}
 	return self.region.del(self.ID)
-}
-
-func (self *SSecurityGroup) SetRules(rules []cloudprovider.SecurityRule) error {
-	names := []string{}
-	securityRules := []SecurityRules{}
-	for i := 0; i < len(rules); i++ {
-		rule := convertSecurityGroupRule(rules[i])
-		if rule != nil {
-			for {
-				if !utils.IsInStringArray(rule.Name, names) {
-					names = append(names, rule.Name)
-					break
-				}
-				rule.Name = fmt.Sprintf("%s_", rule.Name)
-			}
-			securityRules = append(securityRules, *rule)
-		}
-	}
-	if self.Properties == nil {
-		self.Properties = &SecurityGroupPropertiesFormat{}
-	}
-	self.Properties.SecurityRules = securityRules
-	self.Properties.ProvisioningState = ""
-	return self.region.update(jsonutils.Marshal(self), nil)
-}
-
-func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	for i := range common {
-		switch common[i].Direction {
-		case secrules.DIR_IN:
-			inAdds = append(inAdds, common[i])
-		case secrules.DIR_OUT:
-			outAdds = append(outAdds, common[i])
-		default:
-			return fmt.Errorf("invalid rule %s direction %s", common[i].String(), common[i].Direction)
-		}
-	}
-	// Azure 不允许同方向的规则优先级相同
-	inRules := cloudprovider.SortUniqPriority(inAdds)
-	outRules := cloudprovider.SortUniqPriority(outAdds)
-	rules := append(inRules, outRules...)
-	return self.SetRules(rules)
 }

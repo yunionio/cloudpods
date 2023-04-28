@@ -219,10 +219,17 @@ func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFi
 	return &secgroups[0], nil
 }
 
-func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	externalId, err := self.CreateDefaultSecurityGroup(conf.Name, conf.Desc)
+func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	externalId, err := self.CreateDefaultSecurityGroup(opts.Name, opts.Desc, opts.InRules)
 	if err != nil {
 		return nil, err
+	}
+	if opts.OnCreated != nil {
+		opts.OnCreated(externalId)
+	}
+	err = self.syncSecgroupRules(externalId, opts.InRules)
+	if err != nil {
+		return nil, errors.Wrapf(err, "syncSecgroupRules")
 	}
 	return self.GetISecurityGroupById(externalId)
 }
@@ -502,16 +509,8 @@ func toUcloudSecRule(rule cloudprovider.SecurityRule) []string {
 	}
 
 	rules := make([]string, 0)
-	if len(rule.Ports) > 0 {
-		for _, port := range rule.Ports {
-			_rules := generatorRule(rule.Protocol, net, action, port, port, rule.Priority)
-			rules = append(rules, _rules...)
-		}
-	} else {
-		_rules := generatorRule(rule.Protocol, net, action, rule.PortStart, rule.PortEnd, rule.Priority)
-		rules = append(rules, _rules...)
-	}
-
+	_rules := generatorRule(rule.Protocol, net, action, rule.PortStart, rule.PortEnd, rule.Priority)
+	rules = append(rules, _rules...)
 	return rules
 }
 

@@ -147,8 +147,8 @@ func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFi
 	return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetISecurityGroupByName.GetSecurityGroups")
 }
 
-func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroup, err := self.CreateSecurityGroup(conf.VpcId, conf.Name)
+func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroup, err := self.CreateSecurityGroup(opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "Region.CreateISecurityGroup")
 	}

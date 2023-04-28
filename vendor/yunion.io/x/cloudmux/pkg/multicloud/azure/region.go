@@ -431,11 +431,11 @@ func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroup
 	return secgroup, nil
 }
 
-func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	if conf.VpcId == "classic" {
-		return region.CreateClassicSecurityGroup(conf.Name)
+func (region *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	if opts.VpcId == "classic" {
+		return region.CreateClassicSecurityGroup(opts.Name)
 	}
-	return region.CreateSecurityGroup(conf.Name)
+	return region.CreateSecurityGroup(opts)
 }
 
 func (region *SRegion) getIAppLBs() ([]cloudprovider.ICloudLoadbalancer, error) {

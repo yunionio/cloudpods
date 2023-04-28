@@ -107,8 +107,7 @@ func (opts *SecgroupsAddRuleOptions) Params() (jsonutils.JSONObject, error) {
 
 type SecurityGroupCacheOptions struct {
 	SecgroupIdOptions
-	VPC     string `help:"ID or Name of vpc"`
-	Classic *bool  `help:"Is classic vpc"`
+	VPC_ID string `help:"ID or Name of vpc"`
 }
 
 func (opts *SecurityGroupCacheOptions) Params() (jsonutils.JSONObject, error) {

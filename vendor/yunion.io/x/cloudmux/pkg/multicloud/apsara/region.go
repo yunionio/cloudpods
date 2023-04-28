@@ -761,9 +761,24 @@ func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroup
 }
 
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	externalId, err := region.CreateSecurityGroup(conf.VpcId, conf.Name, conf.Desc)
+	externalId, err := region.CreateSecurityGroup(conf.VpcId, conf.Name, conf.Desc, conf.ProjectId)
 	if err != nil {
 		return nil, err
+	}
+	if conf.OnCreated != nil {
+		conf.OnCreated(externalId)
+	}
+	outRules := conf.OutRules
+	if len(outRules) > 0 && outRules[0].String() == "out:allow any" {
+		outRules = outRules[1:]
+	}
+	rules := append(conf.InRules, conf.OutRules...)
+	for _, rule := range rules {
+		rule.Priority = 101 - rule.Priority
+		err = region.addSecurityGroupRule(externalId, rule.SecurityRule)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return region.GetISecurityGroupById(externalId)
 }

@@ -210,14 +210,14 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	return &secgrp, nil
 }
 
-func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string) (string, error) {
+func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc, projectId string) (string, error) {
 	params := make(map[string]string)
 	if len(vpcId) > 0 {
 		params["VpcId"] = vpcId
 	}
 
-	if name == "Default" {
-		name = "Default-copy"
+	if len(projectId) > 0 {
+		params["ResourceGroupId"] = projectId
 	}
 
 	if len(name) > 0 {
@@ -493,20 +493,4 @@ func (self *SRegion) DeleteSecurityGroup(secGrpId string) error {
 
 func (self *SSecurityGroup) Delete() error {
 	return self.vpc.region.DeleteSecurityGroup(self.SecurityGroupId)
-}
-
-func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	for _, rule := range append(inDels, outDels...) {
-		err := self.vpc.region.DelSecurityGroupRule(self.SecurityGroupId, rule.SecurityRule)
-		if err != nil {
-			return errors.Wrapf(err, "DelSecurityGroupRule(Name:%s priority: %d %s)", rule.Name, rule.Priority, rule.String())
-		}
-	}
-	for _, rule := range append(inAdds, outAdds...) {
-		err := self.vpc.region.AddSecurityGroupRules(self.SecurityGroupId, rule.SecurityRule)
-		if err != nil {
-			return errors.Wrapf(err, "AddSecurityGroupRules(priority: %d %s)", rule.Priority, rule.String())
-		}
-	}
-	return nil
 }

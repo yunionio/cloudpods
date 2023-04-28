@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/rbacscope"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -49,26 +48,6 @@ func (self *SOpenStackRegionDriver) GenerateSecurityGroupName(name string) strin
 		return "DefaultGroup"
 	}
 	return name
-}
-
-func (self *SOpenStackRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
-}
-
-func (self *SOpenStackRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:deny any")}
-}
-
-func (self *SOpenStackRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 0
-}
-
-func (self *SOpenStackRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 0
-}
-
-func (self *SOpenStackRegionDriver) IsOnlySupportAllowRules() bool {
-	return true
 }
 
 func (self *SOpenStackRegionDriver) GetSecurityGroupPublicScope(service string) rbacscope.TRbacScope {

@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/pinyinutils"
 	"yunion.io/x/pkg/util/rbacscope"
-	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -237,12 +236,8 @@ func (self *SBaseRegionDriver) GenerateSecurityGroupName(name string) string {
 	return pinyinutils.Text2Pinyin(name)
 }
 
-func (self *SBaseRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, classic bool, remoteProjectId string, task taskman.ITask) error {
-	return fmt.Errorf("Not Implemented RequestCacheSecurityGroup")
-}
-
-func (self *SBaseRegionDriver) IsSupportClassicSecurityGroup() bool {
-	return false
+func (self *SBaseRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, remoteProjectId string, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCacheSecurityGroup")
 }
 
 func (self *SBaseRegionDriver) IsSecurityGroupBelongVpc() bool {
@@ -265,40 +260,12 @@ func (self *SBaseRegionDriver) GetSecurityGroupPublicScope(service string) rbacs
 	return rbacscope.ScopeSystem
 }
 
-func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc) (string, error) {
+	return "", errors.Wrapf(cloudprovider.ErrNotImplemented, "GetSecurityGroupVpcId")
 }
 
-func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, removeProjectId, service string, skipSyncRule bool) (string, error) {
-	return "", fmt.Errorf("Not Implemented RequestSyncSecurityGroup")
-}
-
-func (self *SBaseRegionDriver) IsOnlySupportAllowRules() bool {
-	return false
-}
-
-func (self *SBaseRegionDriver) IsSupportPeerSecgroup() bool {
-	return false
-}
-
-func (self *SBaseRegionDriver) IsPeerSecgroupWithSameProject() bool {
-	return false
-}
-
-func (self *SBaseRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
-}
-
-func (self *SBaseRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
-	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
-}
-
-func (self *SBaseRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 100
-}
-
-func (self *SBaseRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 1
+func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, removeProjectId, service string) (string, error) {
+	return "", errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestSyncSecurityGroup")
 }
 
 func (self *SBaseRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
