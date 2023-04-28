@@ -100,10 +100,6 @@ func (manager *SProjectManager) InitializeData() error {
 	if err != nil {
 		return errors.Wrap(err, "initSysProject")
 	}
-	err = manager.initAdminUsers(ctx)
-	if err != nil {
-		return errors.Wrap(err, "initAdminUsers")
-	}
 	return nil
 }
 
@@ -134,22 +130,6 @@ func (manager *SProjectManager) initSysProject(ctx context.Context) error {
 	err = manager.TableSpec().Insert(ctx, &project)
 	if err != nil {
 		return errors.Wrap(err, "insert")
-	}
-	return nil
-}
-
-func (manager *SProjectManager) initAdminUsers(ctx context.Context) error {
-	q := manager.Query().IsNullOrEmpty("admin_id")
-	projects := make([]SProject, 0)
-	err := db.FetchModelObjects(manager, q, &projects)
-	if err != nil {
-		return errors.Wrap(err, "FetchModelObjects")
-	}
-	for i := range projects {
-		err := projects[i].resetAdminUser(ctx, getDefaultAdminCred())
-		if err != nil {
-			return errors.Wrap(err, "projects initAdmin")
-		}
 	}
 	return nil
 }
