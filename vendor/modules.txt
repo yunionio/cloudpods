@@ -1536,7 +1536,7 @@ yunion.io/x/cloudmux/pkg/multicloud/zstack/provider
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v1.0.1-0.20230417123225-5dcde3e4598b
+# yunion.io/x/jsonutils v1.0.1-0.20230428104347-7c2fdff8e8e7
 ## explicit; go 1.12
 yunion.io/x/jsonutils
 # yunion.io/x/log v1.0.1-0.20230411060016-feb3f46ab361

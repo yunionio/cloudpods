@@ -252,7 +252,6 @@ func Marshal(obj interface{}) JSONObject {
 		return JSONNull
 	}
 	s := newJsonMarshalSession()
-	// objValue := reflect.Indirect(val)
 	mval := s.marshalValue(val, nil, true)
 	s.setAllNodeId()
 	if mval == nil {
@@ -272,15 +271,16 @@ func (s *sJsonMarshalSession) marshalValueWithObjectMap(objValue reflect.Value, 
 	if objValue.Kind() == reflect.Ptr {
 		inf := objValue.Interface()
 		if !gotypes.IsNil(inf) {
-			if jsonPtr, ok := s.objectMap[inf]; ok {
-				s.addPointerReferer(jsonPtr)
-				return jsonPtr
+			jsonPtrNode := s.objectTrace.find(inf)
+			if jsonPtrNode != nil {
+				// loop detected!
+				return jsonPtrNode.pointer
 			}
 			jsonPtr = s.newJsonPointer(inf)
 		}
 	}
 	jsonObj := s._marshalValue(objValue, info, omitEmpty)
-	if jsonPtr != nil && jsonObj != nil {
+	if jsonPtr != nil {
 		s.setJsonObject(jsonPtr, jsonObj)
 	}
 	return jsonObj
