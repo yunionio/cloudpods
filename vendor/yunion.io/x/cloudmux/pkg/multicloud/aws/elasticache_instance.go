@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -432,6 +433,68 @@ func (self *SElasticache) GetPrivateIpAddr() string {
 	return ""
 }
 
+func (self *SElasticache) GetTags() (map[string]string, error) {
+	params := map[string]string{
+		"ResourceName": *self.replicaGroup.ARN,
+	}
+	tags := AwsTags{}
+	err := self.region.redisRequest("ListTagsForResource", params, &tags)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListTagsForResource")
+	}
+	return tags.GetTags()
+}
+
+func (self *SElasticache) SetTags(tags map[string]string, replace bool) error {
+	oldTags, err := self.GetTags()
+	if err != nil {
+		return errors.Wrapf(err, "GetTags")
+	}
+	added, removed := map[string]string{}, map[string]string{}
+	for k, v := range tags {
+		oldValue, ok := oldTags[k]
+		if !ok {
+			added[k] = v
+		} else if oldValue != v {
+			removed[k] = oldValue
+			added[k] = v
+		}
+	}
+	if replace {
+		for k, v := range oldTags {
+			newValue, ok := tags[k]
+			if !ok {
+				removed[k] = v
+			} else if v != newValue {
+				added[k] = newValue
+				removed[k] = v
+			}
+		}
+	}
+	if len(removed) > 0 {
+		params := map[string]string{
+			"ResourceName": *self.replicaGroup.ARN,
+		}
+		i := 1
+		for k := range tags {
+			params[fmt.Sprintf("TagKeys.member.%d", i)] = k
+		}
+		return self.region.redisRequest("RemoveTagsFromResource", params, nil)
+	}
+	if len(added) > 0 {
+		params := map[string]string{
+			"ResourceName": *self.replicaGroup.ARN,
+		}
+		i := 1
+		for k, v := range tags {
+			params[fmt.Sprintf("Tags.member.%d.Key", i)] = k
+			params[fmt.Sprintf("Tags.member.%d.Value", i)] = v
+		}
+		return self.region.redisRequest("AddTagsToResource", params, nil)
+	}
+	return nil
+}
+
 func (self *SElasticache) GetPrivateConnectPort() int {
 	for _, nodeGroup := range self.replicaGroup.NodeGroups {
 		if nodeGroup != nil && nodeGroup.PrimaryEndpoint != nil && nodeGroup.PrimaryEndpoint.Port != nil {
@@ -464,7 +527,7 @@ func (self *SElasticache) GetMaintainStartTime() string {
 	}
 
 	splited := strings.Split(window, "-")
-	return splited[0]
+	return strings.Trim(splited[0], "")
 }
 
 func (self *SElasticache) GetMaintainEndTime() string {
@@ -479,7 +542,7 @@ func (self *SElasticache) GetMaintainEndTime() string {
 
 	splited := strings.Split(window, "-")
 	if len(splited) == 2 {
-		return splited[1]
+		return strings.Trim(splited[1], "")
 	}
 	return ""
 }

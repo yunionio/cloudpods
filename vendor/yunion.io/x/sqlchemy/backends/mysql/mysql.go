@@ -213,6 +213,9 @@ func (mysql *SMySQLBackend) GetColumnSpecByFieldType(table *sqlchemy.STableSpec,
 		}
 		col := NewFloatColumn(fieldname, colType, tagmap, isPointer)
 		return &col
+	case reflect.Map, reflect.Slice:
+		col := NewCompoundColumn(fieldname, getTextSqlType(tagmap), tagmap, isPointer)
+		return &col
 	}
 	if fieldType.Implements(gotypes.ISerializableType) {
 		col := NewCompoundColumn(fieldname, getTextSqlType(tagmap), tagmap, isPointer)

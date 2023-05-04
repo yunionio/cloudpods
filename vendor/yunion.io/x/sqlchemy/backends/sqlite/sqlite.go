@@ -170,6 +170,9 @@ func (sqlite *SSqliteBackend) GetColumnSpecByFieldType(table *sqlchemy.STableSpe
 	case reflect.Float32, reflect.Float64:
 		col := NewFloatColumn(fieldname, tagmap, isPointer)
 		return &col
+	case reflect.Map, reflect.Slice:
+		col := NewCompoundColumn(fieldname, tagmap, isPointer)
+		return &col
 	}
 	if fieldType.Implements(gotypes.ISerializableType) {
 		col := NewCompoundColumn(fieldname, tagmap, isPointer)
