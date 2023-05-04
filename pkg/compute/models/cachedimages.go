@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/rbacscope"
@@ -103,12 +104,16 @@ func (self SCachedimage) GetGlobalId() string {
 	return self.ExternalId
 }
 
-func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	cnt, err := self.getStoragecacheCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("ValidateDeleteCondition error %s", err)
+func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context, info *api.CachedimageDetails) error {
+	if gotypes.IsNil(info) {
+		info = &api.CachedimageDetails{}
+		count, err := CachedimageManager.TotalResourceCount([]string{self.Id})
+		if err != nil {
+			return err
+		}
+		info.CachedimageUsage, _ = count[self.Id]
 	}
-	if cnt > 0 {
+	if info.CachedCount > 0 {
 		return httperrors.NewNotEmptyError("The image has been cached on storages")
 	}
 	if self.GetStatus() == api.CACHED_IMAGE_STATUS_ACTIVE && !self.isReferenceSessionExpire() {
@@ -396,6 +401,54 @@ func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred m
 	return manager.getImageByName(ctx, userCred, imageId, refresh)
 }
 
+func (cm *SCachedimageManager) query(manager db.IModelManager, field string, cacheIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+
+	if filter != nil {
+		q = filter(q)
+	}
+
+	sq := q.SubQuery()
+
+	return sq.Query(
+		sq.Field("cachedimage_id"),
+		sqlchemy.COUNT(field),
+	).In("cachedimage_id", cacheIds).GroupBy(sq.Field("cachedimage_id")).SubQuery()
+}
+
+type CachedimageUsageCount struct {
+	Id string
+	api.CachedimageUsage
+}
+
+func (manager *SCachedimageManager) TotalResourceCount(cacheIds []string) (map[string]api.CachedimageUsage, error) {
+	ret := map[string]api.CachedimageUsage{}
+
+	scSQ := manager.query(StoragecachedimageManager, "cached_cnt", cacheIds, nil)
+
+	caches := manager.Query().SubQuery()
+	cachesQ := caches.Query(
+		sqlchemy.SUM("cached_count", scSQ.Field("cached_cnt")),
+	)
+
+	cachesQ.AppendField(cachesQ.Field("id"))
+
+	cachesQ = cachesQ.LeftJoin(scSQ, sqlchemy.Equals(cachesQ.Field("id"), scSQ.Field("cachedimage_id")))
+
+	cachesQ = cachesQ.Filter(sqlchemy.In(cachesQ.Field("id"), cacheIds)).GroupBy(cachesQ.Field("id"))
+
+	counts := []CachedimageUsageCount{}
+	err := cachesQ.All(&counts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cachesQ.All")
+	}
+	for i := range counts {
+		ret[counts[i].Id] = counts[i].CachedimageUsage
+	}
+
+	return ret, nil
+}
+
 func (manager *SCachedimageManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -406,6 +459,7 @@ func (manager *SCachedimageManager) FetchCustomizeColumns(
 ) []api.CachedimageDetails {
 	rows := make([]api.CachedimageDetails, len(objs))
 	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	cacheIds := make([]string, len(objs))
 	for i := range rows {
 		ci := objs[i].(*SCachedimage)
 		rows[i] = api.CachedimageDetails{
@@ -415,7 +469,15 @@ func (manager *SCachedimageManager) FetchCustomizeColumns(
 			OsVersion:                      ci.GetOSVersion(),
 			Hypervisor:                     ci.GetHypervisor(),
 		}
-		rows[i].CachedCount, _ = ci.getStoragecacheCount()
+		cacheIds[i] = ci.Id
+	}
+	usage, err := manager.TotalResourceCount(cacheIds)
+	if err != nil {
+		log.Errorf("TotalResourceCount error: %v", err)
+		return rows
+	}
+	for i := range rows {
+		rows[i].CachedimageUsage, _ = usage[cacheIds[i]]
 	}
 	return rows
 }
