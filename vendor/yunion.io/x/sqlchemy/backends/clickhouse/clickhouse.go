@@ -258,6 +258,9 @@ func (click *SClickhouseBackend) GetColumnSpecByFieldType(table *sqlchemy.STable
 		}
 		col := NewFloatColumn(fieldname, "Float64", tagmap, isPointer)
 		return &col
+	case reflect.Map, reflect.Slice:
+		col := NewCompoundColumn(fieldname, tagmap, isPointer)
+		return &col
 	}
 	if fieldType.Implements(gotypes.ISerializableType) {
 		col := NewCompoundColumn(fieldname, tagmap, isPointer)

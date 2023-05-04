@@ -19,7 +19,6 @@ import (
 	"strconv"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 )
@@ -385,7 +384,6 @@ type SBaseCompoundColumn struct{}
 func (c *SBaseCompoundColumn) ConvertFromString(str string) interface{} {
 	json, err := jsonutils.ParseString(str)
 	if err != nil {
-		log.Errorf("ParseString fail %s", err)
 		json = jsonutils.JSONNull
 	}
 	return json.String()
