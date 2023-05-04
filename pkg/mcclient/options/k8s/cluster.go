@@ -68,7 +68,7 @@ type K8SClusterCreateOptions struct {
 	ServiceCidr       string `help:"Cluster service CIDR, e.g. 10.43.0.0/16"`
 	ServiceDomain     string `help:"Cluster service domain, e.g. cluster.local"`
 	Vip               string `help:"Cluster api server static loadbalancer vip"`
-	Version           string `help:"Cluster kubernetes version"`
+	Version           string `help:"Cluster kubernetes version" choices:"v1.17.0|v1.19.0|v1.22.9"`
 	ImageRepo         string `help:"Image repository, e.g. registry-1.docker.io/yunion"`
 	ImageRepoInsecure bool   `help:"Image repostiory is insecure"`
 	Vpc               string `help:"Cluster nodes network vpc"`
@@ -180,6 +180,9 @@ func (o K8SClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if o.Vpc != "" {
 		params.Add(jsonutils.NewString(o.Vpc), "vpc_id")
+	}
+	if o.Version != "" {
+		params.Add(jsonutils.NewString(o.Version), "version")
 	}
 	imageRepo := jsonutils.NewDict()
 	if o.ImageRepo != "" {
