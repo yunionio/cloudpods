@@ -274,6 +274,9 @@ type HostResourceInfo struct {
 	// 宿主机序列号
 	HostSN string `json:"host_sn"`
 
+	// 宿主是否启用
+	HostEnabled bool `json:"host_enabled"`
+
 	// 宿主机状态
 	HostStatus string `json:"host_status"`
 
