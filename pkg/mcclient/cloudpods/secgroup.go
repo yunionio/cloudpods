@@ -152,7 +152,7 @@ func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreat
 	params := map[string]interface{}{
 		"name":        opts.Name,
 		"description": opts.Desc,
-		"rules":       append(opts.InRules, opts.OutRules...),
+		"rules":       append(opts.InRules, outRules...),
 	}
 	if len(opts.ProjectId) > 0 {
 		params["project_id"] = opts.ProjectId
