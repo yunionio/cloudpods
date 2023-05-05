@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
@@ -72,9 +71,9 @@ func GetStringValue(dat interface{}) string {
 	serializable, ok := value.Interface().(gotypes.ISerializable)
 	if ok {
 		return serializable.String()
+	} else {
+		return jsonutils.Marshal(value.Interface()).String()
 	}
-	log.Errorf("cannot convert %v to string", value)
-	return ""
 }
 
 func setValueBySQLString(value reflect.Value, val string) error {

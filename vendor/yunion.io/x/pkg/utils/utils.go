@@ -116,21 +116,29 @@ func DecodeMeta(str string) string {
 }
 
 func IsInStringArray(val string, array []string) bool {
-	for _, ele := range array {
-		if ele == val {
-			return true
-		}
-	}
-	return false
+	return IsInArray(val, array)
 }
 
 func InStringArray(val string, array []string) (ok bool, i int) {
+	return InArray2(val, array)
+}
+
+func InArray2[T int | uint | int8 | uint8 | int16 | uint16 | int32 | uint32 | int64 | uint64 | float32 | float64 | string](val T, array []T) (ok bool, i int) {
 	for i = range array {
 		if ok = array[i] == val; ok {
 			return
 		}
 	}
 	return
+}
+
+func IsInArray[T int | uint | int8 | uint8 | int16 | uint16 | int32 | uint32 | int64 | uint64 | float32 | float64 | string](val T, array []T) bool {
+	for _, ele := range array {
+		if ele == val {
+			return true
+		}
+	}
+	return false
 }
 
 func InArray(v interface{}, in interface{}) (ok bool, i int) {

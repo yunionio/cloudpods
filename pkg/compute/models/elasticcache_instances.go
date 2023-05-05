@@ -145,10 +145,10 @@ type SElasticcache struct {
 
 	// 维护开始时间，格式为HH:mmZ
 	// example: 02:00Z
-	MaintainStartTime string `width:"8" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"maintain_start_time"`
+	MaintainStartTime string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"maintain_start_time"`
 
 	// 维护结束时间
-	MaintainEndTime string `width:"8" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"maintain_end_time"`
+	MaintainEndTime string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"maintain_end_time"`
 
 	// 访问密码？ on （开启密码）|off （免密码访问）
 	AuthMode string `width:"8" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"auth_mode"`

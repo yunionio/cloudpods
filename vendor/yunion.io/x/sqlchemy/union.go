@@ -53,7 +53,7 @@ func (sqf *SUnionQueryField) Reference() string {
 
 // Label implementation of SUnionQueryField for IQueryField
 func (sqf *SUnionQueryField) Label(label string) IQueryField {
-	if len(label) > 0 && label != sqf.name {
+	if len(label) > 0 {
 		sqf.alias = label
 	}
 	return sqf

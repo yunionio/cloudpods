@@ -353,7 +353,7 @@ func (c *STableField) Reference() string {
 
 // Label implementation of STableField for IQueryField
 func (c *STableField) Label(label string) IQueryField {
-	if len(label) > 0 && label != c.spec.Name() {
+	if len(label) > 0 {
 		c.alias = label
 	}
 	return c
