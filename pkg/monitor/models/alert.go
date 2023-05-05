@@ -117,7 +117,7 @@ type SAlert struct {
 
 	// Frequency is evaluate period
 	Frequency int64                `nullable:"false" list:"user" create:"required" update:"user"`
-	Settings  jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
+	Settings  jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user" length:"medium"`
 	Level     string               `charset:"ascii" width:"36" nullable:"false" default:"normal" list:"user" update:"user"`
 	Message   string               `charset:"utf8" list:"user" create:"optional" update:"user"`
 	UsedBy    string               `charset:"ascii" create:"optional" list:"user"`
@@ -131,13 +131,13 @@ type SAlert struct {
 	// change to `Alerting` and send alert notifications.
 	For int64 `nullable:"false" list:"user" update:"user"`
 
-	EvalData            jsonutils.JSONObject `list:"user"`
+	EvalData            jsonutils.JSONObject `list:"user" length:"medium"`
 	State               string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" update:"user"`
 	NoDataState         string               `width:"36" charset:"ascii" nullable:"false" default:"no_data" create:"optional"  list:"user" update:"user"`
 	ExecutionErrorState string               `width:"36" charset:"ascii" nullable:"false" default:"alerting" create:"optional" list:"user" update:"user"`
 	LastStateChange     time.Time            `list:"user"`
 	StateChanges        int                  `default:"0" nullable:"false" list:"user"`
-	CustomizeConfig     jsonutils.JSONObject `list:"user" create:"optional" update:"user"`
+	CustomizeConfig     jsonutils.JSONObject `list:"user" create:"optional" update:"user" length:"medium"`
 	ResType             string               `width:"32" list:"user" update:"user"`
 }
 
