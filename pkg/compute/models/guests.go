@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
@@ -832,13 +833,22 @@ func (guest *SGuest) ValidatePurgeCondition(ctx context.Context) error {
 	return guest.validateDeleteCondition(ctx, true)
 }
 
-func (guest *SGuest) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	host, _ := guest.GetHost()
-	if host != nil && guest.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
-		if !host.GetEnabled() {
+func (guest *SGuest) ValidateDeleteCondition(ctx context.Context, info *api.ServerDetails) error {
+	if gotypes.IsNil(info) {
+		info = &api.ServerDetails{}
+		host, err := guest.GetHost()
+		if err != nil {
+			return err
+		}
+		info.HostType = host.HostType
+		info.HostEnabled = host.Enabled.Bool()
+		info.HostStatus = host.HostStatus
+	}
+	if len(info.HostType) > 0 && guest.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
+		if !info.HostEnabled {
 			return httperrors.NewInputParameterError("Cannot delete server on disabled host")
 		}
-		if host.HostStatus != api.HOST_ONLINE {
+		if info.HostStatus != api.HOST_ONLINE {
 			return httperrors.NewInputParameterError("Cannot delete server on offline host")
 		}
 	}
