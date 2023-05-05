@@ -138,6 +138,7 @@ const (
 	ROUTE53_SERVICE_NAME = "route53"
 
 	ELASTICACHE_SERVICE_NAME = "elasticache"
+	ELASTICACHE_SERVICE_ID   = "ElastiCache"
 
 	ELB_SERVICE_NAME = "elasticloadbalancing"
 	ELB_SERVICE_ID   = "Elastic Load Balancing v2"
@@ -255,6 +256,10 @@ func (self *SRegion) elbRequest(apiName string, params map[string]string, retval
 
 func (self *SRegion) rdsRequest(apiName string, params map[string]string, retval interface{}) error {
 	return self.client.request(self.RegionId, RDS_SERVICE_NAME, RDS_SERVICE_ID, "2014-10-31", apiName, params, retval, true)
+}
+
+func (self *SRegion) redisRequest(apiName string, params map[string]string, retval interface{}) error {
+	return self.client.request(self.RegionId, ELASTICACHE_SERVICE_NAME, ELASTICACHE_SERVICE_ID, "2015-02-02", apiName, params, retval, true)
 }
 
 func (self *SRegion) ec2Request(apiName string, params map[string]string, retval interface{}) error {

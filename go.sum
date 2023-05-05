@@ -1185,8 +1185,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230428051538-2fa935f30d76 h1:+3TVCaGlZsheKC6klo6gONQ4EYGjzGsaJ1JDJmBwdy0=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230428051538-2fa935f30d76/go.mod h1:crMeQeaNaZefTXfXbQkoj5SStggqkSNVABHtYBFjM3Y=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230504125407-bc1e1d01d41c h1:I2/soITFPHV7aAZsaKNmoixcRyAKZcByAqSnm54V6c8=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20230504125407-bc1e1d01d41c/go.mod h1:crMeQeaNaZefTXfXbQkoj5SStggqkSNVABHtYBFjM3Y=
 yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656 h1:0zlZD5uhZoIHgLVAWCz2aHaYk2ZrNsACCYD7R6EIBII=
 yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
@@ -1204,12 +1204,12 @@ yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf/go.mod h1:t6rEGG2sQ4J7DhFxSZV
 yunion.io/x/pkg v0.0.0-20190628082551-f4033ba2ea30/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v0.0.0-20200814072949-4f1b541857d6/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v1.0.1-0.20220819080140-55b265a8658e/go.mod h1:nYOMflWG1wQC6301rGVglQva9bYbJxHThEJUxRAgMFc=
-yunion.io/x/pkg v1.0.1-0.20230427104242-202edd119017 h1:UbdLKvnWMSWnRt24LKoaBr2vGI2QfgDG9GbugCKjpAQ=
-yunion.io/x/pkg v1.0.1-0.20230427104242-202edd119017/go.mod h1:ksCJVQ+DwKrJ5QBEoU8pzrDFfDaZVAFH/iJ6yQCYxJk=
+yunion.io/x/pkg v1.0.1-0.20230504073602-0a74096f836a h1:8fv6DAHrq+YtvdDIB7QqvmhbqYtBpqmydg1GS7dim9Q=
+yunion.io/x/pkg v1.0.1-0.20230504073602-0a74096f836a/go.mod h1:ksCJVQ+DwKrJ5QBEoU8pzrDFfDaZVAFH/iJ6yQCYxJk=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e h1:v+EzIadodSwkdZ/7bremd7J8J50Cise/HCylsOJngmo=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
 yunion.io/x/sqlchemy v1.0.1/go.mod h1:FTdwPdGhMgh4E+UFXc9klI1Ok34fMuybTT+jLhOaIjI=
-yunion.io/x/sqlchemy v1.1.2-0.20230422192549-7a9668176f46 h1:M/Xv+Qu6/dSMyuvhgbs52/adr+O5k5NXtpF7czYVCJU=
-yunion.io/x/sqlchemy v1.1.2-0.20230422192549-7a9668176f46/go.mod h1:xXVfJLIxxTRTnPEaVIIoRZXqWyO8+takIOYhc+zO5KE=
+yunion.io/x/sqlchemy v1.1.2-0.20230504021010-f3e76263d633 h1:llBmGecLpkEw47PwH2mCyiusNfnWZBdtX/ymhWPdbn4=
+yunion.io/x/sqlchemy v1.1.2-0.20230504021010-f3e76263d633/go.mod h1:uuPVZEyEq3sWd5vf9VjGSy6lZzof22X87OEHw9sddJQ=
 yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6 h1:WuWXhY3DvhdRTzWCJ/kwt3Ss6KIq7+KqJwb+esvNGwU=
 yunion.io/x/structarg v0.0.0-20220312084958-9c6c79c7d1c6/go.mod h1:EP6NSv2C0zzqBDTKumv8hPWLb3XvgMZDHQRfyuOrQng=
