@@ -99,7 +99,7 @@ type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId string, addr string) IDevice
 	GetDeviceByAddr(addr string) IDevice
-	ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error
+	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error
 	StartDetachTask()
 	BatchCustomProbe() error
 	AppendDetachedDevice(dev *CloudDeviceInfo)
@@ -132,7 +132,7 @@ type HostNic struct {
 	Wire      string
 }
 
-func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error {
+func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks []string) error {
 	man.devices = make([]IDevice, 0)
 	if !skipGPUs {
 		gpus, err := getPassthroughGPUS()
@@ -144,6 +144,24 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool, sriov
 		for idx, gpu := range gpus {
 			man.devices = append(man.devices, NewGPUHPCDevice(gpu))
 			log.Infof("Add GPU device: %d => %#v", idx, gpu)
+		}
+	}
+
+	if !skipCustomDevs {
+		devModels, err := man.getCustomIsolatedDeviceModels()
+		if err != nil {
+			return errors.Wrap(err, "get custom isolated device models")
+		}
+		for _, devModel := range devModels {
+			devs, err := getPassthroughPCIDevs(devModel)
+			if err != nil {
+				log.Errorf("getPassthroughPCIDevs %v: %s", devModel, err)
+				return nil
+			}
+			for i, dev := range devs {
+				man.devices = append(man.devices, dev)
+				log.Infof("Add general pci device: %d => %#v", i, dev)
+			}
 		}
 	}
 
@@ -194,6 +212,31 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool, sriov
 	}
 
 	return nil
+}
+
+type IsolatedDeviceModel struct {
+	DevType  string `json:"dev_type"`
+	VendorId string `json:"vendor_id"`
+	DeviceId string `json:"device_id"`
+	Model    string `json:"model"`
+}
+
+func (man *isolatedDeviceManager) getCustomIsolatedDeviceModels() ([]IsolatedDeviceModel, error) {
+	//man.getSession().
+	params := jsonutils.NewDict()
+	params.Set("limit", jsonutils.NewInt(0))
+	params.Set("scope", jsonutils.NewString("system"))
+	res, err := modules.IsolatedDeviceModels.List(man.getSession(), jsonutils.NewDict())
+	if err != nil {
+		return nil, err
+	}
+	devModels := make([]IsolatedDeviceModel, len(res.Data))
+	for i, obj := range res.Data {
+		if err := obj.Unmarshal(&devModels[i]); err != nil {
+			return nil, errors.Wrap(err, "unmarshal isolated device model failed")
+		}
+	}
+	return devModels, nil
 }
 
 func (man *isolatedDeviceManager) getSession() *mcclient.ClientSession {
@@ -447,6 +490,33 @@ func (dev *sBaseDevice) GetIOMMUGroupDeviceCmd() string {
 }
 
 func (dev *sBaseDevice) DetectByAddr() error {
+	return nil
+}
+
+func (dev *sBaseDevice) CustomProbe(idx int) error {
+	// check environments on first probe
+	if idx == 0 {
+		for _, driver := range []string{"vfio", "vfio_iommu_type1", "vfio-pci"} {
+			if err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", driver).Run(); err != nil {
+				return fmt.Errorf("modprobe %s: %v", driver, err)
+			}
+		}
+	}
+
+	driver, err := dev.GetKernelDriver()
+	if err != nil {
+		return fmt.Errorf("Nic %s is occupied by another driver: %s", dev.GetAddr(), driver)
+	}
+	if driver != VFIO_PCI_KERNEL_DRIVER {
+		if driver != "" {
+			if err = dev.dev.unbindDriver(); err != nil {
+				return errors.Wrap(err, "unbind driver")
+			}
+		}
+		if err = dev.dev.bindDriver(); err != nil {
+			return errors.Wrap(err, "bind driver")
+		}
+	}
 	return nil
 }
 
