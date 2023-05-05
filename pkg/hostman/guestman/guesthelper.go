@@ -59,9 +59,11 @@ type SDestPrepareMigrate struct {
 	LiveMigrate      bool
 	RebaseDisks      bool
 
-	Desc             jsonutils.JSONObject
-	DisksBackingFile jsonutils.JSONObject
-	SrcSnapshots     jsonutils.JSONObject
+	Desc               jsonutils.JSONObject
+	DisksBackingFile   jsonutils.JSONObject
+	DiskSnapsChain     jsonutils.JSONObject
+	OutChainSnaps      jsonutils.JSONObject
+	SysDiskHasTemplate bool
 
 	MemorySnapshotsUri string
 	SrcMemorySnapshots []string

@@ -2271,29 +2271,37 @@ func (s *SKVMGuestInstance) ExecMemorySnapshotResetTask(ctx context.Context, inp
 	return nil, nil
 }
 
-func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrage bool) (*jsonutils.JSONDict, error) {
+func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrage bool) (*jsonutils.JSONDict, *jsonutils.JSONDict, bool, error) {
 	disksBackFile := jsonutils.NewDict()
+	diskSnapsChain := jsonutils.NewDict()
 	disks, _ := s.Desc.GetArray("disks")
+	sysDiskHasTemplate := false
 	for _, disk := range disks {
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
 			d, err := storageman.GetManager().GetDiskByPath(diskPath)
 			if err != nil {
-				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
+				return nil, nil, false, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 			}
 			if d.GetType() == api.STORAGE_LOCAL {
-				back, err := d.PrepareMigrate(liveMigrage)
+				snaps, back, hasTemplate, err := d.PrepareMigrate(liveMigrage)
 				if err != nil {
-					return nil, err
+					return nil, nil, false, err
 				}
+				diskId, _ := disk.GetString("disk_id")
 				if len(back) > 0 {
-					diskId, _ := disk.GetString("disk_id")
 					disksBackFile.Set(diskId, jsonutils.NewString(back))
+				}
+				if len(snaps) > 0 {
+					diskSnapsChain.Set(diskId, jsonutils.NewStringArray(snaps))
+				}
+				if hasTemplate {
+					sysDiskHasTemplate = hasTemplate
 				}
 			}
 		}
 	}
-	return disksBackFile, nil
+	return disksBackFile, diskSnapsChain, sysDiskHasTemplate, nil
 }
 
 func (s *SKVMGuestInstance) prepareNicsForVolatileGuestResume() error {

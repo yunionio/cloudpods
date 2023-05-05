@@ -138,8 +138,7 @@ type IStorage interface {
 	GetFuseMountPath() string
 	GetImgsaveBackupPath() string
 
-	DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-		disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskDesc jsonutils.JSONObject, serverId string, idx, totalDiskCount int, encInfo *apis.SEncryptInfo) error
+	DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string, disksBackingFile, diskSnapsChain, outChainSnaps jsonutils.JSONObject, rebaseDisks bool, diskDesc jsonutils.JSONObject, serverId string, idx, totalDiskCount int, encInfo *apis.SEncryptInfo, sysDiskHasTemplate bool) error
 
 	Accessible() error
 	Detach() error
@@ -429,10 +428,7 @@ func (s *SBaseStorage) createDiskFromBackup(ctx context.Context, disk IDisk, inp
 	return disk.GetDiskDesc(), nil
 }
 
-func (s *SBaseStorage) DestinationPrepareMigrate(
-	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo jsonutils.JSONObject, serverId string, idx, totalDiskCount int, encInfo *apis.SEncryptInfo,
-) error {
+func (s *SBaseStorage) DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string, disksBackingFile, diskSnapsChain, outChainSnaps jsonutils.JSONObject, rebaseDisks bool, diskDesc jsonutils.JSONObject, serverId string, idx, totalDiskCount int, encInfo *apis.SEncryptInfo, sysDiskHasTemplate bool) error {
 	return nil
 }
 

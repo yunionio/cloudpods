@@ -419,12 +419,21 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	params := jsonutils.NewDict()
 	disks, _ := guest.GetGuestDisks()
 	for i := 0; i < len(disks); i++ {
-		snapshots := models.SnapshotManager.GetDiskSnapshots(disks[i].DiskId)
-		snapshotIds := jsonutils.NewArray()
-		for j := 0; j < len(snapshots); j++ {
-			snapshotIds.Add(jsonutils.NewString(snapshots[j].Id))
+		snapChain := []string{}
+		if body.Contains("disk_snaps_chain", disks[i].DiskId) {
+			err := body.Unmarshal(&snapChain, "disk_snaps_chain", disks[i].DiskId)
+			if err != nil {
+				return nil, errors.Wrap(err, "unmarshal snap chain")
+			}
 		}
-		params.Set(disks[i].DiskId, snapshotIds)
+		snapshots := models.SnapshotManager.GetDiskSnapshots(disks[i].DiskId)
+		outChainSnapshotIds := jsonutils.NewArray()
+		for j := 0; j < len(snapshots); j++ {
+			if !utils.IsInStringArray(snapshots[j].Id, snapChain) {
+				outChainSnapshotIds.Add(jsonutils.NewString(snapshots[j].Id))
+			}
+		}
+		params.Set(disks[i].DiskId, outChainSnapshotIds)
 	}
 
 	sourceHost, _ := guest.GetHost()
@@ -432,7 +441,7 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	disksUri := fmt.Sprintf("%s/download/disks/", sourceHost.ManagerUri)
 	serverUrl := fmt.Sprintf("%s/download/servers/%s", sourceHost.ManagerUri, guest.Id)
 
-	body.Set("src_snapshots", params)
+	body.Set("out_chain_snapshots", params)
 	body.Set("snapshots_uri", jsonutils.NewString(snapshotsUri))
 	body.Set("disks_uri", jsonutils.NewString(disksUri))
 	body.Set("server_url", jsonutils.NewString(serverUrl))

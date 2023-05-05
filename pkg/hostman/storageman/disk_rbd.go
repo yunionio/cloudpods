@@ -165,8 +165,8 @@ func (d *SRBDDisk) CleanupSnapshots(ctx context.Context, params interface{}) (js
 	return nil, storage.deleteSnapshot(pool, d.Id, "")
 }
 
-func (d *SRBDDisk) PrepareMigrate(liveMigrate bool) (string, error) {
-	return "", fmt.Errorf("Not support")
+func (d *SRBDDisk) PrepareMigrate(liveMigrate bool) ([]string, string, bool, error) {
+	return nil, "", false, fmt.Errorf("Not support")
 }
 
 func (d *SRBDDisk) CreateFromTemplate(ctx context.Context, imageId string, format string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
