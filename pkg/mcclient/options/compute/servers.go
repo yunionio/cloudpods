@@ -1355,3 +1355,12 @@ type ServerVncOptions struct {
 func (o *ServerVncOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }
+
+type ServerIsoOptions struct {
+	ServerIdOptions
+	Ordinal int `help:"server iso ordinal, default 0"`
+}
+
+func (o *ServerIsoOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
