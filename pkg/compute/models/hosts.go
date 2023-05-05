@@ -3315,6 +3315,14 @@ func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, region
 	return ret
 }
 
+func (self *SHost) RequestScanIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential) error {
+	_, err := self.Request(ctx, userCred, "POST", fmt.Sprintf("/hosts/%s/probe-isolated-devices", self.Id), mcclient.GetTokenHeaders(userCred), nil)
+	if err != nil {
+		return errors.Wrapf(err, "request host %s probe isolaed devices", self.Id)
+	}
+	return nil
+}
+
 func (self *SHost) Request(ctx context.Context, userCred mcclient.TokenCredential, method httputils.THttpMethod, url string, headers http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	s := auth.GetSession(ctx, userCred, "")
 	_, ret, err := s.JSONRequest(self.ManagerUri, "", method, url, headers, body)

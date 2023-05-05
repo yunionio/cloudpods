@@ -142,7 +142,9 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
 		return input, httperrors.NewNotEmptyError("dev_type is empty")
 	}
 	if !utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
-		return input, httperrors.NewInputParameterError("device type %q not supported", input.DevType)
+		if _, err := IsolatedDeviceModelManager.GetByDevType(input.DevType); err != nil {
+			return input, httperrors.NewInputParameterError("device type %q not supported", input.DevType)
+		}
 	}
 
 	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
@@ -199,10 +201,13 @@ func (self *SIsolatedDevice) ValidateUpdateData(
 	}
 	if input.DevType != "" && input.DevType != self.DevType {
 		if !utils.IsInStringArray(input.DevType, api.VALID_GPU_TYPES) {
-			return input, httperrors.NewInputParameterError("device type %q not support update", input.DevType)
-		}
-		if !self.IsGPU() {
-			return input, httperrors.NewInputParameterError("Can't update for device %q", self.DevType)
+			if _, err := IsolatedDeviceModelManager.GetByDevType(input.DevType); err != nil {
+				return input, httperrors.NewInputParameterError("device type %q not support update", input.DevType)
+			}
+		} else {
+			if !self.IsGPU() {
+				return input, httperrors.NewInputParameterError("Can't update for device %q", self.DevType)
+			}
 		}
 	}
 	return input, nil

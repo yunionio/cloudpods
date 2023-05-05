@@ -128,6 +128,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.ReservedipManager,
 		models.KeypairManager,
 		models.IsolatedDeviceManager,
+		models.IsolatedDeviceModelManager,
 		models.SecurityGroupManager,
 		models.SecurityGroupCacheManager,
 		models.SecurityGroupRuleManager,

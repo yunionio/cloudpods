@@ -4261,7 +4261,7 @@ func (self *SGuest) createDiskOnHost(
 
 func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, devs []*api.IsolatedDeviceConfig, pendingUsage quotas.IQuota) error {
 	for _, devConfig := range devs {
-		if devConfig.DevType == api.NIC_TYPE {
+		if devConfig.DevType == api.NIC_TYPE || devConfig.DevType == api.NVME_PT_TYPE {
 			continue
 		}
 		err := self.createIsolatedDeviceOnHost(ctx, userCred, host, devConfig, pendingUsage)
