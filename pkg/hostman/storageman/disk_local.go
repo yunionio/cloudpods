@@ -679,24 +679,37 @@ func (d *SLocalDisk) DeleteAllSnapshot(skipRecycle bool) error {
 	}
 }
 
-func (d *SLocalDisk) PrepareMigrate(liveMigrate bool) (string, error) {
+func (d *SLocalDisk) PrepareMigrate(liveMigrate bool) ([]string, string, bool, error) {
 	disk, err := qemuimg.NewQemuImage(d.getPath())
 	if err != nil {
 		log.Errorln(err)
-		return "", err
+		return nil, "", false, err
 	}
 	ret, err := disk.WholeChainFormatIs("qcow2")
 	if err != nil {
 		log.Errorln(err)
-		return "", err
+		return nil, "", false, err
 	}
 	if liveMigrate && !ret {
-		return "", fmt.Errorf("Disk format doesn't support live migrate")
+		return nil, "", false, fmt.Errorf("Disk format doesn't support live migrate")
 	}
 	if disk.IsChained() {
-		return disk.BackFilePath, nil
+		backingChain, err := disk.GetBackingChain()
+		if err != nil {
+			return nil, "", false, err
+		}
+		snapshots := []string{}
+		for i := range backingChain {
+			if strings.HasPrefix(backingChain[i], d.GetSnapshotDir()) {
+				snapshots = append(snapshots, path.Base(backingChain[i]))
+			} else if !strings.HasPrefix(backingChain[i], options.HostOptions.ImageCachePath) {
+				return nil, "", false, errors.Errorf("backing file path %s unsupported", backingChain[i])
+			}
+		}
+		hasTemplate := strings.HasPrefix(backingChain[len(backingChain)-1], options.HostOptions.ImageCachePath)
+		return snapshots, backingChain[0], hasTemplate, nil
 	}
-	return "", nil
+	return nil, "", false, nil
 }
 
 func (d *SLocalDisk) DoDeleteSnapshot(snapshotId string) error {
