@@ -390,12 +390,20 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 		} else {
 			params.DisksUri = disksUri
 		}
-		srcSnapshots, err := body.Get("src_snapshots")
+		diskSnapsChain, err := body.Get("disk_snaps_chain")
 		if err != nil {
-			return httperrors.NewMissingParameterError("src_snapshots")
+			return httperrors.NewMissingParameterError("disk_snaps_chain")
 		} else {
-			params.SrcSnapshots = srcSnapshots
+			params.DiskSnapsChain = diskSnapsChain
 		}
+		outChainSnaps, err := body.Get("out_chain_snapshots")
+		if err != nil {
+			params.OutChainSnaps = jsonutils.NewDict()
+		} else {
+			params.OutChainSnaps = outChainSnaps
+		}
+		params.SysDiskHasTemplate = jsonutils.QueryBoolean(body, "sys_disk_has_template", false)
+
 		disksBack, err := body.Get("disks_back")
 		if err != nil {
 			params.DisksBackingFile = jsonutils.NewDict()

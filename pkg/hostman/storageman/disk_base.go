@@ -54,7 +54,7 @@ type IDisk interface {
 	ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
-	PrepareMigrate(liveMigrate bool) (string, error)
+	PrepareMigrate(liveMigrate bool) ([]string, string, bool, error)
 	CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float64, totalSizeMb int64)) error
 	CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error)
 	CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) error

@@ -565,16 +565,15 @@ func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{})
 
 func (s *SLocalStorage) DestinationPrepareMigrate(
 	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-	disksBackingFile, srcSnapshots jsonutils.JSONObject,
-	rebaseDisks bool,
-	diskinfo jsonutils.JSONObject,
-	serverId string, idx, totalDiskCount int,
-	encInfo *apis.SEncryptInfo,
+	disksBackingFile, diskSnapsChain, outChainSnaps jsonutils.JSONObject,
+	rebaseDisks bool, diskinfo jsonutils.JSONObject, serverId string, idx, totalDiskCount int,
+	encInfo *apis.SEncryptInfo, sysDiskHasTemplate bool,
 ) error {
 	var (
-		diskId, _    = diskinfo.GetString("disk_id")
-		snapshots, _ = srcSnapshots.GetArray(diskId)
-		disk         = s.CreateDisk(diskId)
+		diskId, _            = diskinfo.GetString("disk_id")
+		snapshots, _         = diskSnapsChain.GetArray(diskId)
+		disk                 = s.CreateDisk(diskId)
+		diskOutChainSnaps, _ = outChainSnaps.GetArray(diskId)
 	)
 
 	if disk == nil {
@@ -605,7 +604,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 		if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath); err != nil {
 			return errors.Wrap(err, "create from snapshot url failed")
 		}
-		if i == 0 && len(templateId) > 0 {
+		if i == 0 && len(templateId) > 0 && sysDiskHasTemplate {
 			templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
 			// check if template is encrypted
 			img, err := qemuimg.NewQemuImage(templatePath)
@@ -627,6 +626,17 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 			}
 		}
 		baseImagePath = snapshotPath
+	}
+
+	for _, snapshotId := range diskOutChainSnaps {
+		snapId, _ := snapshotId.GetString()
+		snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
+			snapshotsUri, diskStorageId, diskId, snapId)
+		snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
+		log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
+		if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath); err != nil {
+			return errors.Wrap(err, "create from snapshot url failed")
+		}
 	}
 
 	if liveMigrate {

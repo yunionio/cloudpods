@@ -820,13 +820,19 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 		return nil, hostutils.ParamsError
 	}
 	guest, _ := m.GetServer(migParams.Sid)
-	disksPrepare, err := guest.PrepareDisksMigrate(migParams.LiveMigrate)
+	disksBack, diskSnapsChain, sysDiskHasTemplate, err := guest.PrepareDisksMigrate(migParams.LiveMigrate)
 	if err != nil {
 		return nil, errors.Wrap(err, "PrepareDisksMigrate")
 	}
 	ret := jsonutils.NewDict()
-	if disksPrepare.Length() > 0 {
-		ret.Set("disks_back", disksPrepare)
+	if disksBack.Length() > 0 {
+		ret.Set("disks_back", disksBack)
+	}
+	if diskSnapsChain.Length() > 0 {
+		ret.Set("disk_snaps_chain", diskSnapsChain)
+	}
+	if sysDiskHasTemplate {
+		ret.Set("sys_disk_has_template", jsonutils.JSONTrue)
 	}
 
 	if migParams.LiveMigrate && guest.Monitor != nil {
@@ -918,8 +924,8 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 
 			err := iStorage.DestinationPrepareMigrate(
 				ctx, migParams.LiveMigrate, migParams.DisksUri, migParams.SnapshotsUri,
-				migParams.DisksBackingFile, migParams.SrcSnapshots, migParams.RebaseDisks, disks[i], migParams.Sid, i+1, len(disks),
-				encInfo,
+				migParams.DisksBackingFile, migParams.DiskSnapsChain, migParams.OutChainSnaps,
+				migParams.RebaseDisks, disks[i], migParams.Sid, i+1, len(disks), encInfo, migParams.SysDiskHasTemplate,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("dest prepare migrate failed %s", err)
