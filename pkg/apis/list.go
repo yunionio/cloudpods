@@ -347,6 +347,11 @@ type EnabledStatusInfrasResourceBaseListInput struct {
 }
 
 type MultiArchResourceBaseListInput struct {
+	// 通过操作系统架构过滤
+	// x86会过滤出os_arch为空或os_arch=i386或以x86开头的资源
+	// arm会过滤出os_arch=aarch64或os_arch=aarch32或者以arm开头的资源
+	// 其他的输入会过滤出以输入字符开头的资源
+	// enmu: x86, arm
 	OsArch string `json:"os_arch"`
 }
 
