@@ -49,6 +49,11 @@ type ImageListInput struct {
 	// 操作系统精确匹配
 	OsTypePreciseMatch bool `json:"os_type_precise_match"`
 
+	// 操作系统架构, 可能值为: arm, x86 等
+	OsArchs []string `json:"os_archs"`
+	// 操作系统架构精确匹配
+	OsArchPreciseMatch bool `json:"os_arch_precise_match"`
+
 	// 发行版本，可能值为: CentOS, Ubuntu, Debian, ArchLinux,  OpenEuler 等
 	Distributions []string `json:"distributions"`
 	// 发行版精确匹配
