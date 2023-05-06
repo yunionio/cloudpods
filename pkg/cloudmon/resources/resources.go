@@ -722,9 +722,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 			if err != nil {
 				log.Errorf("unmarsha rds resources error: %v", err)
 			}
-			err = driver.CollectDBInstanceMetrics(ctx, manager, provider, dbinstances, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectDBInstanceMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(dbinstances) > 0 {
+				err = driver.CollectDBInstanceMetrics(ctx, manager, provider, dbinstances, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectDBInstanceMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 			resources = self.Servers.getResources(ctx, manager.Id)
@@ -741,9 +743,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 					}
 				}
 			}
-			err = driver.CollectServerMetrics(ctx, manager, provider, servers, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectServerMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(servers) > 0 {
+				err = driver.CollectServerMetrics(ctx, manager, provider, servers, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectServerMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 			resources = self.Hosts.getResources(ctx, manager.Id)
@@ -753,9 +757,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("unmarsha host resources error: %v", err)
 			}
 
-			err = driver.CollectHostMetrics(ctx, manager, provider, hosts, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectHostMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(hosts) > 0 {
+				err = driver.CollectHostMetrics(ctx, manager, provider, hosts, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectHostMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 			resources = self.Storages.getResources(ctx, manager.Id)
@@ -764,9 +770,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 			if err != nil {
 				log.Errorf("unmarsha storage resources error: %v", err)
 			}
-			err = driver.CollectStorageMetrics(ctx, manager, provider, storages, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectStorageMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(storages) > 0 {
+				err = driver.CollectStorageMetrics(ctx, manager, provider, storages, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectStorageMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 			resources = self.Redis.getResources(ctx, manager.Id)
@@ -776,9 +784,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("unmarsha redis resources error: %v", err)
 			}
 
-			err = driver.CollectRedisMetrics(ctx, manager, provider, caches, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectRedisMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(caches) > 0 {
+				err = driver.CollectRedisMetrics(ctx, manager, provider, caches, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectRedisMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 			resources = self.Loadbalancers.getResources(ctx, manager.Id)
@@ -788,9 +798,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("unmarsha lb resources error: %v", err)
 			}
 
-			err = driver.CollectLoadbalancerMetrics(ctx, manager, provider, lbs, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectLoadbalancerMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(lbs) > 0 {
+				err = driver.CollectLoadbalancerMetrics(ctx, manager, provider, lbs, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectLoadbalancerMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 			resources = self.Buckets.getResources(ctx, manager.Id)
@@ -800,9 +812,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("unmarsha bucket resources error: %v", err)
 			}
 
-			err = driver.CollectBucketMetrics(ctx, manager, provider, buckets, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectBucketMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(buckets) > 0 {
+				err = driver.CollectBucketMetrics(ctx, manager, provider, buckets, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectBucketMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 			resources = self.KubeClusters.getResources(ctx, manager.Id)
@@ -812,9 +826,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("unmarsha k8s resources error: %v", err)
 			}
 
-			err = driver.CollectK8sMetrics(ctx, manager, provider, clusters, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectK8sMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(clusters) > 0 {
+				err = driver.CollectK8sMetrics(ctx, manager, provider, clusters, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectK8sMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 			resources = self.ModelartsPool.getResources(ctx, manager.Id)
@@ -824,9 +840,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("unmarsha modelarts resources error: %v", err)
 			}
 
-			err = driver.CollectModelartsPoolMetrics(ctx, manager, provider, pools, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectModelartsPoolMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(pools) > 0 {
+				err = driver.CollectModelartsPoolMetrics(ctx, manager, provider, pools, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectModelartsPoolMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 			resources = self.Wires.getResources(ctx, manager.Id)
@@ -836,9 +854,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("unmarsha wires resources error: %v", err)
 			}
 
-			err = driver.CollectWireMetrics(ctx, manager, provider, wires, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectWireMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(wires) > 0 {
+				err = driver.CollectWireMetrics(ctx, manager, provider, wires, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectWireMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 			resources = self.ElasticIps.getResources(ctx, manager.Id)
@@ -848,9 +868,11 @@ func (self *SResources) CollectMetrics(ctx context.Context, userCred mcclient.To
 				log.Errorf("unmarsha eips resources error: %v", err)
 			}
 
-			err = driver.CollectEipMetrics(ctx, manager, provider, eips, startTime, endTime)
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectEipMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+			if len(eips) > 0 {
+				err = driver.CollectEipMetrics(ctx, manager, provider, eips, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectEipMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
 			}
 
 		}(cloudproviders[i])
