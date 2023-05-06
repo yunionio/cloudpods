@@ -141,7 +141,7 @@ type IStorage interface {
 	GetImgsaveBackupPath() string
 
 	DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-		disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskDesc *desc.SGuestDisk, serverId string, idx, totalDiskCount int, encInfo *apis.SEncryptInfo) error
+		disksBackingFile, diskSnapsChain, outChainSnaps jsonutils.JSONObject, rebaseDisks bool, diskDesc *desc.SGuestDisk, serverId string, idx, totalDiskCount int, encInfo *apis.SEncryptInfo, sysDiskHasTemplate bool) error
 
 	Accessible() error
 	Detach() error
@@ -433,7 +433,7 @@ func (s *SBaseStorage) createDiskFromBackup(ctx context.Context, disk IDisk, inp
 
 func (s *SBaseStorage) DestinationPrepareMigrate(
 	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo *desc.SGuestDisk, serverId string, idx, totalDiskCount int, encInfo *apis.SEncryptInfo,
+	disksBackingFile, diskSnapsChain, outChainSnaps jsonutils.JSONObject, rebaseDisks bool, diskinfo *desc.SGuestDisk, serverId string, idx, totalDiskCount int, encInfo *apis.SEncryptInfo, sysDiskHasTemplate bool,
 ) error {
 	return nil
 }

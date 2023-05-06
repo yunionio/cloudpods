@@ -234,6 +234,22 @@ func (img *SQemuImage) IsChained() bool {
 	return len(img.BackFilePath) > 0
 }
 
+func (img *SQemuImage) GetBackingChain() ([]string, error) {
+	if len(img.BackFilePath) > 0 {
+		backImg, err := NewQemuImage(img.BackFilePath)
+		if err != nil {
+			return nil, err
+		}
+		backingChain, err := backImg.GetBackingChain()
+		if err != nil {
+			return nil, err
+		}
+		return append(backingChain, img.BackFilePath), nil
+	} else {
+		return []string{}, nil
+	}
+}
+
 type TEncryptFormat string
 
 const (
