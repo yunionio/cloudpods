@@ -190,7 +190,7 @@ func (manager *SDomainManager) ListItemFilter(
 
 	if !query.PolicyDomainTags.IsEmpty() {
 		policyFilters := tagutils.STagFilters{}
-		policyFilters.AddNoFilters(query.PolicyDomainTags)
+		policyFilters.AddFilters(query.PolicyDomainTags)
 		q = db.ObjectIdQueryWithTagFilters(q, "id", "domain", policyFilters)
 	}
 
