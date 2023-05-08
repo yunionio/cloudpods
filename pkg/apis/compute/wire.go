@@ -37,6 +37,15 @@ type WireCreateInput struct {
 	ZoneResourceInput
 }
 
+type WireUsage struct {
+	// IP子网数量
+	// example: 1
+	Networks int `json:"networks"`
+	// Host数量
+	// example: 1
+	HostCount int `json:"host_count"`
+}
+
 type WireDetails struct {
 	apis.StatusInfrasResourceBaseDetails
 	VpcResourceInfo
@@ -44,12 +53,7 @@ type WireDetails struct {
 
 	SWire
 
-	// IP子网数量
-	// example: 1
-	Networks int `json:"networks"`
-	// Host数量
-	// example: 1
-	HostCount int `json:"host_count"`
+	WireUsage
 }
 
 func (self WireDetails) GetMetricTags() map[string]string {
