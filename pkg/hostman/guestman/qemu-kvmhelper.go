@@ -356,6 +356,23 @@ func (s *SKVMGuestInstance) getNicAddr(index int) int {
 	return s.GetDiskAddr(pciBase + index)
 }
 
+func (s *SKVMGuestInstance) hasGpu() bool {
+	manager := s.manager.GetHost().GetIsolatedDeviceManager()
+	isolatedDevices, _ := s.Desc.GetArray("isolated_devices")
+	for i := range isolatedDevices {
+		vendorDevId, _ := isolatedDevices[i].GetString("vendor_device_id")
+		addr, _ := isolatedDevices[i].GetString("addr")
+		dev := manager.GetDeviceByIdent(vendorDevId, addr)
+		if dev == nil {
+			continue
+		}
+		if dev.GetDeviceType() == api.GPU_VGA_TYPE || dev.GetDeviceType() == api.GPU_HPC_TYPE {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject, withAddr bool) string {
 	bridge, _ := nic.GetString("bridge")
 	ifname, _ := nic.GetString("ifname")
@@ -560,7 +577,7 @@ function nic_mtu() {
 			}
 		}
 
-		if !guestManager.GetHost().IsNestedVirtualization() {
+		if s.hasGpu() {
 			cpuType += ",kvm=off"
 		}
 
