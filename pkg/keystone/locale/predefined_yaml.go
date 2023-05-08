@@ -67,6 +67,11 @@ policy:
       '*': deny
       list: allow
       get: allow
+    users:
+      '*': deny
+      create: allow
+      list: allow
+      get: allow
     events:
       '*': deny
   monitor:
@@ -141,6 +146,9 @@ policy:
   identity:
     events:
       '*': deny
+    users:
+      create: deny
+      '*': allow
     '*':
       '*': allow
   image:
