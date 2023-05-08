@@ -32,6 +32,8 @@ type ImageListOptions struct {
 	Name                     string   `help:"Name filter"`
 	OsType                   []string `help:"Type of OS filter e.g. 'Windows, Linux, Freebsd, Android, macOS, VMWare'"`
 	OsTypePreciseMatch       bool     `help:"OS precise match"`
+	OsArch                   []string `help:"Type of OS arch filter e.g. 'x86, arm, arm64, x86_64'"`
+	OsArchPreciseMatch       bool     `help:"OS arch precise match"`
 	Distribution             []string `help:"Distribution filter, e.g. 'CentOS, Ubuntu, Debian, Windows'"`
 	DistributionPreciseMatch bool     `help:"Distribution precise match"`
 }
@@ -74,6 +76,12 @@ func (o *ImageListOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if o.OsTypePreciseMatch {
 		params.Add(jsonutils.JSONTrue, "os_type_precise_match")
+	}
+	if len(o.OsArch) > 0 {
+		params.Add(jsonutils.NewStringArray(o.OsArch), "os_archs")
+	}
+	if o.OsArchPreciseMatch {
+		params.Add(jsonutils.JSONTrue, "os_arch_precise_match")
 	}
 	if len(o.Distribution) > 0 {
 		params.Add(jsonutils.NewStringArray(o.Distribution), "distributions")
