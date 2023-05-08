@@ -23,6 +23,7 @@ import (
 	json "yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
@@ -227,10 +228,10 @@ func getSystemGeneralUsage(
 	var pcpuTotal float64
 
 	hostEnabledUsage := HostEnabledUsage(userToken, "", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult)
-	if hostEnabledUsage.Get("enabled_hosts.memory") != nil {
+	if !gotypes.IsNil(hostEnabledUsage.Get("enabled_hosts.memory")) {
 		pmemTotal = float64(hostEnabledUsage.Get("enabled_hosts.memory").(int64))
 	}
-	if hostEnabledUsage.Get("enabled_hosts.cpu") != nil {
+	if !gotypes.IsNil(hostEnabledUsage.Get("enabled_hosts.cpu")) {
 		pcpuTotal = float64(hostEnabledUsage.Get("enabled_hosts.cpu").(int64))
 	}
 	if len(rangeObjs) > 0 && rangeObjs[0].Keyword() == "host" {
@@ -246,10 +247,10 @@ func getSystemGeneralUsage(
 	guestRunningUsage := GuestRunningUsage(userToken, "all.running_servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult)
 	var runningMem int
 	var runningCpu int
-	if guestRunningUsage.Get("all.running_servers.memory") != nil {
+	if !gotypes.IsNil(guestRunningUsage.Get("all.running_servers.memory")) {
 		runningMem = guestRunningUsage.Get("all.running_servers.memory").(int)
 	}
-	if guestRunningUsage.Get("all.running_servers.cpu") != nil {
+	if !gotypes.IsNil(guestRunningUsage.Get("all.running_servers.cpu")) {
 		runningCpu = guestRunningUsage.Get("all.running_servers.cpu").(int)
 	}
 
@@ -360,20 +361,20 @@ func getDomainGeneralUsage(userToken mcclient.TokenCredential, scope rbacutils.T
 	var pcpuTotal float64
 
 	hostEnabledUsage := HostEnabledUsage(userToken, "", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult)
-	if hostEnabledUsage.Get("domain.enabled_hosts.memory") != nil {
+	if !gotypes.IsNil(hostEnabledUsage.Get("domain.enabled_hosts.memory")) {
 		pmemTotal = float64(hostEnabledUsage.Get("domain.enabled_hosts.memory").(int64))
 	}
-	if hostEnabledUsage.Get("domain.enabled_hosts.cpu") != nil {
+	if !gotypes.IsNil(hostEnabledUsage.Get("domain.enabled_hosts.cpu")) {
 		pcpuTotal = float64(hostEnabledUsage.Get("domain.enabled_hosts.cpu").(int64))
 	}
 
 	guestRunningUsage := GuestRunningUsage(userToken, "domain.running_servers", rbacutils.ScopeDomain, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult)
 	var runningMem int
 	var runningCpu int
-	if guestRunningUsage.Get("domain.running_servers.memory") != nil {
+	if !gotypes.IsNil(guestRunningUsage.Get("domain.running_servers.memory")) {
 		runningMem = guestRunningUsage.Get("domain.running_servers.memory").(int)
 	}
-	if guestRunningUsage.Get("domain.running_servers.cpu") != nil {
+	if !gotypes.IsNil(guestRunningUsage.Get("domain.running_servers.cpu")) {
 		runningCpu = guestRunningUsage.Get("domain.running_servers.cpu").(int)
 	}
 
