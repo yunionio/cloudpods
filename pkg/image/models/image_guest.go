@@ -410,18 +410,20 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 		return dataImages[i].Name < dataImages[j].Name
 	})
 	out.Size = size
-	out.RootImage = *rootImage
 	out.DataImages = dataImages
-	// properties of root image
-	properties, err := ImagePropertyManager.GetProperties(rootImage.ID)
-	if err != nil {
-		return out
+	if rootImage != nil {
+		out.RootImage = *rootImage
+		// properties of root image
+		properties, err := ImagePropertyManager.GetProperties(rootImage.ID)
+		if err != nil {
+			return out
+		}
+		propJson := jsonutils.NewDict()
+		for k, v := range properties {
+			propJson.Add(jsonutils.NewString(v), k)
+		}
+		out.Properties = propJson
 	}
-	propJson := jsonutils.NewDict()
-	for k, v := range properties {
-		propJson.Add(jsonutils.NewString(v), k)
-	}
-	out.Properties = propJson
 	out.DisableDelete = self.Protected.Bool()
 	return out
 }
