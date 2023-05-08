@@ -48,11 +48,13 @@ func ListQueryByArchitecture(q *sqlchemy.SQuery, fieldKey string, arch string) *
 	if arch == apis.OS_ARCH_X86 {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.Startswith(q.Field(fieldKey), arch),
+			sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_I386),
 			sqlchemy.IsNullOrEmpty(q.Field(fieldKey)),
 		))
 	} else if arch == apis.OS_ARCH_ARM {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.Startswith(q.Field(fieldKey), arch),
+			sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_AARCH32),
 			sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_AARCH64),
 		))
 	} else {

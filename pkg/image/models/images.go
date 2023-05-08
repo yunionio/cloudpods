@@ -1326,6 +1326,7 @@ func (manager *SImageManager) ListItemFilter(
 		propSq := propQ.SubQuery()
 		q = q.Join(propSq, sqlchemy.Equals(q.Field("id"), propSq.Field("image_id"))).Distinct()
 	}
+	propFilter([]string{api.IMAGE_OS_ARCH}, query.OsArchs, query.OsArchPreciseMatch)
 	propFilter([]string{api.IMAGE_OS_TYPE}, query.OsTypes, query.OsTypePreciseMatch)
 	propFilter([]string{api.IMAGE_OS_DISTRO, "distro"}, query.Distributions, query.DistributionPreciseMatch)
 
