@@ -40,6 +40,7 @@ type KVMGuestInstance interface {
 	CpuMax() (uint, error)
 	IsNestedVirt() bool
 	IsKvmSupport() bool
+	HideKVM() bool
 }
 
 func NewArch(arch string) Arch {
