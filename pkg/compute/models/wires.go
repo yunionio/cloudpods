@@ -165,19 +165,19 @@ func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	return input, nil
 }
 
-func (wire *SWire) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	cnt, err := wire.HostCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("HostCount fail %s", err)
+func (wire *SWire) ValidateDeleteCondition(ctx context.Context, info *api.WireDetails) error {
+	if gotypes.IsNil(info) {
+		info = &api.WireDetails{}
+		usage, err := WireManager.TotalResourceCount([]string{wire.Id})
+		if err != nil {
+			return err
+		}
+		info.WireUsage, _ = usage[wire.Id]
 	}
-	if cnt > 0 {
+	if info.HostCount > 0 {
 		return httperrors.NewNotEmptyError("wire contains hosts")
 	}
-	cnt, err = wire.NetworkCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("NetworkCount fail %s", err)
-	}
-	if cnt > 0 {
+	if info.Networks > 0 {
 		return httperrors.NewNotEmptyError("wire contains networks")
 	}
 	return wire.SInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
@@ -1418,6 +1418,58 @@ func (manager *SWireManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field s
 	return q, httperrors.ErrNotFound
 }
 
+type SWireUsageCount struct {
+	Id string
+	api.WireUsage
+}
+
+func (wm *SWireManager) query(manager db.IModelManager, field string, wireIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+
+	if filter != nil {
+		q = filter(q)
+	}
+
+	sq := q.SubQuery()
+
+	return sq.Query(
+		sq.Field("wire_id"),
+		sqlchemy.COUNT(field),
+	).In("wire_id", wireIds).GroupBy(sq.Field("wire_id")).SubQuery()
+}
+
+func (manager *SWireManager) TotalResourceCount(wireIds []string) (map[string]api.WireUsage, error) {
+	// network
+	networkSQ := manager.query(NetworkManager, "network_cnt", wireIds, nil)
+	hostSQ := manager.query(HostwireManager, "host_cnt", wireIds, nil)
+
+	wires := manager.Query().SubQuery()
+	wireQ := wires.Query(
+		sqlchemy.SUM("networks", networkSQ.Field("network_cnt")),
+		sqlchemy.SUM("host_count", hostSQ.Field("host_cnt")),
+	)
+
+	wireQ.AppendField(wireQ.Field("id"))
+
+	wireQ = wireQ.LeftJoin(networkSQ, sqlchemy.Equals(wireQ.Field("id"), networkSQ.Field("wire_id")))
+	wireQ = wireQ.LeftJoin(hostSQ, sqlchemy.Equals(wireQ.Field("id"), hostSQ.Field("wire_id")))
+
+	wireQ = wireQ.Filter(sqlchemy.In(wireQ.Field("id"), wireIds)).GroupBy(wireQ.Field("id"))
+
+	wireCount := []SWireUsageCount{}
+	err := wireQ.All(&wireCount)
+	if err != nil {
+		return nil, errors.Wrapf(err, "wireQ.All")
+	}
+
+	result := map[string]api.WireUsage{}
+	for i := range wireCount {
+		result[wireCount[i].Id] = wireCount[i].WireUsage
+	}
+
+	return result, nil
+}
+
 func (manager *SWireManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1431,7 +1483,7 @@ func (manager *SWireManager) FetchCustomizeColumns(
 	stdRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-
+	wireIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.WireDetails{
 			StatusInfrasResourceBaseDetails: stdRows[i],
@@ -1439,8 +1491,16 @@ func (manager *SWireManager) FetchCustomizeColumns(
 			ZoneResourceInfoBase:            zoneRows[i].ZoneResourceInfoBase,
 		}
 		wire := objs[i].(*SWire)
-		rows[i].Networks, _ = wire.NetworkCount()
-		rows[i].HostCount, _ = wire.HostCount()
+		wireIds[i] = wire.Id
+	}
+
+	usage, err := manager.TotalResourceCount(wireIds)
+	if err != nil {
+		log.Errorf("TotalResourceCount error: %v", err)
+		return rows
+	}
+	for i := range rows {
+		rows[i].WireUsage, _ = usage[wireIds[i]]
 	}
 
 	return rows

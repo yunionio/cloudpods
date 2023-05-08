@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
@@ -214,30 +215,27 @@ func (self *SVpc) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 	return input, nil
 }
 
-func (self *SVpc) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+func (self *SVpc) ValidateDeleteCondition(ctx context.Context, info *api.VpcDetails) error {
 	if self.Id == api.DEFAULT_VPC_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
 	}
 
-	cnt, err := self.GetNetworkCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("GetNetworkCount fail %s", err)
+	if gotypes.IsNil(info) {
+		info = &api.VpcDetails{}
+		usage, err := VpcManager.TotalResourceCount([]string{self.Id})
+		if err != nil {
+			return err
+		}
+		info.VpcUsage, _ = usage[self.Id]
 	}
-	if cnt > 0 {
+
+	if info.NetworkCount > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty, please delete network first")
 	}
-	cnt, err = self.GetNatgatewayCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("GetNatgatewayCount fail %v", err)
-	}
-	if cnt > 0 {
+	if info.NatgatewayCount > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty, please delete nat gateway first")
 	}
-	cnt, err = self.GetVpcPeeringConnectionCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("GetRequesterVpcPeeringConnections fail %v", err)
-	}
-	if cnt > 0 {
+	if info.RequestVpcPeerCount+info.AcceptVpcPeerCount > 0 {
 		return httperrors.NewNotEmptyError("VPC peering not empty, please delete vpc peering first")
 	}
 
@@ -351,15 +349,6 @@ func (self *SVpc) GetRouteTableCount() (int, error) {
 	return self.GetRouteTableQuery().CountWithError()
 }
 
-func (self *SVpc) getMoreDetails(out api.VpcDetails) api.VpcDetails {
-	out.WireCount, _ = self.GetWireCount()
-	out.NetworkCount, _ = self.GetNetworkCount()
-	out.RoutetableCount, _ = self.GetRouteTableCount()
-	out.NatgatewayCount, _ = self.GetNatgatewayCount()
-	out.DnsZoneCount, _ = self.GetDnsZoneCount()
-	return out
-}
-
 func (self *SVpc) getCloudProviderInfo() SCloudProviderInfo {
 	region, _ := self.GetRegion()
 	provider := self.GetCloudprovider()
@@ -394,6 +383,103 @@ func (self *SVpc) getZoneByExternalId(externalId string) (*SZone, error) {
 	return nil, fmt.Errorf("found %d duplicate zones by externalId %s in cloudregion %s(%s)", len(zones), externalId, region.Name, region.Id)
 }
 
+type SVpcUsageCount struct {
+	Id string
+	api.VpcUsage
+}
+
+func (nm *SVpcManager) query(manager db.IModelManager, field string, netIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+
+	if filter != nil {
+		q = filter(q)
+	}
+
+	sq := q.SubQuery()
+
+	return sq.Query(
+		sq.Field("vpc_id"),
+		sqlchemy.COUNT(field),
+	).In("vpc_id", netIds).GroupBy(sq.Field("vpc_id")).SubQuery()
+}
+
+func (manager *SVpcManager) TotalResourceCount(vpcIds []string) (map[string]api.VpcUsage, error) {
+	// wire
+	wireSQ := manager.query(WireManager, "wire_cnt", vpcIds, nil)
+	// network
+	networkSQ := manager.query(NetworkManager, "network_cnt", vpcIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		wires := WireManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id").Label("network_id"),
+			sq.Field("wire_id").Label("wire_id"),
+			wires.Field("vpc_id").Label("vpc_id"),
+		).LeftJoin(wires, sqlchemy.Equals(sq.Field("wire_id"), wires.Field("id")))
+	})
+
+	// routetable
+	rtbSQ := manager.query(RouteTableManager, "routetable_cnt", vpcIds, nil)
+
+	// nat
+	natSQ := manager.query(NatGatewayManager, "natgateway_cnt", vpcIds, nil)
+
+	// dns
+	dnsSQ := manager.query(DnsZoneManager, "dns_zone_cnt", vpcIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		dv := DnsZoneVpcManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			dv.Field("vpc_id").Label("vpc_id"),
+		).LeftJoin(dv, sqlchemy.Equals(sq.Field("id"), dv.Field("dns_zone_id")))
+	})
+
+	// dns
+	rvpSQ := manager.query(VpcPeeringConnectionManager, "request_vpc_peer_cnt", vpcIds, nil)
+	avpSQ := manager.query(VpcPeeringConnectionManager, "accept_vpc_peer_cnt", vpcIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			sq.Field("peer_vpc_id").Label("vpc_id"),
+		)
+	})
+
+	vpcs := manager.Query().SubQuery()
+	vpcQ := vpcs.Query(
+		sqlchemy.SUM("wire_count", wireSQ.Field("wire_cnt")),
+		sqlchemy.SUM("network_count", networkSQ.Field("network_cnt")),
+		sqlchemy.SUM("routetable_count", rtbSQ.Field("routetable_cnt")),
+		sqlchemy.SUM("natgateway_count", natSQ.Field("natgateway_cnt")),
+		sqlchemy.SUM("dns_zone_count", dnsSQ.Field("dns_zone_cnt")),
+		sqlchemy.SUM("request_vpc_peer_count", rvpSQ.Field("request_vpc_peer_cnt")),
+		sqlchemy.SUM("accept_vpc_peer_count", avpSQ.Field("accept_vpc_peer_cnt")),
+	)
+
+	vpcQ.AppendField(vpcQ.Field("id"))
+
+	vpcQ = vpcQ.LeftJoin(wireSQ, sqlchemy.Equals(vpcQ.Field("id"), wireSQ.Field("vpc_id")))
+	vpcQ = vpcQ.LeftJoin(networkSQ, sqlchemy.Equals(vpcQ.Field("id"), networkSQ.Field("vpc_id")))
+	vpcQ = vpcQ.LeftJoin(rtbSQ, sqlchemy.Equals(vpcQ.Field("id"), rtbSQ.Field("vpc_id")))
+	vpcQ = vpcQ.LeftJoin(natSQ, sqlchemy.Equals(vpcQ.Field("id"), natSQ.Field("vpc_id")))
+	vpcQ = vpcQ.LeftJoin(dnsSQ, sqlchemy.Equals(vpcQ.Field("id"), dnsSQ.Field("vpc_id")))
+	vpcQ = vpcQ.LeftJoin(rvpSQ, sqlchemy.Equals(vpcQ.Field("id"), rvpSQ.Field("vpc_id")))
+	vpcQ = vpcQ.LeftJoin(avpSQ, sqlchemy.Equals(vpcQ.Field("id"), avpSQ.Field("vpc_id")))
+
+	vpcQ = vpcQ.Filter(sqlchemy.In(vpcQ.Field("id"), vpcIds)).GroupBy(vpcQ.Field("id"))
+
+	vpcCount := []SVpcUsageCount{}
+	err := vpcQ.All(&vpcCount)
+	if err != nil {
+		return nil, errors.Wrapf(err, "vpcQ.All")
+	}
+
+	result := map[string]api.VpcUsage{}
+	for i := range vpcCount {
+		result[vpcCount[i].Id] = vpcCount[i].VpcUsage
+	}
+
+	return result, nil
+}
+
 func (manager *SVpcManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -407,6 +493,7 @@ func (manager *SVpcManager) FetchCustomizeColumns(
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	globalVpcRows := manager.SGlobalVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	vpcIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.VpcDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
@@ -414,7 +501,16 @@ func (manager *SVpcManager) FetchCustomizeColumns(
 			CloudregionResourceInfo:                regionRows[i],
 			GlobalVpcResourceInfo:                  globalVpcRows[i],
 		}
-		rows[i] = objs[i].(*SVpc).getMoreDetails(rows[i])
+		vpc := objs[i].(*SVpc)
+		vpcIds[i] = vpc.Id
+	}
+	usage, err := manager.TotalResourceCount(vpcIds)
+	if err != nil {
+		log.Errorf("TotalResourceCount error: %v", err)
+		return rows
+	}
+	for i := range rows {
+		rows[i].VpcUsage, _ = usage[vpcIds[i]]
 	}
 	return rows
 }
