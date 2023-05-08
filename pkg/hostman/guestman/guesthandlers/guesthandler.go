@@ -392,7 +392,7 @@ func guestDestPrepareMigrateInternal(ctx context.Context, userCred mcclient.Toke
 		}
 		diskSnapsChain, err := body.Get("disk_snaps_chain")
 		if err != nil {
-			return httperrors.NewMissingParameterError("disk_snaps_chain")
+			params.DiskSnapsChain = jsonutils.NewDict()
 		} else {
 			params.DiskSnapsChain = diskSnapsChain
 		}
