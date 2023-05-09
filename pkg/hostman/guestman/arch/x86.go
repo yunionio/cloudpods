@@ -128,11 +128,7 @@ func (*X86) enableHypervFeatures(features map[string]bool) {
 }
 
 func (x86 *X86) GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*desc.SGuestCpu, error) {
-	var hideKVM = true
-	if s.IsNestedVirt() {
-		hideKVM = false
-	}
-
+	var hideKVM = s.HideKVM()
 	var hostCPUPassthrough = options.HostOptions.HostCpuPassthrough
 	var isCPUIntel = sysutils.IsProcessorIntel()
 	var isCPUAMD = sysutils.IsProcessorAmd()
