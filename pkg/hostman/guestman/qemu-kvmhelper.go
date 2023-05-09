@@ -130,6 +130,13 @@ func (s *SKVMGuestInstance) GetKernelVersion() string {
 	return s.manager.host.GetKernelVersion()
 }
 
+func (s *SKVMGuestInstance) HideKVM() bool {
+	if s.hasGPU() {
+		return true
+	}
+	return false
+}
+
 func (s *SKVMGuestInstance) CpuMax() (uint, error) {
 	cpuMax, ok := s.manager.qemuMachineCpuMax[s.Desc.Machine]
 	if !ok {
@@ -780,6 +787,17 @@ func (s *SKVMGuestInstance) gpusHasVga() bool {
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
 		if dev.GetDeviceType() == api.GPU_VGA_TYPE {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *SKVMGuestInstance) hasGPU() bool {
+	manager := s.manager.GetHost().GetIsolatedDeviceManager()
+	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
+		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		if dev.GetDeviceType() == api.GPU_VGA_TYPE || dev.GetDeviceType() == api.GPU_HPC_TYPE {
 			return true
 		}
 	}
