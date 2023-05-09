@@ -24,19 +24,23 @@ import (
 
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/webconsole"
 	o "yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/webconsole/command"
 )
 
-const (
-	DefaultWebconsoleServer = "https://console.yunion.cn/web-console"
-)
-
 func init() {
-	handleResult := func(opt o.WebConsoleOptions, obj jsonutils.JSONObject) error {
+	handleResult := func(s *mcclient.ClientSession, opt o.WebConsoleOptions, obj jsonutils.JSONObject) error {
 		if opt.WebconsoleUrl == "" {
-			opt.WebconsoleUrl = DefaultWebconsoleServer
+			resp, err := identity.ServicesV3.GetSpecific(s, "common", "config", nil)
+			if err != nil {
+				return err
+			}
+			apiServer, _ := resp.GetString("config", "default", "api_server")
+			if len(apiServer) > 0 {
+				opt.WebconsoleUrl = fmt.Sprintf("%s/web-console", apiServer)
+			}
 		}
 		u, err := url.Parse(opt.WebconsoleUrl)
 		if err != nil {
@@ -52,7 +56,7 @@ func init() {
 			return err
 		} else if !utils.IsInStringArray(protocol, []string{
 			command.PROTOCOL_TTY, webconsole_api.VNC,
-			webconsole_api.SPICE, webconsole_api.WMKS,
+			webconsole_api.SPICE, webconsole_api.WMKS, webconsole_api.WS,
 		}) {
 			fmt.Println(connectParams)
 			return nil
@@ -74,7 +78,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		handleResult(args.WebConsoleOptions, ret)
+		handleResult(s, args.WebConsoleOptions, ret)
 		return nil
 	})
 
@@ -87,7 +91,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		handleResult(args.WebConsoleOptions, ret)
+		handleResult(s, args.WebConsoleOptions, ret)
 		return nil
 	})
 
@@ -96,7 +100,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		handleResult(args.WebConsoleOptions, ret)
+		handleResult(s, args.WebConsoleOptions, ret)
 		return nil
 	})
 
@@ -109,7 +113,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		handleResult(args.WebConsoleOptions, ret)
+		handleResult(s, args.WebConsoleOptions, ret)
 		return nil
 	})
 
@@ -118,7 +122,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		handleResult(args.WebConsoleOptions, ret)
+		handleResult(s, args.WebConsoleOptions, ret)
 		return nil
 	})
 }
