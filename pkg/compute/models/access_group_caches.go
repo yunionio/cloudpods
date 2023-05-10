@@ -162,11 +162,11 @@ func (self *SAccessGroupCache) GetOwnerId() mcclient.IIdentityProvider {
 	return &db.SOwnerId{DomainId: ag.DomainId}
 }
 
-func (manager *SAccessGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	if userCred != nil {
+func (manager *SAccessGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
 		sq := AccessGroupManager.Query("id")
-		if scope == rbacscope.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
-			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+		if scope == rbacscope.ScopeDomain && len(owner.GetProjectDomainId()) > 0 {
+			sq = sq.Equals("domain_id", owner.GetProjectDomainId())
 			return q.In("access_group_id", sq)
 		}
 	}

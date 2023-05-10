@@ -66,17 +66,20 @@ func ApplyQueryDistinctExtraField(
 }
 
 type FilterByOwnerProvider interface {
-	FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery
+	Keyword() string
+	KeywordPlural() string
+	FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery
 }
 
 func ApplyFilterByOwner(
 	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
 	owner mcclient.IIdentityProvider,
 	scope rbacscope.TRbacScope,
 	managers ...FilterByOwnerProvider,
 ) *sqlchemy.SQuery {
 	for _, manager := range managers {
-		q = manager.FilterByOwner(q, owner, scope)
+		q = manager.FilterByOwner(q, manager, userCred, owner, scope)
 	}
 	return q
 }

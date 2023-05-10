@@ -24,6 +24,19 @@ func (a *authManager) fetchMatchPolicies(ctx context.Context, token mcclient.Tok
 	return a.client.FetchMatchPolicies(ctx, token)
 }
 
+func (a *authManager) checkMatchPolicies(ctx context.Context, input mcclient.SCheckPoliciesInput) (*mcclient.SFetchMatchPoliciesOutput, error) {
+	return a.client.CheckMatchPolicies(ctx, a.adminCredential, input)
+}
+
 func FetchMatchPolicies(ctx context.Context, token mcclient.TokenCredential) (*mcclient.SFetchMatchPoliciesOutput, error) {
-	return manager.fetchMatchPolicies(ctx, token)
+	if len(token.GetTokenString()) > 0 && !IsGuestToken(token) {
+		return manager.fetchMatchPolicies(ctx, token)
+	} else {
+		input := mcclient.SCheckPoliciesInput{
+			UserId:    token.GetUserId(),
+			ProjectId: token.GetProjectId(),
+			LoginIp:   token.GetLoginIp(),
+		}
+		return manager.checkMatchPolicies(ctx, input)
+	}
 }

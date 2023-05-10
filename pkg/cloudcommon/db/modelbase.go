@@ -233,7 +233,7 @@ func (manager *SModelBaseManager) FilterByName(q *sqlchemy.SQuery, name string) 
 	return q
 }
 
-func (manager *SModelBaseManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SModelBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return q
 }
 

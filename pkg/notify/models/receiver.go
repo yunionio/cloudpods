@@ -372,8 +372,9 @@ func (rm *SReceiverManager) filterByOwnerAndProjectDomain(ctx context.Context, u
 	return q, nil
 }
 
-func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	return q
+func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	log.Debugf("SReceiverManager FilterByOwner is called owner %s scope %s", jsonutils.Marshal(owner), scope)
+	return rm.SDomainizedResourceBaseManager.FilterByOwner(q, man, userCred, owner, scope)
 }
 
 func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ReceiverListInput) (*sqlchemy.SQuery, error) {

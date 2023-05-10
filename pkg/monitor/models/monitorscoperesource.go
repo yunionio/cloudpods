@@ -33,16 +33,16 @@ type SMonitorScopedResource struct {
 	db.SScopedResourceBase
 }
 
-func (m *SMonitorScopedResourceManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	if userCred == nil {
+func (m *SMonitorScopedResourceManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if ownerId == nil {
 		return q
 	}
 	switch scope {
 	case rbacscope.ScopeDomain:
-		q = q.Equals("domain_id", userCred.GetProjectDomainId())
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 	case rbacscope.ScopeProject:
 
-		q = q.Equals("tenant_id", userCred.GetProjectId())
+		q = q.Equals("tenant_id", ownerId.GetProjectId())
 	}
 	return q
 }

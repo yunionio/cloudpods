@@ -153,7 +153,7 @@ func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, u
 	}
 
 	q := manager.Query().Equals("name", model.GetName())
-	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
+	q = manager.FilterByOwner(q, manager, userCred, ownerId, manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 	q = q.NotEquals("id", model.GetId())
 	cnt, err := q.CountWithError()

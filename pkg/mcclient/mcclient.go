@@ -426,6 +426,12 @@ func (this *Client) NewSession(ctx context.Context, region, zone, endpointType s
 	}
 }
 
+type SCheckPoliciesInput struct {
+	UserId    string
+	ProjectId string
+	LoginIp   string
+}
+
 type SFetchMatchPoliciesOutput struct {
 	Names    map[rbacscope.TRbacScope][]string `json:"names"`
 	Policies rbacutils.TPolicyGroup            `json:"policies"`
@@ -460,6 +466,19 @@ func (client *Client) FetchMatchPolicies(ctx context.Context, token TokenCredent
 		header.Add(api.AUTH_TOKEN_HEADER, token.GetTokenString())
 	}
 	_, rbody, err := client.jsonRequest(ctx, client.authUrl, "", "GET", "/auth/policies", header, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "jsonRequest")
+	}
+	output := &SFetchMatchPoliciesOutput{}
+	err = output.Decode(rbody)
+	if err != nil {
+		return nil, errors.Wrap(err, "SFetchMatchPoliciesOutput.Decode")
+	}
+	return output, nil
+}
+
+func (client *Client) CheckMatchPolicies(ctx context.Context, adminToken TokenCredential, input SCheckPoliciesInput) (*SFetchMatchPoliciesOutput, error) {
+	_, rbody, err := client.jsonRequest(ctx, client.authUrl, adminToken.GetTokenString(), "POST", "/auth/policies", nil, jsonutils.Marshal(input))
 	if err != nil {
 		return nil, errors.Wrap(err, "jsonRequest")
 	}

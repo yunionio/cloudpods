@@ -432,9 +432,9 @@ func (manager *SDnsRecordSetManager) FetchOwnerId(ctx context.Context, data json
 	return db.FetchDomainInfo(ctx, data)
 }
 
-func (manager *SDnsRecordSetManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SDnsRecordSetManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	sq := DnsZoneManager.Query("id")
-	sq = db.SharableManagerFilterByOwner(DnsZoneManager, sq, userCred, scope)
+	sq = db.SharableManagerFilterByOwner(DnsZoneManager, sq, userCred, owner, scope)
 	return q.In("dns_zone_id", sq.SubQuery())
 }
 

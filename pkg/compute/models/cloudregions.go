@@ -971,7 +971,7 @@ func (self *SCloudregion) GetDetailsDiskCapability(ctx context.Context, userCred
 }
 
 func (self *SCloudregion) GetNetworkCount() (int, error) {
-	return getNetworkCount(nil, rbacscope.ScopeSystem, self, nil)
+	return getNetworkCount(nil, nil, rbacscope.ScopeSystem, self, nil)
 }
 
 func (self *SCloudregion) getMinNicCount() int {

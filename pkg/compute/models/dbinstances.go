@@ -572,7 +572,7 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 		log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
 		return rows
 	}
-	secgroups := SecurityGroupManager.FilterByOwner(q, ownerId, queryScope).SubQuery()
+	secgroups := SecurityGroupManager.FilterByOwner(q, SecurityGroupManager, userCred, ownerId, queryScope).SubQuery()
 	rdssecgroups := DBInstanceSecgroupManager.Query().SubQuery()
 
 	secQ := rdssecgroups.Query(rdssecgroups.Field("dbinstance_id"), rdssecgroups.Field("secgroup_id"), secgroups.Field("name").Label("secgroup_name")).Join(secgroups, sqlchemy.Equals(rdssecgroups.Field("secgroup_id"), secgroups.Field("id"))).Filter(sqlchemy.In(rdssecgroups.Field("dbinstance_id"), rdsIds))

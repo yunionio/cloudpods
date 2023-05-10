@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -53,11 +54,35 @@ func (manager *SDomainizedResourceBaseManager) ResourceScope() rbacscope.TRbacSc
 	return rbacscope.ScopeDomain
 }
 
-func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
 		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 			q = q.Equals("domain_id", owner.GetProjectDomainId())
+			if userCred != nil {
+				result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionList)
+				if !result.ObjectTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ObjectTags)
+					q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+				}
+
+			}
+		case rbacscope.ScopeSystem:
+			if userCred != nil {
+				result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionList)
+				if !result.DomainTags.IsEmpty() {
+					policyFilters := tagutils.STagFilters{}
+					policyFilters.AddFilters(result.DomainTags)
+					q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", policyFilters)
+				}
+				if !result.ObjectTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ObjectTags)
+					q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+				}
+
+			}
 		}
 	}
 	return q
@@ -125,11 +150,6 @@ func (manager *SDomainizedResourceBaseManager) ListItemFilter(
 		tagFilters.AddNoFilters(query.NoDomainTags)
 	}
 	q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", tagFilters)
-	if !query.PolicyDomainTags.IsEmpty() {
-		policyFilters := tagutils.STagFilters{}
-		policyFilters.AddFilters(query.PolicyDomainTags)
-		q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", policyFilters)
-	}
 	return q, nil
 }
 

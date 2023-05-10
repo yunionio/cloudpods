@@ -184,8 +184,8 @@ func (manager *SElasticcacheAclManager) FetchOwnerId(ctx context.Context, data j
 	return elasticcacheSubResourceFetchOwnerId(ctx, data)
 }
 
-func (manager *SElasticcacheAclManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	return elasticcacheSubResourceFetchOwner(q, userCred, scope)
+func (manager *SElasticcacheAclManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	return elasticcacheSubResourceFetchOwner(q, ownerId, scope)
 }
 
 func (manager *SElasticcacheAclManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {

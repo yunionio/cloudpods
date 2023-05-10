@@ -143,7 +143,7 @@ type SCapabilities struct {
 
 func GetDiskCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
 	capa := SCapabilities{}
-	s1, d1, s2, s3, d2, d3 := getStorageTypes(region, zone, "")
+	s1, d1, s2, s3, d2, d3 := getStorageTypes(userCred, region, zone, "")
 	capa.StorageTypes, capa.DataStorageTypes = s1, d1
 	capa.StorageTypes2, capa.StorageTypes3 = s2, s3
 	capa.DataStorageTypes2, capa.DataStorageTypes3 = d2, d3
@@ -181,7 +181,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 		}
 		domainId = ""
 	}
-	capa.Hypervisors = getHypervisors(region, zone, domainId)
+	capa.Hypervisors = getHypervisors(userCred, region, zone, domainId)
 	capa.InstanceCapabilities = []cloudprovider.SInstanceCapability{}
 	for _, hypervisor := range capa.Hypervisors {
 		driver := GetDriver(hypervisor)
@@ -191,20 +191,20 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	}
 	getBrands(region, zone, domainId, &capa)
 	// capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = a, c, n, o
-	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
-	s1, d1, s2, s3, d2, d3 := getStorageTypes(region, zone, domainId)
+	capa.ResourceTypes = getResourceTypes(userCred, region, zone, domainId)
+	s1, d1, s2, s3, d2, d3 := getStorageTypes(userCred, region, zone, domainId)
 	capa.StorageTypes, capa.DataStorageTypes = s1, d1
 	capa.StorageTypes2, capa.StorageTypes3 = s2, s3
 	capa.DataStorageTypes2, capa.DataStorageTypes3 = d2, d3
-	capa.GPUModels, capa.GPUModelTypes = getGPUs(region, zone, domainId)
+	capa.GPUModels, capa.GPUModelTypes = getGPUs(userCred, region, zone, domainId)
 	capa.SchedPolicySupport = isSchedPolicySupported(region, zone)
 	capa.MinNicCount = getMinNicCount(region, zone)
 	capa.MaxNicCount = getMaxNicCount(region, zone)
 	capa.MinDataDiskCount = getMinDataDiskCount(region, zone)
 	capa.MaxDataDiskCount = getMaxDataDiskCount(region, zone)
 	capa.DBInstance = getDBInstanceInfo(region, zone)
-	capa.Usable = isUsable(ownerId, scope, region, zone)
-	capa.HostCpuArchs = getHostCpuArchs(region, zone, domainId)
+	capa.Usable = isUsable(userCred, ownerId, scope, region, zone)
+	capa.HostCpuArchs = getHostCpuArchs(userCred, region, zone, domainId)
 	if query == nil {
 		query = jsonutils.NewDict()
 	}
@@ -219,7 +219,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	}
 	var err error
 	serverType := jsonutils.GetAnyString(query, []string{"host_type", "server_type"})
-	autoAllocNetworkCount, _ := getAutoAllocNetworkCount(ownerId, scope, region, zone, serverType)
+	autoAllocNetworkCount, _ := getAutoAllocNetworkCount(userCred, ownerId, scope, region, zone, serverType)
 	capa.PublicNetworkCount = autoAllocNetworkCount
 	capa.AutoAllocNetworkCount = autoAllocNetworkCount
 	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
@@ -251,7 +251,7 @@ func GetAvailableHostCount(userCred mcclient.TokenCredential, query *jsonutils.J
 		Equals("host_status", "online").Equals("host_type", api.HOST_TYPE_HYPERVISOR)
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
-		q = HostManager.FilterByOwner(q, ownerId, rbacscope.ScopeDomain)
+		q = HostManager.FilterByOwner(q, HostManager, userCred, ownerId, rbacscope.ScopeDomain)
 	}
 	if len(zoneId) > 0 {
 		q = q.Equals("zone_id", zoneId)
@@ -449,7 +449,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 	return
 }
 
-func getHypervisors(region *SCloudregion, zone *SZone, domainId string) []string {
+func getHypervisors(userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) []string {
 	q := HostManager.Query("host_type", "manager_id")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
@@ -460,7 +460,7 @@ func getHypervisors(region *SCloudregion, zone *SZone, domainId string) []string
 	}
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
-		q = HostManager.FilterByOwner(q, ownerId, rbacscope.ScopeDomain)
+		q = HostManager.FilterByOwner(q, HostManager, userCred, ownerId, rbacscope.ScopeDomain)
 		/*subq := getDomainManagerSubq(domainId)
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("manager_id"), subq),
@@ -491,7 +491,7 @@ func getHypervisors(region *SCloudregion, zone *SZone, domainId string) []string
 	return hypervisors
 }
 
-func getResourceTypes(region *SCloudregion, zone *SZone, domainId string) []string {
+func getResourceTypes(userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) []string {
 	q := HostManager.Query("resource_type", "manager_id")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
@@ -502,7 +502,7 @@ func getResourceTypes(region *SCloudregion, zone *SZone, domainId string) []stri
 	}
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
-		q = HostManager.FilterByOwner(q, ownerId, rbacscope.ScopeDomain)
+		q = HostManager.FilterByOwner(q, HostManager, userCred, ownerId, rbacscope.ScopeDomain)
 		/*subq := getDomainManagerSubq(domainId)
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("manager_id"), subq),
@@ -565,6 +565,7 @@ type SimpleStorageInfo struct {
 }
 
 func getStorageTypes(
+	userCred mcclient.TokenCredential,
 	region *SCloudregion, zone *SZone, domainId string,
 ) (
 	[]string, []string,
@@ -587,7 +588,7 @@ func getStorageTypes(
 	hostQuery := HostManager.Query()
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
-		hostQuery = HostManager.FilterByOwner(hostQuery, ownerId, rbacscope.ScopeDomain)
+		hostQuery = HostManager.FilterByOwner(hostQuery, HostManager, userCred, ownerId, rbacscope.ScopeDomain)
 	}
 	hosts := hostQuery.SubQuery()
 
@@ -624,7 +625,7 @@ func getStorageTypes(
 	}
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
-		q = StorageManager.FilterByOwner(q, ownerId, rbacscope.ScopeDomain)
+		q = StorageManager.FilterByOwner(q, StorageManager, userCred, ownerId, rbacscope.ScopeDomain)
 	}
 	q = q.Filter(sqlchemy.Equals(hosts.Field("resource_type"), api.HostResourceTypeShared))
 	q = q.Filter(sqlchemy.IsNotEmpty(storages.Field("storage_type")))
@@ -748,12 +749,12 @@ type GpuModelTypes struct {
 	SizeMB  int
 }
 
-func getGPUs(region *SCloudregion, zone *SZone, domainId string) ([]string, []GpuModelTypes) {
+func getGPUs(userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) ([]string, []GpuModelTypes) {
 	devices := IsolatedDeviceManager.Query().SubQuery()
 	hostQuery := HostManager.Query()
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
-		hostQuery = StorageManager.FilterByOwner(hostQuery, ownerId, rbacscope.ScopeDomain)
+		hostQuery = StorageManager.FilterByOwner(hostQuery, StorageManager, userCred, ownerId, rbacscope.ScopeDomain)
 	}
 	hosts := hostQuery.SubQuery()
 
@@ -802,12 +803,12 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) ([]string, []Gp
 	return gpuModels, gpus
 }
 
-func getHostCpuArchs(region *SCloudregion, zone *SZone, domainId string) []string {
+func getHostCpuArchs(userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) []string {
 	q := HostManager.Query("cpu_architecture").Equals("enabled", true).
 		Equals("host_status", "online").Equals("host_type", api.HOST_TYPE_HYPERVISOR)
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
-		q = HostManager.FilterByOwner(q, ownerId, rbacscope.ScopeDomain)
+		q = HostManager.FilterByOwner(q, HostManager, userCred, ownerId, rbacscope.ScopeDomain)
 	}
 	if zone != nil {
 		q = q.Equals("zone_id", zone.Id)
@@ -835,15 +836,15 @@ func getHostCpuArchs(region *SCloudregion, zone *SZone, domainId string) []strin
 	return res
 }
 
-func getNetworkCount(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, region *SCloudregion, zone *SZone) (int, error) {
-	return getNetworkCountByFilter(ownerId, scope, region, zone, tristate.None, "")
+func getNetworkCount(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, region *SCloudregion, zone *SZone) (int, error) {
+	return getNetworkCountByFilter(userCred, ownerId, scope, region, zone, tristate.None, "")
 }
 
-func getAutoAllocNetworkCount(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, region *SCloudregion, zone *SZone, serverType string) (int, error) {
-	return getNetworkCountByFilter(ownerId, scope, region, zone, tristate.True, serverType)
+func getAutoAllocNetworkCount(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, region *SCloudregion, zone *SZone, serverType string) (int, error) {
+	return getNetworkCountByFilter(userCred, ownerId, scope, region, zone, tristate.True, serverType)
 }
 
-func getNetworkCountByFilter(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, region *SCloudregion, zone *SZone, isAutoAlloc tristate.TriState, serverType string) (int, error) {
+func getNetworkCountByFilter(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, region *SCloudregion, zone *SZone, isAutoAlloc tristate.TriState, serverType string) (int, error) {
 	if zone != nil && region == nil {
 		region, _ = zone.GetRegion()
 	}
@@ -870,7 +871,7 @@ func getNetworkCountByFilter(ownerId mcclient.IIdentityProvider, scope rbacscope
 		}
 	}
 
-	q = NetworkManager.FilterByOwner(q, ownerId, scope)
+	q = NetworkManager.FilterByOwner(q, NetworkManager, userCred, ownerId, scope)
 	if !isAutoAlloc.IsNone() {
 		if isAutoAlloc.IsTrue() {
 			q = q.IsTrue("is_auto_alloc")
@@ -930,8 +931,8 @@ func getMaxDataDiskCount(region *SCloudregion, zone *SZone) int {
 	return 0
 }
 
-func isUsable(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, region *SCloudregion, zone *SZone) bool {
-	cnt, err := getNetworkCount(ownerId, scope, region, zone)
+func isUsable(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, region *SCloudregion, zone *SZone) bool {
+	cnt, err := getNetworkCount(userCred, ownerId, scope, region, zone)
 	if err != nil {
 		return false
 	}

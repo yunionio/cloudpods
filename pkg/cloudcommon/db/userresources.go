@@ -125,7 +125,7 @@ func (manager *SUserResourceBaseManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (manager *SUserResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SUserResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		if scope == rbacscope.ScopeUser {
 			if len(owner.GetUserId()) > 0 {

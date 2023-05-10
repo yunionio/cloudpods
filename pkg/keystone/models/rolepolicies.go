@@ -176,9 +176,9 @@ func (manager *SRolePolicyManager) NamespaceScope() rbacscope.TRbacScope {
 	return PolicyManager.NamespaceScope()
 }
 
-func (manager *SRolePolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SRolePolicyManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	policyQ := PolicyManager.Query()
-	policyQ = PolicyManager.FilterByOwner(policyQ, owner, scope)
+	policyQ = PolicyManager.FilterByOwner(policyQ, PolicyManager, userCred, owner, scope)
 	subq := policyQ.SubQuery()
 	q = q.Join(subq, sqlchemy.Equals(q.Field("policy_id"), subq.Field("id")))
 	return q
@@ -427,7 +427,47 @@ func (manager *SRolePolicyManager) GetMatchPolicyGroup(userCred rbacutils.IRbacI
 	return manager.GetPolicyGroupByIds(policyIds, nameOnly)
 }
 
-func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred mcclient.TokenCredential, tm time.Time, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+type sUserProjectPair struct {
+	userId    string
+	projectId string
+}
+
+func (p sUserProjectPair) GetProjectId() string {
+	return p.projectId
+}
+
+func (p sUserProjectPair) GetRoleIds() []string {
+	roles, _ := AssignmentManager.FetchUserProjectRoles(p.userId, p.projectId)
+	ret := make([]string, len(roles))
+	for i := range roles {
+		ret[i] = roles[i].Id
+	}
+	return ret
+}
+
+func (p sUserProjectPair) GetUserId() string {
+	return ""
+}
+
+func (p sUserProjectPair) GetLoginIp() string {
+	return ""
+}
+
+func (p sUserProjectPair) GetTokenString() string {
+	return p.userId
+}
+
+func (manager *SRolePolicyManager) GetMatchPolicyGroupByInput(userId, projectId string, tm time.Time, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
+	return manager.GetMatchPolicyGroupByCred(
+		sUserProjectPair{
+			userId:    userId,
+			projectId: projectId,
+		},
+		tm, nameOnly,
+	)
+}
+
+func (manager *SRolePolicyManager) GetMatchPolicyGroupByCred(userCred api.IRbacIdentityWithUserId, tm time.Time, nameOnly bool) (map[rbacscope.TRbacScope][]string, rbacutils.TPolicyGroup, error) {
 	names, policies, err := manager.GetMatchPolicyGroup(userCred, tm, nameOnly)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "GetMatchPolicyGroup")

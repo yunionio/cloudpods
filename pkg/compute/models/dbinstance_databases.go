@@ -101,15 +101,15 @@ func (manager *SDBInstanceDatabaseManager) FetchOwnerId(ctx context.Context, dat
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SDBInstanceDatabaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	if userCred != nil {
+func (manager *SDBInstanceDatabaseManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
 		sq := DBInstanceManager.Query("id")
 		switch scope {
 		case rbacscope.ScopeProject:
-			sq = sq.Equals("tenant_id", userCred.GetProjectId())
+			sq = sq.Equals("tenant_id", owner.GetProjectId())
 			return q.In("dbinstance_id", sq.SubQuery())
 		case rbacscope.ScopeDomain:
-			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+			sq = sq.Equals("domain_id", owner.GetProjectDomainId())
 			return q.In("dbinstance_id", sq.SubQuery())
 		}
 	}

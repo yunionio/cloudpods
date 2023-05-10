@@ -71,7 +71,7 @@ func (self *NetworksUnderWireMergeTask) OnInit(ctx context.Context, obj db.IStan
 
 	lockman.LockClass(ctx, models.NetworkManager, db.GetLockClassKey(models.NetworkManager, self.UserCred))
 	defer lockman.ReleaseClass(ctx, models.NetworkManager, db.GetLockClassKey(models.NetworkManager, self.UserCred))
-	networks, err := w.GetNetworks(self.UserCred, rbacscope.ScopeDomain)
+	networks, err := w.GetNetworks(self.UserCred, self.UserCred, rbacscope.ScopeDomain)
 	if err != nil {
 		self.taskFailed(ctx, w, "unable to GetNetworks", err)
 		return

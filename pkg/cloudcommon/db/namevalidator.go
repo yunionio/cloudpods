@@ -40,7 +40,7 @@ func isRawNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, 
 		q = manager.Query()
 	}
 	q = manager.FilterByName(q, name)
-	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
+	q = manager.FilterByOwner(q, manager, nil, ownerId, manager.NamespaceScope())
 	if !isRaw {
 		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 		if uniqValues != nil {
@@ -82,7 +82,7 @@ func isRawAlterNameUnique(model IModel, name string, isRaw bool) (bool, error) {
 		q = manager.Query()
 	}
 	q = manager.FilterByName(q, name)
-	q = manager.FilterByOwner(q, model.GetOwnerId(), manager.NamespaceScope())
+	q = manager.FilterByOwner(q, manager, nil, model.GetOwnerId(), manager.NamespaceScope())
 	q = manager.FilterByNotId(q, model.GetId())
 	if !isRaw {
 		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())

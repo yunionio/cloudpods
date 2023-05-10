@@ -264,11 +264,11 @@ func (self *SMountTarget) GetOwnerId() mcclient.IIdentityProvider {
 	return &db.SOwnerId{DomainId: fs.DomainId}
 }
 
-func (manager *SMountTargetManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	if userCred != nil {
+func (manager *SMountTargetManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
 		sq := FileSystemManager.Query("id")
-		if scope == rbacscope.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
-			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+		if scope == rbacscope.ScopeDomain && len(owner.GetProjectDomainId()) > 0 {
+			sq = sq.Equals("domain_id", owner.GetProjectDomainId())
 			return q.In("file_system_id", sq)
 		}
 	}

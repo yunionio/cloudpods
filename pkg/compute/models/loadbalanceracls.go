@@ -180,7 +180,7 @@ func (manager *SLoadbalancerAclManager) FetchCustomizeColumns(
 			return rows
 		}
 
-		q = LoadbalancerListenerManager.FilterByOwner(q, ownerId, queryScope)
+		q = LoadbalancerListenerManager.FilterByOwner(q, LoadbalancerListenerManager, userCred, ownerId, queryScope)
 		rows[i].LbListenerCount, _ = q.CountWithError()
 	}
 

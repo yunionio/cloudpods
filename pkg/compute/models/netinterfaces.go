@@ -281,13 +281,13 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 	return errors.Wrap(err, "db.Update")
 }
 
-func (self *SNetInterface) GetCandidateNetworkForIp(ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, ipAddr string) (*SNetwork, error) {
+func (self *SNetInterface) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, ipAddr string) (*SNetwork, error) {
 	wire := self.GetWire()
 	if wire == nil {
 		return nil, nil
 	}
 	log.Infof("ipAddr: %s, netiName: %s, wire: %s", ipAddr, self.GetName(), wire.GetName())
-	return wire.GetCandidateNetworkForIp(ownerId, scope, ipAddr)
+	return wire.GetCandidateNetworkForIp(userCred, ownerId, scope, ipAddr)
 }
 
 func (self *SNetInterface) IsUsableServernic() bool {

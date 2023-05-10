@@ -259,7 +259,7 @@ func (manager *SDnsZoneManager) FetchCustomizeColumns(
 		log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
 		return rows
 	}
-	q = VpcManager.FilterByOwner(q, ownerId, queryScope)
+	q = VpcManager.FilterByOwner(q, VpcManager, userCred, ownerId, queryScope)
 	err = db.FetchModelObjects(VpcManager, q, &ownedVpcs)
 	if err != nil {
 		log.Errorf("db.FetchModelObjects error: %v", err)

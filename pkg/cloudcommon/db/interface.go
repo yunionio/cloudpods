@@ -47,7 +47,7 @@ type IModelManager interface {
 	TableSpec() ITableSpec
 
 	// Keyword() string
-	KeywordPlural() string
+	// KeywordPlural() string
 	Alias() string
 	AliasPlural() string
 	SetAlias(alias string, aliasPlural string)
@@ -75,7 +75,10 @@ type IModelManager interface {
 	FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
 	FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
 	FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery
-	FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery
+
+	FilterByOwnerProvider
+	//FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery
+
 	FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery
 	FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery
 	FilterByUniqValues(q *sqlchemy.SQuery, uniqValues jsonutils.JSONObject) *sqlchemy.SQuery

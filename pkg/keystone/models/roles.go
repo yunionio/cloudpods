@@ -532,8 +532,8 @@ func (role *SRole) PostCreate(
 	}
 }
 
-func (manager *SRoleManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	return db.SharableManagerFilterByOwner(manager, q, owner, scope)
+func (manager *SRoleManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	return db.SharableManagerFilterByOwner(manager, q, userCred, owner, scope)
 }
 
 func (role *SRole) GetSharableTargetDomainIds() []string {
