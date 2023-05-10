@@ -16,14 +16,7 @@ package compute
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-type VpcDetails struct {
-	apis.EnabledStatusInfrasResourceBaseDetails
-	ManagedResourceInfo
-	CloudregionResourceInfo
-	GlobalVpcResourceInfo
-
-	SVpc
-
+type VpcUsage struct {
 	// 二层网络数量
 	// example: 1
 	WireCount int `json:"wire_count"`
@@ -40,6 +33,20 @@ type VpcDetails struct {
 	// DnsZone个数
 	// example: 2
 	DnsZoneCount int `json:"dns_zone_count"`
+
+	RequestVpcPeerCount int `json:"request_vpc_peer_count"`
+	AcceptVpcPeerCount  int `json:"accpet_vpc_peer_count"`
+}
+
+type VpcDetails struct {
+	apis.EnabledStatusInfrasResourceBaseDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
+	GlobalVpcResourceInfo
+
+	SVpc
+
+	VpcUsage
 }
 
 type VpcResourceInfoBase struct {
