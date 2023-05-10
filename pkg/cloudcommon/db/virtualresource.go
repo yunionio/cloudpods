@@ -76,17 +76,6 @@ func (manager *SVirtualResourceBaseManager) GetIVirtualModelManager() IVirtualMo
 	return manager.GetVirtualObject().(IVirtualModelManager)
 }
 
-/*func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	q = manager.SProjectizedResourceBaseManager.FilterByOwner(q, owner, scope)
-	return q
-}
-*/
-
-/*func (manager *SVirtualResourceBaseManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
-	q = manager.SStatusStandaloneResourceBaseManager.FilterByName(q, name)
-	return q
-}*/
-
 func (manager *SVirtualResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
@@ -417,7 +406,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	}
 
 	q := manager.Query().Equals("name", model.GetName())
-	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
+	q = manager.FilterByOwner(q, manager, userCred, ownerId, manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 	q = q.NotEquals("id", model.GetId())
 	cnt, err := q.CountWithError()

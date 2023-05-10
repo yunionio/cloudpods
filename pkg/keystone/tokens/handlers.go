@@ -39,6 +39,7 @@ func AddHandler(app *appsrv.Application) {
 	app.AddHandler2("GET", "/v2.0/tokens/<token>", authenticateToken(verifyTokensV2), nil, "verify_tokens_v2", nil)
 	app.AddHandler2("GET", "/v3/auth/tokens", authenticateToken(verifyTokensV3), nil, "verify_tokens_v3", nil)
 	app.AddHandler2("GET", "/v3/auth/policies", authenticateToken(fetchTokenPolicies), nil, "fetch_token_policies", nil)
+	app.AddHandler2("POST", "/v3/auth/policies", authenticateToken(postTokenPolicies), nil, "post_token_policies", nil)
 }
 
 func FetchAuthContext(authCtx mcclient.SAuthContext, r *http.Request) mcclient.SAuthContext {

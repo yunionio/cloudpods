@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type RolePolicyListInput struct {
@@ -79,4 +80,10 @@ type RolePerformAddPolicyInput struct {
 type RolePerformRemovePolicyInput struct {
 	PolicyId  string `json:"policy_id"`
 	ProjectId string `json:"project_id"`
+}
+
+type IRbacIdentityWithUserId interface {
+	rbacutils.IRbacIdentity
+
+	GetUserId() string
 }

@@ -1157,7 +1157,7 @@ func (manager *SUserManager) LockUser(uid string, reason string) error {
 	return nil
 }
 
-func (manager *SUserManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SUserManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	log.Debugf("owner: %s scope %s", jsonutils.Marshal(owner), scope)
 	if owner != nil && scope == rbacscope.ScopeProject {
 		// if user has project level privilege, returns all users in user's project
@@ -1165,7 +1165,7 @@ func (manager *SUserManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.II
 		q = q.In("id", subq.SubQuery())
 		return q
 	}
-	return manager.SEnabledIdentityBaseResourceManager.FilterByOwner(q, owner, scope)
+	return manager.SEnabledIdentityBaseResourceManager.FilterByOwner(q, man, userCred, owner, scope)
 }
 
 func (user *SUser) GetUsages() []db.IUsage {

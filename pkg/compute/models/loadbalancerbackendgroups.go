@@ -92,15 +92,15 @@ func (manager *SLoadbalancerBackendGroupManager) FetchOwnerId(ctx context.Contex
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (man *SLoadbalancerBackendGroupManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	if userCred != nil {
+func (manager *SLoadbalancerBackendGroupManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if ownerId != nil {
 		sq := LoadbalancerManager.Query("id")
 		switch scope {
 		case rbacscope.ScopeProject:
-			sq = sq.Equals("tenant_id", userCred.GetProjectId())
+			sq = sq.Equals("tenant_id", ownerId.GetProjectId())
 			return q.In("loadbalancer_id", sq.SubQuery())
 		case rbacscope.ScopeDomain:
-			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+			sq = sq.Equals("domain_id", ownerId.GetProjectDomainId())
 			return q.In("loadbalancer_id", sq.SubQuery())
 		}
 	}
@@ -477,7 +477,7 @@ func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 			return rows
 		}
 
-		q = LoadbalancerListenerManager.FilterByOwner(q, ownerId, queryScope)
+		q = LoadbalancerListenerManager.FilterByOwner(q, LoadbalancerListenerManager, userCred, ownerId, queryScope)
 		rows[i].LbListenerCount, _ = q.CountWithError()
 	}
 

@@ -185,18 +185,18 @@ func (self *SSecurityGroupCache) GetIRegion(ctx context.Context) (cloudprovider.
 	return provider.GetIRegionById(region.ExternalId)
 }
 
-func (manager *SSecurityGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	if userCred != nil {
+func (manager *SSecurityGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if ownerId != nil {
 		sq := SecurityGroupManager.Query("id")
 		switch scope {
 		case rbacscope.ScopeProject:
-			if len(userCred.GetProjectId()) > 0 {
-				sq = sq.Equals("tenant_id", userCred.GetProjectId())
+			if len(ownerId.GetProjectId()) > 0 {
+				sq = sq.Equals("tenant_id", ownerId.GetProjectId())
 				return q.In("secgroup_id", sq)
 			}
 		case rbacscope.ScopeDomain:
-			if len(userCred.GetProjectDomainId()) > 0 {
-				sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+			if len(ownerId.GetProjectDomainId()) > 0 {
+				sq = sq.Equals("domain_id", ownerId.GetProjectDomainId())
 				return q.In("secgroup_id", sq)
 			}
 		}

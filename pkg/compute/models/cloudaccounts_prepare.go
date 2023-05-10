@@ -218,7 +218,7 @@ func (cam *SCloudaccountManager) prepareNets(ctx context.Context, userCred mccli
 		// fetch networks
 		networks := make([][]SNetwork, len(wires))
 		for i := range networks {
-			nets, err := wires[i].getNetworks(userCred, rbacscope.ScopeSystem)
+			nets, err := wires[i].getNetworks(userCred, userCred, rbacscope.ScopeSystem)
 			if err != nil {
 				return output, errors.Wrap(err, "wire.getNetwork")
 			}
@@ -585,9 +585,9 @@ func (manager *SCloudaccountManager) fetchWires(userCred mcclient.TokenCredentia
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{}
 		ownerId.DomainId = domainId
-		q = WireManager.FilterByOwner(q, ownerId, rbacscope.ScopeDomain)
+		q = WireManager.FilterByOwner(q, WireManager, userCred, ownerId, rbacscope.ScopeDomain)
 	} else {
-		q = WireManager.FilterByOwner(q, userCred, rbacscope.ScopeDomain)
+		q = WireManager.FilterByOwner(q, WireManager, userCred, userCred, rbacscope.ScopeDomain)
 	}
 	wires := make([]SWire, 0, 1)
 	err := db.FetchModelObjects(WireManager, q, &wires)

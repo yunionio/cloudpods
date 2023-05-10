@@ -3387,7 +3387,7 @@ func (manager *SGuestManager) getGuests(userCred mcclient.TokenCredential, data 
 	guests := []SGuest{}
 	q1 := manager.Query().In("id", _guests)
 	q2 := manager.Query().In("name", _guests)
-	q2 = manager.FilterByOwner(q2, userCred, manager.NamespaceScope())
+	q2 = manager.FilterByOwner(q2, manager, userCred, userCred, manager.NamespaceScope())
 	q2 = manager.FilterBySystemAttributes(q2, userCred, data, manager.ResourceScope())
 	q := sqlchemy.Union(q1, q2).Query().Distinct()
 	err := db.FetchModelObjects(manager, q, &guests)

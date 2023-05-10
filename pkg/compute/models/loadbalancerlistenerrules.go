@@ -102,17 +102,17 @@ func (manager *SLoadbalancerListenerRuleManager) FetchOwnerId(ctx context.Contex
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (man *SLoadbalancerListenerRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	if userCred != nil {
+func (man *SLoadbalancerListenerRuleManager) FilterByOwner(q *sqlchemy.SQuery, manager db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if ownerId != nil {
 		sq := LoadbalancerListenerManager.Query("id")
 		lb := LoadbalancerManager.Query().SubQuery()
 		sq = sq.Join(lb, sqlchemy.Equals(lb.Field("id"), sq.Field("loadbalancer_id")))
 		switch scope {
 		case rbacscope.ScopeProject:
-			sq = sq.Filter(sqlchemy.Equals(lb.Field("tenant_id"), userCred.GetProjectId()))
+			sq = sq.Filter(sqlchemy.Equals(lb.Field("tenant_id"), ownerId.GetProjectId()))
 			return q.In("listener_id", sq.SubQuery())
 		case rbacscope.ScopeDomain:
-			sq = sq.Filter(sqlchemy.Equals(lb.Field("domain_id"), userCred.GetProjectDomainId()))
+			sq = sq.Filter(sqlchemy.Equals(lb.Field("domain_id"), ownerId.GetProjectDomainId()))
 			return q.In("listener_id", sq.SubQuery())
 		}
 	}

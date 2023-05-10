@@ -101,6 +101,18 @@ func (manager *SStandaloneAnonResourceBaseManager) FilterByNotId(q *sqlchemy.SQu
 	return q.NotEquals("id", idStr)
 }
 
+func (manager *SStandaloneAnonResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil {
+		result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionList)
+		if !result.ObjectTags.IsEmpty() {
+			policyTagFilters := tagutils.STagFilters{}
+			policyTagFilters.AddFilters(result.ObjectTags)
+			q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+		}
+	}
+	return q
+}
+
 func (manager *SStandaloneAnonResourceBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q = manager.SResourceBaseManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)
 	showEmulated := jsonutils.QueryBoolean(query, "show_emulated", false)

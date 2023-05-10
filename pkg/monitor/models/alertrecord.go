@@ -413,7 +413,7 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 		ownerId = userCred
 	}
 	query := manager.Query()
-	query = manager.FilterByOwner(query, ownerId, rbacscope.String2Scope(input.Scope))
+	query = manager.FilterByOwner(query, manager, userCred, ownerId, rbacscope.String2Scope(input.Scope))
 	//query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
 	query = query.Equals("state", monitor.AlertStateAlerting)
 	query = query.IsNotNull("res_type").IsNotEmpty("res_type").Desc("created_at")
@@ -424,7 +424,7 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 
 	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsTrue("enabled").
 		IsNull("used_by")
-	alertsQuery = CommonAlertManager.FilterByOwner(alertsQuery, userCred, rbacscope.String2Scope(input.Scope))
+	alertsQuery = CommonAlertManager.FilterByOwner(alertsQuery, CommonAlertManager, userCred, userCred, rbacscope.String2Scope(input.Scope))
 	alerts := make([]SCommonAlert, 0)
 	records := make([]SAlertRecord, 0)
 	err = db.FetchModelObjects(CommonAlertManager, alertsQuery, &alerts)

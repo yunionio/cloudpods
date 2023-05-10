@@ -448,7 +448,7 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		return rows
 	}
 
-	q = GuestManager.FilterByOwner(q, ownerId, queryScope)
+	q = GuestManager.FilterByOwner(q, GuestManager, userCred, ownerId, queryScope)
 	err = db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {
 		log.Errorf("db.FetchModelObjects error: %v", err)
@@ -479,7 +479,7 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 	}
 
 	sq := GuestManager.Query("id").IsFalse("pending_deleted")
-	sq = GuestManager.FilterByOwner(sq, ownerId, queryScope)
+	sq = GuestManager.FilterByOwner(sq, GuestManager, userCred, ownerId, queryScope)
 
 	guestSecgroups := []SGuestsecgroup{}
 	q = GuestsecgroupManager.Query().In("secgroup_id", secgroupIds).In("guest_id", sq.SubQuery())

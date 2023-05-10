@@ -603,8 +603,8 @@ func (man *SNetworkAddressManager) FetchCustomizeColumns(
 	return ret
 }
 
-func (man *SNetworkAddressManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	q = db.ApplyFilterByOwner(q, owner, scope,
+func (man *SNetworkAddressManager) FilterByOwner(q *sqlchemy.SQuery, manager db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	q = db.ApplyFilterByOwner(q, userCred, owner, scope,
 		&man.SStandaloneAnonResourceBaseManager,
 	)
 	if owner != nil {

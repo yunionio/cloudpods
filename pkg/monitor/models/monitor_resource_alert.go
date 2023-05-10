@@ -165,7 +165,7 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		if err != nil {
 			return q, errors.Wrap(err, "Get monitor in Query err")
 		}
-		m.SMonitorScopedResourceManager.FilterByOwner(resQ, userCred, rbacscope.TRbacScope(input.Scope))
+		resQ = m.SMonitorScopedResourceManager.FilterByOwner(resQ, m, userCred, userCred, rbacscope.TRbacScope(input.Scope))
 		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
 	}
 	if len(input.SendState) != 0 {
@@ -184,7 +184,7 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
 	}
 	alertQuery := CommonAlertManager.Query("id")
-	m.SMonitorScopedResourceManager.FilterByOwner(alertQuery, userCred, rbacscope.TRbacScope(input.Scope))
+	alertQuery = m.SMonitorScopedResourceManager.FilterByOwner(alertQuery, m, userCred, userCred, rbacscope.TRbacScope(input.Scope))
 	if len(input.AlertName) != 0 {
 		CommonAlertManager.FieldListFilter(alertQuery, monitor.CommonAlertListInput{Name: input.AlertName})
 		q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
@@ -273,6 +273,6 @@ func (manager *SMonitorResourceAlertManager) ListItemExportKeys(ctx context.Cont
 	return q, nil
 }
 
-func (m *SMonitorResourceAlertManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (m *SMonitorResourceAlertManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return q
 }

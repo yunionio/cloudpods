@@ -116,11 +116,11 @@ func (manager *SWafRuleManager) FetchOwnerId(ctx context.Context, data jsonutils
 	return db.FetchDomainInfo(ctx, data)
 }
 
-func (manager *SWafRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SWafRuleManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	sq1 := WafInstanceManager.Query("id")
-	sq1 = db.SharableManagerFilterByOwner(WafInstanceManager, sq1, userCred, scope)
+	sq1 = db.SharableManagerFilterByOwner(WafInstanceManager, sq1, userCred, ownerId, scope)
 	sq2 := WafRuleGroupManager.Query("id")
-	sq2 = db.SharableManagerFilterByOwner(WafRuleGroupManager, sq2, userCred, scope)
+	sq2 = db.SharableManagerFilterByOwner(WafRuleGroupManager, sq2, userCred, ownerId, scope)
 	return q.Filter(sqlchemy.OR(
 		sqlchemy.In(q.Field("waf_instance_id"), sq1.SubQuery()),
 		sqlchemy.In(q.Field("waf_rule_group_id"), sq2.SubQuery()),

@@ -109,12 +109,12 @@ func (manager *SKubeNodePoolManager) FetchOwnerId(ctx context.Context, data json
 	return db.FetchProjectInfo(ctx, data)
 }
 
-func (manager *SKubeNodePoolManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	if userCred != nil {
+func (manager *SKubeNodePoolManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if ownerId != nil {
 		sq := KubeClusterManager.Query("id")
 		switch scope {
 		case rbacscope.ScopeDomain, rbacscope.ScopeProject:
-			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+			sq = sq.Equals("domain_id", ownerId.GetProjectDomainId())
 			return q.In("cloud_kube_cluster_id", sq.SubQuery())
 		}
 	}

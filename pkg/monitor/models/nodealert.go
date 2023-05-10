@@ -894,6 +894,6 @@ func (alert *SNodeAlert) CustomizeDelete(
 	return alert.SCommonAlert.CustomizeDelete(ctx, userCred, query, data)
 }
 
-func (m *SNodeAlertManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (m *SNodeAlertManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return q
 }
