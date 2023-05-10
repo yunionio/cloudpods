@@ -313,12 +313,12 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 		region, _ = zone.GetRegion()
 	}
 
-	if input.CpuCoreCount < 1 || input.CpuCoreCount > 256 {
-		return input, httperrors.NewOutOfRangeError("cpu_core_count should be range of 1~256")
+	if input.CpuCoreCount < 1 || input.CpuCoreCount > options.Options.SkuMaxCpuCount {
+		return input, httperrors.NewOutOfRangeError("cpu_core_count should be range of 1~%d", options.Options.SkuMaxCpuCount)
 	}
 
-	if input.MemorySizeMB < 512 || input.MemorySizeMB > 1024*512 {
-		return input, httperrors.NewOutOfRangeError("memory_size_mb, shoud be range of 512~%d", 1024*512)
+	if input.MemorySizeMB < 512 || input.MemorySizeMB > 1024*options.Options.SkuMaxMemSize {
+		return input, httperrors.NewOutOfRangeError("memory_size_mb, shoud be range of 512~%d", 1024*options.Options.SkuMaxMemSize)
 	}
 
 	if len(input.InstanceTypeCategory) == 0 {

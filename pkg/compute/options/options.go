@@ -204,6 +204,9 @@ type ComputeOptions struct {
 	LocalDataDiskMinSizeGB int `help:"Data disk min size when using local storage" default:"10"`
 	LocalDataDiskMaxSizeGB int `help:"Data disk max size when using local storage" default:"40960"`
 
+	SkuMaxMemSize  int64 `help:"Sku max memory size GB" default:"1024"`
+	SkuMaxCpuCount int64 `help:"Sku max cpu count" default:"256"`
+
 	esxi.EsxiOptions
 }
 
