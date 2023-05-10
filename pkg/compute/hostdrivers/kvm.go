@@ -206,8 +206,8 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.Marshal(&input), "disk")
 
+	log.Infof("cache image %s(%s) on host %s(%s)", input.ImageName, input.ImageId, host.Name, host.AccessIp)
 	header := task.GetTaskRequestHeader()
-
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	if err != nil {
 		return errors.Wrapf(err, "POST %s", url)
