@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/pinyinutils"
@@ -1075,8 +1076,12 @@ func (self *SElasticip) CustomizeDelete(ctx context.Context, userCred mcclient.T
 	return self.StartEipDeallocateTask(ctx, userCred, "")
 }
 
-func (self *SElasticip) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	if self.IsAssociated() {
+func (self *SElasticip) ValidateDeleteCondition(ctx context.Context, info *api.ElasticipDetails) error {
+	if gotypes.IsNil(info) {
+		if self.IsAssociated() {
+			return fmt.Errorf("eip is associated with resources")
+		}
+	} else if len(info.AssociateName) > 0 {
 		return fmt.Errorf("eip is associated with resources")
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
@@ -1385,23 +1390,66 @@ func (manager *SElasticipManager) FetchCustomizeColumns(
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	lbIds := []string{}
+	guestIds := []string{}
+	natIds := []string{}
+	groupIds := []string{}
 	for i := range rows {
 		rows[i] = api.ElasticipDetails{
 			VirtualResourceDetails:  virtRows[i],
 			ManagedResourceInfo:     managerRows[i],
 			CloudregionResourceInfo: regionRows[i],
 		}
-		rows[i] = objs[i].(*SElasticip).getMoreDetails(rows[i])
+		eip := objs[i].(*SElasticip)
+		if len(eip.AssociateId) > 0 {
+			switch eip.AssociateType {
+			case api.EIP_ASSOCIATE_TYPE_SERVER:
+				guestIds = append(guestIds, eip.AssociateId)
+			case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+				lbIds = append(lbIds, eip.AssociateId)
+			case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
+				natIds = append(natIds, eip.AssociateId)
+			case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+				groupIds = append(groupIds, eip.AssociateId)
+			}
+		}
+	}
+	guests, err := db.FetchIdNameMap2(GuestManager, guestIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 guests")
+		return rows
+	}
+	lbs, err := db.FetchIdNameMap2(LoadbalancerManager, lbIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 loadbalancer")
+		return rows
+	}
+	nats, err := db.FetchIdNameMap2(NatGatewayManager, natIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 natgateway")
+		return rows
+	}
+	groups, err := db.FetchIdNameMap2(GroupManager, groupIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 group")
+		return rows
+	}
+	for i := range rows {
+		eip := objs[i].(*SElasticip)
+		if len(eip.AssociateId) > 0 {
+			switch eip.AssociateType {
+			case api.EIP_ASSOCIATE_TYPE_SERVER:
+				rows[i].AssociateName, _ = guests[eip.AssociateId]
+			case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+				rows[i].AssociateName, _ = lbs[eip.AssociateId]
+			case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
+				rows[i].AssociateName, _ = nats[eip.AssociateId]
+			case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+				rows[i].AssociateName, _ = groups[eip.AssociateId]
+			}
+		}
 	}
 	return rows
-}
-
-func (self *SElasticip) getMoreDetails(out api.ElasticipDetails) api.ElasticipDetails {
-	instance := self.GetAssociateResource()
-	if instance != nil {
-		out.AssociateName = instance.GetName()
-	}
-	return out
 }
 
 type SEipNetwork struct {
