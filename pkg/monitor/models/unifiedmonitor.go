@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -182,6 +184,10 @@ func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Con
 	}
 	rtn.(*jsonutils.JSONDict).Add(jsonutils.Marshal(&metricFunc), "func")
 	return rtn, nil
+}
+
+func (self *SUnifiedMonitorManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
+	return 5 * time.Minute
 }
 
 func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
