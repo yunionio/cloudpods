@@ -224,7 +224,7 @@ func (o baseOptions) KeyboardLayoutLanguage(lang string) string {
 }
 
 func (o baseOptions) Name(name string) string {
-	return fmt.Sprintf(`-name '%s',debug-threads=on`, name)
+	return fmt.Sprintf(`-name '%s',debug-threads=on`, strings.ReplaceAll(name, " ", "_"))
 }
 
 func (o baseOptions) UUID(enable bool, uuid string) string {
