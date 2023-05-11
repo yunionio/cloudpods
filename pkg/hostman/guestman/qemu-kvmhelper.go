@@ -422,6 +422,23 @@ func (s *SKVMGuestInstance) extraOptions() string {
 	return cmd
 }
 
+func (s *SKVMGuestInstance) hasGpu() bool {
+	manager := s.manager.GetHost().GetIsolatedDeviceManager()
+	isolatedDevices, _ := s.Desc.GetArray("isolated_devices")
+	for i := range isolatedDevices {
+		vendorDevId, _ := isolatedDevices[i].GetString("vendor_device_id")
+		addr, _ := isolatedDevices[i].GetString("addr")
+		dev := manager.GetDeviceByIdent(vendorDevId, addr)
+		if dev == nil {
+			continue
+		}
+		if dev.GetDeviceType() == api.GPU_VGA_TYPE || dev.GetDeviceType() == api.GPU_HPC_TYPE {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (string, error) {
 	var (
 		uuid, _ = s.Desc.GetString("uuid")
@@ -560,7 +577,7 @@ function nic_mtu() {
 			}
 		}
 
-		if !guestManager.GetHost().IsNestedVirtualization() {
+		if s.hasGpu() {
 			cpuType += ",kvm=off"
 		}
 
@@ -588,6 +605,7 @@ function nic_mtu() {
 	cmd += " -daemonize"
 	cmd += " -nodefaults -nodefconfig"
 	cmd += " -no-kvm-pit-reinjection"
+	cmd += " -no-hpet"
 	cmd += " -global kvm-pit.lost_tick_policy=discard"
 	cmd += fmt.Sprintf(" -machine %s,accel=%s", s.getMachine(), accel)
 	cmd += " -k en-us"
