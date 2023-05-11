@@ -517,6 +517,9 @@ func (rm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclie
 	for i := range ret {
 		ret[i] = allTypes[i].Type
 	}
+	if !utils.IsInStringArray(api.WEBCONSOLE, ret) {
+		ret = append(ret, api.WEBCONSOLE)
+	}
 	output.Types = ret
 	return output, nil
 }
@@ -537,6 +540,7 @@ func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred 
 		if user.EnabledMobile.Bool() {
 			rows[i].EnabledContactTypes = append(rows[i].EnabledContactTypes, api.MOBILE)
 		}
+		rows[i].EnabledContactTypes = append(rows[i].EnabledContactTypes, api.WEBCONSOLE)
 		rows[i].VerifiedInfos = []api.VerifiedInfo{
 			{
 				ContactType: api.EMAIL,
