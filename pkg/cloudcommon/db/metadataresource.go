@@ -126,11 +126,11 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	}
 	q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), inputTagFilters)
 
-	if !input.PolicyObjectTags.IsEmpty() {
-		projTagFilters := tagutils.STagFilters{}
-		projTagFilters.AddFilters(input.PolicyObjectTags)
-		q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), projTagFilters)
-	}
+	//if !input.PolicyObjectTags.IsEmpty() {
+	//	projTagFilters := tagutils.STagFilters{}
+	//	projTagFilters.AddFilters(input.PolicyObjectTags)
+	//	q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), projTagFilters)
+	//}
 
 	if input.WithoutUserMeta != nil || input.WithUserMeta != nil {
 		metadatas := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()

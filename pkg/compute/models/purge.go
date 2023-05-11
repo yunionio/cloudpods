@@ -929,7 +929,7 @@ func (net *SNetwork) purge(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func (wire *SWire) purgeNetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	nets, err := wire.getNetworks(nil, rbacscope.ScopeNone)
+	nets, err := wire.getNetworks(nil, nil, rbacscope.ScopeNone)
 	if err != nil {
 		return err
 	}

@@ -110,7 +110,7 @@ func (self *SManagedVirtualizationRegionDriver) IsSupportLoadbalancerListenerRul
 
 func validateUniqueById(ctx context.Context, userCred mcclient.TokenCredential, man db.IResourceModelManager, id string) error {
 	q := man.Query().Equals("id", id)
-	q = man.FilterByOwner(q, userCred, man.NamespaceScope())
+	q = man.FilterByOwner(q, man, userCred, userCred, man.NamespaceScope())
 	count, err := q.CountWithError()
 	if err != nil {
 		if err == sql.ErrNoRows {

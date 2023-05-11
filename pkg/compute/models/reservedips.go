@@ -332,12 +332,12 @@ func (manager *SReservedipManager) ResourceScope() rbacscope.TRbacScope {
 	return rbacscope.ScopeProject
 }
 
-func (manager *SReservedipManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SReservedipManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
 		case rbacscope.ScopeProject, rbacscope.ScopeDomain:
 			netsQ := NetworkManager.Query("id")
-			netsQ = NetworkManager.FilterByOwner(netsQ, owner, scope)
+			netsQ = NetworkManager.FilterByOwner(netsQ, NetworkManager, userCred, owner, scope)
 			netsSQ := netsQ.SubQuery()
 			q = q.Join(netsSQ, sqlchemy.Equals(q.Field("network_id"), netsSQ.Field("id")))
 		}

@@ -143,7 +143,7 @@ func (zone *SZone) getStorageCount() (int, error) {
 }
 
 func (zone *SZone) getNetworkCount() (int, error) {
-	return getNetworkCount(nil, rbacscope.ScopeSystem, nil, zone)
+	return getNetworkCount(nil, nil, rbacscope.ScopeSystem, nil, zone)
 }
 
 func (manager *SZoneManager) FetchCustomizeColumns(

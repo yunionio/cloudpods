@@ -585,7 +585,7 @@ func (nm *SNotificationManager) FetchOwnerId(ctx context.Context, data jsonutils
 	return db.FetchUserInfo(ctx, data)
 }
 
-func (nm *SNotificationManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (nm *SNotificationManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner == nil {
 		return q
 	}

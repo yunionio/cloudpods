@@ -194,7 +194,7 @@ func totalKeypairCount(userId string) (int, error) {
 	return q.CountWithError()
 }
 
-func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		if scope == rbacscope.ScopeUser {
 			if len(owner.GetUserId()) > 0 {

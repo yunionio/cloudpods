@@ -146,20 +146,17 @@ type SSchedtag struct {
 	ResourceType    string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"required"`                                 // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
 }
 
-func (m *SSchedtagManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	if userCred == nil {
+func (m *SSchedtagManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	if ownerId == nil {
 		return q
 	}
 	switch scope {
 	case rbacscope.ScopeDomain:
 		q = q.Filter(sqlchemy.OR(
 			// share to system
-			sqlchemy.AND(
-				sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
-				//sqlchemy.IsNullOrEmpty(q.Field("tenant_id")),
-			),
+			sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
 			// share to this domain or its sub-projects
-			sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId()),
+			sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
 		))
 	case rbacscope.ScopeProject:
 		q = q.Filter(sqlchemy.OR(
@@ -170,13 +167,13 @@ func (m *SSchedtagManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.I
 			),
 			// share to project's parent domain
 			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId()),
+				sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
 				sqlchemy.IsNullOrEmpty(q.Field("tenant_id")),
 			),
 			// share to this project
 			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId()),
-				sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId()),
+				sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
+				sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()),
 			),
 		))
 	}

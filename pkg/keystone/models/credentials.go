@@ -234,7 +234,7 @@ func (manager *SCredentialManager) ResourceScope() rbacscope.TRbacScope {
 	return rbacscope.ScopeUser
 }
 
-func (manager *SCredentialManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SCredentialManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		if scope == rbacscope.ScopeUser {
 			if len(owner.GetUserId()) > 0 {
