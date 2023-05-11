@@ -351,8 +351,8 @@ func (manager *SMonitorResourceManager) GetPropertyAlert(ctx context.Context, us
 		if owner == nil {
 			owner = userCred
 		}
-		manager.FilterByOwner(query, owner, rbacscope.TRbacScope(scope))
-		query.AppendField(sqlchemy.COUNT("count_id", query.Field("id")))
+		query = manager.FilterByOwner(query, manager, userCred, owner, rbacscope.TRbacScope(scope))
+		query = query.AppendField(sqlchemy.COUNT("count_id", query.Field("id")))
 		input := monitor.MonitorResourceListInput{ResType: resType}
 		query = manager.FieldListFilter(query, input)
 		query.GroupBy(query.Field("alert_state"))

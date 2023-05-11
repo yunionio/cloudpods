@@ -364,7 +364,7 @@ func (confManager *SConfigManager) InitializeData() error {
 	return nil
 }
 
-func (cm *SConfigManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (cm *SConfigManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	switch scope {
 	case rbacscope.ScopeDomain, rbacscope.ScopeProject:
 		q = q.Equals("attribution", api.CONFIG_ATTRIBUTION_DOMAIN)

@@ -271,7 +271,7 @@ func listItemQueryFiltersRaw(manager IModelManager,
 	if !useRawQuery {
 		// Specifically for joint resource, these filters will exclude
 		// deleted resources by joining with master/slave tables
-		q = manager.FilterByOwner(q, ownerId, queryScope)
+		q = manager.FilterByOwner(q, manager, userCred, ownerId, queryScope)
 		q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
 		q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
 	}

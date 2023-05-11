@@ -19,6 +19,10 @@ import (
 	"net/http"
 	"time"
 
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
+
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -37,4 +41,42 @@ func fetchTokenPolicies(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	output.Names = names
 	output.Policies = group
 	appsrv.SendJSON(w, output.Encode())
+}
+
+func postTokenPolicies(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	if body == nil {
+		httperrors.InvalidInputError(ctx, w, "empty request body")
+		return
+	}
+	input := mcclient.SCheckPoliciesInput{}
+	err := body.Unmarshal(&input)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	output, err := doCheckPolicies(ctx, input)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	appsrv.SendJSON(w, output.Encode())
+}
+
+func doCheckPolicies(ctx context.Context, input mcclient.SCheckPoliciesInput) (*mcclient.SFetchMatchPoliciesOutput, error) {
+	adminToken := policy.FetchUserCredential(ctx)
+	if adminToken == nil {
+		return nil, httperrors.NewForbiddenError("missing auth token")
+	}
+	if adminToken.IsAllow(rbacscope.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "check_policies").Result.IsDeny() {
+		return nil, httperrors.NewForbiddenError("%s not allow to check policies", adminToken.GetUserName())
+	}
+	names, group, err := models.RolePolicyManager.GetMatchPolicyGroupByInput(input.UserId, input.ProjectId, time.Now(), false)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetMatchPolicyGroupByInput")
+	}
+	output := mcclient.SFetchMatchPoliciesOutput{}
+	output.Names = names
+	output.Policies = group
+	return &output, nil
 }

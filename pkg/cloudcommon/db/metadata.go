@@ -406,7 +406,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 				log.Warningf("FetchCheckQueryOwnerScope.%s error: %v", man.Keyword(), err)
 				continue
 			}
-			sq = man.FilterByOwner(sq, ownerId, queryScope)
+			sq = man.FilterByOwner(sq, man, userCred, ownerId, queryScope)
 			sq = man.FilterBySystemAttributes(sq, userCred, query, queryScope)
 			sq = man.FilterByHiddenSystemAttributes(sq, userCred, query, queryScope)
 			conditions = append(conditions, sqlchemy.In(q.Field("obj_id"), sq))

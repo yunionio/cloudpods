@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SSharableBaseResourceManager struct{}
@@ -213,7 +214,7 @@ func SharableManagerValidateCreateData(
 	return input, nil
 }
 
-func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		resScope := manager.ResourceScope()
 		if resScope == rbacscope.ScopeProject && scope == rbacscope.ScopeProject {
@@ -243,8 +244,17 @@ func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.S
 					),
 					sqlchemy.In(q.Field("id"), subq.SubQuery()),
 				))
+				if userCred != nil {
+					result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+					if !result.ObjectTags.IsEmpty() {
+						policyTagFilters := tagutils.STagFilters{}
+						policyTagFilters.AddFilters(result.ObjectTags)
+						q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), policyTagFilters)
+					}
+				}
 			}
 		} else if (resScope == rbacscope.ScopeDomain && (scope == rbacscope.ScopeProject || scope == rbacscope.ScopeDomain)) || (resScope == rbacscope.ScopeProject && scope == rbacscope.ScopeDomain) {
+			// domain view
 			ownerDomainId := owner.GetProjectDomainId()
 			if len(ownerDomainId) > 0 {
 				subq := SharedResourceManager.Query("resource_id")
@@ -262,6 +272,49 @@ func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.S
 						sqlchemy.In(q.Field("id"), subq.SubQuery()),
 					),
 				))
+				if userCred != nil {
+					result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+					if !result.ProjectTags.IsEmpty() && resScope == rbacscope.ScopeProject {
+						policyTagFilters := tagutils.STagFilters{}
+						policyTagFilters.AddFilters(result.ProjectTags)
+						q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", policyTagFilters)
+					}
+					if !result.ObjectTags.IsEmpty() {
+						policyTagFilters := tagutils.STagFilters{}
+						policyTagFilters.AddFilters(result.ObjectTags)
+						q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), policyTagFilters)
+					}
+				}
+			}
+		} else {
+			log.Debugf("res_scope: %s view_scope: %s", resScope, scope)
+			// system view
+			if userCred != nil {
+				result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+				log.Debugf("policy result: %s", jsonutils.Marshal(result))
+				if !result.DomainTags.IsEmpty() && (resScope == rbacscope.ScopeDomain || resScope == rbacscope.ScopeProject) && scope == rbacscope.ScopeSystem {
+					subq := manager.Query("id")
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.DomainTags)
+					subq = ObjectIdQueryWithTagFilters(subq, "domain_id", "domain", policyTagFilters)
+					q = q.Filter(sqlchemy.OR(
+						sqlchemy.In(q.Field("id"), subq.SubQuery()),
+						sqlchemy.AND(
+							sqlchemy.IsTrue(q.Field("is_public")),
+							sqlchemy.Equals(q.Field("public_scope"), rbacscope.ScopeSystem),
+						),
+					))
+				}
+				if !result.ProjectTags.IsEmpty() && resScope == rbacscope.ScopeProject {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ProjectTags)
+					q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", policyTagFilters)
+				}
+				if !result.ObjectTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ObjectTags)
+					q = ObjectIdQueryWithTagFilters(q, "id", manager.Keyword(), policyTagFilters)
+				}
 			}
 		}
 	}

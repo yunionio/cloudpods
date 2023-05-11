@@ -190,7 +190,7 @@ func (sam *SScalingActivityManager) ResourceScope() rbacscope.TRbacScope {
 	return rbacscope.ScopeProject
 }
 
-func (sam *SScalingActivityManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (sam *SScalingActivityManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
 		case rbacscope.ScopeProject, rbacscope.ScopeDomain:

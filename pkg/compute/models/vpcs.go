@@ -1627,7 +1627,7 @@ func (vpc *SVpc) PerformPrivate(ctx context.Context, userCred mcclient.TokenCred
 	wires, _ := vpc.GetWires()
 	for i := range wires {
 		if wires[i].DomainId == vpc.DomainId {
-			nets, _ := wires[i].getNetworks(nil, rbacscope.ScopeNone)
+			nets, _ := wires[i].getNetworks(nil, nil, rbacscope.ScopeNone)
 			for j := range nets {
 				if nets[j].DomainId != vpc.DomainId {
 					emptyNets = false
@@ -1644,7 +1644,7 @@ func (vpc *SVpc) PerformPrivate(ctx context.Context, userCred mcclient.TokenCred
 	}
 	if emptyNets {
 		for i := range wires {
-			nets, _ := wires[i].getNetworks(nil, rbacscope.ScopeNone)
+			nets, _ := wires[i].getNetworks(nil, nil, rbacscope.ScopeNone)
 			netfail := false
 			for j := range nets {
 				if nets[j].IsPublic && nets[j].GetPublicScope().HigherEqual(rbacscope.ScopeDomain) {
@@ -1919,7 +1919,7 @@ func (self *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 			}
 			wire.Hosts = append(wire.Hosts, host)
 		}
-		networks, err := wires[i].GetNetworks(nil, rbacscope.ScopeSystem)
+		networks, err := wires[i].GetNetworks(nil, nil, rbacscope.ScopeSystem)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetNetworks")
 		}
@@ -1937,7 +1937,7 @@ func (self *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 
 			netAddrs := make([]api.SNetworkUsedAddress, 0)
 
-			q := networks[j].getUsedAddressQuery(userCred, rbacscope.ScopeSystem, false)
+			q := networks[j].getUsedAddressQuery(userCred, userCred, rbacscope.ScopeSystem, false)
 			err = q.All(&netAddrs)
 			if err != nil {
 				return nil, errors.Wrapf(err, "q.All")

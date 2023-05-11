@@ -249,19 +249,23 @@ const (
 	FAKE_TOKEN = "fake_token"
 )
 
+type IBaseIdentity interface {
+	GetLoginIp() string
+	GetTokenString() string
+}
 type IRbacIdentity interface {
 	GetProjectId() string
 	GetRoleIds() []string
-	GetLoginIp() string
-	GetTokenString() string
+
+	IBaseIdentity
 }
 
 type IRbacIdentity2 interface {
 	GetProjectDomainId() string
 	GetProjectName() string
 	GetRoles() []string
-	GetLoginIp() string
-	GetTokenString() string
+
+	IBaseIdentity
 }
 
 type sSimpleRbacIdentity struct {

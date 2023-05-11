@@ -384,14 +384,14 @@ func (group *SGroup) PerformLeave(
 	return nil, nil
 }
 
-func (manager *SGroupManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SGroupManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil && scope == rbacscope.ScopeProject {
 		// if user has project level privilege, returns all groups in user's project
 		subq := AssignmentManager.fetchProjectGroupIdsQuery(owner.GetProjectId())
 		q = q.In("id", subq.SubQuery())
 		return q
 	}
-	return manager.SIdentityBaseResourceManager.FilterByOwner(q, owner, scope)
+	return manager.SIdentityBaseResourceManager.FilterByOwner(q, man, userCred, owner, scope)
 }
 
 func (group *SGroup) GetUsages() []db.IUsage {

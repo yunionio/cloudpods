@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -50,19 +51,54 @@ func (model *SProjectizedResourceBase) GetOwnerId() mcclient.IIdentityProvider {
 	return &owner
 }
 
-func (manager *SProjectizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SProjectizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
 		case rbacscope.ScopeProject:
 			q = q.Equals("tenant_id", owner.GetProjectId())
+			if userCred != nil {
+				result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionList)
+				if !result.ObjectTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ObjectTags)
+					q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+				}
+			}
 		case rbacscope.ScopeDomain:
 			q = q.Equals("domain_id", owner.GetProjectDomainId())
+			if userCred != nil {
+				result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionList)
+				if !result.ProjectTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ProjectTags)
+					q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", policyTagFilters)
+				}
+				if !result.ObjectTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ObjectTags)
+					q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+				}
+			}
+		case rbacscope.ScopeSystem:
+			if userCred != nil {
+				result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionList)
+				if !result.DomainTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.DomainTags)
+					q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", policyTagFilters)
+				}
+				if !result.ProjectTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ProjectTags)
+					q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", policyTagFilters)
+				}
+				if !result.ObjectTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ObjectTags)
+					q = ObjectIdQueryWithTagFilters(q, "id", man.Keyword(), policyTagFilters)
+				}
+			}
 		}
-		/*if len(owner.GetProjectId()) > 0 {
-			q = q.Equals("tenant_id", owner.GetProjectId())
-		} else if len(owner.GetProjectDomainId()) > 0 {
-			q = q.Equals("domain_id", owner.GetProjectDomainId())
-		}*/
 	}
 	return q
 }
@@ -119,11 +155,6 @@ func (manager *SProjectizedResourceBaseManager) ListItemFilter(
 		tagFilters.AddNoFilters(query.NoProjectTags)
 	}
 	q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", tagFilters)
-	if !query.PolicyProjectTags.IsEmpty() {
-		policyTagFilters := tagutils.STagFilters{}
-		policyTagFilters.AddFilters(query.PolicyProjectTags)
-		q = ObjectIdQueryWithTagFilters(q, "tenant_id", "project", policyTagFilters)
-	}
 	return q, nil
 }
 

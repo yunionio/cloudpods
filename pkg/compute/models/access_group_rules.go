@@ -110,9 +110,9 @@ func (manager *SAccessGroupRuleManager) FetchOwnerId(ctx context.Context, data j
 	return db.FetchDomainInfo(ctx, data)
 }
 
-func (manager *SAccessGroupRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+func (manager *SAccessGroupRuleManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	sq := AccessGroupManager.Query("id")
-	sq = db.SharableManagerFilterByOwner(AccessGroupManager, sq, userCred, scope)
+	sq = db.SharableManagerFilterByOwner(AccessGroupManager, sq, userCred, owner, scope)
 	return q.In("access_group_id", sq.SubQuery())
 }
 
