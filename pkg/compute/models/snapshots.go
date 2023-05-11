@@ -1195,7 +1195,7 @@ func (manager *SSnapshotManager) DataCleaning(ctx context.Context, userCred mccl
 
 func dataCleaning(tableName string) error {
 	now := time.Now()
-	monthsDaysAgo := now.AddDate(0, -1, 0).Format("2006-01-02 15:04:05")
+	monthsDaysAgo := now.AddDate(0, 0, -options.Options.SaveDeletedSnapshotDays).Format("2006-01-02 15:04:05")
 	sqlStr := fmt.Sprintf(
 		"delete from %s  where deleted = 1 and updated_at < '%s'",
 		tableName,
