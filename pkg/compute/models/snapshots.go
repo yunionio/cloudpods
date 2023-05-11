@@ -1185,3 +1185,28 @@ func (manager *SSnapshotManager) ListItemExportKeys(ctx context.Context,
 
 	return q, nil
 }
+
+func (manager *SSnapshotManager) DataCleaning(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	err := dataCleaning(manager.TableSpec().Name())
+	if err != nil {
+		log.Errorf("*************  %s:dataCleaning error:%s  ************", manager.TableSpec().Name(), err.Error())
+	}
+}
+
+func dataCleaning(tableName string) error {
+	now := time.Now()
+	monthsDaysAgo := now.AddDate(0, -1, 0).Format("2006-01-02 15:04:05")
+	sqlStr := fmt.Sprintf(
+		"delete from %s  where deleted = 1 and updated_at < '%s'",
+		tableName,
+		monthsDaysAgo,
+	)
+	q := sqlchemy.NewRawQuery(sqlStr)
+	rows, err := q.Rows()
+	if err != nil {
+		return errors.Wrapf(err, "unable to delete expired data in %q", tableName)
+	}
+	defer rows.Close()
+	log.Infof("delete expired data in %q successfully", tableName)
+	return nil
+}
