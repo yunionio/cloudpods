@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
@@ -134,6 +135,13 @@ func (s *SKVMGuestInstance) HideKVM() bool {
 	if s.hasGPU() {
 		return true
 	}
+	if s.IsRunning() && s.IsMonitorAlive() {
+		cmdline, _ := fileutils2.FileGetContents(path.Join("/proc", strconv.Itoa(s.GetPid()), "cmdline"))
+		if strings.Contains(cmdline, "kvm=off") {
+			return true
+		}
+	}
+
 	return false
 }
 
