@@ -3139,3 +3139,111 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateKafka(ctx con
 	})
 	return nil
 }
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateKubeClusterData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.KubeClusterCreateInput) (*api.KubeClusterCreateInput, error) {
+	return input, nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateKubeCluster(ctx context.Context, userCred mcclient.TokenCredential, cluster *models.SKubeCluster, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		opts := &cloudprovider.KubeClusterCreateOptions{
+			NAME:       cluster.Name,
+			Desc:       cluster.Description,
+			Version:    cluster.Version,
+			NetworkIds: []string{},
+		}
+		vpc, err := cluster.GetVpc()
+		if err != nil {
+			return nil, errors.Wrapf(err, "cluster.GetVpc")
+		}
+		opts.VpcId = vpc.ExternalId
+		networks, err := cluster.GetNetworks()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetNetworks")
+		}
+		for _, net := range networks {
+			opts.NetworkIds = append(opts.NetworkIds, net.ExternalId)
+		}
+		opts.Tags, _ = cluster.GetAllUserMetadata()
+		params := task.GetParams()
+		opts.ServiceCIDR, _ = params.GetString("service_cidr")
+		opts.RoleName, _ = params.GetString("role_name")
+		opts.PrivateAccess, _ = params.Bool("private_access")
+		opts.PublicAccess, _ = params.Bool("public_access")
+
+		iregion, err := cluster.GetIRegion(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIRegion")
+		}
+		icluster, err := iregion.CreateIKubeCluster(opts)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CreateIKubeCluster")
+		}
+		err = db.SetExternalId(cluster, userCred, icluster.GetGlobalId())
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.SetExternalId")
+		}
+		err = cloudprovider.WaitStatusWithSync(icluster, api.KUBE_CLUSTER_STATUS_RUNNING, func(status string) {
+			cluster.SetStatus(userCred, status, "")
+		}, time.Second*30, time.Hour*1)
+		if err != nil {
+			return nil, errors.Wrapf(err, "wait cluster status timeout, current status: %s", icluster.GetStatus())
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateKubeNodePoolData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.KubeNodePoolCreateInput) (*api.KubeNodePoolCreateInput, error) {
+	return input, nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateKubeNodePool(ctx context.Context, userCred mcclient.TokenCredential, pool *models.SKubeNodePool, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		opts := &cloudprovider.KubeNodePoolCreateOptions{
+			NAME: pool.Name,
+			Desc: pool.Description,
+
+			MinInstanceCount:     pool.MinInstanceCount,
+			MaxInstanceCount:     pool.MaxInstanceCount,
+			DesiredInstanceCount: pool.DesiredInstanceCount,
+
+			RootDiskSizeGb: pool.RootDiskSizeGb,
+
+			NetworkIds:    []string{},
+			InstanceTypes: []string{},
+		}
+		if pool.InstanceTypes != nil {
+			for _, instanceType := range *pool.InstanceTypes {
+				opts.InstanceTypes = append(opts.InstanceTypes, instanceType)
+			}
+		}
+		networks, err := pool.GetNetworks()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetNetworks")
+		}
+		for _, net := range networks {
+			opts.NetworkIds = append(opts.NetworkIds, net.ExternalId)
+		}
+		opts.Tags, _ = pool.GetAllUserMetadata()
+
+		icluster, err := pool.GetIKubeCluster(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIKubeCluster")
+		}
+		ipool, err := icluster.CreateIKubeNodePool(opts)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CreateIKubeNodePool")
+		}
+		err = db.SetExternalId(pool, userCred, ipool.GetGlobalId())
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.SetExternalId")
+		}
+		err = cloudprovider.WaitStatus(ipool, api.KUBE_CLUSTER_STATUS_RUNNING, time.Second*30, time.Hour*1)
+		if err != nil {
+			return nil, errors.Wrapf(err, "wait cluster status timeout, current status: %s", icluster.GetStatus())
+		}
+		return nil, pool.SetStatus(userCred, api.KUBE_CLUSTER_STATUS_RUNNING, "")
+	})
+	return nil
+}

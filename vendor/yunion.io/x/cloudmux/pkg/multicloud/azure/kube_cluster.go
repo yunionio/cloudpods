@@ -161,6 +161,18 @@ func (self *SKubeCluster) GetKubeConfig(private bool, expireMinute int) (*cloudp
 	return self.region.GetKubeConfig(self.Id)
 }
 
+func (self *SKubeCluster) GetVersion() string {
+	return self.Properties.KubernetesVersion
+}
+
+func (self *SKubeCluster) GetVpcId() string {
+	return ""
+}
+
+func (self *SKubeCluster) GetNetworkIds() []string {
+	return []string{}
+}
+
 func (self *SRegion) GetICloudKubeClusters() ([]cloudprovider.ICloudKubeCluster, error) {
 	clusters, err := self.GetKubeClusters()
 	if err != nil {
@@ -217,4 +229,8 @@ func (self *SRegion) GetKubeConfig(id string) (*cloudprovider.SKubeconfig, error
 	}
 	result.Config = string(config)
 	return result, err
+}
+
+func (self *SKubeCluster) CreateIKubeNodePool(opts *cloudprovider.KubeNodePoolCreateOptions) (cloudprovider.ICloudKubeNodePool, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

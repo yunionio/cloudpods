@@ -61,10 +61,6 @@ const (
 	DefaultAssumeRoleName = "OrganizationAccountAccessRole"
 )
 
-var (
-	DEBUG = false
-)
-
 type AwsClientConfig struct {
 	cpcfg cloudprovider.ProviderConfig
 
@@ -95,7 +91,6 @@ func (cfg *AwsClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConf
 
 func (cfg *AwsClientConfig) Debug(debug bool) *AwsClientConfig {
 	cfg.debug = debug
-	DEBUG = debug
 	return cfg
 }
 

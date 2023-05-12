@@ -481,6 +481,7 @@ func (self *SBaseRegionDriver) RequestSyncBackupStorageStatus(ctx context.Contex
 func (self *SBaseRegionDriver) RequestPackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestPackInstanceBackup")
 }
+
 func (self *SBaseRegionDriver) RequestUnpackInstanceBackup(ctx context.Context, ib *models.SInstanceBackup, task taskman.ITask, packageName string, metadataOnly bool) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestUnpackInstanceBackup")
 }
@@ -491,4 +492,20 @@ func (self *SBaseRegionDriver) RequestRemoteUpdateElasticSearch(ctx context.Cont
 
 func (self *SBaseRegionDriver) RequestRemoteUpdateKafka(ctx context.Context, userCred mcclient.TokenCredential, kafka *models.SKafka, replaceTags bool, task taskman.ITask) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestRemoteUpdateElasticSearch")
+}
+
+func (self *SBaseRegionDriver) ValidateCreateKubeClusterData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.KubeClusterCreateInput) (*api.KubeClusterCreateInput, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateKubeClusterData")
+}
+
+func (self *SBaseRegionDriver) ValidateCreateKubeNodePoolData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.KubeNodePoolCreateInput) (*api.KubeNodePoolCreateInput, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateKubeNodePoolData")
+}
+
+func (self *SBaseRegionDriver) RequestCreateKubeCluster(ctx context.Context, userCred mcclient.TokenCredential, cluster *models.SKubeCluster, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateKubeCluster")
+}
+
+func (self *SBaseRegionDriver) RequestCreateKubeNodePool(ctx context.Context, userCred mcclient.TokenCredential, pool *models.SKubeNodePool, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateKubeNodePool")
 }

@@ -23,6 +23,7 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.KubeClusters)
 	cmd.List(&compute.KubeClusterListOptions{})
+	cmd.Create(&compute.KubeClusterCreateOptions{})
 	cmd.Show(&compute.KubeClusterIdOption{})
 	cmd.Delete(&compute.KubeClusterIdOption{})
 	cmd.Perform("syncstatus", &compute.KubeClusterIdOption{})

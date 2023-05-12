@@ -142,6 +142,9 @@ const (
 
 	ELB_SERVICE_NAME = "elasticloadbalancing"
 	ELB_SERVICE_ID   = "Elastic Load Balancing v2"
+
+	EKS_SERVICE_NAME = "eks"
+	EKS_SERVICE_ID   = "EKS"
 )
 
 type SRegion struct {
@@ -268,6 +271,10 @@ func (self *SRegion) ec2Request(apiName string, params map[string]string, retval
 
 func (self *SAwsClient) monitorRequest(regionId, apiName string, params map[string]string, retval interface{}) error {
 	return self.request(regionId, CLOUDWATCH_SERVICE_NAME, CLOUDWATCH_SERVICE_ID, "2010-08-01", apiName, params, retval, true)
+}
+
+func (self *SRegion) eksRequest(apiName, path string, params map[string]interface{}, retval interface{}) error {
+	return self.client.invoke(self.RegionId, EKS_SERVICE_NAME, EKS_SERVICE_ID, "2017-11-01", apiName, path, params, retval, true)
 }
 
 /////////////////////////////////////////////////////////////////////////////

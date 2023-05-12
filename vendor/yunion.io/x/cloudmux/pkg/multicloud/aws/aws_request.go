@@ -44,7 +44,7 @@ func Unmarshal(r *request.Request) {
 	defer r.HTTPResponse.Body.Close()
 	if r.DataFilled() {
 		var decoder *xml.Decoder
-		if DEBUG {
+		if r.Config.LogLevel != nil && r.Config.LogLevel.AtLeast(aws.LogDebugWithHTTPBody) {
 			body, err := ioutil.ReadAll(r.HTTPResponse.Body)
 			if err != nil {
 				r.Error = awserr.NewRequestFailure(
@@ -126,7 +126,7 @@ func Build(r *request.Request) {
 		}
 	}
 
-	if DEBUG {
+	if r.Config.LogLevel != nil && r.Config.LogLevel.AtLeast(aws.LogDebugWithHTTPBody) {
 		log.Debugf("params: %s", body.Encode())
 	}
 

@@ -247,6 +247,10 @@ func (self *SRegion) GetICloudKubeClusters() ([]cloudprovider.ICloudKubeCluster,
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudKubeClusters")
 }
 
+func (self *SRegion) CreateIKubeCluster(opts *cloudprovider.KubeClusterCreateOptions) (cloudprovider.ICloudKubeCluster, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateIKubeCluster")
+}
+
 func (self *SRegion) GetICloudKubeClusterById(id string) (cloudprovider.ICloudKubeCluster, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudKubeClusterById")
 }

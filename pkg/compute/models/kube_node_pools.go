@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -57,6 +58,15 @@ func init() {
 type SKubeNodePool struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
+
+	NetworkIds    *api.SKubeNetworkIds `list:"user" update:"user" create:"required"`
+	InstanceTypes *api.SInstanceTypes  `list:"user" update:"user" create:"required"`
+
+	MinInstanceCount     int `nullable:"false" list:"user" create:"optional" default:"2"`
+	MaxInstanceCount     int `nullable:"false" list:"user" create:"optional" default:"2"`
+	DesiredInstanceCount int `nullable:"false" list:"user" create:"optional" default:"2"`
+
+	RootDiskSizeGb int `nullable:"false" list:"user" create:"optional" default:"100"`
 
 	CloudKubeClusterId string `width:"36" charset:"ascii" name:"cloud_kube_cluster_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
@@ -87,6 +97,14 @@ func (self *SKubeNodePool) GetKubeCluster() (*SKubeCluster, error) {
 	return cluster.(*SKubeCluster), nil
 }
 
+func (self *SKubeNodePool) GetRegion() (*SCloudregion, error) {
+	cluster, err := self.GetKubeCluster()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetKubeCluster")
+	}
+	return cluster.GetRegion()
+}
+
 func (self *SKubeNodePool) GetOwnerId() mcclient.IIdentityProvider {
 	cluster, err := self.GetKubeCluster()
 	if err != nil {
@@ -94,6 +112,40 @@ func (self *SKubeNodePool) GetOwnerId() mcclient.IIdentityProvider {
 		return nil
 	}
 	return cluster.GetOwnerId()
+}
+
+func (self *SKubeNodePool) GetNetworks() ([]SNetwork, error) {
+	ret := []SNetwork{}
+	q := NetworkManager.Query().In("id", self.NetworkIds)
+	return ret, db.FetchModelObjects(NetworkManager, q, &ret)
+}
+
+func (self *SKubeNodePool) GetIKubeCluster(ctx context.Context) (cloudprovider.ICloudKubeCluster, error) {
+	cluster, err := self.GetKubeCluster()
+	if err != nil {
+		return nil, err
+	}
+	return cluster.GetIKubeCluster(ctx)
+}
+
+func (self *SKubeNodePool) GetIKubeNodePool(ctx context.Context) (cloudprovider.ICloudKubeNodePool, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
+	cluster, err := self.GetIKubeCluster(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIKubeCluster")
+	}
+	pools, err := cluster.GetIKubeNodePools()
+	if err != nil {
+		return nil, err
+	}
+	for i := range pools {
+		if pools[i].GetGlobalId() == self.ExternalId {
+			return pools[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
 }
 
 func (manager *SKubeNodePoolManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
@@ -119,6 +171,11 @@ func (manager *SKubeNodePoolManager) FilterByOwner(q *sqlchemy.SQuery, man db.Fi
 		}
 	}
 	return q
+}
+
+// 同步Kube Node Pool 状态
+func (self *SKubeNodePool) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.SyncstatusInput) (jsonutils.JSONObject, error) {
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "KubeNodePoolSyncstatusTask", "")
 }
 
 func (self *SKubeNodePool) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.KubeNodePoolUpdateInput) (api.KubeNodePoolUpdateInput, error) {
@@ -234,8 +291,49 @@ func (manager *SKubeNodePoolManager) FilterByUniqValues(q *sqlchemy.SQuery, valu
 	return q
 }
 
-func (manager *SKubeNodePoolManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.KubeNodePoolCreateInput) (api.KubeNodePoolCreateInput, error) {
-	return input, httperrors.NewNotImplementedError("Not Implemented")
+func (manager *SKubeNodePoolManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.KubeNodePoolCreateInput) (*api.KubeNodePoolCreateInput, error) {
+	var err error
+	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
+	if err != nil {
+		return nil, err
+	}
+	clusterObj, err := validators.ValidateModel(userCred, KubeClusterManager, &input.CloudKubeClusterId)
+	if err != nil {
+		return nil, err
+	}
+	cluster := clusterObj.(*SKubeCluster)
+	for i := range input.NetworkIds {
+		_, err = validators.ValidateModel(userCred, NetworkManager, &input.NetworkIds[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(input.NetworkIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("network_ids")
+	}
+	if len(input.InstanceTypes) == 0 {
+		return nil, httperrors.NewMissingParameterError("instance_types")
+	}
+	region, err := cluster.GetRegion()
+	if err != nil {
+		return nil, err
+	}
+	return region.GetDriver().ValidateCreateKubeNodePoolData(ctx, userCred, ownerId, &input)
+}
+
+func (self *SKubeNodePool) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.StartKubeNodePoolCreateTask(ctx, userCred, data)
+}
+
+func (self *SKubeNodePool) StartKubeNodePoolCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	params := data.(*jsonutils.JSONDict)
+	task, err := taskman.TaskManager.NewTask(ctx, "KubeNodePoolCreateTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	self.SetStatus(userCred, apis.STATUS_CREATING, "")
+	return task.ScheduleRun(nil)
 }
 
 func (self *SKubeCluster) SyncKubeNodePools(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudKubeNodePool) compare.SyncResult {
@@ -290,8 +388,51 @@ func (self *SKubeCluster) SyncKubeNodePools(ctx context.Context, userCred mcclie
 }
 
 func (self *SKubeNodePool) SyncWithCloudKubeNodePool(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeNodePool) error {
-	_, err := db.UpdateWithLock(ctx, self, func() error {
+	cluster, err := self.GetKubeCluster()
+	if err != nil {
+		return errors.Wrapf(err, "GetKubeCluster")
+	}
+	_, err = db.UpdateWithLock(ctx, self, func() error {
 		self.Status = ext.GetStatus()
+
+		networkIds := ext.GetNetworkIds()
+		netIds := api.SKubeNetworkIds{}
+		for i := range networkIds {
+			netObj, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkIds[i], func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				wires := WireManager.Query().SubQuery()
+				vpcs := VpcManager.Query().SubQuery()
+				return q.Join(wires, sqlchemy.Equals(wires.Field("id"), q.Field("wire_id"))).
+					Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id"))).
+					Filter(sqlchemy.Equals(vpcs.Field("manager_id"), cluster.ManagerId))
+			})
+			if err != nil {
+				break
+			}
+			netIds = append(netIds, netObj.GetId())
+		}
+		if len(networkIds) == len(netIds) && len(netIds) > 0 {
+			self.NetworkIds = &netIds
+		}
+		instanceTypes := api.SInstanceTypes{}
+		for _, instanceType := range ext.GetInstanceTypes() {
+			instanceTypes = append(instanceTypes, instanceType)
+		}
+		if len(instanceTypes) > 0 {
+			self.InstanceTypes = &instanceTypes
+		}
+		if minSize := ext.GetMinInstanceCount(); minSize > 0 {
+			self.MinInstanceCount = minSize
+		}
+		if maxSize := ext.GetMaxInstanceCount(); maxSize > 0 {
+			self.MaxInstanceCount = maxSize
+		}
+		if desiredSize := ext.GetDesiredInstanceCount(); desiredSize > 0 {
+			self.DesiredInstanceCount = desiredSize
+		}
+		if rootSize := ext.GetRootDiskSizeGb(); rootSize > 0 {
+			self.RootDiskSizeGb = rootSize
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -311,6 +452,35 @@ func (self *SKubeCluster) newFromCloudKubeNodePool(ctx context.Context, userCred
 	pool.Status = ext.GetStatus()
 	pool.CloudKubeClusterId = self.Id
 	pool.ExternalId = ext.GetGlobalId()
+
+	networkIds := ext.GetNetworkIds()
+	netIds := api.SKubeNetworkIds{}
+	for i := range networkIds {
+		netObj, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkIds[i], func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			wires := WireManager.Query().SubQuery()
+			vpcs := VpcManager.Query().SubQuery()
+			return q.Join(wires, sqlchemy.Equals(wires.Field("id"), q.Field("wire_id"))).
+				Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpcs.Field("manager_id"), self.ManagerId))
+		})
+		if err != nil {
+			break
+		}
+		netIds = append(netIds, netObj.GetId())
+	}
+	if len(netIds) > 0 {
+		pool.NetworkIds = &netIds
+	}
+
+	pool.MinInstanceCount = ext.GetMinInstanceCount()
+	pool.MaxInstanceCount = ext.GetMaxInstanceCount()
+	pool.DesiredInstanceCount = ext.GetDesiredInstanceCount()
+	pool.RootDiskSizeGb = ext.GetRootDiskSizeGb()
+	instanceTypes := api.SInstanceTypes{}
+	for _, instanceType := range ext.GetInstanceTypes() {
+		instanceTypes = append(instanceTypes, instanceType)
+	}
+	pool.InstanceTypes = &instanceTypes
 
 	err := KubeNodePoolManager.TableSpec().Insert(ctx, &pool)
 	if err != nil {

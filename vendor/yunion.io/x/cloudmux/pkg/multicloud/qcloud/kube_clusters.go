@@ -37,6 +37,8 @@ type SKubeCluster struct {
 	ClusterOs              string
 	ClusterType            string
 	ClusterNetworkSettings struct {
+		VpcId   string
+		Subnets []string
 	}
 	ClusterNodeNum   int
 	ProjectId        string
@@ -79,6 +81,18 @@ func (self *SKubeCluster) Refresh() error {
 		return errors.Wrapf(err, "GetKubeCluster(%s)", self.ClusterId)
 	}
 	return jsonutils.Update(self, cluster)
+}
+
+func (self *SKubeCluster) GetVersion() string {
+	return self.ClusterVersion
+}
+
+func (self *SKubeCluster) GetVpcId() string {
+	return self.ClusterNetworkSettings.VpcId
+}
+
+func (self *SKubeCluster) GetNetworkIds() []string {
+	return self.ClusterNetworkSettings.Subnets
 }
 
 func (self *SKubeCluster) GetKubeConfig(private bool, expireMinutes int) (*cloudprovider.SKubeconfig, error) {
@@ -186,4 +200,8 @@ func (self *SRegion) DeleteKubeCluster(id string, isRetain bool) error {
 	}
 	_, err := self.tkeRequest("DeleteCluster", params)
 	return errors.Wrapf(err, "DeleteCluster")
+}
+
+func (self *SKubeCluster) CreateIKubeNodePool(opts *cloudprovider.KubeNodePoolCreateOptions) (cloudprovider.ICloudKubeNodePool, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

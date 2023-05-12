@@ -17,6 +17,7 @@ package azure
 import (
 	"strings"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -61,4 +62,32 @@ func (self *SKubeNodePool) GetGlobalId() string {
 
 func (self *SKubeNodePool) GetStatus() string {
 	return strings.ToLower(self.PowerState.Code)
+}
+
+func (self *SKubeNodePool) GetMinInstanceCount() int {
+	return 0
+}
+
+func (self *SKubeNodePool) GetMaxInstanceCount() int {
+	return 0
+}
+
+func (self *SKubeNodePool) GetDesiredInstanceCount() int {
+	return 0
+}
+
+func (self *SKubeNodePool) GetRootDiskSizeGb() int {
+	return self.OsDiskSizeGB
+}
+
+func (self *SKubeNodePool) Delete() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SKubeNodePool) GetInstanceTypes() []string {
+	return []string{}
+}
+
+func (self *SKubeNodePool) GetNetworkIds() []string {
+	return []string{}
 }

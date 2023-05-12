@@ -189,6 +189,7 @@ type ICloudRegion interface {
 
 	GetICloudKubeClusters() ([]ICloudKubeCluster, error)
 	GetICloudKubeClusterById(id string) (ICloudKubeCluster, error)
+	CreateIKubeCluster(opts *KubeClusterCreateOptions) (ICloudKubeCluster, error)
 
 	GetICloudTablestores() ([]ICloudTablestore, error)
 
@@ -1610,7 +1611,12 @@ type ICloudKubeCluster interface {
 
 	GetKubeConfig(private bool, expireMinutes int) (*SKubeconfig, error)
 
+	GetVersion() string
+	GetVpcId() string
+	GetNetworkIds() []string
+
 	GetIKubeNodePools() ([]ICloudKubeNodePool, error)
+	CreateIKubeNodePool(opts *KubeNodePoolCreateOptions) (ICloudKubeNodePool, error)
 	GetIKubeNodes() ([]ICloudKubeNode, error)
 
 	Delete(isRetain bool) error
@@ -1624,6 +1630,16 @@ type ICloudKubeNode interface {
 
 type ICloudKubeNodePool interface {
 	ICloudResource
+
+	GetMinInstanceCount() int
+	GetMaxInstanceCount() int
+	GetDesiredInstanceCount() int
+	GetRootDiskSizeGb() int
+
+	GetInstanceTypes() []string
+	GetNetworkIds() []string
+
+	Delete() error
 }
 
 type ICloudTablestore interface {

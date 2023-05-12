@@ -28,6 +28,8 @@ import (
 
 var (
 	samlRole = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"sts:AssumeRoleWithSAML","Principal":{"Federated":"%s"},"Condition":{"StringEquals":{"SAML:aud":["%s"]}}}]}`
+	k8sRole  = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"eks.amazonaws.com"},"Action":"sts:AssumeRole"}]}`
+	nodeRole = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com.cn"},"Action":"sts:AssumeRole"}]}`
 )
 
 type SRole struct {
