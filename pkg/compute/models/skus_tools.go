@@ -56,9 +56,6 @@ type SSkuResourcesMeta struct {
 	WafBase          string `json:"waf_base"`
 }
 
-var skuIndex = map[string]string{}
-var imageIndex = map[string]string{}
-
 func (self *SSkuResourcesMeta) getZoneIdBySuffix(zoneMaps map[string]string, suffix string) string {
 	for externalId, id := range zoneMaps {
 		if strings.HasSuffix(externalId, suffix) {
@@ -401,6 +398,19 @@ func (self *SSkuResourcesMeta) getServerSkuIndex() (map[string]string, error) {
 	return ret, nil
 }
 
+func (self *SSkuResourcesMeta) getSkuIndex(res string) (map[string]string, error) {
+	resp, err := self.request(fmt.Sprintf("%s/index.json", res))
+	if err != nil {
+		return map[string]string{}, errors.Wrapf(err, "request")
+	}
+	ret := map[string]string{}
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return map[string]string{}, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return ret, nil
+}
+
 func (self *SSkuResourcesMeta) getCloudimageIndex() (map[string]string, error) {
 	resp, err := self.request(fmt.Sprintf("%s/index.json", self.ImageBase))
 	if err != nil {
@@ -473,18 +483,43 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 		return
 	}
 
+	index, err := meta.getSkuIndex(meta.ElasticCacheBase)
+	if err != nil {
+		log.Errorf("get cache sku index error: %v", err)
+		return
+	}
+
 	cloudregions := fetchSkuSyncCloudregions()
 	for i := range cloudregions {
 		region := &cloudregions[i]
 
-		if region.GetDriver().IsSupportedElasticcache() {
-			result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, meta, false)
-			notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
-			log.Infof(notes)
-		} else {
-			notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s not support elasticcache", region.Name)
-			log.Infof(notes)
+		if !region.GetDriver().IsSupportedElasticcache() {
+			continue
 		}
+
+		skuMeta := &SElasticcacheSku{}
+		skuMeta.SetModelManager(ElasticcacheSkuManager, skuMeta)
+		skuMeta.Id = region.ExternalId
+
+		oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
+		newMd5, ok := index[region.ExternalId]
+		if ok {
+			db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
+		}
+
+		if newMd5 == EMPTY_MD5 {
+			log.Debugf("%s redis skus is empty skip syncing", region.Name)
+			continue
+		}
+
+		if len(oldMd5) > 0 && newMd5 == oldMd5 {
+			log.Debugf("%s redis skus not changed skip syncing", region.Name)
+			continue
+		}
+
+		result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, meta, false)
+		notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
+		log.Debugf(notes)
 	}
 }
 
@@ -536,25 +571,30 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 	cloudregions := fetchSkuSyncCloudregions()
 	for i := range cloudregions {
 		region := &cloudregions[i]
-		oldMd5, _ := skuIndex[region.ExternalId]
+
+		skuMeta := &SServerSku{}
+		skuMeta.SetModelManager(ServerSkuManager, skuMeta)
+		skuMeta.Id = region.ExternalId
+
+		oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
 		newMd5, ok := index[region.ExternalId]
 		if ok {
-			skuIndex[region.ExternalId] = newMd5
+			db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
 		}
 
 		if newMd5 == EMPTY_MD5 {
-			log.Infof("%s Server Skus is empty skip syncing", region.Name)
+			log.Debugf("%s server skus is empty skip syncing", region.Name)
 			continue
 		}
 
 		if len(oldMd5) > 0 && newMd5 == oldMd5 {
-			log.Infof("%s Server Skus not Changed skip syncing", region.Name)
+			log.Debugf("%s server skus not changed skip syncing", region.Name)
 			continue
 		}
 
 		result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, meta, false)
 		notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
-		log.Infof(notes)
+		log.Debugf(notes)
 	}
 
 	// 清理无效的sku
