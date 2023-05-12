@@ -1925,6 +1925,10 @@ func (s *SKVMGuestInstance) optimizeOom() error {
 }
 
 func (s *SKVMGuestInstance) SyncMetadata(meta *jsonutils.JSONDict) error {
+	serverMeta, _ := s.Desc.Get("metadata")
+	serverMetaDict := serverMeta.(*jsonutils.JSONDict)
+	serverMetaDict.Update(meta)
+
 	_, err := modules.Servers.SetMetadata(hostutils.GetComputeSession(context.Background()),
 		s.Id, meta)
 	if err != nil {
