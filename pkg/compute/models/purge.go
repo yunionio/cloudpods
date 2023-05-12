@@ -578,7 +578,11 @@ func (snapshot *SSnapshot) purge(ctx context.Context, userCred mcclient.TokenCre
 	lockman.LockObject(ctx, snapshot)
 	defer lockman.ReleaseObject(ctx, snapshot)
 
-	err := snapshot.ValidatePurgeCondition(ctx)
+	if snapshot.Status == api.SNAPSHOT_DELETING {
+		snapshot.SetStatus(userCred, api.SNAPSHOT_READY, "for purge")
+	}
+
+	err := snapshot.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "ValidatePurgeCondition for snapshot %s(%s)", snapshot.Name, snapshot.Id)
 	}
