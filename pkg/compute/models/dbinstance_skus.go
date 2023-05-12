@@ -603,15 +603,41 @@ func SyncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 		return
 	}
 
+	index, err := meta.getSkuIndex(meta.DBInstanceBase)
+	if err != nil {
+		log.Errorf("get rds sku index error: %v", err)
+		return
+	}
+
 	for _, region := range cloudregions {
 		if !region.GetDriver().IsSupportedDBInstance() {
-			log.Infof("region %s(%s) not support dbinstance, skip sync", region.Name, region.Id)
+			log.Debugf("region %s(%s) not support dbinstance, skip sync", region.Name, region.Id)
 			continue
 		}
+		skuMeta := &SDBInstanceSku{}
+		skuMeta.SetModelManager(DBInstanceSkuManager, skuMeta)
+		skuMeta.Id = region.ExternalId
+
+		oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
+		newMd5, ok := index[region.ExternalId]
+		if ok {
+			db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
+		}
+
+		if newMd5 == EMPTY_MD5 {
+			log.Debugf("%s DBInstance skus is empty skip syncing", region.Name)
+			continue
+		}
+
+		if len(oldMd5) > 0 && newMd5 == oldMd5 {
+			log.Debugf("%s DBInstance skus not changed skip syncing", region.Name)
+			continue
+		}
+
 		result := DBInstanceSkuManager.SyncDBInstanceSkus(ctx, userCred, &region, meta, xor)
 		msg := result.Result()
 		notes := fmt.Sprintf("sync rds sku for region %s result: %s", region.Name, msg)
-		log.Infof(notes)
+		log.Debugf(notes)
 	}
 
 }

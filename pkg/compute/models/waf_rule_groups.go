@@ -37,8 +37,6 @@ type SWafRuleGroupManager struct {
 	db.SExternalizedResourceBaseManager
 }
 
-var wafIndex map[string]string
-
 var WafRuleGroupManager *SWafRuleGroupManager
 
 func init() {
@@ -50,7 +48,6 @@ func init() {
 			"waf_rule_groups",
 		),
 	}
-	wafIndex = map[string]string{}
 	WafRuleGroupManager.SetVirtualObject(WafRuleGroupManager)
 }
 
@@ -285,22 +282,26 @@ func SyncWafGroups(ctx context.Context, userCred mcclient.TokenCredential, isSta
 		}
 
 		for _, cloudEnv := range cloudEnvs {
+			skuMeta := &SWafRuleGroup{}
+			skuMeta.SetModelManager(WafRuleGroupManager, skuMeta)
+			skuMeta.Id = cloudEnv
+
+			oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
 			newMd5, ok := index[cloudEnv]
-			if !ok {
-				continue
+			if ok {
+				db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
 			}
-			oldMd5, _ := wafIndex[cloudEnv]
+
 			if newMd5 == EMPTY_MD5 {
-				log.Infof("%s Waf group is empty skip syncing", cloudEnv)
+				log.Debugf("%s Waf group is empty skip syncing", cloudEnv)
 				continue
 			}
 			if len(oldMd5) > 0 && newMd5 == oldMd5 {
-				log.Infof("%s Waf group not Changed skip syncing", cloudEnv)
+				log.Debugf("%s Waf group not Changed skip syncing", cloudEnv)
 				continue
 			}
 			result := meta.SyncWafGroups(ctx, userCred, cloudEnv, isStart)
-			log.Infof("sync %s waf group result: %s", cloudEnv, result.Result())
-			wafIndex[cloudEnv] = newMd5
+			log.Debugf("sync %s waf group result: %s", cloudEnv, result.Result())
 		}
 		return nil
 	}()

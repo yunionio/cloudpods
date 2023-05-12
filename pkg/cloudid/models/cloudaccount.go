@@ -850,6 +850,10 @@ func (self *SCloudaccount) GetCloudaccountByProvider(provider string) ([]SClouda
 	return accounts, nil
 }
 
+const (
+	EMPTY_MD5 = "d751713988987e9331980363e24189ce"
+)
+
 func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential, refresh bool) error {
 	dbPolicies, err := self.GetSystemCloudpolicies()
 	if err != nil {
@@ -864,13 +868,28 @@ func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context,
 	transport := httputils.GetTransport(true)
 	transport.Proxy = options.Options.HttpTransportProxyFunc()
 	client := &http.Client{Transport: transport}
-	meta, err := modules.OfflineCloudmeta.GetSkuSourcesMeta(s, client)
+	policyBase, index, err := modules.OfflineCloudmeta.GetSkuIndex(s, client, "cloudpolicy_base")
 	if err != nil {
-		return errors.Wrap(err, "GetSkuSourcesMeta")
+		return errors.Wrapf(err, "get cloudpolicy")
 	}
-	policyBase, err := meta.GetString("cloudpolicy_base")
-	if err != nil {
-		return errors.Wrapf(err, "missing policy base url")
+
+	skuMeta := &SCloudpolicy{}
+	skuMeta.SetModelManager(CloudpolicyManager, skuMeta)
+	skuMeta.Id = self.Provider
+
+	oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
+	newMd5, ok := index[self.Provider]
+	if ok {
+		db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
+	}
+
+	if newMd5 == EMPTY_MD5 {
+		log.Debugf("%s cloudpolicy is empty skip syncing", self.Provider)
+		return nil
+	}
+	if len(oldMd5) > 0 && newMd5 == oldMd5 {
+		log.Debugf("%s cloudpolicy not changed skip syncing", self.Provider)
+		return nil
 	}
 
 	policyUrl := strings.TrimSuffix(policyBase, "/") + fmt.Sprintf("/%s.json", self.Provider)
