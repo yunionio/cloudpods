@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/printutils"
 
@@ -100,4 +101,26 @@ func (self *OfflineCloudmetaManager) GetSkuSourcesMeta(s *mcclient.ClientSession
 	url := strings.TrimSuffix(baseUrl, "/") + "/sku.meta"
 	_, body, err := httputils.JSONRequest(client, context.TODO(), "GET", url, nil, nil, false)
 	return body, err
+}
+
+func (self *OfflineCloudmetaManager) GetSkuIndex(s *mcclient.ClientSession, client *http.Client, res string) (string, map[string]string, error) {
+	meta, err := self.GetSkuSourcesMeta(s, client)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "GetSkuSourcesMeta")
+	}
+	base, err := meta.GetString(res)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "get %s", res)
+	}
+	url := fmt.Sprintf("%s/index.json", base)
+	_, body, err := httputils.JSONRequest(client, context.TODO(), "GET", url, nil, nil, false)
+	if err != nil {
+		return "", map[string]string{}, errors.Wrapf(err, "request")
+	}
+	ret := map[string]string{}
+	err = body.Unmarshal(ret)
+	if err != nil {
+		return "", map[string]string{}, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return base, ret, nil
 }

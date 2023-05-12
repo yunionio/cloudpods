@@ -83,10 +83,15 @@ func SyncPublicCloudImages(ctx context.Context, userCred mcclient.TokenCredentia
 
 	for i := range regions {
 		region := &regions[i]
-		oldMd5, _ := imageIndex[region.ExternalId]
+
+		skuMeta := &SCloudimage{}
+		skuMeta.SetModelManager(CloudimageManager, skuMeta)
+		skuMeta.Id = region.ExternalId
+
+		oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
 		newMd5, ok := index[region.ExternalId]
 		if ok {
-			imageIndex[region.ExternalId] = newMd5
+			db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
 		}
 
 		if newMd5 == EMPTY_MD5 {
