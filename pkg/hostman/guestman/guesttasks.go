@@ -303,6 +303,7 @@ func (d *SGuestDiskSyncTask) OnEjectCdromContentSucc(cdName string) {
 	for i, cdrom := range d.guest.Desc.Cdroms {
 		if cdrom.Id == cdName {
 			d.guest.Desc.Cdroms[i].Path = ""
+			d.guest.Desc.Cdroms[i].BootIndex = nil
 		}
 	}
 	d.syncDisksConf()
