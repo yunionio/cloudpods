@@ -406,7 +406,9 @@ func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIControlle
 		id := fmt.Sprintf("drive_%d", s.Desc.Disks[i].Index)
 		switch s.Desc.Disks[i].Driver {
 		case DISK_DRIVER_VIRTIO:
-			s.Desc.Disks[i].Pci = desc.NewPCIDevice(cont.CType, devType, id)
+			if s.Desc.Disks[i].Pci == nil {
+				s.Desc.Disks[i].Pci = desc.NewPCIDevice(cont.CType, devType, id)
+			}
 		case DISK_DRIVER_SCSI:
 			s.Desc.Disks[i].Scsi = desc.NewScsiDevice(s.Desc.VirtioScsi.Id, devType, id)
 		case DISK_DRIVER_PVSCSI:
