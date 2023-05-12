@@ -344,8 +344,10 @@ func generateCdromOptions(optDrv QemuOptions, cdroms []*desc.SGuestCdrom) []stri
 			opts = append(opts, optDrv.Drive(driveOpt))
 			devOpt := fmt.Sprintf("%s,drive=%s,bus=ide.1",
 				cdrom.Ide.DevType, cdrom.Id)
-			if cdrom.BootIndex != nil && *cdrom.BootIndex >= 0 {
-				devOpt += fmt.Sprintf(",bootindex=%d", *cdrom.BootIndex)
+			if len(cdromPath) > 0 {
+				if cdrom.BootIndex != nil && *cdrom.BootIndex >= 0 {
+					devOpt += fmt.Sprintf(",bootindex=%d", *cdrom.BootIndex)
+				}
 			}
 			// TODO: ,bus=ide.%d,unit=%d
 			//, cdrom.Ide.Bus, cdrom.Ide.Unit)
@@ -356,8 +358,10 @@ func generateCdromOptions(optDrv QemuOptions, cdroms []*desc.SGuestCdrom) []stri
 
 				devOpt := fmt.Sprintf("%s,drive=%s", cdrom.Scsi.DevType, cdrom.Id)
 				devOpt += desc.OptionsToString(cdrom.Scsi.Options)
-				if cdrom.BootIndex != nil && *cdrom.BootIndex >= 0 {
-					devOpt += fmt.Sprintf(",bootindex=%d", *cdrom.BootIndex)
+				if len(cdromPath) > 0 {
+					if cdrom.BootIndex != nil && *cdrom.BootIndex >= 0 {
+						devOpt += fmt.Sprintf(",bootindex=%d", *cdrom.BootIndex)
+					}
 				}
 				opts = append(opts, optDrv.Device(devOpt))
 			}
