@@ -317,11 +317,39 @@ func SyncRegionNatSkus(ctx context.Context, userCred mcclient.TokenCredential, r
 		return errors.Wrapf(err, "FetchSkuResourcesMeta")
 	}
 
+	index, err := meta.getSkuIndex(meta.NatBase)
+	if err != nil {
+		log.Errorf("get nat sku index error: %v", err)
+		return err
+	}
+
 	for i := range regions {
-		if !regions[i].GetDriver().IsSupportedNatGateway() {
+		region := regions[i]
+		if !region.GetDriver().IsSupportedNatGateway() {
 			log.Infof("region %s(%s) not support nat, skip sync", regions[i].Name, regions[i].Id)
 			continue
 		}
+
+		skuMeta := &SNatSku{}
+		skuMeta.SetModelManager(NatSkuManager, skuMeta)
+		skuMeta.Id = region.ExternalId
+
+		oldMd5 := db.Metadata.GetStringValue(ctx, skuMeta, db.SKU_METADAT_KEY, userCred)
+		newMd5, ok := index[region.ExternalId]
+		if ok {
+			db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
+		}
+
+		if newMd5 == EMPTY_MD5 {
+			log.Infof("%s Nat Skus is empty skip syncing", region.Name)
+			continue
+		}
+
+		if len(oldMd5) > 0 && newMd5 == oldMd5 {
+			log.Infof("%s Nat Skus not Changed skip syncing", region.Name)
+			continue
+		}
+
 		result := regions[i].SyncNatSkus(ctx, userCred, meta, xor)
 		msg := result.Result()
 		notes := fmt.Sprintf("SyncNatSkus for region %s result: %s", regions[i].Name, msg)
