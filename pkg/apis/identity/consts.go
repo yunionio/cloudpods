@@ -84,9 +84,6 @@ const (
 	IdentitySyncStatusIdle    = "idle"
 
 	MinimalSyncIntervalSeconds = 5 * 60 // 5 minutes
-
-	MaxUserRolesInProject  = 10
-	MaxGroupRolesInProject = 5
 )
 
 var (
