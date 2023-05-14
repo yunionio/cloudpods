@@ -347,8 +347,8 @@ func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred 
 	if err != nil {
 		return errors.Wrap(err, "FetchUserProjectRoleCount")
 	}
-	if roleCnt >= api.MaxUserRolesInProject {
-		return errors.Wrapf(httperrors.ErrTooLarge, "user %s has joined project %s more than %d roles", user.Name, project.Name, roleCnt)
+	if roleCnt >= options.Options.MaxUserRolesInProject {
+		return errors.Wrapf(httperrors.ErrTooLarge, "user %s has joined project %s %d roles more than %d", user.Name, project.Name, roleCnt, options.Options.MaxUserRolesInProject)
 	}
 	err = manager.add(ctx, api.AssignmentUserProject, user.Id, project.Id, role.Id)
 	if err != nil {
@@ -498,8 +498,8 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 	if err != nil {
 		return errors.Wrap(err, "fetchGroupProjectRoleCount")
 	}
-	if roleCnt >= api.MaxGroupRolesInProject {
-		return errors.Wrapf(httperrors.ErrTooLarge, "group %s has joined project %s more than %d roles", group.Name, project.Name, roleCnt)
+	if roleCnt >= options.Options.MaxGroupRolesInProject {
+		return errors.Wrapf(httperrors.ErrTooLarge, "group %s has joined project %s %d roles more than %d", group.Name, project.Name, roleCnt, options.Options.MaxGroupRolesInProject)
 	}
 	err = manager.add(ctx, api.AssignmentGroupProject, group.Id, project.Id, role.Id)
 	if err != nil {
