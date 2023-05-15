@@ -524,7 +524,17 @@ func (manager *SRolePolicyManager) fetchByRoleId(roleId string) ([]SRolePolicy, 
 	q := manager.Query().Equals("role_id", roleId)
 	rps := make([]SRolePolicy, 0)
 	err := db.FetchModelObjects(manager, q, &rps)
-	if err != nil && errors.Cause(err) == sql.ErrNoRows {
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return rps, nil
+}
+
+func (manager *SRolePolicyManager) fetchByPolicyId(policyId string) ([]SRolePolicy, error) {
+	q := manager.Query().Equals("policy_id", policyId)
+	rps := make([]SRolePolicy, 0)
+	err := db.FetchModelObjects(manager, q, &rps)
+	if err != nil {
 		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
 	return rps, nil

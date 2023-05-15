@@ -481,14 +481,14 @@ func (manager *SProjectManager) ValidateCreateData(ctx context.Context, userCred
 	return input, nil
 }
 
-func (self *SProject) PostCreate(
+func (project *SProject) PostCreate(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) {
-	self.SIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
+	project.SIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
 
 	quota := &SIdentityQuota{Project: 1}
 	quota.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()})
@@ -498,8 +498,7 @@ func (self *SProject) PostCreate(
 	}
 }
 
-func threeMemberSystemValidateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleIds []string) error {
-	_, assignPolicies, _ := RolePolicyManager.GetMatchPolicyGroup2(false, roleIds, project.Id, "", time.Time{}, false)
+func threeMemberSystemValidatePolicies(userCred mcclient.TokenCredential, projectId string, assignPolicies rbacutils.TPolicyGroup) error {
 	assignScope := assignPolicies.HighestScope()
 	var checkRoles []string
 	if assignScope == rbacutils.ScopeSystem {
@@ -515,7 +514,7 @@ func threeMemberSystemValidateJoinProject(userCred mcclient.TokenCredential, pro
 		if err != nil {
 			return httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), roleName)
 		}
-		_, adminPolicies, _ := RolePolicyManager.GetMatchPolicyGroup2(false, []string{role.Id}, project.Id, "", time.Time{}, false)
+		_, adminPolicies, _ := RolePolicyManager.GetMatchPolicyGroup2(false, []string{role.Id}, projectId, "", time.Time{}, false)
 		if adminPolicies[assignScope].Contains(assignPolicies[assignScope]) {
 			contains = append(contains, roleName)
 		}
@@ -526,15 +525,11 @@ func threeMemberSystemValidateJoinProject(userCred mcclient.TokenCredential, pro
 	return nil
 }
 
-func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleIds []string) error {
-	if options.Options.NoPolicyViolationCheck {
-		return nil
+func normalValidatePolicies(userCred mcclient.TokenCredential, assignPolicies rbacutils.TPolicyGroup) error {
+	_, opsPolicies, err := RolePolicyManager.GetMatchPolicyGroup(userCred, time.Time{}, false)
+	if err != nil {
+		return errors.Wrap(err, "RolePolicyManager.GetMatchPolicyGroup")
 	}
-	if options.Options.ThreeAdminRoleSystem {
-		return threeMemberSystemValidateJoinProject(userCred, project, roleIds)
-	}
-	_, opsPolicies, _ := RolePolicyManager.GetMatchPolicyGroup(userCred, time.Time{}, false)
-	_, assignPolicies, _ := RolePolicyManager.GetMatchPolicyGroup2(false, roleIds, project.Id, "", time.Time{}, false)
 	opsScope := opsPolicies.HighestScope()
 	assignScope := assignPolicies.HighestScope()
 	if assignScope.HigherThan(opsScope) {
@@ -543,6 +538,25 @@ func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, r
 		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles violates operator's policy")
 	}
 	return nil
+}
+
+func validateAssignPolicies(userCred mcclient.TokenCredential, projectId string, assignPolicies rbacutils.TPolicyGroup) error {
+	if options.Options.NoPolicyViolationCheck {
+		return nil
+	}
+	if options.Options.ThreeAdminRoleSystem {
+		return threeMemberSystemValidatePolicies(userCred, projectId, assignPolicies)
+	} else {
+		return normalValidatePolicies(userCred, assignPolicies)
+	}
+}
+
+func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleIds []string) error {
+	_, assignPolicies, err := RolePolicyManager.GetMatchPolicyGroup2(false, roleIds, project.Id, "", time.Time{}, false)
+	if err != nil {
+		return errors.Wrap(err, "RolePolicyManager.GetMatchPolicyGroup2")
+	}
+	return validateAssignPolicies(userCred, project.Id, assignPolicies)
 }
 
 func (project *SProject) AllowPerformJoin(ctx context.Context,

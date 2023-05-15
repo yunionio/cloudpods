@@ -548,14 +548,19 @@ func (role *SRole) GetSharedDomains() []string {
 	return db.SharableGetSharedProjects(role, db.SharedTargetDomain)
 }
 
-func (role *SRole) AllowPerformSetPolicies(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformSetPoliciesInput) bool {
-	return true
+func validateRolePolicies(userCred mcclient.TokenCredential, policyIds []string) error {
+	_, assignPolicies, err := RolePolicyManager.GetPolicyGroupByIds(policyIds, false)
+	if err != nil {
+		return errors.Wrapf(err, "RolePolicyManager.GetPolicyGroupByIds %s", policyIds)
+	}
+	return validateAssignPolicies(userCred, "", assignPolicies)
 }
 
 func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformSetPoliciesInput) (jsonutils.JSONObject, error) {
 	if len(input.Action) == 0 {
 		input.Action = api.ROLE_SET_POLICY_ACTION_DEFAULT
 	}
+	inputPolicyIds := stringutils2.NewSortedStrings(nil)
 	normalInputIds := stringutils2.NewSortedStrings(nil)
 	normalInputs := make(map[string]sRolePerformAddPolicyInput, len(input.Policies))
 	for i := range input.Policies {
@@ -563,6 +568,7 @@ func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			return nil, errors.Wrapf(err, "normalizeRoleAddPolicyInput at %d", i)
 		}
+		inputPolicyIds = stringutils2.Append(inputPolicyIds, normalInput.policyId)
 		idstr := normalInput.getId()
 		if _, ok := normalInputs[idstr]; !ok {
 			normalInputs[idstr] = normalInput
@@ -577,9 +583,11 @@ func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.Tok
 		return nil, errors.Wrap(err, "RolePolicyManager.fetchByRoleId")
 	}
 
+	existPolicyIds := stringutils2.NewSortedStrings(nil)
 	existRpIds := stringutils2.NewSortedStrings(nil)
 	existRpMap := make(map[string]*SRolePolicy)
 	for i := range existRpList {
+		existPolicyIds = stringutils2.Append(existPolicyIds, existRpList[i].PolicyId)
 		idstr := existRpList[i].GetId()
 		if _, ok := existRpMap[idstr]; !ok {
 			existRpMap[idstr] = &existRpList[i]
@@ -588,6 +596,19 @@ func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.Tok
 	}
 
 	addedIds, updatedIds, deletedIds := stringutils2.Split(normalInputIds, existRpIds)
+
+	// validate
+	var newPolicyIds []string
+	if input.Action == api.ROLE_SET_POLICY_ACTION_REPLACE {
+		newPolicyIds = inputPolicyIds
+	} else {
+		newPolicyIds = stringutils2.Append(newPolicyIds, inputPolicyIds...)
+		newPolicyIds = stringutils2.Append(newPolicyIds, existPolicyIds...)
+	}
+	err = validateRolePolicies(userCred, newPolicyIds)
+	if err != nil {
+		return nil, errors.Wrap(err, "validateRolePolicies")
+	}
 
 	if input.Action == api.ROLE_SET_POLICY_ACTION_REPLACE {
 		for _, idstr := range deletedIds {
@@ -616,10 +637,6 @@ func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.Tok
 	}
 
 	return nil, nil
-}
-
-func (role *SRole) AllowPerformAddPolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformAddPolicyInput) bool {
-	return true
 }
 
 type sRolePerformAddPolicyInput struct {
@@ -681,15 +698,27 @@ func (role *SRole) PerformAddPolicy(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return nil, errors.Wrap(err, "normalizeRoleAddPolicyInput")
 	}
+
+	// validate
+	rps, err := RolePolicyManager.fetchByRoleId(role.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchByRoleId")
+	}
+	newPolicyIds := stringutils2.NewSortedStrings(nil)
+	for i := range rps {
+		newPolicyIds = stringutils2.Append(newPolicyIds, rps[i].PolicyId)
+	}
+	newPolicyIds = stringutils2.Append(newPolicyIds, normalInput.policyId)
+	err = validateRolePolicies(userCred, newPolicyIds)
+	if err != nil {
+		return nil, errors.Wrap(err, "validateRolePolicies")
+	}
+
 	err = RolePolicyManager.newRecord(ctx, normalInput.roleId, normalInput.projectId, normalInput.policyId, tristate.True, normalInput.prefixes, normalInput.validSince, normalInput.validUntil)
 	if err != nil {
 		return nil, errors.Wrap(err, "newRecord")
 	}
 	return nil, nil
-}
-
-func (role *SRole) AllowPerformRemovePolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformRemovePolicyInput) bool {
-	return true
 }
 
 func (role *SRole) PerformRemovePolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RolePerformRemovePolicyInput) (jsonutils.JSONObject, error) {
