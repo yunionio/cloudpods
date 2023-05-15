@@ -16,6 +16,7 @@ package apihelper
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	mcclient "yunion.io/x/onecloud/pkg/mcclient"
@@ -35,11 +36,21 @@ type IModelSets interface {
 	CopyJoined() IModelSets
 }
 
+type IDBModelSets interface {
+	IModelSets
+	FetchFromAPIMap(s *mcclient.ClientSession) (IModelSets, error)
+}
+
 type IModelSet interface {
 	ModelManager() mcclient_modulebase.IBaseManager
 	NewModel() db.IModel
 	AddModel(db.IModel)
 	Copy() IModelSet
+}
+
+type IDBModelSet interface {
+	IModelSet
+	DBModelManager() db.IModelManager
 }
 
 type IModelSetEmulatedIncluder interface {
@@ -58,7 +69,27 @@ type IModelListSetParams interface {
 	SetModelListParams(params *jsonutils.JSONDict) *jsonutils.JSONDict
 }
 
-func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (r ModelSetsUpdateResult, err error) {
+func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (ModelSetsUpdateResult, error) {
+	var (
+		mssNews IModelSets
+		err     error
+	)
+	if mssDB, ok := mssOld.(IDBModelSets); ok && !opt.FetchFromComputeService {
+		mssNews, err = mssDB.FetchFromAPIMap(s)
+		if err != nil {
+			return ModelSetsUpdateResult{}, errors.Wrap(err, "FetchFromAPIMap")
+		}
+	} else {
+		mssNews, err = syncModelSets(mssOld, s, opt)
+		if err != nil {
+			return ModelSetsUpdateResult{}, errors.Wrap(err, "syncModelSets")
+		}
+	}
+	r := mssOld.ApplyUpdates(mssNews)
+	return r, nil
+}
+
+func syncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (IModelSets, error) {
 	mss := mssOld.ModelSetList()
 	mssNews := mssOld.NewEmpty()
 	for i, msNew := range mssNews.ModelSetList() {
@@ -69,7 +100,7 @@ func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (
 		if optProvider, ok := msNew.(IModelSetEmulatedIncluder); ok {
 			includeEmulated = optProvider.IncludeEmulated()
 		}
-		err = GetModels(&GetModelsOptions{
+		err := GetModels(&GetModelsOptions{
 			ClientSession: s,
 			ModelManager:  msNew.ModelManager(),
 			MinUpdatedAt:  minUpdatedAt,
@@ -81,7 +112,49 @@ func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (
 			InCludeOtherCloudEnv: opt.IncludeOtherCloudEnv,
 		})
 		if err != nil {
-			return
+			return nil, errors.Wrap(err, "GetModels")
+		}
+	}
+	return mssNews, nil
+}
+
+func SyncDBModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (r ModelSetsUpdateResult, err error) {
+	mss := mssOld.ModelSetList()
+	mssNews := mssOld.NewEmpty()
+	for i, msNew := range mssNews.ModelSetList() {
+		var (
+			minUpdatedAt    = ModelSetMaxUpdatedAt(mss[i])
+			includeEmulated = false
+		)
+		if optProvider, ok := msNew.(IModelSetEmulatedIncluder); ok {
+			includeEmulated = optProvider.IncludeEmulated()
+		}
+		msi, ok := msNew.(IDBModelSet)
+		opts := &GetModelsOptions{
+			ClientSession: s,
+			ModelManager:  msNew.ModelManager(),
+			MinUpdatedAt:  minUpdatedAt,
+			ModelSet:      msNew,
+			BatchListSize: opt.ListBatchSize,
+
+			IncludeDetails:       opt.IncludeDetails,
+			IncludeEmulated:      includeEmulated,
+			InCludeOtherCloudEnv: opt.IncludeOtherCloudEnv,
+		}
+		if ok {
+			dbOpts := &GetDBModelsOptions{
+				modelOptions:   opts,
+				modelDBManager: msi.DBModelManager(),
+			}
+			err = GetDBModels(dbOpts)
+			if err != nil {
+				return
+			}
+		} else {
+			err = GetModels(opts)
+			if err != nil {
+				return
+			}
 		}
 	}
 	r = mssOld.ApplyUpdates(mssNews)

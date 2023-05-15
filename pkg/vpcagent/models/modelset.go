@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apihelper"
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/compute/models"
 	mcclient_modulebase "yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
@@ -55,6 +56,10 @@ type (
 
 func (set Vpcs) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Vpcs
+}
+
+func (set Vpcs) DBModelManager() db.IModelManager {
+	return models.VpcManager
 }
 
 func (set Vpcs) NewModel() db.IModel {
@@ -153,6 +158,10 @@ func (set Wires) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Wires
 }
 
+func (set Wires) DBModelManager() db.IModelManager {
+	return models.WireManager
+}
+
 func (set Wires) NewModel() db.IModel {
 	return &Wire{}
 }
@@ -190,6 +199,10 @@ func (ms Wires) joinNetworks(subEntries Networks) bool {
 
 func (set Guests) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Servers
+}
+
+func (set Guests) DBModelManager() db.IModelManager {
+	return models.GuestManager
 }
 
 func (set Guests) NewModel() db.IModel {
@@ -297,6 +310,10 @@ func (set Hosts) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Hosts
 }
 
+func (set Hosts) DBModelManager() db.IModelManager {
+	return models.HostManager
+}
+
 func (set Hosts) NewModel() db.IModel {
 	return &Host{}
 }
@@ -316,6 +333,10 @@ func (set Hosts) Copy() apihelper.IModelSet {
 
 func (set Networks) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Networks
+}
+
+func (set Networks) DBModelManager() db.IModelManager {
+	return models.NetworkManager
 }
 
 func (set Networks) NewModel() db.IModel {
@@ -430,6 +451,10 @@ func (set Guestnetworks) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Servernetworks
 }
 
+func (set Guestnetworks) DBModelManager() db.IModelManager {
+	return models.GuestnetworkManager
+}
+
 func (set Guestnetworks) NewModel() db.IModel {
 	return &Guestnetwork{}
 }
@@ -530,6 +555,10 @@ func (set NetworkAddresses) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.NetworkAddresses
 }
 
+func (set NetworkAddresses) DBModelManager() db.IModelManager {
+	return models.NetworkAddressManager
+}
+
 func (set NetworkAddresses) NewModel() db.IModel {
 	return &NetworkAddress{}
 }
@@ -549,6 +578,10 @@ func (set NetworkAddresses) Copy() apihelper.IModelSet {
 
 func (set SecurityGroups) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.SecGroups
+}
+
+func (set SecurityGroups) DBModelManager() db.IModelManager {
+	return models.SecurityGroupManager
 }
 
 func (set SecurityGroups) NewModel() db.IModel {
@@ -599,6 +632,10 @@ func (set SecurityGroupRules) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.SecGroupRules
 }
 
+func (set SecurityGroupRules) DBModelManager() db.IModelManager {
+	return models.SecurityGroupRuleManager
+}
+
 func (set SecurityGroupRules) NewModel() db.IModel {
 	return &SecurityGroupRule{}
 }
@@ -618,6 +655,10 @@ func (set SecurityGroupRules) Copy() apihelper.IModelSet {
 
 func (set Guestsecgroups) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Serversecgroups
+}
+
+func (set Guestsecgroups) DBModelManager() db.IModelManager {
+	return models.GuestsecgroupManager
 }
 
 func (set Guestsecgroups) NewModel() db.IModel {
@@ -682,6 +723,10 @@ func (set Elasticips) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Elasticips
 }
 
+func (set Elasticips) DBModelManager() db.IModelManager {
+	return models.ElasticipManager
+}
+
 func (set Elasticips) NewModel() db.IModel {
 	return &Elasticip{}
 }
@@ -707,6 +752,10 @@ func (set DnsRecords) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.DNSRecords
 }
 
+func (set DnsRecords) DBModelManager() db.IModelManager {
+	return models.DnsRecordManager
+}
+
 func (set DnsRecords) NewModel() db.IModel {
 	return &DnsRecord{}
 }
@@ -728,6 +777,10 @@ func (set RouteTables) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.RouteTables
 }
 
+func (set RouteTables) DBModelManager() db.IModelManager {
+	return models.RouteTableManager
+}
+
 func (set RouteTables) NewModel() db.IModel {
 	return &RouteTable{}
 }
@@ -747,6 +800,10 @@ func (set RouteTables) Copy() apihelper.IModelSet {
 
 func (set Groupguests) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.InstanceGroupGuests
+}
+
+func (set Groupguests) DBModelManager() db.IModelManager {
+	return models.GroupguestManager
 }
 
 func (set Groupguests) NewModel() db.IModel {
@@ -771,6 +828,10 @@ func (set LoadbalancerNetworks) ModelManager() mcclient_modulebase.IBaseManager 
 	return &mcclient_modules.Loadbalancernetworks
 }
 
+func (set LoadbalancerNetworks) DBModelManager() db.IModelManager {
+	return models.LoadbalancernetworkManager
+}
+
 func (set LoadbalancerNetworks) NewModel() db.IModel {
 	return &LoadbalancerNetwork{}
 }
@@ -791,6 +852,10 @@ func (set LoadbalancerNetworks) Copy() apihelper.IModelSet {
 
 func (set Groupnetworks) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.InstancegroupNetworks
+}
+
+func (set Groupnetworks) DBModelManager() db.IModelManager {
+	return models.GroupnetworkManager
 }
 
 func (set Groupnetworks) NewModel() db.IModel {
@@ -840,6 +905,10 @@ func (set Groupnetworks) joinElasticips(subEntries Elasticips) bool {
 
 func (set Groups) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.InstanceGroups
+}
+
+func (set Groups) DBModelManager() db.IModelManager {
+	return models.GroupManager
 }
 
 func (set Groups) NewModel() db.IModel {
@@ -938,6 +1007,10 @@ func (set LoadbalancerListeners) ModelManager() mcclient_modulebase.IBaseManager
 	return &mcclient_modules.LoadbalancerListeners
 }
 
+func (set LoadbalancerListeners) DBModelManager() db.IModelManager {
+	return models.LoadbalancerListenerManager
+}
+
 func (set LoadbalancerListeners) NewModel() db.IModel {
 	return &LoadbalancerListener{}
 }
@@ -972,6 +1045,10 @@ func (set LoadbalancerListeners) joinLoadbalancerAcls(subEntries LoadbalancerAcl
 
 func (set LoadbalancerAcls) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.LoadbalancerAcls
+}
+
+func (set LoadbalancerAcls) DBModelManager() db.IModelManager {
+	return models.LoadbalancerAclManager
 }
 
 func (set LoadbalancerAcls) NewModel() db.IModel {

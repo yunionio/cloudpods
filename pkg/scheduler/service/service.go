@@ -30,6 +30,7 @@ import (
 	_ "yunion.io/x/sqlchemy/backends"
 
 	compute_api "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -54,17 +55,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/gin/middleware"
 )
 
-func StartService() error {
-	o.Init()
-	dbOpts := o.Options.DBOptions
-
-	o.Options.Port = o.Options.SchedulerPort
-	// init region compute models
-	cloudcommon.InitDB(&dbOpts)
-	defer cloudcommon.CloseDB()
-
-	db.InitAllManagers()
-
+func EnsureDBSync(opt *common_options.DBOptions) {
 	checkDBSyncRetries := 5
 	count := 1
 	for {
@@ -79,54 +70,80 @@ func StartService() error {
 		}
 		count++
 	}
+}
 
-	commonOpts := &o.Options.CommonOptions
+func StartServiceWrapper(
+	dbOpts *common_options.DBOptions,
+	commonOpts *common_options.CommonOptions,
+	sf func(app *appsrv.Application) error) error {
+	// init region compute models
+	cloudcommon.InitDB(dbOpts)
+	defer cloudcommon.CloseDB()
+
+	db.InitAllManagers()
+
+	EnsureDBSync(dbOpts)
+
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
-
-	common_options.StartOptionManager(&o.Options, o.Options.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, o.OnOptionsChange)
-
-	// gin http framework mode configuration
-	ginMode := "release"
-	if o.Options.LogLevel == "debug" {
-		ginMode = "debug"
-	}
-	gin.SetMode(ginMode)
 
 	if err := computemodels.InitDB(); err != nil {
 		log.Fatalf("InitDB fail: %s", err)
 	}
 
-	app := app_common.InitApp(&o.Options.BaseOptions, true)
+	app := app_common.InitApp(&commonOpts.BaseOptions, true)
 	db.AppDBInit(app)
 
-	startSched := func() {
-		stopEverything := make(chan struct{})
-		ctx := context.Background()
-		go skuman.Start(utils.ToDuration(o.Options.SkuRefreshInterval))
-		go schedtag.Start(ctx, utils.ToDuration("30s"))
+	return sf(app)
+}
 
-		for _, f := range []func(ctx context.Context){
-			cloudregion.Manager.Start,
-			zone.Manager.Start,
-			cloudprovider.Manager.Start,
-			cloudaccount.Manager.Start,
-			wire.Manager.Start,
-			network.Manager.Start,
-			hostwire.GetManager().Start,
-			netinterface.GetManager().Start,
-		} {
-			f(ctx)
+func StartService() error {
+	o.Init()
+	dbOpts := o.Options.DBOptions
+	commonOpts := &o.Options.CommonOptions
+	o.Options.Port = o.Options.SchedulerPort
+	o.Options.AutoSyncTable = false
+	o.Options.EnableDBChecksumTables = false
+	o.Options.DBChecksumSkipInit = true
+
+	return StartServiceWrapper(&dbOpts, commonOpts, func(_ *appsrv.Application) error {
+		common_options.StartOptionManager(&o.Options, o.Options.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, o.OnOptionsChange)
+
+		// gin http framework mode configuration
+		ginMode := "release"
+		if o.Options.LogLevel == "debug" {
+			ginMode = "debug"
 		}
+		gin.SetMode(ginMode)
 
-		time.Sleep(5 * time.Second)
+		startSched := func() {
+			stopEverything := make(chan struct{})
+			ctx := context.Background()
+			go skuman.Start(utils.ToDuration(o.Options.SkuRefreshInterval))
+			go schedtag.Start(ctx, utils.ToDuration("30s"))
 
-		schedman.InitAndStart(stopEverything)
-	}
-	startSched()
-	//InitHandlers(app)
-	return startHTTP(&o.Options)
+			for _, f := range []func(ctx context.Context){
+				cloudregion.Manager.Start,
+				zone.Manager.Start,
+				cloudprovider.Manager.Start,
+				cloudaccount.Manager.Start,
+				wire.Manager.Start,
+				network.Manager.Start,
+				hostwire.GetManager().Start,
+				netinterface.GetManager().Start,
+			} {
+				f(ctx)
+			}
+
+			time.Sleep(5 * time.Second)
+
+			schedman.InitAndStart(stopEverything)
+		}
+		startSched()
+		//InitHandlers(app)
+		return startHTTP(&o.Options)
+	})
 }
 
 func startHTTP(opt *o.SchedulerOptions) error {
