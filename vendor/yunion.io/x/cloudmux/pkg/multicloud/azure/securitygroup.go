@@ -306,9 +306,9 @@ func (region *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCrea
 	}
 
 	sortRules := func(rules []cloudprovider.SecurityRule) []SecurityRules {
-		names := []string{}
 		securityRules := []SecurityRules{}
-		offset := (4096-100)/len(rules) - 1
+		names := []string{}
+		offset := (4096 - 100) / (len(rules) + 1) //avoid div zero
 		for i := 0; i < len(rules); i++ {
 			rules[i].Priority = 4096 - offset*i
 			rule := convertSecurityGroupRule(rules[i])
