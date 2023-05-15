@@ -413,7 +413,9 @@ func (self *SRegion) GetVmAgentNetworkInterfaces(node string, VmId int) (map[str
 	}
 
 	for _, intermediate := range intermediates {
-		ipMap[intermediate.HardwareAddress] = intermediate.IPAddresses[0].IPAddress
+		for _, addr := range intermediate.IPAddresses {
+			ipMap[intermediate.HardwareAddress] = addr.IPAddress
+		}
 	}
 
 	return ipMap, nil
