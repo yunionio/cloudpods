@@ -539,10 +539,12 @@ func (self *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *api.Guestn
 func (self *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	net := self.GetNetwork()
 	desc := &api.GuestnetworkJsonDesc{
-		Net:     net.Name,
-		NetId:   self.NetworkId,
-		Mac:     self.MacAddr,
-		Virtual: self.Virtual,
+		GuestnetworkBaseDesc: api.GuestnetworkBaseDesc{
+			Net:     net.Name,
+			NetId:   self.NetworkId,
+			Mac:     self.MacAddr,
+			Virtual: self.Virtual,
+		},
 	}
 
 	if self.Virtual {
