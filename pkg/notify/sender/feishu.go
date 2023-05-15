@@ -53,6 +53,9 @@ func (feishuSender *SFeishuSender) Send(args api.SendParams) error {
 	if err == nil {
 		return nil
 	}
+	if rep == nil {
+		return errors.Wrap(err, "feishu.sendRequest")
+	}
 	// 发送通知失败的情况
 	code, err := rep.GetString("code")
 	if err != nil {
