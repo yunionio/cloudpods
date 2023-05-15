@@ -42,7 +42,7 @@ func (self *GuestSyncConfTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		self.SetStageFailed(ctx, jsonutils.NewString("No host for sync"))
 		return
 	} else {
-		self.SetStage("on_sync_complete", nil)
+		self.SetStage("OnSyncComplete", nil)
 		if err := guest.GetDriver().RequestSyncConfigOnHost(ctx, guest, host, self); err != nil {
 			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			log.Errorf("SyncConfTask faled %v", err)

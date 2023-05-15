@@ -1977,6 +1977,9 @@ func getNicBridge(nic *desc.SGuestNetwork) string {
 }
 
 func onNicChange(oldNic, newNic *desc.SGuestNetwork) error {
+	// override network base desc
+	oldNic.GuestnetworkBaseDesc = newNic.GuestnetworkBaseDesc
+
 	oldbr := getNicBridge(oldNic)
 	oldifname := oldNic.Ifname
 	newbr := getNicBridge(newNic)
@@ -2068,6 +2071,7 @@ func (s *SKVMGuestInstance) SyncConfig(
 	s.Desc.SGuestProjectDesc = guestDesc.SGuestProjectDesc
 	s.Desc.SGuestRegionDesc = guestDesc.SGuestRegionDesc
 	s.Desc.SGuestMetaDesc = guestDesc.SGuestMetaDesc
+
 	s.SaveLiveDesc(s.Desc)
 
 	if fwOnly {

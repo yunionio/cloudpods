@@ -77,13 +77,15 @@ func (g *SGuest) getTapNicJsonDesc(ctx context.Context, p *api.GuestnetworkJsonD
 		index = p.Index + 1
 	}
 	desc := &api.GuestnetworkJsonDesc{
-		Mac:       srv.MacAddr,
-		Virtual:   true,
-		Ifname:    srv.Ifname,
+		GuestnetworkBaseDesc: api.GuestnetworkBaseDesc{
+			Mac:     srv.MacAddr,
+			Virtual: true,
+			Index:   index,
+			Bridge:  api.HostTapBridge,
+			Ifname:  srv.Ifname,
+		},
 		Driver:    driver,
 		NumQueues: 1,
-		Index:     index,
-		Bridge:    api.HostTapBridge,
 	}
 	return desc
 }
