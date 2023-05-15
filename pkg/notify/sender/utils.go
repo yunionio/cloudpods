@@ -47,9 +47,9 @@ func sendRequest(url string, method httputils.THttpMethod, header http.Header, p
 	if params != nil {
 		url += params.Encode()
 	}
-	_, req, err := httputils.JSONRequest(cli, ctx, method, url, header, body, options.Options.DebugRequest)
+	_, resp, err := httputils.JSONRequest(cli, ctx, method, url, header, body, options.Options.DebugRequest)
 	if err != nil {
-		return nil, utilerr.Wrap(err, "http request")
+		return resp, utilerr.Wrap(err, "http request")
 	}
-	return req, nil
+	return resp, nil
 }
