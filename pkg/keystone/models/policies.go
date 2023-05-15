@@ -678,3 +678,21 @@ func (policy *SPolicy) GetI18N(ctx context.Context) *jsonutils.JSONDict {
 	r.Set("description", jsonutils.NewString(act18))
 	return r
 }
+
+func (policy *SPolicy) ValidateUpdateCondition(ctx context.Context) error {
+	err := policy.SEnabledIdentityBaseResource.ValidateUpdateCondition(ctx)
+	if err != nil {
+		return errors.Wrap(err, "SEnabledIdentityBaseResource.ValidateUpdateCondition")
+	}
+	//if policy.IsSystem.IsTrue() {
+	//	return errors.Wrap(httperrors.ErrForbidden, "system policy")
+	//}
+	rps, err := RolePolicyManager.fetchByPolicyId(policy.Id)
+	if err != nil {
+		return errors.Wrap(err, "fetchByPolicyId")
+	}
+	if len(rps) > 0 {
+		return errors.Wrap(httperrors.ErrForbidden, "policy in use")
+	}
+	return nil
+}
