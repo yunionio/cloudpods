@@ -193,7 +193,15 @@ func (lt *SLocalTemplateManager) fillWithTemplate(ctx context.Context, titleOrCo
 		err  error
 	)
 	actionResultStr := event.ActionWithResult("_")
-	for _, topic := range []string{specTopic(event), event.StringWithDeli("_"), actionResultStr, "common"} {
+	topics := []string{specTopic(event), event.StringWithDeli("_"), actionResultStr}
+	if event.Result() == api.ResultFailed {
+		tempActionResourceArr := strings.Split(actionResultStr, "_")
+		if len(tempActionResourceArr) > 1 {
+			topics = append(topics, strings.Join(tempActionResourceArr[:len(tempActionResourceArr)-1], "_"))
+		}
+	}
+	topics = append(topics, "common")
+	for _, topic := range topics {
 		if topic == "" {
 			continue
 		}
@@ -574,11 +582,20 @@ func init() {
 			"added to the recycle bin",
 			"加入回收站",
 		},
-
+		sI18nElme{
+			string(api.ActionSyncUpdate),
+			"sync_create",
+			"同步新建",
+		},
 		sI18nElme{
 			string(api.ActionSyncUpdate),
 			"sync_update",
-			"同步",
+			"同步更新",
+		},
+		sI18nElme{
+			string(api.ActionSyncUpdate),
+			"sync_delete",
+			"同步删除",
 		},
 		sI18nElme{
 			string(api.ActionMigrate),
