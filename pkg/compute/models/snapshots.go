@@ -1265,19 +1265,19 @@ func (manager *SSnapshotManager) DataCleaning(ctx context.Context, userCred mccl
 }
 
 func dataCleaning(tableName string) error {
-	now := time.Now()
-	monthsDaysAgo := now.AddDate(0, 0, -options.Options.KeepDeletedSnapshotDays).Format("2006-01-02 15:04:05")
-	sqlStr := fmt.Sprintf(
-		"delete from %s  where deleted = 1 and deleted_at < '%s'",
-		tableName,
-		monthsDaysAgo,
+	if options.Options.KeepDeletedSnapshotDays <= 0 {
+		return nil
+	}
+
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"delete from %s  where deleted = 1 and deleted_at < ?",
+			tableName,
+		), time.Now().AddDate(0, 0, -options.Options.KeepDeletedSnapshotDays),
 	)
-	q := sqlchemy.NewRawQuery(sqlStr)
-	rows, err := q.Rows()
 	if err != nil {
 		return errors.Wrapf(err, "unable to delete expired data in %q", tableName)
 	}
-	defer rows.Close()
 	log.Infof("delete expired data in %q successfully", tableName)
 	return nil
 }
