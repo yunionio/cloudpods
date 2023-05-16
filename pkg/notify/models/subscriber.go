@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -80,7 +81,7 @@ type SSubscriber struct {
 	db.SStandaloneAnonResourceBase
 	db.SEnabledResourceBase
 
-	TopicID                 string `width:"128" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user" create:"required"`
+	TopicId                 string `width:"128" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user" create:"required"`
 	Type                    string `width:"16" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user" create:"required"`
 	Identification          string `width:"128" charset:"ascii" nullable:"false" index:"true"`
 	RoleScope               string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user" create:"optional"`
@@ -685,11 +686,57 @@ func (sm *SSubscriberManager) InitializeData() error {
 		subscriber := SSubscriber{}
 		subscriber.Type = api.SUBSCRIBER_TYPE_ROLE
 		subscriber.Identification = roleId
-		subscriber.TopicID = topic.Id
+		subscriber.TopicId = topic.Id
 		subscriber.Scope = api.SUBSCRIBER_SCOPE_SYSTEM
 		subscriber.ResourceScope = api.SUBSCRIBER_SCOPE_SYSTEM
 		subscriber.Enabled = tristate.True
 		sm.TableSpec().Insert(ctx, &subscriber)
 	}
 	return nil
+}
+
+// 根据接受人ID获取订阅
+func getSubscriberByReceiverId(receiverId string) ([]SSubscriber, error) {
+	// 获取当前接受人所有角色
+	s := auth.GetAdminSession(context.Background(), options.Options.Region)
+	query := jsonutils.NewDict()
+	query.Add(jsonutils.NewString(receiverId), "user", "id")
+	resp, err := identity.RoleAssignments.List(s, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "UserCacheManager.FetchUserByIdOrName")
+	}
+	roleAssignments := []identityapi.SRoleAssignment{}
+	err = jsonutils.Update(&roleAssignments, resp.Data)
+	if err != nil {
+		return nil, errors.Wrap(err, "update roleAssignments")
+	}
+	roleArr := []string{}
+	for _, roleAssignment := range roleAssignments {
+		roleArr = append(roleArr, roleAssignment.Role.Id)
+	}
+
+	results := []SSubscriber{}
+	// q1 根据角色查找
+	q1 := SubscriberManager.Query()
+	q1 = q1.Equals("type", api.SUBSCRIBER_TYPE_ROLE)
+	q1 = q1.In("identification", roleArr)
+	tempRes := []SSubscriber{}
+	err = db.FetchModelObjects(SubscriberManager, q1, &tempRes)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch role")
+	}
+	results = append(results, tempRes...)
+
+	// q2 根据接受人ID查找
+	q2 := SubscriberManager.Query()
+	srq := SubscriberReceiverManager.Query().Equals("receiver_id", receiverId)
+	srsq := srq.SubQuery()
+	q2 = q2.Equals("type", api.SUBSCRIBER_TYPE_RECEIVER)
+	q2.Join(srsq, sqlchemy.Equals(q2.Field("id"), srsq.Field("subscriber_id")))
+	err = db.FetchModelObjects(SubscriberManager, q2, &tempRes)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch receiver")
+	}
+	results = append(results, tempRes...)
+	return results, nil
 }

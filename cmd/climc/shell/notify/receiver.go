@@ -34,4 +34,5 @@ func init() {
 	cmd.Perform("enable-contact-type", new(options.ReceiverEnableContactTypeInput))
 	cmd.PerformClass("intellij-get", new(options.ReceiverIntellijGetOptions))
 	cmd.PerformClass("get-types", new(options.ReceiverGetTypeOptions))
+	cmd.Perform("get-subscription", new(options.ReceiverGetSubscriptionOptions))
 }
