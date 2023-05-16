@@ -784,6 +784,27 @@ func (r *SReceiver) IsOwner(userCred mcclient.TokenCredential) bool {
 	return r.Id == userCred.GetUserId()
 }
 
+// 获取用户订阅
+func (r *SReceiver) PerformGetSubscription(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverIntellijGetInput) (jsonutils.JSONObject, error) {
+	subscribers, err := getSubscriberByReceiverId(r.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "getSubscriberByReceiverId")
+	}
+	type retStruct struct {
+		SSubscriber
+		TopicName string
+	}
+	res := []retStruct{}
+	for _, subscriber := range subscribers {
+		topic, err := TopicManager.FetchById(subscriber.TopicId)
+		if err != nil {
+			return nil, errors.Wrap(err, "fetch topic by id")
+		}
+		res = append(res, retStruct{subscriber, topic.GetName()})
+	}
+	return jsonutils.Marshal(res), nil
+}
+
 func (rm *SReceiverManager) PerformIntellijGet(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverIntellijGetInput) (jsonutils.JSONObject, error) {
 	getParam := jsonutils.NewDict()
 	getParam.Set("scope", jsonutils.NewString(input.Scope))
