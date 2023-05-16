@@ -38,5 +38,5 @@ var ChartMap = map[ExcelChartType]string{
 
 const (
 	// 千位分隔
-	CELL_STYLE_THOUSANDS_SEPARATOR string = `#,##0.00_);[Red]\( #,##0.00\)`
+	CELL_STYLE_THOUSANDS_SEPARATOR string = `#,##0.00_)`
 )
