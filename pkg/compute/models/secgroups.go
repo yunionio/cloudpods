@@ -1095,6 +1095,9 @@ func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred
 }
 
 func (self *SSecurityGroup) syncRules(ctx context.Context, rules secrules.SecurityRuleSet) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
 	errs := []error{}
 	priority := 100
 	var action secrules.TSecurityRuleAction
@@ -1106,9 +1109,6 @@ func (self *SSecurityGroup) syncRules(ctx context.Context, rules secrules.Securi
 			action = rules[i].Action
 			priority--
 		}
-
-		lockman.LockObject(ctx, self)
-		defer lockman.ReleaseObject(ctx, self)
 
 		dbRule := &SSecurityGroupRule{}
 		dbRule.SetModelManager(SecurityGroupRuleManager, dbRule)
