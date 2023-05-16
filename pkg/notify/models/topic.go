@@ -328,7 +328,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionOffline,
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
-			t.Results = tristate.True
+			t.Results = tristate.False
 		case DefaultChecksumTestFailed:
 			t.addResources(
 				notify.TOPIC_RESOURCE_DB_TABLE_RECORD,
