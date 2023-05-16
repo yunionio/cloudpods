@@ -25,10 +25,15 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func ExportOptionsHandler(app *appsrv.Application, options interface{}) {
+	ExportOptionsHandlerWithPrefix(app, "", options)
+}
+
+func ExportOptionsHandlerWithPrefix(app *appsrv.Application, prefix string, options interface{}) {
 	hf := func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 		result := policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), "app-options", "list")
@@ -40,5 +45,6 @@ func ExportOptionsHandler(app *appsrv.Application, options interface{}) {
 	}
 	ahf := auth.Authenticate(hf)
 	name := "get_app_options"
-	app.AddHandler2("GET", "/app-options", ahf, nil, name, nil)
+	pref := httputils.JoinPath(prefix, "app-options")
+	app.AddHandler2("GET", pref, ahf, nil, name, nil)
 }
