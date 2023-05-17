@@ -54,6 +54,8 @@ type ServerListInput struct {
 	Usb *bool `json:"usb"`
 	// 自定义 PCI 设备类型
 	CustomDevType string `json:"custom_dev_type"`
+	// 通用虚拟机
+	Normal *bool `json:"normal"`
 	// 只列出还有备份机的主机
 	Backup *bool `json:"bakcup"`
 	// 列出指定类型的主机
