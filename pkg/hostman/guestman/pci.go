@@ -57,7 +57,7 @@ func (s *SKVMGuestInstance) initGuestDesc() error {
 	s.initMemDesc(s.Desc.Mem)
 	s.initMachineDesc()
 
-	pciRoot, pciBridge := s.initGuestPciControllers(true)
+	pciRoot, pciBridge := s.initGuestPciControllers(s.manager.host.IsKvmSupport())
 	err = s.initGuestPciAddresses()
 	if err != nil {
 		return errors.Wrap(err, "init guest pci addresses")

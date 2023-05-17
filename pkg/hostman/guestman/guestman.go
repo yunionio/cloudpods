@@ -137,7 +137,10 @@ func (m *SGuestManager) InitQemuMaxCpus(machineCaps []monitor.MachineInfo, kvmMa
 		for i := 0; i < len(machineCaps); i++ {
 			if (machineCaps[i].Alias != nil && *machineCaps[i].Alias == machine) ||
 				machineCaps[i].Name == machine {
-				cpuMax := minFunc(uint(machineCaps[i].CPUMax), kvmMaxCpus)
+				cpuMax := uint(machineCaps[i].CPUMax)
+				if kvmMaxCpus > 0 {
+					cpuMax = minFunc(cpuMax, kvmMaxCpus)
+				}
 				if utils.IsInStringArray(machine, []string{"pc", "q35"}) {
 					// Note: if max cpux exceed 255, machine requires Extended Interrupt Mode enabled.
 					// You can add an IOMMU using: -device intel-iommu,intremap=on,eim=on
