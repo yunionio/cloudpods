@@ -167,17 +167,17 @@ Loop:
 		return
 	}
 	self.SetStage("OnResumeIpMacSrcCheckComplete", nil)
-	err = guest.StartSyncTask(ctx, self.GetUserCred(), true, self.Id)
+	err = guest.StartSyncTask(ctx, self.GetUserCred(), false, self.Id)
 	if err != nil {
 		self.taskFailed(ctx, guest, nil, err)
 	}
 }
 
-func (self *GuestRestartNetworkTask) OnResumeIpMacSrcCheckComplete(ctx context.Context, obj db.IScopedResourceManager, data jsonutils.JSONObject) {
+func (self *GuestRestartNetworkTask) OnResumeIpMacSrcCheckComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *GuestRestartNetworkTask) OnResumeIpMacSrcCheckCompleteFailed(ctx context.Context, obj db.IScopedResourceManager, data jsonutils.JSONObject) {
+func (self *GuestRestartNetworkTask) OnResumeIpMacSrcCheckCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, data)
 }
 
@@ -205,7 +205,7 @@ func (self *GuestRestartNetworkTask) OnInit(ctx context.Context, obj db.IStandal
 			return
 		}
 		self.SetStage("OnCloseIpMacSrcCheckComplete", data)
-		err = guest.StartSyncTask(ctx, self.GetUserCred(), true, self.Id)
+		err = guest.StartSyncTask(ctx, self.GetUserCred(), false, self.Id)
 		if err != nil {
 			self.taskFailed(ctx, guest, nil, err)
 			return
