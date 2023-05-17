@@ -686,12 +686,14 @@ func (policy *SPolicy) ValidateUpdateCondition(ctx context.Context) error {
 	//if policy.IsSystem.IsTrue() {
 	//	return errors.Wrap(httperrors.ErrForbidden, "system policy")
 	//}
-	rps, err := RolePolicyManager.fetchByPolicyId(policy.Id)
-	if err != nil {
-		return errors.Wrap(err, "fetchByPolicyId")
-	}
-	if len(rps) > 0 {
-		return errors.Wrap(httperrors.ErrForbidden, "policy in use")
+	if options.Options.ThreeAdminRoleSystem {
+		rps, err := RolePolicyManager.fetchByPolicyId(policy.Id)
+		if err != nil {
+			return errors.Wrap(err, "fetchByPolicyId")
+		}
+		if len(rps) > 0 {
+			return errors.Wrap(httperrors.ErrForbidden, "policy in use")
+		}
 	}
 	return nil
 }
