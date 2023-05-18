@@ -227,7 +227,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		}
 	}
 	if evalMatchCount == 0 && len(seriesList) != 0 {
-		log.Errorf("sql-meta:%s", metas[0].RawQuery)
+		log.Debugf("sql-meta: %s", metas[0].RawQuery)
 	}
 
 	return &alerting.ConditionResult{
@@ -239,8 +239,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	}, nil
 }
 
-func (c *QueryCondition) serieIsLatestResource(resources []jsonutils.JSONObject,
-	series *tsdb.TimeSeries) (bool, jsonutils.JSONObject) {
+func (c *QueryCondition) serieIsLatestResource(resources map[string]jsonutils.JSONObject, series *tsdb.TimeSeries) (bool, jsonutils.JSONObject) {
 	tagId := monitor.MEASUREMENT_TAG_ID[c.ResType]
 	if len(tagId) == 0 {
 		tagId = "host_id"
@@ -248,36 +247,34 @@ func (c *QueryCondition) serieIsLatestResource(resources []jsonutils.JSONObject,
 	resId := series.Tags[tagId]
 	log.Debugf("serieIsLatestResource use tagId %q, found resId %q", tagId, resId)
 	if len(resources) != 0 {
-		for _, resource := range resources {
-			id, _ := resource.GetString("id")
-			if resId == id {
-				got, obj := models.MonitorResourceManager.GetResourceObj(resId)
-				if got {
-					return true, obj
-				} else {
-					log.Warningf("not found resource %s %s from cache, use list item directly", c.ResType, resId)
-					return true, resource
-				}
-			} else {
-				continue
-			}
+		resource, ok := resources[resId]
+		if !ok {
+			return false, nil
 		}
-		return false, nil
+		got, obj := models.MonitorResourceManager.GetResourceObj(resId)
+		if got {
+			return true, obj
+		} else {
+			log.Warningf("not found resource %s %s from cache, use list item directly", c.ResType, resId)
+			return true, resource
+		}
 	}
 	return models.MonitorResourceManager.GetResourceObj(resId)
 }
 
 func (c *QueryCondition) FillSerieByResourceField(resource jsonutils.JSONObject,
 	series *tsdb.TimeSeries) {
+	//startTime := time.Now()
+	//defer func() {
+	//	log.Debugf("--FillSerieByResourceField: %s", time.Since(startTime))
+	//}()
 	tagKeyRelationMap := c.getTagKeyRelationMap()
-	fieldMap, _ := resource.GetMap()
-	for field, v := range fieldMap {
-		val, _ := v.GetString()
-		for tagKey, resourceKey := range tagKeyRelationMap {
-			if resourceKey == field {
-				series.Tags[tagKey] = val
-			}
+	for tagKey, resourceKey := range tagKeyRelationMap {
+		val, err := resource.Get(resourceKey)
+		if err != nil {
+			continue
 		}
+		series.Tags[tagKey] = val.String()
 	}
 }
 
