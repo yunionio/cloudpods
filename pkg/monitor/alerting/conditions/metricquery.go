@@ -18,10 +18,13 @@ import (
 	gocontext "context"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/workqueue"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -80,33 +83,99 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 		IsDebug:   true,
 		IsTestRun: false,
 	}
-	queryResult, err := query.executeQuery(&evalContext, timeRange)
-	if err != nil {
-		return nil, err
+
+	allStartTime := time.Now()
+	var qr *queryResult
+	var err error
+
+	queryInfluxdb := func() (*queryResult, error) {
+		startTime := time.Now()
+		queryResult, err := query.executeQuery(&evalContext, timeRange)
+		if err != nil {
+			return nil, err
+		}
+		log.Debugf("query metrics from influxdb elapsed: %s", time.Since(startTime))
+		return queryResult, nil
 	}
-	metrics := mq.Metrics{
-		Series: make(tsdb.TimeSeriesSlice, 0),
-		Metas:  queryResult.metas,
-	}
+
 	if query.noCheckSeries(skipCheckSeries) {
-		metrics.Series = queryResult.series
+		qr, err = queryInfluxdb()
+		if err != nil {
+			return nil, err
+		}
+		metrics := mq.Metrics{
+			Series: make(tsdb.TimeSeriesSlice, 0),
+			Metas:  qr.metas,
+		}
+		metrics.Series = qr.series
 		return &metrics, nil
 	}
 
-	s := auth.GetSession(ctx, userCred, "")
-	ress, err := firstCond.getOnecloudResources(s, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "get resources from region")
-	}
+	qInfluxdbCh := make(chan bool, 0)
+	qRegionCh := make(chan bool, 0)
 
-	for _, serie := range queryResult.series {
-		isLatestOfSerie, resource := firstCond.serieIsLatestResource(ress, serie)
+	go func() {
+		qr, err = queryInfluxdb()
+		qInfluxdbCh <- true
+	}()
+
+	var (
+		regionErr error
+		ress      []jsonutils.JSONObject
+		resMap    = make(map[string]jsonutils.JSONObject)
+	)
+	go func() {
+		startTime := time.Now()
+
+		s := auth.GetSession(ctx, userCred, "")
+		ress, regionErr = firstCond.getOnecloudResources(s, false)
+		if err != nil {
+			regionErr = errors.Wrap(regionErr, "get resources from region")
+			return
+		}
+		// convert resources to map
+		for _, res := range ress {
+			id, _ := res.GetString("id")
+			if id == "" {
+				continue
+			}
+			tmpRes := res
+			resMap[id] = tmpRes
+		}
+		log.Debugf("get resources from region elapsed: %s", time.Since(startTime))
+		qRegionCh <- true
+	}()
+
+	<-qInfluxdbCh
+	<-qRegionCh
+
+	startTime := time.Now()
+	//for _, serie := range queryResult.series {
+	//	isLatestOfSerie, resource := firstCond.serieIsLatestResource(resMap, serie)
+	//	if !isLatestOfSerie {
+	//		continue
+	//	}
+	//	firstCond.FillSerieByResourceField(resource, serie)
+	//	metrics.Series = append(metrics.Series, serie)
+	//}
+	metrics := mq.Metrics{
+		Series: make(tsdb.TimeSeriesSlice, 0),
+		Metas:  qr.metas,
+	}
+	mtx := sync.Mutex{}
+	workqueue.Parallelize(4, len(qr.series), func(piece int) {
+		serie := qr.series[piece]
+		isLatestOfSerie, resource := firstCond.serieIsLatestResource(resMap, serie)
 		if !isLatestOfSerie {
-			continue
+			return
 		}
 		firstCond.FillSerieByResourceField(resource, serie)
+		mtx.Lock()
+		defer mtx.Unlock()
 		metrics.Series = append(metrics.Series, serie)
-	}
+	})
+	log.Debugf("fill metrics tag elapsed: %s", time.Since(startTime))
+	log.Debugf("all steps elapsed: %s", time.Since(allStartTime))
 	return &metrics, nil
 }
 
