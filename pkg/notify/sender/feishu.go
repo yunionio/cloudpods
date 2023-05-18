@@ -159,8 +159,11 @@ func (feishuSender *SFeishuSender) GetAccessToken(domainId string) error {
 	key := fmt.Sprintf("%s-%s", api.FEISHU, domainId)
 	appId, appSecret := models.ConfigMap[key].Content.AppId, models.ConfigMap[key].Content.AppSecret
 	resp, err := feishuSender.getAccessToken(appId, appSecret)
+	if err != nil {
+		return errors.Wrap(err, "get accessToken")
+	}
 	models.ConfigMap[key].Content.AccessToken = resp.TenantAccessToken
-	return err
+	return nil
 }
 
 func (feishuSender *SFeishuSender) getAccessToken(appId, appSecret string) (*feishu.TenantAccesstokenResp, error) {
