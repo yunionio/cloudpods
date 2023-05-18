@@ -22,6 +22,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -121,12 +122,22 @@ func imageUploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	properties := map[string]string{}
+	prefix := "properties."
+
 	// add all other params
 	for k, v := range p {
 		if k == "name" || k == "image_size" {
 			continue
 		}
+		if strings.HasPrefix(k, prefix) {
+			properties[strings.TrimPrefix(k, prefix)] = v
+			continue
+		}
 		params.Add(jsonutils.NewString(v), k)
+	}
+	if len(properties) > 0 {
+		params.Set("properties", jsonutils.Marshal(properties))
 	}
 
 	token := AppContextToken(ctx)
