@@ -101,6 +101,14 @@ func (rt *ReceiverTriggerVerifyOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(rt.SreceiverTriggerVerifyOptions), nil
 }
 
+type ReceiverGetSubscriptionOptions struct {
+	ReceiverOptions
+}
+
+func (rt *ReceiverGetSubscriptionOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(rt), nil
+}
+
 type ReceiverVerifyOptions struct {
 	ReceiverOptions
 	SreceiverVerifyOptions
