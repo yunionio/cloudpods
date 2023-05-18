@@ -251,22 +251,16 @@ func setImageMeta(params jsonutils.JSONObject) (http.Header, error) {
 		return header, e
 	}
 	for k, v := range p {
-		if ok, _ := utils.InStringArray(k, []string{"copy_from"}); ok {
+		if k == "copy_from" || k == "properties" {
 			continue
 		}
-		if k == "properties" {
-			pp, e := v.(*jsonutils.JSONDict).GetMap()
-			if e != nil {
-				return header, e
-			}
-			for kk, vv := range pp {
-				vvs, _ := vv.GetString()
-				header.Add(fmt.Sprintf("%s%s", IMAGE_META_PROPERTY, utils.Capitalize(kk)), vvs)
-			}
-		} else {
-			vs, _ := v.GetString()
-			header.Add(fmt.Sprintf("%s%s", IMAGE_META, utils.Capitalize(k)), vs)
-		}
+		vs, _ := v.GetString()
+		header.Add(fmt.Sprintf("%s%s", IMAGE_META, utils.Capitalize(k)), vs)
+	}
+	properties := map[string]string{}
+	params.Unmarshal(properties, "properties")
+	for k, v := range properties {
+		header.Add(fmt.Sprintf("%s%s", IMAGE_META_PROPERTY, utils.Capitalize(k)), v)
 	}
 	return header, nil
 }
@@ -440,17 +434,6 @@ func (this *ImageManager) Upload(s *mcclient.ClientSession, params jsonutils.JSO
 }
 
 func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JSONObject, body io.Reader, size int64) (jsonutils.JSONObject, error) {
-	/*format, _ := params.GetString("disk-format")
-	if len(format) == 0 {
-		format, _ = params.GetString("disk_format")
-		if len(format) == 0 {
-			return nil, httperrors.NewMissingParameterError("disk_format")
-		}
-	}
-	exists, _ := utils.InStringArray(format, []string{"qcow2", "raw", "vhd", "vmdk", "iso", "docker"})
-	if !exists {
-		return nil, fmt.Errorf("Unsupported image format %s", format)
-	}*/
 	imageId, _ := params.GetString("image_id")
 	path := fmt.Sprintf("/%s", this.URLPath())
 	method := httputils.POST
