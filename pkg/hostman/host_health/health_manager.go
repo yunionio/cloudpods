@@ -151,7 +151,7 @@ func (m *SHostHealthManager) OnKeepaliveFailure() {
 }
 
 func (m *SHostHealthManager) networkAvailable() bool {
-	res, err := misc.Ping(m.masterNodesIps, 3, 10, true)
+	res, err := misc.Ping(m.masterNodesIps, 3, 10, false)
 	if err != nil {
 		log.Errorf("failed ping master nodes %s", res)
 		return true
