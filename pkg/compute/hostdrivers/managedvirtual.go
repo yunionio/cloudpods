@@ -357,24 +357,46 @@ func (self *SManagedVirtualizationHostDriver) RequestDeallocateDiskOnHost(ctx co
 	return nil
 }
 
-func (self *SManagedVirtualizationHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+func (self *SManagedVirtualizationHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
+	return input, nil
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
-	iDisk, err := disk.GetIDisk(ctx)
-	if err != nil {
-		return err
-	}
-	snapshotId, err := params.GetString("snapshot_id")
-	if err != nil {
-		return err
-	}
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		exteranlDiskId, err := iDisk.Reset(ctx, snapshotId)
-		data := jsonutils.NewDict()
-		data.Set("exteranl_disk_id", jsonutils.NewString(exteranlDiskId))
-		return data, err
+		iDisk, err := disk.GetIDisk(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIDisk")
+		}
+		snapshotId, err := params.GetString("snapshot_id")
+		if err != nil {
+			return nil, errors.Wrapf(err, "get snapshot_id")
+		}
+
+		exteranlId, err := iDisk.Reset(ctx, snapshotId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Reset")
+		}
+		_, err = db.Update(disk, func() error {
+			if len(exteranlId) > 0 {
+				disk.ExternalId = exteranlId
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.Update")
+		}
+		iDisk, err = disk.GetIDisk(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIDisk")
+		}
+		_, err = db.Update(disk, func() error {
+			if len(exteranlId) > 0 {
+				disk.DiskSize = iDisk.GetDiskSizeMB()
+				return nil
+			}
+			return nil
+		})
+		return nil, err
 	})
 	return nil
 }
