@@ -1162,7 +1162,7 @@ func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
 		if s.IsMaster() {
 			s.startDiskBackupMirror(ctx)
 		} else {
-			s.DoResumeTask(ctx, true)
+			s.DoResumeTask(ctx, true, false)
 		}
 		if err := s.InitQga(); err != nil {
 			log.Errorf("Guest %s init qga failed %s", s.Id, err)
@@ -1185,7 +1185,7 @@ func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 
 func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 	if ctx == nil || len(appctx.AppContextTaskId(ctx)) == 0 {
-		s.DoResumeTask(ctx, true)
+		s.DoResumeTask(ctx, true, false)
 	} else {
 		nbdUri, ok := s.Desc.Metadata["backup_nbd_server_uri"]
 		if !ok {
@@ -1203,11 +1203,11 @@ func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 				hostutils.TaskFailed(ctx, err.Error())
 				return
 			}
-			s.DoResumeTask(ctx, true)
+			s.DoResumeTask(ctx, true, false)
 		}
 		onFail := func(res string) {
 			s.SyncMirrorJobFailed(res)
-			s.DoResumeTask(ctx, true)
+			s.DoResumeTask(ctx, true, false)
 		}
 		NewGuestBlockReplicationTask(ctx, s, nbdOpts[1], nbdOpts[2], "full", onSucc, onFail).Start()
 	}
@@ -1376,7 +1376,7 @@ func (s *SKVMGuestInstance) saveVncPort(port int) error {
 	return fileutils2.FilePutContents(s.GetVncFilePath(), fmt.Sprintf("%d", port), false)
 }
 
-func (s *SKVMGuestInstance) DoResumeTask(ctx context.Context, isTimeout bool) {
+func (s *SKVMGuestInstance) DoResumeTask(ctx context.Context, isTimeout bool, cleanTls bool) {
 	s.StartupTask = NewGuestResumeTask(ctx, s, isTimeout, false)
 	s.StartupTask.Start()
 }
