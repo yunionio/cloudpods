@@ -606,3 +606,11 @@ func (manager *SRolePolicyManager) FilterByNotId(q *sqlchemy.SQuery, idStr strin
 func (manager *SRolePolicyManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
 	return manager.FilterById(q, name)
 }
+
+func (manager *SRolePolicyManager) isBootstrapRolePolicy() (bool, error) {
+	cnt, err := manager.Query().CountWithError()
+	if err != nil {
+		return false, errors.Wrap(err, "CountWithError")
+	}
+	return (cnt == 0), nil
+}
