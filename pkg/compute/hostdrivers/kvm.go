@@ -385,7 +385,7 @@ func (self *SKVMHostDriver) RequestDeleteSnapshotsWithStorage(ctx context.Contex
 	return err
 }
 
-func (self *SKVMHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SKVMHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
 	if len(guests) > 1 {
 		return nil, httperrors.NewBadRequestError("Disk attach muti guests")
 	} else if len(guests) == 1 {
@@ -396,7 +396,7 @@ func (self *SKVMHostDriver) ValidateResetDisk(ctx context.Context, userCred mccl
 		return nil, httperrors.NewBadRequestError("Disk dosen't attach guest")
 	}
 
-	return data, nil
+	return input, nil
 }
 
 func (self *SKVMHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {

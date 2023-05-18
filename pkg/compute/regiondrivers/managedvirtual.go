@@ -1191,34 +1191,6 @@ func (self *SManagedVirtualizationRegionDriver) GetDiskResetParams(snapshot *mod
 
 func (self *SManagedVirtualizationRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential,
 	disk *models.SDisk, snapshot *models.SSnapshot, data jsonutils.JSONObject) error {
-
-	externalId, _ := data.GetString("exteranl_disk_id")
-	if len(externalId) > 0 {
-		_, err := db.Update(disk, func() error {
-			disk.ExternalId = externalId
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-	}
-	iDisk, err := disk.GetIDisk(ctx)
-	if err != nil {
-		return err
-	}
-	err = iDisk.Refresh()
-	if err != nil {
-		return err
-	}
-	if disk.DiskSize != iDisk.GetDiskSizeMB() {
-		_, err := db.Update(disk, func() error {
-			disk.DiskSize = iDisk.GetDiskSizeMB()
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

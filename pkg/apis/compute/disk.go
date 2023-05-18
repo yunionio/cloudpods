@@ -320,3 +320,8 @@ type DiskDeleteInput struct {
 	SkipRecycle      *bool
 	EsxiFlatFilePath string
 }
+
+type DiskResetInput struct {
+	SnapshotId string `json:"snapshot_id"`
+	AutoStart  bool   `json:"auto_start"`
+}
