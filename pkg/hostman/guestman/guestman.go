@@ -1211,11 +1211,10 @@ func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bo
 		return nil, httperrors.NewInvalidStatusError("resume stopped server???")
 	}
 	var cb = func() {
-		resumeTask := NewGuestResumeTask(ctx, guest, !isLiveMigrate, cleanTLS)
 		if isLiveMigrate {
 			guest.StartPresendArp()
 		}
-		resumeTask.Start()
+		guest.DoResumeTask(ctx, !isLiveMigrate, cleanTLS)
 	}
 	if guest.Monitor == nil {
 		guest.StartMonitor(ctx, cb)
