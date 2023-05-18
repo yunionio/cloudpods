@@ -8,6 +8,7 @@ package memory
 import (
 	"bufio"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -64,18 +65,25 @@ func AreaForNode(ctx *context.Context, nodeID int) (*Area, error) {
 		fmt.Sprintf("node%d", nodeID),
 	)
 
-	blockSizeBytes, err := memoryBlockSizeBytes(paths.SysDevicesSystemMemory)
-	if err != nil {
-		return nil, err
-	}
-
-	totPhys, err := memoryTotalPhysicalBytesFromPath(path, blockSizeBytes)
-	if err != nil {
-		return nil, err
-	}
-
 	totUsable, err := memoryTotalUsableBytesFromPath(filepath.Join(path, "meminfo"))
 	if err != nil {
+		return nil, err
+	}
+
+	var totPhys int64
+	if _, err := os.Stat(paths.SysDevicesSystemMemory); err == nil {
+		blockSizeBytes, err := memoryBlockSizeBytes(paths.SysDevicesSystemMemory)
+		if err != nil {
+			return nil, err
+		}
+
+		totPhys, err = memoryTotalPhysicalBytesFromPath(path, blockSizeBytes)
+		if err != nil {
+			return nil, err
+		}
+	} else if errors.Is(err, os.ErrNotExist) {
+		totPhys = totUsable
+	} else {
 		return nil, err
 	}
 
