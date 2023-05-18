@@ -597,17 +597,20 @@ func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.Tok
 
 	addedIds, updatedIds, deletedIds := stringutils2.Split(normalInputIds, existRpIds)
 
-	// validate
-	var newPolicyIds []string
-	if input.Action == api.ROLE_SET_POLICY_ACTION_REPLACE {
-		newPolicyIds = inputPolicyIds
-	} else {
-		newPolicyIds = stringutils2.Append(newPolicyIds, inputPolicyIds...)
-		newPolicyIds = stringutils2.Append(newPolicyIds, existPolicyIds...)
-	}
-	err = validateRolePolicies(userCred, newPolicyIds)
-	if err != nil {
-		return nil, errors.Wrap(err, "validateRolePolicies")
+	isBootStrap, err := RolePolicyManager.isBootstrapRolePolicy()
+	if !isBootStrap {
+		// validate
+		var newPolicyIds []string
+		if input.Action == api.ROLE_SET_POLICY_ACTION_REPLACE {
+			newPolicyIds = inputPolicyIds
+		} else {
+			newPolicyIds = stringutils2.Append(newPolicyIds, inputPolicyIds...)
+			newPolicyIds = stringutils2.Append(newPolicyIds, existPolicyIds...)
+		}
+		err = validateRolePolicies(userCred, newPolicyIds)
+		if err != nil {
+			return nil, errors.Wrap(err, "validateRolePolicies")
+		}
 	}
 
 	if input.Action == api.ROLE_SET_POLICY_ACTION_REPLACE {
@@ -699,19 +702,22 @@ func (role *SRole) PerformAddPolicy(ctx context.Context, userCred mcclient.Token
 		return nil, errors.Wrap(err, "normalizeRoleAddPolicyInput")
 	}
 
-	// validate
-	rps, err := RolePolicyManager.fetchByRoleId(role.Id)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchByRoleId")
-	}
-	newPolicyIds := stringutils2.NewSortedStrings(nil)
-	for i := range rps {
-		newPolicyIds = stringutils2.Append(newPolicyIds, rps[i].PolicyId)
-	}
-	newPolicyIds = stringutils2.Append(newPolicyIds, normalInput.policyId)
-	err = validateRolePolicies(userCred, newPolicyIds)
-	if err != nil {
-		return nil, errors.Wrap(err, "validateRolePolicies")
+	isBootStrap, err := RolePolicyManager.isBootstrapRolePolicy()
+	if !isBootStrap {
+		// validate
+		rps, err := RolePolicyManager.fetchByRoleId(role.Id)
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchByRoleId")
+		}
+		newPolicyIds := stringutils2.NewSortedStrings(nil)
+		for i := range rps {
+			newPolicyIds = stringutils2.Append(newPolicyIds, rps[i].PolicyId)
+		}
+		newPolicyIds = stringutils2.Append(newPolicyIds, normalInput.policyId)
+		err = validateRolePolicies(userCred, newPolicyIds)
+		if err != nil {
+			return nil, errors.Wrap(err, "validateRolePolicies")
+		}
 	}
 
 	err = RolePolicyManager.newRecord(ctx, normalInput.roleId, normalInput.projectId, normalInput.policyId, tristate.True, normalInput.prefixes, normalInput.validSince, normalInput.validUntil)
