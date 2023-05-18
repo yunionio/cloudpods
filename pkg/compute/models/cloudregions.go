@@ -89,7 +89,7 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context, info *api
 		return httperrors.NewProtectedResourceError("not allow to delete default cloud region")
 	}
 	if gotypes.IsNil(info) {
-		info := &api.CloudregionDetails{}
+		info = &api.CloudregionDetails{}
 		usage, err := CloudregionManager.TotalResourceCount([]string{self.Id})
 		if err != nil {
 			return err
