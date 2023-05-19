@@ -213,8 +213,8 @@ func (s *SKVMGuestInstance) initGuestPciControllers(pciExtend bool) (*desc.PCICo
 	}
 	if s.isPcie() {
 		pciRoot = s.addPCIController(desc.CONTROLLER_TYPE_PCIE_ROOT, "")
-		s.addPCIController(desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_ROOT)
 		if pciExtend {
+			s.addPCIController(desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_ROOT)
 			pciBridge = s.addPCIController(desc.CONTROLLER_TYPE_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE)
 			for i := 0; i < options.HostOptions.PcieRootPortCount; i++ {
 				s.addPCIController(desc.CONTROLLER_TYPE_PCIE_ROOT_PORT, desc.CONTROLLER_TYPE_PCIE_ROOT)
