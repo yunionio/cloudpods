@@ -17,8 +17,6 @@ package hostdrivers
 import (
 	"context"
 
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -46,11 +44,11 @@ func (self *SZStackHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 	return nil
 }
 
-func (self *SZStackHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SZStackHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
 	for _, guest := range guests {
 		if guest.Status != api.VM_READY {
 			return nil, httperrors.NewBadRequestError("ZStack reset disk operation requried guest status is ready")
 		}
 	}
-	return data, nil
+	return input, nil
 }

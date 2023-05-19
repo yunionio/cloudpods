@@ -916,7 +916,7 @@ func (self *SDisk) CleanUpDiskSnapshots(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.DiskResetInput) (jsonutils.JSONObject, error) {
 	err := self.ValidateEncryption(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "ValidateEncryption")
@@ -924,22 +924,21 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 	if !utils.IsInStringArray(self.Status, []string{api.DISK_READY}) {
 		return nil, httperrors.NewInputParameterError("Cannot reset disk in status %s", self.Status)
 	}
-	storage, _ := self.GetStorage()
-	if storage == nil {
-		return nil, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
-	}
-
-	host, _ := storage.GetMasterHost()
-	if host == nil {
-		return nil, httperrors.NewNotFoundError("failed to find host for storage %s with disk %s", storage.Name, self.Name)
-	}
-
-	snapshotV := validators.NewModelIdOrNameValidator("snapshot", "snapshot", userCred)
-	err = snapshotV.Validate(data.(*jsonutils.JSONDict))
+	storage, err := self.GetStorage()
 	if err != nil {
-		return nil, errors.Wrap(err, "snapshotV.Validate")
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetStorage"))
 	}
-	snapshot := snapshotV.Model.(*SSnapshot)
+
+	host, err := storage.GetMasterHost()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetMasterHost"))
+	}
+
+	snapshotObj, err := validators.ValidateModel(userCred, SnapshotManager, &input.SnapshotId)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := snapshotObj.(*SSnapshot)
 	if snapshot.Status != api.SNAPSHOT_READY {
 		return nil, httperrors.NewBadRequestError("Cannot reset disk with snapshot in status %s", snapshot.Status)
 	}
@@ -949,17 +948,16 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 	}
 
 	guests := self.GetGuests()
-	data, err = host.GetHostDriver().ValidateResetDisk(ctx, userCred, self, snapshot, guests, data.(*jsonutils.JSONDict))
+	input, err = host.GetHostDriver().ValidateResetDisk(ctx, userCred, self, snapshot, guests, input)
 	if err != nil {
 		return nil, err
 	}
 
-	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
 	var guest *SGuest = nil
 	if len(guests) > 0 {
 		guest = &guests[0]
 	}
-	return nil, self.StartResetDisk(ctx, userCred, snapshot.Id, autoStart, guest, "")
+	return nil, self.StartResetDisk(ctx, userCred, snapshot.Id, input.AutoStart, guest, "")
 }
 
 func (self *SDisk) StartResetDisk(
@@ -975,11 +973,9 @@ func (self *SDisk) StartResetDisk(
 	params.Set("auto_start", jsonutils.NewBool(autoStart))
 	task, err := taskman.TaskManager.NewTask(ctx, "DiskResetTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		return err
-	} else {
-		task.ScheduleRun(nil)
+		return errors.Wrapf(err, "NewTask")
 	}
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (disk *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskResizeInput) (jsonutils.JSONObject, error) {
