@@ -16,6 +16,7 @@ package lbagent
 
 import (
 	"context"
+	"math/rand"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -78,6 +79,22 @@ func register(ctx context.Context, opts *Options) (string, error) {
 		createParams.Set("interface", jsonutils.NewString(opts.ListenInterface))
 		createParams.Set("version", jsonutils.NewString(version.Get().GitVersion))
 		data, err := modules.LoadbalancerAgents.Create(s, createParams)
+		if err != nil {
+			return "", errors.Wrap(err, "LoadbalancerAgents.Create")
+		}
+		results.Data = []jsonutils.JSONObject{data}
+	} else if len(results.Data) == 1 {
+		// find one, to update
+		idStr, _ := results.Data[0].GetString("id")
+		priority, _ := results.Data[0].Int("priority")
+		clusterId, _ := results.Data[0].GetString("cluster_id")
+		updateParams := jsonutils.NewDict()
+		updateParams.Set("interface", jsonutils.NewString(opts.ListenInterface))
+		updateParams.Set("version", jsonutils.NewString(version.Get().GitVersion))
+		if priority <= 0 && len(clusterId) > 0 {
+			updateParams.Set("priority", jsonutils.NewInt(int64(rand.Intn(255)+1)))
+		}
+		data, err := modules.LoadbalancerAgents.Update(s, idStr, updateParams)
 		if err != nil {
 			return "", errors.Wrap(err, "LoadbalancerAgents.Create")
 		}
