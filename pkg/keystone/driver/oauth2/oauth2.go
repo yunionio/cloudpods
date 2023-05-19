@@ -71,6 +71,7 @@ func (self *SOAuth2Driver) GetSsoRedirectUri(ctx context.Context, callbackUrl, s
 		return "", errors.Wrapf(httperrors.ErrNotSupported, "template %s not supported", self.Template)
 	}
 	driver := factory.NewDriver(self.oauth2Config.AppId, self.oauth2Config.Secret)
+	ctx = context.WithValue(ctx, "config", self.SBaseIdentityDriver.Config)
 	return driver.GetSsoRedirectUri(ctx, callbackUrl, state)
 }
 
@@ -82,6 +83,7 @@ func (self *SOAuth2Driver) Authenticate(ctx context.Context, ident mcclient.SAut
 	options := self.oauth2Config.SIdpAttributeOptions
 	options.Update(factory.IdpAttributeOptions())
 	driver := factory.NewDriver(self.oauth2Config.AppId, self.oauth2Config.Secret)
+	ctx = context.WithValue(ctx, "config", self.SBaseIdentityDriver.Config)
 	attrs, err := driver.Authenticate(ctx, ident.OAuth2.Code)
 	if err != nil {
 		return nil, errors.Wrapf(err, "driver %s Authenticate", self.Template)
@@ -120,6 +122,14 @@ func (self *SOAuth2Driver) Authenticate(ctx context.Context, ident mcclient.SAut
 }
 
 func (self *SOAuth2Driver) Sync(ctx context.Context) error {
+	factory := findDriverFactory(self.Template)
+	if factory == nil {
+		return nil
+	}
+	if driver, isOk := factory.NewDriver(self.oauth2Config.AppId, self.oauth2Config.Secret).(IOAuth2Synchronizer); isOk {
+		ctx = context.WithValue(ctx, "config", self.SBaseIdentityDriver.Config)
+		return driver.Sync(ctx, self.IdpId)
+	}
 	return nil
 }
 
