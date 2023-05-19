@@ -490,7 +490,7 @@ func (d *SGuestDiskSyncTask) startAddDisk(disk *desc.SGuestDisk) {
 	case DISK_DRIVER_SCSI:
 		bus = "scsi.0"
 	case DISK_DRIVER_VIRTIO:
-		pciRoot := d.guest.getHotPlugPciController()
+		pciRoot = d.guest.getHotPlugPciController()
 		if pciRoot == nil {
 			log.Errorf("no hotplugable pci controller found")
 			d.errors = append(d.errors, errors.Errorf("no hotplugable pci controller found"))
