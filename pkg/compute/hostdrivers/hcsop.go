@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -51,7 +49,7 @@ func (self *SHCSOPHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb 
 	return nil
 }
 
-func (self *SHCSOPHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SHCSOPHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
 	if len(guests) >= 1 {
 		if disk.DiskType == api.DISK_TYPE_SYS {
 			for _, g := range guests {
@@ -63,5 +61,5 @@ func (self *SHCSOPHostDriver) ValidateResetDisk(ctx context.Context, userCred mc
 			return nil, httperrors.NewBadRequestError("Disk must be detached")
 		}
 	}
-	return data, nil
+	return input, nil
 }

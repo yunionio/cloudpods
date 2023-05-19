@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -52,7 +51,7 @@ func (self *SAzureHostDriver) ValidateUpdateDisk(ctx context.Context, userCred m
 	return input, nil
 }
 
-func (self *SAzureHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SAzureHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
 	return nil, httperrors.NewBadRequestError("Azure not support reset disk, you can create new disk with snapshot")
 }
 

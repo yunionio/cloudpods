@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -67,6 +66,6 @@ func (self *SAwsHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb in
 	return nil
 }
 
-func (self *SAwsHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SAwsHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
 	return nil, httperrors.NewBadRequestError("Aws not support reset disk, you can create new disk with snapshot")
 }
