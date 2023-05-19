@@ -1911,8 +1911,8 @@ func (self *SGuest) startDetachIsolateDeviceWithoutNic(ctx context.Context, user
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
-	if dev.DevType == api.NIC_TYPE {
-		return httperrors.NewBadRequestError("Can't separately detach dev type %s", api.NIC_TYPE)
+	if dev.DevType == api.NIC_TYPE || dev.DevType == api.NVME_PT_TYPE {
+		return httperrors.NewBadRequestError("Can't separately detach dev type %s", dev.DevType)
 	}
 	if dev.IsGPU() && !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
 		return httperrors.NewInvalidStatusError("Can't detach GPU when status is %q", self.GetStatus())
@@ -2007,14 +2007,14 @@ func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcc
 }
 
 func (self *SGuest) StartAttachIsolatedDeviceGpuOrUsb(ctx context.Context, userCred mcclient.TokenCredential, device string, autoStart bool) error {
-	if err := self.startAttachIsolatedDevGpuOrUsb(ctx, userCred, device); err != nil {
+	if err := self.startAttachIsolatedDevGeneral(ctx, userCred, device); err != nil {
 		return err
 	}
 	// perform post attach task
 	return self.startIsolatedDevicesSyncTask(ctx, userCred, autoStart, "")
 }
 
-func (self *SGuest) startAttachIsolatedDevGpuOrUsb(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
+func (self *SGuest) startAttachIsolatedDevGeneral(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
 	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
 	if err != nil {
 		msgFmt := "Isolated device %s not found"
@@ -2024,7 +2024,9 @@ func (self *SGuest) startAttachIsolatedDevGpuOrUsb(ctx context.Context, userCred
 	}
 	dev := iDev.(*SIsolatedDevice)
 	if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
-		return httperrors.NewBadRequestError("Can't separately attach dev type %s", dev.DevType)
+		if _, err = IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
+			return httperrors.NewBadRequestError("Can't separately attach dev type %s", dev.DevType)
+		}
 	}
 	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
 		return httperrors.NewInvalidStatusError("Can't attach GPU when status is %q", self.GetStatus())
@@ -2113,7 +2115,7 @@ func (self *SGuest) PerformSetIsolatedDevice(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(addDevs); i++ {
-		err := self.startAttachIsolatedDevGpuOrUsb(ctx, userCred, addDevs[i])
+		err := self.startAttachIsolatedDevGeneral(ctx, userCred, addDevs[i])
 		if err != nil {
 			return nil, err
 		}

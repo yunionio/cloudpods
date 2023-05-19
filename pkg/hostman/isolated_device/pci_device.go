@@ -19,31 +19,27 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/fileutils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 )
 
-type sNVMEDevice struct {
+type sGeneralPCIDevice struct {
 	*sBaseDevice
-
-	sizeMB int
 }
 
-func (dev *sNVMEDevice) GetVGACmd() string {
+func (dev *sGeneralPCIDevice) GetVGACmd() string {
 	return ""
 }
 
-func (dev *sNVMEDevice) GetCPUCmd() string {
+func (dev *sGeneralPCIDevice) GetCPUCmd() string {
 	return ""
 }
 
-func (dev *sNVMEDevice) GetQemuId() string {
+func (dev *sGeneralPCIDevice) GetQemuId() string {
 	return fmt.Sprintf("dev_%s", strings.ReplaceAll(dev.GetAddr(), ":", "_"))
 }
 
-func (dev *sNVMEDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error) {
+func (dev *sGeneralPCIDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotPlugOption, error) {
 	ret := make([]*HotPlugOption, 0)
 
 	var masterDevOpt *HotPlugOption
@@ -75,7 +71,7 @@ func (dev *sNVMEDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice
 	return ret, nil
 }
 
-func (dev *sNVMEDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error) {
+func (dev *sGeneralPCIDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevice) ([]*HotUnplugOption, error) {
 	if len(isolatedDev.VfioDevs) == 0 {
 		return nil, errors.Errorf("device %s no pci ids", isolatedDev.Id)
 	}
@@ -87,34 +83,31 @@ func (dev *sNVMEDevice) GetHotUnplugOptions(isolatedDev *desc.SGuestIsolatedDevi
 	}, nil
 }
 
-func (dev *sNVMEDevice) GetNVMESizeMB() int {
-	return dev.sizeMB
-}
-
-func newNVMEDevice(dev *PCIDevice, devType string, sizeMB int) *sNVMEDevice {
-	return &sNVMEDevice{
+func newGeneralPCIDevice(dev *PCIDevice, devType string) *sGeneralPCIDevice {
+	return &sGeneralPCIDevice{
 		sBaseDevice: newBaseDevice(dev, devType),
-		sizeMB:      sizeMB,
 	}
 }
 
-func getPassthroughNVMEDisks(nvmePciDisks []string) ([]*sNVMEDevice, error) {
-	devs := make([]*sNVMEDevice, 0)
-	for _, conf := range nvmePciDisks {
-		diskConf := strings.Split(conf, "/")
-		if len(diskConf) != 2 {
-			return nil, fmt.Errorf("bad nvme config %s", conf)
+func getPassthroughPCIDevs(devModel IsolatedDeviceModel) ([]*sGeneralPCIDevice, error) {
+	ret, err := bashOutput(fmt.Sprintf("lspci -d %s:%s -nnmm", devModel.VendorId, devModel.DeviceId))
+	if err != nil {
+		return nil, err
+	}
+	lines := []string{}
+	for _, l := range ret {
+		if len(l) != 0 {
+			lines = append(lines, l)
 		}
-		var pciAddr, size = diskConf[0], diskConf[1]
-		sizeMb, err := fileutils.GetSizeMb(size, 'M', 1024)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed parse pci device %s size %s", pciAddr, size)
+	}
+
+	devs := []*sGeneralPCIDevice{}
+	for _, line := range lines {
+		dev := NewPCIDevice2(line)
+		if dev.ModelName == "" {
+			dev.ModelName = devModel.Model
 		}
-		dev, err := detectPCIDevByAddrWithoutIOMMUGroup(pciAddr)
-		if err != nil {
-			return nil, errors.Wrap(err, "detectPCIDevByAddrWithoutIOMMUGroup")
-		}
-		devs = append(devs, newNVMEDevice(dev, api.NVME_PT_TYPE, sizeMb))
+		devs = append(devs, newGeneralPCIDevice(dev, devModel.DevType))
 	}
 	return devs, nil
 }
