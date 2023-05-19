@@ -17,6 +17,7 @@ package ovnutils
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -121,9 +122,11 @@ func mustPrepService() {
 func InitOvn(opts SOvnOptions) (err error) {
 	defer func() {
 		if panicVal := recover(); panicVal != nil {
+			debug.PrintStack()
 			err = panicVal.(error)
 		}
 	}()
+	system_service.Init()
 	mustPrepOvsdbConfig(opts)
 	configBridgeMtu(opts)
 	if _, ok := ovnContainerImageTag(); !ok {
