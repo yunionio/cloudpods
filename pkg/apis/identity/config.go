@@ -102,6 +102,7 @@ const (
 	IdpTemplateDingtalk = "dingtalk_oauth2"
 	IdpTemplateFeishu   = "feishu_oauth2"
 	IdpTemplateQywechat = "qywechat_oauth2"
+	IdpTemplateBingoIAM = "bingoiam_oauth2"
 )
 
 var (
@@ -123,6 +124,7 @@ var (
 		IdpTemplateDingtalk: IdentityDriverOAuth2,
 		IdpTemplateWechat:   IdentityDriverOAuth2,
 		IdpTemplateQywechat: IdentityDriverOAuth2,
+		IdpTemplateBingoIAM: IdentityDriverOAuth2,
 	}
 )
 
