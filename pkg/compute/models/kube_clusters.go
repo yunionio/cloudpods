@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -45,6 +46,7 @@ type SKubeClusterManager struct {
 	db.SEnabledStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
+	SVpcResourceBaseManager
 	SCloudregionResourceBaseManager
 }
 
@@ -65,11 +67,20 @@ func init() {
 type SKubeCluster struct {
 	db.SEnabledStatusInfrasResourceBase
 	db.SExternalizedResourceBase
-
 	SManagedResourceBase
+	SVpcResourceBase         `wdith:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" default:"default"`
+
+	Version string `width:"12" charset:"utf8" nullable:"false" list:"admin" create:"domain_optional"`
+
 	// 本地KubeserverId
 	ExternalClusterId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+
+	NetworkIds *api.SKubeNetworkIds `list:"user" update:"user" create:"required"`
+}
+
+func (self *SKubeCluster) GetCloudproviderId() string {
+	return self.ManagerId
 }
 
 func (manager *SKubeClusterManager) GetContextManagers() [][]db.IModelManager {
@@ -97,6 +108,15 @@ func (self *SKubeCluster) GetRegion() (*SCloudregion, error) {
 	return region.(*SCloudregion), nil
 }
 
+func (self *SKubeCluster) GetNetworks() ([]SNetwork, error) {
+	networks := []SNetwork{}
+	if self.NetworkIds == nil {
+		return networks, nil
+	}
+	q := NetworkManager.Query().In("id", *self.NetworkIds)
+	return networks, db.FetchModelObjects(NetworkManager, q, &networks)
+}
+
 func (manager *SKubeClusterManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -108,12 +128,14 @@ func (manager *SKubeClusterManager) FetchCustomizeColumns(
 	rows := make([]api.KubeClusterDetails, len(objs))
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.KubeClusterDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ManagedResourceInfo:                    managerRows[i],
 			CloudregionResourceInfo:                regionRows[i],
+			VpcResourceInfo:                        vpcRows[i],
 		}
 	}
 	return rows
@@ -298,6 +320,40 @@ func (self *SKubeCluster) SyncAllWithCloudKubeCluster(ctx context.Context, userC
 func (self *SKubeCluster) SyncWithCloudKubeCluster(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Status = ext.GetStatus()
+		if version := ext.GetVersion(); len(version) > 0 {
+			self.Version = ext.GetVersion()
+		}
+
+		if self.NetworkIds != nil && len(*self.NetworkIds) > 0 {
+			networkIds := ext.GetNetworkIds()
+			netIds := api.SKubeNetworkIds{}
+			for i := range networkIds {
+				netObj, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkIds[i], func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					wires := WireManager.Query().SubQuery()
+					vpcs := VpcManager.Query().SubQuery()
+					return q.Join(wires, sqlchemy.Equals(wires.Field("id"), q.Field("wire_id"))).
+						Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id"))).
+						Filter(sqlchemy.Equals(vpcs.Field("manager_id"), self.ManagerId))
+				})
+				if err != nil {
+					break
+				}
+				netIds = append(netIds, netObj.GetId())
+			}
+			if len(networkIds) == len(netIds) && len(netIds) > 0 {
+				self.NetworkIds = &netIds
+			}
+
+		}
+
+		if vpcId := ext.GetVpcId(); len(vpcId) > 0 && len(self.VpcId) == 0 {
+			vpcObj, _ := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", provider.Id)
+			})
+			if vpcObj != nil {
+				self.ManagerId = vpcObj.GetId()
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -323,7 +379,36 @@ func (self *SCloudregion) newFromCloudKubeCluster(ctx context.Context, userCred 
 	cluster.ManagerId = provider.Id
 	cluster.ExternalId = ext.GetGlobalId()
 	cluster.Enabled = tristate.True
+	cluster.Version = ext.GetVersion()
 	cluster.Status = ext.GetStatus()
+
+	networkIds := ext.GetNetworkIds()
+	netIds := api.SKubeNetworkIds{}
+	for i := range networkIds {
+		netObj, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkIds[i], func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			wires := WireManager.Query().SubQuery()
+			vpcs := VpcManager.Query().SubQuery()
+			return q.Join(wires, sqlchemy.Equals(wires.Field("id"), q.Field("wire_id"))).
+				Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id"))).
+				Filter(sqlchemy.Equals(vpcs.Field("manager_id"), cluster.ManagerId))
+		})
+		if err != nil {
+			break
+		}
+		netIds = append(netIds, netObj.GetId())
+	}
+	if len(networkIds) == len(netIds) && len(netIds) > 0 {
+		cluster.NetworkIds = &netIds
+	}
+
+	if vpcId := ext.GetVpcId(); len(vpcId) > 0 {
+		vpcObj, _ := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", provider.Id)
+		})
+		if vpcObj != nil {
+			cluster.ManagerId = vpcObj.GetId()
+		}
+	}
 
 	var err = func() error {
 		lockman.LockRawObject(ctx, KubeClusterManager.Keyword(), "name")
@@ -359,8 +444,67 @@ func (manager *SKubeClusterManager) ValidateCreateData(
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
 	input api.KubeClusterCreateInput,
-) (api.KubeClusterCreateInput, error) {
-	return input, httperrors.NewNotImplementedError("Not Implemented")
+) (*api.KubeClusterCreateInput, error) {
+	var err error
+	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
+	if err != nil {
+		return nil, err
+	}
+	if input.Enabled == nil && input.Disabled == nil {
+		enabled := true
+		input.Enabled = &enabled
+	}
+	if len(input.VpcId) == 0 {
+		return nil, httperrors.NewMissingParameterError("vpc_id")
+	}
+	vpcObj, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
+	if err != nil {
+		return nil, err
+	}
+	vpc := vpcObj.(*SVpc)
+	input.CloudregionId = vpc.CloudregionId
+	input.ManagerId = vpc.ManagerId
+	networks, err := vpc.GetNetworks()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNetworks")
+	}
+	nets := map[string]bool{}
+	for _, net := range networks {
+		nets[net.Id] = true
+	}
+	if input.NetworkIds == nil {
+		return nil, httperrors.NewMissingParameterError("network_ids")
+	}
+	for i := range input.NetworkIds {
+		_, err = validators.ValidateModel(userCred, NetworkManager, &input.NetworkIds[i])
+		if err != nil {
+			return nil, err
+		}
+		_, ok := nets[input.NetworkIds[i]]
+		if !ok {
+			return nil, httperrors.NewInputParameterError("network %s not belong to vpc %s", input.NetworkIds[i], vpc.Name)
+		}
+	}
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	return region.GetDriver().ValidateCreateKubeClusterData(ctx, userCred, ownerId, &input)
+}
+
+func (self *SKubeCluster) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.StartKubeClusterCreateTask(ctx, userCred, data)
+}
+
+func (self *SKubeCluster) StartKubeClusterCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	params := data.(*jsonutils.JSONDict)
+	task, err := taskman.TaskManager.NewTask(ctx, "KubeClusterCreateTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.KUBE_CLUSTER_STATUS_CREATING, "")
+	return task.ScheduleRun(nil)
 }
 
 func (self *SKubeCluster) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
@@ -489,6 +633,11 @@ func (manager *SKubeClusterManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+	}
+
 	return q, nil
 }
 
@@ -510,6 +659,11 @@ func (manager *SKubeClusterManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 		}
 
 		q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+		if err == nil {
+			return q, nil
+		}
+
+		q, err = manager.SVpcResourceBaseManager.QueryDistinctExtraField(q, field)
 		if err == nil {
 			return q, nil
 		}
@@ -536,6 +690,10 @@ func (manager *SKubeClusterManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
 	}
+	q, err = manager.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
 
 	return q, nil
 }
@@ -547,7 +705,7 @@ func (self *SKubeCluster) PerformSyncstatus(ctx context.Context, userCred mcclie
 
 func (cluster *SKubeCluster) GetQuotaKeys() quotas.SDomainRegionalCloudResourceKeys {
 	region, _ := cluster.GetRegion()
-	manager := cluster.GetCloudprovider()
+	manager := cluster.SManagedResourceBase.GetCloudprovider()
 	ownerId := cluster.GetOwnerId()
 	regionKeys := fetchRegionalQuotaKeys(rbacscope.ScopeDomain, ownerId, region, manager)
 	keys := quotas.SDomainRegionalCloudResourceKeys{}
@@ -590,6 +748,12 @@ func (manager *SKubeClusterManager) ListItemExportKeys(ctx context.Context,
 		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 		if err != nil {
 			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SVpcResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemExportKeys")
 		}
 	}
 	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {

@@ -59,7 +59,7 @@ type SKubeNodePool struct {
 		AutoRenewPeriod                     int      `json:"auto_renew_period"`
 		ImageId                             string   `json:"image_id"`
 		InstanceChargeType                  string   `json:"instance_charge_type"`
-		Instance_types                      []string `json:"instance_types"`
+		InstanceTypes                       []string `json:"instance_types"`
 		MultiAzPolicy                       string   `json:"multi_az_policy"`
 		OnDemandBaseCapacity                int      `json:"on_demand_base_capacity"`
 		OnDemandPercentageAboveBaseCapacity int      `json:"on_demand_percentage_above_base_capacity"`
@@ -124,6 +124,34 @@ func (self *SKubeNodePool) GetGlobalId() string {
 
 func (self *SKubeNodePool) GetStatus() string {
 	return self.Status.State
+}
+
+func (self *SKubeNodePool) GetMinInstanceCount() int {
+	return self.AutoScaling.MinInstances
+}
+
+func (self *SKubeNodePool) GetMaxInstanceCount() int {
+	return self.AutoScaling.MaxInstances
+}
+
+func (self *SKubeNodePool) GetDesiredInstanceCount() int {
+	return 0
+}
+
+func (self *SKubeNodePool) GetRootDiskSizeGb() int {
+	return self.ScalingGroup.SystemDiskSize
+}
+
+func (self *SKubeNodePool) Delete() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SKubeNodePool) GetInstanceTypes() []string {
+	return self.ScalingGroup.InstanceTypes
+}
+
+func (self *SKubeNodePool) GetNetworkIds() []string {
+	return self.ScalingGroup.VswitchIds
 }
 
 func (self *SKubeCluster) GetIKubeNodePools() ([]cloudprovider.ICloudKubeNodePool, error) {

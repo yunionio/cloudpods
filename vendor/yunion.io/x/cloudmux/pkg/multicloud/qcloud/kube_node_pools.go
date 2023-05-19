@@ -83,6 +83,34 @@ func (self *SKubeNodePool) GetStatus() string {
 	return self.LifeState
 }
 
+func (self *SKubeNodePool) GetMinInstanceCount() int {
+	return self.MinNodesNum
+}
+
+func (self *SKubeNodePool) GetMaxInstanceCount() int {
+	return self.MaxNodesNum
+}
+
+func (self *SKubeNodePool) GetDesiredInstanceCount() int {
+	return self.DesiredNodesNum
+}
+
+func (self *SKubeNodePool) GetRootDiskSizeGb() int {
+	return 0
+}
+
+func (self *SKubeNodePool) Delete() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SKubeNodePool) GetInstanceTypes() []string {
+	return []string{}
+}
+
+func (self *SKubeNodePool) GetNetworkIds() []string {
+	return []string{}
+}
+
 func (self *SKubeCluster) GetIKubeNodePools() ([]cloudprovider.ICloudKubeNodePool, error) {
 	pools, err := self.region.GetKubeNodePools(self.ClusterId)
 	if err != nil {

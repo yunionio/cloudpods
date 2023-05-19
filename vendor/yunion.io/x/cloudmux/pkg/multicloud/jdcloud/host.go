@@ -36,7 +36,7 @@ func (h *SHost) GetId() string {
 }
 
 func (h *SHost) GetName() string {
-	return fmt.Sprintf("%s-%s", h.zone.region.cpcfg.Name, h.zone.GetName())
+	return fmt.Sprintf("%s-%s", h.zone.region.Name, h.zone.GetName())
 }
 
 func (h *SHost) GetGlobalId() string {

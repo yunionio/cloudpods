@@ -49,3 +49,15 @@ type KubeClusterConfigOptions struct {
 func (opts *KubeClusterConfigOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type KubeClusterCreateOptions struct {
+	options.BaseCreateOptions
+	Version    string
+	VpcId      string
+	NetworkIds []string
+	RoleName   string
+}
+
+func (opts *KubeClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}

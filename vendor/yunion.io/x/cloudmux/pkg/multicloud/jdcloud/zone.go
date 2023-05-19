@@ -17,6 +17,7 @@ package jdcloud
 import (
 	"fmt"
 
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -102,7 +103,7 @@ func (z *SZone) GetGlobalId() string {
 }
 
 func (z *SZone) GetStatus() string {
-	return "enable"
+	return api.ZONE_ENABLE
 }
 
 func (z *SZone) Refresh() error {

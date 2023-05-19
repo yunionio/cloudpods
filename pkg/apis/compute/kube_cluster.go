@@ -15,6 +15,11 @@
 package compute
 
 import (
+	"reflect"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/gotypes"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -38,9 +43,23 @@ type KubeClusterListInput struct {
 
 	RegionalFilterListInput
 	ManagedResourceListInput
+	VpcFilterListInput
 }
 
 type KubeClusterCreateInput struct {
+	apis.EnabledStatusInfrasResourceBaseCreateInput
+
+	Version string `json:"version"`
+	// required: true
+	NetworkIds SKubeNetworkIds `json:"network_ids"`
+	// swagger:ignore
+	ManagerId string `json:"manager_id"`
+	// swagger:ignore
+	CloudregionId string `json:"cloudregion_id"`
+	// required: true
+	VpcResourceInput
+
+	RoleName string `json:"role_name"`
 }
 
 type KubeClusterDetails struct {
@@ -49,6 +68,7 @@ type KubeClusterDetails struct {
 	SKubeCluster
 	ManagedResourceInfo
 	CloudregionResourceInfo
+	VpcResourceInfo
 }
 
 func (self KubeClusterDetails) GetMetricTags() map[string]string {
@@ -92,4 +112,34 @@ type KubeClusterDeleteInput struct {
 	// 是否保留集群关联的实例及slb
 	// default: false
 	Retain bool `json:"retain"`
+}
+
+type SInstanceTypes []string
+
+func (kn SInstanceTypes) String() string {
+	return jsonutils.Marshal(kn).String()
+}
+
+func (kn SInstanceTypes) IsZero() bool {
+	return len(kn) == 0
+}
+
+type SKubeNetworkIds []string
+
+func (kn SKubeNetworkIds) String() string {
+	return jsonutils.Marshal(kn).String()
+}
+
+func (kn SKubeNetworkIds) IsZero() bool {
+	return len(kn) == 0
+}
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&SKubeNetworkIds{}), func() gotypes.ISerializable {
+		return &SKubeNetworkIds{}
+	})
+
+	gotypes.RegisterSerializable(reflect.TypeOf(&SInstanceTypes{}), func() gotypes.ISerializable {
+		return &SInstanceTypes{}
+	})
 }

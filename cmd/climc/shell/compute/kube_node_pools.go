@@ -23,6 +23,8 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.KubeNodePools)
 	cmd.List(&compute.KubeNodePoolListOptions{})
+	cmd.Create(&compute.KubeNodePoolCreateOptions{})
 	cmd.Show(&compute.KubeNodePoolIdOption{})
 	cmd.Delete(&compute.KubeNodePoolIdOption{})
+	cmd.Perform("syncstatus", &compute.KubeNodePoolIdOption{})
 }

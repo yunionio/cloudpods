@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 )
 
-func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeout time.Duration) error {
+func WaitStatusWithSync(res ICloudResource, expect string, sync func(status string), interval time.Duration, timeout time.Duration) error {
 	startTime := time.Now()
 	for time.Now().Sub(startTime) < timeout {
 		err := res.Refresh()
@@ -29,6 +29,9 @@ func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeo
 			return err
 		}
 		log.Infof("%s status %s expect %s", res.GetName(), res.GetStatus(), expect)
+		if sync != nil {
+			sync(res.GetStatus())
+		}
 		if res.GetStatus() == expect {
 			return nil
 		}
@@ -37,22 +40,34 @@ func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeo
 	return ErrTimeout
 }
 
-func WaitMultiStatus(res ICloudResource, expects []string, interval time.Duration, timeout time.Duration) error {
+func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeout time.Duration) error {
+	return WaitStatusWithSync(res, expect, nil, interval, timeout)
+}
+
+func WaitMultiStatusWithSync(res ICloudResource, expects []string, sync func(string), interval time.Duration, timeout time.Duration) error {
 	startTime := time.Now()
 	for time.Now().Sub(startTime) < timeout {
 		err := res.Refresh()
 		if err != nil {
 			return errors.Wrap(err, "resource.Refresh()")
 		}
-		log.Infof("%s status %s expect %s", res.GetName(), res.GetStatus(), expects)
+		status := res.GetStatus()
+		log.Infof("%s status %s expect %s", res.GetName(), status, expects)
+		if sync != nil {
+			sync(status)
+		}
 		for _, expect := range expects {
-			if res.GetStatus() == expect {
+			if status == expect {
 				return nil
 			}
 		}
 		time.Sleep(interval)
 	}
 	return errors.Wrap(errors.ErrTimeout, "WaitMultistatus")
+}
+
+func WaitMultiStatus(res ICloudResource, expects []string, interval time.Duration, timeout time.Duration) error {
+	return WaitMultiStatusWithSync(res, expects, nil, interval, timeout)
 }
 
 func WaitStatusWithDelay(res ICloudResource, expect string, delay time.Duration, interval time.Duration, timeout time.Duration) error {

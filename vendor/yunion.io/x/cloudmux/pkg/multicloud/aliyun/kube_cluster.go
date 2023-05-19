@@ -131,6 +131,21 @@ func (self *SKubeCluster) GetKubeConfig(private bool, expireMinutes int) (*cloud
 	return self.region.GetKubeConfig(self.ClusterId, private, expireMinutes)
 }
 
+func (self *SKubeCluster) GetVersion() string {
+	return self.CurrentVersion
+}
+
+func (self *SKubeCluster) GetVpcId() string {
+	return self.VpcId
+}
+
+func (self *SKubeCluster) GetNetworkIds() []string {
+	if len(self.VswitchId) > 0 {
+		return []string{self.VswitchId}
+	}
+	return []string{}
+}
+
 func (self *SKubeCluster) Delete(isRetain bool) error {
 	return self.region.DeleteKubeCluster(self.ClusterId, isRetain)
 }
@@ -255,4 +270,8 @@ func (self *SRegion) DeleteKubeCluster(id string, isRetain bool) error {
 	}
 	_, err := self.k8sRequest("DeleteCluster", params)
 	return errors.Wrapf(err, "DeleteCluster")
+}
+
+func (self *SKubeCluster) CreateIKubeNodePool(opts *cloudprovider.KubeNodePoolCreateOptions) (cloudprovider.ICloudKubeNodePool, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
