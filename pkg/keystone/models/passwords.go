@@ -231,7 +231,7 @@ func (pwd *SPassword) NeedSendNotify(ctx context.Context, userCred mcclient.Toke
 	nowTime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Local)
 
 	sub := expireTime.Sub(nowTime)
-	subDay := sub.Hours() / 24
+	subDay := int(sub.Hours() / 24)
 	switch {
 	case subDay == 7:
 		localUser, err := LocalUserManager.fetchLocalUser("", "", pwd.LocalUserId)
