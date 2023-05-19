@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package notifyv2
+package notify
 
 import (
 	"yunion.io/x/pkg/util/printutils"
