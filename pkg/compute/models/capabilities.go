@@ -112,12 +112,12 @@ type SCapabilities struct {
 	ReadOnlyVpcPeerBrands         []string `json:",allowempty"`
 	ReadOnlyDisabledVpcPeerBrands []string `json:",allowempty"`
 
-	ResourceTypes      []string        `json:",allowempty"`
-	StorageTypes       []string        `json:",allowempty"` // going to remove on 2.14
-	DataStorageTypes   []string        `json:",allowempty"` // going to remove on 2.14
-	GPUModels          []string        `json:",allowempty"` // Deprecated by GPUModelTypes
-	GPUModelTypes      []GpuModelTypes `json:",allowempty"`
-	HostCpuArchs       []string        `json:",allowempty"` // x86_64 aarch64
+	ResourceTypes      []string           `json:",allowempty"`
+	StorageTypes       []string           `json:",allowempty"` // going to remove on 2.14
+	DataStorageTypes   []string           `json:",allowempty"` // going to remove on 2.14
+	GPUModels          []string           `json:",allowempty"` // Deprecated by PCIModelTypes
+	PCIModelTypes      []PCIDevModelTypes `json:",allowempty"`
+	HostCpuArchs       []string           `json:",allowempty"` // x86_64 aarch64
 	MinNicCount        int
 	MaxNicCount        int
 	MinDataDiskCount   int
@@ -196,7 +196,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	capa.StorageTypes, capa.DataStorageTypes = s1, d1
 	capa.StorageTypes2, capa.StorageTypes3 = s2, s3
 	capa.DataStorageTypes2, capa.DataStorageTypes3 = d2, d3
-	capa.GPUModels, capa.GPUModelTypes = getGPUs(userCred, region, zone, domainId)
+	capa.GPUModels, capa.PCIModelTypes = getIsolatedDeviceInfo(userCred, region, zone, domainId)
 	capa.SchedPolicySupport = isSchedPolicySupported(region, zone)
 	capa.MinNicCount = getMinNicCount(region, zone)
 	capa.MaxNicCount = getMaxNicCount(region, zone)
@@ -743,13 +743,13 @@ func getStorageTypes(
 		allHypervisorStorageTypes, allHypervisorStorageInfos
 }
 
-type GpuModelTypes struct {
+type PCIDevModelTypes struct {
 	Model   string
 	DevType string
 	SizeMB  int
 }
 
-func getGPUs(userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) ([]string, []GpuModelTypes) {
+func getIsolatedDeviceInfo(userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) ([]string, []PCIDevModelTypes) {
 	devices := IsolatedDeviceManager.Query().SubQuery()
 	hostQuery := HostManager.Query()
 	if len(domainId) > 0 {
@@ -759,7 +759,7 @@ func getGPUs(userCred mcclient.TokenCredential, region *SCloudregion, zone *SZon
 	hosts := hostQuery.SubQuery()
 
 	q := devices.Query(devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
-	q = q.Startswith("dev_type", "GPU")
+	q = q.Filter(sqlchemy.NotIn(devices.Field("dev_type"), []string{api.USB_TYPE, api.NIC_TYPE, api.NVME_PT_TYPE}))
 	if region != nil {
 		subq := getRegionZoneSubq(region)
 		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
@@ -777,6 +777,7 @@ func getGPUs(userCred mcclient.TokenCredential, region *SCloudregion, zone *SZon
 		))
 	}*/
 	q = q.GroupBy(devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
+	q.DebugQuery()
 
 	rows, err := q.Rows()
 	if err != nil {
@@ -784,17 +785,17 @@ func getGPUs(userCred mcclient.TokenCredential, region *SCloudregion, zone *SZon
 		return nil, nil
 	}
 	defer rows.Close()
-	gpus := make([]GpuModelTypes, 0)
+	gpus := make([]PCIDevModelTypes, 0)
 	gpuModels := make([]string, 0)
 	for rows.Next() {
 		var m, t string
 		var sizeMB int
-		rows.Scan(&m, &t)
+		rows.Scan(&m, &t, &sizeMB)
 
 		if m == "" {
 			continue
 		}
-		gpus = append(gpus, GpuModelTypes{m, t, sizeMB})
+		gpus = append(gpus, PCIDevModelTypes{m, t, sizeMB})
 
 		if !utils.IsInStringArray(m, gpuModels) {
 			gpuModels = append(gpuModels, m)

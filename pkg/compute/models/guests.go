@@ -497,7 +497,7 @@ func (manager *SGuestManager) ListItemFilter(
 		var trueVal, falseVal = true, false
 		switch query.ServerType {
 		case "normal":
-			query.Gpu = &falseVal
+			query.Normal = &falseVal
 			query.Backup = &falseVal
 		case "gpu":
 			query.Gpu = &trueVal
@@ -509,7 +509,8 @@ func (manager *SGuestManager) ListItemFilter(
 			query.Usb = &trueVal
 			query.Backup = &falseVal
 		default:
-			return nil, httperrors.NewInputParameterError("unknown server type %s", query.ServerType)
+			query.CustomDevType = query.ServerType
+			query.Backup = &falseVal
 		}
 	}
 
@@ -525,10 +526,12 @@ func (manager *SGuestManager) ListItemFilter(
 		if checkType != nil {
 			conditions := []sqlchemy.ICondition{}
 			isodev := IsolatedDeviceManager.Query().SubQuery()
-			sgq := isodev.Query(isodev.Field("guest_id")).
-				Filter(sqlchemy.AND(
-					sqlchemy.IsNotNull(isodev.Field("guest_id")),
-					sqlchemy.Startswith(isodev.Field("dev_type"), dType)))
+
+			isodevCons := []sqlchemy.ICondition{sqlchemy.IsNotNull(isodev.Field("guest_id"))}
+			if len(dType) > 0 {
+				isodevCons = append(isodevCons, sqlchemy.Startswith(isodev.Field("dev_type"), dType))
+			}
+			sgq := isodev.Query(isodev.Field("guest_id")).Filter(sqlchemy.AND(isodevCons...))
 			cond := sqlchemy.NotIn
 			if *checkType {
 				cond = sqlchemy.In
@@ -543,8 +546,13 @@ func (manager *SGuestManager) ListItemFilter(
 		return q
 	}
 
+	q = devTypeQ(q, query.Normal, "")
 	q = devTypeQ(q, query.Gpu, "GPU")
 	q = devTypeQ(q, query.Usb, api.USB_TYPE)
+	if len(query.CustomDevType) > 0 {
+		ct := true
+		q = devTypeQ(q, &ct, query.CustomDevType)
+	}
 
 	groupFilter := query.GroupId
 	if len(groupFilter) != 0 {
@@ -4261,7 +4269,7 @@ func (self *SGuest) createDiskOnHost(
 
 func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, devs []*api.IsolatedDeviceConfig, pendingUsage quotas.IQuota) error {
 	for _, devConfig := range devs {
-		if devConfig.DevType == api.NIC_TYPE {
+		if devConfig.DevType == api.NIC_TYPE || devConfig.DevType == api.NVME_PT_TYPE {
 			continue
 		}
 		err := self.createIsolatedDeviceOnHost(ctx, userCred, host, devConfig, pendingUsage)
