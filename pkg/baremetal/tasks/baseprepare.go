@@ -75,14 +75,17 @@ func (task *sBaremetalPrepareTask) GetStartTime() time.Time {
 }
 
 func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*baremetalPrepareInfo, error) {
-	_, err := cli.Run("/lib/mos/sysinit.sh")
-	if err != nil {
-		return nil, err
-	}
-
 	arch, err := getArchitecture(cli)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getArchitecture")
+	}
+
+	if arch == apis.OS_ARCH_X86_64 {
+		if _, err := cli.Run("/lib/mos/sysinit.sh"); err != nil {
+			return nil, errors.Wrap(err, "run /lib/mos/sysinit.sh")
+		}
+	} else {
+		log.Infof("Skip running /lib/mos/sysinit.sh when arch is %q", arch)
 	}
 
 	sysInfo, err := getDMISysinfo(cli)
