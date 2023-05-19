@@ -554,6 +554,16 @@ func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.T
 	waitQueue := make(chan struct{}, len(sts))
 	for i := range sts {
 		log.Infof("sts[%d]: %s", i, jsonutils.Marshal(sts[i]))
+		// 对于关联资源为空或获取关联资源异常的定时任务，不执行
+		lables, err := sts[i].Labels()
+		if err != nil {
+			log.Errorf("scheduled_task get lables error:%s", err.Error())
+			continue
+		}
+		if len(lables) == 0 {
+			log.Errorf("scheduled_task %s lables not found:", sts[i].Id)
+			continue
+		}
 		st := sts[i]
 		timerQueue <- struct{}{}
 		waitQueue <- struct{}{}
