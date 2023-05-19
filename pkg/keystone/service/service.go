@@ -98,7 +98,7 @@ func StartService() {
 		cron.AddJobAtIntervalsWithStartRun("CalculateIdentityQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.IdentityQuotaManager.CalculateQuotaUsages, true)
 
 		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
-		cron.AddJobEveryFewDays("CheckAllUserPasswordIsExpired", 4, 30, 0, 0, models.CheckAllUserPasswordIsExpired, true)
+		cron.AddJobEveryFewDays("CheckAllUserPasswordIsExpired", 1, 8, 0, 0, models.CheckAllUserPasswordIsExpired, true)
 
 		cron.Start()
 		defer cron.Stop()
