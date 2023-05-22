@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -72,15 +73,14 @@ func init() {
 type STopic struct {
 	db.SEnabledStatusStandaloneResourceBase
 
-	Type        string            `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
-	Resources   uint64            `nullable:"false"`
-	Actions     uint32            `nullable:"false"`
-	Results     tristate.TriState `default:"true"`
-	AdvanceDays int               `nullable:"false"`
-	TitleCn     string            `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
-	TitleEn     string            `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
-	ContentCn   string            `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
-	ContentEn   string            `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
+	Type      string            `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
+	Resources uint64            `nullable:"false"`
+	Actions   uint32            `nullable:"false"`
+	Results   tristate.TriState `default:"true"`
+	TitleCn   string            `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
+	TitleEn   string            `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
+	ContentCn string            `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
+	ContentEn string            `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 
 	WebconsoleDisable tristate.TriState
 }
@@ -92,6 +92,7 @@ const (
 	DefaultResourceReleaseDue1Day  = "resource release due 1 day"
 	DefaultResourceReleaseDue3Day  = "resource release due 3 day"
 	DefaultResourceReleaseDue30Day = "resource release due 30 day"
+	DefaultResourceRelease         = "resource release"
 	DefaultScheduledTaskExecute    = "scheduled task execute"
 	DefaultScalingPolicyExecute    = "scaling policy execute"
 	DefaultSnapshotPolicyExecute   = "snapshot policy execute"
@@ -104,6 +105,7 @@ const (
 	DefaultSyncAccountStatus       = "cloud account sync status"
 	DefaultPasswordExpireDue1Day   = "password expire due 1 day"
 	DefaultPasswordExpireDue7Day   = "password expire due 7 day"
+	DefaultPasswordExpire          = "password expire"
 	DefaultNetOutOfSync            = "net out of sync"
 	DefaultMysqlOutOfSync          = "mysql out of sync"
 	DefaultServiceAbnormal         = "service abnormal"
@@ -115,9 +117,6 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultResourceCreateDelete,
 		DefaultResourceChangeConfig,
 		DefaultResourceUpdate,
-		DefaultResourceReleaseDue1Day,
-		DefaultResourceReleaseDue3Day,
-		DefaultResourceReleaseDue30Day,
 		DefaultScheduledTaskExecute,
 		DefaultScalingPolicyExecute,
 		DefaultSnapshotPolicyExecute,
@@ -128,12 +127,12 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultUserLock,
 		DefaultActionLogExceedCount,
 		DefaultSyncAccountStatus,
-		DefaultPasswordExpireDue1Day,
-		DefaultPasswordExpireDue7Day,
 		DefaultNetOutOfSync,
 		DefaultMysqlOutOfSync,
 		DefaultServiceAbnormal,
 		DefaultServerPanicked,
+		DefaultPasswordExpire,
+		DefaultResourceRelease,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -229,55 +228,6 @@ func (sm *STopicManager) InitializeData() error {
 			t.ContentEn = api.UPDATE_CONTENT_EN
 			t.TitleCn = api.UPDATE_TITLE_CN
 			t.TitleEn = api.UPDATE_TITLE_EN
-		case DefaultResourceReleaseDue1Day:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_DISK,
-				notify.TOPIC_RESOURCE_EIP,
-				notify.TOPIC_RESOURCE_LOADBALANCER,
-				notify.TOPIC_RESOURCE_DBINSTANCE,
-				notify.TOPIC_RESOURCE_ELASTICCACHE,
-			)
-			t.addAction(notify.ActionExpiredRelease)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
-			t.AdvanceDays = 1
-			t.Results = tristate.True
-			t.ContentCn = api.EXPIRED_RELEASE_CONTENT_CN
-			t.ContentEn = api.EXPIRED_RELEASE_CONTENT_EN
-			t.TitleCn = api.EXPIRED_RELEASE_TITLE_CN
-			t.TitleEn = api.EXPIRED_RELEASE_TITLE_EN
-		case DefaultResourceReleaseDue3Day:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_DISK,
-				notify.TOPIC_RESOURCE_EIP,
-				notify.TOPIC_RESOURCE_LOADBALANCER,
-				notify.TOPIC_RESOURCE_DBINSTANCE,
-				notify.TOPIC_RESOURCE_ELASTICCACHE,
-			)
-			t.addAction(notify.ActionExpiredRelease)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
-			t.AdvanceDays = 3
-			t.Results = tristate.True
-			t.ContentCn = api.EXPIRED_RELEASE_CONTENT_CN
-			t.ContentEn = api.EXPIRED_RELEASE_CONTENT_EN
-			t.TitleCn = api.EXPIRED_RELEASE_TITLE_CN
-			t.TitleEn = api.EXPIRED_RELEASE_TITLE_EN
-		case DefaultResourceReleaseDue30Day:
-			t.addResources(
-				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_LOADBALANCER,
-				notify.TOPIC_RESOURCE_DBINSTANCE,
-				notify.TOPIC_RESOURCE_ELASTICCACHE,
-			)
-			t.addAction(notify.ActionExpiredRelease)
-			t.Type = notify.TOPIC_TYPE_RESOURCE
-			t.AdvanceDays = 30
-			t.Results = tristate.True
-			t.ContentCn = api.EXPIRED_RELEASE_CONTENT_CN
-			t.ContentEn = api.EXPIRED_RELEASE_CONTENT_EN
-			t.TitleCn = api.EXPIRED_RELEASE_TITLE_CN
-			t.TitleEn = api.EXPIRED_RELEASE_TITLE_EN
 		case DefaultScheduledTaskExecute:
 			t.addResources(notify.TOPIC_RESOURCE_SCHEDULEDTASK)
 			t.addAction(notify.ActionExecute)
@@ -433,34 +383,6 @@ func (sm *STopicManager) InitializeData() error {
 			t.ContentEn = api.SYNC_ACCOUNT_STATUS_CONTENT_EN
 			t.TitleCn = api.SYNC_ACCOUNT_STATUS_TITLE_CN
 			t.TitleEn = api.SYNC_ACCOUNT_STATUS_TITLE_EN
-		case DefaultPasswordExpireDue1Day:
-			t.addResources(
-				notify.TOPIC_RESOURCE_USER,
-			)
-			t.addAction(
-				notify.ActionPasswordExpireSoon,
-			)
-			t.Type = notify.TOPIC_TYPE_SECURITY
-			t.AdvanceDays = 1
-			t.Results = tristate.True
-			t.ContentCn = api.PWD_EXPIRE_SOON_CONTENT_CN
-			t.ContentEn = api.PWD_EXPIRE_SOON_CONTENT_EN
-			t.TitleCn = api.PWD_EXPIRE_SOON_TITLE_CN
-			t.TitleEn = api.PWD_EXPIRE_SOON_TITLE_EN
-		case DefaultPasswordExpireDue7Day:
-			t.addResources(
-				notify.TOPIC_RESOURCE_USER,
-			)
-			t.addAction(
-				notify.ActionPasswordExpireSoon,
-			)
-			t.Type = notify.TOPIC_TYPE_SECURITY
-			t.AdvanceDays = 7
-			t.Results = tristate.True
-			t.ContentCn = api.PWD_EXPIRE_SOON_CONTENT_CN
-			t.ContentEn = api.PWD_EXPIRE_SOON_CONTENT_EN
-			t.TitleCn = api.PWD_EXPIRE_SOON_TITLE_CN
-			t.TitleEn = api.PWD_EXPIRE_SOON_TITLE_EN
 		case DefaultNetOutOfSync:
 			t.addResources(
 				notify.TOPIC_RESOURCE_NET,
@@ -469,7 +391,6 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionNetOutOfSync,
 			)
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
-			t.AdvanceDays = 0
 			t.Results = tristate.True
 			t.ContentCn = api.NET_OUT_OF_SYNC_CONTENT_CN
 			t.ContentEn = api.NET_OUT_OF_SYNC_CONTENT_EN
@@ -483,7 +404,6 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionMysqlOutOfSync,
 			)
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
-			t.AdvanceDays = 0
 			t.Results = tristate.True
 			t.ContentCn = api.MYSQL_OUT_OF_SYNC_CONTENT_CN
 			t.ContentEn = api.MYSQL_OUT_OF_SYNC_CONTENT_EN
@@ -515,27 +435,63 @@ func (sm *STopicManager) InitializeData() error {
 			t.ContentEn = api.SERVER_PANICKED_CONTENT_EN
 			t.TitleCn = api.SERVER_PANICKED_TITLE_CN
 			t.TitleEn = api.SERVER_PANICKED_TITLE_EN
+		case DefaultPasswordExpire:
+			t.addResources(
+				notify.TOPIC_RESOURCE_USER,
+			)
+			t.addAction(
+				notify.ActionPasswordExpireSoon,
+			)
+			t.Type = notify.TOPIC_TYPE_SECURITY
+			t.Results = tristate.True
+			t.ContentCn = api.PWD_EXPIRE_SOON_CONTENT_CN
+			t.ContentEn = api.PWD_EXPIRE_SOON_CONTENT_EN
+			t.TitleCn = api.PWD_EXPIRE_SOON_TITLE_CN
+			t.TitleEn = api.PWD_EXPIRE_SOON_TITLE_EN
+		case DefaultResourceRelease:
+			t.addResources(
+				notify.TOPIC_RESOURCE_SERVER,
+				notify.TOPIC_RESOURCE_DISK,
+				notify.TOPIC_RESOURCE_EIP,
+				notify.TOPIC_RESOURCE_LOADBALANCER,
+				notify.TOPIC_RESOURCE_DBINSTANCE,
+				notify.TOPIC_RESOURCE_ELASTICCACHE,
+			)
+			t.addAction(notify.ActionExpiredRelease)
+			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.Results = tristate.True
+			t.ContentCn = api.EXPIRED_RELEASE_CONTENT_CN
+			t.ContentEn = api.EXPIRED_RELEASE_CONTENT_EN
+			t.TitleCn = api.EXPIRED_RELEASE_TITLE_CN
+			t.TitleEn = api.EXPIRED_RELEASE_TITLE_EN
 		}
 
 		if topic == nil {
-			if len(t.ContentCn) == 0 {
-				t.ContentCn = api.COMMON_CONTENT_CN
-			}
-			if len(t.ContentEn) == 0 {
-				t.ContentEn = api.COMMON_CONTENT_EN
-			}
-			if len(t.TitleCn) == 0 {
-				t.TitleCn = api.COMMON_TITLE_CN
-			}
-			if len(t.TitleEn) == 0 {
-				t.TitleEn = api.COMMON_TITLE_EN
-			}
 			err := sm.TableSpec().Insert(ctx, t)
 			if err != nil {
 				return errors.Wrapf(err, "unable to insert %s", name)
 			}
 		} else {
+			if t.Name == DefaultResourceReleaseDue3Day || t.Name == DefaultResourceReleaseDue30Day || t.Name == DefaultResourceReleaseDue1Day {
+				err = topic.Delete(ctx, auth.AdminCredential())
+				if err != nil {
+					log.Errorf("delete %s err %s", topic.Name, err.Error())
+				}
+				continue
+			}
+			if t.Name == DefaultPasswordExpireDue7Day || t.Name == DefaultPasswordExpireDue1Day {
+				err = topic.Delete(ctx, auth.AdminCredential())
+				if err != nil {
+					log.Errorf("delete %s err %s", topic.Name, err.Error())
+				}
+				continue
+			}
+
 			_, err := db.Update(topic, func() error {
+				if t.Type == "" {
+					log.Infoln("this is err Name:", t.Name)
+				}
+				topic.Name = t.Name
 				topic.Resources = t.Resources
 				topic.Actions = t.Actions
 				topic.Type = t.Type
@@ -672,8 +628,8 @@ func (s *STopic) getActions() []notify.SAction {
 	return actions
 }
 
-func (sm *STopicManager) GetTopicByEvent(resourceType string, action notify.SAction, isFailed notify.SResult, advanceDays int) (*STopic, error) {
-	topics, err := sm.GetTopicsByEvent(resourceType, action, isFailed, advanceDays)
+func (sm *STopicManager) GetTopicByEvent(resourceType string, action notify.SAction, isFailed notify.SResult) (*STopic, error) {
+	topics, err := sm.GetTopicsByEvent(resourceType, action, isFailed)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetTopicsByEvent")
 	}
@@ -687,7 +643,7 @@ func (sm *STopicManager) GetTopicByEvent(resourceType string, action notify.SAct
 	return &topics[0], nil
 }
 
-func (sm *STopicManager) GetTopicsByEvent(resourceType string, action notify.SAction, isFailed notify.SResult, advanceDays int) ([]STopic, error) {
+func (sm *STopicManager) GetTopicsByEvent(resourceType string, action notify.SAction, isFailed notify.SResult) ([]STopic, error) {
 	resourceV := converter.resourceValue(resourceType)
 	if resourceV < 0 {
 		return nil, fmt.Errorf("unknow resource type %s", resourceType)
@@ -696,7 +652,7 @@ func (sm *STopicManager) GetTopicsByEvent(resourceType string, action notify.SAc
 	if actionV < 0 {
 		return nil, fmt.Errorf("unkonwn action %s", action)
 	}
-	q := sm.Query().Equals("advance_days", advanceDays)
+	q := sm.Query()
 	if isFailed == api.ResultSucceed {
 		q = q.Equals("results", true)
 	} else {
@@ -710,7 +666,7 @@ func (sm *STopicManager) GetTopicsByEvent(resourceType string, action notify.SAc
 	return topics, err
 }
 
-func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STopic, error) {
+func (sm *STopicManager) TopicsByEvent(eventStr string) ([]STopic, error) {
 	event, err := parseEvent(eventStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to parse event %q", event)
@@ -725,7 +681,7 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 		log.Warningf("unknown action type: %s", event.Action())
 		return nil, nil
 	}
-	q := sm.Query().Equals("advance_days", advanceDays)
+	q := sm.Query()
 	if event.Result() == api.ResultSucceed {
 		q = q.Equals("results", true)
 	} else {
@@ -928,7 +884,6 @@ func (self *STopic) CreateEvent(ctx context.Context, resType, action, message st
 		Message:      message,
 		ResourceType: resType,
 		Action:       action,
-		AdvanceDays:  self.AdvanceDays,
 		TopicId:      self.Id,
 	}
 	return eve, EventManager.TableSpec().Insert(ctx, eve)
@@ -952,8 +907,8 @@ func (self *STopic) GetEnabledSubscribers(domainId, projectId string) ([]SSubscr
 	return ret, err
 }
 
-func (sm *STopicManager) TopicByEvent(eventStr string, advanceDays int) (*STopic, error) {
-	topics, err := sm.TopicsByEvent(eventStr, advanceDays)
+func (sm *STopicManager) TopicByEvent(eventStr string) (*STopic, error) {
+	topics, err := sm.TopicsByEvent(eventStr)
 	if err != nil {
 		return nil, err
 	}
@@ -961,7 +916,7 @@ func (sm *STopicManager) TopicByEvent(eventStr string, advanceDays int) (*STopic
 		return &topics[0], nil
 	}
 	if len(topics) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "eventStr:%s,advanceDays:%d", eventStr, advanceDays)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "eventStr:%s", eventStr)
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "eventStr:%s,advanceDays:%d", eventStr, advanceDays)
+	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "eventStr:%s", eventStr)
 }
