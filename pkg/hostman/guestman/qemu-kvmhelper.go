@@ -937,12 +937,35 @@ func (s *SKVMGuestInstance) initIsaSerialDesc() {
 	}
 }
 
-func (s *SKVMGuestInstance) getHotPlugPciController() *desc.PCIController {
+func (s *SKVMGuestInstance) getVfioDeviceHotPlugPciControllerType() *desc.PCI_CONTROLLER_TYPE {
+	if s.Desc.Machine == api.VM_MACHINE_TYPE_Q35 || s.Desc.Machine == api.VM_MACHINE_TYPE_ARM_VIRT {
+		_, _, found := s.findUnusedSlotForController(desc.CONTROLLER_TYPE_PCIE_ROOT_PORT, 0)
+		if found {
+			var contType desc.PCI_CONTROLLER_TYPE = desc.CONTROLLER_TYPE_PCIE_ROOT_PORT
+			return &contType
+		}
+		return nil
+	} else {
+		return s.getHotPlugPciControllerType()
+	}
+}
+
+func (s *SKVMGuestInstance) getHotPlugPciControllerType() *desc.PCI_CONTROLLER_TYPE {
 	for i := 0; i < len(s.Desc.PCIControllers); i++ {
 		switch s.Desc.PCIControllers[i].CType {
 		case desc.CONTROLLER_TYPE_PCI_ROOT, desc.CONTROLLER_TYPE_PCI_BRIDGE:
-			return s.Desc.PCIControllers[i]
+			return &s.Desc.PCIControllers[i].Controller
 		}
 	}
 	return nil
+}
+
+func (s *SKVMGuestInstance) vfioDevCount() int {
+	res := 0
+	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
+		if s.Desc.IsolatedDevices[i].DevType != api.USB_TYPE {
+			res += 1
+		}
+	}
+	return res
 }

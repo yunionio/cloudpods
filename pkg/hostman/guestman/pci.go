@@ -216,7 +216,7 @@ func (s *SKVMGuestInstance) initGuestPciControllers(pciExtend bool) (*desc.PCICo
 		if pciExtend {
 			s.addPCIController(desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_ROOT)
 			pciBridge = s.addPCIController(desc.CONTROLLER_TYPE_PCI_BRIDGE, desc.CONTROLLER_TYPE_PCIE_TO_PCI_BRIDGE)
-			for i := 0; i < options.HostOptions.PcieRootPortCount; i++ {
+			for i := 0; i < s.vfioDevCount()+options.HostOptions.PcieRootPortCount; i++ {
 				s.addPCIController(desc.CONTROLLER_TYPE_PCIE_ROOT_PORT, desc.CONTROLLER_TYPE_PCIE_ROOT)
 			}
 		}
@@ -324,10 +324,14 @@ func (s *SKVMGuestInstance) initGuestNetworks(pciRoot, pciBridge *desc.PCIContro
 }
 
 func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCIController) {
-	cont := pciRoot
-	if pciBridge != nil {
-		cont = pciBridge
+	cType := s.getVfioDeviceHotPlugPciControllerType()
+	if cType == nil {
+		cType = &pciRoot.CType
+		if pciBridge != nil {
+			cType = &pciBridge.CType
+		}
 	}
+
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
@@ -338,14 +342,14 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 			id := dev.GetQemuId()
 			s.Desc.IsolatedDevices[i].VfioDevs = make([]*desc.VFIODevice, 0)
 			vfioDev := desc.NewVfioDevice(
-				cont.CType, "vfio-pci", id, dev.GetAddr(), dev.GetDeviceType() == api.GPU_VGA_TYPE,
+				*cType, "vfio-pci", id, dev.GetAddr(), dev.GetDeviceType() == api.GPU_VGA_TYPE,
 			)
 			s.Desc.IsolatedDevices[i].VfioDevs = append(s.Desc.IsolatedDevices[i].VfioDevs, vfioDev)
 
 			groupDevAddrs := dev.GetIOMMUGroupRestAddrs()
 			for j := 0; j < len(groupDevAddrs); j++ {
 				gid := fmt.Sprintf("%s-%d", id, j+1)
-				vfioDev = desc.NewVfioDevice(cont.CType, "vfio-pci", gid, groupDevAddrs[j], false)
+				vfioDev = desc.NewVfioDevice(*cType, "vfio-pci", gid, groupDevAddrs[j], false)
 				s.Desc.IsolatedDevices[i].VfioDevs = append(
 					s.Desc.IsolatedDevices[i].VfioDevs, vfioDev,
 				)
@@ -558,19 +562,7 @@ func (s *SKVMGuestInstance) ensureDevicePciAddress(
 		return s.pciAddrs.Buses[dev.Bus].EnsureSlotFunction(dev.Slot, dev.Function)
 	}
 
-	var (
-		bus, slot = 0, 0
-		found     = false
-	)
-	for ; bus < len(s.pciAddrs.Buses); bus++ {
-		if dev.Controller == s.pciAddrs.Buses[bus].Contorller {
-			slot = s.pciAddrs.Buses[bus].FindNextUnusedSlot(uint(function))
-			if slot >= 0 {
-				found = true
-				break
-			}
-		}
-	}
+	bus, slot, found := s.findUnusedSlotForController(dev.Controller, function)
 	if !found {
 		return errors.Errorf("no valid pci address found ?")
 	}
@@ -583,7 +575,23 @@ func (s *SKVMGuestInstance) ensureDevicePciAddress(
 		Multi:    multiFunc,
 	}
 	return nil
+}
 
+func (s *SKVMGuestInstance) findUnusedSlotForController(cont desc.PCI_CONTROLLER_TYPE, function int) (int, int, bool) {
+	var (
+		bus, slot = 0, 0
+		found     = false
+	)
+	for ; bus < len(s.pciAddrs.Buses); bus++ {
+		if cont == s.pciAddrs.Buses[bus].Contorller {
+			slot = s.pciAddrs.Buses[bus].FindNextUnusedSlot(uint(function))
+			if slot >= 0 {
+				found = true
+				break
+			}
+		}
+	}
+	return bus, slot, found
 }
 
 func (s *SKVMGuestInstance) ensurePciAddresses() error {
