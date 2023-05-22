@@ -71,6 +71,11 @@ type CloudpolicyCreateInput struct {
 	// 平台
 	Provider string `json:"provider"`
 
+	// default: custom
+	PolicyType string `json:"policy_type"`
+
+	CloudEnv string `json:"cloud_env"`
+
 	// 策略详情
 	Document *jsonutils.JSONDict `json:"document"`
 }
@@ -113,4 +118,9 @@ type CloudpolicyLockInput struct {
 }
 
 type CloudpolicyUnLockInput struct {
+}
+
+type CloudpolicyCacheInput struct {
+	// 云订阅Id
+	ManagerId string `json:"manager_id"`
 }

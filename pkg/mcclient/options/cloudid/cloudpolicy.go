@@ -15,6 +15,8 @@
 package cloudid
 
 import (
+	"io/ioutil"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -76,19 +78,33 @@ func (opts *CloudpolicyUpdateOption) Params() (jsonutils.JSONObject, error) {
 }
 
 type CloudpolicyCreateOption struct {
-	NAME            string
-	PROVIDER        string `choices:"Aliyun|Google|Aws|Azure|Huawei"`
-	Descritpion     string
-	POLICY_DOCUMENT string
+	NAME        string
+	PROVIDER    string `choices:"Aliyun|Google|Aws|Azure|Huawei"`
+	Descritpion string
+	CloudEnv    string
+	POLICY_FILE string
 }
 
 func (opts *CloudpolicyCreateOption) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
-	params.Remove("policy_document")
-	document, err := jsonutils.Parse([]byte(opts.POLICY_DOCUMENT))
+	data, err := ioutil.ReadFile(opts.POLICY_FILE)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadFile")
+	}
+	params.Remove("policy_file")
+	document, err := jsonutils.Parse(data)
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid policy document")
 	}
 	params.Add(document, "document")
 	return params, nil
+}
+
+type CloudpolicyCacheOption struct {
+	CloudpolicyIdOptions
+	ManagerId string `positional:"true"`
+}
+
+func (opts *CloudpolicyCacheOption) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{"manager_id": opts.ManagerId}), nil
 }

@@ -1515,7 +1515,7 @@ func (self *SCloudaccount) getOrCacheCustomCloudpolicy(ctx context.Context, prov
 	if err != nil {
 		return errors.Wrapf(err, "Register")
 	}
-	return cache.cacheCustomCloudpolicy()
+	return cache.CacheCustomCloudpolicy()
 }
 
 func (self *SCloudaccount) SyncCustomCloudpoliciesForCloud(ctx context.Context, userCred mcclient.TokenCredential, clouduser *SClouduser) error {
