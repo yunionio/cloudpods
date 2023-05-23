@@ -52,10 +52,12 @@ func (opts *KubeClusterConfigOptions) Params() (jsonutils.JSONObject, error) {
 
 type KubeClusterCreateOptions struct {
 	options.BaseCreateOptions
-	Version    string
-	VpcId      string
-	NetworkIds []string
-	RoleName   string
+	Version       string
+	VpcId         string
+	NetworkIds    []string
+	RoleName      string
+	PrivateAccess bool
+	PublicAccess  bool
 }
 
 func (opts *KubeClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
