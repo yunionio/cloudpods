@@ -32,6 +32,7 @@ const (
 	JDCLOUD_DEFAULT_REGION = "cn-north-1"
 )
 
+// https://docs.jdcloud.com/cn/common-declaration/api/introduction
 var regionList = map[string]string{
 	"cn-north-1": "华北-北京",
 	"cn-east-1":  "华东-宿迁",
