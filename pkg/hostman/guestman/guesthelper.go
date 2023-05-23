@@ -189,6 +189,24 @@ func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUS
 		node.LogicalProcessors = cpuset.NewCPUSet()
 		node.NodeId = info.Nodes[i].ID
 		cpuDies := make([]*CPUDie, 0)
+
+		if len(info.Nodes[i].Caches) == 0 {
+			cpuDie := new(CPUDie)
+			dieBuilder := cpuset.NewBuilder()
+			for j := 0; j < len(info.Nodes[i].Cores); j++ {
+				for k := 0; k < len(info.Nodes[i].Cores[j].LogicalProcessors); k++ {
+					if reservedCpus != nil && reservedCpus.Contains(int(info.Nodes[i].Cores[j].LogicalProcessors[k])) {
+						continue
+					}
+					dieBuilder.Add(int(info.Nodes[i].Cores[j].LogicalProcessors[k]))
+				}
+			}
+			cpuDie.LogicalProcessors = dieBuilder.Result()
+			node.CpuCount += cpuDie.LogicalProcessors.Size()
+			node.LogicalProcessors = node.LogicalProcessors.Union(cpuDie.LogicalProcessors)
+			cpuDies = append(cpuDies, cpuDie)
+		}
+
 		for j := 0; j < len(info.Nodes[i].Caches); j++ {
 			if info.Nodes[i].Caches[j].Level != 3 {
 				continue
