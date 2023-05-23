@@ -301,6 +301,10 @@ func (self *SBaseGuestDriver) IsSupportPostpaidExpire() bool {
 	return true
 }
 
+func (self *SBaseGuestDriver) IsSupportShutdownMode() bool {
+	return false
+}
+
 func (self *SBaseGuestDriver) RequestRenewInstance(ctx context.Context, guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
 	return time.Time{}, nil
 }
