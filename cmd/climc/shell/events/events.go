@@ -15,7 +15,10 @@
 package events
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -146,6 +149,23 @@ func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args
 
 func init() {
 	R(&EventListOptions{}, "event-show", "Show operation event logs", doComputeEventList)
+
+	type EventDetailOptions struct {
+		ID string `help:"event id"`
+
+		Service string `help:"service type"`
+	}
+	R(&EventDetailOptions{}, "event-detail", "show details of event log", func(s *mcclient.ClientSession, args *EventDetailOptions) error {
+		if args.Service == "" {
+			args.Service = "compute_v2"
+		}
+		resp, err := modulebase.ServiceJsonRequest(s, args.Service, "GET", fmt.Sprintf("/events/%s", args.ID), nil, nil)
+		if err != nil {
+			return errors.Wrap(err, "ServiceJsonRequest")
+		}
+		printObject(resp)
+		return nil
+	})
 
 	R(&TypeEventListOptions{}, "server-event", "Show operation event logs of server", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"server"}}
