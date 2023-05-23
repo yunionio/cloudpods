@@ -77,7 +77,7 @@ func init() {
 		),
 	}
 	DiskManager.SetVirtualObject(DiskManager)
-	DiskManager.TableSpec().AddIndex(false, "storage_id", "deleted", "status", "disk_size")
+	DiskManager.TableSpec().AddIndex(false, "deleted", "disk_size", "status", "storage_id")
 }
 
 type SDisk struct {
