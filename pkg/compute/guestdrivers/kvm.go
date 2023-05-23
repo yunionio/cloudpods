@@ -368,6 +368,10 @@ func (self *SKVMGuestDriver) IsSupportEip() bool {
 	return true
 }
 
+func (self *SKVMGuestDriver) IsSupportShutdownMode() bool {
+	return true
+}
+
 func (self *SKVMGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
 	return nil
 }

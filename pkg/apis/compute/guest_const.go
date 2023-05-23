@@ -209,6 +209,11 @@ const (
 )
 
 const (
+	VM_SHUTDOWN_MODE_KEEP_CHARGING = "keep_charging"
+	VM_SHUTDOWN_MODE_STOP_CHARGING = "stop_charging"
+)
+
+const (
 	QGA_STATUS_UNKNOWN        = "unknown"
 	QGA_STATUS_EXCUTING       = "executing"
 	QGA_STATUS_EXECUTE_FAILED = "execute_failed"

@@ -137,6 +137,7 @@ type ServerRebuildRootInput struct {
 
 	// swagger: ignore
 	Image string `json:"image" yunion-deprecated-by:"image_id"`
+	// 关机且停机不收费情况下不允许重装系统
 	// 镜像 id
 	// required: true
 	ImageId string `json:"image_id"`
@@ -726,6 +727,7 @@ type ServerDetachDiskInput struct {
 }
 
 type ServerChangeConfigInput struct {
+	// 关机且停机不收费情况下不允许调整配置
 	// 实例类型, 优先级高于vcpu_count和vmem_size
 	InstanceType string `json:"instance_type"`
 	// swagger: ignore

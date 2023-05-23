@@ -1177,7 +1177,19 @@ func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.To
 	if len(parentTaskId) > 0 {
 		params.Add(jsonutils.JSONTrue, "subtask")
 	}
-	return self.GetDriver().StartGuestStopTask(self, ctx, userCred, params, parentTaskId)
+	driver := self.GetDriver()
+	shutdownMode := api.VM_SHUTDOWN_MODE_KEEP_CHARGING
+	if stopCharging && driver.IsSupportShutdownMode() {
+		shutdownMode = api.VM_SHUTDOWN_MODE_STOP_CHARGING
+	}
+	_, err := db.Update(self, func() error {
+		self.ShutdownMode = shutdownMode
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "db.Update")
+	}
+	return driver.StartGuestStopTask(self, ctx, userCred, params, parentTaskId)
 }
 
 func (self *SGuest) insertIso(imageId string, cdromOrdinal int64) bool {
@@ -1616,6 +1628,10 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 
 	if !utils.IsInStringArray(self.Status, rebuildStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
+	}
+
+	if self.Status == api.VM_READY && self.ShutdownMode == api.VM_SHUTDOWN_MODE_STOP_CHARGING {
+		return nil, httperrors.NewInvalidStatusError("Cannot reset root with %s", self.ShutdownMode)
 	}
 
 	autoStart := false
@@ -2554,6 +2570,10 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 	if !utils.IsInStringArray(self.Status, changeStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot change config in %s for %s, requires %s", self.Status, self.GetHypervisor(), changeStatus)
+	}
+
+	if self.Status == api.VM_READY && self.ShutdownMode == api.VM_SHUTDOWN_MODE_STOP_CHARGING {
+		return nil, httperrors.NewInvalidStatusError("Cannot change config with %s", self.ShutdownMode)
 	}
 
 	_, err = self.GetHost()
