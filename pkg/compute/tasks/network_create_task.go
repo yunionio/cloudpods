@@ -60,7 +60,7 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
-	err = driver.RequestCreateNetwork(ctx, self.GetUserCred(), net)
+	err = driver.RequestCreateNetwork(ctx, self.GetUserCred(), net, self)
 	if err != nil {
 		self.taskFailed(ctx, net, errors.Wrapf(err, "RequestCreateNetwork"))
 		return
