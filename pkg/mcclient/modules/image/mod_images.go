@@ -45,7 +45,8 @@ const (
 
 	IMAGE_METADATA = "X-Image-Meta-Metadata"
 
-	IMAGE_META_COPY_FROM = "x-glance-api-copy-from"
+	IMAGE_META_COPY_FROM       = "x-glance-api-copy-from"
+	IMAGE_META_COMPRESS_FORMAT = "x-glance-compress-format"
 )
 
 func decodeMeta(str string) string {
@@ -251,7 +252,7 @@ func setImageMeta(params jsonutils.JSONObject) (http.Header, error) {
 		return header, e
 	}
 	for k, v := range p {
-		if k == "copy_from" || k == "properties" {
+		if k == "copy_from" || k == "properties" || k == "compress_format" {
 			continue
 		}
 		vs, _ := v.GetString()
@@ -450,6 +451,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 		return nil, e
 	}
 	copyFromUrl, _ := params.GetString("copy_from")
+	compressFormat, _ := params.GetString("compress_format")
 	if len(copyFromUrl) != 0 {
 		if size != 0 {
 			return nil, fmt.Errorf("Can't use copy_from and upload file at the same time")
@@ -457,6 +459,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 		body = nil
 		size = 0
 		headers.Set(IMAGE_META_COPY_FROM, copyFromUrl)
+		headers.Set(IMAGE_META_COMPRESS_FORMAT, compressFormat)
 	}
 	if body != nil {
 		headers.Add("Content-Type", "application/octet-stream")

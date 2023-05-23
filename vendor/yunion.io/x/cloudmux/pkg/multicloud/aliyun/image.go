@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/imagetools"
 
 	"yunion.io/x/cloudmux/pkg/apis"
@@ -224,23 +224,68 @@ type ImageExportTask struct {
 	TaskId string
 }
 
-func (self *SRegion) ExportImage(imageId string, bucket *oss.Bucket) (*ImageExportTask, error) {
+func (self *SImage) Export(opts *cloudprovider.SImageExportOptions) ([]cloudprovider.SImageExportInfo, error) {
+	err := self.storageCache.region.GetClient().EnableImageExport()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(opts.BucketName) == 0 {
+		opts.BucketName = fmt.Sprintf("image-export-%s", self.ImageId)
+		err := self.storageCache.region.CreateIBucket(opts.BucketName, "", "")
+		if err != nil {
+			return nil, errors.Wrapf(err, "CreateIBucket")
+		}
+	}
+	bucket, err := self.storageCache.region.checkBucket(opts.BucketName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIBucketByName(%s)", opts.BucketName)
+	}
+	task, err := self.storageCache.region.ExportImage(self.ImageId, opts.BucketName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ExportImage")
+	}
+
+	err = self.storageCache.region.WaitTaskStatus(ExportImageTask, task.TaskId, TaskStatusFinished, time.Second*10, time.Minute*30, 0, 100, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "WaitTaskStatus")
+	}
+
+	images, err := bucket.ListObjects(oss.Prefix(fmt.Sprintf("%sexport", strings.Replace(self.ImageId, "-", "", -1))))
+	if err != nil {
+		return nil, errors.Wrap(err, "bucket.ListObjects")
+	}
+	ret := []cloudprovider.SImageExportInfo{}
+	for _, image := range images.Objects {
+		url, err := bucket.SignURL(image.Key, oss.HTTPMethod("GET"), 32400)
+		if err != nil {
+			return nil, errors.Wrapf(err, "SignURL(%s)", image.Key)
+		}
+		ret = append(ret, cloudprovider.SImageExportInfo{
+			DownloadUrl:    url,
+			Name:           strings.TrimSuffix(image.Key, ".tar.gz"),
+			CompressFormat: "tar.gz",
+		})
+	}
+	return ret, nil
+}
+
+func (self *SRegion) ExportImage(imageId, bucketName string) (*ImageExportTask, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
-	params["OssBucket"] = bucket.BucketName
+	params["OssBucket"] = bucketName
 	params["OssPrefix"] = fmt.Sprintf("%sexport", strings.Replace(imageId, "-", "", -1))
 
-	if body, err := self.ecsRequest("ExportImage", params); err != nil {
-		return nil, err
-	} else {
-		result := ImageExportTask{}
-		if err := body.Unmarshal(&result); err != nil {
-			log.Errorf("unmarshal result error %s", err)
-			return nil, err
-		}
-		return &result, nil
+	body, err := self.ecsRequest("ExportImage", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ExportImage")
 	}
+	result := &ImageExportTask{}
+	if err := body.Unmarshal(result); err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	return result, nil
 }
 
 // {"ImageId":"m-j6c1qlpa7oebbg1n2k60","RegionId":"cn-hongkong","RequestId":"F8B2F6A1-F6AA-4C92-A54C-C4A309CF811F","TaskId":"t-j6c1qlpa7oebbg1rcl9t"}

@@ -23,8 +23,9 @@ type SNetworkCreateOptions struct {
 }
 
 type SWireCreateOptions struct {
-	Name      string
-	ZoneId    string
-	Bandwidth int
-	Mtu       int
+	Name           string
+	ZoneId         string
+	Bandwidth      int
+	Mtu            int
+	AssignPublicIp bool
 }

@@ -96,6 +96,10 @@ func (self *SAliyunGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
+func (self *SAliyunGuestDriver) IsAllowSaveImageOnRunning() bool {
+	return true
+}
+
 func (self *SAliyunGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }

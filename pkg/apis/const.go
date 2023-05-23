@@ -78,6 +78,11 @@ var (
 )
 
 const (
+	COMPRESS_FORMAT_GZIP   = "gzip"
+	COMPRESS_FORMAT_TAR_GZ = "tar.gz"
+)
+
+const (
 	OS_ARCH_X86 = "x86"
 	OS_ARCH_ARM = "arm"
 

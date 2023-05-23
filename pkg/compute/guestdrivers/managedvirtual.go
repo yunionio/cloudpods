@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -32,6 +33,7 @@ import (
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	image_api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -39,6 +41,8 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	img "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -156,8 +160,16 @@ func (self *SManagedVirtualizedGuestDriver) RequestSaveImage(ctx context.Context
 		if err != nil {
 			return nil, errors.Wrapf(err, "guest.GetIVM")
 		}
-		opts := &cloudprovider.SaveImageOptions{}
-		err = task.GetParams().Unmarshal(opts)
+
+		input := &api.DiskSaveInput{}
+		err = task.GetParams().Unmarshal(input)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal")
+		}
+
+		opts := &cloudprovider.SaveImageOptions{
+			Name: input.Name,
+		}
 		image, err := iVm.SaveImage(opts)
 		if err != nil {
 			return nil, errors.Wrapf(err, "iVm.SaveImage")
@@ -166,11 +178,68 @@ func (self *SManagedVirtualizedGuestDriver) RequestSaveImage(ctx context.Context
 		if err != nil {
 			return nil, errors.Wrapf(err, "wait image %s(%s) active current is: %s", image.GetName(), image.GetGlobalId(), image.GetStatus())
 		}
-		host, _ := guest.GetHost()
-		if host == nil {
-			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "find guest %s host", guest.Name)
+
+		if options.Options.SaveCloudImageToGlance {
+			exports, err := image.Export(&cloudprovider.SImageExportOptions{})
+			if err != nil {
+				if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("failed to export image")
+				}
+			}
+
+			osProfile := guest.GetOSProfile()
+
+			s := auth.GetSession(ctx, userCred, options.Options.Region)
+			var wg sync.WaitGroup
+			for _, export := range exports {
+				wg.Add(1)
+				go func(export cloudprovider.SImageExportInfo) {
+					defer wg.Done()
+					params := map[string]string{
+						"name":            export.Name,
+						"os_type":         osProfile.OSType,
+						"copy_from":       export.DownloadUrl,
+						"compress_format": export.CompressFormat,
+					}
+					localImage, err := img.Images.Create(s, jsonutils.Marshal(params))
+					if err != nil {
+						log.Errorf("create image error: %v", err)
+						return
+					}
+					imageId, err := localImage.GetString("id")
+					if err != nil {
+						return
+					}
+					info := &image_api.ImageDetails{}
+					for {
+						localImage, err = img.Images.Get(s, imageId, jsonutils.Marshal(map[string]string{"scope": "system"}))
+						if err != nil {
+							break
+						}
+						localImage.Unmarshal(info)
+						log.Debugf("save image %s(%s) status: %s", info.Name, info.Id, info.Status)
+						if utils.IsInStringArray(info.Status, []string{
+							image_api.IMAGE_STATUS_ACTIVE,
+							image_api.IMAGE_STATUS_KILLED,
+							image_api.IMAGE_STATUS_SAVE_FAIL,
+						}) {
+							break
+						}
+						time.Sleep(time.Second * 20)
+					}
+				}(export)
+			}
+			wg.Wait()
 		}
-		region, _ := host.GetRegion()
+
+		host, err := guest.GetHost()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetHost")
+		}
+		region, err := host.GetRegion()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetRegion")
+		}
 		iRegion, err := host.GetIRegion(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "host.GetIRegion")

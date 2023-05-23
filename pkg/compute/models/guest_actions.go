@@ -164,7 +164,8 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return input, httperrors.NewInputParameterError("Cannot save image in status %s", self.Status)
 	}
-	input.Restart = (self.Status == api.VM_RUNNING) || input.AutoStart
+	driver := self.GetDriver()
+	input.Restart = ((self.Status == api.VM_RUNNING) || input.AutoStart) && !driver.IsAllowSaveImageOnRunning()
 	if len(input.Name) == 0 && len(input.GenerateName) == 0 {
 		return input, httperrors.NewInputParameterError("Image name is required")
 	}

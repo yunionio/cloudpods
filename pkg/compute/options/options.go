@@ -208,6 +208,8 @@ type ComputeOptions struct {
 	SkuMaxMemSize  int64 `help:"Sku max memory size GB" default:"1024"`
 	SkuMaxCpuCount int64 `help:"Sku max cpu count" default:"256"`
 
+	SaveCloudImageToGlance bool `help:"Auto save cloud vm image to glance" default:"true"`
+
 	esxi.EsxiOptions
 }
 

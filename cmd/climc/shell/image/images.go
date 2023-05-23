@@ -290,9 +290,10 @@ func init() {
 
 	type ImageImportOptions struct {
 		ImageOptionalOptions
-		NAME       string `help:"Image Name"`
-		COPYFROM   string `help:"Image external location url"`
-		EncryptKey string `help:"encrypt key id"`
+		NAME           string `help:"Image Name"`
+		COPYFROM       string `help:"Image external location url"`
+		CompressFormat string
+		EncryptKey     string `help:"encrypt key id"`
 	}
 	R(&ImageImportOptions{}, "image-import", "Import a external image", func(s *mcclient.ClientSession, args *ImageImportOptions) error {
 		params := jsonutils.NewDict()
@@ -309,6 +310,7 @@ func init() {
 		}
 
 		params.Add(jsonutils.NewString(args.COPYFROM), "copy_from")
+		params.Add(jsonutils.NewString(args.CompressFormat), "compress_format")
 		img, err := modules.Images.Create(s, params)
 		if err != nil {
 			return err

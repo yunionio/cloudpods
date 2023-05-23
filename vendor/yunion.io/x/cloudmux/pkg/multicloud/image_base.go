@@ -15,6 +15,7 @@
 package multicloud
 
 import (
+	"github.com/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -30,4 +31,8 @@ func (self *SImageBase) GetPublicScope() rbacscope.TRbacScope {
 
 func (self *SImageBase) GetSubImages() []cloudprovider.SSubImage {
 	return nil
+}
+
+func (self *SImageBase) Export(opts *cloudprovider.SImageExportOptions) ([]cloudprovider.SImageExportInfo, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "Export")
 }

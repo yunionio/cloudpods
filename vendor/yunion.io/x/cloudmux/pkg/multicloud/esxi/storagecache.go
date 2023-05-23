@@ -20,7 +20,6 @@ import (
 	"path"
 	"regexp"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -279,10 +278,6 @@ func (self *SDatastoreImageCache) GetIImageById(extId string) (cloudprovider.ICl
 }
 
 func (self *SDatastoreImageCache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SDatastoreImageCache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 

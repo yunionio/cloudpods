@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/qemuimgfmt"
@@ -94,10 +93,6 @@ func (self *SStoragecache) GetPath() string {
 
 func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
 	return nil, cloudprovider.ErrNotSupported
-}
-
-func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	return nil, cloudprovider.ErrNotImplemented
 }
 
 // https://docs.ucloud.cn/api/uhost-api/import_custom_image

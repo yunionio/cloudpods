@@ -635,8 +635,9 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 		self.StartImagePipeline(ctx, userCred, false)
 	} else {
 		copyFrom := appParams.Request.Header.Get(modules.IMAGE_META_COPY_FROM)
+		compress := appParams.Request.Header.Get(modules.IMAGE_META_COMPRESS_FORMAT)
 		if len(copyFrom) > 0 {
-			self.startImageCopyFromUrlTask(ctx, userCred, copyFrom, "")
+			self.startImageCopyFromUrlTask(ctx, userCred, copyFrom, compress, "")
 		}
 	}
 }
@@ -702,8 +703,9 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 				self.StartImagePipeline(ctx, userCred, false)
 			} else {
 				copyFrom := appParams.Request.Header.Get(modules.IMAGE_META_COPY_FROM)
+				compress := appParams.Request.Header.Get(modules.IMAGE_META_COMPRESS_FORMAT)
 				if len(copyFrom) > 0 {
-					err := self.startImageCopyFromUrlTask(ctx, userCred, copyFrom, "")
+					err := self.startImageCopyFromUrlTask(ctx, userCred, copyFrom, compress, "")
 					if err != nil {
 						self.OnSaveFailed(ctx, userCred, jsonutils.NewString(fmt.Sprintf("update copy from url failed %s", err)))
 						return nil, httperrors.NewGeneralError(err)
@@ -820,11 +822,15 @@ func (self *SImage) startDeleteImageTask(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SImage) startImageCopyFromUrlTask(ctx context.Context, userCred mcclient.TokenCredential, copyFrom string, parentTaskId string) error {
+func (self *SImage) startImageCopyFromUrlTask(ctx context.Context, userCred mcclient.TokenCredential, copyFrom, compress string, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(copyFrom), "copy_from")
+	params.Add(jsonutils.NewString(compress), "compress_format")
 
 	msg := fmt.Sprintf("copy from url %s", copyFrom)
+	if len(compress) > 0 {
+		msg += " " + compress
+	}
 	self.SetStatus(userCred, api.IMAGE_STATUS_SAVING, msg)
 	db.OpsLog.LogEvent(self, db.ACT_SAVING, msg, userCred)
 

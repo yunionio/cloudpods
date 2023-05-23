@@ -28,7 +28,7 @@ import (
 )
 
 type SImage struct {
-	multicloud.SResourceBase
+	multicloud.SImageBase
 	BingoTags
 	cache *SStoragecache
 

@@ -57,6 +57,10 @@ type SBaseGuestDriver struct {
 	SBaseGuestScheduleDriver
 }
 
+func (self *SBaseGuestDriver) IsAllowSaveImageOnRunning() bool {
+	return false
+}
+
 func (self *SBaseGuestDriver) StartGuestCreateTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateTask", guest, userCred, data, parentTaskId, "", pendingUsage)
 	if err != nil {
