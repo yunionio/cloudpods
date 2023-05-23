@@ -636,6 +636,7 @@ func (self *SRegion) AddRdsTagsToResource(arn string, tags map[string]string) er
 	for k, v := range tags {
 		params[fmt.Sprintf("Tags.member.%d.Key", i)] = k
 		params[fmt.Sprintf("Tags.member.%d.Value", i)] = v
+		i++
 	}
 	return self.rdsRequest("AddTagsToResource", params, nil)
 }
@@ -650,6 +651,7 @@ func (self *SRegion) RemoveRdsTagsFromResource(arn string, tags map[string]strin
 	i := 1
 	for k := range tags {
 		params[fmt.Sprintf("TagKeys.member.%d", i)] = k
+		i++
 	}
 	return self.rdsRequest("RemoveTagsFromResource", params, nil)
 }
