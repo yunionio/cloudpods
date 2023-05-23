@@ -117,9 +117,6 @@ type SNetwork struct {
 
 	VlanId int `nullable:"false" default:"1" list:"user" update:"user" create:"optional"`
 
-	// 二层网络Id
-	// WireId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
-
 	// 服务器类型
 	// example: server
 	ServerType string `width:"16" charset:"ascii" default:"guest" nullable:"true" list:"user" create:"optional"`
@@ -1896,7 +1893,7 @@ func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 	self.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	vpc, _ := self.GetVpc()
 	if vpc != nil && vpc.IsManaged() {
-		task, err := taskman.TaskManager.NewTask(ctx, "NetworkCreateTask", self, userCred, nil, "", "", nil)
+		task, err := taskman.TaskManager.NewTask(ctx, "NetworkCreateTask", self, userCred, data.(*jsonutils.JSONDict), "", "", nil)
 		if err != nil {
 			log.Errorf("networkcreateTask create fail: %s", err)
 		} else {

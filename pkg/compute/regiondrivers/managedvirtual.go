@@ -3033,7 +3033,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestAssociateEip(ctx context.
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, net *models.SNetwork) error {
+func (self *SManagedVirtualizationRegionDriver) RequestCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, net *models.SNetwork, task taskman.ITask) error {
 	wire, err := net.GetWire()
 	if err != nil {
 		return errors.Wrapf(err, "GetWire")
@@ -3054,6 +3054,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateNetwork(ctx context
 		Cidr: prefix.String(),
 		Desc: net.Description,
 	}
+	opts.AssignPublicIp, _ = task.GetParams().Bool("assign_public_ip")
 
 	provider := wire.GetCloudprovider()
 	opts.ProjectId, err = provider.SyncProject(ctx, userCred, net.ProjectId)

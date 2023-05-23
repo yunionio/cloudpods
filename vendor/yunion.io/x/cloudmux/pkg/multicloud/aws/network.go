@@ -23,7 +23,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/rbacscope"
@@ -38,32 +37,31 @@ type SNetwork struct {
 	AwsTags
 	wire *SWire
 
-	AvailableIpAddressCount int
-	CidrBlock               string
+	AvailableIpAddressCount int    `xml:"availableIpAddressCount"`
+	CidrBlock               string `xml:"cidrBlock"`
 	CreationTime            time.Time
 	Description             string
 	IsDefault               bool
 	Status                  string
-	NetworkId               string
+	SubnetId                string `xml:"subnetId"`
 	NetworkName             string
-	VpcId                   string
+	VpcId                   string `xml:"vpcId"`
 	ZoneId                  string
 }
 
 func (self *SNetwork) GetId() string {
-	return self.NetworkId
+	return self.SubnetId
 }
 
 func (self *SNetwork) GetName() string {
 	if len(self.NetworkName) == 0 {
-		return self.NetworkId
+		return self.SubnetId
 	}
-
 	return self.NetworkName
 }
 
 func (self *SNetwork) GetGlobalId() string {
-	return self.NetworkId
+	return self.SubnetId
 }
 
 func (self *SNetwork) GetStatus() string {
@@ -75,15 +73,11 @@ func (self *SNetwork) GetStatus() string {
 }
 
 func (self *SNetwork) Refresh() error {
-	new, err := self.wire.zone.region.getNetwork(self.NetworkId)
+	new, err := self.wire.zone.region.getNetwork(self.SubnetId)
 	if err != nil {
 		return err
 	}
 	return jsonutils.Update(self, new)
-}
-
-func (self *SNetwork) IsEmulated() bool {
-	return false
 }
 
 func (self *SNetwork) GetSysTags() map[string]string {
@@ -153,40 +147,51 @@ func (self *SNetwork) GetPublicScope() rbacscope.TRbacScope {
 }
 
 func (self *SNetwork) Delete() error {
-	return self.wire.zone.region.deleteNetwork(self.NetworkId)
+	return self.wire.zone.region.deleteNetwork(self.SubnetId)
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
 	return 120 // 2 minutes
 }
 
-func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cidr string, desc string) (string, error) {
-	params := &ec2.CreateSubnetInput{}
-	params.SetAvailabilityZone(zoneId)
-	params.SetVpcId(vpcId)
-	params.SetCidrBlock(cidr)
+func (self *SRegion) ModifySubnetAttribute(subnetId string, assignPublicIp bool) error {
+	params := map[string]string{
+		"SubnetId":                  subnetId,
+		"MapPublicIpOnLaunch.Value": "false",
+	}
+	if assignPublicIp {
+		params["MapPublicIpOnLaunch.Value"] = "true"
+	}
+	ret := struct {
+		Return bool `xml:"return"`
+	}{}
 
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
+	return self.ec2Request("ModifySubnetAttribute", params, &ret)
+}
+
+func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cidr, desc string) (string, error) {
+	params := map[string]string{
+		"AvailabilityZone":                zoneId,
+		"VpcId":                           vpcId,
+		"CidrBlock":                       cidr,
+		"TagSpecification.1.ResourceType": "subnet",
+		"TagSpecification.1.Tag.1.Key":    "Name",
+		"TagSpecification.1.Tag.1.Value":  name,
 	}
-	ret, err := ec2Client.CreateSubnet(params)
-	if err != nil {
-		return "", err
-	} else {
-		paramsTags := &ec2.CreateTagsInput{}
-		tagspec := TagSpec{ResourceType: "subnet"}
-		tagspec.SetNameTag(name)
-		tagspec.SetDescTag(desc)
-		ec2Tag, _ := tagspec.GetTagSpecifications()
-		paramsTags.SetResources([]*string{ret.Subnet.SubnetId})
-		paramsTags.SetTags(ec2Tag.Tags)
-		_, err := ec2Client.CreateTags(paramsTags)
-		if err != nil {
-			log.Infof("createNetwork write tags failed:%s", err)
-		}
-		return *ret.Subnet.SubnetId, nil
+	if len(desc) > 0 {
+		params["TagSpecification.1.Tag.2.Key"] = "Description"
+		params["TagSpecification.1.Tag.2.Value"] = desc
 	}
+
+	ret := struct {
+		Subnet SNetwork `xml:"subnet"`
+	}{}
+
+	err := self.ec2Request("CreateSubnet", params, &ret)
+	if err != nil {
+		return "", errors.Wrapf(err, "CreateSubnet")
+	}
+	return ret.Subnet.SubnetId, nil
 }
 
 func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
@@ -260,7 +265,7 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string) ([]SNetwork, error)
 		subnet.Status = *item.State
 		subnet.ZoneId = *item.AvailabilityZone
 		subnet.IsDefault = *item.DefaultForAz
-		subnet.NetworkId = *item.SubnetId
+		subnet.SubnetId = *item.SubnetId
 		subnet.NetworkName = tagspec.GetNameTag()
 		jsonutils.Update(&subnet.AwsTags.TagSet, item.Tags)
 		subnets = append(subnets, subnet)
