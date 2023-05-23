@@ -478,6 +478,7 @@ func (self *SElasticache) SetTags(tags map[string]string, replace bool) error {
 		i := 1
 		for k := range tags {
 			params[fmt.Sprintf("TagKeys.member.%d", i)] = k
+			i++
 		}
 		return self.region.redisRequest("RemoveTagsFromResource", params, nil)
 	}
@@ -489,6 +490,7 @@ func (self *SElasticache) SetTags(tags map[string]string, replace bool) error {
 		for k, v := range tags {
 			params[fmt.Sprintf("Tags.member.%d.Key", i)] = k
 			params[fmt.Sprintf("Tags.member.%d.Value", i)] = v
+			i++
 		}
 		return self.region.redisRequest("AddTagsToResource", params, nil)
 	}

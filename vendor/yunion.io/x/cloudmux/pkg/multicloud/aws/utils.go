@@ -80,9 +80,23 @@ func (self *TagSpec) GetTags() (map[string]string, error) {
 		if k == "Name" || k == "Description" {
 			continue
 		}
+		if strings.HasPrefix(k, "aws:") {
+			continue
+		}
 		ret[k] = v
 	}
 	return ret, nil
+}
+
+func (self *TagSpec) GetSysTags() map[string]string {
+	ret := map[string]string{}
+	for k, v := range self.Tags {
+		if !strings.HasPrefix(k, "aws:") {
+			continue
+		}
+		ret[k] = v
+	}
+	return ret
 }
 
 func (self *TagSpec) SetNameTag(v string) {
