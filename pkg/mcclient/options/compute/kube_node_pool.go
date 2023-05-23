@@ -22,6 +22,7 @@ import (
 
 type KubeNodePoolListOptions struct {
 	options.BaseListOptions
+	CloudKubeClusterId string `json:"cloud_kube_cluster_id"`
 }
 
 func (opts *KubeNodePoolListOptions) Params() (jsonutils.JSONObject, error) {
