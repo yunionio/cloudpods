@@ -240,6 +240,9 @@ func (manager *SKubeNodePoolManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+	if query.CloudKubeClusterId != "" {
+		q = q.Equals("cloud_kube_cluster_id", query.CloudKubeClusterId)
+	}
 	return q, nil
 }
 

@@ -22,6 +22,8 @@ type KubeNodePoolListInput struct {
 
 	RegionalFilterListInput
 	ManagedResourceListInput
+
+	CloudKubeClusterId string `json:"cloud_kube_cluster_id"`
 }
 
 type KubeNodePoolCreateInput struct {
