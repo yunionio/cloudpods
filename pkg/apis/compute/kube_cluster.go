@@ -59,6 +59,9 @@ type KubeClusterCreateInput struct {
 	// required: true
 	VpcResourceInput
 
+	PrivateAccess bool `json:"private_access"`
+	PublicAccess  bool `json:"public_access"`
+
 	RoleName string `json:"role_name"`
 }
 
