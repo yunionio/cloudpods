@@ -133,6 +133,10 @@ type SGuest struct {
 	// example: stop
 	ShutdownBehavior string `width:"16" charset:"ascii" default:"stop" list:"user" update:"user" create:"optional"`
 
+	// 关机收费模式
+	// example: keep_charging, stop_charging
+	ShutdownMode string `width:"16" charset:"ascii" default:"keep_charging" list:"user"`
+
 	// 秘钥对Id
 	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
@@ -5119,6 +5123,7 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
 
 	desc.Set("status", jsonutils.NewString(self.Status))
+	desc.Set("shutdown_mode", jsonutils.NewString(self.ShutdownMode))
 
 	address := jsonutils.NewString(strings.Join(self.GetRealIPs(), ","))
 	desc.Set("ip_addr", address)

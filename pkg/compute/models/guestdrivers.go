@@ -55,6 +55,7 @@ type IGuestDriver interface {
 
 	IsSupportedBillingCycle(bc billing.SBillingCycle) bool
 	IsSupportPostpaidExpire() bool
+	IsSupportShutdownMode() bool
 
 	RequestRenewInstance(ctx context.Context, guest *SGuest, bc billing.SBillingCycle) (time.Time, error)
 
