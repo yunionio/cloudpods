@@ -26,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -178,7 +179,7 @@ func (self *SCloudpolicycache) GetCloudpolicy() (*SCloudpolicy, error) {
 	return policy.(*SCloudpolicy), nil
 }
 
-func (self *SCloudpolicycache) cacheCustomCloudpolicy() error {
+func (self *SCloudpolicycache) CacheCustomCloudpolicy() error {
 	provider, err := self.GetProvider()
 	if err != nil {
 		return errors.Wrapf(err, "GetProvide")
@@ -212,8 +213,17 @@ func (self *SCloudpolicycache) cacheCustomCloudpolicy() error {
 	}
 	_, err = db.Update(self, func() error {
 		self.ExternalId = iPolicy.GetGlobalId()
+		self.Status = api.CLOUD_POLICY_CACHE_STATUS_READY
 		self.Name = iPolicy.GetName()
 		return nil
 	})
 	return err
+}
+
+func (self *SCloudpolicycache) StartPolicyCacheTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudpolicyCacheTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
 }

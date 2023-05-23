@@ -17,15 +17,18 @@ package models
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -63,7 +66,7 @@ type SCloudpolicy struct {
 	// |---------------|----------------------|
 	// | system        | 平台内置权限         |
 	// | custom        | 用户自定义权限       |
-	PolicyType string `width:"16" charset:"ascii" list:"domain" default:"custom"`
+	PolicyType string `width:"16" charset:"ascii" list:"domain" create:"optional" default:"custom"`
 
 	// 平台
 	//
@@ -82,7 +85,7 @@ type SCloudpolicy struct {
 	// 是否锁定, 若锁定后, 此策略不允许被绑定到用户或权限组, 仅管理员可以设置是否锁定
 	Locked tristate.TriState `get:"user" create:"optional" list:"user" default:"false"`
 
-	CloudEnv string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
+	CloudEnv string `width:"64" charset:"ascii" list:"domain" create:"domain_optional"`
 }
 
 func (self SCloudpolicy) GetGlobalId() string {
@@ -163,6 +166,16 @@ func (manager *SCloudpolicyManager) ValidateCreateData(ctx context.Context, user
 	if err != nil {
 		return input, err
 	}
+	input.Status = api.SAML_PROVIDER_STATUS_AVAILABLE
+	envs := []string{input.Provider}
+	if envMap, ok := compute.CLOUD_ENV_MAP[input.Provider]; ok {
+		for _, v := range envMap {
+			if !utils.IsInStringArray(v, envs) {
+				envs = append(envs, v)
+			}
+		}
+	}
+	input.CloudEnv = strings.Join(envs, ",")
 	return input, nil
 }
 
@@ -228,8 +241,7 @@ func (self *SCloudpolicy) StartCloudpolicyDeleteTask(ctx context.Context, userCr
 		return errors.Wrap(err, "NewTask")
 	}
 	self.SetStatus(userCred, api.CLOUD_POLICY_STATUS_DELETING, "delete")
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SCloudpolicy) GetCloudusers() ([]SClouduser, error) {
@@ -255,6 +267,9 @@ func (self *SCloudpolicy) GetCloudgroups() ([]SCloudgroup, error) {
 }
 
 func (self *SCloudpolicy) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if self.PolicyType == api.CLOUD_POLICY_TYPE_SYSTEM {
+		return httperrors.NewNotSupportedError("can not delete system policy")
+	}
 	users, err := self.GetCloudusers()
 	if err != nil {
 		return httperrors.NewGeneralError(errors.Wrapf(err, "GetCloudusers"))
@@ -323,6 +338,37 @@ func (manager *SCloudpolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 		return q, nil
 	}
 	return q, httperrors.ErrNotFound
+}
+
+// 缓存自定义权限到云上
+func (self *SCloudpolicy) PerformCache(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudpolicyCacheInput) (jsonutils.JSONObject, error) {
+	if self.PolicyType != api.CLOUD_POLICY_TYPE_CUSTOM {
+		return nil, httperrors.NewNotSupportedError("can not support cache %s policy type", self.PolicyType)
+	}
+
+	if len(input.ManagerId) == 0 {
+		return nil, httperrors.NewMissingParameterError("manager_id")
+	}
+
+	provider, err := CloudproviderManager.FetchProvider(ctx, input.ManagerId)
+	if err != nil {
+		return nil, err
+	}
+
+	if provider.Provider != self.Provider {
+		return nil, httperrors.NewInputParameterError("can not cache %s policy for %s", self.Provider, provider.Provider)
+	}
+
+	cache, err := CloudpolicycacheManager.Register(ctx, provider.CloudaccountId, provider.Id, self.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(cache.ExternalId) > 0 {
+		return jsonutils.Marshal(cache), nil
+	}
+
+	return jsonutils.Marshal(cache), cache.StartPolicyCacheTask(ctx, userCred)
 }
 
 // 恢复权限组状态

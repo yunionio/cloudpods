@@ -30,3 +30,15 @@ type CloudpolicycacheListOptions struct {
 func (opts *CloudpolicycacheListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
 }
+
+type CloudpolicycacheIdOptions struct {
+	ID string
+}
+
+func (opts *CloudpolicycacheIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *CloudpolicycacheIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}

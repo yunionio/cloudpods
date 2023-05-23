@@ -22,11 +22,13 @@ import (
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Cloudpolicies).WithKeyword("cloud-policy")
-	cmd.Create(&cloudid.CloudpolicyListOptions{})
+	cmd.Create(&cloudid.CloudpolicyCreateOption{})
 	cmd.List(&cloudid.CloudpolicyListOptions{})
 	cmd.Show(&cloudid.CloudpolicyIdOptions{})
+	cmd.Delete(&cloudid.CloudpolicyIdOptions{})
 	cmd.Update(&cloudid.CloudpolicyUpdateOption{})
 	cmd.Perform("syncstauts", &cloudid.CloudpolicyIdOptions{})
+	cmd.Perform("cache", &cloudid.CloudpolicyCacheOption{})
 	cmd.Perform("lock", &cloudid.CloudpolicyIdOptions{})
 	cmd.Perform("unlock", &cloudid.CloudpolicyIdOptions{})
 	cmd.Perform("assign-group", &cloudid.CloudpolicyGroupOptions{})

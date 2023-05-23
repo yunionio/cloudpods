@@ -23,4 +23,5 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Cloudpolicycaches).WithKeyword("cloud-policy-cache")
 	cmd.List(&cloudid.CloudpolicycacheListOptions{})
+	cmd.Show(&cloudid.CloudpolicycacheIdOptions{})
 }
