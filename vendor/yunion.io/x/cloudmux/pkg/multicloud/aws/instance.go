@@ -208,10 +208,6 @@ func (self *SInstance) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
-func (self *SInstance) IsEmulated() bool {
-	return false
-}
-
 func (self *SInstance) GetInstanceType() string {
 	return self.InstanceType
 }
@@ -225,7 +221,7 @@ func (self *SInstance) GetTags() (map[string]string, error) {
 }
 
 func (self *SInstance) GetSysTags() map[string]string {
-	return map[string]string{}
+	return self.TagSpec.GetSysTags()
 }
 
 func (self *SInstance) GetBillingType() string {
@@ -1284,16 +1280,17 @@ func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 	if err != nil {
 		return errors.Wrapf(err, "FetchTags(self.host.zone.region.ec2Client, %s)", self.InstanceId)
 	}
-	oldTags := map[string]string{}
-	err = oldTagsJson.Unmarshal(oldTags)
+	_oldTags := TagSpec{}
+	err = oldTagsJson.Unmarshal(&_oldTags.Tags)
 	if err != nil {
 		return errors.Wrapf(err, "(%s).Unmarshal(oldTags)", oldTagsJson.String())
 	}
+	oldTags, err := _oldTags.GetTags()
+	if err != nil {
+		return errors.Wrapf(err, "GetTags")
+	}
 	addTags := map[string]string{}
 	for k, v := range tags {
-		if strings.HasPrefix(k, "aws:") {
-			return errors.Wrap(cloudprovider.ErrNotSupported, "The aws: prefix is reserved for AWS use")
-		}
 		if _, ok := oldTags[k]; !ok {
 			addTags[k] = v
 		} else {
@@ -1315,12 +1312,12 @@ func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 	Arn := self.GetArn()
 	err = self.host.zone.region.UntagResources([]string{Arn}, delTags)
 	if err != nil {
-		return errors.Wrapf(err, "self.host.zone.region.UntagResources([]string{%s}, %s)", Arn, jsonutils.Marshal(delTags).String())
+		return errors.Wrapf(err, "UntagResources")
 	}
 	delete(addTags, "Name")
 	err = self.host.zone.region.TagResources([]string{Arn}, addTags)
 	if err != nil {
-		return errors.Wrapf(err, "self.host.zone.region.TagResources([]string{%s}, %s)", Arn, jsonutils.Marshal(addTags).String())
+		return errors.Wrapf(err, "TagResources")
 	}
 	return nil
 }
