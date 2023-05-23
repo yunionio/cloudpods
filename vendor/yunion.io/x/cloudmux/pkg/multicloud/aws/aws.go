@@ -548,7 +548,6 @@ func (self *SAwsClient) stsRequest(apiName string, params map[string]string, ret
 
 func (self *SAwsClient) GetCapabilities() []string {
 	caps := []string{
-		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
@@ -563,6 +562,7 @@ func (self *SAwsClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 		cloudprovider.CLOUD_CAPABILITY_WAF,
 		cloudprovider.CLOUD_CAPABILITY_VPC_PEER,
+		cloudprovider.CLOUD_CAPABILITY_CONTAINER,
 	}
 	return caps
 }
