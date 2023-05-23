@@ -96,14 +96,15 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
 	networkId, err := self.zone.region.createNetwork(self.zone.ZoneId, self.vpc.VpcId, opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
-		log.Errorf("createNetwork error %s", err)
 		return nil, errors.Wrap(err, "createNetwork")
+	}
+	if opts.AssignPublicIp {
+		self.zone.region.ModifySubnetAttribute(networkId, opts.AssignPublicIp)
 	}
 	self.inetworks = nil
 	network := self.getNetworkById(networkId)
 	if network == nil {
-		log.Errorf("cannot find network after create????")
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getNetworkById")
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "getNetworkById(%s)", networkId)
 	}
 	return network, nil
 }
@@ -130,7 +131,7 @@ func (self *SWire) addNetwork(network *SNetwork) {
 	}
 	find := false
 	for i := 0; i < len(self.inetworks); i += 1 {
-		if self.inetworks[i].GetId() == network.NetworkId {
+		if self.inetworks[i].GetId() == network.SubnetId {
 			find = true
 			break
 		}

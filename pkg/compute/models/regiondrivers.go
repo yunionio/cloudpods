@@ -146,7 +146,7 @@ type IRegionDriver interface {
 	RequestSyncBucketStatus(ctx context.Context, userCred mcclient.TokenCredential, bucket *SBucket, task taskman.ITask) error
 	RequestSyncDBInstanceBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, backup *SDBInstanceBackup, task taskman.ITask) error
 
-	RequestCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork) error
+	RequestCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, task taskman.ITask) error
 
 	ValidateCreateCdnData(ctx context.Context, userCred mcclient.TokenCredential, input api.CDNDomainCreateInput) (api.CDNDomainCreateInput, error)
 }
