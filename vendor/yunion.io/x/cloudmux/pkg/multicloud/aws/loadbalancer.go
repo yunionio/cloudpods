@@ -462,8 +462,8 @@ func (self *SRegion) CreateLoadbalancer(opts *cloudprovider.SLoadbalancerCreateO
 			return nil, errors.Wrapf(err, "GetNetworks(%s)", opts.VpcId)
 		}
 		for i := range nets {
-			if !utils.IsInStringArray(nets[i].NetworkId, opts.NetworkIds) && nets[i].ZoneId != opts.ZoneId {
-				opts.NetworkIds = append(opts.NetworkIds, nets[i].NetworkId)
+			if !utils.IsInStringArray(nets[i].SubnetId, opts.NetworkIds) && nets[i].ZoneId != opts.ZoneId {
+				opts.NetworkIds = append(opts.NetworkIds, nets[i].SubnetId)
 				break
 			}
 		}

@@ -241,6 +241,9 @@ type NetworkCreateInput struct {
 
 	// 线路类型
 	BgpType string `json:"bgp_type"`
+
+	// 是否申请ip时自动挂载公网ip，仅对aws生效
+	AssignPublicIp bool `json:"assign_public_ip"`
 }
 
 type SNetworkNics struct {
