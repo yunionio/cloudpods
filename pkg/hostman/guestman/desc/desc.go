@@ -144,8 +144,6 @@ type PCIController struct {
 	*PCIDevice
 
 	CType PCI_CONTROLLER_TYPE
-	//HotPlug bool
-	//Bus     string
 }
 
 type SGuestMachine struct {
