@@ -233,6 +233,10 @@ func (self *SQcloudGuestDriver) IsSupportdDcryptPasswordFromSecretKey() bool {
 	return false
 }
 
+func (self *SQcloudGuestDriver) IsSupportShutdownMode() bool {
+	return true
+}
+
 func (self *SQcloudGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_SHELL
 }

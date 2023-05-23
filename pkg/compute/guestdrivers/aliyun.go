@@ -216,6 +216,10 @@ func (self *SAliyunGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle
 	return false
 }
 
+func (self *SAliyunGuestDriver) IsSupportShutdownMode() bool {
+	return true
+}
+
 func (self *SAliyunGuestDriver) IsSupportPublicipToEip() bool {
 	return true
 }
