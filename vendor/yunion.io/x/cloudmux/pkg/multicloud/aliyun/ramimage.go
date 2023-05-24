@@ -171,15 +171,6 @@ func (self *SAliyunClient) EnableImageExport() error {
 
 	_, err = self.GetPolicy(AliyunECSImageExportRolePolicyType, AliyunECSImageExportRolePolicy)
 	if err != nil {
-		/*if err != cloudprovider.ErrNotFound {
-			return err
-		}
-		_, err = self.createPolicy(AliyunECSImageImportRolePolicy,
-			AliyunECSImageImportRolePolicyDocument,
-			"Allow Import External Image policy")
-		if err != nil {
-			return err
-		}*/
 		return err
 	}
 

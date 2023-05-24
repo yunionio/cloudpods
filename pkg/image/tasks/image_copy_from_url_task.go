@@ -15,13 +15,19 @@
 package tasks
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
+	"io"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/image/models"
@@ -40,8 +46,9 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 	image := obj.(*models.SImage)
 
 	copyFrom, _ := self.Params.GetString("copy_from")
+	compress, _ := self.Params.GetString("compress_format")
 
-	log.Infof("Copy image from %s", copyFrom)
+	log.Infof("Copy image from %s with compress %s", copyFrom, compress)
 
 	self.SetStage("OnImageImportComplete", nil)
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
@@ -55,7 +62,29 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 			return nil, err
 		}
 		defer resp.Body.Close()
-		err = image.SaveImageFromStream(resp.Body, resp.ContentLength, false)
+
+		var reader io.Reader = resp.Body
+
+		if utils.IsInStringArray(compress, []string{apis.COMPRESS_FORMAT_GZIP, apis.COMPRESS_FORMAT_TAR_GZ}) {
+			gr, err := gzip.NewReader(resp.Body)
+			if err != nil {
+				return nil, errors.Wrapf(err, "gzip.NewReader")
+			}
+			reader = gr
+			defer gr.Close()
+
+			if compress == apis.COMPRESS_FORMAT_TAR_GZ {
+				tr := tar.NewReader(gr)
+				// 读取文件
+				_, err := tr.Next()
+				if err != nil && err != io.EOF {
+					return nil, errors.Wrapf(err, "tr.Next")
+				}
+				reader = tr
+			}
+		}
+
+		err = image.SaveImageFromStream(reader, resp.ContentLength, false)
 		if err != nil {
 			return nil, err
 		}

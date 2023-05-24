@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -212,57 +211,7 @@ func (self *SManagedVirtualizationHostDriver) RequestPrepareSaveDiskOnHost(ctx c
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask, data jsonutils.JSONObject) error {
-	iDisk, err := disk.GetIDisk(ctx)
-	if err != nil {
-		return err
-	}
-	iStorage, err := disk.GetIStorage(ctx)
-	if err != nil {
-		return err
-	}
-	iStoragecache := iStorage.GetIStoragecache()
-	if iStoragecache == nil {
-		return fmt.Errorf("fail to find iStoragecache for storage: %s", iStorage.GetName())
-	}
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		snapshot, err := iDisk.CreateISnapshot(ctx, fmt.Sprintf("Snapshot-%s", imageId), "PrepareSaveImage")
-		if err != nil {
-			return nil, err
-		}
-		params := task.GetParams()
-		osType, _ := params.GetString("properties", "os_type")
-
-		scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), iStoragecache.GetId(), imageId, "")
-		if scimg.Status != api.CACHED_IMAGE_STATUS_ACTIVE {
-			scimg.SetStatus(task.GetUserCred(), api.CACHED_IMAGE_STATUS_CACHING, "request_prepare_save_disk_on_host")
-		}
-		iImage, err := iStoragecache.CreateIImage(snapshot.GetId(), fmt.Sprintf("Image-%s", imageId), osType, "")
-		if err != nil {
-			log.Errorf("fail to create iImage: %v", err)
-			scimg.SetStatus(task.GetUserCred(), api.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
-			return nil, err
-		}
-		scimg.SetExternalId(iImage.GetId())
-		if _, err := os.Stat(options.Options.TempPath); os.IsNotExist(err) {
-			if err = os.MkdirAll(options.Options.TempPath, 0755); err != nil {
-				return nil, err
-			}
-		}
-		result, err := iStoragecache.DownloadImage(imageId, iImage.GetId(), options.Options.TempPath)
-		if err != nil {
-			scimg.SetStatus(task.GetUserCred(), api.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
-			return nil, err
-		}
-		if err := iImage.Delete(ctx); err != nil {
-			log.Errorf("Delete iImage %s failed: %v", iImage.GetId(), err)
-		}
-		if err := snapshot.Delete(); err != nil {
-			log.Errorf("Delete snapshot %s failed: %v", snapshot.GetId(), err)
-		}
-		scimg.SetStatus(task.GetUserCred(), api.CACHED_IMAGE_STATUS_ACTIVE, "")
-		return result, nil
-	})
-	return nil
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {

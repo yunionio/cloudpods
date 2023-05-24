@@ -65,7 +65,9 @@ func (self *SRegion) WaitTaskStatus(action TaskActionType, taskId string, target
 			progress(float32(min) + float32(float64(max-min)*float64(percent)/100))
 		}
 		if status == targetStatus {
-			progress(float32(max))
+			if progress != nil {
+				progress(float32(max))
+			}
 			return nil
 		}
 		time.Sleep(interval)

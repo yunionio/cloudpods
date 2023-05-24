@@ -17,8 +17,6 @@ package proxmox
 import (
 	"context"
 
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -82,10 +80,6 @@ func (self *SStoragecache) GetPath() string {
 }
 
 func (self *SStoragecache) CreateIImage(snpId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
-func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

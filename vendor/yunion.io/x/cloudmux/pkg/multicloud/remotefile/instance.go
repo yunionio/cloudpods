@@ -246,8 +246,17 @@ func (self *SInstance) GetHostname() string {
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	ret := []cloudprovider.ICloudDisk{}
+	storages, err := self.host.zone.region.client.GetStorages()
+	if err != nil {
+		return nil, err
+	}
 	for i := range self.Disks {
-		ret = append(ret, &self.Disks[i])
+		for _, storage := range storages {
+			if storage.Id == self.Disks[i].StorageId {
+				self.Disks[i].SetStorage(storage)
+				ret = append(ret, &self.Disks[i])
+			}
+		}
 	}
 	return ret, nil
 }

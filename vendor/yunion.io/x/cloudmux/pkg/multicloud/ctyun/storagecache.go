@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -33,10 +32,6 @@ type SStoragecache struct {
 }
 
 func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
-func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

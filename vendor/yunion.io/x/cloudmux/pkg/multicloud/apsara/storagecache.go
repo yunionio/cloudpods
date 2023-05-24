@@ -22,7 +22,6 @@ import (
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/qemuimgfmt"
@@ -271,10 +270,6 @@ func (self *SRegion) createIImage(snapshoutId, imageName, imageDesc string) (str
 	}
 }
 
-func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	return self.downloadImage(imageId, extId, path)
-}
-
 // 定义进度条监听器。
 type OssProgressListener struct {
 }
@@ -296,10 +291,6 @@ func (listener *OssProgressListener) ProgressChanged(event *oss.ProgressEvent) {
 			event.ConsumedBytes, event.TotalBytes)
 	default:
 	}
-}
-
-func (self *SStoragecache) downloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {

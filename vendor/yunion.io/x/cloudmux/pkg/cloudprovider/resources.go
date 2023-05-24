@@ -232,6 +232,8 @@ type ICloudImage interface {
 
 	GetPublicScope() rbacscope.TRbacScope
 	GetSubImages() []SSubImage
+
+	Export(opts *SImageExportOptions) ([]SImageExportInfo, error)
 }
 
 type ICloudStoragecache interface {
@@ -246,8 +248,6 @@ type ICloudStoragecache interface {
 	GetPath() string
 
 	CreateIImage(snapshotId, imageName, osType, imageDesc string) (ICloudImage, error)
-
-	DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error)
 
 	UploadImage(ctx context.Context, image *SImageCreateOption, callback func(float32)) (string, error)
 }

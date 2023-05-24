@@ -596,6 +596,7 @@ type ServerSaveImageInput struct {
 	Format string
 
 	// 保存镜像后是否自动启动,若实例状态为运行中,则会先关闭实例
+	// 公有云若支持开机保存镜像，此参数则不生效
 	// default: false
 	AutoStart bool
 	// swagger: ignore

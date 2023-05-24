@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/qemuimgfmt"
@@ -74,11 +73,6 @@ func (self *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDes
 	// 	}
 	// 	return iimage[0], nil
 	// }
-	return nil, nil
-}
-
-func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	//return self.downloadImage(userCred, imageId, extId, path)
 	return nil, nil
 }
 

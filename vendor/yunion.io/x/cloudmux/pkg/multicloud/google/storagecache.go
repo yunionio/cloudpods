@@ -20,7 +20,6 @@ import (
 	"strings"
 	"unicode"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/qemuimgfmt"
@@ -170,10 +169,6 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, image *cloudprovide
 }
 
 func (cache *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (cache *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 

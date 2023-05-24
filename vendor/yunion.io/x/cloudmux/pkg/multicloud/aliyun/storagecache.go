@@ -17,14 +17,11 @@ package aliyun
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/qemuimgfmt"
@@ -284,10 +281,6 @@ func (self *SRegion) createIImage(snapshoutId, imageName, imageDesc string) (str
 	}
 }
 
-func (self *SStoragecache) DownloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	return self.downloadImage(imageId, extId, path)
-}
-
 // 定义进度条监听器。
 type OssProgressListener struct {
 }
@@ -308,39 +301,6 @@ func (listener *OssProgressListener) ProgressChanged(event *oss.ProgressEvent) {
 		log.Debugf("\nTransfer Failed, ConsumedBytes: %d, TotalBytes %d.\n",
 			event.ConsumedBytes, event.TotalBytes)
 	default:
-	}
-}
-
-func (self *SStoragecache) downloadImage(imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	err := self.region.GetClient().EnableImageExport()
-	if err != nil {
-		log.Errorf("fail to enable export privileges: %s", err)
-		return nil, err
-	}
-
-	tmpImageFile, err := ioutil.TempFile(path, extId)
-	if err != nil {
-		return nil, err
-	}
-	defer tmpImageFile.Close()
-	defer os.Remove(tmpImageFile.Name())
-	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
-	if bucket, err := self.region.checkBucket(bucketName); err != nil {
-		return nil, errors.Wrap(err, "region.checkBucket")
-	} else if _, err := self.region.GetImage(extId); err != nil {
-		return nil, errors.Wrap(err, "region.GetImage")
-	} else if task, err := self.region.ExportImage(extId, bucket); err != nil {
-		return nil, errors.Wrap(err, "region.ExportImage")
-	} else if err := self.region.waitTaskStatus(ExportImageTask, task.TaskId, TaskStatusFinished, 15*time.Second, 3600*time.Second); err != nil {
-		return nil, errors.Wrap(err, "region.waitTaskStatus")
-	} else if imageList, err := bucket.ListObjects(oss.Prefix(fmt.Sprintf("%sexport", strings.Replace(extId, "-", "", -1)))); err != nil {
-		return nil, errors.Wrap(err, "bucket.ListObjects")
-	} else if len(imageList.Objects) != 1 {
-		return nil, fmt.Errorf("exported image not find")
-	} else if err := bucket.DownloadFile(imageList.Objects[0].Key, tmpImageFile.Name(), 12*1024*1024, oss.Routines(3), oss.Progress(&OssProgressListener{})); err != nil {
-		return nil, errors.Wrap(err, "bucket.DownloadFile")
-	} else {
-		return nil, cloudprovider.ErrNotSupported
 	}
 }
 
