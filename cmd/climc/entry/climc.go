@@ -72,7 +72,7 @@ type BaseOptions struct {
 	OsZoneName     string `default:"$OS_ZONE_NAME" help:"Defaults to env[OS_ZONE_NAME]"`
 	OsEndpointType string `default:"$OS_ENDPOINT_TYPE|internalURL" help:"Defaults to env[OS_ENDPOINT_TYPE] or internalURL" choices:"publicURL|internalURL|adminURL"`
 	// ApiVersion     string `default:"$API_VERSION" help:"override default modules service api version"`
-	OutputFormat string `default:"$CLIMC_OUTPUT_FORMAT|table" choices:"table|kv|json|flatten-table|flatten-kv" help:"output format"`
+	OutputFormat string `default:"$CLIMC_OUTPUT_FORMAT|table" choices:"table|kv|json|yaml|flatten-table|flatten-kv" help:"output format"`
 
 	ParallelRun int `help:"run in parallel to stess test the performance of server"`
 
