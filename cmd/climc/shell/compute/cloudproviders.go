@@ -26,6 +26,11 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
+type ClircShowOpt struct {
+	options.BaseIdOptions
+	FollowOutputFormat bool `help:"follow output format"`
+}
+
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Cloudproviders).WithKeyword("cloud-provider")
 	cmd.List(&compute.CloudproviderListOptions{})
@@ -39,17 +44,21 @@ func init() {
 	cmd.Perform("project-mapping", &compute.ClouproviderProjectMappingOptions{})
 	cmd.Perform("set-syncing", &compute.ClouproviderSetSyncingOptions{})
 
-	cmd.GetWithCustomShow("clirc", func(result jsonutils.JSONObject) {
+	cmd.GetWithCustomOptionShow("clirc", func(result jsonutils.JSONObject, opt shell.IGetOpt) {
 		rc := make(map[string]string)
 		err := result.Unmarshal(&rc)
 		if err != nil {
-			log.Errorf("error: %v", err)
+			log.Errorf("Unmarshal error: %v", err)
 			return
 		}
-		for k, v := range rc {
-			fmt.Printf(`export %s='%s'`+"\n", k, v)
+		if opt.(*ClircShowOpt).FollowOutputFormat {
+			shell.PrintObject(result)
+		} else {
+			for k, v := range rc {
+				fmt.Printf(`export %s='%s'`+"\n", k, v)
+			}
 		}
-	}, &options.BaseIdOptions{})
+	}, &ClircShowOpt{})
 	cmd.Get("storage-classes", &compute.CloudproviderStorageClassesOptions{})
 	cmd.Get("change-owner-candidate-domains", &options.BaseIdOptions{})
 	cmd.Get("balance", &options.BaseIdOptions{})
