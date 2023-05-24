@@ -30,6 +30,7 @@ const (
 	OUTPUT_FORMAT_TABLE         = "table"         // pretty table
 	OUTPUT_FORMAT_FLATTEN_TABLE = "flatten-table" // pretty table with flattened keys
 	OUTPUT_FORMAT_JSON          = "json"          // json string
+	OUTPUT_FORMAT_YAML          = "yaml"          // yaml string
 	OUTPUT_FORMAT_KV            = "kv"            // "key: value" as separate line
 	OUTPUT_FORMAT_FLATTEN_KV    = "flatten-kv"    // kv with flattened keys
 )
@@ -47,6 +48,8 @@ func PrintList(list *printutils.ListResult, columns []string) {
 	case OUTPUT_FORMAT_JSON:
 		fmt.Print(jsonutils.Marshal(list).PrettyString())
 		fmt.Print("\n")
+	case OUTPUT_FORMAT_YAML:
+		fmt.Print(jsonutils.Marshal(list).YAMLString())
 	default:
 		fmt.Fprintf(os.Stderr, "unknown output format: %q\n", outputFormat)
 	}
@@ -61,6 +64,8 @@ func PrintObject(obj jsonutils.JSONObject) {
 	case OUTPUT_FORMAT_JSON:
 		fmt.Print(obj.PrettyString())
 		fmt.Print("\n")
+	case OUTPUT_FORMAT_YAML:
+		fmt.Print(obj.YAMLString())
 	case OUTPUT_FORMAT_FLATTEN_TABLE:
 		printObjectRecursive(obj)
 	case OUTPUT_FORMAT_FLATTEN_KV:
