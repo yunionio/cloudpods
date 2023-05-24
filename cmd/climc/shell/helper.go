@@ -477,6 +477,12 @@ type IGetOpt interface {
 }
 
 func (cmd ResourceCmd) GetWithCustomShow(specific string, show func(data jsonutils.JSONObject), args IGetOpt) {
+	cmd.GetWithCustomOptionShow(specific, func(data jsonutils.JSONObject, _ IGetOpt) {
+		show(data)
+	}, args)
+}
+
+func (cmd ResourceCmd) GetWithCustomOptionShow(specific string, show func(data jsonutils.JSONObject, args IGetOpt), args IGetOpt) {
 	man := cmd.manager
 	callback := func(s *mcclient.ClientSession, args IGetOpt) error {
 		params, err := args.Params()
@@ -487,7 +493,7 @@ func (cmd ResourceCmd) GetWithCustomShow(specific string, show func(data jsonuti
 		if err != nil {
 			return err
 		}
-		show(ret)
+		show(ret, args)
 		return nil
 	}
 	cmd.RunWithDesc(specific, fmt.Sprintf("Get %s of a %s", specific, man.GetKeyword()), args, callback)
