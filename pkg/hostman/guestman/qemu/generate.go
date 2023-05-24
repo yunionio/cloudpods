@@ -356,7 +356,7 @@ func generateCdromOptions(optDrv QemuOptions, cdroms []*desc.SGuestCdrom) []stri
 			if len(cdromPath) > 0 {
 				opts = append(opts, optDrv.Drive(driveOpt))
 
-				devOpt := fmt.Sprintf("%s,drive=%s", cdrom.Scsi.DevType, cdrom.Id)
+				devOpt := fmt.Sprintf("%s,drive=%s,id=%s", cdrom.Scsi.DevType, cdrom.Id, cdrom.Scsi.Id)
 				devOpt += desc.OptionsToString(cdrom.Scsi.Options)
 				if len(cdromPath) > 0 {
 					if cdrom.BootIndex != nil && *cdrom.BootIndex >= 0 {

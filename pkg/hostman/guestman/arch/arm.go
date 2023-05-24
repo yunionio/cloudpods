@@ -15,6 +15,8 @@
 package arch
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 )
@@ -36,7 +38,8 @@ type ARM struct {
 // -device scsi-cd,drive=cd0,share-rw=true
 // if=none,file=%s,id=cd0,media=cdrom
 func (*ARM) GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom) {
-	scsiDev := desc.NewScsiDevice("", "scsi-cd", "scsi0-cd0")
+	id := fmt.Sprintf("scsi%d-cd0", cdrom.Ordinal)
+	scsiDev := desc.NewScsiDevice("", "scsi-cd", id)
 	scsiDev.Options = map[string]string{"share-rw": "true"}
 	driveOptions := map[string]string{
 		"if":    "none",
@@ -44,7 +47,7 @@ func (*ARM) GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom) {
 	}
 	cdrom.Scsi = scsiDev
 	cdrom.DriveOptions = driveOptions
-	cdrom.Id = "cd0"
+	cdrom.Id = id
 }
 
 func (*ARM) GenerateFloppyDesc(osName string, floppy *desc.SGuestFloppy) {
