@@ -273,7 +273,7 @@ func (d *SGuestDiskSyncTask) changeCdrom(cdrom *desc.SGuestCdrom) {
 	d.guest.Monitor.GetBlocks(func(blocks []monitor.QemuBlock) {
 		var cdName string
 		for _, r := range blocks {
-			if regexp.MustCompile(fmt.Sprintf(`^ide%d-cd\d+$`, cdrom.Ordinal)).MatchString(r.Device) {
+			if regexp.MustCompile(fmt.Sprintf(`^(ide|scsi)?(%d-)?cd\d+$`, cdrom.Ordinal)).MatchString(r.Device) {
 				cdName = r.Device
 				break
 			}
@@ -281,8 +281,25 @@ func (d *SGuestDiskSyncTask) changeCdrom(cdrom *desc.SGuestCdrom) {
 		if len(cdName) > 0 {
 			d.changeCdromContent(cdName, cdrom)
 		} else {
-			cdrom.Path = ""
-			d.syncDisksConf()
+			if cdrom.Path != "" && cdrom.Scsi != nil {
+				cb2 := func(res string) {
+					d.changeCdromContent(cdName, cdrom)
+				}
+				cb := func(res string) {
+					cdrom.Scsi.Options["drive"] = cdrom.Id
+					d.guest.Monitor.DeviceAdd(cdrom.Scsi.DevType, cdrom.Scsi.Options, cb2)
+				}
+				params := map[string]string{}
+				for k, v := range cdrom.DriveOptions {
+					params[k] = v
+				}
+				params["file"] = cdrom.Path
+				params["id"] = cdrom.Id
+				d.guest.Monitor.DriveAdd("0", "", params, cb)
+			} else {
+				cdrom.Path = ""
+				d.syncDisksConf()
+			}
 		}
 	})
 }
