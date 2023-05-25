@@ -183,7 +183,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSaveImage(ctx context.Context
 			exports, err := image.Export(&cloudprovider.SImageExportOptions{})
 			if err != nil {
 				if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-					log.Errorf("failed to export image")
+					logclient.AddSimpleActionLog(guest, logclient.ACT_SAVE_IMAGE, errors.Wrapf(err, "Export"), userCred, false)
 				}
 			}
 
