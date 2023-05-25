@@ -50,6 +50,7 @@ type KubeNodePoolCreateOptions struct {
 	DesiredInstanceCount int
 	RootDiskSizeGb       int
 	CloudKubeClusterId   string `metavar:"CLUSTER"`
+	KeypairId            string
 }
 
 func (opts *KubeNodePoolCreateOptions) Params() (jsonutils.JSONObject, error) {

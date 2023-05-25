@@ -365,6 +365,15 @@ func (self *SRegion) CreateNodegroup(cluster string, opts *cloudprovider.KubeNod
 		},
 		"subnets": opts.NetworkIds,
 	}
+	if len(opts.PublicKey) > 0 {
+		keypairName, err := self.syncKeypair(opts.PublicKey)
+		if err != nil {
+			return nil, errors.Wrapf(err, "syncKeypair")
+		}
+		params["remoteAccess"] = map[string]string{
+			"ec2SshKey": keypairName,
+		}
+	}
 	roleName := "AmazonEKSNodeRole"
 	role, err := func() (*SRole, error) {
 		role, err := self.client.GetRole(roleName)
