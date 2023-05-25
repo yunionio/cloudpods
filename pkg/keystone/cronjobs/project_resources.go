@@ -100,7 +100,7 @@ func refreshScopeResourceCount(ctx context.Context) error {
 		hdr := http.Header{}
 		hdr.Add("X-Auth-Token", tk)
 		_, ret, err := httputils.JSONRequest(
-			httputils.GetDefaultClient(),
+			httputils.GetTimeoutClient(time.Minute),
 			ctx, "GET",
 			url,
 			hdr,
