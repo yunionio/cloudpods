@@ -46,6 +46,8 @@ type KubeNodePoolCreateOptions struct {
 
 	RootDiskSizeGb int
 
+	PublicKey string
+
 	InstanceTypes []string
 	NetworkIds    []string
 

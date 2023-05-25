@@ -43,6 +43,12 @@ type KubeNodePoolCreateInput struct {
 	RootDiskSizeGb int `json:"root_disk_size_gb"`
 
 	CloudKubeClusterId string `json:"cloud_kube_cluster_id"`
+
+	// 秘钥id，若不传，则使用系统级秘钥
+	KeypairId string `json:"keypair_id"`
+
+	// swagger: ignore
+	PublicKey string `json:"public_key"`
 }
 
 type KubeNodePoolDetails struct {

@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/compute/sshkeys"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -317,6 +318,21 @@ func (manager *SKubeNodePoolManager) ValidateCreateData(ctx context.Context, use
 	if len(input.InstanceTypes) == 0 {
 		return nil, httperrors.NewMissingParameterError("instance_types")
 	}
+
+	if len(input.KeypairId) > 0 {
+		keypairObj, err := validators.ValidateModel(userCred, KeypairManager, &input.KeypairId)
+		if err != nil {
+			return nil, err
+		}
+		keypair := keypairObj.(*SKeypair)
+		input.PublicKey = keypair.PublicKey
+	} else {
+		_, input.PublicKey, err = sshkeys.GetSshAdminKeypair(ctx)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetSshAdminKeypair"))
+		}
+	}
+
 	region, err := cluster.GetRegion()
 	if err != nil {
 		return nil, err
