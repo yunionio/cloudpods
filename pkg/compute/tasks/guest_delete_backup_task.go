@@ -129,7 +129,7 @@ func (self *GuestDeleteBackupTask) OnDeleteOnHostFailed(ctx context.Context, gue
 
 func (self *GuestDeleteBackupTask) OnDeleteBackupComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, "", self.UserCred, true)
-	db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP, "", self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP, guest.GetShortDesc(ctx), self.UserCred)
 }
 
 func (self *GuestDeleteBackupTask) TaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

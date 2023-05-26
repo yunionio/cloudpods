@@ -101,7 +101,7 @@ func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *m
 			}
 		}
 		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, "GuestDeleteOnHost", self.UserCred, true)
-		db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP, "GuestDeleteOnHost", self.UserCred)
+		db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP, guest.GetShortDesc(ctx), self.UserCred)
 	}
 	self.SetStage("OnSync", nil)
 	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())

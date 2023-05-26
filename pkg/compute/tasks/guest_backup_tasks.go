@@ -176,7 +176,7 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuest(ctx context.Contex
 	backupHost := models.HostManager.FetchHostById(guest.BackupHostId)
 	nbdServerUri := fmt.Sprintf("nbd:%s:%d", backupHost.AccessIp, nbdServerPort)
 	guest.SetMetadata(ctx, "backup_nbd_server_uri", nbdServerUri, self.UserCred)
-	db.OpsLog.LogEvent(guest, db.ACT_BACKUP_START, "", self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_BACKUP_START, guest.GetShortDesc(ctx), self.UserCred)
 
 	// try get origin guest status
 	guestStatus, err := self.Params.GetString("guest_status")
