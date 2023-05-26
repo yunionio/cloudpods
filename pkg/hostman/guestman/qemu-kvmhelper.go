@@ -954,7 +954,8 @@ func (s *SKVMGuestInstance) getHotPlugPciControllerType() *desc.PCI_CONTROLLER_T
 	for i := 0; i < len(s.Desc.PCIControllers); i++ {
 		switch s.Desc.PCIControllers[i].CType {
 		case desc.CONTROLLER_TYPE_PCI_ROOT, desc.CONTROLLER_TYPE_PCI_BRIDGE:
-			return &s.Desc.PCIControllers[i].Controller
+			var contType = s.Desc.PCIControllers[i].CType
+			return &contType
 		}
 	}
 	return nil
