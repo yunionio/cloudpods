@@ -1150,6 +1150,7 @@ func (self *SDBInstance) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc.Set("vcpu_count", jsonutils.NewInt(int64(self.VcpuCount)))
 	desc.Set("vmem_size_mb", jsonutils.NewInt(int64(self.VmemSizeMb)))
 	desc.Set("disk_size_gb", jsonutils.NewInt(int64(self.DiskSizeGB)))
+	desc.Set("iops", jsonutils.NewInt(int64(self.Iops)))
 	desc.Update(jsonutils.Marshal(&info))
 	return desc
 }

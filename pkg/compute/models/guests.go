@@ -5124,6 +5124,9 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 
 	desc.Set("status", jsonutils.NewString(self.Status))
 	desc.Set("shutdown_mode", jsonutils.NewString(self.ShutdownMode))
+	if len(self.InstanceType) > 0 {
+		desc.Set("instance_type", jsonutils.NewString(self.InstanceType))
+	}
 
 	address := jsonutils.NewString(strings.Join(self.GetRealIPs(), ","))
 	desc.Set("ip_addr", address)

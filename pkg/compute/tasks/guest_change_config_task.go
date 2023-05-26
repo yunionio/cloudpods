@@ -263,7 +263,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Update fail %s", err)))
 		return
 	}
-	changeConfigSpec := jsonutils.NewDict()
+	changeConfigSpec := guest.GetShortDesc(ctx)
 	if vcpuCount > 0 && addCpu != 0 {
 		changeConfigSpec.Set("add_cpu", jsonutils.NewInt(int64(addCpu)))
 	}
