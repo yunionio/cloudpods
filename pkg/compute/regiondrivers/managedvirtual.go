@@ -3214,6 +3214,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateKubeNodePool(ctx co
 			NetworkIds:    []string{},
 			InstanceTypes: []string{},
 		}
+		opts.PublicKey, _ = task.GetParams().GetString("public_key")
+
 		if pool.InstanceTypes != nil {
 			for _, instanceType := range *pool.InstanceTypes {
 				opts.InstanceTypes = append(opts.InstanceTypes, instanceType)
