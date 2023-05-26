@@ -1138,3 +1138,14 @@ func (self *SNatGateway) OnMetadataUpdated(ctx context.Context, userCred mcclien
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
 }
+
+func (nat *SNatGateway) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := nat.SStatusInfrasResourceBase.GetShortDesc(ctx)
+	region, _ := nat.GetRegion()
+	provider := nat.GetCloudprovider()
+	info := MakeCloudProviderInfo(region, nil, provider)
+	desc.Set("bandwidth_mb", jsonutils.NewInt(int64(nat.BandwidthMb)))
+	desc.Set("nat_spec", jsonutils.NewString(nat.NatSpec))
+	desc.Update(jsonutils.Marshal(&info))
+	return desc
+}
