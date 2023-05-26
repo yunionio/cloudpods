@@ -2096,3 +2096,20 @@ func (manager *SElasticcacheManager) GetExpiredModels(advanceDay int) ([]IBillin
 func (self *SElasticcache) GetExpiredAt() time.Time {
 	return self.ExpiredAt
 }
+
+func (cache *SElasticcache) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := cache.SVirtualResourceBase.GetShortDesc(ctx)
+	region, _ := cache.GetRegion()
+	provider := cache.GetCloudprovider()
+	info := MakeCloudProviderInfo(region, nil, provider)
+	desc.Set("engine", jsonutils.NewString(cache.Engine))
+	desc.Set("engine_version", jsonutils.NewString(cache.EngineVersion))
+	desc.Set("capacity_mb", jsonutils.NewInt(int64(cache.CapacityMB)))
+	desc.Set("instance_type", jsonutils.NewString(cache.InstanceType))
+	desc.Set("node_type", jsonutils.NewString(cache.NodeType))
+	desc.Set("network_type", jsonutils.NewString(cache.NetworkType))
+	desc.Set("bandwidth", jsonutils.NewInt(int64(cache.Bandwidth)))
+	desc.Set("connections", jsonutils.NewInt(int64(cache.Connections)))
+	desc.Update(jsonutils.Marshal(&info))
+	return desc
+}
