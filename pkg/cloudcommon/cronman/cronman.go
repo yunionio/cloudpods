@@ -61,7 +61,11 @@ type Timer2 struct {
 
 func (t *Timer2) Next(now time.Time) time.Time {
 	next := now.Add(time.Hour * time.Duration(t.day) * 24)
-	return time.Date(next.Year(), next.Month(), next.Day(), t.hour, t.min, t.sec, 0, next.Location())
+	nextTime := time.Date(next.Year(), next.Month(), next.Day(), t.hour, t.min, t.sec, 0, next.Location())
+	if nextTime.Sub(now) > time.Duration(t.day)*time.Hour*24 {
+		nextTime = nextTime.Add(-time.Duration(t.day) * time.Hour * 24)
+	}
+	return nextTime
 }
 
 type TimerHour struct {
@@ -70,7 +74,11 @@ type TimerHour struct {
 
 func (t *TimerHour) Next(now time.Time) time.Time {
 	next := now.Add(time.Hour * time.Duration(t.hour))
-	return time.Date(next.Year(), next.Month(), next.Day(), next.Hour(), t.min, t.sec, 0, next.Location())
+	nextTime := time.Date(next.Year(), next.Month(), next.Day(), next.Hour(), t.min, t.sec, 0, next.Location())
+	if nextTime.Sub(now) > time.Duration(t.hour)*time.Hour {
+		nextTime = nextTime.Add(-time.Duration(t.hour) * time.Hour)
+	}
+	return nextTime
 }
 
 type SCronJob struct {
