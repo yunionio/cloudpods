@@ -63,9 +63,9 @@ type SKubeNodePool struct {
 	NetworkIds    *api.SKubeNetworkIds `list:"user" update:"user" create:"required"`
 	InstanceTypes *api.SInstanceTypes  `list:"user" update:"user" create:"required"`
 
-	MinInstanceCount     int `nullable:"false" list:"user" create:"optional" default:"2"`
+	MinInstanceCount     int `nullable:"false" list:"user" create:"optional" default:"0"`
 	MaxInstanceCount     int `nullable:"false" list:"user" create:"optional" default:"2"`
-	DesiredInstanceCount int `nullable:"false" list:"user" create:"optional" default:"2"`
+	DesiredInstanceCount int `nullable:"false" list:"user" create:"optional" default:"0"`
 
 	RootDiskSizeGb int `nullable:"false" list:"user" create:"optional" default:"100"`
 
@@ -330,6 +330,15 @@ func (manager *SKubeNodePoolManager) ValidateCreateData(ctx context.Context, use
 		_, input.PublicKey, err = sshkeys.GetSshAdminKeypair(ctx)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetSshAdminKeypair"))
+		}
+	}
+
+	if input.DesiredInstanceCount > 0 {
+		if input.MinInstanceCount > input.DesiredInstanceCount {
+			return nil, httperrors.NewOutOfRangeError("min_instance_count must less or equal to desired_instance_count")
+		}
+		if input.MaxInstanceCount < input.DesiredInstanceCount {
+			return nil, httperrors.NewOutOfRangeError("max_instance_count must greater than or equal to desired_instance_count")
 		}
 	}
 
