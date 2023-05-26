@@ -63,7 +63,8 @@ func (self *GuestSaveImageTask) OnStopServerCompleteFailed(ctx context.Context, 
 
 func (self *GuestSaveImageTask) OnSaveRootImageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	restart := jsonutils.QueryBoolean(self.Params, "restart", false)
-	if restart {
+	autoStart := jsonutils.QueryBoolean(self.Params, "auto_start", false)
+	if restart || autoStart {
 		self.SetStage("OnStartServerComplete", nil)
 		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
 		return
