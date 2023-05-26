@@ -111,6 +111,7 @@ func init() {
 		Action       string
 		Contacts     string
 		IsFailed     string
+		AdvanceDays  int
 	}
 	R(&NotificationEventInput{}, "notify-event-send", "Send notify event message", func(s *mcclient.ClientSession, args *NotificationEventInput) error {
 		body, err := jsonutils.ParseString(args.MsgBody)
@@ -125,6 +126,7 @@ func init() {
 			ReceiverIds:     []string{},
 			ResourceDetails: dict,
 			Event:           args.Event,
+			AdvanceDays:     args.AdvanceDays,
 			Priority:        args.Priority,
 			ResourceType:    args.ResourceType,
 			Action:          api.SAction(args.Action),

@@ -797,12 +797,15 @@ func (r *SReceiver) PerformGetSubscription(ctx context.Context, userCred mcclien
 	res := []retStruct{}
 	for _, subscriber := range subscribers {
 		topicModel, err := TopicManager.FetchById(subscriber.TopicId)
+		if err != nil {
+			if errors.Cause(err) != errors.ErrNotFound {
+				continue
+			}
+			return nil, errors.Wrap(err, "fetch topic by id")
+		}
 		topic := topicModel.(*STopic)
 		if topic.Enabled == tristate.False {
 			continue
-		}
-		if err != nil {
-			return nil, errors.Wrap(err, "fetch topic by id")
 		}
 		res = append(res, retStruct{subscriber, topic.GetName()})
 	}

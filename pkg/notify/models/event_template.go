@@ -16,20 +16,8 @@ package models
 
 import (
 	"context"
-	"fmt"
-	"html"
-	"html/template"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
 
-	"github.com/Masterminds/sprig"
 	"golang.org/x/text/language"
-
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/notify"
@@ -51,21 +39,6 @@ type sEvenWebhookMsg struct {
 	ResourceDetails map[string]interface{} `json:"resource_details"`
 }
 
-// templateDir = "/opt/yunion/share/local-templates"
-type SLocalTemplateManager struct {
-	templateDir    string
-	templatesTable *sync.Map
-}
-
-var LocalTemplateManager *SLocalTemplateManager
-
-func init() {
-	LocalTemplateManager = &SLocalTemplateManager{
-		templateDir:    "/opt/yunion/share/local-templates",
-		templatesTable: &sync.Map{},
-	}
-}
-
 func languageTag(lang string) language.Tag {
 	var langStr string
 	if lang == api.TEMPLATE_LANG_CN {
@@ -77,165 +50,12 @@ func languageTag(lang string) language.Tag {
 	return t
 }
 
-func (lt *SLocalTemplateManager) detailsDisplay(resourceType string, details *jsonutils.JSONDict, tag language.Tag) {
-	fields, ok := specFields[resourceType]
-	if !ok {
-		return
-	}
-	for _, field := range fields {
-		if !details.Contains(field) {
-			continue
-		}
-		v, _ := details.GetString(field)
-		dv := specFieldTrans[resourceType].LookupByLang(tag, v)
-		details.Set(field+"_display", jsonutils.NewString(dv))
-	}
-}
-
-func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang string, no api.SsNotification) (params api.SendParams, err error) {
-	// return api.SendParams{}, nil
-	out, event := api.SendParams{}, no.Event
-	rtStr, aStr, resultStr := event.ResourceType(), string(event.Action()), string(event.Result())
-	msgObj, err := jsonutils.ParseString(no.Message)
-	if err != nil {
-		return out, errors.Wrapf(err, "unable to parse json from %q", no.Message)
-	}
-	msg := msgObj.(*jsonutils.JSONDict)
-	if info, _ := TemplateManager.GetCompanyInfo(ctx); len(info.Name) > 0 {
-		msg.Set("brand", jsonutils.NewString(info.Name))
-	}
-	webhookMsg := jsonutils.NewDict()
-	webhookMsg.Set("resource_type", jsonutils.NewString(rtStr))
-	webhookMsg.Set("action", jsonutils.NewString(aStr))
-	webhookMsg.Set("result", jsonutils.NewString(resultStr))
-	webhookMsg.Set("resource_details", msg)
-	if no.ContactType == api.WEBHOOK {
-		return api.SendParams{
-			Title:   no.Event.StringWithDeli("_"),
-			Message: webhookMsg.String(),
-		}, nil
-	}
-
-	if lang == "" {
-		lang = getLangSuffix(ctx)
-	}
-
-	tag := languageTag(lang)
-	rtDis := notifyclientI18nTable.LookupByLang(tag, rtStr)
-	if len(rtDis) == 0 {
-		rtDis = rtStr
-	}
-	aDis := notifyclientI18nTable.LookupByLang(tag, aStr)
-	if len(aDis) == 0 {
-		aDis = aStr
-	}
-	resultDis := notifyclientI18nTable.LookupByLang(tag, resultStr)
-	if len(resultDis) == 0 {
-		resultDis = resultStr
-	}
-
-	lt.detailsDisplay(rtStr, msg, tag)
-
-	templateParams := webhookMsg
-	templateParams.Set("advance_days", jsonutils.NewInt(int64(no.AdvanceDays)))
-	templateParams.Set("resource_type_display", jsonutils.NewString(rtDis))
-	templateParams.Set("action_display", jsonutils.NewString(aDis))
-	templateParams.Set("result_display", jsonutils.NewString(resultDis))
-
-	// get title
-	title, err := lt.fillWithTemplate(ctx, "title", no.ContactType, lang, event, templateParams)
-	if err != nil {
-		if errors.Cause(err) == errors.ErrNotFound {
-			title = no.Topic
-		} else {
-			return out, err
-		}
-	}
-	// get content
-	content, err := lt.fillWithTemplate(ctx, "content", no.ContactType, lang, event, templateParams)
-	if err != nil {
-		if errors.Cause(err) == errors.ErrNotFound {
-			content = no.Message
-		} else {
-			return out, err
-		}
-	}
-
-	out.Title = html.UnescapeString(title)
-	out.Message = html.UnescapeString(content)
-	return out, nil
-}
-
 var action2Topic = make(map[string]string, 0)
-
-func specTopic(event api.SNotifyEvent) string {
-	switch event.Action() {
-	case api.ActionRebuildRoot, api.ActionChangeIpaddr, api.ActionResetPassword:
-		return string(api.ActionUpdate)
-	case api.ActionDelete:
-		switch event.ResourceType() {
-		case api.TOPIC_RESOURCE_BAREMETAL, api.TOPIC_RESOURCE_SERVER, api.TOPIC_RESOURCE_LOADBALANCER, api.TOPIC_RESOURCE_DBINSTANCE, api.TOPIC_RESOURCE_ELASTICCACHE:
-			return "DELETE_WITH_IP"
-		}
-	}
-	return ""
-}
 
 func init() {
 	action2Topic[string(api.ActionRebuildRoot)] = string(api.ActionUpdate)
 	action2Topic[string(api.ActionResetPassword)] = string(api.ActionUpdate)
 	action2Topic[string(api.ActionChangeIpaddr)] = string(api.ActionUpdate)
-}
-
-func (lt *SLocalTemplateManager) fillWithTemplate(ctx context.Context, titleOrContent string, contactType string, lang string, event api.SNotifyEvent, dis jsonutils.JSONObject) (string, error) {
-	var (
-		tmpl *template.Template
-		err  error
-	)
-	actionResultStr := event.ActionWithResult("_")
-	topics := []string{specTopic(event), event.StringWithDeli("_"), actionResultStr}
-	if event.Result() == api.ResultFailed {
-		tempActionResourceArr := strings.Split(actionResultStr, "_")
-		if len(tempActionResourceArr) > 1 {
-			topics = append(topics, strings.Join(tempActionResourceArr[:len(tempActionResourceArr)-1], "_"))
-		}
-	}
-	topics = append(topics, "common")
-	for _, topic := range topics {
-		if topic == "" {
-			continue
-		}
-		tmpl, err = lt.getTemplate(ctx, titleOrContent, contactType, topic, lang)
-		if errors.Cause(err) == errors.ErrNotFound {
-			continue
-		}
-		if err != nil {
-			return "", errors.Wrap(err, "unable to getTemplate")
-		}
-		break
-	}
-	if tmpl == nil {
-		return "", errors.ErrNotFound
-	}
-
-	buf := strings.Builder{}
-	err = tmpl.Execute(&buf, dis.Interface())
-	if err != nil {
-		return "", errors.Wrap(err, "template.Execute")
-	}
-	return buf.String(), nil
-}
-
-var specFields = map[string][]string{
-	notify.TOPIC_RESOURCE_SCALINGPOLICY: {
-		"trigger_type",
-		"action",
-		"unit",
-	},
-	notify.TOPIC_RESOURCE_SCHEDULEDTASK: {
-		"resource_type",
-		"operation",
-	},
 }
 
 var specFieldTrans = map[string]i18n.Table{}
@@ -263,67 +83,9 @@ func init() {
 	specFieldTrans[notify.TOPIC_RESOURCE_SCHEDULEDTASK] = stI18nTable
 }
 
-func (lt *SLocalTemplateManager) getTemplate(ctx context.Context, titleOrContent string, contactType string, topic string, lang string) (*template.Template, error) {
-	key := fmt.Sprintf("%s.%s@%s", topic, titleOrContent, lang)
-	obj, ok := lt.templatesTable.Load(key)
-	var elem sTemplateElem
-	if !ok {
-		// read from file
-		cont, err := lt.getTemplateString(ctx, titleOrContent, "", topic, lang)
-		if err != nil {
-			if err == errors.ErrNotFound {
-				elem = sTemplateElem{
-					template: nil,
-				}
-			}
-			return nil, err
-		} else {
-			tmp := template.New(key)
-			tmp.Funcs(sprig.FuncMap())
-			tmp, err = tmp.Parse(string(cont))
-			if err != nil {
-				return nil, err
-			}
-			elem = sTemplateElem{
-				template: tmp,
-			}
-		}
-		lt.templatesTable.Store(key, elem)
-	} else {
-		elem = obj.(sTemplateElem)
-	}
-	if elem.template == nil {
-		return nil, errors.ErrNotFound
-	}
-	return elem.template, nil
-}
-
-func (lt *SLocalTemplateManager) getTemplateString(ctx context.Context, titleOrContent string, contactType string, topic string, lang string) ([]byte, error) {
-	topic = strings.ToUpper(topic)
-	titleOrContent = titleOrContent + "@" + lang
-	var path string
-	if len(contactType) > 0 {
-		path = filepath.Join(lt.templateDir, titleOrContent, contactType, fmt.Sprintf("%s.tmpl", topic))
-	} else {
-		path = filepath.Join(lt.templateDir, titleOrContent, fmt.Sprintf("%s.tmpl", topic))
-	}
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		if _, ok := err.(*os.PathError); ok {
-			return nil, errors.ErrNotFound
-		}
-		return nil, err
-	}
-	return content, nil
-}
-
 var (
 	notifyclientI18nTable = i18n.Table{}
 )
-
-type sTemplateElem struct {
-	template *template.Template
-}
 
 func setI18nTable(t i18n.Table, elems ...sI18nElme) {
 	for i := range elems {
@@ -531,6 +293,11 @@ func init() {
 			api.TOPIC_RESOURCE_CLOUDPODS_COMPONENT,
 			"cloudpods component",
 			"cloudpods服务组件",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_USER,
+			"user",
+			"用户",
 		},
 		sI18nElme{
 			string(api.ActionCreate),
