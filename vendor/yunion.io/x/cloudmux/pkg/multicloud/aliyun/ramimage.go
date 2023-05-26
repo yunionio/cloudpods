@@ -158,14 +158,14 @@ const (
 func (self *SAliyunClient) EnableImageExport() error {
 	_, err := self.GetRole(AliyunECSImageExportRole)
 	if err != nil {
-		if err != cloudprovider.ErrNotFound {
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return err
 		}
 		_, err = self.CreateRole(AliyunECSImageExportRole,
 			AliyunECSImageExportRoleDocument,
 			"Allow Export Import to OSS")
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "CreateRole")
 		}
 	}
 
