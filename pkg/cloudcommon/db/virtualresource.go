@@ -337,7 +337,8 @@ func (model *SVirtualResourceBase) PerformFreeze(ctx context.Context, userCred m
 	if err != nil {
 		return nil, err
 	}
-	OpsLog.LogEvent(model, ACT_FREEZE, "perform freeze", userCred)
+	vm := model.GetIVirtualModel()
+	OpsLog.LogEvent(model, ACT_FREEZE, vm.GetShortDesc(ctx), userCred)
 	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_FREEZE, "perform freeze", userCred, true)
 	return nil, nil
 }
@@ -353,7 +354,8 @@ func (model *SVirtualResourceBase) PerformUnfreeze(ctx context.Context, userCred
 	if err != nil {
 		return nil, err
 	}
-	OpsLog.LogEvent(model, ACT_UNFREEZE, "perform unfreeze", userCred)
+	vm := model.GetIVirtualModel()
+	OpsLog.LogEvent(model, ACT_UNFREEZE, vm.GetShortDesc(ctx), userCred)
 	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UNFREEZE, "perform unfreeze", userCred, true)
 	return nil, nil
 }
@@ -499,12 +501,12 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 }
 
 func (model *SVirtualResourceBase) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return model.MarkPendingDelete(userCred)
+	return model.MarkPendingDelete(ctx, userCred)
 }
 
-func (model *SVirtualResourceBase) MarkPendingDelete(userCred mcclient.TokenCredential) error {
+func (model *SVirtualResourceBase) MarkPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if !model.PendingDeleted {
-		diff, err := Update(model, func() error {
+		_, err := Update(model, func() error {
 			model.PendingDeleted = true
 			model.PendingDeletedAt = timeutils.UtcNow()
 			return nil
@@ -513,8 +515,9 @@ func (model *SVirtualResourceBase) MarkPendingDelete(userCred mcclient.TokenCred
 			log.Errorf("MarkPendingDelete update fail %s", err)
 			return err
 		}
-		OpsLog.LogEvent(model, ACT_PENDING_DELETE, diff, userCred)
-		logclient.AddSimpleActionLog(model, logclient.ACT_PENDING_DELETE, "", userCred, true)
+		vm := model.GetIVirtualModel()
+		OpsLog.LogEvent(model, ACT_PENDING_DELETE, vm.GetShortDesc(ctx), userCred)
+		logclient.AddSimpleActionLog(model, logclient.ACT_PENDING_DELETE, vm.GetShortDesc(ctx), userCred, true)
 	}
 	return nil
 }
@@ -543,9 +546,9 @@ func (model *SVirtualResourceBase) PerformCancelDelete(ctx context.Context, user
 
 func (model *SVirtualResourceBase) DoCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	err := model.CancelPendingDelete(ctx, userCred)
-	if err == nil {
-		OpsLog.LogEvent(model, ACT_CANCEL_DELETE, model.GetShortDesc(ctx), userCred)
-	}
+	//if err == nil {
+	//	OpsLog.LogEvent(model, ACT_CANCEL_DELETE, model.GetShortDesc(ctx), userCred)
+	//}
 	return err
 }
 
@@ -578,7 +581,7 @@ func (model *SVirtualResourceBase) MarkCancelPendingDelete(ctx context.Context, 
 	if err != nil {
 		return errors.Wrapf(err, "GenerateNam")
 	}
-	diff, err := Update(model, func() error {
+	_, err = Update(model, func() error {
 		model.Name = newName
 		model.PendingDeleted = false
 		model.PendingDeletedAt = time.Time{}
@@ -587,7 +590,8 @@ func (model *SVirtualResourceBase) MarkCancelPendingDelete(ctx context.Context, 
 	if err != nil {
 		return errors.Wrapf(err, "MarkCancelPendingDelete.Update")
 	}
-	OpsLog.LogEvent(model, ACT_CANCEL_DELETE, diff, userCred)
+	vm := model.GetIVirtualModel()
+	OpsLog.LogEvent(model, ACT_CANCEL_DELETE, vm.GetShortDesc(ctx), userCred)
 	return nil
 }
 
