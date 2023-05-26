@@ -44,6 +44,7 @@ var (
 	ActionSyncUpdate        SAction = "sync_update"
 	ActionSyncDelete        SAction = "sync_delete"
 	ActionSyncAccountStatus SAction = "sync_account_status"
+	ActionSyncAccount       SAction = "sync_account"
 
 	ActionOffline         SAction = "offline"
 	ActionSystemPanic     SAction = "panic"

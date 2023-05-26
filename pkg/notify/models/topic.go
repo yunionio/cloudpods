@@ -102,6 +102,7 @@ const (
 	DefaultUserLock                = "user lock"
 	DefaultActionLogExceedCount    = "action log exceed count"
 	DefaultSyncAccountStatus       = "cloud account sync status"
+	DefaultSyncAccount             = "cloud account sync"
 	DefaultPasswordExpireDue1Day   = "password expire due 1 day"
 	DefaultPasswordExpireDue7Day   = "password expire due 7 day"
 	DefaultNetOutOfSync            = "net out of sync"
@@ -134,6 +135,7 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultMysqlOutOfSync,
 		DefaultServiceAbnormal,
 		DefaultServerPanicked,
+		DefaultSyncAccount,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -422,7 +424,7 @@ func (sm *STopicManager) InitializeData() error {
 			t.TitleEn = api.ACTION_LOG_EXCEED_COUNT_TITLE_EN
 		case DefaultSyncAccountStatus:
 			t.addResources(
-				notify.TOPIC_RESOURCE_ACCOUNT_STATUS,
+				notify.TOPIC_RESOURCE_ACCOUNT,
 			)
 			t.addAction(
 				notify.ActionSyncAccountStatus,
@@ -515,6 +517,19 @@ func (sm *STopicManager) InitializeData() error {
 			t.ContentEn = api.SERVER_PANICKED_CONTENT_EN
 			t.TitleCn = api.SERVER_PANICKED_TITLE_CN
 			t.TitleEn = api.SERVER_PANICKED_TITLE_EN
+		case DefaultSyncAccount:
+			t.addResources(
+				notify.TOPIC_RESOURCE_ACCOUNT,
+			)
+			t.addAction(
+				notify.ActionSyncAccount,
+			)
+			t.Results = tristate.True
+			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.ContentCn = api.SYNC_ACCOUNT_CONTENT_CN
+			t.ContentEn = api.SYNC_ACCOUNT_CONTENT_EN
+			t.TitleCn = api.SYNC_ACCOUNT_TITLE_CN
+			t.TitleEn = api.SYNC_ACCOUNT_TITLE_EN
 		}
 
 		if topic == nil {
@@ -716,6 +731,8 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 		return nil, errors.Wrapf(err, "unable to parse event %q", event)
 	}
 	resourceV := converter.resourceValue(event.ResourceType())
+	log.Infoln("this is resourceType", event.ResourceType())
+	log.Infoln("this is action", event.Action())
 	if resourceV < 0 {
 		log.Warningf("unknown resource type: %s", event.ResourceType())
 		return nil, nil
@@ -734,6 +751,7 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 	q = q.Equals("enabled", true)
 	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("resources"), 1<<resourceV), 0))
 	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("actions"), 1<<actionV), 0))
+	q.DebugQuery()
 	var topics []STopic
 	err = db.FetchModelObjects(sm, q, &topics)
 	if err != nil {
@@ -804,7 +822,7 @@ func init() {
 			notify.TOPIC_RESOURCE_DB_TABLE_RECORD:          35,
 			notify.TOPIC_RESOURCE_USER:                     36,
 			notify.TOPIC_RESOURCE_ACTION_LOG:               37,
-			notify.TOPIC_RESOURCE_ACCOUNT_STATUS:           38,
+			notify.TOPIC_RESOURCE_ACCOUNT:                  38,
 			notify.TOPIC_RESOURCE_NET:                      39,
 			notify.TOPIC_RESOURCE_SERVICE:                  40,
 			notify.TOPIC_RESOURCE_VM_INTEGRITY_CHECK:       41,
@@ -842,6 +860,7 @@ func init() {
 			notify.ActionMysqlOutOfSync:     27,
 			notify.ActionServiceAbnormal:    28,
 			notify.ActionServerPanicked:     29,
+			notify.ActionSyncAccount:        30,
 		},
 	)
 }

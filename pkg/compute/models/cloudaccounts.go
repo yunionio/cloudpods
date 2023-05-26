@@ -2946,7 +2946,7 @@ func (account *SCloudaccount) PerformProjectMapping(ctx context.Context, userCre
 // 同步云账号消息通知
 func (account *SCloudaccount) EventNotify(ctx context.Context, userCred mcclient.TokenCredential, action notify.SAction) {
 	var resourceType string
-	resourceType = notify.TOPIC_RESOURCE_ACCOUNT_STATUS
+	resourceType = notify.TOPIC_RESOURCE_ACCOUNT
 
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:          account,

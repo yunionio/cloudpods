@@ -35,7 +35,6 @@ func (self *SWebhookSender) GetSenderType() string {
 }
 
 func (self *SWebhookSender) Send(args api.SendParams) error {
-	log.Infoln("this is in webhookSend ")
 	body, err := jsonutils.ParseString(args.Message)
 	if err != nil {
 		log.Errorf("unable to parse %q: %v", args.Message, err)

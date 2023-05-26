@@ -213,7 +213,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 
 	topic, err := TopicManager.TopicByEvent(input.Event, input.AdvanceDays)
 	if err != nil {
-		return output, errors.Wrapf(err, "unable fetch subscriptions by event %q", input.Event)
+		return output, errors.Wrapf(err, "unable fetch topic by event %q", input.Event)
 	}
 	if topic == nil {
 		return output, nil
@@ -749,6 +749,27 @@ func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, n
 	if len(resultDis) == 0 {
 		resultDis = resultStr
 	}
+
+	// 对于同步云账号而言，需要翻译特定字段文案
+	if event.Action() == api.ActionSyncAccount {
+		resourceList, _ := msg.GetArray("resources")
+		resourceArr := jsonutils.NewArray()
+		for _, resource := range resourceList {
+			resourceName, _ := resource.GetString("name")
+			resourceNameAfter := notifyclientI18nTable.LookupByLang(tag, resourceName)
+			if len(resourceNameAfter) == 0 {
+				resourceNameAfter = resourceName
+			}
+			resourceObj := jsonutils.NewDict()
+			resourceCount, _ := resource.Get("count")
+			resourceObj.Set("name", jsonutils.NewString(resourceNameAfter))
+			resourceObj.Set("count", resourceCount)
+			resourceArr.Add(resourceObj)
+		}
+		msg.Set("resources", resourceArr)
+		webhookMsg.Set("resource_details", msg)
+	}
+
 	templateParams := webhookMsg
 	templateParams.Set("advance_days", jsonutils.NewInt(int64(no.AdvanceDays)))
 	templateParams.Set("resource_type_display", jsonutils.NewString(rtDis))
@@ -804,6 +825,8 @@ func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, n
 	if err != nil {
 		failedReason = append(failedReason, errors.Errorf("unable to stemplateTitle.Execute:%s", err.Error()))
 	}
+	log.Infoln("this is templateParams:", templateParams.PrettyString())
+	log.Infoln("this is tmpContent:", stemplateContent.Name())
 	err = stemplateContent.Execute(&tmpContent, templateParams.Interface())
 	if err != nil {
 		failedReason = append(failedReason, errors.Errorf("unable to stemplateContent.Execute:%s", err.Error()))

@@ -502,3 +502,19 @@ const (
 	WORK_BLOCK_CONTENT_EN = `{{- $d := .resource_details -}}
 	The service: {{ d.service_name}} worker has been block 30 minutes.Please verify the service in time.`
 )
+
+// 同步云账号信息通知
+const (
+	SYNC_ACCOUNT_TITLE_CN = `{{- $d := .resource_details -}}
+	云账号 {{ d.name}} 同步成功`
+	SYNC_ACCOUNT_TITLE_EN = `{{- $d := .resource_details -}}
+	Sync account {{ d.name}} success`
+	SYNC_ACCOUNT_CONTENT_CN = `{{- $d := .resource_details -}}
+	{{range .resources}}
+    {{.name}} ： {{.count}}
+{{end}}`
+	SYNC_ACCOUNT_CONTENT_EN = `{{- $d := .resource_details -}}
+	{{range .resources}}
+    {{.name}} : {{.count}}
+{{end}}`
+)
