@@ -40,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/bitmap"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
-	"yunion.io/x/onecloud/pkg/util/validate"
 )
 
 type SSnapshotPolicyManager struct {
@@ -49,10 +48,6 @@ type SSnapshotPolicyManager struct {
 
 type SSnapshotPolicy struct {
 	db.SVirtualResourceBase
-	//db.SExternalizedResourceBase
-	//
-	//SManagedResourceBase
-	//SCloudregionResourceBase
 
 	RetentionDays int `nullable:"false" list:"user" get:"user" create:"required"`
 
@@ -86,12 +81,18 @@ func (manager *SSnapshotPolicyManager) ValidateListConditions(ctx context.Contex
 		return nil, httperrors.NewInputParameterError("Unmarshal input failed %s", err)
 	}
 	if query.Contains("repeat_weekdays") {
-		query.Remove("repeat_weekdays")
-		query.Add(jsonutils.NewInt(int64(manager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays))), "repeat_weekdays")
+		repeat, err := input.GetRepeatWeekdays(options.Options.RepeatWeekdaysLimit)
+		if err != nil {
+			return nil, err
+		}
+		query.Set("repeat_weekdays", jsonutils.NewInt(int64(repeat)))
 	}
 	if query.Contains("time_points") {
-		query.Remove("time_points")
-		query.Add(jsonutils.NewInt(int64(manager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays))), "time_points")
+		timepoints, err := input.GetTimePoints(options.Options.TimePointsLimit)
+		if err != nil {
+			return nil, err
+		}
+		query.Set("time_points", jsonutils.NewInt(int64(timepoints)))
 	}
 	return query, nil
 }
@@ -161,55 +162,45 @@ func (manager *SSnapshotPolicyManager) FetchAllByIds(spIds []string) ([]SSnapsho
 	return sps, nil
 }
 
-// ==================================================== create =========================================================
-
-func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-
-	input := &api.SSnapshotPolicyCreateInput{}
-	err := data.Unmarshal(input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Unmarshal input failed %s", err)
-	}
-	input.ProjectId = ownerId.GetProjectId()
-	input.DomainId = ownerId.GetProjectDomainId()
-
-	err = db.NewNameValidator(manager, ownerId, input.Name, nil)
-	if err != nil {
-		return nil, err
-	}
-
+func (manager *SSnapshotPolicyManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input *api.SSnapshotPolicyCreateInput,
+) (*api.SSnapshotPolicyCreateInput, error) {
 	if input.RetentionDays < -1 || input.RetentionDays == 0 || input.RetentionDays > options.Options.RetentionDaysLimit {
 		return nil, httperrors.NewInputParameterError("Retention days must in 1~%d or -1", options.Options.RetentionDaysLimit)
+	}
+
+	var err error
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(input.RepeatWeekdays) == 0 {
 		return nil, httperrors.NewMissingParameterError("repeat_weekdays")
 	}
 
-	if len(input.RepeatWeekdays) > options.Options.RepeatWeekdaysLimit {
-		return nil, httperrors.NewInputParameterError("repeat_weekdays only contains %d days at most",
-			options.Options.RepeatWeekdaysLimit)
-	}
-	input.RepeatWeekdays, err = validate.DaysCheck(input.RepeatWeekdays, 1, 7)
+	repeatDays, err := input.GetRepeatWeekdays(options.Options.RepeatWeekdaysLimit)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("%v", err)
 	}
+
+	input.RepeatWeekdays = fmt.Sprintf("%d", repeatDays)
 
 	if len(input.TimePoints) == 0 {
 		return nil, httperrors.NewMissingParameterError("time_points")
 	}
-	if len(input.TimePoints) > options.Options.TimePointsLimit {
-		return nil, httperrors.NewInputParameterError("time_points only contains %d points at most", options.Options.TimePointsLimit)
-	}
-	input.TimePoints, err = validate.DaysCheck(input.TimePoints, 0, 23)
+
+	timepoints, err := input.GetTimePoints(options.Options.TimePointsLimit)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
-	internalInput := manager.sSnapshotPolicyCreateInputToInternal(input)
-	data = internalInput.JSON(internalInput)
-	return data, nil
+	input.TimePoints = fmt.Sprintf("%d", timepoints)
+	return input, nil
 }
 
 func (manager *SSnapshotPolicyManager) OnCreateComplete(ctx context.Context, items []db.IModel,
@@ -229,79 +220,59 @@ func (manager *SSnapshotPolicyManager) OnCreateComplete(ctx context.Context, ite
 	}
 }
 
-// ==================================================== update =========================================================
+func (self *SSnapshotPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.SSnapshotPolicyUpdateInput) (*api.SSnapshotPolicyUpdateInput, error) {
+	var err error
+	input.VirtualResourceBaseUpdateInput, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
 
-func (sp *SSnapshotPolicy) PerformUpdate(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	//check param
-	input := &api.SSnapshotPolicyCreateInput{}
-	err := data.Unmarshal(input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Unmarshel input failed %s", err)
+	if input.RetentionDays != nil {
+		if *input.RetentionDays < -1 || *input.RetentionDays > 65535 {
+			return nil, httperrors.NewInputParameterError("Retention days must in 1~65535 or -1")
+		}
 	}
-	err = sp.UpdateParamCheck(input)
-	if err != nil {
-		return nil, err
+
+	if input.RepeatWeekdays != nil {
+		weekDays, err := input.GetRepeatWeekdays(options.Options.RepeatWeekdaysLimit)
+		if err != nil {
+			return nil, err
+		}
+		day := fmt.Sprintf("%d", weekDays)
+		input.RepeatWeekdays = &day
 	}
-	return nil, sp.StartSnapshotPolicyUpdateTask(ctx, userCred, input)
+
+	if input.TimePoints != nil {
+		timepoint, err := input.GetTimePoints(options.Options.TimePointsLimit)
+		if err != nil {
+			return nil, err
+		}
+		points := fmt.Sprintf("%d", timepoint)
+		input.TimePoints = &points
+	}
+
+	return input, nil
 }
 
-func (sp *SSnapshotPolicy) StartSnapshotPolicyUpdateTask(ctx context.Context, userCred mcclient.TokenCredential,
-	input *api.SSnapshotPolicyCreateInput) error {
+func (self *SSnapshotPolicy) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
 
+	input := &api.SSnapshotPolicyUpdateInput{}
+	data.Unmarshal(input)
+
+	self.StartSnapshotPolicyUpdateTask(ctx, userCred, input)
+}
+
+func (sp *SSnapshotPolicy) StartSnapshotPolicyUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSnapshotPolicyUpdateInput) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.Marshal(input), "input")
 	sp.SetStatus(userCred, api.SNAPSHOT_POLICY_UPDATING, "")
-	if task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyUpdateTask", sp, userCred, params,
-		"", "", nil); err == nil {
-		return err
-	} else {
-		task.ScheduleRun(nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyUpdateTask", sp, userCred, params, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
 	}
-	return nil
+	return task.ScheduleRun(nil)
 }
-
-// UpdateParamCheck check if update parameters are correct and need to update
-func (sp *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateInput) error {
-	var err error
-	updateNum := 0
-
-	if input.RetentionDays != 0 {
-		if input.RetentionDays < -1 || input.RetentionDays > 65535 {
-			return httperrors.NewInputParameterError("Retention days must in 1~65535 or -1")
-		}
-		if input.RetentionDays != sp.RetentionDays {
-			updateNum++
-		}
-	}
-
-	if input.RepeatWeekdays != nil && len(input.RepeatWeekdays) != 0 {
-		input.RepeatWeekdays, err = validate.DaysCheck(input.RepeatWeekdays, 1, 7)
-		if err != nil {
-			return httperrors.NewInputParameterError("%v", err)
-		}
-		if sp.RepeatWeekdays != SnapshotPolicyManager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays) {
-			updateNum++
-		}
-	}
-
-	if input.TimePoints != nil && len(input.TimePoints) != 0 {
-		input.TimePoints, err = validate.DaysCheck(input.TimePoints, 0, 23)
-		if err != nil {
-			return httperrors.NewInputParameterError("%v", err)
-		}
-		if sp.TimePoints != SnapshotPolicyManager.TimePointsParseIntArray(input.TimePoints) {
-			updateNum++
-		}
-	}
-
-	if updateNum == 0 {
-		return httperrors.NewInputParameterError("Do not need to update")
-	}
-	return nil
-}
-
-// ==================================================== delete =========================================================
 
 func (sp *SSnapshotPolicy) DetachAfterDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	err := SnapshotPolicyDiskManager.SyncDetachBySnapshotpolicy(ctx, userCred, nil, sp)
@@ -698,27 +669,6 @@ func (sp *SSnapshotPolicy) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (sp *SSnapshotPolicy) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DeleteModel(ctx, userCred, sp)
-}
-
-// ==================================================== utils ==========================================================
-
-func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputToInternal(input *api.SSnapshotPolicyCreateInput,
-) *api.SSnapshotPolicyCreateInternalInput {
-	ret := api.SSnapshotPolicyCreateInternalInput{
-		Meta:          input.Meta,
-		Name:          input.Name,
-		ProjectId:     input.ProjectId,
-		DomainId:      input.DomainId,
-		RetentionDays: input.RetentionDays,
-	}
-
-	ret.RepeatWeekdays = manager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays)
-	ret.TimePoints = manager.TimePointsParseIntArray(input.TimePoints)
-	return &ret
-}
-
-func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputFromInternal(input *api.SSnapshotPolicyCreateInternalInput) *api.SSnapshotPolicyCreateInput {
-	return nil
 }
 
 func (self *SSnapshotPolicyManager) RepeatWeekdaysParseIntArray(nums []int) uint8 {

@@ -14,7 +14,9 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type SnapshotCreateInput struct {
 	apis.VirtualResourceCreateInput
@@ -44,30 +46,6 @@ type SnapshotCreateInput struct {
 	ManagerId string `json:"manager_id"`
 	// swagger:ignore
 	OsArch string `json:"os_arch"`
-}
-
-type SSnapshotPolicyCreateInput struct {
-	apis.Meta
-
-	Name      string `json:"name"`
-	ProjectId string `json:"project_id"`
-	DomainId  string `json:"domain_id"`
-
-	RetentionDays  int   `json:"retention_days"`
-	RepeatWeekdays []int `json:"repeat_weekdays"`
-	TimePoints     []int `json:"time_points"`
-}
-
-type SSnapshotPolicyCreateInternalInput struct {
-	apis.Meta
-
-	Name      string
-	ProjectId string
-	DomainId  string
-
-	RetentionDays  int
-	RepeatWeekdays uint8
-	TimePoints     uint32
 }
 
 type SnapshotListInput struct {
