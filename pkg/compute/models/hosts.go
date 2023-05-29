@@ -4117,7 +4117,7 @@ func (self *SHost) PerformAutoMigrateOnHostDown(
 		meta[api.HOSTMETA_AUTO_MIGRATE_ON_HOST_DOWN] = "disable"
 		data.Set("shutdown_servers", jsonutils.JSONFalse)
 	}
-	_, err := self.Request(ctx, userCred, "POST", "/hosts/shutdown-servers-on-host-down",
+	_, err := self.Request(ctx, userCred, "POST", fmt.Sprintf("/hosts/%s/shutdown-servers-on-host-down", self.Id),
 		mcclient.GetTokenHeaders(userCred), data)
 	if err != nil {
 		return nil, err
