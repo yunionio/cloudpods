@@ -351,7 +351,7 @@ func (self *SKubeCluster) SyncWithCloudKubeCluster(ctx context.Context, userCred
 				return q.Equals("manager_id", provider.Id)
 			})
 			if vpcObj != nil {
-				self.ManagerId = vpcObj.GetId()
+				self.VpcId = vpcObj.GetId()
 			}
 		}
 		return nil
@@ -406,7 +406,7 @@ func (self *SCloudregion) newFromCloudKubeCluster(ctx context.Context, userCred 
 			return q.Equals("manager_id", provider.Id)
 		})
 		if vpcObj != nil {
-			cluster.ManagerId = vpcObj.GetId()
+			cluster.VpcId = vpcObj.GetId()
 		}
 	}
 
