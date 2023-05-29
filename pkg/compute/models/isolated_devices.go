@@ -153,6 +153,14 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
 		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
 	}
 
+	if input.HostId != "" && input.Addr != "" {
+		if hasDevAddr, err := manager.hostHasDevAddr(input.HostId, input.Addr); err != nil {
+			return input, errors.Wrap(err, "check hostHasDevAddr")
+		} else if hasDevAddr {
+			return input, httperrors.NewBadRequestError("dev addr %s registed", input.Addr)
+		}
+	}
+
 	// validate reserverd resource
 	// inject default reserverd resource for gpu:
 	if utils.IsInStringArray(input.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE}) {
@@ -211,6 +219,7 @@ func (self *SIsolatedDevice) ValidateUpdateData(
 			}
 		}
 	}
+
 	return input, nil
 }
 
@@ -898,6 +907,15 @@ func (manager *SIsolatedDeviceManager) GetDevsOnHost(hostId string, model string
 		return nil, nil
 	}
 	return devs, nil
+}
+
+func (manager *SIsolatedDeviceManager) hostHasDevAddr(hostId, addr string) (bool, error) {
+	cnt, err := manager.Query().Equals("addr", addr).
+		Equals("host_id", hostId).CountWithError()
+	if err != nil {
+		return false, err
+	}
+	return cnt == 0, nil
 }
 
 func (manager *SIsolatedDeviceManager) CheckModelIsEmpty(model, vendor, device, devType string) (bool, error) {

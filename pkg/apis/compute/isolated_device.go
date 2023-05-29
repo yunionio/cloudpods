@@ -129,6 +129,9 @@ type IsolatedDeviceModelCreateInput struct {
 	// 设备DeviceId
 	DeviceId string `json:"device_id"`
 
+	// 支持热插拔 HotPluggable
+	HotPluggable bool `json:"hot_pluggable"`
+
 	// hosts scan isolated device after isolated_device_model created
 	Hosts []string `json:"hosts"`
 }
@@ -147,6 +150,9 @@ type IsolatedDeviceModelUpdateInput struct {
 
 	// 设备DeviceId
 	DeviceId string `json:"device_id"`
+
+	// 支持热插拔 HotPluggable
+	HotPluggable bool `json:"hot_pluggable"`
 }
 
 type IsolatedDeviceModelListInput struct {
@@ -164,4 +170,7 @@ type IsolatedDeviceModelListInput struct {
 
 	// 设备DeviceId
 	DeviceId string `json:"device_id"`
+
+	// 支持热插拔 HotPluggable
+	HotPluggable bool `json:"hot_pluggable"`
 }
