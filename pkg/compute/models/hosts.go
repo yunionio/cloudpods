@@ -3727,7 +3727,7 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		return input, errors.Wrap(err, "inputUniquenessCheck")
 	}
 
-	if self.IsHugePage() && input.MemCmtbound != nil {
+	if self.IsHugePage() && input.MemCmtbound != nil && *input.MemCmtbound != self.MemCmtbound {
 		return input, errors.Errorf("host mem is hugepage, cannot update mem_cmtbound")
 	}
 
