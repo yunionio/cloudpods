@@ -35,32 +35,32 @@ import (
 var ErrEmtptyUpdate = errors.New("No valid update data")
 
 type ServerListOptions struct {
-	Zone               string `help:"Zone ID or Name"`
-	Wire               string `help:"Wire ID or Name"`
-	Network            string `help:"Network ID or Name"`
-	Disk               string `help:"Disk ID or Name"`
-	Host               string `help:"Host ID or Name"`
-	Baremetal          *bool  `help:"Show baremetal servers"`
-	Gpu                *bool  `help:"Show gpu servers"`
-	Secgroup           string `help:"Secgroup ID or Name"`
-	AdminSecgroup      string `help:"AdminSecgroup ID or Name"`
-	Hypervisor         string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud|zstack|openstack|google|ctyun|incloudsphere|nutanix|bingocloud|cloudpods|ecloud|jdcloud|remotefile"`
-	Region             string `help:"Show servers in cloudregion"`
-	WithEip            *bool  `help:"Show Servers with EIP"`
-	WithoutEip         *bool  `help:"Show Servers without EIP"`
-	OsType             string `help:"OS Type" choices:"linux|windows|vmware"`
-	Vpc                string `help:"Vpc id or name"`
-	UsableServerForEip string `help:"Eip id or name"`
-	WithoutUserMeta    *bool  `help:"Show Servers without user metadata"`
-	EipAssociable      *bool  `help:"Show Servers can associate with eip"`
-	Group              string `help:"Instance Group ID or Name"`
-	HostSn             string `help:"Host SN"`
-	IpAddr             string `help:"Fileter by ip"`
-
-	OrderByDisk    string `help:"Order by disk size" choices:"asc|desc"`
-	OrderByHost    string `help:"Order by host name" choices:"asc|desc"`
-	OrderByNetwork string `help:"Order by network name" choices:"asc|desc"`
-	OrderByIp      string `help:"Order by ip" choices:"asc|desc"`
+	Zone               string   `help:"Zone ID or Name"`
+	Wire               string   `help:"Wire ID or Name"`
+	Network            string   `help:"Network ID or Name"`
+	Disk               string   `help:"Disk ID or Name"`
+	Host               string   `help:"Host ID or Name"`
+	Baremetal          *bool    `help:"Show baremetal servers"`
+	Gpu                *bool    `help:"Show gpu servers"`
+	Secgroup           string   `help:"Secgroup ID or Name"`
+	AdminSecgroup      string   `help:"AdminSecgroup ID or Name"`
+	Hypervisor         string   `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud|zstack|openstack|google|ctyun|incloudsphere|nutanix|bingocloud|cloudpods|ecloud|jdcloud|remotefile"`
+	Region             string   `help:"Show servers in cloudregion"`
+	WithEip            *bool    `help:"Show Servers with EIP"`
+	WithoutEip         *bool    `help:"Show Servers without EIP"`
+	OsType             string   `help:"OS Type" choices:"linux|windows|vmware"`
+	Vpc                string   `help:"Vpc id or name"`
+	UsableServerForEip string   `help:"Eip id or name"`
+	WithoutUserMeta    *bool    `help:"Show Servers without user metadata"`
+	EipAssociable      *bool    `help:"Show Servers can associate with eip"`
+	Group              string   `help:"Instance Group ID or Name"`
+	HostSn             string   `help:"Host SN"`
+	IpAddr             string   `help:"Fileter by ip"`
+	IpAddrs            []string `help:"Fileter by ips"`
+	OrderByDisk        string   `help:"Order by disk size" choices:"asc|desc"`
+	OrderByHost        string   `help:"Order by host name" choices:"asc|desc"`
+	OrderByNetwork     string   `help:"Order by network name" choices:"asc|desc"`
+	OrderByIp          string   `help:"Order by ip" choices:"asc|desc"`
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 

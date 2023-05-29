@@ -78,7 +78,9 @@ type ServerListInput struct {
 
 	OrderByIp string `json:"order_by_ip"`
 	// 根据ip查找机器
-	IpAddr string `json:"ip_addr"`
+	IpAddr string `json:"ip_addr" yunion-deprecated-by:"ip_addrs"`
+	// 根据多个ip查找机器
+	IpAddrs []string `json:"ip_addrs"`
 
 	// 列出可以挂载指定EIP的主机
 	UsableServerForEip string `json:"usable_server_for_eip"`
