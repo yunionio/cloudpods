@@ -64,6 +64,11 @@ func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, dis
 	snapshot, _ := self.GetParams().GetString("snapshot")
 	if rebuild {
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(ctx), self.GetUserCred())
+	} else {
+		guest := disk.GetGuest()
+		if guest != nil {
+			guest.SetStatus(self.GetUserCred(), api.VM_CREATE_DISK, "OnStorageCacheImageComplete")
+		}
 	}
 	storage, err := disk.GetStorage()
 	if err != nil {

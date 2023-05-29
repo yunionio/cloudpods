@@ -1606,10 +1606,6 @@ func (manager *SGuestManager) validateCreateData(
 			if rootDiskConfig.NVMEDevice != nil {
 				return nil, httperrors.NewBadRequestError("NVMe device can't assign as root disk")
 			}
-			if rootDiskConfig.Backend == api.STORAGE_LVM {
-				// TODO: support lvm root disk
-				return nil, httperrors.NewBadRequestError("LVM disk can't as root disk")
-			}
 			if input.ResourceType != api.HostResourceTypePrepaidRecycle {
 				if len(rootDiskConfig.Backend) == 0 {
 					defaultStorageType, _ := data.GetString("default_storage_type")

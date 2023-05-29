@@ -3,16 +3,21 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
+	"os"
+	"path"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -38,152 +43,52 @@ func (s *SLVMStorage) GetComposedName() string {
 }
 
 func (s *SLVMStorage) GetMediumType() (string, error) {
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("lsblk -d -o name,rota $(df -P %s | awk 'NR==2{print $1}') |  awk 'NR==2{print $2}'", s.GetPath())).Output()
-	if err != nil {
-		return api.DISK_TYPE_ROTATE, errors.Wrapf(err, "failed get medium type %s", out)
-	}
-	if strings.TrimSpace(string(out)) == "0" {
-		return api.DISK_TYPE_SSD, nil
-	} else {
-		return api.DISK_TYPE_ROTATE, nil
-	}
+	return api.DISK_TYPE_ROTATE, nil
 }
 
 func (s *SLVMStorage) GetFreeSizeMb() int {
-	out, err := procutils.NewRemoteCommandAsFarAsPossible(
-		"lvm", "vgs", "--reportformat", "json", "-o", "vg_free", "--units=B", s.Path,
-	).Output()
+	vgProps, err := lvmutils.GetVgProps(s.GetPath())
 	if err != nil {
-		log.Errorf("failed get vg free size %s: %s", err, out)
+		log.Errorf("failed get vg_free %s", err)
 		return -1
 	}
-	res, err := jsonutils.Parse(out)
-	if err != nil {
-		log.Errorf("failed parse vg free json: %s", err)
-		return -1
-	}
-	vg, _ := res.GetArray("report")
-	if len(vg) != 1 {
-		log.Errorf("failed get vg report")
-		return -1
-	}
-	vgs, err := vg[0].GetArray("vg")
-	if err != nil {
-		log.Errorf("failed get vgs")
-		return -1
-	}
-	vgFree, err := vgs[0].GetString("vg_free")
-	if err != nil {
-		log.Errorf("failed get vg_free: %s", err)
-		return -1
-	}
-	size, err := strconv.ParseInt(strings.TrimSuffix(vgFree, "B"), 10, 64)
-	if err != nil {
-		log.Errorf("failed parse vg_free %s", err)
-		return -1
-	}
-	return int(size / 1024 / 1024)
+
+	log.Infof("LVM Storage %s sizeMb %d", s.GetPath(), vgProps.VgSize/1024/1024)
+	return int(vgProps.VgFree / 1024 / 1024)
 }
 
-func (s *SLVMStorage) GetAvailSizeMb() (int64, error) {
-	size, err := s.getAvailSize()
-	if err != nil {
-		return size, err
-	}
-
-	log.Infof("LVM Storage %s sizeMb %d", s.GetPath(), size)
-	return size, nil
+func (s *SLVMStorage) GetAvailSizeMb() int {
+	avaSize, _ := s.getAvailSizeMb()
+	return int(avaSize)
 }
 
-func (s *SLVMStorage) getAvailSize() (int64, error) {
-	// lvm vgs --reportformat json -o vg_size --units=B <VGNAME>
-	/*
-			{
-		      "report": [
-		          {
-		              "vg": [
-		                  {"vg_size":"1600319913984B"}
-		              ]
-		          }
-		      ]
-			}
-	*/
-	out, err := procutils.NewRemoteCommandAsFarAsPossible(
-		"lvm", "vgs", "--reportformat", "json", "-o", "vg_size", "--units=B", s.Path,
-	).Output()
+func (s *SLVMStorage) getAvailSizeMb() (int64, error) {
+	vgProps, err := lvmutils.GetVgProps(s.GetPath())
 	if err != nil {
-		return -1, errors.Wrap(err, "exec lvm command")
+		return -1, err
 	}
-	res, err := jsonutils.Parse(out)
-	if err != nil {
-		return -1, errors.Wrap(err, "json parse")
-	}
-	vg, _ := res.GetArray("report")
-	if len(vg) != 1 {
-		return -1, errors.Errorf("get ")
-	}
-	vgs, err := vg[0].GetArray("vg")
-	if err != nil {
-		return -1, errors.Wrap(err, "get vg")
-	}
-	vgSizeB, err := vgs[0].GetString("vg_size")
-	if err != nil {
-		return -1, errors.Wrap(err, "get vg_size")
-	}
-	size, err := strconv.ParseInt(strings.TrimSuffix(vgSizeB, "B"), 10, 64)
-	if err != nil {
-		return -1, errors.Wrap(err, "parse vg_size")
-	}
-	return size / 1024 / 1024, nil
+
+	log.Infof("LVM Storage %s sizeMb %d", s.GetPath(), vgProps.VgSize/1024/1024)
+	return vgProps.VgSize / 1024 / 1024, nil
 }
 
 func (s *SLVMStorage) GetUsedSizeMb() (int64, error) {
-	out, err := procutils.NewRemoteCommandAsFarAsPossible(
-		"lvm", "vgs", "--reportformat", "json", "-o", "vg_size,vg_free", "--units=B", s.Path,
-	).Output()
+	vgProps, err := lvmutils.GetVgProps(s.GetPath())
 	if err != nil {
-		return -1, errors.Wrap(err, "exec lvm command")
+		return -1, err
 	}
-	res, err := jsonutils.Parse(out)
-	if err != nil {
-		return -1, errors.Wrap(err, "json parse")
-	}
-	vg, _ := res.GetArray("report")
-	if len(vg) != 1 {
-		return -1, errors.Errorf("get vgs")
-	}
-	vgs, err := vg[0].GetArray("vg")
-	if err != nil {
-		return -1, errors.Wrap(err, "get vg")
-	}
-	vgSizeB, err := vgs[0].GetString("vg_size")
-	if err != nil {
-		return -1, errors.Wrap(err, "get vg_size")
-	}
-	size, err := strconv.ParseInt(strings.TrimSuffix(vgSizeB, "B"), 10, 64)
-	if err != nil {
-		return -1, errors.Wrap(err, "parse vg_size")
-	}
-	vgFreeB, err := vgs[0].GetString("vg_free")
-	if err != nil {
-		return -1, errors.Wrap(err, "get vg_free")
-	}
-	freeSize, err := strconv.ParseInt(strings.TrimSuffix(vgFreeB, "B"), 10, 64)
-	if err != nil {
-		return -1, errors.Wrap(err, "parse vg_free")
-	}
-	return (size - freeSize) / 1024 / 1024, nil
+	return (vgProps.VgSize - vgProps.VgFree) / 1024 / 1024, nil
 }
 
 func (s *SLVMStorage) SyncStorageSize() (api.SHostStorageStat, error) {
 	stat := api.SHostStorageStat{
 		StorageId: s.StorageId,
 	}
-	size, err := s.GetAvailSizeMb()
+	sizeMb, err := s.getAvailSizeMb()
 	if err != nil {
 		return stat, err
 	}
-	stat.CapacityMb = size
+	stat.CapacityMb = sizeMb
 	stat.ActualCapacityUsedMb = 0
 	return stat, nil
 }
@@ -192,7 +97,7 @@ func (s *SLVMStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
 	name := s.GetName(s.GetComposedName)
 	content.Set("name", jsonutils.NewString(name))
-	sizeMb, err := s.GetAvailSizeMb()
+	sizeMb, err := s.getAvailSizeMb()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetAvailSizeMb")
 	}
@@ -204,6 +109,7 @@ func (s *SLVMStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content.Set("actual_capacity_used", jsonutils.NewInt(usedSizeMb))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
 	content.Set("zone", jsonutils.NewString(s.GetZoneId()))
+
 	var (
 		res jsonutils.JSONObject
 	)
@@ -222,8 +128,13 @@ func (s *SLVMStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 			content.Set("medium_type", jsonutils.NewString(mediumType))
 		}
 
-		res, err = modules.Storages.Create(
-			hostutils.GetComputeSession(context.Background()), content)
+		res, err = modules.Storages.Create(hostutils.GetComputeSession(context.Background()), content)
+		if err == nil {
+			log.Errorf("storage created %s", res)
+			storageCacheId, _ := res.GetString("storagecache_id")
+			storageManager.InitLVMStorageImageCache(storageCacheId, s.GetPath())
+			s.SetStoragecacheId(storageCacheId)
+		}
 	}
 	if err != nil {
 		log.Errorf("SyncStorageInfo Failed: %s: %s", content, err)
@@ -284,8 +195,89 @@ func (s *SLVMStorage) CreateDisk(diskId string) IDisk {
 	return disk
 }
 
-func (s *SLVMStorage) SaveToGlance(context.Context, interface{}) (jsonutils.JSONObject, error) {
-	return nil, errors.Errorf("unsupported operation")
+func (s *SLVMStorage) SaveToGlance(ctx context.Context, input interface{}) (jsonutils.JSONObject, error) {
+	info, ok := input.(SStorageSaveToGlanceInfo)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	data := info.DiskInfo
+
+	var (
+		imageId, _   = data.GetString("image_id")
+		imagePath, _ = data.GetString("image_path")
+		compress     = jsonutils.QueryBoolean(data, "compress", true)
+		err          error
+	)
+	if err = s.saveToGlance(ctx, imageId, imagePath, compress); err != nil {
+		log.Errorf("Save to glance failed: %s", err)
+		s.onSaveToGlanceFailed(ctx, imageId, err.Error())
+	}
+
+	imagecacheManager := s.Manager.LocalStorageImagecacheManager
+	if err != nil || len(imagecacheManager.GetId()) > 0 {
+		return nil, procutils.NewCommand("rm", "-f", imagePath).Run()
+	} else {
+		dstPath := path.Join(imagecacheManager.GetPath(), imageId)
+		if err := procutils.NewCommand("mv", imagePath, dstPath).Run(); err != nil {
+			log.Errorf("Fail to move saved image to cache: %s", err)
+		}
+		imagecacheManager.LoadImageCache(imageId)
+		_, err := hostutils.RemoteStoragecacheCacheImage(ctx,
+			imagecacheManager.GetId(), imageId, "active", dstPath)
+		if err != nil {
+			log.Errorf("Fail to remote cache image: %s", err)
+		}
+	}
+	return nil, nil
+}
+
+func (s *SLVMStorage) saveToGlance(ctx context.Context, imageId, imagePath string, compress bool) error {
+	log.Infof("saveToGlance %s", imagePath)
+	diskInfo := &deployapi.DiskInfo{
+		Path: imagePath,
+	}
+	ret, err := deployclient.GetDeployClient().SaveToGlance(ctx,
+		&deployapi.SaveToGlanceParams{DiskInfo: diskInfo, Compress: compress})
+	if err != nil {
+		log.Errorf("GetDeployClient.SaveToGlance fail %s", err)
+		return errors.Wrap(err, "deployclient.GetDeployClient().SaveToGlance")
+	}
+
+	f, err := os.Open(imagePath)
+	if err != nil {
+		return errors.Wrap(err, "open image")
+	}
+	defer f.Close()
+	finfo, err := f.Stat()
+	if err != nil {
+		return errors.Wrap(err, "f.Stat image")
+	}
+	size := finfo.Size()
+	var params = jsonutils.NewDict()
+	if len(ret.OsInfo) > 0 {
+		params.Set("os_type", jsonutils.NewString(ret.OsInfo))
+	}
+	relInfo := ret.ReleaseInfo
+	if relInfo != nil {
+		params.Set("os_distribution", jsonutils.NewString(relInfo.Distro))
+		if len(relInfo.Version) > 0 {
+			params.Set("os_version", jsonutils.NewString(relInfo.Version))
+		}
+		if len(relInfo.Arch) > 0 {
+			params.Set("os_arch", jsonutils.NewString(relInfo.Arch))
+		}
+		if len(relInfo.Version) > 0 {
+			params.Set("os_language", jsonutils.NewString(relInfo.Language))
+		}
+	}
+	params.Set("image_id", jsonutils.NewString(imageId))
+
+	_, err = image.Images.Upload(hostutils.GetImageSession(ctx),
+		params, f, size)
+	if err != nil {
+		return errors.Wrap(err, "image upload")
+	}
+	return nil
 }
 
 func (s *SLVMStorage) CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) error {
@@ -309,7 +301,7 @@ func (s *SLVMStorage) GetFuseMountPath() string {
 }
 
 func (s *SLVMStorage) GetImgsaveBackupPath() string {
-	return ""
+	return path.Join(options.HostOptions.ImageCachePath, "image_save")
 }
 
 func (s *SLVMStorage) Accessible() error {
