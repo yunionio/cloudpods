@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
@@ -182,15 +183,34 @@ type CpuSetCounter struct {
 }
 
 func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUSet) *CpuSetCounter {
+	log.Infof("NewGuestCpuSetCounter from topo: %s", jsonutils.Marshal(info))
 	cpuSetCounter := new(CpuSetCounter)
 	cpuSetCounter.Nodes = make([]*NumaNode, len(info.Nodes))
+	hasL3Cache := false
 	for i := 0; i < len(info.Nodes); i++ {
 		node := new(NumaNode)
 		node.LogicalProcessors = cpuset.NewCPUSet()
 		node.NodeId = info.Nodes[i].ID
 		cpuDies := make([]*CPUDie, 0)
-
-		if len(info.Nodes[i].Caches) == 0 {
+		for j := 0; j < len(info.Nodes[i].Caches); j++ {
+			if info.Nodes[i].Caches[j].Level != 3 {
+				continue
+			}
+			hasL3Cache = true
+			cpuDie := new(CPUDie)
+			dieBuilder := cpuset.NewBuilder()
+			for k := 0; k < len(info.Nodes[i].Caches[j].LogicalProcessors); k++ {
+				if reservedCpus != nil && reservedCpus.Contains(int(info.Nodes[i].Caches[j].LogicalProcessors[k])) {
+					continue
+				}
+				dieBuilder.Add(int(info.Nodes[i].Caches[j].LogicalProcessors[k]))
+			}
+			cpuDie.LogicalProcessors = dieBuilder.Result()
+			node.CpuCount += cpuDie.LogicalProcessors.Size()
+			node.LogicalProcessors = node.LogicalProcessors.Union(cpuDie.LogicalProcessors)
+			cpuDies = append(cpuDies, cpuDie)
+		}
+		if !hasL3Cache {
 			cpuDie := new(CPUDie)
 			dieBuilder := cpuset.NewBuilder()
 			for j := 0; j < len(info.Nodes[i].Cores); j++ {
@@ -207,23 +227,7 @@ func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUS
 			cpuDies = append(cpuDies, cpuDie)
 		}
 
-		for j := 0; j < len(info.Nodes[i].Caches); j++ {
-			if info.Nodes[i].Caches[j].Level != 3 {
-				continue
-			}
-			cpuDie := new(CPUDie)
-			dieBuilder := cpuset.NewBuilder()
-			for k := 0; k < len(info.Nodes[i].Caches[j].LogicalProcessors); k++ {
-				if reservedCpus != nil && reservedCpus.Contains(int(info.Nodes[i].Caches[j].LogicalProcessors[k])) {
-					continue
-				}
-				dieBuilder.Add(int(info.Nodes[i].Caches[j].LogicalProcessors[k]))
-			}
-			cpuDie.LogicalProcessors = dieBuilder.Result()
-			node.CpuCount += cpuDie.LogicalProcessors.Size()
-			node.LogicalProcessors = node.LogicalProcessors.Union(cpuDie.LogicalProcessors)
-			cpuDies = append(cpuDies, cpuDie)
-		}
+		hasL3Cache = false
 		node.CpuDies = cpuDies
 		cpuSetCounter.Nodes[i] = node
 	}
