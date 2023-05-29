@@ -127,7 +127,7 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 	if info.Encryption {
 		img.SetPassword(info.EncryptInfo.Key)
 	}
-	_, err = img.Clone(disk.GetPath(), qemuimg.QCOW2, false)*/
+	_, err = img.Clone(disk.GetLvPath(), qemuimg.QCOW2, false)*/
 	img, err := qemuimg.NewQemuImage(disk.GetPath())
 	if err != nil {
 		log.Errorf("NewQemuImage fail %s %s", disk.GetPath(), err)
