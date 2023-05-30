@@ -53,7 +53,7 @@ func initRelease() {
 			return err
 		}
 
-		res, err := k8s.Releases.Put(s, args.NAME, params)
+		res, err := k8s.Releases.PerformAction(s, args.NAME, "upgrade", params)
 		if err != nil {
 			return err
 		}
