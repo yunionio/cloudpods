@@ -55,10 +55,10 @@ func NewLDAPDriver(idpId, idpName, template, targetDomainId string, conf api.TCo
 	return &drv, nil
 }
 
-func (self *SLDAPDriver) prepareConfig() error {
-	if self.ldapConfig == nil {
+func (drv *SLDAPDriver) prepareConfig() error {
+	if drv.ldapConfig == nil {
 		conf := api.SLDAPIdpConfigOptions{}
-		switch self.Template {
+		switch drv.Template {
 		case api.IdpTemplateMSSingleDomain:
 			conf = MicrosoftActiveDirectorySingleDomainTemplate
 		case api.IdpTemplateMSMultiDomain:
@@ -66,13 +66,13 @@ func (self *SLDAPDriver) prepareConfig() error {
 		case api.IdpTemplateOpenLDAPSingleDomain:
 			conf = OpenLdapSingleDomainTemplate
 		}
-		confJson := jsonutils.Marshal(self.Config["ldap"])
+		confJson := jsonutils.Marshal(drv.Config["ldap"])
 		err := confJson.Unmarshal(&conf)
 		if err != nil {
 			return errors.Wrap(err, "json.Unmarshal")
 		}
-		log.Debugf("%s %s %#v", self.Config, confJson, self.ldapConfig)
-		self.ldapConfig = &conf
+		log.Debugf("%s %s %#v", drv.Config, confJson, drv.ldapConfig)
+		drv.ldapConfig = &conf
 	}
 	return nil
 }
@@ -89,102 +89,102 @@ func queryScope(scope string) int {
 	}
 }
 
-func (self *SLDAPDriver) userQueryScope() int {
-	scope := self.ldapConfig.UserQueryScope
+func (drv *SLDAPDriver) userQueryScope() int {
+	scope := drv.ldapConfig.UserQueryScope
 	if len(scope) == 0 {
-		scope = self.ldapConfig.QueryScope
+		scope = drv.ldapConfig.QueryScope
 	}
 	return queryScope(scope)
 }
 
-func (self *SLDAPDriver) groupQueryScope() int {
-	scope := self.ldapConfig.GroupQueryScope
+func (drv *SLDAPDriver) groupQueryScope() int {
+	scope := drv.ldapConfig.GroupQueryScope
 	if len(scope) == 0 {
-		scope = self.ldapConfig.QueryScope
+		scope = drv.ldapConfig.QueryScope
 	}
 	return queryScope(scope)
 }
 
-func (self *SLDAPDriver) domainQueryScope() int {
-	scope := self.ldapConfig.DomainQueryScope
+func (drv *SLDAPDriver) domainQueryScope() int {
+	scope := drv.ldapConfig.DomainQueryScope
 	if len(scope) == 0 {
-		scope = self.ldapConfig.QueryScope
+		scope = drv.ldapConfig.QueryScope
 	}
 	return queryScope(scope)
 }
 
-func (self *SLDAPDriver) userAttributeList() []string {
+func (drv *SLDAPDriver) userAttributeList() []string {
 	attrs := []string{
 		"dn",
-		self.ldapConfig.UserIdAttribute,
-		self.ldapConfig.UserNameAttribute,
-		self.ldapConfig.UserEnabledAttribute,
+		drv.ldapConfig.UserIdAttribute,
+		drv.ldapConfig.UserNameAttribute,
+		drv.ldapConfig.UserEnabledAttribute,
 	}
-	for _, m := range self.ldapConfig.UserAdditionalAttribute {
+	for _, m := range drv.ldapConfig.UserAdditionalAttribute {
 		parts := strings.Split(m, ":")
-		if len(parts) == 2 {
+		if len(parts) == 2 && !utils.IsInArray(parts[0], attrs) {
 			attrs = append(attrs, parts[0])
 		}
 	}
 	return attrs
 }
 
-func (self *SLDAPDriver) groupAttributeList() []string {
+func (drv *SLDAPDriver) groupAttributeList() []string {
 	return []string{
 		"dn",
-		self.ldapConfig.GroupIdAttribute,
-		self.ldapConfig.GroupNameAttribute,
-		self.ldapConfig.GroupMemberAttribute,
+		drv.ldapConfig.GroupIdAttribute,
+		drv.ldapConfig.GroupNameAttribute,
+		drv.ldapConfig.GroupMemberAttribute,
 	}
 }
 
-func (self *SLDAPDriver) domainAttributeList() []string {
+func (drv *SLDAPDriver) domainAttributeList() []string {
 	return []string{
 		"dn",
-		self.ldapConfig.DomainIdAttribute,
-		self.ldapConfig.DomainNameAttribute,
+		drv.ldapConfig.DomainIdAttribute,
+		drv.ldapConfig.DomainNameAttribute,
 	}
 }
 
-func (self *SLDAPDriver) entry2Domain(entry *ldap.Entry) SDomainInfo {
+func (drv *SLDAPDriver) entry2Domain(entry *ldap.Entry) SDomainInfo {
 	info := SDomainInfo{}
 	info.DN = entry.DN
-	info.Id = ldaputils.GetAttributeValue(entry, self.ldapConfig.DomainIdAttribute)
-	info.Name = ldaputils.GetAttributeValue(entry, self.ldapConfig.DomainNameAttribute)
+	info.Id = ldaputils.GetAttributeValue(entry, drv.ldapConfig.DomainIdAttribute)
+	info.Name = ldaputils.GetAttributeValue(entry, drv.ldapConfig.DomainNameAttribute)
 	return info
 }
 
-func (self *SLDAPDriver) entry2Group(entry *ldap.Entry) SGroupInfo {
+func (drv *SLDAPDriver) entry2Group(entry *ldap.Entry) SGroupInfo {
 	info := SGroupInfo{}
 	info.DN = entry.DN
-	info.Id = ldaputils.GetAttributeValue(entry, self.ldapConfig.GroupIdAttribute)
-	info.Name = ldaputils.GetAttributeValue(entry, self.ldapConfig.GroupNameAttribute)
-	info.Members = ldaputils.GetAttributeValues(entry, self.ldapConfig.GroupMemberAttribute)
+	info.Id = ldaputils.GetAttributeValue(entry, drv.ldapConfig.GroupIdAttribute)
+	info.Name = ldaputils.GetAttributeValue(entry, drv.ldapConfig.GroupNameAttribute)
+	info.Members = ldaputils.GetAttributeValues(entry, drv.ldapConfig.GroupMemberAttribute)
 	return info
 }
 
-func (self *SLDAPDriver) entry2User(entry *ldap.Entry) SUserInfo {
+func (drv *SLDAPDriver) entry2User(entry *ldap.Entry) SUserInfo {
 	info := SUserInfo{}
 	info.DN = entry.DN
-	info.Id = ldaputils.GetAttributeValue(entry, self.ldapConfig.UserIdAttribute)
-	info.Name = ldaputils.GetAttributeValue(entry, self.ldapConfig.UserNameAttribute)
-	enabledStr := ldaputils.GetAttributeValue(entry, self.ldapConfig.UserEnabledAttribute)
+	info.Id = ldaputils.GetAttributeValue(entry, drv.ldapConfig.UserIdAttribute)
+	info.Name = ldaputils.GetAttributeValue(entry, drv.ldapConfig.UserNameAttribute)
+	enabledStr := ldaputils.GetAttributeValue(entry, drv.ldapConfig.UserEnabledAttribute)
 	if len(enabledStr) == 0 {
-		enabledStr = self.ldapConfig.UserEnabledDefault
+		enabledStr = drv.ldapConfig.UserEnabledDefault
 	}
-	if self.ldapConfig.UserEnabledMask > 0 {
+	if drv.ldapConfig.UserEnabledMask > 0 {
 		enabled, _ := strconv.ParseInt(enabledStr, 0, 64)
-		if (enabled & self.ldapConfig.UserEnabledMask) != 0 {
+		if (enabled & drv.ldapConfig.UserEnabledMask) != 0 {
 			info.Enabled = true
 		}
 	} else {
 		info.Enabled = utils.ToBool(enabledStr)
 	}
-	if self.ldapConfig.UserEnabledInvert {
+	if drv.ldapConfig.UserEnabledInvert {
 		info.Enabled = !info.Enabled
 	}
 	info.Extra = make(map[string]string)
-	for _, m := range self.ldapConfig.UserAdditionalAttribute {
+	for _, m := range drv.ldapConfig.UserAdditionalAttribute {
 		parts := strings.Split(m, ":")
 		if len(parts) == 2 {
 			info.Extra[parts[1]] = ldaputils.GetAttributeValue(entry, parts[0])
@@ -193,12 +193,12 @@ func (self *SLDAPDriver) entry2User(entry *ldap.Entry) SUserInfo {
 	return info
 }
 
-func (self *SLDAPDriver) getClient() (*ldaputils.SLDAPClient, error) {
+func (drv *SLDAPDriver) getClient() (*ldaputils.SLDAPClient, error) {
 	cli := ldaputils.NewLDAPClient(
-		self.ldapConfig.Url,
-		self.ldapConfig.User,
-		self.ldapConfig.Password,
-		self.ldapConfig.Suffix,
+		drv.ldapConfig.Url,
+		drv.ldapConfig.User,
+		drv.ldapConfig.Password,
+		drv.ldapConfig.Suffix,
 		false,
 	)
 	err := cli.Connect()
@@ -208,29 +208,29 @@ func (self *SLDAPDriver) getClient() (*ldaputils.SLDAPClient, error) {
 	return cli, nil
 }
 
-func (self *SLDAPDriver) getDomainTreeDN() string {
-	if len(self.ldapConfig.DomainTreeDN) > 0 {
-		return self.ldapConfig.DomainTreeDN
+func (drv *SLDAPDriver) getDomainTreeDN() string {
+	if len(drv.ldapConfig.DomainTreeDN) > 0 {
+		return drv.ldapConfig.DomainTreeDN
 	}
-	return self.ldapConfig.Suffix
+	return drv.ldapConfig.Suffix
 }
 
-func (self *SLDAPDriver) getUserTreeDN() string {
-	if len(self.ldapConfig.UserTreeDN) > 0 {
-		return self.ldapConfig.UserTreeDN
+func (drv *SLDAPDriver) getUserTreeDN() string {
+	if len(drv.ldapConfig.UserTreeDN) > 0 {
+		return drv.ldapConfig.UserTreeDN
 	}
-	return self.ldapConfig.Suffix
+	return drv.ldapConfig.Suffix
 }
 
-func (self *SLDAPDriver) getGroupTreeDN() string {
-	if len(self.ldapConfig.GroupTreeDN) > 0 {
-		return self.ldapConfig.GroupTreeDN
+func (drv *SLDAPDriver) getGroupTreeDN() string {
+	if len(drv.ldapConfig.GroupTreeDN) > 0 {
+		return drv.ldapConfig.GroupTreeDN
 	}
-	return self.ldapConfig.Suffix
+	return drv.ldapConfig.Suffix
 }
 
-func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
-	cli, err := self.getClient()
+func (drv *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
+	cli, err := drv.getClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "getClient")
 	}
@@ -247,27 +247,27 @@ func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 	}
 
 	var userTreeDN string
-	if len(self.ldapConfig.DomainTreeDN) > 0 {
+	if len(drv.ldapConfig.DomainTreeDN) > 0 {
 		// import domains
 		idMap, err := models.IdmappingManager.FetchFirstEntity(usrExt.DomainId, api.IdMappingEntityDomain)
 		if err != nil {
 			return nil, errors.Wrap(err, "IdmappingManager.FetchEntity for domain")
 		}
 		var searchEntry *ldap.Entry
-		err = self.searchDomainEntries(cli, idMap.IdpEntityId,
+		err = drv.searchDomainEntries(cli, idMap.IdpEntityId,
 			func(entry *ldap.Entry) error {
 				searchEntry = entry
 				return ldaputils.StopSearch
 			})
 		if err != nil {
-			return nil, errors.Wrap(err, "self.searchDomainEntries")
+			return nil, errors.Wrap(err, "drv.searchDomainEntries")
 		}
 		if searchEntry == nil {
 			return nil, errors.Error("fail to find domain DN")
 		}
 		userTreeDN = searchEntry.DN
 	} else {
-		userTreeDN = self.getUserTreeDN()
+		userTreeDN = drv.getUserTreeDN()
 	}
 
 	usrIdmaps, err := models.IdmappingManager.FetchEntities(usrExt.Id, api.IdMappingEntityUser)
@@ -276,7 +276,7 @@ func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 	}
 	var usrIdmap *models.SIdmapping
 	for i := range usrIdmaps {
-		if usrIdmaps[i].IdpId == self.IdpId {
+		if usrIdmaps[i].IdpId == drv.IdpId {
 			usrIdmap = &usrIdmaps[i]
 			break
 		}
@@ -289,13 +289,13 @@ func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 
 	_, err = cli.Authenticate(
 		userTreeDN,
-		self.ldapConfig.UserObjectclass,
-		self.ldapConfig.UserIdAttribute,
+		drv.ldapConfig.UserObjectclass,
+		drv.ldapConfig.UserIdAttribute,
 		username,
 		password,
-		self.ldapConfig.UserFilter,
+		drv.ldapConfig.UserFilter,
 		nil,
-		self.userQueryScope(),
+		drv.userQueryScope(),
 	)
 	if err != nil {
 		log.Errorf("LDAP AUTH error: %s", err)
