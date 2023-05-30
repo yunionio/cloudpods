@@ -112,6 +112,8 @@ const (
 	ACT_VM_SYNC_ISOLATED_DEVICE = "vm_sync_isolated_device"
 
 	ACT_CACHED_IMAGE = "cached_image"
+	// 同步云上项目
+	ACT_SYNC_CLOUD_PROJECT = "sync_cloud_project"
 
 	ACT_REBOOT        = "reboot"
 	ACT_CHANGE_CONFIG = "change_config"
