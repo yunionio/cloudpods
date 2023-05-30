@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SManagedVirtualizationHostDriver struct {
@@ -250,7 +251,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 		}
 		projectId, err := _cloudprovider.SyncProject(ctx, userCred, disk.ProjectId)
 		if err != nil {
-			log.Errorf("failed to sync project for create %s disk %s error: %v", _cloudprovider.Provider, disk.GetName(), err)
+			logclient.AddSimpleActionLog(disk, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
 		}
 		conf := cloudprovider.DiskCreateConfig{
 			Name:      disk.GetName(),

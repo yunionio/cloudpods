@@ -100,7 +100,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	provider := host.GetCloudprovider()
 	config.ProjectId, err = provider.SyncProject(ctx, userCred, guest.ProjectId)
 	if err != nil {
-		log.Errorf("failed to sync project %s for create %s guest %s error: %v", guest.ProjectId, provider.Provider, guest.Name, err)
+		logclient.AddSimpleActionLog(guest, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
 	}
 
 	disks, err := guest.GetDisks()
@@ -1173,7 +1173,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx conte
 	if provider != nil {
 		remoteProjectId, err = provider.SyncProject(ctx, task.GetUserCred(), guest.ProjectId)
 		if err != nil {
-			log.Errorf("failed to sync project %s for guest %s error: %v", guest.ProjectId, guest.Name, err)
+			logclient.AddSimpleActionLog(guest, logclient.ACT_SYNC_CLOUD_PROJECT, err, task.GetUserCred(), false)
 		}
 	}
 

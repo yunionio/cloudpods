@@ -126,7 +126,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		_cloudprovider := eip.GetCloudprovider()
 		args.ProjectId, err = _cloudprovider.SyncProject(ctx, self.GetUserCred(), eip.ProjectId)
 		if err != nil {
-			log.Errorf("failed to sync project %s for create %s eip %s error: %v", eip.ProjectId, _cloudprovider.Provider, eip.Name, err)
+			logclient.AddSimpleActionLog(eip, logclient.ACT_SYNC_CLOUD_PROJECT, err, self.UserCred, false)
 		}
 
 		iregion, err := eip.GetIRegion(ctx)
