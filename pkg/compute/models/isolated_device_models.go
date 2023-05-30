@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -59,6 +60,8 @@ type SIsolatedDeviceModel struct {
 	DeviceId string `width:"16" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" update:"domain"`
 
 	DevType string `width:"16" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
+
+	HotPluggable tristate.TriState `default:"false" list:"domain" create:"domain_optional" update:"domain"`
 }
 
 func (manager *SIsolatedDeviceModelManager) ValidateCreateData(ctx context.Context,
@@ -159,16 +162,25 @@ func (self *SIsolatedDeviceModel) ValidateUpdateData(
 	input.DeviceId = strings.ToLower(input.DeviceId)
 	deviceVendorReg := regexp.MustCompile(`^[a-f0-9]{4}$`)
 
-	if !deviceVendorReg.MatchString(input.VendorId) {
+	if input.VendorId != "" && !deviceVendorReg.MatchString(input.VendorId) {
 		return input, httperrors.NewInputParameterError("bad vendor id %s", input.VendorId)
 	}
-	if !deviceVendorReg.MatchString(input.DeviceId) {
+	if input.DeviceId != "" && !deviceVendorReg.MatchString(input.DeviceId) {
 		return input, httperrors.NewInputParameterError("bad vendor id %s", input.DeviceId)
 	}
 
-	if self.VendorId != input.VendorId || self.DeviceId != input.DeviceId {
-		if cnt := IsolatedDeviceModelManager.Query().Equals("vendor_id", input.VendorId).Equals("device_id", input.DeviceId).Count(); cnt > 0 {
-			return input, httperrors.NewDuplicateResourceError("vendor %s device %s has been registered", input.VendorId, input.DeviceId)
+	if input.VendorId != "" || input.DeviceId != "" {
+		if input.VendorId == "" {
+			input.VendorId = self.VendorId
+		}
+		if input.DeviceId == "" {
+			input.DeviceId = self.DeviceId
+		}
+
+		if self.VendorId != input.VendorId || self.DeviceId != input.DeviceId {
+			if cnt := IsolatedDeviceModelManager.Query().Equals("vendor_id", input.VendorId).Equals("device_id", input.DeviceId).Count(); cnt > 0 {
+				return input, httperrors.NewDuplicateResourceError("vendor %s device %s has been registered", input.VendorId, input.DeviceId)
+			}
 		}
 	}
 

@@ -1907,9 +1907,23 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		lockman.LockObject(ctx, host)
 		defer lockman.ReleaseObject(ctx, host)
 		for i := 0; i < len(devs); i++ {
-			if devs[i].DevType == api.NIC_TYPE {
-				continue
+			// check first
+			dev := devs[i]
+			if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
+				if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
+					msg := fmt.Sprintf("Can't separately detach dev type %s", dev.DevType)
+					logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+					return nil, httperrors.NewBadRequestError(msg)
+				} else {
+					if !devModel.HotPluggable.Bool() && self.GetStatus() == api.VM_RUNNING {
+						msg := fmt.Sprintf("dev type %s model %s unhotpluggable", dev.DevType, devModel.Model)
+						logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+						return nil, httperrors.NewBadRequestError(msg)
+					}
+				}
 			}
+		}
+		for i := 0; i < len(devs); i++ {
 			err := self.detachIsolateDevice(ctx, userCred, &devs[i])
 			if err != nil {
 				return nil, err
@@ -1928,12 +1942,20 @@ func (self *SGuest) startDetachIsolateDeviceWithoutNic(ctx context.Context, user
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
-	if dev.DevType == api.NIC_TYPE || dev.DevType == api.NVME_PT_TYPE {
-		return httperrors.NewBadRequestError("Can't separately detach dev type %s", dev.DevType)
+	if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
+		if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
+			msg := fmt.Sprintf("Can't separately detach dev type %s", dev.DevType)
+			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+			return httperrors.NewBadRequestError(msg)
+		} else {
+			if !devModel.HotPluggable.Bool() && self.GetStatus() == api.VM_RUNNING {
+				msg := fmt.Sprintf("dev type %s model %s unhotpluggable", dev.DevType, devModel.Model)
+				logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+				return httperrors.NewBadRequestError(msg)
+			}
+		}
 	}
-	if dev.IsGPU() && !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
-		return httperrors.NewInvalidStatusError("Can't detach GPU when status is %q", self.GetStatus())
-	}
+
 	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
@@ -2013,6 +2035,17 @@ func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcc
 	if len(devs) == 0 || len(devs) != count {
 		return httperrors.NewBadRequestError("guest %s host %s isolated device not enough", self.GetName(), host.GetName())
 	}
+	dev := devs[0]
+	if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
+		if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
+			return httperrors.NewBadRequestError("Can't separately attach dev type %s", dev.DevType)
+		} else {
+			if !devModel.HotPluggable.Bool() && self.GetStatus() == api.VM_RUNNING {
+				return httperrors.NewBadRequestError("dev type %s model %s unhotpluggable", dev.DevType, devModel.Model)
+			}
+		}
+	}
+
 	defer func() { go host.ClearSchedDescCache() }()
 	for i := 0; i < len(devs); i++ {
 		err = self.attachIsolatedDevice(ctx, userCred, &devs[i], nil, nil)
@@ -2041,8 +2074,12 @@ func (self *SGuest) startAttachIsolatedDevGeneral(ctx context.Context, userCred 
 	}
 	dev := iDev.(*SIsolatedDevice)
 	if !utils.IsInStringArray(dev.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE}) {
-		if _, err = IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
+		if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
 			return httperrors.NewBadRequestError("Can't separately attach dev type %s", dev.DevType)
+		} else {
+			if !devModel.HotPluggable.Bool() && self.GetStatus() == api.VM_RUNNING {
+				return httperrors.NewBadRequestError("dev type %s model %s unhotpluggable", dev.DevType, devModel.Model)
+			}
 		}
 	}
 	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
