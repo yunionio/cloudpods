@@ -119,10 +119,9 @@ func (o ReleaseCreateOptions) Params() (jsonutils.JSONObject, error) {
 type ReleaseUpgradeOptions struct {
 	NamespaceWithClusterOptions
 	ReleaseCreateUpdateOptions
-	NAME        string `help:"Release instance name"`
-	CHARTNAME   string `help:"Helm chart name, e.g stable/etcd"`
 	ReuseValues bool   `help:"When upgrading, reuse the last release's values, and merge in any new values. If '--reset-values' is specified, this is ignored"`
 	ResetValues bool   `help:"When upgrading, reset the values to the ones built into the chart"`
+	NAME        string `help:"Release instance name"`
 }
 
 func (o ReleaseUpgradeOptions) Params() (*jsonutils.JSONDict, error) {
@@ -131,7 +130,6 @@ func (o ReleaseUpgradeOptions) Params() (*jsonutils.JSONDict, error) {
 		return nil, err
 	}
 	params.Update(o.NamespaceWithClusterOptions.Params())
-	params.Add(jsonutils.NewString(o.CHARTNAME), "chart_name")
 	params.Add(jsonutils.NewString(o.NAME), "release_name")
 	if o.ReuseValues {
 		params.Add(jsonutils.JSONTrue, "reuse_values")
