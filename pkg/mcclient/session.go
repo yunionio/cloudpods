@@ -179,7 +179,7 @@ func (this *ClientSession) getApigatewayServiceURLs(service, region, zone, endpo
 	prefix := this.client.authUrl
 	lastSlashPos := strings.LastIndex(prefix, "/api/s/identity")
 	if lastSlashPos <= 0 {
-		return nil, errors.Wrapf(err, "invalue auth_url %s", prefix)
+		return nil, errors.Wrapf(errors.ErrInvalidFormat, "invalue auth_url %s, should be url of apigateway endpoint, e.g. https://<apigateway-host>/api/s/identity/v3", prefix)
 	}
 	prefix = httputils.JoinPath(prefix[:lastSlashPos], "api/s", service)
 	if len(region) > 0 {
