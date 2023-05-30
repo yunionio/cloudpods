@@ -210,7 +210,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerInstanc
 		manager := lb.GetCloudprovider()
 		params.ProjectId, err = manager.SyncProject(ctx, userCred, lb.ProjectId)
 		if err != nil {
-			log.Errorf("failed to sync project %s for create %s lb %s error: %v", lb.ProjectId, manager.Provider, lb.Name, err)
+			logclient.AddSimpleActionLog(lb, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
 		}
 
 		log.Debugf("create lb with params: %s", jsonutils.Marshal(params).String())
@@ -1333,7 +1333,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 		_cloudprovider := dbinstance.GetCloudprovider()
 		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, dbinstance.ProjectId)
 		if err != nil {
-			log.Errorf("failed to sync project %s for create %s rds %s error: %v", dbinstance.ProjectId, _cloudprovider.Provider, dbinstance.Name, err)
+			logclient.AddSimpleActionLog(dbinstance, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
 		}
 
 		region, err := dbinstance.GetRegion()
@@ -1495,7 +1495,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 		_cloudprovider := rds.GetCloudprovider()
 		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, rds.ProjectId)
 		if err != nil {
-			log.Errorf("failed to sync project %s for create %s rds %s error: %v", rds.ProjectId, _cloudprovider.Provider, rds.Name, err)
+			logclient.AddSimpleActionLog(rds, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
 		}
 
 		region, err := rds.GetRegion()
@@ -1654,7 +1654,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 		provider := iprovider.(*models.SCloudprovider)
 		params.ProjectId, err = provider.SyncProject(ctx, userCred, ec.ProjectId)
 		if err != nil {
-			log.Errorf("failed to sync project %s for create %s elastic cache %s error: %v", ec.ProjectId, provider.Provider, ec.Name, err)
+			logclient.AddSimpleActionLog(ec, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
 		}
 
 		iec, err := iRegion.CreateIElasticcaches(params)
@@ -3059,7 +3059,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateNetwork(ctx context
 	provider := wire.GetCloudprovider()
 	opts.ProjectId, err = provider.SyncProject(ctx, userCred, net.ProjectId)
 	if err != nil {
-		log.Errorf("failed to sync project %s for create %s network %s error: %v", net.ProjectId, provider.Provider, net.Name, err)
+		logclient.AddSimpleActionLog(net, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
 	}
 
 	inet, err := iwire.CreateINetwork(&opts)
