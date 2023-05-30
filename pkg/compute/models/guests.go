@@ -414,20 +414,40 @@ func (manager *SGuestManager) ListItemFilter(
 		q = q.In("host_id", sq)
 	}
 
-	if len(query.IpAddr) > 0 {
+	if len(query.IpAddrs) > 0 {
 		grpnets := GroupnetworkManager.Query().SubQuery()
 		vipq := GroupguestManager.Query("guest_id")
-		vipq = vipq.Join(grpnets, sqlchemy.Equals(grpnets.Field("group_id"), vipq.Field("group_id")))
-		vipq = vipq.Contains("ip_addr", query.IpAddr)
+		conditions := []sqlchemy.ICondition{}
+		for _, ipAddr := range query.IpAddrs {
+			conditions = append(conditions, sqlchemy.Contains(grpnets.Field("ip_addr"), ipAddr))
+		}
+		vipq = vipq.Join(grpnets, sqlchemy.Equals(grpnets.Field("group_id"), vipq.Field("group_id"))).Filter(
+			sqlchemy.OR(conditions...),
+		)
 
 		grpeips := ElasticipManager.Query().Equals("associate_type", api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP).SubQuery()
+		conditions = []sqlchemy.ICondition{}
+		for _, ipAddr := range query.IpAddrs {
+			conditions = append(conditions, sqlchemy.Contains(grpeips.Field("ip_addr"), ipAddr))
+		}
 		vipeipq := GroupguestManager.Query("guest_id")
-		vipeipq = vipeipq.Join(grpeips, sqlchemy.Equals(grpeips.Field("associate_id"), vipeipq.Field("group_id")))
-		vipeipq = vipeipq.Contains("ip_addr", query.IpAddr)
+		vipeipq = vipeipq.Join(grpeips, sqlchemy.Equals(grpeips.Field("associate_id"), vipeipq.Field("group_id"))).Filter(
+			sqlchemy.OR(conditions...),
+		)
 
-		gn := GuestnetworkManager.Query("guest_id").Contains("ip_addr", query.IpAddr)
+		gnQ := GuestnetworkManager.Query("guest_id")
+		conditions = []sqlchemy.ICondition{}
+		for _, ipAddr := range query.IpAddrs {
+			conditions = append(conditions, sqlchemy.Contains(gnQ.Field("ip_addr"), ipAddr))
+		}
+		gn := gnQ.Filter(sqlchemy.OR(conditions...))
 
-		guestEip := ElasticipManager.Query("associate_id").Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER).Contains("ip_addr", query.IpAddr)
+		guestEipQ := ElasticipManager.Query("associate_id").Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER)
+		conditions = []sqlchemy.ICondition{}
+		for _, ipAddr := range query.IpAddrs {
+			conditions = append(conditions, sqlchemy.Contains(guestEipQ.Field("ip_addr"), ipAddr))
+		}
+		guestEip := guestEipQ.Filter(sqlchemy.OR(conditions...))
 
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("id"), gn.SubQuery()),
