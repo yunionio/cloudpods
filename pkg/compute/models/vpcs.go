@@ -235,8 +235,8 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context, info *api.VpcDeta
 	if info.NatgatewayCount > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty, please delete nat gateway first")
 	}
-	if info.RequestVpcPeerCount+info.AcceptVpcPeerCount > 0 {
-		return httperrors.NewNotEmptyError("VPC peering not empty, please delete vpc peering first")
+	if info.RequestVpcPeerCount > 0 {
+		return httperrors.NewNotEmptyError("VPC not empty, please delete vpc peering first")
 	}
 
 	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
