@@ -255,11 +255,13 @@ func (d *SGuestDiskSyncTask) syncDisksConf() {
 		cdrom := d.cdroms[len(d.cdroms)-1]
 		d.cdroms = d.cdroms[:len(d.cdroms)-1]
 		d.changeCdrom(cdrom)
+		return
 	}
 	if len(d.floppys) > 0 {
 		floppy := d.floppys[len(d.floppys)-1]
 		d.floppys = d.floppys[:len(d.floppys)-1]
 		d.changeFloppy(floppy)
+		return
 	}
 	if idxs := d.guest.GetNeedMergeBackingFileDiskIndexs(); len(idxs) > 0 {
 		d.guest.StreamDisks(context.Background(),
