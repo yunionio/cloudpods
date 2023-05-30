@@ -17,15 +17,25 @@ package identity
 import (
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	identity_options "yunion.io/x/onecloud/pkg/mcclient/options/identity"
 )
 
 func init() {
-	type UserListOptions struct {
+	cmd := shell.NewResourceCmd(&modules.UsersV3)
+	cmd.List(&identity_options.UserListOptions{})
+	cmd.Perform("user-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("class-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("metadata", &options.ResourceMetadataOptions{})
+
+	/*type UserListOptions struct {
 		options.BaseListOptions
 		Name                    string `help:"Filter by name"`
 		OrderByDomain           string `help:"order by domain name" choices:"asc|desc"`
@@ -50,7 +60,7 @@ func init() {
 			printList(result, modules.UsersV3.GetColumns(s))
 		}
 		return nil
-	})
+	})*/
 
 	type UserDetailOptions struct {
 		ID     string `help:"ID of user"`
@@ -76,6 +86,7 @@ func init() {
 		printObject(user)
 		return nil
 	})
+
 	R(&UserDetailOptions{}, "user-delete", "Delete user", func(s *mcclient.ClientSession, args *UserDetailOptions) error {
 		query := jsonutils.NewDict()
 		if len(args.Domain) > 0 {
