@@ -194,6 +194,9 @@ func (manager *SBucketManager) newFromCloudBucket(
 	bucket.Location = extBucket.GetLocation()
 	bucket.StorageClass = extBucket.GetStorageClass()
 	bucket.Acl = string(extBucket.GetAcl())
+	if !extBucket.GetCreatedAt().IsZero() {
+		bucket.CreatedAt = extBucket.GetCreatedAt()
+	}
 
 	stats := extBucket.GetStats()
 	bucket.SizeBytes = stats.SizeBytes
