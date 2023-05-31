@@ -90,10 +90,6 @@ func (self *SVpc) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
-func (self *SVpc) IsEmulated() bool {
-	return false
-}
-
 func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
 	return self.region
 }
@@ -229,7 +225,7 @@ func (self *SVpc) fetchNetworks() error {
 	}
 
 	for i := 0; i < len(networks); i += 1 {
-		wire := self.getWireByZoneId(networks[i].ZoneId)
+		wire := self.getWireByZoneId(networks[i].AvailabilityZone)
 		networks[i].wire = wire
 		wire.addNetwork(&networks[i])
 	}
