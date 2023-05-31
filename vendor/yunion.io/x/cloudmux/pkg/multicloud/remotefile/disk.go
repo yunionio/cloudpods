@@ -129,3 +129,7 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 func (self *SDisk) Rebuild(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
+
+func (disk *SDisk) SetStorage(storage SStorage) {
+	disk.storage = &storage
+}

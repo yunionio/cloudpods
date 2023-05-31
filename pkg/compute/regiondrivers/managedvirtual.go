@@ -3067,11 +3067,14 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateNetwork(ctx context
 		return errors.Wrapf(err, "CreateINetwork")
 	}
 
-	db.SetExternalId(net, userCred, inet.GetGlobalId())
+	err = db.SetExternalId(net, userCred, inet.GetGlobalId())
+	if err != nil {
+		return errors.Wrapf(err, "db.SetExternalId")
+	}
 
 	err = cloudprovider.WaitStatus(inet, api.NETWORK_STATUS_AVAILABLE, 10*time.Second, 5*time.Minute)
 	if err != nil {
-		return errors.Wrapf(err, "Wait network available after 6 minutes status: %s", inet.GetStatus())
+		return errors.Wrapf(err, "wait network available after 5 minutes, current status: %s", inet.GetStatus())
 	}
 
 	return net.SyncWithCloudNetwork(ctx, userCred, inet, nil, nil)

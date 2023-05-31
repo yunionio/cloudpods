@@ -180,10 +180,15 @@ func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params ma
 				code := e.ErrorCode()
 				switch code {
 				case "InternalError":
-					if apiName == "QueryAccountBalance" {
-						return nil, errors.Wrapf(cloudprovider.ErrNoPermission, err.Error())
+					if apiName != "QueryAccountBalance" {
+						return nil, err
 					}
-					return nil, err
+					if i != 1 {
+						return nil, err
+					}
+					// 国际版阿里云需要请求新加坡
+					domain = "business.ap-southeast-1.aliyuncs.com"
+					retry = true
 				case "InvalidAccessKeyId.NotFound",
 					"InvalidAccessKeyId",
 					"NoEnabledAccessKey",
@@ -237,7 +242,9 @@ func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params ma
 			if debug {
 				log.Debugf("Retry %d...", i)
 			}
-			time.Sleep(time.Second * time.Duration(i*10))
+			if apiName != "QueryAccountBalance" {
+				time.Sleep(time.Second * time.Duration(i*10))
+			}
 			continue
 		}
 		if debug {
