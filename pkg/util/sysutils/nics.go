@@ -48,18 +48,18 @@ func Nics() ([]*types.SNicDevInfo, error) {
 			} /*else if (fi.Mode() & os.ModeSymlink) == 0 {
 				continue
 			}*/
-			speedStr := GetSysConfig(filepath.Join(netPath, "speed"))
+			speedStr := GetSysConfigQuiet(filepath.Join(netPath, "speed"))
 			speed := 0
 			if len(speedStr) > 0 {
 				speed, _ = strconv.Atoi(speedStr)
 			}
-			carrier := GetSysConfig(filepath.Join(netPath, "carrier"))
+			carrier := GetSysConfigQuiet(filepath.Join(netPath, "carrier"))
 			up := false
 			if carrier == "1" {
 				up = true
 			}
-			mac, _ := net.ParseMAC(GetSysConfig(filepath.Join(netPath, "address")))
-			mtuStr := GetSysConfig(filepath.Join(netPath, "mtu"))
+			mac, _ := net.ParseMAC(GetSysConfigQuiet(filepath.Join(netPath, "address")))
+			mtuStr := GetSysConfigQuiet(filepath.Join(netPath, "mtu"))
 			mtu := 0
 			if len(mtuStr) > 0 {
 				mtu, _ = strconv.Atoi(mtuStr)
