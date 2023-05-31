@@ -460,13 +460,9 @@ func (self *SMonitorResource) UpdateAttachJoint(alertRecord *SAlertRecord, match
 func (manager *SMonitorResourceManager) GetResourceObj(id string) (bool, jsonutils.JSONObject) {
 	for _, set := range manager.GetModelSets().ModelSetList() {
 		setRv := reflect.ValueOf(set)
-		for _, kRv := range setRv.MapKeys() {
-			if id == kRv.String() {
-				mRv := setRv.MapIndex(kRv)
-				if mRv.IsValid() {
-					return true, jsonutils.Marshal(mRv.Interface())
-				}
-			}
+		mRv := setRv.MapIndex(reflect.ValueOf(id))
+		if mRv.IsValid() {
+			return true, jsonutils.Marshal(mRv.Interface())
 		}
 	}
 	return false, nil
