@@ -600,6 +600,9 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.CloudregionId = region.Id
 	eip.ChargeType = extEip.GetInternetChargeType()
 	eip.AssociateType = extEip.GetAssociationType()
+	if !extEip.GetCreatedAt().IsZero() {
+		eip.CreatedAt = extEip.GetCreatedAt()
+	}
 	if len(eip.ChargeType) == 0 {
 		eip.ChargeType = api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	}
