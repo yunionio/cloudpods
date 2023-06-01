@@ -20,17 +20,19 @@ import (
 
 	"gopkg.in/ldap.v3"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/util/ldaputils"
 )
 
-func (self *SLDAPDriver) Probe(ctx context.Context) error {
-	cli, err := self.getClient()
+func (drv *SLDAPDriver) Probe(ctx context.Context) error {
+	cli, err := drv.getClient()
 	if err != nil {
 		return errors.Wrap(err, "getClient")
 	}
@@ -38,24 +40,24 @@ func (self *SLDAPDriver) Probe(ctx context.Context) error {
 	return nil
 }
 
-func (self *SLDAPDriver) Sync(ctx context.Context) error {
-	cli, err := self.getClient()
+func (drv *SLDAPDriver) Sync(ctx context.Context) error {
+	cli, err := drv.getClient()
 	if err != nil {
 		return errors.Wrap(err, "getClient")
 	}
 	defer cli.Close()
 
-	if len(self.ldapConfig.DomainTreeDN) > 0 {
-		return self.syncDomains(ctx, cli)
+	if len(drv.ldapConfig.DomainTreeDN) > 0 {
+		return drv.syncDomains(ctx, cli)
 	} else {
-		return self.syncSingleDomain(ctx, cli)
+		return drv.syncSingleDomain(ctx, cli)
 	}
 }
 
-func (self *SLDAPDriver) syncSingleDomain(ctx context.Context, cli *ldaputils.SLDAPClient) error {
+func (drv *SLDAPDriver) syncSingleDomain(ctx context.Context, cli *ldaputils.SLDAPClient) error {
 	var domain *models.SDomain
-	if len(self.TargetDomainId) > 0 {
-		targetDomain, err := models.DomainManager.FetchDomainById(self.TargetDomainId)
+	if len(drv.TargetDomainId) > 0 {
+		targetDomain, err := models.DomainManager.FetchDomainById(drv.TargetDomainId)
 		if err != nil && err != sql.ErrNoRows {
 			return errors.Wrap(err, "models.DomainManager.FetchDomainById")
 		}
@@ -66,35 +68,35 @@ func (self *SLDAPDriver) syncSingleDomain(ctx context.Context, cli *ldaputils.SL
 		}
 	}
 	if domain == nil {
-		domainInfo := SDomainInfo{DN: self.ldapConfig.Suffix, Id: api.DefaultRemoteDomainId, Name: self.IdpName}
-		newDomain, err := self.syncDomainInfo(ctx, domainInfo)
+		domainInfo := SDomainInfo{DN: drv.ldapConfig.Suffix, Id: api.DefaultRemoteDomainId, Name: drv.IdpName}
+		newDomain, err := drv.syncDomainInfo(ctx, domainInfo)
 		if err != nil {
 			return errors.Wrap(err, "syncDomainInfo")
 		}
 		domain = newDomain
 	}
-	userIdMap, err := self.syncUsers(ctx, cli, domain.Id, self.getUserTreeDN())
+	userIdMap, err := drv.syncUsers(ctx, cli, domain.Id, drv.getUserTreeDN())
 	if err != nil {
 		return errors.Wrap(err, "syncUsers")
 	}
-	err = self.syncGroups(ctx, cli, domain.Id, self.getGroupTreeDN(), userIdMap)
+	err = drv.syncGroups(ctx, cli, domain.Id, drv.getGroupTreeDN(), userIdMap)
 	if err != nil {
 		return errors.Wrap(err, "syncGroups")
 	}
 	return nil
 }
 
-func (self *SLDAPDriver) searchDomainEntries(cli *ldaputils.SLDAPClient, domainid string, entryFunc func(*ldap.Entry) error) error {
+func (drv *SLDAPDriver) searchDomainEntries(cli *ldaputils.SLDAPClient, domainid string, entryFunc func(*ldap.Entry) error) error {
 	attrMap := make(map[string]string)
 	if len(domainid) > 0 {
-		attrMap[self.ldapConfig.DomainIdAttribute] = domainid
+		attrMap[drv.ldapConfig.DomainIdAttribute] = domainid
 	}
-	_, err := cli.Search(self.getDomainTreeDN(),
-		self.ldapConfig.DomainObjectclass,
+	_, err := cli.Search(drv.getDomainTreeDN(),
+		drv.ldapConfig.DomainObjectclass,
 		attrMap,
-		self.ldapConfig.DomainFilter,
-		self.domainAttributeList(),
-		self.domainQueryScope(),
+		drv.ldapConfig.DomainFilter,
+		drv.domainAttributeList(),
+		drv.domainQueryScope(),
 		options.Options.LdapSearchPageSize, 0,
 		func(offset uint32, entry *ldap.Entry) error {
 			return entryFunc(entry)
@@ -106,25 +108,25 @@ func (self *SLDAPDriver) searchDomainEntries(cli *ldaputils.SLDAPClient, domaini
 	return nil
 }
 
-func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPClient) error {
+func (drv *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPClient) error {
 	domainIds := make([]string, 0)
-	err := self.searchDomainEntries(cli, "", func(entry *ldap.Entry) error {
-		domainInfo := self.entry2Domain(entry)
+	err := drv.searchDomainEntries(cli, "", func(entry *ldap.Entry) error {
+		domainInfo := drv.entry2Domain(entry)
 		err := domainInfo.isValid()
 		if err != nil {
 			log.Errorf("invalid domainInfo: %s, skip", err)
 			return nil
 		}
-		domain, err := self.syncDomainInfo(ctx, domainInfo)
+		domain, err := drv.syncDomainInfo(ctx, domainInfo)
 		if err != nil {
 			return errors.Wrap(err, "syncDomainInfo")
 		}
 		domainIds = append(domainIds, domain.Id)
-		userIdMap, err := self.syncUsers(ctx, cli, domain.Id, domainInfo.DN)
+		userIdMap, err := drv.syncUsers(ctx, cli, domain.Id, domainInfo.DN)
 		if err != nil {
 			return errors.Wrap(err, "syncUsers")
 		}
-		err = self.syncGroups(ctx, cli, domain.Id, domainInfo.DN, userIdMap)
+		err = drv.syncGroups(ctx, cli, domain.Id, domainInfo.DN, userIdMap)
 		if err != nil {
 			return errors.Wrap(err, "syncGroups")
 		}
@@ -135,7 +137,7 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 	}
 
 	// remove any obsolete domains
-	obsoleteDomainIds, err := models.IdmappingManager.FetchPublicIdsExcludes(self.IdpId, api.IdMappingEntityDomain, domainIds)
+	obsoleteDomainIds, err := models.IdmappingManager.FetchPublicIdsExcludes(drv.IdpId, api.IdMappingEntityDomain, domainIds)
 	if err != nil {
 		return errors.Wrap(err, "models.IdmappingManager.FetchPublicIdsExcludes")
 	}
@@ -147,7 +149,7 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 		}
 		obsoleteDomain.AppendDescription(models.GetDefaultAdminCred(), "domain source removed")
 		// unlink with Idp
-		err = obsoleteDomain.UnlinkIdp(self.IdpId)
+		err = obsoleteDomain.UnlinkIdp(drv.IdpId)
 		if err != nil {
 			log.Errorf("obsoleteDomain.UnlinkIdp error %s", err)
 			continue
@@ -172,37 +174,37 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 	return nil
 }
 
-func (self *SLDAPDriver) syncDomainInfo(ctx context.Context, info SDomainInfo) (*models.SDomain, error) {
-	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(self.IdpId)
+func (drv *SLDAPDriver) syncDomainInfo(ctx context.Context, info SDomainInfo) (*models.SDomain, error) {
+	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(drv.IdpId)
 	if err != nil {
-		return nil, errors.Wrap(err, "self.GetIdentityProvider")
+		return nil, errors.Wrap(err, "drv.GetIdentityProvider")
 	}
 	return idp.SyncOrCreateDomain(ctx, info.Id, info.Name, info.DN, true)
 }
 
-func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClient, domainId string, baseDN string) (map[string]string, error) {
+func (drv *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClient, domainId string, baseDN string) (map[string]string, error) {
 	userIds := make([]string, 0)
 	userIdMap := make(map[string]string)
 	_, err := cli.Search(baseDN,
-		self.ldapConfig.UserObjectclass,
+		drv.ldapConfig.UserObjectclass,
 		nil,
-		self.ldapConfig.UserFilter,
-		self.userAttributeList(),
-		self.userQueryScope(),
+		drv.ldapConfig.UserFilter,
+		drv.userAttributeList(),
+		drv.userQueryScope(),
 		options.Options.LdapSearchPageSize, 0,
 		func(offset uint32, entry *ldap.Entry) error {
-			userInfo := self.entry2User(entry)
+			userInfo := drv.entry2User(entry)
 			err := userInfo.isValid()
 			if err != nil {
 				log.Debugf("userInfo is invalid: %s, skip", err)
 				return nil
 			}
-			userId, err := self.syncUserDB(ctx, userInfo, domainId)
+			userId, err := drv.syncUserDB(ctx, userInfo, domainId)
 			if err != nil {
 				return errors.Wrap(err, "syncUserDB")
 			}
 			userIds = append(userIds, userId)
-			if self.ldapConfig.GroupMembersAreIds {
+			if drv.ldapConfig.GroupMembersAreIds {
 				userIdMap[userInfo.Id] = userId
 			} else {
 				userIdMap[userInfo.DN] = userId
@@ -219,10 +221,10 @@ func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClie
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserIdsInDomain")
 	}
 	for i := range deleteUsers {
-		if !deleteUsers[i].LinkedWithIdp(self.IdpId) {
+		if !deleteUsers[i].LinkedWithIdp(drv.IdpId) {
 			continue
 		}
-		err := deleteUsers[i].UnlinkIdp(self.IdpId)
+		err := deleteUsers[i].UnlinkIdp(drv.IdpId)
 		if err != nil {
 			log.Errorf("deleteUser.UnlinkIdp error %s", err)
 			continue
@@ -241,12 +243,12 @@ func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClie
 	return userIdMap, nil
 }
 
-func (self *SLDAPDriver) syncUserDB(ctx context.Context, ui SUserInfo, domainId string) (string, error) {
-	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(self.IdpId)
+func (drv *SLDAPDriver) syncUserDB(ctx context.Context, ui SUserInfo, domainId string) (string, error) {
+	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(drv.IdpId)
 	if err != nil {
 		return "", errors.Wrap(err, "models.IdentityProviderManager.FetchIdentityProviderById")
 	}
-	usr, err := idp.SyncOrCreateUser(ctx, ui.Id, ui.Name, domainId, !self.ldapConfig.DisableUserOnImport, func(user *models.SUser) {
+	usr, err := idp.SyncOrCreateUser(ctx, ui.Id, ui.Name, domainId, !drv.ldapConfig.DisableUserOnImport, func(user *models.SUser) {
 		// LDAP user is always enabled
 		// if ui.Enabled {
 		// 	user.Enabled = tristate.True
@@ -262,6 +264,14 @@ func (self *SLDAPDriver) syncUserDB(ctx context.Context, ui SUserInfo, domainId 
 		if val, ok := ui.Extra["mobile"]; ok && len(val) > 0 && len(user.Mobile) == 0 {
 			user.Mobile = val
 		}
+		tags := make(map[string]interface{})
+		for k, v := range ui.Extra {
+			tags[db.CLOUD_TAG_PREFIX+k] = v
+		}
+		err := user.SetAllMetadata(ctx, tags, models.GetDefaultAdminCred())
+		if err != nil {
+			log.Errorf("SetCloudMetadataAll %s fail %s", jsonutils.Marshal(tags), err)
+		}
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "idp.SyncOrCreateUser")
@@ -270,23 +280,23 @@ func (self *SLDAPDriver) syncUserDB(ctx context.Context, ui SUserInfo, domainId 
 	return usr.Id, nil
 }
 
-func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPClient, domainId string, baseDN string, userIdMap map[string]string) error {
+func (drv *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPClient, domainId string, baseDN string, userIdMap map[string]string) error {
 	groupIds := make([]string, 0)
 	_, err := cli.Search(baseDN,
-		self.ldapConfig.GroupObjectclass,
+		drv.ldapConfig.GroupObjectclass,
 		nil,
-		self.ldapConfig.GroupFilter,
-		self.groupAttributeList(),
-		self.groupQueryScope(),
+		drv.ldapConfig.GroupFilter,
+		drv.groupAttributeList(),
+		drv.groupQueryScope(),
 		options.Options.LdapSearchPageSize, 0,
 		func(offset uint32, entry *ldap.Entry) error {
-			groupInfo := self.entry2Group(entry)
+			groupInfo := drv.entry2Group(entry)
 			err := groupInfo.isValid()
 			if err != nil {
 				log.Errorf("invalid group info: %s, skip", err)
 				return nil
 			}
-			groupId, err := self.syncGroupDB(ctx, groupInfo, domainId, userIdMap)
+			groupId, err := drv.syncGroupDB(ctx, groupInfo, domainId, userIdMap)
 			if err != nil {
 				return errors.Wrap(err, "syncGroupDB")
 			}
@@ -303,10 +313,10 @@ func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPCli
 		return errors.Wrap(err, "models.GroupManager.FetchGroupsInDomain")
 	}
 	for i := range deleteGroups {
-		if !deleteGroups[i].LinkedWithIdp(self.IdpId) {
+		if !deleteGroups[i].LinkedWithIdp(drv.IdpId) {
 			continue
 		}
-		err := deleteGroups[i].UnlinkIdp(self.IdpId)
+		err := deleteGroups[i].UnlinkIdp(drv.IdpId)
 		if err != nil {
 			log.Errorf("deleteGroup.UnlinkIdp error %s", err)
 			continue
@@ -325,8 +335,8 @@ func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPCli
 	return nil
 }
 
-func (self *SLDAPDriver) syncGroupDB(ctx context.Context, groupInfo SGroupInfo, domainId string, userIdMap map[string]string) (string, error) {
-	grp, err := models.GroupManager.RegisterExternalGroup(ctx, self.IdpId, domainId, groupInfo.Id, groupInfo.Name)
+func (drv *SLDAPDriver) syncGroupDB(ctx context.Context, groupInfo SGroupInfo, domainId string, userIdMap map[string]string) (string, error) {
+	grp, err := models.GroupManager.RegisterExternalGroup(ctx, drv.IdpId, domainId, groupInfo.Id, groupInfo.Name)
 	if err != nil {
 		return "", errors.Wrap(err, "GroupManager.RegisterExternalGroup")
 	}
