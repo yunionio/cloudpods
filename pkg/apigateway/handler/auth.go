@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -98,6 +99,7 @@ func (h *AuthHandlers) AddMethods() {
 	h.AddByMethod(GET, FetchAuthToken,
 		NewHP(h.getUser, "user"),
 		NewHP(h.getStats, "stats"),
+		NewHP(h.getUserSubscription, "subscriptions"),
 		NewHP(h.getPermissionDetails, "permissions"),
 		NewHP(h.getAdminResources, "admin_resources"),
 		NewHP(h.getResources, "scoped_resources"),
@@ -221,6 +223,21 @@ func (h *AuthHandlers) getUser(ctx context.Context, w http.ResponseWriter, req *
 	body.Add(data, "data")
 
 	appsrv.SendJSON(w, body)
+}
+
+func (h *AuthHandlers) getUserSubscription(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	s := auth.GetAdminSession(ctx, FetchRegion(req))
+	token := AppContextToken(ctx)
+	result, err := notify.NotifyReceiver.PerformAction(s, token.GetUserId(), "get-subscription", jsonutils.Marshal(map[string]interface{}{
+		"receiver": map[string]string{
+			"id": token.GetUserId(),
+		},
+	}))
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	appsrv.SendJSON(w, result)
 }
 
 func getStatsInfo(ctx context.Context, req *http.Request) (jsonutils.JSONObject, error) {
