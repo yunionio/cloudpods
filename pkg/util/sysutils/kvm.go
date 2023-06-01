@@ -197,19 +197,29 @@ func GetKernelModuleParameter(name, moduel string) string {
 	return GetSysConfig(pa)
 }
 
-func GetSysConfig(pa string) string {
+func getSysConfig(pa string, quiet bool) string {
 	if f, err := os.Stat(pa); err == nil {
 		if f.IsDir() {
 			return ""
 		}
 		cont, err := fileutils2.FileGetContents(pa)
 		if err != nil {
-			log.Errorln(err)
+			if !quiet {
+				log.Errorln(err)
+			}
 			return ""
 		}
 		return strings.TrimSpace(cont)
 	}
 	return ""
+}
+
+func GetSysConfig(pa string) string {
+	return getSysConfig(pa, false)
+}
+
+func GetSysConfigQuiet(pa string) string {
+	return getSysConfig(pa, true)
 }
 
 func IsKernelModuleLoaded(name string) bool {
