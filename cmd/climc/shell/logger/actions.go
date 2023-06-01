@@ -45,8 +45,9 @@ type BaseActionListOptions struct {
 
 type ActionListOptions struct {
 	BaseActionListOptions
-	Id   string   `help:"" metavar:"OBJ_ID"`
-	Type []string `help:"Type of relevant object" metavar:"OBJ_TYPE"`
+	Service []string `help:"service name`
+	Id      string   `help:"" metavar:"OBJ_ID"`
+	Type    []string `help:"Type of relevant object" metavar:"OBJ_TYPE"`
 }
 
 type TypeActionListOptions struct {
@@ -56,6 +57,9 @@ type TypeActionListOptions struct {
 
 func doActionList(s *mcclient.ClientSession, args *ActionListOptions) error {
 	params := jsonutils.NewDict()
+	if len(args.Service) > 0 {
+		params.Add(jsonutils.NewStringArray(args.Service), "service")
+	}
 	if len(args.Type) > 0 {
 		params.Add(jsonutils.NewStringArray(args.Type), "obj_type")
 	}
