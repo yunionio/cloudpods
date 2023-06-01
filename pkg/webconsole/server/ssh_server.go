@@ -162,13 +162,15 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stop := make(chan bool, 1)
+	done := make(chan bool, 3)
+	setDone := func() { done <- true }
 
 	go func() {
+		defer setDone()
+
 		for {
 			_, p, err := s.ws.ReadMessage()
 			if err != nil {
-				stop <- true
 				return
 			}
 			if options.Options.SshSessionTimeoutMinutes > 0 && s.timer != nil {
@@ -196,7 +198,6 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			switch input.Type {
 			case "close":
-				stop <- true
 				return
 			case "resize":
 				err = s.session.WindowChange(input.Data.Rows, input.Data.Cols)
@@ -211,7 +212,6 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				_, err = s.StdinPipe.Write([]byte(input.Data.Data))
 				if err != nil {
 					log.Errorf("write %s error: %v", input.Data.Data, err)
-					stop <- true
 					return
 				}
 			case "heartbeat":
@@ -229,21 +229,38 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.conn.Close()
 	}()
 
-	s.timer = time.NewTimer(time.Microsecond * 100)
-	if options.Options.SshSessionTimeoutMinutes > 0 {
-		s.timer.Reset(time.Duration(options.Options.SshSessionTimeoutMinutes) * time.Minute)
-	}
-	defer s.timer.Stop()
-
-	for {
-		select {
-		case <-stop:
-			return
-		case <-s.timer.C:
-			if options.Options.SshSessionTimeoutMinutes > 0 {
-				return
-			}
-			s.timer.Reset(time.Microsecond * 100)
+	stop := make(chan bool)
+	go func() {
+		s.timer = time.NewTimer(time.Microsecond * 100)
+		if options.Options.SshSessionTimeoutMinutes > 0 {
+			s.timer.Reset(time.Duration(options.Options.SshSessionTimeoutMinutes) * time.Minute)
 		}
-	}
+		defer s.timer.Stop()
+		defer setDone()
+
+		for {
+			select {
+			case <-stop:
+				return
+			case <-s.timer.C:
+				if options.Options.SshSessionTimeoutMinutes > 0 {
+					return
+				}
+				s.timer.Reset(time.Microsecond * 100)
+			}
+		}
+	}()
+
+	go func() {
+		defer setDone()
+
+		err = s.session.Wait()
+		if err != nil {
+			log.Errorf("ssh exist from server: %v", err)
+		}
+	}()
+
+	<-done
+	stop <- true
+	log.Infof("ssh %s@%s:%d complete", s.Username, s.Host, s.Port)
 }
