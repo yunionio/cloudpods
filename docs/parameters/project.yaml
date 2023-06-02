@@ -1,6 +1,0 @@
-project_id:
-  name: project_id
-  type: string
-  required: true
-  in: path
-  description: 项目ID

@@ -1,6 +1,0 @@
-region_id:
-  name: region_id
-  type: string
-  required: true
-  in: path
-  description: 区域ID
