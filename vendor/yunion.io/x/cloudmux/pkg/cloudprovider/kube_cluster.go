@@ -34,6 +34,8 @@ type KubeClusterCreateOptions struct {
 	PrivateAccess bool
 	PublicAccess  bool
 	RoleName      string
+
+	PublicKey string
 }
 
 type KubeNodePoolCreateOptions struct {

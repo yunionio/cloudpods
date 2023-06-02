@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/sshkeys"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -3174,6 +3175,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateKubeCluster(ctx con
 		opts.RoleName, _ = params.GetString("role_name")
 		opts.PrivateAccess, _ = params.Bool("private_access")
 		opts.PublicAccess, _ = params.Bool("public_access")
+		_, opts.PublicKey, _ = sshkeys.GetSshAdminKeypair(ctx)
 
 		iregion, err := cluster.GetIRegion(ctx)
 		if err != nil {
@@ -3247,7 +3249,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateKubeNodePool(ctx co
 		}
 		err = cloudprovider.WaitStatus(ipool, api.KUBE_CLUSTER_STATUS_RUNNING, time.Second*30, time.Hour*1)
 		if err != nil {
-			return nil, errors.Wrapf(err, "wait cluster status timeout, current status: %s", icluster.GetStatus())
+			return nil, errors.Wrapf(err, "wait node pool status timeout, current status: %s", icluster.GetStatus())
 		}
 		return nil, pool.SetStatus(userCred, api.KUBE_CLUSTER_STATUS_RUNNING, "")
 	})

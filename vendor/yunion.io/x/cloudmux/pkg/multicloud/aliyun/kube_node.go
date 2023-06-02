@@ -80,7 +80,7 @@ func (self *SRegion) GetKubeNodes(clusterId string, pageSize, pageNumber int) ([
 		"page_number": fmt.Sprintf("%d", pageNumber),
 		"PathPattern": fmt.Sprintf("/clusters/%s/nodes", clusterId),
 	}
-	resp, err := self.k8sRequest("DescribeClusterNodes", params)
+	resp, err := self.k8sRequest("DescribeClusterNodes", params, nil)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "DescribeClusterNodes")
 	}

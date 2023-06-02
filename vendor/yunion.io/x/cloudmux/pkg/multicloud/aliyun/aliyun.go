@@ -32,6 +32,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 	v "yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
@@ -161,7 +162,11 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 
 func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, body interface{}, debug bool) (jsonutils.JSONObject, error) {
 	if debug {
-		log.Debugf("request %s %s %s %s", domain, apiVersion, apiName, params)
+		if !gotypes.IsNil(body) {
+			log.Debugf("request %s %s %s %s", domain, apiVersion, apiName, jsonutils.Marshal(body))
+		} else {
+			log.Debugf("request %s %s %s %s", domain, apiVersion, apiName, params)
+		}
 	}
 	var resp jsonutils.JSONObject
 	var err error
@@ -171,6 +176,7 @@ func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params ma
 		if err != nil {
 			for _, code := range []string{
 				"ErrorClusterNotFound",
+				"ErrorNodePoolNotFound",
 			} {
 				if strings.Contains(err.Error(), code) {
 					return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
