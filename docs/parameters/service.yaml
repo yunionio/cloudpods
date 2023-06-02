@@ -1,6 +1,0 @@
-service_id:
-  name: service_id
-  type: string
-  required: true
-  in: path
-  description: 服务ID

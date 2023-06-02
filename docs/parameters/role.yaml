@@ -1,6 +1,0 @@
-role_id:
-  name: role_id
-  type: string
-  required: true
-  in: path
-  description: 角色ID
