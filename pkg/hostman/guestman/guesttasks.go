@@ -1307,9 +1307,10 @@ type SGuestResumeTask struct {
 	ctx       context.Context
 	startTime time.Time
 
-	isTimeout bool
-	cleanTLS  bool
-	resumed   bool
+	isTimeout           bool
+	cleanTLS            bool
+	resumed             bool
+	isResumeFromMigrate bool
 
 	getTaskData func() (jsonutils.JSONObject, error)
 }
@@ -1374,8 +1375,8 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 		s.resumeGuest()
 	case "running", "paused (suspended)":
 		s.onStartRunning()
-
-	case "postmigrate":
+	case "paused (postmigrate)":
+		s.isResumeFromMigrate = true
 		s.resumeGuest()
 	case "paused (inmigrate)":
 		// guest is paused waiting for an incoming migration
@@ -1483,6 +1484,9 @@ func (s *SGuestResumeTask) onStartRunning() {
 			}
 		}
 		hostutils.TaskComplete(s.ctx, data)
+		if s.isResumeFromMigrate {
+			return
+		}
 	}
 
 	disksIdx := s.GetNeedMergeBackingFileDiskIndexs()
