@@ -1179,7 +1179,7 @@ func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bo
 		resumeTask.Start()
 	}
 	if guest.Monitor == nil {
-		guest.StartMonitor(ctx, cb)
+		guest.StartMonitor(ctx, nil)
 		return nil, nil
 	} else {
 		cb()
