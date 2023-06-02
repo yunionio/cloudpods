@@ -248,7 +248,7 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
 
 * [Cloudpods文档](https://www.cloudpods.org/zh)
 
-* [Swagger API文档](https://www.cloudpods.org/zh/docs/swagger/)
+* [Swagger API文档](https://apifox.com/apidoc/shared-f917f6a6-db9f-4d6a-bbc3-ea58c945d7fd)
 
 ## 谁在使用Cloudpods？
 

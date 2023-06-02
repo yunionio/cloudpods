@@ -252,7 +252,7 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
 
 * [Cloudpods Documents](https://www.cloudpods.org/en)
 
-* [Swagger API](https://www.cloudpods.org/en/docs/swagger/)
+* [Swagger API](https://apifox.com/apidoc/shared-f917f6a6-db9f-4d6a-bbc3-ea58c945d7fd)
 
 
 ## Who is using Cloudpods?
