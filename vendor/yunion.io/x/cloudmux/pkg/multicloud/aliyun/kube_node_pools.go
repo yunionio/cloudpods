@@ -17,8 +17,10 @@ package aliyun
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -84,6 +86,7 @@ type SKubeNodePool struct {
 		VswitchIds         []string `json:"vswitch_ids"`
 		LoginPassword      string   `json:"login_password"`
 		KeyPair            string   `json:"key_pair"`
+		DesiredSize        int      `json:"desired_size"`
 	} `json:"scaling_group"`
 	Status struct {
 		FailedNodes   string `json:"failed_nodes"`
@@ -122,7 +125,19 @@ func (self *SKubeNodePool) GetGlobalId() string {
 	return self.NodepoolInfo.NodepoolId
 }
 
+func (self *SKubeNodePool) Refresh() error {
+	pool, err := self.cluster.region.GetKubeNodePool(self.cluster.ClusterId, self.NodepoolInfo.NodepoolId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, pool)
+}
+
 func (self *SKubeNodePool) GetStatus() string {
+	switch self.Status.State {
+	case "active":
+		return api.KUBE_CLUSTER_STATUS_RUNNING
+	}
 	return self.Status.State
 }
 
@@ -135,7 +150,7 @@ func (self *SKubeNodePool) GetMaxInstanceCount() int {
 }
 
 func (self *SKubeNodePool) GetDesiredInstanceCount() int {
-	return 0
+	return self.ScalingGroup.DesiredSize
 }
 
 func (self *SKubeNodePool) GetRootDiskSizeGb() int {
@@ -143,7 +158,7 @@ func (self *SKubeNodePool) GetRootDiskSizeGb() int {
 }
 
 func (self *SKubeNodePool) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.cluster.region.DeleteKubeNodePool(self.cluster.ClusterId, self.NodepoolInfo.NodepoolId)
 }
 
 func (self *SKubeNodePool) GetInstanceTypes() []string {
@@ -152,6 +167,26 @@ func (self *SKubeNodePool) GetInstanceTypes() []string {
 
 func (self *SKubeNodePool) GetNetworkIds() []string {
 	return self.ScalingGroup.VswitchIds
+}
+
+func (self *SRegion) DeleteKubeNodePool(clusterId, id string) error {
+	params := map[string]string{
+		"PathPattern": fmt.Sprintf("/clusters/%s/nodepools/%s", clusterId, id),
+	}
+	_, err := self.k8sRequest("DeleteClusterNodepool", params, map[string]string{})
+	return errors.Wrapf(err, "DeleteCluster")
+}
+
+func (self *SRegion) GetKubeNodePool(clusterId, id string) (*SKubeNodePool, error) {
+	params := map[string]string{
+		"PathPattern": fmt.Sprintf("/clusters/%s/nodepools/%s", clusterId, id),
+	}
+	resp, err := self.k8sRequest("DescribeClusterNodePoolDetail", params, map[string]string{})
+	if err != nil {
+		return nil, err
+	}
+	ret := &SKubeNodePool{}
+	return ret, resp.Unmarshal(ret)
 }
 
 func (self *SKubeCluster) GetIKubeNodePools() ([]cloudprovider.ICloudKubeNodePool, error) {
@@ -171,7 +206,7 @@ func (self *SRegion) GetKubeNodePools(clusterId string) ([]SKubeNodePool, error)
 	params := map[string]string{
 		"PathPattern": fmt.Sprintf("/clusters/%s/nodepools", clusterId),
 	}
-	resp, err := self.k8sRequest("DescribeClusterNodePools", params)
+	resp, err := self.k8sRequest("DescribeClusterNodePools", params, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DescribeClusterNodePools")
 	}

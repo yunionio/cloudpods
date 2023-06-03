@@ -174,7 +174,7 @@ func (self *SRegion) GetKubeConfig(clusterId string, private bool, minutes int) 
 	if minutes >= 15 && minutes <= 4320 {
 		params["TemporaryDurationMinutes"] = fmt.Sprintf("%d", minutes)
 	}
-	resp, err := self.k8sRequest("DescribeClusterUserKubeconfig", params)
+	resp, err := self.k8sRequest("DescribeClusterUserKubeconfig", params, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DescribeClusterUserKubeconfig")
 	}
@@ -198,7 +198,7 @@ func (self *SRegion) GetKubeClusters(pageSize, pageNumber int) ([]SKubeCluster, 
 		"page_number": fmt.Sprintf("%d", pageNumber),
 		"PathPattern": "/api/v1/clusters",
 	}
-	resp, err := self.k8sRequest("DescribeClustersV1", params)
+	resp, err := self.k8sRequest("DescribeClustersV1", params, nil)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "DescribeClustersV1")
 	}
@@ -248,7 +248,7 @@ func (self *SRegion) GetKubeCluster(id string) (*SKubeCluster, error) {
 	params := map[string]string{
 		"PathPattern": fmt.Sprintf("/clusters/%s", id),
 	}
-	resp, err := self.k8sRequest("DescribeClusterDetail", params)
+	resp, err := self.k8sRequest("DescribeClusterDetail", params, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DescribeClusterDetail")
 	}
@@ -268,10 +268,157 @@ func (self *SRegion) DeleteKubeCluster(id string, isRetain bool) error {
 		params["retain_all_resources"] = "true"
 		params["keep_slb"] = "true"
 	}
-	_, err := self.k8sRequest("DeleteCluster", params)
+	_, err := self.k8sRequest("DeleteCluster", params, nil)
 	return errors.Wrapf(err, "DeleteCluster")
 }
 
 func (self *SKubeCluster) CreateIKubeNodePool(opts *cloudprovider.KubeNodePoolCreateOptions) (cloudprovider.ICloudKubeNodePool, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	pool, err := self.region.CreateKubeNodePool(self.ClusterId, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateKubeNodePool")
+	}
+	pool.cluster = self
+	return pool, nil
+}
+
+func (self *SRegion) CreateKubeNodePool(clusterId string, opts *cloudprovider.KubeNodePoolCreateOptions) (*SKubeNodePool, error) {
+	keyName, err := self.syncKeypair(opts.PublicKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "syncKeypair")
+	}
+	params := map[string]interface{}{
+		"kubernetes_config": map[string]interface{}{
+			"cms_enabled": true,
+		},
+		"nodepool_info": map[string]interface{}{
+			"name": opts.NAME,
+		},
+		"auto_scaling": map[string]interface{}{
+			"enable": false,
+		},
+		"scaling_group": map[string]interface{}{
+			"instance_types":       opts.InstanceTypes,
+			"key_pair":             keyName,
+			"system_disk_category": "cloud_efficiency",
+			"system_disk_size":     opts.RootDiskSizeGb,
+			"vswitch_ids":          opts.NetworkIds,
+			"desired_size":         opts.DesiredInstanceCount,
+		},
+	}
+
+	path := fmt.Sprintf("/clusters/%s/nodepools", clusterId)
+	resp, err := self.k8sRequest("CreateClusterNodePool", map[string]string{"PathPattern": path}, params)
+	if err != nil {
+		return nil, err
+	}
+	poolId, err := resp.GetString("nodepool_id")
+	if err != nil {
+		return nil, errors.Wrapf(err, "get nodepool_id")
+	}
+	return self.GetKubeNodePool(clusterId, poolId)
+}
+
+func (self *SRegion) CreateIKubeCluster(opts *cloudprovider.KubeClusterCreateOptions) (cloudprovider.ICloudKubeCluster, error) {
+	cluster, err := self.CreateKubeCluster(opts)
+	if err != nil {
+		return nil, err
+	}
+	return cluster, nil
+}
+
+func (self *SRegion) CreateKubeCluster(opts *cloudprovider.KubeClusterCreateOptions) (*SKubeCluster, error) {
+	tags := []struct {
+		Key   string
+		Value string
+	}{}
+	for k, v := range opts.Tags {
+		tags = append(tags, struct {
+			Key   string
+			Value string
+		}{
+			Key:   k,
+			Value: v,
+		})
+	}
+	if len(opts.ServiceCIDR) == 0 {
+		opts.ServiceCIDR = "192.168.0.0/16"
+	}
+
+	addons := []struct {
+		Name     string
+		Config   string
+		Disabled bool
+	}{
+		{
+			Name:   "terway-eniip",
+			Config: `{"IPVlan":"false","NetworkPolicy":"false","ENITrunking":"false"}`,
+		},
+		{
+			Name: "csi-plugin",
+		},
+		{
+			Name: "csi-provisioner",
+		},
+		{
+			Name:   "storage-operator",
+			Config: `{"CnfsOssEnable":"false","CnfsNasEnable":"false"}`,
+		},
+		{
+			Name:     "nginx-ingress-controller",
+			Disabled: true,
+		},
+	}
+
+	if len(opts.PublicKey) == 0 {
+		return nil, fmt.Errorf("missing public_key")
+	}
+
+	keyName, err := self.syncKeypair(opts.PublicKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "syncKeypair")
+	}
+
+	params := map[string]interface{}{
+		"name":                         opts.NAME,
+		"region_id":                    self.RegionId,
+		"disable_rollback":             true,
+		"cluster_type":                 "ManagedKubernetes",
+		"cluster_spec":                 "ack.pro.small",
+		"deletion_protection":          false,
+		"proxy_mode":                   "ipvs",
+		"cis_enable_risk_check":        false,
+		"os_type":                      "Linux",
+		"platform":                     "AliyunLinux",
+		"image_type":                   "AliyunLinux",
+		"timezone":                     "Asia/Shanghai",
+		"pod_vswitch_ids":              opts.NetworkIds,
+		"vswitch_ids":                  opts.NetworkIds,
+		"charge_type":                  "PostPaid",
+		"vpcid":                        opts.VpcId,
+		"service_cidr":                 opts.ServiceCIDR,
+		"api_audiences":                "https://kubernetes.default.svc",
+		"service_account_issuer":       "https://kubernetes.default.svc",
+		"key_pair":                     keyName,
+		"snat_entry":                   false,
+		"ssh_flags":                    true,
+		"tags":                         tags,
+		"cloud_monitor_flags":          true,
+		"is_enterprise_security_group": true,
+		"num_of_nodes":                 0,
+		"nodepools":                    []interface{}{},
+		"addons":                       addons,
+	}
+	if opts.PublicAccess {
+		params["endpoint_public_access"] = true
+	}
+	if len(opts.Version) > 0 {
+		params["kubernetes_version"] = opts.Version
+	}
+
+	resp, err := self.k8sRequest("CreateCluster", map[string]string{"PathPattern": "/clusters"}, params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateCluster")
+	}
+	ret := &SKubeCluster{region: self}
+	return ret, resp.Unmarshal(ret)
 }
